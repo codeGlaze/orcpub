@@ -12,7 +12,7 @@ House style and the branch → release fold: [`docs/branch-changelog.template.md
 
 ### Highlights
 
-Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules.
+Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read.
 
 ### Added
 
@@ -38,6 +38,16 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** a What's New panel shows each release's highlights once. (#711)
 - **Site:** a "Dark Button Text" option for the yellow buttons. (#711)
 - **Server:** a startup report of the server's settings, naming what is missing and never printing secrets. (#712)
+- **Rules:** a Rules tab with the full SRD 5.1 rules reference, by section, and the 15 conditions.
+- **Rules:** links in rules text to the spells, conditions and rules they name, with a preview
+  on hover, or on a first tap on a phone.
+- **Orcacle:** finds rules and conditions by name.
+- **Monsters:** conditions in a monster's condition immunities, traits and actions link to their
+  page, with a preview.
+- **Equipment:** weapons and armor show their SRD price and weight.
+- **Rules:** clarification notes on rules, in our own words, linked to where Wizards published
+  the ruling.
+- **Spells:** conditions named in spell and magic item text link to their page, with a preview.
 
 ### Changed
 
@@ -63,6 +73,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** renamed items keep their links, and the characters using them. (#705)
 - **Homebrew:** a custom magic item saved with no type no longer breaks. (#694)
 - **Characters:** the Features tab loads when a trait has no name. (#680)
+- **Characters:** the Robe of the Archmagi sets your AC to 15 + Dex instead of adding 5, so it no longer stacks with Draconic Resilience or Unarmored Defense.
+- **Characters:** a tortle's Ring of Protection, Bracers of Defense and similar bonuses now count toward its AC of 17; only armor is ignored.
 - **Characters:** anyone who can open a character sees its owner's custom items. (#252)
 - **Accounts:** a failed verification email no longer leaves an account stuck. (#700)
 - **Accounts:** the app signs you out when the server stops accepting your login. (#708)
@@ -75,7 +87,16 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** a reaction's casting time prints as "1 React." on spell cards. (#709)
 - **Site:** blank icons show again. (#696)
 - **Site:** bold text renders bold, and buttons use the site font. (#711)
+- **Site:** dismissing the cookie notice now hides it on every page, not only the page where it was dismissed.
 - **Server:** the same content gets the same keys on Turkish and other locales. (#699)
+- **Monsters:** stat blocks show reactions, such as the Marilith's Parry, and the monster builder
+  can add one.
+- **Monsters:** the Adult and Ancient Gold Dragons, Adult Green Dragon, Ancient Brass Dragon,
+  Succubus/Incubus and Spy show all their skills; Stealth and Persuasion were missing.
+- **Monsters:** the Flying Snake shows its Flyby trait.
+- **Equipment:** tools, musical instruments, gaming sets and equipment packs show their SRD prices,
+  and tools and instruments their weights.
+- **Magic items:** the Alchemy Jug shows that its liquid can be created once a day.
 
 ### Security
 

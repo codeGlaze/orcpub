@@ -37,8 +37,7 @@
    {?armor-class (+ 10 (?ability-bonuses ::char5e/dex))
     ?base-armor-class (+ 10 (?ability-bonuses ::char5e/dex)
                          ;; Checks whether barbarian unarmored bonus exists (or is higher) than natural AC/Draconic Bloodline AC
-                         (if (> ?unarmored-ac-bonus ?natural-ac-bonus ) 0 ?natural-ac-bonus)
-                         ?magical-ac-bonus)
+                         (if (> ?unarmored-ac-bonus ?natural-ac-bonus ) 0 ?natural-ac-bonus))
     ?levels {}
     ?ac-bonus 0
     ?natural-ac-bonus 0
@@ -46,7 +45,6 @@
     ?unarmored-with-shield-ac-bonus 0
     ?armored-ac-bonus 0
     ?max-medium-armor-bonus 2
-    ?magical-ac-bonus 0
     ?armor-stealth-disadvantage? (fn [armor]
                                    (:stealth-disadvantage? armor))
     ?armor-dex-bonus (fn [armor]
@@ -81,8 +79,7 @@
                                                   (or ?armored-ac-bonus 0)
                                                   (:base-ac armor)
                                                   (::mi5e/magical-ac-bonus armor)
-                                                  ?ac-bonus
-                                                  ?magical-ac-bonus)))
+                                                  ?ac-bonus)))
     ?armor-class-with-armor (fn [armor & [shield]]
                               (let [max-ac (apply max
                                                   (?armor-class-with-armor-base armor shield)
