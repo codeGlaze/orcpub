@@ -77,6 +77,8 @@ PLANTS = {
     'slot-below-base': plant_below_base,
     'upcast-math': lambda wt: R.set_field(wt / OPT14, acid5(wt), 'damage_roll', '8d4'),
     'desc-math': lambda wt: R.set_field(wt / OPT14, acid5(wt), 'desc', 'The damage (both initial and later) increases by 4d4.'),
+    'desc-consistency': lambda wt: R.set_field(wt / OPT14, option_pk(wt, OPT14, 'srd_aid', 'slot_level_4'), 'desc',
+                                               "Each target's hit point maximum increases by an additional 10."),
     'unverified': lambda wt: R.set_field(wt / OPT14, option_pk(wt, OPT14, 'srd_fog-cloud', 'slot_level_3'), 'shape_size', 61.0),
     'lint-ratchet': plant_lint,
     'reformat': plant_reformat,

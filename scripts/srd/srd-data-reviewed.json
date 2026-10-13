@@ -15,10 +15,11 @@
    10935,
    10969,
    10971,
-   10973
+   10973,
+   10931
   ],
   "field": "desc",
-  "reason": "Conjure Animals / Minor Elementals / Woodland Beings: 'More creatures appear: three times as many.' joins two parts of one SRD sentence ('more creatures appear: twice as many with a 5th-level slot, three times as many with a 7th-level slot'); no words added. Reviewed 2026-10-12."
+  "reason": "Conjure Animals / Minor Elementals / Woodland Beings: 'More creatures appear: three / four times as many.' joins two parts of one SRD sentence ('more creatures appear: twice as many with a 5th-level slot, three times as many with a 7th-level slot'); no words added. Reviewed 2026-10-12."
  },
  {
   "rule": "base-missing",
@@ -104,13 +105,13 @@
   "pk": "srd_conjure-animals",
   "field": "desc",
   "values": {
-   "slot_level_5": "More creatures appear: twice as many with a 5th-level slot.",
+   "slot_level_5": "More creatures appear: twice as many.",
    "slot_level_7": "More creatures appear: three times as many.",
-   "slot_level_9": "Four times as many with a 9th-level slot.",
+   "slot_level_9": "More creatures appear: four times as many.",
    "slot_level_6": "More creatures appear: twice as many.",
    "slot_level_8": "More creatures appear: three times as many."
   },
-  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: twice as many with a 5th-level slot, three times with 7th, four times with 9th (SRD phrases)."
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: twice as many with a 5th-level slot, three times with 7th, four times with 9th (SRD phrases). One wording at every slot (2026-10-12)."
  },
  {
   "rule": "hand-verified",
@@ -140,12 +141,12 @@
   "pk": "srd_conjure-minor-elementals",
   "field": "desc",
   "values": {
-   "slot_level_6": "More creatures appear: twice as many with a 6th-level slot.",
+   "slot_level_6": "More creatures appear: twice as many.",
    "slot_level_8": "More creatures appear: three times as many.",
    "slot_level_7": "More creatures appear: twice as many.",
    "slot_level_9": "More creatures appear: three times as many."
   },
-  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: twice as many with a 6th-level slot, three times with 8th (SRD phrases)."
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: twice as many with a 6th-level slot, three times with 8th (SRD phrases). One wording at every slot (2026-10-12)."
  },
  {
   "rule": "hand-verified",
@@ -153,12 +154,12 @@
   "pk": "srd_conjure-woodland-beings",
   "field": "desc",
   "values": {
-   "slot_level_6": "More creatures appear: twice as many with a 6th-level slot.",
+   "slot_level_6": "More creatures appear: twice as many.",
    "slot_level_8": "More creatures appear: three times as many.",
    "slot_level_7": "More creatures appear: twice as many.",
    "slot_level_9": "More creatures appear: three times as many."
   },
-  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: twice as many with a 6th-level slot, three times with 8th (SRD phrases)."
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: twice as many with a 6th-level slot, three times with 8th (SRD phrases). One wording at every slot (2026-10-12)."
  },
  {
   "rule": "hand-verified",
@@ -362,12 +363,12 @@
   "pk": "srd_modify-memory",
   "field": "desc",
   "values": {
-   "slot_level_6": "You can alter the target's memories of an event that took place up to 7 days ago (6th level).",
-   "slot_level_7": "30 days ago (7th level).",
-   "slot_level_8": "1 year ago (8th level).",
-   "slot_level_9": "Any time in the creature's past (9th level)."
+   "slot_level_6": "You can alter the target's memories of an event that took place up to 7 days ago.",
+   "slot_level_7": "You can alter the target's memories of an event that took place up to 30 days ago.",
+   "slot_level_8": "You can alter the target's memories of an event that took place up to 1 year ago.",
+   "slot_level_9": "You can alter the target's memories of an event that took place any time in the creature's past."
   },
-  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: 7 days (6th), 30 days (7th), 1 year (8th), any time (9th) (SRD phrases)."
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: 7 days (6th), 30 days (7th), 1 year (8th), any time (9th) (SRD phrases). One wording at every slot (2026-10-12)."
  },
  {
   "rule": "hand-verified",
@@ -484,5 +485,43 @@
   "pk": "srd_chain-lightning",
   "field": "target_count",
   "reason": "SRD p. 124: one target, then three bolts leap to as many as three other targets, so 4; the SRD never writes the digit. Owner approved 2026-10-12."
+ },
+ {
+  "rule": "fidelity",
+  "file": "SpellCastingOption.json",
+  "pk": [
+   10966,
+   10967
+  ],
+  "field": "desc",
+  "reason": "Modify Memory slots 8-9: one SRD sentence, 'you can alter the target's memories of an event that took place up to 7 days ago (6th level), 30 days ago (7th level), 1 year ago (8th level), or any time in the creature's past (9th level)', split per slot; no words added. Reviewed 2026-10-12."
+ },
+ {
+  "rule": "desc-consistency",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_create-undead",
+  "field": "desc",
+  "reason": "The SRD names different undead per slot (ghouls; ghouls or ghasts or wights; ghouls, ghasts or wights, or mummies). Reviewed 2026-10-12."
+ },
+ {
+  "rule": "desc-consistency",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_modify-memory",
+  "field": "desc",
+  "reason": "The SRD changes the span per slot (days, a year, any time in the past), not only the number. Reviewed 2026-10-12."
+ },
+ {
+  "rule": "desc-consistency",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_create-undead",
+  "field": "desc",
+  "reason": "The SRD names different undead per slot (ghouls; ghouls or ghasts or wights; ghouls, ghasts or wights, or mummies). Reviewed 2026-10-12."
+ },
+ {
+  "rule": "desc-consistency",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_modify-memory",
+  "field": "desc",
+  "reason": "The SRD changes the span per slot (days, a year, any time in the past), not only the number. Reviewed 2026-10-12."
  }
 ]

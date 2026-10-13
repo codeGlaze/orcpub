@@ -27,6 +27,7 @@ Rules (each from a mistake made on 2026-10-11/12; docs/kb/open5e-upstream-notes.
   unverified      every value we set on a casting option is checked by a rule, or hand-verified
                   (srd-data-reviewed.json rule "hand-verified" with the exact values it covers;
                   a changed value is unverified again)
+  desc-consistency within one spell, every slot's desc has the same wording, numbers aside
   lint-ratchet    no lint-open5e.py count rises above srd-lint-baseline.json
   reformat        a diff changes lines only inside records whose content changed
 
@@ -102,7 +103,9 @@ class Report:
     def add(self, rule, file, pk, field, detail):
         """Records one finding under its rule."""
         why = self.reviewed.get((rule, file, str(pk), field))
-        self.found.setdefault(rule, []).append((file, pk, field, detail, why))
+        hits = self.found.setdefault(rule, [])
+        if not any(h[:4] == (file, pk, field, detail) for h in hits):   # --all sees our changes twice
+            hits.append((file, pk, field, detail, why))
 
     def print(self, rules):
         """Prints a pass/fail line per rule and each finding; returns the unreviewed count."""
@@ -158,6 +161,25 @@ def check_unverified(rep, f, old, new):
             what = 'hand-verified values differ' if hand else 'checked by no rule and not hand-verified'
             rep.add('unverified', f, parent, field, f'{what}: ' + ', '.join(f'{k.split("_")[-1]}={v}' for k, v in
                                                                                 sorted(values.items(), key=lambda kv: int(kv[0].split('_')[-1]))))
+
+
+def check_desc_consistency(rep, f, old, new, audit=False):
+    """desc-consistency: within one spell, every slot's desc has the same wording once numbers,
+    ordinals and dice are set aside; a slot worded differently is either a defect or reviewed."""
+    by = {}
+    for pk, r in new.items():
+        o = r['fields']
+        if o['type'].startswith(('slot_level_', 'player_level_')) and o.get('desc'):
+            by.setdefault(o['parent'], []).append((o['type'], o['desc'], audit or old.get(pk) != r))
+    for parent, rows in by.items():
+        if not any(changed for _, _, changed in rows):
+            continue
+        shapes = {}
+        for type_, d, _ in rows:
+            shapes.setdefault(' '.join(tokens(re.sub(r'(?i)\btwice\b', 'two times', d))), []).append(type_.split('_')[-1])
+        if len(shapes) > 1:
+            rep.add('desc-consistency', f, parent, 'desc',
+                    ' / '.join(f'slots {",".join(sorted(v, key=int))}: {k[:60]!r}' for k, v in shapes.items()))
 
 
 def check_options(rep, ed, old, new, spells, audit=False):
@@ -407,14 +429,17 @@ def main(argv):
             spells = {k: v['fields'] for k, v in records(clone, 'HEAD', path.replace('SpellCastingOption', 'Spell')).items()}
             check_options(rep, ed, old, new, spells)
             check_unverified(rep, f'{ed}/SpellCastingOption.json', old, new)
+            check_desc_consistency(rep, f'{ed}/SpellCastingOption.json', old, new)
     if '--all' in argv:
         for ed in EDITIONS:
             p = f'data/v2/wizards-of-the-coast/{ed}/'
             spells = {k: v['fields'] for k, v in records(clone, 'HEAD', p + 'Spell.json').items()}
-            check_options(rep, ed, {}, records(clone, 'HEAD', p + 'SpellCastingOption.json'), spells, audit=True)
+            opts = records(clone, 'HEAD', p + 'SpellCastingOption.json')
+            check_options(rep, ed, {}, opts, spells, audit=True)
+            check_desc_consistency(rep, f'{ed}/SpellCastingOption.json', {}, opts, audit=True)
     check_ratchet(rep, clone, srd52, '--update-baseline' in argv)
     bad = rep.print(['fidelity', 'punctuation', 'name-case', 'empty-option', 'base-missing', 'value-in-srd', 'slot-gap',
-                     'dice-only', 'slot-below-base', 'upcast-math', 'desc-math', 'unverified', 'lint-ratchet', 'reformat'])
+                     'dice-only', 'slot-below-base', 'upcast-math', 'desc-math', 'desc-consistency', 'unverified', 'lint-ratchet', 'reformat'])
     print(f'desc-math verified {rep.checked} of {rep.with_desc} records with a desc; the rest match no step sentence')
     print(f'{bad} open finding(s) across {len(names.split())} changed file(s)')
     return 1 if bad else 0
