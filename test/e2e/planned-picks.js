@@ -9,7 +9,7 @@
 // and holds that skill; 6 a held pick survives the character's first save; picks an edit removes
 // with their entry are held: 7 ranger 7 -> 2 -> 7, 8 a Dwarf's subrace through Dwarf -> Elf -> Dwarf,
 // 9 a rogue's skills through rogue -> wizard -> rogue; 10 the Planned marker on Champion 9's Fighting Style,
-// what tapping it says, and Clear.
+// what tapping it says, and Clear; 11 the line under the class row for picks whose section is closed.
 //
 // Runs against the seeded server (see hidden-pick-flows.js for the command). Prereqs: lein fig:build.
 // Run: NODE_PATH=<dir with playwright> node test/e2e/planned-picks.js     Exit 0 = pass.
@@ -17,7 +17,7 @@
 // State is set only by clicking, except flow 4, which writes the old-style draft it opens.
 // app-db and the browser's saved draft are READ to assert.
 const { chromium } = require('playwright');
-const { findChrome, checker, dbAt, readyPage, pick, setClass, setLevel, login, addClass, deleteClass } = require('./lib');
+const { findChrome, checker, dbAt, readyPage, pick, setClass, setLevel, login, addClass, deleteClass, clickTab } = require('./lib');
 
 const { check, report } = checker();
 const CLASS0 = '[:character :orcpub.entity/options :class 0 :orcpub.entity/options';
@@ -174,6 +174,8 @@ const flows = {
     await pick(page, 'Class / Level', 'Fighting Style', 'Archery');
     await setLevel(page, 0, 9);
     check('at 9 the Fighting Style row shows the marker', await visibleText(page, 'Planned: Archery (L10)'));
+    await clickTab(page, 'Class / Level');
+    check('once: not again under the class row', (await countVisible(page, 'Planned: Archery (L10)')) === 1);
     await clickVisible(page, 'Planned: Archery (L10)');
     await page.waitForTimeout(400);
     check('tapping it says when Archery returns', await visibleText(page, 'Archery auto-fills at level 10.'));
@@ -184,6 +186,22 @@ const flows = {
     await setLevel(page, 0, 10);
     check('back at 10 Archery does not return', `${await styles(page)}` === 'defense');
   },
+
+  async 11(page) {
+    if (!(await hunter7(page))) return;
+    await setLevel(page, 0, 6);
+    check('at 6 the class row says what is planned', await visibleText(page, 'Planned: Steel Will (L7)'));
+    await clickVisible(page, 'Planned: Steel Will (L7)');
+    await page.waitForTimeout(400);
+    check('tapping it says when Steel Will returns', await visibleText(page, 'Steel Will auto-fills at level 7.'));
+    await setLevel(page, 0, 2);
+    check('at 2 the line counts both', await visibleText(page, '2 planned at higher levels'));
+    check('Hunter returns at 3', await visibleText(page, 'Hunter · auto-fills at level 3'));
+    check('Steel Will still at 7, not 3', await visibleText(page, 'Steel Will · auto-fills at level 7'));
+    await setLevel(page, 0, 7);
+    check('at 7 the line is gone and Steel Will is back',
+      !(await visibleText(page, '2 planned at higher levels')) && (await dbAt(page, TACTIC)) === ':steel-will');
+  },
 };
 
 // The text of the visible element exactly matching `text`, or null; and a click on it.
@@ -192,6 +210,8 @@ const visibleText = (page, text) => page.evaluate(t => {
     .find(e => e.textContent.trim() === t && e.getBoundingClientRect().width > 0);
   return el ? el.textContent.trim() : null;
 }, text);
+const countVisible = (page, text) => page.evaluate(t => [...document.querySelectorAll('#app span')]
+  .filter(e => e.textContent.trim() === t && e.getBoundingClientRect().width > 0).length, text);
 const clickVisible = (page, text) => page.evaluate(t => {
   const el = [...document.querySelectorAll('#app span, #app button')]
     .find(e => e.textContent.trim() === t && e.getBoundingClientRect().width > 0);

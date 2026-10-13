@@ -456,6 +456,24 @@
             (js/console.error "Planned picks could not be described." e)
             nil)))))
 
+;; Held picks whose own section is not on screen: they show under their class instead. Hit-point
+;; rolls still come back but are not listed; five "Average" lines say nothing.
+(reg-sub
+ :orcpub.dnd.e5/held-off-screen
+ :<- [:orcpub.dnd.e5/held-picks]
+ :<- [:available-selections]
+ (fn [[held available] _]
+   (let [open (set (map (comp vec entity/actual-path) available))]
+     (remove (fn [{{:keys [address]} :record}]
+               (or (open (pop address)) (some #{:hit-points} address)))
+             held))))
+
+(reg-sub
+ :orcpub.dnd.e5/held-for-class
+ :<- [:orcpub.dnd.e5/held-off-screen]
+ (fn [held [_ cls]]
+   (vec (filter #(= [:class cls] (take 2 (get-in % [:record :address]))) held))))
+
 (reg-sub
  :orcpub.dnd.e5/held-by-section
  :<- [:orcpub.dnd.e5/held-picks]

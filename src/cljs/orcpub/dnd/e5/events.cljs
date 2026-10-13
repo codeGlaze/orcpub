@@ -279,7 +279,8 @@
               lost (remove #(held (:address %))
                            (lost-in-trail (::e5/settle-trail db) (:character db)))
               {:keys [character planned restored retired]}
-              (picks/update-planned template (:character db) (into (vec hold) lost))]
+              (picks/update-planned template (:character db) (into (vec hold) lost))
+              planned (picks/with-returns template character planned)]
           ;; Against the hold before: a pick lost and back within one burst of edits never left.
           (assoc db
                  :character character

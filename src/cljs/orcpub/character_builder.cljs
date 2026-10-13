@@ -214,6 +214,33 @@
     (str name " (" plugin-source ")")
     name))
 
+(defn planned-panel
+  "What tapping the Planned marker shows: each held pick, what brings it back, and Clear."
+  [held]
+  [:div.decision-callout.quiet.m-t-5 {:style {:flex-direction :column :align-items :stretch}}
+   (doall
+    (for [{:keys [record] :as h} held]
+      ^{:key (str (:address record))}
+      [:div.flex.align-items-c.justify-cont-s-b.f-s-14.w-100-p {:style {:gap "12px"}}
+       [:span (if (= 1 (count held)) (planned-text/auto-fills h) (planned-text/list-line h))]
+       [:button.link-button.underline.f-w-b.f-s-14
+        {:on-click #(dispatch [:orcpub.dnd.e5/clear-planned (:address record)])}
+        "Clear"]]))])
+
+(defn class-planned-line
+  "Under a class row: its held picks whose sections are not on screen, beside the level picker
+   that brings most of them back. Tapping lists them with Clear."
+  []
+  (let [open? (r/atom false)]
+    (fn [cls]
+      (let [held @(subscribe [:orcpub.dnd.e5/held-for-class cls])]
+        (when (seq held)
+          [:div.m-t-5.m-b-5
+           [:span.i.underline.orange.pointer.f-s-16
+            {:on-click #(swap! open? not)}
+            (planned-text/class-line held)]
+           (when @open? [planned-panel held])])))))
+
 (defn class-level-selector []
   (let [expanded? (r/atom false)]
     (fn [i key selected-class options unselected-classes-set built-char]
@@ -261,6 +288,7 @@
                available-levels))])
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
+         [class-planned-line key]
          (when @expanded?
            [:div.m-t-5.m-b-10 (views-aux/realize-help (::t/help class-template-option))])]))))
 
@@ -846,19 +874,6 @@
     [:div.tooltip
      content
      [:span.tooltiptext text]]))
-
-(defn planned-panel
-  "What tapping the Planned marker shows: each held pick, what brings it back, and Clear."
-  [held]
-  [:div.decision-callout.quiet.m-t-5 {:style {:flex-direction :column :align-items :stretch}}
-   (doall
-    (for [{:keys [record] :as h} held]
-      ^{:key (str (:address record))}
-      [:div.flex.align-items-c.justify-cont-s-b.f-s-14.w-100-p {:style {:gap "12px"}}
-       [:span (if (= 1 (count held)) (planned-text/auto-fills h) (planned-text/list-line h))]
-       [:button.link-button.underline.f-w-b.f-s-14
-        {:on-click #(dispatch [:orcpub.dnd.e5/clear-planned (:address record)])}
-        "Clear"]]))])
 
 (defn selection-section-base []
   (let [expanded? (r/atom false)

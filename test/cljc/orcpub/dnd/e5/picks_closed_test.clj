@@ -301,3 +301,16 @@
             as-rogue (character [(class-entry :rogue 1 nil rogue-first-class-skills)])
             r (update-planned as-fighter (picks/removed-with-container as-rogue as-fighter))]
         (is (= #{{:class :rogue}} (set (map second (described (:character r) (:planned r))))))))))
+
+(deftest a-pick-held-for-its-level-keeps-it-when-its-entry-goes-too
+  (let [ch7 (character [(class-entry :ranger 7 (hunter :steel-will))])
+        r6 (update-planned (drop-level ch7 0) [])
+        held6 (picks/with-returns @template (:character r6) (:planned r6))
+        ch2 (update-in (:character r6) (levels-path 0) #(vec (take 2 %)))
+        r2 (update-planned ch2 (into held6 (picks/removed-with-container (:character r6) ch2)))]
+    (is (= {:class-level 7 :class :ranger} (:returns (first held6))) "recorded when first held")
+    (is (contains? (set (described (:character r2) (:planned r2)))
+                   ["Steel Will" {:class-level 7 :class :ranger}])
+        "at 2 Steel Will still needs level 7, not the level 3 that brings Hunter back")
+    (is (contains? (set (described (:character r2) (:planned r2)))
+                   ["Hunter" {:class-level 3 :class :ranger}]))))

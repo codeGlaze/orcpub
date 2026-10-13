@@ -45,3 +45,16 @@
   "One held pick in a list: \"Archery · auto-fills at level 10\"."
   [{:keys [name returns]}]
   (str name " · auto-fills " (when-long returns)))
+
+(defn class-line
+  "The line under a class row for its held picks: one by name, otherwise a count that says why
+   when they share a reason (\"3 planned at higher levels\")."
+  [held]
+  (let [rs (map :returns held)
+        n (count held)]
+    (cond
+      (<= n 1) (marker held)
+      (every? #(or (:class-level %) (:total-level %)) rs) (str n " planned at higher levels")
+      (and (every? :first-class rs) (apply = (map :first-class rs)))
+      (str n " planned if " (title (:first-class (first rs))) " is your starting class")
+      :else (str n " planned"))))

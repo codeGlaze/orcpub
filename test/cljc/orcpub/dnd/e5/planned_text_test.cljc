@@ -26,3 +26,12 @@
 
 (deftest a-list-line-names-it-and-says-when
   (is (= "Archery · auto-fills at level 10" (pt/list-line archery))))
+
+(deftest the-class-line-says-why-when-the-reasons-agree
+  (let [steel {:name "Steel Will" :returns {:class-level 7 :class :ranger}}
+        hunter {:name "Hunter" :returns {:class-level 3 :class :ranger}}
+        acro {:name "Acrobatics" :returns {:first-class :rogue}}]
+    (is (= "Planned: Steel Will (L7)" (pt/class-line [steel])))
+    (is (= "2 planned at higher levels" (pt/class-line [steel hunter])))
+    (is (= "2 planned if Rogue is your starting class" (pt/class-line [stealth acro])))
+    (is (= "2 planned" (pt/class-line [steel stealth])))))

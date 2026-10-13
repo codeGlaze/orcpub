@@ -322,14 +322,31 @@
                   (or (option-name reachable (pop address) (peek address))
                       (common/kw-to-name (peek address) true)))]
       (mapv (fn [{:keys [address] :as record}]
-              (let [missing (first (remove now (entry-addresses address)))]
+              (let [missing (first (remove now (entry-addresses address)))
+                    recorded (:returns record)
+                    later (fn [{:keys [class-level class] :as r}]
+                            ;; A pick held for its own level keeps it when its entry goes too:
+                            ;; Steel Will needs level 7 even once level 3 brings Hunter back.
+                            (if (and class-level (:class-level recorded)
+                                     (= class (:class recorded)))
+                              (assoc r :class-level (max class-level (:class-level recorded)))
+                              (or r recorded)))]
                 {:record record
                  :name (named address)
-                 :returns (cond
+                 :returns (later (cond
                             (nil? missing) (gate-of (pop address))
                             (= :levels (peek (pop missing))) {:class-level (level-of (peek missing))
                                                               :class (second missing)}
                             (and (= 2 (count missing)) (= :class (first missing)))
                             {:class (second missing)}
-                            :else {:choice missing :name (named missing)})}))
+                            :else {:choice missing :name (named missing)}))}))
             planned))))
+
+(defn with-returns
+  "`planned` with each record that has no `:returns` given one (`describe-held`) while what holds
+   it can still be read, so a later edit that removes its entry does not lose it."
+  [template character planned & [built]]
+  (let [fresh (remove #(contains? % :returns) planned)
+        returns (into {} (map (juxt (comp :address :record) :returns))
+                      (describe-held template character fresh built))]
+    (mapv #(if (contains? % :returns) % (assoc % :returns (returns (:address %)))) planned)))
