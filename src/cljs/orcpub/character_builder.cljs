@@ -23,6 +23,7 @@
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.planned-text :as planned-text]
+            [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.feats :as feats]
@@ -1838,6 +1839,41 @@
                 :hide-homebrew? true
                 :ui-fn (fn [v] [inventory-selector [::equip5e/treasure-map] 100 (select-selection v) ::char5e/custom-treasure])}])}])
 
+(defn picks-notice
+  "Picks that came back on their own, when they are not where the player is looking (another tab)
+   or several came back: one short notice with Undo, then \"Undone · Redo\". Closed by its ×.
+   docs/kb/ux-guide.md on agents/develop."
+  []
+  (let [{:keys [restored undone]} @(subscribe [:orcpub.dnd.e5/restore-notice])
+        dismiss #(dispatch [:orcpub.dnd.e5/dismiss-restore])
+        box {:icon "fa-history orange" :tone :note :accent :brand :on-close dismiss}
+        ;; The header row has no side padding and no text colour of its own.
+        framed (fn [cfg]
+                 [:div.m-l-10.m-r-10
+                  [notifications/callout (update cfg :text #(vector :span.main-text-color %))]])]
+    (cond
+      (seq undone)
+      (framed
+       (assoc box :text "Undone"
+              :actions [{:label "Redo" :link? true
+                         :on-click #(dispatch [:orcpub.dnd.e5/redo-restore])}]))
+
+      (seq restored)
+      (let [available @(subscribe [:available-selections])
+            by-path (into {} (map (juxt (comp vec entity/actual-path) identity)) available)
+            tags (:tags (pages (or @(subscribe [:page]) 0)))
+            in-view? (fn [{:keys [address]}] (some tags (::t/tags (by-path (pop address)))))
+            named (fn [{:keys [address]}]
+                    {:name (or (some #(when (= (peek address) (::t/key %)) (::t/name %))
+                                     (some-> (by-path (pop address)) entity/selection-options))
+                               (common/kw-to-name (peek address) true))
+                     :class (when (= :class (first address)) (second address))})]
+        (when (or (> (count restored) 1) (not (every? in-view? restored)))
+          (framed
+           (assoc box :text (planned-text/restored (map named restored))
+                  :actions [{:label "Undo" :link? true
+                             :on-click #(dispatch [:orcpub.dnd.e5/undo-restore])}])))))))
+
 (defn section-tabs [available-selections built-template character page-index]
   (let [device-type @(subscribe [:device-type])]
     [:div.flex.justify-cont-s-a
@@ -2653,7 +2689,8 @@
         [:div.flex.justify-cont-s-b.align-items-c.flex-wrap
          [:div
           [missing-content-warning]
-          [relink-question-banner]]
+          [relink-question-banner]
+          [picks-notice]]
          ;; .content has no side padding of its own; keep the toggles off the edge
          [:div.flex.flex-wrap.justify-cont-end.p-r-10
           [theme-toggle]

@@ -270,3 +270,34 @@
     (is (and (steel-will? (:character to-hunter)) (not (lantern-step? (:character to-hunter))))
         "back to Hunter: Steel Will returns, the trick is held")
     (is (lantern-step? (:character wayfarer-again)) "Wayfarer again: the trick returns")))
+
+(def ^:private rogue-4
+  {::entity/key :rogue
+   ::entity/options {:skill-proficiency (mapv #(hash-map ::entity/key %)
+                                              [:stealth :acrobatics :insight :perception])
+                     :levels [{::entity/key :level-1}]}})
+
+(defn- as-class [d entry] (assoc-in d [:character ::entity/options :class 0] entry))
+
+(deftest picks-that-come-back-build-a-notice-with-undo-and-redo
+  (let [level-1 {:levels [{::entity/key :level-1}]}
+        rogue (db (assoc-in (ranger 1) [::entity/options :class 0] rogue-4))
+        ranger-now (edit rogue (as-class rogue {::entity/key :ranger ::entity/options level-1})
+                         :set-class)
+        back (edit ranger-now (as-class ranger-now {::entity/key :rogue ::entity/options level-1})
+                   :set-class)
+        skills #(set (map ::entity/key (get-in % [:character ::entity/options :class 0
+                                                  ::entity/options :skill-proficiency])))
+        undone (events/undo-restore-db back)
+        redone (events/redo-restore-db undone)]
+    (is (= #{:stealth :acrobatics :insight :perception} (skills back))
+        "rogue again, its skills return")
+    (is (= 4 (count (get-in back [:orcpub.dnd.e5/restore-notice :restored])))
+        "and the notice has them")
+    (is (= #{} (skills undone)) "Undo takes them out")
+    (is (= [] (:orcpub.dnd.e5/planned-picks undone)) "without holding them again")
+    (is (= 4 (count (get-in undone [:orcpub.dnd.e5/restore-notice :undone]))))
+    (is (= #{:stealth :acrobatics :insight :perception} (skills redone)) "Redo puts them back")
+    (is (nil? (:orcpub.dnd.e5/restore-notice
+               (edit back (assoc back :character (assoc (ranger 7) :db/id 5)) :set-character)))
+        "another character clears it")))

@@ -58,3 +58,15 @@
       (and (every? :first-class rs) (apply = (map :first-class rs)))
       (str n " planned if " (title (:first-class (first rs))) " is your starting class")
       :else (str n " planned"))))
+
+(defn restored
+  "The notice for picks that came back on their own: one by name, several from one class as
+   \"Rogue picks restored (4)\", otherwise a count. `picks`: {:name :class} maps."
+  [picks]
+  (let [n (count picks)
+        classes (set (map :class picks))]
+    (cond
+      (= 1 n) (str (:name (first picks)) " restored")
+      (and (= 1 (count classes)) (first classes))
+      (str (title (first classes)) " picks restored (" n ")")
+      :else (str n " picks restored"))))

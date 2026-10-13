@@ -10,6 +10,7 @@
 // with their entry are held: 7 ranger 7 -> 2 -> 7, 8 a Dwarf's subrace through Dwarf -> Elf -> Dwarf,
 // 9 a rogue's skills through rogue -> wizard -> rogue; 10 the Planned marker on Champion 9's Fighting Style,
 // what tapping it says, and Clear; 11 the line under the class row for picks whose section is closed.
+// 12 the restore notice for picks that come back out of view, with Undo, Redo and its close mark.
 //
 // Runs against the seeded server (see hidden-pick-flows.js for the command). Prereqs: lein fig:build.
 // Run: NODE_PATH=<dir with playwright> node test/e2e/planned-picks.js     Exit 0 = pass.
@@ -56,6 +57,7 @@ const flows = {
     check('at 6 the saved draft lacks it', !/steel-will/.test(await draft(page)));
     await setLevel(page, 0, 7);
     check('back at 7 Steel Will returns', (await dbAt(page, TACTIC)) === ':steel-will');
+    check('in view, so no notice', !(await visibleText(page, 'Steel Will restored')));
     check('back at 7 nothing is held', (await heldCount(page)) === 0);
     check('back at 7 the saved draft has it', /steel-will/.test(await draft(page)));
   },
@@ -185,6 +187,25 @@ const flows = {
     check('and the held pick', (await heldCount(page)) === 0);
     await setLevel(page, 0, 10);
     check('back at 10 Archery does not return', `${await styles(page)}` === 'defense');
+  },
+
+  async 12(page) {
+    await setClass(page, 0, 'rogue');
+    for (const sk of ['Acrobatics', 'Deception', 'Perception', 'Stealth']) await pick(page, 'Proficiencies', 'Skill Proficiency', sk, { parent: 'Rogue' });
+    const skills = async () => [...(await dbAt(page, `${CLASS0} :skill-proficiency]`)).matchAll(/:orcpub\.entity\/key :([\w-]+)/g)].map(m => m[1]).sort().join(',');
+    await setClass(page, 0, 'wizard');
+    await setClass(page, 0, 'rogue');
+    check('the skills come back on another tab, so a notice says so', await visibleText(page, 'Rogue picks restored (4)'));
+    await clickVisible(page, 'Undo');
+    await page.waitForTimeout(800);
+    check('Undo takes them out', (await skills()) === '');
+    check('and says so, with Redo', await visibleText(page, 'Undone') && await visibleText(page, 'Redo'));
+    await clickVisible(page, 'Redo');
+    await page.waitForTimeout(800);
+    check('Redo puts them back', (await skills()) === 'acrobatics,deception,perception,stealth');
+    await page.locator('[aria-label="Dismiss"]').first().click();
+    await page.waitForTimeout(500);
+    check('the close mark dismisses it', !(await visibleText(page, 'Rogue picks restored (4)')));
   },
 
   async 11(page) {

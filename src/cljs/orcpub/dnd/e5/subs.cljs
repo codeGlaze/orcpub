@@ -442,6 +442,7 @@
 ;; Held picks (the planned hold) as the builder shows them: each one's name and what brings it
 ;; back (picks/describe-held), from the builder's own debounced build.
 (reg-sub :orcpub.dnd.e5/planned-picks (fn [db _] (get db :orcpub.dnd.e5/planned-picks [])))
+(reg-sub :orcpub.dnd.e5/restore-notice (fn [db _] (get db :orcpub.dnd.e5/restore-notice)))
 
 (reg-sub
  :orcpub.dnd.e5/held-picks

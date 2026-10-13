@@ -78,8 +78,9 @@
    :text (string or hiccup) and optional :actions. :tone is :warning (default, severity) or
    :note (neutral); :accent :brand draws the balanced amber ring. Each action is {:label} plus
    :on-click (a button; :link? true makes it a text link) or :href and optional :target (a link
-   styled as a button), and an optional :icon that is a COMPLETE icon class string."
-  [{:keys [icon text actions tone accent]}]
+   styled as a button), and an optional :icon that is a COMPLETE icon class string. :on-close
+   adds the banner's close mark."
+  [{:keys [icon text actions tone accent on-close]}]
   [:div.p-10.m-b-10.flex.align-items-c
    {:class (cond-> [(case tone :note "bg-note" "bg-warning")]
              ;; A ring, so a callout can carry an identity without a severity colour filling
@@ -100,7 +101,10 @@
            href [:a.form-button {:href href :target (or target "_blank")} body]
            link? [:button.link-button.underline.f-w-b.f-s-14 {:on-click on-click} body]
            :else [:button.form-button {:on-click on-click} body])
-         {:key label})))])
+         {:key label})))
+   (when on-close
+     [:i.fa.fa-times.message-close.pointer.main-text-color
+      {:title "Dismiss" :aria-label "Dismiss" :on-click on-close}])])
 
 (defn shared-content-banner
   "Shown when viewing a character whose homebrew arrived embedded in the share link. The content

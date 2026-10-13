@@ -35,3 +35,9 @@
     (is (= "2 planned at higher levels" (pt/class-line [steel hunter])))
     (is (= "2 planned if Rogue is your starting class" (pt/class-line [stealth acro])))
     (is (= "2 planned" (pt/class-line [steel stealth])))))
+
+(deftest the-restore-notice-names-one-or-groups-by-class
+  (is (= "Steel Will restored" (pt/restored [{:name "Steel Will" :class :ranger}])))
+  (is (= "Rogue picks restored (2)"
+         (pt/restored [{:name "Stealth" :class :rogue} {:name "Acrobatics" :class :rogue}])))
+  (is (= "2 picks restored" (pt/restored [{:name "Stealth" :class :rogue} {:name "Hill Dwarf"}]))))

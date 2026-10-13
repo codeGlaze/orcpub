@@ -240,7 +240,8 @@
   (let [id (get-in db-after [:character :db/id])
         owner (get db-after ::e5/planned-for (get-in db-before [:character :db/id]))]
     (if (or (= :reset-character event-id) (not= owner id))
-      (assoc db-after ::e5/planned-picks [] ::e5/planned-for id ::e5/settle-trail [])
+      (assoc db-after ::e5/planned-picks [] ::e5/planned-for id ::e5/settle-trail []
+             ::e5/restore-notice nil)
       (-> db-after
           (assoc ::e5/planned-for id)
           (update ::e5/settle-trail (fnil conj []) (:character db-before))))))
@@ -280,15 +281,25 @@
                            (lost-in-trail (::e5/settle-trail db) (:character db)))
               {:keys [character planned restored retired]}
               (picks/update-planned template (:character db) (into (vec hold) lost))
-              planned (picks/with-returns template character planned)]
-          ;; Against the hold before: a pick lost and back within one burst of edits never left.
-          (assoc db
-                 :character character
-                 ::e5/planned-picks planned
-                 ::e5/settle-trail []
-                 ::e5/picks-change {:set-aside (filterv #(not (held (:address %))) planned)
-                                    :restored (filterv #(held (:address %)) restored)
-                                    :retired retired}))
+              planned (picks/with-returns template character planned)
+              ;; Against the hold before: a pick lost and back within one burst never left.
+              came-back (filterv #(held (:address %)) restored)]
+          (cond-> (assoc db
+                         :character character
+                         ::e5/planned-picks planned
+                         ::e5/settle-trail []
+                         ::e5/picks-change {:set-aside (filterv #(not (held (:address %))) planned)
+                                            :restored came-back
+                                            :retired retired})
+            ;; Builds up until the player closes it, so a later edit does not wipe it.
+            (seq came-back)
+            (update ::e5/restore-notice
+                    (fn [{prior :restored}]
+                      {:restored (->> (concat prior came-back)
+                                      (map (juxt (comp str :address) identity))
+                                      (into (sorted-map))
+                                      vals
+                                      vec)}))))
         (catch :default e
           (js/console.error "Picks were not settled; the character is left as edited." e)
           (cond-> db (seq (::e5/settle-trail db)) (assoc ::e5/settle-trail [])))))))
@@ -751,6 +762,30 @@
 
 ;; Manual save — dispatched from character builder UI with built-char in scope.
 ;; If the user hasn't set a name, generates a random one and persists it.
+(defn undo-restore-db
+  "`db` with the picks its restore notice reports taken back out of the character. They are not
+   held again (the next settle would return them); Redo puts them back."
+  [db]
+  (let [{:keys [restored]} (::e5/restore-notice db)
+        {:keys [character removed]}
+        (reduce (fn [{:keys [character] :as acc} {:keys [address]}]
+                  (let [{c :character r :removed} (picks/remove-at character address)]
+                    (cond-> (assoc acc :character c) r (update :removed conj r))))
+                {:character (:character db) :removed []}
+                restored)]
+    (assoc db :character (assoc character :changed true) ::e5/restore-notice {:undone removed})))
+
+(defn redo-restore-db
+  "`db` with the picks Undo took out put back where they still fit."
+  [db]
+  (let [{:keys [undone]} (::e5/restore-notice db)
+        {:keys [character put-back]} (picks/from-planned (:character db) undone)]
+    (assoc db :character (assoc character :changed true) ::e5/restore-notice {:restored put-back})))
+
+(reg-event-db ::e5/undo-restore [db-char->local-store] (fn [db _] (undo-restore-db db)))
+(reg-event-db ::e5/redo-restore [db-char->local-store] (fn [db _] (redo-restore-db db)))
+(reg-event-db ::e5/dismiss-restore (fn [db _] (dissoc db ::e5/restore-notice)))
+
 (reg-event-db
  ::e5/clear-planned
  (fn [db [_ address]]
