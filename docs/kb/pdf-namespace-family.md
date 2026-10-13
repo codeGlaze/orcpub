@@ -287,3 +287,41 @@ contiguous line ranges.
 - **Why `renumber-page-section!` is public for a `dev/` script when `fields-on-page` and
   `cantrips-hexagon-box` stay private and are reached with `#'` from `dev/` scripts.** The
   convention is inconsistent and I could find no rule in `docs/kb/` that settles it.
+
+## 7. Follow-up, 2026-10-13: the docstrings, and what running it settled
+
+The mapping above was done without invoking `lein`. The docstring pass on branch
+`docs/pdf-api` (off `integration`, `b8035afe`) ran it. What changed:
+
+**Documentation coverage closed.** All 23 undocumented public fns in `pdf.clj` now have
+docstrings: public coverage 59/82 -> 82/82, private 57/59. The gap was almost exactly the
+shared surfaces S1–S4 of section 3 — the coordinate converters, the text and box drawers, the
+abbreviations, the image loaders, `print-spells`/`print-backs`.
+
+**The API boundary is now stated in the file.** 82 public fns and 45 public defs; 31 are
+called from outside. 21 by `routes.clj`, 9 by `spellbook.clj`, `report-image-egress!` by
+`system.clj`. `safe-image-url?` and `safe-image-bytes` appear in `routes.clj` comments only.
+This partly answers section 6's last open question — `renumber-page-section!` is not public
+by a convention, it is public because nothing enforced one. The publics are accidental, so
+"is it public?" carries no information about whether it is API.
+
+**Two conventions for `y`, in one namespace.** Not in the map above and the sharper statement
+of the S4 coordinate mismatch: inside `pdf.clj`, the image functions (`draw-imagex`,
+`draw-svg-icon!`) route through `in-to-coord-y` and take `y` from the page TOP, while the text
+functions (`draw-text`, `draw-lines-to-box`, `draw-text-to-box`) multiply by 72 directly and
+take `y` from the BOTTOM. Card code flips by hand, `(- 11.0 y 0.08)`, at every text call. So
+S4 is not one coordinate space that `spellbook.clj` diverged from — it is two, before
+`spellbook.clj` is considered at all. An extraction has to pick one.
+
+**`in-to-sz` and `inches-to-units` are the same function** — both `(float (* 72 inches))`,
+declared 900 lines apart (`:1094`, `:1997`). Marked in both docstrings, not deduped.
+
+**Nil handling, probed rather than assumed.** `max-len` returns nil on nil (`(count nil)` is
+0, so the truncation branch never runs); `abbreviate-duration` short-circuits on nil;
+`abbreviate-times` and `abbreviate-range` throw NPE. S3 is "pure and cljc-ready" as section 3
+says, but two of its five fns are nil-hostile and `spellbook.clj` calls both.
+
+Verification: `lein test` 704 tests / 5294 assertions green, `lein lint` 0 errors 0 warnings.
+`comment-discipline-test` rejected 7 of the first-draft docstrings as over the 6-line house
+limit — all new, no pre-existing debt in this file — so they were shortened rather than
+approved as exceptions.

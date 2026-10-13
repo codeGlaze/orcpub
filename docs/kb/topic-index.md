@@ -665,7 +665,7 @@ _character-naming · character naming_
 
 _character-rescue-console · character rescue console_
 
-**topics:** backup, bundle, colons, defences, delimiter, depth-aware, empty-keyword-corruption, healer, literals, minified, parties, repair, scan, tool, transit, unpatched, urls, xhr
+**topics:** backup, bundle, colons, defences, delimiter, deployed, depth-aware, empty-keyword-corruption, healer, minified, parties, repair, scan, tool, transit, unpatched, urls, xhr
 
 - 1. When a console tool is the right answer
 - 2. Triage: what the user actually reports
@@ -683,7 +683,7 @@ _character-rescue-console · character rescue console_
 
 _character-validation · character validation_
 
-**topics:** built-character-representation, charter, computed, entity-val-aware, falsifiable, guard, installment, intent, malformed, modernization, own-branch, proposal, realized, representation, retired, spec, test-suite-state, validation
+**topics:** built-character-representation, charter, computed, entity-val-aware, falsifiable, guard, installment, intent, malformed, modernization, own-branch, realization, realized, representation, retired, spec, test-suite-state, validation
 
 - The intent worth keeping (do not lose this)
 - History (verified)
@@ -945,7 +945,7 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _content-to-character-pipeline · content to character pipeline_
 
-**topics:** 143, 1588, 168, 2026-09-15, 4143, assembly, authored, built-character-representation, content-extensibility-framework, decision-vocabulary, fns, habit, hidden-selection-picks, inventory, machinery, silo, stage, stages
+**topics:** 143, 1588, 168, 2026-09-15, 4143, assembly, authored, built-character-representation, built-in, content-extensibility-framework, decision-vocabulary, fns, habit, hidden-selection-picks, machinery, silo, stage, stages
 
 - The five stages
 - What each file actually is
@@ -1036,7 +1036,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab
+**topics:** asi, caster, choice, choices, cross-silo, custom, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, vocab
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -1309,7 +1309,7 @@ _documentation-tenets · documentation tenets_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, caller, coerce, coercion, d32, dropdown, floating-asi, forget, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, primitive, prior, string, widget
+**topics:** asi, breath, coerce, coercion, d32, dropdown, floating-asi, forget, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, primitive, prior, string, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -1422,7 +1422,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, handoff, keyword-trap-name-repair, loader, non-word, readme, rescued, throw, token
+**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, handoff, keyword-trap-name-repair, non-word, prevention, readme, rescued, throw, token
 
 - The failure
 - The two defences, and where they are
@@ -1533,7 +1533,7 @@ _error-handling-import-validation · error handling import validation_
 
 _extras-definitions · extras definitions_
 
-**topics:** capabilities, companion, conditions, copy, copy-on-adopt, creature, disjoint, kind, npc, per-creature, pet, plan-companions-and-wild-shape, promoted, promotion, ribbon, sidekick, statblock, wolf
+**topics:** capabilities, companion, conditions, copy, copy-on-adopt, creature, disjoint, instance, kind, per-creature, pet, plan-companions-and-wild-shape, promoted, promotion, ribbon, sidekick, statblock, wolf
 
 - One record, capabilities toggled
 - Copy-on-adopt, not reference
@@ -1730,7 +1730,7 @@ _garden-inline-styles-harvest · garden inline styles harvest_
 
 _growable-option-menus · growable option menus_
 
-**topics:** 1440, accent, band, card, carded, carding, caret, child, collapse, dark-inset, family, header, intrinsic, layout, menus, per-menu, renderers, thumb
+**topics:** 1440, accent, band, card, carded, carding, caret, child, collapse, dark-inset, header, intrinsic, layout, menus, per-menu, renderers, thumb, toggle
 
 - 2026-09-06 — lifted onto feat/option-picker, then cut
 - Goal
@@ -1750,7 +1750,7 @@ _growable-option-menus · growable option menus_
 
 _handoff-669-final-pass · handoff 669 final pass_
 
-**topics:** 401, accounts, cljs-headless-harness, defect, e2e-logged-in-sessions, end, items, link-embedded, login, loop, merge, parents, plan-669-merge-verification, resolving, suite, union, unit, units
+**topics:** 401, accounts, api, cljs-headless-harness, defect, e2e-logged-in-sessions, end, items, link-embedded, login, loop, merge, parents, plan-669-merge-verification, suite, union, unit, units
 
 - What the change is
 - Already verified — do not spend time re-running
@@ -2150,7 +2150,7 @@ _merging-across-a-refactor · merging across a refactor_
 
 _modifier-vs-trait-slots · modifier vs trait slots_
 
-**topics:** 1342, 1925, 2040, black-screen, breath, dragon, entity-options-architecture, evasion, evasions, features-tab, fiery, hunter, inert, monk, plain, rogue, trait, vector
+**topics:** 1342, 1925, black-screen, breath, dragon, entity-options-architecture, evasion, evasions, features-tab, fiery, hunter, inert, inertness, monk, plain, rogue, trait, vector
 
 - The mechanism
 - Worked example: opt5e/evasion and the three Evasions
@@ -2161,7 +2161,7 @@ _modifier-vs-trait-slots · modifier vs trait slots_
 
 _monolith-decomposition-plan · monolith decomposition plan_
 
-**topics:** -------, 150, 2026-09-15, 623, 821, cljs, cohesive, domain, domain-based, extractions, incrementally, monolith, phase, split, splitting, tier, todo, views
+**topics:** -------, 2026-09-15, 623, 821, cljs, cohesive, domain, domain-based, extractions, incrementally, monolith, phase, sorted-map, split, splitting, tier, todo, views
 
 - 1. Did the Builders Split Make Issues Easier to Find?
 - 2. What Files Can or Should Be Broken Down?
@@ -2227,7 +2227,7 @@ _name-to-kw-audit · name to kw audit_
 
 _namespace-architecture · namespace architecture_
 
-**topics:** 148, 2026-09-15, 638, anomalies, constants, crud, csp, handlers, helpers, html5history, http-fx-patterns, namespace, namespaces, nonce, revision, server-rendered, side-effect, split
+**topics:** 148, 2026-09-15, anomalies, constants, crud, csp, handlers, helpers, html5history, http-fx-patterns, namespace, namespaces, nonce, revision, server-rendered, shell, side-effect, specs
 
 - Directory Layout
 - Entry Points
@@ -2304,7 +2304,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _pdf-form-techniques · pdf form techniques_
 
-**topics:** 2026-09, appearance, artwork, bytes, card, cards, field, fields, foot, page, pages, pdfbox, rank, rarity, sheet, stream, streams, widgets
+**topics:** 2026-09, appearance, artwork, attunement, bytes, card, cards, field, fields, foot, page, pages, pdfbox, rarity, sheet, stream, streams, widgets
 
 - The one rule that explains most of the weirdness
 - Cloning a page without copying its artwork
@@ -2383,6 +2383,29 @@ _pdf-generation-architecture · pdf generation architecture_
 - PDFBox 3.0.6 verified facts
 - Known unknown — fix-widget-page-refs! mechanism
 - Cross-browser PDF rendering
+
+## pdf-namespace-family.md
+
+_pdf-namespace-family · pdf namespace family_
+
+**topics:** abbreviations, acroform, animated-object, beast, card, cards, companion, consumer, docstrings, drawing, frame, group, private, public, spellbook, surface, svg, vars
+
+- Verdict on the starting hypothesis
+- 1. Inventory
+- 2. Caller map
+- Production
+- spellbook.clj's dependency — the starting fact, corrected
+- Private → public widenings
+- Tests reaching into privates
+- dev/ is the heaviest consumer by file count
+- 3. The shared surfaces, from the caller map
+- The real duplication is S4, and it is a coordinate-space mismatch
+- draw-grid is not as parameterised as the plan assumes
+- 4. Proposed namespace family
+- What to do, in what order
+- 5. Risks
+- 6. What could not be determined
+- 7. Follow-up, 2026-10-13: the docstrings, and what running it settled
 
 ## pedestal-csp-history.md
 
@@ -2493,7 +2516,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** 401, 669, counter, custom-items, differential, discarded, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
+**topics:** 401, 669, chain, counter, custom-items, differential, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -2552,7 +2575,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** 2026-09-10, beast, card, companion, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, retainers, sidekicks, summon, taxonomy, wild
+**topics:** 2026-09-10, beast, card, cards, companion, creature, discarded, druid, familiar, foundry, master, moon, per-form, retainers, sidekicks, summon, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -2750,7 +2773,7 @@ _registry-before-after · registry before after_
 
 _remote-dev · remote dev_
 
-**topics:** 3449, codespaces, config, connections, dev, development, environments, figwheel, figwheel-main, forwarding, gitpod, hot-reload, port, remote, ssh, tunnels, visibility, websocket
+**topics:** 3449, codespaces, config, connections, dev, development, environments, figwheel, forwarding, gitpod, hot-reload, port, remote, ssh, tunnels, url, visibility, websocket
 
 - The Problem
 - The Discovery: --fw-opts
@@ -2822,7 +2845,7 @@ _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spe
 
 _rescued/ui-ux-evaluation · rescued/ui ux evaluation_
 
-**topics:** alchemy, builder, buttons, char, cljs, ddb, focus, icons, modern, navigation, orcpub, polish, responsive, search, splash, transitions, views, visual
+**topics:** alchemy, badges, builder, buttons, char, cljs, ddb, focus, modern, navigation, orcpub, polish, responsive, search, splash, transitions, views, visual
 
 - Architecture Summary
 - Key Files
@@ -2917,7 +2940,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _secrets-in-boot-output · secrets in boot output_
 
-**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, column, credential, database, ex-info, leak, log, logs, parameter, print, query, redact, uri
+**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, column, credential, database, ex-info, find-and-replace, leak, log, logs, print, query, redact, uri
 
 - It was in four places, not one
 - Redact at the boundary, and only what is logged
@@ -2929,7 +2952,7 @@ _secrets-in-boot-output · secrets in boot output_
 
 _share-bundle-dependency-extraction · share bundle dependency extraction_
 
-**topics:** cljc, cljs, closure, def, direct, edges, extractor, keys, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
+**topics:** cljc, cljs, closure, def, direct, edge, extractor, keys, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
 
 - Why this is not trivial
 - The content types (master list)
@@ -2958,7 +2981,7 @@ _share-custom-items-plan · share custom items plan_
 
 _share-links · share links_
 
-**topics:** 404, caps, character, compressed, copy, deletes, homebrew, kaylee, link, opening, owner, page, party, server, share, sharing, token, upload
+**topics:** 404, caps, character, compressed, copy, deletes, encrypted, homebrew, kaylee, link, opening, owner, party, server, share, sharing, token, upload
 
 - What a link carries
 - How it works
@@ -3048,7 +3071,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, credit, crest, emblems, figures, flame, head, heading, level, packed, pact, prep, spellbook, tabs, taller
+**topics:** cards, chapter, column, columns, credit, crest, figures, flame, head, heading, lining, old-style, packed, pact, prep, spellbook, tabs, taller
 
 - What it prints
 - Why the layout works the way it does
@@ -3118,7 +3141,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-06, 5etools, diff, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-06, 2026-10-07, 5etools, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3143,7 +3166,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-data-consumers · srd data consumers_
 
-**topics:** 2026-10-11, 286, 3083-3150, ammunition, armor, belts, facts, few, generated, items, keys, literal, load-time, magic, monsters, spell, srd-2024-roadmap, sub
+**topics:** 2026-10-11, 286, 3083-3150, ammunition, armor, belts, facts, few, generated, hand-kept, items, keys, load-time, magic, monsters, spell, srd-2024-roadmap, sub
 
 - The two facts that shape any move
 - Per type
@@ -3214,7 +3237,7 @@ _starting-equipment-override-ledger · starting equipment override ledger_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, choice, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, class, consumption, delta, detach, equipment, expand, export, grants, ingestion, keys, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -3249,7 +3272,7 @@ _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
 _subscribe-refactor-phase2 · subscribe refactor phase2_
 
-**topics:** caller, cljc, low, parameter, pdf, phase, plugin-data, pure, race-map, reactive, reg-sub-raw, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
+**topics:** chain, cljc, low, pdf, phase, plugin-data, pure, race-map, reactive, reg-sub-raw, render, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
 
 - Context
 - Fix Patterns (New in Phase 2)
@@ -3357,7 +3380,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, number, perf-homebrew-builder-loop, proves, running, synthetic
+**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, number, perf-homebrew-builder-loop, proves, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested

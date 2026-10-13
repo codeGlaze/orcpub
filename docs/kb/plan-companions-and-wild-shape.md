@@ -93,9 +93,11 @@ the thing that would be expensive to retrofit.
 | Pick from eligible beasts | `filter-monsters` (`spell_subs.cljs:1304`), 86 beasts in the list |
 | A view per form | `details-tabs` (`views.cljs:3782`) is a plain `{name -> {:icon :view}}` map |
 | Merged stats | `entity/build` + `modifiers.cljc` |
-| Compact printed cards | Card machinery in `pdf.clj` — `card-pt`, `draw-card-frame!`, charge tracks. **Two families already print**: spell cards and magic item cards |
+| Compact printed cards | Card machinery in `pdf.clj` — `card-pt`, `draw-card-frame!`, charge tracks. **One family uses the frame**: magic item cards. `draw-card-frame!` is `defn-` with a single consumer, `print-items` (`pdf.clj:3175`, `:3273`) |
 
-Beast forms would be the third card family, not the first. 2.5 x 3.5in, 9 to a sheet; a druid
+Beast forms would be the second user of the card frame, not the third. Spell cards do print,
+and share text and icon machinery, but never touch the frame — so the frame has one consumer
+today and a beast card is its first extraction pressure. 2.5 x 3.5in, 9 to a sheet; a druid
 prepares four or five, so one sheet covers a character.
 
 ## The blocker: CR is two different types
@@ -166,8 +168,12 @@ damage, conditions, sometimes levels — so it wants a sheet with somewhere to w
 | Beast Master, Primal Companion, Steel Defender | Sheet | Persists, takes damage, gains conditions |
 | Sidekick | Character sheet | Gains class levels — deferred, it is not a parameterised monster |
 
-`draw-grid` (`pdf.clj:2300`) derives the layout from `box-width`/`box-height` against
-8.5 x 11, so a larger companion card is a parameter change, not new machinery.
+`draw-grid` (`pdf.clj:2003`) derives the layout from `box-width`/`box-height` against
+8.5 x 11, but only `print-items` (`pdf.clj:3114`) passes its own parameters through.
+`print-spells` (`:2603`) and `print-backs` (`:2536`) call `(draw-grid cs 2.5 3.5)` with
+literals while taking `box-width`/`box-height`, so a larger card is a parameter change **for
+item cards only**; the spell-card path needs that bug fixed first. Latent today — every
+caller in `routes.clj` passes 2.5/3.5. See `pdf-namespace-family.md`.
 
 ### The card
 
@@ -517,7 +523,28 @@ codebase reaches for.
 
 ## Revisions
 
-**2026-09-13 (latest).** `feature/grant-rows` merged into `agents/develop`; this doc had been
+**2026-10-13 (latest).** Two claims in this doc were wrong, both found by mapping `pdf.clj`
+and then verified against the code:
+
+- **"Two families already print" off shared card machinery.** Spell cards and item cards both
+  print, but they share only text and icon machinery. `draw-card-frame!` is private with
+  exactly one consumer, `print-items`. A beast card is the frame's *first* extraction pressure,
+  not its third user, so the "already shared, just reuse it" argument for beast cards does not
+  hold. Corrected at `:96`.
+- **"A larger companion card is a parameter change, not new machinery."** True of `draw-grid`
+  itself, false of the path that would print beast cards: `print-spells` and `print-backs` pass
+  literal `2.5 3.5` while accepting `box-width`/`box-height`. Latent, since every caller passes
+  2.5/3.5, but the spell-card path needs that fixed before a differently sized card works.
+  Corrected at `:169`, with the stale line number (`pdf.clj:2300` -> `:2003`).
+
+Both claims had been refuted in `pdf-namespace-family.md` when that doc was written; they were
+left standing here, which is the annotate-around-bad-information failure. Fixed at the source.
+
+The 23 undocumented public fns in `pdf.clj` now carry docstrings (branch `docs/pdf-api`, off
+`integration`), including the two `y`-axis conventions and the `draw-grid` literals at both
+call sites. Coverage is 82/82 public fns; 31 of them are called from outside the file.
+
+**2026-09-13.** `feature/grant-rows` merged into `agents/develop`; this doc had been
 written without any of its 51 KB docs. One blocker retracted: "nothing lets content declare
 that a feature grants a creature" was true of `integration` and false of the branch this leaf
 belongs on. The mechanism is `:grants` + `grant_pools.cljc`; a creature pool is a registration.
