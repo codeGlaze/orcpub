@@ -103,6 +103,7 @@ seen to fail on the mistake before it was trusted:
 | slot-gap | slot options that skip a level before 9 | Conjure Animals had no slot 6 |
 | dice-only | `damage_roll` holding anything but dice | Magic Weapon's "+2" |
 | upcast-math | values that break a plain step rule in `higher_level` | totals reported wrong; Animate Objects' base of 1 |
+| no-op-option | a casting option whose every value equals the base spell's | Spiritual Weapon slot 3 (it rises every two slots) |
 | slot-below-base | a slot option at or below the spell's own level | srd-2024 Dispel Magic's slot 3 |
 | desc-math | a `desc` number that disagrees with the `damage_roll` beside it or the step sentence; where the base is not stored, the implied base must be in the spell's text | srd-2024 Conjure Celestial stored 2d12 for 7d12 |
 | unverified | a value we set on a casting option that no rule checked and no hand check covers | 33 area, duration and threshold values were trusted from an agent's report |
@@ -120,6 +121,11 @@ errors were found. It prints how many `desc` records it could verify (130 of 352
 the rest have no plain step sentence, so a pass there means "nothing contradicts", not "proven".
 
 **How the check stays honest**
+- **Independent review before any upstream PR.** On 2026-10-13 five fresh agents, one per PR, re-derived
+  every value from the SRD transcript with no access to our reasoning. They found no wrong value but
+  16 misses and old defects in records we touched (two spells whose stat blocks the PDF prints under
+  another spell; ten more words split across lines; a reviewed entry hiding a new finding). Each became
+  a fix or a rule. Do this again before each submission: it is cheap next to a bad PR.
 - `scripts/srd/test-check-srd-data.py` plants each rule's mistake in a throwaway worktree and requires
   that rule to fail (about 35 seconds). agents/develop's `pre-commit` runs it whenever the check, its
   helpers or the reviewed list change. Its first run found three blind rules, one of them a crash.

@@ -106,9 +106,9 @@ def lint(path, records, vocab, findings):
                 if m and not line.lstrip().startswith('|'):
                     findings['collapsed-md'].append((*where, line[max(0, m.start() - 25):m.end() + 25]))
                     break
-            for m in re.finditer(r'\b([a-z]{2,})- ([a-z]{2,})\b', v):
-                if not re.match(r'(or|and|to)\b', v[m.end(1) + 2:m.end(1) + 6]):
-                    findings['break-hyphen'].append((*where, m.group(0)))
+            for m in re.finditer(r'\b(\d+(?:st|nd|rd|th)?|[A-Za-z]{2,})- ([a-z]{2,}|\d+)\b', v):
+                if not re.match(r'(or|and|to|through)\b', v[m.end(1) + 2:m.end(1) + 10]):
+                    findings['break-hyphen'].append((*where, m.group(0)))   # "move- ment", "2nd- level", "Glos- sary", "15- 18"
             for tok in set(re.findall(r"\b[A-Za-z]{6,}\b", v)):
                 split = run_together(tok, vocab)
                 if split:

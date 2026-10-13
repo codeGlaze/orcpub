@@ -78,9 +78,12 @@ PLANTS = {
                                                      ['fire', 'cold', 'acid', 'lightning', 'poison', 'force']),
     # "damage of a type you choose: Acid, Cold, ..." must count those types as dealt
     'damage-types/chosen': lambda wt: R.set_field(wt / (D24 + 'Spell.json'), 'srd-2024_sorcerous-burst', 'damage_types', ['acid']),
+    # a stat block printed under another spell's heading still belongs to its own spell
+    'damage-types/stat-block': lambda wt: R.set_field(wt / (D24 + 'Spell.json'), 'srd-2024_find-steed', 'damage_types', ['radiant']),
     'slot-gap': plant_gap,
     'dice-only': lambda wt: R.set_field(wt / OPT14, acid5(wt), 'damage_roll', '+2'),
     'slot-below-base': plant_below_base,
+    'no-op-option': lambda wt: R.set_field(wt / OPT14, option_pk(wt, OPT14, 'srd_heroism', 'slot_level_2'), 'target_count', 1),
     'upcast-math': lambda wt: R.set_field(wt / OPT14, acid5(wt), 'damage_roll', '8d4'),
     # Wall of Ice scales two damages: a wrong value there must surface as unverified, never pass as checked
     'unverified/two-damages': lambda wt: R.set_field(wt / OPT14, option_pk(wt, OPT14, 'srd_wall-of-ice', 'slot_level_7'), 'damage_roll', '11d6'),

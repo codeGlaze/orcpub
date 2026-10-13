@@ -19,6 +19,7 @@ Rules (each from a mistake made on 2026-10-11/12; docs/kb/open5e-upstream-notes.
                   option's value is the spell's base plus the step per slot
   base-missing    a spell whose casting options set damage_roll, target_count or shape_size has that field
                   set itself (the base the options scale from)
+  no-op-option    a casting option whose every value equals the base spell's (it changes nothing)
   slot-below-base no slot option at or below the spell's own level
   desc-math       numbers in a desc agree with the damage_roll beside it and with the step sentence
                   (an absolute "deals 7d8" equals damage_roll; a delta "increases by 3d4" equals the
@@ -35,7 +36,8 @@ Rules (each from a mistake made on 2026-10-11/12; docs/kb/open5e-upstream-notes.
   reformat        a diff changes lines only inside records whose content changed
 
 A finding a person has checked and kept goes in srd-data-reviewed.json (rule, file, pk, field,
-reason; pk may be a list) and is then reported as reviewed. Exit status 1 while anything is unreviewed.
+reason; pk may be a list; an optional "detail" pins the exact finding, so a new, different
+finding on the same record is reported, not hidden) and is then reported as reviewed. Exit status 1 while anything is unreviewed.
 --all also audits every casting option in both editions, not only the branch's changes (use it to
 find upstream errors; the hook does not pass it). --update-baseline lowers the lint baseline to today's counts (never raises it).
 """
@@ -94,7 +96,7 @@ class Report:
     """Collects findings, splitting reviewed ones out by srd-data-reviewed.json."""
 
     def __init__(self):
-        self.reviewed = {(r['rule'], r['file'], str(pk), r.get('field', '')): r['reason']
+        self.reviewed = {(r['rule'], r['file'], str(pk), r.get('field', '')): (r['reason'], r.get('detail'))
                          for r in json.load(open(HERE / 'srd-data-reviewed.json'))
                          for pk in (r['pk'] if isinstance(r['pk'], list) else [r['pk']])}
         self.found = {}
@@ -105,7 +107,8 @@ class Report:
 
     def add(self, rule, file, pk, field, detail):
         """Records one finding under its rule."""
-        why = self.reviewed.get((rule, file, str(pk), field))
+        reason, seen = self.reviewed.get((rule, file, str(pk), field), (None, None))
+        why = reason if seen is None or seen == detail else None   # a different finding is not the one reviewed
         hits = self.found.setdefault(rule, [])
         if not any(h[:4] == (file, pk, field, detail) for h in hits):   # --all sees our changes twice
             hits.append((file, pk, field, detail, why))
@@ -230,6 +233,11 @@ def check_options(rep, ed, old, new, spells, audit=False):
         if old.get(pk) != r and o['type'] not in ('default', 'ritual') \
                 and all(o.get(k) in (None, '') for k in OPTION_FIELDS):
             rep.add('empty-option', f, pk, o['type'], f'{o["parent"]} sets no field')
+        sp = spells.get(o['parent'], {})
+        set_fields = {k: o[k] for k in OPTION_FIELDS if o.get(k) not in (None, '')}
+        if old.get(pk) != r and o['type'] not in ('default', 'ritual') and set_fields \
+                and all(k != 'desc' and sp.get(k) == v for k, v in set_fields.items()):
+            rep.add('no-op-option', f, pk, o['type'], f'{o["parent"]} sets only base values: {set_fields}')
         if old.get(pk) != r and o.get('damage_roll') not in (None, '') and not DICE.match(o['damage_roll']):
             rep.add('dice-only', f, pk, o['type'], f'{o["parent"]} damage_roll {o["damage_roll"]!r}')
         if o['type'].startswith('slot_level_'):
@@ -336,7 +344,27 @@ def spell_entries(text, names):
             continue
         spans.append((a, b)); heads.append((a, n)); seen.add(n)
     heads.sort()
-    return {n: text[a:(heads[i + 1][0] if i + 1 < len(heads) else a + 4000)] for i, (a, n) in enumerate(heads)}
+    entries = {n: text[a:(heads[i + 1][0] if i + 1 < len(heads) else a + 4000)] for i, (a, n) in enumerate(heads)}
+    if heads:                                 # a spell's stat block can be printed under another spell's heading
+        starts = [a for a, _ in heads]
+        own = dict((n, a) for a, n in heads)
+        lo, hi = starts[0], starts[-1] + 4000
+        for n in list(entries):
+            for block in re.findall(r"uses? the ([A-Z][\w' ]+?) stat block", entries[n]):
+                m = re.search(re.escape(block) + r' (?:Tiny|Small|Medium|Large|Huge|Gargantuan)', text[lo:hi])
+                if not m:
+                    continue                  # a monster elsewhere in the book (Berserker, Treant): not the spell's
+                b = lo + m.start()
+                e = next((a for a in starts if a > b), b + 1800)
+                host = max((a for a in starts if a <= b), default=None)
+                if host == own[n]:
+                    continue                  # printed under its own heading already
+                block_text = text[b:e]
+                entries[n] += ' ' + block_text
+                for h, hn in heads:
+                    if h == host:
+                        entries[hn] = entries[hn].replace(block_text, ' ')   # move it, so the host does not claim it
+    return entries
 
 
 def check_spell_values(rep, f, old, new, entries):
@@ -375,7 +403,7 @@ def srd_damage_types(entry):
     text = re.sub(r"(?i)\b(?:resistance|immunity|vulnerability|resistant|immune|vulnerable|can't|cannot)\b[^.;]*", ' ', entry)
     text = re.sub(r'(?i)[^.;]*\b(?:destroyed|dispelled|breached) (?:by dealing|if it takes|when it takes)[^.;]*', ' ', text)   # damage done to the effect
     out = set()
-    for m in re.finditer(rf'(?i)\b((?:{DAMAGE_TYPES})(?:(?:,? (?:or|and) |, )(?:{DAMAGE_TYPES}))*) damage', text):
+    for m in re.finditer(rf'(?i)\b((?:{DAMAGE_TYPES})(?: \([^)]*\))?(?:(?:,? (?:or|and) |, )(?:{DAMAGE_TYPES})(?: \([^)]*\))?)*) damage', text):
         out |= {t.lower() for t in re.findall(rf'(?i){DAMAGE_TYPES}', m.group(1))}
     if re.search(r"(?i)damage of (?:the|a|the spirit's) [^.]*?type|this damage is", text):
         names = '|'.join(t.capitalize() for t in DAMAGE_TYPES.split('|'))    # capitalised: "force a save" is a verb
@@ -528,7 +556,7 @@ def main(argv):
                   f'(upstream data; check before trusting): ' + ', '.join(u.split('_', 1)[1] for u in unchecked))
     check_ratchet(rep, clone, srd52, '--update-baseline' in argv)
     bad = rep.print(['fidelity', 'punctuation', 'name-case', 'empty-option', 'base-missing', 'value-in-srd', 'damage-types', 'slot-gap',
-                     'dice-only', 'slot-below-base', 'upcast-math', 'cantrip-math', 'desc-math', 'desc-consistency', 'unverified', 'lint-ratchet', 'reformat'])
+                     'dice-only', 'no-op-option', 'slot-below-base', 'upcast-math', 'cantrip-math', 'desc-math', 'desc-consistency', 'unverified', 'lint-ratchet', 'reformat'])
     print(f'desc-math verified {rep.checked} of {rep.with_desc} records with a desc; the rest match no step sentence')
     print(f'{bad} open finding(s) across {len(names.split())} changed file(s)')
     return 1 if bad else 0

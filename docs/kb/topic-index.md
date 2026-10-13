@@ -2254,7 +2254,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 2026-10-07, 760, 995, documents, higher-level, hyphen, open5e, open5e-api, parser, pdf, records, slot, spell, srd, srd-2014, srd-2024, text, wording
+**topics:** 2026-10-07, 760, 995, higher-level, hyphen, open5e, open5e-api, parser, pdf, records, slot, spell, srd, srd-2014, srd-2024, text, transcript, wording
 
 - Where the fixes live
 - Filed upstream (2026-10-08)

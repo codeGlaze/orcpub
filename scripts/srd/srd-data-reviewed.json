@@ -579,20 +579,6 @@
   "reason": "Checked against SRD 5.2.1, 2026-10-12: wall 10d6 +2d6 per slot above 6; frigid air +1d6 per slot."
  },
  {
-  "rule": "damage-types",
-  "file": "srd-2024/Spell.json",
-  "pk": "srd-2024_antipathysympathy",
-  "field": "damage_types",
-  "reason": "Antipathy/Sympathy deals no damage. In the SRD 5.2.1 PDF's reading order, Animate Objects' stat block ('Hit: Force damage ...') sits after the Antipathy/Sympathy heading, so it lands in that entry. Layout, not data. Reviewed 2026-10-13."
- },
- {
-  "rule": "damage-types",
-  "file": "srd-2024/Spell.json",
-  "pk": "srd-2024_summon-dragon",
-  "field": "damage_types",
-  "reason": "SRD 5.2.1: Breath Weapon deals '2d6 damage of a type this spirit has Resistance to (your choice when you cast the spell)'; its Resistances are Acid, Cold, Fire, Lightning, Poison. The rule skips resistance lines, so it cannot see these. Reviewed 2026-10-13."
- },
- {
   "rule": "hand-verified",
   "file": "srd-2014/SpellCastingOption.json",
   "pk": "srd_animal-messenger",
@@ -619,9 +605,9 @@
    "slot_level_6": "8 hours",
    "slot_level_7": "24 hours",
    "slot_level_8": "24 hours",
-   "slot_level_9": "Until dispelled"
+   "slot_level_9": "until dispelled"
   },
-  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"If you cast this spell using a spell slot of 4th level or higher, the duration is concentration, up to 10 minutes.\""
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"If you cast this spell using a spell slot of 4th level or higher, the duration is concentration, up to 10 minutes.\" Re-checked 2026-10-13 after a spelling or slot change."
  },
  {
   "rule": "hand-verified",
@@ -682,9 +668,9 @@
   "values": {
    "slot_level_7": "1 year",
    "slot_level_8": "1 year",
-   "slot_level_9": "Until dispelled"
+   "slot_level_9": "until dispelled"
   },
-  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"When you cast this spell using a spell slot of 7th or 8th level, the duration is 1 year.\""
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"When you cast this spell using a spell slot of 7th or 8th level, the duration is 1 year.\" Re-checked 2026-10-13 after a spelling or slot change."
  },
  {
   "rule": "hand-verified",
@@ -1107,9 +1093,10 @@
   "field": "duration",
   "values": {
    "slot_level_7": "365 days",
-   "slot_level_8": "365 days"
+   "slot_level_8": "365 days",
+   "slot_level_9": "until dispelled"
   },
-  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"If you use a level 7 or 8 spell slot, the duration is 365 days.\""
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"If you use a level 7 or 8 spell slot, the duration is 365 days.\" Re-checked 2026-10-13 after a spelling or slot change."
  },
  {
   "rule": "hand-verified",
