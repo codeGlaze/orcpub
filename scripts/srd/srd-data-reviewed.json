@@ -577,5 +577,19 @@
    "slot_level_9": "The damage from passing through the sheet of frigid air increases by 3d6."
   },
   "reason": "Checked against SRD 5.2.1, 2026-10-12: wall 10d6 +2d6 per slot above 6; frigid air +1d6 per slot."
+ },
+ {
+  "rule": "damage-types",
+  "file": "srd-2024/Spell.json",
+  "pk": "srd-2024_antipathysympathy",
+  "field": "damage_types",
+  "reason": "Antipathy/Sympathy deals no damage. In the SRD 5.2.1 PDF's reading order, Animate Objects' stat block ('Hit: Force damage ...') sits after the Antipathy/Sympathy heading, so it lands in that entry. Layout, not data. Reviewed 2026-10-13."
+ },
+ {
+  "rule": "damage-types",
+  "file": "srd-2024/Spell.json",
+  "pk": "srd-2024_summon-dragon",
+  "field": "damage_types",
+  "reason": "SRD 5.2.1: Breath Weapon deals '2d6 damage of a type this spirit has Resistance to (your choice when you cast the spell)'; its Resistances are Acid, Cold, Fire, Lightning, Poison. The rule skips resistance lines, so it cannot see these. Reviewed 2026-10-13."
  }
 ]

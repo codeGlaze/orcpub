@@ -72,6 +72,7 @@ PLANTS = {
     'empty-option': lambda wt: R.set_field(wt / OPT14, option_pk(wt, OPT14, 'srd_aid', 'slot_level_3'), 'desc', None),
     'base-missing': lambda wt: R.set_field(wt / (D14 + 'Spell.json'), 'srd_acid-splash', 'damage_roll', ''),
     'value-in-srd': lambda wt: R.set_field(wt / (D14 + 'Spell.json'), 'srd_acid-splash', 'damage_roll', '1d7'),
+    'damage-types': lambda wt: R.set_field(wt / (D14 + 'Spell.json'), 'srd_fireball', 'damage_types', ['fire', 'cold']),
     'slot-gap': plant_gap,
     'dice-only': lambda wt: R.set_field(wt / OPT14, acid5(wt), 'damage_roll', '+2'),
     'slot-below-base': plant_below_base,

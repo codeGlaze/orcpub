@@ -24,6 +24,7 @@ Rules (each from a mistake made on 2026-10-11/12; docs/kb/open5e-upstream-notes.
                   (an absolute "deals 7d8" equals damage_roll; a delta "increases by 3d4" equals the
                   step times the slots above the base)
   punctuation     a hyphen or dash we put between two words is the one the SRD prints there
+  damage-types    a spell's damage_types is every type its SRD entry deals ("2d6 Cold damage"), no more
   value-in-srd    a damage_roll, target_count or shape_size we set on a spell is in its SRD entry
   unverified      every value we set on a casting option is checked by a rule, or hand-verified
                   (srd-data-reviewed.json rule "hand-verified" with the exact values it covers;
@@ -362,6 +363,36 @@ def check_spell_values(rep, f, old, new, entries):
                 rep.add('value-in-srd', f, pk, field, f'{v!r} is not in the SRD entry for {sp["name"]}')
 
 
+DAMAGE_TYPES = 'acid|bludgeoning|cold|fire|force|lightning|necrotic|piercing|poison|psychic|radiant|slashing|thunder'
+
+
+def srd_damage_types(entry):
+    """The damage types a spell's SRD entry deals: every type in a "... <types> damage" phrase
+    ("2d6 Cold damage", "5d8 acid, cold, fire, lightning, or thunder damage", "20 radiant damage"),
+    leaving out types it only grants resistance or immunity to, or names a vulnerability to."""
+    text = re.sub(r"(?i)\b(?:resistance|immunity|vulnerability|resistant|immune|vulnerable|can't|cannot)\b[^.;]*", ' ', entry)
+    out = set()
+    for m in re.finditer(rf'(?i)\b((?:{DAMAGE_TYPES})(?:(?:,? (?:or|and) |, )(?:{DAMAGE_TYPES}))*) damage', text):
+        out |= {t.lower() for t in re.findall(rf'(?i){DAMAGE_TYPES}', m.group(1))}
+    return out
+
+
+def check_damage_types(rep, f, old, new, entries, audit=False):
+    """damage-types: a spell's damage_types holds every type its SRD entry deals and no other."""
+    for pk, r in new.items():
+        sp = r['fields']
+        if not audit and old.get(pk) == r:
+            continue
+        entry = entries.get(sp.get('name'))
+        if entry is None:
+            continue
+        said, has = srd_damage_types(entry), {t.lower() for t in sp.get('damage_types') or []}
+        if said - has:
+            rep.add('damage-types', f, pk, 'damage_types', f'missing {sorted(said - has)}; has {sorted(has)}')
+        if has - said:
+            rep.add('damage-types', f, pk, 'damage_types', f'not dealt in the SRD text: {sorted(has - said)}')
+
+
 def check_punctuation(rep, f, old, new, raw):
     """punctuation: a hyphen or dash the branch put between two words is the one the SRD prints
     there. Only flags when the SRD has the same two words with different punctuation."""
@@ -458,8 +489,9 @@ def main(argv):
         check_punctuation(rep, path.split('/')[-1], old, new, raw[ed])
         check_reformat(rep, clone, base, path, old, new)
         if path.endswith('/Spell.json'):
-            check_spell_values(rep, f'{ed}/Spell.json', old, new,
-                               spell_entries(raw[ed], [r['fields']['name'] for r in new.values()]))
+            entries = spell_entries(raw[ed], [r['fields']['name'] for r in new.values()])
+            check_spell_values(rep, f'{ed}/Spell.json', old, new, entries)
+            check_damage_types(rep, f'{ed}/Spell.json', old, new, entries)
         if path.endswith('SpellCastingOption.json'):
             spells = {k: v['fields'] for k, v in records(clone, 'HEAD', path.replace('SpellCastingOption', 'Spell')).items()}
             check_options(rep, ed, old, new, spells)
@@ -470,6 +502,9 @@ def main(argv):
         for ed in EDITIONS:
             p = f'data/v2/wizards-of-the-coast/{ed}/'
             spells = {k: v['fields'] for k, v in records(clone, 'HEAD', p + 'Spell.json').items()}
+            sp_new = records(clone, 'HEAD', p + 'Spell.json')
+            check_damage_types(rep, f'{ed}/Spell.json', {}, sp_new,
+                               spell_entries(raw[ed], [r['fields']['name'] for r in sp_new.values()]), audit=True)
             opts = records(clone, 'HEAD', p + 'SpellCastingOption.json')
             check_options(rep, ed, {}, opts, spells, audit=True)
             check_desc_consistency(rep, f'{ed}/SpellCastingOption.json', {}, opts, audit=True)
@@ -482,7 +517,7 @@ def main(argv):
             print(f'audit {ed}: {len(unchecked)} spells have upcast values no rule or hand check covers '
                   f'(upstream data; check before trusting): ' + ', '.join(u.split('_', 1)[1] for u in unchecked))
     check_ratchet(rep, clone, srd52, '--update-baseline' in argv)
-    bad = rep.print(['fidelity', 'punctuation', 'name-case', 'empty-option', 'base-missing', 'value-in-srd', 'slot-gap',
+    bad = rep.print(['fidelity', 'punctuation', 'name-case', 'empty-option', 'base-missing', 'value-in-srd', 'damage-types', 'slot-gap',
                      'dice-only', 'slot-below-base', 'upcast-math', 'cantrip-math', 'desc-math', 'desc-consistency', 'unverified', 'lint-ratchet', 'reformat'])
     print(f'desc-math verified {rep.checked} of {rep.with_desc} records with a desc; the rest match no step sentence')
     print(f'{bad} open finding(s) across {len(names.split())} changed file(s)')
