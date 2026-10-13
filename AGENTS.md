@@ -293,6 +293,11 @@ Key environment variables (via `environ`):
    [java-time.api :as jt]
    ```
 
+### UX — read before designing anything a player sees
+
+[docs/kb/ux-guide.md](docs/kb/ux-guide.md): placement, wording, notices and how designs are reviewed. It is a
+floor, not a ceiling: existing screens are not precedent, and an agreed improvement updates the guide.
+
 ### Re-frame Conventions
 
 Follow existing event/subscription naming in `web/cljs/orcpub/*`.

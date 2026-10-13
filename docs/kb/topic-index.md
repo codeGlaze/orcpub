@@ -90,7 +90,7 @@ _DEPENDENCY_VALIDATION · DEPENDENCY_VALIDATION_
 
 _SESSION-SUMMARY · SESSION SUMMARY_
 
-**topics:** -----, 2026, added, claude, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
+**topics:** -----, 2026, 3449, added, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
 
 - Final State
 - Key Decisions Made
@@ -806,7 +806,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, indirection, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, factories, grant, indirection, live, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -1083,7 +1083,7 @@ _declarative-grant-vocabulary · declarative grant vocabulary_
 
 _demo-content-tier · demo content tier_
 
-**topics:** content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, golden, graduation, pack, per-device, recipe, tier, variant, viable
+**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, golden, graduation, pack, recipe, tier, variant, viable
 
 - Goal
 - Builds on the current content model
@@ -2001,7 +2001,7 @@ _http-fx-patterns · http fx patterns_
 
 _icon-font-failure · icon font failure_
 
-**topics:** arrows, awesome, cause, fa5, font, fonts, glyph, icon, locale-safety, mime, outline, sent, separates, server, stylesheet, svg, webjar, width
+**topics:** 22px, arrows, awesome, cause, fa5, font, fonts, glyph, icon, locale-safety, mime, sent, separates, server, stylesheet, svg, webjar, width
 
 - 1. The failure mode
 - 2. Diagnosing it
@@ -2999,7 +2999,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, source, source-level, stone, tag, tidewater, words
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, muted, source, source-level, stone, tag, tidewater
 
 - What exists today
 - The proposal
@@ -3059,7 +3059,7 @@ _spell-selection-source-fix · spell selection source fix_
 
 _spell-slot-progression · spell slot progression_
 
-**topics:** agreed, artificer, caster, factor, half-caster, integer, multiclass, multiclassing, normal, pact, per-level, progression, slots, solo, sorcerer, spell-granting-across-silos, table, warlock
+**topics:** artificer, caster, factor, factors, half-caster, integer, multiclass, multiclassing, normal, pact, per-level, progression, slots, solo, sorcerer, spell-granting-across-silos, table, warlock
 
 - How slots are computed today — VERIFIED
 - The overload — why Artificer can't be expressed — VERIFIED
@@ -3084,7 +3084,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 2026-10-08, 313, 317, 322, 5etools, conditions, counterpart, editions, gear, magic, monsters, open5e, species, srd, text, weapons
+**topics:** 2014, 2024, 313, 317, 322, 5etools, conditions, counterpart, editions, gear, magic, monsters, open5e, species, srd, text, weapons, word
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -3166,7 +3166,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-data-consumers · srd data consumers_
 
-**topics:** 2026-10-11, 286, 3083-3150, ammunition, armor, belts, facts, few, generated, hand-kept, items, keys, load-time, magic, monsters, spell, srd-2024-roadmap, sub
+**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, literal, load-time, magic, mechanics, monsters, spell, srd-2024-roadmap, sub
 
 - The two facts that shape any move
 - Per type
@@ -3375,6 +3375,23 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 - Recommendations
 - What is not known
 - Revisions
+
+## ux-guide.md
+
+_ux-guide · ux guide_
+
+**topics:** action, archery, assets, balanced, box, l10, notice, phone, picker, planned, player, png, redo, restored, steel, undo, undone, ux-guide
+
+- A floor, not a ceiling
+- Show it beside the control that changes it
+- Nothing hides, and each fact has one home
+- The fallback is the exception
+- Quiet, unless the player must act
+- Mistakes cost nothing
+- Words
+- Where things go
+- Phone first, and how designs are reviewed
+- Decisions log
 
 ## verification-discipline.md
 
