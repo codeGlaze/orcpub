@@ -1847,10 +1847,8 @@
   (let [{:keys [restored undone]} @(subscribe [:orcpub.dnd.e5/restore-notice])
         dismiss #(dispatch [:orcpub.dnd.e5/dismiss-restore])
         box {:icon "fa-history orange" :tone :note :accent :brand :on-close dismiss :compact? true}
-        ;; The header row has no side padding and no text colour of its own.
         framed (fn [cfg]
-                 [:div.m-l-10.m-r-10
-                  [notifications/callout (update cfg :text #(vector :span.main-text-color %))]])]
+                 [notifications/callout (update cfg :text #(vector :span.main-text-color %))])]
     (cond
       (seq undone)
       (framed
@@ -1980,6 +1978,8 @@
         final-selections combined-selections]
     (when print-enabled? (js/console.log "FINAL SELECTIONS" final-selections))
     [:div.w-100-p
+     ;; Above the column, at its width: a notice shares the page's edges and never changes size.
+     [picks-notice]
      [:div#options-column.b-1.b-rad-5
       [section-tabs available-selections built-template character page-index]
       [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
@@ -2689,8 +2689,7 @@
         [:div.flex.justify-cont-s-b.align-items-c.flex-wrap
          [:div
           [missing-content-warning]
-          [relink-question-banner]
-          [picks-notice]]
+          [relink-question-banner]]
          ;; .content has no side padding of its own; keep the toggles off the edge
          [:div.flex.flex-wrap.justify-cont-end.p-r-10
           [theme-toggle]
