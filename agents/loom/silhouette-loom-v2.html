@@ -202,6 +202,7 @@
     </div>
     <div class="changed">
       <div style="opacity:.7;margin-bottom:6px">This copy: <span id="build-line"></span></div>
+      <b>v2.41</b> every PNG that carries the art (pack pieces, reference images, the kit's layer sheet and example) is marked as licensed art, with the pack version and the artist id, in a text chunk the pixels do not change; silhouettes are not marked ·
       <b>v2.40</b> "Fill see-through insides" remembers whether it was ticked: it started unticked on every visit, so a fresh session exported the art unfilled ·
       <b>v2.39</b> a refresh no longer loses your work: the art you drop is kept in this browser and comes back on reload with your eye placements, fill reviews and patches; Clear forgets it. Pull-to-refresh is off on this page ·
       <b>v2.38</b> brushes paint continuous strokes: the gaps between pointer positions are filled in (they left a trail of dots on a quick stroke), every position the browser reports is used, and the picture redraws once a frame; the patch view no longer re-tints its reference pieces on every move ·
@@ -265,6 +266,9 @@
     </label>
     <label class="f">Pack version <span class="vfrom" id="ver-from"></span>
       <input type="text" id="ver" value="v1" size="6">
+    </label>
+    <label class="f" title="Written into every exported PNG that carries the art, so a copy of it can be recognised">Artist id
+      <input type="text" id="artist-id" value="house-pack" size="10">
     </label>
     <label class="f">Download
       <select id="scope">
@@ -333,7 +337,7 @@
 <script>
 'use strict';
 
-const LOOM_VERSION = 'v2.40';
+const LOOM_VERSION = 'v2.41';
 const LOOM_BUILD = 'dev'; // stamped by release-loom.py
 // one version, everywhere it shows: the title and the badge used to be typed
 // in separately and fell behind
@@ -1856,6 +1860,8 @@ async function addFile(file, path) {
             : (prior ? structuredClone(prior.iris)
                      : (isEye ? detectIrises(processed) : []))
                 .map(e => ({ ...e, lid: e.lid || defaultLid(e) })),
+      // prototype mode flattened it: a silhouette, so its exports carry no art mark
+      silhouette: $('mode').value === 'prototype',
       pupil: kept ? kept.pupil : (prior ? prior.pupil : 0.45),
       whites: kept ? !!kept.whites : !!(prior && prior.whites),
       undo: kept && kept.undo ? kept.undo : [], redo: kept && kept.redo ? kept.redo : [],
@@ -2458,8 +2464,8 @@ $('save').addEventListener('click', async () => {
                                    if (patched) e.px = withPatch(new Uint8ClampedArray(e.px), patchState(it));
                                    filledCopy(it.processed, e).toBlob(r, 'image/png'); })
         : it.blob;
-      entries.push({ name: `${dir}/${stem}.png`,
-                     bytes: new Uint8Array(await blob.arrayBuffer()) });
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      entries.push({ name: `${dir}/${stem}.png`, bytes: it.silhouette ? bytes : withArtMark(bytes) });
     }
     entries.push({ name: 'manifest.json',
                    bytes: new TextEncoder().encode(JSON.stringify(buildManifest(chosen), null, 2) + '\n') });
@@ -2613,6 +2619,42 @@ function kitSample(it, kh, mark) {
 }
 
 const blobOf = (c) => new Promise(r => c.toBlob(r, 'image/png'));
+
+/* ---------- the art mark ----------
+   Every PNG that carries the art gets an iTXt chunk, keyword "orcpub-art", so a copy can be
+   recognised (the app's guard refuses any image carrying it). Inserted after IHDR, so the image
+   data, and with it every pixel, is byte for byte what the browser encoded. */
+const ART_MARK_KEY = 'orcpub-art';
+const artMarkText = () =>
+  `licensed; pack ${packVersion()}; artist ${(($('artist-id').value || 'unknown').trim()) || 'unknown'}`;
+// crc32 is the zip writer's, above: PNG chunks use the same CRC
+function hasArtMark(bytes) {
+  for (let i = 8; i + 8 <= bytes.length;) {
+    const len = ((bytes[i] << 24) | (bytes[i + 1] << 16) | (bytes[i + 2] << 8) | bytes[i + 3]) >>> 0;
+    const type = String.fromCharCode(bytes[i + 4], bytes[i + 5], bytes[i + 6], bytes[i + 7]);
+    if (type === 'iTXt') {
+      const kw = new TextDecoder('latin1').decode(bytes.subarray(i + 8, i + 8 + Math.min(len, ART_MARK_KEY.length + 1)));
+      if (kw === ART_MARK_KEY + '\0') return true;
+    }
+    if (type === 'IDAT' || type === 'IEND') return false;
+    i += 12 + len;
+  }
+  return false;
+}
+function withArtMark(bytes, text = artMarkText()) {
+  if (hasArtMark(bytes)) return bytes;
+  const enc = new TextEncoder();
+  const data = new Uint8Array([...enc.encode(ART_MARK_KEY), 0, 0, 0, 0, 0, ...enc.encode(text)]);
+  const chunk = new Uint8Array(12 + data.length), dv = new DataView(chunk.buffer);
+  dv.setUint32(0, data.length);
+  chunk.set(enc.encode('iTXt'), 4); chunk.set(data, 8);
+  dv.setUint32(8 + data.length, crc32(chunk.subarray(4, 8 + data.length)));
+  const ihdrEnd = 8 + 12 + 13; // signature, then the IHDR chunk: always first, always 13 bytes of data
+  const out = new Uint8Array(bytes.length + chunk.length);
+  out.set(bytes.subarray(0, ihdrEnd), 0); out.set(chunk, ihdrEnd); out.set(bytes.subarray(ihdrEnd), ihdrEnd + chunk.length);
+  return out;
+}
+const markedBytesOf = async (c) => withArtMark(await bytesOf(c));
 const bytesOf = async (c) => new Uint8Array(await (await blobOf(c)).arrayBuffer());
 
 function kitReadme(assets, layers, src, kh, brief) {
@@ -2701,7 +2743,7 @@ $('kit-images').addEventListener('click', async () => {
     const kh = kitHeight(assets), mark = ($('kit-mark').value || '').trim();
     const entries = [];
     for (const it of assets)
-      entries.push({ name: `${it.layer.key}/${it.name.replace(/\.[^.]+$/, '')}.png`, bytes: await bytesOf(kitSample(it, kh, mark)) });
+      entries.push({ name: `${it.layer.key}/${it.name.replace(/\.[^.]+$/, '')}.png`, bytes: await markedBytesOf(kitSample(it, kh, mark)) });
     await download(await makeZip(entries), `reference-images-${kh}px-${packVersion()}.zip`);
     say(`Reference images: ${assets.length} pieces at ${kh}px tall.`);
   } catch (e) {
@@ -2759,7 +2801,7 @@ $('kit').addEventListener('click', async () => {
         sg.drawImage(samples.get(it), x, y);
       });
     });
-    entries.push({ name: 'sheets/layers.png', bytes: await bytesOf(sheet) });
+    entries.push({ name: 'sheets/layers.png', bytes: await markedBytesOf(sheet) });
     // one of each, stacked
     const ex = kitCanvas(cw, kh), eg = ex.getContext('2d');
     eg.fillStyle = '#ffffff'; eg.fillRect(0, 0, cw, kh);
@@ -2767,7 +2809,7 @@ $('kit').addEventListener('click', async () => {
     if (mark) { const m = kitCanvas(cw, kh), mg = m.getContext('2d');
                 for (const [, list] of layers) mg.drawImage(list[0].original, 0, 0, cw, kh);
                 watermark(mg, cw, kh, mark); eg.drawImage(m, 0, 0); }
-    entries.push({ name: 'sheets/example.png', bytes: await bytesOf(ex) });
+    entries.push({ name: 'sheets/example.png', bytes: await markedBytesOf(ex) });
     // the full-size canvas, with only a pale silhouette of the body to draw over
     const guide = kitCanvas(src.w, src.h), gg = guide.getContext('2d');
     const body = kitCanvas(src.w, src.h), bg = body.getContext('2d');
