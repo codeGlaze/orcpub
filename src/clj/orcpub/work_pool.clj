@@ -42,13 +42,15 @@
    within the timeout. The permit is released however `f` ends."
   [p f]
   (let [^java.util.concurrent.atomic.AtomicInteger w (:waiting p)
-        waiting (.incrementAndGet w)]
-    (try
-      (if (.tryAcquire (permits p) (long ((:timeout-ms p))) java.util.concurrent.TimeUnit/MILLISECONDS)
-        (let [start (System/nanoTime)]
-          (try {:result (f)}
-               (finally
-                 (record! p (/ (- (System/nanoTime) start) 1e6))
-                 (.release (permits p)))))
-        {:busy (retry-after-seconds p waiting) :waiting waiting})
-      (finally (.decrementAndGet w)))))
+        waiting (.incrementAndGet w)
+        ;; waiting means waiting for a permit: the count drops as soon as the wait ends
+        acquired? (try (.tryAcquire (permits p) (long ((:timeout-ms p)))
+                                    java.util.concurrent.TimeUnit/MILLISECONDS)
+                       (finally (.decrementAndGet w)))]
+    (if acquired?
+      (let [start (System/nanoTime)]
+        (try {:result (f)}
+             (finally
+               (record! p (/ (- (System/nanoTime) start) 1e6))
+               (.release (permits p)))))
+      {:busy (retry-after-seconds p waiting) :waiting waiting})))
