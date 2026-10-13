@@ -57,6 +57,19 @@
     (is (= (seq (body-bytes (example "fusspot" "2")))
            (seq (body-bytes (example "fusspot" "2")))))))
 
+(deftest a-failed-render-is-tried-again
+  (testing "a render that fails is not kept: the next request renders again, and a success is kept"
+    (let [calls (atom 0)]
+      (with-redefs [ap/example-portraits (fn [_] [{:layers {}}])
+                    render/render-example-jpeg (fn [_ _]
+                                                 (swap! calls inc)
+                                                 (when (> @calls 1) (byte-array [1 2 3])))]
+        (is (nil? (#'routes/example-jpeg :cache-test-artist 1 "t")) "the first render fails")
+        (is (= [1 2 3] (seq (#'routes/example-jpeg :cache-test-artist 1 "t")))
+            "the next request renders again instead of serving the failure")
+        (#'routes/example-jpeg :cache-test-artist 1 "t")
+        (is (= 2 @calls) "and the success is kept")))))
+
 (deftest there-are-only-three-examples
   (doseq [n ["0" "4" "x" "1.jpg" nil]]
     (is (= 404 (:status (example "fusspot" n))) (pr-str n))))
