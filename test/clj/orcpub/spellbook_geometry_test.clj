@@ -83,6 +83,7 @@
     (let [levels (set (map (comp :level spell-of) (mapcat val book-spells)))]
       (is (contains? levels 0))
       (is (contains? levels 9))))
-  (testing "spellbook.clj really does duplicate the constant this test protects"
-    (is (= @#'sb/bezier-k @#'pdf/bezier-k)
-        "bezier-k is declared in both files; unify them, do not let them drift")))
+  (testing "bezier-k is not declared twice again"
+    (is (nil? (get (ns-interns 'orcpub.spellbook) 'bezier-k))
+        "spellbook re-declared bezier-k; it shares pdf/bezier-k")
+    (is (= 0.5522847 pdf/bezier-k))))

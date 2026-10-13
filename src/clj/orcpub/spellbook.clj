@@ -163,12 +163,10 @@
 
 ;; ─── Line art ────────────────────────────────────────────────────────────────
 
-(def ^:private bezier-k 0.5522847)
-
 (defn- circle-path!
   "Adds a circle of radius `r` about (cx, cy) to the current path, as four cubic curves."
   [cs cx cy r]
-  (let [k (* r bezier-k) x (float cx) y (py cy)]
+  (let [k (* r pdf/bezier-k) x (float cx) y (py cy)]
     (.moveTo cs (float (+ cx r)) y)
     (.curveTo cs (float (+ cx r)) (py (- cy k)) (float (+ cx k)) (py (- cy r)) x (py (- cy r)))
     (.curveTo cs (float (- cx k)) (py (- cy r)) (float (- cx r)) (py (- cy k)) (float (- cx r)) y)
