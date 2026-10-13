@@ -76,6 +76,8 @@ PLANTS = {
     # damage done TO the wall ("destroyed by dealing at least 60 force damage") is not damage it deals
     'damage-types/destroyed': lambda wt: R.set_field(wt / (D14 + 'Spell.json'), 'srd_prismatic-wall', 'damage_types',
                                                      ['fire', 'cold', 'acid', 'lightning', 'poison', 'force']),
+    # "damage of a type you choose: Acid, Cold, ..." must count those types as dealt
+    'damage-types/chosen': lambda wt: R.set_field(wt / (D24 + 'Spell.json'), 'srd-2024_sorcerous-burst', 'damage_types', ['acid']),
     'slot-gap': plant_gap,
     'dice-only': lambda wt: R.set_field(wt / OPT14, acid5(wt), 'damage_roll', '+2'),
     'slot-below-base': plant_below_base,

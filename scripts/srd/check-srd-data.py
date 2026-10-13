@@ -370,12 +370,16 @@ DAMAGE_TYPES = 'acid|bludgeoning|cold|fire|force|lightning|necrotic|piercing|poi
 def srd_damage_types(entry):
     """The damage types a spell's SRD entry deals: every type in a "... <types> damage" phrase
     ("2d6 Cold damage", "5d8 acid, cold, fire, lightning, or thunder damage", "20 radiant damage"),
+    and every type it names when it deals "damage of the chosen type" (Chromatic Orb),
     leaving out types it only grants resistance or immunity to, or names a vulnerability to."""
     text = re.sub(r"(?i)\b(?:resistance|immunity|vulnerability|resistant|immune|vulnerable|can't|cannot)\b[^.;]*", ' ', entry)
     text = re.sub(r'(?i)[^.;]*\b(?:destroyed|dispelled|breached) (?:by dealing|if it takes|when it takes)[^.;]*', ' ', text)   # damage done to the effect
     out = set()
     for m in re.finditer(rf'(?i)\b((?:{DAMAGE_TYPES})(?:(?:,? (?:or|and) |, )(?:{DAMAGE_TYPES}))*) damage', text):
         out |= {t.lower() for t in re.findall(rf'(?i){DAMAGE_TYPES}', m.group(1))}
+    if re.search(r"(?i)damage of (?:the|a|the spirit's) [^.]*?type|this damage is", text):
+        names = '|'.join(t.capitalize() for t in DAMAGE_TYPES.split('|'))    # capitalised: "force a save" is a verb
+        out |= {t.lower() for t in re.findall(rf'\b(?:{names})\b', text)}   # "choose Acid, Cold ..." then "damage of the chosen type"
     return out
 
 
