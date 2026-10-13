@@ -654,6 +654,15 @@
            (finally (.dispose g)))
          img)))))
 
+(defn source-marks
+  "The licensed-art marks of the pieces `portrait` is drawn from, one per selected layer (nil for
+   an unmarked piece): what anything drawn from it must carry, via art-mark/carry-marks."
+  [portrait]
+  (for [k pa/layer-order
+        :let [url (some-> (pa/selected-asset portrait k) :asset/url)]
+        :when url]
+    (some-> (asset-source url) :bytes art-mark/read-mark)))
+
 (defn render-png
   "PNG bytes for `portrait`, or nil when there is nothing to draw. Carries the licensed-art mark
    (orcpub.art-mark) when any piece drawn from carries one."
@@ -663,12 +672,7 @@
      (when-let [img (render portrait w h)]
        (let [out (ByteArrayOutputStream.)]
          (when (ImageIO/write img "png" out)
-           (let [marks (for [k pa/layer-order
-                             :let [url (some-> (pa/selected-asset portrait k) :asset/url)]
-                             :when url]
-                         (some-> (asset-source url) :bytes art-mark/mark-of))]
-             (cond-> (.toByteArray out)
-               (some some? marks) (art-mark/with-mark (art-mark/composed marks)))))))
+           (art-mark/carry-marks (.toByteArray out) (source-marks portrait)))))
      (catch Exception e
        (println "portrait-render: render failed -" (.getMessage e))
        nil))))
@@ -771,7 +775,7 @@
           (.drawImage g (halve-toward full w h) 0 0 nil)
           (when-not (s/blank? watermark) (draw-watermark! g watermark w h))
           (finally (.dispose g)))
-        (jpeg-bytes out example-quality)))
+        (art-mark/carry-marks (jpeg-bytes out example-quality) (source-marks portrait))))
     (catch Exception e
       (println "portrait-render: example failed -" (.getMessage e))
       nil)))

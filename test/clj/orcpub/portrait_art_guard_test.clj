@@ -90,8 +90,8 @@
    there; the file's own compression hides it from a plain byte search)."
   [^bytes b]
   (try (with-open [doc (org.apache.pdfbox.Loader/loadPDF b)]
-         (some? (.getCustomMetadataValue (.getDocumentInformation doc) art-mark/key-word)))
-       (catch Exception _ (str/includes? (String. b "ISO-8859-1") art-mark/key-word))))
+         (some? (.getCustomMetadataValue (.getDocumentInformation doc) art-mark/mark-keyword)))
+       (catch Exception _ (str/includes? (String. b "ISO-8859-1") art-mark/mark-keyword))))
 
 (defn marked-files
   "Paths git tracks or would commit that carry the licensed-art mark: a PNG's orcpub-art chunk, or
@@ -104,9 +104,9 @@
                      (.isFile (io/file path))
                      (not (and private? (str/starts-with? path (str art-dir "/")))))
           :let [b (Files/readAllBytes (.toPath (io/file path)))]
-          :when (cond (re-find #"(?i)\.png$" path) (art-mark/marked? b)
+          :when (cond (re-find #"(?i)\.(png|jpe?g)$" path) (art-mark/marked? b)
                       (re-find #"(?i)\.pdf$" path) (pdf-marked? b)
-                      :else (str/includes? (String. ^bytes b "ISO-8859-1") art-mark/key-word))]
+                      :else (str/includes? (String. ^bytes b "ISO-8859-1") art-mark/mark-keyword))]
       path)))
 
 (defn linework

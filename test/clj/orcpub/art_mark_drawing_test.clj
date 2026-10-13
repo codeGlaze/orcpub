@@ -55,33 +55,40 @@
                                       (cond-> src
                                         (and src (str/includes? (:mime src) "png"))
                                         (assoc :bytes (or (when marked-pack (pack-bytes url))
-                                                          (mark/with-mark (:bytes src) "licensed; pack test; artist test"))))))]
+                                                          (mark/write-mark (:bytes src) "licensed; pack test; artist test"))))))]
       (f))))
 
 (deftest marking-leaves-every-pixel-as-it-was
   (doseq [url (take 4 (map :asset/url (mapcat val (:artist/layers pa/house-pack))))
           :let [plain (resource-bytes (str "public" url))
-                marked (mark/with-mark plain "licensed; pack test; artist test")]]
-    (is (nil? (mark/mark-of plain)) "a silhouette carries no mark")
-    (is (= "licensed; pack test; artist test" (mark/mark-of marked)))
+                marked (mark/write-mark plain "licensed; pack test; artist test")]]
+    (is (nil? (mark/read-mark plain)) "a silhouette carries no mark")
+    (is (= "licensed; pack test; artist test" (mark/read-mark marked)))
     (is (= (pixels plain) (pixels marked)) url)
     (is (= (vec (drop 33 plain)) (vec (drop (- (alength marked) (- (alength plain) 33)) marked)))
         "the image data is byte for byte the same")
-    (is (identical? marked (mark/with-mark marked "again")) "marking twice adds nothing")))
+    (is (identical? marked (mark/write-mark marked "again")) "marking twice adds nothing")))
 
 (deftest a-picture-drawn-from-marked-pieces-is-marked
-  (is (nil? (mark/mark-of (pr/render-png (portrait)))) "drawn from silhouettes: no mark")
+  (is (nil? (mark/read-mark (pr/render-png (portrait)))) "drawn from silhouettes: no mark")
   (with-marked-art
     #(let [png (pr/render-png (portrait))]
-       (is (str/starts-with? (str (mark/mark-of png)) "licensed; composed from ")
+       (is (str/starts-with? (str (mark/read-mark png)) "licensed; composed from ")
            (str "drawn from marked pieces: marked" (when marked-pack " (the real pack)"))))))
+
+(deftest an-artist-page-example-drawn-from-marked-pieces-is-marked
+  (is (nil? (mark/read-mark (pr/render-example-jpeg (portrait) "w"))) "drawn from silhouettes: no mark")
+  (with-marked-art
+    #(is (str/starts-with? (str (mark/read-mark (pr/render-example-jpeg (portrait) "w")))
+                           "licensed; composed from ")
+         "the small watermarked JPEG carries the mark like every other drawing")))
 
 (deftest strand-files-from-marked-art-are-marked
   (let [dir (.toFile (Files/createTempDirectory "strands" (make-array java.nio.file.attribute.FileAttribute 0)))
         f (io/file dir "bangs" "l9_bangs_01.png")]
     (try
       (io/make-parents f)
-      (io/copy (mark/with-mark (resource-bytes "public/image/portraits/bangs/l9_bangs_01.png") "licensed; pack test; artist test") f)
+      (io/copy (mark/write-mark (resource-bytes "public/image/portraits/bangs/l9_bangs_01.png") "licensed; pack test; artist test") f)
       (strands/write-missing! (.getPath dir) true)
       (is (mark/marked? (Files/readAllBytes (.toPath (io/file dir "bangs" "l9_bangs_01.strands.png"))))
           "a strand file worked out from marked art carries the mark")
@@ -104,7 +111,7 @@
     (try
       (.mkdirs docs)
       (io/copy (or (when marked-pack (pack-bytes "/image/portraits/hair-front/l4_hair_front_01.png"))
-                   (mark/with-mark (resource-bytes "public/image/portraits/hair-front/l4_hair_front_01.png") "licensed; pack test; artist test"))
+                   (mark/write-mark (resource-bytes "public/image/portraits/hair-front/l4_hair_front_01.png") "licensed; pack test; artist test"))
                piece)
       (with-marked-art #(io/copy (pr/render-png (portrait)) composite))
       (let [found (set (guard/marked-files))]

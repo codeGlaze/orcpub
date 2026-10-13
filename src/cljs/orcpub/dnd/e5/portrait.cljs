@@ -780,7 +780,7 @@
                   :when url]
               (-> (js/fetch url)
                   (.then #(.arrayBuffer %))
-                  (.then #(art-mark/mark-of (js/Uint8Array. %)))
+                  (.then #(art-mark/read-mark (js/Uint8Array. %)))
                   (.catch (constantly nil)))))))
 
 (defn- rasterize*
@@ -931,8 +931,7 @@
   [portrait]
   (-> (js/Promise.all #js [(rasterize* portrait) (piece-marks portrait)])
       (.then (fn [[b64 marks]]
-               (let [m (art-mark/composed (array-seq marks))]
-                 (if (and b64 m) (bytes->b64 (art-mark/with-mark (b64->bytes b64) m)) b64))))))
+               (when b64 (bytes->b64 (art-mark/carry-marks (b64->bytes b64) (array-seq marks))))))))
 
 ;; Portraits baked ahead of export, by value: {:promise p} while baking, then {:png b64-or-nil}.
 (defonce ^:private baked (atom {}))
