@@ -471,6 +471,13 @@ def main(argv):
             check_options(rep, ed, {}, opts, spells, audit=True)
             check_desc_consistency(rep, f'{ed}/SpellCastingOption.json', {}, opts, audit=True)
             check_cantrip_math(rep, f'{ed}/SpellCastingOption.json', {}, opts, spells, audit=True)
+            unchecked = sorted({r['fields']['parent'] for pk, r in opts.items()
+                                if r['fields']['type'].startswith(('slot_level_', 'player_level_'))
+                                and any(r['fields'].get(k) not in (None, '') and (pk, k) not in rep.verified
+                                        and (f'{ed}/SpellCastingOption.json', r['fields']['parent'], k) not in rep.hand
+                                        for k in VALUE_FIELDS)})
+            print(f'audit {ed}: {len(unchecked)} spells have upcast values no rule or hand check covers '
+                  f'(upstream data; check before trusting): ' + ', '.join(u.split('_', 1)[1] for u in unchecked))
     check_ratchet(rep, clone, srd52, '--update-baseline' in argv)
     bad = rep.print(['fidelity', 'punctuation', 'name-case', 'empty-option', 'base-missing', 'value-in-srd', 'slot-gap',
                      'dice-only', 'slot-below-base', 'upcast-math', 'cantrip-math', 'desc-math', 'desc-consistency', 'unverified', 'lint-ratchet', 'reformat'])
