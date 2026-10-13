@@ -371,6 +371,7 @@ def srd_damage_types(entry):
     ("2d6 Cold damage", "5d8 acid, cold, fire, lightning, or thunder damage", "20 radiant damage"),
     leaving out types it only grants resistance or immunity to, or names a vulnerability to."""
     text = re.sub(r"(?i)\b(?:resistance|immunity|vulnerability|resistant|immune|vulnerable|can't|cannot)\b[^.;]*", ' ', entry)
+    text = re.sub(r'(?i)[^.;]*\b(?:destroyed|dispelled|breached) (?:by dealing|if it takes|when it takes)[^.;]*', ' ', text)   # damage done to the effect
     out = set()
     for m in re.finditer(rf'(?i)\b((?:{DAMAGE_TYPES})(?:(?:,? (?:or|and) |, )(?:{DAMAGE_TYPES}))*) damage', text):
         out |= {t.lower() for t in re.findall(rf'(?i){DAMAGE_TYPES}', m.group(1))}

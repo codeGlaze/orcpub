@@ -98,7 +98,7 @@ seen to fail on the mistake before it was trusted:
 | name-case | a name change that is more than letter case | retitling that "improves" a name |
 | empty-option | a casting option that sets nothing | the kind open5e deleted (#749) |
 | base-missing | casting options that set dice or targets on a spell whose own base is empty | 13 srd-2014 and 3 srd-2024 spells (Acid Splash, Cure Wounds, Conjure Celestial) scaled from nothing |
-| damage-types | a spell's `damage_types` missing a type its SRD text deals, or listing one it only resists or never deals | 32 srd-2014 spells (Magic Missile had none); srd-2024 Wall of Ice listed fire and psychic from its immunity line |
+| damage-types | a spell's `damage_types` missing a type its SRD text deals, or listing one it only resists, takes ("destroyed by dealing 60 force damage") or never deals | 32 srd-2014 spells (Magic Missile had none); srd-2024 Wall of Ice listed fire and psychic from its immunity line |
 | value-in-srd | a base dice, target count or area we set on a spell that is not in its SRD entry (the transcript, not open5e's copy) | bases filled from open5e's text were checked against the SRD by hand |
 | slot-gap | slot options that skip a level before 9 | Conjure Animals had no slot 6 |
 | dice-only | `damage_roll` holding anything but dice | Magic Weapon's "+2" |

@@ -73,12 +73,15 @@ PLANTS = {
     'base-missing': lambda wt: R.set_field(wt / (D14 + 'Spell.json'), 'srd_acid-splash', 'damage_roll', ''),
     'value-in-srd': lambda wt: R.set_field(wt / (D14 + 'Spell.json'), 'srd_acid-splash', 'damage_roll', '1d7'),
     'damage-types': lambda wt: R.set_field(wt / (D14 + 'Spell.json'), 'srd_fireball', 'damage_types', ['fire', 'cold']),
+    # damage done TO the wall ("destroyed by dealing at least 60 force damage") is not damage it deals
+    'damage-types/destroyed': lambda wt: R.set_field(wt / (D14 + 'Spell.json'), 'srd_prismatic-wall', 'damage_types',
+                                                     ['fire', 'cold', 'acid', 'lightning', 'poison', 'force']),
     'slot-gap': plant_gap,
     'dice-only': lambda wt: R.set_field(wt / OPT14, acid5(wt), 'damage_roll', '+2'),
     'slot-below-base': plant_below_base,
     'upcast-math': lambda wt: R.set_field(wt / OPT14, acid5(wt), 'damage_roll', '8d4'),
     # Wall of Ice scales two damages: a wrong value there must surface as unverified, never pass as checked
-    'unverified-two-damages': lambda wt: R.set_field(wt / OPT14, option_pk(wt, OPT14, 'srd_wall-of-ice', 'slot_level_7'), 'damage_roll', '11d6'),
+    'unverified/two-damages': lambda wt: R.set_field(wt / OPT14, option_pk(wt, OPT14, 'srd_wall-of-ice', 'slot_level_7'), 'damage_roll', '11d6'),
     'cantrip-math': lambda wt: R.set_field(wt / OPT14, option_pk(wt, OPT14, 'srd_fire-bolt', 'player_level_11'), 'damage_roll', '2d10'),
     'desc-math': lambda wt: R.set_field(wt / OPT14, acid5(wt), 'desc', 'The damage (both initial and later) increases by 4d4.'),
     'desc-consistency': lambda wt: R.set_field(wt / OPT14, option_pk(wt, OPT14, 'srd_aid', 'slot_level_4'), 'desc',
@@ -116,12 +119,12 @@ def main():
         for rule, plant in PLANTS.items():
             plant(wt)
             git(wt, '-c', 'commit.gpgsign=false', 'commit', '-qam', f'self-test: {rule}')
-            got = run_check(wt).get(rule.split('-two-')[0] if rule.startswith('unverified-') else rule)
+            got = run_check(wt).get(rule.split('/')[0])          # "rule/variant" plants a second case for a rule
             print(f'{"ok  " if got == "FAIL" else "BLIND"}  {rule}')
             if got != 'FAIL':
                 bad.append(rule)
             git(wt, 'reset', '-q', '--hard', 'HEAD~1')
-        missing = set(run_check(wt)) - {k.split('-two-')[0] for k in PLANTS}
+        missing = set(run_check(wt)) - {k.split('/')[0] for k in PLANTS}
         if missing:
             print('rules with no planted mistake:', sorted(missing))
             bad += sorted(missing)
