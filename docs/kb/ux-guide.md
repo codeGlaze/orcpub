@@ -28,6 +28,17 @@ cannot make yet makes them hunt for it.
 | ![Planned: Steel Will (L7) under the class row, beside the level picker](assets/ux-guide/c1-one-planned.png) | ![A Defensive Tactics heading with no options, only a Planned line](assets/ux-guide/r1-own-section.png) |
 | Under the class, beside the level picker. | A heading for a section the player cannot use yet. |
 
+## Size things by the layout, not by their content
+
+A box takes its width from the page: it shares the edges of the column it sits in, and it keeps its
+size when its text changes. Shrink-wrapping a box to its text gives every state a different,
+arbitrary width.
+
+| Do | Avoid |
+|---|---|
+| ![The notice at the options column's width, on its edges](assets/ux-guide/layout-sized.png) | ![The notice shrink-wrapped to "Undone", narrower than the page](assets/ux-guide/content-sized.png) |
+| The column's width; the same size for every state. | Sized to its text; it changes width when the text does. |
+
 ## Nothing hides, and each fact has one home
 
 Every stored choice can be seen, or reached in one tap, from where a player would look. Say it once,
@@ -83,7 +94,7 @@ The app's patterns and what each is for. When a better one is agreed, it replace
 | Pattern | For | Example |
 |---|---|---|
 | Top banner | a confirmation or error that needs no action, gone by itself | "Saved" |
-| Notice box in the builder, above the tabs: an icon and a balanced amber gradient ring, no coloured fill, text left and action right | a notice with an action, until dismissed; never reads as a warning | ![Notice box: 3 choices don't apply right now · Show details](assets/ux-guide/b1-opened.png) |
+| Notice box above the options column, at its width: an icon and a balanced amber gradient ring, no coloured fill, text left and action with its close mark right | a notice with an action, until dismissed; never reads as a warning | ![Notice box: 3 choices don't apply right now · Show details](assets/ux-guide/b1-opened.png) |
 | In the section row | the state of that section | "Planned: Archery (L10)" |
 | Under a class row, beside the level picker | what the class's level or order is holding back | "3 planned at higher levels" |
 | Link button inside text | an action within a sentence | "Show details" |
@@ -117,6 +128,9 @@ Newest last. Date, ruling, and what it replaced.
   until a better design is found.
 - 2026-10-13: the notice box gets an icon and a balanced amber gradient ring, no coloured fill.
   Replaced the faint outline.
+
+- 2026-10-13: boxes are sized by the layout, not their content; the restore notice spans the
+  options column. Replaced a notice shrink-wrapped to its text.
 
 **Open:** where a subrace waiting on its race shows (the section row crowds the header; the race
 card squeezes the name).

@@ -2940,7 +2940,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _secrets-in-boot-output · secrets in boot output_
 
-**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, column, credential, database, ex-info, find-and-replace, leak, log, logs, print, query, redact, uri
+**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, credential, database, ex-info, find-and-replace, innocuous, leak, log, logs, print, query, redact, uri
 
 - It was in four places, not one
 - Redact at the boundary, and only what is logged
@@ -3380,10 +3380,11 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** action, archery, assets, balanced, box, l10, notice, phone, picker, planned, player, png, redo, restored, steel, undo, undone, ux-guide
+**topics:** 2026-10-13, action, assets, balanced, box, l10, notice, picker, planned, player, png, redo, restored, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
+- Size things by the layout, not by their content
 - Nothing hides, and each fact has one home
 - The fallback is the exception
 - Quiet, unless the player must act
