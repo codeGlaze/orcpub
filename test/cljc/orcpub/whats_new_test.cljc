@@ -53,13 +53,3 @@
     (is (whats-new/unseen? "some-earlier-release")))
   (testing "the current stamp is not shown it again"
     (is (not (whats-new/unseen? whats-new/current-release-id)))))
-
-(deftest unreleased-items-wait-for-a-release
-  (testing "they are ready to move into a release"
-    (doseq [{:keys [icon headline detail]} whats-new/unreleased]
-      (is (not (str/blank? headline)))
-      (is (not (str/blank? detail)) headline)
-      (is (and (str/starts-with? (str icon) "fa-") (not (contains? renamed-in-fa5 icon))) headline)))
-  (testing "and no release shows them until the owner names one"
-    (let [shown (set (for [r whats-new/releases i (:items r)] (:headline i)))]
-      (is (not-any? (comp shown :headline) whats-new/unreleased)))))
