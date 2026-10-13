@@ -5,7 +5,7 @@
 (defn checkbox
   "A tick box, checked when `selected?` and dimmed when `disable?` (.checkbox in core.clj)."
   [selected? disable?]
-  [:i.fa.fa-check.checkbox
+  [:span.checkbox
    {:class (str (when selected? "checked") (when disable? " disabled"))}])
 
 (defn labeled-checkbox [label selected? disabled? on-click]
