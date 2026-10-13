@@ -192,11 +192,12 @@
 
 (defn get-portrait-store-dir
   "Where the server keeps its drawings of shared-link portraits, from PORTRAIT_STORE_DIR. Defaults
-   to data/portraits under the working directory. Point several containers at one shared volume
-   and each portrait is drawn once for all of them; without one, each container draws a portrait
-   the first time it is asked and keeps the file. docs/PORTRAIT-SERVING.md."
+   to orcpub-portraits under the system temp directory: the Docker image runs from / as a user
+   that can write only /tmp. Point several containers at one shared volume and each portrait is
+   drawn once for all of them. docs/PORTRAIT-SERVING.md."
   []
-  (or (not-empty (env/value :portrait-store-dir)) "data/portraits"))
+  (or (not-empty (env/value :portrait-store-dir))
+      (str (io/file (System/getProperty "java.io.tmpdir") "orcpub-portraits"))))
 
 (defn dev-mode?
   "Returns true when running in dev mode (DEV_MODE env var is 'true').

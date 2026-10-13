@@ -33,7 +33,11 @@
   (is (= "Links must start with https://" (ac/url-problem "http://fusspot.rip/")))
   (is (= "Links must start with https://" (ac/url-problem "fusspot.rip")))
   (is (= "Links must start with https://" (ac/url-problem "javascript:alert(1)")))
-  (is (some? (ac/url-problem "https://user@evil.test/")) "no credentials-in-URL tricks"))
+  (is (some? (ac/url-problem "https://user@evil.test/")) "no credentials-in-URL tricks")
+  (is (some? (ac/url-problem "https://evil.test\\x.twitch.tv/"))
+      "a backslash is a path separator to a browser: this opens evil.test, not Twitch")
+  (is (some? (ac/url-problem "https://evil.test%2f.twitch.tv/")) "nor an encoded one")
+  (is (nil? (ac/url-problem "https://xn--bcher-kva.example/")) "an international domain in its ASCII form is fine"))
 
 (deftest the-icon-comes-from-the-link
   (is (= "twitch" (ac/icon-for-url "https://www.twitch.tv/fusspot")))

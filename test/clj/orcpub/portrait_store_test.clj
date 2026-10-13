@@ -141,3 +141,29 @@
         (is (= kept body) "what is served is the kept file")
         (is (= (vec (portrait-render/render-png (char5e/parse-portrait stored))) body)
             "and that is the server's drawing of the saved selection")))))
+
+(deftest a-crafted-portrait-cannot-break-the-character
+  (let [nested (apply str (repeat 20000 "["))]
+    (testing "deeply nested data overflowed the reader's stack with an Error, not an Exception"
+      (is (nil? (char5e/parse-portrait nested)))
+      (is (nil? (char5e/parse-portrait (apply str (repeat 5000 "[")))) "nested but short enough to read"))
+    (with-conn conn
+      (let [c (setup conn)
+            id (save! c {::char5e/portrait nested ::char5e/notes "still saved"})]
+        (is (some? id) "the save goes through")
+        (is (= "still saved" (get-in (d/pull (d/db c) '[{::se/values [::char5e/notes]}] id) [::se/values ::char5e/notes])))
+        (is (nil? (get-in (d/pull (d/db c) '[{::se/values [::char5e/portrait]}] id) [::se/values ::char5e/portrait]))
+            "and the junk is not stored")
+        (is (= 404 (:status (served c id))) "the image route answers, with no picture")))))
+
+(deftest a-store-that-cannot-write-still-serves-the-drawing
+  (testing "the Docker image runs from / as a user that can write only /tmp; a failed write must
+            not fail the request"
+    (let [blocker (java.io.File/createTempFile "not-a-dir" ".txt")]
+      (try
+        (with-redefs [config/get-portrait-store-dir (constantly (.getPath (io/file blocker "portraits")))]
+          (let [stored (pr-str (portrait "#5c3a1e"))
+                [outcome png] (store/png 999 (store/tag stored) stored)]
+            (is (= :ok outcome))
+            (is (pos? (alength ^bytes png)) "the drawing is served though it could not be kept")))
+        (finally (.delete blocker))))))
