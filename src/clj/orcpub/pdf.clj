@@ -12,6 +12,7 @@
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.display :as dis5e]
             [orcpub.dnd.e5.spell-print :as sp]
+            [orcpub.pdf.canvas :as canvas]
             [orcpub.dnd.e5.options :as options]
             [clj-http.client :as client])
   (:import (java.io ByteArrayOutputStream)
@@ -44,11 +45,12 @@
            (java.net URL)))
 
 ;; THE ACTUAL API: 76 public fns and 16 public defs, against 59 private fns and 29 private
-;; defs. Only 29 names are called from outside this file.
+;; defs. Only 28 names are called from outside this file.
 
-;; 21 by routes.clj (export entry points, spell-page and image helpers), 7 by spellbook.clj
-;; (split-lines, string-width, draw-svg-icon!, normalize-text, svg-path-ops, site-stamp and
-;; bezier-k), and report-image-egress! by system.clj. The abbreviators left for spell-print.
+;; 21 by routes.clj (export entry points, spell-page and image helpers), 6 by spellbook.clj
+;; (split-lines, string-width, draw-svg-icon!, normalize-text, svg-path-ops, site-stamp),
+;; and report-image-egress! by system.clj. The abbreviators went to spell-print, the shape
+;; paths and bezier-k to pdf.canvas.
 
 ;; safe-image-url? and safe-image-bytes are named in routes.clj comments only; their real
 ;; external consumers are the tests.
@@ -2805,13 +2807,6 @@
                {:remaining-lines remaining-desc-lines
                 :spell-name spell-name}))))))
 
-(def bezier-k
-  "Control-point offset that turns four cubic curves into a circle, to within a
-   fifth of a percent. There is no arc operator in a PDF content stream.
-
-   Public because spellbook.clj draws circles too and had declared its own copy."
-  0.5522847)
-
 (defn- card-pt
   "A point `dx` right and `dy` DOWN from the top-left of the card at (x, y), in
    PDF page units. Card coordinates run downward from the page top, page units run
@@ -2819,37 +2814,31 @@
   [x y dx dy]
   [(float (* 72 (+ x dx))) (float (* 72 (- 11 (+ y dy))))])
 
+(defn- card-mapper
+  "`canvas/path!`'s `pt` for the card at (x, y): card-relative inches to page units."
+  [x y]
+  (fn [dx dy] (card-pt x y dx dy)))
+
 (defn- polyline!
   "Strokes, and optionally closes, a path through card-relative points."
   [cs x y points close?]
-  (let [[[px py] & rest-pts] (map (fn [[dx dy]] (card-pt x y dx dy)) points)]
-    (.moveTo cs px py)
-    (doseq [[qx qy] rest-pts] (.lineTo cs qx qy))
-    (if close? (.closeAndStroke cs) (.stroke cs))))
+  (canvas/path! cs (card-mapper x y) points)
+  (if close? (.closeAndStroke cs) (.stroke cs)))
 
 (defn- diamond!
   "A small diamond of radius `r` centred at (dx, dy) on the card. Filled ones mark
    the item's rarity rank, outlined ones the ranks above it."
   [cs x y dx dy r filled?]
-  (let [pts [[dx (- dy r)] [(+ dx r) dy] [dx (+ dy r)] [(- dx r) dy]]
-        [[px py] & rest-pts] (map (fn [[a b]] (card-pt x y a b)) pts)]
-    (.moveTo cs px py)
-    (doseq [[qx qy] rest-pts] (.lineTo cs qx qy))
-    (.closePath cs)
-    (if filled? (.fill cs) (.stroke cs))))
+  (canvas/path! cs (card-mapper x y)
+                [[dx (- dy r)] [(+ dx r) dy] [dx (+ dy r)] [(- dx r) dy]])
+  (.closePath cs)
+  (if filled? (.fill cs) (.stroke cs)))
 
 (defn- circle!
   "An outlined circle of radius `r` centred at (dx, dy) on the card."
   [cs x y dx dy r]
-  (let [k (* r bezier-k)
-        [cx cy] (card-pt x y dx dy)
-        rr (* 72 r) kk (* 72 k)]
-    (.moveTo cs (float (+ cx rr)) cy)
-    (.curveTo cs (float (+ cx rr)) (float (+ cy kk)) (float (+ cx kk)) (float (+ cy rr)) cx (float (+ cy rr)))
-    (.curveTo cs (float (- cx kk)) (float (+ cy rr)) (float (- cx rr)) (float (+ cy kk)) (float (- cx rr)) cy)
-    (.curveTo cs (float (- cx rr)) (float (- cy kk)) (float (- cx kk)) (float (- cy rr)) cx (float (- cy rr)))
-    (.curveTo cs (float (+ cx kk)) (float (- cy rr)) (float (+ cx rr)) (float (- cy kk)) (float (+ cx rr)) cy)
-    (.closeAndStroke cs)))
+  (canvas/circle-path! cs (card-mapper x y) dx dy r)
+  (.closeAndStroke cs))
 
 (def ^:private rarity-rank
   "How the rarities order, for the diamonds along the top edge. :varies has no
