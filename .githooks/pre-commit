@@ -84,4 +84,20 @@ if git diff --cached --name-only | grep -qE '^docs/'; then
     }
   fi
 fi
+
+# SRD data check self-test (docs/kb/open5e-upstream-notes.md, "SRD data checks"). When a commit
+# touches the check, its helpers or its reviewed list, every rule must still fail on its mistake.
+if git diff --cached --name-only | grep -qE '^scripts/srd/(check-srd-data\.py|open5e_records\.py|test-check-srd-data\.py|srd-data-reviewed\.json|srd-lint-baseline\.json|lint-open5e\.py)$'; then
+  clone="${OPEN5E_CLONE:-$HOME/projects/open5e-api}"; srd52="${SRD52_WORKTREE:-$HOME/projects/orcpub-srd52}"
+  if [ -d "$clone/.git" ] || [ -f "$clone/.git" ]; then
+    python3 "$root/scripts/srd/test-check-srd-data.py" "$clone" "$srd52" || {
+      echo "" >&2
+      echo "  commit blocked: the SRD data check self-test failed, so a rule no longer" >&2
+      echo "  catches the mistake it exists for. Bypass once with: git commit --no-verify" >&2
+      exit 1
+    }
+  else
+    echo "  note: SRD data check self-test skipped, no open5e clone at $clone (set OPEN5E_CLONE)" >&2
+  fi
+fi
 exit 0

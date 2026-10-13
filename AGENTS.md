@@ -329,6 +329,8 @@ leaves the edit in place. Measure before adding anything to an edit's path.
   the SRD's own sentence with the slot's number put in. No paraphrase, no "clearer" rewording.
 - `scripts/srd/check-srd-data.py` checks the whole branch against these rules in about a second;
   the open5e clone's `pre-push` hook runs it. Our own summaries go in a separate field.
+- Edit open5e records only with `scripts/srd/open5e_records.py`. For a new kind of defect, add its
+  rule first and see it fail, then fix.
 - Rules and why: `docs/kb/open5e-upstream-notes.md`, "SRD data checks".
 
 ### Changelogs — MUST FOLLOW

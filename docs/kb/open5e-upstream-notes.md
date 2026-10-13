@@ -94,22 +94,42 @@ seen to fail on the mistake before it was trusted:
 | rule | catches | the mistake behind it |
 | --- | --- | --- |
 | fidelity | text with a three-word run in neither the SRD nor the old value | 82 paraphrased upcast `desc` lines |
+| punctuation | a hyphen or dash we put between two words that the SRD prints differently | the check normalises dashes away, so a wrong one passed fidelity |
 | name-case | a name change that is more than letter case | retitling that "improves" a name |
 | empty-option | a casting option that sets nothing | the kind open5e deleted (#749) |
 | base-missing | casting options that set dice or targets on a spell whose own base is empty | 13 srd-2014 and 3 srd-2024 spells (Acid Splash, Cure Wounds, Conjure Celestial) scaled from nothing |
+| value-in-srd | a base dice, target count or area we set on a spell that is not in its SRD entry (the transcript, not open5e's copy) | bases filled from open5e's text were checked against the SRD by hand |
 | slot-gap | slot options that skip a level before 9 | Conjure Animals had no slot 6 |
 | dice-only | `damage_roll` holding anything but dice | Magic Weapon's "+2" |
 | upcast-math | values that break a plain step rule in `higher_level` | totals reported wrong; Animate Objects' base of 1 |
 | slot-below-base | a slot option at or below the spell's own level | srd-2024 Dispel Magic's slot 3 |
 | desc-math | a `desc` number that disagrees with the `damage_roll` beside it or the step sentence; where the base is not stored, the implied base must be in the spell's text | srd-2024 Conjure Celestial stored 2d12 for 7d12 |
+| unverified | a value we set on a casting option that no rule checked and no hand check covers | 33 area, duration and threshold values were trusted from an agent's report |
 | lint-ratchet | any lint count above `srd-lint-baseline.json` | a fixed defect coming back |
 | reformat | changed lines in records whose content did not change | a file re-serialised wholesale |
 
 A finding a person has checked and kept goes in `scripts/srd/srd-data-reviewed.json` (rule, file,
-pk, field, reason). `--update-baseline` lowers the lint baseline after a cleanup; it never raises it.
+pk, field, reason). A value no rule can check (an area, a duration, a threshold) is checked by hand
+against the SRD once and recorded there as `hand-verified` **with the exact values it covers**; change
+any of them and it is unverified again. `--update-baseline` lowers the lint baseline after a cleanup; it never raises it.
 `--all` audits every casting option in both editions, upstream's included: that is how the srd-2024
 errors were found. It prints how many `desc` records it could verify (130 of 352 on 2026-10-12);
 the rest have no plain step sentence, so a pass there means "nothing contradicts", not "proven".
+
+**How the check stays honest**
+- `scripts/srd/test-check-srd-data.py` plants each rule's mistake in a throwaway worktree and requires
+  that rule to fail (about 35 seconds). agents/develop's `pre-commit` runs it whenever the check, its
+  helpers or the reviewed list change. Its first run found three blind rules, one of them a crash.
+- `scripts/srd/open5e_records.py` is the one way to edit open5e records: set a field, drop or append
+  a record, by `pk`, in either file layout, without re-serialising the file. Ad-hoc editing scripts
+  hit two layout bugs in one day.
+
+**Working rules for the next fix**
+1. **Rule first.** Before fixing a new kind of defect, add the rule that finds it, see it fail on the
+   defect, then fix until it passes. The 82 paraphrased lines were written before any rule could see
+   them.
+2. **Direct checks before inference.** Check the field itself ("is the base empty?") before working
+   something out from other fields. The direct rule found 16 empty bases that the inferred one missed.
 
 **OrcPub's own wording is never SRD text.** Editorial summaries (the app's rewritten spell
 summaries) live in their own field, never in the SRD text field.

@@ -16,12 +16,17 @@ Rules (each from a mistake made on 2026-10-11/12; docs/kb/open5e-upstream-notes.
   upcast-math     where the higher_level text is a plain step ("increases by 1d6 for each slot level
                   above 3rd", "one additional creature for each slot level above 1st"), every
                   option's value is the spell's base plus the step per slot
-  base-missing    a spell whose casting options set damage_roll or target_count has that field
+  base-missing    a spell whose casting options set damage_roll, target_count or shape_size has that field
                   set itself (the base the options scale from)
   slot-below-base no slot option at or below the spell's own level
   desc-math       numbers in a desc agree with the damage_roll beside it and with the step sentence
                   (an absolute "deals 7d8" equals damage_roll; a delta "increases by 3d4" equals the
                   step times the slots above the base)
+  punctuation     a hyphen or dash we put between two words is the one the SRD prints there
+  value-in-srd    a damage_roll, target_count or shape_size we set on a spell is in its SRD entry
+  unverified      every value we set on a casting option is checked by a rule, or hand-verified
+                  (srd-data-reviewed.json rule "hand-verified" with the exact values it covers;
+                  a changed value is unverified again)
   lint-ratchet    no lint-open5e.py count rises above srd-lint-baseline.json
   reformat        a diff changes lines only inside records whose content changed
 
@@ -30,10 +35,13 @@ reason; pk may be a list) and is then reported as reviewed. Exit status 1 while 
 --all also audits every casting option in both editions, not only the branch's changes (use it to
 find upstream errors; the hook does not pass it). --update-baseline lowers the lint baseline to today's counts (never raises it).
 """
-import collections, importlib.util, json, re, subprocess, sys
+import collections, importlib.util, json, os, re, subprocess, sys
 from pathlib import Path
 
 HERE = Path(__file__).parent
+for _v in ('GIT_DIR', 'GIT_INDEX_FILE', 'GIT_WORK_TREE', 'GIT_PREFIX', 'GIT_COMMON_DIR',
+           'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES'):
+    os.environ.pop(_v, None)   # a git hook exports these; they would point git -C at the wrong repository
 N = 3
 EDITIONS = {'srd-2014': 'SRD-5.1.readable.txt', 'srd-2024': 'SRD-5.2.1.readable.txt'}
 SKIP_TEXT = {'name', 'key', 'parent', 'type', 'document', 'category'}
@@ -87,6 +95,9 @@ class Report:
                          for pk in (r['pk'] if isinstance(r['pk'], list) else [r['pk']])}
         self.found = {}
         self.checked = self.with_desc = 0     # desc-math coverage: records verified / records with a desc
+        self.verified = set()                 # (pk, field) a rule has checked
+        self.hand = {(r['file'], r['pk'], r['field']): r['values']
+                     for r in json.load(open(HERE / 'srd-data-reviewed.json')) if r['rule'] == 'hand-verified'}
 
     def add(self, rule, file, pk, field, detail):
         """Records one finding under its rule."""
@@ -126,10 +137,33 @@ def check_fidelity(rep, path, ed, old, new, srd):
                         ' | '.join(' '.join(r) for r in sorted(novel)[:3]) + f'  in {value[:90]!r}')
 
 
+VALUE_FIELDS = ('damage_roll', 'target_count', 'shape_size', 'duration', 'range', 'concentration', 'desc')
+
+
+def check_unverified(rep, f, old, new):
+    """unverified: every value the branch set on a casting option is checked by a rule, or recorded
+    as checked by hand (srd-data-reviewed.json, rule hand-verified, with the values it covers)."""
+    need = {}
+    for pk, r in new.items():
+        o = r['fields']
+        if old.get(pk) == r or o['type'] in ('default', 'ritual'):
+            continue
+        for field in VALUE_FIELDS:
+            if o.get(field) not in (None, '') and (pk, field) not in rep.verified:
+                need.setdefault((o['parent'], field), {})[o['type']] = o[field]
+    rep.need = need
+    for (parent, field), values in sorted(need.items()):
+        hand = rep.hand.get((f, parent, field))
+        if hand != values:
+            what = 'hand-verified values differ' if hand else 'checked by no rule and not hand-verified'
+            rep.add('unverified', f, parent, field, f'{what}: ' + ', '.join(f'{k.split("_")[-1]}={v}' for k, v in
+                                                                                sorted(values.items(), key=lambda kv: int(kv[0].split('_')[-1]))))
+
+
 def check_options(rep, ed, old, new, spells, audit=False):
     """empty-option, slot-gap, dice-only, slot-below-base, upcast-math and desc-math over a
     SpellCastingOption file. `audit` checks every record, not only the ones the branch changed."""
-    f = f'{ed}/SpellCastingOption.json' if audit else 'SpellCastingOption.json'
+    f = f'{ed}/SpellCastingOption.json'
     if audit:
         old = {}
     touched = {r['fields']['parent'] for pk, r in new.items() if old.get(pk) != r}
@@ -149,9 +183,9 @@ def check_options(rep, ed, old, new, spells, audit=False):
             if old.get(pk) != r and lvl <= (spells.get(o['parent'], {}).get('level') or 0):
                 rep.add('slot-below-base', f, pk, o['type'], f'{o["parent"]} is a level {spells[o["parent"]]["level"]} spell')
             check_desc_math(rep, f, pk, lvl, o, spells.get(o['parent'], {}))
-    for parent in touched:
+    for parent in {r['fields']['parent'] for r in new.values()}:   # every spell: an emptied base is a change too
         sp = spells.get(parent, {})
-        for field in ('damage_roll', 'target_count'):
+        for field in ('damage_roll', 'target_count', 'shape_size'):
             if any(r['fields']['parent'] == parent and r['fields'].get(field) not in (None, '') for r in new.values()) \
                     and sp.get(field) in (None, '', 0):
                 rep.add('base-missing', f, parent, field, f'casting options set {field}, the spell itself has {sp.get(field)!r}')
@@ -164,16 +198,19 @@ def check_options(rep, ed, old, new, spells, audit=False):
         m = re.search(r'increases? by (\d+)d(\d+) for each (?:spell )?slot level above (\d+)', h)
         t = re.search(r'\b(one|two|three|\d+) additional (?:creature|target|undead|object|beast)s? for each (?:spell )?slot level above (\d+)', h, re.I)
         for lvl, (pk, o) in sorted(slots.items()):
-            if m and sp.get('damage_roll') and DICE.match(sp['damage_roll']) and o.get('damage_roll'):
+            if m and sp.get('damage_roll') and DICE.match(sp['damage_roll']) and DICE.match(o.get('damage_roll') or ''):
                 n, die, above = int(m.group(1)), m.group(2), int(m.group(3))
                 bn, bd = re.match(r'(\d+)d(\d+)', sp['damage_roll']).groups()
                 want = f'{int(bn) + n * (lvl - above)}d{die}' if bd == die else None
                 got = re.match(r'(\d+d\d+)', o['damage_roll']).group(1)
+                if want:
+                    rep.verified.add((pk, 'damage_roll'))
                 if want and got != want:
                     rep.add('upcast-math', f, pk, o['type'], f'{parent} {got}, the step rule gives {want}')
             if t and o.get('target_count') is not None and sp.get('target_count'):
                 step = int(t.group(1)) if t.group(1).isdigit() else WORDS[t.group(1)]
                 want = sp['target_count'] + step * (lvl - int(t.group(2)))
+                rep.verified.add((pk, 'target_count'))
                 if o['target_count'] != want:
                     rep.add('upcast-math', f, pk, o['type'], f'{parent} target_count {o["target_count"]}, the step rule gives {want}')
 
@@ -194,6 +231,8 @@ def check_desc_math(rep, f, pk, lvl, o, sp):
     roll = o.get('damage_roll') or ''
     for m in re.finditer(r'(?:deals|increases to|is) (\d+)d(\d+)', d):
         rep.checked += bool(roll)
+        if roll:
+            rep.verified |= {(pk, 'desc'), (pk, 'damage_roll')}
         if roll and DICE.match(roll) and not roll.startswith(f'{m.group(1)}d{m.group(2)}'):
             rep.add('desc-math', f, pk, o['type'], f'{o["parent"]} desc says {m.group(1)}d{m.group(2)}, damage_roll {roll}')
     steps = {m.group(2): (int(m.group(1)), int(m.group(3))) for m in STEP_DICE.finditer(h)}
@@ -204,6 +243,7 @@ def check_desc_math(rep, f, pk, lvl, o, sp):
             if x != n * (lvl - above):
                 rep.add('desc-math', f, pk, o['type'], f'{o["parent"]} desc +{x}d{die}, the step rule gives +{n * (lvl - above)}d{die}')
             rep.checked += 1
+            rep.verified.add((pk, 'desc'))
             base = re.match(r'(\d+)d(\d+)', sp.get('damage_roll') or '')
             same_die = roll and DICE.match(roll) and re.match(r'\d+d(\d+)', roll).group(1) == die
             if base and base.group(2) == die and same_die and int(roll.split('d')[0]) != int(base.group(1)) + x:
@@ -218,8 +258,68 @@ def check_desc_math(rep, f, pk, lvl, o, sp):
         x = int(dm.group(1) or dm.group(2))
         step = int(num.group(1)) if num.group(1).isdigit() else NUMBER[num.group(1).lower()]
         rep.checked += 1
+        rep.verified.add((pk, 'desc'))
         if x != step * (lvl - int(num.group(2))):
             rep.add('desc-math', f, pk, o['type'], f'{o["parent"]} desc {x}, the step rule gives {step * (lvl - int(num.group(2)))}')
+
+
+SPELL_HEAD = r' (?:Level \d \w+|\d(?:st|nd|rd|th)-level \w+|\w+ [Cc]antrip)'
+
+
+def spell_entries(text, names):
+    """{spell name: its SRD entry}, from the normalised transcript. An entry runs from its heading
+    (the name, then its level and school) to the next spell heading."""
+    found = sorted(((m.start(), m.end(), n) for n in names for m in re.finditer(re.escape(n) + SPELL_HEAD, text)),
+                   key=lambda x: (x[0], -x[1]))
+    spans, heads, seen = [], [], set()
+    for a, b, n in found:                     # "Fireball 7th-level" inside "Delayed Blast Fireball 7th-level" is not a heading
+        if any(s0 <= a < e0 for s0, e0 in spans) or n in seen:
+            continue
+        spans.append((a, b)); heads.append((a, n)); seen.add(n)
+    heads.sort()
+    return {n: text[a:(heads[i + 1][0] if i + 1 < len(heads) else a + 4000)] for i, (a, n) in enumerate(heads)}
+
+
+def check_spell_values(rep, f, old, new, entries):
+    """value-in-srd: a damage_roll, target_count or shape_size the branch set on a spell appears in
+    that spell's SRD entry ("1d6", "a d8"; "ten" or 10; "20-foot")."""
+    for pk, r in new.items():
+        sp, before = r['fields'], old.get(pk, {}).get('fields', {})
+        entry = entries.get(sp.get('name'))
+        for field in ('damage_roll', 'target_count', 'shape_size'):
+            v = sp.get(field)
+            if v in (None, '', 0) or before.get(field) == v:
+                continue
+            if entry is None:
+                rep.add('value-in-srd', f, pk, field, f'{v!r}: no SRD entry found for {sp.get("name")!r}')
+                continue
+            if field == 'damage_roll':
+                n, die = re.match(r'(\d+)d(\d+)', v).groups()
+                pats = [rf'\b{n}d{die}\b'] + ([rf'\ba d{die}\b'] if n == '1' else [])
+            elif field == 'target_count':
+                word = {v2: k for k, v2 in {**WORDS, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'twelve': 12}.items()}.get(int(v), '')
+                pats = [rf'\b{int(v)}\b'] + ([rf'\b{word}\b'] if word else [])
+            else:
+                pats = [rf'\b{int(float(v))}[- ](?:foot|feet)\b']
+            if not any(re.search(p_, entry, re.I) for p_ in pats):
+                rep.add('value-in-srd', f, pk, field, f'{v!r} is not in the SRD entry for {sp["name"]}')
+
+
+def check_punctuation(rep, f, old, new, raw):
+    """punctuation: a hyphen or dash the branch put between two words is the one the SRD prints
+    there. Only flags when the SRD has the same two words with different punctuation."""
+    for pk, r in new.items():
+        before = old.get(pk, {}).get('fields', {})
+        for field, value in r['fields'].items():
+            if not isinstance(value, str) or before.get(field) == value or field in SKIP_TEXT:
+                continue
+            had = set(re.findall(r'(\w+)([-\u2013\u2014])(\w+)', before.get(field) or ''))
+            for a, mark, b in set(re.findall(r'(\w+)([-\u2013\u2014])(\w+)', value)) - had:
+                if re.search(rf'\b{re.escape(a)}\s?{re.escape(mark)}\s?{re.escape(b)}\b', raw, re.I):
+                    continue                         # the SRD has this mark here (PDF spacing aside)
+                other = re.search(rf'\b{re.escape(a)}(\s?[-\u2013\u2014]\s?|\s)?{re.escape(b)}\b', raw, re.I)
+                if other:
+                    rep.add('punctuation', f, pk, field, f'{a}{mark}{b}: the SRD prints {other.group(0)!r}')
 
 
 def check_reformat(rep, clone, base, path, old, new):
@@ -290,25 +390,31 @@ def main(argv):
     base = argv[argv.index('--base') + 1] if '--base' in argv else 'origin/staging'
     _, names = git(clone, 'diff', '--name-only', base, 'HEAD', '--',
                    'data/v2/wizards-of-the-coast/srd-2014', 'data/v2/wizards-of-the-coast/srd-2024')
-    srd = {ed: runs(tokens(open(Path(srd52) / 'resources/srd' / t, encoding='utf-8').read()))
-           for ed, t in EDITIONS.items()}
+    text = {ed: open(Path(srd52) / 'resources/srd' / t, encoding='utf-8').read() for ed, t in EDITIONS.items()}
+    srd = {ed: runs(tokens(t)) for ed, t in text.items()}
+    raw = {ed: re.sub(r'\s+', ' ', t).replace('\u2019', "'") for ed, t in text.items()}
     rep = Report()
     for path in names.split():
         ed = path.split('/')[3]
         old, new = records(clone, base, path), records(clone, 'HEAD', path)
         check_fidelity(rep, path, ed, old, new, srd)
+        check_punctuation(rep, path.split('/')[-1], old, new, raw[ed])
         check_reformat(rep, clone, base, path, old, new)
+        if path.endswith('/Spell.json'):
+            check_spell_values(rep, f'{ed}/Spell.json', old, new,
+                               spell_entries(raw[ed], [r['fields']['name'] for r in new.values()]))
         if path.endswith('SpellCastingOption.json'):
             spells = {k: v['fields'] for k, v in records(clone, 'HEAD', path.replace('SpellCastingOption', 'Spell')).items()}
             check_options(rep, ed, old, new, spells)
+            check_unverified(rep, f'{ed}/SpellCastingOption.json', old, new)
     if '--all' in argv:
         for ed in EDITIONS:
             p = f'data/v2/wizards-of-the-coast/{ed}/'
             spells = {k: v['fields'] for k, v in records(clone, 'HEAD', p + 'Spell.json').items()}
             check_options(rep, ed, {}, records(clone, 'HEAD', p + 'SpellCastingOption.json'), spells, audit=True)
     check_ratchet(rep, clone, srd52, '--update-baseline' in argv)
-    bad = rep.print(['fidelity', 'name-case', 'empty-option', 'base-missing', 'slot-gap', 'dice-only', 'slot-below-base',
-                     'upcast-math', 'desc-math', 'lint-ratchet', 'reformat'])
+    bad = rep.print(['fidelity', 'punctuation', 'name-case', 'empty-option', 'base-missing', 'value-in-srd', 'slot-gap',
+                     'dice-only', 'slot-below-base', 'upcast-math', 'desc-math', 'unverified', 'lint-ratchet', 'reformat'])
     print(f'desc-math verified {rep.checked} of {rep.with_desc} records with a desc; the rest match no step sentence')
     print(f'{bad} open finding(s) across {len(names.split())} changed file(s)')
     return 1 if bad else 0

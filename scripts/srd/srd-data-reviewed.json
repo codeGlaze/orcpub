@@ -26,5 +26,456 @@
   "pk": "srd-2024_true-strike",
   "field": "damage_roll",
   "reason": "True Strike has no base damage of its own (the weapon's damage); its options hold only the extra Radiant dice from level 5 (SRD 5.2.1). Empty base is correct. Reviewed 2026-10-12."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_animate-dead",
+  "field": "target_count",
+  "values": {
+   "slot_level_4": 3,
+   "slot_level_5": 5,
+   "slot_level_6": 7,
+   "slot_level_7": 9,
+   "slot_level_8": 11,
+   "slot_level_9": 13
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: two additional undead creatures per slot above 3rd, base 1."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_arcane-hand",
+  "field": "damage_roll",
+  "values": {
+   "slot_level_6": "6d8",
+   "slot_level_7": "8d8",
+   "slot_level_8": "10d8",
+   "slot_level_9": "12d8"
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: clenched fist +2d8 per slot above 5th, base 4d8."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_chain-lightning",
+  "field": "target_count",
+  "values": {
+   "slot_level_7": 5,
+   "slot_level_8": 6,
+   "slot_level_9": 7
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: one additional bolt per slot above 6th; base is 4 targets (one target plus three bolts)."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_color-spray",
+  "field": "desc",
+  "values": {
+   "slot_level_2": "Roll an additional 2d10.",
+   "slot_level_3": "Roll an additional 4d10.",
+   "slot_level_4": "Roll an additional 6d10.",
+   "slot_level_5": "Roll an additional 8d10.",
+   "slot_level_6": "Roll an additional 10d10.",
+   "slot_level_7": "Roll an additional 12d10.",
+   "slot_level_8": "Roll an additional 14d10.",
+   "slot_level_9": "Roll an additional 16d10."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: roll an additional 2d10 per slot above 1st (SRD sentence, cumulative)."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_confusion",
+  "field": "shape_size",
+  "values": {
+   "slot_level_5": 15,
+   "slot_level_6": 20,
+   "slot_level_7": 25,
+   "slot_level_8": 30,
+   "slot_level_9": 35
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: radius +5 feet per slot above 4th, base 10-foot radius."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_conjure-animals",
+  "field": "desc",
+  "values": {
+   "slot_level_5": "More creatures appear: twice as many with a 5th-level slot.",
+   "slot_level_7": "More creatures appear: three times as many.",
+   "slot_level_9": "Four times as many with a 9th-level slot.",
+   "slot_level_6": "More creatures appear: twice as many.",
+   "slot_level_8": "More creatures appear: three times as many."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: twice as many with a 5th-level slot, three times with 7th, four times with 9th (SRD phrases)."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_conjure-celestial",
+  "field": "desc",
+  "values": {
+   "slot_level_9": "You summon a celestial of challenge rating 5 or lower."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: 9th-level slot: a celestial of challenge rating 5 or lower (SRD sentence)."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_conjure-fey",
+  "field": "desc",
+  "values": {
+   "slot_level_7": "You summon a fey creature of challenge rating 7 or lower.",
+   "slot_level_8": "You summon a fey creature of challenge rating 8 or lower.",
+   "slot_level_9": "You summon a fey creature of challenge rating 9 or lower."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: challenge rating +1 per slot above 6th, base 6."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_conjure-minor-elementals",
+  "field": "desc",
+  "values": {
+   "slot_level_6": "More creatures appear: twice as many with a 6th-level slot.",
+   "slot_level_8": "More creatures appear: three times as many.",
+   "slot_level_7": "More creatures appear: twice as many.",
+   "slot_level_9": "More creatures appear: three times as many."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: twice as many with a 6th-level slot, three times with 8th (SRD phrases)."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_conjure-woodland-beings",
+  "field": "desc",
+  "values": {
+   "slot_level_6": "More creatures appear: twice as many with a 6th-level slot.",
+   "slot_level_8": "More creatures appear: three times as many.",
+   "slot_level_7": "More creatures appear: twice as many.",
+   "slot_level_9": "More creatures appear: three times as many."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: twice as many with a 6th-level slot, three times with 8th (SRD phrases)."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_counterspell",
+  "field": "desc",
+  "values": {
+   "slot_level_4": "The interrupted spell has no effect if its level is 4 or lower.",
+   "slot_level_5": "The interrupted spell has no effect if its level is 5 or lower.",
+   "slot_level_6": "The interrupted spell has no effect if its level is 6 or lower.",
+   "slot_level_7": "The interrupted spell has no effect if its level is 7 or lower.",
+   "slot_level_8": "The interrupted spell has no effect if its level is 8 or lower.",
+   "slot_level_9": "The interrupted spell has no effect if its level is 9 or lower."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: no effect if the spell level is at most the slot used."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_create-or-destroy-water",
+  "field": "shape_size",
+  "values": {
+   "slot_level_2": 35,
+   "slot_level_3": 40,
+   "slot_level_4": 45,
+   "slot_level_5": 50,
+   "slot_level_6": 55,
+   "slot_level_7": 60,
+   "slot_level_8": 65,
+   "slot_level_9": 70
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: cube +5 feet per slot above 1st, base 30 feet."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_create-undead",
+  "field": "desc",
+  "values": {
+   "slot_level_7": "You can animate or reassert control over four ghouls.",
+   "slot_level_8": "You can animate or reassert control over five ghouls or two ghasts or wights.",
+   "slot_level_9": "You can animate or reassert control over six ghouls, three ghasts or wights, or two mummies."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: 7th: four ghouls; 8th: five ghouls or two ghasts or wights; 9th: six ghouls or three ghasts or wights or two mummies (SRD sentences)."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_creation",
+  "field": "shape_size",
+  "values": {
+   "slot_level_6": 10,
+   "slot_level_7": 15,
+   "slot_level_8": 20,
+   "slot_level_9": 25
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: cube +5 feet per slot above 5th, base 5 feet."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_dispel-magic",
+  "field": "desc",
+  "values": {
+   "slot_level_4": "You automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used.",
+   "slot_level_5": "You automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used.",
+   "slot_level_6": "You automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used.",
+   "slot_level_7": "You automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used.",
+   "slot_level_8": "You automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used.",
+   "slot_level_9": "You automatically end the effects of a spell on the target if the spell's level is equal to or less than the level of the spell slot you used."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: SRD sentence: ends spells of a level at most the slot used."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_etherealness",
+  "field": "target_count",
+  "values": {
+   "slot_level_8": 3,
+   "slot_level_9": 6
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: up to three willing creatures per slot above 7th."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_fog-cloud",
+  "field": "shape_size",
+  "values": {
+   "slot_level_2": 40,
+   "slot_level_3": 60,
+   "slot_level_4": 80,
+   "slot_level_5": 100,
+   "slot_level_6": 120,
+   "slot_level_7": 140,
+   "slot_level_8": 160,
+   "slot_level_9": 180
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: radius +20 feet per slot above 1st, base 20 feet."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_globe-of-invulnerability",
+  "field": "desc",
+  "values": {
+   "slot_level_7": "The barrier blocks spells of one level higher.",
+   "slot_level_8": "The barrier blocks spells of one level higher for each slot level above 6th.",
+   "slot_level_9": "The barrier blocks spells of one level higher for each slot level above 6th."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: SRD sentence: one level higher per slot above 6th."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_glyph-of-warding",
+  "field": "desc",
+  "values": {
+   "slot_level_4": "If you create a spell glyph, you can store any spell of up to the same level as the slot you use for the glyph of warding.",
+   "slot_level_5": "If you create a spell glyph, you can store any spell of up to the same level as the slot you use for the glyph of warding.",
+   "slot_level_6": "If you create a spell glyph, you can store any spell of up to the same level as the slot you use for the glyph of warding.",
+   "slot_level_7": "If you create a spell glyph, you can store any spell of up to the same level as the slot you use for the glyph of warding.",
+   "slot_level_8": "If you create a spell glyph, you can store any spell of up to the same level as the slot you use for the glyph of warding.",
+   "slot_level_9": "If you create a spell glyph, you can store any spell of up to the same level as the slot you use for the glyph of warding."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: SRD sentence: spell glyph stores a spell up to the slot level."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_heal",
+  "field": "desc",
+  "values": {
+   "slot_level_7": "The target regains 80 hit points.",
+   "slot_level_8": "The target regains 90 hit points.",
+   "slot_level_9": "The target regains 100 hit points."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: healing +10 per slot above 6th, base 70."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_hunters-mark",
+  "field": "duration",
+  "values": {
+   "slot_level_3": "8 hours",
+   "slot_level_4": "8 hours",
+   "slot_level_5": "24 hours",
+   "slot_level_6": "24 hours",
+   "slot_level_7": "24 hours",
+   "slot_level_8": "24 hours",
+   "slot_level_9": "24 hours"
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: 3rd or 4th: up to 8 hours; 5th or higher: up to 24 hours."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_magic-weapon",
+  "field": "desc",
+  "values": {
+   "slot_level_4": "The bonus increases to +2.",
+   "slot_level_6": "The bonus increases to +3.",
+   "slot_level_5": "The bonus increases to +2.",
+   "slot_level_7": "The bonus increases to +3.",
+   "slot_level_8": "The bonus increases to +3.",
+   "slot_level_9": "The bonus increases to +3."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: +2 at 4th and 5th, +3 at 6th and higher (SRD sentences)."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_major-image",
+  "field": "concentration",
+  "values": {
+   "slot_level_6": false,
+   "slot_level_7": false,
+   "slot_level_8": false,
+   "slot_level_9": false
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: 6th or higher: lasts until dispelled, without concentration."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_major-image",
+  "field": "duration",
+  "values": {
+   "slot_level_6": "until dispelled",
+   "slot_level_7": "until dispelled",
+   "slot_level_8": "until dispelled",
+   "slot_level_9": "until dispelled"
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: 6th or higher: lasts until dispelled, without concentration."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_modify-memory",
+  "field": "desc",
+  "values": {
+   "slot_level_6": "You can alter the target's memories of an event that took place up to 7 days ago (6th level).",
+   "slot_level_7": "30 days ago (7th level).",
+   "slot_level_8": "1 year ago (8th level).",
+   "slot_level_9": "Any time in the creature's past (9th level)."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: 7 days (6th), 30 days (7th), 1 year (8th), any time (9th) (SRD phrases)."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_private-sanctum",
+  "field": "shape_size",
+  "values": {
+   "slot_level_5": 200,
+   "slot_level_6": 300,
+   "slot_level_7": 400,
+   "slot_level_8": 500,
+   "slot_level_9": 600
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: cube +100 feet per slot beyond 4th, base 100 feet."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_sleep",
+  "field": "desc",
+  "values": {
+   "slot_level_2": "Roll an additional 2d8.",
+   "slot_level_3": "Roll an additional 4d8.",
+   "slot_level_4": "Roll an additional 6d8.",
+   "slot_level_5": "Roll an additional 8d8.",
+   "slot_level_6": "Roll an additional 10d8.",
+   "slot_level_7": "Roll an additional 12d8.",
+   "slot_level_8": "Roll an additional 14d8.",
+   "slot_level_9": "Roll an additional 16d8."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: roll an additional 2d8 per slot above 1st (SRD sentence, cumulative)."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_spiritual-weapon",
+  "field": "damage_roll",
+  "values": {
+   "slot_level_3": "1d8",
+   "slot_level_4": "2d8",
+   "slot_level_5": "2d8",
+   "slot_level_6": "3d8",
+   "slot_level_7": "3d8",
+   "slot_level_8": "4d8",
+   "slot_level_9": "4d8"
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: +1d8 for every two slots above 2nd, base 1d8."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_wall-of-ice",
+  "field": "damage_roll",
+  "values": {
+   "slot_level_7": "12d6",
+   "slot_level_8": "14d6",
+   "slot_level_9": "16d6"
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: wall +2d6 and frigid air +1d6 per slot above 6th, base 10d6 and 5d6."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_wall-of-ice",
+  "field": "desc",
+  "values": {
+   "slot_level_7": "The damage from passing through the sheet of frigid air increases by 1d6.",
+   "slot_level_8": "The damage from passing through the sheet of frigid air increases by 2d6.",
+   "slot_level_9": "The damage from passing through the sheet of frigid air increases by 3d6."
+  },
+  "reason": "Checked against SRD 5.1 At Higher Levels, 2026-10-12: wall +2d6 and frigid air +1d6 per slot above 6th, base 10d6 and 5d6."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_geas",
+  "field": "desc",
+  "values": {
+   "slot_level_9": "The spell lasts until it is ended by one of the spells mentioned above."
+  },
+  "reason": "Checked against SRD 5.2.1 Using a Higher-Level Spell Slot, 2026-10-12: level 9 slot: lasts until it is ended by one of the spells mentioned above (SRD sentence)."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_globe-of-invulnerability",
+  "field": "desc",
+  "values": {
+   "slot_level_7": "blocks spells of 6th level or lower",
+   "slot_level_8": "blocks spells of 7th level or lower",
+   "slot_level_9": "blocks spells of 8th level or lower"
+  },
+  "reason": "Checked against SRD 5.2.1 Using a Higher-Level Spell Slot, 2026-10-12: base blocks level 5 or lower; 1 level higher per slot above 6."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_magic-weapon",
+  "field": "desc",
+  "values": {
+   "slot_level_3": "The bonus increases to +2.",
+   "slot_level_4": "The bonus increases to +2.",
+   "slot_level_5": "The bonus increases to +2.",
+   "slot_level_6": "The bonus increases to +3.",
+   "slot_level_7": "The bonus increases to +3.",
+   "slot_level_8": "The bonus increases to +3.",
+   "slot_level_9": "The bonus increases to +3."
+  },
+  "reason": "Checked against SRD 5.2.1 Using a Higher-Level Spell Slot, 2026-10-12: +2 with a level 3-5 slot, +3 with a level 6+ slot (SRD sentences)."
  }
 ]
