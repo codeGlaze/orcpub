@@ -5,6 +5,7 @@
    Each layer is a div tinted by background-blend multiply, clipped to the asset by a mask.
    See PORTRAIT-COMPOSITOR.md and PORTRAIT-TINTING.md."
   (:require [re-frame.core :refer [dispatch subscribe]]
+            [orcpub.art-mark :as art-mark]
             [re-frame.db]
             [reagent.core :as r]
             [clojure.string :as s]
@@ -756,7 +757,33 @@
         (.catch (fn [_] false)))
     (js/Promise.resolve false)))
 
-(defn rasterize
+(defn- b64->bytes
+  "Base64 text `s` as a Uint8Array."
+  [s]
+  (let [bin (js/atob s) n (.-length bin) a (js/Uint8Array. n)]
+    (dotimes [i n] (aset a i (.charCodeAt bin i)))
+    a))
+
+(defn- bytes->b64
+  "Uint8Array `a` as base64 text."
+  [^js a]
+  (js/btoa (apply str (for [i (range 0 (.-length a) 0x8000)]
+                        (.apply js/String.fromCharCode nil (.subarray a i (min (.-length a) (+ i 0x8000))))))))
+
+(defn- piece-marks
+  "Resolves to the licensed-art marks of `portrait`'s pieces (nil for unmarked ones), read from the
+   files the browser already holds."
+  [portrait]
+  (js/Promise.all
+   (clj->js (for [k pa/layer-order
+                  :let [url (some->> (get-in portrait [:layers k]) :asset/id (pa/asset-by-id k) :asset/url)]
+                  :when url]
+              (-> (js/fetch url)
+                  (.then #(.arrayBuffer %))
+                  (.then #(art-mark/mark-of (js/Uint8Array. %)))
+                  (.catch (constantly nil)))))))
+
+(defn- rasterize*
   "Bake `portrait` into a PNG. Resolves to base64 (no data: prefix), or nil
    when there is nothing to draw or the browser cannot do it."
   [portrait]
@@ -897,6 +924,15 @@
           (.catch (fn [_] nil))))))
 
 ;; ---------------- drawer chrome ----------------
+
+(defn rasterize
+  "Bake `portrait` into a PNG. Resolves to base64 (no data: prefix), or nil when there is nothing
+   to draw or the browser cannot do it. Carries the licensed-art mark when any piece does."
+  [portrait]
+  (-> (js/Promise.all #js [(rasterize* portrait) (piece-marks portrait)])
+      (.then (fn [[b64 marks]]
+               (let [m (art-mark/composed (array-seq marks))]
+                 (if (and b64 m) (bytes->b64 (art-mark/with-mark (b64->bytes b64) m)) b64))))))
 
 ;; Portraits baked ahead of export, by value: {:promise p} while baking, then {:png b64-or-nil}.
 (defonce ^:private baked (atom {}))

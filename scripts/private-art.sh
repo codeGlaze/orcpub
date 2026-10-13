@@ -4,7 +4,9 @@
 #   scripts/private-art.sh update portrait-pack-v1.775.zip
 #
 # Copies each PNG in the pack over the silhouette with the same layer and file name (case
-# aside), writes the private-art marker, and commits. It does not push: push to the private
+# aside), writes the private-art marker, and commits. Pieces keep the licensed-art mark the Loom
+# writes (orcpub-art); a piece without one (packs exported before Loom v2.41) is stamped here,
+# "licensed; pack <version>; artist <ART_ARTIST, default house-pack>", pixels untouched. It does not push: push to the private
 # (Gitea) remote yourself. Strand files are not needed; the image build makes them.
 # Refuses to run when the branch tracks a GitHub remote, because the art must never go there.
 set -euo pipefail
@@ -41,6 +43,34 @@ tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 unzip -q "$pack" -d "$tmp"
 version="$(sed -n 's/.*"packVersion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$tmp/manifest.json" 2>/dev/null | head -1)"
 version="${version:-$(basename "$pack" .zip)}"
+
+# Stamp any piece the Loom did not mark: the mark goes in after IHDR, so the pixels are untouched.
+stamped=$(ART_TEXT="licensed; pack $version; artist ${ART_ARTIST:-house-pack}" python3 -I - "$tmp" <<'PY'
+import os, struct, sys, zlib
+key, text = b"orcpub-art", os.environ["ART_TEXT"].encode("utf-8")
+def marked(b):
+    i = 8
+    while i + 8 <= len(b):
+        n = struct.unpack(">I", b[i:i+4])[0]; t = b[i+4:i+8]
+        if t == b"iTXt" and b[i+8:i+8+len(key)+1] == key + b"\0": return True
+        if t in (b"IDAT", b"IEND"): return False
+        i += 12 + n
+    return False
+count = 0
+for d, _, files in os.walk(sys.argv[1]):
+    for f in files:
+        p = os.path.join(d, f)
+        if not f.lower().endswith(".png") or f.lower().endswith(".strands.png"): continue
+        b = open(p, "rb").read()
+        if b[:8] != b"\x89PNG\r\n\x1a\n" or marked(b): continue
+        data = key + b"\0\0\0\0\0" + text
+        chunk = struct.pack(">I", len(data)) + b"iTXt" + data + struct.pack(">I", zlib.crc32(b"iTXt" + data))
+        open(p, "wb").write(b[:33] + chunk + b[33:])
+        count += 1
+print(count)
+PY
+)
+[ "$stamped" -gt 0 ] && echo "Marked $stamped piece(s) the Loom had not marked."
 
 replaced=0; unmatched=()
 while IFS= read -r -d '' f; do

@@ -158,6 +158,7 @@ the table in half. Plain ASCII, no colour: it is read in aggregators as often as
 | `PORTRAIT_ARTISTS` | — | JSON of artist credits and accounts (see `ARTISTS.md`). An `account` email gets an artist account and a welcome email at startup. |
 | `APP_URL` | — | The site's address, used for links in artist emails (sent at startup, with no request to read it from). |
 | `EMAIL_ADMIN_TO` | `EMAIL_ERRORS_TO` | Who hears about artist account and credit changes. |
+| `PORTRAIT_STORE_DIR` | `data/portraits` | Where the server keeps its drawings of shared-link portraits, one file per character. A shared volume lets several containers draw each portrait once; without one each container draws it on first request and keeps the file. Derived files: losing them only means drawing again. |
 
 ### Security
 

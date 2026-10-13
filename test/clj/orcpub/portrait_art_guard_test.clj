@@ -7,7 +7,8 @@
             [clojure.java.io :as io]
             [clojure.edn :as edn]
             [clojure.pprint :as pprint]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [orcpub.art-mark :as art-mark])
   (:import [java.security MessageDigest]
            [java.nio.file Files]
            [java.awt.image BufferedImage]
@@ -30,6 +31,15 @@
               :let [n (.getName f)]
               :when (and (.isFile f) (re-find #"(?i)\.png$" n) (not (re-find #"(?i)\.strands\.png$" n)))]
           [(str (.relativize (.toPath (io/file art-dir)) (.toPath f))) (sha256 f)])))
+
+(declare marked-files)
+
+(deftest no-file-carries-the-licensed-art-mark
+  (testing "the Loom marks every piece of the real art, and everything drawn from it carries the
+            mark: a marked file is the licensed art, whatever else it passes"
+    (doseq [path (marked-files)]
+      (is false (str path " carries the licensed-art mark (orcpub-art). It must not be in this"
+                     " repository: it belongs only on the private deployment branch.")))))
 
 (deftest the-public-repo-carries-only-silhouettes
   (cond
@@ -74,6 +84,30 @@
                          (not (str/starts-with? path (str art-dir "/")))
                          (.isFile (io/file path)))]
           [path (sha256 (io/file path))])))
+
+(defn pdf-marked?
+  "Whether PDF bytes `b` carry the mark in their document information (the exported sheet puts it
+   there; the file's own compression hides it from a plain byte search)."
+  [^bytes b]
+  (try (with-open [doc (org.apache.pdfbox.Loader/loadPDF b)]
+         (some? (.getCustomMetadataValue (.getDocumentInformation doc) art-mark/key-word)))
+       (catch Exception _ (str/includes? (String. b "ISO-8859-1") art-mark/key-word))))
+
+(defn marked-files
+  "Paths git tracks or would commit that carry the licensed-art mark: a PNG's orcpub-art chunk, or
+   the key anywhere in another image or a PDF (the sheet records it in its metadata). The art
+   directory is skipped on the private deployment branch, where the art belongs."
+  []
+  (let [private? (.exists marker)]
+    (for [path (git-files)
+          :when (and (re-find #"(?i)\.(png|jpe?g|webp|gif|pdf)$" path)
+                     (.isFile (io/file path))
+                     (not (and private? (str/starts-with? path (str art-dir "/")))))
+          :let [b (Files/readAllBytes (.toPath (io/file path)))]
+          :when (cond (re-find #"(?i)\.png$" path) (art-mark/marked? b)
+                      (re-find #"(?i)\.pdf$" path) (pdf-marked? b)
+                      :else (str/includes? (String. ^bytes b "ISO-8859-1") art-mark/key-word))]
+      path)))
 
 (defn linework
   "Percent of an image's drawn pixels that are inked line: dark, with lighter drawn pixels within

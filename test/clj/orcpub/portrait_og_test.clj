@@ -5,7 +5,7 @@
 
    This is a server test rather than a browser one because that is where the
    whole path lives -- a share crawler never runs the app's JavaScript."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [datomic.api :as d]
             [datomock.core :as dm]
             [orcpub.routes :as routes]
@@ -15,13 +15,23 @@
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.portrait-render :as portrait-render]
             [orcpub.config :as config]
-            [orcpub.work-pool :as work-pool])
+            [orcpub.work-pool :as work-pool]
+            [orcpub.portrait-store :as store])
   (:import [java.util UUID]))
 
 (defmacro with-conn [conn-binding & body]
   `(let [uri# (str "datomic:mem:orcpub-og-test-" (UUID/randomUUID))
          ~conn-binding (do (d/create-database uri#) (d/connect uri#))]
      (try ~@body (finally (d/delete-database uri#)))))
+
+(use-fixtures :each
+  (fn [t]
+    (let [dir (.toFile (java.nio.file.Files/createTempDirectory "og-store" (make-array java.nio.file.attribute.FileAttribute 0)))]
+      (with-redefs [config/get-portrait-store-dir (constantly (.getPath dir))]
+        (store/await-idle!)
+        (store/clear-memory!)
+        (try (t) (finally (store/await-idle!)
+                          (doseq [f (reverse (file-seq dir))] (.delete ^java.io.File f))))))))
 
 (defn- a-portrait []
   {:layers (into {}
@@ -289,7 +299,7 @@
         (is (re-find #"Sharey" html) "the character's name reaches the share card")))))
 
 (deftest server-renders-are-cached-and-bounded
-  (let [render @#'routes/rendered-portrait
+  (let [render (fn [tag p] (store/png 1 tag (pr-str p)))
         renders (atom 0)
         tag (str "\"" (java.util.UUID/randomUUID) "\"")]
     (with-redefs [portrait-render/render-png (fn [_] (swap! renders inc) (byte-array [1 2 3]))
@@ -299,11 +309,11 @@
         (is (= [1 2 3] (vec (second (render tag (a-portrait))))))
         (is (= 1 @renders)))
       (testing "with every render slot taken, a new portrait is refused, not queued forever"
-        (let [slots (work-pool/permits @#'routes/portrait-pool)
+        (let [slots (work-pool/permits @#'store/pool)
               n (.drainPermits slots)]
           (try
             (is (pos? n))
-            (let [[outcome retry] (render (str tag "x") (a-portrait))]
+            (let [[outcome retry] (render (str "\"" (java.util.UUID/randomUUID) "\"") (a-portrait))]
               (is (= :busy outcome))
               (is (pos-int? retry) "with a Retry-After"))
             (is (= 1 @renders))
@@ -312,7 +322,7 @@
 
 (deftest a-burst-of-crawlers-shares-one-render
   (testing "a newly shared link is fetched by several preview bots at once; one draw serves them"
-    (let [render @#'routes/rendered-portrait
+    (let [render (fn [tag p] (store/png 1 tag (pr-str p)))
           renders (atom 0)
           tag (str "\"" (java.util.UUID/randomUUID) "\"")]
       (with-redefs [portrait-render/render-png (fn [_] (swap! renders inc) (Thread/sleep 200) (byte-array [7]))]

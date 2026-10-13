@@ -8,7 +8,7 @@ cache, a semaphore or another image route: there is one way to do each.
 | Tool | What it is | Used by |
 |---|---|---|
 | `orcpub.work-pool` | A fair permit pool for one kind of heavy work, with a waiting count and a running mean of how long the work takes. `run` answers `{:result x}` or `{:busy retry-seconds}`; the Retry-After is the queue ahead over how fast permits drain, 1..30 s. | PDF export, the image probe, portrait draws |
-| `orcpub.bounded-cache` | An LRU cache bounded by count and optionally age, checked on every read. `fetch!` is single-flight: concurrent misses for one key share one computation; a failure is not kept. | probed pictures, drawn portraits, strand fields (parsed and worked out) |
+| `orcpub.bounded-cache` | An LRU cache bounded by count and optionally age, checked on every read. `fetch!` is single-flight: concurrent misses for one key share one computation; a failure is not kept. | probed pictures, drawn portraits (in front of their files), strand fields (parsed and worked out) |
 
 Each pool is separate from the HTTP worker pool (`ORCPUB_HTTP_MAX_THREADS`), so a rush of one kind
 of work waits for its own permits while pages, logins and saves keep their workers.
@@ -26,21 +26,46 @@ The portrait pool is small because a draw is CPU, not I/O: about half a second o
 the rest compositing, most of it the per-pixel ombre over the hair layers). The wait is short
 because link-preview fetchers give up quickly.
 
+## Stored drawings
+
+The server draws each character's portrait itself and keeps the drawing as a file,
+`<PORTRAIT_STORE_DIR>/<character id>-<fingerprint>.png` (`orcpub.portrait-store`).
+
+- **Fingerprint.** The saved selection, the credit line, the site mark, and a digest of the
+  registered art files and the drawing code (read from the classpath). It does not depend on the
+  process, so a kept file is good across restarts, and any change to the art or the drawing code
+  draws every portrait again.
+- **On save.** The store compares the fingerprint with the kept file. Autosave fires every few
+  seconds for edits like hit points; those find the file already there and do nothing. A changed
+  portrait is drawn once, 3 s after the last save of a burst, with what was saved last. A removed
+  portrait's files are deleted.
+- **On request.** Memory (64 drawings), then the file, then a draw. Characters saved before this
+  existed are drawn on their first request and kept.
+- **Limits.** Every draw takes a portrait-pool permit; concurrent requests for one drawing share
+  it. A save never waits for a draw.
+
+**Decision: files, not the database.** Datomic keeps every past value forever and is not meant
+for large values, and these are derived, so a lost file is only drawn again. A shared volume lets
+several containers draw each portrait once; without one, each container draws on first request
+and keeps its own copy. (Decided in an earlier session and stated only in chat then; recorded here.)
+
+The browser's own picture is used only for the PDF the owner exports, which goes back to them
+alone. The server never stores or serves a picture a browser made: it cannot tell one from any
+image someone uploads, and the shared picture carries the artist's name.
+
 ## A shared link, end to end
 
-1. The character page names the picture by version: `/character/:id/portrait.png?v=<12 hex>`, the
-   start of the portrait's validator (stored EDN, credit line, site mark, artwork epoch). It
-   refreshes the artist credits first, so the version and the credit agree with what the image
-   route will compute.
-2. The image route pulls the stored portrait and computes the same validator. No drawing yet:
+1. The character page names the picture by version: `/character/:id/portrait.png?v=<16 hex>`, the
+   start of the portrait's fingerprint. It refreshes the artist credits first, so the version and
+   the credit agree with what the image route will compute.
+2. The image route pulls the stored portrait and computes the same fingerprint. No drawing yet:
    - `If-None-Match` covering it: 304.
    - `?v=` matching it: the response is `public, max-age=31536000, immutable`, because that address
      never changes content. Bare or stale: `public, max-age=300`.
-3. A miss goes to `rendered-portraits` (64 entries, keyed by validator). The crawlers a new link
-   sends at once (Discord, Slack, Mastodon instances...) share one draw.
-4. The draw takes a portrait-pool permit. Nothing drawable is cached too (nil, answered 404).
+3. Then the store, as above: memory, file, draw. The crawlers a new link sends at once (Discord,
+   Slack, Mastodon instances...) share one draw. Nothing drawable is answered 404.
 
-When a portrait changes, its validator and so its address change: chat apps that cached the old
+When a portrait changes, its fingerprint and so its address change: chat apps that cached the old
 picture under the old address fetch the new one, and nothing has to be purged.
 
 ## Strand fields

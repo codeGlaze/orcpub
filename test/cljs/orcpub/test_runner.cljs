@@ -40,6 +40,7 @@
             [orcpub.dnd.e5.views-test]
             [orcpub.dnd.e5.portrait-credit-thumb-test]
             [orcpub.dnd.e5.portrait-artists-arrive-test]
+            [orcpub.art-mark-test]
             [orcpub.dnd.e5.portrait-whites-test]
             [orcpub.character-builder-test]
             ;; storage layer (resilient loader read path)
@@ -85,6 +86,7 @@
              'orcpub.dnd.e5.views-test
              'orcpub.dnd.e5.portrait-credit-thumb-test
              'orcpub.dnd.e5.portrait-artists-arrive-test
+             'orcpub.art-mark-test
              'orcpub.dnd.e5.portrait-whites-test
              'orcpub.character-builder-test
              'orcpub.dnd.e5.db-test
