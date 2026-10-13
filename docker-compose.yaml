@@ -64,6 +64,10 @@ services:
       PROFILE_ENCRYPTION_KEYS: ${PROFILE_ENCRYPTION_KEYS:-}
       APP_URL: ${APP_URL:-}
       EMAIL_ADMIN_TO: ${EMAIL_ADMIN_TO:-}
+      # Where drawn shared-link portraits are kept. Mount a shared volume here to draw each once
+      # for every container (e.g. a volume at /orcpub/data/portraits); without one, each container
+      # keeps its own.
+      PORTRAIT_STORE_DIR: ${PORTRAIT_STORE_DIR:-}
     depends_on:
       datomic:
         condition: service_healthy
