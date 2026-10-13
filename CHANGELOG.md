@@ -12,7 +12,7 @@ House style and the branch → release fold: [`docs/branch-changelog.template.md
 
 ### Highlights
 
-Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read.
+Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use and given a portrait drawn from an illustrator's layered art, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read.
 
 ### Added
 
@@ -48,6 +48,26 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Rules:** clarification notes on rules, in our own words, linked to where Wizards published
   the ruling.
 - **Spells:** conditions named in spell and magic item text link to their page, with a preview.
+- **Characters:** a portrait builder: pick or randomize layered art for hair, head, ears, eyes,
+  nose, mouth and shirt, from the summary thumbnail, beside the Image URL field, or in a Portrait
+  tab in the builder.
+- **Characters:** portrait colours per character for hair, skin, eyes, eye whites, lips and shirt,
+  with a lighter, darker or different colour for any single piece.
+- **Characters:** hair ombré with streaks that follow the drawn strands, a shine you can place,
+  dyed bangs, and soft shadows where hair falls over the face.
+- **Characters:** eyes with slit or goat pupils, a different colour for each eye, brightness, and
+  glowing eyes.
+- **Characters:** blush, freckles and shading under the hair.
+- **Characters:** mood light: torch, moonlight or arcane, as a lit edge, a cast or a rim.
+- **Characters:** the artist is credited under the portrait, on the sheet, in shared link previews
+  and in the picture itself, with the links the artist chose.
+- **Printing:** the portrait prints on the exported character sheet, at full resolution.
+- **Sharing:** a shared character link previews with the character's own portrait, and the
+  preview updates when the portrait changes.
+- **Accounts:** a preferred name, used to greet you in site emails.
+- **Accounts:** artists get an account with a welcome email and can change how they are credited
+  on My Account.
+- **Site:** pages and portrait images ask AI crawlers not to train on them.
 
 ### Changed
 
@@ -59,6 +79,9 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** on phones the header, menus and ability buttons fit the screen. (#711)
 - **Server:** blank settings count as unset, Docker secrets work for the login key, and the Windows start scripts find their ports. (#701)
 - **Server:** without email configured, registration is refused unless explicitly allowed. (#712)
+- **Accounts:** site emails greet you by your preferred name, or by your username when you have
+  not set one, instead of "Hi there".
+- **Characters:** the builder's tab bar wraps on narrow screens.
 
 ### Fixed
 
@@ -97,6 +120,13 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Equipment:** tools, musical instruments, gaming sets and equipment packs show their SRD prices,
   and tools and instruments their weights.
 - **Magic items:** the Alchemy Jug shows that its liquid can be created once a day.
+- **Characters:** a late save for one character no longer replaces another character open in the
+  builder, along with its unsaved edits.
+- **Sharing:** link previews of shared characters failed on Discord, Mastodon, Slack, Telegram and
+  X, because `robots.txt` blocked every crawler that honours it.
+- **Sharing:** every shared character link had an empty title and image in its preview.
+- **Printing:** exported sheets reported "Adobe InDesign CS6" as their creator and had no title or
+  author.
 
 ### Security
 
