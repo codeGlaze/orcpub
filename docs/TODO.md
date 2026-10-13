@@ -87,6 +87,31 @@ parameterised monster. Needs the builder, not this.
 - **RAW the DM chooses the creatures** for the 2014 conjure spells, so a picker cannot simply be
   offered — it wants suggest-or-defer. Tasha's summons removed this; another place 2014-vs-2024 bites.
 
+### Animated objects — the cheapest first card consumer
+
+**Animate Objects' five size tiers are a statblock table stored as prose inside the spell
+description** (`spells.cljc:200-206`). Columns do not even align:
+
+```
+Size HP AC Attack           Str Dex
+Tiny 20 18 +8 to hit, 1d4 + 4 damage 4 18
+...
+Huge 80 10 +8 to hit, 2d12 + 4 damage 18 6
+```
+
+A concrete instance of the domain map's finding that the app ships 13 creature-granting spells and
+models none of them as creatures. Wants: the table as data, a UI element to pick a size and track
+one, and a card per tier.
+
+**Why it is worth noting next to the card-frame work:** five fixed tiers, no CR bound, no pool, no
+character dependency — the stats are a lookup by size and the rest (Con 10, Int/Wis 3, Cha 1, speed
+30 or fly 30, blindsight 30) is constant prose. So it is the smallest possible real consumer of the
+shared card frame, and a good first one to prove the extraction against before beast or companion
+cards, which both need the creature query.
+
+Bucket B/C in the domain map (conjured, concentration-scoped; count scales with slot level).
+Not scheduled.
+
 ### Raised here, belongs in the central backlog — Fall Update candidate
 
 **Encounter → printable statblock cards.** A DM builds an encounter, hits print, and gets a
