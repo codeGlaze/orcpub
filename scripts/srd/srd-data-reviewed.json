@@ -591,5 +591,808 @@
   "pk": "srd-2024_summon-dragon",
   "field": "damage_types",
   "reason": "SRD 5.2.1: Breath Weapon deals '2d6 damage of a type this spirit has Resistance to (your choice when you cast the spell)'; its Resistances are Acid, Cold, Fire, Lightning, Poison. The rule skips resistance lines, so it cannot see these. Reviewed 2026-10-13."
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_animal-messenger",
+  "field": "duration",
+  "values": {
+   "slot_level_3": "3 days",
+   "slot_level_4": "5 days",
+   "slot_level_5": "7 days",
+   "slot_level_6": "9 days",
+   "slot_level_7": "11 days",
+   "slot_level_8": "13 days",
+   "slot_level_9": "15 days"
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"If you cast this spell using a spell slot of 3nd level or higher, the duration of the spell increases by 48 hours for each slot level above 2nd.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_bestow-curse",
+  "field": "duration",
+  "values": {
+   "slot_level_4": "10 minutes",
+   "slot_level_5": "8 hours",
+   "slot_level_6": "8 hours",
+   "slot_level_7": "24 hours",
+   "slot_level_8": "24 hours",
+   "slot_level_9": "Until dispelled"
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"If you cast this spell using a spell slot of 4th level or higher, the duration is concentration, up to 10 minutes.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_bestow-curse",
+  "field": "concentration",
+  "values": {
+   "slot_level_5": false,
+   "slot_level_6": false,
+   "slot_level_7": false,
+   "slot_level_8": false,
+   "slot_level_9": false
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"If you cast this spell using a spell slot of 4th level or higher, the duration is concentration, up to 10 minutes.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_dominate-beast",
+  "field": "duration",
+  "values": {
+   "slot_level_5": "10 minutes",
+   "slot_level_6": "1 hour",
+   "slot_level_7": "8 hours",
+   "slot_level_8": "8 hours",
+   "slot_level_9": "8 hours"
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"When you cast this spell with a 5th-level spell slot, the duration is concentration, up to 10 minutes.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_dominate-monster",
+  "field": "duration",
+  "values": {
+   "slot_level_9": "8 hours"
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"When you cast this spell with a 9th-level spell slot, the duration is concentration, up to 8 hours.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_dominate-person",
+  "field": "duration",
+  "values": {
+   "slot_level_6": "10 minutes",
+   "slot_level_7": "1 hour",
+   "slot_level_8": "8 hours",
+   "slot_level_9": "8 hours"
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"When you cast this spell using a 6th-level spell slot, the duration is concentration, up to 10 minutes.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_geas",
+  "field": "duration",
+  "values": {
+   "slot_level_7": "1 year",
+   "slot_level_8": "1 year",
+   "slot_level_9": "Until dispelled"
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"When you cast this spell using a spell slot of 7th or 8th level, the duration is 1 year.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_hold-person",
+  "field": "target_count",
+  "values": {
+   "slot_level_3": 2,
+   "slot_level_4": 3,
+   "slot_level_5": 4,
+   "slot_level_6": 5,
+   "slot_level_7": 6,
+   "slot_level_8": 7,
+   "slot_level_9": 8
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"When you cast this spell using a spell slot of 3rd level or higher, you can target one additional humanoid for each slot level above 2nd.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_longstrider",
+  "field": "target_count",
+  "values": {
+   "slot_level_2": 2,
+   "slot_level_3": 3,
+   "slot_level_4": 4,
+   "slot_level_5": 5,
+   "slot_level_6": 6,
+   "slot_level_7": 7,
+   "slot_level_8": 8,
+   "slot_level_9": 9
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"When you cast this spell using a spell slot of 2nd level or higher, you can target one additional creature for each slot level above 1st.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_magic-circle",
+  "field": "duration",
+  "values": {
+   "slot_level_4": "2 hours",
+   "slot_level_5": "3 hours",
+   "slot_level_6": "4 hours",
+   "slot_level_7": "5 hours",
+   "slot_level_8": "6 hours",
+   "slot_level_9": "7 hours"
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"When you cast this spell using a spell slot of 4th level or higher, the duration increases by 1 hour for each slot level above 3rd.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_magic-missile",
+  "field": "target_count",
+  "values": {
+   "slot_level_2": 4,
+   "slot_level_3": 5,
+   "slot_level_4": 6,
+   "slot_level_5": 7,
+   "slot_level_6": 8,
+   "slot_level_7": 9,
+   "slot_level_8": 10,
+   "slot_level_9": 11
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"When you cast this spell using a spell slot of 2nd level or higher, the spell creates one more dart for each slot level above 1st.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_mass-suggestion",
+  "field": "duration",
+  "values": {
+   "slot_level_7": "10 days",
+   "slot_level_8": "30 days",
+   "slot_level_9": "A year and a day"
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"When you cast this spell using a 7th-level spell slot, the duration is 10 days.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_planar-binding",
+  "field": "duration",
+  "values": {
+   "slot_level_6": "10 days",
+   "slot_level_7": "30 days",
+   "slot_level_8": "180 days",
+   "slot_level_9": "A year and a day"
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"When you cast this spell using a spell slot of a higher level, the duration increases to 10 days with a 6th-level slot, to 30 days with a 7th-level slot, to 180 days with an 8th-level slot, and to a year and a day with a\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2014/SpellCastingOption.json",
+  "pk": "srd_scorching-ray",
+  "field": "target_count",
+  "values": {
+   "slot_level_3": 4,
+   "slot_level_4": 5,
+   "slot_level_5": 6,
+   "slot_level_6": 7,
+   "slot_level_7": 8,
+   "slot_level_8": 9,
+   "slot_level_9": 10
+  },
+  "reason": "Upstream value checked against SRD 5.1, 2026-10-13: \"When you cast this spell using a spell slot of 3rd level or higher, you create one additional ray for each slot level above 2nd.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_animal-messenger",
+  "field": "duration",
+  "values": {
+   "slot_level_3": "72 hours",
+   "slot_level_4": "120 hours",
+   "slot_level_5": "168 hours",
+   "slot_level_6": "216 hours",
+   "slot_level_7": "264 hours",
+   "slot_level_8": "312 hours",
+   "slot_level_9": "360 hours"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The spell's duration increases by 48 hours for each spell slot level above 2.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_animate-dead",
+  "field": "target_count",
+  "values": {
+   "slot_level_4": 3,
+   "slot_level_5": 5,
+   "slot_level_6": 7,
+   "slot_level_7": 9,
+   "slot_level_8": 11,
+   "slot_level_9": 13
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"You animate or reassert control over two additional Undead creatures for each spell slot level above 3.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_animate-objects",
+  "field": "desc",
+  "values": {
+   "slot_level_6": "The creature's Slam damage increases by 1d4 (Medium or smaller), 1d6 (Large), or 1d12 (Huge).",
+   "slot_level_7": "The creature's Slam damage increases by 2d4 (Medium or smaller), 2d6 (Large), or 2d12 (Huge).",
+   "slot_level_8": "The creature's Slam damage increases by 3d4 (Medium or smaller), 3d6 (Large), or 3d12 (Huge).",
+   "slot_level_9": "The creature's Slam damage increases by 4d4 (Medium or smaller), 4d6 (Large), or 4d12 (Huge)."
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The creature's Slam damage increases by 1d4 (Medium or smaller), 1d6 (Large), or 1d12 (Huge) for each spell slot level above 5.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_arcane-hand",
+  "field": "desc",
+  "values": {
+   "slot_level_6": "The damage of the Clenched Fist increases by 2d8 and the damage of the Grasping Hand increases by 2d6.",
+   "slot_level_7": "The damage of the Clenched Fist increases by 4d8 and the damage of the Grasping Hand increases by 4d6.",
+   "slot_level_8": "The damage of the Clenched Fist increases by 6d8 and the damage of the Grasping Hand increases by 6d6.",
+   "slot_level_9": "The damage of the Clenched Fist increases by 8d8 and the damage of the Grasping Hand increases by 8d6."
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The damage of the Clenched Fist increases by 2d8 and the damage of the Grasping Hand increases by 2d6 for each spell slot level above 5.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_bestow-curse",
+  "field": "duration",
+  "values": {
+   "slot_level_4": "10 minutes",
+   "slot_level_5": "8 hours",
+   "slot_level_6": "8 hours",
+   "slot_level_7": "24 hours",
+   "slot_level_8": "24 hours",
+   "slot_level_9": "until dispelled"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"If you cast this spell using a level 4 spell slot, you can maintain Concentration on it for up to 10 minutes.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_bestow-curse",
+  "field": "concentration",
+  "values": {
+   "slot_level_4": true,
+   "slot_level_5": false,
+   "slot_level_6": false,
+   "slot_level_7": false,
+   "slot_level_8": false,
+   "slot_level_9": false
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"If you cast this spell using a level 4 spell slot, you can maintain Concentration on it for up to 10 minutes.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_bestow-curse",
+  "field": "desc",
+  "values": {
+   "slot_level_4": "You can maintain Concentration for up to 10 minutes."
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"If you cast this spell using a level 4 spell slot, you can maintain Concentration on it for up to 10 minutes.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_confusion",
+  "field": "shape_size",
+  "values": {
+   "slot_level_5": 15,
+   "slot_level_6": 20,
+   "slot_level_7": 25,
+   "slot_level_8": 30,
+   "slot_level_9": 35
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The Sphere's radius increases by 5 feet for each spell slot level above 4.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_create-or-destroy-water",
+  "field": "shape_size",
+  "values": {
+   "slot_level_2": 35,
+   "slot_level_3": 40,
+   "slot_level_4": 45,
+   "slot_level_5": 50,
+   "slot_level_6": 55,
+   "slot_level_7": 60,
+   "slot_level_8": 65,
+   "slot_level_9": 70
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"You create or destroy 10 additional gallons of water, or the size of the Cube increases by 5 feet, for each spell slot level above 1.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_create-or-destroy-water",
+  "field": "desc",
+  "values": {
+   "slot_level_2": "create or destroy 20 gallons of water, or affect 35-foot cube",
+   "slot_level_3": "create or destroy 30 gallons of water, or affect 40-foot cube",
+   "slot_level_4": "create or destroy 40 gallons of water, or affect 45-foot cube",
+   "slot_level_5": "create or destroy 50 gallons of water, or affect 50-foot cube",
+   "slot_level_6": "create or destroy 60 gallons of water, or affect 55-foot cube",
+   "slot_level_7": "create or destroy 70 gallons of water, or affect 60-foot cube",
+   "slot_level_8": "create or destroy 80 gallons of water, or affect 65-foot cube",
+   "slot_level_9": "create or destroy 90 gallons of water, or affect 70-foot cube"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"You create or destroy 10 additional gallons of water, or the size of the Cube increases by 5 feet, for each spell slot level above 1.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_create-undead",
+  "field": "desc",
+  "values": {
+   "slot_level_7": "animate or reassert control over four Ghouls",
+   "slot_level_8": "animate or reassert control over five Ghouls or two Ghasts or Wights",
+   "slot_level_9": "animate or reassert control over six Ghouls, three Ghasts or Wights, or two Mummies"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"If you use a level 7 spell slot, you can animate or reassert control over four Ghouls.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_creation",
+  "field": "shape_size",
+  "values": {
+   "slot_level_6": 10,
+   "slot_level_7": 15,
+   "slot_level_8": 20,
+   "slot_level_9": 25
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The Cube increases by 5 feet for each spell slot level above 5.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_dispel-magic",
+  "field": "desc",
+  "values": {
+   "slot_level_4": "automatically dispels spells of 4th level or lower",
+   "slot_level_5": "automatically dispels spells of 5th level or lower",
+   "slot_level_6": "automatically dispels spells of 6th level or lower",
+   "slot_level_7": "automatically dispels spells of 7th level or lower",
+   "slot_level_8": "automatically dispels spells of 8th level or lower",
+   "slot_level_9": "automatically dispels spells of 9th level or lower"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"You automatically end a spell on the target if the spell's level is equal to or less than the level of the spell slot you use.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_dominate-beast",
+  "field": "duration",
+  "values": {
+   "slot_level_5": "10 minutes",
+   "slot_level_6": "1 hour",
+   "slot_level_7": "8 hours",
+   "slot_level_8": "8 hours",
+   "slot_level_9": "8 hours"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"Your Concentration can last longer with a spell slot of level 5 (up to 10 minutes), 6 (up to 1 hour), or 7+ (up to 8 hours).\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_dominate-beast",
+  "field": "concentration",
+  "values": {
+   "slot_level_5": true
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"Your Concentration can last longer with a spell slot of level 5 (up to 10 minutes), 6 (up to 1 hour), or 7+ (up to 8 hours).\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_dominate-monster",
+  "field": "duration",
+  "values": {
+   "slot_level_9": "8 hours"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"Your Concentration can last longer with a level 9 spell slot (up to 8 hours).\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_dominate-monster",
+  "field": "concentration",
+  "values": {
+   "slot_level_9": true
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"Your Concentration can last longer with a level 9 spell slot (up to 8 hours).\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_dominate-person",
+  "field": "duration",
+  "values": {
+   "slot_level_6": "10 minutes",
+   "slot_level_7": "1 hour",
+   "slot_level_8": "8 hours",
+   "slot_level_9": "8 hours"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"Your Concentration can last longer with a spell slot of level 6 (up to 10 minutes), 7 (up to 1 hour), or 8+ (up to 8 hours).\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_dominate-person",
+  "field": "concentration",
+  "values": {
+   "slot_level_6": true
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"Your Concentration can last longer with a spell slot of level 6 (up to 10 minutes), 7 (up to 1 hour), or 8+ (up to 8 hours).\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_eldritch-blast",
+  "field": "target_count",
+  "values": {
+   "player_level_11": 3,
+   "player_level_17": 4,
+   "player_level_5": 2
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The spell creates two beams at level 5, three beams at level 11, and four beams at level 17.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_etherealness",
+  "field": "target_count",
+  "values": {
+   "slot_level_8": 3,
+   "slot_level_9": 6
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"You can target up to three willing creatures (including yourself) for each spell slot level above 7.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_find-steed",
+  "field": "desc",
+  "values": {
+   "slot_level_3": "summoned creature uses level 3 stat block",
+   "slot_level_4": "summoned creature uses level 4 stat block",
+   "slot_level_5": "summoned creature uses level 5 stat block",
+   "slot_level_6": "summoned creature uses level 6 stat block",
+   "slot_level_7": "summoned creature uses level 7 stat block",
+   "slot_level_8": "summoned creature uses level 8 stat block",
+   "slot_level_9": "summoned creature uses level 9 stat block"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"Use the spell slot's level for the spell's level in the stat block.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_fog-cloud",
+  "field": "shape_size",
+  "values": {
+   "slot_level_2": 40,
+   "slot_level_3": 60,
+   "slot_level_4": 80,
+   "slot_level_5": 100,
+   "slot_level_6": 120,
+   "slot_level_7": 140,
+   "slot_level_8": 160,
+   "slot_level_9": 180
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The fog's radius increases by 20 feet for each spell slot level above 1.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_geas",
+  "field": "duration",
+  "values": {
+   "slot_level_7": "365 days",
+   "slot_level_8": "365 days"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"If you use a level 7 or 8 spell slot, the duration is 365 days.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_giant-insect",
+  "field": "desc",
+  "values": {
+   "slot_level_5": "summoned creature uses level 5 stat block",
+   "slot_level_6": "summoned creature uses level 6 stat block",
+   "slot_level_7": "summoned creature uses level 7 stat block",
+   "slot_level_8": "summoned creature uses level 8 stat block",
+   "slot_level_9": "summoned creature uses level 9 stat block"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"Use the spell slot's level for the spell's level in the stat block.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_heal",
+  "field": "desc",
+  "values": {
+   "slot_level_7": "The target regains 80 Hit Points.",
+   "slot_level_8": "The target regains 90 Hit Points.",
+   "slot_level_9": "The target regains 100 Hit Points."
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The healing increases by 10 for each spell slot level above 6.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_hex",
+  "field": "duration",
+  "values": {
+   "slot_level_2": "4 hours",
+   "slot_level_3": "8 hours",
+   "slot_level_4": "8 hours",
+   "slot_level_5": "24 hours",
+   "slot_level_6": "24 hours",
+   "slot_level_7": "24 hours",
+   "slot_level_8": "24 hours",
+   "slot_level_9": "24 hours"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"Your Concentration can last longer with a spell slot of level 2 (up to 4 hours), 3-4 (up to 8 hours), or 5+ (24 hours).\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_hex",
+  "field": "concentration",
+  "values": {
+   "slot_level_2": true
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"Your Concentration can last longer with a spell slot of level 2 (up to 4 hours), 3-4 (up to 8 hours), or 5+ (24 hours).\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_hold-person",
+  "field": "target_count",
+  "values": {
+   "slot_level_3": 2,
+   "slot_level_4": 3,
+   "slot_level_5": 4,
+   "slot_level_6": 5,
+   "slot_level_7": 6,
+   "slot_level_8": 7,
+   "slot_level_9": 8
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"You can target one additional Humanoid for each spell slot level above 2.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_hunters-mark",
+  "field": "duration",
+  "values": {
+   "slot_level_3": "8 hours",
+   "slot_level_4": "8 hours",
+   "slot_level_5": "24 hours",
+   "slot_level_6": "24 hours",
+   "slot_level_7": "24 hours",
+   "slot_level_8": "24 hours",
+   "slot_level_9": "24 hours"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"Your Concentration can last longer with a spell slot of level 3-4 (up to 8 hours) or 5+ (up to 24 hours).\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_hunters-mark",
+  "field": "concentration",
+  "values": {
+   "slot_level_3": true,
+   "slot_level_4": true
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"Your Concentration can last longer with a spell slot of level 3-4 (up to 8 hours) or 5+ (up to 24 hours).\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_magic-circle",
+  "field": "duration",
+  "values": {
+   "slot_level_4": "2 hours",
+   "slot_level_5": "3 hours",
+   "slot_level_6": "4 hours",
+   "slot_level_7": "5 hours",
+   "slot_level_8": "6 hours",
+   "slot_level_9": "7 hours"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The duration increases by 1 hour for each spell slot level above 3.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_magic-missile",
+  "field": "target_count",
+  "values": {
+   "slot_level_2": 4,
+   "slot_level_3": 5,
+   "slot_level_4": 6,
+   "slot_level_5": 7,
+   "slot_level_6": 8,
+   "slot_level_7": 9,
+   "slot_level_8": 10,
+   "slot_level_9": 11
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The spell creates one more dart for each spell slot level above 1.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_major-image",
+  "field": "duration",
+  "values": {
+   "slot_level_4": "until dispelled",
+   "slot_level_5": "until dispelled",
+   "slot_level_6": "until dispelled",
+   "slot_level_7": "until dispelled",
+   "slot_level_8": "until dispelled",
+   "slot_level_9": "until dispelled"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The spell lasts until dispelled, without requiring Concentration, if cast with a level 4+ spell slot.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_major-image",
+  "field": "concentration",
+  "values": {
+   "slot_level_4": false,
+   "slot_level_5": false,
+   "slot_level_6": false,
+   "slot_level_7": false,
+   "slot_level_8": false,
+   "slot_level_9": false
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The spell lasts until dispelled, without requiring Concentration, if cast with a level 4+ spell slot.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_mass-suggestion",
+  "field": "duration",
+  "values": {
+   "slot_level_7": "10 days",
+   "slot_level_8": "30 days",
+   "slot_level_9": "366 days"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The duration is longer with a spell slot of level 7 (10 days), 8 (30 days), or 9 (366 days).\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_modify-memory",
+  "field": "desc",
+  "values": {
+   "slot_level_6": "can alter memories from up to 7 days ago",
+   "slot_level_7": "can alter memories from up to 30 days ago",
+   "slot_level_8": "can alter memories from up to 365 days ago",
+   "slot_level_9": "can alter memories from any time in the creature's past"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"You can alter the target's memories of an event that took place up to 7 days ago (level 6 spell slot), 30 days ago (level 7 spell slot), 365 days ago (level 8 spell slot), or any time in the creature's past (level 9 spel\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_planar-binding",
+  "field": "duration",
+  "values": {
+   "slot_level_6": "10 days",
+   "slot_level_7": "30 days",
+   "slot_level_8": "180 days",
+   "slot_level_9": "366 days"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The duration increases with a spell slot of level 6 (10 days), 7 (30 days), 8 (180 days), and 9 (366 days).\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_private-sanctum",
+  "field": "shape_size",
+  "values": {
+   "slot_level_5": 200,
+   "slot_level_6": 300,
+   "slot_level_7": 400,
+   "slot_level_8": 500,
+   "slot_level_9": 600
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"You can increase the size of the Cube by 100 feet for each spell slot level above 4.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_private-sanctum",
+  "field": "desc",
+  "values": {
+   "slot_level_5": "Cube can be up to 200 feet on a side.",
+   "slot_level_6": "Cube can be up to 300 feet on a side.",
+   "slot_level_7": "Cube can be up to 400 feet on a side.",
+   "slot_level_8": "Cube can be up to 500 feet on a side.",
+   "slot_level_9": "Cube can be up to 600 feet on a side."
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"You can increase the size of the Cube by 100 feet for each spell slot level above 4.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_scorching-ray",
+  "field": "target_count",
+  "values": {
+   "slot_level_3": 4,
+   "slot_level_4": 5,
+   "slot_level_5": 6,
+   "slot_level_6": 7,
+   "slot_level_7": 8,
+   "slot_level_8": 9,
+   "slot_level_9": 10
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"You create one additional ray for each spell slot level above 2.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_spare-the-dying",
+  "field": "range",
+  "values": {
+   "player_level_11": "60 feet",
+   "player_level_17": "120 feet",
+   "player_level_5": "30 feet"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"The range doubles when you reach levels 5 (30 feet), 11 (60 feet), and 17 (120 feet).\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_summon-dragon",
+  "field": "desc",
+  "values": {
+   "slot_level_6": "summoned creature uses level 6 stat block",
+   "slot_level_7": "summoned creature uses level 7 stat block",
+   "slot_level_8": "summoned creature uses level 8 stat block",
+   "slot_level_9": "summoned creature uses level 9 stat block"
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"Use the spell slot's level for the spell's level in the stat block.\""
+ },
+ {
+  "rule": "hand-verified",
+  "file": "srd-2024/SpellCastingOption.json",
+  "pk": "srd-2024_chain-lightning",
+  "field": "target_count",
+  "values": {
+   "slot_level_7": 5,
+   "slot_level_8": 6,
+   "slot_level_9": 7
+  },
+  "reason": "Upstream value checked against SRD 5.2.1, 2026-10-13: \"One additional bolt leaps from the first target to another target for each spell slot level above 6.\""
+ },
+ {
+  "rule": "value-in-srd",
+  "file": "srd-2024/Spell.json",
+  "pk": "srd-2024_chain-lightning",
+  "field": "target_count",
+  "reason": "SRD 5.2.1: one target, then three bolts leap to as many as three other targets, so 4; the SRD never writes the digit. Same as 2014, owner approved 2026-10-12."
  }
 ]

@@ -150,10 +150,11 @@ def check_unverified(rep, f, old, new):
     """unverified: every value the branch set on a casting option is checked by a rule, or recorded
     as checked by hand (srd-data-reviewed.json, rule hand-verified, with the values it covers)."""
     need = {}
+    changed = {r['fields']['parent'] for pk, r in new.items() if old.get(pk) != r}
     for pk, r in new.items():
         o = r['fields']
-        if old.get(pk) == r or o['type'] in ('default', 'ritual'):
-            continue
+        if o['parent'] not in changed or o['type'] in ('default', 'ritual'):
+            continue                          # a hand check covers every slot of a spell, as the audit sees it
         for field in VALUE_FIELDS:
             if o.get(field) not in (None, '') and (pk, field) not in rep.verified:
                 need.setdefault((o['parent'], field), {})[o['type']] = o[field]
@@ -510,11 +511,15 @@ def main(argv):
             check_options(rep, ed, {}, opts, spells, audit=True)
             check_desc_consistency(rep, f'{ed}/SpellCastingOption.json', {}, opts, audit=True)
             check_cantrip_math(rep, f'{ed}/SpellCastingOption.json', {}, opts, spells, audit=True)
-            unchecked = sorted({r['fields']['parent'] for pk, r in opts.items()
-                                if r['fields']['type'].startswith(('slot_level_', 'player_level_'))
-                                and any(r['fields'].get(k) not in (None, '') and (pk, k) not in rep.verified
-                                        and (f'{ed}/SpellCastingOption.json', r['fields']['parent'], k) not in rep.hand
-                                        for k in VALUE_FIELDS)})
+            seen = {}
+            for pk, r in opts.items():
+                o = r['fields']
+                if o['type'].startswith(('slot_level_', 'player_level_')):
+                    for k in VALUE_FIELDS:
+                        if o.get(k) not in (None, '') and (pk, k) not in rep.verified:
+                            seen.setdefault((o['parent'], k), {})[o['type']] = o[k]
+            unchecked = sorted({parent for (parent, k), vals in seen.items()
+                                if rep.hand.get((f'{ed}/SpellCastingOption.json', parent, k)) != vals})
             print(f'audit {ed}: {len(unchecked)} spells have upcast values no rule or hand check covers '
                   f'(upstream data; check before trusting): ' + ', '.join(u.split('_', 1)[1] for u in unchecked))
     check_ratchet(rep, clone, srd52, '--update-baseline' in argv)
