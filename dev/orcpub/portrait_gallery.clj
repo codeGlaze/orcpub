@@ -18,7 +18,8 @@
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.portrait-layout :as layout]
             [clojure.data.json :as json]
-            [clojure.string :as s])
+            [clojure.string :as s]
+            [orcpub.dnd.e5.portrait-random :as rnd])
   (:import [java.awt AlphaComposite Color RenderingHints]
            [java.awt.geom Area Path2D$Double Ellipse2D$Double]
            [java.awt.image BufferedImage]
@@ -1305,7 +1306,7 @@
   "A colour per slot, drawn from the presets the picker offers. Same seed, same
    palette, on either platform -- it is the registry's own PRNG."
   [seed]
-  (let [r (pa/mulberry32 (pa/seed->int (str seed "-colors")))]
+  (let [r (rnd/mulberry32 (rnd/seed->int (str seed "-colors")))]
     (into {} (for [slot pa/color-slot-order
                    :let [choices (pa/color-presets slot)]
                    :when (seq choices)]
