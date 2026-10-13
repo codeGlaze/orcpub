@@ -109,9 +109,19 @@ Two branches have since extended the same file **independently**, from the same 
 | `fix/hidden-multiclass-skill-pick` | **284** lines (+163) | 25 | unmerged |
 | `feature/character-rescue` | **139** lines (+18) | 14 | unmerged |
 
-**They will conflict.** Diffing the two branches' `picks.cljc` against each other shows 145 lines
-present in one and not the other; neither is an ancestor of the other past `integration`. Whoever
-merges second resolves it by hand.
+**The rescue branch was spun off the fix** (per the owner), and the content agrees even though
+git does not: their merge-base is an integration commit (`afe0a14e`, 10-05), so it was either cut
+from `integration` carrying one function across, or cut from the fix and rebased since.
+
+**The conflict is small.** The fix added `addresses` plus ten more (`disqualified`, `overflow`,
+`to-planned`, `from-planned`, `update-planned`, `requirements-met?`, `waiting`, `stored-entries`,
+`drop-nested`, `removed-with-container`); the rescue added **only `addresses`**, and the two copies
+differ by one trailing blank line. So merging is a duplicate-add on one function — keep either copy
+— not a hand reconciliation. The fix's other ten collide with nothing in the rescue branch.
+
+*(Corrected 2026-10-13. An earlier revision of this section claimed 145 divergent lines needing
+hand resolution. That number came from diffing the two branch tips against each other, which
+counts the fix's own additions as divergence; it is not a conflict measure.)*
 
 And they are solving adjoining halves of one problem:
 
