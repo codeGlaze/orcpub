@@ -251,7 +251,8 @@ def check_options(rep, ed, old, new, spells, audit=False):
         m = re.search(r'increases? by (\d+)d(\d+) for (?:each|every)( two)? (?:spell )?slot levels? above (?:the )?(\d+)', h)
         t = re.search(r'\b(one|two|three|\d+) additional (?:creature|target|undead|object|beast)s? for each (?:spell )?slot level above (\d+)', h, re.I)
         for lvl, (pk, o) in sorted(slots.items()):
-            if m and sp.get('damage_roll') and DICE.match(sp['damage_roll']) and DICE.match(o.get('damage_roll') or ''):
+            several = len(re.findall(r'increases? by \d+d\d+', h)) > 1   # two damages scale: which one is stored is not ours to guess
+            if m and not several and sp.get('damage_roll') and DICE.match(sp['damage_roll']) and DICE.match(o.get('damage_roll') or ''):
                 n, die, above = int(m.group(1)), m.group(2), int(m.group(4))
                 steps = (lvl - above) // 2 if m.group(3) else lvl - above      # "for every two slot levels"
                 bn, bd = re.match(r'(\d+)d(\d+)', sp['damage_roll']).groups()
