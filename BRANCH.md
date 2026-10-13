@@ -97,6 +97,40 @@ was a superset; both had been written without the other. Start at
   shares the copy-on-adopt statblock shape.
 - No other leaf planned or started.
 
+### The picks framework — three strands, partly merged (2026-10-13)
+
+`src/cljc/orcpub/dnd/e5/picks.cljc` is the shared store-and-rewrite layer for a character's stored
+picks. **It is already on `integration`**, which is why it reads as merged — but only the base is.
+Two branches have since extended the same file **independently**, from the same baseline:
+
+| | `picks.cljc` | own commits vs integration | state |
+| --- | --- | --- | --- |
+| `integration` — `439593dd` (10-04) "Move the pick walker into a shared picks namespace; add `remove-at`, `put-at`" | 121 lines | — | **merged** |
+| `fix/hidden-multiclass-skill-pick` | **284** lines (+163) | 25 | unmerged |
+| `feature/character-rescue` | **139** lines (+18) | 14 | unmerged |
+
+**They will conflict.** Diffing the two branches' `picks.cljc` against each other shows 145 lines
+present in one and not the other; neither is an ancestor of the other past `integration`. Whoever
+merges second resolves it by hand.
+
+And they are solving adjoining halves of one problem:
+
+- **`fix/hidden-multiclass-skill-pick`** built a **planned hold**: a pick whose gate has closed is
+  held out of the built character rather than applied. `74fcb11a` removed an earlier skills-only
+  fix (per-arm modifier conditions) on the grounds that "the hold covers every pick" — so skills,
+  tools and equipment are all covered by one mechanism, and no per-family work remains.
+- **`feature/character-rescue`** built the **repair UI**: a character data page with Remove, Undo
+  and Save, plus research commits on what the app does *after* the page removes a class or the
+  ability scores (`30e6886e`) — which is the same scenario the hold catches, approached from the
+  other side.
+
+**Before either merges, someone should decide whether the hold and the rescue page share one
+mechanism or two.** `30e6886e` and the hold are asking the same question in two places.
+
+Naming: `fix/hidden-multiclass-skill-pick` no longer describes its contents — it carries the pick
+hold, not a skills fix. Its own diff is 24 files / +3,117, so the scope is a normal feature branch;
+only the name misleads. Worth renaming (e.g. `feat/planned-picks`) if nothing else references it.
+
 ### Deferred to the refactor — known, not yet owned
 
 - **Multi-tab character contamination** —
