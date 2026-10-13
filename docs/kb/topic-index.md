@@ -3154,12 +3154,13 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 2026-10-12, actions, concentration, conditions, dragon, links, magic, monster, open5e, previews, prices, rolls, rules, spell, spells, srd, weights
+**topics:** 2014, 20d6, concentration, conditions, damage, dice, editions, explosion, links, magic, monster, open5e, previews, prices, rules, spell, spells, srd
 
 - How this was measured
 - What the app shows today
 - Defects in the shipped 2014 data
 - What is prose that should be data
+- What verifying open5e's spells taught us (2026-10-13)
 - Built (PR #58, 2026-10-08)
 - Built (PR #61, 2026-10-08)
 - Wanted, not built

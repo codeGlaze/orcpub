@@ -80,6 +80,46 @@ Extends the catalogue in implementation-notes 9a with measured counts from the 2
 | monsters: senses, speed | strings ("darkvision 60 ft., passive Perception 9") | named values, so encounters can search and filter on them |
 | magic items: charges | in the description (55 items mention charges) | a resource with a recharge rule |
 
+## What verifying open5e's spells taught us (2026-10-13)
+
+Checking every spell value in both editions against the SRD (open5e-upstream-notes.md, "SRD data
+checks") found data open5e cannot hold and defects that would have reached the app. What OrcPub's
+own spell data should do with it:
+
+**Hold what open5e cannot**
+- **Upcasts as data at every slot and character level:** dice, targets, area, duration,
+  concentration. A spell card can say "Fireball at 5th: 10d6" without arithmetic.
+- **Typed upcast kinds** for what open5e only has as text: a flat amount (Aid), a spell-level
+  threshold (Counterspell, Dispel Magic, Globe of Invulnerability), a summon count or challenge
+  rating (the Conjure spells). See "What is prose that should be data".
+- **Damage parts** in place of one damage roll: Meteor Swarm's 20d6 fire and 20d6 bludgeoning; Ice
+  Knife's cold explosion that scales while its 1d10 piercing does not.
+- **Complete damage types**, so "every fire spell" is a query. 32 srd-2014 spells had none or too
+  few; Magic Missile had no force.
+- **Base values present** (dice, area, targets) for spell cards, area templates and the combat
+  tracker. 21 spells across both editions had an empty base their upcasts scaled from.
+- **What a spell grants**, in its own field, never in damage types: resistance, immunity or
+  vulnerability to damage types (Stoneskin, Protection from Poison, Fire Shield), condition
+  immunity or a condition it ends (Heroes' Feast). open5e had been putting these in
+  `damage_types`; the demand is real. The character sheet could show an active buff's
+  resistances. One-off interactions (Disintegrate destroying Wall of Force) stay in the text.
+
+**Keep it right**
+- **One pipeline.** The app's data is generated from the corrected source, so a fix lands in
+  open5e and OrcPub together (srd-2024-roadmap.md, "One pipeline").
+- **The same checks on our own files.** The rules in `check-srd-data.py` read open5e's fixtures;
+  the same rules can run over our generated EDN in `lein test`, so our data cannot drift either.
+- **Every value traceable.** Each value no rule could compute carries the SRD sentence it was
+  checked against (`srd-data-reviewed.json`). The app could show it as a source note.
+
+**Text**
+- SRD wording verbatim; our summaries in their own field.
+- Clean text (no PDF hyphens, broken words, lost line breaks) is what rules links, condition
+  links and previews stand on.
+
+**Next:** monsters likely carry the same defect kinds (attacks as prose, missing damage types,
+the legendary-action costs open5e has just fixed). The same method applies.
+
 ## Built (PR #58, 2026-10-08)
 
 - **A Rules tab and reference**: all 43 SRD 5.1 rules sections in six groups, plus the 15 conditions.
