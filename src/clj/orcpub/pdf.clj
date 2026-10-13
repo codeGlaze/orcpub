@@ -2864,9 +2864,11 @@
                {:remaining-lines remaining-desc-lines
                 :spell-name spell-name}))))))
 
-(def ^:private bezier-k
+(def bezier-k
   "Control-point offset that turns four cubic curves into a circle, to within a
-   fifth of a percent. There is no arc operator in a PDF content stream."
+   fifth of a percent. There is no arc operator in a PDF content stream.
+
+   Public because spellbook.clj draws circles too and had declared its own copy."
   0.5522847)
 
 (defn- card-pt
