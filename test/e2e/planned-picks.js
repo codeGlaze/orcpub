@@ -8,7 +8,8 @@
 // first, rogue 3 second with its multiclass skill: deleting the fighter keeps the rogue's levels
 // and holds that skill; 6 a held pick survives the character's first save; picks an edit removes
 // with their entry are held: 7 ranger 7 -> 2 -> 7, 8 a Dwarf's subrace through Dwarf -> Elf -> Dwarf,
-// 9 a rogue's skills through rogue -> wizard -> rogue.
+// 9 a rogue's skills through rogue -> wizard -> rogue; 10 the Planned marker on Champion 9's Fighting Style,
+// what tapping it says, and Clear.
 //
 // Runs against the seeded server (see hidden-pick-flows.js for the command). Prereqs: lein fig:build.
 // Run: NODE_PATH=<dir with playwright> node test/e2e/planned-picks.js     Exit 0 = pass.
@@ -163,7 +164,39 @@ const flows = {
     await setClass(page, 0, 'rogue');
     check('rogue again, its four skills return', (await skills()) === 'acrobatics,deception,perception,stealth');
   },
+
+  async 10(page) {
+    await setClass(page, 0, 'fighter');
+    await pick(page, 'Class / Level', 'Fighting Style', 'Defense');
+    await setLevel(page, 0, 3);
+    await pick(page, 'Class / Level', 'Martial Archetype', 'Champion');
+    await setLevel(page, 0, 10);
+    await pick(page, 'Class / Level', 'Fighting Style', 'Archery');
+    await setLevel(page, 0, 9);
+    check('at 9 the Fighting Style row shows the marker', await visibleText(page, 'Planned: Archery (L10)'));
+    await clickVisible(page, 'Planned: Archery (L10)');
+    await page.waitForTimeout(400);
+    check('tapping it says when Archery returns', await visibleText(page, 'Archery auto-fills at level 10.'));
+    await clickVisible(page, 'Clear');
+    await page.waitForTimeout(600);
+    check('Clear removes the marker', !(await visibleText(page, 'Planned: Archery (L10)')));
+    check('and the held pick', (await heldCount(page)) === 0);
+    await setLevel(page, 0, 10);
+    check('back at 10 Archery does not return', `${await styles(page)}` === 'defense');
+  },
 };
+
+// The text of the visible element exactly matching `text`, or null; and a click on it.
+const visibleText = (page, text) => page.evaluate(t => {
+  const el = [...document.querySelectorAll('#app span, #app button, #app div')]
+    .find(e => e.textContent.trim() === t && e.getBoundingClientRect().width > 0);
+  return el ? el.textContent.trim() : null;
+}, text);
+const clickVisible = (page, text) => page.evaluate(t => {
+  const el = [...document.querySelectorAll('#app span, #app button')]
+    .find(e => e.textContent.trim() === t && e.getBoundingClientRect().width > 0);
+  if (el) el.click(); return !!el;
+}, text);
 
 (async () => {
   const browser = await chromium.launch({ executablePath: findChrome() });

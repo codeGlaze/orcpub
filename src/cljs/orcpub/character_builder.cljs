@@ -22,6 +22,7 @@
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.planned-text :as planned-text]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.feats :as feats]
@@ -846,11 +847,26 @@
      content
      [:span.tooltiptext text]]))
 
+(defn planned-panel
+  "What tapping the Planned marker shows: each held pick, what brings it back, and Clear."
+  [held]
+  [:div.decision-callout.quiet.m-t-5 {:style {:flex-direction :column :align-items :stretch}}
+   (doall
+    (for [{:keys [record] :as h} held]
+      ^{:key (str (:address record))}
+      [:div.flex.align-items-c.justify-cont-s-b.f-s-14.w-100-p {:style {:gap "12px"}}
+       [:span (if (= 1 (count held)) (planned-text/auto-fills h) (planned-text/list-line h))]
+       [:button.link-button.underline.f-w-b.f-s-14
+        {:on-click #(dispatch [:orcpub.dnd.e5/clear-planned (:address record)])}
+        "Clear"]]))])
+
 (defn selection-section-base []
-  (let [expanded? (r/atom false)]
+  (let [expanded? (r/atom false)
+        planned-open? (r/atom false)]
     (fn [{:keys [title path parent-title name icon help max min remaining body hide-lock? hide-homebrew?]}]
       (let [locked? @(subscribe [:locked path])
-            homebrew? @(subscribe [:homebrew? path])]
+            homebrew? @(subscribe [:homebrew? path])
+            held (when path @(subscribe [:orcpub.dnd.e5/held-at path]))]
         [:div.p-5.m-b-20.m-b-0-last
          (when (and (or title name) parent-title)
            (selection-section-parent-title parent-title))
@@ -884,13 +900,22 @@
          (when (int? min)
            [:div.p-5.f-s-16
             [:div.flex.align-items-c.justify-cont-s-b
-             [:span.i.m-r-10 (str "select " (cond
-                                              (= min max) min
-                                              (zero? min) (if (nil? max)
-                                                            "any number"
-                                                            (str "up to " max))
-                                              :else (str "at least " min)))]
-             (remaining-component max remaining)]])
+             ;; The Planned marker sits after "select N" and wraps under it only when the row cannot
+             ;; fit it, so "complete" never moves. docs/kb/ux-guide.md on agents/develop.
+             [:div.flex.flex-wrap.align-items-c {:style {:min-width 0 :column-gap "10px"}}
+              [:span.i (str "select " (cond
+                                        (= min max) min
+                                        (zero? min) (if (nil? max)
+                                                      "any number"
+                                                      (str "up to " max))
+                                        :else (str "at least " min)))]
+              (when (seq held)
+                [:span.i.underline.orange.pointer
+                 {:on-click #(swap! planned-open? not)}
+                 (planned-text/marker held)])]
+             (remaining-component max remaining)]
+            (when (and (seq held) @planned-open?)
+              [planned-panel held])])
          body]))))
 
 (defn selection-section-column [option-selectors]

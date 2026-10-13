@@ -306,10 +306,10 @@
   "Each record in `planned` as {:record :name :returns}, `:returns` being what brings it back:
    {:class-level n :class k}, {:total-level n}, {:first-class k}, {:not-first-class k},
    {:class k} (its class is gone), {:choice address :name s} (the choice it sat under was
-   replaced), or nil. One build of `character` for all of them."
-  [template character planned]
+   replaced), or nil. One build of `character` for all of them, or `built` when given."
+  [template character planned & [built]]
   (when (seq planned)
-    (let [built (entity/build character template)
+    (let [built (or built (entity/build character template))
           reachable (remove nil? (entity/get-all-selections-aux-2 template
                                                                   (entity/make-path-map character)))
           now (set (map first (addresses character)))

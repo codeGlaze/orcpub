@@ -439,6 +439,33 @@
                    (when-let [tid @timeout-id]
                      (js/clearTimeout tid))))))
 
+;; Held picks (the planned hold) as the builder shows them: each one's name and what brings it
+;; back (picks/describe-held), from the builder's own debounced build.
+(reg-sub :orcpub.dnd.e5/planned-picks (fn [db _] (get db :orcpub.dnd.e5/planned-picks [])))
+
+(reg-sub
+ :orcpub.dnd.e5/held-picks
+ :<- [:built-template]
+ :<- [:character]
+ :<- [:orcpub.dnd.e5/planned-picks]
+ :<- [:built-character]
+ (fn [[template character planned built] _]
+   (when (and (seq planned) (seq template))
+     (try (picks/describe-held template character planned built)
+          (catch :default e
+            (js/console.error "Planned picks could not be described." e)
+            nil)))))
+
+(reg-sub
+ :orcpub.dnd.e5/held-by-section
+ :<- [:orcpub.dnd.e5/held-picks]
+ (fn [held _] (group-by (comp pop :address :record) held)))
+
+(reg-sub
+ :orcpub.dnd.e5/held-at
+ :<- [:orcpub.dnd.e5/held-by-section]
+ (fn [by-section [_ path]] (get by-section (vec path))))
+
 ;; The BUILDER's in-progress character. Ignores query args, so [:built-character]
 ;; and [:built-character nil] are two cache keys for the same thing -- and that
 ;; means two debounced builds per change. Always subscribe with no argument.
