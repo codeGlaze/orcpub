@@ -202,7 +202,8 @@
 ;; Picks an edit removed with their entry: held, and back when the entry is
 
 (defn- empty-levels [ch i from to]
-  (update-in ch (levels-path i) into (for [n (range from (inc to))] {::entity/key (keyword (str "level-" n))})))
+  (update-in ch (levels-path i) into (for [n (range from (inc to))]
+                                       {::entity/key (keyword (str "level-" n))})))
 
 (def ^:private hunter-address [:class :ranger :levels :level-3 :ranger-archetype :hunter])
 
@@ -240,8 +241,8 @@
         removed (picks/removed-with-container as-rogue as-fighter)
         r (update-planned as-fighter removed)
         back (update-planned (character [(class-entry :rogue 1)]) (:planned r))]
-    (is (= #{[:class :rogue :skill-proficiency :stealth] [:class :rogue :skill-proficiency :acrobatics]
-             [:class :rogue :skill-proficiency :insight] [:class :rogue :skill-proficiency :perception]}
+    (is (= (set (for [k [:stealth :acrobatics :insight :perception]]
+                  [:class :rogue :skill-proficiency k]))
            (set (map :address removed))))
     (is (= 4 (count (:planned r))))
     (is (= as-rogue (:character back)) "rogue again, its skills return")))
@@ -252,3 +253,51 @@
         unticked (update-in ch [::entity/options :class 0 ::entity/options :skill-proficiency]
                             #(vec (rest %)))]
     (is (= [] (picks/removed-with-container ch unticked)))))
+
+;; ---------------------------------------------------------------------------
+;; What the builder says about a held pick: its name and what brings it back
+
+(defn- described [ch planned]
+  (mapv (juxt :name :returns) (picks/describe-held @template ch planned)))
+
+(deftest a-held-pick-says-what-brings-it-back
+  (testing "a level-gated subclass feature"
+    (let [ch7 (character [(class-entry :ranger 7 (hunter :steel-will))])
+          r6 (update-planned (drop-level ch7 0) [])]
+      (is (= [["Steel Will" {:class-level 7 :class :ranger}]]
+             (described (:character r6) (:planned r6))))))
+  (testing "the newest style over a shared slot: the gate that adds the place"
+    (let [ch10 (character [(class-entry :fighter 10 champion two-styles)])
+          r9 (update-planned (drop-level ch10 0) [])]
+      (is (= [["Archery" {:class-level 10 :class :fighter}]]
+             (described (:character r9) (:planned r9))))))
+  (testing "first-class picks of a class moved second"
+    (let [r (update-planned (character [(class-entry :fighter 1)
+                                        (class-entry :rogue 1 nil rogue-first-class-skills)]) [])]
+      (is (= #{{:first-class :rogue}} (set (map second (described (:character r) (:planned r))))))
+      (is (contains? (set (map first (described (:character r) (:planned r)))) "Stealth"))))
+  (testing "a first class's own level-1 hit-point roll"
+    (let [rolled (assoc-in (class-entry :rogue 1)
+                           [::entity/options :levels 0 ::entity/options :hit-points]
+                           {::entity/key :average ::entity/value 5})
+          r (update-planned (character [rolled (class-entry :fighter 1)]) [])]
+      (is (= [{:not-first-class :rogue}] (mapv second (described (:character r) (:planned r))))))))
+
+(deftest a-pick-removed-with-its-entry-says-which-entry-brings-it-back
+  (let [ch7 (character [(class-entry :ranger 7 (hunter :steel-will))])]
+    (testing "a level dropped below it"
+      (let [ch2 (update-in ch7 (levels-path 0) #(vec (take 2 %)))
+            r (update-planned ch2 (picks/removed-with-container ch7 ch2))]
+        (is (contains? (set (described (:character r) (:planned r)))
+                       ["Hunter" {:class-level 3 :class :ranger}]))))
+    (testing "its subclass replaced"
+      (let [archetype (conj (levels-path 0) 2 ::entity/options :ranger-archetype)
+            beast (assoc-in ch7 archetype {::entity/key :beast-master})
+            r (update-planned beast (picks/removed-with-container ch7 beast))]
+        (is (= [["Steel Will" {:choice hunter-address :name "Hunter"}]]
+               (described (:character r) (:planned r))))))
+    (testing "its class changed"
+      (let [as-fighter (character [(class-entry :fighter 1)])
+            as-rogue (character [(class-entry :rogue 1 nil rogue-first-class-skills)])
+            r (update-planned as-fighter (picks/removed-with-container as-rogue as-fighter))]
+        (is (= #{{:class :rogue}} (set (map second (described (:character r) (:planned r))))))))))

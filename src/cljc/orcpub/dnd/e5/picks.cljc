@@ -7,6 +7,7 @@
    and the browser (`testing-infrastructure.md`)."
   (:require [orcpub.entity :as entity]
             [orcpub.template :as t]
+            [orcpub.common :as common]
             [orcpub.dnd.e5.library :as library]))
 
 (defn walk
@@ -278,7 +279,57 @@
             {:character c2
              :planned held
              :set-aside (filterv #(not (before (:address %))) held)
-             :restored (filterv #(not (or (after (:address %)) ((address-set retired) (:address %))))
+             :restored (filterv #(not (or (after (:address %))
+                                          ((address-set retired) (:address %))))
                                 initial)
              :retired retired})
           (recur c2 held retired (inc n)))))))
+
+;; What the builder says about held picks: each one's name and what brings it back.
+
+(defn- entry-addresses
+  "The addresses of the entries on the way to `address`, outermost first; not `address` itself."
+  [address]
+  (for [n (range 2 (count address) 2)] (subvec address 0 n)))
+
+(defn- level-of [k]
+  (some->> (name k) (re-matches #"level-(\d+)") second #?(:clj Long/parseLong :cljs js/parseInt)))
+
+(defn- option-name
+  "The name the template gives option `k` of the selection at `path`, from `selections`."
+  [selections path k]
+  (some (fn [s] (when (= path (vec (entity/actual-path s)))
+                  (some #(when (= k (::t/key %)) (::t/name %)) (entity/selection-options s))))
+        selections))
+
+(defn describe-held
+  "Each record in `planned` as {:record :name :returns}, `:returns` being what brings it back:
+   {:class-level n :class k}, {:total-level n}, {:first-class k}, {:not-first-class k},
+   {:class k} (its class is gone), {:choice address :name s} (the choice it sat under was
+   replaced), or nil. One build of `character` for all of them."
+  [template character planned]
+  (when (seq planned)
+    (let [built (entity/build character template)
+          reachable (remove nil? (entity/get-all-selections-aux-2 template
+                                                                  (entity/make-path-map character)))
+          now (set (map first (addresses character)))
+          gate-of (fn [path]
+                    (some (fn [s] (when (and (= path (vec (entity/actual-path s)))
+                                             (some-> (::t/prereq-fn s) (#(not (% built)))))
+                                    (some-> (::t/prereq-fn s) meta ::t/gate)))
+                          reachable))
+          named (fn [address]
+                  (or (option-name reachable (pop address) (peek address))
+                      (common/kw-to-name (peek address) true)))]
+      (mapv (fn [{:keys [address] :as record}]
+              (let [missing (first (remove now (entry-addresses address)))]
+                {:record record
+                 :name (named address)
+                 :returns (cond
+                            (nil? missing) (gate-of (pop address))
+                            (= :levels (peek (pop missing))) {:class-level (level-of (peek missing))
+                                                              :class (second missing)}
+                            (and (= 2 (count missing)) (= :class (first missing)))
+                            {:class (second missing)}
+                            :else {:choice missing :name (named missing)})}))
+            planned))))

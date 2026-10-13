@@ -2404,8 +2404,16 @@
         :prereq-fn prereq-fn
         :tags #{:profs :tool-profs}}))))
 
+(defn gated
+  "`prereq-fn` carrying `gate`, data saying what opens it, as metadata (`::t/gate`), so a held pick
+   can say when it returns (picks/describe-held). `gate`: {:class-level n :class k},
+   {:total-level n}, {:first-class k} or {:not-first-class k}."
+  [gate prereq-fn]
+  (with-meta prereq-fn {::t/gate gate}))
+
 (defn first-class? [class-kw & [classes]]
-  (fn [c] (= class-kw (first (or classes (character/classes c))))))
+  (gated {:first-class class-kw}
+         (fn [c] (= class-kw (first (or classes (character/classes c)))))))
 
 (defn new-starting-equipment-selection [class-kw {:keys [name options] :as cfg}]
   (t/selection-cfg
@@ -2662,10 +2670,11 @@
                    (tool-prof-modifiers (keys tool)))}))))
 
 (defn total-levels-prereq [level & [class-key]]
-  (fn [c] (>= (if class-key
-                ((character/class-level-fn c) class-key)
-                (character/total-levels c))
-              level)))
+  (gated (if class-key {:class-level level :class class-key} {:total-level level})
+         (fn [c] (>= (if class-key
+                       ((character/class-level-fn c) class-key)
+                       (character/total-levels c))
+                     level))))
 
 (defn total-levels-prereq-2 [level & [class-key]]
   (fn [c]
@@ -2974,8 +2983,9 @@
                       [(assoc
                         (hit-points-selection hit-die name i)
                         ::t/prereq-fn
-                        (fn [c] (or (not (= kw (first (character/classes c))))
-                                    (> i 1))))])))
+                        (gated {:not-first-class kw}
+                               (fn [c] (or (not (= kw (first (character/classes c))))
+                                           (> i 1)))))])))
       :modifiers (concat
                   (some-> levels (get i) :modifiers)
                   (traits-modifiers
@@ -3058,8 +3068,9 @@
                                spells-map
                                (assoc spellcasting :class-key kw)
                                merged-class)
-        first-class? (fn [c] (let [first-class (first (character/classes c))]
-                               (= kw first-class)))]
+        first-class? (gated {:first-class kw}
+                            (fn [c] (let [first-class (first (character/classes c))]
+                                      (= kw first-class))))]
     (t/option-cfg
      {:name name
       :key kw
@@ -3076,7 +3087,9 @@
                     (when (seq tool-options)
                       [(tool-prof-selection tool-options :tool-selection first-class?)])
                     (when (seq multiclass-tool-options)
-                      [(tool-prof-selection multiclass-tool-options :multiclass-tool-selection (fn [c] (not= kw (first (:classes c)))))])
+                      [(tool-prof-selection multiclass-tool-options :multiclass-tool-selection
+                                            (gated {:not-first-class kw}
+                                                   (fn [c] (not= kw (first (:classes c))))))])
                     (when weapon-choices (class-weapon-options weapon-choices kw weapon-map))
                     (when armor-choices (class-armor-options armor-choices kw))
                     (when equipment-choices (class-equipment-options equipment-choices kw))
@@ -3086,7 +3099,9 @@
                     (when (seq skill-expertise-kws)
                       [(skill-expertise-selection skill-expertise-kws (:choose skill-expertise-options))])
                     (when multiclass-skill-options
-                      [(class-skill-selection multiclass-skill-options :multiclass-skill-proficiency (complement first-class?))])
+                      [(class-skill-selection multiclass-skill-options :multiclass-skill-proficiency
+                                              (gated {:not-first-class kw}
+                                                     (complement first-class?)))])
                     [(t/selection-cfg
                       {:name (str name " Levels")
                        :key :levels
