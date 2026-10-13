@@ -138,6 +138,23 @@ build never do. **Fixed** on `ci/browser-suite` (`bdc29e6f`): integration added 
 **Order:** A1–A5 (A1, A2 and A4 can be one commit: one move), B1, B4, then B2 and B3 after the
 owner's calls, then item 6. C with the UI. D1 on its own branch, name approved first.
 
+### Step 1 UI: the build (2026-10-13)
+
+The design is decided (`decision-gate-hidden-picks.md`, "Current decision"; `agents/develop`
+`docs/kb/ux-guide.md`). One commit each, its test green before the next; ✓ when done.
+
+| # | what | test |
+|---|---|---|
+| U1 | When a held pick returns: gates as data on selections (`::t/gate`: class level, first class, not first class) and `picks/return-condition` (a removed level entry, a removed class, a replaced choice, or the gate of the closed selection) | JVM, real classes |
+| U2 | The Planned marker in an open section's row; several as a count; tap lists them with "auto-fills at level N" and Clear | cljs + e2e |
+| U3 | The class line beside the level picker; the starting-class line | cljs + e2e |
+| U4 | The notice box style: icon, balanced amber ring, text left and action right | screenshot |
+| U5 | The restore notice with Undo/Redo; the change record accumulates until shown (C1) | cljs + e2e |
+| U6 | The on-open notice, and saving the character cleaned on open (C2) | cljs + e2e |
+
+Open, mocked later: where picks waiting on a choice show (a subrace waiting on its race, a subclass's
+picks waiting on that subclass, a deleted class's picks).
+
 ### Step 5, mapped (2026-10-01)
 
 > **Superseded by the owner's decision of 2026-10-03** (`decision-gate-hidden-picks.md`, top): one
