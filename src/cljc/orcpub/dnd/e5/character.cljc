@@ -715,6 +715,11 @@
       (not (map? (:colors m))) (dissoc :colors)
       (not (map? (:tweaks m))) (dissoc :tweaks))))
 
+(def max-portrait-chars
+  "The longest stored portrait read. A full one is about 1.5 KB; anything far past that is not a
+   portrait, and refusing it unread keeps a crafted value from costing the reader."
+  8000)
+
 (defn parse-portrait
   "Coerce a stored portrait value into {:layers {…} :colors {…} :tweaks {…}}
    or nil.
@@ -729,11 +734,12 @@
   (cond
     (map? v) (sane-portrait v)
     (string? v)
-    (when-not (s/blank? v)
+    (when (and (not (s/blank? v)) (<= (count v) max-portrait-chars))
       (let [parsed (try
                      #?(:clj (edn/read-string v)
                         :cljs (reader/read-string v))
-                     (catch #?(:clj Exception :cljs :default) _ nil))]
+                     ;; Throwable on the JVM: deep nesting overflows the reader's stack with an Error
+                     (catch #?(:clj Throwable :cljs :default) _ nil))]
         ;; sane-portrait on THIS branch too. It is the one that matters: a
         ;; stored string is what a client actually persisted, while the map
         ;; branch only sees in-memory drafts.

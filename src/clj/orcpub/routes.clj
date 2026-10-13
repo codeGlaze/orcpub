@@ -1939,15 +1939,19 @@
       (d/pull (d/db conn) '[*] new-id))))
 
 (defn clean-up-character [character]
-  (if (-> character ::se/values ::char5e/xps string?)
-    (update-in character
-               [::se/values ::char5e/xps]
+  (cond-> character
+    (-> character ::se/values ::char5e/xps string?)
+    (update-in [::se/values ::char5e/xps]
                #(try
                   (if-not (s/blank? %)
                     (Long/parseLong %)
                     0)
                   (catch NumberFormatException e 0)))
-    character))
+    ;; a portrait the server cannot read is not stored: the save goes through without it
+    (let [p (-> character ::se/values ::char5e/portrait)]
+      (and (some? p) (not (s/blank? (str p))) (nil? (char5e/parse-portrait p))))
+    (-> (update ::se/values dissoc ::char5e/portrait)
+        (as-> c (cond-> c (empty? (::se/values c)) (dissoc ::se/values))))))
 
 (defn- note-saved-portrait!
   "Tell the portrait store a character was saved, so its shared-link picture is drawn if the
