@@ -137,7 +137,7 @@ from the pair captured together: `style-guide/weights.html`.
 Why: at display sizes 700 thickens mixed-case letters and reads plump, while small capitals carry
 700 well and read more easily for it. Found by the owner on the builder's "Race" heading, its info
 sentence and My Content's "Import Option Source"; a survey of every bold element on four pages
-(`survey-weights.js` on `claude/artist-profile-pages`) showed the same split.
+(the `survey-weights` round in `docs/design/capture/`) showed the same split.
 
 **Button contrast: opt-in dark text.** White on the amber button gradient is 2.1:1, under the
 4.5:1 minimum for text; dark text (`#15202e`) is 7.8:1. Long-time dark-theme users know the
@@ -180,7 +180,7 @@ font, and nothing set one, so `.form-button` and the other button classes render
 **Screenshot caveat.** In the Claude Code sandbox, the headless browser can't verify the network
 proxy's certificate for Google Fonts, so pages silently fall back to another sans. Captures made
 before 2026-09-30 (the artist-profile mockups included) show that fallback, not Open Sans.
-`style-guide/capture-bold.js` shows the fix: fetch font requests on the Node side with
+`docs/design/capture/lib.js` holds the fix: it fetches font requests on the Node side with
 `NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`, which keeps certificate checks on.
 
 Sizes come from the `.f-s-*` utilities (`core.clj:66`): 10, 11, 12, 14, 16, 18, 20, 24, 28, 32,
