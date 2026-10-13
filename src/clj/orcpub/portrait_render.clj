@@ -27,6 +27,7 @@
             [orcpub.dnd.e5.portrait-colorize :as colorize]
             [orcpub.dnd.e5.portrait-effects :as fx]
             [orcpub.bounded-cache :as bounded-cache]
+            [orcpub.art-mark :as art-mark]
             [orcpub.portrait-pack.strands :as strands]
             [orcpub.dnd.e5.portrait-face :as face]
             [orcpub.dnd.e5.portrait-light :as light])
@@ -688,14 +689,20 @@
          img)))))
 
 (defn render-png
-  "PNG bytes for `portrait`, or nil when there is nothing to draw."
+  "PNG bytes for `portrait`, or nil when there is nothing to draw. Carries the licensed-art mark
+   (orcpub.art-mark) when any piece drawn from carries one."
   ([portrait] (render-png portrait default-width default-height))
   ([portrait w h]
    (try
      (when-let [img (render portrait w h)]
        (let [out (ByteArrayOutputStream.)]
          (when (ImageIO/write img "png" out)
-           (.toByteArray out))))
+           (let [marks (for [k pa/layer-order
+                             :let [url (some-> (pa/selected-asset portrait k) :asset/url)]
+                             :when url]
+                         (some-> (asset-source url) :bytes art-mark/mark-of))]
+             (cond-> (.toByteArray out)
+               (some some? marks) (art-mark/with-mark (art-mark/composed marks)))))))
      (catch Exception e
        (println "portrait-render: render failed -" (.getMessage e))
        nil))))

@@ -10,6 +10,37 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 2
 art=resources/public/image/portraits
 bad=0
+
+# First: anything carrying the licensed-art mark (the Loom writes it into the real art, and
+# everything drawn from marked pieces carries it) is the art, whatever else it passes.
+marked=$(git ls-files | grep -iE '\.(png|jpe?g|webp|gif|pdf)$' | python3 -I -c '
+import sys, re, zlib, os, struct
+key = b"orcpub-art"
+private = os.path.exists("resources/public/image/portraits/PRIVATE-ART")
+for path in sys.stdin.read().split("\n"):
+    if not path or (private and path.startswith("resources/public/image/portraits/")): continue
+    try: b = open(path, "rb").read()
+    except OSError: continue
+    hit = False
+    if b[:8] == b"\x89PNG\r\n\x1a\n":
+        i = 8
+        while i + 8 <= len(b):
+            n = struct.unpack(">I", b[i:i+4])[0]; t = b[i+4:i+8]
+            if t == b"iTXt" and b[i+8:i+8+len(key)+1] == key + b"\0": hit = True; break
+            if t in (b"IDAT", b"IEND"): break
+            i += 12 + n
+    elif key in b: hit = True
+    elif path.lower().endswith(".pdf"):
+        for m in re.finditer(rb"stream\r?\n(.*?)endstream", b, re.S):
+            try:
+                if key in zlib.decompress(m.group(1)): hit = True; break
+            except zlib.error: pass
+    if hit: print(path)
+')
+for f in $marked; do
+  echo "::error file=$f::$f carries the licensed-art mark (orcpub-art). It must not be in this repository: it belongs only on the private deployment branch."
+  bad=1
+done
 while IFS= read -r f; do
   case "$f" in *.strands.png) continue ;; esac
   sha=$(sha256sum "$f" | cut -d' ' -f1)
