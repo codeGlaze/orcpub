@@ -131,4 +131,1812 @@
  "resources/public/image/world-anvil.jpeg"
  {:sha256 "2ded7ce0c3fcd5cefb6758e1904dae4654ce23e9cc9e20811416652a92e67c18"
   :what "site background / partner image, added 2020-11-25, before the portrait art"}
-}
+ "docs/design/artist-profiles/cards/column-dark-desktop.png"
+ {:sha256 "03fb84c8a3e26f625f593bdd783981f312052362a2693736a138ea5b84027253"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/cards/column-dark-phone.png"
+ {:sha256 "e775aaba29a921e1e55ea2128c9b49f2f84b7523087252bec77e19ac15436d22"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/cards/column-light-desktop.png"
+ {:sha256 "dff328ff1fd9f36c2cdea8877d82efeda541ef6ea21118cce8e1ac931df7d665"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/cards/column-light-phone.png"
+ {:sha256 "0bddc007f750369049a875d7a0aaeab6a5ae4e11a60e57e1baf26d20f8dfd4c4"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/cards/example-0.jpg"
+ {:sha256 "78ce9e6b8dbd4e0e2365f5633c488f1210e81a343500c9a8da07886614f6a95b"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/cards/example-1.jpg"
+ {:sha256 "6fcd50d02c02f673d4ac54af02abcf3b7308d3465e1af233a97c9734b44000ee"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/cards/minimal-dark-desktop.png"
+ {:sha256 "f85d56fded51e42c73cf0ed0ab020cbbbd962b36076fb193224a220cc6133b37"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/cards/minimal-dark-phone.png"
+ {:sha256 "725d0a1d40238c4ecd3e8ab80fdfd8d918263eb324e973abf65a060b92b7ce36"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/cards/minimal-light-desktop.png"
+ {:sha256 "93aadd65d7ec8f12ae7d8f1debae3d6801b5cc98efd57f959688d146876c77c8"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/cards/minimal-light-phone.png"
+ {:sha256 "0b7f17547ac33fda8f2645e854b4a72d84976869b591604ceecf609a24130d47"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/cards/split-dark-desktop.png"
+ {:sha256 "09553589c78a0097b8de60bca008b098d906214e278ab14ba5dda40617cc55a3"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/cards/split-dark-phone.png"
+ {:sha256 "c723456db7889673912b1aea0fe742a840bd6caa81edec3c3e439d3d8fa2d7a9"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/cards/split-light-desktop.png"
+ {:sha256 "df54ab19dfcb184b1fb5a7ecb56f983bf4fd3f8dcce051e1e88fa94f8ee27ca8"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/cards/split-light-phone.png"
+ {:sha256 "f204669f29524425c1f29f40d7c529bc46578c13694fb05c86e6a0f1599ded8f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/examples/example-1.jpg"
+ {:sha256 "b004b1e290c7774ffec181641e9946c26dae75cd0d18d8de8485f271929abf13"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/examples/example-2.jpg"
+ {:sha256 "5cb5ca987b1467f45caddb5fe13476222d01aff0a6509b25c2f95360e02638e5"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/examples/example-3.jpg"
+ {:sha256 "2c54ae40f135e11cec53e1d391ab2eab8cf8d1ca91ed57f338abd28434958691"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/examples/page-index-dark-desktop.png"
+ {:sha256 "863f2a1e965d0d89e922e4ec129591b5a6c020b3ce322e3bac1a2bd4155587d9"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/examples/page-profile-dark-desktop.png"
+ {:sha256 "bbcb011f7a0b3464be35c85ff47b7efdbc6ce54e5e6f241ab9cbbf8fc01934ba"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/examples/page-profile-dark-phone.png"
+ {:sha256 "4efd9fdbf0191ff5c3f5e997883166975efe48071d898a97a5ebedf427312a69"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/examples/page-profile-light-desktop.png"
+ {:sha256 "88dec8f608955878c36a5a52119a69b5fe12b725d0e19e51b0ce2dfa7f23e908"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/examples/page-profile-light-phone.png"
+ {:sha256 "f211b116d60486ace50333702fd932ed90af56e8514923e4deba72acaa8a2cea"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/after-index-dark-desktop.png"
+ {:sha256 "ab1e2d38ddc50819739ee63e7abe89cfadfac1528dcafa73b8c3a828b2cf833f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/after-index-dark-phone.png"
+ {:sha256 "49c8946ca5d982ea369037f07e448ea468d75cd5599bc0b6b1474f37116331d6"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/after-index-light-desktop.png"
+ {:sha256 "f08190c28709a8955a629df60e59e1ac8d828b347cdb04e1cd3491f3058fa96d"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/after-index-light-phone.png"
+ {:sha256 "7115af2a7f6680c6369308c8d7a95d046df86e64b23eb2620e4e671454180fd6"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/after-profile-dark-desktop.png"
+ {:sha256 "fdb926f45716acac225a1e0de42061418b696a2e1b2a6285fc2fd68a929af2fe"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/after-profile-dark-phone.png"
+ {:sha256 "35e27a87d81abf1f3708b07eddc022400514da59a86b6f700f5bc45949564ea1"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/after-profile-light-desktop.png"
+ {:sha256 "1ad087d4eaabf2b8a3ce027a0c24d51db47ab402a70c60f7f8db6b32b9825a64"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/after-profile-light-phone.png"
+ {:sha256 "0a6fc68592a227e7b6f067eea2b54e1e9398c4d3e9730c8dba525ff35d5ccf08"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/before-index-dark-desktop.png"
+ {:sha256 "ab1e2d38ddc50819739ee63e7abe89cfadfac1528dcafa73b8c3a828b2cf833f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/before-index-dark-phone.png"
+ {:sha256 "49c8946ca5d982ea369037f07e448ea468d75cd5599bc0b6b1474f37116331d6"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/before-index-light-desktop.png"
+ {:sha256 "f08190c28709a8955a629df60e59e1ac8d828b347cdb04e1cd3491f3058fa96d"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/before-index-light-phone.png"
+ {:sha256 "7115af2a7f6680c6369308c8d7a95d046df86e64b23eb2620e4e671454180fd6"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/before-profile-dark-desktop.png"
+ {:sha256 "fdb926f45716acac225a1e0de42061418b696a2e1b2a6285fc2fd68a929af2fe"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/before-profile-dark-phone.png"
+ {:sha256 "35e27a87d81abf1f3708b07eddc022400514da59a86b6f700f5bc45949564ea1"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/before-profile-light-desktop.png"
+ {:sha256 "1ad087d4eaabf2b8a3ce027a0c24d51db47ab402a70c60f7f8db6b32b9825a64"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/before-profile-light-phone.png"
+ {:sha256 "0a6fc68592a227e7b6f067eea2b54e1e9398c4d3e9730c8dba525ff35d5ccf08"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/examples-index-dark-desktop.png"
+ {:sha256 "863f2a1e965d0d89e922e4ec129591b5a6c020b3ce322e3bac1a2bd4155587d9"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/examples-index-dark-phone.png"
+ {:sha256 "e2865af58ac9f24fc3c0163572fe96a37c6c120562311db6a13e74d3bebdcaa0"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/examples-index-light-desktop.png"
+ {:sha256 "325fd502f025cc6fdd4255c9f120c90176bfb7d3a6eb912e2f4b03668dbe815e"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/examples-index-light-phone.png"
+ {:sha256 "bdb842ff5ee5fb3f7c7f9fc075cab8f911b43c84b1a813088d48d92d7bdcd8f8"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/examples-profile-dark-desktop.png"
+ {:sha256 "bbcb011f7a0b3464be35c85ff47b7efdbc6ce54e5e6f241ab9cbbf8fc01934ba"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/examples-profile-dark-phone.png"
+ {:sha256 "4efd9fdbf0191ff5c3f5e997883166975efe48071d898a97a5ebedf427312a69"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/examples-profile-light-desktop.png"
+ {:sha256 "88dec8f608955878c36a5a52119a69b5fe12b725d0e19e51b0ce2dfa7f23e908"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/examples-profile-light-phone.png"
+ {:sha256 "f211b116d60486ace50333702fd932ed90af56e8514923e4deba72acaa8a2cea"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/no-pieces-index-dark-desktop.png"
+ {:sha256 "ab1e2d38ddc50819739ee63e7abe89cfadfac1528dcafa73b8c3a828b2cf833f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/no-pieces-index-dark-phone.png"
+ {:sha256 "49c8946ca5d982ea369037f07e448ea468d75cd5599bc0b6b1474f37116331d6"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/no-pieces-index-light-desktop.png"
+ {:sha256 "f08190c28709a8955a629df60e59e1ac8d828b347cdb04e1cd3491f3058fa96d"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/no-pieces-index-light-phone.png"
+ {:sha256 "7115af2a7f6680c6369308c8d7a95d046df86e64b23eb2620e4e671454180fd6"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/no-pieces-profile-dark-desktop.png"
+ {:sha256 "e2e159ea4322b33f6063e94ce374d726f77924664f2ca62dbb11e2c5faf8c1c9"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/no-pieces-profile-dark-phone.png"
+ {:sha256 "4660a4d8ad936ed26d7d8fbce2fa5359ad88f197e30d59fb52d4e8cb076c6f13"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/no-pieces-profile-light-desktop.png"
+ {:sha256 "6d5545e6559e8e04476a12a07cd3ac292f6e5878b3621184a4f82b864354763f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/garden/no-pieces-profile-light-phone.png"
+ {:sha256 "b708c4fccf15d8eee03e13582abaa18ab6ac9b8f1797be95d2c0f79e9c77d374"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-gi-delapouite-paint-brush.png"
+ {:sha256 "d5e8ef6cc7c518206a135d8d92b6abd9e0d499557ef7386a996e509f824344f9"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-gi-delapouite-palette.png"
+ {:sha256 "e137209ffb5e1b091643882eaa78c72a8160f95466cb514fe71644119b61fa9c"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-gi-lorc-castle.png"
+ {:sha256 "5c54a3d96c7573070085fee63269e94bd013ae8d08bb4e18822f4ae6981b9310"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-gi-lorc-quill-ink.png"
+ {:sha256 "9090727f6dd2432c05b79cbad17a3a7d218f3b35263bfa6a5a61a1cfd248332e"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-gi-lorc-quill.png"
+ {:sha256 "5156b8ef423974e76a9d65465b6d5e83a392aa45d53fd43cd3c4dd4dfab2cc45"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-lu-globe.png"
+ {:sha256 "79e34e39df0ad99b4d1155828f502c53922a8d3f7a50d9ed9f61b9915dc9ef09"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-lu-house.png"
+ {:sha256 "966b52c0e0b606466f7852e997498e7199de1785c50d6a9fd7e3f301d9369000"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-lu-link.png"
+ {:sha256 "cc770f9f21760939cc7034ea6c891120eed358c6279c65053a73f16b6725eb1a"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-lu-palette.png"
+ {:sha256 "aed7b4680b6c05c9d73504574a8db89565965a4f4f96cbbe71baa49454be6d0c"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-now-site.png"
+ {:sha256 "e9b002b7c771dcb14900e726e75775d1474f96e9436b27a2f5f840f747031b1f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-ph-feather.png"
+ {:sha256 "51ad0cdeee52363417e7cf2f9874b10f1ddf2778c611740475993118efe6928e"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-ph-house-line.png"
+ {:sha256 "22fcc8ac9470df3027b48f773785b66bafbe9766a505a94bbe7a43add08a13bf"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-ph-paint-brush.png"
+ {:sha256 "3c33d0d9f790dd089d88df21ea00e09e20cdb69459415cad6ee09ce644f8c8c3"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-ph-pen-nib.png"
+ {:sha256 "9b467202227b86e9cc557bf2a526569d1c58797316661fcb9e3790512a12d5b1"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-dark-tb-world-www.png"
+ {:sha256 "f01286a7f4ecb8fcef2ce1c2a71d50c925af5e0a12b91f8770394a086c1b905d"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-gi-delapouite-paint-brush.png"
+ {:sha256 "fd6bd80f445422564dcd95ef82ba12e7d7d9c3215a6d32cc2ead3774c6cd34ca"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-gi-delapouite-palette.png"
+ {:sha256 "6aa3d91f2e6e2c8fa78aad8c18c9f5234f5f0cd4f8ffdbbdda9cb7bba0368e35"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-gi-lorc-castle.png"
+ {:sha256 "0683bb4f65982c0e2977b106a1597b718a41582aa5133a4b2dd5d69739555d2a"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-gi-lorc-quill-ink.png"
+ {:sha256 "13b2e6fe4ad271b21ba707e009b30a855e3f813ee6d761bee774bbe74ac0cdd5"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-gi-lorc-quill.png"
+ {:sha256 "2b8d7693fbc746a1f2adda374946aa46b674c9c055e6f3dfb2e5837e660104d8"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-lu-globe.png"
+ {:sha256 "84097e5fb62d6774b3b48d9f9803580bd4589e07dda43d14f34b597d19724f82"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-lu-house.png"
+ {:sha256 "53b084cab338795e707815846eeebce21e17c898e7b443418c53dff6a19bb9ba"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-lu-link.png"
+ {:sha256 "24992a49c5414088843218c10c02e003a907d4b9fe22403283233ac09cdda8c1"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-lu-palette.png"
+ {:sha256 "c0a0115d182b14cf5afc3e2a4b2f06fb4baa5e8fdd53d5ce810529ffcc467f24"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-now-site.png"
+ {:sha256 "31affe110a720955ef77a655b77279146e6d1a7b56ddf586c0617cb93ea27152"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-ph-feather.png"
+ {:sha256 "5d3aadec0d5cc82372b3aca2b939601cf846ad3bd20a4e1f913e0cd281b8d6d9"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-ph-house-line.png"
+ {:sha256 "4485ff7c3a4d10bc139107c97cc693095d6f50816fc208636d0a9113ca8cc9b0"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-ph-paint-brush.png"
+ {:sha256 "a277c73f2dfecf6b0aaecaf5de34770c66394375fa9ae877ee8bd7baa2985574"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-ph-pen-nib.png"
+ {:sha256 "fc29a9a8af41cd01c05ddf4c3950cce3188ad4c575369507b308914636e3593c"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/card-light-tb-world-www.png"
+ {:sha256 "5594c633f5f7a261fc8f4da0a977adb70b148c52a946bf9036f81bdef39c3a70"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-gi-delapouite-paint-brush.png"
+ {:sha256 "663b75fe7bedce1c9893427791e09e4a9cdff8c997f0d5817ca28ff6afb72217"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-gi-delapouite-palette.png"
+ {:sha256 "372968074671a74b194937b5ad51b1a684eb13c146c21c4b3fc6c65917444944"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-gi-lorc-castle.png"
+ {:sha256 "fadbf828274021b7cb2343315adb1dafb7952b354f67e771d1e2315bce21abbe"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-gi-lorc-quill-ink.png"
+ {:sha256 "d61c6f7ffd0ac7ac4977314224df39f55107e87cbc477edd6871bb97eeb1e17c"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-gi-lorc-quill.png"
+ {:sha256 "73578808267eaa905870680a279b624b6f020f55eee7edaf1b99416142101a4c"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-lu-globe.png"
+ {:sha256 "8f0a741125b498f8f5da155acc4f3f80a1df0419f7b9add46ef03d4f2608e48c"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-lu-house.png"
+ {:sha256 "1b622ca3f23e41eaebd564b475c93c031add2c356099c69d610ca777eb983ca7"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-lu-link.png"
+ {:sha256 "f3f95c8685ca52774667ae69c637e2e9bb8b65e48bcf71eebcc08d98172e1bf8"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-lu-palette.png"
+ {:sha256 "7a7c718cbc90fd0317387c7218ab330298ee8c6d942878503a03bed55cb22408"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-now-site.png"
+ {:sha256 "e9ef7e6801a66b6a537912cb070b62930e8d912917ed77bce4bcc48c723a3da7"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-ph-feather.png"
+ {:sha256 "0f0aec7d3b5aeadb9cb3e86313461a0970c641983191075f6762cb115ff7401a"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-ph-house-line.png"
+ {:sha256 "8d64738a1187cc490e6d327a42d4a0aea85ab237d91b8ab2fbfd0c43591db8fe"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-ph-paint-brush.png"
+ {:sha256 "19f4979fe2efc75462876cc35eda72d923307a0458deed0eb7159f447ccbee52"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-ph-pen-nib.png"
+ {:sha256 "18ecbbd7af344d45fc416395ad3a9b267a759e264308877bf12f7dda8167769d"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-dark-tb-world-www.png"
+ {:sha256 "2d45821878687ec88044aa2f28bb9c9cd847d823f50572c70059424466f8224f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-gi-delapouite-paint-brush.png"
+ {:sha256 "ea6ac56ba01d488b8b5b8f520c8482777af39fb31b1014caa5155c819b63bf13"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-gi-delapouite-palette.png"
+ {:sha256 "2be272632a069139010c82aa2c5be803d0a8e133780d60df094564b5cdb15c24"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-gi-lorc-castle.png"
+ {:sha256 "d07f6598743cf100e0f96e06ed92f6c535fd2b9470f14c191d8a52fd49ac2652"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-gi-lorc-quill-ink.png"
+ {:sha256 "a98b62ba32e393df613b7b7c2e2429094038dc8b7336892cb57b112d25d89c92"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-gi-lorc-quill.png"
+ {:sha256 "12924d805634f44b29564ca40f98326a4a44e393675c508eb17ab0823c4a0ea4"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-lu-globe.png"
+ {:sha256 "1303bff6e3294a6b9d077e3ebdf46111d00ff590281f1b323d8982f4740dc4bd"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-lu-house.png"
+ {:sha256 "cc766cd781083a5b464cf9b72bea41b722f7a4b5926a720914f508b4dc7fd25b"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-lu-link.png"
+ {:sha256 "90049fbe435f40301eebdbefffe6ebae2a0e3fbec62de73213a55573282f66a3"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-lu-palette.png"
+ {:sha256 "1db96101fb5226520a2064131f1731d672b98a5f63176df3a79b8e45991fc5ca"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-now-site.png"
+ {:sha256 "9aaf4ef821c89cdb825f9d933fe9fe889bbe3fff4be3901897c3829561c7ec3d"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-ph-feather.png"
+ {:sha256 "239dfa427fa7d38af4e91b77042e92b0198fc8986b7ea6478e9e6a1d1d1808be"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-ph-house-line.png"
+ {:sha256 "453cd398103bce92dd7472cb06b4b889c5f995a2e22c40fc64eb3f6df7ec4e26"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-ph-paint-brush.png"
+ {:sha256 "e447f0a4c6bafcbcca334766d513bebe729a67f3a557b4f71610352da5dccfd3"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-ph-pen-nib.png"
+ {:sha256 "5c077183b89360491680ac7502a91a3083da905b1f19434a9904200fb0ccc8ab"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/credit-light-tb-world-www.png"
+ {:sha256 "ba74c1ee19f89fef0b4e2988dd494949358f20ea9ca61fb8711a9c48eafdde6a"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/family-dark-gameicons.png"
+ {:sha256 "5e68da0f456125c020f2cb1c647ec275b2232af70233f9b2cf533135978d8084"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/family-dark-lucide.png"
+ {:sha256 "8cded82f9686b6cf811d4e3c053bcdf9b9cf868ed6c6e0375dd70136e7d39748"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/family-light-gameicons.png"
+ {:sha256 "eaf71a60bf5e8f9264c79b6bc5d805a39b55718f554c0517fbcdf20d2d1ad548"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/icons/family-light-lucide.png"
+ {:sha256 "e2c237ea3c12896b044ee4a14494c1b0ba7a3115de1a87841810b2568060e212"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-gi-lorc-quill-ink-amber.png"
+ {:sha256 "014d31053aa1be3684b66db030585db5e4cbaa6b2b9221c727af893c013282a7"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-gi-lorc-quill-ink-coral.png"
+ {:sha256 "dd2cdd2e4dee92770bcd030d5151d61c97af9be9fd1d9873abcc9a0396d35af6"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-gi-lorc-quill-ink-green.png"
+ {:sha256 "1270b547835a18f439c07905aab54c753e73a4f73887098b82a2249ff583e449"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-gi-lorc-quill-ink-rose.png"
+ {:sha256 "ac2a1f3b7a95c566cae1bf48827ce43f0af6cbf3208fe43bdca3f187f385627f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-gi-lorc-quill-ink-teal.png"
+ {:sha256 "44925ba53cc76ab409da3cbaa72b9dd14970abe8f4e35198e62cd83f32d8cebe"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-ph-browser-fill-amber.png"
+ {:sha256 "4456b960ce76a8030ef2a785794cf34c08ce3b3e37ac542ed53389651171f305"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-ph-browser-fill-coral.png"
+ {:sha256 "754ab8258d5cb33b5d879a4404a8e1035993221e41d059b1640cdff7c7aa2b3e"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-ph-browser-fill-green.png"
+ {:sha256 "bc97bf56e34119e94c897aecd552bd4f2a38f363ad3d9b053cf4c0c2ec529a92"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-ph-browser-fill-rose.png"
+ {:sha256 "a7dfa13d088f7fbe091aca908693f0e1a680891a5e2e617289d710daf417588e"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-ph-browser-fill-teal.png"
+ {:sha256 "65f58257797c4ae915f592cf8bfe743041ec59f73634bed2f90a9f68cca35bac"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-ph-house-fill-amber.png"
+ {:sha256 "c50b072bb967cc3fc494924c043060a35b56109620f96c2a95c9b53e4dc8ad77"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-ph-house-fill-coral.png"
+ {:sha256 "4ab1fdbf9d45aaaff1a4402b4cfafc371306ced511b754e1dddbc4a2b846ee9d"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-ph-house-fill-green.png"
+ {:sha256 "474ace6fb7ba87f2fae841751106bf6d8375df24dec5ee881069a7dae2c23206"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-ph-house-fill-rose.png"
+ {:sha256 "30f204b6b4a6808c4fae70f25c03df70450d3994b066fbcf5bc2499db977af0e"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-badge-ph-house-fill-teal.png"
+ {:sha256 "624799e305445633e607d456a91bf1835c23aea3e2c551a4b23ab30c2a0ae5bd"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-gi-lorc-quill-ink-amber.png"
+ {:sha256 "91118d52c00de8fd2015ed94782a6bb3bc50a1e69e4a5e35164c34c0bd57c17e"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-gi-lorc-quill-ink-coral.png"
+ {:sha256 "d7e5c2fb904766089d652c6fd6e939bcbb1c841d54a88263f0235ddd21bb7392"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-gi-lorc-quill-ink-green.png"
+ {:sha256 "18a71ef7806a2ec7a123a9c6291603a97ed055034c53ddb155940a416a435c24"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-gi-lorc-quill-ink-rose.png"
+ {:sha256 "0abc937f26aa6f763a345490d98ac6b5a10557956c1f5eb7b46d453249303744"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-gi-lorc-quill-ink-teal.png"
+ {:sha256 "019a991d36a902e054618b495dd934cf2936eb9e8365482970eabff6d26015b3"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-now-site-amber.png"
+ {:sha256 "2f61cb70749e80a09dc19b64b84719a35c3564ab6113acf0add6e07b24c2d69a"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-now-site-coral.png"
+ {:sha256 "e0632e7ba5a43d31152ec5957991c4ad58266ee9ee2f9e5971ae56526d2eb416"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-now-site-green.png"
+ {:sha256 "98560b9132d06a2dcdb19dc48368fd998ae7d06f07c1498e4f96363a18f2ccb1"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-now-site-rose.png"
+ {:sha256 "edb19cc09d37cf95b6a19c312ec5b4d35cb21455300c33f2b2ea5d1eed64c9be"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-now-site-teal.png"
+ {:sha256 "4bc5721a728243b1c2f2b0c590f5311932eddfd467e5c21c4f5cceb33f813fb4"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-app-window-fill-amber.png"
+ {:sha256 "85a9a74cd0c80da79560f1c1593b8f4e65ed8f17f681003be4eb17565e3fccb0"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-app-window-fill-coral.png"
+ {:sha256 "1630db2e57a6abaa0aaa4b186638dc6ae677886e3033bda08eed544925018020"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-app-window-fill-green.png"
+ {:sha256 "05fc2a07c2226cce26998d9baee50d06a062e29a0f016bda9a2efc3eafaa5738"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-app-window-fill-rose.png"
+ {:sha256 "28f74d35929abc0221f487724ed2af4cea9c76ca2164a7b29506a925ccaf7b98"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-app-window-fill-teal.png"
+ {:sha256 "3966e1b0e1b77e102622069180b8e29446d705176dbd2f9306edc952aded77ff"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-browser-fill-amber.png"
+ {:sha256 "f5f9c134d2d4e0ec4cc5d95d98b8f1eae7e4939d9bd1d08de5eee2ae1ff15e0d"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-browser-fill-coral.png"
+ {:sha256 "bc66992845dfd5b36d2ebc1752a9dcb936e5ddbf1d4fd0fa0b224845957313ad"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-browser-fill-green.png"
+ {:sha256 "7ec4c727f4274160c7325687e828f3ce26e81ff07608dc7afda3c0acb27946d2"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-browser-fill-rose.png"
+ {:sha256 "cae740f2476290ac83275c4c9df1849e293ccf74cb9c4b61ee7b4ffd48f877a2"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-browser-fill-teal.png"
+ {:sha256 "31bf21368c1acae8b780859841dfe2e8db341b6daaa07b52f99716a1eb47a82f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-compass-fill-amber.png"
+ {:sha256 "0226a3552df77f7ed71b4164d8652ddb15bc8f695c3869efb5315d470e10dc35"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-compass-fill-coral.png"
+ {:sha256 "7ac2638d5304386fccc70bd5a61e3084e1ed859015ca88e5cdc4a8f48970b1bc"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-compass-fill-green.png"
+ {:sha256 "106a39549967284fd86cf0dfcba07a0dce5794e122aa698b762d81e07797298f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-compass-fill-rose.png"
+ {:sha256 "a970475005a190f2c014854d0534009eb647db42d57d8b806df0797e25dfc88a"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-compass-fill-teal.png"
+ {:sha256 "93c0d40f2f537eed523e2f529f51a83635419969894d35cbd8d82e64b393dd61"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-house-fill-amber.png"
+ {:sha256 "c33368c7445b6aca5113f5f05cc035706d658f33bc4b1aad97de00ac86939686"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-house-fill-coral.png"
+ {:sha256 "7032cd677f6df7946b93c270b40cfb4d866577122835f306d8a74e200f95fb4f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-house-fill-green.png"
+ {:sha256 "f860ed70ff4346f75192d2da30b9f3871bbb57635cf6571ec6d3f13d12153f79"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-house-fill-rose.png"
+ {:sha256 "6baf007bbf1aa51415624a262737bc9b5d649930a67097362adb3b8529772894"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-house-fill-teal.png"
+ {:sha256 "7e7520f39785138e3469635972a85188a233b407ed6e92945d8818264297d5cc"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-sparkle-fill-amber.png"
+ {:sha256 "8e0164d27e66d3c0aedea101fa44e51433369006f4a0c0ca71f7501d05609e45"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-sparkle-fill-coral.png"
+ {:sha256 "fd89218e12b3a0e12d3e4bf4d232fad67d253db5b21d9f0188e1f20b1f5fa204"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-sparkle-fill-green.png"
+ {:sha256 "6fc7f9c0e267d893f7be17058d2f9a3784f8ed4f78eebd3305ff5469c7e9d01f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-sparkle-fill-rose.png"
+ {:sha256 "db7c7b9a3e384148617b01794f97100649813818f21a319082d23c2b6eccc5d6"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/dark-ph-sparkle-fill-teal.png"
+ {:sha256 "88ca6936ab1d3218a8e74b8eb29556dad3c3f8e0ada35df23d18ecaebacd2440"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-gi-lorc-quill-ink-amber.png"
+ {:sha256 "9ed64d112cd087d80779afac2d7e60052158ac8ad2347d3830b1bc351287c8cc"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-gi-lorc-quill-ink-coral.png"
+ {:sha256 "ca31b3f0ff10ac7e456020d6f560daa72db9fbd49e2744cbd5b836f37489503b"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-gi-lorc-quill-ink-green.png"
+ {:sha256 "a7e98729542d622b2694d7ee080e8a6b53d96516dc8117d255918d14b64f1024"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-gi-lorc-quill-ink-rose.png"
+ {:sha256 "15b945d34473ea3d57f0ad3731403b5da5f9d9a65be591ee6139342c5498bbdb"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-gi-lorc-quill-ink-teal.png"
+ {:sha256 "2de8d775447b30386e5f92dc572aebfc80ad6a06319144e6077b7694f97edb01"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-ph-browser-fill-amber.png"
+ {:sha256 "3bdaafd320d6e7f960ef4e6c74e926d0a698965dd4ec676ba4de7ee0a74c1db0"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-ph-browser-fill-coral.png"
+ {:sha256 "577e1620c018745237b9d0b09a14e42c7708b0285bee643824c64ce1760d4626"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-ph-browser-fill-green.png"
+ {:sha256 "996a2ab3248588e2e8a77847d3c2249ed325fa0d302bd908659971a965769d94"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-ph-browser-fill-rose.png"
+ {:sha256 "e73869e4739d0867c506e30c80746908096c67e1bdadadfb79c25923848f7945"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-ph-browser-fill-teal.png"
+ {:sha256 "19a130ee11427e1850dc8b9f67d8f4a334bd88950ed4726ae5ac3672dd05b0d0"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-ph-house-fill-amber.png"
+ {:sha256 "84e2afe13c1bb7c7c9c18cb830ca24638020280964095f3014a23d2fea1ff31f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-ph-house-fill-coral.png"
+ {:sha256 "488a36279a1bca6bc53b88d31d3cd3225774100ae857d03bfa67205a28a34974"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-ph-house-fill-green.png"
+ {:sha256 "430649ddb46e17b4f8b7c7fdeae51395fd3b17df5d5f9b25ea05012bacb6a5ef"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-ph-house-fill-rose.png"
+ {:sha256 "e33ea621ce090be1d585f27c22b4253b2551b542e489396cec0eefea40321b72"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-badge-ph-house-fill-teal.png"
+ {:sha256 "11bac0b8b100786aa43c62b5374f0d7391383d2042c4c6797c35dca1d241ead5"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-gi-lorc-quill-ink-amber.png"
+ {:sha256 "c5c843cc15bbff3f20fe516b6f69b2d07ecc92ab3def83a5511416549d23085d"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-gi-lorc-quill-ink-coral.png"
+ {:sha256 "d6f3e05b4b8f06f8a111771f1b47ef15567aeb7bae4c6a8bb5833d09ba78cd69"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-gi-lorc-quill-ink-green.png"
+ {:sha256 "8fec823b8cdcb1ce615737d2c2971335b9e37b9f1885b7dfd9f85af737cf31b5"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-gi-lorc-quill-ink-rose.png"
+ {:sha256 "18036d38996025715b02d4e9fc2b7cb83fc0f3fba45851097bacecc295a90829"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-gi-lorc-quill-ink-teal.png"
+ {:sha256 "ca617380087521034e66b913bd8bbee0aff7e2ee0e49741688b0bc611e760938"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-now-site-amber.png"
+ {:sha256 "35df027699b0a5a01e4e19b4d246a91b9a6accf88c3e35a319e4da0946ee8aec"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-now-site-coral.png"
+ {:sha256 "7a7a7cec6a3c1828aa64e6d666df86f6fa263ba10732aafe24cfdf16273e3b25"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-now-site-green.png"
+ {:sha256 "047ec1796f178183c49cb768f769b11d9ccf2b7dba480efae07fb44a1fef78b4"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-now-site-rose.png"
+ {:sha256 "0962f591aa7d0e7709cc2c896dc627e5a9a6882baeadb736f58b0cd3257aaf8b"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-now-site-teal.png"
+ {:sha256 "5c54de2063ff8faf7541beefab8ee9a2de1d06d7ef20e348e0df51ed92f7b5ae"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-app-window-fill-amber.png"
+ {:sha256 "86326769f455d88e87c93271969a1bf4be73ac3c9d0ce8c5cca2cb19c5482666"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-app-window-fill-coral.png"
+ {:sha256 "58f60de0d3de2ed7ef1a38424adffb42e930d0f4299846b688fd3fba9662efa1"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-app-window-fill-green.png"
+ {:sha256 "632375be7330c8577da3df7f678e05bd0132553017ee138921a117d54a8a43e2"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-app-window-fill-rose.png"
+ {:sha256 "e67d031befca1ed5acf5774852e368c36efacde3b736fd8a053593ae40ae77d7"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-app-window-fill-teal.png"
+ {:sha256 "f4067c5136547ef427786cfa5eece5f47295033a6e85628b47d61abebe634c95"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-browser-fill-amber.png"
+ {:sha256 "6337e1c2107e9493eb7178f68b0bbd65d1f9c8527b35392a59a1214b5b174ecd"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-browser-fill-coral.png"
+ {:sha256 "fa909b396ab5c617169661d807edfb7b38b39bc997aaebe28e41a78dbc05f791"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-browser-fill-green.png"
+ {:sha256 "69aca7781910877b3f68ab27153ed5beda13576cb2b4b6d1eb15a0a5a74b945b"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-browser-fill-rose.png"
+ {:sha256 "d1474f467a70f9916ece5d90cdc96adb35e45387046dcbf61dced12b71229106"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-browser-fill-teal.png"
+ {:sha256 "4f4af564f22834511b205911cc67805a9cabd257ac3f432b902e707ec896fad2"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-compass-fill-amber.png"
+ {:sha256 "948271eab09a379f7f58c905db205e103c1d5f854aa9e35819f37c5c6bf4040a"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-compass-fill-coral.png"
+ {:sha256 "d5124525f926396975bf8eea7d458f96cf3de8ae54eae8d1f53c26bbca057d00"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-compass-fill-green.png"
+ {:sha256 "4d528f59dcda2e91428716214c6c063012c9887d591371efdc329094897dfd67"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-compass-fill-rose.png"
+ {:sha256 "3c053a61a0d321709f7ee3f178fdfa39aca68ea45eb8f1e82fc8870589aefb10"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-compass-fill-teal.png"
+ {:sha256 "5888a4b6f9e96aa46107809a7f3667fde7b13353f010c8469df49e27d02779ea"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-house-fill-amber.png"
+ {:sha256 "f5005b3bd4a4247933afc3bb6672b246d9824a774820f4a36606ec8aa79741a5"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-house-fill-coral.png"
+ {:sha256 "7027d0f99e62b14aed14f5687715a81184f5af31977712d024619cc5c376dbc1"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-house-fill-green.png"
+ {:sha256 "79718f194e2785b6d64e3820c1a768056075024027767b43d81b760b106ad5c0"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-house-fill-rose.png"
+ {:sha256 "885cab6522d35ab1f457bba2095dae756cc3ec7445c0f281c801dfee9a19e6dc"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-house-fill-teal.png"
+ {:sha256 "c5caa9bb705d6eeda53b4cba976ac2a7f9b176e21f40e930a2e787799c5df054"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-sparkle-fill-amber.png"
+ {:sha256 "8c18f3f1b34965da0ee386bea01f5471d5ce7519e11e7507644a52e505f4e722"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-sparkle-fill-coral.png"
+ {:sha256 "d3bd43c6f3ce5470a2200e575a4ab2c9626e0cf62ce20875a86e6c4452cd0514"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-sparkle-fill-green.png"
+ {:sha256 "4d6dc65795ab317a173d7d77ac20ac598c96d961db2829a30f98a88f903dddb2"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-sparkle-fill-rose.png"
+ {:sha256 "e8b5e982997862409313ff0847bcd3ba39b9bc3d5d8a8a6ef9b2f7323a48f12e"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/marks/light-ph-sparkle-fill-teal.png"
+ {:sha256 "abece46efc4952b233def90401e41d4fa4acbd3e1416ee3e885770c4440e39de"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picker/picker-dark-ph-browser-fill-teal-paired.png"
+ {:sha256 "992fe5dafe1b4aca51cb38b9bc5222aee91b986a91623d53eaf1167838000a61"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picker/picker-dark-ph-browser-fill-teal-shade.png"
+ {:sha256 "b3e9be779c6a197f75abd951c2b8523d1a2c8ce8e1370e962d7f4e0d23b3a394"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picker/picker-dark-ph-sparkle-fill-yellow-paired.png"
+ {:sha256 "9df1bf9f2ca1f056ee3564f56d8375e3180c434754b648a93c2dbe32602666ba"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picker/picker-dark-ph-sparkle-fill-yellow-shade.png"
+ {:sha256 "f0b3649c25ab3ac3702e94f4ac3e9b796e9b8f83c06aec96464f58f46255242e"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picker/picker-light-ph-browser-fill-teal-paired.png"
+ {:sha256 "5df6072ce2ef9fb8d15f15722c433d6599467666b6529b7494d527b5809ecd74"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picker/picker-light-ph-browser-fill-teal-shade.png"
+ {:sha256 "810c4ad186c6bdcbf9cef77dd1be505f4dd637575cec9d9611012f61f76bdbfc"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picker/picker-light-ph-sparkle-fill-yellow-paired.png"
+ {:sha256 "a25cbcd1c30c2b2d967209f7124c95a2fb4d02386027f516222554293fe42d24"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picker/picker-light-ph-sparkle-fill-yellow-shade.png"
+ {:sha256 "f532007ac5b6d82dc9e4eeca305284e6c3405d86308f0e72d6dadf51f8ce56a6"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-dark-ph-browser-fill-coral.png"
+ {:sha256 "14aff43bd8061ca81349e17cc6ded020ba6c3eb964871a0a1b22d0a75956f5aa"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-dark-ph-browser-fill-teal.png"
+ {:sha256 "9d0dc6f208b3473669251697dc111868ad610e14f0f34c5948b88540627dc0db"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-dark-ph-compass-fill-coral.png"
+ {:sha256 "84961050b58226fbfffee1ca1026411c14a44aa320e32f0b47b06bcd21fe7a27"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-dark-ph-compass-fill-teal.png"
+ {:sha256 "f78200d6b745febe7d13f6f0ed4e9655aebb9a62de191d61e0afc594fb0cf398"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-dark-ph-house-fill-coral.png"
+ {:sha256 "6a18dcf3891754e6445ece408747c0fad9303471602b166463a2206be1fb0955"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-dark-ph-house-fill-teal.png"
+ {:sha256 "e31993d23c8df66189062189d9d2f2ad0c41c21518f71b9c0416e75baf73290d"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-dark-ph-sparkle-fill-coral.png"
+ {:sha256 "165aefb3e488f6d7dd7db64b8b8b5e1ed406c4f00c67de0c2670d2a3ede9cad5"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-dark-ph-sparkle-fill-teal.png"
+ {:sha256 "37b0e4333d490fe746afb73cdad839e56726d556902e7e4ffc09d07767949e10"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-light-ph-browser-fill-coral.png"
+ {:sha256 "93675572cc90bae292d6f934eeefdcc87a0cc9d6531aa1f03eefcf44c3e33cac"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-light-ph-browser-fill-teal.png"
+ {:sha256 "c880acf668a9d82726ab103b18dee95edb5c88df463fcf495c85a15817d22ac0"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-light-ph-compass-fill-coral.png"
+ {:sha256 "417346465e13045fa3c56c1914a8ae2d62a3762f01607fbbaa86ac50a0df1262"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-light-ph-compass-fill-teal.png"
+ {:sha256 "89934efc6d799648758822900afa735fd598bc3fc94b03a601965430871cb372"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-light-ph-house-fill-coral.png"
+ {:sha256 "82b88c0d81eb27be7d7f9af1b354f4ee635814ffa167ae2cf8abb83f918c640a"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-light-ph-house-fill-teal.png"
+ {:sha256 "37c12e7b5e89b5e8cf9debddf101d569ba32f1df574c807d59960371021526ca"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-light-ph-sparkle-fill-coral.png"
+ {:sha256 "d08524222cea17718148ec45aa142baadcbc753a4174996c6239634903600ffa"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/card-light-ph-sparkle-fill-teal.png"
+ {:sha256 "1cf992d9669feb101aa338136a7d5cc2d2108f604d1e36e7d305019477c53e7f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-dark-ph-browser-fill-coral.png"
+ {:sha256 "4ad71dd07519aa4c63263a1786aa35b4aa69b3abdb71939804aa85508911c11d"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-dark-ph-browser-fill-teal.png"
+ {:sha256 "5c2a807b181f85c27c303a69d228a2454feb4dd7fb2eb6c0ef96f291588d66e8"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-dark-ph-compass-fill-coral.png"
+ {:sha256 "ad9cc773f14e51739c01dbb713d4e9e5305c882d046353fb69d07eb26a631ad7"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-dark-ph-compass-fill-teal.png"
+ {:sha256 "5ef0f323f6f52edbbf4f5ffd1b3f4e3bfa2bb4cac3bd266eb1808e896d278976"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-dark-ph-house-fill-coral.png"
+ {:sha256 "0f8ffb59a577533ff384e6362b95bf604106a26aa5dab6421597c0b40758372e"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-dark-ph-house-fill-teal.png"
+ {:sha256 "53d2197d2f1c2c8b6b8930d9d38ac1df52f89813e68ccfe50277dc84344684eb"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-dark-ph-sparkle-fill-coral.png"
+ {:sha256 "8678dcf96a9a1fcc66d90f7057dfbd8f42542ffb1044f410f6e054fc92f57bf6"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-dark-ph-sparkle-fill-teal.png"
+ {:sha256 "2ff75b7ebd314fa1f240a58f59a31339537c9ab6f22dd7158bac091fc8c345f7"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-light-ph-browser-fill-coral.png"
+ {:sha256 "5ec10484eaff48da44f2e048eb80da6966da0b5777855d8932c8a8cdf6d33ee4"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-light-ph-browser-fill-teal.png"
+ {:sha256 "9c56328796a1f3179b0f2e9cd0ae7e6194a48c83275938b558fce07ad6732f60"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-light-ph-compass-fill-coral.png"
+ {:sha256 "f1b4cb5d8183da6c971000c221d0db7858b9a6b5596e7f5d95d9ce94939f178e"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-light-ph-compass-fill-teal.png"
+ {:sha256 "ecf959dc3f085bacd33a7c0f54cffd7214fd8366b8750c8aa140ac5c15018e07"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-light-ph-house-fill-coral.png"
+ {:sha256 "c5c38e3172e68da746e785595a3d722a9cd0fe62710447bd7566654622973e16"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-light-ph-house-fill-teal.png"
+ {:sha256 "23a62f3dfec430beceb369c5224187a9ac71b1768b22536c6da495090c9642e3"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-light-ph-sparkle-fill-coral.png"
+ {:sha256 "b24cb6ef63e4e3ec7fb75383c1cffaa7e10cfa1d37b0de279dbcedfb08d7cd20"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/picks/credit-light-ph-sparkle-fill-teal.png"
+ {:sha256 "e570cf7b53e601c83395f29e171e04f36c81bf218e9df2b4a017949a28c2f3ac"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/shots/drawer-credit-dark-hover.png"
+ {:sha256 "4d5259ca37ceefdba9de0d040a9d52ee6617ad44d7b1f57e7b5dac0ada13b095"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/shots/drawer-credit-dark.png"
+ {:sha256 "f917b143968ebd7edc0e4596da596a064927f31121351a2c416b990e15ab7219"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/shots/drawer-credit-light-hover.png"
+ {:sha256 "62ca89ac8139cb79f59f43e3eae589d4cb82e3cb1af304e5174a24764601c425"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/shots/drawer-credit-light.png"
+ {:sha256 "d41a6b56e8ce9fa0a58a8de0358b4fae5d3d3a1f823dd00cd2c6ae7a9352e82e"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/shots/index-dark.png"
+ {:sha256 "71cb7d51e46aec4bf21c9195440b8194cd68db5bd0f8e5a1d197e7fc3985e4fa"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/shots/profile-dark.png"
+ {:sha256 "a8125b2e3a6ca40e6dd94ce707b926a514e5213e1762d38ec895c4988dba4e68"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/shots/profile-light.png"
+ {:sha256 "69e579024d00023cafbf1be9c69e93183411280f4beb6c103a4e26889e4406fa"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/shots/profile-phone.png"
+ {:sha256 "063dd00472a7ab788bfb4d18de885c1757e40b00a3c3d0767576c25f3aaf0f9a"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-browser-fill-bloom.png"
+ {:sha256 "99070dbba3fde99e92ec71042f9778eb025d9507c32279e6701d00339c9955fc"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-browser-fill-ember.png"
+ {:sha256 "bc66992845dfd5b36d2ebc1752a9dcb936e5ddbf1d4fd0fa0b224845957313ad"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-browser-fill-gold.png"
+ {:sha256 "a2551b0b457bea39734f6a375c08c8ff3e7dc412578c08335a5ff87a6e47465a"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-browser-fill-moss.png"
+ {:sha256 "7ec4c727f4274160c7325687e828f3ce26e81ff07608dc7afda3c0acb27946d2"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-browser-fill-tide.png"
+ {:sha256 "31bf21368c1acae8b780859841dfe2e8db341b6daaa07b52f99716a1eb47a82f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-compass-fill-bloom.png"
+ {:sha256 "ae27daa1e085c41d09c4a107f4dc5065ffde63375477580fd59ac022a5db6815"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-compass-fill-ember.png"
+ {:sha256 "7ac2638d5304386fccc70bd5a61e3084e1ed859015ca88e5cdc4a8f48970b1bc"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-compass-fill-gold.png"
+ {:sha256 "aed271fde5a18718491b01cfb71c1b916160be69fbcd21807be9840201523f14"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-compass-fill-moss.png"
+ {:sha256 "106a39549967284fd86cf0dfcba07a0dce5794e122aa698b762d81e07797298f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-compass-fill-tide.png"
+ {:sha256 "93c0d40f2f537eed523e2f529f51a83635419969894d35cbd8d82e64b393dd61"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-house-fill-bloom.png"
+ {:sha256 "310a20cec2e5cf973b8753f40e8717fc538bd89024301f84d95f3f812c2c3061"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-house-fill-ember.png"
+ {:sha256 "7032cd677f6df7946b93c270b40cfb4d866577122835f306d8a74e200f95fb4f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-house-fill-gold.png"
+ {:sha256 "40f660abf0029ffa4800851d513948b55a9b750a4b4e1ce3d5a2a57345715791"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-house-fill-moss.png"
+ {:sha256 "f860ed70ff4346f75192d2da30b9f3871bbb57635cf6571ec6d3f13d12153f79"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-house-fill-tide.png"
+ {:sha256 "7e7520f39785138e3469635972a85188a233b407ed6e92945d8818264297d5cc"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-sparkle-fill-bloom.png"
+ {:sha256 "79541762ed7fee04cb53d345d3e477c3e75894f7ba53620cc31e9965f39209c2"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-sparkle-fill-ember.png"
+ {:sha256 "fd89218e12b3a0e12d3e4bf4d232fad67d253db5b21d9f0188e1f20b1f5fa204"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-sparkle-fill-gold.png"
+ {:sha256 "35f01e2d89bd0d66e62da9b91161cd8e347bc0a93bd3cbcaa00443486ff115c7"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-sparkle-fill-moss.png"
+ {:sha256 "6fc7f9c0e267d893f7be17058d2f9a3784f8ed4f78eebd3305ff5469c7e9d01f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-dark-ph-sparkle-fill-tide.png"
+ {:sha256 "88ca6936ab1d3218a8e74b8eb29556dad3c3f8e0ada35df23d18ecaebacd2440"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-browser-fill-bloom.png"
+ {:sha256 "249a46e88da3891fb449294865910f145eeeb97625d7d9d29525c0f6e11ade87"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-browser-fill-ember.png"
+ {:sha256 "f179b8c4a56f3405da94a1ca43a09a90796b7dbc0532e3d17b5376a69e43e317"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-browser-fill-gold.png"
+ {:sha256 "ad0f6bef130058ca14124787dd2d176f099de58ecf2e21bcf8c22d5396b074e8"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-browser-fill-moss.png"
+ {:sha256 "3e288e5c95c781a29c46b9ef3027cb8835b3266d54bd8e1794d77f7c2cfe96af"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-browser-fill-tide.png"
+ {:sha256 "c7245e5af658ca36ba039e634115d8475277a98aee48f56f20ce3db1dba07afa"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-compass-fill-bloom.png"
+ {:sha256 "6e408fbb81070a509474c63a2db9141fdd26d8e11989c70c83cbf475a6c38083"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-compass-fill-ember.png"
+ {:sha256 "119bd5ab4b471e068b8d0da33907226b11d45296de6cbfc88115d89433b559a4"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-compass-fill-gold.png"
+ {:sha256 "b07941b9c1cc6d3080d8f5664a36295243cd0e45173369e99db7e3286976c421"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-compass-fill-moss.png"
+ {:sha256 "91d00b4d2cecf7060019e6895ac6e84a2ba91a714e0348210427eb9d38bd21c4"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-compass-fill-tide.png"
+ {:sha256 "66dcdc21d527379e01aaffdce4c14c5d7493f142bc83805c16713cf00edbf4ee"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-house-fill-bloom.png"
+ {:sha256 "06278b2caed1e69f4b5132fa6a4ff298fe93821463fb371df728e08b6cfc822d"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-house-fill-ember.png"
+ {:sha256 "bd4119ca024935eb7a62015d54f67ac45a9cff28c1c9b37f686800c2f25e4ad9"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-house-fill-gold.png"
+ {:sha256 "43c22cc0bb7b58c112e13f0f5815a4038dfcf60fd83795c73e853b616fea95b6"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-house-fill-moss.png"
+ {:sha256 "889a6f590ee4fce244cae4cec0a3d31422b1b737885e10a50be0d6646ae81e50"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-house-fill-tide.png"
+ {:sha256 "8b58d4e74ae72ec154c96f67bc6f9a74a44bb8f6394f2b9cde253841bfb71424"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-sparkle-fill-bloom.png"
+ {:sha256 "faf506ed1e95fc5c6adcc5646b9cbca783a09769c3805fdc35c286071550ef12"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-sparkle-fill-ember.png"
+ {:sha256 "f8aa1eb0b56f1e269a4fb5e1a9732af8378d478873d84940108f492154a6b33c"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-sparkle-fill-gold.png"
+ {:sha256 "e6478003249f0c163622cbae523d931319208f6317d7d060b4eaa5e18405458f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-sparkle-fill-moss.png"
+ {:sha256 "07572c87c2e49efbe1b0a5b8210c5fd64685a05b7e182548298f3d3758c58bd4"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/credit-light-ph-sparkle-fill-tide.png"
+ {:sha256 "83b48d32a44604686e6dbb0a4e0fd1d36b22f1af6b577e6d3fbfd469967e2820"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/panel-dark-ph-browser-fill-tide.png"
+ {:sha256 "501595599e37ca4063006adc469379f0b5c3e1c87684a91202e396881c7a589b"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/panel-dark-ph-sparkle-fill-gold.png"
+ {:sha256 "4231cda84004b721fba789cefab983961edd713e53990aa47cf2be70ee45f7ae"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/panel-light-ph-browser-fill-tide.png"
+ {:sha256 "846f4892f73ac2c51c0fbfbec2bf37ebd57eaaaf1c08d05a8e1c965c4d975a93"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches-rehue/panel-light-ph-sparkle-fill-gold.png"
+ {:sha256 "bb6a9314f5fc982d0d1a5a1dded3c596d5edad274d500d8720187238ef2a0cdb"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-browser-fill-coral.png"
+ {:sha256 "bc66992845dfd5b36d2ebc1752a9dcb936e5ddbf1d4fd0fa0b224845957313ad"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-browser-fill-green.png"
+ {:sha256 "7ec4c727f4274160c7325687e828f3ce26e81ff07608dc7afda3c0acb27946d2"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-browser-fill-rose.png"
+ {:sha256 "99070dbba3fde99e92ec71042f9778eb025d9507c32279e6701d00339c9955fc"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-browser-fill-teal.png"
+ {:sha256 "31bf21368c1acae8b780859841dfe2e8db341b6daaa07b52f99716a1eb47a82f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-browser-fill-yellow.png"
+ {:sha256 "a2551b0b457bea39734f6a375c08c8ff3e7dc412578c08335a5ff87a6e47465a"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-compass-fill-coral.png"
+ {:sha256 "7ac2638d5304386fccc70bd5a61e3084e1ed859015ca88e5cdc4a8f48970b1bc"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-compass-fill-green.png"
+ {:sha256 "106a39549967284fd86cf0dfcba07a0dce5794e122aa698b762d81e07797298f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-compass-fill-rose.png"
+ {:sha256 "ae27daa1e085c41d09c4a107f4dc5065ffde63375477580fd59ac022a5db6815"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-compass-fill-teal.png"
+ {:sha256 "93c0d40f2f537eed523e2f529f51a83635419969894d35cbd8d82e64b393dd61"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-compass-fill-yellow.png"
+ {:sha256 "aed271fde5a18718491b01cfb71c1b916160be69fbcd21807be9840201523f14"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-house-fill-coral.png"
+ {:sha256 "7032cd677f6df7946b93c270b40cfb4d866577122835f306d8a74e200f95fb4f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-house-fill-green.png"
+ {:sha256 "f860ed70ff4346f75192d2da30b9f3871bbb57635cf6571ec6d3f13d12153f79"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-house-fill-rose.png"
+ {:sha256 "310a20cec2e5cf973b8753f40e8717fc538bd89024301f84d95f3f812c2c3061"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-house-fill-teal.png"
+ {:sha256 "7e7520f39785138e3469635972a85188a233b407ed6e92945d8818264297d5cc"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-house-fill-yellow.png"
+ {:sha256 "40f660abf0029ffa4800851d513948b55a9b750a4b4e1ce3d5a2a57345715791"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-sparkle-fill-coral.png"
+ {:sha256 "fd89218e12b3a0e12d3e4bf4d232fad67d253db5b21d9f0188e1f20b1f5fa204"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-sparkle-fill-green.png"
+ {:sha256 "6fc7f9c0e267d893f7be17058d2f9a3784f8ed4f78eebd3305ff5469c7e9d01f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-sparkle-fill-rose.png"
+ {:sha256 "79541762ed7fee04cb53d345d3e477c3e75894f7ba53620cc31e9965f39209c2"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-sparkle-fill-teal.png"
+ {:sha256 "88ca6936ab1d3218a8e74b8eb29556dad3c3f8e0ada35df23d18ecaebacd2440"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-dark-ph-sparkle-fill-yellow.png"
+ {:sha256 "35f01e2d89bd0d66e62da9b91161cd8e347bc0a93bd3cbcaa00443486ff115c7"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-browser-fill-coral.png"
+ {:sha256 "42d84f3ce361fb81fd64ebf7a2ef1a9124df559c43c51e9d2b6cbfcc24f031be"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-browser-fill-green.png"
+ {:sha256 "a25b0ef213f138a25f4a9abc326e15826659e66a9888b12bef17bfcac6671032"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-browser-fill-rose.png"
+ {:sha256 "14d51e136c32b71cc174b3dd219f93cc9ae5b3cfa2bcce78c487612d2b57c6b7"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-browser-fill-teal.png"
+ {:sha256 "711971daaf3ae1268e14bdda0bb08866317428fb52efb2c206caaca0c20984f7"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-browser-fill-yellow.png"
+ {:sha256 "c6a2944edb2003d9f512490e76a6febe15735b67d3dca066e4be3533e569b94d"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-compass-fill-coral.png"
+ {:sha256 "c8c3ee597101a950086dedb3602d8b3e72e94edc35b2fbbe394ae205075cde46"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-compass-fill-green.png"
+ {:sha256 "c9a22ed41c50eb3dda48a2b4ea1f5ede03c788efe1b84266e27a9a69127b2b0f"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-compass-fill-rose.png"
+ {:sha256 "feaff0fb4b222f0a31f8bb9e0ebf1710c6a9fa6f33740b11ce6cecaa03a32e57"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-compass-fill-teal.png"
+ {:sha256 "495de7e23203f4202120509f022d46248455e25757d6b89344e4ab8fb5360fda"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-compass-fill-yellow.png"
+ {:sha256 "f2b7c8433cd3bc3a9f3c0faa8010a7c560763780e7c1b0deab9b9673b6713ba1"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-house-fill-coral.png"
+ {:sha256 "7dcfb7ef4fb771f8a742e08809c477b1d17dffad18ab324f87c34f2a38fe8599"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-house-fill-green.png"
+ {:sha256 "808d9852cd2e3d0c23d2a9507f6b3a55f71bf90dfb7b835e4de67a354ff704a4"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-house-fill-rose.png"
+ {:sha256 "7222beb5d0fc417e8b2b97263d7c387746346361da1db182ca5d56d650a68ba7"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-house-fill-teal.png"
+ {:sha256 "b4d3d6bc92952184096be95162bc737a0b419dd1134b259250360915df8c3fec"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-house-fill-yellow.png"
+ {:sha256 "56ba1a186e9ecab99c7ae3b3addc3b1f4c9860a7b8c26ab6b5f3730528792996"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-sparkle-fill-coral.png"
+ {:sha256 "4d890b346dd28f445a4718937a125d785666817663ae46c038bafae6f12ffb72"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-sparkle-fill-green.png"
+ {:sha256 "aa4b24ac5d6a7ec7510f5752190d45a9886b5ed41d92949f1fae17e5c1e24957"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-sparkle-fill-rose.png"
+ {:sha256 "ae801f4e3182ee33092ca9ce50d2ff28437ca64e1c69e5d8eade99eebfa11bdb"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-sparkle-fill-teal.png"
+ {:sha256 "d9b20a6d75ebc79026d2cdd1ecd12ae852ee1bedd1db0372f31f731963fe3333"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/credit-light-ph-sparkle-fill-yellow.png"
+ {:sha256 "99743f1e74c378e397d2704be9240a8f213ff7e8382475520dc8245183b5d0bb"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/panel-dark-ph-browser-fill-teal.png"
+ {:sha256 "7fbc8bb106de526be7996a632420388d92936bbc1cbbee682657723edbcea70e"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/panel-dark-ph-sparkle-fill-yellow.png"
+ {:sha256 "a9641791195539ffd6f6822f6847dafaf03ba470b94872eed7193e9239d5b44a"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/panel-light-ph-browser-fill-teal.png"
+ {:sha256 "a375b9eac0c6e8ea5f7e3833fef5afd5e431ec0a0bececbfd7e2f851e965b795"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/artist-profiles/swatches/panel-light-ph-sparkle-fill-yellow.png"
+ {:sha256 "e6cb1987098e5badfb2331a76b88d27ba24337d9e767d7619b3b201067b89f8a"
+  :what "owner-reviewed 2026-10-12: silhouette composite / CSS render / icon library"}
+ "docs/design/style-guide/bold/dark-after-builder.png"
+ {:sha256 "de0f77e4eb4e172e176e48e7e8998ab958305e5bce8bae893308f6401a1d188a"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/bold/dark-after-button.png"
+ {:sha256 "46ac76c6431a9fad830ff75fc19705edf136870d0113157a58bb47bae96e2f61"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/bold/dark-before-builder.png"
+ {:sha256 "37979b43879694ed303491ca3318dfd00f0f2ae3d2b356efa892446ed5c03dc4"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/bold/dark-before-button.png"
+ {:sha256 "46ac76c6431a9fad830ff75fc19705edf136870d0113157a58bb47bae96e2f61"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/bold/light-after-builder.png"
+ {:sha256 "98f1908796a930761d6b6f31156c4845d3fac734ec56515a54159c527c79147a"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/bold/light-after-button.png"
+ {:sha256 "6fac77aefb9cdc62e3e89cd61d17a1543b37dca533a090f9666c2f73c0f8d4e7"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/bold/light-before-builder.png"
+ {:sha256 "be558b5001a2e4c8d719c0fd2af8f5990ed7575eddeaa6c81f15db557e1e56d4"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/bold/light-before-button.png"
+ {:sha256 "6fac77aefb9cdc62e3e89cd61d17a1543b37dca533a090f9666c2f73c0f8d4e7"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round10/roll-i-white-2.png"
+ {:sha256 "5be9f1137dfb4b60f8d6cc9ef690ec61ecf09015e32dc8bc239fca1f7af7776a"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round10/roll-j-yellow-1.png"
+ {:sha256 "08b94d3806d3756c4154d03a0c69d781534effcc4c42653adbbb4ecb6c24dc7f"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round10/roll-k-yellow-2.png"
+ {:sha256 "dce25b6e06b7cf0810386f62b02dfdeaaf617b27471fb9bf3819159392156223"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round10/roll-l-paleyellow-2.png"
+ {:sha256 "c7d36ba5ea4e2cea87acb0472fb051ddb86bf12b1d0c6966d896d07b2199d8ca"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round10/roll-m-orange-2.png"
+ {:sha256 "7a651a83a79a44df7b80063d44cf54bff48d0d6fcdd3f40ac3707fcc0ef9747b"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round10/roll-n-amber-2.png"
+ {:sha256 "82c0ac0ce2e75054bdaed66444209ca8fcf659434b523deffce63b01f0649994"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round10/roll-w-white.png"
+ {:sha256 "c4f80a42c40826ee4411794f84abd99e8587838d9ab42e27587591174f2a7473"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round11/roll-k-built@1.png"
+ {:sha256 "c7646581d90a9791c1795045412cf469d66412ab368541e8c932b836984d1e05"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round11/roll-k-built@2.png"
+ {:sha256 "dce25b6e06b7cf0810386f62b02dfdeaaf617b27471fb9bf3819159392156223"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round11/roll-o-reverse@1.png"
+ {:sha256 "0796b7ee362346d79dae26de957b812876e721ee286d81d8da61de5668f2a863"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round11/roll-o-reverse@2.png"
+ {:sha256 "4a9b8afda0aecd5a2d98df222eb2e9660a72a7565a2b1b5ec6f08e4ddb725a67"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round11/roll-p-bottom-solid@1.png"
+ {:sha256 "3aef6b118fa67ced340c4c0c7126f096292197fa3a60e3714509c38bdaed7b58"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round11/roll-p-bottom-solid@2.png"
+ {:sha256 "71f9b5c4a335ad24a037a6d1e599624558154787d42930907877369c07b30b1b"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round11/roll-q-yellow-reverse@1.png"
+ {:sha256 "4599315add23bb6eeba571ad402efeb1b2bdf6cb7252b2bc11acf5fad250cbcf"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round11/roll-q-yellow-reverse@2.png"
+ {:sha256 "c505cd51edc907958c53faf6f0b53f4e017be60c47356df4e4f0271e812f769f"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round11/roll-r-bevel@1.png"
+ {:sha256 "5306058589376d2bcfd8a84c7e6292daf08ba3ffab1ec033f28f1be9c84c93d2"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round11/roll-r-bevel@2.png"
+ {:sha256 "1c10c06b6b6b822f53192c3c355c7c41c6a767105b6c3ac4d3f9fa819dd3eee0"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round11/roll-w-white@1.png"
+ {:sha256 "1db680a30bc118e0f9fe5bcc9f50f76db838d114ed6f21831e3f1b6e095ec017"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round11/roll-w-white@2.png"
+ {:sha256 "c4f80a42c40826ee4411794f84abd99e8587838d9ab42e27587591174f2a7473"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/14-glow@1.png"
+ {:sha256 "230103e0e39ed5c552cb9d1cc9847ca113f898ca1f20c972b5538f1379ce39c6"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/14-glow@2.png"
+ {:sha256 "0d8c5cf427dbbe7ea7f973791f82c971245937df8f50c9b61950dd7144f5d56f"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/14-lit@1.png"
+ {:sha256 "4599315add23bb6eeba571ad402efeb1b2bdf6cb7252b2bc11acf5fad250cbcf"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/14-lit@2.png"
+ {:sha256 "c505cd51edc907958c53faf6f0b53f4e017be60c47356df4e4f0271e812f769f"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/14-rim@1.png"
+ {:sha256 "c7646581d90a9791c1795045412cf469d66412ab368541e8c932b836984d1e05"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/14-rim@2.png"
+ {:sha256 "dce25b6e06b7cf0810386f62b02dfdeaaf617b27471fb9bf3819159392156223"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/14-white@1.png"
+ {:sha256 "1db680a30bc118e0f9fe5bcc9f50f76db838d114ed6f21831e3f1b6e095ec017"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/14-white@2.png"
+ {:sha256 "c4f80a42c40826ee4411794f84abd99e8587838d9ab42e27587591174f2a7473"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/15-glow@1.png"
+ {:sha256 "2c1e5c330f1cb15efb51fee6f6b113f6464859d97624b178004e35500cfa2085"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/15-glow@2.png"
+ {:sha256 "4d6bcefba5a2d7efd4410fa0e1797ce67614ee370f4f1168b28b3a39d81f5872"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/15-lit@1.png"
+ {:sha256 "837f261e9d32f4cd01187bc054476bee9c5517202f1671deb8da1fc7060c37fb"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/15-lit@2.png"
+ {:sha256 "2c2dc54a03d89d83e694c900a86d589d6cec4d7257c816ca1686a506b97c9d8a"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/15-rim@1.png"
+ {:sha256 "60440bbbdf8719c2ddd421be3adff02945a0b7111ec80170c98aac56595b1341"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/15-rim@2.png"
+ {:sha256 "ba862973ca399dc32ecfeaaf7c40b5d332c4b13d4c92d94247a80391e9e405a7"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/15-white@1.png"
+ {:sha256 "af36e8b0fe95e815ab06f67e77f592a3f9d90afaa0a1abce80ad2361bf1e3530"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/15-white@2.png"
+ {:sha256 "45ed0ebcc0cd2c6e638e697c0c1c17918d238f2766e8140922d58d0079022914"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/16-glow@1.png"
+ {:sha256 "5b7ddf0bedd4d98c2da5e357a0be1a8b92196774b9577843f045b1957229b673"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/16-glow@2.png"
+ {:sha256 "249b81e7507d119fa70edff8a01f3e0713bc8be7a2c7b633f755ce69c5389415"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/16-lit@1.png"
+ {:sha256 "f7dbb0f3254e9f6c0c333ed1e7929d0e703a8914e15dd26a929c4b7a9ab7d538"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/16-lit@2.png"
+ {:sha256 "d6744d48fee7027044455543d163fa780a677afbbef8e69b2b02d65122730008"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/16-rim@1.png"
+ {:sha256 "73c49c0cdb0af314d95e25252baa7df7f024eae964fafc0f704bb8eaad5568e7"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/16-rim@2.png"
+ {:sha256 "fd32fb16e87b7c11c6cb4f122fd835be7e4b494543875a51852111b279004c29"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/16-white@1.png"
+ {:sha256 "4b22b7da0e15253981da33d26d3370e76bd6d7b2a672055a1a6ea44328de9797"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round12/16-white@2.png"
+ {:sha256 "eda8ef7a556f46ad428125cfc01c4af4bc71441313f5f67a521aad783b00392d"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/14-rim-320.png"
+ {:sha256 "e2ef434f98c6c8703bc47e10ed12bdbeeb050811895fb10972ba53874053e778"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/14-rim-390.png"
+ {:sha256 "41a2500d0a43fd657e374a3d38277c99905bb5baed4434324eb1f5547a60e5d4"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/14-white-320.png"
+ {:sha256 "8af766b17d67c96547d5dbba3cf63159f16dff15563015a8edb86015c888104e"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/14-white-390.png"
+ {:sha256 "21cc50a7071feaaf1d856182c6e68c02bceef8a194055f8cec4dec8477b41bdc"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/15-rim-320.png"
+ {:sha256 "d2e26262f9a8d298e859fd003361ed3156ce7e98cbee7133fbd2ca4bd6977086"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/15-rim-390.png"
+ {:sha256 "d1143c0725ca522619c570572f7f009045ae3a1e809fddd3af144e5a832fff4d"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/15-white-320.png"
+ {:sha256 "48990873edba43380653dbb6e876a1756abbb48f65d09b19a997a8c5728465f1"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/15-white-390.png"
+ {:sha256 "c279d1ebb4d7efcee46c2300371aa11c5bf0586be288d99100ef8c70ce2e00ab"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/16-rim-320.png"
+ {:sha256 "4831c088a4d840856b0b0f58581be1952db05b3a233eaee9368f55163796014f"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/16-rim-390.png"
+ {:sha256 "49d7cd0785c0503c581f73442809f289bdddec3264a7316c3a9c4d8a767fb369"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/16-white-320.png"
+ {:sha256 "ea907c50e38993ca7fb147ffa63fe99b5d1d57168dcc51edbd8ecaafe0b222dd"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/16-white-390.png"
+ {:sha256 "30587842bfe68cf4b980c1c32c0936232dc24610460bea24268c04d9b1d59c53"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/toggles-320.png"
+ {:sha256 "39fd0fd4fff0e1c120752b6f8ea8d3ed40ba232c5343ddb3ae3ed29070cb4fe0"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round13/toggles-390.png"
+ {:sha256 "282a703aec2edb17f94209d59dcdaf02e4391437643043563826681d81c8b14d"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round14/desktop-1280.png"
+ {:sha256 "19da08bd4c7842c9ff24e587146902a730e542d63cf378072846337331b4ba1d"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round14/desktop-narrowed-details.png"
+ {:sha256 "36528d83f2df44a9211a220c1ea19a0f266fe2e34eb5f0d844f3282114137148"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round14/desktop-narrowed-options.png"
+ {:sha256 "061d1982ca5eeab4a184f3bc615dcc6c669758510398106e408e497a22835b69"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round14/phone-options.png"
+ {:sha256 "c8121c2c6637e7a2511ee0a56d826f0a63054a32dda16c2738b3f217ab6c9a6a"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round15/desktop-1280.png"
+ {:sha256 "4048bede2c5f42f14c35796cc7e002806d1506025158dca141b11c4b17dae148"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round15/phone-320.png"
+ {:sha256 "13487adedda621ec46e4c7281dc2de5a9728e92d94c6b7e8dbec5ec00ba7b011"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round15/phone-390.png"
+ {:sha256 "fab77f673f30f0a3af32acc8c2c54298df9a4f905b17997f4e0bf47f91b601bb"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round16/bar.png"
+ {:sha256 "2fe942021102a81ba044bab84fe8aec26036f3575d480751fd67b216af9749e7"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round16/edges-aligned.png"
+ {:sha256 "6cb921265360187666171aded48196f3441427f5d80a471555ffce9390b5b279"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round16/edges-now.png"
+ {:sha256 "664cd6083a3d58a5dc8b5355b44866219c4fa981a818361515fc0fc4a932f404"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round16/strip-aligned.png"
+ {:sha256 "8c3588cd5a80cb98ced416f57eb53e85072ddf88536990a968c988afdc44f42d"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round16/strip-now.png"
+ {:sha256 "033da9068729108f0455235c197bfb0432316883d99b45bc1dfbf78b642b3ee9"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round17/built.png"
+ {:sha256 "15c1cf422d7debd6991935c3edf51f8f697823d7d8dd5dff5babc1e678d29362"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round17/g10.png"
+ {:sha256 "f38a8a5f17717a1ee65fc107921fb9aa5eb7b48356f12c4e90e8803bd5968044"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round17/g16.png"
+ {:sha256 "47ca02f9f649dbeb2e300f733cb96d8d8c67950e11ae465f53349cff49f8209f"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round18/desktop-1280.png"
+ {:sha256 "4048bede2c5f42f14c35796cc7e002806d1506025158dca141b11c4b17dae148"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round18/phone-320.png"
+ {:sha256 "3c8d12b8785da47a2222907eb8ae8bcc89fa39b7dc9ca070adfd0f0f6ca22f43"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round18/phone-390.png"
+ {:sha256 "cbe0eb33597126a65866e3f04f95cbcdbc6bf94403abf567086b3b82f3764535"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round19/desktop.png"
+ {:sha256 "0993ced3491c25e664e7a671d88e5355c07e34522f4becf85318a786590a193a"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round19/phone-320-dark.png"
+ {:sha256 "559e6fca94692099d415b660a42d353e67141e21bc637dc64997a67a0b46e399"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round19/phone-320-white.png"
+ {:sha256 "0c9531796f2950736147dd318f9d3c222e39f5721e8e73daf567782d373f69b9"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round19/phone-390-dark.png"
+ {:sha256 "296c733e31487dbd0b81c7c9304fccc0923532865a799ff4ffa41b7ad87a8f9e"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round19/phone-390-skills.png"
+ {:sha256 "22eb8ac9629b482d85c32c693e2f27b822eab11113e721e1e601a02edd14fc71"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round19/phone-390-white.png"
+ {:sha256 "bc0502ea83fd0c85b2c1609a5a3e2926aca38a8598c301a2530a1437b488bfc2"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/after/desktop-1280.png"
+ {:sha256 "4048bede2c5f42f14c35796cc7e002806d1506025158dca141b11c4b17dae148"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/after/desktop.png"
+ {:sha256 "0993ced3491c25e664e7a671d88e5355c07e34522f4becf85318a786590a193a"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/after/phone-320-dark.png"
+ {:sha256 "559e6fca94692099d415b660a42d353e67141e21bc637dc64997a67a0b46e399"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/after/phone-320-white.png"
+ {:sha256 "0c9531796f2950736147dd318f9d3c222e39f5721e8e73daf567782d373f69b9"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/after/phone-320.png"
+ {:sha256 "3c8d12b8785da47a2222907eb8ae8bcc89fa39b7dc9ca070adfd0f0f6ca22f43"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/after/phone-390-dark.png"
+ {:sha256 "296c733e31487dbd0b81c7c9304fccc0923532865a799ff4ffa41b7ad87a8f9e"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/after/phone-390-skills.png"
+ {:sha256 "22eb8ac9629b482d85c32c693e2f27b822eab11113e721e1e601a02edd14fc71"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/after/phone-390-white.png"
+ {:sha256 "bc0502ea83fd0c85b2c1609a5a3e2926aca38a8598c301a2530a1437b488bfc2"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/after/phone-390.png"
+ {:sha256 "cbe0eb33597126a65866e3f04f95cbcdbc6bf94403abf567086b3b82f3764535"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/before/desktop-1280.png"
+ {:sha256 "4048bede2c5f42f14c35796cc7e002806d1506025158dca141b11c4b17dae148"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/before/desktop.png"
+ {:sha256 "0993ced3491c25e664e7a671d88e5355c07e34522f4becf85318a786590a193a"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/before/phone-320-dark.png"
+ {:sha256 "559e6fca94692099d415b660a42d353e67141e21bc637dc64997a67a0b46e399"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/before/phone-320-white.png"
+ {:sha256 "0c9531796f2950736147dd318f9d3c222e39f5721e8e73daf567782d373f69b9"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/before/phone-320.png"
+ {:sha256 "3c8d12b8785da47a2222907eb8ae8bcc89fa39b7dc9ca070adfd0f0f6ca22f43"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/before/phone-390-dark.png"
+ {:sha256 "296c733e31487dbd0b81c7c9304fccc0923532865a799ff4ffa41b7ad87a8f9e"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/before/phone-390-skills.png"
+ {:sha256 "22eb8ac9629b482d85c32c693e2f27b822eab11113e721e1e601a02edd14fc71"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/before/phone-390-white.png"
+ {:sha256 "bc0502ea83fd0c85b2c1609a5a3e2926aca38a8598c301a2530a1437b488bfc2"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round20/before/phone-390.png"
+ {:sha256 "cbe0eb33597126a65866e3f04f95cbcdbc6bf94403abf567086b3b82f3764535"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/after/desktop-flyout.png"
+ {:sha256 "efb802d9a70eebafa5476fdb8ae31779a931c42f2bd20feca60b269bf5b6312b"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/after/phone-flyout.png"
+ {:sha256 "340e72d1210e435f128ca4c399cdb56f730857d1e60fa0ce7b2ed69ff041cd23"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/after/user-menu.png"
+ {:sha256 "2e6de9a6b31de8024e06dc01ff1c7a7d73f650bc739d58a271e370dac3a84633"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/before/desktop-flyout.png"
+ {:sha256 "efb802d9a70eebafa5476fdb8ae31779a931c42f2bd20feca60b269bf5b6312b"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/before/phone-flyout.png"
+ {:sha256 "6186335d44cf48be49ccadfe6f8998564d45bd9b550a09c1a723d59e93a354d2"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/before/user-menu.png"
+ {:sha256 "2e6de9a6b31de8024e06dc01ff1c7a7d73f650bc739d58a271e370dac3a84633"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus-before/320-tab1.png"
+ {:sha256 "669559a578e7b2d0e39d105a6df12af39d37b1f69371c72d56a2dd8147191707"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus-before/320-tab2.png"
+ {:sha256 "8c06398d342bd794cff03d10536fd25c981b8f5f2aaa01a9d1f1e51e21b9cc87"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus-before/320-tab3.png"
+ {:sha256 "7bd282ac9c99ccf3500974efc8ad6bbdfd5d53f52f8328986b670e8332db51d0"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus-before/320-tab4.png"
+ {:sha256 "fe263deb46fcfe48bce346f5a4475a4c90a6d0bf764d1cffa203557878ab5c71"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus-before/320-tab5.png"
+ {:sha256 "643bfdaa87fad27fc6523bee0c24ff2363f79a0394d89237bfcce19613e75272"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus-before/320-tab6.png"
+ {:sha256 "6104fa7f2e75374f9af442f32c731dbed33435faa8aaa123f699e7c0dc9ff78e"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus-before/390-tab1.png"
+ {:sha256 "b3acd6b112c25e0f5cbf5627e2311786c755bda88778077821d09cb32519e56e"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus-before/390-tab2.png"
+ {:sha256 "9e32f8056eb14464664bf8c8c34cfb18ef5748e858ee437985f02d14d65ffd7f"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus-before/390-tab3.png"
+ {:sha256 "09792904ed48c873ca00a34de261af3ceb12519b13d0a73579312734e63309d1"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus-before/390-tab4.png"
+ {:sha256 "0c7d6953f1e3d71dc5c97a2df7c16bcd49a3beeb02f8e65ea90e66edb2abafa6"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus-before/390-tab5.png"
+ {:sha256 "a01b6959a6310cc25c4376a42d19d13509b059c465330e338638af0013ef6f7b"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus-before/390-tab6.png"
+ {:sha256 "ab588299f28e59955e6af1c0d79a53a45b674f361c0abd776adff2e22075db20"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus/320-tab1.png"
+ {:sha256 "5d2f4e6729738d634bfc85208fc8805587526986f1133fadff6f5b7184255d8f"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus/320-tab2.png"
+ {:sha256 "5f17b4cae5cb64bb6d7421dd6e7df4357cb5ea9670cf54ae1e0b43beee0eafe4"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus/320-tab3.png"
+ {:sha256 "a5c9c2119460f7c7bf2a8d866229fb8d89c31fbad04f98068ed637fb70e7cff1"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus/320-tab4.png"
+ {:sha256 "315ad3aa7e2a23b3a9c98c61c9b40a81b27d2788fad039b7e401588e59d71dc6"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus/320-tab5.png"
+ {:sha256 "d1bdc069b899c613a538c413311017c40d21d06b530a10f3b7dbbd09f0c0e7ac"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus/320-tab6.png"
+ {:sha256 "b141e1e02f3f421ca42aabaf5b72baac1595e9e78a8236bc1c9c2866070e802c"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus/390-tab1.png"
+ {:sha256 "58b46737ca7ae69c9000ec11fc15d1fc3199b93c988f22aed9cdbfefbaca3971"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus/390-tab2.png"
+ {:sha256 "6a4921443e2820aaf90deef4283b084d3e24023a5873b40b6b4c34d63b1ac61d"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus/390-tab3.png"
+ {:sha256 "18177fb40283cedae55968b5301867bc5db7b9dc16d8c3c18a44a3a81be82674"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus/390-tab4.png"
+ {:sha256 "6794b80d7168bae1cfb67ac9966dab96fe2e680d30664401d36bb3da28acbcee"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus/390-tab5.png"
+ {:sha256 "c62f9096ab965f15d1bef0e51cb6d7b5a377e4883ce88ce4fb5d144c6ea424aa"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round21/menus/390-tab6.png"
+ {:sha256 "85249509fa0cd45448da657a3e95a302b9363daaa95cb22c2b091d4471b1cd54"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/dark-btn-arial.png"
+ {:sha256 "54962fcdc2e9bfe4dbc40f5c54de1647571fa01fbb14bccf44f54b8ced2eab30"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/dark-btn-dark.png"
+ {:sha256 "70450b173c5fb011be9d06dba9cce628ce6a10ebd044ddcbf466df4041e3ce20"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/dark-btn-os600.png"
+ {:sha256 "e5b15847bcfdc1533abf65d1b68d3012f99c4947eaae0c056f7a5fde3f8d3b54"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/dark-btn-os700.png"
+ {:sha256 "5d00fae8a84ab96d94be8195009e8488b6c7a6a070131013061fb49ddde460fd"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/dark-v2-builder.png"
+ {:sha256 "eb59d124cf7e926b7c9659f19bfd679f57f1d9dc595baae77731a1da5f65cdee"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/dark-v2-monsters.png"
+ {:sha256 "b64891b6d8d54690716a44c09ed6b98743461a8152100ababcaa430d31d046ef"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/dark-v2-mycontent.png"
+ {:sha256 "8d866f643d18bd247360164c05909e9468191c39aebf4a05c673a29edb7e7698"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/dark-v2-spells.png"
+ {:sha256 "0b51574a2f5623b279ae77a2c4ef9b7704073d8b629b255024d0937b97c907ff"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/dark-wrap-asis.png"
+ {:sha256 "259fafd23c3875f2c9d4734e78c55d2b2eeed03f4d7729442f1c0191f7a26c02"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/dark-wrap-ls02.png"
+ {:sha256 "4e97d2a100331d46770be7a14f7097e0b72ca0c834908ec45e1f05e44a30de4b"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/dark-wrap-ls04.png"
+ {:sha256 "68c3d46839a9187f748c69a12ad0afe8d3ccf200f7f8ed16e7f3b2506ec8d563"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/dark-wrap-s13.png"
+ {:sha256 "259fafd23c3875f2c9d4734e78c55d2b2eeed03f4d7729442f1c0191f7a26c02"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/dark-wrap-w600.png"
+ {:sha256 "f416cf3a968defebc4149f0f2c6a1f0c369ab44c7e32a8ac9e2cd36a6d6ae9cf"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/light-btn-arial.png"
+ {:sha256 "957f7701a0d2a717095a4531ebd3343afd70932df2477e939afe097711beebfa"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/light-btn-dark.png"
+ {:sha256 "26b411c5bc5c046a2cbe6080f7c08066250b3f93f6ef8fd180ca35f1c4fa42bd"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/light-btn-os600.png"
+ {:sha256 "3d652d57e9401f6d20ffbb9318f905cb142959f997819ec6381cc40eb3a1e08c"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/light-btn-os700.png"
+ {:sha256 "26b411c5bc5c046a2cbe6080f7c08066250b3f93f6ef8fd180ca35f1c4fa42bd"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/light-v2-builder.png"
+ {:sha256 "d8e7577d09922ea6c73d15ad165b1fde7a9c3e9ccfdfc5448cd6c69ad7336766"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/light-v2-monsters.png"
+ {:sha256 "f15c88956182732c2390052771aaf8899c374a639221626872b1870ff9b368bf"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/light-v2-mycontent.png"
+ {:sha256 "2f9cd672064c9f7fdd41e3f857acf3ed5b3b065af0eccde1c17a53732e9cec9c"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/light-v2-spells.png"
+ {:sha256 "131c5e3949c25e8ba54a197596a5ce059db22f1bcdda4ed70b10c9eaea9603ce"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/light-wrap-asis.png"
+ {:sha256 "259fafd23c3875f2c9d4734e78c55d2b2eeed03f4d7729442f1c0191f7a26c02"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/light-wrap-ls02.png"
+ {:sha256 "4e97d2a100331d46770be7a14f7097e0b72ca0c834908ec45e1f05e44a30de4b"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/light-wrap-ls04.png"
+ {:sha256 "68c3d46839a9187f748c69a12ad0afe8d3ccf200f7f8ed16e7f3b2506ec8d563"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/light-wrap-s13.png"
+ {:sha256 "259fafd23c3875f2c9d4734e78c55d2b2eeed03f4d7729442f1c0191f7a26c02"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round3/light-wrap-w600.png"
+ {:sha256 "f416cf3a968defebc4149f0f2c6a1f0c369ab44c7e32a8ac9e2cd36a6d6ae9cf"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round4/dark-dark-builder.png"
+ {:sha256 "659a00f01ac53b9e881076bf6287cc9de698023e2f39fab899ff9c7fcbc01d28"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round4/dark-dark-monsters.png"
+ {:sha256 "b64891b6d8d54690716a44c09ed6b98743461a8152100ababcaa430d31d046ef"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round4/dark-dark-mycontent.png"
+ {:sha256 "53a656687d15dc6bbd3cb8aa81a8ce064119a895fbf295b4c3a972c62ea6721d"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round4/dark-dark-spells.png"
+ {:sha256 "0b51574a2f5623b279ae77a2c4ef9b7704073d8b629b255024d0937b97c907ff"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round4/dark-white-builder.png"
+ {:sha256 "eb59d124cf7e926b7c9659f19bfd679f57f1d9dc595baae77731a1da5f65cdee"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round4/dark-white-monsters.png"
+ {:sha256 "b64891b6d8d54690716a44c09ed6b98743461a8152100ababcaa430d31d046ef"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round4/dark-white-mycontent.png"
+ {:sha256 "8d866f643d18bd247360164c05909e9468191c39aebf4a05c673a29edb7e7698"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round4/dark-white-spells.png"
+ {:sha256 "0b51574a2f5623b279ae77a2c4ef9b7704073d8b629b255024d0937b97c907ff"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round5/1-today.png"
+ {:sha256 "63234e4b5c2b96de968176b9265cc49b97c097987b8b5569a187b259b9b055ab"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round5/2-shadow.png"
+ {:sha256 "042fbc6474b340638e356b9fc73838a1fb5f3612645f68a8e5c3cb9ab8688eba"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round5/3-deeper.png"
+ {:sha256 "4baa474dca0f27e198ea830990f8aaccd6ecd1cdd72ce5e6e27db7cf09c5786c"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round5/4-deeper-shadow.png"
+ {:sha256 "2348b2c22b8df8522ddbd04a67d4799af3e5c5c7c1504fcc87f3fa99d22d8c0d"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round5/5-dark.png"
+ {:sha256 "dae94bebf2c6418ab31ed3d6fabae3724362294e28809568d38d4e393fb813f4"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round6/10-dark-emboss-strong.png"
+ {:sha256 "5afc7f629340ae8ae6829e29ab9be23e19520a84a27fb8deb36ed8a8ebb78c47"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round6/6-white-shadow.png"
+ {:sha256 "042fbc6474b340638e356b9fc73838a1fb5f3612645f68a8e5c3cb9ab8688eba"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round6/7-dark.png"
+ {:sha256 "dae94bebf2c6418ab31ed3d6fabae3724362294e28809568d38d4e393fb813f4"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round6/8-dark-emboss.png"
+ {:sha256 "6638bf5596541dde6cf8db45317a5c1ecd7080d4c9ca1d0238e0ca7a055bd4b5"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round6/9-dark-glow.png"
+ {:sha256 "d4244f1cbfb6c600f9808b7bc56a6b7312e1b1791cd13ef1c6f043404eb4ef61"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round7/dark-buttons.png"
+ {:sha256 "042fbc6474b340638e356b9fc73838a1fb5f3612645f68a8e5c3cb9ab8688eba"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round7/dark-darktext-buttons.png"
+ {:sha256 "d4244f1cbfb6c600f9808b7bc56a6b7312e1b1791cd13ef1c6f043404eb4ef61"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round7/dark-darktext-roll.png"
+ {:sha256 "2c3960fd090716bed7149f399139113219e2ab83be00e627e2c18d6223348e2c"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round7/dark-roll.png"
+ {:sha256 "90abaa97721559e12814ed281f69f6ca3667319bc73e512435abc557ec5a3eb1"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round7/dark-tab-lift.png"
+ {:sha256 "9f74a4f0b62aa40f479dc1d4ce6740be5c8325c174cc560e8a20aa70ba59c9a8"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round7/dark-tab-now.png"
+ {:sha256 "f93950b65a25131b28308a09abfaaf9b836f58b17b0d77df0561e1876d80bd4c"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round7/light-buttons.png"
+ {:sha256 "178e4682ad30fd6568d02fdf5e12b12f6216f04fc1b1cb9e01adeab2cf1984cd"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round7/light-roll.png"
+ {:sha256 "fb37515425dc17adc5f8393d174a5b40c61b15bbf7fc4bc2aa8e6e9e579ae3c8"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round7/light-tab-lift.png"
+ {:sha256 "9f74a4f0b62aa40f479dc1d4ce6740be5c8325c174cc560e8a20aa70ba59c9a8"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round7/light-tab-now.png"
+ {:sha256 "f93950b65a25131b28308a09abfaaf9b836f58b17b0d77df0561e1876d80bd4c"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round8/header-built.png"
+ {:sha256 "78a5efb8a8a40d13d186c116271a013e6348560ea379c6ce13d2cd181df4d624"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round8/roll-a-before.png"
+ {:sha256 "2c3960fd090716bed7149f399139113219e2ab83be00e627e2c18d6223348e2c"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round8/roll-b-700.png"
+ {:sha256 "1f0c29ee8b18a4820966696ca902861e2e40bdfdee5a940fcb8b46bfed5ce1fd"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round8/roll-built.png"
+ {:sha256 "0d8c5cf427dbbe7ea7f973791f82c971245937df8f50c9b61950dd7144f5d56f"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round8/roll-c-glow.png"
+ {:sha256 "3e669a5614954291f8868fb472d27f2ccde9686d770d23c1c7edc516fa8a2714"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round8/roll-d-700-glow.png"
+ {:sha256 "0d8c5cf427dbbe7ea7f973791f82c971245937df8f50c9b61950dd7144f5d56f"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round8/roll-w-white.png"
+ {:sha256 "c4f80a42c40826ee4411794f84abd99e8587838d9ab42e27587591174f2a7473"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round9/roll-d-built.png"
+ {:sha256 "0d8c5cf427dbbe7ea7f973791f82c971245937df8f50c9b61950dd7144f5d56f"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round9/roll-e-shadow-ring.png"
+ {:sha256 "e87995488c563408d38eb64c55e4ed18329b7b885e0da6293425cad2b721fd30"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round9/roll-f-stroke-hair.png"
+ {:sha256 "ab8e0926f1dc74a6cb1d868775b0e92d0d2956d6af5427e3e5289911cafb4109"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round9/roll-g-stroke-hair-glow.png"
+ {:sha256 "78323baa58deb5087768c97846369880056ccab880b875842b48a58593da9325"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round9/roll-h-stroke-full.png"
+ {:sha256 "7851f962a1f6eb40ad5ca2eab39121849c3131b9739103c98f154d4f06ecca17"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round9/roll-i-stroke-full-glow.png"
+ {:sha256 "5be9f1137dfb4b60f8d6cc9ef690ec61ecf09015e32dc8bc239fca1f7af7776a"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/round9/roll-w-white.png"
+ {:sha256 "c4f80a42c40826ee4411794f84abd99e8587838d9ab42e27587591174f2a7473"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/dark-after-builder.png"
+ {:sha256 "e78d209816bdf54893f3d5a9297cc53f4015159fe9e313c26f6b96d6ca1f1ec2"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/dark-after-monsters.png"
+ {:sha256 "b64891b6d8d54690716a44c09ed6b98743461a8152100ababcaa430d31d046ef"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/dark-after-mycontent.png"
+ {:sha256 "56ef087f7e42392787925a0122070c5ff26c756c2f71323f2f367c58fa64da4a"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/dark-after-spells.png"
+ {:sha256 "d4e1c851290e8a53afdeef8b8f15b0259c713d2c3cf003c2fc42abed8682f970"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/dark-before-builder.png"
+ {:sha256 "0adc3532bab7f6f0fa12d3f93b76a356e95001ad22f60e899f9156f713cceed3"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/dark-before-monsters.png"
+ {:sha256 "05a53fdf04486f08c97bbb160bc5edb4f5edaf5fe89a2ac6719eb4bfee555865"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/dark-before-mycontent.png"
+ {:sha256 "f400e196ee1f1a3793fadf64bcdef33c0c499f10039e870b64f1fe0aeaf83bd9"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/dark-before-spells.png"
+ {:sha256 "002febee16487914747ec2e2fb3c1404a0fa2fad7e9e0547514b9076b52d4bf0"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/dark-rule-builder.png"
+ {:sha256 "c398fd986babcd570b44bb4efc6dca22f7b568c1b7e3e8a2582fcad1fd4def05"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/dark-rule-monsters.png"
+ {:sha256 "b64891b6d8d54690716a44c09ed6b98743461a8152100ababcaa430d31d046ef"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/dark-rule-mycontent.png"
+ {:sha256 "9635e95f2ac5679d9978d261230ee439e5edec473cdb8d6a5b31530959bc6058"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/dark-rule-spells.png"
+ {:sha256 "0b51574a2f5623b279ae77a2c4ef9b7704073d8b629b255024d0937b97c907ff"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/light-after-builder.png"
+ {:sha256 "3413eca2cdcd4375b4176e84c02cabe95859c1761b9048db5e9d39a2206fe7d0"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/light-after-monsters.png"
+ {:sha256 "f15c88956182732c2390052771aaf8899c374a639221626872b1870ff9b368bf"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/light-after-mycontent.png"
+ {:sha256 "b4b697ab4871657ac3e17dae778ad34b82a12332ed8040fd05dc54f26e7bd55d"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/light-after-spells.png"
+ {:sha256 "696f637efd328155a60ec63b0223674db31ff62d29ca01cc4f24687b0b63c26a"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/light-before-builder.png"
+ {:sha256 "c6f627b103fa72eefb5f03743144de2f284e643d42cdf0b9de931456df3e9566"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/light-before-monsters.png"
+ {:sha256 "301b7c289b369956efe4f98febff8919741d0bedbde9e5083aab1c1286dc2138"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/light-before-mycontent.png"
+ {:sha256 "0c2ba28175684a3647ba2333fb72f9d8bb0a7605a475db870f317d068a5a075e"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/light-before-spells.png"
+ {:sha256 "774bd95b085eedbd667f29572ce6df4ad931a0357512d0489c7129d43de7f9d5"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/light-rule-builder.png"
+ {:sha256 "00b373460eea7e59b0efa0861d2e94c271d1b521847031a7bf3bb5fbb8c0622f"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/light-rule-monsters.png"
+ {:sha256 "f15c88956182732c2390052771aaf8899c374a639221626872b1870ff9b368bf"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/light-rule-mycontent.png"
+ {:sha256 "220916999702580235c9926401e515d23dd774bfbb70c43a5a05b854733a1db7"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/sitewide/light-rule-spells.png"
+ {:sha256 "131c5e3949c25e8ba54a197596a5ce059db22f1bcdda4ed70b10c9eaea9603ce"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/dark-pair-400-400.png"
+ {:sha256 "1c95f2e6b12b811259a75147111f52414c96833a31e127362ee05333dfccc160"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/dark-pair-500-600.png"
+ {:sha256 "c06ea2abd9c998c788b5927dd21711069c7c80a60b9a75c5cc903bd1c791dadd"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/dark-pair-700-600.png"
+ {:sha256 "0c0114a53dc18e4b9745c5b727090e165a3808fcb565f6310085e427421a3a9b"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/dark-tabs-400.png"
+ {:sha256 "1c7daaacd0aa822098fa071c9ad3e629a834700af15e97dae10a2339fddc7a5d"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/dark-tabs-500.png"
+ {:sha256 "c4904977c323ff7264251a9c3282a7c7bc37f3917f803d4a4a34d7e3d8417972"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/dark-tabs-600.png"
+ {:sha256 "e8607924fc459588ceb492d1e80c2eb61e5421742eed7e1feca690541d7bbd25"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/dark-tabs-700.png"
+ {:sha256 "b0e1ca23463c0819324389e654691824461bf9156cc40064d3e8245a99492305"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/dark-title-400.png"
+ {:sha256 "04ab9c464774f0f16cda29c07931b4fb9305f536f0e7ecb1edb30c65e67eb001"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/dark-title-600.png"
+ {:sha256 "ea9a2ed8f90757f97011769af504f048d5efc5946cae1e8c0acd05db565d2510"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/dark-title-700.png"
+ {:sha256 "f457ec2fb555360de9412493c6a7349a0e6c068684f44a2d57ee293264c4d697"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/light-pair-400-400.png"
+ {:sha256 "d17439d7e320810a3aa70bf30e2f7d1fa01e951503611c9c5e82ece79b874c3c"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/light-pair-500-600.png"
+ {:sha256 "1573364f3b7d2dd2d7dc0836ff096ae86786129bafd5e3c548d35b9475b8eea2"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/light-pair-700-600.png"
+ {:sha256 "cc0550e44e24072aa3426f4d888ce5d838799f58269d298bcbda2ac87e711aa3"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/light-tabs-400.png"
+ {:sha256 "1232d90c86e7d30fd9ee9814b5cf5c80e64c4ec8644547cc99ad83ab7fb57072"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/light-tabs-500.png"
+ {:sha256 "ba9704a99616ca296e271eda5fcb3364fab1061b1bfcdc8da19a549aba86f612"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/light-tabs-600.png"
+ {:sha256 "c29869b307cd80a8adb94480535ec4222b7dcf3597bdfc81353f7692c42a44f3"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/light-tabs-700.png"
+ {:sha256 "149da8c7441a6c23d8167f5bbc6062a585205c9a8d43f19e41a4ac1f761a294f"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/light-title-400.png"
+ {:sha256 "e04feb68eba1dde905fc147f275709d99bb22c4102355c7a8c12ae78bb152fd3"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/light-title-600.png"
+ {:sha256 "9e4f40d663fd95ff1042c437147b737bcede32e29c7baab938c5563872487b08"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}
+ "docs/design/style-guide/weights/light-title-700.png"
+ {:sha256 "56cdb204d3f1a44d43f399f7825d3f0f4113b961abd7736925aa916a68398cd1"
+  :what "owner-reviewed 2026-10-13: site UI screenshot from the style-guide rounds; portraits in it are silhouettes"}}

@@ -208,8 +208,10 @@ the artist's host and the site's mark tiled diagonally across it, as a JPEG at q
 The first is also the `og:image`. The browser probe checks that neither artist page fetches
 any layer file, and a unit test that the three examples use all 28 pieces.
 
-They cannot be generated into the repo: they are made from the real art, which is never
-committed. A server start makes them from whatever art the deployment carries.
+They are not generated into the repo: a server start makes them from whatever art the
+deployment carries. In this repository that is the silhouettes, and every example image or
+capture committed under `docs/design/artist-profiles/` was made from them; the licensed art is
+only on the private deployment branch.
 
 **Found on the way:** `seed->int` and `mulberry32` gave different numbers in the browser
 than on the JVM (a cljs character read as 0, and 32-bit multiplies lost precision in

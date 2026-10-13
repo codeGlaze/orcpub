@@ -117,11 +117,15 @@
           (println "recorded" (count found) "images to" reviewed-file "-- describe each new one"))
       (testing "every image is one a person has looked at: the licensed art must never be in this
                 repository, in docs/ or anywhere else, and no measure tells it from a logo reliably"
-        (doseq [[path digest] found]
-          (is (and (= digest (get-in reviewed [path :sha256]))
-                   (not (str/starts-with? (str (get-in reviewed [path :what])) "DESCRIBE")))
-              (str path " (linework " (linework path) "%) is not a reviewed image. Look at it: if it"
+        ;; The message is built only on a miss: `is` evaluates it on a pass too, and scoring
+        ;; every image for linework takes seconds each.
+        (doseq [[path digest] found
+                :let [ok? (and (= digest (get-in reviewed [path :sha256]))
+                               (not (str/starts-with? (str (get-in reviewed [path :what])) "DESCRIBE")))]]
+          (is ok?
+              (when-not ok?
+               (str path " (linework " (linework path) "%) is not a reviewed image. Look at it: if it"
                    " contains the licensed portrait art, it must not be committed here (it belongs only"
                    " on the private deployment branch). A silhouette composite, screenshot, logo or"
                    " photo: REVIEWED_IMAGES=record lein test :only orcpub.portrait-art-guard-test,"
-                   " then say what it is in " reviewed-file)))))))
+                   " then say what it is in " reviewed-file))))))))

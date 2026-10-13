@@ -2543,14 +2543,20 @@
                       (artist-profile/example-path artist 1))})
     (assoc (index-page-response request {:title "No such artist"}) :status 404)))
 
-(def ^:private example-jpeg
+(defonce ^:private example-jpegs (atom {}))
+
+(defn- example-jpeg
   "JPEG bytes of example `n` (1-based) for `artist-id`, watermarked with `text`; nil when
-   there is none. Rendered once per process and then served from memory."
-  (memoize
-   (fn [artist-id n text]
-     (some-> (artist-profile/example-portraits artist-id)
-             (get (dec n))
-             (portrait-render/render-example-jpeg text)))))
+   there is none. A success is rendered once per process and then served from memory; a
+   failure is not kept, so the next request tries again."
+  [artist-id n text]
+  (let [k [artist-id n text]]
+    (or (get @example-jpegs k)
+        (when-let [jpeg (some-> (artist-profile/example-portraits artist-id)
+                                (get (dec n))
+                                (portrait-render/render-example-jpeg text))]
+          (swap! example-jpegs assoc k jpeg)
+          jpeg))))
 
 (defn artist-example-jpeg
   "Ring handler: example image :n (1 to example-count) of the artist at :slug, small,
