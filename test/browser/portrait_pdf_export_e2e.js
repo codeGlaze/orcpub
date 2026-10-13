@@ -104,9 +104,9 @@ function check(label, ok, detail) {
     throw new Error('no visible match');
   };
 
-  (await visible(page.locator('button:has-text("Export")'))).click();
+  await (await visible(page.locator('button:has-text("Export")'))).click();
   await page.waitForTimeout(1200);
-  (await visible(page.locator('select'))).selectOption('1');
+  await (await visible(page.locator('select'))).selectOption('1');
   await page.waitForTimeout(600);
 
   // A popup blocker allows a new tab only from inside the click itself, and headless
@@ -125,7 +125,7 @@ function check(label, ok, detail) {
 
   // The form targets _blank, so the PDF lands in a new tab.
   const pdfPagePromise = ctx.waitForEvent('page', { timeout: 30000 });
-  (await visible(page.locator('button:has-text("Create PDF")'))).click();
+  await (await visible(page.locator('button:has-text("Create PDF")'))).click();
 
   const pdfPage = await pdfPagePromise.catch(() => null);
   await page.waitForTimeout(2500);
