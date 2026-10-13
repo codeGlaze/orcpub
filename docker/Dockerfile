@@ -118,6 +118,9 @@ COPY --from=app-builder /orcpub/target/orcpub.jar /orcpub.jar
 
 # Run as non-root. App only writes to /tmp (world-writable by default).
 RUN addgroup -S app && adduser -S -G app app
+# A home for kept portrait drawings (PORTRAIT_STORE_DIR), owned by the app's user, so a volume
+# mounted here inherits that ownership and the app can write to it.
+RUN mkdir -p /var/lib/orcpub/portraits && chown -R app:app /var/lib/orcpub
 USER app
 
 ENTRYPOINT ["java", "-jar"]
