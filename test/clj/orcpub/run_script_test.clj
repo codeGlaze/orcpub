@@ -6,6 +6,8 @@
 (deftest setup-keeps-an-existing-profile-key
   ;; `./run --force` sources the existing .env and then calls generate_env, so a key generated
   ;; unconditionally replaced the one every stored preferred name is encrypted with
+  (is (re-find #"(?m)^  PROFILE_ENCRYPTION_KEYS=" (:out (sh "bash" "-c" "sed -n '/^generate_env()/,/^}/p' run")))
+      "generate_env still sets the key where this test reads it")
   (let [script (str "set -e; source <(sed -n '/^generate_key_b64()/,/^}/p' run);"
                     " eval \"$(sed -n '/^generate_env()/,/^}/p' run | grep 'PROFILE_ENCRYPTION_KEYS=')\";"
                     " echo \"$PROFILE_ENCRYPTION_KEYS\"")
