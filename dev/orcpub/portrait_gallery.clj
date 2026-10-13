@@ -19,6 +19,7 @@
             [orcpub.dnd.e5.portrait-layout :as layout]
             [clojure.data.json :as json]
             [clojure.string :as s]
+            [orcpub.art-mark :as art-mark]
             [orcpub.dnd.e5.portrait-random :as rnd])
   (:import [java.awt AlphaComposite Color RenderingHints]
            [java.awt.geom Area Path2D$Double Ellipse2D$Double]
@@ -140,10 +141,25 @@
                          :when (= 255 (bit-and (unsigned-bit-shift-right argb 24) 0xff))]
                      (bit-and argb 0xffffff)))))
 
-(defn- write! [^BufferedImage img nm]
+(def ^:private pack-mark
+  "The licensed-art mark for what is drawn from the pack at ORCPUB_PACK: composed from its pieces'
+   marks, or nil when none is marked (silhouettes)."
+  (delay (when-let [pack (pack-dir)]
+           (art-mark/composed
+            (for [^File f (file-seq pack)
+                  :when (and (.isFile f) (re-find #"(?i)\.png$" (.getName f)))]
+              (art-mark/mark-of (java.nio.file.Files/readAllBytes (.toPath f))))))))
+
+(defn- write!
+  "Write `img` as <nm>.png to ORCPUB_PACK_OUT, carrying the pack's licensed-art mark when it has
+   one: anything drawn from the real art is marked like the art."
+  [^BufferedImage img nm]
   (when-let [dir (System/getenv "ORCPUB_PACK_OUT")]
     (.mkdirs (File. dir))
-    (ImageIO/write img "png" (File. dir (str nm ".png")))
+    (let [out (java.io.ByteArrayOutputStream.)]
+      (ImageIO/write img "png" out)
+      (io/copy (cond-> (.toByteArray out) @pack-mark (art-mark/with-mark @pack-mark))
+               (File. dir (str nm ".png"))))
     (println (format "  wrote %s/%s.png" dir nm))))
 
 (deftest compose-a-real-pack-both-ways

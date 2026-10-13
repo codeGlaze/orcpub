@@ -5,6 +5,7 @@
             [cheshire.core :as cheshire]
             [orcpub.work-pool :as work-pool]
             [orcpub.portrait-store :as portrait-store]
+            [orcpub.art-mark :as art-mark]
             [io.pedestal.http.route :as route]
             [io.pedestal.test :as test]
             [io.pedestal.http.ring-middlewares :as ring]
@@ -1127,9 +1128,11 @@
    and puts the art credit somewhere besides the picture.
 
    This is provenance, not protection: metadata strips in seconds."
-  [doc {:keys [character-name credit]}]
+  [doc {:keys [character-name credit art-mark]}]
   (try
     (let [info (.getDocumentInformation doc)]
+      ;; drawn from the licensed art: the sheet says so where the repository's guard looks
+      (when art-mark (.setCustomMetadataValue info art-mark/key-word art-mark))
       (.setTitle info (or (some-> character-name s/trim not-empty)
                           branding/default-page-title))
       (.setCreator info branding/app-name)
@@ -1677,7 +1680,11 @@
         ;; image-url above, and crediting the illustrator for somebody else's
         ;; photograph is the one thing this feature must not do.
         (stamp-document-info! doc {:character-name character-name
-                                   :credit (when composed portrait-credit)}))
+                                   :credit (when composed portrait-credit)
+                                   :art-mark (when composed
+                                               (some-> (try (.decode (java.util.Base64/getDecoder) ^String portrait-png)
+                                                            (catch Exception _ nil))
+                                                       art-mark/mark-of))}))
       (.save doc output))
     (let [a (.toByteArray output)]
       {:status 200
