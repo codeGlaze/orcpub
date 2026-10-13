@@ -10,8 +10,8 @@
   ;; so an unmarked portrait save could be overwritten by a late autosave without a word
   (let [before @app-db]
     (try
-      (swap! app-db assoc :character {:db/id 1 :orcpub.entity/values {}}
-             :portrait/draft {:layers {} :colors {:hair "#123456"}})
+      (reset! app-db {:character {:db/id 1 :orcpub.entity/values {}}
+                      :portrait/draft {:layers {} :colors {:hair "#123456"}}})
       (dispatch-sync [:portrait/save true])
       (is (some? (get-in @app-db [:character :orcpub.entity/values :orcpub.dnd.e5.character/portrait])))
       (is (true? (get-in @app-db [:character :changed])))
