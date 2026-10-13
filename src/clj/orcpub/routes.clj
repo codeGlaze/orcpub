@@ -1133,7 +1133,7 @@
   (try
     (let [info (.getDocumentInformation doc)]
       ;; drawn from the licensed art: the sheet says so where the repository's guard looks
-      (when art-mark (.setCustomMetadataValue info art-mark/key-word art-mark))
+      (when art-mark (.setCustomMetadataValue info art-mark/mark-keyword art-mark))
       (.setTitle info (or (some-> character-name s/trim not-empty)
                           branding/default-page-title))
       (.setCreator info branding/app-name)
@@ -1674,7 +1674,7 @@
                                    :art-mark (when composed
                                                (some-> (try (.decode (java.util.Base64/getDecoder) ^String portrait-png)
                                                             (catch Exception _ nil))
-                                                       art-mark/mark-of))}))
+                                                       art-mark/read-mark))}))
       (.save doc output))
     (let [a (.toByteArray output)]
       {:status 200
