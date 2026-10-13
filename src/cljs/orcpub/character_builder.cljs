@@ -217,7 +217,7 @@
 (defn planned-panel
   "What tapping the Planned marker shows: each held pick, what brings it back, and Clear."
   [held]
-  [:div.decision-callout.quiet.m-t-5 {:style {:flex-direction :column :align-items :stretch}}
+  [:div.p-10.m-t-5.bg-note.callout-accent-brand.flex {:style {:flex-direction :column :gap "6px"}}
    (doall
     (for [{:keys [record] :as h} held]
       ^{:key (str (:address record))}

@@ -1265,17 +1265,15 @@
     {:background-color "rgba(0, 0, 0, 0.2)"
      :border-radius "4px"}]
 
-   ;; Accent rails for a callout: the .health-rail device, coloured by identity
-   ;; rather than severity, so a notice says whose it is without the warning
-   ;; palette. Named options only -- a caller picks one rather than passing a colour.
+   ;; Callout accents, coloured by identity rather than severity, so a notice says whose it
+   ;; is without the warning palette. Named options only -- a caller picks one rather than
+   ;; passing a colour.
    [:.callout-accent-brand
-    ;; A gradient ring around the whole box, drawn by a pseudo-element masked to its
-    ;; own edge: border-image squares off rounded corners, and a plain border cannot
-    ;; hold a gradient. The mask punches the middle out, so the translucent fill stays.
-    ;; The outer shadow is a low glow, not a selected-field highlight.
+    ;; A balanced gradient ring (amber at both sides, faint through top and bottom), drawn by
+    ;; a pseudo-element masked to its own edge: border-image squares off rounded corners.
+    ;; No fill colour, so a notice never reads as a warning. docs/kb/ux-guide.md (2026-10-13).
     {:position :relative
-     :border-color :transparent
-     :box-shadow "0 0 14px rgba(240, 161, 0, 0.13)"}
+     :border-color :transparent}
     [:&:before
      {:content "''"
       :position :absolute
@@ -1283,7 +1281,8 @@
       :border-radius "4px"
       :padding "1px"
       :pointer-events :none
-      :background (str "linear-gradient(135deg, " orange ", rgba(240, 161, 0, 0.18) 55%, rgba(240, 161, 0, 0.7))")
+      :background (str "linear-gradient(90deg, " orange ", rgba(255, 255, 255, 0.12) 30%, "
+                       "rgba(255, 255, 255, 0.12) 70%, " orange ")")
       :-webkit-mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
       :-webkit-mask-composite "xor"
       :mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"

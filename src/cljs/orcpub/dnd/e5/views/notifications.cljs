@@ -76,15 +76,14 @@
 (defn callout
   "Persistent contextual notice: a box with an optional :icon (fa class, prefixed with .fa),
    :text (string or hiccup) and optional :actions. :tone is :warning (default, severity) or
-   :note (neutral); :accent :brand draws a leading-edge rail. Each action is {:label} plus
-   :on-click (a button) or :href and optional :target (a link styled as a button), and an
-   optional :icon that is a COMPLETE icon class string (\"fab fa-patreon\")."
+   :note (neutral); :accent :brand draws the balanced amber ring. Each action is {:label} plus
+   :on-click (a button; :link? true makes it a text link) or :href and optional :target (a link
+   styled as a button), and an optional :icon that is a COMPLETE icon class string."
   [{:keys [icon text actions tone accent]}]
   [:div.p-10.m-b-10.flex.align-items-c
    {:class (cond-> [(case tone :note "bg-note" "bg-warning")]
-             ;; A rail on the leading edge, the same device .health-rail uses, so a
-             ;; callout can carry an identity without a severity colour filling the
-             ;; box. Named, not a colour: the shades live in styles/core.clj.
+             ;; A ring, so a callout can carry an identity without a severity colour filling
+             ;; the box. Named, not a colour: the shades live in styles/core.clj.
              (= accent :brand) (conj "callout-accent-brand"))
     :style {:gap "8px"}}
    (when icon [:i.fa {:class icon}])
@@ -92,14 +91,15 @@
    ;; with-meta on the ELEMENT, not on the let: metadata on a let form attaches to
    ;; the form, never reaches what it returns, and React logs a missing-key warning
    ;; for every action in the seq.
-   (for [{:keys [label on-click href target icon]} actions]
+   (for [{:keys [label on-click href target icon link?]} actions]
      (let [body (if icon
                   [:span [:i.m-r-5 {:class icon}] label]
                   label)]
        (with-meta
-         (if href
-           [:a.form-button {:href href :target (or target "_blank")} body]
-           [:button.form-button {:on-click on-click} body])
+         (cond
+           href [:a.form-button {:href href :target (or target "_blank")} body]
+           link? [:button.link-button.underline.f-w-b.f-s-14 {:on-click on-click} body]
+           :else [:button.form-button {:on-click on-click} body])
          {:key label})))])
 
 (defn shared-content-banner
