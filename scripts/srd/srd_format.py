@@ -125,7 +125,7 @@ SRD_REF = re.compile(r'\bsrd:[a-z0-9-]+')
 
 def _text(t, links, here):
     """A run of plain text -> inlines: open5e's srd: references, em dashes, rule and condition links."""
-    t = EM_DASH.sub('—', t)
+    t = re.sub(r'[ \t]{2,}', ' ', EM_DASH.sub('—', t))   # PDF line wraps leave runs of spaces; render as one
     out, i = [], 0
     for m in SRD_REF.finditer(t):
         out += _plain(t[i:m.start()], links, here)
