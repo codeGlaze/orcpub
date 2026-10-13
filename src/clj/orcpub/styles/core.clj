@@ -1819,11 +1819,14 @@
      {:text-shadow text-lift-dark}
      [:.title {:letter-spacing "-0.04em"}]]
     ;; The tabs are spaced by the row's gap, not their own margins; on a phone the
-    ;; row's padding is the 10px gutter.
+    ;; row's padding is the 10px gutter, and the tabs share the row with no side
+    ;; padding of their own, so all seven fit a 320px screen.
     [:.app-header-menu
      {:gap "4px"
       :padding "0 2px"}
-     [:&.phone-tabs {:padding "0 10px"}]]
+     [:&.phone-tabs {:padding "0 10px"}
+      [:.header-tab {:min-width 0}
+       [:>.p-10 {:padding-left 0 :padding-right 0}]]]]
 
     ;; The header bar's search and login boxes, and the desktop slot left of the
     ;; tabs that holds the supporter link.

@@ -174,6 +174,34 @@ const check = (name, ok, detail = '') => {
     }
     await short.close();
   }
+
+  // Phones: every tab, and each menu opened by tapping it, sits inside the screen. At 320px
+  // the seven tabs once could not shrink below their icon's padding and the last ran off it.
+  const { devices } = require('playwright');
+  for (const device of ['iPhone SE', 'iPhone 13']) {
+    const phone = await browser.newContext({ ...devices[device] });
+    await suppressCookieBanner(phone);
+    const p = await phone.newPage();
+    await p.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
+    await p.waitForSelector('#app-main', { timeout: 30000 });
+    await p.waitForTimeout(1500);
+    const width = p.viewportSize().width;
+    const off = await p.evaluate(() => [...document.querySelectorAll('.header-tab')]
+      .map((t, i) => [i + 1, t.getBoundingClientRect()])
+      .filter(([, r]) => r.left < 0 || r.right > innerWidth).map(([i, r]) => `tab ${i} ${Math.round(r.left)}-${Math.round(r.right)}`));
+    check(`${device} (${width}px): every header tab is on screen`, off.length === 0, off.join(', '));
+    const tabs = p.locator('.header-tab:has(.header-flyout)');
+    for (let i = 0, n = await tabs.count(); i < n; i++) {
+      await tabs.nth(i).focus();
+      await p.waitForTimeout(200);
+      const r = await tabs.nth(i).locator('.header-flyout').evaluate(f => {
+        const b = f.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)];
+      });
+      check(`${device} (${width}px): menu ${i + 1} is on screen`, r[0] >= 0 && r[1] <= width, `${r[0]}-${r[1]}`);
+      await p.evaluate(() => document.activeElement.blur());
+    }
+    await phone.close();
+  }
   await browser.close();
 
   const failed = results.filter(r => !r.ok);
