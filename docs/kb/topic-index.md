@@ -129,7 +129,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** blind, block, check, control, css, fires, forever, form, invented, item, lesson, machine, page, react, reagent, rendering, screenshot, vanished
+**topics:** blind, block, check, control, css, fires, forever, form, green, invented, item, lesson, machine, react, reagent, rendering, screenshot, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -218,7 +218,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** 2026, builders, conditionals, creatures, description, feat, fragment, framework, group, june, node, schema, selectors, tier, titled, traits, type, widgets
+**topics:** 2026, builders, conditionals, creatures, description, fragment, framework, group, june, monster, node, schema, selectors, tier, titled, traits, type, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -301,7 +301,7 @@ _class-feature-catalogue · class feature catalogue_
 
 _class-features-and-mechanization · class features and mechanization_
 
-**topics:** attack, cfg, data-addressable, dice, feature, features, indomitable, registry, rogue, roll, roller, rolls, scaling, sneak, structured, surge, user-reported, wind
+**topics:** attack, cfg, data-addressable, dice, feature, features, indomitable, nd6, registry, rogue, roll, roller, rolls, scaling, sneak, surge, user-reported, wind
 
 - How a class + its features are structured — VERIFIED (fighter, rogue read)
 - Two kinds of feature "mechanics" — VERIFIED
@@ -316,7 +316,7 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, chromium, cljs, errors, exits, failures, gotchas, harness, headless, html, page, per-test, playwright, race-builder, run, runner, runs
+**topics:** 2026-09-16, auth, backend, chromium, cljs, errors, exits, failures, gotchas, harness, headless, html, per-test, playwright, race-builder, run, runner, runs
 
 - Why it is not in CI — measured 2026-09-16, because "deferred" was all this page said
 - Build it
@@ -681,7 +681,7 @@ _edition-drift · edition drift_
 
 _extras-definitions · extras definitions_
 
-**topics:** beneath, bounds, capabilities, copy, copy-on-adopt, creature, disjoint, instance, local, per-creature, pet, plan-companions-and-wild-shape, promoted, promotion, ribbon, sidekick, statblock, wolf
+**topics:** beneath, capabilities, copy, copy-on-adopt, creature, disjoint, instance, local, npc, per-creature, pet, plan-companions-and-wild-shape, promoted, promotion, ribbon, sidekick, statblock, wolf
 
 - One record, capabilities toggled
 - Copy-on-adopt, not reference
@@ -694,7 +694,7 @@ _extras-definitions · extras definitions_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, feat, gaps, hardcoded, hook, language, map-of-flags, modifiers, one-sided, pools, scalar, select, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, feat, gaps, hardcoded, hook, language, map-of-flags, modifiers, pool, pools, scalar, select, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -739,7 +739,7 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
 _fonts · fonts_
 
-**topics:** blocks, browser, csp, cyrillic, external, font, fonts, google, hosts, latin, latin-ext, local, ofl, re-add, sans, subset, subsets, visitor
+**topics:** browser, csp, cyrillic, external, font, fonts, google, hosts, latin, latin-ext, local, ofl, re-add, sans, subset, subsets, vietnamese, visitor
 
 - Why
 - What is checked in
@@ -898,7 +898,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, disable, dismissal, enabled, global, import, item, library, modal, off, overlay, problem, same-key, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, overlay, same-key, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -911,6 +911,18 @@ _library-management-and-conflicts · library management and conflicts_
 - Health status — surfacing problems without a screen of red
 - Where the code lives
 - Related
+
+## lifting-mechanics-from-prose.md
+
+_lifting-mechanics-from-prose · lifting mechanics from prose_
+
+**topics:** 2026-10-13, became, conjure, creature, decision-cr-representation, describe, dodged, editorial, exclusion, mechanic, objects, prose, query, second-class, sentence, speed, stayed, table-like
+
+- The pattern
+- Instances found so far
+- The rule this should follow
+- Open questions
+- Why it matters beyond tidiness
 
 ## orcbrew-format-versioning.md
 
@@ -927,7 +939,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** beast, card, cards, companion, companions, conjure, creature, discarded, druid, familiar, foundry, master, moon, per-form, retainers, summon, taxonomy, wild
+**topics:** 2026-09-10, beast, card, cards, companion, companions, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, reference, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -961,7 +973,7 @@ _plan-companions-and-wild-shape · plan companions and wild shape_
 
 _plan-cr-normalization · plan cr normalization_
 
-**topics:** 1355565, 2026-09-16, 2026-09-17, 417, 5491, 733, acceptance, assertions, crs, decision-cr-representation, failures, met, monster, monsters, per-cr, ratio, runtimes, step
+**topics:** 1355565, 2026-09-16, 2026-09-17, 417, 5491, 733, acceptance, assertions, crs, druid, failures, met, monster, monsters, per-cr, ratio, runtimes, step
 
 - Step 0 — characterize
 - Step 1 — the formatter pair
@@ -1064,7 +1076,7 @@ _requirements-registry · requirements registry_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, bespoke, class-feature, cross-silo, detail, feat, grant-authoring, node, phase, pool, pools, pulled, remaining, round-trip, silo, substrate, track, widgets
+**topics:** 2026-09-05, bespoke, class-feature, cross-silo, detail, feat, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -1123,7 +1135,7 @@ _source-tagged-keys · source tagged keys_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, chain, class-gated, creator-declarable, differ, limits, magic-item, not-tested, primitive, primitives, races, silo, spell, spells, sustainable, usage, wrapper, wrappers
+**topics:** cast, chain, class-gated, creator-declarable, differ, magic-item, not-tested, primitive, primitives, races, silo, spell, spells, sustainable, usage, verified, wrapper, wrappers
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
