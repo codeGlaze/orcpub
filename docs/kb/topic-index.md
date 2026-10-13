@@ -486,7 +486,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows, toggle
+**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, form, heading, height, jpg, layout, mockup, row, rows, toggle
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -2388,7 +2388,7 @@ _pdf-generation-architecture · pdf generation architecture_
 
 _pdf-namespace-family · pdf namespace family_
 
-**topics:** abbreviations, acroform, animated-object, beast, card, cards, companion, consumer, docstrings, drawing, frame, group, private, public, spellbook, surface, svg, vars
+**topics:** abbreviations, acroform, animated-object, beast, card, cards, companion, consumer, coordinate, frame, geometry, group, inches, private, public, spellbook, surface, vars
 
 - Verdict on the starting hypothesis
 - 1. Inventory
@@ -2406,6 +2406,7 @@ _pdf-namespace-family · pdf namespace family_
 - 5. Risks
 - 6. What could not be determined
 - 7. Follow-up, 2026-10-13: the docstrings, and what running it settled
+- 8. Executed, 2026-10-13: steps 1 and 3a, and two corrections to section 4
 
 ## pedestal-csp-history.md
 
@@ -2981,7 +2982,7 @@ _share-custom-items-plan · share custom items plan_
 
 _share-links · share links_
 
-**topics:** 404, caps, character, compressed, copy, deletes, encrypted, homebrew, kaylee, link, opening, owner, party, server, share, sharing, token, upload
+**topics:** 404, caps, character, compressed, deletes, encrypted, homebrew, kaylee, link, opening, owner, party, presses, server, share, sharing, token, upload
 
 - What a link carries
 - How it works

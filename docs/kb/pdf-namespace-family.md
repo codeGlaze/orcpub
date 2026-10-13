@@ -325,3 +325,57 @@ Verification: `lein test` 704 tests / 5294 assertions green, `lein lint` 0 error
 `comment-discipline-test` rejected 7 of the first-draft docstrings as over the 6-line house
 limit — all new, no pre-existing debt in this file — so they were shortened rather than
 approved as exceptions.
+
+## 8. Executed, 2026-10-13: steps 1 and 3a, and two corrections to section 4
+
+Branch `refactor/pdf-canvas`, off `integration b8035afe`, carrying the docstring and
+geometry-test branches so all of it sits on one branch point.
+
+**Step 1 done: `spell-print.cljc`.** The six pure functions — `spell-school-level`,
+`abbreviate-times`, `max-len`, `abbreviate-duration`, `abbreviate-casting-time`,
+`abbreviate-range` — are now `src/cljc/orcpub/dnd/e5/spell_print.cljc`, 69 lines, beside
+`spell_annotations.cljc` as section 4 proposed. `spellbook.clj` no longer requires a
+3,200-line clj file to shorten a duration string. Callers repointed: `print-spells`,
+`spellbook.clj` (3), `spellbook_test.clj` (1). `max-len` in `orcbrew_validation.cljs` is a
+same-named ClojureScript function, a collision rather than a caller, so untouched.
+
+**Step 3a done: the shape paths, and section 4 was wrong to defer it.** Section 4 calls
+`canvas` "not a refactor — it is an API change" and says not to start it. That is right
+about re-expressing the *public* surface in points — `draw-text`, `draw-grid`, `get-page`,
+21 call sites in `routes.clj` — and that part remains open. It is wrong about the
+duplicated shape primitives: `polyline!`, `circle!`, `diamond!` and `circle-path!` are
+`defn-` on **both** sides, so unifying them moves nothing public.
+
+`src/clj/orcpub/pdf/canvas.clj`, 41 lines, holds `path!`, `circle-path!` and `bezier-k`.
+Each caller passes a `pt` mapper — `card-pt` for inches from a card's top-left, `py` for
+points from the page top — and no coordinate system changed. Both spaces measure y
+downward, which is why one formula serves them.
+
+Only the path is shared, not the whole primitive, and that was the finding that made it
+free: the two terminate differently, `closeAndStroke` emitting `s` against `closePath` plus
+`stroke` emitting `h S`. Sharing the terminator would have rewritten one side's content
+stream for no visual change. Leaving it to the callers made the whole thing byte-identical.
+
+Corrected from my own first reading: the two circles do **not** emit in different orders.
+Both run right, top, left, bottom, counter-clockwise in PDF space. Only the terminator and
+the place the mapping happens differed.
+
+**`pdf.clj` now:** 76 public fns and 16 public defs, against 59 and 29 private; 28 names
+called from outside, 21 by `routes.clj`, 6 by `spellbook.clj`, 1 by `system.clj`. Down from
+82 and 32. An earlier note on this branch said "45 public defs"; `grep '^(def '` also matches
+`(def ^:private`, so that number counted private ones.
+
+**How it was proven safe**, because the cards' positions were tuned by hand over several
+rounds and nothing in the suite read a coordinate before this:
+
+- Both geometry baselines unchanged across every step — 33 card pages of full operators,
+  24 spellbook fingerprints. `git status` after each change listed only source files.
+- Breaking `canvas/path!` by half a point fails 15 card and ornament pages **and** all 24
+  spellbook pages, so both callers route through the shared code rather than keeping a live
+  copy of it.
+- `lein test` 710/5402 and `lein lint` 0/0 at each step.
+
+**Still open**, in the order section 4 gives: `font` + `text` (step 2, mechanical); the
+public point-space change (the rest of step 3, and the real decision); `card` (step 4, when
+beast cards exist); `image` (540 lines, forced by nothing, the cheapest size reduction
+available).
