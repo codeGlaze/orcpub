@@ -13,7 +13,8 @@ Rules (each from a mistake made on 2026-10-11/12; docs/kb/open5e-upstream-notes.
   empty-option    a casting option sets at least one field
   slot-gap        a spell's slot options run unbroken from the first to 9
   dice-only       damage_roll holds dice ("4d6", "2d8 + 3"), nothing else
-  upcast-math     where the higher_level text is a plain step ("increases by 1d6 for each slot level
+  upcast-math     where the higher_level text is a plain step ("increases by 1d6 for each (or every
+                  two) slot level
                   above 3rd", "one additional creature for each slot level above 1st"), every
                   option's value is the spell's base plus the step per slot
   base-missing    a spell whose casting options set damage_roll, target_count or shape_size has that field
@@ -27,6 +28,7 @@ Rules (each from a mistake made on 2026-10-11/12; docs/kb/open5e-upstream-notes.
   unverified      every value we set on a casting option is checked by a rule, or hand-verified
                   (srd-data-reviewed.json rule "hand-verified" with the exact values it covers;
                   a changed value is unverified again)
+  cantrip-math    a cantrip's damage_roll at each character level is the SRD's total for that level
   desc-consistency within one spell, every slot's desc has the same wording, numbers aside
   lint-ratchet    no lint-open5e.py count rises above srd-lint-baseline.json
   reformat        a diff changes lines only inside records whose content changed
@@ -163,6 +165,35 @@ def check_unverified(rep, f, old, new):
                                                                                 sorted(values.items(), key=lambda kv: int(kv[0].split('_')[-1]))))
 
 
+CANTRIP_STEP = re.compile(r'(?:(\d+)(?:st|nd|rd|th) level|levels? (\d+)) \((\d*d\d+)\)')
+
+
+def check_cantrip_math(rep, f, old, new, spells, audit=False):
+    """cantrip-math: a cantrip's per-level damage_roll equals the SRD's total for the highest
+    threshold reached ("5th level (2d10), 11th level (3d10)"), and the base below the first."""
+    for pk, r in new.items():
+        o = r['fields']
+        if not o['type'].startswith('player_level_') or o.get('damage_roll') in (None, ''):
+            continue
+        if not audit and old.get(pk) == r and spells.get(o['parent'], {}) == {}:
+            continue
+        sp = spells.get(o['parent'], {})
+        h = sp.get('higher_level') or ''
+        steps = [(int(a or b), d) for a, b, d in CANTRIP_STEP.findall(h)]
+        listed = re.search(r'levels ((?:\d+ \(\d*d\d+\)(?:,? (?:and )?)?)+)', h)   # 2024: "levels 5 (2d10), 11 (3d10), and 17 (4d10)"
+        if listed:
+            steps = [(int(t), d) for t, d in re.findall(r'(\d+) \((\d*d\d+)\)', listed.group(1))]
+        if not steps:
+            continue
+        lvl = int(o['type'].split('_')[-1])
+        reached = [d for t, d in steps if t <= lvl]
+        want = reached[-1] if reached else sp.get('damage_roll')
+        norm = lambda x: re.sub(r'^1?d', '1d', x or '') if re.match(r'^1?d\d', x or '') else (x or '')
+        rep.verified.add((pk, 'damage_roll'))
+        if norm(o['damage_roll']) != norm(want):
+            rep.add('cantrip-math', f, pk, o['type'], f'{o["parent"]} {o["damage_roll"]}, the SRD gives {want or "nothing"} at level {lvl}')
+
+
 def check_desc_consistency(rep, f, old, new, audit=False):
     """desc-consistency: within one spell, every slot's desc has the same wording once numbers,
     ordinals and dice are set aside; a slot worded differently is either a defect or reviewed."""
@@ -217,13 +248,14 @@ def check_options(rep, ed, old, new, spells, audit=False):
             rep.add('slot-gap', f, parent, '', f'slots {sorted(slots)} miss {missing}')
         sp = spells.get(parent, {})
         h = sp.get('higher_level') or ''
-        m = re.search(r'increases? by (\d+)d(\d+) for each (?:spell )?slot level above (\d+)', h)
+        m = re.search(r'increases? by (\d+)d(\d+) for (?:each|every)( two)? (?:spell )?slot levels? above (?:the )?(\d+)', h)
         t = re.search(r'\b(one|two|three|\d+) additional (?:creature|target|undead|object|beast)s? for each (?:spell )?slot level above (\d+)', h, re.I)
         for lvl, (pk, o) in sorted(slots.items()):
             if m and sp.get('damage_roll') and DICE.match(sp['damage_roll']) and DICE.match(o.get('damage_roll') or ''):
-                n, die, above = int(m.group(1)), m.group(2), int(m.group(3))
+                n, die, above = int(m.group(1)), m.group(2), int(m.group(4))
+                steps = (lvl - above) // 2 if m.group(3) else lvl - above      # "for every two slot levels"
                 bn, bd = re.match(r'(\d+)d(\d+)', sp['damage_roll']).groups()
-                want = f'{int(bn) + n * (lvl - above)}d{die}' if bd == die else None
+                want = f'{int(bn) + n * steps}d{die}' if bd == die else None
                 got = re.match(r'(\d+d\d+)', o['damage_roll']).group(1)
                 if want:
                     rep.verified.add((pk, 'damage_roll'))
@@ -430,6 +462,7 @@ def main(argv):
             check_options(rep, ed, old, new, spells)
             check_unverified(rep, f'{ed}/SpellCastingOption.json', old, new)
             check_desc_consistency(rep, f'{ed}/SpellCastingOption.json', old, new)
+            check_cantrip_math(rep, f'{ed}/SpellCastingOption.json', old, new, spells)
     if '--all' in argv:
         for ed in EDITIONS:
             p = f'data/v2/wizards-of-the-coast/{ed}/'
@@ -437,9 +470,10 @@ def main(argv):
             opts = records(clone, 'HEAD', p + 'SpellCastingOption.json')
             check_options(rep, ed, {}, opts, spells, audit=True)
             check_desc_consistency(rep, f'{ed}/SpellCastingOption.json', {}, opts, audit=True)
+            check_cantrip_math(rep, f'{ed}/SpellCastingOption.json', {}, opts, spells, audit=True)
     check_ratchet(rep, clone, srd52, '--update-baseline' in argv)
     bad = rep.print(['fidelity', 'punctuation', 'name-case', 'empty-option', 'base-missing', 'value-in-srd', 'slot-gap',
-                     'dice-only', 'slot-below-base', 'upcast-math', 'desc-math', 'desc-consistency', 'unverified', 'lint-ratchet', 'reformat'])
+                     'dice-only', 'slot-below-base', 'upcast-math', 'cantrip-math', 'desc-math', 'desc-consistency', 'unverified', 'lint-ratchet', 'reformat'])
     print(f'desc-math verified {rep.checked} of {rep.with_desc} records with a desc; the rest match no step sentence')
     print(f'{bad} open finding(s) across {len(names.split())} changed file(s)')
     return 1 if bad else 0

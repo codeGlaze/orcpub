@@ -105,6 +105,8 @@ seen to fail on the mistake before it was trusted:
 | slot-below-base | a slot option at or below the spell's own level | srd-2024 Dispel Magic's slot 3 |
 | desc-math | a `desc` number that disagrees with the `damage_roll` beside it or the step sentence; where the base is not stored, the implied base must be in the spell's text | srd-2024 Conjure Celestial stored 2d12 for 7d12 |
 | unverified | a value we set on a casting option that no rule checked and no hand check covers | 33 area, duration and threshold values were trusted from an agent's report |
+| cantrip-math | a cantrip's damage at a character level that is not the SRD's total for that level ("5th level (2d10)") | about 350 cantrip values were checked by nothing |
+| desc-consistency | a slot whose `desc` is worded differently from the other slots of its spell | Globe of Invulnerability's slot 7; the Conjure fragments |
 | lint-ratchet | any lint count above `srd-lint-baseline.json` | a fixed defect coming back |
 | reformat | changed lines in records whose content did not change | a file re-serialised wholesale |
 
