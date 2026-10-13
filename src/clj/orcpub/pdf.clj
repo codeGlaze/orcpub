@@ -42,10 +42,13 @@
            (java.awt.image BufferedImage)
            (java.net URL)))
 
-;; THE ACTUAL API: 82 public fns, 45 public defs; 33 names referenced from outside this
-;; file -- 23 by routes.clj (export entry points, spell-page and image helpers), 9 by
-;; spellbook.clj (split-lines, string-width, draw-svg-icon!, normalize-text, svg-path-ops,
-;; site-stamp, the three abbreviators), and report-image-egress! by system.clj.
+;; THE ACTUAL API: 82 public fns, 45 public defs; 31 called from outside this file -- 21 by
+;; routes.clj (export entry points, spell-page and image helpers), 9 by spellbook.clj
+;; (split-lines, string-width, draw-svg-icon!, normalize-text, svg-path-ops, site-stamp, the
+;; three abbreviators), and report-image-egress! by system.clj.
+
+;; safe-image-url? and safe-image-bytes are named in routes.clj comments only; their real
+;; external consumers are the tests.
 
 ;; The rest are public by `defn` default, not by design. dev/ scripts reach deeper, but
 ;; that is tooling, not a contract to preserve.
