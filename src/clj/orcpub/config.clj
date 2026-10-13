@@ -190,6 +190,14 @@
   []
   (positive-int-env ["ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS"] 5000))
 
+(defn get-portrait-store-dir
+  "Where the server keeps its drawings of shared-link portraits, from PORTRAIT_STORE_DIR. Defaults
+   to data/portraits under the working directory. Point several containers at one shared volume
+   and each portrait is drawn once for all of them; without one, each container draws a portrait
+   the first time it is asked and keeps the file. docs/PORTRAIT-SERVING.md."
+  []
+  (or (not-empty (env/value :portrait-store-dir)) "data/portraits"))
+
 (defn dev-mode?
   "Returns true when running in dev mode (DEV_MODE env var is 'true').
    Env vars are strings — (boolean \"false\") is true in Clojure, so we
@@ -329,6 +337,8 @@
      :note "shared-link portraits drawn at once"}
     {:group "capacity" :var "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS" :get #(get-portrait-queue-timeout-ms)
      :note "how long a portrait waits to be drawn"}
+    {:group "capacity" :var "PORTRAIT_STORE_DIR" :get #(get-portrait-store-dir)
+     :note "where shared-link portrait drawings are kept"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_RETRIES" :get #(get-pdf-max-retries)
      :note "busy-page retries before it waits for a click"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :get #(get-pdf-max-caster-sections)

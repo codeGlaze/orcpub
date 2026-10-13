@@ -99,16 +99,8 @@
    "1d2c7b22f6b1"]
   ["src/clj/orcpub/routes.clj"
    :long-docstring
-   "def artwork-epoch"
-   "7f4cd0f905c7"]
-  ["src/clj/orcpub/routes.clj"
-   :long-docstring
    "defn character-portrait-png"
    "a144eea509f7"]
-  ["src/clj/orcpub/routes.clj"
-   :long-docstring
-   "defn portrait-etag"
-   "a0678c9352de"]
   ["src/clj/orcpub/routes.clj"
    :long-docstring
    "defn stamp-document-info!"
