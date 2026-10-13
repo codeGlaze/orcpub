@@ -71,7 +71,9 @@
       (s/blank? url) "Add a link"
       (> (count url) max-url-length) (str "Links can be up to " max-url-length " characters")
       (not= "https" scheme) "Links must start with https://"
-      (or (s/blank? host) (not (s/includes? host ".")) (re-find #"\s" host)
+      ;; hostname characters only: a browser reads a backslash as a path separator, so
+      ;; https://evil.test\x.twitch.tv/ would show Twitch's mark and open evil.test
+      (or (s/blank? host) (not (s/includes? host ".")) (not (re-matches #"[a-z0-9.-]+" host))
           (s/starts-with? host ".") (s/ends-with? host "."))
       "That doesn't look like a web address"
       (some? userinfo) "That doesn't look like a web address")))

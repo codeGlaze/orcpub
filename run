@@ -489,7 +489,8 @@ generate_env() {
   ADMIN_PASSWORD=$(prompt_value "Admin password" "$DEFAULT_ADMIN_PW")
   DATOMIC_PASSWORD=$(prompt_value "Peer password" "$DEFAULT_DATOMIC_PW")
   SIGNATURE=$(prompt_value "JWT signing secret (20+ chars)" "$DEFAULT_SIGNATURE")
-  PROFILE_ENCRYPTION_KEYS="k1:$(generate_key_b64)"
+  # keep a key already in .env (re-run with --force): stored preferred names are encrypted with it
+  PROFILE_ENCRYPTION_KEYS="${PROFILE_ENCRYPTION_KEYS:-k1:$(generate_key_b64)}"
 
   header "Application"
 

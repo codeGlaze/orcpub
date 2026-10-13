@@ -2684,7 +2684,8 @@
 
 (reg-event-db
  :portrait/save
- [db-char->local-store]
+ ;; set-changed like every other edit: an unmarked character is replaced when a late save answers
+ [set-changed db-char->local-store]
  (fn [db [_ keep-open?]]
    ;; The draft is kept either way -- it now equals what was just saved, so the
    ;; dirty indicator clears and the inline tab carries on showing the portrait

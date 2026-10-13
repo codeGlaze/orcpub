@@ -29,7 +29,11 @@ because link-preview fetchers give up quickly.
 ## Stored drawings
 
 The server draws each character's portrait itself and keeps the drawing as a file,
-`<PORTRAIT_STORE_DIR>/<character id>-<fingerprint>.png` (`orcpub.portrait-store`).
+`<PORTRAIT_STORE_DIR>/<character id>-<fingerprint>.png` (`orcpub.portrait-store`). The default is
+`orcpub-portraits` in the system temp directory, because the Docker image runs from `/` as a user
+that can write only `/tmp`; for a shared volume, mount it at `/var/lib/orcpub/portraits` (created
+for that user in the image) and set the variable to it. A write that fails is logged and the
+drawing is served anyway.
 
 - **Fingerprint.** The saved selection, the credit line, the site mark, and a digest of the
   registered art files and the drawing code (read from the classpath). It does not depend on the
@@ -55,7 +59,7 @@ image someone uploads, and the shared picture carries the artist's name.
 
 ## A shared link, end to end
 
-1. The character page names the picture by version: `/character/:id/portrait.png?v=<16 hex>`, the
+1. The character page names the picture by version: `/pages/dnd/5e/characters/:id/portrait.png?v=<16 hex>`, the
    start of the portrait's fingerprint. It refreshes the artist credits first, so the version and
    the credit agree with what the image route will compute.
 2. The image route pulls the stored portrait and computes the same fingerprint. No drawing yet:

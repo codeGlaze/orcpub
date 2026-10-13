@@ -26,3 +26,12 @@
     (is (= 1 (wp/retry-after-seconds p 0)))
     (is (<= (wp/retry-after-seconds p 10) (wp/retry-after-seconds p 1000)))
     (is (= 30 (wp/retry-after-seconds p 10000000)))))
+
+(deftest a-running-job-is-not-counted-as-waiting
+  ;; queue-depth and the Retry-After estimate are about callers still waiting for a permit
+  (let [p (pool 1 1000)
+        started (promise) release (promise)
+        holder (future (wp/run p #(do (deliver started true) @release)))]
+    @started
+    (is (zero? (wp/queue-depth p)) "one job running, nobody waiting")
+    (deliver release true) @holder))
