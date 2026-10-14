@@ -52,6 +52,7 @@
             [orcpub.portrait-pack.strands :as strands]
             [orcpub.dnd.e5.portrait-effects :as portrait-fx]
             [orcpub.artist-credit :as artist-credit]
+            [orcpub.artist-credit-notices :as credit-notices]
             [orcpub.artist-email :as artist-email]
             [orcpub.crypto :as crypto]
             [orcpub.spellbook :as spellbook]
@@ -855,9 +856,9 @@
       {:status 400 :body {:error "User not found"}})))
 
 (defn update-artist-credit
-  "PUT /user/artist-credit -- an artist edits how they're credited. The
-   artist and the admin both hear about every change, so changes are limited to one a minute
-   (429 with a Retry-After)."
+  "PUT /user/artist-credit -- an artist edits how they're credited. The artist and the admin hear
+   about every change, batched by orcpub.artist-credit-notices; 429 with a Retry-After once the
+   account has saved artist-credit/save-cap changes in the hour."
   [{:keys [transit-params db conn identity]}]
   (let [user (find-user-by-username db (:user identity))
         id (:db/id user)]
@@ -868,11 +869,11 @@
         (cond
           errors {:status 400 :body {:errors errors}}
           wait {:status 429 :headers {"Retry-After" (str wait)}
-                :body {:error (str "You saved a change a moment ago. Try again in " wait " seconds.")}}
+                :body {:error (str "That's a lot of changes for one hour. Try again in "
+                                   (max 1 (quot (+ wait 59) 60)) " minutes.")}}
           unchanged {:status 200 :body (artist-credit-body (d/db conn) id)}
           :else
-          (do (future (artist-email/credit-changed! {:artist-id artist-id :user user
-                                                     :before before :after saved}))
+          (do (credit-notices/saved! conn {:artist-id artist-id :user user :before before :after saved})
               {:status 200 :body (artist-credit-body (d/db conn) id)}))))))
 
 (defn hash-reset-key

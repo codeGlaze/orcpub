@@ -2,12 +2,12 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [datomic.api :as d]
             [orcpub.artist-credit :as ac]
-            [orcpub.bounded-cache :as bounded-cache]
             [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.db.schema :as schema]
             [orcpub.crypto]
             [orcpub.artist-email]
+            [orcpub.heartbeat]
             [orcpub.routes])
   (:import [java.util UUID]))
 
@@ -96,8 +96,7 @@
           (is (= "https://fuss.example/" (:artist/link (pa/artist-info :house-pack))))
           (is (= #{:artist/name} (:locked (ac/credit-for-account (d/db conn) id)))
               "the settings page can say which fields the site has fixed")))
-      (testing "clearing the edit (a minute later) goes back to the code's default"
-        (bounded-cache/clear! @#'ac/recent-saves)
+      (testing "clearing the edit goes back to the code's default"
         (ac/save! conn id {})
         (is (= "Fusspot" (:artist/name (pa/artist-info :house-pack))))))))
 
@@ -153,20 +152,88 @@
           (is (= 1 (count @told)) "one notice per real change, none for a failed or no-op save")
           (is (= {:artist/name "Fuss"} (select-keys (:after (first @told)) [:artist/name]))))))))
 
-(deftest saving-changes-is-limited-to-one-a-minute
-  (testing "each saved change emails the admin, so a burst of edits cannot flood their inbox"
-    (with-conn conn
-      (add-artist! conn "fusspot" :house-pack)
-      (let [told (atom [])]
-        (with-redefs [orcpub.artist-email/credit-changed! #(swap! told conj %)
-                      clojure.core/future-call (fn [f] (f) (delay nil))]
-          (let [first-save (orcpub.routes/update-artist-credit (req conn "fusspot" {:name "Fuss One"}))
-                second-save (orcpub.routes/update-artist-credit (req conn "fusspot" {:name "Fuss Two"}))]
-            (is (= 200 (:status first-save)))
-            (is (= 429 (:status second-save)) "a second change straight after is refused")
-            (is (some? (get-in second-save [:headers "Retry-After"])))
-            (is (string? (get-in second-save [:body :error])) "with a message the account page shows")
-            (is (= 1 (count @told)) "and only the first emailed anyone")))))))
+(def ^:private t0 (java.util.Date. 1760000000000))
+(defn- at "`m` minutes after t0." [m] (java.util.Date. (+ (.getTime ^java.util.Date t0) (* m 60000))))
+
+(defn- flush!
+  "Send the credit-change batches that are due on `conn` at `when`; nothing when there is no sender."
+  [conn when]
+  (when-let [f (try (requiring-resolve 'orcpub.artist-credit-notices/flush-due!) (catch Exception _ nil))]
+    (with-redefs [orcpub.heartbeat/now (constantly when)] (f conn))))
+
+(defmacro ^:private with-emails
+  "Run `body` with credit emails collected in `sent` (as [minute before-name after-name]) instead of sent."
+  [sent clock & body]
+  `(with-redefs [orcpub.artist-email/credit-changed!
+                 (fn [e#] (swap! ~sent conj [@~clock (:artist/name (:before e#)) (:artist/name (:after e#))]))
+                 orcpub.heartbeat/now (fn [] (at @~clock))
+                 clojure.core/future-call (fn [f#] (f#) (delay nil))]
+     ~@body))
+
+(defn- save-name!
+  "Save the credit name `n` as fusspot through the route; returns the response."
+  [conn n]
+  (orcpub.routes/update-artist-credit (req conn "fusspot" {:name n})))
+
+(deftest a-single-change-is-emailed-at-once
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (let [sent (atom []) clock (atom 0)]
+      (with-emails sent clock
+        (is (= 200 (:status (save-name! conn "Fuss One"))))
+        (is (= [[0 nil "Fuss One"]] @sent) "straight away, to the artist and the admin")
+        (reset! clock 30) (flush! conn (at 30))
+        (is (= 1 (count @sent)) "and nothing follows it")))))
+
+(deftest a-burst-is-one-email-now-and-one-batch
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (let [sent (atom []) clock (atom 0)]
+      (with-emails sent clock
+        (save-name! conn "One")
+        (reset! clock 1) (is (= 200 (:status (save-name! conn "Two"))) "a change in the window is saved")
+        (reset! clock 2) (save-name! conn "Three")
+        (is (= [[0 nil "One"]] @sent) "only the first went at once")
+        (flush! conn (at 9))
+        (is (= 1 (count @sent)) "the batch waits for the window to end")
+        (flush! conn (at 10))
+        (is (= [[0 nil "One"] [0 "One" "Three"]] (mapv #(assoc % 0 0) @sent))
+            "one email for the rest, from before the first of them to the last")
+        (flush! conn (at 11))
+        (is (= 2 (count @sent)) "sent once")))))
+
+(deftest editing-more-cannot-hold-the-batch-back
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (let [sent (atom []) clock (atom 0)]
+      (with-emails sent clock
+        (save-name! conn "A")
+        (doseq [[m n] [[4 "B"] [8 "C"]]] (reset! clock m) (save-name! conn n))
+        (flush! conn (at 10))
+        (is (= 2 (count @sent)) "the window ends ten minutes after the first change, however many follow")
+        (reset! clock 12) (save-name! conn "D")
+        (is (= 3 (count @sent)) "the next change after it is a first change again: emailed at once")))))
+
+(deftest a-batch-is-sent-once-whoever-flushes
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (let [sent (atom []) clock (atom 0)]
+      (with-emails sent clock
+        (save-name! conn "A") (reset! clock 1) (save-name! conn "B")
+        (let [fs (doall (repeatedly 3 #(future (flush! conn (at 10)))))] (run! deref fs))
+        (is (= 2 (count @sent)) "three containers flushing at once send it once")))))
+
+(deftest saves-are-capped-against-abuse
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (let [sent (atom []) clock (atom 0)]
+      (with-emails sent clock
+        (dotimes [i 60] (save-name! conn (str "N" i)))
+        (let [r (save-name! conn "one too many")]
+          (is (= 429 (:status r)))
+          (is (some? (get-in r [:headers "Retry-After"]))))
+        (reset! clock 61)
+        (is (= 200 (:status (save-name! conn "an hour on"))))))))
 
 (deftest a-non-artist-cannot-save-a-credit
   (with-conn conn

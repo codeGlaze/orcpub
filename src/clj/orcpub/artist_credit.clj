@@ -25,6 +25,7 @@
             [orcpub.fork.branding :as branding]
             [orcpub.artist-links :as links]
             [orcpub.bounded-cache :as bounded-cache]
+            [orcpub.heartbeat :as heartbeat]
             [orcpub.dnd.e5.portrait-assets :as pa]))
 
 ;; ---------------------------------------------------------------------------
@@ -137,24 +138,29 @@
          :own own
          :locked (set (keys config))}))))
 
-(def save-gap-ms
-  "How long after a saved change an artist waits before saving another: each one emails the admin."
-  60000)
+(def save-cap
+  "Changes an account may save in an hour: generous for an artist, a wall against a script."
+  60)
 
 (def ^:private recent-saves
-  "When each account last saved a change, by [connection account], kept for `save-gap-ms`."
-  (bounded-cache/cache {:max-entries 1024 :max-age-ms save-gap-ms}))
+  "When each account saved its changes in the last hour (ms), by [connection account]."
+  (bounded-cache/cache {:max-entries 1024 :max-age-ms (* 60 60 1000)}))
+
+(defn- saves-this-hour
+  "The times (ms) account `user-id` on `conn` saved a change in the hour before `now` (ms)."
+  [conn user-id now]
+  (filterv #(> % (- now 3600000)) (some-> (bounded-cache/lookup recent-saves [conn user-id]) first)))
 
 (defn- wait-secs
-  "Whole seconds until account `user-id` on `conn` may save another change, or nil when they may now."
-  [conn user-id]
-  (when-let [[at] (bounded-cache/lookup recent-saves [conn user-id])]
-    (let [left (- (+ at save-gap-ms) (System/currentTimeMillis))]
-      (when (pos? left) (long (Math/ceil (/ left 1000.0)))))))
+  "Whole seconds until a save at `now` (ms) is allowed after the hour's saves `times`, or nil when
+   fewer than `save-cap` were made."
+  [times now]
+  (when (>= (count times) save-cap)
+    (long (Math/ceil (/ (- (+ (apply min times) 3600000) now) 1000.0)))))
 
 (defn save!
   "Save `edit` as the credit for the artist `user-id` speaks for. Returns {:errors ..},
-   {:unchanged true}, {:wait seconds} when they saved a change under a minute ago, or
+   {:unchanged true}, {:wait seconds} when the account has saved `save-cap` changes this hour, or
    {:saved credit :before old :artist-id id}."
   [conn user-id edit]
   (let [db (d/db conn)
@@ -163,15 +169,17 @@
     (if-not artist
       {:errors {:account "This account isn't an artist account"}}
       (let [{:keys [errors credit]} (check edit)
-            before (some-> artist-credit read-stored)]
+            before (some-> artist-credit read-stored)
+            now (.getTime ^java.util.Date (heartbeat/now))
+            times (saves-this-hour conn user-id now)]
         (cond
           errors {:errors errors}
           (= (not-empty credit) before) {:unchanged true}
-          (wait-secs conn user-id) {:wait (wait-secs conn user-id)}
+          (wait-secs times now) {:wait (wait-secs times now)}
           :else
           (do @(d/transact conn [(if (seq credit)
                                    {:db/id user-id :orcpub.user/artist-credit (pr-str credit)}
                                    [:db/retract user-id :orcpub.user/artist-credit artist-credit])])
-              (bounded-cache/put! recent-saves [conn user-id] (System/currentTimeMillis))
+              (bounded-cache/put! recent-saves [conn user-id] (conj times now))
               (refresh! (d/db conn))
               {:saved credit :before before :artist-id artist}))))))
