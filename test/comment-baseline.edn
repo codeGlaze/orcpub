@@ -278,10 +278,6 @@
    "Directly under the art it describes. It used to sit in the footer | it used to"
    "22c67b2d6b67"]
   ["src/cljs/orcpub/dnd/e5/portrait.cljs"
-   :history-phrase
-   "def empty-slot-styles | it used to"
-   "3810be692bc0"]
-  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
    :long-comment
    "---------------- developer: the Eyes 01 far-iris alternative ---------"
    "9aa5258ac663"]
@@ -303,10 +299,6 @@
    "852cfc2fefde"]
   ["src/cljs/orcpub/dnd/e5/portrait.cljs"
    :long-docstring
-   "def empty-slot-styles"
-   "3810be692bc0"]
-  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
-   :long-docstring
    "defn drawer"
    "2e6cefd20673"]
   ["src/cljs/orcpub/dnd/e5/portrait.cljs"
@@ -325,10 +317,6 @@
    :long-docstring
    "defn- linked-credit"
    "6f41e5783914"]
-  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
-   :long-docstring
-   "defn- mask-style"
-   "956e356536b2"]
   ["src/cljs/orcpub/dnd/e5/portrait.cljs"
    :long-docstring
    "ns orcpub.dnd.e5.portrait"
