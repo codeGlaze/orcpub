@@ -83,7 +83,7 @@ tense. Internal terms (*hold*, *set aside*, *settle*, *ghost*, *disqualified*) s
 |---|---|
 | Steel Will auto-fills at level 7. | Steel Will will be restored when its gate reopens. |
 | Planned: Archery (L10) | 1 set aside · Archery held |
-| 3 choices don't apply right now · Show details | 3 ghost selections were found and cleaned |
+| 3 choices don't apply right now · Details | 3 ghost selections were found and cleaned |
 | Rogue picks restored (7) · Undo | Restored 7 entries from the planned hold |
 | Undone · Redo | Undo complete |
 
@@ -94,10 +94,10 @@ The app's patterns and what each is for. When a better one is agreed, it replace
 | Pattern | For | Example |
 |---|---|---|
 | Top banner | a confirmation or error that needs no action, gone by itself | "Saved" |
-| Notice box above the options column, at its width: an icon and a balanced amber gradient ring, no coloured fill, text left and action with its close mark right | a notice with an action, until dismissed; never reads as a warning | ![Notice box: 3 choices don't apply right now · Show details](assets/ux-guide/b1-opened.png) |
+| Notice box above the options column, at its width: an icon and a balanced amber gradient ring, no coloured fill, text left and action with its close mark right | a notice with an action, until dismissed; never reads as a warning | ![Notice box: 1 choice doesn't apply right now · Details](assets/ux-guide/b1-opened.png) |
 | In the section row | the state of that section | "Planned: Archery (L10)" |
 | Under a class row, beside the level picker | what the class's level or order is holding back | "3 planned at higher levels" |
-| Link button inside text | an action within a sentence | "Show details" |
+| Link button inside text | an action within a sentence | "Details" |
 
 ## Phone first, and how designs are reviewed
 
@@ -128,9 +128,10 @@ Newest last. Date, ruling, and what it replaced.
   until a better design is found.
 - 2026-10-13: the notice box gets an icon and a balanced amber gradient ring, no coloured fill.
   Replaced the faint outline.
-
 - 2026-10-13: boxes are sized by the layout, not their content; the restore notice spans the
   options column. Replaced a notice shrink-wrapped to its text.
+- 2026-10-14: a toggle keeps one short label in both states ("Details"), so the notice stays on
+  one line at phone width. Replaced "Show details" / "Hide details".
 
 **Open:** where a subrace waiting on its race shows (the section row crowds the header; the race
 card squeezes the name).
