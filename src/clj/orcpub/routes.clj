@@ -2526,39 +2526,70 @@
                       (artist-profile/example-path artist 1))})
     (assoc (index-page-response request {:title "No such artist"}) :status 404)))
 
-(defonce ^:private example-jpegs (atom {}))
+(def ^:private example-jpegs
+  "Rendered examples by [artist n watermark]. Single-flight, so a burst of requests for a new page
+   shares one render; bounded, since every edit to an artist's links makes new watermark keys."
+  (bounded-cache/cache {:max-entries 64}))
+
+(def ^:private example-failures
+  "Examples that failed to render, remembered for a minute so a broken one is not redrawn on every
+   request."
+  (bounded-cache/cache {:max-entries 64 :max-age-ms 60000}))
 
 (defn- example-jpeg
-  "JPEG bytes of example `n` (1-based) for `artist-id`, watermarked with `text`; nil when
-   there is none. A success is rendered once per process and then served from memory; a
-   failure is not kept, so the next request tries again."
+  "JPEG bytes of example `n` (1-based) for `artist-id`, watermarked with `text`: nil when there is
+   none or it failed within the last minute, {:busy retry-seconds} when no draw slot frees. Drawn
+   once through the portrait draw pool and kept."
   [artist-id n text]
   (let [k [artist-id n text]]
-    (or (get @example-jpegs k)
-        (when-let [jpeg (some-> (artist-profile/example-portraits artist-id)
-                                (get (dec n))
-                                (portrait-render/render-example-jpeg text))]
-          (swap! example-jpegs assoc k jpeg)
-          jpeg))))
+    (when-not (bounded-cache/lookup example-failures k)
+      (try
+        (bounded-cache/fetch!
+         example-jpegs k
+         #(let [{:keys [result busy]}
+                (work-pool/run portrait-store/draw-pool
+                               (fn [] (some-> (artist-profile/example-portraits artist-id)
+                                              (get (dec n))
+                                              (portrait-render/render-example-jpeg text))))]
+            (cond busy (throw (ex-info "example draw busy" {::busy busy}))
+                  result result
+                  :else (throw (ex-info "no example" {::failed true})))))
+        (catch clojure.lang.ExceptionInfo e
+          (let [{::keys [busy]} (ex-data e)]
+            (if busy
+              {:busy busy}
+              (do (bounded-cache/put! example-failures k true) nil))))
+        (catch Exception e
+          (println "artist example" k "failed -" (.getMessage e))
+          (bounded-cache/put! example-failures k true)
+          nil)))))
 
 (defn artist-example-jpeg
   "Ring handler: example image :n (1 to example-count) of the artist at :slug, small,
-   flattened and watermarked. 404 for an unknown slug, a page turned off, or any other :n."
-  [{{:keys [slug n]} :path-params}]
+   flattened and watermarked. 404 for an unknown slug, a page turned off, or any other :n;
+   503 with a Retry-After when every draw slot is taken."
+  [{:keys [db] {:keys [slug n]} :path-params}]
+  ;; before the watermark is worked out from the artist's links
+  (when db (artist-credit/refresh! db))
   (let [artist (artist-profile/artist-by-slug slug)
         n (some->> n (re-matches #"[1-9]") parse-long)
         jpeg (when (and artist n (<= n artist-profile/example-count))
                (example-jpeg (:artist/id artist) n
                              (artist-profile/watermark-text
                               artist (or (portrait-render/site-mark) branding/app-name))))]
-    (if jpeg
+    (cond
+      (:busy jpeg)
+      {:status 503 :headers {"Retry-After" (str (:busy jpeg)) "Content-Type" "text/plain"} :body "busy"}
+
+      jpeg
       {:status 200
        :headers {"Content-Type" "image/jpeg"
                  "Cache-Control" "public, max-age=86400"
                  ;; contributed artwork -- see character-portrait-png
                  "X-Robots-Tag" "noai, noimageai"}
        :body (ByteArrayInputStream. jpeg)}
-      {:status 404 :body "no such example"})))
+
+      :else {:status 404 :body "no such example"})))
 
 (def header-style
   {:style "color:#2c3445"})
