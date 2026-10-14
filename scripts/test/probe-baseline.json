@@ -29,7 +29,7 @@
     "seconds": 34
   },
   "header_menus_e2e.js": {
-    "checks": 30,
+    "checks": 50,
     "seconds": 50
   },
   "homebrew_safety_net_e2e.js": {

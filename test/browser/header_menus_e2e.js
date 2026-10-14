@@ -175,8 +175,8 @@ const check = (name, ok, detail = '') => {
     await short.close();
   }
 
-  // Phones: every tab, and each menu opened by tapping it, sits inside the screen. At 320px
-  // the seven tabs once could not shrink below their icon's padding and the last ran off it.
+  // Phones: every tab, and each menu opened by tapping it, sits inside the screen. A menu that
+  // did not open measures 0-0, so it has to have a width to count.
   const { devices } = require('playwright');
   for (const device of ['iPhone SE', 'iPhone 13']) {
     const phone = await browser.newContext({ ...devices[device] });
@@ -195,9 +195,10 @@ const check = (name, ok, detail = '') => {
       await tabs.nth(i).focus();
       await p.waitForTimeout(200);
       const r = await tabs.nth(i).locator('.header-flyout').evaluate(f => {
-        const b = f.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right)];
+        const b = f.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right), b.width];
       });
-      check(`${device} (${width}px): menu ${i + 1} is on screen`, r[0] >= 0 && r[1] <= width, `${r[0]}-${r[1]}`);
+      check(`${device} (${width}px): menu ${i + 1} opens on screen`, r[2] > 0 && r[0] >= 0 && r[1] <= width,
+            r[2] > 0 ? `${r[0]}-${r[1]}` : 'did not open');
       await p.evaluate(() => document.activeElement.blur());
     }
     await phone.close();
