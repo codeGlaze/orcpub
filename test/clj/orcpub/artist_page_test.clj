@@ -87,3 +87,13 @@
     (is (not (s/includes? (:body (routes/artist-page (req "fusspot"))) "Fusspot"))
         "and the 404's share tags do not name them")
     (finally (pa/set-artist-overrides! {}))))
+
+(deftest an-artist-name-is-never-page-source
+  (testing "a name with markup in it appears escaped in the title and share tags, never as tags"
+    (try
+      (pa/set-artist-overrides! {:house-pack {:artist/name "<b>MARK</b>"}})
+      (let [{:keys [status body]} (routes/artist-page (req "fusspot"))]
+        (is (= 200 status))
+        (is (not (s/includes? body "<b>MARK</b>")) "the raw markup is nowhere in the page")
+        (is (s/includes? body "&lt;b&gt;MARK&lt;/b&gt;") "the name is there, escaped"))
+      (finally (pa/set-artist-overrides! {})))))
