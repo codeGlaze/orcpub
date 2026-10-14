@@ -1,6 +1,7 @@
 // What every design capture shares: a browser, and a view of one app page that is themed, has
 // its fonts and no overlays, and can be restyled, measured and shot. Rounds (rounds.js) use only
-// this. Shots go under OUT (default docs/design/capture/out/<round>), which git ignores.
+// this. Shots go beside the round's review page (its `out`, under docs/design/, where git ignores
+// images), or under OUT when set.
 require('../../../test/browser/lib/suppress-overlays-preload.js');
 const { chromium, devices } = require('playwright');
 const { findChrome } = require('../../../test/browser/lib/find-chrome.js');
