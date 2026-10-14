@@ -21,9 +21,6 @@
 (use-fixtures :each
   (fn [t]
     (let [before (pa/current-overrides)]
-      ;; every test's in-memory database hands out the same ids, so one test's save must not
-      ;; count against the next
-      (bounded-cache/clear! @#'ac/recent-saves)
       (try (t) (finally (pa/set-artist-overrides! before))))))
 
 (defn- add-artist! [conn username artist]
