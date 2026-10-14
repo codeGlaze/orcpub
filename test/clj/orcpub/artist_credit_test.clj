@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [datomic.api :as d]
             [orcpub.artist-credit :as ac]
+            [orcpub.bounded-cache :as bounded-cache]
             [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.db.schema :as schema]
@@ -20,6 +21,9 @@
 (use-fixtures :each
   (fn [t]
     (let [before (pa/current-overrides)]
+      ;; every test's in-memory database hands out the same ids, so one test's save must not
+      ;; count against the next
+      (bounded-cache/clear! @#'ac/recent-saves)
       (try (t) (finally (pa/set-artist-overrides! before))))))
 
 (defn- add-artist! [conn username artist]
@@ -95,7 +99,8 @@
           (is (= "https://fuss.example/" (:artist/link (pa/artist-info :house-pack))))
           (is (= #{:artist/name} (:locked (ac/credit-for-account (d/db conn) id)))
               "the settings page can say which fields the site has fixed")))
-      (testing "clearing the edit goes back to the code's default"
+      (testing "clearing the edit (a minute later) goes back to the code's default"
+        (bounded-cache/clear! @#'ac/recent-saves)
         (ac/save! conn id {})
         (is (= "Fusspot" (:artist/name (pa/artist-info :house-pack))))))))
 
@@ -150,6 +155,21 @@
           (is (= 200 (:status again)))
           (is (= 1 (count @told)) "one notice per real change, none for a failed or no-op save")
           (is (= {:artist/name "Fuss"} (select-keys (:after (first @told)) [:artist/name]))))))))
+
+(deftest saving-changes-is-limited-to-one-a-minute
+  (testing "each saved change emails the admin, so a burst of edits cannot flood their inbox"
+    (with-conn conn
+      (add-artist! conn "fusspot" :house-pack)
+      (let [told (atom [])]
+        (with-redefs [orcpub.artist-email/credit-changed! #(swap! told conj %)
+                      clojure.core/future-call (fn [f] (f) (delay nil))]
+          (let [first-save (orcpub.routes/update-artist-credit (req conn "fusspot" {:name "Fuss One"}))
+                second-save (orcpub.routes/update-artist-credit (req conn "fusspot" {:name "Fuss Two"}))]
+            (is (= 200 (:status first-save)))
+            (is (= 429 (:status second-save)) "a second change straight after is refused")
+            (is (some? (get-in second-save [:headers "Retry-After"])))
+            (is (string? (get-in second-save [:body :error])) "with a message the account page shows")
+            (is (= 1 (count @told)) "and only the first emailed anyone")))))))
 
 (deftest a-non-artist-cannot-save-a-credit
   (with-conn conn

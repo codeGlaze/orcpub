@@ -24,6 +24,7 @@
             [datomic.api :as d]
             [orcpub.fork.branding :as branding]
             [orcpub.artist-links :as links]
+            [orcpub.bounded-cache :as bounded-cache]
             [orcpub.dnd.e5.portrait-assets :as pa]))
 
 ;; ---------------------------------------------------------------------------
@@ -136,9 +137,25 @@
          :own own
          :locked (set (keys config))}))))
 
+(def save-gap-ms
+  "How long after a saved change an artist waits before saving another: each one emails the admin."
+  60000)
+
+(def ^:private recent-saves
+  "When each account last saved a change, kept for `save-gap-ms`."
+  (bounded-cache/cache {:max-entries 1024 :max-age-ms save-gap-ms}))
+
+(defn- wait-secs
+  "Whole seconds until `user-id` may save another change, or nil when they may now."
+  [user-id]
+  (when-let [[at] (bounded-cache/lookup recent-saves user-id)]
+    (let [left (- (+ at save-gap-ms) (System/currentTimeMillis))]
+      (when (pos? left) (long (Math/ceil (/ left 1000.0)))))))
+
 (defn save!
-  "Save `edit` as the credit for the artist `user-id` speaks for. Returns
-   {:errors ..}, {:unchanged true}, or {:saved credit :before old :artist-id id}."
+  "Save `edit` as the credit for the artist `user-id` speaks for. Returns {:errors ..},
+   {:unchanged true}, {:wait seconds} when they saved a change under a minute ago, or
+   {:saved credit :before old :artist-id id}."
   [conn user-id edit]
   (let [db (d/db conn)
         {:orcpub.user/keys [artist artist-credit]}
@@ -150,9 +167,11 @@
         (cond
           errors {:errors errors}
           (= (not-empty credit) before) {:unchanged true}
+          (wait-secs user-id) {:wait (wait-secs user-id)}
           :else
           (do @(d/transact conn [(if (seq credit)
                                    {:db/id user-id :orcpub.user/artist-credit (pr-str credit)}
                                    [:db/retract user-id :orcpub.user/artist-credit artist-credit])])
+              (bounded-cache/put! recent-saves user-id (System/currentTimeMillis))
               (refresh! (d/db conn))
               {:saved credit :before before :artist-id artist}))))))

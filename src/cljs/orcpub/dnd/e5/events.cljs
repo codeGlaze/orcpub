@@ -2178,7 +2178,7 @@
           {:status :error
            :errors (get-in response [:body :errors])
            :error (when-not (get-in response [:body :errors])
-                    "Couldn't save that. Please try again.")})))
+                    (or (get-in response [:body :error]) "Couldn't save that. Please try again."))})))
 
 (reg-event-db
  :clear-account-save-status
