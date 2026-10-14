@@ -2427,7 +2427,8 @@
       :flex-shrink 0
       :border "1.5px solid rgba(255,255,255,0.55)"
       :border-radius "4px"
-      :background-color "rgba(0,0,0,0.25)"
+      ;; opaque, so a box on a white panel is still a dark box there, not a see-through tint
+      :background-color "#1b2130"
       :color button-ink
       :vertical-align :middle
       :cursor :pointer
@@ -2447,8 +2448,15 @@
      [:&.disabled
       {:opacity 0.5
        :cursor :not-allowed}]]
+    ;; the keyboard's place: on the box, or on the box of a labelled row that is the control
+    [".checkbox:focus-visible, .checkbox-row:focus-visible .checkbox"
+     {:outline (str "2px solid " orange)
+      :outline-offset "2px"}]
+    [".app.light-theme .checkbox:focus-visible, .app.light-theme .checkbox-row:focus-visible .checkbox"
+     {:outline-color slate-blue}]
+    [:.checkbox-row:focus-visible {:outline :none}]
     [".app.light-theme .checkbox"
-     {:border-color "rgba(0,0,0,0.35)"
+     {:border-color muted-on-light
       :background-color :white}
      [:&:hover {:border-color slate-blue}]
      [:&.checked

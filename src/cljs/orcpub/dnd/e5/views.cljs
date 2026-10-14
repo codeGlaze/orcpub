@@ -2826,7 +2826,8 @@
                      ^{:key i}
                      [:span.m-l-5
                       {:on-click #(dispatch [::char/toggle-spell-slot-used id level i])}
-                      (comps/checkbox @(subscribe [::char/spell-slot-used? id level i]) false)]))]])
+                      (comps/checkbox @(subscribe [::char/spell-slot-used? id level i]) false
+                                      (str (common/ordinal level) " level slot " (inc i) " used"))]))]])
               spell-slots))])]))))
 
 (defn dropdown [{:keys [items value on-change]}]
@@ -2936,7 +2937,8 @@
              selected?
              (and (not selected?)
                   (or always-prepared?
-                      (not (pos? remaining-preps))))))])
+                      (not (pos? remaining-preps))))
+             (str (:name spell) " prepared")))])
        (:name spell)]
       [:td.p-l-10.p-b-5.p-t-5 class]
       [:td.p-l-10.p-b-5.p-t-5 (when ability (s/upper-case (common/safe-name ability)))]
@@ -3215,7 +3217,7 @@
            ^{:key i}
            [:span
             {:on-click (toggle-feature-used-handler id units k)}
-            [:span.m-r-5 (comps/checkbox @(subscribe [::char/feature-used? id units k]) false)]])))]
+            [:span.m-r-5 (comps/checkbox @(subscribe [::char/feature-used? id units k]) false (str nm " use " (inc i)))]])))]
 
     ;; larger number of uses
     (let [initial-value @(subscribe [::char/feature-used-count id units nm amount])]
@@ -4776,7 +4778,7 @@
 
 (defn labeled-checkbox [label selected?]
   [:div.flex.align-items-c.pointer.m-b-10
-   (comps/checkbox selected? false)
+   (comps/checkbox selected? false label)
    [:span.m-l-5.f-s-14 label]])
 
 (defn with-help
@@ -5401,7 +5403,7 @@
    [:div
     [:div.flex.align-items-c.m-b-10
      {:on-click (make-event-handler ::mi/toggle-attunement)}
-     (comps/checkbox attunement false)
+     (comps/checkbox attunement false "Attunement")
      [:span.f-s-24.f-w-b.m-l-5 "Attunement"]]
     (when attunement
       [:div
@@ -9128,7 +9130,7 @@
           [:div.m-r-10.pointer.m-b-10
            {:on-click #(do (dispatch [::spells/toggle-spell-list key])
                            (dispatch [:clear-builder-field-error :spell-lists]))}
-           [comps/checkbox (get-in spell [:spell-lists key])]
+           [comps/checkbox (get-in spell [:spell-lists key]) false name]
            [:span.m-l-5 name]])
         @(subscribe [::spells/spellcasting-classes]))]]]))
 
@@ -10627,7 +10629,8 @@
          {:on-click (fn [e]
                       (dispatch [::char/toggle-selected id])
                       (.stopPropagation e))}
-         (comps/checkbox (get selected-ids id) false)]
+         (comps/checkbox (get selected-ids id) false
+                         (str "Select " (or (::char/character-name summary) "this character")))]
         [:div.f-s-24.f-w-600
          [:div.list-character-summary
           [character-summary-2 summary true owner false]]]]
@@ -11231,7 +11234,8 @@
            ^{:key size}
            [:div.p-5.pointer
             {:on-click (make-event-handler ::char/toggle-monster-filter-hidden :size size)}
-            (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :size size])) false)
+            (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :size size])) false
+                            (s/capitalize (common/kw-to-name size)))
             (str " " (s/capitalize (common/kw-to-name size)))])
          @(subscribe [::char/monster-sizes])))]]
    [:div.main-text-color.p-20
@@ -11243,7 +11247,8 @@
            ^{:key type}
            [:div.p-5.pointer
             {:on-click (make-event-handler ::char/toggle-monster-filter-hidden :type type)}
-            (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :type type])) false)
+            (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :type type])) false
+                            (s/capitalize (common/kw-to-name type)))
             (str " " (s/capitalize (common/kw-to-name type)))])
          @(subscribe [::char/monster-types])))]]
    (let [subtypes @(subscribe [::char/monster-subtypes])]
@@ -11256,7 +11261,8 @@
              ^{:key subtype}
              [:div.p-5.pointer
               {:on-click (make-event-handler ::char/toggle-monster-filter-hidden :subtype subtype)}
-              (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :subtype subtype])) false)
+              (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :subtype subtype])) false
+                              (s/capitalize (common/kw-to-name subtype)))
               (str " " (s/capitalize (common/kw-to-name subtype)))])
            subtypes))]])])
 
