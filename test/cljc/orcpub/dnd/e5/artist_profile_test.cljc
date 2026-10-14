@@ -125,6 +125,24 @@
   (is (not (ap/web-url? "https://example.test/ spaced")))
   (is (not (ap/web-url? nil))))
 
+(deftest only-https-links-reach-the-page
+  (testing "the rule artist edits follow holds for links from the deployment's settings too"
+    (is (not (ap/web-url? "http://example.test/")) "plain http can be rewritten on the way")
+    (is (not (ap/web-url? "https://evil.test\\x.twitch.tv/")) "hostname characters only")
+    (is (= [] (ap/listed-links {:artist/link "http://example.test/"})))))
+
+(deftest an-international-domain-is-shown-encoded
+  (testing "lookalike letters cannot pass for another site: the host is shown in punycode"
+    (let [[l] (ap/listed-links {:artist/link "https://ex\u0430mple.test/shop"})]
+      (is (= "https://xn--exmple-4nf.test/shop" (:link/url l)))
+      (is (= "xn--exmple-4nf.test" (ap/link-host (:link/url l)))))))
+
+(deftest every-external-link-is-marked-as-someone-elses
+  (is (= {:href "https://example.test/" :target "_blank" :rel "noopener noreferrer nofollow ugc"}
+         (ap/external-link "https://example.test/")))
+  (is (nil? (ap/external-link "javascript:alert(1)")) "not a web address: no link at all")
+  (is (nil? (ap/external-link "http://example.test/")) "checked again where it is drawn"))
+
 (deftest the-links-are-the-ones-listed-and-nothing-else
   (let [fusspot (ap/artist-by-slug "fusspot")]
     (is (= ["https://fusspot.rip/" "https://www.twitch.tv/fusspot"]
