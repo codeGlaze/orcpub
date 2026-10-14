@@ -77,9 +77,9 @@
   "Persistent contextual notice: a box with an optional :icon (fa class, prefixed with .fa),
    :text (string or hiccup) and optional :actions. :tone is :warning (default, severity) or
    :note (neutral); :accent :brand draws the balanced amber ring. Each action is {:label} plus
-   :on-click (a button; :link? true makes it a text link) or :href and optional :target (a link
-   styled as a button), and an optional :icon that is a COMPLETE icon class string. :on-close
-   adds the banner's close mark; :compact? fits a one-line notice."
+   :on-click (a button; :link? true makes it a text link, :expanded its toggle state) or :href
+   and :target (a link styled as a button), and an optional :icon, a COMPLETE icon class string.
+   :on-close adds the banner's close mark; :compact? fits a one-line notice."
   [{:keys [icon text actions tone accent on-close compact?]}]
   [:div.p-10.m-b-10.flex.align-items-c
    {:class (cond-> [(case tone :note "bg-note" "bg-warning")]
@@ -93,14 +93,17 @@
    ;; with-meta on the ELEMENT, not on the let: metadata on a let form attaches to
    ;; the form, never reaches what it returns, and React logs a missing-key warning
    ;; for every action in the seq.
-   (for [{:keys [label on-click href target icon link?]} actions]
+   (for [{:keys [label on-click href target icon link? expanded]} actions]
      (let [body (if icon
                   [:span [:i.m-r-5 {:class icon}] label]
                   label)]
        (with-meta
          (cond
            href [:a.form-button {:href href :target (or target "_blank")} body]
-           link? [:button.link-button.underline.f-w-b.f-s-14 {:on-click on-click} body]
+           link? [:button.link-button.underline.f-w-b.f-s-14
+                  (cond-> {:on-click on-click}
+                    (some? expanded) (assoc :aria-expanded expanded))
+                  body]
            :else [:button.form-button {:on-click on-click} body])
          {:key label})))
    (when on-close

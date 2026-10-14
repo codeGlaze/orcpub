@@ -98,8 +98,11 @@ const flows = {
     check('and held', (await heldCount(page)) === 1);
     check('and the saved draft lacks it', !/steel-will/.test(await draft(page)));
     check('a notice says one choice does not apply', await visibleText(page, "1 choice doesn't apply right now"));
-    await clickVisible(page, 'Show details');
+    const toggle = page.locator('button[aria-expanded]', { hasText: 'Details' });
+    check('its details toggle starts closed', (await toggle.getAttribute('aria-expanded')) === 'false');
+    await toggle.click();
     await page.waitForTimeout(400);
+    check('and opens on a tap', (await toggle.getAttribute('aria-expanded')) === 'true');
     check('its details say when it returns', await visibleText(page, 'Steel Will · auto-fills at level 7'));
     await page.locator('[aria-label="Dismiss"]').first().click();
     await page.waitForTimeout(400);

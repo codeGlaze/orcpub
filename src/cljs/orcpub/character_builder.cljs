@@ -1873,7 +1873,7 @@
                              :on-click #(dispatch [:orcpub.dnd.e5/undo-restore])}])))))))
 
 (defn open-notice
-  "On opening a character whose stored choices no longer apply: how many, with Show details
+  "On opening a character whose stored choices no longer apply: how many, with Details
    listing each and what brings it back. Closed by its ×."
   []
   (let [open? (r/atom false)]
@@ -1890,7 +1890,7 @@
                       (doall (for [{:keys [record] :as h} held]
                                ^{:key (str (:address record))}
                                [:div (planned-text/list-line h)]))])]
-            :actions [{:label (if @open? "Hide details" "Show details") :link? true
+            :actions [{:label "Details" :link? true :expanded @open?
                        :on-click #(swap! open? not)}]}])))))
 
 (defn section-tabs [available-selections built-template character page-index]
