@@ -2140,16 +2140,6 @@
 (defn current-year []
   (.getFullYear (js/Date.))) 
 
-;; ------------------------------------------------------------------
-;; A helper that lets us embed a raw string of HTML inside Reagent.
-;; (If you’re using reagent‑core ≥1.2, `:raw` is built‑in; otherwise
-;; you can use the small shim below.)
-;; ------------------------------------------------------------------
-;; Render *any* raw HTML string.  
-(defn raw-html [html]
-  ;; Note: no `:>` or `js/React.createElement`.  
-  [:div {:dangerouslySetInnerHTML #js {:__html html}}])
-
 (declare library-health-status)
 (declare meta-edit-row)      ; defined with builder-page, which is its other caller
 
