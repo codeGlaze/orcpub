@@ -98,3 +98,18 @@
           out (leave ctx)]
       (is (= 304 (get-in out [:response :status])))
       (is (nil? (get-in out [:response :body]))))))
+
+(defn- referrer-leave
+  "The :leave of orcpub.pedestal's referrer-policy interceptor, or nil when there is none."
+  []
+  (some-> (ns-resolve 'orcpub.pedestal 'referrer-policy-interceptor) deref :leave))
+
+(deftest every-page-sends-only-its-origin-to-other-sites
+  (let [leave (or (referrer-leave) identity)]
+    (testing "a page that says nothing gets strict-origin-when-cross-origin: other sites see the domain"
+      (is (= "strict-origin-when-cross-origin"
+             (get-in (leave {:response {:status 200 :headers {}}}) [:response :headers "Referrer-Policy"]))))
+    (testing "a page that set its own keeps it (the password-reset page sends nothing at all)"
+      (is (= "no-referrer"
+             (get-in (leave {:response {:status 200 :headers {"Referrer-Policy" "no-referrer"}}})
+                     [:response :headers "Referrer-Policy"]))))))

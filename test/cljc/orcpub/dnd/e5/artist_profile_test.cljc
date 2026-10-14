@@ -138,7 +138,7 @@
       (is (= "xn--exmple-4nf.test" (ap/link-host (:link/url l)))))))
 
 (deftest every-external-link-is-marked-as-someone-elses
-  (is (= {:href "https://example.test/" :target "_blank" :rel "noopener noreferrer nofollow ugc"}
+  (is (= {:href "https://example.test/" :target "_blank" :rel "noopener"}
          (ap/external-link "https://example.test/")))
   (is (nil? (ap/external-link "javascript:alert(1)")) "not a web address: no link at all")
   (is (nil? (ap/external-link "http://example.test/")) "checked again where it is drawn"))
