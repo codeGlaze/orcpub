@@ -2,16 +2,50 @@
   (:require [clojure.string :as s]
             #?(:cljs [reagent.core :refer [atom]])))
 
-(defn checkbox
-  "A tick box, checked when `selected?` and dimmed when `disable?` (.checkbox in core.clj)."
+(defn- press-to-click
+  "A keydown handler that turns Space or Enter into a click on the element, so whatever handles
+   its clicks (on it or an ancestor) handles the key too."
+  [e]
+  #?(:cljs (when (#{" " "Enter"} (.-key e))
+             (.preventDefault e)
+             (.click (.-currentTarget e)))
+     :clj e))
+
+(defn checkbox-mark
+  "The box drawn alone, hidden from screen readers: for a row that is itself the control (a
+   labelled checkbox, a settings switch). .checkbox in core.clj."
   [selected? disable?]
   [:span.checkbox
-   {:class (str (when selected? "checked") (when disable? " disabled"))}])
+   {:class (str (when selected? "checked") (when disable? " disabled"))
+    :aria-hidden true}])
 
-(defn labeled-checkbox [label selected? disabled? on-click]
-  [:div.flex.pointer
-   {:on-click on-click}
-   [checkbox selected? disabled?]
+(defn checkbox
+  "A tick box, checked when `selected?` and dimmed when `disable?`: a checkbox to a screen reader,
+   named `label` when given, reached with Tab, and Space or Enter click it, so the caller's click
+   handler (on it or an ancestor) runs."
+  ([selected? disable?] (checkbox selected? disable? nil))
+  ([selected? disable? label]
+   [:span.checkbox
+    (cond-> {:class (str (when selected? "checked") (when disable? " disabled"))
+             :role "checkbox"
+             :aria-checked (str (boolean selected?))
+             :tab-index (if disable? -1 0)}
+      label (assoc :aria-label label)
+      disable? (assoc :aria-disabled "true")
+      (not disable?) (assoc :on-key-down press-to-click))]))
+
+(defn labeled-checkbox
+  "`label` beside a tick box, the two one checkbox control: clicked, or Space or Enter on it, calls
+   `on-click`. Checked when `selected?`, dimmed and skipped when `disabled?`."
+  [label selected? disabled? on-click]
+  [:div.flex.pointer.checkbox-row
+   (cond-> {:on-click on-click
+            :role "checkbox"
+            :aria-checked (str (boolean selected?))
+            :tab-index (if disabled? -1 0)}
+     disabled? (assoc :aria-disabled "true")
+     (not disabled?) (assoc :on-key-down press-to-click))
+   [checkbox-mark selected? disabled?]
    [:span.m-l-5 label]])
 
 (defn selection-item [key name selected?]

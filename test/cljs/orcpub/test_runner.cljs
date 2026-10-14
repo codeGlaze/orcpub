@@ -14,6 +14,7 @@
             ;; the artist pages' examples are drawn on the server and captioned here
             [orcpub.dnd.e5.artist-profile-test]
             [orcpub.dnd.e5.artist-page-credits-test]
+            [orcpub.components-checkbox-test]
             [orcpub.dnd.e5.portrait-colorize-test]
             [orcpub.dnd.e5.portrait-effects-test]
             [orcpub.dnd.e5.portrait-face-test]
@@ -66,6 +67,7 @@
              'orcpub.dnd.e5.portrait-layout-test
              'orcpub.dnd.e5.artist-profile-test
              'orcpub.dnd.e5.artist-page-credits-test
+             'orcpub.components-checkbox-test
              'orcpub.dnd.e5.portrait-colorize-test
              'orcpub.dnd.e5.portrait-effects-test 'orcpub.dnd.e5.portrait-face-test 'orcpub.dnd.e5.portrait-light-test
              'orcpub.artist-links-test
