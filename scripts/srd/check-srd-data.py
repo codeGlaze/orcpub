@@ -448,6 +448,8 @@ def check_punctuation(rep, f, old, new, raw):
 def check_reformat(rep, clone, base, path, old, new):
     """reformat: changed lines must sit inside records whose content changed."""
     code, text = git(clone, 'show', f'HEAD:{path}')
+    if code != 0:
+        return                                # the branch deleted this file; nothing left to reformat
     lines = text.split('\n')
     owner, idx = [None] * (len(lines) + 1), -1
     for i, line in enumerate(lines, 1):
