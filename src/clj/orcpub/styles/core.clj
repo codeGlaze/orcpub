@@ -2,7 +2,8 @@
      (:require [garden.stylesheet :refer [at-media at-keyframes]]
                [garden.units :refer [px]]
                [orcpub.constants :as const]
-               [garden.selectors :as s]))
+               [garden.selectors :as s]
+               [orcpub.styles.portrait :as portrait]))
 
 ;; Color palette — used across UI for consistent theming
 (def orange "#f0a100")
@@ -3587,7 +3588,9 @@
    widths
    font-sizes
    props
-   media-queries) ;concat
+   media-queries
+   ;; last: the portrait rules win ties with the rules above
+   portrait/styles) ;concat
 );def app
 
 
