@@ -94,7 +94,7 @@ The app's patterns and what each is for. When a better one is agreed, it replace
 | Pattern | For | Example |
 |---|---|---|
 | Top banner | a confirmation or error that needs no action, gone by itself | "Saved" |
-| Notice box above the options column, at its width: an icon and a balanced amber gradient ring, no coloured fill, text left and action with its close mark right | a notice with an action, until dismissed; never reads as a warning | ![Notice box: 1 choice doesn't apply right now · Details](assets/ux-guide/b1-opened.png) |
+| Notice box above the options column, at its width: an icon and a balanced gradient ring (amber on dark, the light theme's blue on light), no coloured fill, text left and action with its close mark right | a notice with an action, until dismissed; never reads as a warning | ![Notice box: 1 choice doesn't apply right now · Details](assets/ux-guide/b1-opened.png) |
 | In the section row | the state of that section | "Planned: Archery (L10)" |
 | Under a class row, beside the level picker | what the class's level or order is holding back | "3 planned at higher levels" |
 | Details under a notice | a list behind a notice's "Details": a square band across the box with the box showing below it, like an opened shell; names in one column, when each applies in the next; an arrow on "Details" that flips when open | ![Notice box open: three picks and when each auto-fills](assets/ux-guide/notice-details.png) |
@@ -135,6 +135,8 @@ Newest last. Date, ruling, and what it replaced.
   one line at phone width. Replaced "Show details" / "Hide details".
 - 2026-10-14: a notice's details sit in a square, edge-to-edge band with the box showing below it,
   as two columns (name, then when). Replaced a plain list run on under the sentence.
+- 2026-10-14: on the light theme the notice ring is the theme's blue, not amber: the light theme
+  uses blue where the dark one uses amber.
 
 **Open:** where a subrace waiting on its race shows (the section row crowds the header; the race
 card squeezes the name).
