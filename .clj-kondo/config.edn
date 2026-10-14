@@ -103,6 +103,7 @@
              (orcpub.portrait-og-test/with-conn)
              (orcpub.portrait-artists-endpoint-test/with-conn)
              (orcpub.portrait-store-test/with-conn)
+             (orcpub.page-escape-test/with-conn)
              (clojure.test.check.clojure-test/defspec)
              (clojure.core.match/match)
              (cljs.core.match/match)
