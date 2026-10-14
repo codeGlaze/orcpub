@@ -105,7 +105,10 @@ What the site shows is layered, and later layers win field by field:
 
 So you can always correct a credit from config without touching the
 account. Fields the config sets show as fixed on the artist's settings
-page. Every edit is emailed to the artist and to the admin.
+page. Edits are emailed to the artist and to the admin: the first change
+after a quiet spell at once, and any further changes in the ten minutes
+after it together in one email when those ten minutes end (more editing
+cannot postpone it). An account can save up to 60 changes an hour.
 
 ### Settings these need
 
