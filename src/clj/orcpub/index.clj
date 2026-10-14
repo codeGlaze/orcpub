@@ -1,6 +1,6 @@
 (ns orcpub.index
-  (:require [hiccup.page :refer [html5 include-css]]
-            [hiccup.util :refer [escape-html]]
+  (:require [hiccup.page :refer [include-css]]
+            [hiccup2.core :as h]
             [cheshire.core :as cheshire]
             [orcpub.oauth :as oauth]
             [orcpub.fork.branding :as branding]
@@ -68,7 +68,8 @@
      "Download my homebrew"]]
    (script-tag
     {:nonce nonce}
-    (str "
+    ;; raw: the page's own script; nothing in it comes from a request or a user
+    (h/raw (str "
      (function () {
        var el = document.getElementById('boot-rescue');
        var btn = document.getElementById('boot-rescue-btn');
@@ -129,7 +130,7 @@
 
        show();
      })();
-    "))))
+    ")))))
 
 (defn index-page [{:keys [url
                           title
@@ -139,8 +140,13 @@
                           nonce
                           spinner-kind]}
                   & [splash?]]
-  (html5
-   {:lang :en}
+  ;; hiccup2 escapes every string by default; html5 (hiccup 1) escaped none, so a character's
+  ;; name went into <title> as markup. Only the page's own scripts and styles are raw, below.
+  (str
+   "<!DOCTYPE html>\n"
+   (h/html
+    {:mode :html}
+    [:html {:lang "en"}
    [:head
     (meta-tag "og:url" url)
     (meta-tag "og:type" fb-type)
@@ -154,23 +160,26 @@
     (meta-tag "twitter:title" title)
     (meta-tag "twitter:description" description)
     (meta-tag "twitter:image" image)
-    ;; Opts out of generative-AI training and image reuse. Only the `noai` tokens:
-    ;; this does NOT imply noindex. Voluntary; see PORTRAIT-COMPOSITOR.md,
-    ;; "Opting out of AI training".
+    ;; Opt out of generative-AI training and image reuse. This is the
+    ;; DeviantArt-originated convention: a `robots` meta carrying only the
+    ;; `noai`/`noimageai` tokens, which does NOT imply noindex. Voluntary --
+    ;; honoured by some crawlers, ignored by others -- so it sits alongside
+    ;; robots.txt and the art licence rather than replacing either.
     [:meta {:name "robots" :content "noai, noimageai"}]
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport"
             :content "width=device-width, initial-scale=1.0, minimum-scale=1.0"}]
-    (fi/install :png-prefix "favicon-"
-                :img "/favicon"
-                :xml "/favicon"
-                :ver "1")
+    ;; raw: a hiccup 1 helper that returns its markup as a string
+    (h/raw (fi/install :png-prefix "favicon-"
+                       :img "/favicon"
+                       :xml "/favicon"
+                       :ver "1"))
     (include-css "/css/cookiestyles.css")
     (script-tag {:nonce nonce}
-     "document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`);
-     window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));")
+     (h/raw "document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`);
+     window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));"))
     [:style
-     "
+     (h/raw "
 .splash-page-content {}
 .splash-button .splash-button-content {height: 120px; width: 120px}
 .splash-button .svg-icon {height: 64px; width: 64px}
@@ -244,19 +253,20 @@ table {
 
 html {
 	min-height: 100%;
-}"]
-    [:style spinner/css]
-    ;; text, unlike the meta attributes, is not escaped by hiccup; a title can carry a name
-    [:title (escape-html title)]
+}")]
+    [:style (h/raw spinner/css)]
+    [:title title]
     (integrations/head-tags nonce)
     (script-tag {:nonce nonce}
-     (str "window.__BRANDING__=" (script-json (branding/client-config)) ";"
-          "window.__INTEGRATIONS__=" (script-json (integrations/client-config)) ";"))]
+     ;; raw: operator settings as JSON, escaped for a script by script-json
+     (h/raw (str "window.__BRANDING__=" (script-json (branding/client-config)) ";"
+                 "window.__INTEGRATIONS__=" (script-json (integrations/client-config)) ";")))]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
        (views-2/splash-page)
-       (spinner/markup (or spinner-kind (spinner/pick nil))))]
+       ;; raw: the spinner's own markup; its kind is one of three keywords (spinner/pick)
+       (h/raw (spinner/markup (or spinner-kind (spinner/pick nil)))))]
     ;; Homebrew rescue, a dead-man's switch: present by default, removed by the app once it has
     ;; rendered, so any boot failure (broken bundle, CLJS error, crashing homebrew) leaves it up.
     ;; It depends on nothing the app owns: server-rendered markup, inline styles (styles.css may
@@ -272,10 +282,11 @@ html {
     ;; 400 loaded Chrome rendered all of it at regular weight. One variable file serves all
     ;; three, so the extra weights cost nothing over 400 alone. See docs/design/style-guide.md.
     (include-css "https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap")
-    (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
+    (script-tag {:nonce nonce} (h/raw " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})"))
     (when homebrew-url
       (script-tag {:nonce nonce}
-       (str "
+       ;; raw: the page's own script; homebrew-url is the operator's LOAD_HOMEBREW_URL setting
+       (h/raw (str "
         const noLibrary = () => {
           const p = localStorage.getItem('plugins');
           return p === null || p === '{}' || p === '{\"Default Option Source\" {}}';
@@ -300,6 +311,5 @@ html {
               console.error('Error fetching plugins:', error);
             });
         }
-       ")))
-   ]))
+       "))))]])))
   

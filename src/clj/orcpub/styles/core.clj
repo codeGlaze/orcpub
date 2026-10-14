@@ -2,7 +2,8 @@
      (:require [garden.stylesheet :refer [at-media at-keyframes]]
                [garden.units :refer [px]]
                [orcpub.constants :as const]
-               [garden.selectors :as s]))
+               [garden.selectors :as s]
+               [orcpub.styles.portrait :as portrait]))
 
 ;; Color palette — used across UI for consistent theming
 (def orange "#f0a100")
@@ -1713,20 +1714,9 @@
      [".ap-link:hover, .ap-link:focus-visible"
       {:border-color orange :background "rgba(240,161,0,0.06)" :outline :none}]
      [".ap-link .lk-ico" {:width "14px" :height "14px"}]
-     [:.ap-link-ico {:color "var(--ap-ico-color, currentColor)"
-                     :-webkit-mask-image "var(--ap-ico)" :mask-image "var(--ap-ico)"}]
+     [".ap-link .lk-ico" {:color "var(--lk-mark-color, currentColor)"}]
      ;; the domain a link really opens, so a label cannot pass for another site
      [:.ap-link-host {:font-weight 400 :letter-spacing 0 :color "var(--lk-dim)"}]
-     ;; the credit's link to these pages, at its foot: the ART BY label's size, tracking and
-     ;; dim colour, so it reads as the frame around the names rather than another name
-     [:.lk-about
-      {:align-self :center :margin-top "1px"
-       :font (str "600 8.5px/1 " open-sans) :letter-spacing "0.16em"
-       :text-transform :uppercase :color "var(--lk-dim)" :text-decoration :none
-       :padding "3px 2px" :transition "color 160ms ease"}]
-     [:.lk-about-arrow {:padding-left "4px" :letter-spacing 0}]
-     [".lk-about:hover, .lk-about:focus-visible" {:color "var(--lk-glow-text)" :outline :none}]
-     [:.lk-about:focus-visible {:text-decoration :underline :text-underline-offset "3px"}]
      [(str light " .ap-link")
       {:border-color "rgba(0,0,0,0.14)" :background :white :color light-text}]
      [(str light " .ap-link:hover, " light " .ap-link:focus-visible")
@@ -3720,7 +3710,9 @@
    widths
    font-sizes
    props
-   media-queries) ;concat
+   media-queries
+   ;; last: the portrait rules win ties with the rules above
+   portrait/styles) ;concat
 );def app
 
 
