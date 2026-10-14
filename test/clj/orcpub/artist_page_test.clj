@@ -6,7 +6,10 @@
             [orcpub.routes :as routes]
             [orcpub.dnd.e5.artist-profile :as ap]
             [orcpub.dnd.e5.portrait-assets :as pa]
-            [orcpub.portrait-render :as render])
+            [orcpub.portrait-render :as render]
+            [orcpub.artist-credit :as artist-credit]
+            [orcpub.bounded-cache :as bounded-cache]
+            [orcpub.work-pool :as work-pool])
   (:import (javax.imageio ImageIO)))
 
 (defn- req [slug]
@@ -57,18 +60,77 @@
     (is (= (seq (body-bytes (example "fusspot" "2")))
            (seq (body-bytes (example "fusspot" "2")))))))
 
-(deftest a-failed-render-is-tried-again
-  (testing "a render that fails is not kept: the next request renders again, and a success is kept"
+(defn- cache-of
+  "The routes cache named `sym` (examples kept, or failures remembered)."
+  [sym]
+  (some-> (ns-resolve 'orcpub.routes sym) deref))
+
+(defn- clear-cache!
+  "Empty the routes cache named `sym`; anything that is not a bounded cache is left as it is."
+  [sym]
+  (let [c (cache-of sym)] (when (map? c) (bounded-cache/clear! c))))
+
+(defn- cache-size
+  "How many entries the routes cache named `sym` holds."
+  [sym]
+  (let [c (cache-of sym)] (if (map? c) (bounded-cache/size c) (count @c))))
+
+(defn- fresh-examples!
+  "Forget every kept example and failure, so a test starts from nothing."
+  []
+  (clear-cache! 'example-jpegs)
+  (clear-cache! 'example-failures))
+
+(deftest a-failed-render-waits-before-it-is-tried-again
+  (testing "a failure is remembered for a short while, so a broken example is not re-rendered on
+            every request; once that passes it is tried again, and a success is kept"
+    (fresh-examples!)
     (let [calls (atom 0)]
       (with-redefs [ap/example-portraits (fn [_] [{:layers {}}])
                     render/render-example-jpeg (fn [_ _]
                                                  (swap! calls inc)
                                                  (when (> @calls 1) (byte-array [1 2 3])))]
         (is (nil? (#'routes/example-jpeg :cache-test-artist 1 "t")) "the first render fails")
+        (is (nil? (#'routes/example-jpeg :cache-test-artist 1 "t")) "and is not retried at once")
+        (is (= 1 @calls))
+        (clear-cache! 'example-failures)
         (is (= [1 2 3] (seq (#'routes/example-jpeg :cache-test-artist 1 "t")))
-            "the next request renders again instead of serving the failure")
+            "after the wait it renders again")
         (#'routes/example-jpeg :cache-test-artist 1 "t")
         (is (= 2 @calls) "and the success is kept")))))
+
+(deftest concurrent-requests-share-one-render
+  (fresh-examples!)
+  (let [calls (atom 0)]
+    (with-redefs [ap/example-portraits (fn [_] [{:layers {}}])
+                  render/render-example-jpeg (fn [_ _] (swap! calls inc) (Thread/sleep 300) (byte-array [7]))]
+      (let [fs (doall (repeatedly 4 #(future (#'routes/example-jpeg :flight-test 1 "t"))))]
+        (is (every? #(= [7] (seq @%)) fs))
+        (is (= 1 @calls) "four requests at once, one render")))))
+
+(deftest the-kept-examples-are-bounded
+  (testing "the key includes the watermark text, so every link edit makes new keys; old ones go"
+    (fresh-examples!)
+    (with-redefs [ap/example-portraits (fn [_] [{:layers {}}])
+                  render/render-example-jpeg (fn [_ _] (byte-array [1]))]
+      (doseq [i (range 200)] (#'routes/example-jpeg :bound-test 1 (str "text " i)))
+      (is (<= (cache-size 'example-jpegs) 64)))))
+
+(deftest examples-render-through-the-draw-pool
+  (testing "when no draw slot frees, the example answers 503 with a Retry-After instead of queueing"
+    (fresh-examples!)
+    (with-redefs [work-pool/run (fn [_ _] {:busy 4 :waiting 9})]
+      (let [resp (example "fusspot" "1")]
+        (is (= 503 (:status resp)))
+        (is (= "4" (get-in resp [:headers "Retry-After"])))))))
+
+(deftest examples-use-the-current-credits
+  (testing "a fresh container reads the artists' own credit edits before drawing the watermark"
+    (fresh-examples!)
+    (let [refreshed (atom nil)]
+      (with-redefs [artist-credit/refresh! (fn [db] (reset! refreshed db))]
+        (routes/artist-example-jpeg {:db :the-db :path-params {:slug "fusspot" :n "1"}})
+        (is (= :the-db @refreshed))))))
 
 (deftest there-are-only-three-examples
   (doseq [n ["0" "4" "x" "1.jpg" nil]]
