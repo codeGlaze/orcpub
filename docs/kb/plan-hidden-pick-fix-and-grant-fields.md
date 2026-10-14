@@ -150,7 +150,7 @@ The design is decided (`decision-gate-hidden-picks.md`, "Current decision"; `age
 | U3 ✓ `10211111` | The class line beside the level picker; the starting-class line | cljs + e2e |
 | U4 ✓ `52228aec` | The notice box style: icon, balanced amber ring, text left and action right | screenshot |
 | U5 ✓ `7c2316db` | The restore notice with Undo/Redo; the change record accumulates until shown (C1) | cljs + e2e |
-| U6 | The on-open notice, and saving the character cleaned on open (C2) | cljs + e2e |
+| U6 ✓ `47ee24ee` | The on-open notice, and saving the character cleaned on open (C2) | cljs + e2e |
 
 Open, mocked later: where picks waiting on a choice show (a subrace waiting on its race, a subclass's
 picks waiting on that subclass, a deleted class's picks).
