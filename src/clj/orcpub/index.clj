@@ -1,5 +1,6 @@
 (ns orcpub.index
   (:require [hiccup.page :refer [html5 include-css]]
+            [hiccup.util :refer [escape-html]]
             [cheshire.core :as cheshire]
             [orcpub.oauth :as oauth]
             [orcpub.fork.branding :as branding]
@@ -245,7 +246,8 @@ html {
 	min-height: 100%;
 }"]
     [:style spinner/css]
-    [:title title]
+    ;; text, unlike the meta attributes, is not escaped by hiccup; a title can carry a name
+    [:title (escape-html title)]
     (integrations/head-tags nonce)
     (script-tag {:nonce nonce}
      (str "window.__BRANDING__=" (script-json (branding/client-config)) ";"
