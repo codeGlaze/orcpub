@@ -1,0 +1,10 @@
+^{:watch-dirs ["web/cljs" "src/cljc" "src/cljs"] :css-dirs []}
+{:main orcpub.core
+ :output-to "target/pseudo/orcpub.js"
+ :output-dir "target/pseudo/out"
+ :asset-path "/js/compiled/out"
+ :optimizations :advanced
+ :pseudo-names true
+ :infer-externs true
+ :externs ["externs.js"]
+ :pretty-print true}

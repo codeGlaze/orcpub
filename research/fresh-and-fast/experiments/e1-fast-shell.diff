@@ -1,0 +1,39 @@
+diff --git a/src/clj/orcpub/index.clj b/src/clj/orcpub/index.clj
+index 73b56c00..d08c082a 100644
+--- a/src/clj/orcpub/index.clj
++++ b/src/clj/orcpub/index.clj
+@@ -248,7 +248,7 @@ html {
+     (include-css "/css/compiled/styles.css")
+     ;; Every script tag carries the per-request nonce. It is nil in dev mode,
+     ;; where no CSP header is set at all; enforcing otherwise.
+-    (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
++    (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce :defer true})
+     (script-tag {:src "/js/cookies.js" :nonce nonce})
+     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
+     ;; 400, 600 and 700: the stylesheet asks for bold on tabs, titles and labels, and with only
+diff --git a/src/clj/orcpub/routes.clj b/src/clj/orcpub/routes.clj
+index ed4ef6df..cb60ef81 100644
+--- a/src/clj/orcpub/routes.clj
++++ b/src/clj/orcpub/routes.clj
+@@ -2304,7 +2304,8 @@
+ (def file-hashes (atom {}))
+ 
+ (defn get-file [{:keys [uri] :as request}]
+-  (ring-resource/resource-request request "public"))
++  (some-> (ring-resource/resource-request request "public")
++          (assoc-in [:headers "Cache-Control"] "public, max-age=31536000, immutable")))
+ 
+ (def get-css get-file)
+ 
+@@ -2322,8 +2323,9 @@
+   [request]
+   (let [path (subs (codec/url-decode (req/path-info request)) 1)
+         new-path (s/replace-first path #"^assets/" webjars-root)]
+-    (-> (ring-resp/resource-response new-path)
+-        (head/head-response request))))
++    (some-> (ring-resp/resource-response new-path)
++            (assoc-in [:headers "Cache-Control"] "public, max-age=31536000, immutable")
++            (head/head-response request))))
+ 
+ (def routes
+   (concat

@@ -1,0 +1,9 @@
+/* Shared by both directions: tokens + motion + numerals. Prototype only. */
+:root{--bg:#11141a;--surface:#181c24;--raised:#1f2430;--line:rgba(255,255,255,.08);--line-strong:rgba(255,255,255,.16);
+  --text:rgba(255,255,255,.92);--muted:rgba(255,255,255,.6);--accent:#f0a100;--accent-soft:rgba(240,161,0,.12);--r:10px;--ease:cubic-bezier(.2,.8,.2,1)}
+body,.app{background:var(--bg)!important}
+.app,.app *{font-family:"Open Sans",system-ui,sans-serif}
+.app .f-s-24,.app [class*=-bonus],.app input{font-variant-numeric:tabular-nums}
+.app button,.app .pointer,.app .builder-tab{transition:background-color .15s var(--ease),border-color .15s var(--ease),transform .12s var(--ease),box-shadow .15s var(--ease),opacity .15s}
+.app button:active,.app .pointer:active{transform:scale(.97)}
+.app :focus-visible{outline:2px solid var(--accent)!important;outline-offset:2px}

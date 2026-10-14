@@ -1,0 +1,721 @@
+{
+  "base": "http://localhost:8890",
+  "when": "2026-10-14T13:49:09.490Z",
+  "headers": {
+    "/css/cookiestyles.css": {
+      "status": 200,
+      "cache": null,
+      "etag": false,
+      "enc": "gzip"
+    },
+    "/css/compiled/styles.css": {
+      "status": 200,
+      "cache": null,
+      "etag": false,
+      "enc": "gzip"
+    },
+    "/assets/font-awesome/5.13.1/css/all.min.css": {
+      "status": 200,
+      "cache": null,
+      "etag": true,
+      "enc": "gzip"
+    },
+    "/js/cookies.js": {
+      "status": 200,
+      "cache": null,
+      "etag": false,
+      "enc": "gzip"
+    },
+    "/js/compiled/orcpub.js": {
+      "status": 200,
+      "cache": null,
+      "etag": false,
+      "enc": "gzip"
+    },
+    "https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap": {
+      "status": 200,
+      "cache": "private, max-age=86400, stale-while-revalidate=604800",
+      "etag": false,
+      "enc": "gzip"
+    },
+    "/assets/font-awesome/5.13.1/webfonts/fa-solid-900.woff2": {
+      "status": 200,
+      "cache": null,
+      "etag": true,
+      "enc": "gzip"
+    },
+    "https://fonts.gstatic.com/s/opensans/v44/memvYaGs126MiZpBA-UvWbX2vVnXBbObj2OVTS-muw.woff2": {
+      "status": 200,
+      "cache": "public, max-age=31536000",
+      "etag": false,
+      "enc": null
+    }
+  },
+  "loads": [
+    {
+      "profile": "desktop",
+      "route": "home",
+      "cache": "cold",
+      "ttfb": 14,
+      "fcp": 92,
+      "lcp": 528,
+      "mounted": null,
+      "dcl": 574,
+      "load": 603,
+      "tbt": 206,
+      "longMax": 256,
+      "longTasks": 1,
+      "xferKB": 961,
+      "cls": 0,
+      "resources": {
+        "link": {
+          "n": 3,
+          "xfer": 27449,
+          "body": 124239
+        },
+        "img": {
+          "n": 15,
+          "xfer": 24304,
+          "body": 42729
+        },
+        "script": {
+          "n": 2,
+          "xfer": 822125,
+          "body": 3243431
+        },
+        "link:gfonts": {
+          "n": 1,
+          "xfer": 2047,
+          "body": 17985
+        },
+        "css": {
+          "n": 1,
+          "xfer": 80605,
+          "body": 80328
+        },
+        "other": {
+          "n": 1,
+          "xfer": 22682,
+          "body": 22382
+        }
+      }
+    },
+    {
+      "profile": "desktop",
+      "route": "home",
+      "cache": "warm",
+      "ttfb": 14,
+      "fcp": 524,
+      "lcp": 548,
+      "mounted": null,
+      "dcl": 529,
+      "load": 537,
+      "tbt": 417,
+      "longMax": 467,
+      "longTasks": 1,
+      "xferKB": 5,
+      "cls": 0,
+      "resources": {
+        "link": {
+          "n": 3,
+          "xfer": 0,
+          "body": 124239
+        },
+        "img": {
+          "n": 15,
+          "xfer": 0,
+          "body": 42729
+        },
+        "script": {
+          "n": 2,
+          "xfer": 0,
+          "body": 3243431
+        },
+        "link:gfonts": {
+          "n": 1,
+          "xfer": 0,
+          "body": 17985
+        },
+        "css": {
+          "n": 1,
+          "xfer": 0,
+          "body": 80328
+        },
+        "other": {
+          "n": 1,
+          "xfer": 0,
+          "body": 22382
+        }
+      }
+    },
+    {
+      "profile": "desktop",
+      "route": "builder",
+      "cache": "cold",
+      "ttfb": 13,
+      "fcp": 92,
+      "lcp": 1124,
+      "mounted": null,
+      "dcl": 971,
+      "load": 1366,
+      "tbt": 525,
+      "longMax": 357,
+      "longTasks": 4,
+      "xferKB": 1370,
+      "cls": 0.006,
+      "resources": {
+        "link": {
+          "n": 3,
+          "xfer": 27449,
+          "body": 124239
+        },
+        "script": {
+          "n": 2,
+          "xfer": 822125,
+          "body": 3243431
+        },
+        "link:gfonts": {
+          "n": 1,
+          "xfer": 2047,
+          "body": 17985
+        },
+        "img": {
+          "n": 45,
+          "xfer": 66096,
+          "body": 104085
+        },
+        "css": {
+          "n": 2,
+          "xfer": 457984,
+          "body": 457407
+        },
+        "other": {
+          "n": 1,
+          "xfer": 22682,
+          "body": 22382
+        }
+      }
+    },
+    {
+      "profile": "desktop",
+      "route": "builder",
+      "cache": "warm",
+      "ttfb": 12,
+      "fcp": 708,
+      "lcp": 1052,
+      "mounted": null,
+      "dcl": 980,
+      "load": 993,
+      "tbt": 766,
+      "longMax": 566,
+      "longTasks": 3,
+      "xferKB": 5,
+      "cls": 0.014,
+      "resources": {
+        "link": {
+          "n": 3,
+          "xfer": 0,
+          "body": 124239
+        },
+        "script": {
+          "n": 2,
+          "xfer": 0,
+          "body": 3243431
+        },
+        "link:gfonts": {
+          "n": 1,
+          "xfer": 0,
+          "body": 17985
+        },
+        "img": {
+          "n": 45,
+          "xfer": 0,
+          "body": 104085
+        },
+        "css": {
+          "n": 2,
+          "xfer": 0,
+          "body": 457407
+        },
+        "css:gfonts": {
+          "n": 1,
+          "xfer": 0,
+          "body": 48320
+        },
+        "other": {
+          "n": 1,
+          "xfer": 0,
+          "body": 22382
+        }
+      }
+    },
+    {
+      "profile": "desktop",
+      "route": "spells",
+      "cache": "cold",
+      "ttfb": 10,
+      "fcp": 88,
+      "lcp": 944,
+      "mounted": null,
+      "dcl": 898,
+      "load": 1268,
+      "tbt": 461,
+      "longMax": 287,
+      "longTasks": 3,
+      "xferKB": 1321,
+      "cls": 0.011,
+      "resources": {
+        "link": {
+          "n": 3,
+          "xfer": 27449,
+          "body": 124239
+        },
+        "script": {
+          "n": 2,
+          "xfer": 822125,
+          "body": 3243431
+        },
+        "link:gfonts": {
+          "n": 1,
+          "xfer": 2047,
+          "body": 17985
+        },
+        "img": {
+          "n": 10,
+          "xfer": 15450,
+          "body": 28383
+        },
+        "css": {
+          "n": 2,
+          "xfer": 457984,
+          "body": 457407
+        },
+        "other": {
+          "n": 1,
+          "xfer": 22682,
+          "body": 22382
+        }
+      }
+    },
+    {
+      "profile": "desktop",
+      "route": "spells",
+      "cache": "warm",
+      "ttfb": 11,
+      "fcp": 484,
+      "lcp": 748,
+      "mounted": null,
+      "dcl": 708,
+      "load": 739,
+      "tbt": 554,
+      "longMax": 432,
+      "longTasks": 2,
+      "xferKB": 5,
+      "cls": 0,
+      "resources": {
+        "link": {
+          "n": 3,
+          "xfer": 0,
+          "body": 124239
+        },
+        "script": {
+          "n": 2,
+          "xfer": 0,
+          "body": 3243431
+        },
+        "link:gfonts": {
+          "n": 1,
+          "xfer": 0,
+          "body": 17985
+        },
+        "img": {
+          "n": 10,
+          "xfer": 0,
+          "body": 28383
+        },
+        "css": {
+          "n": 2,
+          "xfer": 0,
+          "body": 457407
+        },
+        "css:gfonts": {
+          "n": 1,
+          "xfer": 0,
+          "body": 48320
+        },
+        "other": {
+          "n": 1,
+          "xfer": 0,
+          "body": 22382
+        }
+      }
+    },
+    {
+      "profile": "phone",
+      "route": "home",
+      "cache": "cold",
+      "ttfb": 13,
+      "fcp": 444,
+      "lcp": 444,
+      "mounted": null,
+      "dcl": 6860,
+      "load": 7418,
+      "tbt": 1575,
+      "longMax": 1501,
+      "longTasks": 2,
+      "xferKB": 961,
+      "cls": 0,
+      "resources": {
+        "link": {
+          "n": 3,
+          "xfer": 27449,
+          "body": 124239
+        },
+        "img": {
+          "n": 15,
+          "xfer": 24304,
+          "body": 42729
+        },
+        "script": {
+          "n": 2,
+          "xfer": 822125,
+          "body": 3243431
+        },
+        "link:gfonts": {
+          "n": 1,
+          "xfer": 2047,
+          "body": 17985
+        },
+        "css": {
+          "n": 1,
+          "xfer": 80605,
+          "body": 80328
+        },
+        "other": {
+          "n": 1,
+          "xfer": 22682,
+          "body": 22382
+        }
+      }
+    },
+    {
+      "profile": "phone",
+      "route": "home",
+      "cache": "warm",
+      "ttfb": 12,
+      "fcp": 220,
+      "lcp": 2068,
+      "mounted": null,
+      "dcl": 2401,
+      "load": 2432,
+      "tbt": 2003,
+      "longMax": 2027,
+      "longTasks": 2,
+      "xferKB": 5,
+      "cls": 0,
+      "resources": {
+        "link": {
+          "n": 3,
+          "xfer": 0,
+          "body": 124239
+        },
+        "img": {
+          "n": 15,
+          "xfer": 0,
+          "body": 42729
+        },
+        "script": {
+          "n": 2,
+          "xfer": 0,
+          "body": 3243431
+        },
+        "link:gfonts": {
+          "n": 1,
+          "xfer": 0,
+          "body": 17985
+        },
+        "css": {
+          "n": 1,
+          "xfer": 0,
+          "body": 80328
+        },
+        "other": {
+          "n": 1,
+          "xfer": 0,
+          "body": 22382
+        }
+      }
+    },
+    {
+      "profile": "phone",
+      "route": "builder",
+      "cache": "cold",
+      "ttfb": 11,
+      "fcp": 392,
+      "lcp": 7816,
+      "mounted": null,
+      "dcl": 7916,
+      "load": 9337,
+      "tbt": 2884,
+      "longMax": 1776,
+      "longTasks": 6,
+      "xferKB": 962,
+      "cls": 0.015,
+      "resources": {
+        "link": {
+          "n": 3,
+          "xfer": 27449,
+          "body": 124239
+        },
+        "script": {
+          "n": 2,
+          "xfer": 822125,
+          "body": 3243431
+        },
+        "link:gfonts": {
+          "n": 1,
+          "xfer": 2047,
+          "body": 17985
+        },
+        "img": {
+          "n": 16,
+          "xfer": 25306,
+          "body": 43844
+        },
+        "css": {
+          "n": 1,
+          "xfer": 80605,
+          "body": 80328
+        },
+        "other": {
+          "n": 1,
+          "xfer": 22682,
+          "body": 22382
+        }
+      }
+    },
+    {
+      "profile": "phone",
+      "route": "builder",
+      "cache": "warm",
+      "ttfb": 10,
+      "fcp": 2464,
+      "lcp": 2464,
+      "mounted": null,
+      "dcl": 3841,
+      "load": 3919,
+      "tbt": 3292,
+      "longMax": 2324,
+      "longTasks": 5,
+      "xferKB": 5,
+      "cls": 0.049,
+      "resources": {
+        "link": {
+          "n": 3,
+          "xfer": 0,
+          "body": 124239
+        },
+        "script": {
+          "n": 2,
+          "xfer": 0,
+          "body": 3243431
+        },
+        "img": {
+          "n": 16,
+          "xfer": 0,
+          "body": 43844
+        },
+        "css": {
+          "n": 1,
+          "xfer": 0,
+          "body": 80328
+        },
+        "link:gfonts": {
+          "n": 1,
+          "xfer": 0,
+          "body": 17985
+        },
+        "css:gfonts": {
+          "n": 1,
+          "xfer": 0,
+          "body": 48320
+        },
+        "other": {
+          "n": 1,
+          "xfer": 0,
+          "body": 22382
+        }
+      }
+    },
+    {
+      "profile": "phone",
+      "route": "spells",
+      "cache": "cold",
+      "ttfb": 10,
+      "fcp": 384,
+      "lcp": 7832,
+      "mounted": null,
+      "dcl": 7830,
+      "load": 8531,
+      "tbt": 2785,
+      "longMax": 1323,
+      "longTasks": 7,
+      "xferKB": 953,
+      "cls": 0.001,
+      "resources": {
+        "link": {
+          "n": 3,
+          "xfer": 27449,
+          "body": 124239
+        },
+        "script": {
+          "n": 2,
+          "xfer": 822125,
+          "body": 3243431
+        },
+        "link:gfonts": {
+          "n": 1,
+          "xfer": 2047,
+          "body": 17985
+        },
+        "img": {
+          "n": 10,
+          "xfer": 15450,
+          "body": 28383
+        },
+        "css": {
+          "n": 1,
+          "xfer": 80605,
+          "body": 80328
+        },
+        "other": {
+          "n": 1,
+          "xfer": 22682,
+          "body": 22382
+        }
+      }
+    },
+    {
+      "profile": "phone",
+      "route": "spells",
+      "cache": "warm",
+      "ttfb": 10,
+      "fcp": 240,
+      "lcp": 3416,
+      "mounted": null,
+      "dcl": 3423,
+      "load": 3530,
+      "tbt": 3056,
+      "longMax": 2040,
+      "longTasks": 4,
+      "xferKB": 5,
+      "cls": 0,
+      "resources": {
+        "link": {
+          "n": 3,
+          "xfer": 0,
+          "body": 124239
+        },
+        "script": {
+          "n": 2,
+          "xfer": 0,
+          "body": 3243431
+        },
+        "img": {
+          "n": 10,
+          "xfer": 0,
+          "body": 28383
+        },
+        "link:gfonts": {
+          "n": 1,
+          "xfer": 0,
+          "body": 17985
+        },
+        "css": {
+          "n": 1,
+          "xfer": 0,
+          "body": 80328
+        },
+        "css:gfonts": {
+          "n": 1,
+          "xfer": 0,
+          "body": 48320
+        },
+        "other": {
+          "n": 1,
+          "xfer": 0,
+          "body": 22382
+        }
+      }
+    }
+  ],
+  "interactions": [
+    {
+      "profile": "desktop",
+      "tabsFound": 2,
+      "clicks": [
+        {
+          "tab": "Options",
+          "maxEventMs": 16,
+          "procMs": 1
+        },
+        {
+          "tab": "Description",
+          "maxEventMs": 16,
+          "procMs": 0
+        },
+        {
+          "pick": "Dwarf",
+          "maxEventMs": 16,
+          "procMs": 1
+        },
+        {
+          "pick": "Elf",
+          "maxEventMs": 16,
+          "procMs": 0
+        },
+        {
+          "pick": "Halfling",
+          "maxEventMs": 16,
+          "procMs": 0
+        }
+      ]
+    },
+    {
+      "profile": "phone",
+      "tabsFound": 3,
+      "clicks": [
+        {
+          "tab": "Options",
+          "maxEventMs": 16,
+          "procMs": 2
+        },
+        {
+          "tab": "Description",
+          "maxEventMs": 16,
+          "procMs": 2
+        },
+        {
+          "tab": "Details",
+          "maxEventMs": 0,
+          "procMs": 0
+        },
+        {
+          "pick": "Dwarf",
+          "maxEventMs": 80,
+          "procMs": 2
+        },
+        {
+          "pick": "Elf",
+          "maxEventMs": 16,
+          "procMs": 1
+        },
+        {
+          "pick": "Halfling",
+          "maxEventMs": 24,
+          "procMs": 1
+        }
+      ]
+    }
+  ]
+}

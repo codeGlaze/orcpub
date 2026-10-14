@@ -1,0 +1,61 @@
+diff --git a/src/cljs/orcpub/dnd/e5/autosave_fx.cljs b/src/cljs/orcpub/dnd/e5/autosave_fx.cljs
+index 5c6199fc..b58a8502 100644
+--- a/src/cljs/orcpub/dnd/e5/autosave_fx.cljs
++++ b/src/cljs/orcpub/dnd/e5/autosave_fx.cljs
+@@ -66,28 +66,37 @@
+ ;; built-character without subscribing outside a reactive context.
+ ;; track! creates a proper reactive context — no warnings.
+ (defn cache-template
+-  "Handler for `::cache-template`: stores `template`, what it offers (`offered-keys`,
+-   `offered-by-type`) and its `choice-tags`. On the first list, if the loaded character has a key
+-   the list now lets it heal, re-dispatches `:set-character`."
++  "EXPERIMENT: stores `template` only; what it offers is computed at idle by `::cache-offered`."
+   [{:keys [db]} [_ template]]
+-  (let [offered (content-recon/offered-keys template)
+-        by-type (library/offered-by-type template)
+-        character (:character db)
+-        ;; The heal's indexes are empty until this list exists (heal-sites).
+-        heal? (and (nil? (::content-recon/offered-keys db))
+-                   character
+-                   (seq (:rewrote (content-recon/reconcile-former-keys
+-                                   character
+-                                   (content-recon/former-key-indexes (:plugins db) offered by-type)))))]
+-    (cond-> {:db (assoc db
+-                        ::cached-template template
+-                        ::content-recon/offered-keys offered
+-                        ::content-recon/offered-by-type by-type
+-                        ::content-recon/choice-tags (library/choice-tags template))}
+-      ;; No route follows this heal, so it announces itself.
+-      heal? (assoc :dispatch-n [[:set-character character] [:orcpub.dnd.e5/announce-heal]]))))
++  {:db (assoc db ::cached-template template)
++   ::on-idle [::cache-offered template]})
++
++(defn cache-offered
++  "EXPERIMENT: the deferred half of the old `cache-template`."
++  [{:keys [db]} [_ template]]
++  (when (identical? template (::cached-template db))
++    (let [offered (content-recon/offered-keys template)
++          by-type (library/offered-by-type template)
++          character (:character db)
++          heal? (and (nil? (::content-recon/offered-keys db))
++                     character
++                     (seq (:rewrote (content-recon/reconcile-former-keys
++                                     character
++                                     (content-recon/former-key-indexes (:plugins db) offered by-type)))))]
++      (cond-> {:db (assoc db
++                          ::content-recon/offered-keys offered
++                          ::content-recon/offered-by-type by-type
++                          ::content-recon/choice-tags (library/choice-tags template))}
++        heal? (assoc :dispatch-n [[:set-character character] [:orcpub.dnd.e5/announce-heal]])))))
++
++(re-frame.core/reg-fx ::on-idle
++  (fn [ev]
++    (if (exists? js/requestIdleCallback)
++      (js/requestIdleCallback #(re-frame.core/dispatch ev) #js {:timeout 2000})
++      (js/setTimeout #(re-frame.core/dispatch ev) 50))))
+ 
+ (reg-event-fx ::cache-template cache-template)
++(reg-event-fx ::cache-offered cache-offered)
+ 
+ (defn init-template-cache!
+   "Start reactive watcher that mirrors ::char5e/template into app-db.

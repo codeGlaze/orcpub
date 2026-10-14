@@ -1,0 +1,18 @@
+/* Direction B — "Quiet app": no hero on interior pages, solid app bar, surfaces carry hierarchy, one accent. */
+.app-header{background:var(--surface)!important;min-height:0!important;height:auto!important;border-bottom:1px solid var(--line)}
+.app-header>.container:nth-of-type(2){margin-top:0;border-top:1px solid var(--line)}
+.app-header-bar{height:60px!important}
+.app-header-bar img,.app-header-bar svg{max-height:30px!important;width:auto!important}
+.app-header-menu{margin:0!important;gap:2px}
+.app-header-menu>div{height:44px!important;min-width:0!important;padding:0 12px!important;background:transparent!important;border-radius:0!important;box-shadow:none!important;border-bottom:2px solid transparent}
+.app-header-menu>div .svg-icon-wrapper,.app-header-menu>div img{width:18px!important;height:18px!important}
+.app-header-menu>div *{font-size:12px!important;letter-spacing:.02em}
+.app-header-menu>div.active,.app-header-menu>div[class*=active]{border-bottom-color:var(--accent)!important;color:var(--accent)!important}
+.sticky-header{background:var(--bg)!important;border-bottom:1px solid var(--line)}
+.form-button{background:var(--raised)!important;background-image:none!important;color:var(--text)!important;border:1px solid var(--line-strong)!important;border-radius:8px!important;height:34px!important;box-shadow:none!important;text-shadow:none!important}
+.form-button:hover{border-color:var(--accent)!important}
+.form-button:last-child{background:var(--accent)!important;color:#1a1300!important;border-color:transparent!important}
+.b-1.b-rad-5{background:var(--surface);border-radius:var(--r)!important;border-color:var(--line)!important}
+.b-1.b-rad-5 .b-1.b-rad-5{background:var(--raised)}
+.b-1.b-rad-5 .b-1.b-rad-5:hover{border-color:var(--line-strong)!important}
+.builder-tab{border-bottom-width:2px!important}
