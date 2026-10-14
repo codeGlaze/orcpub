@@ -90,7 +90,7 @@ _DEPENDENCY_VALIDATION · DEPENDENCY_VALIDATION_
 
 _SESSION-SUMMARY · SESSION SUMMARY_
 
-**topics:** -----, 2026, 3449, added, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
+**topics:** -----, 2026, added, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, session, submenu, tmux
 
 - Final State
 - Key Decisions Made
@@ -353,6 +353,25 @@ _armor-class-refactor · armor class refactor_
 - Ledger
 - Corrections
 
+## artist-credit-change-emails.md
+
+_artist-credit-change-emails · artist credit change emails_
+
+**topics:** admin, artist, batch, burst, change, credit, email, emailed, emails, flood, hour, hourly, minute, pending, retraction, send, sent, window
+
+- The rule (owner's decision)
+- Rejected first: one change a minute
+- How it is built
+
+## artist-links-and-referrer.md
+
+_artist-links-and-referrer · artist links and referrer_
+
+**topics:** artist, artists, cyrillic, domain, https, international, link, links, lookalike, punycode, referrer, referrer-policy, secure-headers, shown, site, user-supplied, vetted, whitespace
+
+- Decisions (owner's)
+- Rules every link follows
+
 ## auth-state-in-app-db.md
 
 _auth-state-in-app-db · auth state in app db_
@@ -441,7 +460,7 @@ _blank-env-values · blank env values_
 
 _branch-context-history · branch context history_
 
-**topics:** boon, branch, catalog, charter, cljs, gate, golden, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine, subs
+**topics:** boon, branch, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine
 
 - (was) Branch Context: claude/zen-wright-04xhdz
 - Purpose
@@ -807,7 +826,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, factories, grant, indirection, live, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, live, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -1118,7 +1137,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-production-changes · dmv production changes_
 
-**topics:** --------, analytics, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email-preferences-implementation, hotfix-integrations, license, matomo, meta, monetization, nginx, passwords, patron, production
+**topics:** --------, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email-preferences-implementation, fork, hotfix-integrations, license, matomo, meta, monetization, nginx, passwords, patron, production
 
 - Summary
 - Critical Issues to Flag to Admin
@@ -1273,7 +1292,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, creep, docstring, docstrings, email, history, ledger, narrative, operator, plan, session, topic, unindexed
+**topics:** about, agent, audit, before-you-start, claim, confident, creep, docstring, docstrings, generator, history, ledger, narrative, operator, plan, session, topic, unindexed
 
 - What earns a doc
 - Verify, don't remember
@@ -1299,7 +1318,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** agentic, chose, commit, conclusion, dense, discovering, docs-only, dotfiles, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** agentic, chose, commit, conclusion, dense, dotfiles, hook, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, tried, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -1494,7 +1513,7 @@ _env-and-auth · env and auth_
 
 _equipment-option-picker · equipment option picker_
 
-**topics:** 12-row, 1541, 1637, 306, cap, combobox, control, desktop, dismiss, dom, highlight, light, mobile, mounted, native, nodes, popover, rows
+**topics:** 12-row, 1541, 1637, 2422px, 306, cap, combobox, control, desktop, dismiss, dom, highlight, mobile, mounted, native, nodes, popover, rows
 
 - Measured
 - Why the Popover API and not the hand-rolled popover
@@ -1656,7 +1675,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, csp, cyrillic, external, font, fonts, google, greek, gstatic, hebrew, hosts, latin, latin-ext, licensed, ofl, sans, subset, subsets
+**topics:** 118, csp, external, font, fonts, google, greek, gstatic, hebrew, hosts, latin, latin-ext, licensed, ofl, re-add, sans, subset, subsets
 
 - Why
 - What is checked in
@@ -1813,7 +1832,7 @@ _heartbeat · heartbeat_
 
 _hiccup-page-escaping · hiccup page escaping_
 
-**topics:** 2026-10-14, 3935fd01, artist, boot-rescue, cross-site-scripting, escaped, escapes, fork-written, hiccup, inline, input, markup, page, script, shows, user, wrapped, x-compatible
+**topics:** 3935fd01, boot-rescue, containing, cross-site-scripting, escaped, escapes, escaping, fork-written, hiccup, inline, input, markup, page, script, shows, user, wrapped, x-compatible
 
 - Why
 - What changed
@@ -1891,7 +1910,7 @@ _homebrew-fixes-persist · homebrew fixes persist_
 
 _homebrew-key-map · homebrew key map_
 
-**topics:** address, auto-name, int, item, key, kinds, library, link, minting, move, overwrite, p34, read-stamp, readers, rename, restore, salvage, save-anyway
+**topics:** auto-name, int, item, key, kinds, library, link, minting, move, overwrite, p34, probes, read-stamp, readers, rename, restore, salvage, save-anyway
 
 - 0. The model in one paragraph
 - 1. Branch baseline — what differs
@@ -1908,7 +1927,7 @@ _homebrew-key-map · homebrew key map_
 
 _homebrew-keys-design · homebrew keys design_
 
-**topics:** 2026-09-27, 2026-09-28, built-in, characters, gate, grant-rows, holder, item, key, library, link, links, owner, rename, revision, step, tab, write
+**topics:** 2026-09-27, 2026-09-28, asked, built-in, characters, gate, grant-rows, holder, item, key, library, link, links, rename, revision, step, tab, write
 
 - 1. What does not change (compatibility promises)
 - 2. One list of every kind of link
@@ -2202,6 +2221,14 @@ _multi-tab-character-contamination · multi tab character contamination_
 - Provenance
 - Related
 
+## my-account-light-theme-white-text.md
+
+_my-account-light-theme-white-text · my account light theme white text_
+
+**topics:** 2017, 2026-10-14, account, artist, body, credit, grey, grounds, hard-coded, light, news, predates, theme, themes, unreadable, unticked, username, white
+
+
+
 ## name-to-kw-audit.md
 
 _name-to-kw-audit · name to kw audit_
@@ -2239,7 +2266,7 @@ _name-to-kw-audit · name to kw audit_
 
 _namespace-architecture · namespace architecture_
 
-**topics:** 148, 2026-09-15, anomalies, constants, crud, csp, handlers, helpers, html5history, http-fx-patterns, namespace, namespaces, nonce, revision, server-rendered, shell, side-effect, specs
+**topics:** 148, 2026-09-15, anomalies, constants, crud, csp, handlers, helpers, html5history, http-fx-patterns, namespace, namespaces, nonce, revision, server-rendered, side-effect, specs, split
 
 - Directory Layout
 - Entry Points
@@ -2298,7 +2325,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _orcbrew-level-modifiers · orcbrew level modifiers_
 
-**topics:** 120, arrive, audits, consumed, driven, editor, integer, keyword, level, level-modifier, presence, race, races, racial, subclass, subclasses, trait, warden
+**topics:** 120, arrive, audits, consumed, driven, editor, grant, integer, keyword, level, level-modifier, presence, race, races, subclass, subclasses, trait, warden
 
 - Nothing validates the shape of a brew
 - Two grant vocabularies, with different shapes
@@ -2378,7 +2405,7 @@ _pdf-generated-vs-uploaded-images · pdf generated vs uploaded images_
 
 _pdf-generation-architecture · pdf generation architecture_
 
-**topics:** 2026-04-22, byte, card, color, fillable, firefox, flatten, page, pdf, pdfbox, populated, reflection, rendering, spell, templates, viewer, widget, widgets
+**topics:** 2026-04-22, byte, card, color, cosdict, fillable, firefox, flatten, pdf, pdfbox, populated, reflection, rendering, spell, templates, viewer, widget, widgets
 
 - Overview
 - Template Selection
@@ -2786,7 +2813,7 @@ _registry-before-after · registry before after_
 
 _remote-dev · remote dev_
 
-**topics:** 3449, codespaces, config, connections, dev, development, environments, figwheel, forwarding, gitpod, hot-reload, port, remote, ssh, tunnels, url, visibility, websocket
+**topics:** 3449, codespaces, config, connections, dev, development, environments, figwheel, figwheel-main, forwarding, gitpod, hot-reload, port, remote, ssh, tunnels, visibility, websocket
 
 - The Problem
 - The Discovery: --fw-opts
@@ -3042,7 +3069,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, innate, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, text-only, verified, wrapper
+**topics:** cast, castable, chain, class-gated, creator-declarable, innate, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -3084,7 +3111,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, credit, crest, figures, flame, head, heading, lining, old-style, packed, pact, prep, spellbook, tabs, taller
+**topics:** cards, chapter, column, columns, crest, figures, flame, head, heading, lining, old-style, opentype, packed, pact, prep, spellbook, tabs, taller
 
 - What it prints
 - Why the layout works the way it does
@@ -3224,7 +3251,7 @@ _srd-pdf-as-source-of-record · srd pdf as source of record_
 
 _srd-vs-plugin-content · srd vs plugin content_
 
-**topics:** acolyte, base-class-options, battle, college, discarded, folk, grappler, hardcoded, hero, master, non-srd, phb, plugin-backgrounds, plugin-feats, plugin-races, plugins, races, soldier
+**topics:** acolyte, base-class-options, battle, college, content, discarded, folk, grappler, hardcoded, hero, master, non-srd, phb, plugin-backgrounds, plugin-feats, plugins, races, srd
 
 - The Distinction
 - What's Hardcoded (SRD)
@@ -3393,7 +3420,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** 2026-10-13, action, assets, balanced, box, details, l10, notice, phone, planned, player, png, restored, steel, undo, undone, ux-guide, width
+**topics:** action, assets, auto-fills, balanced, box, details, l10, notice, phone, planned, player, png, restored, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it

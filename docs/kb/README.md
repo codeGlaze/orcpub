@@ -297,6 +297,16 @@ wrong, and why.
   the work.
 - **[auth-state-in-app-db.md](auth-state-in-app-db.md)** -- where login state lives, and
   reading the token with `get-auth-token`.
+- **[artist-credit-change-emails.md](artist-credit-change-emails.md)** -- an artist's credit edits
+  are emailed at once, then batched for ten minutes that never extend; state in the database, one
+  send per batch across containers by compare-and-set, a 60-an-hour cap. The rejected
+  one-change-a-minute limit.
+- **[artist-links-and-referrer.md](artist-links-and-referrer.md)** -- the owner's `rel="noopener"`
+  only (noreferrer/nofollow/ugc reversed), Referrer-Policy strict-origin-when-cross-origin
+  site-wide with no-referrer kept on password reset, https from every source, punycode domains.
+- **[my-account-light-theme-white-text.md](my-account-light-theme-white-text.md)** -- open bug:
+  My Account is white on light grey in the light theme, from a hard-coded `.white`; plus the
+  checkbox edge measured at 2.44:1.
 
 ### Practice
 
