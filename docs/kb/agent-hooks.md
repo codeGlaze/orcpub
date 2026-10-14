@@ -49,6 +49,19 @@ only at the session's own checkout, while the work happened in other worktrees, 
 fired; they now follow the worktree the command runs in (the push hook) or every worktree the
 session's transcript names (the Stop hook).
 
+## The Stop hook nagged everyone (2026-10-14)
+
+Following every worktree the transcript names went too far. It counted any uncommitted file in
+those worktrees, however old, and printed the reminder as a `systemMessage`, which Claude Code shows
+to the person, not the agent. `orcpub-garden` held three test-harness folders copied in for a review
+on 2026-09-16 and never committed, so every session that had ever named that path ended every turn
+with "Code changed with no doc change in: orcpub-garden (3 files)", for about a week, in front of
+the owner. Now it counts only files changed in the last 30 minutes and not before the session began,
+and it answers `decision: block` with the reminder as the reason, so the agent acts on it once per
+turn (`stop_hook_active` silences the repeat). Checked against this session's real transcript (old:
+fired on orcpub-garden; new: silent) and a fresh code edit (prompts once; silent with a docs change
+or when `stop_hook_active` is set).
+
 ## The docstring gate
 
 `pre-commit` blocks a commit that adds a Clojure `defn`, `defn-` or `defmacro` with no docstring

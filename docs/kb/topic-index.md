@@ -281,11 +281,12 @@ _account-flows · account flows_
 
 _agent-hooks · agent hooks_
 
-**topics:** agent, armed, arming, authorship, byte, clone, docstring, gitignore, hook, hooks, installer, session, sessionstart, setup, stripper, trailer, worktree, worktrees
+**topics:** agent, armed, arming, docstring, gitignore, hook, hooks, installer, orcpub-garden, reminder, session, sessionstart, setup, stripper, trailer, transcript, worktree, worktrees
 
 - The rule
 - The entry point follows the same rule
 - The trap this closes (2026-10-05)
+- The Stop hook nagged everyone (2026-10-14)
 - The docstring gate
 - Why it is built this way
 - Limits
@@ -616,7 +617,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, person, pick, renamed, report, saved, spell-selection, toast
+**topics:** binding, character, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, pick, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -2031,7 +2032,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, answers, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source
+**topics:** address, author, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source
 
 - TL;DR
 - The map (VERIFIED)

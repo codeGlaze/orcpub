@@ -8,11 +8,16 @@ here is applied automatically to your machine.
 The same nudge at a different moment: a **Stop** hook rather than a `git push` one, so the gap
 surfaces while the work is still in hand instead of at the push.
 
-Looks at ONE window — the uncommitted tree while it is dirty, otherwise the last commit.
-Unioning the two was tried first and is wrong: a docs-only commit at HEAD then silences every
-later code change, which is the exact case the reminder exists for.
+Checks the session's checkout and every worktree its transcript names, counting only files changed
+in the last 30 minutes and not before the session began: uncommitted files by modification time,
+otherwise a last commit made in that window. It never unions the two: a docs-only commit at HEAD
+would then silence every later code change, which is the exact case the reminder exists for.
 
-Register it under `Stop` rather than `PreToolUse`. Needs `git`, but no `jq`.
+It speaks to the agent, not the person: it answers `{"decision":"block","reason":...}`, which hands
+the agent one more instruction before its turn ends, and stays silent when `stop_hook_active` is set,
+so it cannot loop.
+
+Register it under `Stop` rather than `PreToolUse`. Needs `git` and `jq`.
 
 ## `kb-doc-reminder.sh`
 
