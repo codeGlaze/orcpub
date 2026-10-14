@@ -6,6 +6,7 @@
    `example-portraits`, `listed-links`, `profile-link`.
    Plan and decisions: docs/design/artist-profiles/PLAN.md."
   (:require [clojure.string :as s]
+            [orcpub.artist-links :as artist-links]
             [orcpub.route-map :as route-map]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.portrait-random :as random]))
@@ -74,10 +75,21 @@
   [artist n]
   (route-map/path-for route-map/artist-example-route :slug (slug artist) :n (str n)))
 
-(defn link-host
-  "The host of `url` without scheme, www. or trailing path: \"fusspot.rip\". nil if none."
+(defn ascii-url
+  "`url` with an international host in its encoded (punycode) form, so lookalike letters show as
+   what they are: https://ex\u0430mple.test/ is https://xn--exmple-4nf.test/. Anything else as given."
   [url]
-  (some->> url (re-find #"(?i)^https?://(?:www\.)?([^/?#]+)") second not-empty))
+  (let [u (some-> url str s/trim)]
+    (if-let [[_ head host tail] (some->> u (re-find #"^(https?://)([^/?#:]+)(.*)$"))]
+      (if (re-find #"[^\x00-\x7F]" host)
+        (str head #?(:clj (java.net.IDN/toASCII host) :cljs (.-hostname (js/URL. (str "https://" host)))) tail)
+        u)
+      u)))
+
+(defn link-host
+  "The host of `url` without scheme, www. or trailing path, encoded: \"fusspot.rip\". nil if none."
+  [url]
+  (some->> (ascii-url url) (re-find #"(?i)^https?://(?:www\.)?([^/?#]+)") second not-empty))
 
 (defn watermark-text
   "What is tiled across `artist`'s example images: the host of their own link (else their
@@ -121,11 +133,18 @@
 ;; ---------- links ----------
 
 (defn web-url?
-  "Whether `u` is an http(s) address with no userinfo. Everything else -- a
-   mailto:, a javascript:, a bare address -- is not something this page links
-   to. `https://example.test/@name` passes: the @ is in the path."
+  "Whether `u` is a link this site will draw: the rule artist edits are saved under
+   (orcpub.artist-links/url-problem), https only, hostname characters only, no userinfo, its host
+   read encoded, no whitespace. A mailto:, a javascript:, plain http and a bare address are not."
   [u]
-  (boolean (and (string? u) (re-find #"(?i)^https?://[^\s@/?#]+(?:[/?#]\S*)?$" u))))
+  (and (string? u) (not (re-find #"\s" (s/trim u))) (nil? (artist-links/url-problem (ascii-url u)))))
+
+(defn external-link
+  "Anchor attributes for a link to someone else's site, or nil when `url` is not one this site
+   draws: a new tab, no opener or referrer, and marked as user-supplied for search engines."
+  [url]
+  (when (web-url? url)
+    {:href (ascii-url url) :target "_blank" :rel "noopener noreferrer nofollow ugc"}))
 
 (defn listed-links
   "The links the artist listed, and only those: :artist/links, or their single
@@ -139,6 +158,7 @@
                     [{:link/label "Site" :link/icon "site" :link/url l}]))]
     (->> links
          (filter (comp web-url? :link/url))
+         (map #(update % :link/url ascii-url))
          (reduce (fn [[seen out] l]
                    (if (seen (:link/url l))
                      [seen out]

@@ -55,3 +55,17 @@
       (r/flush)
       (is (nil? (.querySelector el "h1.ap-name")) "the profile is gone")
       (is (some? (.querySelector el ".ap-missing")) "and the page says nobody is here"))))
+
+(deftest every-link-on-the-page-is-https-marked-and-names-its-domain
+  (with-page [artist-page/artist-page {:slug "fusspot"}]
+    (fn [el]
+      (dispatch-sync [:portrait/artists-loaded
+                      {"house-pack" {:artist/links [{:link/label "Shop" :link/url "https://exаmple.test/shop"}
+                                                    {:link/label "Old" :link/url "http://example.test/"}]}}])
+      (r/flush)
+      (let [links (array-seq (.querySelectorAll el "a.ap-link"))]
+        (is (= ["https://xn--exmple-4nf.test/shop"] (map #(.getAttribute % "href") links))
+            "the plain-http link is not drawn, the other goes to its encoded host")
+        (is (every? #(= "noopener noreferrer nofollow ugc" (.getAttribute % "rel")) links))
+        (is (= "xn--exmple-4nf.test" (some-> (.querySelector el "a.ap-link .ap-link-host") .-textContent))
+            "the button shows the real domain")))))

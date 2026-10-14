@@ -22,16 +22,18 @@
            body)]))
 
 (defn- link-button
-  "One of the artist's listed links as a button: its mark, if it has one, and its label.
-   Opens in a new tab."
+  "One of the artist's listed links as a button: its mark, if it has one, its label and the domain
+   it really goes to. Opens in a new tab; nothing for a link this site does not draw."
   [{:link/keys [label url icon color]}]
-  [:a.ap-link {:href url :target "_blank" :rel "noopener"}
-   (when icon
-     [:span.lk-ico {:aria-hidden true
-                    :style {:color color
-                            :WebkitMaskImage (str "url(/image/social/" icon ".svg)")
-                            :maskImage (str "url(/image/social/" icon ".svg)")}}])
-   label])
+  (when-let [attrs (ap/external-link url)]
+    [:a.ap-link attrs
+     (when icon
+       [:span.lk-ico {:aria-hidden true
+                      :style {:color color
+                              :WebkitMaskImage (str "url(/image/social/" icon ".svg)")
+                              :maskImage (str "url(/image/social/" icon ".svg)")}}])
+     label
+     [:span.ap-link-host (ap/link-host url)]]))
 
 (defn- names
   "The names of `artists` as prose: A / A and B / A, B and C."

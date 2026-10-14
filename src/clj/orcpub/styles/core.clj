@@ -1713,6 +1713,8 @@
      [".ap-link:hover, .ap-link:focus-visible"
       {:border-color orange :background "rgba(240,161,0,0.06)" :outline :none}]
      [".ap-link .lk-ico" {:width "14px" :height "14px"}]
+     ;; the domain a link really opens, so a label cannot pass for another site
+     [:.ap-link-host {:font-weight 400 :letter-spacing 0 :color "var(--lk-dim)"}]
      [(str light " .ap-link")
       {:border-color "rgba(0,0,0,0.14)" :background :white :color light-text}]
      [(str light " .ap-link:hover, " light " .ap-link:focus-visible")

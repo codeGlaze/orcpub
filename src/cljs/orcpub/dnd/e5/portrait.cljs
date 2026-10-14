@@ -2077,13 +2077,10 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
   34)
 
 (defn- artist-ref
-  "An artist's name, as a link where they have one."
+  "An artist's name, as a link where they have one this site draws."
   [{:keys [:artist/name :artist/link]}]
-  (if link
-    [:a.pl-thumb-credit-link
-     {:href link :target "_blank" :rel "noopener"
-      :on-click #(.stopPropagation %)}
-     name]
+  (if-let [attrs (artist-profile/external-link link)]
+    [:a.pl-thumb-credit-link (assoc attrs :on-click #(.stopPropagation %)) name]
     [:span name]))
 
 (defn- linked-credit
@@ -2135,18 +2132,21 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
    The label is the accessible name: an icon alone is unreadable to a screen
    reader, and a link with no icon falls back to the label as text."
   [artist-name {:link/keys [label url icon color]}]
-  [:a.lk-mark {:href url :target "_blank" :rel "noopener"
-               :title (str artist-name " on " label)
-               :aria-label (str artist-name " on " label)
-               :style (when color {:color color})}
-   (if icon
-     [:span.lk-ico {:style {:WebkitMaskImage (str "url(/image/social/" icon ".svg)")
-                            :maskImage (str "url(/image/social/" icon ".svg)")}}]
-     [:span.lk-mark-text (s/lower-case label)])])
+  (when-let [attrs (artist-profile/external-link url)]
+    [:a.lk-mark (merge attrs
+                       {:title (str artist-name " on " label " (" (artist-profile/link-host url) ")")
+                        :aria-label (str artist-name " on " label)
+                        :style (when color {:color color})})
+     (if icon
+       [:span.lk-ico {:style {:WebkitMaskImage (str "url(/image/social/" icon ".svg)")
+                              :maskImage (str "url(/image/social/" icon ".svg)")}}]
+       [:span.lk-mark-text (s/lower-case label)])]))
 
-(defn- credit-name [{:keys [:artist/name :artist/link]}]
-  (if link
-    [:a.lk-name {:href link :target "_blank" :rel "noopener"} name]
+(defn- credit-name
+  "The artist's name in the credit, a link to where they chose when it is one this site draws."
+  [{:keys [:artist/name :artist/link]}]
+  (if-let [attrs (artist-profile/external-link link)]
+    [:a.lk-name attrs name]
     [:span.lk-name name]))
 
 (defn- rule [side] [:span.lk-rule {:class side :aria-hidden true}])
