@@ -270,12 +270,33 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
 - **Layer 3's Remove is raw:** it deletes a stored entry by path without knowing the rules. Right
   for an emergency tool; the friendly layers sit above it.
 
+## Plan, in order (owner, 2026-10-14)
+
+1. Entry points, group 1: the Data View link (44px tap target), list button, Repair on the
+   won't-load panel, Fix in Data View on the Missing Content warning.
+2. Group 2: the rescue bar on character pages and the builder (mockup first, real states at phone
+   width). The builder's bar needs no id: it links to the draft page, `/character-data`.
+3. Group 3: the support email gains the repair link and the stored choices.
+4. Duplicate prevention for the save race (R10): measure first, then the approach to the owner.
+5. Keep a copy of a browser draft the app cannot read (`db.cljs` `handle-unreadable` deletes it on
+   boot; homebrew gets a `:corrupt` copy, characters do not).
+6. Test gaps: builder autosave against the stale-save guard, race and ability-score warnings in a
+   browser, "No longer stored", the draft page's guard, assertions in `remove-essentials.js`.
+7. Key editing behind dev mode.
+8. Data View script size (264 KB, mostly built-in data pulled in through shared code).
+9. **Per-character drafts** (#704, `multi-tab-character-contamination.md`), last, after everything
+   above. The builder's address carries the id (`/character-builder/<id>`, the plain address kept
+   for new characters); drafts are stored per id (`character-<id>`, `character-new`); a reload
+   restores the draft matching the address; each browser's existing `"character"` draft moves to
+   its id's key, read as EDN (a regex picks a selection's `:db/id`, see the table above); a saved
+   draft is deleted. Verify the move on real old drafts before building it. Data View's draft page
+   takes the id too. The other builders' single slots (spell, monster, background ...) are the same
+   defect, not in scope.
+
 ## Open, for the owner
 
-- Commit 5: keep a copy of a browser draft the app cannot read (today `db.cljs` `handle-unreadable`
-  deletes it on boot; homebrew gets a `:corrupt` copy, characters do not). Build it, or not.
-
-The builder's rescue bar needs no character id: it links to the draft page, `/character-data`.
+- Asset caching: is another agent already on it, and should it include version-stamped addresses
+  (return visits make no request) or stop at a working 304 plus `Cache-Control`.
 
 ## Decided
 
