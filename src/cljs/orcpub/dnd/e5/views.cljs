@@ -4823,6 +4823,17 @@
    {}
    vals))
 
+(defn data-view-path
+  "Address of the Data View page for saved character `id`, opened as a full page load: it runs
+   without the app (`orcpub.ledger-page`)."
+  [id]
+  (routes/path-for routes/dnd-e5-char-data-page-route :id id))
+
+(defn data-view-link
+  "The quiet \"Data View\" link beside a character page's share line."
+  [id]
+  [:a.orange.underline.f-s-14.m-l-10 {:href (data-view-path id)} "Data View"])
+
 (defn character-load-recovery
   "Shown in place of the character sheet when the character's server data could
    not be read even after self-heal. Never a blank sheet, never a dead-end: the
@@ -4846,8 +4857,11 @@
           [:div.f-w-b.f-s-24.m-b-10 "This character couldn’t be loaded"]
           [:div.m-b-15.l-h-19
            "This character’s data appears to be corrupted and couldn’t be read. "
-           "Your saved data is safe — you can delete this character, or head back to your characters."]
+           "Your saved data is safe. You can repair it, delete it, or head back to your characters."]
           [:div.flex.flex-wrap.m-b-15
+           [:button.form-button.m-r-10.m-b-5
+            {:on-click #(set! (.-location js/window) (routes/path-for routes/dnd-e5-char-repair-page-route :id id))}
+            "Repair this character"]
            [:button.form-button.m-r-10.m-b-5
             {:on-click #(do (dispatch [:delete-character id])
                             (dispatch [:route routes/dnd-e5-char-list-page-route]))}
@@ -4929,7 +4943,10 @@
           [notifications/shared-content-banner id]
           [character-display id true (if (= :mobile device-type) 1 2)]]
          :frame? frame?
-         :subheader [integrations/share-line id]])))))
+         :subheader [:div.flex.align-items-c.flex-wrap
+                     [integrations/share-line id]
+                     (when (and username owner (= owner username))
+                       [data-view-link id])]])))))
 
 (defn monster-page [{:keys [key] :as arg}]
   (let [monster @(subscribe [::monsters/monster (keyword key)])]
@@ -9986,6 +10003,10 @@
       [:button.form-button.m-l-5
        {:on-click (make-event-handler :route char-page-route)}
        "view"]
+      (when (= username owner)
+        [:button.form-button.m-l-5
+         {:on-click #(set! (.-location js/window) (data-view-path id))}
+         "data view"])
       (when (or (not branding/restrict-print-to-owner?) (= username owner))
         [:button.form-button.m-l-5
          {:on-click (export-pdf

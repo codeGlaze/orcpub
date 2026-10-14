@@ -2385,7 +2385,7 @@
              [:div#missing-content-details.bg-warning.p-10.m-t-5
               [:div.f-s-14.m-b-10.main-text-color
                "This character uses content that isn't currently loaded. "
-               "Upload the relevant .orcbrew files to restore full functionality."]
+               "Upload the relevant .orcbrew files to restore it, or remove what you no longer need."]
               [:div
                (map-indexed
                 (fn [idx {:keys [key content-label inferred-source suggestions]}]
@@ -2413,7 +2413,13 @@
                           {:title (str "Point this character at :" (name s-key))
                            :on-click #(dispatch [::char5e/relink-content key s-key])}
                           (or s-name (str ":" (name s-key)))])]])])
-                (:items report))]])])))))
+                (:items report))]
+              (let [id (:db/id @(subscribe [:character]))]
+                [:a.form-button.m-t-5
+                 {:href (if id
+                          (routes/path-for routes/dnd-e5-char-data-page-route :id id)
+                          (routes/path-for routes/dnd-e5-draft-data-page-route))}
+                 "Fix in Data View"])])])))))
 
 #_(defn al-legality []
   (let [expanded? (r/atom false)]
