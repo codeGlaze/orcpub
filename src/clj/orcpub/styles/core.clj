@@ -6,6 +6,8 @@
 
 ;; Color palette — used across UI for consistent theming
 (def orange "#f0a100")
+;; The light theme's accent: its buttons and highlights are blue where the dark theme's are amber.
+(def accent-on-light "#33658A")
 (def button-color orange)
 (def red "#9a031e")
 ;; One red cannot serve both themes: #9a031e reads at about 9:1 on white and about
@@ -1321,6 +1323,10 @@
       :-webkit-mask-composite "xor"
       :mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
       :mask-composite "exclude"}]]
+   ;; On light, the ring takes the light theme's blue, and its faint stretch darkens to show.
+   [".app.light-theme .callout-accent-brand:before"
+    {:background (str "linear-gradient(90deg, " accent-on-light ", rgba(0, 0, 0, 0.12) 30%, "
+                      "rgba(0, 0, 0, 0.12) 70%, " accent-on-light ")")}]
 
    ;; A small neutral pill for naming things inline -- the items a feature covers,
    ;; the styles a sheet comes in. Same shape as .lib-badge without its reason
