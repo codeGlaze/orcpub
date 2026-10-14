@@ -1,6 +1,7 @@
 // Run design captures against the app on ORCPUB_BASE (default http://localhost:8890):
-//   NODE_PATH=$(npm root -g) NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt node docs/design/capture/capture.js <round>...
+//   NODE_PATH=$(npm root -g) node docs/design/capture/capture.js <round>...
 // With no round, lists them. OUT=dir writes there instead of beside the round's review page.
+// Behind a TLS-inspecting proxy, point NODE_EXTRA_CA_CERTS at its CA bundle so fonts load.
 const path = require('path');
 const { Capture } = require('./lib');
 const rounds = require('./rounds');

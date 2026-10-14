@@ -72,7 +72,6 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   three small watermarked example portraits and the links they listed, and a page listing
   every artist.
 - **Characters:** the portrait credit links to the artist's page.
-- **Site:** an artist's page can be turned off in the deployment's portrait-artist settings.
 
 ### Changed
 
@@ -92,6 +91,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 
 ### Fixed
 
+- **Site:** all seven header tabs and their menus fit on a 320px phone.
 - **Homebrew:** a custom element with a blank or symbol-only name no longer breaks the character. (#675)
 - **Homebrew:** older spell names (Leomund's, Tasha's, Bigby's) match in imported packs. (#676)
 - **Homebrew:** a homebrew class's source label no longer corrupts saved spell selections. (#670)
