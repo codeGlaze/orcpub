@@ -1279,6 +1279,29 @@
                       :padding "8px 6px"
                       :align-self :center}]]
 
+   ;; A callout's :details: a square band across the box with the box showing below it, names
+   ;; in one column and when each applies in the next. docs/kb/ux-guide.md (2026-10-14).
+   [:.callout-details
+    {:flex-basis "100%"
+     :display :grid
+     :grid-template-columns "max-content 1fr"
+     :margin "0 -10px 8px"
+     :padding "2px 10px 2px 36px"
+     :background "rgba(0, 0, 0, 0.14)"
+     :font-size "14px"}
+    [:.callout-detail {:display :contents}]
+    [:span {:padding "7px 0"}]
+    ["span:first-child" {:padding-right "20px"}]
+    [".callout-detail + .callout-detail > span" {:border-top "1px solid rgba(255, 255, 255, 0.08)"}]
+    [:.callout-aside {:color muted-on-dark}]]
+   ;; Even spacing above and below the line and the band, so the box opens like a shell.
+   [:.callout-compact.flex-wrap {:row-gap "4px !important"}]
+   [".callout-compact .callout-details" {:margin "0 -6px 7px -12px" :padding-left "38px"}]
+   [".app.light-theme .callout-details"
+    {:background "rgba(0, 0, 0, 0.05)"}
+    [".callout-detail + .callout-detail > span" {:border-top "1px solid rgba(0, 0, 0, 0.08)"}]
+    [:.callout-aside {:color muted-on-light}]]
+
    [:.callout-accent-brand
     ;; A balanced gradient ring (amber at both sides, faint through top and bottom), drawn by
     ;; a pseudo-element masked to its own edge: border-image squares off rounded corners.

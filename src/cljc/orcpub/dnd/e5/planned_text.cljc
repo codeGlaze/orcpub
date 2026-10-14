@@ -41,10 +41,15 @@
   [{:keys [name returns]}]
   (str name " auto-fills " (when-long returns) "."))
 
+(defn returns-line
+  "When a held pick comes back, beside its name in a list: \"auto-fills at level 10\"."
+  [{:keys [returns]}]
+  (str "auto-fills " (when-long returns)))
+
 (defn list-line
   "One held pick in a list: \"Archery · auto-fills at level 10\"."
-  [{:keys [name returns]}]
-  (str name " · auto-fills " (when-long returns)))
+  [{:keys [name] :as held}]
+  (str name " · " (returns-line held)))
 
 (defn class-line
   "The line under a class row for its held picks: one by name, otherwise a count that says why

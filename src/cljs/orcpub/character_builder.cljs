@@ -1883,13 +1883,11 @@
           [notifications/callout
            {:icon "fa-info-circle orange" :tone :note :accent :brand :compact? true
             :on-close #(dispatch [:orcpub.dnd.e5/dismiss-open-notice])
-            :text [:div.main-text-color
-                   [:div (planned-text/opened (count held))]
-                   (when @open?
-                     [:div.f-s-14.m-t-5
-                      (doall (for [{:keys [record] :as h} held]
-                               ^{:key (str (:address record))}
-                               [:div (planned-text/list-line h)]))])]
+            :text [:div.main-text-color (planned-text/opened (count held))]
+            :details (when @open?
+                       (for [{:keys [record name] :as h} held]
+                         {:key (str (:address record)) :label name
+                          :aside (planned-text/returns-line h)}))
             :actions [{:label "Details" :link? true :expanded @open?
                        :on-click #(swap! open? not)}]}])))))
 

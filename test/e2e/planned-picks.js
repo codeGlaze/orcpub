@@ -103,7 +103,9 @@ const flows = {
     await toggle.click();
     await page.waitForTimeout(400);
     check('and opens on a tap', (await toggle.getAttribute('aria-expanded')) === 'true');
-    check('its details say when it returns', await visibleText(page, 'Steel Will · auto-fills at level 7'));
+    check('its details say when it returns', await page.evaluate(() => [...document.querySelectorAll('.callout-detail')]
+      .some(r => r.children[0].textContent === 'Steel Will' && r.children[1].textContent === 'auto-fills at level 7')));
+    check('and its arrow points up', await toggle.locator('i.fa-angle-up').count() === 1);
     await page.locator('[aria-label="Dismiss"]').first().click();
     await page.waitForTimeout(400);
     check('its close mark dismisses it', !(await visibleText(page, "1 choice doesn't apply right now")));

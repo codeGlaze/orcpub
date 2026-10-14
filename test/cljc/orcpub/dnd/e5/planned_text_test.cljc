@@ -25,7 +25,8 @@
          (pt/auto-fills {:name "Lantern Step" :returns nil}))))
 
 (deftest a-list-line-names-it-and-says-when
-  (is (= "Archery · auto-fills at level 10" (pt/list-line archery))))
+  (is (= "Archery · auto-fills at level 10" (pt/list-line archery)))
+  (is (= "auto-fills at level 10" (pt/returns-line archery))))
 
 (deftest the-class-line-says-why-when-the-reasons-agree
   (let [steel {:name "Steel Will" :returns {:class-level 7 :class :ranger}}

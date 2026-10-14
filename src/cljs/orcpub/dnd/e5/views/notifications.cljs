@@ -74,19 +74,20 @@
         :aria-label "Dismiss"}]]]))
 
 (defn callout
-  "Persistent contextual notice: a box with an optional :icon (fa class, prefixed with .fa),
-   :text (string or hiccup) and optional :actions. :tone is :warning (default, severity) or
-   :note (neutral); :accent :brand draws the balanced amber ring. Each action is {:label} plus
-   :on-click (a button; :link? true makes it a text link, :expanded its toggle state) or :href
-   and :target (a link styled as a button), and an optional :icon, a COMPLETE icon class string.
-   :on-close adds the banner's close mark; :compact? fits a one-line notice."
-  [{:keys [icon text actions tone accent on-close compact?]}]
+  "Persistent notice: optional :icon (fa class), :text (string or hiccup), :actions, :details.
+   :tone :warning (default) or :note; :accent :brand draws the amber ring. An action is {:label}
+   with :on-click (:link? true for a text link; :expanded marks a toggle, with an arrow) or :href
+   and :target, and an optional :icon (a COMPLETE icon class). :details: {:key :label :aside}
+   rows in a band under the line, as two columns. :on-close adds the close mark; :compact? fits
+   a one-line notice."
+  [{:keys [icon text actions tone accent on-close compact? details]}]
   [:div.p-10.m-b-10.flex.align-items-c
    {:class (cond-> [(case tone :note "bg-note" "bg-warning")]
              ;; A ring, so a callout can carry an identity without a severity colour filling
              ;; the box. Named, not a colour: the shades live in styles/core.clj.
              (= accent :brand) (conj "callout-accent-brand")
-             compact? (conj "callout-compact"))
+             compact? (conj "callout-compact")
+             (seq details) (conj "flex-wrap"))
     :style {:gap "8px"}}
    (when icon [:i.fa {:class icon}])
    [:div.f-s-14.flex-grow-1 text]
@@ -103,12 +104,19 @@
            link? [:button.link-button.underline.f-w-b.f-s-14
                   (cond-> {:on-click on-click}
                     (some? expanded) (assoc :aria-expanded expanded))
-                  body]
+                  body
+                  (when (some? expanded)
+                    [:i.fa.m-l-5 {:class (if expanded "fa-angle-up" "fa-angle-down")
+                                  :aria-hidden true}])]
            :else [:button.form-button {:on-click on-click} body])
          {:key label})))
    (when on-close
      [:i.fa.fa-times.message-close.pointer.main-text-color
-      {:title "Dismiss" :aria-label "Dismiss" :on-click on-close}])])
+      {:title "Dismiss" :aria-label "Dismiss" :on-click on-close}])
+   (when (seq details)
+     [:div.callout-details
+      (for [{:keys [key label aside]} details]
+        ^{:key key} [:div.callout-detail [:span label] [:span.callout-aside aside]])])])
 
 (defn shared-content-banner
   "Shown when viewing a character whose homebrew arrived embedded in the share link. The content
