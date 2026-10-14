@@ -241,7 +241,7 @@
         owner (get db-after ::e5/planned-for (get-in db-before [:character :db/id]))]
     (if (or (= :reset-character event-id) (not= owner id))
       (assoc db-after ::e5/planned-picks [] ::e5/planned-for id ::e5/settle-trail []
-             ::e5/restore-notice nil)
+             ::e5/restore-notice nil ::e5/open-notice nil)
       (-> db-after
           (assoc ::e5/planned-for id)
           (update ::e5/settle-trail (fnil conj []) (:character db-before))))))
@@ -291,6 +291,11 @@
                          ::e5/picks-change {:set-aside (filterv #(not (held (:address %))) planned)
                                             :restored came-back
                                             :retired retired})
+            ;; Opening a character whose stored choices no longer apply: say so once.
+            (::e5/settle-opening? db)
+            (-> (dissoc ::e5/settle-opening?)
+                (cond-> (seq (remove #(held (:address %)) planned))
+                  (assoc ::e5/open-notice {:held (filterv #(not (held (:address %))) planned)})))
             ;; Builds up until the player closes it, so a later edit does not wipe it.
             (seq came-back)
             (update ::e5/restore-notice
@@ -302,7 +307,8 @@
                                       vec)}))))
         (catch :default e
           (js/console.error "Picks were not settled; the character is left as edited." e)
-          (cond-> db (seq (::e5/settle-trail db)) (assoc ::e5/settle-trail [])))))))
+          (cond-> (dissoc db ::e5/settle-opening?)
+            (seq (::e5/settle-trail db)) (assoc ::e5/settle-trail [])))))))
 
 ;; Never settles inside the edit, so it cannot fail or slow one: it resets the hold when needed
 ;; and queues ::e5/settle-picks. plan-hidden-pick-fix-and-grant-fields.md, "Step 1 hardening".
@@ -313,9 +319,11 @@
             (let [db-before (get-in context [:coeffects :db])
                   db-after (get-in context [:effects :db])]
               (if (and db-after (settle-needed? db-before db-after))
-                (let [event-id (first (get-in context [:coeffects :event]))]
+                (let [event-id (first (get-in context [:coeffects :event]))
+                      opening? (#{:set-character ::autosave-fx/cache-template} event-id)]
                   (-> context
-                      (assoc-in [:effects :db] (hold-for db-before db-after event-id))
+                      (assoc-in [:effects :db] (cond-> (hold-for db-before db-after event-id)
+                                                 opening? (assoc ::e5/settle-opening? true)))
                       (assoc-in [:effects ::settle-picks-soon] true)))
                 context)))))
 
@@ -339,13 +347,23 @@
        (settle-now!)
        (swap! settle-timer assoc :id (js/setTimeout settle-now! settle-debounce-ms))))))
 
-(reg-event-fx
- ::e5/settle-picks
- (fn [{:keys [db]} _]
-   (let [db' (settle-picks-db db)]
-     (cond-> {:db db'}
-       (not (identical? (:character db) (:character db')))
-       (assoc ::persist-healed-character (:character db'))))))
+(defn settle-picks-fx
+  "Handler for `::e5/settle-picks`: `settle-picks-db`, the draft rewritten when the character
+   changed, and a saved character opened with choices that no longer apply saved cleaned."
+  [{:keys [db]} _]
+  (let [db' (settle-picks-db db)
+        id (get-in db' [:character :db/id])
+        cleaned-on-open? (and (::e5/open-notice db') (not (::e5/open-notice db)))]
+    (cond-> {:db db'}
+      (not (identical? (:character db) (:character db')))
+      (assoc ::persist-healed-character (:character db'))
+      ;; A saved character opened with choices that no longer apply is saved cleaned, through
+      ;; the pages' own autosave; the notice says what was set aside. decision-gate-hidden-picks.md
+      (and cleaned-on-open? id)
+      (-> (assoc-in [:db ::char5e/character-map id] (:character db'))
+          (assoc ::char5e/save-character-throttled id)))))
+
+(reg-event-fx ::e5/settle-picks settle-picks-fx)
 
 (def character-interceptors [queue-settle
                              check-spec-interceptor
@@ -762,6 +780,8 @@
 
 ;; Manual save — dispatched from character builder UI with built-char in scope.
 ;; If the user hasn't set a name, generates a random one and persists it.
+(reg-event-db ::e5/dismiss-open-notice (fn [db _] (dissoc db ::e5/open-notice)))
+
 (defn undo-restore-db
   "`db` with the picks its restore notice reports taken back out of the character. They are not
    held again (the next settle would return them); Redo puts them back."

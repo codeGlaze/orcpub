@@ -1872,6 +1872,27 @@
                   :actions [{:label "Undo" :link? true
                              :on-click #(dispatch [:orcpub.dnd.e5/undo-restore])}])))))))
 
+(defn open-notice
+  "On opening a character whose stored choices no longer apply: how many, with Show details
+   listing each and what brings it back. Closed by its ×."
+  []
+  (let [open? (r/atom false)]
+    (fn []
+      (let [held @(subscribe [:orcpub.dnd.e5/open-notice-held])]
+        (when (seq held)
+          [notifications/callout
+           {:icon "fa-info-circle orange" :tone :note :accent :brand :compact? true
+            :on-close #(dispatch [:orcpub.dnd.e5/dismiss-open-notice])
+            :text [:div.main-text-color
+                   [:div (planned-text/opened (count held))]
+                   (when @open?
+                     [:div.f-s-14.m-t-5
+                      (doall (for [{:keys [record] :as h} held]
+                               ^{:key (str (:address record))}
+                               [:div (planned-text/list-line h)]))])]
+            :actions [{:label (if @open? "Hide details" "Show details") :link? true
+                       :on-click #(swap! open? not)}]}])))))
+
 (defn section-tabs [available-selections built-template character page-index]
   (let [device-type @(subscribe [:device-type])]
     [:div.flex.justify-cont-s-a
@@ -1979,6 +2000,7 @@
     (when print-enabled? (js/console.log "FINAL SELECTIONS" final-selections))
     [:div.w-100-p
      ;; Above the column, at its width: a notice shares the page's edges and never changes size.
+     [open-notice]
      [picks-notice]
      [:div#options-column.b-1.b-rad-5
       [section-tabs available-selections built-template character page-index]

@@ -1272,7 +1272,7 @@
    [:.callout-compact
     {:padding "4px 6px 4px 12px !important"
      :gap "12px !important"}
-    [:.link-button {:padding "8px 4px"}]
+    [:.link-button {:padding "8px 4px" :white-space :nowrap}]
     [:.message-close {:min-width :auto
                       :min-height :auto
                       :margin "0 0 0 2px"

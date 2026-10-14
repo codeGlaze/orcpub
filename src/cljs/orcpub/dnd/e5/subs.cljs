@@ -444,6 +444,18 @@
 (reg-sub :orcpub.dnd.e5/planned-picks (fn [db _] (get db :orcpub.dnd.e5/planned-picks [])))
 (reg-sub :orcpub.dnd.e5/restore-notice (fn [db _] (get db :orcpub.dnd.e5/restore-notice)))
 
+;; The on-open notice's choices, described (name, what brings each back); hit-point rolls left out.
+(reg-sub
+ :orcpub.dnd.e5/open-notice-held
+ :<- [:orcpub.dnd.e5/held-picks]
+ :<- [:orcpub.dnd.e5/open-notice]
+ (fn [[held {notice :held}] _]
+   (let [shown (set (map :address notice))]
+     (filterv (fn [{{:keys [address]} :record}]
+                (and (shown address) (not (some #{:hit-points} address))))
+              held))))
+(reg-sub :orcpub.dnd.e5/open-notice (fn [db _] (get db :orcpub.dnd.e5/open-notice)))
+
 (reg-sub
  :orcpub.dnd.e5/held-picks
  :<- [:built-template]

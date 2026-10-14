@@ -301,3 +301,28 @@
     (is (nil? (:orcpub.dnd.e5/restore-notice
                (edit back (assoc back :character (assoc (ranger 7) :db/id 5)) :set-character)))
         "another character clears it")))
+
+(def ^:private ghost-6
+  "A level-6 ranger still storing Steel Will: saved before the hold existed."
+  (assoc-in (ranger 7) [::entity/options :class 0 ::entity/options :levels]
+            (vec (butlast (get-in (ranger 7) [::entity/options :class 0
+                                              ::entity/options :levels])))))
+
+(deftest opening-a-character-whose-choices-no-longer-apply
+  (let [before (db (ranger 1))
+        open (fn [character]
+               (let [[d _] (queued before (assoc before :character character) :set-character)]
+                 (events/settle-picks-fx {:db d} [:orcpub.dnd.e5/settle-picks])))
+        saved (open (assoc ghost-6 :db/id 42))
+        draft (open ghost-6)]
+    (testing "a saved character"
+      (is (= 1 (count (get-in saved [:db :orcpub.dnd.e5/open-notice :held]))) "the notice has it")
+      (is (= 42 (:orcpub.dnd.e5.character/save-character-throttled saved))
+          "and it is saved cleaned")
+      (is (not (steel-will? (get-in saved [:db :orcpub.dnd.e5.character/character-map 42])))))
+    (testing "an unsaved draft: the notice, nothing to save"
+      (is (= 1 (count (get-in draft [:db :orcpub.dnd.e5/open-notice :held]))))
+      (is (nil? (:orcpub.dnd.e5.character/save-character-throttled draft))))
+    (testing "an ordinary level drop is not an opening"
+      (is (nil? (:orcpub.dnd.e5/open-notice
+                 (edit (db (ranger 7)) (db (ranger 6)) :set-class-level)))))))

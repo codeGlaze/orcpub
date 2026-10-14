@@ -97,6 +97,13 @@ const flows = {
     check('opened at 6, Steel Will is out of the character', (await dbAt(page, TACTIC)) === 'nil');
     check('and held', (await heldCount(page)) === 1);
     check('and the saved draft lacks it', !/steel-will/.test(await draft(page)));
+    check('a notice says one choice does not apply', await visibleText(page, "1 choice doesn't apply right now"));
+    await clickVisible(page, 'Show details');
+    await page.waitForTimeout(400);
+    check('its details say when it returns', await visibleText(page, 'Steel Will · auto-fills at level 7'));
+    await page.locator('[aria-label="Dismiss"]').first().click();
+    await page.waitForTimeout(400);
+    check('its close mark dismisses it', !(await visibleText(page, "1 choice doesn't apply right now")));
     await setLevel(page, 0, 7);
     check('raised to 7, Steel Will returns', (await dbAt(page, TACTIC)) === ':steel-will');
   },

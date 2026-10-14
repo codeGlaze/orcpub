@@ -41,3 +41,7 @@
   (is (= "Rogue picks restored (2)"
          (pt/restored [{:name "Stealth" :class :rogue} {:name "Acrobatics" :class :rogue}])))
   (is (= "2 picks restored" (pt/restored [{:name "Stealth" :class :rogue} {:name "Hill Dwarf"}]))))
+
+(deftest the-open-notice-counts-the-choices
+  (is (= "1 choice doesn't apply right now" (pt/opened 1)))
+  (is (= "3 choices don't apply right now" (pt/opened 3))))

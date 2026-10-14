@@ -70,3 +70,9 @@
       (and (= 1 (count classes)) (first classes))
       (str (title (first classes)) " picks restored (" n ")")
       :else (str n " picks restored"))))
+
+(defn opened
+  "The notice on opening a character whose stored choices no longer apply: \"3 choices don't
+   apply right now\"."
+  [n]
+  (if (= 1 n) "1 choice doesn't apply right now" (str n " choices don't apply right now")))
