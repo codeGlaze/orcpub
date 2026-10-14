@@ -40,6 +40,13 @@
     (is (nil? (mark/read-mark (bytes-of tiny-jpeg))))
     (is (= (ints-of marked) (ints-of (mark/write-mark marked "other"))) "marking twice adds nothing")))
 
+(deftest a-jpeg-keeps-its-app-segments-first
+  ;; JFIF needs its APP0 straight after start-of-image, so the comment goes after any APPn
+  (let [app0 [255 224 0 4 74 70] app1 [255 225 0 2]
+        marked (ints-of (mark/write-mark (bytes-of (concat [255 216] app0 app1 [255 217])) "x"))]
+    (is (= (concat [255 216] app0 app1 [255 254]) (take 14 marked)) "APP0 and APP1 untouched, then the comment")
+    (is (= "x" (mark/read-mark (bytes-of marked))))))
+
 (deftest an-unmarkable-format-is-refused-not-skipped
   (is (thrown? #?(:clj Exception :cljs js/Error) (mark/write-mark (bytes-of [71 73 70 56 57 97]) "x"))
       "a GIF cannot hold the mark, so writing one fails loudly"))

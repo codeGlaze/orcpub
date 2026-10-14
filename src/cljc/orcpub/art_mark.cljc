@@ -148,19 +148,28 @@
       (copy! b ihdr-end out (+ ihdr-end (alength chunk-bytes)) (- (alength b) ihdr-end))
       out))
 
+(defn- after-app-segments
+  "The offset in JPEG bytes `b` just past start-of-image and any APPn segments that follow it."
+  [b]
+  (loop [i 2]
+    (if (and (<= (+ i 4) (alength b)) (= 0xFF (u8 b i)) (<= 0xE0 (u8 b (inc i)) 0xEF))
+      (recur (+ i 2 (* 256 (u8 b (+ i 2))) (u8 b (+ i 3))))
+      i)))
+
 (defn- jpeg-with-mark
-  "JPEG bytes `b` with the mark `text` as a comment segment straight after the start-of-image
-   marker; the compressed image data is untouched."
+  "JPEG bytes `b` with the mark `text` as a comment segment after the APPn segments (JFIF's APP0
+   must stay first); the compressed image data is untouched."
   [b text]
   (let [payload (text-bytes (str mark-keyword "\u0000" text))
         len (+ 2 (alength payload))
         _ (when (> len 0xFFFF) (throw (ex-info "art mark too long for a JPEG comment" {:length len})))
+        at (min (after-app-segments b) (alength b))
         out (new-bytes (+ (alength b) 2 len))]
-    (copy! b 0 out 0 2)
+    (copy! b 0 out 0 at)
     (doseq [[i v] (map-indexed vector [0xFF 0xFE (bit-and (bit-shift-right len 8) 0xff) (bit-and len 0xff)])]
-      (put! out (+ 2 i) v))
-    (copy! payload 0 out 6 (alength payload))
-    (copy! b 2 out (+ 6 (alength payload)) (- (alength b) 2))
+      (put! out (+ at i) v))
+    (copy! payload 0 out (+ at 4) (alength payload))
+    (copy! b at out (+ at 4 (alength payload)) (- (alength b) at))
     out))
 
 (defn write-mark
