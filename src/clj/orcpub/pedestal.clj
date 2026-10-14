@@ -78,6 +78,17 @@
 ;; Create the nonce interceptor with current dev-mode? setting
 (def nonce-interceptor (make-nonce-interceptor (config/dev-mode?)))
 
+(def referrer-policy-interceptor
+  "Sets Referrer-Policy: strict-origin-when-cross-origin on every response that has not set its own,
+   so a site this one links to sees only its domain. A handler's own policy wins (the
+   password-reset page sends no-referrer)."
+  (interceptor/interceptor
+   {:name :referrer-policy
+    :leave (fn [ctx]
+             (if (get-in ctx [:response :headers "Referrer-Policy"])
+               ctx
+               (assoc-in ctx [:response :headers "Referrer-Policy"] "strict-origin-when-cross-origin")))}))
+
 (def etag-interceptor
   (interceptor/interceptor
    {:name :etag-interceptor
@@ -131,7 +142,8 @@
       this
       (cond-> service-map
         ;; nonce-interceptor first: runs last in :leave phase (sets CSP header after response built)
-        true (update ::http/interceptors conj nonce-interceptor (db-interceptor conn) etag-interceptor)
+        true (update ::http/interceptors conj nonce-interceptor referrer-policy-interceptor
+                     (db-interceptor conn) etag-interceptor)
         true http/create-server
         ;; Arm the banner here, fire it when Jetty says it is up. It cannot go after
         ;; http/start -- that BLOCKS in prod, where join? defaults true, so the first

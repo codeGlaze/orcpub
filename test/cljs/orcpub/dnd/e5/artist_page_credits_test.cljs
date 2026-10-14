@@ -66,7 +66,7 @@
       (let [links (array-seq (.querySelectorAll el "a.ap-link"))]
         (is (= ["https://xn--exmple-4nf.test/shop"] (map #(.getAttribute % "href") links))
             "the plain-http link is not drawn, the other goes to its encoded host")
-        (is (every? #(= "noopener noreferrer nofollow ugc" (.getAttribute % "rel")) links))
+        (is (every? #(= "noopener" (.getAttribute % "rel")) links))
         (is (= "xn--exmple-4nf.test" (some-> (.querySelector el "a.ap-link .ap-link-host") .-textContent))
             "the button shows the real domain")))))
 

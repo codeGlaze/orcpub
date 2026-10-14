@@ -140,11 +140,12 @@
   (and (string? u) (not (re-find #"\s" (s/trim u))) (nil? (artist-links/url-problem (ascii-url u)))))
 
 (defn external-link
-  "Anchor attributes for a link to someone else's site, or nil when `url` is not one this site
-   draws: a new tab, no opener or referrer, and marked as user-supplied for search engines."
+  "Anchor attributes for a link to an artist's own site, or nil when `url` is not one this site
+   draws: a new tab without access to this one (rel noopener). The referrer is sent, as the
+   site-wide Referrer-Policy allows (the domain only), so the artist sees where visitors came from."
   [url]
   (when (web-url? url)
-    {:href (ascii-url url) :target "_blank" :rel "noopener noreferrer nofollow ugc"}))
+    {:href (ascii-url url) :target "_blank" :rel "noopener"}))
 
 (defn listed-links
   "The links the artist listed, and only those: :artist/links, or their single
