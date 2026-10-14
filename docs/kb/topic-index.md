@@ -756,7 +756,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** backend, case-sensitive, div, dom, driver, failures, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -774,7 +774,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _code-comment-style · code comment style_
 
-**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comment, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence
+**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence, symbol
 
 - Docstrings carry the what
 - Inline ;; comments carry the why — but only when it's a constraint
@@ -1068,7 +1068,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, grant, idiomatic, layer-a, mis-attribution, progression, repeatable, select, spell, two-level, vocabulary
+**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, filters, grant, idiomatic, layer-a, mis-attribution, progression, select, spell, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -1273,7 +1273,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, creep, docstring, docstrings, history, ledger, linked, narrative, operator, plan, session, topic, unindexed
+**topics:** about, agent, audit, before-you-start, claim, confident, creep, docstring, docstrings, email, history, ledger, narrative, operator, plan, session, topic, unindexed
 
 - What earns a doc
 - Verify, don't remember
@@ -1808,6 +1808,17 @@ _heartbeat · heartbeat_
 - Using it
 - Limits
 - Checks
+
+## hiccup-page-escaping.md
+
+_hiccup-page-escaping · hiccup page escaping_
+
+**topics:** 2026-10-14, 3935fd01, artist, boot-rescue, cross-site-scripting, escaped, escapes, fork-written, hiccup, inline, input, markup, page, script, shows, user, wrapped, x-compatible
+
+- Why
+- What changed
+- Still on html5
+- How to check a page
 
 ## hidden-selection-picks.md
 
@@ -3103,7 +3114,7 @@ _srd-2024-coverage · srd 2024 coverage_
 
 _srd-2024-implementation-notes · srd 2024 implementation notes_
 
-**topics:** 2014, 2024, 339, creature, damage, dial, edition, editions, exhaustion, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
+**topics:** 2014, 2024, 339, damage, dial, edition, editions, exhaustion, feat, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
 
 - The structural shifts, measured
 - 1. Subraces became lineages
@@ -3143,7 +3154,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-06, 2026-10-07, 5etools, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-06, 5etools, diff, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3382,7 +3393,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** 2026-10-13, action, assets, balanced, box, l10, notice, picker, planned, player, png, redo, restored, steel, undo, undone, ux-guide, width
+**topics:** 2026-10-13, action, assets, balanced, box, details, l10, notice, phone, planned, player, png, restored, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
