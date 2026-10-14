@@ -1,7 +1,7 @@
 (ns orcpub.components-checkbox-test
   "The tick box is a keyboard control: a screen reader hears a checkbox and its state, Tab reaches
    it, and Space or Enter does what a click does."
-  (:require [cljs.test :refer-macros [deftest is testing]]
+  (:require [cljs.test :refer-macros [deftest is]]
             [reagent.core :as r]
             [reagent.dom :as rdom]
             [orcpub.components :as comps]))

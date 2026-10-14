@@ -142,13 +142,13 @@
   60000)
 
 (def ^:private recent-saves
-  "When each account last saved a change, kept for `save-gap-ms`."
+  "When each account last saved a change, by [connection account], kept for `save-gap-ms`."
   (bounded-cache/cache {:max-entries 1024 :max-age-ms save-gap-ms}))
 
 (defn- wait-secs
-  "Whole seconds until `user-id` may save another change, or nil when they may now."
-  [user-id]
-  (when-let [[at] (bounded-cache/lookup recent-saves user-id)]
+  "Whole seconds until account `user-id` on `conn` may save another change, or nil when they may now."
+  [conn user-id]
+  (when-let [[at] (bounded-cache/lookup recent-saves [conn user-id])]
     (let [left (- (+ at save-gap-ms) (System/currentTimeMillis))]
       (when (pos? left) (long (Math/ceil (/ left 1000.0)))))))
 
@@ -167,11 +167,11 @@
         (cond
           errors {:errors errors}
           (= (not-empty credit) before) {:unchanged true}
-          (wait-secs user-id) {:wait (wait-secs user-id)}
+          (wait-secs conn user-id) {:wait (wait-secs conn user-id)}
           :else
           (do @(d/transact conn [(if (seq credit)
                                    {:db/id user-id :orcpub.user/artist-credit (pr-str credit)}
                                    [:db/retract user-id :orcpub.user/artist-credit artist-credit])])
-              (bounded-cache/put! recent-saves user-id (System/currentTimeMillis))
+              (bounded-cache/put! recent-saves [conn user-id] (System/currentTimeMillis))
               (refresh! (d/db conn))
               {:saved credit :before before :artist-id artist}))))))
