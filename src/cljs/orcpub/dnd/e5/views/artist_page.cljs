@@ -28,10 +28,10 @@
   (when-let [attrs (ap/external-link url)]
     [:a.ap-link attrs
      (when icon
-       [:span.lk-ico {:aria-hidden true
-                      :style {:color color
-                              :WebkitMaskImage (str "url(/image/social/" icon ".svg)")
-                              :maskImage (str "url(/image/social/" icon ".svg)")}}])
+       ;; this link's own mark and colour, as the variables .ap-link-ico reads (core.clj)
+       [:span.lk-ico.ap-link-ico {:aria-hidden true
+                                  :style (cond-> {"--ap-ico" (str "url(/image/social/" icon ".svg)")}
+                                           color (assoc "--ap-ico-color" color))}])
      label
      [:span.ap-link-host (ap/link-host url)]]))
 
