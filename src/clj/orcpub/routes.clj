@@ -865,7 +865,8 @@
     (if-not id
       {:status 400 :body {:error "User not found"}}
       (let [{:keys [errors unchanged wait saved before artist-id]}
-            (artist-credit/save! conn id (select-keys transit-params [:name :link :links]))]
+            (artist-credit/save! conn id (select-keys transit-params
+                                                      (into [:name :link :links] (keys artist-credit/page-switches))))]
         (cond
           errors {:status 400 :body {:errors errors}}
           wait {:status 429 :headers {"Retry-After" (str wait)}
@@ -2516,19 +2517,23 @@
                                 :description "The artists who drew the portrait pieces here."}))
 
 (defn artist-page
-  "An artist's profile. The body is the SPA's, like the character page; the
-   share tags are set here because a crawler never runs the JavaScript. An
-   unknown slug is a real 404, so a mistyped link is not indexed as a page --
-   the SPA still loads and says there is nobody here."
-  [{:keys [headers] {:keys [slug]} :path-params :as request}]
+  "An artist's profile. The body is the SPA's; the share tags are set here because a crawler never
+   runs the JavaScript. A page its artist switched off redirects (302) to /artists; an unknown
+   slug is a real 404, so a mistyped link is not indexed (the SPA says there is nobody here)."
+  [{:keys [headers db] {:keys [slug]} :path-params :as request}]
+  ;; before the artist's own switches are read
+  (when db (artist-credit/refresh! db))
   (if-let [artist (artist-profile/artist-by-slug slug)]
     (index-page-response
      request
-     {:title (artist-profile/page-title artist)
-      :description (artist-profile/share-description artist)
-      :image-url (str "https://" (headers "host")
-                      (artist-profile/example-path artist 1))})
-    (assoc (index-page-response request {:title "No such artist"}) :status 404)))
+     (cond-> {:title (artist-profile/page-title artist)
+              :description (artist-profile/share-description artist)}
+       (artist-profile/shows? artist :examples)
+       (assoc :image-url (str "https://" (headers "host") (artist-profile/example-path artist 1)))))
+    (if (artist-profile/registered-by-slug slug)
+      ;; switched off: 302, never 301, so switching it back on works at once
+      {:status 302 :headers {"Location" (artist-profile/index-path)} :body ""}
+      (assoc (index-page-response request {:title "No such artist"}) :status 404))))
 
 (def ^:private example-jpegs
   "Rendered examples by [artist n watermark]. Single-flight, so a burst of requests for a new page
@@ -2570,14 +2575,15 @@
 
 (defn artist-example-jpeg
   "Ring handler: example image :n (1 to example-count) of the artist at :slug, small,
-   flattened and watermarked. 404 for an unknown slug, a page turned off, or any other :n;
+   flattened and watermarked. 404 for an unknown slug, a page or examples switched off, or any
+   other :n;
    503 with a Retry-After when every draw slot is taken."
   [{:keys [db] {:keys [slug n]} :path-params}]
   ;; before the watermark is worked out from the artist's links
   (when db (artist-credit/refresh! db))
   (let [artist (artist-profile/artist-by-slug slug)
         n (some->> n (re-matches #"[1-9]") parse-long)
-        jpeg (when (and artist n (<= n artist-profile/example-count))
+        jpeg (when (and artist n (<= n artist-profile/example-count) (artist-profile/shows? artist :examples))
                (example-jpeg (:artist/id artist) n
                              (artist-profile/watermark-text
                               artist (or (portrait-render/site-mark) branding/app-name))))]

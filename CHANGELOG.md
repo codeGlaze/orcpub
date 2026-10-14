@@ -72,6 +72,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   three small watermarked example portraits and the links they listed, and a page listing
   every artist.
 - **Characters:** the portrait credit links to the artist's page.
+- **Accounts:** artists choose on My Account whether they have a page, and whether it shows
+  their example portraits, their links and how many pieces they drew.
 
 ### Changed
 
@@ -137,6 +139,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 
 ### Security
 
+- **Site:** other sites a page links to are told only this site's domain, never the page's address.
 - Sign-in, password reset, share links, image fetching and PDF export are hardened against misuse, and secrets are no longer printed at startup.
 
 ## [breaking/2026-stack-modernization]

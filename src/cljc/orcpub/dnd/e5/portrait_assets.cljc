@@ -301,9 +301,9 @@
 (defonce ^:private artist-overrides (atom {}))
 
 (defn set-artist-overrides!
-  "Replace the runtime artist overrides. `m` is {artist-id {field value}}; only
-   :artist/name, :artist/link, :artist/links, :artist/license and :artist/profile? are
-   kept. :artist/profile? false turns the artist's profile page off (artist-profile/profile).
+  "Replace the runtime artist overrides. `m` is {artist-id {field value}}; only the name, link,
+   links, licence and the page switches (:artist/profile?, :artist/show-examples?, -links? and
+   -count?, false to turn off; artist-profile/shows?) are kept.
    See PORTRAIT-COMPOSITOR.md, \"Deployment overrides\"."
   [m]
   (reset! artist-overrides
@@ -313,7 +313,10 @@
                                                              :artist/link
                                                              :artist/links
                                                              :artist/license
-                                                             :artist/profile?])]
+                                                             :artist/profile?
+                                                             :artist/show-examples?
+                                                             :artist/show-links?
+                                                             :artist/show-count?])]
                       :when (seq keep-fields)]
                   [id keep-fields]))))
 

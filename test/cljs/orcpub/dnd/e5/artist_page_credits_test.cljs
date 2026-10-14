@@ -8,6 +8,7 @@
             [orcpub.dnd.e5.events]
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.views.artist-page :as artist-page]
+            [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.portrait-assets :as pa]))
 
 (defn- with-page
@@ -78,3 +79,40 @@
               props (map #(.item (.-style ico) %) (range (.-length (.-style ico))))]
           (is (seq props))
           (is (every? #(.startsWith % "--") props) (str "only variables inline: " (vec props))))))))
+
+(deftest the-page-shows-only-the-parts-the-artist-keeps-on
+  (with-page [artist-page/artist-page {:slug "fusspot"}]
+    (fn [el]
+      (dispatch-sync [:portrait/artists-loaded {"house-pack" {:artist/show-examples? false
+                                                               :artist/show-links? false
+                                                               :artist/show-count? false}}])
+      (r/flush)
+      (is (= "Fusspot" (some-> (.querySelector el "h1.ap-name") .-textContent)) "the name always shows")
+      (is (nil? (.querySelector el ".ap-examples")) "no examples")
+      (is (nil? (.querySelector el "a.ap-link")) "no links")
+      (is (not (re-find #"hand-drawn" (.-textContent el))) "no piece count"))))
+
+(deftest the-list-shows-only-the-parts-the-artist-keeps-on
+  (with-page [artist-page/artists-page nil]
+    (fn [el]
+      (dispatch-sync [:portrait/artists-loaded {"house-pack" {:artist/show-examples? false
+                                                               :artist/show-count? false}}])
+      (r/flush)
+      (is (re-find #"Fusspot" (.-textContent el)))
+      (is (nil? (.querySelector el ".ap-index-card img")) "no example on the card")
+      (is (nil? (.querySelector el ".ap-index-count")) "no count on the card"))))
+
+(deftest the-artist-switches-their-page-on-my-account
+  (let [sent (atom nil)]
+    (with-redefs [re-frame.core/dispatch (fn [ev] (when (= :save-artist-credit (first ev)) (reset! sent (second ev))))]
+      (with-page [views/artist-credit-form {:own {:artist/show-links? false} :default {} :current {} :locked #{}}]
+        (fn [el]
+          (let [box (fn [label] (some #(when (= label (.-textContent %)) %)
+                                      (array-seq (.querySelectorAll el "[role=checkbox]"))))]
+            (is (= "true" (some-> (box "Show my artist page") (.getAttribute "aria-checked"))))
+            (is (= "false" (some-> (box "Links") (.getAttribute "aria-checked"))) "read back from the saved credit")
+            (some-> (box "Example portraits") .click)
+            (r/flush)
+            (some-> (some #(when (= "Save credit" (.-textContent %)) %) (array-seq (.querySelectorAll el "button"))) .click)
+            (is (= {:profile? true :show-examples? false :show-links? false :show-count? true}
+                   (select-keys @sent [:profile? :show-examples? :show-links? :show-count?])))))))))

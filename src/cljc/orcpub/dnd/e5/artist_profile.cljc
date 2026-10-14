@@ -27,13 +27,18 @@
   (some #(when (= artist-id (:artist/id %)) %) pa/registry))
 
 (defn profile-enabled?
-  "Whether the artist wants a profile page. On unless :artist/profile? is
-   explicitly false -- the switch an artist's account setting will flip. Off
-   means no page at all, not a page saying it is off: the address 404s like a
-   slug nobody has, they drop out of /artists, and the credit loses its
-   'About the artist' line. The credit's name still goes to their own link."
+  "Whether `artist` has a profile page: on unless :artist/profile? is false, which the artist sets
+   on My Account (or the deployment forces). Off means /artists/<slug> redirects to /artists, they
+   drop out of the list, their example images 404 and the credit loses its 'About the artist'
+   line; the credit itself, and its link to the artist's own site, stay."
   [artist]
   (not (false? (:artist/profile? artist))))
+
+(defn shows?
+  "Whether `artist`'s page shows `part` (:examples, :links or :count): on unless they switched it
+   off (:artist/show-examples? and the like false). The name always shows."
+  [artist part]
+  (not (false? (get artist (keyword "artist" (str "show-" (name part) "?"))))))
 
 (defn profile
   "The artist, overrides applied, if they have a profile: they are registered,
@@ -54,6 +59,14 @@
       (some #(when (= wanted (some-> (slug %) s/lower-case))
                (profile (:artist/id %)))
             pa/registry))))
+
+(defn registered-by-slug
+  "The registry entry for a URL segment whether or not its page is on, or nil: what tells a page
+   switched off (a redirect) from an address nobody has (a 404)."
+  [segment]
+  (when (string? segment)
+    (let [wanted (s/lower-case (s/trim segment))]
+      (some #(when (= wanted (some-> (slug %) s/lower-case)) %) pa/registry))))
 
 (defn all-profiles
   "Every artist with a profile, in registry order."
@@ -154,9 +167,10 @@
    reach the page even if one is put in the registry. Duplicates are dropped,
    first one kept."
   [artist]
-  (let [links (or (seq (:artist/links artist))
+  (let [links (when (shows? artist :links)
+                (or (seq (:artist/links artist))
                   (when-let [l (:artist/link artist)]
-                    [{:link/label "Site" :link/icon "site" :link/url l}]))]
+                    [{:link/label "Site" :link/icon "site" :link/url l}])))]
     (->> links
          (filter (comp web-url? :link/url))
          (map #(update % :link/url ascii-url))
@@ -224,9 +238,12 @@
   (str (:artist/name artist) " — portrait artist"))
 
 (defn share-description
-  "The share-card description of `artist`'s profile, naming them and their piece count."
+  "The share-card description of `artist`'s profile: their name, and the piece count, examples and
+   links where their page shows them."
   [artist]
   (let [n (piece-count artist)]
-    (str "Portrait art by " (:artist/name artist) ": "
-         n " hand-drawn " (if (= 1 n) "piece" "pieces")
-         ", a few portraits made from them, and where to find more.")))
+    (str "Portrait art by " (:artist/name artist)
+         (when (shows? artist :count) (str ": " n " hand-drawn " (if (= 1 n) "piece" "pieces")))
+         (when (shows? artist :examples) ", a few portraits made from them")
+         (when (shows? artist :links) ", and where to find more")
+         ".")))

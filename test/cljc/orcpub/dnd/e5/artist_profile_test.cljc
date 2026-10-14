@@ -164,6 +164,9 @@
                                                   {:link/label "B" :link/url "https://example.test/"}]})))))
   (is (= [] (ap/listed-links {})) "no links, no buttons"))
 
+(deftest links-switched-off-are-not-listed
+  (is (= [] (ap/listed-links (assoc (ap/artist-by-slug "fusspot") :artist/show-links? false)))))
+
 ;; ---------- examples ----------
 
 (deftest the-seeded-randomness-is-the-same-on-both-platforms

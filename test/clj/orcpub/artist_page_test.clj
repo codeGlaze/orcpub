@@ -140,14 +140,30 @@
   (is (= 200 (:status (routes/artists-page {:headers {"host" "example.test"}
                                              :uri "/artists"})))))
 
-(deftest a-page-the-artist-turned-off-is-a-404
+(deftest a-page-turned-off-redirects-to-the-list
   (try
     (pa/set-artist-overrides! {:house-pack {:artist/profile? false}})
-    (is (= 404 (:status (routes/artist-page (req "fusspot")))))
-    (is (= 404 (:status (example "fusspot" "1")))
-        "the example images go with it")
-    (is (not (s/includes? (:body (routes/artist-page (req "fusspot"))) "Fusspot"))
-        "and the 404's share tags do not name them")
+    (let [resp (routes/artist-page (req "fusspot"))]
+      (is (= 302 (:status resp)) "temporary, so turning it back on works at once")
+      (is (= "/artists" (get-in resp [:headers "Location"])))
+      (is (not (s/includes? (str (:body resp)) "Fusspot")) "and nothing in it names them"))
+    (is (= 404 (:status (example "fusspot" "1"))) "the example images go with it")
+    (is (= 404 (:status (routes/artist-page (req "nobody")))) "a slug nobody has is still a 404")
+    (finally (pa/set-artist-overrides! {}))))
+
+(deftest examples-switched-off-are-not-served
+  (try
+    (pa/set-artist-overrides! {:house-pack {:artist/show-examples? false}})
+    (is (= 404 (:status (example "fusspot" "1"))))
+    (let [body (:body (routes/artist-page (req "fusspot")))]
+      (is (s/includes? body "Fusspot") "the page itself is still there")
+      (is (not (s/includes? body "/examples/")) "and its share card shows no example"))
+    (finally (pa/set-artist-overrides! {}))))
+
+(deftest the-piece-count-switched-off-is-not-shared
+  (try
+    (pa/set-artist-overrides! {:house-pack {:artist/show-count? false}})
+    (is (not (re-find #"\d+ hand-drawn" (:body (routes/artist-page (req "fusspot"))))))
     (finally (pa/set-artist-overrides! {}))))
 
 (deftest an-artist-name-is-never-page-source

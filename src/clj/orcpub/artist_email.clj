@@ -297,14 +297,20 @@
 ;; ---------------------------------------------------------------------------
 
 (defn credit-rows
-  "A credit as [label value] rows, for showing before and after."
+  "A credit as [label value] rows, for showing before and after: the name, links and icons, then
+   each artist-page switch as On or Off."
   [credit]
-  (let [{:artist/keys [name link links]} credit]
+  (let [{:artist/keys [name link links]} credit
+        on-off #(if (false? (get credit %)) "Off" "On")]
     (concat [["Name" (or name "(default)")]
              ["Link" (or link "(default)")]]
             (if (seq links)
               (for [{:link/keys [label url]} links] [label url])
-              [["Icons" "(default)"]]))))
+              [["Icons" "(default)"]])
+            [["Artist page" (on-off :artist/profile?)]
+             ["Example portraits" (on-off :artist/show-examples?)]
+             ["Links on the page" (on-off :artist/show-links?)]
+             ["Piece count" (on-off :artist/show-count?)]])))
 
 (defn- rows-table [rows]
   [:table {:role "presentation" :cellpadding "0" :cellspacing "0" :border "0"
