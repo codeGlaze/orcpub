@@ -58,7 +58,8 @@
        [:figcaption "with pieces by " (names others)])]))
 
 (defn- profile-card
-  "The profile of `artist`: name, piece count, listed links, the examples and the footer."
+  "The profile of `artist`: the name, then the piece count, listed links and examples where the
+   artist keeps them on (ap/shows?), and the footer."
   [{:keys [:artist/id :artist/name] :as artist}]
   (let [links (ap/listed-links artist)
         n (ap/piece-count artist)]
@@ -69,16 +70,18 @@
        [:span.lk-rule.l {:aria-hidden true}]
        [:h1.ap-name name]
        [:span.lk-rule.r {:aria-hidden true}]]
-      [:p.ap-lede n " hand-drawn " (if (= 1 n) "piece" "pieces")
-       " in the portrait maker."]
+      (when (ap/shows? artist :count)
+        [:p.ap-lede n " hand-drawn " (if (= 1 n) "piece" "pieces")
+         " in the portrait maker."])
       (when (seq links)
         [:nav.ap-links {:aria-label (str "Find " name)}
          (for [l links] ^{:key (:link/url l)} [link-button l])])]
-     [:section.ap-section
-      [:h2.lk-cap "Portraits from these pieces"]
-      [:div.ap-examples
-       (map-indexed (fn [i p] ^{:key i} [example artist i p])
-                    (ap/example-portraits id))]]
+     (when (ap/shows? artist :examples)
+       [:section.ap-section
+        [:h2.lk-cap "Portraits from these pieces"]
+        [:div.ap-examples
+         (map-indexed (fn [i p] ^{:key i} [example artist i p])
+                      (ap/example-portraits id))]])
      [:p.ap-foot
       "Every portrait made with these pieces credits " name
       ", on the character page, the share card and the PDF. "
@@ -111,6 +114,8 @@
              :let [n (ap/piece-count a)]]
          ^{:key id}
          [:a.ap-index-card {:href (ap/profile-path a)}
-          [:div.ap-frame [example-img a 1 (str "A portrait from " name "'s pieces")]]
+          (when (ap/shows? a :examples)
+            [:div.ap-frame [example-img a 1 (str "A portrait from " name "'s pieces")]])
           [:span.lk-name name]
-          [:span.ap-index-count n (if (= 1 n) " piece" " pieces")]])]]]))
+          (when (ap/shows? a :count)
+            [:span.ap-index-count n (if (= 1 n) " piece" " pieces")])])]]]))

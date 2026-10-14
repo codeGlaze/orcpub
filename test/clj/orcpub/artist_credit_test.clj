@@ -156,10 +156,10 @@
 (defn- at "`m` minutes after t0." [m] (java.util.Date. (+ (.getTime ^java.util.Date t0) (* m 60000))))
 
 (defn- flush!
-  "Send the credit-change batches that are due on `conn` at `when`; nothing when there is no sender."
-  [conn when]
+  "Send the credit-change batches that are due on `conn` at time `t`; nothing when there is no sender."
+  [conn t]
   (when-let [f (try (requiring-resolve 'orcpub.artist-credit-notices/flush-due!) (catch Exception _ nil))]
-    (with-redefs [orcpub.heartbeat/now (constantly when)] (f conn))))
+    (with-redefs [orcpub.heartbeat/now (constantly t)] (f conn))))
 
 (defmacro ^:private with-emails
   "Run `body` with credit emails collected in `sent` (as [minute before-name after-name]) instead of sent."
@@ -271,3 +271,42 @@
         (orcpub.routes/update-user-preferences (req conn "someone" {:preferred-name "Kaylee"}))
         (orcpub.routes/do-send-password-reset id "someone@example.test" conn {:headers {"host" "x.test"} :scheme :https})
         (is (= "Kaylee" (:first-and-last-name @sent)))))))
+
+(deftest the-artist-turns-their-page-and-its-parts-off
+  (with-conn conn
+    (let [id (add-artist! conn "fusspot" :house-pack)]
+      (testing "the page"
+        (is (:saved (ac/save! conn id {:profile? false})))
+        (is (false? (:artist/profile? (pa/artist-info :house-pack))))
+        (is (nil? (orcpub.dnd.e5.artist-profile/artist-by-slug "fusspot")) "no page")
+        (is (false? (get-in (ac/credit-for-account (d/db conn) id) [:own :artist/profile?]))
+            "the settings page reads the switch back"))
+      (testing "and, with the page on, its parts one by one"
+        (is (:saved (ac/save! conn id {:show-examples? false :show-links? false :show-count? false})))
+        (is (= {:artist/show-examples? false :artist/show-links? false :artist/show-count? false}
+               (select-keys (pa/artist-info :house-pack)
+                            [:artist/show-examples? :artist/show-links? :artist/show-count?])))
+        (is (some? (orcpub.dnd.e5.artist-profile/artist-by-slug "fusspot")) "the page is back")))))
+
+(deftest the-deployment-can-force-a-page-off-but-not-on
+  (with-conn conn
+    (let [id (add-artist! conn "fusspot" :house-pack)]
+      (ac/save! conn id {:profile? false})
+      (with-redefs [branding/portrait-artists {:house-pack {:artist/profile? true}}]
+        @(d/transact conn [{:db/id id :orcpub.user/username "fusspot"}])
+        (ac/refresh! (d/db conn))
+        (is (false? (:artist/profile? (pa/artist-info :house-pack))) "the artist's off stands"))
+      (ac/save! conn id {:profile? true})
+      (with-redefs [branding/portrait-artists {:house-pack {:artist/profile? false}}]
+        @(d/transact conn [{:db/id id :orcpub.user/username "fusspot"}])
+        (ac/refresh! (d/db conn))
+        (is (false? (:artist/profile? (pa/artist-info :house-pack))) "the deployment's off stands")))))
+
+(deftest the-page-switches-arrive-through-the-route
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (with-redefs [orcpub.artist-email/credit-changed! (fn [_])
+                  clojure.core/future-call (fn [f] (f) (delay nil))]
+      (is (= 200 (:status (orcpub.routes/update-artist-credit
+                           (req conn "fusspot" {:name "" :link "" :links [] :profile? false :show-count? true})))))
+      (is (false? (:artist/profile? (pa/artist-info :house-pack))) "what My Account sends is what is saved"))))

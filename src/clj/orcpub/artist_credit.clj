@@ -42,12 +42,26 @@
 (def ^:private link-entry links/link-entry)
 (def ^:private clean-name links/clean-name)
 
+(def page-switches
+  "The parts of their page an artist can switch off, as {edit key credit key}. Stored only when
+   off, so a credit without one shows that part."
+  {:profile? :artist/profile?
+   :show-examples? :artist/show-examples?
+   :show-links? :artist/show-links?
+   :show-count? :artist/show-count?})
+
+(defn- switched-off
+  "{credit key false} for every page switch `m` (keyed by `key-of` each switch) turns off."
+  [m key-of]
+  (into {} (for [[edit-k credit-k] page-switches :when (false? (get m (key-of [edit-k credit-k])))]
+             [credit-k false])))
+
 (defn check
   "Validate an edit submitted from the settings page:
-     {:name \"..\" :link \"..\" :links [{:url \"..\"}]}
-   Each link's icon is worked out from its address.
-   Returns {:credit <clean stored form>} or {:errors {field message}}.
-   A blank name or link means \"use the default\"."
+     {:name \"..\" :link \"..\" :links [{:url \"..\"}] :profile? :show-examples? ..}
+   Each link's icon is worked out from its address. Returns {:credit <clean stored form>} or
+   {:errors {field message}}. A blank name or link means \"use the default\"; a page switch is
+   kept only when false."
   [{:keys [name link links] :as edit}]
   (let [errors (links/edit-errors edit)
         nm (clean-name name)
@@ -55,7 +69,7 @@
         urls (->> links (map #(some-> (:url %) str s/trim)) (remove s/blank?))]
     (if (seq errors)
       {:errors errors}
-      {:credit (cond-> {}
+      {:credit (cond-> (switched-off edit first)
                  nm (assoc :artist/name nm)
                  link (assoc :artist/link link)
                  (seq urls) (assoc :artist/links (mapv link-entry urls)))})))
@@ -74,7 +88,7 @@
                        (filter #(and (string? %) (nil? (url-problem %))))
                        (take max-links))]
         (not-empty
-         (cond-> {}
+         (cond-> (switched-off m second)
            (and nm (<= (count nm) max-name-length)) (assoc :artist/name nm)
            (and (string? link) (nil? (url-problem link))) (assoc :artist/link link)
            ;; icons re-derived from the links, whatever was stored
@@ -100,9 +114,13 @@
             [a credit]))))
 
 (defn effective
-  "Artist edits under deployment config, field by field."
+  "Artist edits under deployment config, field by field; except that either one turning an
+   artist's page off (:artist/profile? false) keeps it off."
   [edits config]
-  (merge-with merge edits config))
+  (reduce-kv (fn [m artist-id e]
+               (cond-> m (false? (:artist/profile? e)) (assoc-in [artist-id :artist/profile?] false)))
+             (merge-with merge edits config)
+             edits))
 
 (defonce ^:private applied-t (atom nil))
 

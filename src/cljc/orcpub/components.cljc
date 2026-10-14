@@ -38,7 +38,7 @@
   "`label` beside a tick box, the two one checkbox control: clicked, or Space or Enter on it, calls
    `on-click`. Checked when `selected?`, dimmed and skipped when `disabled?`."
   [label selected? disabled? on-click]
-  [:div.flex.pointer.checkbox-row
+  [:div.flex.align-items-c.pointer.checkbox-row
    (cond-> {:on-click on-click
             :role "checkbox"
             :aria-checked (str (boolean selected?))
