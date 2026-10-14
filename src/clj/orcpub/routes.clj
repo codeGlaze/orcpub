@@ -856,16 +856,19 @@
 
 (defn update-artist-credit
   "PUT /user/artist-credit -- an artist edits how they're credited. The
-   artist and the admin both hear about every change."
+   artist and the admin both hear about every change, so changes are limited to one a minute
+   (429 with a Retry-After)."
   [{:keys [transit-params db conn identity]}]
   (let [user (find-user-by-username db (:user identity))
         id (:db/id user)]
     (if-not id
       {:status 400 :body {:error "User not found"}}
-      (let [{:keys [errors unchanged saved before artist-id]}
+      (let [{:keys [errors unchanged wait saved before artist-id]}
             (artist-credit/save! conn id (select-keys transit-params [:name :link :links]))]
         (cond
           errors {:status 400 :body {:errors errors}}
+          wait {:status 429 :headers {"Retry-After" (str wait)}
+                :body {:error (str "You saved a change a moment ago. Try again in " wait " seconds.")}}
           unchanged {:status 200 :body (artist-credit-body (d/db conn) id)}
           :else
           (do (future (artist-email/credit-changed! {:artist-id artist-id :user user
