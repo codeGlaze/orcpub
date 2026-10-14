@@ -8,6 +8,7 @@
             [orcpub.dnd.e5.events]
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.views.artist-page :as artist-page]
+            [orcpub.dnd.e5.portrait :as portrait]
             [orcpub.dnd.e5.portrait-assets :as pa]))
 
 (defn- with-page
@@ -69,3 +70,17 @@
         (is (every? #(= "noopener noreferrer nofollow ugc" (.getAttribute % "rel")) links))
         (is (= "xn--exmple-4nf.test" (some-> (.querySelector el "a.ap-link .ap-link-host") .-textContent))
             "the button shows the real domain")))))
+
+(deftest link-marks-are-styled-by-the-stylesheet
+  (testing "a mark's own icon and colour arrive as CSS variables; the rule that uses them is Garden's"
+    (with-page [artist-page/artist-page {:slug "fusspot"}]
+      (fn [el]
+        (let [ico (.querySelector el "a.ap-link .lk-ico")
+              props (map #(.item (.-style ico) %) (range (.-length (.-style ico))))]
+          (is (.contains (.-classList ico) "ap-link-ico"))
+          (is (seq props))
+          (is (every? #(.startsWith % "--") props) (str "only variables inline: " (vec props))))))))
+
+(deftest the-credit-link-to-the-artist-page-is-styled-in-garden
+  (is (not (re-find #"\.lk-about" portrait/drawer-styles))
+      "its rules live in styles/core.clj, not the drawer's style string"))

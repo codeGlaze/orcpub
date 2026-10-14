@@ -1477,18 +1477,6 @@ a.lk-name:active { filter: var(--lk-halo-hot); }
   -webkit-mask-position: center; mask-position: center;
 }
 .lk-mark-text { font: 400 11px/1 'Open Sans', system-ui, sans-serif; }
-/* The profile link: the foot of the credit, mirroring the ART BY label at its
-   head -- same size, same tracking, same dim colour -- so it reads as part of
-   the frame around the names rather than as another name. */
-.lk-about {
-  align-self: center; margin-top: 1px;
-  font: 600 8.5px/1 'Open Sans', system-ui, sans-serif; letter-spacing: 0.16em;
-  text-transform: uppercase; color: var(--lk-dim); text-decoration: none;
-  padding: 3px 2px; transition: color 160ms ease;
-}
-.lk-about-arrow { padding-left: 4px; letter-spacing: 0; }
-.lk-about:hover, .lk-about:focus-visible { color: var(--lk-glow-text); outline: none; }
-.lk-about:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
 .pl-drawer-actions {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
 }
