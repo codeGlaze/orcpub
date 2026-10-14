@@ -83,6 +83,17 @@
                            "licensed; composed from ")
          "the small watermarked JPEG carries the mark like every other drawing")))
 
+;; the JDK's JPEG reader insists on JFIF APP0 straight after start-of-image when it reads metadata
+(deftest a-marked-example-still-decodes-with-its-metadata
+  (with-marked-art
+    #(let [jpeg (pr/render-example-jpeg (portrait) "w")
+           reader (.next (ImageIO/getImageReadersByFormatName "jpeg"))]
+       (is (some? (mark/read-mark jpeg)))
+       (with-open [in (ImageIO/createImageInputStream (ByteArrayInputStream. jpeg))]
+         (.setInput reader in)
+         (is (some? (.getImageMetadata reader 0)) "metadata reads without an APP0 complaint")
+         (is (pos? (.getWidth (.read reader 0))))))))
+
 (deftest strand-files-from-marked-art-are-marked
   (let [dir (.toFile (Files/createTempDirectory "strands" (make-array java.nio.file.attribute.FileAttribute 0)))
         f (io/file dir "bangs" "l9_bangs_01.png")]
