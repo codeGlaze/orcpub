@@ -6,7 +6,6 @@
    Plan and look: docs/design/artist-profiles/PLAN.md."
   (:require [re-frame.core :refer [subscribe]]
             [orcpub.dnd.e5.artist-profile :as ap]
-            [orcpub.dnd.e5.portrait :as portrait]
             [orcpub.dnd.e5.views :as views]))
 
 (defn- shell
@@ -17,9 +16,7 @@
     [views/content-page
      title
      []
-     (into [:div.pl-root.ap-root {:class theme}
-            [:style portrait/drawer-styles]]
-           body)]))
+     (into [:div.pl-root.ap-root {:class theme}] body)]))
 
 (defn- link-button
   "One of the artist's listed links as a button: its mark, if it has one, its label and the domain
@@ -28,10 +25,10 @@
   (when-let [attrs (ap/external-link url)]
     [:a.ap-link attrs
      (when icon
-       ;; this link's own mark and colour, as the variables .ap-link-ico reads (core.clj)
-       [:span.lk-ico.ap-link-ico {:aria-hidden true
-                                  :style (cond-> {"--ap-ico" (str "url(/image/social/" icon ".svg)")}
-                                           color (assoc "--ap-ico-color" color))}])
+       ;; this link's own mark and colour, as the variables the credit's .lk-ico reads
+       [:span.lk-ico {:aria-hidden true
+                      :style (cond-> {"--lk-icon" (str "url(/image/social/" icon ".svg)")}
+                               color (assoc "--lk-mark-color" color))}])
      label
      [:span.ap-link-host (ap/link-host url)]]))
 

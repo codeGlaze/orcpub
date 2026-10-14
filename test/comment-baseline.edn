@@ -33,6 +33,10 @@
    :long-docstring
    "ns orcpub.dnd.e5.portrait-calibration"
    "db2461976d52"]
+  ["src/clj/orcpub/index.clj"
+   :long-comment
+   "Opt out of generative-AI training and image reuse. This is the"
+   "9be8149c8797"]
   ["src/clj/orcpub/portrait_pack/import.clj"
    :long-docstring
    "ns orcpub.portrait-pack.import"

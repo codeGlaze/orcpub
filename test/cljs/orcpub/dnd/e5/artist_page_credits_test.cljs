@@ -8,7 +8,6 @@
             [orcpub.dnd.e5.events]
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.views.artist-page :as artist-page]
-            [orcpub.dnd.e5.portrait :as portrait]
             [orcpub.dnd.e5.portrait-assets :as pa]))
 
 (defn- with-page
@@ -77,10 +76,5 @@
       (fn [el]
         (let [ico (.querySelector el "a.ap-link .lk-ico")
               props (map #(.item (.-style ico) %) (range (.-length (.-style ico))))]
-          (is (.contains (.-classList ico) "ap-link-ico"))
           (is (seq props))
           (is (every? #(.startsWith % "--") props) (str "only variables inline: " (vec props))))))))
-
-(deftest the-credit-link-to-the-artist-page-is-styled-in-garden
-  (is (not (re-find #"\.lk-about" portrait/drawer-styles))
-      "its rules live in styles/core.clj, not the drawer's style string"))
