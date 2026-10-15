@@ -221,9 +221,13 @@
                (edit reloaded (assoc reloaded :character (assoc (ranger 7) :db/id 99))
                      :set-character)))
         "opening another saved character empties it")
-    (is (= [] (:orcpub.dnd.e5/planned-picks
-               (:db (events/new-character-fx {:db at-6} [:new-character]))))
-        "so does a new character")))
+    (let [noticed (assoc at-6 :orcpub.dnd.e5/restore-notice {:restored [{:address [:x]}]}
+                         :orcpub.dnd.e5/open-notice {:held [{:address [:y]}]})
+          fresh (:db (events/new-character-fx {:db noticed} [:new-character]))]
+      (is (= [] (:orcpub.dnd.e5/planned-picks fresh)) "so does a new character")
+      (is (= [nil nil []] ((juxt :orcpub.dnd.e5/restore-notice :orcpub.dnd.e5/open-notice
+                                 :orcpub.dnd.e5/settle-trail) fresh))
+          "and it shows none of the previous character's notices, nor settles against it"))))
 
 (defn- to-level [d n]
   (assoc d :character (event-handlers/set-class-level (:character d) [:set-class-level 0 n])))

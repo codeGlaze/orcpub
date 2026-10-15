@@ -111,8 +111,9 @@
            :else [:button.form-button {:on-click on-click} body])
          {:key label})))
    (when on-close
-     [:i.fa.fa-times.message-close.pointer.main-text-color
-      {:title "Dismiss" :aria-label "Dismiss" :on-click on-close}])
+     [:button.message-close.main-text-color
+      {:type "button" :title "Dismiss" :aria-label "Dismiss" :on-click on-close}
+      [:i.fa.fa-times {:aria-hidden true}]])
    (when (seq details)
      [:div.callout-details
       (for [{:keys [key label aside]} details]

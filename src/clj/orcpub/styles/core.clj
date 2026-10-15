@@ -1257,6 +1257,7 @@
      :text-align :right
      :opacity 0.75}
     [:&:hover {:opacity 1}]]
+   [:button.message-close {:background :none :border 0 :font :inherit :cursor :pointer}]
 
    ;; Warning/alert styles
    [:.bg-warning

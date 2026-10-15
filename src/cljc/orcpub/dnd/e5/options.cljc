@@ -2747,8 +2747,7 @@
                              (fn [selection]
                                (assoc selection
                                       ::t/prereq-fn
-                                      (fn [c] (let [total-levels (character/total-levels c)]
-                                                (>= lvl total-levels)))))
+                                      (total-levels-prereq lvl (:key cls))))
                              selections))
                           (:selections spellcasting-template))
         level-selections (mapcat

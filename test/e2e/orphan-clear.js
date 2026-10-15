@@ -330,6 +330,7 @@ async function attempts(page, id) {
     }
   } catch (e) {
     log('ABORTED:', e.message.split('\n')[0]);
+    process.exitCode = 1;
   } finally {
     await browser.close();
   }

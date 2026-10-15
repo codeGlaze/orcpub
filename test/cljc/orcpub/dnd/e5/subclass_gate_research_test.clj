@@ -149,19 +149,12 @@
     (is (= 1 (char5e/get-prop (build f9) :armored-ac-bonus)))))
 
 ;; ---------------------------------------------------------------------------
-;; S2 — the spell-selections gate (>= lvl total-levels)
+;; S2 — the spell-selections gate: open from the class level the spells are learned at
 ;; ---------------------------------------------------------------------------
 
 (def ^:private test-caster-path [:class :fighter :levels :level-3 :martial-archetype :test-caster])
 
 (defn- tc-entry [n] (class-entry :fighter n :martial-archetype {::entity/key :test-caster}))
-
-(defn- shown-spell-selections [classes]
-  (->> (shown classes)
-       (filter #(= test-caster-path (vec (butlast (::entity/path %)))))
-       (filter #(contains? (::t/tags %) :spells))
-       (map (juxt ::t/key ::t/min))
-       sort))
 
 (defn- gated-spell-selections
   "[lvl selection] for each of the subclass option's spell selections, in build order."
@@ -174,20 +167,31 @@
                                     {:key :fighter :name "Fighter"} test-caster)
         sels (filter #(and (::t/prereq-fn %) (contains? (::t/tags %) :spells)) (::t/selections opt))]
     (map vector lvls sels)))
-(deftest s2-spell-selection-gate-is-inverted
-  ;; S2 CONFIRMED: lvl is the class level the spells are learned at; the gate shows a selection
-  ;; only while total level <= lvl, the reverse of `total-levels-prereq`.
+(defn- known-count
+  "The combined limit the builder shows for the subclass's `sel-key` at fighter level `n`."
+  [n sel-key]
+  (->> (shown [(tc-entry n)])
+       (filter #(= test-caster-path (vec (butlast (::entity/path %)))))
+       (filter #(= sel-key (::t/key %)))
+       entity/combine-selections
+       (map ::t/max)
+       first))
+
+(deftest s2-spell-selection-gate-opens-at-its-class-level
+  ;; S2 FIXED: lvl is the class level the spells are learned at, so a selection opens at that
+  ;; class level and stays open. Inverted, a character past the schedule's last level saw none,
+  ;; and the planned-pick hold took every spell it had learned.
   (let [lvl->pass (fn [n] (set (for [[l s] (gated-spell-selections)
                                      :when ((::t/prereq-fn s) (build [(tc-entry n)]))]
                                  l)))]
     (is (= #{3 4 7 10} (set (map first (gated-spell-selections)))))
-    (is (= #{3 4 7 10} (lvl->pass 3)) "fighter 3 already sees the level 4, 7 and 10 selections")
-    (is (= #{4 7 10} (lvl->pass 4)))
-    (is (= #{7 10} (lvl->pass 7)))
-    (is (= #{} (lvl->pass 12)) "fighter 12 sees none of them")
-    (testing "and the builder shows exactly that"
-      (is (seq (shown-spell-selections [(tc-entry 3)])))
-      (is (empty? (shown-spell-selections [(tc-entry 12)]))))))
+    (is (= #{3} (lvl->pass 3)))
+    (is (= #{3 4} (lvl->pass 4)))
+    (is (= #{3 4 7} (lvl->pass 7)))
+    (is (= #{3 4 7 10} (lvl->pass 12)) "fighter 12 keeps every selection it has reached")
+    (testing "the shared slot adds them up to the spells known at each level"
+      (is (= [2 3 4 4] (map #(known-count % :test-caster-spells-known) [3 4 7 12])))
+      (is (= [2 2 3] (map #(known-count % :test-caster-cantrips-known) [3 7 12]))))))
 
 ;; ---------------------------------------------------------------------------
 ;; S3 — total-levels-prereq vs total-levels-prereq-2

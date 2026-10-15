@@ -102,6 +102,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Magic items:** the Alchemy Jug shows that its liquid can be created once a day.
 - **Characters:** a choice that no longer applied, such as a skill picked for a level since lowered, stayed hidden on the character and still counted on its sheet.
 - **Characters:** deleting or changing a character's first class no longer wipes the other classes' choices.
+- **Homebrew:** a homebrew subclass that casts spells offers each level's spells from that class level on; it offered them too early, and none past its last level.
 
 ### Security
 

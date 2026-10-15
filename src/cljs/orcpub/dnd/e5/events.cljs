@@ -3577,9 +3577,11 @@
              (if (get-in response [:body :sent?]) :sent :failed))))
 
 (defn new-character-fx
-  "Handler for `:new-character`: the default character, with an empty planned hold."
+  "Handler for `:new-character`: the default character, with an empty planned hold and none of
+   the previous character's notices or pending settle."
   [{:keys [db]} _]
-  {:db (assoc db :character default-character ::e5/planned-picks [] ::e5/planned-for nil)
+  {:db (assoc db :character default-character ::e5/planned-picks [] ::e5/planned-for nil
+              ::e5/settle-trail [] ::e5/restore-notice nil ::e5/open-notice nil)
    :dispatch [:route routes/dnd-e5-char-builder-route]})
 
 (reg-event-fx :new-character new-character-fx)
