@@ -674,10 +674,16 @@
        (profs-paragraph armor-profs armor5e/armor-map "Armor")
        (profs-paragraph languages language-map "Language")]))))
 
-(defn damage-str [die die-count mod damage-type]
-  (str (dice/dice-string die-count die mod)
-       (when damage-type
-         (str " " (if (keyword? damage-type) (name damage-type) (str damage-type))))))
+(defn damage-str
+  "A weapon's damage for the PDF, e.g. \"1d8+2 slashing\".
+   Args: die, die-count, mod (the damage modifier), damage-type (keyword or string).
+   Returns a string; \"None\" when there is no die (the Net), with no modifier."
+  [die die-count mod damage-type]
+  (if-not die
+    "None"
+    (str (dice/dice-string die-count die mod)
+         (when damage-type
+           (str " " (if (keyword? damage-type) (name damage-type) (str damage-type)))))))
 
 (defn attacks-and-spellcasting-fields 
   "The attack fields for `built-char`'s equipped weapons, ammunition excluded: the first three

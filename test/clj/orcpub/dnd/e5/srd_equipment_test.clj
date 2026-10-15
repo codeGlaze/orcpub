@@ -1,11 +1,14 @@
 (ns orcpub.dnd.e5.srd-equipment-test
-  "The app's SRD weapons and armor carry the costs and weights of the SRD 5.1 equipment tables,
-   as recorded in the served file resources/public/srd/2014/equipment.edn."
+  "The app's SRD weapons and armor match the SRD 5.1 equipment tables as recorded in the served
+   file resources/public/srd/2014/equipment.edn (costs, weights, ammunition flags), and a weapon
+   with no damage dice (the Net) shows as dealing no damage."
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as s]
             [orcpub.common :as common]
+            [orcpub.dnd.e5.display :as disp]
+            [orcpub.pdf-spec :as pdf]
             [orcpub.dnd.e5.weapons :as weapons]
             [orcpub.dnd.e5.armor :as armor]))
 
@@ -52,6 +55,20 @@
             :when (some #(= :ammunition (:key %)) properties)]
       (testing (name key)
         (is (::weapons/ammunition? (by-key key)) "an SRD ammunition weapon carries the app's ammunition flag")))))
+
+(deftest a-weapon-without-damage-shows-none
+  (let [net (weapons/weapons-map :net)
+        sword (weapons/weapons-map :longsword)
+        attack-text #(disp/attack-description (assoc % :attack-type :ranged :attack-modifier 5 :damage-modifier 2))
+        pdf-damage #(pdf/damage-str (::weapons/damage-die %) (::weapons/damage-die-count %) 2 (::weapons/damage-type %))]
+    (testing "the Net: no dice, so no damage and no modifier"
+      (is (not (s/includes? (attack-text net) "d+")))
+      (is (s/includes? (attack-text net) "no damage"))
+      (is (= "None" (pdf-damage net)))
+      (is (seq (:summary net)) "says what a net does instead"))
+    (testing "a weapon with dice is unchanged"
+      (is (s/includes? (attack-text sword) "1d8+2 slashing damage"))
+      (is (= "1d8+2 slashing" (pdf-damage sword))))))
 
 (deftest armor-carries-srd-cost-and-weight
   (let [srd (by-name (map #(update % :name (fn [n] (s/replace n #"(?i) armor$" ""))) (:armor (equipment-file))))

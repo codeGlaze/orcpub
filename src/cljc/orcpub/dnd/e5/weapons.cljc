@@ -375,6 +375,7 @@
     ::thrown true,
     ::range {::min 5, ::max 15},
     :key :net
+    :summary "restrains a Large or smaller creature it hits"
     ::special? true}
     ;;;;
    ;; Community Designed Weapons
