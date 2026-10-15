@@ -56,6 +56,12 @@
    ;; See orcpub.config/get-secure-headers-config
    })
 
+(defn with-static-caching
+  "The service map with pedestal/static-cache-interceptor first in its chain, ahead of the static
+   file handler."
+  [service-map]
+  (update service-map ::http/interceptors #(into [pedestal/static-cache-interceptor] %)))
+
 (def prod-service-map
   {::http/routes routes/routes
    ::http/type :jetty
@@ -122,6 +128,7 @@
               prod-service-map
               (when (= :dev env) dev-service-map-overrides))
       true http/default-interceptors
+      true with-static-caching
       (= :dev env) http/dev-interceptors)
 
     ;; :token-withdrawals is listed only so Component starts it first; Pedestal

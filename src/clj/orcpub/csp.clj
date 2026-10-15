@@ -26,13 +26,15 @@
    Options: :dev-mode? adds ws://localhost:3449 to connect-src; :extra-connect-src and
    :extra-frame-src are seqs of extra origins (from integrations).
    script-src is 'strict-dynamic' plus the nonce, so only nonced scripts execute. Styles and
-   fonts also allow Google Fonts, images data: and https:; object-src is 'none'; everything
+   fonts are this site's own (inline styles allowed), images data: and https:; object-src is 'none'; everything
    else, including base-uri, frame-ancestors and form-action, is 'self'."
   [nonce & {:keys [dev-mode? extra-connect-src extra-frame-src]}]
   (str "default-src 'self'; "
        "script-src 'strict-dynamic' 'nonce-" nonce "'; "
-       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-       "font-src 'self' https://fonts.gstatic.com; "
+       ;; Open Sans is self-hosted. To serve it from Google Fonts again, add
+       ;; https://fonts.googleapis.com to style-src and https://fonts.gstatic.com to font-src.
+       "style-src 'self' 'unsafe-inline'; "
+       "font-src 'self'; "
        "img-src 'self' data: https:; "
        "connect-src 'self'"
        (when (seq extra-connect-src) (str " " (str/join " " extra-connect-src)))

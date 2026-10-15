@@ -64,9 +64,9 @@
   "CSP that allows same-origin scripts without strict-dynamic.
    Compatible with traditional <script src> tags. Less secure than strict mode."
   {:default-src "'self'"
-   :script-src "'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com"
-   :style-src "'self' 'unsafe-inline' https://fonts.googleapis.com"
-   :font-src "'self' https://fonts.gstatic.com"
+   :script-src "'self' 'unsafe-inline' 'unsafe-eval'"
+   :style-src "'self' 'unsafe-inline'"   ; + https://fonts.googleapis.com to use Google Fonts
+   :font-src "'self'"                    ; + https://fonts.gstatic.com to use Google Fonts
    :img-src "'self' data: https:"
    :object-src "'none'"})
 
