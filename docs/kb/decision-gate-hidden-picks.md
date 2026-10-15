@@ -62,6 +62,13 @@ wrapping ([screenshot](assets/hidden-picks/coherency-start-panel.png)). The sect
 line are underlined text with a click handler: about 20px tall (the guide asks 44px), not reachable
 by keyboard, and no open state, where the notice's Details is a button with an arrow.
 
+**Resolved** (round 16, owner, 2026-10-15; `b452986e` on `fix/hidden-multiclass-skill-pick`): the
+panel keeps its ringed box and Clear, and lists only what its line does not say: one pick is when
+it returns; picks at different levels, a name and "level N"; picks sharing the reason the line
+states, names only ([built](assets/hidden-picks/built-group-panel.png)). The Planned line is a
+button with an arrow and a 44px tap area. The ring on panels is the owner's choice, not a notice
+mark.
+
 A different way to cover exploration, also parked: swappable builds (`plan-next.md`, "Proposal:
 swappable builds"). If it lands, the in-row marker and the class line could retire.
 
