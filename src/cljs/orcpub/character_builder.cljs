@@ -215,18 +215,31 @@
     (str name " (" plugin-source ")")
     name))
 
+(defn planned-toggle
+  "A Planned line: tapping it opens or closes its panel; the arrow says which."
+  [open? text]
+  [:button.planned-toggle.orange {:aria-expanded @open? :on-click #(swap! open? not)}
+   text
+   [:i.fa {:class (if @open? "fa-angle-up" "fa-angle-down") :aria-hidden true}]])
+
 (defn planned-panel
-  "What tapping the Planned marker shows: each held pick, what brings it back, and Clear."
-  [held]
-  [:div.p-10.m-t-5.bg-note.callout-accent-brand.flex {:style {:flex-direction :column :gap "6px"}}
-   (doall
-    (for [{:keys [record] :as h} held]
-      ^{:key (str (:address record))}
-      [:div.flex.align-items-c.justify-cont-s-b.f-s-14.w-100-p {:style {:gap "12px"}}
-       [:span (if (= 1 (count held)) (planned-text/auto-fills h) (planned-text/list-line h))]
-       [:button.link-button.underline.f-w-b.f-s-14
-        {:on-click #(dispatch [:orcpub.dnd.e5/clear-planned (:address record)])}
-        "Clear"]]))])
+  "What tapping a Planned line shows: a row per held pick with Clear, leaving out what the line
+   says (`says-reason?`: the line states the reason they share). docs/kb/ux-guide.md."
+  [held says-reason?]
+  (let [rows (planned-text/panel-rows held says-reason?)
+        {:keys [label aside]} (first rows)]
+    [:div.p-10.m-t-5.bg-note.callout-accent-brand
+     [:div.planned-rows {:class (cond (nil? label) "no-label" (nil? aside) "no-aside")}
+      (doall
+       (for [{:keys [held label aside]} rows
+             :let [address (get-in held [:record :address])]]
+         ^{:key (str address)}
+         [:div.planned-row
+          (when label [:span label])
+          (when aside [:span.planned-aside aside])
+          [:button.link-button.underline.f-w-b.f-s-14
+           {:on-click #(dispatch [:orcpub.dnd.e5/clear-planned address])}
+           "Clear"]]))]]))
 
 (defn class-planned-line
   "Under a class row: its held picks whose sections are not on screen, beside the level picker
@@ -237,10 +250,8 @@
       (let [held @(subscribe [:orcpub.dnd.e5/held-for-class cls])]
         (when (seq held)
           [:div.m-t-5.m-b-5
-           [:span.i.underline.orange.pointer.f-s-16
-            {:on-click #(swap! open? not)}
-            (planned-text/class-line held)]
-           (when @open? [planned-panel held])])))))
+           [planned-toggle open? (planned-text/class-line held)]
+           (when @open? [planned-panel held true])])))))
 
 (defn class-level-selector []
   (let [expanded? (r/atom false)]
@@ -926,12 +937,10 @@
                                                       (str "up to " max))
                                         :else (str "at least " min)))]
               (when (seq held)
-                [:span.i.underline.orange.pointer
-                 {:on-click #(swap! planned-open? not)}
-                 (planned-text/marker held)])]
+                [planned-toggle planned-open? (planned-text/marker held)])]
              (remaining-component max remaining)]
             (when (and (seq held) @planned-open?)
-              [planned-panel held])])
+              [planned-panel held false])])
          body]))))
 
 (defn selection-section-column [option-selectors]

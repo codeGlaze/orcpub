@@ -1298,6 +1298,34 @@
     [:.callout-aside {:color muted-on-dark}]]
    ;; Even spacing above and below the line and the band, so the box opens like a shell.
    [:.callout-compact.flex-wrap {:row-gap "4px !important"}]
+   ;; A Planned line is a button that reads as the italic link it replaces, with a 44px tap area
+   ;; that does not move the row; its panel's rows share the notice's columns. ux-guide.md.
+   [:.planned-toggle
+    {:background :none
+     :border 0
+     :font-family :inherit
+     :font-style :italic
+     :font-size "16px"
+     :line-height :inherit
+     :text-align :left
+     :text-decoration :underline
+     :cursor :pointer
+     :padding "12px 0"
+     :margin "-12px 0"}
+    [:i {:display :inline-block :margin-left "6px" :text-decoration :none}]]
+   [:.planned-rows
+    {:display :grid
+     :grid-template-columns "max-content 1fr auto"
+     :font-size "14px"}
+    [:&.no-label :&.no-aside {:grid-template-columns "1fr auto"}]
+    [:.planned-row {:display :contents}]
+    [:span {:padding "7px 20px 7px 0"}]
+    [:.link-button {:padding "7px 0 7px 16px" :border-radius 0 :font-size "14px"}]
+    [".planned-row + .planned-row > *" {:border-top "1px solid rgba(255, 255, 255, 0.08)"}]
+    [:.planned-aside {:color muted-on-dark}]]
+   [".app.light-theme .planned-rows"
+    [".planned-row + .planned-row > *" {:border-top "1px solid rgba(0, 0, 0, 0.08)"}]
+    [:.planned-aside {:color muted-on-light}]]
    [".callout-compact .callout-details" {:margin "0 -6px 7px -12px" :padding-left "38px"}]
    [".app.light-theme .callout-details"
     {:background "rgba(0, 0, 0, 0.05)"}

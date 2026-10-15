@@ -27,6 +27,10 @@ const STYLES = `${CLASS0} :fighting-style]`;
 const HELD = '[:orcpub.dnd.e5/planned-picks]';
 const heldCount = async page => (await dbAt(page, HELD)).match(/:address/g)?.length || 0;
 const styles = async page => [...(await dbAt(page, STYLES)).matchAll(/:orcpub\.entity\/key :([\w-]+)/g)].map(m => m[1]);
+// The open Planned panel's rows, each as "name|when|Clear" ("" for a cell the line already says).
+const plannedRows = page => page.evaluate(() => [...document.querySelectorAll('.planned-row')]
+  .map(r => { const c = [...r.children].map(e => e.textContent.trim());
+              return (c.length === 3 ? c : r.querySelector('span.planned-aside') ? ['', ...c] : [c[0], '', c[1]]).join('|'); }));
 const draft = page => page.evaluate(() => localStorage.getItem('character') || '');
 
 async function hunter7(page) {
@@ -192,7 +196,8 @@ const flows = {
     check('once: not again under the class row', (await countVisible(page, 'Planned: Archery (L10)')) === 1);
     await clickVisible(page, 'Planned: Archery (L10)');
     await page.waitForTimeout(400);
-    check('tapping it says when Archery returns', await visibleText(page, 'Archery auto-fills at level 10.'));
+    check('tapping it says when Archery returns, without its name again', `${await plannedRows(page)}` === '|auto-fills at level 10|Clear');
+    check('and the line says it is open', (await page.locator('button.planned-toggle[aria-expanded="true"]').count()) === 1);
     await clickVisible(page, 'Clear');
     await page.waitForTimeout(600);
     check('Clear removes the marker', !(await visibleText(page, 'Planned: Archery (L10)')));
@@ -226,11 +231,12 @@ const flows = {
     check('at 6 the class row says what is planned', await visibleText(page, 'Planned: Steel Will (L7)'));
     await clickVisible(page, 'Planned: Steel Will (L7)');
     await page.waitForTimeout(400);
-    check('tapping it says when Steel Will returns', await visibleText(page, 'Steel Will auto-fills at level 7.'));
+    check('tapping it says when Steel Will returns', `${await plannedRows(page)}` === '|auto-fills at level 7|Clear');
     await setLevel(page, 0, 2);
     check('at 2 the line counts both', await visibleText(page, '2 planned at higher levels'));
-    check('Hunter returns at 3', await visibleText(page, 'Hunter · auto-fills at level 3'));
-    check('Steel Will still at 7, not 3', await visibleText(page, 'Steel Will · auto-fills at level 7'));
+    const rows = await plannedRows(page);
+    check('Hunter returns at 3', rows.includes('Hunter|level 3|Clear'), rows);
+    check('Steel Will still at 7, not 3', rows.includes('Steel Will|level 7|Clear'), rows);
     await setLevel(page, 0, 7);
     check('at 7 the line is gone and Steel Will is back',
       !(await visibleText(page, '2 planned at higher levels')) && (await dbAt(page, TACTIC)) === ':steel-will');
@@ -243,7 +249,7 @@ const visibleText = (page, text) => page.evaluate(t => {
     .find(e => e.textContent.trim() === t && e.getBoundingClientRect().width > 0);
   return el ? el.textContent.trim() : null;
 }, text);
-const countVisible = (page, text) => page.evaluate(t => [...document.querySelectorAll('#app span')]
+const countVisible = (page, text) => page.evaluate(t => [...document.querySelectorAll('#app span, #app button')]
   .filter(e => e.textContent.trim() === t && e.getBoundingClientRect().width > 0).length, text);
 const clickVisible = (page, text) => page.evaluate(t => {
   const el = [...document.querySelectorAll('#app span, #app button')]

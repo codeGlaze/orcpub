@@ -36,20 +36,23 @@
         (str "Planned: " name (when w (str " (" w ")"))))
     (str (count held) " planned")))
 
-(defn auto-fills
-  "\"Archery auto-fills at level 10.\""
-  [{:keys [name returns]}]
-  (str name " auto-fills " (when-long returns) "."))
-
 (defn returns-line
   "When a held pick comes back, beside its name in a list: \"auto-fills at level 10\"."
   [{:keys [returns]}]
   (str "auto-fills " (when-long returns)))
 
-(defn list-line
-  "One held pick in a list: \"Archery · auto-fills at level 10\"."
-  [{:keys [name] :as held}]
-  (str name " · " (returns-line held)))
+(defn panel-rows
+  "The rows behind a Planned line, leaving out what the line says: one pick is only when it returns;
+   picks at levels are a name and \"level N\"; picks sharing a reason the line states
+   (`says-reason?`) are names only; others, a name and when. Each row: {:held :label :aside}."
+  [held says-reason?]
+  (let [level (fn [{{:keys [class-level total-level]} :returns}] (or class-level total-level))
+        row (fn [h label aside] {:held h :label label :aside aside})]
+    (cond
+      (= 1 (count held)) [(row (first held) nil (returns-line (first held)))]
+      (every? level held) (map #(row % (:name %) (str "level " (level %))) held)
+      (and says-reason? (apply = (map :returns held))) (map #(row % (:name %) nil) held)
+      :else (map #(row % (:name %) (returns-line %)) held))))
 
 (defn class-line
   "The line under a class row for its held picks: one by name, otherwise a count that says why

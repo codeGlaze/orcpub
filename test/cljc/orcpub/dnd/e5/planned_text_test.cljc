@@ -12,21 +12,35 @@
   (is (= "Planned: Lantern Step" (pt/marker [{:name "Lantern Step" :returns nil}])))
   (is (= "2 planned" (pt/marker [archery stealth]))))
 
-(deftest auto-fills-says-what-brings-it-back
-  (is (= "Archery auto-fills at level 10." (pt/auto-fills archery)))
-  (is (= "Stealth auto-fills if Rogue is your starting class." (pt/auto-fills stealth)))
-  (is (= "Hit Points auto-fills if Rogue is not your starting class."
-         (pt/auto-fills {:name "Hit Points" :returns {:not-first-class :rogue}})))
-  (is (= "Steel Will auto-fills if you choose Hunter."
-         (pt/auto-fills {:name "Steel Will" :returns {:choice [:class :ranger] :name "Hunter"}})))
-  (is (= "Expertise auto-fills if you add Rogue again."
-         (pt/auto-fills {:name "Expertise" :returns {:class :rogue}})))
-  (is (= "Lantern Step auto-fills when it applies again."
-         (pt/auto-fills {:name "Lantern Step" :returns nil}))))
+(deftest the-returns-line-says-what-brings-it-back
+  (is (= "auto-fills at level 10" (pt/returns-line archery)))
+  (is (= "auto-fills if Rogue is your starting class" (pt/returns-line stealth)))
+  (is (= "auto-fills if Rogue is not your starting class"
+         (pt/returns-line {:name "Hit Points" :returns {:not-first-class :rogue}})))
+  (is (= "auto-fills if you choose Hunter"
+         (pt/returns-line {:name "Steel Will" :returns {:choice [:class :ranger] :name "Hunter"}})))
+  (is (= "auto-fills if you add Rogue again"
+         (pt/returns-line {:name "Expertise" :returns {:class :rogue}})))
+  (is (= "auto-fills when it applies again"
+         (pt/returns-line {:name "Lantern Step" :returns nil}))))
 
-(deftest a-list-line-names-it-and-says-when
-  (is (= "Archery · auto-fills at level 10" (pt/list-line archery)))
-  (is (= "auto-fills at level 10" (pt/returns-line archery))))
+(deftest the-panel-rows-leave-out-what-the-line-says
+  (let [acro {:name "Acrobatics" :returns {:first-class :rogue}}
+        steel {:name "Steel Will" :returns {:class-level 7 :class :ranger}}
+        shown (fn [rows] (map (juxt :label :aside) rows))]
+    (is (= [[nil "auto-fills at level 10"]] (shown (pt/panel-rows [archery] true)))
+        "one pick: the line names it, the row says when")
+    (is (= [["Archery" "level 10"] ["Steel Will" "level 7"]]
+           (shown (pt/panel-rows [archery steel] false))))
+    (is (= [["Stealth" nil] ["Acrobatics" nil]] (shown (pt/panel-rows [stealth acro] true)))
+        "a reason the line states is not repeated")
+    (is (= [["Stealth" "auto-fills if Rogue is your starting class"]
+            ["Acrobatics" "auto-fills if Rogue is your starting class"]]
+           (shown (pt/panel-rows [stealth acro] false)))
+        "a line that only counts leaves the reason to the rows")
+    (is (= [["Archery" "auto-fills at level 10"]
+            ["Stealth" "auto-fills if Rogue is your starting class"]]
+           (shown (pt/panel-rows [archery stealth] true))))))
 
 (deftest the-class-line-says-why-when-the-reasons-agree
   (let [steel {:name "Steel Will" :returns {:class-level 7 :class :ranger}}
