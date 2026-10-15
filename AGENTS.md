@@ -307,6 +307,14 @@ click or keystroke does only that. Builds, settles and other derived work run af
 (a follow-up event, or a debounced subscription like `debounced-build-sub`); a failure there logs and
 leaves the edit in place. Measure before adding anything to an edit's path.
 
+**Nothing loads until something on the page needs it; then once, and cached.** Data is fetched by
+the view that shows it, on first use (a subscription that starts its own fetch, like
+`:portrait/artist-overrides`, or a load on opening, like the SRD rules for the Orcacle), never at
+start-up or on a page that does not show it. A new start-up step, or a new request on a page's
+load, needs a written reason. The artist credits were once fetched on every page; nothing noticed
+until an unrelated test logged the 404. `test/page-load-budget` is adding a browser check that fails
+on any request a page's allowance does not list.
+
 ### Comments and Docstrings — MUST FOLLOW
 
 - **Every function gets a docstring, and docstrings are spec:** what it does, its args, what it

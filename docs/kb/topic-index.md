@@ -3420,12 +3420,13 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** action, assets, auto-fills, balanced, box, details, l10, notice, phone, planned, player, png, restored, steel, undo, undone, ux-guide, width
+**topics:** amber, assets, auto-fills, balanced, box, details, l10, notice, phone, planned, player, png, restored, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
 - Size things by the layout, not by their content
 - Nothing hides, and each fact has one home
+- Label only what the player would miss
 - The fallback is the exception
 - Quiet, unless the player must act
 - Mistakes cost nothing
