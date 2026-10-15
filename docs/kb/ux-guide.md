@@ -153,3 +153,7 @@ Newest last. Date, ruling, and what it replaced.
   Back / Next, the homebrew builders' add buttons, Add Option). A bottom add button shows once the
   list has an item. The bottom Back / Next scroll the new page to its top, below the sticky header,
   and move focus to the page title. Replaced top-only buttons (`feature/form-bottom-buttons`).
+- 2026-10-15: small spaces (a table row, an attack line, a PDF box) get a short summary of an
+  effect, a word or two; the full text, SRD wording where there is some, goes in the details or
+  description. First use: the Net ("restrains"; PDF "None (restrains)"; the SRD paragraph in its
+  expanded details). Replaced a sentence-long summary that wrapped to four lines on a phone.
