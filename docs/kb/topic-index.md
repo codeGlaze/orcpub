@@ -90,7 +90,7 @@ _DEPENDENCY_VALIDATION · DEPENDENCY_VALIDATION_
 
 _SESSION-SUMMARY · SESSION SUMMARY_
 
-**topics:** -----, 2026, added, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, session, submenu, tmux
+**topics:** -----, 2026, 3449, added, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
 
 - Final State
 - Key Decisions Made
@@ -1377,7 +1377,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, session, suite, suites, testing-infrastructure
+**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -1513,7 +1513,7 @@ _env-and-auth · env and auth_
 
 _equipment-option-picker · equipment option picker_
 
-**topics:** 12-row, 1541, 1637, 2422px, 306, cap, combobox, control, desktop, dismiss, dom, highlight, mobile, mounted, native, nodes, popover, rows
+**topics:** 12-row, 1541, 1637, 306, cap, combobox, control, desktop, dismiss, dom, highlight, mobile, mounted, native, nodes, popover, rows, throttle
 
 - Measured
 - Why the Popover API and not the hand-rolled popover
@@ -1675,7 +1675,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, csp, external, font, fonts, google, greek, gstatic, hebrew, hosts, latin, latin-ext, licensed, ofl, re-add, sans, subset, subsets
+**topics:** 118, csp, external, font, fonts, greek, hebrew, hosts, latin, latin-ext, licensed, ofl, re-add, redistribution, sandboxed, sans, subset, subsets
 
 - Why
 - What is checked in
@@ -1988,7 +1988,7 @@ _homebrew-reference-web · homebrew reference web_
 
 _homebrew-safety-net · homebrew safety net_
 
-**topics:** aside, cache, conversion, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, notice, realized, realizing, repairs, retries, retry, set-aside, startup, throw, throws, unrealized
+**topics:** aside, cache, conversion, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, realized, realizing, repairs, retries, retry, set-aside, startup, throw, throws, unrealized, watcher
 
 - What it guarantees
 - Startup reads storage and builds nothing
@@ -2339,6 +2339,17 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 - What is not known
 - Revisions
 
+## page-load-budget.md
+
+_page-load-budget · page load budget_
+
+**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, icons, loads, page, parties, portrait, request, sheet, signed, stylesheet, visit
+
+- Why it exists
+- Audit of integration (2026-10-15, b8035afe, production bundle)
+- Cost on a slow phone connection (2026-10-15)
+- Related
+
 ## pdf-form-techniques.md
 
 _pdf-form-techniques · pdf form techniques_
@@ -2470,7 +2481,7 @@ _pedestal-csp-history · pedestal csp history_
 
 _perf-entity-build · perf entity build_
 
-**topics:** 500, browser, click, clock, cyclic, dags, debounce, divergences, frontier, graph, graphs, jvm, node, pre-rewrite, quadratic, sort, subtree, unwired
+**topics:** 500, click, clock, crossover, cyclic, dags, debounce, divergences, frontier, graph, graphs, jvm, node, pre-rewrite, quadratic, sort, subtree, unwired
 
 - 1. Is it actually slow in the browser? Yes.
 - 2. Where the time goes (JVM phase split of apply-options)
@@ -2968,7 +2979,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, roll, sheet, static, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifier, modifiers, play-state, player, positioning, recomputes, roll, sheet, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -3021,7 +3032,7 @@ _share-custom-items-plan · share custom items plan_
 
 _share-links · share links_
 
-**topics:** 404, caps, character, compressed, deletes, encrypted, homebrew, kaylee, link, opening, owner, party, presses, server, share, sharing, token, upload
+**topics:** caps, character, compressed, copy, deletes, encrypted, homebrew, kaylee, link, opening, owner, party, presses, server, share, sharing, token, upload
 
 - What a link carries
 - How it works
@@ -3111,7 +3122,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, crest, figures, flame, head, heading, lining, old-style, opentype, packed, pact, prep, spellbook, tabs, taller
+**topics:** cards, chapter, column, columns, crest, figures, flame, head, heading, level, lining, old-style, packed, pact, prep, spellbook, tabs, taller
 
 - What it prints
 - Why the layout works the way it does
@@ -3294,7 +3305,7 @@ _starting-equipment · starting equipment_
 
 _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
-**topics:** app-code, approach, atom, dispatch, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
+**topics:** approach, atom, dispatch, during, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
 
 - The Problem
 - What Doesn't Work
