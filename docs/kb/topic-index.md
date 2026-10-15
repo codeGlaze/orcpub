@@ -826,7 +826,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, live, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, factories, grant, indirection, live, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -1532,7 +1532,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** 2026-10-15, ammunition, app, armor, attacks, content-naming-style, damage, dash, deals, dexterity, die, difference, net, open5e, spiked, srd, srd-2024-roadmap, weapons
+**topics:** 2026-10-15, 400px, ammunition, attacks, content-naming-style, damage, dash, dexterity, die, difference, longbow, net, open5e, pdf, restrains, spiked, srd, weapons
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -3013,7 +3013,7 @@ _secrets-in-boot-output · secrets in boot output_
 
 _share-bundle-dependency-extraction · share bundle dependency extraction_
 
-**topics:** cljc, cljs, closure, def, direct, edge, extractor, keys, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
+**topics:** cljc, cljs, closure, def, direct, entity, extractor, keys, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
 
 - Why this is not trivial
 - The content types (master list)

@@ -53,6 +53,14 @@ it does. Test: `a-weapon-without-damage-shows-none`. The same test found the Att
 every weapon's damage type ("1d8+2  damage"): `attack-description` read only plain keys, so a
 weapon's `::weapons/damage-type` never showed. Fixed with it.
 
+**Seen in the browser and the PDF** (2026-10-15, local e2e run, Fighter 1 with Net, Longsword
+and Longbow). The Net's long summary wraps to four lines in the weapons table at 400px; a one-word
+summary ("restrains") with the SRD paragraph in the expanded details keeps the row one line. The
+PDF damage box fits "None (restrains)" with little room left. Two existing defects, not the Net's:
+the PDF never prints a "(two-handed)" line for versatile weapons (`attacks-and-spellcasting-fields`
+reads `:versatile`, the weapons hold `::weapons/versatile`), and at 400px the weapons table is
+wider than its container (414px against 380px), cutting the Damage column at the right edge.
+
 Not compared yet: ammunition (SRD gear, not in the equipment file), 2024 equipment (the app has
 none), and the SRD's rules text for special weapons (Net, Lance), which the app holds only as a flag.
 open5e gives the Net `"0"` bludgeoning damage where the SRD prints a dash; the comparison treats it
