@@ -272,8 +272,11 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
 
 ## Plan, in order (owner, 2026-10-14)
 
-1. Entry points, group 1: the Data View link (44px tap target), list button, Repair on the
-   won't-load panel, Fix in Data View on the Missing Content warning.
+1. **Done 2026-10-15:** entry points, group 1 (`test/e2e/data-view-entry-points.js`, 14 checks,
+   each seen to fail). A "Data View" link beside the share line on the owner's character page
+   (44px tap target), a "data view" button in the owner's opened list row, "Repair this character"
+   first on the won't-load panel, "Fix in Data View" on the Missing Content warning (the draft page
+   for an unsaved draft). The page is named Data View (owner, 2026-10-13).
 2. Group 2: the rescue bar on character pages and the builder (mockup first, real states at phone
    width). The builder's bar needs no id: it links to the draft page, `/character-data`.
 3. Group 3: the support email gains the repair link and the stored choices.

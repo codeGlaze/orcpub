@@ -4832,7 +4832,10 @@
 (defn data-view-link
   "The quiet \"Data View\" link beside a character page's share line."
   [id]
-  [:a.orange.underline.f-s-14.m-l-10 {:href (data-view-path id)} "Data View"])
+  [:a.orange.underline.f-s-14.m-l-5
+   {:href (data-view-path id)
+    :style {:display "inline-flex" :align-items "center" :min-height 44 :padding "0 8px"}}
+   "Data View"])
 
 (defn character-load-recovery
   "Shown in place of the character sheet when the character's server data could

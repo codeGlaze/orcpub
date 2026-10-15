@@ -60,9 +60,15 @@ async function openWarning(page) {
     await page.goto(`${BASE}/pages/dnd/5e/characters/${id}`, { waitUntil: 'load' }); await wait(4500); await dismissWhatsNew(page);
     const link = page.locator('#app a', { hasText: /^Data View$/ });
     check("the owner's character page shows a Data View link", await link.isVisible());
-    const copyBox = await page.locator('#app button', { hasText: 'Copy link' }).first().boundingBox({ timeout: 5000 });
+    // The share line shows "Copy link" once shared and "Not shared · Share link" before; either
+    // way it is the element just before the link.
+    const share = await link.evaluate((a) => { const e = a.previousElementSibling; if (!e) return null;
+      const r = e.getBoundingClientRect(); return { text: e.innerText.replace(/\s+/g, ' ').trim(), x: r.x, y: r.y, width: r.width, height: r.height }; });
+    const copyBox = share;
     const linkBox = await link.boundingBox();
-    check('it sits beside Copy link', copyBox && linkBox && Math.abs(copyBox.y - linkBox.y) < 15 && linkBox.x > copyBox.x, JSON.stringify({ copyBox, linkBox }));
+    const mid = (b) => b.y + b.height / 2;
+    check('it sits beside the share line', copyBox && linkBox && Math.abs(mid(copyBox) - mid(linkBox)) < 8 && linkBox.x > copyBox.x, JSON.stringify({ copyBox, linkBox }));
+    check('its tap target is at least 44px tall', linkBox && linkBox.height >= 44, JSON.stringify(linkBox));
     await link.click();
     at = await onDataView(page, dataPath);
     check('the link opens Data View for this character', at.path === dataPath && at.title === 'Data View' && at.rows > 0, JSON.stringify(at));
@@ -75,14 +81,21 @@ async function openWarning(page) {
     at = await onDataView(page, dataPath);
     check("for a saved character, Fix in Data View opens that character's Data View", at.path === dataPath && at.rows > 0, JSON.stringify(at));
 
-    // 2. the character list
-    await page.goto(`${BASE}/pages/dnd/5e/characters`, { waitUntil: 'load' }); await wait(4000); await dismissWhatsNew(page);
-    await page.getByText('open', { exact: true }).last().click(); await wait(2500);
+    // 2. the character list. The row's own "view" button names the character it is.
+    const openRow = async () => {
+      await page.goto(`${BASE}/pages/dnd/5e/characters`, { waitUntil: 'load' }); await wait(4000); await dismissWhatsNew(page);
+      await page.getByText('open', { exact: true }).last().click(); await wait(2500);
+    };
+    await openRow();
+    await page.locator('#app button', { hasText: /^view$/i }).first().click(); await wait(2500);
+    const rowId = (page.url().match(/characters\/(\d+)/) || [])[1];
+    await openRow();
     const listBtn = page.locator('#app button', { hasText: /^data view$/i });
     check("the owner's opened list row has a Data View button", (await listBtn.count()) === 1, `${await listBtn.count()} found`);
     await listBtn.first().click();
-    at = await onDataView(page, dataPath);
-    check('it opens Data View for that character', at.path === dataPath && at.rows > 0, JSON.stringify(at));
+    const rowPath = `/pages/dnd/5e/characters/${rowId}/data`;
+    at = await onDataView(page, rowPath);
+    check('it opens Data View for that row\'s character', !!rowId && at.path === rowPath && at.rows > 0, JSON.stringify({ rowId, ...at }));
 
     // 3. the "couldn't be loaded" panel
     await page.route(`**/dnd/5e/characters/${id}`, r => r.request().resourceType() === 'document' ? r.continue()
@@ -105,7 +118,7 @@ async function openWarning(page) {
     const phone = await (await browser.newContext({ viewport: { width: 412, height: 860 }, userAgent: PHONE_UA, hasTouch: true, isMobile: true, storageState: await ctx.storageState() })).newPage();
     await phone.goto(`${BASE}/pages/dnd/5e/characters/${id}`, { waitUntil: 'load' }); await wait(5000); await dismissWhatsNew(phone);
     const pl = await phone.locator('#app a', { hasText: /^Data View$/ }).boundingBox();
-    check('on a phone the link is on screen', pl && pl.x >= 0 && pl.x + pl.width <= 412, JSON.stringify(pl));
+    check('on a phone the link is on screen, 44px tall', pl && pl.x >= 0 && pl.x + pl.width <= 412 && pl.height >= 44, JSON.stringify(pl));
   } catch (e) {
     check('the run finished', false, e.message.split('\n')[0]);
   } finally {
