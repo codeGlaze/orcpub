@@ -41,6 +41,27 @@ and the labels were adding up (owner, 2026-10-15: "we're overcomplicating the UI
 | The Planned line under a class as the notice box itself: one pick "Planned: Steel Will (L7)" with nothing to open; several "3 planned at higher levels · Details" opening the band; no Clear (round 15). Fixes today's panel saying the pick's name twice ("Planned: Steel Will (L7)", then "Steel Will auto-fills at level 7.") | ![one](assets/hidden-picks/parked-box-one.png) ![several](assets/hidden-picks/parked-box-open.png) | shipped as built to stop stalling the fix (owner, 2026-10-15); the first follow-up if the panel is touched. The section-row marker stays inline text |
 | Several planned picks in the band without Clear: Clear only stops a return, and changing a returned pick is one click, the notice has Undo, a reload forgets the hold | ![band](assets/hidden-picks/parked-band-noclear.png) | as above |
 
+### Agreed in review, not built yet
+
+Both chosen in round 4 (2026-10-04) and missing from this record until 2026-10-15
+([hidden-picks-review-notes.md](hidden-picks-review-notes.md)):
+
+| design | screenshot | status |
+|---|---|---|
+| The "1st" badge: lit on the starting class, faded on every other class; tapping a faded one makes that class the starting class. Owner: "Take it" | ![1st badge](assets/hidden-picks/agreed-first-badge.png) | step 3 of the order of work, "Make starting class"; its OPEN question (a class moved to second that fails multiclass prerequisites) still stands |
+| A "Choices" list of everything the character stores: active, planned, or missing (homebrew not loaded in this browser), with Clear only where it helps, never on its own. Answers the round 3 note: "The one thing I REALLY DO NOT want is for options on a character to be trapped and have no way to be cleared." Today a missing feat cannot be cleared at all. Owner: "Worth pursuing" | ![Choices list](assets/hidden-picks/agreed-choices-ledger.png) | a proposal; not planned |
+
+### Coherency pass on what is built (2026-10-15)
+
+The two notices (restore, on opening) match each other and the guide. The planned panels do not:
+the panel behind the section marker and the class line repeats what its line says ("Planned:
+Steel Will (L7)", then "Steel Will auto-fills at level 7."), lists rows as "Name · auto-fills …"
+where the notice uses the band's two columns, and wears the notice's ring though it is not a notice.
+Worst case, the starting-class panel says "if Rogue is your starting class" on every row, each
+wrapping ([screenshot](assets/hidden-picks/coherency-start-panel.png)). The section marker and class
+line are underlined text with a click handler: about 20px tall (the guide asks 44px), not reachable
+by keyboard, and no open state, where the notice's Details is a button with an arrow.
+
 A different way to cover exploration, also parked: swappable builds (`plan-next.md`, "Proposal:
 swappable builds"). If it lands, the in-row marker and the class line could retire.
 
