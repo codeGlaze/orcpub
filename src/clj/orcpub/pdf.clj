@@ -314,12 +314,42 @@
                      (nil? (.getPage annotation)))]
     (.setPage annotation page)))
 
+(defn font-safe
+  "`text` with whatever `font` has no glyph for made drawable: characters below 0x20
+   dropped, anything else replaced by `?`. Returns `text` itself when the whole string
+   draws, which is every string in the SRD -- the embedded Vollkorn covers Latin-1 and
+   the punctuation the books use, so this only fires on homebrew."
+  [^PDFont font text]
+  (if-not (string? text)
+    text
+    (try
+      (.getStringWidth font text)
+      text
+      (catch Exception _
+        (letfn [(drawable? [s] (try (.getStringWidth font s) true
+                                    (catch Exception _ false)))]
+          (->> (seq (.toArray (.codePoints text)))
+               (keep #(let [c (String. (Character/toChars (int %)))]
+                        (when (>= (int %) 0x20) (if (drawable? c) c "?"))))
+               (apply str)))))))
+
+;; FIELD NOTE (glyph-throw): PDFBox throws IllegalArgumentException on a glyph the
+;; embedded font has not got, and add-magic-item-cards! wraps every sheet in one try.
+;; Unprotected, one homebrew name in a script Vollkorn lacks cost the export the sheet
+;; it was on AND every sheet after it. Measured: 1 page of an expected 4.
+
 (defn string-width
   "Width of `text` in INCHES at `font-size`, not points: the raw glyph width is
-   divided by 72. Callers working in points must convert."
+   divided by 72. Callers working in points must convert. Falls back to `font-safe`
+   for text the font cannot draw, rather than throwing."
   [text ^PDFont font font-size]
   (if text
-    (/ (* (/ (.getStringWidth font (if (keyword? text) (common/safe-name text) text)) 1000.0) font-size) 72)
+    (let [t (if (keyword? text) (common/safe-name text) text)]
+      (/ (* (/ (try (.getStringWidth font t)
+                    (catch Exception _ (.getStringWidth font (font-safe font t))))
+               1000.0)
+            font-size)
+         72))
     0))
 
 ;; ─── Orphaned widgets ────────────────────────────────────────────────────────
@@ -2022,7 +2052,7 @@
     (doseq [i (range (count fitting-lines))]
       (let [line (get fitting-lines i)]
         (.newLineAtOffset cs 0 (- leading))
-        (.showText cs line)))
+        (.showText cs (font-safe font line))))
     (.endText cs)
     (vec (drop max-lines lines))))
 
@@ -2053,7 +2083,8 @@
       (when color
         (apply set-text-color cs color))
       (.newLineAtOffset cs units-x units-y)
-      (.showText cs (if (keyword? text) (common/safe-name text) text))
+      (.showText cs (font-safe font (if (keyword? text)
+                                          (common/safe-name text) text)))
       (when color
         (set-text-color cs 0 0 0))
       (.endText cs))))
