@@ -506,7 +506,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, form, heading, height, jpg, layout, mockup, row, rows, toggle
+**topics:** add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows, toggle
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -552,7 +552,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, extensible, grant, legacy, monster, pool, race, registry, row, rows, shim, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, expertise, extensible, grant, legacy, monster, pool, race, registry, row, rows, shim, widget, widgets
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -685,7 +685,7 @@ _character-naming · character naming_
 
 _character-rescue-console · character rescue console_
 
-**topics:** backup, bundle, colons, defences, depth-aware, empty-keyword-corruption, healer, literals, minified, parties, repair, scan, tool, transit, unpatched, urls, user, xhr
+**topics:** backup, bundle, colons, defences, delimiter, depth-aware, empty-keyword-corruption, healer, minified, parties, repair, scan, tool, transit, unpatched, urls, user, xhr
 
 - 1. When a console tool is the right answer
 - 2. Triage: what the user actually reports
@@ -775,7 +775,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** backend, case-sensitive, div, dom, driver, failures, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -793,7 +793,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _code-comment-style · code comment style_
 
-**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, sentence, symbol
+**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comment, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, symbol
 
 - Docstrings carry the what
 - Inline ;; comments carry the why — but only when it's a constraint
@@ -826,7 +826,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, factories, grant, indirection, live, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, indirection, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -1035,6 +1035,24 @@ _decision-already-held-resolution · decision already held resolution_
 - But the pick outlives its justification
 - Open
 
+## decision-cr-representation.md
+
+_decision-cr-representation · decision cr representation_
+
+**topics:** double, doubles, extras, formatter, formatters, fractional, jvm, literals, lower, monster, moon, notation, numeric, ratio, ratios, representations, sentence, sort
+
+- The short answer
+- What exists — VERIFIED, not recalled
+- The trap, which is latent rather than live
+- The recommendation, and why
+- What changes
+- What does not change
+- Spelled out, site by site
+- Why the current encoding exists - VERIFIED from history
+- Knock-on effects - checked, not assumed
+- Risk
+- What this does not settle
+
 ## decision-gate-hidden-picks.md
 
 _decision-gate-hidden-picks · decision gate hidden picks_
@@ -1056,7 +1074,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, custom, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, vocab
+**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, vocab, vocabulary
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -1087,7 +1105,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, filters, grant, idiomatic, layer-a, mis-attribution, progression, select, spell, two-level, vocabulary
+**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, grant, idiomatic, layer-a, mis-attribution, progression, repeatable, select, spell, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -1103,7 +1121,7 @@ _declarative-grant-vocabulary · declarative grant vocabulary_
 
 _demo-content-tier · demo content tier_
 
-**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, golden, graduation, pack, recipe, tier, variant, viable
+**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, golden, graduation, pack, per-device, recipe, tier, variant, viable
 
 - Goal
 - Builds on the current content model
@@ -1292,7 +1310,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, creep, docstring, docstrings, generator, history, ledger, narrative, operator, plan, session, topic, unindexed
+**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, ledger, narrative, operator, plan, session, stale, topic, unindexed
 
 - What earns a doc
 - Verify, don't remember
@@ -1329,7 +1347,7 @@ _documentation-tenets · documentation tenets_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, breath, coerce, coercion, d32, dropdown, floating-asi, forget, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, primitive, prior, string, widget
+**topics:** asi, breath, caller, coerce, coercion, d32, floating-asi, forget, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, primitive, prior, string, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -1377,7 +1395,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
+**topics:** 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, session, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -2071,7 +2089,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, author, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source
+**topics:** address, answers, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source
 
 - TL;DR
 - The map (VERIFIED)
@@ -2145,11 +2163,23 @@ _library-management-and-conflicts · library management and conflicts_
 - Where the code lives
 - Related
 
+## lifting-mechanics-from-prose.md
+
+_lifting-mechanics-from-prose · lifting mechanics from prose_
+
+**topics:** became, conjure, creature, decision-cr-representation, describe, dodged, exclusion, mechanic, objects, prose, query, reincarnate, second-class, sentence, speed, stayed, table-like, unaligned
+
+- The pattern
+- Instances found so far
+- The rule this should follow
+- Open questions
+- Why it matters beyond tidiness
+
 ## locale-safety.md
 
 _locale-safety · locale safety_
 
-**topics:** 7231, awesome, case-folding, dotless, english, english-locale, etag, formatter, locale, locale-independent, machine, pedestal-csp-history, protocol, regional, spanish, turkish, webjar, windows
+**topics:** 7231, awesome, case-folding, dotless, english, english-locale, etag, locale, locale-independent, machine, pedestal-csp-history, protocol, regional, rfc, spanish, turkish, webjar, windows
 
 - 1. The ETag crash
 - Why only /assets/
@@ -2234,7 +2264,7 @@ _multi-tab-character-contamination · multi tab character contamination_
 
 _my-account-light-theme-white-text · my account light theme white text_
 
-**topics:** 2017, 2026-10-14, account, artist, body, credit, grey, grounds, hard-coded, light, news, predates, theme, themes, unreadable, unticked, username, white
+**topics:** 2017, 2026-10-14, account, artist, body, credit, grey, grounds, hard-coded, light, news, predates, theme, themes, unticked, username, utility, white
 
 
 
@@ -2275,7 +2305,7 @@ _name-to-kw-audit · name to kw audit_
 
 _namespace-architecture · namespace architecture_
 
-**topics:** 148, 2026-09-15, anomalies, constants, crud, csp, handlers, helpers, html5history, http-fx-patterns, namespace, namespaces, nonce, revision, server-rendered, side-effect, specs, split
+**topics:** 148, 2026-09-15, anomalies, constants, corrections, crud, csp, handlers, helpers, html5history, http-fx-patterns, namespace, namespaces, nonce, revision, server-rendered, shell, side-effect
 
 - Directory Layout
 - Entry Points
@@ -2448,7 +2478,7 @@ _pdf-generation-architecture · pdf generation architecture_
 
 _pdf-namespace-family · pdf namespace family_
 
-**topics:** abbreviations, animated-object, beast, caller, card, cards, companion, consumer, coordinate, frame, geometry, group, inches, private, public, spellbook, surface, vars
+**topics:** 540, acroform, beast, card, cards, companion, consumer, coordinate, drawing, frame, group, inches, private, public, spellbook, surface, svg, vars
 
 - Verdict on the starting hypothesis
 - 1. Inventory
@@ -2467,6 +2497,8 @@ _pdf-namespace-family · pdf namespace family_
 - 6. What could not be determined
 - 7. Follow-up, 2026-10-13: the docstrings, and what running it settled
 - 8. Executed, 2026-10-13: steps 1 and 3a, and two corrections to section 4
+- 9. The ten-namespace family is withdrawn, 2026-10-15
+- Why page size makes this concrete rather than cosmetic
 
 ## pedestal-csp-history.md
 
@@ -2636,7 +2668,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** 2026-09-10, beast, card, cards, companion, creature, discarded, druid, familiar, foundry, master, moon, per-form, retainers, sidekicks, summon, taxonomy, wild
+**topics:** 2026-09-10, beast, card, cards, companion, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, shape, sidekicks, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -2665,6 +2697,21 @@ _plan-companions-and-wild-shape · plan companions and wild shape_
 - The SRD boundary decides where this ships
 - Open questions
 - Revisions
+
+## plan-cr-normalization.md
+
+_plan-cr-normalization · plan cr normalization_
+
+**topics:** 1355565, 2026-09-16, 2026-09-17, 417, 5491, 636-monster, 733, acceptance, assertions, crs, decision-cr-representation, druid, formatters, met, monster, per-cr, ratio, step
+
+- Step 0 — characterize
+- Step 1 — the formatter pair
+- Step 2 — convert the data
+- Step 3 — collapse the two formatters
+- Step 4 — the character side
+- Step 5 — spec it
+- Blast radius
+- Out of scope
 
 ## plan-hidden-pick-fix-and-grant-fields.md
 
@@ -2745,7 +2792,7 @@ _proposal-indexeddb-storage · proposal indexeddb storage_
 
 _re-frame-subscribe-refactor · re frame subscribe refactor_
 
-**topics:** apis, autosave, cached, chain, component, direct, event-utils, extract, handler, low, methods, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
+**topics:** apis, autosave, cached, chain, component, direct, event-utils, events, extract, handler, methods, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
 
 - The Problem
 - What actually happens when you subscribe in a handler
@@ -2956,7 +3003,7 @@ _rescued/ui-ux-plan · rescued/ui ux plan_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, bespoke, class-feature, cross-silo, feat, grant, grant-authoring, node, phase, pool, pools, proven, registry, remaining, round-trip, silo, substrate, track
+**topics:** 2026-09-05, bespoke, class-feature, cross-silo, d29, feat, grant, grant-authoring, node, phase, pool, pools, registry, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
@@ -3132,7 +3179,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, crest, figures, flame, head, heading, level, lining, old-style, packed, pact, prep, spellbook, tabs, taller
+**topics:** cards, chapter, column, columns, crest, figures, flame, head, heading, lining, old-style, opentype, packed, pact, prep, spellbook, tabs, taller
 
 - What it prints
 - Why the layout works the way it does
@@ -3182,7 +3229,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions, wild
+**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3202,7 +3249,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 5etools, data, diff, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 5etools, data, edition, editions, magic, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3227,7 +3274,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-data-consumers · srd data consumers_
 
-**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, literal, load-time, magic, mechanics, monsters, spell, srd-2024-roadmap, sub
+**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, load-time, lower-cases, magic, monsters, re-check, spell, srd-2024-roadmap, sub
 
 - The two facts that shape any move
 - Per type
@@ -3256,7 +3303,7 @@ _srd-improvements · srd improvements_
 
 _srd-pdf-as-source-of-record · srd pdf as source of record_
 
-**topics:** 321, 339, carriage, conjuration, delta, dnld, gitea, import, name-level, norm, open5e, school, schools, spells, srd, srd-2024-intergration, srd-5, srd-ogl
+**topics:** 321, 339, carriage, conjuration, delta, dnld, gitea, import, items, name-level, open5e, school, schools, spells, srd, srd-2024-intergration, srd-5, srd-ogl
 
 - Extracting
 - Trap 1: the 5.1 text layer is pathological
@@ -3298,7 +3345,7 @@ _starting-equipment-override-ledger · starting equipment override ledger_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, choice, class, consumption, delta, detach, equipment, expand, export, grants, ingestion, keys, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, class, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -3460,7 +3507,7 @@ _ux-guide · ux guide_
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, number, perf-homebrew-builder-loop, proves, running, synthetic, tells
+**topics:** adjudicating, armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
@@ -3482,7 +3529,7 @@ _verification-discipline · verification discipline_
 
 _views-builders-split · views builders split_
 
-**topics:** 30-line, builder, builders, child, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, race, race-only, shared, split, toolkit, truly, views
+**topics:** builder, builders, child, classes, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, race, race-only, shared, split, toolkit, truly, views
 
 - Context
 - Architecture

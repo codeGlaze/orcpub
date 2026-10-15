@@ -379,3 +379,48 @@ rounds and nothing in the suite read a coordinate before this:
 public point-space change (the rest of step 3, and the real decision); `card` (step 4, when
 beast cards exist); `image` (540 lines, forced by nothing, the cheapest size reduction
 available).
+
+## 9. The ten-namespace family is withdrawn, 2026-10-15
+
+Section 4 proposes ten namespaces. **The owner rejected it, and the rejection is right.** Their
+words: "Are you seriously making 10 files instead of one common file to share between different
+layouts?" With a size rule attached — a 500-line file is fine, a 20-line file is not.
+
+Section 4's own table concedes the cost: the family totals ~3,325 lines against 3,212 today,
+because it *adds* roughly 100 lines of `ns` forms and re-stated `:import`s. It buys blast radius,
+and it was written by a mapping agent as a proposal. It was then relayed to the owner as "the
+roadmap", which it never was.
+
+What the measurement actually supports is **one shared file**. The genuinely shared surface is
+text measurement, SVG and icons, the shape paths, and the coordinate conversion: roughly 450-500
+lines. Section 4 split that across `font` (30), `text` (120), `svg` (190) and `canvas` (200) —
+and the 30-line one is exactly the file the size rule forbids.
+
+`src/clj/orcpub/pdf/canvas.clj` as shipped in PR #63 is **41 lines**, which is the same mistake
+on a smaller scale. The correction is to GROW it into the single shared file, absorbing the
+coordinate converters, text measurement and SVG, not to add four siblings beside it.
+
+Standing after this revision:
+
+| Was | Now |
+| --- | --- |
+| `spell-print.cljc` (45) | **kept and done.** Pure 5e string work, no PDFBox, cljc so the builder can use it. Not a PDF-drawing concern, so not part of the shared drawing file. |
+| `font` + `text` + `svg` + `canvas` (540 across 4 files) | **one file**, growing the existing `pdf/canvas.clj`. Page size becomes a parameter here. |
+| `image` (540) | **still defensible on its own.** A distinct concern — fetch, validate, SSRF guards, embed — and 540 lines is a reasonable file. Not urgent; nothing blocks it. |
+| `card` + `card.sheet` + `card.item` (750 across 3) | **deferred, not planned.** The frame has one consumer. Shape it when a second exists; see the TODO's card-frame section. |
+| `pdf.clj` remainder | the AcroForm character sheet. |
+
+### Why page size makes this concrete rather than cosmetic
+
+The owner wants A5 at minimum, ideally A4 (ISO 216: A4 595x842pt, A5 420x595pt and exactly half
+an A4; Letter 612x792pt).
+
+Measured 2026-10-15: all 8 `resources/fillable-char-sheetstyle-*.pdf` are 612x792pt. The artwork
+is fixed and we only fill fields, so **an A4 character sheet is an artwork task, not a code one.**
+
+Everything we draw ourselves is the part code can reach — cards, card backs, the spellbook,
+overflow pages, all bare `(PDPage.)` at PDFBox's Letter default, with 8.5 and 11 hardcoded (35
+lines of `pdf.clj` flip against a literal `11`, and `in-to-coord-y` is the choke point). One
+shared file with an explicit page size is what makes A4 and A5 possible, which settles the
+coordinate question section 4 left open: the shared file carries page dimensions explicitly,
+so neither 11 inches nor 792 points stays implicit.

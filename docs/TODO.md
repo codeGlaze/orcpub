@@ -354,6 +354,62 @@ Beyond refuse both and are upload-or-nothing.
 
 ---
 
+## Card frame consumers, and page sizes other than US Letter
+
+**Status:** Open, unscheduled. Raised while scoping Extras and during the `pdf.clj` work;
+promoted here 2026-10-15 so they are not stranded on a branch.
+
+### Paper sizes — A4 and A5
+
+The owner wants A5 at minimum, ideally A4. ISO 216: A4 is 210x297mm (595x842pt), A5 is
+148x210mm (420x595pt) and exactly half an A4. US Letter is 216x279mm (612x792pt), so A4 is
+6mm narrower and 18mm taller — a Letter-designed page on A4 scales down or clips.
+
+**Measured 2026-10-15:** all 8 fillable character-sheet templates in `resources/` are
+612x792pt. The artwork is fixed and we only fill form fields, so **an A4 character sheet needs
+A4 artwork, not code.** That is an asset task.
+
+What code *can* reach: everything we draw ourselves — spell cards, item cards, card backs, the
+spellbook, overflow pages. Those are bare `(PDPage.)`, Letter by PDFBox default, and the
+drawing code hardcodes 8.5 and 11 (35 lines of `pdf.clj` flip against a literal `11`). Making
+page size a parameter is the same job as de-duplicating the shared drawing code, not a separate
+one. A 2-up A5 layout on A4 is the natural analogue of our 9-up 2.5x3.5 on Letter.
+
+### Animated objects — the cheapest first card consumer
+
+Animate Objects' five size tiers are a statblock table stored as prose inside the spell
+description (`spells.cljc:200-206`), columns not even aligned. Wants: the table as data, a UI
+element to pick and track a size, and a card per tier.
+
+Five fixed tiers, no CR bound, no pool, no character dependency — the stats are a lookup by
+size and the rest is constant prose. The smallest real consumer of a shared card frame, and a
+better one to prove an extraction against than beast or companion cards, which both need the
+creature query first.
+
+### Encounter -> printable statblock cards
+
+A DM builds an encounter, hits print, gets a condensed sheet of cards, one per monster, to run
+the fight from paper.
+
+- The encounter builder already stores creatures as a keyword reference plus a count
+  (`[:creatures n :creature :monster]`), so statblocks are a lookup away, not a copy to reconcile.
+- Shares the condensed-statblock shape with
+  [plan-npc-statblock-customizer.md](kb/plan-npc-statblock-customizer.md), so the two likely
+  want one card renderer between them.
+
+Needs a plan rather than a ticket: how a many-of-one-monster encounter prints (one card and a
+count, or N cards with per-individual HP boxes), and whether homebrew monsters print from the
+same path as SRD ones.
+
+**Corrected in promotion:** the note on `feature/extras-companions` argued this was cheap
+because "`pdf.clj` already prints two card families off shared machinery". It does not.
+`draw-card-frame!` is `defn-` with exactly one consumer, `print-items`. Spell cards print but
+never touch the frame — they share text and icon code only. So the first of these features is
+the frame's first extraction pressure, not its third user. See
+[pdf-namespace-family.md](kb/pdf-namespace-family.md).
+
+---
+
 ## Declare which settings expect a whole number (`config.clj` startup report)
 
 **Status:** not started. Small, own commit. Found 2026-10-04 while clearing lint warnings.
