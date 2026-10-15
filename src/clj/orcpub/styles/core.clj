@@ -1279,7 +1279,12 @@
                       :min-height :auto
                       :margin "0 0 0 2px"
                       :padding "8px 6px"
-                      :align-self :center}]]
+                      :align-self :center}]
+    ;; The action and the close mark keep the line slim but take 44px taps: an invisible
+    ;; layer around each (the icon's own glyph is its :before, so :after).
+    [:.link-button :.message-close {:position :relative}]
+    [:.link-button:after :.message-close:after
+     {:content "''" :position :absolute :top "-7px" :bottom "-7px" :left 0 :right 0}]]
 
    ;; A callout's :details: a square band across the box with the box showing below it, names
    ;; in one column and when each applies in the next. docs/kb/ux-guide.md (2026-10-14).
@@ -1310,8 +1315,8 @@
      :text-align :left
      :text-decoration :underline
      :cursor :pointer
-     :padding "12px 0"
-     :margin "-12px 0"}
+     :padding "13px 0"
+     :margin "-13px 0"}
     [:i {:display :inline-block :margin-left "6px" :text-decoration :none}]]
    [:.planned-rows
     {:display :grid
@@ -1319,8 +1324,10 @@
      :font-size "14px"}
     [:&.no-label :&.no-aside {:grid-template-columns "1fr auto"}]
     [:.planned-row {:display :contents}]
-    [:span {:padding "7px 20px 7px 0"}]
-    [:.link-button {:padding "7px 0 7px 16px" :border-radius 0 :font-size "14px"}]
+    ;; Each row is a 44px tap target, so a Clear never lands on the row beside it.
+    [:span :.link-button {:display :flex :align-items :center :min-height "44px"}]
+    [:span {:padding "0 20px 0 0"}]
+    [:.link-button {:padding "0 0 0 16px" :border-radius 0 :font-size "14px"}]
     [".planned-row + .planned-row > *" {:border-top "1px solid rgba(255, 255, 255, 0.08)"}]
     [:.planned-aside {:color muted-on-dark}]]
    [".app.light-theme .planned-rows"
