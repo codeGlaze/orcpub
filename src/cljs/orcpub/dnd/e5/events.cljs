@@ -2611,11 +2611,15 @@
 
 (reg-event-fx
  :portrait/load-artists
- (fn [_ _]
-   (go (let [{:keys [status body]} (<! (http/get (url-for-route routes/dnd-e5-portrait-artists-route)))]
-         (when (and (= 200 status) (map? body))
-           (dispatch [:portrait/artists-loaded body]))))
-   {}))
+ ;; Once per page load: the :portrait/artist-overrides subscription asks every time a view that
+ ;; shows a credit first subscribes.
+ (fn [{:keys [db]} _]
+   (if (:portrait/artists-requested? db)
+     {}
+     (do (go (let [{:keys [status body]} (<! (http/get (url-for-route routes/dnd-e5-portrait-artists-route)))]
+               (when (and (= 200 status) (map? body))
+                 (dispatch [:portrait/artists-loaded body]))))
+         {:db (assoc db :portrait/artists-requested? true)}))))
 
 ;; Randomize and Reset touch :layers only — the character's colors persist
 ;; across rerolls, which is what "my character's colors" should mean.

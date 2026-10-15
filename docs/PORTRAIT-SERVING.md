@@ -93,9 +93,10 @@ different jobs and stay where they are.
 ## Artist credits in the browser
 
 Artists can edit their credit, so it never goes into the page's HTML or a script. The browser
-fetches `/dnd/5e/portrait-artists` (JSON, cached a minute) at start, keeps it in app-db under
-`:portrait/artist-overrides`, and every view that shows a credit subscribes to it, so a credit
-drawn before the fetch updates when it lands. Until then the views, and a PDF exported in that
+fetches `/dnd/5e/portrait-artists` (JSON, cached a minute) the first time a view that shows a
+credit subscribes to `:portrait/artist-overrides`, once per page load, and keeps it in app-db
+there; a page with no portrait never asks. Nothing is fetched at start-up: work a page does not
+need stays off the load path. A credit drawn before the fetch updates when it lands. Until then the views, and a PDF exported in that
 moment, show the registry's public default. Server-side pictures and share cards read the same
 merge (`artist-credit/refresh!`) directly.
 

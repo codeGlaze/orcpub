@@ -72,6 +72,19 @@ async function openBuilder(ctx, width) {
   await suppressOverlays(ctx);  // by-hand runs get no preload
   const jsErrors = [];
 
+  // Artist credits are fetched when something on the page shows them, never at start-up.
+  const creditRequests = [];
+  ctx.on('request', r => {
+    if (new URL(r.url()).pathname === '/dnd/5e/portrait-artists') creditRequests.push(r.url());
+  });
+  {
+    const spells = await ctx.newPage();
+    await spells.goto(`${BASE}/pages/dnd/5e/spells`, { waitUntil: 'networkidle' });
+    check('a page with no portrait does not fetch the artist credits',
+          creditRequests.length === 0, `${creditRequests.length} requests`);
+    await spells.close();
+  }
+
   console.log(`\nportrait tab e2e -- ${BASE}\n`);
 
   // ---------- desktop ----------
@@ -230,6 +243,8 @@ async function openBuilder(ctx, width) {
   }
   const before = await layerCount();
   check('a portrait is composed before the switch', before > 0, `${before} layers`);
+  check('the builder fetched the artist credits once, however often the portrait redrew',
+        creditRequests.length === 1, `${creditRequests.length} requests`);
   await shoot('1-portrait-composed.png');
 
   // "New" replaces the character in place and never routes through
