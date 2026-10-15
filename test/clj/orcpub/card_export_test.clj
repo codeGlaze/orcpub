@@ -182,3 +182,75 @@
             (when (seq body)
               (is (> (- bottom (apply max (map :y body))) 6.0)
                   (str "box " box ": body text clears the stamp by at least 6pt")))))))))
+
+
+;; ── Text the embedded font cannot draw ───────────────────────────────────────
+;; Homebrew names are user text. The embedded Vollkorn covers Latin-1 and the
+;; punctuation the SRD uses, but not every script, and PDFBox throws on a glyph it
+;; has not got. add-magic-item-cards! wraps EVERY page in one try, so one bad name on
+;; the first sheet costs the export every sheet after it.
+
+(def ^:private unrenderable-name
+  "Katakana: verified absent from Vollkorn in all three weights."
+  "Blade of \u30c4\u30c4\u30c4")
+
+(def ^:private control-char-name
+  "A BEL and a SOH, the shape of a copy-paste accident."
+  "Wand\u0007of\u0001Fire")
+
+(defn- renamed
+  "The nth real magic item with `nm` for its name, so only the name differs."
+  [n nm]
+  (assoc (nth magic-items/magic-items n) :name nm))
+
+(defn- render-items
+  "Item card pages for `items`, as [page-count extracted-text]."
+  [items]
+  (let [out (ByteArrayOutputStream.)]
+    (with-open [doc (PDDocument.)]
+      (routes/add-magic-item-cards! doc (pdf/load-fonts doc) (pdf/make-image-loader doc)
+                                    (vec items) card-back-logo false false)
+      (.save doc out))
+    (with-open [doc (Loader/loadPDF (.toByteArray out))]
+      [(.getNumberOfPages doc)
+       (.getText (org.apache.pdfbox.text.PDFTextStripper.) doc)])))
+
+(def ^:private last-page-item
+  "Named on the SECOND sheet, so it is only drawn if the first sheet finished."
+  "Wings of Flying")
+
+(defn- two-sheets-with
+  "Ten items: `bad` first, nine real ones after, the last named so it lands on sheet two."
+  [bad]
+  (concat [(renamed 0 bad)]
+          (map #(renamed % (str "Filler Item " %)) (range 1 9))
+          [(renamed 9 last-page-item)]))
+
+(deftest ten-items-make-two-sheets-and-their-backs
+  (testing "the baseline shape this test depends on, with no bad names"
+    (let [[pages text] (render-items (two-sheets-with "Ordinary Name"))]
+      (is (= 4 pages) "two fronts and two backs")
+      (is (str/includes? text last-page-item)))))
+
+(deftest a-name-the-font-cannot-draw-does-not-cost-the-later-sheets
+  (let [[pages text] (render-items (two-sheets-with unrenderable-name))]
+    (is (= 4 pages)
+        "a glyph the font has not got cost the export whole sheets")
+    (is (str/includes? text last-page-item)
+        (str last-page-item " is on sheet two and never got drawn"))))
+
+(deftest control-characters-in-a-name-do-not-cost-the-later-sheets
+  (let [[pages text] (render-items (two-sheets-with control-char-name))]
+    (is (= 4 pages) "control characters in a name cost the export whole sheets")
+    (is (str/includes? text last-page-item)
+        (str last-page-item " is on sheet two and never got drawn"))))
+
+(deftest the-punctuation-the-srd-uses-is-left-alone
+  (testing "Vollkorn draws these, so nothing should replace them"
+    (let [nm "Rod \u2014 of \u201cLordly\u201d Might\u2019s \u2022 Grip"
+          [pages text] (render-items [(renamed 0 nm)])]
+      (is (pos? pages))
+      (doseq [[cp label] [[0x2014 "em dash"] [0x201C "curly open"] [0x2019 "curly apos"]
+                          [0x2022 "bullet"]]]
+        (is (str/includes? text (str (char cp)))
+            (str label " was replaced; Vollkorn has a glyph for it"))))))
