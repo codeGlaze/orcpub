@@ -48,6 +48,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Rules:** clarification notes on rules, in our own words, linked to where Wizards published
   the ruling.
 - **Spells:** conditions named in spell and magic item text link to their page, with a preview.
+- **Characters:** lowering a level or changing a class, subclass or race keeps the choices that depend on it while you edit; change your mind and they come back by themselves, with Undo.
+- **Characters:** the builder shows choices waiting on a higher level beside the level picker, and says when each comes back.
 
 ### Changed
 
@@ -59,6 +61,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** on phones the header, menus and ability buttons fit the screen. (#711)
 - **Server:** blank settings count as unset, Docker secrets work for the login key, and the Windows start scripts find their ports. (#701)
 - **Server:** without email configured, registration is refused unless explicitly allowed. (#712)
+- **Characters:** opening a character whose choices no longer apply removes them, saves the character, and lists them in a notice.
 
 ### Fixed
 
@@ -97,6 +100,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Equipment:** tools, musical instruments, gaming sets and equipment packs show their SRD prices,
   and tools and instruments their weights.
 - **Magic items:** the Alchemy Jug shows that its liquid can be created once a day.
+- **Characters:** a choice that no longer applied, such as a skill picked for a level since lowered, stayed hidden on the character and still counted on its sheet.
+- **Characters:** deleting or changing a character's first class no longer wipes the other classes' choices.
 
 ### Security
 
