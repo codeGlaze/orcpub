@@ -36,11 +36,22 @@ app's classpath, and compares them field by field, matched by `:key`.
 | Spiked Armor and DMV's three firearms are not SRD | settled: live options, kept |
 | `::weapons/subtype` (sword, axe, bow) has no SRD field | settled: kept as a tag for feat and mastery hooks |
 
-**The Net has no damage dice, and the app shows that badly** (found 2026-10-15, computed on the JVM
-with the app's own display functions). The character sheet's damage roll button reads `d+2` and
-tries to roll it, and the PDF prints `d+2` (`pdf_spec.cljc` `damage-str`); a Longsword gives
-`1d8+2` and `1d8+2 slashing`. Proposed, not built: the damage column says "None", no roll button,
-and the details line gives the SRD's effect (a Large or smaller creature hit is restrained).
+**The Net deals no damage, by design** (2026-10-15). SRD 5.1 lists its damage as "—" with
+"Special, thrown (range 5/15)": a Large or smaller creature it hits is restrained (DC 10 Strength
+check or 5 slashing damage to the net to free it), and attacking with it allows one attack per
+action. No die means no ability modifier and no damage riders: Jeremy Crawford, 2015-04-10, on
+Sharpshooter and Hunter's Mark with a net: "The intent is that a net doesn't deal extra damage
+because it's not dealing damage in the first place." In SRD 5.2.1 the Net is gear, not a weapon:
+it replaces one attack, the target makes a Dexterity save, and nothing deals damage. No spiked or
+barbed net exists in either SRD or in open5e.
+
+The app rendered the missing die as `d+2` (sheet roll button, Attacks text, PDF). Fixed on
+`fix/srd-2014-data-defects` (#62), keyed on "no damage die" rather than the name, so homebrew
+weapons get it too: the Attacks text says "no damage", the PDF and the weapons table say "None"
+with no roll button, the details read Damage Type "None", and the Net carries a `:summary` of what
+it does. Test: `a-weapon-without-damage-shows-none`. The same test found the Attacks text dropping
+every weapon's damage type ("1d8+2  damage"): `attack-description` read only plain keys, so a
+weapon's `::weapons/damage-type` never showed. Fixed with it.
 
 Not compared yet: ammunition (SRD gear, not in the equipment file), 2024 equipment (the app has
 none), and the SRD's rules text for special weapons (Net, Lance), which the app holds only as a flag.

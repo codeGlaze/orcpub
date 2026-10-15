@@ -19,6 +19,8 @@
  {:kind :weapons :key :* :field :orcpub.dnd.e5.weapons/link :status :pending
   :reason "Wikipedia links added 2017-04-27 (1cd9abaf8); weapon-details takes the field and never renders it. Drop, or point at the Rules tab"}
 
+ {:kind :weapons :key :* :field :summary :reason "our own one-line note of what a weapon does when its effect is not damage (the Net); shown in the attack rows; not SRD text"}
+
  ;; Display names. Player-visible; keys are unchanged either way (content-naming-style.md).
  {:kind :weapons :key :crossbow-hand :field :name :srd "Crossbow, Hand" :app "Crossbow, hand" :status :pending :reason "Title Case rename pending (content-naming-style.md)"}
  {:kind :weapons :key :crossbow-heavy :field :name :srd "Crossbow, Heavy" :app "Crossbow, heavy" :status :pending :reason "Title Case rename pending (content-naming-style.md)"}
