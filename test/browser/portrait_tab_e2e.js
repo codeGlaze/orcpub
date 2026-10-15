@@ -1,3 +1,4 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // The compositor as a builder tab, in place rather than in the drawer.
 //
 // The drawer and the tab share one draft and one body component, so the
