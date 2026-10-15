@@ -16,13 +16,31 @@ that answer, the change is wrong.
 | no reload warning | browsers show only a generic "changes may not be saved" on reload (custom text ignored), it is unreliable on mobile, and the app already uses it for pending autosave |
 | one path, nothing hides | on open and on every change, a pick that does not apply goes through the same set-aside path and is named. Opening a character with old ghost picks counts as the moment they stopped applying: set aside, the cleaned character saves, a short notice names them. The build-time check is a backstop for the same path, never a silent filter |
 | shared slots: newest first | a slot that loses room sets aside the most recently chosen pick. Stored order is click order (`event_handlers.cljc` `update-multi-select`, `conj`); nothing records which level granted a pick. To keep the other one the player just switches; no "Keep instead" action (round 3) |
-| the marker | the word is **"Planned"** (round 3). Where it shows (review rounds 5-10, 2026-10-11 to 10-13): in an open section's row, "Planned: Archery (L10)"; several become "2 planned", tap to list; it wraps to its own line only when the row cannot fit it. A pick waiting on a level shows once, under its class, beside the level picker ("Planned: Steel Will (L7)", or "3 planned at higher levels"); no headings for sections that are not open yet. Waiting on the starting class: the same line under that class, a fallback until something better. A subrace waiting on its race: OPEN |
-| the notice box | the builder's quiet box, with an icon and a balanced amber gradient ring (amber at both sides, fading through top and bottom), no coloured fill so it never reads as a warning (round 10). Text left, action right, so a long notice wraps its text, not its action |
-| copy | notices are glanceable: a few words, names not keys. **For testing** (owner, 2026-10-08): tapping the marker, one pick "Steel Will auto-fills at level 7.", several "Auto-fills later:" then "Steel Will · level 7" per line; the restore notice "Rogue picks restored (7) · Undo", then "Undone · Redo"; on opening an old character "3 choices don't apply right now · Show details", details listing each with "auto-fills at level 7", or "can't return" when its homebrew is not loaded. "Set aside" is the code's word for the hold, not player copy. Caveat: "auto-fills" reads as permanent while a reload forgets it |
+| the marker | the word is **"Planned"** (round 3). Where it shows (review rounds 5-10, 2026-10-11 to 10-13): in an open section's row, "Planned: Archery (L10)"; several become "2 planned", tap to list; it wraps to its own line only when the row cannot fit it. A pick waiting on a level shows once, under its class, beside the level picker ("Planned: Steel Will (L7)", or "3 planned at higher levels"); no headings for sections that are not open yet. Waiting on the starting class: the same line under that class, a fallback until something better. Picks waiting on a choice (a subrace on its race, a deleted class's picks): no UI of their own (owner, 2026-10-15). Deleting a class or changing race is deliberate, so the player expects those picks gone; if they come back, the restore notice names them. Parked designs below |
+| the notice box | the builder's quiet box, with an icon and a balanced gradient ring (amber at both sides, fading through top and bottom; the light theme's blue on light), no coloured fill so it never reads as a warning (round 10). Text left, action right, so a long notice wraps its text, not its action. A list behind its "Details" is a square band across the box with the box showing below it, names in one column and "auto-fills at level N" in the next (rounds 11-13) |
+| copy | notices are glanceable: a few words, names not keys. **For testing** (owner, 2026-10-08): tapping the marker, one pick "Steel Will auto-fills at level 7.", several "Auto-fills later:" then "Steel Will · level 7" per line; the restore notice "Rogue picks restored (7) · Undo", then "Undone · Redo"; on opening an old character "3 choices don't apply right now · Details" (one label, an arrow that flips; round 11), details listing each with "auto-fills at level 7", or "can't return" when its homebrew is not loaded. "Set aside" is the code's word for the hold, not player copy. Caveat: "auto-fills" reads as permanent while a reload forgets it |
 | order of work | 1. the fix (picks stop applying, set-aside path) · 2. showing set-aside picks · 3. "Make starting class" |
 
 Rounds 3 and 4 are the owner's answers on the mockup review page (2026-10-03/04), stored with the
-page; the summaries above quote them.
+page; the summaries above quote them. Every round, 2 to 14, with its screenshots and the owner's
+notes: https://claude.ai/artifact/EE2wqqFCHKik9g1f3fUdtz (private to the owner).
+
+### Parked designs (2026-10-15)
+
+Designed, reviewed, not built: kept to cherry-pick from. Real builder states at 400px, the new
+parts drawn in (review round 14). Parked because each labels a rare case or a deliberate removal,
+and the labels were adding up (owner, 2026-10-15: "we're overcomplicating the UI").
+
+| design | screenshots | why parked |
+|---|---|---|
+| A deleted class's picks: a faded row where the class was, "2 planned" and **Add back** (adds that class in one tap; the add-class control adds the first class in the list) | ![row](assets/hidden-picks/parked-c-row.png) ![opened](assets/hidden-picks/parked-c-row-open.png) | deleting a class is deliberate; the restore notice covers a change of mind |
+| The same, as a line under "Add Levels in Another Class": "2 planned if you add Rogue again" | ![line](assets/hidden-picks/parked-c-line.png) | as above |
+| A subrace waiting on its race: "Planned: Hill Dwarf" on the race card's own line (the name keeps its size; round 6's attempts squeezed it), tap for a band "Hill Dwarf · auto-fills with Dwarf · Clear" | ![marker](assets/hidden-picks/parked-r-marker.png) ![tapped](assets/hidden-picks/parked-r-marker-open.png) | changing race is deliberate; as above |
+| The same band always showing on the card | ![band](assets/hidden-picks/parked-r-band.png) | as above, and louder |
+| The list behind a Planned marker in the notice's band style (two columns and Clear) instead of the ringed box | ![band](assets/hidden-picks/parked-t-band.png) | only makes the two lists match; take it if the panels are restyled |
+
+A different way to cover exploration, also parked: swappable builds (`plan-next.md`, "Proposal:
+swappable builds"). If it lands, the in-row marker and the class line could retire.
 
 **Dropped:** the repair-log attribute (`::char5e/repair-log`, below). It would store ghost data on
 the character, which the owner ruled out: only the character the player decides on is saved.

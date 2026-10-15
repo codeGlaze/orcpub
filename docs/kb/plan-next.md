@@ -21,7 +21,7 @@ before the next.
 
 | # | step | where | depends on |
 |---|---|---|---|
-| 0 | **Hidden-pick fix.** Researched and designed (owner, 2026-10-03; `decision-gate-hidden-picks.md`, top): one set-aside path, held in memory, newest-first for shared slots, the counter's "N set aside" marker. Three steps: the fix, showing set-aside picks, "Make starting class". Open: a swap that breaks multiclass prerequisites. Tests and e2e research on the branch (`65bb097a`, `babf234f`, `e7239168`); round-2 mockups for review | `fix/hidden-multiclass-skill-pick` (has `integration`, no PR yet) | — |
+| 0 | **Hidden-pick fix.** Designed (`decision-gate-hidden-picks.md`, top) and built: the hold, its hardening, and the UI (U1-U6 in `plan-hidden-pick-fix-and-grant-fields.md`). PR into `integration` next. Still open: "Make starting class", and a swap that breaks multiclass prerequisites | `fix/hidden-multiclass-skill-pick` | — |
 | 1 | Re-record the builder gallery baseline (handoff step 1, 5 minutes) | here | — |
 | 2 | Part B.1: the four fields `grant-selection` drops (`:key`, `:order`, `:prereq-fn`, min≠max) | here | — |
 | 3 | Part B.2: the owner through `compile-grants`; fixes the measured skill-expertise defect | here | 2 |
@@ -394,6 +394,15 @@ Creatures and traits are the other two ordered-list needs. Do this when one of t
 being built; if a fourth shape appears, stop and reassess.
 
 ---
+
+## Proposal: swappable builds (owner, 2026-10-15)
+
+Not planned yet. A character keeps several builds ("try this as a Beast Master" makes a copy); the
+player flips between them, then keeps one. It covers deliberate exploration with one switcher
+instead of labels for each held pick. It does not replace the hold, which covers the quick change
+and change back that nobody makes a build for. Open: storage per character, and which build the
+sheet and PDF use. If it lands, the hidden-pick fix's in-row marker and class line could retire
+(`decision-gate-hidden-picks.md`, "Parked designs").
 
 ## Also open, smaller
 

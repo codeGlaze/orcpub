@@ -152,8 +152,9 @@ The design is decided (`decision-gate-hidden-picks.md`, "Current decision"; `age
 | U5 ✓ `7c2316db` | The restore notice with Undo/Redo; the change record accumulates until shown (C1) | cljs + e2e |
 | U6 ✓ `47ee24ee` | The on-open notice, and saving the character cleaned on open (C2) | cljs + e2e |
 
-Open, mocked later: where picks waiting on a choice show (a subrace waiting on its race, a subclass's
-picks waiting on that subclass, a deleted class's picks).
+Picks waiting on a choice (a subrace waiting on its race, a deleted class's picks): no UI of their
+own (owner, 2026-10-15); a replaced subclass's picks show on the class line. The round 14 designs
+are parked in `decision-gate-hidden-picks.md`. Next: item 6, the PR into `integration`.
 
 ### Step 5, mapped (2026-10-01)
 
