@@ -1238,10 +1238,8 @@
          :on-password (fn [e] (dispatch [:registration-password (event-value e)]))
          :on-confirm (fn [e] (dispatch [:registration-verify-password (event-value e)]))}]
        [:div.m-t-20.t-a-l.m-l-15
-        [:i.fa.fa-check.f-s-14.pointer.checkbox-border
-         {:class (if send-updates? "orange" "white")
-          :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
-        [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name)]]
+        [comps/labeled-checkbox (str "Yes! Send me updates about " branding/app-name) send-updates? false
+         #(dispatch [:registration-send-updates? (not send-updates?)])]]
        ]
       :tail
       [:div
@@ -2818,7 +2816,8 @@
                      ^{:key i}
                      [:span.m-l-5
                       {:on-click #(dispatch [::char/toggle-spell-slot-used id level i])}
-                      (comps/checkbox @(subscribe [::char/spell-slot-used? id level i]) false)]))]])
+                      (comps/checkbox @(subscribe [::char/spell-slot-used? id level i]) false
+                                      (str (common/ordinal level) " level slot " (inc i) " used"))]))]])
               spell-slots))])]))))
 
 (defn dropdown [{:keys [items value on-change]}]
@@ -2928,7 +2927,8 @@
              selected?
              (and (not selected?)
                   (or always-prepared?
-                      (not (pos? remaining-preps))))))])
+                      (not (pos? remaining-preps))))
+             (str (:name spell) " prepared")))])
        (:name spell)]
       [:td.p-l-10.p-b-5.p-t-5 class]
       [:td.p-l-10.p-b-5.p-t-5 (when ability (s/upper-case (common/safe-name ability)))]
@@ -3207,7 +3207,7 @@
            ^{:key i}
            [:span
             {:on-click (toggle-feature-used-handler id units k)}
-            [:span.m-r-5 (comps/checkbox @(subscribe [::char/feature-used? id units k]) false)]])))]
+            [:span.m-r-5 (comps/checkbox @(subscribe [::char/feature-used? id units k]) false (str nm " use " (inc i)))]])))]
 
     ;; larger number of uses
     (let [initial-value @(subscribe [::char/feature-used-count id units nm amount])]
@@ -4768,7 +4768,7 @@
 
 (defn labeled-checkbox [label selected?]
   [:div.flex.align-items-c.pointer.m-b-10
-   (comps/checkbox selected? false)
+   (comps/checkbox selected? false label)
    [:span.m-l-5.f-s-14 label]])
 
 (defn with-help
@@ -5393,7 +5393,7 @@
    [:div
     [:div.flex.align-items-c.m-b-10
      {:on-click (make-event-handler ::mi/toggle-attunement)}
-     (comps/checkbox attunement false)
+     (comps/checkbox attunement false "Attunement")
      [:span.f-s-24.f-w-b.m-l-5 "Attunement"]]
     (when attunement
       [:div
@@ -9120,7 +9120,7 @@
           [:div.m-r-10.pointer.m-b-10
            {:on-click #(do (dispatch [::spells/toggle-spell-list key])
                            (dispatch [:clear-builder-field-error :spell-lists]))}
-           [comps/checkbox (get-in spell [:spell-lists key])]
+           [comps/checkbox (get-in spell [:spell-lists key]) false name]
            [:span.m-l-5 name]])
         @(subscribe [::spells/spellcasting-classes]))]]]))
 
@@ -9977,12 +9977,21 @@
   (when problem {:border-color "#e0602c"}))
 
 (defn- credit-edit
-  "The form's state as the edit the server takes. Blank rows are dropped here
-   so the server's per-row errors line up with what is on screen."
-  [nm link links]
-  {:name (s/trim nm)
-   :link (s/trim link)
-   :links (vec (for [{:keys [url]} links :when (not (s/blank? url))] {:url url}))})
+  "The form's state as the edit the server takes: name, link, the non-blank link rows (so the
+   server's per-row errors line up with what is on screen) and the page `switches`
+   ({:profile? true ..})."
+  [nm link links switches]
+  (merge {:name (s/trim nm)
+          :link (s/trim link)
+          :links (vec (for [{:keys [url]} links :when (not (s/blank? url))] {:url url}))}
+         switches))
+
+(def ^:private page-switches
+  "The artist-page switches on My Account, as [edit key, credit key, label]; the first is the page."
+  [[:profile? :artist/profile? "Show my artist page"]
+   [:show-examples? :artist/show-examples? "Example portraits"]
+   [:show-links? :artist/show-links? "Links"]
+   [:show-count? :artist/show-count? "How many pieces you drew"]])
 
 (defn- credit-preview-info
   "What the credit will look like once saved: the code's default, under the
@@ -10022,12 +10031,13 @@
                next-id (atom 0)
                new-row (fn [url] {:id (swap! next-id inc) :url url})
                links (r/atom (vec (for [l (:artist/links own)] (new-row (:link/url l)))))
+               switches (r/atom (into {} (for [[k ck] page-switches] [k (not (false? (get own ck)))])))
                ;; fields the person has left, keyed :name / :link / row id
                left (r/atom #{})]
     (let [save-status @(subscribe [:account-save-status :artist-credit-save])
           server-errors (:errors save-status)
           clear! #(dispatch [:clear-account-save-status :artist-credit-save])
-          edit (credit-edit @nm @link @links)
+          edit (credit-edit @nm @link @links @switches)
           blocking (artist-links/edit-errors edit)
           locked? (fn [k] (contains? (set locked) k))
           left? #(contains? @left %)
@@ -10091,6 +10101,21 @@
               {:on-click #(swap! links conj (new-row ""))}
               "+ Add a link"])
            [field-note (or (:links server-errors) (:links blocking))]])]
+       [:div.p-5
+        [:div.f-s-14.f-w-b "Your artist page"]
+        [:div.f-s-12.m-b-5.opacity-7
+         "A public page with your name. When it is off, the credit under a portrait still names you"
+         " and links to your site, but not to the page."]
+        (let [[[pk _ plabel] & parts] page-switches]
+          [:div
+           [:div.m-b-5
+            [comps/labeled-checkbox [:span.f-s-14 plabel] (pk @switches) false #(do (swap! switches update pk not) (clear!))]]
+           (when (pk @switches)
+             [:div.m-l-20
+              (for [[k _ label] parts]
+                ^{:key k}
+                [:div.m-b-5
+                 [comps/labeled-checkbox [:span.f-s-14 label] (k @switches) false #(do (swap! switches update k not) (clear!))]])])])]
        [:div.p-5.m-t-5
         [:button.form-button
          {:disabled (boolean (seq blocking))
@@ -10101,7 +10126,8 @@
          "Save credit"]
         [save-note save-status]]
        [:div.f-s-12.p-5.opacity-7
-        "Every change is emailed to you and to the site's admins, so a change you didn't make gets noticed."]])))
+        "Changes are emailed to you and to the site's admins, so a change you didn't make gets noticed:"
+        " the first at once, and any made in the ten minutes after it together in one email."]])))
 
 (defn artist-credit-setting
   "For artist accounts: how their art is credited across the site."
@@ -10619,7 +10645,8 @@
          {:on-click (fn [e]
                       (dispatch [::char/toggle-selected id])
                       (.stopPropagation e))}
-         (comps/checkbox (get selected-ids id) false)]
+         (comps/checkbox (get selected-ids id) false
+                         (str "Select " (or (::char/character-name summary) "this character")))]
         [:div.f-s-24.f-w-600
          [:div.list-character-summary
           [character-summary-2 summary true owner false]]]]
@@ -11223,7 +11250,8 @@
            ^{:key size}
            [:div.p-5.pointer
             {:on-click (make-event-handler ::char/toggle-monster-filter-hidden :size size)}
-            (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :size size])) false)
+            (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :size size])) false
+                            (s/capitalize (common/kw-to-name size)))
             (str " " (s/capitalize (common/kw-to-name size)))])
          @(subscribe [::char/monster-sizes])))]]
    [:div.main-text-color.p-20
@@ -11235,7 +11263,8 @@
            ^{:key type}
            [:div.p-5.pointer
             {:on-click (make-event-handler ::char/toggle-monster-filter-hidden :type type)}
-            (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :type type])) false)
+            (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :type type])) false
+                            (s/capitalize (common/kw-to-name type)))
             (str " " (s/capitalize (common/kw-to-name type)))])
          @(subscribe [::char/monster-types])))]]
    (let [subtypes @(subscribe [::char/monster-subtypes])]
@@ -11248,7 +11277,8 @@
              ^{:key subtype}
              [:div.p-5.pointer
               {:on-click (make-event-handler ::char/toggle-monster-filter-hidden :subtype subtype)}
-              (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :subtype subtype])) false)
+              (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :subtype subtype])) false
+                              (s/capitalize (common/kw-to-name subtype)))
               (str " " (s/capitalize (common/kw-to-name subtype)))])
            subtypes))]])])
 

@@ -68,6 +68,12 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Accounts:** artists get an account with a welcome email and can change how they are credited
   on My Account.
 - **Site:** pages and portrait images ask AI crawlers not to train on them.
+- **Site:** a public page for each portrait artist, with their name, how many pieces they drew,
+  three small watermarked example portraits and the links they listed, and a page listing
+  every artist.
+- **Characters:** the portrait credit links to the artist's page.
+- **Accounts:** artists choose on My Account whether they have a page, and whether it shows
+  their example portraits, their links and how many pieces they drew.
 
 ### Changed
 
@@ -82,9 +88,12 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Accounts:** site emails greet you by your preferred name, or by your username when you have
   not set one, instead of "Hi there".
 - **Characters:** the builder's tab bar wraps on narrow screens.
+- **Site:** tick boxes are rounded and fill with the theme's accent when ticked (amber in the dark
+  theme, blue in the light), and the sign-up page's updates box matches the rest.
 
 ### Fixed
 
+- **Site:** all seven header tabs and their menus fit on a 320px phone.
 - **Homebrew:** a custom element with a blank or symbol-only name no longer breaks the character. (#675)
 - **Homebrew:** older spell names (Leomund's, Tasha's, Bigby's) match in imported packs. (#676)
 - **Homebrew:** a homebrew class's source label no longer corrupts saved spell selections. (#670)
@@ -130,6 +139,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 
 ### Security
 
+- **Site:** other sites a page links to are told only this site's domain, never the page's address.
 - Sign-in, password reset, share links, image fetching and PDF export are hardened against misuse, and secrets are no longer printed at startup.
 
 ## [breaking/2026-stack-modernization]

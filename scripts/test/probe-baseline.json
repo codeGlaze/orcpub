@@ -29,7 +29,7 @@
     "seconds": 34
   },
   "header_menus_e2e.js": {
-    "checks": 30,
+    "checks": 50,
     "seconds": 50
   },
   "homebrew_safety_net_e2e.js": {
@@ -83,6 +83,10 @@
   "portrait_pdf_export_e2e.js": {
     "checks": 11,
     "seconds": 45
+  },
+  "artist_profile_e2e.js": {
+    "checks": 46,
+    "seconds": 60
   },
   "character_heal_e2e.js": {
     "checks": 13,

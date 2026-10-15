@@ -40,7 +40,7 @@ Decisions marked **Proposed** are the owner's to make. Everything else describes
 
 ## 2. Colour
 
-### Named colours (`core.clj:8-21`)
+### Named colours (`core.clj:8-30`)
 
 These are the palette. Use them by name.
 
@@ -56,6 +56,15 @@ These are the palette. Use them by name.
 | `green` | `#70a800` | Conflict resolution: keep existing |
 | `cyan` | `#47eaf8` | Import log; conflict rename option |
 | `purple` | `#8b7ec8` | Conflict skip option |
+| `light-text` | `#363636` | Body text, light theme |
+| `slate-blue` | `#33658A` | The light theme's accent, where the dark theme uses orange |
+| `orange-hairline` | `rgba(240,161,0,0.16)` | Orange border on dark portrait panels |
+| `portrait-panel` | `#131924` | Artist card and tile ground, dark theme; also the drawer's |
+| `portrait-panel-text` | `#ebeef4` | Text on `portrait-panel` |
+| `portrait-frame-glow` / `-edge` | `#202939` / `#0f141c` | The portrait frame's radial gradient |
+
+The portrait names are used by the artist pages' Garden rules (`artist-pages`). The drawer still
+carries the same values as literals in its inline stylesheet (`portrait.cljs`), until it moves.
 
 **The two reds are the model for theme pairs.** The comment at `core.clj:11` explains it: `#9a031e`
 reads about 9:1 on white and about 2:1 on the dark ground. So the dark theme uses
@@ -128,7 +137,7 @@ from the pair captured together: `style-guide/weights.html`.
 Why: at display sizes 700 thickens mixed-case letters and reads plump, while small capitals carry
 700 well and read more easily for it. Found by the owner on the builder's "Race" heading, its info
 sentence and My Content's "Import Option Source"; a survey of every bold element on four pages
-(`survey-weights.js` on `claude/artist-profile-pages`) showed the same split.
+(the `survey-weights` round in `docs/design/capture/`) showed the same split.
 
 **Button contrast: opt-in dark text.** White on the amber button gradient is 2.1:1, under the
 4.5:1 minimum for text; dark text (`#15202e`) is 7.8:1. Long-time dark-theme users know the
@@ -171,7 +180,7 @@ font, and nothing set one, so `.form-button` and the other button classes render
 **Screenshot caveat.** In the Claude Code sandbox, the headless browser can't verify the network
 proxy's certificate for Google Fonts, so pages silently fall back to another sans. Captures made
 before 2026-09-30 (the artist-profile mockups included) show that fallback, not Open Sans.
-`style-guide/capture-bold.js` shows the fix: fetch font requests on the Node side with
+`docs/design/capture/lib.js` holds the fix: it fetches font requests on the Node side with
 `NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt`, which keeps certificate checks on.
 
 Sizes come from the `.f-s-*` utilities (`core.clj:66`): 10, 11, 12, 14, 16, 18, 20, 24, 28, 32,

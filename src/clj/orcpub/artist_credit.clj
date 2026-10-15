@@ -24,6 +24,8 @@
             [datomic.api :as d]
             [orcpub.fork.branding :as branding]
             [orcpub.artist-links :as links]
+            [orcpub.bounded-cache :as bounded-cache]
+            [orcpub.heartbeat :as heartbeat]
             [orcpub.dnd.e5.portrait-assets :as pa]))
 
 ;; ---------------------------------------------------------------------------
@@ -40,12 +42,26 @@
 (def ^:private link-entry links/link-entry)
 (def ^:private clean-name links/clean-name)
 
+(def page-switches
+  "The parts of their page an artist can switch off, as {edit key credit key}. Stored only when
+   off, so a credit without one shows that part."
+  {:profile? :artist/profile?
+   :show-examples? :artist/show-examples?
+   :show-links? :artist/show-links?
+   :show-count? :artist/show-count?})
+
+(defn- switched-off
+  "{credit key false} for every page switch `m` (keyed by `key-of` each switch) turns off."
+  [m key-of]
+  (into {} (for [[edit-k credit-k] page-switches :when (false? (get m (key-of [edit-k credit-k])))]
+             [credit-k false])))
+
 (defn check
   "Validate an edit submitted from the settings page:
-     {:name \"..\" :link \"..\" :links [{:url \"..\"}]}
-   Each link's icon is worked out from its address.
-   Returns {:credit <clean stored form>} or {:errors {field message}}.
-   A blank name or link means \"use the default\"."
+     {:name \"..\" :link \"..\" :links [{:url \"..\"}] :profile? :show-examples? ..}
+   Each link's icon is worked out from its address. Returns {:credit <clean stored form>} or
+   {:errors {field message}}. A blank name or link means \"use the default\"; a page switch is
+   kept only when false."
   [{:keys [name link links] :as edit}]
   (let [errors (links/edit-errors edit)
         nm (clean-name name)
@@ -53,7 +69,7 @@
         urls (->> links (map #(some-> (:url %) str s/trim)) (remove s/blank?))]
     (if (seq errors)
       {:errors errors}
-      {:credit (cond-> {}
+      {:credit (cond-> (switched-off edit first)
                  nm (assoc :artist/name nm)
                  link (assoc :artist/link link)
                  (seq urls) (assoc :artist/links (mapv link-entry urls)))})))
@@ -72,7 +88,7 @@
                        (filter #(and (string? %) (nil? (url-problem %))))
                        (take max-links))]
         (not-empty
-         (cond-> {}
+         (cond-> (switched-off m second)
            (and nm (<= (count nm) max-name-length)) (assoc :artist/name nm)
            (and (string? link) (nil? (url-problem link))) (assoc :artist/link link)
            ;; icons re-derived from the links, whatever was stored
@@ -98,9 +114,13 @@
             [a credit]))))
 
 (defn effective
-  "Artist edits under deployment config, field by field."
+  "Artist edits under deployment config, field by field; except that either one turning an
+   artist's page off (:artist/profile? false) keeps it off."
   [edits config]
-  (merge-with merge edits config))
+  (reduce-kv (fn [m artist-id e]
+               (cond-> m (false? (:artist/profile? e)) (assoc-in [artist-id :artist/profile?] false)))
+             (merge-with merge edits config)
+             edits))
 
 (defonce ^:private applied-t (atom nil))
 
@@ -136,9 +156,30 @@
          :own own
          :locked (set (keys config))}))))
 
+(def save-cap
+  "Changes an account may save in an hour: generous for an artist, a wall against a script."
+  60)
+
+(def ^:private recent-saves
+  "When each account saved its changes in the last hour (ms), by [connection account]."
+  (bounded-cache/cache {:max-entries 1024 :max-age-ms (* 60 60 1000)}))
+
+(defn- saves-this-hour
+  "The times (ms) account `user-id` on `conn` saved a change in the hour before `now` (ms)."
+  [conn user-id now]
+  (filterv #(> % (- now 3600000)) (some-> (bounded-cache/lookup recent-saves [conn user-id]) first)))
+
+(defn- wait-secs
+  "Whole seconds until a save at `now` (ms) is allowed after the hour's saves `times`, or nil when
+   fewer than `save-cap` were made."
+  [times now]
+  (when (>= (count times) save-cap)
+    (long (Math/ceil (/ (- (+ (apply min times) 3600000) now) 1000.0)))))
+
 (defn save!
-  "Save `edit` as the credit for the artist `user-id` speaks for. Returns
-   {:errors ..}, {:unchanged true}, or {:saved credit :before old :artist-id id}."
+  "Save `edit` as the credit for the artist `user-id` speaks for. Returns {:errors ..},
+   {:unchanged true}, {:wait seconds} when the account has saved `save-cap` changes this hour, or
+   {:saved credit :before old :artist-id id}."
   [conn user-id edit]
   (let [db (d/db conn)
         {:orcpub.user/keys [artist artist-credit]}
@@ -146,13 +187,17 @@
     (if-not artist
       {:errors {:account "This account isn't an artist account"}}
       (let [{:keys [errors credit]} (check edit)
-            before (some-> artist-credit read-stored)]
+            before (some-> artist-credit read-stored)
+            now (.getTime ^java.util.Date (heartbeat/now))
+            times (saves-this-hour conn user-id now)]
         (cond
           errors {:errors errors}
           (= (not-empty credit) before) {:unchanged true}
+          (wait-secs times now) {:wait (wait-secs times now)}
           :else
           (do @(d/transact conn [(if (seq credit)
                                    {:db/id user-id :orcpub.user/artist-credit (pr-str credit)}
                                    [:db/retract user-id :orcpub.user/artist-credit artist-credit])])
+              (bounded-cache/put! recent-saves [conn user-id] (conj times now))
               (refresh! (d/db conn))
               {:saved credit :before before :artist-id artist}))))))

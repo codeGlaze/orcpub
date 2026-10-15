@@ -146,3 +146,11 @@ __pycache__/
 
 # strand fields are derived from the real portrait art and travel with it
 resources/public/image/portraits/**/*.strands.png
+
+# Design captures (screenshots, renders) are never committed: write them anywhere under
+# docs/design/ and they stay local. The capture scripts and written plans are tracked as usual.
+docs/design/**/*.png
+docs/design/**/*.jpg
+docs/design/**/*.jpeg
+docs/design/**/*.webp
+docs/design/**/*.gif

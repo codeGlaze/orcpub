@@ -1,0 +1,447 @@
+<title>Artist Pages Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital,wght@1,400;1,600&display=swap">
+<style>
+/* Layout: one reading column of decision sections; each section shows its options side by side, the recommendation marked. Dark-first like the app. */
+:root {
+  --bg: #0e131a; --card: #131924; --card-2: #0f141c; --fg: #ebeef4; --dim: #8b95a5;
+  --accent: #f0a100; --accent-soft: rgba(240,161,0,0.10); --rule: rgba(240,161,0,0.40);
+  --line: rgba(255,255,255,0.08); --btn-bg: rgba(255,255,255,0.03);
+  --good: #6fbf73; --good-soft: rgba(111,191,115,0.12); --no: #e07a6a; --no-soft: rgba(224,122,106,0.12);
+  --frame: radial-gradient(circle at 50% 35%, #202939, #131924 60%, #0f141c);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #ffffff; --card-2: #f4f4f6; --fg: #363636; --dim: #6b7280;
+  --accent: #33658A; --accent-soft: rgba(51,101,138,0.08); --rule: rgba(51,101,138,0.45);
+  --line: rgba(0,0,0,0.10); --btn-bg: #fff;
+  --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); --no: #b0412f; --no-soft: rgba(176,65,47,0.08);
+  color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #ffffff; --card-2: #f4f4f6; --fg: #363636; --dim: #6b7280;
+  --accent: #33658A; --accent-soft: rgba(51,101,138,0.08); --rule: rgba(51,101,138,0.45);
+  --line: rgba(0,0,0,0.10); --btn-bg: #fff;
+  --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); --no: #b0412f; --no-soft: rgba(176,65,47,0.08);
+  color-scheme: light; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+.wrap { max-width: 1060px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 40px; }
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 20px; }
+h1 { margin: 0; font: italic 400 40px/1.1 var(--serif); text-wrap: balance; }
+.sub { margin: 6px 0 0; color: var(--dim); max-width: 62ch; }
+.cap { font: 600 10px/1 var(--sans); letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12px/1 var(--sans); padding: 9px 14px; background: transparent; color: var(--dim); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible, .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+section.q { display: flex; flex-direction: column; gap: 16px; }
+section.q > h2 { margin: 0; font: 700 20px/1.3 var(--sans); text-wrap: balance; }
+section.q > p { margin: 0; max-width: 72ch; color: var(--dim); }
+.rec { display: inline-block; font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+.skip { color: var(--no); background: var(--no-soft); }
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.opt { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.opt.pick { border-color: var(--good); }
+.opt h3 { margin: 0; font: 700 14px/1.3 var(--sans); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.opt p { margin: 0; color: var(--dim); font-size: 13px; }
+
+/* ---- the mock profile page ---- */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabs button { font: 600 13px/1 var(--sans); padding: 10px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--dim); cursor: pointer; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .stage { grid-template-columns: 1fr; } }
+.page { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 26px 24px; display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.page.max { --accent: #ff4fa3; --rule: rgba(255,79,163,.55); }
+.banner { height: 110px; border-radius: 10px; background: repeating-linear-gradient(135deg, #3b1f4a 0 14px, #52285e 14px 28px); display: grid; place-items: center; color: #f3c9ff; font: 600 12px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; }
+.ph { display: flex; flex-direction: column; gap: 10px; text-align: center; align-items: center; }
+.namerow { display: flex; align-items: center; gap: 14px; width: 100%; }
+.namerow::before, .namerow::after { content: ""; flex: 1; height: 1px; }
+.namerow::before { background: linear-gradient(90deg, transparent, var(--rule)); }
+.namerow::after { background: linear-gradient(90deg, var(--rule), transparent); }
+.name { font: italic 400 36px/1.1 var(--serif); margin: 0; }
+.page.max .name { font: 700 34px/1.1 'Comic Sans MS', 'Chalkboard SE', var(--sans); font-style: normal; color: var(--accent); }
+.lede { color: var(--dim); font-size: 13px; margin: 0; max-width: 52ch; }
+.bio { font-size: 13.5px; margin: 0; max-width: 52ch; }
+.status { font: 600 11px/1 var(--sans); padding: 6px 10px; border-radius: 99px; background: var(--good-soft); color: var(--good); }
+.links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.lk { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 5px; border: 1px solid var(--line); background: var(--btn-bg); font: 600 12px/1 var(--sans); letter-spacing: .03em; }
+.lk .host { font-weight: 400; color: var(--dim); font-size: 11px; }
+.lk.feature { width: min(100%, 360px); justify-content: center; padding: 13px 16px; border-color: var(--accent); background: var(--accent-soft); font-size: 13px; }
+.ico { width: 14px; height: 14px; display: inline-block; flex: none; }
+.ico svg { width: 100%; height: 100%; display: block; }
+.txtmark { font: 700 9px/14px var(--sans); width: 14px; height: 14px; border-radius: 3px; text-align: center; background: var(--line); color: var(--dim); }
+.stack { display: flex; flex-direction: column; gap: 8px; width: min(100%, 360px); }
+.stack .lk { justify-content: space-between; }
+.sec { display: flex; flex-direction: column; gap: 12px; }
+.sec > .cap { text-align: center; }
+.ex { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.frame { aspect-ratio: 4/5; max-width: 100%; border-radius: 10px; background: var(--frame); border: 1px solid var(--line); overflow: hidden; position: relative; }
+.frame svg { width: 100%; height: 100%; display: block; }
+.pin { position: absolute; top: 6px; right: 6px; font: 700 9px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; background: rgba(0,0,0,.55); color: #ffd98a; padding: 4px 6px; border-radius: 4px; }
+.figcap { text-align: center; font: italic 12px/1.4 var(--serif); color: var(--dim); margin-top: 6px; }
+.pieces { display: grid; grid-template-columns: 80px 1fr; gap: 8px 12px; align-items: center; }
+.pieces .lab { font: 600 12px/1.2 var(--sans); }
+.pieces .lab span { display: block; font-weight: 400; font-size: 11px; color: var(--dim); }
+.tiles { display: flex; flex-wrap: wrap; gap: 6px; }
+.tile { width: 52px; height: 52px; border-radius: 6px; background: #0e131a; border: 1px solid var(--line); overflow: hidden; }
+.tile svg { width: 100%; height: 100%; display: block; }
+.foot { border-top: 1px solid var(--line); padding-top: 14px; text-align: center; color: var(--dim); font-size: 12px; margin: 0; }
+.embed { border: 1px dashed var(--no); border-radius: 10px; aspect-ratio: 16/9; display: grid; place-items: center; color: var(--no); font: 600 12px/1.4 var(--sans); text-align: center; padding: 12px; background: var(--no-soft); }
+.gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.gallery div { aspect-ratio: 1; border-radius: 6px; background: repeating-linear-gradient(45deg, var(--card-2) 0 6px, var(--line) 6px 12px); }
+.guest { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--dim); }
+.flag { font: 700 9px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--no); background: var(--no-soft); padding: 4px 6px; border-radius: 4px; margin-left: 6px; vertical-align: 2px; }
+
+aside.notes { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+aside.notes h3 { margin: 0; font: 700 14px/1.3 var(--sans); }
+aside.notes ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+aside.notes li::marker { color: var(--accent); }
+
+/* ---- rein-in table ---- */
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 13px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 10px/1.2 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+tr:last-child td { border-bottom: 0; }
+td.y { color: var(--good); font-weight: 600; white-space: nowrap; }
+td.n { color: var(--no); font-weight: 600; white-space: nowrap; }
+td.m { color: var(--accent); font-weight: 600; white-space: nowrap; }
+
+/* ---- credit strips ---- */
+.charrow { display: flex; gap: 14px; align-items: flex-start; }
+.thumb { width: 100px; flex: none; }
+.thumb .frame { width: 100px; height: 125px; }
+.tc { width: 100px; margin-top: 5px; font: 500 9px/1.3 var(--sans); color: var(--dim); letter-spacing: .02em; }
+.tc u { text-decoration: underline; text-underline-offset: 2px; color: var(--fg); }
+.tc .about { display: block; margin-top: 3px; font: 600 7.5px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.tc .glyph { display: inline-grid; place-items: center; width: 12px; height: 12px; margin-left: 3px; border: 1px solid var(--line); border-radius: 50%; font-size: 8px; line-height: 1; color: var(--dim); vertical-align: -2px; }
+.fakesheet { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding-top: 6px; }
+.fakesheet i { display: block; height: 8px; border-radius: 3px; background: var(--line); }
+.drawer-credit { display: flex; flex-direction: column; gap: 7px; align-items: stretch; text-align: center; padding: 8px 0; }
+.drawer-credit .namerow .n { font: italic 14px/1 var(--serif); text-decoration: underline dotted var(--rule); text-underline-offset: 3px; }
+.drawer-credit .namerow { gap: 10px; }
+.about-line { font: 600 8.5px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+
+/* ---- off states ---- */
+.acct { display: flex; flex-direction: column; gap: 12px; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.row small { display: block; color: var(--dim); font-size: 12px; }
+.switch { width: 38px; height: 22px; border-radius: 99px; background: var(--good); position: relative; flex: none; border: 0; cursor: pointer; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 19px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left 160ms ease; }
+.switch[aria-checked="false"] { background: var(--line); }
+.switch[aria-checked="false"]::after { left: 3px; }
+.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.miniweb { border: 1px solid var(--line); border-radius: 8px; padding: 22px 14px; text-align: center; background: var(--card-2); font-size: 13px; color: var(--dim); }
+.miniweb b { display: block; color: var(--fg); font: italic 400 20px/1.2 var(--serif); margin-bottom: 6px; }
+.url { font: 12px/1 ui-monospace, Menlo, monospace; color: var(--dim); }
+@media (prefers-reduced-motion: reduce) { .switch::after { transition: none; } }
+@media (max-width: 560px) {
+  h1 { font-size: 30px; } .page { padding: 20px 14px; } .name { font-size: 28px; }
+  .ex { gap: 6px; } .pieces { grid-template-columns: 1fr; } .gallery { grid-template-columns: repeat(3, 1fr); }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="cap">OrcPub · portrait artists</div>
+      <h1>Artist pages, and what to add</h1>
+      <p class="sub">The page as built today, a recommended Carrd-style version, and the everything version, followed by the four open questions from the last round. Anything not named Fusspot is placeholder data.</p>
+    </div>
+    <div class="seg" role="group" aria-label="Preview theme">
+      <button type="button" id="th-dark" data-t="dark">Dark</button>
+      <button type="button" id="th-light" data-t="light">Light</button>
+    </div>
+  </header>
+
+  <section class="q" id="page">
+    <h2>1. How much of a Carrd should it be?</h2>
+    <p>You're right that artists will expect to link whatever they like. My suggestion is to let them link anything, but keep the page itself the site's own: their words and links in our layout, rather than a page they design. The tabs show the three levels.</p>
+    <div class="tabs" role="tablist" aria-label="Profile version">
+      <button type="button" role="tab" id="tab-built" aria-controls="v-built" aria-selected="false">Built now</button>
+      <button type="button" role="tab" id="tab-rec" aria-controls="v-rec" aria-selected="true">Recommended</button>
+      <button type="button" role="tab" id="tab-max" aria-controls="v-max" aria-selected="false">Everything</button>
+    </div>
+
+    <div class="stage">
+      <div>
+        <!-- BUILT NOW -->
+        <article class="page" id="v-built" role="tabpanel" aria-labelledby="tab-built" hidden>
+          <div class="ph">
+            <div class="cap">Portrait artist</div>
+            <div class="namerow"><h3 class="name">Fusspot</h3></div>
+            <p class="lede">28 hand-drawn pieces in the portrait maker.</p>
+            <div class="links">
+              <span class="lk"><span class="ico" style="color:#f0a100" data-icon="site"></span>Site</span>
+              <span class="lk"><span class="ico" style="color:#9146ff" data-icon="twitch"></span>Twitch</span>
+            </div>
+          </div>
+          <div class="sec"><div class="cap">Portraits from these pieces</div>
+            <div class="ex" data-portraits="0,1,2"></div></div>
+          <div class="sec"><div class="cap">Pieces</div><div class="pieces" data-pieces="full"></div></div>
+          <p class="foot">Every portrait made with these pieces credits Fusspot, on the character page, the share card and the PDF.</p>
+        </article>
+
+        <!-- RECOMMENDED -->
+        <article class="page" id="v-rec" role="tabpanel" aria-labelledby="tab-rec">
+          <div class="ph">
+            <div class="cap">Portrait artist</div>
+            <div class="namerow"><h3 class="name">Example Artist</h3></div>
+            <span class="status">Commissions open</span>
+            <p class="bio">Placeholder bio, plain text, up to 280 characters. Draws fantasy busts, streams line work on weeknights, and takes commissions twice a year.</p>
+            <span class="lk feature"><span class="ico" style="color:var(--accent)" data-icon="site"></span>Commission info <span class="host">example-artist.test</span></span>
+            <div class="stack">
+              <span class="lk"><span><span class="ico" style="color:#9146ff" data-icon="twitch"></span> Twitch</span><span class="host">twitch.tv</span></span>
+              <span class="lk"><span><span class="ico" style="color:#1185fe" data-icon="bluesky"></span> Bluesky</span><span class="host">bsky.app</span></span>
+              <span class="lk"><span><span class="ico" style="color:#ff5e5b" data-icon="kofi"></span> Ko-fi</span><span class="host">ko-fi.com</span></span>
+              <span class="lk"><span><span class="txtmark">P</span> Patreon</span><span class="host">patreon.com</span></span>
+              <span class="lk"><span><span class="txtmark">S</span> Print shop</span><span class="host">shop.example.test</span></span>
+            </div>
+          </div>
+          <div class="sec"><div class="cap">Portraits the artist picked</div>
+            <div class="ex" data-portraits="3,4,5" data-pinned="1"></div></div>
+          <div class="sec"><div class="cap">Pieces</div><div class="pieces" data-pieces="crop"></div></div>
+          <p class="foot">Every portrait made with these pieces credits Example Artist, on the character page, the share card and the PDF.</p>
+        </article>
+
+        <!-- EVERYTHING -->
+        <article class="page max" id="v-max" role="tabpanel" aria-labelledby="tab-max" hidden>
+          <div class="banner">Uploaded banner <span class="flag">skip</span></div>
+          <div class="ph">
+            <div class="namerow"><h3 class="name">Example Artist</h3></div>
+            <div><span class="flag">skip</span> <span class="lede">custom accent colour and font</span></div>
+            <span class="status">Commissions open</span>
+            <p class="bio">A longer bio with <b>rich text</b>, emoji, several paragraphs, and a list of every convention this artist attends this year…</p>
+            <div class="links">
+              <span class="lk">Site</span><span class="lk">Twitch</span><span class="lk">Bluesky</span><span class="lk">Ko-fi</span><span class="lk">Patreon</span><span class="lk">Instagram</span><span class="lk">TikTok</span><span class="lk">YouTube</span><span class="lk">itch.io</span><span class="lk">ArtStation</span><span class="lk">Tumblr</span><span class="lk">Discord</span><span class="lk">Etsy</span><span class="lk">Newsletter</span><span class="lk">bit.ly/xyz</span><span class="lk">Email me</span>
+            </div>
+            <div class="lede">16 links, including a link shortener and an email address <span class="flag">cap it</span></div>
+          </div>
+          <div class="embed">Embedded Twitch player<br>Live stream playing inside the page <span class="flag">skip</span></div>
+          <div class="sec"><div class="cap">Gallery of other work <span class="flag">skip</span></div>
+            <div class="gallery"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div></div>
+          <div class="sec"><div class="cap">Guestbook <span class="flag">skip</span></div>
+            <div class="guest">“love your work!!” · “commission me pls” · a visitor-written message nobody has moderated</div></div>
+        </article>
+      </div>
+
+      <aside class="notes" aria-live="polite">
+        <h3 id="notes-title">Recommended</h3>
+        <ul id="notes-list"></ul>
+      </aside>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Option</th><th>Call</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Links to anything on the web</td><td class="y">Yes</td><td>Any http(s) address, in the artist's order. Known services get their mark; the rest get a letter badge and the site's name.</td></tr>
+          <tr><td>How many links</td><td class="m">Up to 8</td><td>That's enough for a site, a stream, socials, a shop and a tip jar. Past that, the page becomes a list nobody reads, and the featured link stops standing out.</td></tr>
+          <tr><td>One featured link</td><td class="y">Yes</td><td>Should be the same link as the credit's name link, so the artist sets where people go in one place.</td></tr>
+          <tr><td>Show the destination under each link</td><td class="y">Yes</td><td>Visitors can see where they're going. Cheap protection if an account is ever taken over.</td></tr>
+          <tr><td>Short bio</td><td class="y">Yes</td><td>Plain text, 280 characters. No formatting means nothing to sanitise.</td></tr>
+          <tr><td>Commission status</td><td class="y">Yes</td><td>Open, closed or waitlist. It's the thing people most want to know, and it doesn't take a link.</td></tr>
+          <tr><td>Artist picks the showcase portraits</td><td class="y">Yes</td><td>Three pinned portraits, built in the compositor with their pieces. Seeded examples remain the fallback.</td></tr>
+          <tr><td>Email, phone, link shorteners</td><td class="n">No</td><td>You said no email on the page. Shorteners hide where a link goes.</td></tr>
+          <tr><td>Uploaded images (banner, gallery)</td><td class="n">No</td><td>We'd be hosting and moderating other art. Their site already does that.</td></tr>
+          <tr><td>Custom colours and fonts</td><td class="n">No</td><td>The page is ours, and it has to read in both themes. Their own site is where they style things.</td></tr>
+          <tr><td>Embedded players</td><td class="n">Later, maybe</td><td>The site's security policy blocks third-party frames. A plain "Live now" badge could come later.</td></tr>
+          <tr><td>Guestbook or comments</td><td class="n">No</td><td>It needs moderation and gives a way to harass someone.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="q" id="credit">
+    <h2>2. Where the profile link goes in a credit</h2>
+    <p>The name always goes to the artist's own link. These are the options for a second, quieter link to the page. The drawer version is already built.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3>Drawer <span class="rec">Built</span></h3>
+        <div class="drawer-credit">
+          <div class="cap">Art by</div>
+          <div class="namerow"><span class="ico" style="color:#f0a100" data-icon="site"></span><span class="n">Fusspot</span><span class="ico" style="color:#9146ff" data-icon="twitch"></span></div>
+          <div class="about-line">About the artist ›</div>
+        </div>
+        <p>Matches the ART BY label, so it reads as part of the credit, not as another name.</p>
+      </div>
+      <div class="opt">
+        <h3>Character page · as now</h3>
+        <div class="charrow"><div class="thumb"><div class="frame" data-one="0"></div><div class="tc">Art: <u>Fusspot</u></div></div><div class="fakesheet"><i></i><i style="width:70%"></i><i style="width:85%"></i></div></div>
+        <p>No way to reach the page from here.</p>
+      </div>
+      <div class="opt pick">
+        <h3>Character page · second line <span class="rec">Suggest</span></h3>
+        <div class="charrow"><div class="thumb"><div class="frame" data-one="0"></div><div class="tc">Art: <u>Fusspot</u><span class="about">About the artist ›</span></div></div><div class="fakesheet"><i></i><i style="width:70%"></i><i style="width:85%"></i></div></div>
+        <p>Same wording as the drawer, one extra line of 7.5px caps. Readers see this credit more than any other.</p>
+      </div>
+      <div class="opt">
+        <h3>Character page · small mark</h3>
+        <div class="charrow"><div class="thumb"><div class="frame" data-one="0"></div><div class="tc">Art: <u>Fusspot</u><span class="glyph" title="About the artist">i</span></div></div><div class="fakesheet"><i></i><i style="width:70%"></i><i style="width:85%"></i></div></div>
+        <p>No height added, but a lone circled “i” is easy to miss and hard to tap on a phone.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="q" id="tiles">
+    <h2>3. Piece tiles</h2>
+    <p>Every piece is drawn in the full portrait frame, so small pieces are specks in their tiles. Cropping each tile to the piece fixes that.</p>
+    <div class="opts">
+      <div class="opt"><h3>Full frame · as now</h3><div class="pieces" data-pieces="full" data-only="nose,mouth,eyes"></div><p>Faithful to the art, but the nose and mouth tiles look empty.</p></div>
+      <div class="opt pick"><h3>Cropped to the piece <span class="rec">Suggest</span></h3><div class="pieces" data-pieces="crop" data-only="nose,mouth,eyes"></div><p>Needs a bounding box per piece: measured once when the art is imported and stored in the registry, so the page never has to load images to measure them.</p></div>
+    </div>
+  </section>
+
+  <section class="q" id="showcase">
+    <h2>4. Who picks the example portraits</h2>
+    <div class="opts">
+      <div class="opt"><h3>Seeded · as now</h3><div class="ex" data-portraits="0,1,2"></div><p>Automatic and stable, but the colours are whatever the seed picks.</p></div>
+      <div class="opt pick"><h3>Artist pins three <span class="rec">Suggest</span></h3><div class="ex" data-portraits="3,4,5" data-pinned="1"></div><p>Built in the portrait compositor they already know, then pinned to the page. Falls back to seeded examples until they pin any.</p></div>
+    </div>
+  </section>
+
+  <section class="q" id="off">
+    <h2>5. When the artist turns the page off</h2>
+    <p>The switch is built on this branch; the account screen that flips it belongs to the artist-account work. Try the switch.</p>
+    <div class="opts">
+      <div class="opt">
+        <h3>In their account</h3>
+        <div class="acct">
+          <div class="row"><div>Public profile page<small class="url" id="acct-url">/artists/example-artist</small></div><button type="button" class="switch" id="profile-switch" role="switch" aria-checked="true" aria-label="Public profile page"></button></div>
+          <div class="row"><div>Credit name links to<small>Commission info · example-artist.test</small></div></div>
+        </div>
+        <p id="switch-note">On: the page is public, and credits show “About the artist”.</p>
+      </div>
+      <div class="opt pick">
+        <h3>A visitor sees · plain 404 <span class="rec">Built</span></h3>
+        <div class="miniweb" id="off-404"><b>Example Artist</b>Page and links as in section 1.</div>
+        <p>Off looks exactly like an address nobody has, so it doesn't confirm the person is registered.</p>
+      </div>
+      <div class="opt">
+        <h3>A visitor sees · “private” note</h3>
+        <div class="miniweb" id="off-note"><b>Example Artist</b>Page and links as in section 1.</div>
+        <p>Friendlier, but it confirms the name, which is what someone hiding from a harasser doesn't want.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const ICONS = {
+    site: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.2A10.8 10.8 0 1 0 12 22.8 10.8 10.8 0 0 0 12 1.2Zm0 2.6a8.2 8.2 0 1 1 0 16.4 8.2 8.2 0 0 1 0-16.4Z"/><path d="M2.6 10.7h18.8v2.6H2.6z"/><path d="M12 1.2c2.7 2.5 4.2 6.3 4.2 10.8S14.7 20.3 12 22.8c-2.7-2.5-4.2-6.3-4.2-10.8S9.3 3.7 12 1.2Zm0 4.1c-1.2 1.9-1.9 4.3-1.9 6.7s.7 4.8 1.9 6.7c1.2-1.9 1.9-4.3 1.9-6.7s-.7-4.8-1.9-6.7Z"/></svg>',
+    twitch: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>',
+    bluesky: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.815 2.736 3.713 3.66 6.383 3.364-3.912.58-7.387 2.005-2.83 7.078 5.013 5.19 6.87-1.113 7.823-4.308.953 3.195 2.05 9.271 7.733 4.308 4.267-4.308 1.172-6.498-2.74-7.078 2.67.297 5.568-.628 6.383-3.364.246-.828.624-5.79.624-6.478 0-.69-.139-1.861-.902-2.206-.659-.298-1.664-.62-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8z"/></svg>',
+    kofi: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.05c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.011 3.976-4.011 3.976s-.121.119-.31.023c-.076-.057-.108-.09-.108-.09-.443-.441-3.368-3.049-4.034-3.954-.709-.965-1.041-2.7-.091-3.71.951-1.01 3.005-1.086 4.363.407 0 0 1.565-1.782 3.468-.963 1.904.82 1.832 3.011.723 4.311zm6.173.478c-.928.116-1.682.028-1.682.028V7.284h1.77s1.971.551 1.971 2.638c0 1.913-.985 2.667-2.059 3.015z"/></svg>'
+  };
+  document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = ICONS[el.dataset.icon] || ''; });
+
+  // Placeholder busts: generic shapes, not anyone's art.
+  const LOOKS = [
+    { hair: '#d98a2b', skin: '#e8c69c', shirt: '#5c3a6e', eye: '#3aa7a0', style: 0 },
+    { hair: '#8f2f3a', skin: '#c99871', shirt: '#4a3a5c', eye: '#3d8f7a', style: 1 },
+    { hair: '#e0a040', skin: '#f2ddc4', shirt: '#4d6fa8', eye: '#5c5cb8', style: 2 },
+    { hair: '#2b1a10', skin: '#a06e46', shirt: '#3d5a3a', eye: '#8a7c3f', style: 1 },
+    { hair: '#e6d58f', skin: '#f2ddc4', shirt: '#8f5c3a', eye: '#3d5c8f', style: 0 },
+    { hair: '#7a3f6e', skin: '#c0a693', shirt: '#2c2c2c', eye: '#4a8a8a', style: 2 }
+  ];
+  function bust(l) {
+    const back = [
+      '<path d="M70 70 Q55 150 62 200 L82 200 Q78 140 88 90Z" fill="' + l.hair + '"/>',
+      '<path d="M140 60 Q175 70 170 110 Q150 100 146 80Z" fill="' + l.hair + '"/>',
+      '<path d="M58 95 Q60 60 100 52 Q140 60 142 95 Q146 150 132 170 L68 170 Q54 150 58 95Z" fill="' + l.hair + '" opacity=".85"/>'
+    ][l.style];
+    const front = [
+      '<path d="M66 92 Q72 52 104 50 Q134 54 136 86 Q116 70 96 78 Q80 84 66 92Z" fill="' + l.hair + '"/>',
+      '<path d="M66 88 Q74 50 106 50 Q136 56 134 90 Q124 76 110 74 Q108 86 96 88 Q86 76 66 88Z" fill="' + l.hair + '"/>',
+      '<path d="M64 96 Q64 52 100 48 Q138 52 138 96 L128 80 L120 94 L110 78 L100 92 L90 78 L80 94 L72 82Z" fill="' + l.hair + '"/>'
+    ][l.style];
+    return '<svg viewBox="0 0 200 250" aria-hidden="true">' + back +
+      '<path d="M40 250 Q44 196 100 188 Q156 196 160 250Z" fill="' + l.shirt + '"/>' +
+      '<rect x="88" y="150" width="24" height="44" rx="8" fill="' + l.skin + '"/>' +
+      '<ellipse cx="100" cy="112" rx="36" ry="46" fill="' + l.skin + '"/>' +
+      '<ellipse cx="64" cy="116" rx="6" ry="11" fill="' + l.skin + '"/><ellipse cx="136" cy="116" rx="6" ry="11" fill="' + l.skin + '"/>' +
+      '<circle cx="86" cy="114" r="4" fill="' + l.eye + '"/><circle cx="114" cy="114" r="4" fill="' + l.eye + '"/>' +
+      '<path d="M100 118 L96 132 L102 132" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="2"/>' +
+      '<path d="M90 142 Q100 149 110 142" fill="none" stroke="#b0504a" stroke-width="3" stroke-linecap="round"/>' +
+      front + '</svg>';
+  }
+  document.querySelectorAll('[data-portraits]').forEach(el => {
+    const pinned = el.dataset.pinned;
+    el.innerHTML = el.dataset.portraits.split(',').map(i =>
+      '<div><div class="frame">' + bust(LOOKS[+i]) + (pinned ? '<span class="pin">Pinned</span>' : '') + '</div></div>').join('');
+  });
+  document.querySelectorAll('[data-one]').forEach(el => { el.innerHTML = bust(LOOKS[+el.dataset.one]); });
+
+  // Piece tiles. Full frame draws the piece where it sits in a 200x250 portrait;
+  // cropped zooms the viewBox to the piece's own bounds.
+  const PIECES = {
+    head:  { label: 'Head', n: 3, box: [58, 60, 84, 106], draw: c => '<ellipse cx="100" cy="112" rx="36" ry="46" fill="' + c + '"/><rect x="88" y="150" width="24" height="14" fill="' + c + '"/>' },
+    hair:  { label: 'Hair front', n: 3, box: [60, 44, 82, 56], draw: c => '<path d="M64 96 Q64 52 100 48 Q138 52 138 96 L128 80 L120 94 L110 78 L100 92 L90 78 L80 94 L72 82Z" fill="' + c + '"/>' },
+    eyes:  { label: 'Eyes', n: 3, box: [78, 106, 44, 16], draw: c => '<circle cx="86" cy="114" r="4" fill="' + c + '"/><circle cx="114" cy="114" r="4" fill="' + c + '"/>' },
+    mouth: { label: 'Mouth', n: 3, box: [86, 136, 28, 16], draw: c => '<path d="M90 142 Q100 149 110 142" fill="none" stroke="' + c + '" stroke-width="3" stroke-linecap="round"/>' },
+    nose:  { label: 'Nose', n: 3, box: [92, 114, 14, 22], draw: c => '<path d="M100 118 L96 132 L102 132" fill="none" stroke="' + c + '" stroke-width="2.5"/>' }
+  };
+  const TINT = { head: '#f2e6d0', hair: '#e6a040', eyes: '#78d0d4', mouth: '#c85c5c', nose: '#d67c5c' };
+  document.querySelectorAll('[data-pieces]').forEach(el => {
+    const crop = el.dataset.pieces === 'crop';
+    const only = el.dataset.only ? el.dataset.only.split(',') : Object.keys(PIECES);
+    el.innerHTML = only.map(k => {
+      const p = PIECES[k];
+      const [x, y, w, h] = p.box, pad = Math.max(w, h) * 0.18, s = Math.max(w, h) + pad * 2;
+      const vb = crop ? [x + w / 2 - s / 2, y + h / 2 - s / 2, s, s].join(' ') : '0 0 200 250';
+      const tile = '<div class="tile"><svg viewBox="' + vb + '" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' + p.draw(TINT[k]) + '</svg></div>';
+      return '<div class="lab">' + p.label + '<span>' + p.n + ' pieces</span></div><div class="tiles">' + tile.repeat(p.n) + '</div>';
+    }).join('');
+  });
+
+  // Tabs and their notes.
+  const NOTES = {
+    built: ['Name, piece count, the artist’s listed links.', 'Three seeded example portraits.', 'Every piece, full frame.', 'No bio, status or extra links yet.'],
+    rec: ['Any http(s) link, up to 8, in the artist’s order.', 'One featured link: the same one the credit’s name uses.', 'The destination host shown under each link.', 'Plain-text bio (280) and commission status.', 'Three portraits the artist pinned.', 'Tiles cropped to each piece.', 'Still our layout, type and both themes.'],
+    max: ['Everything a Carrd would allow.', 'Red tags mark what I’d leave out, and why is in the table below.', 'Uploads, custom styling, embeds and a guestbook all make the site host, style or moderate things it doesn’t need to.']
+  };
+  const TITLES = { built: 'Built now', rec: 'Recommended', max: 'Everything' };
+  const tabs = ['built', 'rec', 'max'];
+  function show(k) {
+    tabs.forEach(t => {
+      document.getElementById('tab-' + t).setAttribute('aria-selected', t === k);
+      document.getElementById('v-' + t).hidden = t !== k;
+    });
+    document.getElementById('notes-title').textContent = TITLES[k];
+    document.getElementById('notes-list').innerHTML = NOTES[k].map(n => '<li>' + n + '</li>').join('');
+    try { localStorage.setItem('ap-tab', k); } catch (_) {}
+  }
+  tabs.forEach(t => document.getElementById('tab-' + t).addEventListener('click', () => show(t)));
+  let first = 'rec';
+  try { const s = localStorage.getItem('ap-tab'); if (tabs.includes(s)) first = s; } catch (_) {}
+  show(first);
+
+  // Preview theme.
+  const root = document.documentElement;
+  function markTheme() {
+    const t = root.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
+  }
+  document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => { root.dataset.theme = b.dataset.t; markTheme(); }));
+  markTheme();
+
+  // The off switch.
+  const sw = document.getElementById('profile-switch');
+  sw.addEventListener('click', () => {
+    const on = sw.getAttribute('aria-checked') !== 'true';
+    sw.setAttribute('aria-checked', on);
+    document.getElementById('switch-note').textContent = on
+      ? 'On: the page is public, and credits show “About the artist”.'
+      : 'Off: the page is gone, it leaves the artists list, and credits drop “About the artist”. The name still links to Commission info.';
+    document.getElementById('off-404').innerHTML = on ? '<b>Example Artist</b>Page and links as in section 1.' : '<b>404</b>There is no portrait artist at this address.<br><span class="url">See all portrait artists</span>';
+    document.getElementById('off-note').innerHTML = on ? '<b>Example Artist</b>Page and links as in section 1.' : '<b>Example Artist</b>This artist has made their page private.';
+  });
+})();
+</script>

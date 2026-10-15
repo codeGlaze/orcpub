@@ -68,7 +68,8 @@
 (defn cache-template
   "Handler for `::cache-template`: stores `template`, what it offers (`offered-keys`,
    `offered-by-type`) and its `choice-tags`. On the first list, if the loaded character has a key
-   the list now lets it heal, re-dispatches `:set-character`."
+   the list now lets it heal, re-dispatches `:character-updated` (the same character, so its
+   portrait draft stays) and announces the heal."
   [{:keys [db]} [_ template]]
   (let [offered (content-recon/offered-keys template)
         by-type (library/offered-by-type template)
@@ -85,7 +86,7 @@
                         ::content-recon/offered-by-type by-type
                         ::content-recon/choice-tags (library/choice-tags template))}
       ;; No route follows this heal, so it announces itself.
-      heal? (assoc :dispatch-n [[:set-character character] [:orcpub.dnd.e5/announce-heal]]))))
+      heal? (assoc :dispatch-n [[:character-updated character] [:orcpub.dnd.e5/announce-heal]]))))
 
 (reg-event-fx ::cache-template cache-template)
 

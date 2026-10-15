@@ -10,6 +10,7 @@
             [orcpub.artist-accounts :as artist-accounts]
             [orcpub.portrait-pack.strands :as strands]
             [orcpub.heartbeat :as heartbeat]
+            [orcpub.artist-credit-notices :as credit-notices]
             [orcpub.routes.share :as share]
             [orcpub.pwned :as pwned]
             [orcpub.security :as security]
@@ -157,6 +158,12 @@
                                 ;; being read.
                                 "breach check summary" pwned/summary-job
                                 "rate limit summary" security/summary-job})
+      [:conn])
+
+    ;; emails the batched artist credit changes whose ten minutes are up, every minute
+    :credit-notices
+    (component/using
+      (credit-notices/new-credit-notices)
       [:conn])
 
     ;; links or creates artist accounts named in PORTRAIT_ARTISTS; runs in the

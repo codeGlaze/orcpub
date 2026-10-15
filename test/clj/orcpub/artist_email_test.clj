@@ -107,3 +107,9 @@
       (is (s/includes? text "If this wasn't you"))
       (is (s/includes? admin "Before:\n  Name: (default)"))
       (is (s/includes? admin "PORTRAIT_ARTISTS")))))
+
+(deftest the-change-email-shows-the-page-switches
+  (let [rows (into {} (orcpub.artist-email/credit-rows {:artist/profile? false :artist/show-links? false}))]
+    (is (= "Off" (rows "Artist page")))
+    (is (= "Off" (rows "Links on the page")))
+    (is (= "On" (rows "Example portraits")) "a switch never turned off reads On")))

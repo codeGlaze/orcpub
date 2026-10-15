@@ -1,0 +1,125 @@
+<title>Weight Rule Built</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital,wght@1,400&display=swap">
+<style>
+/* Layout: one column; each option is a row of real-app captures (desktop, then phone), with a theme switch that swaps every capture at once. */
+:root {
+  --bg: #0e131a; --card: #131924; --fg: #ebeef4; --dim: #8b95a5; --accent: #f0a100;
+  --accent-soft: rgba(240,161,0,0.10); --line: rgba(255,255,255,0.08); --good: #6fbf73; --good-soft: rgba(111,191,115,0.12);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 36px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h1 { margin: 0; font: italic 400 38px/1.1 var(--serif); }
+.sub { margin: 6px 0 0; color: var(--dim); max-width: 66ch; }
+.cap { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12px/1 var(--sans); padding: 9px 14px; background: transparent; color: var(--dim); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+h2 { margin: 0; font: 700 18px/1.3 var(--sans); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rec { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+section > p { margin: 0; color: var(--dim); max-width: 70ch; }
+.shots { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 12px; color: var(--dim); }
+.ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.ex figure img { width: 240px; max-width: 100%; }
+ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+li::marker { color: var(--accent); }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.note h3 { margin: 0; font: 700 14px/1.3 var(--sans); }
+</style>
+
+<style>
+.controls { display: flex; flex-wrap: wrap; gap: 10px; }
+.shot { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow-x: auto; }
+.shot img { display: block; max-width: none; height: auto; border-radius: 6px; }
+.list { display: flex; flex-direction: column; gap: 12px; }
+.list figcaption b { color: var(--fg); }
+</style>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="cap">OrcPub · feature/style-guide</div>
+      <h1>The weight rule, built</h1>
+      <p class="sub">The branch running with the rule in place: <b>700</b> for small capitals (tabs, buttons), <b>600</b> for bold text 18px and up (one stylesheet rule covering 155 call sites), <b>400</b> for the builder’s info sentences, with the CLICK HERE links kept bold.</p>
+    </div>
+    <div class="seg" role="group" aria-label="Screenshot theme">
+      <button type="button" data-t="dark">Dark</button>
+      <button type="button" data-t="light">Light</button>
+    </div>
+  </header>
+
+  <section>
+    <h2>Four pages</h2>
+    <div class="seg" role="group" aria-label="Page">
+      <button type="button" data-p="builder">Builder</button>
+      <button type="button" data-p="mycontent">My Content</button>
+      <button type="button" data-p="spells">Spells</button>
+      <button type="button" data-p="monsters">Monsters</button>
+    </div>
+    <div class="seg" role="group" aria-label="Version">
+      <button type="button" data-v="before">Before (integration)</button>
+      <button type="button" data-v="after">First pass</button>
+      <button type="button" data-v="v2">Now</button>
+    </div>
+    <div class="shot"><img id="page" style="width:1280px" alt="Page capture"></div>
+  </section>
+
+  <section>
+    <h2>The yellow buttons</h2>
+    <p>Shown at twice actual size so the strokes are visible. You were right: they got lighter. They used to be Arial <b>Bold</b>; the first pass made them Open Sans <b>600</b>. They’re now Open Sans <b>700</b>. The underlying problem is contrast: white on this amber is 2.1:1, well under the 4.5:1 readable minimum, and thin strokes expose it. Dark text on amber is 7.8:1, and the portrait drawer’s buttons already use it. It’s shown last for comparison and is not built.</p>
+    <div class="list">
+      <figure><figcaption><b>Before:</b> Arial Bold, white</figcaption><div class="shot"><img data-src="round3/THEME-btn-arial.png" data-half="1" alt="Buttons in Arial"></div></figure>
+      <figure><figcaption><b>First pass:</b> Open Sans 600, white</figcaption><div class="shot"><img data-src="round3/THEME-btn-os600.png" data-half="1" alt="Buttons at 600"></div></figure>
+      <figure><figcaption><b>Now:</b> Open Sans 700, white</figcaption><div class="shot"><img data-src="round3/THEME-btn-os700.png" data-half="1" alt="Buttons at 700"></div></figure>
+      <figure><figcaption><b>Not built:</b> Open Sans 700, dark text (dark theme only; the light theme’s slate buttons already pass with white)</figcaption><div class="shot"><img data-src="round3/THEME-btn-dark.png" data-half="1" alt="Buttons with dark text"></div></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>“My Content” wrapping</h2>
+    <p>The header at 1280px wide with each option.</p>
+    <div class="list">
+      <figure><figcaption><b>As is:</b> 700, wraps</figcaption><div class="shot"><img data-src="round3/THEME-wrap-asis.png" alt="Header as is"></div></figure>
+      <figure><figcaption><b>Letter spacing −2%:</b> 700, fits on one line</figcaption><div class="shot"><img data-src="round3/THEME-wrap-ls02.png" alt="Letter spacing -2%"></div></figure>
+      <figure><figcaption><b>Letter spacing −4%</b></figcaption><div class="shot"><img data-src="round3/THEME-wrap-ls04.png" alt="Letter spacing -4%"></div></figure>
+      <figure><figcaption><b>13px</b> instead of 14px</figcaption><div class="shot"><img data-src="round3/THEME-wrap-s13.png" alt="13px"></div></figure>
+      <figure><figcaption><b>600</b> weight</figcaption><div class="shot"><img data-src="round3/THEME-wrap-w600.png" alt="Weight 600"></div></figure>
+    </div>
+  </section>
+</div>
+<script>
+let pg = 'builder', v = 'v2';
+const root = document.documentElement;
+const theme = () => root.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+function render() {
+  const t = theme();
+  document.getElementById('page').src = v === 'v2' ? `round3/${t}-v2-${pg}.png` : `sitewide/${t}-${v}-${pg}.png`;
+  document.querySelectorAll('img[data-src]').forEach(img => {
+    if (img.dataset.half) img.onload = () => { img.style.width = img.naturalWidth + 'px'; };
+    img.src = img.dataset.src.replace('THEME', t);
+  });
+  document.querySelectorAll('[data-p]').forEach(b => b.setAttribute('aria-pressed', b.dataset.p === pg));
+  document.querySelectorAll('[data-v]').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
+  document.querySelectorAll('[data-t]').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
+}
+document.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => { pg = b.dataset.p; render(); }));
+document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => { v = b.dataset.v; render(); }));
+document.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => { root.dataset.theme = b.dataset.t; render(); }));
+try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', render); } catch (_) {}
+render();
+</script>
