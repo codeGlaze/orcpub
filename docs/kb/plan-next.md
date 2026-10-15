@@ -404,6 +404,11 @@ and change back that nobody makes a build for. Open: storage per character, and 
 sheet and PDF use. If it lands, the hidden-pick fix's in-row marker and class line could retire
 (`decision-gate-hidden-picks.md`, "Parked designs").
 
+A related idea (owner, 2026-10-15): show what a change gains or loses before it is made, such as
+"make Rogue your starting class: +4 skills (Acrobatics, Deception, Perception, Stealth)". It needs
+the change worked out ahead of time, which is what comparing two builds needs too, so it belongs
+with this proposal rather than with the hold.
+
 ## Also open, smaller
 
 ☐ Two e2e scripts fail on `integration` as it stands (`b8035afe`, 2026-10-15), the same checks on
