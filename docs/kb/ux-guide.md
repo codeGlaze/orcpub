@@ -49,6 +49,13 @@ where it belongs; do not repeat it on other sections.
 | ![3 planned at higher levels, tapped open, with the level each returns at](assets/ux-guide/c3-several-open.png) | ![Planned: Steel Will repeated on the Ranger Archetype section](assets/ux-guide/r2-on-subclass.png) |
 | One line per class; tapping lists every planned pick. | The same fact repeated on another section. |
 
+## Label only what the player would miss
+
+Every label costs attention, and labels add up. An automatic change always says what it did. A rare
+case, or the leftovers of something the player removed on purpose (deleting a class, changing race),
+gets no label of its own: the player expects those gone, and a notice covers a change of mind.
+Before adding a marker, count what the screen already shows.
+
 ## The fallback is the exception
 
 Wrapping and overflow handle rare cases. Design so the usual case fits on one line, and check with
@@ -138,5 +145,7 @@ Newest last. Date, ruling, and what it replaced.
 - 2026-10-14: on the light theme the notice ring is the theme's blue, not amber: the light theme
   uses blue where the dark one uses amber.
 
-**Open:** where a subrace waiting on its race shows (the section row crowds the header; the race
-card squeezes the name).
+- 2026-10-15: label only what the player would miss. Picks waiting on a deliberate change (a
+  subrace on its race, a deleted class's picks) get no UI of their own; the designs are parked in
+  `decision-gate-hidden-picks.md` on `feature/grant-rows`. Closed the open question on where a
+  subrace waiting on its race shows.
