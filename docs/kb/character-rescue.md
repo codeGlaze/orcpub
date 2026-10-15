@@ -284,14 +284,27 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
    browser, "No longer stored", the draft page's guard, assertions in `remove-essentials.js`.
 7. Key editing behind dev mode.
 8. Data View script size (264 KB, mostly built-in data pulled in through shared code).
-9. **Per-character drafts** (#704, `multi-tab-character-contamination.md`), last, after everything
-   above. The builder's address carries the id (`/character-builder/<id>`, the plain address kept
-   for new characters); drafts are stored per id (`character-<id>`, `character-new`); a reload
-   restores the draft matching the address; each browser's existing `"character"` draft moves to
-   its id's key, read as EDN (a regex picks a selection's `:db/id`, see the table above); a saved
-   draft is deleted. Verify the move on real old drafts before building it. Data View's draft page
-   takes the id too. The other builders' single slots (spell, monster, background ...) are the same
-   defect, not in scope.
+9. **Drafts per id, for every builder** (#704, `multi-tab-character-contamination.md`), last.
+   One shared draft store for the 17 single-slot drafts in `db.cljs` (the character, the homebrew
+   builder forms, encounter, combat), keyed by id. It reuses the library's cross-tab design
+   (`commit-library`: revision counter, three-way merge, `storage` listener), so two tabs on the same
+   thing mirror each other, a duplicated tab included. Each tab remembers the id it shows in
+   `sessionStorage` (proposed before, `homebrew-keys-design.md`); builder addresses are unchanged.
+   Existing drafts move to their own id's key, read as EDN; a saved draft is deleted. The builder
+   names what is open, and a drafts list keeps every draft reachable (mockup first). Check
+   `builder-origin` first: if two tabs on two items of one kind can save to the wrong item, that
+   comes first. Known catches: a closed tab forgets its id (the draft survives); private windows.
+
+## After the plan: ideas, not scheduled
+
+- Measure the database's size per character (current values against history, and which fields
+  churn), on a copy of the database, never the live site. The sheet's autosave
+  (`autosave_fx.cljs`, 7.5 s after the last change) sends the whole character on every HP or
+  spell-slot change.
+- Moderator view (owner, 2026-10-14). Safe shape: site numbers from a server-side report first, no
+  account; if a page later, counts only, read-only, cached, the flag set only from the server
+  console, views logged. Helping a player uses an expiring, read-only link the player issues, not a
+  moderator role. "Orphaned" needs a definition before anything is counted.
 
 ## Open, for the owner
 
