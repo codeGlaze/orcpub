@@ -395,7 +395,7 @@ being built; if a fourth shape appears, stop and reassess.
 
 ---
 
-## Proposal: swappable builds (owner, 2026-10-15)
+## Proposal: swappable builds, a build switcher (owner, 2026-10-15)
 
 Not planned yet. A character keeps several builds ("try this as a Beast Master" makes a copy); the
 player flips between them, then keeps one. It covers deliberate exploration with one switcher
