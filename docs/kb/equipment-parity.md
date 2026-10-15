@@ -28,7 +28,7 @@ app's classpath, and compares them field by field, matched by `:key`.
 
 | finding | state |
 |---|---|
-| Longbow lacks `::weapons/ammunition?`; the other six ammunition weapons have it, and magic items and the item builder read it | **open**: an app bug, for a code branch |
+| Longbow lacks `::weapons/ammunition?`; the other six ammunition weapons have it, and magic items and the item builder read it | fixed on `fix/srd-2014-data-defects` (#62), test `ammunition-weapons-are-flagged`; still open against `integration` until #62 merges |
 | Sling range: open5e's ammunition property said 80/320, its own record and the SRD 30/120 | fixed in `srd-corrections`; check rule `weapon-range` added |
 | 30 weapons carry a Wikipedia `::link`, added 2017-04-27 (`1cd9abaf8`); `weapon-details` takes it and never renders it | pending: drop, or point at the Rules tab |
 | 14 display names differ: 9 Title Case renames ([content-naming-style.md](content-naming-style.md)), 5 armors the SRD names "... Armor" | pending; player-visible, keys unchanged |
