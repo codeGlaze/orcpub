@@ -636,7 +636,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, character, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, pick, renamed, report, saved, spell-selection, toast
+**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, person, pick, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -1532,7 +1532,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** 2017-04-27, ammunition, app, armor, axe, compared, content-naming-style, dash, difference, equipment, firearms, mapped, open5e, pending, settled, srd, srd-2024-roadmap, weapons
+**topics:** 2026-10-15, ammunition, app, armor, content-naming-style, damage, dash, difference, equipment, mapped, net, open5e, pending, roll, settled, srd, srd-2024-roadmap, weapons
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -2989,7 +2989,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifier, modifiers, play-state, player, positioning, recomputes, roll, sheet, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifier, modifiers, play-state, player, positioning, recomputes, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -3162,7 +3162,7 @@ _srd-2024-coverage · srd 2024 coverage_
 
 _srd-2024-implementation-notes · srd 2024 implementation notes_
 
-**topics:** 2014, 2024, 339, creature, damage, dial, edition, editions, exhaustion, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
+**topics:** 2014, 2024, 339, damage, dial, edition, editions, exhaustion, expressed, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
 
 - The structural shifts, measured
 - 1. Subraces became lineages

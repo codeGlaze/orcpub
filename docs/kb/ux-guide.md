@@ -149,3 +149,7 @@ Newest last. Date, ruling, and what it replaced.
   subrace on its race, a deleted class's picks) get no UI of their own; the designs are parked in
   `decision-gate-hidden-picks.md` on `feature/grant-rows`. Closed the open question on where a
   subrace waiting on its race shows.
+- 2026-10-15: long forms repeat their navigation and add buttons at the bottom (character builder
+  Back / Next, the homebrew builders' add buttons, Add Option). A bottom add button shows once the
+  list has an item. The bottom Back / Next scroll the new page to its top, below the sticky header,
+  and move focus to the page title. Replaced top-only buttons (`feature/form-bottom-buttons`).

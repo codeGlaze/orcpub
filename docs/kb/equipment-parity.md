@@ -36,6 +36,12 @@ app's classpath, and compares them field by field, matched by `:key`.
 | Spiked Armor and DMV's three firearms are not SRD | settled: live options, kept |
 | `::weapons/subtype` (sword, axe, bow) has no SRD field | settled: kept as a tag for feat and mastery hooks |
 
+**The Net has no damage dice, and the app shows that badly** (found 2026-10-15, computed on the JVM
+with the app's own display functions). The character sheet's damage roll button reads `d+2` and
+tries to roll it, and the PDF prints `d+2` (`pdf_spec.cljc` `damage-str`); a Longsword gives
+`1d8+2` and `1d8+2 slashing`. Proposed, not built: the damage column says "None", no roll button,
+and the details line gives the SRD's effect (a Large or smaller creature hit is restrained).
+
 Not compared yet: ammunition (SRD gear, not in the equipment file), 2024 equipment (the app has
 none), and the SRD's rules text for special weapons (Net, Lance), which the app holds only as a flag.
 open5e gives the Net `"0"` bludgeoning damage where the SRD prints a dash; the comparison treats it
