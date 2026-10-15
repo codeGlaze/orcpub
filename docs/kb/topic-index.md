@@ -685,7 +685,7 @@ _character-naming · character naming_
 
 _character-rescue-console · character rescue console_
 
-**topics:** backup, bundle, colons, defences, delimiter, deployed, depth-aware, empty-keyword-corruption, healer, minified, parties, repair, scan, tool, transit, unpatched, urls, xhr
+**topics:** backup, bundle, colons, defences, depth-aware, empty-keyword-corruption, healer, literals, minified, parties, repair, scan, tool, transit, unpatched, urls, user, xhr
 
 - 1. When a console tool is the right answer
 - 2. Triage: what the user actually reports
@@ -775,7 +775,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** backend, case-sensitive, div, dom, driver, failures, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -805,7 +805,7 @@ _code-comment-style · code comment style_
 
 _content-extensibility-compatibility · content extensibility compatibility_
 
-**topics:** 252, call-sites, catalog, catalogs, characters, content-extensibility, contract, existing, exported, formats, hosted, invariant, invariants, keys, nets, non-additive, selection, selection-key
+**topics:** 252, call-sites, catalog, catalogs, characters, content-extensibility, contract, existing, exported, formats, invariant, invariants, keys, nets, non-additive, redesign, selection, selection-key
 
 - 1. Persisted formats (verified)
 - 1a. orcbrew / plugins (homebrew libraries)
@@ -863,7 +863,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, loads, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -937,7 +937,7 @@ _content-extensibility · content extensibility_
 
 _content-naming-style · content naming style_
 
-**topics:** 2024, 2026-10-09, blowgun, capitalise, crossbow, gear, hammer, healing, light, lord, mistletoe, needle, nouns, open5e, open5e-upstream-notes, potion, title, word
+**topics:** 2026-10-09, blowgun, capitalise, crossbow, gear, hammer, healing, light, lord, mistletoe, needle, nouns, open5e, open5e-upstream-notes, potion, re-capitalised, title, word
 
 - The rule
 - Where it stands (measured 2026-10-09)
@@ -1039,7 +1039,7 @@ _decision-already-held-resolution · decision already held resolution_
 
 _decision-gate-hidden-picks · decision gate hidden picks_
 
-**topics:** caller-supplied, chosen, concatenation, condition, decision-already-held-resolution, entity-layer, filter, gate, hidden-selection-picks, log, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
+**topics:** arms, caller-supplied, chosen, concatenation, condition, decision-already-held-resolution, filter, gate, hidden-selection-picks, log, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
 
 - Decision
 - The trace closes: there is no unknown family
@@ -1455,7 +1455,7 @@ _empty-keyword-corruption · empty keyword corruption_
 
 _entity-options-architecture · entity options architecture_
 
-**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, sword, vector, weapons
+**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, indices, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, vector, weapons
 
 - Character Entity Structure
 - Single-select → MAP (no vector index in path)
@@ -1527,6 +1527,15 @@ _equipment-option-picker · equipment option picker_
 - The option-menu that isn't here any more
 - Which controls are kept
 - Verify
+
+## equipment-parity.md
+
+_equipment-parity · equipment parity_
+
+**topics:** 2017-04-27, ammunition, app, armor, axe, compared, content-naming-style, dash, difference, equipment, firearms, mapped, open5e, pending, settled, srd, srd-2024-roadmap, weapons
+
+- How a difference is classified
+- Findings (2026-10-15, against integration b8035afe4)
 
 ## error-handling-import-validation.md
 
@@ -1686,7 +1695,7 @@ _fonts · fonts_
 
 _fork-customization · fork customization_
 
-**topics:** ---------, adsense, api, cljs, customization, dmv, domains, email, footer, hidden, integrations, matomo, override, privacy, production, public, stubs, views
+**topics:** ---------, adsense, api, bridge, cljs, dmv, domains, email, footer, hidden, integrations, matomo, override, privacy, production, public, stubs, views
 
 - Override File Pattern
 - Architecture
@@ -1807,7 +1816,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 1743, 1744, 374, 3816, 493, believing, branch, cut, directions, duplicate-key, e2e, integration, item, merging, minted, outcome, source, tag
+**topics:** 1743, 374, 3816, 493, believing, branch, cut, directions, duplicate-key, e2e, integration, item, key, merging, minted, outcome, source, tag
 
 - Outcome
 - The branches, and the order
@@ -2439,7 +2448,7 @@ _pdf-generation-architecture · pdf generation architecture_
 
 _pdf-namespace-family · pdf namespace family_
 
-**topics:** abbreviations, acroform, animated-object, beast, card, cards, companion, consumer, coordinate, frame, geometry, group, inches, private, public, spellbook, surface, vars
+**topics:** abbreviations, animated-object, beast, caller, card, cards, companion, consumer, coordinate, frame, geometry, group, inches, private, public, spellbook, surface, vars
 
 - Verdict on the starting hypothesis
 - 1. Inventory
@@ -3153,7 +3162,7 @@ _srd-2024-coverage · srd 2024 coverage_
 
 _srd-2024-implementation-notes · srd 2024 implementation notes_
 
-**topics:** 2014, 2024, 339, damage, dial, edition, editions, exhaustion, feat, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
+**topics:** 2014, 2024, 339, creature, damage, dial, edition, editions, exhaustion, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
 
 - The structural shifts, measured
 - 1. Subraces became lineages
@@ -3193,7 +3202,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 5etools, data, diff, edition, editions, magic, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 5etools, data, diff, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3263,7 +3272,7 @@ _srd-pdf-as-source-of-record · srd pdf as source of record_
 
 _srd-vs-plugin-content · srd vs plugin content_
 
-**topics:** acolyte, base-class-options, battle, college, content, discarded, folk, grappler, hardcoded, hero, master, non-srd, phb, plugin-backgrounds, plugin-feats, plugins, races, srd
+**topics:** acolyte, base-class-options, battle, college, content, discarded, folk, grappler, hardcoded, hero, master, non-srd, phb, plugin-backgrounds, plugin-feats, plugin-races, plugins, races
 
 - The Distinction
 - What's Hardcoded (SRD)

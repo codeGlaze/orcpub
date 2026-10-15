@@ -1,0 +1,40 @@
+;; Reviewed differences between the app's weapons and armor and the SRD equipment (2014).
+;; Read by equipment-parity.clj. An entry matches on :kind :key :field, and on :srd / :app when
+;; given, so a value that changes is a new finding. :status :pending is a known difference waiting
+;; on a decision; anything else listed is settled. Never add an entry you have not checked.
+;; KB: docs/kb/equipment-parity.md
+[
+ ;; Live options that are not SRD. Players have them today, so the keys stay.
+ {:kind :weapons :key :firearm-burst :field :entry :reason "DMV's own firearm, not SRD; a live option, key kept"}
+ {:kind :weapons :key :firearm-hand :field :entry :reason "DMV's own firearm, not SRD; a live option, key kept"}
+ {:kind :weapons :key :firearm-long :field :entry :reason "DMV's own firearm, not SRD; a live option, key kept"}
+ {:kind :armor :key :spiked-armor :field :entry :reason "not SRD; a live option, key kept"}
+
+ ;; One SRD armor under a different key. :studded is what saved characters hold.
+ {:kind :armor :key :studded :field :entry :reason "the app's key for SRD Studded Leather Armor; keep :studded, map it in the generator"}
+ {:kind :armor :key :studded-leather :field :entry :reason "SRD key; the app holds this armor as :studded"}
+
+ ;; App-only fields.
+ {:kind :weapons :key :* :field :orcpub.dnd.e5.weapons/subtype :reason "app tag (sword, axe, bow ...); the SRD has none; kept as groundwork for feat and mastery hooks"}
+ {:kind :weapons :key :* :field :orcpub.dnd.e5.weapons/link :status :pending
+  :reason "Wikipedia links added 2017-04-27 (1cd9abaf8); weapon-details takes the field and never renders it. Drop, or point at the Rules tab"}
+
+ ;; Display names. Player-visible; keys are unchanged either way (content-naming-style.md).
+ {:kind :weapons :key :crossbow-hand :field :name :srd "Crossbow, Hand" :app "Crossbow, hand" :status :pending :reason "Title Case rename pending (content-naming-style.md)"}
+ {:kind :weapons :key :crossbow-heavy :field :name :srd "Crossbow, Heavy" :app "Crossbow, heavy" :status :pending :reason "Title Case rename pending (content-naming-style.md)"}
+ {:kind :weapons :key :crossbow-light :field :name :srd "Crossbow, Light" :app "Crossbow, light" :status :pending :reason "Title Case rename pending (content-naming-style.md)"}
+ {:kind :weapons :key :light-hammer :field :name :srd "Light Hammer" :app "Light hammer" :status :pending :reason "Title Case rename pending (content-naming-style.md)"}
+ {:kind :weapons :key :war-pick :field :name :srd "War Pick" :app "War pick" :status :pending :reason "Title Case rename pending (content-naming-style.md)"}
+ {:kind :armor :key :chain-mail :field :name :srd "Chain Mail" :app "Chain mail" :status :pending :reason "Title Case rename pending (content-naming-style.md)"}
+ {:kind :armor :key :half-plate :field :name :srd "Half Plate" :app "Half plate" :status :pending :reason "Title Case rename pending (content-naming-style.md)"}
+ {:kind :armor :key :ring-mail :field :name :srd "Ring Mail" :app "Ring mail" :status :pending :reason "Title Case rename pending (content-naming-style.md)"}
+ {:kind :armor :key :scale-mail :field :name :srd "Scale Mail" :app "Scale mail" :status :pending :reason "Title Case rename pending (content-naming-style.md)"}
+ {:kind :armor :key :hide :field :name :srd "Hide Armor" :app "Hide" :status :pending :reason "the SRD's name adds \"Armor\"; the app's short name is player-visible"}
+ {:kind :armor :key :leather :field :name :srd "Leather Armor" :app "Leather" :status :pending :reason "the SRD's name adds \"Armor\"; the app's short name is player-visible"}
+ {:kind :armor :key :padded :field :name :srd "Padded Armor" :app "Padded" :status :pending :reason "the SRD's name adds \"Armor\"; the app's short name is player-visible"}
+ {:kind :armor :key :plate :field :name :srd "Plate Armor" :app "Plate" :status :pending :reason "the SRD's name adds \"Armor\"; the app's short name is player-visible"}
+ {:kind :armor :key :splint :field :name :srd "Splint Armor" :app "Splint" :status :pending :reason "the SRD's name adds \"Armor\"; the app's short name is player-visible"}
+
+ ;; Left out on purpose: weapons :longbow :ammunition (srd=true app=false). The app's Longbow is
+ ;; missing ::weapons/ammunition?; it is an app bug, so it stays open until a code branch fixes it.
+]
