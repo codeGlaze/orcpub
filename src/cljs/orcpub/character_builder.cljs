@@ -1890,30 +1890,37 @@
 (defn sorted-selection-set [selections]
   (into (sorted-set-by compare-paths) selections))
 
+(defn- show-page-top!
+  "After the next render, scrolls the builder's page to its top, just below the sticky header,
+   and moves focus to the page title so a screen reader starts there. No args; returns nil."
+  []
+  (js/requestAnimationFrame
+   (fn []
+     (when-let [col (.getElementById js/document "options-column")]
+       (let [header (or (some-> (.querySelector js/document ".sticky-header") .-offsetHeight) 0)]
+         (.scrollTo js/window 0 (- (+ (.-scrollY js/window) (.-top (.getBoundingClientRect col))) header))
+         (some-> (.getElementById js/document "builder-page-title") (.focus #js {:preventScroll true})))))))
+
 (defn page-nav-bar
   "Back / page title / Next bar for the character builder; wraps at either end.
-   Args: page-index, the current page index; page-name, the title shown.
-   Returns hiccup. Rendered above and below the page's options."
-  [page-index page-name]
-  [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
-   [:button.form-button.p-5-10.m-r-5
-    {:on-click
-     (fn [_]
-       (dispatch [:set-page (let [prev (dec page-index)]
-                              (if (neg? prev)
-                                (dec (count pages))
-                                prev))]))}
-    "Back"]
-   [:div.flex-grow-1
-    [:h3.f-w-b.f-s-20.t-a-c page-name]]
-   [:button.form-button.p-5-10.m-l-5
-    {:on-click
-     (fn [_]
-       (dispatch [:set-page (let [next (inc page-index)]
-                              (if (>= next (count pages))
-                                0
-                                next))]))}
-    "Next"]])
+   Args: page-index, the current page index; page-name, the title shown; bottom?, true for the
+   copy below the page, whose buttons also bring the new page's top into view.
+   Returns hiccup."
+  [page-index page-name bottom?]
+  (let [go (fn [i] (dispatch [:set-page i]) (when bottom? (show-page-top!)))]
+    [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
+     [:button.form-button.p-5-10.m-r-5
+      {:on-click (fn [_] (go (let [prev (dec page-index)]
+                               (if (neg? prev) (dec (count pages)) prev))))}
+      "Back"]
+     [:div.flex-grow-1
+      (if bottom?
+        [:h3.f-w-b.f-s-20.t-a-c page-name]
+        [:h3#builder-page-title.f-w-b.f-s-20.t-a-c {:tab-index -1} page-name])]
+     [:button.form-button.p-5-10.m-l-5
+      {:on-click (fn [_] (go (let [next (inc page-index)]
+                               (if (>= next (count pages)) 0 next))))}
+      "Next"]]))
 
 (defn new-options-column [num-columns]
   (let [character @(subscribe [:character])
@@ -1931,7 +1938,7 @@
     [:div.w-100-p
      [:div#options-column.b-1.b-rad-5
       [section-tabs available-selections built-template character page-index]
-      [page-nav-bar page-index (:name page)]
+      [page-nav-bar page-index (:name page) false]
       (let [ui-fn-selections (mapcat
                               (fn [{:keys [key group? ui-fn]}]
                                 (if group?
@@ -2002,7 +2009,7 @@
                              remaining)])))
                 sorted-selections)))])])
       ;; Repeated below the page so a long page needs no scroll back up.
-      [page-nav-bar page-index (:name page)]]]))
+      [page-nav-bar page-index (:name page) true]]]))
 
 
 (defn set-random-name
