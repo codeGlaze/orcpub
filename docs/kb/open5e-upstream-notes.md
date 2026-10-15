@@ -99,10 +99,13 @@ seen to fail on the mistake before it was trusted:
 | empty-option | a casting option that sets nothing | the kind open5e deleted (#749) |
 | base-missing | casting options that set dice or targets on a spell whose own base is empty | 13 srd-2014 and 3 srd-2024 spells (Acid Splash, Cure Wounds, Conjure Celestial) scaled from nothing |
 | damage-types | a spell's `damage_types` missing a type its SRD text deals, or listing one it only resists, takes ("destroyed by dealing 60 force damage") or never deals | 32 srd-2014 spells (Magic Missile had none); srd-2024 Wall of Ice listed fire and psychic from its immunity line |
+| save-ability | a spell's `saving_throw_ability` missing, or not one its SRD entry asks for | 6 wrong (Animal Friendship, Detect Thoughts: Intelligence for Wisdom), 9 set where the spell only grants advantage on saves (Haste, Beacon of Hope), 3 missing (2024 Control Water) |
+| area-unit | a spell with an area but no unit, in an edition that gives units | srd-2024 cubes with no "feet" |
+| not-in-srd | (`--all`) an SRD record whose text is mostly absent from the SRD transcript | 26 srd-2014 monster records are Monster Manual text (demon summoning, hag covens, familiar variants); 3 spells (Fire Shield, Hold Monster, Water Breathing) carry reworded descriptions |
 | value-in-srd | a base dice, target count or area we set on a spell that is not in its SRD entry (the transcript, not open5e's copy) | bases filled from open5e's text were checked against the SRD by hand |
 | slot-gap | slot options that skip a level before 9 | Conjure Animals had no slot 6 |
 | dice-only | `damage_roll` holding anything but dice | Magic Weapon's "+2" |
-| upcast-math | values that break a plain step rule in `higher_level` | totals reported wrong; Animate Objects' base of 1 |
+| upcast-math | values that break a plain step rule in `higher_level`, "one more dart" and "one additional bolt leaps ..." included | totals reported wrong; Animate Objects' base of 1 |
 | no-op-option | a casting option whose every value equals the base spell's | Spiritual Weapon slot 3 (it rises every two slots) |
 | slot-below-base | a slot option at or below the spell's own level | srd-2024 Dispel Magic's slot 3 |
 | desc-math | a `desc` number that disagrees with the `damage_roll` beside it or the step sentence; where the base is not stored, the implied base must be in the spell's text | srd-2024 Conjure Celestial stored 2d12 for 7d12 |

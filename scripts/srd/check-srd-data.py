@@ -26,6 +26,9 @@ Rules (each from a mistake made on 2026-10-11/12; docs/kb/open5e-upstream-notes.
                   step times the slots above the base)
   punctuation     a hyphen or dash we put between two words is the one the SRD prints there
   damage-types    a spell's damage_types is every type its SRD entry deals ("2d6 Cold damage"), no more
+  save-ability    a spell's saving throw is one its SRD entry asks for, and is set when it asks
+  area-unit       where an edition gives areas a unit, every spell with an area has one
+  not-in-srd      (--all) an SRD record whose text is mostly not in the SRD transcript
   value-in-srd    a damage_roll, target_count or shape_size we set on a spell is in its SRD entry
   unverified      every value we set on a casting option is checked by a rule, or hand-verified
                   (srd-data-reviewed.json rule "hand-verified" with the exact values it covers;
@@ -260,7 +263,7 @@ def check_options(rep, ed, old, new, spells, audit=False):
         sp = spells.get(parent, {})
         h = sp.get('higher_level') or ''
         m = re.search(r'increases? by (\d+)d(\d+) for (?:each|every)( two)? (?:spell )?slot levels? above (?:the )?(\d+)', h)
-        t = re.search(r'\b(one|two|three|\d+) additional (?:creature|target|undead|object|beast)s? for each (?:spell )?slot level above (\d+)', h, re.I)
+        t = TARGET_STEP.search(h)
         for lvl, (pk, o) in sorted(slots.items()):
             several = len(re.findall(r'increases? by \d+d\d+', h)) > 1   # two damages scale: which one is stored is not ours to guess
             if m and not several and sp.get('damage_roll') and DICE.match(sp['damage_roll']) and DICE.match(o.get('damage_roll') or ''):
@@ -274,11 +277,64 @@ def check_options(rep, ed, old, new, spells, audit=False):
                 if want and got != want:
                     rep.add('upcast-math', f, pk, o['type'], f'{parent} {got}, the step rule gives {want}')
             if t and o.get('target_count') is not None and sp.get('target_count'):
-                step = int(t.group(1)) if t.group(1).isdigit() else WORDS[t.group(1)]
+                step = int(t.group(1)) if t.group(1).isdigit() else WORDS[t.group(1).lower()]
                 want = sp['target_count'] + step * (lvl - int(t.group(2)))
                 rep.verified.add((pk, 'target_count'))
                 if o['target_count'] != want:
                     rep.add('upcast-math', f, pk, o['type'], f'{parent} target_count {o["target_count"]}, the step rule gives {want}')
+
+
+TARGET_STEP = re.compile(r'\b(one|two|three|\d+) (?:more|additional) (?!\d)[A-Za-z]+(?: [A-Za-z]+)?\b[^.]{0,60}? '
+                         r'for (?:each|every) (?:spell )?slot level above (?:the )?(\d+)', re.I)
+ABILITIES = ('strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma')
+SAVE = re.compile(r'(?i)(?:makes?|must make|must succeed on|succeeds? on|fails?|succeed on) (?:an? )?(?:DC \d+ )?('
+                  + '|'.join(ABILITIES) + r')(?: or (?:' + '|'.join(ABILITIES) + r'))? saving throws?')
+
+
+def check_saves(rep, f, old, new, entries, audit=False):
+    """save-ability: a spell's saving_throw_ability is one its SRD entry asks for ("must make a
+    Dexterity saving throw"), and is set when the entry asks for any."""
+    for pk, r in new.items():
+        sp = r['fields']
+        if not audit and old.get(pk) == r:
+            continue
+        entry = entries.get(sp.get('name'))
+        if entry is None or 'saving_throw_ability' not in sp:
+            continue
+        said = {a.lower() for m in SAVE.finditer(entry) for a in re.findall('(?i)' + '|'.join(ABILITIES), m.group(0))}
+        has = (sp.get('saving_throw_ability') or '').lower()
+        if said and not has:
+            rep.add('save-ability', f, pk, 'saving_throw_ability', f'empty; the SRD asks for {sorted(said)}')
+        elif has and has not in said:
+            rep.add('save-ability', f, pk, 'saving_throw_ability', f'{has!r}; the SRD asks for {sorted(said) or "no save"}')
+
+
+def check_units(rep, f, old, new, audit=False):
+    """area-unit: where an edition gives areas a unit, every spell with an area gives one."""
+    if not any(r['fields'].get('shape_size_unit') for r in new.values()):
+        return                                # this edition leaves units to the document default
+    for pk, r in new.items():
+        sp = r['fields']
+        if (audit or old.get(pk) != r) and sp.get('shape_size') not in (None, 0) and not sp.get('shape_size_unit'):
+            rep.add('area-unit', f, pk, 'shape_size_unit', f'area {sp["shape_size"]} {sp.get("shape_type")} has no unit')
+
+
+def check_srd_overlap(rep, path, recs, srd5, audit=False):
+    """not-in-srd: an SRD record whose text shares under half its five-word runs with the SRD
+    transcript is likely not SRD content (srd-2014's Troll variant is Monster Manual text).
+    Audit only: a record we change is held to SRD wording by fidelity already."""
+    if not audit:
+        return
+    for pk, r in recs.items():
+        d = r['fields'].get('desc')
+        if not isinstance(d, str) or len(d) < 200:
+            continue
+        words = tokens(d)
+        grams = {tuple(words[i:i + 5]) for i in range(len(words) - 4)}
+        if grams:
+            share = len(grams & srd5) / len(grams)
+            if share < 0.5:
+                rep.add('not-in-srd', path.split('/')[-1], pk, 'desc', f'{share:.0%} of its text is in the SRD: {d[:70]!r}')
 
 
 STEP_DICE = re.compile(r'increases? by (\d+)d(\d+) for each (?:spell )?slot level above (\d+)', re.I)
@@ -547,6 +603,8 @@ def main(argv):
             entries = spell_entries(raw[ed], [r['fields']['name'] for r in new.values()])
             check_spell_values(rep, f'{ed}/Spell.json', old, new, entries)
             check_damage_types(rep, f'{ed}/Spell.json', old, new, entries)
+            check_saves(rep, f'{ed}/Spell.json', old, new, entries)
+            check_units(rep, f'{ed}/Spell.json', old, new)
         if path.endswith('SpellCastingOption.json'):
             spells = {k: v['fields'] for k, v in records(clone, 'HEAD', path.replace('SpellCastingOption', 'Spell')).items()}
             check_options(rep, ed, old, new, spells)
@@ -558,8 +616,13 @@ def main(argv):
             p = f'data/v2/wizards-of-the-coast/{ed}/'
             spells = {k: v['fields'] for k, v in records(clone, 'HEAD', p + 'Spell.json').items()}
             sp_new = records(clone, 'HEAD', p + 'Spell.json')
-            check_damage_types(rep, f'{ed}/Spell.json', {}, sp_new,
-                               spell_entries(raw[ed], [r['fields']['name'] for r in sp_new.values()]), audit=True)
+            ents = spell_entries(raw[ed], [r['fields']['name'] for r in sp_new.values()])
+            check_damage_types(rep, f'{ed}/Spell.json', {}, sp_new, ents, audit=True)
+            check_saves(rep, f'{ed}/Spell.json', {}, sp_new, ents, audit=True)
+            check_units(rep, f'{ed}/Spell.json', {}, sp_new, audit=True)
+            srd5 = {tuple(w[i:i + 5]) for w in [tokens(text[ed])] for i in range(len(w) - 4)}
+            for fx in sorted(x for x in (Path(clone) / p).glob('*.json') if x.name != 'Document.json'):   # open5e's own metadata
+                check_srd_overlap(rep, f'{ed}/{fx.name}', records(clone, 'HEAD', p + fx.name), srd5, audit=True)
             opts = records(clone, 'HEAD', p + 'SpellCastingOption.json')
             check_options(rep, ed, {}, opts, spells, audit=True)
             check_desc_consistency(rep, f'{ed}/SpellCastingOption.json', {}, opts, audit=True)
@@ -577,7 +640,7 @@ def main(argv):
                   f'(upstream data; check before trusting): ' + ', '.join(u.split('_', 1)[1] for u in unchecked))
     check_duplicate_pks(rep, clone, set(names.split()), '--all' in argv)
     check_ratchet(rep, clone, srd52, '--update-baseline' in argv)
-    bad = rep.print(['fidelity', 'punctuation', 'name-case', 'empty-option', 'base-missing', 'value-in-srd', 'damage-types', 'slot-gap',
+    bad = rep.print(['fidelity', 'punctuation', 'name-case', 'empty-option', 'base-missing', 'value-in-srd', 'damage-types', 'save-ability', 'area-unit', 'not-in-srd', 'slot-gap',
                      'dice-only', 'no-op-option', 'slot-below-base', 'upcast-math', 'cantrip-math', 'desc-math', 'desc-consistency', 'unverified', 'duplicate-pk', 'lint-ratchet', 'reformat'])
     print(f'desc-math verified {rep.checked} of {rep.with_desc} records with a desc; the rest match no step sentence')
     print(f'{bad} open finding(s) across {len(names.split())} changed file(s)')

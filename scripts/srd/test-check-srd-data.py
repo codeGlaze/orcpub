@@ -80,6 +80,10 @@ PLANTS = {
     'damage-types/chosen': lambda wt: R.set_field(wt / (D24 + 'Spell.json'), 'srd-2024_sorcerous-burst', 'damage_types', ['acid']),
     # a stat block printed under another spell's heading still belongs to its own spell
     'damage-types/stat-block': lambda wt: R.set_field(wt / (D24 + 'Spell.json'), 'srd-2024_find-steed', 'damage_types', ['radiant']),
+    'save-ability': lambda wt: R.set_field(wt / (D14 + 'Spell.json'), 'srd_fireball', 'saving_throw_ability', 'wisdom'),
+    'area-unit': lambda wt: R.set_field(wt / (D24 + 'Spell.json'), 'srd-2024_fog-cloud', 'shape_size_unit', None),
+    'upcast-math/one-more': lambda wt: R.set_field(wt / OPT14, option_pk(wt, OPT14, 'srd_magic-missile', 'slot_level_2'), 'target_count', 3),
+    'not-in-srd': lambda wt: R.set_field(wt / (D14 + 'Spell.json'), 'srd_fireball', 'desc', 'A wholly invented paragraph about orbs, comets and lanterns that no system reference document has ever printed, written only to see the audit notice it. ' * 2),
     'slot-gap': plant_gap,
     'dice-only': lambda wt: R.set_field(wt / OPT14, acid5(wt), 'damage_roll', '+2'),
     'slot-below-base': plant_below_base,
@@ -99,12 +103,16 @@ PLANTS = {
 }
 
 
-def run_check(wt):
-    """Runs the check on the worktree; returns {rule: 'ok'|'FAIL'}."""
-    out = subprocess.run([sys.executable, str(HERE / 'check-srd-data.py'), str(wt), SRD52],
+AUDIT_ONLY = {'not-in-srd'}                   # rules that only run with --all
+
+
+def run_check(wt, audit=False):
+    """Runs the check on the worktree (with --all when `audit`); returns {rule: 'ok'|'FAIL'}."""
+    out = subprocess.run([sys.executable, str(HERE / 'check-srd-data.py'), str(wt), SRD52] + (['--all'] if audit else []),
                          capture_output=True, text=True).stdout
-    rules = {line.split()[1]: line.split()[0] for line in out.splitlines() if line.startswith(('ok ', 'FAIL '))}
-    return rules or {'(the check crashed)': 'CRASH'}
+    rules = {line.split()[1]: (line.split()[0], int(line.split()[2])) for line in out.splitlines()
+             if line.startswith(('ok ', 'FAIL '))}
+    return rules or {'(the check crashed)': ('CRASH', 0)}
 
 
 def git(wt, *args):
@@ -120,13 +128,18 @@ def main():
     bad = []
     try:
         clean = run_check(wt)
-        if any(v == 'FAIL' for v in clean.values()):
-            print('clean HEAD already fails:', [k for k, v in clean.items() if v == 'FAIL'])
+        audit_before = run_check(wt, audit=True)
+        if any(v[0] == 'FAIL' for v in clean.values()):
+            print('clean HEAD already fails:', [k for k, v in clean.items() if v[0] == 'FAIL'])
             return 1
         for rule, plant in PLANTS.items():
             plant(wt)
             git(wt, '-c', 'commit.gpgsign=false', 'commit', '-qam', f'self-test: {rule}')
-            got = run_check(wt).get(rule.split('/')[0])          # "rule/variant" plants a second case for a rule
+            base = rule.split('/')[0]                            # "rule/variant" plants a second case for a rule
+            if base in AUDIT_ONLY:                               # upstream already has findings: the count must rise
+                got = 'FAIL' if run_check(wt, audit=True)[base][1] > audit_before[base][1] else 'ok'
+            else:
+                got = run_check(wt).get(base, ('missing', 0))[0]
             print(f'{"ok  " if got == "FAIL" else "BLIND"}  {rule}')
             if got != 'FAIL':
                 bad.append(rule)

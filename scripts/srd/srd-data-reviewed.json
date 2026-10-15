@@ -1381,5 +1381,26 @@
   "pk": "srd-2024_chain-lightning",
   "field": "target_count",
   "reason": "SRD 5.2.1: one target, then three bolts leap to as many as three other targets, so 4; the SRD never writes the digit. Same as 2014, owner approved 2026-10-12."
+ },
+ {
+  "rule": "save-ability",
+  "file": "srd-2024/Spell.json",
+  "pk": "srd-2024_antilife-shell",
+  "field": "saving_throw_ability",
+  "reason": "Antilife Shell asks for no save. Its entry's 'Wisdom saving throw' is Antipathy/Sympathy text a page break drops into it in the PDF's reading order (p. 110). Reviewed 2026-10-14."
+ },
+ {
+  "rule": "save-ability",
+  "file": "srd-2024/Spell.json",
+  "pk": "srd-2024_arcane-hand",
+  "field": "saving_throw_ability",
+  "reason": "Different hands ask for different saves (Dexterity for the Clenched Fist, Strength for the Forceful Hand); one field cannot hold both, so it stays empty. Reviewed 2026-10-14."
+ },
+ {
+  "rule": "save-ability",
+  "file": "srd-2024/Spell.json",
+  "pk": "srd-2024_symbol",
+  "field": "saving_throw_ability",
+  "reason": "Each glyph asks for its own save (Constitution, Wisdom ...); one field cannot hold them, so it stays empty. Reviewed 2026-10-14."
  }
 ]
