@@ -46,6 +46,13 @@
       (is (= :martial-ranged (by-key :net)))
       (is (= :simple-melee (by-key :javelin)) "a thrown melee weapon stays melee"))))
 
+(deftest ammunition-weapons-are-flagged
+  (let [by-key (into {} (map (juxt :key identity)) weapons/weapons)]
+    (doseq [{:keys [key properties]} (:weapons (equipment-file))
+            :when (some #(= :ammunition (:key %)) properties)]
+      (testing (name key)
+        (is (::weapons/ammunition? (by-key key)) "an SRD ammunition weapon carries the app's ammunition flag")))))
+
 (deftest armor-carries-srd-cost-and-weight
   (let [srd (by-name (map #(update % :name (fn [n] (s/replace n #"(?i) armor$" ""))) (:armor (equipment-file))))
         app (by-name armor/armor)]

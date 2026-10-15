@@ -366,6 +366,7 @@
     ::ranged? true,
     ::heavy? true,
     ::range {::min 150, ::max 600},
+    ::ammunition? true
     :key :longbow
     ::two-handed? true}
    {:name "Net" :cost {:num 1 :type :gp} :weight "3 lb.",
