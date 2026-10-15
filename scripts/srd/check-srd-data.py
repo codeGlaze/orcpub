@@ -309,6 +309,40 @@ def check_saves(rep, f, old, new, entries, audit=False):
             rep.add('save-ability', f, pk, 'saving_throw_ability', f'{has!r}; the SRD asks for {sorted(said) or "no save"}')
 
 
+RANGE = re.compile(r'range (\d+)/(\d+)', re.I)
+
+
+def srd_ranges(text):
+    """{weapon name, lower case: (normal, long)} from the SRD weapons table, whose rows open with the
+    name and then a cost or damage dice ("Sling 1 sp 1d4 ... (range 30/120)")."""
+    out = {}
+    for line in text.split('\n'):
+        m = re.match(r'([A-Z][A-Za-z ,]+?) \d', line)
+        r = RANGE.search(line)
+        if m and r:
+            out.setdefault(m.group(1).lower(), (int(r[1]), int(r[2])))
+    return out
+
+
+def check_weapon_ranges(rep, ed, old, new, old_weapons, weapons, table, audit=False):
+    """weapon-range: a weapon property's "range N/M" detail matches its weapon's range and
+    long_range, and the SRD weapons table (srd-2014's Sling property said 80/320)."""
+    f = f'{ed}/WeaponPropertyAssignment.json'
+    for pk, r in new.items():
+        a = r['fields']
+        m = RANGE.search(a.get('detail') or '')
+        w = weapons.get(a['weapon'])
+        if not m or w is None or (not audit and old.get(pk) == r and old_weapons.get(a['weapon']) == w):
+            continue
+        got = (int(m[1]), int(m[2]))
+        own = (int(w['fields'].get('range') or 0), int(w['fields'].get('long_range') or 0))
+        srd = table.get(w['fields'].get('name', '').lower())
+        if got != own:
+            rep.add('weapon-range', f, pk, 'detail', f'{a["detail"]!r}; its weapon record says {own[0]}/{own[1]}')
+        elif srd and srd != got:
+            rep.add('weapon-range', f, pk, 'detail', f'{a["detail"]!r}; the SRD weapons table says {srd[0]}/{srd[1]}')
+
+
 def check_units(rep, f, old, new, audit=False):
     """area-unit: where an edition gives areas a unit, every spell with an area gives one."""
     if not any(r['fields'].get('shape_size_unit') for r in new.values()):
@@ -611,6 +645,13 @@ def main(argv):
             check_unverified(rep, f'{ed}/SpellCastingOption.json', old, new)
             check_desc_consistency(rep, f'{ed}/SpellCastingOption.json', old, new)
             check_cantrip_math(rep, f'{ed}/SpellCastingOption.json', old, new, spells)
+    weapon_eds = {path.split('/')[3] for path in names.split() if path.endswith(('/Weapon.json', '/WeaponPropertyAssignment.json'))}
+    for ed in (EDITIONS if '--all' in argv else weapon_eds):
+        p = f'data/v2/wizards-of-the-coast/{ed}/'
+        check_weapon_ranges(rep, ed, records(clone, base, p + 'WeaponPropertyAssignment.json'),
+                            records(clone, 'HEAD', p + 'WeaponPropertyAssignment.json'),
+                            records(clone, base, p + 'Weapon.json'), records(clone, 'HEAD', p + 'Weapon.json'),
+                            srd_ranges(text[ed]), audit='--all' in argv)
     if '--all' in argv:
         for ed in EDITIONS:
             p = f'data/v2/wizards-of-the-coast/{ed}/'
@@ -640,7 +681,7 @@ def main(argv):
                   f'(upstream data; check before trusting): ' + ', '.join(u.split('_', 1)[1] for u in unchecked))
     check_duplicate_pks(rep, clone, set(names.split()), '--all' in argv)
     check_ratchet(rep, clone, srd52, '--update-baseline' in argv)
-    bad = rep.print(['fidelity', 'punctuation', 'name-case', 'empty-option', 'base-missing', 'value-in-srd', 'damage-types', 'save-ability', 'area-unit', 'not-in-srd', 'slot-gap',
+    bad = rep.print(['fidelity', 'punctuation', 'name-case', 'empty-option', 'base-missing', 'value-in-srd', 'damage-types', 'save-ability', 'area-unit', 'weapon-range', 'not-in-srd', 'slot-gap',
                      'dice-only', 'no-op-option', 'slot-below-base', 'upcast-math', 'cantrip-math', 'desc-math', 'desc-consistency', 'unverified', 'duplicate-pk', 'lint-ratchet', 'reformat'])
     print(f'desc-math verified {rep.checked} of {rep.with_desc} records with a desc; the rest match no step sentence')
     print(f'{bad} open finding(s) across {len(names.split())} changed file(s)')

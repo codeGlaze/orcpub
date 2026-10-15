@@ -101,6 +101,7 @@ seen to fail on the mistake before it was trusted:
 | damage-types | a spell's `damage_types` missing a type its SRD text deals, or listing one it only resists, takes ("destroyed by dealing 60 force damage") or never deals | 32 srd-2014 spells (Magic Missile had none); srd-2024 Wall of Ice listed fire and psychic from its immunity line |
 | save-ability | a spell's `saving_throw_ability` missing, or not one its SRD entry asks for | 6 wrong (Animal Friendship, Detect Thoughts: Intelligence for Wisdom), 9 set where the spell only grants advantage on saves (Haste, Beacon of Hope), 3 missing (2024 Control Water) |
 | area-unit | a spell with an area but no unit, in an edition that gives units | srd-2024 cubes with no "feet" |
+| weapon-range | a weapon property's "range N/M" disagrees with its weapon record or the SRD weapons table | srd-2014 Sling: its ammunition property said 80/320 (the shortbow's) |
 | not-in-srd | (`--all`) an SRD record whose text is mostly absent from the SRD transcript | 26 srd-2014 monster records are Monster Manual text (demon summoning, hag covens, familiar variants); 3 spells (Fire Shield, Hold Monster, Water Breathing) carry reworded descriptions |
 | value-in-srd | a base dice, target count or area we set on a spell that is not in its SRD entry (the transcript, not open5e's copy) | bases filled from open5e's text were checked against the SRD by hand |
 | slot-gap | slot options that skip a level before 9 | Conjure Animals had no slot 6 |

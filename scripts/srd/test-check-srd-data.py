@@ -82,6 +82,10 @@ PLANTS = {
     'damage-types/stat-block': lambda wt: R.set_field(wt / (D24 + 'Spell.json'), 'srd-2024_find-steed', 'damage_types', ['radiant']),
     'save-ability': lambda wt: R.set_field(wt / (D14 + 'Spell.json'), 'srd_fireball', 'saving_throw_ability', 'wisdom'),
     'area-unit': lambda wt: R.set_field(wt / (D24 + 'Spell.json'), 'srd-2024_fog-cloud', 'shape_size_unit', None),
+    'weapon-range': lambda wt: R.set_field(wt / (D14 + 'WeaponPropertyAssignment.json'), 'srd-2014_longbow_ammunition', 'detail', 'range 150/601'),
+    # record and property agree with each other, so only the SRD weapons table can catch it
+    'weapon-range/srd-table': lambda wt: (R.set_field(wt / (D14 + 'Weapon.json'), 'srd_longbow', 'long_range', 601.0),
+                                          R.set_field(wt / (D14 + 'WeaponPropertyAssignment.json'), 'srd-2014_longbow_ammunition', 'detail', 'range 150/601')),
     'upcast-math/one-more': lambda wt: R.set_field(wt / OPT14, option_pk(wt, OPT14, 'srd_magic-missile', 'slot_level_2'), 'target_count', 3),
     'not-in-srd': lambda wt: R.set_field(wt / (D14 + 'Spell.json'), 'srd_fireball', 'desc', 'A wholly invented paragraph about orbs, comets and lanterns that no system reference document has ever printed, written only to see the audit notice it. ' * 2),
     'slot-gap': plant_gap,
