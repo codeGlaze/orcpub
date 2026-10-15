@@ -47,12 +47,19 @@ Simulated 150 ms latency, 1.6 Mbps, production bundle, median of three cold load
 
 - [e2e-runner.md](e2e-runner.md): how browser checks run and declare what they need.
 
-## The browser test server runs in dev mode (2026-10-15)
+## Checking caching from a browser (2026-10-15, corrected)
 
-`scripts/e2e/run.sh` starts the server with the default lein profiles, and `:dev-config` sets
-`:dev-mode "true"` (project.clj), even for a production-bundle run. Anything that behaves
-differently outside dev mode (the static caching interceptor and content-stamped asset links on
-`test/page-load-budget`) cannot be seen by a browser check: a repeat visit to the builder still
-re-downloaded 54 static files, because the new code was correctly doing nothing. A suite that needs
-production behaviour has to ask the runner for `DEV_MODE=false` (decision pending: a per-suite
-header, or every production-bundle run).
+**Reversal.** An earlier version of this section said the browser test server always runs in dev
+mode. Wrong: `server.sh` starts it with `with-profile init-db`, which replaces the default profiles,
+so `:dev-config`'s `:dev-mode "true"` is not active and `.lein-env` is `{}`. The claim was inferred
+from project.clj without checking. Measured, the test server serves the stamped links and the new
+caching headers exactly as production code does.
+
+What really went wrong was the check:
+
+- **Reloading a tab re-downloads by design.** Going to the URL a tab already shows is a reload in
+  Chrome. A repeat-visit check must open a new tab in the same context (shared cache).
+- **A repeat visit cannot catch missing headers.** Browsers guess a lifetime from Last-Modified
+  (heuristic freshness), so with the caching interceptor removed the repeat visit still came from
+  the cache. The guard is explicit instead: every static file the builder loads must carry
+  `Cache-Control` with a `max-age`. With the interceptor removed, all 54 fail; with it, none.
