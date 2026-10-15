@@ -132,9 +132,13 @@
  :portrait/draft
  (fn [db _] (get db :portrait/draft {})))
 
-(reg-sub
+(reg-sub-raw
  :portrait/artist-overrides
- (fn [db _] (get db :portrait/artist-overrides)))
+ ;; Fetches the artist credits the first time a view that shows one subscribes, so a page with no
+ ;; portrait never asks; until they arrive the views show the registry's defaults.
+ (fn [app-db _]
+   (dispatch [:portrait/load-artists])
+   (ra/make-reaction #(get @app-db :portrait/artist-overrides))))
 
 (reg-sub
  :portrait/draft-seed
