@@ -59,6 +59,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** on phones the header, menus and ability buttons fit the screen. (#711)
 - **Server:** blank settings count as unset, Docker secrets work for the login key, and the Windows start scripts find their ports. (#701)
 - **Server:** without email configured, registration is refused unless explicitly allowed. (#712)
+- **Site:** returning visitors download the app again only when it has changed, and see a new release straight away.
 
 ### Fixed
 
@@ -101,6 +102,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 ### Security
 
 - Sign-in, password reset, share links, image fetching and PDF export are hardened against misuse, and secrets are no longer printed at startup.
+- **Site:** pages no longer load fonts from Google, so visiting the site no longer sends your address to Google.
 
 ## [breaking/2026-stack-modernization]
 
