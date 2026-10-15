@@ -406,6 +406,11 @@ sheet and PDF use. If it lands, the hidden-pick fix's in-row marker and class li
 
 ## Also open, smaller
 
+☐ Two e2e scripts fail on `integration` as it stands (`b8035afe`, 2026-10-15), the same checks on
+every run: `library-repairs.js` (1/4: the repair panel never offers the renamed race "Hill Folk",
+so its Fix button never appears) and `quarantine-restore.js` (7/12: the loader does not set aside
+the two damaged entries). Not in CI, so nothing flagged them. Found running the full e2e set for
+the hidden-pick PR; the scripts or the loader changed under them, not yet known which.
 ☐ Unrecognised-tag warning on **import** as well as export (`bf/unknown-tag-problems` already
 exists; it is the other seam).
 ☐ `builder-notes` rendering through `notifications/callout` — shared box styling, and it fixes a
