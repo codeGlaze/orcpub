@@ -180,7 +180,8 @@
 (deftest s2-spell-selection-gate-opens-at-its-class-level
   ;; S2 FIXED: lvl is the class level the spells are learned at, so a selection opens at that
   ;; class level and stays open. Inverted, a character past the schedule's last level saw none,
-  ;; and the planned-pick hold took every spell it had learned.
+  ;; and the planned-pick hold would take its spells. Only a subclass whose :spellcasting has
+  ;; its own known schedule reaches this; SRD and builder-made subclasses carry :level-factor.
   (let [lvl->pass (fn [n] (set (for [[l s] (gated-spell-selections)
                                      :when ((::t/prereq-fn s) (build [(tc-entry n)]))]
                                  l)))]
