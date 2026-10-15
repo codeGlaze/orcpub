@@ -93,8 +93,47 @@ fields (a flat amount, a level threshold, a summon count) and a list of damage p
 damage roll. Both are in [srd-improvements.md](srd-improvements.md), "What is prose that should be
 data", and both serve the homebrew spell builder too.
 
-**Open:** which trunk carries stage 1 (it is edition-neutral, so by the machinery split it belongs
-to `refactor/`); whether `e5`'s rewritten spell summaries are kept as a separate field.
+**Decided:** `e5`'s rewritten spell summaries are kept, as a separate summary field beside the SRD
+text (owner, October 2026).
+
+**When types join (owner, 2026-10-15):** a type joins the pipeline once its data is verified, not
+before. Re-running a generator is cheap, but the departure review above needs final data, so a
+half-verified type would be reviewed twice. Weapons and armor are verified, so they go first and
+prove the machinery; the data work on the other types carries on meanwhile.
+
+#### Stage 1, first type: weapons and armor
+
+Read against `integration` `b8035afe4`. The SRD side is already generated:
+`resources/public/srd/2014/equipment.edn` (`emit-equipment.py`), checked by
+`srd_equipment_test.clj`. The app still reads the hand-kept `weapons.cljc` and `armor.cljc`.
+
+The two shapes differ, so the generator emits the app's shape, not the served one:
+
+| | served file | app entry |
+|---|---|---|
+| damage | `{:dice "1d8" :type ...}` | `::damage-die 8`, `::damage-die-count 1`, `::damage-type` |
+| weight | `3` | `"3 lb."` |
+| category | `:martial-melee` | `::type :martial`, `::melee? true` |
+| app-only | none | `::subtype :sword`, `::link` (Wikipedia) |
+
+App-only fields stay in code, joined by `:key`, the same split as magic items' mechanics.
+
+1. A generator writes the app's shape for every SRD field.
+2. `weapons` and `armor` become a compile-time read of that file, merged with the app-only fields by key.
+3. A test holds every existing `:key` and every field value the builder reads, so no saved character
+   or homebrew item changes. Load-time readers to keep working: `srd_starting_equipment.cljc:16`,
+   `equipment.cljc:233`, `magic_items.cljc:3080` (expands magic weapons and armor per base item).
+4. `srd_equipment_test` compares generated against served, which become one source.
+
+**Open:**
+- **Which trunk carries stage 1.** It is edition-neutral, so by the machinery split it belongs on
+  the `refactor/` tree.
+- **`refactor/data-extraction` overlaps it.** That leaf moved the hand-kept SRD spells, monsters and
+  magic items into `spells_data.cljc`, `monsters_data.cljc` and `magic_items_data.cljc` (plus
+  class option builders, and view and builder splits), the same defs stage 1 replaces with
+  generated reads. Its last commit is 2026-02-25 and it is 1,109 commits behind `integration`
+  (checked 2026-10-15). Revive it first, let stage 1 supersede its data moves, or drop it: decide
+  before stage 1 reaches spells. Weapons and armor are not in it.
 
 ### One loader for the SRD and for homebrew
 
@@ -266,6 +305,7 @@ departures on rendered pages, then the rest of phase 3. **Not the next thing** �
 - **Rule interlinking and indexing** across the SRD — follow a spell or weapon property to the rule it depends on. (owner)
 - **Edition subdomains**: `2014.` and `2024.` hosts preselect a version, while the bare domain uses the default or the user's saved choice. (owner)
 - **Small visual tells** for 2014, 2024 and both — composed with the theme, not a theme of their own, and never the only indicator. (owner)
+- **Markdown in user notes and homebrew text.** Its own branch, after the data work. Not for SRD data: the generator already turns open5e's markdown into structured data (`srd_format.py`), and the app renders no markdown anywhere today. Raw HTML stays off, since shared characters and homebrew render someone else's text. Existing notes must not change meaning (a saved `*` or `1.` at a line start), so either a per-field or per-user switch, or a small set: bold, italic, lists, line breaks. Needs a browser-side parser. (owner, 2026-10-15)
 
 ## Open decisions
 
