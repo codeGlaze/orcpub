@@ -6,6 +6,7 @@
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as s]
+            [clojure.walk :as walk]
             [orcpub.common :as common]
             [orcpub.dnd.e5.display :as disp]
             [orcpub.pdf-spec :as pdf]
@@ -56,16 +57,30 @@
       (testing (name key)
         (is (::weapons/ammunition? (by-key key)) "an SRD ammunition weapon carries the app's ammunition flag")))))
 
+(defn rules-text
+  "The served 2014 rules as one string: every text node, spaces collapsed, so a sentence split by
+   a link (\"is \" [:a ... \"restrained\"] \" until\") reads whole."
+  []
+  (let [strs (atom [])]
+    (walk/postwalk #(do (when (string? %) (swap! strs conj %)) %)
+                   (some-> (io/resource "public/srd/2014/rules.edn") slurp edn/read-string))
+    (s/replace (s/join " " @strs) #"\s+" " ")))
+
 (deftest a-weapon-without-damage-shows-none
   (let [net (weapons/weapons-map :net)
         sword (weapons/weapons-map :longsword)
         attack-text #(disp/attack-description (assoc % :attack-type :ranged :attack-modifier 5 :damage-modifier 2))
-        pdf-damage #(pdf/damage-str (::weapons/damage-die %) (::weapons/damage-die-count %) 2 (::weapons/damage-type %))]
+        pdf-damage #(pdf/damage-str (::weapons/damage-die %) (::weapons/damage-die-count %) 2 (::weapons/damage-type %) (:summary %))]
     (testing "the Net: no dice, so no damage and no modifier"
       (is (not (s/includes? (attack-text net) "d+")))
-      (is (s/includes? (attack-text net) "no damage"))
-      (is (= "None" (pdf-damage net)))
-      (is (seq (:summary net)) "says what a net does instead"))
+      (is (s/includes? (attack-text net) "no damage")))
+    (testing "small spaces get the short summary"
+      (is (<= (count (:summary net)) 12) "fits the table row and the PDF box")
+      (is (s/includes? (attack-text net) (:summary net)))
+      (is (= (str "None (" (:summary net) ")") (pdf-damage net))))
+    (testing "the details get the SRD's own words"
+      (is (seq (::weapons/description net)))
+      (is (s/includes? (rules-text) (::weapons/description net)) "verbatim from the served SRD rules"))
     (testing "a weapon with dice is unchanged"
       (is (s/includes? (attack-text sword) "1d8+2 slashing damage"))
       (is (= "1d8+2 slashing" (pdf-damage sword))))))
