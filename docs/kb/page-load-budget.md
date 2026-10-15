@@ -46,3 +46,13 @@ Simulated 150 ms latency, 1.6 Mbps, production bundle, median of three cold load
 ## Related
 
 - [e2e-runner.md](e2e-runner.md): how browser checks run and declare what they need.
+
+## The browser test server runs in dev mode (2026-10-15)
+
+`scripts/e2e/run.sh` starts the server with the default lein profiles, and `:dev-config` sets
+`:dev-mode "true"` (project.clj), even for a production-bundle run. Anything that behaves
+differently outside dev mode (the static caching interceptor and content-stamped asset links on
+`test/page-load-budget`) cannot be seen by a browser check: a repeat visit to the builder still
+re-downloaded 54 static files, because the new code was correctly doing nothing. A suite that needs
+production behaviour has to ask the runner for `DEV_MODE=false` (decision pending: a per-suite
+header, or every production-bundle run).

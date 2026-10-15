@@ -2343,12 +2343,13 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _page-load-budget · page load budget_
 
-**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, icons, loads, page, parties, portrait, request, sheet, signed, stylesheet, visit
+**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, icons, loads, page, parties, portrait, production-bundle, sheet, signed, static, visit
 
 - Why it exists
 - Audit of integration (2026-10-15, b8035afe, production bundle)
 - Cost on a slow phone connection (2026-10-15)
 - Related
+- The browser test server runs in dev mode (2026-10-15)
 
 ## pdf-form-techniques.md
 
