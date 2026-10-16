@@ -97,7 +97,7 @@
           (println ";; A diff here is drawing moving. Read it before committing it.")
           (binding [*print-length* nil *print-level* nil]
             (pprint/pprint pages))))
-  (println "seeded" (reduce + (map #(if (map? %) (:ops %) (count %)) pages))
+  (println "seeded" (reduce + (map #(if (map? %) (:ops % 0) (count %)) pages))
            "operators across" (count pages) "pages to" file))
 
 (defn check-baseline!
@@ -117,7 +117,16 @@
             (testing (str "page " i " (" nm ")")
               (when-not (= was now)
                 (if (map? was)
-                  (do (println (format "%n%s page %d (%s): %d ops recorded, %d now"
+                  (if-not (:ops was)
+                    ;; A fingerprint that is not operator counts -- the sheet's widget
+                    ;; boxes. Report the keys that actually differ; the operator
+                    ;; branch below would print "null ops" and an empty :kinds diff.
+                    (do (println (format "%n%s %d (%s):" what i nm))
+                        (doseq [k (sort (into #{} (concat (keys was) (keys now))))
+                                :when (not= (get was k) (get now k))]
+                          (println (format "  %-10s %s -> %s"
+                                           (name k) (pr-str (get was k)) (pr-str (get now k))))))
+                    (do (println (format "%n%s page %d (%s): %d ops recorded, %d now"
                                        what i nm (:ops was) (:ops now)))
                       (println "  stream" (:sha was) "->" (:sha now))
                       (let [moved (for [[k label] [[:geom "geometry"] [:colour "colour"]
@@ -131,7 +140,7 @@
                       (doseq [k (sort (into #{} (concat (keys (:kinds was)) (keys (:kinds now)))))
                               :let [a (get (:kinds was) k 0) b (get (:kinds now) k 0)]
                               :when (not= a b)]
-                        (println (format "  %-4s %d -> %d" k a b))))
+                        (println (format "  %-4s %d -> %d" k a b)))))
                   (do (println (format "%n%s page %d (%s): %d ops recorded, %d now"
                                        what i nm (count was) (count now)))
                       (doseq [[j a b] (first-diffs was now 12)]
