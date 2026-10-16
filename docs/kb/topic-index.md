@@ -1788,7 +1788,7 @@ _garden-inline-styles-harvest · garden inline styles harvest_
 
 _growable-option-menus · growable option menus_
 
-**topics:** 1440, accent, band, card, carded, carding, caret, child, collapse, dark-inset, family, header, intrinsic, layout, menus, per-menu, renderers, thumb
+**topics:** 1440, accent, band, card, carded, carding, caret, child, collapse, dark-inset, header, intrinsic, layout, menus, per-menu, renderers, thumb, toggle
 
 - 2026-09-06 — lifted onto feat/option-picker, then cut
 - Goal
@@ -3593,7 +3593,7 @@ _weapon-data-model · weapon data model_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, 2px, 390px, agreed, amber, blue, button, buttons, chip, damage, headings, pill, restrains, row, two-handed, versatile, white
+**topics:** 1d10, 2026-10-15, 2px, agreed, amber, blue, button, buttons, chip, damage, drawn, headings, pill, restrains, row, two-handed, versatile, white
 
 - Agreed
 - Open
