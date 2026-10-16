@@ -44,3 +44,17 @@
       (is (= ["Fusspot"] (pa/credit-names (portrait-of [:head :shirt])))
           "the PDF's credit falls back to the registry rather than to nothing")
       (finally (pa/set-artist-overrides! before)))))
+
+(deftest a-portrait-this-site-cannot-draw-shows-the-pasted-picture
+  (let [el (.createElement js/document "div")
+        undrawable {:layers {:head {:asset/id :not-on-this-site}}}]
+    (try
+      (.appendChild (.-body js/document) el)
+      (rdom/render [portrait/thumbnail undrawable "https://example.com/pasted.png" false] el)
+      (r/flush)
+      (is (some? (.querySelector el "img[src='https://example.com/pasted.png']"))
+          "its selection names only pieces this deployment lacks, so the pasted picture shows")
+      (is (nil? (portrait/bake-ahead! undrawable)) "and nothing is baked for it")
+      (finally
+        (rdom/unmount-component-at-node el)
+        (.remove el)))))

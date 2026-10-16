@@ -33,13 +33,18 @@
     (hex (.digest md))))
 
 (def drawing-sources
-  "The code a portrait's pixels depend on, read from the classpath: a change to any of it draws
-   every portrait again."
+  "What a portrait's pixels depend on besides the art files: the drawing code and the pack's data.
+   A change to any of it draws every portrait again."
   ["orcpub/portrait_render.clj" "orcpub/dnd/e5/portrait_effects.cljc"
    "orcpub/dnd/e5/portrait_face.cljc" "orcpub/dnd/e5/portrait_colorize.cljc"
    "orcpub/dnd/e5/portrait_layout.cljc" "orcpub/dnd/e5/portrait_light.cljc"
    "orcpub/dnd/e5/portrait_random.cljc" "orcpub/dnd/e5/portrait_assets.cljc"
    "portrait-pack/loom.edn" "portrait-pack/pieces.edn"])
+
+(defn- code-source?
+  "Whether `path` is a source file, which a production jar leaves out (:omit-source)."
+  [path]
+  (boolean (re-find #"\.cljc?$" path)))
 
 (defn- resource-bytes
   "The bytes of classpath resource `path`, or nil."
@@ -47,11 +52,18 @@
   (when-let [r (io/resource path)]
     (with-open [in (io/input-stream r)] (.readAllBytes in))))
 
+(defmacro ^:private compiled-code-digest
+  "A digest of the drawing code, taken when this namespace is compiled, while the sources are still
+   on the classpath; a production jar has the compiled value."
+  []
+  (digest-of (mapcat (fn [p] [p (or (resource-bytes p) "missing")]) (filter code-source? drawing-sources))))
+
 (defn- art-digest*
   "A digest of everything a drawing depends on outside the database: the registered art files and
    the drawing code. Stable across restarts, so a stored file stays good until either changes."
   []
-  (digest-of (concat (mapcat (fn [p] [p (or (resource-bytes p) "missing")]) drawing-sources)
+  (digest-of (concat [(compiled-code-digest)]
+                     (mapcat (fn [p] [p (or (resource-bytes p) "missing")]) (remove code-source? drawing-sources))
                      (for [{:artist/keys [layers]} pa/registry
                            [_ assets] (sort-by key layers)
                            {:asset/keys [url]} assets

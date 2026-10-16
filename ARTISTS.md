@@ -120,7 +120,7 @@ page. Every edit is emailed to the artist and to the admin.
 ## Preferred names
 
 Every account can set "What should we call you?" on My Account. Site emails
-open with it ("Hi Kaylee,") and say "Hi there," without it.
+open with it ("Hi Kaylee,") and greet the account by its username without it.
 
 It's **encrypted, not hashed**: a hash can't be read back, and the site has
 to write the name into the email. The database holds only ciphertext, and
@@ -135,5 +135,5 @@ PROFILE_ENCRYPTION_KEYS="k1:$(openssl rand -base64 32)"
 Prefer the Docker secret `profile_encryption_keys` in swarm. To rotate, put a
 new key first and keep the old ones after it (`k2:…,k1:…`); the first
 encrypts and all of them decrypt. **Losing every key loses the names**, and
-only the names: they fall back to "Hi there,". With no key set the field says
+only the names: emails fall back to the username. With no key set the field says
 it isn't available yet, and nothing is ever stored readable.

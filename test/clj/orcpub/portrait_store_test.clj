@@ -167,3 +167,11 @@
             (is (= :ok outcome))
             (is (pos? (alength ^bytes png)) "the drawing is served though it could not be kept")))
         (finally (.delete blocker))))))
+
+(deftest drawing-code-counts-in-a-jar-built-without-sources
+  ;; Production jars omit .clj and .cljc files (:omit-source), so the drawing code cannot be read
+  ;; from the classpath there; the digest must not depend on reading it at run time.
+  (let [visible (#'store/art-digest*)
+        read-resource @#'store/resource-bytes]
+    (with-redefs [store/resource-bytes (fn [p] (when-not (re-find #"\.cljc?$" p) (read-resource p)))]
+      (is (= visible (#'store/art-digest*))))))

@@ -81,3 +81,10 @@
     (is (= {:eyes {"l6_eyes_01.png" {:pupil 0.45 :iris []}}} (clojure.edn/read-string text)) "still reads as the same data")
     (is (nil? (imp/pack-of (imp/render-loom {}))) "an older file without the line"))
   (is (= "v1.6" (imp/pack-of (slurp "resources/portrait-pack/loom.edn"))) "the working placements say which pack they came from"))
+
+(deftest a-mistyped-prefer-is-refused
+  (is (= :first (imp/prefer-arg ["m.json" "--prefer" "first"])))
+  (is (= :last (imp/prefer-arg ["m.json" "--prefer" "last"])))
+  (is (nil? (imp/prefer-arg ["m.json"])) "absent: conflicts stop the import")
+  (is (thrown? clojure.lang.ExceptionInfo (imp/prefer-arg ["m.json" "--prefer" "frist"]))
+      "a typo would otherwise settle every conflict by picking the last"))
