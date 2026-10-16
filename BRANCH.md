@@ -41,7 +41,9 @@ a stale branch cites lines that have moved.
   upstream #674 with "Fixes #N" for the 35 issues the release answers.
 - **Merge gate:** a clean CodeRabbit review (no actionable comments, its check green) and green CI.
   Greptile's trial is out of credits. CodeRabbit reviews automatically only PRs into the default
-  branch: on a PR into `integration`, comment `@coderabbitai review` after each push.
+  branch: on a PR into `integration`, comment `@coderabbitai full review` after each push. Plain
+  `@coderabbitai review` answers "Review failed" there (it only works while automatic reviews are
+  paused; checked 2026-10-16 on #64).
 
 ### The tree
 
