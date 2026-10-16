@@ -8,8 +8,8 @@
    Re-seed after a DELIBERATE change: CARD_GEOMETRY=seed lein test, then read the diff."
   (:require [clojure.test :refer [deftest is testing]]
             [orcpub.pdf-ops :as ops]
-            [orcpub.pdf :as pdf]
             [orcpub.pdf.draw :as draw]
+            [orcpub.pdf.cards :as cards]
             [orcpub.routes :as routes]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.magic-items :as magic-items])
@@ -97,7 +97,7 @@
   (first (filter #(= nm (:name %)) magic-items/magic-items)))
 
 (def ^:private ornament-labels
-  (vec (for [family pdf/card-flourishes, [mode _ _] print-modes]
+  (vec (for [family cards/card-flourishes, [mode _ _] print-modes]
          (str (name family) " / " (name mode)))))
 
 (defn- ornament-pages
@@ -108,13 +108,13 @@
     (with-open [doc (PDDocument.)]
       (let [fonts (draw/load-fonts doc)
             img (draw/make-image-loader doc)]
-        (doseq [family pdf/card-flourishes
+        (doseq [family cards/card-flourishes
                 [_ bw? faded?] print-modes]
           (let [page (PDPage.)]
             (.addPage doc page)
             (with-open [cs (PDPageContentStream. doc page)]
-              (pdf/print-items cs doc fonts img 2.5 3.5 items 0 bw? faded?
-                               {:flourish family})))))
+              (cards/print-items cs doc fonts img 2.5 3.5 items 0 bw? faded?
+                                 {:flourish family})))))
       (.save doc out))
     (with-open [doc (Loader/loadPDF (.toByteArray out))] (ops/doc-ops doc))))
 
@@ -131,11 +131,11 @@
            (set (map :expect rarity-cases)))))
   (testing "both charge paths, either side of tickable-charges"
     (doseq [{:keys [name charges]} (filter :charges rarity-cases)]
-      (is (= charges (pdf/item-charges
+      (is (= charges (cards/item-charges
                       (:orcpub.dnd.e5.magic-items/description (item-named name))))
           (str (pr-str name) " no longer reads as " charges " charges")))
     (is (= #{true false}
-           (set (map #(<= % @#'pdf/tickable-charges) (keep :charges rarity-cases))))
+           (set (map #(<= % @#'cards/tickable-charges) (keep :charges rarity-cases))))
         "the matrix needs one item each side of tickable-charges"))
   (testing "an attunement badge and a name that must shrink are both on the page"
     (is (some #(seq (str (:orcpub.dnd.e5.magic-items/attunement (item-named (:name %)))))

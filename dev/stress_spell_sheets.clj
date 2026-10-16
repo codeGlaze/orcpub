@@ -15,7 +15,7 @@
 ;; annotation column has to live in.
 
 (require '[orcpub.pdf :as pdf]
-(require '[orcpub.pdf.draw :as draw]
+         '[orcpub.pdf.draw :as draw]
          '[orcpub.dnd.e5.spells :as spells]
          '[clojure.java.io :as io]
          '[clojure.string :as st])

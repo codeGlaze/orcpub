@@ -3,7 +3,6 @@
   ;; explicit :refer to avoid namespace pollution from :refer :all
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
-            [orcpub.pdf :as pdf]
             [orcpub.pdf.draw :as draw]
             [orcpub.routes :as routes]
             [orcpub.dnd.e5.spells :as spells]
@@ -148,12 +147,12 @@
   (testing "each of the nine card backs carries the site line"
     (with-open [doc (render-cards #{:spells})]
       (let [text (str/join (map :ch (glyphs doc 1)))]
-        (is (= 9 (count (re-seq (re-pattern pdf/site-stamp) text)))
+        (is (= 9 (count (re-seq (re-pattern draw/site-stamp) text)))
             "one stamp per card on the back page"))))
   (testing "and the item cards' backs too, which share print-backs"
     (with-open [doc (render-cards #{:items})]
       (let [text (str/join (map :ch (glyphs doc 1)))]
-        (is (= 9 (count (re-seq (re-pattern pdf/site-stamp) text))))))))
+        (is (= 9 (count (re-seq (re-pattern draw/site-stamp) text))))))))
 
 (deftest overflow-text-clears-the-site-stamp
   ;; REGRESSION: draw-lines-to-box fills its box to the last line that fits, and
@@ -169,7 +168,7 @@
             box-of (fn [{:keys [x y]}]
                      [(int (/ (- x (* 72 0.5)) (* 72 2.5)))
                       (int (/ (- y (* 72 0.25)) (* 72 3.5)))])
-            stamp-chars (set pdf/site-stamp)]
+            stamp-chars (set draw/site-stamp)]
         (doseq [[box gs] (group-by box-of all)
                 ;; The page header sits above the grid and is not a card.
                 :when (<= 0 (second box) 2)]
@@ -178,7 +177,7 @@
                 bottom (apply max (map :y gs))
                 stamp (filter #(> (:y %) (- bottom 2)) gs)
                 body (remove #(> (:y %) (- bottom 2)) gs)]
-            (is (= pdf/site-stamp (str/join (map :ch (sort-by :x stamp))))
+            (is (= draw/site-stamp (str/join (map :ch (sort-by :x stamp))))
                 (str "box " box " ends with the stamp"))
             (when (seq body)
               (is (> (- bottom (apply max (map :y body))) 6.0)
