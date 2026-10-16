@@ -2660,7 +2660,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** discard, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, open, rescue, restore, saved, start-up, tab, undo, unsaved
+**topics:** draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, mix-up, never-saved, open, rescue, restore, saved, start-up, tab, undo, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)

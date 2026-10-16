@@ -1,6 +1,8 @@
 # Plan: one draft per character, and restoring without nagging
 
-**Status:** planned 2026-10-15, not built. Fixes the two-tab mix-up in
+**Status:** steps 1-3 built on `feature/portrait-builder` (PR #64, `7d6187f75`, 2026-10-15): R0, R1,
+R7's storage part and R9 pass, each seen failing first. Steps 4-6 not built; step 4 waits on
+mockups, step 5 on the owner's answer to R8's amendment. Fixes the two-tab mix-up in
 [multi-tab-character-contamination.md](multi-tab-character-contamination.md) (#704) for the character
 draft. The other 16 single-slot drafts (homebrew builders, encounter, combat) stay in the rescue
 plan's item 9 (`character-rescue.md` on `feature/character-rescue`).
@@ -60,7 +62,13 @@ Two more checks the build must pass, for the bug itself and the move:
 - **Opening a saved character** (Edit, Level Up, a list): look for its draft. None, identical (R2),
   stale (R3), already asked (R5) or live elsewhere (R7): open the saved version, with R7's line if it
   applies. Otherwise open the saved version with R4's line.
-- **New with unsaved changes** keeps its current meaning: the confirmed discard deletes that draft.
+- **New and Clone with unsaved changes** do not delete the previous draft: another tab may hold the
+  same character's draft under the same key, and deleting it would lose that tab's work. It stays a
+  leftover, which R2 drops if it changes nothing and R4 offers once otherwise.
+- **A tab with no key of its own** opens the latest draft no other tab holds (built). Under R4 a
+  leftover of a saved character should be offered rather than opened silently: step 4 changes this.
+- **Two tabs on the same character** share one key, so the later write wins. Not a mix-up between
+  characters; the rescue plan's item 9 mirroring is the fix for that case.
 - **Storage space.** Drafts share the browser's ~5 MB with the homebrew library
   (`localstorage_ceiling_e2e.js`). Saved characters' drafts are deleted on save and expire; a failed
   write is reported, never silent.
