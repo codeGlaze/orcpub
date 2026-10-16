@@ -287,7 +287,22 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
    (`routes/character-report-details`, read from the database, so it works when the browser's
    copy is unreadable; left out when no saved character has that id). The repair link opens only
    for the owner, who is cc'd; support uses it to point them there (owner, 2026-10-16).
-4. Duplicate prevention for the save race (R10): measure first, then the approach to the owner.
+4. Duplicate prevention: **measured 2026-10-16, approach with the owner.** Through
+   `routes/do-save-character`, each save taking its own `(d/db conn)` as the db interceptor does,
+   two saves made from the same copy, 100 trials per delay, in-memory database (one save: median
+   1.9 ms):
+
+   | second save starts | duplicate selection (both add one) | lost edit (each changes a different value) |
+   |---|---|---|
+   | together | 99/100 | 100/100 |
+   | 2 ms later | 5/100 | 100/100 |
+   | 5, 10, 25, 50 ms later | 0/100 | 100/100 |
+
+   A duplicate needs the two saves to overlap on the server (a window of about one save's time;
+   longer on the live transactor, not measured). A lost edit needs only that both saves started
+   from the same copy, at any distance apart: the later save writes back the older value. The
+   proposed fix covers both: a version number on the character, checked with `:db/cas`, so a save
+   made from an older copy is refused instead of written.
 5. Keep a copy of a browser draft the app cannot read (`db.cljs` `handle-unreadable` deletes it on
    boot; homebrew gets a `:corrupt` copy, characters do not).
 6. Test gaps: builder autosave against the stale-save guard, race and ability-score warnings in a
