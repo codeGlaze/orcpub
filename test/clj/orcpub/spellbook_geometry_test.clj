@@ -55,7 +55,7 @@
                    (group-by :level))
         out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (sb/add-spellbook! doc (draw/load-fonts doc) (pdf/make-image-loader doc)
+      (sb/add-spellbook! doc (draw/load-fonts doc) (draw/make-image-loader doc)
                          (merge base-opts opts) known spells/spell-map)
       (.save doc out))
     (with-open [doc (Loader/loadPDF (.toByteArray out))] (ops/doc-fingerprints doc))))

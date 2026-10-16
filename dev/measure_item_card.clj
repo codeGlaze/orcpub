@@ -97,7 +97,7 @@
 
 (let [doc (PDDocument.) page (PDPage.)]
   (.addPage doc page)
-  (let [fonts (draw/load-fonts doc) img (pdf/make-image-loader doc)]
+  (let [fonts (draw/load-fonts doc) img (draw/make-image-loader doc)]
     (with-open [cs (PDPageContentStream. doc page)]
       (pdf/print-items cs doc fonts img 2.5 3.5 [torture torture torture] 0 false false nil)))
   (.save doc (File. (or (System/getenv "OUT") "target/item-card-torture.pdf")))

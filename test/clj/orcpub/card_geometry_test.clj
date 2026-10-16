@@ -42,7 +42,7 @@
   (let [out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
       (let [fonts (draw/load-fonts doc)
-            img (pdf/make-image-loader doc)
+            img (draw/make-image-loader doc)
             known {:wizard (vec (for [k (take 12 (keys spells/spell-map))]
                                   {:key k :class "Wizard"}))}]
         (doseq [[_ bw? faded?] print-modes]
@@ -107,7 +107,7 @@
         out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
       (let [fonts (draw/load-fonts doc)
-            img (pdf/make-image-loader doc)]
+            img (draw/make-image-loader doc)]
         (doseq [family pdf/card-flourishes
                 [_ bw? faded?] print-modes]
           (let [page (PDPage.)]

@@ -74,7 +74,7 @@
   (testing "the per-document loader memoizes: the same icon path returns the SAME
             embedded image object (embedded/decoded once, referenced thereafter)"
     (with-open [doc (PDDocument.)]
-      (let [img (pdf/make-image-loader doc)
+      (let [img (draw/make-image-loader doc)
             a (img "public/image/shiny-purse.png")
             b (img "public/image/shiny-purse.png")]
         (is (identical? a b) "same path -> same PDImageXObject, not a re-embed")))))
@@ -85,7 +85,7 @@
     (with-open [doc (PDDocument.)]
       (.addPage doc (PDPage.))
       (let [fonts (draw/load-fonts doc)
-            img (pdf/make-image-loader doc)
+            img (draw/make-image-loader doc)
             page (.getPage doc 0)]
         (with-open [cs (PDPageContentStream. doc page)]
           (let [spell [{:spell {:name "Bolt" :level 1 :school "evocation"
@@ -108,7 +108,7 @@
     (with-open [doc (PDDocument.)]
       (.addPage doc (PDPage.))
       (let [fonts (draw/load-fonts doc)
-            img (pdf/make-image-loader doc)
+            img (draw/make-image-loader doc)
             page (.getPage doc 0)
             lines (vec (repeat 9 {:remaining-lines ["overflow line"] :spell-name "Bolt"}))]
         (with-open [cs (PDPageContentStream. doc page)]

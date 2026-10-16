@@ -85,7 +85,7 @@
 
 (deftest pact-slots-serve-every-level
   (with-open [doc (PDDocument.)]
-    (let [us (sb/units (draw/load-fonts doc) (pdf/make-image-loader doc)
+    (let [us (sb/units (draw/load-fonts doc) (draw/make-image-loader doc)
                        {:classes [{:class "Warlock" :class-kw :warlock :level 5 :pact? true :icon "warlock-eye"}]
                         :slots {} :pact-slots {3 2} :layout :book :order :level :tabs :head}
                        {:all [{:key (common/name-to-kw "Charm Person") :class "Warlock"}
@@ -100,7 +100,7 @@
 
 (deftest the-slot-pool-wraps
   (with-open [doc (PDDocument.)]
-    (let [pool #(first (sb/units (draw/load-fonts doc) (pdf/make-image-loader doc)
+    (let [pool #(first (sb/units (draw/load-fonts doc) (draw/make-image-loader doc)
                                  {:classes [{:class "Wizard" :class-kw :wizard :level 20 :icon "spell-book"}]
                                   :slots % :pact-slots {} :layout :prep :order :level :tabs :head}
                                  {:all [{:key (common/name-to-kw "Shield") :class "Wizard"}]}
@@ -157,7 +157,7 @@
                           (group-by :level))
         out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (let [n (sb/add-spellbook! doc (draw/load-fonts doc) (pdf/make-image-loader doc)
+      (let [n (sb/add-spellbook! doc (draw/load-fonts doc) (draw/make-image-loader doc)
                                  (merge {:classes [{:class "Cleric" :class-kw :cleric :level 5 :ability "Wisdom"
                                                     :dc 15 :attack "+7" :icon "holy-symbol"}
                                                    {:class "Wizard" :class-kw :wizard :level 6 :ability "Intelligence"

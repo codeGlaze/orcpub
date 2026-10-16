@@ -12,27 +12,14 @@
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.display :as dis5e]
             [orcpub.dnd.e5.spell-print :as sp]
-            [orcpub.pdf.draw :as draw
-             :refer [HELVETICA
-                     HELVETICA_BOLD
-                     HELVETICA_BOLD_OBLIQUE
-                     normalize-text
-                     string-width
-                     content-stream
-                     split-lines
-                     draw-lines-to-box
-                     draw-text-to-box
-                     draw-text
-                     draw-halo-text
-                     draw-grid]]
+            [orcpub.pdf.draw :as draw]
             [orcpub.dnd.e5.options :as options]
             [clj-http.client :as client])
   (:import (java.io ByteArrayOutputStream)
            (java.util.zip Deflater DeflaterOutputStream)
            (org.apache.pdfbox.pdmodel.graphics.image PDImageXObject)
            (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField PDTerminalField)
-           (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget
-                                                              PDAppearanceStream)
+           (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget)
            (org.apache.pdfbox.pdmodel.common PDRectangle)
            (org.apache.pdfbox.cos COSName COSDictionary)
            (org.apache.pdfbox.pdmodel PDPage PDPageContentStream PDResources)
@@ -40,8 +27,6 @@
            ;; template artwork survives. The alternative overwrites it.
            (org.apache.pdfbox.pdmodel PDPageContentStream$AppendMode)
            (org.apache.pdfbox.pdmodel.graphics.image JPEGFactory LosslessFactory)
-           (org.apache.pdfbox.pdmodel.graphics.state PDExtendedGraphicsState)
-           (org.apache.pdfbox.util Matrix)
            (org.apache.http.conn DnsResolver)
            (org.apache.http.impl.conn BasicHttpClientConnectionManager)
            (org.apache.http.config RegistryBuilder)
@@ -84,191 +69,6 @@
 ;; equipment = unused (pdf_spec emits no such key); cha = modifier; cha-mod = score.
 
 ;; The Base 14 fonts, present in every PDF reader. Constructed once at load time.
-(def ^:private svg-token
-  #"([MmLlHhVvCcSsQqTtAaZz])|(-?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?)")
-
-(defn- svg-tokens
-  "The `d` attribute as an alternating stream of command keywords and numbers."
-  [d]
-  (for [[_ cmd num] (re-seq svg-token d)]
-    (if cmd (keyword cmd) (Double/parseDouble num))))
-
-(defn- arc-points
-  "An elliptical arc sampled as points. SVG's A takes radii, a rotation and two
-   flags; PDF has no arc operator, and the exact bezier decomposition is a page of
-   trigonometry for a curve that spans a few points on an icon, so it is sampled."
-  [x0 y0 rx ry rot large? sweep? x1 y1]
-  (let [phi (Math/toRadians rot)
-        cos-p (Math/cos phi) sin-p (Math/sin phi)
-        dx2 (/ (- x0 x1) 2.0) dy2 (/ (- y0 y1) 2.0)
-        tx (+ (* cos-p dx2) (* sin-p dy2))
-        ty (- (* cos-p dy2) (* sin-p dx2))
-        rx (Math/abs rx) ry (Math/abs ry)
-        ;; A radius too small to span the endpoints is scaled up, per the spec.
-        lam (+ (/ (* tx tx) (* rx rx)) (/ (* ty ty) (* ry ry)))
-        [rx ry] (if (> lam 1) [(* rx (Math/sqrt lam)) (* ry (Math/sqrt lam))] [rx ry])
-        num (- (* rx rx ry ry) (* rx rx ty ty) (* ry ry tx tx))
-        den (+ (* rx rx ty ty) (* ry ry tx tx))
-        co (* (if (= large? sweep?) -1 1) (Math/sqrt (max 0.0 (/ num den))))
-        cx' (* co (/ (* rx ty) ry))
-        cy' (* co (- (/ (* ry tx) rx)))
-        cx (+ (* cos-p cx') (- (* sin-p cy')) (/ (+ x0 x1) 2.0))
-        cy (+ (* sin-p cx') (* cos-p cy') (/ (+ y0 y1) 2.0))
-        ang (fn [ux uy vx vy]
-              (let [d (/ (+ (* ux vx) (* uy vy))
-                         (* (Math/hypot ux uy) (Math/hypot vx vy)))
-                    a (Math/acos (max -1.0 (min 1.0 d)))]
-                (if (neg? (- (* ux vy) (* uy vx))) (- a) a)))
-        th1 (ang 1 0 (/ (- tx cx') rx) (/ (- ty cy') ry))
-        dth (let [d (ang (/ (- tx cx') rx) (/ (- ty cy') ry)
-                         (/ (- (- tx) cx') rx) (/ (- (- ty) cy') ry))]
-              (cond (and (not sweep?) (pos? d)) (- d (* 2 Math/PI))
-                    (and sweep? (neg? d)) (+ d (* 2 Math/PI))
-                    :else d))
-        steps (max 6 (int (* 24 (/ (Math/abs dth) Math/PI))))]
-    (for [i (range 1 (inc steps))
-          :let [t (+ th1 (* dth (/ i (double steps))))
-                ex (* rx (Math/cos t)) ey (* ry (Math/sin t))]]
-      [(+ cx (* cos-p ex) (- (* sin-p ey)))
-       (+ cy (* sin-p ex) (* cos-p ey))])))
-
-(defn svg-path-ops
-  "Parses an SVG `d` attribute into [:move x y], [:line x y],
-   [:curve x1 y1 x2 y2 x y] and [:close], in the SVG's own coordinates.
-   Covers M L H V C S Q T A Z and their relative forms, with pairs after an M
-   continuing as implicit L. Quadratics are raised to cubics; arcs, which PDF
-   lacks, are sampled as lines."
-  [d]
-  (loop [[t & more :as ts] (svg-tokens d)
-         cmd nil, cx 0.0, cy 0.0, sx 0.0, sy 0.0
-         prev-c nil, prev-q nil, out []]
-    (if (nil? t)
-      out
-      (let [[cmd ts] (if (keyword? t) [t more] [cmd ts])
-            rel? (and cmd (Character/isLowerCase (first (name cmd))))
-            n (fn [i] (nth ts i))
-            ax (fn [v] (if rel? (+ cx v) v))
-            ay (fn [v] (if rel? (+ cy v) v))]
-        (case (if cmd (keyword (s/upper-case (name cmd))) :none)
-          :M (let [x (ax (n 0)) y (ay (n 1))]
-               (recur (drop 2 ts) (if rel? :l :L) x y x y nil nil
-                      (conj out [:move x y])))
-          :L (let [x (ax (n 0)) y (ay (n 1))]
-               (recur (drop 2 ts) cmd x y sx sy nil nil (conj out [:line x y])))
-          :H (let [x (ax (n 0))]
-               (recur (drop 1 ts) cmd x cy sx sy nil nil (conj out [:line x cy])))
-          :V (let [y (ay (n 0))]
-               (recur (drop 1 ts) cmd cx y sx sy nil nil (conj out [:line cx y])))
-          :C (let [x1 (ax (n 0)) y1 (ay (n 1)) x2 (ax (n 2)) y2 (ay (n 3))
-                   x (ax (n 4)) y (ay (n 5))]
-               (recur (drop 6 ts) cmd x y sx sy [x2 y2] nil
-                      (conj out [:curve x1 y1 x2 y2 x y])))
-          ;; S and T take their first control point by reflecting the previous
-          ;; one through the current point; with no previous curve it is the
-          ;; current point itself.
-          :S (let [[px py] (or prev-c [cx cy])
-                   x1 (- (* 2 cx) px) y1 (- (* 2 cy) py)
-                   x2 (ax (n 0)) y2 (ay (n 1)) x (ax (n 2)) y (ay (n 3))]
-               (recur (drop 4 ts) cmd x y sx sy [x2 y2] nil
-                      (conj out [:curve x1 y1 x2 y2 x y])))
-          :Q (let [qx (ax (n 0)) qy (ay (n 1)) x (ax (n 2)) y (ay (n 3))]
-               (recur (drop 4 ts) cmd x y sx sy nil [qx qy]
-                      (conj out [:curve (+ cx (* 2/3 (- qx cx))) (+ cy (* 2/3 (- qy cy)))
-                                 (+ x (* 2/3 (- qx x))) (+ y (* 2/3 (- qy y))) x y])))
-          :T (let [[px py] (or prev-q [cx cy])
-                   qx (- (* 2 cx) px) qy (- (* 2 cy) py)
-                   x (ax (n 0)) y (ay (n 1))]
-               (recur (drop 2 ts) cmd x y sx sy nil [qx qy]
-                      (conj out [:curve (+ cx (* 2/3 (- qx cx))) (+ cy (* 2/3 (- qy cy)))
-                                 (+ x (* 2/3 (- qx x))) (+ y (* 2/3 (- qy y))) x y])))
-          :A (let [x (ax (n 5)) y (ay (n 6))
-                   pts (arc-points cx cy (n 0) (n 1) (n 2)
-                                   (not (zero? (n 3))) (not (zero? (n 4))) x y)]
-               (recur (drop 7 ts) cmd x y sx sy nil nil
-                      (into out (map (fn [[px py]] [:line px py]) pts))))
-          :Z (recur ts cmd sx sy sx sy nil nil (conj out [:close]))
-          (recur more cmd cx cy sx sy prev-c prev-q out))))))
-
-(defn- emit-svg-path!
-  "Writes `ops` from svg-path-ops as PDF path operators, mapping SVG coordinates
-   through `px` and `py`.
-
-   game-icons.net glyphs are one filled path with holes, which is exactly what the
-   nonzero winding rule of `fill` produces."
-  [cs ops px py]
-  (doseq [op ops]
-    (case (first op)
-      :move  (.moveTo cs (px (nth op 1)) (py (nth op 2)))
-      :line  (.lineTo cs (px (nth op 1)) (py (nth op 2)))
-      :curve (.curveTo cs (px (nth op 1)) (py (nth op 2))
-                       (px (nth op 3)) (py (nth op 4))
-                       (px (nth op 5)) (py (nth op 6)))
-      :close (.closePath cs)
-      nil))
-  (.fill cs))
-
-(def ^:private svg-view
-  "game-icons.net glyphs are all drawn in a 512x512 viewBox."
-  512.0)
-
-(defn draw-svg-path!
-  "Fills `ops` straight into a `size`-inch box whose top-left is (x, y) on the
-   page, scaling from a `view` square viewBox and flipping SVG's downward y.
-   GOTCHA: writes the whole path into the page's content stream every call;
-   anything drawn more than once should go through the image loader instead."
-  [cs ops x y size view]
-  (emit-svg-path! cs ops
-                  (fn [v] (float (* 72 (+ x (* size (/ v view))))))
-                  (fn [v] (float (* 72 (- 11 y (* size (/ v view))))))))
-
-(defn last-svg-path
-  "The `d` of the LAST <path> in an SVG document, in either quote style (the
-   colour icons use double quotes, the `black/` set single).
-   GOTCHA: game-icons.net glyphs open with a transparent square background path;
-   filling it would black out the icon, so the glyph is the last one."
-  [svg]
-  (when-let [m (last (re-seq #"<path\b[^>]*\sd\s*=\s*(?:\"([^\"]*)\"|'([^']*)')" svg))]
-    (or (nth m 1) (nth m 2))))
-
-(defn load-svg-icon
-  "The drawable path operations of an icon in resources/public/image, or nil if
-   that icon was never vendored as an SVG."
-  [icon-name]
-  (some-> (io/resource (str "public/image/" icon-name ".svg"))
-          slurp last-svg-path svg-path-ops))
-
-(defn- round-unit
-  "A form coordinate, rounded to one decimal place to keep the file small. A
-   tenth of a 512-unit box stays under a 600 DPI dot at card icon sizes."
-  [v]
-  (float (/ (Math/round (* 10.0 (double v))) 10.0)))
-
-(defn svg-form
-  "An icon's paths as a Form XObject in a `svg-view`-unit box, y already flipped
-   so the form's own space is upright. Written into the file once and referenced
-   wherever it is drawn. The form sets no colour of its own, so the fill colour
-   and alpha in force at each draw site apply to it."
-  [doc ops]
-  (let [form (PDAppearanceStream. doc)]
-    (.setBBox form (PDRectangle. 0 0 (float svg-view) (float svg-view)))
-    (.setResources form (PDResources.))
-    (with-open [cs (PDPageContentStream. doc form)]
-      (emit-svg-path! cs ops round-unit (fn [v] (round-unit (- svg-view v)))))
-    form))
-
-(defn make-image-loader
-  "Returns a memoized (resource-path -> XObject) embedder scoped to ONE document:
-   a PDImageXObject for a raster path, a form (see svg-form) for a `.svg` one.
-   Each distinct resource is embedded once and referenced thereafter, so repeated
-   icons and logos are neither re-decoded nor duplicated in the file."
-  [doc]
-  (memoize
-   (fn [resource-path]
-     (if (s/ends-with? resource-path ".svg")
-       (svg-form doc (svg-path-ops (last-svg-path (slurp (io/resource resource-path)))))
-       (with-open [in (io/input-stream (io/resource resource-path))]
-         (LosslessFactory/createFromImage doc (ImageIO/read in)))))))
-
 (defn- fix-widget-page-refs!
   "Populate the /P (page reference) entry on widget annotations that are missing it.
    Many fillable templates omit the /P back-pointer; PDFBox 3.x's flatten() then
@@ -990,7 +790,7 @@
         ;; The generated appearance clips at "1 1 w h re", so 1pt each side.
         available (- (.getWidth rect) 2.0)
         size (baked-font-size widget)
-        width (when size (* 72.0 (string-width value HELVETICA size)))]
+        width (when size (* 72.0 (draw/string-width value draw/HELVETICA size)))]
     (when (and size width (> width available))
       ;; 2% under the exact fit: sizing to the millimetre lands a hair over once
       ;; the size is rounded into the appearance stream.
@@ -1042,7 +842,7 @@
             ;; rewrite the DA to the caller's size first.
             (when (and flatten? (font-sizes k) (instance? PDTextField field))
               (.setDefaultAppearance field (str "/Helv " " " (font-sizes k) " Tf 0 0 0 rg")))
-            (let [text (when (instance? PDTextField field) (normalize-text v))]
+            (let [text (when (instance? PDTextField field) (draw/normalize-text v))]
               (.setValue
                field
                (cond
@@ -1090,68 +890,6 @@
   "`draw/fit` under this file's older name. Kept for its call sites."
   [rect img]
   (draw/fit rect img))
-
-(defn draw-imagex
-  "Draws an already-embedded PDImageXObject into the box at [`x` `y`] sized
-   `width` x `height`, all in INCHES, with `y` measured from the page TOP. The
-   image keeps its aspect ratio (see `scale`) and is centred in whichever
-   dimension it falls short of."
-  [c-stream img x y width height]
-  (let [[scaled-height scaled-width] (scale [height width] [(.getHeight img) (.getWidth img)])]
-    (.drawImage
-     c-stream
-     img
-     (in-to-coord-x (+ x (if (< scaled-width width)
-                           (/ (- width scaled-width) 2)
-                           0)))
-     (in-to-coord-y (+ height y (if (< scaled-height height)
-                                  (/ (- scaled-height height) 2)
-                                  0)))
-     (in-to-sz scaled-width)
-     (in-to-sz scaled-height))))
-
-(defn draw-imagex-alpha
-  "draw-imagex at a reduced constant opacity (0.0-1.0). Used for the faded
-   grayscale card icons: a black `-bw` icon drawn at ~40% reads as a light
-   backdrop the black label sits over. Isolated in a save/restore so the alpha
-   doesn't leak into later drawing."
-  [cs img x y width height alpha]
-  (let [gs (doto (PDExtendedGraphicsState.)
-             (.setNonStrokingAlphaConstant (float alpha)))]
-    (.saveGraphicsState cs)
-    (.setGraphicsStateParameters cs gs)
-    (draw-imagex cs img x y width height)
-    (.restoreGraphicsState cs)))
-
-(def icon-red
-  "The red the card icons were baked at, as [r g b alpha]. The PNGs carry #910000
-   at half opacity; filling the vector with the same two values composites
-   identically over whatever is beneath it."
-  [0.5686 0.0 0.0 0.5])
-
-(defn draw-svg-icon!
-  "Draws a named icon into a `size`-inch box, filled in `color` at `alpha`. `y` is
-   inches from the page TOP to the box's top edge, as in draw-imagex (whose PDF
-   arithmetic makes it look otherwise). The icon is the document's shared form, placed
-   by a transform; colour and alpha sit in a save/restore so they reach the form but
-   not the label drawn over it. Without a vendored SVG it falls back to the PNG of the
-   same name, which ignores `color`."
-  [cs img icon-name x y size [r g b] alpha]
-  (if (io/resource (str "public/image/" icon-name ".svg"))
-    ;; The form is a svg-view-unit square; this maps that square onto `size` inches.
-    (let [unit (float (/ (* 72 size) svg-view))]
-      (.saveGraphicsState cs)
-      (when (< alpha 1)
-        (.setGraphicsStateParameters
-         cs (doto (PDExtendedGraphicsState.)
-              (.setNonStrokingAlphaConstant (float alpha)))))
-      (.setNonStrokingColor cs (float r) (float g) (float b))
-      (.transform cs (Matrix. unit 0 0 unit
-                              (float (* 72 x)) (float (* 72 (- 11 y size)))))
-      (.drawForm cs (img (str "public/image/" icon-name ".svg")))
-      (.restoreGraphicsState cs))
-    (draw-imagex-alpha cs (img (str "public/image/" icon-name ".png"))
-                       x y size size alpha)))
 
 (def user-agent "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.22 (KHTML, like Gecko) Chrome/25.0.1364.172")
 
@@ -1438,7 +1176,7 @@
    `:invalid-image-format`, `:image-load-failed`; `draw-image!` is the quiet path."
   [doc page url x y width height]
   (try
-    (with-open [c-stream (content-stream doc page)]
+    (with-open [c-stream (draw/content-stream doc page)]
       (let [buff-image (ImageIO/read (java.io.ByteArrayInputStream.
                                       (safe-image-bytes url)))]
         (when (nil? buff-image)
@@ -1446,7 +1184,7 @@
                           {:error :invalid-image-format
                            :url url})))
         (let [img (LosslessFactory/createFromImage doc buff-image)]
-          (draw-imagex c-stream img x y width height))))
+          (draw/draw-imagex c-stream img x y width height))))
     (catch java.net.SocketTimeoutException e
       (throw (ex-info (str "Timeout loading image from URL: " url)
                       {:error :image-load-timeout
@@ -1469,10 +1207,10 @@
    Same box arguments, same throwing contract (`:jpeg-load-failed`)."
   [doc page url x y width height]
   (try
-    (with-open [c-stream (content-stream doc page)
+    (with-open [c-stream (draw/content-stream doc page)
                 image-stream (java.io.ByteArrayInputStream. (safe-image-bytes url))]
       (let [img (JPEGFactory/createFromStream doc image-stream)]
-        (draw-imagex c-stream img x y width height)))
+        (draw/draw-imagex c-stream img x y width height)))
     (catch java.net.SocketTimeoutException e
       (throw (ex-info (str "Timeout loading image from URL: " url)
                       {:error :image-load-timeout
@@ -1496,14 +1234,14 @@
    failure and returns nil rather than throwing."
   [doc page data jpg? x y width height]
   (try
-    (with-open [c-stream (content-stream doc page)]
+    (with-open [c-stream (draw/content-stream doc page)]
       (if jpg?
         (with-open [in (java.io.ByteArrayInputStream. data)]
-          (draw-imagex c-stream (JPEGFactory/createFromStream doc in) x y width height))
+          (draw/draw-imagex c-stream (JPEGFactory/createFromStream doc in) x y width height))
         (let [buff (ImageIO/read (java.io.ByteArrayInputStream. data))]
           (when (nil? buff)
             (throw (ex-info "Unable to read image" {:error :invalid-image-format})))
-          (draw-imagex c-stream (LosslessFactory/createFromImage doc buff)
+          (draw/draw-imagex c-stream (LosslessFactory/createFromImage doc buff)
                        x y width height))))
     (catch Exception e
       (println "ERROR: Failed to draw image for PDF:" (.getMessage e))
@@ -1739,7 +1477,7 @@
    (let [paragraphs (s/split-lines (str text))
          wrap (fn [p] (if (s/blank? p)
                         [""]
-                        (vec (split-lines p HELVETICA size (/ width 72.0)))))
+                        (vec (draw/split-lines p draw/HELVETICA size (/ width 72.0)))))
          per-box (max 1 (int (Math/floor (/ height (* size line-height-factor)))))]
      (if (s/blank? (str text))
        {:head "" :tail nil :lines 0}
@@ -1878,7 +1616,7 @@
     (.setWidgets field (java.util.ArrayList. [widget]))
     (.setAnnotations page (java.util.ArrayList. [widget]))
     (.setFields form (java.util.ArrayList. (conj (vec (.getFields form)) field)))
-    (.setValue field (normalize-text text))
+    (.setValue field (draw/normalize-text text))
     page))
 
 (defn spill-overflow!
@@ -1932,12 +1670,12 @@
   (let [iy (- 11 y 0.12)
         [color alpha] (cond (and bw? bw-faded?) [[0 0 0] 0.4]
                             bw?                 [[0 0 0] 1.0]
-                            :else               [(vec (take 3 icon-red)) (last icon-red)])]
-    (draw-svg-icon! cs img title x iy 0.25 color alpha)
+                            :else               [(vec (take 3 draw/icon-red)) (last draw/icon-red)])]
+    (draw/draw-svg-icon! cs img title x iy 0.25 color alpha)
     (if (and bw? (not bw-faded?))
-      (draw-halo-text cs value HELVETICA_BOLD_OBLIQUE 8 x (- y 0.07))
+      (draw/draw-halo-text cs value draw/HELVETICA_BOLD_OBLIQUE 8 x (- y 0.07))
       (do (.setNonStrokingColor cs (float 0) (float 0) (float 0))
-          (draw-text cs value HELVETICA_BOLD_OBLIQUE 8 x (- y 0.07))
+          (draw/draw-text cs value draw/HELVETICA_BOLD_OBLIQUE 8 x (- y 0.07))
           (.setNonStrokingColor cs (float 0) (float 0) (float 0))))))
 
 (def site-stamp
@@ -1961,8 +1699,8 @@
    flips it to draw-text's baseline from the page BOTTOM."
   [cs fonts x y box-width box-height]
   (let [font (:plain fonts)
-        width (string-width site-stamp font site-stamp-size)]
-    (draw-text cs
+        width (draw/string-width site-stamp font site-stamp-size)]
+    (draw/draw-text cs
                site-stamp
                font
                site-stamp-size
@@ -2070,8 +1808,8 @@
                               [:material (:material marks)]]
                     :when text]
               (let [{:keys [dx size bold? grey]} (get annotation-columns k)]
-                (draw-text cs text
-                           (if bold? HELVETICA_BOLD HELVETICA)
+                (draw/draw-text cs text
+                           (if bold? draw/HELVETICA_BOLD draw/HELVETICA)
                            size
                            (/ (- right dx) 72.0)
                            base-y
@@ -2122,8 +1860,8 @@
             (.fill cs)
             (.setNonStrokingColor cs (float 0) (float 0) (float 0))
             (when-not (s/blank? (str label))
-              (let [lw (* 72 (string-width (str label) HELVETICA_BOLD size))]
-                (draw-text cs (str label) HELVETICA_BOLD size
+              (let [lw (* 72 (draw/string-width (str label) draw/HELVETICA_BOLD size))]
+                (draw/draw-text cs (str label) draw/HELVETICA_BOLD size
                            (/ (+ x (/ (- w lw) 2.0)) 72.0)
                            (/ (+ y (* 0.22 h)) 72.0)
                            [0 0 0])))))))))
@@ -2183,7 +1921,7 @@
   "The largest size at or below heading-target-size that fits `label` in `width`,
    floored at heading-floor-size."
   [label width]
-  (let [natural (* 72 (string-width label HELVETICA_BOLD heading-target-size))]
+  (let [natural (* 72 (draw/string-width label draw/HELVETICA_BOLD heading-target-size))]
     (if (<= natural width)
       heading-target-size
       (max heading-floor-size (* heading-target-size (/ width natural))))))
@@ -2194,13 +1932,13 @@
    fit (\"Eldritch Knight\" at 6pt would print through the bar's rules)."
   [label width]
   (let [size (heading-size label width)]
-    (if (<= (* 72 (string-width label HELVETICA_BOLD size)) width)
+    (if (<= (* 72 (draw/string-width label draw/HELVETICA_BOLD size)) width)
       {:label label :size size}
       (loop [n (dec (count label))]
         (let [candidate (str (s/trimr (subs label 0 (max 0 n))) "\u2026")]
           (cond
             (<= n 1) {:label "\u2026" :size size}
-            (<= (* 72 (string-width candidate HELVETICA_BOLD size)) width)
+            (<= (* 72 (draw/string-width candidate draw/HELVETICA_BOLD size)) width)
             {:label candidate :size size}
             :else (recur (dec n))))))))
 
@@ -2298,13 +2036,13 @@
                   ;; word at its padded position.
                   {csize :size ctext :label}
                   (let [room (- nw cantrips-label-pad 2.0)
-                        natural (* 72 (string-width cantrips-label HELVETICA_BOLD
+                        natural (* 72 (draw/string-width cantrips-label draw/HELVETICA_BOLD
                                                     cantrips-label-size))]
                     (if (<= natural room)
                       {:size cantrips-label-size :label cantrips-label}
                       {:size (max 4.5 (* cantrips-label-size (/ room natural)))
                        :label cantrips-label}))]
-              (draw-text cs ctext HELVETICA_BOLD csize
+              (draw/draw-text cs ctext draw/HELVETICA_BOLD csize
                          (/ (+ (if (zero? box)
                                  ;; Past box 0's own divider, which ends about
                                  ;; nine points beyond the hexagon.
@@ -2332,11 +2070,11 @@
                   ;; the left half and the input moves to the right of it.
                   room (if cantrips? (- ww 6.0) (* ww 0.5))
                   {label :label size :size} (fit-heading label room)
-                  lw (* 72 (string-width label HELVETICA_BOLD size))
+                  lw (* 72 (draw/string-width label draw/HELVETICA_BOLD size))
                   start (if cantrips? (+ wx (/ (- ww lw) 2.0)) (+ wx 4.0))]
               (when-not cantrips?
                 (shrink-slots-expended! doc box suffix (+ wx lw 10.0)))
-              (draw-text cs label HELVETICA_BOLD size
+              (draw/draw-text cs label draw/HELVETICA_BOLD size
                          (/ start 72.0)
                          (/ (+ middle (* -0.36 size)) 72.0)
                          [0.15 0.15 0.15])
@@ -2345,7 +2083,7 @@
                 ;; -- the save DC of the spell they are casting and what they add
                 ;; to hit -- so they are set like the class name rather than like
                 ;; the CANTRIPS caption, which is a label nobody needs to find.
-                (let [sw (* 72 (string-width stats HELVETICA_BOLD small))
+                (let [sw (* 72 (draw/string-width stats draw/HELVETICA_BOLD small))
                       sx (+ wx (/ (- ww sw) 2.0))
                       ;; Clear of the bar's upper rule, which sits 9.75 above its
                       ;; middle.
@@ -2358,7 +2096,7 @@
                             (float (+ sw 4.0)) (float (+ small 1.5)))
                   (.fill cs)
                   (.setNonStrokingColor cs (float 0) (float 0) (float 0))
-                  (draw-text cs stats HELVETICA_BOLD small
+                  (draw/draw-text cs stats draw/HELVETICA_BOLD small
                              (/ sx 72.0) (/ sy 72.0)
                              [0.1 0.1 0.1])))))))))))
 
@@ -2373,7 +2111,7 @@
           :when (not (and prints-own? (page-prints-site-line? doc index)))]
     (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
                                          true true)]
-      (draw-text cs site-stamp HELVETICA site-stamp-size x y [0.45 0.45 0.45]))))
+      (draw/draw-text cs site-stamp draw/HELVETICA site-stamp-size x y [0.45 0.45 0.45]))))
 
 (defn print-backs
   "Draws one page of spell card BACKS, mirroring the fronts for duplex printing.
@@ -2397,8 +2135,8 @@
     ;; come from these literals. Latent -- every caller passes 2.5/3.5 -- but any other
     ;; box size draws the lines in the wrong places. Same in print-spells; print-items
     ;; threads its arguments through correctly.
-    (draw-grid cs 2.5 3.5)
-    (draw-text cs
+    (draw/draw-grid cs 2.5 3.5)
+    (draw/draw-text cs
                (str "Page " (inc page-number) " (reverse)")
                (:italic fonts)
                8
@@ -2414,7 +2152,7 @@
          (if (seq remaining-lines)
            ;; This card back carries overflow text from the front.
            (do
-             (draw-text-to-box cs
+             (draw/draw-text-to-box cs
                                spell-name
                                (:bold fonts)
                                10
@@ -2425,18 +2163,18 @@
              ;; The card's own box, less the strip the stamp sits in:
              ;; draw-lines-to-box fills its height to the last line that fits, so
              ;; overflow text prints over the stamp unless the room is taken away.
-             (draw-lines-to-box cs
+             (draw/draw-lines-to-box cs
                                remaining-lines
                                (:plain fonts)
                                8
                                (+ x 0.12)
                                (- 11.0 y 0.24)
                                (- box-height 0.2 site-stamp-strip))
-             (draw-text-to-box cs
+             (draw/draw-text-to-box cs
                                "(reverse)"
                                (:italic fonts)
                                10
-                               (+ x 0.15 (string-width spell-name (:bold fonts) 10))
+                               (+ x 0.15 (draw/string-width spell-name (:bold fonts) 10))
                                (- 11.0 y 0.08)
                                (- box-width 0.3)
                                (- box-height 0.2)))
@@ -2444,7 +2182,7 @@
            ;; caller's resource path (a hi-res grayscale or solid-black DMV mark, not
            ;; the front's tiny card-logo.png), or nil when the logo is turned off.
            (when logo-img
-             (draw-imagex cs
+             (draw/draw-imagex cs
                           (img logo-img)
                           (+ x (* box-width 0.1))
                           (+ y (* box-height 0.1))
@@ -2471,8 +2209,8 @@
         remaining-height (- 11.0 total-height)
         margin-y (/ remaining-height 2)]
     ;; BUG: as in print-backs -- the gridlines ignore box-width/box-height.
-    (draw-grid cs 2.5 3.5)
-        (draw-text cs
+    (draw/draw-grid cs 2.5 3.5)
+        (draw/draw-text cs
                    (str "Page " (inc page-number))
                    (:italic fonts)
                    8
@@ -2499,7 +2237,7 @@
 
                    dc-str (str "DC " dc)
                    remaining-desc-lines
-                   (draw-text-to-box cs
+                   (draw/draw-text-to-box cs
                                      (or description
                                          (if summary
                                            (str summary
@@ -2518,7 +2256,7 @@
                                      (- box-width 0.24)
                                      (- box-height 1.13))]
                (when (:material-component components)
-                 (draw-text-to-box cs
+                 (draw/draw-text-to-box cs
                                    (str (s/capitalize (:material-component components)))
                                    (:italic fonts)
                                    8
@@ -2528,9 +2266,9 @@
                                    0.5))
                (let [card-logo (img (str "public/image/card-logo" (when bw? "-bw") ".png"))]
                  (if (and bw? bw-faded?)
-                   (draw-imagex-alpha cs card-logo (+ x 1.9) (+ y 0.02) 1.0 0.25 0.4)
-                   (draw-imagex cs card-logo (+ x 1.9) (+ y 0.02) 1.0 0.25)))
-               (draw-text-to-box cs
+                   (draw/draw-imagex-alpha cs card-logo (+ x 1.9) (+ y 0.02) 1.0 0.25 0.4)
+                   (draw/draw-imagex cs card-logo (+ x 1.9) (+ y 0.02) 1.0 0.25)))
+               (draw/draw-text-to-box cs
                                  spell-name
                                  (:bold fonts)
                                  10
@@ -2538,15 +2276,15 @@
                                  (- 11.0 y)
                                  (- box-width 0.3)
                                  0.2)
-               (draw-text-to-box cs
+               (draw/draw-text-to-box cs
                                  (if ritual " (ritual)" "")
                                  (:italic fonts)
                                  10
-                                 (+ x 0.12 (string-width spell-name (:bold fonts) 10))
+                                 (+ x 0.12 (draw/string-width spell-name (:bold fonts) 10))
                                  (- 11.0 y)
                                  (- box-width 0.3)
                                  0.2)
-               (draw-text-to-box cs
+               (draw/draw-text-to-box cs
                                  (if (not= class-nm "Homebrew")
                                    (str (sp/spell-school-level spell class-nm) (when print-spell-card-dc-mod? (str " " dc-str " Spell Mod " (common/bonus-str attack-bonus))))
                                    (sp/spell-school-level spell class-nm))
@@ -2602,7 +2340,7 @@
                                    (- 11.0 y 0.45)
                                    bw? bw-faded?))
                (when (seq remaining-desc-lines)
-                 (draw-svg-icon! cs img "clockwise-rotation" (+ x 2.3) (+ y 3.3) 0.15
+                 (draw/draw-svg-icon! cs img "clockwise-rotation" (+ x 2.3) (+ y 3.3) 0.15
                                  [0 0 0] (if (and bw? bw-faded?) 0.4 1.0)))
                {:remaining-lines remaining-desc-lines
                 :spell-name spell-name}))))))
@@ -2840,7 +2578,7 @@
    wide it sets. Halving a hardcoded width puts it near the middle and no nearer,
    and the miss moves with the font and the size."
   [cs text font size cx baseline]
-  (draw-text cs text font size (- cx (/ (string-width text font size) 2)) baseline))
+  (draw/draw-text cs text font size (- cx (/ (draw/string-width text font size) 2)) baseline))
 
 (def card-layout
   "Where everything sits on a 2.5 x 3.5in item card.
@@ -2892,7 +2630,7 @@
                        [(- (+ left bw) c) (+ dy bh)] [(+ left c) (+ dy bh)]
                        [left (- (+ dy bh) c)] [left (+ dy c)]]
                true)
-    (draw-centred-text! cs "A" HELVETICA_BOLD 7
+    (draw-centred-text! cs "A" draw/HELVETICA_BOLD 7
                         (+ x left (/ bw 2))
                         (- 11 y dy bh -0.036))
     (.setLineWidth cs (float 1))))
@@ -2901,7 +2639,7 @@
   "Wraps `text` to `width` and centres each line on `cx`, returning what did not
    fit. draw-text-to-box only sets flush left."
   [cs text font size cx top width max-lines]
-  (let [lines (split-lines text font size width)
+  (let [lines (draw/split-lines text font size width)
         leading (/ (* size 1.1) 72)]
     (doseq [[i line] (map-indexed vector (take max-lines lines))]
       (draw-centred-text! cs line font size cx (- top (* leading (inc i)))))
@@ -2937,7 +2675,7 @@
     (let [r 0.052
           gap 0.145
           cx (- (/ w 2) (/ (* gap (dec n)) 2))]
-      (draw-centred-text! cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2)) (- 11 y label-y))
+      (draw-centred-text! cs "CHARGES" draw/HELVETICA 5.5 (+ x (/ w 2)) (- 11 y label-y))
       (doseq [i (range n)]
         (circle! cs x y (+ cx (* gap i)) cy r)))
     ;; The rule and the total are centred as one group, not the rule alone: the
@@ -2945,11 +2683,11 @@
     (let [total (str "/ " n)
           rule-w 0.62
           gap 0.05
-          group (+ rule-w gap (string-width total HELVETICA 7))
+          group (+ rule-w gap (draw/string-width total draw/HELVETICA 7))
           left (- (/ w 2) (/ group 2))]
-      (draw-centred-text! cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2)) (- 11 y label-y))
+      (draw-centred-text! cs "CHARGES" draw/HELVETICA 5.5 (+ x (/ w 2)) (- 11 y label-y))
       (polyline! cs x y [[left cy] [(+ left rule-w) cy]] false)
-      (draw-text cs total HELVETICA 7 (+ x left rule-w gap) (- 11 y cy -0.015))))
+      (draw/draw-text cs total draw/HELVETICA 7 (+ x left rule-w gap) (- 11 y cy -0.015))))
   (.setLineWidth cs (float 1)))
 
 (defn print-items
@@ -2971,8 +2709,8 @@
         num-boxes-y (int (/ 11.0 box-height))
         margin-x (/ (- 8.5 (* num-boxes-x box-width)) 2)
         margin-y (/ (- 11.0 (* num-boxes-y box-height)) 2)]
-    (draw-grid cs box-width box-height)
-    (draw-text cs (str "Page " (inc page-number)) (:italic fonts) 8 0.12 (- 11 0.15))
+    (draw/draw-grid cs box-width box-height)
+    (draw/draw-text cs (str "Page " (inc page-number)) (:italic fonts) 8 0.12 (- 11 0.15))
     (doall
      (for [j (range num-boxes-y)
            i (range (dec num-boxes-x) -1 -1)
@@ -3000,7 +2738,7 @@
                ;; the note saying so has reserved room. Measured against the box
                ;; WITHOUT the note, which only shrinks it. The LINES are kept, not
                ;; just their count, because splitting is the expensive part.
-               body-lines (split-lines body (:plain fonts) 8 (- box-width 0.4))
+               body-lines (draw/split-lines body (:plain fonts) 8 (- box-width 0.4))
                capacity (fn [h] (int (dec (/ (* 72 h) (* 8 1.1)))))
                spills? (> (count body-lines)
                           (capacity (- box-height body-top (body-stops [false (some? clause)]))))
@@ -3016,7 +2754,7 @@
            ;; across a sheet; a one-line name sits in the middle of it.
            (let [face (name-face fonts)
                  width (- box-width 0.56)
-                 lines-at (fn [pt] (count (split-lines item-name face pt width)))
+                 lines-at (fn [pt] (count (draw/split-lines item-name face pt width)))
                  fits? (fn [pt] (let [n (lines-at pt)]
                                   (and (<= n 3)
                                        (<= (* n (/ (* pt 1.1) 72)) (:name-height down)))))
@@ -3029,11 +2767,11 @@
                        2 (:name-two-line down)
                        (:name-three-line down))]
              (.setCharacterSpacing cs (float name-tracking))
-             (draw-text-to-box cs item-name face size
+             (draw/draw-text-to-box cs item-name face size
                                (+ x 0.28) (- 11.0 y top) width (:name-height down))
              (.setCharacterSpacing cs (float 0)))
            ;; The subtitle stops short of the badge so the two never meet.
-           (draw-text-to-box cs (magic-item-subtitle item) (:italic fonts) 7.5
+           (draw/draw-text-to-box cs (magic-item-subtitle item) (:italic fonts) 7.5
                              (+ x 0.2) (- 11.0 y (:subtitle down))
                              (- box-width (if clause 0.68 0.4)) 0.2)
            ;; A rule and a hairline under it: the header carries two kinds of
@@ -3049,7 +2787,7 @@
              (polyline! cs x y [[0.2 (:charge-under down)] [(- box-width 0.2) (:charge-under down)]] false)
              (.setLineWidth cs (float 1)))
            (let [remaining-desc-lines
-                 (draw-lines-to-box cs body-lines (:plain fonts) 8
+                 (draw/draw-lines-to-box cs body-lines (:plain fonts) 8
                                     (+ x 0.2) (- 11.0 y body-top)
                                     (- box-height body-top body-bottom))]
              ;; Centred, like the ornament under it and the note above it. Flush
