@@ -411,6 +411,10 @@ with this proposal rather than with the hold.
 
 ## Also open, smaller
 
+☐ Cross-link Choices and Data View (proposal from the character-rescue session, 2026-10-16;
+placements to be mocked first). Both list every stored choice: Choices inside the builder, Data
+View when the app can't open the character. Choices could offer "Open in Data View" on a missing
+item; Data View could point to Choices when the character loads.
 ☑ Selection ordering (2026-10-16): `compare-selections` compared `[order name path]` as text, so a
 homebrew class's selections named alike at levels 3, 10, 17 read 10, 17, 3 (seen with test-pak's
 class); fixed to compare order, name, level, path (`7781d43f`). The reversed list in
