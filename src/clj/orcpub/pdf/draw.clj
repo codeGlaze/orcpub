@@ -23,20 +23,32 @@
   "Page dimensions in POINTS, [width height]. ISO 216 for the A series; US Letter is
    612x792, which is exactly 8.5x11 inches."
   {:letter [612.0 792.0]
-   :a4     [595.0 842.0]
-   :a5     [420.0 595.0]})
+   :a4     [595.28 841.89]
+   :a5     [419.53 595.28]})
 
-(def default-page
-  "What everything draws on today. The character-sheet templates in resources/ are all
-   612x792 and their artwork is fixed, so an A4 character sheet needs A4 artwork rather
-   than a change here; a bare (PDPage.) is PDFBox's Letter. Changing this alone does not
-   produce an A4 export -- it is the one place the page height stops being a literal."
+(def ^:dynamic *page*
+  "The page every drawing call measures against, a key of `page-sizes`. Bind it once per
+   document; the primitives read it, so nothing threads a page through 66 call sites.
+
+   Root is :letter, which is what a bare (PDPage.) is. A binding does NOT reach a
+   load-time constant derived from it -- see spellbook's page-w -- so those are fns."
   :letter)
 
 (defn page-size
   "[width height] in points for `page`, a key of `page-sizes`. Unknown keys get Letter."
   [page]
   (get page-sizes page (page-sizes :letter)))
+
+(defn page-width
+  "The bound page's width in the caller's unit: `pt-per-unit` is 72 for inches, 1 for
+   points. For code asking how wide the page is, not converting a coordinate."
+  [pt-per-unit]
+  (/ (first (page-size *page*)) pt-per-unit))
+
+(defn page-height
+  "The bound page's height in the caller's unit. `pt-per-unit` as `page-width`."
+  [pt-per-unit]
+  (/ (second (page-size *page*)) pt-per-unit))
 
 (defn in->pt
   "Inches to PDF points, 72 per inch. For SIZES -- widths, heights, offsets -- where no
@@ -51,7 +63,7 @@
    The one flip both drawing files use: pdf.clj had it as `(in-to-sz (- 11 inches))` with
    the page height inline, spellbook.clj as `(- page-h ty)`. Same arithmetic, two units,
    and only one of them named the height."
-  ([pt-per-unit y] (pt-from-top default-page pt-per-unit y))
+  ([pt-per-unit y] (pt-from-top *page* pt-per-unit y))
   ([page pt-per-unit y]
    (float (- (second (page-size page)) (* pt-per-unit y)))))
 
@@ -312,15 +324,19 @@
   (apply draw-line cs (map in->pt coords)))
 
 (defn draw-grid
-  "Draw the spell card grid. Light gray lines for card boundaries."
+  "The cut grid for cards `box-width` x `box-height` inches, as many as fit the bound
+   page, centred. Light grey lines. Takes its page from `*page*`, so a 2-up A5 grid on
+   A4 is the same call with a different binding."
   [cs box-width box-height]
-  (let [num-boxes-x (int (/ 8.5 box-width))
-        num-boxes-y (int (/ 11.0 box-height))
+  (let [page-w (page-width 72)
+        page-h (page-height 72)
+        num-boxes-x (int (/ page-w box-width))
+        num-boxes-y (int (/ page-h box-height))
         total-width (* num-boxes-x box-width)
         total-height (* num-boxes-y box-height)
-        remaining-width (- 8.5 total-width)
+        remaining-width (- page-w total-width)
         margin-x (/ remaining-width 2)
-        remaining-height (- 11.0 total-height)
+        remaining-height (- page-h total-height)
         margin-y (/ remaining-height 2)
         ;; PDFBox 3.x: setStrokingColor(float,float,float) requires 0.0-1.0 range
         ;; (PDFBox 2.x accepted 0-255 integers via a separate overload)
@@ -560,7 +576,7 @@
               (.setNonStrokingAlphaConstant (float alpha)))))
       (.setNonStrokingColor cs (float r) (float g) (float b))
       (.transform cs (Matrix. unit 0 0 unit
-                              (float (* 72 x)) (float (* 72 (- 11 y size)))))
+                              (in->pt x) (pt-from-top 72 (+ y size))))
       (.drawForm cs (img (str "public/image/" icon-name ".svg")))
       (.restoreGraphicsState cs))
     (draw-imagex-alpha cs (img (str "public/image/" icon-name ".png"))
