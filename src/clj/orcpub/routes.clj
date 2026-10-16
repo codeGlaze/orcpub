@@ -1520,7 +1520,7 @@
             book (when (seq spells-known) (spellbook-options spellbook character-name))
             spell-order (one-of #{:level :alpha} spell-order :level)
             fonts (when (or spell-cards? item-cards? book) (draw/load-fonts doc))
-            img (when (or spell-cards? item-cards? book) (pdf/make-image-loader doc))]
+            img (when (or spell-cards? item-cards? book) (draw/make-image-loader doc))]
         ;; Order: sheet, spellbook, then cards.
         (when book
           (add-spellbook! doc fonts img book spells-known custom-spells))

@@ -64,7 +64,7 @@
   (let [out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
       (let [fonts (draw/load-fonts doc)
-            img (pdf/make-image-loader doc)
+            img (draw/make-image-loader doc)
             spells-known {:wizard (vec (for [k (take 12 (keys spells/spell-map))]
                                          {:key k :class "Wizard"}))}]
         (when (kinds :spells)
@@ -138,7 +138,7 @@
         out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
       (let [fonts (draw/load-fonts doc)
-            img (pdf/make-image-loader doc)]
+            img (draw/make-image-loader doc)]
         (routes/add-spell-cards! doc fonts img spells-known {"Wizard" 15} {"Wizard" 7}
                                  customs false card-back-logo false false))
       (.save doc out))
@@ -209,7 +209,7 @@
   [items]
   (let [out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (routes/add-magic-item-cards! doc (draw/load-fonts doc) (pdf/make-image-loader doc)
+      (routes/add-magic-item-cards! doc (draw/load-fonts doc) (draw/make-image-loader doc)
                                     (vec items) card-back-logo false false)
       (.save doc out))
     (with-open [doc (Loader/loadPDF (.toByteArray out))]

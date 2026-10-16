@@ -21,13 +21,13 @@
 (def icons (str/split (or (System/getenv "ICONS") "magic-swirl") #","))
 (def sizes "Inches. 0.25 is what a spell card actually draws." [0.15 0.25 0.4 0.7 1.1])
 
-(let [doc (PDDocument.) page (PDPage.) img (pdf/make-image-loader doc)
+(let [doc (PDDocument.) page (PDPage.) img (draw/make-image-loader doc)
       helv (PDType1Font. Standard14Fonts$FontName/HELVETICA)
       label (fn [cs t x y] (draw/draw-text cs t helv 7 x y))]
   (.addPage doc page)
   (with-open [cs (PDPageContentStream. doc page)]
     (doseq [[row icon] (map-indexed vector icons)]
-      (let [ops (pdf/load-svg-icon icon)
+      (let [ops (draw/load-svg-icon icon)
             png (when (io/resource (str "public/image/" icon ".png"))
                   (img (str "public/image/" icon ".png")))
             top (+ 0.9 (* row 2.6))]
@@ -38,10 +38,10 @@
         (loop [[s & more] sizes x 2.1]
           (when s
             ;; Both rows share a baseline so the eye compares like with like.
-            (when ops (pdf/draw-svg-path! cs ops x (+ top 0.15) s 512))
+            (when ops (draw/draw-svg-path! cs ops x (+ top 0.15) s 512))
             ;; Only some of these were ever rasterised; the row is skipped rather
             ;; than faked for the rest.
-            (when png (pdf/draw-imagex cs png x (+ top 1.45) s s))
+            (when png (draw/draw-imagex cs png x (+ top 1.45) s s))
             (label cs (format "%.2fin" (double s)) x (- 11 (+ top 2.55)))
             (recur more (+ x s 0.28)))))))
   (.save doc (File. "target/svg-icon-proof.pdf"))
@@ -50,7 +50,7 @@
   (.close doc))
 
 (doseq [i icons]
-  (let [ops (pdf/load-svg-icon i)]
+  (let [ops (draw/load-svg-icon i)]
     (printf "%-20s %s%n" i
             (if ops
               (format "%d ops  %s" (count ops)

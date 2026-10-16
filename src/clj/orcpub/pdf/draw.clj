@@ -8,9 +8,16 @@
   (:require [clojure.string :as s]
             [clojure.java.io :as io]
             [orcpub.common :as common])
-  (:import (org.apache.pdfbox.pdmodel PDPageContentStream PDPageContentStream$AppendMode)
+  (:import (org.apache.pdfbox.pdmodel PDPageContentStream PDPageContentStream$AppendMode
+                                      PDResources)
+           (org.apache.pdfbox.pdmodel.common PDRectangle)
            (org.apache.pdfbox.pdmodel.font PDType1Font PDType0Font PDFont
-                                           Standard14Fonts$FontName)))
+                                           Standard14Fonts$FontName)
+           (org.apache.pdfbox.pdmodel.graphics.state PDExtendedGraphicsState)
+           (org.apache.pdfbox.pdmodel.interactive.annotation PDAppearanceStream)
+           (org.apache.pdfbox.pdmodel.graphics.image LosslessFactory)
+           (org.apache.pdfbox.util Matrix)
+           (javax.imageio ImageIO)))
 
 (def page-sizes
   "Page dimensions in POINTS, [width height]. ISO 216 for the A series; US Letter is
@@ -325,3 +332,250 @@
                       (+ margin-x total-width)
                       y)))
     (.setStrokingColor cs (float 0) (float 0) (float 0))))
+
+(def ^:private svg-token
+  #"([MmLlHhVvCcSsQqTtAaZz])|(-?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?)")
+
+(defn- svg-tokens
+  "The `d` attribute as an alternating stream of command keywords and numbers."
+  [d]
+  (for [[_ cmd num] (re-seq svg-token d)]
+    (if cmd (keyword cmd) (Double/parseDouble num))))
+
+(defn- arc-points
+  "An elliptical arc sampled as points. SVG's A takes radii, a rotation and two
+   flags; PDF has no arc operator, and the exact bezier decomposition is a page of
+   trigonometry for a curve that spans a few points on an icon, so it is sampled."
+  [x0 y0 rx ry rot large? sweep? x1 y1]
+  (let [phi (Math/toRadians rot)
+        cos-p (Math/cos phi) sin-p (Math/sin phi)
+        dx2 (/ (- x0 x1) 2.0) dy2 (/ (- y0 y1) 2.0)
+        tx (+ (* cos-p dx2) (* sin-p dy2))
+        ty (- (* cos-p dy2) (* sin-p dx2))
+        rx (Math/abs rx) ry (Math/abs ry)
+        ;; A radius too small to span the endpoints is scaled up, per the spec.
+        lam (+ (/ (* tx tx) (* rx rx)) (/ (* ty ty) (* ry ry)))
+        [rx ry] (if (> lam 1) [(* rx (Math/sqrt lam)) (* ry (Math/sqrt lam))] [rx ry])
+        num (- (* rx rx ry ry) (* rx rx ty ty) (* ry ry tx tx))
+        den (+ (* rx rx ty ty) (* ry ry tx tx))
+        co (* (if (= large? sweep?) -1 1) (Math/sqrt (max 0.0 (/ num den))))
+        cx' (* co (/ (* rx ty) ry))
+        cy' (* co (- (/ (* ry tx) rx)))
+        cx (+ (* cos-p cx') (- (* sin-p cy')) (/ (+ x0 x1) 2.0))
+        cy (+ (* sin-p cx') (* cos-p cy') (/ (+ y0 y1) 2.0))
+        ang (fn [ux uy vx vy]
+              (let [d (/ (+ (* ux vx) (* uy vy))
+                         (* (Math/hypot ux uy) (Math/hypot vx vy)))
+                    a (Math/acos (max -1.0 (min 1.0 d)))]
+                (if (neg? (- (* ux vy) (* uy vx))) (- a) a)))
+        th1 (ang 1 0 (/ (- tx cx') rx) (/ (- ty cy') ry))
+        dth (let [d (ang (/ (- tx cx') rx) (/ (- ty cy') ry)
+                         (/ (- (- tx) cx') rx) (/ (- (- ty) cy') ry))]
+              (cond (and (not sweep?) (pos? d)) (- d (* 2 Math/PI))
+                    (and sweep? (neg? d)) (+ d (* 2 Math/PI))
+                    :else d))
+        steps (max 6 (int (* 24 (/ (Math/abs dth) Math/PI))))]
+    (for [i (range 1 (inc steps))
+          :let [t (+ th1 (* dth (/ i (double steps))))
+                ex (* rx (Math/cos t)) ey (* ry (Math/sin t))]]
+      [(+ cx (* cos-p ex) (- (* sin-p ey)))
+       (+ cy (* sin-p ex) (* cos-p ey))])))
+
+(defn svg-path-ops
+  "Parses an SVG `d` attribute into [:move x y], [:line x y],
+   [:curve x1 y1 x2 y2 x y] and [:close], in the SVG's own coordinates.
+   Covers M L H V C S Q T A Z and their relative forms, with pairs after an M
+   continuing as implicit L. Quadratics are raised to cubics; arcs, which PDF
+   lacks, are sampled as lines."
+  [d]
+  (loop [[t & more :as ts] (svg-tokens d)
+         cmd nil, cx 0.0, cy 0.0, sx 0.0, sy 0.0
+         prev-c nil, prev-q nil, out []]
+    (if (nil? t)
+      out
+      (let [[cmd ts] (if (keyword? t) [t more] [cmd ts])
+            rel? (and cmd (Character/isLowerCase (first (name cmd))))
+            n (fn [i] (nth ts i))
+            ax (fn [v] (if rel? (+ cx v) v))
+            ay (fn [v] (if rel? (+ cy v) v))]
+        (case (if cmd (keyword (s/upper-case (name cmd))) :none)
+          :M (let [x (ax (n 0)) y (ay (n 1))]
+               (recur (drop 2 ts) (if rel? :l :L) x y x y nil nil
+                      (conj out [:move x y])))
+          :L (let [x (ax (n 0)) y (ay (n 1))]
+               (recur (drop 2 ts) cmd x y sx sy nil nil (conj out [:line x y])))
+          :H (let [x (ax (n 0))]
+               (recur (drop 1 ts) cmd x cy sx sy nil nil (conj out [:line x cy])))
+          :V (let [y (ay (n 0))]
+               (recur (drop 1 ts) cmd cx y sx sy nil nil (conj out [:line cx y])))
+          :C (let [x1 (ax (n 0)) y1 (ay (n 1)) x2 (ax (n 2)) y2 (ay (n 3))
+                   x (ax (n 4)) y (ay (n 5))]
+               (recur (drop 6 ts) cmd x y sx sy [x2 y2] nil
+                      (conj out [:curve x1 y1 x2 y2 x y])))
+          ;; S and T take their first control point by reflecting the previous
+          ;; one through the current point; with no previous curve it is the
+          ;; current point itself.
+          :S (let [[px py] (or prev-c [cx cy])
+                   x1 (- (* 2 cx) px) y1 (- (* 2 cy) py)
+                   x2 (ax (n 0)) y2 (ay (n 1)) x (ax (n 2)) y (ay (n 3))]
+               (recur (drop 4 ts) cmd x y sx sy [x2 y2] nil
+                      (conj out [:curve x1 y1 x2 y2 x y])))
+          :Q (let [qx (ax (n 0)) qy (ay (n 1)) x (ax (n 2)) y (ay (n 3))]
+               (recur (drop 4 ts) cmd x y sx sy nil [qx qy]
+                      (conj out [:curve (+ cx (* 2/3 (- qx cx))) (+ cy (* 2/3 (- qy cy)))
+                                 (+ x (* 2/3 (- qx x))) (+ y (* 2/3 (- qy y))) x y])))
+          :T (let [[px py] (or prev-q [cx cy])
+                   qx (- (* 2 cx) px) qy (- (* 2 cy) py)
+                   x (ax (n 0)) y (ay (n 1))]
+               (recur (drop 2 ts) cmd x y sx sy nil [qx qy]
+                      (conj out [:curve (+ cx (* 2/3 (- qx cx))) (+ cy (* 2/3 (- qy cy)))
+                                 (+ x (* 2/3 (- qx x))) (+ y (* 2/3 (- qy y))) x y])))
+          :A (let [x (ax (n 5)) y (ay (n 6))
+                   pts (arc-points cx cy (n 0) (n 1) (n 2)
+                                   (not (zero? (n 3))) (not (zero? (n 4))) x y)]
+               (recur (drop 7 ts) cmd x y sx sy nil nil
+                      (into out (map (fn [[px py]] [:line px py]) pts))))
+          :Z (recur ts cmd sx sy sx sy nil nil (conj out [:close]))
+          (recur more cmd cx cy sx sy prev-c prev-q out))))))
+
+(defn- emit-svg-path!
+  "Writes `ops` from svg-path-ops as PDF path operators, mapping SVG coordinates
+   through `px` and `py`.
+
+   game-icons.net glyphs are one filled path with holes, which is exactly what the
+   nonzero winding rule of `fill` produces."
+  [cs ops px py]
+  (doseq [op ops]
+    (case (first op)
+      :move  (.moveTo cs (px (nth op 1)) (py (nth op 2)))
+      :line  (.lineTo cs (px (nth op 1)) (py (nth op 2)))
+      :curve (.curveTo cs (px (nth op 1)) (py (nth op 2))
+                       (px (nth op 3)) (py (nth op 4))
+                       (px (nth op 5)) (py (nth op 6)))
+      :close (.closePath cs)
+      nil))
+  (.fill cs))
+
+(def ^:private svg-view
+  "game-icons.net glyphs are all drawn in a 512x512 viewBox."
+  512.0)
+
+(defn last-svg-path
+  "The `d` of the LAST <path> in an SVG document, in either quote style (the
+   colour icons use double quotes, the `black/` set single).
+   GOTCHA: game-icons.net glyphs open with a transparent square background path;
+   filling it would black out the icon, so the glyph is the last one."
+  [svg]
+  (when-let [m (last (re-seq #"<path\b[^>]*\sd\s*=\s*(?:\"([^\"]*)\"|'([^']*)')" svg))]
+    (or (nth m 1) (nth m 2))))
+
+(defn load-svg-icon
+  "The drawable path operations of an icon in resources/public/image, or nil if
+   that icon was never vendored as an SVG."
+  [icon-name]
+  (some-> (io/resource (str "public/image/" icon-name ".svg"))
+          slurp last-svg-path svg-path-ops))
+
+(defn- round-unit
+  "A form coordinate, rounded to one decimal place to keep the file small. A
+   tenth of a 512-unit box stays under a 600 DPI dot at card icon sizes."
+  [v]
+  (float (/ (Math/round (* 10.0 (double v))) 10.0)))
+
+(defn svg-form
+  "An icon's paths as a Form XObject in a `svg-view`-unit box, y already flipped
+   so the form's own space is upright. Written into the file once and referenced
+   wherever it is drawn. The form sets no colour of its own, so the fill colour
+   and alpha in force at each draw site apply to it."
+  [doc ops]
+  (let [form (PDAppearanceStream. doc)]
+    (.setBBox form (PDRectangle. 0 0 (float svg-view) (float svg-view)))
+    (.setResources form (PDResources.))
+    (with-open [cs (PDPageContentStream. doc form)]
+      (emit-svg-path! cs ops round-unit (fn [v] (round-unit (- svg-view v)))))
+    form))
+
+(defn draw-imagex
+  "Draws an already-embedded PDImageXObject into the box at [`x` `y`] sized
+   `width` x `height`, all in INCHES, with `y` measured from the page TOP. The
+   image keeps its aspect ratio (see `fit`) and is centred in whichever
+   dimension it falls short of."
+  [c-stream img x y width height]
+  (let [[scaled-height scaled-width] (fit [height width] [(.getHeight img) (.getWidth img)])]
+    (.drawImage
+     c-stream
+     img
+     (in->pt (+ x (if (< scaled-width width)
+                           (/ (- width scaled-width) 2)
+                           0)))
+     (pt-from-top 72 (+ height y (if (< scaled-height height)
+                                  (/ (- scaled-height height) 2)
+                                  0)))
+     (in->pt scaled-width)
+     (in->pt scaled-height))))
+
+(defn draw-imagex-alpha
+  "draw-imagex at a reduced constant opacity (0.0-1.0). Used for the faded
+   grayscale card icons: a black `-bw` icon drawn at ~40% reads as a light
+   backdrop the black label sits over. Isolated in a save/restore so the alpha
+   doesn't leak into later drawing."
+  [cs img x y width height alpha]
+  (let [gs (doto (PDExtendedGraphicsState.)
+             (.setNonStrokingAlphaConstant (float alpha)))]
+    (.saveGraphicsState cs)
+    (.setGraphicsStateParameters cs gs)
+    (draw-imagex cs img x y width height)
+    (.restoreGraphicsState cs)))
+
+(def icon-red
+  "The red the card icons were baked at, as [r g b alpha]. The PNGs carry #910000
+   at half opacity; filling the vector with the same two values composites
+   identically over whatever is beneath it."
+  [0.5686 0.0 0.0 0.5])
+
+(defn draw-svg-icon!
+  "Draws a named icon into a `size`-inch box, filled in `color` at `alpha`. `y` is
+   inches from the page TOP to the box's top edge, as in draw-imagex (whose PDF
+   arithmetic makes it look otherwise). The icon is the document's shared form, placed
+   by a transform; colour and alpha sit in a save/restore so they reach the form but
+   not the label drawn over it. Without a vendored SVG it falls back to the PNG of the
+   same name, which ignores `color`."
+  [cs img icon-name x y size [r g b] alpha]
+  (if (io/resource (str "public/image/" icon-name ".svg"))
+    ;; The form is a svg-view-unit square; this maps that square onto `size` inches.
+    (let [unit (float (/ (* 72 size) svg-view))]
+      (.saveGraphicsState cs)
+      (when (< alpha 1)
+        (.setGraphicsStateParameters
+         cs (doto (PDExtendedGraphicsState.)
+              (.setNonStrokingAlphaConstant (float alpha)))))
+      (.setNonStrokingColor cs (float r) (float g) (float b))
+      (.transform cs (Matrix. unit 0 0 unit
+                              (float (* 72 x)) (float (* 72 (- 11 y size)))))
+      (.drawForm cs (img (str "public/image/" icon-name ".svg")))
+      (.restoreGraphicsState cs))
+    (draw-imagex-alpha cs (img (str "public/image/" icon-name ".png"))
+                       x y size size alpha)))
+
+(defn draw-svg-path!
+  "Fills `ops` straight into a `size`-inch box whose top-left is (x, y) on the
+   page, scaling from a `view` square viewBox and flipping SVG's downward y.
+   GOTCHA: writes the whole path into the page's content stream every call;
+   anything drawn more than once should go through the image loader instead."
+  [cs ops x y size view]
+  (emit-svg-path! cs ops
+                  (fn [v] (in->pt (+ x (* size (/ v view)))))
+                  (fn [v] (pt-from-top 72 (+ y (* size (/ v view)))))))
+
+(defn make-image-loader
+  "Returns a memoized (resource-path -> XObject) embedder scoped to ONE document:
+   a PDImageXObject for a raster path, a form (see svg-form) for a `.svg` one.
+   Each distinct resource is embedded once and referenced thereafter, so repeated
+   icons and logos are neither re-decoded nor duplicated in the file."
+  [doc]
+  (memoize
+   (fn [resource-path]
+     (if (s/ends-with? resource-path ".svg")
+       (svg-form doc (svg-path-ops (last-svg-path (slurp (io/resource resource-path)))))
+       (with-open [in (io/input-stream (io/resource resource-path))]
+         (LosslessFactory/createFromImage doc (ImageIO/read in)))))))

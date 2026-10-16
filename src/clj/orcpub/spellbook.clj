@@ -204,7 +204,7 @@
    whose units are `unit` points each."
   [cs d x ty unit lw & [fill?]]
   (.setLineWidth cs (float lw))
-  (doseq [op (pdf/svg-path-ops d)
+  (doseq [op (draw/svg-path-ops d)
           :let [px #(float (+ x (* unit %)))
                 pyy #(py (+ ty (* unit %)))]]
     (case (first op)
@@ -305,7 +305,7 @@
           (line! cs (first (polar cx cy (* 11.2 s) a)) (second (polar cx cy (* 11.2 s) a))
                  (first (polar cx cy reach a)) (second (polar cx cy reach a)) (* 0.9 s)))))
     (let [icon-size (* size 0.5)]
-      (pdf/draw-svg-icon! cs img (str "emblems/" icon)
+      (draw/draw-svg-icon! cs img (str "emblems/" icon)
                           (/ (- cx (/ icon-size 2)) 72.0) (/ (- cy (/ icon-size 2)) 72.0)
                           (/ icon-size 72.0) [ink ink ink] 1.0))))
 

@@ -33,7 +33,7 @@
 
 (let [doc (PDDocument.)
       fonts (draw/load-fonts doc)
-      img (pdf/make-image-loader doc)
+      img (draw/make-image-loader doc)
       ladder (mapv sample rarities)]
   ;; One page per family: the five ranks side by side.
   (doseq [family pdf/card-flourishes]
