@@ -67,6 +67,10 @@ it cannot land there. `docs/kb/key-collision-behavior.md` is the map.
   loads under the source it sits in rather than being set aside, the panel lists only what is still
   set aside after each click, a restore whose write fails keeps what was typed, the message says
   what came back and what each is now called, and working keys are kept.
+- **`missing-content-kept.js`** — needs the seeded server. Missing content is never cleared on its own:
+  a saved character using a homebrew race, feat and spell, its pack switched off, opened on its
+  sheet and in the builder past the settle and the autosave, still holds every homebrew pick on the
+  server.
 - **`switches-keyboard.js`** — every on/off switch on My Content takes focus and toggles with Space
   or Enter, and the library records it.
 - **`move-homebrew-keeps-dependents.js`** — moving a class into a source that already has its key:
