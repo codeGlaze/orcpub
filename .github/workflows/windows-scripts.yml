@@ -244,9 +244,10 @@ jobs:
           echo "msys pid   : $MSYS_PID"
           pid_alive "$MSYS_PID" || { echo "FAIL: pid_alive cannot see an MSYS pid"; exit 1; }
           signal_pid "$MSYS_PID" KILL || true
-          sleep 2
+          # A killed process can take a moment to go on a Windows runner: poll, don't guess.
+          for _ in $(seq 1 20); do pid_alive "$MSYS_PID" || break; sleep 0.5; done
           if pid_alive "$MSYS_PID"; then
-            echo "FAIL: signal_pid did not stop an MSYS pid"; exit 1
+            echo "FAIL: signal_pid did not stop an MSYS pid within 10s"; exit 1
           fi
           echo "OK: both pid kinds are handled"
 
