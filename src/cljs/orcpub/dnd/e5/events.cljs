@@ -592,37 +592,41 @@
 (reg-event-fx
  :character-save-success
  ;; ARGUMENT ORDER IS THE EFFECT'S, NOT THE CALLER'S. The :http effect
- ;; dispatches (conj on-success response), so the response is APPENDED -- it
- ;; arrives LAST, after whatever the caller put in its :on-success vector.
- ;; Reading them the other way round bound the save context as the response,
- ;; so (:body ...) was nil and EVERY successful save silently failed to install
- ;; the character it got back, the first save's new :db/id included.
- (fn [{:keys [db]} [_ save-context response]]
+ ;; dispatches (conj on-success response), so the response arrives LAST.
+ (fn [{:keys [db]} [_ {:keys [for-id] :as save-context} response]]
    (let [strict-character (:body response)
          character (char5e/from-strict strict-character)
          id (:db/id character)
-         current? (saved-character-is-the-one-being-edited? db save-context)]
-     {:dispatch-n
-      (cond-> [[:show-message
-                (if-let [char-name (not-empty
-                                    (get-in character [::entity/values ::char5e/character-name]))]
-                  (str "Saved “" char-name "”")
-                  "Your character has been saved.")]]
+         current? (saved-character-is-the-one-being-edited? db save-context)
+         ;; An autosave of the sheet's copy, while the builder holds unsaved edits to the same
+         ;; character: the builder keeps its copy and takes only the keys the sheet changed.
+         keep-builder? (boolean (and current? for-id (get-in db [:character :changed])))
+         kept (when keep-builder?
+                (update (:character db) ::entity/values
+                        (fn [values]
+                          (reduce (fn [vs k]
+                                    (if-some [v (get-in character [::entity/values k])]
+                                      (assoc vs k v)
+                                      (dissoc vs k)))
+                                  values
+                                  (get-in db [::sheet-edited id])))))]
+     (cond-> {:db (update db ::sheet-edited dissoc id)
+              :dispatch-n
+              (cond-> [[:show-message
+                        (if-let [char-name (not-empty
+                                            (get-in character [::entity/values ::char5e/character-name]))]
+                          (str "Saved “" char-name "”")
+                          "Your character has been saved.")]]
+                ;; The character on screen is replaced only by a save about it.
+                (and current? (not keep-builder?))
+                (conj [:character-updated character])
 
-        ;; The character on screen is only replaced when the save was ABOUT it.
-        ;; It used to be replaced by whatever came back: the autosave queue is
-        ;; throttled by 7.5s and every sheet control feeds it, so adjusting hit
-        ;; points on one character and opening another inside that window
-        ;; swapped the builder out from under you -- and db :character is where
-        ;; unsaved edits live, so they went with it. The portrait draft was only
-        ;; the loudest symptom.
-        current?
-        (conj [:character-updated character])
-
-        ;; Always: the saved character belongs in the map whoever is on screen.
-        ;; This is the half of the old behaviour that was right.
-        true
-        (conj [::char5e/set-character id character]))})))
+                ;; The saved character belongs in the map whoever is on screen.
+                true
+                (conj [::char5e/set-character id character]))}
+       keep-builder? (-> (assoc-in [:db :character] kept)
+                         (assoc ::builder-draft->local-store kept))
+       for-id (assoc ::autosave-fx/saved for-id)))))
 
 (defn descriptive-character-label
   "Build a descriptive label like 'High Elf Ranger 3' from character properties.
@@ -4158,16 +4162,36 @@
     (common5e/slot-level-key level)]
    (partial toggle-set i)))
 
-(defn update-character-fx [db id update-fn]
+(defn changed-value-keys
+  "The ::entity/values keys whose values differ between characters `stored` and `edited`, as a set."
+  [stored edited]
+  (let [a (::entity/values stored) b (::entity/values edited)]
+    (into #{} (filter #(not= (get a %) (get b %))) (into (set (keys a)) (keys b)))))
+
+(defn update-character-fx
+  "Effects for a sheet or list edit: applies `update-fn` to the stored copy of character `id` and
+   autosaves it. When the builder has that character open, the edit is applied there too and its
+   changed values keys are recorded under ::sheet-edited, for :character-save-success. With no `id`
+   the character is unsaved, so the edit goes to the builder's copy."
+  [db id update-fn]
   (if id
-    {:db (update-in
-          db
-          [::char5e/character-map (js/parseInt id)]
-          update-fn)
-     ::char5e/save-character-throttled id}
+    (let [int-id (js/parseInt id)
+          stored (get-in db [::char5e/character-map int-id])
+          updated (update-fn stored)
+          open (when (= int-id (get-in db [:character :db/id])) (update-fn (:character db)))]
+      (cond-> {:db (cond-> (assoc-in db [::char5e/character-map int-id] updated)
+                     open (-> (assoc :character open)
+                              (update-in [::sheet-edited int-id] (fnil into #{})
+                                         (changed-value-keys stored updated))))
+               ::char5e/save-character-throttled id}
+        open (assoc ::builder-draft->local-store open)))
     ;; No id: the character being built has never been saved, so this is an
     ;; edit to the one in hand, not a switch.
     {:dispatch [:character-updated (update-fn (:character db))]}))
+
+(reg-fx
+ ::builder-draft->local-store
+ (fn [character] (character->local-store character)))
 
 (reg-event-fx
  ::char5e/toggle-spell-prepared
@@ -4261,10 +4285,18 @@
 ;; Level up a character by id — adds a level and opens the builder.
 (reg-event-fx
  ::char5e/level-up
- (fn [{:keys [db]} [_ character-id]]
+ (fn [_ [_ character-id]]
    {:dispatch-n [[::char5e/add-level character-id]
-                 [:set-character (get-in db [::char5e/character-map (js/parseInt character-id)] {})]
-                 [:route routes/dnd-e5-char-builder-route]]}))
+                 [::char5e/open-stored-in-builder (js/parseInt character-id)]]}))
+
+(reg-event-fx
+ ::char5e/open-stored-in-builder
+ ;; Reads the stored copy when it runs, so it sees edits queued before it. A character the
+ ;; builder already has open is not replaced: its edits are applied there (update-character-fx).
+ (fn [{:keys [db]} [_ id]]
+   (if (= id (get-in db [:character :db/id]))
+     {:dispatch [:route routes/dnd-e5-char-builder-route]}
+     {:dispatch [:edit-character (get-in db [::char5e/character-map id] {})]})))
 
 (reg-event-fx
  ::char5e/set-notes

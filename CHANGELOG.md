@@ -120,8 +120,9 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Equipment:** tools, musical instruments, gaming sets and equipment packs show their SRD prices,
   and tools and instruments their weights.
 - **Magic items:** the Alchemy Jug shows that its liquid can be created once a day.
-- **Characters:** a late save for one character no longer replaces another character open in the
-  builder, along with its unsaved edits.
+- **Characters:** unsaved builder edits are no longer lost when a character's sheet or list saves,
+  whether for another character or the same one, or when it levels up; and closing the tab still
+  warns while a save has not gone through.
 - **Sharing:** link previews of shared characters failed on Discord, Mastodon, Slack, Telegram and
   X, because `robots.txt` blocked every crawler that honours it.
 - **Sharing:** every shared character link had an empty title and image in its preview.

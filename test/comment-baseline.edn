@@ -246,21 +246,9 @@
    "ns orcpub.dnd.e5.portrait-light"
    "87319a407767"]
   ["src/cljs/orcpub/dnd/e5/events.cljs"
-   :history-phrase
-   "The character on screen is only replaced when the save was ABOUT it. | it used to"
-   "4ed9e081ff30"]
-  ["src/cljs/orcpub/dnd/e5/events.cljs"
    :long-comment
    "---- portrait compositor drawer ----"
    "839937248c56"]
-  ["src/cljs/orcpub/dnd/e5/events.cljs"
-   :long-comment
-   "ARGUMENT ORDER IS THE EFFECT'S, NOT THE CALLER'S. The :http effect"
-   "09e7f24a6ff0"]
-  ["src/cljs/orcpub/dnd/e5/events.cljs"
-   :long-comment
-   "The character on screen is only replaced when the save was ABOUT it."
-   "4ed9e081ff30"]
   ["src/cljs/orcpub/dnd/e5/events.cljs"
    :long-docstring
    "defn drop-portrait-draft"

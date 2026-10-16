@@ -1641,6 +1641,76 @@
             (rf/reg-fx :dispatch-n real)
             (rf/clear-fx :dispatch-n)))))))
 
+(defn- with-fx
+  "Calls `f` with each effect in `stubs` (fx id -> handler) replaced, then puts the real ones back."
+  [stubs f]
+  (let [real (into {} (map (fn [k] [k (get-in @registrar/kind->id->handler [:fx k])])) (keys stubs))]
+    (try
+      (doseq [[k h] stubs] (rf/reg-fx k h))
+      (f)
+      (finally
+        (doseq [[k h] real] (if h (rf/reg-fx k h) (rf/clear-fx k)))))))
+
+(def ^:private hp ::char5e/current-hit-points)
+(def ^:private char-name ::char5e/character-name)
+
+(deftest a-sheet-edit-reaches-the-builder-copy-of-the-same-character
+  (with-fx {::char5e/save-character-throttled identity ::events/builder-draft->local-store identity}
+    (fn []
+      (reset! app-db (assoc pristine-db
+                            :character {:db/id 111 :changed true ::entity/values {char-name "Unsaved"}}
+                            ::char5e/character-map {111 {:db/id 111 ::entity/values {char-name "Stored"}}}))
+      (rf/dispatch-sync [::char5e/set-current-hit-points "111" 7])
+      (is (= {char-name "Unsaved" hp 7} (get-in @app-db [:character ::entity/values]))
+          "the builder gets the sheet's hit points and keeps its own name")
+      (is (= {char-name "Stored" hp 7} (get-in @app-db [::char5e/character-map 111 ::entity/values]))
+          "the stored copy, which is what autosaves, is edited as before")
+      (is (= #{hp} (get-in @app-db [::events/sheet-edited 111])) "and the changed key is recorded")
+      (rf/dispatch-sync [::char5e/set-current-hit-points "222" 3])
+      (is (= 7 (get-in @app-db [:character ::entity/values hp]))
+          "an edit to another character does not touch the builder"))))
+
+(deftest an-autosave-reply-keeps-the-builders-unsaved-edits
+  (let [dispatched (atom [])
+        saved (atom nil)
+        reply {:body (char5e/to-strict {:db/id 111 ::entity/values {char-name "Stored" hp 7}})}]
+    (with-fx {:dispatch-n #(reset! dispatched (vec %))
+              ::autosave-fx/saved #(reset! saved %)
+              ::events/builder-draft->local-store identity}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              :character {:db/id 111 :changed true
+                                          ::entity/values {char-name "Unsaved" hp 6}}
+                              ::events/sheet-edited {111 #{hp}}))
+        (rf/dispatch-sync [:character-save-success {:for-id 111} reply])
+        (is (= {char-name "Unsaved" hp 7} (get-in @app-db [:character ::entity/values]))
+            "the builder keeps its name and takes only the key the sheet changed")
+        (is (true? (get-in @app-db [:character :changed])) "and still counts as unsaved")
+        (is (not (contains? (into #{} (map first) @dispatched) :character-updated))
+            "the reply does not replace the builder")
+        (is (nil? (get-in @app-db [::events/sheet-edited 111])) "the record is cleared")
+        (is (= 111 @saved) "and the autosave is reported as confirmed")
+
+        (testing "with nothing unsaved in the builder the reply is installed as before"
+          (reset! app-db (assoc pristine-db :character {:db/id 111 ::entity/values {}}))
+          (rf/dispatch-sync [:character-save-success {:for-id 111} reply])
+          (is (contains? (into #{} (map first) @dispatched) :character-updated)))))))
+
+(deftest level-up-opens-the-stored-copy-only-when-the-builder-has-another-character
+  (let [dispatched (atom nil)]
+    (with-fx {:dispatch #(reset! dispatched %)}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              :character {:db/id 111 :changed true ::entity/values {char-name "Unsaved"}}
+                              ::char5e/character-map {111 {:db/id 111 ::entity/values {}}
+                                                      222 {:db/id 222 ::entity/values {}}}))
+        (rf/dispatch-sync [::char5e/open-stored-in-builder 111])
+        (is (= [:route routes/dnd-e5-char-builder-route] @dispatched)
+            "the builder already has it, with the new level applied there: only route")
+        (rf/dispatch-sync [::char5e/open-stored-in-builder 222])
+        (is (= [:edit-character {:db/id 222 ::entity/values {}}] @dispatched)
+            "another character is opened from its stored copy, read when this runs")))))
+
 (deftest replacing-the-character-being-edited-counts-an-epoch
   (testing "the epoch is what lets an answer tell whether the question is still
             on screen, so it has to move whenever the draft is dropped"

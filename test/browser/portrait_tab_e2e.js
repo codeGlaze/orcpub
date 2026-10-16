@@ -320,9 +320,10 @@ async function openBuilder(ctx, width) {
   // read was the page title rather than the character.
   const idBefore = await dbAt('[:character :db/id]');
 
-  // A save answering about a character that was never the one on screen.
+  // A save answering about a character that was never the one on screen. The save context comes
+  // first and the response last, the order the :http effect dispatches them in.
   await page.evaluate(() => window.__d(
-    '[:character-save-success {:body {:db/id 987654 :orcpub.entity.strict/values {}}} {:for-id 987654}]'));
+    '[:character-save-success {:for-id 987654} {:body {:db/id 987654 :orcpub.entity.strict/values {}}}]'));
   await page.waitForTimeout(600);
 
   const idAfter = await dbAt('[:character :db/id]');
