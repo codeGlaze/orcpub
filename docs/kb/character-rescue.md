@@ -350,6 +350,9 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
 
 ## Decided
 
+- #67 saving a character cleaned when it is opened (held picks memory only): approved by the owner
+  (2026-10-16), despite the rescue rule that clearing is the player's choice.
+
 - No "Reset all choices" on the repair page: it amounts to a new character (owner, 2026-10-06).
 - Changelog: Summer Patch, on integration.
 
