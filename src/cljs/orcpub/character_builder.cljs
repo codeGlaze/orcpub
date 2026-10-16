@@ -1978,12 +1978,22 @@
               [{:name "5e SRD"
                 :url t5e/srd-url}]))))])])))
 
-(def selection-order-title
-  (juxt ::t/order ::t/name ::entity/path))
+(defn- path-level
+  "The class level a selection's path sits under (`:level-10` is 10), else 0."
+  [path]
+  (or (some #(when (keyword? %) (some-> (re-matches #"level-(\d+)" (name %)) second js/parseInt))
+            path)
+      0))
+
+(defn selection-order-title
+  "How the options column orders sections: order (none last), name, then the level the section
+   comes at, so a selection named alike at levels 3, 10 and 17 reads in that order."
+  [s]
+  (let [path (::entity/path s)]
+    [(or (::t/order s) 1000) (str (::t/name s)) (path-level path) (pr-str path)]))
 
 (defn compare-selections [s1 s2]
-  (< (selection-order-title s1)
-     (selection-order-title s2)))
+  (compare (selection-order-title s1) (selection-order-title s2)))
 
 (defn compare-paths [s1 s2]
   (< (::entity/path s1)
