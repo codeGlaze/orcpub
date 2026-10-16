@@ -300,7 +300,11 @@
   [root & [note]]
   (if-let [text (storage-item "character")]
     (open-character root text nil note)
-    (show! root (message "This browser holds no character draft."))))
+    (if-let [kept (storage-item "character:corrupt")]
+      (raw-view root (str "This browser's draft could not be read, so the app set it aside. "
+                          "Download it to keep it, or to send it to support.")
+                kept "character-draft-set-aside.edn")
+      (show! root (message "This browser holds no character draft.")))))
 
 (defn ^:export init
   "Fill the page's #ledger element from its `data-mode` (\"saved\" or \"draft\") and `data-id`."

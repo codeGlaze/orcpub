@@ -367,24 +367,24 @@
 (def tab-path [:builder :character :tab])
 
 (def ^:private preserve-on-unreadable-keys
-  "Storage slots that must NEVER be destroyed on a parse failure — the homebrew
-   library and its quarantine companion. A corrupt blob here (e.g. a quota-cut
-   write) is moved to a '<key>:corrupt' slot and cleared from the active slot, so
-   it survives for recovery instead of being deleted. Other slots (character,
-   builder drafts) keep the old remove-on-unreadable behavior."
+  "Storage slots never destroyed on a parse failure: the homebrew library, its quarantine
+   companion, and the character draft. An unreadable value is moved to '<key>:corrupt' and the
+   active slot cleared, so it survives for recovery; Data View's draft page offers the character
+   one for download. Other builder drafts are still removed."
   #{local-storage-plugins-key
-    local-storage-plugins-rejected-key})
+    local-storage-plugins-rejected-key
+    local-storage-character-key})
 
 (defn- handle-unreadable
-  "Fallback for a parse failure that self-heal could not repair: preserve
-   homebrew slots to their :corrupt companion (recoverable), remove others."
+  "Fallback for a parse failure that self-heal could not repair: move a
+   `preserve-on-unreadable-keys` slot to its :corrupt companion (recoverable), remove others."
   [local-storage-key stored-str e]
   (if (contains? preserve-on-unreadable-keys local-storage-key)
-    ;; Preserve unparseable homebrew: copy raw bytes to the :corrupt slot,
-    ;; then clear the active slot so a poison value can't brick boot. Recoverable.
+    ;; Copy the raw bytes to the :corrupt slot, then clear the active slot so a poison value
+    ;; can't brick boot. Recoverable.
     (do
       (js/console.warn
-       "UNREADABLE homebrew storage; preserved raw copy for recovery in"
+       "UNREADABLE storage; preserved raw copy for recovery in"
        (corrupt-slot-key local-storage-key) "and cleared the active slot."
        local-storage-key)
       (set-item (corrupt-slot-key local-storage-key) stored-str)

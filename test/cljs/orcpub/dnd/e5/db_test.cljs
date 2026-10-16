@@ -47,13 +47,21 @@
       (is (= unreadable (.getItem js/window.localStorage (db/corrupt-slot-key k)))
           "preserved for recovery"))))
 
-(deftest unreadable-non-homebrew-still-removed
-  (testing "a non-homebrew slot (character) keeps the old remove-on-unreadable behavior"
+(deftest unreadable-character-draft-is-set-aside
+  (testing "the character draft is moved to its :corrupt slot, word for word, not deleted"
+    (.removeItem js/window.localStorage (db/corrupt-slot-key "character"))
     (.setItem js/window.localStorage "character" unreadable)
     (is (nil? (db/get-local-storage-item "character")))
-    (is (nil? (.getItem js/window.localStorage "character")) "removed")
-    (is (nil? (.getItem js/window.localStorage (db/corrupt-slot-key "character")))
-        "no :corrupt copy is made for non-homebrew slots")))
+    (is (nil? (.getItem js/window.localStorage "character")) "the active slot is cleared")
+    (is (= unreadable (.getItem js/window.localStorage (db/corrupt-slot-key "character"))))))
+
+(deftest unreadable-other-builder-drafts-are-still-removed
+  (testing "a builder draft outside preserve-on-unreadable-keys (a spell) is removed"
+    (.removeItem js/window.localStorage (db/corrupt-slot-key "spell"))
+    (.setItem js/window.localStorage "spell" unreadable)
+    (is (nil? (db/get-local-storage-item "spell")))
+    (is (nil? (.getItem js/window.localStorage "spell")) "removed")
+    (is (nil? (.getItem js/window.localStorage (db/corrupt-slot-key "spell"))) "no :corrupt copy")))
 
 (deftest set-item-returns-success-boolean
   (testing "true on a successful write"

@@ -312,8 +312,11 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
    (carrying the version through `entity.cljc`, rebasing on a 409, the builder notice) is #64's.
    Tests: `save_version_test.clj` (50 concurrent pairs each way), R8 and R10 rewritten,
    `character-data.js`.
-5. Keep a copy of a browser draft the app cannot read (`db.cljs` `handle-unreadable` deletes it on
-   boot; homebrew gets a `:corrupt` copy, characters do not).
+5. **Done 2026-10-16:** an unreadable character draft is kept, not deleted. `db.cljs`
+   `preserve-on-unreadable-keys` now holds `"character"`, so it moves to `character:corrupt`
+   like homebrew; Data View's draft page shows it with Download when the active slot is empty
+   (`test/e2e/draft-backup.js`). Other builder drafts are still removed. #64's per-id draft keys
+   need the same treatment when they land.
 6. Test gaps: builder autosave against the stale-save guard, race and ability-score warnings in a
    browser, "No longer stored", the draft page's guard, assertions in `remove-essentials.js`.
 7. Key editing behind dev mode.
