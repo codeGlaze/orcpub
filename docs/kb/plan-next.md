@@ -411,24 +411,21 @@ with this proposal rather than with the hold.
 
 ## Also open, smaller
 
-☐ Selection ordering, unverified leads (2026-10-16; owner: "weird backward ordering, mostly
-selections from the selection builder"). `compare-selections` (`character_builder.cljs`, used by
-the sorted set that orders the options column) compares `[order name path]` vectors with `<`,
-which in ClojureScript compares their printed text: order 10 would sort before 2, and names
-compare as raw text. Separately, `make-level-selections` (`spell_subs.cljs`) `conj`s onto a list,
-so a level's selections come out in reverse of their authored order; `combine-selections` sorts by
-order and name afterwards, so that may never show. Confirm each in a real builder with
-selection-builder content before changing anything.
+☑ Selection ordering (2026-10-16): `compare-selections` compared `[order name path]` as text, so a
+homebrew class's selections named alike at levels 3, 10, 17 read 10, 17, 3 (seen with test-pak's
+class); fixed to compare order, name, level, path (`7781d43f`). The reversed list in
+`make-level-selections` never shows: the later sort orders it.
 ☐ `subclass-option`'s spell selections were gated `(>= lvl total-levels)`, the reverse of level
 gates; PR #67 (`4fe69562`) made it `total-levels-prereq`. Nothing reaches that code: only a
 subclass whose `:spellcasting` carries its own `:spells-known` table, which neither SRD content
 nor the subclass builder writes (it stores `:level-factor`). A hand-edited pack could; whether
 picks made there even save is unverified.
-☐ Two e2e scripts fail on `integration` as it stands (`b8035afe`, 2026-10-15), the same checks on
-every run: `library-repairs.js` (1/4: the repair panel never offers the renamed race "Hill Folk",
-so its Fix button never appears) and `quarantine-restore.js` (7/12: the loader does not set aside
-the two damaged entries). Not in CI, so nothing flagged them. Found running the full e2e set for
-the hidden-pick PR; the scripts or the loader changed under them, not yet known which.
+☑ The two failing e2e scripts (2026-10-16): `library-repairs.js` caught a real regression, My
+Content's repair panel and missing-link marks empty until a character was opened (the template
+stopped being built at startup); My Content and its builders now ask for it (`d571b661`).
+`quarantine-restore.js` followed an intended change, an entry with no source loads under its pack;
+the script was updated (`088d2499`).
+☑ The flaky Windows `signal_pid` step polls instead of one fixed sleep (`fa4ce91c`).
 ☐ Unrecognised-tag warning on **import** as well as export (`bf/unknown-tag-problems` already
 exists; it is the other seam).
 ☐ `builder-notes` rendering through `notifications/callout` — shared box styling, and it fixes a

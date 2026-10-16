@@ -48,8 +48,8 @@ Both chosen in round 4 (2026-10-04) and missing from this record until 2026-10-1
 
 | design | screenshot | status |
 |---|---|---|
-| The "1st" badge: lit on the starting class, faded on every other class; tapping a faded one makes that class the starting class. Owner: "Take it" | ![1st badge](assets/hidden-picks/agreed-first-badge.png) | step 3 of the order of work, "Make starting class"; its OPEN question (a class moved to second that fails multiclass prerequisites) still stands |
-| A "Choices" list of everything the character stores: active, planned, or missing (homebrew not loaded in this browser), with Clear only where it helps, never on its own. Answers the round 3 note: "The one thing I REALLY DO NOT want is for options on a character to be trapped and have no way to be cleared." Today a missing feat cannot be cleared at all. Owner: "Worth pursuing" | ![Choices list](assets/hidden-picks/agreed-choices-ledger.png) | a proposal; not planned |
+| The "1st" badge: lit on the starting class, faded on every other class; tapping a faded one makes that class the starting class. Owner: "Take it" | ![1st badge](assets/hidden-picks/agreed-first-badge.png) | BUILT (`f57f71c1`, 2026-10-16): a tap moves that class first, with its starting equipment, and starting-class picks follow through the hold. The OPEN question is settled the way the class dropdown already treats second classes: when the current starting class could not be a second class, the tap says why instead |
+| A "Choices" list of everything the character stores: active, planned, or missing (homebrew not loaded in this browser), with Clear only where it helps, never on its own. Answers the round 3 note: "The one thing I REALLY DO NOT want is for options on a character to be trapped and have no way to be cleared." Today a missing feat cannot be cleared at all. Owner: "Worth pursuing" | ![Choices list](assets/hidden-picks/agreed-choices-ledger.png) | BUILT (2026-10-16): "Choices" above the options; missing and planned rows first, each with Clear, then active picks by section. Not built from the mock: "Reset all choices" (New character already does that) |
 
 ### Coherency pass on what is built (2026-10-15)
 
@@ -75,8 +75,9 @@ swappable builds"). If it lands, the in-row marker and the class line could reti
 **Dropped:** the repair-log attribute (`::char5e/repair-log`, below). It would store ghost data on
 the character, which the owner ruled out: only the character the player decides on is saved.
 
-**OPEN:** what "Make starting class" does when the class moved to second fails its multiclass
-prerequisites (block, or allow with the builder's usual prerequisite warning).
+**Settled (2026-10-16):** "Make starting class" says why instead of moving when the class that
+would become second fails its multiclass prerequisites, as the class dropdown does for second
+classes.
 
 *DESIGN — nothing built. Fixes the defect in [hidden-selection-picks.md](hidden-selection-picks.md).
 Evidence measured 2026-09-14, `feature/grant-rows` at `ec04da1b`.*
