@@ -350,20 +350,14 @@
        (swap! settle-timer assoc :id (js/setTimeout settle-now! settle-debounce-ms))))))
 
 (defn settle-picks-fx
-  "Handler for `::e5/settle-picks`: `settle-picks-db`, the draft rewritten when the character
-   changed, and a saved character opened with choices that no longer apply saved cleaned."
+  "Handler for `::e5/settle-picks`: `settle-picks-db`, and the draft rewritten when the character
+   changed. Opening a saved character never saves it: the saved copy keeps its choices until the
+   player saves (owner, 2026-10-16; decision-gate-hidden-picks.md)."
   [{:keys [db]} _]
-  (let [db' (settle-picks-db db)
-        id (get-in db' [:character :db/id])
-        cleaned-on-open? (and (::e5/open-notice db') (not (::e5/open-notice db)))]
+  (let [db' (settle-picks-db db)]
     (cond-> {:db db'}
       (not (identical? (:character db) (:character db')))
-      (assoc ::persist-healed-character (:character db'))
-      ;; A saved character opened with choices that no longer apply is saved cleaned, through
-      ;; the pages' own autosave; the notice says what was set aside. decision-gate-hidden-picks.md
-      (and cleaned-on-open? id)
-      (-> (assoc-in [:db ::char5e/character-map id] (:character db'))
-          (assoc ::char5e/save-character-throttled id)))))
+      (assoc ::persist-healed-character (:character db')))))
 
 (reg-event-fx ::e5/settle-picks settle-picks-fx)
 

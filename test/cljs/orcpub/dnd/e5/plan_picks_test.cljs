@@ -374,9 +374,9 @@
         draft (open ghost-6)]
     (testing "a saved character"
       (is (= 1 (count (get-in saved [:db :orcpub.dnd.e5/open-notice :held]))) "the notice has it")
-      (is (= 42 (:orcpub.dnd.e5.character/save-character-throttled saved))
-          "and it is saved cleaned")
-      (is (not (steel-will? (get-in saved [:db :orcpub.dnd.e5.character/character-map 42])))))
+      (is (nil? (:orcpub.dnd.e5.character/save-character-throttled saved))
+          "but opening it saves nothing: the saved copy changes when the player saves")
+      (is (nil? (get-in saved [:db :orcpub.dnd.e5.character/character-map 42]))))
     (testing "an unsaved draft: the notice, nothing to save"
       (is (= 1 (count (get-in draft [:db :orcpub.dnd.e5/open-notice :held]))))
       (is (nil? (:orcpub.dnd.e5.character/save-character-throttled draft))))
