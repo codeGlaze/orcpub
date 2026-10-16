@@ -319,7 +319,8 @@
    :after (fn [context]
             (let [db-before (get-in context [:coeffects :db])
                   db-after (get-in context [:effects :db])]
-              (if (and db-after (settle-needed? db-before db-after))
+              ;; A replacement (Random) always resets the hold, even when only text changed.
+              (if (and db-after (or (::e5/replacing? db-after) (settle-needed? db-before db-after)))
                 (let [event-id (first (get-in context [:coeffects :event]))
                       opening? (#{:set-character ::autosave-fx/cache-template} event-id)]
                   (-> context

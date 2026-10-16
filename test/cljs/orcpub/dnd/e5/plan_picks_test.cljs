@@ -252,7 +252,14 @@
     (is (= 1 (count (:orcpub.dnd.e5/planned-picks at-6))) "unsaved at 6, Steel Will held")
     (is (= [[] []] ((juxt :orcpub.dnd.e5/planned-picks :orcpub.dnd.e5/settle-trail) d))
         "a random character, unsaved too, starts with no hold and no trail to compare against")
-    (is (not (contains? d :orcpub.dnd.e5/replacing?)))))
+    (is (not (contains? d :orcpub.dnd.e5/replacing?))))
+  (testing "a random result with the same choices (every part locked) still starts it over"
+    (let [at-6 (edit (db (ranger 7)) (db (ranger 6)) :some-edit)
+          marked (assoc at-6 :orcpub.dnd.e5/replacing? true)
+          [d _] (queued marked (assoc-in marked [:character ::entity/values ::char5e/character-name] "R")
+                        :set-character)]
+      (is (= [] (:orcpub.dnd.e5/planned-picks d)))
+      (is (not (contains? d :orcpub.dnd.e5/replacing?))))))
 
 (deftest a-first-save-keeps-the-hold-and-a-new-character-empties-it
   (let [at-6 (edit (db (ranger 7)) (db (ranger 6)) :some-edit)
