@@ -4,6 +4,28 @@ The character sheet's Weapons section, redesigned. Every mockup and the build mu
 "Agreed" line; check them one by one before showing anything. Decisions are the owner's,
 2026-10-15. Background: [equipment-parity.md](equipment-parity.md) (the Net), [ux-guide.md](ux-guide.md).
 
+## The parts and their names
+
+Use these names, in this doc and in every session, so "row", "chip" and "details" mean one thing.
+
+![The weapons table with each part numbered](assets/ux-guide/weapons-table-parts.png)
+
+| # | Name | What it is |
+|---|---|---|
+| 1 | **Section heading** | "Weapons", with its icon |
+| 2 | **Reason pill** | the gold "Shield in off hand", beside the heading |
+| 3 | **Column headings** | Weapon · To hit · Damage |
+| 4 | **Weapon row** | one weapon's line in the table |
+| 5 | **Weapon name** | bold, first line of the row |
+| 6 | **Grey line** | the muted properties line under the name |
+| 7 | **Versatile chip** | the toggle in the grey line |
+| 8 | **To-hit button** | "+4", rolls the attack |
+| 9 | **Damage button** | "1d8+2 / slashing", rolls the damage |
+| 10 | **Dice tab** | the blue patch on the changed dice while Versatile is on |
+| 11 | **Expand arrow** | opens and closes the row |
+| 12 | **Opened row** | what shows under a row when its arrow is open (rules text, cost, weight) |
+| 13 | **Row shading** | the striped background on every second weapon row |
+
 ## Agreed
 
 | # | Rule |

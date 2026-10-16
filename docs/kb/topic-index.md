@@ -3593,8 +3593,9 @@ _weapon-data-model · weapon data model_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, agreed, amber, blue, buttons, chip, colour, damage, grey, hand, headings, owner, pill, restrains, row, shield, versatile
+**topics:** 1d10, 2026-10-15, amber, arrow, blue, button, buttons, chip, damage, grey, headings, opened, pill, row, shield, ux-guide, versatile, weapon
 
+- The parts and their names
 - Agreed
 - Open
 - Wanted, not yet scoped
