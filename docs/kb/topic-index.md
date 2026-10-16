@@ -1471,7 +1471,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, handoff, keyword-trap-name-repair, non-word, prevention, readme, rescued, throw, token
+**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, non-word, prevention, readme, rescued, root-caused, throw, token
 
 - The failure
 - The two defences, and where they are
@@ -2160,7 +2160,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, twin, winner
+**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2467,7 +2467,7 @@ _pdf-generated-vs-uploaded-images · pdf generated vs uploaded images_
 
 _pdf-generation-architecture · pdf generation architecture_
 
-**topics:** 2026-04-22, byte, card, color, cosdict, fillable, firefox, flatten, pdf, pdfbox, populated, reflection, rendering, spell, templates, viewer, widget, widgets
+**topics:** 2026-04-22, byte, color, cosdict, fillable, firefox, flatten, page-annotations, pdf, pdfbox, populated, reflection, rendering, spell, templates, viewer, widget, widgets
 
 - Overview
 - Template Selection
@@ -2918,7 +2918,7 @@ _reframe-subscription-patterns · reframe subscription patterns_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, input-field, per-type, plumbing, registry-driven, representative, spec-valid, type
+**topics:** 000, adding, bits, boon, boon-like, builder-form, copy-pasted, extra, fully-scattered, hand-built, input-field, per-type, plumbing, registry-driven, representative, spec-valid, type, wires
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -3618,7 +3618,7 @@ _weapon-data-model · weapon data model_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, amber, arrow, blue, button, buttons, chip, damage, grey, headings, opened, pill, row, shield, ux-guide, versatile, weapon
+**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, grey, headings, opened, owner, pill, restrains, row, shield, study, versatile, weapon
 
 - The parts and their names
 - Agreed

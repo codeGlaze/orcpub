@@ -50,7 +50,7 @@ Use these names, in this doc and in every session, so "row", "chip" and "details
 
 ## Open
 
-- **Working prototype:** https://claude.ai/artifact/Kf86pSNkyFi2QJEuRMQsTd (toggle, off-hand switch, colour, flash, rows, rolls).
+- **Working prototype:** https://claude.ai/artifact/Kf86pSNkyFi2QJEuRMQsTd. Since 2026-10-16 it merges the "9a" skin study (another agent's handoff, shared by the owner): roll tiles with a label strip (`hit`, damage type with a dot), the opened row as an inset panel, a dashed "Restrains / no roll" tile, damage-type dots with a coloured-strip player option. Kept from this spec: the app's amber gradient with white text (the study's dark-on-orange and flat new orange conflict with rules 8 and the owner's rejections), the Versatile chip and blue dice tab (the study's "1H/2H" switch drops the owner's "Versatile" label), the striped table (the study's card rows would not match Armor), the shield states. Fixed from the study: no-roll border raised to 3.6:1 or better (study 2.2:1); the study's blue die text on orange failed at 4.07:1. Proposal, not yet decided.
 - **Desktop layout**, **200% text** (must wrap without clipping), **the opened row**, and **Armor in the same style**: not yet designed.
 
 ## Wanted, not yet scoped
