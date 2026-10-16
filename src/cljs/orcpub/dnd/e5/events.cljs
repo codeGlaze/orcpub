@@ -811,6 +811,12 @@
  (fn [db [_ address]]
    (update db ::e5/planned-picks (fn [held] (filterv #(not= address (:address %)) held)))))
 
+(reg-event-db
+ ::e5/clear-pick
+ character-interceptors
+ (fn [character [_ address]]
+   (:character (picks/remove-at character address))))
+
 (defn save-character-fx
   "Handler for `:save-character`. Settles picks first (`settle-picks-db`), so a save right after
    an edit never sends a pick that has stopped applying."

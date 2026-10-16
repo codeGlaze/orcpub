@@ -51,6 +51,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** lowering a level or changing a class, subclass or race keeps the choices that depend on it while you edit; change your mind and they come back by themselves, with Undo.
 - **Characters:** the builder shows choices waiting on a higher level beside the level picker, and says when each comes back.
 - **Characters:** with more than one class, a "1st" badge marks the starting class; tap another class's badge to make it the starting class, and choices that only apply to the starting class follow.
+- **Characters:** a Choices list in the builder shows every choice a character stores, including ones whose homebrew isn't loaded in this browser, and lets those be cleared.
 
 ### Changed
 

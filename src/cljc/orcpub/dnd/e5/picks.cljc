@@ -188,6 +188,36 @@
          e (take-last over counted)]
      (conj path (::entity/key e)))))
 
+;; The Choices list: every pick a character stores, so none is trapped where the builder cannot
+;; show it (homebrew not loaded). decision-gate-hidden-picks.md, "Agreed in review".
+
+(def ^:private structural
+  "Selections whose entries are the character's frame, not choices: a class's levels, and the
+   values the builder fills (hit points)."
+  #{:levels :hit-points})
+
+(defn choices
+  "Every pick `character` stores, as [{:address :section :name :status}]: `:status` :active when
+   its selection offers it, :missing when `template` does not (homebrew not loaded here). Leaves
+   out picks under a missing one, the class frame (`structural`) and entries carrying a value."
+  [template character]
+  (let [by-path (into {} (map (fn [s] [(vec (entity/actual-path s)) s]))
+                      (remove nil? (entity/get-all-selections-aux-2
+                                    template (entity/make-path-map character))))
+        rows (for [[address e] (addresses character)
+                   :let [path (pop address)
+                         s (by-path path)
+                         opt (some #(when (= (peek address) (::t/key %)) %)
+                                   (some-> s entity/selection-options))]
+                   :when (not (or (structural (peek path)) (contains? e ::entity/value)))]
+               {:address address
+                :section (or (some-> s ::t/name) (common/kw-to-name (peek path) true))
+                :name (or (::t/name opt) (common/kw-to-name (peek address) true))
+                :status (if opt :active :missing)})
+        missing (map :address (filter #(= :missing (:status %)) rows))
+        under? (fn [a b] (and (< (count b) (count a)) (= b (subvec a 0 (count b)))))]
+    (vec (remove (fn [{a :address}] (some #(under? a %) missing)) rows))))
+
 ;; The planned hold: `remove-at` records of picks that stopped applying, kept in memory only and
 ;; returned to the character once they fit again. decision-gate-hidden-picks.md, "Current decision".
 

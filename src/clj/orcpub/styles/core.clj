@@ -1341,6 +1341,11 @@
    [".app.light-theme .class-first-badge"
     {:border-color "rgba(0, 0, 0, 0.3)" :color "rgba(0, 0, 0, 0.45)"}
     [:&.on {:color accent-on-light :border-color accent-on-light}]]
+   ;; The Choices link reads as a plain link, not a Planned line; its panel, one line per section.
+   [:.choices-toggle {:font-style :normal}]
+   [:.choice-line {:padding "4px 0"}]
+   [".choices-panel .planned-aside" {:color muted-on-dark}]
+   [".app.light-theme .choices-panel .planned-aside" {:color muted-on-light}]
    [:.planned-rows
     {:display :grid
      :grid-template-columns "max-content 1fr auto"

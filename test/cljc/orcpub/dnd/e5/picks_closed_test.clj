@@ -314,3 +314,23 @@
         "at 2 Steel Will still needs level 7, not the level 3 that brings Hunter back")
     (is (contains? (set (described (:character r2) (:planned r2)))
                    ["Hunter" {:class-level 3 :class :ranger}]))))
+
+(deftest the-choices-list-names-every-stored-pick
+  (let [ch (assoc-in (character [(class-entry :fighter 3 {:martial-archetype {::entity/key :champion}}
+                                              {:fighting-style {::entity/key :defense}})])
+                     [::entity/options :race] {::entity/key :tidefolk
+                                               ::entity/options {:subrace {::entity/key :deep}}})
+        rows (picks/choices @template ch)
+        row (fn [address] (some #(when (= address (:address %)) %) rows))]
+    (testing "a pick its selection offers is active, by the template's names"
+      (is (= {:section "Fighting Style" :name "Defense" :status :active}
+             (dissoc (row [:class :fighter :fighting-style :defense]) :address)))
+      (is (= :active (:status (row [:class :fighter :levels :level-3 :martial-archetype :champion])))))
+    (testing "a pick the template does not offer is missing, named from its key"
+      (is (= {:section "Race" :name "Tidefolk" :status :missing}
+             (dissoc (row [:race :tidefolk]) :address))))
+    (testing "what a missing pick holds is left out with it; so are the class frame and values"
+      (is (nil? (row [:race :tidefolk :subrace :deep])))
+      (is (not-any? #(#{:levels :hit-points :ability-scores} (peek (pop %))) (map :address rows))
+          "no level entry, hit-point roll or ability-score method")
+      (is (= :active (:status (row [:class :fighter])))))))

@@ -469,6 +469,18 @@
             (js/console.error "Planned picks could not be described." e)
             nil)))))
 
+;; Every pick the character stores, for the Choices list (picks/choices).
+(reg-sub
+ :orcpub.dnd.e5/choices
+ :<- [:built-template]
+ :<- [:character]
+ (fn [[template character] _]
+   (when (seq template)
+     (try (picks/choices template character)
+          (catch :default e
+            (js/console.error "The Choices list could not be built." e)
+            [])))))
+
 ;; Held picks whose own section is not on screen: they show under their class instead. Hit-point
 ;; rolls still come back but are not listed; five "Average" lines say nothing.
 (reg-sub

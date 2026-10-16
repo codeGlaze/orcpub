@@ -12,6 +12,7 @@
 // what tapping it says, and Clear; 11 the line under the class row for picks whose section is closed.
 // 12 the restore notice for picks that come back out of view, with Undo, Redo and its close mark.
 // 13 the "1st" badge: a rogue's starting-class skills follow the starting class, rogue -> fighter -> rogue.
+// 14 the Choices list: a race not loaded here (missing, cleared), a planned pick and an active one.
 //
 // Runs against the seeded server (see hidden-pick-flows.js for the command). Prereqs: lein fig:build.
 // Run: NODE_PATH=<dir with playwright> node test/e2e/planned-picks.js     Exit 0 = pass.
@@ -232,6 +233,40 @@ const flows = {
     await page.waitForTimeout(1500);
     check('tapping the rogue\'s "1st" puts it back first', (await classAt(0)) === ':rogue');
     check('and its skills return', (await rogueSkills()) === 'acrobatics,deception,perception,stealth');
+  },
+
+  async 14(page) {
+    await setClass(page, 0, 'fighter');
+    // The one state not reachable by clicking: a draft naming a race this browser does not have.
+    await page.evaluate(() => {
+      const c = window.cljs.core, read = window.cljs.reader.read_string, e5 = window.orcpub.dnd.e5.character;
+      const ch = e5.from_strict(read(localStorage.getItem('character')));
+      const at = read('[:orcpub.entity/options :race]');
+      localStorage.setItem('character', c.pr_str(e5.to_strict(
+        c.assoc_in(ch, at, read('{:orcpub.entity/key :tidefolk}')))));
+    });
+    await page.reload({ waitUntil: 'load' }); await page.waitForTimeout(3000); await readyPage(page);
+    await pick(page, 'Class / Level', 'Fighting Style', 'Defense');
+    await setLevel(page, 0, 3);
+    await pick(page, 'Class / Level', 'Martial Archetype', 'Champion');
+    await setLevel(page, 0, 10);
+    await pick(page, 'Class / Level', 'Fighting Style', 'Archery');
+    await setLevel(page, 0, 9);
+    await page.locator('button.choices-toggle').click();
+    await page.waitForTimeout(500);
+    const lines = () => page.evaluate(() => [...document.querySelectorAll('.choice-line')].map(e => e.textContent));
+    let l = await lines();
+    check('Choices lists the race this browser lacks, as missing',
+      l.some(t => t.includes('Race \u2014 Tidefolk \u00b7 missing') && t.includes('Not loaded here')), l.join(' | '));
+    check('the planned style, with when it returns', l.some(t => t.includes('Fighting Style \u2014 Archery \u00b7 planned (L10)')));
+    check('and the active one', l.some(t => t.includes('Fighting Style \u2014 Defense \u00b7 active')));
+    await page.evaluate(() => [...document.querySelectorAll('.choice-line')].find(e => e.textContent.includes('Tidefolk'))
+      .querySelector('button').click());
+    await page.waitForTimeout(1500);
+    check('Clear takes the missing race off the character',
+      (await dbAt(page, '[:character :orcpub.entity/options :race]')) === 'nil');
+    l = await lines();
+    check('and out of the list', !l.some(t => t.includes('Tidefolk')));
   },
 
   async 12(page) {

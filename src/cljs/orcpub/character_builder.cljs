@@ -217,10 +217,50 @@
 
 (defn planned-toggle
   "A Planned line: tapping it opens or closes its panel; the arrow says which."
-  [open? text]
-  [:button.planned-toggle.orange {:aria-expanded @open? :on-click #(swap! open? not)}
+  [open? text & [class-name]]
+  [:button.planned-toggle.orange {:class class-name :aria-expanded @open?
+                                  :on-click #(swap! open? not)}
    text
    [:i.fa {:class (if @open? "fa-angle-up" "fa-angle-down") :aria-hidden true}]])
+
+(defn- choice-line [section names status & [{:keys [on-clear note]}]]
+  [:div.choice-line
+   [:div [:span.f-w-b section] " \u2014 " names [:span.planned-aside (str " \u00b7 " status)]
+    (when on-clear
+      [:button.link-button.underline.f-w-b.f-s-14.m-l-5 {:on-click on-clear} "Clear"])]
+   (when note [:div.planned-aside.i.f-s-14 note])])
+
+(defn choices-list
+  "The Choices link above the options: every pick the character stores, missing (homebrew not
+   loaded here) and planned first, each with Clear, then the active ones by section. Nothing is
+   cleared on its own."
+  []
+  (let [open? (r/atom false)]
+    (fn []
+      (let [rows @(subscribe [:orcpub.dnd.e5/choices])
+            held @(subscribe [:orcpub.dnd.e5/held-picks])
+            section-of (fn [address] (common/kw-to-name (peek (pop address)) true))]
+        [:div.choices {:class (if @(subscribe [:mobile?]) "m-l-10 m-b-10" "m-l-20 m-b-20")}
+         [planned-toggle open? "Choices" "choices-toggle"]
+         (when @open?
+           [:div.choices-panel.main-text-color.b-1.b-rad-5.p-10.m-t-5.f-s-14
+            (doall
+             (for [{:keys [address section name]} (filter #(= :missing (:status %)) rows)]
+               ^{:key (str address)}
+               [choice-line section name "missing"
+                {:on-clear #(dispatch [:orcpub.dnd.e5/clear-pick address])
+                 :note "Not loaded here"}]))
+            (doall
+             (for [{{:keys [address]} :record :keys [name returns]} held]
+               ^{:key (str "held" address)}
+               [choice-line (section-of address) name
+                (str "planned" (when-let [w (planned-text/when-short returns)] (str " (" w ")")))
+                {:on-clear #(dispatch [:orcpub.dnd.e5/clear-planned address])}]))
+            (doall
+             (for [group (partition-by (comp pop :address)
+                                       (filter #(= :active (:status %)) rows))]
+               ^{:key (str (pop (:address (first group))))}
+               [choice-line (:section (first group)) (s/join ", " (map :name group)) "active"]))])]))))
 
 (defn planned-panel
   "What tapping a Planned line shows: a row per held pick with Clear, leaving out what the line
@@ -2751,7 +2791,8 @@
         [:div.flex.justify-cont-s-b.align-items-c.flex-wrap
          [:div
           [missing-content-warning]
-          [relink-question-banner]]
+          [relink-question-banner]
+          [choices-list]]
          ;; .content has no side padding of its own; keep the toggles off the edge
          [:div.flex.flex-wrap.justify-cont-end.p-r-10
           [theme-toggle]
