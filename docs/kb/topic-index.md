@@ -494,7 +494,7 @@ _branch-inventory · branch inventory_
 
 _browser-probe-registration · browser probe registration_
 
-**topics:** 2026-09-20, asserting, assertion, belt, caring, conventions, env, factored, guard, image, package, probe, probes, registering, runner, sweep, untimed, var
+**topics:** 2026-09-20, asserting, assertion, belt, caring, conventions, env, factored, guard, package, probe, probes, registering, runner, safeguards, sweep, untimed, var
 
 - 1. The browser: findChrome(), not an env var
 - 2. The output format is the assertion count
@@ -647,7 +647,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, person, pick, renamed, report, saved, spell-selection, toast
+**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, pick, picks, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -1823,7 +1823,7 @@ _handoff-669-final-pass · handoff 669 final pass_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, grants, legacy, nested, normalization, normalize, pool, registry, row, rows, silo, step, steps, strike, widgets
+**topics:** acceptance, feat, fixed-class, frozen, grants, legacy, nested, normalization, normalize, pool, race, registry, rows, silo, step, steps, strike, widgets
 
 - Where you are
 - The work, in order
@@ -1881,7 +1881,7 @@ _hiccup-page-escaping · hiccup page escaping_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** already-held-grants, athletics, control, decision-already-held-resolution, fighter, first-class, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, sites, skill, skills, starting, uncheck
+**topics:** already-held-grants, athletics, decision-already-held-resolution, fighter, first-class, gate, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, sites, skill, skills, starting, uncheck
 
 - The mechanism
 - What is NOT broken
@@ -2160,7 +2160,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, twin, winner
+**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2927,7 +2927,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, dropdown, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, prepares, reconciler, sibling, spellbook, spellcasting, spells
+**topics:** branch, caster, class, dropdown, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, prepares, reconciler, sibling, spellcasting, spells
 
 - The user's ask
 - Branch state — important
@@ -2964,7 +2964,7 @@ _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spe
 
 _rescued/ui-ux-evaluation · rescued/ui ux evaluation_
 
-**topics:** alchemy, badges, builder, buttons, char, cljs, ddb, focus, modern, navigation, orcpub, polish, responsive, search, splash, transitions, views, visual
+**topics:** alchemy, badges, builder, char, cljs, ddb, density, focus, modern, navigation, orcpub, polish, responsive, search, splash, transitions, views, visual
 
 - Architecture Summary
 - Key Files
@@ -3118,7 +3118,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, source-level, stone, tag, tidewater
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, override, source, source-level, stone, tag, tidewater
 
 - What exists today
 - The proposal
@@ -3540,7 +3540,7 @@ _verification-discipline · verification discipline_
 
 _views-builders-split · views builders split_
 
-**topics:** builder, builders, child, classes, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, race, race-only, shared, split, toolkit, truly, views
+**topics:** 530, builder, builders, child, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, race, race-only, shared, split, toolkit, truly, views
 
 - Context
 - Architecture
@@ -3570,4 +3570,15 @@ _weapon-data-model · weapon data model_
 - Traps
 - Invariants, verified against the data
 - Authoring against these
+
+## weapons-table-spec.md
+
+_weapons-table-spec · weapons table spec_
+
+**topics:** 1d10, 390px, agreed, amber, button, buttons, centre, damage, equipment-parity, grey, headings, opened, phone, restrains, row, two-handed, ux-guide, versatile
+
+- Agreed
+- Open
+- Rejected: do not bring back
+- How mockups are made
 
