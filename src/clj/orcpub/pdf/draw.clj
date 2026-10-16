@@ -67,6 +67,13 @@
   ([page pt-per-unit y]
    (float (- (second (page-size page)) (* pt-per-unit y)))))
 
+(defn in-from-top
+  "`y` INCHES down from the page top as inches up from the bottom, which is what
+   draw-text and the box fns take. One named conversion for the card code, which
+   wrote `(- 11.0 y 0.08)` at 27 sites; spellbook's `py` is the points equivalent."
+  [y]
+  (/ (pt-from-top 72 y) 72.0))
+
 (defn fit
   "Largest [height width] with the image's aspect ratio that fits the rectangle
    [r-h r-w]. One dimension matches the rectangle exactly; the other is smaller. Units
