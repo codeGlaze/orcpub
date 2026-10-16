@@ -1302,6 +1302,10 @@
     (is (true? (::autosave-fx/ensure-template-cache
                 (effects-of [:route r {:skip-path? true}] [::autosave-fx/ensure-template-cache])))
         (pr-str r)))
+  (doseq [r [routes/dnd-e5-my-content-route routes/dnd-e5-subrace-builder-page-route]]
+    (is (true? (::autosave-fx/ensure-template-cache
+                (effects-of [:route r {:skip-path? true}] [::autosave-fx/ensure-template-cache])))
+        (str r ": its repair panel and missing-link marks need what the template offers")))
   (is (nil? (::autosave-fx/ensure-template-cache
              (effects-of [:route routes/dnd-e5-spell-list-page-route {:skip-path? true}]
                          [::autosave-fx/ensure-template-cache])))

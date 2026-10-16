@@ -48,6 +48,10 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Rules:** clarification notes on rules, in our own words, linked to where Wizards published
   the ruling.
 - **Spells:** conditions named in spell and magic item text link to their page, with a preview.
+- **Characters:** lowering a level or changing a class, subclass or race keeps the choices that depend on it while you edit; change your mind and they come back by themselves, with Undo.
+- **Characters:** the builder shows choices waiting on a higher level beside the level picker, and says when each comes back.
+- **Characters:** with more than one class, a "1st" badge marks the starting class; tap another class's badge to make it the starting class, and choices that only apply to the starting class follow.
+- **Characters:** a Choices list in the builder shows every choice a character stores, including ones whose homebrew isn't loaded in this browser, and lets those be cleared.
 
 ### Changed
 
@@ -59,6 +63,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** on phones the header, menus and ability buttons fit the screen. (#711)
 - **Server:** blank settings count as unset, Docker secrets work for the login key, and the Windows start scripts find their ports. (#701)
 - **Server:** without email configured, registration is refused unless explicitly allowed. (#712)
+- **Characters:** opening a character whose choices no longer apply sets them aside and lists them in a notice; the saved copy changes only when you save.
 
 ### Fixed
 
@@ -97,6 +102,9 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Equipment:** tools, musical instruments, gaming sets and equipment packs show their SRD prices,
   and tools and instruments their weights.
 - **Magic items:** the Alchemy Jug shows that its liquid can be created once a day.
+- **Characters:** a choice that no longer applied, such as a skill picked for a level since lowered, stayed hidden on the character and still counted on its sheet.
+- **Characters:** deleting or changing a character's first class no longer wipes the other classes' choices.
+- **Homebrew:** a homebrew class's choices that share a name show in level order; levels 10 and 17 came before level 3.
 
 ### Security
 
