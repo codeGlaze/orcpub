@@ -38,7 +38,9 @@ a stale branch cites lines that have moved.
 - **Upstream issues:** #704 (two-tab character contamination, below) and #705-#712, umbrella issues
   for outcomes no issue covered. The changelog cites them.
 - **Release, when the owner says so:** #32 takes `integration` into `develop`; then refresh or replace
-  upstream #674 with "Fixes #N" for the 35 issues the release answers.
+  upstream #674 with "Fixes #N" for the 35 issues the release answers. **Fork-only files, left out
+  of any PR to Orcpub/orcpub:** `.coderabbit.yaml` (added on #64, 2026-10-16: auto-reviews PRs into
+  `integration`).
 - **Merge gate:** a clean CodeRabbit review (no actionable comments, its check green) and green CI.
   Greptile's trial is out of credits. CodeRabbit reviews automatically only PRs into the default
   branch: on a PR into `integration`, comment `@coderabbitai full review` after each push. Plain
