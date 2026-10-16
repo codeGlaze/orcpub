@@ -233,14 +233,15 @@
 
 (defn hold-for
   "`db-after` with the planned hold emptied when the edit starts on another character than the one
-   it holds for (`::e5/planned-for`, a `:db/id`; nil while unsaved): on `:reset-character`, or a
-   different id. A first save hands the hold the new id (`character-save-success-fx`). Otherwise
-   the character before the edit joins `::e5/settle-trail`, for `settle-picks-db` to compare."
+   it holds for (`::e5/planned-for`, a `:db/id`; nil while unsaved): on `:reset-character`, a
+   replacement (`::e5/replacing?`, set by Random), or a different id. A first save hands the hold
+   the new id. Otherwise the character before the edit joins `::e5/settle-trail`."
   [db-before db-after event-id]
   (let [id (get-in db-after [:character :db/id])
         owner (get db-after ::e5/planned-for (get-in db-before [:character :db/id]))]
-    (if (or (= :reset-character event-id) (not= owner id))
-      (assoc db-after ::e5/planned-picks [] ::e5/planned-for id ::e5/settle-trail []
+    (if (or (= :reset-character event-id) (::e5/replacing? db-after) (not= owner id))
+      (assoc (dissoc db-after ::e5/replacing?)
+             ::e5/planned-picks [] ::e5/planned-for id ::e5/settle-trail []
              ::e5/restore-notice nil ::e5/open-notice nil)
       (-> db-after
           (assoc ::e5/planned-for id)
@@ -642,8 +643,10 @@
 
 (reg-event-fx
  :set-random-character
+ ;; A new character, not an edit: the hold and its trail start over (`hold-for`).
  (fn [{:keys [db]} [_ character built-template locked-components]]
-   {:dispatch [:set-character (random-character character built-template locked-components)]}))
+   {:db (assoc db ::e5/replacing? true)
+    :dispatch [:set-character (random-character character built-template locked-components)]}))
 
 (reg-event-fx
  :random-character
@@ -831,6 +834,12 @@
                (assoc-in db [:character ::entity/values ::char5e/character-name] rand-name)
                db))
         {:keys [:db/id] :as strict} (char5e/to-strict (:character db'))
+        ;; The summary and the check describe what is sent: rebuilt when the settle changed it.
+        template (::autosave-fx/cached-template db')
+        built-character (if (and template (not= (get-in db [:character ::entity/options])
+                                                (get-in db' [:character ::entity/options])))
+                          (entity/build (:character db') template)
+                          built-character)
         summary (cond-> (make-summary built-character)
                   ;; Override summary name with the generated name
                   ;; (make-summary produced a descriptive label since entity was blank)

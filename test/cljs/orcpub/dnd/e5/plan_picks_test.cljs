@@ -233,6 +233,27 @@
         "without the pick that stopped applying")
     (is (not (steel-will? (get-in fx [:db :character]))) "and the builder holds it")))
 
+(deftest a-save-before-the-settle-summarizes-what-it-sends
+  (let [at-2 (edit (db (ranger 3)) (db (ranger 2)) :some-edit)
+        bare-3 (assoc-in (ranger 3) [::entity/options :class 0 ::entity/options :levels 2
+                                     ::entity/options] nil)
+        [raised _] (queued at-2 (assoc at-2 :character bare-3) :some-edit)
+        fx (events/save-character-fx {:db raised} [:save-character (entity/build bare-3 @template)])
+        summary (get-in fx [:http :transit-params :orcpub.entity.strict/summary])]
+    (is (= 1 (count (:orcpub.dnd.e5/planned-picks at-2))) "at 2, Hunter held")
+    (is (= ["Hunter"] (map ::char5e/subclass-name (::char5e/classes summary)))
+        "raised to 3 and saved at once: Hunter comes back, and the summary names it")))
+
+(deftest random-starts-the-hold-over
+  (let [at-6 (edit (db (ranger 7)) (db (ranger 6)) :some-edit)
+        [d _] (queued (assoc at-6 :orcpub.dnd.e5/replacing? true)
+                      (assoc at-6 :orcpub.dnd.e5/replacing? true :character (ranger 1))
+                      :set-character)]
+    (is (= 1 (count (:orcpub.dnd.e5/planned-picks at-6))) "unsaved at 6, Steel Will held")
+    (is (= [[] []] ((juxt :orcpub.dnd.e5/planned-picks :orcpub.dnd.e5/settle-trail) d))
+        "a random character, unsaved too, starts with no hold and no trail to compare against")
+    (is (not (contains? d :orcpub.dnd.e5/replacing?)))))
+
 (deftest a-first-save-keeps-the-hold-and-a-new-character-empties-it
   (let [at-6 (edit (db (ranger 7)) (db (ranger 6)) :some-edit)
         saved-6 (assoc (:character at-6) :db/id 7)
