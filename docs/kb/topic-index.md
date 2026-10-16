@@ -506,7 +506,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-and-sheet-copies · builder and sheet copies_
 
-**topics:** 2026-10-15, 409, 704, autosave, builder, copy, draft, edit, edits, multi-tab-character-contamination, reply, save, sending, sends, sheet, stored, transaction, unsaved
+**topics:** 2026-10-15, 409, 704, autosave, builder, copy, draft, edit, edits, multi-tab-character-contamination, recorded, reply, save, sends, server, sheet, unsaved, version
 
 - What was lost, proven on a real server
 - The fix

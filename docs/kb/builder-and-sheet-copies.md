@@ -79,4 +79,8 @@ session, 2026-10-15; the full merge belongs with that store (its plan item 9).
     edits only the map copy is rebased; the builder's own Save then meets the 409 and a "changed
     elsewhere" notice (mockup for the owner first). No client-side "changed elsewhere" check.
   - Either branch can merge first.
+  - **Client half built** on #64, `0d0ace873` (2026-10-16): the passthrough, the version rule,
+    `stored-shape` without the version, every sheet edit recorded, and the 409 re-apply once then
+    shown. Checked against a 409 made in the browser test from the server's real reply; to check
+    again against the rescue branch's server once it pins the reply by test.
 - **Two tabs sharing the one draft slot** (#704) is untouched by any of this.
