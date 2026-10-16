@@ -502,6 +502,17 @@ _browser-probe-registration · browser probe registration_
 - Two more the runner tells you about, if you read its output
 - What good looks like
 
+## builder-and-sheet-copies.md
+
+_builder-and-sheet-copies · builder and sheet copies_
+
+**topics:** 2026-10-15, 704, autosave, bears, builder, copies, copy, draft, edit, installed, loss, multi-tab-character-contamination, patched, reply, sent, sheet, store, unsaved
+
+- What was lost, proven on a real server
+- The fix
+- Why not a three-way merge here
+- Still open
+
 ## builder-conversion-gallery.md
 
 _builder-conversion-gallery · builder conversion gallery_
@@ -636,7 +647,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, character, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, pick, renamed, report, saved, spell-selection, toast
+**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, person, pick, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -839,7 +850,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, openness, page-map, parametric, per-type, pool, pools, primitive, registry, wiring
+**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, page-map, parametric, per-type, pool, pools, primitive, registry, schema, wiring
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -1395,7 +1406,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, session, suite, suites, testing-infrastructure
+**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -2059,7 +2070,7 @@ _http-fx-patterns · http fx patterns_
 
 _icon-font-failure · icon font failure_
 
-**topics:** 22px, arrows, awesome, cause, fa5, font, fonts, glyph, icon, locale-safety, mime, sent, separates, server, stylesheet, svg, webjar, width
+**topics:** 22px, arrows, awesome, cause, delivery, fa5, font, fonts, glyph, icon, locale-safety, mime, separates, server, stylesheet, svg, webjar, width
 
 - 1. The failure mode
 - 2. Diagnosing it
@@ -2792,7 +2803,7 @@ _proposal-indexeddb-storage · proposal indexeddb storage_
 
 _re-frame-subscribe-refactor · re frame subscribe refactor_
 
-**topics:** apis, autosave, cached, chain, component, direct, event-utils, events, extract, handler, methods, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
+**topics:** apis, cached, chain, component, direct, event-utils, events, extract, handler, low, methods, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
 
 - The Problem
 - What actually happens when you subscribe in a handler
@@ -3107,7 +3118,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, muted, source, source-level, stone, tag, tidewater
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, source-level, stone, tag, tidewater
 
 - What exists today
 - The proposal
@@ -3488,7 +3499,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** amber, assets, auto-fills, balanced, box, details, notice, phone, planned, player, png, replaced, restored, steel, undo, undone, ux-guide, width
+**topics:** amber, assets, auto-fills, box, details, notice, phone, picks, planned, player, png, replaced, restored, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
