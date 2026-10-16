@@ -874,7 +874,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, positional-threading, read-seams, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1788,7 +1788,7 @@ _garden-inline-styles-harvest · garden inline styles harvest_
 
 _growable-option-menus · growable option menus_
 
-**topics:** 1440, accent, band, card, carded, carding, caret, child, collapse, dark-inset, header, intrinsic, layout, menus, per-menu, renderers, thumb, toggle
+**topics:** 1440, accent, band, card, carded, carding, caret, child, collapse, dark-inset, family, header, intrinsic, layout, menus, per-menu, renderers, thumb
 
 - 2026-09-06 — lifted onto feat/option-picker, then cut
 - Goal
@@ -1881,7 +1881,7 @@ _hiccup-page-escaping · hiccup page escaping_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** already-held-grants, athletics, decision-already-held-resolution, fighter, first-class, gate, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, sites, skill, skills, starting, uncheck
+**topics:** already-held-grants, athletics, control, decision-already-held-resolution, fighter, gate, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, sites, skill, skills, starting, uncheck
 
 - The mechanism
 - What is NOT broken
@@ -2697,7 +2697,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** 2026-09-10, beast, card, cards, companion, creature, discarded, druid, familiar, foundry, machinery, master, monster, moon, per-form, sidekicks, taxonomy, wild
+**topics:** 2026-09-10, beast, card, cards, companion, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, shape, sidekicks, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -3593,7 +3593,7 @@ _weapon-data-model · weapon data model_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, 2px, agreed, amber, blue, button, buttons, chip, damage, drawn, headings, pill, restrains, row, two-handed, versatile, white
+**topics:** 1d10, 2026-10-15, 390px, agreed, amber, blue, buttons, cell, chip, columns, damage, equipment-parity, grey, headings, pulses, restrains, row, versatile
 
 - Agreed
 - Open
