@@ -37,8 +37,8 @@ whatever state it is in. Design: `docs/kb/character-rescue.md`.
 
 - **Characters:** a Data View page lists everything stored on a saved character or on this
   browser's draft, lets its owner remove any of it and save, and opens even when the character
-  itself will not load. It is reached from the character page, the character list, the Missing
-  Content warning, and "Repair this character" on the panel shown when a character can't be loaded.
+  itself will not load. It is reached from the character page, the Missing Content warning, and
+  "Repair this character" on the panel shown when a character can't be loaded.
 
 ## Changed
 

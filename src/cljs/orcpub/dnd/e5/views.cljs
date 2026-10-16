@@ -10006,10 +10006,6 @@
       [:button.form-button.m-l-5
        {:on-click (make-event-handler :route char-page-route)}
        "view"]
-      (when (= username owner)
-        [:button.form-button.m-l-5
-         {:on-click #(set! (.-location js/window) (data-view-path id))}
-         "data view"])
       (when (or (not branding/restrict-print-to-owner?) (= username owner))
         [:button.form-button.m-l-5
          {:on-click (export-pdf

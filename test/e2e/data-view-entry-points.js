@@ -1,6 +1,6 @@
 // The ways a player reaches the Data View page (character-rescue.md, entry points):
 //   the "Data View" link beside Copy link on the owner's character page (not shown to others);
-//   the "Data View" button in the owner's opened character-list row;
+//   never in the character list's opened row;
 //   "Fix in Data View" in the builder's Missing Content warning, for a saved character and for
 //   this browser's unsaved draft;
 //   "Repair this character", first on the "couldn't be loaded" panel.
@@ -81,21 +81,10 @@ async function openWarning(page) {
     at = await onDataView(page, dataPath);
     check("for a saved character, Fix in Data View opens that character's Data View", at.path === dataPath && at.rows > 0, JSON.stringify(at));
 
-    // 2. the character list. The row's own "view" button names the character it is.
-    const openRow = async () => {
-      await page.goto(`${BASE}/pages/dnd/5e/characters`, { waitUntil: 'load' }); await wait(4000); await dismissWhatsNew(page);
-      await page.getByText('open', { exact: true }).last().click(); await wait(2500);
-    };
-    await openRow();
-    await page.locator('#app button', { hasText: /^view$/i }).first().click(); await wait(2500);
-    const rowId = (page.url().match(/characters\/(\d+)/) || [])[1];
-    await openRow();
-    const listBtn = page.locator('#app button', { hasText: /^data view$/i });
-    check("the owner's opened list row has a Data View button", (await listBtn.count()) === 1, `${await listBtn.count()} found`);
-    await listBtn.first().click();
-    const rowPath = `/pages/dnd/5e/characters/${rowId}/data`;
-    at = await onDataView(page, rowPath);
-    check('it opens Data View for that row\'s character', !!rowId && at.path === rowPath && at.rows > 0, JSON.stringify({ rowId, ...at }));
+    // 2. the character list keeps its row of actions as it was.
+    await page.goto(`${BASE}/pages/dnd/5e/characters`, { waitUntil: 'load' }); await wait(4000); await dismissWhatsNew(page);
+    await page.getByText('open', { exact: true }).last().click(); await wait(2500);
+    check("the opened list row has no Data View button", (await page.locator('#app button', { hasText: /^data view$/i }).count()) === 0);
 
     // 3. the "couldn't be loaded" panel
     await page.route(`**/dnd/5e/characters/${id}`, r => r.request().resourceType() === 'document' ? r.continue()
