@@ -110,5 +110,9 @@ copy was byte-identical to ours.
   official content and homebrew should support.
 - **Small chip text is acceptable:** measured at 10px bold in the tile and 11px on the Every hit line;
   the opened row repeats every part at 13px.
-- **Visible way into the + menu:** shown as "More rolls" buttons in the opened row (mock drawn); the
-  owner wants neatness kept, no crowding.
+- **Target rolls stay on the row, as a line of bubbles:** putting them behind the expand arrow was
+  rejected (bad UX for rolls used mid-fight). Owner: in the design agent's mockups they are "just another
+  line of bubbles", like Every hit and On hit, so a labelled line (e.g. `VS UNDEAD  +1d8 radiant`) whose
+  bubble rolls the damage with that part is the direction. A tappable "+" on the tile corner was also
+  drawn (22px, 44px tap area) and remains the place for crit and other named rolls; the crit row names
+  the crit rule in use.

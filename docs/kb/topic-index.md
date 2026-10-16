@@ -25,7 +25,7 @@ every section heading it contains.
 
 _DATOMIC_JAVA21_TEST_RESULTS · DATOMIC_JAVA21_TEST_RESULTS_
 
-**topics:** 5703, activemq, apache, artemis, connection, connections, datomic, free, https, java, peer, peer-to-transactor, pro, releases-pro, ssl, successfully, tls, transactor
+**topics:** 5703, activemq, apache, artemis, connection, connections, datomic, free, https, java, mock, peer, peer-to-transactor, pro, releases-pro, ssl, tls, transactor
 
 - Executive Summary
 - Test Results Matrix
@@ -2070,7 +2070,7 @@ _http-fx-patterns · http fx patterns_
 
 _icon-font-failure · icon font failure_
 
-**topics:** 22px, arrows, awesome, cause, delivery, fa5, font, fonts, glyph, icon, locale-safety, mime, separates, server, stylesheet, svg, webjar, width
+**topics:** arrows, awesome, cause, delivery, diagnosed, fa5, font, fonts, glyph, icon, locale-safety, mime, separates, server, stylesheet, svg, webjar, width
 
 - 1. The failure mode
 - 2. Diagnosing it
@@ -3618,7 +3618,7 @@ _weapon-data-model · weapon data model_
 
 _weapons-extra-damage-design · weapons extra damage design_
 
-**topics:** bars, charges, chip, colour, crit, damage, dot, dots, effects, extra, menu, on-hit, roll, strip, switches, tile, vicious, white
+**topics:** 44px, charges, chip, colour, crit, damage, dot, dots, effects, extra, hit, menu, on-hit, roll, rolls, strip, tile, vicious
 
 - Decisions
 - Damage-type palette
