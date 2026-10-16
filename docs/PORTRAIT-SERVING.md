@@ -36,7 +36,8 @@ for that user in the image) and set the variable to it. A write that fails is lo
 drawing is served anyway.
 
 - **Fingerprint.** The saved selection, the credit line, the site mark, and a digest of the
-  registered art files and the drawing code (read from the classpath). It does not depend on the
+  registered art files and the drawing code (the code's digest is taken when the namespace is
+  compiled, because production jars leave the source files out). It does not depend on the
   process, so a kept file is good across restarts, and any change to the art or the drawing code
   draws every portrait again.
 - **On save.** The store compares the fingerprint with the kept file. Autosave fires every few
