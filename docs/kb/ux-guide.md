@@ -106,6 +106,8 @@ The app's patterns and what each is for. When a better one is agreed, it replace
 | Under a class row, beside the level picker | what the class's level or order is holding back | "3 planned at higher levels" |
 | The panel behind a Planned line | tapping the line (a button with an arrow) opens its picks in the ringed box: a row each with Clear, saying only what the line does not. One pick: when it returns. Several at levels: name and level. A reason the line states: names only | "3 planned at higher levels" opens to "Whirlwind Attack · level 11 · Clear" |
 | Details under a notice | a list behind a notice's "Details": a square band across the box with the box showing below it, like an opened shell; names in one column, when each applies in the next; an arrow on "Details" that flips when open | ![Notice box open: three picks and when each auto-fills](assets/ux-guide/notice-details.png) |
+| A small outlined mark before a row | a state one row holds and another can take: lit on the one that has it, faded on the others, a tap moves it | "1st" before each class row; a tap makes that class the starting class |
+| A list behind a link above the options | everything stored, where a broken pick can still be reached: the actionable rows first (missing, planned) with Clear, then the rest by section | "Choices" |
 | Link button inside text | an action within a sentence | "Details" |
 
 ## Phone first, and how designs are reviewed
@@ -153,6 +155,8 @@ Newest last. Date, ruling, and what it replaced.
 - 2026-10-15: say a thing once. A Planned panel leaves out what its line says (it repeated the pick's
   name, or the starting-class reason on every row). Clear stays; the ringed box stays. A Planned
   line is a button with an arrow and a 44px tap area. Replaced the sentence-per-pick panel.
+- 2026-10-16: "Make starting class" is the "1st" mark before each class row (round 4), and every
+  stored choice is reachable from "Choices", missing ones clearable there (round 4).
 - 2026-10-15: long forms repeat their navigation and add buttons at the bottom (character builder
   Back / Next, the homebrew builders' add buttons, Add Option). A bottom add button shows once the
   list has an item. The bottom Back / Next scroll the new page to its top, below the sticky header,
