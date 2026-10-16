@@ -170,3 +170,13 @@
     (is (re-find #"will not save this character" (ledger/warning (rows [:ability-scores :standard-scores]))))
     (is (nil? (ledger/warning (rows [:feats :tidebreaker]))))
     (is (nil? (ledger/warning (rows [:class :wizard :wizard-spells-known :brine-lash]))) "a choice under a class does not warn")))
+
+(deftest a-refused-save-gives-back-the-stored-character-to-reload-from
+  (let [stored {:db/id 1 :orcpub.entity.strict/version 3
+                :orcpub.entity.strict/selections [{:orcpub.entity.strict/key :race
+                                                   :orcpub.entity.strict/option {:orcpub.entity.strict/key :tidefolk}}]}
+        text (ledger/refused-current (pr-str {:error :stale-character :current stored}))]
+    (is (= stored (ledger/read-stored text)))
+    (is (= 3 (:orcpub.entity.strict/version (ledger/read-stored text))) "it carries the version to save with next"))
+  (is (nil? (ledger/refused-current (pr-str {:error :something-else}))))
+  (is (nil? (ledger/refused-current "not edn {"))))

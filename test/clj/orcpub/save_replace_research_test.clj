@@ -1,7 +1,8 @@
 (ns orcpub.save-replace-research-test
-  "Pins the character save route (`routes/do-save-character`) when the stored character fails
-   `::se/entity`: the save replaces its contents and keeps its id. Each deftest is named for its
-   claim. character-rescue.md, \"Save replaces an invalid character\"."
+  "Pins the character save route (`routes/do-save-character`): an invalid stored character has its
+   contents replaced and keeps its id, and a save from an older copy never overwrites or
+   duplicates. Each deftest is named for its claim. character-rescue.md: item 4, and the
+   \"Save replaces an invalid character\" section."
   (:require [clojure.spec.alpha :as spec]
             [clojure.test :refer [deftest testing is]]
             [datomic.api :as d]
@@ -123,20 +124,27 @@
         (is (not (spec/valid? ::se/entity round-trip)))
         (is (= 400 (:status (save! conn round-trip))))))))
 
-(deftest r8-a-tab-holding-an-older-copy-saves-to-the-same-character
+(deftest r8-a-tab-holding-an-older-copy-is-refused-and-an-old-app-still-saves
   (let [conn (fresh-conn)
         id (store! conn (character {::se/key :race ::se/option {::se/key :x}}))
         first-save (without conn id :race)
         other-tab (update (without conn id :race) ::se/values assoc :orcpub.dnd.e5.character/character-name "Renamed")]
     (is (= id (:db/id (:body (save! conn first-save)))))
-    (let [{:keys [status body]} (save! conn other-tab)
-          after (d/pull (d/db conn) '[*] id)]
-      (is (= 200 status) "no longer refused as not yours")
-      (is (= id (:db/id body)))
-      (is (= "Renamed" (get-in after [::se/values :orcpub.dnd.e5.character/character-name])) "the later save wins, as between any two tabs")
-      (is (spec/valid? ::se/entity after))
-      (is (= 1 (count (filter #(= :race (::se/key %)) (::se/selections after)))) "the duplicate does not come back")
-      (is (= {:folder id :party id :share id} (links conn id))))))
+    (testing "a copy carrying the version it was read at is refused, and given what is stored now"
+      (let [{:keys [status body]} (save! conn other-tab)]
+        (is (= 409 status))
+        (is (= :stale-character (:error body)))
+        (is (= (d/pull (d/db conn) '[*] id) (:current body)))
+        (is (= "Beren" (get-in (:current body) [::se/values :orcpub.dnd.e5.character/character-name])))))
+    (testing "an app that sends no version still saves, to the same character, the later save winning"
+      (let [{:keys [status body]} (save! conn (dissoc other-tab ::se/version))
+            after (d/pull (d/db conn) '[*] id)]
+        (is (= 200 status))
+        (is (= id (:db/id body)))
+        (is (= "Renamed" (get-in after [::se/values :orcpub.dnd.e5.character/character-name])))
+        (is (spec/valid? ::se/entity after))
+        (is (= 1 (count (filter #(= :race (::se/key %)) (::se/selections after)))) "the duplicate does not come back")
+        (is (= {:folder id :party id :share id} (links conn id)))))))
 
 (deftest r11-another-players-party-keeps-the-character
   (let [conn (fresh-conn)
@@ -154,14 +162,24 @@
   (is (= :2nd-wind (common/name-to-kw "2nd Wind"))
       "a name's key is not repaired on the way in; the loader quarantines it and offers a rename"))
 
-(deftest r10-two-saves-from-the-same-old-copy-store-two-selections-with-one-key
-  (let [conn (fresh-conn)
-        id (store! conn (character))
-        stale-db (d/db conn)
-        with-skills (fn [skill] (update (d/pull stale-db '[*] id) ::se/selections conj
-                                        {::se/key :skills ::se/options [{::se/key skill}]}))]
-    (is (= 200 (:status (routes/do-save-character stale-db conn (with-skills :stealth) {:user "kaylee"}))))
-    (is (= 200 (:status (routes/do-save-character stale-db conn (with-skills :insight) {:user "kaylee"}))))
-    (let [stored (d/pull (d/db conn) '[*] id)]
-      (is (= 2 (count (filter #(= :skills (::se/key %)) (::se/selections stored)))))
-      (is (not (spec/valid? ::se/entity stored)) "the stored character now fails the check"))))
+(deftest r10-two-saves-from-the-same-old-copy-never-store-two-selections-with-one-key
+  (doseq [[label strip] [["carrying the version: the second is refused" identity]
+                         ["without a version: the second is retried and wins" #(dissoc % ::se/version)]]]
+    (testing label
+      (let [conn (fresh-conn)
+            id (store! conn (character))
+            stale-db (d/db conn)
+            with-skills (fn [skill] (strip (update (d/pull stale-db '[*] id) ::se/selections conj
+                                                   {::se/key :skills ::se/options [{::se/key skill}]})))
+            first-status (:status (routes/do-save-character stale-db conn (with-skills :stealth) {:user "kaylee"}))
+            second-status (:status (routes/do-save-character stale-db conn (with-skills :insight) {:user "kaylee"}))
+            stored (d/pull (d/db conn) '[*] id)
+            skills (filter #(= :skills (::se/key %)) (::se/selections stored))]
+        (is (= 200 first-status))
+        (is (= 1 (count skills)))
+        (is (spec/valid? ::se/entity stored))
+        (if (= identity strip)
+          (do (is (= 409 second-status))
+              (is (= :stealth (-> skills first ::se/options first ::se/key)) "the first save stands"))
+          (do (is (= 200 second-status))
+              (is (= :insight (-> skills first ::se/options first ::se/key)) "the later save wins")))))))

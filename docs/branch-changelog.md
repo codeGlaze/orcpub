@@ -49,6 +49,9 @@ whatever state it is in. Design: `docs/kb/character-rescue.md`.
 
 ## Fixed
 
+- **Characters:** two saves of the same character at once no longer store a choice twice, and a
+  Data View save no longer overwrites changes made elsewhere since it opened; it offers a reload.
+
 - **Characters:** saving a character whose stored copy was damaged no longer moves it to a new
   address: it stays in its folders and parties, its share link keeps working, and other open tabs
   can still save it.

@@ -179,6 +179,10 @@
    {:db/ident ::se/owner
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
+   ;; Bumped by every save; a save sent with an older one is refused (character-rescue.md item 4).
+   {:db/ident ::se/version
+    :db/valueType :db.type/long
+    :db/cardinality :db.cardinality/one}
    {:db/ident ::se/homebrew?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}

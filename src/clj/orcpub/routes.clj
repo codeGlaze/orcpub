@@ -1768,46 +1768,67 @@
                  (keep #(when (map? %) (:db/id %))))
         (dissoc entity :db/id)))
 
-(defn update-character [db conn character username]
-  (let [id (:db/id character)]
+(defn- cas-failed?
+  "True when `e`, thrown by a transaction, is Datomic refusing a :db/cas."
+  [e]
+  (loop [t e]
+    (cond (nil? t) false
+          (= :db.error/cas-failed (:db/error (ex-data t))) true
+          :else (recur (.getCause ^Throwable t)))))
+
+(defn- stale!
+  "Throw the refusal for a save made from an older copy of character `id`."
+  [id]
+  (throw (ex-info "Character changed since this copy was read" {:error :stale-character :id id})))
+
+(defn update-character
+  "Save `character` (strict, with its :db/id) over the stored one, as `username`. Every save bumps
+   ::se/version with :db/cas. A save that sends a version other than the stored one throws
+   :stale-character. One that sends none is retried against a fresh read, so it is never refused
+   and never stores a duplicate (up to 5 tries, then refused). character-rescue.md item 4."
+  ([db conn character username] (update-character db conn character username 5))
+  ([db conn character username tries]
+  (let [id (:db/id character)
+        sent (::se/version character)
+        character (dissoc character ::se/version)]
     (if (owns-entity? db username id)
       (let [current-character (d/pull db '[*] id)
+            stored (::se/version current-character)
             problems [] #_(dnd-e5-char-type-problems current-character)
-            current-valid? (spec/valid? ::se/entity current-character)]
+            current-valid? (spec/valid? ::se/entity current-character)
+            bump [:db/cas id ::se/version stored (inc (or stored 0))]]
         (when-not current-valid?
           (prn "INVALID CHARACTER FOUND, REPLACING ITS CONTENTS" #_current-character)
           (prn "INVALID CHARACTER EXPLANATION" #_(spec/explain-data ::se/entity current-character)))
+        (when (and sent (not= sent stored)) (stale! id))
         (if (seq problems)
           (throw (ex-info "Character has problems"
                           {:error :character-problems :problems problems}))
-          (if-not current-valid?
-            ;; Replaces the contents, never the character: folders, parties and share records
-            ;; point at this id. character-rescue.md, "Save replaces an invalid character".
-            (let [new-character (entity/remove-ids character)
-                  tx (conj (mapv (fn [child-id] [:db/retractEntity child-id])
+          (let [tx (if-not current-valid?
+                     ;; Replaces the contents, never the character: folders, parties and share records
+                     ;; point at this id. character-rescue.md, "Save replaces an invalid character".
+                     (let [new-character (entity/remove-ids character)]
+                       (-> (mapv (fn [child-id] [:db/retractEntity child-id])
                                  (held-entity-ids current-character))
-                           (-> new-character
-                               (assoc :db/id id
-                                      :orcpub.entity.strict/owner username)
-                               add-dnd-5e-character-tags))]
-              @(d/transact conn tx)
-              (d/pull (d/db conn) '[*] id))
-            (let [new-character (entity/remove-orphan-ids character)
-                  current-ids (entity/db-ids current-character)
-                  new-ids (entity/db-ids new-character)
-                  retract-ids (sets/difference current-ids new-ids)
-                  retractions (map
-                               (fn [retract-id]
-                                 [:db/retractEntity retract-id])
-                               retract-ids)
-                  tx (conj retractions
-                           (-> new-character
-                               (assoc :orcpub.entity.strict/owner username)
-                               add-dnd-5e-character-tags))]
-              @(d/transact conn tx)
-              (d/pull (d/db conn) '[*] id)))))
+                           (conj (-> new-character
+                                     (assoc :db/id id
+                                            :orcpub.entity.strict/owner username)
+                                     add-dnd-5e-character-tags))))
+                     (let [new-character (entity/remove-orphan-ids character)
+                           retract-ids (sets/difference (entity/db-ids current-character)
+                                                        (entity/db-ids new-character))]
+                       (-> (mapv (fn [retract-id] [:db/retractEntity retract-id]) retract-ids)
+                           (conj (-> new-character
+                                     (assoc :orcpub.entity.strict/owner username)
+                                     add-dnd-5e-character-tags)))))]
+            (if (try @(d/transact conn (conj tx bump)) true
+                     (catch Exception e (if (cas-failed? e) false (throw e))))
+              (d/pull (d/db conn) '[*] id)
+              (if (or sent (<= tries 1))
+                (stale! id)
+                (update-character (d/db conn) conn character username (dec tries)))))))
       (throw (ex-info "Not user character"
-                      {:error :not-user-character})))))
+                      {:error :not-user-character}))))))
 
 (defn create-new-character
   "Creates a D&D 5e character owned by `username` and returns the pulled entity.
@@ -1819,7 +1840,8 @@
     (let [result @(d/transact conn
                               [(-> character
                                    (assoc :db/id "tempid"
-                                          ::se/owner username)
+                                          ::se/owner username
+                                          ::se/version 1)
                                    add-dnd-5e-character-tags)])
           new-id (get-new-id "tempid" result)]
       (d/pull (d/db conn) '[*] new-id))))
@@ -1852,6 +1874,8 @@
           (case (:error data)
             :character-problems {:status 400 :body (:problems data)}
             :not-user-character {:status 401 :body "You do not own this character"}
+            :stale-character {:status 409 :body {:error :stale-character
+                                                 :current (d/pull (d/db conn) '[*] (:id data))}}
             (throw e))))   ; re-throw unrecognised ExceptionInfo (e.g. :db/error from Datomic)
       (catch Exception e (prn "ERROR" e) (throw e)))))
 

@@ -66,6 +66,14 @@
     (catch #?(:clj Exception :cljs :default) e
       {:error (str "This character's data cannot be read: " #?(:clj (.getMessage e) :cljs (.-message e)))})))
 
+(defn refused-current
+  "For the text of a save's refusal, `{:error :stale-character :current <stored character>}`, the
+   stored character as text, to reload from; nil for any other text."
+  [text]
+  (let [body (try (read-edn text) (catch #?(:clj Exception :cljs :default) _ nil))]
+    (when (and (map? body) (= :stale-character (:error body)) (map? (:current body)))
+      (binding [*print-namespace-maps* false] (pr-str (:current body))))))
+
 (defn read-stored
   "Text from storage as the stored map itself (the strict shape, as saved), or nil when it
    cannot be read. The base `save-data` works from, so whatever the page does not change is

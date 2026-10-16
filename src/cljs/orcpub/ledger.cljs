@@ -157,13 +157,25 @@
                                        "Authorization" (str "Token " (:token (login)))}
                          :body (transit/write (transit/writer :json) data)})
           (.then (fn [r]
-                   (if (.-ok r)
+                   (cond
+                     (= 409 (.-status r))
+                     (.then (.text r)
+                            (fn [text]
+                              (let [current (ledger/refused-current text)]
+                                (swap! state assoc :conflict current
+                                       :note (if current
+                                               "This character changed since you opened this page."
+                                               "Not saved: the character could not be read again."))
+                                (render!))))
+
+                     (.-ok r)
                      (.then (.text r)
                             (fn [text]
                               (let [new-id (str (:db/id (ledger/read-stored text)))]
                                 (if (and (seq new-id) (not= new-id (str saved-id)))
                                   (set! (.-location js/window) (str "/pages/dnd/5e/characters/" new-id "/data"))
                                   (saved! "Saved.")))))
+                     :else
                      (do (swap! state assoc :note (if (= 401 (.-status r))
                                                     "Only the owner can save this. Log in again and retry."
                                                     "The server refused this change."))

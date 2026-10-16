@@ -143,6 +143,29 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     check('the saved copy keeps the race', /:tidefolk/.test(savedCopy));
     check('the saved copy keeps its summary', /orcpub\.entity\.strict\/summary/.test(savedCopy));
 
+    // ---- The server refuses a save made from an older copy (409). The page's own re-read is shown
+    // the old copy here so the save reaches the server, which answers for real.
+    const oldText = await page.evaluate(async id => (await fetch(`/dnd/5e/characters/${id}`, { headers: { Accept: 'application/edn' } })).text(), id);
+    const tab = await noAppPage(owner);
+    await dataRows(tab, dataUrl);
+    await tab.locator('#ledger tbody tr', { has: tab.locator('td', { hasText: /^Level 1$/ }) }).locator('button').click();
+    await tab.getByRole('button', { name: 'Save' }).click();
+    await tab.waitForFunction(() => /Saved\./.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
+    await tab.close();
+    await page.route(`**/dnd/5e/characters/${id}`, r => r.request().method() === 'GET'
+      ? r.fulfill({ status: 200, contentType: 'application/edn', body: oldText }) : r.continue());
+    const refused = page.waitForResponse(r => r.url().endsWith('/dnd/5e/characters') && r.request().method() === 'POST');
+    await rowButton('Level 2').click();
+    await page.getByRole('button', { name: 'Save' }).click();
+    check('the server refuses the save made from the older copy', (await (await refused).status()) === 409);
+    await page.waitForFunction(() => /changed since you opened/.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
+    check('the page says so and offers to reload keeping the removal', await page.getByRole('button', { name: 'Reload and keep my removals' }).isVisible());
+    await page.unroute(`**/dnd/5e/characters/${id}`);
+    await page.getByRole('button', { name: 'Reload and keep my removals' }).click();
+    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
+    check("the reload shows the other tab's removal, with this one pending", !rows.includes('Level 1') && !rows.includes('Level 2') && /Not saved yet: 1 removed/.test(await ledgerText(page)));
+    await page.getByRole('button', { name: 'Undo' }).click();
+
     await app.goto(`${BASE}/pages/dnd/5e/characters/${id}`, { waitUntil: 'load' });
     await wait(4000);
     await dismissWhatsNew(app);
