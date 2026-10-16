@@ -69,13 +69,7 @@
   ;; into showing the card logo (matching the fronts) for double-sided printing.
   ;; When logo? is false NO images are loaded here — the old code decoded+embedded
   ;; the logo/rotation PNGs every page and never drew them (pure waste).
-  (let [num-boxes-x (int (/ (draw/page-width 72) box-width))
-        num-boxes-y (int (/ (draw/page-height 72) box-height))
-        total-height (* num-boxes-y box-height)
-        remaining-width (- (draw/page-width 72) (* num-boxes-x box-width))
-        margin-x (/ remaining-width 2)
-        remaining-height (- (draw/page-height 72) total-height)
-        margin-y (/ remaining-height 2)]
+  (let [{:keys [cols rows margin-x margin-y]} (draw/grid-layout box-width box-height)]
     (draw/draw-grid cs box-width box-height)
     (draw/draw-text cs
                (str "Page " (inc page-number) " (reverse)")
@@ -84,11 +78,11 @@
                0.12
                (draw/in-from-top 0.15))
     (doall
-     (for [i (range num-boxes-x)
-           j (range num-boxes-y)]
+     (for [i (range cols)
+           j (range rows)]
        (let [x (+ margin-x (* box-width i))
              y (+ margin-y (* box-height j))
-             spell-index (+ i (* j num-boxes-x))
+             spell-index (+ i (* j cols))
              {:keys [remaining-lines spell-name]} (remaining-lines-vec spell-index)]
          (if (seq remaining-lines)
            ;; This card back carries overflow text from the front.
@@ -141,14 +135,7 @@
    `print-spell-card-dc-mod?` prints save DC and attack bonus; `bw?`/`bw-faded?`
    select the printer-friendly renderings. Inches."
   [cs document fonts img box-width box-height spells page-number print-spell-card-dc-mod? bw? bw-faded?]
-  (let [num-boxes-x (int (/ (draw/page-width 72) box-width))
-        num-boxes-y (int (/ (draw/page-height 72) box-height))
-        total-width (* num-boxes-x box-width)
-        total-height (* num-boxes-y box-height)
-        remaining-width (- (draw/page-width 72) total-width)
-        margin-x (/ remaining-width 2)
-        remaining-height (- (draw/page-height 72) total-height)
-        margin-y (/ remaining-height 2)]
+  (let [{:keys [cols rows margin-x margin-y]} (draw/grid-layout box-width box-height)]
     (draw/draw-grid cs box-width box-height)
         (draw/draw-text cs
                    (str "Page " (inc page-number))
@@ -157,9 +144,9 @@
                    0.12
                    (draw/in-from-top 0.15))
         (doall
-         (for [j (range num-boxes-y)
-               i (range (dec num-boxes-x) -1 -1)
-               :let [spell-index (+ i (* j num-boxes-x))]]
+         (for [j (range rows)
+               i (range (dec cols) -1 -1)
+               :let [spell-index (+ i (* j cols))]]
            (when-let [{:keys [class-nm dc attack-bonus spell] :as spell-data}
                       (get (vec spells) spell-index)]
              (let [{:keys [description
@@ -645,16 +632,13 @@
          :or {flourish :diamonds name-size 13 name-tracking 0.15}} opts
         name-face (fn [fs] (let [f (:name-face opts :bold)]
                              (if (keyword? f) (get fs f) f)))
-        num-boxes-x (int (/ (draw/page-width 72) box-width))
-        num-boxes-y (int (/ (draw/page-height 72) box-height))
-        margin-x (/ (- (draw/page-width 72) (* num-boxes-x box-width)) 2)
-        margin-y (/ (- (draw/page-height 72) (* num-boxes-y box-height)) 2)]
+        {:keys [cols rows margin-x margin-y]} (draw/grid-layout box-width box-height)]
     (draw/draw-grid cs box-width box-height)
     (draw/draw-text cs (str "Page " (inc page-number)) (:italic fonts) 8 0.12 (draw/in-from-top 0.15))
     (doall
-     (for [j (range num-boxes-y)
-           i (range (dec num-boxes-x) -1 -1)
-           :let [item-index (+ i (* j num-boxes-x))]]
+     (for [j (range rows)
+           i (range (dec cols) -1 -1)
+           :let [item-index (+ i (* j cols))]]
        (when-let [item (get (vec items) item-index)]
          (let [x (+ margin-x (* box-width i))
                y (+ margin-y (* box-height j))

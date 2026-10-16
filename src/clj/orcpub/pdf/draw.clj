@@ -330,39 +330,40 @@
   [cs & coords]
   (apply draw-line cs (map in->pt coords)))
 
+(defn grid-layout
+  "How many `box-width` x `box-height` inch cells fit the bound page, and the margins
+   that centre them: {:cols :rows :margin-x :margin-y :width :height}, in inches.
+
+   One source for the whole 9-up layout. draw-grid draws its lines from this and the
+   card printers place cards by it, so the cut lines and the cards cannot be computed
+   from different numbers -- which is exactly the bug they had."
+  [box-width box-height]
+  (let [pw (page-width 72)
+        ph (page-height 72)
+        cols (int (/ pw box-width))
+        rows (int (/ ph box-height))
+        width (* cols box-width)
+        height (* rows box-height)]
+    {:cols cols :rows rows :width width :height height
+     :margin-x (/ (- pw width) 2)
+     :margin-y (/ (- ph height) 2)}))
+
 (defn draw-grid
   "The cut grid for cards `box-width` x `box-height` inches, as many as fit the bound
    page, centred. Light grey lines. Takes its page from `*page*`, so a 2-up A5 grid on
    A4 is the same call with a different binding."
   [cs box-width box-height]
-  (let [page-w (page-width 72)
-        page-h (page-height 72)
-        num-boxes-x (int (/ page-w box-width))
-        num-boxes-y (int (/ page-h box-height))
-        total-width (* num-boxes-x box-width)
-        total-height (* num-boxes-y box-height)
-        remaining-width (- page-w total-width)
-        margin-x (/ remaining-width 2)
-        remaining-height (- page-h total-height)
-        margin-y (/ remaining-height 2)
+  (let [{:keys [cols rows margin-x margin-y width height]} (grid-layout box-width box-height)
         ;; PDFBox 3.x: setStrokingColor(float,float,float) requires 0.0-1.0 range
         ;; (PDFBox 2.x accepted 0-255 integers via a separate overload)
         light-gray (float (/ 225.0 255.0))]
     (.setStrokingColor cs light-gray light-gray light-gray)
-    (doseq [i (range (inc num-boxes-x))]
+    (doseq [i (range (inc cols))]
       (let [x (+ margin-x (* box-width i))]
-        (draw-line-in cs
-                      x
-                      margin-y
-                      x
-                      (+ margin-y total-height))))
-    (doseq [i (range (inc num-boxes-y))]
+        (draw-line-in cs x margin-y x (+ margin-y height))))
+    (doseq [i (range (inc rows))]
       (let [y (+ margin-y (* box-height i))]
-        (draw-line-in cs
-                      margin-x
-                      y
-                      (+ margin-x total-width)
-                      y)))
+        (draw-line-in cs margin-x y (+ margin-x width) y)))
     (.setStrokingColor cs (float 0) (float 0) (float 0))))
 
 (def ^:private svg-token
