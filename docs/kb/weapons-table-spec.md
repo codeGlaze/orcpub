@@ -22,7 +22,7 @@ The character sheet's Weapons section, redesigned. Every mockup and the build mu
 
 ## Open
 
-- **Versatile control:** split button (the damage button with a joined "2H" segment) or a "Two hands" chip in the grey line. Measured: split keeps the Longsword row at 47px but widens Damage to 132px, wrapping the other grey lines; the chip keeps every grey line on one line, Longsword row 57px.
+- **Versatile control:** split button ("1d8+2 | 2H") or a chip in the grey line. Owner: the split is more obvious, the chip flows better; the chip should say **"Versatile (1d10)"** (SRD word plus what it changes; screen reader label "Use two hands"), not "Two hands". With that label every row is 60px. A thin amber outline makes the chip look tappable, but then off and on look too alike (on only adds the faint amber fill); unresolved.
 - **Shield rule (proposed):** with a shield in the off hand, the two-handed option is greyed and the opened row says why. Two-handed weapons dimmed likewise. Not decided.
 - **Desktop layout**, **200% text** (must wrap without clipping), **the opened row**, and **Armor in the same style**: not yet designed.
 
@@ -35,6 +35,12 @@ headings · labels inside the To hit button in place of headings · testing a ch
 instead of on this layout.
 
 ## How mockups are made
+
+`scripts/design/weapons-table-shots.js` (agents/develop) is the capture script: one server boot,
+every Agreed rule measured (table fits, headings within 2px, rows centred, grey lines on one line,
+buttons in a row one height, nothing touching a cell edge). Spacing that passed (2026-10-15): cells
+8px top and bottom, the weapon column 10px from the edge, button columns 4px a side, buttons and
+the Restrains box 44px tall; columns To hit 56px, Damage 100px (120px for the split), arrow 24px.
 
 One way only: the real app (`lein e2e-server` or `scripts/e2e/run.sh`), the weapons table rewritten
 in the page with the app's own classes, captured at 390px (and 1280px for desktop). Before any image

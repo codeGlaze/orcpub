@@ -3203,7 +3203,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 313, 317, 322, 5etools, conditions, counterpart, editions, gear, magic, monsters, open5e, species, srd, text, weapons, word
+**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, conditions, counterpart, editions, gear, magic, monsters, open5e, species, srd, text, weapons
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -3575,7 +3575,7 @@ _weapon-data-model · weapon data model_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 390px, agreed, amber, button, buttons, centre, damage, equipment-parity, grey, headings, opened, phone, restrains, row, two-handed, ux-guide, versatile
+**topics:** 1d10, 2026-10-15, 390px, agreed, amber, button, buttons, cell, chip, columns, damage, equipment-parity, grey, headings, restrains, row, two-handed, versatile
 
 - Agreed
 - Open
