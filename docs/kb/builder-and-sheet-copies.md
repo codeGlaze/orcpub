@@ -61,7 +61,22 @@ session, 2026-10-15; the full merge belongs with that store (its plan item 9).
   (An earlier version of this page listed it as an open risk; that was wrong.)
 - **A changed save still sends the whole character.** Each save is a transaction, which bears on the
   database-size question.
-- **Two requests racing** can still store duplicate selections (R10 on `feature/character-rescue`).
-  That branch plans a server version check (`:db/cas` on a revision) in place of a duplicate-key
-  guard, pending the owner's OK.
+- **Two saves from one copy** store a duplicate only when they overlap on the server, but the later
+  one loses the other's edit at any distance apart (measured on `feature/character-rescue`,
+  `character-rescue.md` item 4). Fix agreed with that session, 2026-10-16:
+  - **Server, `feature/character-rescue`:** `:orcpub.entity.strict/version` (a long) on the
+    character, checked with `:db/cas`; a save sending an older version gets 409
+    `{:error :stale-character :current <strict character as stored>}`. A save sending no version
+    is never refused (it retries once on an overlap, so no duplicate): integration's client sends
+    none until #64 lands. Data View sends its version and handles its own 409.
+  - **Client, #64:** the passthrough in `entity.cljc` (`from-strict` puts it at
+    `:orcpub.entity/version`, `to-strict` carries it back), landing with the 409 handling. A copy
+    takes a version only from a 200 reply to a save made from that copy, never from a load or
+    another copy's reply; this covers the builder copy kept over a sheet reply and a copy kept
+    over an in-flight reply. `stored-shape` leaves the version out. `::events/sheet-edited` is
+    recorded for every sheet edit; a refused autosave re-applies exactly those keys onto
+    `:current` and saves again, once, and a second refusal in a row is shown. With unsaved builder
+    edits only the map copy is rebased; the builder's own Save then meets the 409 and a "changed
+    elsewhere" notice (mockup for the owner first). No client-side "changed elsewhere" check.
+  - Either branch can merge first.
 - **Two tabs sharing the one draft slot** (#704) is untouched by any of this.

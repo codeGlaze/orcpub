@@ -367,7 +367,7 @@ _artist-credit-change-emails · artist credit change emails_
 
 _artist-links-and-referrer · artist links and referrer_
 
-**topics:** artist, artists, cyrillic, domain, https, international, link, links, lookalike, punycode, referrer, referrer-policy, secure-headers, shown, site, user-supplied, vetted, whitespace
+**topics:** analytics, artist, artists, cyrillic, domain, https, international, link, links, lookalike, punycode, referrer, referrer-policy, secure-headers, site, user-supplied, vetted, whitespace
 
 - Decisions (owner's)
 - Rules every link follows
@@ -506,7 +506,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-and-sheet-copies · builder and sheet copies_
 
-**topics:** 2026-10-15, 704, autosave, builder, copy, draft, edit, edits, loss, lost, multi-tab-character-contamination, reply, save, sends, sheet, stored, transaction, unsaved
+**topics:** 2026-10-15, 409, 704, autosave, builder, copy, draft, edit, edits, multi-tab-character-contamination, reply, save, sending, sends, sheet, stored, transaction, unsaved
 
 - What was lost, proven on a real server
 - The fix
@@ -1788,7 +1788,7 @@ _garden-inline-styles-harvest · garden inline styles harvest_
 
 _growable-option-menus · growable option menus_
 
-**topics:** 1440, accent, band, card, carded, carding, caret, child, collapse, dark-inset, family, header, intrinsic, layout, menus, per-menu, renderers, thumb
+**topics:** 1440, accent, band, card, carded, carding, caret, child, collapse, dark-inset, header, intrinsic, layout, menus, per-menu, renderers, thumb, toggle
 
 - 2026-09-06 — lifted onto feat/option-picker, then cut
 - Goal
@@ -2795,12 +2795,12 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _plan-pdf-page-sizes · plan pdf page sizes_
 
-**topics:** 36pt, 595, acroform, appearance, artwork, border, card, dimensions, drawing, inches, ink, letter, primitives, rect, scaling, spellbook, translate, widget
+**topics:** 2-arity, 2026-10-16, 36pt, 595, acroform, appearance, artwork, binding, border, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
 
 - The problem in one paragraph
 - Order, and why this order
 - Step 1 — pin the AcroForm sheet (BLOCKING)
-- Step 2 — delete the escape hatch (D1)
+- Step 2 — the page becomes a binding (D1)
 - Step 3 — y-from-top entries on the primitives (D2)
 - Step 4 — units, so the spellbook can stop duplicating
 - Step 5 — actually offer the sizes
@@ -3561,7 +3561,7 @@ _ux-guide · ux guide_
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, number, perf-homebrew-builder-loop, proves, running, synthetic, tells
+**topics:** adjudicating, armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
