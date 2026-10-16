@@ -23,6 +23,9 @@ The character sheet's Weapons section, redesigned. Every mockup and the build mu
 ## Open
 
 - **Versatile control:** leaning chip (owner, 2026-10-15: it flows better; the split is more obvious). Chip as drawn: `fa-exchange-alt` icon plus "Versatile (1d10)" (screen reader: "Use two hands"); off = outlined in amber `#f0a100` with amber text; on = flipped to the roll-button fill (the `.roll-button` gradient, white text). Every row stays 60px. A soft static amber glow while the off hand is free is drawn; a one-time pulse when the off hand becomes free (reduced-motion respected) is proposed; no endless animation, no exclamation mark. Not yet decided.
+- **Colour roles (owner, 2026-10-15, leaning):** amber means "roll"; the app's light blue `#9ec7ea` (the Shared pill) marks a state that is switched on. Versatile drawn in blue: outlined when off, filled with dark ink `#15202e` when on (white on that blue is ~1.6:1), and the damage button gains a 2px blue ring while two-handed damage is shown. Blue and amber match in greyscale, so the chip's pill shape must stay. A longer label in the damage button ("slashing · two hands") wrapped and grew the row: ring only.
+- **Flash:** once (on the off hand becoming free) is drawn; 30s and 60s repeats are in the prototype for the owner to feel. Advice against repeating: it nags, and auto-repeating motion needs a pause control. Reduced motion skips all of it.
+- **Working prototype:** https://claude.ai/artifact/Kf86pSNkyFi2QJEuRMQsTd (toggle, off-hand switch, colour, flash, rows, rolls).
 - **Shield rule (proposed):** with a shield in the off hand, the two-handed option is greyed and the opened row says why. Two-handed weapons dimmed likewise. Not decided.
 - **Desktop layout**, **200% text** (must wrap without clipping), **the opened row**, and **Armor in the same style**: not yet designed.
 

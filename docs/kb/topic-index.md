@@ -404,7 +404,7 @@ _authoring-vocabulary · authoring vocabulary_
 
 _backfill-ledger · backfill ledger_
 
-**topics:** 2026-09-04, 2026-12-08, bespoke, converged, d29, d34, deleted, deprecated, grant, job, ledger, naive, parity, pool, re-pointed, retained, struck, sweep
+**topics:** 2026-09-04, 2026-12-08, bespoke, converged, d29, d34, deprecated, feat, grant, job, ledger, naive, parity, pool, re-pointed, retained, struck, sweep
 
 - When something lands here
 - Migration recipe (per item)
@@ -874,7 +874,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, positional-threading, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1347,7 +1347,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** agentic, chose, commit, conclusion, dense, dotfiles, hook, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, tried, unioning, verification-discipline, window
+**topics:** agentic, chose, commit, conclusion, dense, discovering, dotfiles, hook, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -1788,7 +1788,7 @@ _garden-inline-styles-harvest · garden inline styles harvest_
 
 _growable-option-menus · growable option menus_
 
-**topics:** 1440, accent, band, card, carded, carding, caret, child, collapse, dark-inset, header, intrinsic, layout, menus, per-menu, renderers, thumb, toggle
+**topics:** 1440, accent, band, card, carded, carding, caret, child, collapse, dark-inset, family, header, intrinsic, layout, menus, per-menu, renderers, thumb
 
 - 2026-09-06 — lifted onto feat/option-picker, then cut
 - Goal
@@ -2489,7 +2489,7 @@ _pdf-generation-architecture · pdf generation architecture_
 
 _pdf-namespace-family · pdf namespace family_
 
-**topics:** 540, acroform, beast, card, cards, companion, consumer, coordinate, drawing, frame, group, inches, private, public, spellbook, surface, svg, vars
+**topics:** 540, acroform, beast, card, cards, companion, consumer, coordinate, docstring, frame, geometry, group, inches, private, public, region, spellbook, svg
 
 - Verdict on the starting hypothesis
 - 1. Inventory
@@ -2510,6 +2510,12 @@ _pdf-namespace-family · pdf namespace family_
 - 8. Executed, 2026-10-13: steps 1 and 3a, and two corrections to section 4
 - 9. The ten-namespace family is withdrawn, 2026-10-15
 - Why page size makes this concrete rather than cosmetic
+- 10. Executed, 2026-10-16: the shared file and the cards split
+- Section 9's "cards deferred, not planned" is withdrawn
+- Behaviour: unchanged, by measurement
+- The flips did not get fixed, they moved
+- dev/ was unlinted, and this refactor shipped broken scripts into it
+- What is left
 
 ## pedestal-csp-history.md
 
@@ -2691,7 +2697,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** 2026-09-10, beast, card, cards, companion, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, shape, sidekicks, taxonomy, wild
+**topics:** 2026-09-10, beast, card, cards, companion, creature, discarded, druid, familiar, foundry, machinery, master, monster, moon, per-form, sidekicks, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -2740,7 +2746,7 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, pool, published, skill, wrapper
+**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, skill, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -3059,7 +3065,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifier, modifiers, play-state, player, positioning, recomputes, roll, sheet, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifier, modifiers, play-state, player, positioning, recomputes, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -3130,7 +3136,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, source-level, stone, tag, tidewater
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, override, source, source-level, stone, tag, tidewater
 
 - What exists today
 - The proposal
@@ -3485,7 +3491,7 @@ _testing-infrastructure · testing infrastructure_
 
 _typed-keys · typed keys_
 
-**topics:** ancestry, background, blue, built-in, dragonborn, flat, granted, heal, home, offered, pick, picks, pool, selection, type, type-blind, typed, upgrade
+**topics:** ancestry, background, built-in, dragonborn, flat, granted, heal, heals, home, offered, pick, picks, pool, selection, type, type-blind, typed, upgrade
 
 - What went wrong (verified)
 - Where a pick's type is known
@@ -3587,7 +3593,7 @@ _weapon-data-model · weapon data model_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, 390px, agreed, amber, buttons, cell, chip, columns, damage, equipment-parity, grey, headings, restrains, row, two-handed, versatile, white
+**topics:** 1d10, 2026-10-15, 2px, 390px, agreed, amber, blue, button, buttons, cell, chip, damage, headings, restrains, row, two-handed, versatile, white
 
 - Agreed
 - Open
