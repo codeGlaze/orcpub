@@ -21,7 +21,7 @@ before the next.
 
 | # | step | where | depends on |
 |---|---|---|---|
-| 0 | **Hidden-pick fix.** Designed (`decision-gate-hidden-picks.md`, top) and built: the hold, its hardening, and the UI (U1-U6 in `plan-hidden-pick-fix-and-grant-fields.md`). PR into `integration` next. Still open: "Make starting class", and a swap that breaks multiclass prerequisites | `fix/hidden-multiclass-skill-pick` | — |
+| 0 ☑ | **Hidden-pick fix.** Merged into `integration` as #67 (`427d16aa`, 2026-10-16): the hold, its hardening and UI, Make starting class, the Choices list, the options-column order, My Content's repair panel. Opening a character never saves it | `fix/hidden-multiclass-skill-pick` | — |
 | 1 | Re-record the builder gallery baseline (handoff step 1, 5 minutes) | here | — |
 | 2 | Part B.1: the four fields `grant-selection` drops (`:key`, `:order`, `:prereq-fn`, min≠max) | here | — |
 | 3 | Part B.2: the owner through `compile-grants`; fixes the measured skill-expertise defect | here | 2 |
