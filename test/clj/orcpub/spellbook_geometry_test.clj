@@ -15,7 +15,7 @@
             [orcpub.pdf-ops :as ops]
             [orcpub.common :as common]
             [orcpub.pdf :as pdf]
-            [orcpub.pdf.canvas :as canvas]
+            [orcpub.pdf.draw :as draw]
             [orcpub.spellbook :as sb]
             [orcpub.dnd.e5.spells :as spells])
   (:import (java.io ByteArrayOutputStream)
@@ -55,7 +55,7 @@
                    (group-by :level))
         out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (sb/add-spellbook! doc (pdf/load-fonts doc) (pdf/make-image-loader doc)
+      (sb/add-spellbook! doc (draw/load-fonts doc) (pdf/make-image-loader doc)
                          (merge base-opts opts) known spells/spell-map)
       (.save doc out))
     (with-open [doc (Loader/loadPDF (.toByteArray out))] (ops/doc-fingerprints doc))))
@@ -85,7 +85,7 @@
       (is (contains? levels 0))
       (is (contains? levels 9))))
   (testing "bezier-k lives in one place"
-    (is (= 0.5522847 canvas/bezier-k))
+    (is (= 0.5522847 draw/bezier-k))
     (doseq [ns- ['orcpub.spellbook 'orcpub.pdf]]
       (is (nil? (get (ns-interns ns-) 'bezier-k))
-          (str ns- " re-declared bezier-k; it shares orcpub.pdf.canvas/bezier-k")))))
+          (str ns- " re-declared bezier-k; it shares orcpub.pdf.draw/bezier-k")))))

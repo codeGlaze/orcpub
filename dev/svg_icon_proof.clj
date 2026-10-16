@@ -11,7 +11,8 @@
 ;; The rasters are no longer what the cards draw. The comparison is kept because
 ;; it is the check to repeat whenever an icon or the parser changes.
 
-(require '[orcpub.pdf :as pdf] '[clojure.string :as str] '[clojure.java.io :as io])
+(require '[orcpub.pdf :as pdf]
+(require '[orcpub.pdf.draw :as draw] '[clojure.string :as str] '[clojure.java.io :as io])
 (import '[org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream]
         '[org.apache.pdfbox.pdmodel.font PDType1Font Standard14Fonts$FontName]
         '[org.apache.pdfbox.rendering PDFRenderer]
@@ -22,7 +23,7 @@
 
 (let [doc (PDDocument.) page (PDPage.) img (pdf/make-image-loader doc)
       helv (PDType1Font. Standard14Fonts$FontName/HELVETICA)
-      label (fn [cs t x y] (pdf/draw-text cs t helv 7 x y))]
+      label (fn [cs t x y] (draw/draw-text cs t helv 7 x y))]
   (.addPage doc page)
   (with-open [cs (PDPageContentStream. doc page)]
     (doseq [[row icon] (map-indexed vector icons)]

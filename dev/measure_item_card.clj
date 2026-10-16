@@ -13,7 +13,8 @@
 ;; PDFBox's renderer cannot rasterise the embedded faces -- open the PDF in a
 ;; browser, or every card will look like a text encoding bug.
 
-(require '[orcpub.pdf :as pdf] '[clojure.string :as str])
+(require '[orcpub.pdf :as pdf]
+(require '[orcpub.pdf.draw :as draw] '[clojure.string :as str])
 (import '[org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream] '[java.io File])
 
 (def MIN-GAP
@@ -96,7 +97,7 @@
 
 (let [doc (PDDocument.) page (PDPage.)]
   (.addPage doc page)
-  (let [fonts (pdf/load-fonts doc) img (pdf/make-image-loader doc)]
+  (let [fonts (draw/load-fonts doc) img (pdf/make-image-loader doc)]
     (with-open [cs (PDPageContentStream. doc page)]
       (pdf/print-items cs doc fonts img 2.5 3.5 [torture torture torture] 0 false false nil)))
   (.save doc (File. (or (System/getenv "OUT") "target/item-card-torture.pdf")))
@@ -110,16 +111,16 @@
 ;; The name shrinks to fit two lines, so ask the renderer what size it settled on
 ;; rather than assuming the nominal one.
 (let [doc (PDDocument.)
-      fonts (pdf/load-fonts doc)
+      fonts (draw/load-fonts doc)
       width (- 2.5 0.56)
-      lines-at (fn [pt] (count (#'pdf/split-lines (:name torture) (:bold fonts) pt width)))
+      lines-at (fn [pt] (count (#'draw/split-lines (:name torture) (:bold fonts) pt width)))
       floor (get-in pdf/card-layout [:down :name-floor])
       height (get-in pdf/card-layout [:down :name-height])
       fits? (fn [pt] (let [n (lines-at pt)]
                        (and (<= n 3) (<= (* n (/ (* pt 1.1) 72)) height))))
       size (or (first (filter fits? (take-while #(>= % floor) (iterate #(- % 0.5) 13))))
                floor)
-      body-lines (count (#'pdf/split-lines
+      body-lines (count (#'draw/split-lines
                          (:orcpub.dnd.e5.magic-items/description torture)
                          (:plain fonts) 8 (- 2.5 0.4)))
       capacity (int (dec (/ (* 72 (- 3.5 1.74 0.80)) (* 8 1.1))))]

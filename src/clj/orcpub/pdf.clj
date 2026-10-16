@@ -12,7 +12,19 @@
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.display :as dis5e]
             [orcpub.dnd.e5.spell-print :as sp]
-            [orcpub.pdf.canvas :as canvas]
+            [orcpub.pdf.draw :as draw
+             :refer [HELVETICA
+                     HELVETICA_BOLD
+                     HELVETICA_BOLD_OBLIQUE
+                     normalize-text
+                     string-width
+                     content-stream
+                     split-lines
+                     draw-lines-to-box
+                     draw-text-to-box
+                     draw-text
+                     draw-halo-text
+                     draw-grid]]
             [orcpub.dnd.e5.options :as options]
             [clj-http.client :as client])
   (:import (java.io ByteArrayOutputStream)
@@ -36,7 +48,7 @@
            (org.apache.http.conn.socket PlainConnectionSocketFactory)
            (org.apache.http.conn.ssl SSLConnectionSocketFactory)
            (java.net UnknownHostException)
-           (org.apache.pdfbox.pdmodel.font PDType1Font PDFont PDType0Font Standard14Fonts$FontName)
+           (org.apache.pdfbox.pdmodel.font PDType1Font Standard14Fonts$FontName)
            (org.apache.pdfbox.text PDFTextStripper)
            (javax.imageio ImageIO IIOImage ImageWriteParam)
            (javax.imageio.stream MemoryCacheImageOutputStream)
@@ -72,33 +84,6 @@
 ;; equipment = unused (pdf_spec emits no such key); cha = modifier; cha-mod = score.
 
 ;; The Base 14 fonts, present in every PDF reader. Constructed once at load time.
-(def HELVETICA
-  "Standard Helvetica font (regular weight, upright)"
-  (PDType1Font. Standard14Fonts$FontName/HELVETICA))
-
-(def HELVETICA_BOLD
-  "Standard Helvetica font (bold weight, upright)"
-  (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD))
-
-(def HELVETICA_BOLD_OBLIQUE
-  "Standard Helvetica font (bold weight, italic/oblique)"
-  (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD_OBLIQUE))
-
-(defn load-fonts
-  "Loads the fonts for the document. Will contain
-  :plain, :italic, :bold and :bold-italic fonts."
-  [doc]
-  (reduce-kv
-    (fn [m type file]
-      (assoc m type
-               (with-open [stream (.openStream (io/resource file))]
-                 (PDType0Font/load doc stream))))
-    {}
-    {:plain       "Vollkorn-Regular.ttf"
-     :italic      "Vollkorn-Italic.ttf"
-     :bold        "Vollkorn-Bold.ttf"
-     :bold-italic "Vollkorn-BoldItalic.ttf"}))
-
 (def ^:private svg-token
   #"([MmLlHhVvCcSsQqTtAaZz])|(-?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?)")
 
@@ -284,23 +269,6 @@
        (with-open [in (io/input-stream (io/resource resource-path))]
          (LosslessFactory/createFromImage doc (ImageIO/read in)))))))
 
-(defn normalize-text
-  "Coerces a value into the WinAnsiEncoding 0x20-0xFF subset PDFBox can render
-   (PDType1Font throws on anything else, blanking the field). nil -> nil; non-strings
-   stringified. \\t -> space; other 0x00-0x1F dropped except \\n and \\r; curly
-   quotes -> straight; U+2013 / U+2014 -> - / --; U+2026 -> ...; anything else
-   above U+00FF -> '?'."
-  [s]
-  (when (some? s)
-    (-> (str s)
-        (s/replace "\t" " ")
-        (s/replace #"[\u0000-\u0008\u000B\u000C\u000E-\u001F]" "")
-        (s/replace "\u2018" "'")  (s/replace "\u2019" "'")
-        (s/replace "\u201C" "\"") (s/replace "\u201D" "\"")
-        (s/replace "\u2013" "-")  (s/replace "\u2014" "--")
-        (s/replace "\u2026" "...")
-        (s/replace #"[^\u0000-\u00FF]" "?"))))
-
 (defn- fix-widget-page-refs!
   "Populate the /P (page reference) entry on widget annotations that are missing it.
    Many fillable templates omit the /P back-pointer; PDFBox 3.x's flatten() then
@@ -313,46 +281,6 @@
           :when (and (instance? PDAnnotationWidget annotation)
                      (nil? (.getPage annotation)))]
     (.setPage annotation page)))
-
-(defn font-safe
-  "`text` with whatever `font` has no glyph for made drawable: characters below 0x20
-   dropped, anything else replaced by `?`. Returns `text` itself when the whole string
-   draws, which is every string in the SRD -- the embedded Vollkorn covers Latin-1 and
-   the punctuation the books use, so this only fires on homebrew."
-  [^PDFont font text]
-  (if-not (string? text)
-    text
-    (try
-      (.getStringWidth font text)
-      text
-      (catch Exception _
-        (letfn [(drawable? [s] (try (.getStringWidth font s) true
-                                    (catch Exception _ false)))]
-          (->> (seq (.toArray (.codePoints text)))
-               (keep #(let [c (String. (Character/toChars (int %)))]
-                        (when (>= (int %) 0x20) (if (drawable? c) c "?"))))
-               (apply str)))))))
-
-;; FIELD NOTE (glyph-throw): PDFBox throws IllegalArgumentException on a glyph the
-;; embedded font has not got, and add-magic-item-cards! wraps every sheet in one try.
-;; Unprotected, one homebrew name in a script Vollkorn lacks cost the export the sheet
-;; it was on AND every sheet after it. Measured: 1 page of an expected 4.
-
-(defn string-width
-  "Width of `text` in INCHES at `font-size`, not points: the raw glyph width is
-   divided by 72. Callers working in points must convert. Falls back to `font-safe`
-   for text the font cannot draw, rather than throwing."
-  [text ^PDFont font font-size]
-  (if text
-    (let [t (if (keyword? text) (common/safe-name text) text)]
-      (/ (* (/ (try (.getStringWidth font t)
-                    (catch Exception _ (.getStringWidth font (font-safe font t))))
-               1000.0)
-            font-size)
-         72))
-    0))
-
-;; ─── Orphaned widgets ────────────────────────────────────────────────────────
 
 (defn- on-page-widgets
   "Identity hashes of the annotation COS objects reachable from any page."
@@ -1135,39 +1063,33 @@
         (.flatten form))
       unplaceable)))
 
-(defn content-stream
-  "Opens a compressed PDPageContentStream that APPENDs to `page`'s existing
-   content, so template artwork survives (OVERWRITE would replace it)."
-  [doc page]
-  (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND true))
-
 (defn in-to-sz
-  "Inches to PDF points. `canvas/in->pt` under this file's older name, kept because 48
+  "Inches to PDF points. `draw/in->pt` under this file's older name, kept because 48
    call sites use it. `inches-to-units` is the same function under a THIRD name."
   [inches]
-  (canvas/in->pt inches))
+  (draw/in->pt inches))
 
 (defn in-to-coord-x
   "Inches from the page LEFT edge to a PDF x coordinate. Just `in-to-sz`: x needs no
    flip because both spaces run left to right. It exists so call sites can name both
    axes the same way."
   [inches]
-  (canvas/in->pt inches))
+  (draw/in->pt inches))
 
 (defn in-to-coord-y
   "Inches from the page TOP to a PDF y coordinate, which measures from the bottom.
-   The page height is no longer inline here -- `canvas/pt-from-top` holds it, and
+   The page height is no longer inline here -- `draw/pt-from-top` holds it, and
    spellbook.clj flips through the same function.
 
    Images go through here and so take `y` from the top; the text functions multiply by
    72 directly and take it from the bottom. That split is unchanged."
   [inches]
-  (canvas/pt-from-top 72 inches))
+  (draw/pt-from-top 72 inches))
 
 (defn scale
-  "`canvas/fit` under this file's older name. Kept for its call sites."
+  "`draw/fit` under this file's older name. Kept for its call sites."
   [rect img]
-  (canvas/fit rect img))
+  (draw/fit rect img))
 
 (defn draw-imagex
   "Draws an already-embedded PDImageXObject into the box at [`x` `y`] sized
@@ -1778,41 +1700,6 @@
   [doc index]
   (.getPage doc index))
 
-(defn split-lines
-  "Greedy word wrap of `text` to `width` INCHES at `font-size` (see
-   `string-width`, which also works in inches). Splits on whitespace, so
-   existing newlines are not honoured. A word wider than the box gets its own
-   over-long line rather than being hyphenated or dropped.
-
-   Shared with spellbook.clj."
-  [text ^PDFont font font-size width]
-  (let [words (s/split text #"\s")]
-    (loop [lines []
-           current-line nil
-           [next-word & remaining-words :as current-words] words]
-      (if next-word
-        (let [line-with-word (str current-line (when current-line " ") next-word)
-              new-width (string-width line-with-word font font-size)]
-          (if (> new-width width)
-            (if current-line
-              (recur (conj lines current-line)
-                     nil
-                     current-words)
-              ;; A single word wider than the box takes its own line. Retrying it
-              ;; against an empty current-line would never consume it, so the word
-              ;; has to be taken here or the loop never terminates.
-              (recur (conj lines next-word)
-                     nil
-                     remaining-words))
-            (recur lines
-                   line-with-word
-                   remaining-words)))
-        (if current-line
-          (conj lines current-line)
-          lines)))))
-
-;; ─── Fitting text to a box ────────────────────────────────────────────────────
-
 (def min-font-size
   "Point size below which text is spilled to a continuation page rather than
    scaled down further. Auto-sizing alone would shrink to 4pt and then clip.
@@ -2027,122 +1914,11 @@
               (recur (or tail "") (inc n)))))))
     trimmed))
 
-(defn draw-lines-to-box
-  "Draws pre-wrapped `lines` into a box `height` inches tall topped at [`x` `y`],
-   inches with `y` from the page BOTTOM (see `in-to-coord-y`). Leading is 1.1x the
-   font size. RETURNS the lines that did not fit, which is how card overflow reaches
-   the backs; empty means all fit. Nothing is truncated horizontally -- that is
-   `split-lines`' job."
-  [cs lines font font-size x y height]
-  (let [leading (* font-size 1.1)
-        max-lines (dec (/ (* 72 height) leading))
-        units-x (* 72 x)
-        units-y (* 72 y)
-        fitting-lines (vec (take max-lines lines))]
-    (.beginText cs)
-    (.setFont cs font font-size)
-    (.newLineAtOffset cs units-x units-y)
-    (doseq [i (range (count fitting-lines))]
-      (let [line (get fitting-lines i)]
-        (.newLineAtOffset cs 0 (- leading))
-        (.showText cs (font-safe font line))))
-    (.endText cs)
-    (vec (drop max-lines lines))))
-
-(defn draw-text-to-box
-  "`split-lines` then `draw-lines-to-box`: wraps `text` to `width` and fills the
-   box, returning the lines that did not fit. Inches throughout, `y` from the
-   page BOTTOM."
-  [cs text font font-size x y width height]
-  (let [lines (split-lines text font font-size width)]
-    (draw-lines-to-box cs lines font font-size x y height)))
-
-(defn set-text-color
-  "Set text (non-stroking) color. Values must be 0.0-1.0 floats (PDFBox 3.x)."
-  [cs r g b]
-  (.setNonStrokingColor cs (float r) (float g) (float b)))
-
-(defn draw-text
-  "One line of text with its baseline at [`x` `y`], in inches with `y` from the
-   page BOTTOM. No wrapping and no box -- it runs off the page if too long.
-   `color` is an [r g b] of 0.0-1.0 floats and, when given, is reset to black
-   afterwards. Keywords are rendered via `common/safe-name`; nil `text` is a no-op."
-  [cs text font font-size x y & [color]]
-  (when text
-    (let [units-x (* 72 x)
-          units-y (* 72 y)]
-      (.beginText cs)
-      (.setFont cs font font-size)
-      (when color
-        (apply set-text-color cs color))
-      (.newLineAtOffset cs units-x units-y)
-      (.showText cs (font-safe font (if (keyword? text)
-                                          (common/safe-name text) text)))
-      (when color
-        (set-text-color cs 0 0 0))
-      (.endText cs))))
-
-(defn draw-halo-text
-  "Draw text with a white outline (8 offset copies) then black fill, so a black
-   label stays legible on top of a solid-black icon. Used only in printer-friendly
-   B&W mode, where icon and text are both pure black; offsets are in inches."
-  [cs text font font-size x y]
-  (let [d 0.009]
-    (doseq [dx [(- d) 0 d]
-            dy [(- d) 0 d]
-            :when (not (and (zero? dx) (zero? dy)))]
-      (draw-text cs text font font-size (+ x dx) (+ y dy) [1 1 1]))
-    (draw-text cs text font font-size x y [0 0 0])))
-
-(defn draw-line
-  "Draw a line. PDFBox 3.x removed drawLine — use moveTo/lineTo/stroke."
-  [cs start-x start-y end-x end-y]
-  (.moveTo cs (float start-x) (float start-y))
-  (.lineTo cs (float end-x) (float end-y))
-  (.stroke cs))
-
 (defn inches-to-units
-  "The third name for `canvas/in->pt`, after `in-to-sz` 900 lines above. Kept because
-   `draw-line-in` and the grid code call it; new code should use `canvas/in->pt`."
+  "The third name for `draw/in->pt`, after `in-to-sz` 900 lines above. Kept because
+   `draw-line-in` and the grid code call it; new code should use `draw/in->pt`."
   [inches]
-  (canvas/in->pt inches))
-
-(defn draw-line-in
-  "`draw-line` with every coordinate given in inches instead of points. Both
-   axes measure from the page BOTTOM-left; there is no flip here."
-  [cs & coords]
-  (apply draw-line cs (map inches-to-units coords)))
-
-(defn draw-grid
-  "Draw the spell card grid. Light gray lines for card boundaries."
-  [cs box-width box-height]
-  (let [num-boxes-x (int (/ 8.5 box-width))
-        num-boxes-y (int (/ 11.0 box-height))
-        total-width (* num-boxes-x box-width)
-        total-height (* num-boxes-y box-height)
-        remaining-width (- 8.5 total-width)
-        margin-x (/ remaining-width 2)
-        remaining-height (- 11.0 total-height)
-        margin-y (/ remaining-height 2)
-        ;; PDFBox 3.x: setStrokingColor(float,float,float) requires 0.0-1.0 range
-        ;; (PDFBox 2.x accepted 0-255 integers via a separate overload)
-        light-gray (float (/ 225.0 255.0))]
-    (.setStrokingColor cs light-gray light-gray light-gray)
-    (doseq [i (range (inc num-boxes-x))]
-      (let [x (+ margin-x (* box-width i))]
-        (draw-line-in cs
-                      x
-                      margin-y
-                      x
-                      (+ margin-y total-height))))
-    (doseq [i (range (inc num-boxes-y))]
-      (let [y (+ margin-y (* box-height i))]
-        (draw-line-in cs
-                      margin-x
-                      y
-                      (+ margin-x total-width)
-                      y)))
-    (.setStrokingColor cs (float 0) (float 0) (float 0))))
+  (draw/in->pt inches))
 
 (defn draw-spell-field
   "One icon-and-value field on a spell card (casting time, range, duration,
@@ -2839,21 +2615,21 @@
   [(float (* 72 (+ x dx))) (float (* 72 (- 11 (+ y dy))))])
 
 (defn- card-mapper
-  "`canvas/path!`'s `pt` for the card at (x, y): card-relative inches to page units."
+  "`draw/path!`'s `pt` for the card at (x, y): card-relative inches to page units."
   [x y]
   (fn [dx dy] (card-pt x y dx dy)))
 
 (defn- polyline!
   "Strokes, and optionally closes, a path through card-relative points."
   [cs x y points close?]
-  (canvas/path! cs (card-mapper x y) points)
+  (draw/path! cs (card-mapper x y) points)
   (if close? (.closeAndStroke cs) (.stroke cs)))
 
 (defn- diamond!
   "A small diamond of radius `r` centred at (dx, dy) on the card. Filled ones mark
    the item's rarity rank, outlined ones the ranks above it."
   [cs x y dx dy r filled?]
-  (canvas/path! cs (card-mapper x y)
+  (draw/path! cs (card-mapper x y)
                 [[dx (- dy r)] [(+ dx r) dy] [dx (+ dy r)] [(- dx r) dy]])
   (.closePath cs)
   (if filled? (.fill cs) (.stroke cs)))
@@ -2861,7 +2637,7 @@
 (defn- circle!
   "An outlined circle of radius `r` centred at (dx, dy) on the card."
   [cs x y dx dy r]
-  (canvas/circle-path! cs (card-mapper x y) dx dy r)
+  (draw/circle-path! cs (card-mapper x y) dx dy r)
   (.closeAndStroke cs))
 
 (def ^:private rarity-rank

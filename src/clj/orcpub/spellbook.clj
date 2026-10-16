@@ -7,7 +7,7 @@
             [orcpub.common :as common]
             [orcpub.pdf :as pdf]
             [orcpub.dnd.e5.spell-print :as sp]
-            [orcpub.pdf.canvas :as canvas]
+            [orcpub.pdf.draw :as draw]
             [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.dnd.e5.spell-annotations :as ann])
   (:import (java.awt.geom PathIterator)
@@ -15,8 +15,8 @@
 
 ;; ─── Page geometry, in points ────────────────────────────────────────────────
 
-(def page-w (first (canvas/page-size canvas/default-page)))
-(def page-h (second (canvas/page-size canvas/default-page)))
+(def page-w (first (draw/page-size draw/default-page)))
+(def page-h (second (draw/page-size draw/default-page)))
 (def ^:private margin 36.0)
 (def ^:private body-top 56.0)
 (def ^:private body-bottom (- page-h 46.0))
@@ -31,8 +31,8 @@
 
 (defn- py
   "Converts `ty`, points down from the page top, to PDF y, which runs up from the bottom.
-   `canvas/pt-from-top` at a scale of 1, the same flip pdf.clj uses at 72."
-  [ty] (canvas/pt-from-top 1 ty))
+   `draw/pt-from-top` at a scale of 1, the same flip pdf.clj uses at 72."
+  [ty] (draw/pt-from-top 1 ty))
 
 (defn body-width
   "The width spells are laid into, in points: the page less its margins, and less the tab
@@ -47,20 +47,20 @@
 ;; ─── Text ────────────────────────────────────────────────────────────────────
 
 (defn- clean
-  "`v` as a string the embedded fonts can show (pdf/normalize-text), with list bullets turned
+  "`v` as a string the embedded fonts can show (draw/normalize-text), with list bullets turned
    into middle dots; \"\" for nil."
   [v]
-  (or (pdf/normalize-text (some-> v str (s/replace "\u2022" "\u00B7"))) ""))
+  (or (draw/normalize-text (some-> v str (s/replace "\u2022" "\u00B7"))) ""))
 
 (defn- width
   "Width of `text` in points at `size` in `font`, after `clean`."
-  [font size text] (* 72.0 (pdf/string-width (clean text) font size)))
+  [font size text] (* 72.0 (draw/string-width (clean text) font size)))
 
 (defn- wrap
   "`text` broken into lines of at most `w` points, hard breaks kept."
   [font size text w]
   (into []
-        (mapcat #(if (s/blank? %) [] (pdf/split-lines (s/trim %) font size (/ w 72.0))))
+        (mapcat #(if (s/blank? %) [] (draw/split-lines (s/trim %) font size (/ w 72.0))))
         (s/split-lines (clean text))))
 
 (defn- clip
@@ -174,7 +174,7 @@
 (defn- circle-path!
   "Adds a circle of radius `r` about (cx, cy) to the current path, as four cubic curves."
   [cs cx cy r]
-  (canvas/circle-path! cs pt cx cy r)
+  (draw/circle-path! cs pt cx cy r)
   (.closePath cs))
 
 (defn- circle!
@@ -189,7 +189,7 @@
    fills it with `:fill?`."
   [cs pts lw & [{:keys [close? fill?]}]]
   (.setLineWidth cs (float lw))
-  (canvas/path! cs pt pts)
+  (draw/path! cs pt pts)
   (cond fill? (do (.closePath cs) (.fill cs))
         close? (.closeAndStroke cs)
         :else (.stroke cs)))

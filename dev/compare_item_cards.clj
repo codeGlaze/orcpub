@@ -7,7 +7,8 @@
 ;; PDFBox's renderer cannot rasterise the embedded faces -- open the result in a
 ;; browser, not with PDFRenderer, or every card looks like an encoding bug.
 
-(require '[orcpub.pdf :as pdf] '[orcpub.dnd.e5.magic-items :as mi])
+(require '[orcpub.pdf :as pdf]
+(require '[orcpub.pdf.draw :as draw] '[orcpub.dnd.e5.magic-items :as mi])
 (import '[org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream] '[java.io File])
 
 (def rarities [:common :uncommon :rare :very-rare :legendary])
@@ -31,7 +32,7 @@
       (pdf/print-items cs doc fonts img 2.5 3.5 items 0 false false opts))))
 
 (let [doc (PDDocument.)
-      fonts (pdf/load-fonts doc)
+      fonts (draw/load-fonts doc)
       img (pdf/make-image-loader doc)
       ladder (mapv sample rarities)]
   ;; One page per family: the five ranks side by side.
