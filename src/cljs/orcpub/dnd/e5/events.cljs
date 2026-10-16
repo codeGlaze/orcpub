@@ -596,10 +596,10 @@
     :else          false))
 
 (defn stored-shape
-  "`character` in the form the server stores, without ids, for telling whether a copy differs
-   from what is stored. Returns that strict map."
+  "`character` in the form the server stores, without ids or version, for telling whether a copy
+   holds anything different from what is stored. Returns that strict map."
   [character]
-  (entity/remove-ids (char5e/to-strict character)))
+  (dissoc (entity/remove-ids (char5e/to-strict character)) ::se/version))
 
 (reg-event-fx
  :character-save-success
@@ -616,8 +616,10 @@
          ;; An autosave while the builder holds unsaved edits to the same character: the builder
          ;; keeps its copy and takes only the keys the sheet changed.
          keep-builder? (boolean (and current? for-id (or newer? (get-in db [:character :changed]))))
+         version (::entity/version character)
          kept (when keep-builder?
                 (cond-> (assoc (:character db) :draft/base (hash (stored-shape character)))
+                  version (assoc ::entity/version version)
                   (not newer?)
                   (update ::entity/values
                           (fn [values]
@@ -631,7 +633,9 @@
                               (update ::in-flight dissoc id)
                               (update ::edited-in-flight dissoc id))
                     (not newer?) (update ::sheet-edited dissoc id)
-                    newer? (assoc-in [::stored-shape id] (stored-shape character)))
+                    newer? (assoc-in [::stored-shape id] (stored-shape character))
+                    (and newer? version) (assoc-in [::char5e/character-map id ::entity/version] version)
+                    true (update ::refused dissoc id))
               :dispatch-n
               (cond-> [[:show-message
                         (if-let [char-name (not-empty
@@ -741,7 +745,8 @@
      (cond
        ;; Nothing differs from what the server last sent for it (an edit undone): nothing to send.
        (= (stored-shape character) (get-in db [::stored-shape (js/parseInt id)]))
-       {::autosave-fx/saved id}
+       {:db (update db ::refused dissoc (js/parseInt id))
+        ::autosave-fx/saved id}
 
      ;; Skip when the template isn't ready — nil OR empty {}. An empty template
      ;; crashes entity/build (null fn `.call`); `seq` covers both cases.
@@ -775,8 +780,42 @@
                    ;; By id, from the character map -- which may not be the one
                    ;; in the builder, and by the time this lands may not be even
                    ;; if it was.
-                   :on-success [:character-save-success {:for-id (:db/id strict)}]}}
+                   :on-success [:character-save-success {:for-id (:db/id strict)}]
+                   :on-failure [::char5e/save-refused {:for-id (:db/id strict)}]}}
            {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))))
+
+(reg-event-fx
+ ::char5e/save-refused
+ ;; An autosave the server refused. A 409 :stale-character means the character was saved from
+ ;; another copy since: the sheet's own changed keys are put onto the stored copy and it is saved
+ ;; again, once; the builder's unsaved edits are left for its own Save. Anything else, or a second
+ ;; refusal in a row, is shown. builder-and-sheet-copies.md.
+ (fn [{:keys [db]} [_ {:keys [for-id]} {:keys [status body]}]]
+   (let [current (some-> (:current body) char5e/from-strict)
+         db (update db ::in-flight dissoc for-id)]
+     (if (and (= 409 status) (= :stale-character (:error body)) current
+              (not (get-in db [::refused for-id])))
+       (let [local (get-in db [::char5e/character-map for-id])
+             rebased (reduce (fn [c k]
+                               (if-some [v (get-in local [::entity/values k])]
+                                 (assoc-in c [::entity/values k] v)
+                                 (update c ::entity/values dissoc k)))
+                             current
+                             (get-in db [::sheet-edited for-id]))
+             builder-free? (and (= for-id (get-in db [:character :db/id]))
+                                (not (get-in db [:character :changed])))]
+         {:db (cond-> (-> db
+                          (assoc-in [::char5e/character-map for-id] rebased)
+                          (assoc-in [::stored-shape for-id] (stored-shape current))
+                          (assoc-in [::refused for-id] true))
+                builder-free? (assoc :character rebased))
+          :dispatch [::char5e/save-character for-id]})
+       {:db (update db ::refused dissoc for-id)
+        :dispatch (if (= 409 status)
+                    [:show-error-message
+                     (str "This character was changed somewhere else, so your change couldn't be "
+                          "saved. Reload it to see the latest.")]
+                    (event-utils/show-generic-error))}))))
 
 ;; Manual save — dispatched from character builder UI with built-char in scope.
 ;; If the user hasn't set a name, generates a random one and persists it.
@@ -4372,20 +4411,21 @@
 
 (defn update-character-fx
   "Effects for a sheet or list edit: applies `update-fn` to the stored copy of character `id` and
-   autosaves it. When the builder has that character open, the edit is applied there too and its
-   changed values keys are recorded under ::sheet-edited, for :character-save-success. With no `id`
-   the character is unsaved, so the edit goes to the builder's copy."
+   autosaves it, recording its changed values keys under ::sheet-edited (for the save's reply, and
+   for re-applying after a refused save). When the builder has that character open, the edit is
+   applied there too. With no `id` the character is unsaved, so the edit goes to the builder's copy."
   [db id update-fn]
   (if id
     (let [int-id (js/parseInt id)
           stored (get-in db [::char5e/character-map int-id])
           updated (update-fn stored)
           open (when (= int-id (get-in db [:character :db/id])) (update-fn (:character db)))]
-      (cond-> {:db (cond-> (assoc-in db [::char5e/character-map int-id] updated)
+      (cond-> {:db (cond-> (-> db
+                               (assoc-in [::char5e/character-map int-id] updated)
+                               (update-in [::sheet-edited int-id] (fnil into #{})
+                                          (changed-value-keys stored updated)))
                      (get-in db [::in-flight int-id]) (assoc-in [::edited-in-flight int-id] true)
-                     open (-> (assoc :character open)
-                              (update-in [::sheet-edited int-id] (fnil into #{})
-                                         (changed-value-keys stored updated))))
+                     open (assoc :character open))
                ::char5e/save-character-throttled id}
         (and open (not (:draft/held db))) (assoc ::builder-draft->local-store open)))
     ;; No id: the character being built has never been saved, so this is an

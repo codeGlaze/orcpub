@@ -1674,12 +1674,14 @@
       (is (= #{hp} (get-in @app-db [::events/sheet-edited 111])) "and the changed key is recorded")
       (rf/dispatch-sync [::char5e/set-current-hit-points "222" 3])
       (is (= 7 (get-in @app-db [:character ::entity/values hp]))
-          "an edit to another character does not touch the builder"))))
+          "an edit to another character does not touch the builder")
+      (is (= #{hp} (get-in @app-db [::events/sheet-edited 222]))
+          "but its changed key is recorded too, for re-applying after a refused save"))))
 
 (deftest an-autosave-reply-keeps-the-builders-unsaved-edits
   (let [dispatched (atom [])
         saved (atom nil)
-        reply {:body (char5e/to-strict {:db/id 111 ::entity/values {char-name "Stored" hp 7}})}]
+        reply {:body (char5e/to-strict {:db/id 111 ::entity/version 5 ::entity/values {char-name "Stored" hp 7}})}]
     (with-fx {:dispatch-n #(reset! dispatched (vec %))
               ::autosave-fx/saved #(reset! saved %)
               ::events/builder-draft->local-store identity}
@@ -1692,6 +1694,8 @@
         (is (= {char-name "Unsaved" hp 7} (get-in @app-db [:character ::entity/values]))
             "the builder keeps its name and takes only the key the sheet changed")
         (is (true? (get-in @app-db [:character :changed])) "and still counts as unsaved")
+        (is (= 5 (get-in @app-db [:character ::entity/version]))
+            "and takes the version the save was given, so its own Save is not refused")
         (is (not (contains? (into #{} (map first) @dispatched) :character-updated))
             "the reply does not replace the builder")
         (is (nil? (get-in @app-db [::events/sheet-edited 111])) "the record is cleared")
@@ -1729,16 +1733,71 @@
                               ::events/in-flight {111 true}))
         (rf/dispatch-sync [::char5e/set-current-hit-points "111" 4])
         (is (true? (get-in @app-db [::events/edited-in-flight 111])) "the edit is marked as newer")
-        (let [reply {:db/id 111 ::entity/values {hp 3}}]
+        (let [reply {:db/id 111 ::entity/version 5 ::entity/values {hp 3}}]
           (rf/dispatch-sync [:character-save-success {:for-id 111} {:body (char5e/to-strict reply)}])
           (is (= 4 (get-in @app-db [::char5e/character-map 111 ::entity/values hp]))
               "the reply does not put the older value back")
+          (is (= 5 (get-in @app-db [::char5e/character-map 111 ::entity/version]))
+              "but the copy takes the version its own save was given")
           (is (not (contains? (into #{} (map first) @dispatched) ::char5e/set-character))
               "it is not installed in the map")
           (is (= (events/stored-shape reply) (get-in @app-db [::events/stored-shape 111]))
               "but it is recorded as what is stored, so the next save is not skipped")
           (is (nil? (get-in @app-db [::events/in-flight 111])))
           (is (nil? (get-in @app-db [::events/edited-in-flight 111]))))))))
+
+(deftest the-version-is-not-part-of-what-a-copy-holds
+  (let [c {:db/id 111 ::entity/values {hp 4}}]
+    (is (= (events/stored-shape (assoc c ::entity/version 1)) (events/stored-shape (assoc c ::entity/version 2)))
+        "two copies differing only in version hold the same character")))
+
+(def ^:private refused
+  "A 409 for character 111: stored now with another name and hit points 9, at version 2."
+  {:status 409
+   :body {:error :stale-character
+          :current (char5e/to-strict {:db/id 111 ::entity/version 2
+                                      ::entity/values {char-name "Renamed elsewhere" hp 9}})}})
+
+(deftest a-refused-autosave-reapplies-its-own-change-once
+  (let [dispatched (atom [])]
+    (with-fx {:dispatch #(swap! dispatched conj %) :dispatch-n #(swap! dispatched into %)}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              ::char5e/character-map {111 {:db/id 111 ::entity/version 1
+                                                           ::entity/values {char-name "Old" hp 4}}}
+                              ::events/sheet-edited {111 #{hp}}))
+        (rf/dispatch-sync [::char5e/save-refused {:for-id 111} refused])
+        (is (= {char-name "Renamed elsewhere" hp 4}
+               (select-keys (get-in @app-db [::char5e/character-map 111 ::entity/values]) [char-name hp]))
+            "the stored character, with only the sheet's own change put back on it")
+        (is (= 2 (get-in @app-db [::char5e/character-map 111 ::entity/version])) "at the stored version")
+        (is (some #(= [::char5e/save-character 111] %) @dispatched) "and saved again")
+        (reset! dispatched [])
+        (rf/dispatch-sync [::char5e/save-refused {:for-id 111} refused])
+        (is (not (some #(= ::char5e/save-character (first %)) @dispatched)) "a second refusal in a row is not retried")
+        (is (some #(= :show-error-message (first %)) @dispatched) "but shown")))))
+
+(deftest a-retry-with-nothing-left-to-send-ends-the-refusal
+  ;; The re-applied change was already stored by the other copy, so the retry sends nothing; the
+  ;; next refusal must be retried again rather than shown at once.
+  (let [stored {:db/id 111 ::entity/values {hp 9}}]
+    (reset! app-db pristine-db)
+    (rf/dispatch-sync [::char5e/set-character 111 stored])
+    (swap! app-db assoc-in [::events/refused 111] true)
+    (effects-of [::char5e/save-character "111"] [:http :dispatch-later ::autosave-fx/saved])
+    (is (nil? (get-in @app-db [::events/refused 111])))))
+
+(deftest a-refused-autosave-leaves-the-builders-unsaved-edits-alone
+  (with-fx {:dispatch identity :dispatch-n identity}
+    (fn []
+      (let [builder {:db/id 111 :changed true ::entity/version 1 ::entity/values {char-name "Builder edit" hp 4}}]
+        (reset! app-db (assoc pristine-db
+                              :character builder
+                              ::char5e/character-map {111 {:db/id 111 ::entity/version 1 ::entity/values {hp 4}}}
+                              ::events/sheet-edited {111 #{hp}}))
+        (rf/dispatch-sync [::char5e/save-refused {:for-id 111} refused])
+        (is (= builder (:character @app-db)) "the builder's own Save will meet the change instead")
+        (is (= 2 (get-in @app-db [::char5e/character-map 111 ::entity/version])) "only the sheet's copy is rebased")))))
 
 (deftest level-up-opens-the-stored-copy-only-when-the-builder-has-another-character
   (let [dispatched (atom nil)]
