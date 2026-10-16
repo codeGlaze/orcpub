@@ -15,6 +15,7 @@
 ;; annotation column has to live in.
 
 (require '[orcpub.pdf :as pdf]
+(require '[orcpub.pdf.draw :as draw]
          '[orcpub.dnd.e5.spells :as spells]
          '[clojure.java.io :as io]
          '[clojure.string :as st])
@@ -77,14 +78,14 @@
     ;; Render the page section 1's rows actually live on. Style 4's master has
     ;; TWO spell pages, so the last page belongs to section 2 and is empty here.
     ;; Rendering it looked exactly like a total failure to fill anything.
-    (let [helv pdf/HELVETICA
+    (let [helv draw/HELVETICA
           per-level (for [[lvl rs] (sort (group-by :level rows))]
                       (let [sizes (keep #(baked-size doc (:name %)) rs)
                             widest (apply max
                                           (for [r rs
                                                 :let [sz (or (baked-size doc (:name r)) 0)
                                                       v (get values (keyword (:name r)))]]
-                                            (* 72 (pdf/string-width v helv sz))))]
+                                            (* 72 (draw/string-width v helv sz))))]
                         {:level lvl :rows (count rs)
                          :w (:w (first rs))
                          :size-min (when (seq sizes) (apply min sizes))

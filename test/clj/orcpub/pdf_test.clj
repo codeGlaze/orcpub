@@ -4,6 +4,7 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw]
             [orcpub.dnd.e5.spell-packing :as packing])
   (:import (org.apache.pdfbox Loader)
            (org.apache.pdfbox.cos COSName)
@@ -83,7 +84,7 @@
             renders a spell without throwing (load-fonts + icon embed hoisted out)"
     (with-open [doc (PDDocument.)]
       (.addPage doc (PDPage.))
-      (let [fonts (pdf/load-fonts doc)
+      (let [fonts (draw/load-fonts doc)
             img (pdf/make-image-loader doc)
             page (.getPage doc 0)]
         (with-open [cs (PDPageContentStream. doc page)]
@@ -106,7 +107,7 @@
             printing; the grayscale/black choice is a caller-resolved resource)"
     (with-open [doc (PDDocument.)]
       (.addPage doc (PDPage.))
-      (let [fonts (pdf/load-fonts doc)
+      (let [fonts (draw/load-fonts doc)
             img (pdf/make-image-loader doc)
             page (.getPage doc 0)
             lines (vec (repeat 9 {:remaining-lines ["overflow line"] :spell-name "Bolt"}))]
@@ -120,7 +121,7 @@
 
 (deftest normalize-text-coerces-to-winansi
   (testing "unit: smart punctuation downgraded, controls dropped, non-Latin-1 -> '?'"
-    (let [nt #'orcpub.pdf/normalize-text]
+    (let [nt #'orcpub.pdf.draw/normalize-text]
       (is (= "'q' \"d\" - -- ..."
              (nt "‘q’ “d” – — …")))
       (is (= "ab c" (nt "ab\tc")) "BEL dropped, tab -> space")
@@ -131,7 +132,7 @@
   (testing "Font creation and ability to print latin and cyrillic characters"
     (let [^PDDocument doc (PDDocument.)
           ^PDPage page (PDPage.)
-          fonts (pdf/load-fonts doc)
+          fonts (draw/load-fonts doc)
           required-keys [:plain :bold :italic :bold-italic]]
       (is (every? some? (map fonts required-keys)))
       (.addPage doc page)
@@ -324,8 +325,8 @@
             `lines` without bound. Reachable from /character.pdf, which is
             unauthenticated: draw-text-to-box renders custom spell names into a
             roughly two-inch card box."
-    (let [result (future (pdf/split-lines "supercalifragilisticexpialidocious tail"
-                                          pdf/HELVETICA 8.0 0.2))
+    (let [result (future (draw/split-lines "supercalifragilisticexpialidocious tail"
+                                          draw/HELVETICA 8.0 0.2))
           value (deref result 5000 ::timed-out)]
       (when (= ::timed-out value) (future-cancel result))
       (is (not= ::timed-out value) "split-lines must terminate")
@@ -511,7 +512,7 @@
                     (let [size (baked-size form nm)
                           widget (first (.getWidgets (.getField form nm)))
                           available (- (.getWidth (.getRectangle widget)) 2.0)]
-                      (<= (* 72.0 (pdf/string-width value pdf/HELVETICA size)) available)))]
+                      (<= (* 72.0 (draw/string-width value draw/HELVETICA size)) available)))]
         (is (= 8.0 (baked-size form "int-save"))
             "a value that already fits is left at the size PDFBox chose")
         (is (< (baked-size form "wis-save") 8.0) "a wide value is shrunk")
@@ -761,7 +762,7 @@
   (let [dpi 300.0
         img (.renderImageWithDPI (org.apache.pdfbox.rendering.PDFRenderer. doc)
                                  index (float dpi))
-        w (pdf/string-width pdf/site-stamp pdf/HELVETICA 6)
+        w (draw/string-width pdf/site-stamp draw/HELVETICA 6)
         h (/ 8.0 72)
         height (.getHeight img)
         x0 (int (* x dpi))
@@ -1073,7 +1074,7 @@
                       size (some-> (re-find #"/\S+\s+([0-9.]+)\s+Tf" (String. (.toByteArray b)))
                                    second Double/parseDouble)]
                   (when size
-                    (is (<= (* 72 (pdf/string-width v pdf/HELVETICA size))
+                    (is (<= (* 72 (draw/string-width v draw/HELVETICA size))
                             (.getWidth r))
                         (str "style " style " " n " \"" v "\" at " size "pt"))))))))))))
 
@@ -1154,12 +1155,12 @@
       (let [{:keys [label size]} (fit "Eldritch Knight" 35.0)]
         (is (not= "Eldritch Knight" label))
         (is (clojure.string/ends-with? label "\u2026"))
-        (is (<= (* 72 (pdf/string-width label pdf/HELVETICA_BOLD size)) 35.0))))
+        (is (<= (* 72 (draw/string-width label draw/HELVETICA_BOLD size)) 35.0))))
     (testing "every real class name fits a level box's compartment"
       (doseq [nm ["Bard" "Cleric" "Druid" "Paladin" "Ranger" "Sorcerer" "Warlock"
                   "Wizard" "Arcane Trickster" "Eldritch Knight"]]
         (let [{:keys [label size]} (fit nm 35.0)]
-          (is (<= (* 72 (pdf/string-width label pdf/HELVETICA_BOLD size)) 35.0)
+          (is (<= (* 72 (draw/string-width label draw/HELVETICA_BOLD size)) 35.0)
               (str nm " -> " label)))))))
 
 (deftest a-label-on-box-0-is-refused

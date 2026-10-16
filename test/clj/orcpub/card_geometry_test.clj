@@ -9,6 +9,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [orcpub.pdf-ops :as ops]
             [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw]
             [orcpub.routes :as routes]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.magic-items :as magic-items])
@@ -40,7 +41,7 @@
   []
   (let [out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (let [fonts (pdf/load-fonts doc)
+      (let [fonts (draw/load-fonts doc)
             img (pdf/make-image-loader doc)
             known {:wizard (vec (for [k (take 12 (keys spells/spell-map))]
                                   {:key k :class "Wizard"}))}]
@@ -105,7 +106,7 @@
   (let [items (mapv (comp item-named :name) rarity-cases)
         out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (let [fonts (pdf/load-fonts doc)
+      (let [fonts (draw/load-fonts doc)
             img (pdf/make-image-loader doc)]
         (doseq [family pdf/card-flourishes
                 [_ bw? faded?] print-modes]

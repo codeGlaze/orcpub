@@ -4,6 +4,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
             [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw]
             [orcpub.routes :as routes]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.magic-items :as magic-items])
@@ -62,7 +63,7 @@
   [kinds]
   (let [out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (let [fonts (pdf/load-fonts doc)
+      (let [fonts (draw/load-fonts doc)
             img (pdf/make-image-loader doc)
             spells-known {:wizard (vec (for [k (take 12 (keys spells/spell-map))]
                                          {:key k :class "Wizard"}))}]
@@ -136,7 +137,7 @@
         spells-known {:wizard (vec (for [c customs] {:key (:key c) :class "Wizard"}))}
         out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (let [fonts (pdf/load-fonts doc)
+      (let [fonts (draw/load-fonts doc)
             img (pdf/make-image-loader doc)]
         (routes/add-spell-cards! doc fonts img spells-known {"Wizard" 15} {"Wizard" 7}
                                  customs false card-back-logo false false))
@@ -208,7 +209,7 @@
   [items]
   (let [out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (routes/add-magic-item-cards! doc (pdf/load-fonts doc) (pdf/make-image-loader doc)
+      (routes/add-magic-item-cards! doc (draw/load-fonts doc) (pdf/make-image-loader doc)
                                     (vec items) card-back-logo false false)
       (.save doc out))
     (with-open [doc (Loader/loadPDF (.toByteArray out))]

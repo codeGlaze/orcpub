@@ -39,6 +39,7 @@
             [orcpub.loading-spinner :as spinner]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw]
             [orcpub.spellbook :as spellbook]
             [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.registration :as registration]
@@ -1518,7 +1519,7 @@
             item-cards? (and print-magic-item-cards? (seq magic-items-known))
             book (when (seq spells-known) (spellbook-options spellbook character-name))
             spell-order (one-of #{:level :alpha} spell-order :level)
-            fonts (when (or spell-cards? item-cards? book) (pdf/load-fonts doc))
+            fonts (when (or spell-cards? item-cards? book) (draw/load-fonts doc))
             img (when (or spell-cards? item-cards? book) (pdf/make-image-loader doc))]
         ;; Order: sheet, spellbook, then cards.
         (when book
