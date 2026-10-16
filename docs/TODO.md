@@ -371,9 +371,16 @@ A4 artwork, not code.** That is an asset task.
 
 What code *can* reach: everything we draw ourselves — spell cards, item cards, card backs, the
 spellbook, overflow pages. Those are bare `(PDPage.)`, Letter by PDFBox default, and the
-drawing code hardcodes 8.5 and 11 (35 lines of `pdf.clj` flip against a literal `11`). Making
-page size a parameter is the same job as de-duplicating the shared drawing code, not a separate
-one. A 2-up A5 layout on A4 is the natural analogue of our 9-up 2.5x3.5 on Letter.
+drawing code hardcodes 8.5 and 11. Making page size a parameter is the same job as
+de-duplicating the shared drawing code, not a separate one. A 2-up A5 layout on A4 is the
+natural analogue of our 9-up 2.5x3.5 on Letter.
+
+**Updated 2026-10-16** (`refactor/pdf-canvas`): the count was given here as "35 lines of
+`pdf.clj`". Measured after the split it is **31**, and they are all now in
+`src/clj/orcpub/pdf/cards.clj`; `pdf.clj` has none. `orcpub.pdf.draw` holds the page
+dimensions (`page-sizes`: Letter 612x792, A4 595x842, A5 420x595) and `draw/pt-from-top`
+takes a page key — but no caller passes one yet, so the remaining work is threading it
+through those 31 sites. `spellbook.clj` already flips through `draw/pt-from-top`.
 
 ### Animated objects — the cheapest first card consumer
 

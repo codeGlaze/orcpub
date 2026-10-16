@@ -424,3 +424,87 @@ lines of `pdf.clj` flip against a literal `11`, and `in-to-coord-y` is the choke
 shared file with an explicit page size is what makes A4 and A5 possible, which settles the
 coordinate question section 4 left open: the shared file carries page dimensions explicitly,
 so neither 11 inches nor 792 points stays implicit.
+
+## 10. Executed, 2026-10-16: the shared file and the cards split
+
+Sections 4 and 9 are now partly built. What exists on `refactor/pdf-canvas`:
+
+| File | Lines | Holds |
+| --- | --- | --- |
+| `src/clj/orcpub/pdf.clj` | 2,056 | AcroForm character sheet, image egress, site line |
+| `src/clj/orcpub/pdf/draw.clj` | 590 | fonts, text measurement, SVG and icons, coordinates, shape paths, page sizes |
+| `src/clj/orcpub/pdf/cards.clj` | 755 | spell and item cards, the frame, ornaments, nine-up |
+| `src/clj/orcpub/spellbook.clj` | 955 | unchanged; not yet moved into the family |
+
+Section 9 named `canvas` and the file shipped as `canvas.clj`. **It is `draw.clj`, namespace
+`orcpub.pdf.draw`.** The owner caught the mismatch between the published plan and the code; the
+name was changed in the code, not in the plan.
+
+### Section 9's "cards deferred, not planned" is withdrawn
+
+Section 9 says the card code waits for a second consumer. That conflated two different tests:
+
+- **Extract for reuse** needs a second real caller. The card *frame* still has one, so
+  `pdf.card` as its own file still waits. That part of section 9 stands.
+- **Separate by subject** needs two subjects and a one-way seam. Cards passed that already.
+
+Measured before the cut, with string literals and comments stripped so docstring prose did not
+count as a reference: the card region used 6 names from the sheet region, the sheet region used
+**0** from the card region. Zero back-references is what made the cut cheap.
+
+The 6 split three ways, by consumer rather than by where they sat:
+
+| Name | Went to | Why |
+| --- | --- | --- |
+| `site-stamp`, `site-stamp-size` | `draw` | the sheet, the cards AND the spellbook all draw the site line |
+| `draw-spell-field`, `site-stamp-strip`, `draw-site-stamp!` | `cards` | card-only; in the sheet region by accident of file position |
+| `page-prints-site-line?` | stayed | only `stamp-site-line!` calls it, and that is the sheet's |
+
+A first pass drew the cut at `stamp-site-line!` rather than below it, which put it in the card
+region. Two corrections came out of that. `stamp-site-line!` is the character sheet's — its only
+caller is `routes.clj`'s sheet path — so the cut moved down 13 lines. And the scan claimed the
+sheet region referenced it back, which was false: the stripper works line by line and cannot see
+inside a multi-line docstring, and `sheet-masters`' docstring names it in prose.
+
+`inches-to-units` was deleted, not moved: its own docstring claimed `draw-line-in` and the grid
+code called it, and both had moved to `draw` and now use `in->pt`. Zero callers anywhere.
+
+### Behaviour: unchanged, by measurement
+
+All three geometry baselines — 24 card pages, 9 ornament pages, 24 spellbook pages — are
+byte-identical across the shared-layer growth and the cards split. `lein test` 714 tests /
+5,413 assertions green; `lein lint` 0 errors.
+
+### The flips did not get fixed, they moved
+
+All 31 hand-written `(- 11.0 y ...)` page-height flips are now in `cards.clj`; `pdf.clj` has
+none. `draw/pt-from-top` takes a page key and nothing passes one. So A4 and A5 are still not
+wired, and the work is now in one file instead of spread across two concerns — which is the
+point of having done the split first.
+
+### `dev/` was unlinted, and this refactor shipped broken scripts into it
+
+Five `dev/` scripts went un-loadable across two commits (`b8d2b463`, `9d0a0710`). A rewriter
+inserted `(require '[orcpub.pdf.draw :as draw]` as a new form where a continuation line
+`         '[orcpub.pdf.draw :as draw]` was needed, orphaning the opening paren of the require
+above it. Each file was left +1 unbalanced.
+
+Nothing caught it: `lein lint` linted `src test web`, and `lein test` does not load `dev/`.
+Verified after the fact that clj-kondo calls it an `error` ("Expected a ) to match ( from line
+19"), so adding `dev` to the lint path would have failed the build. That is now the lint path.
+
+`dev/` contributes ~41 warnings of its own idiom — the scripts `load-file` each other, so
+duplicate-require and redefined-var are normal there — and `--fail-level error` ignores them.
+Suppressing them with `:config-in-ns {user ...}` was tried and reverted: the scripts have no
+`ns` form, so clj-kondo does not resolve them to `user` and it only caught 3 of the 41.
+
+### What is left
+
+1. **Thread a page key through the flips** — 31 sites in `cards.clj`.
+2. **`orcpub.spellbook` into the family** as `pdf.spellbook`, dropping its duplicate primitives.
+3. **The orchestrator** — 349 lines of assembly in `routes.clj`. Still the risky step: it is the
+   live export path for every character sheet and the baselines do not cover the AcroForm sheet.
+   Wants a field-level characterization test first.
+4. **`pdf.image`** (394 lines) — optional, nothing blocks it.
+5. **`pdf.character`** — only worth doing after 3 and 4; until then `pdf.clj` *is* the character
+   sheet plus egress plus the site line, and splitting it further buys little.
