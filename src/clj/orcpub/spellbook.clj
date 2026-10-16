@@ -15,8 +15,8 @@
 
 ;; ─── Page geometry, in points ────────────────────────────────────────────────
 
-(def page-w 612.0)
-(def page-h 792.0)
+(def page-w (first (canvas/page-size canvas/default-page)))
+(def page-h (second (canvas/page-size canvas/default-page)))
 (def ^:private margin 36.0)
 (def ^:private body-top 56.0)
 (def ^:private body-bottom (- page-h 46.0))
@@ -30,8 +30,9 @@
 (def ^:private hair 0.78)
 
 (defn- py
-  "Converts `ty`, points down from the page top, to PDF y, which runs up from the bottom."
-  [ty] (float (- page-h ty)))
+  "Converts `ty`, points down from the page top, to PDF y, which runs up from the bottom.
+   `canvas/pt-from-top` at a scale of 1, the same flip pdf.clj uses at 72."
+  [ty] (canvas/pt-from-top 1 ty))
 
 (defn body-width
   "The width spells are laid into, in points: the page less its margins, and less the tab
