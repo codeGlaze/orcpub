@@ -9,23 +9,15 @@
             [orcpub.loading-spinner :as spinner]
             [orcpub.env :as env]
             [orcpub.config :as config]
-            [clojure.java.io :as io]
-            [pandect.algo.sha1 :refer [sha1]]))
+            [orcpub.pedestal :as pedestal]))
 
-(defn- content-stamp
-  "The first 12 hex digits of the SHA-1 of the public resource at `path`, or nil when it is missing."
-  [path]
-  (when-let [r (io/resource (str "public" path))]
-    (with-open [in (io/input-stream r)] (subs (sha1 in) 0 12))))
-
-(def ^:private stamp (memoize content-stamp))
 
 (defn asset-url
   "`path` (a public file such as /js/compiled/orcpub.js) with ?v= its content stamp, so a new build
    has a new address and can be cached for a year (pedestal/static-cache-control). The bare `path`
    in dev mode, where Figwheel rewrites the file, or when the file is missing."
   [path]
-  (if-let [v (when-not (config/dev-mode?) (stamp path))]
+  (if-let [v (when-not (config/dev-mode?) (pedestal/content-stamp path))]
     (str path "?v=" v)
     path))
 

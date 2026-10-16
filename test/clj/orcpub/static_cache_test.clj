@@ -1,5 +1,5 @@
 (ns orcpub.static-cache-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is]]
             [clojure.java.io :as io]
             [pandect.algo.sha1 :refer [sha1]]
             [orcpub.pedestal :as p]
@@ -7,15 +7,15 @@
             [orcpub.config :as config]))
 
 (deftest each-kind-of-static-file-gets-its-cache-rule
-  (is (= "public, max-age=31536000, immutable" (p/static-cache-control "/js/compiled/orcpub.js" true)))
-  (is (= "public, max-age=31536000, immutable" (p/static-cache-control "/css/cookiestyles.css" true)))
-  (is (= "no-cache" (p/static-cache-control "/js/compiled/orcpub.js" false))
+  (is (= "public, max-age=31536000, immutable" (p/static-cache-control "/js/compiled/orcpub.js" :current)))
+  (is (= "public, max-age=31536000, immutable" (p/static-cache-control "/css/cookiestyles.css" :current)))
+  (is (= "no-cache" (p/static-cache-control "/js/compiled/orcpub.js" nil))
       "an unstamped bundle is rechecked, so a deploy reaches an old link too")
-  (is (= "public, max-age=604800" (p/static-cache-control "/image/orc-head.svg" false)))
-  (is (= "public, max-age=604800" (p/static-cache-control "/fonts/open-sans/open-sans-latin.woff2" false)))
-  (is (= "public, max-age=86400" (p/static-cache-control "/js/cookies.js" false)))
-  (is (nil? (p/static-cache-control "/pages/dnd/5e/character-builder" false)) "pages are not static files")
-  (is (nil? (p/static-cache-control "/dnd/5e/items" true)) "data routes are not static files"))
+  (is (= "public, max-age=604800" (p/static-cache-control "/image/orc-head.svg" nil)))
+  (is (= "public, max-age=604800" (p/static-cache-control "/fonts/open-sans/open-sans-latin.woff2" nil)))
+  (is (= "public, max-age=86400" (p/static-cache-control "/js/cookies.js" nil)))
+  (is (nil? (p/static-cache-control "/pages/dnd/5e/character-builder" nil)) "pages are not static files")
+  (is (nil? (p/static-cache-control "/dnd/5e/items" :current)) "data routes are not static files"))
 
 (defn- leave
   "Runs `interceptor`'s :leave over a GET-like request for `uri` and a 200 response, returning the
@@ -26,10 +26,17 @@
             :response (merge {:status 200 :headers {}} resp)})
           [:response :headers "Cache-Control"]))
 
+(deftest only-the-files-own-stamp-is-kept-a-year
+  (let [prod (p/make-static-cache-interceptor false)
+        path "/css/cookiestyles.css"
+        own (with-open [in (io/input-stream (io/resource (str "public" path)))] (subs (sha1 in) 0 12))]
+    (is (= "public, max-age=31536000, immutable" (leave prod path :req {:query-string (str "v=" own)}))
+        "the address names exactly this file")
+    (is (= "no-cache" (leave prod path :req {:query-string "v=0123456789ab"}))
+        "an address naming another build gets this file only with a recheck, never kept a year")))
+
 (deftest the-interceptor-sets-the-rule-only-where-it-belongs
   (let [prod (p/make-static-cache-interceptor false)]
-    (is (= "public, max-age=31536000, immutable"
-           (leave prod "/js/compiled/orcpub.js" :req {:query-string "v=0123456789ab"})))
     (is (= "public, max-age=604800" (leave prod "/image/orc-head.svg")))
     (is (= "no-store" (leave prod "/image/x.svg" :resp {:headers {"Cache-Control" "no-store"}}))
         "a response that sets its own Cache-Control keeps it")
