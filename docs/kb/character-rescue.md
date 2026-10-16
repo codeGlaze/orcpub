@@ -272,15 +272,16 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
 
 ## Plan, in order (owner, 2026-10-14)
 
-1. **Done 2026-10-15:** entry points, group 1 (`test/e2e/data-view-entry-points.js`, 14 checks,
-   each seen to fail). A "Data View" link beside the share line on the owner's character page
-   (44px tap target), "Repair this character"
-   first on the won't-load panel, "Fix in Data View" on the Missing Content warning (the draft page
-   for an unsaved draft). The page is named Data View (owner, 2026-10-13). No button in the
-   character list's opened row: it crowds the row for little use (owner, 2026-10-16). The
-   character page link is moving behind a gear, awaiting the owner's choice.
-2. Group 2: the rescue bar on character pages and the builder (mockup first, real states at phone
-   width). The builder's bar needs no id: it links to the draft page, `/character-data`.
+1. **Done 2026-10-16:** entry points (`test/e2e/data-view-entry-points.js`, each check seen to
+   fail). A muted 44px gear, owner only, at the right end of the character page's share line and
+   after Delete in the opened list row; it opens Data View directly, named by `title` and
+   `aria-label` (owner, 2026-10-16: no big button, no one-item menu). "Repair this character"
+   first on the won't-load panel; "Fix in Data View" on the Missing Content warning.
+2. **Done 2026-10-16:** the rescue notice (`index.clj` `load-rescue`): the builder's notice-box
+   look, under the loading picture, shown after 8 s unless the app has rendered
+   (`window.orcpubBooted`, set by `orcpubBootOk`). "This character didn't load. · Repair this
+   character" goes to `/characters/<id>/repair`; "The builder didn't load. · Repair this draft" to
+   `/character-data` (owner, 2026-10-16: B + C).
 3. Group 3: the support email gains the repair link and the stored choices.
 4. Duplicate prevention for the save race (R10): measure first, then the approach to the owner.
 5. Keep a copy of a browser draft the app cannot read (`db.cljs` `handle-unreadable` deletes it on

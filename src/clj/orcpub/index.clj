@@ -7,6 +7,7 @@
             [orcpub.favicon :as fi]
             [orcpub.fork.integrations :as integrations]
             [orcpub.loading-spinner :as spinner]
+            [orcpub.route-map :as routes]
             [orcpub.env :as env]))
 
 (def homebrew-url
@@ -95,7 +96,12 @@
        // Hidden, not removed: the app can crash AFTER a clean first render, and
        // then the error screen asks for it back — re-checked at that moment, so
        // work done during the session counts even if the page opened empty.
-       window.orcpubBootOk = function () { el.style.display = 'none'; };
+       window.orcpubBootOk = function () {
+         el.style.display = 'none';
+         window.orcpubBooted = true;
+         var lr = document.getElementById('load-rescue');
+         if (lr) { lr.style.display = 'none'; }
+       };
        window.orcpubBootRescue = show;
 
        btn.addEventListener('click', function () {
@@ -118,6 +124,65 @@
        show();
      })();
     "))))
+
+(def ^:private load-rescue-delay-ms 8000)
+
+(defn load-rescue
+  "The notice under the loading picture on a character page or the builder: hidden, shown after
+   8 seconds if the app has not rendered (`window.orcpubBooted`), with a link to Data View.
+   Inline styles and script only, so it works when the app's files do not."
+  [nonce]
+  (let [char-path (routes/path-for routes/dnd-e5-char-page-route :id "ID")
+        repair-path (routes/path-for routes/dnd-e5-char-repair-page-route :id "ID")
+        builder-paths [(routes/path-for routes/dnd-e5-char-builder-route)
+                       (routes/path-for routes/dnd-e5-newb-char-builder-route)]
+        draft-path (routes/path-for routes/dnd-e5-draft-data-page-route)]
+    (list
+     [:div#load-rescue
+      {:style (str "display:none;position:fixed;left:50%;top:404px;transform:translateX(-50%);"
+                   "width:min(92vw,440px);box-sizing:border-box;z-index:2147482000;"
+                   "flex-wrap:wrap;gap:6px 16px;align-items:center;justify-content:space-between;"
+                   "padding:12px 16px;border-radius:6px;border:2px solid transparent;"
+                   "background:linear-gradient(#2c3445,#2c3445) padding-box,"
+                   "linear-gradient(90deg,#b8860b,#f0a100,#b8860b) border-box;"
+                   "font-family:Open Sans,system-ui,sans-serif;font-size:14px;line-height:1.45;color:#e8ebf0")}
+      [:span#load-rescue-note]
+      [:a#load-rescue-link
+       {:style (str "color:#f0a100;font-weight:600;text-decoration:underline;white-space:nowrap;"
+                    "display:inline-flex;align-items:center;min-height:44px")}]]
+     (script-tag
+      {:nonce nonce}
+      (str "
+     (function () {
+       var el = document.getElementById('load-rescue');
+       var note = document.getElementById('load-rescue-note');
+       var link = document.getElementById('load-rescue-link');
+       if (!el || !note || !link) { return; }
+       var path = window.location.pathname.replace(/\\/+$/, '');
+       var charPath = " (cheshire/generate-string char-path) ";
+       var idAt = charPath.indexOf('ID');
+       var prefix = charPath.slice(0, idAt), suffix = charPath.slice(idAt + 2);
+       var builders = " (cheshire/generate-string builder-paths) ";
+       var target = null;
+       if (path.indexOf(prefix) === 0 && path.slice(path.length - suffix.length) === suffix) {
+         var id = path.slice(prefix.length, path.length - suffix.length);
+         if (/^\\d+$/.test(id)) {
+           target = ['This character didn\u2019t load.', 'Repair this character',
+                     " (cheshire/generate-string repair-path) ".replace('ID', id)];
+         }
+       } else if (builders.indexOf(path) !== -1) {
+         target = ['The builder didn\u2019t load.', 'Repair this draft', " (cheshire/generate-string draft-path) "];
+       }
+       if (!target) { return; }
+       setTimeout(function () {
+         if (window.orcpubBooted || !document.getElementById('load-rescue')) { return; }
+         note.textContent = target[0];
+         link.textContent = target[1];
+         link.href = target[2];
+         el.style.display = 'flex';
+       }, " load-rescue-delay-ms ");
+     })();
+    ")))))
 
 (defn index-page [{:keys [url
                           title
@@ -245,6 +310,7 @@ html {
     ;; It depends on nothing the app owns: server-rendered markup, inline styles (styles.css may
     ;; not have loaded), plain localStorage, and a vanilla anchor download, not FileSaver.
     (boot-rescue nonce)
+    (when-not splash? (load-rescue nonce))
     (include-css "/css/compiled/styles.css")
     ;; Every script tag carries the per-request nonce. It is nil in dev mode,
     ;; where no CSP header is set at all; enforcing otherwise.

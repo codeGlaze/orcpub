@@ -4829,13 +4829,11 @@
   [id]
   (routes/path-for routes/dnd-e5-char-data-page-route :id id))
 
-(defn data-view-link
-  "The quiet \"Data View\" link beside a character page's share line."
+(defn data-view-gear
+  "The muted gear that opens saved character `id` in Data View; for its owner only."
   [id]
-  [:a.orange.underline.f-s-14.m-l-5
-   {:href (data-view-path id)
-    :style {:display "inline-flex" :align-items "center" :min-height 44 :padding "0 8px"}}
-   "Data View"])
+  [:a.data-view-gear {:href (data-view-path id) :title "Data View" :aria-label "Data View"}
+   [:i.fa.fa-cog]])
 
 (defn character-load-recovery
   "Shown in place of the character sheet when the character's server data could
@@ -4946,10 +4944,10 @@
           [notifications/shared-content-banner id]
           [character-display id true (if (= :mobile device-type) 1 2)]]
          :frame? frame?
-         :subheader [:div.flex.align-items-c.flex-wrap
+         :subheader [:div.flex.align-items-c.justify-cont-s-b.w-100-p
                      [integrations/share-line id]
                      (when (and username owner (= owner username))
-                       [data-view-link id])]])))))
+                       [data-view-gear id])]])))))
 
 (defn monster-page [{:keys [key] :as arg}]
   (let [monster @(subscribe [::monsters/monster (keyword key)])]
@@ -10037,7 +10035,9 @@
       (when (= username owner)
         [:button.form-button.m-l-5
          {:on-click (make-event-handler ::char/show-delete-confirmation id)}
-         "delete"])]
+         "delete"])
+      (when (= username owner)
+        [:span.m-l-5 [data-view-gear id]])]
      (when @(subscribe [::char/delete-confirmation-shown? id])
        [:div.p-20.flex.justify-cont-end
         [:div

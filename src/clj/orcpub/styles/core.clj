@@ -2021,6 +2021,20 @@
     [:.share-action:disabled {:opacity 0.6 :cursor :default :text-decoration :none}]
     [:.share-action-danger {:color "#ef8592"}]
     [:.share-action-quiet {:color "rgba(255,255,255,0.7)"}]
+    ;; Data View: an icon-only gear, quieter than the actions beside it; 44px to tap.
+    [:.data-view-gear
+     {:display :inline-flex
+      :align-items :center
+      :justify-content :center
+      :width "44px"
+      :height "44px"
+      :flex-shrink 0
+      :border-radius "6px"
+      :font-size "18px"
+      :color "rgba(255,255,255,0.7)"
+      :vertical-align :middle}]
+    (at-media {:hover "hover"} [:.data-view-gear:hover {:color orange :background-color "rgba(255,255,255,0.06)"}])
+    [:.data-view-gear:focus-visible {:outline (str "2px solid " orange) :outline-offset "2px"}]
     (at-media xs-query [:.share-line {:column-gap "16px"}])
 
     [:.roll-button
@@ -2431,6 +2445,7 @@
      [:.share-action:focus-visible {:outline-color "#33658A"}]
      [:.share-action-danger {:color "#9a031e"}]
      [:.share-action-quiet {:color "#4a4a4a"}]
+     [:.data-view-gear {:color "#4a4a4a"}]
 
      [:.builder-option-dropdown
       (merge
