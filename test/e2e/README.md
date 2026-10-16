@@ -63,10 +63,10 @@ it cannot land there. `docs/kb/key-collision-behavior.md` is the map.
   nothing, and renaming a language carries the new name into the race that names it.
 - **`two-tabs.js`** — two tabs saving to the library: a stale tab's save is merged onto the other's,
   and the other tab picks it up without a reload.
-- **`quarantine-restore.js`** — restoring entries the loader set aside: the panel lists only what is
-  still set aside after each click, a restore whose write fails keeps what was typed, an empty
-  source is filled from the pack, the message says what came back and what each is now called, and
-  working keys are kept.
+- **`quarantine-restore.js`** — restoring entries the loader set aside: an entry with no source
+  loads under the source it sits in rather than being set aside, the panel lists only what is still
+  set aside after each click, a restore whose write fails keeps what was typed, the message says
+  what came back and what each is now called, and working keys are kept.
 - **`switches-keyboard.js`** — every on/off switch on My Content takes focus and toggles with Space
   or Enter, and the library records it.
 - **`move-homebrew-keeps-dependents.js`** — moving a class into a source that already has its key:
