@@ -58,6 +58,7 @@ Use these names, in this doc and in every session, so "row", "chip" and "details
 
 - **Player customisation of these colours** (owner, 2026-10-15): the chip's state colour and similar accents as a per-player preference, saved to the account (or the browser for signed-out players). Build the colours as theme tokens from the start, so a preference is one more layer over the theme rather than a rewrite. The theme registry on `port/redesign-on-refactor` already treats themes as data with tokens and a per-token policy ([frontend-redesign-parallel-work.md](frontend-redesign-parallel-work.md)); a preference would override tokens the policy marks choosable. Saved per account needs a stored field, so it carries the usual rules for user-facing keys.
 
+- **Two good options become a preference** (owner, 2026-10-16): when torn between two, ship a default and offer the other on the account; contrast numbers are guidance, not a veto. Candidates already: button text (white default, dark preference), damage-type dot or bar (by theme default), the dark-theme dice-tab colour if the moderators split.
 - **Button text colour as a preference:** white text default, dark text as a player preference. The app already has an opt-in `.app.dark-button-text` (dark theme only) in `styles/core.clj`, so this is surfacing it. Settings menus show live example elements beside each choice (owner, 2026-10-16).
 
 ## Rejected: do not bring back

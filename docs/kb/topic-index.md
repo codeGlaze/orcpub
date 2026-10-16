@@ -258,7 +258,7 @@ _ac-tests-and-modifier-order · ac tests and modifier order_
 
 _account-flows · account flows_
 
-**topics:** account, composition, corpus, credential, email, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, username, veto
+**topics:** account, composition, corpus, credential, disk, email, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, username
 
 - 1. The reason none of it had coverage
 - Traps inside the harness itself
@@ -3618,7 +3618,7 @@ _weapon-data-model · weapon data model_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, grey, headings, opened, owner, restrains, row, shield, study, versatile, weapon, white
+**topics:** 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, theme, versatile, weapon, white
 
 - The parts and their names
 - Agreed

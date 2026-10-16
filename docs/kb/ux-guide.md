@@ -177,3 +177,6 @@ Newest last. Date, ruling, and what it replaced.
 - 2026-10-16: unsaved drafts that are not offered (out of date, or offered once and ignored) are
   listed in an "Unsaved drafts (n) · Details" box both above the builder's options and on the
   character list, each with Open and Discard. Shown only when there are any.
+- 2026-10-16: when two good options both have fans (white or dark button text, damage-type dots or bars),
+  one is the default and the other is an account preference, rather than forcing a winner. Contrast
+  ratios are reported and weighed, not treated as rules. Settings show live examples of each choice.
