@@ -2533,6 +2533,25 @@
  character-interceptors
  delete-class)
 
+(defn make-starting-class
+  "Moves class `class-key` to the front, so it is the starting class, with its starting equipment;
+   picks that apply only to the starting class follow it through the hold (`queue-settle`).
+   `options-map`: class key to its template option."
+  [character [_ class-key options-map]]
+  (let [classes (vec (get-in character [::entity/options :class]))
+        moving (some #(when (= class-key (::entity/key %)) %) classes)
+        option (options-map class-key)]
+    (if (or (nil? moving) (= class-key (::entity/key (first classes))))
+      character
+      (cond-> (assoc-in character [::entity/options :class]
+                        (into [moving] (remove #(= class-key (::entity/key %))) classes))
+        option (char5e/use-class-starting-equipment option)))))
+
+(reg-event-db
+ ::char5e/make-starting-class
+ character-interceptors
+ make-starting-class)
+
 (reg-event-db
  :add-inventory-item
  character-interceptors

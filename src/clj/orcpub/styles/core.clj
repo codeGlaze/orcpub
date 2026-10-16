@@ -1319,6 +1319,28 @@
      :padding "13px 0"
      :margin "-13px 0"}
     [:i {:display :inline-block :margin-left "6px" :text-decoration :none}]]
+   ;; "1st" before each class row: lit on the starting class, faded on the others (a tap makes
+   ;; one first). A small mark with a 44px tap layer. docs/kb/ux-guide.md.
+   [:.class-first-badge
+    {:position :relative
+     :flex-shrink 0
+     :margin-right "8px"
+     :padding "2px 6px"
+     :border "1px solid rgba(255, 255, 255, 0.3)"
+     :border-radius "4px"
+     :background :none
+     :color "rgba(255, 255, 255, 0.45)"
+     :font-family :inherit
+     :font-size "13px"
+     :font-weight :bold
+     :line-height 1.2
+     :cursor :pointer}
+    [:&:after {:content "''" :position :absolute :inset "-12px -4px"}]
+    [:&.on {:color orange :border-color orange :cursor :default}]
+    [:&.blocked {:opacity 0.5}]]
+   [".app.light-theme .class-first-badge"
+    {:border-color "rgba(0, 0, 0, 0.3)" :color "rgba(0, 0, 0, 0.45)"}
+    [:&.on {:color accent-on-light :border-color accent-on-light}]]
    [:.planned-rows
     {:display :grid
      :grid-template-columns "max-content 1fr auto"

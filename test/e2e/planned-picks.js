@@ -11,9 +11,11 @@
 // 9 a rogue's skills through rogue -> wizard -> rogue; 10 the Planned marker on Champion 9's Fighting Style,
 // what tapping it says, and Clear; 11 the line under the class row for picks whose section is closed.
 // 12 the restore notice for picks that come back out of view, with Undo, Redo and its close mark.
+// 13 the "1st" badge: a rogue's starting-class skills follow the starting class, rogue -> fighter -> rogue.
 //
 // Runs against the seeded server (see hidden-pick-flows.js for the command). Prereqs: lein fig:build.
 // Run: NODE_PATH=<dir with playwright> node test/e2e/planned-picks.js     Exit 0 = pass.
+// FLOWS=13 (or 4,13) runs only those flows.
 //
 // State is set only by clicking, except flow 4, which writes the old-style draft it opens.
 // app-db and the browser's saved draft are READ to assert.
@@ -206,6 +208,32 @@ const flows = {
     check('back at 10 Archery does not return', `${await styles(page)}` === 'defense');
   },
 
+  async 13(page) {
+    await setClass(page, 0, 'rogue');
+    for (const sk of ['Acrobatics', 'Deception', 'Perception', 'Stealth']) await pick(page, 'Proficiencies', 'Skill Proficiency', sk, { parent: 'Rogue' });
+    await addClass(page, 'fighter');
+    await clickTab(page, 'Class / Level');
+    const classAt = i => dbAt(page, `[:character :orcpub.entity/options :class ${i} :orcpub.entity/key]`);
+    const rogueSkills = async () => {
+      const i = (await classAt(0)) === ':rogue' ? 0 : 1;
+      return [...(await dbAt(page, `[:character :orcpub.entity/options :class ${i} :orcpub.entity/options :skill-proficiency]`))
+        .matchAll(/:orcpub\.entity\/key :([\w-]+)/g)].map(m => m[1]).sort().join(',');
+    };
+    check('rogue first with four skills, a fighter second, each row marked "1st" or not',
+      (await rogueSkills()) === 'acrobatics,deception,perception,stealth' &&
+      (await page.locator('span.class-first-badge.on').count()) === 1 &&
+      (await page.locator('button.class-first-badge').count()) === 1);
+    await page.locator('button.class-first-badge').first().click();
+    await page.waitForTimeout(1500);
+    check('tapping the fighter\'s "1st" makes it the starting class', (await classAt(0)) === ':fighter');
+    check('the rogue\'s starting-class skills leave it', (await rogueSkills()) === '');
+    check('and its line says they wait on it', await visibleText(page, '4 planned if Rogue is your starting class'));
+    await page.locator('button.class-first-badge').first().click();
+    await page.waitForTimeout(1500);
+    check('tapping the rogue\'s "1st" puts it back first', (await classAt(0)) === ':rogue');
+    check('and its skills return', (await rogueSkills()) === 'acrobatics,deception,perception,stealth');
+  },
+
   async 12(page) {
     await setClass(page, 0, 'rogue');
     for (const sk of ['Acrobatics', 'Deception', 'Perception', 'Stealth']) await pick(page, 'Proficiencies', 'Skill Proficiency', sk, { parent: 'Rogue' });
@@ -259,7 +287,9 @@ const clickVisible = (page, text) => page.evaluate(t => {
 
 (async () => {
   const browser = await chromium.launch({ executablePath: findChrome() });
-  for (const n of Object.keys(flows)) {
+  // FLOWS=13,4 runs only those flows.
+  const only = process.env.FLOWS && process.env.FLOWS.split(',');
+  for (const n of Object.keys(flows).filter(k => !only || only.includes(k))) {
     console.log(`\n== flow ${n}`);
     const page = await login(browser);
     try { await flows[n](page); } catch (e) { check(`flow ${n} could be driven`, false, e.message.split('\n')[0]); }

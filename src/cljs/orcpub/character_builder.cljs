@@ -253,9 +253,27 @@
            [planned-toggle open? (planned-text/class-line held)]
            (when @open? [planned-panel held true])])))))
 
+(defn first-class-badge
+  "Before each class row when there are several: \"1st\" lit on the starting class; on another, a
+   tap makes it the starting class, or says why the current one can't become a second class."
+  [key class-name {first-name ::t/name :as first-option} options-map first? built-char]
+  (if first?
+    [:span.class-first-badge.on {:title (str class-name " is your starting class")} "1st"]
+    (let [blocked (seq (prereq-failures first-option built-char))]
+      [:button.class-first-badge
+       {:type "button"
+        :class (when blocked "blocked")
+        :aria-label (str "Make " class-name " your starting class")
+        :on-click #(dispatch
+                    (if blocked
+                      [:show-message (str first-name " can't become a second class: "
+                                          (s/join ", " blocked) ".") 6000]
+                      [::char5e/make-starting-class key options-map]))}
+       "1st"])))
+
 (defn class-level-selector []
   (let [expanded? (r/atom false)]
-    (fn [i key selected-class options unselected-classes-set built-char]
+    (fn [i key selected-class options unselected-classes-set built-char & [first-option]]
       (let [options-map (make-options-map options)
             class-template-option (options-map key)
             path [:class-levels key]
@@ -263,6 +281,9 @@
         [:div.m-b-5
          {:class (when @expanded? "b-1 b-rad-5 p-5")}
          [:div.flex.align-items-c
+          (when first-option
+            [first-class-badge key (::t/name class-template-option) first-option options-map
+             (zero? i) built-char])
           [:select.builder-option.builder-option-dropdown.flex-grow-1.m-t-0
            {:value key
             :on-change (set-class i options-map)}
@@ -353,7 +374,9 @@
        (map-indexed
         (fn [i [key selected-class]]
           ^{:key key}
-          [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set built-char])
+          [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set built-char
+           (when (> (count selected-classes) 1)
+             (some #(when (= (ffirst selected-classes) (::t/key %)) %) options))])
         selected-classes))]
      (when (seq remaining-classes)
        [:div.orange.p-5.underline.pointer

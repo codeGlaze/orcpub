@@ -74,6 +74,31 @@
   (let [[d settle?] (queued db-before db-after event)]
     (if settle? (events/settle-picks-db d) d)))
 
+(defn- class-entry [k & [options]]
+  {::entity/key k ::entity/options (merge {:levels [{::entity/key :level-1}]} options)})
+
+(deftest making-another-class-the-starting-class-moves-its-first-class-picks
+  (let [skills #{:acrobatics :deception :perception :stealth}
+        start (db (assoc-in (ranger 1) [::entity/options :class]
+                            [(class-entry :rogue {:skill-proficiency
+                                                  (mapv #(hash-map ::entity/key %) (sort skills))})
+                             (class-entry :ranger)]))
+        swap (fn [d k] (edit d (update d :character events/make-starting-class
+                                       [::char5e/make-starting-class k {}])
+                             ::char5e/make-starting-class))
+        rogue-skills (fn [d] (->> (get-in d [:character ::entity/options :class])
+                                  (some #(when (= :rogue (::entity/key %)) %))
+                                  ::entity/options :skill-proficiency (map ::entity/key) set))
+        ranger-first (swap start :ranger)
+        rogue-first (swap ranger-first :rogue)]
+    (is (= [:ranger :rogue] (map ::entity/key (get-in ranger-first [:character ::entity/options :class]))))
+    (is (empty? (rogue-skills ranger-first)) "the Rogue's starting-class skills leave it")
+    (is (= 4 (count (:orcpub.dnd.e5/planned-picks ranger-first))) "and are held")
+    (is (= skills (rogue-skills rogue-first)) "made the starting class again, they return")
+    (is (= start (update start :character events/make-starting-class
+                         [::char5e/make-starting-class :rogue {}]))
+        "the starting class already first: nothing changes")))
+
 (deftest a-level-drop-holds-the-pick-and-raising-it-returns-it
   (let [at-6 (edit (db (ranger 7)) (db (ranger 6)) :some-edit)
         at-7 (edit at-6 (assoc at-6 :character
