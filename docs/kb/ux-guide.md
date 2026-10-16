@@ -180,3 +180,8 @@ Newest last. Date, ruling, and what it replaced.
 - 2026-10-16: when two good options both have fans (white or dark button text, damage-type dots or bars),
   one is the default and the other is an account preference, rather than forcing a winner. Contrast
   ratios are reported and weighed, not treated as rules. Settings show live examples of each choice.
+- 2026-10-16: a builder Save the server refuses because the character was saved elsewhere since it
+  was opened says "Saved somewhere else since you opened it · Details · Save mine · Use saved".
+  Details lists each field that differs, here and saved. Save mine saves over the other; Use saved
+  loads it and keeps the builder's version in Unsaved drafts. Chosen over the two choices alone:
+  the player sees what they would overwrite. Review page claude.ai/artifact/C5pLwAPXYHnmpfkrsHeNuW.

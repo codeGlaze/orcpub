@@ -98,5 +98,7 @@ Two more checks the build must pass, for the bug itself and the move:
 - Where to build, and who: it needs `stored-shape` from #64, so either a branch stacked on
   `feature/portrait-builder` (as #65 is) or one cut from `integration` after #64 merges. The rescue
   session owns Data View and item 9.
-- R8's amendment: never-saved drafts do not expire.
+- ~~R8's amendment: never-saved drafts do not expire.~~ Built as proposed so the owner can see it in
+  use (2026-10-16). **Re-review on or after 2026-11-16:** is 30 days right for saved characters'
+  leftovers, and should never-saved drafts stay forever?
 - ~~The drafts list: where it lives.~~ Both above the builder's options and on the character list (owner, 2026-10-16).

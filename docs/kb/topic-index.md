@@ -874,7 +874,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, loads, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -2665,7 +2665,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** 2026-10-16, draft, drafts, edit, elsewhere, expire, expires, leftover, never-saved, notice, owner, rescue, restore, saved, start-up, tab, undo, unsaved
+**topics:** 2026-10-16, days, draft, drafts, edit, expire, expires, leftover, never-saved, notice, owner, rescue, restore, saved, start-up, tab, undo, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)
@@ -3542,7 +3542,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** assets, box, details, notice, phone, planned, player, png, redo, replaced, restored, row, steel, tap, undo, undone, ux-guide, width
+**topics:** 2026-10-16, assets, box, details, notice, phone, planned, player, png, redo, replaced, restored, row, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
