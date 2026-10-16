@@ -411,6 +411,19 @@ with this proposal rather than with the hold.
 
 ## Also open, smaller
 
+☐ Selection ordering, unverified leads (2026-10-16; owner: "weird backward ordering, mostly
+selections from the selection builder"). `compare-selections` (`character_builder.cljs`, used by
+the sorted set that orders the options column) compares `[order name path]` vectors with `<`,
+which in ClojureScript compares their printed text: order 10 would sort before 2, and names
+compare as raw text. Separately, `make-level-selections` (`spell_subs.cljs`) `conj`s onto a list,
+so a level's selections come out in reverse of their authored order; `combine-selections` sorts by
+order and name afterwards, so that may never show. Confirm each in a real builder with
+selection-builder content before changing anything.
+☐ `subclass-option`'s spell selections were gated `(>= lvl total-levels)`, the reverse of level
+gates; PR #67 (`4fe69562`) made it `total-levels-prereq`. Nothing reaches that code: only a
+subclass whose `:spellcasting` carries its own `:spells-known` table, which neither SRD content
+nor the subclass builder writes (it stores `:level-factor`). A hand-edited pack could; whether
+picks made there even save is unverified.
 ☐ Two e2e scripts fail on `integration` as it stands (`b8035afe`, 2026-10-15), the same checks on
 every run: `library-repairs.js` (1/4: the repair panel never offers the renamed race "Hill Folk",
 so its Fix button never appears) and `quarantine-restore.js` (7/12: the loader does not set aside
