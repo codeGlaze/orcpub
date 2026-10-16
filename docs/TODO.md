@@ -362,7 +362,7 @@ promoted here 2026-10-15 so they are not stranded on a branch.
 ### Paper sizes — A4 and A5
 
 The owner wants A5 at minimum, ideally A4. ISO 216: A4 is 210x297mm (595x842pt), A5 is
-148x210mm (420x595pt) and exactly half an A4. US Letter is 216x279mm (612x792pt), so A4 is
+148x210mm (419.53x595.28pt). US Letter is 216x279mm (612x792pt), so A4 is
 6mm narrower and 18mm taller — a Letter-designed page on A4 scales down or clips.
 
 **Measured 2026-10-15:** all 8 fillable character-sheet templates in `resources/` are

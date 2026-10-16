@@ -41,9 +41,17 @@ headings, the spell numerals, the annotation columns. Without this, steps 3 and 
 Acceptance: perturb `draw-text`'s y by 0.003in and the new baseline reddens; revert and it is green.
 A test that cannot fail does not pin anything.
 
-### Step 2 — delete the escape hatch (D1)
+### Step 2 — the page becomes a binding (D1)
 
-- Drop `pt-from-top`'s 2-arity form. A missing page becomes a compile error, not a silent Letter.
+**Revised 2026-10-16 while building it.** This step first read "drop `pt-from-top`'s 2-arity
+form, so a missing page is a compile error". That contradicts the dynamic-var choice three
+paragraphs below it: forcing every caller to pass a page explicitly IS the 66-call-site option
+this plan rejects. The 2-arity form stays and reads the var. The guard against a decorative fix
+is not a compile error, it is a test that binds a non-Letter page and asserts the output MOVES --
+`page_size_test.clj`. Nothing like it existed, which is why the first attempt passed as done.
+
+- `default-page`, a constant, becomes `^:dynamic *page*` with root `:letter`; `pt-from-top`'s
+  2-arity reads it.
 - `draw-grid`'s hardcoded `8.5`/`8.5`/`11.0` and `draw-svg-icon!`'s `(- 11 y size)` read the page.
 - Add a `page-height`/`page-width` accessor in the caller's unit, for the 5 card sites that ask
   "how tall is the page" rather than flipping (`remaining-height`, `margin-y`, two footer offsets).
@@ -55,8 +63,19 @@ alternative — an extra parameter on every primitive — changes 66 call sites 
 that must forward it, and `print-items` already takes 11 positional parameters.
 
 Risk accepted and written down: if anyone later moves PDF generation onto a worker thread or a
-`future`, the binding is lost and the page silently reverts to Letter. Mitigation is a test that
-asserts the var is bound at the drawing primitives, not merely at the entry point.
+`future`, the binding is lost and the page silently reverts to Letter.
+
+**A second trap, found by measuring rather than by reasoning.** A binding does not reach a
+load-time constant derived from the page. `spellbook.clj` had `page-w` and `page-h` as top-level
+`def`s evaluated at namespace load, plus `body-bottom` derived from `page-h` — so binding `:a4`
+would have moved the cards and silently left the spellbook on Letter. Scanned all four
+namespaces: three instances, all in the spellbook, none in `cards.clj`, `pdf.clj` or `draw.clj`,
+whose page literals sit inside function bodies. All three are now fns, commented as to why.
+
+Also corrected: `page-sizes` carried A4 as 595.0x842.0 and A5 as 420.0x595.0, rounded by an
+earlier pass in this session. ISO 216 is **595.28x841.89** and **419.53x595.28**. 842 is a 0.11pt
+error, and it is the kind of number that becomes load-bearing. The test asserts the exact values,
+and that A5's width is half A4's height.
 
 ### Step 3 — y-from-top entries on the primitives (D2)
 
@@ -93,9 +112,14 @@ is MISSING, not duplication to delete.
 
 ### Step 5 — actually offer the sizes
 
-Thread a page choice from the export request to the binding. A5 is exactly half an A4, so 2-up A5
-on A4 is the analogue of 9-up 2.5x3.5 on Letter, and `draw-grid` already computes a grid from box
-dimensions and page dimensions — it just has the page dimensions as literals.
+Thread a page choice from the export request to the binding. `draw-grid` already computes a grid
+from box and page dimensions, so a 2-up A5 grid on A4 is the same call with a different binding.
+
+**Corrected 2026-10-16:** this plan, the family doc and the TODO all said "A5 is exactly half an
+A4". It is not, and `page_size_test` caught it. ISO 216 halves the previous size and rounds DOWN
+to a whole millimetre: half of A4's 297mm is 148.5, but A5 is 148. So half an A4's height is
+420.94pt against A5's 419.53pt width — a 1.42pt (0.5mm) sliver. Harmless to print, wrong to
+assert, and the sort of number that becomes load-bearing once something divides by it.
 
 ## Not in this plan
 

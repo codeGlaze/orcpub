@@ -412,8 +412,7 @@ Standing after this revision:
 
 ### Why page size makes this concrete rather than cosmetic
 
-The owner wants A5 at minimum, ideally A4 (ISO 216: A4 595x842pt, A5 420x595pt and exactly half
-an A4; Letter 612x792pt).
+The owner wants A5 at minimum, ideally A4 (ISO 216: A4 595.28x841.89pt, A5 419.53x595.28pt; Letter 612x792pt).
 
 Measured 2026-10-15: all 8 `resources/fillable-char-sheetstyle-*.pdf` are 612x792pt. The artwork
 is fixed and we only fill fields, so **an A4 character sheet is an artwork task, not a code one.**
