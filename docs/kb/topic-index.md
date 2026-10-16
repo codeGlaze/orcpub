@@ -3593,7 +3593,7 @@ _weapon-data-model · weapon data model_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, 2px, 390px, agreed, amber, blue, button, buttons, cell, chip, damage, headings, restrains, row, two-handed, versatile, white
+**topics:** 1d10, 2026-10-15, 2px, 390px, agreed, amber, blue, button, buttons, chip, damage, headings, pill, restrains, row, two-handed, versatile, white
 
 - Agreed
 - Open
