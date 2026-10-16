@@ -248,7 +248,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _ac-tests-and-modifier-order · ac tests and modifier order_
 
-**topics:** 2026-10-06, archmagi, bonus, bracers, calculation, codeglaze, competing, higher, ignoring, listed, lizardfolk, modifiers, order, ring, robe, shield, tortle, worn
+**topics:** 2026-10-06, archmagi, bonus, bracers, calculation, codeglaze, competing, higher, ignoring, lizardfolk, modifiers, order, ring, robe, shield, sorts, tortle, worn
 
 - What it looked like
 - Why it is not a bug
@@ -662,7 +662,7 @@ _character-heals · character heals_
 
 _character-image-routes · character image routes_
 
-**topics:** 393, acao, advice, bearing, browser, clipboard, cross-origin, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
+**topics:** 393, acao, advice, bearing, browser, bytes, clipboard, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
 
 - The rule that decides everything
 - Measured, with real URLs
@@ -1002,7 +1002,7 @@ _custom-content-lifecycle · custom content lifecycle_
 
 _data-safety-layers · data safety layers_
 
-**topics:** defensive, fan-out, garbage, guessing, hand-edited, harden, heal, healing, junk, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface
+**topics:** defensive, fan-out, garbage, hand-edited, harden, heal, healing, invariant, junk, malformed, meaningful, prevent, reintroduce, repair, robust, self-healing, skip, surface
 
 - The four layers (preference order)
 - The rule that picks between them
@@ -1132,7 +1132,7 @@ _declarative-grant-vocabulary · declarative grant vocabulary_
 
 _demo-content-tier · demo content tier_
 
-**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, golden, graduation, pack, per-device, recipe, tier, variant, viable
+**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, golden, graduation, pack, recipe, tier, variant, viable
 
 - Goal
 - Builds on the current content model
@@ -1321,7 +1321,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, ledger, linked, narrative, operator, plan, session, topic, unindexed
+**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, email, generator, history, ledger, narrative, operator, plan, session, topic, unindexed
 
 - What earns a doc
 - Verify, don't remember
@@ -1452,7 +1452,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, added, datomic, dmv, echoing, email, emails, endpoint, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, added, datomic, dmv, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -2375,7 +2375,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _orcbrew-level-modifiers · orcbrew level modifiers_
 
-**topics:** 120, arrive, audits, consumed, driven, editor, grant, integer, keyword, level-modifier, presence, race, races, racial, subclass, subclasses, trait, warden
+**topics:** 120, arrive, audits, consumed, driven, editor, grant, integer, keyword, level, level-modifier, presence, race, races, subclass, subclasses, trait, warden
 
 - Nothing validates the shape of a brew
 - Two grant vocabularies, with different shapes
@@ -3263,7 +3263,7 @@ _srd-2024-coverage · srd 2024 coverage_
 
 _srd-2024-implementation-notes · srd 2024 implementation notes_
 
-**topics:** 2014, 2024, 339, damage, dial, edition, editions, exhaustion, expressed, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
+**topics:** 2014, 2024, 339, damage, dial, edition, editions, exhaustion, feat, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
 
 - The structural shifts, measured
 - 1. Subraces became lineages
@@ -3328,7 +3328,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-data-consumers · srd data consumers_
 
-**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, load-time, lower-cases, magic, monsters, re-check, spell, srd-2024-roadmap, sub
+**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, load-time, lower-cases, magic, mechanics, monsters, spell, srd-2024-roadmap, sub
 
 - The two facts that shape any move
 - Per type
@@ -3542,7 +3542,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** amber, assets, box, details, notice, phone, planned, player, png, replaced, restored, row, steel, tap, undo, undone, ux-guide, width
+**topics:** assets, box, details, notice, phone, planned, player, png, redo, replaced, restored, row, steel, tap, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
@@ -3614,11 +3614,24 @@ _weapon-data-model · weapon data model_
 - Invariants, verified against the data
 - Authoring against these
 
+## weapons-extra-damage-design.md
+
+_weapons-extra-damage-design · weapons extra damage design_
+
+**topics:** bars, charges, chip, colour, crit, damage, dot, dots, extra, menu, on-hit, parts, roll, strip, switches, tile, vicious, white
+
+- Decisions
+- Damage-type palette
+- Suggested data model
+- Not designed yet; ask the user before building
+- Trial checklist
+- Review (2026-10-16)
+
 ## weapons-extra-damage-handoff.md
 
 _weapons-extra-damage-handoff · weapons extra damage handoff_
 
-**topics:** 1d8, 2d6, ablaze, blade, colour, damage, deals, extra, frost, radiant, roll, strip, sun, thunder, tile, tongue, undead, weapons-table-spec
+**topics:** 1d8, 2d6, 390px, ablaze, blade, colour, damage, dark, deals, extra, frost, radiant, roll, strip, sun, tile, type, undead
 
 - The problem
 - The five cases, from SRD 5.1 (text checked)
