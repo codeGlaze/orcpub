@@ -9,10 +9,10 @@
             [orcpub.dnd.e5.spell-print :as sp]
             [orcpub.pdf.draw :as draw]))
 
-;; UNITS: inches, y from the page TOP. draw/draw-text takes y from the BOTTOM, so
-;; every text call flips by hand: `(- 11.0 y 0.08)`. All 31 such flips in the family are
-;; now in this file -- pdf.clj has none. The 11 is the page height; draw/pt-from-top is
-;; the parameterised form, and these 31 are what A4 and A5 cards wait on.
+;; UNITS: inches, y from the page TOP. draw/draw-text takes y from the BOTTOM, so every
+;; text call converts through draw/in-from-top. Page extents come from draw/page-width and
+;; draw/page-height. Nothing here names a page size, so the whole file follows
+;; draw/*page*.
 
 (defn- draw-spell-field
   "One icon-and-value field on a spell card (casting time, range, duration,
@@ -23,7 +23,7 @@
   ;; The label overprints the icon; this is the one choke point for all four
   ;; per-spell icons. Colour: icon-red icon, black text. B&W solid: black icon,
   ;; WHITE-HALO text. B&W faded: black icon at 40%, black text. One SVG serves all.
-  (let [iy (- 11 y 0.12)
+  (let [iy (draw/in-from-top (+ y 0.12))
         [color alpha] (cond (and bw? bw-faded?) [[0 0 0] 0.4]
                             bw?                 [[0 0 0] 1.0]
                             :else               [(vec (take 3 draw/icon-red)) (last draw/icon-red)])]
@@ -55,7 +55,7 @@
                font
                draw/site-stamp-size
                (+ x (/ (- box-width width) 2))
-               (- 11.0 y (- box-height 0.16))
+               (draw/in-from-top (+ y (- box-height 0.16)))
                [0.45 0.45 0.45])))
 
 (defn print-backs
@@ -63,30 +63,26 @@
    `remaining-lines-vec` is indexed by the card position `print-spells` used, each
    entry `{:remaining-lines :spell-name}` from that call; a card with no overflow
    gets only its name and the site stamp. `logo-img` opts a card into the logo.
-   Inches. See the `draw-grid` call below for a latent sizing bug."
+   Inches."
   [cs fonts img box-width box-height remaining-lines-vec page-number logo-img]
   ;; `img` is the memoized per-document image loader; `logo?` opts each card back
   ;; into showing the card logo (matching the fronts) for double-sided printing.
   ;; When logo? is false NO images are loaded here — the old code decoded+embedded
   ;; the logo/rotation PNGs every page and never drew them (pure waste).
-  (let [num-boxes-x (int (/ 8.5 box-width))
-        num-boxes-y (int (/ 11.0 box-height))
+  (let [num-boxes-x (int (/ (draw/page-width 72) box-width))
+        num-boxes-y (int (/ (draw/page-height 72) box-height))
         total-height (* num-boxes-y box-height)
-        remaining-width (- 8.5 (* num-boxes-x box-width))
+        remaining-width (- (draw/page-width 72) (* num-boxes-x box-width))
         margin-x (/ remaining-width 2)
-        remaining-height (- 11.0 total-height)
+        remaining-height (- (draw/page-height 72) total-height)
         margin-y (/ remaining-height 2)]
-    ;; BUG: box-width/box-height size the cells and the text boxes, but the gridlines
-    ;; come from these literals. Latent -- every caller passes 2.5/3.5 -- but any other
-    ;; box size draws the lines in the wrong places. Same in print-spells; print-items
-    ;; threads its arguments through correctly.
-    (draw/draw-grid cs 2.5 3.5)
+    (draw/draw-grid cs box-width box-height)
     (draw/draw-text cs
                (str "Page " (inc page-number) " (reverse)")
                (:italic fonts)
                8
                0.12
-               (- 11 0.15))
+               (draw/in-from-top 0.15))
     (doall
      (for [i (range num-boxes-x)
            j (range num-boxes-y)]
@@ -102,7 +98,7 @@
                                (:bold fonts)
                                10
                                (+ x 0.12)
-                               (- 11.0 y 0.08)
+                               (draw/in-from-top (+ y 0.08))
                                (- box-width 0.3)
                                0.25)
              ;; The card's own box, less the strip the stamp sits in:
@@ -113,14 +109,14 @@
                                (:plain fonts)
                                8
                                (+ x 0.12)
-                               (- 11.0 y 0.24)
+                               (draw/in-from-top (+ y 0.24))
                                (- box-height 0.2 site-stamp-strip))
              (draw/draw-text-to-box cs
                                "(reverse)"
                                (:italic fonts)
                                10
                                (+ x 0.15 (draw/string-width spell-name (:bold fonts) 10))
-                               (- 11.0 y 0.08)
+                               (draw/in-from-top (+ y 0.08))
                                (- box-width 0.3)
                                (- box-height 0.2)))
            ;; Blank back: a large, CENTERED logo (~80% of the card). logo-img is the
@@ -145,22 +141,21 @@
    `print-spell-card-dc-mod?` prints save DC and attack bonus; `bw?`/`bw-faded?`
    select the printer-friendly renderings. Inches."
   [cs document fonts img box-width box-height spells page-number print-spell-card-dc-mod? bw? bw-faded?]
-  (let [num-boxes-x (int (/ 8.5 box-width))
-        num-boxes-y (int (/ 11.0 box-height))
+  (let [num-boxes-x (int (/ (draw/page-width 72) box-width))
+        num-boxes-y (int (/ (draw/page-height 72) box-height))
         total-width (* num-boxes-x box-width)
         total-height (* num-boxes-y box-height)
-        remaining-width (- 8.5 total-width)
+        remaining-width (- (draw/page-width 72) total-width)
         margin-x (/ remaining-width 2)
-        remaining-height (- 11.0 total-height)
+        remaining-height (- (draw/page-height 72) total-height)
         margin-y (/ remaining-height 2)]
-    ;; BUG: as in print-backs -- the gridlines ignore box-width/box-height.
-    (draw/draw-grid cs 2.5 3.5)
+    (draw/draw-grid cs box-width box-height)
         (draw/draw-text cs
                    (str "Page " (inc page-number))
                    (:italic fonts)
                    8
                    0.12
-                   (- 11 0.15))
+                   (draw/in-from-top 0.15))
         (doall
          (for [j (range num-boxes-y)
                i (range (dec num-boxes-x) -1 -1)
@@ -197,7 +192,7 @@
                                      (:plain fonts)
                                      8
                                      (+ x 0.12) ; from the left
-                                     (- 11.0 y 1.08) ;from the top down
+                                     (draw/in-from-top (+ y 1.08))
                                      (- box-width 0.24)
                                      (- box-height 1.13))]
                (when (:material-component components)
@@ -206,7 +201,7 @@
                                    (:italic fonts)
                                    8
                                    (+ x 0.12)
-                                   (- 11.0 y 0.55)
+                                   (draw/in-from-top (+ y 0.55))
                                    (- box-width 0.24)
                                    0.5))
                (let [card-logo (img (str "public/image/card-logo" (when bw? "-bw") ".png"))]
@@ -218,7 +213,7 @@
                                  (:bold fonts)
                                  10
                                  (+ x 0.12)
-                                 (- 11.0 y)
+                                 (draw/in-from-top y)
                                  (- box-width 0.3)
                                  0.2)
                (draw/draw-text-to-box cs
@@ -226,7 +221,7 @@
                                  (:italic fonts)
                                  10
                                  (+ x 0.12 (draw/string-width spell-name (:bold fonts) 10))
-                                 (- 11.0 y)
+                                 (draw/in-from-top y)
                                  (- box-width 0.3)
                                  0.2)
                (draw/draw-text-to-box cs
@@ -236,7 +231,7 @@
                                  (:italic fonts)
                                  8
                                  (+ x 0.12)
-                                 (- 11.0 y 0.19)
+                                 (draw/in-from-top (+ y 0.19))
                                  (- box-width 0.24)
                                  0.25)
                (when casting-time
@@ -249,7 +244,7 @@
                                            casting-time
                                            #","))))
                                    (+ x 0.12)
-                                   (- 11.0 y 0.45)
+                                   (draw/in-from-top (+ y 0.45))
                                    bw? bw-faded?))
                (when range
                  (draw-spell-field cs
@@ -257,7 +252,7 @@
                                    "arrow-dunk"
                                    (sp/abbreviate-range range)
                                    (+ x 0.62)
-                                   (- 11.0 y 0.45)
+                                   (draw/in-from-top (+ y 0.45))
                                    bw? bw-faded?))
                (draw-spell-field cs
                                  img
@@ -274,7 +269,7 @@
                                      :somatic "S"
                                      :material "M"})))
                                  (+ x 1.12)
-                                 (- 11.0 y 0.45)
+                                 (draw/in-from-top (+ y 0.45))
                                  bw? bw-faded?)
                (when duration
                  (draw-spell-field cs
@@ -282,7 +277,7 @@
                                    "sands-of-time"
                                    (sp/abbreviate-duration duration)
                                    (+ x 1.62)
-                                   (- 11.0 y 0.45)
+                                   (draw/in-from-top (+ y 0.45))
                                    bw? bw-faded?))
                (when (seq remaining-desc-lines)
                  (draw/draw-svg-icon! cs img "clockwise-rotation" (+ x 2.3) (+ y 3.3) 0.15
@@ -295,7 +290,7 @@
    PDF page units. Card coordinates run downward from the page top, page units run
    up from the page bottom."
   [x y dx dy]
-  [(float (* 72 (+ x dx))) (float (* 72 (- 11 (+ y dy))))])
+  [(float (* 72 (+ x dx))) (draw/in->pt (draw/in-from-top (+ y dy)))])
 
 (defn- card-mapper
   "`draw/path!`'s `pt` for the card at (x, y): card-relative inches to page units."
@@ -577,7 +572,7 @@
                true)
     (draw-centred-text! cs "A" draw/HELVETICA_BOLD 7
                         (+ x left (/ bw 2))
-                        (- 11 y dy bh -0.036))
+                        (draw/in-from-top (+ y dy bh -0.036)))
     (.setLineWidth cs (float 1))))
 
 (defn- draw-centred-lines!
@@ -620,7 +615,7 @@
     (let [r 0.052
           gap 0.145
           cx (- (/ w 2) (/ (* gap (dec n)) 2))]
-      (draw-centred-text! cs "CHARGES" draw/HELVETICA 5.5 (+ x (/ w 2)) (- 11 y label-y))
+      (draw-centred-text! cs "CHARGES" draw/HELVETICA 5.5 (+ x (/ w 2)) (draw/in-from-top (+ y label-y)))
       (doseq [i (range n)]
         (circle! cs x y (+ cx (* gap i)) cy r)))
     ;; The rule and the total are centred as one group, not the rule alone: the
@@ -630,9 +625,9 @@
           gap 0.05
           group (+ rule-w gap (draw/string-width total draw/HELVETICA 7))
           left (- (/ w 2) (/ group 2))]
-      (draw-centred-text! cs "CHARGES" draw/HELVETICA 5.5 (+ x (/ w 2)) (- 11 y label-y))
+      (draw-centred-text! cs "CHARGES" draw/HELVETICA 5.5 (+ x (/ w 2)) (draw/in-from-top (+ y label-y)))
       (polyline! cs x y [[left cy] [(+ left rule-w) cy]] false)
-      (draw/draw-text cs total draw/HELVETICA 7 (+ x left rule-w gap) (- 11 y cy -0.015))))
+      (draw/draw-text cs total draw/HELVETICA 7 (+ x left rule-w gap) (draw/in-from-top (+ y cy -0.015)))))
   (.setLineWidth cs (float 1)))
 
 (defn print-items
@@ -650,12 +645,12 @@
          :or {flourish :diamonds name-size 13 name-tracking 0.15}} opts
         name-face (fn [fs] (let [f (:name-face opts :bold)]
                              (if (keyword? f) (get fs f) f)))
-        num-boxes-x (int (/ 8.5 box-width))
-        num-boxes-y (int (/ 11.0 box-height))
-        margin-x (/ (- 8.5 (* num-boxes-x box-width)) 2)
-        margin-y (/ (- 11.0 (* num-boxes-y box-height)) 2)]
+        num-boxes-x (int (/ (draw/page-width 72) box-width))
+        num-boxes-y (int (/ (draw/page-height 72) box-height))
+        margin-x (/ (- (draw/page-width 72) (* num-boxes-x box-width)) 2)
+        margin-y (/ (- (draw/page-height 72) (* num-boxes-y box-height)) 2)]
     (draw/draw-grid cs box-width box-height)
-    (draw/draw-text cs (str "Page " (inc page-number)) (:italic fonts) 8 0.12 (- 11 0.15))
+    (draw/draw-text cs (str "Page " (inc page-number)) (:italic fonts) 8 0.12 (draw/in-from-top 0.15))
     (doall
      (for [j (range num-boxes-y)
            i (range (dec num-boxes-x) -1 -1)
@@ -713,11 +708,11 @@
                        (:name-three-line down))]
              (.setCharacterSpacing cs (float name-tracking))
              (draw/draw-text-to-box cs item-name face size
-                               (+ x 0.28) (- 11.0 y top) width (:name-height down))
+                               (+ x 0.28) (draw/in-from-top (+ y top)) width (:name-height down))
              (.setCharacterSpacing cs (float 0)))
            ;; The subtitle stops short of the badge so the two never meet.
            (draw/draw-text-to-box cs (magic-item-subtitle item) (:italic fonts) 7.5
-                             (+ x 0.2) (- 11.0 y (:subtitle down))
+                             (+ x 0.2) (draw/in-from-top (+ y (:subtitle down)))
                              (- box-width (if clause 0.68 0.4)) 0.2)
            ;; A rule and a hairline under it: the header carries two kinds of
            ;; information, so it closes with more than the body's plain divisions.
@@ -733,14 +728,14 @@
              (.setLineWidth cs (float 1)))
            (let [remaining-desc-lines
                  (draw/draw-lines-to-box cs body-lines (:plain fonts) 8
-                                    (+ x 0.2) (- 11.0 y body-top)
+                                    (+ x 0.2) (draw/in-from-top (+ y body-top))
                                     (- box-height body-top body-bottom))]
              ;; Centred, like the ornament under it and the note above it. Flush
              ;; left it was the only thing at the foot on its own axis.
              (when clause
                (draw-centred-lines! cs clause (:italic fonts) 6.8
                                     (+ x (/ box-width 2))
-                                    (- 11.0 y (- box-height (:clause up)))
+                                    (draw/in-from-top (+ y (- box-height (:clause up))))
                                     (- box-width 0.4) 2))
              ;; A phrase rather than the recharge icon. At the bottom right the
              ;; icon sat on the corner diamond and its arms, every other spot down
@@ -749,7 +744,7 @@
              (when (seq remaining-desc-lines)
                (draw-centred-text! cs "continued on the back" (:italic fonts) 6.2
                                    (+ x (/ box-width 2))
-                                   (- 11 y (- box-height
-                                              (if clause (:continued up) (:continued-bare up))))))
+                                   (draw/in-from-top (+ y (- box-height
+                                                           (if clause (:continued up) (:continued-bare up)))))))
              {:remaining-lines remaining-desc-lines
               :spell-name item-name}))))))))
