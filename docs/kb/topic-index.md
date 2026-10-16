@@ -1713,7 +1713,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, csp, external, font, fonts, greek, hebrew, hosts, latin, latin-ext, licensed, ofl, re-add, redistribution, sandboxed, sans, subset, subsets
+**topics:** 118, csp, external, fonts, greek, hebrew, hosts, latin, latin-ext, licensed, ofl, re-add, redistribution, sandboxed, sans, sil, subset, subsets
 
 - Why
 - What is checked in
@@ -2190,7 +2190,7 @@ _lifting-mechanics-from-prose · lifting mechanics from prose_
 
 _locale-safety · locale safety_
 
-**topics:** 7231, awesome, case-folding, dotless, english, english-locale, etag, locale, locale-independent, machine, pedestal-csp-history, protocol, regional, rfc, spanish, turkish, webjar, windows
+**topics:** 7231, case-folding, dotless, english, english-locale, etag, locale, locale-independent, machine, pedestal-csp-history, protocol, regional, rfc, router, spanish, turkish, webjar, windows
 
 - 1. The ETag crash
 - Why only /assets/
@@ -3047,7 +3047,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, roll, sheet, static, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifier, modifiers, play-state, player, positioning, recomputes, roll, sheet, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -3203,7 +3203,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, conditions, counterpart, editions, gear, magic, monsters, open5e, species, srd, text, weapons
+**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, conditions, counterpart, editions, magic, monsters, open5e, species, srd, text, weapons, word
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -3499,7 +3499,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** amber, assets, auto-fills, box, details, notice, phone, picks, planned, player, png, replaced, restored, steel, undo, undone, ux-guide, width
+**topics:** amber, assets, box, details, notice, phone, planned, player, png, replaced, restored, row, steel, tap, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
@@ -3575,7 +3575,7 @@ _weapon-data-model · weapon data model_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, 390px, agreed, amber, button, buttons, cell, chip, columns, damage, equipment-parity, grey, headings, restrains, row, two-handed, versatile
+**topics:** 1d10, 2026-10-15, 390px, agreed, amber, buttons, cell, chip, columns, damage, equipment-parity, grey, headings, restrains, row, two-handed, versatile, white
 
 - Agreed
 - Open

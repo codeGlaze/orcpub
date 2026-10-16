@@ -83,7 +83,7 @@ function rebuild([variant, on, outline]) {
     tds[0].innerHTML = '';
     tds[0].appendChild(document.createTextNode(name));
     const meta = document.createElement('div');
-    meta.setAttribute('style', 'opacity:.75; font-size:13px; font-weight:400');
+    meta.setAttribute('style', 'color:rgba(255,255,255,0.75); font-size:13px; font-weight:400');
     meta.setAttribute('data-meta', '1');
     meta.textContent = (variant === 'S' && name === 'Longsword') ? 'Melee · Versatile' : META[name];
     tds[0].appendChild(meta);
@@ -114,12 +114,17 @@ function rebuild([variant, on, outline]) {
         wrap.appendChild(dmg); wrap.appendChild(h); tdDmg.appendChild(wrap);
       } else tdDmg.appendChild(dmg);
       if (name === 'Longsword' && variant === 'T') {
-        meta.textContent = 'Melee · ';
+        meta.textContent = 'Melee · '; meta.style.display = 'flex'; meta.style.alignItems = 'center'; meta.style.gap = '4px';
         const chip = document.createElement('button'); chip.className = 'chip';
         chip.setAttribute('aria-pressed', on ? 'true' : 'false');
-        chip.setAttribute('style', 'color:#fff; cursor:pointer'); chip.setAttribute('aria-label', 'Use two hands'); if (outline && !on) chip.style.borderColor = 'rgba(240,161,0,0.75)';
-        if (on) { chip.style.background = 'rgba(240,161,0,0.28)'; chip.style.borderColor = '#f0a100'; }
-        chip.textContent = 'Versatile (1d10)'; meta.appendChild(chip);
+        chip.setAttribute('aria-label', 'Use two hands');
+        // off: outlined in the app's amber; on: flipped to the roll-button's own fill
+        chip.setAttribute('style', on
+          ? 'color:#fff; cursor:pointer; border:1px solid #dbab50; background-image:linear-gradient(to bottom,#f1a20f,#dbab50); text-shadow:0 1px 1px rgba(0,0,0,0.35),0 0 1px rgba(0,0,0,0.25); font-size:12px; padding:3px 9px; gap:5px'
+          : 'color:#f0a100; cursor:pointer; border:1px solid #f0a100; background:transparent; font-size:12px; padding:3px 9px; gap:5px' + (outline ? '; box-shadow:0 0 6px rgba(240,161,0,0.55)' : ''));
+        
+        const ic = document.createElement('i'); ic.className = 'fa fa-exchange-alt'; ic.style.fontSize = '11px'; ic.setAttribute('aria-hidden', 'true');
+        chip.appendChild(ic); chip.appendChild(document.createTextNode('Versatile (1d10)')); meta.appendChild(chip);
       }
     }
     // drop everything between the weapon cell and the caret (details, old roll cells, the stacked v button)
@@ -270,10 +275,9 @@ async function variant(page, name, v, on, outline) {
     p.on('pageerror', e => console.log('pageerror:', e.message));
     await p.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'networkidle', timeout: 60000 });
     await settle(p);
-    await variant(p, 'V-plain-off', 'T', false, false);
-    await variant(p, 'V-plain-on', 'T', true, false);
-    await variant(p, 'V-outline-off', 'T', false, true);
-    await variant(p, 'V-outline-on', 'T', true, true);
+    await variant(p, 'F-off', 'T', false, false);
+    await variant(p, 'F-glow', 'T', false, true);
+    await variant(p, 'F-on', 'T', true, false);
     check(true, 'all shots taken');
   } catch (e) {
     check(false, `threw: ${e.message.split('\n')[0]}`);

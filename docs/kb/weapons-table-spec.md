@@ -22,7 +22,7 @@ The character sheet's Weapons section, redesigned. Every mockup and the build mu
 
 ## Open
 
-- **Versatile control:** split button ("1d8+2 | 2H") or a chip in the grey line. Owner: the split is more obvious, the chip flows better; the chip should say **"Versatile (1d10)"** (SRD word plus what it changes; screen reader label "Use two hands"), not "Two hands". With that label every row is 60px. A thin amber outline makes the chip look tappable, but then off and on look too alike (on only adds the faint amber fill); unresolved.
+- **Versatile control:** leaning chip (owner, 2026-10-15: it flows better; the split is more obvious). Chip as drawn: `fa-exchange-alt` icon plus "Versatile (1d10)" (screen reader: "Use two hands"); off = outlined in amber `#f0a100` with amber text; on = flipped to the roll-button fill (the `.roll-button` gradient, white text). Every row stays 60px. A soft static amber glow while the off hand is free is drawn; a one-time pulse when the off hand becomes free (reduced-motion respected) is proposed; no endless animation, no exclamation mark. Not yet decided.
 - **Shield rule (proposed):** with a shield in the off hand, the two-handed option is greyed and the opened row says why. Two-handed weapons dimmed likewise. Not decided.
 - **Desktop layout**, **200% text** (must wrap without clipping), **the opened row**, and **Armor in the same style**: not yet designed.
 
@@ -41,6 +41,8 @@ every Agreed rule measured (table fits, headings within 2px, rows centred, grey 
 buttons in a row one height, nothing touching a cell edge). Spacing that passed (2026-10-15): cells
 8px top and bottom, the weapon column 10px from the edge, button columns 4px a side, buttons and
 the Restrains box 44px tall; columns To hit 56px, Damage 100px (120px for the split), arrow 24px.
+The grey line is greyed by colour (`rgba(255,255,255,0.75)`), never by `opacity`: opacity fades
+anything inside it, and it washed out the Versatile chip. Font Awesome is 5.13: `fa-exchange-alt`.
 
 One way only: the real app (`lein e2e-server` or `scripts/e2e/run.sh`), the weapons table rewritten
 in the page with the app's own classes, captured at 390px (and 1280px for desktop). Before any image
