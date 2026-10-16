@@ -23,11 +23,12 @@ The character sheet's Weapons section, redesigned. Every mockup and the build mu
 | 13 | **Colour roles:** amber means roll; the state blue marks a switched-on state. State blue is a per-theme token from the app's "Shared" blue: dark `#9ec7ea` with ink `#15202e`, light `#2b567a` with white. |
 | 14 | **Pulse:** while the chip is offered (off hand free, Versatile off) it pulses every 10s for one minute, then stops. Touching it, or rolling that weapon, stops it for good; it restarts only when the off hand becomes free again or the page is reopened. No pulses under reduced motion (static glow only). |
 | 15 | **Shield rule** (owner, 2026-10-15: "excellent UX"): grip comes from what is equipped, never a separate setting. With a shield (or a second weapon) in the off hand, the Versatile chip is greyed (the app's `.disabled` look, opacity 0.5), two-handed damage is not offered, and the opened row says why: "Two hands: not while your off hand holds a Shield." |
+| 16 | **Two-handed weapons under a shield are a reminder, not a block** (owner, 2026-10-15): their roll buttons still work. Drawn two ways: dimmed (reads muddy, as "unavailable") or as amber outlines (matches the chip's off style); outline is the prototype default, owner to confirm. The opened row says "Needs both hands: your off hand holds a Shield."; a roll's result adds "(needs both hands)". |
+| 17 | **One reason pill, not one per row:** while a shield is held, "Shield in off hand" sits beside the Weapons heading in the app's gold "heads-up" pill (`.share-pill-expired`: `#e5c169` on a gold tint; light `#8a5a00`). Not red: red is the app's error colour and a shield is a normal choice. One pill because the shield is one fact affecting several rows (UX guide: each fact has one home). |
 
 ## Open
 
 - **Working prototype:** https://claude.ai/artifact/Kf86pSNkyFi2QJEuRMQsTd (toggle, off-hand switch, colour, flash, rows, rolls).
-- **Two-handed weapons under a shield** (the Longbow): dim them the same way, with the reason in the opened row, or leave them alone? Asked, not answered.
 - **Desktop layout**, **200% text** (must wrap without clipping), **the opened row**, and **Armor in the same style**: not yet designed.
 
 ## Wanted, not yet scoped
