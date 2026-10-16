@@ -35,6 +35,17 @@
     (doseq [id queued-ids]
       (dispatch [::char5e/save-character id]))))
 
+(defn resend-unconfirmed!
+  "Sends again every save that has not been confirmed: one that failed while the browser was
+   offline otherwise waits for another edit. Returns nil."
+  []
+  (doseq [id @unconfirmed-saves]
+    (dispatch [::char5e/save-character id])))
+
+;; Registered once, for its effect: the browser coming back online resends unconfirmed saves.
+(defonce resend-when-online
+  (.addEventListener js/window "online" #(resend-unconfirmed!)))
+
 (reg-fx
   ::saved
   ;; A save of character `id` succeeded. The close warning goes once nothing is queued or unconfirmed;

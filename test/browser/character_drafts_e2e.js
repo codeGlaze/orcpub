@@ -134,7 +134,9 @@ async function reloadBuilder(page) {
   // R9: a browser holding only the old single slot.
   const legacy = await t1.evaluate(a => {
     const raw = localStorage.getItem('character') || localStorage.getItem('character-draft/' + a) || '';
-    return raw.replace(/(:orcpub\.dnd\.e5\.character\/character-name )"[^"]*"/, '$1"Legacy draft"');
+    // The old slot predates drafts having an account, so the copy carries none.
+    return raw.replace(/(:orcpub\.dnd\.e5\.character\/character-name )"[^"]*"/, '$1"Legacy draft"')
+      .replace(/,? ?:draft\/owner "[^"]*"/, '');
   }, A);
   const ctx2 = await newContext(browser);
   await ctx2.addInitScript(v => {

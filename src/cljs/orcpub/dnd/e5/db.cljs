@@ -198,9 +198,24 @@
       (prn "FAILED SETTING LOCALSTORAGE ITEM" key)
       false)))
 
+(declare get-local-storage-item)
+
+(defn current-username
+  "The logged-in account's username as this browser stores it, or nil when logged out."
+  []
+  (get-in (get-local-storage-item local-storage-user-key) [:user-data :username]))
+
+(defn draft-visible?
+  "Whether `draft` may be shown to `username` (nil: logged out): drafts made logged out are
+   anyone's; an account's drafts are only its own. plan-character-drafts.md."
+  [draft username]
+  (let [owner (:draft/owner draft)]
+    (or (nil? owner) (= owner username))))
+
 (defn character->local-store
   "Stores `character` as this tab's builder draft under its own draft key (character-drafts.cljs),
-   with :changed and the time, and marks the key live in this tab. Returns whether it was stored."
+   with :changed, the time and the account it belongs to, and marks the key live in this tab.
+   Returns whether it was stored."
   [character]
   (when js/window.localStorage
     (let [previous (drafts/tab-key)
@@ -212,6 +227,7 @@
                 (str (assoc (char5e/to-strict character)
                             :changed (:changed character)
                             :draft/base (:draft/base character)
+                            :draft/owner (current-username)
                             :draft/touched (.now js/Date)))))))
 
 (defn user->local-store [user-data]
@@ -471,15 +487,18 @@
 
 (defn unsaved-drafts
   "The drafts this tab can offer in its list, newest first: every kept draft, and every other draft
-   with unsaved changes that no open tab holds. Each is {:key :name :touched :id}."
+   with unsaved changes that no open tab holds, of those the logged-in account may see. Each is
+   {:key :name :touched :id}."
   []
   (let [own (drafts/tab-key)
-        now (.now js/Date)]
+        now (.now js/Date)
+        username (current-username)]
     (->> (drafts/draft-keys)
          (keep (fn [k]
                  (when-not (or (= k own) (drafts/live-elsewhere? k now))
                    (when-let [d (read-draft k)]
-                     (when (or (drafts/kept-key? k) (:changed d))
+                     (when (and (draft-visible? d username)
+                                (or (drafts/kept-key? k) (:changed d)))
                        {:key k
                         :id (:db/id d)
                         :touched (:draft/touched d)
@@ -501,14 +520,17 @@
 
 (defn- draft-to-restore
   "The draft key this tab opens at start-up: its own when stored; else the most recently edited
-   draft of a never-saved character that no other open tab holds; else nil. A saved character's
-   leftover is offered when that character is opened instead (plan-character-drafts.md, R4)."
+   draft of a never-saved character that no other open tab holds; else nil. Only drafts the
+   logged-in account may see. A saved character's leftover is offered when it is opened instead."
   []
   (let [stored (drafts/draft-keys)
-        own (drafts/tab-key)]
-    (if (some #{own} stored)
+        own (drafts/tab-key)
+        username (current-username)
+        visible? #(draft-visible? (get-local-storage-item (drafts/storage-key %)) username)]
+    (if (and (some #{own} stored) (visible? own))
       own
       (drafts/latest (into {} (comp (filter drafts/new-key?)
+                                    (filter visible?)
                                     (map (fn [k] [k (or (:draft/touched (get-local-storage-item (drafts/storage-key k))) 0)])))
                            stored)
                      #(drafts/live-elsewhere? % (.now js/Date))))))

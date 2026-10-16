@@ -129,6 +129,10 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   warns while a save has not gone through.
 - **Characters:** builder tabs open on different characters keep their own unsaved changes; a reload
   no longer brings back the other tab's character. (#704)
+- **Characters:** on a shared browser, logging in no longer opens the previous account's unsaved
+  character; each account's unsaved work stays its own, and work done logged out carries over.
+- **Characters:** a change made on the character sheet while offline is saved when the connection
+  returns, instead of waiting for another change.
 - **Sharing:** link previews of shared characters failed on Discord, Mastodon, Slack, Telegram and
   X, because `robots.txt` blocked every crawler that honours it.
 - **Sharing:** every shared character link had an empty title and image in its preview.

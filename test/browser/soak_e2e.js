@@ -17,12 +17,14 @@
 //      warning; the item builder logged out asks to log in; a homebrew character opened in a
 //      browser without that homebrew still loads; Save after deleting the open character; the
 //      logged-out path again at phone width.
+//   9. Offline: a loaded character stays usable with no connection; a sheet edit made offline
+//      and a builder edit saved once back online both reach the server.
 //
 // Every step also fails on a page error or an error banner. A step that cannot finish says
 // which, saves a screenshot to OUT, and the run carries on with the next independent part.
 //
 // Needs:     the real app at :8890 (lein e2e-server); run through scripts/e2e/run.sh.
-// Runs in:   ~15 min.
+// Runs in:   ~16 min.
 // Run:       ./scripts/e2e/run.sh test/browser/soak_e2e.js      exit 0 = all checks passed
 const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
@@ -625,6 +627,43 @@ async function logOut(page) {
       check('and says its homebrew is missing', /missing content/i.test(text), 'no Missing Content notice');
     });
     check('part 8b: no page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
+    await ctx.close();
+  }
+  // ---- 9. Offline: keep using a loaded character, and nothing is lost when the connection returns ----
+  {
+    const errors = [];
+    const ctx = await newContext(browser);
+    const page = await watchedPage(ctx, errors);
+    await login(page, 'kaylee', 'serenity99');
+    const hpInput = () => page.getByText('Max Hit Points', { exact: true }).first().locator('xpath=following::input[1]');
+    await step(page, 'offline sheet edit', async () => {
+      // A character the walkthrough saved itself: the seeded ones keep their name only in the list.
+      await rowAction(page, 'Soak Plain', 'VIEW');
+      await page.waitForTimeout(2000);
+      await ctx.setOffline(true);
+      await hpInput().fill('3');
+      await page.waitForTimeout(9000);
+      check('offline, the sheet keeps the edit on screen', (await hpInput().inputValue()) === '3');
+      await ctx.setOffline(false);
+      await page.waitForTimeout(12000);
+      await page.reload({ waitUntil: 'networkidle' });
+      await page.waitForTimeout(2000);
+      check('back online, the sheet edit made offline is saved without another edit',
+            (await hpInput().inputValue()) === '3', await hpInput().inputValue());
+    });
+    await step(page, 'offline builder edit', async () => {
+      await rowAction(page, 'Soak Plain', 'EDIT');
+      await page.waitForSelector('.builder-tab', { timeout: 30000 });
+      await ctx.setOffline(true);
+      await page2Name(page, 'Plain, edited offline');
+      await pressSave(page).catch(() => {});
+      await page.waitForTimeout(2500);
+      check('offline, a failed Save keeps the builder edit', (await builderName(page)) === 'Plain, edited offline');
+      await ctx.setOffline(false);
+      await saveLoggedIn(page, 'Plain, edited offline');
+      check('and Save once back online stores it', await characterListed(page, 'Plain, edited offline'));
+    });
+    check('part 9: no page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
     await ctx.close();
   }
   {

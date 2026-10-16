@@ -49,6 +49,7 @@
                                       draft->character
                                       keep-draft!
                                       unsaved-drafts
+                                      draft-visible?
                                       user->local-store
                                       magic-item->local-store
                                       spell->local-store
@@ -2522,8 +2523,8 @@
 
 (def leftover-draft
   "Interceptor for :set-character: when a saved character other than the builder's is opened, reads
-   its stored draft BEFORE the opening overwrites it, moves one worth keeping to a kept key, and
-   puts {:decision :kept-key :draft} in the coeffects under ::leftover."
+   its stored draft BEFORE the opening overwrites it (ignoring one another account made), moves one
+   worth keeping to a kept key, and puts {:decision :kept-key :draft} in the coeffects (::leftover)."
   (->interceptor
    :id ::leftover-draft
    :before (fn [context]
@@ -2532,7 +2533,8 @@
                    db (get-in context [:coeffects :db])]
                (if (and id (not= id (get-in db [:character :db/id])))
                  (let [k (str id)
-                       draft (read-draft k)
+                       draft (let [d (read-draft k)]
+                               (when (draft-visible? d (get-in db [:user-data :user-data :username])) d))
                        decision (leftover-decision character draft
                                                    (drafts/live-elsewhere? k (.now js/Date)))]
                    (assoc-in context [:coeffects ::leftover]
@@ -3530,8 +3532,10 @@
 
 (reg-event-fx
  :logout
+ ;; Only the player's own Log Out: the builder starts fresh, the draft stays under its account.
+ ;; An expired session clears the login (:clear-login) without touching the builder.
  (fn [cofx [_ response]]
-   {:dispatch-n [[:clear-login]]}))
+   {:dispatch-n [[:clear-login] [:reset-character]]}))
 
 (def login-routes
   #{routes/login-page-route
@@ -3836,11 +3840,13 @@
 ;; ---- Unsaved drafts: the offer, the hold and the list. plan-character-drafts.md ----
 
 (defn character->draft
-  "`character` as a stored draft with unsaved changes, already offered, last edited at `touched`."
-  [character touched]
+  "`character` as a stored draft with unsaved changes, already offered, last edited at `touched`,
+   belonging to `owner` (a username, or nil when logged out)."
+  [character touched owner]
   (assoc (char5e/to-strict character)
          :changed true
          :draft/base (:draft/base character)
+         :draft/owner owner
          :draft/touched touched
          :draft/asked? true))
 
@@ -3886,7 +3892,8 @@
      (let [k (drafts/kept-key)]
        {:db (-> (character-updated db [nil previous])
                 (assoc :draft/restored (assoc r :undone? true :kept-key k)))
-        ::write-draft {:key k :draft (character->draft restored touched)}}))))
+        ::write-draft {:key k :draft (character->draft restored touched
+                                                       (get-in db [:user-data :user-data :username]))}}))))
 
 (reg-event-fx
  ::char5e/redo-restore

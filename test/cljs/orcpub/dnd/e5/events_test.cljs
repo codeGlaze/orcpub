@@ -33,6 +33,7 @@
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.feats :as feats5e]
             [orcpub.dnd.e5.db :as db]
+            [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [cljs.spec.alpha :as s]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
@@ -1798,6 +1799,76 @@
         (rf/dispatch-sync [::char5e/save-refused {:for-id 111} refused])
         (is (= builder (:character @app-db)) "the builder's own Save will meet the change instead")
         (is (= 2 (get-in @app-db [::char5e/character-map 111 ::entity/version])) "only the sheet's copy is rebased")))))
+
+(defn- as-user!
+  "Stores `username` as the logged-in account, as login does (nil: logged out)."
+  [username]
+  (if username
+    (.setItem js/localStorage "user" (str {:user-data {:username username} :token "t"}))
+    (.removeItem js/localStorage "user")))
+
+(defn- put-draft!
+  "Stores a draft with unsaved changes under draft key `k`, named `nm`, made by `owner`."
+  [k nm owner & [extra]]
+  (.setItem js/localStorage (str "character-draft/" k)
+            (str (merge {::se/values {char-name nm} :changed true :draft/owner owner} extra))))
+
+(defn- clear-drafts!
+  "Deletes every stored draft and this tab's draft key. Returns nil."
+  []
+  (doseq [k (drafts/draft-keys)] (drafts/remove-draft! k))
+  (.removeItem js/sessionStorage "builder-draft-key"))
+
+(deftest a-draft-records-the-account-that-made-it
+  (try
+    (clear-drafts!)
+    (as-user! "kaylee")
+    (db/character->local-store {:db/id 777 ::entity/values {char-name "Mine"}})
+    (is (= "kaylee" (:draft/owner (db/read-draft "777"))))
+    (as-user! nil)
+    (db/character->local-store {:db/id 778 ::entity/values {char-name "Anyone's"}})
+    (is (nil? (:draft/owner (db/read-draft "778"))) "logged out: no owner")
+    (finally (clear-drafts!) (as-user! nil))))
+
+(deftest the-drafts-list-shows-only-your-own-and-logged-out-drafts
+  (try
+    (clear-drafts!)
+    (put-draft! "kept-a" "Kaylee's" "kaylee")
+    (put-draft! "kept-b" "Logged out" nil)
+    (put-draft! "kept-c" "Zoe's" "zoe")
+    (as-user! "zoe")
+    (is (= #{"Logged out" "Zoe's"} (set (map :name (db/unsaved-drafts)))))
+    (finally (clear-drafts!) (as-user! nil))))
+
+(deftest another-accounts-draft-is-never-offered
+  (let [saved {:db/id 111 ::entity/values {char-name "Saved"}}
+        base (events/stored-version saved)]
+    (try
+      (doseq [[owner offered?] [["kaylee" false] ["zoe" true]]]
+        (clear-drafts!)
+        (put-draft! "111" "Unsaved" owner {:draft/base base})
+        (reset! app-db (assoc pristine-db :user-data {:user-data {:username "zoe"} :token "t"}))
+        (rf/dispatch-sync [:set-character saved])
+        (is (= offered? (some? (:draft/offer @app-db))) (str owner "'s draft, with zoe logged in")))
+      (finally (clear-drafts!)))))
+
+(deftest logging-out-starts-a-fresh-builder
+  (let [dispatched (atom [])]
+    (with-fx {:dispatch-n #(reset! dispatched (vec %))}
+      (fn []
+        (rf/dispatch-sync [:logout])
+        (is (some #(= [:reset-character] %) @dispatched)
+            "the builder is cleared on screen; the draft stays, filed under its account")))))
+
+(deftest saves-that-did-not-go-through-are-sent-again-when-back-online
+  (let [sent (atom [])
+        before @autosave-fx/unconfirmed-saves]
+    (try
+      (reset! autosave-fx/unconfirmed-saves #{111})
+      (with-redefs [rf/dispatch #(swap! sent conj %)]
+        (.dispatchEvent js/window (js/Event. "online")))
+      (is (= [[::char5e/save-character 111]] @sent))
+      (finally (reset! autosave-fx/unconfirmed-saves before)))))
 
 (deftest level-up-opens-the-stored-copy-only-when-the-builder-has-another-character
   (let [dispatched (atom nil)]
