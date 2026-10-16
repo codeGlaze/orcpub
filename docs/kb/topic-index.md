@@ -989,7 +989,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, localstorage, magic, resolves, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, genuine, inline, localstorage, magic, resolves, server-backed, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -1015,7 +1015,7 @@ _data-safety-layers · data safety layers_
 
 _datomic-crash-analysis · datomic crash analysis_
 
-**topics:** contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, minute, observed, postgres, seconds, speculation, transactor, unvalidated, write
+**topics:** config, contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, minute, postgres, seconds, speculation, transactor, unvalidated, write
 
 - Active transactor configuration (verified from log startup lines)
 - Crash mechanism — verified
@@ -1452,7 +1452,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, added, datomic, dmv, echoing, email, emails, endpoint, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, added, datomic, dmv, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -1859,7 +1859,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _heartbeat · heartbeat_
 
-**topics:** beat, beats, clock, database, dates, expires, failing, hour, job, jobs, jumped, outage, pruning, running, server, three-day, tick, unrecorded
+**topics:** beat, beats, clock, database, dates, hour, job, jobs, jumped, monitor, outage, outages, pruning, running, server, three-day, tick, unrecorded
 
 - What it records
 - Using it
@@ -1965,7 +1965,7 @@ _homebrew-key-map · homebrew key map_
 
 _homebrew-keys-design · homebrew keys design_
 
-**topics:** 2026-09-27, 2026-09-28, asked, built-in, characters, gate, grant-rows, holder, item, key, library, link, links, rename, revision, step, tab, write
+**topics:** 2026-09-27, 2026-09-28, built-in, characters, gate, grant-rows, holder, item, key, languages, library, link, links, rename, revision, step, tab, write
 
 - 1. What does not change (compatibility promises)
 - 2. One list of every kind of link
@@ -2100,7 +2100,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, answers, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source
+**topics:** address, author, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source
 
 - TL;DR
 - The map (VERIFIED)
@@ -2263,7 +2263,7 @@ _monolith-decomposition-plan · monolith decomposition plan_
 
 _multi-tab-character-contamination · multi tab character contamination_
 
-**topics:** -time, apparently-empty, clone, defence, entity-options-architecture, event-layer, localstorage, lower-level, payloads, per-origin, recently, rehydrates, slot, spa-routing-architecture, sub-entity, symbols, tab, tabs
+**topics:** -time, apparently-empty, clone, defence, entity-options-architecture, event-layer, localstorage, lower-level, payloads, per-origin, plan-character-drafts, recently, slot, spa-routing-architecture, sub-entity, symbols, tab, tabs
 
 - The mechanism
 - Where the notes actually live
@@ -2375,7 +2375,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _orcbrew-level-modifiers · orcbrew level modifiers_
 
-**topics:** 120, arrive, audits, consumed, driven, editor, grant, integer, keyword, level, level-modifier, presence, race, races, subclass, subclasses, trait, warden
+**topics:** 120, arrive, audits, consumed, driven, editor, grant, integer, keyword, level-modifier, presence, race, races, racial, subclass, subclasses, trait, warden
 
 - Nothing validates the shape of a brew
 - Two grant vocabularies, with different shapes
@@ -2552,7 +2552,7 @@ _perf-entity-build · perf entity build_
 
 _perf-homebrew-builder-loop · perf homebrew builder loop_
 
-**topics:** ---, 130, builder-open, cache, casters, chunking, freeze, growth, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, task
+**topics:** ---, 130, builder-open, cache, casters, chunking, class, freeze, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, task
 
 - Method
 - The fixtures
@@ -2649,6 +2649,18 @@ _plan-669-merge-verification · plan 669 merge verification_
 - What seeding the differential originally required
 - Take it whole — decided
 - What this plan cannot cover
+
+## plan-character-drafts.md
+
+_plan-character-drafts · plan character drafts_
+
+**topics:** discard, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, open, rescue, restore, saved, start-up, tab, undo, unsaved
+
+- The restore rules (agreed with the owner, 2026-10-15)
+- How it works today (feature/portrait-builder, which carries integration's code)
+- Design
+- Build steps, in order
+- Open, for the owner
 
 ## plan-chunked-library-storage.md
 
@@ -3118,7 +3130,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, override, source, source-level, stone, tag, tidewater
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, source-level, stone, tag, tidewater
 
 - What exists today
 - The proposal
@@ -3203,7 +3215,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, conditions, counterpart, editions, magic, monsters, open5e, species, srd, text, weapons, word
+**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, conditions, counterpart, editions, gear, magic, monsters, open5e, species, srd, text, weapons
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -3540,7 +3552,7 @@ _verification-discipline · verification discipline_
 
 _views-builders-split · views builders split_
 
-**topics:** 530, builder, builders, child, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, race, race-only, shared, split, toolkit, truly, views
+**topics:** builder, builders, child, classes, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, race, race-only, shared, split, toolkit, truly, views
 
 - Context
 - Architecture

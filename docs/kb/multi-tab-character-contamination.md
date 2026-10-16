@@ -88,6 +88,9 @@ storage shape is already being moved, not as a hotfix on top of the current one.
 Anyone picking it up should decide the migration question first — existing single-slot drafts have no
 id to key by, so the first load after the change either discards them or has to guess.
 
+**Plan, 2026-10-15:** [plan-character-drafts.md](plan-character-drafts.md) builds this for the character
+draft, with the agreed restore rules.
+
 ## Provenance
 
 Established on `claude/fix-character-notes-merge-4YNzf` (`702fffc7`), which carries the
