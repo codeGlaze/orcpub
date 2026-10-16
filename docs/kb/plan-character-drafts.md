@@ -1,11 +1,10 @@
 # Plan: one draft per character, and restoring without nagging
 
-**Status:** steps 1-3 built on `feature/portrait-builder` (PR #64, `7d6187f75`, 2026-10-15): R0, R1,
-R7's storage part and R9 pass, each seen failing first. Steps 4-6 not built; step 4 waits on
-mockups, step 5 on the owner's answer to R8's amendment. Fixes the two-tab mix-up in
-[multi-tab-character-contamination.md](multi-tab-character-contamination.md) (#704) for the character
-draft. The other 16 single-slot drafts (homebrew builders, encounter, combat) stay in the rescue
-plan's item 9 (`character-rescue.md` on `feature/character-rescue`).
+**Status:** steps 1-4 built on `feature/portrait-builder` (PR #64): storage `7d6187f75`, the notice
+box lifted from `fix/hidden-multiclass-skill-pick` `ecb3776af`, the offer, hold and lists
+`7120493cc` (2026-10-16). R0-R7 and R9 pass in `character_drafts_e2e.js` (29 checks), each seen
+failing. Step 5 (expiry) waits on the owner's answer to R8's amendment; step 6 (Data View) belongs
+to the rescue branch.
 
 ## The restore rules (agreed with the owner, 2026-10-15)
 
@@ -65,8 +64,14 @@ Two more checks the build must pass, for the bug itself and the move:
 - **New and Clone with unsaved changes** do not delete the previous draft: another tab may hold the
   same character's draft under the same key, and deleting it would lose that tab's work. It stays a
   leftover, which R2 drops if it changes nothing and R4 offers once otherwise.
-- **A tab with no key of its own** opens the latest draft no other tab holds (built). Under R4 a
-  leftover of a saved character should be offered rather than opened silently: step 4 changes this.
+- **A tab with no key of its own** continues only the latest never-saved character's draft that no
+  other tab holds; a saved character's leftover waits to be offered when it is opened (R4). The one
+  exception is the move from the old single slot: that tab takes the moved draft as its own, so the
+  first load after the change opens as before.
+- **Opening the character the builder already holds** (Edit on the sheet or list) keeps the builder's
+  copy and its unsaved edits instead of reloading the stored one.
+- **"R4: no popup"** has no check of its own: the offer is drawn by the notice box, which the R4
+  check reads, and a break that adds a dialog would not test anything real.
 - **Two tabs on the same character** share one key, so the later write wins. Not a mix-up between
   characters; the rescue plan's item 9 mirroring is the fix for that case.
 - **Storage space.** Drafts share the browser's ~5 MB with the homebrew library

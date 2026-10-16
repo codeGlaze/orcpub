@@ -415,7 +415,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, check, control, css, docstrings, form, icon, invented, item, labelled, paragraph, pin, review, row, screenshot, signing, unknown, vanished
+**topics:** 2026-09-29, check, control, css, docstrings, form, icon, invented, item, labelled, pin, review, row, screenshot, signing, unknown, unless, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -460,7 +460,7 @@ _blank-env-values · blank env values_
 
 _branch-context-history · branch context history_
 
-**topics:** boon, branch, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine
+**topics:** boon, branch, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, phase, pool, registry, rotted, spine, subs
 
 - (was) Branch Context: claude/zen-wright-04xhdz
 - Purpose
@@ -677,7 +677,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, aasimar, blank, calishite, descriptive, dwarf, elf, halfling, helper, human, label, manual, name, party, races, random, sex, views
+**topics:** ------, aasimar, blank, descriptive, dwarf, elf, fallback, halfling, helper, human, label, manual, name, party, races, random, sex, views
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -804,7 +804,7 @@ _cljs-headless-harness · cljs headless harness_
 
 _code-comment-style · code comment style_
 
-**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comment, comments, concise, density, docstring, jsdoc, justification, length, narration, non-obvious, resort, symbol
+**topics:** abbreviations, backstory, categories, ceremony, codetags, coined, comments, concise, density, docstring, earns, jsdoc, justification, length, narration, non-obvious, resort, symbol
 
 - Docstrings carry the what
 - Inline ;; comments carry the why — but only when it's a constraint
@@ -874,7 +874,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, loads, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -989,7 +989,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, genuine, inline, localstorage, magic, resolves, server-backed, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, localstorage, magic, resolves, server-backed, sets, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -1050,7 +1050,7 @@ _decision-already-held-resolution · decision already held resolution_
 
 _decision-cr-representation · decision cr representation_
 
-**topics:** double, doubles, extras, formatter, formatters, fractional, jvm, literals, lower, monster, moon, notation, numeric, ratio, ratios, representations, sentence, sort
+**topics:** double, doubles, extras, formatter, formatters, fractional, jvm, lower, monster, moon, notation, numeric, ratio, ratios, representation, representations, sentence, sort
 
 - The short answer
 - What exists — VERIFIED, not recalled
@@ -1358,7 +1358,7 @@ _documentation-tenets · documentation tenets_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, breath, caller, coerce, coercion, d32, floating-asi, forget, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, primitive, prior, string, widget
+**topics:** asi, breath, coerce, coercion, d32, dropdown, floating-asi, forget, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, primitive, prior, string, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -1452,7 +1452,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, added, datomic, dmv, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, added, datomic, dmv, echoing, email, emails, endpoint, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -1561,7 +1561,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** 2026-10-15, 400px, ammunition, attacks, content-naming-style, damage, dash, dexterity, die, difference, longbow, net, open5e, pdf, restrains, spiked, srd, weapons
+**topics:** 2026-10-15, 400px, ammunition, attacks, content-naming-style, damage, dash, deals, dexterity, die, difference, longbow, net, open5e, restrains, spiked, srd, weapons
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -1669,7 +1669,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, blindsight, damage, defense, dueling, fighting, great, interception, pool, predicate, prop, protection, style, styles, three-state, thrown, weapon
+**topics:** archery, attack, blindsight, damage, dueling, engine, fighting, great, interception, pool, predicate, prop, protection, style, styles, three-state, thrown, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -1881,7 +1881,7 @@ _hiccup-page-escaping · hiccup page escaping_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** already-held-grants, athletics, control, decision-already-held-resolution, fighter, gate, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, sites, skill, skills, starting, uncheck
+**topics:** already-held-grants, athletics, control, decision-already-held-resolution, fighter, first-class, gate, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, skill, skills, starting, uncheck
 
 - The mechanism
 - What is NOT broken
@@ -2489,7 +2489,7 @@ _pdf-generation-architecture · pdf generation architecture_
 
 _pdf-namespace-family · pdf namespace family_
 
-**topics:** 540, acroform, beast, card, cards, companion, consumer, coordinate, docstring, frame, geometry, group, inches, private, public, region, spellbook, svg
+**topics:** 540, acroform, beast, caller, card, cards, companion, consumer, coordinate, drawing, frame, inches, primitives, private, public, region, spellbook, svg
 
 - Verdict on the starting hypothesis
 - 1. Inventory
@@ -2516,6 +2516,11 @@ _pdf-namespace-family · pdf namespace family_
 - The flips did not get fixed, they moved
 - dev/ was unlinted, and this refactor shipped broken scripts into it
 - What is left
+- 11. The page-size work in §10 was decorative, 2026-10-16
+- pt-from-top is parameterised and nothing passes a page
+- The primitives are unit-bound, and that is the real defect
+- Correction: the spellbook does not shed ~90 lines
+- What the baselines do and do not protect
 
 ## pedestal-csp-history.md
 
@@ -2660,7 +2665,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** 2026-10-16, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, owner, rescue, restore, saved, start-up, tab, undo, unsaved
+**topics:** 2026-10-16, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, undo, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)
@@ -2697,7 +2702,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** 2026-09-10, beast, card, cards, companion, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, shape, sidekicks, taxonomy, wild
+**topics:** 2026-09-10, beast, card, cards, companion, creature, discarded, druid, familiar, foundry, machinery, master, monster, moon, per-form, sidekicks, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -2786,11 +2791,31 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 - Why it fits here
 - Open
 
+## plan-pdf-page-sizes.md
+
+_plan-pdf-page-sizes · plan pdf page sizes_
+
+**topics:** 36pt, 595, acroform, appearance, artwork, border, card, dimensions, drawing, inches, ink, letter, primitives, rect, scaling, spellbook, translate, widget
+
+- The problem in one paragraph
+- Order, and why this order
+- Step 1 — pin the AcroForm sheet (BLOCKING)
+- Step 2 — delete the escape hatch (D1)
+- Step 3 — y-from-top entries on the primitives (D2)
+- Step 4 — units, so the spellbook can stop duplicating
+- Step 5 — actually offer the sizes
+- Not in this plan
+- Two dead publics found while measuring
+- The shim question: can the AcroForm templates be padded into A4?
+- Measured: how much width is there to lose
+- Why scaling is the expensive route, not the easy one
+- What this means for the owner's goal
+
 ## pool-grant-map.md
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, entry, fighting, grant, granting, grants, irregularity, language, pool, pools, registered, registry, spells, styles, vector
+**topics:** 2026-09-07, air, dependent, direction, entry, fighting, grant, granting, grants, irregularity, language, pool, pools, registered, registry, spells, two-level, vector
 
 - In four sentences
 - The three layers
@@ -3208,7 +3233,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, crest, figures, flame, head, heading, lining, old-style, opentype, packed, pact, prep, re-split, spellbook, taller
+**topics:** cards, chapter, column, columns, crest, flame, head, heading, old-style, opentype, packed, pact, prep, re-split, spell, spellbook, tabs, taller
 
 - What it prints
 - Why the layout works the way it does
@@ -3258,7 +3283,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
+**topics:** 2014, 2024, approaches, builtin, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, tier, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3502,7 +3527,7 @@ _typed-keys · typed keys_
 
 _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branches_
 
-**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, conclusions, knowledge, multi-tab, non-, patches, phrase, promote, prunable, searching, stringification, tip, triage, unique
+**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, conclusions, knowledge, multi-tab, nine, non-, patches, prunable, ranked, searching, stringification, tip, triage, unique
 
 - The headline: agents/develop holds 70 of the repo's 128 KB docs
 - Why the guard did not catch this
@@ -3536,7 +3561,7 @@ _ux-guide · ux guide_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
+**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, number, perf-homebrew-builder-loop, proves, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
