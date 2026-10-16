@@ -22,12 +22,17 @@ The character sheet's Weapons section, redesigned. Every mockup and the build mu
 | 12 | **Versatile is a chip in the grey line** (owner, 2026-10-15): `fa-exchange-alt` + "Versatile (1d10)", screen reader "Use two hands". Off: outlined in the state blue. On: filled state blue. While on, the changed dice ("1d10") sit on a tab of the same blue inside the amber damage button. |
 | 13 | **Colour roles:** amber means roll; the state blue marks a switched-on state. State blue is a per-theme token from the app's "Shared" blue: dark `#9ec7ea` with ink `#15202e`, light `#2b567a` with white. |
 | 14 | **Pulse:** while the chip is offered (off hand free, Versatile off) it pulses every 10s for one minute, then stops. Touching it, or rolling that weapon, stops it for good; it restarts only when the off hand becomes free again or the page is reopened. No pulses under reduced motion (static glow only). |
+| 15 | **Shield rule** (owner, 2026-10-15: "excellent UX"): grip comes from what is equipped, never a separate setting. With a shield (or a second weapon) in the off hand, the Versatile chip is greyed (the app's `.disabled` look, opacity 0.5), two-handed damage is not offered, and the opened row says why: "Two hands: not while your off hand holds a Shield." |
 
 ## Open
 
 - **Working prototype:** https://claude.ai/artifact/Kf86pSNkyFi2QJEuRMQsTd (toggle, off-hand switch, colour, flash, rows, rolls).
-- **Shield rule (proposed):** with a shield in the off hand, the two-handed option is greyed and the opened row says why. Two-handed weapons dimmed likewise. Not decided.
+- **Two-handed weapons under a shield** (the Longbow): dim them the same way, with the reason in the opened row, or leave them alone? Asked, not answered.
 - **Desktop layout**, **200% text** (must wrap without clipping), **the opened row**, and **Armor in the same style**: not yet designed.
+
+## Wanted, not yet scoped
+
+- **Player customisation of these colours** (owner, 2026-10-15): the chip's state colour and similar accents as a per-player preference, saved to the account (or the browser for signed-out players). Build the colours as theme tokens from the start, so a preference is one more layer over the theme rather than a rewrite. The theme registry on `port/redesign-on-refactor` already treats themes as data with tokens and a per-token policy ([frontend-redesign-parallel-work.md](frontend-redesign-parallel-work.md)); a preference would override tokens the policy marks choosable. Saved per account needs a stored field, so it carries the usual rules for user-facing keys.
 
 ## Rejected: do not bring back
 

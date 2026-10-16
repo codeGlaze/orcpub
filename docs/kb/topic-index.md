@@ -3136,7 +3136,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, override, source, source-level, stone, tag, tidewater
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, source-level, stone, tag, tidewater
 
 - What exists today
 - The proposal
@@ -3593,10 +3593,11 @@ _weapon-data-model · weapon data model_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, 390px, agreed, amber, blue, buttons, cell, chip, columns, damage, equipment-parity, grey, headings, pulses, restrains, row, versatile
+**topics:** 1d10, 2026-10-15, 390px, agreed, amber, blue, buttons, cell, chip, columns, damage, grey, headings, opened, restrains, row, versatile, weapon
 
 - Agreed
 - Open
+- Wanted, not yet scoped
 - Rejected: do not bring back
 - How mockups are made
 
