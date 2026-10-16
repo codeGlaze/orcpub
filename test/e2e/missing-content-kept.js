@@ -115,7 +115,8 @@ async function clickCard(page, name) {
   } catch (e) {
     check('ran to completion', false, e.message.split('\n')[0]);
   } finally {
+    // Every path ends here, an early return included, so a failed check always fails the run.
     await browser.close();
+    process.exit(report() ? 1 : 0);
   }
-  process.exit(report() ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });
