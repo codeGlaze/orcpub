@@ -211,6 +211,7 @@
       (set-item (drafts/storage-key k)
                 (str (assoc (char5e/to-strict character)
                             :changed (:changed character)
+                            :draft/base (:draft/base character)
                             :draft/touched (.now js/Date)))))))
 
 (defn user->local-store [user-data]
@@ -446,23 +447,69 @@
                          (spec/explain-data item-spec stored-item))))
                   nil)))))))
 
+(defn read-draft
+  "The draft stored under draft key `k`, as stored (strict, with :changed and the :draft/ keys),
+   or nil."
+  [k]
+  (when js/window.localStorage
+    (get-local-storage-item (drafts/storage-key k))))
+
+(defn draft->character
+  "`draft`, as read-draft returns it, as a builder character: :changed and :draft/base kept."
+  [draft]
+  (assoc (char5e/from-strict draft)
+         :changed (:changed draft)
+         :draft/base (:draft/base draft)))
+
+(defn keep-draft!
+  "Stores `draft` (as read-draft returns it) under a fresh kept key, marked as already offered, so
+   that opening its character does not overwrite it. Returns the kept key."
+  [draft]
+  (let [k (drafts/kept-key)]
+    (set-item (drafts/storage-key k) (str (assoc draft :draft/asked? true)))
+    k))
+
+(defn unsaved-drafts
+  "The drafts this tab can offer in its list, newest first: every kept draft, and every other draft
+   with unsaved changes that no open tab holds. Each is {:key :name :touched :id}."
+  []
+  (let [own (drafts/tab-key)
+        now (.now js/Date)]
+    (->> (drafts/draft-keys)
+         (keep (fn [k]
+                 (when-not (or (= k own) (drafts/live-elsewhere? k now))
+                   (when-let [d (read-draft k)]
+                     (when (or (drafts/kept-key? k) (:changed d))
+                       {:key k
+                        :id (:db/id d)
+                        :touched (:draft/touched d)
+                        :name (get-in d [::se/values ::char5e/character-name])})))))
+         (sort-by :touched >)
+         vec)))
+
 (defn- migrate-legacy-draft!
-  "Moves a draft in the old single slot to its own draft key and removes the old slot. Returns nil."
+  "Moves a draft in the old single slot to its own draft key and removes the old slot. A tab with
+   no draft of its own takes it as its own, so the first load after the change opens as before.
+   Returns nil."
   []
   (when-let [item (get-local-storage-item drafts/legacy-key)]
-    (when (set-item (drafts/storage-key (drafts/key-for item nil)) (str item))
-      (.removeItem js/window.localStorage drafts/legacy-key)))
+    (let [k (drafts/key-for item nil)]
+      (when (set-item (drafts/storage-key k) (str item))
+        (.removeItem js/window.localStorage drafts/legacy-key)
+        (when-not (drafts/tab-key) (drafts/set-tab-key! k)))))
   nil)
 
 (defn- draft-to-restore
   "The draft key this tab opens at start-up: its own when stored; else the most recently edited
-   draft that no other open tab holds; else nil."
+   draft of a never-saved character that no other open tab holds; else nil. A saved character's
+   leftover is offered when that character is opened instead (plan-character-drafts.md, R4)."
   []
   (let [stored (drafts/draft-keys)
         own (drafts/tab-key)]
     (if (some #{own} stored)
       own
-      (drafts/latest (into {} (map (fn [k] [k (or (:draft/touched (get-local-storage-item (drafts/storage-key k))) 0)]))
+      (drafts/latest (into {} (comp (filter drafts/new-key?)
+                                    (map (fn [k] [k (or (:draft/touched (get-local-storage-item (drafts/storage-key k))) 0)])))
                            stored)
                      #(drafts/live-elsewhere? % (.now js/Date))))))
 
@@ -480,7 +527,7 @@
               (drafts/mark-live! k)
               (let [item (get-local-storage-item (drafts/storage-key k))]
                 (if (spec/valid? ::se/entity item)
-                  (assoc (char5e/from-strict item) :changed (:changed item))
+                  (assoc (char5e/from-strict item) :changed (:changed item) :draft/base (:draft/base item))
                   (js/console.warn "Invalid stored draft, ignoring:" k))))))))
 
 (spec/def ::username string?)

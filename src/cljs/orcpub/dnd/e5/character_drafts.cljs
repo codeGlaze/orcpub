@@ -28,13 +28,26 @@
   [k]
   (and (string? k) (s/starts-with? k "new-")))
 
+(defn kept-key
+  "The draft key that keeps a draft offered or set aside, so opening its character does not
+   overwrite it: \"kept-\" and a random uuid."
+  []
+  (str "kept-" (random-uuid)))
+
+(defn kept-key?
+  "Whether draft key `k` holds a draft that was offered or set aside."
+  [k]
+  (and (string? k) (s/starts-with? k "kept-")))
+
 (defn key-for
   "The draft key for `character`, given `current`, the key this tab holds: the character's id;
-   for one never saved, `current` when that is a never-saved key too, else a fresh one."
+   for one never saved, its :draft/key when it was opened from one, `current` when that is a
+   never-saved key too, else a fresh one."
   [character current]
   (if-let [id (:db/id character)]
     (str id)
-    (if (new-key? current) current (new-key))))
+    (or (:draft/key character)
+        (if (new-key? current) current (new-key)))))
 
 (defn- session-get
   "This tab's sessionStorage value under `k`, or nil when absent or storage is refused."

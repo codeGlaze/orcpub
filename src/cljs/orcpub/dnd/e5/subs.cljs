@@ -133,6 +133,17 @@
  (fn [db _] (get db :portrait/draft {})))
 
 (reg-sub-raw
+ ::char5e/unsaved-drafts
+ ;; Reads the drafts list from this browser when a view that shows it appears.
+ (fn [app-db _]
+   (dispatch [::char5e/load-drafts])
+   (ra/make-reaction #(get @app-db :draft/list))))
+
+(reg-sub ::char5e/draft-held (fn [db _] (:draft/held db)))
+(reg-sub ::char5e/draft-offer (fn [db _] (:draft/offer db)))
+(reg-sub ::char5e/draft-restored (fn [db _] (:draft/restored db)))
+
+(reg-sub-raw
  :portrait/artist-overrides
  ;; Fetches the artist credits the first time a view that shows one subscribes, so a page with no
  ;; portrait never asks; until they arrive the views show the registry's defaults.

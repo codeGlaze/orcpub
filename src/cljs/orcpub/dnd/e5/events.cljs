@@ -45,6 +45,10 @@
                                       local-storage-builder-origin-key
                                       builder-wip-stores
                                       character->local-store
+                                      read-draft
+                                      draft->character
+                                      keep-draft!
+                                      unsaved-drafts
                                       user->local-store
                                       magic-item->local-store
                                       spell->local-store
@@ -103,7 +107,7 @@
             [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.compute :as compute]
-            [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path
+            [re-frame.core :refer [reg-event-db reg-event-fx reg-fx reg-cofx inject-cofx path
                                    after dispatch ->interceptor]]
             [cljs.spec.alpha :as spec]
             [orcpub.dnd.e5.http-safe :as http]
@@ -141,7 +145,8 @@
 
 (def ->local-store (after character->local-store))
 
-(def db-char->local-store (after (fn [db] (character->local-store (:character db)))))
+;; No write while the builder holds a character another tab is editing: they share its draft.
+(def db-char->local-store (after (fn [db] (when-not (:draft/held db) (character->local-store (:character db))))))
 
 ;; :initialize-db restores the builder's draft and repairs it in memory; this puts the
 ;; repaired draft back in browser storage. Without it the draft stayed broken there,
@@ -612,7 +617,7 @@
          ;; keeps its copy and takes only the keys the sheet changed.
          keep-builder? (boolean (and current? for-id (or newer? (get-in db [:character :changed]))))
          kept (when keep-builder?
-                (cond-> (:character db)
+                (cond-> (assoc (:character db) :draft/base (hash (stored-shape character)))
                   (not newer?)
                   (update ::entity/values
                           (fn [values]
@@ -635,7 +640,7 @@
                           "Your character has been saved.")]]
                 ;; The character on screen is replaced only by a save about it.
                 (and current? (not keep-builder?))
-                (conj [:character-updated character])
+                (conj [:character-updated (assoc character :draft/base (hash (stored-shape character)))])
 
                 ;; The saved character belongs in the map whoever is on screen, unless the map's
                 ;; copy is newer.
@@ -2455,11 +2460,68 @@
  (fn [db [_ item-name]]
    (update-in db [:expanded-items item-name] not)))
 
+(defn stored-version
+  "A short fingerprint of `character` as stored, for telling whether a draft started from the
+   version that is stored now. Returns a number."
+  [character]
+  (hash (stored-shape character)))
+
+(defn leftover-decision
+  "What opening saved `character` does with `draft`, the draft stored under its id (as read-draft
+   returns it): :none when there is none, :hold when another tab has it open, :drop when it has no
+   unsaved changes or matches the saved version, :keep (listed, not offered) when it started from
+   an older version or was offered before, else :offer. plan-character-drafts.md, R2-R5 and R7."
+  [character draft live-elsewhere?]
+  (cond
+    (nil? draft) :none
+    live-elsewhere? :hold
+    (or (not (:changed draft))
+        (= (stored-shape (draft->character draft)) (stored-shape character))) :drop
+    (or (:draft/asked? draft)
+        (not= (:draft/base draft) (stored-version character))) :keep
+    :else :offer))
+
+(def leftover-draft
+  "Interceptor for :set-character: when a saved character other than the builder's is opened, reads
+   its stored draft BEFORE the opening overwrites it, moves one worth keeping to a kept key, and
+   puts {:decision :kept-key :draft} in the coeffects under ::leftover."
+  (->interceptor
+   :id ::leftover-draft
+   :before (fn [context]
+             (let [character (second (get-in context [:coeffects :event]))
+                   id (:db/id character)
+                   db (get-in context [:coeffects :db])]
+               (if (and id (not= id (get-in db [:character :db/id])))
+                 (let [k (str id)
+                       draft (read-draft k)
+                       decision (leftover-decision character draft
+                                                   (drafts/live-elsewhere? k (.now js/Date)))]
+                   (assoc-in context [:coeffects ::leftover]
+                             {:decision decision
+                              :draft draft
+                              :kept-key (when (#{:keep :offer} decision) (keep-draft! draft))}))
+                 context)))))
+
+(defn apply-leftover
+  "`db` after :set-character, given `leftover` from the leftover-draft interceptor: the notices
+   cleared, then the hold or the offer set. The opened character's :draft/base is recorded."
+  [db {:keys [decision draft kept-key]}]
+  (let [db (-> db
+               (dissoc :draft/held :draft/offer :draft/restored)
+               (update :character #(cond-> % (and (:db/id %) (nil? (:draft/base %)))
+                                     (assoc :draft/base (stored-version %)))))]
+    (case decision
+      :hold (assoc db :draft/held (get-in db [:character :db/id]))
+      :offer (assoc db :draft/offer {:key kept-key
+                                     :touched (:draft/touched draft)
+                                     :character (draft->character draft)})
+      db)))
+
 (reg-event-fx
  :set-character
- [db-char->local-store (inject-cofx ::e5/pending-relinks)]
+ [leftover-draft db-char->local-store (inject-cofx ::e5/pending-relinks)]
  (fn [{:keys [db] :as cofx} event]
-   (let [db' (set-character db event)
+   (let [db' (apply-leftover (set-character db event) (::leftover cofx))
          relinks (::e5/pending-relinks cofx)
          ask (content-recon/relink-to-ask relinks (:character db') (:plugins db'))]
      ;; Asked once per character (homebrew-keys-design.md §9, Q3): ::e5/relink-question
@@ -2467,6 +2529,7 @@
      ;; A heal is not announced here: :route queues a [:hide-message] that runs after this,
      ;; clearing a toast raised now before it painted. :route announces it instead.
      {::autosave-fx/ensure-template-cache true
+      :dispatch [::char5e/load-drafts]
       :db (assoc db' ::e5/relink-question
                          (when ask
                            (let [{:keys [content-type from] :as r} (get relinks ask)]
@@ -3731,11 +3794,113 @@
        (assoc updated :character character)
        updated))))
 
+;; ---- Unsaved drafts: the offer, the hold and the list. plan-character-drafts.md ----
+
+(defn character->draft
+  "`character` as a stored draft with unsaved changes, already offered, last edited at `touched`."
+  [character touched]
+  (assoc (char5e/to-strict character)
+         :changed true
+         :draft/base (:draft/base character)
+         :draft/touched touched
+         :draft/asked? true))
+
+(reg-fx
+ ::write-draft
+ (fn [{:keys [key draft]}] (set-item (drafts/storage-key key) (str draft))))
+
+(reg-fx
+ ::remove-draft
+ (fn [k] (drafts/remove-draft! k) (drafts/unmark-live! k)))
+
+(reg-cofx
+ ::unsaved-drafts
+ (fn [cofx _] (assoc cofx ::unsaved-drafts (unsaved-drafts))))
+
+(reg-cofx
+ ::stored-draft
+ ;; The draft stored under the key the event names (its second element).
+ (fn [cofx _]
+   (assoc cofx ::stored-draft (some-> (get-in cofx [:event 1]) str read-draft))))
+
+(reg-event-fx
+ ::char5e/load-drafts
+ [(inject-cofx ::unsaved-drafts)]
+ (fn [{:keys [db] :as cofx} _]
+   {:db (assoc db :draft/list (::unsaved-drafts cofx))}))
+
+(reg-event-fx
+ ::char5e/restore-draft
+ [db-char->local-store]
+ (fn [{:keys [db]} _]
+   (when-let [{:keys [key touched character]} (:draft/offer db)]
+     {:db (-> (character-updated db [nil (assoc character :changed true)])
+              (dissoc :draft/offer)
+              (assoc :draft/restored {:touched touched :previous (:character db) :restored character}))
+      ::remove-draft key})))
+
+(reg-event-fx
+ ::char5e/undo-restore
+ [db-char->local-store]
+ (fn [{:keys [db]} _]
+   (when-let [{:keys [previous restored touched] :as r} (:draft/restored db)]
+     (let [k (drafts/kept-key)]
+       {:db (-> (character-updated db [nil previous])
+                (assoc :draft/restored (assoc r :undone? true :kept-key k)))
+        ::write-draft {:key k :draft (character->draft restored touched)}}))))
+
+(reg-event-fx
+ ::char5e/redo-restore
+ [db-char->local-store]
+ (fn [{:keys [db]} _]
+   (when-let [{:keys [restored kept-key] :as r} (:draft/restored db)]
+     {:db (-> (character-updated db [nil (assoc restored :changed true)])
+              (assoc :draft/restored (dissoc r :undone? :kept-key)))
+      ::remove-draft kept-key})))
+
+(reg-event-fx
+ ::char5e/dismiss-draft-notice
+ (fn [{:keys [db]} _]
+   {:db (dissoc db :draft/offer :draft/restored)
+    :dispatch [::char5e/load-drafts]}))
+
+(reg-event-fx
+ ::char5e/edit-here
+ ;; Takes the held character's latest draft from the other tab, then edits it here.
+ [(inject-cofx ::stored-draft)]
+ (fn [{:keys [db] :as cofx} _]
+   (let [draft (::stored-draft cofx)]
+     (if draft
+       {:db (dissoc db :draft/held)
+        :dispatch [:character-updated (draft->character draft)]}
+       {:db (dissoc db :draft/held)}))))
+
+(reg-event-fx
+ ::char5e/discard-draft
+ (fn [_ [_ k]]
+   {::remove-draft k
+    :dispatch [::char5e/load-drafts]}))
+
+(reg-event-fx
+ ::char5e/open-draft
+ ;; Opens the draft under key `k` in the builder. A kept draft moves to its character's own key.
+ [(inject-cofx ::stored-draft)]
+ (fn [{:keys [db] :as cofx} [_ k]]
+   (when-let [draft (::stored-draft cofx)]
+     (let [character (cond-> (draft->character draft)
+                       (drafts/new-key? k) (assoc :draft/key k))]
+       (cond-> {:dispatch-n [[:set-character character]
+                             [:route routes/dnd-e5-char-builder-route]]}
+         (drafts/kept-key? k) (assoc ::remove-draft k))))))
+
 (reg-event-fx
  :edit-character
+ ;; The builder already holding this character keeps it, with any unsaved edits.
  (fn [{:keys [db]} [_ character]]
-   {:dispatch-n [[:set-character character]
-                 [:route routes/dnd-e5-char-builder-route]]}))
+   (if (and (:db/id character) (= (:db/id character) (get-in db [:character :db/id])))
+     {:dispatch [:route routes/dnd-e5-char-builder-route]}
+     {:dispatch-n [[:set-character character]
+                   [:route routes/dnd-e5-char-builder-route]]})))
 
 (reg-event-fx
  ::mi/edit-custom-item
@@ -4222,7 +4387,7 @@
                               (update-in [::sheet-edited int-id] (fnil into #{})
                                          (changed-value-keys stored updated))))
                ::char5e/save-character-throttled id}
-        open (assoc ::builder-draft->local-store open)))
+        (and open (not (:draft/held db))) (assoc ::builder-draft->local-store open)))
     ;; No id: the character being built has never been saved, so this is an
     ;; edit to the one in hand, not a switch.
     {:dispatch [:character-updated (update-fn (:character db))]}))

@@ -8,10 +8,16 @@
 //   R7  a new tab does not take a draft that another open tab is editing
 //   first save moves a new character's draft from its browser key to its id
 //   R9  the old single "character" slot is moved to its own key and removed, losing nothing
+//   R2  a draft that changes nothing is neither offered nor listed
+//   R3  a draft older than the saved character is not offered, but is listed
+//   R4  a leftover is offered in one line in the notice box, the builder showing the saved version
+//   R5  offered once; afterwards listed in the builder and on the character list; Discard removes it
+//   R6  Restore, then Undo and Redo
+//   R7  the same character open in another tab is held until Edit here, its draft left alone
 //
 // Needs:     the real app at :8890 (lein fig:build, then lein e2e-server); E2E_CHARACTER_ID and
 //            E2E_HOMEBREW_CHARACTER_ID, set by run.sh.
-// Runs in:   ~60s.
+// Runs in:   ~3 min.
 // Run:       node test/browser/character_drafts_e2e.js      exit 0 = all checks passed
 const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
@@ -56,6 +62,14 @@ async function openAndRename(page, id, name) {
   await page.waitForTimeout(800);
   await page.evaluate(n => window.__d(`[:update-value-field :orcpub.dnd.e5.character/character-name "${n}"]`), name);
   await page.waitForTimeout(300);
+}
+
+// Closes `page` the way a player closes a tab: unload handlers run, a leave-page prompt is accepted.
+async function closeTab(page) {
+  if (page.isClosed()) return;
+  page.on('dialog', d => d.accept().catch(() => {}));
+  await page.close({ runBeforeUnload: true });
+  await new Promise(r => setTimeout(r, 800));
 }
 
 async function reloadBuilder(page) {
@@ -140,6 +154,140 @@ async function reloadBuilder(page) {
   check('R9: and is moved to its own key, with the old slot removed',
         moved.legacy === null && moved.draft.includes('Legacy draft'),
         `old slot ${moved.legacy === null ? 'gone' : 'still there'}, new key ${moved.draft ? 'present' : 'missing'}`);
+
+  // ---- Opening a character that has a draft: R2-R7 and the drafts list ----
+  for (const p of [t1, t2, t3]) await closeTab(p);
+  await ctx2.close();
+  const tab = async () => { const p = await ctx.newPage(); p.on('pageerror', e => jsErrors.push(e.message)); return p; };
+  // Every draft and live mark gone, so each case starts clean.
+  const reset = async () => {
+    const p = await tab();
+    await p.goto(`${BASE}/pages/dnd/5e/spells`, { waitUntil: 'domcontentloaded' });
+    await p.evaluate(() => Object.keys(localStorage)
+      .filter(k => k.startsWith('character-draft/') || k.startsWith('draft-live/'))
+      .forEach(k => localStorage.removeItem(k)));
+    await p.close();
+  };
+  const notice = p => p.evaluate(() => (document.querySelector('.drafts-notices .bg-note') || {}).innerText || '');
+  const listText = async (p) => {
+    const details = p.locator('.drafts-list button', { hasText: 'Details' });
+    if (!(await details.count())) return '';
+    await details.first().click();
+    await p.waitForTimeout(300);
+    return p.evaluate(() => document.querySelector('.drafts-list').innerText);
+  };
+  // A missing control fails the checks that follow it rather than stopping the run.
+  const clickIn = async (p, scope, label) => {
+    try { await p.locator(`${scope} button`, { hasText: label }).first().click({ timeout: 5000 }); }
+    catch (_) { check(`${label} is there to press`, false); }
+    await p.waitForTimeout(500);
+  };
+  const leftover = async (id, name) => { const p = await tab(); await openAndRename(p, id, name); await closeTab(p); };
+  const openIn = async (id) => {
+    const p = await tab();
+    await p.goto(`${BASE}/pages/dnd/5e/characters/${id}`, { waitUntil: 'networkidle' });
+    await ready(p);
+    await p.waitForFunction(i => window.__get(`[:orcpub.dnd.e5.character/character-map ${i}]`) != null, id, { timeout: 30000 });
+    await p.evaluate(i => window.__edit(i), id);
+    await p.waitForTimeout(1200);
+    return p;
+  };
+  const savedName = async (p, id) => p.evaluate(i => window.__str(
+    `[:orcpub.dnd.e5.character/character-map ${i} :orcpub.entity/values :orcpub.dnd.e5.character/character-name]`), id);
+
+  // R7: the same character open in another tab is held until Edit here.
+  await reset();
+  const live = await tab();
+  await openAndRename(live, A, 'Live A');
+  const other = await openIn(A);
+  const held = await other.evaluate(() => ({
+    held: !!document.querySelector('.builder-held[inert]'),
+    draft: localStorage.getItem('character-draft/' + window.__id()) || '',
+  }));
+  check('R7: opening a character open in another tab says so', (await notice(other)).includes('Open in another tab'),
+        await notice(other));
+  check('R7: and holds editing until Edit here', held.held);
+  check('R7: and leaves the other tab\'s draft alone', held.draft.includes('Live A'));
+  await clickIn(other, '.drafts-notices', 'Edit here');
+  const took = await other.evaluate(() => ({ name: window.__name(), held: !!document.querySelector('.builder-held') }));
+  check('R7: Edit here continues from the other tab\'s latest changes', took.name === 'Live A' && !took.held,
+        `${took.name}, held ${took.held}`);
+  await closeTab(live); await closeTab(other);
+
+  // R2: a draft with no real change is dropped without a word.
+  await reset();
+  const undoer = await tab();
+  // The clone saved above has a stored name, so renaming it back is an exact undo.
+  const C = Number(after.id);
+  await openAndRename(undoer, C, 'Temporary');
+  const original = await savedName(undoer, C);
+  await undoer.evaluate(n => window.__d(`[:update-value-field :orcpub.dnd.e5.character/character-name ${JSON.stringify(n)}]`),
+                        original || '');
+  await undoer.waitForTimeout(300);
+  await closeTab(undoer);
+  const r2 = await openIn(C);
+  check('R2: a draft that changes nothing is not offered', !(await notice(r2)).includes('Unsaved changes'), await notice(r2));
+  check('R2: nor listed', !(await listText(r2)).includes('Unsaved drafts'));
+  await closeTab(r2);
+
+  // R3: a draft older than the saved character is not offered, but is listed.
+  await reset();
+  await leftover(A, 'Stale edit');
+  const sheet = await tab();
+  await sheet.goto(`${BASE}/pages/dnd/5e/characters/${A}`, { waitUntil: 'networkidle' });
+  await ready(sheet);
+  await sheet.waitForFunction(i => window.__get(`[:orcpub.dnd.e5.character/character-map ${i}]`) != null, A, { timeout: 30000 });
+  const sheetSave = sheet.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === '/dnd/5e/characters',
+                                          { timeout: 30000 });
+  await sheet.evaluate(i => window.__d(`[:orcpub.dnd.e5.character/set-current-hit-points ${i} 11]`), A);
+  await sheetSave;
+  await sheet.waitForTimeout(800);
+  await sheet.evaluate(i => window.__edit(i), A);
+  await sheet.waitForTimeout(1200);
+  const r3 = { notice: await notice(sheet), name: await sheet.evaluate(() => window.__name()), list: await listText(sheet) };
+  check('R3: a draft older than the saved character is not offered over it',
+        !r3.notice.includes('Unsaved changes') && r3.name !== 'Stale edit', `${r3.notice} / ${r3.name}`);
+  check('R3: but it is in the drafts list', r3.list.includes('Stale edit'), r3.list.slice(0, 120));
+  await closeTab(sheet);
+
+  // R4, R6: a leftover is offered without replacing the saved version; Restore, Undo, Redo.
+  await reset();
+  await leftover(B, 'Leftover B');
+  const r4 = await openIn(B);
+  const savedB = await savedName(r4, B);
+  check('R4: a leftover draft is offered in one line', (await notice(r4)).includes('Unsaved changes from'), await notice(r4));
+  check('R4: and the builder shows the saved version until Restore', (await r4.evaluate(() => window.__name())) === savedB);
+  await clickIn(r4, '.drafts-notices', 'Restore');
+  check('R6: Restore brings the changes back', (await r4.evaluate(() => window.__name())) === 'Leftover B');
+  check('R6: and says so, with Undo', (await notice(r4)).includes('restored'), await notice(r4));
+  await clickIn(r4, '.drafts-notices', 'Undo');
+  check('R6: Undo puts the saved version back', (await r4.evaluate(() => window.__name())) === savedB);
+  check('R6: then offers Redo', (await notice(r4)).includes('Undone'), await notice(r4));
+  await clickIn(r4, '.drafts-notices', 'Redo');
+  check('R6: and Redo restores again', (await r4.evaluate(() => window.__name())) === 'Leftover B');
+  await closeTab(r4);
+
+  // R5: offered once; then only in the list (builder and character list), where Discard removes it.
+  await reset();
+  await leftover(B, 'Leftover B2');
+  const first = await openIn(B);
+  check('R5: a leftover is offered the first time', (await notice(first)).includes('Unsaved changes from'));
+  await first.locator('.drafts-notices button[aria-label="Dismiss"]').first().click({ timeout: 5000 })
+    .catch(() => check('the offer\'s close mark is there to press', false));
+  await first.waitForTimeout(500);
+  check('R5: closing the offer keeps it in the builder\'s list', (await listText(first)).includes('Leftover B2'));
+  await closeTab(first);
+  const again = await openIn(B);
+  check('R5: and it is not offered again', !(await notice(again)).includes('Unsaved changes'), await notice(again));
+  await closeTab(again);
+  const listPage = await tab();
+  await listPage.goto(`${BASE}/pages/dnd/5e/characters`, { waitUntil: 'networkidle' });
+  await listPage.waitForTimeout(1500);
+  check('the character list shows it too', (await listText(listPage)).includes('Leftover B2'));
+  await clickIn(listPage, '.drafts-list', 'Discard');
+  check('R5: Discard removes it', (await listPage.locator('.drafts-list').count()) === 0
+        && (await listPage.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('character-draft/kept-')).length)) === 0);
+  await listPage.close();
 
   check('no page errors', jsErrors.length === 0, jsErrors.slice(0, 3).join(' | '));
   await browser.close();

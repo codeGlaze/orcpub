@@ -1259,6 +1259,8 @@
      :opacity 0.75}
     [:&:hover {:opacity 1}]]
    [:button.message-close {:background :none :border 0 :font :inherit :cursor :pointer}]
+   ;; The builder's options while another tab edits the same character (plan-character-drafts.md R7).
+   [:.builder-held {:opacity 0.45 :pointer-events :none}]
 
    ;; Warning/alert styles
    [:.bg-warning

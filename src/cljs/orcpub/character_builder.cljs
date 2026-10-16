@@ -38,6 +38,7 @@
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
+            [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.subs :as subs5e]
             [orcpub.route-map :as routes]
             [orcpub.pdf-spec :as pdf-spec]
@@ -2532,6 +2533,37 @@
 (defn set-loading []
   (dispatch-sync [:set-loading true]))
 
+(defn draft-notices
+  "The builder's notices about unsaved drafts, above the options: a character open in another tab
+   is held until Edit here; a leftover draft is offered once, then Undo and Redo after Restore; then
+   the list of other unsaved drafts. plan-character-drafts.md; wording in ux-guide.md (2026-10-16)."
+  []
+  (let [held @(subscribe [::char5e/draft-held])
+        offer @(subscribe [::char5e/draft-offer])
+        restored @(subscribe [::char5e/draft-restored])
+        box {:tone :note :accent :brand :compact? true :icon "fa-history orange"}
+        line (fn [cfg] [notifications/callout (update cfg :text #(vector :span.main-text-color %))])
+        link (fn [label event] {:label label :link? true :on-click #(dispatch event)})
+        dismiss #(dispatch [::char5e/dismiss-draft-notice])]
+    [:div.drafts-notices.m-l-10.m-r-10
+     (cond
+       held
+       (line (assoc box :icon "fa-clone orange" :text "Open in another tab"
+                    :actions [(link "Edit here" [::char5e/edit-here held])]))
+
+       (:undone? restored)
+       (line (assoc box :text "Undone" :on-close dismiss
+                    :actions [(link "Redo" [::char5e/redo-restore])]))
+
+       restored
+       (line (assoc box :text (str "Changes from " (views5e/draft-time (:touched restored)) " restored")
+                    :on-close dismiss :actions [(link "Undo" [::char5e/undo-restore])]))
+
+       offer
+       (line (assoc box :text (str "Unsaved changes from " (views5e/draft-time (:touched offer)))
+                    :on-close dismiss :actions [(link "Restore" [::char5e/restore-draft])])))
+     [views5e/drafts-list]]))
+
 (defn save-character
   "Dispatch manual save. Passes built-char so the handler can compute
    the character summary without subscribing outside reactive context."
@@ -2635,6 +2667,8 @@
                                     [:span "You have unsaved changes"])])]]]]
       [:div.flex.justify-cont-c.p-b-40
        [:div.f-s-14.main-text-color.content
-        [:div.flex.w-100-p
+        [draft-notices]
+        ;; Held while another tab edits this character: nothing here takes input until Edit here.
+        [:div.flex.w-100-p (when @(subscribe [::char5e/draft-held]) {:class "builder-held" :inert ""})
          [builder-columns]]]]]
      :subheader (when character-id [integrations/share-line character-id])]]))

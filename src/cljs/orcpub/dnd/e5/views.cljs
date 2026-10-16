@@ -10940,6 +10940,43 @@
              [:i.fa.fa-times.m-r-5]
              "Clear"])]]))))
 
+(defn draft-time
+  "When a draft was last edited, from `ms` (epoch milliseconds), as a player reads it: weekday and
+   time within the last six days (\"Tue 14:02\"), else the date (\"Oct 9\")."
+  [ms]
+  (let [d (js/Date. ms)
+        recent? (< (- (.now js/Date) ms) (* 6 24 60 60 1000))]
+    (.toLocaleString d "en-US" (if recent?
+                                 #js {:weekday "short" :hour "2-digit" :minute "2-digit" :hour12 false}
+                                 #js {:month "short" :day "numeric"}))))
+
+(defn drafts-list
+  "\"Unsaved drafts (n) · Details\": this browser's drafts that are not open anywhere and not offered,
+   each with Open and Discard. Renders nothing when there are none. ux-guide.md (2026-10-16)."
+  []
+  (let [open? (r/atom false)]
+    (fn []
+      (let [drafts @(subscribe [::char/unsaved-drafts])]
+        (when (seq drafts)
+          [:div.drafts-list.main-text-color
+           [notifications/callout
+            {:icon "fa-file-alt orange"
+             :tone :note
+             :accent :brand
+             :compact? true
+             :text (str "Unsaved drafts (" (count drafts) ")")
+             :actions [{:label "Details" :link? true :expanded @open? :on-click #(swap! open? not)}]
+             :details (when @open?
+                        (for [{:keys [key name touched]} drafts]
+                          {:key key
+                           :label (if (s/blank? name) "New character" name)
+                           :aside [:span (draft-time touched) " · "
+                                   [:button.link-button.underline
+                                    {:on-click #(dispatch [::char/open-draft key])} "Open"]
+                                   " · "
+                                   [:button.link-button.underline
+                                    {:on-click #(dispatch [::char/discard-draft key])} "Discard"]]}))}]])))))
+
 (defn character-list []
   (let [characters @(subscribe [::char/filtered-characters])
         folders @(subscribe [::folder/folders])
@@ -10970,6 +11007,7 @@
        :icon "folder"
        :on-click #(dispatch [::folder/create-folder])}]
      [:div.p-5
+      [drafts-list]
       [character-filter-bar]
       [:div
        (let [filtered-char-ids (into #{} (map :db/id) characters)
