@@ -165,3 +165,15 @@ Newest last. Date, ruling, and what it replaced.
   effect, a word or two; the full text, SRD wording where there is some, goes in the details or
   description. First use: the Net ("restrains"; PDF "None (restrains)"; the SRD paragraph in its
   expanded details). Replaced a sentence-long summary that wrapped to four lines on a phone.
+- 2026-10-16: a leftover character draft (unsaved changes from a closed tab) is offered once, in the
+  builder's notice box: "Unsaved changes from Tue 14:02 · Restore" with the close mark for "not
+  now"; Discard lives only in the drafts list, so the line never asks what the close mark does to
+  the draft. After Restore: "Changes from Tue 14:02 restored · Undo", then "Undone · Redo". Chosen
+  over Restore · Discard on the line: a shorter line. Review page:
+  claude.ai/artifact/C5pLwAPXYHnmpfkrsHeNuW; rules in plan-character-drafts.md.
+- 2026-10-16: a character open in another tab is held in the builder until "Edit here": "Open in
+  another tab · Edit here". Chosen over a notice with only a close mark: both tabs share one draft,
+  so editing in two at once loses one tab's changes.
+- 2026-10-16: unsaved drafts that are not offered (out of date, or offered once and ignored) are
+  listed in an "Unsaved drafts (n) · Details" box both above the builder's options and on the
+  character list, each with Open and Discard. Shown only when there are any.

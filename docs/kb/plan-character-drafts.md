@@ -17,10 +17,10 @@ build is not done until every check has been seen failing on the old code and pa
 | R1 | **Your own tab never asks.** A reload restores that tab's own draft silently. Only a leftover from a closed tab is ever offered | Unsaved edit in tab 1, reload tab 1: the edit is there, no notice |
 | R2 | **A draft that changes nothing is dropped silently.** If it matches the saved character it is deleted without a word | Edit then undo, close the tab, open the character elsewhere: no notice, and the draft key is gone |
 | R3 | **A draft older than your saved work is never offered over it.** Each draft records the saved version it started from; if the character has been saved since, the builder opens the saved version and does not prompt. The draft stays reachable from the drafts list until it expires | Unsaved draft in tab 1; the sheet saves the character in tab 2; close tab 1; open the character in tab 3: no notice, draft listed |
-| R4 | **Never a popup.** The character opens as saved, with one line: "Unsaved changes from Tue 14:02. Restore / Discard". Ignoring it keeps the saved version | A leftover shows the line, not a dialog; the builder holds the saved version until Restore |
+| R4 | **Never a popup.** The character opens as saved, with one line in the notice box: "Unsaved changes from Tue 14:02 · Restore" and a close mark for "not now" (Discard is in the drafts list; owner, 2026-10-16). Ignoring it keeps the saved version | A leftover shows the line, not a dialog; the builder holds the saved version until Restore |
 | R5 | **Asked once.** Discard deletes the draft. Ignored, it is not raised again on later opens; it stays in the drafts list until it expires | Open, ignore, open again: no line. Discard: the key is gone |
 | R6 | **Restore can be undone.** It changes only the builder; the saved version is untouched until Save, and Undo puts it back | Restore, then Undo: the builder holds the saved version, and nothing was sent |
-| R7 | **A draft open in another tab is not a leftover.** An open tab keeps its draft's heartbeat fresh; opening the same character elsewhere says "This character is open in another tab" instead of offering the draft | Tab 1 open with unsaved edits; tab 2 opens the same character: that line, no Restore |
+| R7 | **A draft open in another tab is not a leftover.** An open tab keeps its draft's heartbeat fresh; opening the same character elsewhere holds editing with "Open in another tab · Edit here" instead of offering the draft (owner, 2026-10-16) | Tab 1 open with unsaved edits; tab 2 opens the same character: that line, no Restore, and the options do not take edits until Edit here |
 | R8 | **Old drafts expire** after 30 days untouched. **Amended for safety (owner to confirm):** a draft of a character that has never been saved is the only copy, so it never expires | Seeded drafts: a saved character's draft 31 days old is deleted at start-up; a never-saved one 31 days old is kept |
 
 Two more checks the build must pass, for the bug itself and the move:
@@ -93,4 +93,4 @@ Two more checks the build must pass, for the bug itself and the move:
   `feature/portrait-builder` (as #65 is) or one cut from `integration` after #64 merges. The rescue
   session owns Data View and item 9.
 - R8's amendment: never-saved drafts do not expire.
-- The drafts list (R3, R5): where it lives. Mockup first.
+- ~~The drafts list: where it lives.~~ Both above the builder's options and on the character list (owner, 2026-10-16).

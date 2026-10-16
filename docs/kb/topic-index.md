@@ -248,7 +248,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _ac-tests-and-modifier-order · ac tests and modifier order_
 
-**topics:** 2026-10-06, archmagi, bonus, bracers, calculation, codeglaze, competing, higher, ignoring, listed, lizardfolk, modifiers, order, ring, robe, shield, tortle, worn
+**topics:** 2026-10-06, archmagi, bonus, bracers, calculation, codeglaze, competing, higher, ignoring, lizardfolk, modifiers, order, ring, robe, shield, sorts, tortle, worn
 
 - What it looked like
 - Why it is not a bug
@@ -2660,7 +2660,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, mix-up, never-saved, open, rescue, restore, saved, start-up, tab, undo, unsaved
+**topics:** 2026-10-16, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, owner, rescue, restore, saved, start-up, tab, undo, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)
@@ -3208,7 +3208,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, crest, figures, flame, head, heading, lining, old-style, opentype, packed, pact, prep, spellbook, tabs, taller
+**topics:** cards, chapter, column, columns, crest, figures, flame, head, heading, lining, old-style, opentype, packed, pact, prep, re-split, spellbook, taller
 
 - What it prints
 - Why the layout works the way it does
