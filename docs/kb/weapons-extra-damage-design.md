@@ -99,3 +99,16 @@ copy was byte-identical to ours.
   all of the attack's damage dice twice; Sage Advice applies it to extra damage such as Sneak Attack)
   points to doubling. No ruling on Vicious itself was found; owner to decide.
 - **Charges, once-per-rest and on-hit effects** are drawn but have open questions; not to build yet.
+
+## Owner decisions on the review (2026-10-16)
+
+- **Crit rules are a setting:** an account default, overridable per character (so a campaign's table
+  rules apply), and always stated where crit damage is shown, so it is not forgotten. Vicious and every
+  extra part follow whichever rule is set.
+- **The scope is intentional:** charges, once-per-rest, on-hit effects and the stress test exist so new
+  features do not force a redesign. The site supports more than SRD data; the stress test shows what
+  official content and homebrew should support.
+- **Small chip text is acceptable:** measured at 10px bold in the tile and 11px on the Every hit line;
+  the opened row repeats every part at 13px.
+- **Visible way into the + menu:** shown as "More rolls" buttons in the opened row (mock drawn); the
+  owner wants neatness kept, no crowding.

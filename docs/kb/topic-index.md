@@ -25,7 +25,7 @@ every section heading it contains.
 
 _DATOMIC_JAVA21_TEST_RESULTS · DATOMIC_JAVA21_TEST_RESULTS_
 
-**topics:** 5703, activemq, apache, artemis, connection, connections, datomic, free, https, java, mock, peer, peer-to-transactor, pro, releases-pro, ssl, tls, transactor
+**topics:** 5703, activemq, apache, artemis, connection, connections, datomic, free, https, java, peer, peer-to-transactor, pro, releases-pro, ssl, successfully, tls, transactor
 
 - Executive Summary
 - Test Results Matrix
@@ -816,7 +816,7 @@ _code-comment-style · code comment style_
 
 _content-extensibility-compatibility · content extensibility compatibility_
 
-**topics:** 252, call-sites, catalog, catalogs, characters, content-extensibility, contract, existing, exported, formats, invariant, invariants, keys, nets, non-additive, redesign, selection, selection-key
+**topics:** 252, call-sites, catalog, catalogs, characters, content-extensibility, contract, existing, exported, formats, hosted, invariant, invariants, keys, nets, non-additive, selection, selection-key
 
 - 1. Persisted formats (verified)
 - 1a. orcbrew / plugins (homebrew libraries)
@@ -3618,7 +3618,7 @@ _weapon-data-model · weapon data model_
 
 _weapons-extra-damage-design · weapons extra damage design_
 
-**topics:** bars, charges, chip, colour, crit, damage, dot, dots, extra, menu, on-hit, parts, roll, strip, switches, tile, vicious, white
+**topics:** bars, charges, chip, colour, crit, damage, dot, dots, effects, extra, menu, on-hit, roll, strip, switches, tile, vicious, white
 
 - Decisions
 - Damage-type palette
@@ -3626,6 +3626,7 @@ _weapons-extra-damage-design · weapons extra damage design_
 - Not designed yet; ask the user before building
 - Trial checklist
 - Review (2026-10-16)
+- Owner decisions on the review (2026-10-16)
 
 ## weapons-extra-damage-handoff.md
 
