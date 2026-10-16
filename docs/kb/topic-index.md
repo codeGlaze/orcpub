@@ -2897,7 +2897,7 @@ _reagent-architecture-tenets · reagent architecture tenets_
 
 _reframe-subscription-patterns · reframe subscription patterns_
 
-**topics:** 401, api-backed, app-db, auth, auth-state-in-app-db, context, counter, decrement, deref, guard, http, loading, login, non-reactive, reaction, reactive, redirect, subscriptions
+**topics:** 401, api-backed, app-db, auth, auth-state-in-app-db, context, counter, decrement, deref, fire, guard, http, loading, non-reactive, reaction, reactive, redirect, subscriptions
 
 - reg-sub-raw HTTP Pattern
 - Lifecycle
@@ -3233,7 +3233,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, crest, flame, head, heading, old-style, opentype, packed, pact, prep, re-split, spell, spellbook, tabs, taller
+**topics:** cards, chapter, column, columns, crest, figures, flame, head, heading, old-style, opentype, packed, pact, prep, re-split, spell, spellbook, taller
 
 - What it prints
 - Why the layout works the way it does

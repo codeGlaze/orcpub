@@ -36,6 +36,16 @@ Three header lines change how a suite is treated:
   with the `busy-export` profile (`export_busy_retry`).
 - `// Kind: probe` — it measures and prints. The runner judges it by exit code only and reports
   `PROBE`, never `PASS`.
+- `// Kind: on demand` (on `feature/portrait-builder`, PR #64, 2026-10-16) — a long walkthrough,
+  judged like a test when run by name; `run-all.sh` leaves it out and lists it as "on demand, not
+  run". The one so far is `test/browser/soak_e2e.js`: logged-out characters saved through the
+  login prompt, every homebrew builder and a character using all of it, an import, the logged-in
+  round (delete, New, open an old one, New), a shared computer, two tabs, and things going wrong;
+  92 checks, about 15 minutes, UI only on the production bundle. Run it before a release or after
+  changing how characters, drafts or homebrew are saved:
+  `./scripts/e2e/run.sh test/browser/soak_e2e.js`. Its one known failure (2026-10-16): on a shared
+  browser the next account's builder opens the last account's unsaved character, on `integration`
+  too.
 - `// Needs: pack argument` — it imports the `.orcbrew` named by its first argument. With none,
   `run.sh` passes `test/fixtures/test-pak.orcbrew` and the result line says `(fixture pack)`.
   Pass a real pack after the suite name: `run.sh test/browser/x_e2e.js path/to/pack.orcbrew`.
