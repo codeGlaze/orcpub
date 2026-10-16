@@ -1142,39 +1142,32 @@
   (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND true))
 
 (defn in-to-sz
-  "Inches to PDF points (72 per inch). Use for SIZES -- widths, heights, font
-   offsets -- where no page origin is involved. `inches-to-units` is the same
-   function under a second name; prefer this one."
+  "Inches to PDF points. `canvas/in->pt` under this file's older name, kept because 48
+   call sites use it. `inches-to-units` is the same function under a THIRD name."
   [inches]
-  (float (* 72 inches)))
+  (canvas/in->pt inches))
 
 (defn in-to-coord-x
   "Inches from the page LEFT edge to a PDF x coordinate. Just `in-to-sz`: x needs no
-   flip because both spaces run left to right. It exists so that call sites can name
-   both axes the same way."
+   flip because both spaces run left to right. It exists so call sites can name both
+   axes the same way."
   [inches]
-  (in-to-sz inches))
+  (canvas/in->pt inches))
 
 (defn in-to-coord-y
   "Inches from the page TOP to a PDF y coordinate, which measures from the bottom.
-   Hardcodes an 11-inch page: wrong for any other size, and the only reason the
-   point-based spellbook code can reuse `draw-svg-icon!` is that 792pt is exactly
-   11in. Images go through here and so take `y` from the top; the text functions
-   multiply by 72 directly and take it from the bottom."
+   The page height is no longer inline here -- `canvas/pt-from-top` holds it, and
+   spellbook.clj flips through the same function.
+
+   Images go through here and so take `y` from the top; the text functions multiply by
+   72 directly and take it from the bottom. That split is unchanged."
   [inches]
-  (in-to-sz (- 11 inches)))
+  (canvas/pt-from-top 72 inches))
 
 (defn scale
-  "Largest [height width] with the image's aspect ratio that fits the rectangle
-   [r-h r-w]. One dimension always matches the rectangle exactly; the other is
-   smaller. Units are whatever the caller used, so long as both pairs agree."
-  [[r-h r-w] [i-h i-w]]
-  (let [height-to-width (/ i-h i-w)
-        rect-height-to-width (/ r-h r-w)
-        height-ratio (/ r-h i-h)]
-    (if (> height-to-width rect-height-to-width)
-      [r-h (* r-h (/ i-w i-h))]
-      [(* r-w (/ i-h i-w)) r-w])))
+  "`canvas/fit` under this file's older name. Kept for its call sites."
+  [rect img]
+  (canvas/fit rect img))
 
 (defn draw-imagex
   "Draws an already-embedded PDImageXObject into the box at [`x` `y`] sized
@@ -2109,10 +2102,10 @@
   (.stroke cs))
 
 (defn inches-to-units
-  "DUPLICATE of `in-to-sz`, declared 900 lines later and identical. Kept because
-   `draw-line-in` and the grid code call it; new code should use `in-to-sz`."
+  "The third name for `canvas/in->pt`, after `in-to-sz` 900 lines above. Kept because
+   `draw-line-in` and the grid code call it; new code should use `canvas/in->pt`."
   [inches]
-  (float (* inches 72)))
+  (canvas/in->pt inches))
 
 (defn draw-line-in
   "`draw-line` with every coordinate given in inches instead of points. Both

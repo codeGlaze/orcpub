@@ -7,6 +7,51 @@
    why one formula serves them."
   (:import (org.apache.pdfbox.pdmodel PDPageContentStream)))
 
+(def page-sizes
+  "Page dimensions in POINTS, [width height]. ISO 216 for the A series; US Letter is
+   612x792, which is exactly 8.5x11 inches."
+  {:letter [612.0 792.0]
+   :a4     [595.0 842.0]
+   :a5     [420.0 595.0]})
+
+(def default-page
+  "What everything draws on today. The character-sheet templates in resources/ are all
+   612x792 and their artwork is fixed, so an A4 character sheet needs A4 artwork rather
+   than a change here; a bare (PDPage.) is PDFBox's Letter. Changing this alone does not
+   produce an A4 export -- it is the one place the page height stops being a literal."
+  :letter)
+
+(defn page-size
+  "[width height] in points for `page`, a key of `page-sizes`. Unknown keys get Letter."
+  [page]
+  (get page-sizes page (page-sizes :letter)))
+
+(defn in->pt
+  "Inches to PDF points, 72 per inch. For SIZES -- widths, heights, offsets -- where no
+   page origin is involved, so no flip."
+  [inches]
+  (float (* 72 inches)))
+
+(defn pt-from-top
+  "`y` units DOWN from the page top to a PDF y coordinate, which runs up from the bottom.
+   `pt-per-unit` is 72 when the caller works in inches, 1 when it works in points.
+
+   The one flip both drawing files use: pdf.clj had it as `(in-to-sz (- 11 inches))` with
+   the page height inline, spellbook.clj as `(- page-h ty)`. Same arithmetic, two units,
+   and only one of them named the height."
+  ([pt-per-unit y] (pt-from-top default-page pt-per-unit y))
+  ([page pt-per-unit y]
+   (float (- (second (page-size page)) (* pt-per-unit y)))))
+
+(defn fit
+  "Largest [height width] with the image's aspect ratio that fits the rectangle
+   [r-h r-w]. One dimension matches the rectangle exactly; the other is smaller. Units
+   are the caller's, so long as both pairs agree."
+  [[r-h r-w] [i-h i-w]]
+  (if (> (/ i-h i-w) (/ r-h r-w))
+    [r-h (* r-h (/ i-w i-h))]
+    [(* r-w (/ i-h i-w)) r-w]))
+
 (def bezier-k
   "Control-point offset that turns four cubic curves into a circle, to within a fifth of
    a percent. There is no arc operator in a PDF content stream."
