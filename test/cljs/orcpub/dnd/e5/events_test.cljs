@@ -36,6 +36,7 @@
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [cljs.spec.alpha :as s]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.dnd.e5.character-drafts :as drafts]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.library :as library]
@@ -1272,6 +1273,9 @@
 
 (deftest a-reloaded-draft-heals-when-the-template-arrives
   (let [broken {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}]
+    ;; A browser holding only the old single-slot draft: other tests' drafts and tab key cleared.
+    (doseq [k (drafts/draft-keys)] (drafts/remove-draft! k))
+    (.removeItem js/sessionStorage "builder-draft-key")
     (.setItem js/localStorage "plugins" (pr-str stored-plugins))
     (.setItem js/localStorage "character" (pr-str (char5e/to-strict broken)))
     (try
@@ -1287,8 +1291,10 @@
         (is (= [{:from :half-elf-phb :to :half-elf-ua}] (get-in @app-db [:character-healed :rewrote])))
         (is (true? (get-in @app-db [:character-healed :announced?]))))
       (testing "and the healed draft is stored, so the next load restores it healed"
-        (is (not (.includes (.getItem js/localStorage "character") "half-elf-phb"))))
+        (is (not (.includes (.getItem js/localStorage (drafts/storage-key (drafts/tab-key))) "half-elf-phb"))))
       (finally
+        (some-> (drafts/tab-key) drafts/remove-draft!)
+        (.removeItem js/sessionStorage "builder-draft-key")
         (.removeItem js/localStorage "character")
         (.removeItem js/localStorage "plugins")))))
 

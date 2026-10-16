@@ -6,6 +6,7 @@
             [orcpub.dnd.e5.content-specs :as content-specs]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.character-drafts :as drafts]
             [orcpub.dnd.e5.backgrounds :as bg5e]
             [orcpub.dnd.e5.languages :as langs5e]
             [orcpub.dnd.e5.library :as library]
@@ -32,7 +33,6 @@
 ;; Version: 1.01 - Add conflict-resolution state for duplicate key handling
 ;; =============================================================================
 
-(def local-storage-character-key "character")
 (def local-storage-user-key "user")
 (def local-storage-magic-item-key "magic-item")
 (def local-storage-spell-key "spell")
@@ -198,12 +198,20 @@
       (prn "FAILED SETTING LOCALSTORAGE ITEM" key)
       false)))
 
-(defn character->local-store [character]
+(defn character->local-store
+  "Stores `character` as this tab's builder draft under its own draft key (character-drafts.cljs),
+   with :changed and the time, and marks the key live in this tab. Returns whether it was stored."
+  [character]
   (when js/window.localStorage
-    (set-item local-storage-character-key
-              (str (assoc (char5e/to-strict character)
-                          :changed
-                          (:changed character))))))
+    (let [previous (drafts/tab-key)
+          k (drafts/key-for character previous)]
+      (when (and previous (not= previous k)) (drafts/unmark-live! previous))
+      (drafts/set-tab-key! k)
+      (drafts/mark-live! k)
+      (set-item (drafts/storage-key k)
+                (str (assoc (char5e/to-strict character)
+                            :changed (:changed character)
+                            :draft/touched (.now js/Date)))))))
 
 (defn user->local-store [user-data]
   (when js/window.localStorage
@@ -438,15 +446,42 @@
                          (spec/explain-data item-spec stored-item))))
                   nil)))))))
 
-(reg-local-store-cofx
+(defn- migrate-legacy-draft!
+  "Moves a draft in the old single slot to its own draft key and removes the old slot. Returns nil."
+  []
+  (when-let [item (get-local-storage-item drafts/legacy-key)]
+    (when (set-item (drafts/storage-key (drafts/key-for item nil)) (str item))
+      (.removeItem js/window.localStorage drafts/legacy-key)))
+  nil)
+
+(defn- draft-to-restore
+  "The draft key this tab opens at start-up: its own when stored; else the most recently edited
+   draft that no other open tab holds; else nil."
+  []
+  (let [stored (drafts/draft-keys)
+        own (drafts/tab-key)]
+    (if (some #{own} stored)
+      own
+      (drafts/latest (into {} (map (fn [k] [k (or (:draft/touched (get-local-storage-item (drafts/storage-key k))) 0)]))
+                           stored)
+                     #(drafts/live-elsewhere? % (.now js/Date))))))
+
+(re-frame/reg-cofx
  :local-store-character
- local-storage-character-key
- ::se/entity
- (fn [char]
-   (assoc
-    (char5e/from-strict char)
-    :changed
-    (:changed char))))
+ ;; This tab's builder draft, read at start-up: see draft-to-restore. Also moves the old single
+ ;; slot and starts the live mark that tells other tabs this draft is open here.
+ (fn [cofx _]
+   (assoc cofx :local-store-character
+          (when js/window.localStorage
+            (migrate-legacy-draft!)
+            (drafts/start-heartbeat!)
+            (when-let [k (draft-to-restore)]
+              (drafts/set-tab-key! k)
+              (drafts/mark-live! k)
+              (let [item (get-local-storage-item (drafts/storage-key k))]
+                (if (spec/valid? ::se/entity item)
+                  (assoc (char5e/from-strict item) :changed (:changed item))
+                  (js/console.warn "Invalid stored draft, ignoring:" k))))))))
 
 (spec/def ::username string?)
 (spec/def ::email string?)

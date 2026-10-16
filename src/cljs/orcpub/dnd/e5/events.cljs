@@ -97,6 +97,7 @@
                                       default-class
                                       default-subclass]]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.dnd.e5.character-drafts :as drafts]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.picks :as picks]
@@ -642,7 +643,18 @@
                 (conj [::char5e/set-character id character]))}
        keep-builder? (-> (assoc-in [:db :character] kept)
                          (assoc ::builder-draft->local-store kept))
+       ;; A first save: the draft moves from its browser key to the new id.
+       (and current? (nil? (get-in db [:character :db/id]))) (assoc ::drop-unsaved-draft true)
        for-id (assoc ::autosave-fx/saved for-id)))))
+
+(reg-fx
+ ::drop-unsaved-draft
+ ;; Deletes this tab's draft when it is a never-saved character's, whose next write is under its id.
+ (fn [_]
+   (let [k (drafts/tab-key)]
+     (when (drafts/new-key? k)
+       (drafts/remove-draft! k)
+       (drafts/unmark-live! k)))))
 
 (defn descriptive-character-label
   "Build a descriptive label like 'High Elf Ranger 3' from character properties.

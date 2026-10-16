@@ -124,6 +124,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   whether for another character or the same one, or when it levels up; a sheet edit is no longer
   undone by a builder Save or by a save that was already under way; and closing the tab still
   warns while a save has not gone through.
+- **Characters:** builder tabs open on different characters keep their own unsaved changes; a reload
+  no longer brings back the other tab's character. (#704)
 - **Sharing:** link previews of shared characters failed on Discord, Mastodon, Slack, Telegram and
   X, because `robots.txt` blocked every crawler that honours it.
 - **Sharing:** every shared character link had an empty title and image in its preview.

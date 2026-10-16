@@ -70,7 +70,7 @@ const nextSave = page => page.waitForResponse(
     name: window.__str('[:character :orcpub.entity/values :orcpub.dnd.e5.character/character-name]'),
     changed: window.__get('[:character :changed]'),
     hp: window.__str('[:character :orcpub.entity/values :orcpub.dnd.e5.character/current-hit-points]'),
-    draft: localStorage.getItem('character') || '',
+    draft: localStorage.getItem('character-draft/' + sessionStorage.getItem('builder-draft-key')) || '',
   }));
   check('the builder keeps its unsaved name after the sheet\'s save comes back', after.name === NAME, after.name);
   check('and still counts it as unsaved', after.changed === true, String(after.changed));
