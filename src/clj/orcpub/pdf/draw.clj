@@ -109,6 +109,15 @@
   "Standard Helvetica font (bold weight, italic/oblique)"
   (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD_OBLIQUE))
 
+(def site-stamp
+  "The site line printed on card backs, the spellbook foot and every character-sheet
+   page. Here because all three draw it; the placement is each one's own."
+  "dungeonmastersvault.com")
+
+(def site-stamp-size
+  "Point size of `site-stamp`. The spellbook sets its own, 6.6 with letter-spacing."
+  6)
+
 (defn load-fonts
   "Loads the fonts for the document. Will contain
   :plain, :italic, :bold and :bold-italic fonts."

@@ -900,8 +900,8 @@
   (let [ty (- page-h 22)]
     (text! cs (:plain fonts) 6.6 margin ty (str "Spellbook of " (if (s/blank? character-name) "an adventurer" character-name)) {:color ink-2})
     (folio! cs fonts (+ margin (/ w 2)) (- ty 2.4) n)
-    (let [sw (spaced-width (:plain fonts) 6.6 pdf/site-stamp 0.4)]
-      (text! cs (:plain fonts) 6.6 (- (+ margin w) sw) ty pdf/site-stamp {:color ink-2 :spacing 0.4}))))
+    (let [sw (spaced-width (:plain fonts) 6.6 draw/site-stamp 0.4)]
+      (text! cs (:plain fonts) 6.6 (- (+ margin w) sw) ty draw/site-stamp {:color ink-2 :spacing 0.4}))))
 
 (defn- draw-page!
   "Draws `page`: running head, inset tabs when asked for, every block of units, the footer,

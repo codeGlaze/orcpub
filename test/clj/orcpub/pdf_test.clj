@@ -5,6 +5,7 @@
             [clojure.string :as str]
             [orcpub.pdf :as pdf]
             [orcpub.pdf.draw :as draw]
+            [orcpub.pdf.cards :as cards]
             [orcpub.dnd.e5.spell-packing :as packing])
   (:import (org.apache.pdfbox Loader)
            (org.apache.pdfbox.cos COSName)
@@ -92,13 +93,13 @@
                                 :components {:verbal true}}
                         :class-nm "Wizard" :dc 13 :attack-bonus 5}]]
             (is (sequential?
-                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false false false))
+                 (cards/print-spells cs doc fonts img 2.5 3.5 spell 0 false false false))
                 "color icons: returns the remaining-lines sequence without throwing")
             (is (sequential?
-                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false true false))
+                 (cards/print-spells cs doc fonts img 2.5 3.5 spell 0 false true false))
                 "B&W solid: solid-black -bw icons + halo labels, renders without throwing")
             (is (sequential?
-                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false true true))
+                 (cards/print-spells cs doc fonts img 2.5 3.5 spell 0 false true true))
                 "B&W faded: grayscale icons (reduced alpha), renders without throwing")))))))
 
 (deftest print-backs-renders-with-optional-logo
@@ -112,11 +113,11 @@
             page (.getPage doc 0)
             lines (vec (repeat 9 {:remaining-lines ["overflow line"] :spell-name "Bolt"}))]
         (with-open [cs (PDPageContentStream. doc page)]
-          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-bw.png"))
+          (is (sequential? (cards/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-bw.png"))
               "grayscale logo on")
-          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-black.png"))
+          (is (sequential? (cards/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-black.png"))
               "solid-black logo on")
-          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 nil))
+          (is (sequential? (cards/print-backs cs fonts img 2.5 3.5 lines 0 nil))
               "logo off"))))))
 
 (deftest normalize-text-coerces-to-winansi
@@ -750,7 +751,7 @@
           (pdf/grow-spell-sections! doc casters (if (zero? casters) :all marks))
           (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
           (doseq [i (range (.getNumberOfPages doc))]
-            (is (= 1 (count (re-seq (re-pattern pdf/site-stamp) (page-text doc i))))
+            (is (= 1 (count (re-seq (re-pattern draw/site-stamp) (page-text doc i))))
                 (str "style " style ", " casters " caster(s), page " (inc i)))))))))
 
 (defn- ink-free?
@@ -762,7 +763,7 @@
   (let [dpi 300.0
         img (.renderImageWithDPI (org.apache.pdfbox.rendering.PDFRenderer. doc)
                                  index (float dpi))
-        w (draw/string-width pdf/site-stamp draw/HELVETICA 6)
+        w (draw/string-width draw/site-stamp draw/HELVETICA 6)
         h (/ 8.0 72)
         height (.getHeight img)
         x0 (int (* x dpi))

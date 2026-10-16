@@ -7,8 +7,8 @@
 ;; PDFBox's renderer cannot rasterise the embedded faces -- open the result in a
 ;; browser, not with PDFRenderer, or every card looks like an encoding bug.
 
-(require '[orcpub.pdf :as pdf]
-(require '[orcpub.pdf.draw :as draw] '[orcpub.dnd.e5.magic-items :as mi])
+(require '[orcpub.pdf.draw :as draw] '[orcpub.pdf.cards :as cards]
+         '[orcpub.dnd.e5.magic-items :as mi])
 (import '[org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream] '[java.io File])
 
 (def rarities [:common :uncommon :rare :very-rare :legendary])
@@ -29,14 +29,14 @@
   (let [page (PDPage.)]
     (.addPage doc page)
     (with-open [cs (PDPageContentStream. doc page)]
-      (pdf/print-items cs doc fonts img 2.5 3.5 items 0 false false opts))))
+      (cards/print-items cs doc fonts img 2.5 3.5 items 0 false false opts))))
 
 (let [doc (PDDocument.)
       fonts (draw/load-fonts doc)
       img (draw/make-image-loader doc)
       ladder (mapv sample rarities)]
   ;; One page per family: the five ranks side by side.
-  (doseq [family pdf/card-flourishes]
+  (doseq [family cards/card-flourishes]
     (page! doc fonts img ladder {:flourish family}))
   ;; Name treatments, all on the winning-ish frame.
   (doseq [[face size track] [[:bold 12 0.15] [:bold 13.5 0.3]
@@ -45,4 +45,4 @@
            {:flourish :diamonds :name-face face :name-size size :name-tracking track}))
   (.save doc (File. (or (System/getenv "OUT") "target/item-card-styles.pdf")))
   (.close doc)
-  (println "families:" (pr-str pdf/card-flourishes) "pages:" (+ (count pdf/card-flourishes) 4)))
+  (println "families:" (pr-str cards/card-flourishes) "pages:" (+ (count cards/card-flourishes) 4)))

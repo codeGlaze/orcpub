@@ -40,6 +40,7 @@
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
             [orcpub.pdf.draw :as draw]
+            [orcpub.pdf.cards :as cards]
             [orcpub.spellbook :as spellbook]
             [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.registration :as registration]
@@ -1043,7 +1044,7 @@
                                :attack-bonus (get spell-attack-mods class)})))
                           part)
                   remaining-desc-lines (vec
-                                        (pdf/print-spells
+                                        (cards/print-spells
                                          cs
                                          doc
                                          fonts
@@ -1058,8 +1059,8 @@
                   back-page (PDPage.)]
               (with-open [back-page-cs (PDPageContentStream. doc back-page)]
                 (.addPage doc back-page)
-                (pdf/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
-                                 logo-img)))))))
+                (cards/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
+                                   logo-img)))))))
     (catch Exception e
       (println "pdf: failed adding spell cards -" (.getMessage e)))))
 
@@ -1076,13 +1077,13 @@
         (let [page (PDPage.)]
           (.addPage doc page)
           (with-open [cs (PDPageContentStream. doc page)]
-            (let [remaining-desc-lines (vec (pdf/print-items cs doc fonts img 2.5 3.5
-                                                             part i bw? bw-faded?))
+            (let [remaining-desc-lines (vec (cards/print-items cs doc fonts img 2.5 3.5
+                                                               part i bw? bw-faded?))
                   back-page (PDPage.)]
               (with-open [back-page-cs (PDPageContentStream. doc back-page)]
                 (.addPage doc back-page)
-                (pdf/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
-                                 logo-img)))))))
+                (cards/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
+                                   logo-img)))))))
     (catch Exception e (println "pdf: failed adding magic item cards" e))))
 
 (defn- one-of

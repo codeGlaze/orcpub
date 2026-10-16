@@ -11,7 +11,6 @@
 ;; The rasters are no longer what the cards draw. The comparison is kept because
 ;; it is the check to repeat whenever an icon or the parser changes.
 
-(require '[orcpub.pdf :as pdf]
 (require '[orcpub.pdf.draw :as draw] '[clojure.string :as str] '[clojure.java.io :as io])
 (import '[org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream]
         '[org.apache.pdfbox.pdmodel.font PDType1Font Standard14Fonts$FontName]
