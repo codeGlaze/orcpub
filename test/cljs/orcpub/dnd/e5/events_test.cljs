@@ -1696,6 +1696,44 @@
           (rf/dispatch-sync [:character-save-success {:for-id 111} reply])
           (is (contains? (into #{} (map first) @dispatched) :character-updated)))))))
 
+(deftest a-copy-that-matches-what-is-stored-sends-no-save
+  ;; No template is cached, so a save that goes ahead retries (:dispatch-later); one skipped does not.
+  (let [stored {:db/id 111 ::entity/values {hp 9}}
+        fx-keys [:http :dispatch-later ::autosave-fx/ensure-template-cache ::autosave-fx/saved]]
+    (reset! app-db pristine-db)
+    (rf/dispatch-sync [::char5e/set-character 111 stored])
+    (is (= (events/stored-shape stored) (get-in @app-db [::events/stored-shape 111]))
+        "a copy from the server is recorded as stored")
+    (let [fx (effects-of [::char5e/save-character "111"] fx-keys)]
+      (is (nil? (:dispatch-later fx)) "an unchanged copy goes no further")
+      (is (nil? (:http fx)))
+      (is (= "111" (::autosave-fx/saved fx)) "and counts as confirmed, so the close warning can go"))
+    (swap! app-db assoc-in [::char5e/character-map 111 ::entity/values hp] 8)
+    (is (some? (:dispatch-later (effects-of [::char5e/save-character "111"] fx-keys)))
+        "a changed copy goes on toward sending")))
+
+(deftest an-edit-made-while-its-save-is-in-flight-outlives-the-reply
+  (let [dispatched (atom [])]
+    (with-fx {:dispatch-n #(reset! dispatched (vec %))
+              ::autosave-fx/saved identity
+              ::char5e/save-character-throttled identity}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              ::char5e/character-map {111 {:db/id 111 ::entity/values {hp 3}}}
+                              ::events/in-flight {111 true}))
+        (rf/dispatch-sync [::char5e/set-current-hit-points "111" 4])
+        (is (true? (get-in @app-db [::events/edited-in-flight 111])) "the edit is marked as newer")
+        (let [reply {:db/id 111 ::entity/values {hp 3}}]
+          (rf/dispatch-sync [:character-save-success {:for-id 111} {:body (char5e/to-strict reply)}])
+          (is (= 4 (get-in @app-db [::char5e/character-map 111 ::entity/values hp]))
+              "the reply does not put the older value back")
+          (is (not (contains? (into #{} (map first) @dispatched) ::char5e/set-character))
+              "it is not installed in the map")
+          (is (= (events/stored-shape reply) (get-in @app-db [::events/stored-shape 111]))
+              "but it is recorded as what is stored, so the next save is not skipped")
+          (is (nil? (get-in @app-db [::events/in-flight 111])))
+          (is (nil? (get-in @app-db [::events/edited-in-flight 111]))))))))
+
 (deftest level-up-opens-the-stored-copy-only-when-the-builder-has-another-character
   (let [dispatched (atom nil)]
     (with-fx {:dispatch #(reset! dispatched %)}

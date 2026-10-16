@@ -1,13 +1,15 @@
 // Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Needs: fresh server (levels up and edits the seeded character another suite opens).
-// Unsaved builder edits survive what the character's sheet does to the same character.
+// Edits survive saving: unsaved builder edits, sheet edits and edits made while a save is in flight.
 //
-// The builder and the sheet hold separate copies of one character. A sheet edit autosaves its copy,
-// and what comes back must not replace the builder's unsaved edits; neither may Level Up. And while
-// a save has not succeeded, closing the tab must still warn. Real server, real saves.
+// The builder and the character page ("the sheet": hit points, slots, notes, gear) hold separate
+// copies of one character, and the sheet autosaves its copy. What comes back must not replace the
+// builder's unsaved edits, nor an edit made while the save was in flight; neither may Level Up or
+// a builder Save. An edit that is undone sends nothing. While a save has not succeeded, closing the
+// tab must still warn. Real server, real saves.
 //
 // Needs:     the real app at :8890 (lein fig:build, then lein e2e-server); E2E_CHARACTER_ID, set by run.sh.
-// Runs in:   ~45s, most of it the 7.5s autosave wait, three times.
+// Runs in:   ~90s, most of it the 7.5s autosave wait.
 // Run:       node test/browser/builder_keeps_unsaved_edits_e2e.js      exit 0 = all checks passed
 const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
@@ -97,7 +99,63 @@ const nextSave = page => page.waitForResponse(
         afterLevelSave.name === NAME && afterLevelSave.levels === levelsBefore + 1,
         `${afterLevelSave.name}, ${afterLevelSave.levels} levels`);
 
-  // 3. A sheet edit whose save fails: closing the tab must still warn.
+  // Every character save's response body from here on, in order.
+  const bodies = [];
+  page.on('response', async r => {
+    if (r.request().method() === 'POST' && new URL(r.url()).pathname === '/dnd/5e/characters') {
+      bodies.push(await r.text().catch(() => ''));
+    }
+  });
+  const storedHas = (text) => bodies.length > 0 && bodies[bodies.length - 1].includes(text);
+  const HP_KEY = ':orcpub.dnd.e5.character/current-hit-points';
+  const mapHp = () => page.evaluate(id => window.__str(
+    `[:orcpub.dnd.e5.character/character-map ${id} :orcpub.entity/values :orcpub.dnd.e5.character/current-hit-points]`), ID);
+
+  // 3. A builder Save made before the sheet's autosave has gone out: neither save may undo the other.
+  const NAME2 = 'Bree Saved Twice';
+  await page.evaluate(n => window.__d(`[:update-value-field :orcpub.dnd.e5.character/character-name "${n}"]`), NAME2);
+  await page.evaluate(id => window.__d(`[:orcpub.dnd.e5.character/set-current-hit-points ${id} 9]`), ID);
+  saved = nextSave(page);
+  await page.evaluate(() => window.re_frame.core.dispatch(window.__c.vector(
+    window.__kw('save-character'),
+    window.__c.deref(window.re_frame.core.subscribe(window.__c.vector(window.__kw('built-character')))))));
+  await saved;
+  await page.waitForTimeout(10000);  // past the autosave wait, whether or not it sends
+  check('a builder Save soon after a sheet edit stores both, and the autosave does not undo it',
+        storedHas(NAME2) && storedHas(`${HP_KEY} 9`), bodies.length ? bodies[bodies.length - 1].slice(0, 160) : 'no save');
+
+  // 4. An edit that is undone before the autosave goes out sends nothing.
+  const before = bodies.length;
+  await page.evaluate(id => window.__d(`[:orcpub.dnd.e5.character/set-current-hit-points ${id} 12]`), ID);
+  await page.evaluate(id => window.__d(`[:orcpub.dnd.e5.character/set-current-hit-points ${id} 9]`), ID);
+  await page.waitForTimeout(10000);
+  check('an undone edit sends no save', bodies.length === before, `${bodies.length - before} sent`);
+
+  // 5. An edit made while the save is in flight survives the reply and is saved next.
+  let release;
+  const held = new Promise(r => { release = r; });
+  let holdOne = true;
+  await page.route('**/dnd/5e/characters', async r => {
+    if (r.request().method() === 'POST' && holdOne) { holdOne = false; await held; }
+    await r.continue();
+  });
+  const sent = page.waitForRequest(r => r.method() === 'POST' && new URL(r.url()).pathname === '/dnd/5e/characters',
+                                    { timeout: 30000 });
+  await page.evaluate(id => window.__d(`[:orcpub.dnd.e5.character/set-current-hit-points ${id} 3]`), ID);
+  await sent;
+  await page.evaluate(id => window.__d(`[:orcpub.dnd.e5.character/set-current-hit-points ${id} 4]`), ID);
+  saved = nextSave(page);
+  release();
+  await saved;
+  await page.waitForTimeout(800);
+  const hpAfterReply = await mapHp();
+  check('an edit made while a save is in flight survives its reply', hpAfterReply === '4', hpAfterReply);
+  await page.waitForTimeout(10000);
+  check('and is saved next', storedHas(`${HP_KEY} 4`),
+        bodies.length ? bodies[bodies.length - 1].match(/current-hit-points \d+/)?.[0] : 'no save');
+  await page.unroute('**/dnd/5e/characters');
+
+  // 6. A sheet edit whose save fails: closing the tab must still warn.
   await page.route('**/dnd/5e/characters', r =>
     r.request().method() === 'POST' ? r.fulfill({ status: 500, body: '' }) : r.continue());
   await page.mouse.click(5, 5);  // a user gesture, without which Chromium shows no leave-page prompt

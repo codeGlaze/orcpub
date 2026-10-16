@@ -589,6 +589,12 @@
     (some? epoch)  (= epoch (:character-epoch db 0))
     :else          false))
 
+(defn stored-shape
+  "`character` in the form the server stores, without ids, for telling whether a copy differs
+   from what is stored. Returns that strict map."
+  [character]
+  (entity/remove-ids (char5e/to-strict character)))
+
 (reg-event-fx
  :character-save-success
  ;; ARGUMENT ORDER IS THE EFFECT'S, NOT THE CALLER'S. The :http effect
@@ -598,19 +604,28 @@
          character (char5e/from-strict strict-character)
          id (:db/id character)
          current? (saved-character-is-the-one-being-edited? db save-context)
-         ;; An autosave of the sheet's copy, while the builder holds unsaved edits to the same
-         ;; character: the builder keeps its copy and takes only the keys the sheet changed.
-         keep-builder? (boolean (and current? for-id (get-in db [:character :changed])))
+         ;; Edited again while this autosave was in flight: the local copies are newer than the
+         ;; reply and stay; the queued autosave sends them.
+         newer? (boolean (and for-id (get-in db [::edited-in-flight id])))
+         ;; An autosave while the builder holds unsaved edits to the same character: the builder
+         ;; keeps its copy and takes only the keys the sheet changed.
+         keep-builder? (boolean (and current? for-id (or newer? (get-in db [:character :changed]))))
          kept (when keep-builder?
-                (update (:character db) ::entity/values
-                        (fn [values]
-                          (reduce (fn [vs k]
-                                    (if-some [v (get-in character [::entity/values k])]
-                                      (assoc vs k v)
-                                      (dissoc vs k)))
-                                  values
-                                  (get-in db [::sheet-edited id])))))]
-     (cond-> {:db (update db ::sheet-edited dissoc id)
+                (cond-> (:character db)
+                  (not newer?)
+                  (update ::entity/values
+                          (fn [values]
+                            (reduce (fn [vs k]
+                                      (if-some [v (get-in character [::entity/values k])]
+                                        (assoc vs k v)
+                                        (dissoc vs k)))
+                                    values
+                                    (get-in db [::sheet-edited id]))))))]
+     (cond-> {:db (cond-> (-> db
+                              (update ::in-flight dissoc id)
+                              (update ::edited-in-flight dissoc id))
+                    (not newer?) (update ::sheet-edited dissoc id)
+                    newer? (assoc-in [::stored-shape id] (stored-shape character)))
               :dispatch-n
               (cond-> [[:show-message
                         (if-let [char-name (not-empty
@@ -621,8 +636,9 @@
                 (and current? (not keep-builder?))
                 (conj [:character-updated character])
 
-                ;; The saved character belongs in the map whoever is on screen.
-                true
+                ;; The saved character belongs in the map whoever is on screen, unless the map's
+                ;; copy is newer.
+                (not newer?)
                 (conj [::char5e/set-character id character]))}
        keep-builder? (-> (assoc-in [:db :character] kept)
                          (assoc ::builder-draft->local-store kept))
@@ -705,10 +721,15 @@
          ;; Since built-template is a no-op (plugin merging commented out),
          ;; we use the cached template directly with entity/build.
          cached-template (get db ::autosave-fx/cached-template)]
+     (cond
+       ;; Nothing differs from what the server last sent for it (an edit undone): nothing to send.
+       (= (stored-shape character) (get-in db [::stored-shape (js/parseInt id)]))
+       {::autosave-fx/saved id}
+
      ;; Skip when the template isn't ready — nil OR empty {}. An empty template
      ;; crashes entity/build (null fn `.call`); `seq` covers both cases.
      ;; (Guarded by events-test save-character-rejects-missing-abilities.)
-     (if-not (seq cached-template)
+     (not (seq cached-template))
        ;; Not cached yet. The cache starts with the first save, not with the app, so ask
        ;; for it and try again shortly; a save from the character list has no later
        ;; autosave to fall back on.
@@ -719,6 +740,8 @@
            {:dispatch [:show-warning-message
                        (str "This character couldn't be saved because the character options "
                             "didn't finish loading. Try again in a moment.")]}))
+
+     :else
        (let [{:keys [:db/id] :as strict} (char5e/to-strict character)
              built-character (entity/build character cached-template)
              summary (make-summary built-character)]
@@ -726,7 +749,8 @@
               (fn [ability-kw]
                 (nat-int? (get-in built-character [:base-abilities ability-kw])))
               char5e/ability-keys)
-           {:dispatch [:set-loading true]
+           {:db (assoc-in db [::in-flight id] true)
+            :dispatch [:set-loading true]
             :http {:method :post
                    :headers (authorization-headers db)
                    :url (url-for-route routes/dnd-e5-char-list-route)
@@ -3684,11 +3708,12 @@
 
 (reg-event-db
  ::char5e/set-character
+ ;; `character` is a copy the server sent (a load or a save's reply), so it is also what is stored.
  (fn [db [_ id character]]
    (let [int-id (js/parseInt id)
-         updated (assoc-in db
-                           [::char5e/character-map int-id]
-                           character)]
+         updated (-> db
+                     (assoc-in [::char5e/character-map int-id] character)
+                     (assoc-in [::stored-shape int-id] (stored-shape character)))]
      (if (and (= int-id (get-in db [:character :db/id]))
               (not (get-in db [:character :changed])))
        (assoc updated :character character)
@@ -4180,6 +4205,7 @@
           updated (update-fn stored)
           open (when (= int-id (get-in db [:character :db/id])) (update-fn (:character db)))]
       (cond-> {:db (cond-> (assoc-in db [::char5e/character-map int-id] updated)
+                     (get-in db [::in-flight int-id]) (assoc-in [::edited-in-flight int-id] true)
                      open (-> (assoc :character open)
                               (update-in [::sheet-edited int-id] (fnil into #{})
                                          (changed-value-keys stored updated))))
