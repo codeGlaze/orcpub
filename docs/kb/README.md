@@ -24,6 +24,7 @@ sides had been written blind to the other's findings.
 ### Plan & status
 | Document | Topic |
 |----------|-------|
+| [plan-pdf-page-sizes.md](plan-pdf-page-sizes.md) | **A4 and A5 for everything we draw.** The two defects (page size never passed in; primitives are inches-only with two y conventions), the order forced by the missing AcroForm baseline, and the measured answer on shimming the character-sheet templates into A4. | High — measured |
 | [plan-next.md](plan-next.md) | **The working list.** What to build next, ordered, with what each item unblocks and roughly how big. One hard dependency; the rest can move. | Working list |
 | [roadmap.md](roadmap.md) | **START HERE — what this branch is.** The single branch plan: both phases (content/pool+grant, largely built; mechanization/class-feature/spell-slot expansion), a BUILT/DECIDED/OPEN ledger anchored to commits, flagged conflicts, the full doc map, and the critical path. |
 

@@ -508,3 +508,77 @@ Suppressing them with `:config-in-ns {user ...}` was tried and reverted: the scr
 4. **`pdf.image`** (394 lines) — optional, nothing blocks it.
 5. **`pdf.character`** — only worth doing after 3 and 4; until then `pdf.clj` *is* the character
    sheet plus egress plus the site line, and splitting it further buys little.
+
+## 11. The page-size work in §10 was decorative, 2026-10-16
+
+§10 says `draw.clj` "holds the page dimensions" and that the remaining work is threading a page
+key through 31 sites. Audited properly after the owner questioned the phrase "draw-text takes y in
+inches and multiplies by 72 itself" — their read was that this was a missed generalisation, and it
+was. Two findings, the first of which retracts §10's claim.
+
+### `pt-from-top` is parameterised and nothing passes a page
+
+```clojure
+([pt-per-unit y]      (pt-from-top default-page pt-per-unit y))   ; all 4 callers
+([page pt-per-unit y] (float (- (second (page-size page)) (* pt-per-unit y))))
+```
+
+Four call sites: `spellbook.clj:35` (`py`), `pdf.clj:885` (`in-to-coord-y`), `draw.clj:520`
+(`draw-imagex`), `draw.clj:577` (`draw-svg-path!`). **All four use the 2-arity form.** The arity
+that takes a page has zero callers in `src`, `test` or `dev`.
+
+So `page-sizes` is consulted and always answers 612x792. A literal `11` was replaced with a table
+lookup that always returns 11 — behaviour-neutral, which is exactly why all 57 baseline pages
+stayed byte-identical and why it read as progress. `default-page` is the mechanism that makes it
+decorative: because the 2-arity form exists, no caller ever HAS to pass a page, so none does.
+
+**Page size is asserted in four places, not one:** `draw-grid` (`8.5` x2, `11.0`, lines 317-323),
+`draw-svg-icon!` (`(- 11 y size)`, line 563), `default-page` (line 54, silently supplied to all
+four `pt-from-top` calls), and the 30 flips in `cards.clj`. §10's "pdf.clj has none" does hold —
+its one grep hit is a comment. `spellbook.clj`'s eight `8.5`s are all SVG path coordinates.
+
+### The primitives are unit-bound, and that is the real defect
+
+66 call sites in `src` across the shared layer, and the units do not agree:
+
+| Convention | Primitives | src calls |
+| --- | --- | --- |
+| INCHES, y from **bottom** | `draw-text`, `draw-text-to-box`, `draw-lines-to-box`, `draw-halo-text` | 26 |
+| INCHES, y from **top** | `draw-imagex`, `draw-imagex-alpha`, `draw-svg-icon!` | 10 |
+| INCHES + whole-page | `draw-grid` | 3 |
+| points, unit-agnostic | `draw-line` | **0** |
+
+The shared drawing layer offers two opposite y conventions and one unit — and the single
+unit-agnostic primitive has no external caller at all. This is why `spellbook.clj` re-implemented
+its own drawing rather than using the shared layer: it works in points and the layer only speaks
+inches. §3 called this "the real duplication is S4, and it is a coordinate-space mismatch". That
+was right. Growing one shared file did not fix it, because the file kept the unit baked in.
+
+### Correction: the spellbook does not shed ~90 lines
+
+This doc (§4, §9) and the split map have said the spellbook drops ~90 lines of duplicate
+primitives when it joins the family. Read all 107 lines rather than assuming:
+
+| Lines | Kind | Names |
+| --- | --- | --- |
+| 28 | already delegating | `py`, `polyline!`, `circle-path!`, `wrap` |
+| 29 | **pure unit adapter -- vanishes** | `text!` 18, `line!` 5, `gray!` 6 |
+| 45 | **unique capability -- PROMOTE into `draw`** | `outline-text!` 30, `clip` 15 |
+| 5 | superset | `spaced-width` |
+
+It sheds **29**. `outline-text!` draws glyph outlines straight from the TTF to reach Vollkorn's
+lining figures, because `showText` cannot select the `one.lf` variant — without it "15" reads as
+"I5". `clip` is word-boundary ellipsis truncation, one of the seven overflow strategies, with no
+equivalent in `draw`. Those 45 lines are capability the shared layer is MISSING.
+
+### What the baselines do and do not protect
+
+57 pinned pages: 24 card, 9 ornament, 24 spellbook. **None of the AcroForm character sheet**, and
+`draw-text` has 6 callers in `pdf.clj`. So any change to a shared text primitive touches the live
+character-sheet export with nothing watching it. That gap now blocks two jobs — the page-size work
+and the orchestrator move — and both want the same fix: a field-level characterization test on a
+filled sheet.
+
+The plan that follows from all of this is `plan-pdf-page-sizes.md`, which also answers the owner's
+question about shimming the AcroForm templates into A4 with padding (short version: height is
+free, width is not, and it works for styles 3 and 4 only).
