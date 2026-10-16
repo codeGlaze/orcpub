@@ -563,12 +563,11 @@
   (some-> s str (s/replace #"[\p{Cntrl}]+" " ") s/trim))
 
 (defn character-report-message
-  "PURE: the exact postal message map for a character-load report — no send, no
-   guards. Extracted so the send path AND dev/test tooling compose the identical
-   email (see orcpub.dev.report-preview). char-id (client-supplied) is sanitized
-   before it reaches the subject, user-email before the cc, and the raw blob is
-   capped so a hostile client can't inject headers or send an unbounded body."
-  [{:keys [char-id user-email error raw]}]
+  "PURE: the postal message map for a character-load report, no send, no guards; the send path
+   and orcpub.dev.report-preview both use it. char-id and user-email are sanitized before the
+   subject and cc, and the raw blob is capped. `repair-url` and `stored-choices` (server-made,
+   routes/character-report-details) are added when present."
+  [{:keys [char-id user-email error raw repair-url stored-choices]}]
   (let [char-id*    (header-safe char-id)
         user-email* (header-safe user-email)
         raw-str     (str raw)
@@ -580,6 +579,10 @@
                   "Character ID: " char-id* "\n"
                   "Reported by:  " (or user-email* "unknown") "\n"
                   "Error:        " error "\n\n"
+                  (when repair-url
+                    (str "Repair it in Data View (opens for the character's owner):\n" repair-url "\n\n"))
+                  (when stored-choices
+                    (str "--- stored choices ---\n" stored-choices "\n\n"))
                   "--- raw character data ---\n" raw*)]
     (cond-> {:from    (str branding/email-sender-name " <" (emailfrom) ">")
              :to      branding/report-recipient

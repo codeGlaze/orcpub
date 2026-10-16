@@ -53,6 +53,7 @@
             [orcpub.routes.folder :as folder]
             [orcpub.routes.share :as share]
             [orcpub.ledger-page :as ledger-page]
+            [orcpub.dnd.e5.ledger :as ledger]
             [orcpub.datomic :as odb]
             [hiccup.page :as page]
             [hiccup2.core :as h]
@@ -2043,20 +2044,34 @@
                     (Long/parseLong id))]
     (get-character-for-id db parsed-id)))
 
+(defn character-report-details
+  "What the support email adds for reported character `char-id` (as the client sent it): the
+   Data View repair address under `site-url`, and the saved character's stored choices as text
+   (nil when they cannot be read). Both nil when `char-id` names no saved character."
+  [db site-url char-id]
+  (let [id (some->> char-id str (re-matches #"\d{1,18}") parse-long)
+        stored (when id (d/pull db '[*] id))]
+    (if (::se/owner stored)
+      {:repair-url (str site-url (route-map/path-for route-map/dnd-e5-char-repair-page-route :id id))
+       :stored-choices (when-let [character (:character (ledger/read-character (pr-str stored)))]
+                         (ledger/support-text (ledger/support-heading id character) (ledger/rows character)))}
+      {:repair-url nil :stored-choices nil})))
+
 (defn report-character-problem
   "User-initiated report that a character failed to load. Auth required. Emails
    the client-supplied diagnostic (char-id, reader error, raw undecodable data)
    to the configured support address, cc'ing the reporting user. Rate-limited
    and gated on email config inside email/send-character-report; returns its
    {:sent? .. :reason ..} so the client can fall back to the copyable report."
-  [{:keys [db transit-params identity]}]
+  [{:keys [db transit-params identity] :as request}]
   (let [username   (:user identity)
         user       (find-user-by-username-or-email db username)
         user-email (:orcpub.user/email user)
         {:keys [char-id error raw]} transit-params]
     {:status 200
      :body   (email/send-character-report
-              {:char-id char-id :user-email user-email :error error :raw raw})}))
+              (merge {:char-id char-id :user-email user-email :error error :raw raw}
+                     (character-report-details db (base-url request) char-id)))}))
 
 (defn get-user [{:keys [db identity]}]
   (let [username (:user identity)

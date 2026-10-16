@@ -282,7 +282,11 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
    (`window.orcpubBooted`, set by `orcpubBootOk`). "This character didn't load. · Repair this
    character" goes to `/characters/<id>/repair`; "The builder didn't load. · Repair this draft" to
    `/character-data` (owner, 2026-10-16: B + C).
-3. Group 3: the support email gains the repair link and the stored choices.
+3. **Done 2026-10-16:** the support email (`email/character-report-message`) adds, between the
+   error and the raw data, the Data View repair address and the saved character's stored choices
+   (`routes/character-report-details`, read from the database, so it works when the browser's
+   copy is unreadable; left out when no saved character has that id). The repair link opens only
+   for the owner, who is cc'd; support uses it to point them there (owner, 2026-10-16).
 4. Duplicate prevention for the save race (R10): measure first, then the approach to the owner.
 5. Keep a copy of a browser draft the app cannot read (`db.cljs` `handle-unreadable` deletes it on
    boot; homebrew gets a `:corrupt` copy, characters do not).

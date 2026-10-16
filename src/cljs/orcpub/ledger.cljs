@@ -271,8 +271,7 @@
         (reset! state {:root root :stored (ledger/read-stored text) :character character
                        :pending [] :saved-id saved-id :note note
                        :heading (or nm (if saved-id "Unnamed character" "This browser's draft"))
-                       :support-heading (str (if saved-id (str "Character " saved-id) "Browser draft")
-                                             (when nm (str " (" nm ")")))})
+                       :support-heading (ledger/support-heading saved-id character)})
         (render!)))))
 
 (defn- load-saved!

@@ -126,6 +126,13 @@
   [character]
   (get-in character [::entity/values :orcpub.dnd.e5.character/character-name]))
 
+(defn support-heading
+  "The first line of a support message: \"Character <saved-id>\", or \"Browser draft\" when
+   `saved-id` is nil, followed by \" (<name>)\" when `character` has a stored name."
+  [saved-id character]
+  (let [nm (character-name character)]
+    (str (if saved-id (str "Character " saved-id) "Browser draft") (when nm (str " (" nm ")")))))
+
 (defn support-text
   "`ledger-rows` (from `rows`) as plain text for a support message: `heading`, which names the
    character, then one `:line` per row."

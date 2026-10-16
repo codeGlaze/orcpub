@@ -44,6 +44,9 @@ whatever state it is in. Design: `docs/kb/character-rescue.md`.
 
 ## Changed
 
+- **Support:** the email sent when a player reports a character that won't load now carries the
+  link to repair it in Data View and the character's stored choices.
+
 ## Fixed
 
 - **Characters:** saving a character whose stored copy was damaged no longer moves it to a new
