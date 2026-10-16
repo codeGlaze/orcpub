@@ -12,6 +12,9 @@
   (:require [com.stuartsierra.component :as component]
             [datomic.api :as d]
             [orcpub.system :as s]
+            [orcpub.routes :as routes]
+            [orcpub.entity.strict :as se]
+            [orcpub.dnd.e5.character :as char5e]
             [user :as dev]))
 
 (defn- item
@@ -24,8 +27,35 @@
    :orcpub.dnd.e5.magic-items/rarity      :rare
    :orcpub.dnd.e5.magic-items/description (str nm " — seeded by e2e-boot.")})
 
+(defn- fighter-carrying
+  "A level 1 fighter with one of its owner's custom items equipped, so a browser check can open a
+   character whose sheet needs an item from another account."
+  [character-name item-key]
+  {::se/summary    {::char5e/character-name character-name
+                    ::char5e/classes        [{::char5e/class-name "Fighter" ::char5e/level 1}]}
+   ::se/selections [{::se/key    :ability-scores
+                     ::se/option {::se/key       :standard-scores
+                                  ::se/map-value {::char5e/str 15 ::char5e/dex 14 ::char5e/con 13
+                                                  ::char5e/int 12 ::char5e/wis 10 ::char5e/cha 8}}}
+                    {::se/key     :class
+                     ::se/options [{::se/key        :fighter
+                                    ::se/selections [{::se/key     :levels
+                                                      ::se/options [{::se/key :level-1}]}]}]}
+                    {::se/key     :other-magic-items
+                     ::se/options [{::se/key item-key}]}]})
+
+(defn- knowing-language
+  "The same fighter, also knowing a homebrew language. The browser suite puts that language in the
+   owner's local library, which is where homebrew lives; the server never has it."
+  [character-name item-key language-key]
+  (update (fighter-carrying character-name item-key) ::se/selections conj
+          {::se/key :languages ::se/options [{::se/key language-key}]}))
+
 (defn -main [& _]
-  (let [sys  (component/start (s/system :dev))
+  ;; The :dev system pins port 8890; run.sh passes E2E_PORT through as PORT.
+  (let [port (some-> (System/getenv "PORT") Integer/parseInt)
+        sys  (component/start (cond-> (s/system :dev)
+                                port (assoc-in [:service-map :io.pedestal.http/port] port)))
         conn (get-in sys [:conn :conn])]
     ;; TWO accounts, each with its OWN items. One account cannot show isolation:
     ;; a bug that returned every user's items would look identical to correct
@@ -43,6 +73,23 @@
                        (item "kaylee" "Kaylee Seeded Beta")
                        (item "kaylee" "Kaylee Seeded Gamma")
                        (item "zoe"    "Zoe Seeded Only")])
+    ;; Printed so a check can open the character without logging in.
+    (let [{:keys [status body]} (routes/do-save-character (d/db conn) conn
+                                                          (fighter-carrying "Bree Tinker" :kaylee-seeded-alpha)
+                                                          {:user "kaylee"})]
+      (println "E2E-CHARACTER" status (:db/id body)))
+    (let [{:keys [status body]} (routes/do-save-character (d/db conn) conn
+                                                          (knowing-language "Wren Holloway" :kaylee-seeded-beta :e2e-cant)
+                                                          {:user "kaylee"})]
+      (println "E2E-HOMEBREW-CHARACTER" status (:db/id body)))
+    ;; A character whose last share link expired, as prune! leaves it: a note of the character and the date.
+    ;; Ten days ago, well inside the window, so the heartbeat's first prune keeps the note.
+    (let [{:keys [status body]} (routes/do-save-character (d/db conn) conn
+                                                          (knowing-language "Ash Marlow" :kaylee-seeded-gamma :e2e-cant)
+                                                          {:user "kaylee"})]
+      @(d/transact conn [{:orcpub.share-expiry/character (:db/id body)
+                          :orcpub.share-expiry/on (java.util.Date. (- (System/currentTimeMillis) (* 10 24 60 60 1000)))}])
+      (println "E2E-EXPIRED-CHARACTER" status (:db/id body)))
     (println "E2E-READY")
     (flush)
     @(promise)))

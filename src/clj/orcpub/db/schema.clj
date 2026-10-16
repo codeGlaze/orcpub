@@ -124,6 +124,11 @@
    {:db/ident :orcpub.user/send-updates?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
+   ;; Dark text on the amber buttons in the dark theme, for contrast. Unset
+   ;; means the user never chose, which is not the same as choosing white.
+   {:db/ident :orcpub.user/dark-button-text?
+    :db/valueType :db.type/boolean
+    :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/verified?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
@@ -140,6 +145,12 @@
     :db/valueType :db.type/instant
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/password-reset
+    :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one}
+   ;; When the account holder last signed every session out. Separate from
+   ;; password-reset because signing out everywhere must not require changing
+   ;; the password, and the withdrawal register takes the LATER of the two.
+   {:db/ident :orcpub.user/sessions-withdrawn
     :db/valueType :db.type/instant
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/password-reset-key
@@ -323,7 +334,19 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident ::party5e/character-ids
     :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/many}])
+    :db/cardinality :db.cardinality/many}
+   ;; The share token a character was added with, when it came from a share link, so the party page
+   ;; can load that character's homebrew.
+   {:db/ident ::party5e/shared-tokens
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :db/isComponent true}
+   {:db/ident :orcpub.party-share/character
+    :db/valueType :db.type/long
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.party-share/token
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}])
 
 (def folder-schema
   [{:db/ident ::folder5e/owner
@@ -404,6 +427,37 @@
      ::weapon5e/reach?
      ::weapon5e/ammunition?])))
 
+(def share-schema
+  "Shared homebrew, see orcpub.routes.share: one record per character, holding the homebrew its owner
+   last shared, compressed, and the token a share link must carry to load it."
+  [{:db/ident :orcpub.share/character :db/valueType :db.type/long :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity}
+   {:db/ident :orcpub.share/token :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.share/digest :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.share/owner :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/index true}
+   {:db/ident :orcpub.share/bundle :db/valueType :db.type/bytes :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.share/size :db/valueType :db.type/long :db/cardinality :db.cardinality/one}
+   ;; When the share was last used, recorded at most daily; see orcpub.routes.share/prune!.
+   {:db/ident :orcpub.share/used :db/valueType :db.type/instant :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   ;; A share that expired unused, kept as its character and the date so the owner's page can say so; see
+   ;; orcpub.routes.share/prune!.
+   {:db/ident :orcpub.share-expiry/character :db/valueType :db.type/long :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity}
+   {:db/ident :orcpub.share-expiry/on :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}])
+
+(def heartbeat-schema
+  "When the server was running, see orcpub.heartbeat: the last beat, on the entity :orcpub.heartbeat/clock,
+   and each gap between beats long enough to mean the server was off."
+  [{:db/ident :orcpub.heartbeat/beat :db/valueType :db.type/instant :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.outage/from :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outage/to :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}])
+
 (def all-schemas
   (concat
    user-schema
@@ -415,4 +469,6 @@
    party-schema
    folder-schema
    magic-item-schema
-   weapon-schema))
+   weapon-schema
+   share-schema
+   heartbeat-schema))

@@ -1,3 +1,5 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Kind: probe (measures and prints; the runner judges it by exit code only).
 // How the character rebuild scales with homebrew VOLUME.
 // Imports a .orcbrew through the My Content page's own file input, opens the real
 // character builder, picks a race by clicking the real card, then microbenchmarks the
@@ -24,8 +26,8 @@
 // the runtime numbers here are usable.
 
 const fs=require('fs'),path=require('path');const {chromium}=require('playwright');
+const { findChrome } = require('./lib/find-chrome');
 const { importPack } = require('./lib/orcbrew-import');
-function findChrome(){const b=process.env.PLAYWRIGHT_BROWSERS_PATH||'/opt/pw-browsers';try{const d=fs.readdirSync(b).filter(x=>x.startsWith('chromium-')&&!x.includes('headless')).sort().pop();if(d){const p=path.join(b,d,'chrome-linux','chrome');if(fs.existsSync(p))return p;}}catch(_){}return undefined;}
 
 const MEASURE = () => {
   const c=window.cljs.core, ent=window.orcpub.entity, S=window.clojure.set, kw=(n,k)=>c.keyword(n,k);

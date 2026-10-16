@@ -100,19 +100,19 @@
             x)))
 
 (defn retarget
-  "`item` with every target of `link` equal to `old` replaced by `new`. Leaves the item unchanged
+  "`item` with every target of `link` equal to `before` replaced by `after`. Leaves the item unchanged
    where it does not hold the link.
    GOTCHA: a `:by :name` link is left alone; renaming a key does not change a name."
-  [link item old new]
+  [link item before after]
   (if (= :name (:by link))
     item
-    (rewrite item (:path link) #(if (= % old) new %))))
+    (rewrite item (:path link) #(if (= % before) after %))))
 
 (defn rename-target
-  "`item` with every name `old` that the `:by :name` `link` holds replaced by `new`."
-  [link item old new]
+  "`item` with every name `before` that the `:by :name` `link` holds replaced by `after`."
+  [link item before after]
   (if (= :name (:by link))
-    (rewrite item (:path link) #(if (= % old) new %))
+    (rewrite item (:path link) #(if (= % before) after %))
     item))
 
 (def former-key-cap
@@ -142,9 +142,9 @@
                               (into [(first ks)] (take-last (dec former-key-cap) ks)))))))
 
 (defn repoint
-  "`plugin` (one source, {content-type {key item}}) with every link naming `old` in `to-type`
-   retargeted to `new`, in every item that can hold it."
-  [plugin to-type old new]
+  "`plugin` (one source, {content-type {key item}}) with every link naming `before` in `to-type`
+   retargeted to `after`, in every item that can hold it."
+  [plugin to-type before after]
   (let [relevant (filter #(= to-type (:to %)) links)]
     (reduce-kv
      (fn [p ct items]
@@ -152,7 +152,7 @@
          (assoc p ct (reduce-kv
                       (fn [m k item]
                         (assoc m k (reduce #(if (and (map? %1) (holds? %2 ct))
-                                              (retarget %2 %1 old new)
+                                              (retarget %2 %1 before after)
                                               %1)
                                            item relevant)))
                       {} items))

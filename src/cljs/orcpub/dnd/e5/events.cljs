@@ -31,6 +31,8 @@
             [orcpub.dnd.e5.character.random :as char-rand5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
+            [orcpub.dnd.e5.srd-conditions :as srd-conditions]
+            [orcpub.dnd.e5.srd-rules :as srd-rules]
             [orcpub.dnd.e5.encounters :as encounters]
             [orcpub.dnd.e5.combat :as combat]
             [orcpub.dnd.e5.content-types :as ct]
@@ -71,7 +73,6 @@
                                       set-pending-relinks!
                                       pre-fix-copy
                                       drop-pre-fix-copy!
-                                      repairs-dismissed
                                       set-repairs-dismissed!
                                       disable-overlay->local-store
                                       dev-mode->local-store
@@ -80,6 +81,8 @@
                                       whats-new-seen->local-store
                                       get-rejected-plugins
                                       set-rejected-plugins
+                                      corrupt-slot-key
+                                      local-storage-plugins-key
                                       default-character
                                       default-spell
                                       default-monster
@@ -95,7 +98,9 @@
                                       default-class
                                       default-subclass]]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.library :as library]
+            [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.compute :as compute]
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path
@@ -123,6 +128,8 @@
 ;; Forward declaration — defined below :update-value-field (line ~1226).
 ;; Used in :save-character to auto-generate names for unnamed characters.
 (declare generate-random-name)
+;; Used by :initialize-db, defined with the other character events further down.
+(declare set-character)
 
 (defn check-and-throw
   "throw an exception if db doesn't match the spec"
@@ -135,6 +142,15 @@
 (def ->local-store (after character->local-store))
 
 (def db-char->local-store (after (fn [db] (character->local-store (:character db)))))
+
+;; :initialize-db restores the builder's draft and repairs it in memory; this puts the
+;; repaired draft back in browser storage. Without it the draft stayed broken there,
+;; so every refresh repaired the same keys again and announced it again. The saved
+;; character on the server is untouched -- keeping the fix there still takes Save.
+(reg-fx
+ ::persist-healed-character
+ (fn [character]
+   (character->local-store character)))
 
 (def user->local-store-interceptor (after (fn [db] (user->local-store (:user-data db)))))
 
@@ -193,7 +209,138 @@
                   :before (fn [context]
                             (assoc-in context [:coeffects :db :character :changed] true))))
 
-(def character-interceptors [check-spec-interceptor
+(defn hold-for
+  "`db-after` with the planned hold emptied when the edit starts on another character than the one
+   it holds for (`::e5/planned-for`, a `:db/id`; nil while unsaved): on `:reset-character`, a
+   replacement (`::e5/replacing?`, set by Random), or a different id. A first save hands the hold
+   the new id. Otherwise the character before the edit joins `::e5/settle-trail`."
+  [db-before db-after event-id]
+  (let [id (get-in db-after [:character :db/id])
+        owner (get db-after ::e5/planned-for (get-in db-before [:character :db/id]))]
+    (if (or (= :reset-character event-id) (::e5/replacing? db-after) (not= owner id))
+      (assoc (dissoc db-after ::e5/replacing?)
+             ::e5/planned-picks [] ::e5/planned-for id ::e5/settle-trail []
+             ::e5/restore-notice nil ::e5/open-notice nil)
+      (-> db-after
+          (assoc ::e5/planned-for id)
+          (update ::e5/settle-trail (fnil conj []) (:character db-before))))))
+
+(defn settle-needed?
+  "Whether an edit from `db-before` to `db-after` can change which picks apply: the cached
+   template changed, or the character did outside `::entity/values` (name, notes and other text).
+   GOTCHA: a prereq reading `::entity/values` would not settle until the next other edit."
+  [db-before db-after]
+  (or (not (identical? (get db-before ::autosave-fx/cached-template)
+                       (get db-after ::autosave-fx/cached-template)))
+      (not= (dissoc (:character db-before) ::entity/values)
+            (dissoc (:character db-after) ::entity/values))))
+
+(defn- lost-in-trail
+  "`picks/removed-with-container` records for each step of `trail` (characters before each edit)
+   ending at `character`, at most one per address."
+  [trail character]
+  (let [steps (conj (vec trail) character)]
+    (->> (map picks/removed-with-container steps (rest steps))
+         (apply concat)
+         (reduce (fn [acc r] (if (some #(= (:address r) (:address %)) acc) acc (conj acc r))) []))))
+
+(defn settle-picks-db
+  "`db` with its character settled against the planned hold (`picks/update-planned`), the picks its
+   edits removed with their entry (`::e5/settle-trail`) held too, and the change in
+   `::e5/picks-change`. Unchanged without a cached template, or when settling throws (logged):
+   the character stays as edited. decision-gate-hidden-picks.md"
+  [db]
+  (let [template (get db ::autosave-fx/cached-template)]
+    (if-not (seq template)
+      db
+      (try
+        (let [hold (get db ::e5/planned-picks [])
+              held (set (map :address hold))
+              lost (remove #(held (:address %))
+                           (lost-in-trail (::e5/settle-trail db) (:character db)))
+              {:keys [character planned restored retired]}
+              (picks/update-planned template (:character db) (into (vec hold) lost))
+              planned (picks/with-returns template character planned)
+              ;; Against the hold before: a pick lost and back within one burst never left.
+              came-back (filterv #(held (:address %)) restored)]
+          (cond-> (assoc db
+                         :character character
+                         ::e5/planned-picks planned
+                         ::e5/settle-trail []
+                         ::e5/picks-change {:set-aside (filterv #(not (held (:address %))) planned)
+                                            :restored came-back
+                                            :retired retired})
+            ;; Opening a character whose stored choices no longer apply: say so once.
+            (::e5/settle-opening? db)
+            (-> (dissoc ::e5/settle-opening?)
+                (cond-> (seq (remove #(held (:address %)) planned))
+                  (assoc ::e5/open-notice {:held (filterv #(not (held (:address %))) planned)})))
+            ;; Builds up until the player closes it, so a later edit does not wipe it.
+            (seq came-back)
+            (update ::e5/restore-notice
+                    (fn [{prior :restored}]
+                      {:restored (->> (concat prior came-back)
+                                      (map (juxt (comp str :address) identity))
+                                      (into (sorted-map))
+                                      vals
+                                      vec)}))))
+        (catch :default e
+          (js/console.error "Picks were not settled; the character is left as edited." e)
+          (cond-> (dissoc db ::e5/settle-opening?)
+            (seq (::e5/settle-trail db)) (assoc ::e5/settle-trail [])))))))
+
+;; Never settles inside the edit, so it cannot fail or slow one: it resets the hold when needed
+;; and queues ::e5/settle-picks. plan-hidden-pick-fix-and-grant-fields.md, "Step 1 hardening".
+(def queue-settle
+  (->interceptor
+   :id :queue-settle
+   :after (fn [context]
+            (let [db-before (get-in context [:coeffects :db])
+                  db-after (get-in context [:effects :db])]
+              ;; A replacement (Random) always resets the hold, even when only text changed.
+              (if (and db-after (or (::e5/replacing? db-after) (settle-needed? db-before db-after)))
+                (let [event-id (first (get-in context [:coeffects :event]))
+                      opening? (#{:set-character ::autosave-fx/cache-template} event-id)]
+                  (-> context
+                      (assoc-in [:effects :db] (cond-> (hold-for db-before db-after event-id)
+                                                 opening? (assoc ::e5/settle-opening? true)))
+                      (assoc-in [:effects ::settle-picks-soon] true)))
+                context)))))
+
+(def ^:private settle-debounce-ms
+  "The build's timing (subs `build-debounce-ms`): a single change settles at once, rapid changes
+   once they pause."
+  500)
+
+(defonce ^:private settle-timer (atom {:id nil :last-ms 0}))
+
+(defn- settle-now! []
+  (swap! settle-timer assoc :id nil :last-ms (.now js/Date))
+  (dispatch [::e5/settle-picks]))
+
+(reg-fx
+ ::settle-picks-soon
+ (fn [_]
+   (let [{:keys [id last-ms]} @settle-timer]
+     (when id (js/clearTimeout id))
+     (if (>= (- (.now js/Date) last-ms) settle-debounce-ms)
+       (settle-now!)
+       (swap! settle-timer assoc :id (js/setTimeout settle-now! settle-debounce-ms))))))
+
+(defn settle-picks-fx
+  "Handler for `::e5/settle-picks`: `settle-picks-db`, and the draft rewritten when the character
+   changed. Opening a saved character never saves it: the saved copy keeps its choices until the
+   player saves (owner, 2026-10-16; decision-gate-hidden-picks.md)."
+  [{:keys [db]} _]
+  (let [db' (settle-picks-db db)]
+    (cond-> {:db db'}
+      (not (identical? (:character db) (:character db')))
+      (assoc ::persist-healed-character (:character db')))))
+
+(reg-event-fx ::e5/settle-picks settle-picks-fx)
+
+(def character-interceptors [queue-settle
+                             check-spec-interceptor
                              set-changed
                              (path :character)
                              ->local-store])
@@ -319,34 +466,42 @@
               ::e5/dev-mode
               ::combat/tracker-item]
        :as cofx} _]
-   {:db (if (seq db)
-          db
-          (cond-> default-value
-            plugins (assoc :plugins plugins) ;; library load
-            true (assoc ::e5/plugins-rev (get cofx ::e5/plugins-rev 0)
-                        ::e5/repairs-dismissed (get cofx ::e5/repairs-dismissed #{}))
-            (::e5/pre-fix-at cofx) (assoc ::e5/pre-fix-at (::e5/pre-fix-at cofx))
-            (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
-            (seq disable-overlay) (assoc :disable-overlay disable-overlay)
-            (some? health-dismissed) (assoc :health-dismissed health-dismissed)
-            (some? demo-hidden) (assoc :demo-hidden? demo-hidden)
-            (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
-            (some? dev-mode) (assoc :dev-mode? dev-mode)
-            ;; The release panel opens once per release, on the first boot that sees a new id.
-            ;; Reading the stamp here, not at render, makes it one showing per browser, not per
-            ;; page view. It shares the screen with the cookie notice, measuring it and stopping
-            ;; above it (views/whats_new.cljs).
-            (whats-new/unseen? whats-new-seen)
-            (assoc :whats-new-open? true)
-            local-store-character (assoc :character local-store-character)
-            local-store-user (update :user-data merge local-store-user)
-            local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
-            ;; Restore in-progress builder WIP (all builders) across refresh, and with it the
-            ;; address the item was fetched from -- the draft alone cannot say, since its
-            ;; `:option-pack` is whatever is currently typed in the field.
-            (seq local-store-builder-items) (merge local-store-builder-items)
-            (seq builder-origin) (assoc :builder-origin builder-origin)
-            tracker-item (assoc ::combat/tracker-item tracker-item)))}))
+   (let [db' (if (seq db)
+               db
+               (cond-> default-value
+                 plugins (assoc :plugins plugins) ;; library load
+                 true (assoc ::e5/plugins-rev (get cofx ::e5/plugins-rev 0)
+                             ::e5/repairs-dismissed (get cofx ::e5/repairs-dismissed #{}))
+                 (::e5/pre-fix-at cofx) (assoc ::e5/pre-fix-at (::e5/pre-fix-at cofx))
+                 (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
+                 (seq disable-overlay) (assoc :disable-overlay disable-overlay)
+                 (some? health-dismissed) (assoc :health-dismissed health-dismissed)
+                 (some? demo-hidden) (assoc :demo-hidden? demo-hidden)
+                 (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
+                 (some? dev-mode) (assoc :dev-mode? dev-mode)
+                 ;; The release panel opens once per release, on the first boot that sees a new
+                 ;; id. Reading the stamp here, not at render, makes it one showing per browser,
+                 ;; not per page view. It shares the screen with the cookie notice, measuring it
+                 ;; and stopping above it (views/whats_new.cljs).
+                 (whats-new/unseen? whats-new-seen)
+                 (assoc :whats-new-open? true)
+                 ;; Through set-character, not a bare assoc: reconciles a key an import
+                 ;; conflict renamed, against the plugins already threaded in above.
+                 ;; See homebrew-keys-design.md.
+                 local-store-character (set-character [:set-character local-store-character])
+                 local-store-user (update :user-data merge local-store-user)
+                 local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
+                 ;; Restore in-progress builder WIP (all builders) across refresh, and with it
+                 ;; the address the item was fetched from -- the draft alone cannot say, since
+                 ;; its `:option-pack` is whatever is currently typed in the field.
+                 (seq local-store-builder-items) (merge local-store-builder-items)
+                 (seq builder-origin) (assoc :builder-origin builder-origin)
+                 tracker-item (assoc ::combat/tracker-item tracker-item)))]
+     (cond-> {:db db'}
+       ;; The restored draft was repaired on the way in. Save the repair back now,
+       ;; or the next refresh repairs and announces the same thing again.
+       (seq (get-in db' [:character-healed :rewrote]))
+       (assoc ::persist-healed-character (:character db'))))))
 
 (defn reset-character [_ _]
   (char5e/set-class t5e/character :barbarian 0 (class5e/barbarian-option [] {} {} {} {})))
@@ -467,8 +622,10 @@
 
 (reg-event-fx
  :set-random-character
+ ;; A new character, not an edit: the hold and its trail start over (`hold-for`).
  (fn [{:keys [db]} [_ character built-template locked-components]]
-   {:dispatch [:set-character (random-character character built-template locked-components)]}))
+   {:db (assoc db ::e5/replacing? true)
+    :dispatch [:set-character (random-character character built-template locked-components)]}))
 
 (reg-event-fx
  :random-character
@@ -478,19 +635,24 @@
 #_ ;; unreferenced — character path is constructed inline
   (def dnd-5e-characters-path [:dnd :e5 :characters])
 
-(reg-event-fx
- :character-save-success
- (fn [{:keys [db]} [_ response]]
-   (let [strict-character (:body response)
-         character (char5e/from-strict strict-character)
-         id (:db/id character)]
-     {:dispatch-n [[:show-message
-                    (if-let [char-name (not-empty
-                                        (get-in character [::entity/values ::char5e/character-name]))]
-                      (str "Saved “" char-name "”")
-                      "Your character has been saved.")]
-                   [:set-character character]
-                   [::char5e/set-character id character]]})))
+(defn character-save-success-fx
+  "Handler for `:character-save-success`: shows the saved character. When it is the builder's
+   (unsaved, or the same id), the planned hold now holds for its id (`hold-for`)."
+  [{:keys [db]} [_ response]]
+  (let [strict-character (:body response)
+        character (char5e/from-strict strict-character)
+        id (:db/id character)]
+    {:db (cond-> db
+           (contains? #{nil id} (get-in db [:character :db/id])) (assoc ::e5/planned-for id))
+     :dispatch-n [[:show-message
+                   (if-let [char-name (not-empty
+                                       (get-in character [::entity/values ::char5e/character-name]))]
+                     (str "Saved “" char-name "”")
+                     "Your character has been saved.")]
+                  [:set-character character]
+                  [::char5e/set-character id character]]}))
+
+(reg-event-fx :character-save-success character-save-success-fx)
 
 (defn descriptive-character-label
   "Build a descriptive label like 'High Elf Ranger 3' from character properties.
@@ -556,11 +718,14 @@
 (def authorization-headers event-utils/auth-headers)
 (def url-for-route event-utils/url-for-route)
 
-;; Autosave handler — dispatched from autosave_fx.cljs throttle timer.
-;; Posts character + summary to server.
+;; How many times a save waits 250 ms for the template cache before saying so.
+(def save-template-retries 20)
+
+;; Autosave handler — dispatched from autosave_fx.cljs throttle timer, and by the
+;; character list's save button. Posts character + summary to server.
 (reg-event-fx
  ::char5e/save-character
- (fn [{:keys [db]} [_ id]]
+ (fn [{:keys [db]} [_ id attempt]]
    (let [character (get-in db [::char5e/character-map (js/parseInt id)] {})
          ;; Template is cached in app-db by autosave_fx's track! watcher.
          ;; Since built-template is a no-op (plugin merging commented out),
@@ -570,7 +735,16 @@
      ;; crashes entity/build (null fn `.call`); `seq` covers both cases.
      ;; (Guarded by events-test save-character-rejects-missing-abilities.)
      (if-not (seq cached-template)
-       {} ;; template not cached yet — skip this cycle, next autosave will retry
+       ;; Not cached yet. The cache starts with the first save, not with the app, so ask
+       ;; for it and try again shortly; a save from the character list has no later
+       ;; autosave to fall back on.
+       (let [attempt (or attempt 0)]
+         (if (< attempt save-template-retries)
+           {::autosave-fx/ensure-template-cache true
+            :dispatch-later [{:ms 250 :dispatch [::char5e/save-character id (inc attempt)]}]}
+           {:dispatch [:show-warning-message
+                       (str "This character couldn't be saved because the character options "
+                            "didn't finish loading. Try again in a moment.")]}))
        (let [{:keys [:db/id] :as strict} (char5e/to-strict character)
              built-character (entity/build character cached-template)]
          ;; Gate on abilities BEFORE make-summary: a character missing base abilities
@@ -591,36 +765,83 @@
 
 ;; Manual save — dispatched from character builder UI with built-char in scope.
 ;; If the user hasn't set a name, generates a random one and persists it.
-(reg-event-fx
- :save-character
- (fn [{:keys [db]} [_ built-character]]
-   (let [character-name (char5e/character-name built-character)
-         needs-name? (s/blank? character-name)
-         ;; Generate a random name for unnamed characters on manual save
-         rand-name (when needs-name? (generate-random-name built-character))
-         ;; Update entity in db so the name persists across future edits
-         db' (if needs-name?
+(reg-event-db ::e5/dismiss-open-notice (fn [db _] (dissoc db ::e5/open-notice)))
+
+(defn undo-restore-db
+  "`db` with the picks its restore notice reports taken back out of the character. They are not
+   held again (the next settle would return them); Redo puts them back."
+  [db]
+  (let [{:keys [restored]} (::e5/restore-notice db)
+        {:keys [character removed]}
+        (reduce (fn [{:keys [character] :as acc} {:keys [address]}]
+                  (let [{c :character r :removed} (picks/remove-at character address)]
+                    (cond-> (assoc acc :character c) r (update :removed conj r))))
+                {:character (:character db) :removed []}
+                restored)]
+    (assoc db :character (assoc character :changed true) ::e5/restore-notice {:undone removed})))
+
+(defn redo-restore-db
+  "`db` with the picks Undo took out put back where they still fit."
+  [db]
+  (let [{:keys [undone]} (::e5/restore-notice db)
+        {:keys [character put-back]} (picks/from-planned (:character db) undone)]
+    (assoc db :character (assoc character :changed true) ::e5/restore-notice {:restored put-back})))
+
+(reg-event-db ::e5/undo-restore [db-char->local-store] (fn [db _] (undo-restore-db db)))
+(reg-event-db ::e5/redo-restore [db-char->local-store] (fn [db _] (redo-restore-db db)))
+(reg-event-db ::e5/dismiss-restore (fn [db _] (dissoc db ::e5/restore-notice)))
+
+(reg-event-db
+ ::e5/clear-planned
+ (fn [db [_ address]]
+   (update db ::e5/planned-picks (fn [held] (filterv #(not= address (:address %)) held)))))
+
+(reg-event-db
+ ::e5/clear-pick
+ character-interceptors
+ (fn [character [_ address]]
+   (:character (picks/remove-at character address))))
+
+(defn save-character-fx
+  "Handler for `:save-character`. Settles picks first (`settle-picks-db`), so a save right after
+   an edit never sends a pick that has stopped applying."
+  [{:keys [db]} [_ built-character]]
+  (let [character-name (char5e/character-name built-character)
+        needs-name? (s/blank? character-name)
+        ;; Generate a random name for unnamed characters on manual save
+        rand-name (when needs-name? (generate-random-name built-character))
+        ;; Update entity in db so the name persists across future edits
+        db' (settle-picks-db
+             (if needs-name?
                (assoc-in db [:character ::entity/values ::char5e/character-name] rand-name)
-               db)
-         {:keys [:db/id] :as strict} (char5e/to-strict (:character db'))]
-     ;; Gate on abilities BEFORE make-summary (see ::char5e/save-character above):
-     ;; make-summary crashes on a character missing base abilities. Fail fast instead.
-     (if (every?
-          (fn [ability-kw]
-            (nat-int? (get-in built-character [:base-abilities ability-kw])))
-          char5e/ability-keys)
-       (let [summary (cond-> (make-summary built-character)
-                       ;; Override summary name with the generated name
-                       ;; (make-summary produced a descriptive label since entity was blank)
-                       needs-name? (assoc ::char5e/character-name rand-name))]
-         {:db db'
-          :dispatch [:set-loading true]
-          :http {:method :post
-                 :headers (authorization-headers db')
-                 :url (url-for-route routes/dnd-e5-char-list-route)
-                 :transit-params (assoc strict :orcpub.entity.strict/summary summary)
-                 :on-success [:character-save-success]}})
-       {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))
+               db))
+        {:keys [:db/id] :as strict} (char5e/to-strict (:character db'))
+        ;; The check and the summary describe what is sent: rebuilt when the settle changed it.
+        template (::autosave-fx/cached-template db')
+        built-character (if (and template (not= (get-in db [:character ::entity/options])
+                                                (get-in db' [:character ::entity/options])))
+                          (entity/build (:character db') template)
+                          built-character)]
+    ;; Gate on abilities BEFORE make-summary (see ::char5e/save-character above):
+    ;; make-summary crashes on a character missing base abilities. Fail fast instead.
+    (if (every?
+         (fn [ability-kw]
+           (nat-int? (get-in built-character [:base-abilities ability-kw])))
+         char5e/ability-keys)
+      (let [summary (cond-> (make-summary built-character)
+                      ;; Override summary name with the generated name
+                      ;; (make-summary produced a descriptive label since entity was blank)
+                      needs-name? (assoc ::char5e/character-name rand-name))]
+        {:db db'
+         :dispatch [:set-loading true]
+         :http {:method :post
+                :headers (authorization-headers db')
+                :url (url-for-route routes/dnd-e5-char-list-route)
+                :transit-params (assoc strict :orcpub.entity.strict/summary summary)
+                :on-success [:character-save-success]}})
+      {:dispatch [:show-error-message "You must provide values for all ability scores"]})))
+
+(reg-event-fx :save-character save-character-fx)
 
 (reg-event-fx
  :item-save-success
@@ -1376,7 +1597,7 @@
                                     [:span.pointer.underline
                                      {:on-click (fn [e]
                                                   (.stopPropagation e)
-                                                  (dispatch [::e5/export-plugin option-pack (new-plugins option-pack)]))}
+                                                  (dispatch [::e5/export-plugin option-pack]))}
                                      "Export this source"]
                                     " to keep a copy."]]}
                         60000]))))))
@@ -1390,19 +1611,22 @@
    (let [{:keys [option-pack] :as item} (::selections5e/builder-item db)
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
+         ;; The name cleanup the other builders' save-anyway runs. Without it a name
+         ;; like "9 Lives" derived a key the next load set aside.
+         sanitized (orcbrew-val/sanitize-item-names filled-item "Selection")
          ;; as above: blank means the field is missing, not that the item should move
          src (or (not-empty (s/trim (str option-pack)))
                  (fetched-from (:plugins db) (get-in db [:builder-origin ::e5/selections]) ::e5/selections
                                (:key item))
                  orcbrew-val/default-option-source)
-         mint-key (address-for (:plugins db) ::e5/selections src item (:name filled-item))
+         mint-key (address-for (:plugins db) ::e5/selections src item (:name sanitized))
          {:keys [action from] :as destination}
          (cond-> (save-destination (:plugins db) (get-in db [:builder-origin ::e5/selections]) ::e5/selections src mint-key
-                                   item (:name filled-item))
+                                   item (:name sanitized))
            replace? replacing)
          ;; See reg-save-homebrew: consenting to replace a legacy occupant lands on ITS address.
          final-key (or (:key destination) mint-key)
-         item-with-key (assoc filled-item :key final-key :option-pack src)]
+         item-with-key (assoc sanitized :key final-key :option-pack src)]
      (if (= :refuse action)
        (collision-error-fx "Selection" src mint-key destination
                            [::selections5e/save-selection-anyway {:replace? true}])
@@ -1475,8 +1699,8 @@
    (fn [{:keys [db]} [_ item source key confirmed?]]
      (let [source (or source (:option-pack item))
            key    (or key (:key item))
-           after  (when (and source key) (update-in (:plugins db) [source plugin-key] dissoc key))
-           broken (when after (:broken (library/commit (:plugins db) after {:deleting? true})))]
+           plugins-after (when (and source key) (update-in (:plugins db) [source plugin-key] dissoc key))
+           broken (when plugins-after (:broken (library/commit (:plugins db) plugins-after {:deleting? true})))]
        (cond
          (not (and source key (get-in db [:plugins source plugin-key key])))
          {:dispatch [:show-error-message
@@ -1488,7 +1712,7 @@
                         broken [event-key item source key true])
 
          :else
-         {:dispatch [::e5/set-plugins after {:deleting? true}]})))))
+         {:dispatch [::e5/set-plugins plugins-after {:deleting? true}]})))))
 
 (reg-delete-homebrew
  ::spells/delete-spell
@@ -1540,6 +1764,13 @@
  ::class5e/delete-class
  ::e5/classes)
 
+(defn- share-token-for
+  "The share token the character page was opened with, when it is this character's."
+  [db character-id]
+  (let [{:keys [character token]} (:share-link db)]
+    (when (and token (= character (js/parseInt (str character-id))))
+      token)))
+
 (reg-event-fx
  ::party5e/make-party-success
  (fn []
@@ -1556,8 +1787,14 @@
     :http {:method :post
            :headers (authorization-headers db)
            :url (url-for-route routes/dnd-e5-char-parties-route)
-           :transit-params {::party5e/name "A New Party"
-                            ::party5e/character-ids character-ids}
+           :transit-params (let [tokens (keep (fn [cid]
+                                                (when-let [t (share-token-for db cid)]
+                                                  {:orcpub.party-share/character (js/parseInt (str cid))
+                                                   :orcpub.party-share/token t}))
+                                              character-ids)]
+                             (cond-> {::party5e/name "A New Party"
+                                      ::party5e/character-ids character-ids}
+                               (seq tokens) (assoc ::party5e/shared-tokens (vec tokens))))
            :on-success [::party5e/make-party-success]}}))
 
 (reg-event-fx
@@ -1672,7 +1909,11 @@
  (fn [{:keys [db]} [_ id character-id show-confirmation?]]
    {:http {:method :post
            :headers (authorization-headers db)
-           :transit-params character-id
+           ;; From a page opened through a share link, the token goes too, so the party page can load
+           ;; the character's homebrew.
+           :transit-params (if-let [token (share-token-for db character-id)]
+                             {:character-id character-id :share-token token}
+                             character-id)
            :url (url-for-route routes/dnd-e5-char-party-characters-route :id id)
            :on-success [::party5e/add-character-remote-success show-confirmation?]}}))
 
@@ -1896,12 +2137,15 @@
 
 (reg-event-fx
  :change-email
- (fn [{:keys [db]} [_ new-email]]
+ (fn [{:keys [db]} [_ new-email current-password]]
    {:db (dissoc db :email-change-sent? :email-change-error)
     :http {:method :put
            :headers (authorization-headers db)
            :url (backend-url (routes/path-for routes/user-email-route))
-           :transit-params {:new-email new-email}
+           ;; The password is sent to be COMPARED, never stored and never read
+           ;; back: the server hands it to lookup-user, which checks the hash.
+           :transit-params {:new-email new-email
+                            :current-password current-password}
            :on-success [:change-email-success]
            :on-failure [:change-email-failure]}}))
 
@@ -1921,6 +2165,7 @@
          error (:error body)]
      (assoc db :email-change-error
             (case error
+              :bad-credentials "That password is not right. The account stays on its current address."
               :email-taken "That email address is already in use by another account."
               :invalid-email "Please enter a valid email address."
               :same-as-current "That is already your current email address."
@@ -1936,6 +2181,29 @@
                   "Please wait a few minutes before requesting another email change."))
               :email-send-failed "Verification email could not be sent. Please try again later."
               "There was an error updating your email. Please try again.")))))
+
+(reg-event-fx
+ :withdraw-sessions
+ (fn [{:keys [db]} _]
+   {:http {:method :delete
+           :headers (authorization-headers db)
+           :url (backend-url (routes/path-for routes/user-sessions-route))
+           :on-success [:withdraw-sessions-success]
+           :on-failure [:withdraw-sessions-failure]}}))
+
+(reg-event-fx
+ :withdraw-sessions-success
+ ;; Including this one -- the token in hand was minted before the withdrawal, so
+ ;; the next call with it is a 401. Going straight to login is the honest end to
+ ;; the action rather than letting the app discover it mid-request.
+ (fn [_ _]
+   {:dispatch-n [[:clear-login] [:route-to-login]]}))
+
+(reg-event-db
+ :withdraw-sessions-failure
+ (fn [db _]
+   (assoc db :sessions-withdraw-error
+          "Could not sign your other sessions out. Please try again.")))
 
 (reg-event-db
  :change-email-clear
@@ -1963,6 +2231,34 @@
  :toggle-send-updates-failure
  (fn [db _]
    db))
+
+;; Dark text on the amber buttons (dark theme). Saved in this browser with the
+;; theme, and on the account when logged in, so it follows the user.
+(reg-event-fx
+ :toggle-dark-button-text
+ [user->local-store-interceptor]
+ (fn [{:keys [db]} _]
+   (let [on? (not (get-in db [:user-data :dark-button-text?]))]
+     (cond-> {:db (assoc-in db [:user-data :dark-button-text?] on?)}
+       (event-utils/get-auth-token db)
+       (assoc :http {:method :put
+                     :headers (authorization-headers db)
+                     :url (backend-url (routes/path-for routes/user-route))
+                     :transit-params {:dark-button-text? on?}
+                     :on-success [:dark-button-text-saved]
+                     :on-failure [:dark-button-text-saved]})))))
+
+;; Nothing to reconcile: this browser already shows the choice, and a failed
+;; save only means the account keeps its previous one.
+(reg-event-db
+ :dark-button-text-saved
+ (fn [db _] db))
+
+;; The window crossed the phone breakpoint; the layout follows (:device-type).
+(reg-event-db
+ :set-narrow-screen
+ (fn [db [_ narrow?]]
+   (assoc db :narrow-screen? narrow?)))
 
 (reg-event-fx
  :unfollow-user
@@ -2023,6 +2319,17 @@
     (str "Reconnected " n " reference" (when (not= 1 n) "s")
          " to content that had been renamed. Save the character to keep the fix.")))
 
+(defn- heal-announcement
+  "The [:show-message ...] for a recorded heal not yet announced, or nil. Builder only: \"save to
+   keep the fix\" means nothing elsewhere (homebrew-keys-design.md)."
+  [db]
+  (let [rewrote (get-in db [:character-healed :rewrote])
+        route (:route db)]
+    (when (and (= routes/dnd-e5-char-builder-route (or (:handler route) route))
+               (seq rewrote)
+               (not (get-in db [:character-healed :announced?])))
+      [:show-message (healed-message rewrote) 8000])))
+
 (reg-event-fx
  ::char5e/relink-content
  (fn [{:keys [db]} [_ from-key to-key content-type]]
@@ -2030,7 +2337,7 @@
    ;; rewrite to picks of that type; a race and a subrace can share a key. Goes through
    ;; :set-character, so the heals and the rebuild run as on any load.
    (let [{:keys [character]}
-         (content-recon/relink-picks (:character db) content-type from-key to-key)]
+         (picks/relink (:character db) content-type from-key to-key)]
      {:dispatch-n [[:set-character character]
                    [:show-message
                     (str "Relinked " (name from-key) " to " (name to-key)
@@ -2056,25 +2363,28 @@
  (fn [db [_ item-name]]
    (update-in db [:expanded-items item-name] not)))
 
+;; Registered here, not in autosave_fx, so it queues a settle: the first template a draft is
+;; opened with settles it, before any edit.
+(reg-event-fx ::autosave-fx/cache-template [queue-settle] autosave-fx/cache-template)
+
 (reg-event-fx
  :set-character
- [db-char->local-store (inject-cofx ::e5/pending-relinks)]
+ [queue-settle db-char->local-store (inject-cofx ::e5/pending-relinks)]
  (fn [{:keys [db] :as cofx} event]
    (let [db' (set-character db event)
-         rewrote (get-in db' [:character-healed :rewrote])
          relinks (::e5/pending-relinks cofx)
          ask (content-recon/relink-to-ask relinks (:character db') (:plugins db'))]
-     ;; Asked once per character (homebrew-keys-design.md §9, Q3): the builder shows
-     ;; ::e5/relink-question as a banner until the author answers, and only the answer
-     ;; (::e5/answer-relink) records it as asked.
-     (cond-> {:db (assoc db' ::e5/relink-question
+     ;; Asked once per character (homebrew-keys-design.md §9, Q3): ::e5/relink-question
+     ;; banners until ::e5/answer-relink records it as asked.
+     ;; A heal is not announced here: :route queues a [:hide-message] that runs after this,
+     ;; clearing a toast raised now before it painted. :route announces it instead.
+     {::autosave-fx/ensure-template-cache true
+      :db (assoc db' ::e5/relink-question
                          (when ask
                            (let [{:keys [content-type from] :as r} (get relinks ask)]
                              (assoc (select-keys r [:content-type :from :to :to-name :import])
                                     :from-name (some #(get-in % [content-type from :name]) (vals (:plugins db')))
-                                    :character-id (:db/id (:character db'))))))}
-       ;; Only on an actual repair. A clean load stays silent.
-       (seq rewrote) (assoc :dispatch [:show-message (healed-message rewrote) 8000])))))
+                                    :character-id (:db/id (:character db'))))))})))
 
 (defn- record-relinks!
   "Stores `relinks` as the pending relink questions; says so in the console when it cannot."
@@ -2204,7 +2514,11 @@
  character-interceptors
  event-handlers/set-class-level)
 
-(defn delete-class [character [_ class-key i options-map]]
+(defn delete-class
+  "Removes class `class-key`. When it was the first class, the class that becomes first keeps its
+   levels and picks and brings its starting equipment; picks that stop applying go to the hold
+   (`queue-settle`)."
+  [character [_ class-key i options-map]]
   (let [updated (update-in
                  character
                  [::entity/options :class]
@@ -2213,13 +2527,32 @@
         new-first-class-option (when new-first-class-key (options-map new-first-class-key))]
     (if (and (zero? i)
              new-first-class-option)
-      (char5e/set-class updated new-first-class-key 0 new-first-class-option)
+      (char5e/use-class-starting-equipment updated new-first-class-option)
       updated)))
 
 (reg-event-db
  :delete-class
  character-interceptors
  delete-class)
+
+(defn make-starting-class
+  "Moves class `class-key` to the front, so it is the starting class, with its starting equipment;
+   picks that apply only to the starting class follow it through the hold (`queue-settle`).
+   `options-map`: class key to its template option."
+  [character [_ class-key options-map]]
+  (let [classes (vec (get-in character [::entity/options :class]))
+        moving (some #(when (= class-key (::entity/key %)) %) classes)
+        option (options-map class-key)]
+    (if (or (nil? moving) (= class-key (::entity/key (first classes))))
+      character
+      (cond-> (assoc-in character [::entity/options :class]
+                        (into [moving] (remove #(= class-key (::entity/key %))) classes))
+        option (char5e/use-class-starting-equipment option)))))
+
+(reg-event-db
+ ::char5e/make-starting-class
+ character-interceptors
+ make-starting-class)
 
 (reg-event-db
  :add-inventory-item
@@ -2441,6 +2774,12 @@
     (when (s/starts-with? h "#c=")
       (not-empty (subs h 3)))))
 
+(defn- share-token-in-link
+  "The token a short share link carries (#s=<token>), or nil."
+  []
+  (let [h (or (some-> js/window .-location .-hash) "")]
+    (second (re-matches #"#s=([A-Za-z0-9_-]{22})" h))))
+
 (reg-event-fx
  :route
  (fn [{:keys [db]} [_ {:keys [handler route-params] :as new-route} {:keys [no-return? skip-path? event secure?] :as options}]]
@@ -2459,7 +2798,8 @@
              ;; Homebrew embedded in a share link loads only on the character page,
              ;; and only into the ephemeral :shared-plugins overlay (never the library).
              char-page? (= (or handler new-route) routes/dnd-e5-char-page-route)
-             shared-payload (when char-page? (shared-content-payload))]
+             shared-payload (when char-page? (shared-content-payload))
+             share-token (when char-page? (share-token-in-link))]
          (when (and js/window.location
                     secure?
                     (not= "localhost" js/window.location.hostname))
@@ -2474,9 +2814,32 @@
            (not skip-path?) (assoc :path path)
            ;; Leaving/entering a plain character view clears any prior shared overlay
            ;; so view-once content (homebrew + custom items) never lingers across characters.
-           char-page? (update :db assoc :shared-plugins nil :shared-custom-items nil)
+           ;; The link this page was opened with, so Add to Party can keep its token.
+           char-page? (update :db assoc :shared-plugins nil :shared-custom-items nil
+                              :share-link (when share-token
+                                            {:character (js/parseInt (:id route-params)) :token share-token}))
            shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
-           event (update :dispatch-n conj event)))))))
+           share-token (update :dispatch-n conj [::e5/load-shared-homebrew (:id route-params) share-token])
+           event (update :dispatch-n conj event)
+           ;; The template's offered keys feed the heal on a character's pages and the repair panel
+           ;; and missing-link marks on My Content and its builders, so those pages start
+           ;; building it; other pages build nothing (homebrew-safety-net.md).
+           (let [r (or handler new-route)]
+             (or (#{routes/dnd-e5-char-builder-route routes/dnd-e5-char-page-route} r)
+                 (routes/dnd-e5-my-content-routes r)))
+           (assoc ::autosave-fx/ensure-template-cache true)
+           ;; After [:hide-message] above: dispatch-n is FIFO, so the toast survives navigation.
+           (heal-announcement (assoc db :route new-route))
+           (-> (update :dispatch-n conj (heal-announcement (assoc db :route new-route)))
+               (assoc-in [:db :character-healed :announced?] true))))))))
+
+(reg-event-fx
+ ::e5/announce-heal
+ ;; For a heal that lands after the route change, when the template's offered keys arrive.
+ (fn [{:keys [db]} _]
+   (if-let [message (heal-announcement db)]
+     {:db (assoc-in db [:character-healed :announced?] true) :dispatch message}
+     {})))
 
 (reg-event-db
  :set-user-data
@@ -2742,13 +3105,21 @@
  :login-success
  [user->local-store-interceptor]
  (fn [{:keys [db]} [_ backtrack? response]]
-   {:db (update db :user-data merge (-> response :body))
+   ;; A button-text choice saved on the account wins over this browser's.
+   {:db (let [account-choice (-> response :body :user-data :dark-button-text?)]
+          (cond-> (update db :user-data merge (-> response :body))
+            (some? account-choice) (assoc-in [:user-data :dark-button-text?] account-choice)))
     :dispatch [:route (or
                        (:return-route db)
                        routes/dnd-e5-char-builder-route)]}))
 
-(defn show-old-account-message []
-  [:show-login-message [:div  "There is no account for the email or username, please double-check it. Usernames and passwords are case sensitive, email addresses are not. You can also try to " [:a {:href (routes/path-for routes/register-page-route)} "register"] "."]])
+(defn sign-in-failed-message []
+  ;; Deliberately vague about which half was wrong: naming the username as unknown
+  ;; would make this form a membership-disclosure oracle. See account-flows.md.
+  [:show-login-message
+   [:div "That username and password do not match. Usernames and passwords are case sensitive, "
+    "email addresses are not. If you have not signed up yet you can "
+    [:a {:href (routes/path-for routes/register-page-route)} "register"] "."]])
 
 (defn dispatch-login-failure [message]
   {:dispatch-n [[:clear-login]
@@ -2760,11 +3131,10 @@
    (let [error-code (-> response :body :error)]
      (cond
        (= error-code errors/username-required) (dispatch-login-failure "Username is required.")
-       (= error-code errors/too-many-attempts) (dispatch-login-failure "You have made too many login attempts, you account is locked for 15 minutes. Please do not try to login again until 15 minutes have passed.")
+       (= error-code errors/too-many-attempts) (dispatch-login-failure "Too many attempts just now. Wait a minute and try again.")
        (= error-code errors/password-required) (dispatch-login-failure "Password is required.")
-       (= error-code errors/bad-credentials) (dispatch-login-failure "Password is incorrect.")
-       (= error-code errors/no-account) {:dispatch-n [[:clear-login]
-                                                      (show-old-account-message)]}
+       (= error-code errors/bad-credentials) {:dispatch-n [[:clear-login]
+                                                           (sign-in-failed-message)]}
        (= error-code errors/unverified) {:db (assoc db :temp-email (-> response :body :email))
                                          :dispatch [:route routes/verify-sent-route]}
        (= error-code errors/unverified-expired) {:dispatch [:route routes/verify-failed-route]}
@@ -2804,14 +3174,35 @@
 (reg-event-db
  :register-success
  (fn [db [_ backtrack? response]]
-   (-> db
-       (update :user-data merge (:body response))
-       (assoc :route :verify-sent))))
+   ;; A deployment with no EMAIL_SERVER_URL verifies on creation and says so
+   ;; with :verified? -- sending such a user to "check your email" would point
+   ;; them at a mail that is never coming.
+   (let [verified? (get-in response [:body :verified?])]
+     (-> db
+         (update :user-data merge (:body response))
+         (assoc :route (if verified? :verify-success :verify-sent))))))
+
+(reg-event-db
+ :registration-attempted
+ ;; Set when JOIN is pressed on a form that is not ready. The button no longer
+ ;; dims -- a control that looks dead teaches people the site is broken rather
+ ;; than that their form is -- so pressing it has to SAY something instead.
+ (fn [db _]
+   (assoc db :registration-attempted? true)))
 
 (reg-event-fx
  :register-failure
- (fn [cofx [_ response]]
-   {:dispatch [:clear-login]}))
+ ;; :registration-server-errors holds what only the server can judge, shown by field; any other
+ ;; failure becomes a :general notice, so no server-side failure is silent. account-flows.md.
+ (fn [{:keys [db]} [_ response]]
+   (let [body (:body response)]
+     {:db (assoc db :registration-server-errors
+                 (cond
+                   (= :email-not-configured (:error body))
+                   {:general ["Registration is currently unavailable. Please contact the site administrator."]}
+                   (and (map? body) (not (contains? body :error))) body
+                   :else {:general ["Registration failed. Please try again."]}))
+      :dispatch [:clear-login]})))
 
 #_ ;; dead stub — real impl is orcpub.registration/validate-registration
   (defn validate-registration [])
@@ -2853,7 +3244,25 @@
 (reg-event-db
  :registration-password
  (fn [db [_ password]]
-   (assoc-in db [:registration-form :password] password)))
+   (-> db
+       ;; What the server said was about the password it was sent, not this one.
+       (dissoc :registration-server-errors)
+       (assoc-in [:registration-form :password] password))))
+
+(reg-event-db
+ :registration-password-revealed?
+ ;; In the db rather than a local atom: whatever decides the form may be
+ ;; submitted has to know the confirmation is not being asked for, and a reveal
+ ;; hidden inside the field component is invisible to it.
+ (fn [db [_ revealed?]]
+   (assoc-in db [:registration-form :password-revealed?] revealed?)))
+
+(reg-event-db
+ :registration-verify-password
+ (fn [db [_ password]]
+   (-> db
+       (dissoc :registration-server-errors)
+       (assoc-in [:registration-form :verify-password] password))))
 
 (reg-event-db
  :registration-send-updates?
@@ -2895,8 +3304,13 @@
 
 (reg-event-db
  :re-verify-success
- (fn [db []]
-   (assoc db :route routes/verify-sent-route)))
+ (fn [db [_ response]]
+   ;; With no SMTP and ALLOW_UNVERIFIED_REGISTRATION set, a resend verifies the
+   ;; account on the spot and says so -- "check your email" would leave the user
+   ;; waiting for a message that is never sent.
+   (assoc db :route (if (get-in response [:body :verified?])
+                      routes/verify-success-route
+                      routes/verify-sent-route))))
 
 (reg-event-fx
  :re-verify
@@ -2914,11 +3328,11 @@
 
 (reg-event-fx
  :send-password-reset-failure
- (fn [_ [_ response]]
-   (let [error (-> response :body :error (= :no-account))]
-     (if error
-       (dispatch (show-old-account-message))
-       (show-generic-error)))))
+ ;; The endpoint answers 200 for every address now, so :no-account cannot arrive
+ ;; here and the branch that handled it is gone. Anything reaching this handler
+ ;; is a network or server fault, which is what the generic error is for.
+ (fn [_ _]
+   (show-generic-error)))
 
 (reg-event-fx
  :send-password-reset
@@ -2936,10 +3350,7 @@
    (fn [db [_ response]]
      (assoc-in db [:dnd :e5 :characters] (:body response))))
 
-;; get-auth-token lives in orcpub.dnd.e5.event-utils alongside auth-headers
-;; and the handle-api-response HOF. See event_utils.cljc for the canonical
-;; docstring describing its dual use (retrieval + predicate) and why it's
-;; the single source of truth for the auth token path.
+
 
 #_ ;; never dispatched — character loading uses :load-user-data flow
   (reg-event-fx
@@ -2957,19 +3368,42 @@
 
 (reg-event-fx
  :password-reset-failure
- (fn [_ _]
-   (dispatch-login-failure "There was an error resetting your password.")))
+ ;; The same bug :register-failure had: the body was thrown away and replaced
+ ;; with one generic sentence, so a password refused for being a common one said
+ ;; only that something had gone wrong, and the obvious next move was to try the
+ ;; same password again. The server's reasons are field-keyed; keep them.
+ (fn [{:keys [db]} [_ response]]
+   (let [errors (when (map? (:body response)) (:body response))]
+     (cond
+       ;; An expired or used link: nothing in the form can fix it.
+       (:general errors) (dispatch-login-failure (first (:general errors)))
+       (seq errors)
+       {:db (assoc db :password-reset-server-errors errors)}
+       :else
+       ;; A failure with nothing to say -- a network drop, a 500 -- still needs
+       ;; to say something.
+       (dispatch-login-failure "There was an error resetting your password.")))))
+
+(reg-event-db
+ :password-reset-clear-errors
+ ;; What the server said was about the password it was sent, not this one.
+ (fn [db _]
+   (dissoc db :password-reset-server-errors)))
 
 (reg-event-fx
  :password-reset
+ ;; The link's key is the only authority the server takes for a reset; there is no session.
  (fn [{:keys [db]} [_ params]]
-   (let [c (cookies)
-         token (c "token")]
+   (let [reset-key (.get (js/URLSearchParams. (.. js/window -location -search)) "key")]
      {:db (assoc db :temp-email (:email params))
       :http {:method :post
-             :auth-token token
              :url (backend-url (bidi/path-for routes/routes routes/reset-password-route))
-             :json-params params
+             ;; A revealed password has no confirm box; the server still compares the two fields.
+             :json-params {:password (:password params)
+                           :verify-password (if (:password-revealed? params)
+                                              (:password params)
+                                              (:verify-password params))
+                           :key reset-key}
              :on-success [:password-reset-success]
              :on-unauthorized [:password-reset-failure]
              :on-failure [:password-reset-failure]}})))
@@ -3162,11 +3596,15 @@
    (assoc-in db [:character-report-status char-id]
              (if (get-in response [:body :sent?]) :sent :failed))))
 
-(reg-event-fx
- :new-character
- (fn [{:keys [db]} _]
-   {:db (assoc db :character default-character)
-    :dispatch [:route routes/dnd-e5-char-builder-route]}))
+(defn new-character-fx
+  "Handler for `:new-character`: the default character, with an empty planned hold and none of
+   the previous character's notices or pending settle."
+  [{:keys [db]} _]
+  {:db (assoc db :character default-character ::e5/planned-picks [] ::e5/planned-for nil
+              ::e5/settle-trail [] ::e5/restore-notice nil ::e5/open-notice nil)
+   :dispatch [:route routes/dnd-e5-char-builder-route]})
+
+(reg-event-fx :new-character new-character-fx)
 
 (reg-event-db
  :hide-message
@@ -3277,7 +3715,11 @@
 ;; they store the filter text for the reactive subs.
 (def filter-by-name-xform compute/filter-by-name-xform)
 
-(defn search-results [text]
+(defn search-results
+  "What the Orcacle shows for `text`: a top result (a dice roll, an exact spell, monster, magic
+   item, condition or rule, or a generated name) and lists of partial matches. `srd` is the
+   loaded SRD files, {:conditions data :rules data}, either absent before it has loaded."
+  [text & [{:keys [conditions rules]}]]
   (let [search-text (s/lower-case text)
         dice-result (dice/dice-roll-text search-text)
         kw (when search-text (common/name-to-kw search-text))
@@ -3291,6 +3733,12 @@
                                                 :result (monsters/monster-map kw)}
                      (mi/magic-item-map kw) {:type :magic-item
                                              :result (mi/magic-item-map kw)}
+                     (srd-conditions/find-condition conditions search-text)
+                     {:type :condition
+                      :result (srd-conditions/find-condition conditions search-text)}
+                     (srd-rules/find-rule rules search-text)
+                     {:type :rule
+                      :result (srd-rules/find-rule rules search-text)}
                      (= "tavern name" search-text) {:type :tavern-name
                                                     :result (char-rand5e/random-tavern-name)}
                      name-result name-result
@@ -3303,22 +3751,76 @@
         top-monsters (when (>= (count text) 3)
                        (sequence
                         filter-xform
-                        monsters/monsters))]
+                        monsters/monsters))
+        top-conditions (srd-conditions/matching conditions text)
+        top-rules (srd-rules/matching rules text)]
     (cond-> {}
       top-result (assoc :top-result top-result)
       (seq top-spells) (update :results conj {:type :spell
                                               :results top-spells})
       (seq top-monsters) (update :results conj {:type :monster
-                                                :results top-monsters}))))
+                                                :results top-monsters})
+      (seq top-conditions) (update :results conj {:type :condition
+                                                  :results top-conditions})
+      (seq top-rules) (update :results conj {:type :rule
+                                             :results top-rules}))))
 
+
+(reg-event-fx
+ :set-search-text
+ (fn [{:keys [db]} [_ search-text]]
+   {:db (cond-> db
+          true (assoc :search-text search-text
+                      :search-results (search-results search-text (:srd db)))
+          (s/blank? search-text) (assoc :orcacle-clicked? false))
+    :dispatch-n [[:load-srd :conditions] [:load-srd :rules]]}))
+
+(def srd-paths
+  "Where each SRD data file is served from, by kind."
+  {:conditions srd-conditions/data-path
+   :rules srd-rules/data-path
+   :clarifications srd-rules/notes-path})
+
+(reg-fx
+ ::fetch-srd
+ ;; Fetches the static SRD file `kind` (a key of srd-paths); reports to :set-srd or :set-srd-failed.
+ (fn [kind]
+   (-> (js/fetch (srd-paths kind))
+       (.then (fn [response]
+                (if (.-ok response)
+                  (.text response)
+                  (throw (js/Error. (str "HTTP " (.-status response)))))))
+       (.then #(dispatch [:set-srd kind (reader/read-string %)]))
+       (.catch (fn [e]
+                 (js/console.error "Could not load the SRD" (name kind) "file:" e)
+                 (dispatch [:set-srd-failed kind]))))))
+
+(reg-event-fx
+ :load-srd
+ ;; Loads one SRD file once; later calls, and calls while it is loading, do nothing.
+ (fn [{:keys [db]} [_ kind]]
+   (when-not (or (get-in db [:srd kind]) (get-in db [:srd-loading kind]))
+     {:db (assoc-in db [:srd-loading kind] true)
+      ::fetch-srd kind})))
 
 (reg-event-db
- :set-search-text
- (fn [db [_ search-text]]
-   (cond-> db
-     true (assoc :search-text search-text
-                 :search-results (search-results search-text))
-     (s/blank? search-text) (assoc :orcacle-clicked? false))))
+ :set-srd
+ ;; Re-runs an open search, so typing before the file arrived still finds what it holds.
+ (fn [db [_ kind data]]
+   (let [db (-> db (assoc-in [:srd kind] data) (assoc-in [:srd-loading kind] false))]
+     (cond-> db
+       (:search-text db) (assoc :search-results (search-results (:search-text db) (:srd db)))))))
+
+(reg-event-db
+ :set-srd-failed
+ (fn [db [_ kind]]
+   (-> db (assoc-in [:srd-loading kind] false) (assoc-in [:srd-failed kind] true))))
+
+(reg-event-db
+ :set-srd-scroll-target
+ ;; The rule anchor a rule page scrolls to once it has drawn; cleared once it has.
+ (fn [db [_ anchor]]
+   (assoc db :srd-scroll-target anchor)))
 
 (reg-event-db
  :close-orcacle
@@ -3334,12 +3836,13 @@
      {:dispatch-n [[:route routes/dnd-e5-char-builder-route]
                    [:open-orcacle]]}))
 
-(reg-event-db
+(reg-event-fx
  :open-orcacle
- (fn [db _]
-   (-> db
-       (assoc :orcacle-clicked? true)
-       (dissoc :search-text))))
+ (fn [{:keys [db]} _]
+   {:db (-> db
+            (assoc :orcacle-clicked? true)
+            (dissoc :search-text))
+    :dispatch-n [[:load-srd :conditions] [:load-srd :rules]]}))
 
 (reg-event-db
  ::char5e/set-selected-display-tab
@@ -3370,9 +3873,8 @@
  (fn [db [_ filter-text]]
    (assoc db ::char5e/spell-text-filter filter-text)))
 
-;; Filter magic item list by name. Same reactive pattern as filter-spells.
-;; Do NOT write ::char5e/filtered-items into db — the sub composes
-;; sorted-items + item-text-filter reactively.
+;; Stores only the filter text, like ::char5e/filter-spells; ::char5e/filtered-items derives
+;; the list.
 (reg-event-db
  ::char5e/filter-items
  (fn [db [_ filter-text]]
@@ -4801,8 +5303,15 @@
  ::e5/store-plugins
  (fn [{:keys [db]} [_ plugins on-success]]
    ;; Import paths: re-importing a source replaces what it held (homebrew-keys-design.md §9, Q4).
-   (select-keys (commit-library db plugins {:deleting? true :on-success on-success})
-                [:db :dispatch-n])))
+   (let [changed (not-empty (set (for [[src p] plugins
+                                       :when (not (identical? p (get (:plugins db) src)))]
+                                   src)))
+         {:keys [ok?] :as committed} (commit-library db plugins {:deleting? true :on-success on-success})]
+     (cond-> (select-keys committed [:db :dispatch-n])
+       ok? (update :db dissoc :homebrew-reported)
+       ;; check the sources this import changed for an entry that breaks the character
+       ;; options, now rather than the next time someone opens the builder
+       (and ok? changed) (assoc ::homebrew-check/check-builds changed)))))
 
 ;; `plugins->local-store` dispatches this when the localStorage write
 ;; fails (typically a full quota). The save lives in memory but would vanish on
@@ -4893,15 +5402,17 @@
                                                     :when (and (qualified-keyword? ct) (map? items))]
                                                 (count items))))
              n-fixed (count-items kept-items)
-             n-left (count-items still-bad)]
+             n-left (count-items still-bad)
+             {db' :db ok? :ok? refused :dispatch-n} (commit-library db live {})]
          ;; Persist live + quarantine together so they never disagree, and show now.
-         (let [{db' :db ok? :ok? refused :dispatch-n} (commit-library db live {})]
-           (if-not ok?
-             {:db db' :dispatch-n refused}
-             (do (set-rejected-plugins new-rejected)
-                 {:db (assoc db' :quarantined-plugins new-rejected)
-                  :dispatch [(if (pos? n-fixed) :show-warning-message :show-error-message)
-                             (restore-message source-name bad kept-items still-bad)]}))))))))
+         (if-not ok?
+           {:db db' :dispatch-n refused}
+           (do (set-rejected-plugins new-rejected)
+               {:db (-> db' (assoc :quarantined-plugins new-rejected) (dissoc :homebrew-reported))
+                ;; a restored entry that still breaks the character options is set aside again
+                ::homebrew-check/check-builds (when (pos? n-fixed) #{source-name})
+                :dispatch [(if (pos? n-fixed) :show-warning-message :show-error-message)
+                           (restore-message source-name bad kept-items still-bad)]})))))))
 
 ;; Permanently discard a quarantined source the user won't repair (a stale one never
 ;; self-clears). Drops it from BOTH the persisted rejected store and the panel.
@@ -4954,13 +5465,16 @@
    effect; serialization lives in the pure `orcbrew-format/serialize-orcbrew`.
    `stamp` wraps the data in the v2 format envelope IFF it uses non-backward-
    compatible features (a no-op for plain v1 content), so an old build can't
-   silently mis-load a new-format export."
-  [filename data & {:keys [pretty-print?]}]
+   silently mis-load a new-format export. With `:raw?`, `data` is already text and
+   is written as it is, for a library that could not be read."
+  [filename data & {:keys [pretty-print? raw?]}]
   ;; collapse-class BEFORE stamp: map-plugin-classes walks the raw
   ;; {source {content-type {key item}}} shape, which stamp then wraps in the v2 envelope.
-  (let [content (orcbrew-format/serialize-orcbrew
-                 (orcbrew-format/stamp (map-plugin-classes sel/collapse-class data))
-                 :pretty-print? pretty-print?)
+  (let [content (if raw?
+                  data
+                  (orcbrew-format/serialize-orcbrew
+                   (orcbrew-format/stamp (map-plugin-classes sel/collapse-class data))
+                   :pretty-print? pretty-print?))
         blob (js/Blob.
               (clj->js [content])
               (clj->js {:type "text/plain;charset=utf-8"}))]
@@ -5110,24 +5624,24 @@
        (let [renamed (orcbrew-val/rename-key-in-plugin (get plugins option-pack)
                                                        plugin-key old-key new-key)
              new-plugins (assoc plugins option-pack renamed)
-             moved (get-in renamed [plugin-key new-key])]
+             moved (get-in renamed [plugin-key new-key])
+             offer (library/repoint-offer new-plugins plugin-key old-key new-key option-pack)]
          ;; Keep the author's item, re-keyed, not the library copy, so unsaved edits survive;
          ;; `:former-keys` comes across so the next save does not write it back out. Links in this
          ;; source follow now; links in other sources are offered.
-         (let [offer (library/repoint-offer new-plugins plugin-key old-key new-key option-pack)]
-           {:dispatch-n
-            [[:set-builder-field-errors {}]
-             [::e5/set-plugins new-plugins
-              {:retargeting [[plugin-key old-key]]
-               :on-success [::e5/builder-saved item-key plugin-key
-                            (assoc item :key new-key :former-keys (:former-keys moved))
-                            (origin-of (assoc moved :option-pack option-pack :key new-key))
-                            [:show-message
-                             {:title (str "Key changed to " new-key)
-                              :details [(str "Characters that stored " old-key
-                                             " are rebound when they next load.")
-                                        (repoint-offer-line offer)]}
-                             (if (seq offer) :sticky 10000)]]}]]}))))))
+         {:dispatch-n
+          [[:set-builder-field-errors {}]
+           [::e5/set-plugins new-plugins
+            {:retargeting [[plugin-key old-key]]
+             :on-success [::e5/builder-saved item-key plugin-key
+                          (assoc item :key new-key :former-keys (:former-keys moved))
+                          (origin-of (assoc moved :option-pack option-pack :key new-key))
+                          [:show-message
+                           {:title (str "Key changed to " new-key)
+                            :details [(str "Characters that stored " old-key
+                                           " are rebound when they next load.")
+                                      (repoint-offer-line offer)]}
+                           (if (seq offer) :sticky 10000)]]}]]})))))
 
 (defn- log-export-warnings [plugin-name validation]
   (when (seq (:warnings validation))
@@ -5146,6 +5660,17 @@
     {:plugin (get corrected plugin-name plugin)
      :changes changes}))
 
+(defn export-source
+  "The copy of `plugin-name` an export works from: `library`'s current copy when
+   it holds that source, else `handed`.
+   GOTCHA: always prefers the library's copy over `handed` -- a stale `handed`
+   copy would overwrite later edits when export saves its cleanup back.
+   See homebrew-safety-net.md."
+  [library plugin-name handed]
+  (if (contains? library plugin-name)
+    (get library plugin-name)
+    handed))
+
 (defn- validate-and-show-modal-or-export
   "Shared export path for one source, used by export-plugin and
    export-plugin-pretty-print. Runs the same correction gate Export All runs
@@ -5153,10 +5678,11 @@
    and an all-sources file agree on the same content, then either shows the
    fill-in modal (missing fields), writes the file (valid), or shows an error
    (spec failure). The library itself is not changed."
-  [db plugin-name plugin {:keys [pretty-print?]}]
-  (let [{corrected :plugin cleanup-changes :changes}
+  [db plugin-name handed {:keys [pretty-print?]}]
+  (let [library (:plugins db)
+        plugin (export-source library plugin-name handed)
+        {corrected :plugin cleanup-changes :changes}
         (correct-single-plugin plugin-name plugin)
-        library (:plugins db)
         ;; Export corrects the file only; the library is left as the author saved it (Q5).
         persist nil
         validation (orcbrew-val/validate-before-export corrected)]
@@ -5246,6 +5772,120 @@
    (when-let [data (get-in db [:quarantined-plugins source-name])]
      (save-orcbrew-blob! (str source-name ".orcbrew") data))
    {}))
+
+;; ============================================================================
+;; A stored library that stopped startup
+;; ============================================================================
+
+(reg-event-fx
+ ::e5/download-unloadable-library
+ (fn [_ _]
+   (when-let [raw (some-> js/window.localStorage
+                          (.getItem (corrupt-slot-key local-storage-plugins-key)))]
+     (save-orcbrew-blob! "homebrew-that-could-not-load.orcbrew" raw :raw? true))
+   {}))
+
+;; Dispatched from core.cljs after loading the library threw and the app started
+;; without it. The library is kept, untouched, in the :corrupt slot.
+(reg-event-fx
+ ::e5/library-set-aside-at-startup
+ (fn [_ _]
+   {:dispatch [:show-error-message
+               {:title "Your homebrew couldn't be loaded"
+                :details ["The app started without it, so everything else works. Nothing was deleted; it is kept in this browser."
+                          [:span.pointer.underline.orange
+                           {:on-click (fn [e]
+                                        (.stopPropagation e)
+                                        (dispatch [::e5/download-unloadable-library]))}
+                           "Download a copy"]]}]}))
+
+;; ============================================================================
+;; Homebrew that breaks the character options
+;; ============================================================================
+
+(defn- find-broken-entry
+  "Where a reported entry sits in the library, as [source entry]: the source the report
+   names, then the entry's own :option-pack, then any source holding that key."
+  [plugins {:keys [content-type key source option-pack]}]
+  (let [holds? (fn [src] (map? (get-in plugins [src content-type key])))
+        src (cond
+              (and source (holds? source)) source
+              (and option-pack (holds? option-pack)) option-pack
+              :else (some #(when (holds? %) %) (keys plugins)))]
+    (when src
+      [src (get-in plugins [src content-type key])])))
+
+(defn set-aside-broken-entries
+  "Move each reported entry from `plugins` into `rejected`. Returns {:plugins :rejected
+   :moved [{:source :content-type :key :entry}]}. A report whose entry is not in the
+   library (shared content, or already gone) moves nothing."
+  [plugins rejected reports]
+  (reduce (fn [acc {:keys [content-type key] :as report}]
+            (if-let [[src entry] (find-broken-entry (:plugins acc) report)]
+              (-> acc
+                  (update-in [:plugins src content-type] dissoc key)
+                  (assoc-in [:rejected src content-type key] entry)
+                  (update :moved conj {:source src :content-type content-type :key key :entry entry}))
+              acc))
+          {:plugins plugins :rejected (or rejected {}) :moved []}
+          reports))
+
+(defn- broken-homebrew-notice [moved]
+  (let [n (count moved)
+        label (fn [{:keys [source content-type key entry]}]
+                (str "“" (if (and (string? (:name entry)) (not (s/blank? (:name entry))))
+                                (:name entry)
+                                (str key))
+                     "” (" (s/lower-case (get orcbrew-val/content-type-singular content-type "entry"))
+                     ") in “" source "”"))]
+    {:title (if (= 1 n) "A homebrew entry was set aside" (str n " homebrew entries were set aside"))
+     :details [(str (s/join ", " (map label (take 3 moved)))
+                    (when (> n 3) (str " and " (- n 3) " more"))
+                    " stopped the character options from loading, so "
+                    (if (= 1 n) "it was" "they were")
+                    " set aside. Everything else still works.")
+               [:span.pointer.underline.orange
+                {:on-click (fn [e]
+                             (.stopPropagation e)
+                             (dispatch [:route routes/dnd-e5-my-content-route]))}
+                "Fix or discard it in My Content"]]}))
+
+;; Conversions re-run whenever their inputs change, so one bad entry is reported many
+;; times; each is queued once, and the queue is handled together a moment later.
+(reg-event-fx
+ ::e5/homebrew-entry-broke
+ (fn [{:keys [db]} [_ report]]
+   (let [id [(:content-type report) (:key report) (or (:source report) (:option-pack report))]]
+     (if (contains? (:homebrew-reported db) id)
+       {}
+       (cond-> {:db (-> db
+                        (update :homebrew-reported (fnil conj #{}) id)
+                        (update :homebrew-broken (fnil conj []) report))}
+         (empty? (:homebrew-broken db))
+         (assoc :dispatch-later [{:ms 300 :dispatch [::e5/set-aside-broken-homebrew]}]))))))
+
+(reg-event-fx
+ ::e5/set-aside-broken-homebrew
+ (fn [{:keys [db]} [_ reports]]
+   (let [{:keys [plugins rejected moved]}
+         (set-aside-broken-entries (:plugins db) (get-rejected-plugins)
+                                   (concat reports (:homebrew-broken db)))
+         db (dissoc db :homebrew-broken)]
+     (if (empty? moved)
+       {:db db}
+       ;; The set-aside copy first, as the loader does: if storage refuses it, nothing moves,
+       ;; so the entry is never out of both places. A removal on purpose, hence :deleting?.
+       (if-not (set-rejected-plugins rejected)
+         {:db db
+          :dispatch [:show-error-message
+                     (str "Some homebrew stops characters from building, and it couldn't be set "
+                          "aside: this browser's storage refused the copy. Export your homebrew, "
+                          "then free some space.")]}
+         (let [{db' :db ok? :ok? refused :dispatch-n} (commit-library db plugins {:deleting? true})]
+           (if ok?
+             {:db (assoc db' :quarantined-plugins rejected)
+              :dispatch [:show-warning-message (broken-homebrew-notice moved) 60000]}
+             {:db db' :dispatch-n refused})))))))
 
 ;; ============================================================================
 ;; Export Warning Modal Events
@@ -5479,12 +6119,12 @@
 (reg-event-fx
  ::e5/delete-plugin
  (fn [{:keys [db]} [_ source-name confirmed?]]
-   (let [after (dissoc (:plugins db) source-name)
-         broken (:broken (library/commit (:plugins db) after {:deleting? true}))]
+   (let [plugins-after (dissoc (:plugins db) source-name)
+         broken (:broken (library/commit (:plugins db) plugins-after {:deleting? true}))]
      (if (and (seq broken) (not confirmed?))
        (still-used-fx (str "content from \u201c" source-name "\u201d") broken
                       [::e5/delete-plugin source-name true])
-       {:dispatch [::e5/set-plugins after {:deleting? true}]}))))
+       {:dispatch [::e5/set-plugins plugins-after {:deleting? true}]}))))
 
 (reg-event-fx
  ::e5/toggle-plugin
@@ -5718,6 +6358,56 @@
                   (or (seq (:plugins result)) (seq (:custom-items result)))
                   (dispatch [::e5/apply-shared-content result])))))))
 
+;; A short share link carries a token for the homebrew the server keeps for the character. Load it
+;; exactly as an embedded payload loads, within the caps the server reports.
+(reg-fx
+ ::fetch-shared-homebrew!
+ (fn [[id token on-loaded failure-message]]
+   (-> (js/fetch (url-for-route routes/dnd-e5-char-share-route :id id :token token))
+       (.then (fn [resp]
+                (if (.-ok resp)
+                  (-> (.arrayBuffer resp)
+                      (.then #(share-url/decode-share (js/Uint8Array. %) (share-url/share-caps-from resp))))
+                  {:error :missing})))
+       (.then (fn [result]
+                (cond
+                  (:error result)
+                  (do (js/console.warn "Shared content not loaded:" (name (:error result)))
+                      (dispatch [:show-message failure-message]))
+                  (or (seq (:plugins result)) (seq (:custom-items result)))
+                  (dispatch (conj on-loaded result)))))
+       (.catch (fn [e] (js/console.warn "Shared content not loaded:" e))))))
+
+(reg-event-fx
+ ::e5/apply-shared-homebrew-if-current
+ ;; The fetch can finish after the reader has moved to another character, whose page would then
+ ;; show this one's homebrew. :share-link names the character and token the open page came with.
+ (fn [{:keys [db]} [_ id token result]]
+   (when (= (:share-link db) {:character (js/parseInt id) :token token})
+     {:dispatch [::e5/apply-shared-content result]})))
+
+(reg-event-fx
+ ::e5/load-shared-homebrew
+ (fn [_ [_ id token]]
+   {::fetch-shared-homebrew! [id token [::e5/apply-shared-homebrew-if-current id token]
+                              "The homebrew this link shared could not be loaded. Ask for a new link."]}))
+
+;; A party page row whose character was added from a share link loads that character's homebrew. It goes
+;; into the shared overlay beside any other row's, through the same load gate, without the banner a link
+;; shows; loading it counts as use of the share.
+(reg-event-fx
+ ::party5e/load-shared-homebrew
+ (fn [_ [_ id token]]
+   {::fetch-shared-homebrew! [id token [::party5e/apply-shared-homebrew]
+                              "The homebrew shared for a character in this party is no longer available."]}))
+
+(reg-event-db
+ ::party5e/apply-shared-homebrew
+ (fn [db [_ {:keys [plugins]}]]
+   (let [plugins        (map-plugin-classes sel/expand-class plugins)
+         {:keys [kept]} (e5/salvage-library-items content-specs/valid-item-for-load? plugins)]
+     (update db :shared-plugins #(e5/merge-all-plugins (or % {}) kept)))))
+
 (reg-event-fx
  ::e5/load-shared-content
  (fn [_ [_ payload]]
@@ -5792,6 +6482,19 @@
        (do (js/console.warn "Demo content not loaded:"
                             (orcbrew-val/format-import-result result))
            db)))))
+;; The owner's custom items a character read brought, kept per character id and read through
+;; mi/shared-custom-items while that character is on the page. Not kept for the viewer's own
+;; characters: their items come from their own list, which a copy taken at load would shadow.
+(reg-event-db
+ ::mi/set-character-custom-items
+ (fn [db [_ id items owner]]
+   (let [items (filterv (fn [it]
+                          (try (boolean (seq (mi/expand-magic-items [it])))
+                               (catch :default _ false)))
+                        items)]
+     (if (or (empty? items) (= owner (get-in db [:user-data :user-data :username])))
+       (update db :character-custom-items dissoc id)
+       (assoc-in db [:character-custom-items id] items)))))
 
 ;; Persist the currently-viewed shared content into the recipient's own library,
 ;; collapsed under one clearly-labeled source so it can't silently overwrite an
@@ -5807,15 +6510,15 @@
              collapsed {source-name (apply merge-with
                                            (fn [a b] (if (and (map? a) (map? b)) (merge a b) b))
                                            (vals shared))}
-             live (e5/merge-all-plugins (:plugins db) collapsed)]
-         (let [{db' :db ok? :ok? refused :dispatch-n} (commit-library db live {})]
-           (if ok?
-             {:db (dissoc db' :shared-plugins :shared-content-info)
-              :dispatch [:show-message
-                         (str "Saved this character's custom content to your library as \""
-                              source-name "\".")]}
-             ;; the shared content stays on view, so Keep can be tried again
-             {:db db' :dispatch-n refused})))))))
+             live (e5/merge-all-plugins (:plugins db) collapsed)
+             {db' :db ok? :ok? refused :dispatch-n} (commit-library db live {})]
+         (if ok?
+           {:db (dissoc db' :shared-plugins :shared-content-info)
+            :dispatch [:show-message
+                       (str "Saved this character's custom content to your library as \""
+                            source-name "\".")]}
+           ;; the shared content stays on view, so Keep can be tried again
+           {:db db' :dispatch-n refused}))))))
 
 ;; Dismiss the shared-content banner without keeping (content stays view-only for
 ;; this session; the overlay itself is cleared on the next character route).
@@ -5832,16 +6535,7 @@
    repeat download, spawning a duplicate \"Name 1\" source on re-import. The items
    still carry the true source in :option-pack, so recover it from the DATA."
   [data]
-  (let [packs (distinct
-               (for [[_ items] data
-                     :when (map? items)
-                     [_ item] items
-                     :when (map? item)
-                     :let [p (:option-pack item)]
-                     :when (and (string? p) (not (s/blank? p)))]
-                 p))]
-    (when (= 1 (count packs))
-      (first packs))))
+  (e5/declared-source data))
 
 (def ^:private dedup-suffix-re
   ;; One trailing OS/browser file-dedup marker on the extension-less NAME: " (2)",
@@ -5923,9 +6617,21 @@
         ;; an item is never both live and quarantined (a fixed entry self-clears).
         quarantine (e5/reconcile-rejected-items (get-rejected-plugins) rejected live)
         n-items (reduce + 0 (for [[_ p] rejected
+                                  :when (map? p)
                                   [ct items] p
                                   :when (and (qualified-keyword? ct) (map? items))]
-                              (count items)))]
+                              (count items)))
+        ;; A damaged section is set aside whole (e5/salvage-plugin-items). Counted as
+        ;; entries it read "0 entries couldn't be loaded" while setting something aside.
+        n-damaged (reduce + 0 (for [[_ p] rejected]
+                                (if (map? p)
+                                  (count (filter (fn [[ct v]] (e5/damaged-section? ct v)) p))
+                                  1)))
+        n-set-aside (+ n-items n-damaged)
+        what (s/join " and " (cond-> []
+                               (pos? n-items) (conj (str n-items " entr" (if (= 1 n-items) "y" "ies")))
+                               (pos? n-damaged) (conj (str n-damaged " damaged section"
+                                                           (when (not= 1 n-damaged) "s")))))]
     (set-rejected-plugins quarantine)
     (doseq [[nm p] rejected]
       ;; Log the EXACT failing paths + predicates (not the giant value) so each
@@ -5942,10 +6648,10 @@
      :quarantine quarantine
      :any-rejected? (boolean (seq rejected))
      :message (when (seq rejected)
-                (str "Imported — but " n-items " entr" (if (= 1 n-items) "y" "ies")
-                     " couldn't be loaded and " (if (= 1 n-items) "was" "were")
+                (str "Imported — but " what
+                     " couldn't be loaded and " (if (= 1 n-set-aside) "was" "were")
                      " set aside in “My Content”. The rest imported fine; open it "
-                     "there to fix or discard " (if (= 1 n-items) "it." "them.")))}))
+                     "there to fix or discard " (if (= 1 n-set-aside) "it." "them.")))}))
 
 (defn updated-line
   "One line naming the entries a re-import overwrote: `updated` is library/overwritten's report."
@@ -5983,7 +6689,11 @@
      :dispatch-n (remove nil?
                    [(when merged
                       [::e5/store-plugins merged
-                       (when-not message [:show-message user-message])])
+                       (when-not message
+                         [(if (= :warning (orcbrew-val/import-notice-type result))
+                            :show-warning-message
+                            :show-message)
+                          user-message])])
                     (when message [:show-warning-message message])
                     import-log])}))
 
@@ -6495,12 +7205,15 @@
                               (when (seq renames)
                                 (str "\n\nRenamed " (count renames) " key(s) to resolve conflicts."))))}]
 
-          merged
-          [::e5/store-plugins merged
-           [::e5/import-stored new-relinks (when-not message (with-offer success-msg))]])
+          ;; merged is nil when no incoming entry was kept, but renames and disables
+          ;; chosen for EXISTING items live in existing-base and still need storing.
+          :else
+          (when-let [to-store (or merged
+                                  (when (not= existing-base (:plugins db)) existing-base))]
+            [::e5/store-plugins to-store
+             [::e5/import-stored new-relinks (when-not message (with-offer success-msg))]]))
 
         ;; the set-aside notice if any entry was quarantined
-        (when message [:show-warning-message message])
         (when message [:show-warning-message message])
 
         ;; Store import log
@@ -7197,6 +7910,24 @@
    (if layout
      (assoc db ::char5e/spell-layout layout)
      (dissoc db ::char5e/spell-layout))))
+
+(reg-event-db
+ ::char5e/toggle-spellbook-print
+ (fn [db _]
+   (update db ::char5e/print-spellbook? not)))
+
+(reg-event-db
+ ::char5e/set-spellbook-option
+ ;; k is one of the :spellbook-* keys or :spell-order; nil goes back to the default.
+ (fn [db [_ k v]]
+   (if v
+     (assoc-in db [::char5e/spellbook-options k] v)
+     (update db ::char5e/spellbook-options dissoc k))))
+
+(reg-event-db
+ ::char5e/set-spellbook-emblem
+ (fn [db [_ class-kw icon]]
+   (assoc-in db [::char5e/spellbook-options :spellbook-emblems class-kw] icon)))
 
 (reg-event-db
  ::char5e/toggle-known-spells-print

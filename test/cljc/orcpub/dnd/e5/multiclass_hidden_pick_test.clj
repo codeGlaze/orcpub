@@ -15,6 +15,7 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.spell-lists :as sl5e]
             [orcpub.dnd.e5.weapons :as weapons5e]
@@ -58,22 +59,75 @@
                                                {:orcpub.entity/key :intimidation}]
                            :levels [(lvl 1)]}})
 
-(defn- build [classes]
-  (entity/build
-   {:orcpub.entity/options
-    {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value abilities}
-     :class classes}}
-   @the-template))
+(defn- character-of [classes]
+  {:orcpub.entity/options
+   {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value abilities}
+    :class classes}})
+
+(defn- build [classes] (entity/build (character-of classes) @the-template))
 
 (defn- offered
   "The skill-proficiency selections the builder would SHOW — after prereq filtering."
   [classes]
-  (let [char {:orcpub.entity/options
-              {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value abilities}
-               :class classes}}]
+  (let [char (character-of classes)]
     (->> (entity/get-all-selections-2 @the-template (entity/make-path-map char) (build classes))
          (filter #(contains? (::t/tags %) :skill-profs))
          (map (fn [s] [(::t/name s) (::entity/path s)])))))
+
+(def ^:private rogue-first
+  "A rogue taken FIRST — four skills from its own arm."
+  {:orcpub.entity/key :rogue
+   :orcpub.entity/options {:skill-proficiency [{:orcpub.entity/key :stealth}
+                                               {:orcpub.entity/key :perception}
+                                               {:orcpub.entity/key :acrobatics}
+                                               {:orcpub.entity/key :deception}]
+                           :levels [(lvl 1)]}})
+
+(def ^:private rogue-both-arms
+  "The realistic wreck: a rogue carrying BOTH a first-class pick and a multiclass pick, because
+   the character was multiclassed and then the other class was dropped."
+  {:orcpub.entity/key :rogue
+   :orcpub.entity/options {:skill-proficiency [{:orcpub.entity/key :stealth}
+                                               {:orcpub.entity/key :perception}
+                                               {:orcpub.entity/key :acrobatics}
+                                               {:orcpub.entity/key :deception}]
+                           :multiclass-skill-proficiency [{:orcpub.entity/key :athletics}]
+                           :levels [(lvl 1)]}})
+
+(defn- skills-of [classes]
+  (set (keys (char5e/skill-proficiencies (build classes)))))
+
+(defn- settled-skills-of
+  "Skills once the builder's hold has taken out the picks that no longer apply."
+  [classes]
+  (let [settled (:character (picks/update-planned @the-template (character-of classes) []))]
+    (set (keys (char5e/skill-proficiencies (entity/build settled @the-template))))))
+
+(deftest class-skill-matrix-characterization
+  ;; The build applies every stored skill pick, whichever arm's gate is open; keeping a closed
+  ;; arm's pick off the sheet is the hold's job (picks/update-planned;
+  ;; decision-gate-hidden-picks.md).
+  ;; Fighter is the control: it has no :multiclass-skill-options (only bard, ranger and rogue do).
+  (testing "single class, own arm"
+    (is (= #{:intimidation :survival} (skills-of [fighter-first])))
+    (is (= #{:stealth :perception :acrobatics :deception} (skills-of [rogue-first]))))
+
+  (testing "legitimately multiclassed"
+    (is (= #{:athletics :intimidation :survival} (skills-of [fighter-first rogue-multiclassed]))
+        "the rogue's multiclass skill applies on top of the fighter's two")
+    (is (= #{:athletics :intimidation :survival}
+           (settled-skills-of [fighter-first rogue-multiclassed]))
+        "and the hold leaves it"))
+
+  (testing "a multiclass pick stored while rogue was second, rogue now the only class"
+    (is (= #{:athletics} (skills-of [rogue-multiclassed])) "the build applies it")
+    (is (= #{} (settled-skills-of [rogue-multiclassed])) "the hold takes it out"))
+
+  (testing "both arms stored, rogue alone"
+    (is (= #{:stealth :perception :acrobatics :deception :athletics} (skills-of [rogue-both-arms]))
+        "the build applies both")
+    (is (= #{:stealth :perception :acrobatics :deception} (settled-skills-of [rogue-both-arms]))
+        "the hold takes out the multiclass skill; the four first-class picks stay")))
 
 (deftest ^:diagnostic report-multiclass-reorder
   (println "\n=== a rogue's MULTICLASS skill pick, before and after rogue becomes first class ===")
@@ -84,10 +138,9 @@
     (doseq [[nm path] (offered classes)]
       (println (format "   offered: %-34s at %s" nm (pr-str path))))))
 
-(defn- offered-names [classes] (set (map first (offered classes))))
 (defn- offered-paths [classes] (set (map second (offered classes))))
 
-(deftest a-multiclass-skill-pick-survives-becoming-the-first-class
+(deftest a-multiclass-skill-pick-stops-applying-when-it-becomes-the-first-class
   (let [multiclassed [fighter-first rogue-multiclassed]
         rogue-only   [rogue-multiclassed]]
 
@@ -100,13 +153,14 @@
       (is (not (contains? (set (keys (char5e/skill-proficiencies (build rogue-only))))
                           :intimidation))))
 
-    (testing "but the rogue's multiclass pick stays, because the rogue did not leave"
-      (is (contains? (set (keys (char5e/skill-proficiencies (build rogue-only)))) :athletics)))
+    (testing "once rogue is first, the build applies the stored multiclass pick; the hold does not"
+      (is (contains? (skills-of rogue-only) :athletics))
+      (is (not (contains? (settled-skills-of rogue-only) :athletics))))
 
-    (testing "and the control that holds it is GONE — nothing on screen can remove Athletics"
+    (testing "its control is gone, so the hold is what keeps it off the sheet"
       (is (not (contains? (offered-paths rogue-only)
                           [:class :rogue :multiclass-skill-proficiency]))
-          "the multiclass selection is filtered out by its (complement first-class?) prereq"))
+          "filtered out by its (complement first-class?) prereq"))
 
     (testing "meanwhile the first-class selection opens, on top of the skill already held"
       (is (contains? (offered-paths rogue-only) [:class :rogue :skill-proficiency])
@@ -133,9 +187,7 @@
   (set (keys (char5e/normal-equipment-inventory (build classes)))))
 
 (defn- equipment-selections [classes]
-  (let [char {:orcpub.entity/options
-              {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value abilities}
-               :class classes}}]
+  (let [char (character-of classes)]
     (->> (entity/get-all-selections-2 @the-template (entity/make-path-map char) (build classes))
          (filter #(contains? (::t/tags %) :equipment))
          (map ::entity/path)

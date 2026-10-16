@@ -26,6 +26,7 @@
 const { spawn } = require('child_process');
 const fs = require('fs'), path = require('path');
 const http = require('http');
+const { resolveBrowser } = require('../../test/browser/lib/find-chrome');
 
 const ROOT = path.resolve(__dirname, '../..');
 const SERVER = 'http://localhost:8890';
@@ -54,12 +55,16 @@ const BASELINE = path.join(__dirname, 'probe-baseline.json');
 // needsPack: imports a homebrew library and asserts against its content.
 const PROBES = [
   { file: 'character_image_capture_e2e.js',    needs: 'server' },
+  { file: 'character_heal_e2e.js',            needs: 'server' },
+  { file: 'natural_armor_ring_e2e.js',        needs: 'server' },
   { file: 'class_handlers_functional_e2e.js',  needs: 'server', needsPack: true },
   { file: 'equipment_add_functional_e2e.js',   needs: 'server', needsPack: true },
   { file: 'export_busy_retry_e2e.js',          needs: 'busy-server' },
-  { file: 'boot_rescue_e2e.js',                needs: 'server', suppress: false },
-  { file: 'builder_card_export_e2e.js',        needs: 'server', suppress: false },
+  { file: 'boot_rescue_e2e.js',                needs: 'server' },
+  { file: 'builder_card_export_e2e.js',        needs: 'server' },
+  { file: 'fixes_persist_e2e.js',              needs: 'server' },
   { file: 'header_menus_e2e.js',               needs: 'server' },
+  { file: 'homebrew_safety_net_e2e.js',        needs: 'server' },
   { file: 'overlay_reachability_e2e.js',       needs: 'server' },
   { file: 'notification_flows_e2e.js',         needs: 'standalone' },
   { file: 'notifications_acceptance_e2e.js',   needs: 'standalone' },
@@ -69,7 +74,9 @@ const PROBES = [
   { file: 'starting_equipment_ledger_e2e.js',  needs: 'standalone' },
   { file: 'sticky_header_e2e.js',              needs: 'server' },
   { file: 'whats_new_e2e.js',                 needs: 'server', suppress: false },
+  { file: 'cookie_notice_e2e.js',             needs: 'server', suppress: false },
 ];
+module.exports = { PROBES };
 
 const get = url => new Promise(res => {
   const r = http.get(url, x => { x.resume(); res(x.statusCode); });
@@ -129,7 +136,8 @@ function run(probe, pack, budgetMs) {
   });
 }
 
-(async () => {
+// Runs only when invoked directly; trace-probe.js requires this file for PROBES alone.
+if (require.main === module) (async () => {
   if (!fs.existsSync(path.join(ROOT, 'resources/public/js/compiled/orcpub.js'))) {
     console.error('No dev build — run `lein fig:build` first.');
     process.exit(2);
@@ -150,6 +158,10 @@ function run(probe, pack, budgetMs) {
     }
     console.log(serverUp ? ' up' : ` giving up after ${waitS}s`);
   }
+  // Every probe launches Chromium. Without one they all fail the same way, which reads
+  // as thirty regressions; it is one missing install, so say that once and skip.
+  const browser = resolveBrowser();
+  console.log(browser ? `browser: ${browser}` : 'browser: none found');
   const pack = process.env.ORCBREW_PACK;
   const only = (process.env.ONLY || '').split(',').filter(Boolean);
   // 3 by default, measured: 421s wall against 976s sequential, 2.3x, with every probe
@@ -162,6 +174,7 @@ function run(probe, pack, budgetMs) {
   const skipped = [];
   const skip = (p, why) => { skipped.push({ ...p, why }); };
   queue = queue.filter(p => {
+    if (!browser) { skip(p, 'no Chromium — set CHROME to one, or run `npx playwright install chromium`'); return false; }
     if (p.needs === 'server' && !serverUp) { skip(p, `no server at ${SERVER} — run \`lein e2e-server\``); return false; }
     // Not merely unnecessary: this profile is the whole point of the probe, and against the
     // ordinary server the busy page never appears and every check fails.

@@ -22,6 +22,8 @@
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.planned-text :as planned-text]
+            [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.feats :as feats]
@@ -213,9 +215,105 @@
     (str name " (" plugin-source ")")
     name))
 
+(defn planned-toggle
+  "A Planned line: tapping it opens or closes its panel; the arrow says which."
+  [open? text & [class-name]]
+  [:button.planned-toggle.orange {:class class-name :aria-expanded @open?
+                                  :on-click #(swap! open? not)}
+   text
+   [:i.fa {:class (if @open? "fa-angle-up" "fa-angle-down") :aria-hidden true}]])
+
+(defn- choice-line [section names status & [{:keys [on-clear note]}]]
+  [:div.choice-line
+   [:div [:span.f-w-b section] " \u2014 " names [:span.planned-aside (str " \u00b7 " status)]
+    (when on-clear
+      [:button.link-button.underline.f-w-b.f-s-14.m-l-5 {:on-click on-clear} "Clear"])]
+   (when note [:div.planned-aside.i.f-s-14 note])])
+
+(defn choices-list
+  "The Choices link above the options: every pick the character stores, missing (homebrew not
+   loaded here) and planned first, each with Clear, then the active ones by section. Nothing is
+   cleared on its own."
+  []
+  (let [open? (r/atom false)]
+    (fn []
+      (let [rows @(subscribe [:orcpub.dnd.e5/choices])
+            held @(subscribe [:orcpub.dnd.e5/held-picks])
+            section-of (fn [address] (common/kw-to-name (peek (pop address)) true))]
+        [:div.choices {:class (if @(subscribe [:mobile?]) "m-l-10 m-b-10" "m-l-20 m-b-20")}
+         [planned-toggle open? "Choices" "choices-toggle"]
+         (when @open?
+           [:div.choices-panel.main-text-color.b-1.b-rad-5.p-10.m-t-5.f-s-14
+            (doall
+             (for [{:keys [address section name]} (filter #(= :missing (:status %)) rows)]
+               ^{:key (str address)}
+               [choice-line section name "missing"
+                {:on-clear #(dispatch [:orcpub.dnd.e5/clear-pick address])
+                 :note "Not loaded here"}]))
+            (doall
+             (for [{{:keys [address]} :record :keys [name returns]} held]
+               ^{:key (str "held" address)}
+               [choice-line (section-of address) name
+                (str "planned" (when-let [w (planned-text/when-short returns)] (str " (" w ")")))
+                {:on-clear #(dispatch [:orcpub.dnd.e5/clear-planned address])}]))
+            (doall
+             (for [group (partition-by (comp pop :address)
+                                       (filter #(= :active (:status %)) rows))]
+               ^{:key (str (pop (:address (first group))))}
+               [choice-line (:section (first group)) (s/join ", " (map :name group)) "active"]))])]))))
+
+(defn planned-panel
+  "What tapping a Planned line shows: a row per held pick with Clear, leaving out what the line
+   says (`says-reason?`: the line states the reason they share). docs/kb/ux-guide.md."
+  [held says-reason?]
+  (let [rows (planned-text/panel-rows held says-reason?)
+        {:keys [label aside]} (first rows)]
+    [:div.p-10.m-t-5.bg-note.callout-accent-brand
+     [:div.planned-rows {:class (cond (nil? label) "no-label" (nil? aside) "no-aside")}
+      (doall
+       (for [{:keys [held label aside]} rows
+             :let [address (get-in held [:record :address])]]
+         ^{:key (str address)}
+         [:div.planned-row
+          (when label [:span label])
+          (when aside [:span.planned-aside aside])
+          [:button.link-button.underline.f-w-b.f-s-14
+           {:on-click #(dispatch [:orcpub.dnd.e5/clear-planned address])}
+           "Clear"]]))]]))
+
+(defn class-planned-line
+  "Under a class row: its held picks whose sections are not on screen, beside the level picker
+   that brings most of them back. Tapping lists them with Clear."
+  []
+  (let [open? (r/atom false)]
+    (fn [cls]
+      (let [held @(subscribe [:orcpub.dnd.e5/held-for-class cls])]
+        (when (seq held)
+          [:div.m-t-5.m-b-5
+           [planned-toggle open? (planned-text/class-line held)]
+           (when @open? [planned-panel held true])])))))
+
+(defn first-class-badge
+  "Before each class row when there are several: \"1st\" lit on the starting class; on another, a
+   tap makes it the starting class, or says why the current one can't become a second class."
+  [key class-name {first-name ::t/name :as first-option} options-map first? built-char]
+  (if first?
+    [:span.class-first-badge.on {:title (str class-name " is your starting class")} "1st"]
+    (let [blocked (seq (prereq-failures first-option built-char))]
+      [:button.class-first-badge
+       {:type "button"
+        :class (when blocked "blocked")
+        :aria-label (str "Make " class-name " your starting class")
+        :on-click #(dispatch
+                    (if blocked
+                      [:show-message (str first-name " can't become a second class: "
+                                          (s/join ", " blocked) ".") 6000]
+                      [::char5e/make-starting-class key options-map]))}
+       "1st"])))
+
 (defn class-level-selector []
   (let [expanded? (r/atom false)]
-    (fn [i key selected-class options unselected-classes-set built-char]
+    (fn [i key selected-class options unselected-classes-set built-char & [first-option]]
       (let [options-map (make-options-map options)
             class-template-option (options-map key)
             path [:class-levels key]
@@ -223,6 +321,9 @@
         [:div.m-b-5
          {:class (when @expanded? "b-1 b-rad-5 p-5")}
          [:div.flex.align-items-c
+          (when first-option
+            [first-class-badge key (::t/name class-template-option) first-option options-map
+             (zero? i) built-char])
           [:select.builder-option.builder-option-dropdown.flex-grow-1.m-t-0
            {:value key
             :on-change (set-class i options-map)}
@@ -260,6 +361,7 @@
                available-levels))])
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
+         [class-planned-line key]
          (when @expanded?
            [:div.m-t-5.m-b-10 (views-aux/realize-help (::t/help class-template-option))])]))))
 
@@ -312,7 +414,9 @@
        (map-indexed
         (fn [i [key selected-class]]
           ^{:key key}
-          [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set built-char])
+          [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set built-char
+           (when (> (count selected-classes) 1)
+             (some #(when (= (ffirst selected-classes) (::t/key %)) %) options))])
         selected-classes))]
      (when (seq remaining-classes)
        [:div.orange.p-5.underline.pointer
@@ -847,10 +951,12 @@
      [:span.tooltiptext text]]))
 
 (defn selection-section-base []
-  (let [expanded? (r/atom false)]
+  (let [expanded? (r/atom false)
+        planned-open? (r/atom false)]
     (fn [{:keys [title path parent-title name icon help max min remaining body hide-lock? hide-homebrew?]}]
       (let [locked? @(subscribe [:locked path])
-            homebrew? @(subscribe [:homebrew? path])]
+            homebrew? @(subscribe [:homebrew? path])
+            held (when path @(subscribe [:orcpub.dnd.e5/held-at path]))]
         [:div.p-5.m-b-20.m-b-0-last
          (when (and (or title name) parent-title)
            (selection-section-parent-title parent-title))
@@ -884,13 +990,20 @@
          (when (int? min)
            [:div.p-5.f-s-16
             [:div.flex.align-items-c.justify-cont-s-b
-             [:span.i.m-r-10 (str "select " (cond
-                                              (= min max) min
-                                              (zero? min) (if (nil? max)
-                                                            "any number"
-                                                            (str "up to " max))
-                                              :else (str "at least " min)))]
-             (remaining-component max remaining)]])
+             ;; The Planned marker sits after "select N" and wraps under it only when the row cannot
+             ;; fit it, so "complete" never moves. docs/kb/ux-guide.md on agents/develop.
+             [:div.flex.flex-wrap.align-items-c {:style {:min-width 0 :column-gap "10px"}}
+              [:span.i (str "select " (cond
+                                        (= min max) min
+                                        (zero? min) (if (nil? max)
+                                                      "any number"
+                                                      (str "up to " max))
+                                        :else (str "at least " min)))]
+              (when (seq held)
+                [planned-toggle planned-open? (planned-text/marker held)])]
+             (remaining-component max remaining)]
+            (when (and (seq held) @planned-open?)
+              [planned-panel held false])])
          body]))))
 
 (defn selection-section-column [option-selectors]
@@ -1707,7 +1820,7 @@
         :body (hit-points-entry character selections built-template)}])))
 
 (defn info-block [text]
-  [:div.bg-light.b-rad-5.p-10.f-w-b.m-l-5.m-r-5.m-b-5.white
+  [:div.bg-light.b-rad-5.p-10.m-l-5.m-r-5.m-b-5.white
    text])
 
 (defn known-mode-info []
@@ -1760,7 +1873,7 @@
   (info-block [:span
                [:span (str srd-prefix "Don't see a " type-name " here that you want to use? ")]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route event])}
                  (str "CLICK HERE TO ADD A " (s/upper-case type-name))]]]))
 
@@ -1774,11 +1887,11 @@
   (info-block [:span
                [:span (str srd-prefix "Don't see a race or subrace here that you want to use?")]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-race-builder-page-route])}
                  "CLICK HERE TO ADD A RACE"]]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-subrace-builder-page-route])}
                  "CLICK HERE TO ADD A SUBRACE"]]]))
 
@@ -1789,11 +1902,11 @@
   (info-block [:span
                [:span (str srd-prefix "Don't see a class or subclass here that you want to use?")]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-class-builder-page-route])}
                  "CLICK HERE TO ADD A CLASS"]]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-subclass-builder-page-route])}
                  "CLICK HERE TO ADD A SUBCLASS"]]]))
 
@@ -1854,6 +1967,58 @@
                {:key :treasure
                 :hide-homebrew? true
                 :ui-fn (fn [v] [inventory-selector [::equip5e/treasure-map] 100 (select-selection v) ::char5e/custom-treasure])}])}])
+
+(defn picks-notice
+  "Picks that came back on their own, when they are not where the player is looking (another tab)
+   or several came back: one short notice with Undo, then \"Undone · Redo\". Closed by its ×.
+   docs/kb/ux-guide.md on agents/develop."
+  []
+  (let [{:keys [restored undone]} @(subscribe [:orcpub.dnd.e5/restore-notice])
+        dismiss #(dispatch [:orcpub.dnd.e5/dismiss-restore])
+        box {:icon "fa-history orange" :tone :note :accent :brand :on-close dismiss :compact? true}
+        framed (fn [cfg]
+                 [notifications/callout (update cfg :text #(vector :span.main-text-color %))])]
+    (cond
+      (seq undone)
+      (framed
+       (assoc box :text "Undone"
+              :actions [{:label "Redo" :link? true
+                         :on-click #(dispatch [:orcpub.dnd.e5/redo-restore])}]))
+
+      (seq restored)
+      (let [available @(subscribe [:available-selections])
+            by-path (into {} (map (juxt (comp vec entity/actual-path) identity)) available)
+            tags (:tags (pages (or @(subscribe [:page]) 0)))
+            in-view? (fn [{:keys [address]}] (some tags (::t/tags (by-path (pop address)))))
+            named (fn [{:keys [address]}]
+                    {:name (or (some #(when (= (peek address) (::t/key %)) (::t/name %))
+                                     (some-> (by-path (pop address)) entity/selection-options))
+                               (common/kw-to-name (peek address) true))
+                     :class (when (= :class (first address)) (second address))})]
+        (when (or (> (count restored) 1) (not (every? in-view? restored)))
+          (framed
+           (assoc box :text (planned-text/restored (map named restored))
+                  :actions [{:label "Undo" :link? true
+                             :on-click #(dispatch [:orcpub.dnd.e5/undo-restore])}])))))))
+
+(defn open-notice
+  "On opening a character whose stored choices no longer apply: how many, with Details
+   listing each and what brings it back. Closed by its ×."
+  []
+  (let [open? (r/atom false)]
+    (fn []
+      (let [held @(subscribe [:orcpub.dnd.e5/open-notice-held])]
+        (when (seq held)
+          [notifications/callout
+           {:icon "fa-info-circle orange" :tone :note :accent :brand :compact? true
+            :on-close #(dispatch [:orcpub.dnd.e5/dismiss-open-notice])
+            :text [:div.main-text-color (planned-text/opened (count held))]
+            :details (when @open?
+                       (for [{:keys [record name] :as h} held]
+                         {:key (str (:address record)) :label name
+                          :aside (planned-text/returns-line h)}))
+            :actions [{:label "Details" :link? true :expanded @open?
+                       :on-click #(swap! open? not)}]}])))))
 
 (defn section-tabs [available-selections built-template character page-index]
   (let [device-type @(subscribe [:device-type])]
@@ -1933,12 +2098,22 @@
               [{:name "5e SRD"
                 :url t5e/srd-url}]))))])])))
 
-(def selection-order-title
-  (juxt ::t/order ::t/name ::entity/path))
+(defn- path-level
+  "The class level a selection's path sits under (`:level-10` is 10), else 0."
+  [path]
+  (or (some #(when (keyword? %) (some-> (re-matches #"level-(\d+)" (name %)) second js/parseInt))
+            path)
+      0))
+
+(defn selection-order-title
+  "How the options column orders sections: order (none last), name, then the level the section
+   comes at, so a selection named alike at levels 3, 10 and 17 reads in that order."
+  [s]
+  (let [path (::entity/path s)]
+    [(or (::t/order s) 1000) (str (::t/name s)) (path-level path) (pr-str path)]))
 
 (defn compare-selections [s1 s2]
-  (< (selection-order-title s1)
-     (selection-order-title s2)))
+  (compare (selection-order-title s1) (selection-order-title s2)))
 
 (defn compare-paths [s1 s2]
   (< (::entity/path s1)
@@ -1961,6 +2136,9 @@
         final-selections combined-selections]
     (when print-enabled? (js/console.log "FINAL SELECTIONS" final-selections))
     [:div.w-100-p
+     ;; Above the column, at its width: a notice shares the page's edges and never changes size.
+     [open-notice]
+     [picks-notice]
      [:div#options-column.b-1.b-rad-5
       [section-tabs available-selections built-template character page-index]
       [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
@@ -2357,13 +2535,17 @@
 
 
 (defn desktop-or-tablet-columns [device-type]
-  (let [current-tab (or @(subscribe [::char5e/builder-tab]) :options)]
+  ;; The phone's Details tab is the right column here, so a window widened while
+  ;; on it lands on Description; narrowing keeps Description too.
+  (let [current-tab (if (= :options (or @(subscribe [::char5e/builder-tab]) :options))
+                      :options
+                      :description)]
     [:div.w-100-p
      [:div.flex-grow-1.flex.p-l-10.p-t-10
       [:div.w-50-p
        [:div.builder-tabs
         [builder-tab "Options" :options current-tab]
-        [builder-tab "Description" :details current-tab]]
+        [builder-tab "Description" :description current-tab]]
        (if (= current-tab :options)
          [new-options-column (if (= device-type :desktop) 2 1)]
          [description-fields])]
@@ -2391,12 +2573,12 @@
   "Asks, once, which item a character meant after an import renamed the library's copy of it.
    Stays until the author answers."
   []
-  (when-let [{:keys [from to-name from-name import]} @(subscribe [:orcpub.dnd.e5/relink-question])]
+  (when-let [{imported-pack :import :keys [from to-name from-name]} @(subscribe [:orcpub.dnd.e5/relink-question])]
     (let [item (or from-name (name from))]
       [:div.decision-callout
        [:div.message-title (str "Which \u201c" item "\u201d did this character mean?")]
        [:div.message-detail
-        (str "Importing " (if import (str "\u201c" import "\u201d") "a pack") " added a different \u201c"
+        (str "Importing " (if imported-pack (str "\u201c" imported-pack "\u201d") "a pack") " added a different \u201c"
              item "\u201d. Yours is now called \u201c" to-name "\u201d.")]
        [:div.decision-actions
         [:button.form-button {:on-click #(dispatch [:orcpub.dnd.e5/answer-relink :switch])} "Use yours"]
@@ -2554,10 +2736,24 @@
 
 (defn theme-toggle []
   (let [theme @(subscribe [:theme])]
-    [:div.pointer
-     {:on-click toggle-theme}
+    [:div.pointer.setting-toggle
+     (merge {:on-click toggle-theme}
+            (views5e/switch-attrs (= "light-theme" theme) toggle-theme))
      [:span.m-r-5 (comps/checkbox (= "light-theme" theme) false)]
      [:span.main-text-color "Light Theme"]]))
+
+(defn button-text-toggle
+  "Dark text on the amber buttons. Dark theme only: the light theme's buttons
+   are slate blue and already read well in white."
+  []
+  (let [theme @(subscribe [:theme])
+        on? @(subscribe [:dark-button-text?])]
+    (when (not= "light-theme" theme)
+      (let [toggle #(dispatch [:toggle-dark-button-text])]
+        [:div.pointer.setting-toggle.m-l-20
+         (merge {:on-click toggle} (views5e/switch-attrs on? toggle))
+         [:span.m-r-5 (comps/checkbox on? false)]
+         [:span.main-text-color "Dark Button Text"]]))))
 
 (defn set-loading []
   (dispatch-sync [:set-loading true]))
@@ -2605,10 +2801,7 @@
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
     [views5e/content-page
      "Character Builder"
-     (into
-      (if character-id
-        (vec (integrations/share-links character-id @(subscribe [::char5e/character-name character-id])))
-        [])
+     (vec
       (remove nil?
        [{:title "Random"
          :icon "random"
@@ -2655,9 +2848,12 @@
         [:div.flex.justify-cont-s-b.align-items-c.flex-wrap
          [:div
           [missing-content-warning]
-          [relink-question-banner]]
-         [:div.flex
+          [relink-question-banner]
+          [choices-list]]
+         ;; .content has no side padding of its own; keep the toggles off the edge
+         [:div.flex.flex-wrap.justify-cont-end.p-r-10
           [theme-toggle]
+          [button-text-toggle]
           (when character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c
                                   (views5e/svg-icon "thunder-skull" 24 24)
                                   (when (not mobile?)
@@ -2665,4 +2861,5 @@
       [:div.flex.justify-cont-c.p-b-40
        [:div.f-s-14.main-text-color.content
         [:div.flex.w-100-p
-         [builder-columns]]]]]]))
+         [builder-columns]]]]]
+     :subheader (when character-id [integrations/share-line character-id])]))

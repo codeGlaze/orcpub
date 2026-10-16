@@ -1,16 +1,18 @@
 (ns orcpub.core
   (:require [orcpub.character-builder :as ch]
+            [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.equipment-subs]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.events :as events]
-            [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.page-map :as page-map]
+            [orcpub.user-agent :as user-agent]
             [cljs-http.client :as http]
             [clojure.string :as s]
             [re-frame.core :refer [dispatch dispatch-sync subscribe]]
@@ -27,18 +29,52 @@
                     (s/starts-with? js/window.location.href "http://localhost"))))
   (set! js/window.location.protocol "https"))
 
-(dispatch-sync [:initialize-db])
-(dispatch [:orcpub.dnd.e5/settle-loaded-library])
+(defn- boot-step
+  "Run one startup step; if it throws, log it and carry on. An uncaught throw here
+   stops the rest of this namespace, so the app is never mounted and the page stays
+   on the server's loading spinner, outside every error boundary. A stored homebrew
+   race with a text key did exactly that. What still fails once the app is drawing
+   is caught by the app-root boundary."
+  ([label f] (boot-step label f nil))
+  ([label f recover]
+   (try
+     (f)
+     (catch :default e
+       (js/console.error (str "Startup step failed (" label "); continuing so the app still loads:") e)
+       (when recover (recover))))))
 
-;; Init template cache after all subscription handlers are registered.
-;; Must be called here (not self-initializing) so equipment-subs has loaded.
-(autosave-fx/init-template-cache!)
+(boot-step "initialize-db"
+           #(dispatch-sync [:initialize-db])
+           ;; Loading threw: set the stored library aside intact, start without it, say so.
+           ;; GOTCHA: the whole recovery must stay inside this try -- boot-step calls
+           ;; `recover` from its own catch, outside its own try, so a storage exception
+           ;; here would otherwise escape uncaught and abort startup. See homebrew-safety-net.md.
+           #(try
+              (when-let [raw (db/set-aside-unloadable-library!)]
+                (try
+                  (dispatch-sync [:initialize-db])
+                  (dispatch [:orcpub.dnd.e5/library-set-aside-at-startup])
+                  (catch :default e
+                    (db/restore-set-aside-library! raw)
+                    (js/console.error "Startup failed without homebrew as well:" e))))
+              (catch :default e
+                (js/console.error "Startup failed while setting homebrew aside:" e))))
+
+;; Tidies what past renames left in the library. Its own step: a failure here must not
+;; undo a load that worked.
+(boot-step "settle-loaded-library" #(dispatch [:orcpub.dnd.e5/settle-loaded-library]))
+
+;; Startup builds nothing from homebrew, except the character template on a page that shows a
+;; character (build-template, below). See homebrew-safety-net.md.
 
 ;; Fetch the app-shipped demo/example content pack into its own overlay slot.
 ;; Async: it loads through the real import path and never blocks boot.
 (dispatch [::e5/load-demo-content])
 ;; Another tab's library write reloads this tab's copy.
 (events/start-library-watch!)
+
+;; Resizing across the phone breakpoint re-lays the page.
+(user-agent/watch-narrow-screen! #(dispatch [:set-narrow-screen %]))
 
 (def pages
   ;; The homebrew builder pages are GENERATED from the content-types registry — see
@@ -58,6 +94,10 @@
    routes/dnd-e5-char-page-route views/character-page
    routes/dnd-e5-monster-page-route views/monster-page
    routes/dnd-e5-spell-page-route views/spell-page
+   routes/dnd-e5-rules-page-route views/rules-page
+   routes/dnd-e5-rule-section-page-route views/rule-section-page
+   routes/dnd-e5-condition-list-page-route views/condition-list-page
+   routes/dnd-e5-condition-page-route views/condition-page
    routes/dnd-e5-item-page-route views/item-page
    routes/dnd-e5-item-builder-page-route views/item-builder-page
    routes/dnd-e5-char-parties-page-route views/parties
@@ -141,7 +181,14 @@
        [whats-new-view/panel])]))
 
 ;; Verify auth token on startup (replaces @(subscribe [:user false]) side-effect)
-(dispatch-sync [:verify-user-session])
+(boot-step "verify-user-session" #(dispatch-sync [:verify-user-session]))
+
+;; Under the spinner, so the page is responsive when it appears: the heal of renamed picks waits
+;; for this template. Guarded like the lazy build; a failure leaves the cache empty.
+(boot-step "build-template"
+           #(when (#{routes/dnd-e5-char-builder-route routes/dnd-e5-char-page-route}
+                   (:handler (routes/match-route js/window.location.pathname)))
+              (autosave-fx/ensure-template-cache!)))
 
 ;; React 18 createRoot API (Reagent 2.0)
 (defonce root (rdc/create-root (js/document.getElementById "app")))

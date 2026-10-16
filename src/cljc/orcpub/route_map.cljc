@@ -9,6 +9,8 @@
 (def dnd-e5-newb-char-builder-route :newb-char-builder-5e)
 (def dnd-e5-char-list-route :char-list-5e)
 (def dnd-e5-char-route :char-5e)
+(def dnd-e5-char-share-route :char-share-5e)
+(def dnd-e5-char-share-token-route :char-share-token-5e)
 (def dnd-e5-char-report-route :char-load-report-5e)
 (def dnd-e5-char-page-route :char-5e-page)
 (def dnd-e5-char-list-page-route :char-list-5e-page)
@@ -40,6 +42,11 @@
 (def dnd-e5-monster-page-routes #{dnd-e5-monster-list-page-route dnd-e5-monster-page-route dnd-e5-monster-builder-page-route})
 
 (def dnd-e5-spell-list-page-route :spell-list-5e-page)
+(def dnd-e5-condition-list-page-route :condition-list-5e-page)
+(def dnd-e5-condition-page-route :condition-5e-page)
+(def dnd-e5-rules-page-route :rules-5e-page)
+(def dnd-e5-rule-section-page-route :rule-section-5e-page)
+(def dnd-e5-rules-page-routes #{dnd-e5-rules-page-route dnd-e5-rule-section-page-route dnd-e5-condition-list-page-route dnd-e5-condition-page-route})
 (def dnd-e5-spell-page-route :spell-5e-page)
 (def dnd-e5-spell-builder-page-route :spell-builder-5e-page)
 (def dnd-e5-background-builder-page-route :background-builder-5e-page)
@@ -108,6 +115,7 @@
 (def check-username-route :check-username)
 (def user-route :user)
 (def user-email-route :user-email)
+(def user-sessions-route :user-sessions)
 (def reset-password-page-route :reset-password-page)
 (def reset-password-route :reset-password)
 (def send-password-reset-route :send-password-reset)
@@ -132,7 +140,8 @@
                   "register" register-route
                   "login" login-route
                   "user" {"" user-route
-                          "/email" user-email-route}
+                          "/email" user-email-route
+                          "/sessions" user-sessions-route}
 
                   "character.pdf" character-pdf-route
                   "image-probe" image-probe-route
@@ -156,7 +165,9 @@
 
                   "dnd/"
                   {"5e/" {"characters" {"" dnd-e5-char-list-route
-                                        ["/" :id] dnd-e5-char-route}
+                                        ["/" :id] dnd-e5-char-route
+                                        ["/" :id "/shares/" :token] dnd-e5-char-share-route
+                                        ["/" :id "/share-token"] dnd-e5-char-share-token-route}
                           "character-load-reports" dnd-e5-char-report-route
                           "my-content" dnd-e5-my-content-route
                           "items" {"" dnd-e5-items-route
@@ -194,7 +205,11 @@
                                "magic-items" {"" dnd-e5-item-list-page-route
                                               ["/" :key] dnd-e5-item-page-route}
                                "monsters" {"" dnd-e5-monster-list-page-route
-                                           ["/" :key] dnd-e5-monster-page-route}}
+                                           ["/" :key] dnd-e5-monster-page-route}
+                               "rules" {"" dnd-e5-rules-page-route
+                                        ["/" :key] dnd-e5-rule-section-page-route}
+                               "conditions" {"" dnd-e5-condition-list-page-route
+                                             ["/" :key] dnd-e5-condition-page-route}}
                               ;; builder page segments ("<route-seg>" -> route-kw) generated
                               ;; from the content-types registry — a new type's URL is automatic
                               (into {} (map (juxt :route-seg :route-kw)) ct/content-types))}}}])

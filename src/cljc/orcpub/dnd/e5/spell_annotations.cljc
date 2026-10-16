@@ -3,7 +3,8 @@
    reaction, and a costly material. All are read from the spell's existing fields --
    concentration from the start of :duration, the cost from a gp figure in the prose
    of :material-component. Ritual and plain V S M are deliberately not marked."
-  (:require [clojure.string :as s]))
+  (:require [clojure.string :as s]
+            [orcpub.common :as common]))
 
 (defn concentration?
   "Whether the spell needs concentration.
@@ -11,7 +12,7 @@
    5e writes this as the first word of the duration -- \"Concentration, up to 1
    minute\" -- and gives it no field of its own."
   [spell]
-  (s/starts-with? (s/lower-case (str (:duration spell))) "concentration"))
+  (s/starts-with? (common/ascii-lower-case (:duration spell)) "concentration"))
 
 (defn casting-tag
   "\"BA\" for a bonus action, \"RE\" for a reaction, nil for anything else.
@@ -19,7 +20,7 @@
    The two that change what else can be done in the same turn. An action or a
    longer casting time is the ordinary case and is not marked."
   [spell]
-  (let [t (s/lower-case (str (:casting-time spell)))]
+  (let [t (common/ascii-lower-case (:casting-time spell))]
     (cond
       (s/includes? t "bonus action") "BA"
       (s/includes? t "reaction") "RE")))

@@ -27,6 +27,7 @@
             [orcpub.dnd.e5.content-types :as ct]
             [orcpub.dnd.e5.content-pools :as pools]
             [orcpub.dnd.e5.grant-pools :as grant-pools]
+            [orcpub.dnd.e5.homebrew-guard :as guard]
             [orcpub.dnd.e5.starting-equipment-ledger :as sel]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.route-map :as routes]
@@ -345,37 +346,42 @@
  ::races5e/plugin-races
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (map
+   (keep
     (fn [race]
       ;; A4: a race's ability/save grants (:ability-increases fixed+floating incl. the :save rider, +
       ;; standalone :save-proficiencies) compile to extra modifiers + selections; additive (none ->
       ;; empty), so races without them are unchanged.
-      (let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants race)]
-        (assoc race
-               :modifiers
-               (concat (opt5e/plugin-modifiers (:props race)
-                                               (:key race))
-                       (spell-modifiers race (:name race))
-                       ai-mods)
-               :selections (concat (:selections race) ai-sels)
-               :edit-event [::races5e/edit-race race])))
+      (guard/guard-entry
+       ::e5/races race
+       #(let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants %)]
+          (assoc %
+                 :modifiers
+                 (concat (opt5e/plugin-modifiers (:props %)
+                                                 (:key %))
+                         (spell-modifiers % (:name %))
+                         ai-mods)
+                 :selections (concat (:selections %) ai-sels)
+                 :edit-event [::races5e/edit-race %]))))
     (mapcat (comp vals ::e5/races) plugins))))
 
 (reg-sub
  ::races5e/plugin-subraces
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (map
+   (keep
     (fn [subrace]
       ;; A4: same ability/save grants hook as races (ASI spread + :save rider + standalone saves); additive.
-      (let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants subrace {:attribution :subrace})]
-        (assoc subrace
-               :modifiers (concat (opt5e/plugin-modifiers (:props subrace)
-                                                          (:key subrace))
-                                  (spell-modifiers subrace (:name subrace))
-                                  ai-mods)
-               :selections (concat (:selections subrace) ai-sels)
-               :edit-event [::races5e/edit-subrace subrace])))
+      (guard/guard-entry
+       ::e5/subraces subrace
+       #(let [{ai-mods :modifiers ai-sels :selections}
+              (opt5e/compile-ability-grants % {:attribution :subrace})]
+          (assoc %
+                 :modifiers (concat (opt5e/plugin-modifiers (:props %)
+                                                            (:key %))
+                                    (spell-modifiers % (:name %))
+                                    ai-mods)
+                 :selections (concat (:selections %) ai-sels)
+                 :edit-event [::races5e/edit-subrace %]))))
     (mapcat (comp vals ::e5/subraces) plugins))))
 
 ;; Grant vocabulary B: `:level-modifiers {:type … :value …}` for classes and subclasses (no class
@@ -651,6 +657,25 @@
          (:warlock-spells option))))
      by-level)))
 
+(defn plugin-subclass
+  "A homebrew subclass as the class options take it (`plugin-subclasses-map`): its levels built by
+   `make-levels`, its props as modifiers. `subclass-key` (the map key) wins over its `:key`;
+   `:option-pack` arrives stamped by the reader."
+  [spell-lists spells-map selection-map source-name subclass-key subclass]
+  (let [subclass-with-key (assoc subclass :key subclass-key)
+        ;; A4 (opt-in): a subclass's ability/save grants (:ability-increases spread + :save rider
+        ;; + standalone :save-proficiencies) -> modifiers + selections (additive; none -> {}).
+        ;; Non-standard for 5e, so authored behind a builder toggle.
+        {ai-mods :modifiers ai-sels :selections}
+        (opt5e/compile-ability-grants subclass {:attribution :general})]
+    (assoc subclass-with-key
+           :modifiers (concat (opt5e/plugin-modifiers (:props subclass) subclass-key) ai-mods)
+           :selections (concat (:selections subclass) ai-sels)
+           :levels (make-levels spell-lists spells-map selection-map subclass-with-key)
+           :plugin-source source-name
+           :edit-event [::classes5e/edit-subclass subclass-with-key
+                        source-name subclass-key ::e5/subclasses])))
+
 (reg-sub
  ::classes5e/plugin-subclasses
  :<- [::e5/plugins-with-sources]
@@ -662,22 +687,10 @@
     (fn [[source-name subclass-key subclass]]
       (try
         (when (and (map? subclass) subclass-key)
-          ;; the map key is authoritative; :option-pack arrives stamped by the reader
-          (let [subclass-with-key (assoc subclass :key subclass-key)
-                levels (make-levels spell-lists spells-map selection-map subclass-with-key)
-                ;; A4 (opt-in): a subclass's ability/save grants (:ability-increases spread + :save rider
-                ;; + standalone :save-proficiencies) -> modifiers + selections (additive; none -> {}).
-                ;; Non-standard for 5e, so authored behind a builder toggle.
-                {ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants subclass {:attribution :general})]
-            (assoc subclass-with-key
-                   :modifiers (concat (opt5e/plugin-modifiers (:props subclass) subclass-key) ai-mods)
-                   :selections (concat (:selections subclass) ai-sels)
-                   :levels levels
-                   :plugin-source source-name
-                   :edit-event [::classes5e/edit-subclass subclass-with-key
-                                source-name subclass-key ::e5/subclasses])))
+          (plugin-subclass spell-lists spells-map selection-map source-name subclass-key subclass))
         (catch js/Error e
-          (js/console.warn "Skipping malformed subclass:" subclass-key e)
+          (guard/report! {:content-type ::e5/subclasses :key subclass-key :source source-name
+                         :name (:name subclass) :error e})
           nil)))
     ;; Extract subclasses from each plugin with the map key
     (for [[source-name plugin-data] plugins-with-sources
@@ -711,7 +724,8 @@
                                                       class-key)
                    :levels levels)))
         (catch js/Error e
-          (js/console.warn "Skipping malformed class:" class-key e)
+          (guard/report! {:content-type ::e5/classes :key class-key :source source-name
+                         :name (:name class) :error e})
           nil)))
     ;; Extract classes from each plugin with their source name AND the map key
     ;; The map key (e.g., :artificer-kibbles-tasty) is the authoritative key
@@ -1139,7 +1153,7 @@
    (group-by :class plugin-subclasses)))
 
 (defn compare-keys [x y]
-  (compare (:key x) (:key y)))
+  (common/safe-compare (:key x) (:key y)))
 
 (reg-sub
  ::races5e/races
@@ -1220,12 +1234,14 @@
                                     weapons-map
                                     plugin-class)
                                    (catch js/Error e
-                                     (js/console.warn "Skipping plugin class due to error:" (:key plugin-class) e)
+                                     (guard/report! {:content-type ::e5/classes :key (:key plugin-class)
+                                                   :source (:plugin-source plugin-class)
+                                                   :name (:name plugin-class) :error e})
                                      nil)))
                                plugin-classes)]
      (vec
       (into
-       (sorted-set-by #(compare (::t/key %1) (::t/key %2)))
+       (sorted-set-by #(common/safe-compare (::t/key %1) (::t/key %2)))
        (concat (reverse plugin-class-options) base-classes))))))
 
 (reg-sub
@@ -1471,14 +1487,18 @@
  :<- [::spells5e/plugin-spells]
  (fn [plugin-spells _]
    (reduce
-    (fn [lists {:keys [key level spell-lists]}]
-      (reduce-kv
-       (fn [l k v]
-         (if v
-           (update-in l [k level] conj key)
-           l))
-       lists
-       spell-lists))
+    (fn [lists {:keys [key level spell-lists] :as spell}]
+      (or (guard/guard-entry
+           ::e5/spells spell
+           (fn [_]
+             (reduce-kv
+              (fn [l k v]
+                (if v
+                  (update-in l [k level] conj key)
+                  l))
+              lists
+              spell-lists)))
+          lists))
     {}
     plugin-spells)))
 
@@ -1564,3 +1584,52 @@
    :<- [::classes5e/builder-item]
    (fn [class [_ prof-type prof-key]]
      (some? (get-in class [:profs prof-type prof-key]))))
+
+;; ============================================================================
+;; The deep homebrew check (orcpub.dnd.e5.homebrew-check): each homebrew entry, with the
+;; conversion the builder uses for it.
+;; ============================================================================
+
+(defn- homebrew-entry? [e]
+  (some? (or (:plugin-source e) (:option-pack e))))
+
+(guard/register-conversions!
+ {::e5/races
+  {:entries #(filter homebrew-entry? (% [::races5e/races]))
+   :convert (fn [sub]
+              (partial opt5e/race-option (sub [::spells5e/spell-lists]) (sub [::spells5e/spells-map])
+                       (sub [::langs5e/language-map]) (sub [::mi5e/all-weapons-map])))}
+  ::e5/backgrounds
+  {:entries #(filter homebrew-entry? (% [::bg5e/backgrounds]))
+   :convert (fn [sub]
+              (partial opt5e/background-option (sub [::langs5e/language-map]) (sub [::mi5e/all-weapons-map])))}
+  ::e5/feats
+  {:entries #(filter homebrew-entry? (% [::feats5e/feats]))
+   :convert (fn [sub]
+              (partial opt5e/feat-option-from-cfg (sub [::langs5e/language-map]) (sub [::spells5e/spells-map])
+                       (sub [::spells5e/spell-lists]) (sub [::mi5e/custom-and-standard-weapons])
+                       (common/map-by-key (sub [::races5e/races]))))}
+  ::e5/classes
+  {:entries #(% [::classes5e/plugin-classes])
+   :convert (fn [sub]
+              (partial opt5e/class-option (sub [::spells5e/spell-lists]) (sub [::spells5e/spells-map]) {}
+                       (sub [::langs5e/language-map]) (sub [::mi5e/custom-and-standard-weapons-map])))}
+  ;; a subclass is built inside its class, with itself as that class's only plugin subclass
+  ::e5/subclasses
+  {:entries #(% [::classes5e/plugin-subclasses])
+   :convert (fn [sub]
+              (let [spell-lists (sub [::spells5e/spell-lists])
+                    spells-map (sub [::spells5e/spells-map])
+                    language-map (sub [::langs5e/language-map])
+                    weapons-map (sub [::mi5e/custom-and-standard-weapons-map])
+                    plugin-classes (sub [::classes5e/plugin-classes])
+                    invocations (sub [::classes5e/invocations])
+                    boons (sub [::classes5e/boons])]
+                (fn [{class-key :class :as subclass}]
+                  (let [only-this {class-key [subclass]}]
+                    (or (some #(when (= class-key (:key %))
+                                 (opt5e/class-option spell-lists spells-map only-this language-map weapons-map %))
+                              plugin-classes)
+                        (some #(when (= class-key (::t/key %)) %)
+                              (base-class-options spell-lists spells-map only-this language-map
+                                                  weapons-map invocations boons)))))))}})

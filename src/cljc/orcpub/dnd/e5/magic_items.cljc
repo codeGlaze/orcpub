@@ -477,7 +477,7 @@ Curse. This armor is cursed, a fact that is revealed only when an identify spell
                   {:name "Alchemy Jug: Create Liquid"
                    :page 150
                    :source :dmg
-                   :frequncy units5e/days-1
+                   :frequency units5e/days-1
                    :summary "Create acid, poison, beer, honey, or mayonnaise in the jug."})
                  (mod5e/action
                   {:name "Alchemy Jug: Pour Liquid"
@@ -2258,7 +2258,12 @@ While you wear the robe, you can use an action to enter the Astral Plane along w
      ::modifiers [(mod5e/spell-save-dc-bonus 2)
                  (mod5e/spell-attack-modifier-bonus 2)
                  (mod5e/saving-throw-advantage ["Spells and other magical effects"])
-                 (mod5e/ac-bonus {:armor? false} 5)]
+                 ;; "If you aren't wearing armor, your base Armor Class is 15 + your Dexterity
+                 ;; modifier": a whole AC calculation that competes with the others, not a +5.
+                 ;; A shield adds on top through ?ac-bonus-fns, so it is not counted here.
+                 (mod5e/ac-formula
+                  (fn [armor _shield]
+                    (if (nil? armor) (+ 15 (?ability-bonuses ::char5e/dex)) 0)))]
      ::description "This elegant garment is made from exquisite cloth of white, gray, or black and adorned with silvery runes. The robe’s color corresponds to the alignment for which the item was created. A white robe was made for good, gray for neutral, and black for evil. You can’t attune to a robe of the archmagi that doesn’t correspond to your alignment.
 You gain these benefits while wearing the robe:
 • If you aren’t wearing armor, your base Armor Class is 15 + your Dexterity modifier.
@@ -3208,3 +3213,14 @@ The boots regain 2 hours of flying capability for every 12 hours they aren’t i
                     (if (get clean type)
                       (disj clean type)
                       (conj clean type))))))))
+
+(defn shared-custom-items
+  "Custom items on the sheet in view that are not the viewer's own: the ones a share link carried,
+   then the ones the server sent with the character on this page, which win a name clash as the
+   current copy. The server's are kept per character id, so another character's never apply."
+  [db]
+  (let [id (get-in db [:route :route-params :id])]
+    (concat (:shared-custom-items db)
+            (when id
+              (get-in db [:character-custom-items #?(:cljs (js/parseInt id)
+                                                     :clj (parse-long (str id)))])))))

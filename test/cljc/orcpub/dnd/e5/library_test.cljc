@@ -199,11 +199,11 @@
         "two items claiming the old key: no suggestion, since it would be a guess")))
 
 (deftest renaming-a-language-carries-the-new-name-into-races
-  (let [old {"Pak" {:orcpub.dnd.e5/languages {:tidetongue-tp {:name "Tidetongue"}}
-                    :orcpub.dnd.e5/races {:tidefolk {:name "Tidefolk" :languages #{"Tidetongue" "Common"}}}}}
-        new (assoc-in old ["Pak" :orcpub.dnd.e5/languages :tidetongue-tp :name] "Tide-tongue")]
+  (let [before {"Pak" {:orcpub.dnd.e5/languages {:tidetongue-tp {:name "Tidetongue"}}
+                       :orcpub.dnd.e5/races {:tidefolk {:name "Tidefolk" :languages #{"Tidetongue" "Common"}}}}}
+        after (assoc-in before ["Pak" :orcpub.dnd.e5/languages :tidetongue-tp :name] "Tide-tongue")]
     (is (= #{"Tide-tongue" "Common"}
-           (get-in (:plugins (library/commit old new {})) ["Pak" :orcpub.dnd.e5/races :tidefolk :languages])))))
+           (get-in (:plugins (library/commit before after {})) ["Pak" :orcpub.dnd.e5/races :tidefolk :languages])))))
 
 (deftest a-renamed-language-is-not-followed-while-its-old-name-still-answers
   (let [old {"Pak" {:orcpub.dnd.e5/languages {:elvish-tp {:name "Elvish"}}}

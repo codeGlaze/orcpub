@@ -8,4 +8,4 @@
   - [ ] I have made corresponding changes to the documentation if necessary
   - [ ] There is no commented out code in this PR.
   - [ ] My changes generate no new warnings (check the console)
-  - [ ] `docs/branch-changelog.md` is updated in the house style (`docs/branch-changelog.template.md`), and I decided whether this branch earns a `## Highlights`.
+  - [ ] `docs/branch-changelog.md` says what this branch did, one line per outcome, in the house style (`docs/branch-changelog.template.md`).

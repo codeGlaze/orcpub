@@ -31,6 +31,241 @@ if [[ -f "$REPO_ROOT/.env" ]]; then
     set +a
 fi
 
+# Configuration reporting and the DEV_MODE decision.
+#
+# Deliberately NOT printed at the top of every run. Output at the start of a
+# script scrolls past before the REPL takes the terminal, and nobody reads it.
+# Attention exists in two places only: at a prompt, and in a command whose
+# output IS the product. So:
+#
+#   print_env_config   -> called from run_checks (--check), where it is the point
+#   offer_env_file     -> a prompt, which is a genuine pause
+#   confirm_dev_mode   -> a decision, raised at figwheel start where it bites
+
+# The settings that fail silently: ports (a busy one used to read as free on
+# Windows) and CSP/DEV_MODE (blocks Figwheel's socket with no visible cause).
+print_env_config() {
+    if [[ -f "$REPO_ROOT/.env" ]]; then
+        echo -e "Config:      ${GREEN}.env${NC}  (edit it to change any of the below)"
+    else
+        echo -e "Config:      ${YELLOW}built-in defaults${NC}  (no .env — see .env.example)"
+    fi
+    echo "  ports      server=$SERVER_PORT datomic=$DATOMIC_PORT figwheel=$FIGWHEEL_PORT nrepl=$NREPL_PORT"
+
+    local policy dev
+    policy="$(effective_csp_policy)"
+    dev="${DEV_MODE:-<unset>}"
+    if dev_mode_blocks_figwheel; then
+        echo -e "  csp        ${YELLOW}$policy, ENFORCING${NC} (DEV_MODE=$dev) — Figwheel hot reload blocked"
+    else
+        echo "  csp        policy=$policy DEV_MODE=$dev"
+    fi
+}
+
+# The policy token as the server resolves it: config/get-csp-policy is now
+# (env/value :csp-policy "strict"), and orcpub.env/value treats blank as absent.
+# So ${CSP_POLICY:-strict} is correct again -- unset and empty both mean strict.
+#
+# This briefly used ${CSP_POLICY+x} to distinguish them, because the server used
+# to resolve an empty CSP_POLICY to "" and fall through to the static permissive
+# policy. That was a faithful mirror of a server bug; the server was the thing to
+# fix, and the mirror got simpler when it was.
+#
+# LC_ALL=C on the tr is load-bearing, and is this branch's own subject matter:
+# tr '[:upper:]' '[:lower:]' folds using the shell's locale, so on a Turkish
+# machine "STRICT" becomes "strıct" and matches nothing. config/get-csp-policy
+# avoids the same trap with Locale/ROOT.
+_csp_policy_token() {
+    printf '%s' "${CSP_POLICY:-strict}" | LC_ALL=C tr 'A-Z' 'a-z'
+}
+
+# The policy the SERVER will actually USE. An unrecognised value is not an error
+# there: get-secure-headers-config cond-falls through to permissive-csp-settings,
+# so report what it BECOMES, not what was typed.
+effective_csp_policy() {
+    local p
+    p="$(_csp_policy_token)"
+    case "$p" in
+        strict|permissive|none) printf '%s' "$p" ;;
+        *) printf 'permissive (fallback from "%s")' "${CSP_POLICY-}" ;;
+    esac
+}
+
+# True when the server will send a CSP whose connect-src omits the Figwheel
+# websocket, so hot reload fails silently.
+dev_mode_blocks_figwheel() {
+    local policy
+    policy="$(_csp_policy_token)"
+
+    # Mirror config/get-secure-headers-config, which is a three-way cond and not
+    # a two-way one:
+    #
+    #   none        -> :content-security-policy-settings nil, no CSP at all
+    #   strict      -> settings nil; the NONCE INTERCEPTOR sets an enforcing
+    #                  header, but only when dev-mode? is false. The one policy
+    #                  DEV_MODE affects.
+    #   ANY OTHER   -> permissive-csp-settings, applied STATICALLY by Pedestal.
+    #                  That includes "permissive" and every unrecognised value.
+    #                  It has default-src 'self' and no connect-src, so the
+    #                  Figwheel websocket is blocked -- and DEV_MODE cannot
+    #                  change it, because the nonce interceptor is inert here.
+    #
+    # An earlier revision tested `strict|permissive` and then applied the
+    # DEV_MODE logic to both, so CSP_POLICY=permissive with DEV_MODE=true was
+    # reported as fine while the server blocked the socket.
+    case "$policy" in
+        none)   return 1 ;;
+        strict) ;;
+        *)      return 0 ;;
+    esac
+
+    # Strict only, from here. See the measured table in the commit that added
+    # this: unset means the :dev profile supplies "true"; an explicit empty
+    # string is a value and overrides it; only the literal "true" disables CSP.
+    [ -z "${DEV_MODE+x}" ] && return 1
+    case "$(printf '%s' "$DEV_MODE" | LC_ALL=C tr 'A-Z' 'a-z')" in
+        true) return 1 ;;
+        *)    return 0 ;;
+    esac
+}
+
+# Generate a random secret. Hex only, so it is safe to substitute into a file
+# without quoting concerns. Empty string if no source is available.
+random_secret() {
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 24 2>/dev/null && return 0
+    fi
+    if [[ -r /dev/urandom ]] && command -v od >/dev/null 2>&1; then
+        od -An -tx1 -N24 /dev/urandom 2>/dev/null | tr -d ' \n' && return 0
+    fi
+    printf ''
+}
+
+# Replace KEY=... in a file, portably. sed -i differs between GNU and BSD, so
+# write to a temp file and move it into place instead.
+set_env_value() {
+    local file="$1" key="$2" value="$3" tmp
+    tmp="$(mktemp)" || return 1
+    awk -v k="$key" -v v="$value" '
+        $0 ~ "^" k "=" { print k "=" v; next }
+        { print }
+    ' "$file" > "$tmp" && mv "$tmp" "$file"
+}
+
+# First run: a short guided setup. A prompt is one of the two moments an
+# operator is actually reading, so this is where configuration is worth
+# raising -- and while they are here, the three change-me placeholders are
+# worth resolving, because each is a credential that otherwise ships as a
+# known string.
+#
+# Only when there is nothing to lose (no .env present) and someone is at the
+# keyboard. A non-interactive run is told what to do and never blocked.
+offer_env_file() {
+    local env_file="$REPO_ROOT/.env" example="$REPO_ROOT/.env.example"
+    [[ -f "$env_file" || ! -f "$example" ]] && return 0
+
+    if ! is_interactive; then
+        log_info "No .env — using built-in defaults. To configure: cp .env.example .env"
+        return 0
+    fi
+
+    echo ""
+    log_warn "No .env found. Defaults will be used: CSP_POLICY=strict, and the"
+    log_warn "placeholder SIGNATURE / ADMIN_PASSWORD / DATOMIC_PASSWORD from the"
+    log_warn "template, which are published values and must not face a network."
+
+    local reply=""
+    read -t 30 -p "Create .env from .env.example now? [y/N] " -n 1 -r reply || { echo; log_info "No answer — continuing on defaults."; return 0; }
+    echo
+    [[ "$reply" =~ ^[Yy]$ ]] || { log_info "Skipped. Continuing on defaults."; return 0; }
+
+    cp "$example" "$env_file" || { log_error "Could not write $env_file"; return 0; }
+    chmod 600 "$env_file" 2>/dev/null || true
+
+    # --- development or production -------------------------------------------
+    local mode=""
+    read -t 30 -p "Set up for [d]evelopment or [p]roduction? [D/p] " -n 1 -r mode || mode=""
+    echo
+    if [[ "$mode" =~ ^[Pp]$ ]]; then
+        set_env_value "$env_file" DEV_MODE false
+        log_info "  DEV_MODE=false — CSP enforcing. Figwheel hot reload will not work."
+    else
+        set_env_value "$env_file" DEV_MODE true
+        log_info "  DEV_MODE=true — no CSP header, so Figwheel works."
+    fi
+
+    # --- the three change-me credentials -------------------------------------
+    local gen=""
+    read -t 30 -p "Generate random values for the change-me passwords/secret? [Y/n] " -n 1 -r gen || gen=""
+    echo
+    if [[ "$gen" =~ ^[Nn]$ ]]; then
+        log_warn "  Left as-is. SIGNATURE, ADMIN_PASSWORD and DATOMIC_PASSWORD are"
+        log_warn "  published placeholders — change them before exposing this server."
+    else
+        local key secret failed=0
+        for key in SIGNATURE ADMIN_PASSWORD DATOMIC_PASSWORD; do
+            secret="$(random_secret)"
+            if [[ -n "$secret" ]]; then
+                set_env_value "$env_file" "$key" "$secret"
+            else
+                failed=1
+            fi
+        done
+        if [[ $failed -eq 0 ]]; then
+            # Deliberately not echoed. They are in the file; printing them puts
+            # them in scrollback and shell history exports.
+            log_info "  SIGNATURE, ADMIN_PASSWORD, DATOMIC_PASSWORD set to random values."
+        else
+            log_warn "  No random source (openssl / /dev/urandom) — placeholders left in place."
+        fi
+    fi
+
+    log_info "Wrote $env_file (mode 600). Review it, then re-run to start."
+    # Returning 10 means "written, caller should stop". Continuing is not an
+    # option: .env was sourced near the top of this file, before it existed, and
+    # every default and derived path was computed from what was loaded then. The
+    # DEV_MODE just chosen and the credentials just generated are not in this
+    # shell and cannot be, so carrying on would launch the server on exactly the
+    # configuration the user was asked about and answered.
+    return 10
+}
+
+# Raised where it actually bites. Starting Figwheel with an enforcing CSP gives
+# a dev loop that looks fine and silently never reloads, so this is a decision,
+# not a line of output to scroll past.
+confirm_dev_mode() {
+    dev_mode_blocks_figwheel || return 0
+
+    local policy
+    policy="$(effective_csp_policy)"
+    log_warn "CSP policy is $policy and ENFORCING (DEV_MODE=${DEV_MODE:-<unset>})."
+    log_warn "ws://localhost:$FIGWHEEL_PORT is not in connect-src, so hot reload"
+    log_warn "will silently not work."
+    # The remedy differs by policy, and the old text gave the strict one for all
+    # of them. Under permissive (and any unrecognised value, which becomes
+    # permissive) the policy is applied statically by Pedestal and DEV_MODE has
+    # no effect at all, so "set DEV_MODE=true" is advice that cannot work.
+    case "$policy" in
+        strict) log_warn "Set DEV_MODE=true in .env to develop." ;;
+        *)      log_warn "DEV_MODE does not affect this policy -- it is applied"
+                log_warn "statically. Use CSP_POLICY=strict with DEV_MODE=true," 
+                log_warn "or CSP_POLICY=none." ;;
+    esac
+
+    is_interactive || { log_warn "Continuing anyway (non-interactive)."; return 0; }
+
+    local reply=""
+    if read -t 30 -p "Start Figwheel anyway? [y/N] " -n 1 -r reply; then
+        echo
+        [[ "$reply" =~ ^[Yy]$ ]] && return 0
+        log_info "Aborted. Set DEV_MODE=true in .env, then re-run."
+        return 1
+    fi
+    echo
+    log_info "No answer — not starting Figwheel."
+    return 1
+}
+
 # Defaults (used if not set in .env)
 DATOMIC_VERSION="${DATOMIC_VERSION:-1.0.7482}"
 DATOMIC_TYPE="${DATOMIC_TYPE:-pro}"
@@ -39,7 +274,13 @@ LOG_DIR="${LOG_DIR:-$REPO_ROOT/logs}"
 
 # Port configuration
 DATOMIC_PORT="${DATOMIC_PORT:-4334}"
-SERVER_PORT="${SERVER_PORT:-8890}"
+# PORT is what BOTH service maps now read (orcpub.system/configured-port) and
+# what .env.example documents, so the scripts follow it too. They have to agree:
+# when the dev map pinned a literal 8890 and this read PORT, every port check,
+# explain_bind_failure and config report described a port nothing was listening
+# on. SERVER_PORT still overrides, for moving the scripts without moving the
+# server.
+SERVER_PORT="${SERVER_PORT:-${PORT:-8890}}"
 NREPL_PORT="${NREPL_PORT:-7888}"
 FIGWHEEL_PORT="${FIGWHEEL_PORT:-3449}"
 GARDEN_PORT="${GARDEN_PORT:-3000}"
@@ -140,9 +381,40 @@ log_error() {
 # -----------------------------------------------------------------------------
 
 # Check if a port is in use (returns 0 if in use, 1 if free)
+# True under Git Bash / MSYS2 / Cygwin, where `netstat` is Windows' netstat.exe.
+is_windows() {
+    case "$(uname -s 2>/dev/null)" in
+        MINGW*|MSYS*|CYGWIN*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Windows netstat.exe has no -l flag, so the GNU-style `netstat -tln` below
+# exits with "Invalid argument" and prints nothing to stdout. With stderr
+# discarded that reads as "no match" — i.e. every port looks free, the
+# pre-flight check never warns, and the JVM is the first thing to discover the
+# conflict (BindException: Address already in use). Ask Windows its own way.
 port_in_use() {
     local port="$1"
-    if command -v lsof >/dev/null 2>&1; then
+    if is_windows; then
+        # Match on the LOCAL ADDRESS column, not the state word: netstat.exe
+        # prints "LISTENING" where the docs say "LISTEN", and a non-English
+        # Windows translates it outright. Column 2 is the local address on
+        # every row; the last column is the PID.
+        # A bound port is one with a LISTENING socket. Matching the address
+        # column alone also matches TIME_WAIT and ESTABLISHED rows, so a
+        # connection that closed seconds ago reads as "in use" and start.sh
+        # refuses to start. Identify listening rows by the WILDCARD FOREIGN
+        # ADDRESS rather than the state word -- the state word is localised
+        # (LISTENING/LISTEN/translated), the foreign address is not.
+        # $1 == "TCP" is load-bearing. A UDP row is printed with four columns
+        # and a literal "*:*" foreign address, so it satisfies the wildcard test
+        # above; without the protocol check a UDP socket on this port makes a
+        # free TCP port read as busy and start.sh refuses to start.
+        [ -n "$(netstat -ano 2>/dev/null \
+                | awk -v p="[:.]${port}\$" \
+                      '$1 == "TCP" && $2 ~ p && $3 ~ /^(0\.0\.0\.0:0|\[::\]:0|\*:\*)$/ {print; exit}')" ]
+    elif command -v lsof >/dev/null 2>&1; then
         lsof -i ":${port}" >/dev/null 2>&1
     elif command -v ss >/dev/null 2>&1; then
         ss -tln 2>/dev/null | grep -q ":${port}\b"
@@ -165,7 +437,7 @@ wait_for_port() {
             return 0
         fi
         sleep 1
-        ((elapsed++))
+        elapsed=$((elapsed + 1))
     done
     return 1
 }
@@ -189,7 +461,7 @@ wait_for_port_or_die() {
             return 0
         fi
         sleep 1
-        ((elapsed++))
+        elapsed=$((elapsed + 1))
     done
     log_error "Timeout waiting for port $port (process $pid still running)"
     return 1
@@ -206,7 +478,7 @@ wait_for_port_free() {
             return 0
         fi
         sleep 1
-        ((elapsed++))
+        elapsed=$((elapsed + 1))
     done
     return 1
 }
@@ -215,6 +487,20 @@ wait_for_port_free() {
 find_pids_by_port() {
     local port="$1"
     local pids=""
+
+    if is_windows; then
+        # Last column of a LISTENING row is the owning PID.
+        # $1 == "TCP" for the same reason as port_in_use, and it matters more
+        # here: stop.sh feeds these PIDs to kill, so a UDP row passing the
+        # wildcard test would terminate an unrelated process that merely shares
+        # the port number.
+        pids=$(netstat -ano 2>/dev/null \
+               | awk -v p="[:.]${port}\$" \
+                     '$1 == "TCP" && $2 ~ p && $3 ~ /^(0\.0\.0\.0:0|\[::\]:0|\*:\*)$/ && $NF ~ /^[0-9]+$/ {print $NF}' \
+               | sort -u || true)
+        echo "$pids" | tr '\n' ' ' | xargs
+        return
+    fi
 
     if command -v lsof >/dev/null 2>&1; then
         pids=$(lsof -t -i ":${port}" 2>/dev/null || true)
@@ -271,11 +557,24 @@ get_uptime() {
 # -----------------------------------------------------------------------------
 
 check_java() {
-    local java_version
-    java_version=$(java -version 2>&1 | head -1 | sed -E 's/.*"([0-9]+).*/\1/')
-
-    if [[ -z "$java_version" ]]; then
+    local raw java_version
+    if ! raw="$(java -version 2>&1)"; then
         log_error "Java not found. Please install Java $JAVA_MIN_VERSION or higher."
+        return 1
+    fi
+
+    # Find the version line wherever it is, rather than assuming line 1.
+    # JAVA_TOOL_OPTIONS and _JAVA_OPTIONS make the JVM print a "Picked up ..."
+    # preamble first, which is common behind a proxy and in CI images.
+    java_version="$(printf '%s\n' "$raw" | sed -nE 's/.*version "([0-9]+).*/\1/p' | head -n1)"
+
+    # Guard the comparison below. [[ str -lt n ]] evaluates str as ARITHMETIC,
+    # so a non-numeric value is read as a variable name -- and under `set -u`
+    # an unset name is a FATAL error, not a false comparison. That killed this
+    # script outright, and silently, because callers use `check_java 2>/dev/null`.
+    if [[ ! "$java_version" =~ ^[0-9]+$ ]]; then
+        log_error "Could not read a Java version. First line of 'java -version':"
+        log_error "  $(printf '%s\n' "$raw" | head -n1)"
         return 1
     fi
 
@@ -334,23 +633,121 @@ check_datomic_installed() {
 # Process Management
 # -----------------------------------------------------------------------------
 
+# Signal a process. On Windows the PIDs we discover come from netstat -ano and
+# are native Windows PIDs, which Git Bash's `kill` cannot reliably signal — so
+# stop.sh would report success while the process kept holding the port. The
+# leading `//` stops MSYS rewriting /PID into a path.
+signal_pid() {
+    local pid="$1" sig="${2:-TERM}"
+    if is_windows; then
+        # A pid here can be either kind: find_service_pids checks the PID FILE
+        # first, which holds an MSYS pid (written from $! by start.sh), and only
+        # falls back to netstat -ano, which yields a native Windows pid. `kill`
+        # handles the first, taskkill the second, and neither handles both — so
+        # try kill, then taskkill.
+        kill "-$sig" "$pid" 2>/dev/null && return 0
+        if [[ "$sig" == "KILL" ]]; then
+            taskkill //PID "$pid" //F >/dev/null 2>&1
+        else
+            taskkill //PID "$pid" >/dev/null 2>&1
+        fi
+    else
+        kill "-$sig" "$pid" 2>/dev/null
+    fi
+}
+
+# Is this PID still alive?
+pid_alive() {
+    local pid="$1"
+    if is_windows; then
+        # Same two-kinds-of-pid problem as signal_pid: ask both.
+        kill -0 "$pid" 2>/dev/null && return 0
+        tasklist //FI "PID eq $pid" 2>/dev/null | grep -qE "[[:space:]]${pid}[[:space:]]"
+    else
+        kill -0 "$pid" 2>/dev/null
+    fi
+}
+
+# When the JVM dies with "Address already in use", say why in terms the user can
+# act on. This runs AFTER lein exits, which is the only moment it can: the REPL
+# holds the terminal while it lives, so nothing downstream runs until it stops.
+# The pre-flight check cannot cover this case — a port RESERVED by Windows reads
+# as free to every listing tool, right up until bind fails.
+explain_bind_failure() {
+    local port="$1"
+    local pids
+    pids="$(find_pids_by_port "$port")"
+    if [[ -n "${pids// /}" ]]; then
+        echo ""
+        log_error "The server could not bind port $port."
+        log_error "Something is already listening on it (PID: $pids)."
+        if is_windows; then
+            log_error "  Stop it with:  taskkill /PID ${pids%% *} /F"
+        else
+            log_error "  Stop it with:  kill ${pids%% *}"
+        fi
+        return
+    fi
+
+    if is_windows && command -v netsh >/dev/null 2>&1; then
+        local ranges reserved=""
+        ranges="$(netsh interface ipv4 show excludedportrange protocol=tcp 2>/dev/null | tr -d '\r')"
+        while read -r lo hi _rest; do
+            [[ "$lo" =~ ^[0-9]+$ ]] || continue
+            [[ "$hi" =~ ^[0-9]+$ ]] || continue
+            if (( port >= lo && port <= hi )); then reserved="$lo-$hi"; fi
+        done <<< "$ranges"
+        if [[ -n "$reserved" ]]; then
+            echo ""
+            log_error "The server could not bind port $port."
+            log_error "Nothing is listening, but Windows has RESERVED $port (range $reserved)."
+            log_error "  Hyper-V/WSL2/Docker take these ranges. In an admin terminal:"
+            log_error "      net stop winnat && net start winnat"
+            return
+        fi
+    fi
+
+    # Nothing holds the port and it is not reserved, so there is no evidence
+    # this was a bind failure at all — lein exits non-zero for ordinary reasons
+    # too, Ctrl+C among them. Saying "could not bind" here would be crying wolf
+    # after a normal shutdown, so say nothing.
+    return 0
+}
+
+# Which REPL mode should the server start in?
+#
+# Git Bash reports stdin as a terminal, so the old `[[ -t 0 ]]` test chose the
+# interactive REPL there — but its terminal is not a Windows console. The REPL
+# prints its prompt, exits immediately, and takes the already-bound server down
+# with it ("Subprocess failed (exit code: 1)" / "Bye for now!"). Headless is the
+# same server without that passenger, so Windows always gets headless.
+repl_mode() {
+    if is_windows; then
+        echo headless
+    elif [[ -t 0 ]]; then
+        echo interactive
+    else
+        echo headless
+    fi
+}
+
 # Graceful shutdown with SIGKILL fallback
 kill_gracefully() {
     local pid="$1"
     local wait_secs="${2:-$KILL_WAIT}"
 
     # Try SIGTERM first
-    kill -TERM "$pid" 2>/dev/null || return 0
+    signal_pid "$pid" TERM || return 0
 
     # Wait for process to exit
     for ((i=0; i<wait_secs; i++)); do
-        kill -0 "$pid" 2>/dev/null || return 0
+        pid_alive "$pid" || return 0
         sleep 1
     done
 
     # Process still running - escalate to SIGKILL
     log_warn "Process $pid didn't stop gracefully, sending SIGKILL"
-    kill -KILL "$pid" 2>/dev/null || true
+    signal_pid "$pid" KILL || true
 }
 
 # Clean up stale PID files

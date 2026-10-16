@@ -3,7 +3,8 @@
    a PAGE's address rather than the picture's, a missing scheme, an http link the browser
    will refuse. Advisory only and may be wrong; nothing here blocks anything, since server
    address validation and browser CORS enforce what must hold."
-  (:require [clojure.string :as s]))
+  (:require [clojure.string :as s]
+            [orcpub.common :as common]))
 
 (def ^:private page-not-picture
   "Addresses of pages that SHOW a picture, which people paste far more often than
@@ -47,7 +48,7 @@
   "The host part of an http(s) address, lower-cased, or nil."
   [url]
   (some-> (second (re-find #"(?i)^https?://([^/?#]+)" url))
-          s/lower-case
+          common/ascii-lower-case
           (s/replace #":\d+$" "")))
 
 (defn- known-image-host? [url]

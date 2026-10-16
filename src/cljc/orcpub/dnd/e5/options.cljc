@@ -29,6 +29,7 @@
             [orcpub.dnd.e5.skills :as skills]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.event-handlers :as eh]
+            [orcpub.dnd.e5.homebrew-guard :as guard]
             [orcpub.components :as comps]
             [re-frame.core :refer [dispatch subscribe]]
             [re-frame.db])
@@ -1430,7 +1431,7 @@
                        all-weapons-map (mi/compute-all-weapons-map
                                         ;; include view-once shared custom items so their conditional modifiers apply too
                                         (concat (get @re-frame.db/app-db ::mi/custom-items)
-                                                (get @re-frame.db/app-db :shared-custom-items)))]
+                                                (mi/shared-custom-items @re-frame.db/app-db)))]
                    (and main-hand-weapon
                         (-> all-weapons-map
                             main-hand-weapon
@@ -2014,7 +2015,7 @@
                                      all-weapons-map (mi/compute-all-weapons-map
                                                       ;; include view-once shared custom items so their conditional modifiers apply too
                                         (concat (get @re-frame.db/app-db ::mi/custom-items)
-                                                (get @re-frame.db/app-db :shared-custom-items)))]
+                                                (mi/shared-custom-items @re-frame.db/app-db)))]
                                  (and main-hand-weapon
                                       (-> all-weapons-map
                                           main-hand-weapon
@@ -2660,8 +2661,16 @@
         :prereq-fn prereq-fn
         :tags #{:profs :tool-profs}}))))
 
+(defn gated
+  "`prereq-fn` carrying `gate`, data saying what opens it, as metadata (`::t/gate`), so a held pick
+   can say when it returns (picks/describe-held). `gate`: {:class-level n :class k},
+   {:total-level n}, {:first-class k} or {:not-first-class k}."
+  [gate prereq-fn]
+  (with-meta prereq-fn {::t/gate gate}))
+
 (defn first-class? [class-kw & [classes]]
-  (fn [c] (= class-kw (first (or classes (character/classes c))))))
+  (gated {:first-class class-kw}
+         (fn [c] (= class-kw (first (or classes (character/classes c)))))))
 
 (defn new-starting-equipment-selection [class-kw {:keys [name options] :as cfg}]
   (t/selection-cfg
@@ -2925,10 +2934,11 @@
                    (tool-prof-modifiers (keys tool)))}))))
 
 (defn total-levels-prereq [level & [class-key]]
-  (fn [c] (>= (if class-key
-                ((character/class-level-fn c) class-key)
-                (character/total-levels c))
-              level)))
+  (gated (if class-key {:class-level level :class class-key} {:total-level level})
+         (fn [c] (>= (if class-key
+                       ((character/class-level-fn c) class-key)
+                       (character/total-levels c))
+                     level))))
 
 (defn total-levels-prereq-2 [level & [class-key]]
   (fn [c]
@@ -3001,8 +3011,7 @@
                              (fn [selection]
                                (assoc selection
                                       ::t/prereq-fn
-                                      (fn [c] (let [total-levels (character/total-levels c)]
-                                                (>= lvl total-levels)))))
+                                      (total-levels-prereq lvl (:key cls))))
                              selections))
                           (:selections spellcasting-template))
         level-selections (mapcat
@@ -3230,8 +3239,9 @@
                            :tags #{:subclass}
                            :order 2
                            :options (conj
-                                     (map
-                                      #(subclass-option spell-lists spells-map language-map (assoc cls :key kw) %)
+                                     (keep
+                                      #(guard/guard-entry :orcpub.dnd.e5/subclasses %
+                                                           (partial subclass-option spell-lists spells-map language-map (assoc cls :key kw)))
                                       (if source (map (fn [sc] (assoc sc :source source)) subclasses) subclasses))
                                      (custom-subclass-option spell-lists spells-map weapon-map kw level-kw subclass-selection-key (some? spellcasting)))})]))
                     (when (and (not plugin?) (ability-inc-set i))
@@ -3240,8 +3250,9 @@
                       [(assoc
                         (hit-points-selection hit-die name i)
                         ::t/prereq-fn
-                        (fn [c] (or (not (= kw (first (character/classes c))))
-                                    (> i 1))))])))
+                        (gated {:not-first-class kw}
+                               (fn [c] (or (not (= kw (first (character/classes c))))
+                                           (> i 1)))))])))
       :modifiers (concat
                   (some-> levels (get i) :modifiers)
                   (traits-modifiers
@@ -3317,7 +3328,7 @@
                             spellcasting
                             multiclass-prereqs]
                      :as cls}]
-  (let [merged-class (update cls :subclasses #(into (sorted-set-by (fn [x y] (compare (:name x) (:name y)))) (concat (reverse (get plugin-subclasses-map key)) %)))
+  (let [merged-class (update cls :subclasses #(into (sorted-set-by (fn [x y] (common/safe-compare (:name x) (:name y)))) (concat (reverse (get plugin-subclasses-map key)) %)))
         kw (or key (common/name-to-kw name))
         {:keys [save skill-options skill-expertise-options multiclass-skill-options tool-options multiclass-tool-options tool]
          armor-profs :armor weapon-profs :weapon} profs
@@ -3331,8 +3342,9 @@
                                spells-map
                                (assoc spellcasting :class-key kw)
                                merged-class)
-        first-class? (fn [c] (let [first-class (first (character/classes c))]
-                               (= kw first-class)))]
+        first-class? (gated {:first-class kw}
+                            (fn [c] (let [first-class (first (character/classes c))]
+                                      (= kw first-class))))]
     (t/option-cfg
      {:name name
       :key kw
@@ -3349,7 +3361,9 @@
                     (when (seq tool-options)
                       [(tool-prof-selection tool-options :tool-selection first-class?)])
                     (when (seq multiclass-tool-options)
-                      [(tool-prof-selection multiclass-tool-options :multiclass-tool-selection (fn [c] (not= kw (first (:classes c)))))])
+                      [(tool-prof-selection multiclass-tool-options :multiclass-tool-selection
+                                            (gated {:not-first-class kw}
+                                                   (fn [c] (not= kw (first (:classes c))))))])
                     (when weapon-choices (class-weapon-options weapon-choices kw weapon-map))
                     (when armor-choices (class-armor-options armor-choices kw))
                     (when equipment-choices (class-equipment-options equipment-choices kw))
@@ -3359,7 +3373,9 @@
                     (when (seq skill-expertise-kws)
                       [(skill-expertise-selection skill-expertise-kws (:choose skill-expertise-options))])
                     (when multiclass-skill-options
-                      [(class-skill-selection multiclass-skill-options :multiclass-skill-proficiency (complement first-class?))])
+                      [(class-skill-selection multiclass-skill-options :multiclass-skill-proficiency
+                                              (gated {:not-first-class kw}
+                                                     (complement first-class?)))])
                     [(t/selection-cfg
                       {:name (str name " Levels")
                        :key :levels
