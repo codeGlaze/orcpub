@@ -3618,7 +3618,7 @@ _weapon-data-model · weapon data model_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, grey, headings, opened, owner, pill, restrains, row, shield, study, versatile, weapon
+**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, grey, headings, opened, owner, restrains, row, shield, study, versatile, weapon, white
 
 - The parts and their names
 - Agreed

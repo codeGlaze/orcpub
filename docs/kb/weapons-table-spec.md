@@ -51,11 +51,14 @@ Use these names, in this doc and in every session, so "row", "chip" and "details
 ## Open
 
 - **Working prototype:** https://claude.ai/artifact/Kf86pSNkyFi2QJEuRMQsTd. Since 2026-10-16 it merges the "9a" skin study (another agent's handoff, shared by the owner): roll tiles with a label strip (`hit`, damage type with a dot), the opened row as an inset panel, a dashed "Restrains / no roll" tile, damage-type dots with a coloured-strip player option. Kept from this spec: the app's amber gradient with white text (the study's dark-on-orange and flat new orange conflict with rules 8 and the owner's rejections), the Versatile chip and blue dice tab (the study's "1H/2H" switch drops the owner's "Versatile" label), the striped table (the study's card rows would not match Armor), the shield states. Fixed from the study: no-roll border raised to 3.6:1 or better (study 2.2:1); the study's blue die text on orange failed at 4.07:1. Proposal, not yet decided.
+- **Owner feedback on the merged prototype (2026-10-16), not yet applied:** damage-type strips should follow the theme by default (neutral dark strips with a dot on dark; coloured strips on light), player setting overrides. The Versatile chip is a downgrade from the 9a study's "1H | 2H" switch: switch to it (screen reader: "Versatile: one hand or two hands"), keeping the blue dice tab and the shield greying. This reverses rule 12's chip.
 - **Desktop layout**, **200% text** (must wrap without clipping), **the opened row**, and **Armor in the same style**: not yet designed.
 
 ## Wanted, not yet scoped
 
 - **Player customisation of these colours** (owner, 2026-10-15): the chip's state colour and similar accents as a per-player preference, saved to the account (or the browser for signed-out players). Build the colours as theme tokens from the start, so a preference is one more layer over the theme rather than a rewrite. The theme registry on `port/redesign-on-refactor` already treats themes as data with tokens and a per-token policy ([frontend-redesign-parallel-work.md](frontend-redesign-parallel-work.md)); a preference would override tokens the policy marks choosable. Saved per account needs a stored field, so it carries the usual rules for user-facing keys.
+
+- **Button text colour as a preference:** white text default, dark text as a player preference. The app already has an opt-in `.app.dark-button-text` (dark theme only) in `styles/core.clj`, so this is surfacing it. Settings menus show live example elements beside each choice (owner, 2026-10-16).
 
 ## Rejected: do not bring back
 
