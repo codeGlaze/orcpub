@@ -15,11 +15,14 @@
 
 ;; ─── Page geometry, in points ────────────────────────────────────────────────
 
-(def page-w (first (draw/page-size draw/default-page)))
-(def page-h (second (draw/page-size draw/default-page)))
+;; FNS, not defs. These were (first (draw/page-size draw/default-page)) evaluated at
+;; namespace load, which no per-document page binding could ever reach -- binding
+;; draw/*page* to :a4 would have moved the cards and left the spellbook on Letter.
+(defn page-w [] (draw/page-width 1))
+(defn page-h [] (draw/page-height 1))
 (def ^:private margin 36.0)
 (def ^:private body-top 56.0)
-(def ^:private body-bottom (- page-h 46.0))
+(defn- body-bottom [] (- (page-h) 46.0))
 (def ^:private gutter 16.0)
 (def ^:private tab-room
   "What the inset tabs take from every line: 0.35in, about 5% of the measure."
@@ -37,12 +40,12 @@
 (defn body-width
   "The width spells are laid into, in points: the page less its margins, and less the tab
    column when `tabs` is :inset."
-  [tabs] (- page-w (* 2 margin) (if (= :inset tabs) tab-room 0)))
+  [tabs] (- (page-w) (* 2 margin) (if (= :inset tabs) tab-room 0)))
 
 (defn capacity
   "The height spells are laid into on one page."
   []
-  (- body-bottom body-top))
+  (- (body-bottom) body-top))
 
 ;; ─── Text ────────────────────────────────────────────────────────────────────
 
@@ -874,7 +877,7 @@
   "Draws the inset level tabs down the right edge of `page`, one per level up to `max-level`,
    filled for the levels on the page."
   [cs fonts page max-level]
-  (let [n (inc max-level) x (- page-w 18 15) top (+ body-top 4) bottom (- body-bottom 4)
+  (let [n (inc max-level) x (- (page-w) 18 15) top (+ body-top 4) bottom (- (body-bottom) 4)
         th (min 36 (/ (- bottom top (* 3 (dec n))) n))]
     (doseq [l (range n) :let [ty (+ top (* l (+ th 3))) on? (contains? (:levels page) l)]]
       (gray! cs ink)
@@ -891,13 +894,13 @@
   (let [names (->> classes (keep #(emblems/authors (:icon %))) distinct)]
     (when (seq names)
       (let [t (str "Class emblems by " (s/join ", " names) ", from game-icons.net under CC BY 3.0")]
-        (text! cs (:italic fonts) 5.4 (- (+ margin (/ w 2)) (/ (width (:italic fonts) 5.4 t) 2)) (- page-h 8) t
+        (text! cs (:italic fonts) 5.4 (- (+ margin (/ w 2)) (/ (width (:italic fonts) 5.4 t) 2)) (- (page-h) 8) t
                {:color ink-2})))))
 
 (defn- footer!
   "Draws the foot of page `n`: whose spellbook it is, the page number and the site stamp."
   [cs fonts character-name n w]
-  (let [ty (- page-h 22)]
+  (let [ty (- (page-h) 22)]
     (text! cs (:plain fonts) 6.6 margin ty (str "Spellbook of " (if (s/blank? character-name) "an adventurer" character-name)) {:color ink-2})
     (folio! cs fonts (+ margin (/ w 2)) (- ty 2.4) n)
     (let [sw (spaced-width (:plain fonts) 6.6 draw/site-stamp 0.4)]
