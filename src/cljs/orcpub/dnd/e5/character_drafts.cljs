@@ -28,6 +28,15 @@
   [k]
   (and (string? k) (s/starts-with? k "new-")))
 
+;; How long a draft may go untouched before start-up removes it (plan-character-drafts.md, R8).
+(def expire-ms (* 30 24 60 60 1000))
+
+(defn expired?
+  "Whether the draft under key `k`, last edited at `touched` (ms), is old enough at `now` to remove:
+   untouched for expire-ms. A never-saved character's draft never expires; it may be the only copy."
+  [k touched now]
+  (boolean (and (not (new-key? k)) (number? touched) (> (- now touched) expire-ms))))
+
 (defn kept-key
   "The draft key that keeps a draft offered or set aside, so opening its character does not
    overwrite it: \"kept-\" and a random uuid."

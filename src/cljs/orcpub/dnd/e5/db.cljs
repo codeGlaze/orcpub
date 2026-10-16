@@ -518,6 +518,18 @@
         (when-not (drafts/tab-key) (drafts/set-tab-key! k)))))
   nil)
 
+(defn- expire-drafts!
+  "Removes drafts that drafts/expired? says are too old, except this tab's own and any another
+   open tab holds. Returns nil."
+  []
+  (let [now (.now js/Date)
+        own (drafts/tab-key)]
+    (doseq [k (drafts/draft-keys)
+            :when (not (or (= k own) (drafts/live-elsewhere? k now)))
+            :when (drafts/expired? k (:draft/touched (get-local-storage-item (drafts/storage-key k))) now)]
+      (drafts/remove-draft! k)
+      (drafts/unmark-live! k))))
+
 (defn- draft-to-restore
   "The draft key this tab opens at start-up: its own when stored; else the most recently edited
    draft of a never-saved character that no other open tab holds; else nil. Only drafts the
@@ -538,11 +550,12 @@
 (re-frame/reg-cofx
  :local-store-character
  ;; This tab's builder draft, read at start-up: see draft-to-restore. Also moves the old single
- ;; slot and starts the live mark that tells other tabs this draft is open here.
+ ;; slot, removes expired drafts, and starts the live mark that tells other tabs this one is open.
  (fn [cofx _]
    (assoc cofx :local-store-character
           (when js/window.localStorage
             (migrate-legacy-draft!)
+            (expire-drafts!)
             (drafts/start-heartbeat!)
             (when-let [k (draft-to-restore)]
               (drafts/set-tab-key! k)

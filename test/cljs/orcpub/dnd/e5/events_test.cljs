@@ -1870,6 +1870,42 @@
       (is (= [[::char5e/save-character 111]] @sent))
       (finally (reset! autosave-fx/unconfirmed-saves before)))))
 
+(def ^:private changed-elsewhere
+  "A 409 for a builder Save of character 111: stored now as \"Theirs\" at version 2."
+  {:status 409
+   :body {:error :stale-character
+          :current (char5e/to-strict {:db/id 111 ::entity/version 2 ::entity/values {char-name "Theirs" hp 5}})}})
+
+(deftest a-builder-save-refused-as-out-of-date-says-what-differs
+  (reset! app-db (assoc pristine-db :character {:db/id 111 :changed true ::entity/version 1
+                                                ::entity/values {char-name "Mine" hp 5}}))
+  (rf/dispatch-sync [::char5e/builder-save-refused {:epoch 0} changed-elsewhere])
+  (let [fields (get-in @app-db [:draft/conflict :fields])]
+    (is (= [{:label "Character Name" :mine "Mine" :saved "Theirs"}] fields)
+        "only the field that differs, with both values"))
+  (is (= "Mine" (get-in @app-db [:character ::entity/values char-name])) "the builder keeps its copy meanwhile"))
+
+(deftest save-mine-takes-the-stored-version-so-the-next-save-goes-through
+  (reset! app-db (assoc pristine-db :character {:db/id 111 :changed true ::entity/version 1
+                                                ::entity/values {char-name "Mine"}}))
+  (rf/dispatch-sync [::char5e/builder-save-refused {:epoch 0} changed-elsewhere])
+  (rf/dispatch-sync [::char5e/keep-mine])
+  (is (= 2 (get-in @app-db [:character ::entity/version])))
+  (is (= "Mine" (get-in @app-db [:character ::entity/values char-name])))
+  (is (nil? (:draft/conflict @app-db))))
+
+(deftest use-saved-loads-the-saved-copy-and-keeps-mine-as-a-draft
+  (let [written (atom nil)]
+    (with-fx {::events/write-draft #(reset! written %) :dispatch identity}
+      (fn []
+        (reset! app-db (assoc pristine-db :character {:db/id 111 :changed true ::entity/version 1
+                                                      ::entity/values {char-name "Mine"}}))
+        (rf/dispatch-sync [::char5e/builder-save-refused {:epoch 0} changed-elsewhere])
+        (rf/dispatch-sync [::char5e/use-saved])
+        (is (= "Theirs" (get-in @app-db [:character ::entity/values char-name])))
+        (is (= "Mine" (get-in (:draft @written) [::se/values char-name])) "mine is kept in Unsaved drafts")
+        (is (nil? (:draft/conflict @app-db)))))))
+
 (deftest level-up-opens-the-stored-copy-only-when-the-builder-has-another-character
   (let [dispatched (atom nil)]
     (with-fx {:dispatch #(reset! dispatched %)}

@@ -142,6 +142,7 @@
 (reg-sub ::char5e/draft-held (fn [db _] (:draft/held db)))
 (reg-sub ::char5e/draft-offer (fn [db _] (:draft/offer db)))
 (reg-sub ::char5e/draft-restored (fn [db _] (:draft/restored db)))
+(reg-sub ::char5e/draft-conflict (fn [db _] (:draft/conflict db)))
 
 (reg-sub-raw
  :portrait/artist-overrides

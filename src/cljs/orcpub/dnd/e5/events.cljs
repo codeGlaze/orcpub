@@ -847,7 +847,8 @@
                :url (url-for-route routes/dnd-e5-char-list-route)
                :transit-params (assoc strict :orcpub.entity.strict/summary summary)
                :on-success [:character-save-success
-                            {:epoch (:character-epoch db' 0)}]}}
+                            {:epoch (:character-epoch db' 0)}]
+               :on-failure [::char5e/builder-save-refused {:epoch (:character-epoch db' 0)}]}}
        {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))
 
 (reg-event-fx
@@ -2548,7 +2549,7 @@
    cleared, then the hold or the offer set. The opened character's :draft/base is recorded."
   [db {:keys [decision draft kept-key]}]
   (let [db (-> db
-               (dissoc :draft/held :draft/offer :draft/restored)
+               (dissoc :draft/held :draft/offer :draft/restored :draft/conflict)
                (update :character #(cond-> % (and (:db/id %) (nil? (:draft/base %)))
                                      (assoc :draft/base (stored-version %)))))]
     (case decision
@@ -3867,6 +3868,64 @@
  ;; The draft stored under the key the event names (its second element).
  (fn [cofx _]
    (assoc cofx ::stored-draft (some-> (get-in cofx [:event 1]) str read-draft))))
+
+(defn- shown-value
+  "`v` as the conflict details show it: text and numbers as they are, anything else nil."
+  [v]
+  (when (or (string? v) (number? v)) (str v)))
+
+(defn differing-fields
+  "What differs between builder characters `mine` and `saved`: each values field and each top-level
+   choice (race, class...), as {:label :mine :saved}, the two shown as text or nil. Ids and the
+   version are ignored, and an empty value counts as none. Sorted by label."
+  [mine saved]
+  (let [values (fn [c] (into {} (remove (fn [[_ v]] (and (coll? v) (empty? v)))) (::entity/values c)))
+        choices (fn [c] (entity/remove-ids (::entity/options c)))
+        field (fn [label a b] {:label label :mine (shown-value a) :saved (shown-value b)})]
+    (->> (concat
+          (for [k (distinct (concat (keys (values mine)) (keys (values saved))))
+                :let [a (get (values mine) k) b (get (values saved) k)]
+                :when (not= a b)]
+            (field (common/kw-to-name k true) a b))
+          (for [k (distinct (concat (keys (choices mine)) (keys (choices saved))))
+                :let [a (get (choices mine) k) b (get (choices saved) k)]
+                :when (not= a b)]
+            (field (common/kw-to-name k true)
+                   (some-> (::entity/key a) (common/kw-to-name true))
+                   (some-> (::entity/key b) (common/kw-to-name true)))))
+         (sort-by :label)
+         vec)))
+
+(reg-event-fx
+ ::char5e/builder-save-refused
+ ;; A builder Save the server refused. A 409 :stale-character (saved elsewhere since it was opened)
+ ;; keeps the builder's copy and asks which to keep; anything else is the generic error.
+ (fn [{:keys [db]} [_ _ {:keys [status body]}]]
+   (if-let [current (when (and (= 409 status) (= :stale-character (:error body)))
+                      (some-> (:current body) char5e/from-strict))]
+     {:db (assoc db :draft/conflict {:current current
+                                     :fields (differing-fields (:character db) current)})}
+     {:dispatch (event-utils/show-generic-error)})))
+
+(reg-event-db
+ ::char5e/keep-mine
+ ;; The builder's copy takes the stored version, so the Save that follows replaces the other.
+ (fn [db _]
+   (cond-> (dissoc db :draft/conflict)
+     (get-in db [:draft/conflict :current ::entity/version])
+     (assoc-in [:character ::entity/version] (get-in db [:draft/conflict :current ::entity/version])))))
+
+(reg-event-fx
+ ::char5e/use-saved
+ ;; Loads the stored character into the builder; the builder's copy goes to Unsaved drafts.
+ [db-char->local-store]
+ (fn [{:keys [db]} _]
+   (when-let [current (get-in db [:draft/conflict :current])]
+     {:db (-> (character-updated db [nil current]) (dissoc :draft/conflict))
+      ::write-draft {:key (drafts/kept-key)
+                     :draft (character->draft (:character db) (.now js/Date)
+                                              (get-in db [:user-data :user-data :username]))}
+      :dispatch [::char5e/load-drafts]})))
 
 (reg-event-fx
  ::char5e/load-drafts

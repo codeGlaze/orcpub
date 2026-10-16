@@ -14,6 +14,8 @@
 //   R5  offered once; afterwards listed in the builder and on the character list; Discard removes it
 //   R6  Restore, then Undo and Redo
 //   R7  the same character open in another tab is held until Edit here, its draft left alone
+//   R8  drafts untouched for 30 days go at start-up, except a never-saved character's
+//   a builder Save refused as out of date: the notice, Details, Use saved and Save mine
 //
 // Needs:     the real app at :8890 (lein fig:build, then lein e2e-server); E2E_CHARACTER_ID and
 //            E2E_HOMEBREW_CHARACTER_ID, set by run.sh.
@@ -290,6 +292,77 @@ async function reloadBuilder(page) {
   check('R5: Discard removes it', (await listPage.locator('.drafts-list').count()) === 0
         && (await listPage.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('character-draft/kept-')).length)) === 0);
   await listPage.close();
+
+  // A builder Save refused because the character was saved elsewhere since (409): the notice says
+  // so, Details lists what differs, and the player keeps theirs or takes the saved one.
+  await reset();
+  {
+    const p = await openIn(A);
+    const refuseOnce = async () => {
+      let left = 1;
+      await p.route('**/dnd/5e/characters', async r => {
+        if (r.request().method() !== 'POST' || left-- <= 0) return r.continue();
+        const real = await r.fetch();
+        const stored = (await real.text()).replace(/(:orcpub\.dnd\.e5\.character\/character-name )"[^"]*"/, '$1"Theirs elsewhere"');
+        await r.fulfill({ status: 409, contentType: 'application/edn', body: `{:error :stale-character :current ${stored}}` });
+      });
+    };
+    const builderSave = () => p.evaluate(() => window.re_frame.core.dispatch(window.__c.vector(window.__kw('save-character'),
+      window.__c.deref(window.re_frame.core.subscribe(window.__c.vector(window.__kw('built-character')))))));
+    await p.evaluate(() => window.__d('[:update-value-field :orcpub.dnd.e5.character/character-name "Mine here"]'));
+    await refuseOnce();
+    await builderSave();
+    await p.waitForTimeout(2000);
+    check('a Save refused as out of date says so', /Saved somewhere else since you opened it/.test(await notice(p)), await notice(p));
+    await clickIn(p, '.drafts-notices', 'Details');
+    const details = await p.evaluate(() => (document.querySelector('.drafts-notices .callout-details') || {}).innerText || '');
+    check('Details lists what differs, here and saved', /Character Name/.test(details) && /Mine here/.test(details)
+          && /Theirs elsewhere/.test(details), details);
+    await clickIn(p, '.drafts-notices', 'Use saved');
+    check('Use saved loads the saved character', (await p.evaluate(() => window.__name())) === 'Theirs elsewhere');
+    check('and keeps mine in Unsaved drafts', (await listText(p)).includes('Mine here'));
+    await p.unroute('**/dnd/5e/characters');
+
+    await p.evaluate(() => window.__d('[:update-value-field :orcpub.dnd.e5.character/character-name "Mine again"]'));
+    await refuseOnce();
+    await builderSave();
+    await p.waitForTimeout(2000);
+    const saved = p.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === '/dnd/5e/characters',
+                                    { timeout: 20000 }).catch(() => null);
+    await clickIn(p, '.drafts-notices', 'Save mine');
+    const reply = await saved;
+    check('Save mine saves my version over the other', reply && reply.status() === 200 && (await reply.text()).includes('Mine again'),
+          reply ? reply.status() : 'no save');
+    await p.unroute('**/dnd/5e/characters');
+    await closeTab(p);
+  }
+
+  // R8: at start-up, drafts untouched for 30 days go, except a never-saved character's, which may be
+  // the only copy of it.
+  {
+    const old = Date.now() - 31 * 24 * 60 * 60 * 1000, recent = Date.now() - 2 * 24 * 60 * 60 * 1000;
+    const ctx3 = await newContext(browser);
+    await ctx3.addInitScript(([old, recent]) => {
+      if (localStorage.getItem('expiry-seeded')) return;
+      const draft = (nm, t) => `{:orcpub.entity.strict/values {:orcpub.dnd.e5.character/character-name "${nm}"} :changed true :draft/touched ${t}}`;
+      localStorage.setItem('character-draft/12345', draft('Old saved', old));
+      localStorage.setItem('character-draft/kept-old', draft('Old kept', old));
+      localStorage.setItem('character-draft/new-old', draft('Old never saved', old));
+      localStorage.setItem('character-draft/23456', draft('Recent saved', recent));
+      localStorage.setItem('expiry-seeded', '1');
+    }, [old, recent]);
+    const p = await ctx3.newPage();
+    p.on('pageerror', e => jsErrors.push(e.message));
+    await p.goto(`${BASE}/pages/dnd/5e/spells`, { waitUntil: 'networkidle' });
+    await p.waitForTimeout(1000);
+    const left = await p.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('character-draft/')).sort());
+    check('R8: drafts untouched for 30 days are removed at start-up',
+          !left.includes('character-draft/12345') && !left.includes('character-draft/kept-old'), JSON.stringify(left));
+    check('R8: but never a never-saved character\'s, which may be its only copy',
+          left.includes('character-draft/new-old'), JSON.stringify(left));
+    check('R8: and recent ones stay', left.includes('character-draft/23456'), JSON.stringify(left));
+    await ctx3.close();
+  }
 
   check('no page errors', jsErrors.length === 0, jsErrors.slice(0, 3).join(' | '));
   await browser.close();

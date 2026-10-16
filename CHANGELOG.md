@@ -70,7 +70,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** pages and portrait images ask AI crawlers not to train on them.
 - **Characters:** unsaved changes left in a closed tab are offered once when you open that character
   again, with Undo; older ones wait in an "Unsaved drafts" list in the builder and on the character
-  list. A character open in another tab waits for "Edit here".
+  list for 30 days (a character never saved to an account is kept). A character open in another
+  tab waits for "Edit here".
 
 ### Changed
 

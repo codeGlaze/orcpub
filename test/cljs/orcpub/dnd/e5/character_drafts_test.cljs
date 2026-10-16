@@ -30,3 +30,10 @@
       (mark! (drafts/tab-id) (- now 5000))
       (is (not (drafts/live-elsewhere? k now)) "this tab's own mark is not elsewhere")
       (finally (.removeItem js/localStorage (str "draft-live/" k))))))
+
+(deftest a-draft-expires-after-30-days-unless-it-was-never-saved
+  (let [day (* 24 60 60 1000) now (* 400 day)]
+    (is (drafts/expired? "111" (- now (* 31 day)) now) "a saved character's draft")
+    (is (drafts/expired? "kept-x" (- now (* 31 day)) now) "a kept draft")
+    (is (not (drafts/expired? "111" (- now (* 29 day)) now)) "not yet")
+    (is (not (drafts/expired? "new-x" (- now (* 400 day)) now)) "a never-saved character's: never")))

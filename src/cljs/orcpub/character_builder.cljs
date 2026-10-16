@@ -2533,12 +2533,36 @@
 (defn set-loading []
   (dispatch-sync [:set-loading true]))
 
+(defn changed-elsewhere-notice
+  "\"Saved somewhere else since you opened it\" after a builder Save the server refused as out of
+   date (`conflict`: {:current :fields}): Details lists what differs, here and saved; Save mine
+   saves the builder's copy over it; Use saved loads it, keeping the builder's copy as a draft."
+  [conflict]
+  (let [open? (r/atom false)]
+    (fn [{:keys [fields]}]
+      (let [built-char @(subscribe [:built-character])
+            shown (fn [v] (or v "changed"))]
+        [notifications/callout
+         {:icon "fa-exclamation-circle orange" :tone :note :accent :brand :compact? true
+          :text [:span.main-text-color "Saved somewhere else since you opened it"]
+          :actions [{:label "Details" :link? true :expanded @open? :on-click #(swap! open? not)}
+                    {:label "Save mine" :link? true
+                     :on-click #(do (dispatch [::char5e/keep-mine])
+                                    (dispatch [:save-character built-char]))}
+                    {:label "Use saved" :link? true :on-click #(dispatch [::char5e/use-saved])}]
+          :details (when @open?
+                     (for [{:keys [label mine saved]} fields]
+                       {:key label :label label
+                        :aside (str "here: " (shown mine) " · saved: " (shown saved))}))}]))))
+
 (defn draft-notices
-  "The builder's notices about unsaved drafts, above the options: a character open in another tab
-   is held until Edit here; a leftover draft is offered once, then Undo and Redo after Restore; then
-   the list of other unsaved drafts. plan-character-drafts.md; wording in ux-guide.md (2026-10-16)."
+  "The builder's notices about unsaved drafts, above the options: a Save refused because the
+   character was saved elsewhere; a character open in another tab, held until Edit here; a
+   leftover draft offered once, then Undo and Redo; then the list of other unsaved drafts.
+   plan-character-drafts.md; wording in ux-guide.md (2026-10-16)."
   []
-  (let [held @(subscribe [::char5e/draft-held])
+  (let [conflict @(subscribe [::char5e/draft-conflict])
+        held @(subscribe [::char5e/draft-held])
         offer @(subscribe [::char5e/draft-offer])
         restored @(subscribe [::char5e/draft-restored])
         box {:tone :note :accent :brand :compact? true :icon "fa-history orange"}
@@ -2547,6 +2571,9 @@
         dismiss #(dispatch [::char5e/dismiss-draft-notice])]
     [:div.drafts-notices.m-l-10.m-r-10
      (cond
+       conflict
+       [changed-elsewhere-notice conflict]
+
        held
        (line (assoc box :icon "fa-clone orange" :text "Open in another tab"
                     :actions [(link "Edit here" [::char5e/edit-here held])]))
