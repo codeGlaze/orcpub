@@ -248,7 +248,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _ac-tests-and-modifier-order · ac tests and modifier order_
 
-**topics:** 2026-10-06, archmagi, bonus, bracers, calculation, codeglaze, competing, higher, ignoring, lizardfolk, modifiers, order, ring, robe, shield, sorts, tortle, worn
+**topics:** 2026-10-06, archmagi, bonus, bracers, calculation, codeglaze, competing, higher, ignoring, listed, lizardfolk, modifiers, order, ring, robe, shield, tortle, worn
 
 - What it looked like
 - Why it is not a bug
@@ -1484,7 +1484,7 @@ _empty-keyword-corruption · empty keyword corruption_
 
 _entity-options-architecture · entity options architecture_
 
-**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, indices, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, vector, weapons
+**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, indices, initialized, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, vector
 
 - Character Entity Structure
 - Single-select → MAP (no vector index in path)
@@ -1561,7 +1561,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** 2026-10-15, 400px, ammunition, attacks, content-naming-style, damage, dash, deals, dexterity, die, difference, longbow, net, open5e, restrains, spiked, srd, weapons
+**topics:** 2026-10-15, 400px, ammunition, attacks, content-naming-style, damage, dash, dexterity, die, difference, longbow, net, open5e, pdf, restrains, spiked, srd, weapons
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -2127,7 +2127,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, number, quarantined, repair, restore, translator, unnamed, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, quarantined, repair, restore, translator, unnamed, wind, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -2343,7 +2343,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 2026-10-07, 760, 995, higher-level, hyphen, open5e, open5e-api, parser, pdf, records, slot, spell, srd, srd-2014, srd-2024, text, transcript, wording
+**topics:** 2026-10-07, 760, 995, documents, higher-level, hyphen, open5e, open5e-api, parser, pdf, records, slot, spell, srd, srd-2014, srd-2024, text, transcript
 
 - Where the fixes live
 - Filed upstream (2026-10-08)
@@ -2665,7 +2665,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** 2026-10-16, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, undo, unsaved
+**topics:** 2026-10-16, draft, drafts, edit, elsewhere, expire, expires, leftover, never-saved, notice, owner, rescue, restore, saved, start-up, tab, undo, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)
@@ -2702,7 +2702,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** 2026-09-10, beast, card, cards, companion, creature, discarded, druid, familiar, foundry, machinery, master, monster, moon, per-form, sidekicks, taxonomy, wild
+**topics:** 2026-09-10, beast, card, cards, companion, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, shape, sidekicks, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -2897,7 +2897,7 @@ _reagent-architecture-tenets · reagent architecture tenets_
 
 _reframe-subscription-patterns · reframe subscription patterns_
 
-**topics:** 401, api-backed, app-db, auth, auth-state-in-app-db, context, counter, decrement, deref, fire, guard, http, loading, non-reactive, reaction, reactive, redirect, subscriptions
+**topics:** 401, api-backed, app-db, auth, auth-state-in-app-db, context, counter, decrement, deref, guard, http, loading, login, non-reactive, reaction, reactive, redirect, subscriptions
 
 - reg-sub-raw HTTP Pattern
 - Lifecycle
@@ -3233,7 +3233,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, crest, figures, flame, head, heading, old-style, opentype, packed, pact, prep, re-split, spell, spellbook, taller
+**topics:** cards, chapter, column, columns, crest, figures, head, heading, level, old-style, opentype, packed, pact, prep, re-split, spell, spellbook, taller
 
 - What it prints
 - Why the layout works the way it does
@@ -3303,7 +3303,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 5etools, data, edition, editions, magic, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-06, 5etools, data, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3488,7 +3488,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** assertions, browser, classpath, cljs-headless-harness, compile, conditionals, designed, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
+**topics:** 2026-02-18, assertions, browser, classpath, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners
@@ -3614,11 +3614,23 @@ _weapon-data-model · weapon data model_
 - Invariants, verified against the data
 - Authoring against these
 
+## weapons-extra-damage-handoff.md
+
+_weapons-extra-damage-handoff · weapons extra damage handoff_
+
+**topics:** 1d8, 2d6, ablaze, blade, colour, damage, deals, extra, frost, radiant, roll, strip, sun, thunder, tile, tongue, undead, weapons-table-spec
+
+- The problem
+- The five cases, from SRD 5.1 (text checked)
+- What is decided and must not change
+- The squeeze
+- Please deliver
+
 ## weapons-table-spec.md
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, theme, versatile, weapon, white
+**topics:** 2026-10-15, amber, blue, button, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, versatile, weapon, white
 
 - The parts and their names
 - Agreed
