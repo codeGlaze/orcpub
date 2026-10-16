@@ -2800,9 +2800,12 @@
            shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
            share-token (update :dispatch-n conj [::e5/load-shared-homebrew (:id route-params) share-token])
            event (update :dispatch-n conj event)
-           ;; The heal waits for the template's offered keys, so a page showing a character
-           ;; starts building it; other pages build nothing (homebrew-safety-net.md).
-           (#{routes/dnd-e5-char-builder-route routes/dnd-e5-char-page-route} (or handler new-route))
+           ;; The template's offered keys feed the heal on a character's pages and the repair panel
+           ;; and missing-link marks on My Content and its builders, so those pages start
+           ;; building it; other pages build nothing (homebrew-safety-net.md).
+           (let [r (or handler new-route)]
+             (or (#{routes/dnd-e5-char-builder-route routes/dnd-e5-char-page-route} r)
+                 (routes/dnd-e5-my-content-routes r)))
            (assoc ::autosave-fx/ensure-template-cache true)
            ;; After [:hide-message] above: dispatch-n is FIFO, so the toast survives navigation.
            (heal-announcement (assoc db :route new-route))
