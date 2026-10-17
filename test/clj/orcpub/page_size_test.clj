@@ -5,6 +5,7 @@
    returned 11, and every baseline stayed byte-identical -- correctly, because nothing
    had changed. Nothing tested a non-Letter page, so nothing caught it. This does."
   (:require [clojure.test :refer [deftest testing is]]
+            [orcpub.routes :as routes]
             [orcpub.pdf-ops :as ops]
             [orcpub.pdf.draw :as draw]
             [orcpub.pdf.cards :as cards]
@@ -95,3 +96,25 @@
                         (ops/page-ops pg)))))]
       (is (not= (sheet :letter) (sheet :a4))
           "if these match, the page is being consulted and discarded again"))))
+
+(deftest the-request-option-is-validated
+  (testing "the three we design for are accepted"
+    (doseq [p [:letter :a4 :a5]]
+      (is (= p (#'routes/one-of routes/valid-page-sizes p :letter)))))
+  (testing "a string names the same page, as the client sends it"
+    (is (= :a4 (#'routes/one-of routes/valid-page-sizes "a4" :letter))))
+  (testing "anything else falls back to Letter rather than throwing.
+
+            A typo in an option must not cost someone their sheet -- the same rule
+            valid-sheet-styles follows for an unknown style id."
+    (doseq [v [:a3 :tabloid "nonsense" nil 7 {:a 1}]]
+      (is (= :letter (#'routes/one-of routes/valid-page-sizes v :letter))
+          (str "unexpected acceptance of " (pr-str v))))))
+
+(deftest page-size-is-stripped-before-the-fields-are-written
+  (testing "it names no box, so it must be in pdf-option-keys.
+
+            Without it write-fields! reports it unplaceable on EVERY request -- and
+            those reports now reach the user on the notice page, so every single
+            export would carry a spurious warning."
+    (is (contains? @#'routes/pdf-option-keys :page-size))))

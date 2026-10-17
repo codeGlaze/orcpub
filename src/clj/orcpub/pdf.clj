@@ -1364,12 +1364,15 @@
             java.net.SocketTimeoutException :timeout
             :unknown)))))
 
-(defn fetch-image-outcome
-  "Fetches `url` and returns {:image {:data :jpg?}} or {:reason keyword}.
+(def ^:private retry-once-on
+  "Reasons a second attempt can plausibly succeed AND the first one failed cheaply.
 
-   The reason is what lets the builder say something a person can act on -- a 404
-   and a 2 MB photograph are the same blank space on the sheet otherwise."
-  [url]
+   NOT :timeout -- it already spent image-transfer-deadline-ms holding an export slot,
+   and a retry spends it again. NOT :rate-limited -- the host asked us to slow down.
+   The rest are permanent: a 404 is a 404 twice."
+  #{:unreachable :host-error})
+
+(defn- attempt-image [url]
   (try
     (if-let [image (fit-for-sheet (safe-image-bytes url))]
       {:image image}
@@ -1377,6 +1380,23 @@
     (catch Exception e
       (println "pdf: image unavailable -" (.getMessage e) "-" url)
       {:reason (failure-reason e)})))
+
+(defn fetch-image-outcome
+  "Fetches `url` and returns {:image {:data :jpg?}} or {:reason keyword}, retrying once
+   for the reasons in `retry-once-on`.
+
+   The reason is what lets the builder say something a person can act on -- a 404
+   and a 2 MB photograph are the same blank space on the sheet otherwise."
+  [url]
+  (let [outcome (attempt-image url)]
+    (if (retry-once-on (:reason outcome))
+      ;; Immediately, with no sleep: a sleep holds the export slot too, and these two
+      ;; reasons fail fast enough that a second go is cheap.
+      (let [again (attempt-image url)]
+        (when (:image again)
+          (println "pdf: image recovered on retry -" url))
+        again)
+      outcome)))
 
 (defn fetch-image
   "Fetches `url` and returns {:data bytes :jpg? bool}, or nil if it cannot be had;
