@@ -6,7 +6,13 @@
    meaningfully unit-testable without a DOM + a mounted re-frame app, so they
    are not covered here. The one piece of pure, side-effect-free logic that
    drives the diagnostics — blank-feature-name? — is tested directly."
-  (:require [cljs.test :refer-macros [deftest testing is]]
+  (:require [cljs.test :refer-macros [deftest testing is async]]
+            [cljs.reader :as reader]
+            [re-frame.core :as rf]
+            [orcpub.pdf-spec :as pdf-spec]
+            [orcpub.dnd.e5.character :as char]
+            [orcpub.dnd.e5.portrait :as portrait]
+            [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-resolution]))
@@ -80,3 +86,79 @@
     (let [body (message-body "just this")]
       (is (= [:div.message-title "just this"] (nth body 1)))
       (is (empty? (vec (nth body 2)))))))
+
+;; ---- PDF export: nothing optional may stop it ----
+
+(defn- with-download-form
+  "Runs `f` with the page's download form in the DOM; its submits are recorded, not sent. Returns
+   an atom of the specs submitted, each read back from the form's field."
+  [f]
+  (let [form (.createElement js/document "form")
+        field (.createElement js/document "input")
+        sent (atom [])]
+    (set! (.-id form) "download-form")
+    (set! (.-id field) "fields-input")
+    (.appendChild form field)
+    (.appendChild (.-body js/document) form)
+    (set! (.-submit form) #(swap! sent conj (reader/read-string (.-value field))))
+    (let [open (.-open js/window)]
+      (set! (.-open js/window) (constantly nil))
+      (try (f sent) (finally (.remove form) (set! (.-open js/window) open))))
+    sent))
+
+(def ^:private undrawable {:layers {:head {:asset/id :not-on-this-site}}})
+
+(defn- export!
+  "Presses Create PDF for an empty character, as the export button's handler does. Returns nil."
+  []
+  ((views/export-pdf {} 1 {}) nil))
+
+(deftest a-portrait-this-site-cannot-draw-does-not-stop-the-export
+  (with-redefs [pdf-spec/make-spec (constantly {:name "Bree"})
+                char/portrait (constantly undrawable)]
+    (let [sent (with-download-form (fn [_] (export!)))]
+      (is (= 1 (count @sent)) "the PDF is sent at once")
+      (is (nil? (:portrait-png (first @sent))) "without a portrait"))))
+
+(deftest a-bake-that-throws-does-not-stop-the-export
+  (with-redefs [pdf-spec/make-spec (constantly {:name "Bree"})
+                char/portrait (constantly {:layers {:head {}}})
+                pa/drawable? (constantly true)
+                portrait/baked-png (constantly nil)
+                portrait/bake-ahead! (fn [_] (throw (js/Error. "canvas refused")))]
+    (let [sent (with-download-form (fn [_] (export!)))]
+      (is (= 1 (count @sent)) "the PDF is sent without the portrait"))))
+
+(deftest a-bake-that-never-finishes-does-not-hold-the-export
+  (async done
+    (let [sent (atom [])
+          open (.-open js/window)
+          form (.createElement js/document "form")
+          field (.createElement js/document "input")]
+      (set! (.-id form) "download-form")
+      (set! (.-id field) "fields-input")
+      (.appendChild form field)
+      (.appendChild (.-body js/document) form)
+      (set! (.-submit form) #(swap! sent conj (.-value field)))
+      (set! (.-open js/window) (constantly nil))
+      (with-redefs [pdf-spec/make-spec (constantly {:name "Bree"})
+                    char/portrait (constantly {:layers {:head {}}})
+                    pa/drawable? (constantly true)
+                    portrait/baked-png (constantly nil)
+                    portrait/bake-ahead! (fn [_] (js/Promise. (fn [_ _])))
+                    views/portrait-wait-ms 30]
+        (export!))
+      (js/setTimeout (fn []
+                       (is (= 1 (count @sent)) "after the wait the PDF goes without the portrait")
+                       (.remove form)
+                       (set! (.-open js/window) open)
+                       (done))
+                     300))))
+
+(deftest a-character-the-pdf-cannot-be-made-for-says-so
+  (let [shown (atom nil)]
+    (with-redefs [pdf-spec/make-spec (fn [& _] (throw (js/Error. "no class")))
+                  rf/dispatch #(reset! shown %)]
+      (let [sent (with-download-form (fn [_] (export!)))]
+        (is (empty? @sent))
+        (is (= :show-error-message (first @shown)) "the player is told, not left with nothing")))))

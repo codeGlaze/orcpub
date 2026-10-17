@@ -19,6 +19,8 @@
 //      logged-out path again at phone width.
 //   9. Offline: a loaded character stays usable with no connection; a sheet edit made offline
 //      and a builder edit saved once back online both reach the server.
+//  10. PDF export is never stopped by something missing: a blank new character, a broken picture
+//      address, and a homebrew character in a browser without that homebrew all produce a PDF.
 //
 // Every step also fails on a page error or an error banner. A step that cannot finish says
 // which, saves a screenshot to OUT, and the run carries on with the next independent part.
@@ -369,6 +371,25 @@ async function plainCharacter(page, name, race = 'Dwarf') {
   await standardScores(page);
 }
 
+// Exports the character open in the builder of `page`'s context through Export -> sheet style ->
+// Create PDF, and returns the PDF request's status and content type ('' when none was sent).
+async function exportPdf(ctx, page) {
+  let result = { status: 0, type: '' };
+  const seen = r => { if (r.url().includes('/character.pdf') && r.request().method() === 'POST')
+    result = { status: r.status(), type: r.headers()['content-type'] || '' }; };
+  ctx.on('response', seen);
+  const visible = async loc => { for (let i = 0; i < await loc.count(); i++) if (await loc.nth(i).isVisible()) return loc.nth(i);
+                                 throw new Error('no visible ' + loc); };
+  await (await visible(page.locator('button:has-text("Export")'))).click();
+  await page.waitForTimeout(1200);
+  await (await visible(page.locator('select'))).selectOption('1');
+  await page.waitForTimeout(600);
+  await (await visible(page.locator('button:has-text("Create PDF")'))).click();
+  for (let t = 0; t < 40 && !result.status; t++) await page.waitForTimeout(500);
+  ctx.off('response', seen);
+  return result;
+}
+
 async function page2Name(page, name) {
   await page.waitForSelector('.builder-tab', { timeout: 30000 });
   await builderTab(page, 'DESCRIPTION');
@@ -666,6 +687,38 @@ async function logOut(page) {
     check('part 9: no page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
     await ctx.close();
   }
+  // ---- 10. PDF export is never stopped by something missing ----
+  {
+    const errors = [];
+    const ctx = await newContext(browser);
+    const page = await watchedPage(ctx, errors);
+    const isPdf = r => r.status === 200 && /pdf/.test(r.type);
+    await step(page, 'PDF of a blank new character', async () => {
+      await openBuilder(page);
+      await page.locator('button, .form-button', { hasText: /^new$/i }).first().click().catch(() => {});
+      await confirmIfAsked(page);
+      const r = await exportPdf(ctx, page);
+      check('a blank new character exports a PDF', isPdf(r), JSON.stringify(r));
+    });
+    await step(page, 'PDF with a broken picture address', async () => {
+      await plainCharacter(page, 'Broken Picture');
+      await builderTab(page, 'DESCRIPTION');
+      await (await fieldByLabel(page, 'Image URL .*')).fill('https://example.invalid/missing.png');
+      await builderTab(page, 'OPTIONS');
+      const r = await exportPdf(ctx, page);
+      check('a character with a picture that will not load exports a PDF', isPdf(r), JSON.stringify(r));
+    });
+    await login(page, 'kaylee', 'serenity99');
+    await step(page, 'PDF of a homebrew character without its homebrew', async () => {
+      await rowAction(page, 'Soak Brewed', 'EDIT');
+      await page.waitForSelector('.builder-tab', { timeout: 30000 });
+      const r = await exportPdf(ctx, page);
+      check('a homebrew character in a browser without that homebrew exports a PDF', isPdf(r), JSON.stringify(r));
+    });
+    check('part 10: no page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
+    await ctx.close();
+  }
+
   {
     const errors = [];
     const ctx = await browser.newContext({

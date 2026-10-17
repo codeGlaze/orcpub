@@ -330,25 +330,48 @@
                        (portrait-assets5e/credit-names portrait)
                        #(<= (count %) 78))}))
 
+(def portrait-wait-ms
+  "How long Create PDF waits for a portrait still baking before sending the PDF without it."
+  8000)
+
+(defn- within-wait
+  "`bake`, a promise of a portrait's base64 PNG, resolving to nil instead if it fails or is still
+   running after portrait-wait-ms. Never rejects."
+  [bake]
+  (-> (js/Promise.race #js [bake (js/Promise. (fn [ok _] (js/setTimeout #(ok nil) portrait-wait-ms)))])
+      (.catch (fn [_] nil))))
+
 (defn export-pdf
-  "An onClick handler that submits the PDF form, with the portrait `bake-portrait` baked ahead.
+  "An onClick handler that submits the PDF form for `built-char`, with its portrait when one can be
+   drawn. Nothing optional stops the export: a missing, undrawable, failing or slow portrait sends
+   the PDF without it. If the PDF's data cannot be made, the player is told.
    GOTCHA: the submit must stay inside the click or a popup blocker stops the new tab; an
-   unfinished bake opens the tab now and fills it when the bake resolves."
+   unfinished bake opens the tab now and fills it when the bake resolves or the wait runs out."
   [built-char id plugin-data & [options]]
   (fn [_]
-    (let [field (.getElementById js/document "fields-input")
-          form (.getElementById js/document "download-form")
-          spec (pdf-spec/make-spec built-char id options plugin-data)
-          portrait (char/portrait built-char)
-          submit! (fn [png-b64 target]
-                    (aset field "value" (str (merge spec (portrait-fields portrait png-b64))))
-                    (aset form "target" target)
-                    (.submit form))]
-      (if-let [[png-b64] (if (seq (:layers portrait)) (portrait/baked-png portrait) [nil])]
-        (submit! png-b64 "_blank")
-        (let [tab (str "orcpub-pdf-" (rand-int 1000000))
-              target (if (.open js/window "" tab) tab "_blank")]
-          (.then (portrait/bake-ahead! portrait) #(submit! % target)))))))
+    (try
+      (let [field (.getElementById js/document "fields-input")
+            form (.getElementById js/document "download-form")
+            spec (pdf-spec/make-spec built-char id options plugin-data)
+            portrait (char/portrait built-char)
+            submit! (fn [png-b64 target]
+                      (aset field "value" (str (merge spec (try (portrait-fields portrait png-b64)
+                                                                (catch :default _ nil)))))
+                      (aset form "target" target)
+                      (.submit form))
+            ready (when (portrait-assets5e/drawable? portrait) (portrait/baked-png portrait))]
+        (cond
+          (not (portrait-assets5e/drawable? portrait)) (submit! nil "_blank")
+          ready (submit! (first ready) "_blank")
+          :else (if-let [bake (try (portrait/bake-ahead! portrait) (catch :default _ nil))]
+                  (let [tab (str "orcpub-pdf-" (rand-int 1000000))
+                        target (if (.open js/window "" tab) tab "_blank")]
+                    (.then (within-wait bake) #(submit! % target)))
+                  (submit! nil "_blank"))))
+      (catch :default e
+        (js/console.error "PDF export could not start:" e)
+        (dispatch [:show-error-message
+                   "This character's PDF couldn't be made. Try again, or tell us with Feedback/Bug Reports at the bottom of the page."])))))
 
 (defn bake-portrait
   "Bakes the character's composed portrait on mount and whenever it or the artist credits change,
