@@ -37,10 +37,11 @@ for path in sys.stdin.read().split("\n"):
             except zlib.error: pass
     if hit: print(path)
 ')
-for f in $marked; do
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
   echo "::error file=$f::$f carries the licensed-art mark (orcpub-art). It must not be in this repository: it belongs only on the private deployment branch."
   bad=1
-done
+done <<< "$marked"
 while IFS= read -r f; do
   case "$f" in *.strands.png) continue ;; esac
   sha=$(sha256sum "$f" | cut -d' ' -f1)
