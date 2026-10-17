@@ -2346,7 +2346,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 2026-10-07, 760, 995, documents, higher-level, hyphen, open5e, open5e-api, parser, pdf, records, slot, spell, srd, srd-2014, srd-2024, text, transcript
+**topics:** 2026-10-07, 760, 995, higher-level, hyphen, open5e, open5e-api, parser, pdf, records, slot, spell, srd, srd-2014, srd-2024, text, transcript, wording
 
 - Where the fixes live
 - Filed upstream (2026-10-08)
@@ -2754,7 +2754,7 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** admin, alert, alerts, artist, credit, database, discord, email, mail, notices, outbox, retries, scheduler, send, sent, spool, swarm, webhook
+**topics:** admin, alert, alerts, database, discord, docker, email, emails, mail, notices, outbox, retries, scheduler, send, sent, spool, swarm, webhook
 
 - The problem
 - Two kinds of email

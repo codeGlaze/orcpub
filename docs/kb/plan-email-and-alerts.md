@@ -71,9 +71,15 @@ emails most likely to be sent while things are failing.
 ## Documentation
 
 - This page: the design and why, for agents.
-- With the code, for people running the site: the settings (sender, admin address, webhook secret,
-  caps), the volume for the spool, log rotation, and the Swarm advice, in `docs/ENVIRONMENT.md` and
-  the deployment notes on the branch.
+- With the code, for people running the site, **in the existing documents** (owner, 2026-10-17: group
+  new settings where they already belong; a new document only when nothing fits):
+  - `docs/email-system.md`: how player email and admin alerts work, retries, what is kept and for
+    how long; fold in or link `docs/error-email-improvements.md`, which covers error emails today.
+  - `docs/ENVIRONMENT.md`: every new setting (spool location, caps, webhook), beside the existing
+    email settings.
+  - `docs/DOCKER.md`: the spool volume, log rotation, and shared storage for Swarm.
+  - `docs/DOCKER-SECURITY.md`: the webhook address as a Docker secret.
+  - `docs/BRANDING-AND-INTEGRATIONS.md`: the Discord webhook, with the other integrations.
 
 ## Tests the build must have, each seen failing first
 
