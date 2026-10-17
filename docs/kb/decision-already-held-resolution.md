@@ -175,6 +175,11 @@ cleanup:
 With it, the seven skill/tool selection builders become expressible as grants and the collapse
 stops being hypothetical. Without it, neither the class rows nor the resolutions can be built.
 
+**Built 2026-10-17.** The selection key is `:selection-key`, since a grant's `:key` already means
+fixed. It is internal like `:prereq-fn`: it decides where picks are stored, so only a built-in
+converted to grants sets it, to keep its existing addresses. `:min` and `:order` are authored;
+the spec refuses the two internal fields in a file (`grant_selection_fields_test`).
+
 **This is not the E3/E4 question.** Those are about what *writes* the data — the builder node and
 its rows. This is about what *compiles* it. Related, and frequently confused in this
 investigation.

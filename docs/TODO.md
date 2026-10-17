@@ -46,8 +46,8 @@ remove it. Reproduced for class skills and starting equipment.
   equipment and tools remain. Thread `cls-kw` through `class-skill-selection` → `skill-selection` →
   `skill-selection-2`, attach per-arm conditions. Cuts from `integration`; verified byte-identical
   there (`0b493f6e`)
-- ☐ **Part B** — the four dropped `grant-selection` fields (`:key`, `:order`, `:prereq-fn`,
-  min≠max) plus `:if-held` as a multimethod
+- ◐ **Part B** — ☑ the four dropped `grant-selection` fields (2026-10-17: `:order`, `:min`,
+  `:selection-key`, `:prereq-fn`); ☐ the owner through `compile-grants`; ☐ `:if-held`
 
 **The already-held rule.** ☑ Measured across pools and checked against SRD text — it is general and
 covers tools (`6c1d0075`); ☑ decided it lives on the grant, not the pool (`b6d9d03d`).

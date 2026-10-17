@@ -3935,12 +3935,12 @@
      key (assoc :key key))))
 
 (defn grant-selection
-  "Compiles ONE choice entry of `:grants` — `{:pool p :count n :filter #{…}}` — against a
-   `grantable-pools` registry, into a selection-cfg carrying the pool's `:tags`.
-
-   :key entries are FIXED and compile to modifiers in `compile-grants`, not here.
-   :pool/:count, never :from/:choose — both are taken by the starting-equipment vocabulary."
-  [{:keys [pool count key] flt :filter} grantable-pools]
+  "ONE choice entry of `:grants`, `{:pool p :count n :filter #{…} :min m :order o}`, compiled
+   against `grantable-pools` into a selection-cfg carrying the pool's `:tags`. `:count` is the most
+   picked, `:min` the fewest (default `:count`). Internal only, never authored (spec rejects them):
+   `:selection-key` keeps an existing pick address; `:prereq-fn` gates display, never the build.
+   :key entries are FIXED and compile in `compile-grants`. Never :from/:choose (starting equipment)."
+  [{:keys [pool count key order selection-key prereq-fn] flt :filter least :min} grantable-pools]
   ;; CHOICE only. A :key grant is fixed and compiles to modifiers in compile-grants (D4) — it
   ;; never becomes a one-option selection here. One mechanism per job (D29).
   (when-let [{:keys [name tags options]} (when-not key (get grantable-pools pool))]
@@ -3952,14 +3952,18 @@
       ;; Top-level grants (e.g. a class's own fighting-style) carry a :ref via their own constructor.
       (t/selection-cfg
        {:name name
+        ;; nil :key derives one from :name and nil :order sorts as unordered: as before the field.
+        :key selection-key
+        :order order
         ;; The pool's own tags ride along (D30): tags route a selection to its TAB, so a granted
         ;; language carries :profs like the bespoke one and lands on Proficiencies, not nested
         ;; under its owner. Pools without tags keep just the generic pair.
         :tags (into #{:grant pool} tags)
         :multiselect? true
-        :min n
+        :min (clojure.core/or least n)
         :max n
-        :options opts}))))
+        :options opts
+        :prereq-fn prereq-fn}))))
 
 (defn compile-grants
   "`:grants` -> `{:modifiers [...] :selections [...]}`, the shape compile-ability-grants returns.
