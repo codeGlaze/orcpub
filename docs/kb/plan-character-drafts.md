@@ -93,6 +93,13 @@ Two more checks the build must pass, for the bug itself and the move:
    whichever branch merges second.
 7. One verification pass: lint, `lein test`, cljs, the browser suite.
 
+**Tests that read or write the old `"character"` slot read nothing after this change.** Integration's
+`test/e2e/planned-picks.js` (the hold, #67) did, and its "draft lacks X" checks passed only because
+the slot was empty. Read this tab's draft at `"character-draft/" +
+sessionStorage["builder-draft-key"]`; to rewrite one, merge the edited strict character back into
+the stored map so its `:changed` and `:draft/` keys survive (`editDraft` in that test, fixed in the
+#64 integration merge, 2026-10-17).
+
 ## Open, for the owner
 
 - Where to build, and who: it needs `stored-shape` from #64, so either a branch stacked on

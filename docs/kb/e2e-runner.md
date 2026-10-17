@@ -32,6 +32,11 @@ Three header lines change how a suite is treated:
   `window.orcpub`, or `test/browser/lib/orcbrew-import.js`'s `importPack`, which does). A
   production bundle compiles those names away, so these run on a development bundle with the
   CSP off, and only they do. They are inside-the-app checks, not proof the site works.
+  **`test/e2e/*.js` scripts mostly carry no header** (2026-10-17: `planned-picks.js`,
+  `hidden-pick-flows.js`, `relink-question.js`, `upgrade.js` and others read `window.cljs`). Run
+  through `run.sh` they get a production bundle and fail at the first internal read
+  (`reading 'get_in'`). Run them as their own header says: `lein fig:build`, the seeded server with
+  `CSP_POLICY=none`, then `node test/e2e/<script>.js`; or add the header line.
 - `// Needs: busy server` — it needs the export queue small enough to fill; the server starts
   with the `busy-export` profile (`export_busy_retry`).
 - `// Kind: probe` — it measures and prints. The runner judges it by exit code only and reports
