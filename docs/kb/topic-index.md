@@ -90,7 +90,7 @@ _DEPENDENCY_VALIDATION · DEPENDENCY_VALIDATION_
 
 _SESSION-SUMMARY · SESSION SUMMARY_
 
-**topics:** -----, 2026, 3449, added, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
+**topics:** -----, 2026, added, csp, documentation, exit, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
 
 - Final State
 - Key Decisions Made
@@ -415,7 +415,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, check, control, css, docstrings, form, icon, invented, item, labelled, pin, review, row, screenshot, signing, unknown, unless, vanished
+**topics:** 2026-09-29, check, control, css, docstrings, form, icon, invented, item, labelled, paragraph, pin, review, row, screenshot, signing, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -460,7 +460,7 @@ _blank-env-values · blank env values_
 
 _branch-context-history · branch context history_
 
-**topics:** boon, branch, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, phase, pool, registry, rotted, spine, subs
+**topics:** boon, branch, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine
 
 - (was) Branch Context: claude/zen-wright-04xhdz
 - Purpose
@@ -475,7 +475,7 @@ _branch-context-history · branch context history_
 
 _branch-inventory · branch inventory_
 
-**topics:** added, attached, changelog, claude, contained, copied, develop, elsewhere, gitignore, integration, landed, local, local-only, remote, src, superseded, tip, worktree
+**topics:** 2026-09-07, added, attached, changelog, claude, contained, copied, develop, elsewhere, gitignore, integration, landed, local-only, remote, src, superseded, tip, worktree
 
 - Trunk (9)
 - Release (1)
@@ -678,7 +678,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, aasimar, blank, descriptive, dwarf, elf, fallback, halfling, helper, human, label, manual, name, party, races, random, sex, views
+**topics:** ------, aasimar, blank, calishite, descriptive, dwarf, elf, halfling, helper, human, label, manual, name, party, races, random, sex, views
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -851,7 +851,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, page-map, parametric, per-type, pool, pools, primitive, registry, schema, wiring
+**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, page-map, parametric, per-type, pool, pools, primitive, registry, vocabulary, wiring
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -1033,7 +1033,7 @@ _datomic-crash-analysis · datomic crash analysis_
 
 _decision-already-held-resolution · decision already held resolution_
 
-**topics:** 2024, background, compiler, courtier, elegant, expertise, iron, mind, observant, pick, pool, proficiency, replacement, resolution, resolutions, skill, terseness, xphb
+**topics:** background, compiler, courtier, elegant, expertise, grant, iron, mind, observant, pick, pool, proficiency, replacement, resolution, resolutions, skill, terseness, xphb
 
 - The question
 - What the published rules actually do
@@ -1069,7 +1069,7 @@ _decision-cr-representation · decision cr representation_
 
 _decision-gate-hidden-picks · decision gate hidden picks_
 
-**topics:** arms, caller-supplied, chosen, concatenation, condition, decision-already-held-resolution, filter, gate, hidden-selection-picks, log, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
+**topics:** arms, caller-supplied, chosen, concatenation, condition, decision-already-held-resolution, entity-layer, filter, gate, hidden-selection-picks, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
 
 - Decision
 - The trace closes: there is no unknown family
@@ -1167,7 +1167,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-production-changes · dmv production changes_
 
-**topics:** --------, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email-preferences-implementation, fork, hotfix-integrations, license, matomo, meta, monetization, nginx, passwords, patron, production
+**topics:** --------, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email-preferences-implementation, hotfix-integrations, license, matomo, meta, monetization, nginx, passwords, patron, pedestal, production
 
 - Summary
 - Critical Issues to Flag to Admin
@@ -1322,7 +1322,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, ledger, linked, narrative, plan, push, session, topic, unindexed
+**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, plan, session, stale, topic, unindexed
 
 - What earns a doc
 - Verify, don't remember
@@ -1472,7 +1472,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, non-word, prevention, readme, rescued, root-caused, throw, token
+**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, non-word, prevention, rescued, root-caused, throw, token, unfindable
 
 - The failure
 - The two defences, and where they are
@@ -1514,7 +1514,7 @@ _entity-options-architecture · entity options architecture_
 
 _env-and-auth · env and auth_
 
-**topics:** ---------------------, 500, auth, authenticated, clj, dev, dev-mode, env, gitignored, jwt, precedence, prod, profile, project, signature, token, var, vars
+**topics:** ---------------------, 500, auth, authenticated, clj, csp, dev, dev-mode, env, jwt, overrides, prod, profile, project, signature, token, var, vars
 
 - How env vars are loaded
 - 1. ./menu and ./scripts/start.sh
@@ -1858,6 +1858,20 @@ _handoff-integration-branches · handoff integration branches_
 - Traps in this repo that will cost you time
 - When integration later merges back into feature/grant-rows
 
+## handoff-weapons-table.md
+
+_handoff-weapons-table · handoff weapons table_
+
+**topics:** 2026-10-17, 2d6, about, attack, blade, cleave, damage, graze, mastery, phone, radiant, settings, sun, topple, trained, undead, vex, weapon
+
+- Where things are
+- Decisions the v5 handoff does not carry
+- Build order
+- Today's code (measured 2026-10-17 on 427d16aa)
+- Rules data, checked against SRD 5.2
+- The v5 palette, verified
+- How the owner works with you
+
 ## heartbeat.md
 
 _heartbeat · heartbeat_
@@ -1884,7 +1898,7 @@ _hiccup-page-escaping · hiccup page escaping_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** already-held-grants, athletics, control, decision-already-held-resolution, fighter, first-class, gate, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, skill, skills, starting, uncheck
+**topics:** already-held-grants, athletics, control, decision-already-held-resolution, fighter, gate, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, sites, skill, skills, starting, uncheck
 
 - The mechanism
 - What is NOT broken
@@ -2044,7 +2058,7 @@ _homebrew-safety-net · homebrew safety net_
 
 _homebrew-save-rework · homebrew save rework_
 
-**topics:** address, belief, draft, four, identity, item, key-less, origin, persisted, registration, round, rounds, save, stamp, stamps, ten, thirteen, untagged
+**topics:** address, belief, blank-source, draft, four, identity, item, key-less, origin, persisted, registration, round, save, stamp, stamps, ten, thirteen, untagged
 
 - The rule, if you read nothing else
 - Why re-deriving identity cannot work
@@ -2103,7 +2117,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, author, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source
+**topics:** address, author, coexist, consent, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source, stamps
 
 - TL;DR
 - The map (VERIFIED)
@@ -2245,7 +2259,7 @@ _modifier-vs-trait-slots · modifier vs trait slots_
 
 _monolith-decomposition-plan · monolith decomposition plan_
 
-**topics:** -------, 2026-09-15, 623, 821, cljs, cohesive, domain, domain-based, events, extractions, incrementally, monolith, phase, split, splitting, tier, todo, views
+**topics:** -------, 2026-09-15, 623, 821, cljs, cohesive, domain, domain-based, extractions, incrementally, monolith, phase, sorted-map, split, splitting, tier, todo, views
 
 - 1. Did the Builders Split Make Issues Easier to Find?
 - 2. What Files Can or Should Be Broken Down?
@@ -2346,7 +2360,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 2026-10-07, 760, 995, higher-level, hyphen, open5e, open5e-api, parser, pdf, records, slot, spell, srd, srd-2014, srd-2024, text, transcript, wording
+**topics:** 2026-10-07, 760, 995, 999, higher-level, hyphen, open5e, open5e-api, parser, pdf, records, slot, spell, srd, srd-2014, srd-2024, text, transcript
 
 - Where the fixes live
 - Filed upstream (2026-10-08)
@@ -2814,7 +2828,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _plan-pdf-page-sizes · plan pdf page sizes_
 
-**topics:** 2-arity, 36pt, 595, acroform, appearance, artwork, binding, border, card, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
+**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, border, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
 
 - The problem in one paragraph
 - Order, and why this order
@@ -2834,7 +2848,7 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, entry, fighting, grant, granting, grants, irregularity, language, pool, pools, registered, registry, spells, styles, vector
+**topics:** 2026-09-07, air, dependent, direction, entry, fighting, grant, granting, grants, irregularity, language, pool, pools, registered, registry, spells, two-level, vector
 
 - In four sentences
 - The three layers
@@ -3191,7 +3205,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, source-level, stone, tag, tidewater
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, override, source, source-level, stone, tag, tidewater
 
 - What exists today
 - The proposal
@@ -3313,7 +3327,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
+**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, reorder, revised, shells, srd, srd-vs-plugin-content, tier, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3518,7 +3532,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** 2026-02-18, assertions, browser, classpath, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
+**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners
@@ -3572,7 +3586,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** 2026-10-16, assets, box, details, notice, phone, planned, player, png, redo, replaced, restored, row, steel, undo, undone, ux-guide, width
+**topics:** 2026-10-16, assets, box, details, notice, planned, player, png, redo, replaced, restored, row, steel, tap, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
@@ -3662,7 +3676,7 @@ _weapons-extra-damage-design · weapons extra damage design_
 
 _weapons-extra-damage-handoff · weapons extra damage handoff_
 
-**topics:** 1d8, 2d6, 390px, ablaze, blade, colour, damage, dark, deals, extra, frost, radiant, roll, strip, sun, tile, type, undead
+**topics:** 1d8, 2d6, 390px, ablaze, bar, blade, colour, damage, dark, deals, extra, radiant, roll, strip, sun, tile, type, undead
 
 - The problem
 - The five cases, from SRD 5.1 (text checked)
@@ -3674,7 +3688,7 @@ _weapons-extra-damage-handoff · weapons extra damage handoff_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, versatile, weapon, white
+**topics:** 2026-10-15, amber, blue, button, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, versatile, weapon, white
 
 - The parts and their names
 - Agreed

@@ -4,6 +4,11 @@ The character sheet's Weapons section, redesigned. Every mockup and the build mu
 "Agreed" line; check them one by one before showing anything. Decisions are the owner's,
 2026-10-15. Background: [equipment-parity.md](equipment-parity.md) (the Net), [ux-guide.md](ux-guide.md).
 
+**Superseded where the v5 design disagrees (2026-10-17).** The build follows the v5 design package
+first: see [handoff-weapons-table.md](handoff-weapons-table.md). Notably rule 12's Versatile chip is now
+a `1H | 2H` switch, desktop keeps a Details column (no Proficient? column anywhere), and
+"Not proficient" is a red `no prof` strip on the to-hit tile instead of grey-line text.
+
 ## The parts and their names
 
 Use these names, in this doc and in every session, so "row", "chip" and "details" mean one thing.
