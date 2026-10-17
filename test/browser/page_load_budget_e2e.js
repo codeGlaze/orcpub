@@ -98,7 +98,14 @@ async function load(ctx, url) {
   const audit = {};
   for (const [who, signIn] of [['signed out', false], ['signed in', true]]) {
     const ctx = await browser.newContext();
-    if (signIn) { const p = await ctx.newPage(); await login(p, 'kaylee', 'serenity99'); await p.close(); }
+    if (signIn) {
+      const p = await ctx.newPage();
+      await login(p, 'kaylee', 'serenity99');
+      // A failed login would test the signed-out pages twice under the signed-in name.
+      check('signed in for the signed-in pages',
+            /:token/.test(await p.evaluate(() => localStorage.getItem('user') || '')));
+      await p.close();
+    }
     for (const [name, url] of PAGES) {
       const { counts, status } = await load(ctx, url);
       const label = `${name} (${who})`;
@@ -109,8 +116,13 @@ async function load(ctx, url) {
         for (const [k, n] of Object.entries(counts).sort()) console.log(`   ${n > 1 ? n + 'x ' : '   '}${k}`);
         check(`audited ${label}`, true);
       } else {
-        const allowed = [...SHELL, ...(ALLOW[name] || [])].map(([p]) => new RegExp(p));
-        const extra = Object.keys(counts).filter(k => !allowed.some(re => re.test(k)));
+        // Each allowance is [pattern, reason, most times per load (1 unless given)].
+        const allowed = [...SHELL, ...(ALLOW[name] || [])].map(([p, , most]) => [new RegExp(p), most || 1]);
+        const extra = Object.keys(counts).filter(k => !allowed.some(([re]) => re.test(k)));
+        const repeated = Object.entries(counts)
+          .filter(([k, n]) => { const rule = allowed.find(([re]) => re.test(k)); return rule && n > rule[1]; })
+          .map(([k, n]) => `${n}x ${k}`);
+        check(`${label} makes no allowed request more often than allowed`, repeated.length === 0, repeated.join(' | '));
         check(`${label} loads only its allowance`, extra.length === 0, extra.join(' | '));
       }
     }
@@ -134,7 +146,9 @@ async function load(ctx, url) {
     const loaded = Promise.all([/\/srd\/2014\/rules\.edn$/, /\/srd\/2014\/conditions\.edn$/]
       .map(re => page.waitForResponse(r => re.test(new URL(r.url()).pathname), { timeout: 15000 })));
     await opener.click({ timeout: 10000 });
-    await loaded.catch(() => {});
+    const replies = await loaded.catch(() => []);
+    check('the rules and conditions both load successfully',
+          replies.length === 2 && replies.every(r => r.ok()), replies.map(r => r.status()).join(' ') || 'no reply');
     check('opening the Orcacle loads the rules and conditions once each',
           srd.rules === 1 && srd.conditions === 1, JSON.stringify(srd));
     // Forced: the open Orcacle may cover the button. Proving nothing more loads needs a window;
