@@ -123,9 +123,11 @@
         ;; Unique per write: containers sharing the store may draw the same portrait at once.
         tmp (.toFile (Files/createTempFile (.toPath (store-dir)) (str "." (.getName f) ".") ".tmp"
                                            (make-array java.nio.file.attribute.FileAttribute 0)))]
-    (io/copy png tmp)
-    (Files/move (.toPath tmp) (.toPath f) (into-array [StandardCopyOption/REPLACE_EXISTING
-                                                       StandardCopyOption/ATOMIC_MOVE]))
+    (try
+      (io/copy png tmp)
+      (Files/move (.toPath tmp) (.toPath f) (into-array [StandardCopyOption/REPLACE_EXISTING
+                                                         StandardCopyOption/ATOMIC_MOVE]))
+      (finally (Files/deleteIfExists (.toPath tmp)))) ; a failed write leaves nothing behind
     (remove-others! id f)))
 
 ;; ---------------------------------------------------------------------------

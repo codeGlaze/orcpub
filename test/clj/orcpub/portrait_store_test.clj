@@ -186,3 +186,13 @@
     (#'store/write-stored! 42 fp (.getBytes "our png"))
     (is (= "another container, half done" (slurp theirs)) "the other writer's file is untouched")
     (is (= "our png" (slurp f)) "and ours is in place")))
+
+(deftest a-failed-write-leaves-no-temporary-file
+  ;; a directory where the drawing should go makes the move fail
+  (let [fp (str "\"" (apply str (repeat 64 "b")) "\"")
+        f (store/file-for 43 fp)]
+    (.mkdirs f)
+    (spit (io/file f "occupied") "x")
+    (is (thrown? Exception (#'store/write-stored! 43 fp (.getBytes "our png"))))
+    (is (empty? (filter #(str/ends-with? (.getName ^java.io.File %) ".tmp") (.listFiles *dir*)))
+        "the temporary file is gone")))
