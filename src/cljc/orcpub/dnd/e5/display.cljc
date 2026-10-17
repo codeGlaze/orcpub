@@ -115,12 +115,15 @@
   "One-line text for an attack or weapon: summary, reach, to-hit, damage and save.
    Args: attack, a map with plain keys (:damage-die ...) or a weapon's ::weapons/ keys, plus
    :attack-type, :attack-modifier and :damage-modifier. Returns a string. With no damage die
-   (the Net) it says \"no damage\" and adds no modifier."
+   (the Net) it says \"no damage\" and adds no modifier. A magic weapon's damage type (Sun Blade:
+   radiant) replaces its base type."
   [{:keys [attack-type damage-modifier attack-modifier save save-dc] :as attack}]
   (let [attack-mod-str (when attack-modifier (str (common/bonus-str attack-modifier) " to hit, "))
         die (or (:damage-die attack) (::weapons/damage-die attack))
         die-count (or (:damage-die-count attack) (::weapons/damage-die-count attack))
-        damage-type (or (:damage-type attack) (::weapons/damage-type attack))]
+        damage-type (or (:damage-type attack)
+                        (:orcpub.dnd.e5.magic-items/magical-damage-type attack)
+                        (::weapons/damage-type attack))]
     (str
      (attack-description-short attack)
      (case attack-type

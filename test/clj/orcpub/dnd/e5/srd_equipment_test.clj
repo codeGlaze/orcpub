@@ -83,7 +83,10 @@
       (is (s/includes? (rules-text) (::weapons/description net)) "verbatim from the served SRD rules"))
     (testing "a weapon with dice is unchanged"
       (is (s/includes? (attack-text sword) "1d8+2 slashing damage"))
-      (is (= "1d8+2 slashing" (pdf-damage sword))))))
+      (is (= "1d8+2 slashing" (pdf-damage sword))))
+    (testing "a magic weapon's own damage type replaces the base one (the Sun Blade)"
+      (let [sun-blade (assoc sword :orcpub.dnd.e5.magic-items/magical-damage-type :radiant)]
+        (is (s/includes? (attack-text sun-blade) "1d8+2 radiant damage"))))))
 
 (deftest armor-carries-srd-cost-and-weight
   (let [srd (by-name (map #(update % :name (fn [n] (s/replace n #"(?i) armor$" ""))) (:armor (equipment-file))))
