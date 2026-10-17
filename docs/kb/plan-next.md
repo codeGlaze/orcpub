@@ -22,6 +22,7 @@ before the next.
 | # | step | where | depends on |
 |---|---|---|---|
 | 0 ☑ | **Hidden-pick fix.** Merged into `integration` as #67 (`427d16aa`, 2026-10-16): the hold, its hardening and UI, Make starting class, the Choices list, the options-column order, My Content's repair panel. Opening a character never saves it | `fix/hidden-multiclass-skill-pick` | — |
+| 0b ☑ | **`integration` merged in** (`b1d05c8b`, 2026-10-17). Checks green; `upgrade.js` 12/12: characters, homebrew and a draft made by `integration`'s app (`427d16aa`) open unchanged here | here | 0 |
 | 1 | Re-record the builder gallery baseline (handoff step 1, 5 minutes) | here | — |
 | 2 | Part B.1: the four fields `grant-selection` drops (`:key`, `:order`, `:prereq-fn`, min≠max) | here | — |
 | 3 | Part B.2: the owner through `compile-grants`; fixes the measured skill-expertise defect | here | 2 |
