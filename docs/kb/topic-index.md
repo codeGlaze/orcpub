@@ -620,7 +620,7 @@ _builder-form-schemas · builder form schemas_
 
 _building-a-class-from-builders · building a class from builders_
 
-**topics:** artificer, builders, capability, cfg, cited, companion, d28, express, first-class, gap, infusions, int-mod, multiselect, non-srd, pool, profs, scaling, tool
+**topics:** artificer, builders, capability, cfg, cited, companion, content-extensibility, d28, express, first-class, gap, infusions, int-mod, multiselect, pool, profs, scaling, tool
 
 - The capability witness — VERIFIED
 - What a homebrew class/subclass can already express — VERIFIED
@@ -1862,7 +1862,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, about, attack, blade, cleave, damage, graze, mastery, phone, radiant, settings, sun, topple, trained, undead, vex, weapon
+**topics:** 2026-10-17, 2d6, about, attack, blade, cleave, damage, graze, mastery, phone, radiant, settings, topple, trained, undead, vex, weapon, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry

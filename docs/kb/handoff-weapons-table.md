@@ -40,6 +40,20 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
 - **Two good options become a preference:** a default plus an account setting, not one forced winner.
   Contrast numbers are reported as facts, not used as a veto.
 - **The settings panel is a second PR from the same branch,** after the table ships with defaults.
+- **Crit rules are a setting** (owner, 2026-10-16, from
+  [weapons-extra-damage-design.md](weapons-extra-damage-design.md)): tables play crits differently, so the
+  rule is an account default, overridable per character, and the rule in use is named wherever crit
+  damage is shown (the + menu's Critical damage row, the crit result). Every extra part, Vicious
+  included, follows the rule set. v5's "all dice doubled" is the default rule, not the only one. Which
+  rules to offer is not drawn: ask.
+- **The scope is intentional** (owner, 2026-10-16): charges, once-per-rest, on-hit effects and the
+  stress-test rows exist so homebrew and non-SRD content fit without a redesign. Build the data model
+  for all of them even where the SRD has no example.
+- **The PDF keeps working.** `pdf_spec.cljc` prints each weapon's damage; the new damage-parts model
+  must not break it. How extra parts and the no-roll case print is not drawn: ask before changing the
+  PDF's output. Two existing bugs were noted against this area and not yet investigated: the PDF's
+  two-handed (versatile) damage line, and today's table overflowing a phone screen. Check both against
+  `integration`; the overflow should vanish with the new table, the PDF one may not.
 
 ## Build order
 
