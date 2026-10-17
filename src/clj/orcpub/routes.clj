@@ -1530,6 +1530,9 @@
       ;; After the pages exist, so clones are stamped too, and before the card
       ;; pages are appended -- those carry the line on their backs already.
       (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
+      ;; Before the card and spellbook pages, which are already drawn at the right size:
+      ;; this re-papers the TEMPLATE pages only, and is a no-op on Letter.
+      (pdf/fit-sheet-to-page! doc)
       ;; One set of fonts and one image embedder for the whole document. Both are
       ;; per-document: a second load-fonts embeds a second subset of every face,
       ;; and a second loader re-embeds the 998x998 card-back mark. Built only when
