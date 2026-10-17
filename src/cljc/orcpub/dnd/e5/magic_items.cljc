@@ -8,6 +8,7 @@
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.damage-types :as damage-types5e]
+            [orcpub.dnd.e5.damage-parts :as dp]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.units :as units5e]
@@ -1166,6 +1167,7 @@ You and any creature you designate when you use the shackles can use an action t
      ::rarity :rare
      ::magical-attack-bonus 1
      ::magical-damage-bonus 1
+     ::damage-parts [{::dp/die-count 3 ::dp/die 6 ::dp/type :weapon ::dp/when {::dp/vs #{:dragon}}}]
      ::description "You gain a +1 bonus to attack and damage rolls made with this magic weapon.
 When you hit a dragon with this weapon, the dragon takes an extra 3d6 damage of the weapon’s type. For the purpose of this weapon, “dragon”
 refers to any creature with the dragon type, including dragon turtles and wyverns."
@@ -1360,6 +1362,8 @@ it has been used, it can’t be used again until 2 days have passed. While in ra
      ::rarity :rare
 
      ::attunement [:any]
+     ::switches [{::dp/id :ablaze ::dp/label "Ablaze"}]
+     ::damage-parts [{::dp/die-count 2 ::dp/die 6 ::dp/type :fire ::dp/when {::dp/switch :ablaze}}]
      ::description "You can use a bonus action to speak this magic sword’s command word, causing flames to erupt from the blade. These flames shed bright light in a 40-foot radius and dim light for an additional 40 feet. While the sword is ablaze, it deals an extra 2d6 fire damage to any target it hits. The flames last until you use a bonus action to speak the command word again or until you drop or sheathe the sword."
      }{
      name-key "Folding Boat"
@@ -1379,6 +1383,7 @@ to fold back into a box, provided that no creatures are aboard. Any objects in t
      ::rarity :very-rare
 
      ::attunement [:any]
+     ::damage-parts [{::dp/die-count 1 ::dp/die 6 ::dp/type :cold ::dp/when :always}]
      ::description "When you hit with an attack using this magic sword, the target takes an extra 1d6 cold damage. In addition, while you hold the sword, you have resistance to fire damage.
 In freezing temperatures, the blade sheds bright light in a 10-foot radius and dim light for an additional 10 feet.
 When you draw this weapon, you can extinguish all nonmagical flames within 30 feet of you. This property can be used no more than once per hour."
@@ -1418,6 +1423,13 @@ The gem regains 1d3 expended charges daily at dawn."
      ::rarity :rare
      ::magical-attack-bonus 1
      ::magical-damage-bonus 1
+     ::damage-parts [{::dp/die-count 2 ::dp/die 6 ::dp/type :weapon ::dp/when {::dp/vs #{:giant}}}]
+     ::effects [{::dp/kind :save
+                 ::dp/dc 15
+                 ::dp/ability ::char5e/str
+                 ::dp/on-fail :prone
+                 ::dp/when {::dp/vs #{:giant}}
+                 ::dp/text "When you hit a giant with it, the giant takes an extra 2d6 damage of the weapon’s type and must succeed on a DC 15 Strength saving throw or fall prone."}]
      ::description "You gain a +1 bonus to attack and damage rolls made with this magic weapon.
 When you hit a giant with it, the giant takes an extra 2d6 damage of the weapon’s type and must succeed on a DC 15 Strength saving throw or fall prone. For the purpose of this weapon, “giant” refers to any creature with the giant type, including ettins and trolls."
      }{
@@ -1553,6 +1565,7 @@ While focusing on a creature with detect thoughts, you can use an action to cast
      ::attunement [:paladin]
      ::magical-attack-bonus 3
      ::magical-damage-bonus 3
+     ::damage-parts [{::dp/die-count 2 ::dp/die 10 ::dp/type :radiant ::dp/when {::dp/vs #{:fiend :undead}}}]
      ::description "You gain a +3 bonus to attack and damage rolls made with this magic weapon. When you hit a fiend or an undead with it, that creature takes an extra 2d10 radiant damage.
 While you hold the drawn sword, it creates an aura in a 10-foot radius around you. You and all creatures friendly to you in the aura have advantage
 on saving throws against spells and other magical effects. If you have 17 or more levels in the paladin class, the radius of the aura increases to 30 feet."
@@ -1695,6 +1708,13 @@ Wish. The sword has 1d4 – 1 charges. While holding it, you can use an action t
      ::rarity :rare
 
      ::attunement [:any]
+     ::damage-parts [{::dp/die-count 2 ::dp/die 6 ::dp/type :radiant ::dp/when {::dp/vs #{:fiend :undead}}}]
+     ::effects [{::dp/kind :save
+                 ::dp/dc 15
+                 ::dp/ability ::char5e/wis
+                 ::dp/on-fail :destroyed
+                 ::dp/when {::dp/vs #{:fiend :undead}}
+                 ::dp/text "If the target has 25 hit points or fewer after taking this damage, it must succeed on a DC 15 Wisdom saving throw or be destroyed. On a successful save, the creature becomes frightened of you until the end of your next turn."}]
      ::description "When you hit a fiend or an undead with this magic weapon, that creature takes an extra 2d6 radiant damage. If the target has 25 hit points or fewer after taking this damage, it must succeed on a DC 15 Wisdom saving throw or be destroyed. On a successful save, the creature becomes frightened of you until the end of your next turn.
 While you hold this weapon, it sheds bright light in a 20-foot radius and dim light for an additional 20 feet."
      }{
@@ -2656,6 +2676,7 @@ The staff can be wielded as a magic quarterstaff. On a hit, it deals damage as a
      ::magical-damage-bonus 2
      ::magical-damage-type :radiant
      ::magical-finesse? true
+     ::damage-parts [{::dp/die-count 1 ::dp/die 8 ::dp/type :radiant ::dp/when {::dp/vs #{:undead}}}]
 
      ::description "This item appears to be a longsword hilt. While grasping the hilt, you can use a bonus action to cause a blade of pure radiance to spring into existence, or make the blade disappear. While the blade exists, this magic longsword has the finesse property. If you are proficient with shortswords or longswords, you are proficient with the sun blade.
 You gain a +2 bonus to attack and damage rolls made with this weapon, which deals radiant damage instead of slashing damage. When you hit an undead with it, that target takes an extra 1d8 radiant damage.
@@ -2767,6 +2788,7 @@ on a beast that has an innate swimming speed. The trident regains 1d3 expended c
      ::type :weapon
      ::item-subtype weapon-not-ammunition?
      ::rarity :rare
+     ::damage-parts [{::dp/die-count 2 ::dp/die 6 ::dp/type :weapon ::dp/when :crit}]
      ::description "When you roll a 20 on your attack roll with this magic weapon, your critical hit deals an extra 2d6 damage of the weapon’s type."
      }{
      name-key "Vorpal Sword"
