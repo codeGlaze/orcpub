@@ -7,8 +7,46 @@
    as window.__BRANDING__ JSON in <head>, and branding.cljs reads it."
   (:require [orcpub.env :as env]
             [cheshire.core :as cheshire]
+            [clojure.string :as s]
+            [orcpub.artist-links :as links]
             [orcpub.dnd.e5.portrait-assets :as portrait-assets])
   (:import [java.time Year]))
+
+;; ─── Checking operator settings ────────────────────────────────────
+;; Every value below comes from the environment. A bad one falls back to its default with a warning
+;; naming the setting, so a typo costs that value, not a page or the server.
+
+(defn- warn!
+  "Prints that `setting` (a keyword like :app-help-url) was ignored, and why. Returns nil."
+  [setting value why]
+  (println (str "branding: " (s/upper-case (s/replace (name setting) "-" "_"))
+                " ignored (" why "): " (pr-str value))))
+
+(defn checked-url
+  "`value` of `setting` when it is blank, an http(s) address, or a path on this site (/image/x.svg);
+   else `default`, with a warning."
+  [setting value default]
+  (cond
+    (s/blank? value) value
+    (or (re-matches #"https?://[A-Za-z0-9.-]+(:\d+)?([/?#]\S*)?" value)
+        (re-matches #"/(?![/\\])\S*" value)) value
+    :else (do (warn! setting value "not a web address or site path") default)))
+
+(defn checked-email
+  "`value` of `setting` when it is blank or looks like an email address; else `default`, warned."
+  [setting value default]
+  (if (or (s/blank? value) (re-matches #"[^@\s]+@[^@\s]+\.[^@\s]+" value))
+    value
+    (do (warn! setting value "not an email address") default)))
+
+(defn checked-int
+  "`value` of `setting` as a positive whole number; `default` when unset, or with a warning when it
+   is anything else."
+  [setting value default]
+  (if (s/blank? value)
+    default
+    (let [n (try (Integer/parseInt (s/trim value)) (catch NumberFormatException _ nil))]
+      (if (and n (pos? n)) n (do (warn! setting value "not a positive whole number") default)))))
 
 ;; ─── App Identity ──────────────────────────────────────────────────
 
@@ -22,7 +60,7 @@
 
 (def app-url
   "Primary application URL for legal pages and external references. Empty = hidden."
-  (env/value :app-url ""))
+  (checked-url :app-url (env/value :app-url "") ""))
 
 (def default-page-title
   "Default <title> and og:title when no page-specific title is set."
@@ -32,12 +70,12 @@
 
 (def logo-path
   "Path to the main SVG logo (splash page, header, privacy page)."
-  (env/value :app-logo-path "/image/orcpub-logo.svg"))
+  (checked-url :app-logo-path (env/value :app-logo-path "/image/orcpub-logo.svg") "/image/orcpub-logo.svg"))
 
 (def og-image-filename
   "Filename for the OG meta image (social sharing preview).
    Combined with the request host to form the full URL."
-  (env/value :app-og-image "/image/orcpub-logo.png"))
+  (checked-url :app-og-image (env/value :app-og-image "/image/orcpub-logo.png") "/image/orcpub-logo.png"))
 
 ;; ─── Copyright ─────────────────────────────────────────────────────
 
@@ -68,7 +106,7 @@
    mail will be rejected. The fallback is an RFC-2606 reserved placeholder — it
    is intentionally non-deliverable so a misconfigured instance fails loudly
    instead of silently sending from a real domain it does not own."
-  (env/value :email-from-address "no-reply@example.com"))
+  (checked-email :email-from-address (env/value :email-from-address "no-reply@example.com") "no-reply@example.com"))
 
 (def email-configured?
   "Whether outbound email can actually be sent — true only when the operator has
@@ -82,7 +120,7 @@
 
 (def support-email
   "Contact email shown on privacy page, error messages, etc. Empty = hidden."
-  (env/value :app-support-email ""))
+  (checked-email :app-support-email (env/value :app-support-email "") ""))
 
 (def report-recipient
   "Where user-submitted 'character won't load' reports are emailed. Prefers the
@@ -90,11 +128,11 @@
    (EMAIL_ERRORS_TO) that the app's error notifications already use — so an operator
    who has configured error reporting needs no new setting. Empty (neither set) =
    reports can't send and the UI offers the copyable report instead."
-  (if (seq support-email) support-email (env/value :email-errors-to "")))
+  (if (seq support-email) support-email (checked-email :email-errors-to (env/value :email-errors-to "") "")))
 
 (def help-url
   "URL for the help/FAQ page. Empty string = hidden."
-  (env/value :app-help-url ""))
+  (checked-url :app-help-url (env/value :app-help-url "") ""))
 
 ;; ─── Social Links ──────────────────────────────────────────────────
 ;; Each link shows in the header/footer when its env var is set to a URL; unset hides it.
@@ -103,18 +141,15 @@
 
 (def social-links
   "Map of social platform links. Empty string = hidden."
-  {:patreon  (env/value :app-social-patreon "")
-   :facebook (env/value :app-social-facebook "")
-   :bluesky  (env/value :app-social-bluesky "")
-   :twitter  (env/value :app-social-twitter "")
-   :reddit   (env/value :app-social-reddit "")
-   :discord  (env/value :app-social-discord "")})
+  (into {} (for [k [:patreon :facebook :bluesky :twitter :reddit :discord]
+                 :let [setting (keyword (str "app-social-" (name k)))]]
+             [k (checked-url setting (env/value setting "") "")])))
 
 ;; ─── Footer ─────────────────────────────────────────────────────
 
 (def copyright-url
   "URL for copyright holder name in footer. Empty string = plain text."
-  (env/value :app-copyright-url ""))
+  (checked-url :app-copyright-url (env/value :app-copyright-url "") ""))
 
 ;; ─── UI Behavior ────────────────────────────────────────────────
 
@@ -131,9 +166,9 @@
 
 (def field-limits
   "Max-length constraints for form input fields."
-  {:notes  (or (some-> (env/value :app-field-limit-notes) Integer/parseInt) 50000)
-   :text   (or (some-> (env/value :app-field-limit-text) Integer/parseInt) 255)
-   :number (or (some-> (env/value :app-field-limit-number) Integer/parseInt) 7)})
+  {:notes  (checked-int :app-field-limit-notes (env/value :app-field-limit-notes) 50000)
+   :text   (checked-int :app-field-limit-text (env/value :app-field-limit-text) 255)
+   :number (checked-int :app-field-limit-number (env/value :app-field-limit-number) 7)})
 
 ;; ─── Client-Side Config Bridge ───────────────────────────────────
 ;; index.clj injects this as window.__BRANDING__ JSON in <head>.
@@ -141,6 +176,25 @@
 
 
 ;; ─── Portrait Artist Credits ───────────────────────────────────────
+
+(defn artist-override
+  "One artist's credit `fields` from PORTRAIT_ARTISTS (:name :link :links :license) as overrides.
+   Links pass artist-links/url-problem, the check an artist's own edits pass; a link's icon and
+   colour come from its address (artist-links/link-entry), never from the setting. Returns the map."
+  [fields]
+  (let [ok-url (fn [u] (if (links/url-problem u)
+                         (do (warn! :portrait-artists u (links/url-problem u)) nil)
+                         (s/trim (str u))))
+        link (some-> (:link fields) ok-url)
+        extra (vec (for [l (:links fields)
+                         :let [u (ok-url (:url l))] :when u]
+                     (cond-> (links/link-entry u)
+                       (string? (:label l)) (assoc :link/label (:label l)))))]
+    (cond-> {}
+      (string? (:name fields))    (assoc :artist/name (:name fields))
+      link                        (assoc :artist/link link)
+      (seq extra)                 (assoc :artist/links extra)
+      (string? (:license fields)) (assoc :artist/license (:license fields)))))
 
 (def portrait-artists
   "Deployment overrides for how portrait artists are credited, as
@@ -163,18 +217,7 @@
         (try
           (into {}
                 (for [[id fields] (cheshire/parse-string raw true)]
-                  [(keyword (name id))
-                   (cond-> {}
-                     (:name fields)    (assoc :artist/name (:name fields))
-                     (:link fields)    (assoc :artist/link (:link fields))
-                     (:links fields)   (assoc :artist/links
-                                              (mapv (fn [l]
-                                                      (cond-> {:link/label (:label l)
-                                                               :link/url   (:url l)}
-                                                        (:icon l)  (assoc :link/icon (:icon l))
-                                                        (:color l) (assoc :link/color (:color l))))
-                                                    (:links fields)))
-                     (:license fields) (assoc :artist/license (:license fields)))]))
+                  [(keyword (name id)) (artist-override fields)]))
           (catch Exception e
             (println "branding: PORTRAIT_ARTISTS ignored --" (.getMessage e))
             nil)))
