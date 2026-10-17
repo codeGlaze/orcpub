@@ -175,3 +175,14 @@
         read-resource @#'store/resource-bytes]
     (with-redefs [store/resource-bytes (fn [p] (when-not (re-find #"\.cljc?$" p) (read-resource p)))]
       (is (= visible (#'store/art-digest*))))))
+
+(deftest each-write-uses-a-temporary-file-of-its-own
+  ;; Several containers can share one store directory. A second writer's half-written temporary
+  ;; file, at the name every writer of this drawing would once have used, must be left alone.
+  (let [fp (str "\"" (apply str (repeat 64 "a")) "\"")
+        f (store/file-for 42 fp)
+        theirs (io/file *dir* (str "." (.getName f) ".tmp"))]
+    (spit theirs "another container, half done")
+    (#'store/write-stored! 42 fp (.getBytes "our png"))
+    (is (= "another container, half done" (slurp theirs)) "the other writer's file is untouched")
+    (is (= "our png" (slurp f)) "and ours is in place")))

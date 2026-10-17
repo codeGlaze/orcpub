@@ -119,8 +119,10 @@
    to a temporary file and moved into place, so a reader never sees half a file."
   [id fp ^bytes png]
   (let [f (file-for id fp)
-        tmp (io/file (store-dir) (str "." (.getName f) ".tmp"))]
-    (io/make-parents f)
+        _ (io/make-parents f)
+        ;; Unique per write: containers sharing the store may draw the same portrait at once.
+        tmp (.toFile (Files/createTempFile (.toPath (store-dir)) (str "." (.getName f) ".") ".tmp"
+                                           (make-array java.nio.file.attribute.FileAttribute 0)))]
     (io/copy png tmp)
     (Files/move (.toPath tmp) (.toPath f) (into-array [StandardCopyOption/REPLACE_EXISTING
                                                        StandardCopyOption/ATOMIC_MOVE]))
