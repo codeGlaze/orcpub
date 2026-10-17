@@ -2028,9 +2028,6 @@
       :cursor :pointer
       :text-align :right}]
 
-    [:.fa-caret-square-o-down
-     {:color button-color}]
-
     [:.expand-collapse-button:hover
      {:color button-color}]
 
