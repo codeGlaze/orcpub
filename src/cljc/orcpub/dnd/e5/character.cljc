@@ -698,22 +698,28 @@
 (defn image-url [built-char]
   (get-prop built-char ::image-url))
 
-(defn- sane-portrait
-  "Drop sub-values that are not the shape the compositor reads.
+(defn- sane-tweak
+  "Portrait tweak `t` with only the values the compositor can use: an :override that is a #rrggbb
+   colour, a :shade and :depth that are numbers. nil when `t` is not a map."
+  [t]
+  (when (map? t)
+    (cond-> t
+      (not (and (string? (:override t)) (re-matches #"#[0-9a-fA-F]{6}" (:override t)))) (dissoc :override)
+      (not (number? (:shade t))) (dissoc :shade)
+      (not (number? (:depth t))) (dissoc :depth))))
 
-   Checking only that the OUTER value is a map was not enough. A stored
-   `{:layers \"abc\"}` is valid EDN and passed, and the non-map :layers then
-   reached credit-line, which walks it as a selection: three of four malformed
-   shapes threw (a string, a vector and a number), and character-page calls
-   credit-line unguarded, so a crafted save took the PUBLIC character page down
-   with a 500. Entry-level junk is already harmless -- (:asset/id 42) is nil --
-   so only the containers need checking."
+(defn- sane-portrait
+  "Portrait map `m` without values the compositor cannot read: :layers, :colors and :tweaks that
+   are not maps, tweaks that are not maps, and tweak values sane-tweak drops. nil when `m` is not
+   a map. A crafted stored portrait must not break the page that shows it
+   (fail-soft-rendering.md)."
   [m]
   (when (map? m)
     (cond-> m
       (not (map? (:layers m))) (dissoc :layers)
       (not (map? (:colors m))) (dissoc :colors)
-      (not (map? (:tweaks m))) (dissoc :tweaks))))
+      (not (map? (:tweaks m))) (dissoc :tweaks)
+      (map? (:tweaks m)) (update :tweaks #(into {} (keep (fn [[k t]] (some->> (sane-tweak t) (vector k)))) %)))))
 
 (def max-portrait-chars
   "The longest stored portrait read. A full one is about 1.5 KB; anything far past that is not a

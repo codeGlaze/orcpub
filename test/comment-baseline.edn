@@ -121,10 +121,6 @@
    :long-docstring
    "defn parse-portrait"
    "8d21ef50cd6e"]
-  ["src/cljc/orcpub/dnd/e5/character.cljc"
-   :long-docstring
-   "defn- sane-portrait"
-   "81bf16fdebdc"]
   ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
    :long-comment
    "---------- character colors ----------"

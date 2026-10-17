@@ -542,3 +542,15 @@
   (is (= "#ffffff" (pa/whites-colour {})) "white unless someone picks")
   (is (= "#e6e2d8" (pa/whites-colour {:colors {:whites "#e6e2d8"}})))
   (is (nil? (pa/whites-colour {:colors {:whites pa/no-whites}})) "none: the eye as drawn"))
+
+(deftest a-stored-portrait-keeps-only-colour-values-it-can-use
+  (let [p (char5e/parse-portrait (pr-str {:tweaks {:hair {:override "red;}" :shade "lots" :depth 5}
+                                                   :eyes {:override "#a1b2c3" :shade 30}
+                                                   :skin "not a tweak"}}))]
+    (is (= {:depth 5} (get-in p [:tweaks :hair])) "a bad override and a non-number shade are dropped")
+    (is (= {:override "#a1b2c3" :shade 30} (get-in p [:tweaks :eyes])) "good values stay")
+    (is (not (contains? (:tweaks p) :skin)) "a tweak that is not a map is dropped")
+    (is (= :worked-out (do (pa/tint-for p :hair) :worked-out)) "and working out the colour does not throw")))
+
+(deftest shading-ignores-a-shade-that-is-not-a-number
+  (is (= "#112233" (pa/shade-hex "#112233" "lots"))))
