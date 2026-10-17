@@ -13,6 +13,7 @@
             [orcpub.dnd.e5.display :as dis5e]
             [orcpub.dnd.e5.spell-print :as sp]
             [orcpub.pdf.draw :as draw]
+            [orcpub.errors :as errors]
             [orcpub.dnd.e5.options :as options]
             [clj-http.client :as client])
   (:import (java.io ByteArrayOutputStream)
@@ -829,6 +830,9 @@
                            (iterator-seq (.iterator (.getFieldTree form)))))
           unplaceable (sort (map name (remove #(contains? by-name (name %)) (keys fields))))]
       (when (seq unplaceable)
+        (errors/note! "Sheet fields"
+                      (format "%d value(s) have no box on this sheet style and were left blank: %s"
+                              (count unplaceable) (s/join ", " unplaceable)))
         (println (format "pdf/write-fields!: %d value(s) had no field in this template and were dropped: %s"
                          (count unplaceable) (s/join ", " unplaceable))))
       (doseq [[k v] fields]
@@ -2041,6 +2045,41 @@
                   (draw/draw-text cs stats draw/HELVETICA_BOLD small
                              (/ sx 72.0) (/ sy 72.0)
                              [0.1 0.1 0.1])))))))))))
+
+(def ^:private notice-titles
+  "The heading, and the line under it. Deliberately plain: this page is bad news and
+   dressing it up makes it read as decoration and get skipped."
+  {:head "Some of this export did not fit."
+   :sub  "Your sheet is below and is complete. These parts were left out:"})
+
+(defn add-notice-page!
+  "Prepends a page naming what the export dropped. Adds NO page on a clean export.
+
+   In the document, not the response: the PDF is what gets saved and printed, and a
+   browser banner is gone on the next click. First so it is read before the printing.
+   Helvetica, not Vollkorn -- a second load-fonts embeds a second subset of every face."
+  [doc]
+  (when-let [items (seq (errors/notices))]
+    (let [page (PDPage. (draw/page-rect))
+          tree (.getPages doc)
+          h (draw/page-height 72)]
+      (if (pos? (.getCount tree))
+        (.insertBefore tree page (.get tree 0))
+        (.addPage doc page))
+      (with-open [cs (PDPageContentStream. doc page)]
+        (draw/draw-text cs (:head notice-titles) draw/HELVETICA_BOLD 16 1.0 (- h 1.2))
+        (draw/draw-text cs (:sub notice-titles) draw/HELVETICA 10 1.0 (- h 1.5))
+        ;; draw-text-to-box takes the box TOP and puts its first baseline one leading
+        ;; below it, so a detail at (- y 0.32) landed at (- y 0.46) -- exactly the row
+        ;; pitch, printing every detail on top of the next heading.
+        (doseq [[i {:keys [what detail]}] (map-indexed vector items)
+                :let [y (- h 1.95 (* 0.62 i))]
+                :while (> y 1.1)]
+          (draw/draw-text cs (str "- " what) draw/HELVETICA_BOLD 11 1.1 y)
+          (draw/draw-text-to-box cs detail draw/HELVETICA 9.5 1.25 (- y 0.16)
+                                 (- (draw/page-width 72) 2.4) 0.32))
+        (draw/draw-text cs draw/site-stamp draw/HELVETICA 8 1.0 0.6 [0.45 0.45 0.45]))
+      page)))
 
 (defn stamp-site-line!
   "Prints the site line at `position` (the style's :site-line from sheet-masters,

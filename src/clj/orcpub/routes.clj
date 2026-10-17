@@ -997,6 +997,9 @@
   (let [limit (config/get-pdf-max-cards)
         n (count cards)]
     (when (> n limit)
+      (errors/note! (str (s/capitalize kind) " cards")
+                    (format "%d requested, %d printed -- the export is capped at %d"
+                            n limit limit))
       (println (format "pdf: %d %s cards requested, printing the first %d"
                        n kind limit)))
     (take limit cards)))
@@ -1023,10 +1026,12 @@
                                     (str class))]
                                  (spellbook/spell-sort-key spell-order (spells-map key))))
                          flat-spells)
-          parts (vec (partition-all 9 sorted-spells))]
+          ;; Capacity, not 9: a page holds 9 on Letter and A4 but 4 on A5, and
+          ;; print-spells draws only as many as there are cells -- the rest vanished.
+          parts (vec (partition-all (draw/cards-per-page 2.5 3.5) sorted-spells))]
       (doseq [i (range (count parts))
               :let [part (parts i)]]
-        (let [page (PDPage.)]
+        (let [page (PDPage. (draw/page-rect))]
           (.addPage doc page)
           (with-open [cs (PDPageContentStream. doc page)]
             (let [spells (sequence
@@ -1056,13 +1061,14 @@
                                          print-spell-card-dc-mod?
                                          bw?
                                          bw-faded?))
-                  back-page (PDPage.)]
+                  back-page (PDPage. (draw/page-rect))]
               (with-open [back-page-cs (PDPageContentStream. doc back-page)]
                 (.addPage doc back-page)
                 (cards/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
                                    logo-img)))))))
     (catch Exception e
-      (println "pdf: failed adding spell cards -" (.getMessage e)))))
+      (errors/note! "Spell cards"
+                    (str "could not be drawn and were left out (" (.getMessage e) ")")))))
 
 (defn add-magic-item-cards!
   "Appends card pages for `magic-items`, nine to a sheet, each with its back; the same layout
@@ -1071,20 +1077,23 @@
    add-spell-cards!."
   [doc fonts img magic-items logo-img bw? bw-faded?]
   (try
-    (let [parts (vec (partition-all 9 (bound-cards "magic item" magic-items)))]
+    (let [parts (vec (partition-all (draw/cards-per-page 2.5 3.5)
+                                    (bound-cards "magic item" magic-items)))]
       (doseq [i (range (count parts))
               :let [part (parts i)]]
-        (let [page (PDPage.)]
+        (let [page (PDPage. (draw/page-rect))]
           (.addPage doc page)
           (with-open [cs (PDPageContentStream. doc page)]
             (let [remaining-desc-lines (vec (cards/print-items cs doc fonts img 2.5 3.5
                                                                part i bw? bw-faded?))
-                  back-page (PDPage.)]
+                  back-page (PDPage. (draw/page-rect))]
               (with-open [back-page-cs (PDPageContentStream. doc back-page)]
                 (.addPage doc back-page)
                 (cards/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
                                    logo-img)))))))
-    (catch Exception e (println "pdf: failed adding magic item cards" e))))
+    (catch Exception e
+      (errors/note! "Magic item cards"
+                    (str "could not be drawn and were left out (" (.getMessage e) ")")))))
 
 (defn- one-of
   "`v` as a keyword when it names one of `allowed` (keyword or string), else `default`."
@@ -1155,7 +1164,8 @@
           spells-known {:all (bound-cards "spellbook" (-> spells-known vals flatten))}]
       (spellbook/add-spellbook! doc fonts img opts spells-known spells-map))
     (catch Exception e
-      (println "pdf: failed adding the spellbook -" (.getMessage e)))))
+      (errors/note! "Spellbook"
+                    (str "could not be drawn and was left out (" (.getMessage e) ")")))))
 
 (def valid-sheet-styles
   "Style ids with a template on disk: resources/fillable-char-sheetstyle-N-*.pdf"
@@ -1417,7 +1427,7 @@
   (some-> (get spells/spell-map (common/name-to-kw nm))
           spell-annotations/annotation))
 
-(defn- generate-character-pdf [req]
+(defn- generate-character-pdf* [req]
   (let [fields (try
                  (-> req :form-params :body edn/read-string bound-request)
                  (catch Exception e
@@ -1493,6 +1503,9 @@
                   (pdf/apply-relabel-instructions! doc spell-relabels casters
                                                    print-character-sheet-style?)]
               (when (pos? refused)
+                (errors/note! "Spell slot renumbering"
+                              (format "%d of %d instructions were not valid for this sheet style"
+                                      refused (+ applied refused)))
                 (println (format "pdf: refused %d of %d relabel instruction(s)"
                                  refused (+ applied refused))))))
           (when print-spell-annotations?
@@ -1563,11 +1576,21 @@
             2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
             3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.0 1.905 1.52)
             4 nil)))
+      ;; Last, so every notice is in: it prepends a page naming what was left out, and
+      ;; adds nothing at all when nothing was.
+      (pdf/add-notice-page! doc)
       (.save doc output))
     (let [a (.toByteArray output)]
       {:status 200
        :headers {"Content-Disposition" (str "inline; filename=\"" filename "\"")}
        :body (ByteArrayInputStream. a)})))
+
+(defn- generate-character-pdf
+  "generate-character-pdf* with a notice collector bound for the whole export, so a
+   section that degrades can say so and add-notice-page! can print it."
+  [req]
+  (binding [errors/*notices* (atom [])]
+    (generate-character-pdf* req)))
 
 (defn character-pdf-2 [req]
   (with-export-slot req #(generate-character-pdf req)))
