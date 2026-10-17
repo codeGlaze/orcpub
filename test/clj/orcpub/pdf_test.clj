@@ -4,6 +4,8 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw]
+            [orcpub.pdf.cards :as cards]
             [orcpub.dnd.e5.spell-packing :as packing])
   (:import (org.apache.pdfbox Loader)
            (org.apache.pdfbox.cos COSName)
@@ -73,7 +75,7 @@
   (testing "the per-document loader memoizes: the same icon path returns the SAME
             embedded image object (embedded/decoded once, referenced thereafter)"
     (with-open [doc (PDDocument.)]
-      (let [img (pdf/make-image-loader doc)
+      (let [img (draw/make-image-loader doc)
             a (img "public/image/shiny-purse.png")
             b (img "public/image/shiny-purse.png")]
         (is (identical? a b) "same path -> same PDImageXObject, not a re-embed")))))
@@ -83,21 +85,21 @@
             renders a spell without throwing (load-fonts + icon embed hoisted out)"
     (with-open [doc (PDDocument.)]
       (.addPage doc (PDPage.))
-      (let [fonts (pdf/load-fonts doc)
-            img (pdf/make-image-loader doc)
+      (let [fonts (draw/load-fonts doc)
+            img (draw/make-image-loader doc)
             page (.getPage doc 0)]
         (with-open [cs (PDPageContentStream. doc page)]
           (let [spell [{:spell {:name "Bolt" :level 1 :school "evocation"
                                 :components {:verbal true}}
                         :class-nm "Wizard" :dc 13 :attack-bonus 5}]]
             (is (sequential?
-                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false false false))
+                 (cards/print-spells cs doc fonts img 2.5 3.5 spell 0 false false false))
                 "color icons: returns the remaining-lines sequence without throwing")
             (is (sequential?
-                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false true false))
+                 (cards/print-spells cs doc fonts img 2.5 3.5 spell 0 false true false))
                 "B&W solid: solid-black -bw icons + halo labels, renders without throwing")
             (is (sequential?
-                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false true true))
+                 (cards/print-spells cs doc fonts img 2.5 3.5 spell 0 false true true))
                 "B&W faded: grayscale icons (reduced alpha), renders without throwing")))))))
 
 (deftest print-backs-renders-with-optional-logo
@@ -106,21 +108,21 @@
             printing; the grayscale/black choice is a caller-resolved resource)"
     (with-open [doc (PDDocument.)]
       (.addPage doc (PDPage.))
-      (let [fonts (pdf/load-fonts doc)
-            img (pdf/make-image-loader doc)
+      (let [fonts (draw/load-fonts doc)
+            img (draw/make-image-loader doc)
             page (.getPage doc 0)
             lines (vec (repeat 9 {:remaining-lines ["overflow line"] :spell-name "Bolt"}))]
         (with-open [cs (PDPageContentStream. doc page)]
-          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-bw.png"))
+          (is (sequential? (cards/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-bw.png"))
               "grayscale logo on")
-          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-black.png"))
+          (is (sequential? (cards/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-black.png"))
               "solid-black logo on")
-          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 nil))
+          (is (sequential? (cards/print-backs cs fonts img 2.5 3.5 lines 0 nil))
               "logo off"))))))
 
 (deftest normalize-text-coerces-to-winansi
   (testing "unit: smart punctuation downgraded, controls dropped, non-Latin-1 -> '?'"
-    (let [nt #'orcpub.pdf/normalize-text]
+    (let [nt #'orcpub.pdf.draw/normalize-text]
       (is (= "'q' \"d\" - -- ..."
              (nt "‘q’ “d” – — …")))
       (is (= "ab c" (nt "ab\tc")) "BEL dropped, tab -> space")
@@ -131,7 +133,7 @@
   (testing "Font creation and ability to print latin and cyrillic characters"
     (let [^PDDocument doc (PDDocument.)
           ^PDPage page (PDPage.)
-          fonts (pdf/load-fonts doc)
+          fonts (draw/load-fonts doc)
           required-keys [:plain :bold :italic :bold-italic]]
       (is (every? some? (map fonts required-keys)))
       (.addPage doc page)
@@ -324,8 +326,8 @@
             `lines` without bound. Reachable from /character.pdf, which is
             unauthenticated: draw-text-to-box renders custom spell names into a
             roughly two-inch card box."
-    (let [result (future (pdf/split-lines "supercalifragilisticexpialidocious tail"
-                                          pdf/HELVETICA 8.0 0.2))
+    (let [result (future (draw/split-lines "supercalifragilisticexpialidocious tail"
+                                          draw/HELVETICA 8.0 0.2))
           value (deref result 5000 ::timed-out)]
       (when (= ::timed-out value) (future-cancel result))
       (is (not= ::timed-out value) "split-lines must terminate")
@@ -511,7 +513,7 @@
                     (let [size (baked-size form nm)
                           widget (first (.getWidgets (.getField form nm)))
                           available (- (.getWidth (.getRectangle widget)) 2.0)]
-                      (<= (* 72.0 (pdf/string-width value pdf/HELVETICA size)) available)))]
+                      (<= (* 72.0 (draw/string-width value draw/HELVETICA size)) available)))]
         (is (= 8.0 (baked-size form "int-save"))
             "a value that already fits is left at the size PDFBox chose")
         (is (< (baked-size form "wis-save") 8.0) "a wide value is shrunk")
@@ -749,7 +751,7 @@
           (pdf/grow-spell-sections! doc casters (if (zero? casters) :all marks))
           (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
           (doseq [i (range (.getNumberOfPages doc))]
-            (is (= 1 (count (re-seq (re-pattern pdf/site-stamp) (page-text doc i))))
+            (is (= 1 (count (re-seq (re-pattern draw/site-stamp) (page-text doc i))))
                 (str "style " style ", " casters " caster(s), page " (inc i)))))))))
 
 (defn- ink-free?
@@ -761,7 +763,7 @@
   (let [dpi 300.0
         img (.renderImageWithDPI (org.apache.pdfbox.rendering.PDFRenderer. doc)
                                  index (float dpi))
-        w (pdf/string-width pdf/site-stamp pdf/HELVETICA 6)
+        w (draw/string-width draw/site-stamp draw/HELVETICA 6)
         h (/ 8.0 72)
         height (.getHeight img)
         x0 (int (* x dpi))
@@ -1073,7 +1075,7 @@
                       size (some-> (re-find #"/\S+\s+([0-9.]+)\s+Tf" (String. (.toByteArray b)))
                                    second Double/parseDouble)]
                   (when size
-                    (is (<= (* 72 (pdf/string-width v pdf/HELVETICA size))
+                    (is (<= (* 72 (draw/string-width v draw/HELVETICA size))
                             (.getWidth r))
                         (str "style " style " " n " \"" v "\" at " size "pt"))))))))))))
 
@@ -1154,12 +1156,12 @@
       (let [{:keys [label size]} (fit "Eldritch Knight" 35.0)]
         (is (not= "Eldritch Knight" label))
         (is (clojure.string/ends-with? label "\u2026"))
-        (is (<= (* 72 (pdf/string-width label pdf/HELVETICA_BOLD size)) 35.0))))
+        (is (<= (* 72 (draw/string-width label draw/HELVETICA_BOLD size)) 35.0))))
     (testing "every real class name fits a level box's compartment"
       (doseq [nm ["Bard" "Cleric" "Druid" "Paladin" "Ranger" "Sorcerer" "Warlock"
                   "Wizard" "Arcane Trickster" "Eldritch Knight"]]
         (let [{:keys [label size]} (fit nm 35.0)]
-          (is (<= (* 72 (pdf/string-width label pdf/HELVETICA_BOLD size)) 35.0)
+          (is (<= (* 72 (draw/string-width label draw/HELVETICA_BOLD size)) 35.0)
               (str nm " -> " label)))))))
 
 (deftest a-label-on-box-0-is-refused

@@ -17,6 +17,7 @@
 ;; Pages a style prints its own footer on are skipped, the same as at export.
 
 (require '[orcpub.pdf :as pdf]
+         '[orcpub.pdf.draw :as draw]
          '[clojure.java.io :as io])
 (import '[org.apache.pdfbox Loader]
         '[org.apache.pdfbox.rendering PDFRenderer]
@@ -24,7 +25,7 @@
         '[java.io ByteArrayOutputStream])
 
 (def dpi 150.0)
-(def stamp-width (pdf/string-width pdf/site-stamp pdf/HELVETICA 6))
+(def stamp-width (draw/string-width draw/site-stamp draw/HELVETICA 6))
 (def stamp-height
   "6pt of cap height plus room for a descender, in inches."
   (/ 8.0 72))

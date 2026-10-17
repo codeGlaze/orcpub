@@ -6,6 +6,8 @@
   (:require [clojure.string :as s]
             [orcpub.common :as common]
             [orcpub.pdf :as pdf]
+            [orcpub.dnd.e5.spell-print :as sp]
+            [orcpub.pdf.draw :as draw]
             [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.dnd.e5.spell-annotations :as ann])
   (:import (java.awt.geom PathIterator)
@@ -13,11 +15,14 @@
 
 ;; ─── Page geometry, in points ────────────────────────────────────────────────
 
-(def page-w 612.0)
-(def page-h 792.0)
+;; FNS, not defs. These were (first (draw/page-size draw/default-page)) evaluated at
+;; namespace load, which no per-document page binding could ever reach -- binding
+;; draw/*page* to :a4 would have moved the cards and left the spellbook on Letter.
+(defn page-w [] (draw/page-width 1))
+(defn page-h [] (draw/page-height 1))
 (def ^:private margin 36.0)
 (def ^:private body-top 56.0)
-(def ^:private body-bottom (- page-h 46.0))
+(defn- body-bottom [] (- (page-h) 46.0))
 (def ^:private gutter 16.0)
 (def ^:private tab-room
   "What the inset tabs take from every line: 0.35in, about 5% of the measure."
@@ -28,36 +33,37 @@
 (def ^:private hair 0.78)
 
 (defn- py
-  "Converts `ty`, points down from the page top, to PDF y, which runs up from the bottom."
-  [ty] (float (- page-h ty)))
+  "Converts `ty`, points down from the page top, to PDF y, which runs up from the bottom.
+   `draw/pt-from-top` at a scale of 1, the same flip pdf.clj uses at 72."
+  [ty] (draw/pt-from-top 1 ty))
 
 (defn body-width
   "The width spells are laid into, in points: the page less its margins, and less the tab
    column when `tabs` is :inset."
-  [tabs] (- page-w (* 2 margin) (if (= :inset tabs) tab-room 0)))
+  [tabs] (- (page-w) (* 2 margin) (if (= :inset tabs) tab-room 0)))
 
 (defn capacity
   "The height spells are laid into on one page."
   []
-  (- body-bottom body-top))
+  (- (body-bottom) body-top))
 
 ;; ─── Text ────────────────────────────────────────────────────────────────────
 
 (defn- clean
-  "`v` as a string the embedded fonts can show (pdf/normalize-text), with list bullets turned
+  "`v` as a string the embedded fonts can show (draw/normalize-text), with list bullets turned
    into middle dots; \"\" for nil."
   [v]
-  (or (pdf/normalize-text (some-> v str (s/replace "\u2022" "\u00B7"))) ""))
+  (or (draw/normalize-text (some-> v str (s/replace "\u2022" "\u00B7"))) ""))
 
 (defn- width
   "Width of `text` in points at `size` in `font`, after `clean`."
-  [font size text] (* 72.0 (pdf/string-width (clean text) font size)))
+  [font size text] (* 72.0 (draw/string-width (clean text) font size)))
 
 (defn- wrap
   "`text` broken into lines of at most `w` points, hard breaks kept."
   [font size text w]
   (into []
-        (mapcat #(if (s/blank? %) [] (pdf/split-lines (s/trim %) font size (/ w 72.0))))
+        (mapcat #(if (s/blank? %) [] (draw/split-lines (s/trim %) font size (/ w 72.0))))
         (s/split-lines (clean text))))
 
 (defn- clip
@@ -163,18 +169,16 @@
 
 ;; ─── Line art ────────────────────────────────────────────────────────────────
 
-(def ^:private bezier-k 0.5522847)
+(defn- pt
+  "`canvas`'s point mapper for this file: x in points, y in points DOWN from the page top."
+  [x ty]
+  [(float x) (py ty)])
 
 (defn- circle-path!
   "Adds a circle of radius `r` about (cx, cy) to the current path, as four cubic curves."
   [cs cx cy r]
-  (let [k (* r bezier-k) x (float cx) y (py cy)]
-    (.moveTo cs (float (+ cx r)) y)
-    (.curveTo cs (float (+ cx r)) (py (- cy k)) (float (+ cx k)) (py (- cy r)) x (py (- cy r)))
-    (.curveTo cs (float (- cx k)) (py (- cy r)) (float (- cx r)) (py (- cy k)) (float (- cx r)) y)
-    (.curveTo cs (float (- cx r)) (py (+ cy k)) (float (- cx k)) (py (+ cy r)) x (py (+ cy r)))
-    (.curveTo cs (float (+ cx k)) (py (+ cy r)) (float (+ cx r)) (py (+ cy k)) (float (+ cx r)) y)
-    (.closePath cs)))
+  (draw/circle-path! cs pt cx cy r)
+  (.closePath cs))
 
 (defn- circle!
   "Strokes a circle of radius `r` about (cx, cy) at line width `lw`, or fills it when `fill?`."
@@ -187,13 +191,11 @@
   "Strokes the path through `pts`, each [x ty], at line width `lw`; closes it with `:close?`,
    fills it with `:fill?`."
   [cs pts lw & [{:keys [close? fill?]}]]
-  (let [[[x y] & more] pts]
-    (.setLineWidth cs (float lw))
-    (.moveTo cs (float x) (py y))
-    (doseq [[a b] more] (.lineTo cs (float a) (py b)))
-    (cond fill? (do (.closePath cs) (.fill cs))
-          close? (.closeAndStroke cs)
-          :else (.stroke cs))))
+  (.setLineWidth cs (float lw))
+  (draw/path! cs pt pts)
+  (cond fill? (do (.closePath cs) (.fill cs))
+        close? (.closeAndStroke cs)
+        :else (.stroke cs)))
 
 (defn- line!
   "Strokes a straight line from (x1, y1) to (x2, y2) at line width `lw`."
@@ -205,7 +207,7 @@
    whose units are `unit` points each."
   [cs d x ty unit lw & [fill?]]
   (.setLineWidth cs (float lw))
-  (doseq [op (pdf/svg-path-ops d)
+  (doseq [op (draw/svg-path-ops d)
           :let [px #(float (+ x (* unit %)))
                 pyy #(py (+ ty (* unit %)))]]
     (case (first op)
@@ -306,7 +308,7 @@
           (line! cs (first (polar cx cy (* 11.2 s) a)) (second (polar cx cy (* 11.2 s) a))
                  (first (polar cx cy reach a)) (second (polar cx cy reach a)) (* 0.9 s)))))
     (let [icon-size (* size 0.5)]
-      (pdf/draw-svg-icon! cs img (str "emblems/" icon)
+      (draw/draw-svg-icon! cs img (str "emblems/" icon)
                           (/ (- cx (/ icon-size 2)) 72.0) (/ (- cy (/ icon-size 2)) 72.0)
                           (/ icon-size 72.0) [ink ink ink] 1.0))))
 
@@ -404,15 +406,15 @@
   "The cards' abbreviation, first clause only: \"1 reaction, which you take when...\"
    is a sentence, not a casting time."
   [t]
-  (pdf/abbreviate-casting-time (first (s/split (str t) #","))))
+  (sp/abbreviate-casting-time (first (s/split (str t) #","))))
 
 (defn- short-duration
   "The cards' abbreviation of a duration: \"Conc, 1 min\", \"Inst\"."
-  [d] (pdf/abbreviate-duration (str d)))
+  [d] (sp/abbreviate-duration (str d)))
 
 (defn- short-range
   "The cards' abbreviation of a range: \"60 ft\", \"Self\"."
-  [r] (pdf/abbreviate-range (str r)))
+  [r] (sp/abbreviate-range (str r)))
 
 (defn marks
   "The small italic notes after a spell's name: concentration, ritual, a costly material."
@@ -875,7 +877,7 @@
   "Draws the inset level tabs down the right edge of `page`, one per level up to `max-level`,
    filled for the levels on the page."
   [cs fonts page max-level]
-  (let [n (inc max-level) x (- page-w 18 15) top (+ body-top 4) bottom (- body-bottom 4)
+  (let [n (inc max-level) x (- (page-w) 18 15) top (+ body-top 4) bottom (- (body-bottom) 4)
         th (min 36 (/ (- bottom top (* 3 (dec n))) n))]
     (doseq [l (range n) :let [ty (+ top (* l (+ th 3))) on? (contains? (:levels page) l)]]
       (gray! cs ink)
@@ -892,17 +894,17 @@
   (let [names (->> classes (keep #(emblems/authors (:icon %))) distinct)]
     (when (seq names)
       (let [t (str "Class emblems by " (s/join ", " names) ", from game-icons.net under CC BY 3.0")]
-        (text! cs (:italic fonts) 5.4 (- (+ margin (/ w 2)) (/ (width (:italic fonts) 5.4 t) 2)) (- page-h 8) t
+        (text! cs (:italic fonts) 5.4 (- (+ margin (/ w 2)) (/ (width (:italic fonts) 5.4 t) 2)) (- (page-h) 8) t
                {:color ink-2})))))
 
 (defn- footer!
   "Draws the foot of page `n`: whose spellbook it is, the page number and the site stamp."
   [cs fonts character-name n w]
-  (let [ty (- page-h 22)]
+  (let [ty (- (page-h) 22)]
     (text! cs (:plain fonts) 6.6 margin ty (str "Spellbook of " (if (s/blank? character-name) "an adventurer" character-name)) {:color ink-2})
     (folio! cs fonts (+ margin (/ w 2)) (- ty 2.4) n)
-    (let [sw (spaced-width (:plain fonts) 6.6 pdf/site-stamp 0.4)]
-      (text! cs (:plain fonts) 6.6 (- (+ margin w) sw) ty pdf/site-stamp {:color ink-2 :spacing 0.4}))))
+    (let [sw (spaced-width (:plain fonts) 6.6 draw/site-stamp 0.4)]
+      (text! cs (:plain fonts) 6.6 (- (+ margin w) sw) ty draw/site-stamp {:color ink-2 :spacing 0.4}))))
 
 (defn- draw-page!
   "Draws `page`: running head, inset tabs when asked for, every block of units, the footer,
@@ -949,7 +951,7 @@
   (let [pages (layout-pages fonts img opts spells-known spells-map)
         max-level (reduce max 0 (for [p pages l (:levels p)] l))]
     (doseq [[i page] (map-indexed vector pages)]
-      (let [pdpage (PDPage.)]
+      (let [pdpage (PDPage. (draw/page-rect))]
         (.addPage doc pdpage)
         (with-open [cs (PDPageContentStream. doc pdpage)]
           (draw-page! cs fonts page opts max-level (inc i) (= i (dec (count pages)))))))

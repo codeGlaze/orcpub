@@ -3,7 +3,7 @@
   ;; explicit :refer to avoid namespace pollution from :refer :all
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
-            [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw]
             [orcpub.routes :as routes]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.magic-items :as magic-items])
@@ -62,8 +62,8 @@
   [kinds]
   (let [out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (let [fonts (pdf/load-fonts doc)
-            img (pdf/make-image-loader doc)
+      (let [fonts (draw/load-fonts doc)
+            img (draw/make-image-loader doc)
             spells-known {:wizard (vec (for [k (take 12 (keys spells/spell-map))]
                                          {:key k :class "Wizard"}))}]
         (when (kinds :spells)
@@ -136,8 +136,8 @@
         spells-known {:wizard (vec (for [c customs] {:key (:key c) :class "Wizard"}))}
         out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (let [fonts (pdf/load-fonts doc)
-            img (pdf/make-image-loader doc)]
+      (let [fonts (draw/load-fonts doc)
+            img (draw/make-image-loader doc)]
         (routes/add-spell-cards! doc fonts img spells-known {"Wizard" 15} {"Wizard" 7}
                                  customs false card-back-logo false false))
       (.save doc out))
@@ -147,12 +147,12 @@
   (testing "each of the nine card backs carries the site line"
     (with-open [doc (render-cards #{:spells})]
       (let [text (str/join (map :ch (glyphs doc 1)))]
-        (is (= 9 (count (re-seq (re-pattern pdf/site-stamp) text)))
+        (is (= 9 (count (re-seq (re-pattern draw/site-stamp) text)))
             "one stamp per card on the back page"))))
   (testing "and the item cards' backs too, which share print-backs"
     (with-open [doc (render-cards #{:items})]
       (let [text (str/join (map :ch (glyphs doc 1)))]
-        (is (= 9 (count (re-seq (re-pattern pdf/site-stamp) text))))))))
+        (is (= 9 (count (re-seq (re-pattern draw/site-stamp) text))))))))
 
 (deftest overflow-text-clears-the-site-stamp
   ;; REGRESSION: draw-lines-to-box fills its box to the last line that fits, and
@@ -168,7 +168,7 @@
             box-of (fn [{:keys [x y]}]
                      [(int (/ (- x (* 72 0.5)) (* 72 2.5)))
                       (int (/ (- y (* 72 0.25)) (* 72 3.5)))])
-            stamp-chars (set pdf/site-stamp)]
+            stamp-chars (set draw/site-stamp)]
         (doseq [[box gs] (group-by box-of all)
                 ;; The page header sits above the grid and is not a card.
                 :when (<= 0 (second box) 2)]
@@ -177,8 +177,80 @@
                 bottom (apply max (map :y gs))
                 stamp (filter #(> (:y %) (- bottom 2)) gs)
                 body (remove #(> (:y %) (- bottom 2)) gs)]
-            (is (= pdf/site-stamp (str/join (map :ch (sort-by :x stamp))))
+            (is (= draw/site-stamp (str/join (map :ch (sort-by :x stamp))))
                 (str "box " box " ends with the stamp"))
             (when (seq body)
               (is (> (- bottom (apply max (map :y body))) 6.0)
                   (str "box " box ": body text clears the stamp by at least 6pt")))))))))
+
+
+;; ── Text the embedded font cannot draw ───────────────────────────────────────
+;; Homebrew names are user text. The embedded Vollkorn covers Latin-1 and the
+;; punctuation the SRD uses, but not every script, and PDFBox throws on a glyph it
+;; has not got. add-magic-item-cards! wraps EVERY page in one try, so one bad name on
+;; the first sheet costs the export every sheet after it.
+
+(def ^:private unrenderable-name
+  "Katakana: verified absent from Vollkorn in all three weights."
+  "Blade of \u30c4\u30c4\u30c4")
+
+(def ^:private control-char-name
+  "A BEL and a SOH, the shape of a copy-paste accident."
+  "Wand\u0007of\u0001Fire")
+
+(defn- renamed
+  "The nth real magic item with `nm` for its name, so only the name differs."
+  [n nm]
+  (assoc (nth magic-items/magic-items n) :name nm))
+
+(defn- render-items
+  "Item card pages for `items`, as [page-count extracted-text]."
+  [items]
+  (let [out (ByteArrayOutputStream.)]
+    (with-open [doc (PDDocument.)]
+      (routes/add-magic-item-cards! doc (draw/load-fonts doc) (draw/make-image-loader doc)
+                                    (vec items) card-back-logo false false)
+      (.save doc out))
+    (with-open [doc (Loader/loadPDF (.toByteArray out))]
+      [(.getNumberOfPages doc)
+       (.getText (org.apache.pdfbox.text.PDFTextStripper.) doc)])))
+
+(def ^:private last-page-item
+  "Named on the SECOND sheet, so it is only drawn if the first sheet finished."
+  "Wings of Flying")
+
+(defn- two-sheets-with
+  "Ten items: `bad` first, nine real ones after, the last named so it lands on sheet two."
+  [bad]
+  (concat [(renamed 0 bad)]
+          (map #(renamed % (str "Filler Item " %)) (range 1 9))
+          [(renamed 9 last-page-item)]))
+
+(deftest ten-items-make-two-sheets-and-their-backs
+  (testing "the baseline shape this test depends on, with no bad names"
+    (let [[pages text] (render-items (two-sheets-with "Ordinary Name"))]
+      (is (= 4 pages) "two fronts and two backs")
+      (is (str/includes? text last-page-item)))))
+
+(deftest a-name-the-font-cannot-draw-does-not-cost-the-later-sheets
+  (let [[pages text] (render-items (two-sheets-with unrenderable-name))]
+    (is (= 4 pages)
+        "a glyph the font has not got cost the export whole sheets")
+    (is (str/includes? text last-page-item)
+        (str last-page-item " is on sheet two and never got drawn"))))
+
+(deftest control-characters-in-a-name-do-not-cost-the-later-sheets
+  (let [[pages text] (render-items (two-sheets-with control-char-name))]
+    (is (= 4 pages) "control characters in a name cost the export whole sheets")
+    (is (str/includes? text last-page-item)
+        (str last-page-item " is on sheet two and never got drawn"))))
+
+(deftest the-punctuation-the-srd-uses-is-left-alone
+  (testing "Vollkorn draws these, so nothing should replace them"
+    (let [nm "Rod \u2014 of \u201cLordly\u201d Might\u2019s \u2022 Grip"
+          [pages text] (render-items [(renamed 0 nm)])]
+      (is (pos? pages))
+      (doseq [[cp label] [[0x2014 "em dash"] [0x201C "curly open"] [0x2019 "curly apos"]
+                          [0x2022 "bullet"]]]
+        (is (str/includes? text (str (char cp)))
+            (str label " was replaced; Vollkorn has a glyph for it"))))))
