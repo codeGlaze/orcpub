@@ -1862,7 +1862,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, about, attack, blade, cleave, crit, damage, damage-parts, graze, mastery, radiant, settings, sun, sword, topple, weapon, weapons-extra-damage-design
+**topics:** 2026-10-17, 2d6, 4d6, about, attack, blade, crit, damage, mastery, owner, radiant, settings, slashing, sun, sword, undead, weapon, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry

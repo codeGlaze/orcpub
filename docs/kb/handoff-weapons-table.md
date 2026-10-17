@@ -81,13 +81,18 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
     and `(:damage-die versatile)` unqualified; weapons carry `::weapons/versatile`. It also prints
     `::weapons/damage-type`, so Sun Blade shows slashing. Read from the code, not yet run. Fixing it
     changes PDF output: owner's call.
-  - Sun Blade expands to every sword (`:sun-blade-longsword`, `-rapier`...) because its
-    `::item-subtype` is `sword?`; the SRD makes it a longsword only.
+  - Sun Blade expands to every sword (`:sun-blade-longsword`, `-rapier`...) through `sword?`. Intended
+    (owner, 2026-10-17: it was canonically offered as several weapons), not a defect; tests use
+    `:sun-blade-longsword`.
   - Vicious Weapon's SRD trigger is "roll a 20", so on a `crit 19+` weapon a 19 crits without it.
     `:crit` means a natural 20 for now.
-  - Other SRD weapons with extra damage the list above leaves out: Sword of Life Stealing, Sword of
-    Sharpness, Vorpal Sword (natural 20), Dagger of Venom, Javelin of Lightning, Dwarven Thrower,
-    Oathbow, Mace of Smiting, Nine Lives Stealer, Sword of Wounding. Not filled in; ask.
+  - Other SRD weapons with extra damage the list above leaves out, read from their descriptions: on a
+    rolled 20, Sword of Life Stealing (3d6 necrotic, not constructs or undead), Sword of Sharpness
+    (4d6 slashing), Vorpal Sword (6d8 slashing, only on creatures immune to beheading), Mace of
+    Smiting (2d6 bludgeoning, 4d6 vs constructs); Dwarven Thrower (1d8 on a ranged hit, 2d8 vs
+    giants); Oathbow (vs its sworn enemy); Dagger of Venom (2d10 poison on a failed DC 15 Con save,
+    once per dawn); Javelin of Lightning (4d6 lightning, once per dawn). Nine Lives Stealer and Sword
+    of Wounding are effects, not extra damage. Not filled in; waiting on the owner.
 
 **Not drawn, so ask:** how the result card relates to a roll log; resistance per damage part; charge
 recharge and the zero-charges state; whether the app knows the attacks-per-turn count (fallback: the
