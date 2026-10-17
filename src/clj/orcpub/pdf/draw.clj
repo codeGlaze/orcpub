@@ -348,6 +348,20 @@
      :margin-x (/ (- pw width) 2)
      :margin-y (/ (- ph height) 2)}))
 
+(defn page-rect
+  "A PDRectangle for the bound page, for `(PDPage. (draw/page-rect))`. A bare (PDPage.)
+   is PDFBox's Letter, which silently ignores `*page*`."
+  []
+  (let [[w h] (page-size *page*)]
+    (PDRectangle. (float w) (float h))))
+
+(defn cards-per-page
+  "How many `box-width` x `box-height` inch cards fit the bound page. What a caller must
+   partition by -- 9 on Letter and A4, 4 on A5, and a literal 9 drops the rest."
+  [box-width box-height]
+  (let [{:keys [cols rows]} (grid-layout box-width box-height)]
+    (* cols rows)))
+
 (defn draw-grid
   "The cut grid for cards `box-width` x `box-height` inches, as many as fit the bound
    page, centred. Light grey lines. Takes its page from `*page*`, so a 2-up A5 grid on
