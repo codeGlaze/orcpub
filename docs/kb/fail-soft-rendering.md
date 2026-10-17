@@ -164,6 +164,16 @@ the tests did not.
 blank character, a broken picture address and a homebrew character without its homebrew, all
 through the real Export button. **When changing anything an export reads, add the case there.**
 
+## Operator settings and stored portraits are checked on the way in (2026-10-17, PR #64)
+
+- **Branding settings** (`fork/branding.clj`): every value read from the environment is checked
+  (`checked-url`, `checked-email`, `checked-int`). A bad one falls back to its default with a
+  warning naming the setting, so a typo costs that value, not a page; a bad field limit used to
+  stop the server at start-up. Artist links in `PORTRAIT_ARTISTS` pass `artist-links/url-problem`,
+  and their icon and colour come from the address.
+- **Stored portraits** (`character/sane-portrait`): tweak values are cleaned once, where a portrait
+  enters, so every reader gets usable values; `shade-hex` also ignores a non-number shade.
+
 ## Diagnosing a new occurrence
 
 The layered boundaries below stop a bad feature blanking the page, but they do not tell you *which*

@@ -1604,7 +1604,7 @@ _extras-definitions · extras definitions_
 
 _fail-soft-rendering · fail soft rendering_
 
-**topics:** app-root, bad, bake, boundaries, boundary, coerce, comparator, culprit, datum, evasion, hunter, isolation, non-string, portrait, sort, throw, throws, trace
+**topics:** app-root, bad, bake, boundaries, boundary, coerce, comparator, culprit, evasion, hunter, isolation, non-string, portrait, portraits, sort, throw, throws, trace
 
 - The goals, in priority order (this ordering drove the design)
 - Layered error boundaries — why three, not one
@@ -1614,6 +1614,7 @@ _fail-soft-rendering · fail soft rendering_
 - Safe building blocks (prevent the crash + surface it, in common.cljc)
 - Verified facts / gotchas (so nobody re-derives them)
 - PDF export: nothing optional stops it (2026-10-16, PR #64)
+- Operator settings and stored portraits are checked on the way in (2026-10-17, PR #64)
 - Diagnosing a new occurrence
 - Landing (done)
 
