@@ -73,6 +73,10 @@ ability, +1 to another) work across races, backgrounds, and subclasses the way o
   Opt-in `show-class-source-suffix` preference surfaces which homebrew pack a class came from; plugin
   source is carried as its own slot through the option config rather than folded into the name.
 
+- **A grant can say "choose up to N"** (`6eefa2e2`)
+  A choice grant takes `:min` below its `:count`, and `:order`. Built-in code can also give it a
+  selection key and a display condition, which a file cannot.
+
 ### Bug Fixes
 
 - **Homebrew floating ASI choice now renders** (`8e331564`)
