@@ -143,6 +143,27 @@ So the dev-throw belongs in `feature-name`, not in the generic fold — putting 
   **cached** (once per affected character). May briefly hang on first load of a
   complex broken character.
 
+## PDF export: nothing optional stops it (2026-10-16, PR #64)
+
+**The rule:** a missing, broken or slow extra never stops a PDF. Extras are the portrait, pictures,
+homebrew a browser lacks, and anything empty on a blank character; the PDF goes without them.
+The server's PDF generation already worked this way. The browser-side step added with portraits
+did not: `views.cljs export-pdf` bakes the portrait before submitting the form, and it called
+`.then` on a bake that could be nil.
+
+That crash came from a change elsewhere: `bake-ahead!` was made to skip portraits this site cannot
+draw (`pa/drawable?`), and `export-pdf` still assumed a bake always exists. CodeRabbit found it,
+the tests did not.
+
+`export-pdf` now:
+- sends at once, without a portrait, when the portrait cannot be drawn or its bake throws;
+- waits at most `portrait-wait-ms` (8 s) for a bake still running, then sends without it;
+- tells the player, rather than doing nothing, when the PDF's data cannot be made at all.
+
+**Checks:** `views_test.cljs`, four cases, each failing on the old code; `soak_e2e.js` part 10, a
+blank character, a broken picture address and a homebrew character without its homebrew, all
+through the real Export button. **When changing anything an export reads, add the case there.**
+
 ## Diagnosing a new occurrence
 
 The layered boundaries below stop a bad feature blanking the page, but they do not tell you *which*

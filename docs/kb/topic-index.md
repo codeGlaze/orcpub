@@ -1604,7 +1604,7 @@ _extras-definitions · extras definitions_
 
 _fail-soft-rendering · fail soft rendering_
 
-**topics:** app-root, bad, boundaries, boundary, coerce, comparator, culprit, datum, evasion, hunter, hunters, isolation, leave-one-out, non-string, sort, throw, throws, trace
+**topics:** app-root, bad, bake, boundaries, boundary, coerce, comparator, culprit, datum, evasion, hunter, isolation, non-string, portrait, sort, throw, throws, trace
 
 - The goals, in priority order (this ordering drove the design)
 - Layered error boundaries — why three, not one
@@ -1613,6 +1613,7 @@ _fail-soft-rendering · fail soft rendering_
 - Selection level — isolate-culprit-selection (the actionable one)
 - Safe building blocks (prevent the crash + surface it, in common.cljc)
 - Verified facts / gotchas (so nobody re-derives them)
+- PDF export: nothing optional stops it (2026-10-16, PR #64)
 - Diagnosing a new occurrence
 - Landing (done)
 
@@ -2795,7 +2796,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _plan-pdf-page-sizes · plan pdf page sizes_
 
-**topics:** 2-arity, 2026-10-16, 36pt, 595, acroform, appearance, artwork, binding, border, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
+**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, border, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
 
 - The problem in one paragraph
 - Order, and why this order
@@ -3644,7 +3645,7 @@ _weapons-extra-damage-handoff · weapons extra damage handoff_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 2026-10-15, amber, blue, button, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, versatile, weapon, white
+**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, versatile, weapon, white
 
 - The parts and their names
 - Agreed
