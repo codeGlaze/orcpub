@@ -93,7 +93,7 @@ Last updated 2026-10-06. Re-run before trusting a row: branches move.
 | `staging/june-bug-patches-01` | local-only | 2026-07-08 | `c679a3fa80` | worktree | contained in gitea/dmv |
 | `summer-update` | local-only | 2026-08-08 | `073e3802f5` | - | contained in gitea/dmv |
 
-## Unmerged, not triaged (28)
+## Unmerged, not triaged (27)
 
 | branch | where | last commit | tip | attached | note |
 |---|---|---|---|---|---|
@@ -109,7 +109,6 @@ Last updated 2026-10-06. Re-run before trusting a row: branches move.
 | `feature/cross-platform-scripts` | remote | 2026-02-24 | `7378745a57` | - | 0% of its added lines are on integration |
 | `feature/extras-companions` | remote | 2026-10-01 | `c655fa7e93` | - | 2% of its added lines are on integration |
 | `fix/custom-item-classification` | remote | 2026-08-30 | `b234db2bb1` | - | 6% of its added lines are on integration |
-| `fix/fa4-icon-names` | remote | 2026-09-20 | `71ba828431` | - | 27% of its added lines are on integration |
 | `fix/hidden-multiclass-skill-pick` | remote | 2026-10-06 | `74fcb11a75` | - | 1% of its added lines are on integration |
 | `fix/item-stable-identity` | remote | 2026-08-26 | `b00945684b` | - | 0% of its added lines are on integration |
 | `fix/windows-port-detection` | remote | 2026-09-18 | `8fbf98f510` | - | 92% of its added lines are on integration |
@@ -134,6 +133,15 @@ Last updated 2026-10-06. Re-run before trusting a row: branches move.
 ## Deleted
 
 Restore any of these with `git push origin <tip>:refs/heads/<branch>` (or `git branch <branch> <tip>` for a local-only one), as long as the commit still exists in a clone.
+
+### 2026-10-17 (1 branch)
+
+Approved by the owner. Its icon renames landed on `integration` separately (#696, "blank icons show
+again"); its one remaining change, a dead `.fa-caret-square-o-down` rule, was made on #64 (`8ea5231ed`).
+
+| branch | where | tip | last commit | why it could go | what was on it |
+|---|---|---|---|---|---|
+| `fix/fa4-icon-names` | remote | `71ba828431` | 2026-09-20 | its fixes are on integration; the last one moved to #64 | Fix five Font Awesome 4 icon names that render nothing |
 
 ### 2026-10-06 (65 branches)
 

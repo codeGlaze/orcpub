@@ -485,9 +485,10 @@ _branch-inventory · branch inventory_
 - Landed, held by a worktree (1)
 - Contained, kept for a worktree or PR (8)
 - Lives in another trunk (10)
-- Unmerged, not triaged (28)
+- Unmerged, not triaged (27)
 - Left alone locally
 - Deleted
+- 2026-10-17 (1 branch)
 - 2026-10-06 (65 branches)
 
 ## browser-probe-registration.md
@@ -1321,7 +1322,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, email, generator, history, ledger, narrative, operator, plan, session, topic, unindexed
+**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, ledger, linked, narrative, operator, plan, session, topic, unindexed
 
 - What earns a doc
 - Verify, don't remember

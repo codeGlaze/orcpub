@@ -171,6 +171,9 @@ through the real Export button. **When changing anything an export reads, add th
   warning naming the setting, so a typo costs that value, not a page; a bad field limit used to
   stop the server at start-up. Artist links in `PORTRAIT_ARTISTS` pass `artist-links/url-problem`,
   and their icon and colour come from the address.
+  `email-configured?` is worked out from the checked from-address (`sender-configured?`): first
+  written from the raw setting, a bad `EMAIL_FROM_ADDRESS` fell back to the placeholder while email
+  still counted as configured (fixed `b032c4d81`).
 - **Stored portraits** (`character/sane-portrait`): tweak values are cleaned once, where a portrait
   enters, so every reader gets usable values; `shade-hex` also ignores a non-number shade.
 
