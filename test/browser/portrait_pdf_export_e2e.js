@@ -186,7 +186,8 @@ function check(label, ok, detail) {
   // Differential check: the same request minus the portrait must come back
   // materially smaller. Without this, "embeds an image" could be satisfied by
   // artwork already in the sheet template rather than by the posted portrait.
-  const stripped = posted.replace(/%3Aportrait-png\+%22[A-Za-z0-9%2B/%3D]+%22/, '')
+  // No export request captured already failed above; carry on so that failure keeps its line.
+  const stripped = (posted || '').replace(/%3Aportrait-png\+%22[A-Za-z0-9%2B/%3D]+%22/, '')
                          .replace(/:portrait-png\s+"[A-Za-z0-9+/=]+"/, '');
   const bare = await ctx.request.post(`${BASE}/character.pdf`, {
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
