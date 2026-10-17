@@ -219,16 +219,19 @@
   [character]
   (when js/window.localStorage
     (let [previous (drafts/tab-key)
-          k (drafts/key-for character previous)]
-      (when (and previous (not= previous k)) (drafts/unmark-live! previous))
-      (drafts/set-tab-key! k)
-      (drafts/mark-live! k)
-      (set-item (drafts/storage-key k)
-                (str (assoc (char5e/to-strict character)
-                            :changed (:changed character)
-                            :draft/base (:draft/base character)
-                            :draft/owner (current-username)
-                            :draft/touched (.now js/Date)))))))
+          k (drafts/key-for character previous)
+          ;; Written first: if storage refuses it, the tab stays on the draft it has.
+          ok? (set-item (drafts/storage-key k)
+                        (str (assoc (char5e/to-strict character)
+                                    :changed (:changed character)
+                                    :draft/base (:draft/base character)
+                                    :draft/owner (current-username)
+                                    :draft/touched (.now js/Date))))]
+      (when ok?
+        (when (and previous (not= previous k)) (drafts/unmark-live! previous))
+        (drafts/set-tab-key! k)
+        (drafts/mark-live! k))
+      ok?)))
 
 (defn user->local-store [user-data]
   (when js/window.localStorage

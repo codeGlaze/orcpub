@@ -1920,6 +1920,15 @@
         (is (= :none @written) "the other tab's draft under the same key is left alone")
         (is (= 3 (get-in @app-db [:character ::entity/values hp])) "the copy on screen is still updated")))))
 
+(deftest a-refused-draft-write-leaves-the-tab-on-its-previous-draft
+  (try
+    (clear-drafts!)
+    (drafts/set-tab-key! "111")
+    (with-redefs [db/set-item (constantly false)]
+      (db/character->local-store {:db/id 222 ::entity/values {char-name "Other"}}))
+    (is (= "111" (drafts/tab-key)) "the tab still points at the draft it has")
+    (finally (clear-drafts!))))
+
 (deftest level-up-opens-the-stored-copy-only-when-the-builder-has-another-character
   (let [dispatched (atom nil)]
     (with-fx {:dispatch #(reset! dispatched %)}

@@ -37,3 +37,15 @@
     (is (drafts/expired? "kept-x" (- now (* 31 day)) now) "a kept draft")
     (is (not (drafts/expired? "111" (- now (* 29 day)) now)) "not yet")
     (is (not (drafts/expired? "new-x" (- now (* 400 day)) now)) "a never-saved character's: never")))
+
+(deftest coming-back-from-the-back-forward-cache-marks-the-draft-open-again
+  (let [k "test-bfcache-key" mark (str "draft-live/" k) before (drafts/tab-key)]
+    (try
+      (drafts/set-tab-key! k)
+      (drafts/start-heartbeat!)
+      (.removeItem js/localStorage mark)
+      (let [e (js/Event. "pageshow")]
+        (set! (.-persisted e) true)
+        (.dispatchEvent js/window e))
+      (is (some? (.getItem js/localStorage mark)) "marked open again at once, not at the next heartbeat")
+      (finally (.removeItem js/localStorage mark) (when before (drafts/set-tab-key! before))))))

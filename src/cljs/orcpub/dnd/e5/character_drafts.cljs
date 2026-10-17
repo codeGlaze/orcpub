@@ -109,12 +109,14 @@
 (defonce ^:private heartbeat (atom nil))
 
 (defn start-heartbeat!
-  "Once per page: renews this tab's live mark every 20 s, and clears it when the page is closed.
-   Returns nil."
+  "Once per page: renews this tab's live mark every 20 s, clears it when the page is closed, and
+   restores it when the page comes back from the back/forward cache. Returns nil."
   []
   (when-not @heartbeat
     (reset! heartbeat (js/setInterval #(some-> (tab-key) mark-live!) 20000))
-    (.addEventListener js/window "pagehide" #(some-> (tab-key) unmark-live!)))
+    (.addEventListener js/window "pagehide" #(some-> (tab-key) unmark-live!))
+    ;; A page restored from the back/forward cache was unmarked on the way out.
+    (.addEventListener js/window "pageshow" #(when (.-persisted %) (some-> (tab-key) mark-live!))))
   nil)
 
 (defn draft-keys
