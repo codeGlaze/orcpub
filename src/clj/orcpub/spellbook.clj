@@ -951,7 +951,7 @@
   (let [pages (layout-pages fonts img opts spells-known spells-map)
         max-level (reduce max 0 (for [p pages l (:levels p)] l))]
     (doseq [[i page] (map-indexed vector pages)]
-      (let [pdpage (PDPage.)]
+      (let [pdpage (PDPage. (draw/page-rect))]
         (.addPage doc pdpage)
         (with-open [cs (PDPageContentStream. doc pdpage)]
           (draw-page! cs fonts page opts max-level (inc i) (= i (dec (count pages)))))))

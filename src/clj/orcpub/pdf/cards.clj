@@ -62,8 +62,8 @@
   "Draws one page of spell card BACKS, mirroring the fronts for duplex printing.
    `remaining-lines-vec` is indexed by the card position `print-spells` used, each
    entry `{:remaining-lines :spell-name}` from that call; a card with no overflow
-   gets only its name and the site stamp. `logo-img` opts a card into the logo.
-   Inches."
+   gets only its name and the site stamp. Read with `get`, not as a function: a short
+   vector threw, and the caller's try swallowed it along with every card. Inches."
   [cs fonts img box-width box-height remaining-lines-vec page-number logo-img]
   ;; `img` is the memoized per-document image loader; `logo?` opts each card back
   ;; into showing the card logo (matching the fronts) for double-sided printing.
@@ -83,7 +83,7 @@
        (let [x (+ margin-x (* box-width i))
              y (+ margin-y (* box-height j))
              spell-index (+ i (* j cols))
-             {:keys [remaining-lines spell-name]} (remaining-lines-vec spell-index)]
+             {:keys [remaining-lines spell-name]} (get remaining-lines-vec spell-index)]
          (if (seq remaining-lines)
            ;; This card back carries overflow text from the front.
            (do
