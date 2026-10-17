@@ -83,13 +83,14 @@ async function load(ctx, url) {
     const path = (same ? '' : u.origin) + u.pathname.replace(/\/\d{6,}(?=\/|$)/g, '/:id');
     seen.push({ kind: r.resourceType(), method: r.method(), path });
   });
-  await page.goto(BASE + url, { waitUntil: 'networkidle', timeout: 60000 });
+  const response = await page.goto(BASE + url, { waitUntil: 'networkidle', timeout: 60000 });
   await page.waitForTimeout(1000);
   await page.close();
   const key = s => `${s.kind} ${s.method} ${s.path}`;
   const counts = {};
   for (const s of seen) counts[key(s)] = (counts[key(s)] || 0) + 1;
-  return counts;
+  // An error page loads little, so it would pass the allowance; its status is checked first.
+  return { counts, status: response ? response.status() : 0 };
 }
 
 (async () => {
@@ -99,8 +100,9 @@ async function load(ctx, url) {
     const ctx = await browser.newContext();
     if (signIn) { const p = await ctx.newPage(); await login(p, 'kaylee', 'serenity99'); await p.close(); }
     for (const [name, url] of PAGES) {
-      const counts = await load(ctx, url);
+      const { counts, status } = await load(ctx, url);
       const label = `${name} (${who})`;
+      check(`${label} loads`, status >= 200 && status < 300, `HTTP ${status}`);
       audit[label] = counts;
       if (AUDIT) {
         console.log(`\n== ${label}  ${url}`);
