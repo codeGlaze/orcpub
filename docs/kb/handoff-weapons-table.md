@@ -66,6 +66,29 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
 3. **The advantage switch** in the Weapons header; ctrl/shift-click stays.
 4. **The settings panel** (second PR).
 
+### Progress
+
+- **Stage 1 step 1, the damage-parts model: done** (`db9e6115`, 2026-10-17). `damage_parts.cljc` holds
+  the specs and `weapon-parts` / `applies?` / `applying-parts`; items carry `::mi/damage-parts`,
+  `::mi/effects`, `::mi/switches` and `::mi/charges`. `when` is `:always`, `:miss`, `:crit`,
+  `{::switch id}`, `{::vs #{creature types}}`, `{::charge n}` or `{::per-rest :short|:long}`; a part's
+  type may be `:weapon` (resolved to the weapon's, Sun Blade's radiant included). The eight SRD 5.1
+  weapons above carry their extras; Giant Slayer's and Mace of Disruption's saves are effects whose
+  `::text` is the SRD sentence verbatim. Nothing doubles dice: crit rules stay open (the setting
+  above). Tests: `damage_parts_test.cljc`, each claim shown failing under its own break first.
+- **Found while building, not fixed:**
+  - The PDF's two-handed line never prints. `pdf_spec.cljc` (about 694-706) reads `(:versatile weapon)`
+    and `(:damage-die versatile)` unqualified; weapons carry `::weapons/versatile`. It also prints
+    `::weapons/damage-type`, so Sun Blade shows slashing. Read from the code, not yet run. Fixing it
+    changes PDF output: owner's call.
+  - Sun Blade expands to every sword (`:sun-blade-longsword`, `-rapier`...) because its
+    `::item-subtype` is `sword?`; the SRD makes it a longsword only.
+  - Vicious Weapon's SRD trigger is "roll a 20", so on a `crit 19+` weapon a 19 crits without it.
+    `:crit` means a natural 20 for now.
+  - Other SRD weapons with extra damage the list above leaves out: Sword of Life Stealing, Sword of
+    Sharpness, Vorpal Sword (natural 20), Dagger of Venom, Javelin of Lightning, Dwarven Thrower,
+    Oathbow, Mace of Smiting, Nine Lives Stealer, Sword of Wounding. Not filled in; ask.
+
 **Not drawn, so ask:** how the result card relates to a roll log; resistance per damage part; charge
 recharge and the zero-charges state; whether the app knows the attacks-per-turn count (fallback: the
 chain counter only counts up). Armor in the same style is not in scope.

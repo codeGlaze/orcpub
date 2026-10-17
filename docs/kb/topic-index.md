@@ -990,7 +990,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, items, localstorage, magic, resolves, server-backed, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, genuine, inline, localstorage, magic, resolves, server-backed, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -1862,11 +1862,12 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, about, attack, blade, cleave, damage, graze, mastery, phone, radiant, settings, topple, trained, undead, vex, weapon, weapons-extra-damage-design
+**topics:** 2026-10-17, 2d6, about, attack, blade, cleave, crit, damage, damage-parts, graze, mastery, radiant, settings, sun, sword, topple, weapon, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry
 - Build order
+- Progress
 - Today's code (measured 2026-10-17 on 427d16aa)
 - Rules data, checked against SRD 5.2
 - The v5 palette, verified
@@ -3651,7 +3652,7 @@ _views-builders-split · views builders split_
 
 _weapon-data-model · weapon data model_
 
-**topics:** authored-tag, boolean, firearm, flags, javelin, mapping, melee, mistype, not-melee, predicate, present-or-absent, ranged, ranged-only, thrown, two-handed, versatile, weapon, weapons
+**topics:** authored-tag, boolean, firearm, flags, mapping, melee, mistype, not-melee, predicate, present-or-absent, ranged, ranged-only, sparse, thrown, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps
