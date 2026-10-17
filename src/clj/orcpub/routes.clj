@@ -1171,6 +1171,14 @@
   "Style ids with a template on disk: resources/fillable-char-sheetstyle-N-*.pdf"
   #{1 2 3 4})
 
+(def valid-page-sizes
+  "Paper the export draws on. Letter and A4 are both designed for; A5 fits 4 cards a
+   page instead of 9 and suits a pocket spellbook, not a character sheet.
+
+   The character-sheet TEMPLATES are 612x792 whatever this says -- their artwork is
+   fixed, and fitting them to A4 is a separate shim."
+  #{:letter :a4 :a5})
+
 (def default-sheet-style 1)
 
 (def ^:private pdf-option-keys
@@ -1186,6 +1194,7 @@
     :print-spell-annotations? :spell-relabels :spell-headings :spell-layout
     :magic-items-known :print-magic-item-cards?
     :spellbook :spell-order
+    :page-size
     :flatten?})
 
 (def ^:private image-url-shape
@@ -1427,15 +1436,11 @@
   (some-> (get spells/spell-map (common/name-to-kw nm))
           spell-annotations/annotation))
 
-(defn- generate-character-pdf* [req]
-  (let [fields (try
-                 (-> req :form-params :body edn/read-string bound-request)
-                 (catch Exception e
-                   (throw (ex-info "Invalid character data format. Unable to parse PDF request."
-                                   {:error :invalid-pdf-data}
-                                   e))))
-        
-        {:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? spellbook spell-order]} fields
+(defn- generate-character-pdf*
+  "The export itself. `fields` is already parsed and bounded; the caller binds the page
+   and the notice collector around it."
+  [req fields]
+  (let [{:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? spellbook spell-order page-size]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -1586,11 +1591,20 @@
        :body (ByteArrayInputStream. a)})))
 
 (defn- generate-character-pdf
-  "generate-character-pdf* with a notice collector bound for the whole export, so a
-   section that degrades can say so and add-notice-page! can print it."
+  "Parses the request once, then runs the export with the notice collector and the page
+   bound for its whole length: a section that degrades can say so, and every drawing
+   call agrees on the paper. An unknown :page-size falls back to :letter rather than
+   throwing -- a bad option must not cost someone their sheet."
   [req]
-  (binding [errors/*notices* (atom [])]
-    (generate-character-pdf* req)))
+  (let [fields (try
+                 (-> req :form-params :body edn/read-string bound-request)
+                 (catch Exception e
+                   (throw (ex-info "Invalid character data format. Unable to parse PDF request."
+                                   {:error :invalid-pdf-data}
+                                   e))))]
+    (binding [errors/*notices* (atom [])
+              draw/*page* (one-of valid-page-sizes (:page-size fields) :letter)]
+      (generate-character-pdf* req fields))))
 
 (defn character-pdf-2 [req]
   (with-export-slot req #(generate-character-pdf req)))

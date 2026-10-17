@@ -1,5 +1,5 @@
-;; Written by orcpub.card-geometry-test. Drawing operators per card page.
-;; A diff here is a card moving. Read it before committing it.
+;; Written by orcpub's geometry characterization tests: Card sheet
+;; A diff here is drawing moving. Read it before committing it.
 [["0.88 0.88 0.88 RG"
   "36.00 18.00 m"
   "36.00 774.00 l"

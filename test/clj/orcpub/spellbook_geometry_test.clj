@@ -74,6 +74,17 @@
   (let [[labels pages] (all-pages)]
     (ops/check-baseline! baseline-file pages labels "Spellbook")))
 
+(deftest spellbook-geometry-on-a4-is-unchanged
+  (testing "A4 is a designed-for layout, so it is pinned like Letter.
+
+            The spellbook is where A4's dimensions actually buy something: its body is
+            740pt tall against Letter's 690, so a page carries about 7% more. That makes
+            this a different pagination, not the same pages on bigger paper."
+    (binding [draw/*page* :a4]
+      (let [[labels pages] (all-pages)]
+        (ops/check-baseline! "test/spellbook-geometry-a4-baseline.edn"
+                             pages labels "Spellbook A4")))))
+
 (deftest the-cases-cover-what-they-claim
   (testing "every layout, order and tab placement"
     (is (= 18 (count cases)))

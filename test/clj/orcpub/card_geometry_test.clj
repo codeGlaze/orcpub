@@ -60,6 +60,16 @@
 (deftest card-geometry-is-unchanged
   (ops/check-baseline! sheet-baseline-file (sheet-pages-ops) sheet-labels "Card sheet"))
 
+(deftest card-geometry-on-a4-is-unchanged
+  (testing "A4 is a designed-for layout, so it is pinned like Letter.
+
+            Without this every baseline is Letter and A4 could break with the whole
+            suite green. The grid differs -- A4 fits the same 3x3 at 28/43pt margins
+            against Letter's 36/18 -- so this file is genuinely different, not a copy."
+    (binding [draw/*page* :a4]
+      (ops/check-baseline! "test/card-geometry-a4-baseline.edn"
+                           (sheet-pages-ops) sheet-labels "Card sheet A4"))))
+
 (deftest the-pages-are-what-we-think-they-are
   (testing "the baseline covers real output, not an empty document"
     (let [pages (sheet-pages-ops)]
