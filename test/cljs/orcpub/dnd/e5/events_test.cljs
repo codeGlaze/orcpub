@@ -1906,6 +1906,20 @@
         (is (= "Mine" (get-in (:draft @written) [::se/values char-name])) "mine is kept in Unsaved drafts")
         (is (nil? (:draft/conflict @app-db)))))))
 
+(deftest a-save-reply-does-not-write-the-draft-another-tab-holds
+  (let [written (atom :none)]
+    (with-fx {::events/builder-draft->local-store #(reset! written %)
+              :dispatch-n identity ::autosave-fx/saved identity}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              :character {:db/id 111 :changed true ::entity/values {char-name "Mine"}}
+                              :draft/held 111
+                              ::events/sheet-edited {111 #{hp}}))
+        (rf/dispatch-sync [:character-save-success {:for-id 111}
+                           {:body (char5e/to-strict {:db/id 111 ::entity/values {char-name "Stored" hp 3}})}])
+        (is (= :none @written) "the other tab's draft under the same key is left alone")
+        (is (= 3 (get-in @app-db [:character ::entity/values hp])) "the copy on screen is still updated")))))
+
 (deftest level-up-opens-the-stored-copy-only-when-the-builder-has-another-character
   (let [dispatched (atom nil)]
     (with-fx {:dispatch #(reset! dispatched %)}

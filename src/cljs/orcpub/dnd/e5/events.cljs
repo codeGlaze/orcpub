@@ -651,8 +651,9 @@
                 ;; copy is newer.
                 (not newer?)
                 (conj [::char5e/set-character id character]))}
-       keep-builder? (-> (assoc-in [:db :character] kept)
-                         (assoc ::builder-draft->local-store kept))
+       keep-builder? (assoc-in [:db :character] kept)
+       ;; Another tab holding this character owns its draft: only the copy on screen changes.
+       (and keep-builder? (not (:draft/held db))) (assoc ::builder-draft->local-store kept)
        ;; A first save: the draft moves from its browser key to the new id.
        (and current? (nil? (get-in db [:character :db/id]))) (assoc ::drop-unsaved-draft true)
        for-id (assoc ::autosave-fx/saved for-id)))))
