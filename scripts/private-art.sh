@@ -8,7 +8,7 @@
 # writes (orcpub-art); a piece without one (packs exported before Loom v2.41) is stamped here,
 # "licensed; pack <version>; artist <ART_ARTIST, default house-pack>", pixels untouched. It does not push: push to the private
 # (Gitea) remote yourself. Strand files are not needed; the image build makes them.
-# Refuses to run when the branch tracks a GitHub remote, because the art must never go there.
+# Refuses to run when the branch tracks or pushes to a GitHub remote, because the art must never go there.
 set -euo pipefail
 
 cmd="${1:-}"; pack="${2:-}"
@@ -29,9 +29,15 @@ if [ -z "$remote" ]; then
   echo "Branch $branch tracks no remote. Set it to track the private (Gitea) remote first:" >&2
   echo "  git branch --set-upstream-to=<gitea-remote>/$branch" >&2; exit 1
 fi
-urls="$(git remote get-url "$remote" 2>/dev/null || true) $(git remote get-url --push "$remote" 2>/dev/null || true)"
+# A plain `git push` goes to branch.<name>.pushRemote, else remote.pushDefault, else the tracked
+# remote: check every one of them, fetch and push URLs alike.
+push_remote="$(git config "branch.$branch.pushRemote" || git config remote.pushDefault || echo "$remote")"
+urls=""
+for r in "$remote" "$push_remote"; do
+  urls="$urls $(git remote get-url "$r" 2>/dev/null || true) $(git remote get-url --push "$r" 2>/dev/null || true)"
+done
 case "$urls" in
-  *github.com*) echo "REFUSED: branch $branch tracks remote '$remote' ($urls), which is GitHub." >&2
+  *github.com*) echo "REFUSED: branch $branch tracks or pushes to GitHub (remotes '$remote', '$push_remote':$urls)." >&2
                 echo "The licensed art must only ever be committed on the private deployment branch." >&2; exit 1;;
 esac
 upstream="$remote/$(git config "branch.$branch.merge" | sed 's#^refs/heads/##')"
