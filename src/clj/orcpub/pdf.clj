@@ -2072,6 +2072,28 @@
   {:head "Some of this export did not fit."
    :sub  "Your sheet is below and is complete. These parts were left out:"})
 
+(defn fit-sheet-to-page!
+  "Re-papers the AcroForm sheet onto `draw/*page*`, centred. A NO-OP on :letter, which
+   is what the templates already are.
+
+   Moves the MEDIABOX, not the content: the window shifts over the page's coordinate
+   space, so artwork and widgets move together and no appearance stream is touched.
+   Translating 549 widget rects by hand would do the same thing and get it wrong once."
+  [doc]
+  (let [[pw ph] (draw/page-size draw/*page*)]
+    (doseq [page (.getPages doc)
+            :let [mb (.getMediaBox page)
+                  tw (.getWidth mb) th (.getHeight mb)]
+            :when (or (not= pw tw) (not= ph th))]
+      ;; A4 is 16.72pt narrower, so 8.36 goes off each side. It lands in the margin on
+      ;; every page but the spell page, whose scroll frame loses the outer tip of its
+      ;; corner curls -- measured, and the straight sides sit at 11pt and clear it.
+      (let [box (PDRectangle. (float (/ (- tw pw) 2.0))
+                              (float (/ (- th ph) 2.0))
+                              (float pw) (float ph))]
+        (.setMediaBox page box)
+        (.setCropBox page box)))))
+
 (defn add-notice-page!
   "Prepends a page naming what the export dropped. Adds NO page on a clean export.
 
