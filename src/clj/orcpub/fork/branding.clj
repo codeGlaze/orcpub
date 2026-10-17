@@ -108,13 +108,18 @@
    instead of silently sending from a real domain it does not own."
   (checked-email :email-from-address (env/value :email-from-address "no-reply@example.com") "no-reply@example.com"))
 
+(defn sender-configured?
+  "Whether `address`, the checked from-address, can send: set, and not the placeholder an unset or
+   invalid EMAIL_FROM_ADDRESS falls back to."
+  [address]
+  (and (not (s/blank? address)) (not= address "no-reply@example.com")))
+
 (def email-configured?
   "Whether outbound email can actually be sent — true only when the operator has
    set a real from-address (not the placeholder). Email-dependent features
    should check this and degrade gracefully (e.g. hide a 'send' button, keep the
    copyable fallback) rather than attempt a doomed send."
-  (let [from (env/value :email-from-address "")]
-    (and (seq from) (not= from "no-reply@example.com"))))
+  (sender-configured? email-from-address))
 
 ;; ─── Support & Help ──────────────────────────────────────────────
 

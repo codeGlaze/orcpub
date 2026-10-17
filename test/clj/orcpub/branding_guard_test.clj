@@ -28,6 +28,20 @@
   (is (= "help@example.org" (branding/checked-email :app-support-email "help@example.org" "")))
   (is (= "" (first (quietly #(branding/checked-email :app-support-email "not an address" ""))))))
 
+(deftest the-placeholder-sender-is-never-configured
+  ;; meaningful when run with a bad EMAIL_FROM_ADDRESS, which falls back to the placeholder
+  (is (not (and branding/email-configured? (= branding/email-from-address "no-reply@example.com")))))
+
+(deftest email-counts-as-configured-only-with-a-usable-sender
+  (let [checked #(first (quietly (fn [] (branding/checked-email :email-from-address % "no-reply@example.com"))))]
+    (is (branding/sender-configured? (checked "mail@example.org")))
+    (is (not (branding/sender-configured? (checked "not an address")))
+        "an address that falls back to the placeholder is not configured")
+    (is (not (branding/sender-configured? (checked ""))) "unset")
+    (is (not (branding/sender-configured? (checked "no-reply@example.com"))) "the placeholder itself"))
+  (is (= branding/email-configured? (branding/sender-configured? branding/email-from-address))
+      "the setting the site reads is the checked address's"))
+
 (deftest a-number-setting-falls-back-instead-of-stopping-the-server
   (is (= 100 (branding/checked-int :app-field-limit-text "100" 255)))
   (is (= 255 (first (quietly #(branding/checked-int :app-field-limit-text "lots" 255)))) "not a number")
