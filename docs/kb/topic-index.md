@@ -258,7 +258,7 @@ _ac-tests-and-modifier-order · ac tests and modifier order_
 
 _account-flows · account flows_
 
-**topics:** account, composition, corpus, credential, disk, email, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, username
+**topics:** account, composition, corpus, credential, email, link, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, username
 
 - 1. The reason none of it had coverage
 - Traps inside the harness itself
@@ -990,7 +990,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, localstorage, magic, resolves, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, items, localstorage, magic, resolves, server-backed, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -1086,7 +1086,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, vocab, vocabulary
+**topics:** asi, caster, choice, choices, cross-silo, custom, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, vocabulary
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -1322,7 +1322,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, ledger, linked, narrative, operator, plan, session, topic, unindexed
+**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, ledger, linked, narrative, operator, push, session, topic, unindexed
 
 - What earns a doc
 - Verify, don't remember
@@ -1485,7 +1485,7 @@ _empty-keyword-corruption · empty keyword corruption_
 
 _entity-options-architecture · entity options architecture_
 
-**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, indices, initialized, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, vector
+**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, indices, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, subscription, vector
 
 - Character Entity Structure
 - Single-select → MAP (no vector index in path)
@@ -2059,7 +2059,7 @@ _homebrew-save-rework · homebrew save rework_
 
 _http-fx-patterns · http fx patterns_
 
-**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, interop, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
+**topics:** 1698, 2026-02-22, bug, conj, constructed, creation, dispatch, fire-and-forget, handler, http, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
 
 - How the :http fx works
 - on-success / on-failure MUST be dispatch vectors
@@ -2103,7 +2103,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, author, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source
+**topics:** address, author, coexist, consent, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source, stamps
 
 - TL;DR
 - The map (VERIFIED)
@@ -2130,7 +2130,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, quarantined, repair, restore, translator, unnamed, wind, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, number, quarantined, repair, restore, translator, unnamed, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -2750,6 +2750,21 @@ _plan-cr-normalization · plan cr normalization_
 - Blast radius
 - Out of scope
 
+## plan-email-and-alerts.md
+
+_plan-email-and-alerts · plan email and alerts_
+
+**topics:** admin, alert, alerts, artist, credit, database, discord, email, mail, notices, outbox, retries, scheduler, send, sent, spool, swarm, webhook
+
+- The problem
+- Two kinds of email
+- Player email: the transactional outbox
+- Admin alerts: independent of the database
+- Optional: a Discord webhook as a second channel
+- Docker, Compose and Swarm
+- Documentation
+- Tests the build must have, each seen failing first
+
 ## plan-hidden-pick-fix-and-grant-fields.md
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
@@ -2798,7 +2813,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _plan-pdf-page-sizes · plan pdf page sizes_
 
-**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, border, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
+**topics:** 2-arity, 36pt, 595, acroform, appearance, artwork, binding, border, card, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
 
 - The problem in one paragraph
 - Order, and why this order
@@ -2818,7 +2833,7 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, dependent, direction, entry, fighting, grant, granting, grants, irregularity, language, pool, pools, registered, registry, spells, two-level, vector
+**topics:** 2026-09-07, air, dependent, direction, entry, fighting, grant, granting, grants, irregularity, language, pool, pools, registered, registry, spells, styles, vector
 
 - In four sentences
 - The three layers
@@ -2953,7 +2968,7 @@ _remote-dev · remote dev_
 
 _requirements-registry · requirements registry_
 
-**topics:** acquisition, alias, bonuses, channels, context, contributors, distinguishable, effect, entries, fact, falsey, gates, macro, prereq, registry, requirement, spellings, trigger
+**topics:** acquisition, alias, bonuses, channels, condition, context, contributors, distinguishable, effect, entries, fact, gates, macro, prereq, registry, requirement, spellings, trigger
 
 - An entry
 - Three-state, and unknown keys are ignored
@@ -3105,7 +3120,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _secrets-in-boot-output · secrets in boot output_
 
-**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, credential, database, ex-info, find-and-replace, innocuous, leak, log, logs, print, query, redact, uri
+**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, credential, ex-info, find-and-replace, innocuous, leak, log, logs, masked, print, query, redact, uri
 
 - It was in four places, not one
 - Redact at the boundary, and only what is logged
@@ -3117,7 +3132,7 @@ _secrets-in-boot-output · secrets in boot output_
 
 _share-bundle-dependency-extraction · share bundle dependency extraction_
 
-**topics:** cljc, cljs, closure, def, direct, entity, extractor, keys, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
+**topics:** cljc, cljs, closure, def, direct, extractor, index, keys, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
 
 - Why this is not trivial
 - The content types (master list)
@@ -3164,7 +3179,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, source-level, stone, tag, tidewater
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, override, source, source-level, stone, tag, tidewater
 
 - What exists today
 - The proposal
@@ -3306,7 +3321,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-06, 5etools, data, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2026-10-06, 2026-10-07, 5etools, data, edition, editions, monsters, open5e, owner, pdf, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
