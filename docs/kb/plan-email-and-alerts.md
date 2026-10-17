@@ -55,6 +55,21 @@ emails most likely to be sent while things are failing.
 - A private channel. Discord's rate limit is far above the de-duplicated alert rate; a refused post
   waits in the spool.
 
+## Settings: in the registry, and announced at start-up (owner, 2026-10-17)
+
+- Every new setting (spool location, caps, webhook) is a row in `config.clj settings`, so the
+  start-up report shows it ([settings-registry-and-boot-report.md](settings-registry-and-boot-report.md)).
+- Each row records the release it arrived in (`:since`). The report ends with "New in this release",
+  the unset ones highlighted: the last lines of the start-up output, where an operator looks.
+- The same rows feed a "New for admins" section in `docs/ENVIRONMENT.md`, by release.
+- The branding settings move from a count to rows, so a bad value shows as ignored, and
+  `APP_EMAIL_SIGNOFF` is added.
+- Tests: every row has `:since`; the report's last lines list the new unset settings.
+- Built by hand on what exists: a Datomic queue entity and worker; retries, backoff, the circuit
+  breaker and caps in a few dozen lines each; `postal` for mail, plain HTTP for Discord. No queue
+  library (they need Postgres, Redis or RabbitMQ) and no retry library (a new dependency nobody
+  tracks for CVEs).
+
 ## Docker, Compose and Swarm
 
 - App logs go to the container's output (`docker logs`, `docker service logs`). The compose file sets

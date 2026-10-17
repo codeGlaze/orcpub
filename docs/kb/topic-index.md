@@ -248,7 +248,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _ac-tests-and-modifier-order · ac tests and modifier order_
 
-**topics:** 2026-10-06, archmagi, bonus, bracers, calculation, codeglaze, competing, higher, ignoring, lizardfolk, modifiers, order, ring, robe, shield, sorts, tortle, worn
+**topics:** 2026-10-06, archmagi, bonus, bracers, calculation, codeglaze, competing, function, higher, ignoring, lizardfolk, modifiers, order, ring, robe, shield, tortle, worn
 
 - What it looked like
 - Why it is not a bug
@@ -1322,7 +1322,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, ledger, linked, narrative, operator, push, session, topic, unindexed
+**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, ledger, linked, narrative, plan, push, session, topic, unindexed
 
 - What earns a doc
 - Verify, don't remember
@@ -1453,7 +1453,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, added, datomic, dmv, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, datomic, dmv, echoing, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -2103,7 +2103,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, author, coexist, consent, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source, stamps
+**topics:** address, author, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source
 
 - TL;DR
 - The map (VERIFIED)
@@ -2245,7 +2245,7 @@ _modifier-vs-trait-slots · modifier vs trait slots_
 
 _monolith-decomposition-plan · monolith decomposition plan_
 
-**topics:** -------, 2026-09-15, 623, 821, cljs, cohesive, domain, domain-based, extractions, incrementally, monolith, phase, sorted-map, split, splitting, tier, todo, views
+**topics:** -------, 2026-09-15, 623, 821, cljs, cohesive, domain, domain-based, events, extractions, incrementally, monolith, phase, split, splitting, tier, todo, views
 
 - 1. Did the Builders Split Make Issues Easier to Find?
 - 2. What Files Can or Should Be Broken Down?
@@ -2754,13 +2754,14 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** admin, alert, alerts, database, discord, docker, email, emails, mail, notices, outbox, retries, scheduler, send, sent, spool, swarm, webhook
+**topics:** admin, alert, alerts, database, discord, email, emails, mail, outbox, retries, scheduler, send, sent, settings, spool, start-up, swarm, webhook
 
 - The problem
 - Two kinds of email
 - Player email: the transactional outbox
 - Admin alerts: independent of the database
 - Optional: a Discord webhook as a second channel
+- Settings: in the registry, and announced at start-up (owner, 2026-10-17)
 - Docker, Compose and Swarm
 - Documentation
 - Tests the build must have, each seen failing first
@@ -3128,6 +3129,17 @@ _secrets-in-boot-output · secrets in boot output_
 - Reporting configuration without lying about it
 - Also
 
+## settings-registry-and-boot-report.md
+
+_settings-registry-and-boot-report · settings registry and boot report_
+
+**topics:** 111, 2026-10-17, 328-430, accessor, blank-env-values, branding, ignored, operator, plan-email-and-alerts, release, report, row, secrets, secrets-in-boot-output, setting, settings, start-up, unset
+
+- Where things are
+- Adding a setting
+- Gaps known on 2026-10-17
+- Planned: "New in this release" (plan-email-and-alerts.md)
+
 ## share-bundle-dependency-extraction.md
 
 _share-bundle-dependency-extraction · share bundle dependency extraction_
@@ -3179,7 +3191,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, override, source, source-level, stone, tag, tidewater
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, name, source, source-level, stone, tag, tidewater
 
 - What exists today
 - The proposal
@@ -3301,7 +3313,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, tier, versions
+**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3545,7 +3557,7 @@ _typed-keys · typed keys_
 
 _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branches_
 
-**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, conclusions, knowledge, multi-tab, nine, non-, patches, prunable, ranked, searching, stringification, tip, triage, unique
+**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, claude-branch-triage, conclusions, knowledge, multi-tab, nine, non-, patches, prunable, ranked, stringification, tip, triage, unique
 
 - The headline: agents/develop holds 70 of the repo's 128 KB docs
 - Why the guard did not catch this
