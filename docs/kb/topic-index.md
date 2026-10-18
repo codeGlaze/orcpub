@@ -990,7 +990,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, localstorage, magic, resolves, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, genuine, inline, localstorage, magic, resolves, server-backed, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)

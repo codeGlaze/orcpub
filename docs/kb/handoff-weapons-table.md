@@ -57,6 +57,12 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
 - **PDF bullets printed as "?"** (fixed, `5215f590`): `pdf.clj` `normalize-text` replaced everything
   above U+00FF, including U+2022, which Helvetica's WinAnsi encoding has. SRD item text with bullets
   (Gem of Brightness) printed "?" on magic item cards. U+2192 (arrow) really is missing from the font.
+- **The shield rules are built** (2026-10-18, `weapons-section-2` / `weapon-row`): the off hand is
+  `(or wielded-shield (best-armor-combo shield))`, the same shield the Combat tab shows and the AC uses,
+  else the off-hand weapon. The pill reuses `.share-pill.share-pill-expired`. Outlined tiles are
+  `.needs-hands`. The pulse is a CSS animation (10s x 6) on `.weapon-switch.pulse`; touching the switch
+  or rolling the weapon sets the row's `:pulse-done?`, which is cleared when the off hand comes free.
+  Garden minifies keyframe `0%` to an invalid `0`: use `from`/`to`. Browser test: 40 checks.
 - **The PDF layout is built** (`c66144688`, owner approved 2026-10-17): rows take the first three
   weapons; their variants follow as bullets under the short name; later weapons get a name line plus
   bullets; magic weapons print their own name unless two share it (`sheet-weapon-names`).
@@ -65,7 +71,7 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
   box; 12 fit), so `fit-text` spilled one, as designed. The gap left in the box comes from the viewer:
   interactive PDFs keep the template's `/Helv 0 Tf` auto-size, so the viewer drew the remaining text at
   about 7.7pt, where the long lines no longer wrap. Only flattened PDFs get the fixed `font-sizes` 8. A
-  change would be a policy choice (a lower floor for the Attacks box), put to the owner 2026-10-18.
+  change would be a policy choice (a lower floor for the Attacks box). Owner, 2026-10-18: leave it.
 - **Rendering a PDF to PNG here:** no poppler; use the app's PDFBox (`PDFRenderer`) with `lein classpath`.
 - **The settings panel is a second PR from the same branch,** after the table ships with defaults.
 - **Crit rules are a setting** (owner, 2026-10-16, from
