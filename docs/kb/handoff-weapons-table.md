@@ -68,24 +68,22 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
 
 ### Progress
 
-- **Stage 1 step 1, the damage-parts model: done** (`db9e6115`, 2026-10-17). `damage_parts.cljc` holds
-  the specs and `weapon-parts` / `applies?` / `applying-parts`; items carry `::mi/damage-parts`,
-  `::mi/effects`, `::mi/switches` and `::mi/charges`. `when` is `:always`, `:miss`, `:crit`,
-  `{::switch id}`, `{::vs #{creature types}}`, `{::charge n}` or `{::per-rest :short|:long}`; a part's
-  type may be `:weapon` (resolved to the weapon's, Sun Blade's radiant included). The eight SRD 5.1
-  weapons above carry their extras; Giant Slayer's and Mace of Disruption's saves are effects whose
-  `::text` is the SRD sentence verbatim. Nothing doubles dice: crit rules stay open (the setting
-  above). Tests: `damage_parts_test.cljc`, each claim shown failing under its own break first.
+- **Stage 1 step 1, the damage model: done, reshaped 2026-10-17** with the owner into flat fields
+  (`::mi/extra-damage`, `::mi/effects`, `::mi/toggles`, `::mi/crit-from`, `::mi/charges`) and a dawn
+  reset that a long rest also clears. The first draft (`db9e6115`, `damage_parts.cljc`, `::dp/when`) is
+  replaced: its mixed-type `when` could not be stored for custom items. Fields, reasons, traps:
+  [weapon-damage-model.md](weapon-damage-model.md). Human doc: `docs/MAGIC-WEAPON-DAMAGE.md` on the
+  branch. Owner direction for later steps: one shared formatter in `display.cljc` (the pattern
+  `attack-description` already follows for feature attacks) feeds both the table and the PDF.
 - **Found while building, not fixed:**
   - The PDF's two-handed line never prints. `pdf_spec.cljc` (about 694-706) reads `(:versatile weapon)`
     and `(:damage-die versatile)` unqualified; weapons carry `::weapons/versatile`. It also prints
     `::weapons/damage-type`, so Sun Blade shows slashing. Read from the code, not yet run. Fixing it
     changes PDF output: owner's call.
-  - Sun Blade expands to every sword (`:sun-blade-longsword`, `-rapier`...) through `sword?`. Intended
-    (owner, 2026-10-17: it was canonically offered as several weapons), not a defect; tests use
-    `:sun-blade-longsword`.
-  - Vicious Weapon's SRD trigger is "roll a 20", so on a `crit 19+` weapon a 19 crits without it.
-    `:crit` means a natural 20 for now.
+  - Sun Blade expands to every sword through `sword?`; the SRD makes it a longsword only. Owner
+    undecided whether to narrow it (characters store the variant keys, so narrowing needs a mapping).
+  - Vicious Weapon's SRD trigger is "roll a 20": modelled as `::mi/min-roll 20`, apart from
+    `::mi/on :crit`, which follows the crit range.
   - Other SRD weapons with extra damage the list above leaves out, read from their descriptions: on a
     rolled 20, Sword of Life Stealing (3d6 necrotic, not constructs or undead), Sword of Sharpness
     (4d6 slashing), Vorpal Sword (6d8 slashing, only on creatures immune to beheading), Mace of

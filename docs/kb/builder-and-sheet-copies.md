@@ -83,4 +83,13 @@ session, 2026-10-15; the full merge belongs with that store (its plan item 9).
     `stored-shape` without the version, every sheet edit recorded, and the 409 re-apply once then
     shown. Checked against a 409 made in the browser test from the server's real reply; to check
     again against the rescue branch's server once it pins the reply by test.
+- **A save of a character deleted elsewhere** (found by the soak walkthrough, fixed on #64,
+  2026-10-17). Before: `update-character` (`routes.clj`) threw `:not-user-character` for any id the
+  user does not own, a deleted one included; the 401 made the `:http` effect route to login, with
+  no message, while still logged in. Now an id with no datoms (`d/datoms :eavt`) is
+  `:character-gone`, answered 410 `{:error :character-gone}`; someone else's character is still
+  401. The builder's `builder-save-refused` keeps the edit with every id stripped (strict,
+  `remove-ids`, back), moves the draft to a never-saved key and removes the deleted id's draft,
+  and says Save stores it as new. An autosave's `save-refused` says it was deleted. The
+  rescue branch's 409 version check sits beside this: 409 is "changed", 410 is "gone".
 - **Two tabs sharing the one draft slot** (#704) is untouched by any of this.

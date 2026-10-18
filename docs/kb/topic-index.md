@@ -507,7 +507,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-and-sheet-copies · builder and sheet copies_
 
-**topics:** 2026-10-15, 409, 704, autosave, builder, copy, draft, edit, edits, multi-tab-character-contamination, recorded, reply, save, sends, server, sheet, unsaved, version
+**topics:** 2026-10-15, 409, 410, autosave, builder, copy, draft, edit, edits, multi-tab-character-contamination, recorded, reply, save, sends, server, sheet, unsaved, version
 
 - What was lost, proven on a real server
 - The fix
@@ -678,7 +678,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, aasimar, blank, calishite, descriptive, dwarf, elf, halfling, helper, human, label, manual, name, party, races, random, sex, views
+**topics:** ------, ----------, aasimar, blank, descriptive, dwarf, elf, halfling, helper, human, label, manual, name, party, races, random, sex, views
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -715,7 +715,7 @@ _character-rescue-console · character rescue console_
 
 _character-validation · character validation_
 
-**topics:** built-character-representation, charter, computed, entity-val-aware, falsifiable, guard, installment, intent, malformed, modernization, own-branch, realization, realized, representation, retired, spec, test-suite-state, validation
+**topics:** built-character-representation, charter, computed, entity-val-aware, falsifiable, guard, installment, intent, malformed, modern, modernization, own-branch, realized, representation, retired, spec, test-suite-state, validation
 
 - The intent worth keeping (do not lose this)
 - History (verified)
@@ -787,7 +787,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harmlessly, harness, headless, html, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -990,7 +990,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, genuine, inline, localstorage, magic, resolves, server-backed, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, localstorage, magic, resolves, server-backed, sets, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -1086,7 +1086,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, custom, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, vocabulary
+**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, vocab, vocabulary
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -1133,7 +1133,7 @@ _declarative-grant-vocabulary · declarative grant vocabulary_
 
 _demo-content-tier · demo content tier_
 
-**topics:** base, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, golden, graduation, pack, recipe, tier, variant, viable
+**topics:** content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, golden, graduation, pack, per-device, recipe, tier, variant, viable
 
 - Goal
 - Builds on the current content model
@@ -1359,7 +1359,7 @@ _documentation-tenets · documentation tenets_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, breath, coerce, coercion, d32, dropdown, floating-asi, forget, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, primitive, prior, string, widget
+**topics:** asi, breath, caller, coerce, coercion, d32, floating-asi, forget, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, primitive, prior, string, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -1453,7 +1453,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, datomic, dmv, echoing, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, added, datomic, dmv, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -1472,7 +1472,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, non-word, prevention, rescued, root-caused, throw, token, unfindable
+**topics:** 196-line, 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, loader, non-word, prevention, rescued, throw, token
 
 - The failure
 - The two defences, and where they are
@@ -1672,7 +1672,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, blindsight, damage, dueling, engine, fighting, great, interception, pool, predicate, prop, protection, style, styles, three-state, thrown, weapon
+**topics:** archery, attack, blindsight, damage, dueling, engine, fighting, great, interception, pool, predicate, prop, protection, style, styles, thrown, vocabulary, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -1687,7 +1687,7 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
 _filtered-list-staleness · filtered list staleness_
 
-**topics:** 2026-09-13, 669, cache, claude-branch-triage, computing, custom-content-lifecycle, defect, event, filter, hunks, keystroke, plan-669-merge-verification, re-frame-subscribe-refactor, reframe-subscription-patterns, signals, staleness, subscribe-outside-reactive-context, subscription
+**topics:** 2026-09-13, cache, claude-branch-triage, computing, custom-content-lifecycle, defect, event, filter, handler, hunks, keystroke, plan-669-merge-verification, re-frame-subscribe-refactor, reframe-subscription-patterns, signals, staleness, subscribe-outside-reactive-context, subscription
 
 - The mechanism
 - The precondition — this is why it is not constantly obvious
@@ -1716,7 +1716,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, csp, external, fonts, greek, hebrew, hosts, latin, latin-ext, licensed, ofl, re-add, redistribution, sandboxed, sans, sil, subset, subsets
+**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, licensed, ofl, re-add, redistribution, sandboxed, sans, subset, subsets
 
 - Why
 - What is checked in
@@ -1862,7 +1862,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, 4d6, about, attack, blade, crit, damage, mastery, owner, radiant, settings, slashing, sun, sword, undead, weapon, weapons-extra-damage-design
+**topics:** 2026-10-17, 2d6, 4d6, about, attack, blade, cleave, damage, mastery, owner, radiant, settings, slashing, sun, sword, undead, weapon, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry
@@ -2145,7 +2145,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, number, quarantined, repair, restore, translator, unnamed, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, number, quarantined, repair, restore, translator, unnamed, wind
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -2649,7 +2649,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** 401, 669, chain, counter, custom-items, differential, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
+**topics:** 2026-09-13, 669, chain, counter, custom-items, differential, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -2952,7 +2952,7 @@ _reframe-subscription-patterns · reframe subscription patterns_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon, boon-like, builder-form, copy-pasted, extra, fully-scattered, hand-built, input-field, per-type, plumbing, registry-driven, representative, spec-valid, type, wires
+**topics:** 000, adding, bits, boon, boon-like, builder-form, copy-pasted, form, fully-scattered, hand-built, input-field, per-type, plumbing, registry-driven, representative, spec-valid, type, wires
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -2984,7 +2984,7 @@ _remote-dev · remote dev_
 
 _requirements-registry · requirements registry_
 
-**topics:** acquisition, alias, bonuses, channels, condition, context, contributors, distinguishable, effect, entries, fact, gates, macro, prereq, registry, requirement, spellings, trigger
+**topics:** acquisition, alias, bonuses, channels, context, contributors, distinguishable, effect, entries, fact, falsey, gates, macro, prereq, registry, requirement, spellings, trigger
 
 - An entry
 - Three-state, and unknown keys are ignored
@@ -3004,7 +3004,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, class, dropdown, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, prepares, reconciler, sibling, spellcasting, spells
+**topics:** branch, caster, class, dropdown, grant, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellcasting, spells
 
 - The user's ask
 - Branch state — important
@@ -3136,7 +3136,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _secrets-in-boot-output · secrets in boot output_
 
-**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, credential, ex-info, find-and-replace, innocuous, leak, log, logs, masked, print, query, redact, uri
+**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, credential, database, ex-info, find-and-replace, innocuous, leak, log, logs, print, query, redact, uri
 
 - It was in four places, not one
 - Redact at the boundary, and only what is logged
@@ -3328,7 +3328,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, reorder, revised, shells, srd, srd-vs-plugin-content, tier, versions
+**topics:** 2014, 2024, approaches, builtin, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, tier, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3384,7 +3384,7 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 20d6, concentration, conditions, damage, dice, editions, explosion, links, magic, monster, open5e, previews, prices, rules, spell, spells, srd
+**topics:** 2014, 20d6, actions, concentration, conditions, damage, dice, editions, explosion, links, monster, open5e, previews, prices, rules, spell, spells, srd
 
 - How this was measured
 - What the app shows today
@@ -3533,7 +3533,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
+**topics:** 2026-02-18, assertions, browser, classpath, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners
@@ -3648,11 +3648,23 @@ _views-builders-split · views builders split_
 - core.cljs Route Updates
 - Verification
 
+## weapon-damage-model.md
+
+_weapon-damage-model · weapon damage model_
+
+**topics:** 2026-10-17, champion, charges, crit, damage, dawn, dice, extra, formatter, handoff-weapons-table, period, periods, recharge, sometimes, undecided, vicious, weapon, weapon-data-model
+
+- Where it lives (feature/weapons-table)
+- The fields
+- Why it is shaped this way
+- Traps
+- Not built yet
+
 ## weapon-data-model.md
 
 _weapon-data-model · weapon data model_
 
-**topics:** authored-tag, boolean, firearm, flags, mapping, melee, mistype, not-melee, predicate, present-or-absent, ranged, ranged-only, sparse, thrown, two-handed, versatile, weapon, weapons
+**topics:** authored-tag, boolean, firearm, flags, mapping, melee, mistype, not-melee, predicate, present-or-absent, ranged, ranged-only, thrown, two-handed, versatile, weapon, weapon-damage-model, weapons
 
 - Fields
 - Traps
@@ -3663,7 +3675,7 @@ _weapon-data-model · weapon data model_
 
 _weapons-extra-damage-design · weapons extra damage design_
 
-**topics:** 44px, charges, chip, colour, crit, damage, dot, dots, effects, extra, hit, menu, on-hit, roll, rolls, strip, tile, vicious
+**topics:** 44px, bars, charges, chip, colour, crit, damage, dot, dots, extra, hit, menu, on-hit, roll, rolls, strip, tile, vicious
 
 - Decisions
 - Damage-type palette

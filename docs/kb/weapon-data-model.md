@@ -66,3 +66,5 @@ never infer it.
 `weapons/matches?` is the three-state predicate over these flags — `true` requires it, `false`
 forbids it, absent means either way — and `weapons/tag->flag` is the authored-tag → field mapping.
 Used by the `:attack-bonus` and `:damage-bonus` props. See `fighting-style-vocabulary-gap.md`.
+
+Magic weapons' extra damage, effects and charges: [weapon-damage-model.md](weapon-damage-model.md).
