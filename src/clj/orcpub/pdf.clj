@@ -1170,6 +1170,14 @@
                       {:error :image-too-large-dimensions :url url})))
     data))
 
+(defmacro ^:private in-template-space
+  "`body` with the page fixed to Letter, which is the AcroForm templates' coordinate
+   space on every paper: fit-sheet-to-page! re-papers the sheet by moving the MediaBox,
+   so the content it moves over keeps its original 612x792. Measured against the
+   REQUESTED page instead, the portrait sat 49.89pt high on A4 and 196.72pt low on A5."
+  [& body]
+  `(binding [draw/*page* :letter] ~@body))
+
 (defn draw-non-jpg
   "Fetches a non-JPEG image from `url` and draws it, re-encoded losslessly (PNG and
    anything else ImageIO reads). Box arguments are `draw-imagex`'s. Opens its own
@@ -1233,9 +1241,11 @@
   "Draws already-fetched image `data` at `x`,`y`, so an export can fetch all its
    images before drawing any. `jpg?` true embeds the bytes as they are; anything
    else is decoded and re-encoded losslessly, the only way PDFBox takes it. Logs a
-   failure and returns nil rather than throwing."
+   failure and returns nil rather than throwing. Places in template space -- these are
+   the sheet's portrait and faction boxes, fixed to the artwork, not to the paper."
   [doc page data jpg? x y width height]
-  (try
+  (in-template-space
+   (try
     (with-open [c-stream (draw/content-stream doc page)]
       (if jpg?
         (with-open [in (java.io.ByteArrayInputStream. data)]
@@ -1247,7 +1257,7 @@
                        x y width height))))
     (catch Exception e
       (println "ERROR: Failed to draw image for PDF:" (.getMessage e))
-      nil)))
+      nil))))
 
 (defn- jpeg-bytes?
   "Whether `data` opens with the JPEG start-of-image marker.
@@ -1441,7 +1451,8 @@
         jpg? (or (s/ends-with? lower-case-url "jpg")
                  (s/ends-with? lower-case-url "jpeg"))
         draw-fn (if jpg? draw-jpg draw-non-jpg)]
-    (try
+    (in-template-space
+     (try
       (draw-fn doc page url x y width height)
       (catch clojure.lang.ExceptionInfo e
         (println "ERROR: Failed to load image for PDF:" (.getMessage e))
@@ -1452,7 +1463,7 @@
         (println "ERROR: Unexpected error loading image for PDF:" (.getMessage e))
         (println "  URL:" url)
         (clojure.stacktrace/print-stack-trace e)
-        nil))))
+        nil)))))
 
 (defn get-page
   "The document's `index`th page, zero-based. Thin wrapper over

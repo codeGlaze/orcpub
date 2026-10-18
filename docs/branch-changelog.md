@@ -36,6 +36,10 @@ out to the chosen paper.
 
 - **Printing:** a magic item or spell whose name the embedded font cannot draw no longer
   costs the card sheet it is on, and every sheet after it.
+- **Printing:** on A4 and A5 the character portrait and faction badge were drawn against
+  the requested paper instead of the template's own Letter space, putting them 49.89pt
+  high on A4 and 196.72pt low on A5 -- off their artwork frames. The sheet templates are
+  re-papered, so anything drawn onto one is placed in template space.
 - **Printing:** on a server whose JVM runs a non-English locale, the evocation sigil drew
   as a scribble and school and class headings drew the wrong glyph. The PDF path now pins
   the locale wherever it formats or case-folds a machine token, as
