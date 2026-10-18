@@ -679,6 +679,23 @@
        (when damage-type
          (str " " (if (keyword? damage-type) (name damage-type) (str damage-type))))))
 
+(defn weapon-entries
+  "The PDF's attack entries for one weapon: one, plus a \"<name> (two-handed)\" entry
+  with the versatile dice for a Versatile weapon. Takes the weapon map, its attack
+  bonus and its damage modifier; returns a seq of {:name :attack-bonus :damage}."
+  [weapon attack-bonus damage-modifier]
+  (let [{:keys [name ::weapon5e/damage-die ::weapon5e/damage-die-count ::weapon5e/versatile]} weapon
+        damage-type (or (::mi5e/magical-damage-type weapon) (::weapon5e/damage-type weapon))]
+    (cond-> [{:name name
+              :attack-bonus attack-bonus
+              :damage (damage-str damage-die damage-die-count damage-modifier damage-type)}]
+      versatile (conj {:name (str name " (two-handed)")
+                       :attack-bonus attack-bonus
+                       :damage (damage-str (::weapon5e/damage-die versatile)
+                                           (::weapon5e/damage-die-count versatile)
+                                           damage-modifier
+                                           damage-type)}))))
+
 (defn attacks-and-spellcasting-fields 
   "The attack fields for `built-char`'s equipped weapons, ammunition excluded: the first three
   as weapon-name-N, weapon-attack-bonus-N and weapon-damage-N; the rest as text in
@@ -690,20 +707,9 @@
          (char5e/all-weapons-inventory built-char)
          all-weapons-map)
         weapon-fields (mapcat
-                       (fn [{:keys [name ::weapon5e/damage-die ::weapon5e/damage-die-count ::weapon5e/damage-type] :as weapon}]
-                         (let [versatile (:versatile weapon)
-                               normal-damage-modifier (char5e/best-weapon-damage-modifier built-char weapon false)
-                               finesse-damage-modifier (char5e/weapon-damage-modifier built-char weapon true)
-                               normal {:name (:name weapon)
-                                       :attack-bonus (char5e/best-weapon-attack-modifier built-char weapon)
-                                       :damage (damage-str damage-die damage-die-count normal-damage-modifier damage-type)}]
-                           (remove
-                            nil?
-                            [normal
-                             (when (:versatile weapon)
-                               {:name (str (:name weapon) " (two-handed)")
-                                :attack-bonus (char5e/weapon-attack-modifier built-char weapon false)
-                                :damage (damage-str (:damage-die versatile) (:damage-die-count versatile) normal-damage-modifier damage-type)})])))
+                       #(weapon-entries %
+                                        (char5e/best-weapon-attack-modifier built-char %)
+                                        (char5e/best-weapon-damage-modifier built-char % false))
                        (remove
                         (fn [{:keys [::weapon5e/type]}]
                           (= type :ammunition))

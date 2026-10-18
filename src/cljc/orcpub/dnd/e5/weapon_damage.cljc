@@ -55,13 +55,15 @@
        (::mi/crit-from weapon 20)))
 
 (defn applies?
-  "Whether an entry or effect is part of an ordinary roll in a situation; every
-  condition it names must hold. Takes the entry and a map of :toggles (set of
-  toggle ids that are on), :against (the target's creature type), :roll (the
-  d20 as rolled), :crit? and :miss?. Returns a boolean. Entries with a charge
-  cost or a recharge are used from their own button, so never apply."
-  [{:keys [::mi/against ::mi/on ::mi/min-roll ::mi/charge-cost ::mi/recharge] toggle ::mi/while}
-   {:keys [toggles roll crit? miss?] target :against}]
+  "Whether an entry or effect joins an ordinary roll: every condition it names holds.
+  Takes the entry and a situation of :toggles (ids on), :against (target type, nil if
+  unknown), :attack-type, :roll (the d20), :crit? and :miss?. Returns a boolean.
+  Charge and recharge entries have their own button, so never apply.
+  GOTCHA: an unknown target passes ::mi/not-against and fails ::mi/against."
+  [{:keys [::mi/against ::mi/not-against ::mi/attack-type ::mi/on ::mi/min-roll
+           ::mi/charge-cost ::mi/recharge]
+    toggle ::mi/while}
+   {:keys [toggles roll crit? miss?] target :against used-type :attack-type}]
   (boolean
    (and (nil? charge-cost)
         (nil? recharge)
@@ -71,12 +73,17 @@
           :crit (and (not miss?) (boolean crit?)))
         (or (nil? min-roll) (and roll (>= roll min-roll)))
         (or (nil? toggle) (contains? (set toggles) toggle))
-        (or (nil? against) (contains? against target)))))
+        (or (nil? against) (contains? against target))
+        (not (contains? not-against target))
+        (or (nil? attack-type) (= attack-type used-type)))))
 
 (defn applying-damage
   "The damage entries a roll adds up in a situation. Takes the weapon map, the
   total damage modifier, whether it is wielded in two hands and a situation map
-  as for `applies?`. Returns a vector of entries."
+  as for `applies?`, whose :attack-type defaults to the weapon's own (melee
+  unless the weapon is ranged). Returns a vector of entries."
   [weapon damage-modifier two-handed? situation]
-  (filterv #(applies? % situation)
-           (weapon-damage weapon damage-modifier two-handed?)))
+  (let [situation (merge {:attack-type (if (::weapons/ranged? weapon) :ranged :melee)}
+                         situation)]
+    (filterv #(applies? % situation)
+             (weapon-damage weapon damage-modifier two-handed?))))

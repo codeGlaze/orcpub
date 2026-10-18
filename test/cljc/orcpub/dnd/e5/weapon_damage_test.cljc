@@ -20,7 +20,17 @@
    "Mace of Disruption" [(assoc (dice 2 6 :radiant) ::mi/against #{:fiend :undead})]
    "Giant Slayer" [(assoc (dice 2 6) ::mi/against #{:giant})]
    "Dragon Slayer" [(assoc (dice 3 6) ::mi/against #{:dragon})]
-   "Vicious Weapon" [(assoc (dice 2 6) ::mi/min-roll 20)]})
+   "Vicious Weapon" [(assoc (dice 2 6) ::mi/min-roll 20)]
+   "Oathbow" [(assoc (dice 3 6 :piercing) ::mi/while :sworn-enemy)]
+   "Dwarven Thrower" [(assoc (dice 1 8) ::mi/attack-type :ranged ::mi/not-against #{:giant})
+                      (assoc (dice 2 8) ::mi/attack-type :ranged ::mi/against #{:giant})]
+   "Mace of Smiting" [{::mi/damage-bonus 2 ::mi/against #{:construct}}
+                      (assoc (dice 2 6 :bludgeoning) ::mi/min-roll 20 ::mi/not-against #{:construct})
+                      (assoc (dice 4 6 :bludgeoning) ::mi/min-roll 20 ::mi/against #{:construct})]
+   "Javelin of Lightning" [(assoc (dice 4 6 :lightning) ::mi/attack-type :ranged ::mi/recharge ::units/dawn)]
+   "Sword of Life Stealing" [(assoc (dice 3 6 :necrotic) ::mi/min-roll 20 ::mi/not-against #{:construct :undead})]
+   "Sword of Sharpness" [(assoc (dice 4 6 :slashing) ::mi/min-roll 20)]
+   "Vorpal Sword" [(assoc (dice 6 8 :slashing) ::mi/min-roll 20)]})
 
 (defn weapon
   "The weapon with this key from the static weapons map."
@@ -56,6 +66,14 @@
           (is (contains? declared t) (:name w)))))))
 
 (deftest save-effects
+  (is (= [[13 :orcpub.dnd.e5.character/dex nil]]
+         (map (juxt ::mi/save-dc ::mi/save-ability ::mi/save-fail)
+              (::mi/effects (weapon :javelin-of-lightning)))))
+  (is (= [[15 :orcpub.dnd.e5.character/con :poisoned [2 10 :poison] ::units/dawn]]
+         (map (juxt ::mi/save-dc ::mi/save-ability ::mi/save-fail
+                    (juxt ::weapons/damage-die-count ::weapons/damage-die ::weapons/damage-type)
+                    ::mi/recharge)
+              (::mi/effects (weapon :dagger-of-venom)))))
   (is (= [[15 :orcpub.dnd.e5.character/str :prone #{:giant}]]
          (map (juxt ::mi/save-dc ::mi/save-ability ::mi/save-fail ::mi/against)
               (::mi/effects (weapon :giant-slayer-greataxe)))))
@@ -155,3 +173,29 @@
 
 (deftest a-long-rest-clears-dawn
   (is (= #{::units/long-rest ::units/rest ::units/dawn} (set units/long-rest-clears))))
+
+(deftest conditions-added-for-the-other-srd-weapons
+  (testing "Oathbow's extra applies only against the sworn enemy"
+    (is (= [[1 8 :piercing]] (rolled :oathbow {})))
+    (is (= [[1 8 :piercing] [3 6 :piercing]] (rolled :oathbow {:toggles #{:sworn-enemy}}))))
+  (testing "Dwarven Thrower: nothing extra in melee; thrown, 1d8, or 2d8 against a giant"
+    (is (= [[1 8 :bludgeoning]] (rolled :dwarven-thrower {})))
+    (is (= [[1 8 :bludgeoning] [1 8 :bludgeoning]] (rolled :dwarven-thrower {:attack-type :ranged})))
+    (is (= [[1 8 :bludgeoning] [2 8 :bludgeoning]]
+           (rolled :dwarven-thrower {:attack-type :ranged :against :giant}))))
+  (testing "Sword of Life Stealing's necrotic skips constructs and undead"
+    (is (= [[1 8 :slashing] [3 6 :necrotic]] (rolled :sword-of-life-stealing-longsword {:roll 20})))
+    (is (= [[1 8 :slashing]] (rolled :sword-of-life-stealing-longsword {:roll 20 :against :undead}))))
+  (testing "Mace of Smiting adds a flat +2 against constructs, and 4d6 instead of 2d6 on a 20"
+    (is (= [nil 2]
+           (map ::mi/damage-bonus (wd/applying-damage (weapon :mace-of-smiting) 1 false {:against :construct}))))
+    (is (= [[1 6 :bludgeoning] [2 6 :bludgeoning]] (rolled :mace-of-smiting {:roll 20})))
+    (is (= [[1 6 :bludgeoning] [nil nil :bludgeoning] [4 6 :bludgeoning]]
+           (rolled :mace-of-smiting {:roll 20 :against :construct}))))
+  (testing "Javelin of Lightning's 4d6 is spent from its own button"
+    (is (= [[1 6 :piercing]] (rolled :javelin-of-lightning {:attack-type :ranged})))))
+
+(deftest attack-type-defaults-to-the-weapons-own
+  (let [bow (assoc (weapon :longbow) ::mi/extra-damage [(assoc (dice 1 4) ::mi/attack-type :ranged)])]
+    (is (= 2 (count (wd/applying-damage bow 0 false {}))))
+    (is (= 1 (count (wd/applying-damage bow 0 false {:attack-type :melee}))))))

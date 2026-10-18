@@ -3,7 +3,8 @@
    pdf_spec.cljc no longer has any re-frame subscribes,
    so all helpers are testable on JVM."
   (:require [clojure.test :refer [deftest testing is]]
-            [orcpub.pdf-spec :as pdf]))
+            [orcpub.pdf-spec :as pdf]
+            [orcpub.dnd.e5.magic-items :as mi]))
 
 ;; -- class-string --
 
@@ -132,3 +133,18 @@
   (is (nil? (captured {} "u")))
   (is (nil? (captured nil "u")))
   (is (nil? (captured {"other" {:data "AAAA"}} "u"))))
+
+;; -- weapon-entries --
+
+(deftest weapon-entries-versatile-gets-a-two-handed-line
+  (is (= [{:name "Longsword" :attack-bonus 5 :damage "1d8+3 slashing"}
+          {:name "Longsword (two-handed)" :attack-bonus 5 :damage "1d10+3 slashing"}]
+         (pdf/weapon-entries (mi/all-weapons-map :longsword) 5 3))))
+
+(deftest weapon-entries-one-line-for-other-weapons
+  (is (= [{:name "Greatsword" :attack-bonus 5 :damage "2d6+3 slashing"}]
+         (pdf/weapon-entries (mi/all-weapons-map :greatsword) 5 3))))
+
+(deftest weapon-entries-use-the-magic-damage-type
+  (is (= ["1d8+4 radiant" "1d10+4 radiant"]
+         (map :damage (pdf/weapon-entries (mi/all-weapons-map :sun-blade-longsword) 6 4)))))

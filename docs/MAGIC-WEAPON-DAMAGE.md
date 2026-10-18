@@ -20,14 +20,19 @@ the conditions under which it applies.
 | damage type | the type of the extra; leave it out for "damage of the weapon's type" | fire |
 | `while` | only while a toggle on the item is switched on | Flame Tongue's "Ablaze" |
 | `against` | only against these creature types | fiend, undead |
+| `not-against` | never against these creature types | construct, undead |
+| `attack-type` | only on a melee, or only on a ranged, attack | ranged (a thrown Dwarven Thrower) |
 | `on` | when it applies: a hit (the default), a miss, or a critical hit | crit |
 | `min-roll` | only when the d20 shows this number or higher | 20 |
 | `charge-cost` | spends this many of the item's charges; used from its own button | 1 |
 | `recharge` | can be used once, then not again until this reset | dawn, long rest |
+| `damage-bonus` | a flat amount instead of dice | +2 (Mace of Smiting against a construct) |
 
-Every condition an entry names must hold for it to apply. An entry with none of them applies on
-every hit. An entry with a charge cost or a recharge is never added to an ordinary roll: you use it
-on purpose, from its own button.
+Every condition an entry names must hold for it to apply, and an entry with none of them applies
+on every hit. When the target's creature type is not known, an entry limited to certain types does
+not apply, and an entry that excludes certain types does. A thrown weapon counts as a ranged attack.
+An entry with a charge cost or a recharge is never added to an ordinary roll: you use it on purpose,
+from its own button.
 
 A weapon can also have **effects** (a saving throw such as Giant Slayer's "DC 15 Strength or fall
 prone", healing, or a condition), using the same conditions, and **toggles** (a named on/off state
@@ -58,8 +63,18 @@ Charges use the same tick boxes the sheet already shows for limited-use features
 
 ## The SRD weapons that have it
 
-Frost Brand, Flame Tongue, Sun Blade, Holy Avenger, Mace of Disruption, Giant Slayer, Dragon Slayer
-and Vicious Weapon carry their extra damage, read from their SRD text.
+Every SRD weapon with extra damage carries it, read from its SRD text: Dagger of Venom, Dragon
+Slayer, Dwarven Thrower, Flame Tongue, Frost Brand, Giant Slayer, Holy Avenger, Javelin of Lightning,
+Mace of Disruption, Mace of Smiting, Oathbow, Sun Blade, Sword of Life Stealing, Sword of Sharpness,
+Vicious Weapon and Vorpal Sword. Their saving throws, healing and other effects carry the SRD's own
+sentence.
+
+Two are approximations, because the rule depends on a judgement the app cannot make:
+
+- **Vorpal Sword** lists its 6d8 on every rolled 20. The SRD gives the 6d8 only to a creature that
+  cannot lose its head; one that can simply loses it, so the extra damage no longer matters.
+- **Mace of Smiting** raises its damage bonus against constructs, but its attack bonus against them
+  is not modelled yet.
 
 ## Your characters are not affected
 

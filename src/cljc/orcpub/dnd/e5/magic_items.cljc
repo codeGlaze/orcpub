@@ -30,6 +30,9 @@
 ;; Extra damage, effects, toggles and charges on a magic weapon: weapon-damage-model.md
 (spec/def ::while keyword?)
 (spec/def ::against (spec/coll-of keyword? :kind set? :min-count 1))
+(spec/def ::not-against ::against)
+(spec/def ::attack-type #{:melee :ranged})
+(spec/def ::damage-bonus int?)
 (spec/def ::on #{:hit :miss :crit})
 (spec/def ::min-roll (spec/int-in 1 21))
 (spec/def ::charge-cost pos-int?)
@@ -41,8 +44,14 @@
             #(or (nil? (::weapons5e/damage-type %))
                  ((set damage-types5e/damage-types) (::weapons5e/damage-type %)))))
 (spec/def ::condition-fields
-  (spec/keys :opt [::while ::against ::on ::min-roll ::charge-cost ::recharge]))
-(spec/def ::extra-damage-entry (spec/and ::condition-fields ::dice))
+  (spec/keys :opt [::while ::against ::not-against ::attack-type ::on ::min-roll
+                   ::charge-cost ::recharge]))
+(spec/def ::extra-damage-entry
+  (spec/and ::condition-fields
+            (spec/keys :opt [::damage-bonus])
+            #(if (::weapons5e/damage-die %)
+               (spec/valid? ::dice %)
+               (int? (::damage-bonus %)))))
 (spec/def ::extra-damage (spec/coll-of ::extra-damage-entry :kind vector?))
 (spec/def ::effect-type #{:save :heal :condition})
 (spec/def ::save-dc pos-int?)
@@ -1075,6 +1084,13 @@ The cube has 3 charges. Each use of the cube expends 1 charge. The cube regains 
      ::rarity :rare
      ::magical-attack-bonus 1
      ::magical-damage-bonus 1
+     ::effects [{::effect-type :save
+                 ::save-dc 15
+                 ::save-ability ::char5e/con
+                 ::save-fail :poisoned
+                 ::weapons5e/damage-die-count 2 ::weapons5e/damage-die 10 ::weapons5e/damage-type :poison
+                 ::recharge ::units5e/dawn
+                 ::text "That creature must succeed on a DC 15 Constitution saving throw or take 2d10 poison damage and become poisoned for 1 minute."}]
      ::description "You gain a +1 bonus to attack and damage rolls made with this magic weapon.
 You can use an action to cause thick, black poison to coat the blade. The poison remains for 1 minute or until an attack using this weapon hits a creature. That creature must succeed on a DC 15 Constitution saving throw or take 2d10 poison damage and become poisoned for 1 minute. The dagger can’t be used this way again until the next dawn."
      }{
@@ -1269,6 +1285,8 @@ spell can also end the effect on a creature.}{"
      ::attunement [:dwarf]
      ::magical-attack-bonus 3
      ::magical-damage-bonus 3
+     ::extra-damage [{::weapons5e/damage-die-count 1 ::weapons5e/damage-die 8 ::attack-type :ranged ::not-against #{:giant}}
+                     {::weapons5e/damage-die-count 2 ::weapons5e/damage-die 8 ::attack-type :ranged ::against #{:giant}}]
      ::description "You gain a +3 bonus to attack and damage rolls made with this magic weapon. It has the thrown property with a normal range of 20 feet and a long range of 60 feet. When you hit with a ranged attack using this weapon, it deals an extra 1d8 damage or, if the target is a giant, 2d8 damage. Immediately after the attack, the weapon flies back to your hand."
      }{
      name-key "Efficient Quiver"
@@ -1712,6 +1730,13 @@ An identify spell reveals that a creature is inside the flask, but the only way 
      ::type :weapon
      ::item-subtype javelin?
      ::rarity :uncommon
+     ::extra-damage [{::weapons5e/damage-die-count 4 ::weapons5e/damage-die 6 ::weapons5e/damage-type :lightning ::attack-type :ranged ::recharge ::units5e/dawn}]
+     ::effects [{::effect-type :save
+                 ::save-dc 13
+                 ::save-ability ::char5e/dex
+                 ::weapons5e/damage-die-count 4 ::weapons5e/damage-die 6 ::weapons5e/damage-type :lightning
+                 ::recharge ::units5e/dawn
+                 ::text "Each creature in the line excluding you and the target must make a DC 13 Dexterity saving throw, taking 4d6 lightning damage on a failed save, and half as much damage on a successful one."}]
      ::description "This javelin is a magic weapon. When you hurl it and speak its command word, it transforms into a bolt of lightning, forming a line 5 feet wide that extends out from you to a target within 120 feet. Each creature in the line excluding you and the target must make a DC 13 Dexterity saving throw, taking 4d6 lightning damage on a failed save, and half as much damage on a successful one. The lightning bolt turns back into a javelin when it reaches the target. Make a ranged weapon attack against the target. On a hit, the target takes damage from the javelin plus 4d6 lightning damage.
 The javelin’s property can’t be used again until the next dawn. In the meantime, the javelin can still be used as a magic weapon."
      }{
@@ -1758,6 +1783,13 @@ While you hold this weapon, it sheds bright light in a 20-foot radius and dim li
      ::rarity :rare
      ::magical-attack-bonus 1
      ::magical-damage-bonus 1
+     ::extra-damage [{::damage-bonus 2 ::against #{:construct}}
+                     {::weapons5e/damage-die-count 2 ::weapons5e/damage-die 6 ::weapons5e/damage-type :bludgeoning ::min-roll 20 ::not-against #{:construct}}
+                     {::weapons5e/damage-die-count 4 ::weapons5e/damage-die 6 ::weapons5e/damage-type :bludgeoning ::min-roll 20 ::against #{:construct}}]
+     ::effects [{::effect-type :condition
+                 ::min-roll 20
+                 ::against #{:construct}
+                 ::text "If a construct has 25 hit points or fewer after taking this damage, it is destroyed."}]
      ::description "You gain a +1 bonus to attack and damage rolls made with this magic weapon. The bonus increases to +3 when you use the mace to attack a construct.
 When you roll a 20 on an attack roll made with this weapon, the target takes an extra 2d6 bludgeoning damage, or 4d6 bludgeoning damage if it’s a construct. If a construct has 25 hit points or fewer after taking this damage, it is destroyed."
      }{
@@ -1885,6 +1917,8 @@ The sword has 1d8 + 1 charges. If you score a critical hit against a creature th
      ::rarity :very-rare
 
      ::attunement [:any]
+     ::toggles [{::toggle-id :sworn-enemy ::toggle-name "Sworn enemy"}]
+     ::extra-damage [{::weapons5e/damage-die-count 3 ::weapons5e/damage-die 6 ::weapons5e/damage-type :piercing ::while :sworn-enemy}]
      ::description "When you nock an arrow on this bow, it whispers in Elvish, “Swift defeat to my enemies.” When you use this weapon to make a ranged attack, you can, as a command phrase, say, “Swift death to you who have
 wronged me.” The target of your attack becomes your sworn enemy until it dies or until dawn seven days later. You can have only one such sworn enemy at a time. When your sworn enemy dies, you can choose a new one after the next dawn.
 When you make a ranged attack roll with this weapon against your sworn enemy, you have advantage on the roll. In addition, your target gains no benefit from cover, other than total cover, and you suffer no disadvantage due to long range. If the attack hits, your sworn enemy takes an extra 3d6 piercing damage.
@@ -2723,6 +2757,11 @@ The sword’s luminous blade emits bright light in a 15-foot radius and dim ligh
      ::rarity :rare
 
      ::attunement [:any]
+     ::extra-damage [{::weapons5e/damage-die-count 3 ::weapons5e/damage-die 6 ::weapons5e/damage-type :necrotic ::min-roll 20 ::not-against #{:construct :undead}}]
+     ::effects [{::effect-type :heal
+                 ::min-roll 20
+                 ::not-against #{:construct :undead}
+                 ::text "You gain temporary hit points equal to the extra damage dealt."}]
      ::description "When you attack a creature with this magic weapon and roll a 20 on the attack roll, that target takes an extra 3d6 necrotic damage, provided that the target isn’t a construct or an undead. You gain temporary hit points equal to the extra damage dealt."
      }{
      name-key "Sword of Sharpness"
@@ -2731,6 +2770,10 @@ The sword’s luminous blade emits bright light in a 15-foot radius and dim ligh
      ::rarity :very-rare
 
      ::attunement [:any]
+     ::extra-damage [{::weapons5e/damage-die-count 4 ::weapons5e/damage-die 6 ::weapons5e/damage-type :slashing ::min-roll 20}]
+     ::effects [{::effect-type :condition
+                 ::min-roll 20
+                 ::text "Then roll another d20. If you roll a 20, you lop off one of the target’s limbs, with the effect of such loss determined by the GM. If the creature has no limb to sever, you lop off a portion of its body instead."}]
      ::description "When you attack an object with this magic sword and hit, maximize your weapon damage dice against the target.
 When you attack a creature with this weapon and roll a 20 on the attack roll, that target takes an extra 4d6 slashing damage. Then roll another d20. If you roll a 20, you lop off one of the target’s limbs, with the effect of such loss determined by the GM. If the creature has no limb to sever, you lop off a portion of its body instead.
 In addition, you can speak the sword’s command word to cause the blade to shed bright light in a 10-
@@ -2832,6 +2875,10 @@ on a beast that has an innate swimming speed. The trident regains 1d3 expended c
      ::attunement [:any]
      ::magical-attack-bonus 3
      ::magical-damage-bonus 3
+     ::extra-damage [{::weapons5e/damage-die-count 6 ::weapons5e/damage-die 8 ::weapons5e/damage-type :slashing ::min-roll 20}]
+     ::effects [{::effect-type :condition
+                 ::min-roll 20
+                 ::text "When you attack a creature that has at least one head with this weapon and roll a 20 on the attack roll, you cut off one of the creature’s heads. The creature dies if it can’t survive without the lost head."}]
      ::description "You gain a +3 bonus to attack and damage rolls made with this magic weapon. In addition, the weapon ignores resistance to slashing damage.
 When you attack a creature that has at least one head with this weapon and roll a 20 on the attack roll, you cut off one of the creature’s heads. The creature dies if it can’t survive without the lost head. A creature is immune to this effect if it is immune to slashing damage, doesn’t have or need a head, has legendary actions, or the GM decides that the creature is too big for its head to be cut off with this weapon. Such a creature instead takes an extra 6d8 slashing damage from the hit."
      }{
