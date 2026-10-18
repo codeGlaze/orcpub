@@ -571,8 +571,12 @@
        (seq (get-in db' [:character-healed :rewrote]))
        (assoc ::persist-healed-character (:character db'))))))
 
-(defn reset-character [_ _]
-  (char5e/set-class t5e/character :barbarian 0 (class5e/barbarian-option [] {} {} {} {})))
+(defn reset-character
+  "A new blank character for New and Log Out, under a draft key of its own, so the draft of the
+   character it replaces is kept (and listed when it has changes) rather than written over."
+  [_ _]
+  (assoc (char5e/set-class t5e/character :barbarian 0 (class5e/barbarian-option [] {} {} {} {}))
+         :draft/key (drafts/new-key)))
 
 (reg-event-db
  :reset-character

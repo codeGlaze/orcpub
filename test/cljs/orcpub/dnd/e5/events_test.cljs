@@ -2023,6 +2023,20 @@
         "a blank character must not inherit the previous portrait")
     (is (nil? (:portrait/drawer-open? @app-db)))))
 
+(deftest new-keeps-the-never-saved-draft-it-replaces
+  (testing "Log Out and New reset the character; a never-saved one's draft must stay to be listed"
+    (try
+      (clear-drafts!)
+      (drafts/set-tab-key! "new-abc")
+      (reset! app-db (assoc pristine-db
+                            :character {:changed true ::entity/values {char-name "Unsaved work"}}))
+      (db/character->local-store (:character @app-db))
+      (rf/dispatch-sync [:reset-character])
+      (is (not= "new-abc" (drafts/tab-key)) "the new character has a key of its own")
+      (is (.includes (str (.getItem js/localStorage (drafts/storage-key "new-abc"))) "Unsaved work")
+          "the draft it replaced is still stored")
+      (finally (clear-drafts!)))))
+
 (deftest editing-an-unsaved-character-keeps-the-draft
   (testing "update-character-fx routes edits to a character with no id back
             through :set-character; that is an edit, not a switch"
