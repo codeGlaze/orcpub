@@ -13,9 +13,17 @@
             [orcpub.dnd.e5.character :as char]
             [orcpub.dnd.e5.portrait :as portrait]
             [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.artist-links]
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-resolution]))
+
+(deftest blank-link-rows-count-against-the-limit
+  (let [rows (fn [urls] (mapv (fn [u] {:url u}) urls))
+        max-links orcpub.artist-links/max-links]
+    (is (views/room-for-a-link? (rows (repeat (dec max-links) "https://x.test"))))
+    (is (not (views/room-for-a-link? (rows (repeat max-links ""))))
+        "a full set of blank rows leaves no room for another")))
 
 (deftest a-nameless-item-reads-as-its-placeholder
   (is (= {:title "Unnamed Spell" :subtitle ":no-name"}

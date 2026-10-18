@@ -10007,6 +10007,12 @@
    :link (s/trim link)
    :links (vec (for [{:keys [url]} links :when (not (s/blank? url))] {:url url}))})
 
+(defn room-for-a-link?
+  "Whether the credit form can show another link row, given its `rows` as on screen. Blank rows
+   count: credit-edit drops them, so counting the edit would let rows pile up without limit."
+  [rows]
+  (< (count rows) artist-links/max-links))
+
 (defn- credit-preview-info
   "What the credit will look like once saved: the code's default, under the
    artist's form, under whatever the site's config has fixed. Links that
@@ -10109,7 +10115,7 @@
                  {:on-click #(do (swap! links (fn [ls] (into (subvec ls 0 i) (subvec ls (inc i))))) (clear!))}
                  "Remove"]]
                [field-note problem]]))
-           (when (< (count (:links edit)) artist-links/max-links)
+           (when (room-for-a-link? @links)
              [:button.link-button.f-s-14
               {:on-click #(swap! links conj (new-row ""))}
               "+ Add a link"])
