@@ -1,0 +1,274 @@
+{
+  "source": "silhouette manifest (prototype mode)",
+  "generatedAt": "2026-08-28T07:22:18.057Z",
+  "layers": [
+    {
+      "z": 0,
+      "key": "hair-bits",
+      "name": "hair bits",
+      "folder": "layer 0 - hair bits",
+      "color": "#e0a24d",
+      "assets": [
+        {
+          "file": "l0_hair_bits_pony_long.png",
+          "source": "L0_hair_bits_pony_long.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l0_hair_bits_pony_short.png",
+          "source": "L0_hair_bits_pony_short.png",
+          "w": 192,
+          "h": 264
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "z": 1,
+      "key": "hair-back",
+      "name": "hair back",
+      "folder": "layer 1 - hair back",
+      "color": "#c88a4a",
+      "assets": [
+        {
+          "file": "l1_hair_back_02.png",
+          "source": "L1_hair_back_02.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l1_hair_back_03.png",
+          "source": "L1_hair_back_03.png",
+          "w": 192,
+          "h": 264
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "z": 2,
+      "key": "head",
+      "name": "head",
+      "folder": "layer 2 - head",
+      "color": "#f2e6d0",
+      "assets": [
+        {
+          "file": "l2_head_01.png",
+          "source": "L2_head_01.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l2_head_02.png",
+          "source": "L2_head_02.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l2_head_03.png",
+          "source": "L2_head_03.png",
+          "w": 192,
+          "h": 264
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "z": 3,
+      "key": "shirt",
+      "name": "shirt",
+      "folder": "layer 3 - shirt",
+      "color": "#7a94b8",
+      "assets": [
+        {
+          "file": "l3_shirt_01.png",
+          "source": "L3_shirt_01.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l3_shirt_02.png",
+          "source": "L3_shirt_02.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l3_shirt_03.png",
+          "source": "L3_shirt_03.png",
+          "w": 192,
+          "h": 264
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "z": 4,
+      "key": "hair-front",
+      "name": "hair front",
+      "folder": "layer 4 - hair front",
+      "color": "#e6a040",
+      "assets": [
+        {
+          "file": "l4_hair_front_01.png",
+          "source": "L4_hair_front_01.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l4_hair_front_02.png",
+          "source": "L4_hair_front_02.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l4_hair_front_03.png",
+          "source": "l4_hair_front_03.png",
+          "w": 192,
+          "h": 264
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "z": 5,
+      "key": "ears",
+      "name": "ears",
+      "folder": "layer 5 - ears",
+      "color": "#eab098",
+      "assets": [
+        {
+          "file": "l5_ear_01.png",
+          "source": "L5_ear_01.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l5_ear_02.png",
+          "source": "L5_ear_02.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l5_ear_03.png",
+          "source": "L5_ear_03.png",
+          "w": 192,
+          "h": 264
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "z": 6,
+      "key": "eyes",
+      "name": "eyes",
+      "folder": "layer 6 - eyes",
+      "color": "#78d0d4",
+      "assets": [
+        {
+          "file": "l6_eyes_01.png",
+          "source": "L6_eyes_01.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l6_eyes_02.png",
+          "source": "L6_eyes_02.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l6_eyes_03.png",
+          "source": "L6_eyes_03.png",
+          "w": 192,
+          "h": 264
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "z": 7,
+      "key": "nose",
+      "name": "nose",
+      "folder": "layer 7 - nose",
+      "color": "#d67c5c",
+      "assets": [
+        {
+          "file": "l7_nose_01.png",
+          "source": "L7_nose_01.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l7_nose_02.png",
+          "source": "L7_nose_02.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l7_nose_03.png",
+          "source": "L7_nose_03.png",
+          "w": 192,
+          "h": 264
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "z": 8,
+      "key": "mouth",
+      "name": "mouth",
+      "folder": "layer 8 - mouth",
+      "color": "#c85c5c",
+      "assets": [
+        {
+          "file": "l8_mouth_01.png",
+          "source": "L8_mouth_01.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l8_mouth_02.png",
+          "source": "L8_mouth_02.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l8_mouth_03.png",
+          "source": "L8_mouth_03.png",
+          "w": 192,
+          "h": 264
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "z": 9,
+      "key": "bangs",
+      "name": "bangs",
+      "folder": "layer 9 - bangs",
+      "color": "#f5c46b",
+      "assets": [
+        {
+          "file": "l9_bangs_01.png",
+          "source": "L9_bangs_01.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l9_bangs_02.png",
+          "source": "L9_bangs_02.png",
+          "w": 192,
+          "h": 264
+        },
+        {
+          "file": "l9_bangs_03.png",
+          "source": "L9_bangs_03.png",
+          "w": 192,
+          "h": 264
+        }
+      ],
+      "gaps": []
+    }
+  ]
+}

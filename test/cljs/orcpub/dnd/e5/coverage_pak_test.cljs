@@ -27,7 +27,10 @@
      []
      (common/map-by-key [{:name "Common" :key :common}])))))
 
-(defn- wayfarer [n]
+(defn- wayfarer
+  "Stored ranger of level `n` with the Wayfarer subclass and the lantern-step trick picked at
+   level 3. Returns the character map."
+  [n]
   {::entity/options
    {:ability-scores {::entity/key :standard-roll
                      ::entity/value {::char5e/str 15 ::char5e/dex 15 ::char5e/con 14

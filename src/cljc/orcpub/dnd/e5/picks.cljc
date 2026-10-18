@@ -322,7 +322,9 @@
   [address]
   (for [n (range 2 (count address) 2)] (subvec address 0 n)))
 
-(defn- level-of [k]
+(defn- level-of
+  "The number in a level key such as `:level-7`, or nil when `k` is not one."
+  [k]
   (some->> (name k) (re-matches #"level-(\d+)") second #?(:clj Long/parseLong :cljs js/parseInt)))
 
 (defn- option-name

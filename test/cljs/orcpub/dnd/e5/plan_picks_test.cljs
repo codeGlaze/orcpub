@@ -35,7 +35,10 @@
      []
      (common/map-by-key [{:name "Common" :key :common}])))))
 
-(defn- ranger [n]
+(defn- ranger
+  "Stored ranger of level `n` with the Hunter subclass and Steel Will picked at level 3. Returns
+   the character map."
+  [n]
   {::entity/options
    {:ability-scores {::entity/key :standard-roll
                      ::entity/value {::char5e/str 15 ::char5e/dex 15 ::char5e/con 14
@@ -51,12 +54,17 @@
                                   ::entity/options {:defensive-tactics
                                                     {::entity/key :steel-will}}}})}))}}]}})
 
-(defn- db [character & [hold]]
+(defn- db
+  "Re-frame db holding `character`, the cached template and the held picks `hold` (default none)."
+  [character & [hold]]
   {:character character
    :orcpub.dnd.e5.autosave-fx/cached-template @template
    :orcpub.dnd.e5/planned-picks (or hold [])})
 
-(defn- steel-will? [character]
+(defn- steel-will?
+  "True when the level-3 ranger archetype of the first class of `character` has a
+   defensive-tactics pick."
+  [character]
   (some? (get-in character [::entity/options :class 0 ::entity/options :levels 2
                             ::entity/options :ranger-archetype ::entity/options
                             :defensive-tactics])))
@@ -74,7 +82,10 @@
   (let [[d settle?] (queued db-before db-after event)]
     (if settle? (events/settle-picks-db d) d)))
 
-(defn- class-entry [k & [options]]
+(defn- class-entry
+  "Stored class entry for key `k` with a single level-1 entry; the optional map `options` is
+   merged over its options."
+  [k & [options]]
   {::entity/key k ::entity/options (merge {:levels [{::entity/key :level-1}]} options)})
 
 (deftest making-another-class-the-starting-class-moves-its-first-class-picks
@@ -117,7 +128,10 @@
     (is (= [] (:orcpub.dnd.e5/planned-picks at-7)))
     (is (= 1 (count (get-in at-7 [:orcpub.dnd.e5/picks-change :restored]))))))
 
-(defn- without-tactic [character]
+(defn- without-tactic
+  "Character with the defensive-tactics pick removed from the level-3 ranger archetype of its
+   first class."
+  [character]
   (update-in character [::entity/options :class 0 ::entity/options :levels 2 ::entity/options
                         :ranger-archetype ::entity/options]
              dissoc :defensive-tactics))
@@ -175,7 +189,9 @@
     (is (identical? d (edit d d :e)))))
 
 ;; As the builder passes them (character_builder `make-options-map`).
-(defn- class-options [] (zipmap (map ::t/key @classes) @classes))
+(defn- class-options
+  "Map of class key to class option for every class in `classes`."
+  [] (zipmap (map ::t/key @classes) @classes))
 
 (def ^:private rogue-3
   {::entity/key :rogue
@@ -265,7 +281,7 @@
   (let [at-6 (edit (db (ranger 7)) (db (ranger 6)) :some-edit)
         saved-6 (assoc (:character at-6) :db/id 7)
         saved (:db (events/character-save-success-fx
-                    {:db at-6} [:character-save-success {:body (char5e/to-strict saved-6)}]))
+                    {:db at-6} [:character-save-success {:epoch 0} {:body (char5e/to-strict saved-6)}]))
         reloaded (edit saved (assoc saved :character saved-6) :set-character)]
     (is (= 1 (count (:orcpub.dnd.e5/planned-picks at-6))) "unsaved, at 6, Steel Will held")
     (is (= 1 (count (:orcpub.dnd.e5/planned-picks reloaded)))
@@ -282,7 +298,9 @@
                                  :orcpub.dnd.e5/settle-trail) fresh))
           "and it shows none of the previous character's notices, nor settles against it"))))
 
-(defn- to-level [d n]
+(defn- to-level
+  "Db `d` with the first class of its character set to level `n`."
+  [d n]
   (assoc d :character (event-handlers/set-class-level (:character d) [:set-class-level 0 n])))
 
 (deftest a-drop-below-the-subclass-holds-it-even-in-one-burst-of-edits
@@ -305,7 +323,10 @@
   [:character ::entity/options :class 0 ::entity/options :levels 2
    ::entity/options :ranger-archetype])
 
-(defn- lantern-step? [character]
+(defn- lantern-step?
+  "True when the level-3 ranger archetype of the first class of `character` has the lantern-step
+   pick under its wayfarer tricks."
+  [character]
   (= :lantern-step (get-in character [::entity/options :class 0 ::entity/options :levels 2
                                       ::entity/options :ranger-archetype ::entity/options
                                       :wayfarer-tricks ::entity/key])))
@@ -334,7 +355,9 @@
                                               [:stealth :acrobatics :insight :perception])
                      :levels [{::entity/key :level-1}]}})
 
-(defn- as-class [d entry] (assoc-in d [:character ::entity/options :class 0] entry))
+(defn- as-class
+  "Db `d` with `entry` as the first class of its character."
+  [d entry] (assoc-in d [:character ::entity/options :class 0] entry))
 
 (deftest picks-that-come-back-build-a-notice-with-undo-and-redo
   (let [level-1 {:levels [{::entity/key :level-1}]}

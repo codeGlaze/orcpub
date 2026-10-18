@@ -42,6 +42,13 @@
   (or (read-secret "signature")
       (env/value :signature)))
 
+(defn profile-encryption-keys
+  "Return PROFILE_ENCRYPTION_KEYS from Docker secret, env var, or nil.
+  Resolution order: /run/secrets/profile_encryption_keys > PROFILE_ENCRYPTION_KEYS.
+  Format and use: orcpub.crypto." []
+  (or (read-secret "profile_encryption_keys")
+      (env/value :profile-encryption-keys)))
+
 (defn get-datomic-uri
   "Return the Datomic URI: the raw env value (`datomic-env`), else the local development
   default datomic:dev://localhost:4334/orcpub.
@@ -170,6 +177,28 @@
   []
   (positive-int-env ["ORCPUB_PDF_QUEUE_TIMEOUT_MS"] 30000))
 
+(defn get-portrait-concurrency
+  "How many shared-link portrait images may be drawn at once, from ORCPUB_PORTRAIT_CONCURRENCY.
+   Defaults to half the cores, minimum two: each draw is about half a second of one core, and
+   the rest are left for pages and exports. docs/PORTRAIT-SERVING.md."
+  []
+  (positive-int-env ["ORCPUB_PORTRAIT_CONCURRENCY"] (max 2 (quot @available-processors 2))))
+
+(defn get-portrait-queue-timeout-ms
+  "How long a portrait image waits to be drawn before the server says it is busy, from
+   ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS. Short, because link-preview fetchers give up quickly."
+  []
+  (positive-int-env ["ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS"] 5000))
+
+(defn get-portrait-store-dir
+  "Where the server keeps its drawings of shared-link portraits, from PORTRAIT_STORE_DIR. Defaults
+   to orcpub-portraits under the system temp directory: the Docker image runs from / as a user
+   that can write only /tmp. Point several containers at one shared volume and each portrait is
+   drawn once for all of them. docs/PORTRAIT-SERVING.md."
+  []
+  (or (not-empty (env/value :portrait-store-dir))
+      (str (io/file (System/getProperty "java.io.tmpdir") "orcpub-portraits"))))
+
 (defn dev-mode?
   "Returns true when running in dev mode (DEV_MODE env var is 'true').
    Env vars are strings — (boolean \"false\") is true in Clojure, so we
@@ -290,13 +319,27 @@
     {:group "email"    :var "EMAIL_SECRET_KEY" :secret? true}
     {:group "email"    :var "EMAIL_FROM_ADDRESS"}
     {:group "email"    :var "EMAIL_ERRORS_TO"}
-    {:group "content"  :var "LOAD_HOMEBREW_URL" :note "homebrew loaded at page load"}]
+    {:group "email"    :var "EMAIL_ADMIN_TO"
+     :note "artist-account notices; falls back to EMAIL_ERRORS_TO"}
+    {:group "security" :var "PROFILE_ENCRYPTION_KEYS" :secret? true
+     :note "encrypts preferred names; or the profile_encryption_keys secret"}
+    {:group "content"  :var "LOAD_HOMEBREW_URL" :note "homebrew loaded at page load"}
+    {:group "content"  :var "PORTRAIT_ARTISTS"
+     :note "artist credits and artist accounts; see ARTISTS.md"}
+    {:group "content"  :var "APP_URL"
+     :note "public site address; artist emails need it for their links"}]
    [{:group "capacity" :var "ORCPUB_HTTP_MAX_THREADS" :get #(get-http-max-threads)
      :note "worker pool: requests of any kind in flight"}
     {:group "capacity" :var "ORCPUB_PDF_CONCURRENCY" :get #(get-pdf-concurrency)
      :note "sheets generated at once"}
     {:group "capacity" :var "ORCPUB_PDF_QUEUE_TIMEOUT_MS" :get #(get-pdf-queue-timeout-ms)
      :note "how long an export waits for a slot"}
+    {:group "capacity" :var "ORCPUB_PORTRAIT_CONCURRENCY" :get #(get-portrait-concurrency)
+     :note "shared-link portraits drawn at once"}
+    {:group "capacity" :var "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS" :get #(get-portrait-queue-timeout-ms)
+     :note "how long a portrait waits to be drawn"}
+    {:group "capacity" :var "PORTRAIT_STORE_DIR" :get #(get-portrait-store-dir)
+     :note "where shared-link portrait drawings are kept"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_RETRIES" :get #(get-pdf-max-retries)
      :note "busy-page retries before it waits for a click"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :get #(get-pdf-max-caster-sections)

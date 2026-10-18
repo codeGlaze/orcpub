@@ -1,0 +1,34 @@
+(ns orcpub.art-mark-test
+  "The licensed-art mark writes the same bytes in the browser and on the server, and reads back."
+  (:require #?(:clj [clojure.test :refer [deftest is]]
+               :cljs [cljs.test :refer-macros [deftest is]])
+            [orcpub.art-mark :as mark]))
+
+(def ^:private tiny-png
+  "A 1x1 PNG: signature, IHDR, IEND."
+  [137 80 78 71 13 10 26 10, 0 0 0 13 73 72 68 82, 0 0 0 1 0 0 0 1 8 6 0 0 0, 31 21 196 137,
+   0 0 0 0 73 69 78 68 174 66 96 130])
+
+(def ^:private expected
+  "tiny-png marked \"licensed; pack v1; artist house-pack\", as the JVM writes it (CRCs checked
+   against zlib)."
+  [137 80 78 71 13 10 26 10 0 0 0 13 73 72 68 82 0 0 0 1 0 0 0 1 8 6 0 0 0 31 21 196 137 0 0 0 51 105 84 88 116 111 114 99 112 117 98 45 97 114 116 0 0 0 0 0 108 105 99 101 110 115 101 100 59 32 112 97 99 107 32 118 49 59 32 97 114 116 105 115 116 32 104 111 117 115 101 45 112 97 99 107 241 216 110 169 0 0 0 0 73 69 78 68 174 66 96 130])
+
+(defn- bytes-of
+  "Ints `v` as the platform's byte array."
+  [v] #?(:clj (byte-array (map unchecked-byte v)) :cljs (js/Uint8Array. (clj->js v))))
+(defn- ints-of
+  "A platform byte array as a vector of ints 0..255."
+  [b] #?(:clj (mapv #(bit-and % 0xff) b) :cljs (vec (array-seq (js/Array.from b)))))
+
+(deftest the-mark-is-the-same-bytes-everywhere
+  (let [marked (mark/with-mark (bytes-of tiny-png) "licensed; pack v1; artist house-pack")]
+    (is (= expected (ints-of marked)) "chunk, CRC and position identical on both platforms")
+    (is (= "licensed; pack v1; artist house-pack" (mark/mark-of marked)))
+    (is (nil? (mark/mark-of (bytes-of tiny-png))))
+    (is (= expected (ints-of (mark/with-mark marked "other"))) "marking twice adds nothing")))
+
+(deftest the-mark-of-a-composite-names-its-sources
+  (is (nil? (mark/composed [nil nil])) "no marked piece, no mark")
+  (is (= "licensed; composed from licensed; pack v1; artist a"
+         (mark/composed [nil "licensed; pack v1; artist a" "licensed; pack v1; artist a"]))))

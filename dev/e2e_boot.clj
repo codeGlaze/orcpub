@@ -12,6 +12,7 @@
   (:require [com.stuartsierra.component :as component]
             [datomic.api :as d]
             [orcpub.system :as s]
+            [orcpub.artist-accounts :as artist-accounts]
             [orcpub.routes :as routes]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.character :as char5e]
@@ -73,6 +74,14 @@
                        (item "kaylee" "Kaylee Seeded Beta")
                        (item "kaylee" "Kaylee Seeded Gamma")
                        (item "zoe"    "Zoe Seeded Only")])
+    ;; E2E_ARTIST=<artist id> makes kaylee that artist's account, through the
+    ;; same linking the live site does. Not via PORTRAIT_ARTISTS: the server's
+    ;; own startup pass runs before the seeding above, so it would find no
+    ;; kaylee and create a separate account instead.
+    (when-let [artist (not-empty (System/getenv "E2E_ARTIST"))]
+      (println "e2e-boot: kaylee as artist"
+               (artist-accounts/reconcile! conn {(keyword artist) {:account "kaylee@example.com"}}
+                                           artist-accounts/log-only-notify)))
     ;; Printed so a check can open the character without logging in.
     (let [{:keys [status body]} (routes/do-save-character (d/db conn) conn
                                                           (fighter-carrying "Bree Tinker" :kaylee-seeded-alpha)

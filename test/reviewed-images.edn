@@ -1,0 +1,134 @@
+{
+ ".github/screenshot.png"
+ {:sha256 "13366fd492eb8aa41b26ddb09fd8dbad90885759d2d2f8127479d8469519a35f"
+  :what "app screenshot (README), 2020, added 2020-11-25, before the portrait art"}
+ "assets/icons/app.png"
+ {:sha256 "acacde56d7ea20143443212c518b31a9249aaabdf7bb99baa2342a05ba4fab0d"
+  :what "logo, added 2020-11-25, before the portrait art"}
+ "assets/icons/loading.png"
+ {:sha256 "acacde56d7ea20143443212c518b31a9249aaabdf7bb99baa2342a05ba4fab0d"
+  :what "UI icon or spinner, added 2020-11-25, before the portrait art"}
+ "assets/images/cljs.png"
+ {:sha256 "24f368e52bc466e5810273d83330353b7820359b29e86a0d8846660af024fe02"
+  :what "logo, added 2020-11-25, before the portrait art"}
+ "assets/images/cljs@2x.png"
+ {:sha256 "b3454afc5251fc76c405e16208cbd4b61ae18a4a555efa5ac5dee9131b29654c"
+  :what "logo, added 2020-11-25, before the portrait art"}
+ "assets/images/cljs@3x.png"
+ {:sha256 "1dc28ae1caa9782fb19f6b9eca32ad903565394688baa75edb2ebc5e800c3698"
+  :what "logo, added 2020-11-25, before the portrait art"}
+ "assets/images/orcpub-logo.png"
+ {:sha256 "6ad5954ecc495360c3f2ab20fe704d77afb4cfdc20022d94c28be7c8d9810a95"
+  :what "logo, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-114.png"
+ {:sha256 "48ab376378eaf1db260a939c37b94c25d5a641c9a87986df95810d178264ebdb"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-120.png"
+ {:sha256 "d9e6328a124118c8fb248e2fef03e0af81a720051b48b5ab4a58453cc3196b21"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-144.png"
+ {:sha256 "bc4adcb65fdd9c465de469788893b25617f83ac38d1f4abd35a4790862cf5cf6"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-150.png"
+ {:sha256 "637047475da15ad996f854dbdc193f7d65a7008b68df38005e50723deeaa9903"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-152.png"
+ {:sha256 "f24f89824284e51627886f9b8a656083408acc0eef3c33793a801ddd19c7443f"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-16.png"
+ {:sha256 "2caebf018d18c80dce06d3d4b84d9fc2462934a20ba3ff860a4b44dfd88f1c26"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-160.png"
+ {:sha256 "728a716e14502794cefa9d618e0eea7618cdb8d9ae41b252f7c9b94c70ec5747"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-180.png"
+ {:sha256 "6bb318ff9326948981bf2addf57382a77ec1ae40083f878106dd79c2cdd01f49"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-192.png"
+ {:sha256 "bae59f8e08a736a56522ddee7d6cd959b95fa3106971c4ae7ad0bfbb9294f28f"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-310.png"
+ {:sha256 "fed588c10b1ef78c777170dc4d39cfc6bd3cefd74f61ade6d2aa82efe8d5425e"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-32.png"
+ {:sha256 "74b2de1ead1090a51e363829f3456e4d4475cdd51970dca1b34bf8b69b8dfc5f"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-57.png"
+ {:sha256 "295d5198ffe7b427f6c4b2278082b73bd99a79e52658f05636f6f802f5c1d3d5"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-60.png"
+ {:sha256 "48ed5d7cea0bd3534f2abd080c244f646707b3ff96716765ba311ca05a40af95"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-64.png"
+ {:sha256 "c2c8c62a0925c599bf316f659b462c4622342e5510ea56a51e9c2b0d55acb29e"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-70.png"
+ {:sha256 "7e4bb3aaed5e2efab0dfd3351d43f78240ac469096e1629670c3358df45cba49"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-72.png"
+ {:sha256 "f1be0fe2d5419b89da9487a35037fb57d183cf03d408a3a3dfe4659e5e8a3741"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-76.png"
+ {:sha256 "7cf99ee86c932521529f03309d17ed814630bd83ac39e65d4066b6261900c4c5"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/favicon/favicon-96.png"
+ {:sha256 "2ad91407e72de017e9a9ddbd4d79dbcd4edaa03ad74b03186ede44d92d8657e8"
+  :what "site favicon, added 2020-11-25, before the portrait art"}
+ "resources/public/image/arrow-dunk.png"
+ {:sha256 "55479d271fe1c1099b99af0fdadbf09f9f1661c6263fec9a31236e6517f18500"
+  :what "UI icon or spinner, added 2020-11-25, before the portrait art"}
+ "resources/public/image/card-logo-bw.png"
+ {:sha256 "94f6007b4cfda8828630e44822939fa1528e8f9779436490ee4b5cc72b5d78be"
+  :what "logo, added 2026-08-08, before the portrait art"}
+ "resources/public/image/card-logo.png"
+ {:sha256 "b9afdd428ae66d0c4231901750c9228f7a6d5a1d2a364e4ad6e33d7050d0ddbc"
+  :what "logo, added 2021-03-18, before the portrait art"}
+ "resources/public/image/clockwise-rotation.png"
+ {:sha256 "4d7dc60f4e9740c47b5283586709b2b0264e7b95593b3a7b589db447c4b47a33"
+  :what "UI icon or spinner, added 2020-11-25, before the portrait art"}
+ "resources/public/image/dmv-box-logo.png"
+ {:sha256 "491e8e69650f684bc96db2c66e9208b53d4a69024ec3db18d21086d950d1fbe4"
+  :what "logo, added 2020-11-25, before the portrait art"}
+ "resources/public/image/dmv-mark-black.png"
+ {:sha256 "971b6b75dc2d4977531274f3c015a82f0a056f8edcde1da2a9c1fb5b3029f7e8"
+  :what "logo, added 2026-08-08, before the portrait art"}
+ "resources/public/image/dmv-mark-faded-orange.png"
+ {:sha256 "95dabd89eaa90413beaf97290ce7fcd022a843c5cd9515a39610a59293bbdd3e"
+  :what "logo, added 2026-08-08, before the portrait art"}
+ "resources/public/image/grab.png"
+ {:sha256 "a04f1ae6fea2d192b8ca4fdd8b45e1e722876c642170ed35492aedb275b2b510"
+  :what "UI icon or spinner, added 2020-11-25, before the portrait art"}
+ "resources/public/image/header-background.jpg"
+ {:sha256 "bb50f5d8115149759df1b1636f5e134b3a59a3092743850a8affff4bd947e8e2"
+  :what "site background / partner image, added 2020-11-25, before the portrait art"}
+ "resources/public/image/login-side.jpg"
+ {:sha256 "4d9a431020f26737828c614a81a8f8553807baa285de880d85e002d6a8f1af8f"
+  :what "site background / partner image, added 2026-02-26, before the portrait art"}
+ "resources/public/image/magic-swirl.png"
+ {:sha256 "ca6bc1b38af3eeab50e54e56a43ce140bc6baee500d375cd31bcec8a3f03e2e5"
+  :what "UI icon or spinner, added 2020-11-25, before the portrait art"}
+ "resources/public/image/sands-of-time.png"
+ {:sha256 "2aea4a97d0beeef7a0ca8a746b19cfec58b34ca6dd809e297f2300d238564220"
+  :what "UI icon or spinner, added 2020-11-25, before the portrait art"}
+ "resources/public/image/shiny-purse.png"
+ {:sha256 "98e10ca29acecf55f0f56f866a2fd0ed9137067c2ce30797e020e2249245955e"
+  :what "UI icon or spinner, added 2020-11-25, before the portrait art"}
+ "resources/public/image/shutterstock_425039560.jpg"
+ {:sha256 "fbb2c3f9192b8707f142d6a29ff4dc4cd1fc0eb7a58e06f2156784e5ecab6e3b"
+  :what "licensed stock photo, site background, added 2020-11-25, before the portrait art"}
+ "resources/public/image/shutterstock_432001912-orginal.jpg"
+ {:sha256 "3101aab810bb15b47a17bb573725d732ab438ca4b3e58febc56015f804ed95b6"
+  :what "licensed stock photo, site background, added 2020-11-25, before the portrait art"}
+ "resources/public/image/shutterstock_432001912.jpg"
+ {:sha256 "6083a21c4f72d1103b4370e8908a8fffeb0bb47d99a292ba166a34539b5affcc"
+  :what "licensed stock photo, site background, added 2020-11-25, before the portrait art"}
+ "resources/public/image/spiral-orignal.gif"
+ {:sha256 "bff04a5f2db557b7d38e474c685ff413bfbb4a456e0bf8a35fdc6f83c62fa64f"
+  :what "UI icon or spinner, added 2020-11-25, before the portrait art"}
+ "resources/public/image/spiral.gif"
+ {:sha256 "309147bf4b443bd622a536a3d26fa5f85d5d1e70ec000827568fede46749e1c9"
+  :what "UI icon or spinner, added 2020-11-25, before the portrait art"}
+ "resources/public/image/world-anvil.jpeg"
+ {:sha256 "2ded7ce0c3fcd5cefb6758e1904dae4654ce23e9cc9e20811416652a92e67c18"
+  :what "site background / partner image, added 2020-11-25, before the portrait art"}
+}

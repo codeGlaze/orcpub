@@ -14,7 +14,9 @@
   (delay (get (:data (orcbrew-val/parse-edn (fixture-text "test/fixtures/coverage-pak.orcbrew")))
               source)))
 
-(defn selection-map [] (common/map-by-key (vals (:orcpub.dnd.e5/selections @pak))))
+(defn selection-map
+  "The pack selections keyed by their :key. Returns a map."
+  [] (common/map-by-key (vals (:orcpub.dnd.e5/selections @pak))))
 
 (defn plugin-subclasses-map
   "The pack's subclasses by class, as `spell-subs/plugin-subclass` builds them for class options."
