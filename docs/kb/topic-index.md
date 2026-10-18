@@ -1514,7 +1514,7 @@ _entity-options-architecture · entity options architecture_
 
 _env-and-auth · env and auth_
 
-**topics:** ---------------------, 500, auth, authenticated, clj, csp, dev, dev-mode, env, jwt, overrides, prod, profile, project, signature, token, var, vars
+**topics:** ---------------------, 500, auth, authenticated, clj, csp, dev, dev-mode, env, gitignored, jwt, prod, profile, project, signature, token, var, vars
 
 - How env vars are loaded
 - 1. ./menu and ./scripts/start.sh
@@ -1862,7 +1862,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, about, attack, blade, cleave, crit, damage, graze, mastery, owner, radiant, settings, sun, topple, trained, weapon, weapons-extra-damage-design
+**topics:** 2026-10-17, 2d6, about, attack, blade, cleave, crit, damage, desktop, mastery, no-roll, owner, phone, radiant, settings, sun, weapon, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry

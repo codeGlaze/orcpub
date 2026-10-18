@@ -82,6 +82,20 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
 - **The shared formatter: done** (2026-10-17): `display.cljc` writes every weapon's damage, extras and
   saves as text (`weapon-extras-str` gives one line per weapon). Not called yet; the rows and the PDF
   will call it. Where the PDF prints extras is still the owner's call.
+- **Stage 1 step 2, the rows: built 2026-10-17** on `feature/weapons-table`. `weapons-section-2` is now
+  `weapon-row`s in a CSS grid (`minmax(0,1fr) 62px 106px`), styles in `src/clj/orcpub/styles/weapons.clj`
+  (every colour a CSS variable on `.weapons-section`, light theme overrides them), row logic in
+  `display.cljc` `weapon-row-lines`. Toggles follow v5 section 10 (neutral grey; a damage toggle takes its
+  type's ribbon), not the blue drawn in section 1. Browser test: `test/browser/weapons_table_e2e.js`
+  (27 checks, dark and light). Screenshots: `scripts/design/weapons-rows-shots.js`. Not yet: the + menu,
+  mastery band, desktop Details column, shield states (owner question open), charge counters.
+- **Today's table overflowing a phone:** measured 2026-10-17. On a real phone (touch, phone user agent)
+  it fits; in a narrow *desktop* window every button gains the ctrl/shift `.tooltip` wrapper and the
+  table is 404px in a 370px section. The new rows fit both. A screenshot taken with a desktop user agent
+  at 390px is not a phone: set `isMobile`, `hasTouch` and a phone user agent.
+- **The Net shows "Special"** in its no-roll tile: it has no `:summary` until PR #62 lands ("restrains").
+- **Port 8890 is shared** by every worktree's `run.sh`; another session's server answering there makes
+  `server.sh` refuse to start. Set `E2E_PORT` to a free port.
 - **Found while building, not fixed:**
   - Vicious Weapon's SRD trigger is "roll a 20": modelled as `::mi/min-roll 20`, apart from
     `::mi/on :crit`, which follows the crit range.
