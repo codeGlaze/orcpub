@@ -78,7 +78,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** a Choices list in the builder shows every choice a character stores, including ones whose homebrew isn't loaded in this browser, and lets those be cleared.
 - **Characters:** the character builder's Back and Next repeat at the bottom of each page, and open the next page at its top.
 - **Homebrew:** the add buttons on homebrew builders repeat below a long list of traits or options.
-- **Printing:** A4 and A5 as well as US Letter, for spell cards, magic item cards, the spellbook and the character sheet. An A4 spellbook page carries about 7% more than a Letter one; A5 fits four cards to a sheet instead of nine.
+- **Printing:** A4 as well as US Letter for the character sheet, and A4 or A5 for spell cards, magic item cards and the spellbook. An A4 spellbook page carries about 7% more than a Letter one; A5 fits four cards to a sheet instead of nine. An A5 export keeps the sheet itself on Letter.
 - **Printing:** when part of an export cannot be produced, the PDF opens with a page naming what was left out and why. A clean export is unchanged and gains no page.
 
 ### Changed

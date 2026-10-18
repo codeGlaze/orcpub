@@ -50,10 +50,37 @@
         (binding [draw/*page* :a4] (pdf/fit-sheet-to-page! doc))
         (is (= ws (widget-xs doc)))))))
 
-(deftest a5-also-works-though-nobody-should
-  (testing "the shim is general. An A5 character sheet is a postcard, but the code
-            should not special-case A4."
+(defn- widgets-outside-crop
+  "Widget rects that fall outside their page's crop window -- fields a reader will not
+   show and a printer will not print."
+  [doc]
+  (for [p (.getPages doc)
+        :let [cb (.getCropBox p)]
+        a (.getAnnotations p)
+        :let [r (.getRectangle a)]
+        :when (and r (or (< (.getLowerLeftX r) (.getLowerLeftX cb))
+                         (< (.getLowerLeftY r) (.getLowerLeftY cb))
+                         (> (.getUpperRightX r) (.getUpperRightX cb))
+                         (> (.getUpperRightY r) (.getUpperRightY cb))))]
+    r))
+
+(deftest no-supported-sheet-size-cuts-a-field-off
+  ;; The real check. The earlier A5 test asserted the crop box held what the shim was
+  ;; told to put there, which is not the same as the sheet still being readable: it
+  ;; passed while 159 of 335 widgets sat outside the window.
+  (doseq [size pdf/sheet-page-sizes]
+    (testing (str "every field is inside the printed window on " (name size))
+      (with-open [doc (template)]
+        (binding [draw/*page* size] (pdf/fit-sheet-to-page! doc))
+        (let [out (widgets-outside-crop doc)]
+          (is (empty? out) (str (count out) " widget(s) clipped on " (name size))))))))
+
+(deftest a5-leaves-the-sheet-on-letter
+  (testing "A5 is 192pt narrower and 197pt shorter than the templates, so re-papering
+            would cut off half the fields. The sheet stays Letter; the cards and the
+            spellbook after it are drawn to A5."
     (with-open [doc (template)]
       (binding [draw/*page* :a5] (pdf/fit-sheet-to-page! doc))
-      (is (every? #(= [96 98 420 595] %) (boxes doc))
-          (str "got " (pr-str (distinct (boxes doc))))))))
+      (is (every? #(= [0 0 612 792] %) (boxes doc))
+          (str "got " (pr-str (distinct (boxes doc)))))
+      (is (empty? (widgets-outside-crop doc)) "and nothing is clipped"))))

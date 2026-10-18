@@ -5,12 +5,16 @@
    returned 11, and every baseline stayed byte-identical -- correctly, because nothing
    had changed. Nothing tested a non-Letter page, so nothing caught it. This does."
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.java.io :as io]
+            [orcpub.errors :as errors]
+            [orcpub.pdf :as pdf]
             [orcpub.routes :as routes]
             [orcpub.pdf-ops :as ops]
             [orcpub.pdf.draw :as draw]
             [orcpub.pdf.cards :as cards]
             [orcpub.spellbook :as spellbook])
-  (:import (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream)
+  (:import (org.apache.pdfbox Loader)
+           (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream)
            (org.apache.pdfbox.pdmodel.common PDRectangle)))
 
 (deftest page-sizes-are-iso-216
@@ -118,3 +122,22 @@
             those reports now reach the user on the notice page, so every single
             export would carry a spurious warning."
     (is (contains? @#'routes/pdf-option-keys :page-size))))
+
+(deftest an-export-option-never-reaches-the-form
+  ;; pdf-option-keys exists because write-fields! reports whatever it cannot place, and
+  ;; an option is not a field. The portrait pair arrived with the layered-portrait work
+  ;; and was not added, so every composed-portrait export drew a notice page saying two
+  ;; values had been left out -- of a sheet that had lost nothing.
+  (let [option-keys @#'routes/pdf-option-keys]
+    (testing "the keys the export reads for itself are all declared"
+      (doseq [k [:portrait-png :portrait-credit :page-size :spellbook :flatten?]]
+        (is (contains? option-keys k) (str k " is read by the export but not declared"))))
+    (testing "and stripping them leaves write-fields! nothing to complain about"
+      (let [{:keys [file]} (get pdf/sheet-masters 1)
+            fields (zipmap option-keys (repeat "x"))]
+        (with-open [in (.openStream (io/resource file))
+                    doc (Loader/loadPDF (.readAllBytes in))]
+          (binding [errors/*notices* (atom [])]
+            (is (empty? (pdf/write-fields! doc (apply dissoc fields option-keys) false {}))
+                "no option is mistaken for a field")
+            (is (empty? (errors/notices)) "so no notice page")))))))

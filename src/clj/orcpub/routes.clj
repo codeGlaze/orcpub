@@ -1339,6 +1339,10 @@
     :magic-items-known :print-magic-item-cards?
     :spellbook :spell-order
     :page-size
+    ;; The composed portrait's bytes and its credit line. They are drawn, not written
+    ;; into a field, so leaving them here made write-fields! report two unplaceable
+    ;; values -- a notice page on every composed-portrait export.
+    :portrait-png :portrait-credit
     :flatten?})
 
 (def ^:private image-url-shape
