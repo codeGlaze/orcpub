@@ -260,6 +260,193 @@
     :selections [(ability-increase-selection ability-keys num-increases different?)]
     :modifiers [(modifiers/deferred-ability-increases)]}))
 
+;; --- Ability-increase spreads ------------------------------------------------------------------
+;; :ability-increases is ONE spread of [amount pool] pairs, e.g. [[2 :cha] [1 :martial]]; every
+;; increment lands on a DISTINCT ability. A pool is :any | :martial | :mental | an explicit set
+;; #{:wis :con} | a single stat such as :con (FIXED). Short ability keys are namespaced here.
+(def ability-groups
+  {:any     (set character/ability-keys)
+   :martial #{::character/str ::character/dex ::character/con}
+   :mental  #{::character/int ::character/wis ::character/cha}})
+
+(defn ns-ability
+  "Short ability keyword -> namespaced (:con -> :orcpub.dnd.e5.character/con); idempotent."
+  [k]
+  (keyword "orcpub.dnd.e5.character" (clojure.core/name k)))
+
+(defn resolve-pool
+  "A spread pool -> a set of namespaced ability keys: a named group, a set, or a single stat."
+  [pool]
+  (cond
+    (coll? pool)          (set (map ns-ability pool))
+    (ability-groups pool) (ability-groups pool)
+    :else                 #{(ns-ability pool)}))
+
+(defn pool-entry?
+  "Is `e` a well-formed [amount pool] entry: a vector, a numeric amount, a pool resolve-pool reads?
+   Junk is skipped so one malformed entry in a pack cannot crash a whole race or background list.
+   GOTCHA: skipping is SILENT at runtime by design; the authoring form surfaces it
+   (`ignored-entry-warnings`)."
+  [e]
+  (and (vector? e)
+       (number? (first e))
+       (let [p (second e)] (or (keyword? p) (coll? p)))))
+
+(defn compile-ability-increases
+  "An :ability-increases spread -> {:modifiers :selections}. Single-stat pools are fixed; the rest
+   are floating slots in ONE :asi selection carrying the spread on ::t/spread. A trailing :save also
+   grants that ability's save. nil/empty -> no increments.
+   GOTCHA: :fixed-modifier picks the ability-breakdown column a fixed increment lands in; a
+   non-racial silo MUST pass a neutral one, or its +N shows as racial."
+  [ai-spread & [{:keys [fixed-modifier] :or {fixed-modifier modifiers/race-ability}}]]
+  (let [;; the races sub maps this over EVERY homebrew race, so a malformed entry is skipped
+        increments (map-indexed
+                    (fn [idx [amount pool :as incr]]
+                      (let [keys (resolve-pool pool)]
+                        {:idx idx :amount amount :pool (vec keys) :fixed? (= 1 (count keys))
+                         :save? (= :save (nth incr 2 nil))}))
+                    (filter pool-entry? ai-spread))
+        modifiers  (mapcat (fn [{:keys [amount pool save?]}]
+                             (concat (fixed-modifier (first pool) amount)
+                                     (when save? [(modifiers/saving-throws nil (first pool))])))
+                           (filter :fixed? increments))
+        floating   (remove :fixed? increments)
+        slot-opts  (fn [{:keys [idx amount pool save?]}]
+                     (map (fn [k]
+                            (t/option-cfg
+                             {:name      (str (:name (abilities-map k)) " "
+                                              (common/bonus-str amount)
+                                              (when save? " + save"))
+                              :key       (keyword (str "asi-" idx "-" (clojure.core/name k)))
+                              ;; a chosen floating pick IS a fixed increase on that ability, so it
+                              ;; credits the same column a fixed increment would, not level-up.
+                              :modifiers (cond-> (vec (fixed-modifier k amount))
+                                           save? (conj (modifiers/saving-throws nil k)))}))
+                          pool))]
+    {:modifiers  (vec modifiers)
+     :selections (if (seq floating)
+                   [(assoc (t/selection-cfg
+                            {:name         "Ability Score Improvement"
+                             :key          :asi
+                             :min          (count floating)
+                             :max          (count floating)
+                             :tags         #{:ability-scores}
+                             :multiselect? true
+                             :options      (vec (mapcat slot-opts floating))})
+                           ::t/spread (vec increments))]
+                   [])}))
+
+(defn toggle-increment-save
+  "Toggle the :save rider on ONE increment: [amount pool] <-> [amount pool :save]. Rebuilt from
+   amount and pool, so it is idempotent and a malformed longer increment normalizes back. It is a
+   keyword in a vector, not a map flag, so common/toggle-in does not apply. Backs the form's
+   '+ save prof' checkbox."
+  [increment]
+  (let [[amount pool] increment]
+    (if (= :save (nth increment 2 nil))
+      [amount pool]
+      [amount pool :save])))
+
+(defn compile-save-proficiencies
+  "A :save-proficiencies list ([[count pool] ...]) -> {:modifiers :selections}, independent of any
+   ability increase. A single-stat pool is a fixed save; a group is a choice of `count` distinct
+   saves from it. nil/empty -> nothing."
+  [save-spread]
+  (let [entries   (map-indexed
+                   (fn [idx [n pool]]
+                     (let [keys (resolve-pool pool)]
+                       {:idx idx :n n :pool (vec keys) :fixed? (= 1 (count keys))}))
+                   (filter pool-entry? save-spread))
+        modifiers (map (fn [{:keys [pool]}] (modifiers/saving-throws nil (first pool)))
+                       (filter :fixed? entries))
+        choices   (remove :fixed? entries)
+        save-opt  (fn [idx k]
+                    (t/option-cfg
+                     {:name      (:name (abilities-map k))
+                      :key       (keyword (str "save-" idx "-" (clojure.core/name k)))
+                      :modifiers [(modifiers/saving-throws nil k)]}))]
+    {:modifiers  (vec modifiers)
+     :selections (vec (for [{:keys [idx n pool]} choices]
+                        (t/selection-cfg
+                         {:name         "Saving Throw Proficiency"
+                          :key          (keyword (str "save-prof-" idx))
+                          :min          n
+                          :max          n
+                          :tags         #{:profs}
+                          :multiselect? true
+                          :different?   true
+                          :options      (mapv #(save-opt idx %) pool)})))}))
+
+(defn general-ability
+  "A FIXED ability increase credited to no source column: a plain +N that the breakdown shows under
+   'other'. For background, subclass and feat, so their fixed increases don't read as racial
+   (race-ability also writes the race column). A vector, like race-ability and subrace-ability."
+  [ability-kw amount]
+  [(modifiers/ability ability-kw amount)])
+
+(defn compile-ability-grants
+  "The one hook a silo calls for an entry's ability and save data: the ASI spread and the
+   standalone :save-proficiencies, merged into {:modifiers :selections}. Additive.
+   GOTCHA: :attribution (:race default | :subrace | :general) picks the breakdown column a fixed
+   increment lands in. Non-racial silos MUST pass :general."
+  [{:keys [ability-increases save-proficiencies]} & [{:keys [attribution] :or {attribution :race}}]]
+  (let [fixed-modifier (case attribution
+                         :subrace modifiers/subrace-ability
+                         :general general-ability
+                         modifiers/race-ability)
+        ai (compile-ability-increases ability-increases {:fixed-modifier fixed-modifier})
+        sp (compile-save-proficiencies save-proficiencies)]
+    {:modifiers  (concat (:modifiers ai) (:modifiers sp))
+     :selections (concat (:selections ai) (:selections sp))}))
+
+(defn ignored-entry-warnings
+  "What the authoring form shows for entries the compilers skip: malformed :ability-increases or
+   :save-proficiencies entries (see pool-entry?). Skipping keeps the app running, but hides data
+   loss from someone editing an imported or hand-edited file. A vector of readable strings, one per
+   field with skipped entries; empty when everything compiles."
+  [{:keys [ability-increases save-proficiencies]}]
+  (let [ignored (fn [field label]
+                  (let [n (count (remove pool-entry? field))]
+                    (when (pos? n)
+                      (str n " " label " entr" (if (= 1 n) "y is" "ies are")
+                           " malformed and will be IGNORED — each must be [amount pool]."))))]
+    (vec (keep identity [(ignored ability-increases "ability-increase")
+                         (ignored save-proficiencies "saving-throw")]))))
+
+(defn save-coverage-warnings
+  "Authoring guidance only, no effect on a character: redundant or overlapping save grants in ONE
+   entry's own data (:save riders and :save-proficiencies). Saves are a set at runtime, so a
+   duplicate is harmless; the note flags a wasted grant or pick. A vector of strings, empty when
+   clean."
+  [{:keys [ability-increases save-proficiencies]}]
+  (let [;; every save-granting source, as a set of abilities (one = fixed, several = a choice)
+        sources (concat (for [[_ pool sv] (filter vector? ability-increases) :when (= :save sv)]
+                          (resolve-pool pool))
+                        (for [[_ pool] (filter vector? save-proficiencies)]
+                          (resolve-pool pool)))
+        nm      (fn [k] (s/upper-case (clojure.core/name k)))
+        fixed   (->> sources (filter #(= 1 (count %))) (map first))
+        choices (->> sources (filter #(> (count %) 1)))
+        dup-fixed       (->> (frequencies fixed) (filter #(> (val %) 1)) (map key) distinct)
+        fixed-in-choice (distinct (for [f (distinct fixed) c choices :when (contains? c f)] f))
+        choice-overlap? (boolean (some (fn [[a b]] (seq (sets/intersection a b)))
+                                       (for [i (range (count choices))
+                                             j (range (inc i) (count choices))]
+                                         [(nth choices i) (nth choices j)])))]
+    (cond-> []
+      (seq dup-fixed)
+      (conj (str "The " (s/join ", " (map nm dup-fixed)) " save"
+                 (when (> (count dup-fixed) 1) "s") " "
+                 (if (> (count dup-fixed) 1) "are" "is")
+                 " granted more than once here — the duplicate has no effect."))
+      (seq fixed-in-choice)
+      (conj (str "A player could pick " (s/join ", " (map nm fixed-in-choice))
+                 " from a save choice here, duplicating a save this content already grants"
+                 " outright."))
+      choice-overlap?
+      (conj (str "Two save choices here draw from overlapping pools — a player could pick the"
+                 " same save in both and waste one.")))))
+
 (defn min-ability [ability-kw min-value]
   (fn [c] (>= (ability-kw (character/ability-values c)) min-value)))
 
@@ -3590,18 +3777,30 @@
            path-prereqs
            props
            ability-increases
+           save-proficiencies
            edit-event]}]
-  (let [feat-mods (feat-modifiers key
-                                  name
-                                  description
-                                  props
-                                  ability-increases)
-        feat-selections (feat-selections language-map
-                                         spells-map
-                                         spell-lists
-                                         custom-and-standard-weapons
-                                         props
-                                         ability-increases)]
+  ;; :ability-increases by SHAPE: a vector is a spread (compile-ability-increases), a set is the
+  ;; released feat format (#{:str :con}: +1 to one, optional :saves?). A spread suppresses the set
+  ;; ASI but keeps the rest of feat-modifiers. A feat's fixed increase is :general, never racial.
+  (let [spread? (vector? ability-increases)
+        legacy-ai (if spread? #{} ability-increases)
+        {ai-mods :modifiers ai-sels :selections}
+        (when spread?
+          (compile-ability-increases ability-increases {:fixed-modifier general-ability}))
+        {sp-mods :modifiers sp-sels :selections} (compile-save-proficiencies save-proficiencies)
+        feat-mods (concat (feat-modifiers key
+                                          name
+                                          description
+                                          props
+                                          legacy-ai)
+                          ai-mods sp-mods)
+        feat-selections (concat (feat-selections language-map
+                                                 spells-map
+                                                 spell-lists
+                                                 custom-and-standard-weapons
+                                                 props
+                                                 legacy-ai)
+                                ai-sels sp-sels)]
     (t/option-cfg
      {:name name
       :key key

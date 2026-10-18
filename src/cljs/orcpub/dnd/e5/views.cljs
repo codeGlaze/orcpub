@@ -2786,7 +2786,7 @@
                       (comps/checkbox @(subscribe [::char/spell-slot-used? id level i]) false)]))]])
               spell-slots))])]))))
 
-(defn dropdown [{:keys [items value on-change]}]
+(defn dropdown [{:keys [items value on-change typed? class-name]}]
   ;; Dedup items by :value as a safety net — duplicate option values from
   ;; homebrew plugins can slip through if imported before dedup was added.
   (let [unique-items (->> items
@@ -2797,18 +2797,38 @@
                                         {:seen (conj seen v) :result (conj result item)})))
                                   {:seen #{} :result []})
                           :result)]
-    [:select.builder-option.builder-option-dropdown.m-t-0
-     {:value (or value "")
-      :on-change #(on-change (event-value %))}
-     (doall
-      (map-indexed
-       (fn [i {:keys [value title disabled?]}]
-         ^{:key (str i "-" (or value title))}
-         [:option.builder-dropdown-item
-          (cond-> {:value value}
-            disabled? (assoc :disabled true))
-          title])
-       unique-items))]))
+    ;; A <select>'s value is always a string, so the default path's :on-change yields a string the
+    ;; caller must coerce back to the item's type (keyword/int/...). :typed? avoids that: option
+    ;; values are indices and :on-change gets the selected item's original :value, any type incl.
+    ;; nil and qualified keywords. See docs/kb/dropdown-value-coercion.md (D32).
+    (if typed?
+      (let [idx (first (keep-indexed (fn [i it] (when (= (:value it) value) i)) unique-items))]
+        [:select.builder-option.builder-option-dropdown.m-t-0
+         {:class class-name
+          :value (if idx (str idx) "")
+          :on-change #(on-change (:value (nth unique-items (js/parseInt (event-value %)))))}
+         (doall
+          (map-indexed
+           (fn [i {:keys [title disabled?]}]
+             ^{:key i}
+             [:option.builder-dropdown-item
+              (cond-> {:value (str i)}
+                disabled? (assoc :disabled true))
+              title])
+           unique-items))])
+      [:select.builder-option.builder-option-dropdown.m-t-0
+       {:class class-name
+        :value (or value "")
+        :on-change #(on-change (event-value %))}
+       (doall
+        (map-indexed
+         (fn [i {:keys [value title disabled?]}]
+           ^{:key (str i "-" (or value title))}
+           [:option.builder-dropdown-item
+            (cond-> {:value value}
+              disabled? (assoc :disabled true))
+            title])
+         unique-items))])))
 
 (defn labeled-dropdown [label cfg]
   [:div
@@ -7637,6 +7657,9 @@
                 (range 2)))]])])
        (range 1 6)))]]])
 
+(declare ability-increase-choices save-proficiency-choices ability-save-notes
+         optional-builder-section)
+
 (defn subclass-builder []
   (let [subclass @(subscribe [::classes/subclass-builder-item])
         spell-lists @(subscribe [::spells/spell-lists])
@@ -7666,6 +7689,14 @@
          ::classes/set-subclass-prop
        ]
       ]
+     [optional-builder-section "Ability Score Increases (non-standard)"
+      (or (seq (:ability-increases subclass)) (seq (:save-proficiencies subclass)))
+      [:div
+       [ability-increase-choices subclass
+        #(dispatch [::classes/set-subclass-prop :ability-increases %])]
+       [save-proficiency-choices subclass
+        #(dispatch [::classes/set-subclass-prop :save-proficiencies %])]
+       [ability-save-notes subclass]]]
      (when (#{:fighter :rogue :warlock :cleric :paladin} class-key)
        (let [spellcasting (get subclass :spellcasting)
              spellcasting? (some? spellcasting)]
@@ -7910,6 +7941,119 @@
               {:title "Reaction"
                :value :reaction}]]]))
 
+(defn optional-builder-section
+  "Opt-in builder section: a toggle labelled `label` that reveals `body`. Starts OPEN when
+   `has-content?`. Stores nothing itself: an unopened section adds nothing to the export.
+   `{:compact? true}` renders the trigger a size smaller and drops the \"click to add\" nudge."
+  [_label has-content? _body & [_opts]]
+  (let [open? (r/atom (boolean has-content?))]
+    (fn [label _has-content? body & [{:keys [compact?]}]]
+      [:div {:class (if compact? "m-b-10" "m-b-20")}
+       [:div.flex.align-items-c.pointer.m-b-5 {:on-click #(swap! open? not)}
+        [:i.fa.m-r-5 {:class (str (if @open? "fa-caret-down" "fa-caret-up")
+                                  (when compact? " f-s-12"))}]
+        [:span {:class (if compact? "f-s-14" "f-s-18 f-w-b")} label]
+        (when (and (not @open?) (not compact?))
+          [:span.m-l-10.f-s-12.i.orange "click to add"])]
+       (when @open? body)])))
+
+(defn ability-increase-choices
+  "Authoring UI for an :ability-increases spread, a list of [amount pool] increments. Each row is an
+   Amount and a To: a single stat is FIXED, a group (Any/Martial/Mental) is the player's choice. It
+   stores short keywords ([2 :cha] [1 :martial]); explicit sets (#{:wis :con}) are valid data but
+   written by hand, not here. Any silo: `item` is the content map, `set-ai!` stores the new spread."
+  [item set-ai!]
+  (let [ais (vec (:ability-increases item))
+        amount-items (map (fn [n] {:title (common/bonus-str n) :value n}) (range 1 4))
+        target-items (concat
+                      [{:title "Any (all six)" :value :any}
+                       {:title "Martial (Str/Dex/Con)" :value :martial}
+                       {:title "Mental (Int/Wis/Cha)" :value :mental}]
+                      (map (fn [{:keys [name key]}]
+                             {:title name :value (keyword (clojure.core/name key))})
+                           opt/abilities))
+        ;; rebuild an increment preserving the optional :save rider (3rd element)
+        mk (fn [amount pool save?] (if save? [amount pool :save] [amount pool]))]
+    [:div.m-b-20
+     [:div.f-s-18.f-w-b.m-b-10 "Ability Score Increases"]
+     [:div.f-s-12.i.m-b-10 (str "A single stat is fixed; a group is the player's choice. "
+                                "All increases go to different abilities.")]
+     (doall
+      (map-indexed
+       (fn [i [amount pool save-flag]]
+         (let [save? (= :save save-flag)]
+           ^{:key i}
+           [:div.flex.flex-wrap.align-items-c.m-b-5
+            [labeled-dropdown "Amount" {:items amount-items :value (or amount 1) :typed? true
+                                        :on-change #(set-ai! (assoc ais i (mk % pool save?)))}]
+            [labeled-dropdown "To" {:items target-items :value (or pool :any) :typed? true
+                                    :on-change #(set-ai! (assoc ais i (mk amount % save?)))}]
+            ;; opt-in rider: also grant the save for this increment's ability, toggled through
+            ;; the tested opt/toggle-increment-save
+            [:span.m-l-5 [comps/labeled-checkbox "+ save prof"
+                          save? false
+                          #(set-ai! (assoc ais i (opt/toggle-increment-save (nth ais i))))]]
+            [:button.m-l-5 {:on-click #(set-ai! (common/remove-at-index ais i))} "Remove"]]))
+       ais))
+     [:button {:on-click #(set-ai! (conj ais [1 :any]))} "Add increase"]]))
+
+(defn save-proficiency-choices
+  "Authoring UI for :save-proficiencies — a list of [count pool] entries, saving-throw proficiencies
+   INDEPENDENT of any ability bump. A single stat grants that fixed save; a group lets the player
+   choose `count` saves from it. Silo-generic like ability-increase-choices (`item` + a setter)."
+  [item set-sp!]
+  (let [sps (vec (:save-proficiencies item))
+        count-items (map (fn [n] {:title (str n) :value n}) (range 1 4))
+        target-items (concat
+                      [{:title "Any (all six)" :value :any}
+                       {:title "Martial (Str/Dex/Con)" :value :martial}
+                       {:title "Mental (Int/Wis/Cha)" :value :mental}]
+                      (map (fn [{:keys [name key]}]
+                             {:title name :value (keyword (clojure.core/name key))})
+                           opt/abilities))]
+    [:div.m-b-20
+     [:div.f-s-18.f-w-b.m-b-10 "Saving Throw Proficiencies"]
+     [:div.f-s-12.i.m-b-10 (str "A single stat grants that save; a group lets the player choose "
+                                "that many saves from it.")]
+     (doall
+      (map-indexed
+       (fn [i [cnt pool]]
+         ^{:key i}
+         [:div.flex.flex-wrap.align-items-c.m-b-5
+          [labeled-dropdown "How many" {:items count-items :value (or cnt 1) :typed? true
+                                        :on-change #(set-sp! (assoc sps i [% pool]))}]
+          [labeled-dropdown "From" {:items target-items :value (or pool :any) :typed? true
+                                    :on-change #(set-sp! (assoc sps i [cnt %]))}]
+          [:button.m-l-5 {:on-click #(set-sp! (common/remove-at-index sps i))} "Remove"]])
+       sps))
+     [:button {:on-click #(set-sp! (conj sps [1 :any]))} "Add save"]]))
+
+(defn builder-notes
+  "Render `problems`, a seq of human-readable strings, as a builder form's item-level notes.
+   `:severity :error` (blocking): 'Fix before saving:' and a red list. `:advisory` (default,
+   non-blocking): italic ⚠ lines. Empty seq renders nothing. Summary only; per-row highlighting
+   belongs to the producer."
+  [problems & [{:keys [severity] :or {severity :advisory}}]]
+  (when (seq problems)
+    (if (= severity :error)
+      [:div.w-100-p.m-t-10
+       [:div.f-w-b.red.m-b-5 "Fix before saving:"]
+       (into [:ul] (map (fn [p] ^{:key p} [:li.red p]) problems))]
+      [:div.m-b-20
+       (doall (map-indexed (fn [i p] ^{:key i} [:div.f-s-12.i.m-b-5.red "⚠ " p]) problems))])))
+
+(defn ability-save-notes
+  "Authoring-time notes under the ASI/save widgets for THIS content entry:
+     - :error   — malformed :ability-increases/:save-proficiencies entries that the compilers will
+                  IGNORE (opt/ignored-entry-warnings); surfaces the otherwise-silent drop.
+     - :advisory — redundant/overlapping save coverage (opt/save-coverage-warnings); harmless at
+                  runtime (saves are a set), just flags wasted authoring/picks.
+   Renders nothing when clean."
+  [item]
+  [:div
+   [builder-notes (opt/ignored-entry-warnings item) {:severity :error}]
+   [builder-notes (opt/save-coverage-warnings item) {:severity :advisory}]])
+
 (defn race-builder []
   (let [race @(subscribe [::races/builder-item])]
     [:div.p-20.main-text-color
@@ -8003,7 +8147,12 @@
                       (range -2 3 1))
               :value (get-in race [:abilities key] 0)
               :on-change #(dispatch [::races/set-race-ability-increase key %])}]])
-         opt/abilities))]]
+         opt/abilities))]
+      [ability-increase-choices race
+       #(dispatch [::races/set-race-path-prop [:ability-increases] %])]
+      [save-proficiency-choices race
+       #(dispatch [::races/set-race-path-prop [:save-proficiencies] %])]
+      [ability-save-notes race]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [:div.m-b-20
@@ -8078,6 +8227,11 @@
        [textarea-field
         {:value (get background :help)
          :on-change #(dispatch [::bg/set-background-prop :help %])}]]
+     [:div [ability-increase-choices background
+            #(dispatch [::bg/set-background-prop :ability-increases %])]]
+     [:div [save-proficiency-choices background
+            #(dispatch [::bg/set-background-prop :save-proficiencies %])]]
+     [:div [ability-save-notes background]]
      [:div [background-skill-proficiencies background]]
      [:div [background-languages background]]
      [:div [background-tool-proficiencies background]]
