@@ -708,16 +708,26 @@
       (not (number? (:shade t))) (dissoc :shade)
       (not (number? (:depth t))) (dissoc :depth))))
 
+(defn- sane-colours
+  "Colour slots map `cs` with only the values that can tint: a #rrggbb colour, or \"none\" (no
+   whites) for :whites."
+  [cs]
+  (into {} (filter (fn [[k v]] (and (string? v)
+                                    (or (re-matches #"#[0-9a-fA-F]{6}" v)
+                                        (and (= k :whites) (= v "none"))))))
+        cs))
+
 (defn- sane-portrait
   "Portrait map `m` without values the compositor cannot read: :layers, :colors and :tweaks that
-   are not maps, tweaks that are not maps, and tweak values sane-tweak drops. nil when `m` is not
-   a map. A crafted stored portrait must not break the page that shows it
+   are not maps, colours sane-colours drops, tweaks that are not maps, and tweak values sane-tweak
+   drops. nil when `m` is not a map. A crafted stored portrait must not break the page that shows it
    (fail-soft-rendering.md)."
   [m]
   (when (map? m)
     (cond-> m
       (not (map? (:layers m))) (dissoc :layers)
       (not (map? (:colors m))) (dissoc :colors)
+      (map? (:colors m)) (update :colors sane-colours)
       (not (map? (:tweaks m))) (dissoc :tweaks)
       (map? (:tweaks m)) (update :tweaks #(into {} (keep (fn [[k t]] (some->> (sane-tweak t) (vector k)))) %)))))
 

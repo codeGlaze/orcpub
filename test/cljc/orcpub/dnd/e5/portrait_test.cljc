@@ -209,6 +209,13 @@
   (is (= {:layers {}} (char5e/parse-portrait {:layers {}}))
       "already-parsed map passes through"))
 
+(deftest a-stored-colour-is-kept-only-when-it-can-tint
+  (let [parsed (char5e/parse-portrait
+                {:layers {} :colors {:hair "#7d614b" :skin "red" :eyes 7 :whites "none" :lips "none"}})]
+    (is (= {:hair "#7d614b" :whites "none"} (:colors parsed))
+        "a #rrggbb colour stays, and so does no whites; other values go")
+    (is (= "#7d614b" (pa/tint-for parsed :hair-front)) "the kept colour still tints")))
+
 (deftest artist-is-resolved-from-the-asset-not-the-saved-claim
   (testing "a stored portrait is client-supplied EDN; dropping :artist/id from
             it must not detach the credit from art that is in the registry"
