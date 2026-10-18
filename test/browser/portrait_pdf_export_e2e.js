@@ -197,8 +197,8 @@ function check(label, ok, detail) {
   const bareBytes = bareBuf ? bareBuf.length : 0;
 
   check('portrait payload was actually stripped for the control',
-        stripped.length < posted.length,
-        `${posted.length} -> ${stripped.length}`);
+        !!posted && stripped.length < posted.length,
+        `${(posted || '').length} -> ${stripped.length}`);
   check('PDF without the portrait is materially smaller',
         bareBytes > 0 && pdfBytes > bareBytes,
         `with=${pdfBytes} without=${bareBytes}`);
