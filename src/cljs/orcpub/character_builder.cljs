@@ -2067,9 +2067,10 @@
 
 (defn- show-page-top!
   "After the next render, scrolls the builder's page to its top, just below the sticky header,
-   and moves focus to the page title so a screen reader starts there. No args; returns nil."
+   and moves focus to the page title so a screen reader starts there. No args; returns nil.
+   GOTCHA: the page change must already be in the db (dispatch-sync), or this measures the old page."
   []
-  (js/requestAnimationFrame
+  (r/after-render
    (fn []
      (when-let [col (.getElementById js/document "options-column")]
        (let [header (or (some-> (.querySelector js/document ".sticky-header") .-offsetHeight) 0)]
@@ -2082,7 +2083,11 @@
    copy below the page, whose buttons also bring the new page's top into view.
    Returns hiccup."
   [page-index page-name bottom?]
-  (let [go (fn [i] (dispatch [:set-page i]) (when bottom? (show-page-top!)))]
+  (let [go (fn [i]
+             (if bottom?
+               (do (dispatch-sync [:set-page i])
+                   (show-page-top!))
+               (dispatch [:set-page i])))]
     [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
      [:button.form-button.p-5-10.m-r-5
       {:on-click (fn [_] (go (let [prev (dec page-index)]
