@@ -87,4 +87,5 @@ join an ordinary roll; they are their own menu item.
 Datomic schema for these fields (needed before the custom item builder can save them); the builder's
 "extra damage" rows; the shared formatter both the table and the PDF call; the table itself; charge
 counts on items (the handoff lists recharge timing and zero charges as undecided). `.orcbrew` files
-cannot carry items, so they are not affected.
+cannot carry items, so they are not affected: custom items belong to an account and are saved in the
+database (owner, 2026-10-18).

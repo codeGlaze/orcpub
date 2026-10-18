@@ -3136,7 +3136,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _secrets-in-boot-output · secrets in boot output_
 
-**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, credential, database, ex-info, find-and-replace, innocuous, leak, log, logs, print, query, redact, uri
+**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, credential, ex-info, find-and-replace, innocuous, leak, log, logs, masked, print, query, redact, uri
 
 - It was in four places, not one
 - Redact at the boundary, and only what is logged
