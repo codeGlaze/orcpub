@@ -60,12 +60,12 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
 - **The PDF layout is built** (`c66144688`, owner approved 2026-10-17): rows take the first three
   weapons; their variants follow as bullets under the short name; later weapons get a name line plus
   bullets; magic weapons print their own name unless two share it (`sheet-weapon-names`).
-- **The overflow check spills early** (one trace, cause not proven): the Attacks field is 165.6 x 113.8pt
-  (`widget-box` takes 161.6 x 109.8), so `fit-text` at `min-font-size` 8 and `line-height-factor` 1.1 allows
-  12 lines; the trial that spilled had 11 visible lines. Rendered, its lines sit about 8.2pt apart, so
-  the field draws smaller than the 8pt `fit-text` measures, and `split-lines` at 8pt likely wraps long lines
-  ("Holy Avenger, Longsword. +7, 1d8+5 slashing") that the render keeps on one. Next: run `fit-text` on that
-  value and read the field's DA font size; fix by measuring at the size the field renders.
+- **The "early" overflow spill is the 8pt floor working, not a bug** (two traces, 2026-10-18). At
+  `min-font-size` 8 the Attacks text needed 13 lines (two lines of 167.2 and 163.6pt wrap in a 161.6pt
+  box; 12 fit), so `fit-text` spilled one, as designed. The gap left in the box comes from the viewer:
+  interactive PDFs keep the template's `/Helv 0 Tf` auto-size, so the viewer drew the remaining text at
+  about 7.7pt, where the long lines no longer wrap. Only flattened PDFs get the fixed `font-sizes` 8. A
+  change would be a policy choice (a lower floor for the Attacks box), put to the owner 2026-10-18.
 - **Rendering a PDF to PNG here:** no poppler; use the app's PDFBox (`PDFRenderer`) with `lein classpath`.
 - **The settings panel is a second PR from the same branch,** after the table ships with defaults.
 - **Crit rules are a setting** (owner, 2026-10-16, from
