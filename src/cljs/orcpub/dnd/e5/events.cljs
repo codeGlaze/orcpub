@@ -9,6 +9,7 @@
             [orcpub.dnd.e5.content-specs :as content-specs]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
+            [orcpub.dnd.e5.orcbrew-format :as orcbrew-format]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.dnd.e5.share-bundle :as share-bundle]
             [orcpub.dnd.e5.share-url :as share-url]
@@ -5466,24 +5467,21 @@
      {} data)
     data))
 
-(defn serialize-orcbrew
-  "Pure serialize of homebrew content to .orcbrew text — no side effects, so it's
-   unit-testable and shared by every export path. pretty-print? is opt-in: pprint
-   inflates 3–5MB files to ~10–20MB and can freeze the UI."
-  [data & {:keys [pretty-print?]}]
-  (if pretty-print?
-    (with-out-str (pprint/pprint data))
-    (str data)))
-
 (defn- save-orcbrew-blob!
   "Serialize plugin data to a .orcbrew file and trigger download. The only side
-   effect; serialization lives in the pure `serialize-orcbrew`. With `:raw?`, `data`
-   is already text and is written as it is, for a library that could not be read."
+   effect; serialization lives in the pure `orcbrew-format/serialize-orcbrew`.
+   `stamp` wraps the data in the v2 format envelope IFF it uses non-backward-
+   compatible features (a no-op for plain v1 content), so an old build can't
+   silently mis-load a new-format export. With `:raw?`, `data` is already text and
+   is written as it is, for a library that could not be read."
   [filename data & {:keys [pretty-print? raw?]}]
+  ;; collapse-class BEFORE stamp: map-plugin-classes walks the raw
+  ;; {source {content-type {key item}}} shape, which stamp then wraps in the v2 envelope.
   (let [content (if raw?
                   data
-                  (serialize-orcbrew (map-plugin-classes sel/collapse-class data)
-                                     :pretty-print? pretty-print?))
+                  (orcbrew-format/serialize-orcbrew
+                   (orcbrew-format/stamp (map-plugin-classes sel/collapse-class data))
+                   :pretty-print? pretty-print?))
         blob (js/Blob.
               (clj->js [content])
               (clj->js {:type "text/plain;charset=utf-8"}))]
