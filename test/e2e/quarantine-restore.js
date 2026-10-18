@@ -1,6 +1,7 @@
-// Restoring entries the loader set aside, as a user meets it: a stored library with a digit-led
-// name and an entry with no source. Checks the panel shows what is still set aside after each
-// click, fills the source from the pack, says what happened, and keeps working keys.
+// Restoring entries the loader set aside, as a user meets it: a stored library with two digit-led
+// keys and an entry with no source. The entry with no source loads, filed under the source it sits
+// in; the digit-led ones are set aside. Checks the panel shows what is still set aside after each
+// click, says what happened, and keeps working keys.
 //
 // Prereqs:  lein fig:build && lein garden once && lein e2e-server
 const path = require('path');
@@ -10,9 +11,10 @@ const { BASE, SHOTS, findChrome, checker, dbAt, dismissCookieBar, dismissWhatsNe
 
 const PAK = 'Tide Pak';
 const FEATS = `[:plugins "${PAK}" :orcpub.dnd.e5/feats]`;
-// What the browser already holds: two damaged entries and one good one.
+// What the browser already holds: two digit-led entries, one with no source, and one good one.
 const LIB = `{"${PAK}" {:orcpub.dnd.e5/feats {` +
   `:9-lives {:name "9 Lives" :key :9-lives :option-pack "${PAK}" :description "Cheat death nine times."} ` +
+  `:7-seas {:name "7 Seas" :key :7-seas :option-pack "${PAK}" :description "Sail them all."} ` +
   `:stone-elf-trcs {:name "@@@" :key :stone-elf-trcs :description "Stone-skinned elves of the deep."} ` +
   `:tidewalker {:name "Tidewalker" :key :tidewalker :option-pack "${PAK}" :description "Walk on water."}}}}`;
 
@@ -35,18 +37,21 @@ const message = async page =>
     await dismissCookieBar(page);
 
     let text = await panelText(page);
-    check('the loader sets aside the two damaged entries', /2 entries couldn't load/.test(text));
-    check('a set-aside entry shows its description', text.includes('Stone-skinned elves of the deep.'));
+    check('the loader sets aside the two digit-led entries', /2 entries couldn't load/.test(text));
+    check('a set-aside entry shows its description', text.includes('Cheat death nine times.'));
+    check('the entry with no source is not set aside', !text.includes('feats / stone-elf-trcs'));
+    check('it loads, filed under the source it sits in',
+          /:stone-elf-trcs \{[^}]*:option-pack "Tide Pak"/.test(await dbAt(page, FEATS)));
     const sources = await page.locator('#app input.input').evaluateAll(els => els.map(e => e.value));
-    check('an entry with no source is offered the pack it is listed under',
+    check('each set-aside entry is offered its pack',
           sources.filter(v => v === PAK).length === 2, JSON.stringify(sources));
     await page.screenshot({ path: path.join(SHOTS, 'quarantine-1-set-aside.png'), fullPage: true });
 
     // Fix one by hand, leave the other: the panel must then list only what is still set aside.
     const inputs = page.locator('#app input.input');
     const values = () => inputs.evaluateAll(els => els.map(e => e.value));
-    const junk = (await values()).indexOf('@@@');
-    await inputs.nth(junk).fill('Stone Elf');
+    const junk = (await values()).indexOf('7 Seas');
+    await inputs.nth(junk).fill('Seven Seas');
 
     // First with the library write failing: nothing is restored, and what was typed stays.
     await page.evaluate(() => {
@@ -60,7 +65,7 @@ const message = async page =>
     await page.getByRole('button', { name: 'Restore', exact: true }).first().click();
     await page.waitForTimeout(1200);
     check('a restore whose write fails keeps what was typed',
-          /2 entries couldn't load/.test(await panelText(page)) && (await values())[junk] === 'Stone Elf',
+          /2 entries couldn't load/.test(await panelText(page)) && (await values())[junk] === 'Seven Seas',
           JSON.stringify(await values()));
     await page.evaluate(() => { Storage.prototype.setItem = window.__setItem; });
     await page.locator('.message .close, .message button').first().click().catch(() => {});
@@ -69,9 +74,9 @@ const message = async page =>
     text = await panelText(page);
     const msg1 = await message(page);
     check('after a partial restore the panel lists only what is still set aside',
-          /1 entry couldn't load/.test(text) && !text.includes('feats / stone-elf-trcs') && text.includes('feats / 9-lives'));
+          /1 entry couldn't load/.test(text) && !text.includes('feats / 7-seas') && text.includes('feats / 9-lives'));
     check('the message says what came back and what did not',
-          msg1.includes('Restored 1 to “Tide Pak”') && msg1.includes('“@@@” is now “Stone Elf”') &&
+          msg1.includes('Restored 1 to “Tide Pak”') && msg1.includes('“7 Seas” is now “Seven Seas”') &&
           msg1.includes('“9 Lives” needs a name that starts with a letter'), msg1);
     await page.screenshot({ path: path.join(SHOTS, 'quarantine-2-partial.png'), fullPage: true });
 
@@ -87,7 +92,7 @@ const message = async page =>
     await page.reload({ waitUntil: 'load' }); await page.waitForTimeout(2500);
     const feats = await dbAt(page, FEATS);
     check('after a reload nothing is set aside', !/couldn't load/.test(await panelText(page)));
-    check('the entry that had no source kept its working key and is filed under the pack',
+    check('the entry that had no source keeps its working key and its pack',
           /:stone-elf-trcs \{[^}]*:key :stone-elf-trcs[^}]*:option-pack "Tide Pak"/.test(feats) ||
           /:stone-elf-trcs \{[^}]*:option-pack "Tide Pak"[^}]*:key :stone-elf-trcs/.test(feats), feats);
     check('the digit-led entry got a working key and remembers the old one',
