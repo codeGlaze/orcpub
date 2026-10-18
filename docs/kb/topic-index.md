@@ -1359,7 +1359,7 @@ _documentation-tenets · documentation tenets_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, breath, caller, coerce, coercion, d32, floating-asi, forget, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, primitive, prior, string, widget
+**topics:** asi, breath, coerce, coercion, d32, dropdown, floating-asi, forget, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, primitive, prior, string, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -1862,7 +1862,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, 4d6, about, attack, blade, cleave, damage, mastery, owner, radiant, settings, slashing, sun, sword, undead, weapon, weapons-extra-damage-design
+**topics:** 2026-10-17, 2d6, about, attack, blade, cleave, crit, damage, graze, mastery, owner, radiant, settings, sun, topple, trained, weapon, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry
@@ -3652,7 +3652,7 @@ _views-builders-split · views builders split_
 
 _weapon-damage-model · weapon damage model_
 
-**topics:** 2026-10-17, champion, charges, crit, damage, dawn, dice, extra, formatter, handoff-weapons-table, period, periods, recharge, sometimes, undecided, vicious, weapon, weapon-data-model
+**topics:** 2026-10-17, blade, champion, charges, crit, damage, dawn, extra, handoff-weapons-table, period, periods, printed, sun, sword, vicious, vorpal, weapon, weapon-data-model
 
 - Where it lives (feature/weapons-table)
 - The fields
@@ -3664,7 +3664,7 @@ _weapon-damage-model · weapon damage model_
 
 _weapon-data-model · weapon data model_
 
-**topics:** authored-tag, boolean, firearm, flags, mapping, melee, mistype, not-melee, predicate, present-or-absent, ranged, ranged-only, thrown, two-handed, versatile, weapon, weapon-damage-model, weapons
+**topics:** authored-tag, boolean, firearm, flags, javelin, mapping, melee, mistype, not-melee, predicate, present-or-absent, ranged, thrown, two-handed, versatile, weapon, weapon-damage-model, weapons
 
 - Fields
 - Traps

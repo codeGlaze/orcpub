@@ -75,22 +75,13 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
   [weapon-damage-model.md](weapon-damage-model.md). Human doc: `docs/MAGIC-WEAPON-DAMAGE.md` on the
   branch. Owner direction for later steps: one shared formatter in `display.cljc` (the pattern
   `attack-description` already follows for feature attacks) feeds both the table and the PDF.
+- **2026-10-17, later:** the PDF's two-handed line and Sun Blade's type are fixed (owner: fix bugs as we
+  go). All 16 SRD weapons with extra damage are filled in, adding `not-against`, `attack-type` and a flat
+  `damage-bonus`. Sun Blade stays on every sword. **Crit rules: per account and per character**, at
+  least two common variants (owner); which ones is still to agree.
 - **Found while building, not fixed:**
-  - The PDF's two-handed line never prints. `pdf_spec.cljc` (about 694-706) reads `(:versatile weapon)`
-    and `(:damage-die versatile)` unqualified; weapons carry `::weapons/versatile`. It also prints
-    `::weapons/damage-type`, so Sun Blade shows slashing. Read from the code, not yet run. Fixing it
-    changes PDF output: owner's call.
-  - Sun Blade expands to every sword through `sword?`; the SRD makes it a longsword only. Owner
-    undecided whether to narrow it (characters store the variant keys, so narrowing needs a mapping).
   - Vicious Weapon's SRD trigger is "roll a 20": modelled as `::mi/min-roll 20`, apart from
     `::mi/on :crit`, which follows the crit range.
-  - Other SRD weapons with extra damage the list above leaves out, read from their descriptions: on a
-    rolled 20, Sword of Life Stealing (3d6 necrotic, not constructs or undead), Sword of Sharpness
-    (4d6 slashing), Vorpal Sword (6d8 slashing, only on creatures immune to beheading), Mace of
-    Smiting (2d6 bludgeoning, 4d6 vs constructs); Dwarven Thrower (1d8 on a ranged hit, 2d8 vs
-    giants); Oathbow (vs its sworn enemy); Dagger of Venom (2d10 poison on a failed DC 15 Con save,
-    once per dawn); Javelin of Lightning (4d6 lightning, once per dawn). Nine Lives Stealer and Sword
-    of Wounding are effects, not extra damage. Not filled in; waiting on the owner.
 
 **Not drawn, so ask:** how the result card relates to a roll log; resistance per damage part; charge
 recharge and the zero-charges state; whether the app knows the attacks-per-turn count (fallback: the

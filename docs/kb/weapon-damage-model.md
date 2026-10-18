@@ -25,6 +25,9 @@ keys, so one formatter reads a weapon, a feature attack and an extra alike.
                     ::weapons/damage-type :fire      ;; omit = the weapon's type
                     ::mi/while :ablaze               ;; a ::mi/toggles id is on
                     ::mi/against #{:fiend :undead}   ;; target creature types (monster :type values)
+                    ::mi/not-against #{:construct}   ;; never these types
+                    ::mi/attack-type :ranged         ;; :melee | :ranged; thrown counts as ranged
+                    ::mi/damage-bonus 2              ;; flat, in place of dice (Mace of Smiting)
                     ::mi/on :crit                    ;; :hit (default) | :miss | :crit
                     ::mi/min-roll 20                 ;; the d20 as rolled is at least this
                     ::mi/charge-cost 1               ;; spends item charges
@@ -38,7 +41,9 @@ keys, so one formatter reads a weapon, a feature attack and an extra alike.
 ::mi/charges 3  ::mi/charges-recharge ::units5e/dawn ;; the item's pool
 ```
 
-`applies?` is an AND over every condition present. Entries with `charge-cost` or `recharge` never
+`applies?` is an AND over every condition present. An unknown target (`:against` nil) passes
+`not-against` and fails `against`. `applying-damage` defaults `:attack-type` from the weapon
+(`::weapons/ranged?`), so a melee weapon thrown must be passed `:ranged` by the caller. Entries with `charge-cost` or `recharge` never
 join an ordinary roll; they are their own menu item.
 
 ## Why it is shaped this way
@@ -64,9 +69,14 @@ join an ordinary roll; they are their own menu item.
 - **`clear-period` takes periods as varargs.** Passing `long-rest-clears` as one argument dissocs a
   vector key and clears nothing; it is called with `apply`. The cljs test catches this.
 - **Do not destructure `::mi/while` as `while`**: it shadows the core macro. `applies?` binds `toggle`.
-- **Sun Blade expands to every sword** through `sword?` (`:sun-blade-longsword`, `-rapier`...). The SRD
-  makes it a longsword only (text says so twice; open5e's base weapon is `srd_longsword`). Owner
-  undecided whether to narrow it; narrowing needs the old keys mapped, since characters store them.
+- **Sun Blade expands to every sword** through `sword?` (`:sun-blade-longsword`, `-rapier`...), though the
+  SRD makes it a longsword only. **Kept on purpose** (owner, 2026-10-17: the site is for homebrew, more
+  options do no harm). Do not narrow it.
+- **Approximations:** Vorpal Sword lists 6d8 on every rolled 20 (the SRD gives it only to creatures that
+  keep their head); Mace of Smiting's +3 *attack* bonus against constructs is not modelled, only damage.
+- **The PDF** prints weapons through `pdf-spec/weapon-entries` (fixed 2026-10-17: the two-handed line
+  read `(:versatile weapon)` unqualified and never printed; Sun Blade printed slashing). It does not
+  print extra damage yet.
 - **A Vicious Net** resolves to a nil damage type (the Net has none).
 - **The printed magic item cards** read charges off the description prose (`pdf.clj` `item-charges`),
   not `::mi/charges`. Switching them changes PDF output: ask.
