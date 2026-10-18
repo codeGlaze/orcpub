@@ -131,9 +131,10 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   and tools and instruments their weights.
 - **Magic items:** the Alchemy Jug shows that its liquid can be created once a day.
 - **Characters:** unsaved builder edits are no longer lost when a character's sheet or list saves,
-  whether for another character or the same one, or when it levels up; a sheet edit is no longer
-  undone by a builder Save or by a save that was already under way; and closing the tab still
-  warns while a save has not gone through.
+  whether for another character or the same one, or when it levels up.
+- **Characters:** a sheet edit is no longer undone by a builder Save or by a save that was already
+  under way.
+- **Characters:** closing the tab still warns while a save has not gone through.
 - **Characters:** builder tabs open on different characters keep their own unsaved changes; a reload
   no longer brings back the other tab's character. (#704)
 - **Characters:** on a shared browser, logging in no longer opens the previous account's unsaved
