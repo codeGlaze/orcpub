@@ -157,6 +157,11 @@ code; do not pipe it through `tail` and read past the failure.
 
 (`[:.a:not(.b)]` is not valid Clojure — the reader takes `.b` inside parens for a member expression.)
 
+(`:font "600 12px/1 inherit"` compiles and is dropped by the browser: `inherit` is only valid as a
+whole value, so the whole line goes and the element keeps the body font. Thirteen portrait rules sat
+like that until a review on PR #64; write the longhands. `orcpub.styles.portrait-test` checks the
+portrait styles only.)
+
 ### Before reporting a UI change as done
 
 **Look at the screenshot, at both widths** (`mobile-compare.js` runs at 390px). Three things here

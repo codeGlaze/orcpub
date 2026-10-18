@@ -415,7 +415,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, check, control, css, docstrings, form, icon, invented, item, labelled, paragraph, pin, review, row, screenshot, signing, unknown, vanished
+**topics:** 2026-09-29, check, control, css, docstrings, form, icon, invented, item, labelled, pin, portrait, review, row, sat, signing, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
