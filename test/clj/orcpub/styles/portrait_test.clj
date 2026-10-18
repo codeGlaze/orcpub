@@ -6,7 +6,8 @@
             [garden.core :as garden]
             [rewrite-clj.parser :as p]
             [rewrite-clj.node :as n]
-            [orcpub.styles.core :as core]))
+            [orcpub.styles.core :as core]
+            [orcpub.styles.portrait :as styles]))
 
 (def source "src/cljs/orcpub/dnd/e5/portrait.cljs")
 
@@ -58,3 +59,8 @@
                   ".portrait-layer-tinted{" ".pl-fill{" "@keyframes lk-prism" "@font-face{"
                   "var(--pl-logo)" "@media(prefers-reduced-motion:reduce)"]]
       (is (s/includes? css rule) rule))))
+
+(deftest no-font-shorthand-names-inherit
+  ;; `inherit` is only valid as a whole value: inside the font shorthand the browser drops the line
+  (let [css (garden/css {:pretty-print? false} styles/styles)]
+    (is (empty? (re-seq #"[{;]font:[^;}]*inherit" css)))))

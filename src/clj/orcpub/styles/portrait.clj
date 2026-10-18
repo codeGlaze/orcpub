@@ -129,11 +129,14 @@
                :border "1px solid transparent"
                :background "transparent"}
               {:color "#ebeef4"
-               :font "600 12px/1 inherit"
+               :font-weight "600"
+               :font-size "12px"
+               :line-height "1"
+               :font-family "inherit"
                :text-transform "uppercase"
                :letter-spacing "0.04em"
-               :cursor "pointer"
-               :touch-action "manipulation"
+               :cursor "pointer"}
+              {:touch-action "manipulation"
                :min-height "44px"}]
    [".pl-btn:focus-visible" {:outline "2px solid #ffcc5e"
                              :outline-offset "2px"}]
@@ -162,14 +165,20 @@
    [".pl-ombre-row input[type=range]" {:width "100%"
                                        :accent-color "#f0a100"
                                        :margin "0"}]
-   [".pl-ombre-row select" {:font "500 11px/1 inherit"
+   [".pl-ombre-row select" {:font-weight "500"
+                            :font-size "11px"
+                            :line-height "1"
+                            :font-family "inherit"
                             :background "#131924"
                             :color "#c9d0da"
                             :border "1px solid rgba(255,255,255,0.14)"
-                            :border-radius "4px"
-                            :padding "3px 4px"
+                            :border-radius "4px"}
+                           {:padding "3px 4px"
                             :grid-column "2 / 4"}]
-   [".pl-ombre-label" {:font "500 11px/1 inherit"
+   [".pl-ombre-label" {:font-weight "500"
+                       :font-size "11px"
+                       :line-height "1"
+                       :font-family "inherit"
                        :color "#8b95a5"}]
    [".pl-light" {:margin-top "12px"}]
    [".pl-segmented" {:grid-column "2 / 4"
@@ -179,10 +188,13 @@
                      :overflow "hidden"}]
    [".pl-segmented button" {:flex "1"
                             :white-space "nowrap"
-                            :font "500 11px/1 inherit"
+                            :font-weight "500"
+                            :font-size "11px"
+                            :line-height "1"
+                            :font-family "inherit"
                             :padding "5px 4px"
-                            :background "#131924"
-                            :color "#c9d0da"
+                            :background "#131924"}
+                           {:color "#c9d0da"
                             :border "0"
                             :cursor "pointer"}]
    [".pl-segmented button + button" {:border-left "1px solid rgba(255,255,255,0.14)"}]
@@ -197,7 +209,10 @@
    [".pl-preset.on" {:box-shadow "0 0 0 2px #f0a100"}]
    [".pl-preset-none" {:background "transparent"
                        :color "#8b95a5"
-                       :font "600 12px/1 inherit"
+                       :font-weight "600"
+                       :font-size "12px"
+                       :line-height "1"
+                       :font-family "inherit"
                        :border "1px dashed rgba(255,255,255,0.3)"}]
    [".pl-root.light-theme .pl-ombre-row select" {:background "#fff"
                                                  :color "#363636"
@@ -212,18 +227,24 @@
                       :width "fit-content"
                       :border "1px dashed rgba(240,161,0,0.45)"}
                      {:border-radius "6px"
-                      :font "500 11px/1 inherit"
+                      :font-weight "500"
+                      :font-size "11px"
+                      :line-height "1"
+                      :font-family "inherit"
                       :color "#8b95a5"}]
    [".pl-dev-switch-label" {:text-transform "uppercase"
                             :letter-spacing "0.08em"
                             :font-size "10px"
                             :margin-right "2px"}]
-   [".pl-dev-switch button" {:font "600 11px/1 inherit"
+   [".pl-dev-switch button" {:font-weight "600"
+                             :font-size "11px"
+                             :line-height "1"
+                             :font-family "inherit"
                              :color "#c9d0da"
                              :background "transparent"
                              :cursor "pointer"
-                             :border "1px solid rgba(255,255,255,0.14)"
-                             :border-radius "4px"
+                             :border "1px solid rgba(255,255,255,0.14)"}
+                            {:border-radius "4px"
                              :padding "4px 8px"}]
    [".pl-dev-switch button[aria-pressed=true]" {:background "rgba(240,161,0,0.18)"
                                                 :border-color "#f0a100"
@@ -239,8 +260,11 @@
                     :align-items "center"
                     :justify-content "space-between"
                     :color "#616a7a"
-                    :font "500 11px/1 inherit"
-                    :letter-spacing "0.06em"
+                    :font-weight "500"
+                    :font-size "11px"
+                    :line-height "1"
+                    :font-family "inherit"}
+                   {:letter-spacing "0.06em"
                     :text-transform "uppercase"
                     :margin-top "4px"}]
    [".pl-seed-row code" {:font "500 12px/1 ui-monospace, Menlo, monospace"
@@ -260,7 +284,10 @@
                        :background "#171e29"
                        :border "1px solid rgba(255,255,255,0.06)"
                        :border-radius "8px"}]
-   [".pl-strip-label, .pl-panel-heading" {:font "700 9.5px/1 inherit"
+   [".pl-strip-label, .pl-panel-heading" {:font-weight "700"
+                                          :font-size "9.5px"
+                                          :line-height "1"
+                                          :font-family "inherit"
                                           :color "#616a7a"
                                           :letter-spacing "0.14em"
                                           :text-transform "uppercase"}]
@@ -286,14 +313,20 @@
                       {:transition "transform 120ms, border-color 120ms"}]
    [".pl-slot.open::after" {:transform "rotate(-135deg)"
                             :border-color "#ffcc5e"}]
-   [".pl-slot-name" {:font "500 11px/1 inherit"
+   [".pl-slot-name" {:font-weight "500"
+                     :font-size "11px"
+                     :line-height "1"
+                     :font-family "inherit"
                      :color "#ebeef4"}]
    [".pl-slot-tweaks" {:display "inline-flex"
                        :align-items "center"
                        :background "rgba(240,161,0,0.16)"
                        :color "#ffcc5e"
-                       :font "700 9.5px/1 inherit"
-                       :letter-spacing "0.06em"
+                       :font-weight "700"
+                       :font-size "9.5px"
+                       :line-height "1"
+                       :font-family "inherit"}
+                      {:letter-spacing "0.06em"
                        :padding "2px 6px 2px 5px"
                        :border-radius "999px"}
                       {:margin "0 2px 0 -2px"}]
@@ -390,7 +423,10 @@
                    :gap "6px"
                    :align-items "center"}]
    [".pl-sub-name" {:grid-column "1 / -1"
-                    :font "500 11px/1 inherit"
+                    :font-weight "500"
+                    :font-size "11px"
+                    :line-height "1"
+                    :font-family "inherit"
                     :color "#ebeef4"}]
    [".pl-sub-chip" {:position "relative"
                     :display "inline-block"
@@ -438,7 +474,10 @@
    [".pl-cat" {:display "inline-flex"
                :align-items "center"
                :gap "6px"
-               :font "700 12px/1 inherit"
+               :font-weight "700"
+               :font-size "12px"
+               :line-height "1"
+               :font-family "inherit"
                :color "#ebeef4"}]
    [".pl-cat-chip" {:width "10px"
                     :height "10px"
