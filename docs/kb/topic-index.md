@@ -1016,7 +1016,7 @@ _data-safety-layers · data safety layers_
 
 _datomic-crash-analysis · datomic crash analysis_
 
-**topics:** config, contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, minute, postgres, seconds, speculation, transactor, unvalidated, write
+**topics:** config, contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, observed, postgres, seconds, speculation, transactor, unvalidated, write
 
 - Active transactor configuration (verified from log startup lines)
 - Crash mechanism — verified
@@ -1862,7 +1862,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, about, attack, blade, cleave, crit, damage, desktop, mastery, no-roll, owner, phone, radiant, settings, sun, weapon, weapons-extra-damage-design
+**topics:** 2026-10-17, 2d6, about, attack, blade, crit, damage, desktop, mastery, no-roll, owner, pdf, phone, radiant, settings, sun, weapon, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry

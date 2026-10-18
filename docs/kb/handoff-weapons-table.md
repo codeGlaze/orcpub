@@ -39,6 +39,15 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
   reading the old field for accounts that set it. Follow its existing path (below).
 - **Two good options become a preference:** a default plus an account setting, not one forced winner.
   Contrast numbers are reported as facts, not used as a veto.
+- **The shield rules are in** (owner, 2026-10-17: "the shield rules are great"): spec rules 14-17, which
+  v5 neither draws nor drops. With a shield or second weapon in the off hand the 1H | 2H switch is greyed
+  and the opened row says why; two-handed weapons keep rolling but their tiles become amber outlines, the
+  opened row says "Needs both hands" and the result adds "(needs both hands)"; one gold "Shield in off
+  hand" pill by the heading; the switch pulses (10s, one minute, none under reduced motion) while the off
+  hand is free. Grip comes from what is equipped (main/off-hand slots, the equipped shield), never a setting.
+- **The PDF's extras are not decided:** a trial (extras as "<weapon>: <extras>" lines after the attacks
+  text) pushed two lines onto the server's overflow page, a whole page for two lines. The attacks box
+  holds about 8 lines and versatile weapons already spend two each. Owner shown the PDF 2026-10-17.
 - **The settings panel is a second PR from the same branch,** after the table ships with defaults.
 - **Crit rules are a setting** (owner, 2026-10-16, from
   [weapons-extra-damage-design.md](weapons-extra-damage-design.md)): tables play crits differently, so the
