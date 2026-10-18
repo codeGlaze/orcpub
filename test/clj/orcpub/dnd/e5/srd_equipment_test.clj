@@ -70,3 +70,6 @@
         (is (= {:hide "Hide" :leather "Leather" :padded "Padded" :plate "Plate" :splint "Splint"}
                (select-keys armor [:hide :leather :padded :plate :splint])))))))
 
+(deftest weapons-carry-no-wikipedia-links
+  (is (empty? (filter ::weapons/link weapons/weapons)) "the links never rendered and were dropped"))
+

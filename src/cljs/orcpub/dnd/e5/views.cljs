@@ -3660,7 +3660,6 @@
                               ::weapon/two-handed?
                               ::weapon/finesse?
                               ::mi/magical-finesse?
-                              ::weapon/link
                               ::weapon/versatile
                               ::weapon/thrown]
                        :as weapon}

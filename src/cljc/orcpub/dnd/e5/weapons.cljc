@@ -12,8 +12,7 @@
     :key :crossbow-light
     ::two-handed? true
     ::ammunition? true
-    ::loading? true
-    ::link "https://en.wikipedia.org/wiki/Crossbow"}
+    ::loading? true}
    {::ranged? true,
     :key :dart,
     :name "Dart" :cost {:num 5 :type :cp} :weight "1/4 lb.",
@@ -23,8 +22,7 @@
     ::thrown true,
     ::finesse? true,
     ::damage-die 4,
-    ::range {::min 20, ::max 60}
-    ::link "https://en.wikipedia.org/wiki/Dart_(missile)"}
+    ::range {::min 20, ::max 60}}
    {:name "Shortbow" :cost {:num 25 :type :gp} :weight "2 lb.",
     ::damage-type :piercing,
     ::damage-die 6,
@@ -34,8 +32,7 @@
     ::range {::min 80, ::max 320},
     :key :shortbow
     ::two-handed? true
-    ::ammunition? true
-    ::link "https://en.wikipedia.org/wiki/Bow_and_arrow"}
+    ::ammunition? true}
    {:name "Sling" :cost {:num 1 :type :sp} :weight "—",
     ::damage-type :bludgeoning,
     ::damage-die 4,
@@ -44,8 +41,7 @@
     ::ranged? true,
     ::range {::min 30, ::max 120},
     :key :sling
-    ::ammunition? true
-    ::link "https://en.wikipedia.org/wiki/Sling_(weapon)"}
+    ::ammunition? true}
    {:name "Club" :cost {:num 1 :type :sp} :weight "2 lb.",
     ::damage-type :bludgeoning,
     ::damage-die 4,
@@ -53,8 +49,7 @@
     ::type :simple,
     ::melee? true,
     ::light? true
-    :key :club
-    ::link "https://en.wikipedia.org/wiki/Club_(weapon)"}
+    :key :club}
    {::melee? true,
     :key :dagger,
     :name "Dagger" :cost {:num 2 :type :gp} :weight "1 lb.",
@@ -65,8 +60,7 @@
     ::finesse? true,
     ::damage-die 4,
     ::light? true
-    ::range {::min 20, ::max 60}
-    ::link "https://en.wikipedia.org/wiki/Dagger"}
+    ::range {::min 20, ::max 60}}
    {:name "Greatclub" :cost {:num 2 :type :sp} :weight "10 lb.",
     ::damage-type :bludgeoning,
     ::damage-die 8,
@@ -74,8 +68,7 @@
     ::type :simple,
     ::melee? true,
     :key :greatclub
-    ::two-handed? true
-    ::link "https://en.wikipedia.org/wiki/Club_(weapon)"}
+    ::two-handed? true}
    {:name "Handaxe" :cost {:num 5 :type :gp} :weight "2 lb.",
     ::damage-type :slashing,
     ::damage-die 6,
@@ -85,8 +78,7 @@
     ::thrown true,
     ::range {::min 20, ::max 60},
     :key :handaxe
-    ::light? true
-    ::link "https://en.wikipedia.org/wiki/Battle_axe"}
+    ::light? true}
    {:name "Javelin" :cost {:num 5 :type :sp} :weight "2 lb.",
     ::damage-type :piercing,
     ::damage-die 6,
@@ -95,8 +87,7 @@
     ::melee? true,
     ::thrown true,
     ::range {::min 30, ::max 120},
-    :key :javelin
-    ::link "https://en.wikipedia.org/wiki/Javelin"}
+    :key :javelin}
    {:name "Light Hammer" :cost {:num 2 :type :gp} :weight "2 lb.",
     ::damage-type :bludgeoning,
     ::damage-die 4,
@@ -106,16 +97,14 @@
     ::thrown true,
     ::range {::min 20, ::max 60},
     :key :light-hammer
-    ::light? true
-    ::link "https://en.wikipedia.org/wiki/War_hammer"}
+    ::light? true}
    {:name "Mace" :cost {:num 5 :type :gp} :weight "4 lb.",
     ::damage-type :bludgeoning,
     ::type :simple,
     ::damage-die 6,
     ::damage-die-count 1,
     ::melee? true,
-    :key :mace
-    ::link "https://en.wikipedia.org/wiki/Mace_(weapon)"}
+    :key :mace}
    {:name "Quarterstaff" :cost {:num 2 :type :sp} :weight "4 lb.",
     ::damage-type :bludgeoning,
     ::type :simple,
@@ -124,8 +113,7 @@
     ::damage-die-count 1,
     ::versatile {::damage-die 8, ::damage-die-count 1},
     ::melee? true,
-    :key :quarterstaff
-    ::link "https://en.wikipedia.org/wiki/Quarterstaff"}
+    :key :quarterstaff}
    {:name "Sickle" :cost {:num 1 :type :gp} :weight "2 lb.",
     ::damage-type :slashing,
     ::damage-die 4,
@@ -133,8 +121,7 @@
     ::damage-die-count 1,
     ::melee? true,
     :key :sickle,
-    ::light? true,
-    ::link "https://en.wikipedia.org/wiki/Sickle"}
+    ::light? true,}
    {::melee? true,
     ::versatile {::damage-die 8, ::damage-die-count 1},
     :key :spear,
@@ -144,8 +131,7 @@
     ::damage-type :piercing,
     ::thrown true,
     ::damage-die 6,
-    ::range {::min 20, ::max 60}
-    ::link "https://en.wikipedia.org/wiki/Spear"}
+    ::range {::min 20, ::max 60}}
    {:name "Battleaxe" :cost {:num 10 :type :gp} :weight "4 lb.",
     ::damage-type :slashing,
     ::damage-die 8,
@@ -153,16 +139,14 @@
     ::damage-die-count 1,
     ::versatile {::damage-die 10, ::damage-die-count 1},
     ::melee? true,
-    :key :battleaxe
-    ::link "https://en.wikipedia.org/wiki/Battle_axe"}
+    :key :battleaxe}
    {:name "Flail" :cost {:num 10 :type :gp} :weight "2 lb.",
     ::damage-type :bludgeoning,
     ::damage-die 8,
     ::type :martial,
     ::damage-die-count 1,
     ::melee? true,
-    :key :flail
-    ::link "https://en.wikipedia.org/wiki/Flail_(weapon)"}
+    :key :flail}
    {:name "Glaive" :cost {:num 20 :type :gp} :weight "6 lb.",
     ::damage-type :slashing,
     ::damage-die 10,
@@ -172,8 +156,7 @@
     ::heavy? true,
     ::reach true,
     :key :glaive
-    ::two-handed? true
-    ::link "https://en.wikipedia.org/wiki/Glaive"}
+    ::two-handed? true}
    {:name "Greataxe" :cost {:num 30 :type :gp} :weight "7 lb.",
     ::damage-type :slashing,
     ::damage-die 12,
@@ -183,8 +166,7 @@
     ::heavy? true,
     ::melee? true,
     :key :greataxe
-    ::two-handed? true
-    ::link "https://en.wikipedia.org/wiki/Battle_axe"}
+    ::two-handed? true}
    {:name "Greatsword" :cost {:num 50 :type :gp} :weight "6 lb.",
     ::subtype :sword
     ::damage-type :slashing,
@@ -194,8 +176,7 @@
     ::heavy? true,
     ::melee? true,
     :key :greatsword
-    ::two-handed? true
-    ::link "https://en.wikipedia.org/wiki/Sword"}
+    ::two-handed? true}
    {:name "Halberd" :cost {:num 20 :type :gp} :weight "6 lb.",
     ::damage-type :slashing,
     ::damage-die 10,
@@ -205,8 +186,7 @@
     ::heavy? true,
     ::reach true,
     :key :halberd
-    ::two-handed? true
-    ::link "https://en.wikipedia.org/wiki/Halberd"}
+    ::two-handed? true}
    {:name "Lance" :cost {:num 10 :type :gp} :weight "6 lb.",
     ::damage-type :piercing,
     ::damage-die 12,
@@ -215,8 +195,7 @@
     ::melee? true,
     ::reach true,
     :key :lance
-    ::special? true
-    ::link "https://en.wikipedia.org/wiki/Lance"}
+    ::special? true}
    {:name "Longsword" :cost {:num 15 :type :gp} :weight "3 lb.",
     ::damage-type :slashing,
     ::damage-die 8,
@@ -226,8 +205,7 @@
     ::versatile {::damage-die 10, ::damage-die-count 1},
     ::melee? true
     ::finesse? false
-    :key :longsword
-    ::link "https://en.wikipedia.org/wiki/Sword"}
+    :key :longsword}
    {:name "Maul" :cost {:num 10 :type :gp} :weight "10 lb.",
     ::damage-type :bludgeoning,
     ::damage-die 6,
@@ -236,16 +214,14 @@
     ::heavy? true,
     ::melee? true,
     :key :maul
-    ::two-handed? true
-    ::link "https://en.wikipedia.org/wiki/War_hammer"}
+    ::two-handed? true}
    {:name "Morningstar" :cost {:num 15 :type :gp} :weight "4 lb.",
     ::damage-type :piercing,
     ::damage-die 8,
     ::type :martial,
     ::damage-die-count 1,
     ::melee? true,
-    :key :morningstar
-    ::link "https://en.wikipedia.org/wiki/Morning_star_(weapon)"}
+    :key :morningstar}
    {:name "Pike" :cost {:num 5 :type :gp} :weight "18 lb.",
     ::damage-type :piercing,
     ::damage-die 10,
@@ -255,8 +231,7 @@
     ::heavy? true,
     ::reach true,
     :key :pike
-    ::two-handed? true
-    ::link "https://en.wikipedia.org/wiki/Pike_(weapon)"}
+    ::two-handed? true}
    {:name "Rapier" :cost {:num 25 :type :gp} :weight "2 lb.",
     ::damage-type :piercing,
     ::damage-die 8,
@@ -265,8 +240,7 @@
     ::damage-die-count 1,
     ::finesse? true,
     ::melee? true,
-    :key :rapier
-    ::link "https://en.wikipedia.org/wiki/Rapier"}
+    :key :rapier}
    {:name "Scimitar" :cost {:num 25 :type :gp} :weight "3 lb.",
     ::damage-type :slashing,
     ::damage-die 6,
@@ -276,8 +250,7 @@
     ::finesse? true,
     ::melee? true,
     :key :scimitar
-    ::light? true
-    ::link "https://en.wikipedia.org/wiki/Scimitar"}
+    ::light? true}
    {:name "Shortsword" :cost {:num 10 :type :gp} :weight "2 lb.",
     ::damage-type :piercing,
     ::damage-die 6,
@@ -287,8 +260,7 @@
     ::damage-die-count 1,
     ::melee? true,
     :key :shortsword
-    ::light? true
-    ::link "https://en.wikipedia.org/wiki/Sword"}
+    ::light? true}
    {::melee? true,
     ::versatile {::damage-die 8, ::damage-die-count 1},
     :key :trident,
@@ -298,8 +270,7 @@
     ::damage-type :piercing,
     ::thrown true,
     ::damage-die 6,
-    ::range {::min 20, ::max 60}
-    ::link "https://en.wikipedia.org/wiki/Trident"}
+    ::range {::min 20, ::max 60}}
    {:name "War Pick" :cost {:num 5 :type :gp} :weight "2 lb.",
     ::damage-type :piercing,
     ::damage-die 8,
@@ -314,8 +285,7 @@
     ::damage-die-count 1,
     ::versatile {::damage-die 10, ::damage-die-count 1},
     ::melee? true,
-    :key :warhammer
-    ::link "https://en.wikipedia.org/wiki/War_hammer"}
+    :key :warhammer}
    {:name "Whip" :cost {:num 2 :type :gp} :weight "3 lb.",
     ::damage-type :slashing,
     ::damage-die 4,
