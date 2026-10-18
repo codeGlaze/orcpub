@@ -1515,7 +1515,9 @@
                                  refused (+ applied refused))))))
           (when print-spell-annotations?
             (pdf/reserve-annotation-columns! doc))
-          (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes)
+          ;; The style's declared drops are not degradation -- see unsupported-fields.
+          (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes
+                             (get pdf/unsupported-fields print-character-sheet-style?))
           (when print-spell-annotations?
             (pdf/annotate-spell-rows! doc spell-annotation))
           ;; After the values, so a heading is drawn over a finished bar. Names

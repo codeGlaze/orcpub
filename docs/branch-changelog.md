@@ -36,6 +36,9 @@ out to the chosen paper.
 
 - **Printing:** a magic item or spell whose name the embedded font cannot draw no longer
   costs the card sheet it is on, and every sheet after it.
+- **Printing:** a style 4 (Cthulhu Mythos) sheet no longer opens with a page saying the
+  export lost something. Style 4 has no inspiration box by design, and the new notice
+  reported that declared omission as a loss on every such export.
 - **Printing:** on A4 and A5 the character portrait and faction badge were drawn against
   the requested paper instead of the template's own Letter space, putting them 49.89pt
   high on A4 and 196.72pt low on A5 -- off their artwork frames. The sheet templates are

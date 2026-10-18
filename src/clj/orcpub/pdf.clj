@@ -800,12 +800,12 @@
 
 (defn write-fields!
   "Populates the AcroForm in `doc` from `fields` {field-name-keyword value}: checkboxes
-   take truthy/falsey, text is normalized to WinAnsi. Truthy `flatten?` bakes the values
-   into page content and removes the form; `font-sizes` {field-name-keyword pt} applies
-   ONLY then. Bakes real appearance streams, as Firefox's print path ignores
-   NeedAppearances. Returns the sorted names the template has no field for, and logs
-   them; those values are dropped rather than thrown."
-  [doc fields flatten? font-sizes]
+   take truthy/falsey, text is normalized to WinAnsi. Truthy `flatten?` bakes values into
+   page content and removes the form; `font-sizes` {field-name-keyword pt} applies ONLY
+   then. Bakes real appearance streams, as Firefox's print path ignores NeedAppearances.
+   Returns the sorted names the template has no field for; they are logged and dropped,
+   and those in `expected-missing` (unsupported-fields) are not reported as degradation."
+  [doc fields flatten? font-sizes & [expected-missing]]
   (let [catalog (.getDocumentCatalog doc)
         form (.getAcroForm catalog)
         res (or (.getDefaultResources form) (PDResources.))]
@@ -828,11 +828,16 @@
                              (assoc! m (.getFullyQualifiedName field) field))
                            (transient {})
                            (iterator-seq (.iterator (.getFieldTree form)))))
-          unplaceable (sort (map name (remove #(contains? by-name (name %)) (keys fields))))]
-      (when (seq unplaceable)
+          unplaceable (sort (map name (remove #(contains? by-name (name %)) (keys fields))))
+          ;; A style's declared drops are not a degraded export: style 4 has no
+          ;; inspiration box by design, so noting it put the notice page in front of
+          ;; every style 4 sheet.
+          surprising (remove (set expected-missing) unplaceable)]
+      (when (seq surprising)
         (errors/note! "Sheet fields"
                       (format "%d value(s) have no box on this sheet style and were left blank: %s"
-                              (count unplaceable) (s/join ", " unplaceable)))
+                              (count surprising) (s/join ", " surprising))))
+      (when (seq unplaceable)
         (println (format "pdf/write-fields!: %d value(s) had no field in this template and were dropped: %s"
                          (count unplaceable) (s/join ", " unplaceable))))
       (doseq [[k v] fields]

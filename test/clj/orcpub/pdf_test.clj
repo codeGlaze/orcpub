@@ -3,6 +3,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.java.io :as io]
             [clojure.string :as str]
+            [orcpub.errors :as errors]
             [orcpub.pdf :as pdf]
             [orcpub.pdf.draw :as draw]
             [orcpub.pdf.cards :as cards]
@@ -944,6 +945,29 @@
                 (str "style " style
                      "\n  declared unsupported: " (pr-str (sort declared))
                      "\n  actually dropped:     " (pr-str (sort dropped))))))))))
+
+(deftest a-declared-unsupported-field-is-not-a-degraded-export
+  ;; The notice page exists to say an export lost something. Style 4 has no inspiration
+  ;; box BY DESIGN -- unsupported-fields declares it, and the guard above asserts it --
+  ;; so noting it put "Some of this export did not fit" in front of every style 4 sheet.
+  (testing "style 4's declared drop raises no notice"
+    (let [{:keys [file]} (get pdf/sheet-masters 4)]
+      (with-open [in (.openStream (io/resource file))
+                  doc (Loader/loadPDF (.readAllBytes in))]
+        (binding [errors/*notices* (atom [])]
+          (let [fields (pdf/merge-style-fields 4 (filled-to-capacity 4))
+                dropped (set (pdf/write-fields! doc fields false {}
+                                                (get pdf/unsupported-fields 4)))]
+            (is (= #{"inspiration"} dropped) "it is still dropped, and still logged")
+            (is (empty? (errors/notices)) "but it is not reported as a loss"))))))
+  (testing "an undeclared drop still raises one, so the guard is not vacuous"
+    (let [{:keys [file]} (get pdf/sheet-masters 4)]
+      (with-open [in (.openStream (io/resource file))
+                  doc (Loader/loadPDF (.readAllBytes in))]
+        (binding [errors/*notices* (atom [])]
+          (pdf/write-fields! doc {:no-such-field-at-all "x"} false {}
+                             (get pdf/unsupported-fields 4))
+          (is (= ["Sheet fields"] (mapv :what (errors/notices)))))))))
 
 (deftest merge-style-fields-folds-sections-into-one-box
   (testing "a style with no shared box passes its fields through untouched"
