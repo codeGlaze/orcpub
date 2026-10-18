@@ -66,17 +66,29 @@
         (mapcat #(if (s/blank? %) [] (draw/split-lines (s/trim %) font size (/ w 72.0))))
         (s/split-lines (clean text))))
 
-(defn- clip
-  "`text` cut at a word boundary to fit `w` points, with an ellipsis when cut."
-  [font size text w]
+(defn- clip*
+  "`text` cut at a word boundary to fit `w` points by `measure`, ellipsised when cut.
+   Takes the measure because the running head is drawn from lining outlines, which are
+   wider than the plain metrics and carry letter spacing the font does not know about."
+  [measure text w]
   (let [t (clean text)]
-    (if (<= (width font size t) w)
+    (if (<= (measure t) w)
       t
       (loop [words (s/split t #"\s+")]
         (let [c (str (s/join " " words) "...")]
-          (if (or (<= (width font size c) w) (<= (count words) 1))
-            c
-            (recur (butlast words))))))))
+          (cond
+            (<= (measure c) w) c
+            (> (count words) 1) (recur (butlast words))
+            ;; A single word still too wide: cut inside it. Returning it whole keeps a
+            ;; 60-character class name at full width and pushes the level tabs off.
+            :else (loop [n (count (first words))]
+                    (let [c (str (subs (first words) 0 n) "...")]
+                      (if (or (<= (measure c) w) (<= n 1)) c (recur (dec n)))))))))))
+
+(defn- clip
+  "`text` cut at a word boundary to fit `w` points, with an ellipsis when cut."
+  [font size text w]
+  (clip* #(width font size %) text w))
 
 ;; GOTCHA: Vollkorn's default digits are old-style ("15" reads "I5"). Headings and numbers are
 ;; drawn from the lining glyph outlines (`one.lf`), which showText cannot select; see spellbook-print.md.
@@ -856,10 +868,21 @@
         guide (cond (empty? names) ""
                     (= (first names) (peek names)) (first names)
                     :else (str (first names) " to " (peek names)))]
-    (let [stats-end (reduce (fn [px t] (text! cs (:plain fonts) 6.4 px ty t {:spacing 0.6 :lining true})
-                              (+ px (lining-width (:plain fonts) 6.4 t 0.6) 14))
+    (let [n (inc max-level) bw 10 gap 2 total (- (* n (+ bw gap)) gap)
+          ;; Reserve the tab strip first: the tabs follow the stats, so an unbounded
+          ;; stats line pushes them off the paper. Three classes reach 344pt of A5's
+          ;; 347pt body. Each entry is clipped to what is left; the rest are dropped.
+          stats-room (- (+ x w) (if (= :head tabs) (+ total 10) 0))
+          fit (fn [t room] (clip* #(lining-width (:plain fonts) 6.4 % 0.6) t room))
+          stats-end (reduce (fn [px t]
+                              ;; less the 14pt gap this entry adds after itself
+                              (let [room (- stats-room px 14)]
+                                (if (< room 24)
+                                  px
+                                  (let [t (fit t room)]
+                                    (text! cs (:plain fonts) 6.4 px ty t {:spacing 0.6 :lining true})
+                                    (+ px (lining-width (:plain fonts) 6.4 t 0.6) 14)))))
                             x stats)
-          n (inc max-level) bw 10 gap 2 total (- (* n (+ bw gap)) gap)
           ;; Centred unless the classes' numbers reach that far; then just past them.
           x0 (max (- (+ x (/ w 2)) (/ total 2)) stats-end)
           free-from (if (= :head tabs) (+ x0 total 10) stats-end)

@@ -155,6 +155,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** deleting or changing a character's first class no longer wipes the other classes' choices.
 - **Homebrew:** a homebrew class's choices that share a name show in level order; levels 10 and 17 came before level 3.
 - **Printing:** a magic item or spell whose name the embedded font cannot draw no longer costs the card sheet it is on, and every sheet after it.
+- **Printing:** a spellbook page's level tabs no longer print off the edge of the paper when a character has three casting classes or a very long class name.
 - **Printing:** on a server whose JVM runs a non-English locale, spell-card school names and the sheet's ability labels drew the wrong letter: a Turkish server printed "İllusion" and "İNT".
 
 ### Security
