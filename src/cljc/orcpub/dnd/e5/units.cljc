@@ -76,3 +76,13 @@
   (units ::short-rest amount))
 
 (def short-rests-1 (short-rests 1))
+(defn dawns
+  "A frequency that resets at dawn, `amount` times. Takes the amount; returns a units map."
+  [amount]
+  (units ::dawn amount))
+
+(def dawns-1 (dawns 1))
+
+(def long-rest-clears
+  "The reset periods a finished long rest clears: its own, any rest, and dawn."
+  [::long-rest ::rest ::dawn])

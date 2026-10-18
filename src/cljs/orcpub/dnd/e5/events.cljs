@@ -4067,18 +4067,18 @@
 (reg-event-fx
  ::char5e/finish-long-rest
  (fn [{:keys [db]} [_ id]]
-   (clear-period db
-                 id
-                 (fn [character]
-                   (update
-                    character
-                    ::entity/values
-                    dissoc
-                    ::spells/slots-used
-                    character
-                    ::char5e/current-hit-points ::char5e/max-hit-points))
-                 ::units5e/long-rest
-                 ::units5e/rest)))
+   (apply clear-period
+          db
+          id
+          (fn [character]
+            (update
+             character
+             ::entity/values
+             dissoc
+             ::spells/slots-used
+             character
+             ::char5e/current-hit-points ::char5e/max-hit-points))
+          units5e/long-rest-clears)))
 
 (reg-event-fx
  ::char5e/finish-short-rest-warlock

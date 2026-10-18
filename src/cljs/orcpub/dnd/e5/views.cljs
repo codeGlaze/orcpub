@@ -4301,8 +4301,7 @@
       [list-item-section "Condition Immunities" nil condition-immunities resistance-str]
       [list-item-section "Immunities" nil immunities resistance-str]
       [:div.flex.justify-cont-end.align-items-c
-       (when (or (freqs ::units/long-rest)
-               (freqs ::units/rest))
+       (when (some freqs units/long-rest-clears)
          [finish-long-rest-button id])
        (when (or (freqs ::units/short-rest)
                (freqs ::units/rest))

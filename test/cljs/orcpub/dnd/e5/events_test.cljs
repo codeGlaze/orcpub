@@ -28,6 +28,7 @@
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.spells :as spells]
+            [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.selections :as selections5e]
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.feats :as feats5e]
@@ -1588,3 +1589,14 @@
                          [:orcpub.entity/options :background :orcpub.entity/key]))))
   (is (= :blue (get-in @app-db [::char5e/character-map 7 :orcpub.entity/options :background :orcpub.entity/key]))
       "nothing is written back"))
+
+(deftest finish-long-rest-clears-dawn-and-keeps-shorter-periods
+  (reset! app-db {::char5e/character-map
+                  {7 {:orcpub.entity/values
+                      {::char5e/features-used {::units5e/long-rest #{"a"}
+                                               ::units5e/rest #{"b"}
+                                               ::units5e/dawn #{"Dagger of Venom"}
+                                               ::units5e/turn #{"c"}}}}}})
+  (effects-of [::char5e/finish-long-rest "7"] [::char5e/save-character-throttled])
+  (is (= {::units5e/turn #{"c"}}
+         (get-in @app-db [::char5e/character-map 7 :orcpub.entity/values ::char5e/features-used]))))
