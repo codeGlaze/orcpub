@@ -333,6 +333,11 @@
     (is (= :hair (pa/slot-for-asset :bangs (pa/asset-by-id :bangs
                                                            (:asset/id (first (pa/assets-for-layer :bangs)))))))))
 
+(deftest a-tweak-on-the-lips-shows-on-the-lips-chip
+  (let [p {:layers {:mouth {:asset/id :l8-mouth-02}} :colors {} :tweaks {:mouth {:shade 20}}}]
+    (is (= [:mouth] (pa/tweaked-layers-in-slot p :lips))
+        "the mouth is a Lips piece only through its selected asset, and its tweak counts there")))
+
 (deftest the-lips-slot-only-appears-when-lips-do
   (let [with-lips {:layers {:mouth {:asset/id :l8-mouth-02}} :colors {} :tweaks {}}
         with-smile {:layers {:mouth {:asset/id :l8-mouth-03}} :colors {} :tweaks {}}

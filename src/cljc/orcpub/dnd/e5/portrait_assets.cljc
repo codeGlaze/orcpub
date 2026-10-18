@@ -862,4 +862,4 @@
                (boolean (or override
                             (and (number? shade) (not (zero? shade)))
                             (and (number? depth) (not (zero? depth)))))))
-           (layers-in-slot slot)))
+           (layers-in-slot portrait slot)))
