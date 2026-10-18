@@ -25,7 +25,9 @@ before the next.
 | 0b ☑ | **`integration` merged in** (`b1d05c8b`, 2026-10-17). Checks green; `upgrade.js` 12/12: characters, homebrew and a draft made by `integration`'s app (`427d16aa`) open unchanged here | here | 0 |
 | 1 ☑ | Gallery baseline: already re-recorded in `2efffadb`; after the merge, no drift on all 15 builders | here | — |
 | 2 ☑ | Part B.1: `grant-selection` keeps `:order` and a `:min` below `:count` (authored), `:selection-key` and `:prereq-fn` (built-in only; the spec refuses them in a file). `grant_selection_fields_test` | here | — |
-| 3 | Part B.2: the owner through `compile-grants`; fixes the measured skill-expertise defect | here | 2 |
+| 2b ◐ | **ASI ships alone first** (owner, 2026-10-18): placed increases, save grants and the format envelope ported to `feature/asi-spreads`, PR #69 into `integration`. When grant-rows next merges integration, take #69's versions of the ASI code (its source was rewrapped to the comment rules) | `feature/asi-spreads` | — |
+| 3 | Part B.2: the owner through `compile-grants`; fixes the measured skill-expertise defect. Do it so ASI's `:attribution` can come from the same owner | here | 2 |
+| 3b | **Decide ASI's home before step 4** (owner, 2026-10-18): ASI kept its own engine (`compile-ability-increases`) when the grant registry was built in September, and nobody flagged it. Measure folding it into `compile-grants` (it needs an amount and "different abilities"), write the decision, then wire the silos with one hook each | here | 3 |
 | 4 | Handoff step 4: subrace, background, class, subclass compile `:grants`, one commit each with the D30 tag test | here | 3 (class arms need `:prereq-fn`) |
 | 5 | Handoff step 2: legacy-key shims, per silo once that silo compiles `:grants`; strike the feat widgets (D34) | here | 4 for that silo |
 | 6 | Handoff step 3: lift `:blocked-on-ref`, normalize the choice class | here | 5 |
