@@ -2,6 +2,9 @@
   (:require [clojure.string :as s]
             [orcpub.common :as common]
             [orcpub.dnd.e5.weapons :as weapons]
+            [orcpub.dnd.e5.magic-items :as mi]
+            [orcpub.dnd.e5.units :as units]
+            [orcpub.dnd.e5.weapon-damage :as weapon-damage]
             [orcpub.dnd.e5.character.equipment :as char-equip]))
 
 #_(def phb-url "https://www.amazon.com/gp/product/0786965606/ref=as_li_tl?ie=UTF8&tag=orcpub-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786965606&linkId=9cd9647802c714f226bd591d61058143")
@@ -146,3 +149,94 @@
                 (when frequency (str "use " (frequency-description frequency)))
                 #_(if page (source-description source page))]))
       ")"))))
+
+;; Weapon damage text, shared by the weapons table and the PDF: weapon-damage-model.md
+
+(defn damage-dice-str
+  "An entry's dice and flat bonus as text: \"1d8+3\", \"2d6\", or \"+2\" for a flat-only
+  entry. Takes a damage entry (base or extra); returns a string."
+  [{:keys [::weapons/damage-die ::weapons/damage-die-count ::mi/damage-bonus ::weapon-damage/bonus]}]
+  (let [flat (+ (or damage-bonus 0) (or bonus 0))]
+    (if damage-die
+      (str damage-die-count "d" damage-die (when-not (zero? flat) (common/mod-str flat)))
+      (common/mod-str flat))))
+
+(defn damage-str
+  "An entry's dice and damage type as text, such as \"1d8+3 slashing\". Takes a damage
+  entry; returns a string, without a type when the entry has none."
+  [entry]
+  (let [type (::weapons/damage-type entry)]
+    (str (damage-dice-str entry) (when type (str " " (common/safe-name type))))))
+
+(defn creature-types-str
+  "Creature types as a plural phrase: #{:fiend :undead} gives \"fiends and undead\".
+  Takes a set of type keywords and the joining word; returns a string."
+  [types joiner]
+  (let [plural (fn [t] (if (= :undead t) "undead" (str (common/safe-name t) "s")))
+        names (map plural (sort types))]
+    (if (next names)
+      (str (s/join ", " (butlast names)) " " joiner " " (last names))
+      (first names))))
+
+(def recharge-names
+  "How each reset period reads after \"once per\"."
+  {::units/turn "turn" ::units/round "round" ::units/short-rest "short rest"
+   ::units/long-rest "long rest" ::units/rest "rest" ::units/dawn "dawn"})
+
+(defn condition-phrases
+  "The conditions an entry or effect names, as short phrases in a fixed order:
+  trigger, targets, toggle, cost. Takes the entry and a map of toggle id to toggle
+  name; returns a vector of strings, empty when it applies on every hit."
+  [{:keys [::mi/on ::mi/min-roll ::mi/attack-type ::mi/against ::mi/not-against
+           ::mi/charge-cost ::mi/recharge]
+    toggle ::mi/while}
+   names]
+  (cond-> []
+    (= :miss on) (conj "on a miss")
+    min-roll (conj (str (if (#{8 11 18} min-roll) "on an " "on a ") min-roll
+                        (when (< min-roll 20) "+")))
+    (= :crit on) (conj "on a crit")
+    attack-type (conj (str "on a " (common/safe-name attack-type) " hit"))
+    against (conj (str "vs " (creature-types-str against "and")))
+    not-against (conj (str "not vs " (creature-types-str not-against "or")))
+    toggle (conj (str "while " (get names toggle (common/safe-name toggle))))
+    charge-cost (conj (str charge-cost (if (= 1 charge-cost) " charge" " charges")))
+    recharge (conj (str "once per " (recharge-names recharge (common/safe-name recharge))))))
+
+(defn toggle-names
+  "A weapon's toggles as a map of toggle id to its name. Takes the weapon map."
+  [weapon]
+  (into {} (map (juxt ::mi/toggle-id ::mi/toggle-name)) (::mi/toggles weapon)))
+
+(defn effect-summary
+  "A save effect's short summary, such as \"DC 15 Str or prone\"; nil for effects
+  without a save, whose full text belongs in the opened row. Takes the effect."
+  [{:keys [::mi/save-dc ::mi/save-ability ::mi/save-fail]}]
+  (when save-dc
+    (str "DC " save-dc " " (s/capitalize (common/safe-name save-ability))
+         (if save-fail (str " or " (common/safe-name save-fail)) " save"))))
+
+(defn extra-damage-str
+  "One extra damage entry with its conditions: \"+2d6 fire while Ablaze\". Takes the
+  entry (type resolved) and a map of toggle id to name; returns a string."
+  [entry names]
+  (let [dice (damage-str entry)
+        phrases (condition-phrases entry names)]
+    (str (if (s/starts-with? dice "+") dice (str "+" dice))
+         (when (seq phrases) (str " " (s/join ", " phrases))))))
+
+(defn weapon-extras-str
+  "Everything a weapon adds beyond its base damage, as one line: each extra, then each
+  save, joined by \"; \". Takes the weapon map; returns a string, or nil when it adds nothing."
+  [weapon]
+  (let [names (toggle-names weapon)
+        extras (map #(extra-damage-str (weapon-damage/resolve-extra weapon %) names)
+                    (::mi/extra-damage weapon))
+        saves (keep (fn [effect]
+                      (when-let [summary (effect-summary effect)]
+                        (let [phrases (condition-phrases effect names)
+                              dice (when (::weapons/damage-die effect) (damage-str effect))]
+                          (s/join ", " (remove nil? (concat [summary dice] phrases))))))
+                    (::mi/effects weapon))]
+    (not-empty (s/join "; " (concat extras saves)))))
+
