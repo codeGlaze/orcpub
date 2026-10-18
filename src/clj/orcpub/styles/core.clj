@@ -2,6 +2,7 @@
      (:require [garden.stylesheet :refer [at-media at-keyframes]]
                [garden.units :refer [px]]
                [orcpub.constants :as const]
+               [orcpub.styles.weapons :as weapons]
                [garden.selectors :as s]))
 
 ;; Color palette — used across UI for consistent theming
@@ -3676,6 +3677,7 @@
    widths
    font-sizes
    props
+   weapons/weapons
    media-queries) ;concat
 );def app
 

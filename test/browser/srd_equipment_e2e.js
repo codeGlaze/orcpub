@@ -55,10 +55,10 @@ const load = page => page.evaluate(() => {
   await load(page);
   await page.getByText('combat', { exact: true }).first().click();
 
-  const weapon = page.locator('tr.weapon', { hasText: 'Longsword' }).first();
+  const weapon = page.locator('.weapon-row', { hasText: 'Longsword' }).first();
   await weapon.waitFor({ timeout: 20000 }).catch(() => {});
   if (await weapon.count()) {
-    await weapon.click();
+    await weapon.locator('.weapon-name-line').click();
     await weapon.getByText('Two-handed?').waitFor({ timeout: 5000 }).catch(() => {});  // expanded
     const t = await weapon.innerText();
     check('the longsword shows its SRD price', /Cost:\s*15 gp/.test(t), t.replace(/\s+/g, ' ').slice(0, 120));

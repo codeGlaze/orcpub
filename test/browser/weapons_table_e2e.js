@@ -1,0 +1,152 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// The Weapons table on a 390px phone, dark and light: does it fit, line up, and do what it shows?
+//
+// Loads a level 1 wizard (proficient with daggers, not longswords) carrying a dagger, longsword,
+// net and longbow plus a Flame Tongue, Holy Avenger, Frost Brand and Dwarven Thrower, opens the
+// Combat tab and checks: the table fits with no sideways scroll; each heading is within 2px of its
+// tiles; tiles are 54x54 and 98x54; names stay on one line; names and tiles are 44px tap targets;
+// "no prof" and "hit" strips; the Net's no-roll tile; Frost Brand's +1d6 on its tile; Holy
+// Avenger's "vs fiends and undead" line; Ablaze adding +2d6 fire to the tile and the roll; 2H
+// showing the longsword's 1d10; and the opened row's details.
+//
+// Needs:     server (`./scripts/e2e/run.sh test/browser/weapons_table_e2e.js`). No login.
+// Runs in:   ~30s. SHOT_DIR=<dir> saves weapons-dark.png and weapons-light.png.
+const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
+const BASE = process.env.E2E_BASE || 'http://localhost:8890';
+const SHOT_DIR = process.env.SHOT_DIR;
+
+const results = [];
+function check(name, pass, detail) {
+  results.push({ name, pass, detail });
+  console.log((pass ? 'PASS  ' : 'FAIL  ') + name + (detail ? '   [' + detail + ']' : ''));
+}
+
+// Puts a level 1 wizard carrying the test weapons into the builder.
+const load = page => page.evaluate(() => {
+  const rd = cljs.reader.read_string;
+  const s = 'orcpub.entity.strict', c = 'orcpub.dnd.e5.character';
+  const held = `{:${c}.equipment/quantity 1 :${c}.equipment/equipped? true}`;
+  const opts = ks => ks.map(k => `{:${s}/key ${k} :${s}/map-value ${held}}`).join(' ');
+  const strict = `{:${s}/selections [
+    {:${s}/key :ability-scores :${s}/option {:${s}/key :standard-scores
+      :${s}/map-value {:${c}/str 15 :${c}/dex 14 :${c}/con 13 :${c}/int 12 :${c}/wis 10 :${c}/cha 8}}}
+    {:${s}/key :class :${s}/options [{:${s}/key :wizard
+      :${s}/selections [{:${s}/key :levels :${s}/options [{:${s}/key :level-1}]}]}]}
+    {:${s}/key :weapons :${s}/options [${opts([':dagger', ':longsword', ':net', ':longbow'])}]}
+    {:${s}/key :magic-weapons :${s}/options [${opts([':flame-tongue-longsword', ':holy-avenger-longsword',
+                                                      ':frost-brand-rapier', ':dwarven-thrower'])}]}]}`;
+  re_frame.core.dispatch_sync(cljs.core.PersistentVector.fromArray(
+    [rd(':set-character'), orcpub.dnd.e5.character.from_strict(rd(strict))], true));
+});
+
+// Layout numbers for the section: widths, heading offsets, tile sizes, one-line names, tap targets.
+const measure = page => page.evaluate(() => {
+  const section = [...document.querySelectorAll('.weapons-section')].find(e => e.offsetParent);
+  const box = section.getBoundingClientRect();
+  const cx = e => { const b = e.getBoundingClientRect(); return b.left + b.width / 2; };
+  const heads = [...section.querySelectorAll('.weapon-head > span')];
+  const rows = [...section.querySelectorAll('.weapon-row')];
+  const hit = rows.map(r => r.querySelector('.weapon-hit-tile'));
+  const dmg = rows.map(r => r.querySelector('.weapon-damage-tile, .weapon-no-roll'));
+  const size = t => { const b = t.getBoundingClientRect(); return `${Math.round(b.width)}x${Math.round(b.height)}`; };
+  return {
+    rows: rows.length, fits: section.scrollWidth <= section.clientWidth,
+    pageFits: document.documentElement.scrollWidth <= window.innerWidth,
+    hitOff: Math.max(...hit.map(t => Math.abs(cx(t) - cx(heads[1])))),
+    dmgOff: Math.max(...dmg.map(t => Math.abs(cx(t) - cx(heads[2])))),
+    hitSizes: [...new Set(hit.map(size))], dmgSizes: [...new Set(dmg.map(size))],
+    oneLine: rows.every(r => { const n = r.querySelector('.weapon-name'); return n.scrollHeight <= n.clientHeight + 1; }),
+    small: [...section.querySelectorAll('.weapon-cell-name, .weapon-tile')]
+      .filter(e => { const b = e.getBoundingClientRect(); return b.height < 44 || b.width < 44; }).length,
+    outside: [...section.querySelectorAll('.weapon-row *')]
+      .filter(e => { const b = e.getBoundingClientRect(); return b.width && (b.right > box.right + 0.5 || b.left < box.left - 0.5); }).length,
+  };
+});
+
+async function layout(page, theme) {
+  const m = await measure(page);
+  check(`${theme}: one row per weapon`, m.rows === 8, `${m.rows}`);
+  check(`${theme}: the table fits, no sideways scroll`, m.fits && m.pageFits);
+  check(`${theme}: headings within 2px of their tiles`, m.hitOff <= 2 && m.dmgOff <= 2, `${m.hitOff}, ${m.dmgOff}`);
+  check(`${theme}: to-hit tiles are 54x54`, m.hitSizes.join() === '54x54', m.hitSizes.join());
+  check(`${theme}: damage tiles are 98x54`, m.dmgSizes.join() === '98x54', m.dmgSizes.join());
+  check(`${theme}: names stay on one line`, m.oneLine);
+  check(`${theme}: names and tiles are 44px tap targets`, m.small === 0, `${m.small} smaller`);
+  check(`${theme}: nothing sticks out of the section`, m.outside === 0, `${m.outside}`);
+  if (SHOT_DIR) await page.locator('.weapons-section').screenshot({ path: `${SHOT_DIR}/weapons-${theme}.png` });
+}
+
+(async () => {
+  const browser = await chromium.launch({ executablePath: findChrome() });
+  const ctx = await browser.newContext({
+    viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' });
+  await ctx.addInitScript(() => {
+    try {
+      localStorage.setItem('orcpub:no-cookie-banner', '1');
+      localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+    } catch (e) {}
+  });
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => { try { return !!re_frame.core.dispatch_sync; } catch (e) { return false; } },
+                             null, { timeout: 60000 });
+  await load(page);
+  // a phone shows the sheet under the Details tab, its sections behind icon tabs
+  await page.locator('.builder-tab', { hasText: 'Details' }).first().click({ timeout: 20000 }).catch(() => {});
+  await page.waitForFunction(() => [...document.querySelectorAll('div.b-b-2.pointer')]
+    .some(d => d.offsetParent && d.innerHTML.includes('sword-clash')), null, { timeout: 20000 }).catch(() => {});
+  await page.evaluate(() => {
+    const t = [...document.querySelectorAll('div.b-b-2.pointer')].find(d => d.offsetParent && d.innerHTML.includes('sword-clash'));
+    if (t) t.click();
+  });
+  const section = page.locator('.weapons-section');
+  if (!await section.waitFor({ timeout: 20000 }).then(() => true, () => false)) {
+    check('the Combat tab shows the Weapons table', false, 'no .weapons-section');
+  } else {
+    const row = name => page.locator('.weapon-row')
+      .filter({ has: page.locator('.weapon-name', { hasText: new RegExp(`^${name}$`) }) });
+    await layout(page, 'dark');
+
+    const strip = async name => (await row(name).locator('.weapon-hit-tile .weapon-strip').innerText()).trim();
+    check('a weapon the wizard is not proficient with says "no prof"', await strip('Longsword') === 'no prof');
+    check('one it is proficient with says "hit"', await strip('Dagger') === 'hit');
+    check('the Net gets the no-roll tile', await row('Net').locator('.weapon-no-roll').count() === 1);
+    check('Frost Brand shows its +1d6 on the damage tile',
+          /\+1d6/.test(await row('Frost Brand, Rapier').locator('.weapon-damage-tile').innerText()));
+    check('Holy Avenger has a "vs fiends and undead" line with +2d10 radiant',
+          /vs fiends and undead[\s\S]*\+2d10 radiant/i.test(await row('Holy Avenger, Longsword').innerText()));
+
+    const flame = row('Flame Tongue, Longsword');
+    check('Flame Tongue starts unlit: nothing extra on its tile',
+          !/\+2d6/.test(await flame.locator('.weapon-damage-tile').innerText()));
+    await flame.getByRole('radio', { name: 'Ablaze' }).click();
+    const shows = (loc, text) => loc.filter({ hasText: text }).waitFor({ timeout: 5000 }).then(() => true, () => false);
+    check('Ablaze puts +2d6 on the tile', await shows(flame.locator('.weapon-damage-tile'), '+2d6'));
+    await flame.locator('.weapon-damage-tile').click();
+    const msg = await page.locator('.message').first().innerText({ timeout: 5000 }).catch(() => '');
+    check('and the damage roll includes the fire', /1d8\+2 slashing:[\s\S]*2d6 fire:/.test(msg), msg.replace(/\s+/g, ' ').slice(0, 140));
+
+    const plain = row('Longsword');
+    await plain.getByRole('radio', { name: '2H' }).click();
+    check('2H shows the longsword\'s two-handed 1d10', await shows(plain.locator('.weapon-damage-tile'), '1d10+2'));
+
+    const holy = row('Holy Avenger, Longsword');
+    await holy.locator('.weapon-name-line').click();
+    const opened = await holy.locator('.weapon-opened').waitFor({ timeout: 5000 }).then(() => true, () => false);
+    check('tapping the name opens the row with its details', opened && /Two-handed\?/.test(await holy.innerText()));
+
+    await page.locator('div.pointer', { hasText: 'Light Theme' }).first().click();
+    await page.waitForTimeout(300);
+    await layout(page, 'light');
+  }
+  check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
+
+  await browser.close();
+  const failed = results.filter(r => !r.pass).length;
+  console.log(`\n${results.length - failed}/${results.length} checks passed`);
+  process.exit(failed ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(2); });

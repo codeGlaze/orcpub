@@ -52,3 +52,47 @@
   (is (= ["once per short rest"]
          (disp/condition-phrases {::mi/recharge :orcpub.dnd.e5.units/short-rest} {})))
   (is (= [] (disp/condition-phrases {} {}))))
+
+(defn lines
+  "The row lines of the weapon with this key, with these toggles on."
+  ([k] (lines k #{}))
+  ([k on] (disp/weapon-row-lines (weapon k) on)))
+
+(deftest one-every-hit-extra-sits-on-the-tile
+  (is (= {:tile {:count 1 :text "+1d6" :types [:cold]} :lines []} (lines :frost-brand-longsword))))
+
+(deftest a-toggle-adds-its-extra-only-while-on
+  (is (= {:tile nil :lines []} (lines :flame-tongue-longsword)))
+  (is (= {:count 1 :text "+2d6" :types [:fire]} (:tile (lines :flame-tongue-longsword #{:ablaze})))))
+
+(deftest conditional-extras-get-a-line-of-their-own
+  (is (= [{:label "vs fiends and undead"
+           :chips [{:text "+2d10 radiant" :type :radiant :style :tint :ringed? false}]}]
+         (:lines (lines :holy-avenger-longsword))))
+  (is (= [{:label "vs giants"
+           :chips [{:text "+2d6 slashing" :type :slashing :style :tint :ringed? false}
+                   {:text "DC 15 Str or prone" :style :outline}]}]
+         (:lines (lines :giant-slayer-greataxe))))
+  (is (= ["on a ranged hit, not vs giants" "on a ranged hit, vs giants"]
+         (map :label (:lines (lines :dwarven-thrower))))))
+
+(deftest crit-and-once-per-dawn-extras-stay-off-the-row
+  (is (= {:tile nil :lines []} (lines :vicious-weapon-mace)))
+  (is (= {:tile nil :lines []} (lines :javelin-of-lightning)))
+  (is (= {:tile nil :lines []} (lines :dagger-of-venom))))
+
+(deftest two-every-hit-extras-get-a-line-and-a-count
+  (let [w (assoc (weapon :longsword)
+                 ::mi/toggles [{::mi/toggle-id :lit ::mi/toggle-name "Lit"}]
+                 ::mi/extra-damage [{:orcpub.dnd.e5.weapons/damage-die-count 1
+                                     :orcpub.dnd.e5.weapons/damage-die 6
+                                     :orcpub.dnd.e5.weapons/damage-type :thunder}
+                                    {:orcpub.dnd.e5.weapons/damage-die-count 2
+                                     :orcpub.dnd.e5.weapons/damage-die 6
+                                     :orcpub.dnd.e5.weapons/damage-type :fire
+                                     ::mi/while :lit}])]
+    (is (= {:count 2 :text "+2 more" :types [:thunder :fire]} (:tile (disp/weapon-row-lines w #{:lit}))))
+    (is (= [{:label "Every hit"
+             :chips [{:text "+1d6 thunder" :type :thunder :style :fill :ringed? false}
+                     {:text "+2d6 fire" :type :fire :style :fill :ringed? true}]}]
+           (:lines (disp/weapon-row-lines w #{:lit}))))))

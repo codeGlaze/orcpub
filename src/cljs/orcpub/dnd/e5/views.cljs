@@ -42,6 +42,7 @@
             [orcpub.dnd.e5.armor :as armor]
             [orcpub.dnd.e5.srd-starting-equipment :as srd-equip]
             [orcpub.dnd.e5.display :as disp]
+            [orcpub.dnd.e5.weapon-damage :as weapon-damage]
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.notifications :as notifications]
@@ -2825,14 +2826,19 @@
 
 (def button-roll-handler (memoize button-roll-fn))
 
-(defn roll-button [message roll & {:keys [text disable-tooltip style]}]
+(defn roll-button
+  "An amber button that rolls `roll` (dice text such as \"1d20+4\") and shows the result
+  after `message`; ctrl-click rolls with advantage, shift-click with disadvantage. Options:
+  :text (its label, any hiccup), :style, :class, :disable-tooltip. Returns hiccup."
+  [message roll & {:keys [text disable-tooltip style class]}]
   ;; the tip is about ctrl and shift, so it follows the device, not the width
   (let [mobile? (= :mobile @(subscribe [:ua-device-type]))
         button [:button.roll-button
                 {:on-click (fn [e]
                              (.stopPropagation e)
                              ((button-roll-handler message roll) e))
-                 :style style}
+                 :style style
+                 :class class}
                 (or text "Roll")]]
     (if (or mobile? disable-tooltip)
       button
@@ -3805,76 +3811,182 @@
    (svg-icon icon 32)
    [:span.m-l-5.f-w-b.f-s-18 title]])
 
-(defn weapons-section-2 []
-  (let [expanded-details (r/atom {})]
+(defn weapon-grey-line-parts
+  "The weapon's grey line, SRD style: its attack type with range first, then properties.
+  Takes the weapon map; returns a vector of strings such as [\"Melee\" \"Thrown (20/60)\"
+  \"Finesse\"]. Versatile is left out: the 1H | 2H switch stands in for it."
+  [{:keys [::weapon/melee? ::weapon/ranged? ::weapon/range ::weapon/thrown ::weapon/finesse?
+           ::mi/magical-finesse? ::weapon/light? ::weapon/heavy? ::weapon/two-handed?
+           ::weapon/reach ::weapon/loading? ::weapon/special?]}]
+  (let [rng (when range (str " (" (::weapon/min range) "/" (::weapon/max range) ")"))]
+    (cond-> []
+      melee? (conj "Melee")
+      (and ranged? (not thrown)) (conj (str "Ranged" rng))
+      thrown (conj (str "Thrown" rng))
+      (or finesse? magical-finesse?) (conj "Finesse")
+      light? (conj "Light")
+      heavy? (conj "Heavy")
+      two-handed? (conj "Two-handed")
+      reach (conj "Reach")
+      loading? (conj "Loading")
+      special? (conj "Special"))))
+
+(defn weapon-switch
+  "A segmented switch: one button per option, the chosen one filled. Takes the screen
+  reader label, the options as [[value text]], the chosen value, the on-change fn of a
+  value, and an optional damage type that colours the on state. Returns hiccup."
+  [label options chosen on-change & [damage-type]]
+  [:span.weapon-switch {:role "radiogroup" :aria-label label}
+   (doall
+    (for [[v text] options]
+      ^{:key (str v)}
+      [:button.weapon-switch-option
+       {:type "button" :role "radio" :aria-checked (= v chosen)
+        :class (str (when (= v chosen) "on")
+                    (when (and damage-type (= v chosen) v) (str " typed dt-" (name damage-type))))
+        :on-click (fn [e] (.stopPropagation e) (on-change v))}
+       text]))])
+
+(defn weapon-type-strip
+  "The damage tile's strip: a type dot and name (a filled ribbon on the light theme).
+  Takes the damage type keyword, or nil. Returns hiccup."
+  [damage-type]
+  [:span.weapon-strip.typed {:class (when damage-type (str "dt-" (name damage-type)))}
+   (when damage-type [:span.weapon-dot])
+   (when damage-type (common/safe-name damage-type))])
+
+(defn parts-roll-text
+  "Rolls each damage entry and describes the results on one line, for the result bar.
+  Takes the entries; returns a string such as \"1d8+3 slashing: [5] + 3 = 8 | ...\"."
+  [entries]
+  (s/join "  |  "
+          (for [e entries]
+            (let [die (::weapon/damage-die e)
+                  flat (+ (or (::mi/damage-bonus e) 0) (or (::weapon-damage/bonus e) 0))]
+              (str (disp/damage-str e) ": "
+                   (if die
+                     (dice/dice-roll-text-2 (str (::weapon/damage-die-count e) "d" die (common/mod-str flat)))
+                     flat))))))
+
+(defn weapon-row
+  "One weapon's row: name, grey line, to-hit and damage tiles, the lines under it and,
+  when opened, its details. Takes the weapon map, its to-hit bonus, its damage modifier
+  fn, whether the character is proficient, the lowest crit roll, and the row's state
+  atom ({:open? :two-handed? :toggles}). Returns hiccup."
+  [weapon attack-bonus damage-modifier-fn proficient? crit-min state]
+  (let [{:keys [open? two-handed? toggles]} @state
+        toggles (or toggles #{})
+        nm (weapon-name weapon)
+        versatile? (boolean (::weapon/versatile weapon))
+        item-toggles (::mi/toggles weapon)
+        extras-by-toggle (into {} (keep (fn [e] (when-let [t (::mi/while e)] [t (::weapon/damage-type e)])))
+                               (::mi/extra-damage weapon))
+        hands (when versatile?
+                [weapon-switch "Versatile: one hand or two hands" [[false "1H"] [true "2H"]]
+                 (boolean two-handed?) #(swap! state assoc :two-handed? %)])
+        toggle-switches (for [{:keys [::mi/toggle-id ::mi/toggle-name]} item-toggles]
+                          ^{:key toggle-id}
+                          [weapon-switch toggle-name [[nil "Off"] [toggle-id toggle-name]]
+                           (toggles toggle-id)
+                           (fn [v] (swap! state update :toggles
+                                          #(if v (conj (or % #{}) v) (disj (or % #{}) toggle-id))))
+                           (extras-by-toggle toggle-id)])
+        controls-below? (seq item-toggles)
+        modifier (damage-modifier-fn weapon)
+        base (weapon-damage/base-damage weapon modifier (boolean two-handed?))
+        {:keys [tile lines]} (disp/weapon-row-lines weapon toggles)
+        rolled (weapon-damage/applying-damage weapon modifier (boolean two-handed?) {:toggles toggles})
+        [kind & props] (weapon-grey-line-parts weapon)]
+    [:div.weapon-row
+     [:div.weapon-row-main
+      [:div.weapon-cell-name
+       {:on-click #(swap! state update :open? not)}
+       [:button.weapon-name-line
+        {:type "button" :aria-expanded (boolean open?)
+         :on-click (fn [e] (.stopPropagation e) (swap! state update :open? not))}
+        [:span.weapon-name nm]
+        [:span.weapon-caret (if open? "▴" "▾")]]
+       (if (and hands (not controls-below?))
+         [:div.weapon-grey-line
+          [:span kind]
+          hands
+          (when (seq props) [:span (s/join " · " props)])]
+         [:div.weapon-grey-line.text (s/join " · " (cons kind props))])]
+      [:div.weapon-cell-tile
+       [roll-button (str nm " attack: ") (str "1d20" (common/mod-str attack-bonus))
+        :class "weapon-tile weapon-hit-tile"
+        :text [:<>
+               [:span.weapon-tile-body (common/bonus-str attack-bonus)]
+               (cond
+                 (not proficient?) [:span.weapon-strip.no-prof "no prof"]
+                 (< crit-min 20) [:span.weapon-strip "crit" [:span.weapon-strip-num (str crit-min "+")]]
+                 :else [:span.weapon-strip "hit"])]]]
+      [:div.weapon-cell-tile
+       (if base
+         [:button.roll-button.weapon-tile.weapon-damage-tile
+          {:type "button"
+           :on-click (fn [e]
+                       (.stopPropagation e)
+                       (dispatch [:show-message-2 (str nm " damage: " (parts-roll-text rolled))]))}
+          [:span.weapon-tile-body {:class (when tile "with-more")}
+           [:span (disp/damage-dice-str base)]
+           (when tile
+             [:span.weapon-more (:text tile)
+              (doall (for [[i t] (map-indexed vector (:types tile))]
+                       ^{:key i} [:span.weapon-dot {:class (when t (str "dt-" (name t)))}]))])]
+          [weapon-type-strip (::weapon/damage-type base)]]
+         [:div.weapon-no-roll
+          [:span.weapon-no-roll-effect (or (:summary weapon) "Special")]
+          [:span.weapon-no-roll-label "no roll"]])]]
+     (when (or controls-below? (seq lines))
+       [:div.weapon-lines
+        (when controls-below?
+          [:div.weapon-line hands (doall toggle-switches)])
+        (doall
+         (for [{:keys [label chips]} lines]
+           ^{:key label}
+           [:div.weapon-line
+            [:span.weapon-line-label label]
+            (doall
+             (for [[i {:keys [text type style ringed?]}] (map-indexed vector chips)]
+               ^{:key i}
+               [:span.weapon-chip {:class (str (name style)
+                                               (when ringed? " ringed")
+                                               (when type (str " dt-" (name type))))}
+                text]))]))])
+     (when open?
+       [:div.weapon-opened
+        [:div.weapon-opened-name nm]
+        (weapon-details weapon damage-modifier-fn)])]))
+
+(defn weapons-section-2
+  "The character sheet's Weapons table: headings, then one row per weapon except
+  ammunition. Takes the character id. Returns a reagent component."
+  []
+  (let [row-state (r/atom {})]
     (fn [id]
       (let [all-weapons @(subscribe [::char/all-weapons id])
-            weapon-profs (set @(subscribe [::char/weapon-profs id]))
             weapon-attack-modifier @(subscribe [::char/best-weapon-attack-modifier-fn id])
             weapon-damage-modifier @(subscribe [::char/best-weapon-damage-modifier-fn id])
             has-weapon-prof @(subscribe [::char/has-weapon-prof id])
-            device-type @(subscribe [:device-type])
-            mobile? (= :mobile device-type)
-            proficiency-bonus @(subscribe [::char/proficiency-bonus id])
+            crit-values @(subscribe [::char/critical-hit-values id])
             all-weapons-map @(subscribe [::mi/all-weapons-map])]
-        [:div
+        [:div.weapons-section
          [section-header "crossed-swords" "Weapons"]
-         [:div
-          [:table.w-100-p.t-a-l.striped
-           [:tbody.weapons
-            [:tr.f-w-b
-             {:class (when mobile? "f-s-12")}
-             [:th.p-10 "Name"]
-             (when (not mobile?) [:th.p-10 "Proficient?"])
-             [:th.p-10 "Details"]
-             [:th.t-a-c (if mobile? "Atk" [:div.w-60 "Attack"])]
-             [:th.t-a-c (if mobile? "Dmg" [:div.w-60 "Damage"])]
-             [:th.p-10]]
-            (doall
-             (map
-              (fn [[weapon-key {:keys [equipped?]}]]
-                (let [{:keys [name description ranged? ::weapon/type ::weapon/damage-die-count ::weapon/damage-die ::weapon/versatile] :as weapon} (all-weapons-map weapon-key)
-                      proficient? (when has-weapon-prof (has-weapon-prof weapon))
-                      expanded? (@expanded-details weapon-key)
-                      damage-modifier (weapon-damage-modifier weapon)
-                      versatile-damage-die-count (:orcpub.dnd.e5.weapons/damage-die-count versatile)
-                      versatile-damage-die (:orcpub.dnd.e5.weapons/damage-die versatile)
-                      droll (str damage-die-count "d" damage-die)]
-                  (when (not= type :ammunition)
-                    ^{:key weapon-key}
-                    [:tr.weapon.pointer
-                     {:on-click (toggle-details-expanded-handler expanded-details weapon-key)}
-                     [:td.p-10.f-w-b (or (:name weapon)
-                                         (::mi/name weapon))]
-                     (when (not mobile?)
-                       [:td.p-10 (boolean-icon proficient?)])
-                     [:td.p-10.w-100-p
-                      [:div
-                       (weapon-attack-description-short weapon)]
-                      (when expanded?
-                        (weapon-details weapon weapon-damage-modifier))]
-                     [:td (roll-button
-                           (str name " attack: ")
-                           (str "1d20" (common/mod-str (weapon-attack-modifier weapon)))
-                           :text (str "1d20" (common/mod-str (weapon-attack-modifier weapon))))]
-                     [:td (roll-button
-                           (str name " damage: ")
-                           (str damage-die-count "d" damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                           :text (str damage-die-count "d" damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                           :style {:width "100%"})
-                      (when versatile
-                        (roll-button
-                         (str name " versatile damage: ")
-                         (str versatile-damage-die-count "d" versatile-damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                         :text (str "v " versatile-damage-die-count "d" versatile-damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                         :style {:width "100%"}))]
-                     [:td.pointer
-                      [:div.orange
-                       #_(if (not mobile?)
-                           [:span.underline (if expanded? "less" "more")])
-                       [:i.fa.m-l-5
-                        {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]])))
-              all-weapons))]]]]))))
+         [:div.weapon-head [:span "Weapon"] [:span "To hit"] [:span "Damage"]]
+         [:div.weapon-rows
+          (doall
+           (for [[weapon-key _] all-weapons
+                 :let [weapon (all-weapons-map weapon-key)]
+                 :when (and weapon (not= :ammunition (::weapon/type weapon)))]
+             ^{:key weapon-key}
+             [weapon-row
+              weapon
+              (weapon-attack-modifier weapon)
+              weapon-damage-modifier
+              (boolean (when has-weapon-prof (has-weapon-prof weapon)))
+              (weapon-damage/crit-min crit-values weapon)
+              (r/cursor row-state [weapon-key])]))]]))))
 
 (defn magic-item-rows [expanded-details magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
   (let [magic-item-map @(subscribe [::mi/all-magic-items-map])

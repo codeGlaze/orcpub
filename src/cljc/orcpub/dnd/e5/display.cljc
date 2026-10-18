@@ -240,3 +240,50 @@
                     (::mi/effects weapon))]
     (not-empty (s/join "; " (concat extras saves)))))
 
+
+(defn off-row?
+  "Whether an extra or effect is left off the row for the + menu or a charge counter: a
+  crit or rolled-number trigger, a charge cost or a recharge. Takes the entry."
+  [{:keys [::mi/on ::mi/min-roll ::mi/charge-cost ::mi/recharge]}]
+  (boolean (or (= :crit on) min-roll charge-cost recharge)))
+
+(defn- plus-str
+  "An extra's dice and type with a leading plus: \"+2d6 fire\", \"+2 bludgeoning\"."
+  [entry]
+  (let [text (damage-str entry)]
+    (if (s/starts-with? text "+") text (str "+" text))))
+
+(defn weapon-row-lines
+  "What the row shows besides its tiles. Takes the weapon map and the set of toggle ids
+  that are on. Returns {:tile {:text :count :types} or nil, :lines [{:label :chips}]};
+  a chip is {:text :type :style (:fill :tint :outline) :ringed?}. One every-hit extra goes
+  on the tile; two or more get an Every hit line and a +N more chip."
+  [weapon toggles-on]
+  (let [names (toggle-names weapon)
+        shown (fn [{toggle ::mi/while :as e}]
+                (and (not (off-row? e)) (or (nil? toggle) (contains? toggles-on toggle))))
+        label (fn [e default] (or (not-empty (s/join ", " (condition-phrases (dissoc e ::mi/while) names)))
+                                  default))
+        extras (->> (::mi/extra-damage weapon)
+                    (filter shown)
+                    (map (partial weapon-damage/resolve-extra weapon)))
+        every-hit (filter #(= "Every hit" (label % "Every hit")) extras)
+        chip (fn [style e] {:text (plus-str e) :type (::weapons/damage-type e) :style style
+                            :ringed? (boolean (::mi/while e))})
+        grouped (reduce (fn [acc [l c]] (update acc l (fnil conj []) c))
+                        (array-map)
+                        (concat
+                         (when (next every-hit) (map #(vector "Every hit" (chip :fill %)) every-hit))
+                         (for [e extras :when (not= "Every hit" (label e "Every hit"))]
+                           [(label e nil) (chip :tint e)])
+                         (for [e (::mi/effects weapon)
+                               :when (and (shown e) (effect-summary e))]
+                           [(label e "On hit") {:text (effect-summary e) :style :outline}])))
+        order (fn [[l]] (case l "Every hit" 0 "On hit" 1 2))]
+    {:tile (when (seq every-hit)
+             {:count (count every-hit)
+              :text (if (next every-hit)
+                      (str "+" (count every-hit) " more")
+                      (s/replace (plus-str (first every-hit)) #" .*" ""))
+              :types (mapv ::weapons/damage-type every-hit)})
+     :lines (mapv (fn [[l chips]] {:label l :chips chips}) (sort-by order grouped))}))
