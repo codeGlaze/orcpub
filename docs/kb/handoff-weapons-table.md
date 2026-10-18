@@ -57,9 +57,15 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
 - **PDF bullets printed as "?"** (fixed, `5215f590`): `pdf.clj` `normalize-text` replaced everything
   above U+00FF, including U+2022, which Helvetica's WinAnsi encoding has. SRD item text with bullets
   (Gem of Brightness) printed "?" on magic item cards. U+2192 (arrow) really is missing from the font.
-- **The overflow check spills early** (not yet investigated): `spill-overflow!` (`pdf.clj` about 1941,
-  `max-lines`) sent a line to the overflow page while the Attacks box visibly had room for about three
-  more. To trace and fix with a failing test first.
+- **The PDF layout is built** (`c66144688`, owner approved 2026-10-17): rows take the first three
+  weapons; their variants follow as bullets under the short name; later weapons get a name line plus
+  bullets; magic weapons print their own name unless two share it (`sheet-weapon-names`).
+- **The overflow check spills early** (one trace, cause not proven): the Attacks field is 165.6 x 113.8pt
+  (`widget-box` takes 161.6 x 109.8), so `fit-text` at `min-font-size` 8 and `line-height-factor` 1.1 allows
+  12 lines; the trial that spilled had 11 visible lines. Rendered, its lines sit about 8.2pt apart, so
+  the field draws smaller than the 8pt `fit-text` measures, and `split-lines` at 8pt likely wraps long lines
+  ("Holy Avenger, Longsword. +7, 1d8+5 slashing") that the render keeps on one. Next: run `fit-text` on that
+  value and read the field's DA font size; fix by measuring at the size the field renders.
 - **Rendering a PDF to PNG here:** no poppler; use the app's PDFBox (`PDFRenderer`) with `lein classpath`.
 - **The settings panel is a second PR from the same branch,** after the table ships with defaults.
 - **Crit rules are a setting** (owner, 2026-10-16, from

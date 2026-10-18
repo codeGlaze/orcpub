@@ -1862,7 +1862,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, about, blade, bullets, crit, damage, desktop, mastery, no-roll, owner, pdf, phone, radiant, settings, sun, weapon, weapons-extra-damage-design
+**topics:** 2026-10-17, 2d6, about, blade, bullets, crit, damage, desktop, mastery, no-roll, owner, pdf, phone, settings, sun, weapon, weapons, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry
