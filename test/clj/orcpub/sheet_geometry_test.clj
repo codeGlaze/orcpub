@@ -7,6 +7,7 @@
   (:require [clojure.test :refer [deftest testing]]
             [clojure.java.io :as io]
             [clojure.string :as str]
+            [orcpub.common :as common]
             [orcpub.pdf-ops :as ops]
             [orcpub.pdf :as pdf])
   (:import (org.apache.pdfbox Loader)
@@ -40,7 +41,8 @@
         (for [section (range 1 (inc casters))
               level [1 3]
               [prefix v] [["spell-slots" "4"] ["slots-expended" "2"]]]
-          [(keyword (format "%s-%d-%d" prefix level section)) v])))
+          ;; str, not format: %d takes the locale's digits, and these are keywords.
+          [(keyword (str prefix "-" level "-" section)) v])))
 
 (def ^:private fields
   (merge
@@ -104,11 +106,12 @@
              a (.getAnnotations (.getPage doc i))
              :let [r (.getRectangle a)]
              :when r]
-         (format "%d %s %.2f %.2f %.2f %.2f"
-                 i
-                 (or (some-> a .getCOSObject (.getNameAsString "T")) "-")
-                 (.getLowerLeftX r) (.getLowerLeftY r)
-                 (.getWidth r) (.getHeight r)))
+         ;; A widget rect is a machine token: under tr_TR an unqualified format wrote
+         ;; "705,60" and every box in this baseline read as moved.
+         (let [d2 #(common/decimal-str 2 %)]
+           (str i " " (or (some-> a .getCOSObject (.getNameAsString "T")) "-") " "
+                (d2 (.getLowerLeftX r)) " " (d2 (.getLowerLeftY r)) " "
+                (d2 (.getWidth r)) " " (d2 (.getHeight r)))))
        sort
        vec))
 

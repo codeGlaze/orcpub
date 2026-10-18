@@ -321,9 +321,13 @@
    "enchantment" ["M5 5 m0 -.8 a.8 .8 0 1 1 -.8 .8 a1.8 1.8 0 1 1 1.8 1.8 a2.9 2.9 0 1 1 2.9 -2.9"]
    "evocation" (vec (for [t (range 8)
                           :let [a (* t (/ Math/PI 4))
-                                r1 (if (odd? t) 1.6 1.1) r2 (if (odd? t) 3.4 4.3)]]
-                      (format "M%.2f %.2f L%.2f %.2f" (+ 5 (* r1 (Math/cos a))) (+ 5 (* r1 (Math/sin a)))
-                              (+ 5 (* r2 (Math/cos a))) (+ 5 (* r2 (Math/sin a))))))
+                                r1 (if (odd? t) 1.6 1.1) r2 (if (odd? t) 3.4 4.3)
+                                ;; decimal-str, not format: a Turkish or Spanish JVM writes
+                                ;; "5,00" here, and svg-path-ops reads that comma as a second
+                                ;; coordinate -- 2 path ops became 4, outside the 10-unit box.
+                                d2 #(common/decimal-str 2 %)]]
+                      (str "M" (d2 (+ 5 (* r1 (Math/cos a)))) " " (d2 (+ 5 (* r1 (Math/sin a))))
+                           " L" (d2 (+ 5 (* r2 (Math/cos a)))) " " (d2 (+ 5 (* r2 (Math/sin a)))))))
    "illusion" ["M3.6 1.5 L6 5 L3.6 8.5 L1.2 5 Z" "M6.4 1.5 L8.8 5 L6.4 8.5 L4 5 Z"]
    "necromancy" ["M6.5 1.4 A3.8 3.8 0 1 0 6.5 8.6 A2.9 2.9 0 1 1 6.5 1.4 Z"]
    "transmutation" ["M1 5 A4 4 0 1 0 9 5 A4 4 0 1 0 1 5 Z" "M5 1.6 L8 6.8 L2 6.8 Z"]})
@@ -392,7 +396,7 @@
 (defn- school-line
   "The line under a spell's name: \"Evocation cantrip\" or \"3rd-level evocation\"."
   [{:keys [level school]}]
-  (let [school (s/capitalize (str (or school "")))]
+  (let [school (common/ascii-capitalize (str (or school "")))]
     (if (zero? (or level 0))
       (str school " cantrip")
       (str (common/ordinal level) "-level " (common/ascii-lower-case school)))))
@@ -605,7 +609,7 @@
   [fonts level slots pact-level]
   {:kind :lvh :keep 2 :h 22 :level level :slots slots :pact-level pact-level
    :draw (fn [cs fonts x ty w]
-           (let [label (if (zero? level) "CANTRIPS" (s/upper-case (str (common/ordinal level) " level")))
+           (let [label (if (zero? level) "CANTRIPS" (common/ascii-upper-case (str (common/ordinal level) " level")))
                  n-slots (str slots (when pact-level " pact") (if (= 1 slots) " slot" " slots"))
                  sub (cond (zero? level) "at will"
                            (not (pos? (or slots 0))) "no slots yet"
@@ -847,7 +851,7 @@
   [cs fonts page {:keys [classes tabs]} max-level w]
   (let [x margin ty 30
         stats (for [ci (sort (:classes page)) :let [k (get classes ci)] :when (:dc k)]
-                (str (s/upper-case (:class k)) " DC " (:dc k) "  ATTACK " (:attack k)))
+                (str (common/ascii-upper-case (:class k)) " DC " (:dc k) "  ATTACK " (:attack k)))
         names (:names page)
         guide (cond (empty? names) ""
                     (= (first names) (peek names)) (first names)

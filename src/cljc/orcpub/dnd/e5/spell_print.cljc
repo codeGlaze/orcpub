@@ -5,7 +5,8 @@
    Pure string work, no PDFBox. These were in pdf.clj, so spellbook.clj depended on a
    3,200-line clj file for six functions that never touch a PDF, beside spell-annotations,
    which was lifted out of the print path on the same grounds."
-  (:require [clojure.string :as s]))
+  (:require [clojure.string :as s]
+            [orcpub.common :as common]))
 
 (defn spell-school-level
   "The subtitle line of a spell card: \"Wizard Cantrip Evocation\" at level 0,
@@ -13,7 +14,7 @@
    missing level \"?\" rather than throwing, since homebrew spells reach here
    unvalidated."
   [{:keys [level school]} class-nm]
-  (let [school-str (if school (s/capitalize school) "Unknown")]
+  (let [school-str (if school (common/ascii-capitalize school) "Unknown")]
     (if (and level (zero? level))
       (str class-nm " Cantrip " school-str)
       (str class-nm " Level " (or level "?") " " school-str))))

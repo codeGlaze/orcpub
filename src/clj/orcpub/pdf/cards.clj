@@ -170,7 +170,7 @@
                                            (str summary
                                                 " (see "
                                                 (if source
-                                                  (s/upper-case (name source))
+                                                  (common/ascii-upper-case (name source))
                                                   "PHB")
                                                 " "
                                                 page
@@ -184,7 +184,7 @@
                                      (- box-height 1.13))]
                (when (:material-component components)
                  (draw/draw-text-to-box cs
-                                   (str (s/capitalize (:material-component components)))
+                                   (str (common/ascii-capitalize (:material-component components)))
                                    (:italic fonts)
                                    8
                                    (+ x 0.12)
@@ -367,13 +367,13 @@
   (let [kind (when type
                ;; Capitalised, and only the first word: the books write "Wondrous
                ;; item, rare", not "Wondrous Item".
-               (s/capitalize
+               (common/ascii-capitalize
                 (str (common/kw-to-name type)
                      (when subtype (str " (" (common/kw-to-name subtype) ")")))))
         rare (when rarity
                (if (= :varies rarity)
                  "rarity varies"
-                 (s/lower-case (common/kw-to-name rarity))))
+                 (common/ascii-lower-case (common/kw-to-name rarity))))
         ]
     (s/join ", " (remove s/blank? [kind rare]))))
 
@@ -648,7 +648,7 @@
                body (or description
                         (when summary
                           (str summary " (see "
-                               (if source (s/upper-case (name source)) "DMG")
+                               (if source (common/ascii-upper-case (name source)) "DMG")
                                " " page " for more details)"))
                         "")
                clause (attunement-phrase attunement attunement-details)

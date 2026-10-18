@@ -36,5 +36,9 @@ out to the chosen paper.
 
 - **Printing:** a magic item or spell whose name the embedded font cannot draw no longer
   costs the card sheet it is on, and every sheet after it.
+- **Printing:** on a server whose JVM runs a non-English locale, the evocation sigil drew
+  as a scribble and school and class headings drew the wrong glyph. The PDF path now pins
+  the locale wherever it formats or case-folds a machine token, as
+  `docs/kb/locale-safety.md` already required.
 
 ## Security

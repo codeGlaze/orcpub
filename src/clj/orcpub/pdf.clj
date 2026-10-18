@@ -1328,7 +1328,7 @@
 (defn jpeg-url?
   "Whether `url` names a JPEG, and so whether its bytes embed without re-encoding."
   [url]
-  (let [lower (s/lower-case (str url))]
+  (let [lower (common/ascii-lower-case (str url))]
     (or (s/ends-with? lower "jpg") (s/ends-with? lower "jpeg"))))
 
 (defn- failure-reason
@@ -1437,7 +1437,7 @@
    SWALLOWS every failure: logs and returns nil, so one unreachable portrait URL
    cannot fail an export. Callers get no signal that nothing was drawn."
   [doc page url x y width height]
-  (let [lower-case-url (s/lower-case url)
+  (let [lower-case-url (common/ascii-lower-case url)
         jpg? (or (s/ends-with? lower-case-url "jpg")
                  (s/ends-with? lower-case-url "jpeg"))
         draw-fn (if jpg? draw-jpg draw-non-jpg)]
@@ -2021,7 +2021,7 @@
             ;; The class name and, beside it, the numbers the section's own
             ;; ability/DC/attack boxes cannot carry once a page holds more than
             ;; one class. Centred together so the pair reads as one heading.
-            (let [stats (->> [(when ability (s/upper-case (str ability)))
+            (let [stats (->> [(when ability (common/ascii-upper-case (str ability)))
                               (when dc (str "DC " dc))
                               (when attack (str attack))]
                              (remove nil?)

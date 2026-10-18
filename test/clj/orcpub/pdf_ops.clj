@@ -3,6 +3,7 @@
    recorded baseline. Shared by the geometry characterization tests: card_geometry_test
    pins the card sheets, spellbook_geometry_test pins the spellbook."
   (:require [clojure.string :as str]
+            [orcpub.common :as common]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]
@@ -27,7 +28,7 @@
   (cond
     ;; 2dp of a point is 1/3600 inch: finer than any hand tweak, coarse enough that
     ;; re-associating the same arithmetic does not flap the baseline.
-    (instance? COSNumber t) (format "%.2f" (.floatValue ^COSNumber t))
+    (instance? COSNumber t) (common/decimal-str 2 (.floatValue ^COSNumber t))
     (instance? COSString t) (show-string t)
     (instance? COSName t) (str "/" (.getName ^COSName t))
     :else (str t)))

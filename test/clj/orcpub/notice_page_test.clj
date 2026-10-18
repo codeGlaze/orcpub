@@ -7,6 +7,7 @@
    when there is nothing to say."
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.string :as str]
+            [orcpub.common :as common]
             [orcpub.errors :as errors]
             [orcpub.pdf-ops :as ops]
             [orcpub.pdf :as pdf])
@@ -72,7 +73,7 @@
                     (re-matches #"[0-9.-]+ [0-9.-]+ Td" op)
                     (let [dy (Double/parseDouble (second (str/split op #" ")))]
                       (assoc st :y (if y (+ y dy) dy)))
-                    (re-find #" Tj$" op) (assoc st :out (conj out (format "%.2f" y)))
+                    (re-find #" Tj$" op) (assoc st :out (conj out (common/decimal-str 2 y)))
                     :else st))
                 {:y nil :out []}
                 (ops/page-ops page))]

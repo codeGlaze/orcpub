@@ -445,7 +445,7 @@
             n (fn [i] (nth ts i))
             ax (fn [v] (if rel? (+ cx v) v))
             ay (fn [v] (if rel? (+ cy v) v))]
-        (case (if cmd (keyword (s/upper-case (name cmd))) :none)
+        (case (if cmd (keyword (common/ascii-upper-case (name cmd))) :none)
           :M (let [x (ax (n 0)) y (ay (n 1))]
                (recur (drop 2 ts) (if rel? :l :L) x y x y nil nil
                       (conj out [:move x y])))
