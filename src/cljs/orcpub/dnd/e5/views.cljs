@@ -3642,7 +3642,12 @@
   [{:keys [num type]}]
   (str num " " (common/safe-name type)))
 
-(defn weapon-details [{:keys [::weapon/description
+(defn weapon-details
+  "The expanded details of a weapon row: type, damage type, magic bonuses, reach, range and
+   properties. Args: the weapon map; damage-modifier-fn, (fn [weapon off-hand?]) giving the
+   damage modifier for the versatile damage. Returns hiccup. Damage type reads \"None\" with
+   no damage die (the Net)."
+  [{:keys [::weapon/description
                               ::weapon/type
                               ::weapon/damage-type
                               ::mi/magical-damage-bonus
@@ -3663,7 +3668,7 @@
    (weapon-details-field "Type" (common/safe-name type))
    (if magical-damage-type
      (weapon-details-field "Damage Type" (common/safe-name magical-damage-type))
-     (weapon-details-field "Damage Type" (common/safe-name damage-type)))
+     (weapon-details-field "Damage Type" (if (::weapon/damage-die weapon) (common/safe-name damage-type) "None")))
    (when magical-damage-bonus
      (weapon-details-field "Magical Damage Bonus" magical-damage-bonus))
    (when magical-attack-bonus
@@ -3805,7 +3810,11 @@
    (svg-icon icon 32)
    [:span.m-l-5.f-w-b.f-s-18 title]])
 
-(defn weapons-section-2 []
+(defn weapons-section-2
+  "The character sheet's weapons table: one row per weapon with proficiency, attack and damage
+   roll buttons, and expandable details. Returns a component fn of the character id. A weapon
+   with no damage die (the Net) shows \"None\" in place of a damage roll."
+  []
   (let [expanded-details (r/atom {})]
     (fn [id]
       (let [all-weapons @(subscribe [::char/all-weapons id])
@@ -3857,11 +3866,13 @@
                            (str name " attack: ")
                            (str "1d20" (common/mod-str (weapon-attack-modifier weapon)))
                            :text (str "1d20" (common/mod-str (weapon-attack-modifier weapon))))]
-                     [:td (roll-button
-                           (str name " damage: ")
-                           (str damage-die-count "d" damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                           :text (str damage-die-count "d" damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                           :style {:width "100%"})
+                     [:td (if damage-die
+                            (roll-button
+                             (str name " damage: ")
+                             (str damage-die-count "d" damage-die (common/mod-str (weapon-damage-modifier weapon)))
+                             :text (str damage-die-count "d" damage-die (common/mod-str (weapon-damage-modifier weapon)))
+                             :style {:width "100%"})
+                            [:span.p-10 "None"])
                       (when versatile
                         (roll-button
                          (str name " versatile damage: ")
