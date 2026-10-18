@@ -787,7 +787,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harmlessly, harness, headless, html, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, mode, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)

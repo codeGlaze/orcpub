@@ -36,6 +36,10 @@ Loads figwheel's auto-test runner. Reports to the DOM (the body lists ALL tests 
 - HTML (`target/test/runner-all.html`):
   `<body><div id="app-auto-testing"></div><script src="js/test-auto-testing.js"></script></body>`
   (the `app-auto-testing` div is required or it throws.)
+- **CI runs this mode** (`.github/workflows/browser-suite.yml`: `lein fig:test`, then
+  `cljs-harness.js`), so the list in `test_runner.cljs` does not decide what CI runs: a test
+  namespace missing from it still runs. Checked 2026-10-18 on PR #64, where a review asked to
+  register `character-drafts-test`; registering it left the total unchanged at 799.
 
 **Driver — now in the repo: `test/e2e/cljs-harness.js`** (`node test/e2e/cljs-harness.js` after
 `lein fig:test`; it picks Chromium out of `PLAYWRIGHT_BROWSERS_PATH`, serves `target/test/`, runs
