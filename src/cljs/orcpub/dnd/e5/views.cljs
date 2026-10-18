@@ -7691,12 +7691,14 @@
       ]
      [optional-builder-section "Ability Score Increases (non-standard)"
       (or (seq (:ability-increases subclass)) (seq (:save-proficiencies subclass)))
+      ;; Explicit keys: Reagent takes a first-argument map's :key as the React key, so the three
+      ;; siblings would all carry the subclass's key.
       [:div
-       [ability-increase-choices subclass
-        #(dispatch [::classes/set-subclass-prop :ability-increases %])]
-       [save-proficiency-choices subclass
-        #(dispatch [::classes/set-subclass-prop :save-proficiencies %])]
-       [ability-save-notes subclass]]]
+       ^{:key "asi"} [ability-increase-choices subclass
+                      #(dispatch [::classes/set-subclass-prop :ability-increases %])]
+       ^{:key "saves"} [save-proficiency-choices subclass
+                        #(dispatch [::classes/set-subclass-prop :save-proficiencies %])]
+       ^{:key "notes"} [ability-save-notes subclass]]]
      (when (#{:fighter :rogue :warlock :cleric :paladin} class-key)
        (let [spellcasting (get subclass :spellcasting)
              spellcasting? (some? spellcasting)]
@@ -8148,11 +8150,12 @@
               :value (get-in race [:abilities key] 0)
               :on-change #(dispatch [::races/set-race-ability-increase key %])}]])
          opt/abilities))]
-      [ability-increase-choices race
-       #(dispatch [::races/set-race-path-prop [:ability-increases] %])]
-      [save-proficiency-choices race
-       #(dispatch [::races/set-race-path-prop [:save-proficiencies] %])]
-      [ability-save-notes race]]
+      ;; Explicit keys: Reagent takes a first-argument map's :key as the React key.
+      ^{:key "asi"} [ability-increase-choices race
+                     #(dispatch [::races/set-race-path-prop [:ability-increases] %])]
+      ^{:key "saves"} [save-proficiency-choices race
+                       #(dispatch [::races/set-race-path-prop [:save-proficiencies] %])]
+      ^{:key "notes"} [ability-save-notes race]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [:div.m-b-20
