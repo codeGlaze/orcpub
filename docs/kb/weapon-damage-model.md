@@ -13,6 +13,7 @@ fields and their traps: [weapon-data-model.md](weapon-data-model.md). The human-
 | SRD data | the eight items in `magic_items.cljc` (`::extra-damage`, `::effects`, `::toggles`) |
 | Functions | `weapon_damage.cljc`: `weapon-type`, `base-damage`, `resolve-extra`, `weapon-damage`, `crit-min`, `applies?`, `applying-damage` |
 | Dawn | `units.cljc` `dawns`, `long-rest-clears`; used by `::char5e/finish-long-rest` (events.cljs) and the long-rest button condition (views.cljs, Details section) |
+| Text (shared by table and PDF) | `display.cljc`, end of file: `damage-dice-str`, `damage-str`, `condition-phrases`, `effect-summary`, `extra-damage-str`, `weapon-extras-str`; tests `weapon_damage_display_test.cljc` |
 | Tests | `test/cljc/orcpub/dnd/e5/weapon_damage_test.cljc`; `events_test.cljs` `finish-long-rest-clears-dawn-and-keeps-shorter-periods` |
 
 ## The fields

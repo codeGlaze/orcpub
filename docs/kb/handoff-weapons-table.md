@@ -79,6 +79,9 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
   go). All 16 SRD weapons with extra damage are filled in, adding `not-against`, `attack-type` and a flat
   `damage-bonus`. Sun Blade stays on every sword. **Crit rules: per account and per character**, at
   least two common variants (owner); which ones is still to agree.
+- **The shared formatter: done** (2026-10-17): `display.cljc` writes every weapon's damage, extras and
+  saves as text (`weapon-extras-str` gives one line per weapon). Not called yet; the rows and the PDF
+  will call it. Where the PDF prints extras is still the owner's call.
 - **Found while building, not fixed:**
   - Vicious Weapon's SRD trigger is "roll a 20": modelled as `::mi/min-roll 20`, apart from
     `::mi/on :crit`, which follows the crit range.
