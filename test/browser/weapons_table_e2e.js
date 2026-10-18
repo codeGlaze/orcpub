@@ -11,7 +11,8 @@
 // 14-17): with the off hand free the longsword's 1H | 2H switch pulses until touched; with a Shield
 // carried a gold "Shield in off hand" pill shows, 1H | 2H is greyed and says why, the two-handed
 // longbow's tiles turn to outlines, say "Needs both hands" and add it to the roll; freeing the off
-// hand brings the pulse back.
+// hand brings the pulse back. Last, a main-hand and an off-hand weapon each get a hand pill on
+// their name line ("main", "off"), read as "main hand" / "off hand", and no other row does.
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/weapons_table_e2e.js`). No login.
 // Runs in:   ~30s. SHOT_DIR=<dir> saves weapons-dark.png and weapons-light.png.
@@ -173,6 +174,21 @@ async function layout(page, theme) {
     check('freeing the off hand removes the pill',
           await pill.waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
     check('and brings the pulse back', await row('Longsword').locator('.weapon-switch.pulse').waitFor({ timeout: 5000 }).then(() => true, () => false));
+
+    // which weapon is in which hand
+    // one hand at a time: with no saved character these events queue a :set-character built from the
+    // character as it was, so a second event before the first lands would overwrite it
+    const wield = ev => page.evaluate(ev => re_frame.core.dispatch_sync(cljs.reader.read_string(ev)), ev);
+    const handPill = r => r.locator('.weapon-name-line .weapon-hand-pill');
+    await wield('[:orcpub.dnd.e5.character/wield-main-hand-weapon nil :dagger]');
+    check('the main-hand weapon says "main" on its name line', await shows(handPill(row('Dagger')), 'main')
+          && await handPill(row('Dagger')).getAttribute('aria-label') === 'main hand');
+    await wield('[:orcpub.dnd.e5.character/wield-off-hand-weapon nil :flame-tongue-longsword]');
+    check('the off-hand weapon says "off", its hand mirrored',
+          await shows(handPill(row('Flame Tongue, Longsword')), 'off')
+          && await handPill(row('Flame Tongue, Longsword')).locator('.fa-flip-horizontal').count() === 1
+          && await handPill(row('Flame Tongue, Longsword')).getAttribute('aria-label') === 'off hand');
+    check('no other weapon has a hand pill', await page.locator('.weapon-hand-pill').count() === 2);
 
     await page.locator('div.pointer', { hasText: 'Light Theme' }).first().click();
     await page.waitForTimeout(300);

@@ -163,6 +163,9 @@
     [:.roll-button.weapon-tile.needs-hands [:.weapon-tile-body {:text-shadow :none}]]
     [:.weapon-switch.pulse {:animation "weapon-pulse 10s ease-out 0s 6"}]
     [:.weapon-hands-note {:margin-bottom "6px" :font-weight 600}]
+    [:.share-pill.weapon-hand-pill
+     {:flex-shrink 0 :align-self :center :gap "4px" :font-size "11px" :padding "1px 7px"
+      :margin-left "6px"}]
 
     ;; the opened row: an inset panel under the row
     [:.weapon-opened

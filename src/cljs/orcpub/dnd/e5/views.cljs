@@ -3874,9 +3874,9 @@
   "One weapon's row: name, grey line, to-hit and damage tiles, the lines under it and,
   when opened, its details. Takes the weapon map, its to-hit bonus, its damage modifier
   fn, whether the character is proficient, the lowest crit roll, what holds the off hand
-  (\"a Shield\", or nil when it is free) and the row's state atom
-  ({:open? :two-handed? :toggles :pulse-done?}). Returns hiccup."
-  [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand state]
+  (\"a Shield\", or nil when it is free), which hand wields it (:main, :off or nil) and
+  the row's state atom ({:open? :two-handed? :toggles :pulse-done?}). Returns hiccup."
+  [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand hand state]
   (let [{:keys [open? toggles pulse-done?]} @state
         toggles (or toggles #{})
         hands-blocked? (boolean (and off-hand (::weapon/versatile weapon)))
@@ -3906,7 +3906,13 @@
         {:keys [tile lines]} (disp/weapon-row-lines weapon toggles)
         rolled (weapon-damage/applying-damage weapon modifier (boolean two-handed?) {:toggles toggles})
         [kind & props] (weapon-grey-line-parts weapon)
-        hands-note (when needs-hands? " (needs both hands)")]
+        hands-note (when needs-hands? " (needs both hands)")
+        hand-pill (when hand
+                    [:span.share-pill.share-pill-neutral.weapon-hand-pill
+                     {:aria-label (if (= :main hand) "main hand" "off hand")}
+                     [:i.fa.fa-hand-paper {:class (when (= :off hand) "fa-flip-horizontal")
+                                           :aria-hidden true}]
+                     (if (= :main hand) "main" "off")])]
     [:div.weapon-row
      [:div.weapon-row-main
       [:div.weapon-cell-name
@@ -3915,6 +3921,7 @@
         {:type "button" :aria-expanded (boolean open?)
          :on-click (fn [e] (.stopPropagation e) (swap! state update :open? not))}
         [:span.weapon-name nm]
+        hand-pill
         [:span.weapon-caret (if open? "▴" "▾")]]
        (if (and hands (not controls-below?))
          [:div.weapon-grey-line
@@ -3985,6 +3992,7 @@
             shield-kw (or @(subscribe [::char/wielded-shield id])
                           (-> @(subscribe [::char/best-armor-combo id]) :shield :key))
             off-hand-kw @(subscribe [::char/off-hand-weapon id])
+            main-hand-kw @(subscribe [::char/main-hand-weapon id])
             weapon-attack-modifier @(subscribe [::char/best-weapon-attack-modifier-fn id])
             weapon-damage-modifier @(subscribe [::char/best-weapon-damage-modifier-fn id])
             has-weapon-prof @(subscribe [::char/has-weapon-prof id])
@@ -4018,6 +4026,7 @@
               (boolean (when has-weapon-prof (has-weapon-prof weapon)))
               (weapon-damage/crit-min crit-values weapon)
               (when (not= weapon-key off-hand-kw) off-hand)
+              (cond (= weapon-key main-hand-kw) :main (= weapon-key off-hand-kw) :off)
               (r/cursor row-state [weapon-key])]))]]))))
 
 (defn magic-item-rows [expanded-details magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
