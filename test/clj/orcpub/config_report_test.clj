@@ -116,6 +116,13 @@
       (is (:set? (row "0")) "0 keeps links, a choice rather than a typo")
       (is (:set? (row "45"))))))
 
+(deftest a-portrait-store-path-reads-as-set
+  (let [row (with-redefs-fn {#'config/env-raw (fn [n] (when (= n "PORTRAIT_STORE_DIR") "/data/portraits"))}
+              #(first (filter (comp #{"PORTRAIT_STORE_DIR"} :var) (config/report))))]
+    (is (:set? row) "a directory path is what the setting takes")
+    (is (not (:ignored? row)))
+    (is (not-any? #(str/includes? % "was ignored") (lines [row])))))
+
 (deftest every-documented-tunable-is-reported
   (testing "adding a knob without adding it to the banner fails here"
     (let [reported (set (map :var (config/report)))]

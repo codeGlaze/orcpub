@@ -339,6 +339,7 @@
     {:group "capacity" :var "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS" :get #(get-portrait-queue-timeout-ms)
      :note "how long a portrait waits to be drawn"}
     {:group "capacity" :var "PORTRAIT_STORE_DIR" :get #(get-portrait-store-dir)
+     :accepts (complement str/blank?) :expects "a directory path"
      :note "where shared-link portrait drawings are kept"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_RETRIES" :get #(get-pdf-max-retries)
      :note "busy-page retries before it waits for a click"}
