@@ -2,10 +2,13 @@
      (:require [garden.stylesheet :refer [at-media at-keyframes]]
                [garden.units :refer [px]]
                [orcpub.constants :as const]
-               [garden.selectors :as s]))
+               [garden.selectors :as s]
+               [orcpub.styles.portrait :as portrait]))
 
 ;; Color palette — used across UI for consistent theming
 (def orange "#f0a100")
+;; The light theme's accent: its buttons and highlights are blue where the dark theme's are amber.
+(def accent-on-light "#33658A")
 (def button-color orange)
 (def red "#9a031e")
 ;; One red cannot serve both themes: #9a031e reads at about 9:1 on white and about
@@ -1255,6 +1258,9 @@
      :text-align :right
      :opacity 0.75}
     [:&:hover {:opacity 1}]]
+   [:button.message-close {:background :none :border 0 :font :inherit :cursor :pointer}]
+   ;; The builder's options while another tab edits the same character (plan-character-drafts.md R7).
+   [:.builder-held {:opacity 0.45 :pointer-events :none}]
 
    ;; Warning/alert styles
    [:.bg-warning
@@ -1265,17 +1271,111 @@
     {:background-color "rgba(0, 0, 0, 0.2)"
      :border-radius "4px"}]
 
-   ;; Accent rails for a callout: the .health-rail device, coloured by identity
-   ;; rather than severity, so a notice says whose it is without the warning
-   ;; palette. Named options only -- a caller picks one rather than passing a colour.
-   [:.callout-accent-brand
-    ;; A gradient ring around the whole box, drawn by a pseudo-element masked to its
-    ;; own edge: border-image squares off rounded corners, and a plain border cannot
-    ;; hold a gradient. The mask punches the middle out, so the translucent fill stays.
-    ;; The outer shadow is a low glow, not a selected-field highlight.
+   ;; Callout accents, coloured by identity rather than severity, so a notice says whose it
+   ;; is without the warning palette. Named options only -- a caller picks one rather than
+   ;; passing a colour.
+   ;; A one-line notice: text on the left, its action and close mark together on the right.
+   [:.callout-compact
+    {:padding "4px 6px 4px 12px !important"
+     :gap "12px !important"}
+    [:.link-button {:padding "8px 4px" :white-space :nowrap}]
+    [:.message-close {:min-width :auto
+                      :min-height :auto
+                      :margin "0 0 0 2px"
+                      :padding "8px 6px"
+                      :align-self :center}]
+    ;; The action and the close mark keep the line slim but take 44px taps: an invisible
+    ;; layer around each (the icon's own glyph is its :before, so :after).
+    [:.link-button :.message-close {:position :relative}]
+    [:.link-button:after :.message-close:after
+     {:content "''" :position :absolute :top "-7px" :bottom "-7px" :left 0 :right 0}]]
+
+   ;; A callout's :details: a square band across the box with the box showing below it, names
+   ;; in one column and when each applies in the next. docs/kb/ux-guide.md (2026-10-14).
+   [:.callout-details
+    {:flex-basis "100%"
+     :display :grid
+     :grid-template-columns "max-content 1fr"
+     :margin "0 -10px 8px"
+     :padding "2px 10px 2px 36px"
+     :background "rgba(0, 0, 0, 0.14)"
+     :font-size "14px"}
+    [:.callout-detail {:display :contents}]
+    [:span {:padding "7px 0"}]
+    ["span:first-child" {:padding-right "20px"}]
+    [".callout-detail + .callout-detail > span" {:border-top "1px solid rgba(255, 255, 255, 0.08)"}]
+    [:.callout-aside {:color muted-on-dark}]]
+   ;; Even spacing above and below the line and the band, so the box opens like a shell.
+   [:.callout-compact.flex-wrap {:row-gap "4px !important"}]
+   ;; A Planned line is a button that reads as the italic link it replaces, with a 44px tap area
+   ;; that does not move the row; its panel's rows share the notice's columns. ux-guide.md.
+   [:.planned-toggle
+    {:background :none
+     :border 0
+     :font-family :inherit
+     :font-style :italic
+     :font-size "16px"
+     :line-height :inherit
+     :text-align :left
+     :text-decoration :underline
+     :cursor :pointer
+     :padding "13px 0"
+     :margin "-13px 0"}
+    [:i {:display :inline-block :margin-left "6px" :text-decoration :none}]]
+   ;; "1st" before each class row: lit on the starting class, faded on the others (a tap makes
+   ;; one first). A small mark with a 44px tap layer. docs/kb/ux-guide.md.
+   [:.class-first-badge
     {:position :relative
-     :border-color :transparent
-     :box-shadow "0 0 14px rgba(240, 161, 0, 0.13)"}
+     :flex-shrink 0
+     :margin-right "8px"
+     :padding "2px 6px"
+     :border "1px solid rgba(255, 255, 255, 0.3)"
+     :border-radius "4px"
+     :background :none
+     :color "rgba(255, 255, 255, 0.45)"
+     :font-family :inherit
+     :font-size "13px"
+     :font-weight :bold
+     :line-height 1.2
+     :cursor :pointer}
+    [:&:after {:content "''" :position :absolute :inset "-12px -4px"}]
+    [:&.on {:color orange :border-color orange :cursor :default}]
+    [:&.blocked {:opacity 0.5}]]
+   [".app.light-theme .class-first-badge"
+    {:border-color "rgba(0, 0, 0, 0.3)" :color "rgba(0, 0, 0, 0.45)"}
+    [:&.on {:color accent-on-light :border-color accent-on-light}]]
+   ;; The Choices link reads as a plain link, not a Planned line; its panel, one line per section.
+   [:.choices-toggle {:font-style :normal}]
+   [:.choice-line {:padding "4px 0"}]
+   [".choices-panel .planned-aside" {:color muted-on-dark}]
+   [".app.light-theme .choices-panel .planned-aside" {:color muted-on-light}]
+   [:.planned-rows
+    {:display :grid
+     :grid-template-columns "max-content 1fr auto"
+     :font-size "14px"}
+    [:&.no-label :&.no-aside {:grid-template-columns "1fr auto"}]
+    [:.planned-row {:display :contents}]
+    ;; Each row is a 44px tap target, so a Clear never lands on the row beside it.
+    [:span :.link-button {:display :flex :align-items :center :min-height "44px"}]
+    [:span {:padding "0 20px 0 0"}]
+    [:.link-button {:padding "0 0 0 16px" :border-radius 0 :font-size "14px"}]
+    [".planned-row + .planned-row > *" {:border-top "1px solid rgba(255, 255, 255, 0.08)"}]
+    [:.planned-aside {:color muted-on-dark}]]
+   [".app.light-theme .planned-rows"
+    [".planned-row + .planned-row > *" {:border-top "1px solid rgba(0, 0, 0, 0.08)"}]
+    [:.planned-aside {:color muted-on-light}]]
+   [".callout-compact .callout-details" {:margin "0 -6px 7px -12px" :padding-left "38px"}]
+   [".app.light-theme .callout-details"
+    {:background "rgba(0, 0, 0, 0.05)"}
+    [".callout-detail + .callout-detail > span" {:border-top "1px solid rgba(0, 0, 0, 0.08)"}]
+    [:.callout-aside {:color muted-on-light}]]
+
+   [:.callout-accent-brand
+    ;; A balanced gradient ring (amber at both sides, faint through top and bottom), drawn by
+    ;; a pseudo-element masked to its own edge: border-image squares off rounded corners.
+    ;; No fill colour, so a notice never reads as a warning. docs/kb/ux-guide.md (2026-10-13).
+    {:position :relative
+     :border-color :transparent}
     [:&:before
      {:content "''"
       :position :absolute
@@ -1283,11 +1383,16 @@
       :border-radius "4px"
       :padding "1px"
       :pointer-events :none
-      :background (str "linear-gradient(135deg, " orange ", rgba(240, 161, 0, 0.18) 55%, rgba(240, 161, 0, 0.7))")
+      :background (str "linear-gradient(90deg, " orange ", rgba(255, 255, 255, 0.12) 30%, "
+                       "rgba(255, 255, 255, 0.12) 70%, " orange ")")
       :-webkit-mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
       :-webkit-mask-composite "xor"
       :mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
       :mask-composite "exclude"}]]
+   ;; On light, the ring takes the light theme's blue, and its faint stretch darkens to show.
+   [".app.light-theme .callout-accent-brand:before"
+    {:background (str "linear-gradient(90deg, " accent-on-light ", rgba(0, 0, 0, 0.12) 30%, "
+                      "rgba(0, 0, 0, 0.12) 70%, " accent-on-light ")")}]
 
    ;; A small neutral pill for naming things inline -- the items a feature covers,
    ;; the styles a sheet comes in. Same shape as .lib-badge without its reason
@@ -1882,14 +1987,21 @@
       :margin-top (px 5)
       :font-weight :normal}]
 
+    ;; Wraps because the bar has to hold four tabs now: at phone width a
+    ;; single non-wrapping row ran OPTIONSDESCRIPTIONPORTRAIT together with no
+    ;; gap between the labels. min-width forces the break rather than letting
+    ;; flex-grow squeeze them all onto one line.
     [:.builder-tabs
      {:display :flex
+      :flex-wrap :wrap
+      :gap "10px"
       :padding "10px"
       :text-transform :uppercase
       :font-weight 600}]
 
     [:.builder-tab
-     {:flex-grow 1
+     {:flex "1 1 auto"
+      :min-width "110px"
       :padding-bottom "13px"
       :text-align :center
       :cursor :pointer
@@ -1972,9 +2084,6 @@
       :text-decoration :underline
       :cursor :pointer
       :text-align :right}]
-
-    [:.fa-caret-square-o-down
-     {:color button-color}]
 
     [:.expand-collapse-button:hover
      {:color button-color}]
@@ -2853,7 +2962,8 @@
       :gap "8px"
       :margin-top "10px"}]
 
-    [:.dev-mode-switch
+    ;; also the account page's settings switches
+    [:.dev-mode-switch :.toggle-switch
      {:position :relative
       :display :inline-block
       :width "34px"
@@ -2885,6 +2995,11 @@
       {:width "28px" :height "16px" :border-radius "8px"}
       [:&:after {:width "10px" :height "10px"}]
       [:&.on [:&:after {:transform "translateX(12px)"}]]]]
+
+    ;; the off track has to show on a light page too
+    [:.app.light-theme :.app.light-plus-theme :.app.parchment-theme
+     [:.toggle-switch {:background-color "rgba(0,0,0,0.22)"}
+      [:&.on {:background-color orange}]]]
 
     [:.dev-mode-label
      {:font-size "12px"
@@ -3574,7 +3689,9 @@
    widths
    font-sizes
    props
-   media-queries) ;concat
+   media-queries
+   ;; last: the portrait rules win ties with the rules above
+   portrait/styles) ;concat
 );def app
 
 

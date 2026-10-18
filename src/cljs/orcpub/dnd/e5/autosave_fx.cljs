@@ -3,7 +3,7 @@
   (:require [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.library :as library]
-            [re-frame.core :refer [reg-fx reg-event-fx dispatch subscribe]]
+            [re-frame.core :refer [reg-fx dispatch subscribe]]
             [reagent.core :as r]))
 
 ;; timeout in ms during which we wait for further changes; if
@@ -12,6 +12,8 @@
 
 (defonce throttled-save-timer (atom nil))
 (defonce throttled-save-queue (atom #{}))
+;; Ids whose save has been sent but not yet confirmed; closing the tab warns until it is empty.
+(defonce unconfirmed-saves (atom #{}))
 
 (defn confirm-close-window
   "While a save is pending, this function will be registered as an event listener
@@ -23,19 +25,35 @@
     confirm-message))
 
 (defn dispatch-throttled-saves
+  "Sends a save for every queued character id. Each stays in unconfirmed-saves, and closing the tab
+   keeps warning, until ::saved reports it. Returns nil."
   []
   (reset! throttled-save-timer nil)
-
-  ; TODO should/can we wait until save is successful?
-  (js/window.removeEventListener
-    "beforeunload"
-    confirm-close-window)
-
   (let [queued-ids @throttled-save-queue]
     (reset! throttled-save-queue #{})
-    (doall
-      (for [id queued-ids]
-        (dispatch [::char5e/save-character id])))))
+    (swap! unconfirmed-saves into (map js/parseInt) queued-ids)
+    (doseq [id queued-ids]
+      (dispatch [::char5e/save-character id]))))
+
+(defn resend-unconfirmed!
+  "Sends again every save that has not been confirmed: one that failed while the browser was
+   offline otherwise waits for another edit. Returns nil."
+  []
+  (doseq [id @unconfirmed-saves]
+    (dispatch [::char5e/save-character id])))
+
+;; Registered once, for its effect: the browser coming back online resends unconfirmed saves.
+(defonce resend-when-online
+  (.addEventListener js/window "online" #(resend-unconfirmed!)))
+
+(reg-fx
+  ::saved
+  ;; A save of character `id` succeeded. The close warning goes once nothing is queued or unconfirmed;
+  ;; a failed save never reports here, so it keeps warning.
+  (fn [id]
+    (swap! unconfirmed-saves disj (js/parseInt id))
+    (when (and (empty? @unconfirmed-saves) (empty? @throttled-save-queue) (nil? @throttled-save-timer))
+      (js/window.removeEventListener "beforeunload" confirm-close-window))))
 
 ;; The primary fx handler; simply return from a -fx event handler
 ;; as {::char5e/save-character-throttled <characterId>}
@@ -46,13 +64,10 @@
   (fn [id]
     ;; The save builds the character from the cached template; start caching it now.
     (ensure-template-cache!)
-    (if-let [timer @throttled-save-timer]
-      ; existing timer; clear it
-      (js/clearTimeout timer)
-      ; no existing, so this is the first; confirm window closing
-      (js/window.addEventListener
-        "beforeunload"
-        confirm-close-window))
+    (when-let [timer @throttled-save-timer]
+      (js/clearTimeout timer))
+    ;; Adding the same listener again does nothing, so this is safe on every edit.
+    (js/window.addEventListener "beforeunload" confirm-close-window)
 
     ; enqueue
     (swap! throttled-save-queue conj id)
@@ -87,7 +102,7 @@
       ;; No route follows this heal, so it announces itself.
       heal? (assoc :dispatch-n [[:set-character character] [:orcpub.dnd.e5/announce-heal]]))))
 
-(reg-event-fx ::cache-template cache-template)
+;; Registered in events.cljs, inside the planned-picks hold.
 
 (defn init-template-cache!
   "Start reactive watcher that mirrors ::char5e/template into app-db.

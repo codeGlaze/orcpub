@@ -674,10 +674,18 @@
        (profs-paragraph armor-profs armor5e/armor-map "Armor")
        (profs-paragraph languages language-map "Language")]))))
 
-(defn damage-str [die die-count mod damage-type]
-  (str (dice/dice-string die-count die mod)
-       (when damage-type
-         (str " " (if (keyword? damage-type) (name damage-type) (str damage-type))))))
+(defn damage-str
+  "A weapon's damage for the PDF, e.g. \"1d8+2 slashing\".
+   Args: die, die-count, mod (the damage modifier), damage-type (keyword or string), and
+   optionally summary, the weapon's short effect. Returns a string; with no die (the Net) it is
+   \"None\", or \"None (restrains)\" given a summary, and no modifier."
+  ([die die-count mod damage-type] (damage-str die die-count mod damage-type nil))
+  ([die die-count mod damage-type summary]
+   (if-not die
+     (str "None" (when summary (str " (" summary ")")))
+     (str (dice/dice-string die-count die mod)
+          (when damage-type
+            (str " " (if (keyword? damage-type) (name damage-type) (str damage-type))))))))
 
 (defn attacks-and-spellcasting-fields 
   "The attack fields for `built-char`'s equipped weapons, ammunition excluded: the first three
@@ -696,7 +704,7 @@
                                finesse-damage-modifier (char5e/weapon-damage-modifier built-char weapon true)
                                normal {:name (:name weapon)
                                        :attack-bonus (char5e/best-weapon-attack-modifier built-char weapon)
-                                       :damage (damage-str damage-die damage-die-count normal-damage-modifier damage-type)}]
+                                       :damage (damage-str damage-die damage-die-count normal-damage-modifier damage-type (:summary weapon))}]
                            (remove
                             nil?
                             [normal

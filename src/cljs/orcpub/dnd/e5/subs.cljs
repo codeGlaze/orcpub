@@ -1,5 +1,6 @@
 (ns orcpub.dnd.e5.subs
   (:require [re-frame.core :refer [reg-sub reg-sub-raw subscribe dispatch reg-event-db]]
+            [orcpub.dnd.e5.picks :as picks]
             [orcpub.entity :as entity]
             [orcpub.entity.strict :as se]
             [orcpub.template :as t]
@@ -14,6 +15,7 @@
                                                                     default-mod-set
                                                                     handle-api-response]]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.char-filter :as char-filter]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
@@ -121,6 +123,58 @@
  :temp-email
  (fn [db [_]]
    (get db :temp-email)))
+
+;; ---- portrait compositor drawer state (top-level app-db) ----
+(reg-sub
+ :portrait/drawer-open?
+ (fn [db _] (boolean (get db :portrait/drawer-open?))))
+
+(reg-sub
+ :portrait/draft
+ (fn [db _] (get db :portrait/draft {})))
+
+(reg-sub-raw
+ ::char5e/unsaved-drafts
+ ;; Reads the drafts list from this browser when a view that shows it appears.
+ (fn [app-db _]
+   (dispatch [::char5e/load-drafts])
+   (ra/make-reaction #(get @app-db :draft/list))))
+
+(reg-sub ::char5e/draft-held (fn [db _] (:draft/held db)))
+(reg-sub ::char5e/draft-offer (fn [db _] (:draft/offer db)))
+(reg-sub ::char5e/draft-restored (fn [db _] (:draft/restored db)))
+(reg-sub ::char5e/draft-conflict (fn [db _] (:draft/conflict db)))
+
+(reg-sub-raw
+ :portrait/artist-overrides
+ ;; Fetches the artist credits the first time a view that shows one subscribes, so a page with no
+ ;; portrait never asks; until they arrive the views show the registry's defaults.
+ (fn [app-db _]
+   (dispatch [:portrait/load-artists])
+   (ra/make-reaction #(get @app-db :portrait/artist-overrides))))
+
+(reg-sub
+ :portrait/draft-seed
+ (fn [db _] (get db :portrait/draft-seed)))
+
+(reg-sub
+ :portrait/open-slot
+ (fn [db _] (get db :portrait/open-slot)))
+
+(reg-sub
+ :portrait/open-layer
+ (fn [db _] (get db :portrait/open-layer)))
+
+(reg-sub
+ :portrait/dirty?
+ ;; Compared as data, not as strings: pr-str of an equal map is not guaranteed
+ ;; to be byte-identical, and nil-vs-empty-portrait must not read as an edit.
+ (fn [db _]
+   (let [draft (get db :portrait/draft)
+         saved (char5e/parse-portrait
+                (get-in db [:character ::entity/values ::char5e/portrait]))]
+     (boolean (and draft
+                   (not= draft (or saved portrait-assets5e/empty-portrait)))))))
 
 (reg-sub
  :locked
@@ -328,6 +382,26 @@
    (-> db :user-data :user-data :pending-email)))
 
 (reg-sub
+ :preferred-name
+ (fn [db _]
+   (-> db :user-data :user-data :preferred-name)))
+
+(reg-sub
+ :preferred-name-enabled?
+ (fn [db _]
+   (boolean (-> db :user-data :user-data :preferred-name-enabled?))))
+
+(reg-sub
+ :artist-credit
+ (fn [db _]
+   (-> db :user-data :user-data :artist-credit)))
+
+(reg-sub
+ :account-save-status
+ (fn [db [_ k]]
+   (get db k)))
+
+(reg-sub
  :send-updates?
  (fn [db _]
    (boolean (-> db :user-data :user-data :send-updates?))))
@@ -437,6 +511,76 @@
                    (remove-watch tmpl-sub wk)
                    (when-let [tid @timeout-id]
                      (js/clearTimeout tid))))))
+
+;; Held picks (the planned hold) as the builder shows them: each one's name and what brings it
+;; back (picks/describe-held), from the builder's own debounced build.
+(reg-sub :orcpub.dnd.e5/planned-picks (fn [db _] (get db :orcpub.dnd.e5/planned-picks [])))
+(reg-sub :orcpub.dnd.e5/restore-notice (fn [db _] (get db :orcpub.dnd.e5/restore-notice)))
+
+;; The on-open notice's choices, described (name, what brings each back); hit-point rolls left out.
+(reg-sub
+ :orcpub.dnd.e5/open-notice-held
+ :<- [:orcpub.dnd.e5/held-picks]
+ :<- [:orcpub.dnd.e5/open-notice]
+ (fn [[held {notice :held}] _]
+   (let [shown (set (map :address notice))]
+     (filterv (fn [{{:keys [address]} :record}]
+                (and (shown address) (not (some #{:hit-points} address))))
+              held))))
+(reg-sub :orcpub.dnd.e5/open-notice (fn [db _] (get db :orcpub.dnd.e5/open-notice)))
+
+(reg-sub
+ :orcpub.dnd.e5/held-picks
+ :<- [:built-template]
+ :<- [:character]
+ :<- [:orcpub.dnd.e5/planned-picks]
+ :<- [:built-character]
+ (fn [[template character planned built] _]
+   (when (and (seq planned) (seq template))
+     (try (picks/describe-held template character planned built)
+          (catch :default e
+            (js/console.error "Planned picks could not be described." e)
+            nil)))))
+
+;; Every pick the character stores, for the Choices list (picks/choices).
+(reg-sub
+ :orcpub.dnd.e5/choices
+ :<- [:built-template]
+ :<- [:character]
+ (fn [[template character] _]
+   (when (seq template)
+     (try (picks/choices template character)
+          (catch :default e
+            (js/console.error "The Choices list could not be built." e)
+            [])))))
+
+;; Held picks whose own section is not on screen: they show under their class instead. Hit-point
+;; rolls still come back but are not listed; five "Average" lines say nothing.
+(reg-sub
+ :orcpub.dnd.e5/held-off-screen
+ :<- [:orcpub.dnd.e5/held-picks]
+ :<- [:available-selections]
+ (fn [[held available] _]
+   (let [open (set (map (comp vec entity/actual-path) available))]
+     (remove (fn [{{:keys [address]} :record}]
+               (or (open (pop address)) (some #{:hit-points} address)))
+             held))))
+
+(reg-sub
+ :orcpub.dnd.e5/held-for-class
+ :<- [:orcpub.dnd.e5/held-off-screen]
+ (fn [held [_ cls]]
+   (vec (filter #(= [:class cls] (take 2 (get-in % [:record :address]))) held))))
+
+(reg-sub
+ :orcpub.dnd.e5/held-by-section
+ :<- [:orcpub.dnd.e5/held-picks]
+ (fn [held _] (group-by (comp pop :address :record) held)))
+
+(reg-sub
+ :orcpub.dnd.e5/held-at
+ :<- [:orcpub.dnd.e5/held-by-section]
+ (fn [by-section [_ path]] (get by-section (vec path))))
 
 ;; The BUILDER's in-progress character. Ignores query args, so [:built-character]
 ;; and [:built-character nil] are two cache keys for the same thing -- and that
@@ -605,11 +749,29 @@
  (fn [[plugins offered offered-by-type] _]
    (content-recon/former-key-indexes plugins offered offered-by-type)))
 
+(defn page-settler
+  "A fn of [template character] returning `character` without the picks that no longer apply
+   (`picks/update-planned`, empty hold), for pages. It settles again only when the character (by
+   value) or the template (identical?) changed; a failure is logged and `character` returned."
+  []
+  (let [memo (atom nil)]
+    (fn [template character]
+      (let [[t c out] @memo]
+        (if (and (identical? t template) (= c character))
+          out
+          (let [out (try (:character (picks/update-planned template character []))
+                         (catch :default e
+                           (js/console.error "Picks were not settled for this page." e)
+                           character))]
+            (reset! memo [template character out])
+            out))))))
+
 ;; A saved character with its picks healed (heal-sites, content_reconciliation.cljs). Never stored.
 (reg-sub-raw
   ::char5e/character
   (fn [app-db [_ id :as args]]
-    (let [int-id (when id (js/parseInt id))]
+    (let [int-id (when id (js/parseInt id))
+          settle (page-settler)]
       (when (some? int-id)
         (go (dispatch [:set-loading true])
             (let [response (<! (http/get (url-for-route
@@ -632,9 +794,12 @@
       (ra/make-reaction
        (fn []
          (if int-id
-           (:character (content-recon/reconcile-former-keys
-                       (get-in @app-db [::char5e/character-map int-id] {})
-                       @(subscribe [::content-recon/former-key-indexes])))
+           (let [healed (:character (content-recon/reconcile-former-keys
+                                     (get-in @app-db [::char5e/character-map int-id] {})
+                                     @(subscribe [::content-recon/former-key-indexes])))
+                 template (get @app-db :orcpub.dnd.e5.autosave-fx/cached-template)]
+             ;; Picks that no longer apply are left out of what the page shows (picks.cljc).
+             (if (seq template) (settle template healed) healed))
            (get @app-db :character)))))))
 
 ;; Records that a character's server response could not be decoded even after self-heal; the
@@ -858,6 +1023,7 @@
    ::char5e/actions char5e/actions
    ::char5e/image-url char5e/image-url
    ::char5e/image-url-failed char5e/image-url-failed
+   ::char5e/portrait char5e/portrait
    ::char5e/faction-image-url char5e/faction-image-url
    ::char5e/faction-image-url-failed char5e/faction-image-url-failed
    ::char5e/personality-trait-1 char5e/personality-trait-1

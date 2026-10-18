@@ -116,6 +116,7 @@
     (curve (pt (- cx r) (+ cy k)) (pt (- cx k) (+ cy r)) (pt cx (+ cy r)))
     (curve (pt (+ cx k) (+ cy r)) (pt (+ cx r) (+ cy k)) (pt (+ cx r) cy))))
 
+;; The Base 14 fonts, present in every PDF reader. Constructed once at load time.
 (def HELVETICA
   "Standard Helvetica font (regular weight, upright)"
   (PDType1Font. Standard14Fonts$FontName/HELVETICA))
@@ -147,10 +148,14 @@
                (with-open [stream (.openStream (io/resource file))]
                  (PDType0Font/load doc stream))))
     {}
-    {:plain       "Vollkorn-Regular.ttf"
-     :italic      "Vollkorn-Italic.ttf"
-     :bold        "Vollkorn-Bold.ttf"
-     :bold-italic "Vollkorn-BoldItalic.ttf"}))
+    ;; Under public/ so the same single copy is both on the classpath for
+    ;; PDFBox and served over HTTP: the browser bakes the portrait credit into
+    ;; a PNG that ends up inside this very document, and it should be set in
+    ;; the document's own face rather than whatever the viewer's OS offers.
+    {:plain       "public/fonts/Vollkorn-Regular.ttf"
+     :italic      "public/fonts/Vollkorn-Italic.ttf"
+     :bold        "public/fonts/Vollkorn-Bold.ttf"
+     :bold-italic "public/fonts/Vollkorn-BoldItalic.ttf"}))
 
 (defn normalize-text
   "Coerces a value into the WinAnsiEncoding 0x20-0xFF subset PDFBox can render

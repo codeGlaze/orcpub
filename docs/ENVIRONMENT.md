@@ -48,6 +48,8 @@ See [PDF-EXPORT-CAPACITY.md](PDF-EXPORT-CAPACITY.md) for what these cost and how
 | `ORCPUB_PDF_MAX_RETRIES` | `3` | How many times the busy page retries itself before it stops and waits for the person to click. |
 | `ORCPUB_PDF_MAX_CASTER_SECTIONS` | `13` | Most spellcasting sections one sheet may be grown to. Thirteen is every class in the game, which no character can exceed. |
 | `ORCPUB_PDF_MAX_CARDS` | `198` | Most **cards** — not pages — of each kind a single export prints. Nine to a sheet, so 198 is exactly 22 sheets. Counted per kind, so spells, items and features are bounded separately. A level 20 wizard's spellbook is about 44. |
+| `ORCPUB_PORTRAIT_CONCURRENCY` | `max(2, cores / 2)` | How many shared-link portrait images are drawn at once. Each draw is about half a second of one core; repeat requests come from a cache, so this only bounds new pictures. See [PORTRAIT-SERVING.md](PORTRAIT-SERVING.md). |
+| `ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS` | `5000` | How long a portrait image waits to be drawn before the server answers 503 with a `Retry-After`. Short, because link-preview fetchers give up quickly. |
 
 A value that is present but not a positive integer is reported at boot and the
 default is used, so a typo does not take the server down or silently mean zero.
@@ -149,6 +151,15 @@ the table in half. Plain ASCII, no colour: it is read in aggregators as often as
 |----------|---------|-------------|
 | `LOAD_HOMEBREW_URL` | — | URL to fetch server-hosted `.orcbrew` plugins on first load (e.g. `/homebrew.orcbrew`). Unset = no fetch. |
 
+### Portrait artists
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORTRAIT_ARTISTS` | — | JSON of artist credits and accounts (see `ARTISTS.md`). An `account` email gets an artist account and a welcome email at startup. |
+| `APP_URL` | — | The site's address, used for links in artist emails (sent at startup, with no request to read it from). |
+| `EMAIL_ADMIN_TO` | `EMAIL_ERRORS_TO` | Who hears about artist account and credit changes. |
+| `PORTRAIT_STORE_DIR` | `orcpub-portraits` in the system temp directory | Where the server keeps its drawings of shared-link portraits, one file per character. A shared volume lets several containers draw each portrait once; without one each container draws it on first request and keeps the file. In Docker, mount a shared volume at `/var/lib/orcpub/portraits` (the image creates it for the app's user) and set this to that path. A failed write is logged and the drawing is still served. Derived files: losing them only means drawing again. |
+
 ### Security
 
 | Variable | Default | Description |
@@ -156,6 +167,7 @@ the table in half. Plain ASCII, no colour: it is read in aggregators as often as
 | `CSP_POLICY` | `strict` | Content Security Policy mode: `strict`, `permissive`, or `none` |
 | `DEV_MODE` | `"true"` (in :dev profile) | When true, **no CSP header is sent at all** — that is what lets Figwheel's `ws://localhost:3449` through. Must be the string `"true"` (case-insensitive); any other value, including `"1"`, `"yes"` or empty, is false. |
 | `ORCPUB_PWNED_CHECK` | `on` | Screen new passwords against the Have I Been Pwned corpus. Accepts `on`/`off`, `true`/`false`, `1`/`0`, `yes`/`no`. |
+| `PROFILE_ENCRYPTION_KEYS` | — | Encrypts preferred names at rest: comma-separated `id:base64` keys of 32 bytes; the first encrypts, all decrypt. Also read from the Docker secret `profile_encryption_keys`. Unset = preferred names cannot be saved. Losing it makes stored names unreadable. `./run` generates one. |
 
 **About the breach check.** Signup and password reset send the first five characters of
 the password's SHA-1 to `api.pwnedpasswords.com` and score the reply locally, so the

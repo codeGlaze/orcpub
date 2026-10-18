@@ -83,6 +83,11 @@
    Locale/ROOT does not match: its first argument is the locale, not the pattern."
   #"\(format\s+\"[^\"]*%[-+ 0,(#]*[0-9]*(?:\.[0-9]+)?[feEgGa]")
 
+(def ^:private console-re
+  "A format going straight to the console. A locale's own digits are RIGHT for a human
+   reading a log line; this rule is about numbers that become machine tokens."
+  #"\((?:println|print|printf)\s")
+
 (deftest no-unlocalised-decimal-format-in-the-pdf-path
   (testing "the KB rule, as a check that fires at write time rather than in CI"
     ;; The KB's own survey grep covers only case-folding, so no grep would have caught
@@ -92,7 +97,8 @@
                           :when (and (.isFile f) (re-find #"\.cljc?$" (.getName f)))
                           :let [src (slurp f)]
                           [i line] (map-indexed vector (str/split-lines src))
-                          :when (re-find decimal-format-re line)]
+                          :when (and (re-find decimal-format-re line)
+                                     (not (re-find console-re line)))]
                       (str (.getPath f) ":" (inc i) " " (str/trim line)))]
       (is (empty? offenders)
           (str "use String/format with Locale/ROOT:\n" (str/join "\n" offenders))))))
