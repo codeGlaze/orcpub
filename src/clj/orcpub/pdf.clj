@@ -268,8 +268,8 @@
   "Coerces a value into the WinAnsiEncoding 0x20-0xFF subset PDFBox can render
    (PDType1Font throws on anything else, blanking the field). nil -> nil; non-strings
    stringified. \\t -> space; other 0x00-0x1F dropped except \\n and \\r; curly
-   quotes -> straight; U+2013 / U+2014 -> - / --; U+2026 -> ...; anything else
-   above U+00FF -> '?'."
+   quotes -> straight; U+2013 / U+2014 -> - / --; U+2026 -> ...; the bullet U+2022 kept
+   (WinAnsi has it); anything else above U+00FF -> '?'."
   [s]
   (when (some? s)
     (-> (str s)
@@ -279,7 +279,7 @@
         (s/replace "\u201C" "\"") (s/replace "\u201D" "\"")
         (s/replace "\u2013" "-")  (s/replace "\u2014" "--")
         (s/replace "\u2026" "...")
-        (s/replace #"[^\u0000-\u00FF]" "?"))))
+        (s/replace #"[^\u0000-\u00FF\u2022]" "?"))))
 
 (defn- fix-widget-page-refs!
   "Populate the /P (page reference) entry on widget annotations that are missing it.

@@ -125,6 +125,12 @@
              (nt "‘q’ “d” – — …")))
       (is (= "ab c" (nt "ab\tc")) "BEL dropped, tab -> space")
       (is (= "??" (nt "日本")) "CJK -> placeholders, no throw")
+      (is (= "\u2022 The first command word" (nt "\u2022 The first command word"))
+          "the bullet is in WinAnsi, so it is kept, not turned into ?")
+      (is (pos? (count (.encode (org.apache.pdfbox.pdmodel.font.PDType1Font.
+                                 org.apache.pdfbox.pdmodel.font.Standard14Fonts$FontName/HELVETICA)
+                                (nt "\u2022"))))
+          "and Helvetica can write it")
       (is (nil? (nt nil))))))
 
 (deftest fonts-test
