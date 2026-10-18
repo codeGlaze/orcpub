@@ -78,6 +78,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** a Choices list in the builder shows every choice a character stores, including ones whose homebrew isn't loaded in this browser, and lets those be cleared.
 - **Characters:** the character builder's Back and Next repeat at the bottom of each page, and open the next page at its top.
 - **Homebrew:** the add buttons on homebrew builders repeat below a long list of traits or options.
+- **Printing:** A4 and A5 as well as US Letter, for spell cards, magic item cards, the spellbook and the character sheet. An A4 spellbook page carries about 7% more than a Letter one; A5 fits four cards to a sheet instead of nine.
+- **Printing:** when part of an export cannot be produced, the PDF opens with a page naming what was left out and why. A clean export is unchanged and gains no page.
 
 ### Changed
 
@@ -93,6 +95,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   not set one, instead of "Hi there".
 - **Characters:** the builder's tab bar wraps on narrow screens.
 - **Characters:** opening a character whose choices no longer apply sets them aside and lists them in a notice; the saved copy changes only when you save.
+- **Printing:** a character portrait whose host is briefly unreachable is fetched a second time before the export gives up on it.
 
 ### Fixed
 
@@ -151,6 +154,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** a choice that no longer applied, such as a skill picked for a level since lowered, stayed hidden on the character and still counted on its sheet.
 - **Characters:** deleting or changing a character's first class no longer wipes the other classes' choices.
 - **Homebrew:** a homebrew class's choices that share a name show in level order; levels 10 and 17 came before level 3.
+- **Printing:** a magic item or spell whose name the embedded font cannot draw no longer costs the card sheet it is on, and every sheet after it.
+- **Printing:** on a server whose JVM runs a non-English locale, spell-card school names and the sheet's ability labels drew the wrong letter: a Turkish server printed "İllusion" and "İNT".
 
 ### Security
 
