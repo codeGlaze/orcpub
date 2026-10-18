@@ -6726,6 +6726,34 @@
       ]
        )))
 
+(declare ability-increase-choices save-proficiency-choices ability-save-notes
+         optional-builder-section)
+
+(defn feat-ability-score-section
+  "A feat's increases: the released \"+1 to one of these\" checkboxes, or a 2024-style spread in an
+   optional section. Both write :ability-increases (a set, or a list), so one shows at a time: the
+   spread waits until the checkboxes are cleared, and removing its last row brings them back."
+  [feat]
+  (let [ai (:ability-increases feat)
+        spread? (boolean (and (vector? ai) (seq ai)))
+        legacy? (boolean (and (set? ai) (seq ai)))]
+    [:div
+     (if spread?
+       [:div.m-b-20.f-s-12.i "Ability Increase Options: using the 2024-style increases below."]
+       [feat-ability-increase-options feat])
+     [optional-builder-section "Ability Score Increases (2024 style)"
+      (or spread? (seq (:save-proficiencies feat)))
+      [:div
+       (if legacy?
+         ^{:key "asi"} [:div.m-b-20.f-s-12.i
+                        "These replace the Ability Increase Options above; clear those first."]
+         ^{:key "asi"} [ability-increase-choices (if spread? feat (assoc feat :ability-increases []))
+                        #(dispatch [::feats/set-feat-prop :ability-increases (if (seq %) % #{})])])
+       ^{:key "saves"} [save-proficiency-choices feat
+                        #(dispatch [::feats/set-feat-prop :save-proficiencies %])]
+       ;; the notes read a spread; the released set is not one, and is not malformed
+       ^{:key "notes"} [ability-save-notes (if spread? feat (dissoc feat :ability-increases))]]]]))
+
 (defn feat-builder []
   (let [feat @(subscribe [::feats/builder-item])
         plugins @(subscribe [::e5/plugins])]
@@ -6749,7 +6777,7 @@
          :on-change #(dispatch [::feats/set-feat-prop :description %])}]]]
      [:div [feat-prereqs feat]]
      [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
-     [:div [feat-ability-increase-options feat]]
+     [:div [feat-ability-score-section feat]]
      [:div [feat-skill-proficiency feat]]
      [:div [feat-languages feat]]
      [:div [feat-weapon-proficiency feat]]
@@ -7657,9 +7685,6 @@
                 (range 2)))]])])
        (range 1 6)))]]])
 
-(declare ability-increase-choices save-proficiency-choices ability-save-notes
-         optional-builder-section)
-
 (defn subclass-builder []
   (let [subclass @(subscribe [::classes/subclass-builder-item])
         spell-lists @(subscribe [::spells/spell-lists])
@@ -7903,7 +7928,13 @@
                           :on-change #(dispatch [::races/set-subrace-ability-increase key %])}]]
                [:td.p-2 "="]
                [:td.p-2 (+ race-bonus subrace-bonus)]]))
-          opt/abilities))]]]
+          opt/abilities))]]
+      ;; Explicit keys: Reagent takes a first-argument map's :key as the React key.
+      ^{:key "asi"} [ability-increase-choices subrace
+                     #(dispatch [::races/set-subrace-path-prop [:ability-increases] %])]
+      ^{:key "saves"} [save-proficiency-choices subrace
+                       #(dispatch [::races/set-subrace-path-prop [:save-proficiencies] %])]
+      ^{:key "notes"} [ability-save-notes subrace]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [:div [option-hps subrace ::races/toggle-subrace-value-prop]]
