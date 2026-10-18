@@ -52,6 +52,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** the builder shows choices waiting on a higher level beside the level picker, and says when each comes back.
 - **Characters:** with more than one class, a "1st" badge marks the starting class; tap another class's badge to make it the starting class, and choices that only apply to the starting class follow.
 - **Characters:** a Choices list in the builder shows every choice a character stores, including ones whose homebrew isn't loaded in this browser, and lets those be cleared.
+- **Characters:** the character builder's Back and Next repeat at the bottom of each page, and open the next page at its top.
+- **Homebrew:** the add buttons on homebrew builders repeat below a long list of traits or options.
 
 ### Changed
 

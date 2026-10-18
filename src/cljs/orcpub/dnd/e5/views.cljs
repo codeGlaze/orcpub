@@ -6509,6 +6509,15 @@
              #(dispatch [toggle-map-prop-event kw key])]])
          @(subscribe [::mi/custom-and-standard-weapons]))))])])
 
+(defn add-trait-button
+  "The add button of a builder's traits list.
+   Args: add-trait-event, the event vector to dispatch; button-title, the label
+   or nil for \"add feature / trait\". Returns hiccup."
+  [add-trait-event button-title]
+  [:button.form-button.m-l-5
+   {:on-click (make-event-handler add-trait-event)}
+   (or button-title "add feature / trait")])
+
 (defn option-traits [option
                      add-trait-event
                      edit-trait-name-event
@@ -6520,9 +6529,7 @@
    [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
     [:div.f-s-24.f-w-b.m-b-10 (or title "Features/Traits")]
     [:div
-     [:button.form-button.m-l-5
-      {:on-click (make-event-handler add-trait-event)}
-      (or button-title "add feature / trait")]]]
+     [add-trait-button add-trait-event button-title]]]
    [:div
     (if (seq (:traits option))
       (doall
@@ -6570,7 +6577,11 @@
        {:on-click #(dispatch [add-trait-event])}
        [:span "There are currently no features/traits, click "]
        [:span.orange.underline "here"]
-       [:span " or on the button above to add one."]])]])
+       [:span " or on the button above to add one."]])]
+   ;; Repeated below a non-empty list so a long one needs no scroll back up.
+   (when (seq (:traits option))
+     [:div.p-t-10.flex.justify-cont-end
+      [add-trait-button add-trait-event button-title]])])
 
 (defn option-saving-throw-advantages [option toggle-map-prop-event]
   [:div.m-b-20
@@ -8113,6 +8124,14 @@
         freqs (frequencies (remove nil? keys))]
     (set (map first (filter #(> (val %) 1) freqs)))))
 
+(defn add-option-button
+  "The selection builder's Add Option button; dispatches ::selections/add-option.
+   No args. Returns hiccup."
+  []
+  [:button.form-button
+   {:on-click #(dispatch [::selections/add-option])}
+   "Add Option"])
+
 (defn selection-builder []
   (let [selection @(subscribe [::selections/builder-item])
         options (:options selection)
@@ -8143,9 +8162,7 @@
      [:div
       [:div.flex.justify-cont-s-b
        [:div.f-s-24.f-w-b "Options"]
-       [:button.form-button
-        {:on-click #(dispatch [::selections/add-option])}
-        "Add Option"]]
+       [add-option-button]]
       ;; Summary warning for duplicate names
       (when has-dupes?
         [:div.p-10.m-b-10.red
@@ -8200,7 +8217,11 @@
                [textarea-field
                 {:value description
                  :on-change #(dispatch [::selections/set-selection-path-prop [:options i :description] %])}]]]))
-         options))]]]))
+         options))]
+      ;; Repeated below a non-empty list so a long one needs no scroll back up.
+      (when (seq options)
+        [:div.p-t-10.flex.justify-cont-end
+         [add-option-button]])]]))
 
 (defn language-builder []
   (let [language @(subscribe [::langs/builder-item])]
