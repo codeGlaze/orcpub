@@ -269,7 +269,141 @@
    :before (fn [context]
              (update-in context [:coeffects :db] drop-portrait-draft))))
 
-(def character-interceptors [check-spec-interceptor
+(defn hold-for
+  "`db-after` with the planned hold emptied when the edit starts on another character than the one
+   it holds for (`::e5/planned-for`, a `:db/id`; nil while unsaved): on `:reset-character`, a
+   replacement (`::e5/replacing?`, set by Random), or a different id. A first save hands the hold
+   the new id. Otherwise the character before the edit joins `::e5/settle-trail`."
+  [db-before db-after event-id]
+  (let [id (get-in db-after [:character :db/id])
+        owner (get db-after ::e5/planned-for (get-in db-before [:character :db/id]))]
+    (if (or (= :reset-character event-id) (::e5/replacing? db-after) (not= owner id))
+      (assoc (dissoc db-after ::e5/replacing?)
+             ::e5/planned-picks [] ::e5/planned-for id ::e5/settle-trail []
+             ::e5/restore-notice nil ::e5/open-notice nil)
+      (-> db-after
+          (assoc ::e5/planned-for id)
+          (update ::e5/settle-trail (fnil conj []) (:character db-before))))))
+
+(defn settle-needed?
+  "Whether an edit from `db-before` to `db-after` can change which picks apply: the cached
+   template changed, or the character did outside `::entity/values` (name, notes and other text).
+   GOTCHA: a prereq reading `::entity/values` would not settle until the next other edit."
+  [db-before db-after]
+  (or (not (identical? (get db-before ::autosave-fx/cached-template)
+                       (get db-after ::autosave-fx/cached-template)))
+      (not= (dissoc (:character db-before) ::entity/values)
+            (dissoc (:character db-after) ::entity/values))))
+
+(defn- lost-in-trail
+  "`picks/removed-with-container` records for each step of `trail` (characters before each edit)
+   ending at `character`, at most one per address."
+  [trail character]
+  (let [steps (conj (vec trail) character)]
+    (->> (map picks/removed-with-container steps (rest steps))
+         (apply concat)
+         (reduce (fn [acc r] (if (some #(= (:address r) (:address %)) acc) acc (conj acc r))) []))))
+
+(defn settle-picks-db
+  "`db` with its character settled against the planned hold (`picks/update-planned`), the picks its
+   edits removed with their entry (`::e5/settle-trail`) held too, and the change in
+   `::e5/picks-change`. Unchanged without a cached template, or when settling throws (logged):
+   the character stays as edited. decision-gate-hidden-picks.md"
+  [db]
+  (let [template (get db ::autosave-fx/cached-template)]
+    (if-not (seq template)
+      db
+      (try
+        (let [hold (get db ::e5/planned-picks [])
+              held (set (map :address hold))
+              lost (remove #(held (:address %))
+                           (lost-in-trail (::e5/settle-trail db) (:character db)))
+              {:keys [character planned restored retired]}
+              (picks/update-planned template (:character db) (into (vec hold) lost))
+              planned (picks/with-returns template character planned)
+              ;; Against the hold before: a pick lost and back within one burst never left.
+              came-back (filterv #(held (:address %)) restored)]
+          (cond-> (assoc db
+                         :character character
+                         ::e5/planned-picks planned
+                         ::e5/settle-trail []
+                         ::e5/picks-change {:set-aside (filterv #(not (held (:address %))) planned)
+                                            :restored came-back
+                                            :retired retired})
+            ;; Opening a character whose stored choices no longer apply: say so once.
+            (::e5/settle-opening? db)
+            (-> (dissoc ::e5/settle-opening?)
+                (cond-> (seq (remove #(held (:address %)) planned))
+                  (assoc ::e5/open-notice {:held (filterv #(not (held (:address %))) planned)})))
+            ;; Builds up until the player closes it, so a later edit does not wipe it.
+            (seq came-back)
+            (update ::e5/restore-notice
+                    (fn [{prior :restored}]
+                      {:restored (->> (concat prior came-back)
+                                      (map (juxt (comp str :address) identity))
+                                      (into (sorted-map))
+                                      vals
+                                      vec)}))))
+        (catch :default e
+          (js/console.error "Picks were not settled; the character is left as edited." e)
+          (cond-> (dissoc db ::e5/settle-opening?)
+            (seq (::e5/settle-trail db)) (assoc ::e5/settle-trail [])))))))
+
+;; Never settles inside the edit, so it cannot fail or slow one: it resets the hold when needed
+;; and queues ::e5/settle-picks. plan-hidden-pick-fix-and-grant-fields.md, "Step 1 hardening".
+(def queue-settle
+  (->interceptor
+   :id :queue-settle
+   :after (fn [context]
+            (let [db-before (get-in context [:coeffects :db])
+                  db-after (get-in context [:effects :db])]
+              ;; A replacement (Random) always resets the hold, even when only text changed.
+              (if (and db-after (or (::e5/replacing? db-after) (settle-needed? db-before db-after)))
+                (let [event-id (first (get-in context [:coeffects :event]))
+                      opening? (#{:set-character ::autosave-fx/cache-template} event-id)]
+                  (-> context
+                      (assoc-in [:effects :db] (cond-> (hold-for db-before db-after event-id)
+                                                 opening? (assoc ::e5/settle-opening? true)))
+                      (assoc-in [:effects ::settle-picks-soon] true)))
+                context)))))
+
+(def ^:private settle-debounce-ms
+  "The build's timing (subs `build-debounce-ms`): a single change settles at once, rapid changes
+   once they pause."
+  500)
+
+(defonce ^:private settle-timer (atom {:id nil :last-ms 0}))
+
+(defn- settle-now!
+  "Clears the pending settle timer, records now as the last settle, and dispatches
+   `::e5/settle-picks`. Returns nil."
+  []
+  (swap! settle-timer assoc :id nil :last-ms (.now js/Date))
+  (dispatch [::e5/settle-picks]))
+
+(reg-fx
+ ::settle-picks-soon
+ (fn [_]
+   (let [{:keys [id last-ms]} @settle-timer]
+     (when id (js/clearTimeout id))
+     (if (>= (- (.now js/Date) last-ms) settle-debounce-ms)
+       (settle-now!)
+       (swap! settle-timer assoc :id (js/setTimeout settle-now! settle-debounce-ms))))))
+
+(defn settle-picks-fx
+  "Handler for `::e5/settle-picks`: `settle-picks-db`, and the draft rewritten when the character
+   changed. Opening a saved character never saves it: the saved copy keeps its choices until the
+   player saves (owner, 2026-10-16; decision-gate-hidden-picks.md)."
+  [{:keys [db]} _]
+  (let [db' (settle-picks-db db)]
+    (cond-> {:db db'}
+      (not (identical? (:character db) (:character db')))
+      (assoc ::persist-healed-character (:character db')))))
+
+(reg-event-fx ::e5/settle-picks settle-picks-fx)
+
+(def character-interceptors [queue-settle
+                             check-spec-interceptor
                              set-changed
                              (path :character)
                              ->local-store])
@@ -277,8 +411,9 @@
 (def new-character-interceptors
   "character-interceptors, plus the portrait discard, which has to sit BEFORE
    (path :character) -- past that point the db is the character and the draft,
-   which is not in the character, is out of reach."
-  [check-spec-interceptor
+   which is not in the character, is out of reach. queue-settle resets the planned hold for New."
+  [queue-settle
+   check-spec-interceptor
    set-changed
    discard-portrait-draft
    (path :character)
@@ -558,8 +693,10 @@
 
 (reg-event-fx
  :set-random-character
+ ;; A new character, not an edit: the hold and its trail start over (`hold-for`).
  (fn [{:keys [db]} [_ character built-template locked-components]]
-   {:dispatch [:set-character (random-character character built-template locked-components)]}))
+   {:db (assoc db ::e5/replacing? true)
+    :dispatch [:set-character (random-character character built-template locked-components)]}))
 
 (reg-event-fx
  :random-character
@@ -602,11 +739,12 @@
   [character]
   (dissoc (entity/remove-ids (char5e/to-strict character)) ::se/version))
 
-(reg-event-fx
- :character-save-success
- ;; ARGUMENT ORDER IS THE EFFECT'S, NOT THE CALLER'S. The :http effect
- ;; dispatches (conj on-success response), so the response arrives LAST.
- (fn [{:keys [db]} [_ {:keys [for-id] :as save-context} response]]
+(defn character-save-success-fx
+  "Handler for `:character-save-success`: records the reply for character `id`, replaces the builder
+   only with a save about it (saved-character-is-the-one-being-edited?), keeps the builder's unsaved
+   edits on an autosave reply, and hands the planned hold the saved id (`::e5/planned-for`).
+   GOTCHA: the :http effect appends the response, so it arrives LAST, after the save context."
+  [{:keys [db]} [_ {:keys [for-id] :as save-context} response]]
    (let [strict-character (:body response)
          character (char5e/from-strict strict-character)
          id (:db/id character)
@@ -633,6 +771,8 @@
      (cond-> {:db (cond-> (-> db
                               (update ::in-flight dissoc id)
                               (update ::edited-in-flight dissoc id))
+                    ;; The builder's character, unsaved or the same id: the hold now holds for its id.
+                    (contains? #{nil id} (get-in db [:character :db/id])) (assoc ::e5/planned-for id)
                     (not newer?) (update ::sheet-edited dissoc id)
                     newer? (assoc-in [::stored-shape id] (stored-shape character))
                     (and newer? version) (assoc-in [::char5e/character-map id ::entity/version] version)
@@ -656,7 +796,9 @@
        (and keep-builder? (not (:draft/held db))) (assoc ::builder-draft->local-store kept)
        ;; A first save: the draft moves from its browser key to the new id.
        (and current? (nil? (get-in db [:character :db/id]))) (assoc ::drop-unsaved-draft true)
-       for-id (assoc ::autosave-fx/saved for-id)))))
+       for-id (assoc ::autosave-fx/saved for-id))))
+
+(reg-event-fx :character-save-success character-save-success-fx)
 
 (reg-fx
  ::drop-unsaved-draft
@@ -813,44 +955,94 @@
                 builder-free? (assoc :character rebased))
           :dispatch [::char5e/save-character for-id]})
        {:db (update db ::refused dissoc for-id)
-        :dispatch (if (= 409 status)
+        :dispatch (cond
+                    (= 409 status)
                     [:show-error-message
                      (str "This character was changed somewhere else, so your change couldn't be "
                           "saved. Reload it to see the latest.")]
-                    (event-utils/show-generic-error))}))))
+                    (= :character-gone (:error body))
+                    [:show-error-message
+                     "This character was deleted somewhere else, so your change couldn't be saved."]
+                    :else (event-utils/show-generic-error))}))))
 
 ;; Manual save — dispatched from character builder UI with built-char in scope.
 ;; If the user hasn't set a name, generates a random one and persists it.
-(reg-event-fx
- :save-character
- (fn [{:keys [db]} [_ built-character]]
-   (let [character-name (char5e/character-name built-character)
-         needs-name? (s/blank? character-name)
-         ;; Generate a random name for unnamed characters on manual save
-         rand-name (when needs-name? (generate-random-name built-character))
-         ;; Update entity in db so the name persists across future edits
-         db' (if needs-name?
+(reg-event-db ::e5/dismiss-open-notice (fn [db _] (dissoc db ::e5/open-notice)))
+
+(defn undo-restore-db
+  "`db` with the picks its restore notice reports taken back out of the character. They are not
+   held again (the next settle would return them); Redo puts them back."
+  [db]
+  (let [{:keys [restored]} (::e5/restore-notice db)
+        {:keys [character removed]}
+        (reduce (fn [{:keys [character] :as acc} {:keys [address]}]
+                  (let [{c :character r :removed} (picks/remove-at character address)]
+                    (cond-> (assoc acc :character c) r (update :removed conj r))))
+                {:character (:character db) :removed []}
+                restored)]
+    (assoc db :character (assoc character :changed true) ::e5/restore-notice {:undone removed})))
+
+(defn redo-restore-db
+  "`db` with the picks Undo took out put back where they still fit."
+  [db]
+  (let [{:keys [undone]} (::e5/restore-notice db)
+        {:keys [character put-back]} (picks/from-planned (:character db) undone)]
+    (assoc db :character (assoc character :changed true) ::e5/restore-notice {:restored put-back})))
+
+(reg-event-db ::e5/undo-restore [db-char->local-store] (fn [db _] (undo-restore-db db)))
+(reg-event-db ::e5/redo-restore [db-char->local-store] (fn [db _] (redo-restore-db db)))
+(reg-event-db ::e5/dismiss-restore (fn [db _] (dissoc db ::e5/restore-notice)))
+
+(reg-event-db
+ ::e5/clear-planned
+ (fn [db [_ address]]
+   (update db ::e5/planned-picks (fn [held] (filterv #(not= address (:address %)) held)))))
+
+(reg-event-db
+ ::e5/clear-pick
+ character-interceptors
+ (fn [character [_ address]]
+   (:character (picks/remove-at character address))))
+
+(defn save-character-fx
+  "Handler for `:save-character`. Settles picks first (`settle-picks-db`), so a save right after
+   an edit never sends a pick that has stopped applying."
+  [{:keys [db]} [_ built-character]]
+  (let [character-name (char5e/character-name built-character)
+        needs-name? (s/blank? character-name)
+        ;; Generate a random name for unnamed characters on manual save
+        rand-name (when needs-name? (generate-random-name built-character))
+        ;; Update entity in db so the name persists across future edits
+        db' (settle-picks-db
+             (if needs-name?
                (assoc-in db [:character ::entity/values ::char5e/character-name] rand-name)
-               db)
-         {:keys [:db/id] :as strict} (char5e/to-strict (:character db'))
-         summary (cond-> (make-summary built-character)
-                   ;; Override summary name with the generated name
-                   ;; (make-summary produced a descriptive label since entity was blank)
-                   needs-name? (assoc ::char5e/character-name rand-name))]
-     (if (every?
-          (fn [ability-kw]
-            (nat-int? (get-in built-character [:base-abilities ability-kw])))
-          char5e/ability-keys)
-       {:db db'
-        :dispatch [:set-loading true]
-        :http {:method :post
-               :headers (authorization-headers db')
-               :url (url-for-route routes/dnd-e5-char-list-route)
-               :transit-params (assoc strict :orcpub.entity.strict/summary summary)
-               :on-success [:character-save-success
-                            {:epoch (:character-epoch db' 0)}]
-               :on-failure [::char5e/builder-save-refused {:epoch (:character-epoch db' 0)}]}}
-       {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))
+               db))
+        {:keys [:db/id] :as strict} (char5e/to-strict (:character db'))
+        ;; The summary and the check describe what is sent: rebuilt when the settle changed it.
+        template (::autosave-fx/cached-template db')
+        built-character (if (and template (not= (get-in db [:character ::entity/options])
+                                                (get-in db' [:character ::entity/options])))
+                          (entity/build (:character db') template)
+                          built-character)
+        summary (cond-> (make-summary built-character)
+                  ;; Override summary name with the generated name
+                  ;; (make-summary produced a descriptive label since entity was blank)
+                  needs-name? (assoc ::char5e/character-name rand-name))]
+    (if (every?
+         (fn [ability-kw]
+           (nat-int? (get-in built-character [:base-abilities ability-kw])))
+         char5e/ability-keys)
+      {:db db'
+       :dispatch [:set-loading true]
+       :http {:method :post
+              :headers (authorization-headers db')
+              :url (url-for-route routes/dnd-e5-char-list-route)
+              :transit-params (assoc strict :orcpub.entity.strict/summary summary)
+              :on-success [:character-save-success {:epoch (:character-epoch db' 0)}]
+              :on-failure [::char5e/builder-save-refused {:epoch (:character-epoch db' 0)}]}}
+      {:dispatch [:show-error-message "You must provide values for all ability scores"]})))
+
+(reg-event-fx :save-character save-character-fx)
 
 (reg-event-fx
  :item-save-success
@@ -2560,9 +2752,13 @@
                                      :character (draft->character draft)})
       db)))
 
+;; Registered here, not in autosave_fx, so it queues a settle: the first template a draft is
+;; opened with settles it, before any edit.
+(reg-event-fx ::autosave-fx/cache-template [queue-settle] autosave-fx/cache-template)
+
 (reg-event-fx
  :set-character
- [leftover-draft db-char->local-store (inject-cofx ::e5/pending-relinks)]
+ [queue-settle leftover-draft db-char->local-store (inject-cofx ::e5/pending-relinks)]
  (fn [{:keys [db] :as cofx} event]
    (let [db' (apply-leftover (set-character db event) (::leftover cofx))
          relinks (::e5/pending-relinks cofx)
@@ -2928,7 +3124,11 @@
  character-interceptors
  event-handlers/set-class-level)
 
-(defn delete-class [character [_ class-key i options-map]]
+(defn delete-class
+  "Removes class `class-key`. When it was the first class, the class that becomes first keeps its
+   levels and picks and brings its starting equipment; picks that stop applying go to the hold
+   (`queue-settle`)."
+  [character [_ class-key i options-map]]
   (let [updated (update-in
                  character
                  [::entity/options :class]
@@ -2937,13 +3137,32 @@
         new-first-class-option (when new-first-class-key (options-map new-first-class-key))]
     (if (and (zero? i)
              new-first-class-option)
-      (char5e/set-class updated new-first-class-key 0 new-first-class-option)
+      (char5e/use-class-starting-equipment updated new-first-class-option)
       updated)))
 
 (reg-event-db
  :delete-class
  character-interceptors
  delete-class)
+
+(defn make-starting-class
+  "Moves class `class-key` to the front, so it is the starting class, with its starting equipment;
+   picks that apply only to the starting class follow it through the hold (`queue-settle`).
+   `options-map`: class key to its template option."
+  [character [_ class-key options-map]]
+  (let [classes (vec (get-in character [::entity/options :class]))
+        moving (some #(when (= class-key (::entity/key %)) %) classes)
+        option (options-map class-key)]
+    (if (or (nil? moving) (= class-key (::entity/key (first classes))))
+      character
+      (cond-> (assoc-in character [::entity/options :class]
+                        (into [moving] (remove #(= class-key (::entity/key %))) classes))
+        option (char5e/use-class-starting-equipment option)))))
+
+(reg-event-db
+ ::char5e/make-starting-class
+ character-interceptors
+ make-starting-class)
 
 (reg-event-db
  :add-inventory-item
@@ -3212,9 +3431,12 @@
            shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
            share-token (update :dispatch-n conj [::e5/load-shared-homebrew (:id route-params) share-token])
            event (update :dispatch-n conj event)
-           ;; The heal waits for the template's offered keys, so a page showing a character
-           ;; starts building it; other pages build nothing (homebrew-safety-net.md).
-           (#{routes/dnd-e5-char-builder-route routes/dnd-e5-char-page-route} (or handler new-route))
+           ;; The template's offered keys feed the heal on a character's pages and the repair panel
+           ;; and missing-link marks on My Content and its builders, so those pages start
+           ;; building it; other pages build nothing (homebrew-safety-net.md).
+           (let [r (or handler new-route)]
+             (or (#{routes/dnd-e5-char-builder-route routes/dnd-e5-char-page-route} r)
+                 (routes/dnd-e5-my-content-routes r)))
            (assoc ::autosave-fx/ensure-template-cache true)
            ;; After [:hide-message] above: dispatch-n is FIFO, so the toast survives navigation.
            (heal-announcement (assoc db :route new-route))
@@ -3897,16 +4119,32 @@
          (sort-by :label)
          vec)))
 
+(def ^:private character-gone-message
+  "What a builder Save of a deleted character says."
+  (str "This character was deleted somewhere else. Your changes are still here: "
+       "Save stores them as a new character."))
+
 (reg-event-fx
  ::char5e/builder-save-refused
  ;; A builder Save the server refused. A 409 :stale-character (saved elsewhere since it was opened)
- ;; keeps the builder's copy and asks which to keep; anything else is the generic error.
+ ;; keeps the builder's copy and asks which to keep; a 410 :character-gone (deleted elsewhere) keeps
+ ;; the edit without its ids, so the next Save stores it as new; anything else is the generic error.
  (fn [{:keys [db]} [_ _ {:keys [status body]}]]
    (if-let [current (when (and (= 409 status) (= :stale-character (:error body)))
                       (some-> (:current body) char5e/from-strict))]
      {:db (assoc db :draft/conflict {:current current
                                      :fields (differing-fields (:character db) current)})}
-     {:dispatch (event-utils/show-generic-error)})))
+     (if (and (= 410 status) (= :character-gone (:error body)))
+       (let [old (:character db)
+             unsaved (-> old char5e/to-strict entity/remove-ids char5e/from-strict
+                         (assoc :changed true :draft/base (:draft/base old)))]
+         {:db (assoc db :character unsaved)
+          ;; The draft moves to a never-saved key; written before the deleted id's draft goes.
+          :fx (when-not (:draft/held db)
+                [[::builder-draft->local-store unsaved]
+                 [::remove-draft (str (:db/id old))]])
+          :dispatch [:show-error-message character-gone-message]})
+       {:dispatch (event-utils/show-generic-error)}))))
 
 (reg-event-db
  ::char5e/keep-mine
@@ -4154,11 +4392,15 @@
    (assoc-in db [:character-report-status char-id]
              (if (get-in response [:body :sent?]) :sent :failed))))
 
-(reg-event-fx
- :new-character
- (fn [{:keys [db]} _]
-   {:db (assoc db :character default-character)
-    :dispatch [:route routes/dnd-e5-char-builder-route]}))
+(defn new-character-fx
+  "Handler for `:new-character`: the default character, with an empty planned hold and none of
+   the previous character's notices or pending settle."
+  [{:keys [db]} _]
+  {:db (assoc db :character default-character ::e5/planned-picks [] ::e5/planned-for nil
+              ::e5/settle-trail [] ::e5/restore-notice nil ::e5/open-notice nil)
+   :dispatch [:route routes/dnd-e5-char-builder-route]})
+
+(reg-event-fx :new-character new-character-fx)
 
 (reg-event-db
  :hide-message

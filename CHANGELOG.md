@@ -72,6 +72,10 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   again, with Undo; older ones wait in an "Unsaved drafts" list in the builder and on the character
   list for 30 days (a character never saved to an account is kept). A character open in another
   tab waits for "Edit here".
+- **Characters:** lowering a level or changing a class, subclass or race keeps the choices that depend on it while you edit; change your mind and they come back by themselves, with Undo.
+- **Characters:** the builder shows choices waiting on a higher level beside the level picker, and says when each comes back.
+- **Characters:** with more than one class, a "1st" badge marks the starting class; tap another class's badge to make it the starting class, and choices that only apply to the starting class follow.
+- **Characters:** a Choices list in the builder shows every choice a character stores, including ones whose homebrew isn't loaded in this browser, and lets those be cleared.
 
 ### Changed
 
@@ -86,6 +90,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Accounts:** site emails greet you by your preferred name, or by your username when you have
   not set one, instead of "Hi there".
 - **Characters:** the builder's tab bar wraps on narrow screens.
+- **Characters:** opening a character whose choices no longer apply sets them aside and lists them in a notice; the saved copy changes only when you save.
 
 ### Fixed
 
@@ -139,6 +144,9 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Sharing:** every shared character link had an empty title and image in its preview.
 - **Printing:** exported sheets reported "Adobe InDesign CS6" as their creator and had no title or
   author.
+- **Characters:** a choice that no longer applied, such as a skill picked for a level since lowered, stayed hidden on the character and still counted on its sheet.
+- **Characters:** deleting or changing a character's first class no longer wipes the other classes' choices.
+- **Homebrew:** a homebrew class's choices that share a name show in level order; levels 10 and 17 came before level 3.
 
 ### Security
 

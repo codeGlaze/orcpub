@@ -33,6 +33,8 @@
             [orcpub.dnd.e5.content-reconciliation-test]
             ;; the save/key lifecycle: save twice, rename, restore a draft, land on a taken key
             [orcpub.dnd.e5.homebrew-save-lifecycle-test]
+            [orcpub.dnd.e5.plan-picks-test]
+            [orcpub.dnd.e5.coverage-pak-test]
             [orcpub.dnd.e5.reference-web-test]
             [orcpub.dnd.e5.views-test]
             [orcpub.dnd.e5.portrait-credit-thumb-test]
@@ -78,6 +80,8 @@
              'orcpub.dnd.e5.built-character-debounce-test
              'orcpub.dnd.e5.content-reconciliation-test
              'orcpub.dnd.e5.homebrew-save-lifecycle-test
+             'orcpub.dnd.e5.plan-picks-test
+             'orcpub.dnd.e5.coverage-pak-test
              'orcpub.dnd.e5.reference-web-test
              'orcpub.dnd.e5.views-test
              'orcpub.dnd.e5.portrait-credit-thumb-test

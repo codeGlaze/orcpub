@@ -1885,7 +1885,11 @@
          ::se/game-version :e5
          ::se/type :character))
 
-(defn update-character [db conn character username]
+(defn update-character
+  "Stores `character` (strict, with its :db/id) over the stored one, as owned by `username`, and
+   returns the stored character pulled after the save. Throws ExceptionInfo :character-gone when
+   nothing is stored at its id (deleted), :not-user-character when someone else owns it."
+  [db conn character username]
   (let [id (:db/id character)]
     (if (owns-entity? db username id)
       (let [current-character (d/pull db '[*] id)
@@ -1920,8 +1924,9 @@
                                add-dnd-5e-character-tags))]
               @(d/transact conn tx)
               (d/pull (d/db conn) '[*] id)))))
-      (throw (ex-info "Not user character"
-                      {:error :not-user-character})))))
+      (throw (if (empty? (d/datoms db :eavt id))
+               (ex-info "Character gone" {:error :character-gone})
+               (ex-info "Not user character" {:error :not-user-character}))))))
 
 (defn create-new-character
   "Creates a D&D 5e character owned by `username` and returns the pulled entity.
@@ -1963,7 +1968,12 @@
                                         ::se/values ::char5e/portrait)))
     (catch Exception e (println "portrait-store: not told about" id "-" (.getMessage e)))))
 
-(defn do-save-character [db conn transit-params identity]
+(defn do-save-character
+  "Saves the strict character `transit-params` for the user in `identity`: creates it when it has
+   no :db/id, else updates it. Returns a response map: 200 with the stored character, 400 with the
+   spec or problem data, 401 when another player owns it, 410 {:error :character-gone} when it
+   has been deleted."
+  [db conn transit-params identity]
   (let [character (entity/remove-empty-fields transit-params)
         username (:user identity)
         current-id (:db/id character)]
@@ -1981,6 +1991,7 @@
           (case (:error data)
             :character-problems {:status 400 :body (:problems data)}
             :not-user-character {:status 401 :body "You do not own this character"}
+            :character-gone {:status 410 :body {:error :character-gone}}
             (throw e))))   ; re-throw unrecognised ExceptionInfo (e.g. :db/error from Datomic)
       (catch Exception e (prn "ERROR" e) (throw e)))))
 

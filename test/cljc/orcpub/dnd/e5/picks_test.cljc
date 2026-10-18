@@ -1,6 +1,7 @@
 (ns orcpub.dnd.e5.picks-test
   (:require [clojure.test :refer [deftest testing is]]
             [orcpub.entity :as entity]
+            [orcpub.entity.strict :as strict]
             [orcpub.dnd.e5.picks :as picks]))
 
 (def ranger
@@ -111,3 +112,42 @@
           no-ranger (assoc-in ranger [::entity/options :class]
                               [(get-in ranger [::entity/options :class 1])])]
       (is (nil? (picks/put-at no-ranger removed))))))
+
+(deftest addresses-lists-every-pick-once-with-its-full-address
+  (let [listed (picks/addresses ranger)
+        as (map first listed)]
+    (is (= #{[:race :elf] [:race :elf :subrace :wood-elf] [:class :ranger] [:class :fighter]
+             [:class :ranger :levels :level-7] steel-will
+             [:class :ranger :skill-proficiency :athletics] insight
+             [:class :ranger :skill-proficiency :stealth]
+             [:class :fighter :fighting-style :defense]}
+           (set as)))
+    (is (= 10 (count as)) "each pick once")
+    (is (= {::entity/key :steel-will} (get (into {} listed) steel-will)) "with its stored entry")
+    (is (< (.indexOf (vec as) [:class :ranger]) (.indexOf (vec as) steel-will))
+        "a parent before its children"))
+  (testing "nothing stored, or an entry with no key"
+    (is (= [] (picks/addresses {})))
+    (is (= [[[:race :elf] {::entity/key :elf}]]
+           (picks/addresses {::entity/options {:race {::entity/key :elf}
+                                               :ability-scores {::entity/value {:str 10}}}})))))
+
+(deftest remove-at-removes-each-listed-address
+  (doseq [[address e] (picks/addresses ranger)]
+    (let [{:keys [character removed]} (picks/remove-at ranger address)]
+      (is (= e (:entry removed)) (str address))
+      (is (not-any? #(= address (first %)) (picks/addresses character)) (str address)))))
+
+(deftest addresses-reads-a-saved-character
+  (let [stored {:db/id 1
+                ::strict/selections
+                [{::strict/key :class
+                  ::strict/options [{::strict/key :wizard
+                                     ::strict/selections
+                                     [{::strict/key :wizard-spells-known
+                                       ::strict/options [{::strict/key :brine-lash}]}]}]}
+                 {::strict/key :race ::strict/option {::strict/key :tidefolk}}
+                 {::strict/key :feats ::strict/options [{::strict/key :tidebreaker}]}]}]
+    (is (= #{[:class :wizard] [:class :wizard :wizard-spells-known :brine-lash]
+             [:race :tidefolk] [:feats :tidebreaker]}
+           (set (map first (picks/addresses (entity/from-strict stored))))))))

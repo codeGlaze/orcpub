@@ -1307,6 +1307,63 @@
     [:.callout-aside {:color muted-on-dark}]]
    ;; Even spacing above and below the line and the band, so the box opens like a shell.
    [:.callout-compact.flex-wrap {:row-gap "4px !important"}]
+   ;; A Planned line is a button that reads as the italic link it replaces, with a 44px tap area
+   ;; that does not move the row; its panel's rows share the notice's columns. ux-guide.md.
+   [:.planned-toggle
+    {:background :none
+     :border 0
+     :font-family :inherit
+     :font-style :italic
+     :font-size "16px"
+     :line-height :inherit
+     :text-align :left
+     :text-decoration :underline
+     :cursor :pointer
+     :padding "13px 0"
+     :margin "-13px 0"}
+    [:i {:display :inline-block :margin-left "6px" :text-decoration :none}]]
+   ;; "1st" before each class row: lit on the starting class, faded on the others (a tap makes
+   ;; one first). A small mark with a 44px tap layer. docs/kb/ux-guide.md.
+   [:.class-first-badge
+    {:position :relative
+     :flex-shrink 0
+     :margin-right "8px"
+     :padding "2px 6px"
+     :border "1px solid rgba(255, 255, 255, 0.3)"
+     :border-radius "4px"
+     :background :none
+     :color "rgba(255, 255, 255, 0.45)"
+     :font-family :inherit
+     :font-size "13px"
+     :font-weight :bold
+     :line-height 1.2
+     :cursor :pointer}
+    [:&:after {:content "''" :position :absolute :inset "-12px -4px"}]
+    [:&.on {:color orange :border-color orange :cursor :default}]
+    [:&.blocked {:opacity 0.5}]]
+   [".app.light-theme .class-first-badge"
+    {:border-color "rgba(0, 0, 0, 0.3)" :color "rgba(0, 0, 0, 0.45)"}
+    [:&.on {:color accent-on-light :border-color accent-on-light}]]
+   ;; The Choices link reads as a plain link, not a Planned line; its panel, one line per section.
+   [:.choices-toggle {:font-style :normal}]
+   [:.choice-line {:padding "4px 0"}]
+   [".choices-panel .planned-aside" {:color muted-on-dark}]
+   [".app.light-theme .choices-panel .planned-aside" {:color muted-on-light}]
+   [:.planned-rows
+    {:display :grid
+     :grid-template-columns "max-content 1fr auto"
+     :font-size "14px"}
+    [:&.no-label :&.no-aside {:grid-template-columns "1fr auto"}]
+    [:.planned-row {:display :contents}]
+    ;; Each row is a 44px tap target, so a Clear never lands on the row beside it.
+    [:span :.link-button {:display :flex :align-items :center :min-height "44px"}]
+    [:span {:padding "0 20px 0 0"}]
+    [:.link-button {:padding "0 0 0 16px" :border-radius 0 :font-size "14px"}]
+    [".planned-row + .planned-row > *" {:border-top "1px solid rgba(255, 255, 255, 0.08)"}]
+    [:.planned-aside {:color muted-on-dark}]]
+   [".app.light-theme .planned-rows"
+    [".planned-row + .planned-row > *" {:border-top "1px solid rgba(0, 0, 0, 0.08)"}]
+    [:.planned-aside {:color muted-on-light}]]
    [".callout-compact .callout-details" {:margin "0 -6px 7px -12px" :padding-left "38px"}]
    [".app.light-theme .callout-details"
     {:background "rgba(0, 0, 0, 0.05)"}

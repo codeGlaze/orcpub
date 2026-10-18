@@ -1309,6 +1309,10 @@
     (is (true? (::autosave-fx/ensure-template-cache
                 (effects-of [:route r {:skip-path? true}] [::autosave-fx/ensure-template-cache])))
         (pr-str r)))
+  (doseq [r [routes/dnd-e5-my-content-route routes/dnd-e5-subrace-builder-page-route]]
+    (is (true? (::autosave-fx/ensure-template-cache
+                (effects-of [:route r {:skip-path? true}] [::autosave-fx/ensure-template-cache])))
+        (str r ": its repair panel and missing-link marks need what the template offers")))
   (is (nil? (::autosave-fx/ensure-template-cache
              (effects-of [:route routes/dnd-e5-spell-list-page-route {:skip-path? true}]
                          [::autosave-fx/ensure-template-cache])))
@@ -1884,6 +1888,47 @@
     (is (= [{:label "Character Name" :mine "Mine" :saved "Theirs"}] fields)
         "only the field that differs, with both values"))
   (is (= "Mine" (get-in @app-db [:character ::entity/values char-name])) "the builder keeps its copy meanwhile"))
+
+(def ^:private gone
+  "A 410 for a save of a character deleted since it was opened."
+  {:status 410 :body {:error :character-gone}})
+
+(defn- ids-in
+  "Every :db/id in strict form `x`, at any depth."
+  [x]
+  (filter some? (map :db/id (filter map? (tree-seq coll? seq x)))))
+
+(deftest a-builder-save-of-a-deleted-character-keeps-the-edit-to-save-as-new
+  (let [shown (atom nil) written (atom nil) removed (atom nil)]
+    (with-fx {:dispatch #(reset! shown %)
+              ::events/builder-draft->local-store #(reset! written %)
+              ::events/remove-draft #(reset! removed %)}
+      (fn []
+        (reset! app-db (assoc pristine-db :character
+                              (assoc (char5e/from-strict
+                                      {:db/id 111
+                                       ::se/values {char-name "Mine"}
+                                       ::se/selections [{:db/id 112 ::se/key :race
+                                                         ::se/option {:db/id 113 ::se/key :elf}}]})
+                                     :changed true)))
+        (rf/dispatch-sync [::char5e/builder-save-refused {:epoch 0} gone])
+        (is (= "Mine" (get-in @app-db [:character ::entity/values char-name])) "the edit is kept")
+        (is (:changed (:character @app-db)) "and still unsaved")
+        (is (empty? (ids-in (char5e/to-strict (:character @app-db)))) "with no ids, so Save stores it anew")
+        (is (= :show-error-message (first @shown)))
+        (is (re-find #"deleted" (str (second @shown))) "and says the character was deleted")
+        (is (= "Mine" (get-in @written [::entity/values char-name])) "the draft is written without its id")
+        (is (nil? (:db/id @written)))
+        (is (= "111" @removed) "and the deleted id's draft is removed")))))
+
+(deftest an-autosave-of-a-deleted-character-says-so
+  (let [shown (atom nil)]
+    (with-fx {:dispatch #(reset! shown %)}
+      (fn []
+        (reset! app-db (assoc pristine-db ::char5e/character-map {111 {:db/id 111 ::entity/values {hp 4}}}))
+        (rf/dispatch-sync [::char5e/save-refused {:for-id 111} gone])
+        (is (= :show-error-message (first @shown)))
+        (is (re-find #"deleted" (str (second @shown))))))))
 
 (deftest save-mine-takes-the-stored-version-so-the-next-save-goes-through
   (reset! app-db (assoc pristine-db :character {:db/id 111 :changed true ::entity/version 1

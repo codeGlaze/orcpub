@@ -1,0 +1,42 @@
+;; coverage-pak.orcbrew: the designed QA fixture. Every item uses every field its homebrew builder
+;; offers, so a test can rely on each kind of content being present. Names and text are invented;
+;; no published content. test-pak.orcbrew is the other fixture: real data, laundered, for loading
+;; at scale. Add a content type here with every field its builder writes, and a test in
+;; coverage_pak_test.cljs that each field reaches a built character.
+{"Coverage Pak"
+ {:orcpub.dnd.e5/selections
+  {:wayfarer-tricks
+   {:name "Wayfarer Trick" :key :wayfarer-tricks :option-pack "Coverage Pak"
+    :options [{:name "Lantern Step" :description "Coverage: a one-pick choice at level 3."}
+              {:name "Fog Ward" :description "Coverage: an alternative to Lantern Step."}
+              {:name "Ridge Call" :description "Coverage: a third option."}]}
+   :wayfarer-routes
+   {:name "Wayfarer Route" :key :wayfarer-routes :option-pack "Coverage Pak"
+    :options [{:name "High Road" :description "Coverage: a two-pick choice at level 7."}
+              {:name "Low Road" :description "Coverage: the second of three."}
+              {:name "Old Road" :description "Coverage: the third of three."}]}}
+
+  :orcpub.dnd.e5/subclasses
+  {:wayfarer
+   {:name "Wayfarer" :key :wayfarer :class :ranger :option-pack "Coverage Pak"
+    :profs {:skill-options {:choose 1 :options {:history true :insight true :medicine true}}
+            :skill-expertise-options {:choose 1 :options {:survival true :nature true}}}
+    :level-modifiers [{:type :weapon-prof :level 3 :value :martial}
+                      {:type :armor-prof :level 3 :value :heavy}
+                      {:type :tool-prof :level 3 :value :cartographers-tools}
+                      {:type :skill-prof :level 3 :value :athletics}
+                      {:type :spell :level 3 :value {:key :guidance :ability :orcpub.dnd.e5.character/wis}}
+                      {:type :num-attacks :level 7 :value 2}
+                      {:type :swimming-speed :level 7 :value 30}
+                      {:type :damage-resistance :level 11 :value :cold}
+                      {:type :saving-throw-advantage :level 11 :value :frightened}
+                      {:type :flying-speed :level 15 :value 40}
+                      {:type :damage-immunity :level 15 :value :poison}
+                      {:type :flying-speed-equals-walking-speed :level 18}]
+    :level-selections [{:type :wayfarer-tricks :level 3 :num 1}
+                       {:type :wayfarer-routes :level 7 :num 2}]
+    :traits [{:name "Wayfarer Lore" :level 3 :description "Coverage: a trait with no action type."}
+             {:name "Waymark" :type :action :level 3 :description "Coverage: an action."}
+             {:name "Quick Step" :type :b-action :level 7 :description "Coverage: a bonus action."}
+             {:name "Turn Aside" :type :reaction :level 11 :description "Coverage: a reaction."}
+             {:name "Far Wanderer" :type :other :level 15 :description "Coverage: :other, explicitly."}]}}}}
