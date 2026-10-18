@@ -680,60 +680,73 @@
          (str " " (if (keyword? damage-type) (name damage-type) (str damage-type))))))
 
 (defn weapon-entries
-  "The PDF's attack entries for one weapon: one, plus a \"<name> (two-handed)\" entry
-  with the versatile dice for a Versatile weapon. Takes the weapon map, its attack
-  bonus and its damage modifier; returns a seq of {:name :attack-bonus :damage}."
+  "The PDF's entry for one weapon: its main roll, and :bullets for its variants, the
+  two-handed dice of a Versatile weapon (\"versatile 1d10+5\") then each extra or save an
+  item adds. Takes the weapon map, its attack bonus and its damage modifier; returns a
+  one-entry seq of {:name :attack-bonus :damage :bullets}."
   [weapon attack-bonus damage-modifier]
   (let [{:keys [name ::weapon5e/damage-die ::weapon5e/damage-die-count ::weapon5e/versatile]} weapon
-        damage-type (or (::mi5e/magical-damage-type weapon) (::weapon5e/damage-type weapon))]
-    (cond-> [{:name name
-              :attack-bonus attack-bonus
-              :damage (damage-str damage-die damage-die-count damage-modifier damage-type)}]
-      versatile (conj {:name (str name " (two-handed)")
-                       :attack-bonus attack-bonus
-                       :damage (damage-str (::weapon5e/damage-die versatile)
-                                           (::weapon5e/damage-die-count versatile)
-                                           damage-modifier
-                                           damage-type)}))))
+        damage-type (or (::mi5e/magical-damage-type weapon) (::weapon5e/damage-type weapon))
+        extras (disp5e/weapon-extras-str weapon)]
+    [{:name name
+      :attack-bonus attack-bonus
+      :damage (damage-str damage-die damage-die-count damage-modifier damage-type)
+      :bullets (cond-> []
+                 versatile (conj (str "versatile " (damage-str (::weapon5e/damage-die versatile)
+                                                               (::weapon5e/damage-die-count versatile)
+                                                               damage-modifier nil)))
+                 extras (into (s/split extras #"; ")))}]))
+
+(defn sheet-weapon-names
+  "Each weapon's name on the sheet: a magic weapon's own name (\"Flame Tongue\"), or its
+  full name (\"Flame Tongue, Longsword\") when two carried weapons share the short one.
+  Takes the weapon maps in order; returns their names in the same order."
+  [weapons]
+  (let [short-name #(or (::mi5e/name %) (:name %))
+        counts (frequencies (map short-name weapons))]
+    (map #(if (= 1 (counts (short-name %))) (short-name %) (:name %)) weapons)))
+
+(defn weapon-sheet-fields
+  "Lays weapon entries out on the sheet: the first three fill the weapon rows; the attacks
+  text then lists each row weapon's variants under its name, and every later weapon as a
+  name line with its roll, each followed by indented bullets. Takes the entries in order;
+  returns {:rows [entry ...] :lines [string ...]}."
+  [entries]
+  (let [bullets #(map (fn [b] (str "  \u2022 " b)) (:bullets %))]
+    {:rows (vec (take 3 entries))
+     :lines (vec (concat
+                  (mapcat #(when (seq (:bullets %)) (cons (:name %) (bullets %))) (take 3 entries))
+                  (mapcat #(cons (str (:name %) ". " (common/bonus-str (:attack-bonus %)) ", " (:damage %))
+                                 (bullets %))
+                          (drop 3 entries))))}))
 
 (defn attacks-and-spellcasting-fields 
-  "The attack fields for `built-char`'s equipped weapons, ammunition excluded: the first three
-  as weapon-name-N, weapon-attack-bonus-N and weapon-damage-N; the rest as text in
-  :attacks-and-spellcasting, after the number of attacks and the character's :attacks.
-  A versatile weapon adds a \"<name> (two-handed)\" entry with its versatile damage."
+  "The attack fields for `built-char`'s equipped weapons, ammunition excluded, laid out by
+  `weapon-sheet-fields`: three weapon rows (weapon-name-N, weapon-attack-bonus-N,
+  weapon-damage-N) and lines in :attacks-and-spellcasting after the number of attacks and
+  the character's :attacks."
   [built-char all-weapons-map]
-  (let [all-weapons ; map of all weapons in inventory
-        (mi5e/equipped-items-details ; function to filter for equipped weapons
-         (char5e/all-weapons-inventory built-char)
-         all-weapons-map)
-        weapon-fields (mapcat
-                       #(weapon-entries %
-                                        (char5e/best-weapon-attack-modifier built-char %)
-                                        (char5e/best-weapon-damage-modifier built-char % false))
-                       (remove
-                        (fn [{:keys [::weapon5e/type]}]
-                          (= type :ammunition))
-                        all-weapons))
-        first-3-weapons (take 3 weapon-fields)
-        rest-weapons (drop 3 weapon-fields)
-        number-of-attacks (char5e/number-of-attacks built-char)]
-
+  (let [weapons (remove
+                 (fn [{:keys [::weapon5e/type]}] (= type :ammunition))
+                 (mi5e/equipped-items-details (char5e/all-weapons-inventory built-char) all-weapons-map))
+        entries (map (fn [weapon sheet-name]
+                       (assoc (first (weapon-entries weapon
+                                                     (char5e/best-weapon-attack-modifier built-char weapon)
+                                                     (char5e/best-weapon-damage-modifier built-char weapon false)))
+                              :name sheet-name))
+                     weapons
+                     (sheet-weapon-names weapons))
+        {:keys [rows lines]} (weapon-sheet-fields entries)]
     (apply merge
-     {:attacks-and-spellcasting (str "Number of Attacks: " number-of-attacks "\n"
-                                     (s/join "\n"
-                                        (concat (map
-                                                 attack-string
-                                                 (es/entity-val built-char :attacks))
-                                                (map
-                                                 (fn [{:keys [name attack-bonus damage]}]
-                                                   (str name ". " (common/bonus-str attack-bonus) ", " damage))
-                                                 rest-weapons))))}
+     {:attacks-and-spellcasting (str "Number of Attacks: " (char5e/number-of-attacks built-char) "\n"
+                                     (s/join "\n" (concat (map attack-string (es/entity-val built-char :attacks))
+                                                          lines)))}
      (map-indexed
       (fn [i {:keys [name attack-bonus damage]}]
         {(keyword (str "weapon-name-" (inc i))) name
          (keyword (str "weapon-attack-bonus-" (inc i))) (common/bonus-str attack-bonus)
          (keyword (str "weapon-damage-" (inc i))) damage})
-      first-3-weapons))))
+      rows))))
 
 (defn speed [built-char]
   (let [speed (char5e/base-land-speed built-char)

@@ -76,6 +76,27 @@ Two are approximations, because the rule depends on a judgement the app cannot m
 - **Mace of Smiting** raises its damage bonus against constructs, but its attack bonus against them
   is not modelled yet.
 
+## On the PDF character sheet
+
+The sheet has three weapon rows. The first three equipped weapons fill them, each with its attack
+bonus and its normal damage. Everything else goes in the Attacks & Spellcasting text below:
+
+- each of those three weapons' variants, under its name, one bullet each: a versatile weapon's
+  two-handed damage, then each extra and saving throw;
+- every later weapon as one line with its attack bonus and damage, followed by its bullets.
+
+```
+Flame Tongue
+  • versatile 1d10+2
+  • +2d6 fire while Ablaze
+Holy Avenger. +7, 1d8+5 slashing
+  • versatile 1d10+5
+  • +2d10 radiant vs fiends and undead
+```
+
+A magic weapon prints under its own name ("Flame Tongue", not "Flame Tongue, Longsword"); the
+base weapon only appears when a character carries two of the same item, so they can be told apart.
+
 ## Your characters are not affected
 
 A saved character stores only which weapons it has and whether each is equipped. Damage is worked
