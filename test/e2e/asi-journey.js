@@ -1,10 +1,9 @@
 // The whole life of homebrew that uses ability score increases and save grants, on the seeded
-// server, by clicks: author a race, background and subclass in their builders; import a subrace and
-// a feat from a file (explicit-set pools and feat spreads have no form); build a fighter from all of
-// it, placing every floating increase; check the totals and that all six saves are proficient; save;
-// reload and reopen; export both packs (the v2 envelope); delete them, check the character keeps
-// its picks; import the exports back and check it is whole again; refuse a file from a newer
-// format; delete the character.
+// server, by clicks: author a race, subrace, background, subclass and feat in their builders, and
+// a feat on the released checkboxes; build a fighter from the five, placing every floating
+// increase; check the totals and that all six saves are proficient; save; reload and reopen; export
+// the pack (the v2 envelope); delete it, check the character keeps its picks; import the export
+// back and check it is whole again; refuse a file from a newer format; delete the character.
 //
 //   DATOMIC_URL=datomic:mem://orcpub-e2e ORCPUB_ENV=dev SIGNATURE=e2e-test-signature PORT=8890 \
 //   CSP_POLICY=none lein with-profile init-db run -m e2e-boot
@@ -18,21 +17,10 @@ const { BASE, findChrome, checker, dbAt, readyPage, dismissWhatsNew, clickTab, l
         setLevel } = require('./lib');
 
 const PAK = 'Journey Pack';
-const EXTRAS = 'Journey Extras';
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'asi-journey-'));
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const ABILS = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
 const LONG = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'];
-
-// A subrace of the authored race, with an explicit-set pool and a fixed save; a feat with a spread
-// and a :save rider on a group. Neither shape has a form, so they arrive as a file. The race's key
-// is read back from the library: the builder tags it with the source (:journey-kin-jypk).
-const extrasFile = raceKey => `{"${EXTRAS}" {` +
-  `:orcpub.dnd.e5/subraces {:journey-deepborn {:key :journey-deepborn :name "Deepborn"` +
-  ` :race ${raceKey} :option-pack "${EXTRAS}"` +
-  ` :ability-increases [[1 #{:str :int}]] :save-proficiencies [[1 :int]]}}` +
-  ` :orcpub.dnd.e5/feats {:journey-gift {:key :journey-gift :name "Journey Gift" :option-pack "${EXTRAS}"` +
-  ` :description "A gift." :ability-increases [[1 :any] [1 :mental :save]]}}}}`;
 
 async function goto(page, route) {
   await page.goto(`${BASE}${route}`, { waitUntil: 'load' });
@@ -65,7 +53,13 @@ async function saveBuilder(page) {
 }
 async function name(page, value) {
   await page.locator('#app input.input.h-40').nth(0).fill(value);
-  await page.locator('#app input[placeholder="Default Option Source"]').fill(PAK);
+  // Cleared first: after "New <item>" the source box still shows the last source while the draft
+  // has none (plugin-datalist keeps its own copy), and refilling the same text changes nothing.
+  const src = page.locator('#app input[placeholder="Default Option Source"]');
+  await src.fill('');
+  await wait(400);   // let the box redraw from the cleared value before the real one goes in
+  await src.fill(PAK);
+  await wait(400);
 }
 
 // The ability grid's six totals, and which saves the sheet marks proficient.
@@ -127,7 +121,6 @@ async function deletePack(page, pak) {
   await wait(600);
   await item.locator('.mc-source-actions button', { hasText: /^delete$/i }).first().click();
   await wait(1200);
-  if (process.env.DEBUG) console.log('DEBUG delete prompt:', (await text(page)).replace(/\n+/g, ' ').slice(0, 400));
   const ok = page.getByRole('button', { name: /^(delete|yes|continue)/i })
     .filter({ hasNotText: /all sources/i }).last();
   if (await ok.isVisible().catch(() => false)) { await ok.click(); await wait(2000); }
@@ -179,20 +172,55 @@ async function importFile(page, file) {
     await addRows(page, 'Add save', 'Saving Throw Proficiencies', [['1', 'Charisma']]);
     await saveBuilder(page);
 
-    const lib = await plugins(page);
+    let lib = await plugins(page);
+    const raceKey = (lib.match(/:orcpub\.dnd\.e5\/races \{(:journey-kin[a-z-]*)/) || [])[1];
+    check('the race has a key', !!raceKey, raceKey);
+    await goto(page, '/pages/dnd/5e/subrace-builder');
+    await name(page, 'Deepborn');
+    await page.locator('#app select').filter({ has: page.locator('option', { hasText: 'Journey Kin' }) })
+      .first().selectOption({ label: 'Journey Kin' });
+    await wait(400);
+    await addRows(page, 'Add increase', 'Ability Score Increases', [['+1', 'Martial (Str/Dex/Con)']]);
+    await addRows(page, 'Add save', 'Saving Throw Proficiencies', [['1', 'Intelligence']]);
+    await saveBuilder(page);
+
+    await goto(page, '/pages/dnd/5e/feat-builder');
+    await name(page, 'Journey Gift');
+    await page.locator('#app :text("Ability Score Increases (2024 style)")').first().click();
+    await wait(400);
+    await addRows(page, 'Add increase', 'Ability Score Increases',
+                  [['+1', 'Any (all six)'], ['+1', 'Mental (Int/Wis/Cha)', true]]);
+    await saveBuilder(page);
+    check('with the spread, the released checkboxes step aside',
+          /using the 2024-style increases below/.test(await text(page)));
+
+    // the released "+1 to one of these" checkboxes still author the set, and the spread waits
+    await goto(page, '/pages/dnd/5e/feat-builder');
+    await page.locator('#app button:visible', { hasText: /^New Feat$/i }).first().click();
+    await wait(800);
+    await name(page, 'Old Style Feat');
+    for (const a of ['Strength', 'Dexterity']) {
+      await page.locator('#app div.m-r-20.m-b-10', { hasText: new RegExp(`^${a}$`) }).first().click();
+      await wait(200);
+    }
+    await page.locator('#app :text("Ability Score Increases (2024 style)")').first().click();
+    await wait(400);
+    check('with a ticked checkbox, the spread asks to clear it first',
+          /clear those first/.test(await text(page)) && !(await page.locator('#app button', { hasText: 'Add increase' }).count()));
+    await saveBuilder(page);
+
+    lib = await plugins(page);
     check('race stored as a terse spread with the rider, and its save choice',
           /:ability-increases \[\[2 :con\] \[1 :any :save\]\]/.test(lib) && /:save-proficiencies \[\[1 :mental\]\]/.test(lib));
     check('background stored as [[2 :any] [1 :any]]', /:ability-increases \[\[2 :any\] \[1 :any\]\]/.test(lib));
     check('subclass stored with its increase and its save',
           /:ability-increases \[\[1 :wis\]\]/.test(lib) && /:save-proficiencies \[\[1 :cha\]\]/.test(lib));
-
-    // ── 2. The shapes without a form, from a file ─────────────────────────────────────────────
-    const raceKey = (lib.match(/:orcpub\.dnd\.e5\/races \{(:journey-kin[a-z-]*)/) || [])[1];
-    check('the race has a key', !!raceKey, raceKey);
-    const extrasIn = path.join(DIR, `${EXTRAS}.orcbrew`);
-    fs.writeFileSync(extrasIn, extrasFile(raceKey));
-    await importFile(page, extrasIn);
-    check('the extras file imports (subrace and feat)', /journey-deepborn[\s\S]*journey-gift|journey-gift[\s\S]*journey-deepborn/.test(await plugins(page)));
+    check('subrace stored with its race, increase and save',
+          new RegExp(`:race ${raceKey}`).test(lib) && /:ability-increases \[\[1 :martial\]\]/.test(lib)
+            && /:save-proficiencies \[\[1 :int\]\]/.test(lib));
+    check('feat stored as a spread with the rider', /:ability-increases \[\[1 :any\] \[1 :mental :save\]\]/.test(lib));
+    check('the old-style feat stored as the released set',
+          /Old Style Feat[\s\S]{0,200}:ability-increases #\{/.test(lib) || /:ability-increases #\{[^}]*\}[\s\S]{0,200}Old Style Feat/.test(lib));
 
     // ── 3. A fighter built from all of it ─────────────────────────────────────────────────────
     await goto(page, '/pages/dnd/5e/character-builder');
@@ -214,7 +242,6 @@ async function importFile(page, file) {
     await feat.click();
     await wait(1500);
 
-    if (process.env.DEBUG) console.log('DEBUG crumbs:', JSON.stringify([...(await text(page)).matchAll(/Improvement:\s*([^\n|]+)/g)].map(m => m[1].trim())));
     const placed = [
       await place(page, 'Race - Journey Kin - Subrace - Deepborn', 'Strength'),
       await place(page, 'Race - Journey Kin', 'Dexterity'),
@@ -271,20 +298,15 @@ async function importFile(page, file) {
 
     // ── 5. Export both packs ──────────────────────────────────────────────────────────────────
     const out1 = await exportPack(page, PAK);
-    const out2 = await exportPack(page, EXTRAS);
-    const t1 = fs.readFileSync(out1, 'utf8'), t2 = fs.readFileSync(out2, 'utf8');
-    check('exports keep the .orcbrew name', /\.orcbrew$/.test(out1) && /\.orcbrew$/.test(out2), `${path.basename(out1)}, ${path.basename(out2)}`);
+    const t1 = fs.readFileSync(out1, 'utf8');
+    check('the export keeps the .orcbrew name', /\.orcbrew$/.test(out1), path.basename(out1));
     check('the authored pack exports in the v2 envelope, naming what it needs',
           /:orcbrew\/format-version 2/.test(t1) && /:ability-increase-spread/.test(t1) && /:save-proficiencies/.test(t1));
-    check('the extras pack exports in the v2 envelope', /:orcbrew\/format-version 2/.test(t2));
 
-    // ── 6. Delete both packs: the character keeps its picks ────────────────────────────────────
-    // the extras first: deleting the pack a subrace points at asks before it leaves it dangling
-    await deletePack(page, EXTRAS);
+    // ── 6. Delete the pack: the character keeps its picks ──────────────────────────────────────
     await deletePack(page, PAK);
     const after = await plugins(page);
-    if (process.env.DEBUG) console.log('DEBUG after delete:', (after.match(/"[^"]+" \{/g) || []).join(' '), (await text(page)).replace(/\n+/g, ' ').slice(0, 600));
-    check('both packs are gone from the library', !after.includes('journey-kin') && !after.includes('journey-gift'));
+    check('the pack is gone from the library', !after.includes('journey-kin') && !after.includes('journey-gift'));
     await goto(page, `/pages/dnd/5e/characters/${id}`);
     await wait(8000);
     const kept = await serverCopy(page, id);
@@ -293,9 +315,8 @@ async function importFile(page, file) {
 
     // ── 7. Import the exports back ────────────────────────────────────────────────────────────
     await importFile(page, out1);
-    await importFile(page, out2);
     const back = await plugins(page);
-    check('both packs are back, unwrapped (no envelope stored)',
+    check('the pack is back, unwrapped (no envelope stored)',
           back.includes('journey-kin') && back.includes('journey-gift') && !back.includes('format-version'));
     await goto(page, `/pages/dnd/5e/characters/${id}`);
     await page.getByText('Edit', { exact: true }).first().click();
