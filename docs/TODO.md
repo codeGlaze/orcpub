@@ -354,6 +354,47 @@ Beyond refuse both and are upload-or-nothing.
 
 ---
 
+## The spellbook sanitises Type0 text with a Type1 rule
+
+**Status:** Open, measured 2026-10-18 on `refactor/pdf-canvas`. Not fixed — it changes
+rendered output, so it needs its own characterization and a re-seeded spellbook baseline.
+
+`spellbook/clean` runs every string through `draw/normalize-text`, which restricts to
+WinAnsi 0x20-0xFF. That is the correct rule for `PDType1Font` (the AcroForm fields, on
+Helvetica). The spellbook draws in **Vollkorn, an embedded Type0 font**, where it does not
+apply.
+
+Measured across 1,595 SRD spell strings, by character-frequency deficit (positional
+pairing does not work -- normalize-text changes length, so everything after the first
+change misaligns and reads as different):
+
+| Character | Times | Vollkorn draws it |
+| --- | --- | --- |
+| U+2013 en dash | 38 | yes |
+| U+201C / U+201D curly double quotes | 62 | yes |
+| U+2014 em dash | 31 | yes |
+| U+2019 curly apostrophe | 4 | yes |
+
+**135 characters degraded that the font renders fine.** The bullet (U+2022, 68 times) is
+NOT in that list: `clean` turns bullets into middle dots deliberately and a middle dot
+draws correctly.
+
+### The obvious fix is wrong
+
+`draw/font-safe` is the right tool in principle -- it substitutes only what the font
+genuinely cannot draw. But measured on the same corpus it replaces **U+000A, 818 times**:
+newlines, correctly classified as undrawable. The spellbook splits on newlines for
+paragraphs, so swapping `clean` for `font-safe` would destroy every paragraph break in
+every spell description. That is far worse than the problem.
+
+The fix has to preserve newlines and apply `font-safe` per line.
+
+### Why the bullet workaround exists
+
+`clean`'s bullet-to-middle-dot step reads as a style choice and is really a workaround:
+U+2022 is above 0xFF so normalize-text mangles it, while U+00B7 survives. Once the
+sanitiser matches the font, that substitution can be reconsidered on its own merits.
+
 ## Card frame consumers, and page sizes other than US Letter
 
 **Status:** Open, unscheduled. Raised while scoping Extras and during the `pdf.clj` work;
