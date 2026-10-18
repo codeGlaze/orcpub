@@ -3834,14 +3834,17 @@
 (defn weapon-switch
   "A segmented switch: one button per option, the chosen one filled. Takes the screen
   reader label, the options as [[value text]], the chosen value, the on-change fn of a
-  value, and an optional damage type that colours the on state. Returns hiccup."
-  [label options chosen on-change & [damage-type]]
-  [:span.weapon-switch {:role "radiogroup" :aria-label label}
+  value, and options :damage-type (colours the on state), :disabled? and :pulse?.
+  Returns hiccup."
+  [label options chosen on-change & {:keys [damage-type disabled? pulse?]}]
+  [:span.weapon-switch {:role "radiogroup" :aria-label label
+                        :aria-disabled (boolean disabled?)
+                        :class (str (when disabled? "disabled") (when pulse? " pulse"))}
    (doall
     (for [[v text] options]
       ^{:key (str v)}
       [:button.weapon-switch-option
-       {:type "button" :role "radio" :aria-checked (= v chosen)
+       {:type "button" :role "radio" :aria-checked (= v chosen) :disabled (boolean disabled?)
         :class (str (when (= v chosen) "on")
                     (when (and damage-type (= v chosen) v) (str " typed dt-" (name damage-type))))
         :on-click (fn [e] (.stopPropagation e) (on-change v))}
@@ -3871,11 +3874,16 @@
 (defn weapon-row
   "One weapon's row: name, grey line, to-hit and damage tiles, the lines under it and,
   when opened, its details. Takes the weapon map, its to-hit bonus, its damage modifier
-  fn, whether the character is proficient, the lowest crit roll, and the row's state
-  atom ({:open? :two-handed? :toggles}). Returns hiccup."
-  [weapon attack-bonus damage-modifier-fn proficient? crit-min state]
-  (let [{:keys [open? two-handed? toggles]} @state
+  fn, whether the character is proficient, the lowest crit roll, what holds the off hand
+  (\"a Shield\", or nil when it is free) and the row's state atom
+  ({:open? :two-handed? :toggles :pulse-done?}). Returns hiccup."
+  [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand state]
+  (let [{:keys [open? toggles pulse-done?]} @state
         toggles (or toggles #{})
+        hands-blocked? (boolean (and off-hand (::weapon/versatile weapon)))
+        needs-hands? (boolean (and off-hand (::weapon/two-handed? weapon)))
+        two-handed? (and (:two-handed? @state) (not hands-blocked?))
+        stop-pulse #(swap! state assoc :pulse-done? true)
         nm (weapon-name weapon)
         versatile? (boolean (::weapon/versatile weapon))
         item-toggles (::mi/toggles weapon)
@@ -3883,20 +3891,23 @@
                                (::mi/extra-damage weapon))
         hands (when versatile?
                 [weapon-switch "Versatile: one hand or two hands" [[false "1H"] [true "2H"]]
-                 (boolean two-handed?) #(swap! state assoc :two-handed? %)])
+                 (boolean two-handed?) #(swap! state assoc :two-handed? % :pulse-done? true)
+                 :disabled? hands-blocked?
+                 :pulse? (and (not off-hand) (not two-handed?) (not pulse-done?))])
         toggle-switches (for [{:keys [::mi/toggle-id ::mi/toggle-name]} item-toggles]
                           ^{:key toggle-id}
                           [weapon-switch toggle-name [[nil "Off"] [toggle-id toggle-name]]
                            (toggles toggle-id)
                            (fn [v] (swap! state update :toggles
                                           #(if v (conj (or % #{}) v) (disj (or % #{}) toggle-id))))
-                           (extras-by-toggle toggle-id)])
+                           :damage-type (extras-by-toggle toggle-id)])
         controls-below? (seq item-toggles)
         modifier (damage-modifier-fn weapon)
         base (weapon-damage/base-damage weapon modifier (boolean two-handed?))
         {:keys [tile lines]} (disp/weapon-row-lines weapon toggles)
         rolled (weapon-damage/applying-damage weapon modifier (boolean two-handed?) {:toggles toggles})
-        [kind & props] (weapon-grey-line-parts weapon)]
+        [kind & props] (weapon-grey-line-parts weapon)
+        hands-note (when needs-hands? " (needs both hands)")]
     [:div.weapon-row
      [:div.weapon-row-main
       [:div.weapon-cell-name
@@ -3912,22 +3923,23 @@
           hands
           (when (seq props) [:span (s/join " · " props)])]
          [:div.weapon-grey-line.text (s/join " · " (cons kind props))])]
-      [:div.weapon-cell-tile
-       [roll-button (str nm " attack: ") (str "1d20" (common/mod-str attack-bonus))
-        :class "weapon-tile weapon-hit-tile"
+      [:div.weapon-cell-tile {:on-click-capture stop-pulse}
+       [roll-button (str nm " attack" hands-note ": ") (str "1d20" (common/mod-str attack-bonus))
+        :class (str "weapon-tile weapon-hit-tile" (when needs-hands? " needs-hands"))
         :text [:<>
                [:span.weapon-tile-body (common/bonus-str attack-bonus)]
                (cond
                  (not proficient?) [:span.weapon-strip.no-prof "no prof"]
                  (< crit-min 20) [:span.weapon-strip "crit" [:span.weapon-strip-num (str crit-min "+")]]
                  :else [:span.weapon-strip "hit"])]]]
-      [:div.weapon-cell-tile
+      [:div.weapon-cell-tile {:on-click-capture stop-pulse}
        (if base
          [:button.roll-button.weapon-tile.weapon-damage-tile
           {:type "button"
+           :class (when needs-hands? "needs-hands")
            :on-click (fn [e]
                        (.stopPropagation e)
-                       (dispatch [:show-message-2 (str nm " damage: " (parts-roll-text rolled))]))}
+                       (dispatch [:show-message-2 (str nm " damage" hands-note ": " (parts-roll-text rolled))]))}
           [:span.weapon-tile-body {:class (when tile "with-more")}
            [:span (disp/damage-dice-str base)]
            (when tile
@@ -3957,22 +3969,42 @@
      (when open?
        [:div.weapon-opened
         [:div.weapon-opened-name nm]
+        (cond
+          hands-blocked? [:div.weapon-hands-note (str "Two hands: not while your off hand holds " off-hand ".")]
+          needs-hands? [:div.weapon-hands-note (str "Needs both hands: your off hand holds " off-hand ".")])
         (weapon-details weapon damage-modifier-fn)])]))
 
 (defn weapons-section-2
   "The character sheet's Weapons table: headings, then one row per weapon except
   ammunition. Takes the character id. Returns a reagent component."
   []
-  (let [row-state (r/atom {})]
+  (let [row-state (r/atom {})
+        off-hand-was (atom nil)]
     (fn [id]
       (let [all-weapons @(subscribe [::char/all-weapons id])
+            all-armor-map @(subscribe [::mi/all-armor-map])
+            shield-kw (or @(subscribe [::char/wielded-shield id])
+                          (-> @(subscribe [::char/best-armor-combo id]) :shield :key))
+            off-hand-kw @(subscribe [::char/off-hand-weapon id])
             weapon-attack-modifier @(subscribe [::char/best-weapon-attack-modifier-fn id])
             weapon-damage-modifier @(subscribe [::char/best-weapon-damage-modifier-fn id])
             has-weapon-prof @(subscribe [::char/has-weapon-prof id])
             crit-values @(subscribe [::char/critical-hit-values id])
-            all-weapons-map @(subscribe [::mi/all-weapons-map])]
+            all-weapons-map @(subscribe [::mi/all-weapons-map])
+            off-hand-item (cond
+                            (and shield-kw (not= :none shield-kw)) (all-armor-map shield-kw)
+                            (and off-hand-kw (not= :none off-hand-kw)) (all-weapons-map off-hand-kw))
+            off-hand (when off-hand-item (str "a " (weapon-name off-hand-item)))]
+        ;; the pulse returns whenever the off hand comes free again
+        (when (and @off-hand-was (nil? off-hand))
+          (swap! row-state #(into {} (map (fn [[k v]] [k (dissoc v :pulse-done?)])) %)))
+        (reset! off-hand-was off-hand)
         [:div.weapons-section
-         [section-header "crossed-swords" "Weapons"]
+         [:div.weapons-heading
+          [section-header "crossed-swords" "Weapons"]
+          (when off-hand-item
+            [:span.share-pill.share-pill-expired.weapons-reason
+             (str (weapon-name off-hand-item) " in off hand")])]
          [:div.weapon-head [:span "Weapon"] [:span "To hit"] [:span "Damage"]]
          [:div.weapon-rows
           (doall
@@ -3986,6 +4018,7 @@
               weapon-damage-modifier
               (boolean (when has-weapon-prof (has-weapon-prof weapon)))
               (weapon-damage/crit-min crit-values weapon)
+              (when (not= weapon-key off-hand-kw) off-hand)
               (r/cursor row-state [weapon-key])]))]]))))
 
 (defn magic-item-rows [expanded-details magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]

@@ -7,7 +7,11 @@
 // tiles; tiles are 54x54 and 98x54; names stay on one line; names and tiles are 44px tap targets;
 // "no prof" and "hit" strips; the Net's no-roll tile; Frost Brand's +1d6 on its tile; Holy
 // Avenger's "vs fiends and undead" line; Ablaze adding +2d6 fire to the tile and the roll; 2H
-// showing the longsword's 1d10; and the opened row's details.
+// showing the longsword's 1d10; and the opened row's details. Then the shield rules (spec rules
+// 14-17): with the off hand free the longsword's 1H | 2H switch pulses until touched; with a Shield
+// carried a gold "Shield in off hand" pill shows, 1H | 2H is greyed and says why, the two-handed
+// longbow's tiles turn to outlines, say "Needs both hands" and add it to the roll; freeing the off
+// hand brings the pulse back.
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/weapons_table_e2e.js`). No login.
 // Runs in:   ~30s. SHOT_DIR=<dir> saves weapons-dark.png and weapons-light.png.
@@ -22,8 +26,8 @@ function check(name, pass, detail) {
   console.log((pass ? 'PASS  ' : 'FAIL  ') + name + (detail ? '   [' + detail + ']' : ''));
 }
 
-// Puts a level 1 wizard carrying the test weapons into the builder.
-const load = page => page.evaluate(() => {
+// Puts a level 1 wizard carrying the test weapons into the builder, and a Shield when `shield`.
+const load = (page, shield) => page.evaluate(shield => {
   const rd = cljs.reader.read_string;
   const s = 'orcpub.entity.strict', c = 'orcpub.dnd.e5.character';
   const held = `{:${c}.equipment/quantity 1 :${c}.equipment/equipped? true}`;
@@ -35,10 +39,11 @@ const load = page => page.evaluate(() => {
       :${s}/selections [{:${s}/key :levels :${s}/options [{:${s}/key :level-1}]}]}]}
     {:${s}/key :weapons :${s}/options [${opts([':dagger', ':longsword', ':net', ':longbow'])}]}
     {:${s}/key :magic-weapons :${s}/options [${opts([':flame-tongue-longsword', ':holy-avenger-longsword',
-                                                      ':frost-brand-rapier', ':dwarven-thrower'])}]}]}`;
+                                                      ':frost-brand-rapier', ':dwarven-thrower'])}]}
+    ${shield ? `{:${s}/key :armor :${s}/options [${opts([':shield'])}]}` : ''}]}`;
   re_frame.core.dispatch_sync(cljs.core.PersistentVector.fromArray(
     [rd(':set-character'), orcpub.dnd.e5.character.from_strict(rd(strict))], true));
-});
+}, !!shield);
 
 // Layout numbers for the section: widths, heading offsets, tile sizes, one-line names, tap targets.
 const measure = page => page.evaluate(() => {
@@ -110,6 +115,7 @@ async function layout(page, theme) {
     const row = name => page.locator('.weapon-row')
       .filter({ has: page.locator('.weapon-name', { hasText: new RegExp(`^${name}$`) }) });
     await layout(page, 'dark');
+    check('no reason pill while the off hand is free', await page.locator('.weapons-reason').count() === 0);
 
     const strip = async name => (await row(name).locator('.weapon-hit-tile .weapon-strip').innerText()).trim();
     check('a weapon the wizard is not proficient with says "no prof"', await strip('Longsword') === 'no prof');
@@ -131,13 +137,42 @@ async function layout(page, theme) {
     check('and the damage roll includes the fire', /1d8\+2 slashing:[\s\S]*2d6 fire:/.test(msg), msg.replace(/\s+/g, ' ').slice(0, 140));
 
     const plain = row('Longsword');
+    check('with the off hand free, the longsword\'s 1H | 2H switch pulses',
+          await plain.locator('.weapon-switch.pulse').count() === 1);
+    await plain.getByRole('radio', { name: '1H' }).click();  // already chosen: a touch that changes nothing else
+    check('touching it stops the pulse',
+          await plain.locator('.weapon-switch.pulse').waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
     await plain.getByRole('radio', { name: '2H' }).click();
     check('2H shows the longsword\'s two-handed 1d10', await shows(plain.locator('.weapon-damage-tile'), '1d10+2'));
+    await plain.getByRole('radio', { name: '1H' }).click();  // back to 1H: the pulse only offers 2H
 
     const holy = row('Holy Avenger, Longsword');
     await holy.locator('.weapon-name-line').click();
     const opened = await holy.locator('.weapon-opened').waitFor({ timeout: 5000 }).then(() => true, () => false);
     check('tapping the name opens the row with its details', opened && /Two-handed\?/.test(await holy.innerText()));
+
+    // the shield rules
+    await load(page, true);
+    const pill = page.locator('.weapons-reason');
+    check('a Shield shows the "Shield in off hand" pill',
+          await pill.waitFor({ timeout: 5000 }).then(() => true, () => false) && (await pill.innerText()).trim() === 'Shield in off hand');
+    const ls = row('Longsword');
+    check('1H | 2H is greyed and 2H cannot be picked',
+          await ls.locator('.weapon-switch.disabled').count() === 1 && await ls.getByRole('radio', { name: '2H' }).isDisabled());
+    check('and the longsword is back to one-handed dice', /1d8\+2/.test(await ls.locator('.weapon-damage-tile').innerText()));
+    check('no pulse while the off hand holds a shield', await ls.locator('.weapon-switch.pulse').count() === 0);
+    await ls.locator('.weapon-name-line').click();
+    check('the opened longsword says why', await shows(ls, 'Two hands: not while your off hand holds a Shield.'));
+    const bow = row('Longbow');
+    check('the two-handed longbow\'s tiles become outlines', await bow.locator('.needs-hands').count() === 2);
+    await bow.locator('.weapon-name-line').click();
+    check('the opened longbow says it needs both hands', await shows(bow, 'Needs both hands: your off hand holds a Shield.'));
+    await bow.locator('.weapon-hit-tile').click();
+    check('and its roll says so', await shows(page.locator('.message'), 'Longbow attack (needs both hands):'));
+    await load(page, false);
+    check('freeing the off hand removes the pill',
+          await pill.waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
+    check('and brings the pulse back', await row('Longsword').locator('.weapon-switch.pulse').waitFor({ timeout: 5000 }).then(() => true, () => false));
 
     await page.locator('div.pointer', { hasText: 'Light Theme' }).first().click();
     await page.waitForTimeout(300);

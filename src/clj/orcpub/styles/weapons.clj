@@ -1,7 +1,8 @@
 (ns orcpub.styles.weapons
   "The character sheet's Weapons table: rows, roll tiles, strips and chips. Every colour is a
   CSS variable set per theme on .weapons-section, so a display setting only swaps variables.
-  Design and values: weapons-table-spec.md and handoff-weapons-table.md.")
+  Design and values: weapons-table-spec.md and handoff-weapons-table.md."
+  (:require [garden.stylesheet :refer [at-media at-keyframes]]))
 
 (def damage-type-colours
   "Each damage type's dot (on a dark strip) and ribbon (a filled strip or chip), v5 palette."
@@ -25,7 +26,9 @@
    :--wpn-toggle-on-ink "#1a1e28"
    :--wpn-no-roll-edge "#6b7690"
    :--wpn-tint "22%"
-   :--wpn-tile-shadow "0 1px 1px rgba(0,0,0,0.35), 0 0 1px rgba(0,0,0,0.25)"})
+   :--wpn-tile-shadow "0 1px 1px rgba(0,0,0,0.35), 0 0 1px rgba(0,0,0,0.25)"
+   :--wpn-outline-ink "#f0a100"
+   :--wpn-glow "rgba(214,219,227,0.55)"})
 
 (def light-vars
   "The table's colours on the light theme."
@@ -40,7 +43,9 @@
    :--wpn-toggle-on-ink "#ffffff"
    :--wpn-no-roll-edge "#8f8f8f"
    :--wpn-tint "18%"
-   :--wpn-tile-shadow "none"})
+   :--wpn-tile-shadow "none"
+   :--wpn-outline-ink "#8a5a00"
+   :--wpn-glow "rgba(74,74,74,0.4)"})
 
 (def grid
   "The column template shared by the headings and every row."
@@ -148,6 +153,17 @@
      {:font-size "12px" :font-weight 600 :padding "1px 7px" :border-radius "999px"
       :box-shadow "inset 0 0 0 1px var(--wpn-muted)"}]
 
+    ;; the shield rules: weapons-table-spec.md rules 14-17
+    [:.weapons-heading {:display :flex :align-items :center :flex-wrap :wrap :gap "8px"}]
+    [:.weapon-switch.disabled {:opacity 0.5}]
+    [:.weapon-switch.disabled [:.weapon-switch-option {:cursor :not-allowed}]]
+    [:.roll-button.weapon-tile.needs-hands
+     {:background "transparent" :background-image "none" :color "var(--wpn-outline-ink)"
+      :box-shadow "inset 0 0 0 2px #f0a100"}]
+    [:.roll-button.weapon-tile.needs-hands [:.weapon-tile-body {:text-shadow :none}]]
+    [:.weapon-switch.pulse {:animation "weapon-pulse 10s ease-out 0s 6"}]
+    [:.weapon-hands-note {:margin-bottom "6px" :font-weight 600}]
+
     ;; the opened row: an inset panel under the row
     [:.weapon-opened
      {:margin "0 10px 10px" :padding "10px 12px" :border-radius "4px"
@@ -155,4 +171,11 @@
     [:.app.light-theme [:.weapon-opened {:background "rgba(255,255,255,0.55)"}]]
     [:.weapon-opened-name {:font-weight 700 :font-size "14px" :margin-bottom "4px"}]]
    (for [[t [dot ribbon]] damage-type-colours]
-     [(keyword (str ".dt-" (name t))) {:--dt-dot dot :--dt-ribbon ribbon}])))
+     [(keyword (str ".dt-" (name t))) {:--dt-dot dot :--dt-ribbon ribbon}])
+   [(at-keyframes "weapon-pulse"
+                  ["from" {:box-shadow "0 0 0 0 var(--wpn-glow)"}]
+                  ["6%" {:box-shadow "0 0 0 5px var(--wpn-glow)"}]
+                  ["14%" {:box-shadow "0 0 0 0 transparent"}]
+                  ["to" {:box-shadow "0 0 0 0 transparent"}])
+    (at-media {:prefers-reduced-motion "reduce"}
+              [:.weapon-switch.pulse {:animation :none :box-shadow "0 0 0 2px var(--wpn-glow)"}])]))
