@@ -105,6 +105,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** renamed items keep their links, and the characters using them. (#705)
 - **Homebrew:** a custom magic item saved with no type no longer breaks. (#694)
 - **Characters:** the Features tab loads when a trait has no name. (#680)
+- **Characters:** saving a character that was deleted in another tab no longer sends you to the login page with nothing said; your changes stay, and Save stores them as a new character.
 - **Characters:** the Robe of the Archmagi sets your AC to 15 + Dex instead of adding 5, so it no longer stacks with Draconic Resilience or Unarmored Defense.
 - **Characters:** a tortle's Ring of Protection, Bracers of Defense and similar bonuses now count toward its AC of 17; only armor is ignored.
 - **Characters:** anyone who can open a character sees its owner's custom items. (#252)
