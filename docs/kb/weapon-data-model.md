@@ -1,7 +1,8 @@
 # The weapon data model
 
 Every field on a weapon in `weapons.cljc`, derived from the loaded data (40 weapons), not from
-reading the file. Written because the model was undocumented: a `tag->flag` mapping was built from a
+reading the file. `::link` (a Wikipedia URL on 30 weapons, never shown) was removed on
+`feature/weapons-table` in `dd7aa5ef` (2026-10-18). Written because the model was undocumented: a `tag->flag` mapping was built from a
 partial grep and silently missed more than half the flags.
 
 ## Fields
@@ -26,7 +27,6 @@ partial grep and silently missed more than half the flags.
 | `::range` | 18 | **a map** | `{::min 20 ::max 60}` |
 | `::reach` | 5 | `true` | **no `?`** |
 | `::special?` | 2 | `true` | |
-| `::link` | 30 | url | cosmetic |
 
 ## Traps
 
