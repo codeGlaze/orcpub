@@ -3,7 +3,10 @@
    one back. docs/kb/ux-guide.md on agents/develop: a few words, the player's words."
   (:require [orcpub.common :as common]))
 
-(defn- title [k] (common/kw-to-name k true))
+(defn- title
+  "Keyword `k` as a capitalised name: `:hunter` gives \"Hunter\"."
+  [k]
+  (common/kw-to-name k true))
 
 (defn when-short
   "What brings a held pick back, in a few characters for the marker: \"L7\", \"if Hunter\"."

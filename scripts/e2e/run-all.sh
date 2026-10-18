@@ -207,6 +207,8 @@ for kind in prod dev; do
   echo "$label: $p passed, $f failed${r:+, $r probes measured}, of $n" | sed 's/, 0 probes measured//'
 done
 [ "$SKIPPED_PROBES" -gt 0 ] && echo "$SKIPPED_PROBES probes not run (they measure, not test; add --probes)"
+ON_DEMAND=$(awk '$4 == "on-demand" {print $5}' "$LOGDIR/plan" | xargs -r -n1 basename | paste -sd' ')
+[ -n "$ON_DEMAND" ] && echo "on demand, not run: $ON_DEMAND (run one with ./scripts/e2e/run.sh <suite>)"
 awk 'NR == 1 || $1 > m {m = $1; t = $2} END {if (m) printf "peak memory in use: %d of %d MB\n", m, t}' "$LOGDIR/memory"
 echo "took $(( ($(date +%s) - START) / 60 )) min $(( ($(date +%s) - START) % 60 )) s; logs: $LOGDIR"
 ! grep -q ' FAIL ' "$RESULTS"

@@ -2,7 +2,8 @@
      (:require [garden.stylesheet :refer [at-media at-keyframes]]
                [garden.units :refer [px]]
                [orcpub.constants :as const]
-               [garden.selectors :as s]))
+               [garden.selectors :as s]
+               [orcpub.styles.portrait :as portrait]))
 
 ;; Color palette — used across UI for consistent theming
 (def orange "#f0a100")
@@ -1258,6 +1259,8 @@
      :opacity 0.75}
     [:&:hover {:opacity 1}]]
    [:button.message-close {:background :none :border 0 :font :inherit :cursor :pointer}]
+   ;; The builder's options while another tab edits the same character (plan-character-drafts.md R7).
+   [:.builder-held {:opacity 0.45 :pointer-events :none}]
 
    ;; Warning/alert styles
    [:.bg-warning
@@ -1984,14 +1987,21 @@
       :margin-top (px 5)
       :font-weight :normal}]
 
+    ;; Wraps because the bar has to hold four tabs now: at phone width a
+    ;; single non-wrapping row ran OPTIONSDESCRIPTIONPORTRAIT together with no
+    ;; gap between the labels. min-width forces the break rather than letting
+    ;; flex-grow squeeze them all onto one line.
     [:.builder-tabs
      {:display :flex
+      :flex-wrap :wrap
+      :gap "10px"
       :padding "10px"
       :text-transform :uppercase
       :font-weight 600}]
 
     [:.builder-tab
-     {:flex-grow 1
+     {:flex "1 1 auto"
+      :min-width "110px"
       :padding-bottom "13px"
       :text-align :center
       :cursor :pointer
@@ -2074,9 +2084,6 @@
       :text-decoration :underline
       :cursor :pointer
       :text-align :right}]
-
-    [:.fa-caret-square-o-down
-     {:color button-color}]
 
     [:.expand-collapse-button:hover
      {:color button-color}]
@@ -2955,7 +2962,8 @@
       :gap "8px"
       :margin-top "10px"}]
 
-    [:.dev-mode-switch
+    ;; also the account page's settings switches
+    [:.dev-mode-switch :.toggle-switch
      {:position :relative
       :display :inline-block
       :width "34px"
@@ -2987,6 +2995,11 @@
       {:width "28px" :height "16px" :border-radius "8px"}
       [:&:after {:width "10px" :height "10px"}]
       [:&.on [:&:after {:transform "translateX(12px)"}]]]]
+
+    ;; the off track has to show on a light page too
+    [:.app.light-theme :.app.light-plus-theme :.app.parchment-theme
+     [:.toggle-switch {:background-color "rgba(0,0,0,0.22)"}
+      [:&.on {:background-color orange}]]]
 
     [:.dev-mode-label
      {:font-size "12px"
@@ -3676,7 +3689,9 @@
    widths
    font-sizes
    props
-   media-queries) ;concat
+   media-queries
+   ;; last: the portrait rules win ties with the rules above
+   portrait/styles) ;concat
 );def app
 
 

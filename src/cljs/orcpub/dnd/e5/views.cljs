@@ -26,6 +26,8 @@
             [orcpub.dnd.e5.folder :as folder]
             [orcpub.dnd.e5.character.random :as char-random]
             [orcpub.dnd.e5.character.equipment :as char-equip]
+            [orcpub.dnd.e5.portrait :as portrait]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.registration :as registration]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.magic-items :as mi]
@@ -58,6 +60,7 @@
             [orcpub.fork.user-tier]
             [orcpub.ver :as v]
             [clojure.string :as s]
+            [orcpub.artist-links :as artist-links]
             [goog.crypt.base64 :as b64]
             [cljs.reader :as reader]
             [orcpub.user-agent :as user-agent]
@@ -316,14 +319,69 @@
                   :show-errors? show-errors?
                   :on-change on-confirm}])])
 
+(defn- portrait-fields
+  "The spec's portrait fields for baked `png-b64`: the pixels and the credit, which travels with
+   them because the server has no layer selection. Fitted to the PDF metadata's 78 characters,
+   so whole names drop rather than one being cut."
+  [portrait png-b64]
+  (when png-b64
+    {:portrait-png png-b64
+     :portrait-credit (portrait-assets5e/fit-credit
+                       (portrait-assets5e/credit-names portrait)
+                       #(<= (count %) 78))}))
+
+(def portrait-wait-ms
+  "How long Create PDF waits for a portrait still baking before sending the PDF without it."
+  8000)
+
+(defn- within-wait
+  "`bake`, a promise of a portrait's base64 PNG, resolving to nil instead if it fails or is still
+   running after portrait-wait-ms. Never rejects."
+  [bake]
+  (-> (js/Promise.race #js [bake (js/Promise. (fn [ok _] (js/setTimeout #(ok nil) portrait-wait-ms)))])
+      (.catch (fn [_] nil))))
+
 (defn export-pdf
-  "Returns an onClick handler that generates and submits the PDF.
-   plugin-data map is pre-subscribed by the calling component."
+  "An onClick handler that submits the PDF form for `built-char`, with its portrait when one can be
+   drawn. Nothing optional stops the export: a missing, undrawable, failing or slow portrait sends
+   the PDF without it. If the PDF's data cannot be made, the player is told.
+   GOTCHA: the submit must stay inside the click or a popup blocker stops the new tab; an
+   unfinished bake opens the tab now and fills it when the bake resolves or the wait runs out."
   [built-char id plugin-data & [options]]
   (fn [_]
-    (let [field (.getElementById js/document "fields-input")]
-      (aset field "value" (str (pdf-spec/make-spec built-char id options plugin-data)))
-      (.submit (.getElementById js/document "download-form")))))
+    (try
+      (let [field (.getElementById js/document "fields-input")
+            form (.getElementById js/document "download-form")
+            spec (pdf-spec/make-spec built-char id options plugin-data)
+            portrait (char/portrait built-char)
+            submit! (fn [png-b64 target]
+                      (aset field "value" (str (merge spec (try (portrait-fields portrait png-b64)
+                                                                (catch :default _ nil)))))
+                      (aset form "target" target)
+                      (.submit form))
+            ready (when (portrait-assets5e/drawable? portrait) (portrait/baked-png portrait))]
+        (cond
+          (not (portrait-assets5e/drawable? portrait)) (submit! nil "_blank")
+          ready (submit! (first ready) "_blank")
+          :else (if-let [bake (try (portrait/bake-ahead! portrait) (catch :default _ nil))]
+                  (let [tab (str "orcpub-pdf-" (rand-int 1000000))
+                        target (if (.open js/window "" tab) tab "_blank")]
+                    (.then (within-wait bake) #(submit! % target)))
+                  (submit! nil "_blank"))))
+      (catch :default e
+        (js/console.error "PDF export could not start:" e)
+        (dispatch [:show-error-message
+                   "This character's PDF couldn't be made. Try again, or tell us with Feedback/Bug Reports at the bottom of the page."])))))
+
+(defn bake-portrait
+  "Bakes the character's composed portrait on mount and whenever it or the artist credits change,
+   so export can submit without waiting. Renders nothing."
+  [_portrait]
+  (let [bake #(portrait/bake-ahead! (second (r/argv %)))]
+    (r/create-class
+     {:component-did-mount bake
+      :component-did-update bake
+      :reagent-render (fn [_] @(subscribe [:portrait/artist-overrides]) nil)})))
 
 (defn download-form [built-char]
   [:form.download-form
@@ -2105,16 +2163,6 @@
 (defn current-year []
   (.getFullYear (js/Date.))) 
 
-;; ------------------------------------------------------------------
-;; A helper that lets us embed a raw string of HTML inside Reagent.
-;; (If you’re using reagent‑core ≥1.2, `:raw` is built‑in; otherwise
-;; you can use the small shim below.)
-;; ------------------------------------------------------------------
-;; Render *any* raw HTML string.  
-(defn raw-html [html]
-  ;; Note: no `:>` or `js/React.createElement`.  
-  [:div {:dangerouslySetInnerHTML #js {:__html html}}])
-
 (declare library-health-status)
 (declare meta-edit-row)      ; defined with builder-page, which is its other caller
 
@@ -2311,13 +2359,18 @@
                            include-name?
                            owner
                            show-owner?
-                           show-follow?]
+                           show-follow?
+                           & [editable?]]
   (let [username @(subscribe [:username])
-        display-name (when include-name? (character-display-name summary))]
+        display-name (when include-name? (character-display-name summary))
+        ;; parsed {:layers :colors :tweaks} map, or nil — see char/portrait
+        portrait-data (::char/portrait summary)]
     [:div.flex.justify-cont-s-b.w-100-p.align-items-c
      [:div.flex.align-items-c.align-items-t
-      (when image-url
-        [:img.m-r-20.m-t-10.m-b-10.image-character-thumbnail {:src image-url }])
+      ;; a composed portrait wins over image-url when both are present; falls
+      ;; back to the pasted URL, then to nothing (existing behavior). With
+      ;; `editable?` the thumbnail also carries a pencil into the compositor.
+      [portrait/thumbnail portrait-data image-url editable?]
       [:div.flex.character-summary.m-t-20.m-b-20
        (when display-name [:span.m-r-20.m-b-5
                                                [:span.character-name display-name]
@@ -2362,6 +2415,7 @@
         eyes @(subscribe [::char/eyes id])
         skin @(subscribe [::char/skin id])
         image-url @(subscribe [::char/image-url id])
+        portrait-data @(subscribe [::char/portrait id])
         race @(subscribe [::char/race id])
         subrace @(subscribe [::char/subrace id])
         levels @(subscribe [::char/levels id])
@@ -2379,6 +2433,7 @@
       ::char/eyes eyes
       ::char/skin skin
       ::char/image-url image-url
+      ::char/portrait portrait-data
       ::char/race-name race
       ::char/subrace-name subrace
       ::char/alignment alignment
@@ -2394,7 +2449,10 @@
      include-name?
      owner
      true
-     true)))
+     true
+     ;; a nil id means the character currently in the builder -- the only
+     ;; place a drawer exists to open.
+     (nil? id))))
 
 ;; dead — character_builder.cljs has its own realize-char
 #_(defn realize-char [built-char]
@@ -4958,6 +5016,7 @@
     [:div.flex.justify-cont-end
      [:div.p-20
       [capture-images [image-url faction-image-url]]
+      [bake-portrait (char/portrait built-char)]
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
 
       ;; Grouped by what a setting changes: the sheet, the cards behind it, then
@@ -9925,8 +9984,207 @@
               :on-change import-file}]]
     [my-content]]])
 
+;; ─── Account settings: preferred name, artist credit ─────────────────
+
+(defn- save-note
+  "The line under a Save button: saving, saved, or what went wrong."
+  [{:keys [status error]}]
+  (case status
+    :saving [:span.m-l-10.f-s-14 "Saving…"]
+    :saved [:span.m-l-10.f-s-14 [:i.fa.fa-check.orange.m-r-5] "Saved"]
+    :error (when error [:div.m-t-5.red.f-s-14 error])
+    nil))
+
+(defn preferred-name-setting
+  "What the site calls them in emails. Everyone gets this, not just artists."
+  [saved]
+  (r/with-let [value (r/atom (or saved ""))]
+    (let [enabled? @(subscribe [:preferred-name-enabled?])
+          save-status @(subscribe [:account-save-status :preferred-name-save])
+          changed? (not= (s/trim @value) (or saved ""))]
+      [:div.p-5.m-t-10
+       [:div.f-w-b "What should we call you?"]
+       [:div.f-s-14.m-t-5.m-b-5.opacity-7
+        "A first name, a nickname, whatever you like. We'll use it to greet you in emails. "
+        "It's stored encrypted, so it isn't readable even from a copy of our database."]
+       (if-not enabled?
+         [:div.f-s-14.opacity-7 [:i "Not available on this site yet."]]
+         [:div.flex.align-items-c.flex-wrap
+          [:input.input {:type "text"
+                         :value @value
+                         :max-length 40
+                         :placeholder "e.g. Kaylee"
+                         :style {:max-width "260px"}
+                         :on-change #(do (reset! value (event-value %))
+                                         (dispatch [:clear-account-save-status :preferred-name-save]))}]
+          [:button.form-button.m-l-10
+           {:disabled (not changed?)
+            :on-click #(dispatch [:save-preferred-name (s/trim @value)])}
+           "Save"]
+          [save-note save-status]])])))
+
+(defn- field-note
+  "The line under a field: a problem in red, else nothing."
+  [problem]
+  (when problem [:div.m-t-5.red.f-s-14 problem]))
+
+(defn- problem-border [problem]
+  (when problem {:border-color "#e0602c"}))
+
+(defn- credit-edit
+  "The form's state as the edit the server takes. Blank rows are dropped here
+   so the server's per-row errors line up with what is on screen."
+  [nm link links]
+  {:name (s/trim nm)
+   :link (s/trim link)
+   :links (vec (for [{:keys [url]} links :when (not (s/blank? url))] {:url url}))})
+
+(defn room-for-a-link?
+  "Whether the credit form can show another link row, given its `rows` as on screen. Blank rows
+   count: credit-edit drops them, so counting the edit would let rows pile up without limit."
+  [rows]
+  (< (count rows) artist-links/max-links))
+
+(defn- credit-preview-info
+  "What the credit will look like once saved: the code's default, under the
+   artist's form, under whatever the site's config has fixed. Links that
+   wouldn't pass are left out, so the preview never shows a mark that the
+   save would refuse."
+  [{:keys [default current locked]} {:keys [name link links]}]
+  (let [good-links (remove #(artist-links/url-problem (:url %)) links)
+        form (cond-> {}
+               (seq name) (assoc :artist/name name)
+               (and (seq link) (nil? (artist-links/url-problem link))) (assoc :artist/link link)
+               (seq good-links) (assoc :artist/links (mapv (comp artist-links/link-entry :url) good-links)))]
+    (merge (assoc default :artist/id (keyword (or (:artist/id current) "preview")))
+           form
+           (select-keys current locked))))
+
+(defn- link-mark
+  "The mark a link will wear, in its own colour."
+  [url]
+  (let [{:keys [icon label color]} (artist-links/service-for-url url)]
+    [:span {:title label :aria-label label
+            :style {:width "20px" :height "20px" :flex-shrink 0 :margin-right "8px"
+                    :background-color color
+                    :WebkitMaskImage (str "url(/image/social/" icon ".svg)")
+                    :maskImage (str "url(/image/social/" icon ".svg)")
+                    :WebkitMaskSize "contain" :maskSize "contain"
+                    :WebkitMaskRepeat "no-repeat" :maskRepeat "no-repeat"
+                    :WebkitMaskPosition "center" :maskPosition "center"}}]))
+
+(defn artist-credit-form
+  "The same rules the server enforces (orcpub.artist-links), run as you type:
+   a wrong scheme is flagged at once, a half-typed address only once you
+   leave the box, and Save stays off while anything would be refused."
+  [{:keys [own locked default] :as credit}]
+  (r/with-let [nm (r/atom (or (:artist/name own) ""))
+               link (r/atom (or (:artist/link own) ""))
+               next-id (atom 0)
+               new-row (fn [url] {:id (swap! next-id inc) :url url})
+               links (r/atom (vec (for [l (:artist/links own)] (new-row (:link/url l)))))
+               ;; fields the person has left, keyed :name / :link / row id
+               left (r/atom #{})]
+    (let [save-status @(subscribe [:account-save-status :artist-credit-save])
+          server-errors (:errors save-status)
+          clear! #(dispatch [:clear-account-save-status :artist-credit-save])
+          edit (credit-edit @nm @link @links)
+          blocking (artist-links/edit-errors edit)
+          locked? (fn [k] (contains? (set locked) k))
+          left? #(contains? @left %)
+          leave! #(swap! left conj %)
+          name-problem (or (:name server-errors) (artist-links/name-problem @nm))
+          link-problem (or (:link server-errors) (artist-links/typing-problem @link (left? :link)))
+          fixed-note [:div.f-s-12.m-t-5.opacity-7 "Set by the site's admins. Reply to any of our emails if it needs changing."]]
+      [:div
+       [:div.m-t-10.m-b-10
+        [portrait/credit-preview (credit-preview-info credit edit)]]
+       [:div.p-5
+        [:div.f-s-14.f-w-b "Credited as"]
+        [:input.input {:type "text" :value @nm
+                       :disabled (locked? :artist/name)
+                       :placeholder (:artist/name default)
+                       :style (merge {:max-width "320px"} (problem-border name-problem))
+                       :on-change #(do (reset! nm (event-value %)) (clear!))}]
+        (when (locked? :artist/name) fixed-note)
+        [field-note name-problem]]
+       [:div.p-5
+        [:div.f-s-14.f-w-b "Your name links to"]
+        [:input.input {:type "url" :value @link
+                       :disabled (locked? :artist/link)
+                       :placeholder (:artist/link default)
+                       :style (merge {:max-width "420px"} (problem-border link-problem))
+                       :on-blur #(leave! :link)
+                       :on-change #(do (reset! link (event-value %)) (clear!))}]
+        (when (locked? :artist/link) fixed-note)
+        [field-note link-problem]]
+       [:div.p-5
+        [:div.f-s-14.f-w-b "Link icons"]
+        [:div.f-s-12.m-b-5.opacity-7
+         "Shown beside your name, in this order. Paste a link and its icon is picked for you: "
+         (s/join ", " (keep (fn [[_ {:keys [label hosts]}]] (when (seq hosts) label)) artist-links/services))
+         " get their own; anything else gets a globe. Leave empty to use the site's default."]
+        (if (locked? :artist/links)
+          fixed-note
+          [:div
+           (doall
+            (for [[i {:keys [id url]}] (map-indexed vector @links)
+                  :let [;; server errors index the non-blank rows
+                        server-e (when-not (s/blank? url)
+                                   (get (:link-errors server-errors)
+                                        (count (remove #(s/blank? (:url %)) (take i @links)))))
+                        problem (or server-e (artist-links/typing-problem url (left? id)))]]
+              ^{:key id}
+              [:div.m-b-5
+               [:div.flex.align-items-c
+                [link-mark url]
+                [:input.input {:type "url" :value (or url "")
+                               :placeholder "https://"
+                               :style (merge {:max-width "380px"} (problem-border problem))
+                               :on-blur #(leave! id)
+                               :on-change #(do (swap! links assoc-in [i :url] (event-value %)) (clear!))}]
+                [:button.link-button.m-l-10.f-s-14
+                 {:on-click #(do (swap! links (fn [ls] (into (subvec ls 0 i) (subvec ls (inc i))))) (clear!))}
+                 "Remove"]]
+               [field-note problem]]))
+           (when (room-for-a-link? @links)
+             [:button.link-button.f-s-14
+              {:on-click #(swap! links conj (new-row ""))}
+              "+ Add a link"])
+           [field-note (or (:links server-errors) (:links blocking))]])]
+       [:div.p-5.m-t-5
+        [:button.form-button
+         {:disabled (boolean (seq blocking))
+          :title (when (seq blocking) "Fix the highlighted fields first")
+          :on-click #(when (empty? blocking)
+                       (reset! links (vec (remove (comp s/blank? :url) @links)))
+                       (dispatch [:save-artist-credit edit]))}
+         "Save credit"]
+        [save-note save-status]]
+       [:div.f-s-12.p-5.opacity-7
+        "Every change is emailed to you and to the site's admins, so a change you didn't make gets noticed."]])))
+
+(defn artist-credit-setting
+  "For artist accounts: how their art is credited across the site."
+  [credit]
+  (r/create-class
+   {:component-did-mount
+    (fn [_]
+      ;; the welcome and upgrade emails link straight here
+      (when (= "#artist-credit" (.. js/window -location -hash))
+        (some-> (.getElementById js/document "artist-credit") (.scrollIntoView #js {:block "start"}))))
+    :reagent-render
+    (fn [credit]
+      [:div#artist-credit.p-5.m-t-20
+       [:div.f-w-b "Artist credit"]
+       [:div.f-s-14.m-t-5.opacity-7
+        "How your art is credited everywhere it appears: the portrait builder, character sheets and shared cards."]
+       ;; remount with fresh fields whenever the saved credit changes
+       ^{:key (pr-str (:own credit))} [artist-credit-form credit]])}))
+
 (defn my-account-page []
-    (r/with-let [editing? (r/atom false)
+    (r/with-let [_ (dispatch [:load-account])
+                 editing? (r/atom false)
                  new-email (r/atom "")
                  current-password (r/atom "")
                  confirm-email (r/atom "")]
@@ -10044,21 +10302,30 @@
                   "Resend"]
                  (when error
                    [:span.m-l-5.red.f-s-14 error])])])]
-          ;; ─── Email Updates Toggle ─────────────────────────────────
-          [:div.p-5
-           [:span.f-w-b "Email Updates: "]
-           (let [send-updates? @(subscribe [:send-updates?])]
-             [:span
-              [:i.fa.fa-check.f-s-14.pointer.m-r-5
-               {:class (if send-updates? "orange" "white")
-                :style {:border-color "#f0a100"
-                        :border-style :solid
-                        :border-width "1px"
-                        :border-bottom-width "3px"}
-                :on-click #(dispatch [:toggle-send-updates (not send-updates?)])}]
-              (if send-updates?
-                (str "Receiving updates from " branding/app-name)
-                "Not receiving updates")])]]])))
+          ;; ─── Email Updates ────────────────────────────────────────
+          (let [send-updates? @(subscribe [:send-updates?])
+                toggle #(dispatch [:toggle-send-updates (not send-updates?)])]
+            [:div.p-5.m-t-10
+             [:div.f-w-b "News and updates"]
+             [:div.flex.align-items-c.m-t-5.pointer
+              {:on-click toggle}
+              [:span.toggle-switch
+               {:class (when send-updates? "on")
+                :role "switch"
+                :aria-checked (str send-updates?)
+                :aria-label (str "Email me news and updates from " branding/app-name)
+                :tabIndex 0
+                :on-key-down #(when (#{"Enter" " "} (.-key %)) (.preventDefault %) (toggle))}]
+              [:span.m-l-10.f-s-16
+               (str "Email me news and updates from " branding/app-name)]]
+             [:div.f-s-14.m-t-5.opacity-7
+              "Emails about your account, like password resets, are sent either way."]])
+          ;; ─── Preferred name ───────────────────────────────────────
+          (let [saved @(subscribe [:preferred-name])]
+            ^{:key (str "pn-" saved)} [preferred-name-setting saved])
+          ;; ─── Artist credit (artist accounts only) ─────────────────
+          (when-let [credit @(subscribe [:artist-credit])]
+            [artist-credit-setting credit])]])))
 
 
 (defn newb-character-builder-page []
@@ -10348,6 +10615,8 @@
       [:button.form-button.m-l-5
        {:on-click (make-event-handler :route char-page-route)}
        "view"]
+      (when (or (not branding/restrict-print-to-owner?) (= username owner))
+        [bake-portrait (char/portrait built-char)])
       (when (or (not branding/restrict-print-to-owner?) (= username owner))
         [:button.form-button.m-l-5
          {:on-click (export-pdf
@@ -10732,6 +11001,43 @@
              [:i.fa.fa-times.m-r-5]
              "Clear"])]]))))
 
+(defn draft-time
+  "When a draft was last edited, from `ms` (epoch milliseconds), as a player reads it: weekday and
+   time within the last six days (\"Tue 14:02\"), else the date (\"Oct 9\")."
+  [ms]
+  (let [d (js/Date. ms)
+        recent? (< (- (.now js/Date) ms) (* 6 24 60 60 1000))]
+    (.toLocaleString d "en-US" (if recent?
+                                 #js {:weekday "short" :hour "2-digit" :minute "2-digit" :hour12 false}
+                                 #js {:month "short" :day "numeric"}))))
+
+(defn drafts-list
+  "\"Unsaved drafts (n) · Details\": this browser's drafts that are not open anywhere and not offered,
+   each with Open and Discard. Renders nothing when there are none. ux-guide.md (2026-10-16)."
+  []
+  (let [open? (r/atom false)]
+    (fn []
+      (let [drafts @(subscribe [::char/unsaved-drafts])]
+        (when (seq drafts)
+          [:div.drafts-list.main-text-color
+           [notifications/callout
+            {:icon "fa-file-alt orange"
+             :tone :note
+             :accent :brand
+             :compact? true
+             :text (str "Unsaved drafts (" (count drafts) ")")
+             :actions [{:label "Details" :link? true :expanded @open? :on-click #(swap! open? not)}]
+             :details (when @open?
+                        (for [{:keys [key name touched]} drafts]
+                          {:key key
+                           :label (if (s/blank? name) "New character" name)
+                           :aside [:span (draft-time touched) " · "
+                                   [:button.link-button.underline
+                                    {:on-click #(dispatch [::char/open-draft key])} "Open"]
+                                   " · "
+                                   [:button.link-button.underline
+                                    {:on-click #(dispatch [::char/discard-draft key])} "Discard"]]}))}]])))))
+
 (defn character-list []
   (let [characters @(subscribe [::char/filtered-characters])
         folders @(subscribe [::folder/folders])
@@ -10762,6 +11068,7 @@
        :icon "folder"
        :on-click #(dispatch [::folder/create-folder])}]
      [:div.p-5
+      [drafts-list]
       [character-filter-bar]
       [:div
        (let [filtered-char-ids (into #{} (map :db/id) characters)

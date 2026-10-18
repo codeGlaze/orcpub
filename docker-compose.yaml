@@ -58,6 +58,16 @@ services:
       # accept unverified accounts; this is how you opt into the weaker mode.
       ALLOW_UNVERIFIED_REGISTRATION: ${ALLOW_UNVERIFIED_REGISTRATION:-}
       LOAD_HOMEBREW_URL: ${LOAD_HOMEBREW_URL:-}
+      # Portrait artists' credits and accounts, the key that encrypts preferred names, and the
+      # site address artist emails link to. See .env.example.
+      PORTRAIT_ARTISTS: ${PORTRAIT_ARTISTS:-}
+      PROFILE_ENCRYPTION_KEYS: ${PROFILE_ENCRYPTION_KEYS:-}
+      APP_URL: ${APP_URL:-}
+      EMAIL_ADMIN_TO: ${EMAIL_ADMIN_TO:-}
+      # Where drawn shared-link portraits are kept. Mount a shared volume here to draw each once
+      # for every container (a volume at /var/lib/orcpub/portraits, with this set to that path);
+      # without one, each container keeps its own under /tmp.
+      PORTRAIT_STORE_DIR: ${PORTRAIT_STORE_DIR:-}
     depends_on:
       datomic:
         condition: service_healthy

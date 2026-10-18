@@ -24,10 +24,15 @@
   {::char5e/str 15 ::char5e/dex 15 ::char5e/con 14
    ::char5e/int 10 ::char5e/wis 10 ::char5e/cha 10})
 
-(defn- class-opt [f]
+(defn- class-opt
+  "Builds a class option from the option constructor `f`, supplying the test spell lists, spell
+   map, language map and weapons map."
+  [f]
   (f sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map))
 
-(defn- make-template [class-options]
+(defn- make-template
+  "Builds a template whose class selection offers `class-options`. Returns the template."
+  [class-options]
   (t5e/template
    (t5e/template-selections
     nil nil nil weapons5e/weapons-map weapons5e/weapons
@@ -37,18 +42,24 @@
   (delay (make-template [(class-opt classes5e/fighter-option)
                          (class-opt classes5e/rogue-option)])))
 
-(defn- lvl [n] {::entity/key (keyword (str "level-" n))
+(defn- lvl
+  "Stored level entry for level `n` with an average hit-point roll of 5."
+  [n] {::entity/key (keyword (str "level-" n))
                 ::entity/options {:hit-points {::entity/key :average ::entity/value 5}}})
 
 (def ^:private fighter {::entity/key :fighter ::entity/options {:levels [(lvl 1)]}})
 (def ^:private rogue {::entity/key :rogue ::entity/options {:levels [(lvl 1)]}})
 
-(defn- raw [classes]
+(defn- raw
+  "Stored character with the test ability scores and `classes` as its class entries."
+  [classes]
   {::entity/options
    {:ability-scores {::entity/key :standard-roll ::entity/value abilities}
     :class classes}})
 
-(defn- build [tmpl classes] (entity/build (raw classes) tmpl))
+(defn- build
+  "Builds the character of `classes` against template `tmpl`. Returns the built character."
+  [tmpl classes] (entity/build (raw classes) tmpl))
 
 (defn- update-option-mods
   "Template with `f` applied to the flattened ::t/modifiers of option `opt-key` of top-level
@@ -68,10 +79,15 @@
                       s))
                   sels))))
 
-(defn- conj-cond-where [pred-mod cnd]
+(defn- conj-cond-where
+  "Returns a function over a modifier sequence `ms` that adds condition `cnd` to each modifier for
+   which `pred-mod` is true and leaves the others unchanged."
+  [pred-mod cnd]
   (fn [ms] (map (fn [m] (if (pred-mod m) (update m ::mods/conditions conj cnd) m)) ms)))
 
-(defn- key= [k] (fn [m] (= k (::mods/key m))))
+(defn- key=
+  "Returns a predicate that is true for a modifier whose `:orcpub.modifiers/key` is `k`."
+  [k] (fn [m] (= k (::mods/key m))))
 
 (defn- mod-order
   "The key order apply-options applies modifiers in, replicated from entity/apply-options."
@@ -101,9 +117,14 @@
 
 ;; ---------------------------------------------------------------- M2
 
-(defn- rogue-first? [e] (= :rogue (first (es/entity-val e :classes))))
+(defn- rogue-first?
+  "True when the :classes value of entity `e` starts with :rogue."
+  [e] (= :rogue (first (es/entity-val e :classes))))
 
-(defn- flag-mod [deps seen]
+(defn- flag-mod
+  "Modifier keyed :research-flag that sets that flag on the entity and depends on `deps`. Its one
+   condition conj-es the entity :classes value onto the atom `seen` and returns `rogue-first?`."
+  [deps seen]
   (mods/mod-f nil nil (fn [e] (assoc e :research-flag true)) :research-flag deps
               [(fn [e] (swap! seen conj (es/entity-val e :classes)) (rogue-first? e))]))
 
@@ -146,9 +167,14 @@
       (is (contains? (es/entity-val plain :tool-profs) :thieves-tools)))))
 ;; ---------------------------------------------------------------- M3
 
-(defn- first-class-is [kw] (fn [c] (= kw (first (char5e/classes c)))))
+(defn- first-class-is
+  "Returns a predicate over a built character that is true when its first class is `kw`."
+  [kw] (fn [c] (= kw (first (char5e/classes c)))))
 
-(defn- spy [f log] (fn [c] (let [r (f c)] (swap! log conj {:arg c :result r}) r)))
+(defn- spy
+  "Wraps predicate `f`. Each call of the returned function conj-es a map of :arg and :result onto
+   the atom `log` and returns the result of `f`."
+  [f log] (fn [c] (let [r (f c)] (swap! log conj {:arg c :result r}) r)))
 
 (deftest m3-same-fn-as-prereq-and-condition
   ;; M3 CONFIRMED when the modifier depends on :classes; REFUTED for a modifier with no :classes dep.
@@ -215,7 +241,10 @@
                                      {:name "Research" :levels {3 {:modifiers [[m m]]}}})]
       (is (thrown? IllegalArgumentException (doall (flatten (::t/modifiers opt))))))))
 
-(defn- walk-options [sels f]
+(defn- walk-options
+  "Calls `f` with each selection and option pair in `sels`, descending into the nested selections
+   of every option. Returns nil."
+  [sels f]
   (doseq [s sels o (::t/options s)]
     (f s o)
     (walk-options (::t/selections o) f)))
