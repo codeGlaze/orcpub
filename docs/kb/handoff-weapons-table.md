@@ -63,6 +63,13 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
   `.needs-hands`. The pulse is a CSS animation (10s x 6) on `.weapon-switch.pulse`; touching the switch
   or rolling the weapon sets the row's `:pulse-done?`, which is cleared when the off hand comes free.
   Garden minifies keyframe `0%` to an invalid `0`: use `from`/`to`. Browser test: 40 checks.
+- **Main and off hand are marked** (owner, 2026-10-18): a small neutral pill on the name line after the
+  name, holding a hand icon (`fa-hand-paper`, mirrored for the off hand) and "main" / "off", read as "main
+  hand" / "off hand". Nothing in the grey line. Not in v5; the spec's rejected "Main hand / Off hand strip"
+  was a separate row element. A weapon in the off hand triggers the shield rules too (spec rule 15).
+- **Trap for tests:** with no saved character id, `update-character-fx` queues a `:set-character` built
+  from the character as it was, so two such events back to back (wield main, then off) lose the first.
+  Dispatch one, wait for its effect, then the next.
 - **The PDF layout is built** (`c66144688`, owner approved 2026-10-17): rows take the first three
   weapons; their variants follow as bullets under the short name; later weapons get a name line plus
   bullets; magic weapons print their own name unless two share it (`sheet-weapon-names`).
