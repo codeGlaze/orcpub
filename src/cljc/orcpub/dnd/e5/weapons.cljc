@@ -2,7 +2,7 @@
   (:require [orcpub.common :as common]))
 
 (def weapons
-  [{:name "Crossbow, light" :cost {:num 25 :type :gp} :weight "5 lb.",
+  [{:name "Crossbow, Light" :cost {:num 25 :type :gp} :weight "5 lb.",
     ::damage-type :piercing,
     ::damage-die 8,
     ::type :simple,
@@ -97,7 +97,7 @@
     ::range {::min 30, ::max 120},
     :key :javelin
     ::link "https://en.wikipedia.org/wiki/Javelin"}
-   {:name "Light hammer" :cost {:num 2 :type :gp} :weight "2 lb.",
+   {:name "Light Hammer" :cost {:num 2 :type :gp} :weight "2 lb.",
     ::damage-type :bludgeoning,
     ::damage-die 4,
     ::damage-die-count 1,
@@ -300,7 +300,7 @@
     ::damage-die 6,
     ::range {::min 20, ::max 60}
     ::link "https://en.wikipedia.org/wiki/Trident"}
-   {:name "War pick" :cost {:num 5 :type :gp} :weight "2 lb.",
+   {:name "War Pick" :cost {:num 5 :type :gp} :weight "2 lb.",
     ::damage-type :piercing,
     ::damage-die 8,
     ::type :martial,
@@ -335,7 +335,7 @@
     ::ammunition? true
     ::loading? true
     :key :blowgun}
-   {:name "Crossbow, hand" :cost {:num 75 :type :gp} :weight "3 lb.",
+   {:name "Crossbow, Hand" :cost {:num 75 :type :gp} :weight "3 lb.",
     ::damage-type :piercing,
     ::damage-die 6,
     ::type :martial,
@@ -346,7 +346,7 @@
     ::loading? true
     ::light? true
     :key :crossbow-hand}
-   {:name "Crossbow, heavy" :cost {:num 50 :type :gp} :weight "18 lb.",
+   {:name "Crossbow, Heavy" :cost {:num 50 :type :gp} :weight "18 lb.",
     ::damage-type :piercing,
     ::damage-die 10,
     ::type :martial,

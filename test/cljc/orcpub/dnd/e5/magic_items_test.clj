@@ -123,7 +123,7 @@
           names (set (map :name expansion))]
       (is (= 2 (count expansion)))
       (is (names "My Item, Plate"))
-      (is (names "My Item, Chain mail"))))
+      (is (names "My Item, Chain Mail"))))
   (testing "function subtype matches the proper subtypes"
     (let [item {mi/name-key "My Item"
                 ::mi/type :armor

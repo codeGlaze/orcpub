@@ -5,7 +5,7 @@
 // builder, opens the display's Combat tab, and expands each row. Expected, from the SRD 5.1
 // tables (p. 66, p. 64):
 //   Longsword             Cost 15 gp, Weight 3 lb.
-//   Chain mail + Shield   Cost 75 gp, Weight 55 lbs., Shield Cost 10 gp
+//   Chain Mail + Shield   Cost 75 gp, Weight 55 lbs., Shield Cost 10 gp
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/srd_equipment_e2e.js`). No login.
 // Runs in:   ~15s. SHOT_DIR=<dir> also saves a screenshot of the expanded rows.
@@ -66,7 +66,7 @@ const load = page => page.evaluate(() => {
   } else {
     check('the combat tab lists the longsword', false, 'no row');
   }
-  const armor = page.locator('tbody.armor tr.item', { hasText: 'Chain mail + Shield' }).first();
+  const armor = page.locator('tbody.armor tr.item', { hasText: 'Chain Mail + Shield' }).first();
   if (await armor.count()) {
     await armor.click();
     await armor.getByText('Base AC:').waitFor({ timeout: 5000 }).catch(() => {});  // expanded

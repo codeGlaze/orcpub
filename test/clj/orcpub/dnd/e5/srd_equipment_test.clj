@@ -56,3 +56,17 @@
         (is (some? a) "the app has this SRD armor")
         (is (= cost (:cost a)))
         (is (== weight (pounds (:weight a))))))))
+
+(deftest names-are-title-case
+  (testing "multi-word weapon and armor names are Title Case (content-naming-style.md); keys stay"
+    (let [weapon (into {} (map (juxt :key :name)) weapons/weapons)
+          armor (into {} (map (juxt :key :name)) armor/armor)]
+      (is (= {:crossbow-hand "Crossbow, Hand" :crossbow-heavy "Crossbow, Heavy"
+              :crossbow-light "Crossbow, Light" :light-hammer "Light Hammer" :war-pick "War Pick"}
+             (select-keys weapon [:crossbow-hand :crossbow-heavy :crossbow-light :light-hammer :war-pick])))
+      (is (= {:chain-mail "Chain Mail" :half-plate "Half Plate" :ring-mail "Ring Mail" :scale-mail "Scale Mail"}
+             (select-keys armor [:chain-mail :half-plate :ring-mail :scale-mail])))
+      (testing "single-word armor is left alone until the owner decides on \"Armor\""
+        (is (= {:hide "Hide" :leather "Leather" :padded "Padded" :plate "Plate" :splint "Splint"}
+               (select-keys armor [:hide :leather :padded :plate :splint])))))))
+
