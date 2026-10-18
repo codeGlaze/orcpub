@@ -48,6 +48,19 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
 - **The PDF's extras are not decided:** a trial (extras as "<weapon>: <extras>" lines after the attacks
   text) pushed two lines onto the server's overflow page, a whole page for two lines. The attacks box
   holds about 8 lines and versatile weapons already spend two each. Owner shown the PDF 2026-10-17.
+  Owner: names must not repeat ("wasting a lot of precious room repeating the names"); proposed format
+  is the name once, then indented bullets per variant ("• versatile 1d10+2", "• +2d6 fire while Ablaze").
+  Trials (patches, not committed): inline after a semicolon fits but shrinks the box text; name plus
+  bullets reads best but a rule that sends every weapon with a variant to the text leaves boxes empty
+  (owner caught it). Next proposal: boxes take the first three weapons as today, their variants listed
+  under the boxes, later weapons as name plus bullets. Render it before building.
+- **PDF bullets printed as "?"** (fixed, `5215f590`): `pdf.clj` `normalize-text` replaced everything
+  above U+00FF, including U+2022, which Helvetica's WinAnsi encoding has. SRD item text with bullets
+  (Gem of Brightness) printed "?" on magic item cards. U+2192 (arrow) really is missing from the font.
+- **The overflow check spills early** (not yet investigated): `spill-overflow!` (`pdf.clj` about 1941,
+  `max-lines`) sent a line to the overflow page while the Attacks box visibly had room for about three
+  more. To trace and fix with a failing test first.
+- **Rendering a PDF to PNG here:** no poppler; use the app's PDFBox (`PDFRenderer`) with `lein classpath`.
 - **The settings panel is a second PR from the same branch,** after the table ships with defaults.
 - **Crit rules are a setting** (owner, 2026-10-16, from
   [weapons-extra-damage-design.md](weapons-extra-damage-design.md)): tables play crits differently, so the

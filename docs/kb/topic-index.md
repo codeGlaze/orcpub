@@ -1862,7 +1862,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, about, attack, blade, crit, damage, desktop, mastery, no-roll, owner, pdf, phone, radiant, settings, sun, weapon, weapons-extra-damage-design
+**topics:** 2026-10-17, 2d6, about, blade, bullets, crit, damage, desktop, mastery, no-roll, owner, pdf, phone, radiant, settings, sun, weapon, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry
@@ -3572,7 +3572,7 @@ _typed-keys · typed keys_
 
 _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branches_
 
-**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, claude-branch-triage, conclusions, knowledge, multi-tab, nine, non-, patches, prunable, ranked, stringification, tip, triage, unique
+**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, claude-branch-triage, conclusions, knowledge, mentions, multi-tab, nine, non-, prunable, ranked, stringification, tip, triage, unique
 
 - The headline: agents/develop holds 70 of the repo's 128 KB docs
 - Why the guard did not catch this
