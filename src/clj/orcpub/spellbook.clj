@@ -470,15 +470,20 @@
   "Draws a spell's name in bold with its `marks` in small italics after it, baseline `ty`.
    With `order` :alpha a small ringed level number leads, since no level heading is printed."
   [cs fonts img spell order x ty w size]
-  (let [x (if (= :alpha order)
+  (let [x0 x
+        x (if (= :alpha order)
             (do (gray! cs ink)
                 (circle! cs (+ x 3.8) (- ty 3.3) 3.6 0.4)
                 (centred! cs (:bold fonts) 4.6 (+ x 3.8) (- ty 1.7) (if (zero? (:level spell 0)) "c" (str (:level spell))))
                 (+ x 10))
             x)
-        nm (clean (:name spell))
-        nm-w (width (:bold fonts) size nm)
-        notes (s/join " " (marks spell))]
+        notes (s/join " " (marks spell))
+        notes-w (if (seq notes) (+ (width (:italic fonts) (* size 0.62) notes) 3) 0)
+        ;; The marks are placed at the end of the name, so the name has to leave room
+        ;; for them. No SRD name is long enough to matter, but a custom spell's is
+        ;; bounded only by the request body, and then both run out of the column.
+        nm (clip (:bold fonts) size (:name spell) (- (+ x0 w) x notes-w))
+        nm-w (width (:bold fonts) size nm)]
     (text! cs (:bold fonts) size x ty nm)
     (when (seq notes)
       (text! cs (:italic fonts) (* size 0.62) (+ x nm-w 3) ty notes {:color ink-2}))))
@@ -648,12 +653,22 @@
                  nm-size (if cont? 13 20)
                  nm-x (+ x e 7)
                  nm-base (+ ty (if cont? 15 22))
+                 lvl-size (if cont? 6.4 8)
+                 lvl-text (str (when level (str "LEVEL " level))
+                               (when cont? (if level ", CONTINUED" "CONTINUED")))
+                 lvl-w (if (seq lvl-text)
+                         (+ (lining-width (:plain fonts) lvl-size lvl-text 0.9) 5)
+                         0)
+                 ;; The crest takes the last 76pt, so the name and the LEVEL text beside
+                 ;; it share what is left. Unbounded, a 60-character class name put that
+                 ;; text at 1282pt -- off every paper, Letter included.
+                 room (- (if (and dc (not cont?)) (- (+ x w) 82) (+ x w)) nm-x lvl-w)
+                 class (clip (:bold-italic fonts) nm-size class room)
                  nm-w (width (:bold-italic fonts) nm-size class)
                  rule-y (+ ty (if cont? 26 45))]
              (emblem! cs img class-kw icon level x (+ ty 1) e)
              (text! cs (:bold-italic fonts) nm-size nm-x nm-base class)
-             (text! cs (:plain fonts) (if cont? 6.4 8) (+ nm-x nm-w 5) nm-base
-                    (str (when level (str "LEVEL " level)) (when cont? (if level ", CONTINUED" "CONTINUED")))
+             (text! cs (:plain fonts) lvl-size (+ nm-x nm-w 5) nm-base lvl-text
                     {:spacing 0.9 :lining true})
              (when (and ability (not cont?))
                (text! cs (:plain fonts) 7.2 nm-x (+ nm-base 12) (str "Spellcasting ability " ability) {:color ink-2}))

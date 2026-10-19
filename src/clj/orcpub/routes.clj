@@ -159,7 +159,7 @@
   '[:find ?e
     :in $ ?email
     :where [?e :orcpub.user/email ?stored]
-           [(clojure.string/lower-case ?stored) ?email]])
+           [(orcpub.common/ascii-lower-case ?stored) ?email]])
 
 (defn find-user-by-username-or-email [db username-or-email]
   (d/q
@@ -193,11 +193,11 @@
                          '{:find [?e]
                            :in [$ [?email ?password]]
                            :where [[?e :orcpub.user/email ?email-2]
-                                   [(clojure.string/lower-case ?email-2)
+                                   [(orcpub.common/ascii-lower-case ?email-2)
                                     ?email]
                                    [?e :orcpub.user/password ?enc]
                                    [(buddy.hashers/check ?password ?enc)]]}
-                         [(s/lower-case email) password])]
+                         [(common/ascii-lower-case email) password])]
     user))
 
 (defn lookup-user [db username password]
@@ -493,9 +493,9 @@
                             '{:find [?e]
                               :in [$ ?email]
                               :where [[?e :orcpub.user/email ?email-2]
-                                      [(clojure.string/lower-case ?email-2)
+                                      [(orcpub.common/ascii-lower-case ?email-2)
                                        ?email]]}
-                            (s/lower-case email))]
+                            (common/ascii-lower-case email))]
     user))
 
 (defn preferred-name-of
@@ -655,7 +655,7 @@
 (defn register [{:keys [json-params db conn remote-addr] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
         username (when username (s/trim username))
-        email (when email (s/lower-case (s/trim email)))
+        email (when email (common/ascii-lower-case (s/trim email)))
         password (when password (s/trim password))
         validation (registration/validate-registration
                     json-params
@@ -791,7 +791,7 @@
   "Create a JWT-signed unsubscribe token for embedding in email links.
    Stateless — no DB storage needed. Verified by checking JWT signature."
   [email]
-  (jwt/sign {:email (s/lower-case email) :action "unsubscribe"}
+  (jwt/sign {:email (common/ascii-lower-case email) :action "unsubscribe"}
             (signature-or-throw)))
 
 (defn unsubscribe
@@ -1103,7 +1103,7 @@
   (let [limit (config/get-pdf-max-cards)
         n (count cards)]
     (when (> n limit)
-      (errors/note! (str (s/capitalize kind) " cards")
+      (errors/note! (str (common/ascii-capitalize kind) " cards")
                     (format "%d requested, %d printed -- the export is capped at %d"
                             n limit limit))
       (println (format "pdf: %d %s cards requested, printing the first %d"
@@ -1829,7 +1829,7 @@
   (check-field username-query (:username query-params) db))
 
 (defn check-email [{:keys [db query-params]}]
-  (check-field email-query (some-> (:email query-params) s/lower-case) db))
+  (check-field email-query (some-> (:email query-params) common/ascii-lower-case) db))
 
 (defn character-for-id [db id]
   (d/pull db '[*] id))
@@ -2309,7 +2309,7 @@
 (defn request-email-change [{:keys [transit-params db conn identity] :as request}]
   (try
     ;; Client sends {:new-email "..."} (confirm-email is validated client-side only)
-    (let [new-email (s/lower-case (s/trim (str (:new-email transit-params))))
+    (let [new-email (common/ascii-lower-case (s/trim (str (:new-email transit-params))))
           current-password (:current-password transit-params)
           username (:user identity)]
       (if (nil? username)
@@ -2332,7 +2332,7 @@
             (registration/bad-email? new-email)
             {:status 400 :body {:error :invalid-email}}
 
-            (= new-email (some-> email s/lower-case))
+            (= new-email (some-> email common/ascii-lower-case))
             {:status 400 :body {:error :same-as-current}}
 
             (email-change-rate-limited? verification-sent pending-email new-email)

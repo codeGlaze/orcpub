@@ -5,6 +5,7 @@
    credited; which art is whose stays in the registry. Nothing here faces the web."
   (:require [orcpub.reset-key :as reset-key]
             [clojure.string :as s]
+            [orcpub.common :as common]
             [datomic.api :as d]
             [orcpub.env :as env]
             [cheshire.core :as cheshire]
@@ -45,7 +46,7 @@
                   :let [acct (:account fields)]]
               [(keyword (name id))
                (cond-> {:account (if (string? acct)
-                                   (s/lower-case (s/trim acct))
+                                   (common/ascii-lower-case (s/trim acct))
                                    :revoke)}
                  (string? (:username fields)) (assoc :username (s/trim (:username fields)))
                  (string? (:preferred_name fields)) (assoc :preferred-name (s/trim (:preferred_name fields)))
@@ -68,7 +69,7 @@
   (d/q '[:find [(pull ?e pattern) ...]
          :in $ pattern ?email
          :where [?e :orcpub.user/email ?e-mail]
-                [(clojure.string/lower-case ?e-mail) ?email]]
+                [(orcpub.common/ascii-lower-case ?e-mail) ?email]]
        db user-pull email))
 
 (defn- accounts-for-artist [db artist-id]
@@ -311,7 +312,7 @@
    (let [user (d/pull (d/db conn) [:db/id :orcpub.user/username :orcpub.user/email
                                   :orcpub.user/verified? :orcpub.user/artist
                                   :orcpub.user/preferred-name] user-id)
-         email (some-> (:orcpub.user/email user) s/lower-case)]
+         email (some-> (:orcpub.user/email user) common/ascii-lower-case)]
      (when (and email (:orcpub.user/verified? user))
        (some (fn [[artist-id spec]]
                (when (and (= email (:account spec)) (pa/artist-info artist-id))
