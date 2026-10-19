@@ -1,7 +1,9 @@
 # Plan: email that is not lost, and admin alerts that do not depend on the database
 
-**Status:** designed with the owner 2026-10-17, not built. Branch `feature/email-and-alerts` from
-`integration` (name proposed; awaiting the owner's yes), after #64 lands. Replaces #65's own
+**Status:** being built on `feature/email-and-alerts` (from `integration` after #64 landed,
+approved by name). Done: stage 1 the settings report (`d8cdfb4a6`), stage 2 admin alerts
+(`3c16593e7`), their human docs (`f578c9b31`). Next: stage 3 the player outbox, 4 Docker (log
+rotation, the spool volume), 5 the Discord webhook (owner is wary: off unless set), 6 remaining docs. Replaces #65's own
 scheduler for artist credit notices, whose two CodeRabbit findings (a pending batch lost; a failed
 send never retried) were the starting point.
 
@@ -95,6 +97,27 @@ emails most likely to be sent while things are failing.
   - `docs/DOCKER.md`: the spool volume, log rotation, and shared storage for Swarm.
   - `docs/DOCKER-SECURITY.md`: the webhook address as a Docker secret.
   - `docs/BRANDING-AND-INTEGRATIONS.md`: the Discord webhook, with the other integrations.
+
+## Admin alerts as built (stage 2, 2026-10-19)
+
+- `orcpub.alerts`: an alerter map whose state changes all run on one single-thread scheduled
+  executor (`on-thread!`); tests pass `:executor nil` to run inline. `raise!` returns at once.
+- The request thread no longer sends mail: `email/send-error-email` builds subject, body and
+  fingerprint, then calls `alerts/raise-current!`. Its own 5-minute throttle is gone.
+- **The log follows the email rule**: one line per problem per 15-minute window, then a count.
+  Logging every raise put 300 identical lines in the log for 300 errors; the owner's worry about
+  logs filling a disk applies.
+- No channel (no `EMAIL_ERRORS_TO` or no mail server) means `:send! nil`: logged only, nothing
+  spooled. Otherwise every unsent alert would sit in the spool forever.
+- **Shutdown flush is a JVM shutdown hook**, not only `component/stop`: `server/-main` just starts
+  the system, and Docker's SIGTERM never calls `stop`. Budget 8 s of Docker's default 10 s.
+- The spool is `<ALERT_SPOOL_DIR>/alerts-<HOSTNAME>.edn`, one EDN map per line, rewritten whole on
+  each change (at most 200 lines). Every alert email ends with the copy's name.
+- `:pedestal` depends on `:alerts`, so alerts start before the site takes traffic.
+- Tests: `alerts_test.clj` (10), `email_alert_test.clj` (4). Each claim was broken in the code one at
+  a time and failed only its own test; "the request does not wait" was proven by making the
+  alerter send inline, since the old code passed it vacuously (it sent nothing without
+  `EMAIL_ERRORS_TO`).
 
 ## Tests the build must have, each seen failing first
 

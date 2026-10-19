@@ -1348,7 +1348,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** agentic, chose, commit, conclusion, dense, discovering, dotfiles, hook, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** agentic, chose, commit, conclusion, dense, discovering, docs-only, dotfiles, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -1543,7 +1543,7 @@ _env-and-auth · env and auth_
 
 _equipment-option-picker · equipment option picker_
 
-**topics:** 12-row, 1541, 1637, 306, cap, combobox, control, desktop, dismiss, dom, highlight, mobile, mounted, native, nodes, popover, rows, throttle
+**topics:** 12-row, 1541, 1637, 2422px, 306, cap, combobox, control, desktop, dismiss, dom, highlight, mobile, mounted, native, nodes, popover, rows
 
 - Measured
 - Why the Popover API and not the hand-rolled popover
@@ -1703,7 +1703,7 @@ _filtered-list-staleness · filtered list staleness_
 
 _folder-hardening · folder hardening_
 
-**topics:** clause, client, entities, error, evolution, folder, folders, handler, hardening, http, optimistic, problem, re-fetch, request, rollback, server, solution, tempid
+**topics:** clause, client, entities, error, evolution, folder, folders, handler, hardening, http, optimistic, pre-mutation, problem, re-fetch, rollback, server, solution, tempid
 
 - Context
 - Pattern: On-Failure Rollback via Server Re-Fetch
@@ -2770,7 +2770,7 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** admin, alert, alerts, database, discord, email, emails, mail, outbox, retries, scheduler, send, sent, settings, spool, start-up, swarm, webhook
+**topics:** admin, alert, alerts, database, discord, docker, email, mail, outbox, retries, scheduler, send, sent, settings, shutdown, spool, swarm, webhook
 
 - The problem
 - Two kinds of email
@@ -2780,6 +2780,7 @@ _plan-email-and-alerts · plan email and alerts_
 - Settings: in the registry, and announced at start-up (owner, 2026-10-17)
 - Docker, Compose and Swarm
 - Documentation
+- Admin alerts as built (stage 2, 2026-10-19)
 - Tests the build must have, each seen failing first
 
 ## plan-hidden-pick-fix-and-grant-fields.md
@@ -3149,12 +3150,14 @@ _secrets-in-boot-output · secrets in boot output_
 
 _settings-registry-and-boot-report · settings registry and boot report_
 
-**topics:** 111, 2026-10-17, 328-430, accessor, blank-env-values, branding, ignored, operator, plan-email-and-alerts, release, report, row, secrets, secrets-in-boot-output, setting, settings, start-up, unset
+**topics:** 111, 2026-10-17, 2026-10-19, accessor, blank-env-values, branding, human, operator, release, report, rows, secrets, secrets-in-boot-output, setting, settings, start-up, summer, unset
 
 - Where things are
 - Adding a setting
+- Releases and the "NEW IN" block (built 2026-10-19, feature/email-and-alerts, d8cdfb4a6)
+- Branding in the report (built 2026-10-19)
 - Gaps known on 2026-10-17
-- Planned: "New in this release" (plan-email-and-alerts.md)
+- "New in this release": built, see above
 
 ## share-bundle-dependency-extraction.md
 
