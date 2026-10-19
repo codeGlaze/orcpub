@@ -52,3 +52,13 @@
 
 (deftest a-negative-bonus-reads-as-minus
   (is (= "1d8 [4] - 1" (:detail (first (:parts (rolls/roll-damage (weapon :longsword) -1 false {} false (dice 4))))))))
+
+(deftest the-sheet-offers-damage-then-each-target
+  (is (= [["Damage" "1d8+5"] ["vs undead" "1d8+5 +1d8"]]
+         (map (juxt :label :value) (rolls/damage-options (weapon :sun-blade-longsword) 5 false #{} false))))
+  (is (= [["Critical damage" "2d8+5"] ["Critical vs undead" "2d8+5 +2d8"]]
+         (map (juxt :label :value) (rolls/damage-options (weapon :sun-blade-longsword) 5 false #{} true))))
+  (is (= [["Damage" "1d8+2"]]
+         (map (juxt :label :value) (rolls/damage-options (weapon :longsword) 2 false #{} false)))
+      "a plain weapon offers Damage alone")
+  (is (= {:against :undead} (:situation (second (rolls/damage-options (weapon :sun-blade-longsword) 5 false #{} false))))))

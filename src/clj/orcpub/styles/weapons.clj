@@ -238,6 +238,63 @@
      [:.roll-button.weapon-tile {:width "58px"}]
      [:.roll-button.weapon-damage-tile :.weapon-no-roll {:width "102px"}]]
 
+    ;; the result: a bottom sheet on a phone (no backdrop), a card on desktop
+    [:.weapon-sheet
+     {:position :fixed :z-index 60 :background "var(--wpn-menu-bg)" :color "var(--wpn-menu-ink)"
+      :box-shadow "0 -4px 18px rgba(0,0,0,.35)" :padding "10px 16px 14px" :overflow-y :auto
+      :max-height "70vh" :box-sizing :border-box}]
+    [:.weapon-sheet.sheet {:left 0 :right 0 :bottom 0 :border-radius "14px 14px 0 0"}]
+    [:.weapon-sheet.card {:right "16px" :bottom "16px" :width "380px" :border-radius "8px"
+                          :border "1px solid var(--wpn-menu-line)"}]
+    [:.weapon-sheet-bar {:position :relative :min-height "28px" :display :flex :justify-content :center
+                         :align-items :flex-start}]
+    [:.weapon-sheet-handle {:width "40px" :height "4px" :border-radius "2px" :margin-top "2px"
+                            :background "var(--wpn-muted)" :opacity 0.6}]
+    [:.weapon-sheet-close {:position :absolute :top "-6px" :right "-8px" :border :none :background :transparent
+                           :color :inherit :font-size "22px" :line-height 1 :cursor :pointer
+                           :min-width "44px" :min-height "44px"}]
+    [:.weapon-sheet-history {:background "var(--wpn-row-alt)" :border-radius "4px" :margin-bottom "8px"}]
+    [:.weapon-sheet-history-row {:display :grid :grid-template-columns "24px 1fr auto" :gap "8px"
+                                 :padding "6px 10px" :font-size "13px"}]
+    [:.weapon-sheet-top {:display :flex :justify-content :space-between :align-items :flex-start
+                         :gap "12px"}]
+    [:.weapon-sheet-title {:font-weight 700 :font-size "15px"}]
+    [:.weapon-sheet-count {:display :flex :align-items :center :gap "4px" :font-size "12px"
+                           :color "var(--wpn-muted)" :margin-top "2px"}]
+    [:.weapon-sheet-dot {:width "7px" :height "7px" :border-radius "50%"
+                         :box-shadow "inset 0 0 0 1.5px var(--wpn-muted)"}]
+    [:.weapon-sheet-dot.done {:background "#f0a100" :box-shadow :none}]
+    [:.weapon-sheet-big {:display :flex :align-items :baseline :gap "8px" :font-size "32px" :font-weight 800
+                         :margin "4px 0 6px" :font-variant-numeric "tabular-nums"}]
+    [:.weapon-sheet-small :.weapon-sheet-d20 {:font-size "13px" :font-weight 400 :color "var(--wpn-muted)"}]
+    [:.weapon-sheet-crit {:font-size "12px" :font-weight 800 :letter-spacing ".06em" :padding "2px 8px"
+                          :border-radius "999px" :background "#f0a100" :color "#1a1e28" :align-self :center}]
+    [:.weapon-sheet-label {:font-size "11px" :font-weight 700 :letter-spacing ".06em" :text-transform :uppercase
+                           :color "var(--wpn-muted)" :margin "4px 0 6px"}]
+    [:.weapon-sheet-option
+     {:display :flex :width "100%" :min-height "44px" :align-items :center :justify-content :space-between
+      :gap "10px" :padding "6px 14px" :margin-bottom "8px" :border "1px solid var(--wpn-menu-line)"
+      :border-radius "6px" :background :transparent :color :inherit :font-family :inherit :cursor :pointer}]
+    [:.weapon-sheet-option.primary
+     {:min-height "52px" :border :none :color "#fff" :text-shadow "var(--wpn-tile-shadow)"
+      :background-image "linear-gradient(to bottom, #f1a20f, #dbab50)"}]
+    [:.weapon-sheet-option.primary [:.weapon-menu-label {:font-weight 800 :font-size "16px"}]
+     [:.weapon-menu-value {:color "#fff"}]]
+    [:.weapon-sheet-part {:display :grid :grid-template-columns "10px 1fr auto 36px" :align-items :center
+                          :gap "8px" :padding "7px 0" :border-top "1px solid var(--wpn-menu-line)" :font-size "14px"}]
+    [:.weapon-sheet-part [:b {:text-align :right}]]
+    [:.weapon-sheet-part-detail {:font-size "12px" :color "var(--wpn-muted)"}]
+    [:.weapon-sheet-total {:display :flex :justify-content :space-between :align-items :baseline
+                           :border-top "2px solid var(--wpn-menu-ink)" :padding-top "8px" :margin-top "2px"
+                           :font-weight 700}]
+    [:.weapon-sheet-total [:b {:font-size "26px"}]]
+    [:.weapon-sheet-after {:display :flex :justify-content :space-between :font-size "13px" :padding-top "4px"}]
+    [:.weapon-sheet-foot {:display :flex :justify-content :space-between :align-items :center :margin-top "10px"
+                          :font-weight 700 :font-size "13px"}]
+    [:.weapon-sheet-done {:border :none :background :transparent :color "var(--wpn-menu-value)" :font-weight 700
+                          :font-family :inherit :cursor :pointer :padding "8px 4px" :min-height "44px"}]
+    [:.roll-button.weapon-sheet-next {:flex-shrink 0 :margin 0}]
+
     ;; the opened row: an inset panel under the row
     [:.weapon-opened
      {:margin "0 10px 10px" :padding "10px 12px 12px" :display :flex :flex-direction :column :gap "6px"

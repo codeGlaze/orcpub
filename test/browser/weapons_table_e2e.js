@@ -158,8 +158,29 @@ async function layout(page, theme) {
     const shows = (loc, text) => loc.filter({ hasText: text }).waitFor({ timeout: 5000 }).then(() => true, () => false);
     check('Ablaze puts +2d6 on the tile', await shows(flame.locator('.weapon-damage-tile'), '+2d6'));
     await flame.locator('.weapon-damage-tile').click();
-    const msg = await page.locator('.message').first().innerText({ timeout: 5000 }).catch(() => '');
-    check('and the damage roll includes the fire', /1d8\+2 slashing:[\s\S]*2d6 fire:/.test(msg), msg.replace(/\s+/g, ' ').slice(0, 140));
+    const sheet = page.locator('.weapon-sheet');
+    check('and the damage roll includes the fire, in the result sheet',
+          await shows(sheet, 'fire \u00B7 ablaze') && await shows(sheet, 'Total damage'));
+    await page.locator('.weapon-sheet-done').click({ timeout: 5000 }).catch(() => {});
+    check('Done closes the sheet', await sheet.waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
+
+    // a turn: to hit, its damage, the next attack
+    const holyT = row('Holy Avenger, Longsword');
+    await holyT.locator('.weapon-hit-tile').click();
+    check('a to-hit opens the sheet with its d20', await shows(sheet, 'to hit') && await shows(sheet.locator('.weapon-sheet-d20'), 'd20 ['));
+    check('it offers Damage first, then vs fiends and undead',
+          (await sheet.locator('.weapon-sheet-option').allInnerTexts().catch(() => [])).map(t => t.split('\n')[0]).join('|')
+            .startsWith('Damage|vs fiends and undead'));
+    await sheet.locator('.weapon-sheet-option', { hasText: 'vs fiends and undead' }).click({ timeout: 5000 }).catch(() => {});
+    check('its damage reads one line per part, then the total',
+          await shows(sheet, 'radiant \u00B7 vs fiends and undead') && await shows(sheet, 'Total damage'));
+    await sheet.locator('.weapon-sheet-next').click({ timeout: 5000 }).catch(() => {});
+    check('the corner tile rolls attack 2, and attack 1 folds into a row',
+          await shows(sheet.locator('.weapon-sheet-history-row'), 'to hit') && await shows(sheet, 'attack 2'));
+    await sheet.locator('.weapon-sheet-option.primary').click({ timeout: 5000 }).catch(() => {});
+    check('two damaged attacks show a turn total', await shows(sheet, 'Turn total'));
+    await page.locator('.weapon-sheet-close').click({ timeout: 5000 }).catch(() => {});
+    check('the close button ends the turn too', await sheet.waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
 
     const plain = row('Longsword');
     check('with the off hand free, the longsword\'s 1H | 2H switch pulses',
@@ -195,7 +216,8 @@ async function layout(page, theme) {
     await bow.locator('.weapon-name-line').click();
     check('the opened longbow says it needs both hands', await shows(bow, 'Needs both hands: your off hand holds a Shield.'));
     await bow.locator('.weapon-hit-tile').click();
-    check('and its roll says so', await shows(page.locator('.message'), 'Longbow attack (needs both hands):'));
+    check('and its roll says so', await shows(page.locator('.weapon-sheet-title'), 'Longbow (needs both hands)'));
+    await page.locator('.weapon-sheet-done').click({ timeout: 5000 }).catch(() => {});
     await load(page, false);
     check('freeing the off hand removes the pill',
           await pill.waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false));
@@ -243,8 +265,9 @@ async function layout(page, theme) {
           await holyRow.locator('.weapon-menu').waitFor({ timeout: 5000 }).then(() => true, () => false));
     await holyRow.getByRole('menuitem', { name: /Roll vs fiends and undead/ }).click({ timeout: 5000 }).catch(() => {});
     check('Roll vs rolls the base and the bonus',
-          await shows(page.locator('.message'), 'roll vs fiends and undead: 1d8+5 slashing') &&
-          await shows(page.locator('.message'), '2d10 radiant'));
+          await shows(page.locator('.weapon-sheet'), 'roll vs fiends and undead') &&
+          await shows(page.locator('.weapon-sheet'), 'radiant \u00B7 vs fiends and undead'));
+    await page.locator('.weapon-sheet-done').click({ timeout: 5000 }).catch(() => {});
 
     await loadMagic(page, [':holy-avenger-longsword', ':javelin-of-lightning']);
     const jav = row('Javelin of Lightning');
@@ -254,7 +277,8 @@ async function layout(page, theme) {
     check('the last row\'s menu opens upward',
           await jav.locator('.weapon-menu.up').waitFor({ timeout: 5000 }).then(() => true, () => false));
     await use.click({ timeout: 5000 }).catch(() => {});
-    check('a once-per-dawn use rolls', await shows(page.locator('.message'), '+4d6 lightning: 1d6+'));
+    check('a once-per-dawn use rolls', await shows(page.locator('.weapon-sheet'), 'lightning'));
+    await page.locator('.weapon-sheet-done').click({ timeout: 5000 }).catch(() => {});
     await plus(jav).click({ timeout: 5000 }).catch(() => {});
     check('and then reads "used"', await shows(use, 'used')
           && await use.getAttribute('aria-disabled', { timeout: 3000 }).catch(() => null) === 'true');

@@ -43,6 +43,7 @@
             [orcpub.dnd.e5.srd-starting-equipment :as srd-equip]
             [orcpub.dnd.e5.display :as disp]
             [orcpub.dnd.e5.weapon-damage :as weapon-damage]
+            [orcpub.dnd.e5.weapon-rolls :as weapon-rolls]
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.notifications :as notifications]
@@ -2829,14 +2830,19 @@
 (defn roll-button
   "An amber button that rolls `roll` (dice text such as \"1d20+4\") and shows the result
   after `message`; ctrl-click rolls with advantage, shift-click with disadvantage. Options:
-  :text (its label, any hiccup), :style, :class, :disable-tooltip. Returns hiccup."
-  [message roll & {:keys [text disable-tooltip style class]}]
+  :text (its label, any hiccup), :style, :class, :disable-tooltip, and :on-roll, a fn of the
+  mode (:normal :adv :dis) called instead of showing a message. Returns hiccup."
+  [message roll & {:keys [text disable-tooltip style class on-roll]}]
   ;; the tip is about ctrl and shift, so it follows the device, not the width
   (let [mobile? (= :mobile @(subscribe [:ua-device-type]))
         button [:button.roll-button
                 {:on-click (fn [e]
                              (.stopPropagation e)
-                             ((button-roll-handler message roll) e))
+                             (if on-roll
+                               (on-roll (cond (.-shiftKey e) :dis
+                                              (or (.-ctrlKey e) (.-metaKey e)) :adv
+                                              :else :normal))
+                               ((button-roll-handler message roll) e)))
                  :style style
                  :class class}
                 (or text "Roll")]]
@@ -3869,6 +3875,111 @@
          [:span.weapon-opened-props (str "Mastery: " (:name mastery) " (not trained)")]))
      (when (or cost weight) [:span.weapon-opened-props (s/join " \u00B7 " (remove nil? [cost weight]))])]))
 
+(defn rand-die
+  "A random roll of a die with this many sides, from 1."
+  [sides]
+  (inc (rand-int sides)))
+
+(defn d20-detail
+  "An attack's d20 as written in a result: \"d20 [13] + 7\", or with advantage or disadvantage
+  \"d20 [14, ~6~] + 7\", the unused die struck through. Takes the attack result. Returns hiccup."
+  [{:keys [dice kept bonus]}]
+  (let [unused (when (= 2 (count dice)) (if (= kept (first dice)) 1 0))]
+    [:span.weapon-sheet-d20
+     "d20 ["
+     (doall (for [[i d] (map-indexed vector dice)]
+              ^{:key i} [:<> (when (pos? i) ", ") (if (= i unused) [:s d] [:b d])]))
+     "] " (common/mod-str bonus)]))
+
+(defn weapon-sheet-entry
+  "The current roll in the result sheet: the to-hit result and its damage buttons, or the
+  damage, one line per part, the total, then saves. Takes the entry, its attack number, the
+  attacks per turn and the next-attack fn. Returns hiccup."
+  [{:keys [name attack damage weapon mod two-handed? toggles]} k per-turn next-attack]
+  [:div.weapon-sheet-current
+   [:div.weapon-sheet-top
+    [:div
+     [:div.weapon-sheet-title (str name " \u00B7 " (if damage "damage" "to hit"))]
+     (when attack
+       [:div.weapon-sheet-count
+        (doall (for [i (range (max per-turn k))]
+                 ^{:key i} [:span.weapon-sheet-dot {:class (when (< i k) "done")}]))
+        (if (<= k per-turn) (str "attack " k " of " per-turn) (str "attack " k))])]
+    (when attack
+      [:button.roll-button.weapon-tile.weapon-hit-tile.weapon-sheet-next
+       {:type "button" :aria-label (str "Roll attack " (inc k)) :on-click next-attack}
+       [:span.weapon-tile-body (str "\u21BB " (common/bonus-str (:bonus attack)))]
+       [:span.weapon-strip (str "attack " (inc k))]])]
+   (if damage
+     [:<>
+      [:div.weapon-sheet-big (:total damage)
+       (when attack [:span.weapon-sheet-small (str "to hit " (:total attack) (when (:crit? attack) " \u00B7 crit"))])]
+      (doall (for [[i {:keys [label type detail subtotal]}] (map-indexed vector (:parts damage))]
+               ^{:key i}
+               [:div.weapon-sheet-part
+                [:span.weapon-dot {:class (when type (str "dt-" (cljs.core/name type)))}]
+                [:span.weapon-sheet-part-label label]
+                [:span.weapon-sheet-part-detail detail]
+                [:b subtotal]]))
+      (when (next (:parts damage))
+        [:div.weapon-sheet-total [:span "Total damage"] [:b (:total damage)]])
+      (doall (for [[i {:keys [label text]}] (map-indexed vector (:after damage))]
+               ^{:key i} [:div.weapon-sheet-after [:span label] [:b text]]))]
+     [:<>
+      [:div.weapon-sheet-big (:total attack)
+       (when (:crit? attack) [:span.weapon-sheet-crit "CRITICAL"])
+       [d20-detail attack]]
+      [:div.weapon-sheet-label "Roll damage"]
+      (doall (for [{:keys [label sub value situation primary?]}
+                   (weapon-rolls/damage-options weapon mod two-handed? toggles (:crit? attack))]
+               ^{:key label}
+               [:button.weapon-sheet-option
+                {:type "button" :class (when primary? "primary")
+                 :on-click #(dispatch [:weapon-roll/damage
+                                       (weapon-rolls/roll-damage weapon mod two-handed?
+                                                                 (assoc situation :toggles toggles)
+                                                                 (:crit? attack) rand-die)])}
+                [:span.weapon-menu-text [:span.weapon-menu-label label]
+                 (when sub [:span.weapon-menu-sub sub])]
+                [:span.weapon-menu-value value]]))])])
+
+(defn weapon-roll-result
+  "The turn's rolls: a bottom sheet on a phone, a card on desktop. Finished attacks fold into
+  rows above the current one; a turn total shows once two attacks have damage. Done, a swipe
+  down or the close button ends the turn. Takes desktop? and the attacks per turn."
+  [desktop? per-turn]
+  (let [chain @(subscribe [:weapon-roll/chain])
+        done #(dispatch [:weapon-roll/done])
+        touch-y (atom nil)]
+    (when (seq chain)
+      (let [current (peek chain)
+            k (count (filter :attack chain))
+            with-damage (filter :damage chain)
+            next-attack #(dispatch [:weapon-roll/add
+                                    (assoc (dissoc current :damage)
+                                           :attack (weapon-rolls/roll-attack
+                                                    (assoc (select-keys (:attack current) [:bonus :mode])
+                                                           :crit-min (:crit-min current 20))
+                                                    rand-die))])]
+        [:div.weapon-sheet {:class (if desktop? "card" "sheet") :role "dialog" :aria-label "Roll result"}
+         [:div.weapon-sheet-bar
+          {:on-touch-start #(reset! touch-y (.-clientY (aget (.-touches %) 0)))
+           :on-touch-end #(when (and @touch-y (> (- (.-clientY (aget (.-changedTouches %) 0)) @touch-y) 60)) (done))}
+          (when-not desktop? [:div.weapon-sheet-handle])
+          [:button.weapon-sheet-close {:type "button" :aria-label "End the turn" :on-click done} "\u00D7"]]
+         (when (next chain)
+           [:div.weapon-sheet-history
+            (doall (for [[i {:keys [attack damage]}] (map-indexed vector (butlast chain))]
+                     ^{:key i}
+                     [:div.weapon-sheet-history-row
+                      [:span (inc i)]
+                      [:span (when attack (str "to hit " (:total attack) (when (:crit? attack) " crit")))]
+                      [:span (when damage (str (:total damage) " dmg"))]]))])
+         [weapon-sheet-entry current k (or per-turn 1) next-attack]
+         [:div.weapon-sheet-foot
+          [:span (when (next with-damage) (str "Turn total " (apply + (map (comp :total :damage) with-damage))))]
+          [:button.weapon-sheet-done {:type "button" :on-click done} "Done"]]]))))
+
 (defn weapon-menu-item-used?
   "Whether a once-per-rest menu item is spent. Takes the character id and the item.
   Returns a boolean; items without a :recharge are never spent."
@@ -3880,10 +3991,12 @@
   Up and Down move, Esc closes and returns focus to the +, Tab closes. Takes the character
   id, the weapon name, the items (from disp/weapon-menu-items), whether it opens upward
   and the close fn. Returns hiccup."
-  [id nm items up? close]
+  [id nm items up? close & [on-pick]]
   (let [pick (fn [{:keys [label entries recharge] :as item}]
                (when-not (weapon-menu-item-used? id item)
-                 (dispatch [:show-message-2 (str nm " " (s/lower-case label) ": " (parts-roll-text entries))])
+                 (if on-pick
+                   (on-pick item)
+                   (dispatch [:show-message-2 (str nm " " (s/lower-case label) ": " (parts-roll-text entries))]))
                  (when recharge (dispatch [::char/toggle-feature-used id recharge label]))
                  (close)))
         move (fn [e step]
@@ -3957,6 +4070,8 @@
         rolled (weapon-damage/applying-damage weapon modifier (boolean two-handed?) {:toggles toggles})
         [kind & props] (weapon-grey-line-parts weapon)
         hands-note (when needs-hands? " (needs both hands)")
+        roll-ctx {:weapon weapon :name (str nm hands-note) :mod modifier :two-handed? (boolean two-handed?)
+                  :toggles toggles :crit-min crit-min}
         menu-items (when base (disp/weapon-menu-items weapon modifier (boolean two-handed?) toggles))
         menu-open? (and menu-items (:menu-open? @state))
         open-menu #(swap! state assoc :menu-open? true)
@@ -3986,6 +4101,11 @@
          [:div.weapon-grey-line.text (s/join " · " (cons kind props))])]
       [:div.weapon-cell-tile {:on-click-capture stop-pulse}
        [roll-button (str nm " attack" hands-note ": ") (str "1d20" (common/mod-str attack-bonus))
+        :on-roll (fn [mode]
+                   (dispatch [:weapon-roll/add
+                              (assoc roll-ctx :attack (weapon-rolls/roll-attack {:bonus attack-bonus :mode mode
+                                                                                  :crit-min crit-min}
+                                                                                 rand-die))]))
         :class (str "weapon-tile weapon-hit-tile" (when needs-hands? " needs-hands"))
         :text [:<>
                [:span.weapon-tile-body (common/bonus-str attack-bonus)]
@@ -4001,7 +4121,9 @@
            :on-context-menu (when menu-items (fn [e] (.preventDefault e) (open-menu)))
            :on-click (fn [e]
                        (.stopPropagation e)
-                       (dispatch [:show-message-2 (str nm " damage" hands-note ": " (parts-roll-text rolled))]))}
+                       (dispatch [:weapon-roll/add
+                                  (assoc roll-ctx :damage (weapon-rolls/roll-entries weapon rolled {:toggles toggles}
+                                                                                     rand-die))]))}
           [:span.weapon-tile-body {:class (when tile "with-more")}
            [:span (disp/damage-dice-str base)]
            (when tile
@@ -4020,7 +4142,15 @@
            :on-key-down (fn [e] (when (= "ArrowDown" (.-key e)) (.preventDefault e) (open-menu)))}
           "+"])
        (when menu-open?
-         [weapon-menu id nm menu-items last? close-menu])]]
+         [weapon-menu id nm menu-items last? close-menu
+          (fn [{:keys [label entries id]}]
+            (dispatch [:weapon-roll/add
+                       (assoc roll-ctx :name (str nm " \u00B7 " (s/lower-case label))
+                              :damage (weapon-rolls/roll-entries weapon entries
+                                                                 (if (and (vector? id) (#{:vs :crit-vs} (first id)))
+                                                                   {:against (first (sort (second id)))}
+                                                                   {})
+                                                                 rand-die))]))])]]
      (when (or controls-below? (seq lines))
        [:div.weapon-lines
         (when controls-below?
@@ -4087,6 +4217,7 @@
             [:span.share-pill.share-pill-expired.weapons-reason
              (str (weapon-name off-hand-item) " in off hand")])]
          [:div.weapon-head [:span "Weapon"] (when desktop? [:span "Details"]) [:span "To hit"] [:span "Damage"]]
+         [weapon-roll-result desktop? @(subscribe [::char/number-of-attacks id])]
          [:div.weapon-rows
           (doall
            (for [[weapon-key _] all-weapons

@@ -55,15 +55,41 @@
         :when summary]
     {:label "Target saves" :text summary}))
 
+(defn roll-entries
+  "Rolls ready-made damage entries for a weapon. Takes the weapon, the entries, the situation
+  they were chosen for and a die fn of sides. Returns {:parts [...] :total :after [...]}."
+  [weapon entries situation roll-die]
+  (let [names (disp/toggle-names weapon)
+        parts (mapv #(roll-part % names roll-die) entries)]
+    {:parts parts
+     :total (apply + (map :subtotal parts))
+     :after (vec (after-total weapon situation))}))
+
 (defn roll-damage
   "Rolls a weapon's damage in a situation. Takes the weapon, its damage modifier, two-handed?,
   the situation ({:toggles :against :crit? :roll}), whether a crit doubles the dice, and a die
   fn of sides. Returns {:parts [...] :total :after [...]}."
   [weapon damage-modifier two-handed? situation crit? roll-die]
-  (let [names (disp/toggle-names weapon)
-        entries (cond-> (weapon-damage/applying-damage weapon damage-modifier two-handed? situation)
+  (roll-entries weapon
+                (cond-> (weapon-damage/applying-damage weapon damage-modifier two-handed? situation)
                   crit? disp/crit-entries)
-        parts (mapv #(roll-part % names roll-die) entries)]
-    {:parts parts
-     :total (apply + (map :subtotal parts))
-     :after (vec (after-total weapon situation))}))
+                situation
+                roll-die))
+
+(defn damage-options
+  "The damage buttons a to-hit result offers: Damage (or Critical damage on a crit), then one
+  per target the weapon names (\"vs undead\"). Takes the weapon, its damage modifier,
+  two-handed?, the toggles on and crit?. Returns [{:label :sub :value :situation :primary?}]."
+  [weapon damage-modifier two-handed? toggles crit?]
+  (let [entries #(cond-> (weapon-damage/applying-damage weapon damage-modifier two-handed?
+                                                         (assoc % :toggles toggles))
+                   crit? disp/crit-entries)
+        crit-sit (if crit? {:crit? true :roll 20} {})
+        targets (distinct (keep ::mi/against (remove disp/off-row? (concat (::mi/extra-damage weapon)
+                                                                          (::mi/effects weapon)))))]
+    (vec (cons {:label (if crit? "Critical damage" "Damage") :sub (when crit? "all dice doubled")
+                :value (disp/dice-sum-str (entries crit-sit)) :situation crit-sit :primary? true}
+               (for [t targets
+                     :let [sit (assoc crit-sit :against (first (sort t)))]]
+                 {:label (str (if crit? "Critical vs " "vs ") (disp/creature-types-str t "and"))
+                  :value (disp/dice-sum-str (entries sit)) :situation sit})))))

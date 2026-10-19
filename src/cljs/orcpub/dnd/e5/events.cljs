@@ -3424,6 +3424,22 @@
           ::char5e/summary-map (common/map-by-id characters))))
 
 (reg-event-db
+ :weapon-roll/add
+ ;; One roll joins the turn's chain: {:weapon :name :mod :two-handed? :toggles :attack :damage}.
+ (fn [db [_ entry]]
+   (update db :weapon-roll/chain (fnil conj []) entry)))
+
+(reg-event-db
+ :weapon-roll/damage
+ (fn [db [_ damage]]
+   (update db :weapon-roll/chain #(conj (pop %) (assoc (peek %) :damage damage)))))
+
+(reg-event-db
+ :weapon-roll/done
+ (fn [db _]
+   (dissoc db :weapon-roll/chain)))
+
+(reg-event-db
  ::mi/set-custom-items
  (fn [db [_ items]]
    (assoc db ::mi/custom-items items)))

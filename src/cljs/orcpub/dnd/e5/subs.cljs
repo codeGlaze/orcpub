@@ -985,6 +985,10 @@
    ::char5e/attuned-magic-items char5e/attuned-magic-items})
 
 (reg-sub
+ :weapon-roll/chain
+ (fn [db _] (:weapon-roll/chain db)))
+
+(reg-sub
  :orcpub.dnd.e5.weapons/mastery-definitions
  ;; Empty here: the 2024 definitions come from the 5.5 line (edition-machinery-split.md).
  (fn [_ _] {}))
