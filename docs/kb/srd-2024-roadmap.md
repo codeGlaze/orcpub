@@ -128,12 +128,14 @@ App-only fields stay in code, joined by `:key`, the same split as magic items' m
 **Open:**
 - **Which trunk carries stage 1.** It is edition-neutral, so by the machinery split it belongs on
   the `refactor/` tree.
-- **`refactor/data-extraction` overlaps it.** That leaf moved the hand-kept SRD spells, monsters and
-  magic items into `spells_data.cljc`, `monsters_data.cljc` and `magic_items_data.cljc` (plus
-  class option builders, and view and builder splits), the same defs stage 1 replaces with
-  generated reads. Its last commit is 2026-02-25 and it is 1,109 commits behind `integration`
-  (checked 2026-10-15). Revive it first, let stage 1 supersede its data moves, or drop it: decide
-  before stage 1 reaches spells. Weapons and armor are not in it.
+
+**Decided:**
+- **`refactor/data-extraction` is a reference, not revived** (owner, 2026-10-19). That leaf (15
+  commits, 2026-02-24/25, 1,390 behind `integration` on 2026-10-19) split `views.cljs` into 7 files and
+  `builders.cljs` into 10, and moved the hand-kept SRD spells, monsters and magic items into
+  `*_data.cljc` files. It is kept as a worked example of how the monoliths split, not to be merged.
+  Stage 1 supersedes its data moves with generated reads; its bottom-of-form buttons shipped
+  separately in #68.
 
 ### One loader for the SRD and for homebrew
 

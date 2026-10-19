@@ -119,7 +119,7 @@ Last updated 2026-10-06. Re-run before trusting a row: branches move.
 | `port/redesign-on-refactor` | remote | 2026-07-15 | `29f3809394` | worktree | 26% of its added lines are on integration |
 | `premerge/integration-to-dmv` | local-only | 2026-09-07 | `199cab0535` | - | 3% of its added lines are on integration |
 | `redesign/growable-option-menus` | remote | 2026-06-24 | `c1f4fcf465` | - | 22% of its added lines are on integration |
-| `refactor/data-extraction` | remote | 2026-02-25 | `4da1d84704` | - | 0% of its added lines are on integration |
+| `refactor/data-extraction` | remote | 2026-02-25 | `4da1d84704` | - | 0% of its added lines are on integration. Kept as a reference for splitting the monoliths, not to be merged (owner, 2026-10-19; srd-2024-roadmap.md) |
 | `refactor/garden-inline-styles` | remote | 2026-07-03 | `59c2290298` | worktree | 56% of its added lines are on integration |
 | `refactor/views-extraction` | remote | 2026-02-24 | `c2af99bb02` | - | 0% of its added lines are on integration |
 | `testing/dev-tooling-enhancements` | remote | 2026-02-04 | `266362f0f6` | - | 1% of its added lines are on integration |
