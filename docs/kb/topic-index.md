@@ -55,7 +55,7 @@ _DATOMIC_JAVA21_TEST_RESULTS · DATOMIC_JAVA21_TEST_RESULTS_
 
 _DEPENDENCY_VALIDATION · DEPENDENCY_VALIDATION_
 
-**topics:** 2-jre, automated, backward, com, compatibility, cves, dependencies, dependency, fasterxml, github, guava, jackson, maintain, maintains, outdated, pedestal, pre-upgrade, vulnerabilities
+**topics:** 2-jre, automated, backward, com, compatibility, cves, dependencies, dependency, fasterxml, github, guava, jackson, libraries, maintains, outdated, pedestal, pre-upgrade, vulnerabilities
 
 - Summary
 - Changes Made
@@ -90,7 +90,7 @@ _DEPENDENCY_VALIDATION · DEPENDENCY_VALIDATION_
 
 _SESSION-SUMMARY · SESSION SUMMARY_
 
-**topics:** -----, 2026, added, csp, documentation, exit, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
+**topics:** -----, 2026, 3449, added, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
 
 - Final State
 - Key Decisions Made
@@ -232,7 +232,7 @@ _UPGRADE_PLAN · UPGRADE_PLAN_
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, breakdown, con, feat, floating, increment, mental, pool, released, rider, save, spread, spreads, standalone, terse, widget
+**topics:** asi, asis, authoring, breakdown, feat, floating, increment, mental, pool, race, released, rider, save, spread, spreads, standalone, terse, widget
 
 - The format
 - Examples
@@ -460,7 +460,7 @@ _blank-env-values · blank env values_
 
 _branch-context-history · branch context history_
 
-**topics:** boon, branch, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine
+**topics:** boon, branch, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, phase, pool, registry, rotted, spine, subs
 
 - (was) Branch Context: claude/zen-wright-04xhdz
 - Purpose
@@ -678,7 +678,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, ----------, aasimar, blank, descriptive, dwarf, elf, halfling, helper, human, label, manual, name, party, races, random, sex, views
+**topics:** ------, ----------, blank, descriptive, dwarf, elf, generates, halfling, helper, human, label, manual, name, party, races, random, sex, views
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -1426,7 +1426,7 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 
 _e2e-runner · e2e runner_
 
-**topics:** 2026-10-03, 8890, 8891, batch, bundle, busy, min, probe, probes, production, profile, rebuilds, run, runner, server, servers, suite, suites
+**topics:** 2026-10-03, 8891, batch, bundle, busy, min, probe, probes, production, profile, rebuilds, run, runner, server, servers, stops, suite, suites
 
 - The rule
 - Production is the default
@@ -1472,7 +1472,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, loader, non-word, prevention, rescued, throw, token
+**topics:** 196-line, 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, loader, non-word, readme, rescued, throw, token
 
 - The failure
 - The two defences, and where they are
@@ -1485,7 +1485,7 @@ _empty-keyword-corruption · empty keyword corruption_
 
 _entity-options-architecture · entity options architecture_
 
-**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, indices, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, subscription, vector
+**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, indices, initialized, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, vector
 
 - Character Entity Structure
 - Single-select → MAP (no vector index in path)
@@ -1770,7 +1770,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _garden-inline-styles-harvest · garden inline styles harvest_
 
-**topics:** 648, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, phone, seeded
+**topics:** 648, block, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, seeded
 
 - Why the branch stalled
 - The branch is healthy
@@ -1899,7 +1899,7 @@ _hiccup-page-escaping · hiccup page escaping_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** already-held-grants, athletics, control, decision-already-held-resolution, fighter, gate, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, sites, skill, skills, starting, uncheck
+**topics:** already-held-grants, athletics, decision-already-held-resolution, fighter, first-class, gate, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, sites, skill, skills, starting, uncheck
 
 - The mechanism
 - What is NOT broken
@@ -2024,7 +2024,7 @@ _homebrew-override · homebrew override_
 
 _homebrew-reference-web · homebrew reference web_
 
-**topics:** built-in, clash-driven, class, executed, feat, item-to-item, key, link, links, matched, membership, race, rename, spell, spells, stranded, subclass, subrace
+**topics:** built-in, clash-driven, class, executed, feat, imported, item-to-item, key, link, links, membership, race, rename, spell, spells, stranded, subclass, subrace
 
 - 1. Why this page exists
 - 2. The links
@@ -2059,7 +2059,7 @@ _homebrew-safety-net · homebrew safety net_
 
 _homebrew-save-rework · homebrew save rework_
 
-**topics:** address, belief, blank-source, draft, four, identity, item, key-less, origin, persisted, registration, round, save, stamp, stamps, ten, thirteen, untagged
+**topics:** address, belief, draft, four, identity, item, key-less, origin, persisted, registration, round, rounds, save, stamp, stamps, ten, thirteen, untagged
 
 - The rule, if you read nothing else
 - Why re-deriving identity cannot work
@@ -2145,7 +2145,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, number, quarantined, repair, restore, translator, unnamed, wind
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, number, quarantined, repair, restore, translator, unnamed, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -2281,7 +2281,7 @@ _monolith-decomposition-plan · monolith decomposition plan_
 
 _multi-tab-character-contamination · multi tab character contamination_
 
-**topics:** -time, apparently-empty, clone, defence, entity-options-architecture, event-layer, localstorage, lower-level, payloads, per-origin, plan-character-drafts, recently, slot, spa-routing-architecture, sub-entity, symbols, tab, tabs
+**topics:** -time, apparently-empty, clone, defence, entity-options-architecture, event-layer, localstorage, lower-level, payloads, per-origin, plan-character-drafts, server-side, slot, spa-routing-architecture, sub-entity, symbols, tab, tabs
 
 - The mechanism
 - Where the notes actually live
@@ -2361,7 +2361,7 @@ _namespace-architecture · namespace architecture_
 
 _open5e-upstream-notes · open5e upstream notes_
 
-**topics:** 2026-10-07, 760, 995, 999, higher-level, hyphen, open5e, open5e-api, parser, pdf, records, slot, spell, srd, srd-2014, srd-2024, text, transcript
+**topics:** 2026-10-07, 760, 995, documents, higher-level, hyphen, open5e, open5e-api, parser, pdf, records, slot, spell, srd, srd-2014, srd-2024, text, transcript
 
 - Where the fixes live
 - Filed upstream (2026-10-08)
@@ -2880,7 +2880,7 @@ _proposal-indexeddb-storage · proposal indexeddb storage_
 
 _re-frame-subscribe-refactor · re frame subscribe refactor_
 
-**topics:** apis, cached, chain, component, direct, event-utils, events, extract, handler, low, methods, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
+**topics:** apis, autosave, cached, chain, component, direct, event-utils, extract, handler, low, methods, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
 
 - The Problem
 - What actually happens when you subscribe in a handler
@@ -3188,7 +3188,7 @@ _share-custom-items-plan · share custom items plan_
 
 _share-links · share links_
 
-**topics:** caps, character, compressed, copy, deletes, encrypted, homebrew, kaylee, link, opening, owner, party, presses, server, share, sharing, token, upload
+**topics:** 404, caps, character, compressed, deletes, encrypted, homebrew, kaylee, link, opening, owner, party, presses, server, share, sharing, token, upload
 
 - What a link carries
 - How it works
@@ -3384,7 +3384,7 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 20d6, actions, concentration, conditions, damage, dice, editions, explosion, links, monster, open5e, previews, prices, rules, spell, spells, srd
+**topics:** 2014, 20d6, concentration, conditions, damage, dice, editions, explosion, links, magic, monster, open5e, previews, prices, rules, spell, spells, srd
 
 - How this was measured
 - What the app shows today
@@ -3533,7 +3533,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** 2026-02-18, assertions, browser, classpath, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
+**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners
@@ -3587,7 +3587,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** 2026-10-16, assets, box, details, notice, phone, planned, player, png, redo, replaced, restored, row, steel, undo, undone, ux-guide, width
+**topics:** 2026-10-16, assets, box, details, notice, picks, planned, player, png, redo, replaced, restored, row, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
@@ -3675,7 +3675,7 @@ _weapon-data-model · weapon data model_
 
 _weapons-extra-damage-design · weapons extra damage design_
 
-**topics:** 44px, bars, charges, chip, colour, crit, damage, dot, dots, extra, hit, menu, on-hit, roll, rolls, strip, tile, vicious
+**topics:** 44px, charges, chip, colour, crit, damage, dot, dots, effects, extra, hit, menu, on-hit, roll, rolls, strip, tile, vicious
 
 - Decisions
 - Damage-type palette
@@ -3709,4 +3709,21 @@ _weapons-table-spec · weapons table spec_
 - Wanted, not yet scoped
 - Rejected: do not bring back
 - How mockups are made
+
+## writing-browser-tests.md
+
+_writing-browser-tests · writing browser tests_
+
+**topics:** 34px, 390px, affordable, already-chosen, check, click, clicking, desktop, dispatch, disposes, e2e-runner, fast-browser-probes, menus, phone, pulse, run, tab, view
+
+- Start from a working test
+- 1. Load the character with the app's own event, not by clicking the builder
+- 2. Check after the page has changed, never right after the action
+- 3. A missing control is a FAIL, never a crash
+- 4. A phone is not a narrow desktop window
+- 5. With no saved character, send one update at a time
+- 6. Standing in for data the branch does not have yet (not yet proven in a run)
+- 7. Run on your own port
+- 8. Prove each check can fail, and keep it affordable
+- 9. Screenshots for review
 

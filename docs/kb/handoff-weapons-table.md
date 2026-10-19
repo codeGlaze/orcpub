@@ -75,9 +75,7 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
   name, holding a hand icon (`fa-hand-paper`, mirrored for the off hand) and "main" / "off", read as "main
   hand" / "off hand". Nothing in the grey line. Not in v5; the spec's rejected "Main hand / Off hand strip"
   was a separate row element. A weapon in the off hand triggers the shield rules too (spec rule 15).
-- **Trap for tests:** with no saved character id, `update-character-fx` queues a `:set-character` built
-  from the character as it was, so two such events back to back (wield main, then off) lose the first.
-  Dispatch one, wait for its effect, then the next.
+- **Test traps hit on this branch** are collected in [writing-browser-tests.md](writing-browser-tests.md).
 - **The PDF layout is built** (`c66144688`, owner approved 2026-10-17): rows take the first three
   weapons; their variants follow as bullets under the short name; later weapons get a name line plus
   bullets; magic weapons print their own name unless two share it (`sheet-weapon-names`).
