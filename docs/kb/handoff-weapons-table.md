@@ -63,6 +63,10 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
   `.needs-hands`. The pulse is a CSS animation (10s x 6) on `.weapon-switch.pulse`; touching the switch
   or rolling the weapon sets the row's `:pulse-done?`, which is cleared when the off hand comes free.
   Garden minifies keyframe `0%` to an invalid `0`: use `from`/`to`. Browser test: 40 checks.
+- **Stage 1 is complete** (2026-10-19): + menu `87ff8fc4`, opened card `0e9b3e98`, Weapon Mastery band
+  (off until 5.5 data) `0b32e8d7`, desktop Details column (this commit's parent on the branch). Desktop:
+  `.weapons-section.desktop` from `:device-type`; the name cell is `display: contents` there so its two
+  lines become grid items in the Name and Details columns. Browser test: 63 checks, phone and desktop.
 - **The + menu** (2026-10-19, on `feature/weapons-table`): `display.cljc` `weapon-menu-items` decides it
   (nil, so no +, unless the weapon has a target, a crit or rolled-number extra, or a once-per-rest use);
   `views.cljs` `weapon-menu` draws it. Items: Roll damage, Roll vs each target, Critical damage (dice
