@@ -220,5 +220,19 @@ say otherwise:
 So a 2014 or 2024 character is one D&D 5e character in one app. Only a different game (Nimble,
 Daggerheart) needs the shell split or game dispatch.
 
+**2024 does bring its own mechanics, and none of them needs dispatch.** They arrive in two ways:
+
+- **With the content.** A 2024 feat, species or feature carries its grants and is compiled when it
+  is picked, like any option. A filtered-out entry brings nothing. Data-only entries have their
+  mechanics joined by `:key` from code, the same split magic items use.
+- **The rules dial.** These are rules where the engine computes differently: 2024 Exhaustion is a
+  formula (minus 2 per level on D20 Tests, minus 5 ft speed per level) where 2014 is a six-row
+  table. Grappled gains mechanics. That is a per-rule switch inside one engine, not a different
+  app.
+
+The list of rules that changed is not compiled yet: 71 prose records need a person to read them
+([srd-2024-implementation-notes.md](srd-2024-implementation-notes.md)). How the dial is stored is
+not designed yet.
+
 Caught by the agent orchestrating the 2014/2024 work. The cause: inferring from a schema field
 named `game-version` that editions would use it, without reading the edition decisions first.

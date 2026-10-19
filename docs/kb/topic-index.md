@@ -564,7 +564,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, extensible, feat, grant, legacy, monster, pool, race, registry, row, rows, shim, widget, widgets
+**topics:** ---, arm, bespoke, disposition, effect, expertise, extensible, grant, legacy, monster, pool, race, registry, row, rows, shim, widget, widgets
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -990,7 +990,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, genuine, inline, localstorage, magic, resolves, server-backed, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, genuine, inline, localstorage, missing-content, resolves, server-backed, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -1441,7 +1441,7 @@ _e2e-runner · e2e runner_
 
 _edition-drift · edition drift_
 
-**topics:** 2014, 2024, 5etools, attack, crossbow, dual, eligibility, feat, fighting, hand, light, melee, off-hand, one-handed, property, two-weapon, weapon, wielder
+**topics:** 2014, 2024, 5etools, attack, crossbow, dual, edition, eligibility, fighting, hand, light, melee, off-hand, one-handed, property, two-weapon, weapon, wielder
 
 - Two-weapon fighting, side by side
 - What each difference costs us
@@ -2410,7 +2410,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _orcbrew-level-modifiers · orcbrew level modifiers_
 
-**topics:** 120, arrive, audits, consumed, driven, editor, grant, integer, keyword, level, level-modifier, presence, race, races, subclass, subclasses, trait, warden
+**topics:** 120, audits, consumed, driven, editor, grant, integer, keyword, level, level-modifier, presence, race, races, racial, subclass, subclasses, trait, warden
 
 - Nothing validates the shape of a brew
 - Two grant vocabularies, with different shapes
@@ -3325,7 +3325,7 @@ _srd-2024-coverage · srd 2024 coverage_
 
 _srd-2024-implementation-notes · srd 2024 implementation notes_
 
-**topics:** 2014, 2024, 339, damage, dial, edition, editions, exhaustion, feat, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
+**topics:** 2014, 2024, 339, damage, dial, edition, editions, exhaustion, expressed, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
 
 - The structural shifts, measured
 - 1. Subraces became lineages
@@ -3390,7 +3390,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-data-consumers · srd data consumers_
 
-**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, load-time, lower-cases, magic, mechanics, monsters, spell, srd-2024-roadmap, sub
+**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, load-time, lower-cases, magic, monsters, speeds, spell, srd-2024-roadmap, sub
 
 - The two facts that shape any move
 - Per type
