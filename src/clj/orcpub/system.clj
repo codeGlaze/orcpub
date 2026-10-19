@@ -14,6 +14,9 @@
             [orcpub.pwned :as pwned]
             [orcpub.security :as security]
             [orcpub.config :as config]
+            [orcpub.alerts :as alerts]
+            [orcpub.email :as email]
+            [clojure.java.io :as io]
             [orcpub.pdf :as pdf])
   (:import (org.eclipse.jetty.server.handler.gzip GzipHandler)))
 
@@ -137,7 +140,15 @@
     :pedestal
     (component/using
       (pedestal/new-pedestal)
-      [:service-map :conn :token-withdrawals])
+      [:service-map :conn :token-withdrawals :alerts])
+
+    ;; Admin alerts: no database, so they still go out when it is down. Started before traffic.
+    :alerts
+    (alerts/new-alerts {:send! (email/alert-channel)
+                        :to (env/value :email-errors-to)
+                        :max-per-hour (config/get-alert-max-per-hour)
+                        :spool-file (str (io/file (config/get-alert-spool-dir)
+                                                  (str "alerts-" (config/copy-name) ".edn")))})
 
     ;; Reads the recent password changes back into memory BEFORE the server takes
     ;; traffic (enforced by :pedestal depending on it). The heartbeat also refreshes it, but not until a minute in, and a

@@ -200,6 +200,26 @@
   (or (not-empty (env/value :portrait-store-dir))
       (str (io/file (System/getProperty "java.io.tmpdir") "orcpub-portraits"))))
 
+(defn get-alert-spool-dir
+  "Where admin alerts that could not be sent wait, from ALERT_SPOOL_DIR. Defaults to orcpub-alerts
+   under the system temp directory, which a replaced container loses: point it at a volume."
+  []
+  (or (not-empty (env/value :alert-spool-dir))
+      (str (io/file (System/getProperty "java.io.tmpdir") "orcpub-alerts"))))
+
+(defn get-alert-max-per-hour
+  "Most admin alert emails sent in an hour, from ALERT_MAX_PER_HOUR; past it alerts are logged only."
+  []
+  (positive-int-env ["ALERT_MAX_PER_HOUR"] 20))
+
+(defn copy-name
+  "This server's name among several copies: HOSTNAME (Docker and Swarm set it per container), else
+   the machine's host name, else \"server\". Names its alert spool file and its alerts."
+  []
+  (or (env/value :hostname)
+      (try (.getHostName (java.net.InetAddress/getLocalHost)) (catch Exception _ nil))
+      "server"))
+
 (defn dev-mode?
   "Returns true when running in dev mode (DEV_MODE env var is 'true').
    Env vars are strings — (boolean \"false\") is true in Clojure, so we
@@ -303,6 +323,12 @@
   (let [raw (some-> (env-raw "ORCPUB_PWNED_CHECK") str/trim (.toLowerCase Locale/ROOT))]
     (not (contains? #{"off" "false" "0" "no"} raw))))
 
+(defn- positive-int-text?
+  "Whether text `raw` reads as a positive whole number."
+  [raw]
+  (let [n (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil))]
+    (boolean (and n (pos? n)))))
+
 (def settings
   "Everything the boot banner reports, in print order.
    `:secret?`: the VALUE IS NEVER PRINTED, only whether it is present.
@@ -326,6 +352,12 @@
     {:group "email"    :var "EMAIL_SECRET_KEY" :since "2.5" :secret? true}
     {:group "email"    :var "EMAIL_FROM_ADDRESS" :since "2.5"}
     {:group "email"    :var "EMAIL_ERRORS_TO" :since "2.5"}
+    {:group "email"    :var "ALERT_SPOOL_DIR" :since current-release :get #(get-alert-spool-dir)
+     :accepts (complement str/blank?) :expects "a directory path"
+     :note "admin alerts not yet sent wait here; a volume, so a new container keeps them"}
+    {:group "email"    :var "ALERT_MAX_PER_HOUR" :since current-release :get #(get-alert-max-per-hour)
+     :accepts positive-int-text? :expects "a positive whole number"
+     :note "admin alert emails per hour; past it they are logged only"}
     {:group "email"    :var "EMAIL_ADMIN_TO" :since current-release
      :note "artist-account notices; falls back to EMAIL_ERRORS_TO"}
     {:group "security" :var "PROFILE_ENCRYPTION_KEYS" :since current-release :secret? true
@@ -371,10 +403,6 @@
 (def ^:private tunables
   "Kept for the capacity rows' typo detection: only these parse as integers."
   (filter #(= "capacity" (:group %)) settings))
-
-(defn- positive-int-text? [raw]
-  (let [n (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil))]
-    (boolean (and n (pos? n)))))
 
 (defn report
   "What each setting resolved to, and whether that came from the environment.

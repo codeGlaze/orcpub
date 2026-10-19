@@ -11,6 +11,8 @@
             [clojure.string :as s]
             [orcpub.route-map :as routes]
             [orcpub.fork.branding :as branding]
+            [orcpub.alerts :as alerts]
+            [orcpub.config :as config]
             [cuerdas.core :as str]))
 
 (defn- social-links-footer
@@ -409,12 +411,6 @@
 ;; Error email — helpers
 ;; ---------------------------------------------------------------------------
 
-(def ^:private error-throttle
-  "Maps fingerprint string → last-sent-ms. Suppresses duplicate error emails."
-  (atom {}))
-
-(def ^:private throttle-window-ms (* 5 60 1000))
-
 (defn- root-cause [^Throwable ex]
   (loop [e ex]
     (if-let [c (.getCause e)] (recur c) e)))
@@ -471,13 +467,6 @@
       (let [msg (or (.getMessage root) "")]
         (str root-class "+" (subs msg 0 (min 60 (count msg))))))))
 
-(defn- throttled? [fp]
-  (when-let [t (get @error-throttle fp)]
-    (< (- (System/currentTimeMillis) t) throttle-window-ms)))
-
-(defn- record-sent! [fp]
-  (swap! error-throttle assoc fp (System/currentTimeMillis)))
-
 (def ^:private safe-headers
   #{"user-agent" "referer" "content-type" "accept-language" "cf-ipcountry"
     "x-forwarded-for" "x-real-ip" "cf-ray" "sec-fetch-site" "sec-fetch-mode"
@@ -524,37 +513,41 @@
 ;; ---------------------------------------------------------------------------
 
 (defn send-error-email
-  "Sends a scrubbed error notification to EMAIL_ERRORS_TO; does nothing when that is unset.
-  Strips credentials, cookies, body params and Datomic objects from the request; keeps orcpub.*
-  stack frames (else the deepest non-infra frame); walks the whole cause chain; puts Pedestal
-  interceptor metadata in its own section. At most one email per error fingerprint per 5
-  minutes. Returns the postal result, or nil."
+  "Reports a server error to the admin alerts (orcpub.alerts), which email EMAIL_ERRORS_TO and
+  log it. Strips credentials, cookies, body params and Datomic objects from the request; keeps
+  orcpub.* stack frames (else the deepest non-infra frame); walks the whole cause chain; puts
+  Pedestal interceptor metadata in its own section. The same error is one alert with a count.
+  Returns at once; nothing is sent on the caller's thread. Returns nil."
   [context exception]
-  (when (env/value :email-errors-to)
-    (let [data-map      (ex-data exception)
-          pedestal?     (pedestal-wrapper? data-map)
-          real-ex       (if pedestal? (:exception data-map) exception)
-          pedestal-meta (when pedestal? (dissoc data-map :exception :exception-type))
-          request       (or (:request context) {})
-          fp            (throttle-fingerprint real-ex)]
-      (if (throttled? fp)
-        (println "INFO: Suppressed duplicate error email (fingerprint:" fp ")")
-        (do
-          (record-sent! fp)
-          (try
-            (let [result (postal/send-message
-                          (email-cfg)
-                          {:from    (str branding/app-name " Errors <" (emailfrom) ">")
-                           :to      (str (env/value :email-errors-to))
-                           :subject (email-subject real-ex request)
-                           :body    [{:type    "text/plain"
-                                      :content (build-body request real-ex pedestal-meta)}]})]
-              (when (not= :SUCCESS (:error result))
-                (println "WARNING: Failed to send error notification email:" (:error result)))
-              result)
-            (catch Exception e
-              (println "ERROR: Failed to send error notification email:" (.getMessage e))
-              nil)))))))
+  (let [data-map      (ex-data exception)
+        pedestal?     (pedestal-wrapper? data-map)
+        real-ex       (if pedestal? (:exception data-map) exception)
+        pedestal-meta (when pedestal? (dissoc data-map :exception :exception-type))
+        request       (or (:request context) {})]
+    (alerts/raise-current! (throttle-fingerprint real-ex)
+                           (email-subject real-ex request)
+                           (build-body request real-ex pedestal-meta))))
+
+(defn send-alert!
+  "Emails alert `message` ({:subject :body}) to EMAIL_ERRORS_TO, naming this server's copy.
+  Returns true when the mail server accepted it; throws when it did not."
+  [{:keys [subject body]}]
+  (let [result (postal/send-message
+                (email-cfg)
+                {:from    (str branding/app-name " Errors <" (emailfrom) ">")
+                 :to      (str (env/value :email-errors-to))
+                 :subject subject
+                 :body    [{:type "text/plain"
+                            :content (str body "\n\n-- " (config/copy-name))}]})]
+    (when (not= :SUCCESS (:error result))
+      (throw (ex-info "alert email refused" {:postal-response result})))
+    true))
+
+(defn alert-channel
+  "`send-alert!` when admin alerts can be emailed (a mail server and EMAIL_ERRORS_TO are set), else nil."
+  []
+  (when (and (configured?) (env/value :email-errors-to)) send-alert!))
+
 ;; ---------------------------------------------------------------------------
 ;; User-initiated "this character won't load" report
 ;; ---------------------------------------------------------------------------
