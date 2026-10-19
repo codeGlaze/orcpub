@@ -86,3 +86,10 @@ Print the thing and look at it.
   a knob added without a banner entry fails.
 - **A credential ever logged unredacted must be rotated.** The fix stops new exposure; it does
   nothing about logs already written.
+
+## Everything else the report prints
+
+This page covers secrets. The full layout (grouped rows, the branding count, `(!)` lines for
+rejected settings and branding values, `(!!)` blocks with their fix, the live thread-pool size, and
+the `NEW IN <release>` block that ends it) is in
+[settings-registry-and-boot-report.md](settings-registry-and-boot-report.md).

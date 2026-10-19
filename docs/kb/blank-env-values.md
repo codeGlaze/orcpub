@@ -21,7 +21,7 @@ Three things had to line up, and all three were present:
    applies the default when the variable is not set. Nothing about it looks suspicious.
 2. **`.env.example` ships nine keys with empty values.** Blank is the *documented* state of
    an unset optional setting, not an edge case someone has to contrive.
-3. **`docker-compose.yaml` passes seven variables as `${VAR:-}`** — explicitly empty —
+3. **`docker-compose.yaml` passes seven variables as `${VAR:-}`** (thirteen by 2026-10-19) — explicitly empty —
    whenever the operator configures nothing. That is the default deployment.
 
 So the trigger was shipped, documented and default, and the bug was invisible on inspection.
@@ -183,7 +183,7 @@ Related: [`verification-discipline.md`](verification-discipline.md) covers provi
 empty to disable email functionality"* and no code implements that — "disabled" currently
 means "sending throws".
 
-`do-verification` (`routes.clj:337-354`) transacts the user **before** attempting the email:
+`do-verification` (`routes.clj`, ~line 519 on 2026-10-19) transacts the user **before** attempting the email:
 
 ```clojure
 (try
@@ -203,7 +203,7 @@ Datomic does not roll back. So on any instance without SMTP — **the default Do
 **Severity, measured rather than assumed.** An earlier version of this document said the
 account "can never be verified" and that registration was "permanently broken". Both were
 wrong. The resend-verification route operates on exactly this orphaned state and succeeds,
-and it is wired to a UI button (`views.cljs:653` dispatches `:re-verify`). Verified against
+and it is wired to a UI button (`views.cljs` dispatches `:re-verify`, ~line 964 on 2026-10-19). Verified against
 the pre-fix code:
 
 ```
@@ -280,8 +280,9 @@ existing user over a feature they are not using.
 
 ### OPEN — fold into the boot report when integration merges down
 
-`config/print-report!` exists on `integration` and not on the hotfix branch, so
-`report-registration-mode!` prints at namespace load beside the `SIGNATURE` warning instead.
+Still open on 2026-10-19. The boot report now exists on every code branch, but
+`report-registration-mode!` (`routes.clj`) still prints at namespace load beside the `SIGNATURE`
+warning instead of in the report.
 **Move it into the boot report when the code meets it** — registration mode belongs with the
 rest of the effective configuration, not three lines above an unrelated warning. The comment
 on the function says the same.

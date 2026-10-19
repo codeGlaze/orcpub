@@ -11,7 +11,7 @@
 
 ### Jetty binds 0.0.0.0 in prod
 - Pedestal defaults `::http/host` to `"localhost"` when unset — silently blocks inter-container traffic
-- `system.clj` sets `::http/host "0.0.0.0"` in prod, `"localhost"` in dev
+- `system.clj` sets `::http/host "0.0.0.0"` in prod; dev binds `ORCPUB_HTTP_HOST`, default `"localhost"`
 - Commit: e1a36cf1
 
 ### Option C hybrid template for transactor.properties
@@ -46,9 +46,14 @@
 - Do NOT use raw password values in sed replacements — escape `\`, `&`, `|` first (silent corruption)
 - Do NOT mount `./logs:/logs` — transactor uses `log-dir=/log` (no trailing s), mount to `/log`
 - Do NOT create `.env` or `transactor.properties` without `chmod 600` — contains plaintext secrets
-- Do NOT run containers as root — both stages have non-root users (datomic, app)
+- Do NOT run the app as root: it runs as `USER app`. The transactor stage has no `USER` on purpose
+  and starts as root to chown its mounts, then drops to `datomic` with su-exec (next line)
 - Do NOT use `USER datomic` in the transactor Dockerfile — bind mounts override build-time chown, causing "Permission denied" on /log. Use entrypoint-chown-drop pattern with su-exec instead.
 - Do NOT set memory-index-max + object-cache-max > 75% of JVM -Xmx — Datomic refuses to start with `:db.error/not-enough-memory`. Template defaults are for 1GB heap (128m+128m=256m < 768m).
+- Do NOT assume a variable set in `.env` reaches the app container. Compose passes only the app
+  service's explicit `environment:` list, and Swarm only `scripts/swarm.sh`'s `_a_env_defaults`.
+  A new setting goes in both, plus `.env.example`; see
+  [settings-registry-and-boot-report.md](settings-registry-and-boot-report.md), "Four lists"
 - Do NOT trust ENVIRONMENT.md email vars blindly — cross-check against `email.clj` (was wrong for months)
 
 ## File Inventory
@@ -59,8 +64,7 @@
 | `docker/transactor.properties.template` | Complete transactor config (Option C) |
 | `deploy/start.sh` | Transactor startup: secret substitution + exec |
 | `deploy/nginx.conf.template` | Nginx reverse proxy template (envsubst resolves `${ORCPUB_PORT}`) |
-| `docker-compose-build.yaml` | Build-from-source compose |
-| `docker-compose.yaml` | Pre-built images compose |
+| `docker-compose.yaml` | The one compose file: builds from source (`build:`) and names the images (`image: ${ORCPUB_IMAGE:-orcpub-app}`). `docker-compose-build.yaml` no longer exists (checked 2026-10-19) |
 | `run` | Interactive setup: .env, dirs, SSL |
 | `.env.example` | Env var reference |
 

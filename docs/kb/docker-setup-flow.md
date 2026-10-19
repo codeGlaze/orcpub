@@ -1,5 +1,9 @@
 # run — Mode Flow & Check Reference
 
+> Line numbers below drifted by about 150 by 2026-10-19 (`--upgrade` is at ~1162, not ~1013);
+> search for the flag instead. Which settings `./run`, `--upgrade` and `swarm.sh` carry is in
+> [settings-registry-and-boot-report.md](settings-registry-and-boot-report.md), "Four lists".
+
 ~1460 lines as of 2026-03-04. Modes execute in source order as sequential
 `if ... exit 0; fi` blocks. Config modes (SECRETS, SWARM) precede action modes
 (BUILD, DEPLOY). SWARM falls through to BUILD/DEPLOY when both are set.

@@ -114,8 +114,11 @@ Full unsubscribe + preference toggle flow:
 ### Error Email Hardening (dmv/hotfix-integrations)
 `send-error-email` in `email.clj` was overhauled for production reliability:
 
-- **5-minute throttle per fingerprint** — prevents error storms from flooding
-  inboxes. Fingerprint = exception class + first orcpub stack frame.
+- **5-minute throttle per fingerprint** (replaced 2026-10-19 on `feature/email-and-alerts`):
+  errors now go through `orcpub.alerts`, off the request thread: one alert per fingerprint per 15
+  minutes with a count of repeats, an hourly cap, a pause after repeated mail failures and a spool
+  file. [plan-email-and-alerts.md](plan-email-and-alerts.md). Fingerprint unchanged: exception class
+  + first orcpub stack frame.
 - **Request scrubbing** — strips credentials, cookies, request body, and Datomic
   objects (which can be very large) before including request context in emails.
 - **Stack trace filtering** — shows only `orcpub.*` frames for readability,

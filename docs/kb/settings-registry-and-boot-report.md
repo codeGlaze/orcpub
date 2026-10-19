@@ -18,6 +18,56 @@ pointed here. References are against `integration` at `427d16aad`.
 Not in the report: the "registration is DISABLED" warning (`routes.clj` ~line 111) prints on its
 own; [blank-env-values.md](blank-env-values.md) has it as an open item to fold in.
 
+## Row keys
+
+| Key | Meaning |
+| --- | --- |
+| `:var` | the environment name |
+| `:group` | the bracketed heading it prints under |
+| `:note` | one line an operator can act on; also printed in the NEW IN block |
+| `:get` | accessor for the value in force; without it the raw env value is shown |
+| `:since` | release that added it: `"2.5"` or `current-release` |
+| `:secret?` | never printed, only `set` / `NOT SET` |
+| `:redact?` | printed with passwords masked (`redact-secrets`), e.g. `DATOMIC_URL` |
+| `:critical?` + `:fix` | absence breaks the site; `:fix` is the `(!!)` text |
+| `:accepts` + `:expects` | a predicate on the raw text, and what to call a value it rejects; a rejected value is a `(!)` line and the row reads DEFAULT. Capacity rows get `positive-int-text?` without saying so |
+
+## Four lists, and where a setting is lost (found 2026-10-19)
+
+The registry is what the server reads. Four hand-kept lists decide what an operator can set, and
+nothing checks them against the registry:
+
+| List | Used by | What it decides |
+| --- | --- | --- |
+| `.env.example` | bare metal (`scripts/common.sh` offers to copy it), and operators reading what exists | what anyone knows they can set |
+| `docker-compose.yaml`, `orcpub` service `environment:` | Docker Compose | **what reaches the app container at all.** No `env_file`: `.env` only fills `${VAR:-default}` in this list |
+| `scripts/swarm.sh` `_a_env_defaults` | `./run --swarm` (fresh), and `--upgrade-swarm`, which keeps the existing env block and appends any of these it lacks | what reaches the app under Swarm |
+| `./run` `write_env_file` | a fresh `./run` install writes `.env` from this template; `--upgrade` fixes old formats and fills gaps | what a new install's `.env` contains |
+
+Gaps on 2026-10-19 (`feature/email-and-alerts`):
+
+- **Not in the compose list** (set in `.env`, never reach a Docker app): `ALERT_SPOOL_DIR`,
+  `ALERT_MAX_PER_HOUR`, `ORCPUB_HTTP_MAX_THREADS`, `ORCPUB_PDF_CONCURRENCY`,
+  `ORCPUB_PDF_QUEUE_TIMEOUT_MS`, `ORCPUB_PDF_MAX_RETRIES`, `ORCPUB_PDF_MAX_CASTER_SECTIONS`,
+  `ORCPUB_PDF_MAX_CARDS`, `ORCPUB_PORTRAIT_CONCURRENCY`, `ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS`,
+  `ORCPUB_SHARE_MAX_UPLOAD_KB`, `ORCPUB_SHARE_MAX_TEXT_KB`, `ORCPUB_SHARE_MAX_ACCOUNT_KB`,
+  `ORCPUB_SHARE_PRUNE_DAYS`, `ORCPUB_PWNED_CHECK`, and 21 of the 22 `APP_*` branding names (only
+  `APP_URL` is passed).
+- **Not in the Swarm list either, though compose has them:** `ALLOW_UNVERIFIED_REGISTRATION`,
+  `APP_URL`, `DEV_MODE`, `EMAIL_ADMIN_TO`, `LOAD_HOMEBREW_URL`, `PORTRAIT_ARTISTS`,
+  `PORTRAIT_STORE_DIR`, `PROFILE_ENCRYPTION_KEYS` (the last can still arrive as a Docker secret).
+  An upgraded Swarm file keeps whatever its old env block had.
+- **Not in `.env.example`:** the same 15 settings, and `APP_EMAIL_SIGNOFF`.
+- Unaffected: values read from `/run/secrets/*` (`signature`, `datomic_password`,
+  `profile_encryption_keys`), and branding set by editing `fork/branding.clj` (DMV production's
+  route, [branding-setup.md](branding-setup.md)).
+
+The only symptom is the boot report showing `DEFAULT` for something the operator set. The owner
+noted (2026-10-19) that the production admin now configures through env and config files, so this
+matters. The setup scripts (`./run`, `--upgrade`, `swarm.sh`) were reworked heavily to make
+upgrades safe: a fix must keep their upgrade behaviour, i.e. add names to their lists rather than
+change how they carry an old file forward. [docker-setup-flow.md](docker-setup-flow.md).
+
 ## Adding a setting
 
 1. Read it with `orcpub.env/value`, behind an accessor in `config.clj` when it has a default.
@@ -26,6 +76,7 @@ own; [blank-env-values.md](blank-env-values.md) has it as an open item to fold i
    `every-setting-says-which-release-added-it` fails a row without `:since`.
 3. Document it in `docs/ENVIRONMENT.md`, beside the settings of the same group, and add it to that
    page's "New in <release>" table. Human voice: what it does, its default, what happens.
+4. Add it to the four lists above, or it works on bare metal only.
 
 ## Releases and the "NEW IN" block (built 2026-10-19, `feature/email-and-alerts`, `d8cdfb4a6`)
 

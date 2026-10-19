@@ -74,24 +74,10 @@ is identical on both branches.
 
 ## Branding (`src/clj/orcpub/fork/branding.clj`)
 
-All values are env-var-gated with neutral defaults.
-
-| Var | Env Var | Default | Used By |
-|-----|---------|---------|---------|
-| `app-name` | `APP_NAME` | `"OrcPub"` | email, index, privacy |
-| `app-url` | `APP_URL` | `""` (hidden) | privacy (domain references) |
-| `app-tagline` | `APP_TAGLINE` | D&D 5e description | index (OG meta) |
-| `default-page-title` | `APP_PAGE_TITLE` | `"OrcPub: D&D 5e..."` | index (title/OG) |
-| `logo-path` | `APP_LOGO_PATH` | `"/image/orcpub-logo.svg"` | views, privacy |
-| `og-image-filename` | `APP_OG_IMAGE` | `"/image/orcpub-logo.png"` | index (OG meta) |
-| `copyright-holder` | `APP_COPYRIGHT_HOLDER` | `"OrcPub"` | views footer |
-| `copyright-year` | `APP_COPYRIGHT_YEAR` | *(current year)* | views footer |
-| `email-sender-name` | `APP_EMAIL_SENDER_NAME` | `"OrcPub Team"` | email |
-| `email-from-address` | `EMAIL_FROM_ADDRESS` | `"no-reply@orcpub.com"` | email |
-| `support-email` | `APP_SUPPORT_EMAIL` | `""` (hidden) | privacy, events |
-| `help-url` | `APP_HELP_URL` | `""` (hidden) | views footer |
-| `social-links` | `APP_SOCIAL_*` | all `""` (hidden) | views header, integrations |
-| `field-limits` | `APP_FIELD_LIMIT_*` | `{:notes 50000 :text 255 :number 7}` | views form fields |
+Moved to [branding-setup.md](branding-setup.md) on 2026-10-19: every value, its env name, default,
+check and users; the browser bridge; the two ways a deployment brands itself; adding a value. The
+table that was here had drifted (it gave `no-reply@orcpub.com` as the From default and lacked the
+sign-off, the checks, the copyright link and the portrait artists).
 
 ## Integrations — Server-side (`fork/integrations.clj`)
 

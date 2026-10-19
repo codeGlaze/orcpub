@@ -258,7 +258,7 @@ _ac-tests-and-modifier-order · ac tests and modifier order_
 
 _account-flows · account flows_
 
-**topics:** account, composition, corpus, credential, email, link, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, username
+**topics:** account, composition, corpus, credential, disk, email, link, login, mail, meter, oracle, password, refused, reset, signing, somebody, suite, username
 
 - 1. The reason none of it had coverage
 - Traps inside the harness itself
@@ -308,7 +308,7 @@ _already-held-grants · already held grants_
 
 _armor-class-computation · armor class computation_
 
-**topics:** ability, armor, armored, barbarian, bonus, channel, channels, con, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
+**topics:** ability, armor, armored, barbarian, bonus, channel, channels, con, defense, dex, max, maxes, monk, scalar, shield, tie-break, unarmored, worn
 
 - Verified behavior — TEST-BACKED (accharacterizationtest.clj, JVM)
 - The model — VERIFIED (templatebase.cljc:35-88)
@@ -415,7 +415,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, check, control, css, docstrings, form, icon, invented, item, labelled, pin, portrait, review, row, sat, signing, unknown, vanished
+**topics:** 2026-09-29, control, css, docstrings, form, icon, invented, item, labelled, paragraph, pin, portrait, review, row, sat, signing, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -491,6 +491,18 @@ _branch-inventory · branch inventory_
 - 2026-10-17 (1 branch)
 - 2026-10-06 (65 branches)
 
+## branding-setup.md
+
+_branding-setup · branding setup_
+
+**topics:** artist, artist-links-and-referrer, branding, credits, dmv, docker, email, emails, footer, fork, fork-customization, links, logos, metal, privacy, settings-registry-and-boot-report, swarm, url
+
+- Two ways a deployment brands itself
+- How a value is read
+- The values
+- Browser side
+- Adding a branding value
+
 ## browser-probe-registration.md
 
 _browser-probe-registration · browser probe registration_
@@ -507,7 +519,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-and-sheet-copies · builder and sheet copies_
 
-**topics:** 2026-10-15, 409, 410, autosave, builder, copy, draft, edit, edits, multi-tab-character-contamination, recorded, reply, save, sends, server, sheet, unsaved, version
+**topics:** 2026-10-15, 409, 410, 704, autosave, builder, copy, draft, edit, edits, multi-tab-character-contamination, recorded, reply, save, sends, sheet, unsaved, version
 
 - What was lost, proven on a real server
 - The fix
@@ -564,7 +576,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, expertise, extensible, grant, legacy, monster, pool, race, registry, row, rows, shim, widget, widgets
+**topics:** ---, arm, bespoke, disposition, effect, extensible, feat, grant, legacy, monster, pool, race, registry, row, rows, shim, widget, widgets
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -1215,7 +1227,7 @@ _dmv-production-changes · dmv production changes_
 
 _docker-infrastructure · docker infrastructure_
 
-**topics:** 128m, 1gb, 512m, alpine, busybox, chown, datomic, docker, envsubst, gnu, hangs, healthcheck, peers, sed, subprocess, transactor, uberjar, wget
+**topics:** 128m, 1gb, 512m, alpine, busybox, chown, docker, envsubst, gnu, hangs, healthcheck, peers, sed, subprocess, swarm, transactor, uberjar, wget
 
 - Key Decisions
 - host=datomic (not 0.0.0.0)
@@ -1453,7 +1465,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, added, datomic, dmv, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, datomic, dmv, echoing, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -1514,7 +1526,7 @@ _entity-options-architecture · entity options architecture_
 
 _env-and-auth · env and auth_
 
-**topics:** ---------------------, 500, auth, authenticated, clj, csp, dev, dev-mode, env, gitignored, jwt, prod, profile, project, signature, token, var, vars
+**topics:** ---------------------, 500, auth, authenticated, blank-env-values, branding-setup, clj, dev, dev-mode, env, jwt, prod, profile, project, signature, startup, token, vars
 
 - How env vars are loaded
 - 1. ./menu and ./scripts/start.sh
@@ -1522,7 +1534,7 @@ _env-and-auth · env and auth_
 - 2b. profiles.clj (local overrides, gitignored)
 - 3. Docker / production
 - SIGNATURE (JWT secret)
-- Where it's read
+- Where it's read (corrected 2026-10-19; this page said (environ/env :signature) in routes.clj)
 - Dev default
 - Bug history
 - .lein-env Profile Switching and Prod Builds
@@ -1728,7 +1740,7 @@ _fonts · fonts_
 
 _fork-customization · fork customization_
 
-**topics:** ---------, adsense, api, bridge, cljs, dmv, domains, email, footer, hidden, integrations, matomo, override, privacy, production, public, stubs, views
+**topics:** -------------, adsense, api, branches, branding-setup, bridge, cljs, csp, customization, dmv, domains, integrations, matomo, override, production, public, stubs, views
 
 - Override File Pattern
 - Architecture
@@ -1771,7 +1783,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _garden-inline-styles-harvest · garden inline styles harvest_
 
-**topics:** 648, block, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, seeded
+**topics:** 648, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, phone, seeded
 
 - Why the branch stalled
 - The branch is healthy
@@ -1849,7 +1861,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 1743, 374, 3816, 493, believing, branch, cut, directions, duplicate-key, e2e, integration, item, key, merging, minted, outcome, source, tag
+**topics:** 1743, 1744, 374, 3816, 493, believing, branch, cut, directions, duplicate-key, e2e, integration, item, merging, minted, outcome, source, tag
 
 - Outcome
 - The branches, and the order
@@ -1863,7 +1875,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, about, blade, bullets, crit, damage, desktop, mastery, owner, pdf, phone, settings, shield, sun, weapon, weapons, weapons-extra-damage-design
+**topics:** 2026-10-17, 2d6, about, blade, bullets, crit, damage, desktop, hand, mastery, owner, pdf, phone, shield, sun, weapon, weapons, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry
@@ -2146,7 +2158,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, number, quarantined, repair, restore, translator, unnamed, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, quarantined, repair, restore, translator, unnamed, wind, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -2394,7 +2406,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _orcbrew-level-modifiers · orcbrew level modifiers_
 
-**topics:** 120, arrive, audits, consumed, driven, editor, grant, integer, keyword, level, level-modifier, presence, race, races, subclass, subclasses, trait, warden
+**topics:** 120, audits, consumed, driven, editor, grant, integer, keyword, level, level-modifier, presence, race, races, racial, subclass, subclasses, trait, warden
 
 - Nothing validates the shape of a brew
 - Two grant vocabularies, with different shapes
@@ -2933,7 +2945,7 @@ _reagent-architecture-tenets · reagent architecture tenets_
 
 _reframe-subscription-patterns · reframe subscription patterns_
 
-**topics:** 401, api-backed, app-db, auth, auth-state-in-app-db, context, counter, decrement, deref, guard, http, loading, login, non-reactive, reaction, reactive, redirect, subscriptions
+**topics:** 401, api-backed, app-db, auth, auth-state-in-app-db, context, counter, decrement, deref, guard, http, loading, non-reactive, reaction, reactive, redirect, subscriptions, token
 
 - reg-sub-raw HTTP Pattern
 - Lifecycle
@@ -3138,21 +3150,24 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _secrets-in-boot-output · secrets in boot output_
 
-**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, credential, ex-info, find-and-replace, innocuous, leak, log, logs, masked, print, query, redact, uri
+**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, branding, credential, ex-info, leak, log, logs, print, query, redact, rejected, settings-registry-and-boot-report, uri
 
 - It was in four places, not one
 - Redact at the boundary, and only what is logged
 - The next leak goes in the startup banner
 - Reporting configuration without lying about it
 - Also
+- Everything else the report prints
 
 ## settings-registry-and-boot-report.md
 
 _settings-registry-and-boot-report · settings registry and boot report_
 
-**topics:** 111, 2026-10-17, 2026-10-19, accessor, blank-env-values, branding, human, operator, release, report, rows, secrets, secrets-in-boot-output, setting, settings, start-up, summer, unset
+**topics:** 2026-10-17, 2026-10-19, accessor, blank-env-values, branding, branding-setup, docker-setup-flow, env, metal, operator, printed, release, report, secrets-in-boot-output, setting, settings, start-up, swarm
 
 - Where things are
+- Row keys
+- Four lists, and where a setting is lost (found 2026-10-19)
 - Adding a setting
 - Releases and the "NEW IN" block (built 2026-10-19, feature/email-and-alerts, d8cdfb4a6)
 - Branding in the report (built 2026-10-19)
@@ -3705,7 +3720,7 @@ _weapons-extra-damage-handoff · weapons extra damage handoff_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 2026-10-15, amber, blue, button, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, versatile, weapon, white
+**topics:** 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, theme, versatile, weapon, white
 
 - The parts and their names
 - Agreed

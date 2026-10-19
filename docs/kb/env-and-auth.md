@@ -5,7 +5,8 @@
 Three paths, different mechanisms:
 
 ### 1. `./menu` and `./scripts/start.sh`
-- `scripts/common.sh` (lines 26-31) sources `.env` with `set -a` / `. "$REPO_ROOT/.env"` / `set +a`
+- `scripts/common.sh` (lines ~26-32) sources `.env` with `set -a`, through `tr -d '\r'` so a
+  Windows-edited file works
 - All vars from `.env` become real environment variables
 - This is the recommended way to run services
 
@@ -19,25 +20,33 @@ Three paths, different mechanisms:
 ### 2b. `profiles.clj` (local overrides, gitignored)
 - Leiningen reads `profiles.clj` at the project root and merges it over `project.clj`'s profiles,
   so an `:env` map there overrides the `:dev` defaults above without editing a tracked file
-- **It is gitignored** (`.gitignore:35`), so it will never show up in a repo-wide grep — absence of
+- **It is gitignored**, so it will never show up in a repo-wide grep — absence of
   hits is not evidence it is unused
 - Commit `ccbdacba` (2026-01-15) documented it as *the* primary local-dev mechanism. That framing is
   out of date — the three paths above are how the app actually loads config today — but the file
   still works and is still the right place for a developer's own secrets
 
 ### 3. Docker / production
-- `.env` file read by docker-compose
-- Real env vars take precedence
+- Compose does **not** load `.env` into the container. It uses `.env` (and the shell) only to fill
+  `${VAR:-default}` in the app service's explicit `environment:` list. **A variable not on that list
+  never reaches the app**, whatever `.env` says. On 2026-10-19 that was 15 settings and 21 of the 22
+  `APP_*` branding names: [settings-registry-and-boot-report.md](settings-registry-and-boot-report.md), "Four lists".
+- Swarm uses its own list in `scripts/swarm.sh` (`_a_env_defaults`), shorter still.
+- Real env vars take precedence over `.env` in the substitution.
+- Docker secrets bypass all of this: `config/read-secret` reads `/run/secrets/<name>` for
+  `signature`, `datomic_password` and `profile_encryption_keys`.
 
 ## SIGNATURE (JWT secret)
 
 The most critical env var. Without it, ALL authenticated API calls fail with 500.
 
-### Where it's read
-- `routes.clj` reads `(environ/env :signature)` at namespace load time
-- Stored in `jwt-secret` var, passed to `buddy.sign.jws` backend
-- If nil at startup, a WARNING is printed to console
-- If nil at request time, returns 500 with "Server misconfigured: SIGNATURE env var not set"
+### Where it's read (corrected 2026-10-19; this page said `(environ/env :signature)` in routes.clj)
+- `config/signature`: `/run/secrets/signature` first, else `SIGNATURE` through `orcpub.env/value`,
+  nil when unset or blank. Blank must be nil: buddy signs and verifies with `""`.
+- `routes.clj` `jwt-secret` holds it, loaded once at namespace load.
+- If nil at startup: `WARNING: ` + `config/signature-missing-message`, which says how to fix it.
+- If nil at request time: `signature-or-throw` answers 500 with the same message. The boot report's
+  `(!!)` block prints it too, so every place says the same remedy.
 
 ### Dev default
 - Added to project.clj `:dev` profile `:env` map: `"dev-secret-do-not-use-in-production"`
@@ -114,19 +123,8 @@ The last step runs with `:uberjar` profile, which overwrites `.lein-env` to `{:p
 
 ## Error diagnostics (routes.clj)
 
-```clojure
-;; Startup warning
-(when-not jwt-secret
-  (println "WARNING: SIGNATURE env var is not set"))
-
-;; Request-time check
-(if-not jwt-secret
-  (terminate-request context 500 "Server misconfigured: SIGNATURE env var not set")
-  (try
-    ;; ... normal auth check ...
-    (catch Exception e
-      (terminate-request context 401 (str "Authentication failed: " (.getMessage e))))))
-```
+Startup prints `WARNING: <config/signature-missing-message>` when `jwt-secret` is nil; at request
+time `signature-or-throw` answers 500 with that same message. A bad token is a 401.
 
 ## Gotcha: `(boolean "false")` Is Truthy in Clojure
 
@@ -137,18 +135,16 @@ Since env vars are always strings, `(boolean "false")` returns `true`:
 ;; BROKEN — "false" is a non-empty string, so (boolean "false") => true
 (def dev-mode? (boolean (env :dev-mode)))
 
-;; CORRECT — explicit string comparison
-(def dev-mode? (= "true" (str/lower-case (or (env :dev-mode) ""))))
+;; CORRECT — orcpub.env/flag? (case-insensitive "true", locale-safe; raw env is a lint error)
+(defn dev-mode? [] (env/flag? :dev-mode))
 ```
 
-This was found in `config.clj` where `DEV_MODE=false` in `.env` caused CSP to
-be disabled in production (the `dev-mode?` flag gates report-only vs enforcing
-CSP). The fix is to always use string comparison for env var booleans.
-
-**Impact chain**: `.env` has `DEV_MODE=false` -> `config.clj` reads
-`(boolean "false")` -> returns `true` -> `pedestal.clj` nonce-interceptor
-captures `dev-mode?=true` at load time -> CSP uses report-only header in prod
--> no XSS protection.
+This was found in `config.clj` where `DEV_MODE=false` in `.env` read as true. Today
+`dev-mode?` decides whether a CSP header is sent at all: in dev mode none is, so Figwheel works;
+outside it `CSP_POLICY=strict` sends an enforcing policy. (Corrected 2026-10-19: this page said the
+flag chose between report-only and enforcing; there is no report-only mode, per
+[blank-env-values.md](blank-env-values.md).) Impact of the old bug: `DEV_MODE=false` meant no CSP
+header in production.
 
 ## Auth Token Canonical Path
 
@@ -174,10 +170,12 @@ Fixed to match `auth-headers` and the `equipment_subs.cljs` canonical pattern.
 
 | File | Variable | Purpose |
 |------|----------|---------|
-| `routes.clj` | `SIGNATURE` | JWT signing, auth interceptor |
-| `config.clj` | `DATOMIC_URL`, `CSP_POLICY`, `DEV_MODE` | App config |
-| `system.clj` | `PORT` | Server port |
-| `index.clj` | `DEV_MODE`, `LOAD_HOMEBREW_URL` | Plugin fetch gate, dev mode flag |
+| `env.clj` | everything | `orcpub.env/value` and `flag?`: the only sanctioned readers (blank = unset) |
+| `config.clj` | `SIGNATURE` (via `config/signature`), `DATOMIC_URL`, `CSP_POLICY`, `DEV_MODE`, capacity, alerts | App config and the `settings` registry the boot report prints |
+| `routes.clj` | `SIGNATURE` (through `config/signature`) | JWT signing, auth interceptor |
+| `system.clj` | `PORT`, `ORCPUB_HTTP_HOST` (dev) | Server port and dev bind address |
+| `index.clj` | `LOAD_HOMEBREW_URL` | Plugin fetch gate |
+| `fork/branding.clj` | `APP_*`, `EMAIL_FROM_ADDRESS`, `PORTRAIT_ARTISTS` | [branding-setup.md](branding-setup.md) |
 | `project.clj` | `:env` in `:dev` profile | Dev defaults for `.lein-env` |
 | `.env.example` | All | Template for user's `.env` |
 | `scripts/common.sh` | `.env` sourcing | Auto-loads for script-based startup |
