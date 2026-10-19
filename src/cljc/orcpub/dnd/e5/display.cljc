@@ -334,3 +334,31 @@
                :sub (str "once per " (recharge-names (::mi/recharge e) (common/safe-name (::mi/recharge e))))
                :value (if (::mi/effect-type e) (when (seq es) (damage-str (first es))) (plus-str e))
                :entries es :recharge (::mi/recharge e)}))))))
+
+(defn mastery-summary
+  "A Weapon Mastery's short summary for the band, in our words: \"DC 13 Con or prone\".
+  Takes the mastery key and {:ability-mod :prof :damage-type}; returns a string."
+  [k {:keys [ability-mod prof damage-type]}]
+  (case k
+    :topple (str "DC " (+ 8 ability-mod prof) " Con or prone")
+    :push "push 10 ft (Large or smaller)"
+    :slow "\u221210 ft speed"
+    :sap "its next attack has disadvantage"
+    :vex "advantage on your next attack vs it"
+    :cleave "attack a 2nd creature within 5 ft"
+    :graze (str ability-mod (when damage-type (str " " (common/safe-name damage-type))))
+    :nick "off-hand attack is part of Attack"
+    (common/safe-name k)))
+
+(defn mastery-band
+  "A weapon's Weapon Mastery band, or nil when it has none: {:key :name :trigger :summary
+  :text :trained?}. trained? needs the base weapon in `trained`. Takes the weapon, the
+  trained set, the definitions ({key {:name :trigger :text}}) and the summary context."
+  [weapon trained definitions ctx]
+  (let [k (::weapons/mastery weapon)
+        {:keys [name trigger text]} (get definitions k)]
+    (when (and k name)
+      {:key k :name name :trigger trigger :text text
+       :summary (mastery-summary k ctx)
+       :trained? (contains? (set trained) (or (:base-key weapon) (:key weapon)))})))
+

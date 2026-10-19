@@ -16,7 +16,8 @@
 // The + menu: only weapons with something conditional get one; Tab reaches it after the damage
 // tile, Enter opens it on "Roll damage", Down moves, Esc closes and returns to the +; right-click
 // opens it; "Roll vs" rolls the bonus; a once-per-dawn use rolls, then reads "used"; on the last row
-// the menu opens upward.
+// the menu opens upward. Last, Weapon Mastery with made-up 5.5 data (this branch has none): a
+// trained longsword shows the Topple band, an untrained dagger shows none and says so when opened.
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/weapons_table_e2e.js`). No login.
 // Runs in:   ~30s. SHOT_DIR=<dir> saves weapons-dark.png and weapons-light.png.
@@ -260,6 +261,53 @@ async function layout(page, theme) {
     await page.locator('div.pointer', { hasText: 'Light Theme' }).first().click();
     await page.waitForTimeout(300);
     await layout(page, 'light');
+  }
+  // Weapon Mastery (writing-browser-tests.md rule 6): made-up weapons enter as custom items, the
+  // app's own path into the shared weapons map; only the table's own subscriptions are stood in
+  await page.evaluate(() => {
+    const rd = cljs.reader.read_string, rf = re_frame.core, m = 'orcpub.dnd.e5.magic-items', w = 'orcpub.dnd.e5.weapons';
+    rf.dispatch_sync(rd(`[:${m}/set-custom-items
+      [{:db/id 900001 :${m}/name "Test Blade" :${m}/type :weapon :${m}/item-subtype :longsword :${w}/mastery :topple}
+       {:db/id 900002 :${m}/name "Test Knife" :${m}/type :weapon :${m}/item-subtype :dagger :${w}/mastery :nick}]]`));
+    rf.reg_sub(rd(':orcpub.dnd.e5.weapons/mastery-definitions'),
+               () => rd('{:topple {:name "Topple" :trigger :hit :text "Topple rule."} :nick {:name "Nick" :text "Nick rule."}}'));
+    rf.reg_sub(rd(':orcpub.dnd.e5.character/weapon-masteries'), () => rd('#{:longsword}'));
+  });
+  await loadMagic(page, [':test-blade', ':test-knife']);
+  const tab = name => page.evaluate(name => {
+    const rd = cljs.reader.read_string;
+    re_frame.core.dispatch_sync(cljs.core.PersistentVector.fromArray(
+      [rd(':orcpub.dnd.e5.character/set-selected-display-tab'), name], true));
+  }, name);
+  const tabIs = name => page.waitForFunction(name => {
+    const rd = cljs.reader.read_string;
+    return cljs.core.deref(re_frame.core.subscribe(rd('[:orcpub.dnd.e5.character/selected-display-tab]'))) === name;
+  }, name, { timeout: 5000 }).then(() => true, () => false);
+  await tab('summary');
+  const left = await tabIs('summary') && await page.locator('.weapons-section').waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false);
+  await tab('combat');
+  check('the sheet leaves the Combat tab and comes back (remounting the table)', left && await tabIs('combat'));
+  if (await page.locator('.weapons-section').waitFor({ timeout: 20000 }).then(() => true, () => false)) {
+    const mrow = name => page.locator('.weapon-row')
+      .filter({ has: page.locator('.weapon-name', { hasText: new RegExp(`^${name}$`) }) });
+    const band = mrow('Test Blade').locator('.weapon-mastery-band');
+    check('a trained longsword shows its Topple band',
+          await band.waitFor({ timeout: 5000 }).then(() => true, () => false)
+          && /TOPPLE\s*ON HIT\s*DC 12 Con or prone/i.test(await band.innerText()));
+    if (SHOT_DIR) {
+      // a roll's message bar and the sticky header sit over the table: close one, centre the row
+      await page.locator('.message').first().click({ timeout: 2000 }).catch(() => {});
+      await mrow('Test Blade').evaluate(e => e.scrollIntoView({ block: 'center' }));
+      await page.waitForTimeout(300);
+      await mrow('Test Blade').screenshot({ path: `${SHOT_DIR}/weapons-mastery-band.png` });
+    }
+    check('an untrained dagger shows no band', await mrow('Test Knife').locator('.weapon-mastery-band').count() === 0);
+    await mrow('Test Knife').locator('.weapon-name-line').click({ timeout: 5000 }).catch(() => {});
+    check('and its opened row says it is not trained',
+          await mrow('Test Knife').locator('.weapon-opened', { hasText: 'Mastery: Nick (not trained)' })
+            .waitFor({ timeout: 5000 }).then(() => true, () => false));
+  } else {
+    check('the table comes back for the mastery checks', false);
   }
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
 

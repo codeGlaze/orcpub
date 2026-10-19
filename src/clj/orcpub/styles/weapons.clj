@@ -210,6 +210,22 @@
       :font-size "13px"}]
     [:.weapon-menu-item.primary [:.weapon-menu-value {:color "#fff" :font-size "15px"}]]
 
+    ;; the Weapon Mastery band (design B3): dark band, amber angled cap
+    [:.weapon-mastery-band
+     {:display :flex :align-items :center :gap "8px" :min-height "24px" :padding "3px 10px"
+      :background "var(--wpn-strip)" :overflow :hidden :box-shadow "0 2px 4px rgba(0,0,0,.3)"}]
+    [:.weapon-mastery-cap
+     {:align-self :stretch :display :flex :align-items :center :margin "-3px 0 -3px -10px"
+      :padding "0 14px 0 10px" :background "#f0a100" :color "#1a1e28"
+      :clip-path "polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%)" :font-size "10.5px" :font-weight 700
+      :letter-spacing ".06em" :text-transform :uppercase :white-space :nowrap}]
+    [:.weapon-mastery-trigger
+     {:font-size "10.5px" :font-weight 700 :letter-spacing ".06em" :text-transform :uppercase
+      :color "rgba(230,233,238,.6)" :white-space :nowrap}]
+    [:.weapon-mastery-summary
+     {:font-size "12px" :font-weight 600 :color "#e6e9ee" :min-width 0 :overflow :hidden
+      :text-overflow :ellipsis :white-space :nowrap}]
+
     ;; the opened row: an inset panel under the row
     [:.weapon-opened
      {:margin "0 10px 10px" :padding "10px 12px 12px" :display :flex :flex-direction :column :gap "6px"

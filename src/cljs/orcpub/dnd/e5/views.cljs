@@ -3840,11 +3840,21 @@
              (when versatile [(str "Versatile (" (::weapon/damage-die-count versatile) "d"
                                    (::weapon/damage-die versatile) ")")])))))
 
+(defn weapon-mastery-band
+  "The Weapon Mastery band at the foot of a row: an amber cap with the mastery's name, its
+  trigger, then the summary, cut off when long. Takes the band map from disp/mastery-band."
+  [{:keys [name trigger summary]}]
+  [:div.weapon-mastery-band
+   [:span.weapon-mastery-cap name]
+   (when trigger [:span.weapon-mastery-trigger (str "on " (common/safe-name trigger))])
+   [:span.weapon-mastery-summary summary]])
+
 (defn weapon-opened
   "A weapon row's opened card: full name, properties, why two hands are blocked or needed,
-  a magic weapon's rules text, then cost (mundane weapons only) and weight. Takes the weapon,
-  its name and the hands note (or nil). Returns hiccup."
-  [weapon nm hands-note]
+  a magic weapon's rules text, its Weapon Mastery (or that it is not trained), then cost
+  (mundane weapons only) and weight. Takes the weapon, its name, the hands note (or nil) and
+  the mastery band map (or nil). Returns hiccup."
+  [weapon nm hands-note mastery]
   (let [description (::mi/description weapon)
         cost (when (and (:cost weapon) (not (::mi/rarity weapon))) (str "Cost " (cost-str (:cost weapon))))
         weight (when (:weight weapon) (str "Weight " (:weight weapon)))]
@@ -3853,6 +3863,10 @@
      [:span.weapon-opened-props (weapon-properties-line weapon)]
      (when hands-note [:span.weapon-hands-note hands-note])
      (when description [:span.weapon-opened-rules description])
+     (when mastery
+       (if (:trained? mastery)
+         [:span.weapon-opened-rules [:b (str (:name mastery) ".")] " " (:text mastery)]
+         [:span.weapon-opened-props (str "Mastery: " (:name mastery) " (not trained)")]))
      (when (or cost weight) [:span.weapon-opened-props (s/join " \u00B7 " (remove nil? [cost weight]))])]))
 
 (defn weapon-menu-item-used?
@@ -3909,9 +3923,10 @@
   when opened, its details. Takes the weapon map, its to-hit bonus, its damage modifier
   fn, whether the character is proficient, the lowest crit roll, what holds the off hand
   (\"a Shield\", or nil when it is free), which hand wields it (:main, :off or nil), the
-  character id, whether it is the last row (its menu opens upward) and the row's state atom
-  ({:open? :two-handed? :toggles :pulse-done? :menu-open?}). Returns hiccup."
-  [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand hand id last? state]
+  character id, whether it is the last row (its menu opens upward), its Weapon Mastery band
+  (or nil) and the row's state atom ({:open? :two-handed? :toggles :pulse-done? :menu-open?}).
+  Returns hiccup."
+  [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand hand id last? mastery state]
   (let [{:keys [open? toggles pulse-done?]} @state
         toggles (or toggles #{})
         hands-blocked? (boolean (and off-hand (::weapon/versatile weapon)))
@@ -4021,11 +4036,14 @@
                                                (when ringed? " ringed")
                                                (when type (str " dt-" (name type))))}
                 text]))]))])
+     (when (:trained? mastery)
+       [weapon-mastery-band mastery])
      (when open?
        [weapon-opened weapon nm
         (cond
           hands-blocked? (str "Two hands: not while your off hand holds " off-hand ".")
-          needs-hands? (str "Needs both hands: your off hand holds " off-hand "."))])]))
+          needs-hands? (str "Needs both hands: your off hand holds " off-hand "."))
+        mastery])]))
 
 (defn weapons-section-2
   "The character sheet's Weapons table: headings, then one row per weapon except
@@ -4044,6 +4062,9 @@
             weapon-damage-modifier @(subscribe [::char/best-weapon-damage-modifier-fn id])
             has-weapon-prof @(subscribe [::char/has-weapon-prof id])
             crit-values @(subscribe [::char/critical-hit-values id])
+            trained @(subscribe [::char/weapon-masteries id])
+            mastery-definitions @(subscribe [::weapon/mastery-definitions])
+            prof @(subscribe [::char/proficiency-bonus id])
             all-weapons-map @(subscribe [::mi/all-weapons-map])
             off-hand-item (cond
                             (and shield-kw (not= :none shield-kw)) (all-armor-map shield-kw)
@@ -4080,6 +4101,10 @@
               (cond (= weapon-key main-hand-kw) :main (= weapon-key off-hand-kw) :off)
               id
               (= weapon-key last-key)
+              (disp/mastery-band weapon trained mastery-definitions
+                                 {:ability-mod (- (weapon-damage-modifier weapon) (or (::mi/magical-damage-bonus weapon) 0))
+                                  :prof (or prof 2)
+                                  :damage-type (weapon-damage/weapon-type weapon)})
               (r/cursor row-state [weapon-key])]))]]))))
 
 (defn magic-item-rows [expanded-details magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]

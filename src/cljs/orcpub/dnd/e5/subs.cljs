@@ -961,6 +961,7 @@
    ::char5e/description char5e/description
    ::char5e/notes char5e/notes
    ::char5e/critical-hit-values char5e/critical-hit-values
+   ::char5e/weapon-masteries char5e/weapon-masteries
    ::char5e/crit-values-str char5e/crit-values-str
    ::char5e/number-of-attacks char5e/number-of-attacks
    ::char5e/has-weapon-prof char5e/has-weapon-prof
@@ -982,6 +983,11 @@
    ::char5e/worn-armor char5e/worn-armor
    ::char5e/wielded-shield char5e/wielded-shield
    ::char5e/attuned-magic-items char5e/attuned-magic-items})
+
+(reg-sub
+ :orcpub.dnd.e5.weapons/mastery-definitions
+ ;; Empty here: the 2024 definitions come from the 5.5 line (edition-machinery-split.md).
+ (fn [_ _] {}))
 
 (doseq [[sub-key char-fn] character-subs]
   (reg-sub

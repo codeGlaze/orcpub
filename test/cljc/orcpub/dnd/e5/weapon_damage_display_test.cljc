@@ -140,3 +140,27 @@
         values #(mapv :value (take 2 (disp/weapon-menu-items w 3 false %)))]
     (is (= ["1d8+3" "1d8+3 +2d10"] (values #{})))
     (is (= ["1d8+3 +1d6" "1d8+3 +2d10 +1d6"] (values #{:lit})))))
+
+(def made-up-masteries
+  "Mastery definitions shaped like the 5.5 line's, with placeholder text."
+  {:topple {:name "Topple" :trigger :hit :text "Topple rule."}
+   :graze {:name "Graze" :trigger :miss :text "Graze rule."}})
+
+(deftest mastery-band-needs-a-mastery-a-definition-and-training
+  (let [sword (assoc (weapon :longsword) :orcpub.dnd.e5.weapons/mastery :topple)
+        ctx {:ability-mod 3 :prof 2 :damage-type :slashing}]
+    (is (nil? (disp/mastery-band (weapon :longsword) #{:longsword} made-up-masteries ctx)) "no mastery, no band")
+    (is (nil? (disp/mastery-band sword #{:longsword} {} ctx)) "no definitions (2014 data), no band")
+    (is (= {:key :topple :name "Topple" :trigger :hit :text "Topple rule."
+            :summary "DC 13 Con or prone" :trained? true}
+           (disp/mastery-band sword #{:longsword} made-up-masteries ctx)))
+    (is (false? (:trained? (disp/mastery-band sword #{:greatsword} made-up-masteries ctx)))
+        "trained in another weapon kind is not trained in this one")
+    (is (true? (:trained? (disp/mastery-band (assoc (weapon :flame-tongue-longsword)
+                                                    :orcpub.dnd.e5.weapons/mastery :topple)
+                                             #{:longsword} made-up-masteries ctx)))
+        "a magic longsword counts as a longsword")
+    (is (= ["Graze" :miss "3 slashing"]
+           ((juxt :name :trigger :summary)
+            (disp/mastery-band (assoc (weapon :greatsword) :orcpub.dnd.e5.weapons/mastery :graze)
+                               #{:greatsword} made-up-masteries ctx))))))

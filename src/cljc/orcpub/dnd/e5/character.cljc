@@ -603,6 +603,12 @@
 (defn critical-hit-values [built-char]
   (get-prop built-char :critical))
 
+(defn weapon-masteries
+  "The weapon kinds whose Weapon Mastery the character can use: a set of base weapon keys
+  (2024 rules), or nil when nothing grants any. Takes the built character."
+  [built-char]
+  (get-prop built-char :weapon-masteries))
+
 (defn crit-values-str [built-char]
   (let [critical-hit-values (critical-hit-values built-char)]
     (if (> (count critical-hit-values) 1)
