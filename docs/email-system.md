@@ -106,29 +106,41 @@ retracts only the attributes that attempt set, never the existing user.
 
 **Files:** `routes.clj:send-password-reset`, `routes.clj:do-send-password-reset`, `routes.clj:reset-password`, `email.clj:send-reset-email`
 
-### 4. Error Notification
+### 4. Admin Alerts (server errors)
 
-**Trigger:** Called from `service-error-handler` interceptor in `routes.clj` on unhandled exceptions
+**Trigger:** any request that fails with an unhandled error.
 
-- Only sends if `EMAIL_ERRORS_TO` env var is set
-- Sends plaintext email with scrubbed request, filtered stack trace, and cause chain
-- Throttled: one email per unique error fingerprint per 5 minutes
-- Detects Pedestal-wrapped exceptions (extracts real exception from `ex-data :exception`)
+The error becomes an admin alert. It is written to the server log and emailed to
+`EMAIL_ERRORS_TO`, if that is set. The request that failed does not wait for the email: alerts
+are sent separately, and never use the database.
 
-**Subject format:** `[AppName] ExceptionClass: message @ METHOD /uri`
+- **One email per problem.** Errors count as the same problem when they have the same cause and
+  happen in the same place in our code. The first is emailed at once; repeats within 15 minutes
+  are counted and reported in one follow-up email.
+- **At most `ALERT_MAX_PER_HOUR` emails an hour** (20 by default). The rest are logged.
+- **Nothing is lost to a busy mail server.** Alerts that cannot be sent wait in a file in
+  `ALERT_SPOOL_DIR` and are retried every minute, on shutdown, and at the next start. After three
+  failures in a row the server waits five minutes before trying again.
 
-**Request scrubbing:** Strips credentials (`:json-params`, `:transit-params`, `:form-params`), session
-data (`:identity`, `:body`), Datomic objects (`:db`, `:conn`), servlet internals, and cookie headers.
-Only safe headers are included (user-agent, referer, content-type, CF headers, etc.).
+The settings, and what happens on restarts and with several copies of the server, are in
+[ENVIRONMENT.md, Admin alerts](ENVIRONMENT.md#admin-alerts).
 
-**Stack trace filtering:** Shows only `orcpub.*` frames. Falls back to deepest non-infrastructure
-frame when no app frames exist. Infrastructure prefixes (Jetty, Pedestal, clojure.lang, Thread)
-are suppressed with a count.
+**Subject format:** `[AppName] ExceptionClass: message @ METHOD /uri`, with
+`(N more times)` added on a follow-up.
 
-**Throttle fingerprint:** Root cause class + deepest `orcpub.*` frame method (or first 60 chars
-of root message). Suppressed duplicates are logged to stdout.
+**What the email contains:** the request with private parts removed, the error and every error
+that caused it, and Pedestal's details when the error came through Pedestal. Removed from the
+request: anything sent in its body (passwords and form data), the login identity, cookies, and
+database objects. Only harmless headers are kept (browser, referrer, content type, Cloudflare
+country and ray id, and similar).
 
-**Files:** `email.clj:send-error-email`, `routes.clj:service-error-handler`
+**Stack traces** show only our own code (`orcpub.*`). When none of our code is involved, the
+deepest frame that is not part of Jetty, Pedestal or Clojure itself is shown instead, and the
+number of hidden frames is noted.
+
+**Files:** `alerts.clj` (sending, counting, the spool), `email.clj` (`send-error-email`, the
+email itself), `routes.clj` (`service-error-handler`), `system.clj` (starts alerts before the
+site takes requests)
 
 ## Rate Limiting (Email Change)
 
@@ -164,6 +176,7 @@ The 429 response includes `retry-after-secs` so the client can display a specifi
 | File | Role |
 |------|------|
 | `src/clj/orcpub/email.clj` | Email templates and send functions (postal) |
+| `src/clj/orcpub/alerts.clj` | Admin alerts: one email per problem, the hourly ceiling, the spool file |
 | `src/clj/orcpub/routes.clj` | Server handlers: register, verify, email change, password reset |
 | `src/clj/orcpub/db/schema.clj` | Datomic schema for user attributes |
 | `src/cljc/orcpub/route_map.cljc` | Route definitions (shared server/client) |

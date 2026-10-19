@@ -17,6 +17,28 @@ All configuration is managed via a `.env` file at the repository root. Copy `.en
 > source .env && lein repl
 > ```
 
+## New in the Summer Patch
+
+These settings are new in this release. Every one has a working default, so an upgrade runs
+without setting any of them. The server lists the ones you have not set at the end of its
+start-up output, so you can decide which ones matter for your site.
+
+| Variable | What it controls | Details |
+|----------|------------------|---------|
+| `ALERT_SPOOL_DIR` | Where admin alerts wait when they cannot be emailed yet | [Admin alerts](#admin-alerts) |
+| `ALERT_MAX_PER_HOUR` | The most admin alert emails sent in an hour | [Admin alerts](#admin-alerts) |
+| `EMAIL_ADMIN_TO` | Who hears about artist account and credit changes | [Portrait artists](#portrait-artists) |
+| `PROFILE_ENCRYPTION_KEYS` | The key that encrypts players' preferred names | [Security](#security) |
+| `PORTRAIT_ARTISTS` | Artist credits and artist accounts | [Portrait artists](#portrait-artists) |
+| `PORTRAIT_STORE_DIR` | Where drawings of shared-link portraits are kept | [Portrait artists](#portrait-artists) |
+| `ORCPUB_HTTP_MAX_THREADS` | How many requests the server handles at once | [Capacity](#capacity) |
+| `ORCPUB_PDF_CONCURRENCY`, `ORCPUB_PDF_QUEUE_TIMEOUT_MS`, `ORCPUB_PDF_MAX_RETRIES`, `ORCPUB_PDF_MAX_CASTER_SECTIONS`, `ORCPUB_PDF_MAX_CARDS` | Character sheet exports: how many at once, how long one waits, how large one can grow | [Capacity](#capacity) |
+| `ORCPUB_PORTRAIT_CONCURRENCY`, `ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS` | Shared-link portraits: how many are drawn at once, and how long one waits | [Capacity](#capacity) |
+| `ORCPUB_SHARE_MAX_UPLOAD_KB`, `ORCPUB_SHARE_MAX_TEXT_KB`, `ORCPUB_SHARE_MAX_ACCOUNT_KB` | How much homebrew a share link and an account may keep | [Share links](#share-links) |
+| `ORCPUB_SHARE_PRUNE_DAYS` | How long an unused share link is kept | [Share links](#share-links) |
+| `ORCPUB_PWNED_CHECK` | Whether new passwords are checked against known breaches | [Security](#security) |
+| `APP_EMAIL_SIGNOFF` | Who the friendlier emails are signed from | [BRANDING-AND-INTEGRATIONS.md](BRANDING-AND-INTEGRATIONS.md) |
+
 ## Variables
 
 ### Datomic
@@ -91,6 +113,7 @@ picked up:
   [EMAIL]
   EMAIL_FROM_ADDRESS               noreply@example.com    SET
   EMAIL_ERRORS_TO                  -                      DEFAULT
+  ALERT_MAX_PER_HOUR               20                     DEFAULT   admin alert emails per hour; past it they are logged only
   EMAIL_SECRET_KEY                 set
   [CONTENT]
   LOAD_HOMEBREW_URL                -                      DEFAULT   homebrew loaded at page load
@@ -102,15 +125,20 @@ picked up:
   ORCPUB_PDF_MAX_CASTER_SECTIONS   13                     DEFAULT   most spellcasting sections on one sheet
   ORCPUB_PDF_MAX_CARDS             198                    DEFAULT   cards of each kind per export; 9 to a sheet, so 22 sheets
   [BRANDING]
-                                   3 of 21 set
+                                   3 of 22 set
 -------------------------------------------------------------------------------------------------------
   (!)  ORCPUB_PDF_MAX_CARDS=oops was ignored: not a positive integer. The default above is in use.
+  (!)  APP_HELP_URL="help me" was ignored: not a web address or site path. Its default is in use.
   (!!) SIGNATURE is not set, so every login, signup and authenticated API call fails.
         It is the key JWT tokens are signed with; without it none can be issued or verified.
         Fix: set a long random value and restart, either as a Docker secret at
         /run/secrets/signature (preferred) or as the SIGNATURE environment variable.
         e.g.  openssl rand -base64 48
         Keep it stable: changing it signs out everyone and invalidates unsubscribe links.
+-------------------------------------------------------------------------------------------------------
+  NEW IN SUMMER PATCH: 2 settings not set yet, using defaults
+  ALERT_MAX_PER_HOUR               admin alert emails per hour; past it they are logged only
+  ORCPUB_PDF_MAX_CARDS             cards of each kind per export; 9 to a sheet, so 22 sheets
 -------------------------------------------------------------------------------------------------------
 ```
 
@@ -126,9 +154,12 @@ same remedy rather than having to work it out from the symptom.
 | `set` / `NOT SET` | a **secret**. Its value is never printed, only whether it is present — no `SOURCE`, because `DEFAULT` beside `NOT SET` would read as though there were a default password |
 | `(!)` line | **a value was given and rejected.** Its row reads `DEFAULT` because the default is what is running; this line names what was thrown away |
 | `(!!)` line | a setting whose absence breaks the site, called out rather than left to be spotted among thirty rows |
+| `NEW IN` block | settings added in this release that you have not set. They are working on their defaults; read their descriptions to decide whether your site needs them. Once every one is set, the block disappears. |
 
 Everything the app reads is reported, grouped: runtime, database, security, email, content
-and capacity, plus a count of the 21 `APP_*` branding variables rather than 21 more rows.
+and capacity, plus a count of the 22 `APP_*` branding variables rather than 22 more rows. A
+branding value the server could not use (a help link that is not a web address, for example)
+is named in a `(!)` line, the same as any other rejected setting.
 
 **These are the values actually in force, not a restatement of the documentation.** They are
 read from the same functions the running code reads. `ORCPUB_HTTP_MAX_THREADS` is the
@@ -207,9 +238,35 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 | `EMAIL_SERVER_PORT` | `587` | SMTP port |
 | `ALLOW_UNVERIFIED_REGISTRATION` | `false` | Set to `true`, with `EMAIL_SERVER_URL` empty, to let people sign up without confirming their email. For private sites only. Does nothing if SMTP is set up. You have to ask for this on purpose, so that losing your SMTP settings by accident can't quietly stop the site checking addresses. |
 | `EMAIL_FROM_ADDRESS` | `no-reply@dungeonmastersvault.com` | Sender email address |
-| `EMAIL_ERRORS_TO` | — | Error notification recipient |
+| `EMAIL_ERRORS_TO` | — | Where admin alerts are emailed: server errors and anything else that needs an administrator. Leave it empty and alerts are written to the server log only. |
 | `EMAIL_SSL` | `FALSE` | Enable SSL for SMTP |
 | `EMAIL_TLS` | `FALSE` | Enable TLS for SMTP |
+
+### Admin alerts
+
+When something goes wrong on the server, an alert is written to the server log and emailed to
+`EMAIL_ERRORS_TO`. Alerts are built to keep working when the rest of the site is struggling:
+they never use the database, and sending one never slows down the request that hit the error.
+
+- **One email per problem.** The first time an error happens it is emailed straight away. If the
+  same error keeps happening, you get one follow-up 15 minutes later saying how many more times
+  it happened, not an email for each one. The log works the same way.
+- **A ceiling.** At most `ALERT_MAX_PER_HOUR` alert emails go out in an hour. Past that, alerts
+  are logged only, and the next email that does go out says how many were held back.
+- **When the mail server is down.** After three failed sends in a row, the server stops trying
+  for five minutes. Alerts that could not be sent wait in a file in `ALERT_SPOOL_DIR` and are
+  sent once mail works again. The file holds the 200 most recent; if it fills, the oldest are
+  dropped, and the next email says how many.
+- **Restarts and shutdowns.** When the server is stopped (including `docker stop` and a Swarm
+  update), it tries to send what is waiting before it exits. Anything still waiting is sent by
+  the next server that starts with the same `ALERT_SPOOL_DIR`.
+- **Several copies.** Each copy of the server keeps its own file, named after its host name,
+  and every alert email ends with that name, so you can tell which copy raised it.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ALERT_SPOOL_DIR` | `orcpub-alerts` in the system temp directory | Where alerts wait when they cannot be emailed yet. In Docker, point this at a volume: the temp directory is lost when a container is replaced, and so are the alerts in it. |
+| `ALERT_MAX_PER_HOUR` | `20` | The most alert emails sent in an hour. Must be a whole number above zero; anything else is ignored and the default is used. |
 
 ### Logging
 

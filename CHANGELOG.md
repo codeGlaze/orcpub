@@ -37,7 +37,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** a busy server answers a PDF export with a page that retries by itself instead of timing out. (#710)
 - **Site:** a What's New panel shows each release's highlights once. (#711)
 - **Site:** a "Dark Button Text" option for the yellow buttons. (#711)
-- **Server:** a startup report of the server's settings, naming what is missing and never printing secrets. (#712)
+- **Server:** a startup report of the server's settings, naming what is missing and never printing secrets, and ending with the settings new in this release that are not set yet. (#712)
+- **Server:** admin alerts: one email per problem with a count of repeats, an hourly ceiling, and nothing lost or slowed down when the mail server or the database is down.
 - **Rules:** a Rules tab with the full SRD 5.1 rules reference, by section, and the 15 conditions.
 - **Rules:** links in rules text to the spells, conditions and rules they name, with a preview
   on hover, or on a first tap on a phone.
