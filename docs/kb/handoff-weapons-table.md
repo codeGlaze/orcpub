@@ -66,7 +66,11 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
 - **Stage 1 is complete** (2026-10-19): + menu `87ff8fc4`, opened card `0e9b3e98`, Weapon Mastery band
   (off until 5.5 data) `0b32e8d7`, desktop Details column (this commit's parent on the branch). Desktop:
   `.weapons-section.desktop` from `:device-type`; the name cell is `display: contents` there so its two
-  lines become grid items in the Name and Details columns. Browser test: 63 checks, phone and desktop.
+  lines become grid items in the Name and Details columns. Browser test: 65 checks, phone and desktop.
+  Several switches move under the row on phones only; desktop keeps them in Details (owner, `c8506c2f`).
+- **PR timing** (owner, 2026-10-19): no PR yet; one PR into `integration` after stage 2, so review
+  rounds and the changelog happen once. Custom item builder support for the new fields: not built,
+  owner to decide whether it joins that PR.
 - **The + menu** (2026-10-19, on `feature/weapons-table`): `display.cljc` `weapon-menu-items` decides it
   (nil, so no +, unless the weapon has a target, a crit or rolled-number extra, or a once-per-rest use);
   `views.cljs` `weapon-menu` draws it. Items: Roll damage, Roll vs each target, Critical damage (dice
