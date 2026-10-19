@@ -32,7 +32,9 @@
    :--wpn-menu-bg "#1a1e28"
    :--wpn-menu-ink "#ffffff"
    :--wpn-menu-line "rgba(255,255,255,0.14)"
-   :--wpn-menu-value "#f0a100"})
+   :--wpn-menu-value "#f0a100"
+   :--wpn-card "#232a38"
+   :--wpn-card-line "rgba(255,255,255,0.12)"})
 
 (def light-vars
   "The table's colours on the light theme."
@@ -53,7 +55,9 @@
    :--wpn-menu-bg "#ffffff"
    :--wpn-menu-ink "#363636"
    :--wpn-menu-line "rgba(0,0,0,0.2)"
-   :--wpn-menu-value "#9a5b00"})
+   :--wpn-menu-value "#9a5b00"
+   :--wpn-card "#f6f6f6"
+   :--wpn-card-line "rgba(0,0,0,0.18)"})
 
 (def grid
   "The column template shared by the headings and every row."
@@ -170,7 +174,7 @@
       :box-shadow "inset 0 0 0 2px #f0a100"}]
     [:.roll-button.weapon-tile.needs-hands [:.weapon-tile-body {:text-shadow :none}]]
     [:.weapon-switch.pulse {:animation "weapon-pulse 10s ease-out 0s 6"}]
-    [:.weapon-hands-note {:margin-bottom "6px" :font-weight 600}]
+    [:.weapon-hands-note {:font-weight 600}]
     [:.share-pill.weapon-hand-pill
      {:flex-shrink 0 :align-self :center :gap "4px" :font-size "11px" :padding "1px 7px"
       :margin-left "6px"}]
@@ -208,10 +212,12 @@
 
     ;; the opened row: an inset panel under the row
     [:.weapon-opened
-     {:margin "0 10px 10px" :padding "10px 12px" :border-radius "4px"
-      :background "rgba(0,0,0,0.18)" :font-size "13px"}]
-    [:.app.light-theme [:.weapon-opened {:background "rgba(255,255,255,0.55)"}]]
-    [:.weapon-opened-name {:font-weight 700 :font-size "14px" :margin-bottom "4px"}]]
+     {:margin "0 10px 10px" :padding "10px 12px 12px" :display :flex :flex-direction :column :gap "6px"
+      :font-size "13px" :line-height 1.45 :background "var(--wpn-card)" :border "1px solid var(--wpn-card-line)"
+      :border-top 0 :border-bottom "3px solid var(--wpn-strip)"}]
+    [:.weapon-opened-name {:font-size "14px" :font-weight 700}]
+    [:.weapon-opened-props {:color "var(--wpn-muted)"}]
+    [:.weapon-opened-rules {:border-top "1px solid var(--wpn-menu-line)" :padding-top "6px"}]]
    (for [[t [dot ribbon]] damage-type-colours]
      [(keyword (str ".dt-" (name t))) {:--dt-dot dot :--dt-ribbon ribbon}])
    [(at-keyframes "weapon-pulse"

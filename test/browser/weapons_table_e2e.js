@@ -169,7 +169,9 @@ async function layout(page, theme) {
     const holy = row('Holy Avenger, Longsword');
     await holy.locator('.weapon-name-line').click();
     const opened = await holy.locator('.weapon-opened').waitFor({ timeout: 5000 }).then(() => true, () => false);
-    check('tapping the name opens the row with its details', opened && /Two-handed\?/.test(await holy.innerText()));
+    check('tapping the name opens the row with its properties and rules',
+          opened && await shows(holy.locator('.weapon-opened'), 'Legendary (requires attunement) \u00B7 Martial melee \u00B7 Versatile (1d10)')
+          && await shows(holy.locator('.weapon-opened'), 'When you hit a fiend or an undead with it'));
 
     // the shield rules
     await load(page, true);

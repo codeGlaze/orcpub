@@ -3648,54 +3648,6 @@
   [{:keys [num type]}]
   (str num " " (common/safe-name type)))
 
-(defn weapon-details [{:keys [::weapon/description
-                              ::weapon/type
-                              ::weapon/damage-type
-                              ::mi/magical-damage-bonus
-                              ::mi/magical-attack-bonus
-                              ::mi/magical-damage-type
-                              ::weapon/ranged?
-                              ::weapon/melee?
-                              ::weapon/range
-                              ::weapon/two-handed?
-                              ::weapon/finesse?
-                              ::mi/magical-finesse?
-                              ::weapon/versatile
-                              ::weapon/thrown]
-                       :as weapon}
-                      damage-modifier-fn]
-  [:div.m-t-10.i
-   (weapon-details-field "Type" (common/safe-name type))
-   (if magical-damage-type
-     (weapon-details-field "Damage Type" (common/safe-name magical-damage-type))
-     (weapon-details-field "Damage Type" (common/safe-name damage-type)))
-   (when magical-damage-bonus
-     (weapon-details-field "Magical Damage Bonus" magical-damage-bonus))
-   (when magical-attack-bonus
-     (weapon-details-field "Magical Attack Bonus" magical-attack-bonus))
-   (weapon-details-field "Melee/Ranged" (if melee? "melee" "ranged"))
-   (when range
-     (weapon-details-field "Range" (str (::weapon/min range) "/" (::weapon/max range) " ft.")))
-   (if magical-finesse?
-     (weapon-details-field "Finesse?" (yes-no magical-finesse?))
-     (weapon-details-field "Finesse?" (yes-no finesse?)))
-   (weapon-details-field "Two-handed?" (yes-no two-handed?))
-   (weapon-details-field "Versatile" (if versatile
-                                       (str (::weapon/damage-die-count versatile)
-                                            "d"
-                                            (::weapon/damage-die versatile)
-                                            (common/mod-str (damage-modifier-fn weapon false))
-                                            " damage")
-                                       "no"))
-   ;; A magic weapon is built from its base weapon, so it carries the base price: shown for
-   ;; mundane weapons only.
-   (when (and (:cost weapon) (not (::mi/rarity weapon)))
-     (weapon-details-field "Cost" (cost-str (:cost weapon))))
-   (when (:weight weapon)
-     (weapon-details-field "Weight" (:weight weapon)))
-   (when description
-     [:div.m-t-10 description])])
-
 (defn armor-details-section [{:keys [type
                                      base-ac
                                      weight
@@ -3870,6 +3822,39 @@
                      (dice/dice-roll-text-2 (str (::weapon/damage-die-count e) "d" die (common/mod-str flat)))
                      flat))))))
 
+(defn weapon-properties-line
+  "A weapon's full properties, SRD style, for its opened row: rarity and attunement for a
+  magic weapon, then category and every property with its numbers, such as
+  \"Rare (requires attunement) · Martial melee · Versatile (1d10)\". Takes the weapon map."
+  [{:keys [::weapon/type ::weapon/melee? ::weapon/range ::weapon/thrown ::weapon/ammunition?
+           ::weapon/versatile ::mi/rarity ::mi/attunement] :as weapon}]
+  (let [rng (when range (str " (" (::weapon/min range) "/" (::weapon/max range) ")"))
+        [_ & props] (weapon-grey-line-parts weapon)]
+    (s/join " \u00B7 "
+            (concat
+             (when rarity [(str (s/capitalize (common/kw-to-name rarity))
+                                (when (seq attunement) " (requires attunement)"))])
+             [(str (s/capitalize (common/safe-name type)) (if melee? " melee" " ranged"))]
+             (when ammunition? [(str "Ammunition" rng)])
+             (remove #(or (s/starts-with? % "Ranged") (and thrown (s/starts-with? % "Thrown") ammunition?)) props)
+             (when versatile [(str "Versatile (" (::weapon/damage-die-count versatile) "d"
+                                   (::weapon/damage-die versatile) ")")])))))
+
+(defn weapon-opened
+  "A weapon row's opened card: full name, properties, why two hands are blocked or needed,
+  a magic weapon's rules text, then cost (mundane weapons only) and weight. Takes the weapon,
+  its name and the hands note (or nil). Returns hiccup."
+  [weapon nm hands-note]
+  (let [description (::mi/description weapon)
+        cost (when (and (:cost weapon) (not (::mi/rarity weapon))) (str "Cost " (cost-str (:cost weapon))))
+        weight (when (:weight weapon) (str "Weight " (:weight weapon)))]
+    [:div.weapon-opened
+     [:b.weapon-opened-name nm]
+     [:span.weapon-opened-props (weapon-properties-line weapon)]
+     (when hands-note [:span.weapon-hands-note hands-note])
+     (when description [:span.weapon-opened-rules description])
+     (when (or cost weight) [:span.weapon-opened-props (s/join " \u00B7 " (remove nil? [cost weight]))])]))
+
 (defn weapon-menu-item-used?
   "Whether a once-per-rest menu item is spent. Takes the character id and the item.
   Returns a boolean; items without a :recharge are never spent."
@@ -4037,12 +4022,10 @@
                                                (when type (str " dt-" (name type))))}
                 text]))]))])
      (when open?
-       [:div.weapon-opened
-        [:div.weapon-opened-name nm]
+       [weapon-opened weapon nm
         (cond
-          hands-blocked? [:div.weapon-hands-note (str "Two hands: not while your off hand holds " off-hand ".")]
-          needs-hands? [:div.weapon-hands-note (str "Needs both hands: your off hand holds " off-hand ".")])
-        (weapon-details weapon damage-modifier-fn)])]))
+          hands-blocked? (str "Two hands: not while your off hand holds " off-hand ".")
+          needs-hands? (str "Needs both hands: your off hand holds " off-hand "."))])]))
 
 (defn weapons-section-2
   "The character sheet's Weapons table: headings, then one row per weapon except
