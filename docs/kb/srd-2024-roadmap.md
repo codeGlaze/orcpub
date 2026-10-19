@@ -125,11 +125,12 @@ App-only fields stay in code, joined by `:key`, the same split as magic items' m
    `equipment.cljc:233`, `magic_items.cljc:3080` (expands magic weapons and armor per base item).
 4. `srd_equipment_test` compares generated against served, which become one source.
 
-**Open:**
-- **Which trunk carries stage 1.** It is edition-neutral, so by the machinery split it belongs on
-  the `refactor/` tree.
-
 **Decided:**
+- **Stage 1 ships with the Summer Patch** (owner, 2026-10-19: it serves 2014). Branch
+  `feature/srd-pipeline`, cut from `integration` at `d51938c1`, PR into `integration`; worktree
+  `orcpub-pipeline`. The generator scripts stay on agents/develop (`scripts/srd/`); the branch carries
+  only the generated data, the app's switch to reading it, and the tests. App code waits for
+  `feature/weapons-table` to merge: both change `weapons.cljc`.
 - **`refactor/data-extraction` is a reference, not revived** (owner, 2026-10-19). That leaf (15
   commits, 2026-02-24/25, 1,390 behind `integration` on 2026-10-19) split `views.cljs` into 7 files and
   `builders.cljs` into 10, and moved the hand-kept SRD spells, monsters and magic items into
