@@ -150,6 +150,8 @@ async function layout(page, theme) {
           /vs fiends and undead[\s\S]*\+2d10 radiant/i.test(await row('Holy Avenger, Longsword').innerText()));
 
     const flame = row('Flame Tongue, Longsword');
+    check('on a phone, Flame Tongue\'s two switches move under the row',
+          await flame.locator('.weapon-lines .weapon-switch').count() === 2);
     check('Flame Tongue starts unlit: nothing extra on its tile',
           !/\+2d6/.test(await flame.locator('.weapon-damage-tile').innerText()));
     await flame.getByRole('radio', { name: 'Ablaze' }).click();
@@ -344,6 +346,10 @@ async function layout(page, theme) {
           `${dm.hitSizes} ${dm.dmgSizes}`);
     check('desktop: headings within 2px of their tiles, and it fits', dm.off <= 2 && dm.fits, `${dm.off}`);
     check('desktop: the ctrl/shift tooltip stays', dm.tooltips > 0);
+    const flameDesk = dsec.locator('.weapon-row').filter({ has: dp.locator('.weapon-name', { hasText: /^Flame Tongue, Longsword$/ }) });
+    check('desktop: Flame Tongue\'s switches sit in Details, none under the row',
+          await flameDesk.locator('.weapon-grey-line .weapon-switch').count() === 2
+          && await flameDesk.locator('.weapon-lines .weapon-switch').count() === 0);
   } else {
     check('desktop: the table uses the desktop layout', false);
   }

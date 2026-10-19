@@ -3924,9 +3924,9 @@
   fn, whether the character is proficient, the lowest crit roll, what holds the off hand
   (\"a Shield\", or nil when it is free), which hand wields it (:main, :off or nil), the
   character id, whether it is the last row (its menu opens upward), its Weapon Mastery band
-  (or nil) and the row's state atom ({:open? :two-handed? :toggles :pulse-done? :menu-open?}).
-  Returns hiccup."
-  [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand hand id last? mastery state]
+  (or nil), whether it is on desktop (switches stay in the Details column) and the row's state
+  atom ({:open? :two-handed? :toggles :pulse-done? :menu-open?}). Returns hiccup."
+  [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand hand id last? mastery desktop? state]
   (let [{:keys [open? toggles pulse-done?]} @state
         toggles (or toggles #{})
         hands-blocked? (boolean (and off-hand (::weapon/versatile weapon)))
@@ -3950,7 +3950,7 @@
                            (fn [v] (swap! state update :toggles
                                           #(if v (conj (or % #{}) v) (disj (or % #{}) toggle-id))))
                            :damage-type (extras-by-toggle toggle-id)])
-        controls-below? (seq item-toggles)
+        controls-below? (and (not desktop?) (seq item-toggles))
         modifier (damage-modifier-fn weapon)
         base (weapon-damage/base-damage weapon modifier (boolean two-handed?))
         {:keys [tile lines]} (disp/weapon-row-lines weapon toggles)
@@ -3977,10 +3977,11 @@
         [:span.weapon-name nm]
         hand-pill
         [:span.weapon-caret (if open? "▴" "▾")]]
-       (if (and hands (not controls-below?))
+       (if (and (or hands (seq item-toggles)) (not controls-below?))
          [:div.weapon-grey-line
           [:span kind]
           hands
+          (doall toggle-switches)
           (when (seq props) [:span (s/join " · " props)])]
          [:div.weapon-grey-line.text (s/join " · " (cons kind props))])]
       [:div.weapon-cell-tile {:on-click-capture stop-pulse}
@@ -4106,6 +4107,7 @@
                                  {:ability-mod (- (weapon-damage-modifier weapon) (or (::mi/magical-damage-bonus weapon) 0))
                                   :prof (or prof 2)
                                   :damage-type (weapon-damage/weapon-type weapon)})
+              desktop?
               (r/cursor row-state [weapon-key])]))]]))))
 
 (defn magic-item-rows [expanded-details magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
