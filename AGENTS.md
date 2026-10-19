@@ -35,6 +35,10 @@ correct this table rather than working around it — see `docs/kb/documentation-
    question naming the branch (`Create fix/comment-check from integration?`). A yes to a plan that
    mentions "its own PR" or "a separate branch" is not a yes to the branch. Unapproved, the work goes
    on the branch you were given.
+9. **Search the KB before calling a bug new** (`grep -ril "<term>" docs/kb/`). If a decision is
+   there, build it; do not ask the owner again.
+10. **A test works around a known bug only if it names the bug and where it is tracked.** A silent
+    workaround keeps the bug alive: the Option Source box came back three times this way.
 
 **Removed 2026-09-24, verified absent from the remote:** this section named
 `modernize-stack` as PR-protected and instructed agents to "branch new features from
