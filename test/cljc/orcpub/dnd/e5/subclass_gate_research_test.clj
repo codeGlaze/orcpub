@@ -49,7 +49,10 @@
      []
      language-map))))
 
-(defn- lvl [n & [extra]]
+(defn- lvl
+  "Stored level entry for level `n` with an average hit-point roll of 5; the optional map `extra`
+   is merged into its options."
+  [n & [extra]]
   {::entity/key (keyword (str "level-" n))
    ::entity/options (merge {:hit-points {::entity/key :average ::entity/value 5}} extra)})
 
@@ -62,21 +65,29 @@
                                            (lvl i (when (and archetype-sel (= i 3))
                                                     {archetype-sel subclass}))))})})
 
-(defn- raw [classes]
+(defn- raw
+  "Stored character with the test ability scores and `classes` as its class entries."
+  [classes]
   {::entity/options
    {:ability-scores {::entity/key :standard-roll ::entity/value abilities}
     :class classes}})
 
-(defn- build [classes] (entity/build (raw classes) @the-template))
+(defn- build
+  "Builds the character of `classes` against the shared template. Returns the built character."
+  [classes] (entity/build (raw classes) @the-template))
 
 (defn- shown
   "Selections the builder would show, after prereq filtering."
   [classes]
   (entity/get-all-selections-2 @the-template (entity/make-path-map (raw classes)) (build classes)))
 
-(defn- shown-paths [classes] (set (map ::entity/path (shown classes))))
+(defn- shown-paths
+  "Paths of the selections the builder would show for `classes`. Returns a set."
+  [classes] (set (map ::entity/path (shown classes))))
 
-(defn- trait-names [built] (set (map :name (char5e/traits built))))
+(defn- trait-names
+  "Names of the traits of `built`. Returns a set."
+  [built] (set (map :name (char5e/traits built))))
 
 ;; ---------------------------------------------------------------------------
 ;; S1 — a pick in a subclass LEVEL selection, after the class level drops below that level
@@ -89,7 +100,9 @@
 (def ^:private defensive-tactics-path
   [:class :ranger :levels :level-3 :ranger-archetype :hunter :defensive-tactics])
 
-(defn- frightened-advantage? [built]
+(defn- frightened-advantage?
+  "True when `built` has a saving-throw advantage that covers the frightened condition."
+  [built]
   (boolean (some #(some #{:frightened} (:types %))
                  (char5e/get-prop built :saving-throw-advantage))))
 (deftest s1-subclass-level-selection-pick-outlives-its-gate
@@ -111,7 +124,9 @@
 
 (def ^:private champion {::entity/key :champion})
 
-(defn- initiative [built] (char5e/get-prop built :initiative))
+(defn- initiative
+  "The initiative property of `built`."
+  [built] (char5e/get-prop built :initiative))
 
 (deftest s1-control-direct-level-modifiers-stop-below-their-level
   ;; S1 control CONFIRMED: Champion's level-7 DIRECT modifiers carry the total-levels-prereq-2
@@ -127,7 +142,10 @@
 
 (def ^:private fighting-style-path [:class :fighter :levels :level-3 :martial-archetype :champion :fighting-style])
 
-(defn- shown-fighting-style-max [classes]
+(defn- shown-fighting-style-max
+  "The :max of each shown fighter fighting-style selection for `classes`, after selections that
+   share a ref are combined. Returns a sequence."
+  [classes]
   (->> (entity/combine-selections (shown classes))
        (filter #(= [:class :fighter :fighting-style] (::t/ref %)))
        (map ::t/max)))
@@ -154,7 +172,9 @@
 
 (def ^:private test-caster-path [:class :fighter :levels :level-3 :martial-archetype :test-caster])
 
-(defn- tc-entry [n] (class-entry :fighter n :martial-archetype {::entity/key :test-caster}))
+(defn- tc-entry
+  "Fighter class entry at level `n` with the test-caster martial archetype."
+  [n] (class-entry :fighter n :martial-archetype {::entity/key :test-caster}))
 
 (defn- gated-spell-selections
   "[lvl selection] for each of the subclass option's spell selections, in build order."
@@ -198,10 +218,16 @@
 ;; S3 — total-levels-prereq vs total-levels-prereq-2
 ;; ---------------------------------------------------------------------------
 
-(defn- outcome [f c]
+(defn- outcome
+  "Calls `f` on `c`. Returns the result as a boolean, or the simple name of the thrown exception
+   class as a symbol."
+  [f c]
   (try (boolean (f c)) (catch Throwable e (symbol (.getSimpleName (class e))))))
 
-(defn- outcome-raw [f c]
+(defn- outcome-raw
+  "Calls `f` on `c`. Returns the result unchanged, or the simple name of the thrown exception
+   class as a symbol."
+  [f c]
   (try (f c) (catch Throwable e (symbol (.getSimpleName (class e))))))
 
 (def ^:private s3-chars

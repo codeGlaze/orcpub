@@ -1,5 +1,5 @@
-// The planned hold through the real builder: a pick that stops applying leaves the character and
-// comes back when it applies again; a reload forgets it. decision-gate-hidden-picks.md,
+// The planned hold through the real builder: a pick that stops applying is out of the character,
+// and in it whenever it applies; a reload forgets it. decision-gate-hidden-picks.md,
 // "Current decision".
 //
 // 1 ranger Hunter 7 with Steel Will, 7 -> 6 -> 7; 2 the same, 7 -> 6, reload, -> 7;
@@ -18,7 +18,7 @@
 // Run: NODE_PATH=<dir with playwright> node test/e2e/planned-picks.js     Exit 0 = pass.
 // FLOWS=13 (or 4,13) runs only those flows.
 //
-// State is set only by clicking, except flow 4, which writes the old-style draft it opens.
+// State is set only by clicking, except flows 4 and 14, which rewrite the saved draft they open.
 // app-db and the browser's saved draft are READ to assert.
 const { chromium } = require('playwright');
 const { findChrome, checker, dbAt, readyPage, pick, setClass, setLevel, login, addClass, deleteClass, clickTab } = require('./lib');
@@ -34,7 +34,18 @@ const styles = async page => [...(await dbAt(page, STYLES)).matchAll(/:orcpub\.e
 const plannedRows = page => page.evaluate(() => [...document.querySelectorAll('.planned-row')]
   .map(r => { const c = [...r.children].map(e => e.textContent.trim());
               return (c.length === 3 ? c : r.querySelector('span.planned-aside') ? ['', ...c] : [c[0], '', c[1]]).join('|'); }));
-const draft = page => page.evaluate(() => localStorage.getItem('character') || '');
+// This tab's saved draft (character_drafts.cljs): stored under its own key, named in sessionStorage.
+const draft = page => page.evaluate(() =>
+  localStorage.getItem('character-draft/' + sessionStorage.getItem('builder-draft-key')) || '');
+// Rewrites this tab's saved draft: `op` 'pop' drops the last entry at `path`, 'assoc' puts `value`
+// (EDN) there. The draft's own :changed and :draft/ keys are kept.
+const editDraft = (page, path, op, value) => page.evaluate(([path, op, value]) => {
+  const c = window.cljs.core, read = window.cljs.reader.read_string, e5 = window.orcpub.dnd.e5.character;
+  const k = 'character-draft/' + sessionStorage.getItem('builder-draft-key');
+  const stored = read(localStorage.getItem(k)), ch = e5.from_strict(stored);
+  const edited = op === 'pop' ? c.update_in(ch, read(path), c.pop) : c.assoc_in(ch, read(path), read(value));
+  localStorage.setItem(k, c.pr_str(c.merge(stored, e5.to_strict(edited))));
+}, [path, op, value]);
 
 async function hunter7(page) {
   await setClass(page, 0, 'ranger');
@@ -48,12 +59,8 @@ async function hunter7(page) {
 
 // The saved draft with its first class one level lower and every pick kept: what a level drop
 // left before the hold existed.
-const dropLevelInDraft = page => page.evaluate(() => {
-  const c = window.cljs.core, read = window.cljs.reader.read_string, e5 = window.orcpub.dnd.e5.character;
-  const ch = e5.from_strict(read(localStorage.getItem('character')));
-  const at = read('[:orcpub.entity/options :class 0 :orcpub.entity/options :levels]');
-  localStorage.setItem('character', c.pr_str(e5.to_strict(c.update_in(ch, at, c.pop))));
-});
+const dropLevelInDraft = page =>
+  editDraft(page, '[:orcpub.entity/options :class 0 :orcpub.entity/options :levels]', 'pop');
 
 const flows = {
   async 1(page) {
@@ -238,13 +245,7 @@ const flows = {
   async 14(page) {
     await setClass(page, 0, 'fighter');
     // The one state not reachable by clicking: a draft naming a race this browser does not have.
-    await page.evaluate(() => {
-      const c = window.cljs.core, read = window.cljs.reader.read_string, e5 = window.orcpub.dnd.e5.character;
-      const ch = e5.from_strict(read(localStorage.getItem('character')));
-      const at = read('[:orcpub.entity/options :race]');
-      localStorage.setItem('character', c.pr_str(e5.to_strict(
-        c.assoc_in(ch, at, read('{:orcpub.entity/key :tidefolk}')))));
-    });
+    await editDraft(page, '[:orcpub.entity/options :race]', 'assoc', '{:orcpub.entity/key :tidefolk}');
     await page.reload({ waitUntil: 'load' }); await page.waitForTimeout(3000); await readyPage(page);
     await pick(page, 'Class / Level', 'Fighting Style', 'Defense');
     await setLevel(page, 0, 3);

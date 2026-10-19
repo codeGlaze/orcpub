@@ -19,6 +19,8 @@
 #                       Otherwise it runs on production, the build the public site serves.
 #   Needs: busy server  it needs the export queue small enough to fill (profile busy-export).
 #   Kind: probe         it measures and prints, and is judged by its exit code only.
+#   Kind: on demand     a long run through the app, judged like a test, run only by name:
+#                       run-all.sh leaves it out.
 #   Needs: pack argument   it imports the homebrew pack named by its first argument; with none,
 #                       test/fixtures/test-pak.orcbrew is used and the result says so.
 #   Needs: fresh server  run-all.sh gives it a server of its own instead of the shared one.
@@ -55,6 +57,8 @@ case "$SUITE_ARG" in */*) SUITE="$SUITE_ARG" ;; *) SUITE="scripts/e2e/$SUITE_ARG
 NAME="$(basename "$SUITE")"
 NEED=prod; grep -qiE '^//.*Needs:.*dev bundle' "$SUITE" 2>/dev/null && NEED=dev
 KIND=test; grep -qiE '^//.*Kind:.*probe' "$SUITE" 2>/dev/null && KIND=probe
+# An on-demand suite is judged like a test when run by name; run-all.sh leaves it out.
+grep -qiE '^//.*Kind:.*on demand' "$SUITE" 2>/dev/null && KIND=on-demand
 SUPPRESS=1; grep -qiE '^//.*Overlays:.*NOT suppressed' "$SUITE" 2>/dev/null && SUPPRESS=0
 PROFILES=init-db; grep -qiE '^//.*Needs:.*busy server' "$SUITE" 2>/dev/null && PROFILES=init-db,busy-export
 OWN_SERVER=no

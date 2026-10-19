@@ -44,7 +44,10 @@
    ::entity/options (merge opts {:levels (vec (for [i (range 1 (inc n))]
                                                 (lvl i (when (= i 3) at-3))))})})
 
-(defn- character [classes & [extra]]
+(defn- character
+  "Stored character with fixed ability scores and `classes` as its class entries; the optional
+   map `extra` is merged over the result. Returns the character map."
+  [classes & [extra]]
   (merge {::entity/options
           {:ability-scores {::entity/key :standard-roll
                             ::entity/value {::char5e/str 15 ::char5e/dex 15 ::char5e/con 14
@@ -52,12 +55,18 @@
            :class classes}}
          extra))
 
-(defn- closed [ch]
+(defn- closed
+  "Builds character `ch` and reports its closed picks. Returns a map of :disqualified and
+   :overflow, each a set of pick addresses."
+  [ch]
   (let [built (entity/build ch @template)]
     {:disqualified (set (picks/disqualified @template ch built))
      :overflow (set (picks/overflow @template ch built))}))
 
-(defn- hunter [tactic] {:ranger-archetype {::entity/key :hunter
+(defn- hunter
+  "Ranger archetype options for Hunter with `tactic` as the defensive-tactics pick. Returns a map
+   to merge into a level entry."
+  [tactic] {:ranger-archetype {::entity/key :hunter
                                            ::entity/options {:defensive-tactics
                                                              {::entity/key tactic}}}})
 
@@ -118,12 +127,23 @@
 ;; ---------------------------------------------------------------------------
 ;; The planned hold: set aside, put back, retired
 
-(defn- levels-path [i] [::entity/options :class i ::entity/options :levels])
-(defn- drop-level [ch i] (update-in ch (levels-path i) pop))
-(defn- add-level [ch i n] (update-in ch (levels-path i) conj (lvl n)))
-(defn- styles [ch] (mapv ::entity/key (get-in ch [::entity/options :class 0 ::entity/options
+(defn- levels-path
+  "Path to the :levels vector of the class entry at index `i` of a stored character."
+  [i] [::entity/options :class i ::entity/options :levels])
+(defn- drop-level
+  "Character `ch` with the last level of its class `i` removed."
+  [ch i] (update-in ch (levels-path i) pop))
+(defn- add-level
+  "Character `ch` with a level-`n` entry appended to the levels of its class `i`."
+  [ch i n] (update-in ch (levels-path i) conj (lvl n)))
+(defn- styles
+  "Keys of the fighting-style picks stored on the first class of `ch`. Returns a vector."
+  [ch] (mapv ::entity/key (get-in ch [::entity/options :class 0 ::entity/options
                                                    :fighting-style])))
-(defn- update-planned [ch planned] (picks/update-planned @template ch planned))
+(defn- update-planned
+  "Runs `picks/update-planned` on character `ch` and the held picks `planned` against the test
+   template. Returns its result map."
+  [ch planned] (picks/update-planned @template ch planned))
 
 (deftest a-level-drop-sets-a-pick-aside-and-raising-it-puts-it-back
   (let [ch7 (character [(class-entry :ranger 7 (hunter :steel-will))])
@@ -199,9 +219,12 @@
                                                                :skill-proficiency])))))))))
 
 ;; ---------------------------------------------------------------------------
-;; Picks an edit removed with their entry: held, and back when the entry is
+;; Picks an edit takes out with their entry are held until the entry exists
 
-(defn- empty-levels [ch i from to]
+(defn- empty-levels
+  "Character `ch` with bare entries for levels `from` through `to` appended to the levels of its
+   class `i`."
+  [ch i from to]
   (update-in ch (levels-path i) into (for [n (range from (inc to))]
                                        {::entity/key (keyword (str "level-" n))})))
 
@@ -257,7 +280,10 @@
 ;; ---------------------------------------------------------------------------
 ;; What the builder says about a held pick: its name and what brings it back
 
-(defn- described [ch planned]
+(defn- described
+  "Name and returns condition of each held pick that `picks/describe-held` reports for `ch` and
+   `planned`. Returns a vector of [name returns] pairs."
+  [ch planned]
   (mapv (juxt :name :returns) (picks/describe-held @template ch planned)))
 
 (deftest a-held-pick-says-what-brings-it-back

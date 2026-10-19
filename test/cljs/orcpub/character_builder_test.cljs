@@ -2,10 +2,15 @@
   (:require [cljs.test :refer-macros [deftest testing is]]
             [orcpub.character-builder :as cb]))
 
-(defn- sel [order nm path] {:orcpub.template/order order :orcpub.template/name nm
-                            :orcpub.entity/path path})
+(defn- sel
+  "Selection map with `order`, name `nm` and entity `path`."
+  [order nm path]
+  {:orcpub.template/order order :orcpub.template/name nm :orcpub.entity/path path})
 
-(defn- column [& sels] (map :orcpub.template/name (into (sorted-set-by cb/compare-selections) sels)))
+(defn- column
+  "Names of `sels` sorted by `cb/compare-selections`, as the options column lists them.
+   Returns a sequence."
+  [& sels] (map :orcpub.template/name (into (sorted-set-by cb/compare-selections) sels)))
 
 (deftest the-options-column-orders-by-order-name-then-level
   (testing "orders compare as numbers: 10 comes after 2, and no order comes last"

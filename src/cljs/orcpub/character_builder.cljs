@@ -34,6 +34,7 @@
             [orcpub.dnd.e5.armor :as armor5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.display :as disp5e]
+            [orcpub.dnd.e5.portrait :as portrait5e]
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.events :as events5e]
@@ -223,7 +224,10 @@
    text
    [:i.fa {:class (if @open? "fa-angle-up" "fa-angle-down") :aria-hidden true}]])
 
-(defn- choice-line [section names status & [{:keys [on-clear note]}]]
+(defn- choice-line
+  "One row of the Choices list: `section`, the picked `names` and their `status`, with a Clear
+   button when `on-clear` is given and a `note` line under it when given. Returns hiccup."
+  [section names status & [{:keys [on-clear note]}]]
   [:div.choice-line
    [:div [:span.f-w-b section] " \u2014 " names [:span.planned-aside (str " \u00b7 " status)]
     (when on-clear
@@ -2121,6 +2125,43 @@
 (defn sorted-selection-set [selections]
   (into (sorted-set-by compare-paths) selections))
 
+(defn- show-page-top!
+  "After the next render, scrolls the builder's page to its top, just below the sticky header,
+   and moves focus to the page title so a screen reader starts there. No args; returns nil.
+   GOTCHA: the page change must already be in the db (dispatch-sync), or this measures the old page."
+  []
+  (r/after-render
+   (fn []
+     (when-let [col (.getElementById js/document "options-column")]
+       (let [header (or (some-> (.querySelector js/document ".sticky-header") .-offsetHeight) 0)]
+         (.scrollTo js/window 0 (- (+ (.-scrollY js/window) (.-top (.getBoundingClientRect col))) header))
+         (some-> (.getElementById js/document "builder-page-title") (.focus #js {:preventScroll true})))))))
+
+(defn page-nav-bar
+  "Back / page title / Next bar for the character builder; wraps at either end.
+   Args: page-index, the current page index; page-name, the title shown; bottom?, true for the
+   copy below the page, whose buttons also bring the new page's top into view.
+   Returns hiccup."
+  [page-index page-name bottom?]
+  (let [go (fn [i]
+             (if bottom?
+               (do (dispatch-sync [:set-page i])
+                   (show-page-top!))
+               (dispatch [:set-page i])))]
+    [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
+     [:button.form-button.p-5-10.m-r-5
+      {:on-click (fn [_] (go (let [prev (dec page-index)]
+                               (if (neg? prev) (dec (count pages)) prev))))}
+      "Back"]
+     [:div.flex-grow-1
+      (if bottom?
+        [:h3.f-w-b.f-s-20.t-a-c page-name]
+        [:h3#builder-page-title.f-w-b.f-s-20.t-a-c {:tab-index -1} page-name])]
+     [:button.form-button.p-5-10.m-l-5
+      {:on-click (fn [_] (go (let [next (inc page-index)]
+                               (if (>= next (count pages)) 0 next))))}
+      "Next"]]))
+
 (defn new-options-column [num-columns]
   (let [character @(subscribe [:character])
         built-template @(subscribe [:built-template])
@@ -2140,25 +2181,7 @@
      [picks-notice]
      [:div#options-column.b-1.b-rad-5
       [section-tabs available-selections built-template character page-index]
-      [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
-       [:button.form-button.p-5-10.m-r-5
-        {:on-click
-         (fn [_]
-           (dispatch [:set-page (let [prev (dec page-index)]
-                                  (if (neg? prev)
-                                    (dec (count pages))
-                                    prev))]))}
-        "Back"]
-       [:div.flex-grow-1
-        [:h3.f-w-b.f-s-20.t-a-c (:name page)]]
-       [:button.form-button.p-5-10.m-l-5
-        {:on-click
-         (fn [_]
-           (dispatch [:set-page (let [next (inc page-index)]
-                                  (if (>= next (count pages))
-                                    0
-                                    next))]))}
-        "Next"]]
+      [page-nav-bar page-index (:name page) false]
       (let [ui-fn-selections (mapcat
                               (fn [{:keys [key group? ui-fn]}]
                                 (if group?
@@ -2227,7 +2250,9 @@
                              selection
                              num-columns
                              remaining)])))
-                sorted-selections)))])])]]))
+                sorted-selections)))])])
+      ;; Repeated below the page so a long page needs no scroll back up.
+      [page-nav-bar page-index (:name page) true]]]))
 
 
 (defn set-random-name
@@ -2485,8 +2510,12 @@
        {:on-paste (image-paste image-url)}
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
+       ;; integration's notice replaces the flat "failed to load" line; the
+       ;; launcher still belongs beside it, since composing a portrait is the
+       ;; other way to fill this slot.
        [image-field-notice image-url image-url-failed
-        (get image-bytes image-url) (get server-reach image-url) set-image-url]]]
+        (get image-bytes image-url) (get server-reach image-url) set-image-url]
+       [portrait5e/launcher-button]]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -2525,28 +2554,32 @@
        [:div.builder-tabs
         [builder-tab "Options" :options current-tab]
         [builder-tab "Description" :description current-tab]
+        [builder-tab "Portrait" :portrait current-tab]
         [builder-tab "Details" :details current-tab]]
        (case current-tab
          :options [new-options-column 1]
          :description [description-fields]
+         :portrait [portrait5e/tab-panel]
          ;; nil id = the builder's own character (not a saved one).
          [views5e/character-display nil true 1])]]]))
 
 
 (defn desktop-or-tablet-columns [device-type]
   ;; The phone's Details tab is the right column here, so a window widened while
-  ;; on it lands on Description; narrowing keeps Description too.
-  (let [current-tab (if (= :options (or @(subscribe [::char5e/builder-tab]) :options))
-                      :options
-                      :description)]
+  ;; on it lands on Description; narrowing keeps Description too. Options and
+  ;; Portrait are tabs on both.
+  (let [tab (or @(subscribe [::char5e/builder-tab]) :options)
+        current-tab (if (#{:options :portrait} tab) tab :description)]
     [:div.w-100-p
      [:div.flex-grow-1.flex.p-l-10.p-t-10
       [:div.w-50-p
        [:div.builder-tabs
         [builder-tab "Options" :options current-tab]
-        [builder-tab "Description" :description current-tab]]
-       (if (= current-tab :options)
-         [new-options-column (if (= device-type :desktop) 2 1)]
+        [builder-tab "Description" :description current-tab]
+        [builder-tab "Portrait" :portrait current-tab]]
+       (case current-tab
+         :options [new-options-column (if (= device-type :desktop) 2 1)]
+         :portrait [portrait5e/tab-panel]
          [description-fields])]
       [:div.w-50-p.m-l-20.m-r-10
        ;; nil id = the builder's own character (not a saved one).
@@ -2757,6 +2790,64 @@
 (defn set-loading []
   (dispatch-sync [:set-loading true]))
 
+(defn changed-elsewhere-notice
+  "\"Saved somewhere else since you opened it\" after a builder Save the server refused as out of
+   date (`conflict`: {:current :fields}): Details lists what differs, here and saved; Save mine
+   saves the builder's copy over it; Use saved loads it, keeping the builder's copy as a draft."
+  [conflict]
+  (let [open? (r/atom false)]
+    (fn [{:keys [fields]}]
+      (let [built-char @(subscribe [:built-character])
+            shown (fn [v] (or v "changed"))]
+        [notifications/callout
+         {:icon "fa-exclamation-circle orange" :tone :note :accent :brand :compact? true
+          :text [:span.main-text-color "Saved somewhere else since you opened it"]
+          :actions [{:label "Details" :link? true :expanded @open? :on-click #(swap! open? not)}
+                    {:label "Save mine" :link? true
+                     :on-click #(do (dispatch [::char5e/keep-mine])
+                                    (dispatch [:save-character built-char]))}
+                    {:label "Use saved" :link? true :on-click #(dispatch [::char5e/use-saved])}]
+          :details (when @open?
+                     (for [{:keys [label mine saved]} fields]
+                       {:key label :label label
+                        :aside (str "here: " (shown mine) " · saved: " (shown saved))}))}]))))
+
+(defn draft-notices
+  "The builder's notices about unsaved drafts, above the options: a Save refused because the
+   character was saved elsewhere; a character open in another tab, held until Edit here; a
+   leftover draft offered once, then Undo and Redo; then the list of other unsaved drafts.
+   plan-character-drafts.md; wording in ux-guide.md (2026-10-16)."
+  []
+  (let [conflict @(subscribe [::char5e/draft-conflict])
+        held @(subscribe [::char5e/draft-held])
+        offer @(subscribe [::char5e/draft-offer])
+        restored @(subscribe [::char5e/draft-restored])
+        box {:tone :note :accent :brand :compact? true :icon "fa-history orange"}
+        line (fn [cfg] [notifications/callout (update cfg :text #(vector :span.main-text-color %))])
+        link (fn [label event] {:label label :link? true :on-click #(dispatch event)})
+        dismiss #(dispatch [::char5e/dismiss-draft-notice])]
+    [:div.drafts-notices.m-l-10.m-r-10
+     (cond
+       conflict
+       [changed-elsewhere-notice conflict]
+
+       held
+       (line (assoc box :icon "fa-clone orange" :text "Open in another tab"
+                    :actions [(link "Edit here" [::char5e/edit-here held])]))
+
+       (:undone? restored)
+       (line (assoc box :text "Undone" :on-close dismiss
+                    :actions [(link "Redo" [::char5e/redo-restore])]))
+
+       restored
+       (line (assoc box :text (str "Changes from " (views5e/draft-time (:touched restored)) " restored")
+                    :on-close dismiss :actions [(link "Undo" [::char5e/undo-restore])]))
+
+       offer
+       (line (assoc box :text (str "Unsaved changes from " (views5e/draft-time (:touched offer)))
+                    :on-close dismiss :actions [(link "Restore" [::char5e/restore-draft])])))
+     [views5e/drafts-list]]))
+
 (defn save-character
   "Dispatch manual save. Passes built-char so the handler can compute
    the character summary without subscribing outside reactive context."
@@ -2798,7 +2889,9 @@
                              (not= db/default-character character))]
     (when print-enabled? (print-char built-char))
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
-    [views5e/content-page
+    [:<>
+     [portrait5e/drawer]
+     [views5e/content-page
      "Character Builder"
      (vec
       (remove nil?
@@ -2859,6 +2952,8 @@
                                     [:span "You have unsaved changes"])])]]]]
       [:div.flex.justify-cont-c.p-b-40
        [:div.f-s-14.main-text-color.content
-        [:div.flex.w-100-p
+        [draft-notices]
+        ;; Held while another tab edits this character: nothing here takes input until Edit here.
+        [:div.flex.w-100-p (when @(subscribe [::char5e/draft-held]) {:class "builder-held" :inert ""})
          [builder-columns]]]]]
-     :subheader (when character-id [integrations/share-line character-id])]))
+     :subheader (when character-id [integrations/share-line character-id])]]))
