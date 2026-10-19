@@ -258,7 +258,7 @@ _ac-tests-and-modifier-order · ac tests and modifier order_
 
 _account-flows · account flows_
 
-**topics:** account, composition, corpus, credential, email, link, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, username
+**topics:** account, composition, corpus, credential, disk, email, link, login, mail, meter, oracle, password, refused, reset, signing, somebody, suite, username
 
 - 1. The reason none of it had coverage
 - Traps inside the harness itself
@@ -507,7 +507,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-and-sheet-copies · builder and sheet copies_
 
-**topics:** 2026-10-15, 409, 410, autosave, builder, copy, draft, edit, edits, multi-tab-character-contamination, recorded, reply, save, sends, server, sheet, unsaved, version
+**topics:** 2026-10-15, 409, 410, 704, autosave, builder, copy, draft, edit, edits, multi-tab-character-contamination, recorded, reply, save, sends, sheet, unsaved, version
 
 - What was lost, proven on a real server
 - The fix
@@ -564,7 +564,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, expertise, extensible, grant, legacy, monster, pool, race, registry, row, rows, shim, widget, widgets
+**topics:** ---, arm, bespoke, disposition, effect, extensible, feat, grant, legacy, monster, pool, race, registry, row, rows, shim, widget, widgets
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -851,7 +851,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, page-map, parametric, per-type, pool, pools, primitive, registry, vocabulary, wiring
+**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, openness, page-map, parametric, per-type, pool, pools, primitive, registry, wiring
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -1453,7 +1453,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, added, datomic, dmv, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, datomic, dmv, echoing, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -1673,7 +1673,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, blindsight, damage, dueling, engine, fighting, great, interception, pool, predicate, prop, protection, style, styles, thrown, vocabulary, weapon
+**topics:** archery, attack, blindsight, damage, defense, dueling, fighting, great, interception, pool, predicate, prop, protection, style, styles, three-state, thrown, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -1717,7 +1717,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, licensed, ofl, re-add, redistribution, sandboxed, sans, subset, subsets
+**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, ofl, re-add, redistribution, sandboxed, sans, sil, subset, subsets
 
 - Why
 - What is checked in
@@ -1750,7 +1750,7 @@ _fork-customization · fork customization_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, card, cards, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, tray, workaround
+**topics:** accent, cards, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, title, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -2119,7 +2119,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, author, coexist, consent, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source, stamps
+**topics:** address, author, coexist, consent, copy, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source
 
 - TL;DR
 - The map (VERIFIED)
@@ -2146,7 +2146,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, number, quarantined, repair, restore, translator, unnamed, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, quarantined, repair, restore, translator, unnamed, wind, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -2278,11 +2278,26 @@ _monolith-decomposition-plan · monolith decomposition plan_
 - Exception: If any split gets complicated
 - 5. Pre-existing Issues Surfaced by Scanning
 
+## multi-system-expansion.md
+
+_multi-system-expansion · multi system expansion_
+
+**topics:** apps, com, creator, daggerheart, daggers, darrington, dpcgl, heart, https, licence, nimble, permitted, press, shell, system, systems, vault, vtt
+
+- Licensing — the constraint you cannot see from the code
+- How well the rules fit our engine
+- What is already shared (verified)
+- What is hard-wired to 5e (verified)
+- Competitor: Heart of Daggers (Daggerheart)
+- Product principle: try before you sign up
+- Proposed shared-base plan (PROPOSAL)
+- Open decisions (owner)
+
 ## multi-tab-character-contamination.md
 
 _multi-tab-character-contamination · multi tab character contamination_
 
-**topics:** -time, apparently-empty, clone, defence, entity-options-architecture, event-layer, localstorage, lower-level, payloads, per-origin, plan-character-drafts, server-side, slot, spa-routing-architecture, sub-entity, symbols, tab, tabs
+**topics:** -time, apparently-empty, clone, defence, entity-options-architecture, event-layer, localstorage, lower-level, payloads, per-origin, plan-character-drafts, recently, slot, spa-routing-architecture, sub-entity, symbols, tab, tabs
 
 - The mechanism
 - Where the notes actually live
@@ -2508,7 +2523,7 @@ _pdf-generation-architecture · pdf generation architecture_
 
 _pdf-namespace-family · pdf namespace family_
 
-**topics:** 540, acroform, beast, caller, card, cards, companion, consumer, coordinate, drawing, frame, inches, primitives, private, public, region, spellbook, svg
+**topics:** acroform, beast, caller, card, cards, companion, consumer, coordinate, docstring, drawing, frame, inches, primitives, private, public, region, spellbook, svg
 
 - Verdict on the starting hypothesis
 - 1. Inventory
@@ -2932,7 +2947,7 @@ _reagent-architecture-tenets · reagent architecture tenets_
 
 _reframe-subscription-patterns · reframe subscription patterns_
 
-**topics:** 401, api-backed, app-db, auth, auth-state-in-app-db, context, counter, decrement, deref, guard, http, loading, login, non-reactive, reaction, reactive, redirect, subscriptions
+**topics:** 401, api-backed, app-db, auth, auth-state-in-app-db, context, counter, decrement, deref, guard, http, loading, non-reactive, reaction, reactive, redirect, subscriptions, token
 
 - reg-sub-raw HTTP Pattern
 - Lifecycle
@@ -3005,7 +3020,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, class, dropdown, grant, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellcasting, spells
+**topics:** branch, caster, class, dropdown, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, prepares, reconciler, sibling, spellcasting, spells
 
 - The user's ask
 - Branch state — important
@@ -3112,7 +3127,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, everyone, expressed, feat, granted, layer, ledger, party, permission, permissions, prop, rules, table-wide, tortle, wear, writs
+**topics:** armor, campaign, computation, everyone, expressed, expressible, feat, granted, layer, ledger, permission, permissions, prop, rules, table-wide, tortle, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -3385,7 +3400,7 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 20d6, actions, concentration, conditions, damage, editions, explosion, links, magic, monster, open5e, previews, prices, rules, spell, spells, srd
+**topics:** 2014, 20d6, concentration, conditions, damage, dice, editions, explosion, links, magic, monster, open5e, previews, prices, rules, spell, spells, srd
 
 - How this was measured
 - What the app shows today
@@ -3702,7 +3717,7 @@ _weapons-extra-damage-handoff · weapons extra damage handoff_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 2026-10-15, amber, blue, button, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, versatile, weapon, white
+**topics:** 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, theme, versatile, weapon, white
 
 - The parts and their names
 - Agreed
