@@ -1441,7 +1441,7 @@ _e2e-runner · e2e runner_
 
 _edition-drift · edition drift_
 
-**topics:** 2014, 2024, 5etools, attack, crossbow, dual, edition, eligibility, fighting, hand, light, melee, off-hand, one-handed, property, two-weapon, weapon, wielder
+**topics:** 2014, 2024, 5etools, attack, crossbow, dual, eligibility, feat, fighting, hand, light, melee, off-hand, one-handed, property, two-weapon, weapon, wielder
 
 - Two-weapon fighting, side by side
 - What each difference costs us
@@ -2075,7 +2075,7 @@ _homebrew-save-rework · homebrew save rework_
 
 _http-fx-patterns · http fx patterns_
 
-**topics:** 1698, 2026-02-22, bug, conj, constructed, creation, dispatch, fire-and-forget, handler, http, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
+**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, interop, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
 
 - How the :http fx works
 - on-success / on-failure MUST be dispatch vectors
@@ -2282,7 +2282,7 @@ _monolith-decomposition-plan · monolith decomposition plan_
 
 _multi-system-expansion · multi system expansion_
 
-**topics:** apps, com, creator, daggerheart, daggers, darrington, dpcgl, heart, https, licence, nimble, permitted, press, shell, system, systems, vault, vtt
+**topics:** 2014, 2024, apps, com, creator, daggerheart, daggers, darrington, dpcgl, game, heart, https, licence, nimble, press, shell, srd-2024-roadmap, system
 
 - Licensing — the constraint you cannot see from the code
 - How well the rules fit our engine
@@ -2292,6 +2292,7 @@ _multi-system-expansion · multi system expansion_
 - Product principle: try before you sign up
 - Proposed shared-base plan (PROPOSAL)
 - Open decisions (owner)
+- Corrections
 
 ## multi-tab-character-contamination.md
 

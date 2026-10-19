@@ -11,7 +11,8 @@ rather than a fork?
 **Short answer:** yes, Nimble first. Its licence plainly covers a free web tool, and its rules
 are close enough to 5e to reuse our machinery. Daggerheart has a real SRD, but its licence does not
 name web apps, and its rules share only our generic engine. Most of the work is not per-system: it
-is separating the app shell from 5e, which the 5.5e work needs anyway.
+is separating the app shell from 5e. **That split exists only for other games.** 2014/2024 does not
+need it: a 2014 or 2024 character is one D&D 5e character in one app (see Corrections).
 
 ## Licensing — the constraint you cannot see from the code
 
@@ -158,7 +159,15 @@ and saved lists.
 
 ## Proposed shared-base plan (PROPOSAL)
 
-Ordered. Each step pays off even if a second system never ships.
+Ordered. **Which steps pay off without a second system:**
+
+| step | pays off with no second system? |
+|---|---|
+| 1, 2, 5 | **No.** Only another game needs them |
+| 3 | **Yes:** keying drafts by character id fixes the two-tab bug |
+| 4 | **Yes:** the edition-neutral helpers serve 5e |
+
+So 3 and 4 can be done on their own merits; 1, 2 and 5 wait on a decision to build another game.
 
 1. **Split the shell from the system.**
    - Move nav, character list, parties, folders, My Content and auth into an `orcpub.app.*` layer.
@@ -168,7 +177,8 @@ Ordered. Each step pays off even if a second system never ships.
    - Re-enable the `entity-type-problems` check.
    - Route saved characters, the plugin format and URLs (`/:game/:version/…`) by `game` /
      `game-version`.
-   - 5e 2014 vs 2024 is the same mechanism, so [srd-2024-roadmap.md](srd-2024-roadmap.md) benefits.
+   - **This is not the 2014/2024 mechanism.** Editions are a version filter on pick lists inside
+     one game ([srd-2024-roadmap.md](srd-2024-roadmap.md)). `game-version` stays `:e5` for both.
 3. **Namespace the localStorage keys and widen the plugin spec per system.** Do it together with
    the multi-tab fix (key drafts by character id).
 4. **Lift the edition-neutral helpers out of e5:**
@@ -190,3 +200,25 @@ then exercise only the generic engine, which makes it a good second test of the 
 - Whether to pursue Nimble at all, and whether our donation model meets "completely free".
 - Whether to email Darrington Press now, ahead of any Daggerheart work.
 - Where the shell split lives in the branch tree (`refactor/` leaf vs its own track).
+
+## Corrections
+
+**2026-10-19: the shell split is not something the 5.5e work needs.** The first version of this
+doc made three claims that are wrong:
+- separating the app shell from 5e is something "the 5.5e work needs anyway"
+- 2014 vs 2024 is "the same mechanism" as dispatching saved characters by `game` / `game-version`
+- every shared-base step "pays off even if a second system never ships"
+
+The owner's recorded decisions in [srd-2024-roadmap.md](srd-2024-roadmap.md) (its decision table)
+say otherwise:
+- **2024 is data only.** It lives in `orcpub.dnd.e55.*` with "no templates, no views, no edition
+  dispatch".
+- **Two dials, not one edition switch:** content and rules, because "users want to mix".
+- **The content dial is a version filter.** It removes entries from pick lists like switching off a
+  source. Untagged content is shared, and only the 2024 side is tagged.
+
+So a 2014 or 2024 character is one D&D 5e character in one app. Only a different game (Nimble,
+Daggerheart) needs the shell split or game dispatch.
+
+Caught by the agent orchestrating the 2014/2024 work. The cause: inferring from a schema field
+named `game-version` that editions would use it, without reading the edition decisions first.
