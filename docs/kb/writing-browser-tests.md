@@ -71,7 +71,7 @@ On the builder's unsaved character (`id` nil), sheet events go through `update-c
 events back to back (wield main hand, then off hand) lose the first. Dispatch one, wait for its
 effect (rule 2), then the next.
 
-## 6. Standing in for data the branch does not have yet *(partly proven)*
+## 6. Standing in for data the branch does not have yet
 
 To test UI that only appears with data from another line (Weapon Mastery from the 5.5 line):
 
@@ -84,9 +84,15 @@ To test UI that only appears with data from another line (Weapon Mastery from th
   Proven: the table detaches and returns.
 - **Never stand in for a shared subscription** such as `::mi/all-weapons-map`. Other parts of the
   page (the builder's pickers) keep it alive, so the remounted view gets the old cached value back.
-  Put made-up content in through the app's own data instead, e.g. a custom item, which flows into
-  the weapons map the normal way. (Proven wrong for the shared map 2026-10-19; the custom-item route
-  is the next attempt.)
+  Put made-up content in through the app's own data instead: a custom item flows into the weapons
+  map the normal way. Proven 2026-10-19 (`weapons_table_e2e.js`, Weapon Mastery):
+
+```js
+rf.dispatch_sync(rd(`[:orcpub.dnd.e5.magic-items/set-custom-items
+  [{:db/id 900001 :orcpub.dnd.e5.magic-items/name "Test Blade" :orcpub.dnd.e5.magic-items/type :weapon
+    :orcpub.dnd.e5.magic-items/item-subtype :longsword :orcpub.dnd.e5.weapons/mastery :topple}]]`));
+// then load a character carrying :test-blade (its key is the name, kebab-cased)
+```
 
 ## 7. Run on your own port
 
