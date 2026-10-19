@@ -28,13 +28,31 @@ app's classpath, and compares them field by field, matched by `:key`.
 
 | finding | state |
 |---|---|
-| Longbow lacks `::weapons/ammunition?`; the other six ammunition weapons have it, and magic items and the item builder read it | fixed on `fix/srd-2014-data-defects` (#62), test `ammunition-weapons-are-flagged`; still open against `integration` until #62 merges |
+| Longbow lacks `::weapons/ammunition?`; the other six ammunition weapons have it, and magic items and the item builder read it | fixed by #62 (merged into `integration` 2026-10-18), test `ammunition-weapons-are-flagged` |
 | Sling range: open5e's ammunition property said 80/320, its own record and the SRD 30/120 | fixed in `srd-corrections`; check rule `weapon-range` added |
-| 30 weapons carry a Wikipedia `::link`, added 2017-04-27 (`1cd9abaf8`); `weapon-details` takes it and never renders it | pending: drop, or point at the Rules tab |
-| 14 display names differ: 9 Title Case renames ([content-naming-style.md](content-naming-style.md)), 5 armors the SRD names "... Armor" | pending; player-visible, keys unchanged |
+| 30 weapons carry a Wikipedia `::link`, added 2017-04-27 (`1cd9abaf8`); `weapon-details` takes it and never renders it | decided: drop (owner, 2026-10-18); dropped on `feature/weapons-table` (`dd7aa5ef`), open on `integration` until it merges |
+| 15 display names differ: 9 Title Case renames ([content-naming-style.md](content-naming-style.md)), 6 armors the SRD names differently (Padded, Leather, Hide, Plate and Splint add "Armor"; Studded is "Studded Leather Armor") | Title Case done on `feature/weapons-table` (`bb709301`); the 6 armor names are the owner's open call; keys unchanged |
 | SRD Studded Leather Armor is `:studded` in the app | settled: `:studded` stays, the generator maps it |
 | Spiked Armor and DMV's three firearms are not SRD | settled: live options, kept |
 | `::weapons/subtype` (sword, axe, bow) has no SRD field | settled: kept as a tag for feat and mastery hooks |
+
+## The app-shape generator (2026-10-19)
+
+`scripts/srd/emit-app-equipment.py` writes the 2014 SRD weapons and armor as
+`src/cljc/orcpub/dnd/e5/srd_equipment.cljc` in the app's own shape: `::weapons/` keys, weapon
+weights as the app writes them ("1½ lb.", "1/4 lb.", "—"), armor weights as numbers, heavy armor's
+`:max-dex-mod 0`, and Studded Leather on `:studded`. Generated source, like the `e55` files: the app
+reads no files at build time. It reuses `emit-equipment.py`'s `collect`, so both read open5e the same
+way (the served files were byte-identical before and after that split).
+`scripts/srd/compare-app-equipment.clj` compares a generated file with the app, key by key.
+
+**Against `integration` `d51938c1` (2026-10-19): every mechanical field matches** for all 37 SRD
+weapons and 13 armors (dice, types, ranges, properties, costs, weights, AC, strength, stealth). The
+differences are only the ones above: Wikipedia links, display names, and the app's own fields
+(`::weapons/subtype`, the Net's `:summary` and `::weapons/description` from #62, Longsword's explicit
+`::finesse? false`), plus the app-only items (three DMV firearms, Spiked Armor). So the branch
+(`feature/srd-pipeline`) can make `weapons` and `armor` the generated entries merged with those fields
+by key, with no player-visible change beyond the decided renames.
 
 **The Net deals no damage, by design** (2026-10-15). SRD 5.1 lists its damage as "—" with
 "Special, thrown (range 5/15)": a Large or smaller creature it hits is restrained (DC 10 Strength

@@ -1562,10 +1562,11 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** 2026-10-15, 400px, ammunition, attacks, content-naming-style, damage, dash, dexterity, die, difference, longbow, net, open5e, pdf, restrains, spiked, srd, weapons
+**topics:** 400px, ammunition, app, app-only, armor, content-naming-style, damage, die, firearms, leather, longbow, net, open5e, spiked, srd, studded, weapons, weights
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
+- The app-shape generator (2026-10-19)
 
 ## error-handling-import-validation.md
 
@@ -3384,7 +3385,7 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 20d6, concentration, conditions, damage, dice, editions, explosion, links, magic, monster, open5e, previews, prices, rules, spell, spells, srd
+**topics:** 2014, 20d6, actions, concentration, conditions, damage, editions, explosion, links, magic, monster, open5e, previews, prices, rules, spell, spells, srd
 
 - How this was measured
 - What the app shows today
