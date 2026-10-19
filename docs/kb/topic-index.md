@@ -1407,7 +1407,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
+**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, e2e-boot, fast-browser-probes, helper, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -3714,7 +3714,7 @@ _weapons-table-spec · weapons table spec_
 
 _writing-browser-tests · writing browser tests_
 
-**topics:** 34px, 390px, affordable, already-chosen, check, click, clicking, desktop, dispatch, disposes, e2e-runner, fast-browser-probes, menus, phone, pulse, run, tab, view
+**topics:** 2026-10-19, 390px, click, desktop, dispatch, disposes, e2e-runner, fast-browser-probes, menus, partly, phone, proven, pulse, run, stand-in, subscriptions, tab, view
 
 - Start from a working test
 - 1. Load the character with the app's own event, not by clicking the builder
@@ -3722,7 +3722,7 @@ _writing-browser-tests · writing browser tests_
 - 3. A missing control is a FAIL, never a crash
 - 4. A phone is not a narrow desktop window
 - 5. With no saved character, send one update at a time
-- 6. Standing in for data the branch does not have yet (not yet proven in a run)
+- 6. Standing in for data the branch does not have yet (partly proven)
 - 7. Run on your own port
 - 8. Prove each check can fail, and keep it affordable
 - 9. Screenshots for review

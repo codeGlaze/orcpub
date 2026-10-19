@@ -71,19 +71,22 @@ On the builder's unsaved character (`id` nil), sheet events go through `update-c
 events back to back (wield main hand, then off hand) lose the first. Dispatch one, wait for its
 effect (rule 2), then the next.
 
-## 6. Standing in for data the branch does not have yet *(not yet proven in a run)*
+## 6. Standing in for data the branch does not have yet *(partly proven)*
 
-To test UI that only appears with data from another line (Weapon Mastery from the 5.5 line), swap
-the subscription on the dev bundle with `re_frame.core.reg_sub(...)`, then make the view
-subscribe again:
+To test UI that only appears with data from another line (Weapon Mastery from the 5.5 line):
 
 - **Do not call `clear_subscription_cache_BANG_`.** It disposes the live subscriptions, so the
-  view stops re-rendering at all and keeps showing the old data.
-- **Remount the view instead.** The sheet keys each tab's view by tab name (`views.cljs`,
-  `character-display`), so leaving the tab disposes its subscriptions and coming back builds
-  fresh ones with your stand-in. Switch with the app's own event,
-  `[:orcpub.dnd.e5.character/set-selected-display-tab "summary"]` then `"combat"`, and check that
-  the tab really changed. Clicking "some other tab" by guesswork did not.
+  view stops re-rendering at all and keeps showing the old data. Proven 2026-10-19.
+- **`reg_sub` a stand-in only for subscriptions the view uses alone, then remount it.** The sheet
+  keys each tab's view by tab name (`views.cljs`, `character-display`): switching with
+  `[:orcpub.dnd.e5.character/set-selected-display-tab "summary"]` then `"combat"` (and checking the
+  tab really changed) disposes the view's own subscriptions and rebuilds them with the stand-in.
+  Proven: the table detaches and returns.
+- **Never stand in for a shared subscription** such as `::mi/all-weapons-map`. Other parts of the
+  page (the builder's pickers) keep it alive, so the remounted view gets the old cached value back.
+  Put made-up content in through the app's own data instead, e.g. a custom item, which flows into
+  the weapons map the normal way. (Proven wrong for the shared map 2026-10-19; the custom-item route
+  is the next attempt.)
 
 ## 7. Run on your own port
 
