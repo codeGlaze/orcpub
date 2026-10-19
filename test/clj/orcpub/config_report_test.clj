@@ -204,3 +204,50 @@
   (testing "cards-per-page matches what pdf.clj derives: (int (/ 8.5 2.5)) by
             (int (/ 11.0 3.5)), the box size the card call sites pass"
     (is (= config/cards-per-page (* (int (/ 8.5 2.5)) (int (/ 11.0 3.5)))))))
+
+(deftest every-setting-says-which-release-added-it
+  (testing "the end-of-boot block lists what this release added, so every row names its release"
+    (is (empty? (remove :since config/settings))
+        (str "rows with no :since: " (pr-str (map :var (remove :since config/settings)))))))
+
+(def ^:private new-unset
+  {:var "ORCPUB_NEW_UNSET" :group "email" :value nil :raw nil :set? false :note "the new one"
+   :since config/current-release})
+(def ^:private new-set
+  (assoc new-unset :var "ORCPUB_NEW_SET" :raw "x" :value "x" :set? true))
+(def ^:private old-unset
+  (assoc new-unset :var "ORCPUB_OLD_UNSET" :since "2.5"))
+
+(deftest new-settings-left-unset-end-the-report
+  (let [out (vec (lines [secret-missing new-unset new-set old-unset]))
+        tail (drop-while #(not (str/includes? % "NEW IN")) out)]
+    (testing "a block headed with this release closes the report, after the critical ones"
+      (is (seq tail) (pr-str out))
+      (is (str/includes? (first tail) (str/upper-case config/current-release)) (first tail))
+      (is (not-any? #(str/includes? % "(!!)") tail) "nothing critical prints after it"))
+    (testing "it names the new settings still unset, with what they do"
+      (is (some #(and (str/includes? % "ORCPUB_NEW_UNSET") (str/includes? % "the new one")) tail)))
+    (testing "and not the ones already set, or older ones"
+      (is (not-any? #(str/includes? % "ORCPUB_NEW_SET") tail))
+      (is (not-any? #(str/includes? % "ORCPUB_OLD_UNSET") tail)))))
+
+(deftest no-block-when-every-new-setting-is-set
+  (is (not-any? #(str/includes? % "NEW IN") (lines [new-set old-unset]))))
+
+(deftest every-branding-setting-is-counted
+  (testing "each APP_* name branding.clj reads is in branding-vars, so the count covers it"
+    (let [src (slurp "src/clj/orcpub/fork/branding.clj")
+          read-names (->> (re-seq #":app-[a-z-]+" src)
+                          (map #(-> % (subs 1) (str/replace "-" "_") str/upper-case))
+                          set)
+          socials (->> (re-find #"\[:patreon[^\]]*\]" src) (re-seq #":([a-z]+)")
+                       (map #(str "APP_SOCIAL_" (str/upper-case (second %)))))]
+      (is (empty? (remove (set config/branding-vars) (concat read-names socials)))
+          (pr-str (remove (set config/branding-vars) (concat read-names socials)))))))
+
+(deftest a-rejected-branding-value-is-named
+  (testing "a branding value that fell back to its default says so in the report, not only in the log"
+    (let [out (config/report-lines [set-row] nil [{:var "APP_HELP_URL" :value "help me" :why "not a web address or site path"}])]
+      (is (some #(and (str/includes? % "(!)") (str/includes? % "APP_HELP_URL")
+                      (str/includes? % "help me") (str/includes? % "not a web address")) out)
+          (pr-str out)))))

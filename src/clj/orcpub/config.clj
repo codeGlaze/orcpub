@@ -1,5 +1,6 @@
 (ns orcpub.config
   (:require [orcpub.env :as env]
+            [orcpub.fork.branding :as branding]
             [clojure.string :as str]
             [clojure.java.io :as io])
   (:import [java.util Locale]))
@@ -243,11 +244,16 @@
        "        EMAIL_SECRET_KEY for authentication, then restart.\n"
        "        EMAIL_SERVER_PORT defaults to 587; set EMAIL_SSL or EMAIL_TLS if required."))
 
+(def current-release
+  "The release this build ships as. Settings whose `:since` is this one end the boot report while
+   unset, so an operator upgrading sees what is new."
+  "Summer Patch")
+
 (def branding-vars
   "The APP_* fork-branding variables. Reported as a count rather than twenty rows -- a
    banner nobody reads because it scrolls is no better than no banner."
   ["APP_NAME" "APP_TAGLINE" "APP_PAGE_TITLE" "APP_URL" "APP_LOGO_PATH" "APP_OG_IMAGE"
-   "APP_HELP_URL" "APP_SUPPORT_EMAIL" "APP_EMAIL_SENDER_NAME"
+   "APP_HELP_URL" "APP_SUPPORT_EMAIL" "APP_EMAIL_SENDER_NAME" "APP_EMAIL_SIGNOFF"
    "APP_COPYRIGHT_HOLDER" "APP_COPYRIGHT_URL" "APP_COPYRIGHT_YEAR"
    "APP_FIELD_LIMIT_NOTES" "APP_FIELD_LIMIT_NUMBER" "APP_FIELD_LIMIT_TEXT"
    "APP_SOCIAL_BLUESKY" "APP_SOCIAL_DISCORD" "APP_SOCIAL_FACEBOOK"
@@ -302,62 +308,63 @@
    `:secret?`: the VALUE IS NEVER PRINTED, only whether it is present.
    `:critical?`: its absence breaks the site; called out below the table, with its `:fix`.
    `:get`: resolves the value where an accessor exists; otherwise the raw env value is shown,
-   which is right for settings that have no default of ours."
+   which is right for settings that have no default of ours.
+   `:since`: the release that added it; `current-release` rows end the report while unset."
   (concat
-   [{:group "runtime"  :var "PORT"}
-    {:group "runtime"  :var "DEV_MODE"      :note "dev-only behaviour and relaxed CORS"}
-    {:group "database" :var "DATOMIC_URL"   :get #(get-datomic-uri) :redact? true}
-    {:group "database" :var "DATOMIC_PASSWORD" :secret? true}
-    {:group "security" :var "SIGNATURE"     :secret? true :critical? true
+   [{:group "runtime"  :var "PORT" :since "2.5"}
+    {:group "runtime"  :var "DEV_MODE" :since "2.5"      :note "dev-only behaviour and relaxed CORS"}
+    {:group "database" :var "DATOMIC_URL" :since "2.5"   :get #(get-datomic-uri) :redact? true}
+    {:group "database" :var "DATOMIC_PASSWORD" :since "2.5" :secret? true}
+    {:group "security" :var "SIGNATURE" :since "2.5"     :secret? true :critical? true
      :note "JWT signing key; every login and API call fails without it"
      :fix signature-missing-message}
-    {:group "security" :var "CSP_POLICY"    :note "overrides the built-in policy"}
-    {:group "email"    :var "EMAIL_SERVER_URL" :critical? true :fix email-missing-message
+    {:group "security" :var "CSP_POLICY" :since "2.5"    :note "overrides the built-in policy"}
+    {:group "email"    :var "EMAIL_SERVER_URL" :since "2.5" :critical? true :fix email-missing-message
      :note "SMTP host; signup and password reset fail without it"}
-    {:group "email"    :var "EMAIL_SERVER_PORT" :note "defaults to 587"}
-    {:group "email"    :var "EMAIL_ACCESS_KEY" :secret? true}
-    {:group "email"    :var "EMAIL_SECRET_KEY" :secret? true}
-    {:group "email"    :var "EMAIL_FROM_ADDRESS"}
-    {:group "email"    :var "EMAIL_ERRORS_TO"}
-    {:group "email"    :var "EMAIL_ADMIN_TO"
+    {:group "email"    :var "EMAIL_SERVER_PORT" :since "2.5" :note "defaults to 587"}
+    {:group "email"    :var "EMAIL_ACCESS_KEY" :since "2.5" :secret? true}
+    {:group "email"    :var "EMAIL_SECRET_KEY" :since "2.5" :secret? true}
+    {:group "email"    :var "EMAIL_FROM_ADDRESS" :since "2.5"}
+    {:group "email"    :var "EMAIL_ERRORS_TO" :since "2.5"}
+    {:group "email"    :var "EMAIL_ADMIN_TO" :since current-release
      :note "artist-account notices; falls back to EMAIL_ERRORS_TO"}
-    {:group "security" :var "PROFILE_ENCRYPTION_KEYS" :secret? true
+    {:group "security" :var "PROFILE_ENCRYPTION_KEYS" :since current-release :secret? true
      :note "encrypts preferred names; or the profile_encryption_keys secret"}
-    {:group "content"  :var "LOAD_HOMEBREW_URL" :note "homebrew loaded at page load"}
-    {:group "content"  :var "PORTRAIT_ARTISTS"
+    {:group "content"  :var "LOAD_HOMEBREW_URL" :since "2.5" :note "homebrew loaded at page load"}
+    {:group "content"  :var "PORTRAIT_ARTISTS" :since current-release
      :note "artist credits and artist accounts; see ARTISTS.md"}
-    {:group "content"  :var "APP_URL"
+    {:group "content"  :var "APP_URL" :since "2.5"
      :note "public site address; artist emails need it for their links"}]
-   [{:group "capacity" :var "ORCPUB_HTTP_MAX_THREADS" :get #(get-http-max-threads)
+   [{:group "capacity" :var "ORCPUB_HTTP_MAX_THREADS" :since current-release :get #(get-http-max-threads)
      :note "worker pool: requests of any kind in flight"}
-    {:group "capacity" :var "ORCPUB_PDF_CONCURRENCY" :get #(get-pdf-concurrency)
+    {:group "capacity" :var "ORCPUB_PDF_CONCURRENCY" :since current-release :get #(get-pdf-concurrency)
      :note "sheets generated at once"}
-    {:group "capacity" :var "ORCPUB_PDF_QUEUE_TIMEOUT_MS" :get #(get-pdf-queue-timeout-ms)
+    {:group "capacity" :var "ORCPUB_PDF_QUEUE_TIMEOUT_MS" :since current-release :get #(get-pdf-queue-timeout-ms)
      :note "how long an export waits for a slot"}
-    {:group "capacity" :var "ORCPUB_PORTRAIT_CONCURRENCY" :get #(get-portrait-concurrency)
+    {:group "capacity" :var "ORCPUB_PORTRAIT_CONCURRENCY" :since current-release :get #(get-portrait-concurrency)
      :note "shared-link portraits drawn at once"}
-    {:group "capacity" :var "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS" :get #(get-portrait-queue-timeout-ms)
+    {:group "capacity" :var "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS" :since current-release :get #(get-portrait-queue-timeout-ms)
      :note "how long a portrait waits to be drawn"}
-    {:group "capacity" :var "PORTRAIT_STORE_DIR" :get #(get-portrait-store-dir)
+    {:group "capacity" :var "PORTRAIT_STORE_DIR" :since current-release :get #(get-portrait-store-dir)
      :accepts (complement str/blank?) :expects "a directory path"
      :note "where shared-link portrait drawings are kept"}
-    {:group "capacity" :var "ORCPUB_PDF_MAX_RETRIES" :get #(get-pdf-max-retries)
+    {:group "capacity" :var "ORCPUB_PDF_MAX_RETRIES" :since current-release :get #(get-pdf-max-retries)
      :note "busy-page retries before it waits for a click"}
-    {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :get #(get-pdf-max-caster-sections)
+    {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :since current-release :get #(get-pdf-max-caster-sections)
      :note "spellcasting sections one sheet may grow to"}
-    {:group "capacity" :var "ORCPUB_PDF_MAX_CARDS" :get #(get-pdf-max-cards)
+    {:group "capacity" :var "ORCPUB_PDF_MAX_CARDS" :since current-release :get #(get-pdf-max-cards)
      :note "cards of each kind per export; 9 to a sheet, so 22 sheets"}
-    {:group "capacity" :var "ORCPUB_SHARE_MAX_UPLOAD_KB" :get #(get-share-max-upload-kb)
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_UPLOAD_KB" :since current-release :get #(get-share-max-upload-kb)
      :note "compressed share data one share link keeps"}
-    {:group "capacity" :var "ORCPUB_SHARE_MAX_TEXT_KB" :get #(get-share-max-text-kb)
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_TEXT_KB" :since current-release :get #(get-share-max-text-kb)
      :note "that share data unpacked"}
-    {:group "capacity" :var "ORCPUB_SHARE_MAX_ACCOUNT_KB" :get #(get-share-max-account-kb)
+    {:group "capacity" :var "ORCPUB_SHARE_MAX_ACCOUNT_KB" :since current-release :get #(get-share-max-account-kb)
      :note "share data one account keeps in all"}
-    {:group "runtime" :var "ORCPUB_PWNED_CHECK" :get #(if (pwned-check-enabled?) "on" "off")
+    {:group "runtime" :var "ORCPUB_PWNED_CHECK" :since current-release :get #(if (pwned-check-enabled?) "on" "off")
      :accepts #(contains? #{"on" "off" "true" "false" "1" "0" "yes" "no"} (.toLowerCase (str/trim %) Locale/ROOT))
      :expects "on or off"
      :note "screens a new password against known breaches; fails open, off disables the call"}
-    {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :get #(get-share-prune-days)
+    {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :since current-release :get #(get-share-prune-days)
      :accepts #(some-> % str/trim parse-long (>= 0)) :expects "a whole number of days, 0 or more"
      :note "days unused before a character's share link and share data are deleted; 0 keeps them, at least 30"}]))
 
@@ -376,7 +383,7 @@
    change was picked up, ignored as a typo, or never set. Secret values are dropped here, not
    at print time, so nothing downstream can leak one by accident."
   []
-  (for [{env-var :var getter :get :keys [secret? redact? critical? note group fix accepts expects]} settings]
+  (for [{env-var :var getter :get :keys [secret? redact? critical? note group fix accepts expects since]} settings]
     (let [raw      (env-raw env-var)
           tunable? (some? (some #(= env-var (:var %)) tunables))
           ;; A row with its own :accepts (the prune window takes 0) is checked by that instead.
@@ -385,7 +392,7 @@
           value    (cond secret? nil
                          getter  (getter)
                          :else   raw)]
-      {:var env-var :group group :note note :critical? critical? :fix fix :expects expects
+      {:var env-var :group group :note note :critical? critical? :fix fix :expects expects :since since
        :value (if (and value redact?) (redact-secrets value) value)
        :secret? secret?
        :raw (when-not secret? raw)
@@ -393,14 +400,14 @@
        :ignored? ignored?})))
 
 (defn report-lines
-  "The boot banner, as lines.
-
-   ASCII only, no colour. This is read in log files and aggregators at least as often as in
-   a terminal: escape codes are noise in both, and a stray em dash came back as `?` through
-   one of those pipes. Alignment does the work instead."
-  ([] (report-lines (report) nil))
-  ([rows] (report-lines rows nil))
-  ([rows actual]
+  "The boot banner, as lines: `rows` from `report`, `actual` values read off the running server
+   (var name to value), and `branding-ignored`, the branding values that fell back to a default
+   ({:var :value :why}). Ends with this release's new settings that are still unset. ASCII only,
+   no colour: it is read in log files and aggregators as often as in a terminal."
+  ([] (report-lines (report) nil nil))
+  ([rows] (report-lines rows nil nil))
+  ([rows actual] (report-lines rows actual nil))
+  ([rows actual branding-ignored]
    (let [;; A secret is reported as present or absent and NEVER by value. `-` where we have
          ;; no number at all, so the VALUE column never argues with SOURCE beside it.
          val    (fn [{env-var :var :keys [value secret? set?]}]
@@ -432,11 +439,15 @@
               (partition-by :group rows))
       ["  [BRANDING]"
        (format "  %s   %s of %s set" (apply str (repeat w " ")) brand (count branding-vars))]
-      (when-let [bad (seq (filter :ignored? rows))]
+      (when (or (seq (filter :ignored? rows)) (seq branding-ignored))
         (cons rule
-              (for [{env-var :var raw :raw expects :expects} bad]
-                (format "  (!)  %s=%s was ignored: not %s. The default above is in use."
-                        env-var raw (or expects "a positive integer")))))
+              (concat
+               (for [{env-var :var raw :raw expects :expects} (filter :ignored? rows)]
+                 (format "  (!)  %s=%s was ignored: not %s. The default above is in use."
+                         env-var raw (or expects "a positive integer")))
+               (for [{env-var :var value :value why :why} branding-ignored]
+                 (format "  (!)  %s=%s was ignored: %s. Its default is in use."
+                         env-var value why)))))
       ;; A missing SIGNATURE means every login fails. That is not a row to be spotted.
       ;; Say what broke AND how to fix it. A boot line that names a symptom and leaves the
       ;; remedy to be guessed just moves the work.
@@ -449,6 +460,12 @@
                           (cons (str "  (!!) " (first body))
                                 (map #(str "        " (str/triml %)) (rest body))))))
                 miss))
+      ;; Last, where an operator upgrading looks: what this release added and is still unset.
+      (when-let [fresh (seq (filter #(and (= current-release (:since %)) (not (:set? %))) rows))]
+        (concat
+         [rule (str "  NEW IN " (.toUpperCase ^String current-release Locale/ROOT)
+                    ": " (count fresh) " setting" (when (next fresh) "s") " not set yet, using defaults")]
+         (map #(trim (format (str "  %-" w "s   %s") (:var %) (or (:note %) ""))) fresh)))
       [rule]))))
 
 (defn jetty-max-threads
@@ -475,7 +492,7 @@
      ;; One write, then flush. Printed line by line, Jetty's own logging interleaved with it
      ;; and cut the table in half -- buffered stdout against unbuffered stderr in the same
      ;; stream. A banner that arrives in pieces is worse than no banner.
-     (println (str/join (System/lineSeparator) (report-lines (report) actual)))
+     (println (str/join (System/lineSeparator) (report-lines (report) actual @branding/ignored)))
      (flush))))
 
 (defn get-secure-headers-config

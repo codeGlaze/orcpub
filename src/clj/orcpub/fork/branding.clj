@@ -16,11 +16,17 @@
 ;; Every value below comes from the environment. A bad one falls back to its default with a warning
 ;; naming the setting, so a typo costs that value, not a page or the server.
 
+(defonce ^{:doc "Branding values that fell back to their default, as {:var :value :why}."}
+  ignored
+  (atom []))
+
 (defn- warn!
-  "Prints that `setting` (a keyword like :app-help-url) was ignored, and why. Returns nil."
+  "Prints that `setting` (a keyword like :app-help-url) was ignored, and why, and adds
+   {:var :value :why} to `ignored` for the boot report. Returns nil."
   [setting value why]
-  (println (str "branding: " (s/upper-case (s/replace (name setting) "-" "_"))
-                " ignored (" why "): " (pr-str value))))
+  (let [var-name (s/upper-case (s/replace (name setting) "-" "_"))]
+    (swap! ignored conj {:var var-name :value (pr-str value) :why why})
+    (println (str "branding: " var-name " ignored (" why "): " (pr-str value)))))
 
 (defn checked-url
   "`value` of `setting` when it is blank, an http(s) address, or a path on this site (/image/x.svg);
