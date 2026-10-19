@@ -287,3 +287,50 @@
                       (s/replace (plus-str (first every-hit)) #" .*" ""))
               :types (mapv ::weapons/damage-type every-hit)})
      :lines (mapv (fn [[l chips]] {:label l :chips chips}) (sort-by order grouped))}))
+
+(defn crit-entries
+  "Damage entries for a critical hit under the default rule: every entry's dice doubled,
+  flat bonuses unchanged. Takes the entries; returns them in the same order."
+  [entries]
+  (mapv #(cond-> % (::weapons/damage-die-count %) (update ::weapons/damage-die-count * 2)) entries))
+
+(defn dice-sum-str
+  "Entries as one short sum for a menu: \"1d8+5 +1d8\", the first with its bonus, each
+  later one as \"+dice\". Takes the entries; returns a string."
+  [entries]
+  (s/join " " (map-indexed (fn [i e] (let [d (damage-dice-str e)]
+                                       (if (or (zero? i) (s/starts-with? d "+")) d (str "+" d))))
+                           entries)))
+
+(defn weapon-menu-items
+  "The + menu of a weapon with anything conditional, else nil: Roll damage, Roll vs each
+  target, Critical damage (and vs each target), then each once-per-rest use. Takes the weapon,
+  its damage modifier, two-handed? and the toggles on. Returns [{:id :label :sub :value
+  :entries :recharge}]; :recharge marks a use, spent through features-used."
+  [weapon damage-modifier two-handed? toggles-on]
+  (let [roll #(weapon-damage/applying-damage weapon damage-modifier two-handed? (assoc % :toggles toggles-on))
+        conditional (concat (::mi/extra-damage weapon) (::mi/effects weapon))
+        targets (distinct (keep ::mi/against (remove off-row? conditional)))
+        crit-only? (some #(or (= :crit (::mi/on %)) (::mi/min-roll %)) (::mi/extra-damage weapon))
+        uses (filter ::mi/recharge conditional)
+        vs-label #(creature-types-str % "and")
+        item (fn [id label sub situation crit?]
+               (let [es (cond-> (roll situation) crit? crit-entries)]
+                 {:id id :label label :sub sub :value (dice-sum-str es) :entries es}))]
+    (when (or (seq targets) crit-only? (seq uses))
+      (vec (concat
+            [(item :damage "Roll damage" nil {} false)]
+            (for [t targets] (item [:vs t] (str "Roll vs " (vs-label t)) "base + bonus" {:against (first (sort t))} false))
+            [(item :crit "Critical damage" "all dice doubled" {:crit? true :roll 20} true)]
+            (for [t targets] (item [:crit-vs t] (str "Critical vs " (vs-label t)) "all dice doubled"
+                                   {:crit? true :roll 20 :against (first (sort t))} true))
+            (for [[i e] (map-indexed vector uses)
+                  :let [e (weapon-damage/resolve-extra weapon e)
+                        label (if (::mi/effect-type e) (effect-summary e) (plus-str e))
+                        es (if (::mi/effect-type e)
+                             (if (::weapons/damage-die e) [e] [])
+                             (conj (roll {:attack-type (::mi/attack-type e)}) e))]]
+              {:id [:use i] :label label
+               :sub (str "once per " (recharge-names (::mi/recharge e) (common/safe-name (::mi/recharge e))))
+               :value (if (::mi/effect-type e) (when (seq es) (damage-str (first es))) (plus-str e))
+               :entries es :recharge (::mi/recharge e)}))))))

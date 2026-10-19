@@ -28,7 +28,11 @@
    :--wpn-tint "22%"
    :--wpn-tile-shadow "0 1px 1px rgba(0,0,0,0.35), 0 0 1px rgba(0,0,0,0.25)"
    :--wpn-outline-ink "#f0a100"
-   :--wpn-glow "rgba(214,219,227,0.55)"})
+   :--wpn-glow "rgba(214,219,227,0.55)"
+   :--wpn-menu-bg "#1a1e28"
+   :--wpn-menu-ink "#ffffff"
+   :--wpn-menu-line "rgba(255,255,255,0.14)"
+   :--wpn-menu-value "#f0a100"})
 
 (def light-vars
   "The table's colours on the light theme."
@@ -45,7 +49,11 @@
    :--wpn-tint "18%"
    :--wpn-tile-shadow "none"
    :--wpn-outline-ink "#8a5a00"
-   :--wpn-glow "rgba(74,74,74,0.4)"})
+   :--wpn-glow "rgba(74,74,74,0.4)"
+   :--wpn-menu-bg "#ffffff"
+   :--wpn-menu-ink "#363636"
+   :--wpn-menu-line "rgba(0,0,0,0.2)"
+   :--wpn-menu-value "#9a5b00"})
 
 (def grid
   "The column template shared by the headings and every row."
@@ -166,6 +174,37 @@
     [:.share-pill.weapon-hand-pill
      {:flex-shrink 0 :align-self :center :gap "4px" :font-size "11px" :padding "1px 7px"
       :margin-left "6px"}]
+
+    ;; the + tab and its menu: 18px tab, 44px tap area
+    [:.weapon-plus
+     {:position :absolute :top 0 :right "4px" :width "18px" :height "18px" :padding 0 :border :none
+      :border-radius "0 5px 0 5px" :background "var(--wpn-strip)" :color "var(--wpn-strip-ink)"
+      :font-size "15px" :font-weight 800 :line-height 1 :cursor :pointer :z-index 1}]
+    [:.weapon-plus:before {:content "''" :position :absolute :top "-13px" :right "-4px" :bottom "-13px"
+                           :left "-22px"}]
+    [:.weapon-menu-backdrop {:position :fixed :top 0 :right 0 :bottom 0 :left 0 :z-index 2}]
+    [:.weapon-menu
+     {:position :absolute :top "60px" :right "4px" :z-index 3 :width "252px" :max-width "calc(100vw - 32px)"
+      :background "var(--wpn-menu-bg)" :color "var(--wpn-menu-ink)" :border "1px solid var(--wpn-menu-line)"
+      :border-radius "6px" :box-shadow "0 4px 16px rgba(0,0,0,.4)" :overflow :hidden :font-size "14px"}]
+    [:.weapon-menu.up {:top :auto :bottom "60px"}]
+    [:.weapon-menu-item
+     {:display :flex :width "100%" :min-height "44px" :align-items :center :justify-content :space-between
+      :gap "10px" :padding "6px 12px" :border :none :border-top "1px solid var(--wpn-menu-line)"
+      :background :transparent :color :inherit :font-family :inherit :text-align :left :cursor :pointer}]
+    [:.weapon-menu-item.primary
+     {:min-height "56px" :border-top :none :color "#fff" :text-shadow "var(--wpn-tile-shadow)"
+      :background-image "linear-gradient(to bottom, #f1a20f, #dbab50)"}]
+    [:.weapon-menu-item.used {:opacity 0.45 :cursor :default}]
+    [:.weapon-menu-item:focus-visible {:outline "2px solid var(--wpn-menu-ink)" :outline-offset "-2px"}]
+    [:.weapon-menu-text {:display :flex :flex-direction :column :line-height 1.25}]
+    [:.weapon-menu-label {:font-weight 600 :font-size "14px"}]
+    [:.weapon-menu-item.primary [:.weapon-menu-label {:font-weight 800 :font-size "16px"}]]
+    [:.weapon-menu-sub {:font-size "11px" :opacity 0.75}]
+    [:.weapon-menu-value
+     {:color "var(--wpn-menu-value)" :font-weight 700 :font-variant-numeric "tabular-nums" :white-space :nowrap
+      :font-size "13px"}]
+    [:.weapon-menu-item.primary [:.weapon-menu-value {:color "#fff" :font-size "15px"}]]
 
     ;; the opened row: an inset panel under the row
     [:.weapon-opened

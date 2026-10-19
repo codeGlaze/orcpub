@@ -96,3 +96,47 @@
              :chips [{:text "+1d6 thunder" :type :thunder :style :fill :ringed? false}
                      {:text "+2d6 fire" :type :fire :style :fill :ringed? true}]}]
            (:lines (disp/weapon-row-lines w #{:lit}))))))
+
+(defn menu
+  "The + menu of the weapon with this key: [label sub value] per item, or nil."
+  ([k] (menu k 3 #{}))
+  ([k modifier on]
+   (some->> (disp/weapon-menu-items (weapon k) modifier false on)
+            (mapv (juxt :label :sub :value)))))
+
+(deftest a-plain-weapon-has-no-menu
+  (is (nil? (menu :longsword)))
+  (is (nil? (menu :frost-brand-longsword)) "an every-hit extra is not conditional"))
+
+(deftest a-target-gets-roll-vs-and-critical-vs
+  (is (= [["Roll damage" nil "1d8+3"]
+          ["Roll vs undead" "base + bonus" "1d8+3 +1d8"]
+          ["Critical damage" "all dice doubled" "2d8+3"]
+          ["Critical vs undead" "all dice doubled" "2d8+3 +2d8"]]
+         (menu :sun-blade-longsword))))
+
+(deftest a-rolled-20-extra-shows-only-in-critical-damage
+  (is (= [["Roll damage" nil "1d6+3"]
+          ["Critical damage" "all dice doubled" "2d6+3 +4d6"]]
+         (menu :vicious-weapon-mace))))
+
+(deftest once-per-dawn-uses-are-their-own-items
+  (is (= [["+4d6 lightning" "once per dawn" "+4d6 lightning"]
+          ["DC 13 Dex save" "once per dawn" "4d6 lightning"]]
+         (take-last 2 (menu :javelin-of-lightning))))
+  (is (= ["DC 15 Con or poisoned" "once per dawn" "2d10 poison"]
+         (last (menu :dagger-of-venom))))
+  (is (= :orcpub.dnd.e5.units/dawn
+         (:recharge (last (disp/weapon-menu-items (weapon :dagger-of-venom) 3 false #{}))))))
+
+(deftest a-switched-on-extra-joins-every-roll
+  (let [w (assoc (weapon :holy-avenger-longsword)
+                 ::mi/toggles [{::mi/toggle-id :lit ::mi/toggle-name "Lit"}]
+                 ::mi/extra-damage (conj (::mi/extra-damage (weapon :holy-avenger-longsword))
+                                         {:orcpub.dnd.e5.weapons/damage-die-count 1
+                                          :orcpub.dnd.e5.weapons/damage-die 6
+                                          :orcpub.dnd.e5.weapons/damage-type :fire
+                                          ::mi/while :lit}))
+        values #(mapv :value (take 2 (disp/weapon-menu-items w 3 false %)))]
+    (is (= ["1d8+3" "1d8+3 +2d10"] (values #{})))
+    (is (= ["1d8+3 +1d6" "1d8+3 +2d10 +1d6"] (values #{:lit})))))

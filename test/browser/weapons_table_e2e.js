@@ -13,6 +13,10 @@
 // longbow's tiles turn to outlines, say "Needs both hands" and add it to the roll; freeing the off
 // hand brings the pulse back. Last, a main-hand and an off-hand weapon each get a hand pill on
 // their name line ("main", "off"), read as "main hand" / "off hand", and no other row does.
+// The + menu: only weapons with something conditional get one; Tab reaches it after the damage
+// tile, Enter opens it on "Roll damage", Down moves, Esc closes and returns to the +; right-click
+// opens it; "Roll vs" rolls the bonus; a once-per-dawn use rolls, then reads "used"; on the last row
+// the menu opens upward.
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/weapons_table_e2e.js`). No login.
 // Runs in:   ~30s. SHOT_DIR=<dir> saves weapons-dark.png and weapons-light.png.
@@ -45,6 +49,21 @@ const load = (page, shield) => page.evaluate(shield => {
   re_frame.core.dispatch_sync(cljs.core.PersistentVector.fromArray(
     [rd(':set-character'), orcpub.dnd.e5.character.from_strict(rd(strict))], true));
 }, !!shield);
+
+// Puts a level 1 wizard carrying only these magic weapons into the builder.
+const loadMagic = (page, keys) => page.evaluate(keys => {
+  const rd = cljs.reader.read_string;
+  const s = 'orcpub.entity.strict', c = 'orcpub.dnd.e5.character';
+  const held = `{:${c}.equipment/quantity 1 :${c}.equipment/equipped? true}`;
+  const strict = `{:${s}/selections [
+    {:${s}/key :ability-scores :${s}/option {:${s}/key :standard-scores
+      :${s}/map-value {:${c}/str 15 :${c}/dex 14 :${c}/con 13 :${c}/int 12 :${c}/wis 10 :${c}/cha 8}}}
+    {:${s}/key :class :${s}/options [{:${s}/key :wizard
+      :${s}/selections [{:${s}/key :levels :${s}/options [{:${s}/key :level-1}]}]}]}
+    {:${s}/key :magic-weapons :${s}/options [${keys.map(k => `{:${s}/key ${k} :${s}/map-value ${held}}`).join(' ')}]}]}`;
+  re_frame.core.dispatch_sync(cljs.core.PersistentVector.fromArray(
+    [rd(':set-character'), orcpub.dnd.e5.character.from_strict(rd(strict))], true));
+}, keys);
 
 // Layout numbers for the section: widths, heading offsets, tile sizes, one-line names, tap targets.
 const measure = page => page.evaluate(() => {
@@ -189,6 +208,52 @@ async function layout(page, theme) {
           && await handPill(row('Flame Tongue, Longsword')).locator('.fa-flip-horizontal').count() === 1
           && await handPill(row('Flame Tongue, Longsword')).getAttribute('aria-label') === 'off hand');
     check('no other weapon has a hand pill', await page.locator('.weapon-hand-pill').count() === 2);
+
+    // the + menu
+    const plus = r => r.locator('.weapon-plus');
+    check('a weapon with nothing conditional has no +', await plus(row('Frost Brand, Rapier')).count() === 0);
+    const holyRow = row('Holy Avenger, Longsword');
+    check('a weapon with a target has a +, announced as a menu',
+          await plus(holyRow).getAttribute('aria-haspopup', { timeout: 3000 }).catch(() => null) === 'menu');
+    await holyRow.locator('.weapon-damage-tile').focus({ timeout: 5000 }).catch(() => {});
+    await page.keyboard.press('Tab');
+    const isFocused = loc => loc.evaluate(e => e === document.activeElement, null, { timeout: 3000 }).catch(() => false);
+    check('Tab goes from the damage tile to its +', await isFocused(plus(holyRow)));
+    await page.keyboard.press('Enter');
+    const focused = () => page.evaluate(() => document.activeElement && document.activeElement.textContent);
+    check('Enter opens the menu on Roll damage',
+          await holyRow.locator('.weapon-menu').waitFor({ timeout: 5000 }).then(() => true, () => false)
+          && /^Roll damage/.test(await focused()));
+    await page.keyboard.press('ArrowDown');
+    check('Down moves to the next item', /^Roll vs fiends and undead/.test(await focused()));
+    await page.keyboard.press('Escape');
+    const closed = await holyRow.locator('.weapon-menu').waitFor({ state: 'detached', timeout: 5000 }).then(() => true, () => false);
+    check('Esc closes the menu and returns to the +',
+          closed && await isFocused(plus(holyRow)),
+          await page.evaluate(() => document.activeElement && document.activeElement.className));
+    await holyRow.locator('.weapon-damage-tile').click({ button: 'right' });
+    check('right-click on the tile opens the menu',
+          await holyRow.locator('.weapon-menu').waitFor({ timeout: 5000 }).then(() => true, () => false));
+    await holyRow.getByRole('menuitem', { name: /Roll vs fiends and undead/ }).click({ timeout: 5000 }).catch(() => {});
+    check('Roll vs rolls the base and the bonus',
+          await shows(page.locator('.message'), 'roll vs fiends and undead: 1d8+5 slashing') &&
+          await shows(page.locator('.message'), '2d10 radiant'));
+
+    await loadMagic(page, [':holy-avenger-longsword', ':javelin-of-lightning']);
+    const jav = row('Javelin of Lightning');
+    await jav.waitFor({ timeout: 5000 }).catch(() => {});
+    await plus(jav).click({ timeout: 5000 }).catch(() => {});
+    const use = jav.getByRole('menuitem', { name: /\+4d6 lightning/ });
+    check('the last row\'s menu opens upward',
+          await jav.locator('.weapon-menu.up').waitFor({ timeout: 5000 }).then(() => true, () => false));
+    await use.click({ timeout: 5000 }).catch(() => {});
+    check('a once-per-dawn use rolls', await shows(page.locator('.message'), '+4d6 lightning: 1d6+'));
+    await plus(jav).click({ timeout: 5000 }).catch(() => {});
+    check('and then reads "used"', await shows(use, 'used')
+          && await use.getAttribute('aria-disabled', { timeout: 3000 }).catch(() => null) === 'true');
+    await page.keyboard.press('Escape');
+    await load(page, false);
+    await page.waitForFunction(() => document.querySelectorAll('.weapon-row').length === 8, null, { timeout: 5000 }).catch(() => {});
 
     await page.locator('div.pointer', { hasText: 'Light Theme' }).first().click();
     await page.waitForTimeout(300);

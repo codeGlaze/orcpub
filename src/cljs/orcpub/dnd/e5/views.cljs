@@ -3870,13 +3870,63 @@
                      (dice/dice-roll-text-2 (str (::weapon/damage-die-count e) "d" die (common/mod-str flat)))
                      flat))))))
 
+(defn weapon-menu-item-used?
+  "Whether a once-per-rest menu item is spent. Takes the character id and the item.
+  Returns a boolean; items without a :recharge are never spent."
+  [id {:keys [recharge label]}]
+  (boolean (and recharge @(subscribe [::char/feature-used? id recharge label]))))
+
+(defn weapon-menu
+  "The + menu under a damage tile: items as menu rows, the first an amber Roll damage. Keys:
+  Up and Down move, Esc closes and returns focus to the +, Tab closes. Takes the character
+  id, the weapon name, the items (from disp/weapon-menu-items), whether it opens upward
+  and the close fn. Returns hiccup."
+  [id nm items up? close]
+  (let [pick (fn [{:keys [label entries recharge] :as item}]
+               (when-not (weapon-menu-item-used? id item)
+                 (dispatch [:show-message-2 (str nm " " (s/lower-case label) ": " (parts-roll-text entries))])
+                 (when recharge (dispatch [::char/toggle-feature-used id recharge label]))
+                 (close)))
+        move (fn [e step]
+               (.preventDefault e)
+               (let [items (vec (.querySelectorAll (.closest (.-target e) ".weapon-menu") ".weapon-menu-item"))
+                     i (.indexOf items (.-target e))]
+                 (.focus (nth items (mod (+ i step) (count items))))))]
+    [:<>
+     [:div.weapon-menu-backdrop {:on-click (fn [e] (.stopPropagation e) (close))}]
+     [:div.weapon-menu {:role "menu" :aria-label (str nm " damage rolls") :class (when up? "up")
+                        :on-click #(.stopPropagation %)}
+      (doall
+       (for [[i {item-id :id :keys [label sub value] :as item}] (map-indexed vector items)
+             :let [used? (weapon-menu-item-used? id item)]]
+         ^{:key (str item-id)}
+         [:button.weapon-menu-item
+          {:type "button" :role "menuitem" :aria-disabled used?
+           :class (str (when (zero? i) "primary") (when used? " used"))
+           :ref (when (zero? i) #(when % (js/setTimeout (fn [] (.focus %)) 0)))
+           :on-click #(pick item)
+           :on-key-down (fn [e]
+                          (case (.-key e)
+                            "ArrowDown" (move e 1)
+                            "ArrowUp" (move e -1)
+                            "Escape" (let [plus (some-> (.-target e) (.closest ".weapon-cell-tile")
+                                                        (.querySelector ".weapon-plus"))]
+                                       (.preventDefault e) (close) (some-> plus .focus))
+                            "Tab" (close)
+                            nil))}
+          [:span.weapon-menu-text
+           [:span.weapon-menu-label label]
+           (when sub [:span.weapon-menu-sub sub])]
+          [:span.weapon-menu-value (if used? "used" value)]]))]]))
+
 (defn weapon-row
   "One weapon's row: name, grey line, to-hit and damage tiles, the lines under it and,
   when opened, its details. Takes the weapon map, its to-hit bonus, its damage modifier
   fn, whether the character is proficient, the lowest crit roll, what holds the off hand
-  (\"a Shield\", or nil when it is free), which hand wields it (:main, :off or nil) and
-  the row's state atom ({:open? :two-handed? :toggles :pulse-done?}). Returns hiccup."
-  [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand hand state]
+  (\"a Shield\", or nil when it is free), which hand wields it (:main, :off or nil), the
+  character id, whether it is the last row (its menu opens upward) and the row's state atom
+  ({:open? :two-handed? :toggles :pulse-done? :menu-open?}). Returns hiccup."
+  [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand hand id last? state]
   (let [{:keys [open? toggles pulse-done?]} @state
         toggles (or toggles #{})
         hands-blocked? (boolean (and off-hand (::weapon/versatile weapon)))
@@ -3907,6 +3957,10 @@
         rolled (weapon-damage/applying-damage weapon modifier (boolean two-handed?) {:toggles toggles})
         [kind & props] (weapon-grey-line-parts weapon)
         hands-note (when needs-hands? " (needs both hands)")
+        menu-items (when base (disp/weapon-menu-items weapon modifier (boolean two-handed?) toggles))
+        menu-open? (and menu-items (:menu-open? @state))
+        open-menu #(swap! state assoc :menu-open? true)
+        close-menu #(swap! state assoc :menu-open? false)
         hand-pill (when hand
                     [:span.share-pill.share-pill-neutral.weapon-hand-pill
                      {:aria-label (if (= :main hand) "main hand" "off hand")}
@@ -3943,6 +3997,7 @@
          [:button.roll-button.weapon-tile.weapon-damage-tile
           {:type "button"
            :class (when needs-hands? "needs-hands")
+           :on-context-menu (when menu-items (fn [e] (.preventDefault e) (open-menu)))
            :on-click (fn [e]
                        (.stopPropagation e)
                        (dispatch [:show-message-2 (str nm " damage" hands-note ": " (parts-roll-text rolled))]))}
@@ -3955,7 +4010,16 @@
           [weapon-type-strip (::weapon/damage-type base)]]
          [:div.weapon-no-roll
           [:span.weapon-no-roll-effect (or (:summary weapon) "Special")]
-          [:span.weapon-no-roll-label "no roll"]])]]
+          [:span.weapon-no-roll-label "no roll"]])
+       (when menu-items
+         [:button.weapon-plus
+          {:type "button" :aria-haspopup "menu" :aria-expanded (boolean menu-open?)
+           :aria-label (str nm ": more damage rolls")
+           :on-click (fn [e] (.stopPropagation e) (if menu-open? (close-menu) (open-menu)))
+           :on-key-down (fn [e] (when (= "ArrowDown" (.-key e)) (.preventDefault e) (open-menu)))}
+          "+"])
+       (when menu-open?
+         [weapon-menu id nm menu-items last? close-menu])]]
      (when (or controls-below? (seq lines))
        [:div.weapon-lines
         (when controls-below?
@@ -4001,7 +4065,11 @@
             off-hand-item (cond
                             (and shield-kw (not= :none shield-kw)) (all-armor-map shield-kw)
                             (and off-hand-kw (not= :none off-hand-kw)) (all-weapons-map off-hand-kw))
-            off-hand (when off-hand-item (str "a " (weapon-name off-hand-item)))]
+            off-hand (when off-hand-item (str "a " (weapon-name off-hand-item)))
+            last-key (last (for [[k _] all-weapons
+                                 :let [w (all-weapons-map k)]
+                                 :when (and w (not= :ammunition (::weapon/type w)))]
+                             k))]
         ;; the pulse returns whenever the off hand comes free again
         (when (and @off-hand-was (nil? off-hand))
           (swap! row-state #(into {} (map (fn [[k v]] [k (dissoc v :pulse-done?)])) %)))
@@ -4027,6 +4095,8 @@
               (weapon-damage/crit-min crit-values weapon)
               (when (not= weapon-key off-hand-kw) off-hand)
               (cond (= weapon-key main-hand-kw) :main (= weapon-key off-hand-kw) :off)
+              id
+              (= weapon-key last-key)
               (r/cursor row-state [weapon-key])]))]]))))
 
 (defn magic-item-rows [expanded-details magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
