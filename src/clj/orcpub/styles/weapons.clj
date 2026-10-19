@@ -226,6 +226,18 @@
      {:font-size "12px" :font-weight 600 :color "#e6e9ee" :min-width 0 :overflow :hidden
       :text-overflow :ellipsis :white-space :nowrap}]
 
+    ;; desktop (weapons-table-spec.md section 5): a Details column takes the grey line; the name
+    ;; cell's box goes away so its two lines become grid items in their own columns
+    [:.weapons-section.desktop
+     [:.weapon-head :.weapon-row-main {:grid-template-columns "minmax(0,1.1fr) minmax(0,1fr) 66px 110px"}]
+     [:.weapon-head {:font-size "13px" :letter-spacing 0 :text-transform :none}]
+     [".weapon-head span:nth-child(2)" {:text-align :left}]
+     [:.weapon-cell-name {:display :contents}]
+     [:.weapon-name-line {:padding "0 8px 0 12px" :min-height "44px" :align-items :center}]
+     [:.weapon-grey-line {:margin-top 0 :padding-right "8px" :line-height 1.4}]
+     [:.roll-button.weapon-tile {:width "58px"}]
+     [:.roll-button.weapon-damage-tile :.weapon-no-roll {:width "102px"}]]
+
     ;; the opened row: an inset panel under the row
     [:.weapon-opened
      {:margin "0 10px 10px" :padding "10px 12px 12px" :display :flex :flex-direction :column :gap "6px"

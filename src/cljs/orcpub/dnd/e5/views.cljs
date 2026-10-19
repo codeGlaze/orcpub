@@ -4065,6 +4065,7 @@
             trained @(subscribe [::char/weapon-masteries id])
             mastery-definitions @(subscribe [::weapon/mastery-definitions])
             prof @(subscribe [::char/proficiency-bonus id])
+            desktop? (not= :mobile @(subscribe [:device-type]))
             all-weapons-map @(subscribe [::mi/all-weapons-map])
             off-hand-item (cond
                             (and shield-kw (not= :none shield-kw)) (all-armor-map shield-kw)
@@ -4078,13 +4079,13 @@
         (when (and @off-hand-was (nil? off-hand))
           (swap! row-state #(into {} (map (fn [[k v]] [k (dissoc v :pulse-done?)])) %)))
         (reset! off-hand-was off-hand)
-        [:div.weapons-section
+        [:div.weapons-section {:class (when desktop? "desktop")}
          [:div.weapons-heading
           [section-header "crossed-swords" "Weapons"]
           (when off-hand-item
             [:span.share-pill.share-pill-expired.weapons-reason
              (str (weapon-name off-hand-item) " in off hand")])]
-         [:div.weapon-head [:span "Weapon"] [:span "To hit"] [:span "Damage"]]
+         [:div.weapon-head [:span "Weapon"] (when desktop? [:span "Details"]) [:span "To hit"] [:span "Damage"]]
          [:div.weapon-rows
           (doall
            (for [[weapon-key _] all-weapons

@@ -18,6 +18,8 @@
 // opens it; "Roll vs" rolls the bonus; a once-per-dawn use rolls, then reads "used"; on the last row
 // the menu opens upward. Last, Weapon Mastery with made-up 5.5 data (this branch has none): a
 // trained longsword shows the Topple band, an untrained dagger shows none and says so when opened.
+// Then desktop at 1280px: Weapon, Details, To hit, Damage; properties in the Details column; 58x54
+// and 102x54 tiles under their headings; the ctrl/shift tooltip kept.
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/weapons_table_e2e.js`). No login.
 // Runs in:   ~30s. SHOT_DIR=<dir> saves weapons-dark.png and weapons-light.png.
@@ -309,6 +311,44 @@ async function layout(page, theme) {
   } else {
     check('the table comes back for the mastery checks', false);
   }
+  // desktop
+  const desk = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await desk.addInitScript(() => {
+    try { localStorage.setItem('orcpub:no-cookie-banner', '1'); localStorage.setItem('whats-new-seen', '"summer-patch-2026"'); } catch (e) {}
+  });
+  const dp = await desk.newPage();
+  dp.on('pageerror', e => errors.push(e.message));
+  await dp.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
+  await dp.waitForFunction(() => { try { return !!re_frame.core.dispatch_sync; } catch (e) { return false; } }, null, { timeout: 60000 });
+  await load(dp, false);
+  await dp.getByText('combat', { exact: true }).first().click({ timeout: 10000 }).catch(() => {});
+  const dsec = dp.locator('.weapons-section.desktop').filter({ visible: true }).first();
+  if (await dsec.waitFor({ timeout: 20000 }).then(() => true, () => false)) {
+    const dm = await dsec.evaluate(sec => {
+      const heads = Object.fromEntries([...sec.querySelectorAll('.weapon-head > span')].map(h => [h.textContent, h]));
+      const cx = e => { const b = e.getBoundingClientRect(); return b.left + b.width / 2; };
+      const rows = [...sec.querySelectorAll('.weapon-row')];
+      const size = t => { const b = t.getBoundingClientRect(); return `${Math.round(b.width)}x${Math.round(b.height)}`; };
+      const hit = rows.map(r => r.querySelector('.weapon-hit-tile'));
+      const dmg = rows.map(r => r.querySelector('.weapon-damage-tile, .weapon-no-roll'));
+      return { heads: Object.keys(heads), fits: sec.scrollWidth <= sec.clientWidth,
+        off: Math.max(...hit.map(t => Math.abs(cx(t) - cx(heads['To hit']))), ...dmg.map(t => Math.abs(cx(t) - cx(heads['Damage'])))),
+        hitSizes: [...new Set(hit.map(size))], dmgSizes: [...new Set(dmg.map(size))],
+        details: heads['Details'] ? rows.every(r => Math.abs(r.querySelector('.weapon-grey-line').getBoundingClientRect().left
+                                                   - heads['Details'].getBoundingClientRect().left) < 2) : false,
+        tooltips: sec.querySelectorAll('.tooltip .weapon-hit-tile').length };
+    });
+    check('desktop: Weapon, Details, To hit, Damage', dm.heads.join() === 'Weapon,Details,To hit,Damage', dm.heads.join());
+    check('desktop: properties sit in the Details column', dm.details);
+    check('desktop: tiles are 58x54 and 102x54', dm.hitSizes.join() === '58x54' && dm.dmgSizes.join() === '102x54',
+          `${dm.hitSizes} ${dm.dmgSizes}`);
+    check('desktop: headings within 2px of their tiles, and it fits', dm.off <= 2 && dm.fits, `${dm.off}`);
+    check('desktop: the ctrl/shift tooltip stays', dm.tooltips > 0);
+  } else {
+    check('desktop: the table uses the desktop layout', false);
+  }
+  await desk.close();
+
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
 
   await browser.close();
