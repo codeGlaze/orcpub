@@ -98,3 +98,88 @@
         (is (some? a) "the app has this SRD armor")
         (is (= cost (:cost a)))
         (is (== weight (pounds (:weight a))))))))
+
+(def srd-key
+  "The served file's key -> the app's key, where they differ (equipment-parity.md)."
+  {:studded-leather :studded})
+
+(defn dice-pair
+  "Damage dice as [count die]: \"1d8\" is [1 8], a flat \"1\" is [1 1], nil or \"0\" is nil."
+  [d]
+  (if-let [[_ c n] (re-matches #"(\d+)d(\d+)" (or d ""))]
+    [(parse-long c) (parse-long n)]
+    (when-let [n (some-> (re-matches #"[1-9]\d*" (or d "")) parse-long)] [n 1])))
+
+(def flag-fields
+  "SRD property key -> the app's weapon flag field."
+  {:finesse ::weapons/finesse? :heavy ::weapons/heavy? :light ::weapons/light? :loading ::weapons/loading?
+   :reach ::weapons/reach :special ::weapons/special? :two-handed ::weapons/two-handed?
+   :thrown ::weapons/thrown :ammunition ::weapons/ammunition?})
+
+(defn srd-mechanics
+  "A served SRD weapon's mechanics in the app's terms: a map of comparable fields."
+  [{:keys [category damage properties]}]
+  (let [props (into {} (map (juxt :key #(or (:detail %) true))) properties)
+        category-name (name category)
+        [_ lo hi] (re-find #"range (\d+)/(\d+)" (str (or (props :ammunition) (props :thrown) "")))]
+    (merge {:type (keyword (first (s/split category-name #"-"))) :melee? (s/ends-with? category-name "melee")
+            :ranged? (s/ends-with? category-name "ranged") :dice (dice-pair (:dice damage))
+            :damage-type (when (dice-pair (:dice damage)) (:type damage))
+            :range (when lo [(parse-long lo) (parse-long hi)])
+            :versatile (dice-pair (props :versatile))}
+           (into {} (for [[p _] flag-fields] [p (contains? props p)])))))
+
+(defn app-mechanics
+  "An app weapon's mechanics, field for field with srd-mechanics."
+  [w]
+  (merge {:type (::weapons/type w) :melee? (boolean (::weapons/melee? w)) :ranged? (boolean (::weapons/ranged? w))
+          :dice (when (::weapons/damage-die w) [(::weapons/damage-die-count w) (::weapons/damage-die w)])
+          :damage-type (when (::weapons/damage-die w) (::weapons/damage-type w))
+          :range (some-> (::weapons/range w) ((juxt ::weapons/min ::weapons/max)))
+          :versatile (some-> (::weapons/versatile w) ((juxt ::weapons/damage-die-count ::weapons/damage-die)))}
+         (into {} (for [[p f] flag-fields] [p (boolean (get w f))]))))
+
+(deftest weapon-mechanics-match-the-srd
+  (let [app (into {} (map (juxt :key identity)) weapons/weapons)]
+    (doseq [{:keys [key] :as e} (:weapons (equipment-file))]
+      (testing (name key)
+        (is (= (srd-mechanics e) (some-> (app (srd-key key key)) app-mechanics)))))))
+
+(deftest armor-mechanics-match-the-srd
+  (let [app (into {} (map (juxt :key identity)) armor/armor)]
+    (doseq [{:keys [key category ac strength] :as e} (:armor (equipment-file))
+            :let [a (app (srd-key key key))]]
+      (testing (name key)
+        (is (= category (:type a)))
+        (is (= (:base ac) (:base-ac a)))
+        (is (= (cond (nil? (:base ac)) nil (not (:dex? ac)) 0 :else (:max-dex ac)) (:max-dex-mod a)))
+        (is (= strength (:min-str a)))
+        (is (= (boolean (:stealth-disadvantage? e)) (boolean (:stealth-disadvantage? a))))))))
+
+(deftest every-key-stays-in-its-order
+  (testing "saved characters and lists depend on these keys, in this order"
+    (is (= [:crossbow-light :dart :shortbow :sling :club :dagger :greatclub :handaxe :javelin
+            :light-hammer :mace :quarterstaff :sickle :spear :battleaxe :flail :glaive :greataxe
+            :greatsword :halberd :lance :longsword :maul :morningstar :pike :rapier :scimitar
+            :shortsword :trident :war-pick :warhammer :whip :blowgun :crossbow-hand :crossbow-heavy
+            :longbow :net :firearm-hand :firearm-burst :firearm-long]
+           (mapv :key weapons/weapons)))
+    (is (= [:shield :padded :leather :studded :hide :chain-shirt :scale-mail :breastplate :half-plate
+            :ring-mail :chain-mail :splint :plate :spiked-armor]
+           (mapv :key armor/armor)))))
+
+(deftest the-apps-own-fields-stay
+  (let [w (into {} (map (juxt :key identity)) weapons/weapons)
+        a (into {} (map (juxt :key identity)) armor/armor)]
+    (testing "subtype tags"
+      (is (= {:greataxe :axe :greatsword :sword :longsword :sword :quarterstaff :staff
+              :rapier :sword :scimitar :sword :shortsword :sword}
+             (into {} (for [[k e] w :when (::weapons/subtype e)] [k (::weapons/subtype e)])))))
+    (testing "the Net's short summary"
+      (is (= "restrains" (:summary (w :net)))))
+    (testing "the six armors keep their short names until the owner decides"
+      (is (= ["Padded" "Leather" "Studded" "Hide" "Splint" "Plate"]
+             (mapv (comp :name a) [:padded :leather :studded :hide :splint :plate]))))
+    (testing "non-SRD entries stay"
+      (is (every? w [:firearm-hand :firearm-burst :firearm-long]))
+      (is (a :spiked-armor)))))

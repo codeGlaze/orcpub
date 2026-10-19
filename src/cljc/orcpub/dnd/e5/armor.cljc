@@ -1,98 +1,39 @@
-(ns orcpub.dnd.e5.armor)
+(ns orcpub.dnd.e5.armor
+  (:require [orcpub.dnd.e5.srd-equipment :as srd]))
 
 (def armor-types
   [:light :medium :heavy])
 
-(def armor
-  [{:name "Shield" :cost {:num 10 :type :gp} :weight 6
-    :type :shield
-    :key :shield}
-   {:name "Padded" :cost {:num 5 :type :gp},
-    :type :light,
-    :base-ac 11,
-    :stealth-disadvantage? true,
-    :weight 8,
-    :key :padded}
-   {:name "Leather" :cost {:num 10 :type :gp},
-    :type :light,
-    :base-ac 11,
-    :weight 10,
-    :key :leather}
-   {:name "Studded" :cost {:num 45 :type :gp},
-    :type :light,
-    :base-ac 12,
-    :weight 13,
-    :key :studded}
-   {:name "Hide" :cost {:num 10 :type :gp},
-    :type :medium,
-    :base-ac 12,
-    :max-dex-mod 2,
-    :weight 12,
-    :key :hide}
-   {:name "Chain Shirt" :cost {:num 50 :type :gp},
-    :type :medium,
-    :base-ac 13,
-    :max-dex-mod 2,
-    :weight 20,
-    :key :chain-shirt}
-   {:name "Scale mail" :cost {:num 50 :type :gp},
-    :type :medium,
-    :base-ac 14,
-    :max-dex-mod 2,
-    :stealth-disadvantage? true,
-    :weight 45,
-    :key :scale-mail}
-   {:name "Breastplate" :cost {:num 400 :type :gp},
-    :type :medium,
-    :base-ac 14,
-    :max-dex-mod 2,
-    :weight 20,
-    :key :breastplate}
-   {:name "Half plate" :cost {:num 750 :type :gp},
-    :type :medium,
-    :base-ac 15,
-    :max-dex-mod 2,
-    :stealth-disadvantage? true,
-    :weight 40,
-    :key :half-plate}
-   {:name "Ring mail" :cost {:num 30 :type :gp},
-    :type :heavy,
-    :base-ac 14,
-    :max-dex-mod 0,
-    :stealth-disadvantage? true,
-    :weight 40,
-    :key :ring-mail}
-   {:name "Chain mail" :cost {:num 75 :type :gp},
-    :type :heavy,
-    :base-ac 16,
-    :max-dex-mod 0,
-    :min-str 13,
-    :stealth-disadvantage? true,
-    :weight 55,
-    :key :chain-mail}
-   {:name "Splint" :cost {:num 200 :type :gp},
-    :type :heavy,
-    :base-ac 17,
-    :max-dex-mod 0,
-    :min-str 15,
-    :stealth-disadvantage? true,
-    :weight 60,
-    :key :splint}
-   {:name "Plate" :cost {:num 1500 :type :gp},
-    :type :heavy,
-    :base-ac 18,
-    :max-dex-mod 0,
-    :min-str 15,
-    :stealth-disadvantage? true,
-    :weight 65,
-    :key :plate}
-   {:name "Spiked Armor"
+(def app-fields
+  "The app's own fields on SRD armor, merged onto the generated entries by :key: the short names
+   (equipment-parity.md)."
+  {:padded {:name "Padded"}
+   :leather {:name "Leather"}
+   :studded {:name "Studded"}
+   :hide {:name "Hide"}
+   :splint {:name "Splint"}
+   :plate {:name "Plate"}})
+
+(def community-armor
+  "Armor outside the SRD, kept by hand."
+  [{:name "Spiked Armor"
     :type :medium
     :base-ac 14
     :max-dex-mod 2
     :weight 45
     :stealth-disadvantage? true
     :key :spiked-armor}])
+
+(def armor-order
+  "Every armor's :key, in the order lists show them."
+  [:shield :padded :leather :studded :hide :chain-shirt :scale-mail :breastplate :half-plate :ring-mail :chain-mail :splint :plate :spiked-armor])
+
+(def armor
+  "Every armor and the shield: the generated SRD entries with app-fields merged in, then
+   community-armor, in armor-order."
+  (let [by-key (into {} (map (juxt :key identity))
+                     (concat (map #(merge % (app-fields (:key %))) srd/armor) community-armor))]
+    (mapv by-key armor-order)))
 
 (def armor-map
   (zipmap (map :key armor) armor))
