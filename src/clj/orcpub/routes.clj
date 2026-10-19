@@ -1070,6 +1070,14 @@
     (sequential? v) (take n v)
     :else v))
 
+(defn- collection-size
+  "Entries in `v`, counted the way bound-collection caps them; nil if it caps nothing."
+  [v]
+  (cond
+    (map? v) (reduce + 0 (map #(if (sequential? %) (count %) 0) (vals v)))
+    (sequential? v) (count v)
+    :else nil))
+
 (defn bound-request
   "Returns `fields` with everything caller-supplied capped, before any part of the export
    sees it. Acts on the REQUEST, so a feature added later that reads the body is bounded
@@ -1089,7 +1097,17 @@
     (reduce-kv (fn [m k v]
                  (if (past-ceiling? k)
                    m
-                   (assoc m k (bound-collection max-cards v))))
+                   (let [bounded (bound-collection max-cards v)
+                         before (collection-size v)
+                         after (collection-size bounded)]
+                     ;; Reported HERE, not in bound-cards: this runs first, so by the
+                     ;; time bound-cards counts, the list is already the cap and its
+                     ;; own check can never be true. The entries went in silence.
+                     (when (and before after (> before after))
+                       (errors/note! "Export size"
+                                     (format "%s: %d requested, %d printed -- the export is capped at %d"
+                                             (name k) before after max-cards)))
+                     (assoc m k bounded))))
                {} fields)))
 
 (defn- bound-cards
@@ -1729,15 +1747,17 @@
    call agrees on the paper. An unknown :page-size falls back to :letter rather than
    throwing -- a bad option must not cost someone their sheet."
   [req]
-  (let [fields (try
-                 (-> req :form-params :body edn/read-string bound-request)
-                 (catch Exception e
-                   (throw (ex-info "Invalid character data format. Unable to parse PDF request."
-                                   {:error :invalid-pdf-data}
-                                   e))))]
-    (binding [errors/*notices* (atom [])
-              draw/*page* (one-of valid-page-sizes (:page-size fields) :letter)]
-      (generate-character-pdf* req fields))))
+  ;; The collector opens BEFORE the parse: bound-request truncates an oversized
+  ;; request, and a notice raised outside this binding is logged and then dropped.
+  (binding [errors/*notices* (atom [])]
+    (let [fields (try
+                   (-> req :form-params :body edn/read-string bound-request)
+                   (catch Exception e
+                     (throw (ex-info "Invalid character data format. Unable to parse PDF request."
+                                     {:error :invalid-pdf-data}
+                                     e))))]
+      (binding [draw/*page* (one-of valid-page-sizes (:page-size fields) :letter)]
+        (generate-character-pdf* req fields)))))
 
 (defn character-pdf-2 [req]
   (with-export-slot req #(generate-character-pdf req)))
