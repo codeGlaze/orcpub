@@ -98,11 +98,9 @@ undefined-namespace errors ever appears, check the Content-Type before believing
 
 ## Traps in this repo that will cost you time
 
-- **`plugin-datalist` (the Option Source Name field) keeps the source name in a component-local atom
-  that NEW does not reset.** After New the field still shows the previous source while the item has
-  none, and typing the same value back fires no change event — so the save is refused for a field
-  that looks filled. It cost two e2e runs to spot. Worked around with a reload in
-  `source-key-tag.js`; unfixed.
+- ~~**`plugin-datalist` keeps the source name in a local atom that NEW does not reset.**~~ Fixed in
+  #69 (`ec0b7a09`, 2026-10-19): the box reads the item, New carries the source. The reload
+  workaround in `source-key-tag.js` is gone; `new-keeps-source.js` covers all 13 builders.
 - **`lein garden once` can fail while `lein fig:build` and the whole e2e suite then pass against
   stale CSS.** Check its exit code before believing a CSS change.
 - **The What's New panel swallows clicks.** On `integration` it opens ~450ms after the first click on

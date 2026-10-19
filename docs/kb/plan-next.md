@@ -26,6 +26,7 @@ before the next.
 | 1 ☑ | Gallery baseline: already re-recorded in `2efffadb`; after the merge, no drift on all 15 builders | here | — |
 | 2 ☑ | Part B.1: `grant-selection` keeps `:order` and a `:min` below `:count` (authored), `:selection-key` and `:prereq-fn` (built-in only; the spec refuses them in a file). `grant_selection_fields_test` | here | — |
 | 2b ◐ | **ASI ships alone first** (owner, 2026-10-18): placed increases, save grants and the format envelope ported to `feature/asi-spreads`, PR #69 into `integration`. When grant-rows next merges integration, take #69's versions of the ASI code (its source was rewrapped to the comment rules) | `feature/asi-spreads` | — |
+| 2c ☐ | **Review the agents files for size** (owner, 2026-10-19). `AGENTS.md` 454 lines (21 KB) and `CLAUDE.md` 414 (18 KB) on agents/develop, both read by every agent. They share topics (setup, Calva, lein profiles, branch rules), and some is stale: `CLAUDE.md`'s branch section still says `feature/<x>` from `develop` plus `integrate/<x>`. Reference sections (themes, icons) could move to the KB. Propose a cut; the owner approves before anything is removed | agents/develop | — |
 | 3 | Part B.2: the owner through `compile-grants`; fixes the measured skill-expertise defect. Do it so ASI's `:attribution` can come from the same owner | here | 2 |
 | 3b | **Decide ASI's home before step 4** (owner, 2026-10-18): ASI kept its own engine (`compile-ability-increases`) when the grant registry was built in September, and nobody flagged it. Measure folding it into `compile-grants` (it needs an amount and "different abilities"), write the decision, then wire the silos with one hook each | here | 3 |
 | 4 | Handoff step 4: subrace, background, class, subclass compile `:grants`, one commit each with the D30 tag test | here | 3 (class arms need `:prereq-fn`) |
@@ -458,7 +459,12 @@ fields the author did not touch is untrustworthy, and one number does not identi
 template is a parameter sheet over the same `:props` (the template tier,
 `builder-disposition-audit.md` §REFRAMING).
 
-☐ `plugin-datalist` (the Option Source Name field) keeps the source name in a component-local atom
+☑ **Fixed 2026-10-19 in #69** (`ec0b7a09`; test `da336a70`, 1/18 before, 18/18 after). Built a month
+after it was settled: it sat here with no branch, and three tests stepped around it (a reload in
+`source-key-tag.js`, fresh browsers elsewhere, a retype in `asi-journey.js`). AGENTS.md rules 9–10
+(`0eb6db64` on agents/develop) came out of it.
+
+`plugin-datalist` (the Option Source Name field) kept the source name in a component-local atom
 that **NEW does not reset**, so after New the field still shows the previous source while the item
 has none — and typing the same value back fires no change, so the save is refused for a field that
 looks filled. Worked around in `test/e2e/source-key-tag.js` with a reload.

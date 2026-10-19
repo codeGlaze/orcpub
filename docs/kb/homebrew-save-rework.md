@@ -81,8 +81,8 @@ rather than of any door).
 
 ## Open
 
-- `plugin-datalist` (the Option Source Name field) keeps the source in a component-local atom that
-  New does not reset — `plan-next.md` has the settled fix.
+- ~~`plugin-datalist` keeps the source in a local atom that New does not reset~~ — fixed in #69
+  (`ec0b7a09`), as `plan-next.md` settled it.
 - `::e5/relocate-selected`, `::e5/repair-quarantined-source` and import conflict resolution write
   `:plugins` outside the gate. Each was checked and none is made more dangerous by this work: a
   stale builder now hits the `:unrecorded` refusal where it previously hit `assoc-in`.
