@@ -126,6 +126,14 @@ App-only fields stay in code, joined by `:key`, the same split as magic items' m
    `equipment.cljc:233`, `magic_items.cljc:3080` (expands magic weapons and armor per base item).
 4. `srd_equipment_test` compares generated against served, which become one source.
 
+**Steps 2-4 done 2026-10-19** on `feature/srd-pipeline` (`96925cee`, pushed, no PR yet): `weapons` and
+`armor` are `srd_equipment.cljc` plus the app's own fields and non-SRD entries, merged by `:key` in a
+hand-kept order list (lists show the vector unsorted, so the order is kept). Old against new, entry by
+entry: only the 9 Title Case names and the 30 Wikipedia links differ. `srd_equipment_test` checks every
+SRD weapon's and armor's mechanics against the served file, the key order, and the app's own fields;
+each claim was seen to fail under a break. The served 2014 file was stale (Sling 80/320) and is
+regenerated. The PR waits for `feature/weapons-table`, which changes the same two files the same way.
+
 **Decided:**
 - **Stage 1 ships with the Summer Patch** (owner, 2026-10-19: it serves 2014). Branch
   `feature/srd-pipeline`, cut from `integration` at `d51938c1`, PR into `integration`; worktree
