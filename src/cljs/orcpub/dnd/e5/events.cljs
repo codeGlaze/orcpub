@@ -7281,23 +7281,25 @@
                {::mi/type :wondrous-item
                 ::mi/rarity :common}]}))
 
-(reg-event-fx
- ::spells/reset-spell
- (fn [_ _]
-   {:dispatch [::spells/set-spell
-               default-spell]}))
+(defn- reg-reset-homebrew
+  "New in a homebrew builder: the default item, carrying the draft's :option-pack forward so the
+   source on screen is the source the new item has. A blank source stays blank. See
+   plan-next.md, the Option Source item."
+  [event set-event default-val item-key]
+  (reg-event-fx
+   event
+   (fn [{:keys [db]} _]
+     (let [src (get-in db [item-key :option-pack])]
+       {:dispatch [set-event (cond-> default-val
+                               (not (s/blank? src)) (assoc :option-pack src))]}))))
 
-(reg-event-fx
- ::monsters/reset-monster
- (fn [_ _]
-   {:dispatch [::monsters/set-monster
-               default-monster]}))
+(reg-reset-homebrew ::spells/reset-spell ::spells/set-spell default-spell ::spells/builder-item)
 
-(reg-event-fx
- ::encounters/reset-encounter
- (fn [_ _]
-   {:dispatch [::encounters/set-encounter
-               default-encounter]}))
+(reg-reset-homebrew ::monsters/reset-monster ::monsters/set-monster
+                    default-monster ::monsters/builder-item)
+
+(reg-reset-homebrew ::encounters/reset-encounter ::encounters/set-encounter
+                    default-encounter ::encounters/builder-item)
 
 (reg-event-fx
  ::combat/reset-combat
@@ -7305,65 +7307,32 @@
    {:dispatch [::combat/set-combat
                default-combat]}))
 
-(reg-event-fx
- ::bg5e/reset-background
- (fn [_ _]
-   {:dispatch [::bg5e/set-background
-               default-background]}))
+(reg-reset-homebrew ::bg5e/reset-background ::bg5e/set-background
+                    default-background ::bg5e/builder-item)
 
-(reg-event-fx
- ::langs5e/reset-language
- (fn [_ _]
-   {:dispatch [::langs5e/set-language
-               default-language]}))
+(reg-reset-homebrew ::langs5e/reset-language ::langs5e/set-language
+                    default-language ::langs5e/builder-item)
 
-(reg-event-fx
- ::class5e/reset-invocation
- (fn [_ _]
-   {:dispatch [::class5e/set-invocation
-               default-invocation]}))
+(reg-reset-homebrew ::class5e/reset-invocation ::class5e/set-invocation
+                    default-invocation ::class5e/invocation-builder-item)
 
-(reg-event-fx
- ::class5e/reset-boon
- (fn [_ _]
-   {:dispatch [::class5e/set-boon
-               default-boon]}))
+(reg-reset-homebrew ::class5e/reset-boon ::class5e/set-boon
+                    default-boon ::class5e/boon-builder-item)
 
-(reg-event-fx
- ::selections5e/reset-selection
- (fn [_ _]
-   {:dispatch [::selections5e/set-selection
-               default-selection]}))
+(reg-reset-homebrew ::selections5e/reset-selection ::selections5e/set-selection
+                    default-selection ::selections5e/builder-item)
 
-(reg-event-fx
- ::feats5e/reset-feat
- (fn [_ _]
-   {:dispatch [::feats5e/set-feat
-               default-feat]}))
+(reg-reset-homebrew ::feats5e/reset-feat ::feats5e/set-feat default-feat ::feats5e/builder-item)
 
-(reg-event-fx
- ::race5e/reset-race
- (fn [_ _]
-   {:dispatch [::race5e/set-race
-               default-race]}))
+(reg-reset-homebrew ::race5e/reset-race ::race5e/set-race default-race ::race5e/builder-item)
 
-(reg-event-fx
- ::race5e/reset-subrace
- (fn [_ _]
-   {:dispatch [::race5e/set-subrace
-               default-subrace]}))
+(reg-reset-homebrew ::race5e/reset-subrace ::race5e/set-subrace
+                    default-subrace ::race5e/subrace-builder-item)
 
-(reg-event-fx
- ::class5e/reset-subclass
- (fn [_ _]
-   {:dispatch [::class5e/set-subclass
-               default-subclass]}))
+(reg-reset-homebrew ::class5e/reset-subclass ::class5e/set-subclass
+                    default-subclass ::class5e/subclass-builder-item)
 
-(reg-event-fx
- ::class5e/reset-class
- (fn [_ _]
-   {:dispatch [::class5e/set-class
-               default-class]}))
+(reg-reset-homebrew ::class5e/reset-class ::class5e/set-class default-class ::class5e/builder-item)
 
 (defn reg-new-homebrew [event set-event default-val route plugin-key]
   (reg-event-fx

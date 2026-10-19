@@ -6691,40 +6691,31 @@
          (sort-by common/lower-case (keys plugins)))))
 
 ;;; Create a datalist element and load the plugin names
-(defn plugin-datalist [label plugin-val dispatch-event] 
-  (let [selected-value (atom (or (:option-pack plugin-val) "")) ;TODO: reframe functions may or may not help handle this more efficiently
-        ]
-    (fn []
-      [:div.flex-grow-1
-       {:class "m-l-5 m-b-20"
-        :name "option-pack"}
-       [:div.f-w-b.m-b-5 label]
-       [:input {:type "text"
-                :list "plugins-list"
-                :name "plugins-choice"
-                :id "plugins-choice"
-                :class (str "input h-40"
-                            (case (get @(subscribe [:builder-field-errors]) :option-pack)
-                              :missing " builder-field-unfilled"
-                              :invalid " builder-field-invalid"
-                              ""))
-                :placeholder "Default Option Source"
-                :value @selected-value
-                :onChange #(do
-                             ; When user types in input field:
-                             ; 1. Update the local state of the component with the new value
-                             ; 2. Dispatch event to update the state of the entire app
-                             ;    w/ new value to save to app db (can be used elsewhere in app)
-                             (reset! selected-value (-> % .-target .-value))
-                             (dispatch [dispatch-event :option-pack @selected-value])
-                             (dispatch [:clear-builder-field-error :option-pack])
-                             )
-                }]
-       [:datalist {:id "plugins-list" :class "width-100-p"}
-        (for [{:keys [title value]} (get-plugin-names)]
-          [:option {:key title :value value}])]
-      ]
-       )))
+(defn plugin-datalist
+  "The Option Source Name box. It shows the item's own :option-pack on every draw and keeps no copy,
+   so the box and the draft cannot disagree. dispatch-sync keeps the caret in place while typing
+   (a deferred update would redraw the box from the old value)."
+  [label plugin-val dispatch-event]
+  [:div.flex-grow-1
+   {:class "m-l-5 m-b-20"
+    :name "option-pack"}
+   [:div.f-w-b.m-b-5 label]
+   [:input {:type "text"
+            :list "plugins-list"
+            :name "plugins-choice"
+            :id "plugins-choice"
+            :class (str "input h-40"
+                        (case (get @(subscribe [:builder-field-errors]) :option-pack)
+                          :missing " builder-field-unfilled"
+                          :invalid " builder-field-invalid"
+                          ""))
+            :placeholder "Default Option Source"
+            :value (or (:option-pack plugin-val) "")
+            :on-change #(do (dispatch-sync [dispatch-event :option-pack (-> % .-target .-value)])
+                            (dispatch [:clear-builder-field-error :option-pack]))}]
+   [:datalist {:id "plugins-list" :class "width-100-p"}
+    (for [{:keys [title value]} (get-plugin-names)]
+      [:option {:key title :value value}])]])
 
 (declare ability-increase-choices save-proficiency-choices ability-save-notes
          optional-builder-section)
