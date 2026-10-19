@@ -118,7 +118,8 @@ The two shapes differ, so the generator emits the app's shape, not the served on
 
 App-only fields stay in code, joined by `:key`, the same split as magic items' mechanics.
 
-1. A generator writes the app's shape for every SRD field.
+1. A generator writes the app's shape for every SRD field. **Done 2026-10-19** on agents/develop:
+   `emit-app-equipment.py`; every mechanical field matches the app ([equipment-parity.md](equipment-parity.md)).
 2. `weapons` and `armor` become a compile-time read of that file, merged with the app-only fields by key.
 3. A test holds every existing `:key` and every field value the builder reads, so no saved character
    or homebrew item changes. Load-time readers to keep working: `srd_starting_equipment.cljc:16`,
