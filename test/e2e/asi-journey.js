@@ -53,13 +53,8 @@ async function saveBuilder(page) {
 }
 async function name(page, value) {
   await page.locator('#app input.input.h-40').nth(0).fill(value);
-  // Cleared first: after "New <item>" the source box still shows the last source while the draft
-  // has none (plugin-datalist keeps its own copy), and refilling the same text changes nothing.
-  const src = page.locator('#app input[placeholder="Default Option Source"]');
-  await src.fill('');
-  await wait(400);   // let the box redraw from the cleared value before the real one goes in
-  await src.fill(PAK);
-  await wait(400);
+  await page.locator('#app input[placeholder="Default Option Source"]').fill(PAK);
+  await wait(300);
 }
 
 // The ability grid's six totals, and which saves the sheet marks proficient.
