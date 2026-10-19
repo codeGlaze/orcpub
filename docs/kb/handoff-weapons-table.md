@@ -63,6 +63,14 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
   `.needs-hands`. The pulse is a CSS animation (10s x 6) on `.weapon-switch.pulse`; touching the switch
   or rolling the weapon sets the row's `:pulse-done?`, which is cleared when the off hand comes free.
   Garden minifies keyframe `0%` to an invalid `0`: use `from`/`to`. Browser test: 40 checks.
+- **The + menu** (2026-10-19, on `feature/weapons-table`): `display.cljc` `weapon-menu-items` decides it
+  (nil, so no +, unless the weapon has a target, a crit or rolled-number extra, or a once-per-rest use);
+  `views.cljs` `weapon-menu` draws it. Items: Roll damage, Roll vs each target, Critical damage (dice
+  doubled, the default crit rule) and Critical vs, then each use, spent through `features-used` under its
+  recharge period with the item label as the name. The + is an 18px tab whose 44px tap area grows left and
+  down only, so it stays inside the table. No charge items yet: charges have no SRD example and recharge
+  is undecided. Browser checks must never throw on a missing control: give every step a short timeout and
+  report a FAIL, or one break hides the checks after it.
 - **Main and off hand are marked** (owner, 2026-10-18): a small neutral pill on the name line after the
   name, holding a hand icon (`fa-hand-paper`, mirrored for the off hand) and "main" / "off", read as "main
   hand" / "off hand". Nothing in the grey line. Not in v5; the spec's rejected "Main hand / Off hand strip"
