@@ -6801,6 +6801,12 @@
 (declare ability-increase-choices save-proficiency-choices ability-save-notes
          optional-builder-section)
 
+(defn- has-entries?
+  "Does a grant field hold anything? Imported data can be any shape; only a non-empty collection
+   counts, so `seq` never meets a number."
+  [v]
+  (boolean (and (coll? v) (seq v))))
+
 (defn feat-ability-score-section
   "A feat's increases: the released \"+1 to one of these\" checkboxes, or a 2024-style spread in an
    optional section. Both write :ability-increases (a set, or a list), so one shows at a time: the
@@ -6814,12 +6820,13 @@
        [:div.m-b-20.f-s-12.i "Ability Increase Options: using the 2024-style increases below."]
        [feat-ability-increase-options feat])
      [optional-builder-section "Ability Score Increases (2024 style)"
-      (or spread? (seq (:save-proficiencies feat)))
+      (or spread? (has-entries? (:save-proficiencies feat)))
       [:div
        (if legacy?
          ^{:key "asi"} [:div.m-b-20.f-s-12.i
                         "These replace the Ability Increase Options above; clear those first."]
-         ^{:key "asi"} [ability-increase-choices (if spread? feat (assoc feat :ability-increases []))
+         ^{:key "asi"} [ability-increase-choices
+                        (if spread? feat (assoc feat :ability-increases []))
                         #(dispatch [::feats/set-feat-prop :ability-increases (if (seq %) % #{})])])
        ^{:key "saves"} [save-proficiency-choices feat
                         #(dispatch [::feats/set-feat-prop :save-proficiencies %])]
@@ -7787,7 +7794,8 @@
        ]
       ]
      [optional-builder-section "Ability Score Increases (non-standard)"
-      (or (seq (:ability-increases subclass)) (seq (:save-proficiencies subclass)))
+      (or (has-entries? (:ability-increases subclass))
+          (has-entries? (:save-proficiencies subclass)))
       ;; Explicit keys: Reagent takes a first-argument map's :key as the React key, so the three
       ;; siblings would all carry the subclass's key.
       [:div

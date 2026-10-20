@@ -170,3 +170,26 @@
       (let [sent (with-download-form (fn [_] (export!)))]
         (is (empty? @sent))
         (is (= :show-error-message (first @shown)) "the player is told, not left with nothing")))))
+
+;; Imported homebrew is untrusted. The ability-increase and save forms, their notes and the feat
+;; section are drawn with every field holding each malformed shape; none may throw.
+(def ^:private malformed-grants
+  [nil 42 "x" true {} {:a 1} #{} #{:str} #{42} [] [nil] [42] ["x"] [{}] [[]] [[nil]] [[1]]
+   [[1 nil]] [[1 nil :save]] [[1 :foo]] [[1 #{}]] [[1 []]] [[1 [nil]]] [[1 #{2}]] [["1" :str]]
+   [[nil :str]] [[1 :str :save :extra]] [[0 :any]] [[-1 :any]] [[1.5 :any]] [[4 :mental]]
+   [[1 {:a 1}]] [[1 "str"]] [[1 #{:wis :con}]]])
+
+(deftest grant-forms-draw-any-imported-shape
+  (let [draw (fn [f item] (try (dorun (tree-seq coll? seq (f item))) nil
+                               (catch :default e (.-message e))))
+        forms {"ability-increase-choices" #(views/ability-increase-choices % identity)
+               "save-proficiency-choices" #(views/save-proficiency-choices % identity)
+               "ability-save-notes"       views/ability-save-notes
+               "feat-ability-score-section" views/feat-ability-score-section}
+        failures (for [field [:ability-increases :save-proficiencies]
+                       v malformed-grants
+                       [label f] forms
+                       :let [msg (draw f {:name "Bad" field v})]
+                       :when msg]
+                   [label field v msg])]
+    (is (empty? failures) (pr-str (take 5 failures)))))
