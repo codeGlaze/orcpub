@@ -5,8 +5,8 @@
 Three paths, different mechanisms:
 
 ### 1. `./menu` and `./scripts/start.sh`
-- `scripts/common.sh` (lines ~26-32) sources `.env` with `set -a`, through `tr -d '\r'` so a
-  Windows-edited file works
+- `scripts/common.sh` loads `.env` with `load_env` from `scripts/load-env.sh` (since 2026-10-19,
+  `feature/email-and-alerts` `7dcd5acb4`; before that it ran the file with `set -a; . .env`)
 - All vars from `.env` become real environment variables
 - This is the recommended way to run services
 
@@ -35,6 +35,37 @@ Three paths, different mechanisms:
 - Real env vars take precedence over `.env` in the substitution.
 - Docker secrets bypass all of this: `config/read-secret` reads `/run/secrets/<name>` for
   `signature`, `datomic_password` and `profile_encryption_keys`.
+
+## Reading .env in the scripts: read, never run (2026-10-19)
+
+Every script that loads `.env` (`./run` `source_env`, `scripts/common.sh`, `docker-user.sh`,
+`docker-migrate.sh`, `.devcontainer/post-create.sh`, and the deploy hint `swarm.sh` prints) calls
+`load_env` from `scripts/load-env.sh`. It reads `NAME=value` lines as Docker Compose does and
+executes nothing.
+
+- **Why:** the scripts ran `.env` as shell (`. .env`) while Compose, Portainer and the server parse
+  it, so a value only one reader accepted broke the other. `APP_NAME=CI Vault` reached the app
+  through Compose but stopped `docker-user.sh` with `Vault: command not found` (CI, 2026-10-19);
+  the `.env.example` example `APP_NAME=Dungeon Master's Vault`, uncommented, broke every script.
+- **Rules, measured against a real Compose container:** value as written; one pair of matching
+  quotes removed; ` #` ends an unquoted value; trailing spaces trimmed; CRLF removed; `export `
+  allowed; unquoted and double-quoted values expand `$NAME`, `${NAME}`, `${NAME:-d}`, `${NAME-d}`
+  and `$$` -> `$`; single quotes literal; backticks never run. Compose rejects a malformed line
+  outright; `load_env` skips it. A file value replaces one already in the environment, as `. .env`
+  did.
+- **`./run` needs `scripts/`:** it stops with "needs scripts/load-env.sh beside it" when copied
+  alone. Copying `run` alone was a test shortcut from when `run` was one file
+  (`test-upgrade.sh`, 2026-03-03), not a supported use; the test now copies the reader too.
+- **Tests:** `test/docker/test-env-loading.sh` (tricky values vs a real container with
+  `COMPARE_WITH_DOCKER=1`; every fixture loads exactly as the old sourcing did; `.env.example`
+  uncommented; each script's loading; no tracked script runs `.env`). CI runs it in the Docker
+  workflow and in Git Bash on Windows, next to `test-upgrade.sh` (60 checks), which no CI ran
+  before this.
+
+**For agents writing or editing `.env`:** plain `NAME=value`, no quoting needed. To change one
+value in an existing file use `./run`'s `set_env_val` (awk), not `sed` (delimiters in URLs and
+passwords break it). Write files with the editor tools rather than shell heredocs, which add a
+second layer of quoting to get wrong.
 
 ## SIGNATURE (JWT secret)
 

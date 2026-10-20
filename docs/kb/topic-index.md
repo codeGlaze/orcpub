@@ -851,7 +851,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, indirection, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, factories, flexibility, grant, indirection, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -1439,7 +1439,7 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 
 _e2e-runner · e2e runner_
 
-**topics:** 2026-10-03, 8891, batch, bundle, busy, min, probe, probes, production, profile, rebuilds, run, runner, server, servers, stops, suite, suites
+**topics:** 2026-10-03, 8890, 8891, batch, bundle, busy, min, probe, probes, production, profile, rebuilds, run, runner, server, servers, suite, suites
 
 - The rule
 - Production is the default
@@ -1527,13 +1527,14 @@ _entity-options-architecture · entity options architecture_
 
 _env-and-auth · env and auth_
 
-**topics:** ---------------------, 500, auth, authenticated, blank-env-values, branding-setup, clj, dev, dev-mode, env, jwt, prod, profile, project, signature, startup, token, vars
+**topics:** 2026-10-19, 500, auth, authenticated, clj, compose, dev, dev-mode, docker, env, jwt, prod, profile, shell, signature, token, uncommented, vars
 
 - How env vars are loaded
 - 1. ./menu and ./scripts/start.sh
 - 2. lein repl / lein run (direct)
 - 2b. profiles.clj (local overrides, gitignored)
 - 3. Docker / production
+- Reading .env in the scripts: read, never run (2026-10-19)
 - SIGNATURE (JWT secret)
 - Where it's read (corrected 2026-10-19; this page said (environ/env :signature) in routes.clj)
 - Dev default
@@ -2711,7 +2712,7 @@ _plan-character-drafts · plan character drafts_
 
 _plan-chunked-library-storage · plan chunked library storage_
 
-**topics:** blob, capacity, chars, chunk, granularity, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike, write
+**topics:** blob, capacity, chars, chunk, complexity, granularity, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike
 
 - Read this first: why this plan is parked
 - The problem, in one line
@@ -3572,7 +3573,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
+**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners
