@@ -34,7 +34,7 @@
            (org.apache.http.conn.socket PlainConnectionSocketFactory)
            (org.apache.http.conn.ssl SSLConnectionSocketFactory)
            (java.net UnknownHostException)
-           (org.apache.pdfbox.pdmodel.font PDType1Font Standard14Fonts$FontName)
+           (org.apache.pdfbox.pdmodel.font PDType1Font PDType0Font Standard14Fonts$FontName)
            (org.apache.pdfbox.text PDFTextStripper)
            (javax.imageio ImageIO IIOImage ImageWriteParam)
            (javax.imageio.stream MemoryCacheImageOutputStream)
@@ -778,22 +778,50 @@
                     (when-let [m (re-find #"/\S+ ([\d.]+) Tf" text)]
                       (Double/parseDouble (second m))))))))
 
+(defn- field-text
+  "`v` as a form field prints it, and the font resource to print it in. A value
+   Helvetica can draw keeps today's path exactly; one it cannot switches that one
+   field to Vollkorn, where WinAnsi-only Helvetica had printed Łukasz as ?ukasz."
+  [v]
+  (let [latin (draw/normalize-text v)
+        wide (draw/normalize-text v draw/vollkorn-covers?)]
+    (if (= latin wide) [latin "Helv"] [wide "VkR"])))
+
+(defn- vollkorn-field-font!
+  "Vollkorn Regular in `form`'s default resources as /VkR, added on first use. Embedded
+   in FULL, not subset: the sheet stays fillable, and a subset holds only the glyphs
+   written now, so editing the field in a viewer would type into missing glyphs."
+  [doc form]
+  (let [res (or (.getDefaultResources form) (PDResources.))
+        nm (COSName/getPDFName "VkR")]
+    (or (.getFont res nm)
+        (let [f (with-open [in (.openStream (io/resource (:plain draw/vollkorn-files)))]
+                  (PDType0Font/load doc in false))]
+          (.put res nm f)
+          (.setDefaultResources form res)
+          f))))
+
+(defn- with-da-font
+  "`da` with its font resource replaced by `font-name`, keeping the size and colour."
+  [da font-name]
+  (s/replace (or da "/Helv 0 Tf 0 g") #"/[^\s/]+(\s+[\d.]+\s+Tf)" (str "/" font-name "$1")))
+
 (defn- shrink-single-line-to-fit!
   "Rewrites a single-line field at a smaller size when its value is wider than its
    box, and returns the size used, or nil when nothing was needed.
    GOTCHA: PDFBox sizes a single-line field by HEIGHT alone (8pt on the skill and
    save boxes), so without this a modifier of +10 or worse loses its last character."
-  [field widget value]
+  [field widget value font font-name]
   (let [rect (.getRectangle widget)
         ;; The generated appearance clips at "1 1 w h re", so 1pt each side.
         available (- (.getWidth rect) 2.0)
         size (baked-font-size widget)
-        width (when size (* 72.0 (draw/string-width value draw/HELVETICA size)))]
+        width (when size (* 72.0 (draw/string-width value font size)))]
     (when (and size width (> width available))
       ;; 2% under the exact fit: sizing to the millimetre lands a hair over once
       ;; the size is rounded into the appearance stream.
       (let [fitted (max min-single-line-size (* size 0.98 (/ available width)))]
-        (.setDefaultAppearance field (str "/Helv " fitted " Tf 0 g"))
+        (.setDefaultAppearance field (str "/" font-name " " fitted " Tf 0 g"))
         (.setValue field value)
         fitted))))
 
@@ -822,7 +850,8 @@
     (.setNeedAppearances form false)
     ;; One index rather than a lookup per value: PDAcroForm.getField walks the
     ;; field tree on every call, which dominated the export's allocation.
-    (let [by-name (persistent!
+    (let [vollkorn (delay (vollkorn-field-font! doc form))
+          by-name (persistent!
                    (reduce (fn [m field]
                              (assoc! m (.getFullyQualifiedName field) field))
                            (transient {})
@@ -843,12 +872,16 @@
       (try
         (let [field (get by-name (name k))]
           (when field
-            ;; font-sizes gated on flatten?: interactive forms keep the template's
-            ;; `/Helv 0 Tf` auto-sizing; flattening bakes a concrete size, so we
-            ;; rewrite the DA to the caller's size first.
-            (when (and flatten? (font-sizes k) (instance? PDTextField field))
-              (.setDefaultAppearance field (str "/Helv " " " (font-sizes k) " Tf 0 0 0 rg")))
-            (let [text (when (instance? PDTextField field) (draw/normalize-text v))]
+            (let [text-field? (instance? PDTextField field)
+                  [text font-name] (if text-field? (field-text v) [nil "Helv"])
+                  font (if (= "Helv" font-name) draw/HELVETICA @vollkorn)]
+              (when (and text-field? (not= "Helv" font-name))
+                (.setDefaultAppearance field (with-da-font (.getDefaultAppearance field) font-name)))
+              ;; font-sizes gated on flatten?: interactive forms keep the template's
+              ;; `/Helv 0 Tf` auto-sizing; flattening bakes a concrete size, so we
+              ;; rewrite the DA to the caller's size first.
+              (when (and flatten? (font-sizes k) text-field?)
+                (.setDefaultAppearance field (str "/" font-name "  " (font-sizes k) " Tf 0 0 0 rg")))
               (.setValue
                field
                (cond
@@ -862,7 +895,7 @@
                          (not (.isMultiline field))
                          (not (s/blank? text)))
                 (doseq [widget (.getWidgets field)]
-                  (shrink-single-line-to-fit! field widget text))))))
+                  (shrink-single-line-to-fit! field widget text font font-name))))))
         (catch Exception e (prn "failed writing field: " k v (strace/print-stack-trace e)))))
       (when flatten?
         (fix-widget-page-refs! doc)
@@ -1750,7 +1783,11 @@
     (.setWidgets field (java.util.ArrayList. [widget]))
     (.setAnnotations page (java.util.ArrayList. [widget]))
     (.setFields form (java.util.ArrayList. (conj (vec (.getFields form)) field)))
-    (.setValue field (draw/normalize-text text))
+    (let [[text font-name] (field-text text)]
+      (when (not= "Helv" font-name)
+        (vollkorn-field-font! doc form)
+        (.setDefaultAppearance field (with-da-font (.getDefaultAppearance field) font-name)))
+      (.setValue field text))
     page))
 
 (defn spill-overflow!

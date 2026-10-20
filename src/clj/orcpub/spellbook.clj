@@ -51,9 +51,10 @@
 
 (defn- clean
   "`v` as a string the embedded fonts can show (draw/normalize-text), with list bullets turned
-   into middle dots; \"\" for nil."
+   into middle dots; \"\" for nil. Keeps what every Vollkorn face draws: the one-argument
+   form is WinAnsi's limit, which printed Łukasz as ?ukasz."
   [v]
-  (or (draw/normalize-text (some-> v str (s/replace "\u2022" "\u00B7"))) ""))
+  (or (draw/normalize-text (some-> v str (s/replace "\u2022" "\u00B7")) draw/vollkorn-covers?) ""))
 
 (defn- width
   "Width of `text` in points at `size` in `font`, after `clean`."

@@ -17,6 +17,8 @@
            (org.apache.pdfbox.pdmodel.interactive.annotation PDAppearanceStream)
            (org.apache.pdfbox.pdmodel.graphics.image LosslessFactory)
            (org.apache.pdfbox.util Matrix)
+           (org.apache.pdfbox.io RandomAccessReadBuffer)
+           (org.apache.fontbox.ttf TTFParser)
            (javax.imageio ImageIO)))
 
 (def page-sizes
@@ -138,6 +140,16 @@
   "Point size of `site-stamp`. The spellbook sets its own, 6.6 with letter-spacing."
   6)
 
+(def vollkorn-files
+  "The embedded faces, by role. Under public/ so the same single copy is both on the
+   classpath for PDFBox and served over HTTP: the browser bakes the portrait credit
+   into a PNG that ends up inside this very document, and it should be set in the
+   document's own face rather than whatever the viewer's OS offers."
+  {:plain       "public/fonts/Vollkorn-Regular.ttf"
+   :italic      "public/fonts/Vollkorn-Italic.ttf"
+   :bold        "public/fonts/Vollkorn-Bold.ttf"
+   :bold-italic "public/fonts/Vollkorn-BoldItalic.ttf"})
+
 (defn load-fonts
   "Loads the fonts for the document. Will contain
   :plain, :italic, :bold and :bold-italic fonts."
@@ -148,31 +160,39 @@
                (with-open [stream (.openStream (io/resource file))]
                  (PDType0Font/load doc stream))))
     {}
-    ;; Under public/ so the same single copy is both on the classpath for
-    ;; PDFBox and served over HTTP: the browser bakes the portrait credit into
-    ;; a PNG that ends up inside this very document, and it should be set in
-    ;; the document's own face rather than whatever the viewer's OS offers.
-    {:plain       "public/fonts/Vollkorn-Regular.ttf"
-     :italic      "public/fonts/Vollkorn-Italic.ttf"
-     :bold        "public/fonts/Vollkorn-Bold.ttf"
-     :bold-italic "public/fonts/Vollkorn-BoldItalic.ttf"}))
+    vollkorn-files))
+
+(def ^:private vollkorn-cmaps
+  (delay (mapv (fn [file]
+                 (with-open [in (.openStream (io/resource file))]
+                   (.getUnicodeCmapLookup
+                    (.parse (TTFParser.) (RandomAccessReadBuffer. in)))))
+               (vals vollkorn-files))))
+
+(defn vollkorn-covers?
+  "Whether EVERY embedded Vollkorn face has a glyph for code point `cp`. All four, not
+   just the regular: a heading drawn in bold-italic throws on a glyph only the regular
+   has. Read from the font files, so it cannot drift from what is embedded."
+  [cp]
+  (every? #(pos? (.getGlyphId % (int cp))) @vollkorn-cmaps))
 
 (defn normalize-text
   "Coerces a value into the WinAnsiEncoding 0x20-0xFF subset PDFBox can render
    (PDType1Font throws on anything else, blanking the field). nil -> nil; non-strings
    stringified. \\t -> space; other 0x00-0x1F dropped except \\n and \\r; curly
    quotes -> straight; U+2013 / U+2014 -> - / --; U+2026 -> ...; anything else
-   above U+00FF -> '?'."
-  [s]
-  (when (some? s)
-    (-> (str s)
-        (s/replace "\t" " ")
-        (s/replace #"[\u0000-\u0008\u000B\u000C\u000E-\u001F]" "")
-        (s/replace "\u2018" "'")  (s/replace "\u2019" "'")
-        (s/replace "\u201C" "\"") (s/replace "\u201D" "\"")
-        (s/replace "\u2013" "-")  (s/replace "\u2014" "--")
-        (s/replace "\u2026" "...")
-        (s/replace #"[^\u0000-\u00FF]" "?"))))
+   above U+00FF -> '?', unless `keep?` (a code point predicate) says the font draws it."
+  ([s] (normalize-text s (constantly false)))
+  ([s keep?]
+   (when (some? s)
+     (-> (str s)
+         (s/replace "\t" " ")
+         (s/replace #"[\u0000-\u0008\u000B\u000C\u000E-\u001F]" "")
+         (s/replace "\u2018" "'")  (s/replace "\u2019" "'")
+         (s/replace "\u201C" "\"") (s/replace "\u201D" "\"")
+         (s/replace "\u2013" "-")  (s/replace "\u2014" "--")
+         (s/replace "\u2026" "...")
+         (s/replace #"[^\u0000-\u00FF]" #(if (keep? (.codePointAt ^String % 0)) % "?"))))))
 
 (defn font-safe
   "`text` with whatever `font` has no glyph for made drawable: characters below 0x20
