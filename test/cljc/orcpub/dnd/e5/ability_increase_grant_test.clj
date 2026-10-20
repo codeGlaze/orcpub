@@ -446,3 +446,11 @@
            (update-vals (opt5e/compile-ability-grants item {:attribution :general}) vec))
         "no throw, nothing compiled")
     (is (= 2 (count (opt5e/ignored-entry-warnings item))) "and the author is told")))
+
+(deftest a-save-choice-can-always-be-finished
+  (testing "the count is a positive whole number, capped at the pool"
+    (let [n-of (fn [spread] (map :orcpub.template/max (:selections (opt5e/compile-save-proficiencies spread))))]
+      (is (= [3] (n-of [[4 :mental]])) "4 of 3 mental saves asks for all 3")
+      (is (= [] (n-of [[0 :any] [-1 :any] [1.5 :any]])) "a count that is not a positive whole number is skipped")))
+  (testing "and a skipped count is reported"
+    (is (= 1 (count (opt5e/ignored-entry-warnings {:save-proficiencies [[0 :any] [1 :wis]]}))))))

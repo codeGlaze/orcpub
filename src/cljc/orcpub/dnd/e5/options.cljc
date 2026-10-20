@@ -299,6 +299,12 @@
                (coll? p)    (and (seq p) (every? ability? p))
                :else        false))))
 
+(defn save-entry?
+  "A :save-proficiencies entry the compiler reads: a pool-entry? whose count is a positive whole
+   number. (An increase's amount may be any number: the race builder has always allowed -2.)"
+  [e]
+  (and (pool-entry? e) (pos-int? (first e))))
+
 (defn compile-ability-increases
   "An :ability-increases spread -> {:modifiers :selections}. Single-stat pools are fixed; the rest
    are floating slots in ONE :asi selection carrying the spread on ::t/spread. A trailing :save also
@@ -362,8 +368,10 @@
   (let [entries   (map-indexed
                    (fn [idx [n pool]]
                      (let [keys (resolve-pool pool)]
-                       {:idx idx :n n :pool (vec keys) :fixed? (= 1 (count keys))}))
-                   (filter pool-entry? (when (sequential? save-spread) save-spread)))
+                       ;; never more distinct saves than the pool holds, or the pick can't finish
+                       {:idx idx :n (min n (count keys)) :pool (vec keys)
+                        :fixed? (= 1 (count keys))}))
+                   (filter save-entry? (when (sequential? save-spread) save-spread)))
         modifiers (map (fn [{:keys [pool]}] (modifiers/saving-throws nil (first pool)))
                        (filter :fixed? entries))
         choices   (remove :fixed? entries)
@@ -412,13 +420,13 @@
    loss from someone editing an imported or hand-edited file. A vector of readable strings, one per
    field with skipped entries; empty when everything compiles."
   [{:keys [ability-increases save-proficiencies]}]
-  (let [ignored (fn [field label]
-                  (let [n (if (sequential? field) (count (remove pool-entry? field)) (if field 1 0))]
+  (let [ignored (fn [field label ok?]
+                  (let [n (if (sequential? field) (count (remove ok? field)) (if field 1 0))]
                     (when (pos? n)
                       (str n " " label " entr" (if (= 1 n) "y is" "ies are")
                            " malformed and will be IGNORED — each must be [amount pool]."))))]
-    (vec (keep identity [(ignored ability-increases "ability-increase")
-                         (ignored save-proficiencies "saving-throw")]))))
+    (vec (keep identity [(ignored ability-increases "ability-increase" pool-entry?)
+                         (ignored save-proficiencies "saving-throw" save-entry?)]))))
 
 (defn save-coverage-warnings
   "Authoring guidance only, no effect on a character: redundant or overlapping save grants in ONE
@@ -430,7 +438,7 @@
         ;; only entries the compilers read: a malformed one would throw in resolve-pool
         sources (concat (for [[_ pool sv] (filter pool-entry? ability-increases) :when (= :save sv)]
                           (resolve-pool pool))
-                        (for [[_ pool] (filter pool-entry? save-proficiencies)]
+                        (for [[_ pool] (filter save-entry? save-proficiencies)]
                           (resolve-pool pool)))
         nm      (fn [k] (s/upper-case (clojure.core/name k)))
         fixed   (->> sources (filter #(= 1 (count %))) (map first))
