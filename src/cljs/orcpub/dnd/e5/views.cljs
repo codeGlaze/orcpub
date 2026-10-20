@@ -6818,7 +6818,7 @@
     [:div
      (if spread?
        [:div.m-b-20.f-s-12.i "Ability Increase Options: using the 2024-style increases below."]
-       [feat-ability-increase-options feat])
+       ^{:key "options"} [feat-ability-increase-options feat])
      [optional-builder-section "Ability Score Increases (2024 style)"
       (or spread? (has-entries? (:save-proficiencies feat)))
       [:div
@@ -6829,9 +6829,9 @@
                         (if spread? feat (assoc feat :ability-increases []))
                         #(dispatch [::feats/set-feat-prop :ability-increases (if (seq %) % #{})])])
        ^{:key "saves"} [save-proficiency-choices feat
-                        #(dispatch [::feats/set-feat-prop :save-proficiencies %])]
-       ;; the notes read a spread; the released set is not one, and is not malformed
-       ^{:key "notes"} [ability-save-notes (if spread? feat (dissoc feat :ability-increases))]]]]))
+                        #(dispatch [::feats/set-feat-prop :save-proficiencies %])]]]
+     ;; outside the section, which starts closed on junk; the released set is valid, not a spread
+     ^{:key "notes"} [ability-save-notes (if (set? ai) (dissoc feat :ability-increases) feat)]]))
 
 (defn feat-builder []
   (let [feat @(subscribe [::feats/builder-item])
@@ -7802,8 +7802,9 @@
        ^{:key "asi"} [ability-increase-choices subclass
                       #(dispatch [::classes/set-subclass-prop :ability-increases %])]
        ^{:key "saves"} [save-proficiency-choices subclass
-                        #(dispatch [::classes/set-subclass-prop :save-proficiencies %])]
-       ^{:key "notes"} [ability-save-notes subclass]]]
+                        #(dispatch [::classes/set-subclass-prop :save-proficiencies %])]]]
+     ;; outside the section, which starts closed when the fields hold junk
+     ^{:key "ability-notes"} [ability-save-notes subclass]
      (when (#{:fighter :rogue :warlock :cleric :paladin} class-key)
        (let [spellcasting (get subclass :spellcasting)
              spellcasting? (some? spellcasting)]

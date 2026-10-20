@@ -205,3 +205,14 @@
                        :when msg]
                    [label field v msg])]
     (is (empty? failures) (pr-str (take 5 failures)))))
+
+(deftest the-feat-section-says-when-its-increases-are-junk
+  (let [text #(->> (views/feat-ability-score-section %) expand (tree-seq coll? seq)
+                   (filter string?) (apply str))
+        warned? #(boolean (re-find #"malformed and will be IGNORED"
+                                   (text {:name "F" :ability-increases %})))]
+    (is (warned? 42) "a number is named, though the 2024 section starts closed")
+    (is (warned? "x"))
+    (is (not (warned? #{})) "an empty released set is not junk")
+    (is (not (warned? #{:str :con})) "nor is a released set")
+    (is (not (warned? [[1 :str]])) "nor a spread")))

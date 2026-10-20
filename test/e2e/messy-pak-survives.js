@@ -73,13 +73,19 @@ const U=`http://localhost:${PORT}`; const results=[]; const check=(n,ok,x)=>{res
   }
 
   // the feat builder reads a list as a spread, and draws increases it cannot read as no increases
-  for (const [draft,label,re] of [[LISTY_DRAFT,'Listy feat (list spread)',/using the 2024-style increases/],
-                                  [NUMBERY_DRAFT,'Numbery feat (increases 42)',/Ability Increase Options/]]) {
+  const drawn=async(draft,re)=>{
     await pg.evaluate(d=>localStorage.setItem('feat',d),draft);
-    await pg.goto(`${U}/pages/dnd/5e/feat-builder`,{waitUntil:'load'}); await pg.waitForTimeout(2500);
-    const t=await pg.locator('#app').innerText();
-    check(`the ${label} opens in the feat builder`, re.test(t), t.length+' chars');
-  }
+    await pg.goto(`${U}/pages/dnd/5e/feat-builder`,{waitUntil:'load'});
+    return pg.waitForFunction(r=>new RegExp(r).test(document.querySelector('#app').innerText),re.source,{timeout:20000})
+      .then(()=>true,()=>false);
+  };
+  // the list is read as +1 Strength: a spread row whose amount is +1 and whose target is Strength
+  const listy=await drawn(LISTY_DRAFT,/using the 2024-style increases/);
+  const picked=await pg.$$eval('#app select',els=>els.map(e=>(e.options[e.selectedIndex]||{}).text));
+  check('the Listy feat (list spread) opens as a +1 Strength spread',
+        listy&&picked.includes('+1')&&picked.includes('Strength'), JSON.stringify(picked));
+  check('the Numbery feat (increases 42) opens and says they are ignored',
+        await drawn(NUMBERY_DRAFT,/ability-increase entry is malformed and will be IGNORED/));
 
   check('NO page errors across loading + using the messy pack', errs.length===0, errs.join(' | '));
 
