@@ -470,6 +470,31 @@ the frame's first extraction pressure, not its third user. See
 
 ---
 
+## Community translation files for the site interface
+
+**Status:** Open, unscheduled. Raised 2026-10-20. A user asked about Portuguese a while
+back. A French interface by the team is NOT wanted: one volunteer reads French.
+
+**Shape:**
+
+1. **Extract the interface text into one keyed catalogue.** The big job, mechanical, and
+   nothing below starts without it: today every string is inline in the ClojureScript
+   views.
+2. **One plain data file per language**, e.g. `locales/pt.edn`, key to text. Data only,
+   never code, always rendered as text and never as HTML. That line is what stops a
+   submitted file from being a way to inject script into the site.
+3. **A missing key falls back to English**, so a partial translation still ships.
+4. **CI on every submission:** each key exists in English, placeholders match, no markup.
+5. **A named owner per language.** Accept a language only when someone who reads it will
+   maintain it; nobody on the team can review the rest.
+
+**Out of scope for a first version:** spell and rules text (far larger, separate
+question); right-to-left and shaped scripts (Arabic, Hebrew, Devanagari), which the PDF
+export cannot print either.
+
+**Already in place:** the server pins its own locale (`locale-safety.md` section 5), so
+a user's language has to travel with the request, which is what this needs anyway.
+
 ## Declare which settings expect a whole number (`config.clj` startup report)
 
 **Status:** not started. Small, own commit. Found 2026-10-04 while clearing lint warnings.
