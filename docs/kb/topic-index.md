@@ -1575,11 +1575,12 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** 2026-10-15, 400px, ammunition, app-only, armor, content-naming-style, damage, die, firearms, leather, longbow, net, open5e, spiked, srd, studded, weapons, weights
+**topics:** ammunition, armor, climber, damage, dash, die, equipment, gear, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
 - The app-shape generator (2026-10-19)
+- Gear, packs and quantities: seen in the app (2026-10-20)
 
 ## error-handling-import-validation.md
 

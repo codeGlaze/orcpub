@@ -54,6 +54,28 @@ differences are only the ones above: Wikipedia links, display names, and the app
 (`feature/srd-pipeline`) can make `weapons` and `armor` the generated entries merged with those fields
 by key, with no player-visible change beyond the decided renames.
 
+## Gear, packs and quantities: seen in the app (2026-10-20)
+
+Real app (`scripts/e2e/run.sh`, `feature/srd-pipeline` at `96925cee`, same gear code as `integration`),
+Fighter 1 taking Explorer's Pack and "Leather Armor, Longbow, 20 Arrows":
+
+- **Pack rations show with no name.** Every pack asks for `:rations-1-day-`; since `0790b3cd`
+  (2026-09-07) `name-to-kw` makes "Rations (1 day)" `:rations-1-day`, so the pack's rations are a
+  nameless "10" row on the sheet. Five packs. Not fixed yet.
+- **Picking an item by hand replaces a starting quantity.** The starting choice gives Arrow 20;
+  adding Arrow in the Equipment picker then shows Arrow 1, not 21.
+- **Pack contents are not editable.** They appear on the sheet's Other Equipment list, but the builder
+  lists only hand-picked items with Carried? and Quantity, so a pack's torches or rope cannot be
+  counted down or removed.
+- **The picker starts every item at 1** (`inventory-selection`, `template.cljc`); starting equipment
+  grants bundles (`(mod5e/equipment :arrow 20)` in `classes.cljc`). `:sell-qty` and `:sell-container`
+  are read nowhere.
+- **Not tested:** adding Ball Bearings through the picker (the script could not drive it).
+
+Gear keys come from `name-to-kw` on the name, and it deletes a straight apostrophe but turns a curly
+one into a dash ("Climber’s Kit" is `:climber-s-kit`, "Climber's Kit" `:climbers-kit`); SRD names with
+quantities ("Acid (vial)") would also change keys. So a gear generator writes today's keys explicitly.
+
 **The Net deals no damage, by design** (2026-10-15). SRD 5.1 lists its damage as "—" with
 "Special, thrown (range 5/15)": a Large or smaller creature it hits is restrained (DC 10 Strength
 check or 5 slashing damage to the net to free it), and attacking with it allows one attack per
