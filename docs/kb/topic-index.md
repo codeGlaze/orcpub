@@ -2221,7 +2221,7 @@ _lifting-mechanics-from-prose · lifting mechanics from prose_
 
 _locale-safety · locale safety_
 
-**topics:** 7231, case-folding, dotless, english, english-locale, etag, locale, locale-independent, machine, pedestal-csp-history, protocol, regional, rfc, router, spanish, turkish, webjar, windows
+**topics:** 2026-10, 7231, case-folding, deterministic, dotless, english, english-locale, etag, locale, locale-independent, machine, pedestal-csp-history, protocol, spanish, survey, turkish, webjar, windows
 
 - 1. The ETag crash
 - Why only /assets/
@@ -2231,6 +2231,7 @@ _locale-safety · locale safety_
 - 4. How this was found, and how long it took
 - Provenance
 - On integration (2026-10-04)
+- 5. The default is pinned (2026-10, refactor/pdf-canvas, PR #63)
 
 ## memoize-antipattern-scan.md
 
@@ -2294,7 +2295,7 @@ _monolith-decomposition-plan · monolith decomposition plan_
 
 _multi-tab-character-contamination · multi tab character contamination_
 
-**topics:** -time, apparently-empty, clone, defence, entity-options-architecture, event-layer, localstorage, lower-level, payloads, per-origin, plan-character-drafts, server-side, slot, spa-routing-architecture, sub-entity, symbols, tab, tabs
+**topics:** -time, apparently-empty, clone, entity-options-architecture, event-layer, localstorage, lower-level, payloads, per-origin, plan-character-drafts, recently, server-side, slot, spa-routing-architecture, sub-entity, symbols, tab, tabs
 
 - The mechanism
 - Where the notes actually live

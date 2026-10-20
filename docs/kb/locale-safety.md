@@ -146,6 +146,9 @@ only ones operating on machine tokens. Worth re-running when adding new ones:
 grep -rn "str/lower-case\|str/upper-case\|\.toLowerCase\|\.toUpperCase" src/
 ```
 
+**Superseded as the only defence (2026-10), see §5.** Fixing call sites held, but the grep above
+misses `format`, and the next site always arrived before anyone re-ran it.
+
 ## 4. How this was found, and how long it took
 
 Worth recording, because the shape of the search was the expensive part.
@@ -208,3 +211,43 @@ upstream-only release. What the merge itself had to do, beyond the 10 conflicted
 - The CLJS tests are never run by CI or `lein fig:test` (that only builds). Run them by loading
   `target/test/js/test.js` in Chromium and calling `orcpub.test_runner._main()`; serve the JS
   as UTF-8, or the `À-ɏ` range in `common.cljc` breaks and every namespace after it cascades.
+
+## 5. The default is pinned (2026-10, `refactor/pdf-canvas`, PR #63)
+
+Per-call-site pinning kept losing. Between this page's survey and October, 25 more sites shipped:
+
+| Where | Operation | Under tr_TR / es_ES |
+|---|---|---|
+| spellbook evocation sigil | `(format "M%.2f ...")` into an SVG path | `5,00` read as two numbers: 2 path ops became 4, sigil drew as a scribble |
+| spellbook, cards, sheet | `s/capitalize`, `s/upper-case` on school, class, ability, source | `İllusion`, `WİZARD`, `İNT`, substituted to a different glyph |
+| `routes.clj`, `artist_accounts.clj` | `s/lower-case` on email, 8 sites | `IVAN@x.com` filed as `ıvan@x.com` |
+| 4 Datomic query clauses | `clojure.string/lower-case` on the STORED email | the other half of the same comparison |
+
+The query clauses are the case to remember. Both sides folded the same wrong way, so lookups still
+matched. Pinning only the input side would have broken sign-in on those servers outright. A guard
+test caught it mid-change.
+
+**Why the survey missed them:** its grep covers case folding only, and the formatting half of the
+rule had no grep at all.
+
+**Now:** `orcpub.server/pin-locale!` sets `Locale/ROOT` first, at both entry points: `-main` (the
+Docker image's `java -jar`) and `dev/user.clj` `start-server` (`scripts/start.sh`, which is what
+self-hosters run). `-main` alone would have missed the path the original report came through.
+
+Deliberately NOT pinned:
+
+- in `orcpub.system/system`, which both call, because a test builds a system and the pin would
+  silence the locale CI job for the rest of the run;
+- in `:jvm-opts`, for the same reason.
+
+The per-site fixes stay as defence in depth. `common/ascii-*` and `common/decimal-str` are right in
+any locale, and the pin does not reach ClojureScript. Guards: `pdf_locale_test` greps `src` and
+`test` for an unlocalised float `format`, and `identity_locale_test` holds `routes.clj` and
+`artist_accounts.clj` to `ascii-*`.
+
+**Not audited:** 36 further case-folding sites across 19 files, almost all game content and prose.
+The pin makes them deterministic in production; whether each one is right is a separate question.
+
+**For future localisation:** the pin is the base, not an obstacle. One JVM serves every user at once,
+so a user's language has to travel with the request anyway. Default deterministic, pass a locale
+explicitly wherever a human reads the result.

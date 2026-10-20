@@ -356,8 +356,20 @@ Beyond refuse both and are upload-or-nothing.
 
 ## The spellbook sanitises Type0 text with a Type1 rule
 
-**Status:** Open, measured 2026-10-18 on `refactor/pdf-canvas`. Not fixed — it changes
-rendered output, so it needs its own characterization and a re-seeded spellbook baseline.
+**Status:** Half fixed, 2026-10-20, `refactor/pdf-canvas` (`a0d735e5`). Still open: the
+135 SRD substitutions below.
+
+**The fixed half.** `clean` now passes `draw/vollkorn-covers?`, so a character past U+00FF
+that every Vollkorn face draws is kept. Łukasz used to print as `?ukasz`. The sheet's form
+fields and overflow pages got the same fix, switching per field to Vollkorn. That turned
+out to be the bigger half: this entry was written about the spellbook alone.
+
+**The open half.** `normalize-text`'s explicit substitutions run first, by design:
+curly quotes to straight, en dash to `-`, em dash to `--`. Keeping them is why no SRD
+string and no baseline moved. Dropping them is the fix the table below asks for; it
+re-seeds the spellbook baseline and stays its own change. The newline hazard under "The
+obvious fix is wrong" does not apply: `normalize-text` keeps `\n`, and only font-safe
+eats it.
 
 `spellbook/clean` runs every string through `draw/normalize-text`, which restricts to
 WinAnsi 0x20-0xFF. That is the correct rule for `PDType1Font` (the AcroForm fields, on
