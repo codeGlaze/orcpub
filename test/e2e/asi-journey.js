@@ -123,7 +123,11 @@ async function deletePack(page, pak) {
 async function importFile(page, file) {
   await goto(page, '/dnd/5e/my-content');
   await page.locator('#app input[type=file]').first().setInputFiles(file);
-  await wait(5000);
+  // done when the pack is in the library, a question about it is up, or the file is refused
+  const pak = path.basename(file, '.orcbrew');
+  await page.waitForFunction(p => (localStorage.getItem('plugins') || '').includes(`"${p}"`)
+    || /keep “|newer format/i.test(document.querySelector('#app').innerText), pak, { timeout: 15000 })
+    .catch(() => {});
   const keep = page.getByRole('button', { name: /^keep “/i }).first();
   if (await keep.isVisible().catch(() => false)) { await keep.click(); await wait(3000); }
 }

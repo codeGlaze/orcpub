@@ -30,12 +30,12 @@ const HOST=`<!DOCTYPE html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="/assets/font-awesome/5.13.1/css/all.min.css"></head>
 <body><div id="app"></div><script src="/js/compiled/orcpub.js"></script></body></html>`;
 const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.svg':'image/svg+xml','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf','.map':'application/json'};
-const server=http.createServer((req,res)=>{const p=decodeURIComponent(req.url.split('?')[0]);const fp=path.join(ROOT,p);fs.readFile(fp,(e,d)=>{if(e){res.setHeader('Content-Type','text/html');res.end(HOST);return;}res.setHeader('Content-Type',mime[path.extname(fp)]||'application/octet-stream');res.end(d);});});
+const server=http.createServer((req,res)=>{const p=decodeURIComponent(req.url.split('?')[0]);const R=path.resolve(ROOT),fp=path.resolve(R,'.'+p);if(fp!==R&&!fp.startsWith(R+path.sep)){res.statusCode=404;return res.end();}fs.readFile(fp,(e,d)=>{if(e){res.setHeader('Content-Type','text/html');res.end(HOST);return;}res.setHeader('Content-Type',mime[path.extname(fp)]||'application/octet-stream');res.end(d);});});
 const errs=[]; const U=`http://localhost:${PORT}`;
 const lsPlugins=async pg=>pg.evaluate(()=>localStorage.getItem('plugins')||'');
 const results=[]; const check=(name,ok)=>{results.push(ok);console.log(`  ${ok?'PASS':'FAIL'}  ${name}`);};
 (async()=>{
-  await new Promise(r=>server.listen(PORT,r));
+  await new Promise(r=>server.listen(PORT,'127.0.0.1',r));
   const b=await chromium.launch({ executablePath: findChrome() });const pg=await b.newPage({acceptDownloads:true});
   pg.on('pageerror',e=>errs.push((e.message||e).toString().split('\n')[0]));
   await pg.setViewportSize({width:1280,height:1000});
@@ -105,8 +105,9 @@ const results=[]; const check=(name,ok)=>{results.push(ok);console.log(`  ${ok?'
   const abil = await pg.locator('#app').innerText();
   check('floating ASI choice RENDERS in the builder ("Improvement: Race - Tide Touched")',
         /Improvement:\s*Race\s*-\s*Tide Touched/.test(abil));
-  // the fixed +2 CHA shows as a racial bonus in the score grid (CHA is the 6th column -> "race | 2")
-  check('fixed +2 CHA applied in the rendered ability grid', /race\s*\|?\s*2/.test(abil.replace(/\n+/g,' ')));
+  // the grid reads "+ race N" once per column, STR to CHA: the +2 is in CHA's and nowhere else
+  const race=[...abil.matchAll(/\+\s*race\s*(-?\d+)/g)].slice(0,6).map(m=>+m[1]);
+  check('fixed +2 CHA applied in the rendered ability grid, in the CHA column only', JSON.stringify(race)==='[0,0,0,0,0,2]');
 
   console.log('PAGEERRORS:', errs.join(' | ')||'none');
   const pass=results.every(Boolean) && errs.length===0;
