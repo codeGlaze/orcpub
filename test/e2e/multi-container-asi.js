@@ -14,7 +14,7 @@ const REPO=process.env.REPO||path.resolve(__dirname,'../..');
 const ROOT=path.join(REPO,'resources/public'), PORT=Number(process.env.PORT||8875);
 const HOST=`<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/css/compiled/styles.css"><link rel="stylesheet" href="/assets/font-awesome/5.13.1/css/all.min.css"></head><body><div id="app"></div><script src="/js/compiled/orcpub.js"></script></body></html>`;
 const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.svg':'image/svg+xml','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf'};
-const server=http.createServer((req,res)=>{const p=decodeURIComponent(req.url.split('?')[0]);const fp=path.join(ROOT,p);fs.readFile(fp,(e,d)=>{if(e){res.setHeader('Content-Type','text/html');res.end(HOST);return;}res.setHeader('Content-Type',mime[path.extname(fp)]||'application/octet-stream');res.end(d);});});
+const server=http.createServer((req,res)=>{const p=decodeURIComponent(req.url.split('?')[0]);const R=path.resolve(ROOT),fp=path.resolve(R,'.'+p);if(fp!==R&&!fp.startsWith(R+path.sep)){res.statusCode=404;return res.end();}fs.readFile(fp,(e,d)=>{if(e){res.setHeader('Content-Type','text/html');res.end(HOST);return;}res.setHeader('Content-Type',mime[path.extname(fp)]||'application/octet-stream');res.end(d);});});
 // race + background each grant +1 to a martial stat (separate containers, same pool)
 const PLUGINS=`{"Default Option Source" {} "Pack" {:orcpub.dnd.e5/races {:tide {:name "Tide" :key :tide :option-pack "Pack" :size :medium :speed 30 :languages #{} :traits [] :ability-increases [[1 :martial]]}} :orcpub.dnd.e5/backgrounds {:sea {:name "Sea-Marked" :key :sea :option-pack "Pack" :ability-increases [[1 :martial]]}}}}`;
 const U=`http://localhost:${PORT}`; const results=[]; const check=(n,ok,x)=>{results.push(ok);console.log(`  ${ok?'PASS':'FAIL'}  ${n}${x?'  '+x:''}`);};
@@ -23,7 +23,7 @@ const U=`http://localhost:${PORT}`; const results=[]; const check=(n,ok,x)=>{res
 // "STR<space>number" text grep — robust to layout and to a missing stylesheet.
 const scores=async pg=>await pg.evaluate(()=>{const n=[...document.querySelectorAll('.ability-score-name')].map(e=>e.textContent.trim().toUpperCase());const v=[...document.querySelectorAll('.ability-score')].map(e=>+e.textContent.trim());const m={};n.forEach((a,i)=>{if(/^(STR|DEX|CON|INT|WIS|CHA)$/.test(a)&&!(a in m))m[a]=v[i];});return m;});
 (async()=>{
-  await new Promise(r=>server.listen(PORT,r));
+  await new Promise(r=>server.listen(PORT,'127.0.0.1',r));
   const b=await chromium.launch({ executablePath: findChrome() });const pg=await b.newPage(); const errs=[]; pg.on('pageerror',e=>errs.push((e.message||e).toString().split('\n')[0]));
   await pg.setViewportSize({width:1280,height:1400});
   await pg.goto(`${U}/dnd/5e/my-content`,{waitUntil:'load'}); await pg.evaluate(p=>localStorage.setItem('plugins',p),PLUGINS);

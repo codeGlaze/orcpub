@@ -33,7 +33,8 @@ const mime = {'.js':'text/javascript','.css':'text/css','.html':'text/html','.pn
 // Static server rooted at resources/public, with SPA fallback (deep route -> host page).
 const server = http.createServer((req, res) => {
   const p = decodeURIComponent(req.url.split('?')[0]);
-  const fp = path.join(ROOT, p);
+  const root = path.resolve(ROOT), fp = path.resolve(root, '.' + p);
+  if (fp !== root && !fp.startsWith(root + path.sep)) { res.statusCode = 404; return res.end(); }
   fs.readFile(fp, (e, d) => {
     if (e) { res.setHeader('Content-Type', 'text/html'); res.end(HOST); return; }
     res.setHeader('Content-Type', mime[path.extname(fp)] || 'application/octet-stream');
@@ -42,7 +43,7 @@ const server = http.createServer((req, res) => {
 });
 
 (async () => {
-  await new Promise(r => server.listen(PORT, r));
+  await new Promise(r => server.listen(PORT, '127.0.0.1', r));
   const browser = await chromium.launch({ executablePath: findChrome() });
   const pg = await browser.newPage();
   const errs = [];

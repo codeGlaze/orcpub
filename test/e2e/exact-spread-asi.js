@@ -19,7 +19,7 @@ const HOST=`<!DOCTYPE html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="/assets/font-awesome/5.13.1/css/all.min.css"></head>
 <body><div id="app"></div><script src="/js/compiled/orcpub.js"></script></body></html>`;
 const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.svg':'image/svg+xml','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf','.map':'application/json'};
-const server=http.createServer((req,res)=>{const p=decodeURIComponent(req.url.split('?')[0]);const fp=path.join(ROOT,p);fs.readFile(fp,(e,d)=>{if(e){res.setHeader('Content-Type','text/html');res.end(HOST);return;}res.setHeader('Content-Type',mime[path.extname(fp)]||'application/octet-stream');res.end(d);});});
+const server=http.createServer((req,res)=>{const p=decodeURIComponent(req.url.split('?')[0]);const R=path.resolve(ROOT),fp=path.resolve(R,'.'+p);if(fp!==R&&!fp.startsWith(R+path.sep)){res.statusCode=404;return res.end();}fs.readFile(fp,(e,d)=>{if(e){res.setHeader('Content-Type','text/html');res.end(HOST);return;}res.setHeader('Content-Type',mime[path.extname(fp)]||'application/octet-stream');res.end(d);});});
 // :from :martial restricts the floating pool to str/dex/con (also guards pool-restriction)
 const PLUGINS=`{"Default Option Source" {} "Bag Pack" {:orcpub.dnd.e5/races {:bag-touched {:size :medium, :speed 30, :languages #{}, :traits [], :name "Bag Touched", :option-pack "Bag Pack", :key :bag-touched, :ability-increases [[2 :martial] [1 :martial]]}}}}`;
 const errs=[]; const U=`http://localhost:${PORT}`;
@@ -29,7 +29,7 @@ const results=[]; const check=(n,ok,extra)=>{results.push(ok);console.log(`  ${o
 // "STR<space>number" text grep — robust to layout and to a missing stylesheet.
 const scores=async pg=>await pg.evaluate(()=>{const n=[...document.querySelectorAll('.ability-score-name')].map(e=>e.textContent.trim().toUpperCase());const v=[...document.querySelectorAll('.ability-score')].map(e=>+e.textContent.trim());const m={};n.forEach((a,i)=>{if(/^(STR|DEX|CON|INT|WIS|CHA)$/.test(a)&&!(a in m))m[a]=v[i];});return m;});
 (async()=>{
-  await new Promise(r=>server.listen(PORT,r));
+  await new Promise(r=>server.listen(PORT,'127.0.0.1',r));
   const b=await chromium.launch({ executablePath: findChrome() });const pg=await b.newPage();
   pg.on('pageerror',e=>errs.push((e.message||e).toString().split('\n')[0]));
   await pg.setViewportSize({width:1280,height:1400});
