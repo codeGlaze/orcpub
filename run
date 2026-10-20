@@ -45,11 +45,16 @@ read_env_val() {
   grep -m1 "^${1}=" "$2" 2>/dev/null | cut -d= -f2- | tr -d '\r' || true
 }
 
-# Source a .env file safely (strips Windows \r line endings).
+# Load a .env file: each NAME=value line is read, never run (scripts/load-env.sh).
 # Usage: source_env "/path/to/.env"
+if [ ! -f "${SCRIPT_DIR}/scripts/load-env.sh" ]; then
+  printf '[ERROR] %s needs scripts/load-env.sh beside it. Run it from a full checkout of the repository.\n' "$0" >&2
+  exit 1
+fi
+# shellcheck source=scripts/load-env.sh
+. "${SCRIPT_DIR}/scripts/load-env.sh"
 source_env() {
-  # shellcheck disable=SC1090
-  . <(tr -d '\r' < "$1")
+  load_env "$1"
 }
 
 # Source optional modules

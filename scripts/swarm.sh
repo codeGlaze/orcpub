@@ -711,7 +711,7 @@ print_swarm_summary() {
     printf '     4. Paste contents of %s\n' ".env.portainer"
     echo
     printf '   %sCLI:%s\n' "$color_bold" "$color_reset"
-    printf '     set -a; source .env; set +a\n'
+    printf '     . scripts/load-env.sh && load_env .env\n'
     printf '     docker stack deploy -c %s %s\n' "$(basename "$compose_file")" "${_swarm_stack_name:-orcpub}"
     echo
 

@@ -114,11 +114,12 @@ run_fixture() {
   tmpdir=$(mktemp -d)
   # Don't trap RETURN — we clean up at the end of the function
 
-  # Copy fixture as .env and the setup script into tmpdir.
-  # run uses SCRIPT_DIR (dirname of the script) to find .env,
-  # so the script must live next to the .env for it to find the fixture.
+  # Copy fixture as .env, the setup script and the .env reader it needs into tmpdir.
+  # run uses SCRIPT_DIR (dirname of the script) to find .env and scripts/load-env.sh,
+  # so they must sit next to it, as in a checkout.
   cp "$fixture_file" "${tmpdir}/.env"
   cp "$SETUP_SCRIPT" "${tmpdir}/run"
+  mkdir -p "${tmpdir}/scripts" && cp "${PROJECT_ROOT}/scripts/load-env.sh" "${tmpdir}/scripts/"
 
   local output
   output=$(bash "${tmpdir}/run" --upgrade --auto 2>&1) || true
@@ -237,6 +238,7 @@ run_secrets_test() {
   # Use v3-current as the base .env (already up to date)
   cp "${FIXTURE_DIR}/env-v3-current.env" "${tmpdir}/.env"
   cp "$SETUP_SCRIPT" "${tmpdir}/run"
+  mkdir -p "${tmpdir}/scripts" && cp "${PROJECT_ROOT}/scripts/load-env.sh" "${tmpdir}/scripts/"
 
   local output
   output=$(bash "${tmpdir}/run" --secrets --auto 2>&1) || true

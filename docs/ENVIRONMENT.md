@@ -8,6 +8,13 @@ All configuration is managed via a `.env` file at the repository root. Copy `.en
 2. `containerEnv` in `.devcontainer/devcontainer.json` (fallback defaults)
 3. System environment variables
 
+**How `.env` is read.** Each line is `NAME=value`, and the value is taken exactly as written:
+spaces and apostrophes need no quotes (`APP_NAME=Dungeon Master's Vault`), and quotes around a
+value are optional and removed. Blank lines and lines starting with `#` are ignored; so is
+` # comment` after an unquoted value. A `$` starts a reference to another setting (`${PORT}`),
+so write `$$` for a literal `$`, or put the value in single quotes. Docker, Portainer and the
+setup scripts all read the file this way.
+
 **In Docker**, `.env` is not handed to the app container as a whole. Compose (and the Swarm stack
 file) pass only the settings they name, filled from `.env`. Every setting on this page is named
 there, so setting it in `.env` is enough; a variable of your own that is not on this page will not

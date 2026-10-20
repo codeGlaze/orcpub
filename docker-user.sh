@@ -259,9 +259,10 @@ if [ "${1:-}" = "init" ]; then
     exit 1
   fi
 
-  # Source .env to get INIT_ADMIN_* variables (tr -d '\r' for Windows line endings)
-  # shellcheck disable=SC1090
-  . <(tr -d '\r' < "$ENV_FILE")
+  # Load .env for the INIT_ADMIN_* variables. Read, never run: scripts/load-env.sh.
+  # shellcheck source=scripts/load-env.sh
+  . "${SCRIPT_DIR}/scripts/load-env.sh"
+  load_env "$ENV_FILE"
 
   if [ -z "${INIT_ADMIN_USER:-}" ]; then
     error "INIT_ADMIN_USER is not set in .env"

@@ -97,6 +97,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 
 ### Fixed
 
+- **Server:** the setup scripts read `.env` the way Docker does, so a value with an apostrophe or spaces (`APP_NAME=Dungeon Master's Vault`) no longer breaks `./run`, `docker-user.sh` or the start scripts.
 - **Server:** settings set in `.env` now reach the server under Docker Compose and Swarm. Branding (`APP_*`) and most other settings were dropped on the way into the container, so the site ran on defaults whatever `.env` said.
 - **Homebrew:** a custom element with a blank or symbol-only name no longer breaks the character. (#675)
 - **Homebrew:** older spell names (Leomund's, Tasha's, Bigby's) match in imported packs. (#676)
