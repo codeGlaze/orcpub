@@ -259,16 +259,19 @@
  ::bg5e/plugin-backgrounds
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (map
+   (keep
     (fn [background]
       ;; A background's ability and save grants (the 2024 rules give the ASI here) compile to
-      ;; extra modifiers and selections, the same hook as races. None -> nothing added.
-      (let [{ai-mods :modifiers ai-sels :selections}
-            (opt5e/compile-ability-grants background {:attribution :general})]
-        (assoc background
-               :modifiers (concat (:modifiers background) ai-mods)
-               :selections (concat (:selections background) ai-sels)
-               :edit-event [::bg5e/edit-background background])))
+      ;; extra modifiers and selections, the same hook as races. Guarded like races: a background
+      ;; that throws is reported and set aside, never the whole list.
+      (guard/guard-option
+       ::e5/backgrounds background
+       #(let [{ai-mods :modifiers ai-sels :selections}
+              (opt5e/compile-ability-grants % {:attribution :general})]
+          (assoc %
+                 :modifiers (concat (:modifiers %) ai-mods)
+                 :selections (concat (:selections %) ai-sels)
+                 :edit-event [::bg5e/edit-background %]))))
     (mapcat (comp vals ::e5/backgrounds) plugins))))
 
 (reg-sub
