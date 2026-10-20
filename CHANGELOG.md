@@ -97,6 +97,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 
 ### Fixed
 
+- **Server:** settings set in `.env` now reach the server under Docker Compose and Swarm. Branding (`APP_*`) and most other settings were dropped on the way into the container, so the site ran on defaults whatever `.env` said.
 - **Homebrew:** a custom element with a blank or symbol-only name no longer breaks the character. (#675)
 - **Homebrew:** older spell names (Leomund's, Tasha's, Bigby's) match in imported packs. (#676)
 - **Homebrew:** a homebrew class's source label no longer corrupts saved spell selections. (#670)

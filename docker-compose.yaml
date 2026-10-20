@@ -68,6 +68,48 @@ services:
       # for every container (a volume at /var/lib/orcpub/portraits, with this set to that path);
       # without one, each container keeps its own under /tmp.
       PORTRAIT_STORE_DIR: ${PORTRAIT_STORE_DIR:-}
+      # Every other setting the server reads. Empty means "use the default", so these change
+      # nothing until set in .env. Only names listed here reach the container.
+      # Admin alerts (docs/ENVIRONMENT.md, Admin alerts)
+      ALERT_SPOOL_DIR: ${ALERT_SPOOL_DIR:-}
+      ALERT_MAX_PER_HOUR: ${ALERT_MAX_PER_HOUR:-}
+      # Capacity (docs/ENVIRONMENT.md, Capacity)
+      ORCPUB_HTTP_MAX_THREADS: ${ORCPUB_HTTP_MAX_THREADS:-}
+      ORCPUB_PDF_CONCURRENCY: ${ORCPUB_PDF_CONCURRENCY:-}
+      ORCPUB_PDF_QUEUE_TIMEOUT_MS: ${ORCPUB_PDF_QUEUE_TIMEOUT_MS:-}
+      ORCPUB_PDF_MAX_RETRIES: ${ORCPUB_PDF_MAX_RETRIES:-}
+      ORCPUB_PDF_MAX_CASTER_SECTIONS: ${ORCPUB_PDF_MAX_CASTER_SECTIONS:-}
+      ORCPUB_PDF_MAX_CARDS: ${ORCPUB_PDF_MAX_CARDS:-}
+      ORCPUB_PORTRAIT_CONCURRENCY: ${ORCPUB_PORTRAIT_CONCURRENCY:-}
+      ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS: ${ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS:-}
+      # Share links and passwords
+      ORCPUB_SHARE_MAX_UPLOAD_KB: ${ORCPUB_SHARE_MAX_UPLOAD_KB:-}
+      ORCPUB_SHARE_MAX_TEXT_KB: ${ORCPUB_SHARE_MAX_TEXT_KB:-}
+      ORCPUB_SHARE_MAX_ACCOUNT_KB: ${ORCPUB_SHARE_MAX_ACCOUNT_KB:-}
+      ORCPUB_SHARE_PRUNE_DAYS: ${ORCPUB_SHARE_PRUNE_DAYS:-}
+      ORCPUB_PWNED_CHECK: ${ORCPUB_PWNED_CHECK:-}
+      # Branding (docs/BRANDING-AND-INTEGRATIONS.md). Set, these override the branding file's defaults
+      APP_NAME: ${APP_NAME:-}
+      APP_TAGLINE: ${APP_TAGLINE:-}
+      APP_PAGE_TITLE: ${APP_PAGE_TITLE:-}
+      APP_LOGO_PATH: ${APP_LOGO_PATH:-}
+      APP_OG_IMAGE: ${APP_OG_IMAGE:-}
+      APP_HELP_URL: ${APP_HELP_URL:-}
+      APP_SUPPORT_EMAIL: ${APP_SUPPORT_EMAIL:-}
+      APP_EMAIL_SENDER_NAME: ${APP_EMAIL_SENDER_NAME:-}
+      APP_EMAIL_SIGNOFF: ${APP_EMAIL_SIGNOFF:-}
+      APP_COPYRIGHT_HOLDER: ${APP_COPYRIGHT_HOLDER:-}
+      APP_COPYRIGHT_URL: ${APP_COPYRIGHT_URL:-}
+      APP_COPYRIGHT_YEAR: ${APP_COPYRIGHT_YEAR:-}
+      APP_FIELD_LIMIT_NOTES: ${APP_FIELD_LIMIT_NOTES:-}
+      APP_FIELD_LIMIT_TEXT: ${APP_FIELD_LIMIT_TEXT:-}
+      APP_FIELD_LIMIT_NUMBER: ${APP_FIELD_LIMIT_NUMBER:-}
+      APP_SOCIAL_PATREON: ${APP_SOCIAL_PATREON:-}
+      APP_SOCIAL_FACEBOOK: ${APP_SOCIAL_FACEBOOK:-}
+      APP_SOCIAL_BLUESKY: ${APP_SOCIAL_BLUESKY:-}
+      APP_SOCIAL_TWITTER: ${APP_SOCIAL_TWITTER:-}
+      APP_SOCIAL_REDDIT: ${APP_SOCIAL_REDDIT:-}
+      APP_SOCIAL_DISCORD: ${APP_SOCIAL_DISCORD:-}
     depends_on:
       datomic:
         condition: service_healthy

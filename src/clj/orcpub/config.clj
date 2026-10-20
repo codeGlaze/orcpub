@@ -348,6 +348,10 @@
     {:group "email"    :var "EMAIL_SERVER_URL" :since "2.5" :critical? true :fix email-missing-message
      :note "SMTP host; signup and password reset fail without it"}
     {:group "email"    :var "EMAIL_SERVER_PORT" :since "2.5" :note "defaults to 587"}
+    {:group "email"    :var "EMAIL_SSL" :since "2.5" :note "TRUE to connect to the mail server over SSL"}
+    {:group "email"    :var "EMAIL_TLS" :since "2.5" :note "TRUE to use STARTTLS with the mail server"}
+    {:group "email"    :var "ALLOW_UNVERIFIED_REGISTRATION" :since current-release
+     :note "true lets people sign up without confirming their email; only when EMAIL_SERVER_URL is empty"}
     {:group "email"    :var "EMAIL_ACCESS_KEY" :since "2.5" :secret? true}
     {:group "email"    :var "EMAIL_SECRET_KEY" :since "2.5" :secret? true}
     {:group "email"    :var "EMAIL_FROM_ADDRESS" :since "2.5"}

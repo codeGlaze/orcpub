@@ -125,6 +125,15 @@ The upgrade script:
 
 Your `data/`, `logs/`, and SSL certs are never touched.
 
+**Check your `.env` before upgrading to the Summer Patch.** Before this release, most settings
+in `.env` never reached the app container: Docker only passes the settings named in the
+compose file, and that list was short. It now names every setting the server reads. So a line
+that has been sitting in your `.env` doing nothing, such as `APP_NAME=...` or an
+`ORCPUB_PDF_...` value, takes effect after this upgrade. Look through `.env` for `APP_`,
+`ORCPUB_` and `ALERT_` lines and remove any you do not mean. A branding value set here
+replaces the one in your branding file. After the upgrade, the server's start-up output shows
+each setting as `SET` or `DEFAULT`, so you can confirm what is in force.
+
 <details>
 <summary>What does --upgrade actually check?</summary>
 
@@ -447,6 +456,26 @@ Running `./run --swarm` when `docker-compose.swarm.yaml` already exists:
 
 New canonical env vars added upstream are appended to each service's
 environment block — existing vars are never reordered or removed.
+
+### Upgrading a Portainer stack
+
+Portainer keeps its own copy of the stack file and of your variables, so an upgrade has to
+reach both:
+
+1. On the server's checkout, pull the new code and run `./run --upgrade-swarm`. It reads the
+   `docker-compose.swarm.yaml` on disk, keeps your changes, and adds any settings the new
+   release reads (the Summer Patch adds many; without them Swarm drops those settings on the way
+   into the container).
+2. **If you have edited the stack in Portainer's own editor**, copy those edits into
+   `docker-compose.swarm.yaml` on disk first. The upgrade reads the file on disk, not
+   Portainer's copy, so edits made only in Portainer are lost when you paste the new file.
+3. In Portainer, open the stack and replace the compose text with the new
+   `docker-compose.swarm.yaml`.
+4. Your variables (pasted earlier from `.env.portainer`) stay as they are. Add any new setting
+   you want to use in **Advanced mode**, one `KEY=VALUE` per line. Before deploying, look for
+   `APP_`, `ORCPUB_` and `ALERT_` lines you did not mean to set: they now take effect.
+5. Update the stack. The app's log starts with the settings it is using, each marked `SET` or
+   `DEFAULT`.
 
 ### Scaling notes
 
