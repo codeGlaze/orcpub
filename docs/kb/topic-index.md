@@ -690,7 +690,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, ----------, blank, descriptive, dwarf, elf, fallback, generates, halfling, helper, human, label, manual, name, party, races, random, sex
+**topics:** ------, ----------, blank, descriptive, dwarf, elf, fallback, halfling, helper, human, label, manual, name, party, races, random, sex, views
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -800,7 +800,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, mode, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, mode, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -1361,7 +1361,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** agentic, chose, commit, conclusion, dense, discovering, docs-only, dotfiles, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** agentic, chose, commit, conclusion, dense, discovering, dotfiles, hook, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -1575,7 +1575,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** 400px, ammunition, app, app-only, armor, content-naming-style, damage, die, firearms, leather, longbow, net, open5e, spiked, srd, studded, weapons, weights
+**topics:** 2026-10-15, 400px, ammunition, app-only, armor, content-naming-style, damage, die, firearms, leather, longbow, net, open5e, spiked, srd, studded, weapons, weights
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -1763,7 +1763,7 @@ _fork-customization · fork customization_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, card, cards, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, tray, workaround
+**topics:** accent, cards, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, title, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -2117,7 +2117,7 @@ _icon-font-failure · icon font failure_
 
 _input-field-debounce · input field debounce_
 
-**topics:** 500ms, cleared, cljs, debounce, debounced, dispatches, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers
+**topics:** 500ms, cleared, cljs, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers, views
 
 - Current Design (post-refactor)
 - Data flow
@@ -2159,7 +2159,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, quarantined, repair, restore, translator, unnamed, wind, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, number, quarantined, repair, restore, translator, unnamed, wind
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -3020,7 +3020,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, class, dropdown, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, prepares, reconciler, sibling, spellcasting, spells
+**topics:** branch, caster, class, dropdown, grant, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellcasting, spells
 
 - The user's ask
 - Branch state — important
@@ -3122,6 +3122,15 @@ _roadmap · roadmap_
 - Flagged conflicts (need a call — do not silently resolve)
 - Doc map (so there's one place to look)
 - Critical path
+
+## rule-preview-cards.md
+
+_rule-preview-cards · rule preview cards_
+
+**topics:** 2026-10-20, 440px, card, closes, condition, cool, fixed-position, link, links, mastery, opens, phone, preview, prone, scroll, tap, text, weapon-mastery-plan
+
+- How it works today (verified 2026-10-20, feature/weapons-table)
+- Agreed changes (owner, 2026-10-20)
 
 ## rules-override-layer.md
 

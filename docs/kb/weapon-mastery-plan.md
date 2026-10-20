@@ -194,6 +194,10 @@ So a stored summary has value references filled in when shown (`:attack-save-dc`
 This supersedes the formula wording in the draft table above and the "name as preview link"
 recommendation (option C) in the display section: the whole band opens the card.
 
+**Superseded on display (owner, 2026-10-20):** the band gets a `?` helper (44px tap area) that opens
+a pop-up card; the table never expands in place. Card behaviour, including rules opening inside the
+card: [rule-preview-cards.md](rule-preview-cards.md).
+
 ## Decisions for the owner
 
 1. **Topple's DC.** (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +
