@@ -1784,7 +1784,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _garden-inline-styles-harvest · garden inline styles harvest_
 
-**topics:** 648, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, phone, seeded
+**topics:** 648, block, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, seeded
 
 - Why the branch stalled
 - The branch is healthy
@@ -3357,7 +3357,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
+**topics:** 2014, 2024, approaches, builtin, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, tier, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3704,7 +3704,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** ability, advantage, attack, cleave, creature, damage, effect, graze, hit, masteries, mastery, nick, sap, srd, topple, turn, vex, weapon
+**topics:** attack, band, cleave, creature, graze, masteries, mastery, nick, preview, prone, sap, srd, summary, text, topple, turn, vex, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)
@@ -3714,6 +3714,10 @@ _weapon-mastery-plan · weapon mastery plan_
 - The eight masteries in the vocabulary
 - Value references
 - Decided
+- Mastery text: where it is stored and how it is shown (analysis, 2026-10-20)
+- What the app already has
+- Storage: separate on disk, one shape in use (recommended)
+- Display: the summary in the band, the full text one hover or tap away (recommended)
 - Decisions for the owner
 - Plan (after the decisions)
 

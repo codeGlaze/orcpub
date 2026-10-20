@@ -120,6 +120,56 @@ modifiers, class-feature-catalogue.md "Findings").
   | Topple | *summary:* On a hit, the target makes a Con save (DC 8 + the attack's ability modifier + proficiency) or falls Prone. |
   | Vex | *SRD:* If you hit a creature with this weapon and deal damage to the creature, you have Advantage on your next attack roll against that creature before the end of your next turn. |
 
+## Mastery text: where it is stored and how it is shown (analysis, 2026-10-20)
+
+Asked by the owner before building: should our summaries ride with the SRD entries, and should the
+full text expand in the row or open in a card? Findings first, then a recommendation.
+
+### What the app already has
+
+- **Our words beside SRD data: one precedent, kept apart.** Rule clarifications (Sage Advice in our
+  words) are their own file, `resources/public/notes/rules-clarifications.edn`, keyed by rule anchor
+  and merged into the rule's text when shown (`srd_rules.cljc` `with-notes`). They render with "Our
+  note, not SRD text" and a source link. The SRD files stay generated and verbatim, which
+  `check-srd-data.py` enforces.
+- **A preview card for SRD text** (`views.cljs` `srd-text-link`, `srd-preview-box`): hover with a
+  mouse shows it, a first tap on a phone pins it, with Open and Close. It loads its data on first use.
+  It covers conditions, spells and rules; a new `:kind` adds a content type.
+- **Condition links in any text** (`srd-linked-text`): "falls Prone" becomes a link with a preview,
+  with no markup in the data.
+- **The agreed layout** (`weapons-table-spec.md` rule 10, UX guide): small spaces get the short
+  summary, the opened row gets the full text. The band is in the row's quick view, and the opened
+  row opens from its arrow, so the band itself is free to take a tap.
+- **No short summaries for items exist yet.** The Net's "Restrains" (spec rule 6) is designed, not
+  built. So whatever masteries use becomes the pattern for weapon properties and item summaries too.
+
+### Storage: separate on disk, one shape in use (recommended)
+
+| | Summary inside the SRD entry | Summary in its own file (recommended) |
+|---|---|---|
+| SRD files stay verbatim and regenerable | no: generated files carry our text, and a regeneration must merge it back | yes |
+| Whose words is it, visible in the data | by field name only | by file, like clarifications |
+| Homebrew mastery | the author fills both fields | the author fills both fields: homebrew has no SRD file |
+| What the views read | one entry | one entry: the summary is merged in at load, as `with-notes` does |
+
+So the SRD file holds `:text`, our file holds `{:topple {:summary "..."}}` for each multi-sentence
+entry, and the loaded mastery is `{:name :text :summary}` either way. A homebrew mastery stores both
+fields on itself; with no summary, the band shows its `:text`. One file of our summaries is also one
+place to review them, and the same file can hold weapon property and item summaries later.
+
+### Display: the summary in the band, the full text one hover or tap away (recommended)
+
+| Option | For | Against |
+|---|---|---|
+| A. Expand the band in place | no new control | pushes the next rows down; the full text then lives in two places (band and opened row) |
+| B. A `?` button opening a card | familiar | a new 44px control on every band; a new pattern beside the app's existing preview |
+| **C. The mastery name is a preview link (recommended)** | the app's own pattern: hover on desktop, tap on a phone, Open and Close; no new control | needs a `:mastery` preview kind; Open has no 2024 Rules page to go to yet |
+
+With C, the band reads `TOPPLE  on hit  Con save DC 13 or falls Prone`, and Prone is a
+condition link of its own. The preview shows the full SRD 5.2 text, labelled as SRD text. The opened
+row keeps a single mastery line (name, trained or not), not a second copy of the text, so the full
+text has one home. Until a 2024 Rules page exists, the preview shows only Close.
+
 ## Decisions for the owner
 
 1. **Topple's DC.** (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +
