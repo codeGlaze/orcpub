@@ -8062,6 +8062,17 @@
           [:span.m-l-10.f-s-12.i.orange "click to add"])]
        (when @open? body)])))
 
+(defn- with-current-pool
+  "`items` plus the entry's own pool when no item names it (an explicit set such as #{:wis :con}
+   is valid but has no menu entry), so the menu shows what is stored, not its first item."
+  [items pool]
+  (if (or (nil? pool) (some #(= pool (:value %)) items))
+    items
+    (concat items [{:title (if (coll? pool)
+                             (s/join " or " (map #(s/capitalize (name %)) (sort-by name pool)))
+                             (s/capitalize (name pool)))
+                    :value pool}])))
+
 (defn- unreadable-row
   "A grant entry the compilers skip, shown as it is stored with a Remove, so the author can find it
    and take it out; `ability-save-notes` says why it is skipped."
@@ -8102,7 +8113,8 @@
              [:div.flex.flex-wrap.align-items-c.m-b-5
               [labeled-dropdown "Amount" {:items amount-items :value (or amount 1) :typed? true
                                           :on-change #(set-ai! (assoc ais i (mk % pool save?)))}]
-              [labeled-dropdown "To" {:items target-items :value (or pool :any) :typed? true
+              [labeled-dropdown "To" {:items (with-current-pool target-items pool)
+                                      :value (or pool :any) :typed? true
                                       :on-change #(set-ai! (assoc ais i (mk amount % save?)))}]
               ;; opt-in rider: also grant the save for this increment's ability, toggled through
               ;; the tested opt/toggle-increment-save
@@ -8134,14 +8146,15 @@
      (doall
       (map-indexed
        (fn [i e]
-         (if-not (opt/pool-entry? e)
+         (if-not (opt/save-entry? e)
            ^{:key i} [unreadable-row e #(set-sp! (common/remove-at-index sps i))]
            (let [[cnt pool] e]
              ^{:key i}
              [:div.flex.flex-wrap.align-items-c.m-b-5
               [labeled-dropdown "How many" {:items count-items :value (or cnt 1) :typed? true
                                             :on-change #(set-sp! (assoc sps i [% pool]))}]
-              [labeled-dropdown "From" {:items target-items :value (or pool :any) :typed? true
+              [labeled-dropdown "From" {:items (with-current-pool target-items pool)
+                                        :value (or pool :any) :typed? true
                                         :on-change #(set-sp! (assoc sps i [cnt %]))}]
               [:button.m-l-5 {:on-click #(set-sp! (common/remove-at-index sps i))} "Remove"]])))
        sps))
