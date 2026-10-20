@@ -327,10 +327,14 @@
                         {:idx idx :amount amount :pool (vec keys) :fixed? (= 1 (count keys))
                          :save? (= :save (nth incr 2 nil))}))
                     (filter pool-entry? (when (sequential? ai-spread) ai-spread)))
+        fixed-kept (first-per-ability (filter :fixed? increments))
+        ;; what the picker lists: the increments applied, in order (a repeated fixed one is not)
+        applied    (let [kept (set (map :idx fixed-kept))]
+                     (filter #(or (not (:fixed? %)) (kept (:idx %))) increments))
         modifiers  (mapcat (fn [{:keys [amount pool save?]}]
                              (concat (fixed-modifier (first pool) amount)
                                      (when save? [(modifiers/saving-throws nil (first pool))])))
-                           (first-per-ability (filter :fixed? increments)))
+                           fixed-kept)
         floating   (remove :fixed? increments)
         slot-opts  (fn [{:keys [idx amount pool save?]}]
                      (map (fn [k]
@@ -354,7 +358,7 @@
                              :tags         #{:ability-scores}
                              :multiselect? true
                              :options      (vec (mapcat slot-opts floating))})
-                           ::t/spread (vec increments))]
+                           ::t/spread (vec applied))]
                    [])}))
 
 (defn toggle-increment-save

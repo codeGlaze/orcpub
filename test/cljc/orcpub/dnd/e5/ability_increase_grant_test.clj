@@ -469,3 +469,8 @@
     (is (some #(re-find #"STR" %) (opt5e/ignored-entry-warnings {:ability-increases [[2 :str] [1 :str]]}))))
   (testing "different abilities are unaffected"
     (is (empty? (opt5e/ignored-entry-warnings {:ability-increases [[2 :str] [1 :con] [1 :any]]})))))
+
+(deftest the-picker-shows-only-what-is-applied
+  (let [sel (first (:selections (opt5e/compile-ability-increases [[2 :str] [1 :str] [1 :any]])))]
+    (is (= [[2 true] [1 false]] (map (juxt :amount :fixed?) (::t/spread sel)))
+        "the skipped +1 STR is not listed; the floating +1 is")))
