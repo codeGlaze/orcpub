@@ -170,6 +170,30 @@ condition link of its own. The preview shows the full SRD 5.2 text, labelled as 
 row keeps a single mastery line (name, trained or not), not a second copy of the text, so the full
 text has one home. Until a 2024 Rules page exists, the preview shows only Close.
 
+## Mastery from the player's side (owner, 2026-10-20)
+
+The owner's test case: a player picks up a new weapon whose mastery they never read while building the
+character. Design from what they see, not from the data. Three moments; mockups before building.
+
+1. **The weapon arrives.** Trained: the band shows, with a small "New" mark until the band has been
+   opened once on this character. Not trained but has Weapon Mastery: the 2024 class feature lets
+   them change one weapon choice after a Long Rest (SRD 5.2.1, Barbarian level 1 "Weapon Mastery"),
+   so the row says so: "Topple: you can master Battleaxes in place of one of your choices when you
+   finish a Long Rest." No Weapon Mastery: nothing.
+2. **They read it.** The whole band is the tap target (not only the name: a small link is hard to
+   hit at the table). The card leads with what it means for this character ("When you hit with
+   this: the target makes a DC 13 Constitution save or falls Prone. After a hit, your roll result
+   offers Topple."), then the SRD text, labelled as SRD.
+3. **It applies.** The roll result says what the mastery allows at that moment: after a hit "Topple:
+   DC 13 Con save or Prone"; after a miss "Missed? Graze for 3 slashing"; after a damaging hit "Vex:
+   your next attack against it has advantage". A player who never read the rule is told when it
+   applies.
+
+**Summaries use the character's numbers** (DC 13, 3 slashing), never the formula, which is our side.
+So a stored summary has value references filled in when shown (`:attack-save-dc`, `:ability-mod`).
+This supersedes the formula wording in the draft table above and the "name as preview link"
+recommendation (option C) in the display section: the whole band opens the card.
+
 ## Decisions for the owner
 
 1. **Topple's DC.** (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +

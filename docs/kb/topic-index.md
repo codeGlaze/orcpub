@@ -660,7 +660,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, pick, picks, renamed, report, saved, spell-selection, toast
+**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, person, pick, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -3704,7 +3704,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** attack, band, cleave, creature, graze, masteries, mastery, nick, preview, prone, sap, srd, summary, text, topple, turn, vex, weapon
+**topics:** advantage, attack, band, cleave, creature, graze, hit, masteries, mastery, preview, prone, srd, summary, text, topple, turn, vex, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)
@@ -3718,6 +3718,7 @@ _weapon-mastery-plan · weapon mastery plan_
 - What the app already has
 - Storage: separate on disk, one shape in use (recommended)
 - Display: the summary in the band, the full text one hover or tap away (recommended)
+- Mastery from the player's side (owner, 2026-10-20)
 - Decisions for the owner
 - Plan (after the decisions)
 
