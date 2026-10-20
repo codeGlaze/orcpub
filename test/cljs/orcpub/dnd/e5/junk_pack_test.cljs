@@ -1,9 +1,10 @@
 (ns orcpub.dnd.e5.junk-pack-test
   "Imported homebrew is untrusted: any field of any entry can hold any shape. One entry of each
-   content type (test/fixtures/junk-bases.orcbrew) gets junk in each field, and the pack goes
-   through what the app does with homebrew: startup, the homebrew in every subscription realized,
-   the deep check, and a character that picks each entry. An entry may be set aside; nothing may
-   throw. The everyday suite runs the base pack only; test/e2e/junk-pack-audit.js runs it all."
+   content type (test/fixtures/junk-bases.orcbrew) gets junk in each field, and the pack goes in
+   from storage, an import and a share link, then through startup, every subscription, the deep
+   check, a character picking each entry, and the pages that draw it. An entry may be set aside
+   (only that entry); nothing may throw and no built-in content may go missing. The everyday
+   suite runs the base pack only; test/e2e/junk-pack-audit.js runs it all."
   (:require [cljs.test :refer-macros [deftest is]]
             [clojure.string :as str]
             [re-frame.core :as rf]
@@ -26,6 +27,7 @@
             [orcpub.dnd.e5.monsters :as monsters5e]
             [orcpub.dnd.e5.encounters :as encounters5e]
             [orcpub.dnd.e5.character-drafts :as drafts]
+            [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.events]
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.equipment-subs]
@@ -39,11 +41,23 @@
 
 (def ^:private junk [nil 42 "x" true :kw [] [42] ["x"] [{}] {} {:a 1} #{42}])
 
-(defn- audit?
-  "Is this the full audit (test/e2e/junk-pack-audit.js)? It takes minutes, so the everyday suite
-   checks only that the base pack works."
+(defn- audit-types
+  "The content types the audit covers: ?junk-audit=races,feats names some, ?junk-audit all of
+   them (test/e2e/junk-pack-audit.js runs one type per page). Without it, none: the grid takes
+   minutes, so the everyday suite checks only that the base pack works."
   []
-  (boolean (re-find #"junk-audit" (str (.-search js/location)))))
+  (let [q (str (.-search js/location))]
+    (when-let [[_ named] (re-find #"junk-audit(?:=([a-z,]+))?" q)]
+      (if named
+        (filter (set (map #(keyword "orcpub.dnd.e5" %) (str/split named #",")))
+                (keys @base-entries))
+        (keys @base-entries)))))
+
+(defn- report!
+  "Log a failure as it is found, so an audit cut short still has what it found."
+  [f]
+  (js/console.log "JUNKFAIL" (pr-str f))
+  f)
 
 ;; ---------------------------------------------------------------------------------------------
 ;; Cases: [content-type path value]. A path is [field] or [field index-or-key field].
@@ -147,7 +161,13 @@
     (concat
      (for [[k _] (section ::e5/classes)] [k (leveled k)])
      (for [[k {cls :class}] (section ::e5/subclasses) :when (keyword? cls)] [k (leveled cls)])
-     (for [t [::e5/races ::e5/subraces ::e5/backgrounds ::e5/feats]
+     (for [t [::e5/invocations ::e5/boons] [k _] (section t)] [k (leveled :warlock)])
+     ;; a subrace is offered under its race, so start from that race
+     (for [[k {race :race}] (section ::e5/subraces)]
+       [k (if (keyword? race)
+            (assoc-in stored-character [::entity/options :race] {::entity/key race})
+            stored-character)])
+     (for [t [::e5/races ::e5/backgrounds ::e5/feats]
            [k _] (section t)]
        [k stored-character]))))
 
@@ -163,9 +183,13 @@
   [template c k]
   (loop [c c i 0]
     (let [[_ avail] (offered template c)
+          ;; a single choice holds one option (Race: Human), a multiple one a list of them
+          picked? (fn [s] (let [o (entity/get-option template c (conj (entity/actual-path s) k))]
+                            (if (sequential? o)
+                              (some #(= k (::entity/key %)) o)
+                              (= k (::entity/key o)))))
           s (first (filter (fn [s] (and (some #(= k (::t/key %)) (::t/options s))
-                                        (nil? (entity/get-option template c
-                                                                 (conj (entity/actual-path s) k)))))
+                                        (not (picked? s))))
                            avail))]
       (if (or (nil? s) (> i 4))
         c
@@ -177,38 +201,144 @@
 
 (defn- use-entry!
   "Pick homebrew entry `k` in `c`, build it, and draw what the builder draws under it: every
-   selection whose path runs through `k`, fully realized."
+   selection whose path runs through `k`, fully realized. Throws when `k` is never offered."
   [template k c]
   (let [c (pick template c k)
         [built avail] (offered template c)]
+    (when (and k (not (some #{k} (tree-seq coll? seq c))))
+      (throw (js/Error. "never offered")))
     (guard/realize (char5e/ability-values built))
     (guard/realize (filter #(some #{k} (entity/actual-path %)) avail))))
 
+(defn- expand
+  "Draw `x` the way Reagent would: a vector headed by a function is a child component, so call it
+   (twice for a component that returns its render function) and draw what it returns."
+  [x]
+  (cond (and (vector? x) (fn? (first x)))
+        (let [[f & args] x
+              r (apply f args)]
+          (expand (if (fn? r) (apply r args) r)))
+        (map? x) x
+        (coll? x) (doall (map expand x))
+        :else x))
+
+(def ^:private builders
+  "Each content type's builder page, and the event that opens an entry in it."
+  {::e5/spells [::spells5e/set-spell views/spell-builder]
+   ::e5/monsters [::monsters5e/set-monster views/monster-builder]
+   ::e5/encounters [::encounters5e/set-encounter views/encounter-builder]
+   ::e5/backgrounds [::bg5e/set-background views/background-builder]
+   ::e5/languages [::langs5e/set-language views/language-builder]
+   ::e5/invocations [::classes5e/set-invocation views/invocation-builder]
+   ::e5/boons [::classes5e/set-boon views/boon-builder]
+   ::e5/selections [::selections5e/set-selection views/selection-builder]
+   ::e5/feats [::feats5e/set-feat views/feat-builder]
+   ::e5/races [::races5e/set-race views/race-builder]
+   ::e5/subraces [::races5e/set-subrace views/subrace-builder]
+   ::e5/subclasses [::classes5e/set-subclass views/subclass-builder]
+   ::e5/classes [::classes5e/set-class views/class-builder]})
+
+(defn- pages
+  "Draw My Content (the page, and each content type's list for the pack), the monster list
+   filtered by a name, and each entry of `entries` opened in its builder. Returns the failures."
+  [entries]
+  (let [plugin (get-in @app-db [:plugins source])]
+    (concat
+     [(attempt [:page :my-content] #(expand [views/my-content]))]
+     (for [{:keys [type-name type-key icon add-event edit-event delete-event plural]}
+           views/my-content-types]
+       (attempt [:page :my-content type-name]
+                #(expand [views/my-content-type source plugin type-name type-key icon add-event
+                          edit-event delete-event plural "" true])))
+     [(attempt [:page :monster-list]
+               #(do (rf/dispatch-sync [::char5e/filter-monsters "junk"])
+                    (expand [views/monster-list-items])))]
+     (for [[t es] entries :when (map? es)
+           :let [[open builder] (builders t)]
+           :when open
+           [k e] es :when (map? e)]
+       (attempt [:builder k] #(do (rf/dispatch-sync [open e]) (expand [builder])))))))
+
+(defn- offered-keys
+  "The keys of the classes, races and backgrounds the app offers now."
+  []
+  (let [ks #(set (keep (fn [x] (or (:key x) (::t/key x))) @(rf/subscribe [%])))]
+    {:classes (ks ::classes5e/classes)
+     :races (ks ::races5e/races)
+     :backgrounds (ks ::bg5e/backgrounds)}))
+
+(def ^:private built-in-keys
+  "What the app offers with no homebrew at all, read once by the base-pack test."
+  (atom nil))
+
+(defn- missing-built-ins []
+  (when-let [before @built-in-keys]
+    (let [now (offered-keys)
+          gone (into {} (for [[k ks] before
+                              :let [m (remove (now k) ks)]
+                              :when (seq m)]
+                          [k (vec m)]))]
+      (when (seq gone) (throw (js/Error. (str "built-in content went missing: " (pr-str gone))))))))
+
+(defn- wrong-blame
+  "Reports naming an entry that is not one of the pack's own: something else was set aside."
+  [reports entries]
+  (for [{:keys [content-type key]} reports
+        :when (not (contains? (get entries content-type) key))]
+    {:stage :set-aside :error (str "set aside " (pr-str content-type) " " (pr-str key)
+                                   ", which is not in the pack")}))
+
 (defn- run-pack!
-  "Put `lib` in storage, start the app on it, and use it. Returns the failures, each
-   {:stage :error}; an entry set aside is not a failure."
-  [lib]
+  "Start the app with `lib` arriving `via` :storage (the stored library; also what
+   LOAD_HOMEBREW_URL writes) or :share (a share link's homebrew), and use it. Returns the
+   failures, each {:stage :error}."
+  [lib & [via]]
   (doseq [k (drafts/draft-keys)] (drafts/remove-draft! k))
   (doseq [k ["plugins" "plugins:rejected" "plugins:corrupt" "character"]]
     (.removeItem js/localStorage k))
-  (.setItem js/localStorage "plugins" (pr-str lib))
+  (when (not= via :share) (.setItem js/localStorage "plugins" (pr-str lib)))
   (.setItem js/localStorage "character" (pr-str (char5e/to-strict stored-character)))
   (reset! app-db {})
   (rf/clear-subscription-cache!)
-  ;; a report means the entry is set aside, which is allowed; drop it rather than queue the event
-  (guard/call-with-reporter
-   (constantly nil)
-   (fn []
-     (let [boot (attempt :startup #(rf/dispatch-sync [:initialize-db]))
-           sub-fails (keep (fn [q] (attempt q #(realize-homebrew @(rf/subscribe q))))
-                           homebrew-subs)
-           deep (attempt :deep-check #(homebrew-check/deep-check nil))
-           template (try @(rf/subscribe [::char5e/template]) (catch :default _ nil))
-           builds (when template
-                    (keep (fn [[k c]] (attempt [:character k] #(use-entry! template k c)))
-                          (cons [nil stored-character]
-                                (seeds (get (get-in @app-db [:plugins]) source)))))]
-       (doall (remove nil? (concat [boot] sub-fails [deep] builds)))))))
+  (let [reports (atom [])]
+    (guard/call-with-reporter
+     #(swap! reports conj %)
+     (fn []
+       (let [boot (attempt :startup #(rf/dispatch-sync [:initialize-db]))
+             shared (when (= via :share)
+                      (attempt :share
+                               #(rf/dispatch-sync [::e5/apply-shared-content {:plugins lib}])))
+             entries (get (if (= via :share) (:shared-plugins @app-db) (:plugins @app-db)) source)
+             sub-fails (keep (fn [q] (attempt q #(realize-homebrew @(rf/subscribe q))))
+                             homebrew-subs)
+             built-ins (attempt :built-in-content missing-built-ins)
+             deep (attempt :deep-check #(homebrew-check/deep-check nil))
+             template (try @(rf/subscribe [::char5e/template]) (catch :default _ nil))
+             set-aside (set (map :key @reports))
+             ;; an entry set aside is not offered, and is allowed; one silently not offered is lost
+             builds (when template
+                      (remove #(and (= "never offered" (:error %)) (set-aside (second (:stage %))))
+                              (keep (fn [[k c]] (attempt [:character k] #(use-entry! template k c)))
+                                    (cons [nil stored-character] (seeds entries)))))
+             drawn (pages entries)]
+         (doall (remove nil? (concat [boot shared] sub-fails [built-ins deep] builds drawn
+                                     (wrong-blame @reports (get lib source))))))))))
+
+(defn- run-via!
+  "run-pack! for `lib` arriving `via` :storage, :share, or :import (the file importer's checks
+   and clean-up first, then what it would store)."
+  [lib via]
+  (if (= via :import)
+    (let [result (atom nil)]
+      (or (some-> (attempt :import
+                           #(reset! result (orcbrew-val/validate-import
+                                            (pr-str lib) {:strategy :progressive :auto-clean true
+                                                          :existing-plugins {}
+                                                          :import-source-name source})))
+                  vector)
+          (when-let [data (:data @result)] (run-pack! (if (get data source) data {source data})))
+          []))
+    (run-pack! lib via)))
 
 (defn- cleanup! []
   (doseq [k ["plugins" "plugins:rejected" "plugins:corrupt" "character"]]
@@ -219,37 +349,44 @@
 ;; ---------------------------------------------------------------------------------------------
 
 (deftest the-base-pack-works
-  (let [failures (run-pack! (library @base-entries))]
+  (when-not @built-in-keys
+    (run-pack! {})
+    (reset! built-in-keys (offered-keys)))
+  ;; one key per type, so picking a race cannot stand in for the feat of the same key
+  (let [keyed (into {} (for [[t m] @base-entries
+                             :let [k (keyword (str "junk-" (name t)))]]
+                         [t {k (assoc (:junk-base m) :key k)}]))
+        failures (run-pack! (library keyed))]
     (cleanup!)
     (is (empty? failures) (pr-str failures))))
 
 (deftest junk-in-any-field-never-throws
   (let [failures
         (doall
-         (for [content-type (when (audit?) (keys @base-entries))
+         (for [content-type (audit-types)
                v junk
+               via [:storage :import :share]
                :let [{:keys [cases entries]} (batch content-type v)
-                     fs (run-pack! (library entries))]
+                     fs (run-via! (library entries) via)]
                :when (seq fs)
                ;; one pack per value holds every field: name the field by running each alone
                [k path] cases
-               :let [single (run-pack! (library {content-type
-                                                {k (get-in entries [content-type k])}}))]
+               :let [single (run-via! (library {content-type
+                                               {k (get-in entries [content-type k])}}) via)]
                :when (seq single)]
-           [(name content-type) path v (first single)]))]
+           (report! [(name content-type) path v via (first single)])))]
     (cleanup!)
-    (doseq [f failures] (js/console.log "JUNKFAIL" (pr-str f)))
     (is (empty? failures)
         (str (count failures) " failures\n" (str/join "\n" (map pr-str failures))))))
 
 (deftest a-junk-section-never-throws
   (let [failures (doall
-                  (for [content-type (when (audit?) (keys @base-entries))
+                  (for [content-type (audit-types)
                         v [42 "x" true [] [42] #{42}]
-                        :let [fs (run-pack! (library {content-type v}))]
+                        via [:storage :import :share]
+                        :let [fs (run-via! (library {content-type v}) via)]
                         :when (seq fs)]
-                    [(name content-type) v (first fs)]))]
+                    (report! [(name content-type) v via (first fs)])))]
     (cleanup!)
-    (doseq [f failures] (js/console.log "JUNKFAIL" (pr-str f)))
     (is (empty? failures)
         (str (count failures) " failures\n" (str/join "\n" (map pr-str failures))))))
