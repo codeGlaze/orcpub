@@ -21,6 +21,14 @@ component for the whole app (`views.cljs` `srd-text-link`, `srd-preview-box`, `s
 - **Linking free text:** `srd-linked-text` turns condition words ("falls Prone") into links with no
   markup in the data.
 
+**Bug, measured 2026-10-20:** on a 390px phone the card sticks out 12px past the right edge (Charm
+Person's "charmed": left 16, right 402). `preview-style` sizes the width as `innerWidth - 32`, but
+`.srd-preview` has 14px side padding and no `box-sizing: border-box`, so the padding is added on top.
+Fix: `box-sizing: border-box` on `.srd-preview` (`styles/core.clj`).
+
+**Mockups** of the agreed changes (phone and desktop) were drawn into the real app with
+`mastery-mockups.js` (job scratch, 2026-10-20); the owner reviews them before any of this is built.
+
 ## Agreed changes (owner, 2026-10-20)
 
 From the Weapon Mastery design ([weapon-mastery-plan.md](weapon-mastery-plan.md)); they apply

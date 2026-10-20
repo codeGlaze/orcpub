@@ -660,7 +660,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, person, pick, renamed, report, saved, spell-selection, toast
+**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, pick, picks, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -1466,7 +1466,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, added, datomic, dmv, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, datomic, dmv, echoing, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -3127,7 +3127,7 @@ _roadmap · roadmap_
 
 _rule-preview-cards · rule preview cards_
 
-**topics:** 2026-10-20, 440px, card, closes, condition, cool, fixed-position, link, links, mastery, opens, phone, preview, prone, scroll, tap, text, weapon-mastery-plan
+**topics:** 2026-10-20, card, closes, condition, link, links, mastery, mockups, opens, owner, padding, phone, preview, prone, scroll, tap, text, weapon-mastery-plan
 
 - How it works today (verified 2026-10-20, feature/weapons-table)
 - Agreed changes (owner, 2026-10-20)
@@ -3749,7 +3749,7 @@ _weapons-extra-damage-design · weapons extra damage design_
 
 _weapons-extra-damage-handoff · weapons extra damage handoff_
 
-**topics:** 1d8, 2d6, 390px, ablaze, bar, blade, colour, damage, dark, deals, extra, radiant, roll, strip, sun, tile, type, undead
+**topics:** 1d8, 2d6, ablaze, bar, blade, colour, damage, dark, deals, extra, frost, radiant, roll, strip, sun, tile, type, undead
 
 - The problem
 - The five cases, from SRD 5.1 (text checked)
