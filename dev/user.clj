@@ -6,6 +6,7 @@
             [buddy.hashers :as hashers]
             [orcpub.routes :as r]
             [orcpub.system :as s]
+            [orcpub.server :as server]
             [orcpub.db.schema :as schema]
             [orcpub.config :as config])
   (:gen-class))
@@ -110,6 +111,9 @@
 
 (defn start-server
   []
+  ;; scripts/start.sh starts the server here, not through -main, so the pin is needed
+  ;; on this path too -- it is the one self-hosters run.
+  (server/pin-locale!)
   ; restart
   (stop-server)
   (reset! -server (component/start (s/system :dev))))

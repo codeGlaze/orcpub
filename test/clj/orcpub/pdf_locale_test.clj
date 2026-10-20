@@ -98,7 +98,9 @@
                           :let [src (slurp f)]
                           [i line] (map-indexed vector (str/split-lines src))
                           :when (and (re-find decimal-format-re line)
-                                     (not (re-find console-re line)))]
+                                     (not (re-find console-re line))
+                                     ;; a test that shows the leak has to use it
+                                     (not (str/includes? line "locale-leak on purpose")))]
                       (str (.getPath f) ":" (inc i) " " (str/trim line)))]
       (is (empty? offenders)
           (str "use String/format with Locale/ROOT:\n" (str/join "\n" offenders))))))
