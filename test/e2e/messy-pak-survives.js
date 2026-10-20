@@ -19,10 +19,15 @@ const PLUGINS=`{"Default Option Source" {} "Messy Pak" {:orcpub.dnd.e5/races {`
  +`:warden {:name "Warden" :key :warden :option-pack "Messy Pak" :size :medium :speed 30 :languages #{} :traits [] :ability-increases [[1 :martial :save]] :save-proficiencies [[1 :mental]]} `
  +`:cursed {:name "Cursed" :key :cursed :option-pack "Messy Pak" :size :medium :speed 30 :languages #{} :traits [] :ability-increases [[1 :martial :save] "junk" [:bad] []] :save-proficiencies [[1 :con] "x" [:bad]]}} `
  // a background whose fields are not even lists: backgrounds compile ASI too, and must be guarded
- +`:orcpub.dnd.e5/backgrounds {:haunted {:name "Haunted" :key :haunted :option-pack "Messy Pak" :ability-increases 42 :save-proficiencies [[1 [nil]] true]}}}}`;
+ +`:orcpub.dnd.e5/backgrounds {:haunted {:name "Haunted" :key :haunted :option-pack "Messy Pak" :ability-increases 42 :save-proficiencies [[1 [nil]] true]}} `
+ // feats: a spread written as a list (EDN parens), and increases that are neither a list nor a set
+ +`:orcpub.dnd.e5/feats {:listy {:name "Listy" :key :listy :option-pack "Messy Pak" :ability-increases ([1 :str])} `
+ +`:numbery {:name "Numbery" :key :numbery :option-pack "Messy Pak" :ability-increases 42}}}}`;
 // each malformed entry, as its builder's draft, to open it in that builder
 const CURSED_DRAFT=`{:name "Cursed" :key :cursed :option-pack "Messy Pak" :size :medium :speed 30 :ability-increases [[1 :martial :save] "junk" [:bad] []] :save-proficiencies [[1 :con] "x" [:bad]]}`;
 const HAUNTED_DRAFT=`{:name "Haunted" :key :haunted :option-pack "Messy Pak" :ability-increases 42 :save-proficiencies [[1 [nil]] true]}`;
+const LISTY_DRAFT=`{:name "Listy" :key :listy :option-pack "Messy Pak" :ability-increases ([1 :str])}`;
+const NUMBERY_DRAFT=`{:name "Numbery" :key :numbery :option-pack "Messy Pak" :ability-increases 42}`;
 const U=`http://localhost:${PORT}`; const results=[]; const check=(n,ok,x)=>{results.push(ok);console.log(`  ${ok?'PASS':'FAIL'}  ${n}${x?'  '+x:''}`);};
 (async()=>{
   await new Promise(r=>server.listen(PORT,'127.0.0.1',r));
@@ -65,6 +70,15 @@ const U=`http://localhost:${PORT}`; const results=[]; const check=(n,ok,x)=>{res
     await pg.goto(`${U}/pages/dnd/5e/${seg}-builder`,{waitUntil:'load'}); await pg.waitForTimeout(2500);
     const t=await pg.locator('#app').innerText();
     check(`the ${label} opens in its builder and shows what it can't read`, /can't be read|malformed and will be IGNORED/.test(t), t.length+' chars');
+  }
+
+  // the feat builder reads a list as a spread, and draws increases it cannot read as no increases
+  for (const [draft,label,re] of [[LISTY_DRAFT,'Listy feat (list spread)',/using the 2024-style increases/],
+                                  [NUMBERY_DRAFT,'Numbery feat (increases 42)',/Ability Increase Options/]]) {
+    await pg.evaluate(d=>localStorage.setItem('feat',d),draft);
+    await pg.goto(`${U}/pages/dnd/5e/feat-builder`,{waitUntil:'load'}); await pg.waitForTimeout(2500);
+    const t=await pg.locator('#app').innerText();
+    check(`the ${label} opens in the feat builder`, re.test(t), t.length+' chars');
   }
 
   check('NO page errors across loading + using the messy pack', errs.length===0, errs.join(' | '));

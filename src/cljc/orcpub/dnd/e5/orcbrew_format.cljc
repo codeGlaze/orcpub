@@ -141,8 +141,10 @@
        :message (str "This content is in a newer format (v" v ") than this app "
                      "version can read (v" supported-format-version "). Update the "
                      "app to import it"
-                     (when-let [r (seq (:orcbrew/requires data))]
-                       (str " — it uses: " (str/join ", " (map name r))))
+                     (when-let [r (let [r (:orcbrew/requires data)]
+                                    (seq (keep #(when (or (keyword? %) (string? %)) (name %))
+                                               (when (coll? r) r))))]
+                       (str " — it uses: " (str/join ", " r)))
                      ".")}
       {:ok? true :version v})))
 

@@ -177,10 +177,22 @@
   [nil 42 "x" true {} {:a 1} #{} #{:str} #{42} [] [nil] [42] ["x"] [{}] [[]] [[nil]] [[1]]
    [[1 nil]] [[1 nil :save]] [[1 :foo]] [[1 #{}]] [[1 []]] [[1 [nil]]] [[1 #{2}]] [["1" :str]]
    [[nil :str]] [[1 :str :save :extra]] [[0 :any]] [[-1 :any]] [[1.5 :any]] [[4 :mental]]
-   [[1 {:a 1}]] [[1 "str"]] [[1 #{:wis :con}]]])
+   [[1 {:a 1}]] [[1 "str"]] [[1 #{:wis :con}]] (list [1 :str])])
+
+(defn- expand
+  "Draw `x` the way Reagent would: a vector headed by a function is a child component, so call it
+   (twice for a component that returns its render function) and draw what it returns."
+  [x]
+  (cond (and (vector? x) (fn? (first x)))
+        (let [[f & args] x
+              r (apply f args)]
+          (expand (if (fn? r) (apply r args) r)))
+        (map? x) x
+        (coll? x) (doall (map expand x))
+        :else x))
 
 (deftest grant-forms-draw-any-imported-shape
-  (let [draw (fn [f item] (try (dorun (tree-seq coll? seq (f item))) nil
+  (let [draw (fn [f item] (try (expand (f item)) nil
                                (catch :default e (.-message e))))
         forms {"ability-increase-choices" #(views/ability-increase-choices % identity)
                "save-proficiency-choices" #(views/save-proficiency-choices % identity)

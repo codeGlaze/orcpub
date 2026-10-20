@@ -40,10 +40,17 @@
     (is (empty? failures) (with-out-str (doseq [f failures] (prn f))))))
 
 (deftest a-feat-with-a-malformed-spread-never-throws
-  (let [failures (for [v (filter vector? malformed)
+  (let [failures (for [v malformed
                        :let [msg (throws #(opt5e/feat-option-from-cfg nil nil nil [] nil %)
                                          {:name "F" :key :f :ability-increases v
                                           :save-proficiencies v})]
                        :when msg]
                    [v msg])]
     (is (empty? failures) (with-out-str (doseq [f failures] (prn f))))))
+
+(deftest a-feat-reads-a-list-spread-as-a-spread
+  (let [mods #(count (:orcpub.template/modifiers
+                      (opt5e/feat-option-from-cfg nil nil nil [] nil
+                                                  {:name "F" :key :f :ability-increases %})))]
+    (is (= (mods [[1 :str]]) (mods (list [1 :str]))) "a list is the same spread as a vector")
+    (is (< (mods nil) (mods (list [1 :str]))) "and it raises an ability")))

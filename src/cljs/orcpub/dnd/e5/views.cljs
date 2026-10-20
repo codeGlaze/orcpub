@@ -6314,7 +6314,7 @@
      false
      #(dispatch [::feats/toggle-feat-ability-increase :saves?])]]
    [:div (let [increases (:ability-increases feat)
-               non-save (disj increases :saves?)]
+               non-save (when (set? increases) (disj increases :saves?))]
            (when (seq non-save)
              (str "= \"Increase your "
                   (common/list-print
@@ -6813,7 +6813,7 @@
    spread waits until the checkboxes are cleared, and removing its last row brings them back."
   [feat]
   (let [ai (:ability-increases feat)
-        spread? (boolean (and (vector? ai) (seq ai)))
+        spread? (boolean (and (sequential? ai) (seq ai)))
         legacy? (boolean (and (set? ai) (seq ai)))]
     [:div
      (if spread?

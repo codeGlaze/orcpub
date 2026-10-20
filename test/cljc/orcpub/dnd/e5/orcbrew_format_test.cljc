@@ -80,6 +80,14 @@
       (is (not ok?) "a version beyond supported is refused")
       (is (re-find #"newer format" message) "with an actionable message"))))
 
+(deftest a-newer-file-with-malformed-requires-is-refused-not-thrown
+  (doseq [r [[42] 42 "x" true [nil :grants] {:a 1}]]
+    (let [{:keys [ok? message]} (orcbrew-format/compat-check
+                                 {:orcbrew/format-version 99 :orcbrew/requires r
+                                  :orcbrew/content v1-content})]
+      (is (not ok?) (pr-str r))
+      (is (re-find #"newer format" message) (pr-str r)))))
+
 (deftest malformed-markers-never-throw
   (testing "a marker that is not a collection is counted, conservatively, and never throws"
     (is (= #{:grants :save-proficiencies}

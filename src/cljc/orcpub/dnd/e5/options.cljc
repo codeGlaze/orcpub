@@ -3819,11 +3819,11 @@
            ability-increases
            save-proficiencies
            edit-event]}]
-  ;; :ability-increases by SHAPE: a vector is a spread (compile-ability-increases), a set is the
-  ;; released feat format (#{:str :con}: +1 to one, optional :saves?). A spread suppresses the set
-  ;; ASI but keeps the rest of feat-modifiers. A feat's fixed increase is :general, never racial.
-  (let [spread? (vector? ability-increases)
-        legacy-ai (if spread? #{} ability-increases)
+  ;; :ability-increases by SHAPE: a list is a spread (compile-ability-increases), a set is the
+  ;; released feat format (#{:str :con}: +1 to one, optional :saves?), anything else is neither. A
+  ;; spread keeps the rest of feat-modifiers. A feat's fixed increase is :general, never racial.
+  (let [spread? (sequential? ability-increases)
+        legacy-ai (when (set? ability-increases) ability-increases)
         {ai-mods :modifiers ai-sels :selections}
         (when spread?
           (compile-ability-increases ability-increases {:fixed-modifier general-ability}))
