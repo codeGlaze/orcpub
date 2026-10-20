@@ -9,6 +9,7 @@
             [orcpub.dnd.e5.content-specs :as content-specs]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
+            [orcpub.dnd.e5.orcbrew-format :as orcbrew-format]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.dnd.e5.share-bundle :as share-bundle]
             [orcpub.dnd.e5.share-url :as share-url]
@@ -5636,10 +5637,12 @@
  ::feats5e/toggle-feat-ability-increase
  feat-interceptors
  (fn [feat [_ ability-key]]
-   (update feat :ability-increases (fn [s]
-                                     (if (s ability-key)
-                                       (disj s ability-key)
-                                       (conj s ability-key))))))
+   ;; the checkboxes edit the released set; anything else here (nil, an emptied spread) starts one
+   (update feat :ability-increases (fn [v]
+                                     (let [s (if (set? v) v #{})]
+                                       (if (s ability-key)
+                                         (disj s ability-key)
+                                         (conj s ability-key)))))))
 
 (reg-event-db
  ::feats5e/toggle-ability-prereq
@@ -6286,24 +6289,26 @@
      {} data)
     data))
 
-(defn serialize-orcbrew
-  "Pure serialize of homebrew content to .orcbrew text — no side effects, so it's
-   unit-testable and shared by every export path. pretty-print? is opt-in: pprint
-   inflates 3–5MB files to ~10–20MB and can freeze the UI."
-  [data & {:keys [pretty-print?]}]
-  (if pretty-print?
-    (with-out-str (pprint/pprint data))
-    (str data)))
+(defn orcbrew-text
+  "The .orcbrew text for `data`: classes collapsed, then `stamp`ed into the v2 envelope IFF it uses
+   features an old build cannot read. Text passes through as it is. With `:raw?` (the escape-hatch
+   exports) a step that throws on malformed data falls back to the data as written, so the
+   download always happens."
+  [data & {:keys [pretty-print? raw?]}]
+  ;; collapse-class BEFORE stamp: map-plugin-classes walks the raw
+  ;; {source {content-type {key item}}} shape, which stamp then wraps in the v2 envelope.
+  (let [full #(orcbrew-format/serialize-orcbrew
+               (orcbrew-format/stamp (map-plugin-classes sel/collapse-class data))
+               :pretty-print? pretty-print?)]
+    (cond
+      (string? data) data
+      raw?           (try (full) (catch :default _ (str data)))
+      :else          (full))))
 
 (defn- save-orcbrew-blob!
-  "Serialize plugin data to a .orcbrew file and trigger download. The only side
-   effect; serialization lives in the pure `serialize-orcbrew`. With `:raw?`, `data`
-   is already text and is written as it is, for a library that could not be read."
+  "Write `orcbrew-text` of `data` to `filename` and trigger the download; the only side effect."
   [filename data & {:keys [pretty-print? raw?]}]
-  (let [content (if raw?
-                  data
-                  (serialize-orcbrew (map-plugin-classes sel/collapse-class data)
-                                     :pretty-print? pretty-print?))
+  (let [content (orcbrew-text data :pretty-print? pretty-print? :raw? raw?)
         blob (js/Blob.
               (clj->js [content])
               (clj->js {:type "text/plain;charset=utf-8"}))]
@@ -6326,7 +6331,8 @@
                item-kw  (if (s/blank? name) :draft-item (common/name-to-kw name))
                plugin   {src {plugin-key {item-kw (assoc item :key item-kw)}}}
                filename (str (if (s/blank? name) "draft" name) "-draft.orcbrew")]
-           (save-orcbrew-blob! filename plugin)
+           ;; an escape hatch like the raw exports: a draft whose class collapse throws still downloads
+           (save-orcbrew-blob! filename plugin :raw? true)
            {:dispatch [:show-warning-message
                        (str "Draft exported to '" filename
                             "' (unvalidated WIP). Keep it safe; re-import to continue.")]}))))))
@@ -6584,10 +6590,10 @@
 (reg-event-fx
  ::e5/emergency-export-raw
  (fn [{:keys [db]} [_ plugin-name]]
-   ;; Raw, unvalidated dump. save-orcbrew-blob! serializes via str/pprint, which
-   ;; can't fail on bad data — the guaranteed escape hatch when validated export refuses.
+   ;; Raw, unvalidated dump: :raw? falls back to the data as written if a step throws, so this
+   ;; is the guaranteed escape hatch when validated export refuses.
    (let [[filename data] (select-emergency-export (:plugins db) plugin-name)]
-     (save-orcbrew-blob! filename data)
+     (save-orcbrew-blob! filename data :raw? true)
      {:dispatch [:show-warning-message
                  (str "Raw backup '" filename "' downloaded (unvalidated). "
                       "Keep it safe.")]})))
@@ -6599,7 +6605,7 @@
  ::e5/export-quarantined-raw
  (fn [{:keys [db]} [_ source-name]]
    (when-let [data (get-in db [:quarantined-plugins source-name])]
-     (save-orcbrew-blob! (str source-name ".orcbrew") data))
+     (save-orcbrew-blob! (str source-name ".orcbrew") data :raw? true))
    {}))
 
 ;; ============================================================================
@@ -8103,23 +8109,25 @@
                {::mi/type :wondrous-item
                 ::mi/rarity :common}]}))
 
-(reg-event-fx
- ::spells/reset-spell
- (fn [_ _]
-   {:dispatch [::spells/set-spell
-               default-spell]}))
+(defn- reg-reset-homebrew
+  "New in a homebrew builder: the default item, carrying the draft's :option-pack forward so the
+   source on screen is the source the new item has. A blank source stays blank. See
+   plan-next.md, the Option Source item."
+  [event set-event default-val item-key]
+  (reg-event-fx
+   event
+   (fn [{:keys [db]} _]
+     (let [src (get-in db [item-key :option-pack])]
+       {:dispatch [set-event (cond-> default-val
+                               (not (s/blank? src)) (assoc :option-pack src))]}))))
 
-(reg-event-fx
- ::monsters/reset-monster
- (fn [_ _]
-   {:dispatch [::monsters/set-monster
-               default-monster]}))
+(reg-reset-homebrew ::spells/reset-spell ::spells/set-spell default-spell ::spells/builder-item)
 
-(reg-event-fx
- ::encounters/reset-encounter
- (fn [_ _]
-   {:dispatch [::encounters/set-encounter
-               default-encounter]}))
+(reg-reset-homebrew ::monsters/reset-monster ::monsters/set-monster
+                    default-monster ::monsters/builder-item)
+
+(reg-reset-homebrew ::encounters/reset-encounter ::encounters/set-encounter
+                    default-encounter ::encounters/builder-item)
 
 (reg-event-fx
  ::combat/reset-combat
@@ -8127,65 +8135,32 @@
    {:dispatch [::combat/set-combat
                default-combat]}))
 
-(reg-event-fx
- ::bg5e/reset-background
- (fn [_ _]
-   {:dispatch [::bg5e/set-background
-               default-background]}))
+(reg-reset-homebrew ::bg5e/reset-background ::bg5e/set-background
+                    default-background ::bg5e/builder-item)
 
-(reg-event-fx
- ::langs5e/reset-language
- (fn [_ _]
-   {:dispatch [::langs5e/set-language
-               default-language]}))
+(reg-reset-homebrew ::langs5e/reset-language ::langs5e/set-language
+                    default-language ::langs5e/builder-item)
 
-(reg-event-fx
- ::class5e/reset-invocation
- (fn [_ _]
-   {:dispatch [::class5e/set-invocation
-               default-invocation]}))
+(reg-reset-homebrew ::class5e/reset-invocation ::class5e/set-invocation
+                    default-invocation ::class5e/invocation-builder-item)
 
-(reg-event-fx
- ::class5e/reset-boon
- (fn [_ _]
-   {:dispatch [::class5e/set-boon
-               default-boon]}))
+(reg-reset-homebrew ::class5e/reset-boon ::class5e/set-boon
+                    default-boon ::class5e/boon-builder-item)
 
-(reg-event-fx
- ::selections5e/reset-selection
- (fn [_ _]
-   {:dispatch [::selections5e/set-selection
-               default-selection]}))
+(reg-reset-homebrew ::selections5e/reset-selection ::selections5e/set-selection
+                    default-selection ::selections5e/builder-item)
 
-(reg-event-fx
- ::feats5e/reset-feat
- (fn [_ _]
-   {:dispatch [::feats5e/set-feat
-               default-feat]}))
+(reg-reset-homebrew ::feats5e/reset-feat ::feats5e/set-feat default-feat ::feats5e/builder-item)
 
-(reg-event-fx
- ::race5e/reset-race
- (fn [_ _]
-   {:dispatch [::race5e/set-race
-               default-race]}))
+(reg-reset-homebrew ::race5e/reset-race ::race5e/set-race default-race ::race5e/builder-item)
 
-(reg-event-fx
- ::race5e/reset-subrace
- (fn [_ _]
-   {:dispatch [::race5e/set-subrace
-               default-subrace]}))
+(reg-reset-homebrew ::race5e/reset-subrace ::race5e/set-subrace
+                    default-subrace ::race5e/subrace-builder-item)
 
-(reg-event-fx
- ::class5e/reset-subclass
- (fn [_ _]
-   {:dispatch [::class5e/set-subclass
-               default-subclass]}))
+(reg-reset-homebrew ::class5e/reset-subclass ::class5e/set-subclass
+                    default-subclass ::class5e/subclass-builder-item)
 
-(reg-event-fx
- ::class5e/reset-class
- (fn [_ _]
-   {:dispatch [::class5e/set-class
-               default-class]}))
+(reg-reset-homebrew ::class5e/reset-class ::class5e/set-class default-class ::class5e/builder-item)
 
 (defn reg-new-homebrew [event set-event default-val route plugin-key]
   (reg-event-fx

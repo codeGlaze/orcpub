@@ -170,3 +170,64 @@
       (let [sent (with-download-form (fn [_] (export!)))]
         (is (empty? @sent))
         (is (= :show-error-message (first @shown)) "the player is told, not left with nothing")))))
+
+;; Imported homebrew is untrusted. The ability-increase and save forms, their notes and the feat
+;; section are drawn with every field holding each malformed shape; none may throw.
+(def ^:private malformed-grants
+  [nil 42 "x" true {} {:a 1} #{} #{:str} #{42} [] [nil] [42] ["x"] [{}] [[]] [[nil]] [[1]]
+   [[1 nil]] [[1 nil :save]] [[1 :foo]] [[1 #{}]] [[1 []]] [[1 [nil]]] [[1 #{2}]] [["1" :str]]
+   [[nil :str]] [[1 :str :save :extra]] [[0 :any]] [[-1 :any]] [[1.5 :any]] [[4 :mental]]
+   [[1 {:a 1}]] [[1 "str"]] [[1 #{:wis :con}]] (list [1 :str])])
+
+(defn- expand
+  "Draw `x` the way Reagent would: a vector headed by a function is a child component, so call it
+   (twice for a component that returns its render function) and draw what it returns."
+  [x]
+  (cond (and (vector? x) (fn? (first x)))
+        (let [[f & args] x
+              r (apply f args)]
+          (expand (if (fn? r) (apply r args) r)))
+        (map? x) x
+        (coll? x) (doall (map expand x))
+        :else x))
+
+(deftest grant-forms-draw-any-imported-shape
+  (let [draw (fn [f item] (try (expand (f item)) nil
+                               (catch :default e (.-message e))))
+        forms {"ability-increase-choices" #(views/ability-increase-choices % identity)
+               "save-proficiency-choices" #(views/save-proficiency-choices % identity)
+               "ability-save-notes"       views/ability-save-notes
+               "feat-ability-score-section" views/feat-ability-score-section}
+        failures (for [field [:ability-increases :save-proficiencies]
+                       v malformed-grants
+                       [label f] forms
+                       :let [msg (draw f {:name "Bad" field v})]
+                       :when msg]
+                   [label field v msg])]
+    (is (empty? failures) (pr-str (take 5 failures)))))
+
+(deftest the-feat-section-says-when-its-increases-are-junk
+  (let [text #(->> (views/feat-ability-score-section %) expand (tree-seq coll? seq)
+                   (filter string?) (apply str))
+        warned? #(boolean (re-find #"will be IGNORED" (text {:name "F" :ability-increases %})))]
+    (is (warned? 42) "a number is named, though the 2024 section starts closed")
+    (is (warned? "x"))
+    (is (warned? #{:str :con}) "a released set of short keys raises nothing, so it is named")
+    (is (not (warned? #{})) "an empty released set is not junk")
+    (is (not (warned? #{:orcpub.dnd.e5.character/str :saves?})) "nor is a released set")
+    (is (not (warned? [[1 :str]])) "nor a spread")))
+
+(deftest a-save-count-is-never-more-than-its-pool-gives
+  (let [row (fn [entry]
+              (let [stored (atom nil)
+                    form (views/save-proficiency-choices {:save-proficiencies [entry]}
+                                                         #(reset! stored %))
+                    dd (fn [label] (some #(when (and (vector? %) (= label (second %))) (nth % 2))
+                                         (tree-seq coll? seq form)))]
+                {:how-many (dd "How many") :from (dd "From") :stored stored}))]
+    (let [{:keys [how-many]} (row [3 :str])]
+      (is (= 1 (:value how-many)) "an imported [3 :str] shows the one save it gives")
+      (is (= [1] (map :value (:items how-many)))))
+    (let [{:keys [from stored]} (row [3 :any])]
+      ((:on-change from) :str)
+      (is (= [[1 :str]] @stored) "choosing one ability brings the count down to one"))))

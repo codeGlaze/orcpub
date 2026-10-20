@@ -76,6 +76,9 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** the builder shows choices waiting on a higher level beside the level picker, and says when each comes back.
 - **Characters:** with more than one class, a "1st" badge marks the starting class; tap another class's badge to make it the starting class, and choices that only apply to the starting class follow.
 - **Characters:** a Choices list in the builder shows every choice a character stores, including ones whose homebrew isn't loaded in this browser, and lets those be cleared.
+- **Homebrew:** races, subraces, backgrounds and feats can give ability score increases the player places, such as +2 to one ability and +1 to another, or +1 to any martial ability; subclasses can too, in an optional section.
+- **Homebrew:** homebrew can give saving throw proficiencies, fixed or chosen, on their own or with an ability score increase.
+- **Homebrew:** a file that uses these is marked so an older version of the site refuses it instead of loading it wrong.
 - **Characters:** the character builder's Back and Next repeat at the bottom of each page, and open the next page at its top.
 - **Homebrew:** the add buttons on homebrew builders repeat below a long list of traits or options.
 
@@ -96,6 +99,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 
 ### Fixed
 
+- **Homebrew:** New in a homebrew builder keeps the Option Source the box shows, so saving no longer asks for a source that looks filled in.
 - **Homebrew:** a custom element with a blank or symbol-only name no longer breaks the character. (#675)
 - **Homebrew:** older spell names (Leomund's, Tasha's, Bigby's) match in imported packs. (#676)
 - **Homebrew:** a homebrew class's source label no longer corrupts saved spell selections. (#670)
