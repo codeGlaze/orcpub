@@ -2172,3 +2172,10 @@
                          [:orcpub.entity/options :background :orcpub.entity/key]))))
   (is (= :blue (get-in @app-db [::char5e/character-map 7 :orcpub.entity/options :background :orcpub.entity/key]))
       "nothing is written back"))
+
+(deftest feat-checkbox-starts-a-set-from-anything-else
+  (doseq [start [[] nil #{}]]
+    (reset! app-db {::feats5e/builder-item {:name "F" :ability-increases start}})
+    (rf/dispatch-sync [::feats5e/toggle-feat-ability-increase :orcpub.dnd.e5.character/str])
+    (is (= #{:orcpub.dnd.e5.character/str} (get-in @app-db [::feats5e/builder-item :ability-increases]))
+        (str "from " (pr-str start)))))

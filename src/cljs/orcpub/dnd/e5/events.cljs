@@ -5637,10 +5637,12 @@
  ::feats5e/toggle-feat-ability-increase
  feat-interceptors
  (fn [feat [_ ability-key]]
-   (update feat :ability-increases (fn [s]
-                                     (if (s ability-key)
-                                       (disj s ability-key)
-                                       (conj s ability-key))))))
+   ;; the checkboxes edit the released set; anything else here (nil, an emptied spread) starts one
+   (update feat :ability-increases (fn [v]
+                                     (let [s (if (set? v) v #{})]
+                                       (if (s ability-key)
+                                         (disj s ability-key)
+                                         (conj s ability-key)))))))
 
 (reg-event-db
  ::feats5e/toggle-ability-prereq
