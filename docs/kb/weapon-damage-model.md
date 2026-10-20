@@ -84,6 +84,10 @@ join an ordinary roll; they are their own menu item.
 
 ## Not built yet
 
+- **Weapon Mastery** uses this vocabulary, adding two value references (`:ability-mod`,
+  `:attack-save-dc`) and two effect kinds (`:next-attack`, `:extra-attack`):
+  [weapon-mastery-plan.md](weapon-mastery-plan.md). No code may name a mastery.
+
 Datomic schema for these fields (needed before the custom item builder can save them); the builder's
 "extra damage" rows; the shared formatter both the table and the PDF call; the table itself; charge
 counts on items (the handoff lists recharge timing and zero charges as undecided). `.orcbrew` files

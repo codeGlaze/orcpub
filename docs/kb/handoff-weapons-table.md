@@ -156,8 +156,9 @@ Playwright to read them (they are unreadable on a phone, and the owner reviews o
     `::mi/on :crit`, which follows the crit range.
 
 **Not drawn, so ask:** how the result card relates to a roll log; resistance per damage part; charge
-recharge and the zero-charges state; whether the app knows the attacks-per-turn count (fallback: the
-chain counter only counts up). Armor in the same style is not in scope.
+recharge and the zero-charges state; whether the app knows the attacks-per-turn count (it does: `char5e/number-of-attacks`, which the
+chain counter reads). **Weapon Mastery on the sheet: follow [weapon-mastery-plan.md](weapon-mastery-plan.md);
+the first Graze/Vex/Cleave buttons were special-cased and are being replaced.** Armor in the same style is not in scope.
 
 ## Today's code (measured 2026-10-17 on `427d16aa`)
 

@@ -308,7 +308,7 @@ _already-held-grants · already held grants_
 
 _armor-class-computation · armor class computation_
 
-**topics:** ability, armor, armored, barbarian, bonus, channel, channels, con, defense, dex, max, maxes, monk, scalar, shield, tie-break, unarmored, worn
+**topics:** ability, armor, armored, barbarian, bonus, channel, channels, defense, dex, max, maxes, monk, pairwise, scalar, shield, tie-break, unarmored, worn
 
 - Verified behavior — TEST-BACKED (accharacterizationtest.clj, JVM)
 - The model — VERIFIED (templatebase.cljc:35-88)
@@ -460,7 +460,7 @@ _blank-env-values · blank env values_
 
 _branch-context-history · branch context history_
 
-**topics:** boon, branch, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, phase, pool, registry, rotted, spine, subs
+**topics:** boon, branch, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine
 
 - (was) Branch Context: claude/zen-wright-04xhdz
 - Purpose
@@ -519,7 +519,7 @@ _browser-probe-registration · browser probe registration_
 
 _builder-and-sheet-copies · builder and sheet copies_
 
-**topics:** 2026-10-15, 409, 410, 704, autosave, builder, copy, draft, edit, edits, multi-tab-character-contamination, recorded, reply, save, sends, sheet, unsaved, version
+**topics:** 2026-10-15, 409, 410, autosave, builder, copy, draft, edit, edits, multi-tab-character-contamination, recorded, reply, save, sends, server, sheet, unsaved, version
 
 - What was lost, proven on a real server
 - The fix
@@ -576,7 +576,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, extensible, feat, grant, legacy, monster, pool, race, registry, row, rows, shim, widget, widgets
+**topics:** ---, arm, bespoke, disposition, effect, expertise, extensible, grant, legacy, monster, pool, race, registry, row, rows, shim, widget, widgets
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -690,7 +690,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, ----------, blank, descriptive, dwarf, elf, generates, halfling, helper, human, label, manual, name, party, races, random, sex, views
+**topics:** ------, ----------, blank, descriptive, dwarf, elf, fallback, generates, halfling, helper, human, label, manual, name, party, races, random, sex
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -772,6 +772,7 @@ _class-features-and-mechanization · class features and mechanization_
 - The rolling layer — VERIFIED (corrects an earlier wrong claim)
 - Use/resource counters — VERIFIED
 - The mechanization ceiling (where "make it real, not text" stops)
+- Shared values a feature can use — VERIFIED 2026-10-19
 - The code-capture catch — VERIFIED (the thing that makes the registry non-trivial)
 - Design direction for centralizing features — DESIGN (not built)
 - NOT-EXPLORED / to verify before sizing
@@ -863,7 +864,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, page-map, parametric, per-type, pool, pools, primitive, registry, vocabulary, wiring
+**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, openness, page-map, parametric, per-type, pool, pools, primitive, registry, wiring
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -887,7 +888,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, dev, errors, f12, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1002,7 +1003,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, genuine, inline, localstorage, magic, resolves, server-backed, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, genuine, inline, localstorage, missing-content, resolves, server-backed, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -1081,7 +1082,7 @@ _decision-cr-representation · decision cr representation_
 
 _decision-gate-hidden-picks · decision gate hidden picks_
 
-**topics:** arms, caller-supplied, chosen, concatenation, condition, decision-already-held-resolution, entity-layer, filter, gate, hidden-selection-picks, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
+**topics:** caller-supplied, chosen, concatenation, condition, decision-already-held-resolution, entity-layer, filter, gate, hidden-selection-picks, migrates, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
 
 - Decision
 - The trace closes: there is no unknown family
@@ -1098,7 +1099,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, vocab, vocabulary
+**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab, vocabulary
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -1371,7 +1372,7 @@ _documentation-tenets · documentation tenets_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, breath, coerce, coercion, d32, dropdown, floating-asi, forget, handed, index-round-trip, merge-base, numeric, occurrence, per-caller, primitive, prior, string, widget
+**topics:** asi, coerce, coercion, d32, dropdown, floating-asi, forget, handed, index-round-trip, merge-base, mistake, numeric, occurrence, per-caller, primitive, prior, string, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -1465,7 +1466,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, datomic, dmv, echoing, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, added, datomic, dmv, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -1574,7 +1575,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** 400px, ammunition, app, app-only, armor, content-naming-style, damage, die, firearms, leather, longbow, net, open5e, spiked, srd, studded, weapons, weights
+**topics:** 2026-10-15, 400px, ammunition, app-only, armor, content-naming-style, damage, die, firearms, leather, longbow, net, open5e, spiked, srd, studded, weapons, weights
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -1685,7 +1686,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, blindsight, damage, dueling, engine, fighting, great, interception, pool, predicate, prop, protection, style, styles, thrown, vocabulary, weapon
+**topics:** archery, attack, blindsight, damage, defense, dueling, fighting, great, interception, pool, predicate, prop, protection, style, styles, three-state, thrown, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -1715,7 +1716,7 @@ _filtered-list-staleness · filtered list staleness_
 
 _folder-hardening · folder hardening_
 
-**topics:** clause, client, entities, error, evolution, folder, folders, handler, hardening, http, optimistic, pre-mutation, problem, re-fetch, rollback, server, solution, tempid
+**topics:** clause, client, entities, error, evolution, folder, folders, handler, hardening, http, optimistic, problem, re-fetch, request, rollback, server, solution, tempid
 
 - Context
 - Pattern: On-Failure Rollback via Server Re-Fetch
@@ -1861,7 +1862,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 1743, 1744, 374, 3816, 493, believing, branch, cut, directions, duplicate-key, e2e, integration, item, merging, minted, outcome, source, tag
+**topics:** 1743, 374, 3816, 493, believing, branch, cut, directions, duplicate-key, e2e, integration, item, key, merging, minted, outcome, source, tag
 
 - Outcome
 - The branches, and the order
@@ -2116,7 +2117,7 @@ _icon-font-failure · icon font failure_
 
 _input-field-debounce · input field debounce_
 
-**topics:** 500ms, cleared, cljs, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers, views
+**topics:** 500ms, cleared, cljs, debounce, debounced, dispatches, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers
 
 - Current Design (post-refactor)
 - Data flow
@@ -2709,7 +2710,7 @@ _plan-character-drafts · plan character drafts_
 
 _plan-chunked-library-storage · plan chunked library storage_
 
-**topics:** blob, capacity, chars, chunk, complexity, granularity, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike
+**topics:** blob, capacity, chars, chunk, granularity, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike, write
 
 - Read this first: why this plan is parked
 - The problem, in one line
@@ -3019,7 +3020,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, class, dropdown, grant, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellcasting, spells
+**topics:** branch, caster, class, dropdown, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, prepares, reconciler, sibling, spellcasting, spells
 
 - The user's ask
 - Branch state — important
@@ -3126,7 +3127,7 @@ _roadmap · roadmap_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, everyone, expressed, feat, granted, layer, ledger, party, permission, permissions, prop, rules, table-wide, tortle, wear, writs
+**topics:** armor, campaign, computation, everyone, expressed, expressible, feat, granted, layer, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -3348,7 +3349,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, tier, versions
+**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3393,7 +3394,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-data-consumers · srd data consumers_
 
-**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, load-time, lower-cases, magic, mechanics, monsters, spell, srd-2024-roadmap, sub
+**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, load-time, lower-cases, magic, monsters, re-check, spell, srd-2024-roadmap, sub
 
 - The two facts that shape any move
 - Per type
@@ -3404,7 +3405,7 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 20d6, actions, concentration, conditions, damage, editions, explosion, links, magic, monster, open5e, previews, prices, rules, spell, spells, srd
+**topics:** 2014, 20d6, actions, concentration, conditions, damage, dice, editions, explosion, links, monster, open5e, previews, prices, rules, spell, spells, srd
 
 - How this was measured
 - What the app shows today
@@ -3626,7 +3627,7 @@ _ux-guide · ux guide_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
+**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
@@ -3672,7 +3673,7 @@ _views-builders-split · views builders split_
 
 _weapon-damage-model · weapon damage model_
 
-**topics:** 2026-10-17, blade, champion, charges, crit, damage, dawn, extra, handoff-weapons-table, period, periods, printed, sun, sword, vicious, vorpal, weapon, weapon-data-model
+**topics:** 2026-10-17, blade, champion, charges, crit, damage, dawn, extra, handoff-weapons-table, period, periods, sun, sword, vicious, vorpal, weapon, weapon-data-model, weapon-mastery-plan
 
 - Where it lives (feature/weapons-table)
 - The fields
@@ -3690,6 +3691,22 @@ _weapon-data-model · weapon data model_
 - Traps
 - Invariants, verified against the data
 - Authoring against these
+
+## weapon-mastery-plan.md
+
+_weapon-mastery-plan · weapon mastery plan_
+
+**topics:** advantage, after-damage, attack, cleave, damage, definitions, effect, extra, graze, masteries, mastery, mastery-specific, sap, topple, training, turn, vex, weapon
+
+- The rule
+- What exists, and where (verified 2026-10-19)
+- On this branch (feature/weapons-table)
+- In the shared character code (all branches)
+- On other branches
+- The eight masteries in the vocabulary
+- Value references
+- Decisions for the owner
+- Plan (after the decisions)
 
 ## weapons-extra-damage-design.md
 
@@ -3734,7 +3751,7 @@ _weapons-table-spec · weapons table spec_
 
 _writing-browser-tests · writing browser tests_
 
-**topics:** 2026-10-19, 390px, click, clicking, desktop, dispatch, disposes, e2e-runner, fast-browser-probes, mastery, menus, phone, pulse, run, stand-in, subscriptions, tab, view
+**topics:** 390px, click, clicking, desktop, dispatch, disposes, e2e-runner, fast-browser-probes, mastery, menus, phone, proven, pulse, run, stand-in, subscriptions, tab, view
 
 - Start from a working test
 - 1. Load the character with the app's own event, not by clicking the builder

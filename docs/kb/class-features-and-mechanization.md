@@ -67,6 +67,17 @@ can't count — wiring them as a frequency/amount feature would give them a coun
   hit/miss outcome, applying damage to a creature, reactions firing, action economy ("extra action"),
   enforced "once per turn." That's a simulator, not a sheet+roller.
 
+## Shared values a feature can use — VERIFIED 2026-10-19
+Found while planning Weapon Mastery ([weapon-mastery-plan.md](weapon-mastery-plan.md) has file:line):
+- **Save DCs:** `?spell-save-dc (fn [ability])` is the app's general DC; 12 non-spell features read
+  it (Stunning Strike, Turn Undead, Breath Weapon ...). Its `?spell-save-dc-bonus` comes only from
+  magic items, so those items raise non-spell DCs too: an existing bug, not yet fixed.
+- **An attack's ability modifier:** `?weapon-ability-modifier (fn [weapon finesse?])` exists in the
+  template but has no accessor or subscription.
+- **Attacks per turn:** `?num-attacks` / `char5e/number-of-attacks`; `mod5e/extra-attack` has no callers.
+- **Attack advantage:** no data anywhere, prose only. `?saving-throw-advantage` is written by many
+  features and read by nothing.
+
 ## The code-capture catch — VERIFIED (the thing that makes the registry non-trivial)
 The optimistic registry plan assumes a feature is *data* you can store, filter, and override. It
 isn't, today — a feature is **captured code**, and that changes what the registry's compile step has

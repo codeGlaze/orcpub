@@ -1,0 +1,125 @@
+# Weapon Mastery as data: analysis and plan
+
+How 2024 Weapon Mastery reaches the weapons table and the result sheet without mastery-specific
+code. Researched 2026-10-19 on `feature/weapons-table` after the owner caught special-cased Graze,
+Vex and Cleave buttons. Read this before touching mastery, or any "effect" a feature or item adds to
+an attack. The weapon effect vocabulary itself is in [weapon-damage-model.md](weapon-damage-model.md);
+the shared character machinery it builds on is in
+[class-features-and-mechanization.md](class-features-and-mechanization.md).
+
+## The rule
+
+**No code names a mastery.** A mastery is data in the same vocabulary as a magic weapon's extras and
+effects. The table and the result sheet render a handful of generic kinds (on-miss damage, a save
+after a hit, an effect after damage, an extra attack, text). A new mastery, a homebrew one, or a feat
+with the same mechanics then needs data, not code.
+
+What went wrong first: `display.cljc` `mastery-summary` is a `case` on the eight keys, and the
+uncommitted sheet code on the branch has a branch each for `:graze`, `:vex` and `:cleave`
+(`views.cljs` around 3899-3980). Those are to be replaced, not extended.
+
+## What exists, and where (verified 2026-10-19)
+
+### On this branch (`feature/weapons-table`)
+
+| Piece | Where | Use for mastery |
+|---|---|---|
+| Trigger `::mi/on :hit / :miss / :crit` | `magic_items.cljc` specs; `weapon_damage.cljc` `applies?` | Graze is an extra with `on :miss` |
+| Save effects `::mi/effect-type :save`, `::save-dc`, `::save-ability`, `::save-fail` | `magic_items.cljc`; `display.cljc` `effect-summary` | Topple is a save effect; `effect-summary` already writes "DC 13 Con or prone" |
+| Text effects `::effect-type :condition` + `::text` | `magic_items.cljc` | Push, Sap, Slow |
+| Per-turn and per-rest limits `::recharge` with the app's periods (`::units/turn` ...) | `magic_items.cljc`, `units.cljc` | Cleave and Nick are once per turn |
+| Roll engine with modes `:normal :adv :dis` | `weapon_rolls.cljc` `roll-attack` | Vex arms advantage on the next attack |
+| Result sheet and attack chain | `views.cljs` `weapon-roll-result` | Generic "Missed?", after-damage and extra-attack buttons |
+| Training set `char5e/weapon-masteries` (prop `:weapon-masteries`, nothing sets it yet) | `character.cljc:606`, `subs.cljs:964` | Gate stays as built |
+| Definitions subscription `::weapons/mastery-definitions` (returns `{}`) | `subs.cljs:996` | Replaced by data, see plan step 4. **Its comment cites `edition-machinery-split.md`, which does not exist; fix in step 4.** |
+
+### In the shared character code (all branches)
+
+| Piece | Where | Note |
+|---|---|---|
+| `?weapon-ability-modifier (fn [weapon finesse?])`: the modifier an attack uses | `template_base.cljc:202` | **Not exposed** (no `character.cljc` accessor, no sub). The views approximate it as damage modifier minus magic bonus (`views.cljs` ~4260), which is wrong with Dueling or any damage-bonus fn |
+| `?spell-save-dc (fn [ability])` = 8 + prof + mod + `?spell-save-dc-bonus` | `template_base.cljc:249`; `char5e/spell-save-dc-fn` | The app's de facto general DC: 12 live non-spell features use it (Stunning Strike, Turn Undead, Quivering Palm, Water Whip, Breath Weapon ...) |
+| `?spell-save-dc-bonus` | written only by magic items (`magic_items.cljc:408, 416, 2346`, robe/ring style) | **Existing bug:** those items raise every non-spell DC above too. Not mastery's to fix silently |
+| Attacks per turn `?num-attacks` / `char5e/number-of-attacks`, written by `mod5e/num-attacks` (Extra Attack) | `template_base.cljc:176-178`, `classes.cljc` | The sheet's counter already reads it. `mod5e/extra-attack` (cum-sum) exists with zero callers |
+| Attack advantage | none | Prose only (Reckless Attack, Grappler). The only machine-readable advantage is the new roll engine's `:mode` |
+| `?saving-throw-advantage` | written by many, read by nobody (accessor discarded, `character.cljc:626`) | Dead end; noted, out of scope |
+
+### On other branches
+
+- **`srd52/develop`** (the 5.5 line): `resources/public/srd/2024/equipment.edn` tags all 38 weapons
+  with `:mastery :topple` and so on (commit `823bb936`). No definitions, no reader, no training.
+  The SRD 5.2 text is in `resources/srd/SRD-5.2.1.readable.txt` (Mastery Properties at 8344; class
+  "Weapon Mastery" features at 2919, 4560, 5114, 5456, 5765).
+- **open5e** (`~/projects/open5e-api`, `data/v2/wizards-of-the-coast/srd-2024/WeaponProperty.json`):
+  the eight masteries with verbatim SRD descriptions, `type "Mastery"`.
+- **`feature/grant-rows`**: the grant-pool registry (`grant_pools.cljc`) is where "choose N weapon
+  kinds to master" belongs; its `:weapons` pool grants proficiency only today.
+- **gitea `srd-2024-intergration`**: an older open5e import repeating the mastery text on every weapon.
+  Not a source.
+- No branch has attack-advantage vocabulary or mastery code.
+
+## The eight masteries in the vocabulary
+
+| Mastery | As data | Fits today? |
+|---|---|---|
+| Topple | effect `{:effect-type :save :save-ability :con :save-dc <attack DC> :save-fail :prone}`, on hit | needs a **computed DC** (decision 1) |
+| Graze | extra damage `{:on :miss :damage-bonus <ability mod> }`, weapon's type | needs a **computed amount** (`:ability-mod`) |
+| Vex | effect, after damage: next attack against it has advantage | **new generic kind** `:next-attack :adv` |
+| Sap | text effect, on hit | yes |
+| Push | text effect, on hit | yes |
+| Slow | text effect, on hit, needs damage | yes |
+| Cleave | once per turn, one extra attack whose damage leaves out a positive ability modifier | **new generic kind** `:extra-attack {:ability-mod :omit}` + existing `::recharge ::units/turn` |
+| Nick | once per turn, the Light extra attack joins the Attack action | text; the counter needs no change (it already counts past the total) |
+
+So the new vocabulary is small: two value references and two effect kinds. Everything else reuses
+fields that exist.
+
+### Value references
+
+A number field may hold a keyword resolved when rolling, from a context the view builds from existing
+character functions:
+
+- `:ability-mod`: the attack's ability modifier, from `?weapon-ability-modifier` (to be exposed).
+- `:attack-save-dc`: the attack's DC, see decision 1.
+
+One resolver, used by the formatter and the roll engine. Feats and class features can use the same
+references later; the class-feature catalogue already asks for this (`:uses` from ability
+modifiers, class-feature-catalogue.md "Findings").
+
+## Decisions for the owner
+
+1. **Topple's DC.** (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +
+   `?weapon-ability-modifier`, exposed like its neighbours, with no spell bonus (the SRD rule); or
+   (b) reuse `?spell-save-dc` with the weapon's ability, matching the 12 features that do, bonus bug
+   included. Recommended: (a), since the SRD defines it by the attack's modifier, not an ability.
+2. **The `?spell-save-dc-bonus` leak.** Fix now (a base DC without item spell bonuses, spells adding
+   them on top) or file it. It changes printed DCs for characters wearing those items.
+3. **Where definitions live.** Data on the 5.5 line (`srd52/develop`), in the app's data shape, read
+   by a subscription; this branch carries only test data. Recommended, per
+   [srd-2024-roadmap.md](srd-2024-roadmap.md) (mastery belongs on the 5.5 trunk).
+4. **Band summary wording.** Derived from the data (`effect-summary`, `extra-damage-str`), so no
+   per-mastery strings; Push, Sap and Slow need a short `:summary` field in our words beside the SRD
+   `:text`.
+
+## Plan (after the decisions)
+
+Each step: tests seen failing first, scoped checks, own commit, KB updated.
+
+1. **Discard the special-cased code.** Revert the uncommitted Graze/Vex/Cleave sheet branches
+   (`views.cljs`), the `:weapon-roll/arm` event and sub only if step 5 does not reuse them, and the
+   `case` in `mastery-summary`. Keep the desktop ctrl-click card check.
+2. **Expose the weapon's ability modifier** (`character.cljc` accessor + sub, like
+   `best-weapon-damage-modifier-fn`), and the DC chosen in decision 1. Replace the views' approximation.
+3. **Value references**: spec `:ability-mod` and `:attack-save-dc` as allowed values of
+   `::damage-bonus` and `::save-dc`; one resolver; formatter and engine call it.
+4. **Mastery definitions as data**: `{key {:name :text :summary? :extra-damage [...] :effects [...]}}`
+   in the item vocabulary; `mastery-band` builds the band from them; delete `mastery-summary`. Fix the
+   subs comment to point here.
+5. **Generic sheet kinds**: "Missed?" for any `on :miss` extra; after-damage effects as buttons
+   (`:next-attack :adv` arms the chain's next roll); `:extra-attack` turns the corner tile into that
+   attack once per turn. None names a mastery.
+6. **Tests with made-up data** for all eight (custom items, writing-browser-tests.md rule 6), plus a
+   homebrew item using the same kinds, to prove nothing is mastery-specific.
+
+Out of scope here: setting `:weapon-masteries` from class features (5.5 line, grant pools), and the
+dead `?saving-throw-advantage`.
