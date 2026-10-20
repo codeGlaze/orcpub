@@ -3349,7 +3349,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
+**topics:** 2014, 2024, approaches, builtin, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, tier, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3696,7 +3696,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** advantage, after-damage, attack, cleave, damage, definitions, effect, extra, graze, masteries, mastery, mastery-specific, sap, topple, training, turn, vex, weapon
+**topics:** advantage, after-damage, attack, cleave, damage, definitions, effect, extra, graze, masteries, mastery, mastery-specific, sap, srd-2024-roadmap, topple, turn, vex, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)
@@ -3705,6 +3705,7 @@ _weapon-mastery-plan · weapon mastery plan_
 - On other branches
 - The eight masteries in the vocabulary
 - Value references
+- Decided
 - Decisions for the owner
 - Plan (after the decisions)
 

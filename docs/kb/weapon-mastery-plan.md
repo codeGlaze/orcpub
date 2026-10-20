@@ -86,6 +86,17 @@ One resolver, used by the formatter and the roll engine. Feats and class feature
 references later; the class-feature catalogue already asks for this (`:uses` from ability
 modifiers, class-feature-catalogue.md "Findings").
 
+## Decided
+
+- **Masteries are filtered by edition like other content** (owner, 2026-10-19). The SRD masteries
+  are 2024 content. A homebrew mastery **defaults to tagged 2024**; its author can retag it for both
+  editions or for 2014. The version filter ([srd-2024-roadmap.md](srd-2024-roadmap.md)) then removes
+  them from a 2014-only game with no mastery-specific code. The filter is designed, not built.
+- **Still open:** whether masteries are content only, or also a rule the rules setting can switch
+  off (2014 content with 2024 mastery rules, or the reverse). Can wait for the filter.
+- **Proposed, not yet agreed:** masteries as a list with homebrew entries, like fighting styles
+  (`fighting-style-authoring.md`), rather than fixed data.
+
 ## Decisions for the owner
 
 1. **Topple's DC.** (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +

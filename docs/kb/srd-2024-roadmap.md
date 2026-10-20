@@ -289,6 +289,7 @@ departures on rendered pages, then the rest of phase 3. **Not the next thing** �
 | Model the work as two independent dials — **content** (which sources and items are on) and **rules** (what the engine computes) — not one edition switch. One switch can only express purity; users want to mix. | agreed in discussion |
 | The content dial is a **version filter**: 2014, 2024, or both. **No version selected means no filter.** That decouples tagging content from filtering it, so tagging can ship without changing anything for anyone. | owner |
 | Filtering **removes content from pools**, the way turning a source off in My Content already does — not a build-time condition that leaves dead entries visible. | owner |
+| **A homebrew Weapon Mastery defaults to tagged 2024.** Its author can retag it for both editions (untagged) or for 2014. An exception to "tag the 2024 side": masteries are a 2024 concept, so a homebrew one starts there. [weapon-mastery-plan.md](weapon-mastery-plan.md) | owner, 2026-10-19 |
 | Untagged content is shared by both editions. **Tag the 2024 side**, not 2014: 2024 is broadly a superset of 2014 content, and 2014 is what existing characters reference. | owner |
 | Colliding names are distinguished by a **version appended at render time**, not stored in the name. The PDF renders names as bare strings, so a UI badge alone is not enough. | owner |
 | Track the **edition, not the errata**: 5.2.1 only. (5.2.0 and 5.2.1 showed no spell *field* differences; their text has not been compared.) | owner |
