@@ -1162,7 +1162,7 @@ _demo-content-tier · demo content tier_
 
 _dev-tooling-decisions · dev tooling decisions_
 
-**topics:** 2026-stack-modernization, 3449, 9500, best-practice, cli, config, consolidation, csp, datomic, dev-setup, fast, figwheel, init, java, port, profile, repl, start
+**topics:** 2026-stack-modernization, 3449, 9500, best-practice, cli, config, consolidation, csp, datomic, dev-setup, fast, figwheel, init, java, orchestrates, port, profile, repl
 
 - user.clj Consolidation Pattern
 - Current State (as of breaking/2026-stack-modernization)
@@ -3357,7 +3357,7 @@ _srd-2024-implementation-notes · srd 2024 implementation notes_
 
 _srd-2024-integration · srd 2024 integration_
 
-**topics:** 2014, 2024, approaches, builtin, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, tier, versions
+**topics:** 2014, 2024, approaches, builtin, entries, extraction, fireball, granularity, introduce, logic, modifier, precedence, reorder, revised, shells, srd, srd-vs-plugin-content, versions
 
 - Key Constraint: Mix-and-Match
 - How Data Extraction Helps
@@ -3704,7 +3704,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** 2026-10-19, advantage, attack, band, cleave, effect, extra, graze, masteries, mastery, mastery-specific, push, sap, srd, srd-2024-roadmap, topple, vex, weapon
+**topics:** ability, advantage, attack, cleave, creature, damage, effect, graze, hit, masteries, mastery, nick, sap, srd, topple, turn, vex, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)

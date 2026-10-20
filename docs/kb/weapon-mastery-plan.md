@@ -102,10 +102,23 @@ modifiers, class-feature-catalogue.md "Findings").
 - **Topple's DC is the SRD 5.2.1 rule:** 8 + the attack's ability modifier + proficiency, no item
   spell bonus. That is `?save-dc` with the attack's ability ([save-dc-sources.md](save-dc-sources.md)).
 - **The item spell DC leak is fixed** (`d1403c75`): decision 2 below is closed.
-- **Band text:** the SRD entries are short (Push and Sap one sentence, the longest, Cleave, four). The
-  band shows the SRD text itself, cut at the first sentence when it is long, with a link to the full
-  entry. No paraphrased summaries, so no separate `:summary` field (decision 4 closed). Proposed by
-  the owner as "part of the fuller SRD entry with a link", 2026-10-19.
+- **Band text: our own summary for a multi-sentence entry, the SRD sentence for a one-sentence
+  entry**, each with a link to the full SRD text (owner, 2026-10-20). The summary goes in a
+  `:summary` field beside the verbatim `:text` and must keep every rule. **Cutting the SRD text at a
+  sentence is wrong**: it drops rules (Topple loses "or Prone", Cleave and Nick "once per turn", Cleave
+  "no ability modifier", Graze "same type, raised only by the modifier", Slow "never more than 10 ft").
+  Drafts, awaiting owner review:
+
+  | Mastery | Band text |
+  |---|---|
+  | Cleave | *summary:* On a melee hit, attack a second creature within 5 ft. of the first and in your reach. Its damage leaves out a positive ability modifier. Once per turn. |
+  | Graze | *summary:* On a miss, deal damage equal to the attack's ability modifier, of the weapon's type. Only a higher modifier raises it. |
+  | Nick | *summary:* The Light property's extra attack can be part of the Attack action instead of a Bonus Action. Once per turn. |
+  | Push | *SRD:* If you hit a creature with this weapon, you can push the creature up to 10 feet straight away from yourself if it is Large or smaller. |
+  | Sap | *SRD:* If you hit a creature with this weapon, that creature has Disadvantage on its next attack roll before the start of your next turn. |
+  | Slow | *summary:* On a hit that deals damage, reduce its Speed by 10 ft. until the start of your next turn. Several Slow hits still total 10 ft. |
+  | Topple | *summary:* On a hit, the target makes a Con save (DC 8 + the attack's ability modifier + proficiency) or falls Prone. |
+  | Vex | *SRD:* If you hit a creature with this weapon and deal damage to the creature, you have Advantage on your next attack roll against that creature before the end of your next turn. |
 
 ## Decisions for the owner
 
