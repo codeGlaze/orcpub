@@ -8062,13 +8062,21 @@
           [:span.m-l-10.f-s-12.i.orange "click to add"])]
        (when @open? body)])))
 
+(defn- unreadable-row
+  "A grant entry the compilers skip, shown as it is stored with a Remove, so the author can find it
+   and take it out; `ability-save-notes` says why it is skipped."
+  [e on-remove]
+  [:div.flex.flex-wrap.align-items-c.m-b-5
+   [:span.f-s-12.i.red (str "This entry can't be read: " (pr-str e))]
+   [:button.m-l-5 {:on-click on-remove} "Remove"]])
+
 (defn ability-increase-choices
   "Authoring UI for an :ability-increases spread, a list of [amount pool] increments. Each row is an
    Amount and a To: a single stat is FIXED, a group (Any/Martial/Mental) is the player's choice. It
    stores short keywords ([2 :cha] [1 :martial]); explicit sets (#{:wis :con}) are valid data but
    written by hand, not here. Any silo: `item` is the content map, `set-ai!` stores the new spread."
   [item set-ai!]
-  (let [ais (vec (:ability-increases item))
+  (let [ais (let [v (:ability-increases item)] (if (sequential? v) (vec v) []))
         amount-items (map (fn [n] {:title (common/bonus-str n) :value n}) (range 1 4))
         target-items (concat
                       [{:title "Any (all six)" :value :any}
@@ -8085,20 +8093,23 @@
                                 "All increases go to different abilities.")]
      (doall
       (map-indexed
-       (fn [i [amount pool save-flag]]
-         (let [save? (= :save save-flag)]
-           ^{:key i}
-           [:div.flex.flex-wrap.align-items-c.m-b-5
-            [labeled-dropdown "Amount" {:items amount-items :value (or amount 1) :typed? true
-                                        :on-change #(set-ai! (assoc ais i (mk % pool save?)))}]
-            [labeled-dropdown "To" {:items target-items :value (or pool :any) :typed? true
-                                    :on-change #(set-ai! (assoc ais i (mk amount % save?)))}]
-            ;; opt-in rider: also grant the save for this increment's ability, toggled through
-            ;; the tested opt/toggle-increment-save
-            [:span.m-l-5 [comps/labeled-checkbox "+ save prof"
-                          save? false
-                          #(set-ai! (assoc ais i (opt/toggle-increment-save (nth ais i))))]]
-            [:button.m-l-5 {:on-click #(set-ai! (common/remove-at-index ais i))} "Remove"]]))
+       (fn [i e]
+         (if-not (opt/pool-entry? e)
+           ^{:key i} [unreadable-row e #(set-ai! (common/remove-at-index ais i))]
+           (let [[amount pool save-flag] e
+                 save? (= :save save-flag)]
+             ^{:key i}
+             [:div.flex.flex-wrap.align-items-c.m-b-5
+              [labeled-dropdown "Amount" {:items amount-items :value (or amount 1) :typed? true
+                                          :on-change #(set-ai! (assoc ais i (mk % pool save?)))}]
+              [labeled-dropdown "To" {:items target-items :value (or pool :any) :typed? true
+                                      :on-change #(set-ai! (assoc ais i (mk amount % save?)))}]
+              ;; opt-in rider: also grant the save for this increment's ability, toggled through
+              ;; the tested opt/toggle-increment-save
+              [:span.m-l-5 [comps/labeled-checkbox "+ save prof"
+                            save? false
+                            #(set-ai! (assoc ais i (opt/toggle-increment-save (nth ais i))))]]
+              [:button.m-l-5 {:on-click #(set-ai! (common/remove-at-index ais i))} "Remove"]])))
        ais))
      [:button {:on-click #(set-ai! (conj ais [1 :any]))} "Add increase"]]))
 
@@ -8107,7 +8118,7 @@
    INDEPENDENT of any ability bump. A single stat grants that fixed save; a group lets the player
    choose `count` saves from it. Silo-generic like ability-increase-choices (`item` + a setter)."
   [item set-sp!]
-  (let [sps (vec (:save-proficiencies item))
+  (let [sps (let [v (:save-proficiencies item)] (if (sequential? v) (vec v) []))
         count-items (map (fn [n] {:title (str n) :value n}) (range 1 4))
         target-items (concat
                       [{:title "Any (all six)" :value :any}
@@ -8122,14 +8133,17 @@
                                 "that many saves from it.")]
      (doall
       (map-indexed
-       (fn [i [cnt pool]]
-         ^{:key i}
-         [:div.flex.flex-wrap.align-items-c.m-b-5
-          [labeled-dropdown "How many" {:items count-items :value (or cnt 1) :typed? true
-                                        :on-change #(set-sp! (assoc sps i [% pool]))}]
-          [labeled-dropdown "From" {:items target-items :value (or pool :any) :typed? true
-                                    :on-change #(set-sp! (assoc sps i [cnt %]))}]
-          [:button.m-l-5 {:on-click #(set-sp! (common/remove-at-index sps i))} "Remove"]])
+       (fn [i e]
+         (if-not (opt/pool-entry? e)
+           ^{:key i} [unreadable-row e #(set-sp! (common/remove-at-index sps i))]
+           (let [[cnt pool] e]
+             ^{:key i}
+             [:div.flex.flex-wrap.align-items-c.m-b-5
+              [labeled-dropdown "How many" {:items count-items :value (or cnt 1) :typed? true
+                                            :on-change #(set-sp! (assoc sps i [% pool]))}]
+              [labeled-dropdown "From" {:items target-items :value (or pool :any) :typed? true
+                                        :on-change #(set-sp! (assoc sps i [cnt %]))}]
+              [:button.m-l-5 {:on-click #(set-sp! (common/remove-at-index sps i))} "Remove"]])))
        sps))
      [:button {:on-click #(set-sp! (conj sps [1 :any]))} "Add save"]]))
 
