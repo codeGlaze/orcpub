@@ -8073,6 +8073,14 @@
                              (s/capitalize (name pool)))
                     :value pool}])))
 
+(defn- with-current-number
+  "`items` plus the stored number when no item has it (an imported +4, or the -2 the race builder
+   allows), so the menu shows what is stored, not its first item."
+  [items n fmt]
+  (if (or (not (number? n)) (some #(= n (:value %)) items))
+    items
+    (sort-by :value (conj (vec items) {:title (fmt n) :value n}))))
+
 (defn- unreadable-row
   "A grant entry the compilers skip, shown as it is stored with a Remove, so the author can find it
    and take it out; `ability-save-notes` says why it is skipped."
@@ -8111,7 +8119,9 @@
                  save? (= :save save-flag)]
              ^{:key i}
              [:div.flex.flex-wrap.align-items-c.m-b-5
-              [labeled-dropdown "Amount" {:items amount-items :value (or amount 1) :typed? true
+              [labeled-dropdown "Amount" {:items (with-current-number amount-items amount
+                                                                      common/bonus-str)
+                                          :value (or amount 1) :typed? true
                                           :on-change #(set-ai! (assoc ais i (mk % pool save?)))}]
               [labeled-dropdown "To" {:items (with-current-pool target-items pool)
                                       :value (or pool :any) :typed? true
@@ -8151,7 +8161,8 @@
            (let [[cnt pool] e]
              ^{:key i}
              [:div.flex.flex-wrap.align-items-c.m-b-5
-              [labeled-dropdown "How many" {:items count-items :value (or cnt 1) :typed? true
+              [labeled-dropdown "How many" {:items (with-current-number count-items cnt str)
+                                            :value (or cnt 1) :typed? true
                                             :on-change #(set-sp! (assoc sps i [% pool]))}]
               [labeled-dropdown "From" {:items (with-current-pool target-items pool)
                                         :value (or pool :any) :typed? true
