@@ -6287,21 +6287,26 @@
      {} data)
     data))
 
-(defn- save-orcbrew-blob!
-  "Serialize plugin data to a .orcbrew file and trigger download. The only side
-   effect; serialization lives in the pure `orcbrew-format/serialize-orcbrew`.
-   `stamp` wraps the data in the v2 format envelope IFF it uses non-backward-
-   compatible features (a no-op for plain v1 content), so an old build can't
-   silently mis-load a new-format export. With `:raw?`, `data` is already text and
-   is written as it is, for a library that could not be read."
-  [filename data & {:keys [pretty-print? raw?]}]
+(defn orcbrew-text
+  "The .orcbrew text for `data`: classes collapsed, then `stamp`ed into the v2 envelope IFF it uses
+   features an old build cannot read. Text passes through as it is. With `:raw?` (the escape-hatch
+   exports) a step that throws on malformed data falls back to the data as written, so the
+   download always happens."
+  [data & {:keys [pretty-print? raw?]}]
   ;; collapse-class BEFORE stamp: map-plugin-classes walks the raw
   ;; {source {content-type {key item}}} shape, which stamp then wraps in the v2 envelope.
-  (let [content (if raw?
-                  data
-                  (orcbrew-format/serialize-orcbrew
-                   (orcbrew-format/stamp (map-plugin-classes sel/collapse-class data))
-                   :pretty-print? pretty-print?))
+  (let [full #(orcbrew-format/serialize-orcbrew
+               (orcbrew-format/stamp (map-plugin-classes sel/collapse-class data))
+               :pretty-print? pretty-print?)]
+    (cond
+      (string? data) data
+      raw?           (try (full) (catch :default _ (str data)))
+      :else          (full))))
+
+(defn- save-orcbrew-blob!
+  "Write `orcbrew-text` of `data` to `filename` and trigger the download; the only side effect."
+  [filename data & {:keys [pretty-print? raw?]}]
+  (let [content (orcbrew-text data :pretty-print? pretty-print? :raw? raw?)
         blob (js/Blob.
               (clj->js [content])
               (clj->js {:type "text/plain;charset=utf-8"}))]
@@ -6582,10 +6587,10 @@
 (reg-event-fx
  ::e5/emergency-export-raw
  (fn [{:keys [db]} [_ plugin-name]]
-   ;; Raw, unvalidated dump. save-orcbrew-blob! serializes via str/pprint, which
-   ;; can't fail on bad data — the guaranteed escape hatch when validated export refuses.
+   ;; Raw, unvalidated dump: :raw? falls back to the data as written if a step throws, so this
+   ;; is the guaranteed escape hatch when validated export refuses.
    (let [[filename data] (select-emergency-export (:plugins db) plugin-name)]
-     (save-orcbrew-blob! filename data)
+     (save-orcbrew-blob! filename data :raw? true)
      {:dispatch [:show-warning-message
                  (str "Raw backup '" filename "' downloaded (unvalidated). "
                       "Keep it safe.")]})))
@@ -6597,7 +6602,7 @@
  ::e5/export-quarantined-raw
  (fn [{:keys [db]} [_ source-name]]
    (when-let [data (get-in db [:quarantined-plugins source-name])]
-     (save-orcbrew-blob! (str source-name ".orcbrew") data))
+     (save-orcbrew-blob! (str source-name ".orcbrew") data :raw? true))
    {}))
 
 ;; ============================================================================

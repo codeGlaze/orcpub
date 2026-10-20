@@ -326,6 +326,20 @@
 ;; serialize-orcbrew moved to orcpub.dnd.e5.orcbrew-format (shared with the JVM
 ;; demo emitter); its round-trip tests live in orcbrew-format-test.
 
+(deftest raw-export-always-produces-text
+  (let [bad {"P" {:orcpub.dnd.e5/classes {:x {:name "X" :key :x :option-pack "P"
+                                               :starting-equipment-base :barbarian
+                                               :weapons true}}}}]
+    (testing "the ordinary export throws on a malformed class while collapsing it"
+      (is (thrown? js/Error (events/orcbrew-text bad))))
+    (testing "the escape hatch writes the data as it is instead"
+      (is (= bad (reader/read-string (events/orcbrew-text bad :raw? true)))))
+    (testing "good data still goes through collapse and stamp on the raw path"
+      (is (re-find #":orcbrew/format-version 2"
+                   (events/orcbrew-text {"P" {:orcpub.dnd.e5/feats
+                                              {:f {:ability-increases [[1 :any]]}}}}
+                                        :raw? true))))))
+
 ;; ---------------------------------------------------------------------------
 ;; spec-field-problems — nested-element diagnosability
 ;;

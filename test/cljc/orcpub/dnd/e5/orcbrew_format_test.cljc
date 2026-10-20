@@ -90,3 +90,10 @@
     (is (= #{} (orcbrew-format/detect-incompatible-features
                 {"P" {:orcpub.dnd.e5/feats {:f {:grants [] :save-proficiencies nil}}}}))
         "an empty or absent marker is no feature")))
+
+(deftest a-bare-plugin-is-stamped-too
+  (let [bare {:orcpub.dnd.e5/feats {:g {:name "G" :key :g :grants [{:pool :fighting-styles :count 1}]}}}
+        stamped (orcbrew-format/stamp bare)]
+    (is (= #{:grants} (orcbrew-format/detect-incompatible-features bare)))
+    (is (orcbrew-format/envelope? stamped))
+    (is (= bare (orcbrew-format/unwrap stamped)))))
