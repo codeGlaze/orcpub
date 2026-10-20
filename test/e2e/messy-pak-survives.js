@@ -17,11 +17,17 @@ const server=http.createServer((req,res)=>{const p=decodeURIComponent(req.url.sp
 // one well-formed race + one with deliberately malformed ASI/save data (valid EDN, junk VALUES)
 const PLUGINS=`{"Default Option Source" {} "Messy Pak" {:orcpub.dnd.e5/races {`
  +`:warden {:name "Warden" :key :warden :option-pack "Messy Pak" :size :medium :speed 30 :languages #{} :traits [] :ability-increases [[1 :martial :save]] :save-proficiencies [[1 :mental]]} `
- +`:cursed {:name "Cursed" :key :cursed :option-pack "Messy Pak" :size :medium :speed 30 :languages #{} :traits [] :ability-increases [[1 :martial :save] "junk" [:bad] []] :save-proficiencies [[1 :con] "x" [:bad]]}}}}`;
+ +`:cursed {:name "Cursed" :key :cursed :option-pack "Messy Pak" :size :medium :speed 30 :languages #{} :traits [] :ability-increases [[1 :martial :save] "junk" [:bad] []] :save-proficiencies [[1 :con] "x" [:bad]]}} `
+ // a background whose fields are not even lists: backgrounds compile ASI too, and must be guarded
+ +`:orcpub.dnd.e5/backgrounds {:haunted {:name "Haunted" :key :haunted :option-pack "Messy Pak" :ability-increases 42 :save-proficiencies [[1 [nil]] true]}}}}`;
+// each malformed entry, as its builder's draft, to open it in that builder
+const CURSED_DRAFT=`{:name "Cursed" :key :cursed :option-pack "Messy Pak" :size :medium :speed 30 :ability-increases [[1 :martial :save] "junk" [:bad] []] :save-proficiencies [[1 :con] "x" [:bad]]}`;
+const HAUNTED_DRAFT=`{:name "Haunted" :key :haunted :option-pack "Messy Pak" :ability-increases 42 :save-proficiencies [[1 [nil]] true]}`;
 const U=`http://localhost:${PORT}`; const results=[]; const check=(n,ok,x)=>{results.push(ok);console.log(`  ${ok?'PASS':'FAIL'}  ${n}${x?'  '+x:''}`);};
 (async()=>{
   await new Promise(r=>server.listen(PORT,'127.0.0.1',r));
   const b=await chromium.launch({ executablePath: findChrome() });const pg=await b.newPage(); const errs=[]; pg.on('pageerror',e=>errs.push((e.message||e).toString().split('\n')[0]));
+  pg.on('console',m=>{if(m.type()==='error')errs.push('console: '+m.text().slice(0,200));});
   await pg.setViewportSize({width:1280,height:1400});
   await pg.goto(`${U}/dnd/5e/my-content`,{waitUntil:'load'}); await pg.evaluate(p=>localStorage.setItem('plugins',p),PLUGINS);
   await dismissWhatsNew(pg);   // the release panel opens at launch and eats clicks
@@ -47,6 +53,19 @@ const U=`http://localhost:${PORT}`; const results=[]; const check=(n,ok,x)=>{res
   await pg.locator('#app :text("Ability Scores / Feats")').first().click(); await pg.waitForTimeout(1200);
   check('the ability tab still renders with the malformed race active (no throw)',
         /Ability/.test(await pg.locator('#app').innerText()));
+
+  // the backgrounds list survives a background whose grant fields are not lists
+  await pg.locator('#app .f-s-10.m-b-2').filter({hasText:'Background'}).first().click(); await pg.waitForTimeout(1000);
+  const bgText=await pg.locator('#app').innerText();
+  check('the Background tab still lists backgrounds with a malformed one in the pack', /Acolyte/.test(bgText), (/Haunted/.test(bgText)?'Haunted listed':'Haunted set aside'));
+
+  // each malformed entry opened in its own builder: it draws, showing what it cannot read
+  for (const [seg,key,draft,label] of [['race','race',CURSED_DRAFT,'Cursed race'],['background','background',HAUNTED_DRAFT,'Haunted background']]) {
+    await pg.evaluate(([k,d])=>localStorage.setItem(k,d),[key,draft]);
+    await pg.goto(`${U}/pages/dnd/5e/${seg}-builder`,{waitUntil:'load'}); await pg.waitForTimeout(2500);
+    const t=await pg.locator('#app').innerText();
+    check(`the ${label} opens in its builder and shows what it can't read`, /can't be read|malformed and will be IGNORED/.test(t), t.length+' chars');
+  }
 
   check('NO page errors across loading + using the messy pack', errs.length===0, errs.join(' | '));
 
