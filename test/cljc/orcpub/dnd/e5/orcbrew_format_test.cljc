@@ -79,3 +79,14 @@
           {:keys [ok? message]} (orcbrew-format/compat-check newer)]
       (is (not ok?) "a version beyond supported is refused")
       (is (re-find #"newer format" message) "with an actionable message"))))
+
+(deftest malformed-markers-never-throw
+  (testing "a marker that is not a collection is counted, conservatively, and never throws"
+    (is (= #{:grants :save-proficiencies}
+           (orcbrew-format/detect-incompatible-features
+            {"P" {:orcpub.dnd.e5/feats {:f {:grants true :save-proficiencies true}}}})))
+    (is (= #{:orcpub.dnd.e5/fighting-styles}
+           (orcbrew-format/detect-incompatible-features {"P" {:orcpub.dnd.e5/fighting-styles true}})))
+    (is (= #{} (orcbrew-format/detect-incompatible-features
+                {"P" {:orcpub.dnd.e5/feats {:f {:grants [] :save-proficiencies nil}}}}))
+        "an empty or absent marker is no feature")))

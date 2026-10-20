@@ -35,13 +35,19 @@
   #{:orcpub.dnd.e5/draconic-ancestries
     :orcpub.dnd.e5/fighting-styles})
 
+(defn- present?
+  "A marker that counts: present and not an empty collection. A malformed value such as `true`
+   counts too, conservatively, and never reaches `seq`."
+  [v]
+  (and (some? v) (or (not (coll? v)) (boolean (seq v)))))
+
 (defn- item-features
   "The non-backward-compatible feature markers a single content ITEM carries."
   [item]
   (when (map? item)
     (cond-> #{}
-      (seq (:grants item))                   (conj :grants)
-      (seq (:save-proficiencies item))       (conj :save-proficiencies)
+      (present? (:grants item))              (conj :grants)
+      (present? (:save-proficiencies item))  (conj :save-proficiencies)
       ;; the ability-increase SPREAD is the vector form [[amount pool] ...]; the
       ;; legacy feat format is a set (#{:str}) and stays backward compatible.
       (vector? (:ability-increases item))     (conj :ability-increase-spread))))
@@ -64,7 +70,7 @@
                   (fn [[content-type items]]
                     (concat
                      (when (and (contains? incompatible-content-types content-type)
-                                (seq items))
+                                (present? items))
                        [content-type])
                      (when (map? items)
                        (mapcat item-features (vals items)))))
