@@ -10,7 +10,7 @@ name: Docker Integration Test
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [develop, integration]
     paths:
       - 'docker/**'
       - 'docker-compose*.yaml'
@@ -210,6 +210,14 @@ jobs:
             sleep 2
           done
 
+      # Values the stack must carry from .env into the app: a branding name, a capacity
+      # setting and an alert setting. Compose passes only the names it lists, so a name
+      # missing from docker-compose.yaml shows here as DEFAULT instead of SET.
+      - name: Set test settings in .env
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          printf '\nAPP_NAME=CI Vault\nORCPUB_PDF_CONCURRENCY=3\nALERT_MAX_PER_HOUR=5\n' >> .env
+
       - name: Start orcpub and web
         if: steps.start-datomic.outcome == 'success'
         run: |
@@ -246,6 +254,23 @@ jobs:
             sleep 2
           done
           docker compose ps
+
+      - name: Test — settings from .env reach the app
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          LOGS=$(docker compose logs --no-color orcpub)
+          for row in "ORCPUB_PDF_CONCURRENCY +3 +SET" "ALERT_MAX_PER_HOUR +5 +SET"; do
+            if ! echo "$LOGS" | grep -Eq "^[^ ]* *\| +${row}|^ +${row}"; then
+              echo "FAIL: start-up report lacks: ${row}"
+              echo "$LOGS" | grep -E "ORCPUB_PDF_CONCURRENCY|ALERT_MAX_PER_HOUR" || true
+              exit 1
+            fi
+          done
+          if ! curl -sk https://localhost/ | grep -q "CI Vault"; then
+            echo "FAIL: APP_NAME from .env is not in the served page"
+            exit 1
+          fi
+          echo "OK: .env settings reached the app"
 
       - name: Test — create user
         if: steps.start-datomic.outcome == 'success'
