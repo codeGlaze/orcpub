@@ -245,11 +245,15 @@
                              (+ ?prof-bonus
                                 (?ability-bonuses ability-kw)
                                 ?spell-attack-modifier-bonus))
+    ;; ?save-dc is for features whose text gives their own DC (ki, Breath Weapon); only
+    ;; ?spell-save-dc takes item spell DC bonuses. save-dc-sources.md lists which feature uses which.
+    ?save-dc (fn [ability-kw]
+               (+ 8
+                  ?prof-bonus
+                  (get ?ability-bonuses ability-kw 0)))
     ?spell-save-dc-bonus 0
     ?spell-save-dc (fn [ability-kw]
-                     (+ 8
-                        ?prof-bonus
-                        (get ?ability-bonuses ability-kw 0)
+                     (+ (?save-dc ability-kw)
                         ?spell-save-dc-bonus))
     ?spell-modifiers (reduce
                       (fn [m {:keys [ability class]}]
