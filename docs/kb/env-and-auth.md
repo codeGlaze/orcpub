@@ -29,8 +29,8 @@ Three paths, different mechanisms:
 ### 3. Docker / production
 - Compose does **not** load `.env` into the container. It uses `.env` (and the shell) only to fill
   `${VAR:-default}` in the app service's explicit `environment:` list. **A variable not on that list
-  never reaches the app**, whatever `.env` says. On 2026-10-19 that was 15 settings and 21 of the 22
-  `APP_*` branding names: [settings-registry-and-boot-report.md](settings-registry-and-boot-report.md), "Four lists".
+  never reaches the app**, whatever `.env` says. Since 2026-10-19 the list names every setting the
+  server reads, kept so by `settings_lists_test`: [settings-registry-and-boot-report.md](settings-registry-and-boot-report.md), "Four lists".
 - Swarm uses its own list in `scripts/swarm.sh` (`_a_env_defaults`), shorter still.
 - Real env vars take precedence over `.env` in the substitution.
 - Docker secrets bypass all of this: `config/read-secret` reads `/run/secrets/<name>` for

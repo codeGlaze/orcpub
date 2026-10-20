@@ -52,7 +52,7 @@
 - Do NOT set memory-index-max + object-cache-max > 75% of JVM -Xmx — Datomic refuses to start with `:db.error/not-enough-memory`. Template defaults are for 1GB heap (128m+128m=256m < 768m).
 - Do NOT assume a variable set in `.env` reaches the app container. Compose passes only the app
   service's explicit `environment:` list, and Swarm only `scripts/swarm.sh`'s `_a_env_defaults`.
-  A new setting goes in both, plus `.env.example`; see
+  A new setting goes in both, plus `.env.example` (`settings_lists_test` fails until it does); see
   [settings-registry-and-boot-report.md](settings-registry-and-boot-report.md), "Four lists"
 - Do NOT trust ENVIRONMENT.md email vars blindly — cross-check against `email.clj` (was wrong for months)
 

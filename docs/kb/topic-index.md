@@ -258,7 +258,7 @@ _ac-tests-and-modifier-order · ac tests and modifier order_
 
 _account-flows · account flows_
 
-**topics:** account, composition, corpus, credential, disk, email, link, login, mail, meter, oracle, password, refused, reset, signing, somebody, suite, username
+**topics:** account, composition, corpus, credential, email, link, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, username
 
 - 1. The reason none of it had coverage
 - Traps inside the harness itself
@@ -495,7 +495,7 @@ _branch-inventory · branch inventory_
 
 _branding-setup · branding setup_
 
-**topics:** artist, artist-links-and-referrer, branding, credits, dmv, docker, email, emails, footer, fork, fork-customization, links, logos, metal, privacy, settings-registry-and-boot-report, swarm, url
+**topics:** artist, artist-links-and-referrer, branding, credits, dmv, docker, email, emails, footer, fork, fork-customization, links, logos, portrait, privacy, settings-registry-and-boot-report, swarm, url
 
 - Two ways a deployment brands itself
 - How a value is read
@@ -1161,7 +1161,7 @@ _demo-content-tier · demo content tier_
 
 _dev-tooling-decisions · dev tooling decisions_
 
-**topics:** 2026-stack-modernization, 3449, 9500, best-practice, cli, config, consolidation, csp, datomic, dev-setup, fast, figwheel, init, java, port, profile, repl, start
+**topics:** 2026-stack-modernization, 3449, 9500, best-practice, cli, config, consolidation, csp, datomic, dev-setup, fast, figwheel, init, java, orchestrates, port, profile, repl
 
 - user.clj Consolidation Pattern
 - Current State (as of breaking/2026-stack-modernization)
@@ -2087,7 +2087,7 @@ _homebrew-save-rework · homebrew save rework_
 
 _http-fx-patterns · http fx patterns_
 
-**topics:** 1698, 2026-02-22, bug, conj, constructed, creation, dispatch, fire-and-forget, handler, http, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
+**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, interop, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
 
 - How the :http fx works
 - on-success / on-failure MUST be dispatch vectors
@@ -2406,7 +2406,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _orcbrew-level-modifiers · orcbrew level modifiers_
 
-**topics:** 120, audits, consumed, driven, editor, grant, integer, keyword, level, level-modifier, presence, race, races, racial, subclass, subclasses, trait, warden
+**topics:** 120, arrive, audits, consumed, driven, editor, grant, integer, keyword, level, level-modifier, presence, race, races, subclass, subclasses, trait, warden
 
 - Nothing validates the shape of a brew
 - Two grant vocabularies, with different shapes
@@ -3163,7 +3163,7 @@ _secrets-in-boot-output · secrets in boot output_
 
 _settings-registry-and-boot-report · settings registry and boot report_
 
-**topics:** 2026-10-17, 2026-10-19, accessor, blank-env-values, branding, branding-setup, docker-setup-flow, env, metal, operator, printed, release, report, secrets-in-boot-output, setting, settings, start-up, swarm
+**topics:** 2026-10-19, accessor, blank-env-values, branding, compose, install, operator, portainer, printed, registry, release, report, row, secrets-in-boot-output, setting, settings, start-up, upgrading
 
 - Where things are
 - Row keys
@@ -3297,7 +3297,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, crest, figures, head, heading, level, old-style, opentype, packed, pact, prep, re-split, spell, spellbook, taller
+**topics:** cards, chapter, column, columns, crest, figures, head, heading, level, opentype, packed, pact, prep, re-split, spell, spellbook, tabs, taller
 
 - What it prints
 - Why the layout works the way it does

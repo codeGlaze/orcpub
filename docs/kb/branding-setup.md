@@ -17,11 +17,11 @@ On merge between the public repo and the fork, **keep production's `branding.clj
 ([fork-customization.md](fork-customization.md), "Override File Pattern"). The public copy holds
 neutral OrcPub defaults.
 
-**Docker gap (found 2026-10-19).** `docker-compose.yaml` passes the app an explicit `environment:`
-list, not the whole `.env`, and the only branding name on it is `APP_URL`. `scripts/swarm.sh` has its
-own list (`_a_env_defaults`) with none. So a self-hoster's `APP_NAME`, logos, social links, sender
-name and field limits set in `.env` never reach a Docker or Swarm server, and the boot report shows
-them as unset. DMV is unaffected because it uses the first route. Not fixed yet; see
+**Docker gap (found and fixed 2026-10-19, `aaa4a9801`).** Compose and Swarm passed the app only
+the names they listed, and branding was missing (only `APP_URL` in compose, none in Swarm), so a
+self-hoster's `APP_*` values in `.env` never reached a Docker or Swarm server. Both lists now carry
+every branding name; `settings_lists_test` keeps them complete. Consequence for DMV: an `APP_*` line
+in its `.env` or Portainer variables, ignored until now, starts overriding its branding file.
 [settings-registry-and-boot-report.md](settings-registry-and-boot-report.md), "Four lists".
 
 ## How a value is read
@@ -88,7 +88,7 @@ them from `/dnd/5e/portrait-artists` when a portrait is shown.
    `fork/branding.cljs`.
 4. Operator docs: a row in `docs/BRANDING-AND-INTEGRATIONS.md`, a commented line in `.env.example`,
    and the "New in <release>" table in `docs/ENVIRONMENT.md`.
-5. For Docker and Swarm, until the lists are unified: `docker-compose.yaml` `environment:` and
-   `scripts/swarm.sh` `_a_env_defaults`. Without these it works on bare metal only.
+5. For Docker and Swarm: `docker-compose.yaml` `environment:` and `scripts/swarm.sh`
+   `_a_env_defaults`. `settings_lists_test` fails until both (and `.env.example`) have it.
 6. Tell the fork: DMV's `branding.clj` needs the same `def` with its own default, or the merge
    leaves the fork without it.

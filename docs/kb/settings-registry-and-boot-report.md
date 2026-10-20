@@ -44,29 +44,36 @@ nothing checks them against the registry:
 | `scripts/swarm.sh` `_a_env_defaults` | `./run --swarm` (fresh), and `--upgrade-swarm`, which keeps the existing env block and appends any of these it lacks | what reaches the app under Swarm |
 | `./run` `write_env_file` | a fresh `./run` install writes `.env` from this template; `--upgrade` fixes old formats and fills gaps | what a new install's `.env` contains |
 
-Gaps on 2026-10-19 (`feature/email-and-alerts`):
+**Fixed 2026-10-19 on `feature/email-and-alerts` (`aaa4a9801`).** Compose, the Swarm list and
+`.env.example` now name every registry row and branding name; the empty default (`${X:-}`) means
+the default, because `orcpub.env/value` and `env-raw` treat blank as unset. `./run`'s own `.env`
+template was left alone: it writes the values a fresh install needs, and every other setting is
+optional.
 
-- **Not in the compose list** (set in `.env`, never reach a Docker app): `ALERT_SPOOL_DIR`,
-  `ALERT_MAX_PER_HOUR`, `ORCPUB_HTTP_MAX_THREADS`, `ORCPUB_PDF_CONCURRENCY`,
-  `ORCPUB_PDF_QUEUE_TIMEOUT_MS`, `ORCPUB_PDF_MAX_RETRIES`, `ORCPUB_PDF_MAX_CASTER_SECTIONS`,
-  `ORCPUB_PDF_MAX_CARDS`, `ORCPUB_PORTRAIT_CONCURRENCY`, `ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS`,
-  `ORCPUB_SHARE_MAX_UPLOAD_KB`, `ORCPUB_SHARE_MAX_TEXT_KB`, `ORCPUB_SHARE_MAX_ACCOUNT_KB`,
-  `ORCPUB_SHARE_PRUNE_DAYS`, `ORCPUB_PWNED_CHECK`, and 21 of the 22 `APP_*` branding names (only
-  `APP_URL` is passed).
-- **Not in the Swarm list either, though compose has them:** `ALLOW_UNVERIFIED_REGISTRATION`,
-  `APP_URL`, `DEV_MODE`, `EMAIL_ADMIN_TO`, `LOAD_HOMEBREW_URL`, `PORTRAIT_ARTISTS`,
-  `PORTRAIT_STORE_DIR`, `PROFILE_ENCRYPTION_KEYS` (the last can still arrive as a Docker secret).
-  An upgraded Swarm file keeps whatever its old env block had.
-- **Not in `.env.example`:** the same 15 settings, and `APP_EMAIL_SIGNOFF`.
-- Unaffected: values read from `/run/secrets/*` (`signature`, `datomic_password`,
-  `profile_encryption_keys`), and branding set by editing `fork/branding.clj` (DMV production's
-  route, [branding-setup.md](branding-setup.md)).
+`settings_lists_test.clj` keeps them in step:
+- every name the server reads (`env/value`, `env/flag?`, `env-raw`, `positive-int-env` in
+  `src/clj`) is a registry row or branding name, except a short dev-only set (`ORCPUB_HTTP_HOST`,
+  `PORTRAIT_DEV_SOLID`, `HOSTNAME`);
+- every registry row and branding name is in the compose `orcpub` environment, in
+  `swarm.sh` `_a_env_defaults`, and in `.env.example` (as `NAME=` or `# NAME=`).
+Each check was seen failing by deleting one name from each list in turn.
 
-The only symptom is the boot report showing `DEFAULT` for something the operator set. The owner
-noted (2026-10-19) that the production admin now configures through env and config files, so this
-matters. The setup scripts (`./run`, `--upgrade`, `swarm.sh`) were reworked heavily to make
-upgrades safe: a fix must keep their upgrade behaviour, i.e. add names to their lists rather than
-change how they carry an old file forward. [docker-setup-flow.md](docker-setup-flow.md).
+Before the fix (for the record): 15 settings and 21 of 22 branding names missing from compose;
+Swarm missing those plus 8 compose had; `.env.example` missing the 15 and `APP_EMAIL_SIGNOFF`.
+Upstream `develop` (what the live site runs) had 15 names in both lists, so the branding gap is
+a pre-existing bug there; the changelog has it under Fixed.
+
+**Upgrade safety, checked by driving `swarm.sh` directly** (a harness sourcing it with stub
+loggers): a fresh stack file differs from the old one only in its env lines; upgrading an
+old-style file with an admin's changed value and an extra custom line kept both and appended the
+44 new names; the result passes `docker compose config`. `test/docker/test-upgrade.sh` (60 `.env`
+upgrade checks, no Docker needed) passes before and after.
+
+**What it means for an admin upgrading**: lines already in their `.env` / Portainer variables that
+were silently ignored start working, `APP_*` ones overriding the branding file. Portainer keeps
+its own copy of the stack file, which must be regenerated (`./run --upgrade-swarm`) and pasted;
+`--upgrade-swarm` reads the file on disk, not Portainer's copy. Written up for operators in
+`docs/DOCKER.md` ("Upgrading an Existing Install" and "Upgrading a Portainer stack").
 
 ## Adding a setting
 
@@ -76,7 +83,9 @@ change how they carry an old file forward. [docker-setup-flow.md](docker-setup-f
    `every-setting-says-which-release-added-it` fails a row without `:since`.
 3. Document it in `docs/ENVIRONMENT.md`, beside the settings of the same group, and add it to that
    page's "New in <release>" table. Human voice: what it does, its default, what happens.
-4. Add it to the four lists above, or it works on bare metal only.
+4. Add it to `docker-compose.yaml` (the `orcpub` environment), `scripts/swarm.sh`
+   `_a_env_defaults` and `.env.example` with a one-to-two-line description. `settings_lists_test`
+   fails until all three have it.
 
 ## Releases and the "NEW IN" block (built 2026-10-19, `feature/email-and-alerts`, `d8cdfb4a6`)
 
