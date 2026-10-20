@@ -282,15 +282,22 @@
     (ability-groups pool) (ability-groups pool)
     :else                 #{(ns-ability pool)}))
 
+(def ^:private ability-names (set (map clojure.core/name character/ability-keys)))
+
 (defn pool-entry?
-  "Is `e` a well-formed [amount pool] entry: a vector, a numeric amount, a pool resolve-pool reads?
-   Junk is skipped so one malformed entry in a pack cannot crash a whole race or background list.
+  "Is `e` a well-formed [amount pool] entry: a vector, a numeric amount, and a pool naming a group,
+   an ability, or a non-empty set of abilities? Junk is skipped so one bad entry in a pack cannot
+   crash a whole race or background list, or leave a slot with nothing to pick.
    GOTCHA: skipping is SILENT at runtime by design; the authoring form surfaces it
    (`ignored-entry-warnings`)."
   [e]
-  (and (vector? e)
-       (number? (first e))
-       (let [p (second e)] (or (keyword? p) (coll? p)))))
+  (let [ability? #(and (or (keyword? %) (string? %)) (contains? ability-names (clojure.core/name %)))
+        p (when (vector? e) (second e))]
+    (and (vector? e)
+         (number? (first e))
+         (cond (keyword? p) (or (contains? ability-groups p) (ability? p))
+               (coll? p)    (and (seq p) (every? ability? p))
+               :else        false))))
 
 (defn compile-ability-increases
   "An :ability-increases spread -> {:modifiers :selections}. Single-stat pools are fixed; the rest
@@ -305,7 +312,7 @@
                       (let [keys (resolve-pool pool)]
                         {:idx idx :amount amount :pool (vec keys) :fixed? (= 1 (count keys))
                          :save? (= :save (nth incr 2 nil))}))
-                    (filter pool-entry? ai-spread))
+                    (filter pool-entry? (when (sequential? ai-spread) ai-spread)))
         modifiers  (mapcat (fn [{:keys [amount pool save?]}]
                              (concat (fixed-modifier (first pool) amount)
                                      (when save? [(modifiers/saving-throws nil (first pool))])))
@@ -356,7 +363,7 @@
                    (fn [idx [n pool]]
                      (let [keys (resolve-pool pool)]
                        {:idx idx :n n :pool (vec keys) :fixed? (= 1 (count keys))}))
-                   (filter pool-entry? save-spread))
+                   (filter pool-entry? (when (sequential? save-spread) save-spread)))
         modifiers (map (fn [{:keys [pool]}] (modifiers/saving-throws nil (first pool)))
                        (filter :fixed? entries))
         choices   (remove :fixed? entries)
@@ -406,7 +413,7 @@
    field with skipped entries; empty when everything compiles."
   [{:keys [ability-increases save-proficiencies]}]
   (let [ignored (fn [field label]
-                  (let [n (count (remove pool-entry? field))]
+                  (let [n (if (sequential? field) (count (remove pool-entry? field)) (if field 1 0))]
                     (when (pos? n)
                       (str n " " label " entr" (if (= 1 n) "y is" "ies are")
                            " malformed and will be IGNORED — each must be [amount pool]."))))]
@@ -420,9 +427,10 @@
    clean."
   [{:keys [ability-increases save-proficiencies]}]
   (let [;; every save-granting source, as a set of abilities (one = fixed, several = a choice)
-        sources (concat (for [[_ pool sv] (filter vector? ability-increases) :when (= :save sv)]
+        ;; only entries the compilers read: a malformed one would throw in resolve-pool
+        sources (concat (for [[_ pool sv] (filter pool-entry? ability-increases) :when (= :save sv)]
                           (resolve-pool pool))
-                        (for [[_ pool] (filter vector? save-proficiencies)]
+                        (for [[_ pool] (filter pool-entry? save-proficiencies)]
                           (resolve-pool pool)))
         nm      (fn [k] (s/upper-case (clojure.core/name k)))
         fixed   (->> sources (filter #(= 1 (count %))) (map first))

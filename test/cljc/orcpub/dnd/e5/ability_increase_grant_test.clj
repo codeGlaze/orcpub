@@ -426,3 +426,23 @@
     (testing "the rebuilt character still applies fixed + the chosen floating increase"
       (is (= 11 (D a)) "+1 still on the chosen DEX")
       (is (= 12 (Ch a)) "fixed +2 CHA still applies"))))
+
+(deftest pools-the-compiler-cannot-read-are-skipped
+  (testing "only entries naming abilities, a group, or a non-empty set of abilities are compiled"
+    (is (every? opt5e/pool-entry? [[1 :any] [2 :con] [1 #{:wis :con}] [1 :martial :save] [1 [:str "dex"]]]))
+    (is (not-any? opt5e/pool-entry? [[1 [nil]] [1 #{2}] [1 #{}] [1 []] [1 :foo] [1 nil :save] [:bad] [] 42])))
+  (testing "a bad pool is skipped, not thrown, and the good increment survives"
+    (let [{:keys [modifiers selections]} (opt5e/compile-ability-increases [[1 [nil]] [1 #{}] [2 :con]])]
+      (is (= (count (:modifiers (opt5e/compile-ability-increases [[2 :con]]))) (count modifiers)))
+      (is (empty? selections) "no unfinishable zero-option slot")))
+  (testing "the builder's notes never throw on bad entries, and count them"
+    (let [item {:ability-increases [[1 nil :save] [1 :any]] :save-proficiencies [[1 :con] "x" [:bad]]}]
+      (is (vector? (opt5e/save-coverage-warnings item)))
+      (is (= 2 (count (opt5e/ignored-entry-warnings item)))))))
+
+(deftest a-field-that-is-not-a-list-is-skipped
+  (let [item {:ability-increases 42 :save-proficiencies "x"}]
+    (is (= {:modifiers [] :selections []}
+           (update-vals (opt5e/compile-ability-grants item {:attribution :general}) vec))
+        "no throw, nothing compiled")
+    (is (= 2 (count (opt5e/ignored-entry-warnings item))) "and the author is told")))
