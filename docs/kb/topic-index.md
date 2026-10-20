@@ -475,7 +475,7 @@ _branch-context-history · branch context history_
 
 _branch-inventory · branch inventory_
 
-**topics:** 2026-09-07, added, attached, changelog, claude, contained, copied, develop, elsewhere, gitignore, integration, landed, local-only, remote, src, superseded, tip, worktree
+**topics:** added, attached, changelog, claude, contained, copied, develop, elsewhere, gitignore, integration, landed, local, local-only, remote, src, superseded, tip, worktree
 
 - Trunk (9)
 - Release (1)
@@ -644,7 +644,7 @@ _building-a-class-from-builders · building a class from builders_
 
 _built-character-representation · built character representation_
 
-**topics:** -ref, accessor, body, character-validation, computed, deferred, entity, expressible, flat, literally, macro, plain, predicates, realized, spec, symbol, test-suite-state, writing
+**topics:** -ref, accessor, body, character-validation, computed, deferred, entity, flat, function, literally, macro, plain, predicates, realized, spec, symbol, test-suite-state, writing
 
 - One-liner
 - How it actually works (verified)
@@ -754,7 +754,7 @@ _class-builder-extraction-plan · class builder extraction plan_
 
 _class-feature-catalogue · class feature catalogue_
 
-**topics:** arcanum, arts, attack, aura, auto-features, bardic, destroy, divine, divinity, inspiration, jack, lay, level, monk, multi-part, scaling, sorcery, undead
+**topics:** arcanum, arts, attack, aura, auto-features, bardic, destroy, divine, inspiration, jack, lay, level, level-schedule, monk, multi-part, scaling, sorcery, undead
 
 - The 12 classes (option fn line; distinct auto-features; notable shape)
 - Cross-cutting findings — the "odd cases" the registry/compiler must handle
@@ -1099,7 +1099,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab, vocabulary
+**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, spell, spell-choice, spellcasting, subclass, subclasses, sustainability, vocab, vocabulary
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -1162,7 +1162,7 @@ _demo-content-tier · demo content tier_
 
 _dev-tooling-decisions · dev tooling decisions_
 
-**topics:** 2026-stack-modernization, 3449, 9500, best-practice, cli, config, consolidation, csp, datomic, dev-setup, fast, figwheel, init, java, orchestrates, port, profile, repl
+**topics:** 2026-stack-modernization, 3449, 9500, best-practice, cli, config, consolidation, csp, datomic, dev-setup, fast, figwheel, init, java, port, profile, repl, start
 
 - user.clj Consolidation Pattern
 - Current State (as of breaking/2026-stack-modernization)
@@ -1335,7 +1335,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, plan, session, stale, topic, unindexed
+**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, index, ledger, narrative, plan, session, stale, topic, unindexed
 
 - What earns a doc
 - Verify, don't remember
@@ -1454,7 +1454,7 @@ _e2e-runner · e2e runner_
 
 _edition-drift · edition drift_
 
-**topics:** 2014, 2024, 5etools, attack, crossbow, dual, edition, eligibility, fighting, hand, light, melee, off-hand, one-handed, property, two-weapon, weapon, wielder
+**topics:** 2014, 2024, 5etools, crossbow, dual, edition, eligibility, feat, fighting, hand, light, melee, off-hand, one-handed, property, two-weapon, weapon, wielder
 
 - Two-weapon fighting, side by side
 - What each difference costs us
@@ -1575,7 +1575,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** 2026-10-15, 400px, ammunition, app-only, armor, content-naming-style, damage, die, firearms, leather, longbow, net, open5e, spiked, srd, studded, weapons, weights
+**topics:** 400px, ammunition, app, app-only, armor, content-naming-style, damage, die, firearms, leather, longbow, net, open5e, spiked, srd, studded, weapons, weights
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -1876,7 +1876,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, about, blade, bullets, crit, damage, desktop, hand, mastery, owner, pdf, phone, shield, sun, weapon, weapons, weapons-extra-damage-design
+**topics:** 2026-10-17, 2d6, about, blade, bullets, crit, damage, desktop, mastery, owner, pdf, phone, settings, shield, sun, weapon, weapons, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry
@@ -1980,7 +1980,7 @@ _homebrew-fixes-persist · homebrew fixes persist_
 
 _homebrew-key-map · homebrew key map_
 
-**topics:** auto-name, int, item, key, kinds, library, link, minting, move, overwrite, p34, probes, read-stamp, readers, rename, restore, salvage, save-anyway
+**topics:** auto-name, dedup, int, key, kinds, library, link, minting, move, overwrite, p34, probes, read-stamp, readers, rename, restore, salvage, save-anyway
 
 - 0. The model in one paragraph
 - 1. Branch baseline — what differs
@@ -2192,7 +2192,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2769,7 +2769,7 @@ _plan-companions-and-wild-shape · plan companions and wild shape_
 
 _plan-cr-normalization · plan cr normalization_
 
-**topics:** 1355565, 2026-09-16, 2026-09-17, 417, 5491, 636-monster, 733, acceptance, assertions, crs, decision-cr-representation, druid, formatters, met, monster, per-cr, ratio, step
+**topics:** 1355565, 2026-09-16, 2026-09-17, 417, 5491, 636-monster, 733, acceptance, assertion, assertions, crs, decision-cr-representation, druid, met, monster, per-cr, ratio, step
 
 - Step 0 — characterize
 - Step 1 — the formatter pair
@@ -2896,7 +2896,7 @@ _proposal-indexeddb-storage · proposal indexeddb storage_
 
 _re-frame-subscribe-refactor · re frame subscribe refactor_
 
-**topics:** apis, autosave, cached, chain, component, direct, event-utils, extract, handler, low, methods, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
+**topics:** apis, cached, chain, component, direct, event-utils, events, extract, handler, low, methods, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
 
 - The Problem
 - What actually happens when you subscribe in a handler
@@ -3147,6 +3147,14 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 - What this means for conditional / "while active" features
 - Boundaries (what this does NOT do)
 - Design implication (the condition/benefit registry idea)
+
+## save-dc-sources.md
+
+_save-dc-sources · save dc sources_
+
+**topics:** archer, divinity, fist, intimidating, presence, proficiency, raises, robe, sanctuary, save, spell, strike, stunning, tranquility, turn, undead, unholy, wis
+
+
 
 ## secrets-in-boot-output.md
 
@@ -3696,7 +3704,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** advantage, after-damage, attack, cleave, damage, definitions, effect, extra, graze, masteries, mastery, mastery-specific, sap, srd-2024-roadmap, topple, turn, vex, weapon
+**topics:** 2026-10-19, advantage, attack, band, cleave, effect, extra, graze, masteries, mastery, mastery-specific, push, sap, srd, srd-2024-roadmap, topple, vex, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)

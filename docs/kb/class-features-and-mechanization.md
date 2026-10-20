@@ -69,9 +69,8 @@ can't count — wiring them as a frequency/amount feature would give them a coun
 
 ## Shared values a feature can use — VERIFIED 2026-10-19
 Found while planning Weapon Mastery ([weapon-mastery-plan.md](weapon-mastery-plan.md) has file:line):
-- **Save DCs:** `?spell-save-dc (fn [ability])` is the app's general DC; 12 non-spell features read
-  it (Stunning Strike, Turn Undead, Breath Weapon ...). Its `?spell-save-dc-bonus` comes only from
-  magic items, so those items raise non-spell DCs too: an existing bug, not yet fixed.
+- **Save DCs:** `?save-dc (fn [ability])` for a feature's own DC, `?spell-save-dc` (adds item
+  spell DC bonuses) only where the text says "your spell save DC": [save-dc-sources.md](save-dc-sources.md).
 - **An attack's ability modifier:** `?weapon-ability-modifier (fn [weapon finesse?])` exists in the
   template but has no accessor or subscription.
 - **Attacks per turn:** `?num-attacks` / `char5e/number-of-attacks`; `mod5e/extra-attack` has no callers.

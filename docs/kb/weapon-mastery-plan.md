@@ -94,8 +94,18 @@ modifiers, class-feature-catalogue.md "Findings").
   them from a 2014-only game with no mastery-specific code. The filter is designed, not built.
 - **Still open:** whether masteries are content only, or also a rule the rules setting can switch
   off (2014 content with 2024 mastery rules, or the reverse). Can wait for the filter.
-- **Proposed, not yet agreed:** masteries as a list with homebrew entries, like fighting styles
-  (`fighting-style-authoring.md`), rather than fixed data.
+- **Masteries get a homebrew builder like fighting styles** (owner, 2026-10-19: "as long as there's
+  no logical reason" not to). None found: a homebrew mastery needs a weapon that names it (the custom
+  item builder gets a mastery picker; orcbrew does not carry items, so a pack's custom weapons cannot
+  ship with it yet) and a feature that grants masteries (none in either edition's data yet). Both are
+  needed for SRD masteries too, so neither argues against the builder.
+- **Topple's DC is the SRD 5.2.1 rule:** 8 + the attack's ability modifier + proficiency, no item
+  spell bonus. That is `?save-dc` with the attack's ability ([save-dc-sources.md](save-dc-sources.md)).
+- **The item spell DC leak is fixed** (`d1403c75`): decision 2 below is closed.
+- **Band text:** the SRD entries are short (Push and Sap one sentence, the longest, Cleave, four). The
+  band shows the SRD text itself, cut at the first sentence when it is long, with a link to the full
+  entry. No paraphrased summaries, so no separate `:summary` field (decision 4 closed). Proposed by
+  the owner as "part of the fuller SRD entry with a link", 2026-10-19.
 
 ## Decisions for the owner
 
