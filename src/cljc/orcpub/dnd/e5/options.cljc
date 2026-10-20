@@ -436,9 +436,11 @@
   [{:keys [ability-increases save-proficiencies]}]
   (let [;; every save-granting source, as a set of abilities (one = fixed, several = a choice)
         ;; only entries the compilers read: a malformed one would throw in resolve-pool
-        sources (concat (for [[_ pool sv] (filter pool-entry? ability-increases) :when (= :save sv)]
+        listed  #(when (sequential? %) %)
+        sources (concat (for [[_ pool sv] (filter pool-entry? (listed ability-increases))
+                              :when (= :save sv)]
                           (resolve-pool pool))
-                        (for [[_ pool] (filter save-entry? save-proficiencies)]
+                        (for [[_ pool] (filter save-entry? (listed save-proficiencies))]
                           (resolve-pool pool)))
         nm      (fn [k] (s/upper-case (clojure.core/name k)))
         fixed   (->> sources (filter #(= 1 (count %))) (map first))

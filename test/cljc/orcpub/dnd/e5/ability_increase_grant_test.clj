@@ -454,3 +454,6 @@
       (is (= [] (n-of [[0 :any] [-1 :any] [1.5 :any]])) "a count that is not a positive whole number is skipped")))
   (testing "and a skipped count is reported"
     (is (= 1 (count (opt5e/ignored-entry-warnings {:save-proficiencies [[0 :any] [1 :wis]]}))))))
+
+(deftest save-notes-never-throw-on-a-field-that-is-not-a-list
+  (is (= [] (opt5e/save-coverage-warnings {:ability-increases 42 :save-proficiencies "x"}))))
