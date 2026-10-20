@@ -21,6 +21,7 @@
    "... :general"               #(opt5e/compile-ability-grants % {:attribution :general})
    "ignored-entry-warnings"     opt5e/ignored-entry-warnings
    "save-coverage-warnings"     opt5e/save-coverage-warnings
+   "released-set-warnings"      #(opt5e/released-set-warnings (:ability-increases %))
    "detect-incompatible-features"
    #(orcbrew-format/detect-incompatible-features {"P" {:orcpub.dnd.e5/races {:r %}}})
    "stamp"                      #(orcbrew-format/stamp {"P" {:orcpub.dnd.e5/races {:r %}}})})
@@ -54,3 +55,10 @@
                                                   {:name "F" :key :f :ability-increases %})))]
     (is (= (mods [[1 :str]]) (mods (list [1 :str]))) "a list is the same spread as a vector")
     (is (< (mods nil) (mods (list [1 :str]))) "and it raises an ability")))
+
+(deftest a-released-set-names-what-it-cannot-raise
+  (is (= [] (opt5e/released-set-warnings #{:orcpub.dnd.e5.character/str :saves?})))
+  (is (= [] (opt5e/released-set-warnings [[1 :str]])) "a spread is not a released set")
+  (let [[w] (opt5e/released-set-warnings #{:str :con})]
+    (is (re-find #"^2 Ability Increase Option entries are not an ability and will be IGNORED" w))
+    (is (and (re-find #":str" w) (re-find #":con" w)))))

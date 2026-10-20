@@ -209,10 +209,25 @@
 (deftest the-feat-section-says-when-its-increases-are-junk
   (let [text #(->> (views/feat-ability-score-section %) expand (tree-seq coll? seq)
                    (filter string?) (apply str))
-        warned? #(boolean (re-find #"malformed and will be IGNORED"
-                                   (text {:name "F" :ability-increases %})))]
+        warned? #(boolean (re-find #"will be IGNORED" (text {:name "F" :ability-increases %})))]
     (is (warned? 42) "a number is named, though the 2024 section starts closed")
     (is (warned? "x"))
+    (is (warned? #{:str :con}) "a released set of short keys raises nothing, so it is named")
     (is (not (warned? #{})) "an empty released set is not junk")
-    (is (not (warned? #{:str :con})) "nor is a released set")
+    (is (not (warned? #{:orcpub.dnd.e5.character/str :saves?})) "nor is a released set")
     (is (not (warned? [[1 :str]])) "nor a spread")))
+
+(deftest a-save-count-is-never-more-than-its-pool-gives
+  (let [row (fn [entry]
+              (let [stored (atom nil)
+                    form (views/save-proficiency-choices {:save-proficiencies [entry]}
+                                                         #(reset! stored %))
+                    dd (fn [label] (some #(when (and (vector? %) (= label (second %))) (nth % 2))
+                                         (tree-seq coll? seq form)))]
+                {:how-many (dd "How many") :from (dd "From") :stored stored}))]
+    (let [{:keys [how-many]} (row [3 :str])]
+      (is (= 1 (:value how-many)) "an imported [3 :str] shows the one save it gives")
+      (is (= [1] (map :value (:items how-many)))))
+    (let [{:keys [from stored]} (row [3 :any])]
+      ((:on-change from) :str)
+      (is (= [[1 :str]] @stored) "choosing one ability brings the count down to one"))))

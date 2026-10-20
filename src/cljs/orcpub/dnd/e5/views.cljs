@@ -6798,7 +6798,7 @@
     (for [{:keys [title value]} (get-plugin-names)]
       [:option {:key title :value value}])]])
 
-(declare ability-increase-choices save-proficiency-choices ability-save-notes
+(declare ability-increase-choices save-proficiency-choices ability-save-notes builder-notes
          optional-builder-section)
 
 (defn- has-entries?
@@ -6830,8 +6830,9 @@
                         #(dispatch [::feats/set-feat-prop :ability-increases (if (seq %) % #{})])])
        ^{:key "saves"} [save-proficiency-choices feat
                         #(dispatch [::feats/set-feat-prop :save-proficiencies %])]]]
-     ;; outside the section, which starts closed on junk; the released set is valid, not a spread
-     ^{:key "notes"} [ability-save-notes (if (set? ai) (dissoc feat :ability-increases) feat)]]))
+     ;; outside the section, which starts closed on junk; a released set is checked on its own terms
+     ^{:key "notes"} [ability-save-notes (if (set? ai) (dissoc feat :ability-increases) feat)]
+     ^{:key "set-notes"} [builder-notes (opt/released-set-warnings ai) {:severity :error}]]))
 
 (defn feat-builder []
   (let [feat @(subscribe [::feats/builder-item])
@@ -8167,15 +8168,19 @@
        (fn [i e]
          (if-not (opt/save-entry? e)
            ^{:key i} [unreadable-row e #(set-sp! (common/remove-at-index sps i))]
-           (let [[cnt pool] e]
+           ;; a pool gives at most one save per ability in it: show the count it gives
+           (let [[cnt pool] e
+                 size #(count (opt/resolve-pool %))
+                 shown (min cnt (size pool))]
              ^{:key i}
              [:div.flex.flex-wrap.align-items-c.m-b-5
-              [labeled-dropdown "How many" {:items (with-current-number count-items cnt str)
-                                            :value (or cnt 1) :typed? true
+              [labeled-dropdown "How many" {:items (with-current-number
+                                                    (take (size pool) count-items) shown str)
+                                            :value shown :typed? true
                                             :on-change #(set-sp! (assoc sps i [% pool]))}]
               [labeled-dropdown "From" {:items (with-current-pool target-items pool)
                                         :value (or pool :any) :typed? true
-                                        :on-change #(set-sp! (assoc sps i [cnt %]))}]
+                                        :on-change #(set-sp! (assoc sps i [(min cnt (size %)) %]))}]
               [:button.m-l-5 {:on-click #(set-sp! (common/remove-at-index sps i))} "Remove"]])))
        sps))
      [:button {:on-click #(set-sp! (conj sps [1 :any]))} "Add save"]]))

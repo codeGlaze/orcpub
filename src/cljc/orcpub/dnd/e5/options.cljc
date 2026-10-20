@@ -313,6 +313,16 @@
                   [#{} []]
                   fixed)))
 
+(defn released-set-warnings
+  "What the feat form shows for a released +1 set holding something that is not a namespaced ability
+   key (::character/str) or :saves?: the legacy compiler raises nothing for it. Empty otherwise."
+  [ai]
+  (let [bad (when (set? ai) (remove (conj (set character/ability-keys) :saves?) ai))]
+    (if (seq bad)
+      [(str (count bad) " Ability Increase Option entr" (if (= 1 (count bad)) "y is" "ies are")
+            " not an ability and will be IGNORED: " (s/join ", " (map pr-str bad)) ".")]
+      [])))
+
 (defn compile-ability-increases
   "An :ability-increases spread -> {:modifiers :selections}. Single-stat pools are fixed; the rest
    are floating slots in ONE :asi selection carrying the spread on ::t/spread. A trailing :save also
