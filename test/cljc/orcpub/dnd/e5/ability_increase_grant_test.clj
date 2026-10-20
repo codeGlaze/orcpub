@@ -457,3 +457,15 @@
 
 (deftest save-notes-never-throw-on-a-field-that-is-not-a-list
   (is (= [] (opt5e/save-coverage-warnings {:ability-increases 42 :save-proficiencies "x"}))))
+
+(deftest a-list-raises-each-ability-once
+  (testing "a second fixed increase to the same ability is skipped: the first counts"
+    ;; counted, not compared: a modifier carries a fn, a fresh object on every call
+    (is (= (count (:modifiers (opt5e/compile-ability-increases [[2 :str]])))
+           (count (:modifiers (opt5e/compile-ability-increases [[2 :str] [1 :str]])))))
+    (is (= (count (:modifiers (opt5e/compile-ability-increases [[2 :str] [1 :con]])))
+           (count (:modifiers (opt5e/compile-ability-increases [[2 :str] [1 :str] [1 :con]]))))))
+  (testing "and the author is told"
+    (is (some #(re-find #"STR" %) (opt5e/ignored-entry-warnings {:ability-increases [[2 :str] [1 :str]]}))))
+  (testing "different abilities are unaffected"
+    (is (empty? (opt5e/ignored-entry-warnings {:ability-increases [[2 :str] [1 :con] [1 :any]]})))))

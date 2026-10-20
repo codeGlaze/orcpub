@@ -305,6 +305,14 @@
   [e]
   (and (pool-entry? e) (pos-int? (first e))))
 
+(defn- first-per-ability
+  "Fixed increments, keeping the first for each ability: a list raises each ability once."
+  [fixed]
+  (second (reduce (fn [[seen acc] {:keys [pool] :as inc*}]
+                    (if (seen (first pool)) [seen acc] [(conj seen (first pool)) (conj acc inc*)]))
+                  [#{} []]
+                  fixed)))
+
 (defn compile-ability-increases
   "An :ability-increases spread -> {:modifiers :selections}. Single-stat pools are fixed; the rest
    are floating slots in ONE :asi selection carrying the spread on ::t/spread. A trailing :save also
@@ -322,7 +330,7 @@
         modifiers  (mapcat (fn [{:keys [amount pool save?]}]
                              (concat (fixed-modifier (first pool) amount)
                                      (when save? [(modifiers/saving-throws nil (first pool))])))
-                           (filter :fixed? increments))
+                           (first-per-ability (filter :fixed? increments)))
         floating   (remove :fixed? increments)
         slot-opts  (fn [{:keys [idx amount pool save?]}]
                      (map (fn [k]
@@ -417,16 +425,26 @@
 (defn ignored-entry-warnings
   "What the authoring form shows for entries the compilers skip: malformed :ability-increases or
    :save-proficiencies entries (see pool-entry?). Skipping keeps the app running, but hides data
-   loss from someone editing an imported or hand-edited file. A vector of readable strings, one per
-   field with skipped entries; empty when everything compiles."
+   loss from someone editing an imported or hand-edited file. Also names an ability a list raises
+   twice. A vector of readable strings; empty when everything compiles."
   [{:keys [ability-increases save-proficiencies]}]
   (let [ignored (fn [field label ok?]
                   (let [n (if (sequential? field) (count (remove ok? field)) (if field 1 0))]
                     (when (pos? n)
                       (str n " " label " entr" (if (= 1 n) "y is" "ies are")
-                           " malformed and will be IGNORED — each must be [amount pool]."))))]
-    (vec (keep identity [(ignored ability-increases "ability-increase" pool-entry?)
-                         (ignored save-proficiencies "saving-throw" save-entry?)]))))
+                           " malformed and will be IGNORED — each must be [amount pool]."))))
+        ;; abilities a list raises twice with a fixed increase; only the first counts
+        repeated (when (sequential? ability-increases)
+                   (->> (filter pool-entry? ability-increases)
+                        (map (comp resolve-pool second))
+                        (filter #(= 1 (count %)))
+                        (map first) frequencies (filter #(> (val %) 1)) (map key)))]
+    (vec (keep identity
+               [(ignored ability-increases "ability-increase" pool-entry?)
+                (ignored save-proficiencies "saving-throw" save-entry?)
+                (when (seq repeated)
+                  (str (s/join ", " (map #(s/upper-case (clojure.core/name %)) (sort repeated)))
+                       " is raised more than once here; only the first increase counts."))]))))
 
 (defn save-coverage-warnings
   "Authoring guidance only, no effect on a character: redundant or overlapping save grants in ONE
