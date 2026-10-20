@@ -6331,7 +6331,8 @@
                item-kw  (if (s/blank? name) :draft-item (common/name-to-kw name))
                plugin   {src {plugin-key {item-kw (assoc item :key item-kw)}}}
                filename (str (if (s/blank? name) "draft" name) "-draft.orcbrew")]
-           (save-orcbrew-blob! filename plugin)
+           ;; an escape hatch like the raw exports: a draft whose class collapse throws still downloads
+           (save-orcbrew-blob! filename plugin :raw? true)
            {:dispatch [:show-warning-message
                        (str "Draft exported to '" filename
                             "' (unvalidated WIP). Keep it safe; re-import to continue.")]}))))))
