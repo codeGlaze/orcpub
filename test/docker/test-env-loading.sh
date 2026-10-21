@@ -131,7 +131,7 @@ if [ "$got" = "$want" ]; then pass "run's source_env loads it"; else fail "run's
 # run without scripts/ beside it says so, instead of carrying on without its settings.
 mkdir -p "$TMP/alone" && cp "$PROJECT_ROOT/run" "$TMP/alone/"
 msg="$(cd "$TMP/alone" && bash ./run --check 2>&1)"; code=$?
-if [ "$code" -ne 0 ] && grep -q "needs scripts/load-env.sh" <<<"$msg"; then
+if [ "$code" -ne 0 ] && grep -q "missing a file it needs: scripts/load-env.sh" <<<"$msg" && grep -q "git clone" <<<"$msg"; then
   pass "run alone stops and says it needs scripts/"
 else
   fail "run alone: exit $code, said: $(head -2 <<<"$msg")"

@@ -48,7 +48,22 @@ read_env_val() {
 # Load a .env file: each NAME=value line is read, never run (scripts/load-env.sh).
 # Usage: source_env "/path/to/.env"
 if [ ! -f "${SCRIPT_DIR}/scripts/load-env.sh" ]; then
-  printf '[ERROR] %s needs scripts/load-env.sh beside it. Run it from a full checkout of the repository.\n' "$0" >&2
+  header "Dungeon Master's Vault — setup can't start"
+  error "This copy of ./run is missing a file it needs: scripts/load-env.sh"
+  error "(looked in: ${SCRIPT_DIR}/scripts/)"
+  echo
+  info "./run is one part of the project. It needs the rest of the project folder"
+  info "beside it, most of all the scripts/ folder. This usually means ./run was"
+  info "copied or downloaded on its own."
+  echo
+  info "What to do:"
+  next "Get the whole project and run it from inside that folder:"
+  printf '        git clone https://github.com/orcpub/orcpub.git\n'
+  printf '        cd orcpub\n'
+  printf '        ./run\n'
+  next "Downloaded a ZIP? Unzip the whole thing, open the folder it makes, and run ./run there."
+  next "Already have the project? cd into its folder first: ./run has to sit next to scripts/."
+  echo
   exit 1
 fi
 # shellcheck source=scripts/load-env.sh
