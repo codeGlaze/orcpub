@@ -228,8 +228,7 @@
           "the new row keeps the banner plain ASCII"))))
 
 (deftest the-no-smtp-message-no-longer-describes-the-old-bug
-  ;; It used to say signup throws and tells the user to try again. That was the bug the
-  ;; registration changes fixed, and the boot message outlived it.
+  ;; Signup no longer throws and asks the user to try again, so the message must not say it does.
   (is (not (re-find #"try again" config/email-missing-message)))
   (is (re-find #"ALLOW_UNVERIFIED_REGISTRATION" config/email-missing-message)
       "it must point at the setting that decides what signup does"))

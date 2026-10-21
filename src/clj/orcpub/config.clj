@@ -233,12 +233,9 @@
        "   Keep it stable: changing it signs out everyone and invalidates unsubscribe links."))
 
 (def email-missing-message
-  "Without SMTP, password reset cannot work at all, so this stays a critical line. What
-   signup does depends on ALLOW_UNVERIFIED_REGISTRATION, and the row for that variable says
-   which is in effect -- so this message describes both instead of guessing.
-
-   An earlier version said signup throws and tells the user to try again. That was the bug
-   the registration changes fixed; the message outlived it."
+  "Fix text for the EMAIL_SERVER_URL row. Without SMTP password reset cannot work, so the
+   row is critical. What signup does depends on ALLOW_UNVERIFIED_REGISTRATION, whose row
+   shows the outcome, so this text names both outcomes."
   (str "EMAIL_SERVER_URL is not set, so no mail can be sent.\n"
        "   Password reset FAILS, so existing users cannot recover an account.\n"
        "   Signup is REFUSED with a message, unless ALLOW_UNVERIFIED_REGISTRATION=true,\n"
