@@ -46,4 +46,8 @@ wherever the card is used.
    pinned card. (Today's scroll-to-close exists because the card is fixed-position; a pinned card
    needs to follow its anchor or sit as a bottom sheet on a phone. To decide in the mockups.)
 
+5. **On a phone the card is a bottom sheet** (owner, 2026-10-20, for consistency with the roll
+   result sheet), closed by a × at its top like the roll result. Desktop keeps the card beside what
+   was clicked. This settles item 4's scroll question on phones.
+
 Not decided: whether a hover-opened card (desktop) follows the same nesting, or nests only once pinned.

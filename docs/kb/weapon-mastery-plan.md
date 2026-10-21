@@ -198,6 +198,12 @@ recommendation (option C) in the display section: the whole band opens the card.
 a pop-up card; the table never expands in place. Card behaviour, including rules opening inside the
 card: [rule-preview-cards.md](rule-preview-cards.md).
 
+**Band joined to its row** (owner, 2026-10-20: it read as part of the row below): the v5 design wraps
+the row and its band in one box with 4px rounded corners; in the app's striped table that means
+rounded bottom corners on the band and a gap before the next row. **"New" tag in question:** the owner
+asked what hole it fills and how to keep it from reading as "new to the site". Shown beside it: no
+tag, the `?` glowing like the 1H / 2H pulse (`weapons-table-spec.md` rule 14) until opened once.
+
 ## Decisions for the owner
 
 1. **Topple's DC.** (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +

@@ -415,7 +415,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, control, css, docstrings, form, icon, invented, item, labelled, paragraph, pin, portrait, review, row, sat, signing, unknown, vanished
+**topics:** 2026-09-29, control, css, docstrings, form, icon, invented, item, labelled, lesson, paragraph, pin, review, row, sat, signing, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -851,7 +851,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, factories, flexibility, grant, indirection, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, indirection, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -888,7 +888,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, dev, errors, f12, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1245,7 +1245,7 @@ _docker-infrastructure · docker infrastructure_
 
 _docker-security-decisions · docker security decisions_
 
-**topics:** bind, breaks, compose, container, datomic, decision, docker, dockerfile, healthcheck, host, mounts, nginx, ownership, password, port, reverted, sed, transactor
+**topics:** bind, breaks, compose, container, datomic, decision, docker, dockerfile, healthcheck, host, mounts, nginx, ownership, password, reverted, security, sed, transactor
 
 - Non-Root Containers (Entrypoint-Chown-Drop)
 - sed Replacement Escaping
@@ -1675,7 +1675,7 @@ _feat-builder-audit · feat builder audit_
 
 _fighting-style-authoring · fighting style authoring_
 
-**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, styles, watch-list
+**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, tick, watch-list
 
 - Status — 2026-09-05: BUILT
 - The divvying rule (decided) — which classes can take a homebrew style
@@ -1688,7 +1688,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, blindsight, damage, defense, dueling, fighting, great, interception, pool, predicate, prop, protection, style, styles, three-state, thrown, weapon
+**topics:** archery, attack, blindsight, damage, dueling, engine, fighting, great, interception, pool, predicate, prop, protection, style, styles, three-state, thrown, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -2194,7 +2194,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, twin, winner
+**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2261,6 +2261,16 @@ _merging-across-a-refactor · merging across a refactor_
 - What to do about it
 - Related
 - Revisions
+
+## mockup-review-pages.md
+
+_mockup-review-pages · mockup review pages_
+
+**topics:** 2akacten9rccchjfphjgmr, artifact, clipping, drawn-in, embedding, label, lacks, mockup, phone, publishes, questions, republish, scene, scenes, shot, shots, theme-aware, writing-browser-tests
+
+- The three pieces (all in scripts/design/ on this branch)
+- Steps
+- Traps
 
 ## modifier-vs-trait-slots.md
 
@@ -3129,7 +3139,7 @@ _roadmap · roadmap_
 
 _rule-preview-cards · rule preview cards_
 
-**topics:** 2026-10-20, card, closes, condition, link, links, mastery, mockups, opens, owner, padding, phone, preview, prone, scroll, tap, text, weapon-mastery-plan
+**topics:** 2026-10-20, card, closes, desktop, link, links, mockups, opens, owner, padding, phone, preview, prone, roll, scroll, tap, text, weapon-mastery-plan
 
 - How it works today (verified 2026-10-20, feature/weapons-table)
 - Agreed changes (owner, 2026-10-20)

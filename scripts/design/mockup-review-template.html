@@ -1,0 +1,111 @@
+<title>Weapon Mastery Mockups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Layout: one review column, phone shots at true 390px width, each with its label and what to look at */
+:root {
+  --bg: #f3f1ec; --fg: #1f2330; --muted: #5d6273; --line: #d9d5cc; --panel: #ffffff;
+  --amber: #f0a100; --cap-ink: #1a1e28; --ask: #fff4dc; --ask-line: #e0b250;
+  --display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #161a24; --fg: #e6e9ee; --muted: #9aa1b2; --line: #2c3445; --panel: #1f2533;
+  --ask: #2a2416; --ask-line: #8a6a1c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #161a24; --fg: #e6e9ee; --muted: #9aa1b2; --line: #2c3445; --panel: #1f2533;
+  --ask: #2a2416; --ask-line: #8a6a1c; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px }
+main { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 36px }
+h1 { font-family: var(--display); font-size: 30px; line-height: 1.1; margin: 0; text-wrap: balance }
+h2 { font-family: var(--display); font-size: 22px; line-height: 1.2; margin: 0; display: flex; align-items: center; gap: 10px; text-wrap: balance }
+.intro p { margin: 8px 0 0; color: var(--muted) }
+.cap { font-family: var(--display); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  background: var(--amber); color: var(--cap-ink); padding: 2px 14px 2px 8px; flex: none;
+  clip-path: polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%) }
+.cap.today { background: var(--muted); color: var(--bg) }
+section { display: flex; flex-direction: column; gap: 10px; min-width: 0 }
+section p { margin: 0 }
+.look { margin: 0; padding-left: 20px; color: var(--muted) }
+.look li { margin-top: 4px }
+figure { margin: 0; align-self: center; width: 100%; max-width: 390px }
+figure.wide { max-width: 640px }
+figure img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 6px; background: var(--panel) }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 6px }
+.ask { background: var(--ask); border: 1px solid var(--ask-line); border-radius: 6px; padding: 14px 16px }
+.ask h2 { font-size: 20px }
+.ask ol { margin: 8px 0 0; padding-left: 20px }
+.ask li { margin-top: 6px }
+nav { display: flex; flex-wrap: wrap; gap: 8px }
+nav a { color: var(--fg); font-size: 14px; border: 1px solid var(--line); border-radius: 14px; padding: 6px 12px;
+  text-decoration: none; background: var(--panel); min-height: 32px; display: inline-flex; align-items: center }
+nav a:focus-visible, a:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px }
+</style>
+
+<main>
+  <div class="intro">
+    <h1>Weapon Mastery Mockups</h1>
+    <p>A fighter (Str 16, level 1) carrying a battleaxe with Topple, which they are trained in, and a glaive with Graze, which they are not. These are the real Weapons table with the new parts drawn in. Shots 1 to 6 are a phone at its true width.</p>
+  </div>
+
+  <nav aria-label="Shots">
+    <a href="#s1">1 Band</a><a href="#s2">2 Not trained</a><a href="#s4">3 Card</a>
+    <a href="#s5">4 Prone inside</a><a href="#s6">5 Roll</a><a href="#s7">6 Desktop</a><a href="#s8">7 Today</a><a href="#ask">Questions</a>
+  </nav>
+
+  <section id="s1">
+    <h2><span class="cap">1</span>The band, joined to its row</h2>
+    <p>Fixed from the first round: the band now closes off its own row, with rounded bottom corners and a gap before the next weapon, as the design has it.</p>
+    <p>Two ways to say "you haven't read this one yet":</p>
+    <figure><img src="shots/1a-band-with-new-tag.png" alt="Weapons table on a phone. The Ironwood Battleaxe row ends in a dark band: TOPPLE tag, NEW tag, ON HIT, DC 13 Con save or Prone, and a question mark. A gap separates it from the Bronze Glaive row below."><figcaption>1a. A New tag, until the band is opened once.</figcaption></figure>
+    <figure><img src="shots/1b-band-with-glowing-help.png" alt="The same band without the NEW tag; the question mark has a soft glowing ring."><figcaption>1b. No tag: the ? glows, the way the 1H / 2H switch already pulses until touched. Opening it once stops it for good.</figcaption></figure>
+  </section>
+
+  <section id="s2">
+    <h2><span class="cap">2</span>A weapon they are not trained in</h2>
+    <p>No band. Opening the row says what the 2024 rules allow: they can switch to this weapon after a Long Rest.</p>
+    <figure><img src="shots/2-untrained-long-rest.png" alt="The Bronze Glaive row opened. A GRAZE tag, then: Not trained. You can master Glaives in place of one of your choices when you finish a Long Rest."></figure>
+  </section>
+
+  <section id="s4">
+    <h2><span class="cap">3</span>The ? opens a card at the bottom</h2>
+    <p>Your pick: a sheet at the bottom, like the roll result, so every card on a phone opens the same way. It closes with the × at the top, like the roll result, so Close never scrolls out of reach.</p>
+    <figure><img src="shots/4-card-as-bottom-sheet.png" alt="A sheet along the bottom of the screen: Topple, Weapon Mastery, Ironwood Battleaxe, a close X. When you hit with this, you can make the target save: DC 13 Constitution, or it falls Prone. After a hit, your roll result offers Topple. Then the SRD 5.2 text."></figure>
+  </section>
+
+  <section id="s5">
+    <h2><span class="cap">4</span>Prone opens inside the card</h2>
+    <p>Tapping Prone opens its rule right under the word; tapping it again closes it. One level only. Long text scrolls inside the sheet.</p>
+    <figure><img src="shots/5-prone-inside-the-card.png" alt="The Topple sheet with Prone underlined in amber and the Prone condition opened beneath it in an inset box: Restricted Movement and Attacks Affected."></figure>
+  </section>
+
+  <section id="s6">
+    <h2><span class="cap">5</span>After a hit, the roll result offers it</h2>
+    <p>A player who never read Topple is told when it applies, with the numbers filled in. Prone opens here the same way.</p>
+    <figure><img src="shots/6-roll-result-topple.png" alt="The roll result sheet for the battleaxe: 5 damage, then a TOPPLE tag: The target makes a DC 13 Con save or falls Prone, with the Prone rule opened below."></figure>
+  </section>
+
+  <section id="s7">
+    <h2><span class="cap">6</span>Desktop</h2>
+    <p>Desktop has the room, so the card opens beside the band, here with Prone open.</p>
+    <figure class="wide"><img src="shots/7-desktop-card-prone-open.png" alt="Desktop builder with the weapons table on the right and the Topple card open beside the band, Prone opened inside it."></figure>
+  </section>
+
+  <section id="s8">
+    <h2><span class="cap today">7</span>Today's app, a bug found on the way</h2>
+    <p>Not a mockup. The card the app already shows for a condition (here "charmed" in Charm Person) runs 12px past the right edge of a phone screen. A one-line style fix.</p>
+    <figure><img src="shots/8-todays-preview-on-a-phone.png" alt="The Charm Person spell page on a phone with the Charmed card open; its right edge runs off the screen."></figure>
+  </section>
+
+  <div class="ask" id="ask">
+    <h2>Questions for you</h2>
+    <ol>
+      <li>Band: New tag (1a), a glowing ? (1b), or neither?</li>
+      <li>The wording in the card and the roll result: OK, or changes?</li>
+      <li>On desktop, can a rule open inside a card shown on hover, or only after a click pins it?</li>
+      <li>Fix today's card overflow (7) on this branch with the card work?</li>
+    </ol>
+  </div>
+</main>
