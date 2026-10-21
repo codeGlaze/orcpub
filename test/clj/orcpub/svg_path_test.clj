@@ -114,3 +114,21 @@
     (is (seq svgs) "the icons should be on the classpath")
     (is (empty? broken)
         (str "unparsed: " (mapv #(.getName %) broken)))))
+
+(defn- finite? [ops]
+  (every? #(or (not (number? %)) (Double/isFinite %)) (mapcat rest ops)))
+
+(deftest degenerate-arcs-follow-the-svg-rules
+  ;; svg-path-ops takes arbitrary path data, and arc-points divided by a zero radius or a
+  ;; zero chord: measured, 6 of 7 ops came back NaN, straight into the PDF. SVG 1.1
+  ;; appendix F.6.2: a zero radius is a line to the endpoint; an endpoint equal to the
+  ;; current point draws nothing.
+  (testing "a zero radius draws a straight line"
+    (is (= [[:move 10.0 10.0] [:line 20.0 10.0]] (draw/svg-path-ops "M10 10 A0 5 0 0 1 20 10")))
+    (is (= [[:move 10.0 10.0] [:line 20.0 10.0]] (draw/svg-path-ops "M10 10 A5 0 0 0 1 20 10"))))
+  (testing "an arc to the point it starts from draws nothing"
+    (is (= [[:move 10.0 10.0]] (draw/svg-path-ops "M10 10 A5 5 0 0 1 10 10"))))
+  (testing "and an ordinary arc is still sampled, finitely"
+    (let [ops (draw/svg-path-ops "M10 10 A5 5 0 0 1 20 10")]
+      (is (< 2 (count ops)))
+      (is (finite? ops)))))

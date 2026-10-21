@@ -537,11 +537,19 @@
                (recur (drop 2 ts) cmd x y sx sy nil [qx qy]
                       (conj out [:curve (+ cx (* 2/3 (- qx cx))) (+ cy (* 2/3 (- qy cy)))
                                  (+ x (* 2/3 (- qx x))) (+ y (* 2/3 (- qy y))) x y])))
-          :A (let [x (ax (n 5)) y (ay (n 6))
-                   pts (arc-points cx cy (n 0) (n 1) (n 2)
-                                   (not (zero? (n 3))) (not (zero? (n 4))) x y)]
-               (recur (drop 7 ts) cmd x y sx sy nil nil
-                      (into out (map (fn [[px py]] [:line px py]) pts))))
+          ;; SVG 1.1 F.6.2: an arc to its own start draws nothing, and a zero radius is a
+          ;; straight line. arc-points divides by both, so without this they came out NaN.
+          :A (let [x (ax (n 5)) y (ay (n 6))]
+               (cond
+                 (and (== x cx) (== y cy))
+                 (recur (drop 7 ts) cmd x y sx sy nil nil out)
+                 (or (zero? (n 0)) (zero? (n 1)))
+                 (recur (drop 7 ts) cmd x y sx sy nil nil (conj out [:line x y]))
+                 :else
+                 (let [pts (arc-points cx cy (n 0) (n 1) (n 2)
+                                       (not (zero? (n 3))) (not (zero? (n 4))) x y)]
+                   (recur (drop 7 ts) cmd x y sx sy nil nil
+                          (into out (map (fn [[px py]] [:line px py]) pts))))))
           :Z (recur ts cmd sx sy sx sy nil nil (conj out [:close]))
           (recur more cmd cx cy sx sy prev-c prev-q out))))))
 

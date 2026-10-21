@@ -16,7 +16,10 @@
    tree: content and prose elsewhere still case-fold with the machine's locale, which
    is an open audit rather than a claim that it is correct."
   ["src/clj/orcpub/routes.clj"
-   "src/clj/orcpub/artist_accounts.clj"])
+   "src/clj/orcpub/artist_accounts.clj"
+   ;; create-user! and email-exists?: the CLI and REPL path, which never starts the
+   ;; server and so never reaches pin-locale!.
+   "dev/user.clj"])
 
 (def ^:private bare-fold-re
   #"\((?:s|str|string|clojure\.string)/(?:lower-case|upper-case|capitalize)\s")
