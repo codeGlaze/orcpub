@@ -179,18 +179,28 @@ obvious:
 
 ### 2. Where homebrew comes in: fix once, check it works, store it
 
-At each way in, an entry is cleaned, then **converted by the app's own code** (the existing deep
-check: convert it to a character option and realize every part, inside the guard). Fixes are
-written; an entry that cannot be read or does not convert moves to the **quarantine panel** with
-its reason, the original kept there to fix or restore. The active library is then clean, so
-nothing is found again on the next load.
+**One global interceptor** (re-frame 1.4.4's `reg-global-interceptor`; the app has none yet) runs
+after every event. If the event left the library as the identical object, which is almost every
+event, it does nothing. If the event changed it, however it changed it:
 
-| Way in | Where |
+- the changed entries are cleaned, and the fixes go into the new state and are **written to
+  storage** with it (`"5"` stored as `5`, read as `5`, exported as `5`);
+- the changed sources are then **converted by the app's own code** (the existing deep check,
+  `check-and-set-aside!`, which runs after the new state is in place): an entry that cannot be
+  read or does not convert moves to the **quarantine panel** with its reason, the original kept
+  there to fix or restore.
+
+The active library is then clean, so nothing is found again on the next load. Because it runs on
+every event, it does not depend on code calling the right function, or on `library_gate_test`
+recognising how a write was made (it scans for `assoc`, `update` and `dissoc` on `:plugins`, not
+`merge` or a helper). That test stays, as the check that every write also reaches storage.
+
+| Way in | What the interceptor sees |
 |---|---|
-| **Import** | `validate-import`, then the write gate. The import report lists fixes and quarantined entries. |
-| **Every other library write** (builder saves, rename, move, restore, conflict resolution) | Inside the existing write gate, `commit-library`. `library_gate_test` already fails the build for a write that goes around it. A builder save checks one entry. |
-| **Load** (startup, another tab's write, what `LOAD_HOMEBREW_URL` stored) | A library saved before this change is checked once; fixes written back through the loader's existing write-back (`persist-set-aside!`) after the `plugins:pre-fix` backup. |
-| **Share link** | `apply-shared-content` and the party page's share load. Shared content is never stored: an entry that fails is left out of the view and the banner says so. |
+| **Import** | the import event storing the file; the import report lists fixes and quarantined entries |
+| **Builder saves, rename, move, restore, conflict resolution** | each of those events; a builder save changes one entry, so one entry is checked |
+| **Load** (startup, another tab's write, what `LOAD_HOMEBREW_URL` stored) | `:initialize-db` and `library-changed-elsewhere`; a library saved before this change is fixed once and written back after the `plugins:pre-fix` backup |
+| **Share link** | `apply-shared-content` puts shared content in `:shared-plugins`, which the interceptor checks the same way; it is never stored, so an entry that fails is left out of the view and the banner says so |
 
 Builder drafts are restored by `reg-local-store-cofx`, which TODO.md pins as hands-off; they are
 covered by (5).
@@ -231,10 +241,23 @@ a bug in our code; these catch it, using what exists:
 - **The guard on all 13 types** (through `register-conversions!`; today 5), a subrace or subclass
   blamed on itself, and `base-class-options` reporting what it catches instead of silently
   returning no classes.
+- **Hardened core helpers.** The few functions of ours every option, choice and modifier passes
+  through (`t/option-cfg`, `t/selection-cfg`, the modifier constructors, `safe-capitalize-kw`, the
+  trait builder) check what they are given, skip what they cannot use, and report it, the way
+  `safe-compare` already made every sort safe. Which ones: the audit records where in the code
+  each crash happened; the helpers most crashes pass through go first, and each must show a drop
+  in the audit count.
+
+Replacing Clojure's own functions (`seq`, `keys`, `map`, …) with safe versions is not part of
+this: inside Clojure they call each other, and `for` and destructuring expand to them, so our
+versions would only apply where our code calls them by name; a namespace that forgot them would be
+unprotected; and returning nothing instead of throwing hides bad data rather than reporting it.
+Clean data at the seams makes all of them safe at once.
 
 ### 6. Enforcement, and tests that cannot pass by accident
 
-- **Writes:** the existing `library_gate_test`.
+- **Writes:** the global interceptor checks every change, and `library_gate_test` still requires
+  every write to reach storage through the gate.
 - **The junk audit** (`lein fig:junk && node test/e2e/junk-pack-audit.js`, about 8 minutes), in CI
   once it reads zero. Each stage has a **canary**, a planted bad entry it must catch; **coverage is
   counted**: fewer entries picked, drawn or converted than expected fails.
@@ -248,6 +271,7 @@ Nothing here may make the app slower to use.
 | Cost | Kept small by | Budget |
 |---|---|---|
 | Cleaning | Only on a write: an import, a builder save (one entry), the first load after this lands. Reading costs nothing. | 12-source test library: under 30 ms |
+| The global interceptor | One identity comparison per event; work only when the library changed, and only on the entries that changed. | no measurable change |
 | Later loads | The library is already clean: a read-only walk that finds nothing and writes nothing. | under 10 ms |
 | The in-app read check | A read-only walk on each library change; if it measures above budget, only entries that changed. | under 10 ms |
 | The conversion check at a way in | Only the entries that came in or changed; `guard/realize` now walks each shared part once. | a builder save: one entry |
@@ -279,11 +303,12 @@ Nothing here may make the app slower to use.
 1. **Done:** the baseline (659), the shape table and `clean` (not yet called by the app), the
    audit in about 8 minutes, `guard/realize` walking each part once.
 2. **Audit canaries and counted coverage.**
-3. **Import and the write gate:** clean, convert, quarantine. *Gate:* the audit drops; the
-   everyday suites and the homebrew e2e scripts pass; the timings stay in budget.
-4. **Load and share links.** *Gate:* `fixes_persist_e2e`, `boot_rescue_e2e`, `quarantine-restore`,
-   `library-repairs` pass; a second load writes nothing.
-5. **The in-app read check**, measured; changed-only only if needed.
+3. **The global interceptor:** clean, write, convert, quarantine, for every library change
+   (import, saves, load, share). *Gate:* the audit drops; the everyday suites and the homebrew e2e
+   scripts (`fixes_persist_e2e`, `boot_rescue_e2e`, `quarantine-restore`, `library-repairs`) pass;
+   a second load writes nothing; the timings stay in budget.
+4. **The in-app read check**, measured; changed-only only if needed.
+5. **Hardened core helpers**, ranked by the audit.
 6. **Containment:** per-item boundaries, the event error handler, the guard on 13 types.
 7. **Enforcement:** the audit in CI at zero, the AGENTS.md rules, the documents corrected, the
    testing/develop scenarios gone through.
