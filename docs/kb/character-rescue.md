@@ -319,8 +319,11 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
    like homebrew; Data View's draft page shows it with Download when the active slot is empty
    (`test/e2e/draft-backup.js`). Other builder drafts are still removed. #64's per-id draft keys
    need the same treatment when they land.
-6. Test gaps: builder autosave against the stale-save guard, race and ability-score warnings in a
-   browser, "No longer stored", the draft page's guard, assertions in `remove-essentials.js`.
+6. **Done 2026-10-21, except one:** the race, class and ability-score popups, "No longer stored"
+   and the draft page's guard are checked in a browser (`character-data.js`); `remove-essentials.js`
+   now asserts what each removal leads to in the app (no errors; no class still saves and offers Add
+   Levels in Another Class; no ability scores refuses Save until a method is picked). Left: builder
+   autosave against the stale-save guard, which needs #64's app side.
 7. Key editing behind dev mode.
 8. Data View script size (264 KB, mostly built-in data pulled in through shared code).
 9. **Drafts per id, for every builder** (#704, `multi-tab-character-contamination.md`), last.

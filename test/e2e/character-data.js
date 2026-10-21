@@ -12,10 +12,11 @@
 //   keeps it; Save asks first in a popup naming what goes; the save notice sits at the top;
 //   a stored value shows readably beside its key, and Show stored data shows the stored map;
 //   a Save that finds the character changed since the page opened writes nothing and offers to
-//   reload with the pending removals kept;
+//   reload with the pending removals kept, naming any the other tab already removed;
 //   Save writes through the app's own save route: the feat is gone from the saved copy, the rest
 //   and the summary stay, and the app then opens the character without listing the feat as
-//   missing; on the draft page, Save writes the browser draft.
+//   missing; on the draft page, Save writes the browser draft, and refuses the same way when
+//   another tab changed the draft first.
 // Every change is a click, a select or the file input; app-db is never written.
 //
 // Needs the seeded server (kaylee / serenity99, zoe / washburne7) and both bundles:
@@ -136,16 +137,19 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     check('the notice counts them all', (await noticeText(page)).startsWith(`${below + 1} removed`), await noticeText(page));
     await rowButton('Wizard').click();
 
-    // ---- A save that finds the character changed since the page opened.
+    // ---- A save that finds the character changed since the page opened. Both tabs remove the
+    // spell; the reload names it as no longer stored.
     await rowButton('Tidebreaker').click();
+    await rowButton('Brine Lash').click();
     const other = await noAppPage(owner);
     await dataRows(other, dataUrl);
     await dvButton(other, 'Brine Lash').click();
     await dvSave(other);
     await other.close();
     await page.locator('.dv-notice').getByRole('button', { name: 'Save', exact: true }).click();
-    check('Save asks first in a popup', (await dvDialog(page).locator('h3').innerText().catch(() => '')) === 'Remove 1 choice from this character?');
-    check('naming what goes', /Tidebreaker \(Feats\)/.test(await dvDialog(page).innerText()));
+    check('Save asks first in a popup', (await dvDialog(page).locator('h3').innerText().catch(() => '')) === 'Remove 2 choices from this character?');
+    const naming = await dvDialog(page).innerText();
+    check('naming what goes', /Tidebreaker \(Feats\)/.test(naming) && /Brine Lash \(Wizard Spells Known\)/.test(naming), naming.replace(/\n+/g, ' | '));
     await dvAnswer(page, 'Remove and save');
     await page.waitForFunction(() => /changed since you opened/.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
     const copy = await page.evaluate(async id => (await fetch(`/dnd/5e/characters/${id}`, { headers: { Accept: 'application/edn' } })).text(), id);
@@ -155,6 +159,8 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     rows = await dvRows(page);
     check('the reload shows the other tab\'s change with this removal still pending',
           !rows.some(r => r.choice === 'Brine Lash') && (await markOf(page, 'Tidebreaker')) === 'removed' && (await noticeText(page)).startsWith('1 removed'));
+    const reloaded = await page.locator('.dv-note').innerText().catch(() => '');
+    check('and names the removal that is no longer stored', /^Reloaded\. No longer stored: .*Brine Lash\.$/.test(reloaded), reloaded);
     await dvSave(page);
     rows = (await dvRows(page)).map(r => r.choice);
     check('after Save the feat is gone and the rest stays', !rows.includes('Tidebreaker') && rows.includes('Tidefolk') && rows.includes('Wizard'));
@@ -206,10 +212,23 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     // ---- Save on the draft page writes the browser draft.
     await dataRows(page, `${BASE}/pages/dnd/5e/character-data`);
     await rowButton('Tidefolk').click();
+    const raceTitle = await dvDialog(page).locator('h3').innerText().catch(() => '');
+    check('removing the race asks first in a popup', /^Remove Tidefolk( and the \d+ choices under it)?\?$/.test(raceTitle) && /ask for a race again/.test(await dvDialog(page).innerText()), raceTitle);
     await dvAnswer(page, 'Remove');
+    const draftTab = await noAppPage(owner);
+    await dataRows(draftTab, `${BASE}/pages/dnd/5e/character-data`);
+    await dvButton(draftTab, 'Spellbook').click();
+    await dvSave(draftTab);
+    await draftTab.close();
+    await page.locator('.dv-notice').getByRole('button', { name: 'Save', exact: true }).click();
+    await dvAnswer(page, 'Remove and save');
+    const toldDraft = await page.waitForFunction(() => /changed since you opened/.test(document.getElementById('ledger').textContent), null, { timeout: 15000 }).then(() => true, () => false);
+    const between = await page.evaluate(() => localStorage.getItem('character') || '');
+    check('a draft Save after another tab changed the draft writes nothing and says so', toldDraft && /:tidefolk/.test(between) && !/:spellbook/.test(between));
+    await page.getByRole('button', { name: 'Reload and keep my removals' }).click();
     await dvSave(page);
     const draft = await page.evaluate(() => localStorage.getItem('character') || '');
-    check('Save on the draft page writes the draft without the race', !/:tidefolk/.test(draft) && /:wizard/.test(draft));
+    check('Save on the draft page writes the draft without the race, keeping the other tab\'s change', !/:tidefolk/.test(draft) && !/:spellbook/.test(draft) && /:wizard/.test(draft));
 
     const zoe = await browser.newContext();
     const zoeApp = await zoe.newPage();

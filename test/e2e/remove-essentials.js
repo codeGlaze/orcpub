@@ -1,18 +1,18 @@
-// RESEARCH (reports, asserts nothing): what does the app do with a character that has lost its
-// class, or its ability scores? The character data page lets the owner remove any stored choice
-// (character-rescue.md), so before it warns about these, measure what each removal leads to.
+// What the app does with a character that has lost its class, or its ability scores, through
+// Data View (character-rescue.md): the popup Data View shows first says what follows, and the app
+// then does that without breaking.
 //
-// Two plain characters (Human wizard 4) are built and saved by clicks. Through the data page,
-// with orcpub.js blocked, one loses its class and the other its ability scores, and each is saved.
-// Each is then opened in the app: its character page, then Edit. The script reports page errors,
-// what the page shows, what the builder offers, and what Save does before and after the builder's
-// own way back (Add Levels in Another Class; picking an ability score method).
+// Two plain characters (Human wizard 4) are built and saved by clicks. Through Data View, with
+// orcpub.js blocked, one loses its class and the other its ability scores, each after its popup,
+// and each is saved. Each is then opened in the app: its character page, then Edit. Checked: no
+// page errors and no won't-load panel; without a class it saves and offers Add Levels in Another
+// Class; without ability scores Save refuses until a method is picked; then both save.
 // Every change is a click, a select or the file input; app-db is read only.
 //
 // Needs the seeded server (kaylee / serenity99) and both bundles (lein fig:build, lein fig:ledger):
 //   NODE_PATH=/opt/node22/lib/node_modules node test/e2e/remove-essentials.js
 const { chromium } = require('playwright');
-const { BASE, findChrome, dbAt, readyPage, dismissWhatsNew, clickTab } = require('./lib');
+const { BASE, findChrome, checker, dbAt, readyPage, dismissWhatsNew, clickTab } = require('./lib');
 const { dvButton, dvDialog, dvAnswer, dvSave } = require('./rescue-lib');
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -86,19 +86,21 @@ async function buildPlain(page) {
   return save(page);
 }
 
-async function removeOnDataPage(page, id, choice) {
+async function removeOnDataPage(page, id, choice, check, asks) {
   await page.goto(`${BASE}/pages/dnd/5e/characters/${id}/data`, { waitUntil: 'load' });
   await page.waitForFunction(() => !/^Loading/.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
   const btn = dvButton(page, choice);
   log(`   data page: ${await btn.innerText()} (${choice})`);
   await btn.click();
-  if (await dvDialog(page).count()) await dvAnswer(page, 'Remove');
+  const title = await dvDialog(page).locator('h3').innerText().catch(() => '');
+  check(`removing ${choice} asks first: ${asks}`, asks.test(title), title);
+  await dvAnswer(page, 'Remove');
   await dvSave(page);
   const saved = await page.evaluate(async id => (await fetch(`/dnd/5e/characters/${id}`, { headers: { Accept: 'application/edn' } })).text(), id);
-  log(`   saved copy: ${saved.length} chars; still has :class ${/:class/.test(saved)}, :ability-scores ${/:ability-scores/.test(saved)}`);
+  return saved;
 }
 
-async function openInApp(page, id, errors, recover) {
+async function openInApp(page, id, errors, recover, check) {
   errors.length = 0;
   await page.goto(`${BASE}/pages/dnd/5e/characters/${id}`, { waitUntil: 'load' });
   await wait(5000);
@@ -106,13 +108,15 @@ async function openInApp(page, id, errors, recover) {
   const loadPanel = await page.getByText(/won.t load|could not be read|couldn.t be read/i).count();
   const text = (await page.locator('#app').innerText().catch(() => '')).replace(/\s+/g, ' ');
   log(`   character page: won't-load panel ${loadPanel > 0}; page errors ${errors.length}; text: ${text.slice(0, 220)}`);
+  check(`[${recover}] the character page opens`, loadPanel === 0 && errors.length === 0 && /Character Page/.test(text), errors.join(' || '));
   const edit = page.getByText('Edit', { exact: true }).first();
-  if (!(await edit.isVisible().catch(() => false))) { log('   no Edit button'); return; }
+  if (!(await edit.isVisible().catch(() => false))) { check(`[${recover}] the page offers Edit`, false); return; }
   await edit.click();
   await wait(4000);
   const btext = (await page.locator('#app').innerText().catch(() => '')).replace(/\s+/g, ' ');
   log(`   builder: page errors ${errors.length}${errors.length ? ' (' + errors.slice(0, 2).join(' || ') + ')' : ''}`);
   log(`   builder text: ${btext.slice(0, 260)}`);
+  check(`[${recover}] the builder opens without errors`, errors.length === 0 && /Character Builder/.test(btext), errors.join(' || '));
   await clickTab(page, 'Class / Level').catch(() => {});
   const classes = await page.locator('#app select.builder-option-dropdown.flex-grow-1').count();
   log(`   Class / Level tab: ${classes} class selector(s); app-db classes ${await dbAt(page, '[:character :orcpub.entity/options :class]')}`);
@@ -127,13 +131,22 @@ async function openInApp(page, id, errors, recover) {
     saves.length = 0;
     await page.getByText(/^Save$/).first().click();
     await wait(5000);
-    log(`   ${label}: save requests ${JSON.stringify(saves)}; told: ${await told()}; page errors ${errors.length}`);
+    const said = await told();
+    log(`   ${label}: save requests ${JSON.stringify(saves)}; told: ${said}; page errors ${errors.length}`);
+    return { saves: [...saves], said };
   };
-  await clickSave('Save as opened');
+  const opened = await clickSave('Save as opened');
+  if (recover === 'class') {
+    check('[class] with no class the builder still saves', JSON.stringify(opened.saves) === '[200]' && /^Saved/.test(opened.said), JSON.stringify(opened));
+  } else {
+    check('[scores] with no ability scores Save refuses and says why', opened.saves.length === 0 && /You must provide values for all ability scores/.test(opened.said), JSON.stringify(opened));
+  }
   if (recover === 'class') {
     await clickTab(page, 'Class / Level');
     const add = page.getByText('Add Levels in Another Class').first();
-    log(`   offered "Add Levels in Another Class": ${await add.isVisible().catch(() => false)}`);
+    const offered = await add.isVisible().catch(() => false);
+    log(`   offered "Add Levels in Another Class": ${offered}`);
+    check('[class] the builder offers Add Levels in Another Class', offered);
     if (await add.isVisible().catch(() => false)) { await add.click(); await wait(2500); }
     log(`   classes after: ${(await dbAt(page, '[:character :orcpub.entity/options :class]')).slice(0, 120)}`);
   } else {
@@ -143,11 +156,13 @@ async function openInApp(page, id, errors, recover) {
     await clickCard(page, 'Standard Scores');
     log(`   ability scores after: ${(await dbAt(page, '[:character :orcpub.entity/options :ability-scores]')).slice(0, 120)}`);
   }
-  await clickSave('Save after the fix in the builder');
+  const fixed = await clickSave('Save after the fix in the builder');
+  check(`[${recover}] after the builder's own fix it saves`, JSON.stringify(fixed.saves) === '[200]' && /^Saved/.test(fixed.said) && errors.length === 0, JSON.stringify(fixed));
   page.off('response', onResp);
 }
 
 (async () => {
+  const { check, report } = checker();
   const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 1000 } });
   const app = await ctx.newPage();
@@ -157,18 +172,22 @@ async function openInApp(page, id, errors, recover) {
   await page.route('**/js/compiled/orcpub.js', r => r.abort());
   try {
     await logIn(app, 'kaylee', 'serenity99');
-    for (const [label, choice, recover] of [['NO CLASS', 'Wizard', 'class'], ['NO ABILITY SCORES', 'Standard Scores', 'scores']]) {
+    const cases = [['NO CLASS', 'Wizard', 'class', /^Remove Wizard and the \d+ choices under it\?$/, ':wizard'],
+                   ['NO ABILITY SCORES', 'Standard Scores', 'scores', /^Remove the ability scores\?$/, ':standard-scores']];
+    for (const [label, choice, recover, asks, key] of cases) {
       log(`\n================ ${label}`);
       const id = await buildPlain(app);
       log(`   built and saved as ${id}`);
       await app.goto('about:blank');
-      await removeOnDataPage(page, id, choice);
-      await openInApp(app, id, errors, recover);
+      const saved = await removeOnDataPage(page, id, choice, check, asks);
+      check(`[${recover}] the saved copy no longer has ${key}`, !saved.includes(key) && /:human/.test(saved));
+      await openInApp(app, id, errors, recover, check);
       await app.goto('about:blank');
     }
   } catch (e) {
-    log('ABORTED:', e.message.split('\n')[0]);
+    check('the run finished', false, e.message.split('\n')[0]);
   } finally {
     await browser.close();
   }
+  process.exit(report() ? 1 : 0);
 })();
