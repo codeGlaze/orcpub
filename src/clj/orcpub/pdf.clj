@@ -781,23 +781,23 @@
 (defn- field-text
   "`v` as a form field prints it, and the font resource to print it in. A value
    Helvetica can draw keeps today's path exactly; one it cannot switches that one
-   field to Vollkorn, where WinAnsi-only Helvetica had printed Łukasz as ?ukasz."
+   field to Nimbus Sans, where WinAnsi-only Helvetica had printed Łukasz as ?ukasz."
   [v]
-  ;; Only when the other font refuses FEWER: a value whose one odd character neither
-  ;; font has would otherwise change font, and weight, for nothing.
-  (if (< (draw/refused v draw/vollkorn-covers?) (draw/refused v draw/winansi?))
-    [(draw/normalize-text v draw/vollkorn-covers?) "VkR"]
+  ;; Only when Nimbus refuses FEWER: a value whose one odd character neither font has
+  ;; would otherwise change font, and weight, for nothing.
+  (if (< (draw/refused v draw/nimbus-covers?) (draw/refused v draw/winansi?))
+    [(draw/normalize-text v draw/nimbus-covers?) "NmS"]
     [(draw/normalize-text v) "Helv"]))
 
-(defn- vollkorn-field-font!
-  "Vollkorn Regular in `form`'s default resources as /VkR, added on first use. Embedded
-   in FULL, not subset: the sheet stays fillable, and a subset holds only the glyphs
+(defn- field-font!
+  "Nimbus Sans in `form`'s default resources as /NmS, added on first use. Embedded in
+   FULL, not subset: the sheet stays fillable, and a subset holds only the glyphs
    written now, so editing the field in a viewer would type into missing glyphs."
   [doc form]
   (let [res (or (.getDefaultResources form) (PDResources.))
-        nm (COSName/getPDFName "VkR")]
+        nm (COSName/getPDFName "NmS")]
     (or (.getFont res nm)
-        (let [f (with-open [in (.openStream (io/resource (:plain draw/vollkorn-files)))]
+        (let [f (with-open [in (.openStream (io/resource draw/nimbus-file))]
                   (PDType0Font/load doc in false))]
           (.put res nm f)
           (.setDefaultResources form res)
@@ -852,7 +852,7 @@
     (.setNeedAppearances form false)
     ;; One index rather than a lookup per value: PDAcroForm.getField walks the
     ;; field tree on every call, which dominated the export's allocation.
-    (let [vollkorn (delay (vollkorn-field-font! doc form))
+    (let [field-font (delay (field-font! doc form))
           by-name (persistent!
                    (reduce (fn [m field]
                              (assoc! m (.getFullyQualifiedName field) field))
@@ -876,7 +876,7 @@
           (when field
             (let [text-field? (instance? PDTextField field)
                   [text font-name] (if text-field? (field-text v) [nil "Helv"])
-                  font (if (= "Helv" font-name) draw/HELVETICA @vollkorn)]
+                  font (if (= "Helv" font-name) draw/HELVETICA @field-font)]
               (when (and text-field? (not= "Helv" font-name))
                 (.setDefaultAppearance field (with-da-font (.getDefaultAppearance field) font-name)))
               ;; font-sizes gated on flatten?: interactive forms keep the template's
@@ -1787,7 +1787,7 @@
     (.setFields form (java.util.ArrayList. (conj (vec (.getFields form)) field)))
     (let [[text font-name] (field-text text)]
       (when (not= "Helv" font-name)
-        (vollkorn-field-font! doc form)
+        (field-font! doc form)
         (.setDefaultAppearance field (with-da-font (.getDefaultAppearance field) font-name)))
       (.setValue field text))
     page))

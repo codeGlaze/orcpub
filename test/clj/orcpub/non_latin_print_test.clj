@@ -39,6 +39,30 @@
     (pdf/write-fields! doc {:character-name wide} false {})
     (is (= wide (.getValueAsString (field-of doc "character-name"))))))
 
+(deftest a-switched-field-uses-the-helvetica-clone
+  ;; Nimbus Sans, not Vollkorn: a serif among sans fields stood out, and Nimbus's widths
+  ;; are Helvetica's, so the field looks and fits like its neighbours.
+  (with-open [doc (template 1)]
+    (pdf/write-fields! doc {:character-name wide} false {})
+    (let [f (field-of doc "character-name")
+          dr (.getDefaultResources (.getAcroForm (.getDocumentCatalog doc)))]
+      (is (str/starts-with? (.getDefaultAppearance f) "/NmS"))
+      (is (str/includes? (.getName (.getFont dr (org.apache.pdfbox.cos.COSName/getPDFName "NmS")))
+                         "NimbusSans")))))
+
+(deftest nimbus-sans-is-helvetica-width
+  ;; The reason it was chosen, pinned: replacing it with a "lookalike" that is not
+  ;; metric-compatible would change how every switched field fits.
+  (with-open [doc (PDDocument.)]
+    (let [nimbus (with-open [in (.openStream (io/resource draw/nimbus-file))]
+                   (org.apache.pdfbox.pdmodel.font.PDType0Font/load doc in))
+          off (for [cp (concat (range 0x20 0x7F) (range 0xA1 0x100))
+                    :let [c (str (char cp))
+                          d (Math/abs (- (.getStringWidth draw/HELVETICA c) (.getStringWidth nimbus c)))]
+                    :when (> d 0.5)]
+                (str (format "U+%04X" cp) " off by " (Math/round (double d))))]
+      (is (empty? off) (str/join ", " off)))))
+
 (deftest a-latin-1-sheet-is-unchanged
   ;; The switch is per field and only when Helvetica would have printed `?`, so every
   ;; export that works today keeps its font, its appearance streams and its file size.

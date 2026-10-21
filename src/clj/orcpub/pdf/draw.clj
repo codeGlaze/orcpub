@@ -176,6 +176,21 @@
   [cp]
   (every? #(pos? (.getGlyphId % (int cp))) @vollkorn-cmaps))
 
+(def nimbus-file
+  "Nimbus Sans, URW's metric clone of Helvetica, for the form fields Helvetica cannot draw.
+   Under resources/fonts, NOT public/: its licence covers embedding in a PDF, not serving
+   the file. See resources/fonts/README.md."
+  "fonts/NimbusSans-Regular.ttf")
+
+(def ^:private nimbus-cmap
+  (delay (with-open [in (.openStream (io/resource nimbus-file))]
+           (.getUnicodeCmapLookup (.parse (TTFParser.) (RandomAccessReadBuffer. in))))))
+
+(defn nimbus-covers?
+  "Whether Nimbus Sans has a glyph for code point `cp`."
+  [cp]
+  (pos? (.getGlyphId @nimbus-cmap (int cp))))
+
 (def ^:private winansi-code-points
   (delay (into #{} (keep #(some-> (.toUnicode (GlyphList/getAdobeGlyphList) %)
                                   (.codePointAt 0)))
