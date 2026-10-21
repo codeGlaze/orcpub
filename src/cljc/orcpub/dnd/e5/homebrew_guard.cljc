@@ -42,10 +42,21 @@
 
 (defn realize
   "Walk `x` so every lazy sequence inside it runs now. Option builders return lazy
-   sequences, and a throw inside one would otherwise surface later, outside the guard."
+   sequences, and a throw inside one would otherwise surface later, outside the guard.
+   Each object is walked once: an option tree shares its parts (a class's spell options
+   recur at every level), and walking every copy took seconds for one homebrew class."
   [x]
-  (dorun (tree-seq coll? seq x))
-  x)
+  (let [seen #?(:clj (java.util.Collections/newSetFromMap (java.util.IdentityHashMap.))
+                :cljs (js/Set.))
+        first-visit? (fn [y] #?(:clj (.add seen y)
+                                :cljs (when-not (.has seen y) (.add seen y) true)))]
+    (letfn [(walk [y]
+              (when (and (coll? y) (first-visit? y))
+                (if (map? y)
+                  (doseq [[k v] y] (walk k) (walk v))
+                  (doseq [v y] (walk v)))))]
+      (walk x))
+    x))
 
 (defn guard-entry
   "(f entry), or nil when it throws; the failure is reported with the entry's identity."

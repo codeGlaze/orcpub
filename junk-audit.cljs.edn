@@ -1,0 +1,5 @@
+{:main          orcpub.junk-audit-runner
+ :output-to     "target/junk-audit/js/junk-audit.js"
+ :output-dir    "target/junk-audit/js/out"
+ :asset-path    "js/out"
+ :optimizations :none}
