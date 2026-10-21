@@ -267,8 +267,11 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
 ## Limits, stated up front
 
 - **An open builder tab can undo a repair:** its next autosave can write the removed pick back
-  (`multi-tab-character-contamination.md`, on `agents/develop`). Until that is fixed, the repair
-  page says to close the character elsewhere first.
+  (`multi-tab-character-contamination.md`, on `agents/develop`). The version check does not stop
+  it: the app sends no version until #64 lands, and a save without one is retried and written.
+  Until then Data View's Save popup says to close the character in any open builder first (kept
+  2026-10-21; it was briefly dropped as covered by the version check, which it is not). Remove the
+  line, and add the builder-autosave test from plan item 6, once the app sends its version.
 - **Layer 3's Remove is raw:** it deletes a stored entry by path without knowing the rules. Right
   for an emergency tool; the friendly layers sit above it.
 
