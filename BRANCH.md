@@ -44,9 +44,14 @@ a stale branch cites lines that have moved.
   `integration`). Add each new one here.
 - **Merge gate:** a clean CodeRabbit review (no actionable comments, its check green) and green CI.
   Greptile's trial is out of credits. CodeRabbit reviews automatically only PRs into the default
-  branch: on a PR into `integration`, comment `@coderabbitai full review` after each push. Plain
+  branch: on a PR into `integration`, request one with `@coderabbitai full review`. Plain
   `@coderabbitai review` answers "Review failed" there (it only works while automatic reviews are
   paused; checked 2026-10-16 on #64).
+- **CodeRabbit reviews are scarce: request one on purpose, never after every push.** The plan allows
+  one review an hour, and there is no paid overage (owner, 2026-10-21; CodeRabbit's own note on #70).
+  Ask once when the PR is ready, and again only if a push changes behaviour the last review did not
+  see. A push that only applies a finding CodeRabbit already marked addressed needs no new review.
+  A rate-limited request does nothing ("Action not completed"): wait out the reset, do not re-ask.
 
 ### The tree
 
