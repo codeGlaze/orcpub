@@ -36,8 +36,8 @@ whatever state it is in. Design: `docs/kb/character-rescue.md`.
 ## Added
 
 - **Characters:** a Data View page lists everything stored on a saved character or on this
-  browser's draft, lets its owner remove any of it and save, and opens even when the character
-  itself will not load. Its owner reaches it from a gear on the character page and in the opened
+  browser's draft, lets its owner remove any of it (marked in place, with Undo) and save after a
+  confirmation, and opens even when the character itself will not load. Its owner reaches it from a gear on the character page and in the opened
   character-list row, from the Missing Content warning, from "Repair this character" on the panel
   shown when a character can't be loaded, and from a notice under the loading picture when a
   character page or the builder never finishes loading.

@@ -45,7 +45,7 @@
     (is (= 10 (count rows)))
     (is (= {:address [:class :wizard :wizard-spells-known :brine-lash] :depth 1
             :section "Wizard Spells Known" :choice "Brine Lash" :key :brine-lash :value nil
-            :below 0 :line "Class › Wizard › Wizard Spells Known › Brine Lash"}
+            :readable nil :below 0 :line "Class › Wizard › Wizard Spells Known › Brine Lash"}
            (by-address [:class :wizard :wizard-spells-known :brine-lash])))
     (testing "how many picks sit under each"
       (is (= 6 (:below (by-address [:class :wizard]))))
@@ -180,3 +180,30 @@
     (is (= 3 (:orcpub.entity.strict/version (ledger/read-stored text))) "it carries the version to save with next"))
   (is (nil? (ledger/refused-current (pr-str {:error :something-else}))))
   (is (nil? (ledger/refused-current "not edn {"))))
+
+(deftest stored-values-read-as-a-player-reads-them
+  (is (= "STR 15 · DEX 14 · CON 13 · INT 12 · WIS 10 · CHA 8"
+         (ledger/readable-value {:db/id 9 :orcpub.dnd.e5.character/cha 8 :orcpub.dnd.e5.character/str 15
+                                 :orcpub.dnd.e5.character/dex 14 :orcpub.dnd.e5.character/con 13
+                                 :orcpub.dnd.e5.character/int 12 :orcpub.dnd.e5.character/wis 10}))
+      "ability scores in sheet order, whatever order they are stored in")
+  (is (= "Qty 1 · class starting equipment · equipped"
+         (ledger/readable-value {:db/id 3 :orcpub.dnd.e5.character.equipment/equipped? true
+                                 :orcpub.dnd.e5.character.equipment/quantity 1
+                                 :orcpub.dnd.e5.character.equipment/class-starting-equipment? true}))
+      "quantity first, then each true flag by its name")
+  (is (= "Qty 2" (ledger/readable-value {:orcpub.dnd.e5.character.equipment/quantity 2
+                                          :orcpub.dnd.e5.character.equipment/equipped? false}))
+      "a false flag is left out")
+  (is (= "12" (ledger/readable-value 12)))
+  (is (nil? (ledger/readable-value nil)))
+  (is (= "STR 15" (:readable (some #(when (= :standard-scores (:key %)) %) (ledger/rows (character)))))
+      "rows carry it"))
+
+(deftest a-removal-marks-its-row-and-the-rows-under-it
+  (let [removed [[:class :wizard :levels :level-4] [:feats :tidebreaker]]]
+    (is (= :removed (ledger/removal-mark [:feats :tidebreaker] removed)))
+    (is (= :under (ledger/removal-mark [:class :wizard :levels :level-4 :asi-or-feat :feat] removed)))
+    (is (nil? (ledger/removal-mark [:class :wizard :levels :level-3] removed)))
+    (is (nil? (ledger/removal-mark [:class :wizard] removed)) "a parent of a removal is not marked")
+    (is (nil? (ledger/removal-mark [:feats :tidebreaker] [])))))

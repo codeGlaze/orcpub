@@ -20,7 +20,7 @@ const onDataView = async (page, path) => {
   await page.waitForURL(u => u.pathname === path, { timeout: 15000 }).catch(() => {});
   await page.waitForFunction(() => document.getElementById('ledger') && !/^Loading/.test(document.getElementById('ledger').textContent), null, { timeout: 15000 }).catch(() => {});
   return { path: new URL(page.url()).pathname, title: await page.title(),
-           rows: await page.locator('#ledger tbody tr').count() };
+           rows: await page.locator('#ledger [data-row]').count() };
 };
 async function openWarning(page) {
   const w = page.locator('#missing-content-warning');

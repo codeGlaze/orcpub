@@ -13,6 +13,7 @@
 //   NODE_PATH=/opt/node22/lib/node_modules node test/e2e/remove-essentials.js
 const { chromium } = require('playwright');
 const { BASE, findChrome, dbAt, readyPage, dismissWhatsNew, clickTab } = require('./lib');
+const { dvButton, dvDialog, dvAnswer, dvSave } = require('./rescue-lib');
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const log = (...a) => console.log(a.join(' '));
@@ -88,11 +89,11 @@ async function buildPlain(page) {
 async function removeOnDataPage(page, id, choice) {
   await page.goto(`${BASE}/pages/dnd/5e/characters/${id}/data`, { waitUntil: 'load' });
   await page.waitForFunction(() => !/^Loading/.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
-  const btn = page.locator('#ledger tbody tr', { has: page.locator('td', { hasText: new RegExp(`^${choice}$`) }) }).locator('button');
+  const btn = dvButton(page, choice);
   log(`   data page: ${await btn.innerText()} (${choice})`);
   await btn.click();
-  await page.getByRole('button', { name: 'Save' }).click();
-  await page.waitForFunction(() => /Saved\./.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
+  if (await dvDialog(page).count()) await dvAnswer(page, 'Remove');
+  await dvSave(page);
   const saved = await page.evaluate(async id => (await fetch(`/dnd/5e/characters/${id}`, { headers: { Accept: 'application/edn' } })).text(), id);
   log(`   saved copy: ${saved.length} chars; still has :class ${/:class/.test(saved)}, :ability-scores ${/:ability-scores/.test(saved)}`);
 }

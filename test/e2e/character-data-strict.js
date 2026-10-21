@@ -1,7 +1,8 @@
 // The character data page under the production settings it has not otherwise been run with:
 //   1. CSP_POLICY=strict (DEV_MODE unset): a per-request nonce and an enforcing
 //      Content-Security-Policy, as production serves it;
-//   2. a phone: Android Chrome user agent, touch, 412 px wide.
+//   2. a phone: Android Chrome user agent, touch, 412 px wide; buttons at least 44px, the save
+//      notice at the bottom of the screen and the save popup on it.
 // The page reads this browser's draft from localStorage, so the draft is placed there before the
 // page loads (test setup for a page that reads storage; no app is loaded and no app-db written).
 // A saved character's path is exercised with an unknown id, which still fetches.
@@ -12,6 +13,7 @@
 //   NODE_PATH=/opt/node22/lib/node_modules node test/e2e/character-data-strict.js
 const { chromium } = require('playwright');
 const { BASE, findChrome, checker } = require('./lib');
+const { dvRows, dvButton, dvSave } = require('./rescue-lib');
 
 const DRAFT = `{:orcpub.entity.strict/values {:orcpub.dnd.e5.character/character-name "Strict Sam"}
  :orcpub.entity.strict/selections
@@ -47,11 +49,10 @@ async function open(browser, opts) {
     const nonce = (csp.match(/'nonce-([^']+)'/) || [])[1];
     // Browsers hide a nonce attribute from selectors once loaded; the element's property keeps it.
     check("the page's script carries that nonce", nonce && (await page.evaluate(() => (document.querySelector('script[src="/js/compiled/ledger.js"]') || {}).nonce)) === nonce);
-    const rows = () => page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
+    const rows = async () => (await dvRows(page)).map(r => r.choice);
     check('the script runs and lists the draft', (await rows()).includes('Tidebreaker'), (await rows()).join(', '));
-    await page.locator('#ledger tbody tr', { has: page.locator('td', { hasText: /^Tidebreaker$/ }) }).locator('button').click();
-    await page.getByRole('button', { name: 'Save' }).click();
-    await page.waitForFunction(() => /Saved\./.test(document.getElementById('ledger').textContent), null, { timeout: 10000 });
+    await dvButton(page, 'Tidebreaker').click();
+    await dvSave(page);
     check('Remove and Save work', !(await page.evaluate(() => localStorage.getItem('character'))).includes(':tidebreaker'));
     await page.getByRole('button', { name: 'Copy for support' }).click();
     await wait(300);
@@ -66,12 +67,23 @@ async function open(browser, opts) {
     const p = phone.page;
     const widths = await p.evaluate(() => ({ page: document.documentElement.scrollWidth, screen: window.innerWidth }));
     check('the page itself does not scroll sideways', widths.page <= widths.screen, JSON.stringify(widths));
-    const box = await p.locator('#ledger tbody tr').first().locator('button').boundingBox();
-    check("a row's Remove button is on screen without scrolling the table", box && box.x >= 0 && box.x + box.width <= widths.screen, JSON.stringify(box));
-    const fit = await p.evaluate(() => { const d = document.querySelector('#ledger table').parentElement; return { table: d.scrollWidth, shown: d.clientWidth }; });
-    console.log(`   phone: table ${fit.table}px in ${fit.shown}px`);
-    await p.locator('#ledger tbody tr', { has: p.locator('td', { hasText: /^Brine Lash$/ }) }).locator('button').tap();
-    check('Remove works by touch', /Not saved yet: 1 removed/.test(await p.locator('#ledger').innerText()));
+    await dvRows(p);
+    const box = await p.locator('#ledger [data-row] button').first().boundingBox();
+    check("a row's Remove button is on screen", box && box.x >= 0 && box.x + box.width <= widths.screen, JSON.stringify(box));
+    const sizes = await p.evaluate(() => [...document.querySelectorAll('#ledger button')].map(b => { const r = b.getBoundingClientRect(); return [b.textContent, Math.round(r.width), Math.round(r.height)]; }));
+    const small = sizes.filter(([, w, h]) => w < 44 || h < 44);
+    check('every button is at least 44px each way', sizes.length > 3 && small.length === 0, small.length ? JSON.stringify(small) : `${sizes.length} buttons`);
+    await dvButton(p, 'Brine Lash').tap();
+    check('Remove works by touch', (await p.locator('.dv-notice').innerText()).replace(/\s+/g, ' ').startsWith('1 removed, not saved'));
+    const screen = p.viewportSize().height;
+    const notice = await p.locator('.dv-notice-box').boundingBox();
+    check('on a phone the notice is at the bottom of the screen', notice && notice.y + notice.height <= screen && notice.y + notice.height > screen - 40, JSON.stringify(notice));
+    const last = await p.evaluate(() => { window.scrollTo(0, document.body.scrollHeight); const c = [...document.querySelectorAll('.dv-card')].pop().getBoundingClientRect(); return c.bottom; });
+    const top = (await p.locator('.dv-notice-box').boundingBox()).y;
+    check('scrolled to the end, the notice covers no card', last <= top, `last card ends ${Math.round(last)}, notice starts ${Math.round(top)}`);
+    await p.locator('.dv-notice').getByRole('button', { name: 'Save', exact: true }).tap();
+    const dialog = await p.locator('.dv-dialog').boundingBox();
+    check('the save popup fits the phone screen', dialog && dialog.x >= 0 && dialog.x + dialog.width <= widths.screen && dialog.y >= 0 && dialog.y + dialog.height <= screen, JSON.stringify(dialog));
     check('nothing was blocked on the phone', phone.blocked.length === 0, phone.blocked.join(' || '));
   } catch (e) {
     check('the run finished', false, e.message.split('\n')[0]);

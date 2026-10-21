@@ -27,10 +27,42 @@
   (when (contains? entry ::entity/value)
     (binding [*print-namespace-maps* false] (pr-str (::entity/value entry)))))
 
+(def ^:private ability-order
+  "The ability score keys in sheet order, with the label each is shown under."
+  (mapv (fn [a] [(keyword "orcpub.dnd.e5.character" a) (s/upper-case a)]) ["str" "dex" "con" "int" "wis" "cha"]))
+
+(defn readable-value
+  "A stored value as a player reads it: ability scores as \"STR 15 · DEX 14 …\", other maps as
+   their entries (\"Qty 1 · equipped\"; a true flag by its name, a false one left out), anything
+   else as text. Nil for nil."
+  [v]
+  (cond
+    (nil? v) nil
+    (map? v) (let [m (dissoc v :db/id)
+                   scores (keep (fn [[k lbl]] (when-some [n (get m k)] (str lbl " " n))) ability-order)
+                   entry (fn [[k x]] (let [nm (s/replace (name k) #"\?$" "")]
+                                       (cond (true? x) (s/lower-case (label (keyword nm)))
+                                             (false? x) nil
+                                             (= "quantity" nm) (str "Qty " x)
+                                             :else (str (label (keyword nm)) " " x))))]
+               (s/join " · " (if (seq scores)
+                               scores
+                               (keep entry (sort-by (fn [[k]] [(not= "quantity" (name k)) (name k)]) m)))))
+    :else (str v)))
+
+(defn removal-mark
+  "How the row at `address` stands against the `removed` addresses not saved yet: :removed when it
+   is one of them, :under when it sits under one, nil otherwise."
+  [address removed]
+  (some (fn [r] (cond (= r address) :removed
+                      (and (< (count r) (count address)) (= r (subvec address 0 (count r)))) :under))
+        removed))
+
 (defn rows
   "`character` (`entity/from-strict` shape) as one row per stored pick, parents first:
-   {:address :depth :section :choice :key :value :below :line}. `:line` names the whole path,
-   e.g. \"Class › Wizard › Wizard Spells Known › Brine Lash\"; `:below` counts the picks under it."
+   {:address :depth :section :choice :key :value :readable :below :line}. `:value` is the stored
+   value as EDN text, `:readable` as `readable-value`; `:line` names the whole path, e.g.
+   \"Class › Wizard › Wizard Spells Known › Brine Lash\"; `:below` counts the picks under it."
   [character]
   (let [listed (picks/addresses character)
         addresses (mapv first listed)]
@@ -43,6 +75,7 @@
                :choice (label k)
                :key k
                :value (value-text entry)
+               :readable (readable-value (::entity/value entry))
                :below (below addresses address)
                :line (s/join " › " (map label address))}))
           listed)))

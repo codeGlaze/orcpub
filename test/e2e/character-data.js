@@ -7,8 +7,10 @@
 //   the owner sees the three choices on /data and on /repair, and Copy for support copies them;
 //   another account and a logged-out visitor see "Only the owner can open this";
 //   an unknown id says so; this browser's draft lists the same choices;
-//   Remove takes a row out unsaved, Undo puts it back, a parent's Remove takes its children;
-//   removing a class asks first, and Cancel keeps it;
+//   Remove marks a row removed in place, unsaved, and Undo puts it back; a parent's Remove says
+//   how many go with it and marks them too; removing a class asks first in a popup, and Cancel
+//   keeps it; Save asks first in a popup naming what goes; the save notice sits at the top;
+//   a stored value shows readably beside its key, and Show stored data shows the stored map;
 //   a Save that finds the character changed since the page opened writes nothing and offers to
 //   reload with the pending removals kept;
 //   Save writes through the app's own save route: the feat is gone from the saved copy, the rest
@@ -24,7 +26,7 @@
 const { chromium } = require('playwright');
 const { BASE, findChrome, checker, dbAt, dismissWhatsNew } = require('./lib');
 
-const { PAK, wait, log, importPak, build, myContent, logIn } = require('./rescue-lib');
+const { PAK, wait, log, importPak, build, myContent, logIn, dvRows, dvKept, dvButton, dvDialog, dvAnswer, dvSave } = require('./rescue-lib');
 
 // A page that may not load the app: every request for orcpub.js is aborted and counted.
 async function noAppPage(context) {
@@ -35,13 +37,13 @@ async function noAppPage(context) {
   return page;
 }
 
-// The data page's table as [section, choice, stored key] rows, once it has rendered.
+// The data page's rows as [section, choice, stored key], once it has rendered.
 async function dataRows(page, url) {
   await page.goto(url, { waitUntil: 'load' });
-  await page.waitForFunction(() => !/^Loading/.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
-  return page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')]
-    .map(tr => [...tr.children].slice(1, 4).map(td => td.textContent.trim())));
+  return (await dvRows(page)).map(r => [r.section, r.choice, r.key]);
 }
+const noticeText = async page => (await page.locator('.dv-notice').count()) ? (await page.locator('.dv-notice').innerText()).replace(/\s+/g, ' ').trim() : '';
+const markOf = async (page, choice) => ((await dvRows(page)).find(r => r.choice === choice) || {}).removed;
 const listed = (rows, section, choice) => rows.some(r => r[0] === section && r[1] === choice);
 const ledgerText = page => page.evaluate(() => document.getElementById('ledger').textContent);
 
@@ -91,51 +93,70 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     await app.goto('about:blank');
     const dataUrl = `${BASE}/pages/dnd/5e/characters/${id}/data`;
     await dataRows(page, dataUrl);
-    const rowButton = (choice) => page.locator('#ledger tbody tr', { has: page.locator('td', { hasText: new RegExp(`^${choice}$`) }) }).locator('button');
+    const rowButton = choice => dvButton(page, choice);
+    const scores = (await dvRows(page)).find(r => r.section === 'Ability Scores');
+    const scoresText = await page.locator('#ledger [data-section="Ability Scores"] .dv-meta').first().innerText();
+    check('a stored value shows readably beside its key', scores && /STR \d+ · DEX \d+ · CON \d+ · INT \d+ · WIS \d+ · CHA \d+/.test(scoresText), scoresText);
+    await page.getByRole('button', { name: 'Show stored data' }).click();
+    const raw = await page.locator('.dv-raw').innerText().catch(() => '');
+    check('Show stored data shows the stored map', /:tidebreaker/.test(raw) && /orcpub\.entity\.strict\/selections/.test(raw), raw.slice(0, 80));
+    await page.getByRole('button', { name: 'Hide stored data' }).click();
+    check('and hides it again', (await page.locator('.dv-raw').count()) === 0);
     await rowButton('Tidebreaker').click();
-    let rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
-    check('Remove takes the row out', !rows.includes('Tidebreaker'));
-    check('the removal is listed as not saved yet', /Not saved yet: 1 removed/.test(await ledgerText(page)));
-    await page.getByRole('button', { name: 'Undo' }).click();
-    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
-    check('Undo puts it back', rows.includes('Tidebreaker') && !/Not saved yet/.test(await ledgerText(page)));
+    check('Remove marks the row removed in place', (await markOf(page, 'Tidebreaker')) === 'removed' && (await dvKept(page)).includes('Tidefolk'));
+    check('with Undo on it', (await rowButton('Tidebreaker').innerText()).trim() === 'Undo');
+    check('the notice says it is not saved', /^1 removed, not saved Save$/.test(await noticeText(page)), await noticeText(page));
+    const notice = await page.locator('.dv-notice-box').boundingBox();
+    const firstCard = await page.locator('.dv-card').first().boundingBox();
+    check('on a desktop the notice is at the top, above the cards', notice && firstCard && notice.y + notice.height <= firstCard.y, JSON.stringify([notice, firstCard]));
+    await page.setViewportSize({ width: 1280, height: 500 });
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); await wait(300);
+    const scrolled = await page.locator('.dv-notice-box').boundingBox();
+    check('and stays at the top of the screen when the page scrolls', scrolled && scrolled.y >= 0 && scrolled.y < 30, JSON.stringify(scrolled));
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await rowButton('Tidebreaker').click();
+    check('Undo puts it back', !(await markOf(page, 'Tidebreaker')) && (await noticeText(page)) === '');
     const classButton = rowButton('Wizard');
     const classLabel = (await classButton.innerText()).trim();
-    check("a parent's Remove says what goes with it", /^Remove with \d+ below$/.test(classLabel), classLabel);
-    let asked = '';
-    page.once('dialog', d => { asked = d.message(); d.dismiss(); });
+    const below = Number((classLabel.match(/^Remove \(\+(\d+)\)$/) || [])[1]);
+    check("a parent's Remove says how many go with it", below > 0, classLabel);
     await classButton.click();
-    await wait(300);
-    check('removing a class asks first, saying what goes', /^Remove Wizard and the \d+ choices under it\? The builder will ask for a class again\.$/.test(asked), asked);
-    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
-    check('Cancel keeps the class', rows.includes('Wizard') && rows.includes('Brine Lash'));
-    page.once('dialog', d => d.accept());
+    const title = await dvDialog(page).locator('h3').innerText().catch(() => '');
+    check('removing a class asks first in a popup, saying what goes', title === `Remove Wizard and the ${below} choices under it?`, title);
+    check('and what follows', /The builder will ask for a class again\./.test(await dvDialog(page).innerText()));
+    await dvAnswer(page, 'Cancel');
+    check('Cancel closes it and keeps the class', (await dvDialog(page).count()) === 0 && !(await markOf(page, 'Wizard')));
     await classButton.click();
-    await wait(300);
-    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
-    check("OK removes the class with its children", !rows.includes('Brine Lash') && !rows.includes('Level 4'));
-    await page.getByRole('button', { name: 'Undo' }).click();
+    await dvAnswer(page, 'Remove');
+    let rows = await dvRows(page);
+    const under = rows.filter(r => r.removed === 'under').map(r => r.choice);
+    check('Remove marks the class and the choices under it', (await markOf(page, 'Wizard')) === 'removed' && under.length === below && under.includes('Brine Lash') && under.includes('Level 4'), under.join(', '));
+    check('a choice under a removal has no button', (await dvButton(page, 'Level 4').count()) === 0);
+    check('the notice counts them all', (await noticeText(page)).startsWith(`${below + 1} removed`), await noticeText(page));
+    await rowButton('Wizard').click();
 
     // ---- A save that finds the character changed since the page opened.
     await rowButton('Tidebreaker').click();
     const other = await noAppPage(owner);
     await dataRows(other, dataUrl);
-    await other.locator('#ledger tbody tr', { has: other.locator('td', { hasText: /^Brine Lash$/ }) }).locator('button').click();
-    await other.getByRole('button', { name: 'Save' }).click();
-    await other.waitForFunction(() => /Saved\./.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
+    await dvButton(other, 'Brine Lash').click();
+    await dvSave(other);
     await other.close();
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.locator('.dv-notice').getByRole('button', { name: 'Save', exact: true }).click();
+    check('Save asks first in a popup', (await dvDialog(page).locator('h3').innerText().catch(() => '')) === 'Remove 1 choice from this character?');
+    check('naming what goes', /Tidebreaker \(Feats\)/.test(await dvDialog(page).innerText()));
+    await dvAnswer(page, 'Remove and save');
     await page.waitForFunction(() => /changed since you opened/.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
     const copy = await page.evaluate(async id => (await fetch(`/dnd/5e/characters/${id}`, { headers: { Accept: 'application/edn' } })).text(), id);
     check('a stale Save writes nothing', /:tidebreaker/.test(copy) && !/:brine-lash/.test(copy), 'the other tab\'s removal stands; this one is not written');
     check('and offers to reload keeping the removals', await page.getByRole('button', { name: 'Reload and keep my removals' }).isVisible());
     await page.getByRole('button', { name: 'Reload and keep my removals' }).click();
-    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
+    rows = await dvRows(page);
     check('the reload shows the other tab\'s change with this removal still pending',
-          !rows.includes('Brine Lash') && !rows.includes('Tidebreaker') && /Not saved yet: 1 removed/.test(await ledgerText(page)));
-    await page.getByRole('button', { name: 'Save' }).click();
-    await page.waitForFunction(() => /Saved\./.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
-    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
+          !rows.some(r => r.choice === 'Brine Lash') && (await markOf(page, 'Tidebreaker')) === 'removed' && (await noticeText(page)).startsWith('1 removed'));
+    await dvSave(page);
+    rows = (await dvRows(page)).map(r => r.choice);
     check('after Save the feat is gone and the rest stays', !rows.includes('Tidebreaker') && rows.includes('Tidefolk') && rows.includes('Wizard'));
     check('Save kept the same character', page.url() === dataUrl, page.url());
     const savedCopy = await page.evaluate(async id => (await fetch(`/dnd/5e/characters/${id}`, { headers: { Accept: 'application/edn' } })).text(), id);
@@ -148,23 +169,23 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     const oldText = await page.evaluate(async id => (await fetch(`/dnd/5e/characters/${id}`, { headers: { Accept: 'application/edn' } })).text(), id);
     const tab = await noAppPage(owner);
     await dataRows(tab, dataUrl);
-    await tab.locator('#ledger tbody tr', { has: tab.locator('td', { hasText: /^Level 1$/ }) }).locator('button').click();
-    await tab.getByRole('button', { name: 'Save' }).click();
-    await tab.waitForFunction(() => /Saved\./.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
+    await dvButton(tab, 'Level 1').click();
+    await dvSave(tab);
     await tab.close();
     await page.route(`**/dnd/5e/characters/${id}`, r => r.request().method() === 'GET'
       ? r.fulfill({ status: 200, contentType: 'application/edn', body: oldText }) : r.continue());
     const refused = page.waitForResponse(r => r.url().endsWith('/dnd/5e/characters') && r.request().method() === 'POST');
     await rowButton('Level 2').click();
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.locator('.dv-notice').getByRole('button', { name: 'Save', exact: true }).click();
+    await dvAnswer(page, 'Remove and save');
     check('the server refuses the save made from the older copy', (await (await refused).status()) === 409);
     await page.waitForFunction(() => /changed since you opened/.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
     check('the page says so and offers to reload keeping the removal', await page.getByRole('button', { name: 'Reload and keep my removals' }).isVisible());
     await page.unroute(`**/dnd/5e/characters/${id}`);
     await page.getByRole('button', { name: 'Reload and keep my removals' }).click();
-    rows = await page.evaluate(() => [...document.querySelectorAll('#ledger tbody tr')].map(tr => tr.children[2].textContent.trim()));
-    check("the reload shows the other tab's removal, with this one pending", !rows.includes('Level 1') && !rows.includes('Level 2') && /Not saved yet: 1 removed/.test(await ledgerText(page)));
-    await page.getByRole('button', { name: 'Undo' }).click();
+    rows = await dvRows(page);
+    check("the reload shows the other tab's removal, with this one pending", !rows.some(r => r.choice === 'Level 1') && (await markOf(page, 'Level 2')) === 'removed' && (await noticeText(page)).startsWith('1 removed'));
+    await rowButton('Level 2').click();
 
     await app.goto(`${BASE}/pages/dnd/5e/characters/${id}`, { waitUntil: 'load' });
     await wait(4000);
@@ -184,10 +205,9 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
 
     // ---- Save on the draft page writes the browser draft.
     await dataRows(page, `${BASE}/pages/dnd/5e/character-data`);
-    page.once('dialog', d => d.accept());
     await rowButton('Tidefolk').click();
-    await page.getByRole('button', { name: 'Save' }).click();
-    await page.waitForFunction(() => /Saved\./.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
+    await dvAnswer(page, 'Remove');
+    await dvSave(page);
     const draft = await page.evaluate(() => localStorage.getItem('character') || '');
     check('Save on the draft page writes the draft without the race', !/:tidefolk/.test(draft) && /:wizard/.test(draft));
 

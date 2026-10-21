@@ -116,5 +116,27 @@ async function logIn(page, user, pass) {
   await readyPage(page);
 }
 
+// Data View: wait for the rows, then read them as {section, choice, key, removed} (removed is
+// 'removed', 'under' or null), in page order.
+async function dvRows(page) {
+  await page.waitForFunction(() => document.getElementById('ledger') && !/^Loading/.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
+  return page.evaluate(() => [...document.querySelectorAll('#ledger [data-row]')].map(n => ({
+    section: n.dataset.section, choice: n.dataset.row,
+    key: ((n.querySelector('.dv-meta code') || {}).textContent || '').trim(), removed: n.dataset.removed || null })));
+}
+// The choices Data View lists and has not marked removed.
+const dvKept = async page => (await dvRows(page)).filter(r => !r.removed).map(r => r.choice);
+// The Remove / Undo button on the row for `choice`.
+const dvButton = (page, choice) => page.locator(`#ledger [data-row="${choice}"]`).first().locator('button');
+// The open popup, and its buttons by name.
+const dvDialog = page => page.locator('.dv-dialog');
+const dvAnswer = (page, name) => dvDialog(page).getByRole('button', { name, exact: true }).click();
+// Save from the notice and confirm in the popup; waits for "Saved.".
+async function dvSave(page) {
+  await page.locator('.dv-notice').getByRole('button', { name: 'Save', exact: true }).click();
+  await dvAnswer(page, 'Remove and save');
+  await page.waitForFunction(() => /Saved\./.test(document.getElementById('ledger').textContent), null, { timeout: 15000 });
+}
 
-module.exports = { PAK, KEYS, wait, log, HELPERS, clickCard, save, myContent, importPak, build, logIn };
+module.exports = { PAK, KEYS, wait, log, HELPERS, clickCard, save, myContent, importPak, build, logIn,
+                   dvRows, dvKept, dvButton, dvDialog, dvAnswer, dvSave };
