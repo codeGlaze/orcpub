@@ -42,42 +42,40 @@ where nothing can guard them.
 ## Baseline: what crashes today
 
 `test/cljs/orcpub/dnd/e5/junk_pack_test.cljs` takes one realistic entry of each of the 13 content
-types (`test/fixtures/junk-bases.orcbrew`), puts each of 12 junk values in each field, and runs
-the pack through startup, every homebrew subscription, the deep check, and a character that picks
-each entry. `node test/e2e/junk-pack-audit.js` runs all of it (the everyday suite runs only the
-base pack, which passes).
+types (`test/fixtures/junk-bases.orcbrew`) and puts each of 12 junk values in each field, one level
+deep. Each pack arrives three ways (stored, imported through the file importer, and through a share
+link) and goes through startup, every homebrew subscription, the deep check, a character that picks
+each entry where the builder offers it, and the pages that draw it: My Content, the monster list
+and each entry's builder. It fails when anything throws, when a built-in class, race or background
+goes missing, when something other than the junk entry is set aside, and when an entry is neither
+offered nor set aside (lost without a word).
 
-On integration `d51938c1`: **58 crashes**, every one a wrong shape in a field nothing checks.
+`node test/e2e/junk-pack-audit.js` runs it all, one content type per page (about two and a half
+hours on integration, most of it classes); the everyday suite runs only the clean base pack.
 
-| Content | Field | Junk values that throw | Where it throws |
-|---|---|---|---|
-| any | the whole `classes` or `subclasses` section is `true` | 1 each | **startup**: the boot rescue sets the whole library aside |
-| races | `:abilities` | 6 | building the race option list |
-| races | `:languages` | 3 | building the race option list |
-| races | `:spells` | 3 | after the guard, when the race is used |
-| races | `:props :damage-resistance` | 5 | after the guard, when the race is used |
-| subraces | `:abilities` | 6 | building the race option list |
-| subraces | `:spells` | 3 | after the guard |
-| subraces | `:props :weapon-prof` | 5 | after the guard |
-| backgrounds | `:equipment-choices`, and its `:options` | 9 | building the background option list |
-| backgrounds | `:profs :skill` | 6 | building the background option list |
-| feats | `:prereqs` | 7 | building the feat option list |
-| classes | `:ability-increase-levels` | 3 | the class list (all classes) |
+On integration `d51938c1`: **498 failures over 46 fields**, listed in full in
+`HOMEBREW_GUARD-baseline.txt`. Every one is a field nothing checks the shape of.
 
-"Building the option list" is the template every character page uses, so each of those takes down
-the character builder and sheets, not one entry.
+| Where | What breaks it | Through |
+|---|---|---|
+| **Startup** | a whole `classes` or `subclasses` section that is `true`: the boot rescue sets the whole library aside | stored, imported |
+| **Every character page** (the option list the builder and sheets share) | races and subraces `:abilities`, races `:languages`, backgrounds `:equipment-choices` and its `:options`, backgrounds `:profs :skill`, feats `:prereqs`, classes `:ability-increase-levels` | all three |
+| **The race or subrace, once used** (thrown after the guard let it through) | races `:spells`, `:props :damage-resistance`; subraces `:spells`, `:props :weapon-prof` | all three |
+| **My Content** | any of the 13 sections being `true` | stored, imported |
+| **The monster list** | monsters `:size`, `:type`, `:subtypes` | all three |
+| **Builders** | classes and subclasses `:level-modifiers` (and each one's `:type`), `:level-selections`; classes `:spellcasting :cantrips-known`; encounters `:creatures`; feats `:ability-increases` | all three |
+| **Share links only** (shared content skips the load repairs) | `:traits` on races, subraces, backgrounds, classes, subclasses and monsters; selections `:options`; a `true` `classes` or `subclasses` section | share |
+| **Lost without a word** | a subrace whose `:race`, or a subclass whose `:class`, is not a real one | all three |
 
-Found by reading the code, **not yet proven** by the audit (it does not reach them yet):
+Integration's feat builder bug (`:ability-increases`) is already fixed on PR #69.
 
-- **Invocations and boons.** They are converted inside the built-in Warlock. `base-class-options`
-  catches any throw there and returns no classes at all, with no report: one bad invocation makes
-  all 12 classes vanish.
-- **A subrace on a built-in race** is blamed on the race, so the built-in race is what disappears.
-- **Monsters:** the monster list and its filter sort and lower-case names unguarded.
-- **My Content** sorts each section; a section that is not a map takes the page down.
-- **Shared-link content** is converted the same way but never repaired, and cannot be set aside.
-- **`LOAD_HOMEBREW_URL`** writes fetched text straight to storage, skipping import validation.
-- `compute/compute-plugin-vals` is a second, drifted copy of the plugin read, with no callers.
+Suspected from reading the code, **not reproduced**: a bad invocation or boon emptying the class
+list (with the fields an invocation or boon has, nothing throws), and a subrace's failure being
+blamed on its race (nothing was set aside but the junk entry). `LOAD_HOMEBREW_URL` writes into the
+same storage slot, so the stored path covers it.
+
+Not reached yet: junk two levels down (inside a trait card, a level selection's options), and the
+pages that only draw a picked entry (the character sheet, the spell page).
 
 On feature/grant-rows the same audit is expected to add the pool hooks (fighting styles, draconic
 ancestry, grant pools), the AC and weapon `:props`, and grant `:order`; to be run there after
@@ -100,13 +98,19 @@ bug instead of the instance:
 - A new `homebrew_shapes.cljc` declares, per content type, every field the app reads and the
   shape it must have, as data: `{:abilities ability-map, :spells spell-list, :profs {...}}`.
   Nested shapes are declared the same way, down to the depth the builders read.
-- `readable` takes a library and returns it with every field that does not match its shape
-  removed, plus a list of what was removed. Fields nobody reads pass through untouched.
-- It runs at **read**, not in storage: stored data is never changed, so an author can still open
-  the entry in its builder and fix it. The builder says which fields cannot be read, the way the
-  ability-increase forms do now.
-- Startup, the subscriptions, the deep check, shared content and events all read through
-  `readable`. Memoized on the library, so it costs one pass per change.
+- Each field that does not match goes one of two ways:
+  - **Fixed, when the meaning is obvious.** `:languages "Elvish"` becomes `["Elvish"]`; one trait
+    card where a list belongs is wrapped in a list. This is what `mend-library` already does for
+    traits and selection options, extended to every declared field. Like those repairs, a fix is
+    written back to storage once, so it is not made again on every load.
+  - **Skipped and flagged, when it is not.** `:spells 42` or `:abilities true` cannot be guessed.
+    The app reads the entry without that field, so nothing crashes, and the stored entry is left
+    exactly as written. The entry's builder says which field cannot be read and why, the way the
+    ability-increase forms do now, so the author can fix it there.
+- Checking a shape is a read, not a write. `readable` (library in, readable library out) runs once
+  per change to the library (memoized), and startup, the subscriptions, the deep check, shared
+  content and events all read through it.
+- Fields nobody reads pass through untouched.
 
 This alone removes every crash in the baseline: none of them is reachable once the field has the
 right shape.
@@ -151,10 +155,10 @@ right shape.
 5. The source-scan test and the CI audit; the AGENTS.md rule; the KB note brought to integration.
 6. grant-rows merges this and registers its pools; its hooks get the same audit.
 
-## Open questions for the owner
+## Proposed, for the owner to confirm
 
-- **Remove, or set aside?** The gate removes an unreadable field and keeps the entry (a race with
-  junk `:spells` keeps its name, size and traits). The alternative is setting the whole entry
-  aside, which is what the guard does today. Recommended: remove the field, and say so.
-- **Write the cleaned data back?** Recommended: no. Storage keeps what the author wrote; the
-  builder shows what cannot be read.
+- **A field with the wrong shape** is fixed when the meaning is obvious, otherwise skipped and
+  flagged; the entry stays, with its good fields. Setting the whole entry aside, as the guard does
+  today, is kept only for an entry that still throws after the gate.
+- **Nothing the author wrote is overwritten.** Only the obvious fixes are saved, once; a skipped
+  field stays in storage as written.

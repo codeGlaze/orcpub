@@ -309,18 +309,21 @@
                       (attempt :share
                                #(rf/dispatch-sync [::e5/apply-shared-content {:plugins lib}])))
              entries (get (if (= via :share) (:shared-plugins @app-db) (:plugins @app-db)) source)
-             sub-fails (keep (fn [q] (attempt q #(realize-homebrew @(rf/subscribe q))))
-                             homebrew-subs)
+             ;; each stage runs now, in order: what is set aside depends on what ran before
+             sub-fails (doall (keep (fn [q] (attempt q #(realize-homebrew @(rf/subscribe q))))
+                                    homebrew-subs))
              built-ins (attempt :built-in-content missing-built-ins)
              deep (attempt :deep-check #(homebrew-check/deep-check nil))
              template (try @(rf/subscribe [::char5e/template]) (catch :default _ nil))
              set-aside (set (map :key @reports))
              ;; an entry set aside is not offered, and is allowed; one silently not offered is lost
              builds (when template
-                      (remove #(and (= "never offered" (:error %)) (set-aside (second (:stage %))))
-                              (keep (fn [[k c]] (attempt [:character k] #(use-entry! template k c)))
-                                    (cons [nil stored-character] (seeds entries)))))
-             drawn (pages entries)]
+                      (doall
+                       (remove #(and (= "never offered" (:error %)) (set-aside (second (:stage %))))
+                               (keep (fn [[k c]]
+                                       (attempt [:character k] #(use-entry! template k c)))
+                                     (cons [nil stored-character] (seeds entries))))))
+             drawn (doall (pages entries))]
          (doall (remove nil? (concat [boot shared] sub-fails [built-ins deep] builds drawn
                                      (wrong-blame @reports (get lib source))))))))))
 
