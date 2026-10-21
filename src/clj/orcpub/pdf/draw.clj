@@ -19,6 +19,7 @@
            (org.apache.pdfbox.util Matrix)
            (org.apache.pdfbox.io RandomAccessReadBuffer)
            (org.apache.fontbox.ttf TTFParser)
+           (org.apache.pdfbox.pdmodel.font.encoding WinAnsiEncoding GlyphList)
            (javax.imageio ImageIO)))
 
 (def page-sizes
@@ -175,23 +176,43 @@
   [cp]
   (every? #(pos? (.getGlyphId % (int cp))) @vollkorn-cmaps))
 
+(def ^:private winansi-code-points
+  (delay (into #{} (keep #(some-> (.toUnicode (GlyphList/getAdobeGlyphList) %)
+                                  (.codePointAt 0)))
+               (vals (.getCodeToNameMap WinAnsiEncoding/INSTANCE)))))
+
+(defn winansi?
+  "Whether code point `cp` is in WinAnsiEncoding, so Helvetica can draw it. Read from
+   PDFBox's own table: WinAnsi is a BYTE encoding, not Unicode U+0000-U+00FF, and its
+   0x80-0x9F slots hold the curly quotes, dashes, ellipsis, bullet, oe and euro sign."
+  [cp]
+  (contains? @winansi-code-points (int cp)))
+
+(def ^:private ascii-fallback
+  "What to print for these when the font has no glyph, rather than `?`."
+  {"\u2018" "'" "\u2019" "'" "\u201C" "\"" "\u201D" "\"" "\u2013" "-" "\u2014" "--" "\u2026" "..."})
+
 (defn normalize-text
-  "Coerces a value into the WinAnsiEncoding 0x20-0xFF subset PDFBox can render
-   (PDType1Font throws on anything else, blanking the field). nil -> nil; non-strings
-   stringified. \\t -> space; other 0x00-0x1F dropped except \\n and \\r; curly
-   quotes -> straight; U+2013 / U+2014 -> - / --; U+2026 -> ...; anything else
-   above U+00FF -> '?', unless `keep?` (a code point predicate) says the font draws it."
-  ([s] (normalize-text s (constantly false)))
+  "A value as text the target font can draw. nil -> nil; non-strings stringified; tab ->
+   space; other controls dropped except newlines. Past ASCII and Latin-1, a character is
+   kept when `keep?` (a code point predicate, default winansi?, i.e. Helvetica) says the
+   font draws it, else given its ASCII fallback (curly quote -> straight, dash -> -),
+   else `?`."
+  ([s] (normalize-text s winansi?))
   ([s keep?]
    (when (some? s)
      (-> (str s)
          (s/replace "\t" " ")
          (s/replace #"[\u0000-\u0008\u000B\u000C\u000E-\u001F]" "")
-         (s/replace "\u2018" "'")  (s/replace "\u2019" "'")
-         (s/replace "\u201C" "\"") (s/replace "\u201D" "\"")
-         (s/replace "\u2013" "-")  (s/replace "\u2014" "--")
-         (s/replace "\u2026" "...")
-         (s/replace #"[^\u0000-\u00FF]" #(if (keep? (.codePointAt ^String % 0)) % "?"))))))
+         (s/replace #"[^\u0000-\u007F\u00A0-\u00FF]"
+                    #(cond (keep? (.codePointAt ^String % 0)) %
+                           (ascii-fallback %) (ascii-fallback %)
+                           :else "?"))))))
+
+(defn refused
+  "How many characters of `s` normalize-text would not print as themselves under `keep?`."
+  [s keep?]
+  (count (filter #(and (> (int %) 0xFF) (not (keep? (int %)))) (str s))))
 
 (defn font-safe
   "`text` with whatever `font` has no glyph for made drawable: characters below 0x20

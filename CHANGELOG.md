@@ -156,6 +156,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** a homebrew class's choices that share a name show in level order; levels 10 and 17 came before level 3.
 - **Printing:** a magic item or spell whose name the embedded font cannot draw no longer costs the card sheet it is on, and every sheet after it.
 - **Printing:** names and notes written in Polish, Turkish, Czech, Russian, Greek and other scripts beyond Western European print on the character sheet and in the spellbook, instead of as question marks.
+- **Printing:** curly quotes, dashes, ellipses, bullets, œ and € print as themselves on the character sheet and in spell text; they were flattened to straight quotes and hyphens or dropped.
 - **Printing:** a spellbook page's level tabs no longer print off the edge of the paper when a character has a very long class name.
 - **Printing:** a long class name in a spellbook chapter heading, or a long custom spell name, is now shortened to fit instead of running off the page.
 - **Printing:** an export with more spells or magic items than the cap allows now says so on the notice page; the extras were dropped in silence.

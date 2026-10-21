@@ -62,15 +62,17 @@
             "flattened form has no interactive fields left")))))
 
 (deftest write-fields-handles-non-winansi-without-blanking
-  (testing "a field value with smart quotes / CJK is coerced (not thrown on), so the
-            field still gets written — regression for PDFBox 3's WinAnsi encoder"
+  (testing "a field value with CJK is coerced (not thrown on), so the field still gets
+            written -- regression for PDFBox 3's WinAnsi encoder. Smart quotes and the
+            dash were once downgraded too; they are WinAnsi, and Helvetica draws them."
     (with-open [doc (load-template)]
       (let [form (.getAcroForm (.getDocumentCatalog doc))
             fname (.getFullyQualifiedName
                    (->> (all-fields form) (filter #(instance? PDTextField %)) first))]
         (pdf/write-fields! doc {(keyword fname) "“René” — 日"} false {})
-        (is (= "\"René\" -- ?" (.getValueAsString (.getField form fname)))
-            "smart quotes/dash downgraded, CJK -> '?', Latin-1 kept")))))
+        (is (= "“René” — ?" (.getValueAsString (.getField form fname)))
+            "punctuation kept, CJK -> '?', and the field stays on Helvetica: Vollkorn
+             cannot draw the CJK either, so switching would gain nothing")))))
 
 (deftest make-image-loader-embeds-once
   (testing "the per-document loader memoizes: the same icon path returns the SAME
@@ -122,10 +124,11 @@
               "logo off"))))))
 
 (deftest normalize-text-coerces-to-winansi
-  (testing "unit: smart punctuation downgraded, controls dropped, non-Latin-1 -> '?'"
+  (testing "unit: WinAnsi punctuation kept, controls dropped, the rest -> '?'"
+    ;; Reversed 2026-10-21: this asserted the punctuation was downgraded, on the belief
+    ;; that WinAnsi meant U+0000-U+00FF. See winansi_test.
     (let [nt #'orcpub.pdf.draw/normalize-text]
-      (is (= "'q' \"d\" - -- ..."
-             (nt "‘q’ “d” – — …")))
+      (is (= "‘q’ “d” – — …" (nt "‘q’ “d” – — …")))
       (is (= "ab c" (nt "ab\tc")) "BEL dropped, tab -> space")
       (is (= "??" (nt "日本")) "CJK -> placeholders, no throw")
       (is (nil? (nt nil))))))

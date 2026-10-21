@@ -783,9 +783,11 @@
    Helvetica can draw keeps today's path exactly; one it cannot switches that one
    field to Vollkorn, where WinAnsi-only Helvetica had printed Łukasz as ?ukasz."
   [v]
-  (let [latin (draw/normalize-text v)
-        wide (draw/normalize-text v draw/vollkorn-covers?)]
-    (if (= latin wide) [latin "Helv"] [wide "VkR"])))
+  ;; Only when the other font refuses FEWER: a value whose one odd character neither
+  ;; font has would otherwise change font, and weight, for nothing.
+  (if (< (draw/refused v draw/vollkorn-covers?) (draw/refused v draw/winansi?))
+    [(draw/normalize-text v draw/vollkorn-covers?) "VkR"]
+    [(draw/normalize-text v) "Helv"]))
 
 (defn- vollkorn-field-font!
   "Vollkorn Regular in `form`'s default resources as /VkR, added on first use. Embedded

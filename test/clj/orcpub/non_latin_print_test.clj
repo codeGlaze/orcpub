@@ -31,8 +31,8 @@
 
 (deftest the-spellbook-keeps-what-vollkorn-can-draw
   (is (= wide (#'sb/clean wide)))
-  (testing "and still makes the substitutions it always did"
-    (is (= "· a -- b" (#'sb/clean "• a — b")))))
+  (testing "bullets still become middle dots; the em dash is no longer flattened to --"
+    (is (= "· a — b" (#'sb/clean "• a — b")))))
 
 (deftest a-sheet-field-prints-a-non-latin-value
   (with-open [doc (template 1)]
