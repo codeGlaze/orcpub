@@ -194,6 +194,8 @@
             "fig:build" ["run" "-m" "figwheel.main" "--" "--build-once" "dev"]
             "fig:prod" ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]
             "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
+            ;; only the junk-pack test, for test/e2e/junk-pack-audit.js
+            "fig:junk" ["run" "-m" "figwheel.main" "--" "--build-once" "junk-audit"]
             ;; Preview the character-load report email (no send) — email endpoint dev tool
             "report-preview" ["with-profile" "+tools" "run" "-m" "orcpub.dev.report-preview"]
             ;; Single-command production build: clean → CLJS → uberjar.

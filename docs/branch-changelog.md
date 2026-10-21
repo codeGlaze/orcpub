@@ -36,6 +36,9 @@ homebrew outside it, and a test that loads junk into every field of every conten
 
 ## Changed
 
+- **Homebrew:** checking homebrew after an import or a Restore takes a fraction of the time for
+  classes: each shared part of a class is checked once, not once per level.
+
 ## Fixed
 
 ## Security
