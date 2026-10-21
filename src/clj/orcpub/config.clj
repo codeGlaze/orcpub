@@ -332,7 +332,7 @@
     {:group "email"    :var "EMAIL_SERVER_URL" :critical? true :fix email-missing-message
      :note "SMTP host; password reset fails without it"}
     {:group "email"    :var "ALLOW_UNVERIFIED_REGISTRATION" :get #(registration-mode)
-     :note "private sites only; opens signup if SMTP is ever lost"}
+     :note "when true, signup opens if SMTP is lost; private sites only"}
     {:group "email"    :var "EMAIL_SERVER_PORT" :note "defaults to 587"}
     {:group "email"    :var "EMAIL_ACCESS_KEY" :secret? true}
     {:group "email"    :var "EMAIL_SECRET_KEY" :secret? true}
