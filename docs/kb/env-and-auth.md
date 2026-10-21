@@ -53,14 +53,22 @@ executes nothing.
   and `$$` -> `$`; single quotes literal; backticks never run. Compose rejects a malformed line
   outright; `load_env` skips it. A file value replaces one already in the environment, as `. .env`
   did.
-- **`./run` needs `scripts/`:** it stops with "needs scripts/load-env.sh beside it" when copied
-  alone. Copying `run` alone was a test shortcut from when `run` was one file
+- **`./run` needs `scripts/`:** copied alone, it stops with a report for first-time hosts (what is
+  missing, where it looked, `git clone` / unzip / `cd` steps) in `run`'s own `[ERROR]`/`▸` style
+  (`f30269c6e`). Copying `run` alone was a test shortcut from when `run` was one file
   (`test-upgrade.sh`, 2026-03-03), not a supported use; the test now copies the reader too.
 - **Tests:** `test/docker/test-env-loading.sh` (tricky values vs a real container with
   `COMPARE_WITH_DOCKER=1`; every fixture loads exactly as the old sourcing did; `.env.example`
   uncommented; each script's loading; no tracked script runs `.env`). CI runs it in the Docker
   workflow and in Git Bash on Windows, next to `test-upgrade.sh` (60 checks), which no CI ran
   before this.
+
+- **Reports unchanged (measured 2026-10-21):** `./run --upgrade --auto` and `./run --check` on all 7
+  fixtures, run in a copy of the branch base (`d51938c14`) and of the branch, gave identical output
+  (14 reports, ~30 lines each, timestamps and secrets masked) and identical upgraded `.env` files.
+  The Swarm summary differs only in the 44 new setting names it lists from the stack file and the
+  deploy hint (`. scripts/load-env.sh && load_env .env`). Open with the owner: whether the summary
+  should list only settings with a value, since it is ~40 lines longer.
 
 **For agents writing or editing `.env`:** plain `NAME=value`, no quoting needed. To change one
 value in an existing file use `./run`'s `set_env_val` (awk), not `sed` (delimiters in URLs and
