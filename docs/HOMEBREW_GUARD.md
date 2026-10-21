@@ -1,6 +1,7 @@
 # Homebrew guarded by default
 
-Status: **design, for review; read against our documents 2026-10-21.** Branch `feature/guarded-homebrew`, off integration at `d51938c1`.
+Status: **design, for review (2026-10-21).** Branch `feature/guarded-homebrew`, off integration
+at `d51938c1`.
 
 ## The problem in one paragraph
 
@@ -127,28 +128,33 @@ bug instead of the instance:
 
 ## The design
 
-The app trusts the shape of everything that passes a thin load check. The design stops trusting
-it at two kinds of seam, so nothing downstream has to change, and contains and reports whatever
-still gets through.
+### What it promises, and what proves it
 
-### 1. One cleaning step, from a table of shapes
+1. **Bad homebrew cannot crash the app at startup or take down a page.** At worst the one bad
+   item does not show, and the user is told which one. *Proof:* the junk audit (every field,
+   every junk value, by storage, import and share link) goes from 659 failures to 0, and its
+   canaries show it can still fail.
+2. **A fix is made once: written, used and exported.** `"5"` fixed to `5` is stored as `5`, read
+   as `5`, exported as `5`. *Proof:* `fixes_persist_e2e`, and a second load that finds nothing to
+   fix and writes nothing.
+3. **Nothing disappears without a word.** *Proof:* the audit's "neither offered nor set aside"
+   check stays at zero.
 
-- **`homebrew_shapes.cljc`** (cljc, a leaf: requires nothing from the app) says, for each of the
-  13 content types, every field the app reads and its shape, nested as deep as the readers go:
-  `{:abilities [:map-of :ability :number], :spells [:vector-of {...}], ...}`. Fields nobody reads
-  are not listed and pass untouched. The builder field schemas (`builder_fields.cljc`, on
-  grant-rows) only cover two grant-rows types, so the 13 core types' shapes are written here;
-  where a builder schema exists later, it should produce its type's entry in this table.
-- **`clean`** takes an entry and returns it with each listed field the right shape, plus what it
-  found, each `{:path :problem :action}`:
-  - **fixed** when the meaning is obvious: a string where a list of strings belongs, one card
-    where a list of cards belongs (what `mend-cards` does today, which becomes table entries);
-  - **unreadable** when it is not (`:spells 42`, a number where a map belongs). Which of these
-    sets the entry aside and which reads past the field is the owner's ruling below.
-  - A whole content section that is not a map is unreadable as a section.
-- **Loading is never stricter than saving.** The table accepts everything any builder writes,
-  old forms included (a feat's released set and its 2024 list; race `:languages` as a set of
-  names). A generated test checks the save specs against it, as `content_specs_test` does today.
+**What it cannot promise:** that code not yet written has no bugs. A bug in our own code is
+contained to one item and reported (5), and the audit, rerun in minutes, finds the gap.
+
+### 1. One cleaning step, from a table of shapes (built)
+
+- **`homebrew_shapes.cljc`** says, for each of the 13 content types, every field the app reads and
+  its shape. **`clean-entry` / `clean-library`** return the entry made to fit, and what they found:
+  - **fixed** when the meaning is obvious (`"5"` → `5`; one card → a list of one; a set of keys →
+    a key-to-true map). `mend-cards`' rules move into the table: one repair mechanism, not two;
+  - **unreadable** when it is not (a number where a map belongs).
+- A sound entry comes back as the identical object. Loading is never stricter than saving: every
+  real fixture comes through with nothing unreadable (a test). Fixes produce only shapes the
+  builders write, so exported files still import into older builds.
+- The table decides how good a fix or a message is. It is not what keeps the app safe: a field it
+  does not list is still covered by the conversion check (2) and by containment (5).
 
 #### The shape forms
 
@@ -171,131 +177,126 @@ obvious:
   [:map {field s ...}]  a map; the listed fields are checked, the rest pass untouched
 ```
 
-### 2. Entry seams: clean once, store the result
+### 2. Where homebrew comes in: fix once, check it works, store it
 
-Where homebrew comes in, the cleaned entry is what is kept, so the same file is not fixed again
-on every load and export writes clean data:
+At each way in, an entry is cleaned, then **converted by the app's own code** (the existing deep
+check: convert it to a character option and realize every part, inside the guard). Fixes are
+written; an entry that cannot be read or does not convert moves to the **quarantine panel** with
+its reason, the original kept there to fix or restore. The active library is then clean, so
+nothing is found again on the next load.
 
-| Seam | Where | What happens |
-|---|---|---|
-| **Import** | `orcbrew-val/validate-import`, after its own repairs | Fixed entries are stored fixed; unreadable ones go to the quarantine panel with the field and reason. The import report lists both. |
-| **Load** (startup, and another tab's write) | the `::e5/plugins` load step, after `mend-library` | The same; a fix is written back once through `library/commit`, after the `plugins:pre-fix` backup, as homebrew-keys-design §4a.2 does for the loader's repairs. Later loads find nothing to fix. |
-| **Share link** | `apply-shared-content`, and the party page's share load | Cleaned before the load gate. Shared content is never stored, so an unreadable entry is left out of the view and the banner says so. |
+| Way in | Where |
+|---|---|
+| **Import** | `validate-import`, then the write gate. The import report lists fixes and quarantined entries. |
+| **Every other library write** (builder saves, rename, move, restore, conflict resolution) | Inside the existing write gate, `commit-library`. `library_gate_test` already fails the build for a write that goes around it. A builder save checks one entry. |
+| **Load** (startup, another tab's write, what `LOAD_HOMEBREW_URL` stored) | A library saved before this change is checked once; fixes written back through the loader's existing write-back (`persist-set-aside!`) after the `plugins:pre-fix` backup. |
+| **Share link** | `apply-shared-content` and the party page's share load. Shared content is never stored: an entry that fails is left out of the view and the banner says so. |
 
-`LOAD_HOMEBREW_URL` writes into storage, so the load seam covers it. Builder drafts are restored by
-`reg-local-store-cofx`, which TODO.md pins as hands-off; drafts are not touched, and the builders
-are covered by containment (4).
+Builder drafts are restored by `reg-local-store-cofx`, which TODO.md pins as hands-off; they are
+covered by (5).
 
-### 3. The read seam: nothing reads raw homebrew
+### 3. Inside the app: every read is checked
 
-Anything that changed after load (data written straight into the app's memory, an event that
-stores raw data, a bug of ours) skips the entry seams. So everything that interprets homebrew
-reads it through `readable` (a library in, the cleaned library and its findings out):
+Data can change after it came in: a script writing to the app's memory, an event storing raw
+data, a bug of ours. So the shape check also runs where the app reads homebrew:
+`process-plugin-vals` and `process-plugins-with-sources` (every homebrew subscription, so every
+builder, page, option and character, reads through them), and the few event handlers that read
+the library directly. Whatever is in memory is checked there, so the functions after it only ever
+receive the right shapes, and none of them changes. Anything unclean found there is cleaned for
+reading and reported as a bug: nothing should reach it that way.
 
-- `process-plugin-vals` and `process-plugins-with-sources`, which every homebrew subscription
-  already goes through;
-- the few event handlers and pages that read `(:plugins db)` or `::e5/plugins` to interpret it
-  (the class keys at startup, key reconciliation, the former-key index, My Content's lists).
+The check is a read-only walk. It runs over the whole library on each change if that measures as
+cheap; if not, it checks only entries that changed (by object identity: data is immutable, so a
+change is a new object, and gets checked).
 
-Storage, export, rename and the quarantine keep reading the raw library, each with a marker
-comment saying why; the source-scan test (6) holds that line.
+### 4. Never silent, with what exists
 
-### 4. Containment for what still gets through
+Fixes show where load repairs show today; quarantined entries in the quarantine panel and its
+notice; the health card counts them. A crash caught by (5) reports through the guard's reporter,
+as the page-level fallback does today. No new log.
 
-- **The guard on all 13 types**, through the existing `register-conversions!` list; the deep
-  check runs the same conversions, so it cannot drift; a subrace or subclass is blamed on itself.
-- **Per-item boundaries** (the existing `render-guard`) on My Content's rows, the monster list's
-  items and each builder form, so one bad item takes down that item, not the page.
-- `base-class-options` reports what it catches instead of silently returning no classes.
+### 5. Containment for bugs in our own code
 
-### 5. The health log: never silent
+The checks above protect the app from bad data. A function passing the wrong thing to another is
+a bug in our code; these catch it, using what exists:
 
-Every finding from `clean`, every entry set aside, every link to nothing and every crash a
-boundary catches goes to one log in app-db, each with its entry, field and reason, deduplicated.
-It feeds a per-item mark in My Content (the way a link to nothing is marked) and the builder's
-note, and the audit reads it to name the failing field.
+- **The page fallback** (app root, `core.cljs`) stays the last resort: a crashed page shows
+  "Something went wrong on this page", runs the deep check, sets aside the cause, and retries.
+- **Per-item boundaries** (the existing `render-guard`) on My Content's rows, the monster list,
+  each builder form and the sheet's lists, so a bad item costs that item, not the page.
+- **One `reg-event-error-handler`** (re-frame 1.4.4 has it): an event that throws (a click, a save,
+  a load) is reported, and the app's state stays as it was before that event. Error boundaries
+  only catch drawing; this catches events. The existing `check-spec-interceptor` on character
+  events then reports through it instead of throwing with nothing listening.
+- **The guard on all 13 types** (through `register-conversions!`; today 5), a subrace or subclass
+  blamed on itself, and `base-class-options` reporting what it catches instead of silently
+  returning no classes.
 
 ### 6. Enforcement, and tests that cannot pass by accident
 
-- **Source scan** (like `library_gate_test`): a read of `::e5/plugins`, `::e5/plugin-vals`,
-  `::e5/plugins-with-sources`, `::e5/shared-plugins` or `(:plugins db)` outside the homebrew
-  namespace needs a marker comment and a reason, or `lein test` fails.
-- **The junk audit** (`node test/e2e/junk-pack-audit.js`): every type, field, junk value and way
-  in; target under 10 minutes; a faster version replaces a slower one only after it reproduces
-  the same failures. Each stage gets a **canary**, a known-bad entry it must catch; a canary that
-  passes fails the audit. **Coverage is counted**: fewer entries picked, drawn or converted than
-  expected fails.
-- **AGENTS.md**: homebrew is read through `readable`; a safety claim cites a committed test that
+- **Writes:** the existing `library_gate_test`.
+- **The junk audit** (`lein fig:junk && node test/e2e/junk-pack-audit.js`, about 8 minutes), in CI
+  once it reads zero. Each stage has a **canary**, a planted bad entry it must catch; **coverage is
+  counted**: fewer entries picked, drawn or converted than expected fails.
+- **AGENTS.md:** write the library through the gate; a safety claim cites a committed test that
   runs; a report says what it did not cover.
 
 ## Efficiency
 
-Nothing here may make the app slower to use. The costs, and how each is kept small:
+Nothing here may make the app slower to use.
 
 | Cost | Kept small by | Budget |
 |---|---|---|
-| `clean` over a library | Only listed fields are walked; O(size of the entry). | 12-source test library: under 30 ms |
-| The read seam on every library change | It runs inside `process-plugin-vals`, which already walks every entry on each change, not as a second pass. Cleaned entries are cached by entry identity, so editing one entry cleans one entry. | no measurable change |
-| Subscriptions downstream | An unchanged entry comes back as the identical object, so the per-type `=` firewall still stops propagation: editing a spell does not rebuild races. | no extra recomputation |
-| Events reading the library | `readable` is memoized on the library's identity: one clean per change, shared. | one pass per change |
-| Startup | The load seam writes its fixes once; later boots clean and find nothing, and write nothing. | under 30 ms added |
-| Import | One pass per file, beside parsing. | negligible |
-| Laziness | Not realizing option lists stays as is (realizing everything costs ~50x); clean shapes make the lazy throws unreachable instead. | none |
-| Health log | Built in the same pass as `clean`; deduplicated by entry and field; capped. | none |
-| Source scan, audit | Build and CI time only. | audit under 10 min |
+| Cleaning | Only on a write: an import, a builder save (one entry), the first load after this lands. Reading costs nothing. | 12-source test library: under 30 ms |
+| Later loads | The library is already clean: a read-only walk that finds nothing and writes nothing. | under 10 ms |
+| The in-app read check | A read-only walk on each library change; if it measures above budget, only entries that changed. | under 10 ms |
+| The conversion check at a way in | Only the entries that came in or changed; `guard/realize` now walks each shared part once. | a builder save: one entry |
+| Downstream | A clean entry is the identical object, so the per-type `=` firewall still holds: editing a spell does not rebuild races. | no extra recomputation |
+| The deep check | `guard/realize` walks each shared part once (done): one homebrew class went from seconds to milliseconds. | done |
+| Audit | Build and CI time only. | under 10 min (now about 8) |
 
 **Measured, not assumed:** before and after each step, with the 12-source test library: startup,
-`process-plugin-vals`, the template build, one keystroke in a builder, and an import. A step that
-adds more than its budget is not merged.
+`process-plugin-vals`, the template build, one keystroke in a builder, and an import.
 
 ## Prep work already done, to reuse
 
-- **testing/develop**: a Playwright suite of 60 scenarios from July 2026, never merged and run
-  by nothing: `bad-data`, `broken-content-survives-use`, `boot-resilience`,
-  `error-boundary-verify`, `quarantine-repair`, `resilient-loader` and others. Run against
-  integration to see what still holds; port what the junk audit does not cover.
-- **Fixtures on integration**: `broken-content.orcbrew`, `cruft-shapes.orcbrew`,
-  `keyword-trap.orcbrew`, `test-pak.orcbrew`: audit inputs beside the junk grid.
-- **On integration**: `mend-library`/`mend-cards` (their fixes become table entries),
-  `library/commit` and `plugins:pre-fix` (the write-back), the quarantine panel and
-  `repair-quarantined-source` (unreadable entries), `library/dangling` (extend to parents that
-  are not keywords), `render-guard`/`isolate-culprit` (containment), `register-conversions!` and
-  `deep-check`, `library_gate_test` (the source scan's model), HOMEBREW_REQUIRED_FIELDS.md (the
-  nil analysis), the browser probes and their baseline.
-- **On grant-rows**: `builder_fields.cljc` (field predicates and where-messages) and
-  `content_types.cljc`; to converge with the shape table, not to duplicate it.
-- **Known, not fixed**: homebrew boons and invocations drop their `:key` and key their option by
-  name (`pact-boon-options`, `classes.cljc`), so two with one name collide and a renamed one is
-  lost to the characters that picked it. content-extensibility-compatibility.md (agents/develop)
-  calls it a latent footgun and says to pass the stored `:key`. Fixed in step 7 with the guard.
+- **testing/develop**: a Playwright suite of 60 scenarios from July 2026, never merged and run by
+  nothing (`bad-data`, `broken-content-survives-use`, `boot-resilience`, `quarantine-repair`, …).
+  Go through it once and port what the junk audit does not cover, rather than keep two suites.
+- **Fixtures on integration**: `broken-content`, `cruft-shapes`, `keyword-trap`, `test-pak`.
+- **On integration**: the write gate and `library_gate_test`; `persist-set-aside!` and
+  `plugins:pre-fix`; `mend-*` (folded into the table); the quarantine panel and
+  `repair-quarantined-source`; `library/dangling`; `render-guard`; `register-conversions!` and
+  `deep-check`; HOMEBREW_REQUIRED_FIELDS.md; the browser probes.
+- **On grant-rows**: `builder_fields.cljc` and `content_types.cljc`; their schemas feed this table
+  when grant-rows merges, so there is one description of a field, not two.
+- **Known, not fixed**: homebrew boons and invocations key their option by name, not their stored
+  `:key` (`pact-boon-options`, `classes.cljc`; content-extensibility-compatibility.md calls it a
+  latent footgun).
 
 ## Order of work, each step gated
 
-1. **The audit** (in progress): under 10 minutes, the same failures as the baseline (differences
-   explained), canaries, counted coverage. *Gate:* parity; time.
-2. **The shape table and `clean`**, cljc, with a JVM test feeding every listed field every junk
-   value. No app wiring. *Gate:* every baseline field is fixed or reported unreadable in the unit
-   grid; save specs accepted.
-3. **The read seam.** *Gate:* the audit drops by the fields covered; the everyday suites and the
-   homebrew e2e scripts pass; the benchmark is in budget.
-4. **The share seam**, then **the import seam**. *Gate:* the same, plus the import report test.
-5. **The load seam** with the write-back once. *Gate:* `fixes_persist_e2e`, `boot_rescue_e2e`,
-   `quarantine-restore`, `library-repairs` pass; a second boot writes nothing.
-6. **The health log and the marks** in My Content and the builders.
-7. **Containment**: all 13 types guarded, per-item boundaries, `base-class-options` reporting.
-8. **Enforcement**: the source scan, the audit in CI, the AGENTS.md rules, the documents
-   corrected, the testing/develop scenarios run and ported.
-9. **grant-rows** merges this, registers its pools in the table and the guard, and runs the
-   audit.
+1. **Done:** the baseline (659), the shape table and `clean` (not yet called by the app), the
+   audit in about 8 minutes, `guard/realize` walking each part once.
+2. **Audit canaries and counted coverage.**
+3. **Import and the write gate:** clean, convert, quarantine. *Gate:* the audit drops; the
+   everyday suites and the homebrew e2e scripts pass; the timings stay in budget.
+4. **Load and share links.** *Gate:* `fixes_persist_e2e`, `boot_rescue_e2e`, `quarantine-restore`,
+   `library-repairs` pass; a second load writes nothing.
+5. **The in-app read check**, measured; changed-only only if needed.
+6. **Containment:** per-item boundaries, the event error handler, the guard on 13 types.
+7. **Enforcement:** the audit in CI at zero, the AGENTS.md rules, the documents corrected, the
+   testing/develop scenarios gone through.
+8. **grant-rows** merges this, adds its fields to the table, and runs the audit.
 
 Shared hardening is built on integration; future work goes there unless it touches only the
 refactor branch (owner, 2026-10-21).
 
 ## For the owner
 
-- **An unreadable field**: set the whole entry aside in the quarantine panel with the reason
-  (recommended: a number where a map belongs is an authoring mistake, not something to read
-  past), or keep the entry and read past the field, with a mark?
-- **Boons and invocations keyed by name** (known, above): fix in step 7 by passing the stored key?
+- **An unreadable field**: move the whole entry to the quarantine panel with the reason
+  (recommended: it is what keeps the active library clean, so nothing is found again), or keep
+  the entry and read past the field, with a mark?
+- **Boons and invocations keyed by name** (known, above): fix it here by passing the stored key?
   Characters that picked one hold the name-derived key; where the stored key differs (a source
-  tag), they need healing through `:former-keys`, the way renamed keys heal today.
+  tag), they heal through `:former-keys`, the way renamed keys heal today.
