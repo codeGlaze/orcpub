@@ -47,11 +47,14 @@ a stale branch cites lines that have moved.
   branch: on a PR into `integration`, request one with `@coderabbitai full review`. Plain
   `@coderabbitai review` answers "Review failed" there (it only works while automatic reviews are
   paused; checked 2026-10-16 on #64).
-- **CodeRabbit reviews are scarce: request one on purpose, never after every push.** The plan allows
-  one review an hour, and there is no paid overage (owner, 2026-10-21; CodeRabbit's own note on #70).
-  Ask once when the PR is ready, and again only if a push changes behaviour the last review did not
-  see. A push that only applies a finding CodeRabbit already marked addressed needs no new review.
-  A rate-limited request does nothing ("Action not completed"): wait out the reset, do not re-ask.
+- **CodeRabbit reviews are scarce: request one on purpose, never after every push.** Limits are per
+  developer identity, and every agent pushes as codeGlaze, so all agents and the owner share one
+  allowance. The Advanced plan refills 10 an hour below 50 reviews in its rolling window and drops
+  to 1 an hour at 80+; on 2026-10-21 it was at 1 an hour. No paid overage (owner). Ask once when the
+  PR is ready, and again only if a push changes behaviour the last review did not see; a push that
+  only applies a finding CodeRabbit marked addressed needs none. Push once, not in bursts: a review
+  replaced by a newer push still counts. A rate-limited request costs nothing but does nothing:
+  wait out the reset. Source: docs.coderabbit.ai/management/rate-limits.
 
 ### The tree
 
