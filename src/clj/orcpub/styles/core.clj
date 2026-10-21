@@ -159,6 +159,7 @@
      :text-underline-offset "3px"}]
    [:.srd-preview
     {:position :fixed
+     :box-sizing :border-box
      :z-index 10001
      :overflow-y :auto
      :padding "12px 14px"
