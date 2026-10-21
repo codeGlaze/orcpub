@@ -213,8 +213,17 @@ Mastery column). So a swap control must know which rule its class uses.
 
 **Proposed by the owner, mocked up 2026-10-21:** a Weapon Mastery panel above the Weapons table with
 two rows: what is mastered ("3 of 3", a chip per weapon kind with its mastery), and the swap planned for
-the next Long Rest (Fighter: "swap one", Handaxe to Glaive). Open: plan ahead like this, or choose
-inside the Long Rest itself. Choices are build selections (the 5.5 line's class features via grant
+the next Long Rest (Fighter: "swap one", Handaxe to Glaive). **Owner, 2026-10-21: it needs a resting
+state where nothing changes, and it took too much space.** Round 4 mockups: two compact lines under
+the Weapons heading ("Mastery 3 of 3 · Battleaxe, Longsword, Handaxe" / "Next Long Rest: no change ·
+Change"), Change opening a bottom sheet (Keep all / Swap at next Long Rest), Undo once planned; and a
+one-line variant, since the bands already show which weapons are mastered. Open: two lines or one.
+
+**Untrained weapons (owner, 2026-10-21):** a closed row showed nothing, so the mastery was missed.
+Proposed by the owner: a thin line with a grey cap and light grey text ("GRAZE · not trained · Swap it
+in at a Long Rest"), and a switch carrying the app's homebrew icon (`beer-stein.svg`) to use the
+mastery anyway as a house rule; on, the line becomes the full band with the stein lit. Open: the thin
+line always, or behind a display setting. The switch needs a 44px tap area when built. Choices are build selections (the 5.5 line's class features via grant
 pools), so a swap writes to the build; it is not sheet-only state.
 
 ## Decisions for the owner

@@ -77,7 +77,17 @@ async function setup(page, phone) {
     .mk-nest p{margin:4px 0 0}
     .mk-sheet{left:0!important;right:0;bottom:0!important;top:auto!important;width:auto!important;border-radius:14px 14px 0 0!important;
       max-height:62vh!important;padding-bottom:22px!important}
-    .mk-panel{display:flex;flex-direction:column;gap:12px;margin:8px 0 20px}
+    .mk-panel{margin:4px 0 12px}
+    .mk-pbox{display:flex;flex-direction:column;gap:2px;padding:4px 0}
+    .mk-pline{display:flex;align-items:center;gap:8px;min-height:32px;font-size:14px}
+    .mk-pcap{margin:0!important;padding:3px 14px 3px 8px!important;flex:none}
+    .mk-ptext{min-width:0;opacity:.9}
+    .mk-pbox .mk-pline:last-child{padding-left:2px}
+    .mk-link{margin-left:auto;background:none;border:0;color:#f0a100;font-weight:700;font-size:14px;text-decoration:underline;min-height:44px;padding:0 4px}
+    .mk-chev{margin-left:auto;font-size:22px;opacity:.7;padding:0 6px}
+    .mk-actions{display:flex;gap:12px;justify-content:flex-end;align-items:center;margin-top:16px}
+    .mk-btn-plain{background:none;border:0;color:inherit;font-weight:600;font-size:15px;min-height:44px;padding:0 8px}
+    .mk-btn{min-height:44px}
     .mk-panel-row{display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:rgba(255,255,255,.06);border-radius:4px}
     .mk-panel-label{font-weight:700;font-size:14px}
     .mk-dim-text{font-weight:400;opacity:.65;margin-left:6px}
@@ -87,6 +97,21 @@ async function setup(page, phone) {
     .mk-swap{display:flex;align-items:center;gap:8px}
     .mk-swap select{min-width:0;flex:1;min-height:44px}
     .mk-arrow{font-size:18px;opacity:.7}
+    .weapon-mastery-band.mk-untrained{min-height:0;padding:1px 10px;box-shadow:none;background:rgba(255,255,255,.04)}
+    .mk-untrained .weapon-mastery-cap{background:#8d96a6;color:#1a1e28;font-size:9.5px;margin:-1px 0 -1px -10px}
+    .mk-untrained .weapon-mastery-trigger{font-size:9.5px;color:rgba(230,233,238,.45)}
+    .mk-untrained .weapon-mastery-summary{font-size:11px;font-weight:400;color:rgba(230,233,238,.55)}
+    .mk-brew{margin-left:auto;flex:none;display:flex;align-items:center;gap:2px;width:44px;height:20px;padding:0 3px;border-radius:10px;
+      border:1px solid rgba(230,233,238,.35);background:none;position:relative;cursor:pointer}
+    .mk-stein{width:14px;height:14px;background:#8d96a6;-webkit-mask:url(/image/beer-stein.svg) center/contain no-repeat;mask:url(/image/beer-stein.svg) center/contain no-repeat}
+    .mk-knob{position:absolute;right:3px;width:14px;height:14px;border-radius:50%;background:rgba(230,233,238,.5)}
+    .mk-brew.on{background:#f0a100;border-color:#f0a100}
+    .mk-brew.on .mk-stein{background:#1a1e28;margin-left:22px}
+    .mk-brew.on .mk-knob{right:auto;left:3px;background:#1a1e28}
+    .weapon-mastery-band.mk-overridden{min-height:24px;padding:3px 10px;background:var(--wpn-strip)}
+    .mk-overridden .weapon-mastery-cap{background:#f0a100;font-size:10.5px;margin:-3px 0 -3px -10px}
+    .mk-overridden .weapon-mastery-trigger{font-size:10.5px;color:rgba(230,233,238,.6)}
+    .mk-overridden .weapon-mastery-summary{font-size:12px;font-weight:600;color:#e6e9ee}
     .mk-x{margin-left:auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px}
     .mk-sheet .mk-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);margin:0 auto 10px}
     .mk-line{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -171,6 +196,31 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
       // 2a: the untrained glaive as it stands, closed
       await centre(page, 'Ironwood Battleaxe', 'start');
       await shot(page, '2a-untrained-closed.png');
+      // 2c: the owner's idea, a thin grey line for an untrained mastery (behind a display setting)
+      await page.evaluate(() => {
+        const row = [...document.querySelectorAll('.weapon-row')].find(r => r.querySelector('.weapon-name')?.textContent === 'Bronze Glaive');
+        const b = document.createElement('div');
+        b.className = 'weapon-mastery-band mk-untrained';
+        b.innerHTML = '<span class="weapon-mastery-cap">Graze</span><span class="weapon-mastery-trigger">not trained</span>' +
+                      '<span class="weapon-mastery-summary">Swap it in at a Long Rest</span>' +
+                      '<button class="mk-brew" aria-label="Use Graze anyway (house rule)"><span class="mk-stein"></span><span class="mk-knob"></span></button>';
+        row.appendChild(b); row.setAttribute('data-mk-band', ''); row.classList.add('mk-untrained-row');
+      });
+      await shot(page, '2c-untrained-thin-line.png');
+      // 2d: the brew switch on: the full band, marked as a house rule with the stein
+      await page.evaluate(() => {
+        const row = document.querySelector('.mk-untrained-row');
+        const b = row.querySelector('.mk-untrained');
+        b.className = 'weapon-mastery-band mk-overridden';
+        b.innerHTML = '<span class="weapon-mastery-cap">Graze</span><span class="weapon-mastery-trigger">on miss</span>' +
+          '<span class="weapon-mastery-summary">3 slashing damage</span>' +
+          '<button class="mk-brew on" aria-label="Using Graze as a house rule"><span class="mk-stein"></span><span class="mk-knob"></span></button>';
+        b.classList.add('mk-untrained');
+      });
+      await shot(page, '2d-untrained-brew-on.png');
+      await page.evaluate(() => { const b = document.querySelector('.mk-untrained-row .mk-overridden'); b.className = 'weapon-mastery-band mk-untrained'; });
+      await page.evaluate(() => { const r = document.querySelector('.mk-untrained-row');
+        r.querySelector('.mk-untrained').remove(); r.removeAttribute('data-mk-band'); r.classList.remove('mk-untrained-row'); });
       // 2b: the untrained glaive opened
       const glaive = page.locator('.weapon-row').filter({ has: page.locator('.weapon-name', { hasText: /^Bronze Glaive$/ }) });
       await glaive.locator('.weapon-name-line').click({ timeout: 5000 }).catch(() => {});
@@ -190,42 +240,57 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
       await shot(page, '2b-untrained-opened.png');
       await glaive.locator('.weapon-name-line').click({ timeout: 5000 }).catch(() => {});
       await page.waitForTimeout(300);
-      // 3: a Weapon Mastery panel above the table: what is mastered, and the swap planned for the next Long Rest
-      check(await page.evaluate(() => {
+      // 3: a compact Weapon Mastery panel above the table, in its states
+      const panel = (kind) => page.evaluate((kind) => {
+        document.querySelectorAll('.mk-panel, .mk-dim, .srd-preview.mk').forEach(e => e.remove());
         const sec = document.querySelector('.weapons-section');
         const head = [...document.querySelectorAll('span.f-w-b.f-s-18')].find(e => e.offsetParent && e.textContent.trim() === 'Weapons');
         const headRow = head.closest('div.flex') || head.parentElement;
-        const sel = [...document.querySelectorAll('select')].find(s => s.offsetParent);
-        const panel = document.createElement('div');
-        panel.className = 'mk-panel';
-        const h = headRow.cloneNode(true);
-        h.querySelector('span.f-w-b.f-s-18').textContent = 'Weapon Mastery';
-        const chip = (w, m) => `<span class="mk-chip"><span class="weapon-mastery-cap">${m}</span><span>${w}</span></span>`;
-        const selCls = sel ? sel.className : '';
-        panel.innerHTML = `<div class="mk-panel-row"><div class="mk-panel-label">Mastered <span class="mk-dim-text">3 of 3</span></div>
-            <div class="mk-chips">${chip('Battleaxe', 'Topple')}${chip('Longsword', 'Sap')}${chip('Handaxe', 'Vex')}</div></div>
-          <div class="mk-panel-row"><div class="mk-panel-label">After your next Long Rest <span class="mk-dim-text">swap one</span></div>
-            <div class="mk-swap"><select class="${selCls}"><option>Handaxe</option></select><span class="mk-arrow">\u2192</span>
-            <select class="${selCls}"><option>Glaive · Graze</option></select></div></div>`;
-        panel.prepend(h);
-        sec.parentElement.insertBefore(panel, sec.previousElementSibling && sec.previousElementSibling.contains(head) ? sec.previousElementSibling : sec);
-        panel.setAttribute('data-mk', 'panel');
-        // the stand-in data tags only the made-up weapons: draw the bands the panel says are mastered
+        const el = document.createElement('div');
+        el.className = 'mk-panel'; el.setAttribute('data-mk', 'panel');
+        const kinds = 'Battleaxe, Longsword, Handaxe';
+        const change = '<button class="mk-link">Change</button>';
+        if (kind === 'line') {
+          el.innerHTML = `<div class="mk-pline"><span class="weapon-mastery-cap mk-pcap">Mastery</span><span class="mk-ptext">3 of 3 \u00B7 next Long Rest: no change</span><span class="mk-chev">\u203A</span></div>`;
+        } else {
+          const rest = kind === 'planned'
+            ? '<span class="mk-ptext">Next Long Rest: <b>Handaxe \u2192 Glaive</b></span><button class="mk-link">Undo</button>'
+            : '<span class="mk-ptext">Next Long Rest: no change</span>' + change;
+          el.innerHTML = `<div class="mk-pbox"><div class="mk-pline"><span class="weapon-mastery-cap mk-pcap">Mastery</span><span class="mk-ptext"><b>3 of 3</b> \u00B7 ${kinds}</span></div>
+            <div class="mk-pline">${rest}</div></div>`;
+        }
+        head.closest('.weapons-section') ? head.parentElement.after(el) : sec.parentElement.insertBefore(el, sec);
+        if (kind === 'sheet') {
+          const d = document.createElement('div'); d.className = 'mk-dim'; document.querySelector('.app').appendChild(d);
+          const s = document.createElement('div'); s.className = 'srd-preview mk mk-sheet';
+          const sel = [...document.querySelectorAll('select')].find(x => x.offsetParent);
+          const cls = sel ? sel.className : '';
+          s.innerHTML = `<div class="mk-handle"></div>
+            <div class="mk-head"><span class="weapon-mastery-cap">Mastery</span><span class="mk-sub">After your next Long Rest</span><span class="mk-x">\u2715</span></div>
+            <div class="mk-lead" style="font-size:14px">As a Fighter you can swap <b>one</b> weapon kind each Long Rest.</div>
+            <div class="mk-swap" style="margin-top:12px"><select class="${cls}"><option>Handaxe \u00B7 Vex</option></select><span class="mk-arrow">\u2192</span>
+              <select class="${cls}"><option>Glaive \u00B7 Graze</option></select></div>
+            <div class="mk-actions"><button class="mk-btn-plain">Keep all</button><button class="form-button mk-btn">Swap at next Long Rest</button></div>`;
+          document.querySelector('.app').appendChild(s);
+        }
+        return true;
+      }, kind);
+      await page.evaluate(() => {
         const src = document.querySelector('[data-mk="Ironwood Battleaxe"] .weapon-mastery-band');
-        for (const [name, m, trig, text] of [['Longsword', 'Sap', 'on hit', 'Disadvantage on its next attack'],
-                                             ['Handaxe', 'Vex', 'on hit', 'Advantage on your next attack at it']]) {
+        for (const [name, m, text] of [['Longsword', 'Sap', 'Disadvantage on its next attack'], ['Handaxe', 'Vex', 'Advantage on your next attack at it']]) {
           const row = [...document.querySelectorAll('.weapon-row')].find(r => r.querySelector('.weapon-name')?.textContent === name);
           const b = src.cloneNode(true);
           b.querySelector('.weapon-mastery-cap').textContent = m;
-          b.querySelector('.weapon-mastery-trigger').textContent = trig;
           b.querySelector('.weapon-mastery-summary').textContent = text;
           row.appendChild(b); row.setAttribute('data-mk-band', ''); row.classList.add('mk-added');
-        }
-        return true;
-      }), 'the mastery panel is drawn in');
-      await centre(page, 'panel', 'start');
-      await shot(page, '3-mastery-panel.png');
-      await page.evaluate(() => { document.querySelector('.mk-panel').remove();
+        } });
+      for (const [kind, file] of [['resting', '3a-panel-resting.png'], ['sheet', '3b-panel-plan-a-swap.png'],
+                                  ['planned', '3c-panel-swap-planned.png'], ['line', '3d-panel-one-line.png']]) {
+        check(await panel(kind), `panel: ${kind}`);
+        await centre(page, 'panel', 'start');
+        await shot(page, file);
+      }
+      await page.evaluate(() => { document.querySelectorAll('.mk-panel, .mk-dim, .srd-preview.mk').forEach(e => e.remove());
         document.querySelectorAll('.mk-added').forEach(r => { r.querySelector('.weapon-mastery-band:last-child').remove();
           r.removeAttribute('data-mk-band'); r.classList.remove('mk-added'); }); });
       await page.waitForTimeout(200);
