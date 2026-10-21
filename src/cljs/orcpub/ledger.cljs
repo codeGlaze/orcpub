@@ -238,7 +238,7 @@
                         (if (pos? below) (str ", and the " below (if (= 1 below) " choice" " choices") " under it")
                             (str " (" section ")"))))
                   [[:muted (if saved-id
-                             "This changes the saved character."
+                             "This changes the saved character. Close it in any open builder first: the builder saves its own copy and can put removed choices back."
                              "This changes this browser's draft.")]])
           "Remove and save" save!)))
 
