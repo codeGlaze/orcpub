@@ -204,6 +204,19 @@ rounded bottom corners on the band and a gap before the next row. **"New" tag in
 asked what hole it fills and how to keep it from reading as "new to the site". Shown beside it: no
 tag, the `?` glowing like the 1H / 2H pulse (`weapons-table-spec.md` rule 14) until opened once.
 
+## Swapping masteries (SRD 5.2.1, checked 2026-10-21)
+
+Only a **Long Rest** allows a change; a Short Rest does not. How much changes depends on the class:
+Barbarian and Fighter "change one of those weapon choices"; Paladin, Ranger and Rogue "change the kinds
+of weapons you chose" (all of them). The number of kinds grows with level (each class table's Weapon
+Mastery column). So a swap control must know which rule its class uses.
+
+**Proposed by the owner, mocked up 2026-10-21:** a Weapon Mastery panel above the Weapons table with
+two rows: what is mastered ("3 of 3", a chip per weapon kind with its mastery), and the swap planned for
+the next Long Rest (Fighter: "swap one", Handaxe to Glaive). Open: plan ahead like this, or choose
+inside the Long Rest itself. Choices are build selections (the 5.5 line's class features via grant
+pools), so a swap writes to the build; it is not sheet-only state.
+
 ## Decisions for the owner
 
 1. **Topple's DC.** (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +

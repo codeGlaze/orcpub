@@ -77,6 +77,16 @@ async function setup(page, phone) {
     .mk-nest p{margin:4px 0 0}
     .mk-sheet{left:0!important;right:0;bottom:0!important;top:auto!important;width:auto!important;border-radius:14px 14px 0 0!important;
       max-height:62vh!important;padding-bottom:22px!important}
+    .mk-panel{display:flex;flex-direction:column;gap:12px;margin:8px 0 20px}
+    .mk-panel-row{display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:rgba(255,255,255,.06);border-radius:4px}
+    .mk-panel-label{font-weight:700;font-size:14px}
+    .mk-dim-text{font-weight:400;opacity:.65;margin-left:6px}
+    .mk-chips{display:flex;flex-wrap:wrap;gap:8px}
+    .mk-chip{display:inline-flex;align-items:center;gap:8px;background:var(--wpn-strip,#1a1e28);padding-right:10px;font-size:13px;font-weight:600;min-height:28px}
+    .mk-chip .weapon-mastery-cap{margin:0;align-self:stretch;padding:0 14px 0 8px}
+    .mk-swap{display:flex;align-items:center;gap:8px}
+    .mk-swap select{min-width:0;flex:1;min-height:44px}
+    .mk-arrow{font-size:18px;opacity:.7}
     .mk-x{margin-left:auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px}
     .mk-sheet .mk-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);margin:0 auto 10px}
     .mk-line{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -158,7 +168,10 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
       await band(page, 'Ironwood Battleaxe', false, true);
       await shot(page, '1b-band-with-glowing-help.png');
       await band(page, 'Ironwood Battleaxe', false, false);
-      // 2: the untrained glaive opened
+      // 2a: the untrained glaive as it stands, closed
+      await centre(page, 'Ironwood Battleaxe', 'start');
+      await shot(page, '2a-untrained-closed.png');
+      // 2b: the untrained glaive opened
       const glaive = page.locator('.weapon-row').filter({ has: page.locator('.weapon-name', { hasText: /^Bronze Glaive$/ }) });
       await glaive.locator('.weapon-name-line').click({ timeout: 5000 }).catch(() => {});
       const opened = await glaive.locator('.weapon-opened').waitFor({ timeout: 5000 }).then(() => true, () => false);
@@ -174,9 +187,48 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
         return true;
       }), 'the glaive\'s mastery line is redrawn');
       await centre(page, 'Bronze Glaive', 'center');
-      await shot(page, '2-untrained-long-rest.png');
+      await shot(page, '2b-untrained-opened.png');
       await glaive.locator('.weapon-name-line').click({ timeout: 5000 }).catch(() => {});
       await page.waitForTimeout(300);
+      // 3: a Weapon Mastery panel above the table: what is mastered, and the swap planned for the next Long Rest
+      check(await page.evaluate(() => {
+        const sec = document.querySelector('.weapons-section');
+        const head = [...document.querySelectorAll('span.f-w-b.f-s-18')].find(e => e.offsetParent && e.textContent.trim() === 'Weapons');
+        const headRow = head.closest('div.flex') || head.parentElement;
+        const sel = [...document.querySelectorAll('select')].find(s => s.offsetParent);
+        const panel = document.createElement('div');
+        panel.className = 'mk-panel';
+        const h = headRow.cloneNode(true);
+        h.querySelector('span.f-w-b.f-s-18').textContent = 'Weapon Mastery';
+        const chip = (w, m) => `<span class="mk-chip"><span class="weapon-mastery-cap">${m}</span><span>${w}</span></span>`;
+        const selCls = sel ? sel.className : '';
+        panel.innerHTML = `<div class="mk-panel-row"><div class="mk-panel-label">Mastered <span class="mk-dim-text">3 of 3</span></div>
+            <div class="mk-chips">${chip('Battleaxe', 'Topple')}${chip('Longsword', 'Sap')}${chip('Handaxe', 'Vex')}</div></div>
+          <div class="mk-panel-row"><div class="mk-panel-label">After your next Long Rest <span class="mk-dim-text">swap one</span></div>
+            <div class="mk-swap"><select class="${selCls}"><option>Handaxe</option></select><span class="mk-arrow">\u2192</span>
+            <select class="${selCls}"><option>Glaive · Graze</option></select></div></div>`;
+        panel.prepend(h);
+        sec.parentElement.insertBefore(panel, sec.previousElementSibling && sec.previousElementSibling.contains(head) ? sec.previousElementSibling : sec);
+        panel.setAttribute('data-mk', 'panel');
+        // the stand-in data tags only the made-up weapons: draw the bands the panel says are mastered
+        const src = document.querySelector('[data-mk="Ironwood Battleaxe"] .weapon-mastery-band');
+        for (const [name, m, trig, text] of [['Longsword', 'Sap', 'on hit', 'Disadvantage on its next attack'],
+                                             ['Handaxe', 'Vex', 'on hit', 'Advantage on your next attack at it']]) {
+          const row = [...document.querySelectorAll('.weapon-row')].find(r => r.querySelector('.weapon-name')?.textContent === name);
+          const b = src.cloneNode(true);
+          b.querySelector('.weapon-mastery-cap').textContent = m;
+          b.querySelector('.weapon-mastery-trigger').textContent = trig;
+          b.querySelector('.weapon-mastery-summary').textContent = text;
+          row.appendChild(b); row.setAttribute('data-mk-band', ''); row.classList.add('mk-added');
+        }
+        return true;
+      }), 'the mastery panel is drawn in');
+      await centre(page, 'panel', 'start');
+      await shot(page, '3-mastery-panel.png');
+      await page.evaluate(() => { document.querySelector('.mk-panel').remove();
+        document.querySelectorAll('.mk-added').forEach(r => { r.querySelector('.weapon-mastery-band:last-child').remove();
+          r.removeAttribute('data-mk-band'); r.classList.remove('mk-added'); }); });
+      await page.waitForTimeout(200);
       // 3: the card beside the band; 4: the same as a bottom sheet; 5: Prone open inside the card
       await centre(page, 'Ironwood Battleaxe', 'start');
       await card(page, { anchor: 'Ironwood Battleaxe', sheet: true }); await shot(page, '4-card-as-bottom-sheet.png'); await clean(page);

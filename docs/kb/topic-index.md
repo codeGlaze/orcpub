@@ -3740,6 +3740,7 @@ _weapon-mastery-plan · weapon mastery plan_
 - Storage: separate on disk, one shape in use (recommended)
 - Display: the summary in the band, the full text one hover or tap away (recommended)
 - Mastery from the player's side (owner, 2026-10-20)
+- Swapping masteries (SRD 5.2.1, checked 2026-10-21)
 - Decisions for the owner
 - Plan (after the decisions)
 

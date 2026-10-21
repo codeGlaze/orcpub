@@ -21,8 +21,9 @@ component for the whole app (`views.cljs` `srd-text-link`, `srd-preview-box`, `s
 - **Linking free text:** `srd-linked-text` turns condition words ("falls Prone") into links with no
   markup in the data.
 
-**Bug, measured 2026-10-20:** on a 390px phone the card sticks out 12px past the right edge (Charm
-Person's "charmed": left 16, right 402). `preview-style` sizes the width as `innerWidth - 32`, but
+**Fixed 2026-10-21 (`e2dacb11`, feature/weapons-table), was:** on a 390px phone the card stuck out
+12px past the right edge (Charm Person's "charmed": left 16, right 402). `srd_reference_e2e.js`
+now checks it stays on screen. `preview-style` sizes the width as `innerWidth - 32`, but
 `.srd-preview` has 14px side padding and no `box-sizing: border-box`, so the padding is added on top.
 Fix: `box-sizing: border-box` on `.srd-preview` (`styles/core.clj`).
 
