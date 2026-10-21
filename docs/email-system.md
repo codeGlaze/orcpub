@@ -60,7 +60,9 @@ User attributes related to email and verification (`src/clj/orcpub/db/schema.clj
 and the response carries `{:verified? true}` so the client shows "you can log in" rather than
 "check your email". With no SMTP host and **no** opt-in, registration is refused with
 `:email-not-configured` — fail closed, so a lost SMTP value cannot quietly become open
-registration. Startup warns in all three abnormal combinations; a correct config is silent.
+registration. The startup report has an `ALLOW_UNVERIFIED_REGISTRATION` row whose value says
+what signup will do: `verified by email`, `REFUSED: no mail server`, `OPEN: no address check`,
+or `verified by email (flag set, inert)` when the flag is set but SMTP works.
 
 **Send failure:** the account is rolled back. `register` retracts the new entity; `re-verify`
 retracts only the attributes that attempt set, never the existing user.

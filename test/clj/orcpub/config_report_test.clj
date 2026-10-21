@@ -3,6 +3,7 @@
    These pin the three answers it can give -- set, default, and present-but-rejected --
    because getting the third wrong reports a default as though it were your value."
   (:require [clojure.test :refer [deftest testing is]]
+            [orcpub.email :as email]
             [clojure.string :as str]
             [orcpub.config :as config]))
 
@@ -178,9 +179,8 @@
 (deftest critical-settings-are-the-ones-that-actually-break-the-site
   (testing "SIGNATURE: no login, signup or authenticated call works"
     (is (some #(and (= "SIGNATURE" (:var %)) (:critical? %)) config/settings)))
-  (testing "EMAIL_SERVER_URL: send-verification-email runs INSIDE the signup transaction,
-            so unconfigured mail does not merely skip the email -- registration throws and
-            tells the user to try again, which never works. Password reset fails too."
+  (testing "EMAIL_SERVER_URL: without it password reset cannot work at all, and signup is
+            refused unless ALLOW_UNVERIFIED_REGISTRATION opts out of address checks"
     (is (some #(and (= "EMAIL_SERVER_URL" (:var %)) (:critical? %)) config/settings)))
   (testing "and the ones that degrade rather than break are NOT marked, so the (!!) lines
             keep meaning something"
@@ -204,3 +204,31 @@
   (testing "cards-per-page matches what pdf.clj derives: (int (/ 8.5 2.5)) by
             (int (/ 11.0 3.5)), the box size the card call sites pass"
     (is (= config/cards-per-page (* (int (/ 8.5 2.5)) (int (/ 11.0 3.5)))))))
+
+(deftest registration-mode-names-what-signup-will-actually-do
+  ;; Two settings decide signup together, so the report shows the combination rather than
+  ;; leaving the operator to work it out from two rows.
+  (doseq [[smtp? open? expected] [[true  false "verified by email"]
+                                  [false false "REFUSED: no mail server"]
+                                  [false true  "OPEN: no address check"]
+                                  [true  true  "verified by email (flag set, inert)"]]]
+    (with-redefs [email/configured? (constantly smtp?)
+                  email/unverified-registration-allowed? (constantly open?)]
+      (is (= expected (config/registration-mode))
+          (str "smtp? " smtp? ", flag " open?)))))
+
+(deftest the-registration-row-is-in-the-boot-report
+  (with-redefs [email/configured? (constantly false)
+                email/unverified-registration-allowed? (constantly false)]
+    (let [banner (config/report-lines)]
+      (is (some #(and (re-find #"ALLOW_UNVERIFIED_REGISTRATION" %)
+                      (re-find #"REFUSED: no mail server" %)) banner)
+          "a refused signup must be visible in the banner, not inferred from a missing SMTP row")
+      (is (every? #(re-matches #"[\x00-\x7F]*" %) banner)
+          "the new row keeps the banner plain ASCII"))))
+
+(deftest the-no-smtp-message-no-longer-describes-the-old-bug
+  ;; Signup no longer throws and asks the user to try again, so the message must not say it does.
+  (is (not (re-find #"try again" config/email-missing-message)))
+  (is (re-find #"ALLOW_UNVERIFIED_REGISTRATION" config/email-missing-message)
+      "it must point at the setting that decides what signup does"))

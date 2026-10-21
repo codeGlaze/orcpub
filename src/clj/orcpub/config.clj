@@ -1,5 +1,6 @@
 (ns orcpub.config
   (:require [orcpub.env :as env]
+            [orcpub.email :as email]
             [clojure.string :as str]
             [clojure.java.io :as io])
   (:import [java.util Locale]))
@@ -232,16 +233,32 @@
        "   Keep it stable: changing it signs out everyone and invalidates unsubscribe links."))
 
 (def email-missing-message
-  "Registration is inside the same try as the verification email, so an unconfigured mail
-   server does not merely skip the email -- signup throws and the caller is told to \"try
-   again\", which will never work. Password reset fails the same way."
+  "Fix text for the EMAIL_SERVER_URL row. Without SMTP password reset cannot work, so the
+   row is critical. What signup does depends on ALLOW_UNVERIFIED_REGISTRATION, whose row
+   shows the outcome, so this text names both outcomes."
   (str "EMAIL_SERVER_URL is not set, so no mail can be sent.\n"
-       "   Registration FAILS for every new user -- the verification email is sent inside the\n"
-       "   signup transaction, so the whole signup errors with \"please try again\". Password\n"
-       "   reset fails too, so existing users cannot recover an account.\n"
+       "   Password reset FAILS, so existing users cannot recover an account.\n"
+       "   Signup is REFUSED with a message, unless ALLOW_UNVERIFIED_REGISTRATION=true,\n"
+       "   which accepts accounts without checking the address -- private sites only.\n"
+       "   The ALLOW_UNVERIFIED_REGISTRATION row above shows which is in effect.\n"
        "   Fix: set EMAIL_SERVER_URL to your SMTP host, with EMAIL_ACCESS_KEY and\n"
        "        EMAIL_SECRET_KEY for authentication, then restart.\n"
        "        EMAIL_SERVER_PORT defaults to 587; set EMAIL_SSL or EMAIL_TLS if required."))
+
+(defn registration-mode
+  "What signup will actually do. It depends on two settings together, so neither row alone
+   can say it; this is the VALUE of the ALLOW_UNVERIFIED_REGISTRATION row.
+
+   The fourth state is the one to notice: the flag set while SMTP works does nothing today,
+   but if the SMTP value is ever lost the site opens signup without checking addresses
+   instead of refusing it."
+  []
+  (let [smtp? (email/configured?)
+        open? (email/unverified-registration-allowed?)]
+    (cond (and smtp? open?) "verified by email (flag set, inert)"
+          smtp?             "verified by email"
+          open?             "OPEN: no address check"
+          :else             "REFUSED: no mail server")))
 
 (def branding-vars
   "The APP_* fork-branding variables. Reported as a count rather than twenty rows -- a
@@ -313,7 +330,9 @@
      :fix signature-missing-message}
     {:group "security" :var "CSP_POLICY"    :note "overrides the built-in policy"}
     {:group "email"    :var "EMAIL_SERVER_URL" :critical? true :fix email-missing-message
-     :note "SMTP host; signup and password reset fail without it"}
+     :note "SMTP host; password reset fails without it"}
+    {:group "email"    :var "ALLOW_UNVERIFIED_REGISTRATION" :get #(registration-mode)
+     :note "when true, signup opens if SMTP is lost; private sites only"}
     {:group "email"    :var "EMAIL_SERVER_PORT" :note "defaults to 587"}
     {:group "email"    :var "EMAIL_ACCESS_KEY" :secret? true}
     {:group "email"    :var "EMAIL_SECRET_KEY" :secret? true}
