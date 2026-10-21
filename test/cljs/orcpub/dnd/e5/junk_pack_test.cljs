@@ -6,7 +6,7 @@
    (only that entry); nothing may throw and no built-in content may go missing. The everyday
    suite runs the base pack only; test/e2e/junk-pack-audit.js runs it all, in a few minutes: one
    pack per junk value holds every type, and a failure is traced to its entry within the run."
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [cljs.test :refer-macros [deftest is testing]]
             [clojure.string :as str]
             [re-frame.core :as rf]
             [re-frame.db :refer [app-db]]
@@ -16,6 +16,7 @@
             [orcpub.template :as t]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.homebrew-guard :as guard]
+            [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.dnd.e5.character :as char5e]
@@ -179,6 +180,13 @@
 (defn- attempt [stage f]
   (try (f) nil (catch :default e {:stage stage :error (msg e)})))
 
+(def ^:private coverage
+  "What the last pack exercised, by entry key: :picked by a character, :drawn in its builder, and
+   the My Content lists :listed. A stage that ran on nothing must not read as a pass."
+  (atom {}))
+
+(defn- covered! [stage x] (swap! coverage update stage (fnil conj #{}) x))
+
 (def ^:private stored-character
   {::entity/options {:race {::entity/key :human}
                      :class [{::entity/key :fighter
@@ -247,6 +255,7 @@
         [built avail] (offered template c)]
     (when (and k (not (some ks (tree-seq coll? seq c))))
       (throw (js/Error. "never offered")))
+    (when k (covered! :picked k))
     (realize! (char5e/ability-values built))
     (realize! (filter #(some ks (entity/actual-path %)) avail))))
 
@@ -263,20 +272,21 @@
         :else x))
 
 (def ^:private builders
-  "Each content type's builder page, and the event that opens an entry in it."
-  {::e5/spells [::spells5e/set-spell views/spell-builder]
-   ::e5/monsters [::monsters5e/set-monster views/monster-builder]
-   ::e5/encounters [::encounters5e/set-encounter views/encounter-builder]
-   ::e5/backgrounds [::bg5e/set-background views/background-builder]
-   ::e5/languages [::langs5e/set-language views/language-builder]
-   ::e5/invocations [::classes5e/set-invocation views/invocation-builder]
-   ::e5/boons [::classes5e/set-boon views/boon-builder]
-   ::e5/selections [::selections5e/set-selection views/selection-builder]
-   ::e5/feats [::feats5e/set-feat views/feat-builder]
-   ::e5/races [::races5e/set-race views/race-builder]
-   ::e5/subraces [::races5e/set-subrace views/subrace-builder]
-   ::e5/subclasses [::classes5e/set-subclass views/subclass-builder]
-   ::e5/classes [::classes5e/set-class views/class-builder]})
+  "Each content type's builder page, and the event that opens an entry in it. Each page is looked
+   up when drawn, so a canary can stand in for it."
+  {::e5/spells [::spells5e/set-spell #(views/spell-builder)]
+   ::e5/monsters [::monsters5e/set-monster #(views/monster-builder)]
+   ::e5/encounters [::encounters5e/set-encounter #(views/encounter-builder)]
+   ::e5/backgrounds [::bg5e/set-background #(views/background-builder)]
+   ::e5/languages [::langs5e/set-language #(views/language-builder)]
+   ::e5/invocations [::classes5e/set-invocation #(views/invocation-builder)]
+   ::e5/boons [::classes5e/set-boon #(views/boon-builder)]
+   ::e5/selections [::selections5e/set-selection #(views/selection-builder)]
+   ::e5/feats [::feats5e/set-feat #(views/feat-builder)]
+   ::e5/races [::races5e/set-race #(views/race-builder)]
+   ::e5/subraces [::races5e/set-subrace #(views/subrace-builder)]
+   ::e5/subclasses [::classes5e/set-subclass #(views/subclass-builder)]
+   ::e5/classes [::classes5e/set-class #(views/class-builder)]})
 
 (defn- offered-keys
   "The keys of the classes, races and backgrounds the app offers now."
@@ -341,6 +351,7 @@
      [(attempt [:page :my-content] #(expand [views/my-content]))]
      (mapcat (fn [{:keys [type-name type-key] :as t}]
                (let [es (get plugin type-key)]
+                 (covered! :listed type-name)
                  (traced (attempt [:page :my-content type-name] (type-list t plugin))
                          (when (map? es)
                            (for [[k e] es] [k (type-list t (assoc plugin type-key {k e}))])))))
@@ -357,9 +368,10 @@
            :let [[open builder] (builders t)]
            :when open
            [k e] es :when (map? e)]
-       (some-> (once [:builder (hash e)] [:builder k]
-                     #(do (rf/dispatch-sync [open e]) (expand [builder])))
-               (assoc :stage [:builder k] :key k))))))
+       (do (covered! :drawn k)
+           (some-> (once [:builder (hash e)] [:builder k]
+                         #(do (rf/dispatch-sync [open e]) (expand [builder])))
+                   (assoc :stage [:builder k] :key k)))))))
 
 (defn- run-pack!
   "Start the app with `lib` arriving `via` :storage (the stored library; also what
@@ -375,6 +387,7 @@
   (reset! app-db {})
   (rf/clear-subscription-cache!)
   (reset! seen (js/Set.))
+  (reset! coverage {})
   (let [reports (atom [])]
     (guard/call-with-reporter
      #(swap! reports conj %)
@@ -445,17 +458,89 @@
 
 ;; ---------------------------------------------------------------------------------------------
 
-(deftest the-base-pack-works
+(defn- base-pack
+  "One clean entry of each type, keyed :junk-<type>, so picking a race cannot stand in for the
+   feat of the same key."
+  []
+  (into {} (for [[t m] @base-entries
+                 :let [k (keyword (str "junk-" (name t)))]]
+             [t {k (assoc (:junk-base m) :key k)}])))
+
+(def ^:private pickable
+  "The types a character picks: each needs a character that offers it."
+  #{::e5/classes ::e5/subclasses ::e5/invocations ::e5/boons ::e5/subraces ::e5/races
+    ::e5/backgrounds ::e5/feats})
+
+(defn- know-built-ins!
+  "What the app offers with no homebrew at all, read once."
+  []
   (when-not @built-in-keys
     (run-pack! {})
-    (reset! built-in-keys (offered-keys)))
-  ;; one key per type, so picking a race cannot stand in for the feat of the same key
-  (let [keyed (into {} (for [[t m] @base-entries
-                             :let [k (keyword (str "junk-" (name t)))]]
-                         [t {k (assoc (:junk-base m) :key k)}]))
-        failures (run-pack! (library keyed))]
+    (reset! built-in-keys (offered-keys))))
+
+(deftest the-base-pack-works
+  (know-built-ins!)
+  (let [pack (base-pack)
+        failures (run-pack! (library pack))
+        {:keys [picked drawn listed]} @coverage
+        k #(keyword (str "junk-" (name %)))]
     (cleanup!)
-    (is (empty? failures) (pr-str failures))))
+    (is (empty? failures) (pr-str failures))
+    (testing "every stage ran on every entry"
+      (is (= (set (map k (filter pickable (keys pack)))) picked) "picked by a character")
+      (is (= (set (map k (keys pack))) drawn) "opened in its builder")
+      (is (= (set (map :type-name views/my-content-types)) listed) "listed in My Content"))))
+
+(defn- canary-run
+  "The base pack's failures, with nothing remembered from an earlier run."
+  []
+  (reset! built {})
+  (let [fs (run-pack! (library (base-pack)))]
+    (cleanup!)
+    fs))
+
+(defn- with-race-option
+  "Run `f` with `opt5e/race-option` passing the junk race's option through `change`."
+  [change f]
+  (let [real opt5e/race-option]
+    (with-redefs [opt5e/race-option (fn [& args]
+                                      (let [o (apply real args)]
+                                        (if (= :junk-races (::t/key o)) (change o) o)))]
+      (f))))
+
+(deftest each-check-catches-its-canary
+  ;; a check that cannot fail is not a check: each stage is given a failure and must report it
+  (know-built-ins!)
+  (let [canary #(throw (js/Error. "canary"))
+        caught? (fn [fs pred] (boolean (some pred fs)))]
+    (testing "a race that throws once it is used, past the guard"
+      (is (caught? (with-race-option #(assoc % ::t/selections (lazy-seq (canary))) canary-run)
+                   #(and (= :junk-races (:key %)) (= "canary" (:error %))))))
+    (testing "a race that silently goes missing"
+      (is (caught? (with-race-option (constantly nil) canary-run)
+                   #(= {:stage [:character :junk-races] :error "never offered"}
+                       (select-keys % [:stage :error])))))
+    (testing "an entry set aside that is not the pack's own"
+      (is (caught? (with-race-option #(do (guard/report! {:content-type ::e5/races :key :elf}) %)
+                                     canary-run)
+                   #(= :set-aside (:stage %)))))
+    (testing "a builder that throws"
+      (with-redefs [views/race-builder (fn [] (canary))]
+        (is (caught? (canary-run) #(= [:builder :junk-races] (:stage %))))))
+    (testing "a My Content list that throws"
+      (with-redefs [views/my-content-type (fn [& _] (canary))]
+        (is (caught? (canary-run) #(= [:page :my-content] (take 2 (:stage %)))))))
+    (testing "startup that throws"
+      (with-redefs [e5/mend-library (fn [_] (canary))]
+        (is (caught? (canary-run) #(= :startup (:stage %))))))
+    (testing "the deep check that throws"
+      (with-redefs [homebrew-check/deep-check (fn [_] (canary))]
+        (is (caught? (canary-run) #(= :deep-check (:stage %))))))
+    (testing "built-in content that goes missing"
+      (let [before @built-in-keys]
+        (swap! built-in-keys update :classes conj :canary-class)
+        (try (is (caught? (canary-run) #(= :built-in-content (:stage %))))
+             (finally (reset! built-in-keys before)))))))
 
 (defn- field-pack
   "Every field of every type's base entry holding each of `vs`: one entry per field and value,
