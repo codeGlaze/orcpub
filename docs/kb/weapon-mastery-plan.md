@@ -226,6 +226,26 @@ mastery anyway as a house rule; on, the line becomes the full band with the stei
 line always, or behind a display setting. The switch needs a 44px tap area when built. Choices are build selections (the 5.5 line's class features via grant
 pools), so a swap writes to the build; it is not sheet-only state.
 
+## Decided, round 5 (owner, 2026-10-21)
+
+- **Untrained weapons: the thin grey line shows by default**, and a display setting turns it off.
+  Its stein switch uses the mastery anyway (house rule).
+- **No "New" tag** (ux-guide.md decisions log). The band's `?` glows instead: a few pulses, slowing to
+  a stop, as the 1H / 2H switch does; opening it once stops it.
+- **Clicking inside a hover card pins it** (desktop): opening a rule inside a hovered card is a click,
+  and that click pins the card.
+- **The panel needs to stop the eye** (owner: the title looked like the band tags, and the list had no
+  breaks). Round 5: a bordered box, a plain bold title (amber caps stay on the bands), one chip per
+  mastered weapon kind with the mastery in small amber letters, "3 of 3" at rest.
+- **A homebrew switch on the panel** (the stein) lets the player add or remove masteries freely, any
+  number, without resting: chips get a ×, an "+ Add" chip appears, the count reads "4 · house rule".
+  In addition to the Long Rest swap, not instead of it.
+- **The Long Rest asks.** The app has no Long Rest dialog today: `finish-long-rest-button`
+  (`views.cljs` ~3036) rests at once. For a character with Weapon Mastery it opens a sheet with a
+  Weapon Mastery section ("swap one" or all, by class), "Keep all" chosen, or the planned swap filled
+  in; Cancel changes nothing. Open: only when there is something to choose, or every Long Rest.
+- **Wording is parked**: the owner will review every player-facing line in one pass, as a list.
+
 ## Decisions for the owner
 
 1. **Topple's DC.** (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +

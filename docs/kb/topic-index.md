@@ -1639,7 +1639,7 @@ _fail-soft-rendering · fail soft rendering_
 
 _fast-browser-probes · fast browser probes_
 
-**topics:** 126s, 17s, 2-2s, 393s, 400s, 52s, cancel, homebrew-fixes-persist, measuring, nine, playwright, probe, probes, runner, sheets, sleeps, slow, timeout
+**topics:** 126s, 17s, 2-2s, 393s, 400s, 52s, homebrew-fixes-persist, measuring, nine, playwright, probe, probes, run, runner, sheets, sleeps, slow, timeout
 
 - Where the time actually goes
 - The rule: batch variables into ONE run
@@ -1765,7 +1765,7 @@ _fork-customization · fork customization_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, cards, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, title, tray, workaround
+**topics:** accent, card, cards, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -3139,7 +3139,7 @@ _roadmap · roadmap_
 
 _rule-preview-cards · rule preview cards_
 
-**topics:** 2026-10-20, card, closes, desktop, link, links, mockups, opens, owner, padding, phone, preview, prone, roll, scroll, tap, text, weapon-mastery-plan
+**topics:** 2026-10-20, card, closes, desktop, link, mastery, mockups, opens, owner, padding, phone, preview, prone, roll, scroll, tap, text, weapon-mastery-plan
 
 - How it works today (verified 2026-10-20, feature/weapons-table)
 - Agreed changes (owner, 2026-10-20)
@@ -3725,7 +3725,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** advantage, attack, band, cleave, graze, hit, masteries, mastery, owner, preview, prone, srd, summary, text, topple, turn, vex, weapon
+**topics:** attack, band, card, cleave, graze, hit, masteries, mastery, owner, preview, prone, srd, summary, text, topple, turn, vex, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)
@@ -3741,6 +3741,7 @@ _weapon-mastery-plan · weapon mastery plan_
 - Display: the summary in the band, the full text one hover or tap away (recommended)
 - Mastery from the player's side (owner, 2026-10-20)
 - Swapping masteries (SRD 5.2.1, checked 2026-10-21)
+- Decided, round 5 (owner, 2026-10-21)
 - Decisions for the owner
 - Plan (after the decisions)
 

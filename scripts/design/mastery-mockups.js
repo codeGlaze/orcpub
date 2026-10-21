@@ -112,6 +112,25 @@ async function setup(page, phone) {
     .mk-overridden .weapon-mastery-cap{background:#f0a100;font-size:10.5px;margin:-3px 0 -3px -10px}
     .mk-overridden .weapon-mastery-trigger{font-size:10.5px;color:rgba(230,233,238,.6)}
     .mk-overridden .weapon-mastery-summary{font-size:12px;font-weight:600;color:#e6e9ee}
+    .mk-pbox2{border:1px solid rgba(230,233,238,.22);border-radius:6px;padding:8px 10px 10px;background:rgba(255,255,255,.035)}
+    .mk-ptitle{display:flex;align-items:center;gap:8px;min-height:36px}
+    .mk-ptitle-text{font-weight:700;font-size:16px;letter-spacing:.01em;white-space:nowrap}
+    .mk-pcount{font-size:13px;opacity:.7;min-width:0}
+    .mk-ptitle .mk-brew{margin-left:auto}
+    .mk-pchev{background:none;border:0;color:inherit;font-size:24px;width:44px;height:44px;margin:-4px -10px -4px -4px;opacity:.8}
+    .mk-kchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+    .mk-kchip{display:inline-flex;align-items:baseline;gap:6px;padding:4px 10px;border-radius:14px;border:1px solid rgba(230,233,238,.3);font-size:13px}
+    .mk-kchip b{font-weight:600}
+    .mk-kmast{color:#f0a100;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+    .mk-kx{opacity:.6;margin-left:2px}
+    .mk-kbrew{border-style:dashed;border-color:#f0a100}
+    .mk-kadd{border-style:dashed;opacity:.8}
+    .mk-swapping{border-color:#f0a100}
+    .mk-swapping s{opacity:.55}
+    .mk-rest-title{display:flex;align-items:center;font-size:18px;font-weight:700;margin-bottom:6px}
+    .mk-rest-sec{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.2)}
+    .mk-rest-sec-title{font-weight:700;font-size:15px;margin-bottom:8px}
+    .mk-rest-hint{font-size:12px;opacity:.65;margin-top:6px}
     .mk-x{margin-left:auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px}
     .mk-sheet .mk-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);margin:0 auto 10px}
     .mk-line{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -245,32 +264,33 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
         document.querySelectorAll('.mk-panel, .mk-dim, .srd-preview.mk').forEach(e => e.remove());
         const sec = document.querySelector('.weapons-section');
         const head = [...document.querySelectorAll('span.f-w-b.f-s-18')].find(e => e.offsetParent && e.textContent.trim() === 'Weapons');
-        const headRow = head.closest('div.flex') || head.parentElement;
         const el = document.createElement('div');
         el.className = 'mk-panel'; el.setAttribute('data-mk', 'panel');
-        const kinds = 'Battleaxe, Longsword, Handaxe';
-        const change = '<button class="mk-link">Change</button>';
-        if (kind === 'line') {
-          el.innerHTML = `<div class="mk-pline"><span class="weapon-mastery-cap mk-pcap">Mastery</span><span class="mk-ptext">3 of 3 \u00B7 next Long Rest: no change</span><span class="mk-chev">\u203A</span></div>`;
-        } else {
-          const rest = kind === 'planned'
-            ? '<span class="mk-ptext">Next Long Rest: <b>Handaxe \u2192 Glaive</b></span><button class="mk-link">Undo</button>'
-            : '<span class="mk-ptext">Next Long Rest: no change</span>' + change;
-          el.innerHTML = `<div class="mk-pbox"><div class="mk-pline"><span class="weapon-mastery-cap mk-pcap">Mastery</span><span class="mk-ptext"><b>3 of 3</b> \u00B7 ${kinds}</span></div>
-            <div class="mk-pline">${rest}</div></div>`;
-        }
-        head.closest('.weapons-section') ? head.parentElement.after(el) : sec.parentElement.insertBefore(el, sec);
-        if (kind === 'sheet') {
+        const brew = kind === 'brew';
+        const chip = (w, m, extra) => `<span class="mk-kchip${extra ? ' ' + extra : ''}"><b>${w}</b><span class="mk-kmast">${m}</span>${brew ? '<span class="mk-kx">✕</span>' : ''}</span>`;
+        const chips = kind === 'planned'
+          ? chip('Battleaxe', 'Topple') + chip('Longsword', 'Sap') + `<span class="mk-kchip mk-swapping"><b><s>Handaxe</s> → Glaive</b><span class="mk-kmast">Graze</span></span>`
+          : chip('Battleaxe', 'Topple') + chip('Longsword', 'Sap') + chip('Handaxe', 'Vex') + (brew ? chip('Glaive', 'Graze', 'mk-kbrew') + '<span class="mk-kchip mk-kadd">+ Add</span>' : '');
+        const status = kind === 'planned' ? 'swap planned' : brew ? '4 · house rule' : '3 of 3';
+        el.innerHTML = `<div class="mk-pbox2">
+          <div class="mk-ptitle"><span class="mk-ptitle-text">Weapon Mastery</span><span class="mk-pcount">${status}</span>
+            <button class="mk-brew${brew ? ' on' : ''}" aria-label="Choose freely (house rule)"><span class="mk-stein"></span><span class="mk-knob"></span></button>
+            <button class="mk-pchev" aria-label="Plan a swap">›</button></div>
+          <div class="mk-kchips">${chips}</div></div>`;
+        head.parentElement.after(el);
+        if (kind === 'rest') {
           const d = document.createElement('div'); d.className = 'mk-dim'; document.querySelector('.app').appendChild(d);
           const s = document.createElement('div'); s.className = 'srd-preview mk mk-sheet';
           const sel = [...document.querySelectorAll('select')].find(x => x.offsetParent);
           const cls = sel ? sel.className : '';
           s.innerHTML = `<div class="mk-handle"></div>
-            <div class="mk-head"><span class="weapon-mastery-cap">Mastery</span><span class="mk-sub">After your next Long Rest</span><span class="mk-x">\u2715</span></div>
-            <div class="mk-lead" style="font-size:14px">As a Fighter you can swap <b>one</b> weapon kind each Long Rest.</div>
-            <div class="mk-swap" style="margin-top:12px"><select class="${cls}"><option>Handaxe \u00B7 Vex</option></select><span class="mk-arrow">\u2192</span>
-              <select class="${cls}"><option>Glaive \u00B7 Graze</option></select></div>
-            <div class="mk-actions"><button class="mk-btn-plain">Keep all</button><button class="form-button mk-btn">Swap at next Long Rest</button></div>`;
+            <div class="mk-rest-title">Finish Long Rest<span class="mk-x">✕</span></div>
+            <div class="mk-lead" style="font-size:14px;opacity:.85">Hit points, spell slots and uses come back.</div>
+            <div class="mk-rest-sec"><div class="mk-rest-sec-title">Weapon Mastery <span class="mk-dim-text">swap one</span></div>
+              <div class="mk-swap"><select class="${cls}"><option>Keep all</option></select><span class="mk-arrow">→</span>
+              <select class="${cls}" disabled style="opacity:.5"><option>—</option></select></div>
+              <div class="mk-rest-hint">A swap you planned shows here already chosen.</div></div>
+            <div class="mk-actions"><button class="mk-btn-plain">Cancel</button><button class="form-button mk-btn">Finish Long Rest</button></div>`;
           document.querySelector('.app').appendChild(s);
         }
         return true;
@@ -284,8 +304,8 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
           b.querySelector('.weapon-mastery-summary').textContent = text;
           row.appendChild(b); row.setAttribute('data-mk-band', ''); row.classList.add('mk-added');
         } });
-      for (const [kind, file] of [['resting', '3a-panel-resting.png'], ['sheet', '3b-panel-plan-a-swap.png'],
-                                  ['planned', '3c-panel-swap-planned.png'], ['line', '3d-panel-one-line.png']]) {
+      for (const [kind, file] of [['resting', '3a-panel-resting.png'], ['brew', '3b-panel-house-rule.png'],
+                                  ['planned', '3c-panel-swap-planned.png'], ['rest', '3d-long-rest-sheet.png']]) {
         check(await panel(kind), `panel: ${kind}`);
         await centre(page, 'panel', 'start');
         await shot(page, file);

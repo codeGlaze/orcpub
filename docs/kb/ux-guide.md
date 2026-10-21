@@ -185,3 +185,9 @@ Newest last. Date, ruling, and what it replaced.
   Details lists each field that differs, here and saved. Save mine saves over the other; Use saved
   loads it and keeps the builder's version in Unsaved drafts. Chosen over the two choices alone:
   the player sees what they would overwrite. Review page claude.ai/artifact/C5pLwAPXYHnmpfkrsHeNuW.
+- 2026-10-21 (design note, not yet designed): a section with its own display settings gets an icon
+  that links to that section's customization menu (the Weapons table to its display settings, for
+  example), so a player can find what changes it from where they see it.
+- 2026-10-21: a "New" tag on a row is not used: it was missed even when looked for, and reads as new
+  to the site. A control the player has not used yet glows instead, a few pulses slowing to a stop
+  (the 1H / 2H switch's pulse), and opening it once stops it for good.
