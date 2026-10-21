@@ -2,9 +2,9 @@
   "Fills the AcroForm character sheet templates in resources/. Cards live in
    orcpub.pdf.cards, shared drawing in orcpub.pdf.draw.
 
-   Text fields auto-size (`/Helv 0 Tf`): PDFBox shrinks text to 4pt, then clips;
-   `fit-text` splits text at `min-font-size` instead. Fields sharing a name share
-   one value, so repeated pages need unique names."
+   Text fields are set in Nimbus Sans; an auto-sized one (`0 Tf`) shrinks to 4pt, then
+   clips, so `fit-text` splits text at `min-font-size` instead. Fields sharing a name
+   share one value, so repeated pages need unique names."
   (:require [clojure.string :as s]
             [clojure.stacktrace :as strace]
             [clojure.java.io :as io]
@@ -779,15 +779,10 @@
                       (Double/parseDouble (second m))))))))
 
 (defn- field-text
-  "`v` as a form field prints it, and the font resource to print it in. A value
-   Helvetica can draw keeps today's path exactly; one it cannot switches that one
-   field to Nimbus Sans, where WinAnsi-only Helvetica had printed Łukasz as ?ukasz."
+  "`v` as a form field prints it: whatever Nimbus Sans, the form's one font, can draw.
+   Helvetica, the templates' own, is WinAnsi-only and printed Łukasz as ?ukasz."
   [v]
-  ;; Only when Nimbus refuses FEWER: a value whose one odd character neither font has
-  ;; would otherwise change font, and weight, for nothing.
-  (if (< (draw/refused v draw/nimbus-covers?) (draw/refused v draw/winansi?))
-    [(draw/normalize-text v draw/nimbus-covers?) "NmS"]
-    [(draw/normalize-text v) "Helv"]))
+  (draw/normalize-text v draw/nimbus-covers?))
 
 (defn- field-font!
   "Nimbus Sans in `form`'s default resources as /NmS, added on first use. Embedded in
@@ -807,6 +802,19 @@
   "`da` with its font resource replaced by `font-name`, keeping the size and colour."
   [da font-name]
   (s/replace (or da "/Helv 0 Tf 0 g") #"/[^\s/]+(\s+[\d.]+\s+Tf)" (str "/" font-name "$1")))
+
+(defn- use-font!
+  "Points `field` and each of its widgets at font resource `font-name`, each keeping its
+   own size. Written to the dictionaries directly: setDefaultAppearance copies the
+   FIELD's DA over every kid widget's (PDFBOX-5797), and that wiped the templates'
+   fixed sizes -- 25 widgets in style 1 -- turning an 8pt save box into a 4.89pt one."
+  [field font-name]
+  (let [own (.getCOSObject field)]
+    (.setString own COSName/DA (with-da-font (.getDefaultAppearance field) font-name))
+    (doseq [w (.getWidgets field)
+            :let [wd (.getCOSObject w) da (.getString wd COSName/DA)]
+            :when (and da (not (identical? wd own)))]
+      (.setString wd COSName/DA (with-da-font da font-name)))))
 
 (defn- shrink-single-line-to-fit!
   "Rewrites a single-line field at a smaller size when its value is wider than its
@@ -829,7 +837,7 @@
 
 (defn write-fields!
   "Populates the AcroForm in `doc` from `fields` {field-name-keyword value}: checkboxes
-   take truthy/falsey, text is normalized to WinAnsi. Truthy `flatten?` bakes values into
+   take truthy/falsey, text is set in Nimbus Sans. Truthy `flatten?` bakes values into
    page content and removes the form; `font-sizes` {field-name-keyword pt} applies ONLY
    then. Bakes real appearance streams, as Firefox's print path ignores NeedAppearances.
    Returns the sorted names the template has no field for; they are logged and dropped,
@@ -838,10 +846,9 @@
   (let [catalog (.getDocumentCatalog doc)
         form (.getAcroForm catalog)
         res (or (.getDefaultResources form) (PDResources.))]
-    ;; The templates' field default appearances reference "/Helv"; ensure it's in
-    ;; the form default resources so PDFBox can GENERATE appearance streams (missing
-    ;; it -> generation silently fails -> blank in viewers/print paths that don't
-    ;; honor NeedAppearances).
+    ;; /Helv in the form resources, or appearance generation fails silently and the
+    ;; field prints blank. Text fields move to /NmS below; the form's own /DA and
+    ;; non-text fields can still name /Helv.
     (when (nil? (.getFont res (COSName/getPDFName "Helv")))
       ;; Fresh instance (not the shared module-level HELVETICA): this COS object is
       ;; added to THIS document's resource tree, and sharing one across documents
@@ -852,7 +859,7 @@
     (.setNeedAppearances form false)
     ;; One index rather than a lookup per value: PDAcroForm.getField walks the
     ;; field tree on every call, which dominated the export's allocation.
-    (let [field-font (delay (field-font! doc form))
+    (let [field-font (field-font! doc form)
           by-name (persistent!
                    (reduce (fn [m field]
                              (assoc! m (.getFullyQualifiedName field) field))
@@ -870,20 +877,21 @@
       (when (seq unplaceable)
         (println (format "pdf/write-fields!: %d value(s) had no field in this template and were dropped: %s"
                          (count unplaceable) (s/join ", " unplaceable))))
+      ;; Every text field, filled or blank: a player typing into a blank one in their
+      ;; viewer gets Nimbus's glyphs, not WinAnsi-only Helvetica's.
+      (doseq [f (vals by-name) :when (instance? PDTextField f)]
+        (use-font! f "NmS"))
       (doseq [[k v] fields]
       (try
         (let [field (get by-name (name k))]
           (when field
             (let [text-field? (instance? PDTextField field)
-                  [text font-name] (if text-field? (field-text v) [nil "Helv"])
-                  font (if (= "Helv" font-name) draw/HELVETICA @field-font)]
-              (when (and text-field? (not= "Helv" font-name))
-                (.setDefaultAppearance field (with-da-font (.getDefaultAppearance field) font-name)))
+                  text (when text-field? (field-text v))]
               ;; font-sizes gated on flatten?: interactive forms keep the template's
-              ;; `/Helv 0 Tf` auto-sizing; flattening bakes a concrete size, so we
-              ;; rewrite the DA to the caller's size first.
+              ;; `0 Tf` auto-sizing; flattening bakes a concrete size, so we rewrite
+              ;; the DA to the caller's size first.
               (when (and flatten? (font-sizes k) text-field?)
-                (.setDefaultAppearance field (str "/" font-name "  " (font-sizes k) " Tf 0 0 0 rg")))
+                (.setDefaultAppearance field (str "/NmS " (font-sizes k) " Tf 0 0 0 rg")))
               (.setValue
                field
                (cond
@@ -897,7 +905,7 @@
                          (not (.isMultiline field))
                          (not (s/blank? text)))
                 (doseq [widget (.getWidgets field)]
-                  (shrink-single-line-to-fit! field widget text font font-name))))))
+                  (shrink-single-line-to-fit! field widget text field-font "NmS"))))))
         (catch Exception e (prn "failed writing field: " k v (strace/print-stack-trace e)))))
       (when flatten?
         (fix-widget-page-refs! doc)
@@ -1785,11 +1793,9 @@
     (.setWidgets field (java.util.ArrayList. [widget]))
     (.setAnnotations page (java.util.ArrayList. [widget]))
     (.setFields form (java.util.ArrayList. (conj (vec (.getFields form)) field)))
-    (let [[text font-name] (field-text text)]
-      (when (not= "Helv" font-name)
-        (field-font! doc form)
-        (.setDefaultAppearance field (with-da-font (.getDefaultAppearance field) font-name)))
-      (.setValue field text))
+    (field-font! doc form)
+    (use-font! field "NmS")
+    (.setValue field (field-text text))
     page))
 
 (defn spill-overflow!

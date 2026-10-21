@@ -224,11 +224,6 @@
                            (ascii-fallback %) (ascii-fallback %)
                            :else "?"))))))
 
-(defn refused
-  "How many characters of `s` normalize-text would not print as themselves under `keep?`."
-  [s keep?]
-  (count (filter #(and (> (int %) 0xFF) (not (keep? (int %)))) (str s))))
-
 (defn font-safe
   "`text` with whatever `font` has no glyph for made drawable: characters below 0x20
    dropped, anything else replaced by `?`. Returns `text` itself when the whole string

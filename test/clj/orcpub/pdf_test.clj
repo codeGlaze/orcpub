@@ -9,7 +9,9 @@
             [orcpub.pdf.cards :as cards]
             [orcpub.dnd.e5.spell-packing :as packing])
   (:import (org.apache.pdfbox Loader)
-           (org.apache.pdfbox.cos COSName)
+           (org.apache.pdfbox.cos COSName COSString)
+           (org.apache.pdfbox.pdfparser PDFStreamParser)
+           (org.apache.pdfbox.contentstream.operator Operator)
            (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream PDResources)
            (org.apache.pdfbox.pdmodel.common PDRectangle)
            (org.apache.pdfbox.pdmodel.font PDType1Font Standard14Fonts$FontName)
@@ -71,8 +73,7 @@
                    (->> (all-fields form) (filter #(instance? PDTextField %)) first))]
         (pdf/write-fields! doc {(keyword fname) "“René” — 日"} false {})
         (is (= "“René” — ?" (.getValueAsString (.getField form fname)))
-            "punctuation kept, CJK -> '?', and the field stays on Helvetica: Vollkorn
-             cannot draw the CJK either, so switching would gain nothing")))))
+            "punctuation kept, CJK -> '?': Nimbus Sans has no CJK either")))))
 
 (deftest make-image-loader-embeds-once
   (testing "the per-document loader memoizes: the same icon path returns the SAME
@@ -558,12 +559,27 @@
           (is (nil? (pdf/spell-level-numeral-box doc 12 1))))))))
 
 (defn- drawn-text
-  "The strings a field's generated appearance actually shows."
+  "The strings a field's generated appearance actually shows, decoded through the font
+   it sets. The form is in embedded Nimbus Sans, a Type0 font, so a shown string's bytes
+   are glyph codes: read as text, a drawn \"4\" looked like nothing was drawn."
   [form field-name]
   (let [widget (first (.getWidgets (.getField form field-name)))
-        stream (.getAppearanceStream (.getNormalAppearance (.getAppearance widget)))]
-    (with-open [in (.createInputStream (.getCOSObject stream))]
-      (map second (re-seq #"\(([^)]*)\)\s*Tj" (String. (.readAllBytes in) "ISO-8859-1"))))))
+        stream (.getAppearanceStream (.getNormalAppearance (.getAppearance widget)))
+        res (or (.getResources stream) (.getDefaultResources form))]
+    (loop [[t & more] (seq (.parse (PDFStreamParser. stream))), args [], font nil, out []]
+      (cond
+        (nil? t) out
+        (not (instance? Operator t)) (recur more (conj args t) font out)
+        (= "Tf" (.getName ^Operator t))
+        (recur more [] (or (.getFont res (first args)) (.getFont (.getDefaultResources form) (first args))) out)
+        (and (= "Tj" (.getName ^Operator t)) font (instance? COSString (last args)))
+        (let [in (java.io.ByteArrayInputStream. (.getBytes ^COSString (last args)))
+              text (apply str (loop [acc []]
+                                (if (pos? (.available in))
+                                  (recur (conj acc (.toUnicode font (.readCode font in))))
+                                  acc)))]
+          (recur more [] font (conj out text)))
+        :else (recur more [] font out)))))
 
 (deftest slot-totals-and-expended-reach-the-page
   (testing "SLOTS TOTAL is spell-slots-<level>-<class> and SLOTS EXPENDED is a

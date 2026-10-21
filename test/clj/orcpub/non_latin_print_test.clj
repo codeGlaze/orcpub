@@ -50,6 +50,28 @@
       (is (str/includes? (.getName (.getFont dr (org.apache.pdfbox.cos.COSName/getPDFName "NmS")))
                          "NimbusSans")))))
 
+(deftest the-templates-own-sizes-survive-the-font-swap
+  ;; 25 widgets in style 1 carry their own DA with a fixed size (24 at 8pt, one at 10).
+  ;; PDVariableText.setDefaultAppearance copies the FIELD's DA over every kid widget's
+  ;; (PDFBOX-5797), so swapping the font through it turned those into auto-size: a save
+  ;; box holding +7 printed at 4.89pt instead of 8.
+  (let [sizes (fn [doc]
+                (into {} (for [f (iterator-seq (.iterator (.getFieldTree (.getAcroForm (.getDocumentCatalog doc)))))
+                               :when (instance? org.apache.pdfbox.pdmodel.interactive.form.PDTextField f)
+                               [i w] (map-indexed vector (.getWidgets f))
+                               :let [da (.getString (.getCOSObject w) org.apache.pdfbox.cos.COSName/DA)]
+                               :when da]
+                           [[(.getFullyQualifiedName f) i] (second (re-find #"/\S+ ([\d.]+) Tf" da))])))]
+    (with-open [before (template 1) after (template 1)]
+      (pdf/write-fields! after {:int-save "+7" :character-name wide} false {})
+      (let [b (sizes before) a (sizes after)
+            fixed (filter (fn [[_ sz]] (not= "0" sz)) b)]
+        (is (= 25 (count fixed)) "the premise: what the template sets")
+        (is (= b (select-keys a (keys b))) "every widget keeps the size it came with")
+        ;; Merged field/widget dictionaries that only INHERITED a DA now carry their
+        ;; own, naming Nimbus. Still auto-size, which is what they inherited.
+        (is (every? #{"0"} (vals (apply dissoc a (keys b)))))))))
+
 (deftest nimbus-sans-is-helvetica-width
   ;; The reason it was chosen, pinned: replacing it with a "lookalike" that is not
   ;; metric-compatible would change how every switched field fits.
@@ -63,14 +85,21 @@
                 (str (format "U+%04X" cp) " off by " (Math/round (double d))))]
       (is (empty? off) (str/join ", " off)))))
 
-(deftest a-latin-1-sheet-is-unchanged
-  ;; The switch is per field and only when Helvetica would have printed `?`, so every
-  ;; export that works today keeps its font, its appearance streams and its file size.
+(deftest every-sheet-field-uses-nimbus-sans
+  ;; One font for the whole form, not Helvetica with Nimbus where Helvetica fails. The
+  ;; widths are identical either way; embedding also means every viewer draws the same
+  ;; glyphs, where standard-14 Helvetica is whatever lookalike the viewer substitutes.
+  ;; BLANK fields too: a player filling the PDF in their viewer gets Nimbus's glyphs.
   (with-open [doc (template 1)]
     (pdf/write-fields! doc {:character-name latin} false {})
-    (let [f (field-of doc "character-name")]
-      (is (= latin (.getValueAsString f)))
-      (is (str/starts-with? (.getDefaultAppearance f) "/Helv")))))
+    (let [form (.getAcroForm (.getDocumentCatalog doc))
+          texts (filter #(instance? org.apache.pdfbox.pdmodel.interactive.form.PDTextField %)
+                        (iterator-seq (.iterator (.getFieldTree form))))
+          off (remove #(str/starts-with? (str (.getDefaultAppearance %)) "/NmS") texts)]
+      (is (= latin (.getValueAsString (field-of doc "character-name"))))
+      (is (< 100 (count texts)) "the guard reaches the whole form, not one field")
+      (is (empty? off) (str (count off) " field(s) not on Nimbus, e.g. "
+                            (some-> (first off) .getFullyQualifiedName))))))
 
 (deftest a-flattened-sheet-draws-a-non-latin-value
   ;; End to end: the value has to survive into the page content, not just the field.
