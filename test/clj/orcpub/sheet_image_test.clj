@@ -4,7 +4,7 @@
    fit-sheet-to-page! re-papers the sheet by moving the MEDIABOX, so the template's
    content keeps its Letter coordinate space. Anything drawn onto a template page after
    that must measure against Letter; measuring against the requested page instead puts
-   the image 49.89pt off on A4 and about 197pt off on A5."
+   the image 49.89pt off on A4."
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.string :as str]
             [orcpub.pdf-ops :as ops]
@@ -39,8 +39,7 @@
   (let [letter (portrait-cm :letter)]
     (testing "the placement is the template's, so it is the same on every paper"
       (is (seq letter) "an image was drawn")
-      (is (= letter (portrait-cm :a4)) "A4")
-      (is (= letter (portrait-cm :a5)) "A5"))))
+      (is (= letter (portrait-cm :a4)) "A4"))))
 
 (deftest the-shim-moves-the-window-not-the-content
   (testing "fit-sheet-to-page! leaves content coordinates alone"

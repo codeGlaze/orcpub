@@ -1188,8 +1188,8 @@
                                     (str class))]
                                  (spellbook/spell-sort-key spell-order (spells-map key))))
                          flat-spells)
-          ;; Capacity, not 9: a page holds 9 on Letter and A4 but 4 on A5, and
-          ;; print-spells draws only as many as there are cells -- the rest vanished.
+          ;; Capacity, not 9: print-spells draws only as many as the page has cells,
+          ;; so a literal 9 drops the rest on any paper that holds fewer.
           parts (vec (partition-all (draw/cards-per-page 2.5 3.5) sorted-spells))]
       (doseq [i (range (count parts))
               :let [part (parts i)]]
@@ -1334,12 +1334,10 @@
   #{1 2 3 4})
 
 (def valid-page-sizes
-  "Paper the export draws on. Letter and A4 are both designed for; A5 fits 4 cards a
-   page instead of 9 and suits a pocket spellbook, not a character sheet.
-
-   The character-sheet TEMPLATES are 612x792 whatever this says -- their artwork is
-   fixed, and fitting them to A4 is a separate shim."
-  #{:letter :a4 :a5})
+  "Paper the export draws on: Letter, the default, and A4. Anything else falls back to
+   Letter. The character-sheet TEMPLATES are 612x792 whatever this says -- their
+   artwork is fixed, and fit-sheet-to-page! re-papers them onto A4."
+  #{:letter :a4})
 
 (def default-sheet-style 1)
 

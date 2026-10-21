@@ -19,18 +19,11 @@
 
 (deftest page-sizes-are-iso-216
   (testing "to the hundredth of a point, not rounded to the nearest point"
-    ;; 210x297mm and 148x210mm at 72pt/inch over 25.4mm/inch.
+    ;; 210x297mm at 72pt/inch over 25.4mm/inch.
     (is (= [595.28 841.89] (draw/page-size :a4)))
-    (is (= [419.53 595.28] (draw/page-size :a5)))
     (is (= [612.0 792.0] (draw/page-size :letter))))
-  (testing "A5 is half an A4 only to the millimetre, NOT exactly"
-    ;; ISO 216 halves the previous size and rounds DOWN to a whole mm: half of A4's
-    ;; 297mm is 148.5, but A5 is 148. So 2-up A5 on A4 leaves a 0.5mm = 1.4175pt
-    ;; sliver. Fine to print; not fine to assert as exact, which this test caught.
-    (let [gap (- (/ (second (draw/page-size :a4)) 2)
-                 (first (draw/page-size :a5)))]
-      (is (< 1.41 gap 1.42) "half of 297mm less 148mm, in points")
-      (is (pos? gap) "A5 is the narrower of the two, never wider"))))
+  (testing "Letter and A4 are the two papers designed for; nothing else is offered"
+    (is (= #{:letter :a4} (set (keys draw/page-sizes))))))
 
 (deftest accessors-follow-the-binding
   (testing "page-width and page-height read *page*, in the caller's unit"
@@ -38,9 +31,7 @@
     (is (= 11.0 (draw/page-height 72)))
     (binding [draw/*page* :a4]
       (is (= 595.28 (draw/page-width 1)))
-      (is (= 841.89 (draw/page-height 1))))
-    (binding [draw/*page* :a5]
-      (is (= 419.53 (draw/page-width 1))))))
+      (is (= 841.89 (draw/page-height 1))))))
 
 (deftest the-flip-follows-the-binding
   (testing "pt-from-top is the choke point every y conversion goes through"
@@ -48,9 +39,7 @@
     (binding [draw/*page* :a4]
       (is (= (float 841.89) (draw/pt-from-top 72 0)))
       ;; An inch down from the top of a taller page is lower in PDF space.
-      (is (= (float (- 841.89 72)) (draw/pt-from-top 72 1))))
-    (binding [draw/*page* :a5]
-      (is (= (float 595.28) (draw/pt-from-top 1 0))))))
+      (is (= (float (- 841.89 72)) (draw/pt-from-top 72 1))))))
 
 (deftest the-spellbook-follows-the-binding
   (testing "page-w/page-h were load-time defs, which no binding could reach"
@@ -71,13 +60,12 @@
         (ops/page-ops pg)))))
 
 (deftest the-card-grid-resizes
-  (testing "9 up on Letter and A4, 4 up on A5 -- the grid is computed, not assumed"
-    ;; floor(8.5/2.5)=3 x floor(11/3.5)=3; A4 3.30x3.34 -> 3x3; A5 2.33x2.36 -> 2x2.
+  (testing "9 up on Letter and A4 -- the grid is computed, not assumed"
+    ;; floor(8.5/2.5)=3 x floor(11/3.5)=3; A4 3.30x3.34 -> 3x3.
     ;; Each boundary line is moveTo + lineTo + stroke, so 3 ops a line.
     (let [lines #(/ (count (filter (fn [o] (re-find #" l$" o)) %)) 1)]
       (is (= 8 (lines (grid-ops :letter))) "4 vertical + 4 horizontal for 3x3")
-      (is (= 8 (lines (grid-ops :a4))) "A4 also fits 3x3, at different margins")
-      (is (= 6 (lines (grid-ops :a5))) "3 + 3 for 2x2")))
+      (is (= 8 (lines (grid-ops :a4))) "A4 also fits 3x3, at different margins")))
   (testing "and A4's grid is not Letter's grid: same box count, different margins"
     (is (not= (grid-ops :letter) (grid-ops :a4)))))
 
@@ -102,9 +90,11 @@
           "if these match, the page is being consulted and discarded again"))))
 
 (deftest the-request-option-is-validated
-  (testing "the three we design for are accepted"
-    (doseq [p [:letter :a4 :a5]]
+  (testing "the two we design for are accepted"
+    (doseq [p [:letter :a4]]
       (is (= p (#'routes/one-of routes/valid-page-sizes p :letter)))))
+  (testing "A5 is no longer offered: a request for it gets Letter, not an error"
+    (is (= :letter (#'routes/one-of routes/valid-page-sizes :a5 :letter))))
   (testing "a string names the same page, as the client sends it"
     (is (= :a4 (#'routes/one-of routes/valid-page-sizes "a4" :letter))))
   (testing "anything else falls back to Letter rather than throwing.

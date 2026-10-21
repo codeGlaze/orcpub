@@ -25,8 +25,7 @@
   "Page dimensions in POINTS, [width height]. ISO 216 for the A series; US Letter is
    612x792, which is exactly 8.5x11 inches."
   {:letter [612.0 792.0]
-   :a4     [595.28 841.89]
-   :a5     [419.53 595.28]})
+   :a4     [595.28 841.89]})
 
 (def ^:dynamic *page*
   "The page every drawing call measures against, a key of `page-sizes`. Bind it once per
@@ -382,15 +381,15 @@
 
 (defn cards-per-page
   "How many `box-width` x `box-height` inch cards fit the bound page. What a caller must
-   partition by -- 9 on Letter and A4, 4 on A5, and a literal 9 drops the rest."
+   partition by: a literal 9 drops whatever the page holds beyond its cells."
   [box-width box-height]
   (let [{:keys [cols rows]} (grid-layout box-width box-height)]
     (* cols rows)))
 
 (defn draw-grid
   "The cut grid for cards `box-width` x `box-height` inches, as many as fit the bound
-   page, centred. Light grey lines. Takes its page from `*page*`, so a 2-up A5 grid on
-   A4 is the same call with a different binding."
+   page, centred. Light grey lines. Takes its page from `*page*`, so an A4 grid is the
+   same call with a different binding."
   [cs box-width box-height]
   (let [{:keys [cols rows margin-x margin-y width height]} (grid-layout box-width box-height)
         ;; PDFBox 3.x: setStrokingColor(float,float,float) requires 0.0-1.0 range

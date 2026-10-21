@@ -2,8 +2,8 @@
   "The spellbook's page furniture must stay on the paper.
 
    The level tabs are placed AFTER the class statistics, so nothing bounded the pair:
-   measured, three classes run to 344pt of A5's 347pt body, and a 60-character class
-   label overruns Letter by 75pt. The tabs then print off the edge.
+   measured, a 60-character class label overran Letter by 75pt and the tabs printed off
+   the edge.
 
    chap-unit had the same shape: it drew the class name at 20pt with no bound, so a
    60-character name put the LEVEL text beside it at 1282pt on any paper."
@@ -63,14 +63,12 @@
            (+ (Double/parseDouble (first ts)) 10.0))))
 
 (deftest the-running-head-stays-on-the-paper
-  (doseq [[page-kw label] [[:letter "Letter"] [:a4 "A4"] [:a5 "A5"]]]
+  (doseq [[page-kw label] [[:letter "Letter"] [:a4 "A4"]]]
     (let [limit (first (draw/page-size page-kw))]
       ;; Guards the guard: 0.0 above means a book with no tabs would pass silently.
       (is (pos? (tabs-right (render page-kw [(caster "Cleric" 15 "+7" "holy-symbol")])))
           "tabs were drawn")
       (testing (str label ": three classes fit")
-        ;; A5's body is 347.53pt and three classes' statistics alone reach 344.17pt,
-        ;; so before the fix the tab strip started past the page edge.
         (is (<= (tabs-right (render page-kw [(caster "Cleric" 15 "+7" "holy-symbol")
                                              (caster "Wizard" 16 "+8" "spell-book")
                                              (caster "Druid" 14 "+6" "holy-symbol")]))
@@ -99,7 +97,7 @@
            (if (= "re" k) (+ x (Double/parseDouble (nth ts 2))) x))))
 
 (deftest nothing-in-the-chapter-head-runs-past-the-paper
-  (doseq [[page-kw label] [[:letter "Letter"] [:a4 "A4"] [:a5 "A5"]]]
+  (doseq [[page-kw label] [[:letter "Letter"] [:a4 "A4"]]]
     (let [limit (first (draw/page-size page-kw))
           long-name (apply str (repeat 60 "W"))]
       (testing (str label ": a 60-character class name is clipped, not drawn off-page")
@@ -141,7 +139,7 @@
            out)))
 
 (deftest a-long-spell-name-stays-in-its-column
-  ;; No SRD name is long enough -- 0 of 319 overflow even on A5 -- but a custom spell's
+  ;; No SRD name is long enough -- 0 of 319 overflow a column -- but a custom spell's
   ;; name is bounded only by the request body, and the marks are placed after it.
   (let [long-spell {:key :probe-long :level 1 :school "evocation" :ritual true
                     :name (apply str (repeat 55 "W"))

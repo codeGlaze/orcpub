@@ -1211,7 +1211,7 @@
   "`body` with the page fixed to Letter, which is the AcroForm templates' coordinate
    space on every paper: fit-sheet-to-page! re-papers the sheet by moving the MediaBox,
    so the content it moves over keeps its original 612x792. Measured against the
-   REQUESTED page instead, the portrait sat 49.89pt high on A4 and 196.72pt low on A5."
+   REQUESTED page instead, the portrait sat 49.89pt high on A4."
   [& body]
   `(binding [draw/*page* :letter] ~@body))
 
@@ -2221,23 +2221,14 @@
   {:head "Some of this export did not fit."
    :sub  "Your sheet is below and is complete. These parts were left out:"})
 
-(def sheet-page-sizes
-  "Papers the character sheet is re-framed onto. Re-papering MOVES a window over fixed
-   612x792 artwork, so it only works where the window still contains the sheet: on A4,
-   0 of 335 widgets fall outside it; on A5, 159 do -- half the fields cut off. A5 holds
-   the cards and the spellbook, which are laid out to the paper rather than framed."
-  #{:letter :a4})
-
 (defn fit-sheet-to-page!
   "Re-papers the AcroForm sheet onto `draw/*page*`, centred. A NO-OP on :letter, which
-   the templates already are, and outside sheet-page-sizes, whose sheet pages stay
-   Letter while the drawn pages after them use the requested size.
+   the templates already are. On A4, 0 of 335 widgets fall outside the new window.
    Moves the MEDIABOX, not the content: the window shifts over the page's coordinate
    space, so artwork and widgets move together and no appearance stream is touched --
    translating 549 widget rects by hand would reach the same place and get it wrong."
   [doc]
-  (when (contains? sheet-page-sizes draw/*page*)
-   (let [[pw ph] (draw/page-size draw/*page*)]
+  (let [[pw ph] (draw/page-size draw/*page*)]
     (doseq [page (.getPages doc)
             :let [mb (.getMediaBox page)
                   tw (.getWidth mb) th (.getHeight mb)]
@@ -2249,7 +2240,7 @@
                               (float (/ (- th ph) 2.0))
                               (float pw) (float ph))]
         (.setMediaBox page box)
-        (.setCropBox page box))))))
+        (.setCropBox page box)))))
 
 (defn add-notice-page!
   "Prepends a page naming what the export dropped. Adds NO page on a clean export.

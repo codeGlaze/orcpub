@@ -886,8 +886,8 @@
                     :else (str (first names) " to " (peek names)))]
     (let [n (inc max-level) bw 10 gap 2 total (- (* n (+ bw gap)) gap)
           ;; Reserve the tab strip first: the tabs follow the stats, so an unbounded
-          ;; stats line pushes them off the paper. Three classes reach 344pt of A5's
-          ;; 347pt body. Each entry is clipped to what is left; the rest are dropped.
+          ;; stats line pushes them off the paper: a 60-character class label overran
+          ;; Letter by 75pt. Each entry is clipped to what is left; the rest dropped.
           stats-room (- (+ x w) (if (= :head tabs) (+ total 10) 0))
           fit (fn [t room] (clip* #(lining-width (:plain fonts) 6.4 % 0.6) t room))
           stats-end (reduce (fn [px t]
