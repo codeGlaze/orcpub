@@ -257,7 +257,7 @@ const letterFirst = k => /^[a-z]/.test(k);
     await dispatch(s, '[:orcpub.dnd.e5.spells/set-spell {:name "9 Lives" :option-pack ""}]');
     await dispatch(s, '[:orcpub.dnd.e5.spells/save-spell-anyway]');
     await settle(s);
-    await s.page.evaluate(() => cljs.core.swap_BANG_.call(null, re_frame.db.app_db, cljs.core.assoc,
+    await s.page.evaluate(() => void cljs.core.swap_BANG_.call(null, re_frame.db.app_db, cljs.core.assoc,
       cljs.reader.read_string(':orcpub.dnd.e5.selections/builder-item'),
       cljs.reader.read_string('{:name "9 Lives" :option-pack "" :options [{:name "First"}]}')));
     await dispatch(s, '[:orcpub.dnd.e5.selections/save-selection-anyway]');

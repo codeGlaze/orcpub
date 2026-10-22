@@ -25,20 +25,32 @@ Rules:
 
 ## Why this branch exists
 
-Homebrew is protected only where code wraps itself in the guard (`homebrew_guard.cljc`). Code
-that reads homebrew without the wrapper is unprotected, and nothing says so: grant-rows has
-hooks that throw on malformed packs because they were written before the guard and never
-wrapped. This branch makes the guarded path the only path: one registry that turns each
-content type into options inside the guard, a check that fails the build when code reads
-homebrew outside it, and a test that loads junk into every field of every content type.
+Homebrew was checked where code remembered to check it, and trusted everywhere else: a value of
+the wrong shape in one field could break a page, stop the app from starting, or make an entry
+vanish without a word. This branch checks every change to the homebrew library in one place,
+whichever way it came in, against one table of what each field holds; and a test loads junk
+into every field of every content type, by every way in, to prove it (docs/HOMEBREW_GUARD.md).
 
 ## Added
 
 ## Changed
 
+- **Homebrew:** a value in the wrong form whose meaning is plain (`"25"` for a speed, one trait
+  where a list belongs) is corrected once, on load, import, save or from a share link, and the
+  correction is what is stored and exported. A library saved before is backed up first.
+- **Homebrew:** an entry with a field that cannot be read (a number where a list of traits
+  belongs) is set aside in My Content for repair, as it was written, instead of breaking pages.
+  From a share link it is left out.
 - **Homebrew:** checking homebrew after an import or a Restore takes a fraction of the time for
   classes: each shared part of a class is checked once, not once per level.
 
 ## Fixed
+
+- **Homebrew:** a library with a content section stored as `true` no longer stops the app from
+  starting.
+- **Homebrew:** a monster from a share link with a broken name, size or type no longer breaks the
+  monster list.
+- **Homebrew:** a subrace, subclass, boon or invocation whose name could not be read no longer
+  disappears without a word; it is set aside for repair.
 
 ## Security

@@ -189,6 +189,31 @@
     (is (= stored (.getItem js/window.localStorage db/local-storage-plugins-key))
         "so a second load changes nothing")))
 
+(deftest loading-makes-the-library-fit-its-shapes-once
+  ;; A subclasses section stored as true stopped the app from starting; the loader read it
+  ;; before anything else could. See docs/HOMEBREW_GUARD.md.
+  (.setItem js/window.localStorage db/local-storage-plugins-key
+            (str "{\"P\" {:orcpub.dnd.e5/subclasses true :orcpub.dnd.e5/races {"
+                 ":hill {:key :hill :option-pack \"P\" :name \"Hill\" :speed \"25\"} "
+                 ":bad {:key :bad :option-pack \"P\" :name \"Bad\" :abilities 42}}}}"))
+  (let [as-stored (.getItem js/window.localStorage db/local-storage-plugins-key)
+        loaded (get (load-plugins!) "P")]
+    (is (= 25 (get-in loaded [:orcpub.dnd.e5/races :hill :speed])) "a fix is used")
+    (is (not (contains? (:orcpub.dnd.e5/races loaded) :bad)) "an unreadable entry is not loaded")
+    (is (not (true? (:orcpub.dnd.e5/subclasses loaded))))
+    (testing "the unreadable entry is set aside as written"
+      (is (= 42 (get-in (reader/read-string (.getItem js/window.localStorage
+                                                      db/local-storage-plugins-rejected-key))
+                        ["P" :orcpub.dnd.e5/races :bad :abilities]))))
+    (testing "the library as it was is kept, and the fix is written back"
+      (is (= (reader/read-string as-stored)
+             (reader/read-string (.getItem js/window.localStorage db/local-storage-pre-fix-key))))
+      (is (not (.includes (.getItem js/window.localStorage db/local-storage-plugins-key) "\"25\""))))
+    (testing "so a second load changes nothing"
+      (let [stored (.getItem js/window.localStorage db/local-storage-plugins-key)]
+        (is (= loaded (get (load-plugins!) "P")))
+        (is (= stored (.getItem js/window.localStorage db/local-storage-plugins-key)))))))
+
 (deftest a-library-that-stops-startup-is-set-aside-intact
   (.setItem js/window.localStorage db/local-storage-plugins-key "{\"P\" {}}")
   (is (= "{\"P\" {}}" (db/set-aside-unloadable-library!)))
