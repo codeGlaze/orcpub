@@ -31,6 +31,8 @@ through". Each round, rework the page, do not append to it:
 
 - **Summary first:** Open (what needs the owner), Decided, Bugs fixed. Short lines.
 - **Group shots by topic** (where they sit in the app), not by the round they were made in.
+- **Show today's screen** beside a redesign of something that already exists (owner, 2026-10-22: "I
+  don't know what the rest buttons look like right now").
 - **Mark every shot** Decided, Open or Fixed. Drop shots a later round replaced.
 - Two-column grid on wide screens, one column on a phone.
 

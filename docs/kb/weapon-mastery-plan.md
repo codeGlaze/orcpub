@@ -311,7 +311,10 @@ that recharges at dawn; Undo covers either. No checkbox on Short Rest. **Agreed 
 right-aligned amber buttons, a checkbox wedged between them, ragged wrapping, a Dawn button as heavy
 as a rest. Redone: two equal full-width buttons (Long Rest, Short Rest), under them "Dawn passes during
 the Long Rest" (checked) and a "Dawn only" link; the Undo line at the foot. Option A puts it in a Rest
-box like the mastery panel, option B has no box. Awaiting owner.
+box like the mastery panel, option B has no box. **Owner, 2026-10-22: the dawn line was easy to skim
+past.** Now: "☀ Dawn passes" with its box, on an amber tint, beside an outlined "☀ Dawn only" button,
+both 44px tall. (Font Awesome here has no `fa-sun-o`; the mockup uses the ☀ character.) Awaiting owner.
+**For every review:** include a shot of the screen as it is today, so the owner can compare.
 
 **Found while mocking it up:** the rest buttons show only when a trait resets on a rest
 (`views.cljs` `features-details`, `(some freqs units/long-rest-clears)` over traits); a weapon's
