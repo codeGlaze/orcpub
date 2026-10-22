@@ -148,6 +148,38 @@ next save, like the other heals. Packs stored as a fixed class item (`:equipment
    character's items. Exactly one holy symbol (amulet, emblem or reliquary) owned: that is the choice.
    Several: ask. None: add the generic "Holy symbol" to pick later.
 
+## Built: 2a wiring and 2b kit panel (2026-10-22, `feature/inventory-kits`)
+
+**Wiring.** A pack option and a pack's Equipment pick build no modifiers (`options.cljc`
+`equipment-option`, `template.cljc` `inventory-selection`); its items exist only as the picks the kit
+made. `kits/repair` runs in `reconciled-character` on every load, and after any edit that moves the
+character's Equipment picks or classes, as the follow-up event `::kits/repair` queued by the
+`queue-kit-repair` interceptor (never inside the edit). A decrease typed into a gear row is taken
+from the kits top first (`change-inventory-item-quantity-with-kits`); removing a row clears it from
+every kit.
+
+**Where a kit comes from (changed from 2a).** A pack stored as an Equipment pick is no longer
+replaced by its items: the pick stays, hidden from the builder's list, as the kit's source. So Add a
+kit, the item picker and a class's fixed pack all work one way, and a kit whose pack is no longer
+chosen (class change, the pick removed) is detectable: it asks "Remove what the Explorer's Pack
+added?" (Remove takes off what it still holds; Keep re-adds the pick as its source). Remove kit on a
+pack chosen in starting equipment leaves a marker (`:removed`) so repair does not make it again; the
+marker is dropped once the pack is no longer chosen.
+
+**Holy symbol (changed from the decided rule).** The generic "Holy Symbol" is a group, not an
+Equipment item: a pick of it builds nothing and the Choices list flags it. So when none is owned
+nothing is added and the kit asks "Which holy symbol for the ...?" with Amulet, Emblem and Reliquary;
+several owned asks among those. Exactly one owned is claimed, as decided. Owner to confirm.
+
+**Panel** (layout agent's 5a with the round 1 rulings): Kits header, "Spending uses the top kit
+first" at two kits or more, Add a kit (pack picker, "Every pack is already a kit."), the dashed empty
+slot, kit rows (low targets orange `Torch 7/10`, full ones muted), Restock only when low, asking "Use
+mine first / All new / Cancel" when spare stock could fill it, tap a kit for Use first and Remove kit
+(keep items), the Reorganize line, and one Undo for Restock, Reorganize and Add a kit (cleared by any
+other edit). Gear rows a kit tracks get the share line (`Explorer's 7/10 · 3 spare`). Restock costs
+nothing yet: paying from coins is later. Styles: `.kit-*` in `styles/core.clj`, coloured from
+`currentColor` so every theme draws them.
+
 ## Layout review, round 1 (2026-10-22, owner)
 
 The layout agent's "5a Kits, quieter" (tweaking_Kits_v1) is the base, with these rulings:

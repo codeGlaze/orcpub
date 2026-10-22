@@ -1685,7 +1685,7 @@ _feat-builder-audit · feat builder audit_
 
 _fighting-style-authoring · fighting style authoring_
 
-**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, styles, watch-list
+**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, tick, watch-list
 
 - Status — 2026-09-05: BUILT
 - The divvying rule (decided) — which classes can take a homebrew style
@@ -2856,13 +2856,14 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, choice, container, holy, item, items, kit, kits, leftovers, pack, packs, quantities, quantity, rations, refill, restock, stored, torches
+**topics:** 2026-10-22, gear, holy, items, kit, kits, leftovers, pack, packs, picker, quantities, quantity, rations, refill, reorganize, restock, stored, torches
 
 - The problems today
 - The model
 - The actions
 - Phases
 - Phase 2 design (2026-10-22, before code)
+- Built: 2a wiring and 2b kit panel (2026-10-22, feature/inventory-kits)
 - Layout review, round 1 (2026-10-22, owner)
 - The map: where equipment is written, read and saved (2026-10-22, integration d51938c1)
 - Patterns to reuse
@@ -3310,7 +3311,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, muted, override, source, source-level, stone, tag, tidewater
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, override, source, source-level, stone, tag, tagging, tidewater
 
 - What exists today
 - The proposal
