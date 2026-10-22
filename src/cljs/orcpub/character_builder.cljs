@@ -844,9 +844,9 @@
              {:on-click #(do (reset! menu? false) (kit-act! character :remove pack))}
              "Remove kit (keep items)"]])
          (when (and @asking? low?)
-           [:div.kit-indent.f-s-12
-            [:div (str "You already have " (kits/list-label could-use-spare) " that no kit holds.")]
-            [:div.flex.flex-wrap.align-items-c
+           [:div.f-s-12.m-t-5
+            [:div.kit-indent (str "You already have " (kits/list-label could-use-spare) " that no kit holds.")]
+            [:div.flex.align-items-c.justify-cont-end.kit-actions
              [:button.form-button.m-r-5
               {:on-click #(do (reset! asking? false) (kit-act! character :restock pack :mine-first))}
               "Use mine first"]

@@ -1989,6 +1989,7 @@
     [:.kit-text {:flex "1 1 auto" :min-width 0}]
     [:.kit-name {:white-space :nowrap :overflow :hidden :text-overflow :ellipsis}]
     [:.kit-indent {:padding-left "58px"}]
+    [:.kit-actions {:flex-wrap :nowrap :white-space :nowrap}]
     [:.kit-tile-empty {:border-style :dashed :background-color :transparent :opacity 0.6}]
     [:.kit-well
      {:display :flex :align-items :center :justify-content :space-between :gap "8px"
