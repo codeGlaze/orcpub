@@ -128,6 +128,8 @@ The app's patterns and what each is for. When a better one is agreed, it replace
 
 ## Decisions log
 
+- 2026-10-22: the builder's "select any number / complete" line is hidden on sections with no minimum, no maximum and no held picks: it can only ever say complete (Label only what the player would miss). A switch under Developer mode, "Hide empty pick counts", brings it back; on by default. `planned-text/count-says-nothing?`, `feature/inventory-kits`.
+
 Newest last. Date, ruling, and what it replaced.
 
 - 2026-10-03: "Planned" is the player's word for a pick that stopped applying and will return.

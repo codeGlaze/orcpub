@@ -2161,7 +2161,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, number, quarantined, repair, restore, translator, unnamed, wind
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, quarantined, repair, restore, translator, unnamed, wind, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -3653,7 +3653,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** 2026-10-16, assets, box, details, notice, phone, planned, player, png, replaced, restored, row, steel, tap, undo, undone, ux-guide, width
+**topics:** 2026-10-16, assets, box, details, notice, phone, picks, planned, player, png, replaced, restored, row, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
