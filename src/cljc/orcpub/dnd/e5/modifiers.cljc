@@ -503,13 +503,33 @@
     (deferred-magic-item-fn (fn [cfg] (mods/map-mod ?magic-armor armor-kw (equipment-cfg cfg))) armor)
     1))
 
-(defn equipment [equipment-kw cfg]
-  (mods/map-mod ?equipment equipment-kw (equipment-cfg cfg)))
+(defn add-item-cfg
+  "One gear entry after another source adds `added` to `existing`: quantities summed, equipped if
+   either source is, other fields merged. Args: two entry maps or nil. Returns `added` unchanged
+   when `existing` is nil or either quantity is missing (plan-inventory-kits.md)."
+  [existing added]
+  (let [qa (::char-equip/quantity existing)
+        qb (::char-equip/quantity added)]
+    (if (and (number? qa) (number? qb))
+      (assoc (merge existing added)
+             ::char-equip/quantity (+ qa qb)
+             ::char-equip/equipped? (boolean (or (::char-equip/equipped? existing)
+                                                 (::char-equip/equipped? added))))
+      added)))
 
-(defn deferred-equipment [equipment-kw equipment]
+(defn equipment
+  "Modifier adding `cfg` (a quantity, or an entry map) of gear `equipment-kw` to ?equipment, summed
+   with any other source of the same item. Returns the modifier."
+  [equipment-kw cfg]
+  (mods/modifier ?equipment (update ?equipment equipment-kw add-item-cfg (equipment-cfg cfg))))
+
+(defn deferred-equipment
+  "Deferred modifier for a stored gear pick of `equipment-kw`: adds the pick's entry to ?equipment,
+   summed with any other source of the same item. Returns the modifier."
+  [equipment-kw equipment]
   (mods/deferred-modifier
     ?equipment
-    (fn [cfg] (mods/map-mod ?equipment equipment-kw (equipment-cfg cfg)))
+    (fn [cfg] (mods/modifier ?equipment (update ?equipment equipment-kw add-item-cfg (equipment-cfg cfg))))
     1))
 
 (defn deferred-treasure [treasure-kw treasure]
