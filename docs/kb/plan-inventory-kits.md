@@ -1,7 +1,7 @@
 # Plan: inventory, kits and containers
 
-Agreed with the owner 2026-10-20/22, in conversation. Nothing is built. Proposed branch
-`feature/inventory-kits` from `integration` (not created until the owner approves the name).
+Agreed with the owner 2026-10-20/22, in conversation. Nothing is built yet. Branch
+`feature/inventory-kits`, cut from `integration` at `d51938c1` (2026-10-22), worktree `orcpub-inventory`.
 Evidence for the problems: [equipment-parity.md](equipment-parity.md), "Gear, packs and quantities:
 seen in the app"; [entity-options-architecture.md](entity-options-architecture.md), "Equipment
 Storage: Map vs Vector".
