@@ -193,7 +193,7 @@ run_in_container() {
   docker cp "$MANAGE_SCRIPT" "${container}:/tmp/manage-user.clj"
 
   # Run it with the uberjar classpath
-  docker exec "$container" \
+  docker exec -u app "$container" \
     java -cp /orcpub.jar clojure.main /tmp/manage-user.clj "$@"
 }
 

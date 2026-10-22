@@ -112,17 +112,19 @@ ARG TZ=America/Chicago
 ENV TZ=${TZ}
 
 # PDFBox requires fontconfig, fonts, and lcms2 for PDF character sheet generation
-RUN apk add --no-cache fontconfig ttf-dejavu freetype lcms2 tzdata
+RUN apk add --no-cache fontconfig ttf-dejavu freetype lcms2 tzdata su-exec
 
 COPY --from=app-builder /orcpub/target/orcpub.jar /orcpub.jar
 
-# Run as non-root. App only writes to /tmp (world-writable by default).
+# The app runs as `app`, never root (see app-start.sh below).
 RUN addgroup -S app && adduser -S -G app app
 # A home for kept portrait drawings (PORTRAIT_STORE_DIR), owned by the app's user, so a volume
 # mounted here inherits that ownership and the app can write to it.
 RUN mkdir -p /var/lib/orcpub/portraits /var/lib/orcpub/state/alerts /var/lib/orcpub/state/crash \
  && chown -R app:app /var/lib/orcpub
-USER app
-
-ENTRYPOINT ["java", "-jar"]
+# No USER here: app-start.sh starts as root only to hand the mounted state folder to `app`, then
+# runs Java as `app` with su-exec (the transactor's pattern, deploy/start.sh).
+COPY deploy/app-start.sh /usr/local/bin/app-start.sh
+RUN chmod +x /usr/local/bin/app-start.sh
+ENTRYPOINT ["/usr/local/bin/app-start.sh"]
 CMD ["/orcpub.jar"]

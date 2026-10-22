@@ -85,6 +85,9 @@ jobs:
       - name: Test — .env upgrades
         run: bash test/docker/test-upgrade.sh
 
+      - name: Test — the app's start script (runs Java as app, folder ownership, privacy)
+        run: bash test/docker/test-app-start.sh
+
       - name: Run run --auto
         run: |
           ./run --auto
@@ -285,6 +288,16 @@ jobs:
             exit 1
           fi
           echo "OK: .env settings reached the app"
+
+      - name: Test — the app runs as its own user and keeps its files in APP_LOGS_DIR
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          OWNER=$(docker compose exec -T orcpub stat -c %U /proc/1)
+          [ "$OWNER" = "app" ] || { echo "FAIL: Java runs as '$OWNER', not app"; exit 1; }
+          for d in logs/app logs/app/crash logs/app/alerts; do
+            [ -d "$d" ] || { echo "FAIL: $d is missing on the host"; ls -la logs || true; exit 1; }
+          done
+          echo "OK: Java runs as app; logs/app, crash/ and alerts/ are on the host"
 
       - name: Test — create user
         if: steps.start-datomic.outcome == 'success'

@@ -1,7 +1,8 @@
 (ns orcpub.security
   "Login attempt tracking and rate limiting.
    See orcpub.time for date/time utilities."
-  (:require [orcpub.time :as time :refer [minutes hours ago]]))
+  (:require [clojure.string]
+            [orcpub.time :as time :refer [minutes hours ago]]))
 
 (defn compare-dates [attempt-1 attempt-2]
   (compare (:date attempt-1) (:date attempt-2)))
@@ -98,6 +99,26 @@
    username
    @failed-login-attempts-by-username))
 
+
+(defn- log-safe
+  "`v` as text fit for one log line: control characters removed, at most 100 characters; nil stays nil."
+  [v]
+  (when (some? v)
+    (let [t (clojure.string/replace (str v) #"\p{Cntrl}" "")]
+      (subs t 0 (min 100 (count t))))))
+
+(defn audit!
+  "Writes one log line for security event `event` (a keyword, like :sign-in-failed) on `request`,
+   naming account `username` when given: the connecting address and the forwarded chain, never a
+   password, token or email address. Returns nil."
+  ([event request] (audit! event request nil))
+  ([event request username]
+   (println (str "security: " (name event)
+                 (when username (str " user=" (log-safe username)))
+                 " ip=" (log-safe (:remote-addr request))
+                 (when-let [f (get-in request [:headers "x-forwarded-for"])]
+                   (str " fwd=" (log-safe f)))))
+   nil))
 
 ;; ---------------------------------------------------------------------------
 ;; Windowed limits for the endpoints that cost something to serve: the two that

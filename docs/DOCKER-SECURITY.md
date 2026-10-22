@@ -5,8 +5,9 @@ infrastructure. For architecture and configuration reference, see `DOCKER.md`.
 
 ## Non-Root Containers
 
-Both containers create non-root users at build time. The transactor uses an
-entrypoint-chown-drop pattern; the app uses a static `USER` directive.
+Both containers create non-root users at build time, and both use an
+entrypoint-chown-drop pattern: they start as root only long enough to give a
+mounted folder to their user, then run as that user.
 
 ### Transactor (`datomic` user) — Entrypoint-Chown-Drop
 
@@ -44,15 +45,19 @@ target command — no intermediate process, transactor becomes PID 1 as the
 
 ### App (`app` user)
 
-The app is stateless inside its container. The only runtime writes go to `/tmp`
-for temporary PDF generation (PDFBox `createTempFile`). `/tmp` is
-world-writable by default on Alpine, so no chown is needed. No bind mounts
-means the static `USER` directive works fine:
+The app keeps crash files and unsent admin alerts in a folder on the host
+(`APP_LOGS_DIR`, default `logs/app`), mounted at `/var/lib/orcpub/state`. As
+with the transactor, the host folder's ownership overrides the image's, so the
+app starts as root and `deploy/app-start.sh`:
 
-```dockerfile
-RUN addgroup -S app && adduser -S -G app app
-USER app
-```
+1. creates `/var/lib/orcpub/state`, `alerts/` and `crash/` if missing;
+2. gives **those three folders only** to `app` and makes them private (`750`).
+   It never changes ownership recursively, so pointing `APP_LOGS_DIR` at the
+   wrong folder cannot take over everything in it;
+3. runs Java as `app` with `su-exec`, so the app itself never runs as root.
+
+`docker-user.sh` runs its commands in the container with `docker exec -u app`.
+`test/docker/test-app-start.sh` checks the user, the ownership and the privacy.
 
 ### Why This Matters
 

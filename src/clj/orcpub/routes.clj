@@ -228,17 +228,21 @@
                        minted (get-in updated-request [:identity :minted])]
                    (cond
                      (not (and (:identity updated-request) username))
-                     (terminate-request context 401 "Unauthorized")
+                     (do (when (get-in request [:headers "authorization"])
+                           (security/audit! :token-invalid request))
+                         (terminate-request context 401 "Unauthorized"))
 
                      ;; Changing a password takes back the sessions that existed
                      ;; before it. The same 401 as any other refusal: which of
                      ;; the two reasons it was is not the caller's business.
                      (security/token-withdrawn? username minted)
-                     (terminate-request context 401 "Unauthorized")
+                     (do (security/audit! :token-withdrawn request username)
+                         (terminate-request context 401 "Unauthorized"))
 
                      :else
                      (assoc context :request (assoc updated-request :username username))))
                  (catch Exception e
+                   (security/audit! :token-invalid (:request context))
                    (terminate-request context 401
                                       (str "Authentication failed: "
                                            (.getMessage e)))))))}))
@@ -423,6 +427,8 @@
     (do (security/note-refusal! :login-username)
         (login-error errors/too-many-attempts))
     (let [user-for-username (find-user-by-username-or-email db username)]
+      ;; A name with no account is not logged: it is sometimes a password typed in the wrong box.
+      (security/audit! :sign-in-failed request (:orcpub.user/username user-for-username))
       ;; Several addresses failing against ONE account inside a minute is also what
       ;; a person with a phone, a laptop and a tablet looks like -- so it notifies
       ;; the owner rather than locking them out. Runs on another thread, and its
@@ -485,7 +491,8 @@
                 (and unverified? expired?) (login-error errors/unverified-expired)
                 unverified? (login-error errors/unverified {:email email})
                 :else
-                (create-login-response db conn user id))))))
+                (do (security/audit! :sign-in request (:orcpub.user/username user))
+                    (create-login-response db conn user id)))))))
 
 (defn login [request]
   (login-response request))
@@ -631,19 +638,21 @@
     (if (seq validation)
       {:status 400
        :body validation}
-      (do-verification
-       request
-       json-params
-       conn
-       (merge
-        {:orcpub.user/email email
-         :orcpub.user/username username
-         :orcpub.user/password (hashers/encrypt password)
-         :orcpub.user/send-updates? send-updates?
-         :orcpub.user/created now}
-        (when auth/record-last-login-at-registration?
-          {:orcpub.user/last-login now})
-        (user-data/registration-defaults))))))
+      (let [response (do-verification
+                      request
+                      json-params
+                      conn
+                      (merge
+                       {:orcpub.user/email email
+                        :orcpub.user/username username
+                        :orcpub.user/password (hashers/encrypt password)
+                        :orcpub.user/send-updates? send-updates?
+                        :orcpub.user/created now}
+                       (when auth/record-last-login-at-registration?
+                         {:orcpub.user/last-login now})
+                       (user-data/registration-defaults)))]
+        (when (= 200 (:status response)) (security/audit! :registered request username))
+        response))))
 
 (def user-for-verification-key-query
   '[:find ?e
@@ -711,6 +720,7 @@
                                    [:db/retract id :orcpub.user/verification-key key]
                                    [:db/retract id :orcpub.user/verification-sent verification-sent]])
                 (link-artist-on-confirm! conn id)
+                (security/audit! :email-change-confirmed request username)
                 (redirect route-map/verify-success-route)))
 
           ;; No artist link here: whoever registered chose the password, and confirming
@@ -902,6 +912,8 @@
     (when (and id (security/reset-email-allowed? email remote-addr))
       (try
         (do-send-password-reset id email conn request)
+        (security/audit! :password-reset-requested request
+                         (:orcpub.user/username (d/entity db id)))
         (catch Exception e
           ;; Swallowed on purpose. Letting this escape would restore the oracle
           ;; in a subtler form -- only a real account can fail to be emailed,
@@ -943,7 +955,8 @@
     ;; using. That is the point -- a reset is how somebody takes their account
     ;; back, and leaving the intruder's session alive would defeat it.
     (when-let [username (:orcpub.user/username user)]
-      (security/note-password-changed! username))
+      (security/note-password-changed! username)
+      (when request (security/audit! :password-reset request username)))
     {:status 200}
     (catch Exception e
       (if (odb/cas-failed? e)
@@ -2181,9 +2194,9 @@
     {:status 200 :body (user-body db user)}))
 
 (defn delete-user
-  "Deletes the authenticated user's account. Returns 200.
+  "Deletes the authenticated user's account and logs it. Returns 200.
   Throws ExceptionInfo :user-deletion-failed on database failure."
-  [{:keys [db conn identity]}]
+  [{:keys [db conn identity] :as request}]
   (let [username (:user identity)
         user (d/q '[:find ?u .
                     :in $ ?username
@@ -2194,6 +2207,7 @@
       {:username username}
       "Unable to delete user account. Please try again or contact support."
       @(d/transact conn [[:db/retractEntity user]])
+      (security/audit! :account-deleted request username)
       {:status 200})))
 
 (defn rate-limit-remaining-secs
@@ -2303,6 +2317,7 @@
                                                :first-and-last-name (:orcpub.user/first-and-last-name user)
                                                :new-email new-email}))]))
               (outbox/sent!)
+              (security/audit! :email-change-requested request username)
               {:status 200 :body {:pending-email new-email}})))))
     (catch Throwable e (prn e) (throw e))))
 
