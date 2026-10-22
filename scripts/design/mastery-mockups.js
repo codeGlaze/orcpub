@@ -112,16 +112,17 @@ async function setup(page, phone) {
     .mk-overridden .weapon-mastery-cap{background:#f0a100;font-size:10.5px;margin:-3px 0 -3px -10px}
     .mk-overridden .weapon-mastery-trigger{font-size:10.5px;color:rgba(230,233,238,.6)}
     .mk-overridden .weapon-mastery-summary{font-size:12px;font-weight:600;color:#e6e9ee}
-    .mk-pbox2{border:1px solid rgba(230,233,238,.22);border-radius:6px;padding:8px 10px 10px;background:rgba(255,255,255,.035)}
+    .mk-panel{align-self:stretch;width:100%;box-sizing:border-box}
+    .mk-pbox2{box-sizing:border-box;width:100%;border:1px solid rgba(230,233,238,.22);border-radius:6px;padding:8px 10px 10px;background:rgba(255,255,255,.035)}
     .mk-ptitle{display:flex;align-items:center;gap:8px;min-height:36px}
     .mk-ptitle-text{font-weight:700;font-size:16px;letter-spacing:.01em;white-space:nowrap}
     .mk-pcount{font-size:13px;opacity:.7;min-width:0}
     .mk-ptitle .mk-brew{margin-left:auto}
     .mk-pchev{background:none;border:0;color:inherit;font-size:24px;width:44px;height:44px;margin:-4px -10px -4px -4px;opacity:.8}
-    .mk-kchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
-    .mk-kchip{display:inline-flex;align-items:baseline;gap:6px;padding:4px 10px;border-radius:14px;border:1px solid rgba(230,233,238,.3);font-size:13px}
+    .mk-kchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+    .mk-kchip{display:inline-flex;align-items:baseline;gap:4px;padding:3px 7px;border-radius:12px;border:1px solid rgba(230,233,238,.3);font-size:12px;white-space:nowrap}
     .mk-kchip b{font-weight:600}
-    .mk-kmast{color:#f0a100;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+    .mk-kmast{color:#f0a100;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
     .mk-kx{opacity:.6;margin-left:2px}
     .mk-kbrew{border-style:dashed;border-color:#f0a100}
     .mk-kadd{border-style:dashed;opacity:.8}

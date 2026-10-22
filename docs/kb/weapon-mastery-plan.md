@@ -243,7 +243,12 @@ pools), so a swap writes to the build; it is not sheet-only state.
 - **The Long Rest asks.** The app has no Long Rest dialog today: `finish-long-rest-button`
   (`views.cljs` ~3036) rests at once. For a character with Weapon Mastery it opens a sheet with a
   Weapon Mastery section ("swap one" or all, by class), "Keep all" chosen, or the planned swap filled
-  in; Cancel changes nothing. Open: only when there is something to choose, or every Long Rest.
+  in; Cancel changes nothing. Recommended (awaiting owner): open it only when the rest holds a choice
+  (a mastery swap now; later others, such as a 2024 wizard's prepared spells, as sections of the same
+  sheet), and keep today's one-tap rest for every other character.
+- **Round 6:** three masteries fit one line at 390px (12px chips, 9.5px mastery letters, 4px gaps); the
+  box takes the table's full width. The house-rule state may wrap. Chip × buttons need 44px tap areas
+  when built.
 - **Wording is parked**: the owner will review every player-facing line in one pass, as a list.
 
 ## Decisions for the owner

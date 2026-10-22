@@ -3725,7 +3725,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** attack, band, card, cleave, graze, hit, masteries, mastery, owner, preview, prone, srd, summary, text, topple, turn, vex, weapon
+**topics:** attack, band, card, cleave, graze, hit, masteries, mastery, owner, preview, prone, srd, tap, text, topple, turn, vex, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)
