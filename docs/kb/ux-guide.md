@@ -198,3 +198,8 @@ Newest last. Date, ruling, and what it replaced.
 - 2026-10-21: a "New" tag on a row is not used: it was missed even when looked for, and reads as new
   to the site. A control the player has not used yet glows instead, a few pulses slowing to a stop
   (the 1H / 2H switch's pulse), and opening it once stops it for good.
+- 2026-10-22: new controls start at the sizes of the controls beside them (`.form-button.p-5`, 12-14px
+  text). The app is careful with space; a 44px tap area is met with an invisible hit area, not by
+  drawing the control bigger. Replaced full-width rest buttons in a box (round 8 of the rest mockups).
+- 2026-10-22: an option that changes what a button does sits above the button: set it, then act.
+  The result (an Undo line) sits below. First used for "dawn passes" over the rest buttons.

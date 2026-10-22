@@ -153,6 +153,18 @@ async function setup(page, phone) {
     .mk-dawnpill input{margin-left:auto;width:20px;height:20px;accent-color:#f0a100;flex:none}
     .mk-dawnbtn{flex:none;display:flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:6px;
       background:none;border:1px solid rgba(240,161,0,.6);color:#f0a100;font-weight:700;font-size:14px}
+    .mk-crow{display:flex;justify-content:flex-end;align-items:center;gap:5px;flex-wrap:wrap}
+    .mk-crow .form-button{margin:0}
+    .mk-cdawn{margin-top:5px}
+    .mk-cdawn-top{margin-bottom:5px}
+    .mk-cpill{position:relative;display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 8px;border-radius:13px;font-size:12px;font-weight:600;
+      background:rgba(240,161,0,.14);border:1px solid rgba(240,161,0,.45);color:inherit}
+    .mk-cpill::after{content:"";position:absolute;inset:-9px -2px}
+    .mk-cpill input{width:14px;height:14px;margin:0 0 0 2px;accent-color:#f0a100}
+    .mk-cpill .mk-sun{font-size:14px}
+    .mk-cbtn{background:none;color:#f0a100}
+    .mk-cundo{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:12px;margin-top:4px}
+    .mk-cundo .mk-link{margin-left:2px;font-size:12px;min-height:26px}
     .mk-x{margin-left:auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px}
     .mk-sheet .mk-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);margin:0 auto 10px}
     .mk-line{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -377,15 +389,14 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
         box.className = 'mk-restbox' + (variant === 'B' ? ' bare' : '');
         box.setAttribute('data-mk', 'rest');
         const undo = state === 'done'
-          ? '<div class="mk-restundo"><i class="fa fa-history orange"></i><span>Long Rest finished, dawn included</span><button class="mk-link">Undo</button></div>' : '';
-        box.innerHTML = `${variant === 'A' ? '<div class="mk-ptitle"><span class="mk-ptitle-text">Rest</span><span class="mk-pcount">resets uses, slots and hit points</span></div>' : ''}
-          <div class="mk-restbtns"><button class="form-button">Long Rest</button><button class="form-button">Short Rest</button></div>
-          <div class="mk-dawnrow2"><label class="mk-dawnpill"><span class="mk-sun">\u2600</span><span>Dawn passes</span><input type="checkbox" checked></label><button class="mk-dawnbtn"><span class="mk-sun">\u2600</span> Dawn only</button></div>
+          ? '<div class="mk-cundo"><i class="fa fa-history orange"></i><span>Long Rest finished, dawn included</span><button class="mk-link">Undo</button></div>' : '';
+        box.innerHTML = `<div class="mk-crow mk-cdawn-top"><label class="mk-cpill"><span class="mk-sun">☀</span>dawn passes<input type="checkbox" checked></label><button class="mk-cpill mk-cbtn"><span class="mk-sun">☀</span>dawn only</button></div>
+          <div class="mk-crow"><button class="form-button p-5">finish long rest</button><button class="form-button p-5">finish short rest</button></div>
           ${undo}`;
         row.after(box);
         return true;
       }, [variant, state]);
-      for (const [variant, state, file] of [['today', 'idle', 'R0-rest-today.png'], ['A', 'idle', 'RA1-rest-box.png'], ['A', 'done', 'RA2-rest-box-undo.png'], ['B', 'idle', 'RB1-rest-bare.png']]) {
+      for (const [variant, state, file] of [['today', 'idle', 'R0-rest-today.png'], ['B', 'idle', 'RC1-rest-compact.png'], ['B', 'done', 'RC2-rest-compact-undo.png']]) {
         check(await rest(variant, state), `rest controls: ${variant} ${state}`);
         await page.evaluate(() => { const r = document.querySelector('[data-mk="rest"]'); r.scrollIntoView({ block: 'center' }); });
         await shot(page, file);
