@@ -20,12 +20,13 @@
          '[orcpub.pdf.draw :as draw]
          '[clojure.java.io :as io])
 (import '[org.apache.pdfbox Loader]
+        '[org.apache.pdfbox.pdmodel PDDocument]
         '[org.apache.pdfbox.rendering PDFRenderer]
         '[java.awt.image BufferedImage]
         '[java.io ByteArrayOutputStream])
 
 (def dpi 150.0)
-(def stamp-width (draw/string-width draw/site-stamp draw/HELVETICA 6))
+(def stamp-width (draw/string-width draw/site-stamp (draw/sans (draw/load-sans (PDDocument.)) :plain) 6))
 (def stamp-height
   "6pt of cap height plus room for a descender, in inches."
   (/ 8.0 72))

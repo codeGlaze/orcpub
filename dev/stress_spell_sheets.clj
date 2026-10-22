@@ -78,7 +78,7 @@
     ;; Render the page section 1's rows actually live on. Style 4's master has
     ;; TWO spell pages, so the last page belongs to section 2 and is empty here.
     ;; Rendering it looked exactly like a total failure to fill anything.
-    (let [helv draw/HELVETICA
+    (let [helv (draw/sans (draw/load-sans doc) :plain)
           per-level (for [[lvl rs] (sort (group-by :level rows))]
                       (let [sizes (keep #(baked-size doc (:name %)) rs)
                             widest (apply max

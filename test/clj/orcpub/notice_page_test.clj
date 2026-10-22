@@ -10,7 +10,8 @@
             [orcpub.common :as common]
             [orcpub.errors :as errors]
             [orcpub.pdf-ops :as ops]
-            [orcpub.pdf :as pdf])
+            [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw])
   (:import (org.apache.pdfbox.pdmodel PDDocument PDPage)
            (org.apache.pdfbox.text PDFTextStripper)))
 
@@ -27,11 +28,11 @@
   (testing "nothing recorded, nothing added -- the happy path pays nothing"
     (binding [errors/*notices* (atom [])]
       (with-open [doc (doc-with 3)]
-        (is (nil? (pdf/add-notice-page! doc)))
+        (is (nil? (pdf/add-notice-page! doc (draw/load-sans doc))))
         (is (= 3 (.getNumberOfPages doc))))))
   (testing "and with no collector bound at all it still does not throw"
     (with-open [doc (doc-with 2)]
-      (is (nil? (pdf/add-notice-page! doc)))
+      (is (nil? (pdf/add-notice-page! doc (draw/load-sans doc))))
       (is (= 2 (.getNumberOfPages doc))))))
 
 (deftest what-was-dropped-is-named-on-page-one
@@ -40,9 +41,9 @@
       (errors/note! "Spell cards" "could not be drawn and were left out (boom)")
       (errors/note! "Spellbook" "could not be drawn and was left out (kaput)")
       (with-open [doc (doc-with 3)]
-        (is (some? (pdf/add-notice-page! doc)))
+        (is (some? (pdf/add-notice-page! doc (draw/load-sans doc))))
         (is (= 4 (.getNumberOfPages doc)) "one page added, not replacing a sheet page")
-        (let [t (page-text doc 0)]
+        (let [t (with-open [saved (ops/reloaded doc)] (page-text saved 0))]
           (is (str/includes? t "did not fit"))
           (is (str/includes? t "Spell cards"))
           (is (str/includes? t "Spellbook"))
@@ -90,7 +91,7 @@
       (doseq [n ["Spell cards" "Spellbook" "Magic item cards" "Sheet fields"]]
         (errors/note! n (str n " was left out because of a reason that wraps a little")))
       (with-open [doc (doc-with 1)]
-        (pdf/add-notice-page! doc)
+        (pdf/add-notice-page! doc (draw/load-sans doc))
         (let [ys (sort (map #(Double/parseDouble %) (text-baselines (.getPage doc 0))))
               gaps (map - (rest ys) ys)]
           (is (seq ys) "something was drawn")

@@ -9,7 +9,8 @@
             [clojure.string :as str]
             [orcpub.common :as common]
             [orcpub.pdf-ops :as ops]
-            [orcpub.pdf :as pdf])
+            [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw])
   (:import (org.apache.pdfbox Loader)
            (java.security MessageDigest)))
 
@@ -84,17 +85,19 @@
   [style]
   (let [{:keys [file marks site-line prints-site-line?]} (get pdf/sheet-masters style)
         doc (with-open [in (.openStream (io/resource file))]
-              (Loader/loadPDF (.readAllBytes in)))]
+              (Loader/loadPDF (.readAllBytes in)))
+        sans (draw/load-sans doc)]
     (pdf/grow-spell-sections! doc casters marks)
     (pdf/add-missing-spell-pages! doc fields 9)
-    (let [merged (pdf/merge-style-fields style fields)]
-      (pdf/apply-relabel-instructions! doc relabels casters style)
+    (let [printed (pdf/site-line-pages doc (boolean prints-site-line?))
+          merged (pdf/merge-style-fields style fields)]
+      (pdf/apply-relabel-instructions! doc sans relabels casters style)
       (pdf/reserve-annotation-columns! doc)
       (pdf/write-fields! doc (pdf/spill-overflow! doc merged) false {})
-      (pdf/annotate-spell-rows! doc annotate)
+      (pdf/annotate-spell-rows! doc sans annotate)
       (doseq [{:keys [box section class] :as h} headings]
-        (pdf/draw-column-heading! doc style box section class h)))
-    (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
+        (pdf/draw-column-heading! doc sans style box section class h))
+      (pdf/stamp-site-line! doc sans site-line printed))
     doc))
 
 (defn- widget-geometry

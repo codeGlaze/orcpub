@@ -17,9 +17,10 @@
 (defn- draw-spell-field
   "One icon-and-value field on a spell card (casting time, range, duration,
    components): the `title` icon at [`x` `y`] with `value` printed over it.
-   Inches, `y` from the page TOP. `img` is the document's memoized image loader, and
-   both printer-friendly modes are handled here (see the note below)."
-  [cs img title value x y bw? bw-faded?]
+   Inches, `y` from the page TOP. `fonts` must carry draw/load-sans; `img` is the
+   document's memoized image loader. Both printer-friendly modes are handled here (see
+   the note below)."
+  [cs fonts img title value x y bw? bw-faded?]
   ;; The label overprints the icon; this is the one choke point for all four
   ;; per-spell icons. Colour: icon-red icon, black text. B&W solid: black icon,
   ;; WHITE-HALO text. B&W faded: black icon at 40%, black text. One SVG serves all.
@@ -29,9 +30,9 @@
                             :else               [(vec (take 3 draw/icon-red)) (last draw/icon-red)])]
     (draw/draw-svg-icon! cs img title x iy 0.25 color alpha)
     (if (and bw? (not bw-faded?))
-      (draw/draw-halo-text cs value draw/HELVETICA_BOLD_OBLIQUE 8 x (- y 0.07))
+      (draw/draw-halo-text cs value (draw/sans fonts :bold-italic) 8 x (- y 0.07))
       (do (.setNonStrokingColor cs (float 0) (float 0) (float 0))
-          (draw/draw-text cs value draw/HELVETICA_BOLD_OBLIQUE 8 x (- y 0.07))
+          (draw/draw-text cs value (draw/sans fonts :bold-italic) 8 x (- y 0.07))
           (.setNonStrokingColor cs (float 0) (float 0) (float 0))))))
 
 (def ^:private site-stamp-strip
@@ -222,7 +223,7 @@
                                  (- box-width 0.24)
                                  0.25)
                (when casting-time
-                 (draw-spell-field cs
+                 (draw-spell-field cs fonts
                                    img
                                    "magic-swirl"
                                    (str (sp/abbreviate-casting-time
@@ -234,14 +235,14 @@
                                    (draw/in-from-top (+ y 0.45))
                                    bw? bw-faded?))
                (when range
-                 (draw-spell-field cs
+                 (draw-spell-field cs fonts
                                    img
                                    "arrow-dunk"
                                    (sp/abbreviate-range range)
                                    (+ x 0.62)
                                    (draw/in-from-top (+ y 0.45))
                                    bw? bw-faded?))
-               (draw-spell-field cs
+               (draw-spell-field cs fonts
                                  img
                                  "shiny-purse"
                                  (s/join
@@ -259,7 +260,7 @@
                                  (draw/in-from-top (+ y 0.45))
                                  bw? bw-faded?)
                (when duration
-                 (draw-spell-field cs
+                 (draw-spell-field cs fonts
                                    img
                                    "sands-of-time"
                                    (sp/abbreviate-duration duration)
@@ -546,8 +547,8 @@
    The foot says who may attune; this says THAT it must be, at the top where the
    rarity is, because that is the pair of facts anyone sorting a handful of cards
    is actually looking for. A letter rather than an invented glyph: there is no
-   artwork for it, and a letter cannot be misread as decoration."
-  [cs x y w dy]
+   artwork for it, and a letter cannot be misread as decoration. In `fonts`' Nimbus bold."
+  [cs fonts x y w dy]
   (let [bw 0.155 bh 0.145
         left (- w 0.28 bw)
         c 0.035]
@@ -557,7 +558,7 @@
                        [(- (+ left bw) c) (+ dy bh)] [(+ left c) (+ dy bh)]
                        [left (- (+ dy bh) c)] [left (+ dy c)]]
                true)
-    (draw-centred-text! cs "A" draw/HELVETICA_BOLD 7
+    (draw-centred-text! cs "A" (draw/sans fonts :bold) 7
                         (+ x left (/ bw 2))
                         (draw/in-from-top (+ y dy bh -0.036)))
     (.setLineWidth cs (float 1))))
@@ -595,14 +596,15 @@
 (defn- draw-charge-track!
   "Somewhere to track `n` charges, drawn at `cy` in its own band under the header.
    Up to `tickable-charges` it is a circle each; past it (a Staff of the Magi has
-   fifty) a rule to write the remaining count on, over the total."
-  [cs x y w n cy label-y]
+   fifty) a rule to write the remaining count on, over the total. Labels in `fonts`'
+   Nimbus regular."
+  [cs fonts x y w n cy label-y]
   (.setLineWidth cs (float 0.8))
   (if (<= n tickable-charges)
     (let [r 0.052
           gap 0.145
           cx (- (/ w 2) (/ (* gap (dec n)) 2))]
-      (draw-centred-text! cs "CHARGES" draw/HELVETICA 5.5 (+ x (/ w 2)) (draw/in-from-top (+ y label-y)))
+      (draw-centred-text! cs "CHARGES" (draw/sans fonts :plain) 5.5 (+ x (/ w 2)) (draw/in-from-top (+ y label-y)))
       (doseq [i (range n)]
         (circle! cs x y (+ cx (* gap i)) cy r)))
     ;; The rule and the total are centred as one group, not the rule alone: the
@@ -610,11 +612,11 @@
     (let [total (str "/ " n)
           rule-w 0.62
           gap 0.05
-          group (+ rule-w gap (draw/string-width total draw/HELVETICA 7))
+          group (+ rule-w gap (draw/string-width total (draw/sans fonts :plain) 7))
           left (- (/ w 2) (/ group 2))]
-      (draw-centred-text! cs "CHARGES" draw/HELVETICA 5.5 (+ x (/ w 2)) (draw/in-from-top (+ y label-y)))
+      (draw-centred-text! cs "CHARGES" (draw/sans fonts :plain) 5.5 (+ x (/ w 2)) (draw/in-from-top (+ y label-y)))
       (polyline! cs x y [[left cy] [(+ left rule-w) cy]] false)
-      (draw/draw-text cs total draw/HELVETICA 7 (+ x left rule-w gap) (draw/in-from-top (+ y cy -0.015)))))
+      (draw/draw-text cs total (draw/sans fonts :plain) 7 (+ x left rule-w gap) (draw/in-from-top (+ y cy -0.015)))))
   (.setLineWidth cs (float 1)))
 
 (defn print-items
@@ -671,7 +673,7 @@
            (draw-rarity-rail! cs x y box-width rarity (:rail down))
            (draw-foot-ornament! cs x y box-width (- box-height (:ornament up)))
            (when clause
-             (draw-attunement-badge! cs x y box-width (:badge down)))
+             (draw-attunement-badge! cs fonts x y box-width (:badge down)))
            ;; The name is indented further and set larger, so it reads as a title.
            ;; It shrinks to fit two lines, but not below :name-floor, where it takes
            ;; a third instead. The block's height is fixed so header rules fall level
@@ -706,7 +708,7 @@
            (polyline! cs x y [[0.2 (:rule-under down)] [(- box-width 0.2) (:rule-under down)]] false)
            (.setLineWidth cs (float 1))
            (when charges
-             (draw-charge-track! cs x y box-width charges (:charge-marks down) (:charge-label down))
+             (draw-charge-track! cs fonts x y box-width charges (:charge-marks down) (:charge-label down))
              (.setLineWidth cs (float 0.35))
              (polyline! cs x y [[0.2 (:charge-under down)] [(- box-width 0.2) (:charge-under down)]] false)
              (.setLineWidth cs (float 1)))

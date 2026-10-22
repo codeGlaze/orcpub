@@ -6,7 +6,8 @@
    the euro sign. Helvetica draws all of them; normalize-text replaced or dropped them."
   (:require [clojure.test :refer [deftest testing is]]
             [orcpub.pdf.draw :as draw]
-            [orcpub.spellbook :as sb]))
+            [orcpub.spellbook :as sb])
+  (:import (org.apache.pdfbox.pdmodel.font PDType1Font Standard14Fonts$FontName)))
 
 (def ^:private winansi-extras
   "‘’“”–—…•œŒ€™ŠšŽžŸ")
@@ -14,7 +15,7 @@
 (deftest helvetica-draws-everything-in-winansi
   (testing "the premise, measured rather than assumed"
     (doseq [c winansi-extras]
-      (is (try (.getStringWidth draw/HELVETICA (str c)) true (catch Exception _ false))
+      (is (try (.getStringWidth (PDType1Font. Standard14Fonts$FontName/HELVETICA) (str c)) true (catch Exception _ false))
           (format "U+%04X" (int c))))))
 
 (deftest normalize-text-keeps-what-helvetica-draws

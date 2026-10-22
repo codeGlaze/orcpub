@@ -90,12 +90,14 @@
       (let [faces (embedded-faces doc)]
         (is (= (count faces) (count (distinct faces)))
             (str "a face was embedded more than once: " (sort faces))))))
-  (testing "and each kind alone embeds no more than the four faces exist"
+  (testing "and each kind alone embeds no more faces than exist: four Vollkorn, three Nimbus"
     (doseq [kinds [#{:spells} #{:items}]]
       (with-open [doc (render-cards kinds)]
-        (let [faces (embedded-faces doc)]
+        (let [faces (embedded-faces doc)
+              family (frequencies (map #(first (str/split % #"-")) faces))]
           (is (= (count faces) (count (distinct faces))) (str kinds " " (sort faces)))
-          (is (<= (count faces) 4)))))))
+          (is (<= (get family "Vollkorn" 0) 4) (str kinds " " (sort faces)))
+          (is (<= (get family "NimbusSans" 0) 3) (str kinds " " (sort faces))))))))
 
 (deftest one-copy-of-the-card-back-logo
   ;; Same cause: a second make-image-loader has its own memo, so it re-embedded the

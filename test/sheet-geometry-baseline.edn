@@ -39,10 +39,10 @@
    "v" 181,
    "w" 37,
    "y" 172},
-  :sha "3472e3db462c",
+  :sha "dad2c0c516ed",
   :geom "4bc651ad8d9c",
   :colour "2570ea8c830f",
-  :text "b432a8cccf56",
+  :text "f1ee8009e3b3",
   :style 1}
  {:ops 4278,
   :kinds
@@ -84,10 +84,10 @@
    "v" 36,
    "w" 16,
    "y" 29},
-  :sha "77141d0f8e47",
+  :sha "657d2349c190",
   :geom "d664b06f5050",
   :colour "67750848e040",
-  :text "3c3e93ef0e13",
+  :text "3b5a5aea69b2",
   :style 1}
  {:ops 7394,
   :kinds
@@ -117,10 +117,10 @@
    "re" 7,
    "rg" 224,
    "w" 120},
-  :sha "b43c05268c95",
+  :sha "26b9ccf5ca6b",
   :geom "2f70b6c9697c",
   :colour "8595b4602a89",
-  :text "a6cb148f47d5",
+  :text "c1e98098051b",
   :style 1}
  {:ops 7363,
   :kinds
@@ -150,10 +150,10 @@
    "re" 5,
    "rg" 214,
    "w" 120},
-  :sha "26a95090c6e0",
+  :sha "6b6087170b67",
   :geom "4cfb5fadfe6b",
   :colour "a062bd34a4c1",
-  :text "e5e91d1d2715",
+  :text "0c4339b78e7a",
   :style 1}
  {:ops 107,
   :kinds
@@ -179,10 +179,10 @@
    "re" 1,
    "rg" 2,
    "scn" 2},
-  :sha "f4c975a741ca",
+  :sha "f40f86372824",
   :geom "fd97c4a603ff",
   :colour "f300674bc4e9",
-  :text "2b93351f9e47",
+  :text "94a422101135",
   :style 1}
  {:ops 8817,
   :kinds
@@ -226,10 +226,10 @@
    "rg" 26,
    "scn" 1,
    "w" 36},
-  :sha "e6a0cf8fe64f",
+  :sha "c446f3462839",
   :geom "27f513286a38",
   :colour "6c3c1042e999",
-  :text "1e8641967ae1",
+  :text "711b9d801f93",
   :style 2}
  {:ops 2089,
   :kinds
@@ -265,10 +265,10 @@
    "re" 35,
    "rg" 7,
    "w" 10},
-  :sha "4bc020d8e5e4",
+  :sha "35726f66f321",
   :geom "ba87e97e0b80",
   :colour "86575d10d1f1",
-  :text "fbdaedcd21c0",
+  :text "f77be3afa771",
   :style 2}
  {:ops 6304,
   :kinds
@@ -309,10 +309,10 @@
    "re" 20,
    "rg" 55,
    "w" 13},
-  :sha "8b81b8b12d21",
+  :sha "a6c7d3e53824",
   :geom "65c59499d6dd",
   :colour "eafaa24af1a0",
-  :text "25fb84043ffd",
+  :text "da59448d8053",
   :style 2}
  {:ops 6273,
   :kinds
@@ -353,10 +353,10 @@
    "re" 18,
    "rg" 45,
    "w" 13},
-  :sha "bc4337bc7943",
+  :sha "886d35eeead0",
   :geom "8a0753cbe921",
   :colour "1dacb4d495b2",
-  :text "a315ce7dfd04",
+  :text "7b204be0b497",
   :style 2}
  {:ops 313,
   :kinds
@@ -382,10 +382,10 @@
    "q" 4,
    "re" 2,
    "rg" 2},
-  :sha "70ee1fe07cca",
+  :sha "dffd762f3bff",
   :geom "a5ded91e5ba9",
   :colour "5dc9060a4fb6",
-  :text "b68a534826d1",
+  :text "afeb0d565cc2",
   :style 2}
  {:ops 2620,
   :kinds
@@ -421,10 +421,10 @@
    "v" 18,
    "w" 24,
    "y" 14},
-  :sha "6269538e3500",
+  :sha "53c47c3a6c0d",
   :geom "90f8682f24db",
   :colour "959762e87bc2",
-  :text "0945c624ab77",
+  :text "e8058588a8fa",
   :style 3}
  {:ops 637,
   :kinds
@@ -456,10 +456,10 @@
    "rg" 2,
    "v" 18,
    "y" 14},
-  :sha "945b871c840e",
+  :sha "cb58e38c9971",
   :geom "c6065017ee30",
   :colour "03c4dbcadaff",
-  :text "ce4c387a5537",
+  :text "f76cfe1f65d6",
   :style 3}
  {:ops 7768,
   :kinds
@@ -497,10 +497,10 @@
    "v" 18,
    "w" 206,
    "y" 14},
-  :sha "e808ccea0d9d",
+  :sha "70320568c345",
   :geom "50f16a3f1158",
   :colour "fb45165ff2ee",
-  :text "6e698eb0b25c",
+  :text "07312416ac0b",
   :style 3}
  {:ops 7737,
   :kinds
@@ -538,10 +538,10 @@
    "v" 18,
    "w" 206,
    "y" 14},
-  :sha "90aaf53ee899",
+  :sha "9865e595dda5",
   :geom "4c66f64e21de",
   :colour "69ac3f52bc8b",
-  :text "cd6676e06472",
+  :text "1d871e220277",
   :style 3}
  {:ops 552,
   :kinds
@@ -566,10 +566,10 @@
    "k" 1,
    "q" 2,
    "rg" 2},
-  :sha "e54e76da2593",
+  :sha "5baef3a0dccc",
   :geom "e3b0c44298fc",
   :colour "5c4d7a30a286",
-  :text "a1de20f28a33",
+  :text "16bc481183e1",
   :style 4}
  {:ops 122,
   :kinds
@@ -591,10 +591,10 @@
    "k" 1,
    "q" 2,
    "rg" 2},
-  :sha "0460919acf56",
+  :sha "28920cb794da",
   :geom "e3b0c44298fc",
   :colour "5c4d7a30a286",
-  :text "0543417aee22",
+  :text "fc2463ab587a",
   :style 4}
  {:ops 220,
   :kinds
@@ -617,10 +617,10 @@
    "q" 4,
    "re" 3,
    "rg" 33},
-  :sha "16360a6f97ff",
+  :sha "38f8a9c194bb",
   :geom "8f12ae50fb9e",
   :colour "8a2c77575500",
-  :text "08364ed04e7f",
+  :text "06fabe495896",
   :style 4}
  {:ops 189,
   :kinds
@@ -643,8 +643,8 @@
    "q" 3,
    "re" 1,
    "rg" 23},
-  :sha "c33d286b5bc8",
+  :sha "e1d4e6a34e0d",
   :geom "dd46d244d113",
   :colour "3d3fb74c1692",
-  :text "538e27be77be",
+  :text "b46915564c5d",
   :style 4}]

@@ -7,6 +7,7 @@
             [orcpub.pdf :as pdf]
             [orcpub.pdf.draw :as draw]
             [orcpub.pdf.cards :as cards]
+            [orcpub.pdf-ops :as ops]
             [orcpub.dnd.e5.spell-packing :as packing])
   (:import (org.apache.pdfbox Loader)
            (org.apache.pdfbox.cos COSName COSString)
@@ -17,6 +18,17 @@
            (org.apache.pdfbox.pdmodel.font PDType1Font Standard14Fonts$FontName)
            (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget)
            (org.apache.pdfbox.pdmodel.interactive.form PDAcroForm PDTextField)))
+
+(def ^:private sans
+  "A Nimbus Sans map for MEASURING only. Drawing with it would register its faces with
+   the drawn document, and a second document's save then throws (see draw/load-sans);
+   a test that draws loads its own."
+  (delay (draw/load-sans (PDDocument.))))
+
+(defn- face
+  "Nimbus Sans `f` (:plain, :bold or :bold-italic) from `sans`, to measure with."
+  [f]
+  (draw/sans @sans f))
 
 (defn- all-fields [form]
   (iterator-seq (.iterator (.getFieldTree form))))
@@ -268,22 +280,22 @@
     (let [;; roughly the bonds/ideals/flaws box
           w 149.0 h 31.0]
       (testing "short text fits whole"
-        (let [{:keys [head tail]} (pdf/fit-text "Owes a patron he has never seen." w h)]
+        (let [{:keys [head tail]} (pdf/fit-text (face :plain) "Owes a patron he has never seen." w h)]
           (is (nil? tail))
           (is (= "Owes a patron he has never seen." head))))
       (testing "long text splits, and nothing is lost between head and tail"
         (let [words (str/join " " (map #(str "w" %) (range 200)))
-              {:keys [head tail]} (pdf/fit-text words w h)]
+              {:keys [head tail]} (pdf/fit-text (face :plain) words w h)]
           (is (some? tail) "200 words cannot fit a three-line box at 7pt")
           (is (= words (str/join " " [head tail]))
               "head and tail together reproduce the input exactly")))
       (testing "blank and nil are handled without blowing up"
-        (is (= {:head "" :tail nil :lines 0} (pdf/fit-text "" w h)))
-        (is (= {:head "" :tail nil :lines 0} (pdf/fit-text nil w h))))
+        (is (= {:head "" :tail nil :lines 0} (pdf/fit-text (face :plain) "" w h)))
+        (is (= {:head "" :tail nil :lines 0} (pdf/fit-text (face :plain) nil w h))))
       (testing "a bigger box holds more of the same text"
         (let [words (str/join " " (map #(str "w" %) (range 200)))
-              small (pdf/fit-text words w h)
-              large (pdf/fit-text words 350.0 300.0)]
+              small (pdf/fit-text (face :plain) words w h)
+              large (pdf/fit-text (face :plain) words 350.0 300.0)]
           (is (> (count (:head large)) (count (:head small)))))))))
 
 (deftest widget-box-measures-the-on-page-widget
@@ -310,7 +322,7 @@
                            (if (>= (inc lo) hi)
                              lo
                              (let [mid (quot (+ lo hi) 2)]
-                               (if (nil? (:tail (apply pdf/fit-text (lines-of mid) box)))
+                               (if (nil? (:tail (apply pdf/fit-text (face :plain) (lines-of mid) box)))
                                  (recur mid hi)
                                  (recur lo mid)))))))]
         (doseq [[field-name expected] {"ideals" 3
@@ -332,7 +344,7 @@
             unauthenticated: draw-text-to-box renders custom spell names into a
             roughly two-inch card box."
     (let [result (future (draw/split-lines "supercalifragilisticexpialidocious tail"
-                                          draw/HELVETICA 8.0 0.2))
+                                          (face :plain) 8.0 0.2))
           value (deref result 5000 ::timed-out)]
       (when (= ::timed-out value) (future-cancel result))
       (is (not= ::timed-out value) "split-lines must terminate")
@@ -345,9 +357,9 @@
             own line. Wrapping must not flatten them."
     (let [text "FIRST\nalpha beta\n\nSECOND\ndelta"]
       (testing "kept intact when everything fits"
-        (is (= text (:head (pdf/fit-text text 300.0 60.0)))))
+        (is (= text (:head (pdf/fit-text (face :plain) text 300.0 60.0)))))
       (testing "kept on both sides of a split"
-        (let [{:keys [head tail]} (pdf/fit-text text 300.0 12.0)]
+        (let [{:keys [head tail]} (pdf/fit-text (face :plain) text 300.0 12.0)]
           (is (some? tail))
           (is (str/includes? (str head tail) "\n")
               "breaks survive rather than being joined with spaces"))))))
@@ -518,7 +530,7 @@
                     (let [size (baked-size form nm)
                           widget (first (.getWidgets (.getField form nm)))
                           available (- (.getWidth (.getRectangle widget)) 2.0)]
-                      (<= (* 72.0 (draw/string-width value draw/HELVETICA size)) available)))]
+                      (<= (* 72.0 (draw/string-width value (face :plain) size)) available)))]
         (is (= 8.0 (baked-size form "int-save"))
             "a value that already fits is left at the size PDFBox chose")
         (is (< (baked-size form "wis-save") 8.0) "a wide value is shrunk")
@@ -769,10 +781,29 @@
         (with-open [in (.openStream (io/resource source))
                     doc (Loader/loadPDF (.readAllBytes in))]
           (pdf/grow-spell-sections! doc casters (if (zero? casters) :all marks))
-          (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
-          (doseq [i (range (.getNumberOfPages doc))]
-            (is (= 1 (count (re-seq (re-pattern draw/site-stamp) (page-text doc i))))
-                (str "style " style ", " casters " caster(s), page " (inc i)))))))))
+          (pdf/stamp-site-line! doc (draw/load-sans doc) site-line
+                                (pdf/site-line-pages doc (boolean prints-site-line?)))
+          (with-open [saved (ops/reloaded doc)]
+            (doseq [i (range (.getNumberOfPages saved))]
+              (is (= 1 (count (re-seq (re-pattern draw/site-stamp) (page-text saved i))))
+                  (str "style " style ", " casters " caster(s), page " (inc i))))))))))
+
+(deftest a-page-added-after-the-scan-is-stamped
+  ;; The scan runs before anything is drawn (reading text drawn in a not-yet-embedded
+  ;; font logs a fallback warning per face), so pages the export adds later -- the
+  ;; overflow pages -- are absent from it and must still get the line.
+  (let [{:keys [file marks site-line]} (get pdf/sheet-masters 4)]
+    (with-open [in (.openStream (io/resource file))
+                doc (Loader/loadPDF (.readAllBytes in))]
+      (pdf/grow-spell-sections! doc 1 marks)
+      (let [printed (pdf/site-line-pages doc true)]
+        (is (seq printed) "style 4's spell pages print their own")
+        (.addPage doc (PDPage.))
+        (pdf/stamp-site-line! doc (draw/load-sans doc) site-line printed)
+        (with-open [saved (ops/reloaded doc)]
+          (doseq [i (range (.getNumberOfPages saved))]
+            (is (= 1 (count (re-seq (re-pattern draw/site-stamp) (page-text saved i))))
+                (str "page " (inc i)))))))))
 
 (defn- ink-free?
   "Whether the stamp-sized box at `x`,`y` inches from the page's bottom-left is
@@ -783,7 +814,7 @@
   (let [dpi 300.0
         img (.renderImageWithDPI (org.apache.pdfbox.rendering.PDFRenderer. doc)
                                  index (float dpi))
-        w (draw/string-width draw/site-stamp draw/HELVETICA 6)
+        w (draw/string-width draw/site-stamp (face :plain) 6)
         h (/ 8.0 72)
         height (.getHeight img)
         x0 (int (* x dpi))
@@ -1086,7 +1117,7 @@
           (pdf/reserve-annotation-columns! doc)
           (is (< (Math/abs (- before (wide))) 0.01)
               (str "style " style " keeps its compartment"))
-          (is (= "Warlock" (:label (@#'pdf/fit-heading "Warlock" (- (wide) 6.0))))
+          (is (= "Warlock" (:label (@#'pdf/fit-heading (face :bold) "Warlock" (- (wide) 6.0))))
               (str "style " style " fits a class name")))))))
 
 (deftest a-filled-row-keeps-its-name-clear-of-the-columns
@@ -1118,7 +1149,7 @@
                       size (some-> (re-find #"/\S+\s+([0-9.]+)\s+Tf" (String. (.toByteArray b)))
                                    second Double/parseDouble)]
                   (when size
-                    (is (<= (* 72 (draw/string-width v draw/HELVETICA size))
+                    (is (<= (* 72 (draw/string-width v (face :plain) size))
                             (.getWidth r))
                         (str "style " style " " n " \"" v "\" at " size "pt"))))))))))))
 
@@ -1158,7 +1189,7 @@
       (pdf/grow-spell-sections! doc 2 :all)
       (let [[applied refused]
             (pdf/apply-relabel-instructions!
-             doc
+             doc (draw/load-sans doc)
              [{:section 1 :box 5 :label "2"}
               {:section 9 :box 1 :label "1"}
               {:section 1 :box 99 :label "1"}
@@ -1175,7 +1206,7 @@
                 doc (Loader/loadPDF (.readAllBytes in))]
       (pdf/grow-spell-sections! doc 1 :all)
       (let [flood (repeat 5000 {:section 1 :box 5 :label "2"})
-            [applied refused] (pdf/apply-relabel-instructions! doc flood 1)]
+            [applied refused] (pdf/apply-relabel-instructions! doc (draw/load-sans doc) flood 1)]
         (is (= 10 applied) "capped at the ten level boxes a page has")
         (is (= 4990 refused))))))
 
@@ -1183,14 +1214,14 @@
   ;; Class names are not a fixed length -- Bard against Eldritch Knight -- and the
   ;; compartment is. A single size either wastes the room or runs the name through
   ;; the bar's divider, which is what 9.5pt in a level box's 35pt compartment did.
-  (let [size #'pdf/heading-size]
+  (let [size (partial #'pdf/heading-size (face :bold))]
     (testing "a name that fits is drawn at the target size"
       (is (= @#'pdf/heading-target-size (size "Bard" 60.0))))
     (testing "a name too wide is scaled down"
       (is (< (size "Eldritch Knight" 35.0) @#'pdf/heading-target-size)))
     (testing "and never below the floor, where it stops reading as a heading"
       (is (= 6.0 (size "A Very Long Homebrew Class Name Indeed" 10.0)))))
-  (let [fit #'pdf/fit-heading]
+  (let [fit (partial #'pdf/fit-heading (face :bold))]
     (testing "a name that fits is left alone"
       (is (= {:label "Bard" :size @#'pdf/heading-target-size} (fit "Bard" 60.0))))
     (testing "a name too long even at the floor is shortened, not overflowed"
@@ -1199,12 +1230,12 @@
       (let [{:keys [label size]} (fit "Eldritch Knight" 35.0)]
         (is (not= "Eldritch Knight" label))
         (is (clojure.string/ends-with? label "\u2026"))
-        (is (<= (* 72 (draw/string-width label draw/HELVETICA_BOLD size)) 35.0))))
+        (is (<= (* 72 (draw/string-width label (face :bold) size)) 35.0))))
     (testing "every real class name fits a level box's compartment"
       (doseq [nm ["Bard" "Cleric" "Druid" "Paladin" "Ranger" "Sorcerer" "Warlock"
                   "Wizard" "Arcane Trickster" "Eldritch Knight"]]
         (let [{:keys [label size]} (fit nm 35.0)]
-          (is (<= (* 72 (draw/string-width label draw/HELVETICA_BOLD size)) 35.0)
+          (is (<= (* 72 (draw/string-width label (face :bold) size)) 35.0)
               (str nm " -> " label)))))))
 
 (deftest a-label-on-box-0-is-refused
@@ -1219,7 +1250,7 @@
                 doc (Loader/loadPDF (.readAllBytes in))]
       (pdf/grow-spell-sections! doc 1 marks)
       (let [[applied refused] (pdf/apply-relabel-instructions!
-                               doc [{:section 1 :box 0 :label "1"}
+                               doc (draw/load-sans doc) [{:section 1 :box 0 :label "1"}
                                     {:section 1 :box 0 :label nil}] 1 3)]
         (is (= 1 applied) "the blank is applied")
         (is (= 1 refused) "the label is refused")))))
@@ -1241,7 +1272,7 @@
           (pdf/grow-spell-sections! doc 1 marks)
           (let [[applied refused]
                 (pdf/apply-relabel-instructions!
-                 doc [{:section 1 :box 5 :label "2"}] 1 style)]
+                 doc (draw/load-sans doc) [{:section 1 :box 5 :label "2"}] 1 style)]
             (is (= 1 applied) (str "style " style))
             (is (zero? refused) (str "style " style)))))))
   (testing "an unmeasured style applies no relabel rather than printing a lie"
@@ -1251,7 +1282,7 @@
                   doc (Loader/loadPDF (.readAllBytes in))]
         (pdf/grow-spell-sections! doc 1 marks)
         (let [[applied refused] (pdf/apply-relabel-instructions!
-                                 doc [{:section 1 :box 5 :label "2"}] 1 5)]
+                                 doc (draw/load-sans doc) [{:section 1 :box 5 :label "2"}] 1 5)]
           (is (zero? applied))
           (is (= 1 refused)))))))
 

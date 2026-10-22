@@ -56,6 +56,6 @@
 (deftest the-exports-drawing-embeds-every-font-it-uses
   (with-open [doc (export)]
     (let [fonts (page-fonts doc)]
-      (is (= #{"Helvetica" "Helvetica-Bold" "Helvetica-BoldOblique"}
+      (is (= #{}
              (set (map first (remove second fonts))))
           "not embedded: the viewer's own Helvetica, WinAnsi-only"))))

@@ -11,8 +11,7 @@
   (:import (org.apache.pdfbox.pdmodel PDPageContentStream PDPageContentStream$AppendMode
                                       PDResources)
            (org.apache.pdfbox.pdmodel.common PDRectangle)
-           (org.apache.pdfbox.pdmodel.font PDType1Font PDType0Font PDFont
-                                           Standard14Fonts$FontName)
+           (org.apache.pdfbox.pdmodel.font PDType0Font PDFont)
            (org.apache.pdfbox.pdmodel.graphics.state PDExtendedGraphicsState)
            (org.apache.pdfbox.pdmodel.interactive.annotation PDAppearanceStream)
            (org.apache.pdfbox.pdmodel.graphics.image LosslessFactory)
@@ -118,19 +117,6 @@
     (curve (pt (- cx r) (+ cy k)) (pt (- cx k) (+ cy r)) (pt cx (+ cy r)))
     (curve (pt (+ cx k) (+ cy r)) (pt (+ cx r) (+ cy k)) (pt (+ cx r) cy))))
 
-;; The Base 14 fonts, present in every PDF reader. Constructed once at load time.
-(def HELVETICA
-  "Standard Helvetica font (regular weight, upright)"
-  (PDType1Font. Standard14Fonts$FontName/HELVETICA))
-
-(def HELVETICA_BOLD
-  "Standard Helvetica font (bold weight, upright)"
-  (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD))
-
-(def HELVETICA_BOLD_OBLIQUE
-  "Standard Helvetica font (bold weight, italic/oblique)"
-  (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD_OBLIQUE))
-
 (def site-stamp
   "The site line printed on card backs, the spellbook foot and every character-sheet
    page. Here because all three draw it; the placement is each one's own."
@@ -150,18 +136,6 @@
    :bold        "public/fonts/Vollkorn-Bold.ttf"
    :bold-italic "public/fonts/Vollkorn-BoldItalic.ttf"})
 
-(defn load-fonts
-  "Loads the fonts for the document. Will contain
-  :plain, :italic, :bold and :bold-italic fonts."
-  [doc]
-  (reduce-kv
-    (fn [m type file]
-      (assoc m type
-               (with-open [stream (.openStream (io/resource file))]
-                 (PDType0Font/load doc stream))))
-    {}
-    vollkorn-files))
-
 (def ^:private vollkorn-cmaps
   (delay (mapv (fn [file]
                  (with-open [in (.openStream (io/resource file))]
@@ -176,11 +150,53 @@
   [cp]
   (every? #(pos? (.getGlyphId % (int cp))) @vollkorn-cmaps))
 
+(def sans-files
+  "Nimbus Sans, URW's metric clone of Helvetica, by face: every WinAnsi advance width
+   is Helvetica's. The export's one sans, embedded, so drawn text and form fields set
+   the same glyphs and print past Latin-1. Under resources/fonts, NOT public/: its
+   licence covers embedding in a PDF, not serving the file. See resources/fonts/README.md."
+  {:plain       "fonts/NimbusSans-Regular.ttf"
+   :bold        "fonts/NimbusSans-Bold.ttf"
+   :bold-italic "fonts/NimbusSans-BoldItalic.ttf"})
+
 (def nimbus-file
-  "Nimbus Sans, URW's metric clone of Helvetica, for the form fields Helvetica cannot draw.
-   Under resources/fonts, NOT public/: its licence covers embedding in a PDF, not serving
-   the file. See resources/fonts/README.md."
-  "fonts/NimbusSans-Regular.ttf")
+  "The face form fields are set in, embedded in full by pdf/field-font!."
+  (:plain sans-files))
+
+(defn load-sans
+  "`sans-files` for `doc`, as {::sans {face (delay PDType0Font)}}, for load-fonts or
+   to pass on alone. Each face is embedded, as a subset, only when first drawn. Once per
+   document: every load embeds its own subset. And never across documents: drawing a
+   face registers it with that document, whose save subsets and closes it, so a second
+   document drawn with it throws on save (\"does not contain a 'cmap' table\")."
+  [doc]
+  {::sans (into {}
+                (for [[face file] sans-files]
+                  [face (delay (with-open [in (.openStream (io/resource file))]
+                                 (PDType0Font/load doc in)))]))})
+
+(defn sans
+  "Nimbus Sans `face` (:plain, :bold or :bold-italic) from `fonts`, a load-sans map."
+  [fonts face]
+  (if-let [d (get-in fonts [::sans face])]
+    @d
+    (throw (ex-info "no Nimbus Sans in this fonts map; merge in draw/load-sans"
+                    {:face face :keys (keys fonts)}))))
+
+(defn load-fonts
+  "The fonts for `doc`: Vollkorn as :plain, :italic, :bold and :bold-italic, and
+   Nimbus Sans from `sans-map`, a load-sans map (a fresh one by default). Pass the
+   document's own: a second load-sans embeds every face it draws a second time."
+  ([doc] (load-fonts doc (load-sans doc)))
+  ([doc sans-map]
+   (merge (reduce-kv
+           (fn [m type file]
+             (assoc m type
+                      (with-open [stream (.openStream (io/resource file))]
+                        (PDType0Font/load doc stream))))
+           {}
+           vollkorn-files)
+          sans-map)))
 
 (def ^:private nimbus-cmap
   (delay (with-open [in (.openStream (io/resource nimbus-file))]
@@ -197,7 +213,7 @@
                (vals (.getCodeToNameMap WinAnsiEncoding/INSTANCE)))))
 
 (defn winansi?
-  "Whether code point `cp` is in WinAnsiEncoding, so Helvetica can draw it. Read from
+  "Whether code point `cp` is in WinAnsiEncoding, so a Standard 14 font can draw it. Read from
    PDFBox's own table: WinAnsi is a BYTE encoding, not Unicode U+0000-U+00FF, and its
    0x80-0x9F slots hold the curly quotes, dashes, ellipsis, bullet, oe and euro sign."
   [cp]
@@ -210,7 +226,7 @@
 (defn normalize-text
   "A value as text the target font can draw. nil -> nil; non-strings stringified; tab ->
    space; other controls dropped except newlines. Past ASCII and Latin-1, a character is
-   kept when `keep?` (a code point predicate, default winansi?, i.e. Helvetica) says the
+   kept when `keep?` (a code point predicate, default winansi?, i.e. a Standard 14 font) says the
    font draws it, else given its ASCII fallback (curly quote -> straight, dash -> -),
    else `?`."
   ([s] (normalize-text s winansi?))

@@ -13,6 +13,7 @@
             [orcpub.spellbook :as sb])
   (:import (org.apache.pdfbox Loader)
            (org.apache.pdfbox.pdmodel PDDocument)
+           (org.apache.pdfbox.pdmodel.font PDType1Font Standard14Fonts$FontName)
            (org.apache.pdfbox.text PDFTextStripper)))
 
 (def ^:private wide
@@ -73,17 +74,23 @@
         (is (every? #{"0"} (vals (apply dissoc a (keys b)))))))))
 
 (deftest nimbus-sans-is-helvetica-width
-  ;; The reason it was chosen, pinned: replacing it with a "lookalike" that is not
-  ;; metric-compatible would change how every switched field fits.
+  ;; The reason it was chosen, pinned for every face drawn: replacing one with a
+  ;; "lookalike" that is not metric-compatible would change how every field and
+  ;; heading fits.
   (with-open [doc (PDDocument.)]
-    (let [nimbus (with-open [in (.openStream (io/resource draw/nimbus-file))]
-                   (org.apache.pdfbox.pdmodel.font.PDType0Font/load doc in))
-          off (for [cp (concat (range 0x20 0x7F) (range 0xA1 0x100))
-                    :let [c (str (char cp))
-                          d (Math/abs (- (.getStringWidth draw/HELVETICA c) (.getStringWidth nimbus c)))]
-                    :when (> d 0.5)]
-                (str (format "U+%04X" cp) " off by " (Math/round (double d))))]
-      (is (empty? off) (str/join ", " off)))))
+    (let [sans (draw/load-sans doc)]
+      (doseq [[face std] {:plain       Standard14Fonts$FontName/HELVETICA
+                          :bold        Standard14Fonts$FontName/HELVETICA_BOLD
+                          :bold-italic Standard14Fonts$FontName/HELVETICA_BOLD_OBLIQUE}
+              :let [helvetica (PDType1Font. std)
+                    nimbus (draw/sans sans face)
+                    off (for [cp (concat (range 0x20 0x7F) (range 0xA1 0x100))
+                              :let [c (str (char cp))
+                                    d (Math/abs (- (.getStringWidth helvetica c)
+                                                   (.getStringWidth nimbus c)))]
+                              :when (> d 0.5)]
+                          (str (format "U+%04X" cp) " off by " (Math/round (double d))))]]
+        (is (empty? off) (str face ": " (str/join ", " off)))))))
 
 (deftest every-sheet-field-uses-nimbus-sans
   ;; One font for the whole form, not Helvetica with Nimbus where Helvetica fails. The

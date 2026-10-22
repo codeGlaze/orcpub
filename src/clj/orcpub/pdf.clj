@@ -289,8 +289,8 @@
    a page's content stream spreads by cloning and cannot be removed. :without-casters
    is the no-spell-page file for non-casters, so pages are only ever added (and style
    4's licence line, on its spell page, is kept). :prints-site-line? = the artwork names
-   the site (style 4), so stamp-site-line! skips it. :site-line is where that line goes,
-   [x y] inches from bottom-left, MEASURED by dev/scan_site_line.clj and held by a test."
+   the site (style 4), so site-line-pages lists its pages. :site-line is where that line
+   goes, [x y] inches from bottom-left, MEASURED by dev/scan_site_line.clj, held by a test."
   {1 {:file "fillable-char-sheetstyle-1-1-spells.pdf" :marks :all
       :without-casters "fillable-char-sheetstyle-1-0-spells.pdf"
       :site-line [0.95 0.13]}
@@ -850,7 +850,7 @@
     ;; field prints blank. Text fields move to /NmS below; the form's own /DA and
     ;; non-text fields can still name /Helv.
     (when (nil? (.getFont res (COSName/getPDFName "Helv")))
-      ;; Fresh instance (not the shared module-level HELVETICA): this COS object is
+      ;; A fresh instance per document, never a shared one: this COS object is
       ;; added to THIS document's resource tree, and sharing one across documents
       ;; risks aliasing during concurrent saves.
       (.put res (COSName/getPDFName "Helv") (PDType1Font. Standard14Fonts$FontName/HELVETICA)))
@@ -1644,17 +1644,17 @@
 
 (defn fit-text
   "Splits `text` at the last line fitting a `width` x `height` point box at `size`
-   (default `min-font-size`). Returns {:head fitting-text :tail remainder-or-nil
-   :lines line-count}; callers place :head in the field and :tail on a continuation
-   page. Line breaks are hard breaks, kept on both sides of the split (pdf_spec's
-   traits-fields separates sections with them). A word too wide for the box still
-   takes its own line, so callers cannot loop forever."
-  ([text width height] (fit-text text width height min-font-size))
-  ([text width height size]
+   (default `min-font-size`), measured in `font`, the box's own. Returns {:head :tail
+   :lines}; :head goes in the field, :tail (or nil) on a continuation page. Line breaks
+   are hard breaks, kept on both sides of the split (pdf_spec's traits-fields separates
+   sections with them). A word too wide for the box still takes its own line, so callers
+   cannot loop forever."
+  ([font text width height] (fit-text font text width height min-font-size))
+  ([font text width height size]
    (let [paragraphs (s/split-lines (str text))
          wrap (fn [p] (if (s/blank? p)
                         [""]
-                        (vec (draw/split-lines p draw/HELVETICA size (/ width 72.0)))))
+                        (vec (draw/split-lines p font size (/ width 72.0)))))
          per-box (max 1 (int (Math/floor (/ height (* size line-height-factor)))))]
      (if (s/blank? (str text))
        {:head "" :tail nil :lines 0}
@@ -1805,6 +1805,8 @@
    share one paginated stream, so a few overflowing boxes cost one page, not one each."
   [doc fields]
   (let [form (.getAcroForm (.getDocumentCatalog doc))
+        ;; The font the fields print in, so wrapping measures what prints.
+        font (field-font! doc form)
         [trimmed sections]
         ;; (2026-09) The blank test comes first: getField walks the field tree and
         ;; widget-box walks the pages, and a sheet leaves most of these empty. Doing
@@ -1814,7 +1816,7 @@
                     (if (s/blank? value)
                       [acc sections]
                       (let [box (some->> (.getField form (name k)) (widget-box doc))
-                            {:keys [head tail]} (when box (apply fit-text value box))]
+                            {:keys [head tail]} (when box (apply fit-text font value box))]
                         (if tail
                           [(assoc acc k head) (conj sections (str label "\n" tail))]
                           [acc sections])))))
@@ -1826,7 +1828,7 @@
                   [(- (.getWidth r) 4.0) (- (.getHeight r) 4.0)])]
         (loop [remaining (s/join "\n\n" sections), n 1]
           (when-not (s/blank? remaining)
-            (let [{:keys [head tail]} (apply fit-text remaining box)]
+            (let [{:keys [head tail]} (apply fit-text font remaining box)]
               (add-overflow-page! doc template (str "overflow-" n) head)
               (recur (or tail "") (inc n)))))))
     trimmed))
@@ -1911,8 +1913,8 @@
    row's printed value (the spell name) and returns {:concentration? :tag :material}
    or nil, so the server needs no spell data; a name it cannot place (renamed or
    homebrew) gets no marks. Drawn rather than written as form fields, which cost far
-   more bytes per row."
-  [doc annotate]
+   more bytes per row. `fonts` is the document's load-sans map."
+  [doc fonts annotate]
   (let [rows (->> (spell-row-widgets doc)
                   (keep (fn [{:keys [field widget rect page]}]
                           (let [v (str (.getValueAsString field))]
@@ -1932,7 +1934,7 @@
                     :when text]
               (let [{:keys [dx size bold? grey]} (get annotation-columns k)]
                 (draw/draw-text cs text
-                           (if bold? draw/HELVETICA_BOLD draw/HELVETICA)
+                           (draw/sans fonts (if bold? :bold :plain))
                            size
                            (/ (- right dx) 72.0)
                            base-y
@@ -1966,8 +1968,8 @@
    Works on any style with a measured numeral box, because it hides the digit
    rather than repainting the badge -- see numeral-boxes. `label` may be blank, to
    clear a box nothing uses rather than leave it reading as a level the character
-   does not have."
-  [doc style level suffix label]
+   does not have. Drawn in `fonts`' Nimbus bold."
+  [doc fonts style level suffix label]
   (when-let [{:keys [dx dy w h size]} (get numeral-boxes style)]
     (when-let [slots (some-> (.getAcroForm (.getDocumentCatalog doc))
                              (.getField (str "spell-slots-" level "-" suffix)))]
@@ -1983,8 +1985,9 @@
             (.fill cs)
             (.setNonStrokingColor cs (float 0) (float 0) (float 0))
             (when-not (s/blank? (str label))
-              (let [lw (* 72 (draw/string-width (str label) draw/HELVETICA_BOLD size))]
-                (draw/draw-text cs (str label) draw/HELVETICA_BOLD size
+              (let [font (draw/sans fonts :bold)
+                    lw (* 72 (draw/string-width (str label) font size))]
+                (draw/draw-text cs (str label) font size
                            (/ (+ x (/ (- w lw) 2.0)) 72.0)
                            (/ (+ y (* 0.22 h)) 72.0)
                            [0 0 0])))))))))
@@ -2000,9 +2003,9 @@
    rather than throwing on a malformed list so it cannot cost the character their
    sheet. At most ten apply per section, and none on a style packing-supported?
    rejects. Box 0 takes no label (valid-relabel?); a blank for it is a no-op, having
-   no slots field to place a patch by."
-  ([doc instructions sections] (apply-relabel-instructions! doc instructions sections 1))
-  ([doc instructions sections style]
+   no slots field to place a patch by. `fonts` is the document's load-sans map."
+  ([doc fonts instructions sections] (apply-relabel-instructions! doc fonts instructions sections 1))
+  ([doc fonts instructions sections style]
   (let [wanted (if (packing-supported? style)
                  (take (* sections max-relabels-per-section) (filter map? instructions))
                  ;; An unmeasured style would print the new number beside the old.
@@ -2010,7 +2013,7 @@
         {ok true bad false} (group-by #(valid-relabel? % sections) wanted)]
     (doseq [{:keys [section box label]} ok]
       (try
-        (relabel-numeral! doc style box section (or label ""))
+        (relabel-numeral! doc fonts style box section (or label ""))
         (catch Exception e
           (println "pdf: relabel failed for box" box "section" section "-" (.getMessage e)))))
     [(count ok) (+ (count bad) (max 0 (- (count (filter map? instructions)) (count wanted))))])))
@@ -2042,9 +2045,9 @@
 
 (defn- heading-size
   "The largest size at or below heading-target-size that fits `label` in `width`,
-   floored at heading-floor-size."
-  [label width]
-  (let [natural (* 72 (draw/string-width label draw/HELVETICA_BOLD heading-target-size))]
+   floored at heading-floor-size, measured in `font`."
+  [font label width]
+  (let [natural (* 72 (draw/string-width label font heading-target-size))]
     (if (<= natural width)
       heading-target-size
       (max heading-floor-size (* heading-target-size (/ width natural))))))
@@ -2052,16 +2055,16 @@
 (defn- fit-heading
   "`label` and the size to draw it at, both trimmed to `width`: shrunk toward
    heading-floor-size, then shortened with an ellipsis if even the floor does not
-   fit (\"Eldritch Knight\" at 6pt would print through the bar's rules)."
-  [label width]
-  (let [size (heading-size label width)]
-    (if (<= (* 72 (draw/string-width label draw/HELVETICA_BOLD size)) width)
+   fit (\"Eldritch Knight\" at 6pt would print through the bar's rules). In `font`."
+  [font label width]
+  (let [size (heading-size font label width)]
+    (if (<= (* 72 (draw/string-width label font size)) width)
       {:label label :size size}
       (loop [n (dec (count label))]
         (let [candidate (str (s/trimr (subs label 0 (max 0 n))) "\u2026")]
           (cond
             (<= n 1) {:label "\u2026" :size size}
-            (<= (* 72 (draw/string-width candidate draw/HELVETICA_BOLD size)) width)
+            (<= (* 72 (draw/string-width candidate font size)) width)
             {:label candidate :size size}
             :else (recur (dec n))))))))
 
@@ -2127,10 +2130,10 @@
    bar. Only a cantrips bar has room, as its slot compartments are free. With
    `cantrips?` false the name shares the wide compartment with the SLOTS EXPENDED
    input. Box 0 prints CANTRIPS in its artwork where the name goes, so that word is
-   covered first."
-  ([doc style box suffix label] (draw-column-heading! doc style box suffix label nil))
-  ([doc style box suffix label {:keys [ability dc attack cantrips?]
-                                :or {cantrips? true}}]
+   covered first. Set in `fonts`' Nimbus bold."
+  ([doc fonts style box suffix label] (draw-column-heading! doc fonts style box suffix label nil))
+  ([doc fonts style box suffix label {:keys [ability dc attack cantrips?]
+                                      :or {cantrips? true}}]
   (when-let [{:keys [narrow wide]} (bar-compartments doc box suffix)]
     (when-let [[hx hy hw hh] (if (zero? box)
                              (cantrips-hexagon-box doc suffix)
@@ -2140,7 +2143,8 @@
                          .getWidgets first .getPage)
             [nx nw] narrow
             [wx ww] wide
-            middle (+ hy (/ hh 2.0))]
+            middle (+ hy (/ hh 2.0))
+            bold (draw/sans fonts :bold)]
         (when page
           (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
                                                true true)]
@@ -2159,13 +2163,13 @@
                   ;; word at its padded position.
                   {csize :size ctext :label}
                   (let [room (- nw cantrips-label-pad 2.0)
-                        natural (* 72 (draw/string-width cantrips-label draw/HELVETICA_BOLD
+                        natural (* 72 (draw/string-width cantrips-label bold
                                                     cantrips-label-size))]
                     (if (<= natural room)
                       {:size cantrips-label-size :label cantrips-label}
                       {:size (max 4.5 (* cantrips-label-size (/ room natural)))
                        :label cantrips-label}))]
-              (draw/draw-text cs ctext draw/HELVETICA_BOLD csize
+              (draw/draw-text cs ctext bold csize
                          (/ (+ (if (zero? box)
                                  ;; Past box 0's own divider, which ends about
                                  ;; nine points beyond the hexagon.
@@ -2192,12 +2196,12 @@
                   ;; A level bar keeps its SLOTS EXPENDED input, so the name takes
                   ;; the left half and the input moves to the right of it.
                   room (if cantrips? (- ww 6.0) (* ww 0.5))
-                  {label :label size :size} (fit-heading label room)
-                  lw (* 72 (draw/string-width label draw/HELVETICA_BOLD size))
+                  {label :label size :size} (fit-heading bold label room)
+                  lw (* 72 (draw/string-width label bold size))
                   start (if cantrips? (+ wx (/ (- ww lw) 2.0)) (+ wx 4.0))]
               (when-not cantrips?
                 (shrink-slots-expended! doc box suffix (+ wx lw 10.0)))
-              (draw/draw-text cs label draw/HELVETICA_BOLD size
+              (draw/draw-text cs label bold size
                          (/ start 72.0)
                          (/ (+ middle (* -0.36 size)) 72.0)
                          [0.15 0.15 0.15])
@@ -2206,7 +2210,7 @@
                 ;; -- the save DC of the spell they are casting and what they add
                 ;; to hit -- so they are set like the class name rather than like
                 ;; the CANTRIPS caption, which is a label nobody needs to find.
-                (let [sw (* 72 (draw/string-width stats draw/HELVETICA_BOLD small))
+                (let [sw (* 72 (draw/string-width stats bold small))
                       sx (+ wx (/ (- ww sw) 2.0))
                       ;; Clear of the bar's upper rule, which sits 9.75 above its
                       ;; middle.
@@ -2219,7 +2223,7 @@
                             (float (+ sw 4.0)) (float (+ small 1.5)))
                   (.fill cs)
                   (.setNonStrokingColor cs (float 0) (float 0) (float 0))
-                  (draw/draw-text cs stats draw/HELVETICA_BOLD small
+                  (draw/draw-text cs stats bold small
                              (/ sx 72.0) (/ sy 72.0)
                              [0.1 0.1 0.1])))))))))))
 
@@ -2255,8 +2259,8 @@
 
    In the document, not the response: the PDF is what gets saved and printed, and a
    browser banner is gone on the next click. First so it is read before the printing.
-   Helvetica, not Vollkorn -- a second load-fonts embeds a second subset of every face."
-  [doc]
+   Set in Nimbus Sans from `fonts`, the document's one load-sans map."
+  [doc fonts]
   (when-let [items (seq (errors/notices))]
     (let [page (PDPage. (draw/page-rect))
           tree (.getPages doc)
@@ -2265,29 +2269,40 @@
         (.insertBefore tree page (.get tree 0))
         (.addPage doc page))
       (with-open [cs (PDPageContentStream. doc page)]
-        (draw/draw-text cs (:head notice-titles) draw/HELVETICA_BOLD 16 1.0 (- h 1.2))
-        (draw/draw-text cs (:sub notice-titles) draw/HELVETICA 10 1.0 (- h 1.5))
+        (draw/draw-text cs (:head notice-titles) (draw/sans fonts :bold) 16 1.0 (- h 1.2))
+        (draw/draw-text cs (:sub notice-titles) (draw/sans fonts :plain) 10 1.0 (- h 1.5))
         ;; draw-text-to-box takes the box TOP and puts its first baseline one leading
         ;; below it, so a detail at (- y 0.32) landed at (- y 0.46) -- exactly the row
         ;; pitch, printing every detail on top of the next heading.
         (doseq [[i {:keys [what detail]}] (map-indexed vector items)
                 :let [y (- h 1.95 (* 0.62 i))]
                 :while (> y 1.1)]
-          (draw/draw-text cs (str "- " what) draw/HELVETICA_BOLD 11 1.1 y)
-          (draw/draw-text-to-box cs detail draw/HELVETICA 9.5 1.25 (- y 0.16)
+          (draw/draw-text cs (str "- " what) (draw/sans fonts :bold) 11 1.1 y)
+          (draw/draw-text-to-box cs detail (draw/sans fonts :plain) 9.5 1.25 (- y 0.16)
                                  (- (draw/page-width 72) 2.4) 0.32))
-        (draw/draw-text cs draw/site-stamp draw/HELVETICA 8 1.0 0.6 [0.45 0.45 0.45]))
+        (draw/draw-text cs draw/site-stamp (draw/sans fonts :plain) 8 1.0 0.6 [0.45 0.45 0.45]))
       page)))
+
+(defn site-line-pages
+  "The pages whose artwork already prints the site line, as a set of their COS
+   dictionaries; empty unless `prints-own?` (the style's :prints-site-line?). Call it
+   BEFORE drawing anything: the scan reads page text, and a font this export added is
+   not embedded until save, so reading it logs a fallback-font warning per face."
+  [doc prints-own?]
+  (if prints-own?
+    (set (keep-indexed (fn [i page] (when (page-prints-site-line? doc i) (.getCOSObject page)))
+                       (vec (.getPages doc))))
+    #{}))
 
 (defn stamp-site-line!
   "Prints the site line at `position` (the style's :site-line from sheet-masters,
-   chosen per style to clear its corner artwork) on every page that lacks one.
-   `prints-own?` means the artwork carries it on SOME pages (style 4's spell pages)
-   and gates the per-page text scan. Appends a stream per page: cloned spell pages
-   SHARE the master's content stream, so writing into it would print once per clone."
-  [doc [x y] prints-own?]
-  (doseq [[index page] (map-indexed vector (vec (.getPages doc)))
-          :when (not (and prints-own? (page-prints-site-line? doc index)))]
+   chosen per style to clear its corner artwork) on every page not in `printed`, a
+   site-line-pages set; pages added since that scan are stamped. Appends a stream per
+   page: cloned spell pages SHARE the master's content stream, so writing into it would
+   print once per clone. In `fonts`' Nimbus regular."
+  [doc fonts [x y] printed]
+  (doseq [page (vec (.getPages doc))
+          :when (not (contains? printed (.getCOSObject page)))]
     (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
                                          true true)]
-      (draw/draw-text cs draw/site-stamp draw/HELVETICA draw/site-stamp-size x y [0.45 0.45 0.45]))))
+      (draw/draw-text cs draw/site-stamp (draw/sans fonts :plain) draw/site-stamp-size x y [0.45 0.45 0.45]))))

@@ -96,7 +96,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** the builder's tab bar wraps on narrow screens.
 - **Characters:** opening a character whose choices no longer apply sets them aside and lists them in a notice; the saved copy changes only when you save.
 - **Printing:** a character portrait whose host is briefly unreachable is fetched a second time before the export gives up on it.
-- **Printing:** the character sheet's fields are set in an embedded font with Helvetica's exact widths, so a sheet looks the same in every PDF viewer instead of in whatever font the viewer substitutes.
+- **Printing:** every sans-serif line in an export -- sheet fields, spell-column headings, the site line, the notice page and card captions -- is set in one embedded font with Helvetica's exact widths, so it looks the same in every PDF viewer and prints names such as Łukasz.
 
 ### Fixed
 

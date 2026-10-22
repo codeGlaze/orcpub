@@ -9,9 +9,19 @@
             [clojure.pprint :as pprint]
             [clojure.test :refer [is testing]])
   (:import (java.security MessageDigest)
+           (java.io ByteArrayOutputStream)
+           (org.apache.pdfbox Loader)
            (org.apache.pdfbox.pdfparser PDFStreamParser)
            (org.apache.pdfbox.contentstream.operator Operator)
            (org.apache.pdfbox.cos COSNumber COSString COSName)))
+
+(defn reloaded
+  "`doc` saved and loaded back. A subset font is embedded only at save, so text read or
+   rendered before then comes from PDFBox's fallback font, not the one that ships."
+  [doc]
+  (let [out (ByteArrayOutputStream.)]
+    (.save doc out)
+    (Loader/loadPDF (.toByteArray out))))
 
 (defn- show-string
   "A drawn string as ASCII. Card and spellbook text go through an embedded Type0 font,

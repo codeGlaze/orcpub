@@ -13,7 +13,6 @@
 
 (require '[orcpub.pdf.draw :as draw] '[clojure.string :as str] '[clojure.java.io :as io])
 (import '[org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream]
-        '[org.apache.pdfbox.pdmodel.font PDType1Font Standard14Fonts$FontName]
         '[org.apache.pdfbox.rendering PDFRenderer]
         '[javax.imageio ImageIO] '[java.io File])
 
@@ -21,7 +20,7 @@
 (def sizes "Inches. 0.25 is what a spell card actually draws." [0.15 0.25 0.4 0.7 1.1])
 
 (let [doc (PDDocument.) page (PDPage.) img (draw/make-image-loader doc)
-      helv (PDType1Font. Standard14Fonts$FontName/HELVETICA)
+      helv (draw/sans (draw/load-sans doc) :plain)
       label (fn [cs t x y] (draw/draw-text cs t helv 7 x y))]
   (.addPage doc page)
   (with-open [cs (PDPageContentStream. doc page)]
