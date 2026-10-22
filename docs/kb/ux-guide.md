@@ -128,7 +128,6 @@ The app's patterns and what each is for. When a better one is agreed, it replace
 
 ## Decisions log
 
-- 2026-10-22: the builder's "select any number / complete" line is hidden on sections with no minimum, no maximum and no held picks: it can only ever say complete (Label only what the player would miss). A switch under Developer mode, "Hide empty pick counts", brings it back; on by default. `planned-text/count-says-nothing?`, `feature/inventory-kits`.
 
 Newest last. Date, ruling, and what it replaced.
 
@@ -205,3 +204,4 @@ Newest last. Date, ruling, and what it replaced.
   drawing the control bigger. Replaced full-width rest buttons in a box (round 8 of the rest mockups).
 - 2026-10-22: an option that changes what a button does sits above the button: set it, then act.
   The result (an Undo line) sits below. First used for "dawn passes" over the rest buttons.
+- 2026-10-22: the builder's "select any number / complete" line is hidden on sections with no minimum, no maximum and no held picks: it can only ever say complete (Label only what the player would miss). A switch under Developer mode, "Hide empty pick counts", brings it back; on by default. `planned-text/count-says-nothing?`, `feature/inventory-kits`.
