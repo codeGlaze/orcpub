@@ -301,6 +301,13 @@ to the schema (additive; `datomic.clj` transacts `all-schemas` at every start, s
 get them with no migration). `features_used_save_test.clj` saves a use under every period
 `::mi/recharge` allows; it failed for dawn and short-rest ("Unable to resolve entity") before the fix.
 
+**Dawn and the rest buttons (owner, 2026-10-21: "a checkbox or something next to the rest buttons so
+I can include Dawn or not").** On this branch a Long Rest always clears dawn uses
+(`units5e/long-rest-clears`), but a rest by day passes no dawn, and a dawn can pass without a rest.
+Proposed: beside Long Rest, "Dawn passed", checked by default, clearing dawn uses only while checked;
+a small "Dawn" button that clears dawn uses alone; both shown only for a character holding something
+that recharges at dawn; Undo covers either. No checkbox on Short Rest. Awaiting owner on the details.
+
 ## Decisions for the owner
 
 1. **Topple's DC.** (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +
