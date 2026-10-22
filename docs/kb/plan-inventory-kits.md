@@ -103,6 +103,52 @@ stored: the same 13 torches split 10/3 or 3/10 depending on refill history.
 Later, separate items: carrying capacity and encumbrance (the mule's `:carrying-capacity` exists);
 paying for restocks from coins; ammunition starting at its bundle from the picker.
 
+## Phase 2 design (2026-10-22, before code)
+
+**Storage.** Kits are a list under the character's values, stored like `::char5e/custom-equipment`
+(a `many-ref` of component records; `schema.clj`), so no new storage mechanism:
+
+```clojure
+[::entity/values ::char5e/kits]
+[{::kit/key :explorers-pack ::kit/name "Explorer's Pack" ::kit/order 1
+  ::kit/source [:class :fighter :starting-equipment-equipment-pack]   ; the choice that made it, if any
+  ::kit/items [{::kit/item :torch  ::kit/held 10 ::kit/target 10}
+               {::kit/item :holy-symbol ::kit/held 1 ::kit/target 1 ::kit/choice :amulet}]}]
+```
+
+New schema attributes (additive; `all-schemas` is transacted at start-up, `datomic.clj:39`):
+`::char5e/kits` many-ref; on a kit: `key` keyword, `name` string, `order` long, `source` (stored as a
+string path), `items` many-ref; on a kit item: `item` keyword, `held` long, `target` long, `choice`
+keyword. Each must also pass `::se/entity` on save and draft restore.
+
+**Choosing a pack makes it real.** The pack option stops emitting its contents as build-time
+modifiers. Choosing it (builder event, and the picker) adds each item to the stored Equipment picks,
+**adding to an existing pick's quantity** (not `add-associated-options`, which drops a key already
+held: the pack's torches would vanish for a character who owns torches), and records the kit with
+`held` = `target`. Pack contents then show in the builder as ordinary picks: editable, removable.
+
+**Existing characters: repair on read**, inside `reconciled-character` (it runs on every load path:
+`set-character`, `character-updated`, the by-id sub). If a pack choice is selected and no kit has that
+`source`, materialize it as above. Idempotent: the kit's presence is the marker. Kept by the user's
+next save, like the other heals. Packs stored as a fixed class item (`:equipment {:explorers-pack 1}`,
+`classes.cljc:69`, `:785`) and packs granted through `:equipment-selections` currently appear as one
+"Explorer's Pack" line, unexpanded: the same repair covers them.
+
+**Slices.**
+- **2a, no new UI:** schema, kit record, choose-to-materialize, repair on read. Visible result: a pack's
+  contents become ordinary editable picks (the original complaint). Tests: a fresh choice, an existing
+  character repaired once and only once, a character who already owns torches keeps both counts.
+- **2b, the kit panel:** counters, Refill (free), Restock (paid, asks), delete, change a choice. Built
+  only after a phone-width mockup is reviewed (ux-guide.md).
+- **2c, using items:** top-down use order, and #229 (quantities edited on the sheet).
+
+**Open before 2a:**
+1. When the starting class changes and the pack choice disappears, what happens to the pack's items?
+   Remove them up to what the kit still holds (subtract-if-there), keep them, or ask?
+2. Packs that come with a choice (Priest's "holy symbol", Monster Hunter's "holy symbol") need the
+   choice asked at materialize time; for the repair of an existing character, add the generic entry
+   and let the player pick later?
+
 ## The map: where equipment is written, read and saved (2026-10-22, `integration` `d51938c1`)
 
 Three read-only searches; the load-bearing claims re-checked by hand.

@@ -576,7 +576,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, expertise, extensible, grant, legacy, monster, pool, race, registry, row, rows, shim, widget, widgets
+**topics:** ---, arm, bespoke, disposition, effect, expertise, extensible, feat, grant, legacy, pool, race, registry, row, rows, shim, widget, widgets
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -709,7 +709,7 @@ _character-naming · character naming_
 
 _character-rescue-console · character rescue console_
 
-**topics:** backup, bundle, colons, defences, delimiter, depth-aware, empty-keyword-corruption, healer, minified, parties, repair, scan, tool, transit, unpatched, urls, user, xhr
+**topics:** backup, bundle, colons, defences, delimiter, depth-aware, empty-keyword-corruption, healer, minified, parties, repair, scan, tool, transit, unpatched, unscoped, urls, xhr
 
 - 1. When a console tool is the right answer
 - 2. Triage: what the user actually reports
@@ -2832,12 +2832,13 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, 340, alphabetical, container, gear, items, kit, kits, leftovers, pack, packs, quantities, quantity, rations, refill, starting, stored, torches
+**topics:** 2026-10-22, alphabetical, container, items, kit, kits, leftovers, pack, packs, quantities, quantity, rations, refill, restock, starting, stored, top-down, torches
 
 - The problems today
 - The model
 - The actions
 - Phases
+- Phase 2 design (2026-10-22, before code)
 - The map: where equipment is written, read and saved (2026-10-22, integration d51938c1)
 - Patterns to reuse
 - Open (owner)
