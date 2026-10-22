@@ -273,7 +273,7 @@ the throttled save; the builder's unsaved character is replaced with `:set-chara
    (in `::e5/rest-notice {:id :kind :before {...}}`). Only those keys, not the whole character.
 2. **Undo puts back only those keys** (assoc the old value, or dissoc where there was none), through
    `update-character-fx`, so a saved character saves the undo like any edit.
-3. **Undo is offered only until the character next changes.** If the player uses a slot or takes
+3. **(Revised below: how long Undo lasts.)** Undo is offered only until the character next changes. If the player uses a slot or takes
    damage after resting, putting the old values back would silently lose that, so any later change
    to the character ends the Undo: the notice becomes plain "Long Rest finished" until closed. This
    is the one design choice for the owner (the other way is to merge, which can be wrong both ways).
@@ -283,6 +283,21 @@ the throttled save; the builder's unsaved character is replaced with `:set-chara
 6. **Tests, seen failing first:** events tests (rest then Undo gives back the exact character; a
    change after the rest ends the Undo; Redo equals the rest; a saved character emits the save); one
    browser check on the sheet (rest, Undo, values back).
+
+**How long Undo lasts (owner, 2026-10-21):** a time limit and "until they click something else" are
+both poor signals, and many groups rest at the end of a session and log off. Proposed: Undo lasts
+until the character changes (a slot used, damage, any edit), however long that is; scrolling, cards and
+tabs do not count. The last rest's record (what it cleared, and when) is saved with the character, so
+it survives logging off: beside the rest buttons a quiet line reads "Long Rest finished · Undo", or
+"Last Long Rest: Oct 21 · Undo" in a later session, and goes away when the character changes. Needs
+one new schema attribute for the record. Awaiting owner.
+
+**Bug found on this branch (2026-10-21), not yet fixed:** the schema stores used uses per period
+(`schema.clj` `features-used-schema`: minute, hour, turn, day, round, rest, long-rest). This branch
+added `::units5e/dawn` (and the weapon `::mi/recharge` field also allows `::units5e/short-rest`); a
+saved character that uses a once-per-dawn weapon power records it under `::units5e/dawn` through
+`toggle-feature-used`, an attribute the schema lacks, so its save should fail. Fix: add both periods
+to the schema (additive). Prove the failure with a test first.
 
 ## Decisions for the owner
 

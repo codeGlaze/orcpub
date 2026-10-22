@@ -1466,7 +1466,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, added, datomic, dmv, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, datomic, dmv, echoing, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -3738,7 +3738,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** 2026-10-21, attack, band, cleave, graze, hit, masteries, mastery, owner, preview, prone, rest, srd, text, topple, undo, vex, weapon
+**topics:** 2026-10-21, attack, awaiting, band, cleave, graze, hit, long, masteries, mastery, owner, preview, rest, srd, topple, undo, vex, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)
