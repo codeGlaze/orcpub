@@ -323,7 +323,9 @@
      ::units5e/day
      ::units5e/round
      ::units5e/rest
-     ::units5e/long-rest])))
+     ::units5e/short-rest
+     ::units5e/long-rest
+     ::units5e/dawn])))
 
 (def party-schema
   [{:db/ident ::party5e/owner
