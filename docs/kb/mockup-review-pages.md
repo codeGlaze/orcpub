@@ -24,6 +24,16 @@ end. First used for Weapon Mastery: https://claude.ai/artifact/2AKaCTen9rCcchJfp
    `embed-shots.py page.html page-embedded.html` and publish `page-embedded.html` with the Artifact
    tool. Republish the same path to keep the URL.
 
+## Keep it easy to look through
+
+The owner (2026-10-22): "you keep adding things to this table without making it easier to look
+through". Each round, rework the page, do not append to it:
+
+- **Summary first:** Open (what needs the owner), Decided, Bugs fixed. Short lines.
+- **Group shots by topic** (where they sit in the app), not by the round they were made in.
+- **Mark every shot** Decided, Open or Fixed. Drop shots a later round replaced.
+- Two-column grid on wide screens, one column on a phone.
+
 ## Traps
 
 - **The Artifact tool only takes `files` from the working directory or the session scratchpad.** A

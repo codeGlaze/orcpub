@@ -2266,10 +2266,11 @@ _merging-across-a-refactor · merging across a refactor_
 
 _mockup-review-pages · mockup review pages_
 
-**topics:** 2akacten9rccchjfphjgmr, artifact, clipping, drawn-in, embedding, label, lacks, mockup, phone, publishes, questions, republish, scene, scenes, shot, shots, theme-aware, writing-browser-tests
+**topics:** 2akacten9rccchjfphjgmr, artifact, drawn-in, label, lacks, look, mockup, owner, phone, publishes, republish, round, scene, scenes, shot, shots, theme-aware, writing-browser-tests
 
 - The three pieces (all in scripts/design/ on this branch)
 - Steps
+- Keep it easy to look through
 - Traps
 
 ## modifier-vs-trait-slots.md

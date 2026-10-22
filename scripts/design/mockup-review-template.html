@@ -2,129 +2,129 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
-/* Layout: one review column, phone shots at true 390px width, each with its label and what to look at */
+/* Layout: a summary first (decided, open, fixed), then topic groups of phone shots, each shot marked decided or open */
 :root {
   --bg: #f3f1ec; --fg: #1f2330; --muted: #5d6273; --line: #d9d5cc; --panel: #ffffff;
-  --amber: #f0a100; --cap-ink: #1a1e28; --ask: #fff4dc; --ask-line: #e0b250;
+  --amber: #f0a100; --cap-ink: #1a1e28; --open: #fff4dc; --open-line: #e0b250; --done: #e7efe4; --done-ink: #2f5a2a;
   --display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
   --body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #161a24; --fg: #e6e9ee; --muted: #9aa1b2; --line: #2c3445; --panel: #1f2533;
-  --ask: #2a2416; --ask-line: #8a6a1c; color-scheme: dark } }
+  --open: #2a2416; --open-line: #8a6a1c; --done: #1d2a1f; --done-ink: #9fd09a; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #161a24; --fg: #e6e9ee; --muted: #9aa1b2; --line: #2c3445; --panel: #1f2533;
-  --ask: #2a2416; --ask-line: #8a6a1c; color-scheme: dark }
+  --open: #2a2416; --open-line: #8a6a1c; --done: #1d2a1f; --done-ink: #9fd09a; color-scheme: dark }
 body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 20px 48px }
-main { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 36px }
+main { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px }
 h1 { font-family: var(--display); font-size: 30px; line-height: 1.1; margin: 0; text-wrap: balance }
-h2 { font-family: var(--display); font-size: 22px; line-height: 1.2; margin: 0; display: flex; align-items: center; gap: 10px; text-wrap: balance }
-.intro p { margin: 8px 0 0; color: var(--muted) }
-.cap { font-family: var(--display); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-  background: var(--amber); color: var(--cap-ink); padding: 2px 14px 2px 8px; flex: none;
-  clip-path: polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%) }
-.cap.today { background: var(--muted); color: var(--bg) }
-section { display: flex; flex-direction: column; gap: 10px; min-width: 0 }
-section p { margin: 0 }
-.look { margin: 0; padding-left: 20px; color: var(--muted) }
-.look li { margin-top: 4px }
-figure { margin: 0; align-self: center; width: 100%; max-width: 390px }
-figure.wide { max-width: 640px }
-figure img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 6px; background: var(--panel) }
-figcaption { font-size: 13px; color: var(--muted); margin-top: 6px }
-.ask { background: var(--ask); border: 1px solid var(--ask-line); border-radius: 6px; padding: 14px 16px }
-.ask h2 { font-size: 20px }
-.ask ol { margin: 8px 0 0; padding-left: 20px }
-.ask li { margin-top: 6px }
+h2 { font-family: var(--display); font-size: 24px; line-height: 1.2; margin: 0; text-wrap: balance }
+.lede { margin: 6px 0 0; color: var(--muted) }
+.summary { display: grid; gap: 12px }
+.box { border-radius: 6px; padding: 12px 14px; border: 1px solid var(--line); background: var(--panel); min-width: 0 }
+.box h3 { margin: 0 0 6px; font-family: var(--display); font-size: 18px }
+.box ul { margin: 0; padding-left: 18px }
+.box li { margin-top: 3px }
+.box.open { background: var(--open); border-color: var(--open-line) }
+.muted { color: var(--muted) }
 nav { display: flex; flex-wrap: wrap; gap: 8px }
 nav a { color: var(--fg); font-size: 14px; border: 1px solid var(--line); border-radius: 14px; padding: 6px 12px;
   text-decoration: none; background: var(--panel); min-height: 32px; display: inline-flex; align-items: center }
-nav a:focus-visible, a:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px }
+a:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px }
+section { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding-top: 6px; border-top: 1px solid var(--line) }
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px 16px; align-items: start }
+figure { margin: 0; min-width: 0 }
+figure.wide { grid-column: 1 / -1 }
+figure img { display: block; width: 100%; max-width: 390px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel) }
+figure.wide img { max-width: 100% }
+figcaption { font-size: 14px; margin-top: 6px; display: flex; gap: 8px; align-items: baseline }
+.tag { flex: none; font-family: var(--display); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  padding: 1px 7px; border-radius: 4px; background: var(--done); color: var(--done-ink) }
+.tag.open { background: var(--amber); color: var(--cap-ink) }
+.tag.fixed { background: var(--line); color: var(--fg) }
 </style>
 
 <main>
-  <div class="intro">
+  <div>
     <h1>Weapon Mastery Mockups</h1>
-    <p>A fighter (Str 16, level 1) carrying a battleaxe with Topple, which they are trained in, and a glaive with Graze, which they are not. These are the real Weapons table with the new parts drawn in. Shots 1 to 6 are a phone at its true width.</p>
+    <p class="lede">The real Weapons table with the new parts drawn in, at phone size. A fighter trained with the battleaxe (Topple), longsword (Sap) and handaxe (Vex), but not the glaive (Graze).</p>
   </div>
 
-  <nav aria-label="Shots">
-    <a href="#s1">1 Band</a><a href="#s2">2 Not trained</a><a href="#s3">3 Panel</a><a href="#s3d">4 Long Rest</a><a href="#s4">5 Card</a>
-    <a href="#s5">6 Prone inside</a><a href="#s6">7 Roll</a><a href="#s7">8 Desktop</a><a href="#s8">9 Fixed</a><a href="#s10">10 Rest</a><a href="#ask">Questions</a>
+  <div class="summary">
+    <div class="box open">
+      <h3>Open: needs you</h3>
+      <ul><li>The rest controls (group D): placement OK?</li></ul>
+      <p class="muted" style="margin:6px 0 0">Wording is parked for one pass at the end.</p>
+    </div>
+    <div class="box">
+      <h3>Decided</h3>
+      <ul>
+        <li>Band joined to its row; its ? glows a few times until opened. No "New" tag.</li>
+        <li>Untrained weapons get a thin grey line, on by default; a stein switch uses the mastery anyway.</li>
+        <li>On a phone, cards open at the bottom; rules open inside them.</li>
+        <li>Mastery panel: one box, three chips on one line; stein switch for free add and remove.</li>
+        <li>Long Rest asks about masteries only when there is a choice; otherwise a quiet line with Undo.</li>
+        <li>Undo lasts until the character changes, and survives logging off.</li>
+        <li>"Dawn passed" box beside Long Rest, plus a Dawn button.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>Bugs fixed on the way</h3>
+      <ul>
+        <li>The app's rule card ran off the right edge of a phone.</li>
+        <li>A saved character could not keep a once-per-dawn weapon use.</li>
+      </ul>
+    </div>
+  </div>
+
+  <nav aria-label="Groups">
+    <a href="#a">A. In the table</a><a href="#b">B. Explaining a rule</a><a href="#c">C. Mastery panel</a><a href="#d">D. Resting</a><a href="#e">E. Fixed</a>
   </nav>
 
-  <section id="s1">
-    <h2><span class="cap">1</span>The band, joined to its row</h2>
-    <p>Decided: no New tag (it was missed even when looked for). The ? glows instead, pulsing a few times and then slowing to a stop, like the 1H / 2H switch; opening it once stops it for good.</p>
-    <figure><img src="shots/1b-band-with-glowing-help.png" alt="Weapons table on a phone. The Ironwood Battleaxe row ends in its band: TOPPLE, ON HIT, DC 13 Con save or Prone, and a ? with a soft glowing ring."></figure>
+  <section id="a">
+    <h2>A. In the table</h2>
+    <div class="shots">
+      <figure><img src="shots/1b-band-with-glowing-help.png" alt="Weapons table on a phone. The Ironwood Battleaxe row ends in its band: TOPPLE, ON HIT, DC 13 Con save or Prone, and a glowing question mark."><figcaption><span class="tag">Decided</span>A trained weapon: the band, its ? glowing until first opened.</figcaption></figure>
+      <figure><img src="shots/2c-untrained-thin-line.png" alt="Under the Bronze Glaive row, a thin grey line: GRAZE, NOT TRAINED, Swap it in at a Long Rest, and a stein switch, off."><figcaption><span class="tag">Decided</span>An untrained weapon: a thin grey line.</figcaption></figure>
+      <figure><img src="shots/2d-untrained-brew-on.png" alt="The same line with the stein switch on: the full band, GRAZE, ON MISS, 3 slashing damage."><figcaption><span class="tag">Decided</span>Stein switch on: used anyway, as a house rule.</figcaption></figure>
+    </div>
   </section>
 
-  <section id="s2">
-    <h2><span class="cap">2</span>A weapon they are not trained in</h2>
-    <p>Decided: the thin grey line shows by default, and a display setting can turn it off. The homebrew switch uses the mastery anyway as a house rule.</p>
-    <figure><img src="shots/2c-untrained-thin-line.png" alt="Under the Bronze Glaive row, a thin grey line: a grey GRAZE tag, NOT TRAINED, Swap it in at a Long Rest, and a small switch with the homebrew beer stein icon, off."><figcaption>2c. The thin line, switch off.</figcaption></figure>
-    <figure><img src="shots/2d-untrained-brew-on.png" alt="The same line with the switch on: a full band, amber GRAZE tag, ON MISS, 3 slashing damage, and the switch lit amber with the stein."><figcaption>2d. Switch on: the full band, the stein lit.</figcaption></figure>
+  <section id="b">
+    <h2>B. Explaining a rule</h2>
+    <div class="shots">
+      <figure><img src="shots/4-card-as-bottom-sheet.png" alt="A bottom sheet: Topple, Weapon Mastery, Ironwood Battleaxe. What it means for this character, then the SRD 5.2 text."><figcaption><span class="tag">Decided</span>The ? opens a card at the bottom.</figcaption></figure>
+      <figure><img src="shots/5-prone-inside-the-card.png" alt="The Topple card with the Prone rule opened inside it, under the word Prone."><figcaption><span class="tag">Decided</span>Prone opens inside the card.</figcaption></figure>
+      <figure><img src="shots/6-roll-result-topple.png" alt="The roll result after a hit: TOPPLE, the target makes a DC 13 Con save or falls Prone, with Prone opened below."><figcaption><span class="tag">Decided</span>After a hit, the roll result offers it.</figcaption></figure>
+      <figure class="wide"><img src="shots/7-desktop-card-prone-open.png" alt="Desktop: the Topple card beside the band, with Prone opened inside it."><figcaption><span class="tag">Decided</span>Desktop: the card beside the band. A click inside it pins it.</figcaption></figure>
+    </div>
   </section>
 
-  <section id="s3">
-    <h2><span class="cap">3</span>The Weapon Mastery panel, round 2</h2>
-    <p>For your notes: a box sets it apart, the heading is a plain title rather than an amber tag (amber tags stay on the bands), and each mastered weapon is its own chip, with its mastery in small amber letters. At rest it just says "3 of 3". The stein switch lets you add or remove masteries freely as a house rule; the arrow plans a swap.</p>
-    <figure><img src="shots/3a-panel-resting.png" alt="Under the Weapons heading, a bordered box: Weapon Mastery, 3 of 3, a stein switch off, an arrow. Chips: Battleaxe TOPPLE, Longsword SAP, Handaxe VEX."><figcaption>3a. At rest: three masteries on one line.</figcaption></figure>
-    <figure><img src="shots/3b-panel-house-rule.png" alt="The same box with the stein switch on: 4, house rule. Each chip has an X to remove it; a dashed Glaive GRAZE chip has been added, and a dashed + Add chip follows."><figcaption>3b. House rule on: remove with the ×, add with + Add, any number, no rest needed.</figcaption></figure>
-    <figure><img src="shots/3c-panel-swap-planned.png" alt="The box reads swap planned. The third chip shows Handaxe struck through, an arrow, Glaive GRAZE, outlined in amber."><figcaption>3c. A swap planned for the next Long Rest.</figcaption></figure>
+  <section id="c">
+    <h2>C. Mastery panel</h2>
+    <div class="shots">
+      <figure><img src="shots/3a-panel-resting.png" alt="A bordered box above the table: Weapon Mastery, 3 of 3, stein switch, arrow; chips Battleaxe TOPPLE, Longsword SAP, Handaxe VEX on one line."><figcaption><span class="tag">Decided</span>At rest.</figcaption></figure>
+      <figure><img src="shots/3b-panel-house-rule.png" alt="The box with the stein switch on: 4, house rule; chips with an X, a dashed Glaive GRAZE chip and + Add."><figcaption><span class="tag">Decided</span>Stein on: add or remove freely.</figcaption></figure>
+      <figure><img src="shots/3c-panel-swap-planned.png" alt="The box reads swap planned; the third chip shows Handaxe struck through, arrow, Glaive GRAZE."><figcaption><span class="tag">Decided</span>A swap planned for the next Long Rest.</figcaption></figure>
+    </div>
   </section>
 
-  <section id="s3d">
-    <h2><span class="cap">4</span>The Long Rest asks</h2>
-    <p>The app has no Long Rest pop-up today: the button rests at once. For a character with Weapon Mastery it would open this sheet, with "Keep all" chosen, or the planned swap already filled in. Cancel leaves everything as it was.</p>
-    <figure><img src="shots/3d-long-rest-sheet.png" alt="A bottom sheet: Finish Long Rest. Hit points, spell slots and uses come back. A Weapon Mastery section, swap one: Keep all, arrow, an empty choice. A note: A swap you planned shows here already chosen. Cancel, and Finish Long Rest."></figure>
+  <section id="d">
+    <h2>D. Resting</h2>
+    <div class="shots">
+      <figure><img src="shots/3d-long-rest-sheet.png" alt="A bottom sheet: Finish Long Rest. A Weapon Mastery section, swap one: Keep all. Cancel and Finish Long Rest."><figcaption><span class="tag">Decided</span>A Long Rest with a choice asks first.</figcaption></figure>
+      <figure><img src="shots/R1-rest-controls.png" alt="Features tab: Finish Long Rest, a checked Dawn passed box, Finish Short Rest and Dawn buttons."><figcaption><span class="tag open">Open</span>Rest buttons with Dawn passed and a Dawn button.</figcaption></figure>
+      <figure><img src="shots/R2-rest-just-finished.png" alt="Under the rest buttons: Long Rest finished, dawn included, and Undo."><figcaption><span class="tag open">Open</span>Right after a rest: one line with Undo.</figcaption></figure>
+      <figure><img src="shots/R3-rest-next-session.png" alt="The line reads: Last Long Rest: Oct 21, dawn included, and Undo."><figcaption><span class="tag open">Open</span>Next session, nothing changed: Undo is still there.</figcaption></figure>
+    </div>
   </section>
 
-  <section id="s4">
-    <h2><span class="cap">5</span>The ? opens a card at the bottom</h2>
-    <p>Your pick: a sheet at the bottom, like the roll result, so every card on a phone opens the same way. It closes with the × at the top, like the roll result, so Close never scrolls out of reach.</p>
-    <figure><img src="shots/4-card-as-bottom-sheet.png" alt="A sheet along the bottom of the screen: Topple, Weapon Mastery, Ironwood Battleaxe, a close X. When you hit with this, you can make the target save: DC 13 Constitution, or it falls Prone. After a hit, your roll result offers Topple. Then the SRD 5.2 text."></figure>
+  <section id="e">
+    <h2>E. Fixed</h2>
+    <div class="shots">
+      <figure><img src="shots/8-todays-preview-on-a-phone.png" alt="The Charm Person page on a phone with the Charmed card open, inside the screen with even margins."><figcaption><span class="tag fixed">Fixed</span>The app's rule card now fits a phone.</figcaption></figure>
+    </div>
   </section>
-
-  <section id="s5">
-    <h2><span class="cap">6</span>Prone opens inside the card</h2>
-    <p>Tapping Prone opens its rule right under the word; tapping it again closes it. One level only. Long text scrolls inside the sheet.</p>
-    <figure><img src="shots/5-prone-inside-the-card.png" alt="The Topple sheet with Prone underlined in amber and the Prone condition opened beneath it in an inset box: Restricted Movement and Attacks Affected."></figure>
-  </section>
-
-  <section id="s6">
-    <h2><span class="cap">7</span>After a hit, the roll result offers it</h2>
-    <p>A player who never read Topple is told when it applies, with the numbers filled in. Prone opens here the same way.</p>
-    <figure><img src="shots/6-roll-result-topple.png" alt="The roll result sheet for the battleaxe: 5 damage, then a TOPPLE tag: The target makes a DC 13 Con save or falls Prone, with the Prone rule opened below."></figure>
-  </section>
-
-  <section id="s7">
-    <h2><span class="cap">8</span>Desktop</h2>
-    <p>Desktop has the room, so the card opens beside the band, here with Prone open.</p>
-    <figure class="wide"><img src="shots/7-desktop-card-prone-open.png" alt="Desktop builder with the weapons table on the right and the Topple card open beside the band, Prone opened inside it."></figure>
-  </section>
-
-  <section id="s8">
-    <h2><span class="cap today">9</span>Fixed: the app's rule card on a phone</h2>
-    <p>Not a mockup. The card the app shows for a condition (here "charmed" in Charm Person) ran 12px past the right edge of a phone screen. Fixed on this branch; it now keeps 16px from both edges.</p>
-    <figure><img src="shots/8-todays-preview-on-a-phone.png" alt="The Charm Person spell page on a phone with the Charmed card open, inside the screen with even margins."></figure>
-  </section>
-
-  <section id="s10">
-    <h2><span class="cap">10</span>Rest controls with dawn</h2>
-    <p>On the Features tab, beside the rest buttons. "Dawn passed" sits by Finish Long Rest, checked by default; unchecked, once-per-dawn uses stay spent. "Dawn" resets only dawn uses, for a dawn without a rest. Both show only for a character holding something that recharges at dawn.</p>
-    <figure><img src="shots/R1-rest-controls.png" alt="Features tab on a phone: Finish Long Rest, a checked Dawn passed box, then Finish Short Rest and Dawn buttons."><figcaption>10a. The controls.</figcaption></figure>
-    <figure><img src="shots/R2-rest-just-finished.png" alt="The same controls with a line under them: a history icon, Long Rest finished, dawn included, and an Undo link."><figcaption>10b. Right after a Long Rest: one quiet line with Undo.</figcaption></figure>
-    <figure><img src="shots/R3-rest-next-session.png" alt="The line now reads: Last Long Rest: Oct 21, dawn included, with Undo."><figcaption>10c. Next session, nothing changed since: Undo is still there. The first change to the character removes it.</figcaption></figure>
-  </section>
-
-  <div class="ask" id="ask">
-    <h2>Questions for you</h2>
-    <ol>
-      <li>The rest controls (10): placement and wording OK?</li>
-    </ol>
-    <p style="margin:10px 0 0">Wording is parked: every player-facing line will come back as one list to review in a single pass.</p>
-  </div>
 </main>
