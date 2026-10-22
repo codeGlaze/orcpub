@@ -1335,7 +1335,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, index, ledger, narrative, plan, session, stale, topic, unindexed
+**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, irreducible, ledger, linked, narrative, plan, session, stale, topic
 
 - What earns a doc
 - Verify, don't remember
@@ -1454,7 +1454,7 @@ _e2e-runner · e2e runner_
 
 _edition-drift · edition drift_
 
-**topics:** 2014, 2024, 5etools, crossbow, dual, edition, eligibility, feat, fighting, hand, light, melee, off-hand, one-handed, property, two-weapon, weapon, wielder
+**topics:** 2014, 2024, 5etools, attack, crossbow, dual, eligibility, feat, fighting, hand, light, melee, off-hand, one-handed, property, two-weapon, weapon, wielder
 
 - Two-weapon fighting, side by side
 - What each difference costs us
@@ -2236,6 +2236,16 @@ _locale-safety · locale safety_
 - On integration (2026-10-04)
 - 5. The default is pinned (2026-10, refactor/pdf-canvas, PR #63)
 
+## lookup-indexes.md
+
+_lookup-indexes · lookup indexes_
+
+**topics:** 100k, 120, 2026-10-22, allocates, attribute, attributes, email, heap, indexed, lookup, lowercase, mixed-case, oom, plan-email-and-alerts, queries, threads, unindexed, username
+
+- The cause
+- Measured
+- Fix, not yet done (owner decides after these numbers)
+
 ## memoize-antipattern-scan.md
 
 _memoize-antipattern-scan · memoize antipattern scan_
@@ -2253,7 +2263,7 @@ _memoize-antipattern-scan · memoize antipattern scan_
 
 _merging-across-a-refactor · merging across a refactor_
 
-**topics:** 669, bare, branch, call, conflict, cut, fetch, filtered-list-staleness, git, handoff-669-final-pass, inlines, merge, merging, newer, plan-669-merge-verification, refactor, side, sign-in
+**topics:** 669, bare, branch, call, cleanly, conflict, cut, fetch, filtered-list-staleness, git, handoff-669-final-pass, inlines, merge, merging, newer, plan-669-merge-verification, refactor, side
 
 - Case 1: the clean merge that was already broken
 - Case 2: the conflict whose obvious resolution restores a bug
@@ -2451,7 +2461,7 @@ _page-load-budget · page load budget_
 
 _pdf-form-techniques · pdf form techniques_
 
-**topics:** 2026-09, appearance, artwork, bytes, card, cards, field, fields, foot, page, pages, pdfbox, rank, rarity, sheet, stream, streams, widgets
+**topics:** 2026-09, appearance, artwork, attunement, bytes, card, cards, field, fields, foot, pages, pdfbox, rank, rarity, sheet, stream, streams, widgets
 
 - The one rule that explains most of the weirdness
 - Cloning a page without copying its artwork
@@ -3198,7 +3208,7 @@ _save-dc-sources · save dc sources_
 
 _secrets-in-boot-output · secrets in boot output_
 
-**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, branding, credential, ex-info, leak, log, logs, print, query, redact, rejected, settings-registry-and-boot-report, uri
+**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, branding, credential, ex-info, find-and-replace, leak, log, logs, print, redact, rejected, settings-registry-and-boot-report, uri
 
 - It was in four places, not one
 - Redact at the boundary, and only what is logged
@@ -3358,7 +3368,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, conditions, counterpart, editions, gear, magic, monsters, open5e, species, srd, text, weapons
+**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, armor, conditions, counterpart, editions, gear, monsters, open5e, species, srd, text, weapons
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -3528,7 +3538,7 @@ _starting-equipment · starting equipment_
 
 _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
-**topics:** approach, atom, dispatch, during, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
+**topics:** app-code, approach, atom, dispatch, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
 
 - The Problem
 - What Doesn't Work
