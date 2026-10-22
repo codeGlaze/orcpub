@@ -194,7 +194,19 @@ contradict the pinned source — fetch fresh).
 - **`Loader/loadPDF` accepts byte[], File, or RandomAccessRead — NOT
   InputStream.** Read the resource stream into a byte array first.
 - Standard fonts: 2.x `PDType1Font/HELVETICA` → 3.x
-  `(PDType1Font. Standard14Fonts$FontName/HELVETICA)`.
+  `(PDType1Font. Standard14Fonts$FontName/HELVETICA)`. Since 2026-10-22 (`26aae0bb`) the
+  export draws none: all drawn text is embedded Nimbus Sans or Vollkorn. Only the AcroForm's `/Helv`
+  resource remains, the fallback for non-text fields. Nimbus Sans is AGPL-3.0 with a
+  PDF-embedding exception (`resources/fonts/README.md`); the commit message's "OFL-compatible"
+  is wrong.
+- **An embedded subset font belongs to one document.** `setFont` registers the face with
+  the drawn document; its save subsets the font and closes it, so a second document drawn
+  with the same instance throws on save: `The TrueType font null does not contain a 'cmap'
+  table`. Measured 2026-10-22. Hence one `draw/load-sans` (and `load-fonts`) per document.
+- **A subset font has no font program until save.** Reading text (`PDFTextStripper`) or
+  rendering before then logs `Using fallback font LiberationSans for CID-keyed TrueType
+  font ...` and uses that font. Tests read a saved copy (`pdf-ops/reloaded`); the export
+  scans for artwork site lines before drawing (`pdf/site-line-pages`).
 - `PDPageContentStream` constructor: 2.x boolean flags → 3.x
   `PDPageContentStream$AppendMode/APPEND` enum.
 - Color values for `setStrokingColor` / `setNonStrokingColor`: must be

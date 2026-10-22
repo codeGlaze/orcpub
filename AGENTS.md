@@ -447,7 +447,8 @@ These warnings come from third-party libraries and are unfixable from our code:
 
 1. **`garden.color/abs`** — shadows `clojure.core/abs` (Garden library issue)
 2. **`datomic.common/requiring-resolve`** — Datomic Free is unmaintained
-3. **PDFBox font fallback** — Missing Helvetica in Docker/CI environments
+3. **PDFBox font fallback** — no longer from exports (all drawn fonts embedded since
+   2026-10-22). When seen, text was read or rendered before save: `docs/kb/pdf-generation-architecture.md`
 
 ## Compatibility Warning
 

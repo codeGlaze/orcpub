@@ -2526,7 +2526,7 @@ _pdf-generated-vs-uploaded-images · pdf generated vs uploaded images_
 
 _pdf-generation-architecture · pdf generation architecture_
 
-**topics:** 2026-04-22, byte, color, cosdict, fillable, firefox, flatten, page-annotations, pdf, pdfbox, populated, reflection, rendering, spell, templates, viewer, widget, widgets
+**topics:** 2026-04-22, byte, color, cosdict, fillable, firefox, flatten, font, pdf, pdfbox, populated, reflection, rendering, spell, templates, viewer, widget, widgets
 
 - Overview
 - Template Selection

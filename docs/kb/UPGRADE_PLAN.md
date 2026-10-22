@@ -467,6 +467,12 @@ WARN org.apache.pdfbox.pdmodel.font.PDType1Font - Using fallback font ...
 
 **Fix (if needed):** Install `fonts-liberation` or `fonts-freefont-ttf` in the Docker image.
 
+**Superseded 2026-10-22.** Exports no longer draw a Standard 14 font: drawn text is embedded
+Nimbus Sans (Helvetica's metrics) or Vollkorn, so no install is needed. Measured: all 8 pages
+of a saved export with cards render with no fallback warning. The warning now means text
+was read or rendered before save; see `pdf-generation-architecture.md`, PDFBox 3.0.6
+verified facts.
+
 ---
 
 ## 🔮 Future Work: Unified Date/Time Library
