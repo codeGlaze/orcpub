@@ -131,7 +131,7 @@ held: the pack's torches would vanish for a character who owns torches), and rec
 `set-character`, `character-updated`, the by-id sub). If a pack choice is selected and no kit has that
 `source`, materialize it as above. Idempotent: the kit's presence is the marker. Kept by the user's
 next save, like the other heals. Packs stored as a fixed class item (`:equipment {:explorers-pack 1}`,
-`classes.cljc:69`, `:785`) and packs granted through `:equipment-selections` currently appear as one
+`classes.cljc:69`, `:785`) and packs granted through `:equipment-selections` appear, by reading the code (not yet seen on screen), as one
 "Explorer's Pack" line, unexpanded: the same repair covers them.
 
 **Slices.**
