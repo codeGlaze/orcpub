@@ -313,7 +313,7 @@ as a rest. Redone: two equal full-width buttons (Long Rest, Short Rest), under t
 the Long Rest" (checked) and a "Dawn only" link; the Undo line at the foot. Option A puts it in a Rest
 box like the mastery panel, option B has no box. **Owner, 2026-10-22: the dawn line was easy to skim
 past.** Now: "☀ Dawn passes" with its box, on an amber tint, beside an outlined "☀ Dawn only" button,
-both 44px tall. (Font Awesome here has no `fa-sun-o`; the mockup uses the ☀ character.) **Then, owner:
+both 44px tall. (The mockup tried `fa-sun-o`, the Font Awesome 4 name, which 5.13.1 lacks; the right one is `fa-sun`.) **Then, owner:
 too big for this app.** Now: today's two `.form-button.p-5` rest buttons unchanged; one small row
 above them, a tinted "☀ dawn passes" pill with its box and an outlined "☀ dawn only" pill (26px drawn,
 44px tap area); a small Undo line below. **Rejected (owner, 2026-10-22):** it overcorrected (the
@@ -325,8 +325,9 @@ the toggle.
   most used action last, at the right end (the usual position for the main action; under a
   right-handed thumb). Dawn an outlined secondary button, Short and Long solid; Long widest.
 - **A sun on Dawn's left only, and the same sun on the toggle,** so the two read as one family; no
-  icons on the rest buttons. The app's Font Awesome has no sun (`fa-sun-o` missing): the ☀ character
-  or a new icon.
+  icons on the rest buttons. The app loads Font Awesome 5.13.1 (`index.clj`), which has `fa-sun` in
+  two styles: `fas fa-sun` (solid; the app's `fa fa-…` classes are solid too) and `far fa-sun`
+  (regular, outline).
 - **The "dawn passes" toggle directly above Long Rest, in its column.** Convention for an option that
   changes one button ("Remember me" over Sign in, "Save this card" over Pay): above (seen before the
   commit; not hidden under the thumb on a phone) and adjacent (proximity ties it to that button, not
