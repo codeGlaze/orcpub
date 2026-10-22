@@ -307,7 +307,11 @@ I can include Dawn or not").** On this branch a Long Rest always clears dawn use
 Proposed: beside Long Rest, "Dawn passed", checked by default, clearing dawn uses only while checked;
 a small "Dawn" button that clears dawn uses alone; both shown only for a character holding something
 that recharges at dawn; Undo covers either. No checkbox on Short Rest. **Agreed by the owner,
-2026-10-21**; mocked up (round 7) on the Features tab.
+2026-10-21**; mocked up (round 7) on the Features tab. **Round 7 looked bad** (owner, 2026-10-22):
+right-aligned amber buttons, a checkbox wedged between them, ragged wrapping, a Dawn button as heavy
+as a rest. Redone: two equal full-width buttons (Long Rest, Short Rest), under them "Dawn passes during
+the Long Rest" (checked) and a "Dawn only" link; the Undo line at the foot. Option A puts it in a Rest
+box like the mastery panel, option B has no box. Awaiting owner.
 
 **Found while mocking it up:** the rest buttons show only when a trait resets on a rest
 (`views.cljs` `features-details`, `(some freqs units/long-rest-clears)` over traits); a weapon's

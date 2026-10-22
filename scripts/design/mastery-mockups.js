@@ -137,6 +137,15 @@ async function setup(page, phone) {
     .mk-dawncheck input{width:18px;height:18px;accent-color:#f0a100}
     .mk-restline{display:flex;align-items:center;gap:8px;justify-content:flex-end;font-size:14px;margin-top:6px;opacity:.95}
     .mk-restline .mk-link{margin-left:4px}
+    .mk-restbox{box-sizing:border-box;width:100%;border:1px solid rgba(230,233,238,.22);border-radius:6px;padding:8px 10px 10px;background:rgba(255,255,255,.035);margin:8px 0 16px}
+    .mk-restbox.bare{border:0;background:none;padding:0}
+    .mk-restbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+    .mk-restbtns .form-button{min-height:44px;margin:0;width:100%}
+    .mk-dawnrow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}
+    .mk-dawnrow .mk-dawncheck{margin:0;font-size:14px}
+    .mk-dawnonly{margin-left:0!important;font-size:14px}
+    .mk-restundo{display:flex;align-items:center;gap:8px;font-size:14px;padding-top:6px;margin-top:6px;border-top:1px solid rgba(255,255,255,.12)}
+    .mk-restundo .mk-link{margin-left:auto}
     .mk-x{margin-left:auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px}
     .mk-sheet .mk-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);margin:0 auto 10px}
     .mk-line{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -351,31 +360,25 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
       [cljs.reader.read_string(':orcpub.dnd.e5.character/set-selected-display-tab'), 'features'], true)));
     const restBtn = page.locator('button', { hasText: 'finish long rest' }).first();
     if (await restBtn.waitFor({ timeout: 15000 }).then(() => true, () => false)) {
-      const rest = (state) => page.evaluate((state) => {
-        const long = [...document.querySelectorAll('button')].find(b => b.offsetParent && b.textContent.trim() === 'finish long rest');
+      const rest = (variant, state) => page.evaluate(([variant, state]) => {
+        const long = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'finish long rest' && !b.closest('.mk-restbox'));
         const row = long.parentElement;
-        row.querySelectorAll('.mk-rest').forEach(e => e.remove());
-        row.parentElement.querySelectorAll('.mk-restline').forEach(e => e.remove());
-        row.setAttribute('data-mk', 'rest');
-        row.classList.add('mk-restrow');
-        const dawnBox = document.createElement('label');
-        dawnBox.className = 'mk-rest mk-dawncheck';
-        dawnBox.innerHTML = '<input type="checkbox" checked> Dawn passed';
-        long.after(dawnBox);
-        const dawn = document.createElement('button');
-        dawn.className = 'form-button p-5 m-l-5 mk-rest';
-        dawn.textContent = 'dawn';
-        row.appendChild(dawn);
-        if (state !== 'idle') {
-          const line = document.createElement('div');
-          line.className = 'mk-restline';
-          line.innerHTML = `<i class="fa fa-history orange"></i><span>${state === 'now' ? 'Long Rest finished, dawn included' : 'Last Long Rest: Oct 21, dawn included'}</span><button class="mk-link">Undo</button>`;
-          row.after(line);
-        }
+        row.style.display = 'none';
+        row.parentElement.querySelectorAll('.mk-restbox').forEach(e => e.remove());
+        const box = document.createElement('div');
+        box.className = 'mk-restbox' + (variant === 'B' ? ' bare' : '');
+        box.setAttribute('data-mk', 'rest');
+        const undo = state === 'done'
+          ? '<div class="mk-restundo"><i class="fa fa-history orange"></i><span>Long Rest finished, dawn included</span><button class="mk-link">Undo</button></div>' : '';
+        box.innerHTML = `${variant === 'A' ? '<div class="mk-ptitle"><span class="mk-ptitle-text">Rest</span><span class="mk-pcount">resets uses, slots and hit points</span></div>' : ''}
+          <div class="mk-restbtns"><button class="form-button">Long Rest</button><button class="form-button">Short Rest</button></div>
+          <div class="mk-dawnrow"><label class="mk-dawncheck"><input type="checkbox" checked> Dawn passes during the Long Rest</label><button class="mk-link mk-dawnonly">Dawn only</button></div>
+          ${undo}`;
+        row.after(box);
         return true;
-      }, state);
-      for (const [state, file] of [['idle', 'R1-rest-controls.png'], ['now', 'R2-rest-just-finished.png'], ['later', 'R3-rest-next-session.png']]) {
-        check(await rest(state), `rest controls: ${state}`);
+      }, [variant, state]);
+      for (const [variant, state, file] of [['A', 'idle', 'RA1-rest-box.png'], ['A', 'done', 'RA2-rest-box-undo.png'], ['B', 'idle', 'RB1-rest-bare.png']]) {
+        check(await rest(variant, state), `rest controls: ${variant} ${state}`);
         await page.evaluate(() => { const r = document.querySelector('[data-mk="rest"]'); r.scrollIntoView({ block: 'center' }); });
         await shot(page, file);
       }
