@@ -365,7 +365,10 @@ recharge choices in the item builder, and the Robe of Stars moved to dusk. Open:
 whether it shows for every character or only those with dawn or dusk items. Owner: after a Long Rest, a dusk item gets
 the same reminder as dawn ("During the rest, did ☀ Dawn pass / ☾ Dusk pass"). Mocked 2026-10-22:
 T1 bar above the rests, T2 below, T3 sky tint, T4 one bar Dawn | Short | Long | Dusk, T5 the bar names
-what each resets. The mockup's lilac is not a palette colour; use the themes' purple.
+what each resets. The mockup's lilac is not a palette colour; use the themes' purple. Owner: T4 "kind of fun"; T1 looked off
+because its dividers did not line up (time bar 50/50, rest bar weighted to Long Rest), and should be a
+card extending from the top of the rest bar. Redrawn as T1a (full width) and T1b (centred tab), both
+bars split 50/50. Open: T1a, T1b or T4.
 
 ## Decisions for the owner
 

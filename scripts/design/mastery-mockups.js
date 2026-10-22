@@ -209,6 +209,13 @@ async function setup(page, phone) {
     .mk-dawnseg{color:#f0a100}
     .mk-duskseg{color:#b9a7f0;border-left:1px solid rgba(26,30,40,.35)!important}
     .mk-yesdusk{border-color:#b9a7f0;color:#b9a7f0}
+    .mk-seg2e{grid-template-columns:1fr 1fr}
+    .mk-card{display:grid;grid-template-columns:1fr 1fr;background:#1a1e28;border:1.5px solid #f0a100;border-bottom:0;border-radius:8px 8px 0 0;overflow:hidden}
+    .mk-card .mk-tb{background:none;height:28px}
+    .mk-card .mk-tb + .mk-tb{border-left:1px solid rgba(240,161,0,.35)}
+    .mk-card-mid{width:64%;margin:0 auto}
+    .mk-under{border-top-left-radius:0;border-top-right-radius:0}
+    .mk-under-mid{}
     .mk-x{margin-left:auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px}
     .mk-sheet .mk-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);margin:0 auto 10px}
     .mk-line{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -446,6 +453,8 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
           V4: `<div class="mk-g2 mk-tight">${dawnBtn.replace('mk-b mk-b2', 'mk-b mk-b2 mk-small')}${toggle()}</div>
                <div class="mk-g2">${short}${longB}</div>`,
           T1: `@@TIME@@<div class="mk-seg mk-seg2c mk-gap">@@SR@@</div>`,
+          TA: `<div class="mk-card mk-card-full">@@TIMEIN@@</div><div class="mk-seg mk-seg2e mk-under">@@SR@@</div>`,
+          TB: `<div class="mk-card mk-card-mid">@@TIMEIN@@</div><div class="mk-seg mk-seg2e mk-under-mid">@@SR@@</div>`,
           T2: `<div class="mk-seg mk-seg2c">@@SR@@</div><div class="mk-gapt">@@TIME@@</div>`,
           T3: `@@SKY@@<div class="mk-seg mk-seg2c mk-gap">@@SR@@</div>`,
           T4: `<div class="mk-seg mk-seg4">@@DAWNSEG@@<button class="mk-sg">Short Rest</button><button class="mk-sg mk-sg1">Long Rest</button>@@DUSKSEG@@</div>`,
@@ -458,6 +467,7 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
           TIME: '<div class="mk-time"><button class="mk-tb"><i class="fas fa-sun"></i>Dawn</button><button class="mk-tb"><i class="fas fa-moon"></i>Dusk</button></div>',
           SKY: '<div class="mk-time mk-sky"><button class="mk-tb"><i class="fas fa-sun"></i>Dawn</button><button class="mk-tb"><i class="fas fa-moon"></i>Dusk</button></div>',
           COUNTS: '<div class="mk-time"><button class="mk-tb"><i class="fas fa-sun"></i>Dawn<span class="mk-tc">2 items</span></button><button class="mk-tb"><i class="fas fa-moon"></i>Dusk<span class="mk-tc">Robe of Stars</span></button></div>',
+          TIMEIN: '<button class="mk-tb"><i class="fas fa-sun"></i>Dawn</button><button class="mk-tb"><i class="fas fa-moon"></i>Dusk</button>',
           SR: '<button class="mk-sg">Short Rest</button><button class="mk-sg mk-sg1">Long Rest</button>',
           DAWNSEG: '<button class="mk-sg mk-sg2 mk-dawnseg"><i class="fas fa-sun"></i>Dawn</button>',
           DUSKSEG: '<button class="mk-sg mk-sg2 mk-duskseg"><i class="fas fa-moon"></i>Dusk</button>'
@@ -472,8 +482,8 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
         row.after(box);
         return true;
       }, [variant, state]);
-      for (const [variant, state, file] of [['today', 'idle', 'R0-rest-today.png'], ['T1', 'idle', 'RT1-above.png'], ['T2', 'idle', 'RT2-below.png'],
-                                            ['T3', 'idle', 'RT3-sky.png'], ['T4', 'idle', 'RT4-bookends.png'], ['T5', 'idle', 'RT5-what-resets.png'], ['T1', 'askboth', 'RT6-ask-both.png']]) {
+      for (const [variant, state, file] of [['today', 'idle', 'R0-rest-today.png'], ['TA', 'idle', 'RTA-card-full.png'], ['TB', 'idle', 'RTB-card-tab.png'],
+                                            ['T4', 'idle', 'RT4-bookends.png'], ['TA', 'askboth', 'RTA-ask-both.png']]) {
         check(await rest(variant, state), `rest controls: ${variant} ${state}`);
         await page.evaluate(() => { const r = document.querySelector('[data-mk="rest"]'); r.scrollIntoView({ block: 'center' }); });
         await shot(page, file);
