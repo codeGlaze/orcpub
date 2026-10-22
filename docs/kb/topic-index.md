@@ -1180,7 +1180,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-production-changes · dmv production changes_
 
-**topics:** --------, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email-preferences-implementation, hotfix-integrations, license, matomo, meta, monetization, nginx, passwords, patron, pedestal, production
+**topics:** --------, analytics, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email-preferences-implementation, hotfix-integrations, license, meta, monetization, nginx, passwords, patron, pedestal, production
 
 - Summary
 - Critical Issues to Flag to Admin
@@ -1878,7 +1878,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, about, blade, bullets, cleave, crit, damage, desktop, mastery, owner, pdf, phone, shield, sun, weapon, weapons, weapons-extra-damage-design
+**topics:** 2026-10-17, 2d6, about, blade, bullets, crit, damage, desktop, mastery, owner, pdf, phone, settings, shield, sun, weapon, weapons, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry

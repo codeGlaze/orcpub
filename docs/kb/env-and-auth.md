@@ -67,8 +67,12 @@ executes nothing.
   fixtures, run in a copy of the branch base (`d51938c14`) and of the branch, gave identical output
   (14 reports, ~30 lines each, timestamps and secrets masked) and identical upgraded `.env` files.
   The Swarm summary differs only in the 44 new setting names it lists from the stack file and the
-  deploy hint (`. scripts/load-env.sh && load_env .env`). Open with the owner: whether the summary
-  should list only settings with a value, since it is ~40 lines longer.
+  deploy hint (`. scripts/load-env.sh && load_env .env`). The owner kept the longer summary as is
+  (2026-10-22).
+- **DMV values in `.env.example` stay (owner, 2026-10-22).** They are all public on the live site
+  (name, URLs, support email, social links, Matomo address, AdSense IDs in page source); nothing
+  secret. Side effect noted: a self-hoster who uncomments the Matomo/AdSense lines reports to DMV's
+  accounts.
 
 **For agents writing or editing `.env`:** plain `NAME=value`, no quoting needed. To change one
 value in an existing file use `./run`'s `set_env_val` (awk), not `sed` (delimiters in URLs and
