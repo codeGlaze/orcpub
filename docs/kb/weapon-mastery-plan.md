@@ -306,7 +306,14 @@ I can include Dawn or not").** On this branch a Long Rest always clears dawn use
 (`units5e/long-rest-clears`), but a rest by day passes no dawn, and a dawn can pass without a rest.
 Proposed: beside Long Rest, "Dawn passed", checked by default, clearing dawn uses only while checked;
 a small "Dawn" button that clears dawn uses alone; both shown only for a character holding something
-that recharges at dawn; Undo covers either. No checkbox on Short Rest. Awaiting owner on the details.
+that recharges at dawn; Undo covers either. No checkbox on Short Rest. **Agreed by the owner,
+2026-10-21**; mocked up (round 7) on the Features tab.
+
+**Found while mocking it up:** the rest buttons show only when a trait resets on a rest
+(`views.cljs` `features-details`, `(some freqs units/long-rest-clears)` over traits); a weapon's
+recharge is not a trait, so a character whose only reset is a once-per-dawn weapon gets no Long Rest
+button. The weapons' recharges must count when the buttons decide to show. The spells section has a
+second Long Rest button (`views.cljs` ~3088), which needs the same controls.
 
 ## Decisions for the owner
 

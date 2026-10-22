@@ -132,6 +132,11 @@ async function setup(page, phone) {
     .mk-rest-sec{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.2)}
     .mk-rest-sec-title{font-weight:700;font-size:15px;margin-bottom:8px}
     .mk-rest-hint{font-size:12px;opacity:.65;margin-top:6px}
+    .mk-restrow{flex-wrap:wrap;gap:8px 4px;row-gap:8px}
+    .mk-dawncheck{display:inline-flex;align-items:center;gap:6px;font-size:14px;margin:0 8px 0 6px;min-height:44px}
+    .mk-dawncheck input{width:18px;height:18px;accent-color:#f0a100}
+    .mk-restline{display:flex;align-items:center;gap:8px;justify-content:flex-end;font-size:14px;margin-top:6px;opacity:.95}
+    .mk-restline .mk-link{margin-left:4px}
     .mk-x{margin-left:auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px}
     .mk-sheet .mk-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);margin:0 auto 10px}
     .mk-line{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -341,6 +346,40 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
       }, [PRONE_LINK, PRONE_TEXT]), 'Topple is drawn into the result');
       await shot(page, '6-roll-result-topple.png');
     }
+    // R: the rest controls on the Features tab: Dawn passed, a Dawn button, and the Undo line
+    await page.evaluate(() => re_frame.core.dispatch_sync(cljs.core.PersistentVector.fromArray(
+      [cljs.reader.read_string(':orcpub.dnd.e5.character/set-selected-display-tab'), 'features'], true)));
+    const restBtn = page.locator('button', { hasText: 'finish long rest' }).first();
+    if (await restBtn.waitFor({ timeout: 15000 }).then(() => true, () => false)) {
+      const rest = (state) => page.evaluate((state) => {
+        const long = [...document.querySelectorAll('button')].find(b => b.offsetParent && b.textContent.trim() === 'finish long rest');
+        const row = long.parentElement;
+        row.querySelectorAll('.mk-rest').forEach(e => e.remove());
+        row.parentElement.querySelectorAll('.mk-restline').forEach(e => e.remove());
+        row.setAttribute('data-mk', 'rest');
+        row.classList.add('mk-restrow');
+        const dawnBox = document.createElement('label');
+        dawnBox.className = 'mk-rest mk-dawncheck';
+        dawnBox.innerHTML = '<input type="checkbox" checked> Dawn passed';
+        long.after(dawnBox);
+        const dawn = document.createElement('button');
+        dawn.className = 'form-button p-5 m-l-5 mk-rest';
+        dawn.textContent = 'dawn';
+        row.appendChild(dawn);
+        if (state !== 'idle') {
+          const line = document.createElement('div');
+          line.className = 'mk-restline';
+          line.innerHTML = `<i class="fa fa-history orange"></i><span>${state === 'now' ? 'Long Rest finished, dawn included' : 'Last Long Rest: Oct 21, dawn included'}</span><button class="mk-link">Undo</button>`;
+          row.after(line);
+        }
+        return true;
+      }, state);
+      for (const [state, file] of [['idle', 'R1-rest-controls.png'], ['now', 'R2-rest-just-finished.png'], ['later', 'R3-rest-next-session.png']]) {
+        check(await rest(state), `rest controls: ${state}`);
+        await page.evaluate(() => { const r = document.querySelector('[data-mk="rest"]'); r.scrollIntoView({ block: 'center' }); });
+        await shot(page, file);
+      }
+    } else check(false, 'the Features tab shows finish long rest');
     // the app's own preview card today, on a phone: does it fit the screen?
     await page.goto(`${BASE}/pages/dnd/5e/spells/charm-person`, { waitUntil: 'domcontentloaded' });
     const link = page.locator('.srd-link', { hasText: /charmed/i }).first();
