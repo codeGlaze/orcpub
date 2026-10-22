@@ -21,13 +21,13 @@
     (reduce + (filter pos? (.getThreadAllocatedBytes mx (.getAllThreadIds mx))))))
 
 (defn- user-tx
-  "Transaction data for test user `i` with password hash `hash`: one in ten has a mixed-case email,
+  "Transaction data for test user `i` with password hash `password-hash`: one in ten has a mixed-case email,
    as old accounts do; each owns `characters-per-user` characters, a party, a folder and an item."
-  [i hash]
+  [i password-hash]
   (let [username (str "user" i)
         email (if (zero? (mod i 10)) (str "User" i "@Example.test") (str "user" i "@example.test"))]
     (concat
-     [{:orcpub.user/username username :orcpub.user/email email :orcpub.user/password hash
+     [{:orcpub.user/username username :orcpub.user/email email :orcpub.user/password password-hash
        :orcpub.user/verified? true :orcpub.user/verification-key (str (UUID/randomUUID))}
       {:orcpub.dnd.e5.party/owner username :orcpub.dnd.e5.party/name (str "party" i)}
       {:orcpub.dnd.e5.folder/owner username :orcpub.dnd.e5.folder/name (str "folder" i)}
@@ -41,12 +41,12 @@
   "A connection to a fresh in-memory database holding `n` test users and what they own."
   [n]
   (let [uri (str "datomic:mem://measure-" (UUID/randomUUID))
-        hash (hashers/encrypt "a test passphrase")]
+        password-hash (hashers/encrypt "a test passphrase")]
     (d/create-database uri)
     (let [conn (d/connect uri)]
       @(d/transact conn schema/all-schemas)
       (doseq [batch (partition-all 500 (range n))]
-        @(d/transact conn (mapcat #(user-tx % hash) batch)))
+        @(d/transact conn (mapcat #(user-tx % password-hash) batch)))
       conn)))
 
 (defn- measure
