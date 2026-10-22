@@ -415,7 +415,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, control, css, docstrings, form, icon, invented, item, labelled, lesson, paragraph, pin, review, row, sat, signing, unknown, vanished
+**topics:** 2026-09-29, control, css, docstrings, form, icon, invented, item, labelled, lesson, pin, portrait, review, row, sat, signing, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -874,7 +874,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, openness, page-map, parametric, per-type, pool, pools, primitive, registry, wiring
+**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, page-map, parametric, per-type, pool, pools, primitive, registry, vocabulary, wiring
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -1537,7 +1537,7 @@ _entity-options-architecture · entity options architecture_
 
 _env-and-auth · env and auth_
 
-**topics:** 2026-10-19, 500, auth, authenticated, clj, compose, dev, dev-mode, docker, env, jwt, prod, profile, shell, signature, token, uncommented, vars
+**topics:** 2026-10-19, 500, auth, authenticated, clj, compose, dev, dev-mode, env, jwt, prod, profile, project, shell, signature, token, uncommented, vars
 
 - How env vars are loaded
 - 1. ./menu and ./scripts/start.sh
@@ -1884,11 +1884,22 @@ _handoff-integration-branches · handoff integration branches_
 - Traps in this repo that will cost you time
 - When integration later merges back into feature/grant-rows
 
+## handoff-rest-controls.md
+
+_handoff-rest-controls · handoff rest controls_
+
+**topics:** box, briefed, button, charges-used, d1-d7, dawn, dismissible, dusk, floating, handoff, lasts, long, mockups, rest, rests, settings, undo, weapon-mastery-plan
+
+- Where it is
+- The design in one paragraph
+- Against the code (checked 2026-10-23, feature/weapons-table)
+- Open, for the owner
+
 ## handoff-weapons-table.md
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, about, blade, bullets, crit, damage, desktop, mastery, owner, pdf, phone, settings, shield, sun, weapon, weapons, weapons-extra-damage-design
+**topics:** 2026-10-17, 2d6, about, blade, bullets, cleave, crit, damage, desktop, mastery, owner, pdf, phone, shield, sun, weapon, weapons, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry
@@ -2289,7 +2300,7 @@ _merging-across-a-refactor · merging across a refactor_
 
 _mockup-review-pages · mockup review pages_
 
-**topics:** 2026-10-22, 2akacten9rccchjfphjgmr, artifact, basics, best, criticised, designs, drawn-in, label, lacks, look, mockup, owner, phone, round, shot, shots, writing-browser-tests
+**topics:** 2026-10-22, 2akacten9rccchjfphjgmr, artifact, basics, best, criticised, designs, drawn-in, label, liked, look, mockup, owner, phone, round, shot, shots, writing-browser-tests
 
 - The three pieces (all in scripts/design/ on this branch)
 - Steps
@@ -3293,7 +3304,7 @@ _share-custom-items-plan · share custom items plan_
 
 _share-links · share links_
 
-**topics:** 404, caps, character, compressed, deletes, encrypted, homebrew, kaylee, link, opening, owner, party, presses, server, share, sharing, token, upload
+**topics:** 404, caps, character, compressed, copy, deletes, encrypted, homebrew, kaylee, link, owner, party, presses, server, share, sharing, token, upload
 
 - What a link carries
 - How it works
@@ -3757,7 +3768,7 @@ _views-builders-split · views builders split_
 
 _weapon-damage-model · weapon damage model_
 
-**topics:** 2026-10-17, blade, champion, charges, crit, damage, extra, handoff-weapons-table, period, periods, printed, sun, sword, vicious, vorpal, weapon, weapon-data-model, weapon-mastery-plan
+**topics:** 2026-10-17, blade, champion, charges, crit, damage, extra, handoff-weapons-table, period, periods, printed, sometimes, sun, sword, vicious, vorpal, weapon, weapon-data-model
 
 - Where it lives (feature/weapons-table)
 - The fields

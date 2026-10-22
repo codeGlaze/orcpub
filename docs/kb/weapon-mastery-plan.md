@@ -257,6 +257,9 @@ pools), so a swap writes to the build; it is not sheet-only state.
   when built.
 - **Wording is parked**: the owner will review every player-facing line in one pass, as a list.
 
+**The rest controls were redesigned by a layout agent (2026-10-23); its handoff supersedes the rest
+mockups and rulings below where they differ: [handoff-rest-controls.md](handoff-rest-controls.md).**
+
 ## Undo for a rest: plan (2026-10-21, awaiting owner)
 
 **What exists.** One Undo in the app: picks that came back on their own (`character_builder.cljs`
