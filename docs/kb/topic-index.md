@@ -690,7 +690,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, ----------, blank, descriptive, dwarf, elf, fallback, halfling, helper, human, label, manual, name, party, races, random, sex, views
+**topics:** ------, ----------, blank, descriptive, dwarf, elf, fallback, generates, halfling, helper, human, label, manual, name, party, races, random, sex
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -851,7 +851,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, existing, factories, grant, indirection, pool, re-derivation, readability, rejected
+**topics:** bespoke, boilerplate, catalog, catalogs, d12, d16, d17, d17b, d19, d23, factories, flexibility, grant, indirection, pool, re-derivation, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -1385,7 +1385,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
-**topics:** abbreviation, bulk, characters, dash, derivation, item, key, match, orphans, rebind, relink, rename, repair, rung, save, trailing, trim, trimming
+**topics:** abbreviation, bulk, characters, dash, derivation, key, match, orphans, rebind, relink, rename, repair, rung, save, shim, trailing, trim, trimming
 
 - The problem, stated properly
 - The invariant to establish
@@ -1466,7 +1466,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, datomic, dmv, echoing, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, added, datomic, dmv, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -1576,7 +1576,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** ammunition, armor, climber, damage, dash, die, equipment, gear, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
+**topics:** armor, climber, damage, dash, die, equipment, firearms, gear, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -2119,7 +2119,7 @@ _icon-font-failure · icon font failure_
 
 _input-field-debounce · input field debounce_
 
-**topics:** 500ms, cleared, cljs, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers, views
+**topics:** 500ms, cleared, cljs, debounce, debounced, dispatches, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers
 
 - Current Design (post-refactor)
 - Data flow
@@ -2194,7 +2194,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2826,6 +2826,19 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 - Derived helpers, or more fields?
 - Related
 
+## plan-inventory-kits.md
+
+_plan-inventory-kits · plan inventory kits_
+
+**topics:** alphabetical, backpack, camp, container, doff, items, kit, kits, leftovers, pack, packs, picker, refill, restock, starting-equipment, top-down, torches, total
+
+- The problems today
+- The model
+- The actions
+- Phases
+- Patterns to reuse
+- Open (owner)
+
 ## plan-next.md
 
 _plan-next · plan next_
@@ -3032,7 +3045,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, class, dropdown, grant, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellcasting, spells
+**topics:** branch, caster, class, dropdown, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, prepares, reconciler, sibling, spellcasting, spells
 
 - The user's ask
 - Branch state — important
@@ -3209,7 +3222,7 @@ _settings-registry-and-boot-report · settings registry and boot report_
 
 _share-bundle-dependency-extraction · share bundle dependency extraction_
 
-**topics:** cljc, cljs, closure, def, direct, extractor, index, keys, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
+**topics:** cljc, cljs, closure, def, direct, entity, extractor, index, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
 
 - Why this is not trivial
 - The content types (master list)
@@ -3316,7 +3329,7 @@ _spell-selection-source-fix · spell selection source fix_
 
 _spell-slot-progression · spell slot progression_
 
-**topics:** artificer, caster, factor, factors, half-caster, integer, multiclass, multiclassing, normal, pact, per-level, progression, slots, solo, sorcerer, spell-granting-across-silos, table, warlock
+**topics:** artificer, caster, factor, factors, half-caster, integer, multiclass, multiclassing, pact, per-level, progression, slots, solo, sorcerer, spell-granting-across-silos, table, tables, warlock
 
 - How slots are computed today — VERIFIED
 - The overload — why Artificer can't be expressed — VERIFIED
@@ -3341,7 +3354,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, conditions, counterpart, editions, gear, magic, monsters, open5e, species, srd, text, weapons
+**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, armor, conditions, counterpart, editions, magic, monsters, open5e, species, srd, text, weapons
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -3434,7 +3447,7 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 20d6, actions, concentration, conditions, damage, dice, editions, explosion, links, monster, open5e, previews, prices, rules, spell, spells, srd
+**topics:** 2014, 20d6, concentration, conditions, damage, dice, editions, explosion, links, magic, monster, open5e, previews, prices, rules, spell, spells, srd
 
 - How this was measured
 - What the app shows today
@@ -3678,7 +3691,7 @@ _verification-discipline · verification discipline_
 
 _views-builders-split · views builders split_
 
-**topics:** builder, builders, child, classes, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, race, race-only, shared, split, toolkit, truly, views
+**topics:** 530, builder, builders, child, classes, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, race, race-only, shared, split, toolkit, truly
 
 - Context
 - Architecture
