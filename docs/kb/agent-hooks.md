@@ -95,7 +95,7 @@ than assumes.
 
 - Hooks only run where the setup has run. A cloud or web agent that never runs it commits without
   them, so the authorship and trailer scan before anything public stays required
-  (`AGENTS.md`, "Authorship").
+  (`docs/CONTRIBUTING.md`, "Authorship").
 - `--no-verify` skips them. AGENTS.md forbids it.
 - Integration also tracks a `.githooks/pre-push`, identical to this one, for contributors who are
   not agents. Keep the two identical; `--check` compares against `agents/develop`'s.
