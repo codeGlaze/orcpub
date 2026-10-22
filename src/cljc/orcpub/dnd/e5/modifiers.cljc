@@ -452,16 +452,36 @@
      ::char-equip/equipped? true}
     cfg))
 
-(defn weapon [weapon-kw cfg]
-  (mods/map-mod ?weapons weapon-kw (equipment-cfg cfg)))
+(defn add-item-cfg
+  "One gear entry after another source adds `added` to `existing`: quantities summed, equipped if
+   either source is, other fields merged. Args: two entry maps or nil. Returns `added` unchanged
+   when `existing` is nil or either quantity is missing (plan-inventory-kits.md)."
+  [existing added]
+  (let [qa (::char-equip/quantity existing)
+        qb (::char-equip/quantity added)]
+    (if (and (number? qa) (number? qb))
+      (assoc (merge existing added)
+             ::char-equip/quantity (+ qa qb)
+             ::char-equip/equipped? (boolean (or (::char-equip/equipped? existing)
+                                                 (::char-equip/equipped? added))))
+      added)))
 
-(defn magic-weapon [weapon-kw cfg]
-  (mods/map-mod ?magic-weapons weapon-kw (equipment-cfg cfg)))
+(defn weapon
+  "Modifier adding `cfg` (a quantity, or an entry map) of weapon `weapon-kw` to ?weapons, summed with
+   any other source of the same weapon. Returns the modifier."
+  [weapon-kw cfg]
+  (mods/modifier ?weapons (update ?weapons weapon-kw add-item-cfg (equipment-cfg cfg))))
+
+(defn magic-weapon
+  "Modifier adding `cfg` of magic weapon `weapon-kw` to ?magic-weapons, summed with any other source
+   of the same item. Returns the modifier."
+  [weapon-kw cfg]
+  (mods/modifier ?magic-weapons (update ?magic-weapons weapon-kw add-item-cfg (equipment-cfg cfg))))
 
 (defn deferred-weapon [weapon-kw weapon]
   (mods/deferred-modifier
     ?weapons
-    (fn [cfg] (mods/map-mod ?weapons weapon-kw (equipment-cfg cfg)))
+    (fn [cfg] (mods/modifier ?weapons (update ?weapons weapon-kw add-item-cfg (equipment-cfg cfg))))
     1))
 
 (defn deferred-magic-item-fn [equipment-mod-fn
@@ -485,37 +505,26 @@
 (defn deferred-magic-weapon [weapon-kw {:keys [modifiers] :as weapon}]
   (mods/deferred-modifier
     ?magic-weapons
-    (deferred-magic-item-fn #(mods/map-mod ?magic-weapons weapon-kw (equipment-cfg %)) weapon)
+    (deferred-magic-item-fn #(mods/modifier ?magic-weapons (update ?magic-weapons weapon-kw add-item-cfg (equipment-cfg %))) weapon)
     1))
 
-(defn armor [armor-kw cfg]
-  (mods/map-mod ?armor armor-kw (equipment-cfg cfg)))
+(defn armor
+  "Modifier adding `cfg` (a quantity, or an entry map) of armor `armor-kw` to ?armor, summed with any
+   other source of the same armor. Returns the modifier."
+  [armor-kw cfg]
+  (mods/modifier ?armor (update ?armor armor-kw add-item-cfg (equipment-cfg cfg))))
 
 (defn deferred-armor [armor-kw armor]
   (mods/deferred-modifier
     ?armor
-    (fn [cfg] (mods/map-mod ?armor armor-kw (equipment-cfg cfg)))
+    (fn [cfg] (mods/modifier ?armor (update ?armor armor-kw add-item-cfg (equipment-cfg cfg))))
     1))
 
 (defn deferred-magic-armor [armor-kw armor]
   (mods/deferred-modifier
     ?armor
-    (deferred-magic-item-fn (fn [cfg] (mods/map-mod ?magic-armor armor-kw (equipment-cfg cfg))) armor)
+    (deferred-magic-item-fn (fn [cfg] (mods/modifier ?magic-armor (update ?magic-armor armor-kw add-item-cfg (equipment-cfg cfg)))) armor)
     1))
-
-(defn add-item-cfg
-  "One gear entry after another source adds `added` to `existing`: quantities summed, equipped if
-   either source is, other fields merged. Args: two entry maps or nil. Returns `added` unchanged
-   when `existing` is nil or either quantity is missing (plan-inventory-kits.md)."
-  [existing added]
-  (let [qa (::char-equip/quantity existing)
-        qb (::char-equip/quantity added)]
-    (if (and (number? qa) (number? qb))
-      (assoc (merge existing added)
-             ::char-equip/quantity (+ qa qb)
-             ::char-equip/equipped? (boolean (or (::char-equip/equipped? existing)
-                                                 (::char-equip/equipped? added))))
-      added)))
 
 (defn equipment
   "Modifier adding `cfg` (a quantity, or an entry map) of gear `equipment-kw` to ?equipment, summed
