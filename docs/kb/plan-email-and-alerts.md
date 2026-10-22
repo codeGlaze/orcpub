@@ -152,6 +152,29 @@ emails most likely to be sent while things are failing.
   `artist_email_test`. Each outbox claim broken one at a time failed its test. Browser:
   `scripts/e2e/auth-flows.js` 43 checks green against a real SMTP sink.
 
+## Stage 4 as built (2026-10-22)
+
+- **Logs:** compose `x-logging` anchor, json-file `max-size`/`max-file` from `LOG_MAX_SIZE` /
+  `LOG_MAX_FILES` (10m x 5) on all three services. `resources/simplelogger.properties` puts
+  `io.pedestal` and `datomic` at warn: Pedestal's per-request INFO lines duplicated nginx's access log
+  (nginx:alpine's http-level `access_log` to stdout is on). System properties override the file.
+- **Security log:** `security/audit!` writes `security: <event> user=… ip=… fwd=…` for sign-in,
+  sign-in-failed (account named only when it exists), registered, password-reset-requested,
+  password-reset, email-change-requested/confirmed, account-deleted, token-invalid/withdrawn.
+  `security_audit_test.clj`. See [client-ip-behind-proxies.md](client-ip-behind-proxies.md) for why
+  `ip=` is the proxy.
+- **JAVA_OPTS never reached Java** (`java -jar` ignores it): now passed as `JDK_JAVA_OPTIONS`, after
+  `-XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError` and the heap-dump / error-file paths.
+  Without it the JVM used 25% of the container's memory, a likely factor in the live OOMs.
+- **Crash report:** `orcpub.crash-report` reads the dump paths from the JVM's own input arguments
+  and raises one alert per new file, recording reported names in `reported.edn`.
+- **Visible folder:** `APP_LOGS_DIR` (default `./logs/app`) bind-mounted at `/var/lib/orcpub/state`.
+  The image has no `USER`; `deploy/app-start.sh` creates and chowns the state folder, `alerts/` and
+  `crash/` only (never recursive; mode 750), then `su-exec app java -jar`. `docker-user.sh` uses
+  `docker exec -u app`. `test/docker/test-app-start.sh` (CI) checks user, ownership, privacy.
+- **Open:** Swarm still has no mount for the folder (bind sources must exist on every node, or the
+  task will not start), and the app-log copy into that folder is not built.
+
 ## Tests the build must have, each seen failing first
 
 - A player email survives a mail-server failure and is sent on retry; a permanent refusal is not

@@ -796,6 +796,16 @@ _claude-branch-triage · claude branch triage_
 - What is not known
 - Revisions
 
+## client-ip-behind-proxies.md
+
+_client-ip-behind-proxies · client ip behind proxies_
+
+**topics:** 2026-10-22, address, client-controlled, cloudflare, limits, minute, mistyping, nginx, per-address, player, players, proxied, proxy, sign-in, sign-up, spray, trust, usernames
+
+- The finding
+- What it does on the live site
+- What a fix must decide (owner)
+
 ## cljs-headless-harness.md
 
 _cljs-headless-harness · cljs headless harness_
@@ -1180,7 +1190,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-production-changes · dmv production changes_
 
-**topics:** --------, analytics, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email-preferences-implementation, hotfix-integrations, license, meta, monetization, nginx, passwords, patron, pedestal, production
+**topics:** --------, analytics, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email-preferences-implementation, fingerprint, hotfix-integrations, license, meta, monetization, nginx, passwords, patron, production
 
 - Summary
 - Critical Issues to Flag to Admin
@@ -1245,7 +1255,7 @@ _docker-infrastructure · docker infrastructure_
 
 _docker-security-decisions · docker security decisions_
 
-**topics:** bind, breaks, compose, container, datomic, decision, docker, dockerfile, healthcheck, host, mounts, nginx, ownership, password, reverted, security, sed, transactor
+**topics:** bind, breaks, compose, container, datomic, decision, docker, dockerfile, healthcheck, host, mounts, nginx, password, port, reverted, security, sed, transactor
 
 - Non-Root Containers (Entrypoint-Chown-Drop)
 - sed Replacement Escaping
@@ -2810,7 +2820,7 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** admin, alert, alerts, artist, database, discord, docker, email, emails, mail, outbox, retries, sent, shutdown, spool, transaction, webhook, worker
+**topics:** admin, alert, alerts, artist, database, discord, docker, email, emails, mail, outbox, sent, shutdown, spool, swarm, transaction, webhook, worker
 
 - The problem
 - Two kinds of email
@@ -2822,6 +2832,7 @@ _plan-email-and-alerts · plan email and alerts_
 - Documentation
 - Admin alerts as built (stage 2, 2026-10-19)
 - The outbox as built (stage 3, 2026-10-22)
+- Stage 4 as built (2026-10-22)
 - Tests the build must have, each seen failing first
 
 ## plan-hidden-pick-fix-and-grant-fields.md
@@ -3075,7 +3086,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, class, dropdown, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, prepares, reconciler, sibling, spellcasting, spells
+**topics:** branch, caster, class, dropdown, grant, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellcasting, spells
 
 - The user's ask
 - Branch state — important
@@ -3441,7 +3452,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2026-10-06, 2026-10-07, 5etools, edition, editions, monsters, open5e, owner, pdf, served, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2026-10-06, 5etools, data, edition, editions, monsters, open5e, owner, pdf, served, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
