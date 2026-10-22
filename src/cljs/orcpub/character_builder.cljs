@@ -991,7 +991,9 @@
               (views5e/svg-icon "beer-stein" 18)]])]
          (when (and help path @expanded?)
            [help-section help])
-         (when (int? min)
+         (when (and (int? min)
+                    (not (and @(subscribe [:orcpub.dnd.e5/quiet-pick-counts?])
+                              (planned-text/count-says-nothing? min max held))))
            [:div.p-5.f-s-16
             [:div.flex.align-items-c.justify-cont-s-b
              ;; The Planned marker sits after "select N" and wraps under it only when the row cannot

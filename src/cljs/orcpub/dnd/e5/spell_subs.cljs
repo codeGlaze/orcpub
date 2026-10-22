@@ -49,6 +49,12 @@
  (fn [db _]
    (boolean (:dev-mode? db))))
 
+;; Whether the builder hides pick counts that say nothing; on unless switched off.
+(reg-sub
+ ::e5/quiet-pick-counts?
+ (fn [db _]
+   (not (:show-empty-pick-counts? db))))
+
 ;; ---------------------------------------------------------------------------
 ;; Memoized library-health detectors. Each walks the WHOLE library; as reactions on ::e5/plugins
 ;; they compute once per library change and share one result across every row, section and page.

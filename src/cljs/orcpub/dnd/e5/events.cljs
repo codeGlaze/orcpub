@@ -79,6 +79,7 @@
                                       set-repairs-dismissed!
                                       disable-overlay->local-store
                                       dev-mode->local-store
+                                      show-empty-pick-counts->local-store
                                       health-dismissed->local-store
                                       whats-new-seen->local-store
                                       cookie-banner-pending?
@@ -195,6 +196,9 @@
 
 (def dev-mode->local-store-interceptor
   (after (fn [db] (dev-mode->local-store (:dev-mode? db)))))
+
+(def show-empty-pick-counts->local-store-interceptor
+  (after (fn [db] (show-empty-pick-counts->local-store (:show-empty-pick-counts? db)))))
 
 (def disable-overlay->local-store-interceptor
   (after (fn [db] (disable-overlay->local-store (:disable-overlay db)))))
@@ -519,6 +523,7 @@
   (inject-cofx ::e5/health-dismissed)
   (inject-cofx ::e5/whats-new-seen)
   (inject-cofx ::e5/dev-mode)
+  (inject-cofx ::e5/show-empty-pick-counts)
   (inject-cofx ::combat/tracker-item)
   check-spec-interceptor]
  (fn [{:keys [db
@@ -533,6 +538,7 @@
               ::e5/health-dismissed
               ::e5/whats-new-seen
               ::e5/dev-mode
+              ::e5/show-empty-pick-counts
               ::combat/tracker-item]
        :as cofx} _]
    (let [db' (if (seq db)
@@ -547,6 +553,7 @@
                  (some? health-dismissed) (assoc :health-dismissed health-dismissed)
                  (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
                  (some? dev-mode) (assoc :dev-mode? dev-mode)
+                 (some? show-empty-pick-counts) (assoc :show-empty-pick-counts? show-empty-pick-counts)
                  ;; The release panel opens itself once per release, on the boot that
                  ;; first sees a new id. Reading the stamp here (not at render) keeps it
                  ;; to one showing per browser rather than one per page view.
@@ -7003,6 +7010,13 @@
  [dev-mode->local-store-interceptor]
  (fn [db _]
    (update db :dev-mode? not)))
+
+;; Flips whether the builder shows pick counts that say nothing (hidden by default).
+(reg-event-db
+ ::e5/toggle-quiet-pick-counts
+ [show-empty-pick-counts->local-store-interceptor]
+ (fn [db _]
+   (update db :show-empty-pick-counts? not)))
 
 ;; global + section are a per-device VIEW preference kept in :disable-overlay,
 ;; never written into the .orcbrew data — so they cost no format/spec change and

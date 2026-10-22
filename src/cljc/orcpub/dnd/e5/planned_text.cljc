@@ -1,6 +1,6 @@
 (ns orcpub.dnd.e5.planned-text
   "The builder's words for held picks (picks/describe-held): the Planned marker and what brings each
-   one back. docs/kb/ux-guide.md on agents/develop: a few words, the player's words."
+   one back; and whether a section's pick count says anything. docs/kb/ux-guide.md on agents/develop: a few words, the player's words."
   (:require [orcpub.common :as common]))
 
 (defn- title
@@ -87,3 +87,10 @@
    apply right now\"."
   [n]
   (if (= 1 n) "1 choice doesn't apply right now" (str n " choices don't apply right now")))
+
+(defn count-says-nothing?
+  "Whether a builder section's \"select ... / complete\" line tells the player nothing: no minimum,
+   no maximum and no held picks, so it can never be anything but complete. Args: the section's
+   `min`, `max` and held picks. Returns a boolean."
+  [min max held]
+  (boolean (and (= 0 min) (nil? max) (empty? held))))

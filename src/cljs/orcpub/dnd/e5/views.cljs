@@ -1464,6 +1464,17 @@
            {:on-click (make-event-handler ::e5/toggle-dev-mode)}
            "Developer mode"]]
          (when dev?
+           (let [quiet? @(subscribe [::e5/quiet-pick-counts?])]
+             [:div.dev-mode-row
+              [:span.dev-mode-switch
+               (merge (switch-attrs quiet? (make-event-handler ::e5/toggle-quiet-pick-counts))
+                      {:class (when quiet? "on")
+                       :title "Hide \"select any number / complete\" on builder sections that need nothing"
+                       :on-click (make-event-handler ::e5/toggle-quiet-pick-counts)})]
+              [:span.dev-mode-label
+               {:on-click (make-event-handler ::e5/toggle-quiet-pick-counts)}
+               "Hide empty pick counts"]]))
+         (when dev?
            [:div.dev-mode-tools
             [:span.dev-mode-tool
              {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)

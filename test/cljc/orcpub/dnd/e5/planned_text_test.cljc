@@ -60,3 +60,10 @@
 (deftest the-open-notice-counts-the-choices
   (is (= "1 choice doesn't apply right now" (pt/opened 1)))
   (is (= "3 choices don't apply right now" (pt/opened 3))))
+
+(deftest only-an-optional-unlimited-section-has-a-count-that-says-nothing
+  (is (pt/count-says-nothing? 0 nil []) "select any number: always complete")
+  (is (not (pt/count-says-nothing? 0 3 [])) "select up to 3 says something")
+  (is (not (pt/count-says-nothing? 1 1 [])) "select 1 says something")
+  (is (not (pt/count-says-nothing? 2 nil [])) "select at least 2 says something")
+  (is (not (pt/count-says-nothing? 0 nil [archery])) "held picks keep the line for the Planned marker"))

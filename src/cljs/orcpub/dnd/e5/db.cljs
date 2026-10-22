@@ -73,6 +73,10 @@
 ;; validation is the thing that's broken.
 (def local-storage-dev-mode-key "dev-mode")
 
+;; Show the builder's "select any number / complete" lines, which never say anything. Per-device;
+;; absent means hidden. Stored as "show" because a stored false reads as absent.
+(def local-storage-show-empty-pick-counts-key "show-empty-pick-counts")
+
 (def default-route route-map/dnd-e5-char-builder-route)
 
 (defn parse-route []
@@ -386,6 +390,12 @@
   (when js/window.localStorage
     (set-item local-storage-dev-mode-key (str (boolean on?)))))
 
+(defn show-empty-pick-counts->local-store
+  "Stores whether the builder shows pick counts that say nothing. Args: `on?`. Returns nil."
+  [on?]
+  (when js/window.localStorage
+    (set-item local-storage-show-empty-pick-counts-key (str (boolean on?)))))
+
 (defn whats-new-seen->local-store [release-id]
   (when js/window.localStorage
     ;; pr-str, not str: the slot is read back with read-string, and a bare id would
@@ -609,6 +619,13 @@
  ::e5/dev-mode
  local-storage-dev-mode-key
  ::dev-mode)
+
+;; Whether the builder shows pick counts that say nothing on this device.
+(spec/def ::show-empty-pick-counts boolean?)
+(reg-local-store-cofx
+ ::e5/show-empty-pick-counts
+ local-storage-show-empty-pick-counts-key
+ ::show-empty-pick-counts)
 
 ;; Which release the What's New panel last showed on this device.
 (spec/def ::whats-new-seen string?)
