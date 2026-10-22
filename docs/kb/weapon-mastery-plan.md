@@ -342,6 +342,13 @@ recharge is not a trait, so a character whose only reset is a once-per-dawn weap
 button. The weapons' recharges must count when the buttons decide to show. The spells section has a
 second Long Rest button (`views.cljs` ~3088), which needs the same controls.
 
+**Dawn is never assumed (owner, 2026-10-22: "Dawn by default just doesn't sit right. The game is
+too variable").** Rejected: a "dawn passes" toggle checked by default, and folding dawn into Long Rest
+with an after-the-fact "No dawn". Proposed, awaiting owner: the V5 bar (Dawn | Short Rest | Long
+Rest) with no toggle; Long Rest no longer clears dawn uses (`units5e/long-rest-clears` drops `::dawn`,
+and the events test that a long rest clears dawn flips); the Dawn button clears them; after a Long
+Rest, for a character with dawn items, the result line asks "Dawn passed too? ☀ Dawn".
+
 ## Decisions for the owner
 
 1. **Topple's DC.** (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +

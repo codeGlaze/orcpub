@@ -3742,7 +3742,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** 2026-10-21, attack, band, buttons, cleave, dawn, graze, long, masteries, mastery, owner, preview, rest, srd, tap, topple, undo, weapon
+**topics:** 2026-10-21, attack, awaiting, band, buttons, cleave, dawn, graze, long, masteries, mastery, owner, rest, srd, tap, topple, undo, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)
