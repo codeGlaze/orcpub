@@ -169,7 +169,7 @@ marker is dropped once the pack is no longer chosen.
 **Holy symbol (changed from the decided rule).** The generic "Holy Symbol" is a group, not an
 Equipment item: a pick of it builds nothing and the Choices list flags it. So when none is owned
 nothing is added and the kit asks "Which holy symbol for the ...?" with Amulet, Emblem and Reliquary;
-several owned asks among those. Exactly one owned is claimed, as decided. Owner to confirm.
+several owned asks among those. Exactly one owned is claimed, as decided. Confirmed by the owner 2026-10-22, as is the orphan prompt's wording (Remove / Keep).
 
 **Panel** (layout agent's 5a with the round 1 rulings): Kits header, "Spending uses the top kit
 first" at two kits or more, Add a kit (pack picker, "Every pack is already a kit."), the dashed empty
