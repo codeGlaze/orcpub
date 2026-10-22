@@ -3980,7 +3980,7 @@
       (let [mobile? @(subscribe [:mobile?])
             magic-item-cfgs @(subscribe [::char/magic-items id])
             magic-weapon-cfgs @(subscribe [::char/magic-weapons id])
-            magic-armor-cfgs @(subscribe [::char/magic-items id])]
+            magic-armor-cfgs @(subscribe [::char/magic-armor id])]
         [:div
          [:div.flex.align-items-c
           (svg-icon "orb-wand" 32)
