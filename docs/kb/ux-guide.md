@@ -128,7 +128,6 @@ The app's patterns and what each is for. When a better one is agreed, it replace
 
 ## Decisions log
 
-
 Newest last. Date, ruling, and what it replaced.
 
 - 2026-10-03: "Planned" is the player's word for a pick that stopped applying and will return.
