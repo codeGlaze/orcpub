@@ -393,7 +393,9 @@ restarts it clean, rather than limping on half-broken. If Java itself crashes it
 log. Both go to a folder on the host, `logs/app/crash/` beside the
 transactor's `logs/` (set `APP_LOGS_DIR` in `.env` to use another folder), so they survive the
 container being replaced and you can open them like any other file. The folder is private to the
-app's user; on the host you may need `sudo` to read it. On the next start the server emails an admin alert saying
+app's user; on the host you may need `sudo` to read it. If you choose your own folder, keep it under
+`logs/` or outside the project folder: everything else in the project folder is sent to each image
+build, and a private folder there makes the build fail with "permission denied". On the next start the server emails an admin alert saying
 what happened, when, and where the file is.
 
 - The heap dump (`heap.hprof`) is as large as the app's memory and holds everything that was in
