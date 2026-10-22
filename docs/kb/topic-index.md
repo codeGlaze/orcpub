@@ -2908,7 +2908,7 @@ _proposal-indexeddb-storage · proposal indexeddb storage_
 
 _re-frame-subscribe-refactor · re frame subscribe refactor_
 
-**topics:** apis, cached, chain, component, direct, event-utils, events, extract, handler, low, methods, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
+**topics:** apis, autosave, cached, chain, component, direct, event-utils, extract, handler, low, methods, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
 
 - The Problem
 - What actually happens when you subscribe in a handler
@@ -3725,7 +3725,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** 2026-10-21, attack, band, cleave, graze, hit, masteries, mastery, owner, preview, prone, rest, srd, tap, text, topple, vex, weapon
+**topics:** 2026-10-21, attack, band, cleave, graze, hit, masteries, mastery, owner, preview, prone, rest, srd, text, topple, undo, vex, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)
@@ -3742,6 +3742,7 @@ _weapon-mastery-plan · weapon mastery plan_
 - Mastery from the player's side (owner, 2026-10-20)
 - Swapping masteries (SRD 5.2.1, checked 2026-10-21)
 - Decided, round 5 (owner, 2026-10-21)
+- Undo for a rest: plan (2026-10-21, awaiting owner)
 - Decisions for the owner
 - Plan (after the decisions)
 

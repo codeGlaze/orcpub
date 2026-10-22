@@ -257,6 +257,33 @@ pools), so a swap writes to the build; it is not sheet-only state.
   when built.
 - **Wording is parked**: the owner will review every player-facing line in one pass, as a list.
 
+## Undo for a rest: plan (2026-10-21, awaiting owner)
+
+**What exists.** One Undo in the app: picks that came back on their own (`character_builder.cljs`
+`picks-notice`; `events.cljs` `undo-restore-db` / `redo-restore-db`). The event that changed things
+records what it changed in the db (`::e5/restore-notice {:restored ...}`); Undo applies the inverse and
+the notice turns to "Undone · Redo"; × closes it. The rest copies that pattern. Rests themselves go
+through `update-character-fx`: a saved character is updated in `::char5e/character-map` and saved by
+the throttled save; the builder's unsaved character is replaced with `:set-character`.
+
+**Plan.**
+1. **Record exactly what the rest changed.** `finish-long-rest` / `finish-short-rest` keep, beside the
+   change, the values they cleared, as they were: the `::char5e/features-used` entries for the cleared
+   periods, `::spells/slots-used`, `::char5e/current-hit-points`, and a mastery swap if one was made
+   (in `::e5/rest-notice {:id :kind :before {...}}`). Only those keys, not the whole character.
+2. **Undo puts back only those keys** (assoc the old value, or dissoc where there was none), through
+   `update-character-fx`, so a saved character saves the undo like any edit.
+3. **Undo is offered only until the character next changes.** If the player uses a slot or takes
+   damage after resting, putting the old values back would silently lose that, so any later change
+   to the character ends the Undo: the notice becomes plain "Long Rest finished" until closed. This
+   is the one design choice for the owner (the other way is to merge, which can be wrong both ways).
+4. **Redo runs the rest again**, the same event, like Redo in the picks notice.
+5. **Where:** beside the rest buttons (ux-guide "Show it beside the control that changes it"), using
+   the same `notifications/callout` box as the picks notice.
+6. **Tests, seen failing first:** events tests (rest then Undo gives back the exact character; a
+   change after the rest ends the Undo; Redo equals the rest; a saved character emits the save); one
+   browser check on the sheet (rest, Undo, values back).
+
 ## Decisions for the owner
 
 1. **Topple's DC.** (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +
