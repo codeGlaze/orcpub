@@ -35,6 +35,9 @@ through". Each round, rework the page, do not append to it:
   don't know what the rest buttons look like right now").
 - **Mark every shot** Decided, Open or Fixed. Drop shots a later round replaced.
 - Two-column grid on wide screens, one column on a phone.
+- **When a piece is not settled, show several variants at once** (owner, 2026-10-22: "try a handful of
+  designs to find the best look/layout instead of one at a time"). Hold the agreed basics fixed across
+  them, vary only the open choice, and label them V1, V2...
 
 ## Traps
 

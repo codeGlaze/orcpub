@@ -2266,7 +2266,7 @@ _merging-across-a-refactor · merging across a refactor_
 
 _mockup-review-pages · mockup review pages_
 
-**topics:** 2026-10-22, 2akacten9rccchjfphjgmr, artifact, drawn-in, label, lacks, look, mockup, owner, phone, publishes, republish, round, scene, scenes, shot, shots, writing-browser-tests
+**topics:** 2026-10-22, 2akacten9rccchjfphjgmr, artifact, basics, best, designs, drawn-in, label, lacks, look, mockup, owner, phone, publishes, round, shot, shots, writing-browser-tests
 
 - The three pieces (all in scripts/design/ on this branch)
 - Steps

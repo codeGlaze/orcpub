@@ -165,6 +165,29 @@ async function setup(page, phone) {
     .mk-cbtn{background:none;color:#f0a100}
     .mk-cundo{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:12px;margin-top:4px}
     .mk-cundo .mk-link{margin-left:2px;font-size:12px;min-height:26px}
+    .mk-g3{display:grid;grid-template-columns:1fr 1.15fr 1.35fr;gap:6px;align-items:end}
+    .mk-g2{display:grid;grid-template-columns:1fr 1fr;gap:6px;align-items:end}
+    .mk-tight{margin-bottom:5px}
+    .mk-b{position:relative;height:36px;border-radius:5px;border:0;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;
+      color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.35);background:linear-gradient(to bottom,#f1a20f,#dbab50);display:flex;align-items:center;justify-content:center;gap:6px;width:100%}
+    .mk-b::after{content:"";position:absolute;inset:-4px 0}
+    .mk-b2{background:none;border:1.5px solid #f0a100;color:#f0a100;text-shadow:none}
+    .mk-small{height:30px;width:auto;padding:0 12px;justify-self:start}
+    .mk-tog{position:relative;display:flex;align-items:center;justify-content:center;gap:6px;height:28px;padding:0 8px;border-radius:5px;font-size:12.5px;font-weight:600;
+      background:rgba(240,161,0,.14);border:1px solid rgba(240,161,0,.45);white-space:nowrap}
+    .mk-tog .fas{color:#f0a100;font-size:13px}
+    .mk-tog input{width:15px;height:15px;margin:0 0 0 2px;accent-color:#f0a100}
+    .mk-tog::after{content:"";position:absolute;inset:-8px 0}
+    .mk-attach{margin-bottom:0}
+    .mk-tab{border-bottom:0;border-radius:6px 6px 0 0;height:26px}
+    .mk-joined{border-radius:0 0 5px 5px}
+    .mk-split{display:flex;flex-direction:column}
+    .mk-split-top{border-radius:5px 5px 0 0}
+    .mk-split-bot{border-radius:0 0 5px 5px;border-top:0;height:26px}
+    .mk-seg{display:grid;grid-template-columns:1fr 1.15fr 1.35fr;border-radius:6px;overflow:hidden;border:1.5px solid #f0a100}
+    .mk-sg{height:36px;border:0;border-left:1px solid rgba(26,30,40,.35);font-size:13px;font-weight:700;text-transform:uppercase;color:#fff;
+      text-shadow:0 1px 1px rgba(0,0,0,.35);background:linear-gradient(to bottom,#f1a20f,#dbab50);display:flex;align-items:center;justify-content:center;gap:6px}
+    .mk-sg2{background:none;color:#f0a100;text-shadow:none;border-left:0}
     .mk-x{margin-left:auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px}
     .mk-sheet .mk-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);margin:0 auto 10px}
     .mk-line{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -388,15 +411,29 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
         const box = document.createElement('div');
         box.className = 'mk-restbox' + (variant === 'B' ? ' bare' : '');
         box.setAttribute('data-mk', 'rest');
-        const undo = state === 'done'
-          ? '<div class="mk-cundo"><i class="fa fa-history orange"></i><span>Long Rest finished, dawn included</span><button class="mk-link">Undo</button></div>' : '';
-        box.innerHTML = `<div class="mk-crow mk-cdawn-top"><label class="mk-cpill"><span class="mk-sun">☀</span>dawn passes<input type="checkbox" checked></label><button class="mk-cpill mk-cbtn"><span class="mk-sun">☀</span>dawn only</button></div>
-          <div class="mk-crow"><button class="form-button p-5">finish long rest</button><button class="form-button p-5">finish short rest</button></div>
-          ${undo}`;
+        const toggle = (cls) => `<label class="mk-tog ${cls || ''}"><i class="fas fa-sun"></i>dawn passes<input type="checkbox" checked></label>`;
+        const dawnBtn = `<button class="mk-b mk-b2"><i class="far fa-sun"></i>Dawn</button>`;
+        const short = `<button class="mk-b">Short Rest</button>`;
+        const longB = `<button class="mk-b">Long Rest</button>`;
+        const undo = '<div class="mk-cundo"><i class="fa fa-history orange"></i><span>Long Rest finished, dawn included</span><button class="mk-link">Undo</button></div>';
+        const layouts = {
+          V1: `<div class="mk-g3 mk-tight"><span></span><span></span>${toggle()}</div>
+               <div class="mk-g3">${dawnBtn}${short}${longB}</div>`,
+          V2: `<div class="mk-g3 mk-attach"><span></span><span></span>${toggle('mk-tab')}</div>
+               <div class="mk-g3">${dawnBtn}${short}<button class="mk-b mk-joined">Long Rest</button></div>`,
+          V3: `<div class="mk-g3">${dawnBtn}${short}<div class="mk-split"><button class="mk-b mk-split-top">Long Rest</button>${toggle('mk-split-bot')}</div></div>`,
+          V4: `<div class="mk-g2 mk-tight">${dawnBtn.replace('mk-b mk-b2', 'mk-b mk-b2 mk-small')}${toggle()}</div>
+               <div class="mk-g2">${short}${longB}</div>`,
+          V5: `<div class="mk-g3 mk-tight"><span></span><span></span>${toggle()}</div>
+               <div class="mk-seg">${dawnBtn.replace('mk-b mk-b2', 'mk-sg mk-sg2')}<button class="mk-sg">Short Rest</button><button class="mk-sg mk-sg1">Long Rest</button></div>`
+        };
+        box.className = 'mk-restbox bare';
+        box.innerHTML = layouts[variant] + (state === 'done' ? undo : '');
         row.after(box);
         return true;
       }, [variant, state]);
-      for (const [variant, state, file] of [['today', 'idle', 'R0-rest-today.png'], ['B', 'idle', 'RC1-rest-compact.png'], ['B', 'done', 'RC2-rest-compact-undo.png']]) {
+      for (const [variant, state, file] of [['today', 'idle', 'R0-rest-today.png'], ['V1', 'idle', 'RV1.png'], ['V2', 'idle', 'RV2.png'],
+                                            ['V3', 'idle', 'RV3.png'], ['V4', 'idle', 'RV4.png'], ['V5', 'idle', 'RV5.png'], ['V1', 'done', 'RV1-undo.png']]) {
         check(await rest(variant, state), `rest controls: ${variant} ${state}`);
         await page.evaluate(() => { const r = document.querySelector('[data-mk="rest"]'); r.scrollIntoView({ block: 'center' }); });
         await shot(page, file);
