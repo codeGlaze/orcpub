@@ -160,6 +160,13 @@ recharge and the zero-charges state; whether the app knows the attacks-per-turn 
 chain counter reads). **Weapon Mastery on the sheet: follow [weapon-mastery-plan.md](weapon-mastery-plan.md);
 the first Graze/Vex/Cleave buttons were special-cased and are being replaced.** Armor in the same style is not in scope.
 
+**Quantities (from the `feature/inventory-kits` session, 2026-10-22):** that branch makes the built
+character's `?weapons` / `?magic-weapons` / `?armor` / `?magic-armor` sum `::char-equip/quantity`
+across sources (`ff6500da`, not yet in integration; [plan-inventory-kits.md](plan-inventory-kits.md)).
+The weapons table draws one row per weapon kind and reads no quantity, so nothing breaks, but upstream
+#340 ("Multiple identical weapons are displayed as one") wants the count shown. When the branches
+meet: show the count on the row (and the PDF), e.g. "Handaxe ×3". Not built yet.
+
 ## Today's code (measured 2026-10-17 on `427d16aa`)
 
 - **The table** is `weapons-section-2` in `src/cljs/orcpub/dnd/e5/views.cljs` (about line 3808),
