@@ -3222,7 +3222,7 @@ _settings-registry-and-boot-report · settings registry and boot report_
 
 _share-bundle-dependency-extraction · share bundle dependency extraction_
 
-**topics:** cljc, cljs, closure, def, direct, entity, extractor, index, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
+**topics:** cljc, cljs, closure, def, direct, extractor, index, keys, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
 
 - Why this is not trivial
 - The content types (master list)
@@ -3715,7 +3715,7 @@ _views-builders-split · views builders split_
 
 _weapon-damage-model · weapon damage model_
 
-**topics:** 2026-10-17, blade, champion, charges, crit, damage, dawn, extra, handoff-weapons-table, period, periods, sun, sword, vicious, vorpal, weapon, weapon-data-model, weapon-mastery-plan
+**topics:** 2026-10-17, blade, champion, charges, crit, damage, extra, handoff-weapons-table, period, periods, printed, sun, sword, vicious, vorpal, weapon, weapon-data-model, weapon-mastery-plan
 
 - Where it lives (feature/weapons-table)
 - The fields
@@ -3738,7 +3738,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** 2026-10-21, attack, awaiting, band, cleave, graze, hit, long, masteries, mastery, owner, preview, rest, srd, topple, undo, vex, weapon
+**topics:** 2026-10-21, attack, band, cleave, graze, hit, long, masteries, mastery, owner, preview, prone, rest, srd, topple, undo, vex, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)

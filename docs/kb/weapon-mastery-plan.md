@@ -290,14 +290,16 @@ until the character changes (a slot used, damage, any edit), however long that i
 tabs do not count. The last rest's record (what it cleared, and when) is saved with the character, so
 it survives logging off: beside the rest buttons a quiet line reads "Long Rest finished · Undo", or
 "Last Long Rest: Oct 21 · Undo" in a later session, and goes away when the character changes. Needs
-one new schema attribute for the record. Awaiting owner.
+one new schema attribute for the record. **Agreed by the owner, 2026-10-21.** Not built yet.
 
-**Bug found on this branch (2026-10-21), not yet fixed:** the schema stores used uses per period
+**Fixed 2026-10-21 (feature/weapons-table), was a bug found on this branch:** the schema stores used uses per period
 (`schema.clj` `features-used-schema`: minute, hour, turn, day, round, rest, long-rest). This branch
 added `::units5e/dawn` (and the weapon `::mi/recharge` field also allows `::units5e/short-rest`); a
 saved character that uses a once-per-dawn weapon power records it under `::units5e/dawn` through
 `toggle-feature-used`, an attribute the schema lacks, so its save should fail. Fix: add both periods
-to the schema (additive). Prove the failure with a test first.
+to the schema (additive; `datomic.clj` transacts `all-schemas` at every start, so existing databases
+get them with no migration). `features_used_save_test.clj` saves a use under every period
+`::mi/recharge` allows; it failed for dawn and short-rest ("Unable to resolve entity") before the fix.
 
 ## Decisions for the owner
 
