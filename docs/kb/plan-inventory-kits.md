@@ -156,7 +156,8 @@ The layout agent's "5a Kits, quieter" (tweaking_Kits_v1) is the base, with these
 - **Decreases take from the top kit first; spares last.** Kits then show what is low, so Restock stays a
   useful shortcut. (Supersedes "sell or lose: leftovers first" in "The actions" above, which got the
   owner's rule backwards.)
-- **Refill is per kit**, the kit tapped, not one Reorganize filling every kit in order.
+- **Both buttons:** each kit has its own refill button (fills that kit), and one Reorganize button for
+  the whole backpack inventory (fills every kit in order).
 - **The empty-slot look stays:** a dashed tile with a faint icon when no pack is chosen, not only an
   "Add a kit" link.
 - **What a kit shows:** every item whose target is more than 1, plus any item below its target (a lost

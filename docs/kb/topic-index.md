@@ -3819,7 +3819,7 @@ _weapons-extra-damage-handoff · weapons extra damage handoff_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 2026-10-15, amber, blue, button, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, versatile, weapon, white
+**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, versatile, weapon, white
 
 - The parts and their names
 - Agreed
