@@ -72,6 +72,14 @@ stored: the same 13 torches split 10/3 or 3/10 depending on refill history.
    maps by adding quantities instead fixes the overwrite (20 starting arrows + 1 picked = 21) and #138,
    and leaves saved characters untouched. Check first that no item legitimately arrives twice for the
    same reason (a stored class starting item and its own modifier), or summing would double it.
+   **Built 2026-10-22** on `feature/inventory-kits` (`4c549456`, `ab76e660`, `ce16a329`): packs' rations
+   use `:rations-1-day`; `modifiers/equipment` and `deferred-equipment` add with `add-item-cfg`
+   (summed quantity, equipped if either source is, today's behaviour when a quantity is missing);
+   `equipment_totals_test` (rations 11, arrows 21, torches stay 10, every pack item real) seen failing
+   first. No class or background emits gear from its own modifiers, so no source is counted twice.
+   In the app: Arrow 21 and named rations seen; adding a ration by hand was not driven in the browser.
+   Also fixed: the sheet's magic items list now includes magic armor (it read magic items twice).
+   Treasure (coins) still replaces rather than adds; not in part A.
    **Part B: weapons and armor**, on the same structure, only after part A is proven in use (owner,
    2026-10-22). Fixes #340 (two handaxes shown as one; the reporter asks for a count).
    **Then #229** (edit quantities on the character sheet, not only in the builder): wanted, design to

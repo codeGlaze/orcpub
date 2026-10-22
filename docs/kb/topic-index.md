@@ -2831,7 +2831,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, alphabetical, camp, container, item, items, kit, kits, leftovers, pack, packs, quantities, quantity, refill, starting, starting-equipment, stored, torches
+**topics:** 2026-10-22, alphabetical, container, gear, items, kit, kits, leftovers, pack, packs, quantities, quantity, rations, refill, starting, starting-equipment, stored, torches
 
 - The problems today
 - The model
@@ -3449,7 +3449,7 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 20d6, concentration, conditions, damage, dice, editions, explosion, links, magic, monster, open5e, previews, prices, rules, spell, spells, srd
+**topics:** 2014, 20d6, actions, concentration, conditions, damage, dice, editions, explosion, links, monster, open5e, previews, prices, rules, spell, spells, srd
 
 - How this was measured
 - What the app shows today
