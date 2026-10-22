@@ -216,6 +216,26 @@ async function setup(page, phone) {
     .mk-card-mid{width:64%;margin:0 auto}
     .mk-under{border-top-left-radius:0;border-top-right-radius:0}
     .mk-under-mid{}
+    .mk-addon{display:flex;align-items:center;justify-content:center;gap:4px;width:max-content;margin:0 auto -1px;padding:0 10px;height:26px;
+      background:rgba(255,255,255,.06);border-radius:8px 8px 0 0}
+    .mk-ab{position:relative;display:flex;align-items:center;gap:5px;background:none;border:0;color:#e6e9ee;font-size:12px;font-weight:700;
+      letter-spacing:.04em;text-transform:uppercase;padding:0 6px;height:26px}
+    .mk-ab::after{content:"";position:absolute;inset:-9px 0}
+    .mk-ab .fa-sun{color:#f0a100} .mk-ab .fa-moon{color:#b9a7f0}
+    .mk-adot{opacity:.4}
+    .mk-seg4a{grid-template-columns:44px 1fr 1.15fr 44px}
+    .mk-seg4a .mk-sg{font-size:15px}
+    .mk-seg4b{grid-template-columns:.85fr 1.1fr 1.2fr .85fr}
+    .mk-seg4b .mk-sg{font-size:12px;gap:5px}
+    .mk-qe{background:#1a1e28!important;text-shadow:none}
+    .mk-qe.mk-dawnseg{color:#f0a100} .mk-qe.mk-duskseg{color:#b9a7f0}
+    .mk-sky4 .mk-qe.mk-dawnseg{background:linear-gradient(90deg,rgba(240,161,0,.4),#1a1e28)!important}
+    .mk-sky4 .mk-qe.mk-duskseg{background:linear-gradient(90deg,#1a1e28,rgba(124,98,200,.45))!important}
+    .mk-row4{display:grid;grid-template-columns:52px 1fr 52px;gap:6px;align-items:center}
+    .mk-mid{border-radius:6px}
+    .mk-end{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;height:40px;border-radius:20px;border:0;
+      background:rgba(255,255,255,.07);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#e6e9ee;gap:1px}
+    .mk-end i{font-size:14px} .mk-end.mk-dawnseg i{color:#f0a100} .mk-end.mk-duskseg i{color:#b9a7f0}
     .mk-x{margin-left:auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px}
     .mk-sheet .mk-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);margin:0 auto 10px}
     .mk-line{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -453,6 +473,11 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
           V4: `<div class="mk-g2 mk-tight">${dawnBtn.replace('mk-b mk-b2', 'mk-b mk-b2 mk-small')}${toggle()}</div>
                <div class="mk-g2">${short}${longB}</div>`,
           T1: `@@TIME@@<div class="mk-seg mk-seg2c mk-gap">@@SR@@</div>`,
+          TC: `<div class="mk-addon"><button class="mk-ab"><i class="fas fa-sun"></i>Dawn</button><span class="mk-adot">\u00B7</span><button class="mk-ab"><i class="fas fa-moon"></i>Dusk</button></div><div class="mk-seg mk-seg2e">@@SR@@</div>`,
+          T4A: `<div class="mk-seg mk-seg4a"><button class="mk-sg mk-sg2 mk-dawnseg"><i class="fas fa-sun"></i></button><button class="mk-sg">Short Rest</button><button class="mk-sg mk-sg1">Long Rest</button><button class="mk-sg mk-sg2 mk-duskseg"><i class="fas fa-moon"></i></button></div>`,
+          T4B: `<div class="mk-seg mk-seg4b"><button class="mk-sg mk-qe mk-dawnseg"><i class="fas fa-sun"></i>Dawn</button><button class="mk-sg">Short Rest</button><button class="mk-sg mk-sg1">Long Rest</button><button class="mk-sg mk-qe mk-duskseg"><i class="fas fa-moon"></i>Dusk</button></div>`,
+          T4C: `<div class="mk-seg mk-seg4b mk-sky4"><button class="mk-sg mk-qe mk-dawnseg"><i class="fas fa-sun"></i>Dawn</button><button class="mk-sg">Short Rest</button><button class="mk-sg mk-sg1">Long Rest</button><button class="mk-sg mk-qe mk-duskseg"><i class="fas fa-moon"></i>Dusk</button></div>`,
+          T4D: `<div class="mk-row4"><button class="mk-end mk-dawnseg"><i class="fas fa-sun"></i><span>Dawn</span></button><div class="mk-seg mk-seg2e mk-mid">@@SR@@</div><button class="mk-end mk-duskseg"><i class="fas fa-moon"></i><span>Dusk</span></button></div>`,
           TA: `<div class="mk-card mk-card-full">@@TIMEIN@@</div><div class="mk-seg mk-seg2e mk-under">@@SR@@</div>`,
           TB: `<div class="mk-card mk-card-mid">@@TIMEIN@@</div><div class="mk-seg mk-seg2e mk-under-mid">@@SR@@</div>`,
           T2: `<div class="mk-seg mk-seg2c">@@SR@@</div><div class="mk-gapt">@@TIME@@</div>`,
@@ -482,8 +507,8 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
         row.after(box);
         return true;
       }, [variant, state]);
-      for (const [variant, state, file] of [['today', 'idle', 'R0-rest-today.png'], ['TA', 'idle', 'RTA-card-full.png'], ['TB', 'idle', 'RTB-card-tab.png'],
-                                            ['T4', 'idle', 'RT4-bookends.png'], ['TA', 'askboth', 'RTA-ask-both.png']]) {
+      for (const [variant, state, file] of [['today', 'idle', 'R0-rest-today.png'], ['TC', 'idle', 'RTC-addon.png'], ['T4', 'idle', 'RT4-bookends.png'],
+                                            ['T4A', 'idle', 'RT4A-icons.png'], ['T4B', 'idle', 'RT4B-quiet-ends.png'], ['T4C', 'idle', 'RT4C-sky-ends.png'], ['T4D', 'idle', 'RT4D-round-ends.png']]) {
         check(await rest(variant, state), `rest controls: ${variant} ${state}`);
         await page.evaluate(() => { const r = document.querySelector('[data-mk="rest"]'); r.scrollIntoView({ block: 'center' }); });
         await shot(page, file);

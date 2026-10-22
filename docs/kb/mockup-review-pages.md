@@ -37,7 +37,8 @@ through". Each round, rework the page, do not append to it:
 - Two-column grid on wide screens, one column on a phone.
 - **When a piece is not settled, show several variants at once** (owner, 2026-10-22: "try a handful of
   designs to find the best look/layout instead of one at a time"). Hold the agreed basics fixed across
-  them, vary only the open choice, and label them V1, V2...
+  them, vary only the open choice, and label them V1, V2... **Iterate on what the owner liked**, not only on what
+  they criticised (2026-10-22: T4 was called fun and got no variants).
 
 ## Traps
 

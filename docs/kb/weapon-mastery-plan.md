@@ -368,7 +368,10 @@ T1 bar above the rests, T2 below, T3 sky tint, T4 one bar Dawn | Short | Long | 
 what each resets. The mockup's lilac is not a palette colour; use the themes' purple. Owner: T4 "kind of fun"; T1 looked off
 because its dividers did not line up (time bar 50/50, rest bar weighted to Long Rest), and should be a
 card extending from the top of the rest bar. Redrawn as T1a (full width) and T1b (centred tab), both
-bars split 50/50. Open: T1a, T1b or T4.
+bars split 50/50. **Owner:** sharing the border made each top button read as part of the one beneath;
+an add-on must look separate (no shared border, no lined-up divider). And T4, the one called fun, was
+not iterated. Redrawn: T1c (a small soft tab, no border) and the T4 family (icon-only ends, sky-tinted
+dark ends, round ends beside the bar). Open.
 
 ## Decisions for the owner
 
