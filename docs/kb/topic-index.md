@@ -690,7 +690,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, ----------, blank, descriptive, dwarf, elf, fallback, generates, halfling, helper, human, label, manual, name, party, races, random, sex
+**topics:** ------, ----------, aasimar, blank, descriptive, dwarf, elf, generates, halfling, helper, human, label, manual, name, party, races, random, sex
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -1130,7 +1130,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, grant, idiomatic, layer-a, mis-attribution, progression, repeatable, select, spell, two-level, vocabulary
+**topics:** and-list, cantrips, choice, compound, creator, dependent, descriptive, grant, idiomatic, layer-a, mis-attribution, progression, repeatable, select, spell, spells, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -1608,7 +1608,7 @@ _error-handling-import-validation · error handling import validation_
 
 _extras-definitions · extras definitions_
 
-**topics:** capabilities, companion, conditions, copy, copy-on-adopt, creature, disjoint, instance, kind, per-creature, pet, plan-companions-and-wild-shape, promoted, promotion, ribbon, sidekick, statblock, wolf
+**topics:** capabilities, companion, conditions, copy, copy-on-adopt, creature, disjoint, enhancement, kind, per-creature, pet, plan-companions-and-wild-shape, promoted, promotion, ribbon, sidekick, statblock, wolf
 
 - One record, capabilities toggled
 - Copy-on-adopt, not reference
@@ -1675,7 +1675,7 @@ _feat-builder-audit · feat builder audit_
 
 _fighting-style-authoring · fighting style authoring_
 
-**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, tick, watch-list
+**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, styles, watch-list
 
 - Status — 2026-09-05: BUILT
 - The divvying rule (decided) — which classes can take a homebrew style
@@ -1718,7 +1718,7 @@ _filtered-list-staleness · filtered list staleness_
 
 _folder-hardening · folder hardening_
 
-**topics:** clause, client, entities, error, evolution, folder, folders, handler, hardening, http, optimistic, problem, re-fetch, request, rollback, server, solution, tempid
+**topics:** clause, client, entities, error, evolution, folder, folders, handler, hardening, http, optimistic, pre-mutation, problem, re-fetch, rollback, server, solution, tempid
 
 - Context
 - Pattern: On-Failure Rollback via Server Re-Fetch
@@ -2240,14 +2240,14 @@ _locale-safety · locale safety_
 
 _lookup-indexes · lookup indexes_
 
-**topics:** 100k, 120, 2026-10-22, allocates, attribute, email, heap, indexed, indexes, lookup, lowercased, mixed-case, oom, plan-email-and-alerts, queries, sign-ins, unindexed, uniqueness
+**topics:** 100k, 120, 2026-10-22, allocates, attribute, email, heap, indexed, lookup, lowercased, mixed-case, oom, plan-email-and-alerts, plan-lookup-indexes, queries, sign-ins, unindexed, uniqueness
 
 - The cause
 - Measured
 - Why GET /user runs so often (found 2026-10-22)
 - Why one email lookup allocates ~1.2 KB per user
 - Normalised email: separate field (decided direction, 2026-10-22)
-- Fix, not yet done (owner decides after these numbers)
+- Fix, not yet done: plan-lookup-indexes.md (owner approved the approach 2026-10-22)
 
 ## memoize-antipattern-scan.md
 
@@ -2464,7 +2464,7 @@ _page-load-budget · page load budget_
 
 _pdf-form-techniques · pdf form techniques_
 
-**topics:** 2026-09, appearance, artwork, attunement, bytes, card, cards, field, fields, foot, pages, pdfbox, rank, rarity, sheet, stream, streams, widgets
+**topics:** 2026-09, appearance, artwork, bytes, card, cards, field, fields, foot, page, pages, pdfbox, rank, rarity, sheet, stream, streams, widgets
 
 - The one rule that explains most of the weirdness
 - Cloning a page without copying its artwork
@@ -2622,7 +2622,7 @@ _perf-entity-build · perf entity build_
 
 _perf-homebrew-builder-loop · perf homebrew builder loop_
 
-**topics:** ---, 130, builder-open, cache, casters, chunking, class, freeze, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, task
+**topics:** ---, 130, cache, caster, casters, chunking, class, freeze, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, task
 
 - Method
 - The fixtures
@@ -2855,6 +2855,18 @@ _plan-inventory-kits · plan inventory kits_
 - The map: where equipment is written, read and saved (2026-10-22, integration d51938c1)
 - Patterns to reuse
 - Open (owner)
+
+## plan-lookup-indexes.md
+
+_plan-lookup-indexes · plan lookup indexes_
+
+**topics:** add-test-user, approves, attribute, backfill, email, indexes, lookup-indexes, lookups, lowercase, lowercased, manage-user, old-schema, postgres, pro, queries, scan, schema, users
+
+- 1. Indexes (schema only, no data change)
+- 2. Lowercase email field
+- 3. GET /user once per session
+- Tests (each seen failing first)
+- Order of work
 
 ## plan-next.md
 
@@ -3428,7 +3440,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2026-10-06, 5etools, data, edition, editions, monsters, open5e, owner, pdf, served, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2026-10-06, 2026-10-07, 5etools, edition, editions, monsters, open5e, owner, pdf, served, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded

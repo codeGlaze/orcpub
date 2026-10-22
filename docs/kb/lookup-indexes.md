@@ -77,7 +77,7 @@ also works but loses the original and is a live data rewrite. The separate field
 `:db/unique` (email has no uniqueness constraint today; see `docs/email-system.md` known issues),
 once existing duplicates are found and resolved.
 
-## Fix, not yet done (owner decides after these numbers)
+## Fix, not yet done: [plan-lookup-indexes.md](plan-lookup-indexes.md) (owner approved the approach 2026-10-22)
 
 1. `:db/index true` on the attributes above: a schema alteration added to `schema.clj`, applied on
    start. No data change.
