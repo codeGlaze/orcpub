@@ -188,6 +188,10 @@ async function setup(page, phone) {
     .mk-sg{height:36px;border:0;border-left:1px solid rgba(26,30,40,.35);font-size:13px;font-weight:700;text-transform:uppercase;color:#fff;
       text-shadow:0 1px 1px rgba(0,0,0,.35);background:linear-gradient(to bottom,#f1a20f,#dbab50);display:flex;align-items:center;justify-content:center;gap:6px}
     .mk-sg2{background:none;color:#f0a100;text-shadow:none;border-left:0}
+    .mk-cask{display:flex;justify-content:flex-end;align-items:center;gap:8px;font-size:13px;margin-top:4px}
+    .mk-yes{position:relative;display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border-radius:5px;border:1.5px solid #f0a100;
+      background:none;color:#f0a100;font-weight:700;font-size:13px}
+    .mk-yes::after{content:"";position:absolute;inset:-8px 0}
     .mk-x{margin-left:auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px}
     .mk-sheet .mk-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);margin:0 auto 10px}
     .mk-line{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -424,16 +428,18 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
           V3: `<div class="mk-g3">${dawnBtn}${short}<div class="mk-split"><button class="mk-b mk-split-top">Long Rest</button>${toggle('mk-split-bot')}</div></div>`,
           V4: `<div class="mk-g2 mk-tight">${dawnBtn.replace('mk-b mk-b2', 'mk-b mk-b2 mk-small')}${toggle()}</div>
                <div class="mk-g2">${short}${longB}</div>`,
+          F: `<div class="mk-seg">${dawnBtn.replace('mk-b mk-b2', 'mk-sg mk-sg2')}<button class="mk-sg">Short Rest</button><button class="mk-sg mk-sg1">Long Rest</button></div>`,
           V5: `<div class="mk-g3 mk-tight"><span></span><span></span>${toggle()}</div>
                <div class="mk-seg">${dawnBtn.replace('mk-b mk-b2', 'mk-sg mk-sg2')}<button class="mk-sg">Short Rest</button><button class="mk-sg mk-sg1">Long Rest</button></div>`
         };
         box.className = 'mk-restbox bare';
-        box.innerHTML = layouts[variant] + (state === 'done' ? undo : '');
+        const ask = '<div class="mk-cundo"><i class="fa fa-history orange"></i><span>Long Rest finished</span><button class="mk-link">Undo</button></div>' +
+          '<div class="mk-cask"><span>Did dawn pass during the rest?</span><button class="mk-yes"><i class="fas fa-sun"></i>Yes</button></div>';
+        box.innerHTML = layouts[variant] + (state === 'done' ? undo : state === 'ask' ? ask : '');
         row.after(box);
         return true;
       }, [variant, state]);
-      for (const [variant, state, file] of [['today', 'idle', 'R0-rest-today.png'], ['V1', 'idle', 'RV1.png'], ['V2', 'idle', 'RV2.png'],
-                                            ['V3', 'idle', 'RV3.png'], ['V4', 'idle', 'RV4.png'], ['V5', 'idle', 'RV5.png'], ['V1', 'done', 'RV1-undo.png']]) {
+      for (const [variant, state, file] of [['today', 'idle', 'R0-rest-today.png'], ['F', 'idle', 'RF1-bar.png'], ['F', 'ask', 'RF2-after-long-rest.png']]) {
         check(await rest(variant, state), `rest controls: ${variant} ${state}`);
         await page.evaluate(() => { const r = document.querySelector('[data-mk="rest"]'); r.scrollIntoView({ block: 'center' }); });
         await shot(page, file);
