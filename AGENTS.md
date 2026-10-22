@@ -96,6 +96,18 @@ Rules that apply every time:
 - **Never share a worktree with a running `lein`.** Two `lein` processes in one worktree
   overwrite `.lein-env` and corrupt each other's results.
 
+### Reporting back — MUST FOLLOW
+
+The owner reads every reply, often on a phone, and the log of a long turn already shows the work.
+
+- **End every long response with a short summary:** three to six lines of outcome (what changed
+  for players or admins, whether it was verified, anything that went wrong), then **Needs you**.
+  Do not restate test counts, file lists or the steps already shown; detail lives in commits and
+  `docs/kb/`.
+- **Questions go only in Needs you,** one per number, each readable on its own: what it is, why
+  it matters, what yes or no does.
+- **Lead with the answer** when asked a question. A short question gets a short answer.
+
 ---
 
 > **TOP PRIORITY:** Agents MUST maintain up-to-date documentation whenever features, commands, or workflows are added or changed. See `docs/DOC-CONVENTIONS.md` for the documentation structure.
