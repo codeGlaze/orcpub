@@ -18,7 +18,7 @@
    pure so they can be tested and previewed without sending."
   (:require [clojure.string :as s]
             [hiccup2.core :as hiccup]
-            [postal.core :as postal]
+            [orcpub.outbox :as outbox]
             [orcpub.env :as env]
             [orcpub.crypto :as crypto]
             [orcpub.email :as email]
@@ -372,15 +372,10 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- send!
-  "Send `msg`; true if the mail server took it."
+  "Queues `msg` in the outbox, which sends it and retries while the mail server is down; true when
+  it was queued."
   [msg]
-  (try
-    (let [result (postal/send-message (email/email-cfg) msg)]
-      (or (= :SUCCESS (:error result))
-          (do (println "artist-email: not sent to" (:to msg) "-" (:error result)) false)))
-    (catch Exception e
-      (println "artist-email: failed to send to" (:to msg) "-" (.getMessage e))
-      false)))
+  (outbox/enqueue-current! :artist msg))
 
 (defn- deliver!
   "Send the artist's message and the admin copy; true if the artist's went out."

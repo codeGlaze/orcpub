@@ -187,6 +187,12 @@
     (raise! a kind subject body)
     (log! (str "[" kind "] " subject " (alerts not started, logged only)"))))
 
+(defn resolve-current!
+  "`resolve!` on the running alerter; does nothing when none is started. Returns nil."
+  [kind subject]
+  (when-let [a @current]
+    (resolve! a kind subject)))
+
 (defn- shutdown!
   "Stops the alerter's thread, then sends what the spool holds within `budget-ms`, logging what is
    left for the next start. Returns nil."

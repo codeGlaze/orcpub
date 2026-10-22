@@ -15,6 +15,7 @@
             [orcpub.security :as security]
             [orcpub.config :as config]
             [orcpub.alerts :as alerts]
+            [orcpub.outbox :as outbox]
             [orcpub.email :as email]
             [clojure.java.io :as io]
             [orcpub.pdf :as pdf])
@@ -140,7 +141,13 @@
     :pedestal
     (component/using
       (pedestal/new-pedestal)
-      [:service-map :conn :token-withdrawals :alerts])
+      [:service-map :conn :token-withdrawals :alerts :outbox])
+
+    ;; Player email: queued in the database with the action that causes it, sent from here.
+    :outbox
+    (component/using
+      (outbox/new-outbox (email/outbox-channel))
+      [:conn])
 
     ;; Admin alerts: no database, so they still go out when it is down. Started before traffic.
     :alerts
@@ -175,7 +182,7 @@
     :artist-accounts
     (component/using
       (artist-accounts/new-artist-accounts)
-      [:conn])
+      [:conn :outbox])
 
     ;; says in the log if the portrait art shipped without its strand fields
     :strand-check

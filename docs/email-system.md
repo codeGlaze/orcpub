@@ -14,10 +14,38 @@ All email is sent via [postal](https://github.com/drewr/postal) using SMTP crede
 | `EMAIL_SERVER_PORT` | SMTP port (default `587`) |
 | `EMAIL_SSL` | Enable SSL (`true`/`false`) |
 | `EMAIL_TLS` | Enable TLS (`true`/`false`) |
-| `EMAIL_FROM_ADDRESS` | Sender address (default `no-reply@orcpub.com`) |
+| `EMAIL_FROM_ADDRESS` | Sender address (default `no-reply@example.com`, a placeholder that cannot deliver) |
 | `EMAIL_ERRORS_TO` | Address for error notification emails (optional) |
 
 Configuration is read at send-time by `email/email-cfg` (`src/clj/orcpub/email.clj`).
+
+## How player emails are sent
+
+Every email a player gets (sign-up verification, password reset, the password-changed and
+email-change notices, the sign-in attempts notice, and the artist emails) goes through an
+**outbox** in the database instead of being sent while the player waits.
+
+- **Saved with the action that causes it.** The email is written in the same database transaction
+  as the account, the reset key or the email change. Either both are saved or neither is, so there
+  is never an account whose email was lost, or an email for a change that did not happen.
+- **Sent straight away, from the background.** A worker sends it within a second or two. The
+  player's request does not wait for the mail server.
+- **Retried when the mail server is busy or down.** A failed send is tried again after about 1
+  minute, then 5, 30, 2 hours, and every 6 hours after that. Signing up while the mail server is
+  down still works: the email arrives once the server is back.
+- **Given up on only when it cannot work.** A permanent refusal (the mail server says the address
+  does not exist) is not retried. After 8 attempts, about a day, an email is given up on too. Either
+  way it is kept, marked failed, and an admin alert says so.
+- **Deleted once sent.** Verification and reset emails contain links that sign a person in or
+  prove an address, so nothing is kept after the mail server accepts the email, not even in the
+  database's history.
+- **Several servers.** Each email is claimed by one server before it is sent, so running several
+  copies of the site never sends the same email twice.
+- **No mail server configured.** Emails wait in the database and are sent once `EMAIL_SERVER_URL`
+  is set and the server restarted.
+
+The player's "this character won't load" report is the one exception: it is sent directly, because
+the page tells the player on the spot whether it went out and offers a copy to send themselves.
 
 ## Schema
 
@@ -44,8 +72,9 @@ User attributes related to email and verification (`src/clj/orcpub/db/schema.clj
 
 1. Validate username, email, password
 2. Check email/username not already taken (`email-query`, `username-query`)
-3. Create user entity with `verified? false`, generate `verification-key`, set `verification-sent`
-4. Send registration verification email (`email/send-verification-email`)
+3. Create user entity with `verified? false`, generate `verification-key`, set `verification-sent`,
+   and queue the verification email, all in one transaction
+4. The outbox sends the email (see "How player emails are sent")
 5. User clicks link → `GET /verify?key=...` → `routes/verify`
 
 **Verify behavior (registration path):**
@@ -53,7 +82,9 @@ User attributes related to email and verification (`src/clj/orcpub/db/schema.clj
 - If `verification-sent` is nil or expired (24h) → redirect to failed
 - Otherwise → set `verified? true`, redirect to success
 
-**Re-verify:** `GET /re-verify?email=...` (`routes/re-verify`) re-sends the verification email for unverified accounts.
+**Re-verify:** `GET /re-verify?email=...` (`routes/re-verify`) stores a new key and queues a new
+verification email for an unverified account. For an address with no account it answers the same
+way and does nothing.
 
 **No SMTP configured:** `do-verification` checks `email/configured?` first. With no SMTP host and
 `ALLOW_UNVERIFIED_REGISTRATION=true`, the account is transacted `verified? true`, no mail is sent,
@@ -62,12 +93,12 @@ and the response carries `{:verified? true}` so the client shows "you can log in
 `:email-not-configured` — fail closed, so a lost SMTP value cannot quietly become open
 registration. Startup warns in all three abnormal combinations; a correct config is silent.
 
-**Send failure:** the account is rolled back. `register` retracts the new entity; `re-verify`
-retracts only the attributes that attempt set, never the existing user.
+**Mail server down:** the account is created and its email waits in the outbox, sent once the
+server answers. The person is never told to try again for something that already worked.
 
 **Login gate:** Unverified users cannot log in. If the verification has expired, the login error tells them to re-register.
 
-**Files:** `routes.clj:register`, `routes.clj:do-verification`, `routes.clj:verify`, `email.clj:send-verification-email`
+**Files:** `routes.clj:register`, `routes.clj:do-verification`, `routes.clj:verify`, `email.clj:verification-message`, `outbox.clj`
 
 ### 2. Email Change
 
@@ -75,9 +106,10 @@ retracts only the attributes that attempt set, never the existing user.
 
 1. Validate new email (format, not same as current, not already taken)
 2. Check rate limit (see Rate Limiting below)
-3. Store `pending-email`, generate new `verification-key`, set `verification-sent`
-4. Send email-change verification to the **new** address (`email/send-email-change-verification`)
-5. If send fails → full rollback (retract `pending-email`, `verification-key`, `verification-sent`), return 500
+3. Store `pending-email`, generate new `verification-key`, set `verification-sent`, and queue two
+   emails in the same transaction: the verification link to the **new** address, and a notice to
+   the address that owns the account now (the only warning it gets if the change was not theirs)
+4. The outbox sends both
 
 **Verify behavior (email-change path):**
 - If expired (24h) → retract `pending-email`, `verification-key`, `verification-sent`; redirect to failed
@@ -88,23 +120,24 @@ retracts only the attributes that attempt set, never the existing user.
 
 **Free resend:** Within 1–5 minutes of the original request, resending the same email re-uses the existing `verification-key` and does not update `verification-sent` (no rolling window). See Rate Limiting.
 
-**Files:** `routes.clj:request-email-change`, `routes.clj:verify` (pending-email branch), `email.clj:send-email-change-verification`, `events.cljs:change-email`, `views.cljs:my-account-page`
+**Files:** `routes.clj:request-email-change`, `routes.clj:verify` (pending-email branch), `email.clj:email-change-verification-message`, `email.clj:email-change-notice-message`, `events.cljs:change-email`, `views.cljs:my-account-page`
 
 ### 3. Password Reset
 
 **Trigger:** `GET /send-password-reset?email=...` (via `routes/send-password-reset`)
 
 1. Look up user by email
-2. Generate `password-reset-key`, set `password-reset-sent`
-3. Send password reset email (`email/send-reset-email`)
+2. Generate `password-reset-key`, set `password-reset-sent`, and queue the reset email in the same
+   transaction; the outbox sends it
 
 **Reset behavior:** `POST /reset-password` (via `routes/reset-password`)
 - Validates new password and password match
-- Sets new password hash, sets `password-reset` timestamp, sets `verified? true`
+- Sets new password hash, sets `password-reset` timestamp, sets `verified? true`, and queues the
+  "your password was changed" notice in the same transaction
 
 **Expiration:** `password-reset-expired?` checks if `password-reset-sent` is older than 24 hours.
 
-**Files:** `routes.clj:send-password-reset`, `routes.clj:do-send-password-reset`, `routes.clj:reset-password`, `email.clj:send-reset-email`
+**Files:** `routes.clj:send-password-reset`, `routes.clj:do-send-password-reset`, `routes.clj:reset-password`, `email.clj:reset-message`, `email.clj:password-changed-message`
 
 ### 4. Admin Alerts (server errors)
 
@@ -177,6 +210,7 @@ The 429 response includes `retry-after-secs` so the client can display a specifi
 |------|------|
 | `src/clj/orcpub/email.clj` | Email templates and send functions (postal) |
 | `src/clj/orcpub/alerts.clj` | Admin alerts: one email per problem, the hourly ceiling, the spool file |
+| `src/clj/orcpub/outbox.clj` | Player emails: queued with their action, sent and retried by one worker, deleted once sent |
 | `src/clj/orcpub/routes.clj` | Server handlers: register, verify, email change, password reset |
 | `src/clj/orcpub/db/schema.clj` | Datomic schema for user attributes |
 | `src/cljc/orcpub/route_map.cljc` | Route definitions (shared server/client) |
