@@ -321,7 +321,7 @@ _armor-class-computation · armor class computation_
 
 _armor-class-refactor · armor class refactor_
 
-**topics:** armor, authored, barbarian, bracers, calculation, channel, defense, leather, monk, natural, plate, prop, scalar, shield, sum, tie-break, unarmored, worn
+**topics:** armor, authored, barbarian, bonuses, bracers, calculation, channel, defense, leather, monk, natural, plate, prop, scalar, shield, tie-break, unarmored, worn
 
 - Current state — read this first
 - The channel trim — DONE. 18 attributes → 10
@@ -800,7 +800,7 @@ _claude-branch-triage · claude branch triage_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, mode, passing, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, mode, per-test, race-builder, recipe, rooted, runs, totals, widget
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -2830,12 +2830,13 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, alphabetical, backpack, camp, container, doff, items, kit, kits, leftovers, pack, packs, picker, rations, refill, restock, torches, total
+**topics:** 2026-10-22, alphabetical, camp, container, item, items, kit, kits, leftovers, pack, packs, quantities, quantity, refill, starting, starting-equipment, stored, torches
 
 - The problems today
 - The model
 - The actions
 - Phases
+- The map: where equipment is written, read and saved (2026-10-22, integration d51938c1)
 - Patterns to reuse
 - Open (owner)
 
@@ -3329,7 +3330,7 @@ _spell-selection-source-fix · spell selection source fix_
 
 _spell-slot-progression · spell slot progression_
 
-**topics:** artificer, caster, factor, factors, half-caster, integer, multiclass, multiclassing, pact, per-level, progression, slots, solo, sorcerer, spell-granting-across-silos, table, tables, warlock
+**topics:** artificer, caster, factor, factors, half-caster, integer, multiclass, multiclassing, normal, pact, per-level, progression, slots, solo, sorcerer, spell-granting-across-silos, table, warlock
 
 - How slots are computed today — VERIFIED
 - The overload — why Artificer can't be expressed — VERIFIED

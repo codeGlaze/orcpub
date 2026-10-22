@@ -66,18 +66,21 @@ stored: the same 13 torches split 10/3 or 3/10 depending on refill history.
 
 ## Phases
 
-1. **Storage, part A: gear.** Item totals per container (backpack only), replacing the keyed-map
-   selections; picking an item you already have adds to it. Converts saved characters once, on every
-   load path (server, browser draft, shared link, import), marked done so it never runs twice. Fixes the
-   overwrite and #138 (pack rations plus added rations show 10, not 11). Biggest risk; tested against
-   real saved characters.
+1. **Storage, part A: gear. Sum at build; no data conversion** (revised 2026-10-22 from the map
+   below). Stored picks are already one entry per item; the overwrite happens when the sheet is built,
+   because every source writes its quantity with `map-mod`, a plain `assoc`. Building the equipment
+   maps by adding quantities instead fixes the overwrite (20 starting arrows + 1 picked = 21) and #138,
+   and leaves saved characters untouched. Check first that no item legitimately arrives twice for the
+   same reason (a stored class starting item and its own modifier), or summing would double it.
    **Part B: weapons and armor**, on the same structure, only after part A is proven in use (owner,
    2026-10-22). Fixes #340 (two handaxes shown as one; the reporter asks for a count).
    **Then #229** (edit quantities on the character sheet, not only in the builder): wanted, design to
    be worked out when it is reached.
 2. **Packs as kits.** Starting-equipment pack choices and the picker create kits; counters, refill,
-   restock, use order, delete, choices. Existing characters' chosen packs become kits in the phase 1
-   conversion.
+   restock, use order, delete, choices. This is where stored data changes: existing characters' chosen
+   packs become kits by a repair on read inside `char5e/from-strict`, idempotent like
+   `vectorize-equipment` (the precedent), never a migration pass and never a stored "done" marker
+   ([data-safety-layers.md](data-safety-layers.md): heal lazily; save is a subset of load).
 3. **Containers.** Don/doff; Not Carried places (camp, mount, wagon, ship); moving kits; grouped and
    alphabetical views; the PDF lists each place under its own header.
 4. **Homebrew kits.** A content type: name, cost, container, items with targets, choices from a pool
@@ -86,6 +89,42 @@ stored: the same 13 torches split 10/3 or 3/10 depending on refill history.
 
 Later, separate items: carrying capacity and encumbrance (the mule's `:carrying-capacity` exists);
 paying for restocks from coins; ammunition starting at its bundle from the picker.
+
+## The map: where equipment is written, read and saved (2026-10-22, `integration` `d51938c1`)
+
+Three read-only searches; the load-bearing claims re-checked by hand.
+
+**Written.** Picks are a vector at `[::entity/options <sel>]`, one entry per item key, for `:weapons
+:armor :equipment :treasure :magic-weapons :magic-armor :other-magic-items` (`equipment-keys`,
+`character.cljc:69`): `{::entity/key k ::entity/value {::quantity n ::equipped? b}}`, with
+`::class-starting-equipment?` / `::background-starting-equipment?` on starting items. Writers:
+`add-inventory-item` (`event_handlers.cljc:69`, no duplicate check); `:remove-inventory-item`,
+`:toggle-inventory-item-equipped`, `:change-inventory-item-quantity` (events.cljs ~3171-3231; changing a
+quantity deliberately drops the starting flags, so an edited item survives a class change);
+`use-class-starting-equipment` (`character.cljc:912`); `add-background-starting-equipment`
+(`event_handlers.cljc:46`). Custom gear is separate: vectors of `{::name ::quantity ::equipped?}` at
+`[::entity/values ::char5e/custom-equipment]` and `custom-treasure`. Computed every build, never
+stored: starting-equipment option modifiers (`equipment-option` and `equipment-grant->modifier`,
+options.cljc), packs' `:items` included.
+
+**Built and read.** All sources meet in `?equipment ?weapons ?armor ?magic-weapons ?magic-armor
+?magic-items ?treasure` via `map-mod` (`entity_spec.cljc:110`, `assoc`: last write wins). Read by the
+accessors in `character.cljc:480-513`, the subs in `subs.cljs:998-1175` (armor combo, carried
+filters on `::equipped?`), the sheet (`other-equipment-section-2`, `treasure-section` show quantity;
+armor and weapons tables do not), and the PDF (`equipment-fields`, `pdf_spec.cljc:168`, prints
+"Name xN" and unequipped items as treasure). AC and wield picks do not read quantities. The builder's
+own list reads the raw picks, not the built maps.
+
+**Saved and moved.** Server save stores the strict form (`to-strict`, `::se/entity` checked,
+`routes.clj:1971`); reads return the raw pull and never rewrite. Browser drafts store strict data
+(`db.cljs:215`), restored with a `::se/entity` check. Shared links carry homebrew only; the character
+loads by id. No character file import or export exists. Every load runs `char5e/from-strict`
+(`vectorize-equipment` converts the old map shape, idempotently) and `reconciled-character`
+(heals renamed keys). New stored fields need Datomic schema attributes and must fit `::se/entity`.
+
+**Found in passing (on the sheet, `views.cljs`):** the weapons table destructures `equipped?`
+unqualified (~3902), so it never matches; `magic-items-section-2` subscribes `::char/magic-items`
+where `magic-armor` is meant (~3983).
 
 ## Patterns to reuse
 
