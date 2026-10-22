@@ -594,6 +594,18 @@
          (:warlock-spells option))))
      by-level)))
 
+(defn plugin-subclass
+  "A homebrew subclass as the class options take it (`plugin-subclasses-map`): its levels built by
+   `make-levels`, its props as modifiers. `subclass-key` (the map key) wins over its `:key`."
+  [spell-lists spells-map selection-map source-name subclass-key subclass]
+  (let [subclass-with-key (assoc subclass :key subclass-key)]
+    (assoc subclass-with-key
+           :modifiers (opt5e/plugin-modifiers (:props subclass) subclass-key)
+           :levels (make-levels spell-lists spells-map selection-map subclass-with-key)
+           :plugin-source source-name
+           :edit-event [::classes5e/edit-subclass subclass-with-key
+                        source-name subclass-key ::e5/subclasses])))
+
 (reg-sub
  ::classes5e/plugin-subclasses
  :<- [::e5/plugins-with-sources]
@@ -605,16 +617,7 @@
     (fn [[source-name subclass-key subclass]]
       (try
         (when (and (map? subclass) subclass-key)
-          ;; Ensure the subclass has its key set (the map key is authoritative)
-          (let [subclass-with-key (assoc subclass :key subclass-key)
-                levels (make-levels spell-lists spells-map selection-map subclass-with-key)]
-            (assoc subclass-with-key
-                   :modifiers (opt5e/plugin-modifiers (:props subclass)
-                                                      subclass-key)
-                   :levels levels
-                   :plugin-source source-name
-                   :edit-event [::classes5e/edit-subclass subclass-with-key
-                                source-name subclass-key ::e5/subclasses])))
+          (plugin-subclass spell-lists spells-map selection-map source-name subclass-key subclass))
         (catch js/Error e
           (guard/report! {:content-type ::e5/subclasses :key subclass-key :source source-name
                          :name (:name subclass) :error e})

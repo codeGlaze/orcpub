@@ -72,8 +72,28 @@
     "checks": 18,
     "seconds": 30
   },
+  "portrait_compositor_e2e.js": {
+    "checks": 32,
+    "seconds": 13
+  },
+  "portrait_tab_e2e.js": {
+    "checks": 31,
+    "seconds": 21
+  },
+  "portrait_pdf_export_e2e.js": {
+    "checks": 11,
+    "seconds": 45
+  },
   "character_heal_e2e.js": {
     "checks": 13,
     "seconds": 25
+  },
+  "natural_armor_ring_e2e.js": {
+    "checks": 7,
+    "seconds": 15
+  },
+  "cookie_notice_e2e.js": {
+    "checks": 9,
+    "seconds": 10
   }
 }

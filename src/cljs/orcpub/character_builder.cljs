@@ -22,6 +22,8 @@
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.planned-text :as planned-text]
+            [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.feats :as feats]
@@ -32,6 +34,7 @@
             [orcpub.dnd.e5.armor :as armor5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.display :as disp5e]
+            [orcpub.dnd.e5.portrait :as portrait5e]
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.events :as events5e]
@@ -213,9 +216,108 @@
     (str name " (" plugin-source ")")
     name))
 
+(defn planned-toggle
+  "A Planned line: tapping it opens or closes its panel; the arrow says which."
+  [open? text & [class-name]]
+  [:button.planned-toggle.orange {:class class-name :aria-expanded @open?
+                                  :on-click #(swap! open? not)}
+   text
+   [:i.fa {:class (if @open? "fa-angle-up" "fa-angle-down") :aria-hidden true}]])
+
+(defn- choice-line
+  "One row of the Choices list: `section`, the picked `names` and their `status`, with a Clear
+   button when `on-clear` is given and a `note` line under it when given. Returns hiccup."
+  [section names status & [{:keys [on-clear note]}]]
+  [:div.choice-line
+   [:div [:span.f-w-b section] " \u2014 " names [:span.planned-aside (str " \u00b7 " status)]
+    (when on-clear
+      [:button.link-button.underline.f-w-b.f-s-14.m-l-5 {:on-click on-clear} "Clear"])]
+   (when note [:div.planned-aside.i.f-s-14 note])])
+
+(defn choices-list
+  "The Choices link above the options: every pick the character stores, missing (homebrew not
+   loaded here) and planned first, each with Clear, then the active ones by section. Nothing is
+   cleared on its own."
+  []
+  (let [open? (r/atom false)]
+    (fn []
+      (let [rows @(subscribe [:orcpub.dnd.e5/choices])
+            held @(subscribe [:orcpub.dnd.e5/held-picks])
+            section-of (fn [address] (common/kw-to-name (peek (pop address)) true))]
+        [:div.choices {:class (if @(subscribe [:mobile?]) "m-l-10 m-b-10" "m-l-20 m-b-20")}
+         [planned-toggle open? "Choices" "choices-toggle"]
+         (when @open?
+           [:div.choices-panel.main-text-color.b-1.b-rad-5.p-10.m-t-5.f-s-14
+            (doall
+             (for [{:keys [address section name]} (filter #(= :missing (:status %)) rows)]
+               ^{:key (str address)}
+               [choice-line section name "missing"
+                {:on-clear #(dispatch [:orcpub.dnd.e5/clear-pick address])
+                 :note "Not loaded here"}]))
+            (doall
+             (for [{{:keys [address]} :record :keys [name returns]} held]
+               ^{:key (str "held" address)}
+               [choice-line (section-of address) name
+                (str "planned" (when-let [w (planned-text/when-short returns)] (str " (" w ")")))
+                {:on-clear #(dispatch [:orcpub.dnd.e5/clear-planned address])}]))
+            (doall
+             (for [group (partition-by (comp pop :address)
+                                       (filter #(= :active (:status %)) rows))]
+               ^{:key (str (pop (:address (first group))))}
+               [choice-line (:section (first group)) (s/join ", " (map :name group)) "active"]))])]))))
+
+(defn planned-panel
+  "What tapping a Planned line shows: a row per held pick with Clear, leaving out what the line
+   says (`says-reason?`: the line states the reason they share). docs/kb/ux-guide.md."
+  [held says-reason?]
+  (let [rows (planned-text/panel-rows held says-reason?)
+        {:keys [label aside]} (first rows)]
+    [:div.p-10.m-t-5.bg-note.callout-accent-brand
+     [:div.planned-rows {:class (cond (nil? label) "no-label" (nil? aside) "no-aside")}
+      (doall
+       (for [{:keys [held label aside]} rows
+             :let [address (get-in held [:record :address])]]
+         ^{:key (str address)}
+         [:div.planned-row
+          (when label [:span label])
+          (when aside [:span.planned-aside aside])
+          [:button.link-button.underline.f-w-b.f-s-14
+           {:on-click #(dispatch [:orcpub.dnd.e5/clear-planned address])}
+           "Clear"]]))]]))
+
+(defn class-planned-line
+  "Under a class row: its held picks whose sections are not on screen, beside the level picker
+   that brings most of them back. Tapping lists them with Clear."
+  []
+  (let [open? (r/atom false)]
+    (fn [cls]
+      (let [held @(subscribe [:orcpub.dnd.e5/held-for-class cls])]
+        (when (seq held)
+          [:div.m-t-5.m-b-5
+           [planned-toggle open? (planned-text/class-line held)]
+           (when @open? [planned-panel held true])])))))
+
+(defn first-class-badge
+  "Before each class row when there are several: \"1st\" lit on the starting class; on another, a
+   tap makes it the starting class, or says why the current one can't become a second class."
+  [key class-name {first-name ::t/name :as first-option} options-map first? built-char]
+  (if first?
+    [:span.class-first-badge.on {:title (str class-name " is your starting class")} "1st"]
+    (let [blocked (seq (prereq-failures first-option built-char))]
+      [:button.class-first-badge
+       {:type "button"
+        :class (when blocked "blocked")
+        :aria-label (str "Make " class-name " your starting class")
+        :on-click #(dispatch
+                    (if blocked
+                      [:show-message (str first-name " can't become a second class: "
+                                          (s/join ", " blocked) ".") 6000]
+                      [::char5e/make-starting-class key options-map]))}
+       "1st"])))
+
 (defn class-level-selector []
   (let [expanded? (r/atom false)]
-    (fn [i key selected-class options unselected-classes-set built-char]
+    (fn [i key selected-class options unselected-classes-set built-char & [first-option]]
       (let [options-map (make-options-map options)
             class-template-option (options-map key)
             path [:class-levels key]
@@ -223,6 +325,9 @@
         [:div.m-b-5
          {:class (when @expanded? "b-1 b-rad-5 p-5")}
          [:div.flex.align-items-c
+          (when first-option
+            [first-class-badge key (::t/name class-template-option) first-option options-map
+             (zero? i) built-char])
           [:select.builder-option.builder-option-dropdown.flex-grow-1.m-t-0
            {:value key
             :on-change (set-class i options-map)}
@@ -260,6 +365,7 @@
                available-levels))])
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
+         [class-planned-line key]
          (when @expanded?
            [:div.m-t-5.m-b-10 (views-aux/realize-help (::t/help class-template-option))])]))))
 
@@ -312,7 +418,9 @@
        (map-indexed
         (fn [i [key selected-class]]
           ^{:key key}
-          [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set built-char])
+          [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set built-char
+           (when (> (count selected-classes) 1)
+             (some #(when (= (ffirst selected-classes) (::t/key %)) %) options))])
         selected-classes))]
      (when (seq remaining-classes)
        [:div.orange.p-5.underline.pointer
@@ -847,10 +955,12 @@
      [:span.tooltiptext text]]))
 
 (defn selection-section-base []
-  (let [expanded? (r/atom false)]
+  (let [expanded? (r/atom false)
+        planned-open? (r/atom false)]
     (fn [{:keys [title path parent-title name icon help max min remaining body hide-lock? hide-homebrew?]}]
       (let [locked? @(subscribe [:locked path])
-            homebrew? @(subscribe [:homebrew? path])]
+            homebrew? @(subscribe [:homebrew? path])
+            held (when path @(subscribe [:orcpub.dnd.e5/held-at path]))]
         [:div.p-5.m-b-20.m-b-0-last
          (when (and (or title name) parent-title)
            (selection-section-parent-title parent-title))
@@ -884,13 +994,20 @@
          (when (int? min)
            [:div.p-5.f-s-16
             [:div.flex.align-items-c.justify-cont-s-b
-             [:span.i.m-r-10 (str "select " (cond
-                                              (= min max) min
-                                              (zero? min) (if (nil? max)
-                                                            "any number"
-                                                            (str "up to " max))
-                                              :else (str "at least " min)))]
-             (remaining-component max remaining)]])
+             ;; The Planned marker sits after "select N" and wraps under it only when the row cannot
+             ;; fit it, so "complete" never moves. docs/kb/ux-guide.md on agents/develop.
+             [:div.flex.flex-wrap.align-items-c {:style {:min-width 0 :column-gap "10px"}}
+              [:span.i (str "select " (cond
+                                        (= min max) min
+                                        (zero? min) (if (nil? max)
+                                                      "any number"
+                                                      (str "up to " max))
+                                        :else (str "at least " min)))]
+              (when (seq held)
+                [planned-toggle planned-open? (planned-text/marker held)])]
+             (remaining-component max remaining)]
+            (when (and (seq held) @planned-open?)
+              [planned-panel held false])])
          body]))))
 
 (defn selection-section-column [option-selectors]
@@ -1798,6 +1915,58 @@
                 :hide-homebrew? true
                 :ui-fn (fn [v] [inventory-selector [::equip5e/treasure-map] 100 (select-selection v) ::char5e/custom-treasure])}])}])
 
+(defn picks-notice
+  "Picks that came back on their own, when they are not where the player is looking (another tab)
+   or several came back: one short notice with Undo, then \"Undone · Redo\". Closed by its ×.
+   docs/kb/ux-guide.md on agents/develop."
+  []
+  (let [{:keys [restored undone]} @(subscribe [:orcpub.dnd.e5/restore-notice])
+        dismiss #(dispatch [:orcpub.dnd.e5/dismiss-restore])
+        box {:icon "fa-history orange" :tone :note :accent :brand :on-close dismiss :compact? true}
+        framed (fn [cfg]
+                 [notifications/callout (update cfg :text #(vector :span.main-text-color %))])]
+    (cond
+      (seq undone)
+      (framed
+       (assoc box :text "Undone"
+              :actions [{:label "Redo" :link? true
+                         :on-click #(dispatch [:orcpub.dnd.e5/redo-restore])}]))
+
+      (seq restored)
+      (let [available @(subscribe [:available-selections])
+            by-path (into {} (map (juxt (comp vec entity/actual-path) identity)) available)
+            tags (:tags (pages (or @(subscribe [:page]) 0)))
+            in-view? (fn [{:keys [address]}] (some tags (::t/tags (by-path (pop address)))))
+            named (fn [{:keys [address]}]
+                    {:name (or (some #(when (= (peek address) (::t/key %)) (::t/name %))
+                                     (some-> (by-path (pop address)) entity/selection-options))
+                               (common/kw-to-name (peek address) true))
+                     :class (when (= :class (first address)) (second address))})]
+        (when (or (> (count restored) 1) (not (every? in-view? restored)))
+          (framed
+           (assoc box :text (planned-text/restored (map named restored))
+                  :actions [{:label "Undo" :link? true
+                             :on-click #(dispatch [:orcpub.dnd.e5/undo-restore])}])))))))
+
+(defn open-notice
+  "On opening a character whose stored choices no longer apply: how many, with Details
+   listing each and what brings it back. Closed by its ×."
+  []
+  (let [open? (r/atom false)]
+    (fn []
+      (let [held @(subscribe [:orcpub.dnd.e5/open-notice-held])]
+        (when (seq held)
+          [notifications/callout
+           {:icon "fa-info-circle orange" :tone :note :accent :brand :compact? true
+            :on-close #(dispatch [:orcpub.dnd.e5/dismiss-open-notice])
+            :text [:div.main-text-color (planned-text/opened (count held))]
+            :details (when @open?
+                       (for [{:keys [record name] :as h} held]
+                         {:key (str (:address record)) :label name
+                          :aside (planned-text/returns-line h)}))
+            :actions [{:label "Details" :link? true :expanded @open?
+                       :on-click #(swap! open? not)}]}])))))
+
 (defn section-tabs [available-selections built-template character page-index]
   (let [device-type @(subscribe [:device-type])]
     [:div.flex.justify-cont-s-a
@@ -1876,12 +2045,22 @@
               [{:name "5e SRD"
                 :url t5e/srd-url}]))))])])))
 
-(def selection-order-title
-  (juxt ::t/order ::t/name ::entity/path))
+(defn- path-level
+  "The class level a selection's path sits under (`:level-10` is 10), else 0."
+  [path]
+  (or (some #(when (keyword? %) (some-> (re-matches #"level-(\d+)" (name %)) second js/parseInt))
+            path)
+      0))
+
+(defn selection-order-title
+  "How the options column orders sections: order (none last), name, then the level the section
+   comes at, so a selection named alike at levels 3, 10 and 17 reads in that order."
+  [s]
+  (let [path (::entity/path s)]
+    [(or (::t/order s) 1000) (str (::t/name s)) (path-level path) (pr-str path)]))
 
 (defn compare-selections [s1 s2]
-  (< (selection-order-title s1)
-     (selection-order-title s2)))
+  (compare (selection-order-title s1) (selection-order-title s2)))
 
 (defn compare-paths [s1 s2]
   (< (::entity/path s1)
@@ -1889,6 +2068,43 @@
 
 (defn sorted-selection-set [selections]
   (into (sorted-set-by compare-paths) selections))
+
+(defn- show-page-top!
+  "After the next render, scrolls the builder's page to its top, just below the sticky header,
+   and moves focus to the page title so a screen reader starts there. No args; returns nil.
+   GOTCHA: the page change must already be in the db (dispatch-sync), or this measures the old page."
+  []
+  (r/after-render
+   (fn []
+     (when-let [col (.getElementById js/document "options-column")]
+       (let [header (or (some-> (.querySelector js/document ".sticky-header") .-offsetHeight) 0)]
+         (.scrollTo js/window 0 (- (+ (.-scrollY js/window) (.-top (.getBoundingClientRect col))) header))
+         (some-> (.getElementById js/document "builder-page-title") (.focus #js {:preventScroll true})))))))
+
+(defn page-nav-bar
+  "Back / page title / Next bar for the character builder; wraps at either end.
+   Args: page-index, the current page index; page-name, the title shown; bottom?, true for the
+   copy below the page, whose buttons also bring the new page's top into view.
+   Returns hiccup."
+  [page-index page-name bottom?]
+  (let [go (fn [i]
+             (if bottom?
+               (do (dispatch-sync [:set-page i])
+                   (show-page-top!))
+               (dispatch [:set-page i])))]
+    [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
+     [:button.form-button.p-5-10.m-r-5
+      {:on-click (fn [_] (go (let [prev (dec page-index)]
+                               (if (neg? prev) (dec (count pages)) prev))))}
+      "Back"]
+     [:div.flex-grow-1
+      (if bottom?
+        [:h3.f-w-b.f-s-20.t-a-c page-name]
+        [:h3#builder-page-title.f-w-b.f-s-20.t-a-c {:tab-index -1} page-name])]
+     [:button.form-button.p-5-10.m-l-5
+      {:on-click (fn [_] (go (let [next (inc page-index)]
+                               (if (>= next (count pages)) 0 next))))}
+      "Next"]]))
 
 (defn new-options-column [num-columns]
   (let [character @(subscribe [:character])
@@ -1904,27 +2120,12 @@
         final-selections combined-selections]
     (when print-enabled? (js/console.log "FINAL SELECTIONS" final-selections))
     [:div.w-100-p
+     ;; Above the column, at its width: a notice shares the page's edges and never changes size.
+     [open-notice]
+     [picks-notice]
      [:div#options-column.b-1.b-rad-5
       [section-tabs available-selections built-template character page-index]
-      [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
-       [:button.form-button.p-5-10.m-r-5
-        {:on-click
-         (fn [_]
-           (dispatch [:set-page (let [prev (dec page-index)]
-                                  (if (neg? prev)
-                                    (dec (count pages))
-                                    prev))]))}
-        "Back"]
-       [:div.flex-grow-1
-        [:h3.f-w-b.f-s-20.t-a-c (:name page)]]
-       [:button.form-button.p-5-10.m-l-5
-        {:on-click
-         (fn [_]
-           (dispatch [:set-page (let [next (inc page-index)]
-                                  (if (>= next (count pages))
-                                    0
-                                    next))]))}
-        "Next"]]
+      [page-nav-bar page-index (:name page) false]
       (let [ui-fn-selections (mapcat
                               (fn [{:keys [key group? ui-fn]}]
                                 (if group?
@@ -1993,7 +2194,9 @@
                              selection
                              num-columns
                              remaining)])))
-                sorted-selections)))])])]]))
+                sorted-selections)))])])
+      ;; Repeated below the page so a long page needs no scroll back up.
+      [page-nav-bar page-index (:name page) true]]]))
 
 
 (defn set-random-name
@@ -2251,8 +2454,12 @@
        {:on-paste (image-paste image-url)}
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
+       ;; integration's notice replaces the flat "failed to load" line; the
+       ;; launcher still belongs beside it, since composing a portrait is the
+       ;; other way to fill this slot.
        [image-field-notice image-url image-url-failed
-        (get image-bytes image-url) (get server-reach image-url) set-image-url]]]
+        (get image-bytes image-url) (get server-reach image-url) set-image-url]
+       [portrait5e/launcher-button]]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -2291,28 +2498,32 @@
        [:div.builder-tabs
         [builder-tab "Options" :options current-tab]
         [builder-tab "Description" :description current-tab]
+        [builder-tab "Portrait" :portrait current-tab]
         [builder-tab "Details" :details current-tab]]
        (case current-tab
          :options [new-options-column 1]
          :description [description-fields]
+         :portrait [portrait5e/tab-panel]
          ;; nil id = the builder's own character (not a saved one).
          [views5e/character-display nil true 1])]]]))
 
 
 (defn desktop-or-tablet-columns [device-type]
   ;; The phone's Details tab is the right column here, so a window widened while
-  ;; on it lands on Description; narrowing keeps Description too.
-  (let [current-tab (if (= :options (or @(subscribe [::char5e/builder-tab]) :options))
-                      :options
-                      :description)]
+  ;; on it lands on Description; narrowing keeps Description too. Options and
+  ;; Portrait are tabs on both.
+  (let [tab (or @(subscribe [::char5e/builder-tab]) :options)
+        current-tab (if (#{:options :portrait} tab) tab :description)]
     [:div.w-100-p
      [:div.flex-grow-1.flex.p-l-10.p-t-10
       [:div.w-50-p
        [:div.builder-tabs
         [builder-tab "Options" :options current-tab]
-        [builder-tab "Description" :description current-tab]]
-       (if (= current-tab :options)
-         [new-options-column (if (= device-type :desktop) 2 1)]
+        [builder-tab "Description" :description current-tab]
+        [builder-tab "Portrait" :portrait current-tab]]
+       (case current-tab
+         :options [new-options-column (if (= device-type :desktop) 2 1)]
+         :portrait [portrait5e/tab-panel]
          [description-fields])]
       [:div.w-50-p.m-l-20.m-r-10
        ;; nil id = the builder's own character (not a saved one).
@@ -2529,6 +2740,64 @@
 (defn set-loading []
   (dispatch-sync [:set-loading true]))
 
+(defn changed-elsewhere-notice
+  "\"Saved somewhere else since you opened it\" after a builder Save the server refused as out of
+   date (`conflict`: {:current :fields}): Details lists what differs, here and saved; Save mine
+   saves the builder's copy over it; Use saved loads it, keeping the builder's copy as a draft."
+  [conflict]
+  (let [open? (r/atom false)]
+    (fn [{:keys [fields]}]
+      (let [built-char @(subscribe [:built-character])
+            shown (fn [v] (or v "changed"))]
+        [notifications/callout
+         {:icon "fa-exclamation-circle orange" :tone :note :accent :brand :compact? true
+          :text [:span.main-text-color "Saved somewhere else since you opened it"]
+          :actions [{:label "Details" :link? true :expanded @open? :on-click #(swap! open? not)}
+                    {:label "Save mine" :link? true
+                     :on-click #(do (dispatch [::char5e/keep-mine])
+                                    (dispatch [:save-character built-char]))}
+                    {:label "Use saved" :link? true :on-click #(dispatch [::char5e/use-saved])}]
+          :details (when @open?
+                     (for [{:keys [label mine saved]} fields]
+                       {:key label :label label
+                        :aside (str "here: " (shown mine) " · saved: " (shown saved))}))}]))))
+
+(defn draft-notices
+  "The builder's notices about unsaved drafts, above the options: a Save refused because the
+   character was saved elsewhere; a character open in another tab, held until Edit here; a
+   leftover draft offered once, then Undo and Redo; then the list of other unsaved drafts.
+   plan-character-drafts.md; wording in ux-guide.md (2026-10-16)."
+  []
+  (let [conflict @(subscribe [::char5e/draft-conflict])
+        held @(subscribe [::char5e/draft-held])
+        offer @(subscribe [::char5e/draft-offer])
+        restored @(subscribe [::char5e/draft-restored])
+        box {:tone :note :accent :brand :compact? true :icon "fa-history orange"}
+        line (fn [cfg] [notifications/callout (update cfg :text #(vector :span.main-text-color %))])
+        link (fn [label event] {:label label :link? true :on-click #(dispatch event)})
+        dismiss #(dispatch [::char5e/dismiss-draft-notice])]
+    [:div.drafts-notices.m-l-10.m-r-10
+     (cond
+       conflict
+       [changed-elsewhere-notice conflict]
+
+       held
+       (line (assoc box :icon "fa-clone orange" :text "Open in another tab"
+                    :actions [(link "Edit here" [::char5e/edit-here held])]))
+
+       (:undone? restored)
+       (line (assoc box :text "Undone" :on-close dismiss
+                    :actions [(link "Redo" [::char5e/redo-restore])]))
+
+       restored
+       (line (assoc box :text (str "Changes from " (views5e/draft-time (:touched restored)) " restored")
+                    :on-close dismiss :actions [(link "Undo" [::char5e/undo-restore])]))
+
+       offer
+       (line (assoc box :text (str "Unsaved changes from " (views5e/draft-time (:touched offer)))
+                    :on-close dismiss :actions [(link "Restore" [::char5e/restore-draft])])))
+     [views5e/drafts-list]]))
+
 (defn save-character
   "Dispatch manual save. Passes built-char so the handler can compute
    the character summary without subscribing outside reactive context."
@@ -2570,7 +2839,9 @@
                              (not= db/default-character character))]
     (when print-enabled? (print-char built-char))
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
-    [views5e/content-page
+    [:<>
+     [portrait5e/drawer]
+     [views5e/content-page
      "Character Builder"
      (vec
       (remove nil?
@@ -2619,7 +2890,8 @@
         [:div.flex.justify-cont-s-b.align-items-c.flex-wrap
          [:div
           [missing-content-warning]
-          [relink-question-banner]]
+          [relink-question-banner]
+          [choices-list]]
          ;; .content has no side padding of its own; keep the toggles off the edge
          [:div.flex.flex-wrap.justify-cont-end.p-r-10
           [theme-toggle]
@@ -2630,6 +2902,8 @@
                                     [:span "You have unsaved changes"])])]]]]
       [:div.flex.justify-cont-c.p-b-40
        [:div.f-s-14.main-text-color.content
-        [:div.flex.w-100-p
+        [draft-notices]
+        ;; Held while another tab edits this character: nothing here takes input until Edit here.
+        [:div.flex.w-100-p (when @(subscribe [::char5e/draft-held]) {:class "builder-held" :inert ""})
          [builder-columns]]]]]
-     :subheader (when character-id [integrations/share-line character-id])]))
+     :subheader (when character-id [integrations/share-line character-id])]]))

@@ -6,7 +6,8 @@
 // trapped-picks case (character-rescue.md). Then, with every request for orcpub.js aborted:
 //   the owner sees the three choices on /data and on /repair, and Copy for support copies them;
 //   another account and a logged-out visitor see "Only the owner can open this";
-//   an unknown id says so; this browser's draft lists the same choices;
+//   an unknown id says so; the builder tab's own draft lists the same choices, and a tab with no
+//   draft of its own says so;
 //   Remove marks a row removed in place, unsaved, and Undo puts it back; a parent's Remove says
 //   how many go with it and marks them too; removing a class asks first in a popup, and Cancel
 //   keeps it; Save asks first in a popup naming what goes; the save notice sits at the top;
@@ -15,7 +16,8 @@
 //   reload with the pending removals kept, naming any the other tab already removed;
 //   Save writes through the app's own save route: the feat is gone from the saved copy, the rest
 //   and the summary stay, and the app then opens the character without listing the feat as
-//   missing; on the draft page, Save writes the browser draft, and refuses the same way when
+//   missing; a builder opened before the removal has its Save refused and asks which copy to
+//   keep; on the draft page, Save writes the browser draft, and refuses the same way when
 //   another tab changed the draft first.
 // Every change is a click, a select or the file input; app-db is never written.
 //
@@ -82,8 +84,11 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     await page.waitForFunction(() => !/^Loading/.test(document.getElementById('ledger').textContent));
     check('an unknown id says so', /no saved character with this number/.test(await ledgerText(page)));
 
-    const draftRows = await dataRows(page, `${BASE}/pages/dnd/5e/character-data`);
-    check("this browser's draft lists the same feat", listed(draftRows, 'Feats', 'Tidebreaker'));
+    const draftRows = await dataRows(app, `${BASE}/pages/dnd/5e/character-data`);
+    check("the builder tab's own draft lists the same feat", listed(draftRows, 'Feats', 'Tidebreaker'));
+    await page.goto(`${BASE}/pages/dnd/5e/character-data`, { waitUntil: 'load' });
+    await page.waitForFunction(() => !/^Loading/.test(document.getElementById('ledger').textContent));
+    check('a tab with no draft of its own says so and counts the others', /This tab has no builder draft open\. This browser holds \d+ other drafts?/.test(await ledgerText(page)), await ledgerText(page));
     check('the app bundle was never requested', page.appRequests === 0,
           `${page.appRequests} request(s) for orcpub.js, each aborted`);
     const html = await (await page.request.get(`${BASE}/pages/dnd/5e/characters/${id}/data`)).text();
@@ -170,6 +175,29 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     check('the saved copy keeps the race', /:tidefolk/.test(savedCopy));
     check('the saved copy keeps its summary', /orcpub\.entity\.strict\/summary/.test(savedCopy));
 
+    // ---- A builder opened before a Data View save cannot put the removal back: its Save is
+    // refused and it asks which copy to keep.
+    await app.goto(`${BASE}/pages/dnd/5e/characters/${id}`, { waitUntil: 'load' });
+    await wait(4000);
+    await dismissWhatsNew(app);
+    await app.getByText('Edit', { exact: true }).first().click();
+    await wait(3500);
+    const dv = await noAppPage(owner);
+    await dataRows(dv, dataUrl);
+    await dvButton(dv, 'Level 3').click();
+    await dvSave(dv);
+    await dv.close();
+    const builderSave = app.waitForResponse(r => r.url().endsWith('/dnd/5e/characters') && r.request().method() === 'POST', { timeout: 15000 });
+    await app.getByText(/^Save$/).first().click();
+    check("a builder opened before the removal is refused when it saves", (await (await builderSave).status()) === 409);
+    check('and asks which copy to keep', await app.getByText('Saved somewhere else since you opened it').waitFor({ timeout: 10000 }).then(() => true, () => false));
+    const afterBuilder = await page.evaluate(async id => (await fetch(`/dnd/5e/characters/${id}`, { headers: { Accept: 'application/edn' } })).text(), id);
+    check('the removal stands', !/:level-3/.test(afterBuilder) && /:level-1/.test(afterBuilder));
+    await app.getByText('Use saved', { exact: true }).click();
+    await wait(1500);
+    await app.goto('about:blank');
+    await dataRows(page, dataUrl);
+
     // ---- The server refuses a save made from an older copy (409). The page's own re-read is shown
     // the old copy here so the save reaches the server, which answers for real.
     const oldText = await page.evaluate(async id => (await fetch(`/dnd/5e/characters/${id}`, { headers: { Accept: 'application/edn' } })).text(), id);
@@ -209,26 +237,32 @@ const ledgerText = page => page.evaluate(() => document.getElementById('ledger')
     check('the app no longer lists the feat as missing', !/tidebreaker/i.test(missingText));
     await app.goto('about:blank');
 
-    // ---- Save on the draft page writes the browser draft.
-    await dataRows(page, `${BASE}/pages/dnd/5e/character-data`);
-    await rowButton('Tidefolk').click();
-    const raceTitle = await dvDialog(page).locator('h3').innerText().catch(() => '');
-    check('removing the race asks first in a popup', /^Remove Tidefolk( and the \d+ choices under it)?\?$/.test(raceTitle) && /ask for a race again/.test(await dvDialog(page).innerText()), raceTitle);
-    await dvAnswer(page, 'Remove');
-    const draftTab = await noAppPage(owner);
-    await dataRows(draftTab, `${BASE}/pages/dnd/5e/character-data`);
+    // ---- Save on the draft page writes this tab's builder draft. The other tab is opened from
+    // this one, as a duplicated tab is, so it holds the same draft.
+    const draftUrl = `${BASE}/pages/dnd/5e/character-data`;
+    const tabDraft = p => p.evaluate(() => localStorage.getItem('character-draft/' + sessionStorage.getItem('builder-draft-key')) || '');
+    await dataRows(app, draftUrl);
+    await dvButton(app, 'Tidefolk').click();
+    const raceTitle = await dvDialog(app).locator('h3').innerText().catch(() => '');
+    check('removing the race asks first in a popup', /^Remove Tidefolk( and the \d+ choices under it)?\?$/.test(raceTitle) && /ask for a race again/.test(await dvDialog(app).innerText()), raceTitle);
+    await dvAnswer(app, 'Remove');
+    const [draftTab] = await Promise.all([owner.waitForEvent('page'), app.evaluate(u => { window.open(u); }, draftUrl)]);
+    await draftTab.route('**/js/compiled/orcpub.js', r => r.abort());
+    await dataRows(draftTab, draftUrl);
     await dvButton(draftTab, 'Spellbook').click();
     await dvSave(draftTab);
     await draftTab.close();
-    await page.locator('.dv-notice').getByRole('button', { name: 'Save', exact: true }).click();
-    await dvAnswer(page, 'Remove and save');
-    const toldDraft = await page.waitForFunction(() => /changed since you opened/.test(document.getElementById('ledger').textContent), null, { timeout: 15000 }).then(() => true, () => false);
-    const between = await page.evaluate(() => localStorage.getItem('character') || '');
+    await app.locator('.dv-notice').getByRole('button', { name: 'Save', exact: true }).click();
+    await dvAnswer(app, 'Remove and save');
+    const toldDraft = await app.waitForFunction(() => /changed since you opened/.test(document.getElementById('ledger').textContent), null, { timeout: 15000 }).then(() => true, () => false);
+    const between = await tabDraft(app);
     check('a draft Save after another tab changed the draft writes nothing and says so', toldDraft && /:tidefolk/.test(between) && !/:spellbook/.test(between));
-    await page.getByRole('button', { name: 'Reload and keep my removals' }).click();
-    await dvSave(page);
-    const draft = await page.evaluate(() => localStorage.getItem('character') || '');
-    check('Save on the draft page writes the draft without the race, keeping the other tab\'s change', !/:tidefolk/.test(draft) && !/:spellbook/.test(draft) && /:wizard/.test(draft));
+    await app.getByRole('button', { name: 'Reload and keep my removals' }).click();
+    await dvSave(app);
+    const draft = await tabDraft(app);
+    check('Save on the draft page writes the tab\'s draft without the race, keeping the other tab\'s change', !/:tidefolk/.test(draft) && !/:spellbook/.test(draft) && /:wizard/.test(draft));
+    check('and marks it changed, as the builder marks its edits', /:changed true/.test(draft) && /:draft\/touched \d+/.test(draft));
+    await app.goto('about:blank');
 
     const zoe = await browser.newContext();
     const zoeApp = await zoe.newPage();

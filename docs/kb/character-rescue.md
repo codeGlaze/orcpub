@@ -266,12 +266,12 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
 
 ## Limits, stated up front
 
-- **An open builder tab can undo a repair:** its next autosave can write the removed pick back
-  (`multi-tab-character-contamination.md`, on `agents/develop`). The version check does not stop
-  it: the app sends no version until #64 lands, and a save without one is retried and written.
-  Until then Data View's Save popup says to close the character in any open builder first (kept
-  2026-10-21; it was briefly dropped as covered by the version check, which it is not). Remove the
-  line, and add the builder-autosave test from plan item 6, once the app sends its version.
+- **An open builder tab no longer undoes a repair (2026-10-22, with integration merged):** the app
+  sends the version it opened (#64) and the server refuses an older one, so a builder opened before
+  a Data View save gets "Saved somewhere else since you opened it" (Save mine / Use saved) instead
+  of writing the removed pick back; the sheet's autosave rebases only the values it edited.
+  `character-data.js` checks it, and the Save popup's close-other-tabs line is gone. Save mine
+  still overwrites on purpose.
 - **Layer 3's Remove is raw:** it deletes a stored entry by path without knowing the rules. Right
   for an emergency tool; the friendly layers sit above it.
 
@@ -320,16 +320,22 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
 5. **Done 2026-10-16:** an unreadable character draft is kept, not deleted. `db.cljs`
    `preserve-on-unreadable-keys` now holds `"character"`, so it moves to `character:corrupt`
    like homebrew; Data View's draft page shows it with Download when the active slot is empty
-   (`test/e2e/draft-backup.js`). Other builder drafts are still removed. #64's per-id draft keys
-   need the same treatment when they land.
+   (`test/e2e/draft-backup.js`). Since #64 a character draft lives at `character-draft/<key>`; an
+   unreadable one goes to `character-draft-corrupt/<key>` (`drafts/corrupt-key`, outside the draft
+   prefix so it is never read as a draft). Data View's draft page shows this tab's own draft
+   (`drafts/tab-key`, sessionStorage), else the old slot, else a set-aside one; a tab with none says
+   how many other drafts the browser holds (a picker waits on a mockup). Other builder drafts are
+   still removed.
 6. **Done 2026-10-21, except one:** the race, class and ability-score popups, "No longer stored"
    and the draft page's guard are checked in a browser (`character-data.js`); `remove-essentials.js`
    now asserts what each removal leads to in the app (no errors; no class still saves and offers Add
-   Levels in Another Class; no ability scores refuses Save until a method is picked). Left: builder
-   autosave against the stale-save guard, which needs #64's app side.
+   Levels in Another Class; no ability scores refuses Save until a method is picked), and a builder
+   opened before a Data View save has its Save refused (2026-10-22).
 7. Key editing behind dev mode.
 8. Data View script size (264 KB, mostly built-in data pulled in through shared code).
 9. **Drafts per id, for every builder** (#704, `multi-tab-character-contamination.md`), last.
+   The character builder's drafts landed in #64 (`character_drafts.cljs`, `plan-character-drafts.md`);
+   the rest below is for the other builders.
    One shared draft store for the 17 single-slot drafts in `db.cljs` (the character, the homebrew
    builder forms, encounter, combat), keyed by id. It reuses the library's cross-tab design
    (`commit-library`: revision counter, three-way merge, `storage` listener), so two tabs on the same

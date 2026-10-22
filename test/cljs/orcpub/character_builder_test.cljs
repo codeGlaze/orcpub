@@ -2,6 +2,27 @@
   (:require [cljs.test :refer-macros [deftest testing is]]
             [orcpub.character-builder :as cb]))
 
+(defn- sel
+  "Selection map with `order`, name `nm` and entity `path`."
+  [order nm path]
+  {:orcpub.template/order order :orcpub.template/name nm :orcpub.entity/path path})
+
+(defn- column
+  "Names of `sels` sorted by `cb/compare-selections`, as the options column lists them.
+   Returns a sequence."
+  [& sels] (map :orcpub.template/name (into (sorted-set-by cb/compare-selections) sels)))
+
+(deftest the-options-column-orders-by-order-name-then-level
+  (testing "orders compare as numbers: 10 comes after 2, and no order comes last"
+    (is (= ["One" "Two" "Ten" "None"]
+           (column (sel 10 "Ten" [:a]) (sel nil "None" [:b]) (sel 2 "Two" [:c]) (sel 1 "One" [:d])))))
+  (testing "a selection named alike at levels 3, 10 and 17 reads by level, not as text"
+    (let [at (fn [n] (sel nil "Metamagic" [:class :sorcerer :levels (keyword (str "level-" n))
+                                           :metamagic]))]
+      (is (= [3 10 17]
+             (map #(js/parseInt (subs (name (nth (:orcpub.entity/path %) 3)) 6))
+                  (into (sorted-set-by cb/compare-selections) [(at 17) (at 3) (at 10)])))))))
+
 ;; highlight-match backs the combobox's match highlighting. It returns either the name
 ;; unchanged or a hiccup :span splitting it into before / hit / after, so the tests assert
 ;; that split directly rather than rendering.

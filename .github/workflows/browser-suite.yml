@@ -1,0 +1,57 @@
+# Runs the ClojureScript test suite in headless Chromium (lein fig:test, then
+# test/e2e/cljs-harness.js; docs/kb/cljs-headless-harness.md).
+#
+# The JVM suite runs on integration through locale.yml, but the builder's wiring
+# (re-frame events, interceptors, subscriptions) is tested only in the browser,
+# so until this ran a change that broke it passed CI.
+
+name: Browser suite
+
+on:
+  push:
+    branches: [integration, develop, main]
+  pull_request:
+    branches: [integration, develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cljs-suite:
+    name: ClojureScript suite in Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Pinned to the version locale.yml and continuous-integration.yml use.
+      - name: Install Leiningen
+        run: |
+          curl -fsSL -o "$HOME/lein" \
+            https://raw.githubusercontent.com/technomancy/leiningen/2.11.2/bin/lein
+          chmod +x "$HOME/lein"
+          echo "$HOME" >> "$GITHUB_PATH"
+          "$HOME/lein" version
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # package.json declares Playwright; its own Chromium, which find-chrome falls back to.
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Compile the test build
+        run: lein fig:test
+
+      # Exits 0 only when every test passes and no FAIL or ERROR is reported.
+      - name: Run the suite headless
+        run: node test/e2e/cljs-harness.js

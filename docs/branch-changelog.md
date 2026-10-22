@@ -49,8 +49,9 @@ whatever state it is in. Design: `docs/kb/character-rescue.md`.
 
 ## Fixed
 
-- **Characters:** a character draft this browser can no longer read is kept aside instead of
-  deleted, and Data View's draft page offers it for download.
+- **Characters:** a character draft this browser can no longer read, in the old slot or a
+  character's own draft, is kept aside instead of deleted, and Data View's draft page offers it
+  for download.
 
 - **Characters:** two saves of the same character at once no longer store a choice twice, and a
   Data View save no longer overwrites changes made elsewhere since it opened; it offers a reload.

@@ -5,6 +5,7 @@
   (:require [cljs.reader :as reader]
             [clojure.string]
             [cognitect.transit :as transit]
+            [orcpub.dnd.e5.character-drafts :as drafts]
             [orcpub.dnd.e5.ledger :as ledger]
             [orcpub.dnd.e5.picks :as picks]))
 
@@ -75,6 +76,29 @@
   "The localStorage value at `k`, or nil when there is none or storage is blocked."
   [k]
   (try (.getItem js/localStorage k) (catch :default _ nil)))
+
+(defn- draft-slot
+  "The localStorage key of the draft the draft page shows: this tab's own builder draft when it is
+   stored, else the old single slot when that holds one, else nil."
+  []
+  (let [own (some-> (drafts/tab-key) drafts/storage-key)]
+    (cond (and own (storage-item own)) own
+          (storage-item drafts/legacy-key) drafts/legacy-key)))
+
+(defn- set-aside-draft
+  "The raw text of a draft the app set aside as unreadable, or nil: this tab's own
+   (`drafts/corrupt-key`) first, then the old slot's :corrupt companion, then any other."
+  []
+  (or (some-> (drafts/tab-key) drafts/corrupt-key storage-item)
+      (storage-item (str drafts/legacy-key ":corrupt"))
+      (some #(when (clojure.string/starts-with? % drafts/corrupt-prefix) (storage-item %))
+            (try (js/Object.keys js/localStorage) (catch :default _ [])))))
+
+(defn- draft-text
+  "`data`, the draft to store, as text: a per-character draft also marked changed and touched now,
+   as the builder marks its own edits."
+  [data]
+  (str (cond-> data (contains? data :draft/touched) (assoc :draft/touched (.now js/Date) :changed true))))
 
 (defn- login
   "The app's stored login ({:user-data {:username :email} :token}), or nil."
@@ -170,7 +194,7 @@
   (let [{:keys [stored character saved-id]} @state
         data (ledger/save-data stored character)]
     (if-not saved-id
-      (if (try (.setItem js/localStorage "character" (str data)) true (catch :default _ false))
+      (if (try (.setItem js/localStorage (draft-slot) (draft-text data)) true (catch :default _ false))
         (saved! "Saved.")
         (do (swap! state assoc :note "This browser would not save it.") (render!)))
       (-> (js/fetch "/dnd/5e/characters"
@@ -210,7 +234,7 @@
   [f]
   (let [{:keys [saved-id]} @state]
     (if-not saved-id
-      (f (storage-item "character"))
+      (f (some-> (draft-slot) storage-item))
       (-> (js/fetch (str "/dnd/5e/characters/" saved-id) #js {:headers #js {"Accept" "application/edn"}})
           (.then (fn [r] (if (.-ok r) (.then (.text r) f) (f nil))))
           (.catch (fn [_] (f nil)))))))
@@ -238,7 +262,7 @@
                         (if (pos? below) (str ", and the " below (if (= 1 below) " choice" " choices") " under it")
                             (str " (" section ")"))))
                   [[:muted (if saved-id
-                             "This changes the saved character. Close it in any open builder first: the builder saves its own copy and can put removed choices back."
+                             "This changes the saved character."
                              "This changes this browser's draft.")]])
           "Remove and save" save!)))
 
@@ -380,15 +404,21 @@
       (.catch #(show! root (message "The character could not be fetched. Check the connection and reload.")))))
 
 (defn- load-draft!
-  "Show the character this browser is holding as its draft, with `note` on top when given."
+  "Show this tab's builder draft (`draft-slot`), or its set-aside copy when it was unreadable, with
+   `note` on top when given."
   [root & [note]]
-  (if-let [text (storage-item "character")]
+  (if-let [text (some-> (draft-slot) storage-item)]
     (open-character root text nil note)
-    (if-let [kept (storage-item "character:corrupt")]
+    (if-let [kept (set-aside-draft)]
       (raw-view root (str "This browser's draft could not be read, so the app set it aside. "
                           "Download it to keep it, or to send it to support.")
                 kept "character-draft-set-aside.edn")
-      (show! root (message "This browser holds no character draft.")))))
+      (let [others (count (drafts/draft-keys))]
+        (show! root (message (if (pos? others)
+                               (str "This tab has no builder draft open. This browser holds " others
+                                    (if (= 1 others) " other draft" " other drafts")
+                                    ": open one in the builder in this tab, then come back here.")
+                               "This browser holds no character draft.")))))))
 
 (defn ^:export init
   "Fill the page's #ledger element from its `data-mode` (\"saved\" or \"draft\") and `data-id`."

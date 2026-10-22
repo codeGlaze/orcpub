@@ -11,6 +11,12 @@
             [orcpub.dnd.e5.ledger-test]
             ;; The spell page packer and row annotations run in the browser --
             ;; the builder decides the layout -- so their tests run here too.
+            [orcpub.dnd.e5.portrait-layout-test]
+            [orcpub.dnd.e5.portrait-colorize-test]
+            [orcpub.dnd.e5.portrait-effects-test]
+            [orcpub.dnd.e5.portrait-face-test]
+            [orcpub.dnd.e5.portrait-light-test]
+            [orcpub.artist-links-test]
             [orcpub.dnd.e5.spell-packing-test]
             [orcpub.registration-test]
             [orcpub.image-url-test]
@@ -28,8 +34,15 @@
             [orcpub.dnd.e5.content-reconciliation-test]
             ;; the save/key lifecycle: save twice, rename, restore a draft, land on a taken key
             [orcpub.dnd.e5.homebrew-save-lifecycle-test]
+            [orcpub.dnd.e5.plan-picks-test]
+            [orcpub.dnd.e5.coverage-pak-test]
             [orcpub.dnd.e5.reference-web-test]
             [orcpub.dnd.e5.views-test]
+            [orcpub.dnd.e5.portrait-credit-thumb-test]
+            [orcpub.dnd.e5.portrait-artists-arrive-test]
+            [orcpub.art-mark-test]
+            [orcpub.dnd.e5.portrait-save-test]
+            [orcpub.dnd.e5.portrait-whites-test]
             [orcpub.character-builder-test]
             ;; storage layer (resilient loader read path)
             [orcpub.dnd.e5.db-test]
@@ -50,6 +63,10 @@
              'orcpub.dnd.e5.event-utils-test
              'orcpub.dnd.e5.compute-test
              'orcpub.dnd.e5.hunter-evasion-test
+             'orcpub.dnd.e5.portrait-layout-test
+             'orcpub.dnd.e5.portrait-colorize-test
+             'orcpub.dnd.e5.portrait-effects-test 'orcpub.dnd.e5.portrait-face-test 'orcpub.dnd.e5.portrait-light-test
+             'orcpub.artist-links-test
              'orcpub.registration-test
              'orcpub.dnd.e5.picks-test
              'orcpub.dnd.e5.ledger-test
@@ -65,8 +82,15 @@
              'orcpub.dnd.e5.built-character-debounce-test
              'orcpub.dnd.e5.content-reconciliation-test
              'orcpub.dnd.e5.homebrew-save-lifecycle-test
+             'orcpub.dnd.e5.plan-picks-test
+             'orcpub.dnd.e5.coverage-pak-test
              'orcpub.dnd.e5.reference-web-test
              'orcpub.dnd.e5.views-test
+             'orcpub.dnd.e5.portrait-credit-thumb-test
+             'orcpub.dnd.e5.portrait-artists-arrive-test
+             'orcpub.art-mark-test
+             'orcpub.dnd.e5.portrait-save-test
+             'orcpub.dnd.e5.portrait-whites-test
              'orcpub.character-builder-test
              'orcpub.dnd.e5.db-test
              'orcpub.dnd.e5.orcbrew-validation-test

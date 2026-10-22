@@ -1,0 +1,9 @@
+# CodeRabbit settings for the codeGlaze/orcpub fork only. Leave this file out of pull requests to
+# Orcpub/orcpub. The fork's default branch is develop, so without this CodeRabbit reviews only PRs
+# into develop automatically; work lands on integration first.
+reviews:
+  auto_review:
+    enabled: true
+    base_branches:
+      - develop
+      - integration

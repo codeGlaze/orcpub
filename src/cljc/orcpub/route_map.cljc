@@ -13,6 +13,9 @@
 (def dnd-e5-char-data-page-route :char-data-5e-page)
 (def dnd-e5-char-repair-page-route :char-repair-5e-page)
 (def dnd-e5-draft-data-page-route :draft-data-5e-page)
+;; Server-rendered PNG of a composed portrait, for og:image -- a share crawler
+;; has no browser to bake the layers the way the PDF export does.
+(def dnd-e5-char-portrait-route :char-5e-portrait)
 (def dnd-e5-char-list-page-route :char-list-5e-page)
 (def dnd-e5-char-summary-list-route :char-summary-list-5e-page)
 (def dnd-e5-char-parties-route :char-parties-5e)
@@ -42,6 +45,11 @@
 (def dnd-e5-monster-page-routes #{dnd-e5-monster-list-page-route dnd-e5-monster-page-route dnd-e5-monster-builder-page-route})
 
 (def dnd-e5-spell-list-page-route :spell-list-5e-page)
+(def dnd-e5-condition-list-page-route :condition-list-5e-page)
+(def dnd-e5-condition-page-route :condition-5e-page)
+(def dnd-e5-rules-page-route :rules-5e-page)
+(def dnd-e5-rule-section-page-route :rule-section-5e-page)
+(def dnd-e5-rules-page-routes #{dnd-e5-rules-page-route dnd-e5-rule-section-page-route dnd-e5-condition-list-page-route dnd-e5-condition-page-route})
 (def dnd-e5-spell-page-route :spell-5e-page)
 (def dnd-e5-spell-builder-page-route :spell-builder-5e-page)
 (def dnd-e5-background-builder-page-route :background-builder-5e-page)
@@ -63,6 +71,7 @@
 
 (def dnd-e5-items-route :items-5e)
 (def dnd-e5-item-summaries-route :item-summaries-5e)
+(def dnd-e5-portrait-artists-route :portrait-artists-5e)
 (def dnd-e5-item-route :item-5e)
 (def dnd-e5-item-list-page-route :item-list-5e-page)
 (def dnd-e5-item-page-route :item-5e-page)
@@ -111,6 +120,7 @@
 (def check-username-route :check-username)
 (def user-route :user)
 (def user-email-route :user-email)
+(def user-artist-credit-route :user-artist-credit)
 (def user-sessions-route :user-sessions)
 (def reset-password-page-route :reset-password-page)
 (def reset-password-route :reset-password)
@@ -137,6 +147,7 @@
                   "login" login-route
                   "user" {"" user-route
                           "/email" user-email-route
+                          "/artist-credit" user-artist-credit-route
                           "/sessions" user-sessions-route}
 
                   "character.pdf" character-pdf-route
@@ -169,6 +180,7 @@
                           "items" {"" dnd-e5-items-route
                                    ["/" :id] dnd-e5-item-route}
                           "item-summaries" dnd-e5-item-summaries-route
+                          "portrait-artists" dnd-e5-portrait-artists-route
                           "parties" {"" dnd-e5-char-parties-route
                                      ["/" :id] {"" dnd-e5-char-party-route
                                                 "/name" dnd-e5-char-party-name-route
@@ -192,7 +204,8 @@
                               "characters" {"" dnd-e5-char-list-page-route
                                             ["/" :id] dnd-e5-char-page-route
                                             ["/" :id "/data"] dnd-e5-char-data-page-route
-                                            ["/" :id "/repair"] dnd-e5-char-repair-page-route}
+                                            ["/" :id "/repair"] dnd-e5-char-repair-page-route
+                                            ["/" :id "/portrait.png"] dnd-e5-char-portrait-route}
                               "character-data" dnd-e5-draft-data-page-route
                               "orcacle" dnd-e5-orcacle-page-route
                               "parties" dnd-e5-char-parties-page-route
@@ -216,7 +229,11 @@
                               "magic-items" {"" dnd-e5-item-list-page-route
                                              ["/" :key] dnd-e5-item-page-route}
                               "monsters" {"" dnd-e5-monster-list-page-route
-                                          ["/" :key] dnd-e5-monster-page-route}}}}}])
+                                          ["/" :key] dnd-e5-monster-page-route}
+                              "rules" {"" dnd-e5-rules-page-route
+                                       ["/" :key] dnd-e5-rule-section-page-route}
+                              "conditions" {"" dnd-e5-condition-list-page-route
+                                            ["/" :key] dnd-e5-condition-page-route}}}}}])
 
 (defn path-for [& args]
   (apply bidi/path-for routes args))

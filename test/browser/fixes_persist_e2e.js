@@ -85,6 +85,9 @@ const dbAt = (s, pathEdn) => s.page.evaluate(p =>
   cljs.core.pr_str(cljs.core.get_in(cljs.core.deref(re_frame.db.app_db), cljs.reader.read_string(p))), pathEdn);
 
 const stored = (s, key) => s.page.evaluate(k => localStorage.getItem(k), key);
+// This tab's character draft (character_drafts.cljs keeps one per character, keyed per tab).
+const storedDraft = (s) => s.page.evaluate(() =>
+  localStorage.getItem('character-draft/' + sessionStorage.getItem('builder-draft-key')));
 
 // One path out of a stored EDN value, as EDN text; null when the key is absent.
 const storedAt = (s, key, pathEdn) => s.page.evaluate(([k, p]) => {
@@ -287,19 +290,19 @@ const letterFirst = k => /^[a-z]/.test(k);
       const rd = cljs.reader.read_string, db = cljs.core.deref(re_frame.db.app_db);
       const broken = cljs.core.assoc_in(cljs.core.get(db, rd(':character')),
         rd('[:orcpub.entity/options :race]'), rd('{:orcpub.entity/key :half-elf-phb}'));
-      localStorage.setItem('character', cljs.core.pr_str(orcpub.dnd.e5.character.to_strict(broken)));
+      orcpub.dnd.e5.db.character__GT_local_store(broken);
     });
     await s.page.reload({ waitUntil: 'domcontentloaded' });
     await appReady(s.page);
     await s.page.waitForTimeout(700);
-    const draft = (await stored(s, 'character')) || '';
+    const draft = (await storedDraft(s)) || '';
     check('character: the repaired draft is saved', draft.includes(':half-elf-ua') && !draft.includes(':half-elf-phb'));
     await s.page.reload({ waitUntil: 'domcontentloaded' });
     await appReady(s.page);
     await s.page.waitForTimeout(700);
     check('character: a second reload has nothing to repair', (await dbAt(s, '[:character-healed]')) === 'nil',
           await dbAt(s, '[:character-healed]'));
-    check('character: and leaves the draft as it was', (await stored(s, 'character')) === draft);
+    check('character: and leaves the draft as it was', (await storedDraft(s)) === draft);
     await s.ctx.close();
   }
 
