@@ -78,3 +78,21 @@
   (doseq [f ["cruft-shapes.orcbrew" "broken-content.orcbrew" "keyword-trap.orcbrew"]]
     (let [r (shapes/clean-library (library (fixture f)))]
       (is (map? (:library r)) f))))
+
+(deftest only-what-changed-is-walked
+  (let [junk-race {:name "Junk" :abilities 42}
+        before {"P" {:orcpub.dnd.e5/races {:a junk-race}}}]
+    (testing "an entry identical to the one before is not walked again"
+      (is (empty? (:findings (shapes/clean-library before before)))))
+    (testing "a changed one is"
+      (let [after (assoc-in before ["P" :orcpub.dnd.e5/races :b] junk-race)]
+        (is (= [:b] (map :key (:findings (shapes/clean-library after before)))))))))
+
+(deftest what-cannot-be-read-is-split-out-as-written
+  (let [bad {:name "Bad" :abilities 42}
+        lib {"P" {:orcpub.dnd.e5/races {:bad bad :ok {:name "Ok"}}
+                  :orcpub.dnd.e5/feats 42}}
+        {cleaned :library findings :findings} (shapes/clean-library lib)
+        {kept :library set-aside :set-aside} (shapes/split-unreadable cleaned lib findings)]
+    (is (= {"P" {:orcpub.dnd.e5/races {:ok {:name "Ok"}}}} kept))
+    (is (= {"P" {:orcpub.dnd.e5/races {:bad bad} :orcpub.dnd.e5/feats 42}} set-aside))))

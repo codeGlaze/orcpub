@@ -2,9 +2,9 @@
   "Wires homebrew-guard into the app. deep-check converts and fully realizes every
    entry to catch a throw hidden in a lazy part of an option, one that per-entry
    builder guarding would miss.
-   GOTCHA: realizing everything costs ~2s for a 12-source library vs ~40ms without
-   realizing, so call it only for sources an import/restore changed, or after a
-   page has already failed. See homebrew-safety-net.md."
+   GOTCHA: realizing costs ~20ms an entry (9s for test-pak's 464), so call it only for the
+   entries a change wrote (the homebrew-shapes interceptor's ::check-entries), or after a page
+   has already failed. See docs/HOMEBREW_GUARD.md."
   (:require [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.homebrew-guard :as guard]
             [re-frame.core :refer [reg-fx dispatch subscribe]]
@@ -19,13 +19,16 @@
 
 (defn deep-check
   "Convert and fully realize every homebrew entry from `sources` (every source when nil),
-   one at a time, with the conversions the subscriptions register. Returns a report for
-   each entry that fails."
-  [sources]
+   one at a time, with the conversions the subscriptions register; with `entries`, a set of
+   [source content-type key], only those (~20ms each, so a save checks what it saved). Returns
+   a report for each entry that fails."
+  [sources & [entries]]
   (let [found (atom [])
         sub #(deref (subscribe %))
-        in-scope? #(or (nil? sources)
-                       (contains? sources (or (:plugin-source %) (:option-pack %))))]
+        in-scope? (fn [content-type entry]
+                    (let [src (or (:plugin-source entry) (:option-pack entry))]
+                      (and (or (nil? sources) (contains? sources src))
+                           (or (nil? entries) (contains? entries [src content-type (:key entry)])))))]
     (guard/call-with-reporter
      #(swap! found conj (update % :error message))
      (fn []
@@ -37,7 +40,7 @@
              (try
                (let [f (convert sub)]
                  (doseq [entry (entries sub)
-                         :when (in-scope? entry)]
+                         :when (in-scope? content-type entry)]
                    (guard/guard-option content-type entry f)))
                (catch :default e
                  (js/console.error "Could not check homebrew" (str content-type) e)))))))))
@@ -45,15 +48,22 @@
 
 (defn check-and-set-aside!
   "deep-check, then set aside whatever failed. Returns the reports."
-  [sources]
-  (let [found (deep-check sources)]
+  [sources & [entries]]
+  (let [found (deep-check sources entries)]
     (when (seq found)
       (dispatch [::e5/set-aside-broken-homebrew found]))
     found))
 
+
 (reg-fx
- ::check-builds
- (fn [sources]
-   (when (seq sources)
+ ::report
+ ;; an entry found broken outside a conversion, by the same path as one that failed in it
+ (fn [info] (guard/report! info)))
+
+(reg-fx
+ ::check-entries
+ ;; entries a change wrote, as [source content-type key]
+ (fn [entries]
+   (when (seq entries)
      ;; after the current event, so its own notice draws first
-     (js/setTimeout #(check-and-set-aside! sources) 0))))
+     (js/setTimeout #(check-and-set-aside! (set (map first entries)) entries) 0))))

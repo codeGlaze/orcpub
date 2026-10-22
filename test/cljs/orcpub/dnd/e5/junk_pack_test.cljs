@@ -16,6 +16,7 @@
             [orcpub.template :as t]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.homebrew-guard :as guard]
+            [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
@@ -179,6 +180,11 @@
 
 (defn- attempt [stage f]
   (try (f) nil (catch :default e {:stage stage :error (msg e)})))
+
+(def ^:private storage-slots
+  "What a pack can leave in browser storage."
+  ["plugins" "plugins:rejected" "plugins:corrupt" "plugins:pre-fix" "plugins:pre-fix-at"
+   "character"])
 
 (def ^:private coverage
   "What the last pack exercised, by entry key: :picked by a character, :drawn in its builder, and
@@ -380,8 +386,9 @@
    failure is traced to an entry."
   [lib & [via {:keys [light?]}]]
   (doseq [k (drafts/draft-keys)] (drafts/remove-draft! k))
-  (doseq [k ["plugins" "plugins:rejected" "plugins:corrupt" "character"]]
-    (.removeItem js/localStorage k))
+  ;; what an earlier pack queued (a write, a set-aside) must not land in this one
+  (rf/purge-event-queue)
+  (doseq [k storage-slots] (.removeItem js/localStorage k))
   (when (not= via :share) (.setItem js/localStorage "plugins" (pr-str lib)))
   (.setItem js/localStorage "character" (pr-str (char5e/to-strict stored-character)))
   (reset! app-db {})
@@ -415,8 +422,20 @@
                     (once [:deep-check (hash entries)] :deep-check
                           #(homebrew-check/deep-check nil)))
              template (try @(rf/subscribe [::char5e/template]) (catch :default _ nil))
-             set-aside (set (map :key @reports))
-             ;; an entry set aside is not offered, and is allowed; one silently not offered is lost
+             ;; an entry set aside (reported, or in the quarantine panel) is not offered, and is
+             ;; allowed, as is one My Content marks as a link to nothing (only stored content is
+             ;; shown there); one silently not offered is lost
+             set-aside (into (into (set (map :key @reports))
+                                   (for [[_ section] (get (:quarantined-plugins @app-db) source)
+                                         :when (map? section)
+                                         k (keys section)]
+                                     k))
+                             (when (and template (not= via :share))
+                               ;; reads every option, so a throw in one is the stages' to report
+                               (try (map last (keys (library/dangling
+                                                     (:plugins @app-db)
+                                                     (library/offered-by-type template))))
+                                    (catch :default _ nil))))
              entry (fn [k] (some #(when (map? %) (get % k)) (vals entries)))
              build (fn [[k c]]
                      (let [id [(hash (entry k)) (hash c)]
@@ -451,8 +470,8 @@
     (run-pack! lib via opts)))
 
 (defn- cleanup! []
-  (doseq [k ["plugins" "plugins:rejected" "plugins:corrupt" "character"]]
-    (.removeItem js/localStorage k))
+  (rf/purge-event-queue)
+  (doseq [k storage-slots] (.removeItem js/localStorage k))
   (reset! app-db {})
   (rf/clear-subscription-cache!))
 

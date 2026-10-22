@@ -364,11 +364,13 @@
   [:map-of :keyword :map])
 
 (defn- clean-section
-  "One content section: each entry cleaned. Returns {:section s' :findings [...]}, `s'` identical
-   when nothing changed."
-  [content-type section]
+  "One content section: each entry cleaned, except one identical to the same entry in `before`.
+   Returns {:section s' :findings [...]}, `s'` identical when nothing changed."
+  [content-type section before]
   (reduce-kv (fn [{:keys [section findings] :as acc} k entry]
-               (let [r (clean-entry content-type entry)
+               (let [r (if (identical? entry (get before k))
+                         {:entry entry}
+                         (clean-entry content-type entry))
                      fs (map #(assoc % :key k) (:findings r))]
                  (cond
                    (not (contains? r :entry)) {:section (dissoc section k)
@@ -383,13 +385,14 @@
    {:library l' :findings [{:source :content-type :key :path :action :found :wanted}]}. A section
    stored as true or false (the format allows it) reads as empty; any other section that is not a
    map, and any entry that is not, cannot be read and is left out. A sound library comes back
-   identical, and so does each sound source and section, so readers downstream recompute nothing."
-  [library]
+   identical, and so does each sound source and section. With `before`, the library as it was,
+   only what is not identical to it is walked: a change to one entry walks one entry."
+  [library & [before]]
   (if-not (map? library)
     {:library library :findings []}
     (reduce-kv
      (fn [acc src source]
-       (if-not (map? source)
+       (if (or (not (map? source)) (identical? source (get before src)))
          acc
          (let [{:keys [source findings]}
                (reduce-kv
@@ -397,11 +400,12 @@
                   (let [tag #(assoc % :source src :content-type ct)]
                     (cond
                       (not (contains? shapes ct)) acc
+                      (identical? section (get-in before [src ct])) acc
                       (boolean? section) {:source (assoc source ct {}) :findings findings}
                       (not (map? section))
                       {:source (dissoc source ct)
                        :findings (conj findings (tag (finding [] :unreadable section a-section)))}
-                      :else (let [r (clean-section ct section)]
+                      :else (let [r (clean-section ct section (get-in before [src ct]))]
                               (if (identical? section (:section r))
                                 acc
                                 {:source (assoc source ct (:section r))
@@ -412,3 +416,20 @@
              (not (identical? source (get library src))) (assoc-in [:library src] source)))))
      {:library library :findings []}
      library)))
+
+(defn split-unreadable
+  "`cleaned` (from clean-library) without each entry `findings` could not read, and those entries
+   as `library` held them: {:library l :set-aside {source {content-type {key entry}}}}. A section
+   that could not be read is set aside whole, as written."
+  [cleaned library findings]
+  (reduce (fn [acc {:keys [source content-type key action]}]
+            (cond
+              (not= :unreadable action) acc
+              key (-> acc
+                      (update-in [:library source content-type] dissoc key)
+                      (assoc-in [:set-aside source content-type key]
+                                (get-in library [source content-type key])))
+              :else (assoc-in acc [:set-aside source content-type]
+                              (get-in library [source content-type]))))
+          {:library cleaned :set-aside {}}
+          findings))

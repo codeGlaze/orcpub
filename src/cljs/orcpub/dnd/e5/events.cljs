@@ -105,11 +105,12 @@
             [orcpub.dnd.e5.character-drafts :as drafts]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.library :as library]
+            [orcpub.dnd.e5.homebrew-shapes :as shapes]
             [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.compute :as compute]
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx reg-cofx inject-cofx path
-                                   after dispatch ->interceptor]]
+                                   after dispatch ->interceptor reg-global-interceptor]]
             [cljs.spec.alpha :as spec]
             [orcpub.dnd.e5.http-safe :as http]
             [cljs.core.async :refer [<! timeout]]
@@ -6129,15 +6130,11 @@
  ::e5/store-plugins
  (fn [{:keys [db]} [_ plugins on-success]]
    ;; Import paths: re-importing a source replaces what it held (homebrew-keys-design.md §9, Q4).
-   (let [changed (not-empty (set (for [[src p] plugins
-                                       :when (not (identical? p (get (:plugins db) src)))]
-                                   src)))
-         {:keys [ok?] :as committed} (commit-library db plugins {:deleting? true :on-success on-success})]
+   ;; the entries it changes are checked for one that breaks the character options by the
+   ;; homebrew-shapes interceptor, now rather than the next time someone opens the builder
+   (let [{:keys [ok?] :as committed} (commit-library db plugins {:deleting? true :on-success on-success})]
      (cond-> (select-keys committed [:db :dispatch-n])
-       ok? (update :db dissoc :homebrew-reported)
-       ;; check the sources this import changed for an entry that breaks the character
-       ;; options, now rather than the next time someone opens the builder
-       (and ok? changed) (assoc ::homebrew-check/check-builds changed)))))
+       ok? (update :db dissoc :homebrew-reported)))))
 
 ;; `plugins->local-store` dispatches this when the localStorage write
 ;; fails (typically a full quota). The save lives in memory but would vanish on
@@ -6234,9 +6231,9 @@
          (if-not ok?
            {:db db' :dispatch-n refused}
            (do (set-rejected-plugins new-rejected)
+               ;; a restored entry that still breaks the character options is set aside again,
+               ;; by the homebrew-shapes interceptor's check of what this wrote
                {:db (-> db' (assoc :quarantined-plugins new-rejected) (dissoc :homebrew-reported))
-                ;; a restored entry that still breaks the character options is set aside again
-                ::homebrew-check/check-builds (when (pos? n-fixed) #{source-name})
                 :dispatch [(if (pos? n-fixed) :show-warning-message :show-error-message)
                            (restore-message source-name bad kept-items still-bad)]})))))))
 
@@ -6647,13 +6644,14 @@
 (defn set-aside-broken-entries
   "Move each reported entry from `plugins` into `rejected`. Returns {:plugins :rejected
    :moved [{:source :content-type :key :entry}]}. A report whose entry is not in the
-   library (shared content, or already gone) moves nothing."
+   library (shared content, or already gone) moves nothing. A report's `:original` is what is
+   set aside when it has one: the entry as it was written, before anything was read past."
   [plugins rejected reports]
-  (reduce (fn [acc {:keys [content-type key] :as report}]
+  (reduce (fn [acc {:keys [content-type key original] :as report}]
             (if-let [[src entry] (find-broken-entry (:plugins acc) report)]
               (-> acc
                   (update-in [:plugins src content-type] dissoc key)
-                  (assoc-in [:rejected src content-type key] entry)
+                  (assoc-in [:rejected src content-type key] (or original entry))
                   (update :moved conj {:source src :content-type content-type :key key :entry entry}))
               acc))
           {:plugins plugins :rejected (or rejected {}) :moved []}
@@ -6715,6 +6713,72 @@
              {:db (assoc db' :quarantined-plugins rejected)
               :dispatch [:show-warning-message (broken-homebrew-notice moved) 60000]}
              {:db db' :dispatch-n refused})))))))
+
+(reg-fx
+ ::keep-pre-fix-copy
+ (fn [plugins] (keep-pre-fix-copy! plugins)))
+
+(defn- unreadable-reports
+  "A report for each entry `findings` could not read, carrying the entry as `library` held it."
+  [library findings]
+  (for [[[src ct k] fs] (group-by (juxt :source :content-type :key)
+                                  (filter #(= :unreadable (:action %)) findings))
+        :when k]
+    {:content-type ct :key k :source src :original (get-in library [src ct k])
+     :error (str (s/join ", " (map #(pr-str (:path %)) fs)) " could not be read")}))
+
+(defn homebrew-shapes-checked
+  "An event's effects, with the homebrew it changed made to fit homebrew-shapes. The library: what
+   was fixed is in the new state and stored through the gate (after a copy of the library as it
+   was); an entry with a field that cannot be read is set aside, as written; the entries it
+   changed are converted by the deep check. Shared content is never stored: what is fixed is used,
+   and an entry that cannot be read is left out and reported.
+   Nothing to do when the event left both as they were, which is nearly every event."
+  [before-db effects]
+  (let [db (:db effects)
+        before (:plugins before-db)
+        lib (:plugins db)
+        shared-before (:shared-plugins before-db)
+        shared (:shared-plugins db)]
+    (if (or (nil? db) (and (identical? lib before) (identical? shared shared-before)))
+      effects
+      (let [{cleaned :library findings :findings} (if (map? lib)
+                                                    (shapes/clean-library lib before)
+                                                    {:library lib})
+            {shared' :library shared-findings :findings}
+            (if (map? shared) (shapes/clean-library shared shared-before) {:library shared})
+            shared' (:library (shapes/split-unreadable shared' shared shared-findings))
+            changed (when (and (map? cleaned) (map? before))
+                      (set (for [[src source] cleaned
+                                 :when (and (map? source) (not (identical? source (get before src))))
+                                 [ct section] source
+                                 :when (and (map? section)
+                                            (not (identical? section (get-in before [src ct]))))
+                                 [k entry] section
+                                 :when (not (identical? entry (get-in before [src ct k])))]
+                             [src ct k])))
+            fx (concat
+                (when-not (identical? cleaned lib)
+                  [[::keep-pre-fix-copy lib]
+                   [:dispatch [::e5/set-plugins cleaned]]])
+                (for [r (concat (unreadable-reports lib findings)
+                                (unreadable-reports shared shared-findings))]
+                  [::homebrew-check/report r])
+                (when (seq changed)
+                  [[::homebrew-check/check-entries changed]]))]
+        (cond-> (assoc effects :db
+                       (cond-> db
+                         (not (identical? cleaned lib)) (assoc :plugins cleaned) ;; library gate
+                         (not (identical? shared' shared)) (assoc :shared-plugins shared')))
+          (seq fx) (update :fx (fnil into []) fx))))))
+
+;; Every event, whatever it changed and however: the homebrew it leaves is checked here, so no
+;; write can skip the check by going around commit-library. See docs/HOMEBREW_GUARD.md.
+(reg-global-interceptor
+ (->interceptor
+  :id ::homebrew-shapes
+  :after (fn [ctx]
+           (update ctx :effects #(homebrew-shapes-checked (get-in ctx [:coeffects :db]) %)))))
 
 ;; ============================================================================
 ;; Export Warning Modal Events

@@ -177,18 +177,23 @@ obvious:
   [:map {field s ...}]  a map; the listed fields are checked, the rest pass untouched
 ```
 
-### 2. Where homebrew comes in: fix once, check it works, store it
+### 2. Where homebrew comes in: fix once, check it works, store it (built)
 
-**One global interceptor** (re-frame 1.4.4's `reg-global-interceptor`; the app has none yet) runs
-after every event. If the event left the library as the identical object, which is almost every
+**One global interceptor** (re-frame 1.4.4's `reg-global-interceptor`, `::homebrew-shapes` in
+events.cljs, `homebrew-shapes-checked`) runs after every event. If the event left the library as the identical object, which is almost every
 event, it does nothing. If the event changed it, however it changed it:
 
 - the changed entries are cleaned, and the fixes go into the new state and are **written to
   storage** with it (`"5"` stored as `5`, read as `5`, exported as `5`);
-- the changed sources are then **converted by the app's own code** (the existing deep check,
-  `check-and-set-aside!`, which runs after the new state is in place): an entry that cannot be
-  read or does not convert moves to the **quarantine panel** with its reason, the original kept
-  there to fix or restore.
+- an entry with a field that cannot be read is reported through the guard's reporter (the same
+  path as an entry that fails to convert) and moves to the **quarantine panel** with its reason,
+  as it was written, to fix or restore;
+- the changed entries are then **converted by the app's own code** (the existing deep check,
+  `check-and-set-aside!`, after the new state is in place): one that does not convert moves to
+  the quarantine panel too. Only the entries that changed: the check costs about 20 ms an entry,
+  so a whole 464-entry source took 9 s and a save now takes about 35 ms. Import and restore no
+  longer call it themselves. An entry is checked when it changes, so a change to a race that
+  breaks its subraces is left to containment (5).
 
 The active library is then clean, so nothing is found again on the next load. Because it runs on
 every event, it does not depend on code calling the right function, or on `library_gate_test`
@@ -199,8 +204,8 @@ recognising how a write was made (it scans for `assoc`, `update` and `dissoc` on
 |---|---|
 | **Import** | the import event storing the file; the import report lists fixes and quarantined entries |
 | **Builder saves, rename, move, restore, conflict resolution** | each of those events; a builder save changes one entry, so one entry is checked |
-| **Load** (startup, another tab's write, what `LOAD_HOMEBREW_URL` stored) | `:initialize-db` and `library-changed-elsewhere`; a library saved before this change is fixed once and written back after the `plugins:pre-fix` backup |
-| **Share link** | `apply-shared-content` puts shared content in `:shared-plugins`, which the interceptor checks the same way; it is never stored, so an entry that fails is left out of the view and the banner says so |
+| **Load** (startup, another tab's write, what `LOAD_HOMEBREW_URL` stored) | not the interceptor: the loader (`::e5/plugins` cofx) reads storage before any event can, and a section stored as `true` stopped startup there. So the loader applies the table straight after its mend: fixes are written back with its repairs, after the `plugins:pre-fix` backup; an unreadable entry joins what it sets aside in `plugins:rejected`, as written. The interceptor then finds nothing |
+| **Share link** | `apply-shared-content` puts shared content in `:shared-plugins`, which the interceptor checks the same way; it is never stored, so a fix is used and an entry that cannot be read is left out and reported (to the console; a line in the share banner is still to do) |
 
 Builder drafts are restored by `reg-local-store-cofx`, which TODO.md pins as hands-off; they are
 covered by (5).
@@ -277,10 +282,14 @@ Nothing here may make the app slower to use.
 | The conversion check at a way in | Only the entries that came in or changed; `guard/realize` now walks each shared part once. | a builder save: one entry |
 | Downstream | A clean entry is the identical object, so the per-type `=` firewall still holds: editing a spell does not rebuild races. | no extra recomputation |
 | The deep check | `guard/realize` walks each shared part once (done): one homebrew class went from seconds to milliseconds. | done |
-| Audit | Build and CI time only. | under 10 min (now about 8) |
+| Audit | Build and CI time only. | under 10 min (now about 2) |
 
 **Measured, not assumed:** before and after each step, with the 12-source test library: startup,
 `process-plugin-vals`, the template build, one keystroke in a builder, and an import.
+
+After step 3, test-pak stored (464 entries, 764 KB), dev build: an event that leaves the library
+alone 0.001 ms; an event that changes one entry 0.05 ms, then its deep check 35 ms (of which
+25 ms is setting up the conversions); the loader 170-190 ms, of which the shape walk is 6-7 ms.
 
 ## Prep work already done, to reuse
 
@@ -300,13 +309,17 @@ Nothing here may make the app slower to use.
 
 ## Order of work, each step gated
 
-1. **Done:** the baseline (659), the shape table and `clean` (not yet called by the app), the
-   audit in about 8 minutes, `guard/realize` walking each part once.
-2. **Audit canaries and counted coverage.**
-3. **The global interceptor:** clean, write, convert, quarantine, for every library change
-   (import, saves, load, share). *Gate:* the audit drops; the everyday suites and the homebrew e2e
-   scripts (`fixes_persist_e2e`, `boot_rescue_e2e`, `quarantine-restore`, `library-repairs`) pass;
-   a second load writes nothing; the timings stay in budget.
+1. **Done:** the baseline (659), the shape table and `clean`, the audit in about 8 minutes,
+   `guard/realize` walking each part once.
+2. **Done:** audit canaries and counted coverage.
+3. **Done:** the global interceptor, and the table in the loader. The audit went from 659 to 37
+   in 132 s. Left: a feat's `:ability-increases` as a list in its builder (27; the builder's
+   copy, step 4), a background skill that names no skill (6; a lookup in our code, step 5), and a
+   subrace or subclass from a share link whose parent does not exist (4; not shown in My Content,
+   so silent). The everyday suites, `homebrew_safety_net_e2e`, `fixes_persist_e2e`,
+   `quarantine-restore` and `library-repairs` pass; a second load writes nothing (a test).
+   `boot_rescue_e2e` fails 3 of 16 before and after this step: it clicks an "expand" link My
+   Content no longer has.
 4. **The in-app read check**, measured; changed-only only if needed.
 5. **Hardened core helpers**, ranked by the audit.
 6. **Containment:** per-item boundaries, the event error handler, the guard on 13 types.
