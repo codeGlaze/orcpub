@@ -316,7 +316,23 @@ past.** Now: "☀ Dawn passes" with its box, on an amber tint, beside an outline
 both 44px tall. (Font Awesome here has no `fa-sun-o`; the mockup uses the ☀ character.) **Then, owner:
 too big for this app.** Now: today's two `.form-button.p-5` rest buttons unchanged; one small row
 above them, a tinted "☀ dawn passes" pill with its box and an outlined "☀ dawn only" pill (26px drawn,
-44px tap area); a small Undo line below. Awaiting owner.
+44px tap area); a small Undo line below. **Rejected (owner, 2026-10-22):** it overcorrected (the
+full-width layout was fine; only the size needed to come down) and drew "Dawn only", an action, like
+the toggle.
+
+**Rest controls, analysis before the next mockup (2026-10-22, awaiting owner's go):**
+- **Order Dawn, Short Rest, Long Rest** (owner's idea): smallest reset to largest, and the primary,
+  most used action last, at the right end (the usual position for the main action; under a
+  right-handed thumb). Dawn an outlined secondary button, Short and Long solid; Long widest.
+- **A sun on Dawn's left only, and the same sun on the toggle,** so the two read as one family; no
+  icons on the rest buttons. The app's Font Awesome has no sun (`fa-sun-o` missing): the ☀ character
+  or a new icon.
+- **The "dawn passes" toggle directly above Long Rest, in its column.** Convention for an option that
+  changes one button ("Remember me" over Sign in, "Save this card" over Pay): above (seen before the
+  commit; not hidden under the thumb on a phone) and adjacent (proximity ties it to that button, not
+  the row). Spanning the row would suggest it changes Dawn and Short Rest too.
+- **Size:** between today's 27px and the 44px mockup, about 36px drawn, 14px text; tap areas 44px.
+- **Undo line** below the row, unchanged.
 **For every review:** include a shot of the screen as it is today, so the owner can compare.
 
 **Found while mocking it up:** the rest buttons show only when a trait resets on a rest
