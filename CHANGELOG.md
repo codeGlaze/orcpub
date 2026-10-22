@@ -39,6 +39,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** a "Dark Button Text" option for the yellow buttons. (#711)
 - **Server:** a startup report of the server's settings, naming what is missing and never printing secrets, and ending with the settings new in this release that are not set yet. (#712)
 - **Accounts:** sign-up, password reset and the other account emails are kept and retried until the mail server takes them, so signing up works while the mail server is down, and no email is lost to a busy one.
+- **Server:** after the app runs out of memory or crashes, it restarts clean and the admin is emailed what happened and where the evidence is kept. Docker logs are capped so they cannot fill the disk.
 - **Server:** admin alerts: one email per problem with a count of repeats, an hourly ceiling, and nothing lost or slowed down when the mail server or the database is down.
 - **Rules:** a Rules tab with the full SRD 5.1 rules reference, by section, and the 15 conditions.
 - **Rules:** links in rules text to the spells, conditions and rules they name, with a preview
@@ -99,6 +100,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 ### Fixed
 
 - **Server:** the setup scripts read `.env` the way Docker does, so a value with an apostrophe or spaces (`APP_NAME=Dungeon Master's Vault`) no longer breaks `./run`, `docker-user.sh` or the start scripts.
+- **Server:** `JAVA_OPTS` now reaches Java in Docker; memory settings set there were ignored, so the app ran with a quarter of its container's memory.
 - **Server:** settings set in `.env` now reach the server under Docker Compose and Swarm. Branding (`APP_*`) and most other settings were dropped on the way into the container, so the site ran on defaults whatever `.env` said.
 - **Homebrew:** a custom element with a blank or symbol-only name no longer breaks the character. (#675)
 - **Homebrew:** older spell names (Leomund's, Tasha's, Bigby's) match in imported packs. (#676)

@@ -351,6 +351,7 @@ generate_swarm_compose() {
     "DATOMIC_URL:\${DATOMIC_URL:-datomic:dev://datomic:4334/orcpub}"
     "DATOMIC_PASSWORD:\${DATOMIC_PASSWORD}"
     "JAVA_OPTS:${java_opts}"
+    "JDK_JAVA_OPTIONS:\"-XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/lib/orcpub/state/crash/heap.hprof -XX:ErrorFile=/var/lib/orcpub/state/crash/jvm-crash-%p.log ${java_opts}\""
     "CSP_POLICY:\${CSP_POLICY:-strict}"
     # Every other setting the server reads; empty means its default. An upgrade appends any of
     # these an existing stack file lacks. settings_lists_test keeps this list complete.
@@ -362,7 +363,7 @@ generate_swarm_compose() {
     "APP_URL:\${APP_URL:-}"
     "EMAIL_ADMIN_TO:\${EMAIL_ADMIN_TO:-}"
     "PORTRAIT_STORE_DIR:\${PORTRAIT_STORE_DIR:-}"
-    "ALERT_SPOOL_DIR:\${ALERT_SPOOL_DIR:-}"
+    "ALERT_SPOOL_DIR:\${ALERT_SPOOL_DIR:-/var/lib/orcpub/state/alerts}"
     "ALERT_MAX_PER_HOUR:\${ALERT_MAX_PER_HOUR:-}"
     "ORCPUB_HTTP_MAX_THREADS:\${ORCPUB_HTTP_MAX_THREADS:-}"
     "ORCPUB_PDF_CONCURRENCY:\${ORCPUB_PDF_CONCURRENCY:-}"

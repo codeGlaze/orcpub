@@ -373,10 +373,35 @@ Rules of thumb (from Datomic capacity planning docs):
 - `memory-index-max`: ~13% of `-Xmx` (minimum 2x threshold)
 - `object-cache-max`: ~50% of `-Xmx` minus index memory
 
+## Logs, crashes and the app's memory
+
+**Logs.** Docker keeps everything each container prints in a file on the host, outside the
+container, so a crash or restart does not lose it; `docker compose logs orcpub` shows it. The file
+is lost only when the container is replaced (a new image, or a changed compose file). Each
+container keeps at most `LOG_MAX_FILES` files of `LOG_MAX_SIZE` each (default 5 of 10 MB), so logs
+can no longer fill the disk. Set both in `.env`.
+
+**When the app runs out of memory** it writes a heap dump and exits straight away, and Docker
+restarts it clean, rather than limping on half-broken. If Java itself crashes it writes a crash
+log. Both go to the `orcpub-state` volume (`/var/lib/orcpub/state/crash` in the container), which
+survives the container being replaced. On the next start the server emails an admin alert saying
+what happened, when, and where the file is.
+
+- The heap dump (`heap.hprof`) is as large as the app's memory and holds everything that was in
+  it, player data included. Keep it private, and delete it once read: Java does not overwrite it,
+  so the next crash cannot write a new one while it is there.
+- To read the files: `docker compose cp orcpub:/var/lib/orcpub/state/crash ./crash`.
+
+**The app's memory.** `JAVA_OPTS` in `.env` sets Java's memory options for the app, for example
+`JAVA_OPTS=-XX:MaxRAMPercentage=75.0` (use up to 75% of the container's memory). Left empty, Java
+uses only 25% of the container's memory. Before the Summer Patch `JAVA_OPTS` was passed to the
+container but never reached Java, so if you set it earlier, it starts taking effect now.
+
 ## Volumes
 
 | Volume Mount | Service | Purpose |
 |--------------|---------|---------|
+| `orcpub-state` (named) → `/var/lib/orcpub/state` | orcpub | Unsent admin alerts and crash files; survives the container being replaced |
 | `./data` | datomic | Datomic dev storage data files |
 | `./logs` → `/log` | datomic | Transactor log output (host `logs/`, container `/log`) |
 | `./backups` | datomic | Datomic backup destination |
@@ -492,9 +517,10 @@ headroom for off-heap memory (metaspace, thread stacks, NIO buffers).
 
 | Approach | Example | When to use |
 |----------|---------|-------------|
-| Auto-percentage (recommended) | `JAVA_OPTS=-XX:MaxRAMPercentage=75.0` | JDK 11+, lets JVM scale with container limit |
-| Explicit heap | `XMS=-Xms1g` / `XMX=-Xmx1g` | When you need predictable fixed sizing |
-| Default (no setting) | Leave `JAVA_OPTS`, `XMS`, `XMX` empty | Small deployments, JVM picks conservative defaults |
+| Auto-percentage (recommended, app) | `JAVA_OPTS=-XX:MaxRAMPercentage=75.0` | Lets the app's Java scale with its container limit |
+| Explicit heap (app) | `JAVA_OPTS=-Xms1g -Xmx1g` | When you need predictable fixed sizing |
+| Explicit heap (transactor) | `XMS=-Xms1g` / `XMX=-Xmx1g` | Read by Datomic's transactor only, not the app |
+| Default (no setting) | Leave `JAVA_OPTS`, `XMS`, `XMX` empty | The app's Java then uses 25% of its container's memory |
 
 The Swarm compose sets `deploy.resources.limits.memory` (hard ceiling) and
 `deploy.resources.reservations.memory` (scheduling minimum). Configure these

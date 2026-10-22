@@ -16,6 +16,7 @@
             [orcpub.config :as config]
             [orcpub.alerts :as alerts]
             [orcpub.outbox :as outbox]
+            [orcpub.crash-report :as crash-report]
             [orcpub.email :as email]
             [clojure.java.io :as io]
             [orcpub.pdf :as pdf])
@@ -142,6 +143,12 @@
     (component/using
       (pedestal/new-pedestal)
       [:service-map :conn :token-withdrawals :alerts :outbox])
+
+    ;; Tells the admin, once, when the previous run crashed (heap dump or JVM crash log).
+    :crash-report
+    (component/using
+      (crash-report/new-crash-report)
+      [:alerts])
 
     ;; Player email: queued in the database with the action that causes it, sent from here.
     :outbox

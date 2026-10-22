@@ -26,6 +26,15 @@
 # See docs/ENVIRONMENT.md for all available variables.
 # ============================================================================
 
+
+# Docker keeps each container's output in a log file on the host. Without a limit it grows until
+# the disk is full; this keeps the last LOG_MAX_FILES files of LOG_MAX_SIZE each per container.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "${LOG_MAX_SIZE:-10m}"
+    max-file: "${LOG_MAX_FILES:-5}"
+
 services:
   orcpub:
     # Build: docker compose up --build
@@ -68,10 +77,15 @@ services:
       # for every container (a volume at /var/lib/orcpub/portraits, with this set to that path);
       # without one, each container keeps its own under /tmp.
       PORTRAIT_STORE_DIR: ${PORTRAIT_STORE_DIR:-}
+      # Java's start-up flags. When it runs out of memory it writes a heap dump and exits so it is
+      # restarted clean; a JVM crash writes a crash log. Both go to the orcpub-state volume, and the
+      # next start emails the admin. JAVA_OPTS (memory settings, see docs/DOCKER.md) comes last,
+      # so it can override any of these.
+      JDK_JAVA_OPTIONS: "-XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/lib/orcpub/state/crash/heap.hprof -XX:ErrorFile=/var/lib/orcpub/state/crash/jvm-crash-%p.log ${JAVA_OPTS:-}"
       # Every other setting the server reads. Empty means "use the default", so these change
       # nothing until set in .env. Only names listed here reach the container.
       # Admin alerts (docs/ENVIRONMENT.md, Admin alerts)
-      ALERT_SPOOL_DIR: ${ALERT_SPOOL_DIR:-}
+      ALERT_SPOOL_DIR: ${ALERT_SPOOL_DIR:-/var/lib/orcpub/state/alerts}
       ALERT_MAX_PER_HOUR: ${ALERT_MAX_PER_HOUR:-}
       # Capacity (docs/ENVIRONMENT.md, Capacity)
       ORCPUB_HTTP_MAX_THREADS: ${ORCPUB_HTTP_MAX_THREADS:-}
@@ -123,6 +137,10 @@ services:
       retries: 30
       start_period: 60s
     restart: always
+    logging: *logging
+    # Unsent admin alerts and crash files; kept when the container is replaced.
+    volumes:
+      - orcpub-state:/var/lib/orcpub/state
   datomic:
     image: ${DATOMIC_IMAGE:-orcpub-datomic}
     build:
@@ -147,6 +165,7 @@ services:
       retries: 30
       start_period: 40s
     restart: always
+    logging: *logging
   web:
     image: nginx:alpine
     ports:
@@ -165,6 +184,11 @@ services:
       orcpub:
         condition: service_healthy
     restart: always
+    logging: *logging
+
+
+volumes:
+  orcpub-state:
 
 # --- Docker Secrets ---
 # Uncomment to use Docker secrets instead of .env for passwords.
