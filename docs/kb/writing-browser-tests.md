@@ -113,6 +113,12 @@ AGENTS.md requires every check to be seen failing first. A browser run is 3 to 4
   "touching it stops the pulse" passed with the stop broken, because touching 2H also ends the
   pulse; it now touches the already-chosen 1H.
 
+## 10. A real die can make a check fail 1 run in 20
+
+The weapons sheet rolls real dice. A check that expects "Damage" fails on a natural 20, which labels
+it "Critical damage"; it looked like a race until the cause was found (2026-10-21). Accept every
+outcome the dice allow, or set the result first.
+
 ## 9. Screenshots for review
 
 - Hide sticky and fixed bars before a full-page capture, or the builder header is painted across

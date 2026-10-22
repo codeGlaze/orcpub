@@ -3802,7 +3802,7 @@ _weapons-table-spec · weapons table spec_
 
 _writing-browser-tests · writing browser tests_
 
-**topics:** 34px, 390px, click, clicking, desktop, dispatch, disposes, e2e-runner, fast-browser-probes, mastery, menus, phone, pulse, run, stand-in, subscriptions, tab, view
+**topics:** check, click, desktop, dispatch, disposes, e2e-runner, fail, fast-browser-probes, menus, phone, pulse, run, sheet, stand-in, subscriptions, tab, view, weapons
 
 - Start from a working test
 - 1. Load the character with the app's own event, not by clicking the builder
@@ -3813,5 +3813,6 @@ _writing-browser-tests · writing browser tests_
 - 6. Standing in for data the branch does not have yet
 - 7. Run on your own port
 - 8. Prove each check can fail, and keep it affordable
+- 10. A real die can make a check fail 1 run in 20
 - 9. Screenshots for review
 

@@ -334,7 +334,8 @@ second Long Rest button (`views.cljs` ~3088), which needs the same controls.
 
 Each step: tests seen failing first, scoped checks, own commit, KB updated.
 
-1. **Discard the special-cased code.** Revert the uncommitted Graze/Vex/Cleave sheet branches
+1. **Done 2026-10-21 (`feature/weapons-table`).** The parked diff is discarded (a copy was kept only in
+   the session's scratch space); the desktop result-card check was committed on its own. **Was:** Discard the special-cased code. Revert the uncommitted Graze/Vex/Cleave sheet branches
    (`views.cljs`), the `:weapon-roll/arm` event and sub only if step 5 does not reuse them, and the
    `case` in `mastery-summary`. Keep the desktop ctrl-click card check.
 2. **Expose the weapon's ability modifier** (`character.cljc` accessor + sub, like
