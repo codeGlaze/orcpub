@@ -2832,7 +2832,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, alphabetical, container, gear, items, kit, kits, leftovers, pack, packs, quantities, quantity, rations, refill, starting, starting-equipment, stored, torches
+**topics:** 2026-10-22, 340, alphabetical, container, gear, items, kit, kits, leftovers, pack, packs, quantities, quantity, rations, refill, starting, stored, torches
 
 - The problems today
 - The model

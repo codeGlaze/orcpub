@@ -82,6 +82,11 @@ stored: the same 13 torches split 10/3 or 3/10 depending on refill history.
    Treasure (coins) still replaces rather than adds; not in part A.
    **Part B: weapons and armor**, on the same structure, only after part A is proven in use (owner,
    2026-10-22). Fixes #340 (two handaxes shown as one; the reporter asks for a count).
+   **Part B built 2026-10-22** (owner moved it ahead of "proven in use"): `weapon`, `magic-weapon`,
+   `armor` and their deferred forms add with `add-item-cfg` (`ff6500da9`). Two Handaxes plus one picked
+   = 3, Chain Mail plus one picked = 2, seen failing first. 186 tests, the ring-AC and SRD-equipment
+   browser tests pass. The sheet's weapons table shows no count yet: that display is
+   `feature/weapons-table`'s (#340 asks to see the count).
    **Then #229** (edit quantities on the character sheet, not only in the builder): wanted, design to
    be worked out when it is reached.
 2. **Packs as kits.** Starting-equipment pack choices and the picker create kits; counters, refill,
