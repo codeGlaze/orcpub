@@ -483,7 +483,7 @@ point of having done the split first.
 
 ### `dev/` was unlinted, and this refactor shipped broken scripts into it
 
-Five `dev/` scripts went un-loadable across two commits (`b8d2b463`, `9d0a0710`). A rewriter
+Five `dev/` scripts went un-loadable across two commits (`8e5668d1`, `88bc9035`). A rewriter
 inserted `(require '[orcpub.pdf.draw :as draw]` as a new form where a continuation line
 `         '[orcpub.pdf.draw :as draw]` was needed, orphaning the opening paren of the require
 above it. Each file was left +1 unbalanced.

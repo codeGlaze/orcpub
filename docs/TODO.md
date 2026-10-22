@@ -356,7 +356,7 @@ Beyond refuse both and are upload-or-nothing.
 
 ## The spellbook sanitises Type0 text with a Type1 rule
 
-**Status:** Done, 2026-10-21, `refactor/pdf-canvas` (`a0d735e5`, `9c6e7ea6`). Kept as the
+**Status:** Done, 2026-10-21, `refactor/pdf-canvas` (`58f7d9a8`, `188d0e9b`). Kept as the
 record of what was measured. The root cause was wider than this entry says: `normalize-text`
 took WinAnsi to mean Unicode U+0000-U+00FF. It is a byte encoding whose 0x80-0x9F slots hold
 exactly these characters, so Helvetica could draw them too. The substitutions are now a
@@ -418,7 +418,7 @@ promoted here 2026-10-15 so they are not stranded on a branch.
 ### Paper sizes — A4 and A5
 
 **Decided 2026-10-21: Letter and A4 only.** A5 was built on `refactor/pdf-canvas` and then
-removed (`7bd63099`). The question had been which A size is closest to Letter, and the answer
+removed (`929b60cc`). The question had been which A size is closest to Letter, and the answer
 is A4. A5 cost a sheet-clipping gate (159 of 335 fields fell outside the page), its own
 overflow bug, and exports that mixed paper sizes. The notes below are from before that
 decision.
