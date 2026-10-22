@@ -55,7 +55,7 @@ Storage: Map vs Vector".
 | Refill (free, "reorganize") | the kit clicked claims from leftovers up to its targets |
 | Restock (paid) | if still short, asks "buy 7 torches? (7 cp)"; raises total and `:held` |
 | Use | kits give up top-down, in kit order |
-| Sell or lose | leftovers first, then kits top-down |
+| Sell or lose | kits top-down, then leftovers (layout review round 1) |
 | Delete a kit | `:held` gone, totals unchanged: its items become leftovers |
 | Move a kit to camp | its `:held` items move with it to that container |
 | Doff the backpack | a flag: items greyed under "not carried", still counted |
@@ -105,21 +105,20 @@ paying for restocks from coins; ammunition starting at its bundle from the picke
 
 ## Phase 2 design (2026-10-22, before code)
 
-**Storage.** Kits are a list under the character's values, stored like `::char5e/custom-equipment`
-(a `many-ref` of component records; `schema.clj`), so no new storage mechanism:
+**Storage (decided 2026-10-22: no schema change).** Kits are picks in the generic structure every
+choice already uses, so they need no new Datomic attributes and a rollback loses nothing:
 
 ```clojure
-[::entity/values ::char5e/kits]
-[{::kit/key :explorers-pack ::kit/name "Explorer's Pack" ::kit/order 1
-  ::kit/source [:class :fighter :starting-equipment-equipment-pack]   ; the choice that made it, if any
-  ::kit/items [{::kit/item :torch  ::kit/held 10 ::kit/target 10}
-               {::kit/item :holy-symbol ::kit/held 1 ::kit/target 1 ::kit/choice :amulet}]}]
+[::entity/options :kits]
+[{::entity/key :explorers-pack                                   ; one kit per pack, in kit order
+  ::entity/options {:held [{::entity/key :torch ::entity/value 7}   ; stored as int-value
+                           {::entity/key :rations-1-day ::entity/value 4}]}}]
 ```
 
-New schema attributes (additive; `all-schemas` is transacted at start-up, `datomic.clj:39`):
-`::char5e/kits` many-ref; on a kit: `key` keyword, `name` string, `order` long, `source` (stored as a
-string path), `items` many-ref; on a kit item: `item` keyword, `held` long, `target` long, `choice`
-keyword. Each must also pass `::se/entity` on save and draft restore.
+Targets are read from the pack definition (`equipment5e/packs` `:items`), never stored. `:kits` joins
+`picks/structural` so the Choices list does not report a kit as a missing choice (it lists every stored
+pick and flags any the template does not offer). The held-pick hold (`disqualified`, `overflow`) only
+looks at selections the template offers, so it never holds a kit.
 
 **Choosing a pack makes it real.** The pack option stops emitting its contents as build-time
 modifiers. Choosing it (builder event, and the picker) adds each item to the stored Equipment picks,
@@ -142,12 +141,12 @@ next save, like the other heals. Packs stored as a fixed class item (`:equipment
   only after a phone-width mockup is reviewed (ux-guide.md).
 - **2c, using items:** top-down use order, and #229 (quantities edited on the sheet).
 
-**Open before 2a:**
-1. When the starting class changes and the pack choice disappears, what happens to the pack's items?
-   Remove them up to what the kit still holds (subtract-if-there), keep them, or ask?
-2. Packs that come with a choice (Priest's "holy symbol", Monster Hunter's "holy symbol") need the
-   choice asked at materialize time; for the repair of an existing character, add the generic entry
-   and let the player pick later?
+**Decided before 2a (owner, 2026-10-22):**
+1. **Class change:** when the pack choice disappears, ask the player "Remove what the Explorer's Pack
+   added?", removing up to what the kit still holds; nothing goes silently.
+2. **A pack's own choice** (the Priest's and Monster Hunter's "holy symbol"): on repair, scan the
+   character's items. Exactly one holy symbol (amulet, emblem or reliquary) owned: that is the choice.
+   Several: ask. None: add the generic "Holy symbol" to pick later.
 
 ## Layout review, round 1 (2026-10-22, owner)
 

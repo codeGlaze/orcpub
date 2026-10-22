@@ -2845,7 +2845,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, alphabetical, container, item, items, kit, kits, leftovers, pack, packs, quantities, quantity, rations, refill, restock, starting, stored, torches
+**topics:** 2026-10-22, choice, container, holy, item, items, kit, kits, leftovers, pack, packs, quantities, quantity, rations, refill, restock, stored, torches
 
 - The problems today
 - The model
