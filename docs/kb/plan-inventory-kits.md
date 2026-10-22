@@ -149,6 +149,23 @@ next save, like the other heals. Packs stored as a fixed class item (`:equipment
    choice asked at materialize time; for the repair of an existing character, add the generic entry
    and let the player pick later?
 
+## Layout review, round 1 (2026-10-22, owner)
+
+The layout agent's "5a Kits, quieter" (tweaking_Kits_v1) is the base, with these rulings:
+
+- **Decreases take from the top kit first; spares last.** Kits then show what is low, so Restock stays a
+  useful shortcut. (Supersedes "sell or lose: leftovers first" in "The actions" above, which got the
+  owner's rule backwards.)
+- **Refill is per kit**, the kit tapped, not one Reorganize filling every kit in order.
+- **The empty-slot look stays:** a dashed tile with a faint icon when no pack is chosen, not only an
+  "Add a kit" link.
+- **What a kit shows:** every item whose target is more than 1, plus any item below its target (a lost
+  bedroll). No "used up" flag on items.
+- **Live buttons unchanged:** the light theme keeps its blue `.form-button`; amber in the drawing was a
+  shortcut.
+- **The drawing's inventory rows are not the app's:** the real rows (checkbox box, "Filter or browse"
+  search) stay unchanged, as the agent's own handoff says.
+
 ## The map: where equipment is written, read and saved (2026-10-22, `integration` `d51938c1`)
 
 Three read-only searches; the load-bearing claims re-checked by hand.

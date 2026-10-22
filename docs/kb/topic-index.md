@@ -2028,7 +2028,7 @@ _homebrew-keys-design · homebrew keys design_
 
 _homebrew-override · homebrew override_
 
-**topics:** armor-wearing, constraints, enforcement, expressed, icon, mug, overridable, override, per-item, per-selection, per-thing, restriction, select, selection, switch, systematically, tortle, waives
+**topics:** armor-wearing, attaches, constraints, enforcement, expressed, mug, overridable, override, per-item, per-selection, per-thing, restriction, select, selection, switch, systematically, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -2845,13 +2845,14 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, alphabetical, container, items, kit, kits, leftovers, pack, packs, quantities, quantity, rations, refill, restock, starting, stored, top-down, torches
+**topics:** 2026-10-22, alphabetical, container, item, items, kit, kits, leftovers, pack, packs, quantities, quantity, rations, refill, restock, starting, stored, torches
 
 - The problems today
 - The model
 - The actions
 - Phases
 - Phase 2 design (2026-10-22, before code)
+- Layout review, round 1 (2026-10-22, owner)
 - The map: where equipment is written, read and saved (2026-10-22, integration d51938c1)
 - Patterns to reuse
 - Open (owner)
@@ -3818,7 +3819,7 @@ _weapons-extra-damage-handoff · weapons extra damage handoff_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, theme, versatile, weapon, white
+**topics:** 2026-10-15, amber, blue, button, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, versatile, weapon, white
 
 - The parts and their names
 - Agreed
