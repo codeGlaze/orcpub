@@ -246,6 +246,12 @@ pools), so a swap writes to the build; it is not sheet-only state.
   in; Cancel changes nothing. Recommended (awaiting owner): open it only when the rest holds a choice
   (a mastery swap now; later others, such as a 2024 wizard's prepared spells, as sections of the same
   sheet), and keep today's one-tap rest for every other character.
+- **The panel is approved** (owner, 2026-10-21: "looks good"), as in round 6.
+- **No pop-up when a rest holds no choice** (owner, 2026-10-21: "what would a popup even show?").
+  Found: today a Long Rest is silent (`events.cljs` `::char5e/finish-long-rest` clears hit points,
+  slots and uses; nothing tells the player, and a mis-tap cannot be undone). Proposed: a quiet notice
+  "Long Rest finished · Undo" in the app's notice style for every rest without a choice; the sheet only
+  for a rest with one. Awaiting owner.
 - **Round 6:** three masteries fit one line at 390px (12px chips, 9.5px mastery letters, 4px gaps); the
   box takes the table's full width. The house-rule state may wrap. Chip × buttons need 44px tap areas
   when built.
