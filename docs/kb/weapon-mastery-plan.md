@@ -358,6 +358,12 @@ poison that takes effect at midnight). One resets at dusk: the Robe of Stars ("D
 removed stars reappear"), both editions. All other recharges are at dawn (36 mentions in the 2014
 items). No Dusk button; the robe's recharge stays text.
 
+**Idea from the owner, not yet decided (2026-10-22):** a slim, full-width time-of-day bar on mobile,
+"☀ Dawn | ☾ Dusk", to make those resets visible and prompt homebrewers to make items that use them.
+Needs: a `::units5e/dusk` period (spec, schema entry like dawn's, clear event), dawn and dusk offered as
+recharge choices in the item builder, and the Robe of Stars moved to dusk. Open: where it sits, and
+whether it shows for every character or only those with dawn or dusk items.
+
 ## Decisions for the owner
 
 1. **Topple's DC.** (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +
