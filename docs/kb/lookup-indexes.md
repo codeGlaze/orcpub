@@ -48,6 +48,35 @@ a party, a folder and an item each; the real queries from `routes.clj`; median o
 - The in-memory database flatters the scans: on the live storage a scan also pulls every segment
   of the attribute into the object cache.
 
+## Why `GET /user` runs so often (found 2026-10-22)
+
+`subs.cljs` registers `:user` with `reg-api-sub` (`api_subs.cljs`), a `reg-sub-raw` that issues the
+GET whenever a new subscription instance is created, i.e. each time a component that subscribes to
+`:user` (or `:following-users`, built on it) mounts after the last one unmounted. Navigation does
+that on most pages. **The response is discarded** (`:db-key :user` holds only the locally built
+`:following` list; the comment says "The response is not stored"), so the call acts as a token
+check that costs a full `find-user-by-username-or-email` scan each time. This breaks the
+"nothing loads until needed; then once, and cached" rule in AGENTS.md. Fix: fetch once per session
+(or per login) and keep it; a 401 on any other call already logs out.
+
+## Why one email lookup allocates ~1.2 KB per user
+
+`[?e :orcpub.user/email ?email-2] [(clojure.string/lower-case ?email-2) ?email]` cannot be answered
+from an index: the query engine first materialises every (entity, email) pair as a relation, then
+calls `lower-case` on each (a new String per user), binds the results into another relation and
+only then filters to the one match. All of it is garbage a few milliseconds later: churn, not a
+leak. A burst of sign-ins or resets with the heap near its cap is when that tips into an OOM.
+
+## Normalised email: separate field (decided direction, 2026-10-22)
+
+Common practice: keep the address as the person typed it (for display and sending) and look up and
+enforce uniqueness on a normalised copy (trimmed, lowercased). In SQL that is a functional index
+on `lower(email)` or a `citext` column; Datomic has no functional indexes, so a separate indexed
+attribute is the Datomic form. Rewriting stored addresses in place (e.g. Devise's downcase on save)
+also works but loses the original and is a live data rewrite. The separate field can later carry
+`:db/unique` (email has no uniqueness constraint today; see `docs/email-system.md` known issues),
+once existing duplicates are found and resolved.
+
 ## Fix, not yet done (owner decides after these numbers)
 
 1. `:db/index true` on the attributes above: a schema alteration added to `schema.clj`, applied on

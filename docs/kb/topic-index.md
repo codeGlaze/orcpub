@@ -1688,7 +1688,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, blindsight, damage, dueling, engine, fighting, great, interception, pool, predicate, prop, protection, style, styles, three-state, thrown, weapon
+**topics:** archery, attack, blindsight, damage, defense, dueling, fighting, great, interception, pool, predicate, prop, protection, style, styles, three-state, thrown, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -2240,10 +2240,13 @@ _locale-safety · locale safety_
 
 _lookup-indexes · lookup indexes_
 
-**topics:** 100k, 120, 2026-10-22, allocates, attribute, attributes, email, heap, indexed, lookup, lowercase, mixed-case, oom, plan-email-and-alerts, queries, threads, unindexed, username
+**topics:** 100k, 120, 2026-10-22, allocates, attribute, email, heap, indexed, indexes, lookup, lowercased, mixed-case, oom, plan-email-and-alerts, queries, sign-ins, unindexed, uniqueness
 
 - The cause
 - Measured
+- Why GET /user runs so often (found 2026-10-22)
+- Why one email lookup allocates ~1.2 KB per user
+- Normalised email: separate field (decided direction, 2026-10-22)
 - Fix, not yet done (owner decides after these numbers)
 
 ## memoize-antipattern-scan.md
@@ -2986,7 +2989,7 @@ _reagent-architecture-tenets · reagent architecture tenets_
 
 _reframe-subscription-patterns · reframe subscription patterns_
 
-**topics:** 401, api-backed, app-db, auth, auth-state-in-app-db, context, counter, decrement, deref, guard, http, loading, non-reactive, reaction, reactive, redirect, subscriptions, token
+**topics:** 401, api-backed, app-db, auth, auth-state-in-app-db, context, counter, decrement, deref, fire, guard, http, loading, non-reactive, reaction, reactive, redirect, subscriptions
 
 - reg-sub-raw HTTP Pattern
 - Lifecycle
@@ -3283,7 +3286,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, decided, elf, first-letter-plus-last-letter, initials, key, mint, minted, override, source, source-level, stone, tag, tidewater
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, muted, override, source, source-level, stone, tag, tidewater
 
 - What exists today
 - The proposal
