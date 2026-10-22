@@ -349,10 +349,9 @@ events test that a long rest clears dawn flips). The Dawn button clears them. Af
 without pressing Dawn, for a character with dawn items, the result line asks "Did dawn pass during the
 rest? ☀ Yes"; one tap clears dawn uses (and joins the rest's Undo). Pressed Dawn first: no question.
 
-**Rest bar: separate buttons, not a joined bar** (2026-10-22). Three joined buttons read as a segmented
-control (pick one), and its outlined Dawn segment as the unselected choice (the owner read Dawn as a
-toggle). Use three separate buttons with small gaps; Dawn outlined as a secondary action. Owner: only
-a fraction of players use dawn items, so stop polishing here.
+**Rest bar: V5, the joined bar, stays** (owner, 2026-10-22). Noted only, not a change: a joined bar
+can read as a pick-one segmented control (the owner asked whether Dawn was a toggle). Owner: only a
+fraction of players use dawn items, so stop polishing here.
 
 **Other reset times, checked 2026-10-22:** no item resets at midnight in either SRD (Midnight Tears is a
 poison that takes effect at midnight). One resets at dusk: the Robe of Stars ("Daily at dusk, 1d6
