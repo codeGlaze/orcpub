@@ -2830,7 +2830,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** alphabetical, backpack, camp, container, doff, items, kit, kits, leftovers, pack, packs, picker, refill, restock, starting-equipment, top-down, torches, total
+**topics:** 2026-10-22, alphabetical, backpack, camp, container, doff, items, kit, kits, leftovers, pack, packs, picker, rations, refill, restock, torches, total
 
 - The problems today
 - The model
@@ -3354,7 +3354,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, armor, conditions, counterpart, editions, magic, monsters, open5e, species, srd, text, weapons
+**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, conditions, counterpart, editions, gear, magic, monsters, open5e, species, srd, text, weapons
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -3802,7 +3802,7 @@ _weapons-table-spec · weapons table spec_
 
 _writing-browser-tests · writing browser tests_
 
-**topics:** 390px, click, clicking, desktop, dispatch, disposes, e2e-runner, fast-browser-probes, mastery, menus, phone, proven, pulse, run, stand-in, subscriptions, tab, view
+**topics:** 34px, 390px, click, clicking, desktop, dispatch, disposes, e2e-runner, fast-browser-probes, mastery, menus, phone, pulse, run, stand-in, subscriptions, tab, view
 
 - Start from a working test
 - 1. Load the character with the app's own event, not by clicking the builder

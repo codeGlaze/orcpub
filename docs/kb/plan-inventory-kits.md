@@ -66,10 +66,15 @@ stored: the same 13 torches split 10/3 or 3/10 depending on refill history.
 
 ## Phases
 
-1. **Storage.** Item totals per container (backpack only), replacing the keyed-map selections; picking
-   an item you already have adds to it. Converts saved characters once, on every load path (server,
-   browser draft, shared link, import), marked done so it never runs twice. Fixes the overwrite and
-   #138. Biggest risk; tested against real saved characters.
+1. **Storage, part A: gear.** Item totals per container (backpack only), replacing the keyed-map
+   selections; picking an item you already have adds to it. Converts saved characters once, on every
+   load path (server, browser draft, shared link, import), marked done so it never runs twice. Fixes the
+   overwrite and #138 (pack rations plus added rations show 10, not 11). Biggest risk; tested against
+   real saved characters.
+   **Part B: weapons and armor**, on the same structure, only after part A is proven in use (owner,
+   2026-10-22). Fixes #340 (two handaxes shown as one; the reporter asks for a count).
+   **Then #229** (edit quantities on the character sheet, not only in the builder): wanted, design to
+   be worked out when it is reached.
 2. **Packs as kits.** Starting-equipment pack choices and the picker create kits; counters, refill,
    restock, use order, delete, choices. Existing characters' chosen packs become kits in the phase 1
    conversion.
