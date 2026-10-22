@@ -118,6 +118,13 @@ The app's patterns and what each is for. When a better one is agreed, it replace
   in. No abstract canvases: the owner reviews on a phone.
 - One review page, one card per decision, two or three options each. The owner's ruling goes in the
   log below, with the date and the reason, in the same change.
+- Screenshots show what a player sees. A full-page capture is fine, but release the sticky header
+  first (`.sticky-header` to `position: static`): captured as-is it is painted across the middle of
+  the page and reads as a bug. A phone shot uses a phone context (`isMobile`, `hasTouch`, a phone
+  user agent), not just a narrow desktop window.
+- Mockup pages are laid out like the screen they show: one column at phone width, scrolling the way
+  the app does, desktop as a second view. Never a large free-form canvas to pan and zoom (owner,
+  2026-10-22: "a bear to navigate on a phone, not much better on PC").
 
 ## Decisions log
 
