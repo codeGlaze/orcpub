@@ -362,7 +362,10 @@ items). No Dusk button; the robe's recharge stays text.
 "☀ Dawn | ☾ Dusk", to make those resets visible and prompt homebrewers to make items that use them.
 Needs: a `::units5e/dusk` period (spec, schema entry like dawn's, clear event), dawn and dusk offered as
 recharge choices in the item builder, and the Robe of Stars moved to dusk. Open: where it sits, and
-whether it shows for every character or only those with dawn or dusk items.
+whether it shows for every character or only those with dawn or dusk items. Owner: after a Long Rest, a dusk item gets
+the same reminder as dawn ("During the rest, did ☀ Dawn pass / ☾ Dusk pass"). Mocked 2026-10-22:
+T1 bar above the rests, T2 below, T3 sky tint, T4 one bar Dawn | Short | Long | Dusk, T5 the bar names
+what each resets. The mockup's lilac is not a palette colour; use the themes' purple.
 
 ## Decisions for the owner
 

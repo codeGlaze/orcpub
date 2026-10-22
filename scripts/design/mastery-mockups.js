@@ -192,6 +192,23 @@ async function setup(page, phone) {
     .mk-yes{position:relative;display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 12px;border-radius:5px;border:1.5px solid #f0a100;
       background:none;color:#f0a100;font-weight:700;font-size:13px}
     .mk-yes::after{content:"";position:absolute;inset:-8px 0}
+    .mk-time{display:grid;grid-template-columns:1fr 1fr;border-radius:6px;overflow:hidden;border:1px solid rgba(230,233,238,.25)}
+    .mk-tb{position:relative;height:30px;border:0;background:rgba(255,255,255,.06);color:#e6e9ee;font-size:12.5px;font-weight:700;letter-spacing:.04em;
+      text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:7px}
+    .mk-tb::after{content:"";position:absolute;inset:-7px 0}
+    .mk-tb + .mk-tb{border-left:1px solid rgba(230,233,238,.25)}
+    .mk-tb .fa-sun{color:#f0a100} .mk-tb .fa-moon{color:#b9a7f0}
+    .mk-sky{border:0}
+    .mk-sky .mk-tb:first-child{background:linear-gradient(90deg,rgba(240,161,0,.35),rgba(240,161,0,.08))}
+    .mk-sky .mk-tb:last-child{background:linear-gradient(90deg,rgba(124,98,200,.08),rgba(124,98,200,.38));border-left:0}
+    .mk-tc{font-size:10.5px;font-weight:600;text-transform:none;letter-spacing:0;opacity:.7;margin-left:2px}
+    .mk-gap{margin-top:6px} .mk-gapt{margin-top:6px}
+    .mk-seg2c{grid-template-columns:1fr 1.2fr}
+    .mk-seg4{grid-template-columns:.9fr 1.1fr 1.2fr .9fr}
+    .mk-seg4 .mk-sg{font-size:12px;gap:4px}
+    .mk-dawnseg{color:#f0a100}
+    .mk-duskseg{color:#b9a7f0;border-left:1px solid rgba(26,30,40,.35)!important}
+    .mk-yesdusk{border-color:#b9a7f0;color:#b9a7f0}
     .mk-x{margin-left:auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:20px}
     .mk-sheet .mk-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);margin:0 auto 10px}
     .mk-line{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -428,18 +445,35 @@ const unstick = page => page.evaluate(() => { for (const el of document.querySel
           V3: `<div class="mk-g3">${dawnBtn}${short}<div class="mk-split"><button class="mk-b mk-split-top">Long Rest</button>${toggle('mk-split-bot')}</div></div>`,
           V4: `<div class="mk-g2 mk-tight">${dawnBtn.replace('mk-b mk-b2', 'mk-b mk-b2 mk-small')}${toggle()}</div>
                <div class="mk-g2">${short}${longB}</div>`,
+          T1: `@@TIME@@<div class="mk-seg mk-seg2c mk-gap">@@SR@@</div>`,
+          T2: `<div class="mk-seg mk-seg2c">@@SR@@</div><div class="mk-gapt">@@TIME@@</div>`,
+          T3: `@@SKY@@<div class="mk-seg mk-seg2c mk-gap">@@SR@@</div>`,
+          T4: `<div class="mk-seg mk-seg4">@@DAWNSEG@@<button class="mk-sg">Short Rest</button><button class="mk-sg mk-sg1">Long Rest</button>@@DUSKSEG@@</div>`,
+          T5: `@@COUNTS@@<div class="mk-seg mk-seg2c mk-gap">@@SR@@</div>`,
           F: `<div class="mk-seg">${dawnBtn.replace('mk-b mk-b2', 'mk-sg mk-sg2')}<button class="mk-sg">Short Rest</button><button class="mk-sg mk-sg1">Long Rest</button></div>`,
           V5: `<div class="mk-g3 mk-tight"><span></span><span></span>${toggle()}</div>
                <div class="mk-seg">${dawnBtn.replace('mk-b mk-b2', 'mk-sg mk-sg2')}<button class="mk-sg">Short Rest</button><button class="mk-sg mk-sg1">Long Rest</button></div>`
         };
+        const parts = {
+          TIME: '<div class="mk-time"><button class="mk-tb"><i class="fas fa-sun"></i>Dawn</button><button class="mk-tb"><i class="fas fa-moon"></i>Dusk</button></div>',
+          SKY: '<div class="mk-time mk-sky"><button class="mk-tb"><i class="fas fa-sun"></i>Dawn</button><button class="mk-tb"><i class="fas fa-moon"></i>Dusk</button></div>',
+          COUNTS: '<div class="mk-time"><button class="mk-tb"><i class="fas fa-sun"></i>Dawn<span class="mk-tc">2 items</span></button><button class="mk-tb"><i class="fas fa-moon"></i>Dusk<span class="mk-tc">Robe of Stars</span></button></div>',
+          SR: '<button class="mk-sg">Short Rest</button><button class="mk-sg mk-sg1">Long Rest</button>',
+          DAWNSEG: '<button class="mk-sg mk-sg2 mk-dawnseg"><i class="fas fa-sun"></i>Dawn</button>',
+          DUSKSEG: '<button class="mk-sg mk-sg2 mk-duskseg"><i class="fas fa-moon"></i>Dusk</button>'
+        };
+        for (const k of Object.keys(layouts)) for (const [name, html] of Object.entries(parts)) layouts[k] = layouts[k].split('@@' + name + '@@').join(html);
         box.className = 'mk-restbox bare';
         const ask = '<div class="mk-cundo"><i class="fa fa-history orange"></i><span>Long Rest finished</span><button class="mk-link">Undo</button></div>' +
           '<div class="mk-cask"><span>Did dawn pass during the rest?</span><button class="mk-yes"><i class="fas fa-sun"></i>Yes</button></div>';
-        box.innerHTML = layouts[variant] + (state === 'done' ? undo : state === 'ask' ? ask : '');
+        const askBoth = '<div class="mk-cundo"><i class="fa fa-history orange"></i><span>Long Rest finished</span><button class="mk-link">Undo</button></div>' +
+          '<div class="mk-cask"><span>During the rest, did</span><button class="mk-yes"><i class="fas fa-sun"></i>Dawn pass</button><button class="mk-yes mk-yesdusk"><i class="fas fa-moon"></i>Dusk pass</button></div>';
+        box.innerHTML = layouts[variant] + (state === 'done' ? undo : state === 'ask' ? ask : state === 'askboth' ? askBoth : '');
         row.after(box);
         return true;
       }, [variant, state]);
-      for (const [variant, state, file] of [['today', 'idle', 'R0-rest-today.png'], ['F', 'idle', 'RF1-bar.png'], ['F', 'ask', 'RF2-after-long-rest.png']]) {
+      for (const [variant, state, file] of [['today', 'idle', 'R0-rest-today.png'], ['T1', 'idle', 'RT1-above.png'], ['T2', 'idle', 'RT2-below.png'],
+                                            ['T3', 'idle', 'RT3-sky.png'], ['T4', 'idle', 'RT4-bookends.png'], ['T5', 'idle', 'RT5-what-resets.png'], ['T1', 'askboth', 'RT6-ask-both.png']]) {
         check(await rest(variant, state), `rest controls: ${variant} ${state}`);
         await page.evaluate(() => { const r = document.querySelector('[data-mk="rest"]'); r.scrollIntoView({ block: 'center' }); });
         await shot(page, file);
