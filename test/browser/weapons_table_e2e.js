@@ -19,7 +19,8 @@
 // the menu opens upward. Last, Weapon Mastery with made-up 5.5 data (this branch has none): a
 // trained longsword shows the Topple band, an untrained dagger shows none and says so when opened.
 // Then desktop at 1280px: Weapon, Details, To hit, Damage; properties in the Details column; 58x54
-// and 102x54 tiles under their headings; the ctrl/shift tooltip kept.
+// and 102x54 tiles under their headings; the ctrl/shift tooltip kept; a ctrl-click to-hit opens the result
+// as a card with both dice, the unused one struck.
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/weapons_table_e2e.js`). No login.
 // Runs in:   ~30s. SHOT_DIR=<dir> saves weapons-dark.png and weapons-light.png.
@@ -168,9 +169,10 @@ async function layout(page, theme) {
     const holyT = row('Holy Avenger, Longsword');
     await holyT.locator('.weapon-hit-tile').click();
     check('a to-hit opens the sheet with its d20', await shows(sheet, 'to hit') && await shows(sheet.locator('.weapon-sheet-d20'), 'd20 ['));
+    // the d20 is a real roll: on a natural 20 (1 run in 20) both labels say Critical
     check('it offers Damage first, then vs fiends and undead',
-          (await sheet.locator('.weapon-sheet-option').allInnerTexts().catch(() => [])).map(t => t.split('\n')[0]).join('|')
-            .startsWith('Damage|vs fiends and undead'));
+          /^(Critical damage|Damage)\|(Critical vs|vs) fiends and undead/.test(
+            (await sheet.locator('.weapon-sheet-option').allInnerTexts().catch(() => [])).map(t => t.split('\n')[0]).join('|')));
     await sheet.locator('.weapon-sheet-option', { hasText: 'vs fiends and undead' }).click({ timeout: 5000 }).catch(() => {});
     check('its damage reads one line per part, then the total',
           await shows(sheet, 'radiant \u00B7 vs fiends and undead') && await shows(sheet, 'Total damage'));
@@ -370,6 +372,11 @@ async function layout(page, theme) {
           `${dm.hitSizes} ${dm.dmgSizes}`);
     check('desktop: headings within 2px of their tiles, and it fits', dm.off <= 2 && dm.fits, `${dm.off}`);
     check('desktop: the ctrl/shift tooltip stays', dm.tooltips > 0);
+    await dsec.locator('.weapon-hit-tile').first().click({ modifiers: ['Control'], timeout: 5000 }).catch(() => {});
+    const card = dp.locator('.weapon-sheet.card');
+    check('desktop: a ctrl-click result is a card with both dice, the unused one struck',
+          await card.waitFor({ timeout: 5000 }).then(() => true, () => false)
+          && await card.locator('.weapon-sheet-d20 s').count() === 1 && await card.locator('.weapon-sheet-d20 b').count() === 1);
     const flameDesk = dsec.locator('.weapon-row').filter({ has: dp.locator('.weapon-name', { hasText: /^Flame Tongue, Longsword$/ }) });
     check('desktop: Flame Tongue\'s switches sit in Details, none under the row',
           await flameDesk.locator('.weapon-grey-line .weapon-switch').count() === 2
