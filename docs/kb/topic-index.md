@@ -437,7 +437,7 @@ _before-you-start · before you start_
 
 _blank-env-values · blank env values_
 
-**topics:** auto-verify, blank, bypass, configured, docker, email, empty, environ, environment, guard, instance, knowing, operator, opt-in, registration, send, smtp, unconfigured
+**topics:** account, auto-verify, blank, bypass, configured, docker, email, empty, environ, environment, guard, instance, knowing, operator, registration, send, smtp, unconfigured
 
 - Why it kept happening
 - What it cost
@@ -2224,7 +2224,7 @@ _lifting-mechanics-from-prose · lifting mechanics from prose_
 
 _locale-safety · locale safety_
 
-**topics:** 2026-10, 7231, case-folding, deterministic, dotless, english, english-locale, etag, locale, locale-independent, machine, pedestal-csp-history, protocol, spanish, survey, turkish, webjar, windows
+**topics:** 2026-10, 7231, case-folding, dotless, english, english-locale, etag, locale, locale-independent, machine, pedestal-csp-history, protocol, regional, spanish, survey, turkish, webjar, windows
 
 - 1. The ETag crash
 - Why only /assets/
@@ -2421,7 +2421,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _orcbrew-level-modifiers · orcbrew level modifiers_
 
-**topics:** 120, arrive, audits, consumed, driven, editor, grant, integer, keyword, level, level-modifier, presence, race, races, subclass, subclasses, trait, warden
+**topics:** arrive, audits, consumed, driven, editor, grant, integer, keyword, level, level-modifier, presence, race, races, racial, subclass, subclasses, trait, warden
 
 - Nothing validates the shape of a brew
 - Two grant vocabularies, with different shapes
@@ -2797,7 +2797,7 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** admin, alert, alerts, database, discord, docker, email, mail, outbox, retries, scheduler, send, sent, settings, shutdown, spool, swarm, webhook
+**topics:** admin, alert, alerts, artist, database, discord, docker, email, emails, mail, outbox, retries, sent, shutdown, spool, transaction, webhook, worker
 
 - The problem
 - Two kinds of email
@@ -2808,6 +2808,7 @@ _plan-email-and-alerts · plan email and alerts_
 - Docker, Compose and Swarm
 - Documentation
 - Admin alerts as built (stage 2, 2026-10-19)
+- The outbox as built (stage 3, 2026-10-22)
 - Tests the build must have, each seen failing first
 
 ## plan-hidden-pick-fix-and-grant-fields.md
@@ -3671,7 +3672,7 @@ _ux-guide · ux guide_
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
+**topics:** adjudicating, armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested

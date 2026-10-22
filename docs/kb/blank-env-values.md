@@ -223,6 +223,12 @@ exists"*, which is indistinguishable from someone who forgot they had an account
 Misattributed, not invisible. Worth remembering as a pattern: a bug whose symptom mimics
 ordinary user error can survive any amount of production time.
 
+**Superseded 2026-10-22 (`feature/email-and-alerts`, `fe7737c48`): there is no rollback now.**
+The account and its verification email are queued in one transaction (`orcpub.outbox`), so a
+failed send leaves the account with its email still waiting, and the outbox retries it.
+`registration_rollback_test.clj` became `registration_email_test.clj`. The rest of this
+section records the earlier fix.
+
 Fixed on `hotfix/locale-safety` (`e4a69649`), by the rollback the sibling flow already used
 — see `registration_rollback_test.clj`. The two callers need *different* rollbacks:
 `register` passes no `:db/id` so the entity is retracted, while `re-verify` passes an
@@ -249,8 +255,9 @@ with an error naming both remedies.
 Asked directly whether an attacker could turn the guard against a properly configured
 instance. Two things verified rather than argued:
 
-- **The guard keys on configuration, never on send outcome.** A failed send goes to the
-  rollback path; `verified? true` is only reachable when SMTP is unconfigured. Knocking the
+- **The guard keys on configuration, never on send outcome.** A failed send leaves the email
+  waiting in the outbox (until 2026-10-22: a rollback); `verified? true` is only reachable when
+  SMTP is unconfigured. Knocking the
   mail server over does **not** auto-verify anybody. This is the natural mistake to make and
   the one to keep not making.
 - **`environ.core/env` is a static `PersistentHashMap` built once at namespace load.**

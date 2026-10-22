@@ -2,8 +2,11 @@
 
 **Status:** being built on `feature/email-and-alerts` (from `integration` after #64 landed,
 approved by name). Done: stage 1 the settings report (`d8cdfb4a6`), stage 2 admin alerts
-(`3c16593e7`), their human docs (`f578c9b31`). Next: stage 3 the player outbox, 4 Docker (log
-rotation, the spool volume), 5 the Discord webhook (owner is wary: off unless set), 6 remaining docs. Replaces #65's own
+(`3c16593e7`), their human docs (`f578c9b31`), the settings lists and `.env` reading (see
+[settings-registry-and-boot-report.md](settings-registry-and-boot-report.md),
+[env-and-auth.md](env-and-auth.md)), stage 3 the player outbox (`fe7737c48`; `0c5446daa` before
+it holds only a test file's rename and does not load on its own). Next: 4 Docker (log rotation,
+the spool volume), 5 the Discord webhook (owner is wary: off unless set), then the PR. Replaces #65's own
 scheduler for artist credit notices, whose two CodeRabbit findings (a pending batch lost; a failed
 send never retried) were the starting point.
 
@@ -118,6 +121,36 @@ emails most likely to be sent while things are failing.
   a time and failed only its own test; "the request does not wait" was proven by making the
   alerter send inline, since the old code passed it vacuously (it sent nothing without
   `EMAIL_ERRORS_TO`).
+
+## The outbox as built (stage 3, 2026-10-22)
+
+- `orcpub.outbox`; schema `outbox-schema` (`:orcpub.outbox/*`), applied on every start like the rest.
+  `:message` (the postal map as EDN), `:to` and `:last-error` are `:db/noHistory`, so a sent and
+  retracted email leaves no copy of its links in history.
+- Callers add `(outbox/email-tx kind message)` to their transaction and call `(outbox/sent!)`
+  after it, which nudges the worker. Code with no transaction uses `enqueue!`; code with no
+  connection (artist emails) uses `enqueue-current!` (the component's connection).
+- Converted: sign-up and re-verify (`do-verification`), password reset, password changed (now in
+  the reset transaction), email change (verification to the new address + notice to the old, one
+  transaction), sign-in attempts (in its future), artist emails (`artist-email/send!`). The
+  character-load report still sends directly: its page reports the result to the player.
+- Worker: one single-thread executor, every 30 s and on every nudge; 10 per pass. Claim is one
+  transaction of two CAS ops: `status :pending -> :pending` and `claimed-until old -> now+10min`.
+  **The status CAS is load-bearing:** without it a worker with a stale view claims an email another
+  worker already sent and deleted (CAS on a retracted attribute with old value nil succeeds) and
+  sends an empty message. Found by the two-worker test; pinned by a deterministic stale-db test.
+- Retry gaps 1, 5, 30, 120, 360 min (+0-20% jitter); 8 attempts, then `:failed` + admin alert.
+  Permanent = an SMTP reply code >= 500 anywhere in the cause chain (read by reflection off
+  `getReturnCode`) or `AddressException`. postal 2.0.5 with a config map throws on failure.
+- **Reversal: sign-up's rollback is gone** (see [blank-env-values.md](blank-env-values.md)). A
+  notice that cannot be built (`routes/notice-tx`) is left out with a log line rather than blocking
+  the change; found when a test request without `:scheme` made the password reset fail.
+- Order: `:pedestal` and `:artist-accounts` depend on `:outbox`, so it is running before requests
+  and before artist welcome emails.
+- Tests: `outbox_test.clj` (9), `registration_email_test.clj` (4, replaces the rollback test), and
+  queued-email checks in `registration_no_email_test`, `email_change_test`, `routes_test`,
+  `artist_email_test`. Each outbox claim broken one at a time failed its test. Browser:
+  `scripts/e2e/auth-flows.js` 43 checks green against a real SMTP sink.
 
 ## Tests the build must have, each seen failing first
 
