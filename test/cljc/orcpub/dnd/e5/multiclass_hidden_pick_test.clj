@@ -220,7 +220,7 @@
 (deftest starting-equipment-survives-the-class-losing-first-place
   (let [fighter-1st [fighter-with-pack rogue-plain]
         rogue-1st   [rogue-plain fighter-with-pack]
-        pack        #{:backpack :bedroll :mess-kit :rations-1-day- :rope-hempen
+        pack        #{:backpack :bedroll :mess-kit :rations-1-day :rope-hempen
                       :tinderbox :torch :waterskin}]
 
     (testing "fighter first: its explorer's pack is on the sheet and its selections are offered"
