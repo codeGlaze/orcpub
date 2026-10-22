@@ -192,9 +192,9 @@
 ;; show it (homebrew not loaded). decision-gate-hidden-picks.md, "Agreed in review".
 
 (def ^:private structural
-  "Selections whose entries are the character's frame, not choices: a class's levels, and the
-   values the builder fills (hit points)."
-  #{:levels :hit-points})
+  "Selections whose entries are the character's frame, not choices: a class's levels, the values
+   the builder fills (hit points), and kits (plan-inventory-kits.md)."
+  #{:levels :hit-points :kits})
 
 (defn choices
   "Every pick `character` stores, as [{:address :section :name :status}]: `:status` :active when
