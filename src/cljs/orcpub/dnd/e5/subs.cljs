@@ -19,6 +19,8 @@
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.char-filter :as char-filter]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
+            [orcpub.dnd.e5.kits :as kits]
+            [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.party :as party5e]
             [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.monsters :as monsters5e]
@@ -232,6 +234,28 @@
  :character
  (fn [db _]
    (:character db)))
+
+;; What the Equipment step's Kits block shows: {:kits [{:pack :name :chest? :tracked
+;; :could-use-spare}] :questions :fillable :shares {item-key shares} :addable [pack]} (kits.cljc).
+(reg-sub
+ ::kits/panel
+ :<- [:character]
+ (fn [character _]
+   (let [active (kits/active-kits character)
+         shown (set (map ::entity/key active))]
+     {:kits (mapv (fn [kit]
+                    (let [pk (::entity/key kit)]
+                      {:pack pk
+                       :name (:name (kits/pack pk))
+                       :chest? (contains? (:items (kits/pack pk)) :chest)
+                       :tracked (kits/tracked kit)
+                       :could-use-spare (kits/restock-could-use-spare character pk)}))
+                  active)
+      :questions (kits/questions character)
+      :fillable (kits/fillable character)
+      :shares (into {} (for [k (distinct (mapcat #(map :key (kits/tracked %)) active))]
+                         [k (kits/shares character k)]))
+      :addable (vec (remove (comp shown :key) equipment5e/packs))})))
 
 (reg-sub
  :entity-values

@@ -39,6 +39,7 @@
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
+            [orcpub.dnd.e5.kits :as kits]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.db :refer [default-value
                                       set-item
@@ -406,7 +407,21 @@
 
 (reg-event-fx ::e5/settle-picks settle-picks-fx)
 
-(def character-interceptors [queue-settle
+(def queue-kit-repair
+  "After an edit to the character's Equipment picks or classes, queues `::kits/repair`, so a pack just
+   chosen becomes a kit outside the edit. The repair is idempotent, so its own edit settles at once."
+  (->interceptor
+   :id :queue-kit-repair
+   :after (fn [context]
+            (let [before (get-in context [:coeffects :db :character])
+                  edited (get-in context [:effects :db :character])
+                  moved? #(not (identical? (get-in before [::entity/options %]) (get-in edited [::entity/options %])))]
+              (if (and edited (or (moved? :equipment) (moved? :class)))
+                (update-in context [:effects :fx] (fnil conj []) [:dispatch [::kits/repair]])
+                context)))))
+
+(def character-interceptors [queue-kit-repair
+                             queue-settle
                              check-spec-interceptor
                              set-changed
                              (path :character)
@@ -2600,6 +2615,8 @@
         ;; is redone on every load.
         rewrote (into (vec former-rewrote) spell-rewrote)
         ;; After the heals, so it lists only what is still wrong.
+        ;; Packs chosen before kits existed become kits; kept by the next save, like the heals.
+        character (:character (kits/repair character))
         binding-report (content-recon/class-binding-report
                         character
                         (loaded-class-keys db)
@@ -3209,10 +3226,21 @@
      ;; the select keys here is to keep :equipped while wiping out the starting-equipment indicators
      (assoc (select-keys item-cfg [::char-equip5e/equipped?]) ::char-equip5e/quantity quantity))))
 
+(defn change-inventory-item-quantity-with-kits
+  "`change-inventory-item-quantity`, plus for gear: a decrease is taken from the kits first, top kit
+   first (kits.cljc)."
+  [character [_ selection-key item-index quantity :as event]]
+  (let [pick (get-in character [::entity/options selection-key item-index])
+        before (kits/total character (::entity/key pick))
+        changed (change-inventory-item-quantity character event)]
+    (if (and (= :equipment selection-key) (number? quantity) (< quantity before))
+      (kits/take-from-kits changed (::entity/key pick) (- before quantity))
+      changed)))
+
 (reg-event-db
  :change-inventory-item-quantity
  character-interceptors
- change-inventory-item-quantity)
+ change-inventory-item-quantity-with-kits)
 
 (defn change-custom-inventory-item-quantity [character [_ custom-equipment-key item-index quantity]]
   (update-in
@@ -3233,7 +3261,25 @@
 (reg-event-db
  :remove-inventory-item
  character-interceptors
- event-handlers/remove-inventory-item)
+ (fn [character [_ selection-key item-key :as event]]
+   (cond-> (event-handlers/remove-inventory-item character event)
+     (= :equipment selection-key) (kits/clear-item item-key))))
+
+(reg-event-db
+ ::kits/repair
+ character-interceptors
+ (fn [character _] (:character (kits/repair character))))
+
+(reg-event-db
+ ::kits/act
+ character-interceptors
+ (fn [character [_ action & args]]
+   (:character (apply kits/act character action args))))
+
+(reg-event-db
+ ::kits/undo
+ character-interceptors
+ (fn [_ [_ before]] before))
 
 (defn remove-custom-inventory-item [character [_ custom-equipment-key name]]
   (update-in

@@ -2492,11 +2492,8 @@
                        :prereq-fn (first-class? class-kw)})]})
       (t/option-cfg
        {:name (-> equipment :name (str (if (> num 1) (str " (" num ")") "")))
-        :modifiers (if (:items equipment)
-                     (map
-                      (fn [[kw num]]
-                        (modifiers/equipment kw num))
-                      (:items equipment))
+        ;; A pack adds nothing here: choosing it makes a kit of real picks (kits.cljc).
+        :modifiers (when-not (:items equipment)
                      [(modifiers/equipment k num)])}))))
 
 (defn class-equipment-options [equipment-choices class-kw]

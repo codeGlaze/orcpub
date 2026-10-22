@@ -1281,7 +1281,8 @@
                     :help (when (or description
                                   page)
                             (inventory-help description page source))
-                    :modifiers [(modifier-fn key item)]})))
+                    ;; A pack's pick stands for its kit; its items are picks of their own (kits.cljc).
+                    :modifiers (when-not (:items item) [(modifier-fn key item)])})))
               items)}))
 
 ;; dead — all amazon affiliate frame defs are #_ discarded

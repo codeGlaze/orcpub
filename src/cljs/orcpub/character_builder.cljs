@@ -36,6 +36,7 @@
             [orcpub.dnd.e5.display :as disp5e]
             [orcpub.dnd.e5.portrait :as portrait5e]
             [orcpub.dnd.e5.equipment :as equip5e]
+            [orcpub.dnd.e5.kits :as kits]
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
@@ -448,7 +449,8 @@
                  qty-input-width
                  check-fn
                  qty-change-fn
-                 remove-fn]}]
+                 remove-fn
+                 note]}]
       [:div.p-5
        [:div.f-w-b.flex.align-items-c
         [:div.pointer.m-l-5.m-r-5
@@ -468,6 +470,7 @@
          {:class (str "input m-l-5 m-t-0 w-" (or qty-input-width 60))}]
         [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
          {:on-click remove-fn}]]
+       (when note [:div.f-s-11.f-w-n.m-l-30 note])
        (when @expanded? [:div.m-t-5 item-description])])))
 
 (defn add-inventory-item-fn [key]
@@ -772,6 +775,163 @@
 
 (def make-inventory-item (memoize make-inventory-item-fn))
 
+(defn- share-line
+  "The line under a gear row that a kit shows: each kit's share, then the spare stock, from
+   `kits/shares`. A low share is orange and bold."
+  [{ks :kits spare :spare}]
+  (into [:span]
+        (interpose
+         [:span.opacity-6 " · "]
+         (concat
+          (for [{:keys [pack held target low?]} ks]
+            (let [text (str (kits/short-name pack) " " held "/" target)]
+              (if low? [:span.orange.f-w-b text] [:span.opacity-6 text])))
+          (when (pos? spare) [[:span.opacity-6 (str spare " spare")]])))))
+
+(defonce ^:private kit-undo
+  ;; The last kit action's {:message :before :after}; its Undo line shows while the character is
+  ;; still :after, so any other edit clears it. Transient UI state nothing else reads.
+  (r/atom nil))
+
+(defn- kit-icon
+  "The icon of a kit's tile: the chest for a pack that comes in one, else the backpack."
+  [chest? size]
+  [views5e/svg-icon (if chest? "open-treasure-chest" "backpack") size])
+
+(defn- kit-act!
+  "Applies the kit action `action` with `args` to `character` and, when it has a message, offers
+   Undo for it."
+  [character action & args]
+  (let [{after :character message :message} (apply kits/act character action args)]
+    (reset! kit-undo (when (seq message) {:message message :before character :after after}))
+    (dispatch (into [::kits/act action] args))))
+
+(defn- kit-row
+  "One kit: its tile and name (tap for Use first and Remove kit), what it holds, Restock when it is
+   low, and Restock's question when spare stock could fill it."
+  []
+  (let [menu? (r/atom false)
+        asking? (r/atom false)]
+    (fn [character top? {:keys [pack name chest? tracked could-use-spare]}]
+      (let [low? (some :low? tracked)
+            toggle #(swap! menu? not)]
+        [:div
+         [:div.kit-row
+          [:div.kit-tile.pointer {:on-click toggle} [kit-icon chest? 32]]
+          [:div.kit-text.pointer {:on-click toggle}
+           [:div.kit-name.f-w-b.f-s-14 name]
+           (into [:div.f-s-12]
+                 (interpose
+                  [:span.opacity-6 " · "]
+                  (for [{:keys [key held target low?]} tracked
+                        :let [nm (:name (equip5e/equipment-map key))]]
+                    (if low?
+                      [:span.orange.f-w-b (str nm " " held "/" target)]
+                      [:span.opacity-6 (str nm " " held)]))))]
+          (when (and low? (not @asking?))
+            [:button.form-button
+             {:on-click #(if (seq could-use-spare)
+                           (reset! asking? true)
+                           (kit-act! character :restock pack :all-new))}
+             "Restock"])]
+         (when @menu?
+           [:div.kit-indent.flex.flex-wrap
+            (when-not top?
+              [:button.link-button.underline.f-s-14
+               {:on-click #(do (reset! menu? false) (kit-act! character :use-first pack))}
+               "Use first"])
+            [:button.link-button.underline.f-s-14
+             {:on-click #(do (reset! menu? false) (kit-act! character :remove pack))}
+             "Remove kit (keep items)"]])
+         (when (and @asking? low?)
+           [:div.kit-indent.f-s-12
+            [:div (str "You already have " (kits/list-label could-use-spare) " that no kit holds.")]
+            [:div.flex.flex-wrap.align-items-c
+             [:button.form-button.m-r-5
+              {:on-click #(do (reset! asking? false) (kit-act! character :restock pack :mine-first))}
+              "Use mine first"]
+             [:button.link-button.underline.f-s-14
+              {:on-click #(do (reset! asking? false) (kit-act! character :restock pack :all-new))}
+              "All new"]
+             [:button.link-button.underline.f-s-14 {:on-click #(reset! asking? false)} "Cancel"]]])]))))
+
+(defn- kit-question
+  "A question a kit needs answered: a pack no longer chosen (remove what it added, or keep it), or
+   a pack's own choice (which holy symbol)."
+  [character {:keys [kind pack group options]}]
+  (let [pack-name (:name (kits/pack pack))]
+    [:div.kit-well.f-s-12
+     (case kind
+       :orphan
+       [:<>
+        [:span (str "Remove what the " pack-name " added?")]
+        [:div.flex
+         [:button.link-button.underline.f-s-14
+          {:on-click #(kit-act! character :resolve-orphan pack :remove)} "Remove"]
+         [:button.link-button.underline.f-s-14
+          {:on-click #(kit-act! character :resolve-orphan pack :keep)} "Keep"]]]
+       :choice
+       [:<>
+        [:span (str "Which " (s/lower-case (:name (equip5e/equipment-map group) (name group)))
+                    " for the " pack-name "?")]
+        (into [:div.flex.flex-wrap]
+              (for [k options]
+                [:button.link-button.underline.f-s-14
+                 {:on-click #(kit-act! character :answer-choice pack group k)}
+                 (:name (equip5e/equipment-map k))]))])]))
+
+(defn- kits-block
+  "The Kits block above the Equipment list (plan-inventory-kits.md): each kit with its counts,
+   Restock and menu; questions kits need answered; Reorganize when spare stock could fill a kit; the
+   last action's Undo; and Add a kit's pack picker."
+  []
+  (let [picker? (r/atom false)]
+    (fn []
+      (let [character @(subscribe [:character])
+            {ks :kits :keys [questions fillable addable]} @(subscribe [::kits/panel])
+            undo @kit-undo]
+        [:div.m-b-10
+         [:div.flex.justify-cont-s-b.align-items-c
+          [:div
+           [:div.f-w-b.f-s-14 "Kits"]
+           (when (> (count ks) 1) [:div.f-s-12.opacity-5 "Spending uses the top kit first"])]
+          [:button.link-button.orange.f-s-14 {:on-click #(swap! picker? not)}
+           [:span.underline "Add a kit"] [:i.fa.fa-plus-circle.m-l-5.f-s-16]]]
+         (when @picker?
+           (if (empty? addable)
+             [:div.f-s-12.opacity-5.m-t-5 "Every pack is already a kit."]
+             (into [:div]
+                   (for [{pk :key nm :name items :items} addable]
+                     ^{:key pk}
+                     [:button.kit-pack-option
+                      {:on-click #(do (reset! picker? false) (kit-act! character :add pk))}
+                      [kit-icon (contains? items :chest) 24]
+                      [:div
+                       [:div.f-w-b.f-s-14 nm]
+                       [:div.f-s-12.opacity-7 (kits/tracks-label pk)]]]))))
+         (if (empty? ks)
+           [:div.kit-row.pointer {:on-click #(reset! picker? true)}
+            [:div.kit-tile.kit-tile-empty [kit-icon false 32]]
+            [:span.f-s-14.opacity-5 "Add a kit"]]
+           (doall
+            (map-indexed
+             (fn [i kit] ^{:key (:pack kit)} [kit-row character (zero? i) kit])
+             ks)))
+         (for [q questions] ^{:key (str (:kind q) (:pack q))} [kit-question character q])
+         (when (seq fillable)
+           [:div.kit-well.f-s-12
+            [:span (str (kits/list-label fillable)
+                        (if (and (= 1 (count fillable)) (= 1 (second (first fillable)))) " isn't" " aren't")
+                        " in a kit yet.")]
+            [:button.link-button.underline.f-s-14 {:on-click #(kit-act! character :reorganize)}
+             "Reorganize"]])
+         (when (and undo (= character (:after undo)))
+           [:div.flex.align-items-c.justify-cont-s-b.f-s-12.m-t-5
+            [:span (:message undo)]
+            [:button.link-button.underline.f-s-14
+             {:on-click #(do (reset! kit-undo nil) (dispatch [::kits/undo (:before undo)]))}
+             "Undo"]])]))))
+
 (defn make-custom-inventory-item [custom-equipment-key qty-input-width]
   (fn [i {:keys [::char-equip5e/name
                  ::char-equip5e/quantity
@@ -799,18 +959,26 @@
         item-map @(subscribe item-map-sub)
         selected-keys (set (map ::entity/key selected-items))
         options (entity/selection-options selection)
-        magic-weapons (= key :magic-weapons)]
+        gear? (= key :equipment)
+        shares (when gear? (:shares @(subscribe [::kits/panel])))
+        ;; A pack's pick stands for its kit, shown in the Kits block, not as a row.
+        rows (keep-indexed (fn [i item] (when-not (and gear? (kits/pack (::entity/key item))) [i item]))
+                           selected-items)]
     [:div
+     (when gear? [kits-block])
      [inventory-adder key options selected-keys]
-     (when (seq selected-items)
+     (when (seq rows)
        [:div.flex.f-s-12.opacity-5.m-t-10.justify-cont-s-b
         [:div.m-r-10 "Carried?"]
         [:div.m-r-30 "Quantity"]])
      [:div
       (doall
-       (map-indexed
-        (make-inventory-item key item-map qty-input-width)
-        selected-items))]
+       (for [[i item] rows
+             :let [row ((make-inventory-item key item-map qty-input-width) i item)
+                   share (get shares (::entity/key item))]]
+         (if share
+           (update row 1 assoc :note [share-line share])
+           row)))]
      (when custom-equipment-key
        [:div
         [:div

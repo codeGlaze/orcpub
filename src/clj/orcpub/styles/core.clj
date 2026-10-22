@@ -1978,6 +1978,29 @@
       [(s/& (s/nth-child :even))
        {:background-color "rgba(255, 255, 255, 0.1)"}]]]
 
+    ;; Kits on the Equipment step (plan-inventory-kits.md). Colours follow the text colour, so
+    ;; every theme draws them without its own rule.
+    [:.kit-row {:display :flex :align-items :center :gap "10px" :min-height "48px" :padding "4px 0"}]
+    [:.kit-tile
+     {:flex "0 0 48px" :width "48px" :height "48px" :border-radius "8px"
+      :display :flex :align-items :center :justify-content :center
+      :border "1px solid color-mix(in srgb, currentColor 30%, transparent)"
+      :background-color "color-mix(in srgb, currentColor 6%, transparent)"}]
+    [:.kit-text {:flex "1 1 auto" :min-width 0}]
+    [:.kit-name {:white-space :nowrap :overflow :hidden :text-overflow :ellipsis}]
+    [:.kit-indent {:padding-left "58px"}]
+    [:.kit-tile-empty {:border-style :dashed :background-color :transparent :opacity 0.6}]
+    [:.kit-well
+     {:display :flex :align-items :center :justify-content :space-between :gap "8px"
+      :padding "0 0 0 10px" :margin-top "8px" :border-radius "5px"
+      :border "1px solid color-mix(in srgb, currentColor 30%, transparent)"
+      :background-color "color-mix(in srgb, currentColor 6%, transparent)"}]
+    [:.kit-pack-option
+     {:display :flex :align-items :center :gap "8px" :width "100%" :min-height "44px"
+      :padding "6px 10px" :margin-top "5px" :border-radius "5px" :text-align :left
+      :color :inherit :font :inherit :background :none :cursor :pointer
+      :border "1px solid color-mix(in srgb, currentColor 50%, transparent)"}]
+
     [:.builder-option
      {:border-width (px 1)
       :border-style :solid

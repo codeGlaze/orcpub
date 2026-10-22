@@ -10,6 +10,7 @@
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.equipment :as equipment5e]
+            [orcpub.dnd.e5.kits :as kits]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.spell-lists :as sl5e]
             [orcpub.dnd.e5.weapons :as weapons5e]
@@ -32,9 +33,12 @@
 
 (defn- fighter-with
   "Built level 1 fighter with the starting-equipment picks `class-picks` (selection key to option key)
-   and the stored inventory picks `stored` (selection key to entries). Returns the built character."
+   and the stored inventory picks `stored` (selection key to entries), its packs made into kits as on
+   load. Returns the built character."
   [class-picks stored]
   (entity/build
+   (:character
+    (kits/repair
    {::entity/options
     (merge
      {:ability-scores {::entity/key :standard-roll
@@ -44,7 +48,7 @@
                ::entity/options (merge {:levels [{::entity/key :level-1
                                                    ::entity/options {:hit-points {::entity/key :average ::entity/value 5}}}]}
                                        (update-vals class-picks (fn [k] [{::entity/key k}])))}]}
-     stored)}
+     stored)}))
    @the-template))
 
 (defn- fighter

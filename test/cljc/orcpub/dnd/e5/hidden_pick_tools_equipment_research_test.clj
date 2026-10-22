@@ -158,13 +158,12 @@
 ;; ---------------------------------------------------------------- D3: chosen starting equipment
 
 (def ^:private d3-cases
-  "[label class-kw stored-picks] — each pick is a chosen starting item."
+  "[label class-kw stored-picks] — each pick is a chosen starting item. No pack: choosing one stores
+   its items as picks of their own (kits.cljc), which class order cannot hide."
   [["weapon pick (weapon-option-2)" :bard {:starting-equipment-weapon (pick :rapier)}]
    ["any simple weapon (weapon-option-2 :simple -> weapon-options)" :bard
     {:starting-equipment-weapon (nested :any-simple-weapon :starting-equipment-simple-weapon :club)}]
    ["armor pick (armor-option)" :cleric {:starting-equipment-armor (pick :scale-mail)}]
-   ["equipment pack (equipment-option :items)" :bard
-    {:starting-equipment-equipment-pack (pick :diplomats-pack)}]
    ["musical instrument (equipment-option plain)" :bard
     {:starting-equipment-musical-instrument (pick :shawm)}]
    ["arcane focus group (equipment-option :values, nested)" :sorcerer
