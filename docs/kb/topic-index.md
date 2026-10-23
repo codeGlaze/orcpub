@@ -2584,7 +2584,7 @@ _pdf-generation-architecture · pdf generation architecture_
 
 _pdf-namespace-family · pdf namespace family_
 
-**topics:** 540, acroform, beast, caller, card, cards, companion, consumer, coordinate, drawing, frame, inches, primitives, private, public, region, spellbook, svg
+**topics:** 540, acroform, beast, caller, card, cards, companion, consumer, coordinate, frame, inches, ornament, primitives, private, public, region, spellbook, svg
 
 - Verdict on the starting hypothesis
 - 1. Inventory
@@ -2772,7 +2772,7 @@ _plan-character-drafts · plan character drafts_
 
 _plan-charges-and-casting · plan charges and casting_
 
-**topics:** 2026-10-23, beads, cast, casting, casts, charges, damage, dawn, dice, fireball, fireballs, item, regain, rolls, spell, spells, srd-improvements, staff
+**topics:** 2026-10-23, beads, cast, casting, charges, damage, dawn, dice, fireball, fireballs, item, necklace, regain, rolls, spell, spells, srd-improvements, staff
 
 - What exists (verified)
 - The connecting idea

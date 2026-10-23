@@ -85,7 +85,16 @@ On `feature/weapons-table` (owner: "just finish building it here"):
    free casts (Staff of the Magi, Staff of the Woodlands: no charge), and charged effects that are not
    spells (Ring of the Ram, Staff of Striking: spend counts, no cast). Once-per-dawn weapon powers
    stay on `::mi/recharge` until step 4, where the + menu's "used" moves to the pool.
-4. **Charges on the sheet:** pips, counts, spending; magic weapon powers draw from the pool.
+4. **Charges on the sheet: first part done.** `19cdb7e9`: charges save with the character as one
+   component record per item in a stack, `::char-equip5e/charges` [{`charge-index` `charges-used`
+   `charges-max`}] (`schema.clj`). **Not tuples:** a Datomic tuple needs at least 2 values, so a single
+   wand's `[6]` is rejected ("Invalid tuple value"); padding was rejected too (the save path strips
+   empty values, and a padded 0 reads as a real 0). Necklace of Fireballs beads added. `a7e27468`:
+   Other Magic Items shows pips per item (tap lit to spend, dim to get back), a count with − and + over
+   10, and roll-or-type for a dice start (`views.cljs` `item-charges`; events
+   `::char5e/change-item-charges`, `::char5e/set-item-charges-max`); `item_charges_e2e.js`, 11 checks,
+   each seen failing. **Still to do here:** magic weapon powers (`::mi/recharge`, the + menu) drawing
+   from the pool.
 5. **Rest box** per the handoff: Features tab, time of day, Now, rests, the question, result line,
    Undo; regain rolls with type-your-own.
 6. **Casting from items:** `::mi/casts` data for the 30 items, the Cast button and charge-priced
