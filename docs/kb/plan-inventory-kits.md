@@ -181,6 +181,24 @@ other edit). Gear rows a kit tracks get the share line (`Explorer's 7/10 · 3 sp
 nothing yet: paying from coins is later. Styles: `.kit-*` in `styles/core.clj`, coloured from
 `currentColor` so every theme draws them.
 
+## Reuse audit (2026-10-23, before more kit work)
+
+Read against `feature/inventory-kits` `f2e7f7d2`. What the kit code built that the app already has:
+
+| Kit code | Existing code that does the job | Verdict |
+|---|---|---|
+| `.kit-well` boxes: Reorganize, Restock's question, the orphan and holy-symbol questions, the Undo line | `notifications/callout` (text, link actions, `:compact?` with the invisible 44px tap layer, `:tone :note`) | Replace; the spacing fix under review is what `callout-compact` already does |
+| `kit-undo` r/atom | `::e5/restore-notice` (db state, Undo/Redo in a compact callout, `picks-notice`) | Follow that pattern: db, not a view atom |
+| "Add a kit" pack picker, `.kit-pack-option` | The Equipment "Filter or browse" combobox already lists every pack, and picking one makes the kit | Drop the second picker; the empty slot can open the combobox |
+| `choice-groups` | `equipment5e/equipment-map` `:holy-symbol {:values ...}`; `options.cljc` `equipment-group-choosers` | Read the existing group data |
+| `kits/pluralize`, `count-label` | `display.cljc` `unit-amount-description` + `plural-map` | Reuse for the plurals; containers ("flasks of oil") are new |
+| `kits/add-item`, `remove-items`, `pick-qty` | `event-handlers/add-inventory-item` (no summing), `change-inventory-item-quantity` | One inventory API in `event_handlers.cljc` that sums, used by the picker and kits |
+| `queue-kit-repair` interceptor | `queue-settle` -> `::e5/settle-picks`, the existing after-the-edit step | Run the kit repair as a step of settle, not a second follow-up |
+| Orphan question, `:removed` marker | Starting items carry `::class-starting-equipment?`; `remove-starting-equipment` drops them on a class change, and an edited quantity drops the flag so it survives | Flag a pack's items the same way; the owner's "ask first" becomes a choice about that one existing path |
+
+New and kept: the kit record (`held`, targets from the pack), and the rules on it (refill, restock,
+top-kit-first, the share line).
+
 ## Layout review, round 1 (2026-10-22, owner)
 
 The layout agent's "5a Kits, quieter" (tweaking_Kits_v1) is the base, with these rulings:

@@ -2883,7 +2883,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, equipment, gear, holy, items, kit, kits, leftovers, pack, packs, quantities, quantity, rations, refill, reorganize, restock, stored, torches
+**topics:** 2026-10-22, equipment, gear, holy, items, kit, kits, leftovers, pack, packs, picker, quantities, quantity, rations, refill, reorganize, restock, torches
 
 - The problems today
 - The model
@@ -2891,6 +2891,7 @@ _plan-inventory-kits · plan inventory kits_
 - Phases
 - Phase 2 design (2026-10-22, before code)
 - Built: 2a wiring and 2b kit panel (2026-10-22, feature/inventory-kits)
+- Reuse audit (2026-10-23, before more kit work)
 - Layout review, round 1 (2026-10-22, owner)
 - The map: where equipment is written, read and saved (2026-10-22, integration d51938c1)
 - Patterns to reuse
