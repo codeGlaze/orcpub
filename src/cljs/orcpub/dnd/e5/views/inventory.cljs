@@ -223,8 +223,8 @@
 (defn inventory-combobox
   "Filter-and-pick dropdown for selection `key`: a `popover=\"auto\"` list anchored under its input
    (browser top layer, light dismiss, Escape), every match rendered, rows mounted only while open.
-   `preset`, optional, is an atom a caller fills with {:label :keys :open? true} to list only those
-   item keys under a removable label and open the list; × or a pick clears it."
+   `preset`, optional, is an atom a caller fills with {:label :keys :notes :open? true} to list just
+   those item keys (picked or not; :notes beside them) under a removable label; × or a pick clears it."
   []
   (let [query     (r/atom "")
         active    (r/atom -1)
@@ -238,12 +238,13 @@
                     (reset! el* el)
                     (when el (.addEventListener el "beforetoggle" on-toggle)))]
     (fn [key options selected-keys & [preset]]
-      (let [{only :keys label :label} (some-> preset deref)
+      (let [{only :keys label :label notes :notes} (some-> preset deref)
             items    (vec (common/aloof-sort-by
                            :name
-                           (sequence (comp (remove (inventory-option-selected? selected-keys))
-                                           (map name-and-key)
-                                           (filter #(or (nil? only) (contains? only (:key %)))))
+                           (sequence (if only
+                                       (comp (map name-and-key) (filter #(contains? only (:key %))))
+                                       (comp (remove (inventory-option-selected? selected-keys))
+                                             (map name-and-key)))
                                      options)))
             kname    (clojure.core/name key)
             pop-id   (str "inv-pop-" kname)
@@ -311,7 +312,8 @@
                  [:div.inv-combo-row
                   {:class (when (= i @active) "active")
                    :on-click #(pick! item-key)}
-                  (highlight-match item-name q)])
+                  (highlight-match item-name q)
+                  (when-let [note (get notes item-key)] [:span.opacity-7.m-l-5 note])])
                matches))])
           (when (pos? n)
             [:div.inv-combo-hint
@@ -462,7 +464,7 @@
    `budget` is the summary line's width in characters."
   []
   (let [open? (r/atom false)]
-    (fn [top? asking budget {:keys [pack name chest? tracked could-use-spare holds]}]
+    (fn [top? asking budget {:keys [pack name chest? tracked could-use-spare holds pack-count bought]}]
       (let [low? (some :low? tracked)
             toggle #(swap! open? not)
             close-then #(do (reset! open? false) (dispatch %))]
@@ -471,7 +473,7 @@
           [:div.kit-tile.pointer {:on-click toggle} [kit-icon chest? 32]]
           [:button.kit-summary {:on-click toggle :aria-expanded @open?}
            [:div.kit-name-line
-            [:span.kit-name.f-w-b.f-s-16 name]
+            [:span.kit-name.f-w-b.f-s-16 (str name (when (> pack-count 1) (str " \u00d7" pack-count)))]
             [:i.fa.m-l-5.f-s-12 {:class (if @open? "fa-caret-up" "fa-caret-down") :aria-hidden true}]]
            [contents tracked budget]]
           (when low?
@@ -492,6 +494,10 @@
                                   (remove :low? tracked))))
             (when-not top?
               [:div [quiet-link "Move to top" #(close-then [::inventory/act :move-to-top pack])]])
+            (when (and (> pack-count 1) (pos? bought))
+              [:div.kit-remove
+               [quiet-link "Remove one pack" #(close-then [::inventory/act :remove-one pack])]
+               [:div.f-s-12.opacity-7 "Items stay in inventory"]])
             [:div.kit-remove
              [quiet-link "Remove kit" #(close-then [::inventory/act :remove pack])]
              [:div.f-s-12.opacity-7 "Items stay in inventory"]]
@@ -516,11 +522,12 @@
               :actions (for [k options] [(:name (equip5e/equipment-map k)) (kit-act :answer-choice pack group k)])}])))
 
 (defn- packs-preset
-  "The search box's preset for the kit shortcuts: every equipment pack not already a kit in `ks`
-   (the panel's kits)."
+  "The search box's preset for the kit shortcuts: every equipment pack, those already kits in `ks`
+   (the panel's kits) noted \"You have N\"; picking one of those adds another pack to its kit."
   [ks]
   {:label "Packs" :open? true
-   :keys (into #{} (comp (map :key) (remove (set (map :pack ks)))) equip5e/packs)})
+   :keys (set (map :key equip5e/packs))
+   :notes (into {} (for [{:keys [pack pack-count]} ks] [pack (str "You have " pack-count)]))})
 
 (defn- kits-block
   "The Kits block above the Equipment list (plan-inventory-kits.md): each kit; questions kits need

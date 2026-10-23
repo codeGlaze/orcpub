@@ -3186,7 +3186,10 @@
  :add-inventory-item
  character-interceptors
  (fn [character [_ selection-key item-key]]
-   (event-handlers/add-inventory-item character selection-key item-key)))
+   ;; Gear already in the list gets one more (a second pack bumps its kit), never a second row.
+   (if (and (= :equipment selection-key) (pos? (inventory/total character item-key)))
+     (inventory/add-item character item-key 1)
+     (event-handlers/add-inventory-item character selection-key item-key))))
 
 (defn toggle-inventory-item-equipped [character [_ selection-key item-index]]
   (common/toggle-in

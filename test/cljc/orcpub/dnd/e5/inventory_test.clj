@@ -243,3 +243,36 @@
     (is (= "Removed Explorer's Pack and Torch 5 · Rations 10." message))
     (is (= 23 (qty (:character (inventory/act c :remove :explorers-pack)) :torch))
         "plain Remove kit keeps its items")))
+
+(deftest two-of-a-pack-make-one-kit-of-two
+  (testing "a second pack bought bumps the kit and adds its items"
+    (let [one (:character (inventory/repair {::entity/options {:equipment [(gear :explorers-pack 1)]}}))
+          two (:character (inventory/repair (set-qty one :explorers-pack 2)))
+          kit (first (inventory/kits two))]
+      (is (= 2 (inventory/kit-count kit)))
+      (is (= 20 (qty two :torch)))
+      (is (= 2 (qty two :bedroll)))
+      (is (= 20 (get (inventory/held kit) :torch)) "held at full for both")
+      (is (= [20 20] (map :target (inventory/tracked kit))) "torch and rations targets double")
+      (is (inventory/untouched? two :explorers-pack))
+      (is (= [[:torch 6]] (inventory/deficits (inventory/take-from-kits two :torch 6) :explorers-pack))
+          "Restock refills to the doubled target")
+      (is (= [:explorers-pack] (map ::entity/key (inventory/kits two))) "one kit, not two")
+      (is (= two (:character (inventory/repair two))) "repair runs once")))
+  (testing "a starting choice and a bought pack count together"
+    (let [c (:character (inventory/repair (fighter-choosing :explorers-pack [(gear :explorers-pack 1)])))]
+      (is (= 2 (inventory/kit-count (first (inventory/kits c)))))
+      (is (= 20 (qty c :torch)))))
+  (testing "Remove one pack: the count drops, its items stay, unbundled"
+    (let [two (:character (inventory/repair {::entity/options {:equipment [(gear :explorers-pack 2)]}}))
+          {r :character message :message} (inventory/act two :remove-one :explorers-pack)]
+      (is (= 1 (inventory/kit-count (first (inventory/kits r)))))
+      (is (= 20 (qty r :torch)) "items stay")
+      (is (= 10 (inventory/spare r :torch)) "the dropped pack's share is unbundled")
+      (is (= "Removed one Explorer's Pack. Items stay in inventory." message))
+      (is (= r (:character (inventory/repair r))) "repair agrees with the new count")))
+  (testing "a pack's own choice scales with the count"
+    (let [two (:character (inventory/repair {::entity/options {:equipment [(gear :monster-hunters-pack 2)]}}))
+          answered (inventory/answer-choice two :monster-hunters-pack :holy-symbol :emblem)]
+      (is (= 2 (qty answered :emblem)))
+      (is (empty? (inventory/questions answered #{}))))))

@@ -44,16 +44,23 @@
   [kit]
   (into {} (map (juxt ::entity/key ::entity/value)) (get-in kit [::entity/options :held])))
 
-(defn targets
-  "What the kit `kit` holds when full, as item key -> count, in the pack's order. A choice group
-   stands for the member the kit holds; an unanswered group is left out."
+(defn kit-count
+  "How many packs the kit `kit` stands for: its stored number, else 1."
   [kit]
-  (let [h (held kit)]
+  (let [v (::entity/value kit)] (if (pos-int? v) v 1)))
+
+(defn targets
+  "What the kit `kit` holds when full, as [[item-key count]] in the pack's order: the pack's
+   amounts times `kit-count`. A choice group stands for the member the kit holds; an unanswered
+   group is left out."
+  [kit]
+  (let [h (held kit)
+        c (kit-count kit)]
     (into []
           (keep (fn [[k n]]
                   (if-let [members (choice-groups k)]
-                    (when-let [m (some #(when (members %) %) (keys h))] [m n])
-                    [k n])))
+                    (when-let [m (some #(when (members %) %) (keys h))] [m (* n c)])
+                    [k (* n c)])))
           (:items (pack (::entity/key kit))))))
 
 (defn- equipment-picks
@@ -181,6 +188,39 @@
 
 (declare deficits resolve-orphan tracked)
 
+(defn source-count
+  "How many of pack `pack-key` `character` has: one per starting-equipment choice of it, plus the
+   quantity of its Equipment picks."
+  [character pack-key]
+  (+ (count (for [{pk :pack a :address} (chosen-packs character)
+                  :when (and (= pk pack-key) (not= :equipment (peek (pop a))))]
+              a))
+     (total character pack-key)))
+
+(defn set-kit-count
+  "`character` with the kit for `pack-key` standing for `n` packs. Going up adds each extra pack's
+   items and holds them; going down lowers the targets, and what the kit held above them becomes
+   unbundled. A pack's choice (holy symbol) follows the member the kit already holds."
+  [character pack-key n]
+  (let [kit (get (kits character) (kit-index character pack-key))
+        from (kit-count kit)
+        h (held kit)
+        per-pack (keep (fn [[k q]]
+                         (if-let [members (choice-groups k)]
+                           (when-let [m (some #(when (members %) %) (keys h))] [m q])
+                           [k q]))
+                       (:items (pack pack-key)))
+        grown (if (> n from)
+                (reduce (fn [c [k q]]
+                          (let [more (* q (- n from))]
+                            (-> (add-item c k more)
+                                (update-kit pack-key #(set-held % k (+ (get (held %) k 0) more))))))
+                        character per-pack)
+                (reduce (fn [c [k q]]
+                          (update-kit c pack-key #(set-held % k (min (get (held %) k 0) (* q n)))))
+                        character per-pack))]
+    (update-kit grown pack-key #(assoc % ::entity/value n))))
+
 (defn offered-packs
   "The packs the character's first class grants or offers in its starting equipment, read from the
    built `template`: its fixed items, and every option under its `:starting-equipment` selections.
@@ -233,28 +273,33 @@
             (active-kits character))))
 
 (defn repair
-  "`character` with a kit materialized for every chosen pack that has none (removed kits count),
-   claiming a pack's choice when exactly one answer is owned and leaving it to `questions`
-   otherwise; and removed kits whose pack is no longer chosen dropped. With `offered`
-   (`offered-packs`), an untouched kit whose pack is no longer chosen, nor offered by a pack choice
-   still open, goes quietly.
-   Returns {:character c :ask [{:pack k :group g :options ks}]}; idempotent."
+  "`character` with every chosen pack made a kit (a pack's choice claimed when one answer is owned,
+   else left to `questions`), each kit's pack count kept to its sources (`set-kit-count`), removed
+   kits whose pack is gone dropped, and with `offered` (`offered-packs`) untouched kits whose pack is
+   gone and not offered dropped quietly. Returns {:character c :ask [{:pack :group :options}]};
+   idempotent."
   [character & [offered]]
   (let [{c :character :as acc}
         (reduce
-         (fn [{:keys [character] :as acc} {pk :pack}]
-           (if (kit-index character pk)
-             acc
+         (fn [{:keys [character] :as acc} pk]
+           (if-let [i (kit-index character pk)]
+             (let [kit (get (kits character) i)
+                   n (source-count character pk)]
+               (cond-> acc
+                 (and (not (removed? kit)) (pos? n) (not= n (kit-count kit)))
+                 (assoc :character (set-kit-count character pk n))))
              (let [groups (filter choice-groups (keys (:items (pack pk))))
                    answers (into {} (map (juxt identity #(group-choice character %))) groups)
                    opts {:chosen (into {} (for [[g a] answers :when (:one a)] [g (:one a)]))
                          :owned (set (keep :one (vals answers)))
                          :skipped (set (for [[g a] answers :when (not (:one a))] g))}]
-               {:character (materialize character pk opts)
+               {:character (let [made (materialize character pk opts)
+                                 n (source-count made pk)]
+                             (cond-> made (> n 1) (set-kit-count pk n)))
                 :ask (into (:ask acc) (for [[g a] answers :when (:many a)]
                                         {:pack pk :group g :options (:many a)}))})))
          {:character character :ask []}
-         (chosen-packs character))
+         (distinct (map :pack (chosen-packs character))))
         chosen (sourced c)
         stale? #(and (removed? %) (not (chosen (::entity/key %))))]
     (cond-> acc
@@ -291,7 +336,8 @@
   "`character` with pack `pack-key`'s choice group `group` answered by gear `k`: an owned `k` is
    claimed, else one is added. Returns the character."
   [character pack-key group k]
-  (let [n (get-in (pack pack-key) [:items group] 1)
+  (let [n (* (get-in (pack pack-key) [:items group] 1)
+             (kit-count (some #(when (= pack-key (::entity/key %)) %) (kits character))))
         c (if (pos? (spare character k)) character (add-item character k n))]
     (update-kit c pack-key #(set-held % k n))))
 
@@ -450,13 +496,14 @@
     (repair c)))
 
 (defn tracked
-  "The items the kit `kit` shows: every target over 1, and any target it holds less of. Returns
-   [{:key k :held n :target t :low? b}] in the pack's order."
+  "The items the kit `kit` shows: every item a pack holds more than one of, and any it holds less
+   of than its target. Returns [{:key k :held n :target t :low? b}] in the pack's order."
   [kit]
-  (let [h (held kit)]
+  (let [h (held kit)
+        c (kit-count kit)]
     (vec (for [[k t] (targets kit)
                :let [n (get h k 0)]
-               :when (or (> t 1) (< n t))]
+               :when (or (> t c) (< n t))]
            {:key k :held n :target t :low? (< n t)}))))
 
 (defn shares
@@ -518,12 +565,12 @@
   (s/join " · " (map (fn [[k n]] (str (item-short-name k) " " n)) items)))
 
 (defn contents-line
-  "What a kit's summary line shows from `tracked` (`tracked`'s rows) within about `budget`
+  "What a kit's summary line shows from `rows` (`tracked`'s) within about `budget`
    characters (40 at 390px): low items, emptiest first once they would not fit, then folded counts.
    Returns {:low rows :more-low n :more-full n}, or {:full rows} when nothing is low."
-  [tracked budget]
-  (let [low (filter :low? tracked)
-        full (remove :low? tracked)
+  [rows budget]
+  (let [low (filter :low? rows)
+        full (remove :low? rows)
         label #(str (item-short-name (:key %)) " " (:held %) "/" (:target %))
         full-tag (when (seq full) (str "+" (count full) " full"))
         cost (fn [rows more] (+ (reduce + (map #(inc (count (label %))) rows))
@@ -573,6 +620,10 @@
              {:character (:character (add-kit character pk))
               :message (str (kit-name pk) " added")})
       :move-to-top {:character (apply use-first character args)}
+      :remove-one (let [[pk] args
+                        c (remove-items character pk 1)]
+                    {:character (set-kit-count c pk (max 1 (source-count c pk)))
+                     :message (str "Removed one " (kit-name pk) ". Items stay in inventory.")})
       :remove (let [[pk] args]
                 {:character (remove-kit character pk)
                  :message (str "Removed " (kit-name pk) ". Items stay in inventory.")})
