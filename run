@@ -1481,6 +1481,13 @@ if [ "$UPGRADE_MODE" = "true" ]; then
     check_env_conflict "$_var"
   done
 
+  if declare -F swarm_stack_lacks_transactor_host >/dev/null && swarm_stack_lacks_transactor_host "${SWARM_COMPOSE:-}"; then
+    echo ""
+    printf '%s!!! WARNING — review before starting !!!%s\n' "$color_yellow" "$color_reset"
+    printf '  %s• %s has no TRANSACTOR_HOST: Datomic will not start on Swarm (./run --swarm fixes it)%s\n' \
+      "$color_yellow" "$(basename "$SWARM_COMPOSE")" "$color_reset"
+  fi
+
   echo ""
   next "$(build_compose_cmd "docker compose up -d")"
   exit 0
@@ -1644,6 +1651,11 @@ NEXT
 fi
 
 # ---- Final status banner ----------------------------------------------------
+
+if declare -F swarm_stack_lacks_transactor_host >/dev/null && swarm_stack_lacks_transactor_host "${SWARM_COMPOSE:-}"; then
+  WARNING_MSGS+=("$(basename "$SWARM_COMPOSE") has no TRANSACTOR_HOST: Datomic will not start on Swarm (./run --swarm fixes it)")
+  ERRORS=$((ERRORS + 1))
+fi
 
 echo ""
 if [ "$ERRORS" -gt 0 ]; then
