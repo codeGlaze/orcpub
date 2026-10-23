@@ -97,6 +97,28 @@ On `feature/weapons-table` (owner: "just finish building it here"):
 On `srd52/develop`, separately: spell damage parts and casting options as data (srd-improvements.md).
 Then a cast rolls damage through the weapon roll engine.
 
+## Against open5e's data (checked 2026-10-23, clone at `~/projects/open5e-api`, `3d623fe3`)
+
+open5e has **no** charge, recharge, regain or casting fields. `MagicItem` (`api_v2/models/item.py`)
+holds: name, desc, category, rarity, `requires_attunement` + `attunement_detail`, size, weight, cost,
+links to a base `weapon` (214 of 499 srd-2014 rows) or `armor` (36), and the item's **object** stats:
+`armor_class`, `hit_points`, `hit_dice`, `damage_immunities` / `resistances` / `vulnerabilities`,
+`nonmagical_attack_*`. srd-2024 (760 rows) has the same fields. Charges live only in `desc`, the same
+as in our `magic_items.cljc`, so our fields add what neither source has.
+
+**Trap when the magic items are processed:** `damage_immunities` is set on all 499 rows (poison,
+psychic): that is the item as an object (objects are immune to poison and psychic damage), not
+something it grants its bearer. Mapping it to a modifier would make every magic item grant immunity.
+
+**Useful when processing:** the base-weapon and base-armor links (a +1 Battleaxe row per
+`srd_battleaxe-1/-2/-3`) match how this app keys variants (`:flame-tongue-longsword`); and
+attunement text is a separate field.
+
+**A charged item our scan missed:** Necklace of Fireballs ("1d6 + 3 beads", a 3rd-level fireball,
+DC 15, one level higher per extra bead) fits the model exactly as beads: `::charges-start "1d6+3"`, no
+recharge, a fireball cast from 3rd with `::cast-per-level 1`. The coverage test looks only for the word
+"charges"; beads (and the Necklace of Prayer Beads) need adding by hand.
+
 ## Decided (owner, 2026-10-23)
 
 - **Stacks: one pool per item.**

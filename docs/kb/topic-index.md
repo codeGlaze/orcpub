@@ -709,7 +709,7 @@ _character-naming · character naming_
 
 _character-rescue-console · character rescue console_
 
-**topics:** backup, bundle, colons, defences, delimiter, depth-aware, empty-keyword-corruption, healer, minified, parties, repair, scan, tool, transit, unpatched, unscoped, urls, xhr
+**topics:** backup, bundle, colons, defences, delimiter, depth-aware, empty-keyword-corruption, healer, minified, parties, repair, tool, transit, unpatched, unscoped, urls, user, xhr
 
 - 1. When a console tool is the right answer
 - 2. Triage: what the user actually reports
@@ -2488,7 +2488,7 @@ _page-load-budget · page load budget_
 
 _pdf-form-techniques · pdf form techniques_
 
-**topics:** 2026-09, appearance, artwork, attunement, bytes, card, field, fields, foot, page, pages, pdfbox, rank, rarity, sheet, stream, streams, widgets
+**topics:** 2026-09, appearance, artwork, bytes, card, cards, field, fields, foot, page, pages, pdfbox, rank, rarity, sheet, stream, streams, widgets
 
 - The one rule that explains most of the weirdness
 - Cloning a page without copying its artwork
@@ -2760,13 +2760,14 @@ _plan-character-drafts · plan character drafts_
 
 _plan-charges-and-casting · plan charges and casting_
 
-**topics:** cast, casting, casts, charges, damage, dawn, dice, item, parts, powers, regain, rolled, rolls, spell, spells, srd-improvements, staff, staffs
+**topics:** beads, cast, casting, casts, charges, damage, dawn, dice, fireball, fireballs, item, parts, regain, rolls, spell, spells, srd-improvements, staff
 
 - What exists (verified)
 - The connecting idea
 - Data
 - What the player sees
 - Build order
+- Against open5e's data (checked 2026-10-23, clone at ~/projects/open5e-api, 3d623fe3)
 - Decided (owner, 2026-10-23)
 - Open, for the owner
 
@@ -2904,7 +2905,7 @@ _plan-inventory-kits · plan inventory kits_
 
 _plan-lookup-indexes · plan lookup indexes_
 
-**topics:** add-test-user, approves, attribute, backfill, email, indexes, lookup-indexes, lookups, lowercase, lowercased, manage-user, old-schema, postgres, pro, queries, scan, schema, users
+**topics:** add-test-user, approves, attribute, backfill, email, indexes, lookup-indexes, lookups, lowercase, lowercased, manage-user, old-schema, postgres, pro, queries, register, schema, users
 
 - 1. Indexes (schema only, no data change)
 - 2. Lowercase email field
@@ -3118,7 +3119,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, class, dropdown, grant, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellcasting, spells
+**topics:** branch, caster, class, dropdown, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, prepares, reconciler, sibling, spellcasting, spells
 
 - The user's ask
 - Branch state — important
