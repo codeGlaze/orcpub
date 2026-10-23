@@ -408,6 +408,12 @@ start_server() {
 
     cd "$REPO_ROOT"
 
+    # When Java runs out of memory or crashes it leaves a heap dump or crash log in
+    # $LOG_DIR/app/crash, and the next start emails the admin (orcpub.crash-report). No
+    # exit-on-out-of-memory here: nothing would restart a bare-metal server.
+    mkdir -p "$LOG_DIR/app/crash"
+    export JVM_OPTS="${JVM_OPTS:-} -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$LOG_DIR/app/crash/heap.hprof -XX:ErrorFile=$LOG_DIR/app/crash/jvm-crash-%p.log"
+
     # Use headless mode if not running interactively (background/nohup)
     local rc=0
     if [[ "$(repl_mode)" == "interactive" ]]; then

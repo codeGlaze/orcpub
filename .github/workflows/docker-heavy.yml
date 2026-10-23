@@ -1,0 +1,156 @@
+# The slow checks of how the server is deployed: a real out-of-memory crash on bare metal and on
+# Docker Compose, and a real Docker Swarm deploy of the stack ./run generates. About 20 minutes.
+#
+# Runs when started by hand (Actions > Heavy Docker checks > Run workflow), and on pull requests
+# that change the files deployment depends on. A newer push to the same branch cancels the older
+# run. The label "heavy-docker: later" pauses it on a PR, with a comment saying so; removing the
+# label runs it.
+name: Heavy Docker checks
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [develop, integration]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - 'docker/**'
+      - 'docker-compose*.yaml'
+      - 'deploy/**'
+      - 'run'
+      - 'docker-user.sh'
+      - 'scripts/swarm.sh'
+      - 'scripts/load-env.sh'
+      - 'scripts/start.sh'
+      - 'src/clj/orcpub/crash_report.clj'
+      - 'src/clj/orcpub/alerts.clj'
+      - '.github/workflows/docker-heavy.yml'
+
+concurrency:
+  group: docker-heavy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  paused:
+    name: Paused by label
+    if: "github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'heavy-docker: later')"
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Say so on the PR
+        if: github.event.action == 'labeled'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} \
+            --body "Heavy Docker checks are paused by the \`heavy-docker: later\` label. Remove the label before merging: that runs them."
+
+  bare-metal:
+    name: Bare metal - out-of-memory leaves a heap dump and is reported
+    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Leiningen
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/2.10.0/bin/lein -o /usr/local/bin/lein
+          chmod +x /usr/local/bin/lein && lein version
+      - name: Run out of memory with the flags start.sh passes
+        run: |
+          CRASH="$PWD/logs/app/crash"; mkdir -p "$CRASH"
+          export JVM_OPTS="-Xmx64m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$CRASH/heap.hprof -XX:ErrorFile=$CRASH/jvm-crash-%p.log"
+          lein run -m clojure.main -e "(long-array 100000000)" && { echo "FAIL: it did not run out of memory"; exit 1; } || true
+          test -f "$CRASH/heap.hprof" || { echo "FAIL: no heap dump in $CRASH"; ls -la "$CRASH"; exit 1; }
+          echo "OK: heap dump written ($(du -h "$CRASH/heap.hprof" | cut -f1))"
+      - name: The next start reports it
+        run: |
+          OUT=$(lein run -m clojure.main -e "(require 'orcpub.crash-report) (orcpub.crash-report/report! [\"$PWD/logs/app/crash\"])" 2>&1)
+          echo "$OUT" | grep "alerts:"
+          echo "$OUT" | grep -q "ran out of memory" || { echo "FAIL: no crash alert"; exit 1; }
+          echo "OK: the crash was reported"
+
+  compose:
+    name: Docker Compose - out-of-memory exits, leaves a heap dump in /var/log, is reported
+    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ORCPUB_IMAGE: orcpub-app
+      DATOMIC_IMAGE: orcpub-datomic
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        env:
+          DOCKER_BUILDKIT: 0
+        run: |
+          docker build --target transactor -t orcpub-datomic -f docker/Dockerfile .
+          docker build --target app -t orcpub-app -f docker/Dockerfile .
+      - name: Start the stack
+        run: |
+          ./run --auto
+          docker compose up -d
+      - name: Wait for the app
+        run: bash .github/scripts/wait-healthy.sh compose
+      - name: Run out of memory inside the app container
+        run: |
+          docker compose exec -T -u app orcpub java -Xmx64m -cp /orcpub.jar clojure.main -e "(long-array 100000000)" \
+            && { echo "FAIL: it did not run out of memory"; exit 1; } || true
+          sudo test -f /var/log/orcpub/crash/heap.hprof || { echo "FAIL: no heap dump in /var/log/orcpub/crash"; sudo ls -la /var/log/orcpub/crash; exit 1; }
+          echo "OK: heap dump on the host"
+      - name: The next start reports it
+        run: |
+          docker compose restart orcpub
+          bash .github/scripts/wait-healthy.sh compose
+          docker compose logs orcpub | grep -E "crash-report:|alerts: \[jvm-crash" || { echo "FAIL: no crash report"; docker compose logs orcpub | tail -40; exit 1; }
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail 200
+
+  swarm:
+    name: Docker Swarm - ./run's stack deploys, runs as app, keeps files in /var/log
+    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        env:
+          DOCKER_BUILDKIT: 0
+        run: |
+          docker build --target transactor -t orcpub-datomic -f docker/Dockerfile .
+          docker build --target app -t orcpub-app -f docker/Dockerfile .
+      - name: Generate the Swarm stack with ./run
+        run: |
+          ./run --auto
+          ./run --swarm --auto
+          ls -la docker-compose.swarm.yaml
+          grep -n "/var/log:/host-log\|JDK_JAVA_OPTIONS" docker-compose.swarm.yaml
+      - name: Deploy it
+        run: |
+          docker swarm init 2>/dev/null || true
+          . scripts/load-env.sh && load_env .env
+          docker stack deploy -c docker-compose.swarm.yaml orcpub
+      - name: Wait for the app
+        run: bash .github/scripts/wait-healthy.sh swarm
+      - name: It runs as app and keeps its files in /var/log/orcpub
+        run: |
+          C=$(docker ps -q -f label=com.docker.swarm.service.name=orcpub_orcpub | head -1)
+          OWNER=$(docker exec "$C" stat -c %U /proc/1)
+          [ "$OWNER" = "app" ] || { echo "FAIL: Java runs as '$OWNER'"; exit 1; }
+          for d in /var/log/orcpub /var/log/orcpub/crash /var/log/orcpub/alerts; do
+            sudo test -d "$d" || { echo "FAIL: $d missing"; exit 1; }
+          done
+          echo "OK: Swarm task runs as app; /var/log/orcpub is on the host"
+      - name: Services on failure
+        if: failure()
+        run: |
+          docker stack ps orcpub --no-trunc || true
+          docker service logs orcpub_orcpub --tail 200 || true
