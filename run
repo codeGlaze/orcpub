@@ -737,6 +737,10 @@ if [ "$CHECK_MODE" = "true" ]; then
     WARNING_MSGS+=("DATOMIC_URL contains localhost")
     ERRORS=$((ERRORS + 1))
   fi
+  if declare -F warn_swarm_transactor_host >/dev/null && warn_swarm_transactor_host "${SWARM_COMPOSE:-}"; then
+    WARNING_MSGS+=("Swarm stack lacks TRANSACTOR_HOST")
+    ERRORS=$((ERRORS + 1))
+  fi
 
   echo ""
 
@@ -1416,6 +1420,13 @@ if [ "$UPGRADE_MODE" = "true" ]; then
       info "ORCPUB_IMAGE: ${_orcpub_img}"
       info "DATOMIC_IMAGE: ${_datomic_img}"
     fi
+  fi
+
+  # --- Check 8: Swarm stack written before TRANSACTOR_HOST ---
+  if [ "$SWARM_MODE" != "true" ] && declare -F swarm_stack_lacks_transactor_host >/dev/null \
+     && swarm_stack_lacks_transactor_host "${SWARM_COMPOSE:-}"; then
+    echo ""
+    warn_swarm_transactor_host "$SWARM_COMPOSE"
   fi
 
   echo ""

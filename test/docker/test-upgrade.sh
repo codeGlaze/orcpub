@@ -422,11 +422,23 @@ SWARMENV
   local backup="${SWARM_COMPOSE}.backup"
   sed -i '/TRANSACTOR_HOST/d' "$SWARM_COMPOSE"
   cp "$SWARM_COMPOSE" "$backup"
+  if swarm_stack_lacks_transactor_host "$SWARM_COMPOSE"; then
+    pass "${label}an older stack is reported as lacking TRANSACTOR_HOST"
+  else
+    fail "${label}an older stack is not reported"
+  fi
+  TESTS=$((TESTS + 1))
   extract_swarm_config "$SWARM_COMPOSE"
   generate_swarm_compose "$SWARM_COMPOSE" "true"
 
   if sed -n '/^  datomic:/,/^  [a-z]/p' "$SWARM_COMPOSE" | grep -q 'TRANSACTOR_HOST: "*0\.0\.0\.0'; then
     pass "${label}upgrade adds TRANSACTOR_HOST to an older stack"
+    if swarm_stack_lacks_transactor_host "$SWARM_COMPOSE"; then
+      fail "${label}a regenerated stack is still reported"
+    else
+      pass "${label}a regenerated stack is not reported"
+    fi
+    TESTS=$((TESTS + 1))
   else
     fail "${label}upgrade did not add TRANSACTOR_HOST"
   fi

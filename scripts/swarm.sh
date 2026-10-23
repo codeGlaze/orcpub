@@ -19,6 +19,26 @@ color_bold=$'\033[1m'
 color_dim=$'\033[2m'
 
 # ---------------------------------------------------------------------------
+# swarm_stack_lacks_transactor_host FILE
+# Succeeds when FILE exists and its datomic service sets no TRANSACTOR_HOST: a stack written
+# before that setting, on which the transactor cannot start under Swarm. Fails otherwise.
+swarm_stack_lacks_transactor_host() {
+  [ -f "$1" ] || return 1
+  ! sed -n '/^  datomic:/,/^  [a-z]/p' "$1" | grep -q 'TRANSACTOR_HOST'
+}
+
+# warn_swarm_transactor_host FILE
+# Prints what to do when FILE needs TRANSACTOR_HOST. Returns 0 when it warned, 1 when not.
+warn_swarm_transactor_host() {
+  swarm_stack_lacks_transactor_host "$1" || return 1
+  warn "  $(basename "$1"): the datomic service has no TRANSACTOR_HOST."
+  warn "  Datomic will not start on Swarm with this release until it does. Either:"
+  warn "    ./run --swarm   (regenerates the stack and keeps your changes; re-paste it into Portainer)"
+  warn "    or add  TRANSACTOR_HOST: 0.0.0.0  to the datomic service's environment"
+  return 0
+}
+
+# ---------------------------------------------------------------------------
 # extract_swarm_config — parse existing Swarm compose into shell variables
 # ---------------------------------------------------------------------------
 # Sets _swarm_* variables for use by generate_swarm_compose and
