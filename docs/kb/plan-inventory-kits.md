@@ -173,8 +173,9 @@ several owned asks among those. Exactly one owned is claimed, as decided. Confir
 
 **Panel** (layout agent's 5a with the round 1 rulings): Kits header, "Spending uses the top kit
 first" at two kits or more, Add a kit (pack picker, "Every pack is already a kit."), the dashed empty
-slot, kit rows (low targets orange `Torch 7/10`, full ones muted), Restock only when low, asking "Use
-mine first / All new / Cancel" when spare stock could fill it, tap a kit for Use first and Remove kit
+slot, kit rows (low targets orange `Torch 7/10`, full ones muted), Restock only when low, asking in a box under the kit
+"You have 3 spare torches. Use them first?" (Yes / No / Cancel; owner, 2026-10-22; Reorganize
+hides while it is open) when spare stock could fill it, tap a kit for Use first and Remove kit
 (keep items), the Reorganize line, and one Undo for Restock, Reorganize and Add a kit (cleared by any
 other edit). Gear rows a kit tracks get the share line (`Explorer's 7/10 · 3 spare`). Restock costs
 nothing yet: paying from coins is later. Styles: `.kit-*` in `styles/core.clj`, coloured from
