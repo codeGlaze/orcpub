@@ -413,6 +413,12 @@ See [`docs/DOC-CONVENTIONS.md`](docs/DOC-CONVENTIONS.md) for the three-tier stru
 6. **See `docs/ENTITY-BUILD.md`** for the character build pipeline architecture
 7. **`warlock_test.clj`** is the entity/build integration test — use it as a pattern
    for adding new build tests (e.g. other classes, multiclassing)
+8. **Deployment changes get the heavy Docker checks.** A change to a file listed under `paths:` in
+   `.github/workflows/docker-heavy.yml` (Dockerfile, compose, `./run`, `swarm.sh`, start scripts,
+   crash and alert code) sets off real out-of-memory and Swarm tests on its PR, about 20 minutes.
+   **Tell the owner before such a push, with the time.** Run them before asking for review:
+   `gh workflow run docker-heavy.yml --ref <branch>` (the pre-push hook prints this). They are not
+   part of the general suite. During rapid pushes, the PR label `heavy-docker: later` pauses them.
 
 ### Tests prove their fail state — MUST FOLLOW
 

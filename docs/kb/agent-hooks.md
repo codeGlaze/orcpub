@@ -8,7 +8,9 @@ at session start.
 
 - **Every hook lives in `.githooks/` on `agents/develop`.** Today: `commit-msg` (strips agent
   attribution trailers), `pre-commit` (the docstring gate in every worktree; the docs check where `scripts/check-docs.sh` exists),
-  `pre-push` (refuses an un-folded branch changelog onto integration, develop or main).
+  `pre-push` (refuses an un-folded branch changelog onto integration, develop or main; and, never
+  blocking, prints a heads-up when the push changes a file listed under `paths:` in
+  `.github/workflows/docker-heavy.yml`, with the command to run those checks; 2026-10-23).
 - **`scripts/agent-setup.sh` is the only thing that sets `core.hooksPath`.** It copies the hooks
   into `.git/agent-hooks/` and points `core.hooksPath` there. That directory is inside `.git`, so
   no branch can track or commit it, and `core.hooksPath` lives in the clone's shared config, so one

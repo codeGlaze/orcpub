@@ -281,7 +281,7 @@ _account-flows · account flows_
 
 _agent-hooks · agent hooks_
 
-**topics:** agent, armed, arming, docstring, gitignore, hook, hooks, installer, orcpub-garden, reminder, session, sessionstart, setup, stripper, trailer, transcript, worktree, worktrees
+**topics:** agent, armed, arming, docstring, gitignore, hook, hooks, installer, orcpub-garden, push, reminder, session, sessionstart, setup, trailer, transcript, worktree, worktrees
 
 - The rule
 - The entry point follows the same rule
