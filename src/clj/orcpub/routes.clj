@@ -46,6 +46,8 @@
             [orcpub.loading-spinner :as spinner]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw]
+            [orcpub.pdf.cards :as cards]
             [orcpub.portrait-render :as portrait-render]
             [orcpub.reset-key :as reset-key]
             [orcpub.portrait-pack.strands :as strands]
@@ -157,7 +159,7 @@
   '[:find ?e
     :in $ ?email
     :where [?e :orcpub.user/email ?stored]
-           [(clojure.string/lower-case ?stored) ?email]])
+           [(orcpub.common/ascii-lower-case ?stored) ?email]])
 
 (defn find-user-by-username-or-email [db username-or-email]
   (d/q
@@ -191,11 +193,11 @@
                          '{:find [?e]
                            :in [$ [?email ?password]]
                            :where [[?e :orcpub.user/email ?email-2]
-                                   [(clojure.string/lower-case ?email-2)
+                                   [(orcpub.common/ascii-lower-case ?email-2)
                                     ?email]
                                    [?e :orcpub.user/password ?enc]
                                    [(buddy.hashers/check ?password ?enc)]]}
-                         [(s/lower-case email) password])]
+                         [(common/ascii-lower-case email) password])]
     user))
 
 (defn lookup-user [db username password]
@@ -491,9 +493,9 @@
                             '{:find [?e]
                               :in [$ ?email]
                               :where [[?e :orcpub.user/email ?email-2]
-                                      [(clojure.string/lower-case ?email-2)
+                                      [(orcpub.common/ascii-lower-case ?email-2)
                                        ?email]]}
-                            (s/lower-case email))]
+                            (common/ascii-lower-case email))]
     user))
 
 (defn preferred-name-of
@@ -653,7 +655,7 @@
 (defn register [{:keys [json-params db conn remote-addr] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
         username (when username (s/trim username))
-        email (when email (s/lower-case (s/trim email)))
+        email (when email (common/ascii-lower-case (s/trim email)))
         password (when password (s/trim password))
         validation (registration/validate-registration
                     json-params
@@ -789,7 +791,7 @@
   "Create a JWT-signed unsubscribe token for embedding in email links.
    Stateless — no DB storage needed. Verified by checking JWT signature."
   [email]
-  (jwt/sign {:email (s/lower-case email) :action "unsubscribe"}
+  (jwt/sign {:email (common/ascii-lower-case email) :action "unsubscribe"}
             (signature-or-throw)))
 
 (defn unsubscribe
@@ -1068,6 +1070,14 @@
     (sequential? v) (take n v)
     :else v))
 
+(defn- collection-size
+  "Entries in `v`, counted the way bound-collection caps them; nil if it caps nothing."
+  [v]
+  (cond
+    (map? v) (reduce + 0 (map #(if (sequential? %) (count %) 0) (vals v)))
+    (sequential? v) (count v)
+    :else nil))
+
 (defn bound-request
   "Returns `fields` with everything caller-supplied capped, before any part of the export
    sees it. Acts on the REQUEST, so a feature added later that reads the body is bounded
@@ -1087,7 +1097,17 @@
     (reduce-kv (fn [m k v]
                  (if (past-ceiling? k)
                    m
-                   (assoc m k (bound-collection max-cards v))))
+                   (let [bounded (bound-collection max-cards v)
+                         before (collection-size v)
+                         after (collection-size bounded)]
+                     ;; Reported HERE, not in bound-cards: this runs first, so by the
+                     ;; time bound-cards counts, the list is already the cap and its
+                     ;; own check can never be true. The entries went in silence.
+                     (when (and before after (> before after))
+                       (errors/note! "Export size"
+                                     (format "%s: %d requested, %d printed -- the export is capped at %d"
+                                             (name k) before after max-cards)))
+                     (assoc m k bounded))))
                {} fields)))
 
 (defn- bound-cards
@@ -1101,6 +1121,9 @@
   (let [limit (config/get-pdf-max-cards)
         n (count cards)]
     (when (> n limit)
+      (errors/note! (str (common/ascii-capitalize kind) " cards")
+                    (format "%d requested, %d printed -- the export is capped at %d"
+                            n limit limit))
       (println (format "pdf: %d %s cards requested, printing the first %d"
                        n kind limit)))
     (take limit cards)))
@@ -1165,10 +1188,12 @@
                                     (str class))]
                                  (spellbook/spell-sort-key spell-order (spells-map key))))
                          flat-spells)
-          parts (vec (partition-all 9 sorted-spells))]
+          ;; Capacity, not 9: print-spells draws only as many as the page has cells,
+          ;; so a literal 9 drops the rest on any paper that holds fewer.
+          parts (vec (partition-all (draw/cards-per-page 2.5 3.5) sorted-spells))]
       (doseq [i (range (count parts))
               :let [part (parts i)]]
-        (let [page (PDPage.)]
+        (let [page (PDPage. (draw/page-rect))]
           (.addPage doc page)
           (with-open [cs (PDPageContentStream. doc page)]
             (let [spells (sequence
@@ -1186,7 +1211,7 @@
                                :attack-bonus (get spell-attack-mods class)})))
                           part)
                   remaining-desc-lines (vec
-                                        (pdf/print-spells
+                                        (cards/print-spells
                                          cs
                                          doc
                                          fonts
@@ -1198,13 +1223,14 @@
                                          print-spell-card-dc-mod?
                                          bw?
                                          bw-faded?))
-                  back-page (PDPage.)]
+                  back-page (PDPage. (draw/page-rect))]
               (with-open [back-page-cs (PDPageContentStream. doc back-page)]
                 (.addPage doc back-page)
-                (pdf/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
-                                 logo-img)))))))
+                (cards/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
+                                   logo-img)))))))
     (catch Exception e
-      (println "pdf: failed adding spell cards -" (.getMessage e)))))
+      (errors/note! "Spell cards"
+                    (str "could not be drawn and were left out (" (.getMessage e) ")")))))
 
 (defn add-magic-item-cards!
   "Appends card pages for `magic-items`, nine to a sheet, each with its back; the same layout
@@ -1213,20 +1239,23 @@
    add-spell-cards!."
   [doc fonts img magic-items logo-img bw? bw-faded?]
   (try
-    (let [parts (vec (partition-all 9 (bound-cards "magic item" magic-items)))]
+    (let [parts (vec (partition-all (draw/cards-per-page 2.5 3.5)
+                                    (bound-cards "magic item" magic-items)))]
       (doseq [i (range (count parts))
               :let [part (parts i)]]
-        (let [page (PDPage.)]
+        (let [page (PDPage. (draw/page-rect))]
           (.addPage doc page)
           (with-open [cs (PDPageContentStream. doc page)]
-            (let [remaining-desc-lines (vec (pdf/print-items cs doc fonts img 2.5 3.5
-                                                             part i bw? bw-faded?))
-                  back-page (PDPage.)]
+            (let [remaining-desc-lines (vec (cards/print-items cs doc fonts img 2.5 3.5
+                                                               part i bw? bw-faded?))
+                  back-page (PDPage. (draw/page-rect))]
               (with-open [back-page-cs (PDPageContentStream. doc back-page)]
                 (.addPage doc back-page)
-                (pdf/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
-                                 logo-img)))))))
-    (catch Exception e (println "pdf: failed adding magic item cards" e))))
+                (cards/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
+                                   logo-img)))))))
+    (catch Exception e
+      (errors/note! "Magic item cards"
+                    (str "could not be drawn and were left out (" (.getMessage e) ")")))))
 
 (defn- one-of
   "`v` as a keyword when it names one of `allowed` (keyword or string), else `default`."
@@ -1297,11 +1326,18 @@
           spells-known {:all (bound-cards "spellbook" (-> spells-known vals flatten))}]
       (spellbook/add-spellbook! doc fonts img opts spells-known spells-map))
     (catch Exception e
-      (println "pdf: failed adding the spellbook -" (.getMessage e)))))
+      (errors/note! "Spellbook"
+                    (str "could not be drawn and was left out (" (.getMessage e) ")")))))
 
 (def valid-sheet-styles
   "Style ids with a template on disk: resources/fillable-char-sheetstyle-N-*.pdf"
   #{1 2 3 4})
+
+(def valid-page-sizes
+  "Paper the export draws on: Letter, the default, and A4. Anything else falls back to
+   Letter. The character-sheet TEMPLATES are 612x792 whatever this says -- their
+   artwork is fixed, and fit-sheet-to-page! re-papers them onto A4."
+  #{:letter :a4})
 
 (def default-sheet-style 1)
 
@@ -1318,6 +1354,11 @@
     :print-spell-annotations? :spell-relabels :spell-headings :spell-layout
     :magic-items-known :print-magic-item-cards?
     :spellbook :spell-order
+    :page-size
+    ;; The composed portrait's bytes and its credit line. They are drawn, not written
+    ;; into a field, so leaving them here made write-fields! report two unplaceable
+    ;; values -- a notice page on every composed-portrait export.
+    :portrait-png :portrait-credit
     :flatten?})
 
 (def ^:private image-url-shape
@@ -1511,15 +1552,11 @@
   (some-> (get spells/spell-map (common/name-to-kw nm))
           spell-annotations/annotation))
 
-(defn- generate-character-pdf [req]
-  (let [fields (try
-                 (-> req :form-params :body edn/read-string bound-request)
-                 (catch Exception e
-                   (throw (ex-info "Invalid character data format. Unable to parse PDF request."
-                                   {:error :invalid-pdf-data}
-                                   e))))
-        
-        {:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? portrait-png portrait-credit spellbook spell-order]} fields
+(defn- generate-character-pdf*
+  "The export itself. `fields` is already parsed and bounded; the caller binds the page
+   and the notice collector around it."
+  [req fields]
+  (let [{:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? portrait-png portrait-credit spellbook spell-order page-size]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -1567,14 +1604,18 @@
     ;; PDFBox 3.x: Loader/loadPDF accepts byte[], File, or RandomAccessRead —
     ;; NOT InputStream. Read the resource stream into a byte array first.
     (with-open [doc (Loader/loadPDF (.readAllBytes input))]
-      ;; Fillable in every browser by default: write-fields! bakes real appearance streams, so
-      ;; values render everywhere and the form stays editable. `:flatten? true` gives a static PDF.
-      (let [fields (apply dissoc fields pdf-option-keys)]
-        ;; No prune: the masters are pruned by dev/prepare_templates.clj and growing only adds
-        ;; pages. add-missing-spell-pages! still prunes where it generates pages.
-        ;; Both run before write-fields!, so the fields they create or trim exist by then.
-        (pdf/grow-spell-sections! doc casters (if no-casters? :all marks))
-        (pdf/add-missing-spell-pages! doc fields (config/get-pdf-max-caster-sections))
+      ;; The document's one Nimbus Sans: every face loads once, when first drawn.
+      (let [sans (draw/load-sans doc)
+            ;; Fillable in every browser by default: write-fields! bakes real appearance streams, so
+            ;; values render everywhere and the form stays editable. `:flatten? true` gives a static PDF.
+            fields (apply dissoc fields pdf-option-keys)
+            ;; No prune: the masters are pruned by dev/prepare_templates.clj and growing only adds
+            ;; pages. add-missing-spell-pages! still prunes where it generates pages.
+            ;; Both run before write-fields!, so the fields they create or trim exist by then.
+            _ (pdf/grow-spell-sections! doc casters (if no-casters? :all marks))
+            _ (pdf/add-missing-spell-pages! doc fields (config/get-pdf-max-caster-sections))
+            ;; Once the template pages exist and before anything is drawn on them.
+            printed (pdf/site-line-pages doc (boolean prints-site-line?))]
         ;; Merge before spilling, so a style's shared box is measured as the one
         ;; value it prints rather than as its parts.
         (let [fields (pdf/merge-style-fields print-character-sheet-style? fields)]
@@ -1584,16 +1625,21 @@
           ;; bounds-checked against the sections this document actually grew.
           (when (seq spell-relabels)
             (let [[applied refused]
-                  (pdf/apply-relabel-instructions! doc spell-relabels casters
+                  (pdf/apply-relabel-instructions! doc sans spell-relabels casters
                                                    print-character-sheet-style?)]
               (when (pos? refused)
+                (errors/note! "Spell slot renumbering"
+                              (format "%d of %d instructions were not valid for this sheet style"
+                                      refused (+ applied refused)))
                 (println (format "pdf: refused %d of %d relabel instruction(s)"
                                  refused (+ applied refused))))))
           (when print-spell-annotations?
             (pdf/reserve-annotation-columns! doc))
-          (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes)
+          ;; The style's declared drops are not degradation -- see unsupported-fields.
+          (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes
+                             (get pdf/unsupported-fields print-character-sheet-style?))
           (when print-spell-annotations?
-            (pdf/annotate-spell-rows! doc spell-annotation))
+            (pdf/annotate-spell-rows! doc sans spell-annotation))
           ;; After the values, so a heading is drawn over a finished bar. Names
           ;; each packed column with the class holding it; caller-supplied, so the
           ;; box and section are checked the way the relabels are.
@@ -1601,95 +1647,131 @@
                   :when (and (integer? box) (<= 0 box 9)
                              (integer? section) (<= 1 section casters)
                              (string? class) (<= 1 (count class) 60))]
-            (pdf/draw-column-heading! doc print-character-sheet-style?
-                                      box section class heading))))
-      ;; After the pages exist, so clones are stamped too, and before the card
-      ;; pages are appended -- those carry the line on their backs already.
-      (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
-      ;; One set of fonts and one image embedder for the whole document. Both are
-      ;; per-document: a second load-fonts embeds a second subset of every face,
-      ;; and a second loader re-embeds the 998x998 card-back mark. Built only when
-      ;; a card page is actually coming, since a plain sheet needs neither.
-      (let [spell-cards? (and print-spell-cards? (seq spells-known))
-            item-cards? (and print-magic-item-cards? (seq magic-items-known))
-            book (when (seq spells-known) (spellbook-options spellbook character-name))
-            spell-order (one-of #{:level :alpha} spell-order :level)
-            fonts (when (or spell-cards? item-cards? book) (pdf/load-fonts doc))
-            img (when (or spell-cards? item-cards? book) (pdf/make-image-loader doc))]
-        ;; Order: sheet, spellbook, then cards.
-        (when book
-          (add-spellbook! doc fonts img book spells-known custom-spells))
-        (when spell-cards?
-          (add-spell-cards! doc fonts img spells-known spell-save-dcs spell-attack-mods
-                            custom-spells print-spell-card-dc-mod? card-back-logo-img
-                            bw? bw-faded? spell-order))
-        (when item-cards?
-          (add-magic-item-cards! doc fonts img magic-items-known card-back-logo-img
-                                 bw? bw-faded?)))
+            (pdf/draw-column-heading! doc sans print-character-sheet-style?
+                                      box section class heading)))
+        ;; After the overflow pages exist, so they are stamped too, and before the
+        ;; card pages are appended -- those carry the line on their backs already.
+        (pdf/stamp-site-line! doc sans site-line printed)
+        ;; Before the card and spellbook pages, which are already drawn at the right size:
+        ;; this re-papers the TEMPLATE pages only, and is a no-op on Letter.
+        (pdf/fit-sheet-to-page! doc)
+        ;; One set of fonts and one image embedder for the whole document. Both are
+        ;; per-document: a second load-fonts embeds a second subset of every face,
+        ;; and a second loader re-embeds the 998x998 card-back mark. Built only when
+        ;; a card page is actually coming, since a plain sheet needs neither.
+        (let [spell-cards? (and print-spell-cards? (seq spells-known))
+              item-cards? (and print-magic-item-cards? (seq magic-items-known))
+              book (when (seq spells-known) (spellbook-options spellbook character-name))
+              spell-order (one-of #{:level :alpha} spell-order :level)
+              fonts (when (or spell-cards? item-cards? book) (draw/load-fonts doc sans))
+              img (when (or spell-cards? item-cards? book) (draw/make-image-loader doc))]
+          ;; Order: sheet, spellbook, then cards.
+          (when book
+            (add-spellbook! doc fonts img book spells-known custom-spells))
+          (when spell-cards?
+            (add-spell-cards! doc fonts img spells-known spell-save-dcs spell-attack-mods
+                              custom-spells print-spell-card-dc-mod? card-back-logo-img
+                              bw? bw-faded? spell-order))
+          (when item-cards?
+            (add-magic-item-cards! doc fonts img magic-items-known card-back-logo-img
+                                   bw? bw-faded?)))
 
-      ;; Both images are resolved BEFORE either is drawn, fetched concurrently: a fetch holds an
-      ;; export slot, so in sequence two slow images would cost two worst cases.
-      ;; No pdf/safe-image-url? here: pdf/fetch-image validates through safe-image-bytes, pinned to
-      ;; the addresses it resolved. The regex stays; it refuses file:// and ftp:// without a lookup.
-      (let [wanted (fn [url failed?]
-                     (and url (not failed?) (well-formed-image-url? url) url))
-            ;; Bytes the browser read beat the URL and skip the fetch entirely.
-            ;; Both arms deref, so nothing below has to know which it got.
-            image (fn [supplied url failed?]
-                    (if-let [bytes (pdf/decode-image-bytes supplied)]
-                      (delay bytes)
-                      ;; probed-outcome, not fetch-image: the builder usually
-                      ;; asked about this URL a moment ago, and that answer is
-                      ;; cached.
-                      (some-> (wanted url failed?)
-                              (as-> u (future (:image (probed-outcome u)))))))
-            ;; A composed (paper-doll) portrait has no URL that could produce
-            ;; it -- the client bakes its CSS-mask layers -- and it arrives
-            ;; larger than an uploaded picture may be, so it goes through
-            ;; decode-artwork-bytes, which fits it instead of refusing it.
-            ;;
-            ;; Decoded eagerly rather than in a delay: it is local CPU with no
-            ;; network in it, and a delay that derefs to nil would be truthy
-            ;; here, so a portrait that failed to decode would suppress the
-            ;; pasted image-url that should have taken over.
-            composed (pdf/decode-artwork-bytes portrait-png)
-            portrait (if composed
-                       (delay composed)
-                       (image image-data image-url image-url-failed))
-            faction (image faction-image-data faction-image-url faction-image-url-failed)]
-        (when-let [{:keys [data jpg?]} (some-> portrait deref)]
-          (case print-character-sheet-style?
-            1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
-            2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
-            3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
-            4 (pdf/draw-image-bytes! doc (pdf/get-page doc 0) data jpg? 0.50 0.85 2.35 3.15))
-          ;; The credit is baked into the composed PNG itself now (see
-          ;; portrait/draw-credit!), so there is nothing to print here: a
-          ;; second drawn line landed 0.12in under the first and said the
-          ;; same thing.
-          )
-        (when-let [{:keys [data jpg?]} (some-> faction deref)]
-          (case print-character-sheet-style?
-            1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
-            2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
-            3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.0 1.905 1.52)
-            4 nil))
-        ;; Inside this let, so it can see whether the composed portrait was
-        ;; actually used. Keyed on the decode, not on the field being present:
-        ;; a portrait-png that fails to decode falls back to the pasted
-        ;; image-url above, and crediting the illustrator for somebody else's
-        ;; photograph is the one thing this feature must not do.
-        (stamp-document-info! doc {:character-name character-name
-                                   :credit (when composed portrait-credit)
-                                   :art-mark (when composed
-                                               (some-> (try (.decode (java.util.Base64/getDecoder) ^String portrait-png)
-                                                            (catch Exception _ nil))
-                                                       art-mark/mark-of))}))
-      (.save doc output))
+        ;; Both images are resolved BEFORE either is drawn, fetched concurrently: a fetch holds an
+        ;; export slot, so in sequence two slow images would cost two worst cases.
+        ;; No pdf/safe-image-url? here: pdf/fetch-image validates through safe-image-bytes, pinned to
+        ;; the addresses it resolved. The regex stays; it refuses file:// and ftp:// without a lookup.
+        (let [wanted (fn [url failed?]
+                       (and url (not failed?) (well-formed-image-url? url) url))
+              ;; Bytes the browser read beat the URL and skip the fetch entirely.
+              ;; Every arm derefs to {:image} or {:reason}, so nothing below has to
+              ;; know which it got; nil when no picture was asked for.
+              image (fn [supplied url failed?]
+                      (when-not (and (s/blank? (str supplied)) (s/blank? (str url)))
+                        (if-let [bytes (pdf/decode-image-bytes supplied)]
+                          (delay {:image bytes})
+                          ;; probed-outcome, not fetch-image: the builder usually
+                          ;; asked about this URL a moment ago, and that answer is
+                          ;; cached.
+                          (if-let [u (wanted url failed?)]
+                            (future (probed-outcome u))
+                            (delay {:reason (cond failed? :failed-in-builder
+                                                  (s/blank? (str url)) :unreadable
+                                                  :else :not-an-image-address)})))))
+              ;; A composed (paper-doll) portrait has no URL that could produce
+              ;; it -- the client bakes its CSS-mask layers -- and it arrives
+              ;; larger than an uploaded picture may be, so it goes through
+              ;; decode-artwork-bytes, which fits it instead of refusing it.
+              ;;
+              ;; Decoded eagerly rather than in a delay: it is local CPU with no
+              ;; network in it, and a delay that derefs to nil would be truthy
+              ;; here, so a portrait that failed to decode would suppress the
+              ;; pasted image-url that should have taken over.
+              composed (pdf/decode-artwork-bytes portrait-png)
+              portrait (if composed
+                         (delay {:image composed})
+                         (image image-data image-url image-url-failed))
+              faction (image faction-image-data faction-image-url faction-image-url-failed)]
+          (when-let [{:keys [data jpg?]} (some-> portrait deref :image)]
+            (case print-character-sheet-style?
+              1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
+              2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
+              3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
+              4 (pdf/draw-image-bytes! doc (pdf/get-page doc 0) data jpg? 0.50 0.85 2.35 3.15))
+            ;; The credit is baked into the composed PNG itself now (see
+            ;; portrait/draw-credit!), so there is nothing to print here: a
+            ;; second drawn line landed 0.12in under the first and said the
+            ;; same thing.
+            )
+          (when-let [{:keys [data jpg?]} (some-> faction deref :image)]
+            (case print-character-sheet-style?
+              1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
+              2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
+              3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.0 1.905 1.52)
+              4 nil))
+          ;; A picture asked for and not printed is named on the notice page. Style 4
+          ;; has no faction box, so a faction image there is left out by design.
+          (doseq [[what outcome] [["Portrait" portrait]
+                                  ["Faction image" (when (not= 4 print-character-sheet-style?) faction)]]
+                  :let [{:keys [image reason]} (some-> outcome deref)]
+                  :when (and outcome (nil? image))]
+            (errors/note! what (str "was left out (" (s/replace (name (or reason :unknown)) "-" " ") ")")))
+          ;; Inside this let, so it can see whether the composed portrait was
+          ;; actually used. Keyed on the decode, not on the field being present:
+          ;; a portrait-png that fails to decode falls back to the pasted
+          ;; image-url above, and crediting the illustrator for somebody else's
+          ;; photograph is the one thing this feature must not do.
+          (stamp-document-info! doc {:character-name character-name
+                                     :credit (when composed portrait-credit)
+                                     :art-mark (when composed
+                                                 (some-> (try (.decode (java.util.Base64/getDecoder) ^String portrait-png)
+                                                              (catch Exception _ nil))
+                                                         art-mark/mark-of))}))
+        ;; Last, so every notice is in: it prepends a page naming what was left out, and
+        ;; adds nothing at all when nothing was.
+        (pdf/add-notice-page! doc sans)
+        (.save doc output)))
     (let [a (.toByteArray output)]
       {:status 200
        :headers {"Content-Disposition" (str "inline; filename=\"" filename "\"")}
        :body (ByteArrayInputStream. a)})))
+
+(defn- generate-character-pdf
+  "Parses the request once, then runs the export with the notice collector and the page
+   bound for its whole length: a section that degrades can say so, and every drawing
+   call agrees on the paper. An unknown :page-size falls back to :letter rather than
+   throwing -- a bad option must not cost someone their sheet."
+  [req]
+  ;; The collector opens BEFORE the parse: bound-request truncates an oversized
+  ;; request, and a notice raised outside this binding is logged and then dropped.
+  (binding [errors/*notices* (atom [])]
+    (let [fields (try
+                   (-> req :form-params :body edn/read-string bound-request)
+                   (catch Exception e
+                     (throw (ex-info "Invalid character data format. Unable to parse PDF request."
+                                     {:error :invalid-pdf-data}
+                                     e))))]
+      (binding [draw/*page* (one-of valid-page-sizes (:page-size fields) :letter)]
+        (generate-character-pdf* req fields)))))
 
 (defn character-pdf-2 [req]
   (with-export-slot req #(generate-character-pdf req)))
@@ -1781,7 +1863,7 @@
   (check-field username-query (:username query-params) db))
 
 (defn check-email [{:keys [db query-params]}]
-  (check-field email-query (some-> (:email query-params) s/lower-case) db))
+  (check-field email-query (some-> (:email query-params) common/ascii-lower-case) db))
 
 (defn character-for-id [db id]
   (d/pull db '[*] id))
@@ -2261,7 +2343,7 @@
 (defn request-email-change [{:keys [transit-params db conn identity] :as request}]
   (try
     ;; Client sends {:new-email "..."} (confirm-email is validated client-side only)
-    (let [new-email (s/lower-case (s/trim (str (:new-email transit-params))))
+    (let [new-email (common/ascii-lower-case (s/trim (str (:new-email transit-params))))
           current-password (:current-password transit-params)
           username (:user identity)]
       (if (nil? username)
@@ -2284,7 +2366,7 @@
             (registration/bad-email? new-email)
             {:status 400 :body {:error :invalid-email}}
 
-            (= new-email (some-> email s/lower-case))
+            (= new-email (some-> email common/ascii-lower-case))
             {:status 400 :body {:error :same-as-current}}
 
             (email-change-rate-limited? verification-sent pending-email new-email)

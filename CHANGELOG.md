@@ -78,6 +78,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** a Choices list in the builder shows every choice a character stores, including ones whose homebrew isn't loaded in this browser, and lets those be cleared.
 - **Characters:** the character builder's Back and Next repeat at the bottom of each page, and open the next page at its top.
 - **Homebrew:** the add buttons on homebrew builders repeat below a long list of traits or options.
+- **Printing:** A4 as well as US Letter, for the character sheet, spell cards, magic item cards and the spellbook. An A4 spellbook page carries about 7% more than a Letter one.
+- **Printing:** when part of an export cannot be produced, the PDF opens with a page naming what was left out and why. A clean export is unchanged and gains no page.
 
 ### Changed
 
@@ -93,6 +95,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   not set one, instead of "Hi there".
 - **Characters:** the builder's tab bar wraps on narrow screens.
 - **Characters:** opening a character whose choices no longer apply sets them aside and lists them in a notice; the saved copy changes only when you save.
+- **Printing:** a character portrait whose host is briefly unreachable is fetched a second time before the export gives up on it.
+- **Printing:** every sans-serif line in an export -- sheet fields, spell-column headings, the site line, the notice page and card captions -- is set in one embedded font with Helvetica's exact widths, so it looks the same in every PDF viewer and prints names such as Łukasz.
 
 ### Fixed
 
@@ -151,8 +155,17 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** a choice that no longer applied, such as a skill picked for a level since lowered, stayed hidden on the character and still counted on its sheet.
 - **Characters:** deleting or changing a character's first class no longer wipes the other classes' choices.
 - **Homebrew:** a homebrew class's choices that share a name show in level order; levels 10 and 17 came before level 3.
+- **Printing:** a magic item or spell whose name the embedded font cannot draw no longer costs the card sheet it is on, and every sheet after it.
+- **Printing:** names and notes written in Polish, Turkish, Czech, Russian, Greek and other scripts beyond Western European print on the character sheet and in the spellbook, instead of as question marks.
+- **Printing:** curly quotes, dashes, ellipses, bullets, œ and € print as themselves on the character sheet and in spell text; they were flattened to straight quotes and hyphens or dropped.
+- **Printing:** a spellbook page's level tabs no longer print off the edge of the paper when a character has a very long class name.
+- **Printing:** a long class name in a spellbook chapter heading, or a long custom spell name, is now shortened to fit instead of running off the page.
+- **Printing:** an export with more spells or magic items than the cap allows now says so on the notice page; the extras were dropped in silence.
+- **Printing:** on a server whose JVM runs a non-English locale, spell-card school names and the sheet's ability labels drew the wrong letter: a Turkish server printed "İllusion" and "İNT".
 
 ### Security
+
+- **Accounts:** on a server whose JVM runs a non-English locale, an email address containing a capital I folded to a different account key, so sign-in, password reset, the unsubscribe link and email change could all miss the account.
 
 - Sign-in, password reset, share links, image fetching and PDF export are hardened against misuse, and secrets are no longer printed at startup.
 

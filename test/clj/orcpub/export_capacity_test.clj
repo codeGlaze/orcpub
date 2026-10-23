@@ -3,6 +3,7 @@
   ;; explicit :refer to avoid namespace pollution from :refer :all
   (:require [clojure.test :refer [deftest is testing]]
             [orcpub.config :as config]
+            [orcpub.errors :as errors]
             [orcpub.routes :as routes]
             [orcpub.work-pool :as work-pool])
   (:import (java.util.concurrent Semaphore)))
@@ -170,3 +171,23 @@
         (is (= 6 (count (filter #(re-matches #"spellcasting-class-\d+" (name %))
                                 (keys bounded))))
             "only the sections within the ceiling survive parsing")))))
+
+(deftest truncating-a-request-says-so
+  ;; bound-request caps collections before anything else sees them, so bound-cards'
+  ;; own "n requested, m printed" check compares a capped count against the cap and is
+  ;; never true. The cards went missing in silence -- the exact failure the notice page
+  ;; was added for, defeated by the order the two bounds run in.
+  (let [limit (config/get-pdf-max-cards)
+        over (+ limit 7)]
+    (testing "a request over the cap records what it lost"
+      (binding [errors/*notices* (atom [])]
+        (let [bounded (bound-request {:spells-known {:wizard (repeat over {:key :acid-arrow})}})]
+          (is (= limit (count (:wizard (:spells-known bounded)))) "still capped")
+          (let [n (errors/notices)]
+            (is (seq n) "the truncation is reported")
+            (is (some #(re-find (re-pattern (str over)) (:detail %)) n)
+                (str "the notice names the " over " requested: " (pr-str n)))))))
+    (testing "a request within the cap stays silent"
+      (binding [errors/*notices* (atom [])]
+        (bound-request {:spells-known {:wizard (repeat 3 {:key :acid-arrow})}})
+        (is (empty? (errors/notices)) "nothing was lost, so nothing is claimed")))))

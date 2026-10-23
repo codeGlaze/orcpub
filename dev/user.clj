@@ -6,6 +6,8 @@
             [buddy.hashers :as hashers]
             [orcpub.routes :as r]
             [orcpub.system :as s]
+            [orcpub.common :as common]
+            [orcpub.server :as server]
             [orcpub.db.schema :as schema]
             [orcpub.config :as config])
   (:gen-class))
@@ -110,6 +112,9 @@
 
 (defn start-server
   []
+  ;; scripts/start.sh starts the server here, not through -main, so the pin is needed
+  ;; on this path too -- it is the one self-hosters run.
+  (server/pin-locale!)
   ; restart
   (stop-server)
   (reset! -server (component/start (s/system :dev))))
@@ -183,7 +188,7 @@
 
 (defn email-exists? [db email]
   (boolean (datomic/q '[:find ?e . :in $ ?email :where [?e :orcpub.user/email ?email]]
-                      db (str/lower-case email))))
+                      db (common/ascii-lower-case email))))
 
 (defn username-exists? [db username]
   (boolean (datomic/q '[:find ?e . :in $ ?username :where [?e :orcpub.user/username ?username]]
@@ -199,7 +204,9 @@
     lein with-profile init-db run -m user create-user bob bob@example.com pass verify"
   [conn {:keys [username email password verify? send-updates?] :or {verify? false send-updates? false}}]
   (let [db (datomic/db conn)
-        email (when email (str/lower-case (str/trim email)))
+        ;; ascii, not str/lower-case: the CLI never starts the server, so pin-locale!
+        ;; has not run, and a Turkish machine would store IVAN@ as ıvan@.
+        email (when email (common/ascii-lower-case (str/trim email)))
         username (when username (str/trim username))]
     (cond
       (and email (email-exists? db email))
