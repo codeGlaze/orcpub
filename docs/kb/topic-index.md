@@ -1888,13 +1888,14 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-rest-controls · handoff rest controls_
 
-**topics:** 2026-10-23, button, charge, charges, dawn, dismissible, dusk, finish, handoff, lasts, long, mockups, period, rest, rests, specced, undo, weapon-mastery-plan
+**topics:** 1d6, 2026-10-23, charge, charges, dawn, dismissible, dusk, handoff, item, lasts, once-per-dawn, period, powers, regain, rest, rests, undo, unused
 
 - Where it is
 - The design in one paragraph
 - Against the code (checked 2026-10-23, feature/weapons-table)
 - How charges work today (checked 2026-10-23)
 - Decided (owner, 2026-10-23)
+- A real charge system: plan (2026-10-23, awaiting owner)
 - Open, for the owner
 
 ## handoff-weapons-table.md

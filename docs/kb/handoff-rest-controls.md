@@ -58,6 +58,42 @@ moves behind a Dev mode setting. The item builder gains a Charges group.
 - **Undo lasts until the result line is closed.** Nothing saved; this replaces the earlier
   "until the character changes, across sessions" ruling.
 
+## A real charge system: plan (2026-10-23, awaiting owner)
+
+The owner: "figure out a real charge system, even if it rides the existing ones to a new location".
+
+**What needs it.** 44 SRD 2014 items state a charge count (found by a description scan, to be checked
+by hand when filling): 36 regain some at dawn (wands 1d6 + 1 of 7, staffs 1d6 + 4 of 10, Staff of the
+Magi 4d6 + 2 of 50, rings 1d3 of 3), 8 never regain (Feather Token, Gem of Brightness, Nine Lives
+Stealer "1d8 + 1", Scarab of Protection, the Talismans). Plus the once-per-dawn and once-per-day item
+powers already tracked as checkboxes (10 items on `units5e/days-1`, this branch's weapon powers on
+`::mi/recharge ::units5e/dawn`).
+
+**One model: a pool of charges per carried item.**
+
+| Where | Field | Values |
+|---|---|---|
+| Item (data, item builder) | `::mi/charges` (exists, unused) | maximum, a whole number |
+| | `::mi/charges-recharge` (exists, unused) | `::units5e/short-rest`, `long-rest`, `dawn`, `dusk`, or none |
+| | `::mi/charges-regain` (new) | a whole number, a dice string ("1d6+1"), or `:all` |
+| Character (per carried item) | `::char-equip-5e/charges-used` (new, beside `quantity` and `equipped?`) | how many are spent; missing means none |
+
+The character's field rides the item's existing entry on the character (the map that already holds
+quantity and equipped), so it saves with the character and needs one additive schema attribute.
+
+**Riding the existing uses.** A once-per-dawn power is a pool of 1 that regains all at dawn. New data
+writes it that way (`::mi/charges 1`, recharge dawn, regain `:all`); the sheet shows it as today's
+single checkbox. Old saved checkboxes in `::char5e/features-used` are still read and cleared by
+rests, so no saved character changes meaning; they stop being written for items that move.
+
+**What the player sees.** A charged item shows its pool (pips up to about 10, "37 / 50" above); a
+power with a cost spends that many (`::mi/charge-cost`, exists). Rest and Dawn/Dusk regain by the
+item's rule; a dice regain is rolled and named in the result line ("Wand of Fireballs regained 5")
+with Undo. The PDF prints the pool from data and keeps its description guess only for homebrew
+without the fields. The item builder gets the handoff's Charges group (§7).
+
+**Data fill.** By hand per item from its SRD text, as the weapons were, with a test per field.
+
 ## Open, for the owner
 
 - Where a used charge is stored.
