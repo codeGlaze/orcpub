@@ -207,6 +207,10 @@ contradict the pinned source — fetch fresh).
   rendering before then logs `Using fallback font LiberationSans for CID-keyed TrueType
   font ...` and uses that font. Tests read a saved copy (`pdf-ops/reloaded`); the export
   scans for artwork site lines before drawing (`pdf/site-line-pages`).
+- **That scan records artwork content streams, not pages.** `clone-page` copies share
+  their source's stream, so `spill-overflow!`'s copies, made after the scan, still count
+  as printing the line. Reversed 2026-10-23: the first version recorded pages, and every
+  overflow page of a style 4 no-caster sheet printed the site line twice (found in review).
 - `PDPageContentStream` constructor: 2.x boolean flags → 3.x
   `PDPageContentStream$AppendMode/APPEND` enum.
 - Color values for `setStrokingColor` / `setNonStrokingColor`: must be
