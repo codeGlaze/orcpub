@@ -10,7 +10,7 @@
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.equipment :as equipment5e]
-            [orcpub.dnd.e5.kits :as kits]
+            [orcpub.dnd.e5.inventory :as inventory]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.spell-lists :as sl5e]
             [orcpub.dnd.e5.weapons :as weapons5e]
@@ -38,7 +38,7 @@
   [class-picks stored]
   (entity/build
    (:character
-    (kits/repair
+    (inventory/repair
    {::entity/options
     (merge
      {:ability-scores {::entity/key :standard-roll

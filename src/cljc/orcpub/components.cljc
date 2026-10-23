@@ -81,3 +81,20 @@
                   (js/parseInt str-v))]
           (on-change v))))
    (assoc attrs :type :number)])
+
+(defn expand-button
+  "An orange underlined toggle with a caret: `collapse-text` while `expanded?` (an atom) is false,
+   `expand-text` while true. A click flips the atom and stops there."
+  [expand-text collapse-text expanded?]
+  [:span.flex.pointer.align-items-c.justify-cont-end
+   {:on-click (fn [e]
+                (swap! expanded? not)
+                #?(:cljs (.stopPropagation e)))}
+   [:span.underline.orange.p-0.m-r-2 (if @expanded? expand-text collapse-text)]
+   [:i.fa.orange
+    {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]])
+
+(defn show-info-button
+  "The \"show info\" / \"hide info\" toggle for an option's help, flipping `expanded?` (an atom)."
+  [expanded?]
+  [:div.f-w-n.m-l-5 [expand-button "hide info" "show info" expanded?]])

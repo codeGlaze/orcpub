@@ -159,7 +159,7 @@
 
 (def ^:private d3-cases
   "[label class-kw stored-picks] — each pick is a chosen starting item. No pack: choosing one stores
-   its items as picks of their own (kits.cljc), which class order cannot hide."
+   its items as picks of their own (inventory.cljc), which class order cannot hide."
   [["weapon pick (weapon-option-2)" :bard {:starting-equipment-weapon (pick :rapier)}]
    ["any simple weapon (weapon-option-2 :simple -> weapon-options)" :bard
     {:starting-equipment-weapon (nested :any-simple-weapon :starting-equipment-simple-weapon :club)}]

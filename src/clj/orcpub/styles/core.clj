@@ -1989,14 +1989,7 @@
     [:.kit-text {:flex "1 1 auto" :min-width 0}]
     [:.kit-name {:white-space :nowrap :overflow :hidden :text-overflow :ellipsis}]
     [:.kit-indent {:padding-left "58px"}]
-    [:.kit-actions {:flex-wrap :nowrap :white-space :nowrap}]
     [:.kit-tile-empty {:border-style :dashed :background-color :transparent :opacity 0.6}]
-    [:.kit-well
-     {:display :flex :align-items :center :justify-content :space-between :gap "8px"
-      :padding "0 0 0 10px" :margin-top "8px" :border-radius "5px"
-      :border "1px solid color-mix(in srgb, currentColor 30%, transparent)"
-      :background-color "color-mix(in srgb, currentColor 6%, transparent)"}]
-    [:.kit-well.kit-question {:display :block :padding "10px 0 0 10px"}]
     [:.kit-pack-option
      {:display :flex :align-items :center :gap "8px" :width "100%" :min-height "44px"
       :padding "6px 10px" :margin-top "5px" :border-radius "5px" :text-align :left

@@ -19,7 +19,7 @@
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.char-filter :as char-filter]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
-            [orcpub.dnd.e5.kits :as kits]
+            [orcpub.dnd.e5.inventory :as inventory]
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.party :as party5e]
             [orcpub.dnd.e5.folder :as folder5e]
@@ -235,26 +235,35 @@
  (fn [db _]
    (:character db)))
 
-;; What the Equipment step's Kits block shows: {:kits [{:pack :name :chest? :tracked
-;; :could-use-spare}] :questions :fillable :shares {item-key shares} :addable [pack]} (kits.cljc).
+;; The last kit action's Undo line, {:message}, while the character is still what it left; nil after
+;; any other edit.
 (reg-sub
- ::kits/panel
+ ::inventory/undo
+ (fn [db _]
+   (let [{:keys [after] :as undo} (::inventory/undo db)]
+     (when (and undo (= (:character db) after))
+       (select-keys undo [:message])))))
+
+;; What the Equipment step's Kits block shows: {:kits [{:pack :name :chest? :tracked
+;; :could-use-spare}] :questions :fillable :shares {item-key shares} :addable [pack]} (inventory.cljc).
+(reg-sub
+ ::inventory/panel
  :<- [:character]
  (fn [character _]
-   (let [active (kits/active-kits character)
+   (let [active (inventory/active-kits character)
          shown (set (map ::entity/key active))]
      {:kits (mapv (fn [kit]
                     (let [pk (::entity/key kit)]
                       {:pack pk
-                       :name (:name (kits/pack pk))
-                       :chest? (contains? (:items (kits/pack pk)) :chest)
-                       :tracked (kits/tracked kit)
-                       :could-use-spare (kits/restock-could-use-spare character pk)}))
+                       :name (:name (inventory/pack pk))
+                       :chest? (contains? (:items (inventory/pack pk)) :chest)
+                       :tracked (inventory/tracked kit)
+                       :could-use-spare (inventory/restock-could-use-spare character pk)}))
                   active)
-      :questions (kits/questions character)
-      :fillable (kits/fillable character)
-      :shares (into {} (for [k (distinct (mapcat #(map :key (kits/tracked %)) active))]
-                         [k (kits/shares character k)]))
+      :questions (inventory/questions character)
+      :fillable (inventory/fillable character)
+      :shares (into {} (for [k (distinct (mapcat #(map :key (inventory/tracked %)) active))]
+                         [k (inventory/shares character k)]))
       :addable (vec (remove (comp shown :key) equipment5e/packs))})))
 
 (reg-sub

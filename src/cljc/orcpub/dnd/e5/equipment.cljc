@@ -335,6 +335,15 @@
    tools
    adventuring-gear))
 
+(def groups
+  "The grouped equipment a choice can stand for, as group key -> {:name :items}: the un-shadowed
+   member lists (`equipment-map` shadows these keys with plain items via its zipmap merge)."
+  {:holy-symbol        {:name "Holy Symbol"        :items holy-symbols}
+   :arcane-focus       {:name "Arcane Focus"       :items arcane-focuses}
+   :druidic-focus      {:name "Druidic Focus"      :items druidic-focuses}
+   :musical-instrument {:name "Musical Instrument" :items musical-instruments}
+   :pack               {:name "Equipment Pack"     :items packs}})
+
 (def equipment-map
   (merge
    {:holy-symbol {:name "Holy Symbol"

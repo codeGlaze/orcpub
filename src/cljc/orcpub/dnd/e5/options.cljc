@@ -2492,7 +2492,7 @@
                        :prereq-fn (first-class? class-kw)})]})
       (t/option-cfg
        {:name (-> equipment :name (str (if (> num 1) (str " (" num ")") "")))
-        ;; A pack adds nothing here: choosing it makes a kit of real picks (kits.cljc).
+        ;; A pack adds nothing here: choosing it makes a kit of real picks (inventory.cljc).
         :modifiers (when-not (:items equipment)
                      [(modifiers/equipment k num)])}))))
 
@@ -2513,14 +2513,6 @@
     :equipment (modifiers/equipment key qty)
     nil))
 
-;; The grouped-equipment sub-choices, pointing at the un-shadowed member lists
-;; (equipment-map shadows these grouped keys with plain items via its zipmap merge).
-(def ^:private equipment-group-choosers
-  {:holy-symbol        {:name "Holy Symbol"        :items equipment/holy-symbols}
-   :arcane-focus       {:name "Arcane Focus"       :items equipment/arcane-focuses}
-   :druidic-focus      {:name "Druidic Focus"      :items equipment/druidic-focuses}
-   :musical-instrument {:name "Musical Instrument" :items equipment/musical-instruments}
-   :pack               {:name "Equipment Pack"     :items equipment/packs}})
 
 ;; One sub-choice ({:from ...}) -> a nested "pick one" selection. :from is either a
 ;; weapon class (:simple/:martial/:any-weapon) or a grouped-equipment key
@@ -2545,8 +2537,8 @@
     ;; equipment-option EXACTLY: named for the group, no "Starting Equipment: " prefix, no
     ;; "<none>" opt-out, so an SRD-filled class reproduces the SRD's nested selection. The
     ;; name also feeds the selection's minted key, which must stay stable.
-    (equipment-group-choosers from)
-    (let [chooser (equipment-group-choosers from)]
+    (equipment/groups from)
+    (let [chooser (equipment/groups from)]
       (t/selection-cfg
        {:name (or name (:name chooser))
         :tags #{:equipment :starting-equipment}

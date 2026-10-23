@@ -1,7 +1,9 @@
-(ns orcpub.dnd.e5.kits
-  "Kits: a chosen equipment pack turned into ordinary inventory picks plus a record of how much of
-   each item the kit holds. Stored as picks under [::entity/options :kits]; targets come from the
-   pack's definition. plan-inventory-kits.md on agents/develop."
+(ns orcpub.dnd.e5.inventory
+  "The character's inventory beyond single picks: gear quantities across picks, and kits (a chosen
+   equipment pack turned into ordinary picks plus how much of each item the kit holds, stored under
+   [::entity/options :kits], targets from the pack's definition). The home for inventory rules:
+   containers and the rest go here, not in files of their own. plan-inventory-kits.md on
+   agents/develop."
   (:require [clojure.string :as s]
             [orcpub.entity :as entity]
             [orcpub.dnd.e5.character.equipment :as char-equip]
@@ -9,8 +11,9 @@
             [orcpub.dnd.e5.picks :as picks]))
 
 (def choice-groups
-  "Pack entries that stand for a choice, as group key -> the set of item keys that answer it."
-  {:holy-symbol (set (map :key equipment5e/holy-symbols))})
+  "Pack entries that stand for a choice, as group key -> the set of item keys that answer it, from
+   `equipment5e/groups`."
+  (update-vals equipment5e/groups #(set (map :key (:items %)))))
 
 (def ^:private pack-by-key
   (into {} (map (juxt :key identity)) equipment5e/packs))

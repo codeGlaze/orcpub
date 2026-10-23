@@ -1,4 +1,4 @@
-(ns orcpub.dnd.e5.kits-test
+(ns orcpub.dnd.e5.inventory-test
   "Packs becoming kits: their items added as ordinary picks (to existing quantities), the kit held
    at full, the repair of saved characters (once only), the owner's rule for a pack's holy symbol,
    and kits kept out of the Choices list. KB: plan-inventory-kits.md, phase 2a."
@@ -6,7 +6,7 @@
             [orcpub.entity :as entity]
             [orcpub.template :as t]
             [orcpub.dnd.e5.character.equipment :as char-equip]
-            [orcpub.dnd.e5.kits :as kits]
+            [orcpub.dnd.e5.inventory :as inventory]
             [orcpub.dnd.e5.picks :as picks]))
 
 (defn- gear
@@ -27,56 +27,56 @@
                      :equipment picks}})
 
 (deftest a-pack-becomes-ordinary-picks-and-a-full-kit
-  (let [c (kits/materialize {} :explorers-pack {})
-        kit (first (kits/kits c))]
+  (let [c (inventory/materialize {} :explorers-pack {})
+        kit (first (inventory/kits c))]
     (is (= 10 (qty c :torch)))
     (is (= 1 (qty c :backpack)))
     (is (= :explorers-pack (::entity/key kit)))
-    (is (= 10 (get (kits/held kit) :torch)) "held at full")))
+    (is (= 10 (get (inventory/held kit) :torch)) "held at full")))
 
 (deftest a-pack-adds-to-what-the-character-already-owns
-  (let [c (kits/materialize {::entity/options {:equipment [(gear :torch 5)]}} :explorers-pack {})]
+  (let [c (inventory/materialize {::entity/options {:equipment [(gear :torch 5)]}} :explorers-pack {})]
     (is (= 15 (qty c :torch)) "5 owned plus the pack's 10, not replaced")
     (is (= 1 (count (filter #(= :torch (::entity/key %)) (get-in c [::entity/options :equipment]))))
         "one torch pick, not two")
-    (is (= 10 (get (kits/held (first (kits/kits c))) :torch)) "the kit holds only its own 10")))
+    (is (= 10 (get (inventory/held (first (inventory/kits c))) :torch)) "the kit holds only its own 10")))
 
 (deftest the-holy-symbol-follows-what-the-character-owns
   (testing "none owned: nothing is added and the kit asks which one, from every member"
-    (let [{:keys [character]} (kits/repair (fighter-choosing :monster-hunters-pack []))]
+    (let [{:keys [character]} (inventory/repair (fighter-choosing :monster-hunters-pack []))]
       (is (nil? (qty character :holy-symbol)) "no generic row: it is not a real item")
       (is (= [{:kind :choice :pack :monster-hunters-pack :group :holy-symbol
                :options [:amulet :emblem :reliquary]}]
-             (kits/questions character)))
-      (let [answered (kits/answer-choice character :monster-hunters-pack :holy-symbol :emblem)]
+             (inventory/questions character)))
+      (let [answered (inventory/answer-choice character :monster-hunters-pack :holy-symbol :emblem)]
         (is (= 1 (qty answered :emblem)) "answering adds the one picked")
-        (is (= 1 (get (kits/held (first (kits/kits answered))) :emblem)))
-        (is (empty? (kits/questions answered))))))
+        (is (= 1 (get (inventory/held (first (inventory/kits answered))) :emblem)))
+        (is (empty? (inventory/questions answered))))))
   (testing "one owned: it is the choice, nothing is added"
-    (let [{:keys [character ask]} (kits/repair (fighter-choosing :monster-hunters-pack [(gear :amulet 1)]))]
+    (let [{:keys [character ask]} (inventory/repair (fighter-choosing :monster-hunters-pack [(gear :amulet 1)]))]
       (is (= 1 (qty character :amulet)))
       (is (nil? (qty character :holy-symbol)))
-      (is (= 1 (get (kits/held (first (kits/kits character))) :amulet)))
+      (is (= 1 (get (inventory/held (first (inventory/kits character))) :amulet)))
       (is (empty? ask))))
   (testing "several owned: the player is asked"
-    (let [{:keys [character ask]} (kits/repair (fighter-choosing :monster-hunters-pack [(gear :amulet 1) (gear :emblem 1)]))]
+    (let [{:keys [character ask]} (inventory/repair (fighter-choosing :monster-hunters-pack [(gear :amulet 1) (gear :emblem 1)]))]
       (is (nil? (qty character :holy-symbol)))
       (is (= [{:pack :monster-hunters-pack :group :holy-symbol :options [:amulet :emblem]}] ask)))))
 
 (deftest repair-runs-once
-  (let [once (:character (kits/repair (fighter-choosing :explorers-pack [])))
-        twice (:character (kits/repair once))]
+  (let [once (:character (inventory/repair (fighter-choosing :explorers-pack [])))
+        twice (:character (inventory/repair once))]
     (is (= 10 (qty once :torch)))
     (is (= once twice) "a repaired character is left alone")))
 
 (deftest a-pack-stored-as-an-item-becomes-a-kit
-  (let [{:keys [character]} (kits/repair {::entity/options {:equipment [(gear :explorers-pack 1)]}})]
+  (let [{:keys [character]} (inventory/repair {::entity/options {:equipment [(gear :explorers-pack 1)]}})]
     (is (= 1 (qty character :explorers-pack)) "the pack's pick stays: it is the kit's source")
     (is (= 10 (qty character :torch)))
-    (is (= [:explorers-pack] (map ::entity/key (kits/kits character))))))
+    (is (= [:explorers-pack] (map ::entity/key (inventory/kits character))))))
 
 (deftest kits-are-not-listed-as-choices
-  (let [c (kits/materialize {} :explorers-pack {})
+  (let [c (inventory/materialize {} :explorers-pack {})
         rows (picks/choices {::t/selections []} c)]
     (is (not-any? #(= :kits (first (:address %))) rows))))
 
@@ -90,7 +90,7 @@
   "Torch 23: Explorer's holds 5 of 10, Dungeoneer's 10 of 10, 8 spare; both packs chosen as items."
   []
   (-> {::entity/options {:equipment [(gear :explorers-pack 1) (gear :dungeoneers-pack 1)]}}
-      kits/repair :character
+      inventory/repair :character
       (set-qty :torch 23)
       (update-in [::entity/options :kits 0 ::entity/options :held]
                  (fn [hs] (mapv #(if (= :torch (::entity/key %)) (assoc % ::entity/value 5) %) hs)))))
@@ -98,90 +98,90 @@
 (defn- held-of
   "How many of gear `k` the kit for pack `pk` holds in `c`, or nil."
   [c pk k]
-  (get (kits/held (some #(when (= pk (::entity/key %)) %) (kits/kits c))) k))
+  (get (inventory/held (some #(when (= pk (::entity/key %)) %) (inventory/kits c))) k))
 
 (deftest using-takes-from-the-top-kit-first-then-spare
   (let [c (two-kits)]
     (is (= 23 (qty c :torch)) "fixture")
-    (is (= 8 (kits/spare c :torch)))
-    (let [used (kits/take-from-kits c :torch 7)]
+    (is (= 8 (inventory/spare c :torch)))
+    (let [used (inventory/take-from-kits c :torch 7)]
       (is (= 0 (held-of used :explorers-pack :torch)) "top kit gives up its 5 first")
       (is (= 8 (held-of used :dungeoneers-pack :torch)) "then the next kit, before any spare")
-      (is (= 8 (kits/spare (set-qty used :torch 16) :torch))))))
+      (is (= 8 (inventory/spare (set-qty used :torch 16) :torch))))))
 
 (deftest refill-reorganize-and-restock
   (let [c (two-kits)]
     (testing "refill claims spare up to the target"
-      (let [{r :character moved :moved} (kits/refill c :explorers-pack)]
+      (let [{r :character moved :moved} (inventory/refill c :explorers-pack)]
         (is (= 10 (held-of r :explorers-pack :torch)))
         (is (= [[:torch 5]] moved))
-        (is (= 3 (kits/spare r :torch)))))
+        (is (= 3 (inventory/spare r :torch)))))
     (testing "reorganize fills every kit in order and reports by kit"
-      (is (= [[:explorers-pack [[:torch 5]]]] (:moved (kits/reorganize c)))))
+      (is (= [[:explorers-pack [[:torch 5]]]] (:moved (inventory/reorganize c)))))
     (testing "restock: mine first uses spare, all new buys and leaves spare alone"
       (let [low (set-qty c :torch 17)]
-        (is (= [[:torch 2]] (kits/restock-could-use-spare low :explorers-pack)))
-        (let [{m :character} (kits/restock low :explorers-pack :mine-first)]
+        (is (= [[:torch 2]] (inventory/restock-could-use-spare low :explorers-pack)))
+        (let [{m :character} (inventory/restock low :explorers-pack :mine-first)]
           (is (= 20 (qty m :torch)) "2 spare claimed, 3 bought")
           (is (= 10 (held-of m :explorers-pack :torch))))
-        (let [{a :character added :added} (kits/restock low :explorers-pack :all-new)]
+        (let [{a :character added :added} (inventory/restock low :explorers-pack :all-new)]
           (is (= [[:torch 5]] added))
           (is (= 22 (qty a :torch)))
-          (is (= 2 (kits/spare a :torch))))))))
+          (is (= 2 (inventory/spare a :torch))))))))
 
 (deftest a-kit-shows-what-runs-out-and-what-is-low
   (let [c (two-kits)
-        kit (first (kits/kits c))]
+        kit (first (inventory/kits c))]
     (is (= [{:key :torch :held 5 :target 10 :low? true}
             {:key :rations-1-day :held 10 :target 10 :low? false}]
-           (kits/tracked kit)) "targets over 1, not the bedroll")
+           (inventory/tracked kit)) "targets over 1, not the bedroll")
     (is (= {:kits [{:pack :explorers-pack :key :torch :held 5 :target 10 :low? true}
                    {:pack :dungeoneers-pack :key :torch :held 10 :target 10 :low? false}]
             :spare 8}
-           (kits/shares c :torch)))
-    (is (nil? (kits/shares c :bedroll)))
-    (is (= "5 torches" (kits/list-label (kits/fillable c))) "what the kits are short of, not all 8 spare")))
+           (inventory/shares c :torch)))
+    (is (nil? (inventory/shares c :bedroll)))
+    (is (= "5 torches" (inventory/list-label (inventory/fillable c))) "what the kits are short of, not all 8 spare")))
 
 (deftest removing-and-ordering-kits
   (let [c (two-kits)]
     (is (= [:dungeoneers-pack :explorers-pack]
-           (map ::entity/key (kits/kits (kits/use-first c :dungeoneers-pack)))))
-    (let [r (kits/remove-kit c :explorers-pack)]
-      (is (= [:dungeoneers-pack] (map ::entity/key (kits/active-kits r))))
+           (map ::entity/key (inventory/kits (inventory/use-first c :dungeoneers-pack)))))
+    (let [r (inventory/remove-kit c :explorers-pack)]
+      (is (= [:dungeoneers-pack] (map ::entity/key (inventory/active-kits r))))
       (is (= 23 (qty r :torch)) "its items stay")
-      (is (= r (:character (kits/repair r))) "a pack added as an item is not made again"))
+      (is (= r (:character (inventory/repair r))) "a pack added as an item is not made again"))
     (testing "a chosen pack's kit leaves a marker, so repair does not make it again"
-      (let [chosen (:character (kits/repair (fighter-choosing :explorers-pack [])))
-            r (kits/remove-kit chosen :explorers-pack)]
-        (is (empty? (kits/active-kits r)))
-        (is (= r (:character (kits/repair r))))
+      (let [chosen (:character (inventory/repair (fighter-choosing :explorers-pack [])))
+            r (inventory/remove-kit chosen :explorers-pack)]
+        (is (empty? (inventory/active-kits r)))
+        (is (= r (:character (inventory/repair r))))
         (is (= 10 (qty r :torch)))))))
 
 (deftest a-kit-whose-pack-is-gone-asks-first
-  (let [chosen (:character (kits/repair (fighter-choosing :explorers-pack [(gear :torch 2)])))
+  (let [chosen (:character (inventory/repair (fighter-choosing :explorers-pack [(gear :torch 2)])))
         gone (assoc-in chosen [::entity/options :class] [])]
-    (is (empty? (kits/questions chosen)))
-    (is (= [{:kind :orphan :pack :explorers-pack}] (kits/questions gone)))
-    (let [r (kits/resolve-orphan gone :explorers-pack :remove)]
+    (is (empty? (inventory/questions chosen)))
+    (is (= [{:kind :orphan :pack :explorers-pack}] (inventory/questions gone)))
+    (let [r (inventory/resolve-orphan gone :explorers-pack :remove)]
       (is (= 2 (qty r :torch)) "only what the kit held is taken")
       (is (nil? (qty r :bedroll)))
-      (is (empty? (kits/kits r))))
-    (let [k (kits/resolve-orphan gone :explorers-pack :keep)]
+      (is (empty? (inventory/kits r))))
+    (let [k (inventory/resolve-orphan gone :explorers-pack :keep)]
       (is (= 12 (qty k :torch)))
-      (is (empty? (kits/questions k)) "kept as a kit the player added"))))
+      (is (empty? (inventory/questions k)) "kept as a kit the player added"))))
 
 (deftest add-a-kit-from-the-panel
-  (let [{c :character} (kits/add-kit {::entity/options {:equipment [(gear :torch 4)]}} :explorers-pack)]
+  (let [{c :character} (inventory/add-kit {::entity/options {:equipment [(gear :torch 4)]}} :explorers-pack)]
     (is (= 14 (qty c :torch)))
     (is (= 10 (held-of c :explorers-pack :torch)))
-    (is (= 4 (kits/spare c :torch)))))
+    (is (= 4 (inventory/spare c :torch)))))
 
 (deftest words
-  (is (= "3 torches" (kits/count-label :torch 3)))
-  (is (= "1 torch" (kits/count-label :torch 1)))
-  (is (= "6 days of rations" (kits/count-label :rations-1-day 6)))
-  (is (= "2 flasks of oil" (kits/count-label :oil 2)))
+  (is (= "3 torches" (inventory/count-label :torch 3)))
+  (is (= "1 torch" (inventory/count-label :torch 1)))
+  (is (= "6 days of rations" (inventory/count-label :rations-1-day 6)))
+  (is (= "2 flasks of oil" (inventory/count-label :oil 2)))
   (is (= "3 spare torches and 2 spare days of rations"
-         (kits/list-label [[:torch 3] [:rations-1-day 2]] true)))
+         (inventory/list-label [[:torch 3] [:rations-1-day 2]] true)))
   (is (= "3 torches, 2 candles and 1 day of rations"
-         (kits/list-label [[:torch 3] [:candle 2] [:rations-1-day 1]]))))
+         (inventory/list-label [[:torch 3] [:candle 2] [:rations-1-day 1]]))))

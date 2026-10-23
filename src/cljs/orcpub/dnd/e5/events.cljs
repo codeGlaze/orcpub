@@ -39,7 +39,7 @@
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
-            [orcpub.dnd.e5.kits :as kits]
+            [orcpub.dnd.e5.inventory :as inventory]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.db :refer [default-value
                                       set-item
@@ -396,32 +396,20 @@
        (swap! settle-timer assoc :id (js/setTimeout settle-now! settle-debounce-ms))))))
 
 (defn settle-picks-fx
-  "Handler for `::e5/settle-picks`: `settle-picks-db`, and the draft rewritten when the character
-   changed. Opening a saved character never saves it: the saved copy keeps its choices until the
+  "Handler for `::e5/settle-picks`: `settle-picks-db`, then `inventory/repair` (chosen packs become
+   kits), and the draft rewritten when the character changed. Opening a saved character never saves it: the saved copy keeps its choices until the
    player saves (owner, 2026-10-16; decision-gate-hidden-picks.md)."
   [{:keys [db]} _]
-  (let [db' (settle-picks-db db)]
+  (let [db' (-> (settle-picks-db db)
+                ;; A pack just chosen becomes a kit (inventory.cljc); idempotent.
+                (update :character (comp :character inventory/repair)))]
     (cond-> {:db db'}
       (not (identical? (:character db) (:character db')))
       (assoc ::persist-healed-character (:character db')))))
 
 (reg-event-fx ::e5/settle-picks settle-picks-fx)
 
-(def queue-kit-repair
-  "After an edit to the character's Equipment picks or classes, queues `::kits/repair`, so a pack just
-   chosen becomes a kit outside the edit. The repair is idempotent, so its own edit settles at once."
-  (->interceptor
-   :id :queue-kit-repair
-   :after (fn [context]
-            (let [before (get-in context [:coeffects :db :character])
-                  edited (get-in context [:effects :db :character])
-                  moved? #(not (identical? (get-in before [::entity/options %]) (get-in edited [::entity/options %])))]
-              (if (and edited (or (moved? :equipment) (moved? :class)))
-                (update-in context [:effects :fx] (fnil conj []) [:dispatch [::kits/repair]])
-                context)))))
-
-(def character-interceptors [queue-kit-repair
-                             queue-settle
+(def character-interceptors [queue-settle
                              check-spec-interceptor
                              set-changed
                              (path :character)
@@ -2616,7 +2604,7 @@
         rewrote (into (vec former-rewrote) spell-rewrote)
         ;; After the heals, so it lists only what is still wrong.
         ;; Packs chosen before kits existed become kits; kept by the next save, like the heals.
-        character (:character (kits/repair character))
+        character (:character (inventory/repair character))
         binding-report (content-recon/class-binding-report
                         character
                         (loaded-class-keys db)
@@ -3228,13 +3216,13 @@
 
 (defn change-inventory-item-quantity-with-kits
   "`change-inventory-item-quantity`, plus for gear: a decrease is taken from the kits first, top kit
-   first (kits.cljc)."
+   first (inventory.cljc)."
   [character [_ selection-key item-index quantity :as event]]
   (let [pick (get-in character [::entity/options selection-key item-index])
-        before (kits/total character (::entity/key pick))
+        before (inventory/total character (::entity/key pick))
         changed (change-inventory-item-quantity character event)]
     (if (and (= :equipment selection-key) (number? quantity) (< quantity before))
-      (kits/take-from-kits changed (::entity/key pick) (- before quantity))
+      (inventory/take-from-kits changed (::entity/key pick) (- before quantity))
       changed)))
 
 (reg-event-db
@@ -3263,23 +3251,28 @@
  character-interceptors
  (fn [character [_ selection-key item-key :as event]]
    (cond-> (event-handlers/remove-inventory-item character event)
-     (= :equipment selection-key) (kits/clear-item item-key))))
+     (= :equipment selection-key) (inventory/clear-item item-key))))
+
+(defn kit-act-db
+  "`db` after the kit action `action` with `args` (`inventory/act`), keeping the character before it
+   in `::inventory/undo` when the action has a message, for the Undo line."
+  [db [_ action & args]]
+  (let [before (:character db)
+        {acted :character message :message} (apply inventory/act before action args)
+        acted (assoc acted :changed true)]
+    (assoc db
+           :character acted
+           ::inventory/undo (when (seq message) {:message message :before before :after acted}))))
+
+(reg-event-db ::inventory/act [queue-settle db-char->local-store] kit-act-db)
 
 (reg-event-db
- ::kits/repair
- character-interceptors
- (fn [character _] (:character (kits/repair character))))
-
-(reg-event-db
- ::kits/act
- character-interceptors
- (fn [character [_ action & args]]
-   (:character (apply kits/act character action args))))
-
-(reg-event-db
- ::kits/undo
- character-interceptors
- (fn [_ [_ before]] before))
+ ::inventory/undo
+ [queue-settle db-char->local-store]
+ (fn [db _]
+   (if-let [before (get-in db [::inventory/undo :before])]
+     (-> db (assoc :character (assoc before :changed true)) (dissoc ::inventory/undo))
+     db)))
 
 (defn remove-custom-inventory-item [character [_ custom-equipment-key name]]
   (update-in

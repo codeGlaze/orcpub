@@ -1281,7 +1281,7 @@
                     :help (when (or description
                                   page)
                             (inventory-help description page source))
-                    ;; A pack's pick stands for its kit; its items are picks of their own (kits.cljc).
+                    ;; A pack's pick stands for its kit; its items are picks of their own (inventory.cljc).
                     :modifiers (when-not (:items item) [(modifier-fn key item)])})))
               items)}))
 
