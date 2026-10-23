@@ -9,7 +9,8 @@ Not under `public/`: nothing here is served over HTTP.
 | `NimbusSans-BoldItalic.ttf` | Nimbus Sans Bold Italic | spell-card casting time, range, components, duration |
 
 All three: URW++, AGPL-3.0 with a PDF-embedding exception (`NimbusSans-LICENSE.txt`,
-`NimbusSans-COPYING.txt`).
+`NimbusSans-COPYING.txt`). Both are upstream's `LICENSE` and `COPYING`, renamed and
+otherwise verbatim, so the `COPYING` that `LICENSE` names is `NimbusSans-COPYING.txt`.
 
 **Why Nimbus Sans.** It is URW's metric clone of Helvetica: all 224 WinAnsi advance
 widths of each face are identical to the matching Helvetica's (pinned by

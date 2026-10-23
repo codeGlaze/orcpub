@@ -805,6 +805,24 @@
             (is (= 1 (count (re-seq (re-pattern draw/site-stamp) (page-text saved i))))
                 (str "page " (inc i)))))))))
 
+(deftest an-overflow-copy-of-an-artwork-page-is-not-stamped-again
+  ;; spill-overflow! copies style 4's continuation page, which prints its own site line,
+  ;; after the scan: each copy shares that page's artwork, so it counts as printed too.
+  (let [{:keys [without-casters site-line]} (get pdf/sheet-masters 4)]
+    (with-open [in (.openStream (io/resource without-casters))
+                doc (Loader/loadPDF (.readAllBytes in))]
+      (pdf/grow-spell-sections! doc 0 :all)
+      (let [printed (pdf/site-line-pages doc true)
+            before (.getNumberOfPages doc)]
+        (pdf/spill-overflow! doc {:features-and-traits
+                                  (str/join " " (repeat 300 "Overflowing feature text."))})
+        (is (> (.getNumberOfPages doc) before) "the text spilled onto added pages")
+        (pdf/stamp-site-line! doc (draw/load-sans doc) site-line printed)
+        (with-open [saved (ops/reloaded doc)]
+          (doseq [i (range (.getNumberOfPages saved))]
+            (is (= 1 (count (re-seq (re-pattern draw/site-stamp) (page-text saved i))))
+                (str "page " (inc i)))))))))
+
 (defn- ink-free?
   "Whether the stamp-sized box at `x`,`y` inches from the page's bottom-left is
    free of ink on `index`, rendered at 150 dpi."

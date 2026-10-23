@@ -28,8 +28,8 @@
         (for [section (range 1 (inc casters))
               level [0 1 3]
               row [1 2 5]]
-          [(keyword (format "spells-%d-%d-%d" level row section))
-           (format "Spell L%dR%dS%d" level row section)])))
+          [(keyword (str "spells-" level "-" row "-" section))
+           (str "Spell L" level "R" row "S" section)])))
 
 (defn- slot-fields
   "`spell-slots-<level>-<section>` is what bar-compartments reads to find a bar at all,

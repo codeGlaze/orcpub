@@ -11,7 +11,8 @@
             [orcpub.errors :as errors]
             [orcpub.pdf-ops :as ops]
             [orcpub.pdf :as pdf]
-            [orcpub.pdf.draw :as draw])
+            [orcpub.pdf.draw :as draw]
+            [orcpub.routes :as routes])
   (:import (org.apache.pdfbox.pdmodel PDDocument PDPage)
            (org.apache.pdfbox.text PDFTextStripper)))
 
@@ -101,3 +102,26 @@
           (is (every? #(>= % 9.0) gaps)
               (str "lines closer than 9pt overprint; baselines " (pr-str (vec ys))
                    " gaps " (pr-str (vec gaps)))))))))
+
+(defn- first-page-text
+  "Page one's text of the export `req` makes, through generate-character-pdf."
+  [req]
+  (let [resp (#'routes/generate-character-pdf {:form-params {:body (pr-str req)}})]
+    (with-open [doc (org.apache.pdfbox.Loader/loadPDF (.readAllBytes (:body resp)))]
+      (page-text doc 0))))
+
+(deftest a-requested-picture-that-cannot-print-is-named
+  (testing "an uploaded picture that does not decode"
+    (is (str/includes? (first-page-text {:print-character-sheet-style? 1 :image-data "not an image"})
+                       "Portrait was left out (unreadable)")))
+  (testing "an address the builder already failed to load, without fetching it"
+    (is (str/includes? (first-page-text {:print-character-sheet-style? 1
+                                         :faction-image-url "https://example.invalid/a.png"
+                                         :faction-image-url-failed true})
+                       "Faction image was left out (failed in builder)")))
+  (testing "no picture asked for, or a faction image on style 4 (no box), says nothing"
+    (doseq [req [{:print-character-sheet-style? 1}
+                 {:print-character-sheet-style? 4 :faction-image-data "not an image"}]]
+      (let [t (first-page-text req)]
+        (is (not (str/includes? t "Portrait")) (pr-str req))
+        (is (not (str/includes? t "Faction image")) (pr-str req))))))

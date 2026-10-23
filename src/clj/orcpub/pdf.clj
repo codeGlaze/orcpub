@@ -2283,26 +2283,33 @@
         (draw/draw-text cs draw/site-stamp (draw/sans fonts :plain) 8 1.0 0.6 [0.45 0.45 0.45]))
       page)))
 
+(defn- page-streams
+  "The COS streams `page`'s content is made of, as a set."
+  [page]
+  (set (map #(.getCOSObject %) (iterator-seq (.getContentStreams page)))))
+
 (defn site-line-pages
-  "The pages whose artwork already prints the site line, as a set of their COS
-   dictionaries; empty unless `prints-own?` (the style's :prints-site-line?). Call it
+  "The artwork of pages that already print the site line, as a set of their content
+   streams; empty unless `prints-own?` (the style's :prints-site-line?). Streams, not
+   pages: spill-overflow!'s copies share them, so pages copied later count too. Call it
    BEFORE drawing anything: the scan reads page text, and a font this export added is
    not embedded until save, so reading it logs a fallback-font warning per face."
   [doc prints-own?]
   (if prints-own?
-    (set (keep-indexed (fn [i page] (when (page-prints-site-line? doc i) (.getCOSObject page)))
-                       (vec (.getPages doc))))
+    (into #{} (comp (keep-indexed (fn [i page] (when (page-prints-site-line? doc i) page)))
+                    (mapcat page-streams))
+          (vec (.getPages doc)))
     #{}))
 
 (defn stamp-site-line!
   "Prints the site line at `position` (the style's :site-line from sheet-masters,
-   chosen per style to clear its corner artwork) on every page not in `printed`, a
-   site-line-pages set; pages added since that scan are stamped. Appends a stream per
-   page: cloned spell pages SHARE the master's content stream, so writing into it would
-   print once per clone. In `fonts`' Nimbus regular."
+   chosen per style to clear its corner artwork) on every page showing none of the
+   `printed` artwork (a site-line-pages set). Appends a stream per page: cloned pages
+   SHARE their source's content stream, so writing into it would print once per clone.
+   In `fonts`' Nimbus regular."
   [doc fonts [x y] printed]
   (doseq [page (vec (.getPages doc))
-          :when (not (contains? printed (.getCOSObject page)))]
+          :when (not-any? printed (page-streams page))]
     (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
                                          true true)]
       (draw/draw-text cs draw/site-stamp (draw/sans fonts :plain) draw/site-stamp-size x y [0.45 0.45 0.45]))))

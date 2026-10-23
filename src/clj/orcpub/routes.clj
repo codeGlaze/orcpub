@@ -1683,15 +1683,20 @@
         (let [wanted (fn [url failed?]
                        (and url (not failed?) (well-formed-image-url? url) url))
               ;; Bytes the browser read beat the URL and skip the fetch entirely.
-              ;; Both arms deref, so nothing below has to know which it got.
+              ;; Every arm derefs to {:image} or {:reason}, so nothing below has to
+              ;; know which it got; nil when no picture was asked for.
               image (fn [supplied url failed?]
-                      (if-let [bytes (pdf/decode-image-bytes supplied)]
-                        (delay bytes)
-                        ;; probed-outcome, not fetch-image: the builder usually
-                        ;; asked about this URL a moment ago, and that answer is
-                        ;; cached.
-                        (some-> (wanted url failed?)
-                                (as-> u (future (:image (probed-outcome u)))))))
+                      (when-not (and (s/blank? (str supplied)) (s/blank? (str url)))
+                        (if-let [bytes (pdf/decode-image-bytes supplied)]
+                          (delay {:image bytes})
+                          ;; probed-outcome, not fetch-image: the builder usually
+                          ;; asked about this URL a moment ago, and that answer is
+                          ;; cached.
+                          (if-let [u (wanted url failed?)]
+                            (future (probed-outcome u))
+                            (delay {:reason (cond failed? :failed-in-builder
+                                                  (s/blank? (str url)) :unreadable
+                                                  :else :not-an-image-address)})))))
               ;; A composed (paper-doll) portrait has no URL that could produce
               ;; it -- the client bakes its CSS-mask layers -- and it arrives
               ;; larger than an uploaded picture may be, so it goes through
@@ -1703,10 +1708,10 @@
               ;; pasted image-url that should have taken over.
               composed (pdf/decode-artwork-bytes portrait-png)
               portrait (if composed
-                         (delay composed)
+                         (delay {:image composed})
                          (image image-data image-url image-url-failed))
               faction (image faction-image-data faction-image-url faction-image-url-failed)]
-          (when-let [{:keys [data jpg?]} (some-> portrait deref)]
+          (when-let [{:keys [data jpg?]} (some-> portrait deref :image)]
             (case print-character-sheet-style?
               1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
               2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
@@ -1717,12 +1722,19 @@
             ;; second drawn line landed 0.12in under the first and said the
             ;; same thing.
             )
-          (when-let [{:keys [data jpg?]} (some-> faction deref)]
+          (when-let [{:keys [data jpg?]} (some-> faction deref :image)]
             (case print-character-sheet-style?
               1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
               2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
               3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.0 1.905 1.52)
               4 nil))
+          ;; A picture asked for and not printed is named on the notice page. Style 4
+          ;; has no faction box, so a faction image there is left out by design.
+          (doseq [[what outcome] [["Portrait" portrait]
+                                  ["Faction image" (when (not= 4 print-character-sheet-style?) faction)]]
+                  :let [{:keys [image reason]} (some-> outcome deref)]
+                  :when (and outcome (nil? image))]
+            (errors/note! what (str "was left out (" (s/replace (name (or reason :unknown)) "-" " ") ")")))
           ;; Inside this let, so it can see whether the composed portrait was
           ;; actually used. Keyed on the decode, not on the field being present:
           ;; a portrait-png that fails to decode falls back to the pasted

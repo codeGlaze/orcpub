@@ -9,7 +9,8 @@
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.magic-items :as magic-items])
   (:import (org.apache.pdfbox Loader)
-           (org.apache.pdfbox.pdmodel.font PDType0Font)))
+           (org.apache.pdfbox.pdmodel.font PDType0Font)
+           (org.apache.pdfbox.text PDFTextStripper)))
 
 (def ^:private request
   "Every drawn path at once: spell annotations, a relabel, column headings, the site
@@ -31,7 +32,14 @@
    :spell-attack-mods {"Wizard" 7}
    :print-spell-cards? true
    :spellbook {:classes [{:class "Wizard" :level 5 :ability "INT" :dc 15 :attack 7}]}
-   :magic-items-known (vec (take 3 (filter :magic-item/attunement magic-items/magic-items)))
+   ;; The fields pdf-spec/magic-item-card-info sends: full entries carry functions.
+   :magic-items-known (vec (for [item (take 3 (filter magic-items/attunement-key magic-items/magic-items))]
+                             (select-keys item [:name ::magic-items/name ::magic-items/type
+                                                ::magic-items/subtype ::magic-items/rarity
+                                                ::magic-items/attunement
+                                                ::magic-items/attunement-details
+                                                ::magic-items/description ::magic-items/summary
+                                                ::magic-items/page ::magic-items/source])))
    :print-magic-item-cards? true})
 
 (defn- export
@@ -55,7 +63,11 @@
 
 (deftest the-exports-drawing-embeds-every-font-it-uses
   (with-open [doc (export)]
-    (let [fonts (page-fonts doc)]
+    (let [fonts (page-fonts doc)
+          text (str/replace (.getText (PDFTextStripper.) doc) #"\s+" " ")]
+      (is (= 3 (count (:magic-items-known request))) "the request asks for item cards")
+      (is (some->> (first (:magic-items-known request)) magic-items/name-key (str/includes? text))
+          "and the export draws them, so their fonts are among those checked")
       (is (= #{}
              (set (map first (remove second fonts))))
           "not embedded: the viewer's own Helvetica, WinAnsi-only"))))
