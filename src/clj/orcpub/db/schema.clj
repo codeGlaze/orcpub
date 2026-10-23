@@ -369,7 +369,15 @@
     bool-prop
     [::char-equip-5e/equipped?
      ::char-equip-5e/background-starting-equipment?
-     ::char-equip-5e/class-starting-equipment?])))
+     ::char-equip-5e/class-starting-equipment?])
+   ;; per item in a stack, one record each: plan-charges-and-casting.md
+   [{:db/ident ::char-equip-5e/charges
+     :db/valueType :db.type/ref
+     :db/isComponent true
+     :db/cardinality :db.cardinality/many
+     :db/noHistory true}]
+   (map #(assoc (long-prop %) :db/noHistory true)
+        [::char-equip-5e/charge-index ::char-equip-5e/charges-used ::char-equip-5e/charges-max])))
 
 (def magic-item-schema
   (concat

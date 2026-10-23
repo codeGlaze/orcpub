@@ -7,10 +7,12 @@
 (spec/def ::equipped? boolean?)
 (spec/def ::background-starting-equipment? boolean?)
 (spec/def ::class-starting-equipment? boolean?)
-;; Per item in a stack, by position: charges spent, and a maximum rolled when the item was added
-;; (an item whose charges start as dice). plan-charges-and-casting.md
-(spec/def ::charges-used (spec/coll-of nat-int? :kind vector?))
-(spec/def ::charges-max (spec/coll-of nat-int? :kind vector?))
+;; Per item in a stack, one record each, found by ::charge-index (its position in the stack): charges
+;; spent, and a maximum rolled when added (an item whose charges start as dice). plan-charges-and-casting.md
+(spec/def ::charge-index nat-int?)
+(spec/def ::charges-used nat-int?)
+(spec/def ::charges-max nat-int?)
+(spec/def ::charges (spec/coll-of (spec/keys :req [::charge-index] :opt [::charges-used ::charges-max]) :kind vector?))
 
 (def equipment-item-req [::name ::quantity ::equipped?])
 (def equipment-item-opt [::background-starting-equipment?

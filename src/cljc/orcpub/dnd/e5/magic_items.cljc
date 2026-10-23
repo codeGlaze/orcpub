@@ -81,37 +81,46 @@
 (spec/def ::cast (spec/keys :req [::cast-spell ::cast-level ::cast-cost] :opt [::cast-per-level ::cast-max-level ::save-dc]))
 (spec/def ::casts (spec/coll-of ::cast :kind vector?))
 
+(defn charge-record
+  "The charges record of the `i`th item in a carried stack (`entry`'s ::char-equip5e/charges), or nil."
+  [entry i]
+  (some #(when (= i (::char-equip5e/charge-index %)) %) (::char-equip5e/charges entry)))
+
 (defn charge-max
   "The most charges the `i`th item of a carried stack can hold: the maximum rolled for it when
-  added (`entry`'s ::char-equip5e/charges-max), else the item's ::charges. Nil without charges."
+  added, else the item's ::charges. Nil without charges."
   [item entry i]
-  (or (get (::char-equip5e/charges-max entry) i) (::charges item)))
+  (or (::char-equip5e/charges-max (charge-record entry i)) (::charges item)))
 
 (defn charges-left
   "Charges the `i`th item of a carried stack has left. Takes the item, the carried entry and i."
   [item entry i]
-  (max 0 (- (or (charge-max item entry i) 0) (get (::char-equip5e/charges-used entry) i 0))))
+  (max 0 (- (or (charge-max item entry i) 0) (::char-equip5e/charges-used (charge-record entry i) 0))))
 
-(defn- set-used
-  "`entry` with the `i`th used count set to `n`, the vector padded with zeros up to i."
-  [entry i n]
-  (let [used (::char-equip5e/charges-used entry [])]
-    (assoc entry ::char-equip5e/charges-used
-           (assoc (into used (repeat (max 0 (- (inc i) (count used))) 0)) i n))))
+(defn set-charge
+  "`entry` with field `k` (::char-equip5e/charges-used or charges-max) of its `i`th item's record set
+  to `n`, adding the record if missing."
+  [entry i k n]
+  (let [records (::char-equip5e/charges entry [])]
+    (assoc entry ::char-equip5e/charges
+           (if (charge-record entry i)
+             (mapv #(if (= i (::char-equip5e/charge-index %)) (assoc % k n) %) records)
+             (conj (vec records) {::char-equip5e/charge-index i k n})))))
 
 (defn spend-charges
   "`entry` with `n` charges spent from its `i`th item, or nil when that item has fewer than n
   left. Takes the item, the carried entry, i and n."
   [item entry i n]
   (when (<= n (charges-left item entry i))
-    (set-used entry i (+ (get (::char-equip5e/charges-used entry) i 0) n))))
+    (set-charge entry i ::char-equip5e/charges-used
+                (+ (::char-equip5e/charges-used (charge-record entry i) 0) n))))
 
 (defn regain-charges
   "`entry` with `amount` charges given back to its `i`th item, never past its maximum; amount
   :all refills it. Takes the item, the carried entry, i and the amount."
   [item entry i amount]
-  (let [used (get (::char-equip5e/charges-used entry) i 0)]
-    (set-used entry i (if (= :all amount) 0 (max 0 (- used amount))))))
+  (let [used (::char-equip5e/charges-used (charge-record entry i) 0)]
+    (set-charge entry i ::char-equip5e/charges-used (if (= :all amount) 0 (max 0 (- used amount))))))
 
 (defn roll-regain
   "How many charges the item regains when it recharges, rolled with `roll-die` (a fn of sides).
@@ -1962,6 +1971,8 @@ trapped in the mirror. The freed creature appears, along with its possessions, i
      ::description "While wearing this necklace, you can breathe normally in any environment, and you have advantage on saving throws made against harmful gases and vapors (such as cloudkill and stinking cloud effects, inhaled poisons, and the breath weapons of some dragons)."
      }{
      name-key "Necklace of Fireballs"
+     ::charges-start "1d6+3"
+     ::casts [{::cast-spell :fireball ::cast-level 3 ::cast-cost 1 ::cast-per-level 1 ::save-dc 15}]
      ::type :wondrous-item
      ::rarity :rare
      ::description "This necklace has 1d6 + 3 beads hanging from it. You can use an action to detach a bead and throw it up to 60 feet away. When it reaches the end of its trajectory, the bead detonates as a 3rd-level fireball

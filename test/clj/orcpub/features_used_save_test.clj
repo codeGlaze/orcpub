@@ -1,7 +1,7 @@
 (ns orcpub.features-used-save-test
-  "A saved character keeps a use marked under every reset period a weapon's recharge can name
-   (`::mi/recharge`): each period is its own attribute in the schema, so one missing there makes
-   the whole save fail."
+  "A saved character keeps what it has used: a use under every reset period a weapon's recharge can
+   name, and each carried item's spent and rolled charges. Each is its own attribute in the schema,
+   so one missing there makes the whole save fail."
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.spec.alpha :as spec]
             [datomic.api :as d]
@@ -9,7 +9,9 @@
             [orcpub.db.schema :as schema]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.character :as char5e]
-            [orcpub.dnd.e5.magic-items :as mi])
+            [orcpub.dnd.e5.character.equipment :as char-equip]
+            [orcpub.dnd.e5.magic-items :as mi]
+            [orcpub.dnd.e5.units :as units5e])
   (:import [java.util UUID]))
 
 (defn with-conn
@@ -57,3 +59,33 @@
         (let [uses (saved-uses conn (character-with-use period))]
           (is (= {period ["Javelin of Lightning"]} (when (map? uses) (update-vals uses vec)))
               (if (instance? Exception uses) (.getMessage ^Exception uses) (pr-str uses)))))))))
+
+(defn character-with-wands
+  "A level 1 fighter carrying two Wands of Fireballs, the first with 2 charges spent, the second
+   with all 7, and a Necklace of Fireballs rolled at 6 beads."
+  []
+  (-> (character-with-use ::units5e/long-rest)
+      (update ::se/selections conj
+              {::se/key :other-magic-items
+               ::se/options [{::se/key :wand-of-fireballs
+                              ::se/map-value {::char-equip/quantity 2 ::char-equip/equipped? true
+                                              ::char-equip/charges [{::char-equip/charge-index 0 ::char-equip/charges-used 2}
+                                                                    {::char-equip/charge-index 1 ::char-equip/charges-used 7}]}}
+                             {::se/key :necklace-of-fireballs
+                              ::se/map-value {::char-equip/quantity 1 ::char-equip/equipped? true
+                                              ::char-equip/charges [{::char-equip/charge-index 0 ::char-equip/charges-max 6}]}}]})))
+
+(deftest carried-charges-are-saved
+  (with-conn
+   (fn [conn]
+     (let [id (try (:db/id (:body (routes/do-save-character (d/db conn) conn (character-with-wands) {:user "alice"})))
+                   (catch Exception e (.getMessage e)))
+           items (when (number? id)
+                   (->> (d/pull (d/db conn) [{::se/selections [::se/key {::se/options [::se/key {::se/map-value ['* {::char-equip/charges ['*]}]}]}]}] id)
+                        ::se/selections (some #(when (= :other-magic-items (::se/key %)) (::se/options %)))
+                        (into {} (map (juxt ::se/key ::se/map-value)))))]
+       (is (number? id) (str id))
+       (is (= {0 2 1 7} (into {} (map (juxt ::char-equip/charge-index ::char-equip/charges-used))
+                              (get-in items [:wand-of-fireballs ::char-equip/charges]))) "one record per wand")
+       (is (= [6] (map ::char-equip/charges-max (get-in items [:necklace-of-fireballs ::char-equip/charges])))
+           "the rolled maximum")))))

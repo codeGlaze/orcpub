@@ -23,25 +23,32 @@
   (is (nil? (dice/parse-dice "all")))
   (is (= {:total 7 :rolls [3 3]} (dice/roll-dice (dice/parse-dice "2d6+1") (dice-fn 3 3)))))
 
+(defn used
+  "An entry's spent charges by position, for comparing: {index used}."
+  [entry]
+  (into {} (map (juxt ::char-equip/charge-index ::char-equip/charges-used)) (::char-equip/charges entry)))
+
+(defn rec
+  "A charges record: the item at position i in its stack, n charges spent."
+  [i n] {::char-equip/charge-index i ::char-equip/charges-used n})
+
 (deftest each-item-in-a-stack-has-its-own-pool
-  (let [entry {::char-equip/quantity 2 ::char-equip/charges-used [2 7]}]
+  (let [entry {::char-equip/quantity 2 ::char-equip/charges [(rec 1 7) (rec 0 2)]}]
     (is (= 5 (mi/charges-left wand entry 0)))
     (is (= 0 (mi/charges-left wand entry 1)))
     (is (= 7 (mi/charges-left wand {::char-equip/quantity 1} 0)) "nothing spent yet")))
 
 (deftest spending-takes-from-one-item-only
-  (let [entry {::char-equip/charges-used [2]}]
-    (is (= [5] (::char-equip/charges-used (mi/spend-charges wand entry 0 3))))
+  (let [entry {::char-equip/charges [(rec 0 2)]}]
+    (is (= {0 5} (used (mi/spend-charges wand entry 0 3))))
     (is (nil? (mi/spend-charges wand entry 0 6)) "only 5 left")
-    (is (= [2 4] (::char-equip/charges-used (mi/spend-charges wand entry 1 4))))
-    (is (= [2 0 4] (::char-equip/charges-used (mi/spend-charges wand entry 2 4)))
-        "the third wand: the untouched second one is padded in as 0")))
+    (is (= {0 2 2 4} (used (mi/spend-charges wand entry 2 4))) "the third wand gets its own record")))
 
 (deftest regaining-never-passes-the-maximum
-  (let [entry {::char-equip/charges-used [6]}]
-    (is (= [1] (::char-equip/charges-used (mi/regain-charges wand entry 0 5))))
-    (is (= [0] (::char-equip/charges-used (mi/regain-charges wand entry 0 9))))
-    (is (= [0] (::char-equip/charges-used (mi/regain-charges wand entry 0 :all))))))
+  (let [entry {::char-equip/charges [(rec 0 6)]}]
+    (is (= {0 1} (used (mi/regain-charges wand entry 0 5))))
+    (is (= {0 0} (used (mi/regain-charges wand entry 0 9))))
+    (is (= {0 0} (used (mi/regain-charges wand entry 0 :all))))))
 
 (deftest a-regain-is-rolled-or-all
   (is (= {:amount 5 :rolls [4] :dice "1d6+1"} (mi/roll-regain wand (dice-fn 4))))
@@ -50,7 +57,7 @@
 (deftest a-rolled-start-sets-the-maximum
   (let [stealer {::mi/charges-start "1d8+1"}]
     (is (= 6 (:total (mi/roll-charge-max stealer (dice-fn 5)))))
-    (is (= 6 (mi/charge-max stealer {::char-equip/charges-max [6]} 0)) "the rolled maximum is what counts")
+    (is (= 6 (mi/charge-max stealer {::char-equip/charges [{::char-equip/charge-index 0 ::char-equip/charges-max 6}]} 0)) "the rolled maximum is what counts")
     (is (nil? (mi/roll-charge-max wand (dice-fn 5))) "a fixed maximum rolls nothing")))
 
 (deftest a-cast-is-priced-in-charges

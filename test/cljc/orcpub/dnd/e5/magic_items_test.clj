@@ -358,11 +358,11 @@
     (is (= "1d4-1" (::mi/charges-start (by-name "Luck Blade"))) "1d4 - 1 charges, rolled once")))
 
 (def ^:private uncharged-on-purpose
-  "Items whose text gives charges the one-pool model cannot hold: only one of the Ivory Goats has
-  them (24, all back after 7 days)."
-  #{"Figurine of Wondrous Power: Ivory Goats"})
+  "Items whose text gives charges or beads the one-pool model cannot hold: only one of the Ivory
+  Goats has charges (24, all back after 7 days); each prayer bead is its own once-per-dawn power."
+  #{"Figurine of Wondrous Power: Ivory Goats" "Necklace of Prayer Beads"})
 
 (deftest no-charged-item-is-left-out
   (doseq [{::mi/keys [name description] :as item} mi/magic-items
-          :when (and (not (uncharged-on-purpose name)) (re-find #"(?i)\b(?:has|have|starts with) (?:\d+d\d+|\d+)[^.]{0,6} charges" (str description)))]
+          :when (and (not (uncharged-on-purpose name)) (re-find #"(?i)\b(?:has|have|starts with) (?:\d+d\d+|\d+)[^.]{0,6} (?:magic )?(?:charges|beads)" (str description)))]
     (is (or (::mi/charges item) (::mi/charges-start item)) name)))
