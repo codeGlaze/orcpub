@@ -3784,7 +3784,7 @@ _views-builders-split · views builders split_
 
 _weapon-damage-model · weapon damage model_
 
-**topics:** 2026-10-17, blade, champion, charges, crit, damage, extra, handoff-weapons-table, period, periods, printed, sometimes, sun, sword, vicious, vorpal, weapon, weapon-data-model
+**topics:** 2026-10-17, blade, champion, charges, crit, damage, extra, handoff-weapons-table, period, periods, sometimes, sun, sword, vicious, vorpal, weapon, weapon-data-model, weapon-mastery-plan
 
 - Where it lives (feature/weapons-table)
 - The fields
