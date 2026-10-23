@@ -186,6 +186,8 @@ generate_transactor_reference() {
   local template="${SCRIPT_DIR}/docker/transactor.properties.template"
   local output="${SCRIPT_DIR}/transactor.properties.reference"
   [ -f "$template" ] || return 1
+  # This reference is for Swarm, where the transactor must serve on 0.0.0.0 (docs/DOCKER.md).
+  local TRANSACTOR_HOST="${TRANSACTOR_HOST:-0.0.0.0}"
 
   # Resolve ${VAR} and ${VAR:-default} from environment (sourced from .env)
   local line
