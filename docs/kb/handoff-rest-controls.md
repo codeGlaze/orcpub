@@ -94,6 +94,16 @@ without the fields. The item builder gets the handoff's Charges group (§7).
 
 **Data fill.** By hand per item from its SRD text, as the weapons were, with a test per field.
 
+**Decided (owner, 2026-10-23):**
+- **Dice regains: offer both.** The result line rolls and names the result ("Wand of Fireballs regained
+  5"), and lets the player type their own roll instead; Undo either way.
+- **Rolled starting charges** (Nine Lives Stealer "1d8 + 1"): **offer both.** When the item is added,
+  the player rolls in the app or types the number; that sets the item's maximum on the character.
+- **Stacks: recommended, awaiting owner:** one pool per item (rules-accurate; each wand regains on its
+  own). Shown as one row "×2" with a pip line per item. Stored as an ordered list of used counts on
+  the carried item's entry (a Datomic tuple of longs, at most 8; Datomic Pro 1.0.7482 has tuples).
+  The rolled maximum needs a second per-item value beside it.
+
 ## Open, for the owner
 
 - Where a used charge is stored.

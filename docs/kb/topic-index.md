@@ -765,7 +765,7 @@ _class-feature-catalogue · class feature catalogue_
 
 _class-features-and-mechanization · class features and mechanization_
 
-**topics:** attack, cfg, data-addressable, dice, feature, features, fighter, indomitable, pools, registry, rogue, roller, rolls, scaling, sneak, surge, user-reported, wind
+**topics:** attack, cfg, data-addressable, dice, feature, features, fighter, indomitable, nd6, pools, registry, rogue, roller, scaling, sneak, surge, user-reported, wind
 
 - How a class + its features are structured — VERIFIED (fighter, rogue read)
 - Two kinds of feature "mechanics" — VERIFIED
@@ -1296,7 +1296,7 @@ _docker-setup-flow · docker setup flow_
 
 _docker-swarm-compat · docker swarm compat_
 
-**topics:** cli, codespaces, compose, config, datomic, deploy, dns, docker, incompatibilities, nginx, outputs, specification, stack, startup, string, swarm, validator, yaml
+**topics:** cli, codespaces, compose, config, deploy, dns, docker, incompatibilities, nginx, outputs, ports, specification, stack, startup, string, swarm, validator, yaml
 
 - Context
 - Solution
@@ -1888,7 +1888,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-rest-controls · handoff rest controls_
 
-**topics:** 1d6, 2026-10-23, charge, charges, dawn, dismissible, dusk, handoff, item, lasts, once-per-dawn, period, powers, regain, rest, rests, undo, unused
+**topics:** 2026-10-23, charge, charges, dawn, dismissible, dusk, fireballs, handoff, item, lasts, maximum, powers, regain, regains, rest, rolled, undo, wand
 
 - Where it is
 - The design in one paragraph
