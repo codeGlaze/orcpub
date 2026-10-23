@@ -2760,7 +2760,7 @@ _plan-character-drafts · plan character drafts_
 
 _plan-charges-and-casting · plan charges and casting_
 
-**topics:** beads, cast, casting, casts, charges, damage, dawn, dice, fireball, fireballs, item, parts, regain, rolls, spell, spells, srd-improvements, staff
+**topics:** 2026-10-23, beads, cast, casting, casts, charges, damage, dawn, dice, fireball, fireballs, item, regain, rolls, spell, spells, srd-improvements, staff
 
 - What exists (verified)
 - The connecting idea

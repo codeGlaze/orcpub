@@ -114,6 +114,10 @@ something it grants its bearer. Mapping it to a modifier would make every magic 
 `srd_battleaxe-1/-2/-3`) match how this app keys variants (`:flame-tongue-longsword`); and
 attunement text is a separate field.
 
+**Decided (owner, 2026-10-23): our fields stay ours.** "It makes sense for our app to have more
+detailed fields because we are planning on interactivity while open5e is only SRD info." No charge
+fields are proposed upstream.
+
 **A charged item our scan missed:** Necklace of Fireballs ("1d6 + 3 beads", a 3rd-level fireball,
 DC 15, one level higher per extra bead) fits the model exactly as beads: `::charges-start "1d6+3"`, no
 recharge, a fireball cast from 3rd with `::cast-per-level 1`. The coverage test looks only for the word
