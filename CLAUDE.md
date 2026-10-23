@@ -230,7 +230,7 @@ Before committing:
 ## Branch Strategy
 
 - `develop` - Main development branch (PRs only, no direct push)
-- `testing/develop` - Testing infrastructure (devcontainer, E2E, CI)
+- `testing/develop` - Retired; agent-facing tests and tooling are on `agents/develop` (AGENTS.md, Branch Protection)
 - `agents/develop` - AI agent configuration and documentation
 - `feature/*`, `integrate/*` - Feature and integration branches
 
@@ -241,7 +241,6 @@ Git hooks automatically enforce branch rules:
 | Branch | Allowed Files | Blocked |
 |--------|---------------|---------|
 | `develop` | N/A | Direct pushes (use PR) |
-| `testing/develop` | `e2e/*`, `.devcontainer/*`, `test/*`, `.github/*`, `scripts/*`, `.githooks/*`, `.gitignore`, `Dockerfile*`, `docker-compose*`, `*.sh` | Source code |
 | `agents/develop` | `*.md`, `.claude/*`, `agents/*`, `docs/*`, `scripts/git/*`, `.githooks/*` | Source code, tests |
 | `feature/*` | Everything | Nothing |
 

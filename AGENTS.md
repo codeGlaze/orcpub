@@ -16,7 +16,7 @@ correct this table rather than working around it — see `docs/kb/documentation-
 |--------|-----------|------|
 | `develop` | **OWNER ONLY** | Never merge or push. The upstream trunk; PRs target it. |
 | `integration` | **PR REQUIRED** | The active trunk — hotfixes land here and it is ahead of `develop`. No direct pushes. |
-| `agents/develop` | **AGENT HOME** | Everything an agent needs to know, remember, run or use: KB, docs, introductions, agent config (`.claude/*`), hooks (`.githooks/*`) and tooling (`scripts/*`). **No app source, no app tests.** It carries integration's code for `file:line` accuracy, but code changed here conflicts with the next merge down. |
+| `agents/develop` | **AGENT HOME** | What agents need to know, remember, run or use: KB, docs, introductions, agent config (`.claude/*`), hooks (`.githooks/*`), and **agent-facing tests and tooling**: probes, browser scripts run by hand, research and measurement scripts, anything that helps an agent check its work and that a human developer would not reach for. **App source, and the tests and dev tools a human developer uses (`lein test`, CI, `dev/` REPL tools), stay with the code.** `testing/develop` is retired; its agent-facing parts come here. It carries integration's code for `file:line` accuracy, but code changed here conflicts with the next merge down. |
 | `refactor/*` | **OPEN** | Working parent for the refactor tree and its leaves. |
 | `feature/*` `fix/*` `hotfix/*` `perf/*` `docs/*` | **OPEN** | Agents may work freely. Typed prefixes; these are what the tree actually uses. |
 | `claude/*` | **DO NOT MERGE** | Harness auto-branches. Re-home commits onto a typed branch before merging anything. |
@@ -330,6 +330,26 @@ start-up or on a page that does not show it. A new start-up step, or a new reque
 load, needs a written reason. The artist credits were once fetched on every page; nothing noticed
 until an unrelated test logged the 404. `test/page-load-budget` is adding a browser check that fails
 on any request a page's allowance does not list.
+
+### Shrinking the big files — SHOULD FOLLOW
+
+Most logic sits in a few huge files: `views.cljs` (11.5k lines), `events.cljs` (8.8k),
+`styles/core.clj` (3.7k), `options.cljc` (3.7k), `pdf.clj` (3.3k), `character_builder.cljs`
+(2.9k), `routes.clj` (2.8k). Don't add to them; take things out as you pass.
+
+- **New code goes in its own namespace** when it is a feature of its own (a page, a builder
+  panel, a route group). A big file gets only the wiring: a require, a route entry, a call.
+- **Move what you are already working in.** When a branch changes a self-contained group in a
+  big file (a feature's views, its events and subs, a route group), move it to its own namespace
+  in the same branch: small, well bounded, its own commit with no behaviour change.
+- **Don't move** code you are not otherwise touching, code an open PR is changing in the same
+  file (wait until it lands), or a group tangled with half the file. Note it as a candidate in the
+  branch's KB instead.
+- **A move changes nothing else:** same names, same re-frame event and sub ids, callers updated,
+  tests green before and after.
+- **Data files are exempt:** `monsters.cljc`, `spells.cljc`, `magic_items.cljc`, `classes.cljc`
+  hold SRD data, not logic.
+- **Report it:** give the file's line count before and after.
 
 ### Comments and Docstrings — MUST FOLLOW
 
