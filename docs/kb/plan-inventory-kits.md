@@ -181,6 +181,25 @@ other edit). Gear rows a kit tracks get the share line (`Explorer's 7/10 · 3 sp
 nothing yet: paying from coins is later. Styles: `.kit-*` in `styles/core.clj`, coloured from
 `currentColor` so every theme draws them.
 
+## Design handoff v2 and pack counts built (2026-10-23, `b1eff815`, then counts)
+
+Built from the designer's `Kits_UI_v2` handoff (5a layout, 6a Restock prompt, final copy in its
+section 5), with three of the owner's earlier decisions kept over it: the search box's Packs preset
+instead of a separate picker; which items a kit shows (more than one per pack, or low) instead of a
+consumable flag; the light theme's blue buttons. The handoff's link style (11px small capitals,
+`.link-button.quiet`) and the strip that becomes Restock's question live in the shared
+`notifications/callout` (`:quiet?`, `:title`, `:actions-below?`), not in kit-only markup. The kit
+line folds to the Kits block's live width (ResizeObserver; `inventory/contents-line`). The
+designer's word-choice comment sits beside the copy in `inventory/act` (approved in
+`test/comment-baseline.edn`).
+
+**Pack counts (owner, 2026-10-23):** two of the same pack are one kit with a count, stored as the
+kit pick's number (missing reads 1). The count is how many packs the character has
+(`source-count`: starting choices plus the Equipment pack pick's quantity); `repair` keeps the kit
+to it (`set-kit-count`). Targets multiply by it; "shows" is judged per pack, so two backpacks never
+reach the kit line. "Remove one pack" appears when a bought pack can go; its share becomes
+unbundled. Adding gear already in the Equipment list raises its quantity instead of a second row.
+
 ## Reuse audit (2026-10-23, before more kit work)
 
 Read against `feature/inventory-kits` `f2e7f7d2`. What the kit code built that the app already has:
