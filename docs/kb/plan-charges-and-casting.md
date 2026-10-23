@@ -66,9 +66,16 @@ rolled maximum where the item starts with a roll. A once-per-dawn power is a poo
 On `feature/weapons-table` (owner: "just finish building it here"):
 
 1. **Reset periods:** add dusk (spec, schema, clear); Long Rest stops clearing dawn (flip the test);
-   Dawn also clears per-day uses (`::units5e/day`, never cleared today: a bug).
-2. **Charges model:** item fields, character fields with schema, pure functions (spend, regain with
-   a die fn, roll a starting maximum), tests seen failing first.
+   Dawn also clears per-day uses (`::units5e/day`, never cleared today: a bug). **Ships with the Rest
+   box (step 5),** so Long Rest never stops clearing dawn before a Dawn control exists.
+2. **Charges model: done `807b7d60`.** In the item domain (`magic_items.cljc`): `::charges`,
+   `::charges-start` (dice), `::charges-regain` (a dice or number string; absent means all), `::casts`
+   (`::cast-spell ::cast-level ::cast-cost`, optional `::cast-per-level ::save-dc`), and `charge-max`,
+   `charges-left`, `spend-charges`, `regain-charges`, `roll-regain`, `roll-charge-max`, `cast-levels`.
+   Per carried item (`character/equipment.cljc`): `::charges-used`, `::charges-max`, vectors by
+   position in the stack. Dice: `dice/parse-dice`, `dice/roll-dice` (injectable die). Schema for the
+   character fields comes with the first step that saves them. `item_charges_test.cljc`, every check
+   seen failing. One value type per field: a regain is always a string.
 3. **SRD data fill:** the 44 charged items and the once-per-dawn powers, by hand from the text.
 4. **Charges on the sheet:** pips, counts, spending; magic weapon powers draw from the pool.
 5. **Rest box** per the handoff: Features tab, time of day, Now, rests, the question, result line,

@@ -2760,7 +2760,7 @@ _plan-character-drafts · plan character drafts_
 
 _plan-charges-and-casting · plan charges and casting_
 
-**topics:** cast, casting, charges, damage, fireball, item, level, maximum, parts, payment, powers, roll, rolled, rolls, spell, spells, srd-improvements, staffs
+**topics:** cast, casting, charges, damage, dawn, dice, fireball, item, level, parts, powers, rest, rolled, rolls, spell, spells, srd-improvements, staffs
 
 - What exists (verified)
 - The connecting idea
