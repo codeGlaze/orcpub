@@ -85,7 +85,7 @@
    ;; Pedestal 0.7+ requires explicit interceptor coercion for maps/functions
    ::http/enable-session false  ; Disable default session handling if not needed
    ::http/port (configured-port)
-   ::http/join false
+   ::http/join? true
    ::http/resource-path "/public"
    ;; CSP configured via CSP_POLICY env var (strict|permissive|none)
    ;; See orcpub.config for details
@@ -150,7 +150,11 @@
     :pedestal
     (component/using
       (pedestal/new-pedestal)
-      [:service-map :conn :token-withdrawals :alerts :outbox])
+      ;; Everything else is listed so it starts first: in production http/start blocks for as long
+      ;; as the server runs, so a component that starts after :pedestal never starts.
+      ;; system_start_order_test.clj fails when one is missing.
+      [:service-map :conn :token-withdrawals :alerts :outbox
+       :heartbeat :crash-report :artist-accounts :strand-check])
 
     ;; Tells the admin, once, when the previous run crashed (heap dump or JVM crash log).
     :crash-report
