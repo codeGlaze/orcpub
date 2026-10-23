@@ -295,7 +295,7 @@ _agent-hooks · agent hooks_
 
 _already-held-grants · already held grants_
 
-**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool, pool-grant-map, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool-grant-map, proficiencies, proficiency, race, replacement, skill, skills, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -600,7 +600,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, 2026-06-15, bespoke, builders, creatures, feat, form, fragment, framework, group, june, node, schema, tier, titled, traits, type, widgets
+**topics:** ---, 2026-06-15, 2026-09-05, bespoke, builders, creatures, feat, form, fragment, framework, june, node, schema, tier, titled, traits, type, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -874,7 +874,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, page-map, parametric, per-type, pool, pools, primitive, registry, vocabulary, wiring
+**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, openness, page-map, parametric, per-type, pool, pools, primitive, registry, wiring
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -1296,7 +1296,7 @@ _docker-setup-flow · docker setup flow_
 
 _docker-swarm-compat · docker swarm compat_
 
-**topics:** cli, codespaces, compose, config, deploy, dns, docker, incompatibilities, nginx, outputs, ports, specification, stack, startup, string, swarm, validator, yaml
+**topics:** cli, codespaces, compose, config, deploy, dns, docker, incompatibilities, nginx, outputs, ports, solution, specification, stack, startup, swarm, validator, yaml
 
 - Context
 - Solution
@@ -1382,7 +1382,7 @@ _documentation-tenets · documentation tenets_
 
 _dropdown-value-coercion · dropdown value coercion_
 
-**topics:** asi, coerce, coercion, d32, dropdown, floating-asi, forget, handed, index-round-trip, merge-base, mistake, numeric, occurrence, per-caller, primitive, prior, string, widget
+**topics:** asi, caller, coerce, coercion, d32, floating-asi, forget, handed, index-round-trip, merge-base, mistake, numeric, occurrence, per-caller, primitive, prior, string, widget
 
 - The discrepancy (what bit us)
 - Root cause (general, not specific to ASI)
@@ -1775,7 +1775,7 @@ _fork-customization · fork customization_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, card, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, title, tray, workaround
+**topics:** accent, chip, chips, chrome, css, menu, menus, mock, multi-select, omv, popover, redesign, spacing, switcher, theme, title, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -1888,14 +1888,14 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-rest-controls · handoff rest controls_
 
-**topics:** 2026-10-23, charge, charges, dawn, dismissible, dusk, fireballs, handoff, item, lasts, maximum, powers, regain, regains, rest, rolled, undo, wand
+**topics:** 2026-10-23, charge, charges, dawn, dismissible, dusk, handoff, item, lasts, maximum, plan-charges-and-casting, powers, regain, regains, rest, rolled, undo, wand
 
 - Where it is
 - The design in one paragraph
 - Against the code (checked 2026-10-23, feature/weapons-table)
 - How charges work today (checked 2026-10-23)
 - Decided (owner, 2026-10-23)
-- A real charge system: plan (2026-10-23, awaiting owner)
+- A real charge system (2026-10-23)
 - Open, for the owner
 
 ## handoff-weapons-table.md
@@ -2143,7 +2143,7 @@ _icon-font-failure · icon font failure_
 
 _input-field-debounce · input field debounce_
 
-**topics:** 50-200ms, 500ms, cljs, debounce, debounced, dispatches, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers
+**topics:** 50-200ms, 500-2000ms, 500ms, cljs, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers
 
 - Current Design (post-refactor)
 - Data flow
@@ -2185,7 +2185,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, quarantined, repair, restore, translator, unnamed, wind, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, number, quarantined, repair, restore, translator, unnamed, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -2646,7 +2646,7 @@ _perf-entity-build · perf entity build_
 
 _perf-homebrew-builder-loop · perf homebrew builder loop_
 
-**topics:** ---, 130, cache, caster, casters, chunking, class, freeze, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, task
+**topics:** ---, 130, builder-open, cache, casters, chunking, class, freeze, heap, lazy, library, longest, mega-64, pack, paint, parse, per-source, task
 
 - Method
 - The fixtures
@@ -2748,12 +2748,25 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** 2026-10-16, days, draft, drafts, edit, expire, expires, leftover, never-saved, notice, owner, rescue, restore, saved, start-up, tab, undo, unsaved
+**topics:** 2026-10-16, days, draft, drafts, edit, elsewhere, expire, expires, leftover, never-saved, notice, owner, rescue, restore, saved, start-up, tab, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)
 - Design
 - Build steps, in order
+- Open, for the owner
+
+## plan-charges-and-casting.md
+
+_plan-charges-and-casting · plan charges and casting_
+
+**topics:** cast, casting, charges, damage, fireball, item, maximum, parts, payment, powers, roll, rolled, rolls, spell, spells, srd-improvements, staffs, wielder
+
+- What exists (verified)
+- The connecting idea
+- Data
+- What the player sees
+- Build order
 - Open, for the owner
 
 ## plan-chunked-library-storage.md
@@ -2853,7 +2866,7 @@ _plan-email-and-alerts · plan email and alerts_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, skill, wrapper
+**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, published, skill, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -2870,7 +2883,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, gear, holy, items, kit, kits, leftovers, pack, packs, picker, quantities, quantity, rations, refill, reorganize, restock, stored, torches
+**topics:** 2026-10-22, equipment, gear, holy, items, kit, kits, leftovers, pack, packs, quantities, quantity, rations, refill, reorganize, restock, stored, torches
 
 - The problems today
 - The model
@@ -3385,7 +3398,7 @@ _spell-selection-source-fix · spell selection source fix_
 
 _spell-slot-progression · spell slot progression_
 
-**topics:** artificer, caster, factor, factors, half-caster, integer, multiclass, multiclassing, normal, pact, per-level, progression, slots, solo, sorcerer, spell-granting-across-silos, table, warlock
+**topics:** artificer, caster, factor, factors, half-caster, integer, multiclass, multiclassing, pact, per-level, progression, slots, solo, sorcerer, spell-granting-across-silos, table, tables, warlock
 
 - How slots are computed today — VERIFIED
 - The overload — why Artificer can't be expressed — VERIFIED
@@ -3580,7 +3593,7 @@ _starting-equipment · starting equipment_
 
 _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
-**topics:** app-code, approach, atom, dispatch, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
+**topics:** approach, atom, dispatch, during, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
 
 - The Problem
 - What Doesn't Work
@@ -3652,7 +3665,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reg-event-db, testing, utilities
+**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners
@@ -3725,7 +3738,7 @@ _ux-guide · ux guide_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
+**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested

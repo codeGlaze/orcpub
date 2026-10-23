@@ -58,7 +58,9 @@ moves behind a Dev mode setting. The item builder gains a Charges group.
 - **Undo lasts until the result line is closed.** Nothing saved; this replaces the earlier
   "until the character changes, across sessions" ruling.
 
-## A real charge system: plan (2026-10-23, awaiting owner)
+## A real charge system (2026-10-23)
+
+The combined plan with casting and build order: [plan-charges-and-casting.md](plan-charges-and-casting.md).
 
 The owner: "figure out a real charge system, even if it rides the existing ones to a new location".
 
