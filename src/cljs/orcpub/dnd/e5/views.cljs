@@ -4013,40 +4013,10 @@
                                magic-armor-cfgs)))]]]]))))
 
 (defn other-equipment-section-2
-  "The sheet's Other Equipment for character `id`, with its kits (`inventory-views/sheet-equipment`)."
-  [id]
-  [inventory-views/sheet-equipment id])
-
-(defn treasure-section []
-  (r/with-let [expanded-details (r/atom {})]
-    (fn [id]
-      (let [mobile? @(subscribe [:mobile?])
-            treasure-cfgs (merge
-                             @(subscribe [::char/treasure id])
-                             (zipmap (range) @(subscribe [::char/custom-treasure id])))]
-        [:div
-         [:div.flex.align-items-c
-          (svg-icon "cash" 32)
-          [:span.m-l-5.f-w-b.f-s-18 "Treasure"]]
-         [:div
-          [:table.w-100-p.t-a-l.striped
-           [:tbody
-            [:tr.f-w-b
-             {:class (when mobile? "f-s-12")}
-             [:th.p-10 "Name"]
-             [:th.p-10 "Qty."]
-             [:th]]
-            (doall
-             (map
-              (fn [[treasure-kw treasure-cfg]]
-                (let [treasure-name (::char-equip/name treasure-cfg)
-                      {:keys [::equip/name] :as treasure} (equip/treasure-map treasure-kw)]
-                  ^{:key treasure-kw}
-                  [:tr
-                   [:td.p-10.f-w-b (or (:name treasure) treasure-name)]
-                   [:td.p-10 (::char-equip/quantity treasure-cfg)]]))
-              treasure-cfgs))]]]]))))
-
+  "The sheet's Other Equipment for character `id`, with its kits (`inventory-views/sheet-equipment`);
+   `managing?` is the Equipment tab's Manage inventory atom."
+  [id managing?]
+  [inventory-views/sheet-equipment id managing?])
 
 (defn skill-details-section-2 []
   (let [expanded-details (r/atom {})]
@@ -4381,20 +4351,27 @@
                               total-spellcaster-levels
                               levels])]]))
 
-(defn equipment-details [num-columns id]
-  [:div
-   [:div.m-t-30
-    [equipped-section id]]
-   [:div.m-t-30
-    [weapons-section-2 id]]
-   [:div.m-t-30
-    [armor-section-2 id]]
-   [:div.m-t-30
-    [magic-items-section-2 id]]
-   [:div.m-t-30
-    [other-equipment-section-2 id]]
-   [:div.m-t-30
-    [treasure-section id]]])
+(defn equipment-details
+  "The sheet's Equipment tab for character `id`. It holds the Manage inventory switch, so leaving
+   the tab turns it off; Other Equipment and Treasure follow it."
+  []
+  (let [managing? (r/atom false)]
+    (fn [num-columns id]
+      [:div
+       [:div.m-t-30
+        [equipped-section id]]
+       [:div.m-t-30
+        [weapons-section-2 id]]
+       [:div.m-t-30
+        [armor-section-2 id]]
+       [:div.m-t-30
+        [magic-items-section-2 id]]
+       [:div.m-t-30
+        [other-equipment-section-2 id managing?]]
+       [:div.m-t-30
+        [inventory-views/sheet-treasure id managing?]]
+       (when @managing?
+         [inventory-views/done-managing managing?])])))
 
 (defn details-tab [title icon device-type selected? on-select]
   [:div.b-b-2.f-w-b.pointer.p-10.hover-opacity-full

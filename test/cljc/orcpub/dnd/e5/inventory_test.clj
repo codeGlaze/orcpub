@@ -292,3 +292,12 @@
       (let [r (inventory/change-quantity c :mess-kit -1)]
         (is (nil? (qty r :mess-kit)))
         (is (= 0 (held-of r :explorers-pack :mess-kit)))))))
+
+(deftest setting-a-treasure-quantity
+  (let [c {::entity/options {:treasure [{::entity/key :gp ::entity/value {::char-equip/quantity 10}}]}}
+        tq (fn [c k] (some #(when (= k (::entity/key %)) (get-in % [::entity/value ::char-equip/quantity]))
+                           (get-in c [::entity/options :treasure])))]
+    (is (= 47 (tq (inventory/set-quantity c :treasure :gp 47) :gp)) "changed in place")
+    (is (= 5 (tq (inventory/set-quantity c :treasure :sp 5) :sp)) "a coin not held yet is added")
+    (is (nil? (tq (inventory/set-quantity c :treasure :gp 0) :gp)) "0 removes it")
+    (is (= c (inventory/set-quantity c :treasure :pp 0)) "0 of a coin not held changes nothing")))

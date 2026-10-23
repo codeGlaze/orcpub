@@ -381,6 +381,22 @@
     [character n]
     (active-kits character))))
 
+(defn set-quantity
+  "`character` with selection `sel`'s pick `k` (gear, treasure) at quantity `n`: added when missing,
+   removed at 0 or below; equipped flags kept. Kits are not consulted: use it for picks no kit holds."
+  [character sel k n]
+  (let [ps (vec (get-in character [::entity/options sel]))
+        i (first (keep-indexed (fn [i e] (when (= k (::entity/key e)) i)) ps))
+        n (or n 0)]
+    (assoc-in character [::entity/options sel]
+              (cond
+                (not (pos? n)) (if i (into (subvec ps 0 i) (subvec ps (inc i))) ps)
+                i (update ps i (fn [p] (assoc p ::entity/value
+                                              (assoc (let [v (::entity/value p)] (if (map? v) v {::char-equip/equipped? true}))
+                                                     ::char-equip/quantity n))))
+                :else (conj ps {::entity/key k
+                                ::entity/value {::char-equip/quantity n ::char-equip/equipped? true}})))))
+
 (defn change-quantity
   "`character` with gear `k`'s quantity moved by `delta`: more is added as unbundled, less is taken
    from the kits first (`take-from-kits`); at 0 the row goes and no kit holds it."

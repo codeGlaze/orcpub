@@ -671,14 +671,13 @@
 
 (defn sheet-equipment
   "The sheet's Other Equipment for character `id` (nil: the builder's): its kits, always with
-   Restock; the item list with each kit's share; and a Manage inventory switch that turns the
-   search from filtering this list to adding items, shows Add a kit and the − / + quantities, and
-   ends at Done. The switch lives here, so leaving the tab or the sheet turns it off."
+   Restock; the item list with each kit's share; and the Manage inventory switch (`managing?`, an
+   atom the Equipment tab holds), which turns the search from filtering this list to adding items
+   and shows Add a kit and the − / + quantities."
   []
-  (let [managing? (r/atom false)
-        query (r/atom "")
+  (let [query (r/atom "")
         preset (r/atom nil)]
-    (fn [id]
+    (fn [id managing?]
       (let [mobile? @(subscribe [:mobile?])
             {:keys [shares]} @(subscribe [::inventory/panel id])
             items (merge @(subscribe [::char5e/equipment id])
@@ -742,7 +741,49 @@
                   qty)]
                [:td.p-10
                 (str (when cost (str (:num cost) " " (common/safe-name (:type cost)) ", ")) weight)]]))]]
-         (when @managing?
-           [:div.flex.justify-cont-end.m-t-10
-            [:button.form-button {:on-click #(do (reset! managing? false) (reset! query ""))} "Done"]])]))))
+         ]))))
+
+(def ^:private coins
+  "The coin keys, which a managed Treasure always lists."
+  [:cp :sp :ep :gp :pp])
+
+(defn sheet-treasure
+  "The sheet's Treasure for character `id` (nil: the builder's): name and quantity; while
+   `managing?` (the Equipment tab's atom) every coin and keyed treasure gets a number box."
+  [id managing?]
+  (let [mobile? @(subscribe [:mobile?])
+        held @(subscribe [::char5e/treasure id])
+        custom (zipmap (range) @(subscribe [::char5e/custom-treasure id]))
+        keyed (if @managing?
+                (merge (into (array-map) (for [k coins] [k nil])) held)
+                held)]
+    [:div
+     [:div.flex.align-items-c
+      (comps/themed-icon "cash" 32 @(subscribe [:theme]))
+      [:span.m-l-5.f-w-b.f-s-18 "Treasure"]]
+     [:table.w-100-p.t-a-l.striped
+      [:tbody
+       [:tr.f-w-b
+        {:class (when mobile? "f-s-12")}
+        [:th.p-10 "Name"]
+        [:th.p-10 "Qty."]
+        [:th]]
+       (doall
+        (for [[k cfg] (concat keyed custom)
+              :let [qty (::char-equip5e/quantity cfg)]]
+          ^{:key k}
+          [:tr
+           [:td.p-10.f-w-b (or (:name (equip5e/treasure-map k)) (::char-equip5e/name cfg))]
+           [:td.p-10
+            (if (and @managing? (keyword? k))
+              [comps/int-field (or qty 0)
+               #(dispatch [::inventory/set-quantity id :treasure k %])
+               {:class "input m-t-0 w-70" :aria-label (str (:name (equip5e/treasure-map k)) " quantity")}]
+              qty)]]))]]]))
+
+(defn done-managing
+  "The Done button that ends Manage inventory (`managing?`, the Equipment tab's atom)."
+  [managing?]
+  [:div.flex.justify-cont-end.m-t-10
+   [:button.form-button {:on-click #(reset! managing? false)} "Done"]])
 

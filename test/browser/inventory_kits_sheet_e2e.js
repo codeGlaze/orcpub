@@ -67,7 +67,7 @@ const setTorches = async (page, n) => { const q = torchQty(page); await q.fill(S
   t = await stext();
   check(/Torch 9\/10/.test(t), 'one fewer torch comes out of the kit: Torch 9/10');
   await page.screenshot({ path: path.join(OUT, 'c0-sheet-managing.png'), fullPage: false });
-  await sec().locator('button.form-button:text-is("Done")').click(); await settle(page, 400);
+  await page.locator('button.form-button:text-is("Done")').click(); await settle(page, 400);
   check(await sec().locator('.sheet-stepper').count() === 0, 'Done turns managing off');
   // Save it, then its own sheet.
   await page.locator('.builder-tabs >> text=Options').first().click(); await settle(page, 600);
@@ -96,12 +96,22 @@ const setTorches = async (page, n) => { const q = torchQty(page); await q.fill(S
     console.log('  saves after the edit:', JSON.stringify(posts));
     check(/Torch 8\/10/.test(await stext()), 'one fewer on the saved sheet: Torch 8/10');
     check(/Undo/.test(await stext()) === false, 'a stepper keeps no Undo line');
+    const gp = page.locator('input[aria-label="Gold Pieces (GP) quantity"]');
+    check(await gp.count() === 1, 'managing: Treasure lists every coin with a box');
+    await gp.fill('47'); await gp.blur(); await settle(page, 3000);
+    for (let i = 0; i < 20 && posts.length < 2; i++) await page.waitForTimeout(500);
+    await page.waitForTimeout(1500);
     await page.reload(); await settle(page, 1500, 20000);
     await eqTab().click(); await settle(page, 1000);
     const reloaded = await stext();
     console.log('  after reload:', reloaded.slice(0, 200).replace(/\n/g, ' | '));
     check(/Torch 8\/10/.test(reloaded), 'after a reload it is still 8/10: the edit was saved');
     check(await sec().locator('.sheet-stepper').count() === 0, 'leaving and coming back: managing is off');
+    check(/Gold Pieces \(GP\)\s+47/.test(await page.locator('#app').innerText()), 'the 47 gold was saved');
+    await sec().locator('.toggle-switch').click(); await settle(page, 400);
+    await page.locator('.b-b-2.pointer').first().click(); await settle(page, 600);
+    await eqTab().click(); await settle(page, 800);
+    check(await sec().locator('.sheet-stepper').count() === 0, 'switching tabs turns managing off');
     await page.screenshot({ path: path.join(OUT, 'c1-saved-sheet.png'), fullPage: false });
   }
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
