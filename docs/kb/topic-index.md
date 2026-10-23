@@ -1685,7 +1685,7 @@ _feat-builder-audit · feat builder audit_
 
 _fighting-style-authoring · fighting style authoring_
 
-**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, tick, watch-list
+**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, watch-list, whitelist
 
 - Status — 2026-09-05: BUILT
 - The divvying rule (decided) — which classes can take a homebrew style
@@ -1775,7 +1775,7 @@ _fork-customization · fork customization_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, card, cards, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, tray, workaround
+**topics:** accent, card, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, title, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -1888,11 +1888,13 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-rest-controls · handoff rest controls_
 
-**topics:** box, briefed, button, charges-used, d1-d7, dawn, dismissible, dusk, floating, handoff, lasts, long, mockups, rest, rests, settings, undo, weapon-mastery-plan
+**topics:** 2026-10-23, button, charge, charges, dawn, dismissible, dusk, finish, handoff, lasts, long, mockups, period, rest, rests, specced, undo, weapon-mastery-plan
 
 - Where it is
 - The design in one paragraph
 - Against the code (checked 2026-10-23, feature/weapons-table)
+- How charges work today (checked 2026-10-23)
+- Decided (owner, 2026-10-23)
 - Open, for the owner
 
 ## handoff-weapons-table.md
@@ -2140,7 +2142,7 @@ _icon-font-failure · icon font failure_
 
 _input-field-debounce · input field debounce_
 
-**topics:** 500ms, cleared, cljs, debounce, debounced, dispatches, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers
+**topics:** 50-200ms, 500ms, cljs, debounce, debounced, dispatches, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers
 
 - Current Design (post-refactor)
 - Data flow
@@ -2485,7 +2487,7 @@ _page-load-budget · page load budget_
 
 _pdf-form-techniques · pdf form techniques_
 
-**topics:** 2026-09, appearance, artwork, bytes, card, cards, field, fields, foot, page, pages, pdfbox, rank, rarity, sheet, stream, streams, widgets
+**topics:** 2026-09, appearance, artwork, attunement, bytes, card, field, fields, foot, page, pages, pdfbox, rank, rarity, sheet, stream, streams, widgets
 
 - The one rule that explains most of the weirdness
 - Cloning a page without copying its artwork
@@ -3464,7 +3466,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2026-10-06, 5etools, data, edition, editions, monsters, open5e, owner, pdf, served, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2026-10-06, 2026-10-07, 5etools, edition, editions, monsters, open5e, owner, pdf, served, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded

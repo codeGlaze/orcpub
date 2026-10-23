@@ -38,9 +38,26 @@ moves behind a Dev mode setting. The item builder gains a Charges group.
 | Import log button | `views/import_log.cljs` | move, plus dismissible when empty (needs a drawing first) |
 | Settings Dev mode section | not checked yet | find the settings page before building |
 
+## How charges work today (checked 2026-10-23)
+
+- **No item data carries a charge count.** "charges" appears 96 times in `magic_items.cljc`, all in
+  description prose. `::mi/charges` and `::mi/charges-recharge` are specced and unused.
+- **The sheet has no charge counter.** An item's limited use is an action with a `:frequency` (Dragon
+  Scale Mail, `units5e/days-1`) shown as a checkbox, recorded under its period in
+  `::char5e/features-used` and cleared by the rest that period belongs to. Used or not, no counts.
+  This branch's weapon powers (`::mi/recharge ::units5e/dawn`) use the same record.
+- **The PDF guesses a count:** `pdf.clj` `item-charges` reads "<number or dice> charges" from the
+  description to print tick boxes on magic item cards. Paper only.
+- **Bug: per-day uses never clear.** Ten items use `units5e/days-1` (`::units5e/day`), and no rest or
+  other event clears `::day` (`units5e/long-rest-clears` is long-rest, rest, dawn). Their text says
+  "until the next dawn", so `::day` should be cleared by Dawn (or those items moved to `::dawn`).
+
+## Decided (owner, 2026-10-23)
+
+- **Built on `feature/weapons-table`** ("just finish building it here").
+- **Undo lasts until the result line is closed.** Nothing saved; this replaces the earlier
+  "until the character changes, across sessions" ruling.
+
 ## Open, for the owner
 
-- Which branch carries this. It reaches past the weapons table (Features tab, floating button,
-  import log, item builder, settings).
-- How long Undo lasts (until the next change and across sessions, as agreed earlier, or less).
 - Where a used charge is stored.
