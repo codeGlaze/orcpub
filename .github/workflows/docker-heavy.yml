@@ -133,18 +133,21 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - name: Build images
-        env:
-          DOCKER_BUILDKIT: 0
-        run: |
-          docker build --target transactor -t orcpub-datomic -f docker/Dockerfile .
-          docker build --target app -t orcpub-app -f docker/Dockerfile .
+      # Before the build: ./run --swarm switches the transactor template to Swarm's host setting,
+      # and the template is copied into the Datomic image when it is built.
       - name: Generate the Swarm stack with ./run
         run: |
           ./run --auto
           ./run --swarm --auto
           ls -la docker-compose.swarm.yaml
           grep -n "/var/log:/host-log\|JDK_JAVA_OPTIONS" docker-compose.swarm.yaml
+          grep -n "^host=0.0.0.0" docker/transactor.properties.template
+      - name: Build images
+        env:
+          DOCKER_BUILDKIT: 0
+        run: |
+          docker build --target transactor -t orcpub-datomic -f docker/Dockerfile .
+          docker build --target app -t orcpub-app -f docker/Dockerfile .
       - name: Deploy it
         run: |
           docker swarm init 2>/dev/null || true

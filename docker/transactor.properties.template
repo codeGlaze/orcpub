@@ -30,6 +30,8 @@ protocol=dev
 #   for reconnection. run --swarm switches this automatically.
 #
 # To switch manually: comment one host= line and uncomment the other.
+# This file is copied into the Datomic image when it is built: rebuild the image after switching
+# (./run --build), or the transactor keeps the old setting and Swarm never sees it healthy.
 host=datomic
 #host=0.0.0.0
 port=4334

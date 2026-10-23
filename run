@@ -194,7 +194,8 @@ YAML
   fi
 }
 
-# Switch transactor host binding between Compose and Swarm modes.
+# Switch transactor host binding between Compose and Swarm modes. Edits the template in place;
+# the template is baked into the Datomic image, so the image must be rebuilt afterwards.
 # Usage: switch_transactor_host "compose"  → host=datomic (Compose DNS bind)
 #        switch_transactor_host "swarm"    → host=0.0.0.0 (Swarm all-interfaces)
 switch_transactor_host() {
