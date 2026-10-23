@@ -52,6 +52,14 @@ already done). What remains is the **storage backend migration**:
 
 ---
 
+## Agent files in 7 branches' history (owner to read when there is time)
+
+`.claude/summaries/...` and `CLAUDE.md` are in the history of `refactor/content-extensibility`,
+`feature/grant-rows`, `feature/extras-companions`, `srd52/develop`,
+`feature/fighting-style-authoring`, `feature/demo-content-tier` and `perf/memoize-audit`, and
+would reach `integration` on merge. Decide per branch whether to rewrite it, and whether to add
+the pre-commit guard. [claude-files-in-branch-history.md](kb/claude-files-in-branch-history.md).
+
 ## Homebrew fighting-style authoring — never wired (refactor follow-up)
 
 **Status:** Open — a deliberate loose end left mid-refactor.

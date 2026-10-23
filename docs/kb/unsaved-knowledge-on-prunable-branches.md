@@ -10,7 +10,7 @@ blob against all 99 other branches.
 
 **References pinned**, fetched 2026-09-12: `agents/develop` at `6e7ff10b`, `integration` at
 `36766010`, `develop` at `15e1fe04`, `feature/grant-rows` at `a24030b3`,
-`feature/fighting-style-authoring` at `d778d1e5`, `perf/entity-build` at `999df1c6`. Branch tips for
+`feature/fighting-style-authoring` at `d778d1e5`, `perf/entity-build` at `678ea776`. Branch tips for
 each `claude/*` doc are given in the tables.
 
 ## The headline: agents/develop holds 70 of the repo's 128 KB docs

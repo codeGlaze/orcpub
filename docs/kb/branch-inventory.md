@@ -114,7 +114,7 @@ Last updated 2026-10-06. Re-run before trusting a row: branches move.
 | `fix/windows-port-detection` | remote | 2026-09-18 | `8fbf98f510` | - | 92% of its added lines are on integration |
 | `name-generators` | remote | 2025-12-10 | `7be6733320` | - | 0% of its added lines are on integration |
 | `patch/decoded-link-render-and-qol` | remote | 2026-08-16 | `f57f0296f4` | - | 75% of its added lines are on integration |
-| `perf/entity-build` | remote | 2026-09-04 | `999df1c6ec` | - | 4% of its added lines are on integration |
+| `perf/entity-build` | remote | 2026-09-04 | `678ea776ac` | - | 4% of its added lines are on integration |
 | `perf/memoize-audit` | remote | 2026-09-06 | `cde510c263` | - | 36% of its added lines are on integration |
 | `port/redesign-on-refactor` | remote | 2026-07-15 | `29f3809394` | worktree | 26% of its added lines are on integration |
 | `premerge/integration-to-dmv` | local-only | 2026-09-07 | `199cab0535` | - | 3% of its added lines are on integration |

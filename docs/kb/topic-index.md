@@ -281,7 +281,7 @@ _account-flows · account flows_
 
 _agent-hooks · agent hooks_
 
-**topics:** agent, armed, arming, docstring, gitignore, hook, hooks, installer, orcpub-garden, push, reminder, session, sessionstart, setup, trailer, transcript, worktree, worktrees
+**topics:** agent, armed, arming, docstring, gitignore, hook, hooks, installer, orcpub-garden, reminder, session, sessionstart, setup, stripper, trailer, transcript, worktree, worktrees
 
 - The rule
 - The entry point follows the same rule
@@ -295,7 +295,7 @@ _agent-hooks · agent hooks_
 
 _already-held-grants · already held grants_
 
-**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool-grant-map, proficiencies, proficiency, race, replacement, skill, skills, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool, pool-grant-map, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -795,6 +795,18 @@ _claude-branch-triage · claude branch triage_
 - Discard (12)
 - What is not known
 - Revisions
+
+## claude-files-in-branch-history.md
+
+_claude-files-in-branch-history · claude files in branch history_
+
+**topics:** 110, 182, 2026-07-01, 2026-10-23, 8-character, branch, citations, commits, days, descends, history, rewrite, rewriting, session, shas, summary, tip, weeks
+
+- What leaked
+- Done
+- Still to do — decide branch by branch
+- How (the perf/entity-build run)
+- Not yet built
 
 ## client-ip-behind-proxies.md
 
@@ -1345,7 +1357,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, irreducible, ledger, linked, narrative, plan, session, stale, topic
+**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, plan, session, stale, topic, wrong
 
 - What earns a doc
 - Verify, don't remember
@@ -1430,7 +1442,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
+**topics:** 2026-09-13, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, helper, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -1917,7 +1929,7 @@ _handoff-weapons-table · handoff weapons table_
 
 _heartbeat · heartbeat_
 
-**topics:** beat, beats, clock, database, dates, hour, job, jobs, jumped, monitor, outage, outages, pruning, running, server, three-day, tick, unrecorded
+**topics:** beat, beats, clock, database, hour, job, jobs, jumped, measure, monitor, outage, outages, pruning, running, server, three-day, tick, unrecorded
 
 - What it records
 - Using it
@@ -3511,7 +3523,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-data-consumers · srd data consumers_
 
-**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, load-time, lower-cases, magic, monsters, re-check, spell, srd-2024-roadmap, sub
+**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, load-time, lower-cases, magic, mechanics, monsters, spell, srd-2024-roadmap, sub
 
 - The two facts that shape any move
 - Per type
