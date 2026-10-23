@@ -807,14 +807,16 @@
     (dispatch (into [::kits/act action] args))))
 
 (defn- kit-row
-  "One kit: its tile and name (tap for Use first and Remove kit), what it holds, Restock when it is
-   low, and Restock's question when spare stock could fill it."
+  "One kit: its tile and name (tap for Use first and Remove kit), what it holds, and Restock when it
+   is low. `asking` holds the pack whose Restock question is open: when spare stock could fill the
+   kit, Restock opens it under the row (Yes uses the spare first, No buys all new)."
   []
-  (let [menu? (r/atom false)
-        asking? (r/atom false)]
-    (fn [character top? {:keys [pack name chest? tracked could-use-spare]}]
+  (let [menu? (r/atom false)]
+    (fn [character top? asking {:keys [pack name chest? tracked could-use-spare]}]
       (let [low? (some :low? tracked)
-            toggle #(swap! menu? not)]
+            open? (and low? (= pack @asking))
+            toggle #(swap! menu? not)
+            restock! (fn [mode] (reset! asking nil) (kit-act! character :restock pack mode))]
         [:div
          [:div.kit-row
           [:div.kit-tile.pointer {:on-click toggle} [kit-icon chest? 32]]
@@ -828,11 +830,9 @@
                     (if low?
                       [:span.orange.f-w-b (str nm " " held "/" target)]
                       [:span.opacity-6 (str nm " " held)]))))]
-          (when (and low? (not @asking?))
+          (when (and low? (not open?))
             [:button.form-button
-             {:on-click #(if (seq could-use-spare)
-                           (reset! asking? true)
-                           (kit-act! character :restock pack :all-new))}
+             {:on-click #(if (seq could-use-spare) (reset! asking pack) (restock! :all-new))}
              "Restock"])]
          (when @menu?
            [:div.kit-indent.flex.flex-wrap
@@ -843,17 +843,14 @@
             [:button.link-button.underline.f-s-14
              {:on-click #(do (reset! menu? false) (kit-act! character :remove pack))}
              "Remove kit (keep items)"]])
-         (when (and @asking? low?)
-           [:div.f-s-12.m-t-5
-            [:div.kit-indent (str "You already have " (kits/list-label could-use-spare) " that no kit holds.")]
-            [:div.flex.align-items-c.justify-cont-end.kit-actions
-             [:button.form-button.m-r-5
-              {:on-click #(do (reset! asking? false) (kit-act! character :restock pack :mine-first))}
-              "Use mine first"]
-             [:button.link-button.underline.f-s-14
-              {:on-click #(do (reset! asking? false) (kit-act! character :restock pack :all-new))}
-              "All new"]
-             [:button.link-button.underline.f-s-14 {:on-click #(reset! asking? false)} "Cancel"]]])]))))
+         (when open?
+           [:div.kit-well.kit-question.f-s-12
+            [:div.f-w-b.f-s-14 "Restock"]
+            [:div (str "You have " (kits/list-label could-use-spare true) ". Use them first?")]
+            [:div.kit-actions.flex.justify-cont-end.align-items-c
+             [:button.link-button.underline.f-w-b.f-s-14 {:on-click #(restock! :mine-first)} "Yes"]
+             [:button.link-button.underline.f-s-14 {:on-click #(restock! :all-new)} "No"]
+             [:button.link-button.underline.f-s-14 {:on-click #(reset! asking nil)} "Cancel"]]])]))))
 
 (defn- kit-question
   "A question a kit needs answered: a pack no longer chosen (remove what it added, or keep it), or
@@ -885,7 +882,8 @@
    Restock and menu; questions kits need answered; Reorganize when spare stock could fill a kit; the
    last action's Undo; and Add a kit's pack picker."
   []
-  (let [picker? (r/atom false)]
+  (let [picker? (r/atom false)
+        asking (r/atom nil)]
     (fn []
       (let [character @(subscribe [:character])
             {ks :kits :keys [questions fillable addable]} @(subscribe [::kits/panel])
@@ -915,10 +913,11 @@
             [:span.f-s-14.opacity-5 "Add a kit"]]
            (doall
             (map-indexed
-             (fn [i kit] ^{:key (:pack kit)} [kit-row character (zero? i) kit])
+             (fn [i kit] ^{:key (:pack kit)} [kit-row character (zero? i) asking kit])
              ks)))
          (for [q questions] ^{:key (str (:kind q) (:pack q))} [kit-question character q])
-         (when (seq fillable)
+         ;; Hidden while a Restock question is open: it already names the spare stock.
+         (when (and (seq fillable) (nil? @asking))
            [:div.kit-well.f-s-12
             [:span (str (kits/list-label fillable)
                         (if (and (= 1 (count fillable)) (= 1 (second (first fillable)))) " isn't" " aren't")

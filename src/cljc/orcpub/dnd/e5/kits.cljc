@@ -402,20 +402,22 @@
         :else (str w "s")))
 
 (defn count-label
-  "`n` of gear `k` in words: \"3 torches\", \"6 days of rations\", \"2 flasks of oil\"."
-  [k n]
+  "`n` of gear `k` in words: \"3 torches\", \"6 days of rations\", \"2 flasks of oil\"; with
+   `spare?`, \"3 spare torches\", \"6 spare days of rations\"."
+  [k n & [spare?]]
   (let [{nm :name container :sell-container} (equipment5e/equipment-map k)
         base (s/lower-case (or nm (name k)))
-        one? (= 1 n)]
+        one? (= 1 n)
+        n' (str n (when spare? " spare"))]
     (cond
-      (= k :rations-1-day) (str n (if one? " day" " days") " of rations")
-      container (let [c (name container)] (str n " " (if one? c (pluralize c)) " of " base))
-      :else (str n " " (if one? base (pluralize base))))))
+      (= k :rations-1-day) (str n' (if one? " day" " days") " of rations")
+      container (let [c (name container)] (str n' " " (if one? c (pluralize c)) " of " base))
+      :else (str n' " " (if one? base (pluralize base))))))
 
 (defn list-label
-  "[[item-key n]] in words, joined \"a, b and c\"."
-  [items]
-  (let [ws (mapv (fn [[k n]] (count-label k n)) items)]
+  "[[item-key n]] in words, joined \"a, b and c\"; `spare?` as `count-label`."
+  [items & [spare?]]
+  (let [ws (mapv (fn [[k n]] (count-label k n spare?)) items)]
     (if (< (count ws) 2)
       (first ws)
       (str (s/join ", " (pop ws)) " and " (peek ws)))))

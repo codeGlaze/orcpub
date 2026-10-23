@@ -1996,6 +1996,7 @@
       :padding "0 0 0 10px" :margin-top "8px" :border-radius "5px"
       :border "1px solid color-mix(in srgb, currentColor 30%, transparent)"
       :background-color "color-mix(in srgb, currentColor 6%, transparent)"}]
+    [:.kit-well.kit-question {:display :block :padding "10px 0 0 10px"}]
     [:.kit-pack-option
      {:display :flex :align-items :center :gap "8px" :width "100%" :min-height "44px"
       :padding "6px 10px" :margin-top "5px" :border-radius "5px" :text-align :left

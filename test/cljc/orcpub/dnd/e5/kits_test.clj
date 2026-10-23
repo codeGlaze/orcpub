@@ -181,5 +181,7 @@
   (is (= "1 torch" (kits/count-label :torch 1)))
   (is (= "6 days of rations" (kits/count-label :rations-1-day 6)))
   (is (= "2 flasks of oil" (kits/count-label :oil 2)))
+  (is (= "3 spare torches and 2 spare days of rations"
+         (kits/list-label [[:torch 3] [:rations-1-day 2]] true)))
   (is (= "3 torches, 2 candles and 1 day of rations"
          (kits/list-label [[:torch 3] [:candle 2] [:rations-1-day 1]]))))
