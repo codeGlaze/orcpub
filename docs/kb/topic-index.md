@@ -2767,6 +2767,7 @@ _plan-charges-and-casting · plan charges and casting_
 - Data
 - What the player sees
 - Build order
+- Decided (owner, 2026-10-23)
 - Open, for the owner
 
 ## plan-chunked-library-storage.md

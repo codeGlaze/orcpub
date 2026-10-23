@@ -82,9 +82,11 @@ On `feature/weapons-table` (owner: "just finish building it here"):
 On `srd52/develop`, separately: spell damage parts and casting options as data (srd-improvements.md).
 Then a cast rolls damage through the weapon roll engine.
 
+## Decided (owner, 2026-10-23)
+
+- **Stacks: one pool per item.**
+- **One PR:** charges, rests and casting ride the weapons PR ("all under the same umbrella").
+
 ## Open, for the owner
 
-- Stacks: one pool per item, or shared.
-- Item spells on the Spells tab, or on the item only.
-- Size: steps 1-7 make the weapons PR much larger. One PR, or the weapons table first and charges
-  and rests as a second PR from the same branch.
+- Item spells on the Spells tab, or on the item only: the owner wants them compared visually (mockup).
