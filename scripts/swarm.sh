@@ -324,6 +324,12 @@ generate_swarm_compose() {
   for m in "${_swarm_bind_mounts_app[@]+"${_swarm_bind_mounts_app[@]}"}"; do
     [ -n "$m" ] && a_bind_mounts="${a_bind_mounts}      - ${m}\n"
   done
+  # The host's /var/log, where the app keeps crash files and unsent alerts in /var/log/$APP_LOGS_NAME.
+  # /var/log exists on every machine, so a node never refuses the task for a missing folder.
+  case "$a_bind_mounts" in
+    *":/host-log"*) ;;
+    *) a_bind_mounts="${a_bind_mounts}      - /var/log:/host-log\n" ;;
+  esac
 
   # --- Build env blocks ---
   # Define canonical env vars for each service (name:default pairs)
@@ -363,6 +369,7 @@ generate_swarm_compose() {
     "APP_URL:\${APP_URL:-}"
     "EMAIL_ADMIN_TO:\${EMAIL_ADMIN_TO:-}"
     "PORTRAIT_STORE_DIR:\${PORTRAIT_STORE_DIR:-}"
+    "APP_LOGS_NAME:\${APP_LOGS_NAME:-orcpub}"
     "TRUST_CLOUDFLARE:\${TRUST_CLOUDFLARE:-}"
     "TRUSTED_PROXIES:\${TRUSTED_PROXIES:-}"
     "ALERT_SPOOL_DIR:\${ALERT_SPOOL_DIR:-/var/lib/orcpub/state/alerts}"

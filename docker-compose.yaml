@@ -78,13 +78,14 @@ services:
       # without one, each container keeps its own under /tmp.
       PORTRAIT_STORE_DIR: ${PORTRAIT_STORE_DIR:-}
       # Java's start-up flags. When it runs out of memory it writes a heap dump and exits so it is
-      # restarted clean; a JVM crash writes a crash log. Both go to APP_LOGS_DIR on the host, and the
+      # restarted clean; a JVM crash writes a crash log. Both go to /var/log/$APP_LOGS_NAME on the host, and the
       # next start emails the admin. JAVA_OPTS (memory settings, see docs/DOCKER.md) comes last,
       # so it can override any of these.
       JDK_JAVA_OPTIONS: "-XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/lib/orcpub/state/crash/heap.hprof -XX:ErrorFile=/var/lib/orcpub/state/crash/jvm-crash-%p.log ${JAVA_OPTS:-}"
       # Every other setting the server reads. Empty means "use the default", so these change
       # nothing until set in .env. Only names listed here reach the container.
       # Proxies in front of the app (docs/ENVIRONMENT.md, Security)
+      APP_LOGS_NAME: ${APP_LOGS_NAME:-orcpub}
       TRUST_CLOUDFLARE: ${TRUST_CLOUDFLARE:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       # Admin alerts (docs/ENVIRONMENT.md, Admin alerts)
@@ -141,10 +142,10 @@ services:
       start_period: 60s
     restart: always
     logging: *logging
-    # Unsent admin alerts and crash files, in a folder on the host (APP_LOGS_DIR, default
-    # logs/app beside the transactor's logs/); kept when the container is replaced.
+    # The host's /var/log: the app keeps crash files and unsent admin alerts in
+    # /var/log/$APP_LOGS_NAME (default orcpub), kept when the container is replaced.
     volumes:
-      - ${APP_LOGS_DIR:-./logs/app}:/var/lib/orcpub/state
+      - /var/log:/host-log
   datomic:
     image: ${DATOMIC_IMAGE:-orcpub-datomic}
     build:

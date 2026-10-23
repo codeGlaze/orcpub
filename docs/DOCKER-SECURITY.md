@@ -45,16 +45,22 @@ target command — no intermediate process, transactor becomes PID 1 as the
 
 ### App (`app` user)
 
-The app keeps crash files and unsent admin alerts in a folder on the host
-(`APP_LOGS_DIR`, default `logs/app`), mounted at `/var/lib/orcpub/state`. As
-with the transactor, the host folder's ownership overrides the image's, so the
-app starts as root and `deploy/app-start.sh`:
+The app keeps crash files and unsent admin alerts in `/var/log/$APP_LOGS_NAME`
+on the host (default `orcpub`). The host's `/var/log` is mounted at
+`/host-log`, because it exists on every machine and so never stops a Swarm task
+starting. The app starts as root and `deploy/app-start.sh`:
 
-1. creates `/var/lib/orcpub/state`, `alerts/` and `crash/` if missing;
-2. gives **those three folders only** to `app` and makes them private (`750`).
-   It never changes ownership recursively, so pointing `APP_LOGS_DIR` at the
-   wrong folder cannot take over everything in it;
-3. runs Java as `app` with `su-exec`, so the app itself never runs as root.
+1. checks `APP_LOGS_NAME` is a plain folder name (no `/`, no `..`), else uses
+   `orcpub`, so the folder can never be outside `/var/log`;
+2. creates that folder and its `alerts/` and `crash/`, and gives **those three
+   only** to `app`, private (`750`). It never changes ownership recursively and
+   never touches `/var/log` itself or anything else in it;
+3. checks the app can reach the folder; if the host's `/var/log` is closed to
+   other users it says so and keeps the files inside the container;
+4. runs Java as `app` with `su-exec`, so the app itself never runs as root.
+
+The cost: until step 4 the start script runs as root with the host's `/var/log`
+mounted. It is the only code that runs then, and it only does the steps above.
 
 `docker-user.sh` runs its commands in the container with `docker exec -u app`.
 `test/docker/test-app-start.sh` checks the user, the ownership and the privacy.

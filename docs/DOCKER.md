@@ -390,18 +390,22 @@ request lines in the app's log too, add `-Dorg.slf4j.simpleLogger.log.io.pedesta
 
 **When the app runs out of memory** it writes a heap dump and exits straight away, and Docker
 restarts it clean, rather than limping on half-broken. If Java itself crashes it writes a crash
-log. Both go to a folder on the host, `logs/app/crash/` beside the
-transactor's `logs/` (set `APP_LOGS_DIR` in `.env` to use another folder), so they survive the
-container being replaced and you can open them like any other file. The folder is private to the
-app's user; on the host you may need `sudo` to read it. If you choose your own folder, keep it under
-`logs/` or outside the project folder: everything else in the project folder is sent to each image
-build, and a private folder there makes the build fail with "permission denied". On the next start the server emails an admin alert saying
+log. Both go to `/var/log/orcpub/crash/` on the host, the usual place for logs on Linux, the same on
+Docker Compose and on Swarm. To use another name, set `APP_LOGS_NAME` in `.env` (for example
+`APP_LOGS_NAME=dmv` for `/var/log/dmv`); the folder is always inside `/var/log`. The files survive
+the container being replaced, and the folder is private to the app's user, so read it with `sudo`.
+
+The app mounts the host's `/var/log` because it exists on every machine: on Swarm, a container that
+lands on any server starts without preparation. At start-up it creates its own folder there and
+gives only that folder to the app's user; nothing else in `/var/log` is touched. If the host's
+`/var/log` is closed to other users, the app says so at start-up and keeps the files inside the
+container instead. On the next start the server emails an admin alert saying
 what happened, when, and where the file is.
 
 - The heap dump (`heap.hprof`) is as large as the app's memory and holds everything that was in
   it, player data included. Keep it private, and delete it once read: Java does not overwrite it,
   so the next crash cannot write a new one while it is there.
-- Unsent admin alerts wait in `logs/app/alerts/` in the same way.
+- Unsent admin alerts wait in `/var/log/orcpub/alerts/` in the same way.
 
 **The app's memory.** `JAVA_OPTS` in `.env` sets Java's memory options for the app, for example
 `JAVA_OPTS=-XX:MaxRAMPercentage=75.0` (use up to 75% of the container's memory). Left empty, Java
@@ -412,7 +416,7 @@ container but never reached Java, so if you set it earlier, it starts taking eff
 
 | Volume Mount | Service | Purpose |
 |--------------|---------|---------|
-| `${APP_LOGS_DIR:-./logs/app}` → `/var/lib/orcpub/state` | orcpub | Unsent admin alerts and crash files; survives the container being replaced |
+| `/var/log` → `/host-log` | orcpub | The app keeps crash files and unsent admin alerts in `/var/log/$APP_LOGS_NAME` (default `orcpub`); survives the container being replaced. Compose and Swarm both |
 | `./data` | datomic | Datomic dev storage data files |
 | `./logs` → `/log` | datomic | Transactor log output (host `logs/`, container `/log`) |
 | `./backups` | datomic | Datomic backup destination |
