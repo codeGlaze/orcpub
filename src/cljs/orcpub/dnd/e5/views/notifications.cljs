@@ -74,42 +74,50 @@
         :aria-label "Dismiss"}]]]))
 
 (defn callout
-  "Persistent notice: optional :icon (fa class), :text (string or hiccup), :actions, :details.
-   :tone :warning (default) or :note; :accent :brand draws the amber ring. An action is {:label}
-   with :on-click (:link? true for a text link; :expanded marks a toggle, with an arrow) or :href
-   and :target, and an optional :icon (a COMPLETE icon class). :details: {:key :label :aside}
-   rows in a band under the line, as two columns. :on-close adds the close mark; :compact? fits
-   a one-line notice."
-  [{:keys [icon text actions tone accent on-close compact? details]}]
+  "Persistent notice: :icon (fa class), :title (a bold first line), :text, :actions, :details. :tone
+   :warning (default) or :note; :accent :brand draws the amber ring; :compact? fits one line;
+   :quiet? draws small capitals links (`.link-button.quiet`); :actions-below? puts them on their
+   own right-aligned row. An action: {:label :icon} with :on-click (:link? a text link, :strong? or
+   :muted? with :quiet?, :expanded a toggle) or :href and :target. :details: {:key :label :aside}
+   rows under the line. :on-close adds the close mark."
+  [{:keys [icon title text actions tone accent on-close compact? details quiet? actions-below?]}]
   [:div.p-10.m-b-10.flex.align-items-c
    {:class (cond-> [(case tone :note "bg-note" "bg-warning")]
              ;; A ring, so a callout can carry an identity without a severity colour filling
              ;; the box. Named, not a colour: the shades live in styles/core.clj.
              (= accent :brand) (conj "callout-accent-brand")
              compact? (conj "callout-compact")
-             (seq details) (conj "flex-wrap"))
+             quiet? (conj "callout-quiet")
+             (or (seq details) actions-below?) (conj "flex-wrap"))
     :style {:gap "8px"}}
    (when icon [:i.fa {:class icon}])
-   [:div.f-s-14.flex-grow-1 text]
+   [:div.f-s-14.flex-grow-1.callout-text
+    (when title [:div.f-w-b title])
+    text]
    ;; with-meta on the ELEMENT, not on the let: metadata on a let form attaches to
    ;; the form, never reaches what it returns, and React logs a missing-key warning
    ;; for every action in the seq.
-   (for [{:keys [label on-click href target icon link? expanded]} actions]
-     (let [body (if icon
-                  [:span [:i.m-r-5 {:class icon}] label]
-                  label)]
-       (with-meta
-         (cond
-           href [:a.form-button {:href href :target (or target "_blank")} body]
-           link? [:button.link-button.underline.f-w-b.f-s-14
-                  (cond-> {:on-click on-click}
-                    (some? expanded) (assoc :aria-expanded expanded))
-                  body
-                  (when (some? expanded)
-                    [:i.fa.m-l-5 {:class (if expanded "fa-angle-up" "fa-angle-down")
-                                  :aria-hidden true}])]
-           :else [:button.form-button {:on-click on-click} body])
-         {:key label})))
+   (let [buttons
+         (for [{:keys [label on-click href target icon link? expanded strong? muted?]} actions]
+           (let [body (if icon
+                        [:span [:i.m-r-5 {:class icon}] label]
+                        label)]
+             (with-meta
+               (cond
+                 href [:a.form-button {:href href :target (or target "_blank")} body]
+                 (and link? quiet?) [:button.link-button.quiet
+                                     {:class (cond strong? "strong" muted? "muted") :on-click on-click}
+                                     body]
+                 link? [:button.link-button.underline.f-w-b.f-s-14
+                        (cond-> {:on-click on-click}
+                          (some? expanded) (assoc :aria-expanded expanded))
+                        body
+                        (when (some? expanded)
+                          [:i.fa.m-l-5 {:class (if expanded "fa-angle-up" "fa-angle-down")
+                                        :aria-hidden true}])]
+                 :else [:button.form-button {:on-click on-click} body])
+               {:key label})))]
+     (if actions-below? (into [:div.callout-actions] buttons) buttons))
    (when on-close
      [:button.message-close.main-text-color
       {:type "button" :title "Dismiss" :aria-label "Dismiss" :on-click on-close}

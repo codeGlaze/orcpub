@@ -204,7 +204,42 @@
   (is (= "1 torch" (inventory/count-label :torch 1)))
   (is (= "6 days of rations" (inventory/count-label :rations-1-day 6)))
   (is (= "2 flasks of oil" (inventory/count-label :oil 2)))
-  (is (= "3 spare torches and 2 spare days of rations"
-         (inventory/list-label [[:torch 3] [:rations-1-day 2]] true)))
-  (is (= "3 torches, 2 candles and 1 day of rations"
-         (inventory/list-label [[:torch 3] [:candle 2] [:rations-1-day 1]]))))
+  (is (= "3 torches · 2 candles · 1 day of rations"
+         (inventory/list-label [[:torch 3] [:candle 2] [:rations-1-day 1]])))
+  (is (= "Rations" (inventory/item-short-name :rations-1-day)))
+  (is (= "Rope" (inventory/item-short-name :rope-hempen)))
+  (testing "the Re-bundle strip keeps each item on one line and folds past three"
+    (is (= "Unbundled: 3\u00a0torches\u00a0· 2\u00a0days\u00a0of\u00a0rations"
+           (inventory/unbundled-label [[:torch 3] [:rations-1-day 2]])))
+    (is (= "Unbundled: 6\u00a0torches\u00a0· 4\u00a0days\u00a0of\u00a0rations\u00a0· 2\u00a0more"
+           (inventory/unbundled-label [[:candle 1] [:torch 6] [:rations-1-day 4] [:piton 2]])))))
+
+(deftest a-kit-line-folds-to-its-width
+  (let [row (fn [k held target] {:key k :held held :target target :low? (< held target)})
+        six [(row :torch 9 10) (row :rations-1-day 4 10) (row :candle 0 10)
+             (row :piton 5 10) (row :oil 1 2) (row :paper 3 5) (row :ink 1 1)]]
+    (testing "nothing low: every item, muted"
+      (is (= {:full [(row :torch 10 10)]} (inventory/contents-line [(row :torch 10 10)] 40))))
+    (testing "low items that fit are all shown, then the full count"
+      (is (= {:low [(row :torch 5 10)] :more-low 0 :more-full 1}
+             (inventory/contents-line [(row :torch 5 10) (row :rations-1-day 10 10)] 40))))
+    (testing "too many: emptiest first, then +N low"
+      (let [{:keys [low more-low more-full]} (inventory/contents-line six 40)]
+        (is (= :candle (:key (first low))) "the emptiest leads")
+        (is (= 6 (+ (count low) more-low)))
+        (is (= 1 more-full))
+        (is (<= (+ (reduce + (map #(inc (count (str (inventory/item-short-name (:key %)) " " (:held %) "/" (:target %)))) low))
+                   (count (str "+" more-low " low")) 1 (count "+1 full"))
+                40))))
+    (testing "a wider column shows more; the narrowest still shows one"
+      (is (> (count (:low (inventory/contents-line six 70))) (count (:low (inventory/contents-line six 40)))))
+      (is (= 1 (count (:low (inventory/contents-line six 1))))))))
+
+(deftest remove-kit-and-items-takes-only-what-it-shows
+  (let [c (two-kits)
+        {r :character message :message} (inventory/act c :remove-with-items :explorers-pack)]
+    (is (= 18 (qty r :torch)) "the kit's 5 torches go; Dungeoneer's 10 and the 8 unbundled stay")
+    (is (= 1 (qty r :bedroll)) "durable gear the kit does not show stays")
+    (is (= "Removed Explorer's Pack and Torch 5 · Rations 10." message))
+    (is (= 23 (qty (:character (inventory/act c :remove :explorers-pack)) :torch))
+        "plain Remove kit keeps its items")))

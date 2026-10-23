@@ -179,7 +179,7 @@
   [character]
   (set (map :pack (chosen-packs character))))
 
-(declare deficits resolve-orphan)
+(declare deficits resolve-orphan tracked)
 
 (defn offered-packs
   "The packs the character's first class grants or offers in its starting equipment, read from the
@@ -415,6 +415,16 @@
     (cond-> character
       kit (assoc-in [::entity/options :kits] (into [kit] (remove #(= pack-key (::entity/key %))) ks)))))
 
+(defn held-items
+  "What the kit for `pack-key` holds of the items it shows (`tracked`), as [[item-key n]] in the
+   order its summary line lists them: low items emptiest first, then the full ones. Durable gear it
+   does not show is left out, so \"Remove kit and items\" leaves it."
+  [character pack-key]
+  (let [rows (tracked (some #(when (= pack-key (::entity/key %)) %) (kits character)))]
+    (mapv (juxt :key :held)
+          (concat (sort-by #(/ (:held %) (:target %)) (filter :low? rows))
+                  (remove :low? rows)))))
+
 (defn remove-kit
   "`character` without the kit for `pack-key`; its items stay, as spare stock. A pack chosen in
    starting equipment keeps a removed marker so the kit is not made again."
@@ -467,25 +477,69 @@
         :else (str w "s")))
 
 (defn count-label
-  "`n` of gear `k` in words: \"3 torches\", \"6 days of rations\", \"2 flasks of oil\"; with
-   `spare?`, \"3 spare torches\", \"6 spare days of rations\"."
-  [k n & [spare?]]
+  "`n` of gear `k` in words: \"3 torches\", \"6 days of rations\", \"2 flasks of oil\"."
+  [k n]
   (let [{nm :name container :sell-container} (equipment5e/equipment-map k)
         base (s/lower-case (or nm (name k)))
         one? (= 1 n)
-        n' (str n (when spare? " spare"))]
+        n' (str n)]
     (cond
       (= k :rations-1-day) (str n' (if one? " day" " days") " of rations")
       container (let [c (name container)] (str n' " " (if one? c (pluralize c)) " of " base))
       :else (str n' " " (if one? base (pluralize base))))))
 
 (defn list-label
-  "[[item-key n]] in words, joined \"a, b and c\"; `spare?` as `count-label`."
-  [items & [spare?]]
-  (let [ws (mapv (fn [[k n]] (count-label k n spare?)) items)]
-    (if (< (count ws) 2)
-      (first ws)
-      (str (s/join ", " (pop ws)) " and " (peek ws)))))
+  "[[item-key n]] in words, joined \" · \": \"3 torches · 2 days of rations\"."
+  [items]
+  (s/join " · " (map (fn [[k n]] (count-label k n)) items)))
+
+(defn unbundled-label
+  "The Re-bundle strip's line for unbundled `items` ([[item-key n]]): \"Unbundled: 3 torches · 2 days
+   of rations\", the two largest then \"N more\" past three. Non-breaking spaces keep each item, and
+   the space before each dot, on one line."
+  [items]
+  (let [nb #(s/replace % " " "\u00a0")
+        shown (if (> (count items) 3) (take 2 (sort-by (comp - second) items)) items)
+        parts (cond-> (mapv (fn [[k n]] (nb (count-label k n))) shown)
+                (> (count items) 3) (conj (nb (str (- (count items) 2) " more"))))]
+    (str "Unbundled: " (s/join "\u00a0· " parts))))
+
+(defn item-short-name
+  "Gear `k`'s name for kit lines, without its parenthetical or comma qualifier: \"Rations\" for
+   \"Rations (1 day)\", \"Rope\" for \"Rope, hempen\"."
+  [k]
+  (-> (:name (equipment5e/equipment-map k) (name k))
+      (s/replace #"\s*\(.*\)$" "")
+      (s/replace #",.*$" "")))
+
+(defn held-label
+  "[[item-key n]] as kit counts: \"Torch 7 · Rations 10\"."
+  [items]
+  (s/join " · " (map (fn [[k n]] (str (item-short-name k) " " n)) items)))
+
+(defn contents-line
+  "What a kit's summary line shows from `tracked` (`tracked`'s rows) within about `budget`
+   characters (40 at 390px): low items, emptiest first once they would not fit, then folded counts.
+   Returns {:low rows :more-low n :more-full n}, or {:full rows} when nothing is low."
+  [tracked budget]
+  (let [low (filter :low? tracked)
+        full (remove :low? tracked)
+        label #(str (item-short-name (:key %)) " " (:held %) "/" (:target %))
+        full-tag (when (seq full) (str "+" (count full) " full"))
+        cost (fn [rows more] (+ (reduce + (map #(inc (count (label %))) rows))
+                                (if (pos? more) (inc (count (str "+" more " low"))) 0)
+                                (count (or full-tag ""))))]
+    (if (empty? low)
+      {:full (vec full)}
+      (let [shown (if (<= (cost low 0) budget)
+                    (vec low)
+                    (let [by-emptiest (sort-by #(/ (:held %) (:target %)) low)]
+                      (loop [n 1]
+                        (if (and (< n (count low))
+                                 (<= (cost (take (inc n) by-emptiest) (- (count low) (inc n))) budget))
+                          (recur (inc n))
+                          (vec (take n by-emptiest))))))]
+        {:low shown :more-low (- (count low) (count shown)) :more-full (count full)}))))
 
 (defn short-name
   "The kit for pack `pack-key` named for its line under an item: \"Explorer's\"."
@@ -496,20 +550,35 @@
   "`character` after the kit action `action` with `args`, as the Kits block applies it, and the
    message its Undo line shows (nil for actions with no Undo). Returns {:character c :message m}."
   [character action & args]
-  (let [moved-msg (fn [pk moved] (str "Moved " (list-label moved) " into " (:name (pack pk)) "."))]
+  ;; Kit copy: action "Re-bundle" / status "Unbundled".
+  ;; Fallbacks, in order: "Rebundle" (Wiktionary only, not in Merriam-Webster or Oxford),
+  ;;   then "Reorganize" / "Unassigned".
+  ;; "Reorganize" is RESERVED for future moves between camp/containers. Don't use it for kits.
+  ;; Don't use "Reorganize" or "Re-bundle" for sorting; the player's preferred sort order is a separate setting.
+  ;; Rejected: "Spare"/"Extra" (false when a kit is low), "Loose" (implies kits are bags),
+  ;;   "Untracked" (sounds like the items are missing from inventory), "Use spares" (reads as "spend").
+  ;; Hyphenated "Re-bundle" chosen for non-native English readers.
+  (let [kit-name #(:name (pack %))
+        moved-msg (fn [pk moved] (str (kit-name pk) ": +" (list-label moved) " re-bundled"))]
     (case action
-      :reorganize (let [{c :character moved :moved} (reorganize character)]
-                    {:character c :message (s/join " " (map (fn [[pk m]] (moved-msg pk m)) moved))})
+      :rebundle (let [{c :character moved :moved} (reorganize character)]
+                  {:character c :message (s/join " · " (map (fn [[pk m]] (moved-msg pk m)) moved))})
       :restock (let [[pk mode] args
                      {c :character moved :moved added :added} (restock character pk mode)]
                  {:character c
-                  :message (s/join " " (cond-> []
-                                         (seq moved) (conj (moved-msg pk moved))
-                                         (seq added) (conj (str "Added " (list-label added) " to your inventory."))))})
+                  :message (s/join " · " (cond-> []
+                                           (seq moved) (conj (moved-msg pk moved))
+                                           (seq added) (conj (str "+" (list-label added) " added"))))})
       :add (let [[pk] args]
              {:character (:character (add-kit character pk))
-              :message (str "Added " (:name (pack pk)) " to your inventory as a kit.")})
-      :use-first {:character (apply use-first character args)}
-      :remove {:character (apply remove-kit character args)}
+              :message (str (kit-name pk) " added")})
+      :move-to-top {:character (apply use-first character args)}
+      :remove (let [[pk] args]
+                {:character (remove-kit character pk)
+                 :message (str "Removed " (kit-name pk) ". Items stay in inventory.")})
+      :remove-with-items (let [[pk] args
+                               h (vec (filter (comp pos? second) (held-items character pk)))]
+                           {:character (remove-kit (reduce (fn [c [k n]] (remove-items c k n)) character h) pk)
+                            :message (str "Removed " (kit-name pk) (when (seq h) (str " and " (held-label h))) ".")})
       :answer-choice {:character (apply answer-choice character args)}
       :resolve-orphan {:character (apply resolve-orphan character args)})))

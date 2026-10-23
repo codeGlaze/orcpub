@@ -1305,6 +1305,19 @@
     ["span:first-child" {:padding-right "20px"}]
     [".callout-detail + .callout-detail > span" {:border-top "1px solid rgba(255, 255, 255, 0.08)"}]
     [:.callout-aside {:color muted-on-dark}]]
+   ;; Small-capitals links, so a 14px line of text leads rather than its actions (kits handoff,
+   ;; plan-inventory-kits.md). The 44px tap area is the button's own height.
+   [:.link-button.quiet
+    {:display :inline-flex :align-items :center :min-height "44px" :padding "0 15px"
+     :font-size "11px" :letter-spacing ".05em" :font-weight 600 :text-transform :uppercase
+     :text-decoration :underline :white-space :nowrap :flex :none}
+    [:&.strong {:font-weight 700}]
+    [:&.muted {:color :inherit :opacity 0.7}]]
+   ;; A quiet callout: text 12px from the top and left whether or not its actions sit below it.
+   [:.callout-quiet {:padding "0 0 0 12px !important" :align-items "flex-start !important"}
+    [:.callout-text {:padding "12px 0" :min-width 0}]
+    [:.callout-text [:.f-w-b {:margin-bottom "2px"}]]]
+   [:.callout-actions {:flex-basis "100%" :display :flex :justify-content :flex-end :margin-top "-12px"}]
    ;; Even spacing above and below the line and the band, so the box opens like a shell.
    [:.callout-compact.flex-wrap {:row-gap "4px !important"}]
    ;; A Planned line is a button that reads as the italic link it replaces, with a 44px tap area
@@ -1988,7 +2001,22 @@
       :background-color "color-mix(in srgb, currentColor 6%, transparent)"}]
     [:.kit-text {:flex "1 1 auto" :min-width 0}]
     [:.kit-name {:white-space :nowrap :overflow :hidden :text-overflow :ellipsis}]
-    [:.kit-indent {:padding-left "58px"}]
+    [:.kit-indent {:padding-left "58px"}
+     [:.link-button.quiet {:padding-left 0}]]
+    [:.kit-summary
+     {:flex "1 1 auto" :min-width 0 :min-height "48px" :padding 0 :text-align :left
+      :background :none :border :none :color :inherit :font :inherit :cursor :pointer}]
+    [:.kit-name-line {:display :flex :align-items :center :min-width 0}]
+    [:.kit-contents
+     {:display :flex :flex-wrap :wrap :column-gap "12px" :font-size "13px"
+      :font-variant-numeric :tabular-nums}]
+    [:.kit-restock {:flex :none :white-space :nowrap}]
+    [:.kit-list
+     {:display :grid :grid-template-columns "1fr auto" :column-gap "16px" :max-width "300px"
+      :font-size "13px" :font-variant-numeric :tabular-nums :margin "4px 0"}]
+    [:.kit-remove {:display :flex :flex-direction :column :align-items :flex-start}
+     [:.link-button.quiet {:padding-left 0}]
+     [:div {:margin-top "-10px" :padding-bottom "6px"}]]
     [:.kit-tile-empty {:border-style :dashed :background-color :transparent :opacity 0.6}]
 
     [:.builder-option

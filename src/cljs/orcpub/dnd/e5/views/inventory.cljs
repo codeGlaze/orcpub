@@ -407,17 +407,17 @@
 (def make-inventory-item (memoize make-inventory-item-fn))
 
 (defn- share-line
-  "The line under a gear row that a kit shows: each kit's share, then the spare stock, from
+  "The line under a gear row that a kit shows: each kit's share, then the unbundled stock, from
    `inventory/shares`. A low share is orange and bold."
   [{ks :kits spare :spare}]
-  (into [:span]
+  (into [:span.f-s-12]
         (interpose
-         [:span.opacity-6 " · "]
+         [:span.opacity-7 " · "]
          (concat
           (for [{:keys [pack held target low?]} ks]
             (let [text (str (inventory/short-name pack) " " held "/" target)]
-              (if low? [:span.orange.f-w-b text] [:span.opacity-6 text])))
-          (when (pos? spare) [[:span.opacity-6 (str spare " spare")]])))))
+              (if low? [:span.orange.f-w-b text] [:span.opacity-7 text])))
+          (when (pos? spare) [[:span.opacity-7 (str spare " unbundled")]])))))
 
 (defn- kit-icon
   "The icon of a kit's tile: the chest for a pack that comes in one, else the backpack."
@@ -429,69 +429,91 @@
   [action & args]
   #(dispatch (into [::inventory/act action] args)))
 
-(defn- notice
-  "A kit notice: the shared compact callout, `text` with link `actions` ([label on-click])."
-  [text actions]
+(defn- quiet-link
+  "A kit action link (`.link-button.quiet`): `label`, `on-click`, and :strong? or :muted?."
+  [label on-click & [{:keys [strong? muted?]}]]
+  [:button.link-button.quiet {:class (cond strong? "strong" muted? "muted") :on-click on-click} label])
+
+(defn- strip
+  "The one kit strip: the shared quiet callout with `text`, an optional bold `title`, and link
+   `actions` ([label on-click opts]), on their own row when `below?`."
+  [{:keys [title text actions below?]}]
   [notifications/callout
-   {:tone :note :compact? true :text text
-    :actions (for [[label on-click] actions] {:label label :link? true :on-click on-click})}])
+   {:tone :note :quiet? true :title title :text text :actions-below? below?
+    :actions (for [[label on-click opts] actions] (merge {:label label :link? true :on-click on-click} opts))}])
+
+(defn- contents
+  "A kit's summary line folded to about `budget` characters (`inventory/contents-line`): low items
+   orange, folded counts underlined (the kit opens to show them), a full kit's items muted."
+  [tracked budget]
+  (let [{:keys [low more-low more-full full]} (inventory/contents-line tracked budget)
+        nm #(inventory/item-short-name (:key %))]
+    (into [:div.kit-contents]
+          (if full
+            (for [r full] [:span.opacity-7 (str (nm r) " " (:held r))])
+            (concat
+             (for [r low] [:span.orange.f-w-b (str (nm r) " " (:held r) "/" (:target r))])
+             (when (pos? more-low) [[:span.orange.f-w-b.underline (str "+" more-low " low")]])
+             (when (pos? more-full) [[:span.opacity-7.underline (str "+" more-full " full")]]))))))
 
 (defn- kit-row
-  "One kit: its tile and name (tap for Use first and Remove kit), what it holds, and Restock when it
-   is low. `asking` holds the pack whose Restock question is open: when spare stock could fill the
-   kit, Restock opens it under the row (Yes uses the spare first, No buys all new)."
+  "One kit: its tile and summary (tap to open the full list, Move to top and the two removes), and
+   Restock when it is low. `asking` holds the pack whose Restock question the strip is showing;
+   `budget` is the summary line's width in characters."
   []
-  (let [menu? (r/atom false)]
-    (fn [top? asking {:keys [pack name chest? tracked could-use-spare]}]
+  (let [open? (r/atom false)]
+    (fn [top? asking budget {:keys [pack name chest? tracked could-use-spare holds]}]
       (let [low? (some :low? tracked)
-            open? (and low? (= pack @asking))
-            toggle #(swap! menu? not)
-            restock (fn [mode] #(do (reset! asking nil) (dispatch [::inventory/act :restock pack mode])))]
+            toggle #(swap! open? not)
+            close-then #(do (reset! open? false) (dispatch %))]
         [:div
          [:div.kit-row
           [:div.kit-tile.pointer {:on-click toggle} [kit-icon chest? 32]]
-          [:div.kit-text.pointer {:on-click toggle}
-           [:div.kit-name.f-w-b.f-s-14 name]
-           (into [:div.f-s-12]
-                 (interpose
-                  [:span.opacity-6 " · "]
-                  (for [{:keys [key held target low?]} tracked
-                        :let [nm (:name (equip5e/equipment-map key))]]
-                    (if low?
-                      [:span.orange.f-w-b (str nm " " held "/" target)]
-                      [:span.opacity-6 (str nm " " held)]))))]
-          (when (and low? (not open?))
-            [:button.form-button
-             {:on-click (if (seq could-use-spare) #(reset! asking pack) (restock :all-new))}
+          [:button.kit-summary {:on-click toggle :aria-expanded @open?}
+           [:div.kit-name-line
+            [:span.kit-name.f-w-b.f-s-16 name]
+            [:i.fa.m-l-5.f-s-12 {:class (if @open? "fa-caret-up" "fa-caret-down") :aria-hidden true}]]
+           [contents tracked budget]]
+          (when low?
+            [:button.form-button.kit-restock
+             {:class (when (= pack @asking) "opacity-5")
+              :on-click (if (seq could-use-spare)
+                          #(reset! asking pack)
+                          #(do (reset! asking nil) (dispatch [::inventory/act :restock pack :all-new])))}
              "Restock"])]
-         (when @menu?
-           [:div.kit-indent.flex.flex-wrap
+         (when @open?
+           [:div.kit-indent
+            (into [:div.kit-list]
+                  (mapcat (fn [{:keys [key held target low?]}]
+                            (let [cls (if low? "orange f-w-b" "opacity-7")]
+                              [[:span.kit-name {:class cls} (inventory/item-short-name key)]
+                               [:span {:class cls} (if low? (str held "/" target) (str held))]]))
+                          (concat (sort-by #(/ (:held %) (:target %)) (filter :low? tracked))
+                                  (remove :low? tracked))))
             (when-not top?
-              [:button.link-button.underline.f-s-14
-               {:on-click #(do (reset! menu? false) (dispatch [::inventory/act :use-first pack]))}
-               "Use first"])
-            [:button.link-button.underline.f-s-14
-             {:on-click #(do (reset! menu? false) (dispatch [::inventory/act :remove pack]))}
-             "Remove kit (keep items)"]])
-         (when open?
-           [notice
-            [:div [:div.f-w-b "Restock"]
-             [:div.f-s-12 (str "You have " (inventory/list-label could-use-spare true) ". Use them first?")]]
-            [["Yes" (restock :mine-first)] ["No" (restock :all-new)] ["Cancel" #(reset! asking nil)]]])]))))
+              [:div [quiet-link "Move to top" #(close-then [::inventory/act :move-to-top pack])]])
+            [:div.kit-remove
+             [quiet-link "Remove kit" #(close-then [::inventory/act :remove pack])]
+             [:div.f-s-12.opacity-7 "Items stay in inventory"]]
+            [:div.kit-remove
+             [quiet-link "Remove kit and items" #(close-then [::inventory/act :remove-with-items pack])]
+             (when (seq holds)
+               [:div.f-s-12.opacity-7 (str "Also removes " (inventory/held-label holds))])]])]))))
 
 (defn- kit-question
-  "A question a kit needs answered: a pack no longer chosen (remove what it added, or keep it), or
-   a pack's own choice (which holy symbol)."
+  "A question a kit needs answered: a used kit whose pack is gone (remove what it added, or keep
+   it), or a pack's own choice (which holy symbol)."
   [{:keys [kind pack group options]}]
   (let [pack-name (:name (inventory/pack pack))]
     (case kind
       :orphan
-      [notice (str "Remove what the " pack-name " added?")
-       [["Remove" (kit-act :resolve-orphan pack :remove)] ["Keep" (kit-act :resolve-orphan pack :keep)]]]
+      [strip {:text (str "Remove what the " pack-name " added?")
+              :actions [["Remove" (kit-act :resolve-orphan pack :remove)]
+                        ["Keep" (kit-act :resolve-orphan pack :keep)]]}]
       :choice
-      [notice (str "Which " (s/lower-case (:name (equip5e/equipment-map group) (name group)))
-                   " for the " pack-name "?")
-       (for [k options] [(:name (equip5e/equipment-map k)) (kit-act :answer-choice pack group k)])])))
+      [strip {:text (str "Which " (s/lower-case (:name (equip5e/equipment-map group) (name group)))
+                         " for the " pack-name "?")
+              :actions (for [k options] [(:name (equip5e/equipment-map k)) (kit-act :answer-choice pack group k)])}])))
 
 (defn- packs-preset
   "The search box's preset for the kit shortcuts: every equipment pack not already a kit in `ks`
@@ -501,41 +523,61 @@
    :keys (into #{} (comp (map :key) (remove (set (map :pack ks)))) equip5e/packs)})
 
 (defn- kits-block
-  "The Kits block above the Equipment list (plan-inventory-kits.md): each kit with its counts,
-   Restock and menu; questions kits need answered; Reorganize when spare stock could fill a kit; the
-   last action's Undo. Add a kit and the empty slot open the search box (`search-preset`, an atom)
-   showing only packs."
+  "The Kits block above the Equipment list (plan-inventory-kits.md): each kit; questions kits need
+   answered; the one strip (Unbundled stock and Re-bundle, or Restock's question); the last action's
+   Undo. Add a kit and the empty slot open the search box (`search-preset`, an atom) on packs.
+   The summary lines fold to the block's live width (a ResizeObserver), not the device type."
   []
-  (let [asking (r/atom nil)]
+  (let [asking (r/atom nil)
+        width (r/atom 390)
+        observer (atom nil)
+        ref (fn [el]
+              (some-> @observer .disconnect)
+              (when (and el (exists? js/ResizeObserver))
+                (let [o (js/ResizeObserver.
+                         (fn [entries] (reset! width (.. (aget entries 0) -contentRect -width))))]
+                  (.observe o el)
+                  (reset! observer o))))]
     (fn [search-preset]
       (let [{ks :kits :keys [questions fillable]} @(subscribe [::inventory/panel])
             undo @(subscribe [::inventory/undo])
-            add-kit #(reset! search-preset (packs-preset ks))]
-        [:div.m-b-10
+            add-kit #(reset! search-preset (packs-preset ks))
+            budget (max 20 (js/Math.round (* 40 (/ @width 390))))
+            asking-kit (some #(when (= @asking (:pack %)) %) ks)]
+        [:div.m-b-10 {:ref ref}
          [:div.flex.justify-cont-s-b.align-items-c
           [:div
            [:div.f-w-b.f-s-14 "Kits"]
-           (when (> (count ks) 1) [:div.f-s-12.opacity-5 "Spending uses the top kit first"])]
-          [:button.link-button.orange.f-s-14 {:on-click add-kit}
-           [:span.underline "Add a kit"] [:i.fa.fa-plus-circle.m-l-5.f-s-16]]]
+           (when (> (count ks) 1) [:div.f-s-12.opacity-5 "Spent items come out of the top kit first"])]
+          [:button.link-button.quiet {:on-click add-kit}
+           "Add a kit" [:i.fa.fa-plus-circle.m-l-5.f-s-14]]]
          (if (empty? ks)
            [:div.kit-row.pointer {:on-click add-kit}
             [:div.kit-tile.kit-tile-empty [kit-icon false 32]]
             [:span.f-s-14.opacity-5 "Add a kit"]]
            (doall
             (map-indexed
-             (fn [i kit] ^{:key (:pack kit)} [kit-row (zero? i) asking kit])
+             (fn [i kit] ^{:key (:pack kit)} [kit-row (zero? i) asking budget kit])
              ks)))
          [:div.m-t-5
           (for [q questions] ^{:key (str (:kind q) (:pack q))} [kit-question q])
-          ;; Hidden while a Restock question is open: it already names the spare stock.
-          (when (and (seq fillable) (nil? @asking))
-            [notice (str (inventory/list-label fillable)
-                         (if (and (= 1 (count fillable)) (= 1 (second (first fillable)))) " isn't" " aren't")
-                         " in a kit yet.")
-             [["Reorganize" (kit-act :reorganize)]]])
+          (cond
+            (seq (:could-use-spare asking-kit))
+            (let [pk (:pack asking-kit)
+                  restock #(do (reset! asking nil) (dispatch [::inventory/act :restock pk %]))]
+              [strip {:title "Re-bundle items first?"
+                      :text (inventory/unbundled-label (:could-use-spare asking-kit))
+                      :below? true
+                      :actions [["Cancel" #(reset! asking nil) {:muted? true}]
+                                ["No" #(restock :all-new)]
+                                ["Yes" #(restock :mine-first) {:strong? true}]]}])
+            (seq fillable)
+            [strip {:text (inventory/unbundled-label fillable)
+                    :actions [["Re-bundle" (kit-act :rebundle)]]}])
           (when undo
-            [notice (:message undo) [["Undo" #(dispatch [::inventory/undo])]]])]]))))
+            [:div.flex.align-items-c.justify-cont-s-b.f-s-12
+             [:span (:message undo)]
+             [quiet-link "Undo" #(dispatch [::inventory/undo])]])]]))))
 
 (defn make-custom-inventory-item
   "A function of (index, custom item) returning its `inventory-item` row; a starting item's name

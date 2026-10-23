@@ -244,7 +244,7 @@
        (select-keys undo [:message])))))
 
 ;; What the Equipment step's Kits block shows: {:kits [{:pack :name :chest? :tracked
-;; :could-use-spare}] :questions :fillable :shares {item-key shares}} (inventory.cljc).
+;; :could-use-spare :holds}] :questions :fillable :shares {item-key shares}} (inventory.cljc).
 (reg-sub
  ::inventory/panel
  :<- [:character]
@@ -257,7 +257,8 @@
                        :name (:name (inventory/pack pk))
                        :chest? (contains? (:items (inventory/pack pk)) :chest)
                        :tracked (inventory/tracked kit)
-                       :could-use-spare (inventory/restock-could-use-spare character pk)}))
+                       :could-use-spare (inventory/restock-could-use-spare character pk)
+                       :holds (inventory/held-items character pk)}))
                   active)
       :questions (inventory/questions character (inventory/offered-packs template character))
       :fillable (inventory/fillable character)
