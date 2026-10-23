@@ -36,6 +36,7 @@
             [orcpub.dnd.e5.combat :as combat]
             [orcpub.dnd.e5.weapons :as weapons]
             [orcpub.dnd.e5.magic-items :as mi]
+            [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
@@ -2578,6 +2579,25 @@
  character-interceptors
  toggle-inventory-item-equipped)
 
+(defn update-carried-item
+  "`character` with `f` applied to the carried entry of `item-key` under `selection-key`
+  (:other-magic-items, :magic-weapons...); a bare quantity entry becomes a map first."
+  [character selection-key item-key f]
+  (update-in character [::entity/options selection-key]
+             (fn [opts] (mapv #(if (= item-key (::entity/key %))
+                                 (update % ::entity/value (comp f mod5e/equipment-cfg))
+                                 %)
+                              opts))))
+
+(defn change-item-charges
+  "`character` with `n` charges spent from (n positive) or given back to (n negative) the `i`th
+  `item` (key `item-key`) carried under `selection-key`. Spending more than is left changes nothing."
+  [character selection-key item-key item i n]
+  (update-carried-item character selection-key item-key
+                       (fn [entry] (if (pos? n)
+                                     (or (mi/spend-charges item entry i n) entry)
+                                     (mi/regain-charges item entry i (- n))))))
+
 (defn toggle-custom-inventory-item-equipped [character [_ custom-equipment-key item-index]]
   (common/toggle-in
    character
@@ -3952,6 +3972,17 @@
           update-fn)
      ::char5e/save-character-throttled id}
     {:dispatch [:set-character (update-fn (:character db))]}))
+
+(reg-event-fx
+ ::char5e/change-item-charges
+ (fn [{:keys [db]} [_ id selection-key item-key item i n]]
+   (update-character-fx db id #(change-item-charges % selection-key item-key item i n))))
+
+(reg-event-fx
+ ::char5e/set-item-charges-max
+ (fn [{:keys [db]} [_ id selection-key item-key i n]]
+   (update-character-fx db id #(update-carried-item % selection-key item-key
+                                                    (fn [entry] (mi/set-charge entry i ::char-equip5e/charges-max n))))))
 
 (reg-event-fx
  ::char5e/toggle-spell-prepared

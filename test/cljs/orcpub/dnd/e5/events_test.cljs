@@ -1600,3 +1600,20 @@
   (effects-of [::char5e/finish-long-rest "7"] [::char5e/save-character-throttled])
   (is (= {::units5e/turn #{"c"}}
          (get-in @app-db [::char5e/character-map 7 :orcpub.entity/values ::char5e/features-used]))))
+
+(deftest charges-are-spent-and-given-back-per-wand
+  (let [wand (some #(when (= "Wand of Fireballs" (::mi/name %)) %) mi/magic-items)
+        entry #(get-in @app-db [::char5e/character-map 7 :orcpub.entity/options :other-magic-items 0 :orcpub.entity/value])
+        used (fn [] (into {} (map (juxt :orcpub.dnd.e5.character.equipment/charge-index
+                                        :orcpub.dnd.e5.character.equipment/charges-used))
+                          (:orcpub.dnd.e5.character.equipment/charges (entry))))]
+    (reset! app-db {::char5e/character-map
+                    {7 {:orcpub.entity/options
+                        {:other-magic-items [{:orcpub.entity/key :wand-of-fireballs :orcpub.entity/value 2}]}}}})
+    (effects-of [::char5e/change-item-charges "7" :other-magic-items :wand-of-fireballs wand 1 3] [::char5e/save-character-throttled])
+    (is (= {1 3} (used)) "the second wand spends 3; a bare quantity became a map")
+    (is (= 2 (:orcpub.dnd.e5.character.equipment/quantity (entry))) "and keeps its quantity")
+    (effects-of [::char5e/change-item-charges "7" :other-magic-items :wand-of-fireballs wand 1 5] [::char5e/save-character-throttled])
+    (is (= {1 3} (used)) "5 more than the 4 left changes nothing")
+    (effects-of [::char5e/change-item-charges "7" :other-magic-items :wand-of-fireballs wand 1 -2] [::char5e/save-character-throttled])
+    (is (= {1 1} (used)) "2 given back")))

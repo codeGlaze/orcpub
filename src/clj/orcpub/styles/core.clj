@@ -157,6 +157,24 @@
     {:cursor :pointer
      :text-decoration "underline dotted"
      :text-underline-offset "3px"}]
+   ;; an item's charges under its name (views.cljs item-charges)
+   [:.item-charges {:margin-top "4px" :font-weight :normal :font-size "12px"}]
+   [:.item-charges-line {:display :flex :align-items :center :gap "6px" :flex-wrap :wrap :min-height "22px"}]
+   [:.item-charges-n {:opacity 0.6 :min-width "10px"}]
+   [:.item-charges-pips {:display :flex :gap "3px"}]
+   [:.item-charge-pip
+    {:position :relative :width "12px" :height "12px" :padding 0 :border-radius "50%"
+     :border "1.5px solid #f0a100" :background-color "#f0a100" :cursor :pointer}]
+   [".item-charge-pip::after" {:content "\"\"" :position :absolute :inset "-10px -2px"}]
+   [:.item-charge-pip.used {:background-color :transparent :opacity 0.7}]
+   [:.item-charges-count {:font-variant-numeric "tabular-nums" :opacity 0.8}]
+   [:.item-charges-count.big {:font-size "13px" :font-weight :bold :opacity 1}]
+   [:.item-charges-step
+    {:position :relative :width "26px" :height "22px" :padding 0 :border-radius "4px" :font-weight :bold
+     :border "1px solid currentColor" :background :none :color :inherit :cursor :pointer}]
+   [".item-charges-step::after" {:content "\"\"" :position :absolute :inset "-11px -4px"}]
+   [:.item-charges-roll {:margin 0 :padding "2px 8px" :font-size "12px"}]
+   [:.item-charges-input {:width "64px" :height "24px" :font-size "12px"}]
    [:.srd-preview
     {:position :fixed
      :box-sizing :border-box

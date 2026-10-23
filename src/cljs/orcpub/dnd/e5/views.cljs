@@ -4239,7 +4239,64 @@
               desktop?
               (r/cursor row-state [weapon-key])]))]]))))
 
-(defn magic-item-rows [expanded-details magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
+(defn item-charges
+  "The charges of a carried item, one line per item in its stack: pips up to 10 (tap a lit one
+  to spend it, a dim one to get it back), a count with − and + above that, or a roll-or-type
+  prompt for an item whose charges start as dice. Takes the character id, the selection key, the
+  item key, the item and its carried entry. Returns hiccup, or nil for an item without charges."
+  [id selection-key item-kw item entry]
+  (when (or (::mi/charges item) (::mi/charges-start item))
+    (let [qty (max 1 (::char-equip/quantity entry 1))
+          change (fn [i n] (fn [e] (.stopPropagation e)
+                             (dispatch [::char/change-item-charges id selection-key item-kw item i n])))]
+      [:div.item-charges {:on-click #(.stopPropagation %)}
+       (doall
+        (for [i (range qty)
+              :let [mx (mi/charge-max item entry i)
+                    left (mi/charges-left item entry i)]]
+          ^{:key i}
+          [:div.item-charges-line
+           (when (> qty 1) [:span.item-charges-n (inc i)])
+           (cond
+             (nil? mx)
+             [:<>
+              [:button.form-button.item-charges-roll
+               {:type "button"
+                :on-click (fn [e] (.stopPropagation e)
+                            (dispatch [::char/set-item-charges-max id selection-key item-kw i
+                                       (:total (mi/roll-charge-max item dice/die-roll))]))}
+               (str "Roll " (::mi/charges-start item))]
+              [:input.input.item-charges-input
+               {:type "number" :min 0 :placeholder "or type" :aria-label "Starting charges"
+                :on-key-down #(when (= "Enter" (.-key %)) (.blur (.-target %)))
+                :on-blur #(let [v (js/parseInt (.. % -target -value))]
+                            (when-not (js/isNaN v)
+                              (dispatch [::char/set-item-charges-max id selection-key item-kw i (max 0 v)])))}]]
+
+             (<= mx 10)
+             [:<>
+              [:span.item-charges-pips
+               (doall
+                (for [k (range mx)
+                      :let [lit? (< k left)]]
+                  ^{:key k}
+                  [:button.item-charge-pip
+                   {:type "button" :class (when-not lit? "used")
+                    :aria-label (if lit? "Spend a charge" "Get a charge back")
+                    :on-click (change i (if lit? 1 -1))}]))]
+              [:span.item-charges-count (str left "/" mx)]]
+
+             :else
+             [:<>
+              [:span.item-charges-count.big (str left "/" mx)]
+              [:button.item-charges-step {:type "button" :aria-label "Spend a charge" :on-click (change i 1)} "\u2212"]
+              [:button.item-charges-step {:type "button" :aria-label "Get a charge back" :on-click (change i -1)} "+"]])]))])))
+
+(defn magic-item-rows
+  "Table rows for the carried magic items: name with its charges, type and rarity, and the
+  details row when expanded. Takes the character id, the expanded-details atom and the carried
+  item, weapon and armor maps (item key to carried entry). Returns a seq of hiccup rows."
+  [id expanded-details magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
   (let [magic-item-map @(subscribe [::mi/all-magic-items-map])
         mobile? @(subscribe [:mobile?])]
     (mapcat
@@ -4248,7 +4305,9 @@
              expanded? (@expanded-details item-kw)]
          [[:tr.pointer
            {:on-click (toggle-details-expanded-handler expanded-details item-kw)}
-           [:td.p-10.f-w-b (or (:name item) name)]
+           [:td.p-10.f-w-b (or (:name item) name)
+            [item-charges id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+             item-kw item item-cfg]]
            [:td.p-10 (str (common/kw-to-name type)
                           ", "
                           (common/kw-to-name rarity))]
@@ -4293,7 +4352,8 @@
                 (with-meta
                   row
                   {:key i}))
-              (magic-item-rows expanded-details
+              (magic-item-rows id
+                               expanded-details
                                magic-item-cfgs
                                magic-weapon-cfgs
                                magic-armor-cfgs)))]]]]))))
