@@ -194,7 +194,14 @@ builder's copy follows), Undo per character id; the builder's Details tab uses t
 The sheet's character-by-id reaction runs `inventory/repair` for display, so a character saved
 before kits shows its packs as kits on its sheet, not as missing items. `svg-icon`'s drawing moved
 to `components/themed-icon` so `views.inventory` need not require `views.cljs`. Browser tests:
-`test/browser/inventory_kits_builder_e2e.js` (33 checks), `inventory_kits_sheet_e2e.js` (15).
+`test/browser/inventory_kits_builder_e2e.js` (33 checks), `inventory_kits_sheet_e2e.js` (18).
+
+**#229 on the sheet (2026-10-23):** the switch belongs to the Equipment tab (`equipment-details`
+holds it; Done sits below Treasure). Treasure, moved to `views/inventory.cljs` `sheet-treasure`,
+gives every coin (and keyed treasure) a number box while managing, since coins change by any amount
+(`inventory/set-quantity`). Armor and Other Magic Items have no quantity column on the sheet, so
+nothing to edit there. Left for after `feature/weapons-table` merges, because that branch rewrites
+both: Weapons counts on the sheet (#340's display) and kits in the PDF (`pdf_spec.cljc`).
 
 ## Design handoff v2 and pack counts built (2026-10-23, `b1eff815`, then counts)
 
