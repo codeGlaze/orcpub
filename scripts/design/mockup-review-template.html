@@ -55,8 +55,8 @@ figcaption { font-size: 14px; margin-top: 6px; display: flex; gap: 8px; align-it
   <div class="summary">
     <div class="box open">
       <h3>Open: needs you</h3>
-      <ul><li>Spells cast from items (group G): A on the item only, B1 inside the level tables, B2 a From Items table, or A plus B2?</li></ul>
-      <p class="muted" style="margin:6px 0 0">Charges: one pool per item (decided). Rest controls: the layout agent's design; group D is superseded. Wording is parked for one pass at the end.</p>
+      <ul><li>Casting from an item (group G): A1 a full-width panel under the item, or A2 a bottom sheet?</li></ul>
+      <p class="muted" style="margin:6px 0 0">Charges: one pool per item. Item spells: on the item and on the Spells tab. Rest controls: the layout agent's design; group D is superseded. Wording is parked for one pass at the end.</p>
     </div>
     <div class="box">
       <h3>Decided</h3>
@@ -80,7 +80,7 @@ figcaption { font-size: 14px; margin-top: 6px; display: flex; gap: 8px; align-it
   </div>
 
   <nav aria-label="Groups">
-    <a href="#a">A. In the table</a><a href="#b">B. Explaining a rule</a><a href="#c">C. Mastery panel</a><a href="#d">D. Resting</a><a href="#f">F. Charges</a><a href="#g">G. Item spells</a><a href="#e">E. Fixed</a>
+    <a href="#a">A. In the table</a><a href="#b">B. Explaining a rule</a><a href="#c">C. Mastery panel</a><a href="#d">D. Resting</a><a href="#f">F. Charges</a><a href="#g">G. Casting</a><a href="#e">E. Fixed</a>
   </nav>
 
   <section id="a">
@@ -135,13 +135,15 @@ figcaption { font-size: 14px; margin-top: 6px; display: flex; gap: 8px; align-it
   </section>
 
   <section id="g">
-    <h2>G. Casting from items: where it shows</h2>
+    <h2>G. Casting from items</h2>
+    <p>Decided: two ways in, on the item (A) and a From Items table on the Spells tab (B2).</p>
     <div class="shots">
-      <figure><img src="shots/X0-spells-today.png" alt="Today's Spells tab: preparation counts, then Spells By Level tables for a level 5 cleric."><figcaption><span class="tag fixed">Today</span>Today's Spells tab.</figcaption></figure>
-      <figure><img src="shots/X1-on-the-item.png" alt="Equipment tab: Wand of Fireballs with 5 of 7 pips and a Cast Fireball button, opened to Cast at level, 3rd 1 charge, Cast, DC 15 up to 7th with 5 charges; Wand of Magic Missiles with Cast Magic Missile."><figcaption><span class="tag open">Open</span>A. On the item only: pips, a Cast button, a level picker priced in charges.</figcaption></figure>
-      <figure><img src="shots/X2-spells-inline.png" alt="The 1st Level spells table with Magic Missile first, tagged WAND, Src Wand, other columns empty."><figcaption><span class="tag open">Open</span>B1. On the Spells tab, inside each level table. Cramped: the columns have nowhere to show charges.</figcaption></figure>
-      <figure><img src="shots/X3-spells-from-items.png" alt="A From Items table above Spells By Level: Fireball, Wand of Fireballs, 3+, DC 15, 5/7 pips, Cast; Magic Missile, Wand of Magic Missiles, 1+, 4/7, Cast."><figcaption><span class="tag open">Open</span>B2. On the Spells tab, as its own From Items table above Spells By Level.</figcaption></figure>
+      <figure><img src="shots/X0-spells-today.png" alt="Today's Spells tab for a level 5 cleric."><figcaption><span class="tag fixed">Today</span>Today's Spells tab.</figcaption></figure>
+      <figure><img src="shots/X1a-cast-row.png" alt="Under the Wand of Fireballs row, a full-width panel: Fireball, Wand of Fireballs, DC 15, 5 charges left; level buttons 3rd to 9th with charge costs, 8th and 9th greyed; Cast at 3rd, 1 charge."><figcaption><span class="tag open">Open</span>A1. Cast Fireball opens a full-width panel under the item.</figcaption></figure>
+      <figure><img src="shots/X1b-cast-sheet.png" alt="The same panel as a bottom sheet over the dimmed Equipment tab, with a close X."><figcaption><span class="tag open">Open</span>A2. The same as a bottom sheet, like the roll result.</figcaption></figure>
+      <figure><img src="shots/X3-spells-from-items.png" alt="A From Items table above Spells By Level: Fireball and Magic Missile with their wands, levels, DC, pips and Cast."><figcaption><span class="tag ">Decided</span>B2. From Items on the Spells tab. Its Cast opens the same panel.</figcaption></figure>
       </div>
+    <p class="muted">The damage line is drawn by hand: spells have no damage data yet, so the build shows the spell's own At Higher Levels sentence there until they do.</p>
   </section>
 
   <section id="e">

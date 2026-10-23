@@ -86,7 +86,12 @@ Then a cast rolls damage through the weapon roll engine.
 
 - **Stacks: one pool per item.**
 - **One PR:** charges, rests and casting ride the weapons PR ("all under the same umbrella").
+- **Two ways to cast from an item:** on the item (Equipment tab), and a "From Items" table above
+  Spells By Level on the Spells tab. Both open the same cast panel: level buttons priced in charges
+  (unaffordable ones greyed), the item's DC, and one Cast button. Until spells carry damage data, the
+  panel shows the spell's own "At Higher Levels" sentence.
 
 ## Open, for the owner
 
-- Item spells on the Spells tab, or on the item only: the owner wants them compared visually (mockup).
+- How the cast opens from an item: A1 a full-width panel under the item row, or A2 a bottom sheet
+  (owner: the first mockup squeezed the picker into the left column; it must use the full width).

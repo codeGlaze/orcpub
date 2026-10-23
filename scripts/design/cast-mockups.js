@@ -96,18 +96,49 @@ const shot = async (page, file) => { await page.waitForTimeout(400); await page.
     await page.evaluate(() => document.querySelector('[data-x=items]').remove());
 
     // A: on the item only (Equipment tab)
+    const drawA = (mode) => page.evaluate(mode => {
+      document.querySelectorAll('.cx, .cx-row, .cx-sheet, .cx-dim').forEach(e => e.remove());
+      const row = n => [...document.querySelectorAll('tbody.other-magic-items tr')].find(r => r.textContent.includes(n));
+      const pips = (max, used) => `<span class="cx-pips">${Array.from({ length: max }, (_, i) => `<span class="cx-pip${i >= max - used ? ' used' : ''}"></span>`).join('')}</span>${max - used}/${max}`;
+      const add = (n, spell, max, used) => row(n).querySelector('td').insertAdjacentHTML('beforeend', `<div class="cx">${pips(max, used)}<button class="cx-cast">Cast ${spell}</button></div>`);
+      add('Fireballs', 'Fireball', 7, 2); add('Magic Missiles', 'Magic Missile', 7, 3);
+      const levels = [['3rd', 1], ['4th', 2], ['5th', 3], ['6th', 4], ['7th', 5], ['8th', 6], ['9th', 7]];
+      const chips = levels.map(([l, c], i) => `<button class="cx-lv${i === 0 ? ' on' : ''}${c > 5 ? ' off' : ''}"><b>${l}</b><span>${c} ch</span></button>`).join('');
+      const body = `<div class="cx-head"><b>Fireball</b><span>Wand of Fireballs · DC 15 · 5 charges left</span></div>
+        <div class="cx-lvs">${chips}</div>
+        <div class="cx-foot"><span class="cx-note">8d6 fire, +1d6 per level above 3rd</span><button class="cx-cast cx-go">Cast at 3rd · 1 charge</button></div>`;
+      if (mode === 'row') {
+        const r = row('Fireballs'); const tr = document.createElement('tr'); tr.className = 'cx-row';
+        tr.innerHTML = `<td colspan="3"><div class="cx-panel">${body}</div></td>`; r.after(tr);
+        r.scrollIntoView({ block: 'start' }); window.scrollBy(0, -60);
+      } else {
+        const d = document.createElement('div'); d.className = 'cx-dim'; document.body.appendChild(d);
+        const s = document.createElement('div'); s.className = 'cx-sheet'; s.innerHTML = `<div class="cx-handle"></div><span class="cx-x">✕</span>${body}`;
+        document.body.appendChild(s); document.querySelector('tbody.other-magic-items').scrollIntoView({ block: 'start' });
+      }
+      return true;
+    }, mode);
+    await page.addStyleTag({ content: `
+      .cx-row td{padding:0 0 10px!important}
+      .cx-panel,.cx-sheet{box-sizing:border-box;padding:10px 12px;font-size:13px}
+      .cx-panel{margin:0 10px;border-radius:6px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.14)}
+      .cx-sheet{position:fixed;left:0;right:0;bottom:0;z-index:10001;background:#2c3445;border-radius:14px 14px 0 0;padding:10px 16px 22px;color:#e6e9ee;box-shadow:0 -6px 24px rgba(0,0,0,.5)}
+      .cx-dim{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10000}
+      .cx-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,.35);margin:0 auto 10px}
+      .cx-x{position:absolute;right:14px;top:12px;font-size:18px;opacity:.8}
+      .cx-head{display:flex;flex-direction:column;gap:1px} .cx-head b{font-size:15px} .cx-head span{opacity:.7;font-size:12px}
+      .cx-lvs{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:10px 0}
+      .cx-lv{position:relative;height:38px;border-radius:5px;border:1px solid rgba(230,233,238,.3);background:none;color:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;line-height:1.15}
+      .cx-lv b{font-size:12.5px} .cx-lv span{opacity:.7;font-size:10px}
+      .cx-lv.on{background:rgba(240,161,0,.16);border-color:#f0a100;color:#f0a100} .cx-lv.off{opacity:.35}
+      .cx-foot{display:flex;align-items:center;gap:8px} .cx-note{opacity:.7;font-size:12px;min-width:0}
+      .cx-go{margin-left:auto;height:32px!important;flex:none}
+    `});
     check(await tabIcon(page, 'backpack'), 'equipment tab');
     const ok = await page.locator('tbody.other-magic-items tr', { hasText: 'Wand of Fireballs' }).first().waitFor({ timeout: 20000 }).then(() => true, () => false);
     check(ok, 'wands listed');
-    check(await page.evaluate(() => {
-      const cell = n => [...document.querySelectorAll('tbody.other-magic-items tr')].find(r => r.textContent.includes(n)).querySelector('td');
-      const add = (n, spell, max, used, picker) => { const c = cell(n);
-        c.insertAdjacentHTML('beforeend', `<div class="cx"><span class="cx-pips">${Array.from({ length: max }, (_, i) => `<span class="cx-pip${i >= max - used ? ' used' : ''}"></span>`).join('')}</span>${max - used}/${max}<button class="cx-cast">Cast ${spell}</button></div>` +
-          (picker ? `<div class="cx-pick">Cast at level <select class="cx-sel"><option>3rd · 1 charge</option></select> <button class="cx-cast" style="height:28px">Cast</button></div><div class="cx" style="justify-content:flex-end;opacity:.7">DC 15 · up to 7th with 5 charges</div>` : '')); };
-      add('Fireballs', 'Fireball', 7, 2, true); add('Magic Missiles', 'Magic Missile', 7, 3, false);
-      document.querySelector('tbody.other-magic-items').scrollIntoView({ block: 'center' }); return true;
-    }), 'A drawn');
-    await shot(page, 'X1-on-the-item.png');
+    check(await drawA('row'), 'A1 drawn'); await shot(page, 'X1a-cast-row.png');
+    check(await drawA('sheet'), 'A2 drawn'); await shot(page, 'X1b-cast-sheet.png');
   } catch (e) { console.log('error:', e.message); failures++; }
   await browser.close();
   console.log(failures ? `MOCKUPS: ${failures} failed` : 'MOCKUPS: done');
