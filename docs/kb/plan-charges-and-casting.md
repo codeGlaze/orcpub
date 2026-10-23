@@ -90,8 +90,10 @@ Then a cast rolls damage through the weapon roll engine.
   Spells By Level on the Spells tab. Both open the same cast panel: level buttons priced in charges
   (unaffordable ones greyed), the item's DC, and one Cast button. Until spells carry damage data, the
   panel shows the spell's own "At Higher Levels" sentence.
+- **Where the cast panel opens:** a bottom sheet on phones, a full-width panel under the item row on
+  desktop. A Dev mode setting (the handoff's Dev mode section in Settings) turns the phone sheet off
+  so phones use the desktop panel: "Open item casting under the item on phones", off by default.
 
 ## Open, for the owner
 
-- How the cast opens from an item: A1 a full-width panel under the item row, or A2 a bottom sheet
-  (owner: the first mockup squeezed the picker into the left column; it must use the full width).
+

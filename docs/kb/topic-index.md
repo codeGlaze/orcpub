@@ -2760,7 +2760,7 @@ _plan-character-drafts · plan character drafts_
 
 _plan-charges-and-casting · plan charges and casting_
 
-**topics:** cast, casting, charges, damage, fireball, item, level, maximum, parts, picker, powers, roll, rolled, rolls, spell, spells, srd-improvements, staffs
+**topics:** cast, casting, charges, damage, fireball, item, level, maximum, parts, payment, powers, roll, rolled, rolls, spell, spells, srd-improvements, staffs
 
 - What exists (verified)
 - The connecting idea
@@ -2943,7 +2943,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _plan-pdf-page-sizes · plan pdf page sizes_
 
-**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, border, height, inches, ink, letter, primitives, rect, spellbook, translate, widget
+**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, border, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
 
 - The problem in one paragraph
 - Order, and why this order
