@@ -97,8 +97,11 @@
     (try
       (let [dirs (crash-dirs (crash-paths (.getInputArguments (ManagementFactory/getRuntimeMXBean))))]
         (if (seq dirs)
-          (when-let [raised (seq (apply concat (report! dirs)))]
-            (println "crash-report:" (count raised) "crash file(s) from an earlier run reported to the admin"))
+          (let [raised (apply concat (report! dirs))]
+            (println "crash-report:" (if (seq raised)
+                                       (str (count raised) " crash file(s) from an earlier run reported to the admin")
+                                       "no new crash files")
+                     "in" (s/join ", " (map str dirs))))
           (println "crash-report: the JVM was not started with crash-file flags; crashes are not reported")))
       (catch Exception e (println "crash-report: could not check for earlier crashes:" (.getMessage e))))
     this)

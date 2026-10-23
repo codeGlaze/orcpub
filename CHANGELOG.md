@@ -102,6 +102,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 
 - **Server:** the setup scripts read `.env` the way Docker does, so a value with an apostrophe or spaces (`APP_NAME=Dungeon Master's Vault`) no longer breaks `./run`, `docker-user.sh` or the start scripts.
 - **Accounts:** behind a proxy, sign-in, sign-up and password-reset limits now count each player separately. Every visitor shared the proxy's address, so a few mistyped passwords could lock everyone out of signing in for a minute. Set `TRUST_CLOUDFLARE=true` when the site is behind Cloudflare.
+- **Server:** the Swarm stack file `./run --swarm` writes is accepted by `docker stack deploy`; it started with a top-level `name` that Swarm rejects.
 - **Server:** `JAVA_OPTS` now reaches Java in Docker; memory settings set there were ignored, so the app ran with a quarter of its container's memory.
 - **Server:** settings set in `.env` now reach the server under Docker Compose and Swarm. Branding (`APP_*`) and most other settings were dropped on the way into the container, so the site ran on defaults whatever `.env` said.
 - **Homebrew:** a custom element with a blank or symbol-only name no longer breaks the character. (#675)

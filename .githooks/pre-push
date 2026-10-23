@@ -5,7 +5,7 @@
 # instead of on CI. The fold itself stays a deliberate manual step:
 #   scripts/fold-branch-changelog.sh "<release>"    (then commit, then push)
 #
-# Activate once per clone:  scripts/setup-hooks.sh   (or: git config core.hooksPath .githooks)
+# Armed for every worktree by scripts/agent-setup.sh on agents/develop (docs/kb/agent-hooks.md).
 
 status=0
 zero="0000000000000000000000000000000000000000"
@@ -15,6 +15,7 @@ zero="0000000000000000000000000000000000000000"
 release="$(grep -m1 -oE '^## \[[^]]+\]' CHANGELOG.md 2>/dev/null | sed -E 's/^## \[(.+)\]$/\1/')"
 release="${release:-<release>}"
 
+pushed_refs="$(cat)"
 while read -r _local_ref local_sha remote_ref _remote_sha; do
   [ "$local_sha" = "$zero" ] && continue                    # branch deletion — skip
   case "$remote_ref" in
@@ -35,7 +36,7 @@ while read -r _local_ref local_sha remote_ref _remote_sha; do
       fi
       ;;
   esac
-done
+done <<< "$pushed_refs"
 
 # Same rules CI applies, run here so a style problem is a local message rather than
 # a red build after the merge. Skipped when python3 is absent; CI still catches it.
@@ -51,6 +52,39 @@ if [ "${guarded:-0}" = "1" ] && [ -x scripts/lint-changelog.py ] && command -v p
     echo "" >&2
     status=1
   fi
+fi
+
+# Heads-up, never blocks: a push that changes the files deployment depends on sets off the heavy
+# Docker checks on its PR (about 20 minutes). The file list is read from that workflow, so the two
+# cannot drift apart.
+heavy_wf=.github/workflows/docker-heavy.yml
+if [ -f "$heavy_wf" ]; then
+  patterns="$(awk '/^    paths:/{p=1;next} p&&/^      - /{gsub(/^      - |'"'"'/,"");print;next} p{exit}' "$heavy_wf")"
+  while read -r _l local_sha remote_ref remote_sha; do
+    [ "$local_sha" = "$zero" ] && continue
+    base="$remote_sha"
+    if [ "$base" = "$zero" ] || ! git cat-file -e "$base" 2>/dev/null; then
+      base="$(git merge-base "$local_sha" origin/integration 2>/dev/null)" || continue
+    fi
+    hits=""
+    for f in $(git diff --name-only "$base" "$local_sha" 2>/dev/null); do
+      for pat in $patterns; do
+        case "$pat" in
+          */\*\*) [ "${f#"${pat%\*\*}"}" != "$f" ] && hits="$hits $f" ;;
+          *) [ "$f" = "$pat" ] && hits="$hits $f" ;;
+        esac
+      done
+    done
+    if [ -n "$hits" ]; then
+      branch="${remote_ref#refs/heads/}"
+      echo "" >&2
+      echo "  heads-up: this push changes files deployment depends on:$hits" >&2
+      echo "  Its PR runs the heavy Docker checks (about 20 minutes). To run them now:" >&2
+      echo "      gh workflow run docker-heavy.yml --ref $branch" >&2
+      echo "  A newer push cancels an older run; the PR label 'heavy-docker: later' pauses them." >&2
+      echo "" >&2
+    fi
+  done < <(printf '%s\n' "$pushed_refs")
 fi
 
 exit $status

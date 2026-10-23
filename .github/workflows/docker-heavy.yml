@@ -67,16 +67,20 @@ jobs:
         run: |
           curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/2.10.0/bin/lein -o /usr/local/bin/lein
           chmod +x /usr/local/bin/lein && lein version
+      # Java is run on the project's classpath without the dev tools, which need more memory than
+      # this test gives; the flags are the ones start.sh passes (lein forwards JVM_OPTS).
       - name: Run out of memory with the flags start.sh passes
         run: |
           CRASH="$PWD/logs/app/crash"; mkdir -p "$CRASH"
-          export JVM_OPTS="-Xmx64m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$CRASH/heap.hprof -XX:ErrorFile=$CRASH/jvm-crash-%p.log"
-          lein run -m clojure.main -e "(long-array 100000000)" && { echo "FAIL: it did not run out of memory"; exit 1; } || true
+          CP=$(lein with-profile -dev classpath)
+          java -Xmx128m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath="$CRASH/heap.hprof" -XX:ErrorFile="$CRASH/jvm-crash-%p.log" \
+            -cp "$CP" clojure.main -e "(long-array 200000000)" && { echo "FAIL: it did not run out of memory"; exit 1; } || true
           test -f "$CRASH/heap.hprof" || { echo "FAIL: no heap dump in $CRASH"; ls -la "$CRASH"; exit 1; }
           echo "OK: heap dump written ($(du -h "$CRASH/heap.hprof" | cut -f1))"
       - name: The next start reports it
         run: |
-          OUT=$(lein run -m clojure.main -e "(require 'orcpub.crash-report) (orcpub.crash-report/report! [\"$PWD/logs/app/crash\"])" 2>&1)
+          CP=$(lein with-profile -dev classpath)
+          OUT=$(java -cp "$CP" clojure.main -e "(require 'orcpub.crash-report) (orcpub.crash-report/report! [\"$PWD/logs/app/crash\"])" 2>&1)
           echo "$OUT" | grep "alerts:"
           echo "$OUT" | grep -q "ran out of memory" || { echo "FAIL: no crash alert"; exit 1; }
           echo "OK: the crash was reported"
@@ -116,7 +120,11 @@ jobs:
           docker compose logs orcpub | grep -E "crash-report:|alerts: \[jvm-crash" || { echo "FAIL: no crash report"; docker compose logs orcpub | tail -40; exit 1; }
       - name: Logs on failure
         if: failure()
-        run: docker compose logs --tail 200
+        run: |
+          docker compose logs --tail 200
+          docker compose exec -T orcpub sh -c 'ls -la /var/lib/orcpub/ /var/lib/orcpub/state/ /var/lib/orcpub/state/crash/' || true
+          sudo ls -la /var/log/orcpub /var/log/orcpub/crash || true
+          sudo cat /var/log/orcpub/crash/reported.edn || true
 
   swarm:
     name: Docker Swarm - ./run's stack deploys, runs as app, keeps files in /var/log
