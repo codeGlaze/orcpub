@@ -157,18 +157,41 @@
         (is (= r (:character (inventory/repair r))))
         (is (= 10 (qty r :torch)))))))
 
-(deftest a-kit-whose-pack-is-gone-asks-first
+(deftest a-kit-whose-pack-is-gone-asks-only-when-used
   (let [chosen (:character (inventory/repair (fighter-choosing :explorers-pack [(gear :torch 2)])))
-        gone (assoc-in chosen [::entity/options :class] [])]
-    (is (empty? (inventory/questions chosen)))
-    (is (= [{:kind :orphan :pack :explorers-pack}] (inventory/questions gone)))
-    (let [r (inventory/resolve-orphan gone :explorers-pack :remove)]
-      (is (= 2 (qty r :torch)) "only what the kit held is taken")
-      (is (nil? (qty r :bedroll)))
-      (is (empty? (inventory/kits r))))
-    (let [k (inventory/resolve-orphan gone :explorers-pack :keep)]
-      (is (= 12 (qty k :torch)))
-      (is (empty? (inventory/questions k)) "kept as a kit the player added"))))
+        gone (assoc-in chosen [::entity/options :class] [])
+        used (inventory/take-from-kits (set-qty gone :torch 9) :torch 3)]
+    (testing "untouched: no question, and repair takes its items off quietly"
+      (is (empty? (inventory/questions gone #{})))
+      (let [r (:character (inventory/repair gone #{}))]
+        (is (= 2 (qty r :torch)) "only what the kit held; the player's own 2 stay")
+        (is (nil? (qty r :bedroll)))
+        (is (empty? (inventory/kits r)))))
+    (testing "untouched but the new class offers the pack: kept, no question"
+      (let [r (:character (inventory/repair gone #{:explorers-pack}))]
+        (is (= [:explorers-pack] (map ::entity/key (inventory/kits r))))
+        (is (empty? (inventory/questions r #{:explorers-pack})))))
+    (testing "once the new class's pack choice is answered with another pack, the offer is gone"
+      (let [other (-> gone
+                      (assoc-in [::entity/options :class]
+                                [{::entity/key :fighter
+                                  ::entity/options {:starting-equipment-equipment-pack [{::entity/key :dungeoneers-pack}]}}])
+                      (inventory/repair #{:explorers-pack :dungeoneers-pack}) :character)]
+        (is (= [:dungeoneers-pack] (map ::entity/key (inventory/kits other))) "the Explorer's kit went quietly")
+        (is (empty? (inventory/questions other #{:explorers-pack :dungeoneers-pack})))))
+    (testing "without the template (on load) nothing is removed"
+      (is (= gone (:character (inventory/repair gone)))))
+    (testing "used: asked, unless the new class offers the pack"
+      (is (= [{:kind :orphan :pack :explorers-pack}] (inventory/questions used #{})))
+      (is (empty? (inventory/questions used #{:explorers-pack})))
+      (is (= used (:character (inventory/repair used #{}))) "a used kit is never removed quietly"))
+    (testing "the answers"
+      (let [r (inventory/resolve-orphan used :explorers-pack :remove)]
+        (is (= 2 (qty r :torch)) "takes off only what the kit still holds")
+        (is (empty? (inventory/kits r))))
+      (let [k (inventory/resolve-orphan used :explorers-pack :keep)]
+        (is (= 9 (qty k :torch)))
+        (is (empty? (inventory/questions k #{})) "kept as a kit the player added")))))
 
 (deftest add-a-kit-from-the-panel
   (let [{c :character} (inventory/add-kit {::entity/options {:equipment [(gear :torch 4)]}} :explorers-pack)]

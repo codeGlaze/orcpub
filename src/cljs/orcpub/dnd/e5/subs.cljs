@@ -249,7 +249,8 @@
 (reg-sub
  ::inventory/panel
  :<- [:character]
- (fn [character _]
+ :<- [:built-template]
+ (fn [[character template] _]
    (let [active (inventory/active-kits character)
          shown (set (map ::entity/key active))]
      {:kits (mapv (fn [kit]
@@ -260,7 +261,7 @@
                        :tracked (inventory/tracked kit)
                        :could-use-spare (inventory/restock-could-use-spare character pk)}))
                   active)
-      :questions (inventory/questions character)
+      :questions (inventory/questions character (inventory/offered-packs template character))
       :fillable (inventory/fillable character)
       :shares (into {} (for [k (distinct (mapcat #(map :key (inventory/tracked %)) active))]
                          [k (inventory/shares character k)]))

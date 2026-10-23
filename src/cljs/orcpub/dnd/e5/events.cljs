@@ -400,9 +400,11 @@
    kits), and the draft rewritten when the character changed. Opening a saved character never saves it: the saved copy keeps its choices until the
    player saves (owner, 2026-10-16; decision-gate-hidden-picks.md)."
   [{:keys [db]} _]
-  (let [db' (-> (settle-picks-db db)
-                ;; A pack just chosen becomes a kit (inventory.cljc); idempotent.
-                (update :character (comp :character inventory/repair)))]
+  (let [settled (settle-picks-db db)
+        template (get settled ::autosave-fx/cached-template)
+        ;; A pack just chosen becomes a kit; an untouched one whose pack went goes (inventory.cljc).
+        db' (update settled :character
+                    #(:character (inventory/repair % (when (seq template) (inventory/offered-packs template %)))))]
     (cond-> {:db db'}
       (not (identical? (:character db) (:character db')))
       (assoc ::persist-healed-character (:character db')))))

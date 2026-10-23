@@ -24,7 +24,8 @@
        nil nil nil weapons5e/weapons-map weapons5e/weapons
        sl5e/spell-lists spells5e/spell-map
        [] []
-       [(classes5e/fighter-option sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)]
+       [(classes5e/fighter-option sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)
+        (classes5e/barbarian-option sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)]
        [] language-map)))))
 
 (defn- hand-picked
@@ -103,3 +104,12 @@
 (deftest weapons-and-armor-from-one-source-count-once
   (is (= 2 (weapon-qty (fighter-with {:starting-equipment-additional-weapons :two-handaxes} {}) :handaxe)))
   (is (= 1 (armor-qty (fighter-with {:starting-equipment-armor :chain-mail} {}) :chain-mail))))
+
+(deftest the-first-class-offers-its-packs
+  (let [fighter {::entity/options {:class [{::entity/key :fighter}]}}]
+    (is (= #{:explorers-pack :dungeoneers-pack} (inventory/offered-packs @the-template fighter)))
+    (is (= #{} (inventory/offered-packs @the-template {})) "no class, no packs")
+    (is (= #{} (inventory/offered-packs nil fighter)) "no template, no packs")
+    (is (= #{:explorers-pack}
+           (inventory/offered-packs @the-template {::entity/options {:class [{::entity/key :barbarian}]}}))
+        "a pack fixed in the class's starting equipment counts too")))

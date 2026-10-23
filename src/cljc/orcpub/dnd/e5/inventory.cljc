@@ -6,6 +6,7 @@
    agents/develop."
   (:require [clojure.string :as s]
             [orcpub.entity :as entity]
+            [orcpub.template :as t]
             [orcpub.dnd.e5.character.equipment :as char-equip]
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.picks :as picks]))
@@ -178,12 +179,67 @@
   [character]
   (set (map :pack (chosen-packs character))))
 
+(declare deficits resolve-orphan)
+
+(defn offered-packs
+  "The packs the character's first class grants or offers in its starting equipment, read from the
+   built `template`: its fixed items, and every option under its `:starting-equipment` selections.
+   Returns a set of pack keys; empty without a template or a class."
+  [template character]
+  (let [first-class (::entity/key (first (get-in character [::entity/options :class])))
+        class-opt (some (fn [sel]
+                          (when (= :class (::t/key sel))
+                            (some #(when (= first-class (::t/key %)) %) (::t/options sel))))
+                        (::t/selections template))
+        walk (fn walk [node]
+               (for [sel (::t/selections node)
+                     :when (contains? (::t/tags sel) :starting-equipment)
+                     o (::t/options sel)
+                     k (cons (::t/key o) (walk o))]
+                 k))
+        fixed (for [assoc-opt (::t/associated-options class-opt)
+                    [_ ps] assoc-opt
+                    p ps]
+                (::entity/key p))]
+    (into #{} (filter pack) (when class-opt (concat fixed (walk class-opt))))))
+
+(defn- open-offer
+  "`offered` while the character's starting-equipment pack choice is still unanswered; empty once a
+   pack is chosen there, since the choice no longer stands for any other pack."
+  [character offered]
+  (if (some #(s/starts-with? (name (peek (pop (:address %)))) "starting-equipment")
+            (chosen-packs character))
+    #{}
+    (or offered #{})))
+
+(defn untouched?
+  "Whether the kit for `pack-key` still holds everything its pack gave: nothing used, lost or
+   restocked differently."
+  [character pack-key]
+  (empty? (deficits character pack-key)))
+
+(defn- drop-quiet-orphans
+  "`character` without the untouched kits whose pack is no longer chosen and not in `offered`,
+   their items taken off as `resolve-orphan` :remove does. Such a kit never asks."
+  [character offered]
+  (let [chosen (sourced character)
+        offered (open-offer character offered)]
+    (reduce (fn [c kit]
+              (let [pk (::entity/key kit)]
+                (if (and (not (chosen pk)) (not (offered pk)) (untouched? c pk))
+                  (resolve-orphan c pk :remove)
+                  c)))
+            character
+            (active-kits character))))
+
 (defn repair
   "`character` with a kit materialized for every chosen pack that has none (removed kits count),
    claiming a pack's choice when exactly one answer is owned and leaving it to `questions`
-   otherwise; and removed kits whose pack is no longer chosen dropped.
+   otherwise; and removed kits whose pack is no longer chosen dropped. With `offered`
+   (`offered-packs`), an untouched kit whose pack is no longer chosen, nor offered by a pack choice
+   still open, goes quietly.
    Returns {:character c :ask [{:pack k :group g :options ks}]}; idempotent."
-  [character]
+  [character & [offered]]
   (let [{c :character :as acc}
         (reduce
          (fn [{:keys [character] :as acc} {pk :pack}]
@@ -203,20 +259,26 @@
         stale? #(and (removed? %) (not (chosen (::entity/key %))))]
     (cond-> acc
       (some stale? (kits c))
-      (assoc :character (assoc-in c [::entity/options :kits] (vec (remove stale? (kits c))))))))
+      (assoc :character (assoc-in c [::entity/options :kits] (vec (remove stale? (kits c)))))
+      offered
+      (update :character drop-quiet-orphans offered))))
 
 (defn questions
-  "What `character`'s kits need the player to answer, in kit order: a kit whose pack is no longer
-   chosen ({:kind :orphan :pack k}), and a pack's unanswered choice ({:kind :choice :pack k
-   :group g :options ks}; the owned answers, else every member)."
-  [character]
-  (let [chosen (sourced character)]
+  "What `character`'s kits need the player to answer, in kit order: a kit the player has used whose
+   pack is no longer chosen nor offered by a pack choice still open (`offered`, a set from
+   `offered-packs`) ({:kind :orphan :pack k}), and
+   a pack's unanswered choice ({:kind :choice :pack k :group g :options ks}; the owned answers, else
+   every member)."
+  [character & [offered]]
+  (let [chosen (sourced character)
+        offered (open-offer character offered)]
     (vec (mapcat
           (fn [kit]
             (let [pk (::entity/key kit)
                   h (held kit)]
               (concat
-               (when-not (chosen pk) [{:kind :orphan :pack pk}])
+               (when-not (or (chosen pk) (offered pk) (untouched? character pk))
+                 [{:kind :orphan :pack pk}])
                (for [g (filter choice-groups (keys (:items (pack pk))))
                      :let [members (choice-groups g)]
                      :when (not-any? members (keys h))
