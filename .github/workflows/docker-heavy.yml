@@ -151,6 +151,7 @@ jobs:
           . scripts/load-env.sh && load_env .env
           docker stack deploy -c docker-compose.swarm.yaml orcpub
       - name: Wait for the app
+        timeout-minutes: 12
         run: bash .github/scripts/wait-healthy.sh swarm
       - name: It runs as app and keeps its files in /var/log/orcpub
         run: |
@@ -162,7 +163,12 @@ jobs:
           done
           echo "OK: Swarm task runs as app; /var/log/orcpub is on the host"
       - name: Services on failure
-        if: failure()
+        if: failure() || cancelled()
         run: |
           docker stack ps orcpub --no-trunc || true
-          docker service logs orcpub_orcpub --tail 200 || true
+          echo "=== datomic ==="; docker service logs orcpub_datomic --tail 120 || true
+          echo "=== app ==="; docker service logs orcpub_orcpub --tail 80 || true
+          echo "=== secrets ==="; docker secret ls || true
+          echo "=== volumes ==="; docker volume ls || true
+          echo "=== settings present in .env (names only) ==="; cut -d= -f1 .env | grep -v '^#' | sort | tr '\n' ' '; echo
+          echo "=== stack file, without values ==="; sed -E 's/(PASSWORD|SIGNATURE|KEY)([^:]*): .*/\1\2: <hidden>/' docker-compose.swarm.yaml
