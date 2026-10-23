@@ -1990,11 +1990,6 @@
     [:.kit-name {:white-space :nowrap :overflow :hidden :text-overflow :ellipsis}]
     [:.kit-indent {:padding-left "58px"}]
     [:.kit-tile-empty {:border-style :dashed :background-color :transparent :opacity 0.6}]
-    [:.kit-pack-option
-     {:display :flex :align-items :center :gap "8px" :width "100%" :min-height "44px"
-      :padding "6px 10px" :margin-top "5px" :border-radius "5px" :text-align :left
-      :color :inherit :font :inherit :background :none :cursor :pointer
-      :border "1px solid color-mix(in srgb, currentColor 50%, transparent)"}]
 
     [:.builder-option
      {:border-width (px 1)
@@ -3362,6 +3357,14 @@
     ;; none of that is implemented here. Anchor positioning pins it under its input, and
     ;; where unsupported the popover still opens (centred) rather than breaking.
     [:.inv-combo {:margin "6px 0 10px"}]
+    ;; A preset's label over the box (views/inventory.cljs `inventory-combobox`); the 44px tap is
+    ;; an invisible layer, as in .callout-compact.
+    [:.inv-combo-preset
+     {:position :relative :display :inline-flex :align-items :center :margin-bottom "6px"
+      :padding "2px 10px" :border-radius "12px" :font :inherit :font-size "12px" :color :inherit
+      :background :none :cursor :pointer
+      :border "1px solid color-mix(in srgb, currentColor 50%, transparent)"}]
+    [:.inv-combo-preset:after {:content "''" :position :absolute :top "-10px" :bottom "-10px" :left 0 :right 0}]
 
     [:.inv-combo-input
      {:width "100%"

@@ -492,14 +492,6 @@
   [pack-key]
   (s/replace (:name (pack pack-key) (name pack-key)) #" Pack$" ""))
 
-(defn tracks-label
-  "What pack `pack-key` keeps count of, for the pack picker: \"8 items · tracks torch, rations\"."
-  [pack-key]
-  (let [items (:items (pack pack-key))
-        counted (for [[k n] items :when (> n 1)]
-                  (if (= k :rations-1-day) "rations" (s/lower-case (:name (equipment5e/equipment-map k) (name k)))))]
-    (str (count items) " items" (when (seq counted) (str " · tracks " (s/join ", " counted))))))
-
 (defn act
   "`character` after the kit action `action` with `args`, as the Kits block applies it, and the
    message its Undo line shows (nil for actions with no Undo). Returns {:character c :message m}."

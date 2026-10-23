@@ -221,11 +221,10 @@
              (.scrollIntoView #js {:block "nearest"})))))
 
 (defn inventory-combobox
-  "Filter-and-pick dropdown on the native Popover API: the list is a `popover=\"auto\"`
-   element, so the top layer, light dismiss and Escape come from the browser. CSS anchor
-   positioning pins it under its input (centred where unsupported). Every match renders, so
-   the list can be browsed by scrolling or arrow keys. Rows mount only while open; the open
-   handlers set open state, and a `beforetoggle` listener catches the browser's own closes."
+  "Filter-and-pick dropdown for selection `key`: a `popover=\"auto\"` list anchored under its input
+   (browser top layer, light dismiss, Escape), every match rendered, rows mounted only while open.
+   `preset`, optional, is an atom a caller fills with {:label :keys :open? true} to list only those
+   item keys under a removable label and open the list; × or a pick clears it."
   []
   (let [query     (r/atom "")
         active    (r/atom -1)
@@ -238,11 +237,13 @@
                     (when-let [old @el*] (.removeEventListener old "beforetoggle" on-toggle))
                     (reset! el* el)
                     (when el (.addEventListener el "beforetoggle" on-toggle)))]
-    (fn [key options selected-keys]
-      (let [items    (vec (common/aloof-sort-by
+    (fn [key options selected-keys & [preset]]
+      (let [{only :keys label :label} (some-> preset deref)
+            items    (vec (common/aloof-sort-by
                            :name
                            (sequence (comp (remove (inventory-option-selected? selected-keys))
-                                           (map name-and-key))
+                                           (map name-and-key)
+                                           (filter #(or (nil? only) (contains? only (:key %)))))
                                      options)))
             kname    (clojure.core/name key)
             pop-id   (str "inv-pop-" kname)
@@ -254,6 +255,7 @@
             n        (count matches)
             pick!    (fn [item-key]
                        (dispatch [:add-inventory-item key item-key])
+                       (some-> preset (reset! nil))
                        (reset! query "")
                        (reset! active -1)
                        (reset! open? false)
@@ -264,7 +266,13 @@
                        (open!)
                        (swap! active #(-> (+ % delta) (max 0) (min (dec n))))
                        (scroll-active-into-view! pop-id))]
+        (when (some-> preset deref :open?)
+          (swap! preset dissoc :open?)
+          (r/after-render open!))
         [:div.inv-combo
+         (when label
+           [:button.inv-combo-preset {:on-click #(reset! preset nil)}
+            label [:i.fa.fa-times.m-l-5 {:aria-hidden true}]])
          [:input.inv-combo-input
           {:style {:anchor-name anchor}
            :value @query
@@ -312,12 +320,12 @@
 
 (defn inventory-adder
   "The control that adds items from `options` to selection `key`; `selected-keys` are shown as
-   picked."
-  [key options selected-keys]
+   picked. `preset` as `inventory-combobox`."
+  [key options selected-keys & [preset]]
   ;; Switch by changing this line. inventory-datalist is kept live: it hands the dropdown to
   ;; the OS, which is the better control on mobile if the Popover API ever proves a problem.
   ;; inventory-picker above is deprecated, not an alternative.
-  [inventory-combobox key options selected-keys])
+  [inventory-combobox key options selected-keys preset])
 
 (defn inventory-check-fn
   "Handler toggling whether item `i` of selection `key` is carried."
@@ -485,37 +493,33 @@
                    " for the " pack-name "?")
        (for [k options] [(:name (equip5e/equipment-map k)) (kit-act :answer-choice pack group k)])])))
 
+(defn- packs-preset
+  "The search box's preset for the kit shortcuts: every equipment pack not already a kit in `ks`
+   (the panel's kits)."
+  [ks]
+  {:label "Packs" :open? true
+   :keys (into #{} (comp (map :key) (remove (set (map :pack ks)))) equip5e/packs)})
+
 (defn- kits-block
   "The Kits block above the Equipment list (plan-inventory-kits.md): each kit with its counts,
    Restock and menu; questions kits need answered; Reorganize when spare stock could fill a kit; the
-   last action's Undo; and Add a kit's pack picker."
+   last action's Undo. Add a kit and the empty slot open the search box (`search-preset`, an atom)
+   showing only packs."
   []
-  (let [picker? (r/atom false)
-        asking (r/atom nil)]
-    (fn []
-      (let [{ks :kits :keys [questions fillable addable]} @(subscribe [::inventory/panel])
-            undo @(subscribe [::inventory/undo])]
+  (let [asking (r/atom nil)]
+    (fn [search-preset]
+      (let [{ks :kits :keys [questions fillable]} @(subscribe [::inventory/panel])
+            undo @(subscribe [::inventory/undo])
+            add-kit #(reset! search-preset (packs-preset ks))]
         [:div.m-b-10
          [:div.flex.justify-cont-s-b.align-items-c
           [:div
            [:div.f-w-b.f-s-14 "Kits"]
            (when (> (count ks) 1) [:div.f-s-12.opacity-5 "Spending uses the top kit first"])]
-          [:button.link-button.orange.f-s-14 {:on-click #(swap! picker? not)}
+          [:button.link-button.orange.f-s-14 {:on-click add-kit}
            [:span.underline "Add a kit"] [:i.fa.fa-plus-circle.m-l-5.f-s-16]]]
-         (when @picker?
-           (if (empty? addable)
-             [:div.f-s-12.opacity-5.m-t-5 "Every pack is already a kit."]
-             (into [:div]
-                   (for [{pk :key nm :name items :items} addable]
-                     ^{:key pk}
-                     [:button.kit-pack-option
-                      {:on-click #(do (reset! picker? false) (dispatch [::inventory/act :add pk]))}
-                      [kit-icon (contains? items :chest) 24]
-                      [:div
-                       [:div.f-w-b.f-s-14 nm]
-                       [:div.f-s-12.opacity-7 (inventory/tracks-label pk)]]]))))
          (if (empty? ks)
-           [:div.kit-row.pointer {:on-click #(reset! picker? true)}
+           [:div.kit-row.pointer {:on-click add-kit}
             [:div.kit-tile.kit-tile-empty [kit-icon false 32]]
             [:span.f-s-14.opacity-5 "Add a kit"]]
            (doall
@@ -560,8 +564,11 @@
 (defn inventory-selector
   "One inventory list for `selection`: the adder, its rows (names from `item-map-sub`), and with
    `custom-equipment-key` the custom items and Add Custom Item. Equipment also gets the Kits block,
-   hides pack picks (their kits stand for them) and shows each kit's share under a row."
-  [item-map-sub qty-input-width {:keys [selection]} & [custom-equipment-key]]
+   hides pack picks (their kits stand for them) and shows each kit's share under a row. Holds the
+   search box's preset, which the Kits block sets."
+  []
+  (let [preset (r/atom nil)]
+   (fn [item-map-sub qty-input-width {:keys [selection]} & [custom-equipment-key]]
   (let [{:keys [::t/key]} selection
         selected-items @(subscribe [:entity-option key])
         item-map @(subscribe item-map-sub)
@@ -573,8 +580,8 @@
         rows (keep-indexed (fn [i item] (when-not (and gear? (inventory/pack (::entity/key item))) [i item]))
                            selected-items)]
     [:div
-     (when gear? [kits-block])
-     [inventory-adder key options selected-keys]
+     (when gear? [kits-block preset])
+     [inventory-adder key options selected-keys preset]
      (when (seq rows)
        [:div.flex.f-s-12.opacity-5.m-t-10.justify-cont-s-b
         [:div.m-r-10 "Carried?"]
@@ -598,5 +605,4 @@
          [:div.orange.pointer.m-t-5.m-r-5
           {:on-click (new-custom-item custom-equipment-key)}
           [:span.underline "Add Custom Item"]
-          [:i.fa.fa-plus-circle.m-l-5.f-s-16]]]])]))
-
+          [:i.fa.fa-plus-circle.m-l-5.f-s-16]]]])]))))
