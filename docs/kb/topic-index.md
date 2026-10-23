@@ -2885,7 +2885,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, 2026-10-23, asks, equipment, holy, inventory, items, kit, kits, leftovers, pack, packs, picker, quantity, refill, reorganize, restock, torches
+**topics:** 2026-10-22, 2026-10-23, equipment, gear, holy, inventory, items, kit, kits, leftovers, pack, packs, picker, quantity, refill, reorganize, restock, torches
 
 - The problems today
 - The model
@@ -2893,6 +2893,7 @@ _plan-inventory-kits · plan inventory kits_
 - Phases
 - Phase 2 design (2026-10-22, before code)
 - Built: 2a wiring and 2b kit panel (2026-10-22, feature/inventory-kits)
+- 2c built: kits on the character sheet (2026-10-23, 7916b8e1)
 - Design handoff v2 and pack counts built (2026-10-23, b1eff815, then counts)
 - Reuse audit (2026-10-23, before more kit work)
 - Reuse refactor done (2026-10-23, 83ac1bb3)
@@ -2995,7 +2996,7 @@ _proposal-indexeddb-storage · proposal indexeddb storage_
 
 _re-frame-subscribe-refactor · re frame subscribe refactor_
 
-**topics:** apis, autosave, cached, chain, component, direct, event-utils, extract, handler, low, methods, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
+**topics:** apis, cached, chain, component, direct, event-utils, extract, handler, low, methods, re-frame, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
 
 - The Problem
 - What actually happens when you subscribe in a handler

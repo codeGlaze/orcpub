@@ -181,6 +181,21 @@ other edit). Gear rows a kit tracks get the share line (`Explorer's 7/10 · 3 sp
 nothing yet: paying from coins is later. Styles: `.kit-*` in `styles/core.clj`, coloured from
 `currentColor` so every theme draws them.
 
+## 2c built: kits on the character sheet (2026-10-23, `7916b8e1`)
+
+The sheet's Other Equipment (`views/inventory.cljs` `sheet-equipment`, called by `views.cljs`
+`other-equipment-section-2`) shows the kits always, each with Restock (owner). A Manage inventory
+switch turns the search box from filtering the list into adding items (amber ring, "Adding items",
+"Add to inventory…"; "Add", not "Buy", until coins are wired), shows the dashed Add a kit slot under
+the kits and − / + on keyed gear, and ends at a filled Done. The switch is local to the section, so
+it is off again when the player taps Done, leaves the tab or leaves the sheet (owner: it turns off
+once they're done). Edits on a saved character go through `update-character-fx` (autosave; the
+builder's copy follows), Undo per character id; the builder's Details tab uses the builder events.
+The sheet's character-by-id reaction runs `inventory/repair` for display, so a character saved
+before kits shows its packs as kits on its sheet, not as missing items. `svg-icon`'s drawing moved
+to `components/themed-icon` so `views.inventory` need not require `views.cljs`. Browser tests:
+`test/browser/inventory_kits_builder_e2e.js` (33 checks), `inventory_kits_sheet_e2e.js` (15).
+
 ## Design handoff v2 and pack counts built (2026-10-23, `b1eff815`, then counts)
 
 Built from the designer's `Kits_UI_v2` handoff (5a layout, 6a Restock prompt, final copy in its
