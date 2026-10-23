@@ -194,30 +194,6 @@ YAML
   fi
 }
 
-# Switch transactor host binding between Compose and Swarm modes. Edits the template in place;
-# the template is baked into the Datomic image, so the image must be rebuilt afterwards.
-# Usage: switch_transactor_host "compose"  → host=datomic (Compose DNS bind)
-#        switch_transactor_host "swarm"    → host=0.0.0.0 (Swarm all-interfaces)
-switch_transactor_host() {
-  local mode="$1"
-  local template="${SCRIPT_DIR}/docker/transactor.properties.template"
-  [ -f "$template" ] || return 0
-
-  if [ "$mode" = "compose" ]; then
-    if grep -q '^host=0\.0\.0\.0' "$template"; then
-      sed -i 's/^host=0\.0\.0\.0$/#host=0.0.0.0/' "$template"
-      sed -i 's/^#host=datomic$/host=datomic/' "$template"
-      change "Transactor host: 0.0.0.0 → datomic (Compose bind)"
-    fi
-  elif [ "$mode" = "swarm" ]; then
-    if grep -q '^host=datomic' "$template"; then
-      sed -i 's/^host=datomic$/#host=datomic/' "$template"
-      sed -i 's/^#host=0\.0\.0\.0$/host=0.0.0.0/' "$template"
-      change "Transactor host: datomic → 0.0.0.0 (Swarm bind)"
-    fi
-  fi
-}
-
 # Read DATOMIC_PASSWORD, ADMIN_PASSWORD, SIGNATURE from .env + shell env.
 # Sets _pw_datomic, _pw_admin, _pw_signature. Exits on missing values.
 # Usage: read_passwords "--secrets" (label for error message)
@@ -872,10 +848,6 @@ if [ "$SECRETS_MODE" = "true" ] && [ "$UPGRADE_MODE" != "true" ]; then
   # Generate compose override so secrets are wired in automatically
   write_compose_secrets "file"
 
-  # Revert transactor host to compose-compatible binding if previously
-  # switched to Swarm mode (host=0.0.0.0).
-  switch_transactor_host "compose"
-
   # Move secret vars from .env to a backup file so they aren't duplicated
   BACKUP_FILE="${ENV_FILE}.secrets.backup"
   SECRET_VARS="DATOMIC_PASSWORD|ADMIN_PASSWORD|SIGNATURE"
@@ -1046,8 +1018,6 @@ if [ "$SWARM_MODE" = "true" ] && [ "$SECRETS_MODE" = "true" ] && [ "$UPGRADE_MOD
     change "Activated secrets in $(basename "$SWARM_COMPOSE")"
   fi
 
-  # Switch transactor to Swarm-compatible host binding.
-  switch_transactor_host "swarm"
   set_env_val ALT_HOST datomic "$ENV_FILE"
   change "ALT_HOST=datomic (peer fallback via Docker DNS)"
 

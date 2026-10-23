@@ -11,7 +11,7 @@
 #   3. (none — required vars exit 1 if missing)
 #
 # Required: ADMIN_PASSWORD, DATOMIC_PASSWORD
-# Optional: ALT_HOST, ENCRYPT_CHANNEL,
+# Optional: TRANSACTOR_HOST, ALT_HOST, ENCRYPT_CHANNEL,
 #           ADMIN_PASSWORD_OLD, DATOMIC_PASSWORD_OLD
 # ===========================================================================
 
@@ -66,12 +66,14 @@ escape_sed_replacement() {
   printf '%s' "$1" | sed -e 's/[\\]/\\&/g' -e 's/[&|]/\\&/g'
 }
 
+TRANSACTOR_HOST="${TRANSACTOR_HOST:-datomic}"
 ALT_HOST="${ALT_HOST:-127.0.0.1}"
 ENCRYPT_CHANNEL="${ENCRYPT_CHANNEL:-true}"
 
 sed \
   -e "s|\${ADMIN_PASSWORD}|$(escape_sed_replacement "$ADMIN_PASSWORD")|g" \
   -e "s|\${DATOMIC_PASSWORD}|$(escape_sed_replacement "$DATOMIC_PASSWORD")|g" \
+  -e "s|\${TRANSACTOR_HOST:-datomic}|$(escape_sed_replacement "$TRANSACTOR_HOST")|g" \
   -e "s|\${ALT_HOST:-127.0.0.1}|$(escape_sed_replacement "$ALT_HOST")|g" \
   -e "s|\${ENCRYPT_CHANNEL:-true}|$(escape_sed_replacement "$ENCRYPT_CHANNEL")|g" \
   "$TEMPLATE" > "$OUTPUT"

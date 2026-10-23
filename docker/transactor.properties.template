@@ -19,21 +19,17 @@ protocol=dev
 # --- Host & Networking --------------------------------------------------------
 # host= controls BOTH what the transactor binds to AND what it advertises
 # to peers via heartbeats. Datomic has no separate bind/advertise setting.
+# Set by TRANSACTOR_HOST when the container starts (deploy/start.sh):
 #
-# COMPOSE (default):   host=datomic
-#   DNS resolves to the container's own IP → bind works, advertise gives
-#   peers the correct service name for reconnection.
+# COMPOSE (default):   datomic
+#   DNS resolves to the container's own IP, so it binds there and peers get
+#   the service name for reconnection.
 #
-# SWARM:               host=0.0.0.0, alt-host=datomic
-#   "datomic" resolves to a VIP in overlay networks — can't bind to that.
-#   0.0.0.0 binds to all interfaces; alt-host gives peers the service name
-#   for reconnection. run --swarm switches this automatically.
-#
-# To switch manually: comment one host= line and uncomment the other.
-# This file is copied into the Datomic image when it is built: rebuild the image after switching
-# (./run --build), or the transactor keeps the old setting and Swarm never sees it healthy.
-host=datomic
-#host=0.0.0.0
+# SWARM:               0.0.0.0, with ALT_HOST=datomic
+#   "datomic" resolves to a virtual IP on overlay networks, which the
+#   transactor cannot serve on. 0.0.0.0 binds to all interfaces; alt-host
+#   gives peers the service name. The stack ./run --swarm writes sets both.
+host=${TRANSACTOR_HOST:-datomic}
 port=4334
 
 # Alternative hostname for peer fallback connections.

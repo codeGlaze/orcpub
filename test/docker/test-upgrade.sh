@@ -375,6 +375,14 @@ SWARMENV
   fi
   TESTS=$((TESTS + 1))
 
+  # The transactor cannot serve on Swarm's virtual address for "datomic" (docs/DOCKER.md).
+  if sed -n '/^  datomic:/,/^  [a-z]/p' "$SWARM_COMPOSE" | grep -q 'TRANSACTOR_HOST: "*0\.0\.0\.0'; then
+    pass "${label}datomic serves on 0.0.0.0"
+  else
+    fail "${label}datomic service lacks TRANSACTOR_HOST 0.0.0.0"
+  fi
+  TESTS=$((TESTS + 1))
+
   # --- Test: .env.portainer ---
   generate_env_portainer "$ENV_FILE" "$SWARM_PORTAINER_ENV"
   if [ -f "$SWARM_PORTAINER_ENV" ]; then
@@ -410,10 +418,19 @@ SWARMENV
   fi
   TESTS=$((TESTS + 1))
 
-  # Backup and regenerate
+  # Backup and regenerate, from a stack written before TRANSACTOR_HOST existed
   local backup="${SWARM_COMPOSE}.backup"
+  sed -i '/TRANSACTOR_HOST/d' "$SWARM_COMPOSE"
   cp "$SWARM_COMPOSE" "$backup"
+  extract_swarm_config "$SWARM_COMPOSE"
   generate_swarm_compose "$SWARM_COMPOSE" "true"
+
+  if sed -n '/^  datomic:/,/^  [a-z]/p' "$SWARM_COMPOSE" | grep -q 'TRANSACTOR_HOST: "*0\.0\.0\.0'; then
+    pass "${label}upgrade adds TRANSACTOR_HOST to an older stack"
+  else
+    fail "${label}upgrade did not add TRANSACTOR_HOST"
+  fi
+  TESTS=$((TESTS + 1))
 
   # Regenerated file should still have services
   if grep -q '^  datomic:' "$SWARM_COMPOSE" && grep -q '^  orcpub:' "$SWARM_COMPOSE"; then

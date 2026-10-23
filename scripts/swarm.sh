@@ -337,6 +337,7 @@ generate_swarm_compose() {
   local -a _d_env_defaults=(
     "ADMIN_PASSWORD:\${ADMIN_PASSWORD}"
     "DATOMIC_PASSWORD:\${DATOMIC_PASSWORD}"
+    "TRANSACTOR_HOST:0.0.0.0"
     "ALT_HOST:\${ALT_HOST:-datomic}"
     "ENCRYPT_CHANNEL:\${ENCRYPT_CHANNEL:-true}"
     "XMS:${xms}"

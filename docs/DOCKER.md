@@ -216,7 +216,8 @@ These are the variables you'll actually touch. Full reference in
 | `SIGNATURE` | Yes | — | JWT signing secret. All login and API calls fail without it. |
 | `DATOMIC_URL` | Yes | `datomic:dev://datomic:4334/orcpub` | Database connection URI. No `?password=` — the app adds it from `DATOMIC_PASSWORD`. |
 | `PORT` | No | `8890` | App server port. Nginx and healthcheck adapt automatically. |
-| `ALT_HOST` | No | `127.0.0.1` | Transactor peer fallback host. Change to `datomic` for Swarm. |
+| `TRANSACTOR_HOST` | No | `datomic` | The address the transactor serves on. Swarm needs `0.0.0.0`; the stack `./run --swarm` writes sets it. |
+| `ALT_HOST` | No | `127.0.0.1` | Transactor peer fallback host. Swarm needs `datomic`; the stack `./run --swarm` writes sets it. |
 | `EMAIL_SERVER_URL` | No | *(empty)* | Your SMTP server. Leave it empty and nobody can sign up: the site can't send the confirmation email, so it turns registration off rather than letting people in unchecked. To run without email, see the next setting. |
 | `ALLOW_UNVERIFIED_REGISTRATION` | No | `false` | Set this to `true`, and leave `EMAIL_SERVER_URL` empty, to let people sign up without confirming their email. Their accounts work right away. Only do this on a private site — anyone can sign up using an address that isn't theirs. It does nothing if you have SMTP set up. |
 | `CSP_POLICY` | No | `strict` | Content Security Policy: `strict`, `permissive`, or `none`. |
@@ -268,14 +269,15 @@ changed.
 ### Current Approach
 
 `docker/transactor.properties.template` is a **complete** transactor config
-with all structural settings hardcoded. Only four values use `${VAR}`
+with all structural settings hardcoded. Only five values use `${VAR}`
 placeholders for runtime substitution:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `DATOMIC_PASSWORD` | *(required)* | Storage access password |
 | `ADMIN_PASSWORD` | *(required)* | Admin/monitoring password |
-| `ALT_HOST` | `127.0.0.1` | Advertised host for peer connections |
+| `TRANSACTOR_HOST` | `datomic` | Address the transactor serves on and advertises |
+| `ALT_HOST` | `127.0.0.1` | Fallback host peers try when `TRANSACTOR_HOST` does not reach it |
 | `ENCRYPT_CHANNEL` | `true` | Peer-transactor encryption |
 
 `deploy/start.sh` handles startup:
@@ -286,29 +288,25 @@ placeholders for runtime substitution:
 
 ## host=datomic Rationale
 
-The `host=` property in transactor.properties controls what the transactor
-**advertises** to peers — it is not what it binds to.
+The transactor's `host=` setting is both the address it serves on and the
+address it tells the app to connect to. Datomic has no separate setting for
+each, so the right value depends on how Docker names the service.
 
-Connection flow:
-1. Peer connects to the transactor using the URI hostname (e.g., `datomic` in
-   `datomic:dev://datomic:4334/orcpub`)
-2. Transactor responds with its advertised `host=` value
-3. Peer uses the advertised host for subsequent connections
+**Compose: `datomic`.** The service name resolves to the container's own
+address, so the transactor can serve there and the app can reach it by name.
 
-**Why `host=0.0.0.0` is wrong:** It works on single-host Docker Compose by
-accident because the `dev://` protocol reuses the URI hostname rather than the
-advertised address. In Docker Swarm with a multi-node overlay network, a peer
-on node A would try to connect to `0.0.0.0:4334` locally, hitting itself
-instead of the transactor on node B.
+**Swarm: `0.0.0.0`, with `ALT_HOST=datomic`.** On a Swarm overlay network the
+service name resolves to a virtual address that load-balances to the task. The
+transactor cannot serve on that address: it starts, fails to reach itself, and
+exits with "Serve failed". `0.0.0.0` serves on every interface, and `alt-host`
+gives the app the service name to connect to instead.
 
-**Why `host=datomic` is correct:** The Docker Compose service name resolves
-via Docker DNS in both single-host bridge networks and multi-node overlay
-networks.
+Both come from settings filled in when the transactor starts, so one image runs
+either way. The stack file `./run --swarm` writes sets them for Swarm.
 
-**If `host=datomic` fails to resolve:** The containers are not on a shared
+**If `datomic` does not resolve at all:** the containers are not on a shared
 Docker network. `docker compose` creates one automatically. Standalone
-`docker run` requires `--network <name>`. Host networking bypasses Docker DNS
-entirely.
+`docker run` requires `--network <name>`.
 
 ## Jetty Binding
 
@@ -496,6 +494,14 @@ Running `./run --swarm` when `docker-compose.swarm.yaml` already exists:
 
 New canonical env vars added upstream are appended to each service's
 environment block — existing vars are never reordered or removed.
+
+**Upgrading to the release with `TRANSACTOR_HOST`:** regenerate the stack with
+`./run --swarm` (or add `TRANSACTOR_HOST: 0.0.0.0` to the datomic service by hand)
+before deploying the new images. Without it the transactor serves on `datomic`,
+which does not work on Swarm. If `git pull` refuses because
+`docker/transactor.properties.template` has local changes, those were the old
+way of switching to Swarm: discard them with
+`git checkout -- docker/transactor.properties.template` and pull again.
 
 ### Upgrading a Portainer stack
 

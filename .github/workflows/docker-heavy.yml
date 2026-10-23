@@ -133,15 +133,13 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      # Before the build: ./run --swarm switches the transactor template to Swarm's host setting,
-      # and the template is copied into the Datomic image when it is built.
       - name: Generate the Swarm stack with ./run
         run: |
           ./run --auto
           ./run --swarm --auto
           ls -la docker-compose.swarm.yaml
           grep -n "/var/log:/host-log\|JDK_JAVA_OPTIONS" docker-compose.swarm.yaml
-          grep -n "^host=0.0.0.0" docker/transactor.properties.template
+          grep -n "TRANSACTOR_HOST" docker-compose.swarm.yaml
       - name: Build images
         env:
           DOCKER_BUILDKIT: 0
