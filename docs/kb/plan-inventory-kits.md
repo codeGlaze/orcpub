@@ -206,8 +206,11 @@ lists and the Kits block in `orcpub.dnd.e5.views.inventory` (moved out of `chara
 3,072 to 2,501 lines). Containers and other inventory code go in these two, never new files (owner,
 2026-10-23). Kit notices are `notifications/callout`; Undo is `::inventory/undo` in the db; the kit
 repair is a step of `settle-picks-fx`; the equipment groups are `equipment5e/groups`, read by options
-and inventory. `expand-button` and `show-info-button` moved to `orcpub.components`. Still open: "Add
-a kit" stays (owner to decide), and the class-change question stays.
+and inventory. `expand-button` and `show-info-button` moved to `orcpub.components`. "Add a kit" and the
+empty slot now open the inventory search box with a preset (`inventory-combobox` `preset`: a label
+and the item keys it lists, cleared by × or a pick), showing the packs not already kits; the separate
+pack list is gone (owner, 2026-10-23). The preset is a general option of the search box, for any
+inventory list.
 
 **Found while checking it:** a new character starts as a Barbarian, whose fixed starting equipment
 includes an Explorer's Pack. Settle runs on opening, so that pack becomes a kit at once; switching
