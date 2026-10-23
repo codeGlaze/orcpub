@@ -50,6 +50,7 @@ start-up output, so you can decide which ones matter for your site.
 | `ORCPUB_SHARE_MAX_UPLOAD_KB`, `ORCPUB_SHARE_MAX_TEXT_KB`, `ORCPUB_SHARE_MAX_ACCOUNT_KB` | How much homebrew a share link and an account may keep | [Share links](#share-links) |
 | `ORCPUB_SHARE_PRUNE_DAYS` | How long an unused share link is kept | [Share links](#share-links) |
 | `ORCPUB_PWNED_CHECK` | Whether new passwords are checked against known breaches | [Security](#security) |
+| `TRUST_CLOUDFLARE`, `TRUSTED_PROXIES` | Which proxies to trust when finding a player's real address | [Security](#security) |
 | `APP_EMAIL_SIGNOFF` | Who the friendlier emails are signed from | [BRANDING-AND-INTEGRATIONS.md](BRANDING-AND-INTEGRATIONS.md) |
 
 ## Variables
@@ -211,7 +212,16 @@ the table in half. Plain ASCII, no colour: it is read in aggregators as often as
 | `CSP_POLICY` | `strict` | Content Security Policy mode: `strict`, `permissive`, or `none` |
 | `DEV_MODE` | `"true"` (in :dev profile) | When true, **no CSP header is sent at all** — that is what lets Figwheel's `ws://localhost:3449` through. Must be the string `"true"` (case-insensitive); any other value, including `"1"`, `"yes"` or empty, is false. |
 | `ORCPUB_PWNED_CHECK` | `on` | Screen new passwords against the Have I Been Pwned corpus. Accepts `on`/`off`, `true`/`false`, `1`/`0`, `yes`/`no`. |
+| `TRUST_CLOUDFLARE` | unset | Set to `true` only when the site is served through Cloudflare. The sign-in, sign-up and reset limits and the security log then see each player's real address instead of Cloudflare's. Leave it unset otherwise: anyone can send requests from Cloudflare's addresses, so trusting them on a site not behind Cloudflare would let a visitor pick their own address. |
+| `TRUSTED_PROXIES` | unset | Other proxies in front of the app, as comma-separated addresses or ranges (`203.0.113.10,198.51.100.0/24`). Private networks, where Docker, Swarm, Traefik and nginx proxies sit, are always trusted. |
 | `PROFILE_ENCRYPTION_KEYS` | — | Encrypts preferred names at rest: comma-separated `id:base64` keys of 32 bytes; the first encrypts, all decrypt. Also read from the Docker secret `profile_encryption_keys`. Unset = preferred names cannot be saved. Losing it makes stored names unreadable. `./run` generates one. |
+
+**How the player's address is found.** Behind a proxy, every request reaches the app from the
+proxy's address. The app reads the player's address from the `X-Forwarded-For` header, but only
+the part your own proxies added: it reads the header from the right, skips the proxies it trusts,
+and takes the first address it does not. Anything a visitor writes into the header themselves sits
+further left and is ignored. Without this, every visitor looked like the same one, so a handful of
+mistyped passwords locked everyone out of signing in for a minute.
 
 **About the breach check.** Signup and password reset send the first five characters of
 the password's SHA-1 to `api.pwnedpasswords.com` and score the reply locally, so the

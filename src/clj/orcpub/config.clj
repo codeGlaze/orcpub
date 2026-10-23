@@ -212,6 +212,18 @@
   []
   (positive-int-env ["ALERT_MAX_PER_HOUR"] 20))
 
+(defn get-trusted-proxies
+  "Extra proxies to trust for the player's address, from TRUSTED_PROXIES: comma-separated
+   addresses or CIDR ranges, or nil. Private networks are always trusted."
+  []
+  (env/value :trusted-proxies))
+
+(defn trust-cloudflare?
+  "Whether Cloudflare's edge ranges are trusted as proxies, from TRUST_CLOUDFLARE: only when the site
+   is served through Cloudflare."
+  []
+  (env/flag? :trust-cloudflare))
+
 (defn copy-name
   "This server's name among several copies: HOSTNAME (Docker and Swarm set it per container), else
    the machine's host name, else \"server\". Names its alert spool file and its alerts."
@@ -344,6 +356,11 @@
     {:group "security" :var "SIGNATURE" :since "2.5"     :secret? true :critical? true
      :note "JWT signing key; every login and API call fails without it"
      :fix signature-missing-message}
+    {:group "security" :var "TRUST_CLOUDFLARE" :since current-release
+     :get #(if (trust-cloudflare?) "true" "false")
+     :note "true only when the site is served through Cloudflare: then players' real addresses are used"}
+    {:group "security" :var "TRUSTED_PROXIES" :since current-release
+     :note "extra proxies in front of the app (comma-separated addresses or ranges); private networks are always trusted"}
     {:group "security" :var "CSP_POLICY" :since "2.5"    :note "overrides the built-in policy"}
     {:group "email"    :var "EMAIL_SERVER_URL" :since "2.5" :critical? true :fix email-missing-message
      :note "SMTP host; signup and password reset fail without it"}

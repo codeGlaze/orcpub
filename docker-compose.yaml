@@ -84,6 +84,9 @@ services:
       JDK_JAVA_OPTIONS: "-XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/lib/orcpub/state/crash/heap.hprof -XX:ErrorFile=/var/lib/orcpub/state/crash/jvm-crash-%p.log ${JAVA_OPTS:-}"
       # Every other setting the server reads. Empty means "use the default", so these change
       # nothing until set in .env. Only names listed here reach the container.
+      # Proxies in front of the app (docs/ENVIRONMENT.md, Security)
+      TRUST_CLOUDFLARE: ${TRUST_CLOUDFLARE:-}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       # Admin alerts (docs/ENVIRONMENT.md, Admin alerts)
       ALERT_SPOOL_DIR: ${ALERT_SPOOL_DIR:-/var/lib/orcpub/state/alerts}
       ALERT_MAX_PER_HOUR: ${ALERT_MAX_PER_HOUR:-}

@@ -17,6 +17,7 @@
             [orcpub.alerts :as alerts]
             [orcpub.outbox :as outbox]
             [orcpub.crash-report :as crash-report]
+            [orcpub.client-address :as client-address]
             [orcpub.email :as email]
             [clojure.java.io :as io]
             [orcpub.pdf :as pdf])
@@ -62,6 +63,12 @@
    ;; Uses same config as prod - nonce-interceptor handles strict mode dynamically.
    ;; See orcpub.config/get-secure-headers-config
    })
+
+(defn with-client-address
+  "The service map with the player's-address interceptor first in its chain, so every limit and
+   log line sees the player rather than the proxy (orcpub.client-address)."
+  [service-map]
+  (update service-map ::http/interceptors #(into [(client-address/configured-interceptor)] %)))
 
 (defn with-portrait-guard
   "The service map with the portrait art guard first in its chain (see routes/portrait-art-guard)."
@@ -135,6 +142,7 @@
               (when (= :dev env) dev-service-map-overrides))
       true http/default-interceptors
       true with-portrait-guard
+      true with-client-address
       (= :dev env) http/dev-interceptors)
 
     ;; :token-withdrawals is listed only so Component starts it first; Pedestal

@@ -109,13 +109,15 @@
 
 (defn audit!
   "Writes one log line for security event `event` (a keyword, like :sign-in-failed) on `request`,
-   naming account `username` when given: the connecting address and the forwarded chain, never a
-   password, token or email address. Returns nil."
+   naming account `username` when given: the player's address, the proxy it came through when that
+   differs, and the forwarded chain; never a password, token or email address. Returns nil."
   ([event request] (audit! event request nil))
   ([event request username]
    (println (str "security: " (name event)
                  (when username (str " user=" (log-safe username)))
                  " ip=" (log-safe (:remote-addr request))
+                 (when-let [p (:peer-addr request)]
+                   (when (not= p (:remote-addr request)) (str " via=" (log-safe p))))
                  (when-let [f (get-in request [:headers "x-forwarded-for"])]
                    (str " fwd=" (log-safe f)))))
    nil))
