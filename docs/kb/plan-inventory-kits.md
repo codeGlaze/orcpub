@@ -212,7 +212,11 @@ a kit" stays (owner to decide), and the class-change question stays.
 **Found while checking it:** a new character starts as a Barbarian, whose fixed starting equipment
 includes an Explorer's Pack. Settle runs on opening, so that pack becomes a kit at once; switching
 class then asks "Remove what the Explorer's Pack added?" on a character the player has not touched.
-The rule works as built; whether a class change should ask at all is the open owner question.
+Owner's rule (2026-10-23): don't bother players with questions they did not earn. So a class change
+asks only about a kit the player has used (`inventory/untouched?` is false) whose pack the new class
+neither grants nor offers through a pack choice still open (`offered-packs`, `open-offer`). An
+untouched kit whose pack is gone takes its items off quietly in settle; a kit the new class offers
+stays. A new Barbarian switched to Fighter asks nothing.
 The shared callout puts its actions beside the text, not under it.
 
 ## Layout review, round 1 (2026-10-22, owner)

@@ -2883,7 +2883,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, equipment, explorer, holy, inventory, items, kit, kits, leftovers, pack, packs, picker, quantity, refill, reorganize, repair, restock, torches
+**topics:** 2026-10-22, asks, equipment, explorer, holy, inventory, items, kit, kits, leftovers, pack, packs, picker, quantity, refill, reorganize, restock, torches
 
 - The problems today
 - The model
