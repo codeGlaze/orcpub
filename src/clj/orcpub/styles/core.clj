@@ -3393,6 +3393,16 @@
       :background :none :cursor :pointer
       :border "1px solid color-mix(in srgb, currentColor 50%, transparent)"}]
     [:.inv-combo-preset:after {:content "''" :position :absolute :top "-10px" :bottom "-10px" :left 0 :right 0}]
+    ;; The sheet's search while managing: it adds items, so it is ringed and labelled to differ
+    ;; from filtering (views/inventory.cljs `sheet-equipment`).
+    [:.inv-combo-adding [:.inv-combo-input {:border-color "#f0a100" :box-shadow "0 0 0 1px #f0a100"}]]
+    [:.inv-combo-preset.adding {:border-color "#f0a100" :cursor :default}]
+    [:.sheet-stepper {:display :flex :align-items :center :gap "6px" :white-space :nowrap
+                      :font-variant-numeric :tabular-nums}
+     [:button {:background :none :border :none :padding "4px" :min-width "32px" :min-height "32px"
+               :color :inherit :cursor :pointer :position :relative}]
+     [:button:after {:content "''" :position :absolute :top "-6px" :bottom "-6px" :left "-2px" :right "-2px"}]
+     [:span {:min-width "18px" :text-align :center}]]
 
     [:.inv-combo-input
      {:width "100%"

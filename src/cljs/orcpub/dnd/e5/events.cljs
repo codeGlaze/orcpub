@@ -3272,12 +3272,19 @@
 (reg-event-db ::inventory/act [queue-settle db-char->local-store] kit-act-db)
 
 (reg-event-db
+ ::inventory/change-quantity
+ character-interceptors
+ (fn [character [_ item-key delta]] (inventory/change-quantity character item-key delta)))
+
+(reg-event-db
  ::inventory/undo
  [queue-settle db-char->local-store]
  (fn [db _]
    (if-let [before (get-in db [::inventory/undo :before])]
      (-> db (assoc :character (assoc before :changed true)) (dissoc ::inventory/undo))
      db)))
+
+
 
 (defn remove-custom-inventory-item [character [_ custom-equipment-key name]]
   (update-in
@@ -4799,6 +4806,42 @@
 (reg-fx
  ::builder-draft->local-store
  (fn [character] (character->local-store character)))
+
+(defn- sheet-edit-fx
+  "`update-character-fx` for saved character `id` with `f` applied after `inventory/repair` (a
+   sheet shows the repaired character), recording an Undo under `::inventory/undo` when `message`."
+  [db id f message]
+  (let [int-id (js/parseInt id)
+        before (get-in db [::char5e/character-map int-id])
+        fx (update-character-fx db id #(f (:character (inventory/repair %))))
+        edited (get-in fx [:db ::char5e/character-map int-id])]
+    (assoc-in fx [:db ::inventory/undo]
+              (when (seq message) {:id id :message message :before before :after edited}))))
+
+(reg-event-fx
+ ::inventory/sheet-act
+ (fn [{:keys [db]} [_ id action & args]]
+   (let [stored (:character (inventory/repair (get-in db [::char5e/character-map (js/parseInt id)])))]
+     (sheet-edit-fx db id #(:character (apply inventory/act % action args))
+                    (:message (apply inventory/act stored action args))))))
+
+(reg-event-fx
+ ::inventory/sheet-change-quantity
+ (fn [{:keys [db]} [_ id item-key delta]]
+   (sheet-edit-fx db id #(inventory/change-quantity % item-key delta) nil)))
+
+(reg-event-fx
+ ::inventory/sheet-add-item
+ (fn [{:keys [db]} [_ id item-key]]
+   (sheet-edit-fx db id #(inventory/add-item % item-key 1) nil)))
+
+(reg-event-fx
+ ::inventory/sheet-undo
+ (fn [{:keys [db]} [_ id]]
+   (let [{before :before undo-id :id} (::inventory/undo db)]
+     (when (and before (= id undo-id))
+       (-> (update-character-fx db id (constantly before))
+           (update :db dissoc ::inventory/undo))))))
 
 (reg-event-fx
  ::char5e/toggle-spell-prepared

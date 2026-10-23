@@ -186,7 +186,7 @@
   [character]
   (set (map :pack (chosen-packs character))))
 
-(declare deficits resolve-orphan tracked)
+(declare deficits resolve-orphan tracked clear-item)
 
 (defn source-count
   "How many of pack `pack-key` `character` has: one per starting-equipment choice of it, plus the
@@ -380,6 +380,17 @@
           [c left])))
     [character n]
     (active-kits character))))
+
+(defn change-quantity
+  "`character` with gear `k`'s quantity moved by `delta`: more is added as unbundled, less is taken
+   from the kits first (`take-from-kits`); at 0 the row goes and no kit holds it."
+  [character k delta]
+  (cond
+    (pos? delta) (add-item character k delta)
+    (neg? delta) (let [n (min (- delta) (total character k))
+                       c (-> (take-from-kits character k n) (remove-items k n))]
+                   (cond-> c (zero? (total c k)) (clear-item k)))
+    :else character))
 
 (defn clear-item
   "`character` with gear `k` held by no kit, as after its inventory row is removed."

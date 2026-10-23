@@ -276,3 +276,19 @@
           answered (inventory/answer-choice two :monster-hunters-pack :holy-symbol :emblem)]
       (is (= 2 (qty answered :emblem)))
       (is (empty? (inventory/questions answered #{}))))))
+
+(deftest the-sheet-steppers
+  (let [c (two-kits)]
+    (testing "one fewer comes out of the top kit first"
+      (let [r (inventory/change-quantity c :torch -1)]
+        (is (= 22 (qty r :torch)))
+        (is (= 4 (held-of r :explorers-pack :torch)))
+        (is (= 8 (inventory/spare r :torch)))))
+    (testing "one more is unbundled"
+      (let [r (inventory/change-quantity c :torch 1)]
+        (is (= 24 (qty r :torch)))
+        (is (= 9 (inventory/spare r :torch)))))
+    (testing "down to 0: the row goes and no kit holds it"
+      (let [r (inventory/change-quantity c :mess-kit -1)]
+        (is (nil? (qty r :mess-kit)))
+        (is (= 0 (held-of r :explorers-pack :mess-kit)))))))

@@ -47,6 +47,7 @@
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.notifications :as notifications]
+            [orcpub.dnd.e5.views.inventory :as inventory-views]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
@@ -392,15 +393,11 @@
    [:input {:type "hidden" :name "body" :id "fields-input"}]])
 
 
-(defn svg-icon [icon-name & [size theme-override]]
-  (let [theme (or theme-override @(subscribe [:theme]))
-        light-theme? (= "light-theme" theme)
-        size (or size 32)]
-    [:img.svg-icon
-     {:style {:height (str size "px")
-              :width (str size "px")}
-      :class (when light-theme? " opacity-7")
-      :src (str (if light-theme? "/image/black/" "/image/") icon-name ".svg")}]))
+(defn svg-icon
+  "Icon `icon-name` at `size` px (32 by default) for `theme-override` or the current theme
+   (`comps/themed-icon`)."
+  [icon-name & [size theme-override]]
+  (comps/themed-icon icon-name size (or theme-override @(subscribe [:theme]))))
 
 (def login-style
   {:color "#f0a100"})
@@ -4015,47 +4012,10 @@
                                magic-weapon-cfgs
                                magic-armor-cfgs)))]]]]))))
 
-(defn other-equipment-section-2 []
-  (let [expanded-details (r/atom {})]
-    (fn [id]
-      (let [mobile? @(subscribe [:mobile?])
-            equipment-cfgs (merge
-                            @(subscribe [::char/equipment id])
-                            (zipmap (range) @(subscribe [::char/custom-equipment id])))]
-        [:div
-         [:div.flex.align-items-c
-          (svg-icon "backpack" 32)
-          [:span.m-l-5.f-w-b.f-s-18 "Other Equipment"]]
-         [:div
-          [:table.w-100-p.t-a-l.striped
-           [:tbody.equipment
-            [:tr.f-w-b
-             {:class (when mobile? "f-s-12")}
-             [:th.p-10 "Name"]
-             [:th.p-10 "Qty."]
-             [:th.p-10 "Details"]
-             [:th]]
-            (doall
-             (map
-              (fn [[item-kw item-cfg]]
-                (let [item-name (::char-equip/name item-cfg)
-                      {:keys [name cost weight] :as item} (equip/equipment-map item-kw)
-                      ;;expanded? (@expanded-details item-kw)
-                      ]
-                  ^{:key item-kw}
-                  [:tr.item
-                   [:td.p-10.f-w-b (or (:name item) item-name)]
-                   [:td.p-10 (::char-equip/quantity item-cfg)]
-                   [:td.p-10
-                    [:div
-                     [:div
-                      (str (when cost
-                             (str (:num cost)
-                                  " "
-                                  (common/safe-name (:type cost))
-                                  ", "))
-                           weight)]]]]))
-              equipment-cfgs))]]]]))))
+(defn other-equipment-section-2
+  "The sheet's Other Equipment for character `id`, with its kits (`inventory-views/sheet-equipment`)."
+  [id]
+  [inventory-views/sheet-equipment id])
 
 (defn treasure-section []
   (r/with-let [expanded-details (r/atom {})]

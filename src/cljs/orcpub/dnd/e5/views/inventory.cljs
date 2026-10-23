@@ -14,7 +14,6 @@
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.inventory :as inventory]
             [orcpub.dnd.e5.magic-items :as mi5e]
-            [orcpub.dnd.e5.views :as views5e]
             [orcpub.dnd.e5.views.notifications :as notifications]))
 
 (defn set-custom-item-name-fn
@@ -223,8 +222,9 @@
 (defn inventory-combobox
   "Filter-and-pick dropdown for selection `key`: a `popover=\"auto\"` list anchored under its input
    (browser top layer, light dismiss, Escape), every match rendered, rows mounted only while open.
-   `preset`, optional, is an atom a caller fills with {:label :keys :notes :open? true} to list just
-   those item keys (picked or not; :notes beside them) under a removable label; × or a pick clears it."
+   Options: `:preset`, an atom a caller fills with {:label :keys :notes :open? true} to list just
+   those keys under a removable label (× or a pick clears it); `:on-pick`, taking a picked key
+   instead of `:add-inventory-item`; `:placeholder`, the box's text before its count."
   []
   (let [query     (r/atom "")
         active    (r/atom -1)
@@ -237,7 +237,7 @@
                     (when-let [old @el*] (.removeEventListener old "beforetoggle" on-toggle))
                     (reset! el* el)
                     (when el (.addEventListener el "beforetoggle" on-toggle)))]
-    (fn [key options selected-keys & [preset]]
+    (fn [key options selected-keys & [{:keys [preset on-pick placeholder]}]]
       (let [{only :keys label :label notes :notes} (some-> preset deref)
             items    (vec (common/aloof-sort-by
                            :name
@@ -255,7 +255,7 @@
                        (filterv #(s/includes? (s/lower-case (str (:name %))) q) items))
             n        (count matches)
             pick!    (fn [item-key]
-                       (dispatch [:add-inventory-item key item-key])
+                       (if on-pick (on-pick item-key) (dispatch [:add-inventory-item key item-key]))
                        (some-> preset (reset! nil))
                        (reset! query "")
                        (reset! active -1)
@@ -277,7 +277,7 @@
          [:input.inv-combo-input
           {:style {:anchor-name anchor}
            :value @query
-           :placeholder (str "Filter or browse… (" (count items) ")")
+           :placeholder (str (or placeholder "Filter or browse…") " (" (count items) ")")
            ;; on-click, not on-focus: focus fires on mousedown, and light dismiss then treats
            ;; that same pointer sequence as an outside click and shuts the popover again.
            ;; Measured -- opening on focus left popoverOpen=0 after a click.
@@ -322,12 +322,12 @@
 
 (defn inventory-adder
   "The control that adds items from `options` to selection `key`; `selected-keys` are shown as
-   picked. `preset` as `inventory-combobox`."
-  [key options selected-keys & [preset]]
+   picked. `opts` as `inventory-combobox`."
+  [key options selected-keys & [opts]]
   ;; Switch by changing this line. inventory-datalist is kept live: it hands the dropdown to
   ;; the OS, which is the better control on mobile if the Popover API ever proves a problem.
   ;; inventory-picker above is deprecated, not an alternative.
-  [inventory-combobox key options selected-keys preset])
+  [inventory-combobox key options selected-keys opts])
 
 (defn inventory-check-fn
   "Handler toggling whether item `i` of selection `key` is carried."
@@ -424,12 +424,17 @@
 (defn- kit-icon
   "The icon of a kit's tile: the chest for a pack that comes in one, else the backpack."
   [chest? size]
-  [views5e/svg-icon (if chest? "open-treasure-chest" "backpack") size])
+  (comps/themed-icon (if chest? "open-treasure-chest" "backpack") size @(subscribe [:theme])))
+
+(defn- act-event
+  "The event applying kit action `action` with `args` to character `id` (nil: the builder's)."
+  [id action & args]
+  (if id (into [::inventory/sheet-act id action] args) (into [::inventory/act action] args)))
 
 (defn- kit-act
-  "A click handler applying the kit action `action` with `args` (`::inventory/act`)."
-  [action & args]
-  #(dispatch (into [::inventory/act action] args)))
+  "A click handler applying kit action `action` with `args` to character `id` (`act-event`)."
+  [id action & args]
+  #(dispatch (apply act-event id action args)))
 
 (defn- quiet-link
   "A kit action link (`.link-button.quiet`): `label`, `on-click`, and :strong? or :muted?."
@@ -460,11 +465,11 @@
 
 (defn- kit-row
   "One kit: its tile and summary (tap to open the full list, Move to top and the two removes), and
-   Restock when it is low. `asking` holds the pack whose Restock question the strip is showing;
-   `budget` is the summary line's width in characters."
+   Restock when it is low, for character `id` (nil: the builder's). `asking` holds the pack whose
+   Restock question the strip is showing; `budget` is the summary line's width in characters."
   []
   (let [open? (r/atom false)]
-    (fn [top? asking budget {:keys [pack name chest? tracked could-use-spare holds pack-count bought]}]
+    (fn [id top? asking budget {:keys [pack name chest? tracked could-use-spare holds pack-count bought]}]
       (let [low? (some :low? tracked)
             toggle #(swap! open? not)
             close-then #(do (reset! open? false) (dispatch %))]
@@ -481,7 +486,7 @@
              {:class (when (= pack @asking) "opacity-5")
               :on-click (if (seq could-use-spare)
                           #(reset! asking pack)
-                          #(do (reset! asking nil) (dispatch [::inventory/act :restock pack :all-new])))}
+                          #(do (reset! asking nil) (dispatch (act-event id :restock pack :all-new))))}
              "Restock"])]
          (when @open?
            [:div.kit-indent
@@ -493,33 +498,33 @@
                           (concat (sort-by #(/ (:held %) (:target %)) (filter :low? tracked))
                                   (remove :low? tracked))))
             (when-not top?
-              [:div [quiet-link "Move to top" #(close-then [::inventory/act :move-to-top pack])]])
+              [:div [quiet-link "Move to top" #(close-then (act-event id :move-to-top pack))]])
             (when (and (> pack-count 1) (pos? bought))
               [:div.kit-remove
-               [quiet-link "Remove one pack" #(close-then [::inventory/act :remove-one pack])]
+               [quiet-link "Remove one pack" #(close-then (act-event id :remove-one pack))]
                [:div.f-s-12.opacity-7 "Items stay in inventory"]])
             [:div.kit-remove
-             [quiet-link "Remove kit" #(close-then [::inventory/act :remove pack])]
+             [quiet-link "Remove kit" #(close-then (act-event id :remove pack))]
              [:div.f-s-12.opacity-7 "Items stay in inventory"]]
             [:div.kit-remove
-             [quiet-link "Remove kit and items" #(close-then [::inventory/act :remove-with-items pack])]
+             [quiet-link "Remove kit and items" #(close-then (act-event id :remove-with-items pack))]
              (when (seq holds)
                [:div.f-s-12.opacity-7 (str "Also removes " (inventory/held-label holds))])]])]))))
 
 (defn- kit-question
-  "A question a kit needs answered: a used kit whose pack is gone (remove what it added, or keep
-   it), or a pack's own choice (which holy symbol)."
-  [{:keys [kind pack group options]}]
+  "A question character `id`'s kit needs answered: a used kit whose pack is gone (remove what it
+   added, or keep it), or a pack's own choice (which holy symbol)."
+  [id {:keys [kind pack group options]}]
   (let [pack-name (:name (inventory/pack pack))]
     (case kind
       :orphan
       [strip {:text (str "Remove what the " pack-name " added?")
-              :actions [["Remove" (kit-act :resolve-orphan pack :remove)]
-                        ["Keep" (kit-act :resolve-orphan pack :keep)]]}]
+              :actions [["Remove" (kit-act id :resolve-orphan pack :remove)]
+                        ["Keep" (kit-act id :resolve-orphan pack :keep)]]}]
       :choice
       [strip {:text (str "Which " (s/lower-case (:name (equip5e/equipment-map group) (name group)))
                          " for the " pack-name "?")
-              :actions (for [k options] [(:name (equip5e/equipment-map k)) (kit-act :answer-choice pack group k)])}])))
+              :actions (for [k options] [(:name (equip5e/equipment-map k)) (kit-act id :answer-choice pack group k)])}])))
 
 (defn- packs-preset
   "The search box's preset for the kit shortcuts: every equipment pack, those already kits in `ks`
@@ -529,10 +534,11 @@
    :keys (set (map :key equip5e/packs))
    :notes (into {} (for [{:keys [pack pack-count]} ks] [pack (str "You have " pack-count)]))})
 
-(defn- kits-block
-  "The Kits block above the Equipment list (plan-inventory-kits.md): each kit; questions kits need
-   answered; the one strip (Unbundled stock and Re-bundle, or Restock's question); the last action's
-   Undo. Add a kit and the empty slot open the search box (`search-preset`, an atom) on packs.
+(defn kits-block
+  "The Kits block (plan-inventory-kits.md) for character `id` (nil: the builder's): each kit; the
+   questions kits need answered; the one strip (Unbundled and Re-bundle, or Restock's question); the
+   last action's Undo. `search-preset`: the search box's preset atom, which Add a kit fills with the
+   packs. `adding?`: show the dashed Add a kit slot (the builder: header link, slot when empty).
    The summary lines fold to the block's live width (a ResizeObserver), not the device type."
   []
   (let [asking (r/atom nil)
@@ -545,46 +551,49 @@
                          (fn [entries] (reset! width (.. (aget entries 0) -contentRect -width))))]
                   (.observe o el)
                   (reset! observer o))))]
-    (fn [search-preset]
-      (let [{ks :kits :keys [questions fillable]} @(subscribe [::inventory/panel])
-            undo @(subscribe [::inventory/undo])
+    (fn [{:keys [id search-preset adding?]}]
+      (let [{ks :kits :keys [questions fillable]} @(subscribe [::inventory/panel id])
+            undo @(subscribe [::inventory/undo id])
             add-kit #(reset! search-preset (packs-preset ks))
+            builder? (nil? id)
             budget (max 20 (js/Math.round (* 40 (/ @width 390))))
             asking-kit (some #(when (= @asking (:pack %)) %) ks)]
-        [:div.m-b-10 {:ref ref}
-         [:div.flex.justify-cont-s-b.align-items-c
-          [:div
-           [:div.f-w-b.f-s-14 "Kits"]
-           (when (> (count ks) 1) [:div.f-s-12.opacity-5 "Spent items come out of the top kit first"])]
-          [:button.link-button.quiet {:on-click add-kit}
-           "Add a kit" [:i.fa.fa-plus-circle.m-l-5.f-s-14]]]
-         (if (empty? ks)
-           [:div.kit-row.pointer {:on-click add-kit}
-            [:div.kit-tile.kit-tile-empty [kit-icon false 32]]
-            [:span.f-s-14.opacity-5 "Add a kit"]]
+        (when (or builder? adding? (seq ks))
+          [:div.m-b-10 {:ref ref}
+           [:div.flex.justify-cont-s-b.align-items-c
+            [:div
+             [:div.f-w-b.f-s-14 "Kits"]
+             (when (> (count ks) 1) [:div.f-s-12.opacity-5 "Spent items come out of the top kit first"])]
+            (when builder?
+              [:button.link-button.quiet {:on-click add-kit}
+               "Add a kit" [:i.fa.fa-plus-circle.m-l-5.f-s-14]])]
            (doall
             (map-indexed
-             (fn [i kit] ^{:key (:pack kit)} [kit-row (zero? i) asking budget kit])
-             ks)))
-         [:div.m-t-5
-          (for [q questions] ^{:key (str (:kind q) (:pack q))} [kit-question q])
-          (cond
-            (seq (:could-use-spare asking-kit))
-            (let [pk (:pack asking-kit)
-                  restock #(do (reset! asking nil) (dispatch [::inventory/act :restock pk %]))]
-              [strip {:title "Re-bundle items first?"
-                      :text (inventory/unbundled-label (:could-use-spare asking-kit))
-                      :below? true
-                      :actions [["Cancel" #(reset! asking nil) {:muted? true}]
-                                ["No" #(restock :all-new)]
-                                ["Yes" #(restock :mine-first) {:strong? true}]]}])
-            (seq fillable)
-            [strip {:text (inventory/unbundled-label fillable)
-                    :actions [["Re-bundle" (kit-act :rebundle)]]}])
-          (when undo
-            [:div.flex.align-items-c.justify-cont-s-b.f-s-12
-             [:span (:message undo)]
-             [quiet-link "Undo" #(dispatch [::inventory/undo])]])]]))))
+             (fn [i kit] ^{:key (:pack kit)} [kit-row id (zero? i) asking budget kit])
+             ks))
+           (when (or adding? (and builder? (empty? ks)))
+             [:div.kit-row.pointer {:on-click add-kit}
+              [:div.kit-tile.kit-tile-empty [kit-icon false 32]]
+              [:span.f-s-14.opacity-5 "Add a kit"]])
+           [:div.m-t-5
+            (for [q questions] ^{:key (str (:kind q) (:pack q))} [kit-question id q])
+            (cond
+              (seq (:could-use-spare asking-kit))
+              (let [pk (:pack asking-kit)
+                    restock #(do (reset! asking nil) (dispatch (act-event id :restock pk %)))]
+                [strip {:title "Re-bundle items first?"
+                        :text (inventory/unbundled-label (:could-use-spare asking-kit))
+                        :below? true
+                        :actions [["Cancel" #(reset! asking nil) {:muted? true}]
+                                  ["No" #(restock :all-new)]
+                                  ["Yes" #(restock :mine-first) {:strong? true}]]}])
+              (seq fillable)
+              [strip {:text (inventory/unbundled-label fillable)
+                      :actions [["Re-bundle" (kit-act id :rebundle)]]}])
+            (when undo
+              [:div.flex.align-items-c.justify-cont-s-b.f-s-12
+               [:span (:message undo)]
+               [quiet-link "Undo" #(dispatch (if id [::inventory/sheet-undo id] [::inventory/undo]))]])]])))))
 
 (defn make-custom-inventory-item
   "A function of (index, custom item) returning its `inventory-item` row; a starting item's name
@@ -629,8 +638,8 @@
         rows (keep-indexed (fn [i item] (when-not (and gear? (inventory/pack (::entity/key item))) [i item]))
                            selected-items)]
     [:div
-     (when gear? [kits-block preset])
-     [inventory-adder key options selected-keys preset]
+     (when gear? [kits-block {:search-preset preset}])
+     [inventory-adder key options selected-keys {:preset preset}]
      (when (seq rows)
        [:div.flex.f-s-12.opacity-5.m-t-10.justify-cont-s-b
         [:div.m-r-10 "Carried?"]
@@ -655,3 +664,85 @@
           {:on-click (new-custom-item custom-equipment-key)}
           [:span.underline "Add Custom Item"]
           [:i.fa.fa-plus-circle.m-l-5.f-s-16]]]])]))))
+
+(def ^:private gear-options
+  "Every Equipment item as a search box option."
+  (mapv (fn [{:keys [key name]}] {::t/key key ::t/name name}) equip5e/equipment))
+
+(defn sheet-equipment
+  "The sheet's Other Equipment for character `id` (nil: the builder's): its kits, always with
+   Restock; the item list with each kit's share; and a Manage inventory switch that turns the
+   search from filtering this list to adding items, shows Add a kit and the − / + quantities, and
+   ends at Done. The switch lives here, so leaving the tab or the sheet turns it off."
+  []
+  (let [managing? (r/atom false)
+        query (r/atom "")
+        preset (r/atom nil)]
+    (fn [id]
+      (let [mobile? @(subscribe [:mobile?])
+            {:keys [shares]} @(subscribe [::inventory/panel id])
+            items (merge @(subscribe [::char5e/equipment id])
+                         (zipmap (range) @(subscribe [::char5e/custom-equipment id])))
+            nm (fn [[k cfg]] (or (:name (equip5e/equipment-map k)) (::char-equip5e/name cfg) ""))
+            q (s/lower-case (s/trim @query))
+            rows (if (or @managing? (s/blank? q))
+                   items
+                   (filter #(s/includes? (s/lower-case (nm %)) q) items))
+            change (fn [k delta]
+                     (dispatch (if id
+                                 [::inventory/sheet-change-quantity id k delta]
+                                 [::inventory/change-quantity k delta])))]
+        [:div
+         [:div.flex.align-items-c
+          (comps/themed-icon "backpack" 32 @(subscribe [:theme]))
+          [:span.m-l-5.f-w-b.f-s-18.flex-grow-1 "Other Equipment"]
+          [:span.dev-mode-row.m-t-0
+           [:span.dev-mode-label.f-s-14.pointer {:on-click #(swap! managing? not)} "Manage inventory"]
+           [:span.toggle-switch
+            {:class (when @managing? "on") :role "switch" :aria-checked (str @managing?) :tabIndex 0
+             :on-click #(swap! managing? not)}]]]
+         [:div.m-t-10
+          [kits-block {:id id :search-preset preset :adding? @managing?}]
+          (if @managing?
+            [:div.inv-combo-adding
+             [:span.inv-combo-preset.adding [:i.fa.fa-plus.m-r-5 {:aria-hidden true}] "Adding items"]
+             [inventory-combobox :equipment gear-options #{}
+              {:preset preset :placeholder "Add to inventory…"
+               :on-pick (when id #(dispatch [::inventory/sheet-add-item id %]))}]]
+            [:div.inv-combo
+             [:input.inv-combo-input
+              {:value @query
+               :placeholder (str "Filter my inventory… (" (count items) ")")
+               :on-change #(reset! query (.. % -target -value))}]])]
+         [:table.w-100-p.t-a-l.striped
+          [:tbody.equipment
+           [:tr.f-w-b
+            {:class (when mobile? "f-s-12")}
+            [:th.p-10 "Name"]
+            [:th.p-10 "Qty."]
+            [:th.p-10 "Details"]
+            [:th]]
+           (doall
+            (for [[item-kw item-cfg :as row] rows
+                  :let [{:keys [cost weight]} (equip5e/equipment-map item-kw)
+                        qty (::char-equip5e/quantity item-cfg)
+                        share (get shares item-kw)]]
+              ^{:key item-kw}
+              [:tr.item
+               [:td.p-10.f-w-b (nm row)
+                (when share [:div.f-w-n [share-line share]])]
+               [:td.p-10
+                (if (and @managing? (keyword? item-kw))
+                  [:div.sheet-stepper
+                   [:button {:aria-label "One fewer" :on-click #(change item-kw -1)}
+                    [:i.fa.fa-minus-circle.orange.f-s-18]]
+                   [:span qty]
+                   [:button {:aria-label "One more" :on-click #(change item-kw 1)}
+                    [:i.fa.fa-plus-circle.orange.f-s-18]]]
+                  qty)]
+               [:td.p-10
+                (str (when cost (str (:num cost) " " (common/safe-name (:type cost)) ", ")) weight)]]))]]
+         (when @managing?
+           [:div.flex.justify-cont-end.m-t-10
+            [:button.form-button {:on-click #(do (reset! managing? false) (reset! query ""))} "Done"]])]))))
+

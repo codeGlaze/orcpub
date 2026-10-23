@@ -98,3 +98,15 @@
   "The \"show info\" / \"hide info\" toggle for an option's help, flipping `expanded?` (an atom)."
   [expanded?]
   [:div.f-w-n.m-l-5 [expand-button "hide info" "show info" expanded?]])
+
+(defn themed-icon
+  "Icon `icon-name` from /image at `size` px (32 by default): the black set, faded, in the light
+   theme (`theme` \"light-theme\"), else the white set."
+  [icon-name size theme]
+  (let [light-theme? (= "light-theme" theme)
+        size (or size 32)]
+    [:img.svg-icon
+     {:style {:height (str size "px")
+              :width (str size "px")}
+      :class (when light-theme? " opacity-7")
+      :src (str (if light-theme? "/image/black/" "/image/") icon-name ".svg")}]))

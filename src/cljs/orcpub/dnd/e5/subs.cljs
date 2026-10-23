@@ -234,21 +234,21 @@
  (fn [db _]
    (:character db)))
 
-;; The last kit action's Undo line, {:message}, while the character is still what it left; nil after
-;; any other edit.
+;; The last kit action's Undo line for character `id` (nil: the builder's), {:message}, while that
+;; character is still what the action left; nil after any other edit.
 (reg-sub
  ::inventory/undo
- (fn [db _]
-   (let [{:keys [after] :as undo} (::inventory/undo db)]
-     (when (and undo (= (:character db) after))
+ (fn [db [_ id]]
+   (let [{:keys [after] :as undo} (::inventory/undo db)
+         current (if id (get-in db [::char5e/character-map (js/parseInt id)]) (:character db))]
+     (when (and undo (= id (:id undo)) (= current after))
        (select-keys undo [:message])))))
 
-;; What the Equipment step's Kits block shows: {:kits [{:pack :name :chest? :tracked
+;; What a Kits block shows for character `id` (nil: the builder's): {:kits [{:pack :name :chest? :tracked
 ;; :could-use-spare :holds :pack-count :bought}] :questions :fillable :shares {item-key shares}} (inventory.cljc).
 (reg-sub
  ::inventory/panel
- :<- [:character]
- :<- [:built-template]
+ (fn [[_ id]] [(subscribe [::char5e/character id]) (subscribe [:built-template])])
  (fn [[character template] _]
    (let [active (inventory/active-kits character)]
      {:kits (mapv (fn [kit]
@@ -828,9 +828,13 @@
       (ra/make-reaction
        (fn []
          (if int-id
-           (let [healed (:character (content-recon/reconcile-former-keys
-                                     (get-in @app-db [::char5e/character-map int-id] {})
-                                     @(subscribe [::content-recon/former-key-indexes])))
+           (let [healed (-> (content-recon/reconcile-former-keys
+                             (get-in @app-db [::char5e/character-map int-id] {})
+                             @(subscribe [::content-recon/former-key-indexes]))
+                            :character
+                            ;; Packs chosen before kits existed show as kits (inventory.cljc).
+                            inventory/repair
+                            :character)
                  template (get @app-db :orcpub.dnd.e5.autosave-fx/cached-template)]
              ;; Picks that no longer apply are left out of what the page shows (picks.cljc).
              (if (seq template) (settle template healed) healed))
