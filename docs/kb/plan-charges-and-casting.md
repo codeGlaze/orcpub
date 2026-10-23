@@ -76,7 +76,15 @@ On `feature/weapons-table` (owner: "just finish building it here"):
    position in the stack. Dice: `dice/parse-dice`, `dice/roll-dice` (injectable die). Schema for the
    character fields comes with the first step that saves them. `item_charges_test.cljc`, every check
    seen failing. One value type per field: a regain is always a string.
-3. **SRD data fill:** the 44 charged items and the once-per-dawn powers, by hand from the text.
+3. **SRD data fill: done `e4dc229e`.** 46 charged items and 63 casts, by hand from each item's text;
+   `::cast-max-level` added (Staff of Healing: cure wounds up to 4th). `magic_items_test.clj` checks
+   the data against the text (count, dawn regain), that every cast names a real spell, the prices,
+   and that no item stating charges is left without them; every check seen failing.
+   **Left out on purpose:** the Ivory Goats figurine (one goat of three has charges; named in the
+   test), Ring of Elemental Command's spells (they depend on the ring's element; charges are in),
+   free casts (Staff of the Magi, Staff of the Woodlands: no charge), and charged effects that are not
+   spells (Ring of the Ram, Staff of Striking: spend counts, no cast). Once-per-dawn weapon powers
+   stay on `::mi/recharge` until step 4, where the + menu's "used" moves to the pool.
 4. **Charges on the sheet:** pips, counts, spending; magic weapon powers draw from the pool.
 5. **Rest box** per the handoff: Features tab, time of day, Now, rests, the question, result line,
    Undo; regain rolls with type-your-own.

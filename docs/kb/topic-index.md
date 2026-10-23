@@ -2760,7 +2760,7 @@ _plan-character-drafts · plan character drafts_
 
 _plan-charges-and-casting · plan charges and casting_
 
-**topics:** cast, casting, charges, damage, dawn, dice, fireball, item, level, parts, powers, rest, rolled, rolls, spell, spells, srd-improvements, staffs
+**topics:** cast, casting, casts, charges, damage, dawn, dice, item, parts, powers, regain, rolled, rolls, spell, spells, srd-improvements, staff, staffs
 
 - What exists (verified)
 - The connecting idea
@@ -3520,7 +3520,7 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 20d6, actions, concentration, conditions, damage, dice, editions, explosion, links, monster, open5e, previews, prices, rules, spell, spells, srd
+**topics:** 2014, 20d6, actions, concentration, conditions, damage, dice, editions, explosion, links, monster, monsters, open5e, previews, rules, spell, spells, srd
 
 - How this was measured
 - What the app shows today
