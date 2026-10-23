@@ -11,11 +11,20 @@
 
 name: Windows scripts
 
+# Only when the shell code it tests changes (start.sh sources common.sh; nothing else is read).
 on:
   push:
     branches: [hotfix/locale-safety, integration, develop, main]
+    paths:
+      - 'scripts/common.sh'
+      - 'scripts/start.sh'
+      - '.github/workflows/windows-scripts.yml'
   pull_request:
     branches: [integration, develop, main]
+    paths:
+      - 'scripts/common.sh'
+      - 'scripts/start.sh'
+      - '.github/workflows/windows-scripts.yml'
   workflow_dispatch:
 
 permissions:
