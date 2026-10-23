@@ -11,8 +11,9 @@
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.units :as units5e]
+            [orcpub.dice :as dice]
             [clojure.string :as s]
-            [clojure.set :refer [intersection difference]])
+            [clojure.set :as set :refer [intersection difference]])
   #?(:cljs (:require-macros [orcpub.dnd.e5.modifiers :as mod5e])))
 
 ;(spec/def ::name string?)
@@ -70,6 +71,69 @@
 (spec/def ::crit-from (spec/int-in 2 21))
 (spec/def ::charges pos-int?)
 (spec/def ::charges-recharge ::recharge)
+(spec/def ::charges-start string?)
+(spec/def ::charges-regain string?)
+(spec/def ::cast-spell keyword?)
+(spec/def ::cast-level (spec/int-in 0 10))
+(spec/def ::cast-cost pos-int?)
+(spec/def ::cast-per-level pos-int?)
+(spec/def ::cast (spec/keys :req [::cast-spell ::cast-level ::cast-cost] :opt [::cast-per-level ::save-dc]))
+(spec/def ::casts (spec/coll-of ::cast :kind vector?))
+
+(defn charge-max
+  "The most charges the `i`th item of a carried stack can hold: the maximum rolled for it when
+  added (`entry`'s ::char-equip5e/charges-max), else the item's ::charges. Nil without charges."
+  [item entry i]
+  (or (get (::char-equip5e/charges-max entry) i) (::charges item)))
+
+(defn charges-left
+  "Charges the `i`th item of a carried stack has left. Takes the item, the carried entry and i."
+  [item entry i]
+  (max 0 (- (or (charge-max item entry i) 0) (get (::char-equip5e/charges-used entry) i 0))))
+
+(defn- set-used
+  "`entry` with the `i`th used count set to `n`, the vector padded with zeros up to i."
+  [entry i n]
+  (let [used (::char-equip5e/charges-used entry [])]
+    (assoc entry ::char-equip5e/charges-used
+           (assoc (into used (repeat (max 0 (- (inc i) (count used))) 0)) i n))))
+
+(defn spend-charges
+  "`entry` with `n` charges spent from its `i`th item, or nil when that item has fewer than n
+  left. Takes the item, the carried entry, i and n."
+  [item entry i n]
+  (when (<= n (charges-left item entry i))
+    (set-used entry i (+ (get (::char-equip5e/charges-used entry) i 0) n))))
+
+(defn regain-charges
+  "`entry` with `amount` charges given back to its `i`th item, never past its maximum; amount
+  :all refills it. Takes the item, the carried entry, i and the amount."
+  [item entry i amount]
+  (let [used (get (::char-equip5e/charges-used entry) i 0)]
+    (set-used entry i (if (= :all amount) 0 (max 0 (- used amount))))))
+
+(defn roll-regain
+  "How many charges the item regains when it recharges, rolled with `roll-die` (a fn of sides).
+  Returns {:amount :rolls :dice}: amount :all when the item names no regain."
+  [item roll-die]
+  (if-let [dice (some-> (::charges-regain item) dice/parse-dice)]
+    (assoc (set/rename-keys (dice/roll-dice dice roll-die) {:total :amount}) :dice (::charges-regain item))
+    {:amount :all :rolls [] :dice nil}))
+
+(defn roll-charge-max
+  "A maximum rolled for an item whose charges start as dice (::charges-start, \"1d8+1\"), with
+  `roll-die`. Returns {:total :rolls}, or nil for an item without a rolled start."
+  [item roll-die]
+  (some-> (::charges-start item) dice/parse-dice (dice/roll-dice roll-die)))
+
+(defn cast-levels
+  "The levels a cast can be made at, priced in charges, up to 9th: each level above the base costs
+  ::cast-per-level more; without it only the base level. Takes the cast and the charges left.
+  Returns [{:level :cost :affordable?}]."
+  [{::keys [cast-level cast-cost cast-per-level]} left]
+  (for [lvl (if cast-per-level (range cast-level 10) [cast-level])
+        :let [cost (+ cast-cost (* (- lvl cast-level) (or cast-per-level 0)))]]
+    {:level lvl :cost cost :affordable? (<= cost left)}))
 
 (def name-key ::name)
 (def item-type-key ::type)

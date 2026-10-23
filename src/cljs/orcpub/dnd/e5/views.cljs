@@ -4032,13 +4032,11 @@
           [:span.weapon-menu-value (if used? "used" value)]]))]]))
 
 (defn weapon-row
-  "One weapon's row: name, grey line, to-hit and damage tiles, the lines under it and,
-  when opened, its details. Takes the weapon map, its to-hit bonus, its damage modifier
-  fn, whether the character is proficient, the lowest crit roll, what holds the off hand
-  (\"a Shield\", or nil when it is free), which hand wields it (:main, :off or nil), the
-  character id, whether it is the last row (its menu opens upward), its Weapon Mastery band
-  (or nil), whether it is on desktop (switches stay in the Details column) and the row's state
-  atom ({:open? :two-handed? :toggles :pulse-done? :menu-open?}). Returns hiccup."
+  "One weapon's row: name, grey line, to-hit and damage tiles, lines under it, details when open.
+  Takes the weapon, to-hit bonus, damage modifier fn, proficient?, lowest crit roll, the off-hand
+  holder (\"a Shield\" or nil), hand (:main :off nil), character id, last? (menu opens up), mastery
+  band or nil, desktop? (switches in Details) and the state atom ({:open? :two-handed? :toggles
+  :pulse-done? :menu-open?}). Returns hiccup."
   [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand hand id last? mastery desktop? state]
   (let [{:keys [open? toggles pulse-done?]} @state
         toggles (or toggles #{})
