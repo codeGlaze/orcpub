@@ -55,10 +55,8 @@ figcaption { font-size: 14px; margin-top: 6px; display: flex; gap: 8px; align-it
   <div class="summary">
     <div class="box open">
       <h3>Open: needs you</h3>
-      <ul><li>Dawn and dusk (group D): T1c, or one of the T4 family?</li>
-      <li>Assumed: Dawn moves out of the rest bar into the time bar, and the time bar shows only for characters with dawn or dusk items. Right?</li>
-      <li>The dusk purple here is not from the app's palette yet; it would use the themes' purple.</li></ul>
-      <p class="muted" style="margin:6px 0 0">Wording is parked for one pass at the end.</p>
+      <ul><li>Spells cast from items (group G): A on the item only, B1 inside the level tables, B2 a From Items table, or A plus B2?</li></ul>
+      <p class="muted" style="margin:6px 0 0">Charges: one pool per item (decided). Rest controls: the layout agent's design; group D is superseded. Wording is parked for one pass at the end.</p>
     </div>
     <div class="box">
       <h3>Decided</h3>
@@ -82,7 +80,7 @@ figcaption { font-size: 14px; margin-top: 6px; display: flex; gap: 8px; align-it
   </div>
 
   <nav aria-label="Groups">
-    <a href="#a">A. In the table</a><a href="#b">B. Explaining a rule</a><a href="#c">C. Mastery panel</a><a href="#d">D. Resting</a><a href="#e">E. Fixed</a>
+    <a href="#a">A. In the table</a><a href="#b">B. Explaining a rule</a><a href="#c">C. Mastery panel</a><a href="#d">D. Resting</a><a href="#f">F. Charges</a><a href="#g">G. Item spells</a><a href="#e">E. Fixed</a>
   </nav>
 
   <section id="a">
@@ -123,6 +121,26 @@ figcaption { font-size: 14px; margin-top: 6px; display: flex; gap: 8px; align-it
       <figure><img src="shots/RT4A-icons.png" alt="Four segments: a sun-only end, Short Rest, Long Rest, a moon-only end."><figcaption><span class="tag open">Open</span>T4a. Icon-only ends: the rests get the room.</figcaption></figure>
       <figure><img src="shots/RT4C-sky-ends.png" alt="Four segments: Dawn end tinted amber fading in, Short Rest, Long Rest, Dusk end tinted purple."><figcaption><span class="tag open">Open</span>T4b. Dark ends tinted like the sky.</figcaption></figure>
       <figure><img src="shots/RT4D-round-ends.png" alt="Round soft Dawn and Dusk buttons on either side of the rest bar, separate from it."><figcaption><span class="tag open">Open</span>T4c. Round soft ends beside the bar, like moons.</figcaption></figure>
+      </div>
+  </section>
+
+  <section id="f">
+    <h2>F. Charges</h2>
+    <div class="shots">
+      <figure><img src="shots/C0-today.png" alt="Today's Other Magic Items table: Wand of Magic Missiles, Wand of Fireballs, Cube of Force, with no charges shown."><figcaption><span class="tag fixed">Today</span>Today: no charges anywhere.</figcaption></figure>
+      <figure><img src="shots/C1-pool-each.png" alt="Under each name: Magic Missiles 4 of 7 pips; Wand of Fireballs x2 with two pip lines, 5/7 and 0/7; Cube of Force 21/36 with minus and plus."><figcaption><span class="tag open">Open</span>One pool per wand: a pip line each. Big pools (Cube of Force, 36) use a count with minus and plus.</figcaption></figure>
+      <figure><img src="shots/C2-pool-shared.png" alt="The same, but Wand of Fireballs x2 shows one shared 5/14 count with minus and plus."><figcaption><span class="tag open">Open</span>For comparison: the two wands sharing one pool.</figcaption></figure>
+      <figure><img src="shots/C3-dawn-regain.png" alt="Under the rest buttons: Dawn passed, charges regained, each wand and the cube with a number box, rolled 1d6+1 or 1d20, and Undo."><figcaption><span class="tag open">Open</span>After Dawn: each item rolled; type over a number to use your own roll. Shown under today's buttons; it would sit in the new Rest box.</figcaption></figure>
+      </div>
+  </section>
+
+  <section id="g">
+    <h2>G. Casting from items: where it shows</h2>
+    <div class="shots">
+      <figure><img src="shots/X0-spells-today.png" alt="Today's Spells tab: preparation counts, then Spells By Level tables for a level 5 cleric."><figcaption><span class="tag fixed">Today</span>Today's Spells tab.</figcaption></figure>
+      <figure><img src="shots/X1-on-the-item.png" alt="Equipment tab: Wand of Fireballs with 5 of 7 pips and a Cast Fireball button, opened to Cast at level, 3rd 1 charge, Cast, DC 15 up to 7th with 5 charges; Wand of Magic Missiles with Cast Magic Missile."><figcaption><span class="tag open">Open</span>A. On the item only: pips, a Cast button, a level picker priced in charges.</figcaption></figure>
+      <figure><img src="shots/X2-spells-inline.png" alt="The 1st Level spells table with Magic Missile first, tagged WAND, Src Wand, other columns empty."><figcaption><span class="tag open">Open</span>B1. On the Spells tab, inside each level table. Cramped: the columns have nowhere to show charges.</figcaption></figure>
+      <figure><img src="shots/X3-spells-from-items.png" alt="A From Items table above Spells By Level: Fireball, Wand of Fireballs, 3+, DC 15, 5/7 pips, Cast; Magic Missile, Wand of Magic Missiles, 1+, 4/7, Cast."><figcaption><span class="tag open">Open</span>B2. On the Spells tab, as its own From Items table above Spells By Level.</figcaption></figure>
       </div>
   </section>
 
