@@ -199,6 +199,22 @@ Read against `feature/inventory-kits` `f2e7f7d2`. What the kit code built that t
 New and kept: the kit record (`held`, targets from the pack), and the rules on it (refill, restock,
 top-kit-first, the share line).
 
+## Reuse refactor done (2026-10-23, `83ac1bb3`)
+
+One inventory home: rules in `orcpub.dnd.e5.inventory` (was `kits.cljc`), the builder's inventory
+lists and the Kits block in `orcpub.dnd.e5.views.inventory` (moved out of `character_builder.cljs`,
+3,072 to 2,501 lines). Containers and other inventory code go in these two, never new files (owner,
+2026-10-23). Kit notices are `notifications/callout`; Undo is `::inventory/undo` in the db; the kit
+repair is a step of `settle-picks-fx`; the equipment groups are `equipment5e/groups`, read by options
+and inventory. `expand-button` and `show-info-button` moved to `orcpub.components`. Still open: "Add
+a kit" stays (owner to decide), and the class-change question stays.
+
+**Found while checking it:** a new character starts as a Barbarian, whose fixed starting equipment
+includes an Explorer's Pack. Settle runs on opening, so that pack becomes a kit at once; switching
+class then asks "Remove what the Explorer's Pack added?" on a character the player has not touched.
+The rule works as built; whether a class change should ask at all is the open owner question.
+The shared callout puts its actions beside the text, not under it.
+
 ## Layout review, round 1 (2026-10-22, owner)
 
 The layout agent's "5a Kits, quieter" (tweaking_Kits_v1) is the base, with these rulings:

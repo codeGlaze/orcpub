@@ -2883,7 +2883,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, equipment, gear, holy, items, kit, kits, leftovers, pack, packs, picker, quantities, quantity, rations, refill, reorganize, restock, torches
+**topics:** 2026-10-22, equipment, explorer, holy, inventory, items, kit, kits, leftovers, pack, packs, picker, quantity, refill, reorganize, repair, restock, torches
 
 - The problems today
 - The model
@@ -2892,6 +2892,7 @@ _plan-inventory-kits · plan inventory kits_
 - Phase 2 design (2026-10-22, before code)
 - Built: 2a wiring and 2b kit panel (2026-10-22, feature/inventory-kits)
 - Reuse audit (2026-10-23, before more kit work)
+- Reuse refactor done (2026-10-23, 83ac1bb3)
 - Layout review, round 1 (2026-10-22, owner)
 - The map: where equipment is written, read and saved (2026-10-22, integration d51938c1)
 - Patterns to reuse
@@ -3577,7 +3578,7 @@ _starting-equipment-override-ledger · starting equipment override ledger_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, choice, class, consumption, delta, detach, equipment, expand, export, grants, groups, ingestion, keys, pseudo-keys, serializable, srd, sub-selection, untouched
+**topics:** barbarian, builder-item, choice, class, consumption, delta, detach, equipment, expand, export, grants, ingestion, keys, pseudo-keys, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
