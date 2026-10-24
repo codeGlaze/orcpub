@@ -265,6 +265,10 @@
     (let [out (config/deployment-lines {:crash-dir "/srv/orcpub/logs/app/crash" :alert-dir "/tmp/orcpub-alerts"})]
       (is (some #(str/includes? % "Crash files: /srv/orcpub/logs/app/crash") out) (pr-str out))
       (is (not-any? #(str/includes? % "/host-log") out))))
+  (testing "the memory Java may use is shown, with how to change it"
+    (let [out (config/deployment-lines {:max-heap-bytes (* 1536 1024 1024)})]
+      (is (some #(and (str/includes? % "Java memory limit: 1536 MB") (str/includes? % "JAVA_OPTS")) out)
+          (pr-str out))))
   (testing "the release's deployment notes come with them, and the block is in the report"
     (let [out (config/report-lines [set-row] nil nil (config/deployment-lines {}))]
       (is (some #(str/includes? % "TRANSACTOR_HOST") out) (pr-str out))

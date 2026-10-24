@@ -539,10 +539,11 @@
 
 (defn deployment-lines
   "The boot report's DEPLOYMENT block, as lines. Takes `:crash-dir` and `:alert-dir`, the resolved
-   folders for crash files and unsent alerts (either nil when unknown). Says where those files
-   land, flags a folder inside the container with the mount that moves it, and ends with
+   folders for crash files and unsent alerts (either nil when unknown), and `:max-heap-bytes`, the
+   most memory Java may use (nil leaves the line out). Says where those files land, flags a folder
+   inside the container with the mount that moves it, gives the memory limit, and ends with
    `deployment-notes`."
-  [{:keys [crash-dir alert-dir]}]
+  [{:keys [crash-dir alert-dir max-heap-bytes]}]
   (let [inside? #(and % (str/starts-with? % "/var/lib/orcpub/"))]
     (concat
      [(str "Crash files: " (if crash-dir (shown-dir crash-dir) "not configured (no -XX:HeapDumpPath)"))
@@ -550,6 +551,9 @@
      (when (or (inside? crash-dir) (inside? alert-dir))
        ["  Those are inside the container and go when it is replaced. Mount - /var/log:/host-log"
         "  on this service to keep them in /var/log on the host."])
+     (when max-heap-bytes
+       [(str "Java memory limit: " (quot max-heap-bytes (* 1024 1024)) " MB"
+             " (raise it with JAVA_OPTS, for example -Xmx2g)")])
      deployment-notes)))
 
 (defn- canonical
@@ -592,7 +596,8 @@
      ;; and cut the table in half -- buffered stdout against unbuffered stderr in the same
      ;; stream. A banner that arrives in pieces is worse than no banner.
      (println (str/join (System/lineSeparator) (report-lines (report) actual @branding/ignored
-                                                             (deployment-lines (crash-and-alert-dirs)))))
+                                                             (deployment-lines (assoc (crash-and-alert-dirs)
+                                                                                      :max-heap-bytes (.maxMemory (Runtime/getRuntime)))))))
      (flush))))
 
 (defn get-secure-headers-config
