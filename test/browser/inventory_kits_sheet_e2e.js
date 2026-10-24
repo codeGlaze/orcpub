@@ -108,6 +108,17 @@ const setTorches = async (page, n) => { const q = torchQty(page); await q.fill(S
     check(/Torch 8\/10/.test(reloaded), 'after a reload it is still 8/10: the edit was saved');
     check(await sec().locator('.sheet-stepper').count() === 0, 'leaving and coming back: managing is off');
     check(/Gold Pieces \(GP\)\s+47/.test(await page.locator('#app').innerText()), 'the 47 gold was saved');
+    check(/Worn: 7 items carried/.test(await stext()), 'the backpack line: Worn, 7 items carried');
+    await sec().locator('.seg button:text-is("Off")').click(); await settle(page, 3000);
+    t = await stext();
+    check(/Off: 7 items not carried/.test(t) && /In the backpack, not carried/.test(t), 'Off: the line says so and the list is labelled');
+    check(await sec().locator('tr.item.packed').count() === 7, 'the 7 items in it are greyed, still listed');
+    await page.screenshot({ path: path.join(OUT, 'c2-backpack-off.png'), fullPage: false });
+    for (let i = 0; i < 20 && posts.length < 3; i++) await page.waitForTimeout(500);
+    await page.waitForTimeout(1500);
+    await page.reload(); await settle(page, 1500, 20000);
+    await eqTab().click(); await settle(page, 1000);
+    check(/Off: 7 items not carried/.test(await stext()), 'after a reload the backpack is still off: saved');
     await sec().locator('.toggle-switch').click(); await settle(page, 400);
     await page.locator('.b-b-2.pointer').first().click(); await settle(page, 600);
     await eqTab().click(); await settle(page, 800);

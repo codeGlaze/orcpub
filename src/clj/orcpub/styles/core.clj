@@ -3397,6 +3397,21 @@
     ;; from filtering (views/inventory.cljs `sheet-equipment`).
     [:.inv-combo-adding [:.inv-combo-input {:border-color "#f0a100" :box-shadow "0 0 0 1px #f0a100"}]]
     [:.inv-combo-preset.adding {:border-color "#f0a100" :cursor :default}]
+    ;; Worn | Off for the backpack (views/inventory.cljs `sheet-equipment`): two options, drawn at
+    ;; the size of the kit links, with a 44px tap area.
+    [:.seg {:display :inline-flex :flex :none :border-radius "5px" :overflow :hidden
+            :border "1px solid color-mix(in srgb, currentColor 40%, transparent)"}
+     [:button {:position :relative :background :none :border :none :color :inherit :font :inherit
+               :font-size "11px" :letter-spacing ".05em" :text-transform :uppercase :padding "0 10px"
+               :min-height "24px" :opacity 0.7 :cursor :pointer}]
+     ["button + button" {:border-left "1px solid color-mix(in srgb, currentColor 40%, transparent)"}]
+     [:button.on {:opacity 1 :font-weight 700 :color "#f0a100"
+                  :background-color "rgba(240, 161, 0, 0.18)"}]
+     [:button:after {:content "''" :position :absolute :top "-10px" :bottom "-10px" :left 0 :right 0}]]
+    [:.backpack-line {:gap "10px" :min-height "44px"}
+     [:.backpack-status {:font-size "13px"}]]
+    ;; The backpack's contents while it is off: still listed and counted, greyed, under one label.
+    [:tr.packed {:opacity 0.5}]
     [:.sheet-stepper {:display :flex :align-items :center :gap "6px" :white-space :nowrap
                       :font-variant-numeric :tabular-nums}
      [:button {:background :none :border :none :padding "4px" :min-width "32px" :min-height "32px"

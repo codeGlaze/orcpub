@@ -4841,6 +4841,11 @@
    (update-character-fx db id #(inventory/set-quantity % sel item-key n))))
 
 (reg-event-fx
+ ::inventory/set-backpack-worn
+ (fn [{:keys [db]} [_ id worn?]]
+   (update-character-fx db id #(inventory/set-backpack-worn % worn?))))
+
+(reg-event-fx
  ::inventory/sheet-undo
  (fn [{:keys [db]} [_ id]]
    (let [{before :before undo-id :id} (::inventory/undo db)]

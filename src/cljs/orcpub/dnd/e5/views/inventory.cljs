@@ -679,7 +679,8 @@
         preset (r/atom nil)]
     (fn [id managing?]
       (let [mobile? @(subscribe [:mobile?])
-            {:keys [shares]} @(subscribe [::inventory/panel id])
+            {:keys [shares backpack-worn?]} @(subscribe [::inventory/panel id])
+            off? (false? backpack-worn?)
             items (merge @(subscribe [::char5e/equipment id])
                          (zipmap (range) @(subscribe [::char5e/custom-equipment id])))
             nm (fn [[k cfg]] (or (:name (equip5e/equipment-map k)) (::char-equip5e/name cfg) ""))
@@ -700,6 +701,20 @@
            [:span.toggle-switch
             {:class (when @managing? "on") :role "switch" :aria-checked (str @managing?) :tabIndex 0
              :on-click #(swap! managing? not)}]]]
+         (when (some? backpack-worn?)
+           (let [n (count (remove #(= :backpack (key %)) items))]
+             [:div.flex.align-items-c.m-t-10.backpack-line
+              [:div.flex-grow-1
+               [:div.f-w-b.f-s-16 "Backpack"]
+               [:div.backpack-status {:class (if off? "orange f-w-b" "opacity-7")}
+                (str (if off? "Off: " "Worn: ") n (if (= 1 n) " item" " items") (if off? " not carried" " carried"))]]
+              [:span.seg {:role "radiogroup" :aria-label "Backpack"}
+               (for [[label worn?] [["Worn" true] ["Off" false]]]
+                 ^{:key label}
+                 [:button {:role "radio" :aria-checked (str (= worn? (not off?)))
+                           :class (when (= worn? (not off?)) "on")
+                           :on-click #(dispatch [::inventory/set-backpack-worn id worn?])}
+                  label])]]))
          [:div.m-t-10
           [kits-block {:id id :search-preset preset :adding? @managing?}]
           (if @managing?
@@ -722,12 +737,21 @@
             [:th.p-10 "Details"]
             [:th]]
            (doall
-            (for [[item-kw item-cfg :as row] rows
+            (let [ordered (cond->> rows off? (sort-by #(not= :backpack (key %))))
+                  first-packed (when off? (some #(when (not= :backpack (key %)) (key %)) ordered))]
+             (for [[item-kw item-cfg :as row] ordered
                   :let [{:keys [cost weight]} (equip5e/equipment-map item-kw)
                         qty (::char-equip5e/quantity item-cfg)
-                        share (get shares item-kw)]]
-              ^{:key item-kw}
+                        share (get shares item-kw)
+                        packed? (and off? (not= :backpack item-kw))
+                        first-packed? (= item-kw first-packed)]
+                  ;; Each item's row, with the backpack label before the first packed one.
+                  el (concat
+                      (when first-packed?
+                        [^{:key "packed-label"} [:tr [:td.p-10.f-s-12.opacity-7 {:col-span 4} "In the backpack, not carried"]]])
+                      [^{:key item-kw}
               [:tr.item
+               {:class (when packed? "packed")}
                [:td.p-10.f-w-b (nm row)
                 (when share [:div.f-w-n [share-line share]])]
                [:td.p-10
@@ -740,7 +764,8 @@
                     [:i.fa.fa-plus-circle.orange.f-s-18]]]
                   qty)]
                [:td.p-10
-                (str (when cost (str (:num cost) " " (common/safe-name (:type cost)) ", ")) weight)]]))]]
+                (str (when cost (str (:num cost) " " (common/safe-name (:type cost)) ", ")) weight)]]])]
+              el)))]]
          ]))))
 
 (def ^:private coins

@@ -397,6 +397,24 @@
                 :else (conj ps {::entity/key k
                                 ::entity/value {::char-equip/quantity n ::char-equip/equipped? true}})))))
 
+(defn backpack-worn?
+  "Whether `character` wears its backpack: the Backpack pick's carried flag (missing reads as worn).
+   Nil when it has no backpack."
+  [character]
+  (when-let [p (some #(when (= :backpack (::entity/key %)) %) (equipment-picks character))]
+    (let [v (::entity/value p)] (if (map? v) (not (false? (::char-equip/equipped? v))) true))))
+
+(defn set-backpack-worn
+  "`character` with its backpack worn (`worn?` true) or set down: the Backpack pick's carried flag,
+   the same one the builder's Carried? box sets. Its contents keep their own flags."
+  [character worn?]
+  (assoc-in character [::entity/options :equipment]
+            (mapv #(if (= :backpack (::entity/key %))
+                     (assoc % ::entity/value (assoc (let [v (::entity/value %)] (if (map? v) v {::char-equip/quantity (pick-qty %)}))
+                                                    ::char-equip/equipped? (boolean worn?)))
+                     %)
+                  (equipment-picks character))))
+
 (defn change-quantity
   "`character` with gear `k`'s quantity moved by `delta`: more is added as unbundled, less is taken
    from the kits first (`take-from-kits`); at 0 the row goes and no kit holds it."

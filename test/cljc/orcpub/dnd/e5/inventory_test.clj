@@ -301,3 +301,14 @@
     (is (= 5 (tq (inventory/set-quantity c :treasure :sp 5) :sp)) "a coin not held yet is added")
     (is (nil? (tq (inventory/set-quantity c :treasure :gp 0) :gp)) "0 removes it")
     (is (= c (inventory/set-quantity c :treasure :pp 0)) "0 of a coin not held changes nothing")))
+
+(deftest the-backpack-is-worn-or-off
+  (let [c {::entity/options {:equipment [(gear :backpack 1) (gear :torch 5)]}}]
+    (is (true? (inventory/backpack-worn? c)))
+    (is (nil? (inventory/backpack-worn? {::entity/options {:equipment [(gear :torch 5)]}})) "no backpack, no switch")
+    (let [off (inventory/set-backpack-worn c false)]
+      (is (false? (inventory/backpack-worn? off)))
+      (is (= 5 (qty off :torch)) "its contents are still counted")
+      (is (true? (get-in off [::entity/options :equipment 1 ::entity/value ::char-equip/equipped?]))
+          "the contents keep their own carried flags")
+      (is (true? (inventory/backpack-worn? (inventory/set-backpack-worn off true)))))))
