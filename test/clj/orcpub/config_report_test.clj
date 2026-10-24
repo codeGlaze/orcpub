@@ -265,8 +265,6 @@
     (let [out (config/deployment-lines {:crash-dir "/srv/orcpub/logs/app/crash" :alert-dir "/tmp/orcpub-alerts"})]
       (is (some #(str/includes? % "Crash files: /srv/orcpub/logs/app/crash") out) (pr-str out))
       (is (not-any? #(str/includes? % "/host-log") out))))
-  (testing "JAVA_OPTS, when set, is shown"
-    (is (some #(str/includes? % "-Xmx2g") (config/deployment-lines {:java-opts "-Xmx2g"}))))
   (testing "the release's deployment notes come with them, and the block is in the report"
     (let [out (config/report-lines [set-row] nil nil (config/deployment-lines {}))]
       (is (some #(str/includes? % "TRANSACTOR_HOST") out) (pr-str out))

@@ -539,10 +539,10 @@
 
 (defn deployment-lines
   "The boot report's DEPLOYMENT block, as lines. Takes `:crash-dir` and `:alert-dir`, the resolved
-   folders for crash files and unsent alerts (either nil when unknown), and `:java-opts`, the
-   JAVA_OPTS value or nil. Says where those files land, flags a folder inside the container with
-   the mount that moves it, shows JAVA_OPTS, and ends with `deployment-notes`."
-  [{:keys [crash-dir alert-dir java-opts]}]
+   folders for crash files and unsent alerts (either nil when unknown). Says where those files
+   land, flags a folder inside the container with the mount that moves it, and ends with
+   `deployment-notes`."
+  [{:keys [crash-dir alert-dir]}]
   (let [inside? #(and % (str/starts-with? % "/var/lib/orcpub/"))]
     (concat
      [(str "Crash files: " (if crash-dir (shown-dir crash-dir) "not configured (no -XX:HeapDumpPath)"))
@@ -550,7 +550,6 @@
      (when (or (inside? crash-dir) (inside? alert-dir))
        ["  Those are inside the container and go when it is replaced. Mount - /var/log:/host-log"
         "  on this service to keep them in /var/log on the host."])
-     (when java-opts [(str "JAVA_OPTS reaches Java: " java-opts)])
      deployment-notes)))
 
 (defn- canonical
@@ -593,8 +592,7 @@
      ;; and cut the table in half -- buffered stdout against unbuffered stderr in the same
      ;; stream. A banner that arrives in pieces is worse than no banner.
      (println (str/join (System/lineSeparator) (report-lines (report) actual @branding/ignored
-                                                             (deployment-lines (assoc (crash-and-alert-dirs)
-                                                                                      :java-opts (env/value :java-opts))))))
+                                                             (deployment-lines (crash-and-alert-dirs)))))
      (flush))))
 
 (defn get-secure-headers-config
