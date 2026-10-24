@@ -72,11 +72,12 @@ agents/develop       a silo, off to the side, not a leaf of anything. Pulls stab
                      carry flow across conversations.
 ```
 
-**Checked 2026-10-24.** `feature/grant-rows` is 230 commits behind `integration`. Other refactor
-branches went straight to `integration` instead: `refactor/garden-harvest` and
-`refactor/picks-namespace` merged there; `refactor/pdf-canvas` (#63, with
-`refactor/card-shape-layer`) and `refactor/garden-inline-styles` target it; whether they move to
-`refactor/main` is the owner's call. `refactor/views-extraction` and `refactor/data-extraction`: below.
+**Checked 2026-10-24.** `feature/grant-rows` is 230 commits behind `integration`. **Every refactor leaf belongs on
+the `refactor/main` line** (owner, 2026-10-24). Some refactor branches went straight to `integration`
+instead, made before the Fall Update became this trunk or without the owner's approval as leaves:
+`refactor/garden-harvest` and `refactor/picks-namespace` merged there; `refactor/pdf-canvas` (#63,
+with `refactor/card-shape-layer`) and `refactor/garden-inline-styles` still target it. Left as they
+are; not a pattern to copy. `refactor/views-extraction` and `refactor/data-extraction`: below.
 
 Releases are tags, not branches, so no branch name says which release it serves.
 **Summer Patch** ships from `integration` once the last hotfixes land — nothing tagged yet.
