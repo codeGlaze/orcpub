@@ -86,6 +86,14 @@ Both are start-time settings on `feature/email-and-alerts` (2026-10-23): the tem
 them in, and the Swarm stack defaults them to `0.0.0.0` / `datomic`. Datomic prints
 `transactor: host=... alt-host=...` at start.
 
+With `TRANSACTOR_HOST` unset, `deploy/start.sh` detects Swarm: `getent hosts datomic` (present in
+the temurin alpine image) is compared with the container's own addresses; a different address is
+the service VIP, so it uses `0.0.0.0` and `ALT_HOST=datomic` unless set. Two traps found writing
+it, both from `set -euo pipefail`: `getent` exits non-zero for an unknown name and `read` at EOF
+returns 1, either of which aborts the script inside `$(...)`; and `own_addresses | grep -q`
+reports "no match" when grep's early exit gives the producer SIGPIPE. Capture first, then grep.
+Tested with a faked `getent`: `test/docker/test-transactor-start.sh`.
+
 **Reversal.** This page said `run --swarm` sets `ALT_HOST=datomic` in `.env`. Only
 `run --swarm --secrets` did; plain `--swarm` kept the `ALT_HOST=127.0.0.1` that `./run --auto`
 writes, and `docker stack deploy` with `.env` loaded passed it to the stack. Proven in CI (heavy
