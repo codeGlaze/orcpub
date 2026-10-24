@@ -94,6 +94,15 @@ returns 1, either of which aborts the script inside `$(...)`; and `own_addresses
 reports "no match" when grep's early exit gives the producer SIGPIPE. Capture first, then grep.
 Tested with a faked `getent`: `test/docker/test-transactor-start.sh`.
 
+**Correction (heavy run 40056850709, 2026-10-24).** On real Swarm, `getent hosts datomic` from
+inside the datomic task returns NOTHING at start: Swarm publishes a service name only once a
+task is healthy, and the transactor cannot be healthy until it serves. So the "resolves to
+another address" branch never fires at boot; the first version fell back to `host=datomic` and
+failed as before. An unresolvable name now also means Swarm (`0.0.0.0`, `ALT_HOST=datomic`): it
+can never work as `host=` anyway. Verified in heavy run 40065342007: the log shows "'datomic'
+does not resolve here", `host=0.0.0.0 alt-host=datomic`, and the app healthy. Later lookups do
+resolve to the VIP (10.0.1.2 vs the task's 10.0.1.3), so the other branch covers restarts.
+
 **Reversal.** This page said `run --swarm` sets `ALT_HOST=datomic` in `.env`. Only
 `run --swarm --secrets` did; plain `--swarm` kept the `ALT_HOST=127.0.0.1` that `./run --auto`
 writes, and `docker stack deploy` with `.env` loaded passed it to the stack. Proven in CI (heavy

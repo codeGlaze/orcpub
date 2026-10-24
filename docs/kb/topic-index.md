@@ -1308,7 +1308,7 @@ _docker-setup-flow · docker setup flow_
 
 _docker-swarm-compat · docker swarm compat_
 
-**topics:** alt, cli, codespaces, compose, datomic, deploy, dmv-production-changes, dns, docker, host, incompatibilities, nginx, outputs, specification, stack, swarm, vip, yaml
+**topics:** cli, codespaces, compose, datomic, deploy, dmv-production-changes, dns, docker, host, incompatibilities, outputs, service, specification, stack, swarm, task, vip, yaml
 
 - Context
 - Solution
