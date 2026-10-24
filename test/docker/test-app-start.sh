@@ -55,6 +55,7 @@ chmod 755 "$HOSTLOG"
 
 OUT="$(run_start)"
 check "without the mount the state stays in the container, private" '[[ "$OUT" == *"inner=app 750"* && "$OUT" == *"user=app"* ]]'
+check "without the mount it says where the files are and how to move them" '[[ "$OUT" == *"kept inside the container"* && "$OUT" == *"/var/log:/host-log"* ]]'
 
 printf '\n=== Results: %s tests, %s failures ===\n' "$TESTS" "$FAILURES"
 [ "$FAILURES" -eq 0 ]

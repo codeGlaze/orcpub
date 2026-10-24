@@ -451,12 +451,14 @@
 (defn report-lines
   "The boot banner, as lines: `rows` from `report`, `actual` values read off the running server
    (var name to value), and `branding-ignored`, the branding values that fell back to a default
-   ({:var :value :why}). Ends with this release's new settings that are still unset. ASCII only,
+   ({:var :value :why}), and `deployment`, lines from `deployment-lines`. Ends with this release's
+   new settings that are still unset. ASCII only,
    no colour: it is read in log files and aggregators as often as in a terminal."
   ([] (report-lines (report) nil nil))
   ([rows] (report-lines rows nil nil))
-  ([rows actual] (report-lines rows actual nil))
-  ([rows actual branding-ignored]
+  ([rows actual] (report-lines rows actual nil nil))
+  ([rows actual branding-ignored] (report-lines rows actual branding-ignored nil))
+  ([rows actual branding-ignored deployment]
    (let [;; A secret is reported as present or absent and NEVER by value. `-` where we have
          ;; no number at all, so the VALUE column never argues with SOURCE beside it.
          val    (fn [{env-var :var :keys [value secret? set?]}]
@@ -509,6 +511,8 @@
                           (cons (str "  (!!) " (first body))
                                 (map #(str "        " (str/triml %)) (rest body))))))
                 miss))
+      (when (seq deployment)
+        (concat [rule "  DEPLOYMENT"] (map #(str "  " %) deployment)))
       ;; Last, where an operator upgrading looks: what this release added and is still unset.
       (when-let [fresh (seq (filter #(and (= current-release (:since %)) (not (:set? %))) rows))]
         (concat
@@ -516,6 +520,53 @@
                     ": " (count fresh) " setting" (when (next fresh) "s") " not set yet, using defaults")]
          (map #(trim (format (str "  %-" w "s   %s") (:var %) (or (:note %) ""))) fresh)))
       [rule]))))
+
+(def deployment-notes
+  "This release's deployment changes, one line each, printed in the boot report's DEPLOYMENT
+   block so an admin who deploys without ./run still sees them. docs/DOCKER.md has the detail."
+  ["Docker Swarm: Datomic needs TRANSACTOR_HOST=0.0.0.0 and ALT_HOST=datomic. Unset, it detects"
+   "  Swarm itself; its log line 'transactor: host=... alt-host=...' shows what it uses."
+   "Docker: the app container starts as root, prepares its folders, then runs Java as 'app'."
+   "  Remove any user: line from the orcpub service."
+   "Docker: container logs are capped by LOG_MAX_SIZE and LOG_MAX_FILES (10m x 5)."])
+
+(defn- shown-dir
+  "How `dir` reads to an admin: a /host-log path as the host's /var/log path, else as is."
+  [dir]
+  (if (str/starts-with? dir "/host-log/")
+    (str "/var/log/" (subs dir (count "/host-log/")) " on the host")
+    dir))
+
+(defn deployment-lines
+  "The boot report's DEPLOYMENT block, as lines. Takes `:crash-dir` and `:alert-dir`, the resolved
+   folders for crash files and unsent alerts (either nil when unknown), and `:java-opts`, the
+   JAVA_OPTS value or nil. Says where those files land, flags a folder inside the container with
+   the mount that moves it, shows JAVA_OPTS, and ends with `deployment-notes`."
+  [{:keys [crash-dir alert-dir java-opts]}]
+  (let [inside? #(and % (str/starts-with? % "/var/lib/orcpub/"))]
+    (concat
+     [(str "Crash files: " (if crash-dir (shown-dir crash-dir) "not configured (no -XX:HeapDumpPath)"))
+      (str "Unsent alerts: " (if alert-dir (shown-dir alert-dir) "-"))]
+     (when (or (inside? crash-dir) (inside? alert-dir))
+       ["  Those are inside the container and go when it is replaced. Mount - /var/log:/host-log"
+        "  on this service to keep them in /var/log on the host."])
+     (when java-opts [(str "JAVA_OPTS reaches Java: " java-opts)])
+     deployment-notes)))
+
+(defn- canonical
+  "`f`'s path with links followed, or as given when it cannot be resolved."
+  [f]
+  (try (.getCanonicalPath (io/file f)) (catch Exception _ (str f))))
+
+(defn crash-and-alert-dirs
+  "{:crash-dir :alert-dir}: the folder the JVM's -XX:HeapDumpPath points into (nil without the
+   flag) and the alert spool folder, both with links followed, so a container's
+   /var/lib/orcpub/state reads as the /host-log folder it links to."
+  []
+  (let [args (.getInputArguments (java.lang.management.ManagementFactory/getRuntimeMXBean))
+        heap (some #(when (str/starts-with? % "-XX:HeapDumpPath=") (subs % (count "-XX:HeapDumpPath="))) args)]
+    {:crash-dir (some-> heap io/file .getParentFile canonical)
+     :alert-dir (canonical (get-alert-spool-dir))}))
 
 (defn jetty-max-threads
   "The worker-pool size the running server actually settled on, or nil.
@@ -541,7 +592,9 @@
      ;; One write, then flush. Printed line by line, Jetty's own logging interleaved with it
      ;; and cut the table in half -- buffered stdout against unbuffered stderr in the same
      ;; stream. A banner that arrives in pieces is worse than no banner.
-     (println (str/join (System/lineSeparator) (report-lines (report) actual @branding/ignored)))
+     (println (str/join (System/lineSeparator) (report-lines (report) actual @branding/ignored
+                                                             (deployment-lines (assoc (crash-and-alert-dirs)
+                                                                                      :java-opts (env/value :java-opts))))))
      (flush))))
 
 (defn get-secure-headers-config

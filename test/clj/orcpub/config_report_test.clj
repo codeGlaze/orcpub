@@ -251,3 +251,23 @@
       (is (some #(and (str/includes? % "(!)") (str/includes? % "APP_HELP_URL")
                       (str/includes? % "help me") (str/includes? % "not a web address")) out)
           (pr-str out)))))
+
+(deftest the-report-says-where-crash-files-land
+  (testing "a folder linked to the host's /var/log is named as the host path"
+    (let [out (config/deployment-lines {:crash-dir "/host-log/dmv/crash" :alert-dir "/host-log/dmv/alerts"})]
+      (is (some #(str/includes? % "/var/log/dmv/crash on the host") out) (pr-str out))
+      (is (not-any? #(str/includes? % "inside the container") out))))
+  (testing "a folder inside the container says so, with the mount that moves it"
+    (let [out (config/deployment-lines {:crash-dir "/var/lib/orcpub/state/crash" :alert-dir "/var/lib/orcpub/state/alerts"})]
+      (is (some #(str/includes? % "inside the container") out) (pr-str out))
+      (is (some #(str/includes? % "/var/log:/host-log") out))))
+  (testing "bare metal: the folders as they are, and no mount advice"
+    (let [out (config/deployment-lines {:crash-dir "/srv/orcpub/logs/app/crash" :alert-dir "/tmp/orcpub-alerts"})]
+      (is (some #(str/includes? % "Crash files: /srv/orcpub/logs/app/crash") out) (pr-str out))
+      (is (not-any? #(str/includes? % "/host-log") out))))
+  (testing "JAVA_OPTS, when set, is shown"
+    (is (some #(str/includes? % "-Xmx2g") (config/deployment-lines {:java-opts "-Xmx2g"}))))
+  (testing "the release's deployment notes come with them, and the block is in the report"
+    (let [out (config/report-lines [set-row] nil nil (config/deployment-lines {}))]
+      (is (some #(str/includes? % "TRANSACTOR_HOST") out) (pr-str out))
+      (is (some #(str/includes? % "DEPLOYMENT") out)))))

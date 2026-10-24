@@ -33,6 +33,7 @@ if [ "$(id -u)" = "0" ]; then
       echo "app-start: $STATE is not empty; keeping it there instead of /var/log/$NAME" >&2
     fi
   else
+    echo "app-start: crash files and unsent alerts are kept inside the container ($STATE) and go when it is replaced; to keep them in /var/log/orcpub on the host, mount - /var/log:/host-log on this service" >&2
     for dir in "$STATE" "$STATE/alerts" "$STATE/crash"; do
       mkdir -p "$dir"
       chown app:app "$dir"

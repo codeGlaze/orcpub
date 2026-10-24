@@ -305,7 +305,12 @@ exits with "Serve failed". `0.0.0.0` serves on every interface, and `alt-host`
 gives the app the service name to connect to instead.
 
 Both come from settings filled in when the transactor starts, so one image runs
-either way. The stack file `./run --swarm` writes sets them for Swarm.
+either way. The stack file `./run --swarm` writes sets them for Swarm. When
+`TRANSACTOR_HOST` is not set at all, the transactor works it out: if `datomic`
+resolves to an address that is not its own container, it is on Swarm, so it
+serves on `0.0.0.0` and gives the app `datomic` (unless `ALT_HOST` is set). It
+prints which it chose, `transactor: host=... alt-host=...`, so a stack deployed
+without `./run` (pasted into Portainer, say) still works and says what it did.
 
 **If `datomic` does not resolve at all:** the containers are not on a shared
 Docker network. `docker compose` creates one automatically. Standalone
@@ -510,7 +515,10 @@ networks, Traefik labels and resource limits are carried over.
 before deploying the new images. Without it the transactor serves on `datomic`,
 which does not work on Swarm. `./run --upgrade` also removes `ALT_HOST=127.0.0.1`
 from `.env`, the Compose default it used to write, which would otherwise override
-the stack's `datomic`. `./run --check` tells you if either is still wrong. If `git pull` refuses because
+the stack's `datomic`. `./run --check` tells you if either is still wrong. Deploying without `./run`?
+The app's startup log has a DEPLOYMENT block that says where its crash files
+and alerts are kept and lists this release's deployment changes, and Datomic's
+log says which addresses it chose. If `git pull` refuses because
 `docker/transactor.properties.template` has local changes, those were the old
 way of switching to Swarm: discard them with
 `git checkout -- docker/transactor.properties.template` and pull again.

@@ -66,8 +66,31 @@ escape_sed_replacement() {
   printf '%s' "$1" | sed -e 's/[\\]/\\&/g' -e 's/[&|]/\\&/g'
 }
 
-TRANSACTOR_HOST="${TRANSACTOR_HOST:-datomic}"
+# --- Transactor addresses (docs/DOCKER.md, "host=datomic Rationale") ----------
+# On Compose "datomic" is this container's own address. On Swarm it is the service's virtual
+# address, which the transactor cannot serve on: then serve on 0.0.0.0 and give the app
+# "datomic" as its second address. Settings that are set always win.
+
+# own_addresses: this container's addresses, one per line.
+own_addresses() {
+  getent hosts "${HOSTNAME:-$(cat /etc/hostname 2>/dev/null)}" 2>/dev/null | while read -r ip _; do echo "$ip"; done
+  hostname -i 2>/dev/null | tr ' ' '\n'
+}
+
+if [ -z "${TRANSACTOR_HOST:-}" ]; then
+  TRANSACTOR_HOST=datomic
+  _service_ip=$(getent hosts datomic 2>/dev/null | { read -r ip _ || true; echo "${ip:-}"; } || true)
+  _own=$(own_addresses || true)
+  if [ -n "$_service_ip" ] && ! grep -qxF "$_service_ip" <<<"$_own"; then
+    TRANSACTOR_HOST=0.0.0.0
+    ALT_HOST="${ALT_HOST:-datomic}"
+    echo "transactor: 'datomic' is ${_service_ip}, not this container (a Swarm service address); serving on 0.0.0.0. Set TRANSACTOR_HOST to choose."
+  fi
+fi
 ALT_HOST="${ALT_HOST:-127.0.0.1}"
+if [ "$TRANSACTOR_HOST" = "0.0.0.0" ] && [ "$ALT_HOST" = "127.0.0.1" ]; then
+  echo "transactor: WARNING ALT_HOST is 127.0.0.1 with host 0.0.0.0: on Swarm the app cannot reach Datomic. Remove ALT_HOST, or set it to datomic." >&2
+fi
 ENCRYPT_CHANNEL="${ENCRYPT_CHANNEL:-true}"
 
 sed \

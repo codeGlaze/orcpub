@@ -89,6 +89,9 @@ jobs:
       - name: Test — the app's start script (runs Java as app, folder ownership, privacy)
         run: bash test/docker/test-app-start.sh
 
+      - name: Test — Datomic's start script (its addresses on Compose and Swarm)
+        run: bash test/docker/test-transactor-start.sh
+
       - name: Run run --auto
         run: |
           ./run --auto

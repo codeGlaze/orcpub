@@ -8,6 +8,10 @@
 name: Heavy Docker checks
 
 on:
+  # TEMPORARY: one run on this branch, which cannot start it by hand until it is on the default
+  # branch. Removed after that run.
+  push:
+    branches: [feature/email-and-alerts]
   workflow_dispatch:
   pull_request:
     branches: [develop, integration]
@@ -104,6 +108,10 @@ jobs:
           docker compose up -d
       - name: Wait for the app
         run: bash .github/scripts/wait-healthy.sh compose
+      - name: The app's report names the host folder
+        run: |
+          docker compose logs orcpub | grep "Crash files: /var/log/orcpub/crash on the host" \
+            || { echo "FAIL: no DEPLOYMENT line"; docker compose logs orcpub | grep -A12 DEPLOYMENT; exit 1; }
       - name: Run out of memory inside the app container
         run: |
           docker compose exec -T -u app orcpub java -Xmx64m -cp /orcpub.jar clojure.main -e "(long-array 100000000)" \
@@ -137,6 +145,14 @@ jobs:
           ls -la docker-compose.swarm.yaml
           grep -n "/var/log:/host-log\|JDK_JAVA_OPTIONS" docker-compose.swarm.yaml
           grep -n "TRANSACTOR_HOST" docker-compose.swarm.yaml
+      # As a stack from before this release, pasted into Portainer, would be: Datomic must find
+      # its Swarm addresses itself.
+      - name: Remove the Datomic address settings from the stack
+        run: |
+          sed -i '/TRANSACTOR_HOST\|ALT_HOST/d' docker-compose.swarm.yaml
+          if grep -q "TRANSACTOR_HOST\|ALT_HOST" docker-compose.swarm.yaml || grep -qE "^(TRANSACTOR_HOST|ALT_HOST)=" .env; then
+            echo "FAIL: a Datomic address setting is still set"; exit 1
+          fi
       - name: Build images
         env:
           DOCKER_BUILDKIT: 0
@@ -160,8 +176,12 @@ jobs:
             sudo test -d "$d" || { echo "FAIL: $d missing"; exit 1; }
           done
           echo "OK: Swarm task runs as app; /var/log/orcpub is on the host"
+          docker service logs orcpub_datomic 2>&1 | grep "a Swarm service address" \
+            || { echo "FAIL: Datomic did not detect Swarm"; exit 1; }
           docker service logs orcpub_datomic 2>&1 | grep "transactor: host=0.0.0.0 .*alt-host=datomic" \
             || { echo "FAIL: Datomic did not report host=0.0.0.0 alt-host=datomic"; exit 1; }
+          docker service logs orcpub_orcpub 2>&1 | grep "Crash files: /var/log/orcpub/crash on the host" \
+            || { echo "FAIL: the app's report does not name /var/log/orcpub on the host"; exit 1; }
       - name: Services on failure
         if: failure() || cancelled()
         run: |
