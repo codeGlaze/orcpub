@@ -4,6 +4,30 @@
 # Bypass once with:  git commit --no-verify
 root="$(git rev-parse --show-toplevel)"
 
+# Agent files stay on agents/ branches (docs/kb/claude-files-in-branch-history.md). Blocks a commit
+# that adds or changes .claude/ or CLAUDE.md anywhere else; `git add -f` gets past .gitignore, not
+# this. Deleting them is allowed. Mid-rebase, the branch is the one being rebased.
+branch="$(git symbolic-ref --short -q HEAD)"
+if [ -z "$branch" ]; then
+  gitdir="$(git rev-parse --git-dir)"
+  for f in "$gitdir/rebase-merge/head-name" "$gitdir/rebase-apply/head-name"; do
+    [ -f "$f" ] && branch="$(sed 's#^refs/heads/##' "$f")" && break
+  done
+fi
+case "$branch" in
+  agents/*) ;;
+  *)
+    leaked="$(git diff --cached --name-only --diff-filter=ACMR -- .claude CLAUDE.md)"
+    if [ -n "$leaked" ]; then
+      echo "" >&2
+      echo "  commit blocked: agent files are tracked only on agents/ branches, and this is" >&2
+      echo "  '${branch:-a detached HEAD}'. Unstage them (they stay on disk, gitignored):" >&2
+      echo "$leaked" | sed 's/^/    git rm --cached -r -q /' >&2
+      exit 1
+    fi
+    ;;
+esac
+
 # Every function gets a spec docstring (AGENTS.md, "Comments and Docstrings"). Blocks a commit that
 # ADDS a defn, defn- or defmacro with none; warns on history wording in added comment lines, using
 # comment_discipline_test's pattern. Runs in every worktree: core.hooksPath is shared by the clone.

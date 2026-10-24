@@ -800,13 +800,13 @@ _claude-branch-triage · claude branch triage_
 
 _claude-files-in-branch-history · claude files in branch history_
 
-**topics:** 09-06, 110, 2026-07-01, 2026-10-23, 8-character, branches, citations, claude, commits, descends, entity-build, gitignores, history, leaks, pre-commit, session, shas, tip
+**topics:** 09-06, 110, 2026-07-01, 2026-10-23, 2026-10-24, 8-character, branch, branches, citations, claude, commit, commits, forced, history, leaks, session, shas, tip
 
 - What leaked
 - Done
 - Decided: no more rewrites (owner, 2026-10-24)
 - How (the perf/entity-build run, for reference)
-- Not yet built
+- The guard (built 2026-10-24)
 
 ## client-ip-behind-proxies.md
 
@@ -910,7 +910,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, positional-threading, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1384,7 +1384,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** agentic, chose, commit, conclusion, dense, discovering, dotfiles, hook, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** agentic, chose, commit, conclusion, dense, discovering, docs-only, dotfiles, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here

@@ -56,8 +56,13 @@ git push --force-with-lease=X:<old tip> origin rewrite/X:X
 `^origin/integration` keeps `integration`'s own commits and signatures untouched. Then update KB
 citations of the old SHAs (`git grep` the KB for each 8-character prefix).
 
-## Not yet built
+## The guard (built 2026-10-24)
 
-A pre-commit check on `agents/develop`'s hooks that refuses `.claude/` or `CLAUDE.md` on any
-branch outside `agents/`. `git add -f` gets past `.gitignore`, which is how the settings file
-reached `perf/entity-build` (2026-10-21). Owner to decide.
+`.githooks/pre-commit` refuses a commit that adds or changes `.claude/` or `CLAUDE.md` on any
+branch outside `agents/`, including one forced past `.gitignore` with `git add -f`. Deleting them
+is allowed, which is how a branch tip gets cleaned. Mid-rebase it uses the branch being rebased;
+a plain detached HEAD counts as outside `agents/`. Tested in a scratch repo: forced `.claude/` file
+and `CLAUDE.md` on `feature/x` blocked; ordinary commit, `agents/` commit, deletion, and rebase of
+an `agents/` branch allowed; the same forced commit went through with the hook before the guard.
+Armed per session by `agent-setup.sh` (`agent-hooks.md`); `--no-verify` skips it, which AGENTS.md
+forbids.
