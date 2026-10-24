@@ -47,9 +47,11 @@ Four layers. Picking the wrong one wastes a build.
 | real SPA, no backend | `test/e2e/*.js` | no | widget DOM→data coercion, builder forms, localStorage. See `test/e2e/README.md` |
 | **real app + real DB + login** | `test/browser/*_e2e.js`, or a script run through `scripts/e2e/run.sh` | **yes** | anything that needs a session: saved characters, custom items, folders, parties, PDF export |
 
-`test/browser/` probes expect a server you started yourself (`lein e2e-server`) and take
-credentials from `ORCPUB_TEST_USER` / `ORCPUB_TEST_PASSWORD` — set those to `kaylee` /
-`serenity99` and the signed-in lanes stop skipping. `scripts/e2e/run.sh` is the newer path that
+`test/browser/` probes expect a server you started yourself and take credentials from
+`ORCPUB_TEST_USER` / `ORCPUB_TEST_PASSWORD`. `lein e2e-server` seeds no user; build the bundle and the stylesheet (`lein fig:build && lein garden once`) and start the seeded server with
+`CSP_POLICY=none ./scripts/e2e/server.sh start` (seeds kaylee / serenity99 and zoe / washburne7; run bare,
+`lein with-profile init-db run -m e2e-boot` falls back to the dev database and needs a transactor), set
+those variables to `kaylee` / `serenity99`, and the signed-in lanes stop skipping. `scripts/e2e/run.sh` is the newer path that
 owns the server lifecycle for you. See also [fast-browser-probes.md](fast-browser-probes.md) for
 the timing traps and the `.lein-env` trap.
 

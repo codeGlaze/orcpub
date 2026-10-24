@@ -281,7 +281,7 @@ _account-flows · account flows_
 
 _agent-hooks · agent hooks_
 
-**topics:** agent, armed, arming, docstring, gitignore, hook, hooks, installer, orcpub-garden, push, reminder, session, sessionstart, setup, trailer, transcript, worktree, worktrees
+**topics:** agent, armed, arming, docstring, hook, hooks, installer, orcpub-garden, push, reminder, session, sessionstart, setup, stripper, trailer, transcript, worktree, worktrees
 
 - The rule
 - The entry point follows the same rule
@@ -295,7 +295,7 @@ _agent-hooks · agent hooks_
 
 _already-held-grants · already held grants_
 
-**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool-grant-map, proficiencies, proficiency, race, replacement, skill, skills, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool, pool-grant-map, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -415,7 +415,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, control, css, docstrings, form, icon, invented, item, labelled, lesson, pin, portrait, review, row, sat, signing, unknown, vanished
+**topics:** 2026-09-29, control, css, docstrings, expression, form, icon, invented, item, lesson, pin, portrait, review, row, sat, signing, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -490,6 +490,27 @@ _branch-inventory · branch inventory_
 - Deleted
 - 2026-10-17 (1 branch)
 - 2026-10-06 (65 branches)
+
+## branch-md-2026-10-23.md
+
+_branch-md-2026-10-23 · branch md 2026 10 23_
+
+**topics:** 2026-10-08, branch, branch-inventory, branches, coderabbit, commits, hold, merge, merged, patch, prs, push, readme, release, rescue, reviews, summer, vetting
+
+- Current state
+- Summer Patch: where it stands (2026-10-08)
+- The tree
+- Fall Update leaves
+- The picks framework — three strands, partly merged (2026-10-13)
+- Deferred to the refactor — known, not yet owned
+- Active sequence — do these in order
+- 1. Land the #669 stale-filtered-list fix
+- 2. Vet the roadmap that lives here
+- 3. Add fix/custom-item-classification to it, then finish that branch
+- 4. Only then, resume combing branches
+- Agent tooling
+- Rules
+- Related
 
 ## branding-setup.md
 
@@ -709,7 +730,7 @@ _character-naming · character naming_
 
 _character-rescue-console · character rescue console_
 
-**topics:** backup, bundle, colons, defences, delimiter, depth-aware, empty-keyword-corruption, healer, minified, parties, repair, scan, tool, transit, unpatched, unscoped, urls, xhr
+**topics:** backup, bundle, colons, defences, delimiter, depth-aware, empty-keyword-corruption, healer, minified, parties, repair, tool, transit, unpatched, unscoped, urls, user, xhr
 
 - 1. When a console tool is the right answer
 - 2. Triage: what the user actually reports
@@ -1255,7 +1276,7 @@ _docker-infrastructure · docker infrastructure_
 
 _docker-security-decisions · docker security decisions_
 
-**topics:** bind, breaks, compose, container, datomic, decision, docker, dockerfile, healthcheck, host, mounts, nginx, password, port, reverted, security, sed, transactor
+**topics:** bind, breaks, compose, container, datomic, decision, docker, dockerfile, healthcheck, host, mounts, nginx, ownership, password, port, reverted, sed, transactor
 
 - Non-Root Containers (Entrypoint-Chown-Drop)
 - sed Replacement Escaping
@@ -1345,7 +1366,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, irreducible, ledger, linked, narrative, plan, session, stale, topic
+**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, plan, session, stale, topic, wrong
 
 - What earns a doc
 - Verify, don't remember
@@ -1430,7 +1451,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
+**topics:** 2026-09-13, cljs-headless-harness, credentials, e2e-boot, fast-browser-probes, helper, journey, kaylee, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -1495,7 +1516,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, loader, non-word, readme, rescued, throw, token
+**topics:** 196-line, 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, loader, non-word, prevention, rescued, throw, token
 
 - The failure
 - The two defences, and where they are
@@ -1796,7 +1817,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _garden-inline-styles-harvest · garden inline styles harvest_
 
-**topics:** 648, block, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, seeded
+**topics:** 648, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, seeded, submit
 
 - Why the branch stalled
 - The branch is healthy
@@ -1939,7 +1960,7 @@ _hiccup-page-escaping · hiccup page escaping_
 
 _hidden-selection-picks · hidden selection picks_
 
-**topics:** already-held-grants, athletics, decision-already-held-resolution, fighter, first-class, gate, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, sites, skill, skills, starting, uncheck
+**topics:** already-held-grants, athletics, control, decision-already-held-resolution, fighter, gate, multi-tab-character-contamination, multiclass, pick, remove, reproduced, rogue, selection, sites, skill, skills, starting, uncheck
 
 - The mechanism
 - What is NOT broken
@@ -2798,7 +2819,7 @@ _plan-chunked-library-storage · plan chunked library storage_
 
 _plan-companions-and-wild-shape · plan companions and wild shape_
 
-**topics:** 2026-09-10, beast, card, cards, companion, creature, discarded, druid, familiar, foundry, master, monster, moon, per-form, shape, sidekicks, taxonomy, wild
+**topics:** 2026-09-10, beast, card, cards, companion, creature, discarded, druid, familiar, foundry, machinery, master, moon, per-form, shape, sidekicks, taxonomy, wild
 
 - The domain map: seven kinds
 - What this reveals
@@ -3116,7 +3137,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, class, dropdown, grant, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, reconciler, sibling, spellcasting, spells
+**topics:** branch, caster, class, dropdown, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, prepares, reconciler, sibling, spellcasting, spells
 
 - The user's ask
 - Branch state — important
@@ -3293,7 +3314,7 @@ _settings-registry-and-boot-report · settings registry and boot report_
 
 _share-bundle-dependency-extraction · share bundle dependency extraction_
 
-**topics:** cljc, cljs, closure, def, direct, extractor, index, keys, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
+**topics:** cljc, cljs, closure, def, direct, extractor, keys, languages, plugins, race, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
 
 - Why this is not trivial
 - The content types (master list)
@@ -3425,7 +3446,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, armor, conditions, counterpart, editions, gear, monsters, open5e, species, srd, text, weapons
+**topics:** 2014, 2024, 285, 313, 317, 319, 322, 5etools, armor, conditions, counterpart, editions, monsters, open5e, species, srd, text, weapons
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -3482,7 +3503,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2026-10-06, 2026-10-07, 5etools, edition, editions, monsters, open5e, owner, pdf, served, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, edition, editions, monsters, open5e, owner, pdf, served, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3507,7 +3528,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-data-consumers · srd data consumers_
 
-**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, load-time, lower-cases, magic, monsters, re-check, spell, srd-2024-roadmap, sub
+**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, load-time, lower-cases, magic, mechanics, monsters, spell, srd-2024-roadmap, sub
 
 - The two facts that shape any move
 - Per type
@@ -3518,7 +3539,7 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 20d6, actions, concentration, conditions, damage, dice, editions, explosion, links, monster, open5e, previews, prices, rules, spell, spells, srd
+**topics:** 2014, 20d6, actions, concentration, conditions, damage, dice, editions, explosion, links, monster, monsters, open5e, previews, rules, spell, spells, srd
 
 - How this was measured
 - What the app shows today
@@ -3595,7 +3616,7 @@ _starting-equipment · starting equipment_
 
 _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
-**topics:** approach, atom, dispatch, during, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
+**topics:** app-code, approach, atom, dispatch, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
 
 - The Problem
 - What Doesn't Work
@@ -3706,7 +3727,7 @@ _typed-keys · typed keys_
 
 _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branches_
 
-**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, claude-branch-triage, conclusions, knowledge, multi-tab, nine, non-, patches, prunable, ranked, stringification, tip, triage, unique
+**topics:** 2026-07-04, 2026-09-12, absent, auth-state-in-app-db, branches, conclusions, knowledge, multi-tab, nine, non-, patches, phrase, prunable, ranked, stringification, tip, triage, unique
 
 - The headline: agents/develop holds 70 of the repo's 128 KB docs
 - Why the guard did not catch this
@@ -3740,7 +3761,7 @@ _ux-guide · ux guide_
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
+**topics:** adjudicating, armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
@@ -3762,7 +3783,7 @@ _verification-discipline · verification discipline_
 
 _views-builders-split · views builders split_
 
-**topics:** 530, builder, builders, child, classes, cljs, consistency, deps, helpers, imports, infrastructure, monster-only, race, race-only, shared, split, toolkit, truly
+**topics:** builder, builders, child, classes, cljs, concept, consistency, deps, helpers, imports, infrastructure, monster-only, race, race-only, shared, split, toolkit, truly
 
 - Context
 - Architecture

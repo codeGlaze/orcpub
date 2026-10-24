@@ -9,30 +9,31 @@
 
 | File | Role | Scope | Changes when? |
 |------|------|-------|---------------|
-| `CLAUDE.md` | Bootstrapper | Claude Code auto-loads; imports AGENTS.md + BRANCH.md | Rarely |
-| `AGENTS.md` | Universal onboarding | Project arch, rules, commands, "where to find things" | Major project changes |
-| `BRANCH.md` | Branch context | Purpose, current state, workflow, handoff notes | Every session / milestone |
+| `CLAUDE.md` | Bootstrapper | Claude Code auto-loads; on agents/develop imports AGENTS.md and BRANCH.md; on a code branch, generated with those and the branch handoff inlined | Rarely |
+| `AGENTS.md` | Universal onboarding | Rules every agent follows on every branch, and where to find things | When the owner changes a rule |
+| `BRANCH.md` | Project state | Release state, the branch tree, the active plan, cross-branch rules. On agents/develop, loaded on every branch | Each milestone |
+| Branch handoff | Branch context | One branch's purpose, state, owner decisions, gotchas. `branches/<branch>.md` on agents/develop | Each milestone |
 
 ### Rules
 
 - **AGENTS.md** is the **single source of truth** for project-wide instructions
 - **AGENTS.md** must be **model-agnostic** — no Claude-specific, Copilot-specific, or Cursor-specific content
-- **BRANCH.md** is **expected to differ** per branch — treat merge conflicts as trivial to resolve
+- **Branch handoffs live on agents/develop** (`branches/<branch>.md`), never on the code branch, so they never reach a PR (`branches/README.md` has the rules, and what to do on a branch that still tracks its own)
 - **CLAUDE.md** is **thin** — only `@imports` and Claude-specific settings (attribution, etc.)
 - Other agents (Copilot, Cursor) point to AGENTS.md via their own config files
 
 ### How Claude Code loads these files
 
 Claude Code auto-loads `CLAUDE.md` at session start. The `@path/to/file` syntax
-in CLAUDE.md triggers recursive imports (max 5 hops). So a thin CLAUDE.md with
-`@AGENTS.md` and `@BRANCH.md` gives Claude all three tiers automatically.
+in CLAUDE.md triggers recursive imports (max 5 hops). On agents/develop, `@AGENTS.md` and
+`@BRANCH.md` load directly. A code branch carries neither, so `agent-setup.sh` generates its
+`CLAUDE.md` with `AGENTS.md`, `BRANCH.md` and that branch's handoff (`branches/<branch>.md`) inlined.
 
 ### For non-Claude agents
 
 Each agent platform has its own config file. Point them at AGENTS.md:
 
 - `.github/copilot-instructions.md` → "Read AGENTS.md"
-- `.cursorrules` → "Read AGENTS.md"
 - Any new agent config → "Read AGENTS.md"
 
 ---
@@ -46,7 +47,7 @@ domain knowledge should be written to `docs/*.md` files — **NOT** left in sess
 transcripts or commit messages where they'll be lost.
 
 **Examples:**
-- Discovered how the entity/build pipeline works → `docs/ENTITY-BUILD.md`
+- Discovered how the entity/build pipeline works → a page in `docs/kb/`
 - Found test suite gotchas and patterns → `docs/TESTING.md`
 - Learned theming system internals → `docs/THEMING.md`
 - Figured out Datomic setup steps → `docs/DATOMIC_SETUP.md`
@@ -56,53 +57,21 @@ transcripts or commit messages where they'll be lost.
 1. **One topic per file**, descriptive filename
 2. **Start with a purpose statement** — what is this doc about and why does it exist
 3. **Include code references** (`file:line`) where relevant
-4. **Universal docs** go on `agents/develop`; **branch-specific docs** stay on their branch
-5. **Keep docs current** — update in the same commit as related code changes
+4. **KB pages and branch handoffs go on `agents/develop`**, never on a code branch (`AGENTS.md`, top)
+5. **Keep docs current** — in the same PR as the code change, and on agents/develop at the same time (`AGENTS.md`, "Docs")
 
-### Current KB inventory
+### Where docs live
 
-| Doc | Content | Location |
-|-----|---------|----------|
-| `docs/DOC-CONVENTIONS.md` | This file — documentation structure | agents/develop |
-| `docs/DATOMIC_SETUP.md` | Datomic Pro installation, transactor, peer JAR | agents/develop |
-| `docs/THEMING.md` | Theme system, SVG icons, Garden CSS | agents/develop |
-| `docs/TESTING.md` | Test suite, patterns, E2E testing | agents/develop |
-| `docs/GIT_WORKFLOW.md` | Multi-branch workflow lessons | agents/develop |
-| `docs/ERROR_HANDLING.md` | Error handling approach | agents/develop |
-| `docs/CODEBASE.md` | Codebase overview (living doc) | agents/develop |
-| `docs/ORCBREW_*.md` | Orcbrew import/validation | agents/develop |
-| `docs/ENTITY-BUILD.md` | Entity/build pipeline architecture | upgrade/datomic-pro |
-| `docs/SESSION-SUMMARY.md` | Session continuity notes | upgrade/datomic-pro |
-| `docs/ENVIRONMENT.md` | Environment variable details | upgrade/datomic-pro |
+- **`docs/kb/`:** agents/develop only; `docs/kb/README.md` is the index.
+- **`CODEBASE.md`, `SETUP.md`, `branches/`:** agents/develop only.
+- **Other `docs/` pages:** on agents/develop, and many also on the code branches (`git ls-tree
+  origin/integration docs/` lists them). Where both have one, `AGENTS.md`, "Docs", says what to change.
 
 ---
 
-## BRANCH.md Template
+## Branch handoffs
 
-Every branch should have a `BRANCH.md` at root. Use this template:
-
-```markdown
-# Branch Context: <branch-name>
-
-## Purpose
-<What this branch is for — one or two sentences>
-
-## Current State
-<What's done, what's in progress, what's blocked>
-
-## Workflow
-<Special rules, hooks, commit routing patterns for this branch>
-
-## Handoff Notes
-<What the next agent or session needs to know to continue>
-
-## Related Docs
-<Pointers to relevant docs/ files for this branch's work>
-```
-
-### Tips for BRANCH.md
-
-- Update it at the **end of every session** or when hitting a milestone
-- Keep it **short** (15-40 lines) — it's a quick-reference, not a journal
-- If handoff notes grow large, split detail into a `docs/` file and link to it
-- Merge conflicts in BRANCH.md are expected and trivial — just take the current branch's version
+One file per code branch that has state the next agent needs, at `branches/<branch>.md` on
+agents/develop, started from `branches/TEMPLATE.md`. A one-session fix needs none. Rules (keep it
+under about 80 lines, update it at each milestone, move finished history to the KB, delete it when
+the branch merges): `branches/README.md`.

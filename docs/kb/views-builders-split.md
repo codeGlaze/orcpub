@@ -99,6 +99,11 @@ These are `(partial option-proficiency-choice ...)`, not `defn`s. Easy to miss w
 Only used by `modifier-values` (classes.cljs). Both moved together.
 
 ### 6. Small files are OK for consistency
+
+> **Check against AGENTS.md first** ("Shrinking the big files", owner 2026-10-23): a namespace holds
+> a concept family, not one small concept. Whether a 40-line single-builder file qualifies is the
+> owner's call when this split is picked up.
+
 `language.cljs` is ~40 lines. That's fine — a dev looking for "the language builder" will always find `builders/language.cljs`. Consistency matters more than minimum file size.
 
 ### 7. Boon + invocation share `warlock.cljs`

@@ -1,280 +1,167 @@
-# Git Workflow: Lessons Learned & Implementation
+# Git workflow
 
-This document captures the design decisions and lessons learned while implementing a multi-branch workflow for managing feature development, testing infrastructure, and documentation.
+How branches, PRs and the agent tooling fit together. The rules themselves are in `AGENTS.md`,
+"Branches"; this page explains the moving parts.
 
-## The Problem
-
-When working on feature branches, different types of changes get mixed together:
-- **Code changes** → belong in `develop`
-- **Test infrastructure** (E2E, devcontainer, CI) → belong in `testing/develop`
-- **Documentation** (CLAUDE.md, agent config) → belong in `agents/develop`
-
-Without guardrails:
-- Hours of work can be corrupted by accidental commits
-- Cherry-picking specific fixes becomes tedious
-- PRs get polluted with unrelated files
-
-### Additional Challenge: Agent Tooling
-
-Feature branches created from `agents/develop` start "dirty" with agent files (CLAUDE.md, etc.). These need to be removed before PR, but agents need them during development.
-
-## Solution Architecture
-
-### Three-Layer Protection
+## Branches
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Layer 1: Worktrees (Physical Isolation)                    │
-│  - Separate directories for each branch                     │
-│  - No accidental branch switching                           │
-│  - Can work on multiple branches simultaneously             │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 2: Git Hooks (Automatic Safety)                      │
-│  - pre-commit: Blocks wrong file types per branch           │
-│  - pre-push: Final check + blocks direct push to develop    │
-│  - Agent-friendly error messages with fix instructions      │
-├─────────────────────────────────────────────────────────────┤
-│  Layer 3: Dual-Branch Workflow (Clean PRs)                  │
-│  - feature/x from develop (stays clean)                     │
-│  - integrate/x from agents/develop (has tooling)            │
-│  - route-commit.sh moves code between them                  │
-└─────────────────────────────────────────────────────────────┘
+develop            upstream trunk; takes integration through the release PR (owner only)
+  integration      active trunk; every feature, fix and hotfix PR lands here
+    feature/* fix/* hotfix/* perf/* docs/* test/* upgrade/*   one branch per piece of work, cut from integration
+    refactor/*     parent for the refactor tree; its leaves PR into it
+agents/develop     agent home, off to the side: KB, docs, agent config, hooks, branch
+                   handoffs, agent-facing research and measurement tooling. No app tests. Merges integration in for file:line accuracy; ships nothing
+claude/*           harness auto-branches; never merged, re-homed onto a typed branch first
 ```
 
-### Branch Structure
+Fork-only files may live on our `develop` and are removed before any PR to `Orcpub/orcpub`
+(list in `BRANCH.md` on agents/develop). `testing/develop` is retired; its agent-facing parts moved here.
 
-```
-develop                    # Main code branch (PRs only)
-├── testing/develop        # E2E, devcontainer, CI, scripts/git
-├── agents/develop         # CLAUDE.md, .claude/, docs/*.md
-└── feature/* or fix/*     # Clean feature branches for PR
-    └── integrate/*        # Work branches with agent tooling
-```
+## A piece of work, start to finish
 
-## Key Design Decisions
+1. Cut a typed branch from `integration`, with the owner's approval of its name.
+2. Commit code, and every test that checks the app (unit, cljs, browser probes and hand-run
+   regression scripts), there. KB findings, the branch handoff and research or measurement tooling
+   go to `agents/develop` (`AGENTS.md`, branch table).
+3. Before a merge or a PR: merge `integration` in, run the suites for what the branch changed and the
+   full `lein lint` (`docs/TESTING.md`, "Before a PR"). Leave
+   `docs/branch-changelog.md` unfolded while the PR is reviewed (its CI check stays red until the
+   fold); fold it when the owner says the PR is about to merge (`AGENTS.md`, "Changelogs").
+4. Open the PR into `integration` when the owner says. The merge gate is in `AGENTS.md`, "PRs and
+   releases". Agents never merge unless the owner says to merge that PR.
 
-### 1. Absolute Paths for Hooks
+## Recipes
 
-**Problem**: Relative `.githooks` path doesn't work in worktrees (they don't have the directory).
+The commands behind rules in `AGENTS.md`. The rules stay there; these are the how.
 
-**Solution**: `install-hooks.sh` uses absolute path:
-```bash
-git config core.hooksPath "/workspaces/orcpub/.githooks"
-```
+### Writing to agents/develop
 
-### 2. Agent-Friendly Error Messages
-
-**Problem**: Agents need clear, actionable guidance when blocked.
-
-**Solution**: Error messages include:
-- What file was blocked
-- What branch you're on
-- What files ARE allowed on this branch
-- Multiple fix options with exact commands
-
-```
-✗ COMMIT BLOCKED
-
-  File:   src/clj/orcpub/routes.clj
-  Branch: agents/develop
-
-  This branch only accepts:
-    *.md, CLAUDE.md, .claude/*, agents/*, docs/*
-
-  HOW TO FIX:
-  Option 1: git reset HEAD src/clj/orcpub/routes.clj
-  Option 2: ./scripts/git/route-commit.sh HEAD develop
-  Option 3: cd ../orcpub-develop
-```
-
-### 3. Dual-Branch Feature Workflow
-
-**Problem**: Agents need tooling during development, but PRs must be clean.
-
-**Solution**: Two branches per feature:
-- `feature/x` - from `develop`, stays clean, used for PR
-- `integrate/x` - from `agents/develop`, has CLAUDE.md, used for work
-
-Code commits are routed from integrate to feature using `route-commit.sh`.
-
-### 4. Multiple Branch Type Prefixes
-
-**Problem**: Not all work is "features" - fixes, patches, enhancements.
-
-**Solution**: `start-feature.sh` and `route-commit.sh` support:
-- `feature/`, `fix/`, `bugfix/`, `bug-fix/`
-- `hotfix/`, `hot-fix/`, `patch/`, `hotpatch/`, `hot-patch/`
-- `enhancement/`
-
-### 5. Devcontainer Auto-Setup
-
-**Problem**: Contributors shouldn't need to manually install hooks.
-
-**Solution**: `.devcontainer/setup.sh` automatically:
-1. Installs hooks (if scripts exist)
-2. Sets up worktrees (if script exists)
-3. Gracefully handles missing files (different branch)
-
-### 6. Direct Push to Develop Blocked
-
-**Problem**: Accidental pushes to develop bypass PR review.
-
-**Solution**: `pre-push` hook blocks pushes to `develop` with guidance to create a feature branch and PR instead.
-
-## Scripts Reference
-
-| Script | Purpose |
-|--------|---------|
-| `setup-worktrees.sh` | Creates worktrees for develop, testing, agents |
-| `install-hooks.sh` | Configures git to use .githooks/ |
-| `route-commit.sh` | Cherry-picks commits to correct branch/worktree |
-| `start-feature.sh` | Creates paired feature + integrate branches |
-| `prepare-pr.sh` | Cleans agent files from a branch (alternative workflow) |
-
-## Workflow Examples
-
-### Starting a New Feature
+From a code branch: one docs worktree per code branch, outside the code worktree, never by switching
+the code branch's worktree. Name it after the branch (`/` as `-`) and reuse it in every session on
+that branch. `--detach` works even when `agents/develop` is checked out elsewhere. A push that changes
+`AGENTS.md`, `CLAUDE.md`, `.githooks/`, `scripts/agent-setup.sh` or `.claude/` needs the owner's yes
+first (`AGENTS.md`).
 
 ```bash
-# Create paired branches
-./scripts/git/start-feature.sh add-dark-mode
-
-# You're now on integrate/add-dark-mode
-# Has CLAUDE.md, agent tooling available
-
-# Work, commit code changes
-git commit -m "Add dark mode toggle"
-
-# Route to clean branch
-./scripts/git/route-commit.sh HEAD add-dark-mode
-
-# When ready, PR from clean branch
-git checkout feature/add-dark-mode
-git push -u origin feature/add-dark-mode
-gh pr create --base develop
+D=../orcpub-agents-for-<your-branch>
+git fetch -q --prune origin
+git worktree add --detach "$D" origin/agents/develop       # first time on this branch
+git -C "$D" status --porcelain                             # each later task: must print nothing;
+                                                           # if not, an earlier task left edits: report them
+git -C "$D" switch -q --detach origin/agents/develop       # then start from the fetched tip
+# edit, then commit and push straight to it, no PR:
+git -C "$D" add <files>
+git -C "$D" commit -m "kb: ..."
+git -C "$D" push origin HEAD:agents/develop
+# refused because another agent pushed first?
+#   git -C "$D" pull --no-rebase origin agents/develop
+#   resolve any conflict and commit, then push again.
+git worktree remove "$D"                                   # when the branch is merged or dropped
 ```
 
-### Routing Infrastructure Changes
+### Moving off a claude/* branch
+
+- **Check what it was cut from:** `git fetch --prune origin`, then `git log --oneline origin/integration..HEAD` should list only
+  commits made on this `claude/*` branch. If it lists others, it was not cut from `integration`:
+  say so in Needs you.
+- **On the owner's yes, if it was cut from `integration`:** `git switch -c <branch> && git push -u
+  origin <branch>` (the new branch carries the `claude/*` commits), and continue there.
+- **If it was cut from anywhere else:** ask in Needs you how to move the commits before switching.
+
+### CodeRabbit
+
+- **When it reviews by itself:** once, when a PR into `integration` or `develop` is first opened as
+  ready. It skips drafts and does not review later pushes on its own (`.coderabbit.yaml`:
+  `auto_review`, `auto_incremental_review: false`; docs.coderabbit.ai/configuration/auto-review).
+  The docs do not say whether marking a draft ready starts a review: if 10 minutes later there is no
+  CodeRabbit comment and no in-progress status on the PR, ask.
+- **Asking:** a `@coderabbitai full review` comment on the PR. Plain `@coderabbitai review` has
+  answered "Review failed" on PRs into `integration` (it worked only while automatic reviews were
+  paused; checked 2026-10-16 on #64).
+- **The allowance:** every agent pushes as codeGlaze, so all agents and the owner share one,
+  refilled hourly (measured figures: `BRANCH.md`, "Merge gate and CodeRabbit limits"); there is no
+  paid overage. A
+  review replaced by a newer push still counts. A rate-limited request does nothing: wait out the
+  reset, then ask once more.
+
+### Subagents in a shared worktree
 
 ```bash
-# Commit test changes on integration branch
-git commit -m "Add E2E test for dark mode"
-
-# Route to testing/develop
-./scripts/git/route-commit.sh HEAD testing
-
-# Push from worktree
-cd ../orcpub-testing
-git push origin testing/develop
+git status --porcelain --untracked-files=all   # at the start: keep this list
+# EITHER the work is finished and verified: commit only your own, clean-at-start files
+git add -- <your new files>
+git commit -m "..." -- <your files>
+# OR you hit your limit with the work unfinished: restore only files that were clean at the start
+git checkout HEAD -- <files you changed that were clean>
+rm <files you created>
 ```
 
-### Fixing a Blocked Commit
+Never both. A file that already had changes at the start is reported, never restored or committed.
+The start list cannot see an edit the parent makes to a clean file after you started: if a file
+you are about to restore has changes you did not make, report it instead. Never run `git checkout .`,
+`git stash`, `git clean`, `git commit -a` or `git add -A` in a shared worktree: they wipe or take the
+parent's edits.
 
-When hook blocks you:
-1. Read the error message
-2. Choose a fix option:
-   - Unstage the file: `git reset HEAD <file>`
-   - Route the commit: `./scripts/git/route-commit.sh HEAD <target>`
-   - Switch worktrees: `cd ../orcpub-<target>`
+### Merging integration in
 
-## Lessons Learned
-
-### What Worked Well
-
-1. **Worktrees >> Branch switching** - Physical isolation prevents most mistakes
-2. **Hooks as safety net, not workflow** - They catch mistakes, don't enforce workflow
-3. **Agent-readable errors** - Clear guidance reduces friction
-4. **Devcontainer auto-setup** - Zero manual steps for contributors
-5. **Flexible branch prefixes** - Works with existing naming conventions
-
-### What Required Iteration
-
-1. **Relative vs absolute hook paths** - Had to switch to absolute for worktree support
-2. **Hook placement** - Hooks need to be in main repo, not each worktree
-3. **Route script for local branches** - Initially only supported worktrees
-4. **Error message formatting** - Took several iterations to get right for agents
-
-### Trade-offs
-
-| Decision | Benefit | Cost |
-|----------|---------|------|
-| Worktrees | True isolation | More disk space |
-| Dual-branch workflow | Always-clean PRs | Extra routing step |
-| Blocking develop push | Forces PR review | Can't quick-fix develop |
-| Auto-setup in devcontainer | Zero manual steps | Setup runs every rebuild |
-
-## Files Created
-
-```
-.githooks/
-├── pre-commit          # Branch-aware file blocking
-└── pre-push            # Final safety + develop block
-
-scripts/git/
-├── README.md           # Full documentation
-├── setup-worktrees.sh  # Create worktrees
-├── install-hooks.sh    # Configure git hooks
-├── route-commit.sh     # Move commits between branches
-├── start-feature.sh    # Create paired branches
-└── prepare-pr.sh       # Clean agent files (alternative)
+```bash
+git fetch origin && git merge --no-commit --no-ff origin/integration
+# then the full lein lint and the "Before committing" checks (docs/TESTING.md), then:
+git commit
 ```
 
-## Alternative Approaches Considered
+Without `--no-commit`, a merge with no conflicts commits itself, with no checks and no pre-commit
+hook. `--no-ff` stops a fast-forward from skipping the merge commit.
 
-### Symlink Approach (Not Adopted)
+### Heavy Docker checks
 
-**Idea**: Keep agent files only in `agents/develop` worktree, symlink them into feature branches (gitignored).
+About 20 minutes of out-of-memory and Swarm tests, not part of the general suite. The files that
+count are the `paths:` list of `.github/workflows/docker-heavy.yml`; read the current list there (on a
+branch without the file: `git show origin/feature/email-and-alerts:.github/workflows/docker-heavy.yml`).
 
-```
-feature/my-feature/
-├── CLAUDE.md -> ../orcpub-agents/CLAUDE.md  # symlink, gitignored
-├── .claude/ -> ../orcpub-agents/.claude/     # symlink, gitignored
-└── src/...                                   # actual code
-```
+- **When they run:** on a PR into `develop` or `integration` whose diff against its base touches
+  any listed path, on every push and every label change, docs-only pushes included: GitHub matches
+  the filter against the whole PR diff. Not on a refactor leaf's PR into its `refactor/` parent. A PR
+  run uses the workflow from the PR merged into its base, so it runs once either side carries
+  `docker-heavy.yml`: today only `feature/email-and-alerts`; every PR into `integration` once that
+  merges, older branches included.
+- **Pushes to `feature/email-and-alerts` itself:** its workflow has at times carried a temporary
+  `push:` trigger with no file filter, so every push runs the checks, PR or not. Read its `on:` block
+  before pushing there.
+- **Pausing them:** the PR label `heavy-docker: later`. Batch pushes to keep runs few.
+- **By hand:** `gh workflow run docker-heavy.yml --ref <branch>` (the pre-push hook prints it) works
+  only once the workflow is on `develop`, the default branch.
+- **When to ask the owner:** `AGENTS.md`, "Tests".
 
-**Pros**:
-- Feature branches stay completely clean
-- No stripping needed before PR
-- Agent files versioned but never in feature branch history
+## Agent tooling on a code branch
 
-**Cons**:
-- Risk of agents not finding symlinked CLAUDE.md
-- Symlinks may not work on Windows without admin privileges
-- IDE indexing behavior varies with symlinks
-- More complex setup
+Code branches carry no `CLAUDE.md` and gitignore `.claude/`. `scripts/agent-setup.sh` (run by the
+SessionStart hook, or `git show origin/agents/develop:scripts/agent-setup.sh | bash`) copies the
+tooling from `agents/develop` into gitignored paths, so it can never reach a PR; generates
+`CLAUDE.md` with `AGENTS.md`, `BRANCH.md` and the branch's handoff (`branches/<branch>.md`) inlined;
+drops plain copies of `AGENTS.md` and `BRANCH.md` for agents that read those instead; and arms the
+hooks. Integration's `.gitignore` covers `CLAUDE.md` and `.claude/`; the script ignores the other two
+in the clone's `.git/info/exclude`. `--check` verifies without changing
+anything. The KB stays on `agents/develop`: read it with `git show origin/agents/develop:<path>`.
 
-**Decision**: Stick with dual-branch workflow. The `prepare-pr.sh` cleanup script handles edge cases where agent files slip through.
+## Hooks
 
-### Separate Repository (Not Adopted)
+Versioned in `.githooks/` on `agents/develop`, armed through `core.hooksPath` (`docs/kb/agent-hooks.md`).
 
-**Idea**: Keep agent instructions in a completely separate git repository.
+| Hook | Does |
+|------|------|
+| `commit-msg` | strips agent attribution: `Co-Authored-By: Claude` and `Claude-Session:` trailers, and "Generated with Claude Code" lines |
+| `pre-commit` | blocks a commit that adds or changes `CLAUDE.md`, `AGENTS.md`, `BRANCH.md` or `.claude/` on a code branch (a forced `git add -f` gets past `.gitignore`, not this); blocks a commit that adds a function without a docstring; warns on history wording in comments; on a merge commit, checks only functions new to both sides; on `agents/develop`, when `docs/` changes, checks doc links, the develop superset and the KB lint (headings, every page reachable, `topic-index.md` current), and when an SRD check script changes, runs its self-test |
+| `pre-push` | refuses to push an unfolded `docs/branch-changelog.md` onto `integration`, `develop` or `main`; when the branch changes deployment files and `docker-heavy.yml` exists, prints the heavy-Docker heads-up and the command to run them; on a push onto those branches, also refuses a `CHANGELOG.md` that fails `scripts/lint-changelog.py` |
 
-**Pros**:
-- Complete isolation
-- Can version independently
-- Shareable across multiple projects
+On a merge commit the pre-commit docstring check counts a function as new only if it is new to both
+sides, so the other side's functions pass and ones written while resolving are checked. Agents never
+use `--no-verify` without the owner's yes for that commit or push: it skips every hook, including the
+session-URL stripper in `commit-msg` and the agent-file guard.
 
-**Cons**:
-- Two repos to manage
-- Sync complexity
-- Instructions can drift from code
+## History
 
-**Decision**: Not worth the overhead for a single project.
-
-### testing/develop vs agents/develop
-
-**Observation**: `testing/develop` also "pollutes" feature branches when merged (for devcontainer, E2E access), but this is acceptable because:
-
-1. Testing infrastructure is *part of the project* - legitimate to include
-2. CI needs `.github/workflows/` to run
-3. E2E tests validate the feature
-
-Agent instructions are *meta* - about how to work on the project, not part of it. This distinction justifies treating them differently.
-
-## Future Improvements
-
-- [ ] GitHub Actions to validate branch contents on PR
-- [ ] Script to sync worktrees after pulling
-- [ ] Interactive mode for route-commit.sh to select commits
-- [ ] VSCode tasks for common operations
-- [ ] `--strip-only` flag for prepare-pr.sh (quick cleanup without cherry-pick)
+Until 2026-10 this page described a dual-branch system (paired `integrate/*` and `feature/*`
+branches, `route-commit.sh`, `pull.sh`, `testing/develop`). Those scripts are gone and `testing/develop` is retired (it still exists, unused);
+the old page is in git history (`git show 2e895a7f8:docs/GIT_WORKFLOW.md`).
