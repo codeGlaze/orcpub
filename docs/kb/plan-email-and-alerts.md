@@ -5,8 +5,10 @@ approved by name). Done: stage 1 the settings report (`d8cdfb4a6`), stage 2 admi
 (`3c16593e7`), their human docs (`f578c9b31`), the settings lists and `.env` reading (see
 [settings-registry-and-boot-report.md](settings-registry-and-boot-report.md),
 [env-and-auth.md](env-and-auth.md)), stage 3 the player outbox (`fe7737c48`; `0c5446daa` before
-it holds only a test file's rename and does not load on its own). Next: 4 Docker (log rotation,
-the spool volume), 5 the Discord webhook (owner is wary: off unless set), then the PR. Replaces #65's own
+it holds only a test file's rename and does not load on its own). Stage 4 (Docker: log rotation,
+crash files and alerts in /var/log on the host, Swarm fixes, the upgrade report) is built and
+passes the heavy checks on bare metal, Compose and Swarm (2026-10-24). Stage 5, the Discord
+webhook, is **deferred to a later branch** (owner, 2026-10-24): see below. Then the PR. Replaces #65's own
 scheduler for artist credit notices, whose two CodeRabbit findings (a pending batch lost; a failed
 send never retried) were the starting point.
 
@@ -52,7 +54,19 @@ emails most likely to be sent while things are failing.
 - **Player-submitted "character won't load" reports** are limited per person and by size, so they
   cannot flood either path.
 
-### Optional: a Discord webhook as a second channel
+### Future improvement: a Discord webhook as a second channel
+
+**Deferred, not built** (owner, 2026-10-24: record it for later; was wary of it). How it would work:
+
+- Setting `DISCORD_WEBHOOK_URL`, off unless set. Discord gives the URL under a channel's
+  Integrations, Webhooks; a JSON POST (`{"content": ...}`) to it posts the message. No bot, no library:
+  Java's `HttpClient`, 5-second timeout.
+- A second channel beside email in `orcpub.alerts`, fed the same alerts (crashes, failed email,
+  database down) through the same de-duplication, hourly cap and breaker; sent on the alerts
+  thread, so a slow Discord holds nothing up. A failure is logged and the alert stays spooled.
+- Same text as the alert email; never player data. A row in the settings registry (`:secret? true`)
+  and in `docs/BRANDING-AND-INTEGRATIONS.md`. Tests against a local fake HTTP server.
+- Size: about 60 lines plus tests. Rules for it:
 
 - The webhook address is a secret (anyone holding it can post to the channel; nobody can read
   through it): a Docker secret, never in client code or logs; regenerated in Discord if it leaks.

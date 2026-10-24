@@ -2863,13 +2863,13 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** admin, alert, alerts, artist, database, discord, docker, email, emails, mail, outbox, sent, shutdown, spool, swarm, transaction, webhook, worker
+**topics:** admin, alert, alerts, artist, database, discord, email, emails, mail, outbox, sent, shutdown, spool, stage, swarm, transaction, webhook, worker
 
 - The problem
 - Two kinds of email
 - Player email: the transactional outbox
 - Admin alerts: independent of the database
-- Optional: a Discord webhook as a second channel
+- Future improvement: a Discord webhook as a second channel
 - Settings: in the registry, and announced at start-up (owner, 2026-10-17)
 - Docker, Compose and Swarm
 - Documentation
