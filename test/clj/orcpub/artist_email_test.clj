@@ -79,7 +79,7 @@
   (let [sent (atom [])]
     (with-redefs [ae/base-url (constantly "https://site.test")
                   ae/admin-recipient (constantly "admin@site.test")
-                  environ.core/env (assoc environ.core/env :email-server-url "smtp.test")
+                  ae/email-on? (constantly true)
                   orcpub.outbox/enqueue-current! (fn [_kind m] (swap! sent conj m) true)]
       (is (true? ((:created ae/notify) created-event)) "reported sent"))
     (is (= ["artist@example.test" "admin@site.test"] (map :to @sent)))))
@@ -87,7 +87,7 @@
 (deftest a-welcome-that-could-not-be-queued-is-reported-unsent
   (with-redefs [ae/base-url (constantly "https://site.test")
                 ae/admin-recipient (constantly "admin@site.test")
-                environ.core/env (assoc environ.core/env :email-server-url "smtp.test")
+                ae/email-on? (constantly true)
                 orcpub.outbox/enqueue-current! (fn [_kind m] (= "admin@site.test" (:to m)))]
     (is (false? ((:created ae/notify) created-event))
         "the admin copy going out does not count as the artist's")))
