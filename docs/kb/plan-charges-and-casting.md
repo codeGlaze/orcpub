@@ -101,8 +101,17 @@ On `feature/weapons-table` (owner: "just finish building it here"):
    "once per dawn", saves and resets, so turning them into pools of 1 would add risk with no visible
    change. Withering's Con save is not tied to the spend yet (an effect with a cost would be a second
    paid item).
-5. **Rest box** per the handoff: Features tab, time of day, Now, rests, the question, result line,
-   Undo; regain rolls with type-your-own.
+5. **Rest box: done.** `d40aa2de` reset times: a long rest clears `[::long-rest ::rest]` only;
+   `::dusk` added (spec, schema, names); `units/dawn-clears` `[::dawn ::day]` (once-per-day uses come
+   back at dawn) and `dusk-clears`; Robe of Stars (6 stars, 1d6 at dusk). `71b4f433` the engine,
+   `orcpub.dnd.e5.rests`: `carried`, `apply-actions` (rest and times; charges rolled or typed),
+   `ask-time-of-day?`, `would-recharge`, `has-time-of-day?`. `8b528b9e` the box (`views.cljs`
+   `rest-box`, first on Features; events `::char5e/take-rest`, `answer-time-of-day`,
+   `set-rest-amount`, `undo-rest`, `close-rest-result`; the last action is kept in
+   `::char5e/rest-result` and cleared on any route change, so Undo never reaches another
+   character). `rest_box_e2e.js`, 16 checks, every claim seen failing. The Spells tab's old long-rest
+   button stays (handoff D4) and no longer means dawn. **Not yet:** the floating button and Import log
+   move, Dev mode (step 8); light theme not shot yet.
 6. **Casting from items:** `::mi/casts` data for the 30 items, the Cast button and charge-priced
    level picker, the result card. No damage roll yet.
 7. **Item builder:** Charges group and casts; schema for the new item fields.
