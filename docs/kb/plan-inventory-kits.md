@@ -98,6 +98,14 @@ stored: the same 13 torches split 10/3 or 3/10 depending on refill history.
    alphabetical views; the PDF lists each place under its own header.
    **Split (owner, 2026-10-23):** backpack on/off lands on `feature/inventory-kits`; camp, mount,
    wagon (and moving kits between places) wait, deferred until the owner picks them up.
+   **Backpack on/off built (2026-10-23):** a "Backpack" line at the top of the sheet's Other
+   Equipment (no icon, so the backpack glyph is not repeated) with a compact Worn | Off (`.seg`).
+   It is the Backpack pick's own Carried? flag (`inventory/backpack-worn?`, `set-backpack-worn`),
+   so the builder's checkbox is the same setting and nothing new is stored. Off: every other Other
+   Equipment row shows greyed under "In the backpack, not carried", still counted; items keep their
+   own flags, so the PDF is unchanged until the PDF work (after `feature/weapons-table`).
+   **Future (owner):** some gear counts as carried on the person by default (a waterskin, a pouch's
+   tinderbox) and stays carried with the backpack off; needs a per-item default and override.
 4. **Homebrew kits.** A content type: name, cost, container, items with targets, choices from a pool
    (the pool + grant layer, [content-extensibility-framework.md](content-extensibility-framework.md)),
    able to list custom items.
