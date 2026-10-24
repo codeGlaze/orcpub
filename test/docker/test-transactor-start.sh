@@ -56,8 +56,8 @@ check "Swarm, TRANSACTOR_HOST set: it wins" datomic 127.0.0.1 "" \
   FAKE_SERVICE=10.0.1.2 FAKE_SELF=10.0.1.7 TRANSACTOR_HOST=datomic
 check "Swarm, ALT_HOST=127.0.0.1 set: kept, with a warning" 0.0.0.0 127.0.0.1 "WARNING ALT_HOST is 127.0.0.1" \
   FAKE_SERVICE=10.0.1.2 FAKE_SELF=10.0.1.7 ALT_HOST=127.0.0.1
-check "No name lookup (plain docker run): unchanged" datomic 127.0.0.1 "" \
-  FAKE_SELF=172.17.0.2
+check "The name does not resolve (Swarm before the service is healthy): Swarm addresses" 0.0.0.0 datomic "does not resolve" \
+  FAKE_SELF=10.0.1.20
 check "Both set for Swarm: used as set" 0.0.0.0 datomic "" \
   FAKE_SERVICE=10.0.1.2 FAKE_SELF=10.0.1.7 TRANSACTOR_HOST=0.0.0.0 ALT_HOST=datomic
 

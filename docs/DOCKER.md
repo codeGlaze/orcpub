@@ -307,7 +307,8 @@ gives the app the service name to connect to instead.
 Both come from settings filled in when the transactor starts, so one image runs
 either way. The stack file `./run --swarm` writes sets them for Swarm. When
 `TRANSACTOR_HOST` is not set at all, the transactor works it out: if `datomic`
-resolves to an address that is not its own container, it is on Swarm, so it
+resolves to an address that is not its own container, or does not resolve at all
+(Swarm only publishes the name once the service is healthy), it is on Swarm, so it
 serves on `0.0.0.0` and gives the app `datomic` (unless `ALT_HOST` is set). It
 prints which it chose, `transactor: host=... alt-host=...`, so a stack deployed
 without `./run` (pasted into Portainer, say) still works and says what it did.

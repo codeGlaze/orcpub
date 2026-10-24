@@ -68,8 +68,8 @@ escape_sed_replacement() {
 
 # --- Transactor addresses (docs/DOCKER.md, "host=datomic Rationale") ----------
 # On Compose "datomic" is this container's own address. On Swarm it is the service's virtual
-# address, which the transactor cannot serve on: then serve on 0.0.0.0 and give the app
-# "datomic" as its second address. Settings that are set always win.
+# address, which the transactor cannot serve on, or nothing at all until the service is healthy:
+# then serve on 0.0.0.0 and give the app "datomic" as its second address. Set values always win.
 
 # own_addresses: this container's addresses, one per line.
 own_addresses() {
@@ -81,7 +81,11 @@ if [ -z "${TRANSACTOR_HOST:-}" ]; then
   TRANSACTOR_HOST=datomic
   _service_ip=$(getent hosts datomic 2>/dev/null | { read -r ip _ || true; echo "${ip:-}"; } || true)
   _own=$(own_addresses || true)
-  if [ -n "$_service_ip" ] && ! grep -qxF "$_service_ip" <<<"$_own"; then
+  if [ -z "$_service_ip" ]; then
+    TRANSACTOR_HOST=0.0.0.0
+    ALT_HOST="${ALT_HOST:-datomic}"
+    echo "transactor: 'datomic' does not resolve here (Swarm publishes it once the service is healthy); serving on 0.0.0.0. Set TRANSACTOR_HOST to choose."
+  elif ! grep -qxF "$_service_ip" <<<"$_own"; then
     TRANSACTOR_HOST=0.0.0.0
     ALT_HOST="${ALT_HOST:-datomic}"
     echo "transactor: 'datomic' is ${_service_ip}, not this container (a Swarm service address); serving on 0.0.0.0. Set TRANSACTOR_HOST to choose."

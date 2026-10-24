@@ -55,7 +55,8 @@ jobs:
 
   bare-metal:
     name: Bare metal - out-of-memory leaves a heap dump and is reported
-    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later')"
+    # TEMPORARY: the push run is Swarm only.
+    if: "github.event_name != 'push' && (github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later'))"
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -88,7 +89,8 @@ jobs:
 
   compose:
     name: Docker Compose - out-of-memory exits, leaves a heap dump in /var/log, is reported
-    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later')"
+    # TEMPORARY: the push run is Swarm only.
+    if: "github.event_name != 'push' && (github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later'))"
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
