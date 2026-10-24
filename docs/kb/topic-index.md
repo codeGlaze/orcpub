@@ -281,7 +281,7 @@ _account-flows · account flows_
 
 _agent-hooks · agent hooks_
 
-**topics:** agent, armed, arming, docstring, gitignore, hook, hooks, installer, orcpub-garden, reminder, session, sessionstart, setup, stripper, trailer, transcript, worktree, worktrees
+**topics:** agent, armed, arming, docstring, gitignore, hook, hooks, installer, orcpub-garden, push, reminder, session, sessionstart, setup, trailer, transcript, worktree, worktrees
 
 - The rule
 - The entry point follows the same rule
@@ -800,12 +800,12 @@ _claude-branch-triage · claude branch triage_
 
 _claude-files-in-branch-history · claude files in branch history_
 
-**topics:** 110, 182, 2026-07-01, 2026-10-23, 8-character, branch, citations, commits, days, descends, history, rewrite, rewriting, session, shas, summary, tip, weeks
+**topics:** 09-06, 110, 2026-07-01, 2026-10-23, 8-character, branches, citations, claude, commits, descends, entity-build, gitignores, history, leaks, pre-commit, session, shas, tip
 
 - What leaked
 - Done
-- Still to do — decide branch by branch
-- How (the perf/entity-build run)
+- Decided: no more rewrites (owner, 2026-10-24)
+- How (the perf/entity-build run, for reference)
 - Not yet built
 
 ## client-ip-behind-proxies.md
@@ -1408,7 +1408,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
-**topics:** abbreviation, bulk, characters, dash, derivation, key, match, orphans, rebind, relink, rename, repair, rung, save, shim, trailing, trim, trimming
+**topics:** abbreviation, bulk, characters, dash, derivation, item, key, orphans, rebind, relink, rename, repair, rung, save, shim, trailing, trim, trimming
 
 - The problem, stated properly
 - The invariant to establish
@@ -1443,7 +1443,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 2026-09-13, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, helper, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
+**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, custom-item, e2e-boot, fast-browser-probes, journey, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command

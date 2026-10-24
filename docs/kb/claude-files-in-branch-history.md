@@ -25,31 +25,23 @@ or attribution lines in either.
 none of the 110 commits contains either file, all are signed, messages, dates and authors
 unchanged. KB citations of the old tip updated. A local backup stays in that session only.
 
-## Still to do — decide branch by branch
+## Decided: no more rewrites (owner, 2026-10-24)
 
-These carry the files and would bring them into `integration` on merge. Leave out `claude/*` and
-`ccr-*` (harness branches, remade anyway).
+Old leaks stay in history: `integration` itself has 4 commits (2026-08-31 to 09-06) that touched
+`CLAUDE.md` or `.claude/`, and these branches still carry the June summary and their own
+`CLAUDE.md`. Rewriting them would cost far more than the harmless notes are worth. What matters
+is that nothing NEW or RECENT leaks:
 
-| Branch | Carries | Own commits | Last push (2026-10-23) |
-|---|---|---|---|
-| `refactor/content-extensibility` | summary | 294 | 3 weeks |
-| `feature/grant-rows` | summary | 394 | 4 days |
-| `feature/extras-companions` | summary | 311 | 10 days |
-| `srd52/develop` | summary | 313 | 10 days |
-| `feature/fighting-style-authoring` | summary, `CLAUDE.md` | 182 | 7 weeks |
-| `feature/demo-content-tier` | summary | 58 | 7 weeks |
-| `perf/memoize-audit` | `CLAUDE.md` | 14 | 7 weeks |
+- Before one of these branches merges, delete the files in a normal commit, so `integration`'s
+  tree stays clean. The history keeps them, as it already does.
+- Branches still carrying them: `refactor/content-extensibility`, `feature/grant-rows`,
+  `feature/extras-companions`, `srd52/develop`, `feature/fighting-style-authoring`,
+  `feature/demo-content-tier`, `perf/memoize-audit`.
+- `perf/entity-build` was rewritten before this decision (above). 20 of its 110 commits held
+  no Claude files but got new SHAs from re-signing, so they no longer match the same commits on
+  its relatives. Left as is.
 
-Rewriting one alone diverges its shared commits from its relatives: they then carry the same
-changes under different SHAs. Before rewriting a branch, check that no session has unpushed work
-on it, since its checkout breaks.
-
-**Not to rewrite.** The `docs/*` branches belong on `agents/develop`, where the files are allowed.
-`debug/develop-01`, `upgrade/datomic-pro`, `dmv/hotfix-integrations`, `feature/cross-platform-scripts`,
-`refactor/data-extraction` and `refactor/views-extraction` are stale (last pushed February–April;
-three share no history with `integration`), so they are deletion candidates, not rewrite ones.
-
-## How (the perf/entity-build run)
+## How (the perf/entity-build run, for reference)
 
 ```bash
 git branch -f rewrite/X origin/X
