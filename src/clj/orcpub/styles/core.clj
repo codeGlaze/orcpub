@@ -160,7 +160,7 @@
 ;; the Rest box, first on the Features tab (views.cljs rest-box; handoff-rest-controls.md)
    [:.rest-box {:background "rgba(0,0,0,.18)" :border "1px solid rgba(255,255,255,.14)" :border-radius "6px"
                 :padding "8px 10px 10px" :margin "8px 0 16px"}]
-   [:.rest-head {:display :flex :align-items :center :gap "8px" :min-height "32px"}]
+   [:.rest-head {:display :flex :align-items :center :gap "8px" :min-height "44px"}]
    [:.rest-bed {:color "#f0a100" :font-size "16px"}]
    [:.rest-title {:font-size "16px" :font-weight 600}]
    [:.rest-labels :.rest-link
@@ -173,19 +173,19 @@
    [:.rest-caption {:font-size "11px" :font-weight 700 :text-transform :uppercase :letter-spacing ".06em"
                     :opacity 0.65 :margin "2px 0 4px"}]
    [:.rest-row {:display :flex :gap "5px" :align-items :stretch}]
-   [:.rest-rests {:display :flex :gap "5px" :flex 1 :margin-left "5px"}]
+   [:.rest-rests {:display :flex :gap "5px" :flex 1}]
    [:.rest-segs {:display :flex :flex "none" :border "1px solid rgba(255,255,255,.32)" :border-radius "6px" :overflow :hidden}]
    [:.rest-segs.wide {:width "100%" :margin-bottom "5px"}]
-   [:.rest-seg {:width "44px" :height "44px" :padding 0 :border 0 :border-left "1px solid rgba(255,255,255,.32)"
+   [:.rest-seg {:width "44px" :height "44px" :padding 0 :border :none
                 :background :none :color :inherit :font-size "13px" :font-weight 600 :display :flex
                 :align-items :center :justify-content :center :gap "5px" :cursor :pointer}]
-   [".rest-seg:first-child" {:border-left 0}]
+   [".rest-seg + .rest-seg" {:border-left "1px solid rgba(255,255,255,.32)"}]
    [:.rest-segs.wide [:.rest-seg {:flex 1 :width :auto}]]
    [:.rest-seg.on {:background-color "rgba(240,161,0,.16)" :color "#f0a100" :box-shadow "inset 0 -3px 0 #f0a100"}]
    [:.rest-seg.none-on {:background-color "rgba(255,255,255,.14)"}]
-   [:.rest-btn {:height "44px" :margin 0 :padding "0 6px" :flex 1 :font-size "12px"}]
-   [:.rest-row [:.rest-now {:flex "none" :width "48px"}]]
-   [:.rest-row.labels [:.rest-now {:flex 1 :width :auto}]]
+   [:.rest-btn {:height "44px" :margin 0 :padding "0 6px" :flex 1 :font-size "12px" :font-weight 600}]
+   [:.rest-row [:.rest-now {:flex "none" :width "48px" :margin-left "5px"}]]
+   [:.rest-row.labels [:.rest-now {:flex 1 :width :auto :margin-left 0}]]
    [:.rest-now.unavailable {:background-color :transparent
                             :background-image "linear-gradient(rgba(255,255,255,.1), rgba(255,255,255,.1))"
                             :color "rgba(255,255,255,.42)" :text-shadow :none :cursor :default}]
@@ -201,7 +201,7 @@
    [".app.light-theme .rest-bed" ".app.light-theme .rest-seg.on" {:color "#33658A"}]
    [".app.light-theme .rest-seg.on" {:background-color "rgba(51,101,138,.12)" :box-shadow "inset 0 -3px 0 #33658A"}]
    [".app.light-theme .rest-seg.none-on" {:background-color "rgba(0,0,0,.12)"}]
-   [".app.light-theme .rest-segs" ".app.light-theme .rest-seg" {:border-color "rgba(0,0,0,.28)"}]
+   [".app.light-theme .rest-segs" ".app.light-theme .rest-seg + .rest-seg" {:border-color "rgba(0,0,0,.28)"}]
    [".app.light-theme .rest-labels" ".app.light-theme .rest-link" {:color "#363636"}]
    [".app.light-theme .rest-now.unavailable" {:background-image "linear-gradient(rgba(0,0,0,.08), rgba(0,0,0,.08))"
                                               :color "rgba(0,0,0,.38)"}]
