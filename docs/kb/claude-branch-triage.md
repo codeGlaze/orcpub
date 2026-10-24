@@ -9,7 +9,7 @@ sandbox this was produced in anyway.
 
 **References are pinned.** Branch tips as fetched 2026-09-12: `integration` at `36766010`,
 `develop` at `15e1fe04`, `agents/develop` at `ac0fe313`, `refactor/content-extensibility` at
-`f97567fb`, `perf/entity-build` at `999df1c6`, `feature/fighting-style-authoring` at `d778d1e5`,
+`f97567fb`, `perf/entity-build` at `678ea776`, `feature/fighting-style-authoring` at `d778d1e5`,
 `feature/demo-content-tier` at `33b6f10e`. Every `claude/*` tip is in the verdict table.
 
 ## How this was established, and why reachability was not enough
@@ -81,7 +81,7 @@ This is live in three places and fixed in none:
 | branch | Robe registration | has `ac-formula`? |
 |---|---|---|
 | `integration` `36766010` | `ac-bonus-fn`, returns 5 | no — only `ac-bonus-fn`, `modifiers.cljc:576` |
-| `perf/entity-build` `999df1c6` | `ac-bonus-fn`, returns 5 | yes, `modifiers.cljc:584` |
+| `perf/entity-build` `678ea776` | `ac-bonus-fn`, returns 5 | yes, `modifiers.cljc:584` |
 | `feature/fighting-style-authoring` `d778d1e5` | `ac-bonus-fn`, returns 5 | yes, `modifiers.cljc:610` |
 
 The two engine branches have the mechanism to express it correctly and do not use it for this item.

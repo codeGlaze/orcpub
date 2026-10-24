@@ -66,15 +66,61 @@ rolled maximum where the item starts with a roll. A once-per-dawn power is a poo
 On `feature/weapons-table` (owner: "just finish building it here"):
 
 1. **Reset periods:** add dusk (spec, schema, clear); Long Rest stops clearing dawn (flip the test);
-   Dawn also clears per-day uses (`::units5e/day`, never cleared today: a bug).
-2. **Charges model:** item fields, character fields with schema, pure functions (spend, regain with
-   a die fn, roll a starting maximum), tests seen failing first.
-3. **SRD data fill:** the 44 charged items and the once-per-dawn powers, by hand from the text.
-4. **Charges on the sheet:** pips, counts, spending; magic weapon powers draw from the pool.
-5. **Rest box** per the handoff: Features tab, time of day, Now, rests, the question, result line,
-   Undo; regain rolls with type-your-own.
-6. **Casting from items:** `::mi/casts` data for the 30 items, the Cast button and charge-priced
-   level picker, the result card. No damage roll yet.
+   Dawn also clears per-day uses (`::units5e/day`, never cleared today: a bug). **Ships with the Rest
+   box (step 5),** so Long Rest never stops clearing dawn before a Dawn control exists.
+2. **Charges model: done `807b7d60`.** In the item domain (`magic_items.cljc`): `::charges`,
+   `::charges-start` (dice), `::charges-regain` (a dice or number string; absent means all), `::casts`
+   (`::cast-spell ::cast-level ::cast-cost`, optional `::cast-per-level ::save-dc`), and `charge-max`,
+   `charges-left`, `spend-charges`, `regain-charges`, `roll-regain`, `roll-charge-max`, `cast-levels`.
+   Per carried item (`character/equipment.cljc`): `::charges-used`, `::charges-max`, vectors by
+   position in the stack. Dice: `dice/parse-dice`, `dice/roll-dice` (injectable die). Schema for the
+   character fields comes with the first step that saves them. `item_charges_test.cljc`, every check
+   seen failing. One value type per field: a regain is always a string.
+3. **SRD data fill: done `e4dc229e`.** 46 charged items and 63 casts, by hand from each item's text;
+   `::cast-max-level` added (Staff of Healing: cure wounds up to 4th). `magic_items_test.clj` checks
+   the data against the text (count, dawn regain), that every cast names a real spell, the prices,
+   and that no item stating charges is left without them; every check seen failing.
+   **Left out on purpose:** the Ivory Goats figurine (one goat of three has charges; named in the
+   test), Ring of Elemental Command's spells (they depend on the ring's element; charges are in),
+   free casts (Staff of the Magi, Staff of the Woodlands: no charge), and charged effects that are not
+   spells (Ring of the Ram, Staff of Striking: spend counts, no cast). Once-per-dawn weapon powers
+   stay on `::mi/recharge` until step 4, where the + menu's "used" moves to the pool.
+4. **Charges on the sheet: first part done.** `19cdb7e9`: charges save with the character as one
+   component record per item in a stack, `::char-equip5e/charges` [{`charge-index` `charges-used`
+   `charges-max`}] (`schema.clj`). **Not tuples:** a Datomic tuple needs at least 2 values, so a single
+   wand's `[6]` is rejected ("Invalid tuple value"); padding was rejected too (the save path strips
+   empty values, and a padded 0 reads as a real 0). Necklace of Fireballs beads added. `a7e27468`:
+   Other Magic Items shows pips per item (tap lit to spend, dim to get back), a count with − and + over
+   10, and roll-or-type for a dice start (`views.cljs` `item-charges`; events
+   `::char5e/change-item-charges`, `::char5e/set-item-charges-max`); `item_charges_e2e.js`, 11 checks,
+   each seen failing. **Done `62783957`:** weapon powers that cost charges (`::mi/charge-cost`: Staff
+   of Power, Striking, Withering) are + menu items with cost and charges left (`disp/weapon-menu-items`
+   `:cost`); picking spends from the first item in the stack that can pay (`mi/able-to-pay`); one it
+   cannot pay is greyed (`:spent?`). **Changed from the plan:** once-per-period powers
+   (`::mi/recharge`, Javelin of Lightning) stay on `::char5e/features-used`; that record already models
+   "once per dawn", saves and resets, so turning them into pools of 1 would add risk with no visible
+   change. Withering's Con save is not tied to the spend yet (an effect with a cost would be a second
+   paid item).
+5. **Rest box: done.** `d40aa2de` reset times: a long rest clears `[::long-rest ::rest]` only;
+   `::dusk` added (spec, schema, names); `units/dawn-clears` `[::dawn ::day]` (once-per-day uses come
+   back at dawn) and `dusk-clears`; Robe of Stars (6 stars, 1d6 at dusk). `71b4f433` the engine,
+   `orcpub.dnd.e5.rests`: `carried`, `apply-actions` (rest and times; charges rolled or typed),
+   `ask-time-of-day?`, `would-recharge`, `has-time-of-day?`. `8b528b9e` the box (`views.cljs`
+   `rest-box`, first on Features; events `::char5e/take-rest`, `answer-time-of-day`,
+   `set-rest-amount`, `undo-rest`, `close-rest-result`; the last action is kept in
+   `::char5e/rest-result` and cleared on any route change, so Undo never reaches another
+   character). `rest_box_e2e.js`, 16 checks, every claim seen failing. The Spells tab's old long-rest
+   button stays (handoff D4) and no longer means dawn. **Not yet:** the floating button and Import log
+   move, Dev mode (step 8); light theme not shot yet.
+6. **Casting from items: done `dd160709`.** `views.cljs` `cast-panel` (spell picks for an item with
+   several, levels priced from `mi/most-charges-left`, the item's DC or the highest
+   `::char/spell-modifiers` DC, `mi/higher-levels-text`, Cast then the spell at that level with Undo),
+   `cast-sheet` (phones), inline `tr.cast-row` (desktop), `cast-button` on Other Magic Items, and the
+   Spells tab's `items-spells-section` (From Items, shown for non-casters too). **Built beyond the
+   mockup:** an item with several spells (staffs) opens one "Cast" with a spell chooser; reviewed in
+   the shots, not mocked. `item_casting_e2e.js`, 16 checks, each seen failing (two were weak, reading
+   a count before the change landed, and were strengthened). No damage roll yet (spell data).
+   **Not yet:** the Dev mode switch for the inline panel on phones (step 8).
 7. **Item builder:** Charges group and casts; schema for the new item fields.
 8. **Later, its own step:** floating Rest button with the Import log move, Dev mode setting (handoff
    §9-10).
@@ -82,9 +128,44 @@ On `feature/weapons-table` (owner: "just finish building it here"):
 On `srd52/develop`, separately: spell damage parts and casting options as data (srd-improvements.md).
 Then a cast rolls damage through the weapon roll engine.
 
+## Against open5e's data (checked 2026-10-23, clone at `~/projects/open5e-api`, `3d623fe3`)
+
+open5e has **no** charge, recharge, regain or casting fields. `MagicItem` (`api_v2/models/item.py`)
+holds: name, desc, category, rarity, `requires_attunement` + `attunement_detail`, size, weight, cost,
+links to a base `weapon` (214 of 499 srd-2014 rows) or `armor` (36), and the item's **object** stats:
+`armor_class`, `hit_points`, `hit_dice`, `damage_immunities` / `resistances` / `vulnerabilities`,
+`nonmagical_attack_*`. srd-2024 (760 rows) has the same fields. Charges live only in `desc`, the same
+as in our `magic_items.cljc`, so our fields add what neither source has.
+
+**Trap when the magic items are processed:** `damage_immunities` is set on all 499 rows (poison,
+psychic): that is the item as an object (objects are immune to poison and psychic damage), not
+something it grants its bearer. Mapping it to a modifier would make every magic item grant immunity.
+
+**Useful when processing:** the base-weapon and base-armor links (a +1 Battleaxe row per
+`srd_battleaxe-1/-2/-3`) match how this app keys variants (`:flame-tongue-longsword`); and
+attunement text is a separate field.
+
+**Decided (owner, 2026-10-23): our fields stay ours.** "It makes sense for our app to have more
+detailed fields because we are planning on interactivity while open5e is only SRD info." No charge
+fields are proposed upstream.
+
+**A charged item our scan missed:** Necklace of Fireballs ("1d6 + 3 beads", a 3rd-level fireball,
+DC 15, one level higher per extra bead) fits the model exactly as beads: `::charges-start "1d6+3"`, no
+recharge, a fireball cast from 3rd with `::cast-per-level 1`. The coverage test looks only for the word
+"charges"; beads (and the Necklace of Prayer Beads) need adding by hand.
+
+## Decided (owner, 2026-10-23)
+
+- **Stacks: one pool per item.**
+- **One PR:** charges, rests and casting ride the weapons PR ("all under the same umbrella").
+- **Two ways to cast from an item:** on the item (Equipment tab), and a "From Items" table above
+  Spells By Level on the Spells tab. Both open the same cast panel: level buttons priced in charges
+  (unaffordable ones greyed), the item's DC, and one Cast button. Until spells carry damage data, the
+  panel shows the spell's own "At Higher Levels" sentence.
+- **Where the cast panel opens:** a bottom sheet on phones, a full-width panel under the item row on
+  desktop. A Dev mode setting (the handoff's Dev mode section in Settings) turns the phone sheet off
+  so phones use the desktop panel: "Open item casting under the item on phones", off by default.
+
 ## Open, for the owner
 
-- Stacks: one pool per item, or shared.
-- Item spells on the Spells tab, or on the item only.
-- Size: steps 1-7 make the weapons PR much larger. One PR, or the weapons table first and charges
-  and rests as a second PR from the same branch.
+

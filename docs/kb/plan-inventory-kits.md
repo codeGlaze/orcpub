@@ -96,6 +96,16 @@ stored: the same 13 torches split 10/3 or 3/10 depending on refill history.
    ([data-safety-layers.md](data-safety-layers.md): heal lazily; save is a subset of load).
 3. **Containers.** Don/doff; Not Carried places (camp, mount, wagon, ship); moving kits; grouped and
    alphabetical views; the PDF lists each place under its own header.
+   **Split (owner, 2026-10-23):** backpack on/off lands on `feature/inventory-kits`; camp, mount,
+   wagon (and moving kits between places) wait, deferred until the owner picks them up.
+   **Backpack on/off built (2026-10-23):** a "Backpack" line at the top of the sheet's Other
+   Equipment (no icon, so the backpack glyph is not repeated) with a compact Worn | Off (`.seg`).
+   It is the Backpack pick's own Carried? flag (`inventory/backpack-worn?`, `set-backpack-worn`),
+   so the builder's checkbox is the same setting and nothing new is stored. Off: every other Other
+   Equipment row shows greyed under "In the backpack, not carried", still counted; items keep their
+   own flags, so the PDF is unchanged until the PDF work (after `feature/weapons-table`).
+   **Future (owner):** some gear counts as carried on the person by default (a waterskin, a pouch's
+   tinderbox) and stays carried with the backpack off; needs a per-item default and override.
 4. **Homebrew kits.** A content type: name, cost, container, items with targets, choices from a pool
    (the pool + grant layer, [content-extensibility-framework.md](content-extensibility-framework.md)),
    able to list custom items.
@@ -181,6 +191,47 @@ other edit). Gear rows a kit tracks get the share line (`Explorer's 7/10 · 3 sp
 nothing yet: paying from coins is later. Styles: `.kit-*` in `styles/core.clj`, coloured from
 `currentColor` so every theme draws them.
 
+## 2c built: kits on the character sheet (2026-10-23, `7916b8e1`)
+
+The sheet's Other Equipment (`views/inventory.cljs` `sheet-equipment`, called by `views.cljs`
+`other-equipment-section-2`) shows the kits always, each with Restock (owner). A Manage inventory
+switch turns the search box from filtering the list into adding items (amber ring, "Adding items",
+"Add to inventory…"; "Add", not "Buy", until coins are wired), shows the dashed Add a kit slot under
+the kits and − / + on keyed gear, and ends at a filled Done. The switch is local to the section, so
+it is off again when the player taps Done, leaves the tab or leaves the sheet (owner: it turns off
+once they're done). Edits on a saved character go through `update-character-fx` (autosave; the
+builder's copy follows), Undo per character id; the builder's Details tab uses the builder events.
+The sheet's character-by-id reaction runs `inventory/repair` for display, so a character saved
+before kits shows its packs as kits on its sheet, not as missing items. `svg-icon`'s drawing moved
+to `components/themed-icon` so `views.inventory` need not require `views.cljs`. Browser tests:
+`test/browser/inventory_kits_builder_e2e.js` (33 checks), `inventory_kits_sheet_e2e.js` (18).
+
+**#229 on the sheet (2026-10-23):** the switch belongs to the Equipment tab (`equipment-details`
+holds it; Done sits below Treasure). Treasure, moved to `views/inventory.cljs` `sheet-treasure`,
+gives every coin (and keyed treasure) a number box while managing, since coins change by any amount
+(`inventory/set-quantity`). Armor and Other Magic Items have no quantity column on the sheet, so
+nothing to edit there. Left for after `feature/weapons-table` merges, because that branch rewrites
+both: Weapons counts on the sheet (#340's display) and kits in the PDF (`pdf_spec.cljc`).
+
+## Design handoff v2 and pack counts built (2026-10-23, `b1eff815`, then counts)
+
+Built from the designer's `Kits_UI_v2` handoff (5a layout, 6a Restock prompt, final copy in its
+section 5), with three of the owner's earlier decisions kept over it: the search box's Packs preset
+instead of a separate picker; which items a kit shows (more than one per pack, or low) instead of a
+consumable flag; the light theme's blue buttons. The handoff's link style (11px small capitals,
+`.link-button.quiet`) and the strip that becomes Restock's question live in the shared
+`notifications/callout` (`:quiet?`, `:title`, `:actions-below?`), not in kit-only markup. The kit
+line folds to the Kits block's live width (ResizeObserver; `inventory/contents-line`). The
+designer's word-choice comment sits beside the copy in `inventory/act` (approved in
+`test/comment-baseline.edn`).
+
+**Pack counts (owner, 2026-10-23):** two of the same pack are one kit with a count, stored as the
+kit pick's number (missing reads 1). The count is how many packs the character has
+(`source-count`: starting choices plus the Equipment pack pick's quantity); `repair` keeps the kit
+to it (`set-kit-count`). Targets multiply by it; "shows" is judged per pack, so two backpacks never
+reach the kit line. "Remove one pack" appears when a bought pack can go; its share becomes
+unbundled. Adding gear already in the Equipment list raises its quantity instead of a second row.
+
 ## Reuse audit (2026-10-23, before more kit work)
 
 Read against `feature/inventory-kits` `f2e7f7d2`. What the kit code built that the app already has:
@@ -206,13 +257,20 @@ lists and the Kits block in `orcpub.dnd.e5.views.inventory` (moved out of `chara
 3,072 to 2,501 lines). Containers and other inventory code go in these two, never new files (owner,
 2026-10-23). Kit notices are `notifications/callout`; Undo is `::inventory/undo` in the db; the kit
 repair is a step of `settle-picks-fx`; the equipment groups are `equipment5e/groups`, read by options
-and inventory. `expand-button` and `show-info-button` moved to `orcpub.components`. Still open: "Add
-a kit" stays (owner to decide), and the class-change question stays.
+and inventory. `expand-button` and `show-info-button` moved to `orcpub.components`. "Add a kit" and the
+empty slot now open the inventory search box with a preset (`inventory-combobox` `preset`: a label
+and the item keys it lists, cleared by × or a pick), showing the packs not already kits; the separate
+pack list is gone (owner, 2026-10-23). The preset is a general option of the search box, for any
+inventory list.
 
 **Found while checking it:** a new character starts as a Barbarian, whose fixed starting equipment
 includes an Explorer's Pack. Settle runs on opening, so that pack becomes a kit at once; switching
 class then asks "Remove what the Explorer's Pack added?" on a character the player has not touched.
-The rule works as built; whether a class change should ask at all is the open owner question.
+Owner's rule (2026-10-23): don't bother players with questions they did not earn. So a class change
+asks only about a kit the player has used (`inventory/untouched?` is false) whose pack the new class
+neither grants nor offers through a pack choice still open (`offered-packs`, `open-offer`). An
+untouched kit whose pack is gone takes its items off quietly in settle; a kit the new class offers
+stays. A new Barbarian switched to Fighter asks nothing.
 The shared callout puts its actions beside the text, not under it.
 
 ## Layout review, round 1 (2026-10-22, owner)

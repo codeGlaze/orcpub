@@ -171,7 +171,7 @@ _SESSION-SUMMARY · SESSION SUMMARY_
 
 _UPGRADE_DEPENDENCIES · UPGRADE_DEPENDENCIES_
 
-**topics:** allows, clojurescript, closure, csp, dev, ecosystem, figwheel-main, java, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, shadow-cljs, support, xss
+**topics:** allows, clojurescript, closure, csp, dev, ecosystem, figwheel-main, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, shadow-cljs, support, violations, xss
 
 - Java 9+/21 & Servlet API
 - Datomic Pro
@@ -817,6 +817,18 @@ _claude-branch-triage · claude branch triage_
 - What is not known
 - Revisions
 
+## claude-files-in-branch-history.md
+
+_claude-files-in-branch-history · claude files in branch history_
+
+**topics:** 110, 2026-10-23, 2026-10-24, agents, branch, branches, citations, claude, cleaned, commit, commits, develop, forced, history, leaks, session, shas, tip
+
+- What leaked
+- Done
+- Decided: no more rewrites (owner, 2026-10-24)
+- How (the perf/entity-build run, for reference)
+- The guard (built 2026-10-24)
+
 ## client-ip-behind-proxies.md
 
 _client-ip-behind-proxies · client ip behind proxies_
@@ -919,7 +931,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, read-seams, skips, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, positional-threading, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1317,7 +1329,7 @@ _docker-setup-flow · docker setup flow_
 
 _docker-swarm-compat · docker swarm compat_
 
-**topics:** cli, codespaces, compose, config, deploy, dns, docker, incompatibilities, nginx, outputs, ports, solution, specification, stack, startup, swarm, validator, yaml
+**topics:** cli, codespaces, compose, datomic, deploy, dmv-production-changes, dns, docker, host, incompatibilities, outputs, service, specification, stack, swarm, task, vip, yaml
 
 - Context
 - Solution
@@ -1327,7 +1339,8 @@ _docker-swarm-compat · docker swarm compat_
 - Ports: keep quotes in compose.yaml
 - Swarm Runtime Gotchas
 - nginx upstream DNS
-- Datomic ALTHOST
+- Datomic TRANSACTORHOST and ALTHOST
+- Regenerating a stack (./run --swarm on an existing file)
 - Compose teardown before Swarm init
 - Codespaces limitation
 - Environment tested on
@@ -1392,7 +1405,7 @@ _documentation-discipline · documentation discipline_
 
 _documentation-tenets · documentation tenets_
 
-**topics:** agentic, chose, commit, conclusion, dense, discovering, dotfiles, hook, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
+**topics:** agentic, chose, commit, conclusion, dense, discovering, docs-only, dotfiles, instrument, investigation, narrate, readme, reminder, tenets, tradeoff, unioning, verification-discipline, window
 
 - The tenets
 - What belongs here
@@ -1670,7 +1683,7 @@ _fail-soft-rendering · fail soft rendering_
 
 _fast-browser-probes · fast browser probes_
 
-**topics:** 126s, 17s, 2-2s, 393s, 400s, 52s, homebrew-fixes-persist, measuring, nine, playwright, probe, probes, run, runner, sheets, sleeps, slow, timeout
+**topics:** 126s, 17s, 2-2s, 393s, 400s, 52s, homebrew-fixes-persist, measuring, nine, playwright, probe, probes, runner, sheets, sleeps, slow, timeout, waited
 
 - Where the time actually goes
 - The rule: batch variables into ONE run
@@ -1909,7 +1922,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-rest-controls · handoff rest controls_
 
-**topics:** 2026-10-23, charge, charges, dawn, dismissible, dusk, handoff, item, lasts, maximum, plan-charges-and-casting, powers, regain, regains, rest, rolled, undo, wand
+**topics:** 2026-10-23, charge, charges, dawn, drawing, dusk, handoff, item, lasts, maximum, powers, regain, regains, rest, rests, rolled, undo, wand
 
 - Where it is
 - The design in one paragraph
@@ -1917,6 +1930,7 @@ _handoff-rest-controls · handoff rest controls_
 - How charges work today (checked 2026-10-23)
 - Decided (owner, 2026-10-23)
 - A real charge system (2026-10-23)
+- Built against the drawing (2026-10-23, 2dbf4234)
 - Open, for the owner
 
 ## handoff-weapons-table.md
@@ -2206,7 +2220,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, number, quarantined, repair, restore, translator, unnamed, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, quarantined, repair, restore, suggestion, translator, unnamed, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -2509,7 +2523,7 @@ _page-load-budget · page load budget_
 
 _pdf-form-techniques · pdf form techniques_
 
-**topics:** 2026-09, appearance, artwork, attunement, bytes, card, field, fields, foot, page, pages, pdfbox, rank, rarity, sheet, stream, streams, widgets
+**topics:** 2026-09, appearance, artwork, bytes, card, cards, field, fields, foot, page, pages, pdfbox, rank, rarity, sheet, stream, streams, widgets
 
 - The one rule that explains most of the weirdness
 - Cloning a page without copying its artwork
@@ -2781,20 +2795,22 @@ _plan-character-drafts · plan character drafts_
 
 _plan-charges-and-casting · plan charges and casting_
 
-**topics:** cast, casting, charges, damage, fireball, item, maximum, parts, payment, powers, roll, rolled, rolls, spell, spells, srd-improvements, staffs, wielder
+**topics:** beads, cast, casting, charges, damage, dawn, dice, fireball, fireballs, item, necklace, phones, powers, rolled, spell, spells, staff, staffs
 
 - What exists (verified)
 - The connecting idea
 - Data
 - What the player sees
 - Build order
+- Against open5e's data (checked 2026-10-23, clone at ~/projects/open5e-api, 3d623fe3)
+- Decided (owner, 2026-10-23)
 - Open, for the owner
 
 ## plan-chunked-library-storage.md
 
 _plan-chunked-library-storage · plan chunked library storage_
 
-**topics:** blob, capacity, chars, chunk, complexity, granularity, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike
+**topics:** blob, capacity, chars, chunk, granularity, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike, write
 
 - Read this first: why this plan is parked
 - The problem, in one line
@@ -2868,13 +2884,15 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** admin, alert, alerts, artist, database, discord, docker, email, emails, mail, outbox, sent, shutdown, spool, swarm, transaction, webhook, worker
+**topics:** admin, alert, alerts, artist, channel, database, discord, email, emails, mail, outbox, sent, settings, spool, stage, swarm, webhook, worker
 
 - The problem
 - Two kinds of email
 - Player email: the transactional outbox
 - Admin alerts: independent of the database
-- Optional: a Discord webhook as a second channel
+- One admin address (owner, 2026-10-24)
+- No email, no start; the report where it is read (owner, 2026-10-24)
+- Future improvement: a Discord webhook as a second channel
 - Settings: in the registry, and announced at start-up (owner, 2026-10-17)
 - Docker, Compose and Swarm
 - Documentation
@@ -2904,7 +2922,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, equipment, explorer, holy, inventory, items, kit, kits, leftovers, pack, packs, picker, quantity, refill, reorganize, repair, restock, torches
+**topics:** 2026-10-22, 2026-10-23, backpack, coins, equipment, inventory, items, kit, kits, leftovers, pack, packs, picker, quantity, refill, reorganize, restock, torches
 
 - The problems today
 - The model
@@ -2912,6 +2930,8 @@ _plan-inventory-kits · plan inventory kits_
 - Phases
 - Phase 2 design (2026-10-22, before code)
 - Built: 2a wiring and 2b kit panel (2026-10-22, feature/inventory-kits)
+- 2c built: kits on the character sheet (2026-10-23, 7916b8e1)
+- Design handoff v2 and pack counts built (2026-10-23, b1eff815, then counts)
 - Reuse audit (2026-10-23, before more kit work)
 - Reuse refactor done (2026-10-23, 83ac1bb3)
 - Layout review, round 1 (2026-10-22, owner)
@@ -3013,7 +3033,7 @@ _proposal-indexeddb-storage · proposal indexeddb storage_
 
 _re-frame-subscribe-refactor · re frame subscribe refactor_
 
-**topics:** apis, autosave, cached, chain, component, direct, event-utils, extract, handler, low, methods, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
+**topics:** apis, cached, chain, component, direct, event-utils, extract, handler, low, methods, re-frame, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
 
 - The Problem
 - What actually happens when you subscribe in a handler
@@ -3819,7 +3839,7 @@ _weapon-damage-model · weapon damage model_
 
 _weapon-data-model · weapon data model_
 
-**topics:** authored-tag, boolean, firearm, flags, javelin, mapping, melee, mistype, not-melee, predicate, present-or-absent, ranged, thrown, two-handed, versatile, weapon, weapon-damage-model, weapons
+**topics:** authored-tag, boolean, firearm, flags, mapping, melee, mistype, not-melee, predicate, present-or-absent, ranged, ranged-only, thrown, two-handed, versatile, weapon, weapon-damage-model, weapons
 
 - Fields
 - Traps
@@ -3830,7 +3850,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** 2026-10-21, attack, band, buttons, cleave, dawn, dusk, graze, long, masteries, mastery, owner, rest, srd, tap, topple, undo, weapon
+**topics:** 2026-10-21, attack, band, cleave, dawn, dusk, graze, long, masteries, mastery, owner, preview, rest, srd, tap, topple, undo, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)
@@ -3855,7 +3875,7 @@ _weapon-mastery-plan · weapon mastery plan_
 
 _weapons-extra-damage-design · weapons extra damage design_
 
-**topics:** 44px, charges, chip, colour, crit, damage, dot, dots, effects, extra, hit, menu, on-hit, roll, rolls, strip, tile, vicious
+**topics:** charges, chip, colour, crit, damage, dot, dots, effects, extra, hit, menu, on-hit, roll, rolls, strip, switches, tile, vicious
 
 - Decisions
 - Damage-type palette
@@ -3894,7 +3914,7 @@ _weapons-table-spec · weapons table spec_
 
 _writing-browser-tests · writing browser tests_
 
-**topics:** check, click, desktop, dispatch, disposes, e2e-runner, fail, fast-browser-probes, menus, phone, pulse, run, sheet, stand-in, subscriptions, tab, view, weapons
+**topics:** check, click, desktop, dispatch, disposes, e2e-runner, fast-browser-probes, menu, menus, phone, pulse, run, stand-in, subscriptions, tab, view, wait, weapons
 
 - Start from a working test
 - 1. Load the character with the app's own event, not by clicking the builder

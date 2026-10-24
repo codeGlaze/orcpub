@@ -52,6 +52,14 @@ already done). What remains is the **storage backend migration**:
 
 ---
 
+## Agent files in 7 branches' tips: delete before each merges
+
+Decided 2026-10-24: old history stays, no rewrites. Before `refactor/content-extensibility`,
+`feature/grant-rows`, `feature/extras-companions`, `srd52/develop`,
+`feature/fighting-style-authoring`, `feature/demo-content-tier` or `perf/memoize-audit` merges
+into `integration`, delete `.claude/` and `CLAUDE.md` from it in a normal commit.
+[claude-files-in-branch-history.md](kb/claude-files-in-branch-history.md).
+
 ## Homebrew fighting-style authoring — never wired (refactor follow-up)
 
 **Status:** Open — a deliberate loose end left mid-refactor.

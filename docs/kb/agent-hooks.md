@@ -7,7 +7,7 @@ at session start.
 ## The rule
 
 - **Every hook lives in `.githooks/` on `agents/develop`.** Today: `commit-msg` (strips agent
-  attribution trailers), `pre-commit` (the docstring gate in every worktree; the docs check where `scripts/check-docs.sh` exists),
+  attribution trailers), `pre-commit` (refuses `.claude/` or `CLAUDE.md` outside `agents/` branches; the docstring gate in every worktree; the docs check where `scripts/check-docs.sh` exists),
   `pre-push` (refuses an un-folded branch changelog onto integration, develop or main; and, never
   blocking, prints a heads-up when the push changes a file listed under `paths:` in
   `.github/workflows/docker-heavy.yml`, with the command to run those checks; 2026-10-23).

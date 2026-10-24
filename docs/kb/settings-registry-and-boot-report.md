@@ -24,7 +24,7 @@ own; [blank-env-values.md](blank-env-values.md) has it as an open item to fold i
 | --- | --- |
 | `:var` | the environment name |
 | `:group` | the bracketed heading it prints under |
-| `:note` | one line an operator can act on; also printed in the NEW IN block |
+| `:note` | what the setting does, at most 60 characters (`notes-are-short` checks it) |
 | `:get` | accessor for the value in force; without it the raw env value is shown |
 | `:since` | release that added it: `"2.5"` or `current-release` |
 | `:secret?` | never printed, only `set` / `NOT SET` |
@@ -92,8 +92,12 @@ its own copy of the stack file, which must be regenerated (`./run --upgrade-swar
 - `config/current-release` names the release this build ships as ("Summer Patch").
 - Every row has `:since`: `"2.5"` for the 14 settings upstream's last release already read
   (checked by grepping `upstream/develop` for each name), `current-release` for the rest.
-- `report-lines` ends with `NEW IN <RELEASE>: n settings not set yet`, listing the `current-release`
-  rows still unset, after the `(!!)` blocks: the last lines of the start-up output.
+- `report-lines` ends with `NEW IN <RELEASE>: n settings not set yet`, then the `current-release`
+  rows still unset as names only, comma-separated and wrapped at 100 characters (their notes are in
+  the table above), after the `(!!)` blocks: the last lines of the start-up output. Before it, a
+  DEPLOYMENT block (`deployment-lines`): where crash files and alerts land, Java's memory limit,
+  and `deployment-notes`. Groups print once each, in order of first appearance (2026-10-24;
+  before, a group split by row order printed twice). Tidied from 88 to 71 lines that day.
 - **At the next release:** change `current-release`. Rows keep their `:since`, so the block then lists
   only what that release adds. Re-label the old rows' `:since` only if the block should say which
   release added them; nothing else reads it.

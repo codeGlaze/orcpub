@@ -5,8 +5,10 @@ approved by name). Done: stage 1 the settings report (`d8cdfb4a6`), stage 2 admi
 (`3c16593e7`), their human docs (`f578c9b31`), the settings lists and `.env` reading (see
 [settings-registry-and-boot-report.md](settings-registry-and-boot-report.md),
 [env-and-auth.md](env-and-auth.md)), stage 3 the player outbox (`fe7737c48`; `0c5446daa` before
-it holds only a test file's rename and does not load on its own). Next: 4 Docker (log rotation,
-the spool volume), 5 the Discord webhook (owner is wary: off unless set), then the PR. Replaces #65's own
+it holds only a test file's rename and does not load on its own). Stage 4 (Docker: log rotation,
+crash files and alerts in /var/log on the host, Swarm fixes, the upgrade report) is built and
+passes the heavy checks on bare metal, Compose and Swarm (2026-10-24). Stage 5, the Discord
+webhook, is **deferred to a later branch** (owner, 2026-10-24): see below. Then the PR. Replaces #65's own
 scheduler for artist credit notices, whose two CodeRabbit findings (a pending batch lost; a failed
 send never retried) were the starting point.
 
@@ -52,7 +54,47 @@ emails most likely to be sent while things are failing.
 - **Player-submitted "character won't load" reports** are limited per person and by size, so they
   cannot flood either path.
 
-### Optional: a Discord webhook as a second channel
+### One admin address (owner, 2026-10-24)
+
+Admin mail falls back so that one setting is enough: alerts use `EMAIL_ERRORS_TO`, else
+`EMAIL_ADMIN_TO`, else `APP_SUPPORT_EMAIL`; artist notices try the first two the other way round.
+`config/alert-address` and `config/admin-notice-address` return `{:address :from}`; the startup
+report's DEPLOYMENT block prints `Admin email: <address> (from <setting>)`, or says nobody is
+told. Why: the owner expected everything to default to the support address, and DMV's branding
+file defaults `support-email` to `thDM@dungeonmastersvault.com` while its `.env.example` leaves
+`EMAIL_ERRORS_TO` empty, so crash alerts reached nobody. The admin deploys through Portainer
+(Swarm, `docker stack update`), not `./run`, so email is the one channel that reaches him unasked.
+
+### No email, no start; the report where it is read (owner, 2026-10-24)
+
+- **A deployed server refuses to start without `EMAIL_SERVER_URL`** (`config/start-refusal`, checked
+  in `orcpub.server/-main`), unless `DEV_MODE=true`, `EMAIL_REQUIRED=false`, or
+  `ALLOW_UNVERIFIED_REGISTRATION=true`. Why: a public site needs email, and with none the admin
+  hears about nothing; a failed start is the one signal Portainer shows him. Restart loops only
+  happen when settings change, which is when he is watching. `EMAIL_REQUIRED=false` is its own
+  opt-out because `ALLOW_UNVERIFIED_REGISTRATION` would also open sign-up. `./run` writes it when
+  setup leaves email empty; `./run --upgrade` adds it to installs without email, so none stops on
+  upgrade (`test-upgrade.sh` checks every fixture can start). The `:e2e` profile sets it.
+- **The report is saved** to `startup-report.txt` beside the crash files and ends with the line
+  naming it; **`./run` prints it last** after starting Compose or Swarm, reading only log lines
+  since the start (`scripts/startup-report.sh`, `test-startup-report.sh`).
+- **Next, not built yet:** classes per setting (required, recommended, tuning) and the startup
+  email (problems, then new settings, then "Worth setting"; once per release, again when the list
+  changes, a 7-day reminder for problems only; remembers names and states, never values).
+
+### Future improvement: a Discord webhook as a second channel
+
+**Deferred, not built** (owner, 2026-10-24: record it for later; was wary of it). How it would work:
+
+- Setting `DISCORD_WEBHOOK_URL`, off unless set. Discord gives the URL under a channel's
+  Integrations, Webhooks; a JSON POST (`{"content": ...}`) to it posts the message. No bot, no library:
+  Java's `HttpClient`, 5-second timeout.
+- A second channel beside email in `orcpub.alerts`, fed the same alerts (crashes, failed email,
+  database down) through the same de-duplication, hourly cap and breaker; sent on the alerts
+  thread, so a slow Discord holds nothing up. A failure is logged and the alert stays spooled.
+- Same text as the alert email; never player data. A row in the settings registry (`:secret? true`)
+  and in `docs/BRANDING-AND-INTEGRATIONS.md`. Tests against a local fake HTTP server.
+- Size: about 60 lines plus tests. Rules for it:
 
 - The webhook address is a secret (anyone holding it can post to the channel; nobody can read
   through it): a Docker secret, never in client code or logs; regenerated in Discord if it leaks.

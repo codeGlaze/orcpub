@@ -4,20 +4,31 @@
 # --no-verify skips every hook here; agents need the owner's yes for it (AGENTS.md).
 root="$(git rev-parse --show-toplevel)"
 
-# Agent files (CLAUDE.md, AGENTS.md, BRANCH.md, .claude/) never reach a code branch (AGENTS.md, branch
-# table). agent-setup.sh copies them in gitignored, but `git add -f` gets past that. agents/develop is a branch named agents/*, or a
-# detached HEAD that tracks CLAUDE.md (a docs worktree), as in agent-setup.sh. Removing one is allowed.
-hook_branch="$(git branch --show-current)"
-if [[ "$hook_branch" != agents/* ]] && { [ -n "$hook_branch" ] || [ -z "$(git ls-tree --name-only HEAD CLAUDE.md 2>/dev/null)" ]; }; then
-  agent_files="$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^(CLAUDE\.md|AGENTS\.md|BRANCH\.md)$|^\.claude/')"
-  if [ -n "$agent_files" ]; then
-    echo "" >&2
-    echo "  commit blocked: agent files belong only on agents/develop, never on a code branch:" >&2
-    printf '    %s\n' $agent_files >&2
-    echo "  Unstage them: git restore --staged <file>" >&2
-    exit 1
-  fi
+# Agent files (CLAUDE.md, AGENTS.md, BRANCH.md, .claude/) are tracked only on agents/ branches
+# (docs/kb/claude-files-in-branch-history.md). agent-setup.sh copies them in gitignored; `git add -f`
+# gets past .gitignore, not this. Deleting them is allowed. Mid-rebase, the branch is the one being
+# rebased; a plain detached HEAD that tracks CLAUDE.md is a docs worktree of agents/develop.
+branch="$(git symbolic-ref --short -q HEAD)"
+if [ -z "$branch" ]; then
+  gitdir="$(git rev-parse --git-dir)"
+  for f in "$gitdir/rebase-merge/head-name" "$gitdir/rebase-apply/head-name"; do
+    [ -f "$f" ] && branch="$(sed 's#^refs/heads/##' "$f")" && break
+  done
+  [ -z "$branch" ] && [ -n "$(git ls-tree --name-only HEAD CLAUDE.md 2>/dev/null)" ] && branch="agents/(detached)"
 fi
+case "$branch" in
+  agents/*) ;;
+  *)
+    leaked="$(git diff --cached --name-only --diff-filter=ACMR -- .claude CLAUDE.md AGENTS.md BRANCH.md)"
+    if [ -n "$leaked" ]; then
+      echo "" >&2
+      echo "  commit blocked: agent files are tracked only on agents/ branches, and this is" >&2
+      echo "  '${branch:-a detached HEAD}'. Unstage them (they stay on disk, gitignored):" >&2
+      echo "$leaked" | sed 's/^/    git rm --cached -r -q /' >&2
+      exit 1
+    fi
+    ;;
+esac
 
 # Every function gets a spec docstring (AGENTS.md, "Comments and Docstrings"). Blocks a commit that
 # ADDS a defn, defn- or defmacro with none; warns on history wording in added comment lines, using

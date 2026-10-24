@@ -71,6 +71,15 @@ On the builder's unsaved character (`id` nil), sheet events go through `update-c
 events back to back (wield main hand, then off hand) lose the first. Dispatch one, wait for its
 effect (rule 2), then the next.
 
+**Seen again 2026-10-23 (`item_charges_e2e.js`):** three charge spends from the + menu in a row on an
+unsaved character ended at 6/10 instead of 3/10; waiting for each count to show before the next pick
+fixed it. A menu read straight after opening it also failed once in four runs; wait for its rows.
+
+**And the reverse (2026-10-23/24):** a check that waits for a value the page *already shows* passes
+before the change it tests has landed. Undo checks in `rest_box_e2e.js` and `item_casting_e2e.js`
+passed with Undo broken, because the count still read the old number. First wait for the action's
+own result (the cast's 3/7), then for the undone value.
+
 ## 6. Standing in for data the branch does not have yet
 
 To test UI that only appears with data from another line (Weapon Mastery from the 5.5 line):
