@@ -325,7 +325,8 @@
      ::units5e/rest
      ::units5e/short-rest
      ::units5e/long-rest
-     ::units5e/dawn])))
+     ::units5e/dawn
+     ::units5e/dusk])))
 
 (def party-schema
   [{:db/ident ::party5e/owner

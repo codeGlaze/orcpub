@@ -38,7 +38,7 @@
 (spec/def ::min-roll (spec/int-in 1 21))
 (spec/def ::charge-cost pos-int?)
 (spec/def ::recharge #{::units5e/turn ::units5e/round ::units5e/short-rest
-                       ::units5e/long-rest ::units5e/rest ::units5e/dawn})
+                       ::units5e/long-rest ::units5e/rest ::units5e/dawn ::units5e/dusk})
 (spec/def ::dice
   (spec/and #(pos-int? (::weapons5e/damage-die %))
             #(pos-int? (::weapons5e/damage-die-count %))
@@ -2440,6 +2440,8 @@ A light spell cast on the robe or a daylight spell cast within 5 feet of the rob
      ::description "This robe has 3 charges, and it regains 1d3 expended charges daily at dawn. While you wear it, you can use an action and expend 1 charge to cause the garment to display a shifting pattern of dazzling hues until the end of your next turn. During this time, the robe sheds bright light in a 30-foot radius and dim light for an additional 30 feet. Creatures that can see you have disadvantage on attack rolls against you. In addition, any creature in the bright light that can see you when the robe’s power is activated must succeed on a DC 15 Wisdom saving throw or become stunned until the effect ends."
      }{
      name-key "Robe of Stars"
+     ::charges 6 ::charges-recharge ::units5e/dusk ::charges-regain "1d6"
+     ::casts [{::cast-spell :magic-missile ::cast-level 5 ::cast-cost 1}]
      ::type :wondrous-item
 
      ::rarity :very-rare

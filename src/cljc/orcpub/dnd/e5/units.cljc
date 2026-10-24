@@ -83,6 +83,24 @@
 
 (def dawns-1 (dawns 1))
 
+(defn dusks
+  "A frequency that resets at dusk, `amount` times. Takes the amount; returns a units map."
+  [amount]
+  (units ::dusk amount))
+
 (def long-rest-clears
-  "The reset periods a finished long rest clears: its own, any rest, and dawn."
-  [::long-rest ::rest ::dawn])
+  "The reset periods a finished long rest clears: its own and any rest. Never dawn: a rest does
+  not mean dawn passed (handoff-rest-controls.md)."
+  [::long-rest ::rest])
+
+(def short-rest-clears
+  "The reset periods a finished short rest clears: its own and any rest."
+  [::short-rest ::rest])
+
+(def dawn-clears
+  "The reset periods dawn clears: dawn, and once-per-day uses (\"until the next dawn\")."
+  [::dawn ::day])
+
+(def dusk-clears
+  "The reset periods dusk clears."
+  [::dusk])

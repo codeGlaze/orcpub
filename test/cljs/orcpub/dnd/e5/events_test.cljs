@@ -1590,7 +1590,7 @@
   (is (= :blue (get-in @app-db [::char5e/character-map 7 :orcpub.entity/options :background :orcpub.entity/key]))
       "nothing is written back"))
 
-(deftest finish-long-rest-clears-dawn-and-keeps-shorter-periods
+(deftest finish-long-rest-keeps-dawn-and-shorter-periods
   (reset! app-db {::char5e/character-map
                   {7 {:orcpub.entity/values
                       {::char5e/features-used {::units5e/long-rest #{"a"}
@@ -1598,8 +1598,9 @@
                                                ::units5e/dawn #{"Dagger of Venom"}
                                                ::units5e/turn #{"c"}}}}}})
   (effects-of [::char5e/finish-long-rest "7"] [::char5e/save-character-throttled])
-  (is (= {::units5e/turn #{"c"}}
-         (get-in @app-db [::char5e/character-map 7 :orcpub.entity/values ::char5e/features-used]))))
+  (is (= {::units5e/turn #{"c"} ::units5e/dawn #{"Dagger of Venom"}}
+         (get-in @app-db [::char5e/character-map 7 :orcpub.entity/values ::char5e/features-used]))
+      "a long rest does not mean dawn passed"))
 
 (deftest charges-are-spent-and-given-back-per-wand
   (let [wand (some #(when (= "Wand of Fireballs" (::mi/name %)) %) mi/magic-items)

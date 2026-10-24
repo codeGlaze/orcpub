@@ -355,7 +355,11 @@
         "1 charge for 3rd, one more per level")
     (is (= [[1 1] [2 2] [3 3] [4 4]] (levels "Staff of Healing" :cure-wounds)) "1 charge per spell level, up to 4th")
     (is (= [[7 7]] (levels "Staff of the Magi" :fireball)) "the 7th-level version, 7 charges")
-    (is (= "1d4-1" (::mi/charges-start (by-name "Luck Blade"))) "1d4 - 1 charges, rolled once")))
+    (is (= "1d4-1" (::mi/charges-start (by-name "Luck Blade"))) "1d4 - 1 charges, rolled once")
+    (is (= [6 :orcpub.dnd.e5.units/dusk "1d6" [[5 1]]]
+           ((juxt ::mi/charges ::mi/charges-recharge ::mi/charges-regain (fn [_] (levels "Robe of Stars" :magic-missile)))
+            (by-name "Robe of Stars")))
+        "six stars, 1d6 back daily at dusk, each a 5th-level magic missile")))
 
 (def ^:private uncharged-on-purpose
   "Items whose text gives charges or beads the one-pool model cannot hold: only one of the Ivory

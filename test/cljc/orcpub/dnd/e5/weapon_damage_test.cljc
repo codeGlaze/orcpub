@@ -176,8 +176,11 @@
   (is (= 18 (wd/crit-min #{19 20} homebrew-weapon)))
   (is (= 17 (wd/crit-min #{17 18 19 20} homebrew-weapon))))
 
-(deftest a-long-rest-clears-dawn
-  (is (= #{::units/long-rest ::units/rest ::units/dawn} (set units/long-rest-clears))))
+(deftest each-reset-clears-its-own-periods
+  (is (= #{::units/long-rest ::units/rest} (set units/long-rest-clears)) "a long rest does not mean dawn")
+  (is (= #{::units/short-rest ::units/rest} (set units/short-rest-clears)))
+  (is (= #{::units/dawn ::units/day} (set units/dawn-clears)) "once-per-day uses come back at dawn")
+  (is (= #{::units/dusk} (set units/dusk-clears))))
 
 (deftest conditions-added-for-the-other-srd-weapons
   (testing "Oathbow's extra applies only against the sworn enemy"

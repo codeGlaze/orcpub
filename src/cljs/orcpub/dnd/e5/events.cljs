@@ -4143,7 +4143,7 @@
 (reg-event-fx
  ::char5e/finish-short-rest
  (fn [{:keys [db]} [_ id]]
-   (clear-period db id nil ::units5e/short-rest ::units5e/rest)))
+   (apply clear-period db id nil units5e/short-rest-clears)))
 
 (reg-event-fx
  ::char5e/new-round

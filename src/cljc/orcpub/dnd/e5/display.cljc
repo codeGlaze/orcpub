@@ -181,7 +181,7 @@
 (def recharge-names
   "How each reset period reads after \"once per\"."
   {::units/turn "turn" ::units/round "round" ::units/short-rest "short rest"
-   ::units/long-rest "long rest" ::units/rest "rest" ::units/dawn "dawn"})
+   ::units/long-rest "long rest" ::units/rest "rest" ::units/dawn "dawn" ::units/dusk "dusk"})
 
 (defn condition-phrases
   "The conditions an entry or effect names, as short phrases in a fixed order:
