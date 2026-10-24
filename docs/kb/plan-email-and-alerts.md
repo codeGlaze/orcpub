@@ -54,6 +54,17 @@ emails most likely to be sent while things are failing.
 - **Player-submitted "character won't load" reports** are limited per person and by size, so they
   cannot flood either path.
 
+### One admin address (owner, 2026-10-24)
+
+Admin mail falls back so that one setting is enough: alerts use `EMAIL_ERRORS_TO`, else
+`EMAIL_ADMIN_TO`, else `APP_SUPPORT_EMAIL`; artist notices try the first two the other way round.
+`config/alert-address` and `config/admin-notice-address` return `{:address :from}`; the startup
+report's DEPLOYMENT block prints `Admin email: <address> (from <setting>)`, or says nobody is
+told. Why: the owner expected everything to default to the support address, and DMV's branding
+file defaults `support-email` to `thDM@dungeonmastersvault.com` while its `.env.example` leaves
+`EMAIL_ERRORS_TO` empty, so crash alerts reached nobody. The admin deploys through Portainer
+(Swarm, `docker stack update`), not `./run`, so email is the one channel that reaches him unasked.
+
 ### Future improvement: a Discord webhook as a second channel
 
 **Deferred, not built** (owner, 2026-10-24: record it for later; was wary of it). How it would work:

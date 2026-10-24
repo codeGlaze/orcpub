@@ -1809,7 +1809,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _garden-inline-styles-harvest · garden inline styles harvest_
 
-**topics:** 648, block, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, seeded
+**topics:** 648, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, seeded, submit
 
 - Why the branch stalled
 - The branch is healthy
@@ -2863,12 +2863,13 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** admin, alert, alerts, artist, database, discord, email, emails, mail, outbox, sent, shutdown, spool, stage, swarm, transaction, webhook, worker
+**topics:** admin, alert, alerts, artist, channel, database, discord, email, emails, mail, outbox, sent, shutdown, spool, stage, swarm, webhook, worker
 
 - The problem
 - Two kinds of email
 - Player email: the transactional outbox
 - Admin alerts: independent of the database
+- One admin address (owner, 2026-10-24)
 - Future improvement: a Discord webhook as a second channel
 - Settings: in the registry, and announced at start-up (owner, 2026-10-17)
 - Docker, Compose and Swarm
