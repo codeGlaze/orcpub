@@ -30,7 +30,7 @@ while read -r _local_ref local_sha remote_ref _remote_sha; do
         echo "      scripts/fold-branch-changelog.sh \"${release}\"" >&2
         echo "" >&2
         echo "  (Decide whether this branch earned a '## Highlights' before folding —" >&2
-        echo "   see docs/branch-changelog.template.md. To bypass once: git push --no-verify.)" >&2
+        echo "   see docs/branch-changelog.template.md. agents: --no-verify needs the owner's yes (AGENTS.md).)" >&2
         echo "" >&2
         status=1
       fi
@@ -48,7 +48,7 @@ if [ "${guarded:-0}" = "1" ] && [ -x scripts/lint-changelog.py ] && command -v p
     scripts/lint-changelog.py 2>&1 | sed -E 's/^::error [^:]*::/    /; s/^/  /' >&2
     echo "" >&2
     echo "  House style: docs/branch-changelog.template.md" >&2
-    echo "  (To bypass once: git push --no-verify.)" >&2
+    echo "  (agents: --no-verify needs the owner's yes (AGENTS.md).)" >&2
     echo "" >&2
     status=1
   fi
@@ -62,24 +62,26 @@ if [ -f "$heavy_wf" ]; then
   patterns="$(awk '/^    paths:/{p=1;next} p&&/^      - /{gsub(/^      - |'"'"'/,"");print;next} p{exit}' "$heavy_wf")"
   while read -r _l local_sha remote_ref remote_sha; do
     [ "$local_sha" = "$zero" ] && continue
-    base="$remote_sha"
-    if [ "$base" = "$zero" ] || ! git cat-file -e "$base" 2>/dev/null; then
-      base="$(git merge-base "$local_sha" origin/integration 2>/dev/null)" || continue
-    fi
+    # The whole branch against integration, not just this push: GitHub matches a PR's paths filter
+    # against the PR's full diff, so one deployment file anywhere on the branch runs it every push.
+    base="$(git merge-base "$local_sha" origin/integration 2>/dev/null)" || continue
     hits=""
+    set -f  # the patterns are globs to match, not to expand against files on disk
     for f in $(git diff --name-only "$base" "$local_sha" 2>/dev/null); do
       for pat in $patterns; do
         case "$pat" in
           */\*\*) [ "${f#"${pat%\*\*}"}" != "$f" ] && hits="$hits $f" ;;
-          *) [ "$f" = "$pat" ] && hits="$hits $f" ;;
+          *) case "$f" in $pat) hits="$hits $f" ;; esac ;;  # unquoted: a glob, so docker-compose*.yaml matches
         esac
       done
     done
+    set +f
     if [ -n "$hits" ]; then
       branch="${remote_ref#refs/heads/}"
       echo "" >&2
-      echo "  heads-up: this push changes files deployment depends on:$hits" >&2
-      echo "  Its PR runs the heavy Docker checks (about 20 minutes). To run them now:" >&2
+      echo "  heads-up: this branch changes files deployment depends on:$hits" >&2
+      echo "  Its PR into develop or integration runs the heavy Docker checks (about 20 minutes) on every push." >&2
+      echo "  To run them by hand (works only once docker-heavy.yml is on develop, the default branch):" >&2
       echo "      gh workflow run docker-heavy.yml --ref $branch" >&2
       echo "  A newer push cancels an older run; the PR label 'heavy-docker: later' pauses them." >&2
       echo "" >&2

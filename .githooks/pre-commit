@@ -1,17 +1,49 @@
 #!/usr/bin/env bash
 # Docs organization guard, where scripts/check-docs.sh exists (agents/develop). When a commit
 # touches docs/, verify links resolve, KB docs are referenced, and the develop superset holds.
-# Bypass once with:  git commit --no-verify
+# --no-verify skips every hook here; agents need the owner's yes for it (AGENTS.md).
 root="$(git rev-parse --show-toplevel)"
+
+# Agent files (CLAUDE.md, AGENTS.md, BRANCH.md, .claude/) never reach a code branch (AGENTS.md, branch
+# table). agent-setup.sh copies them in gitignored, but `git add -f` gets past that. agents/develop is a branch named agents/*, or a
+# detached HEAD that tracks CLAUDE.md (a docs worktree), as in agent-setup.sh. Removing one is allowed.
+hook_branch="$(git branch --show-current)"
+if [[ "$hook_branch" != agents/* ]] && { [ -n "$hook_branch" ] || [ -z "$(git ls-tree --name-only HEAD CLAUDE.md 2>/dev/null)" ]; }; then
+  agent_files="$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^(CLAUDE\.md|AGENTS\.md|BRANCH\.md)$|^\.claude/')"
+  if [ -n "$agent_files" ]; then
+    echo "" >&2
+    echo "  commit blocked: agent files belong only on agents/develop, never on a code branch:" >&2
+    printf '    %s\n' $agent_files >&2
+    echo "  Unstage them: git restore --staged <file>" >&2
+    exit 1
+  fi
+fi
 
 # Every function gets a spec docstring (AGENTS.md, "Comments and Docstrings"). Blocks a commit that
 # ADDS a defn, defn- or defmacro with none; warns on history wording in added comment lines, using
 # comment_discipline_test's pattern. Runs in every worktree: core.hooksPath is shared by the clone.
+# On a merge commit a line counts as added only if it is new against BOTH sides (HEAD and MERGE_HEAD):
+# what the other side brought in passes, what was written while resolving is checked, and a merge
+# never needs --no-verify (which skips every hook).
 if command -v python3 >/dev/null 2>&1; then
   python3 - <<'PY' || exit 1
 import re, subprocess, sys
 staged = subprocess.run(["git", "diff", "--cached", "--name-only", "--diff-filter=AM"],
                         capture_output=True, text=True).stdout.split()
+merging = subprocess.run(["git", "rev-parse", "-q", "--verify", "MERGE_HEAD"],
+                         capture_output=True, text=True).returncode == 0
+
+def added_lines(path, base):
+    """Line numbers of the staged copy of `path` that are not in `base` (None: HEAD), with their text."""
+    args = ["git", "diff", "--cached", "-U0"] + ([base] if base else []) + ["--", path]
+    out, line = {}, 0
+    for d in subprocess.run(args, capture_output=True, text=True).stdout.splitlines():
+        m = re.match(r"@@ -\S+ \+(\d+)(?:,(\d+))? @@", d)
+        if m:
+            line = int(m.group(1)); continue
+        if d.startswith("+") and not d.startswith("+++"):
+            out[line] = d[1:]; line += 1
+    return out
 history = re.compile(r"(?i)\b(used to be|(?:this|it|they|we|that|which) used to|(?:was|were) once|originally|previously|until recently|historically|at one point|back when|this (?:fix|change|commit) (?:is|was|makes|made))\b")
 benign = re.compile(r"(?i)\bpreviously[- ][a-z]+ed\b")
 missing, warned = [], []
@@ -19,19 +51,15 @@ for path in staged:
     is_clj = re.search(r"\.clj[cs]?$", path)
     if not (is_clj or re.search(r"\.(js|sh)$", path)):
         continue
-    diff = subprocess.run(["git", "diff", "--cached", "-U0", "--", path], capture_output=True, text=True).stdout
-    added, line = set(), 0
-    for d in diff.splitlines():
-        m = re.match(r"@@ -\S+ \+(\d+)(?:,(\d+))? @@", d)
-        if m:
-            line = int(m.group(1)); continue
-        if d.startswith("+") and not d.startswith("+++"):
-            added.add(line)
-            text = d[1:]
-            comment = text.lstrip().startswith((";", "//", "#", "*", "/*"))
-            if comment and history.search(text) and not benign.search(text):
-                warned.append(f"{path}:{line}: {text.strip()[:90]}")
-            line += 1
+    lines = added_lines(path, None)
+    if merging:
+        theirs = added_lines(path, "MERGE_HEAD")
+        lines = {n: t for n, t in lines.items() if n in theirs}
+    added = set(lines)
+    for n, text in sorted(lines.items()):
+        comment = text.lstrip().startswith((";", "//", "#", "*", "/*"))
+        if comment and history.search(text) and not benign.search(text):
+            warned.append(f"{path}:{n}: {text.strip()[:90]}")
     if not is_clj:
         continue
     src = subprocess.run(["git", "show", f":{path}"], capture_output=True, text=True).stdout.splitlines()
@@ -59,7 +87,7 @@ if git diff --cached --name-only | grep -qE '^docs/'; then
   "$root/scripts/check-docs.sh" || {
     echo "" >&2
     echo "  commit blocked: docs organization check failed (see above)." >&2
-    echo "  Fix the links/index, or bypass once with: git commit --no-verify" >&2
+    echo "  Fix the links/index. (Agents: --no-verify needs the owner's yes, AGENTS.md.)" >&2
     exit 1
   }
   # kb lint covers what check-docs.sh does not: a doc with no H1 (kb find has
@@ -79,7 +107,7 @@ if git diff --cached --name-only | grep -qE '^docs/'; then
     ( cd "$root" && python3 docs/kb/tools/kb.py lint ) || {
       echo "" >&2
       echo "  commit blocked: kb lint failed (see above)." >&2
-      echo "  Bypass once with: git commit --no-verify" >&2
+      echo "  agents: --no-verify needs the owner's yes (AGENTS.md)" >&2
       exit 1
     }
   fi
@@ -93,7 +121,7 @@ if git diff --cached --name-only | grep -qE '^scripts/srd/(check-srd-data\.py|op
     python3 "$root/scripts/srd/test-check-srd-data.py" "$clone" "$srd52" || {
       echo "" >&2
       echo "  commit blocked: the SRD data check self-test failed, so a rule no longer" >&2
-      echo "  catches the mistake it exists for. Bypass once with: git commit --no-verify" >&2
+      echo "  catches the mistake it exists for. agents: --no-verify needs the owner's yes (AGENTS.md)" >&2
       exit 1
     }
   else
