@@ -354,7 +354,10 @@ DATOMIC_URL=datomic:dev://datomic:4334/orcpub
 
 # --- Transactor Tuning ---
 # These rarely need changing. See docker/transactor.properties.template.
-ALT_HOST=127.0.0.1
+# TRANSACTOR_HOST and ALT_HOST default to the right values for Compose and for the
+# Swarm stack ./run --swarm writes; set them here only to override both.
+# TRANSACTOR_HOST=
+# ALT_HOST=
 ENCRYPT_CHANNEL=true
 # Password rotation: set the OLD var to the previous password, then change the
 # main var above. The transactor accepts both during the transition. Remove the
@@ -904,6 +907,22 @@ if [ "$SWARM_MODE" = "true" ] && [ "$UPGRADE_MODE" != "true" ]; then
 
   # Generate the swarm compose file (uses _swarm_* vars if upgrade)
   generate_swarm_compose "$SWARM_COMPOSE" "$_is_upgrade"
+
+  # Never replace a stack with one that drops what the admin added: keep theirs, write ours beside it.
+  if [ -n "$_backup_file" ]; then
+    _lost=$(swarm_stack_losses "$_backup_file" "$SWARM_COMPOSE")
+    if [ -n "$_lost" ]; then
+      mv "$SWARM_COMPOSE" "${SWARM_COMPOSE}.new"
+      cp "$_backup_file" "$SWARM_COMPOSE"
+      error "$(basename "$SWARM_COMPOSE") was NOT changed: the new stack would drop these parts of yours:"
+      printf '    %s\n' $_lost
+      echo ""
+      info "The new stack is in $(basename "$SWARM_COMPOSE").new. Either copy the parts above into it"
+      info "and rename it to $(basename "$SWARM_COMPOSE"), or keep your file and copy this release's"
+      info "changes into it (./run --check lists them)."
+      exit 1
+    fi
+  fi
   change "Generated: $SWARM_COMPOSE"
 
   # Generate stripped .env for Portainer advanced mode
@@ -1021,9 +1040,6 @@ if [ "$SWARM_MODE" = "true" ] && [ "$SECRETS_MODE" = "true" ] && [ "$UPGRADE_MOD
     activate_swarm_secrets "$SWARM_COMPOSE"
     change "Activated secrets in $(basename "$SWARM_COMPOSE")"
   fi
-
-  set_env_val ALT_HOST datomic "$ENV_FILE"
-  change "ALT_HOST=datomic (peer fallback via Docker DNS)"
 
   echo ""
   success "Done! Swarm secrets created, compose is configured."
@@ -1378,6 +1394,14 @@ if [ "$UPGRADE_MODE" = "true" ]; then
     set_env_val DATOMIC_URL "$_new_url" "$ENV_FILE"
     CHANGES=$((CHANGES + 1))
     change "  Changed 'localhost' to 'datomic' (Docker service name)"
+  fi
+
+  # --- Check 6b: ALT_HOST written as the Compose default ---
+  # Compose and the Swarm stack each default it; this value in .env broke Swarm (docs/DOCKER.md).
+  if [ "$(read_env_val ALT_HOST "$ENV_FILE")" = "127.0.0.1" ]; then
+    sed -i '/^ALT_HOST=127\.0\.0\.1[[:space:]]*$/d' "$ENV_FILE"
+    CHANGES=$((CHANGES + 1))
+    change "  Removed ALT_HOST=127.0.0.1 (the Compose default; Swarm needs datomic, and each now sets its own)"
   fi
 
   # --- Check 7: Image tags (ORCPUB_IMAGE / DATOMIC_IMAGE) ---

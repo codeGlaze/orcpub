@@ -27,6 +27,32 @@ swarm_stack_lacks_transactor_host() {
   ! sed -n '/^  datomic:/,/^  [a-z]/p' "$1" | grep -q 'TRANSACTOR_HOST'
 }
 
+# _stack_paths FILE
+# Prints each key and list item of a stack file as a path, one per line, sorted: top-level keys,
+# services, their keys, and two levels below (environment names, labels, volumes). Values of
+# keys are left out, so a changed value is not a difference. Comments and blank lines are skipped.
+_stack_paths() {
+  awk '
+    /^[[:space:]]*(#|$)/ { next }
+    {
+      match($0, /^ */); level = int(RLENGTH / 2); text = substr($0, RLENGTH + 1)
+      if (level > 4) next
+      if (text ~ /^- /) { item = substr(text, 3); sub(/=.*/, "", item); gsub(/["\047]/, "", item); key = "[" item "]" }
+      else if (text ~ /:/) { key = text; sub(/:.*/, "", key) }
+      else next
+      path[level] = key; out = path[0]
+      for (i = 1; i <= level; i++) out = out "/" path[i]
+      print out
+    }' "$1" | sort -u
+}
+
+# swarm_stack_losses OLD NEW
+# Prints the paths in OLD that NEW does not have: what regenerating would drop. The top-level
+# name: is left out, since the generator writes it as a comment (Swarm rejects it).
+swarm_stack_losses() {
+  comm -23 <(_stack_paths "$1") <(_stack_paths "$2") | grep -v '^name$' || true
+}
+
 # warn_swarm_transactor_host FILE
 # Prints what to do when FILE needs TRANSACTOR_HOST. Returns 0 when it warned, 1 when not.
 warn_swarm_transactor_host() {
@@ -80,7 +106,9 @@ extract_swarm_config() {
   done < <(sed -n '/^networks:/,/^[a-z]/{/^  [a-z]/p}' "$existing" 2>/dev/null || true)
 
   for net in "${_swarm_networks[@]}"; do
-    if sed -n "/^  ${net}:/,/^  [a-z]/p" "$existing" 2>/dev/null | grep -q 'external.*true'; then
+    # Only this entry's own lines, without comments: the sample "#   external: true" is not a setting.
+    if sed -n '/^networks:/,/^[a-z]/p' "$existing" 2>/dev/null | sed -n "/^  ${net}:/,/^  [a-z#]/p" \
+         | grep -v '^[[:space:]]*#' | grep -q 'external:[[:space:]]*true'; then
       _swarm_networks_external+=("$net")
     fi
   done
@@ -96,7 +124,9 @@ extract_swarm_config() {
   done < <(sed -n '/^volumes:/,/^[a-z]/{/^  [a-z]/p}' "$existing" 2>/dev/null || true)
 
   for vol in "${_swarm_volumes[@]}"; do
-    if sed -n "/^  ${vol}:/,/^  [a-z]/p" "$existing" 2>/dev/null | grep -q 'external.*true'; then
+    # Only this entry's own lines, without comments: the sample "#   external: true" is not a setting.
+    if sed -n '/^volumes:/,/^[a-z]/p' "$existing" 2>/dev/null | sed -n "/^  ${vol}:/,/^  [a-z#]/p" \
+         | grep -v '^[[:space:]]*#' | grep -q 'external:[[:space:]]*true'; then
       _swarm_volumes_external+=("$vol")
     fi
   done
@@ -359,7 +389,7 @@ generate_swarm_compose() {
   local -a _d_env_defaults=(
     "ADMIN_PASSWORD:\${ADMIN_PASSWORD}"
     "DATOMIC_PASSWORD:\${DATOMIC_PASSWORD}"
-    "TRANSACTOR_HOST:0.0.0.0"
+    "TRANSACTOR_HOST:\${TRANSACTOR_HOST:-0.0.0.0}"
     "ALT_HOST:\${ALT_HOST:-datomic}"
     "ENCRYPT_CHANNEL:\${ENCRYPT_CHANNEL:-true}"
     "XMS:${xms}"

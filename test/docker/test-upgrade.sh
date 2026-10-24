@@ -129,6 +129,14 @@ run_fixture() {
 
   printf '\n%s--- %s ---%s\n' "$cyan" "$fixture_name" "$reset"
 
+  # Every setup: ALT_HOST=127.0.0.1, the Compose default ./run used to write, is removed.
+  if grep -qE '^ALT_HOST=127\.0\.0\.1' "$result_env"; then
+    fail "${label}ALT_HOST=127.0.0.1 left in .env (breaks Swarm)"
+  else
+    pass "${label}no ALT_HOST=127.0.0.1 in .env"
+  fi
+  TESTS=$((TESTS + 1))
+
   case "$fixture_name" in
 
     v1-free-localhost)
@@ -376,7 +384,7 @@ SWARMENV
   TESTS=$((TESTS + 1))
 
   # The transactor cannot serve on Swarm's virtual address for "datomic" (docs/DOCKER.md).
-  if sed -n '/^  datomic:/,/^  [a-z]/p' "$SWARM_COMPOSE" | grep -q 'TRANSACTOR_HOST: "*0\.0\.0\.0'; then
+  if sed -n '/^  datomic:/,/^  [a-z]/p' "$SWARM_COMPOSE" | grep -q 'TRANSACTOR_HOST: .*0\.0\.0\.0'; then
     pass "${label}datomic serves on 0.0.0.0"
   else
     fail "${label}datomic service lacks TRANSACTOR_HOST 0.0.0.0"
@@ -431,7 +439,7 @@ SWARMENV
   extract_swarm_config "$SWARM_COMPOSE"
   generate_swarm_compose "$SWARM_COMPOSE" "true"
 
-  if sed -n '/^  datomic:/,/^  [a-z]/p' "$SWARM_COMPOSE" | grep -q 'TRANSACTOR_HOST: "*0\.0\.0\.0'; then
+  if sed -n '/^  datomic:/,/^  [a-z]/p' "$SWARM_COMPOSE" | grep -q 'TRANSACTOR_HOST: .*0\.0\.0\.0'; then
     pass "${label}upgrade adds TRANSACTOR_HOST to an older stack"
     if swarm_stack_lacks_transactor_host "$SWARM_COMPOSE"; then
       fail "${label}a regenerated stack is still reported"
@@ -449,6 +457,33 @@ SWARMENV
     pass "${label}upgrade preserves services"
   else
     fail "${label}upgrade lost services"
+  fi
+  TESTS=$((TESTS + 1))
+
+  # The stack's own overlay network stays its own: the sample "#   external: true" is a comment.
+  if sed -n '/^networks:/,/^[a-z]/p' "$SWARM_COMPOSE" | grep -q 'driver: overlay'; then
+    pass "${label}regenerating keeps the backend overlay network"
+  else
+    fail "${label}regenerating turned the backend network external"
+  fi
+  TESTS=$((TESTS + 1))
+
+  if [ -z "$(swarm_stack_losses "$backup" "$SWARM_COMPOSE")" ]; then
+    pass "${label}regenerating drops nothing from a generated stack"
+  else
+    fail "${label}regenerating drops: $(swarm_stack_losses "$backup" "$SWARM_COMPOSE" | tr '\n' ' ')"
+  fi
+  TESTS=$((TESTS + 1))
+
+  local edited="${SWARM_COMPOSE}.edited"
+  cp "$SWARM_COMPOSE" "$edited"
+  printf '\nconfigs:\n  myconf:\n    external: true\n' >> "$edited"
+  sed -i 's/^  orcpub:$/  orcpub:\n    hostname: myapp/' "$edited"
+  _lost=$(swarm_stack_losses "$edited" "$SWARM_COMPOSE")
+  if echo "$_lost" | grep -qx 'configs' && echo "$_lost" | grep -qx 'services/orcpub/hostname'; then
+    pass "${label}a top-level section and a service key the generator does not write are reported"
+  else
+    fail "${label}additions not reported (got: $(echo "$_lost" | tr '\n' ' '))"
   fi
   TESTS=$((TESTS + 1))
 
