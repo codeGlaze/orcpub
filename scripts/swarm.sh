@@ -406,6 +406,7 @@ generate_swarm_compose() {
     # these an existing stack file lacks. settings_lists_test keeps this list complete.
     "DEV_MODE:\${DEV_MODE:-}"
     "ALLOW_UNVERIFIED_REGISTRATION:\${ALLOW_UNVERIFIED_REGISTRATION:-}"
+    "EMAIL_REQUIRED:\${EMAIL_REQUIRED:-}"
     "LOAD_HOMEBREW_URL:\${LOAD_HOMEBREW_URL:-}"
     "PORTRAIT_ARTISTS:\${PORTRAIT_ARTISTS:-}"
     "PROFILE_ENCRYPTION_KEYS:\${PROFILE_ENCRYPTION_KEYS:-}"

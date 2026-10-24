@@ -66,6 +66,7 @@ services:
       # Empty EMAIL_SERVER_URL makes registration refuse rather than silently
       # accept unverified accounts; this is how you opt into the weaker mode.
       ALLOW_UNVERIFIED_REGISTRATION: ${ALLOW_UNVERIFIED_REGISTRATION:-}
+      EMAIL_REQUIRED: ${EMAIL_REQUIRED:-}
       LOAD_HOMEBREW_URL: ${LOAD_HOMEBREW_URL:-}
       # Portrait artists' credits and accounts, the key that encrypts preferred names, and the
       # site address artist emails link to. See .env.example.

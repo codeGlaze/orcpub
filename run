@@ -75,6 +75,8 @@ source_env() {
 # Source optional modules
 # shellcheck source=scripts/swarm.sh
 [ -f "${SCRIPT_DIR}/scripts/swarm.sh" ] && . "${SCRIPT_DIR}/scripts/swarm.sh"
+# shellcheck source=scripts/startup-report.sh
+[ -f "${SCRIPT_DIR}/scripts/startup-report.sh" ] && . "${SCRIPT_DIR}/scripts/startup-report.sh"
 # shellcheck source=scripts/release-check.sh
 [ -f "${SCRIPT_DIR}/scripts/release-check.sh" ] && . "${SCRIPT_DIR}/scripts/release-check.sh"
 RELEASE_REPORT="${SCRIPT_DIR}/logs/upgrade-report.txt"
@@ -328,6 +330,8 @@ confirm_action() {
 # Expects PORT, ADMIN_PASSWORD, DATOMIC_PASSWORD, SIGNATURE, EMAIL_*, ORCPUB_IMAGE,
 # DATOMIC_IMAGE, INIT_ADMIN_* to be set in scope before calling.
 write_env_file() {
+  # Without a mail server a deployed server starts only when told email is not needed.
+  if [ -n "${EMAIL_SERVER_URL:-}" ]; then EMAIL_REQUIRED=""; else EMAIL_REQUIRED="false"; fi
   cat > "$ENV_FILE" <<EOF
 # ============================================================================
 # Dungeon Master's Vault — Docker Environment Configuration
@@ -386,6 +390,9 @@ EMAIL_FROM_ADDRESS=${EMAIL_FROM_ADDRESS}
 EMAIL_ERRORS_TO=${EMAIL_ERRORS_TO}
 EMAIL_SSL=${EMAIL_SSL}
 EMAIL_TLS=${EMAIL_TLS}
+# false lets the server start with no mail server (sign-up stays off). Set up email
+# before you open the site to the public, then remove this line.
+EMAIL_REQUIRED=${EMAIL_REQUIRED}
 
 # --- SSL (Nginx) ---
 # Set to 'true' after running snakeoil.sh or providing your own certs
@@ -1148,6 +1155,7 @@ if [ "$UP_MODE" = "true" ]; then
 
   # docker compose config outputs Compose Specification format;
   # docker stack deploy expects legacy v3 schema. JSON + jq bridges the gap.
+  _deploy_since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   docker compose config --format json | jq '
     del(.name) |
     .services |= with_entries(
@@ -1170,6 +1178,8 @@ if [ "$UP_MODE" = "true" ]; then
   echo "  docker stack services orcpub    # List services"
   echo "  docker stack ps orcpub          # List tasks"
   echo "  docker service logs <service>   # View logs"
+  # Last on screen: the app's startup report, so nothing scrolls it away.
+  declare -F show_startup_report >/dev/null && show_startup_report swarm "$_deploy_since" || true
   exit 0
 fi
 
@@ -1409,6 +1419,17 @@ if [ "$UPGRADE_MODE" = "true" ]; then
     change "  Removed ALT_HOST=127.0.0.1 (the Compose default; Swarm needs datomic, and each now sets its own)"
   fi
 
+  # --- Check 6c: no mail server, and nothing saying that is intended ---
+  # This release refuses to start that way; an install that ran without email keeps running.
+  if [ -z "$(read_env_val EMAIL_SERVER_URL "$ENV_FILE")" ] \
+     && [ -z "$(read_env_val EMAIL_REQUIRED "$ENV_FILE")" ] \
+     && [ "$(read_env_val ALLOW_UNVERIFIED_REGISTRATION "$ENV_FILE" | tr '[:upper:]' '[:lower:]')" != "true" ]; then
+    set_env_val EMAIL_REQUIRED false "$ENV_FILE"
+    CHANGES=$((CHANGES + 1))
+    change "  Set EMAIL_REQUIRED=false: no mail server is set, and this release will not start without"
+    change "  one unless told so. Sign-up stays off; set up EMAIL_SERVER_URL before opening the site."
+  fi
+
   # --- Check 7: Image tags (ORCPUB_IMAGE / DATOMIC_IMAGE) ---
   _orcpub_img=$(read_env_val ORCPUB_IMAGE "$ENV_FILE")
   _datomic_img=$(read_env_val DATOMIC_IMAGE "$ENV_FILE")
@@ -1622,6 +1643,7 @@ if [ "$_any_mode" = "false" ]; then
   if confirm_action "Start services?"; then
     COMPOSE_CMD=$(build_compose_cmd "docker compose up -d")
     info "Starting services..."
+    _start_since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     eval "$COMPOSE_CMD" || { error "Failed to start services."; exit 1; }
     echo ""
     success "Services started."
@@ -1635,6 +1657,8 @@ if [ "$_any_mode" = "false" ]; then
     echo ""
     echo "Access the site at:"
     echo "  https://localhost"
+    # Last on screen: the app's startup report, so nothing scrolls it away.
+    declare -F show_startup_report >/dev/null && show_startup_report compose "$_start_since" || true
   else
     info "Skipping start."
     COMPOSE_CMD=$(build_compose_cmd "docker compose up --build -d")

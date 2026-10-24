@@ -116,6 +116,12 @@ git pull
 docker compose up --build -d
 ```
 
+After starting, the app prints its **startup report**: every setting in use, where crash files
+and alerts go, the admin email address, and this release's changes. `./run` waits for it and
+prints it last, so it does not scroll away; it is also saved to
+`/var/log/orcpub/startup-report.txt` on the host (Portainer: the service's Logs, search
+"orcpub started").
+
 The upgrade script:
 - **Says what this release changes for your install.** It checks your `.env` and
   Swarm stack, prints only what you need to do, and writes the full notes to

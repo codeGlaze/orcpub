@@ -294,3 +294,19 @@
   (testing "a note fits beside the table on a narrow screen"
     (is (empty? (filter #(> (count (:note %)) 60) config/settings))
         (pr-str (map (juxt :var (comp count :note)) (filter #(> (count (:note %)) 60) config/settings))))))
+
+(deftest the-report-is-saved-beside-the-crash-files
+  (testing "the folder: the crash folder's parent, else the alert folder's"
+    (is (= "/host-log/orcpub" (config/report-dir {:crash-dir "/host-log/orcpub/crash" :alert-dir "/x/alerts"})))
+    (is (= "/srv/state" (config/report-dir {:alert-dir "/srv/state/alerts"})))
+    (is (nil? (config/report-dir {}))))
+  (testing "saved as startup-report.txt, and the line saying so names the host path"
+    (let [dir (str (java.nio.file.Files/createTempDirectory "report" (make-array java.nio.file.attribute.FileAttribute 0)))
+          line (config/save-report! dir ["  orcpub started" "  rest"])]
+      (is (= "  orcpub started\n  rest\n" (slurp (str dir "/startup-report.txt"))))
+      (is (str/includes? line (str dir "/startup-report.txt")) line)))
+  (testing "a folder it cannot write gives no line and no error"
+    (is (nil? (config/save-report! "/proc/no-such-dir" ["x"]))))
+  (testing "a /host-log folder is named as the host's /var/log"
+    (is (= "This report is saved in /var/log/orcpub/startup-report.txt on the host"
+           (config/saved-line "/host-log/orcpub/startup-report.txt")))))

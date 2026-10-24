@@ -364,6 +364,8 @@
     {:group "security" :var "CSP_POLICY" :since "2.5"    :note "strict, permissive or none"}
     {:group "email"    :var "EMAIL_SERVER_URL" :since "2.5" :critical? true :fix email-missing-message
      :note "SMTP host; sign-up and password reset need it"}
+    {:group "email"    :var "EMAIL_REQUIRED" :since current-release
+     :note "false: start without email; sign-up stays off"}
     {:group "email"    :var "EMAIL_SERVER_PORT" :since "2.5" :note "default 587"}
     {:group "email"    :var "EMAIL_SSL" :since "2.5" :note "TRUE: connect over SSL"}
     {:group "email"    :var "EMAIL_TLS" :since "2.5" :note "TRUE: use STARTTLS"}
@@ -535,6 +537,21 @@
          (wrap-names (map :var fresh) 100)))
       [rule]))))
 
+(defn start-refusal
+  "Why a deployed server must not start, or nil when it may. It refuses when no mail server is set
+   (EMAIL_SERVER_URL), unless DEV_MODE=true, EMAIL_REQUIRED=false, or
+   ALLOW_UNVERIFIED_REGISTRATION=true says running without email is intended. Returns the message
+   to print: what is missing and both ways to fix it."
+  []
+  (when-not (or (env/value :email-server-url)
+                (dev-mode?)
+                (env/flag? :allow-unverified-registration)
+                (= "false" (some-> (env/value :email-required) str/trim (.toLowerCase Locale/ROOT))))
+    (str "orcpub NOT STARTED: no mail server is set (EMAIL_SERVER_URL). Without one nobody can sign\n"
+         "up or reset a password, and admin alerts reach nobody.\n"
+         "  Fix: set EMAIL_SERVER_URL (with EMAIL_ACCESS_KEY, EMAIL_SECRET_KEY, EMAIL_FROM_ADDRESS).\n"
+         "  Or, to run without email on purpose (sign-up stays off): EMAIL_REQUIRED=false.")))
+
 (defn- first-address
   "The first of `vars` (env var names) with a value, then APP_SUPPORT_EMAIL (which fork branding may
    default), as {:address :from}; nil when none is set."
@@ -625,6 +642,27 @@
             (.getThreadPool) (.getMaxThreads))
     (catch Exception _ nil)))
 
+(defn report-dir
+  "The folder the startup report is saved in: the parent of `:crash-dir`, else of `:alert-dir`
+   (the map `crash-and-alert-dirs` returns); nil when neither is known."
+  [{:keys [crash-dir alert-dir]}]
+  (some #(some-> % io/file .getParent) [crash-dir alert-dir]))
+
+(defn saved-line
+  "The report's closing line naming `path`, the saved file (a /host-log path read as the host's)."
+  [path]
+  (str "This report is saved in " (shown-dir path)))
+
+(defn save-report!
+  "Writes report `lines` to startup-report.txt in folder `dir`. Returns the report's closing line
+   naming the file (`saved-line`), or nil when it could not be written; never throws."
+  [dir lines]
+  (try
+    (let [f (io/file dir "startup-report.txt")]
+      (spit f (str (str/join "\n" lines) "\n"))
+      (saved-line (str f)))
+    (catch Exception _ nil)))
+
 (defn print-report!
   "Say the server is up and how it is configured. Called after the system has started, so
    `started` means started rather than `we got as far as printing`, and so the running
@@ -632,14 +670,19 @@
   ([] (print-report! nil))
   ([created]
    (let [actual (when-let [n (jetty-max-threads created)]
-                  {"ORCPUB_HTTP_MAX_THREADS" n})]
+                  {"ORCPUB_HTTP_MAX_THREADS" n})
+         dirs   (crash-and-alert-dirs)
+         lines  (vec (report-lines (report) actual @branding/ignored
+                                   (deployment-lines (assoc dirs
+                                                            :max-heap-bytes (.maxMemory (Runtime/getRuntime))
+                                                            :admin (alert-address)))))
+         saved  (some-> (report-dir dirs) (save-report! lines))]
      ;; One write, then flush. Printed line by line, Jetty's own logging interleaved with it
      ;; and cut the table in half -- buffered stdout against unbuffered stderr in the same
      ;; stream. A banner that arrives in pieces is worse than no banner.
-     (println (str/join (System/lineSeparator) (report-lines (report) actual @branding/ignored
-                                                             (deployment-lines (assoc (crash-and-alert-dirs)
-                                                                                      :max-heap-bytes (.maxMemory (Runtime/getRuntime))
-                                                                                      :admin (alert-address))))))
+     ;; The saved line goes just inside the closing rule; ./run prints the report up to it.
+     (println (str/join (System/lineSeparator)
+                        (cond-> lines saved (-> pop (conj (str "  " saved) (peek lines))))))
      (flush))))
 
 (defn get-secure-headers-config

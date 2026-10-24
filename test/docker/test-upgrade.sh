@@ -129,6 +129,16 @@ run_fixture() {
 
   printf '\n%s--- %s ---%s\n' "$cyan" "$fixture_name" "$reset"
 
+  # Every setup without a mail server can still start: it says email is not needed.
+  _val() { grep -m1 "^${1}=" "$result_env" 2>/dev/null | cut -d= -f2- | tr -d '\r' || true; }
+  if [ -z "$(_val EMAIL_SERVER_URL)" ] && [ "$(_val EMAIL_REQUIRED)" != "false" ] \
+     && [ "$(_val ALLOW_UNVERIFIED_REGISTRATION | tr '[:upper:]' '[:lower:]')" != "true" ]; then
+    fail "${label}no mail server and no EMAIL_REQUIRED=false: the server would not start"
+  else
+    pass "${label}starts: a mail server, or EMAIL_REQUIRED=false"
+  fi
+  TESTS=$((TESTS + 1))
+
   # Every setup: ALT_HOST=127.0.0.1, the Compose default ./run used to write, is removed.
   if grep -qE '^ALT_HOST=127\.0\.0\.1' "$result_env"; then
     fail "${label}ALT_HOST=127.0.0.1 left in .env (breaks Swarm)"

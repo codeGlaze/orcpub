@@ -262,6 +262,7 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 | `ALLOW_UNVERIFIED_REGISTRATION` | `false` | Set to `true`, with `EMAIL_SERVER_URL` empty, to let people sign up without confirming their email. For private sites only. Does nothing if SMTP is set up. You have to ask for this on purpose, so that losing your SMTP settings by accident can't quietly stop the site checking addresses. |
 | `EMAIL_FROM_ADDRESS` | `no-reply@dungeonmastersvault.com` | Sender email address |
 | `EMAIL_ERRORS_TO` | `EMAIL_ADMIN_TO`, then `APP_SUPPORT_EMAIL` | Where admin alerts are emailed: server errors and anything else that needs an administrator. Unset, they go to `EMAIL_ADMIN_TO`, then to the public support address `APP_SUPPORT_EMAIL`; with none of the three set, alerts are written to the server log only. The startup report's DEPLOYMENT block names the address in use. |
+| `EMAIL_REQUIRED` | — | A deployed server (`DEV_MODE` not `true`) will not start without `EMAIL_SERVER_URL`: nobody could sign up or reset a password, and admin alerts would reach nobody. Set this to `false` to run without email on purpose; sign-up then stays off. `./run` writes it when setup leaves email empty, and `./run --upgrade` adds it to an install that has no mail server. |
 | `EMAIL_SSL` | `FALSE` | Enable SSL for SMTP |
 | `EMAIL_TLS` | `FALSE` | Enable TLS for SMTP |
 

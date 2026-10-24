@@ -20,6 +20,7 @@ on:
       - 'docker-user.sh'
       - 'scripts/swarm.sh'
       - 'scripts/release-check.sh'
+      - 'scripts/startup-report.sh'
       - 'scripts/load-env.sh'
       - 'scripts/start.sh'
       - 'src/clj/orcpub/crash_report.clj'
