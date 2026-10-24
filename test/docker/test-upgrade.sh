@@ -521,6 +521,35 @@ SWARMENV
   fi
   TESTS=$((TESTS + 1))
 
+  # --- Test: what this release changes for an install (scripts/release-check.sh) ---
+  printf '\n%s--- release check ---%s\n' "$cyan" "$reset"
+  # shellcheck source=../../scripts/release-check.sh
+  . "${PROJECT_ROOT}/scripts/release-check.sh"
+  local report="${tmpdir}/logs/upgrade-report.txt" stack="${tmpdir}/stack-check.yaml"
+
+  # release_case NAME WANT_ACTIONS WANT_TEXT: runs release_check on $stack and ${ENV_FILE}.
+  release_case() {
+    WARNING_MSGS=()
+    release_check "$ENV_FILE" "$stack" "$report" >/dev/null
+    if [ "$RELEASE_ACTIONS" -eq "$2" ] && { [ -z "$3" ] || grep -qF "$3" "$report"; }; then
+      pass "${label}release check: $1"
+    else
+      fail "${label}release check: $1 (got ${RELEASE_ACTIONS} to do; report: $(grep '^  - ' "$report" | head -3 | tr '\n' ' '))"
+    fi
+    TESTS=$((TESTS + 1))
+  }
+
+  cp "$SWARM_COMPOSE" "$stack"
+  release_case "a current stack needs nothing" 0 "To do: nothing."
+  sed -i 's/^ALT_HOST=.*/ALT_HOST=127.0.0.1/' "$ENV_FILE"
+  release_case "ALT_HOST=127.0.0.1 in .env is flagged for Swarm" 1 "ALT_HOST is '127.0.0.1'"
+  sed -i 's/^ALT_HOST=.*/ALT_HOST=datomic/' "$ENV_FILE"
+  sed -i '/TRANSACTOR_HOST/d; /host-log/d' "$stack"
+  release_case "an older stack: no TRANSACTOR_HOST, no /var/log" 2 "sets no TRANSACTOR_HOST"
+  cp "$SWARM_COMPOSE" "$stack"
+  sed -i 's/^  orcpub:$/  orcpub:\n    user: "1000"/' "$stack"
+  release_case "user: on the app service is flagged" 1 "sets user:"
+
   rm -rf "$tmpdir"
 }
 

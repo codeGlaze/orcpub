@@ -19,6 +19,7 @@ on:
       - 'docker-migrate.sh'
       - 'scripts/load-env.sh'
       - 'scripts/swarm.sh'
+      - 'scripts/release-check.sh'
       - 'scripts/common.sh'
       - '.env.example'
       - 'test/docker/**'
@@ -75,7 +76,7 @@ jobs:
       - name: Lint shell scripts
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          shellcheck -x --severity=warning run docker-user.sh scripts/swarm.sh scripts/load-env.sh
+          shellcheck -x --severity=warning run docker-user.sh scripts/swarm.sh scripts/load-env.sh scripts/release-check.sh
 
       # .env is read, never run: the reader matches a real Compose container on tricky values,
       # existing .env formats load as before, and --upgrade still fixes every historical format.

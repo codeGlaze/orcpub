@@ -99,6 +99,8 @@ if [ -n "${DATOMIC_PASSWORD_OLD:-}" ]; then
 fi
 
 echo "Transactor config written to ${OUTPUT}"
+# The addresses the app is given, read back from the file the transactor uses (docs/DOCKER.md).
+echo "transactor: $(grep -E '^(host|alt-host|port)=' "$OUTPUT" | tr '\n' ' ')(set by TRANSACTOR_HOST, ALT_HOST)"
 
 # --- Fix bind-mount ownership ------------------------------------------------
 # Build-time chown is overridden by Docker bind mounts — the host directory's

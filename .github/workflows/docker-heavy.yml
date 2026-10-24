@@ -23,6 +23,7 @@ on:
       - 'run'
       - 'docker-user.sh'
       - 'scripts/swarm.sh'
+      - 'scripts/release-check.sh'
       - 'scripts/load-env.sh'
       - 'scripts/start.sh'
       - 'src/clj/orcpub/crash_report.clj'
@@ -163,6 +164,8 @@ jobs:
             sudo test -d "$d" || { echo "FAIL: $d missing"; exit 1; }
           done
           echo "OK: Swarm task runs as app; /var/log/orcpub is on the host"
+          docker service logs orcpub_datomic 2>&1 | grep "transactor: host=0.0.0.0 .*alt-host=datomic" \
+            || { echo "FAIL: Datomic did not report host=0.0.0.0 alt-host=datomic"; exit 1; }
       - name: Services on failure
         if: failure() || cancelled()
         run: |

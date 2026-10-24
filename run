@@ -75,6 +75,11 @@ source_env() {
 # Source optional modules
 # shellcheck source=scripts/swarm.sh
 [ -f "${SCRIPT_DIR}/scripts/swarm.sh" ] && . "${SCRIPT_DIR}/scripts/swarm.sh"
+# shellcheck source=scripts/release-check.sh
+[ -f "${SCRIPT_DIR}/scripts/release-check.sh" ] && . "${SCRIPT_DIR}/scripts/release-check.sh"
+RELEASE_REPORT="${SCRIPT_DIR}/logs/upgrade-report.txt"
+RELEASE_ACTIONS=0
+RELEASE_TODO=()
 
 # Set a variable in a .env file. Uses awk to avoid sed delimiter issues with URLs.
 # Usage: set_env_val "VAR_NAME" "value" "/path/to/.env"
@@ -740,9 +745,9 @@ if [ "$CHECK_MODE" = "true" ]; then
     WARNING_MSGS+=("DATOMIC_URL contains localhost")
     ERRORS=$((ERRORS + 1))
   fi
-  if declare -F warn_swarm_transactor_host >/dev/null && warn_swarm_transactor_host "${SWARM_COMPOSE:-}"; then
-    WARNING_MSGS+=("Swarm stack lacks TRANSACTOR_HOST")
-    ERRORS=$((ERRORS + 1))
+  if declare -F release_check >/dev/null; then
+    release_check "$ENV_FILE" "${SWARM_COMPOSE:-}" "$RELEASE_REPORT"
+    ERRORS=$((ERRORS + RELEASE_ACTIONS))
   fi
 
   echo ""
@@ -1446,11 +1451,12 @@ if [ "$UPGRADE_MODE" = "true" ]; then
     fi
   fi
 
-  # --- Check 8: Swarm stack written before TRANSACTOR_HOST ---
-  if [ "$SWARM_MODE" != "true" ] && declare -F swarm_stack_lacks_transactor_host >/dev/null \
-     && swarm_stack_lacks_transactor_host "${SWARM_COMPOSE:-}"; then
-    echo ""
-    warn_swarm_transactor_host "$SWARM_COMPOSE"
+  # --- Check 8: what this release changes for this install ---
+  # Skipped when chaining into --swarm, which regenerates the stack first.
+  if [ "$SWARM_MODE" != "true" ] && declare -F release_check >/dev/null; then
+    WARNING_MSGS=()
+    release_check "$ENV_FILE" "${SWARM_COMPOSE:-}" "$RELEASE_REPORT"
+    RELEASE_TODO=("${WARNING_MSGS[@]+"${WARNING_MSGS[@]}"}")
   fi
 
   echo ""
@@ -1505,11 +1511,13 @@ if [ "$UPGRADE_MODE" = "true" ]; then
     check_env_conflict "$_var"
   done
 
-  if declare -F swarm_stack_lacks_transactor_host >/dev/null && swarm_stack_lacks_transactor_host "${SWARM_COMPOSE:-}"; then
+  if [ "$RELEASE_ACTIONS" -gt 0 ]; then
     echo ""
-    printf '%s!!! WARNING — review before starting !!!%s\n' "$color_yellow" "$color_reset"
-    printf '  %s• %s has no TRANSACTOR_HOST: Datomic will not start on Swarm (./run --swarm fixes it)%s\n' \
-      "$color_yellow" "$(basename "$SWARM_COMPOSE")" "$color_reset"
+    printf '%s!!! %d THING(S) TO DO FOR THIS RELEASE — review before starting !!!%s\n' "$color_yellow" "$RELEASE_ACTIONS" "$color_reset"
+    for msg in "${RELEASE_TODO[@]}"; do
+      printf '  %s• %s%s\n' "$color_yellow" "$msg" "$color_reset"
+    done
+    printf '  Full notes: %s\n' "${RELEASE_REPORT#"${SCRIPT_DIR}"/}"
   fi
 
   echo ""
@@ -1676,9 +1684,10 @@ fi
 
 # ---- Final status banner ----------------------------------------------------
 
-if declare -F swarm_stack_lacks_transactor_host >/dev/null && swarm_stack_lacks_transactor_host "${SWARM_COMPOSE:-}"; then
-  WARNING_MSGS+=("$(basename "$SWARM_COMPOSE") has no TRANSACTOR_HOST: Datomic will not start on Swarm (./run --swarm fixes it)")
-  ERRORS=$((ERRORS + 1))
+# A Swarm stack is where this release's changes need action; release_check adds them to the banner.
+if [ -f "${SWARM_COMPOSE:-}" ] && declare -F release_check >/dev/null; then
+  release_check "$ENV_FILE" "$SWARM_COMPOSE" "$RELEASE_REPORT"
+  ERRORS=$((ERRORS + RELEASE_ACTIONS))
 fi
 
 echo ""

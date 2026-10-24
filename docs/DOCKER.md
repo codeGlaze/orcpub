@@ -117,6 +117,9 @@ docker compose up --build -d
 ```
 
 The upgrade script:
+- **Says what this release changes for your install.** It checks your `.env` and
+  Swarm stack, prints only what you need to do, and writes the full notes to
+  `logs/upgrade-report.txt`. `./run --check` prints the same.
 - **Backs up** your `.env` before changing anything
 - **Detects** old patterns (password in URL, missing variables)
 - **Fixes** them automatically
@@ -216,8 +219,8 @@ These are the variables you'll actually touch. Full reference in
 | `SIGNATURE` | Yes | — | JWT signing secret. All login and API calls fail without it. |
 | `DATOMIC_URL` | Yes | `datomic:dev://datomic:4334/orcpub` | Database connection URI. No `?password=` — the app adds it from `DATOMIC_PASSWORD`. |
 | `PORT` | No | `8890` | App server port. Nginx and healthcheck adapt automatically. |
-| `TRANSACTOR_HOST` | No | `datomic` | The address the transactor serves on. Swarm needs `0.0.0.0`; the stack `./run --swarm` writes sets it. |
-| `ALT_HOST` | No | `127.0.0.1` | Transactor peer fallback host. Swarm needs `datomic`; the stack `./run --swarm` writes sets it. |
+| `TRANSACTOR_HOST` | No | Compose `datomic`, Swarm `0.0.0.0` | The address the transactor serves on and gives the app. Each setup has the right default; set it only to override. |
+| `ALT_HOST` | No | Compose `127.0.0.1`, Swarm `datomic` | The second address the app tries. Same: leave it unset unless you mean to override it, since a Compose value in `.env` breaks Swarm. |
 | `EMAIL_SERVER_URL` | No | *(empty)* | Your SMTP server. Leave it empty and nobody can sign up: the site can't send the confirmation email, so it turns registration off rather than letting people in unchecked. To run without email, see the next setting. |
 | `ALLOW_UNVERIFIED_REGISTRATION` | No | `false` | Set this to `true`, and leave `EMAIL_SERVER_URL` empty, to let people sign up without confirming their email. Their accounts work right away. Only do this on a private site — anyone can sign up using an address that isn't theirs. It does nothing if you have SMTP set up. |
 | `CSP_POLICY` | No | `strict` | Content Security Policy: `strict`, `permissive`, or `none`. |
@@ -495,10 +498,19 @@ Running `./run --swarm` when `docker-compose.swarm.yaml` already exists:
 New canonical env vars added upstream are appended to each service's
 environment block — existing vars are never reordered or removed.
 
+**If your stack has things the generator does not write** (another service, a
+top-level `configs:` section, a key such as `hostname:` on a service), `./run --swarm`
+leaves your file as it is, writes the new one to `docker-compose.swarm.yaml.new`,
+and lists what the new one would drop. Copy those parts across, or copy this
+release's changes into your own file. Extra environment variables, volumes,
+networks, Traefik labels and resource limits are carried over.
+
 **Upgrading to the release with `TRANSACTOR_HOST`:** regenerate the stack with
 `./run --swarm` (or add `TRANSACTOR_HOST: 0.0.0.0` to the datomic service by hand)
 before deploying the new images. Without it the transactor serves on `datomic`,
-which does not work on Swarm. If `git pull` refuses because
+which does not work on Swarm. `./run --upgrade` also removes `ALT_HOST=127.0.0.1`
+from `.env`, the Compose default it used to write, which would otherwise override
+the stack's `datomic`. `./run --check` tells you if either is still wrong. If `git pull` refuses because
 `docker/transactor.properties.template` has local changes, those were the old
 way of switching to Swarm: discard them with
 `git checkout -- docker/transactor.properties.template` and pull again.
