@@ -112,8 +112,15 @@ On `feature/weapons-table` (owner: "just finish building it here"):
    character). `rest_box_e2e.js`, 16 checks, every claim seen failing. The Spells tab's old long-rest
    button stays (handoff D4) and no longer means dawn. **Not yet:** the floating button and Import log
    move, Dev mode (step 8); light theme not shot yet.
-6. **Casting from items:** `::mi/casts` data for the 30 items, the Cast button and charge-priced
-   level picker, the result card. No damage roll yet.
+6. **Casting from items: done `dd160709`.** `views.cljs` `cast-panel` (spell picks for an item with
+   several, levels priced from `mi/most-charges-left`, the item's DC or the highest
+   `::char/spell-modifiers` DC, `mi/higher-levels-text`, Cast then the spell at that level with Undo),
+   `cast-sheet` (phones), inline `tr.cast-row` (desktop), `cast-button` on Other Magic Items, and the
+   Spells tab's `items-spells-section` (From Items, shown for non-casters too). **Built beyond the
+   mockup:** an item with several spells (staffs) opens one "Cast" with a spell chooser; reviewed in
+   the shots, not mocked. `item_casting_e2e.js`, 16 checks, each seen failing (two were weak, reading
+   a count before the change landed, and were strengthened). No damage roll yet (spell data).
+   **Not yet:** the Dev mode switch for the inline panel on phones (step 8).
 7. **Item builder:** Charges group and casts; schema for the new item fields.
 8. **Later, its own step:** floating Rest button with the Import log move, Dev mode setting (handoff
    §9-10).
