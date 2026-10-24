@@ -1308,7 +1308,7 @@ _docker-setup-flow · docker setup flow_
 
 _docker-swarm-compat · docker swarm compat_
 
-**topics:** cli, codespaces, compose, config, deploy, dns, docker, incompatibilities, nginx, outputs, ports, solution, specification, stack, startup, swarm, validator, yaml
+**topics:** alt, cli, codespaces, compose, datomic, deploy, dmv-production-changes, dns, docker, host, incompatibilities, nginx, outputs, specification, stack, startup, swarm, yaml
 
 - Context
 - Solution
@@ -1318,7 +1318,8 @@ _docker-swarm-compat · docker swarm compat_
 - Ports: keep quotes in compose.yaml
 - Swarm Runtime Gotchas
 - nginx upstream DNS
-- Datomic ALTHOST
+- Datomic TRANSACTORHOST and ALTHOST
+- Regenerating a stack (./run --swarm on an existing file)
 - Compose teardown before Swarm init
 - Codespaces limitation
 - Environment tested on
@@ -2772,7 +2773,7 @@ _plan-character-drafts · plan character drafts_
 
 _plan-charges-and-casting · plan charges and casting_
 
-**topics:** 2026-10-23, beads, cast, casting, charges, damage, dawn, dice, fireball, fireballs, item, necklace, regain, rolls, spell, spells, srd-improvements, staff
+**topics:** beads, cast, casting, casts, charges, damage, dawn, dice, fireball, fireballs, item, necklace, regain, rolls, spell, spells, srd-improvements, staff
 
 - What exists (verified)
 - The connecting idea

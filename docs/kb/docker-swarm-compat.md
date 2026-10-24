@@ -76,13 +76,35 @@ location / {
 at request time, not startup. `${ORCPUB_PORT}` is substituted by envsubst at
 container start — `$upstream_app` survives because it's not an env var.
 
-### Datomic ALT_HOST
+### Datomic TRANSACTOR_HOST and ALT_HOST
 Datomic's `host=` controls both bind address and advertised hostname. In Swarm:
 - `host=0.0.0.0` — bind to all interfaces (required; "datomic" resolves to a VIP)
 - `alt-host=datomic` — peer fallback via Docker DNS (NOT `127.0.0.1`)
 
-`run --swarm` sets `ALT_HOST=datomic` in `.env` automatically. Getting
-this wrong causes ActiveMQ connection errors in the app container.
+Both are start-time settings on `feature/email-and-alerts` (2026-10-23): the template reads
+`host=${TRANSACTOR_HOST:-datomic}` and `alt-host=${ALT_HOST:-127.0.0.1}`, `deploy/start.sh` fills
+them in, and the Swarm stack defaults them to `0.0.0.0` / `datomic`. Datomic prints
+`transactor: host=... alt-host=...` at start.
+
+**Reversal.** This page said `run --swarm` sets `ALT_HOST=datomic` in `.env`. Only
+`run --swarm --secrets` did; plain `--swarm` kept the `ALT_HOST=127.0.0.1` that `./run --auto`
+writes, and `docker stack deploy` with `.env` loaded passed it to the stack. Proven in CI (heavy
+run 39997691655): Datomic up on `0.0.0.0`, app failing with "Error communicating with HOST 0.0.0.0
+or ALT_HOST 127.0.0.1". The host switch was also a template edit in the checkout, baked into the
+image at build, so building before `./run --swarm` shipped the Compose value ("Serve failed",
+task unhealthy). Now: `./run --auto` writes neither, `./run --upgrade` removes
+`ALT_HOST=127.0.0.1`, and `scripts/release-check.sh` flags a wrong effective value.
+
+The DMV production site sidesteps all this with its own mounted `transactor.properties`
+(`host=0.0.0.0`, `alt-host=datomic`): [dmv-production-changes.md](dmv-production-changes.md).
+
+### Regenerating a stack (`./run --swarm` on an existing file)
+Measured 2026-10-23: extra env vars and volumes carry over; extra services, top-level sections
+(`configs:`) and unknown service keys (`hostname:`) were dropped, and an extra service placed
+before `orcpub:` took over the app's slot. The network check also read the commented sample
+`#   external: true`, so every regenerate made `backend` external. Fixed on
+`feature/email-and-alerts`: comments ignored, and `swarm_stack_losses` compares old and new
+paths; on any loss `run` keeps the old file, writes `.new`, lists the losses, exits 1.
 
 ### Compose teardown before Swarm init
 Stale Compose containers leave behind bridge networks (e.g., `orcpub_default`).
