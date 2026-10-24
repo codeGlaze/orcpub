@@ -2585,7 +2585,7 @@ _pdf-generation-architecture · pdf generation architecture_
 
 _pdf-namespace-family · pdf namespace family_
 
-**topics:** 540, acroform, beast, caller, card, cards, companion, consumer, coordinate, frame, inches, ornament, primitives, private, public, region, spellbook, svg
+**topics:** 540, acroform, beast, caller, card, cards, companion, consumer, coordinate, drawing, frame, inches, primitives, private, public, region, spellbook, svg
 
 - Verdict on the starting hypothesis
 - 1. Inventory
@@ -2773,7 +2773,7 @@ _plan-character-drafts · plan character drafts_
 
 _plan-charges-and-casting · plan charges and casting_
 
-**topics:** beads, cast, casting, casts, charges, damage, dawn, dice, fireball, fireballs, item, necklace, regain, rolls, spell, spells, srd-improvements, staff
+**topics:** beads, cast, casting, charges, damage, dawn, dice, fireball, fireballs, item, necklace, powers, regain, rolls, spell, spells, srd-improvements, staff
 
 - What exists (verified)
 - The connecting idea
@@ -3815,7 +3815,7 @@ _weapon-damage-model · weapon damage model_
 
 _weapon-data-model · weapon data model_
 
-**topics:** authored-tag, boolean, firearm, flags, javelin, mapping, melee, mistype, not-melee, predicate, present-or-absent, ranged, thrown, two-handed, versatile, weapon, weapon-damage-model, weapons
+**topics:** authored-tag, boolean, firearm, flags, mapping, melee, mistype, not-melee, predicate, present-or-absent, ranged, ranged-only, thrown, two-handed, versatile, weapon, weapon-damage-model, weapons
 
 - Fields
 - Traps
@@ -3890,7 +3890,7 @@ _weapons-table-spec · weapons table spec_
 
 _writing-browser-tests · writing browser tests_
 
-**topics:** check, click, desktop, dispatch, disposes, e2e-runner, fail, fast-browser-probes, menus, phone, pulse, run, sheet, stand-in, subscriptions, tab, view, weapons
+**topics:** check, click, desktop, dispatch, disposes, e2e-runner, fast-browser-probes, menu, menus, phone, pulse, run, stand-in, subscriptions, tab, view, wait, weapons
 
 - Start from a working test
 - 1. Load the character with the app's own event, not by clicking the builder

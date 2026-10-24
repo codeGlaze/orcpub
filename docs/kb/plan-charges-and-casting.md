@@ -93,8 +93,14 @@ On `feature/weapons-table` (owner: "just finish building it here"):
    Other Magic Items shows pips per item (tap lit to spend, dim to get back), a count with − and + over
    10, and roll-or-type for a dice start (`views.cljs` `item-charges`; events
    `::char5e/change-item-charges`, `::char5e/set-item-charges-max`); `item_charges_e2e.js`, 11 checks,
-   each seen failing. **Still to do here:** magic weapon powers (`::mi/recharge`, the + menu) drawing
-   from the pool.
+   each seen failing. **Done `62783957`:** weapon powers that cost charges (`::mi/charge-cost`: Staff
+   of Power, Striking, Withering) are + menu items with cost and charges left (`disp/weapon-menu-items`
+   `:cost`); picking spends from the first item in the stack that can pay (`mi/able-to-pay`); one it
+   cannot pay is greyed (`:spent?`). **Changed from the plan:** once-per-period powers
+   (`::mi/recharge`, Javelin of Lightning) stay on `::char5e/features-used`; that record already models
+   "once per dawn", saves and resets, so turning them into pools of 1 would add risk with no visible
+   change. Withering's Con save is not tied to the spend yet (an effect with a cost would be a second
+   paid item).
 5. **Rest box** per the handoff: Features tab, time of day, Now, rests, the question, result line,
    Undo; regain rolls with type-your-own.
 6. **Casting from items:** `::mi/casts` data for the 30 items, the Cast button and charge-priced
