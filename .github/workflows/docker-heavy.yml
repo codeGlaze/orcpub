@@ -8,10 +8,6 @@
 name: Heavy Docker checks
 
 on:
-  # TEMPORARY: runs on pushes to this branch until the workflow is on the default branch, where it
-  # can be started by hand. Removed in the next commit.
-  push:
-    branches: [feature/email-and-alerts]
   workflow_dispatch:
   pull_request:
     branches: [develop, integration]
