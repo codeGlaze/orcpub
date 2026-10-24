@@ -153,8 +153,8 @@ SessionStart hook, or `git show origin/agents/develop:scripts/agent-setup.sh | b
 tooling from `agents/develop` into gitignored paths, so it can never reach a PR; generates
 `CLAUDE.md` with `AGENTS.md`, `BRANCH.md` and the branch's handoff (`branches/<branch>.md`) inlined;
 drops plain copies of `AGENTS.md` and `BRANCH.md` for agents that read those instead; and arms the
-hooks. Integration's `.gitignore` covers `CLAUDE.md` and `.claude/`; the script ignores the other two
-in the clone's `.git/info/exclude`. `--check` verifies without changing
+hooks. Integration's `.gitignore` covers all four, and other AI tools' agent files, since #72; on a branch
+cut before that, the script ignores the ones missing in the clone's `.git/info/exclude`. `--check` verifies without changing
 anything. The KB stays on `agents/develop`: read it with `git show origin/agents/develop:<path>`.
 
 ## Hooks
