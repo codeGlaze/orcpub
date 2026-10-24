@@ -113,3 +113,6 @@ design_handoff_character_menus
 # harness faithfully; never commit the vendored fonts/CSS.
 /resources/public/assets/
 /package-lock.json
+
+# Agent entry point: generated from agents/develop by scripts/agent-setup.sh, never tracked here.
+/CLAUDE.md
