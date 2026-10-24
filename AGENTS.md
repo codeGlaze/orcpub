@@ -3,15 +3,21 @@
 Rules every agent follows on every branch. Reference material is linked at the end: read it when
 the task needs it, not before.
 
-**Read docs from `agents/develop`:** `git show origin/agents/develop:<path>`. The KB (`docs/kb/`),
-`SETUP.md` and `CODEBASE.md` exist only there; other `docs/` pages also sit on code branches,
+**Read docs from `agents/develop`:** `git show origin/agents/develop:<path>`. The KB (`docs/kb/`) lives
+there, and `SETUP.md` and `CODEBASE.md` exist only there; other `docs/` pages also sit on code branches,
 sometimes as older copies, and the `agents/develop` copy is the current one. A bare `docs/<page>` in
 these instructions means that copy, even where your branch has none.
 `scripts/agent-setup.sh` on agents/develop sets up the tooling and prints where the KB index is; the SessionStart hook runs it from the local copy, or
 run `git show origin/agents/develop:scripts/agent-setup.sh | bash`, which fetches first: do that after
 any fetch that moved `origin/agents/develop`, to refresh the copies.
 
-**Write to agents/develop** (a KB finding, a doc fix, a branch handoff) from a separate worktree of
+**The KB ends up on agents/develop, every page of it.** While you work, you may create and edit KB
+pages in your working branch's `docs/kb/`, committed with the work. Move them to agents/develop at a
+milestone, and always before the branch merges into `integration` (which ships upstream): copy them
+there, then delete them from the branch in a normal commit. Branch handoffs and every other file
+here are written on agents/develop directly.
+
+**Write to agents/develop** (a KB page, a doc fix, a branch handoff) from a separate worktree of
 it, one per code branch, never by switching the code branch's worktree, and push straight to it, no PR:
 the commands are in `docs/GIT_WORKFLOW.md`, "Writing to agents/develop". Writing there is part of
 the job, not "touching someone else's branch". **Except:** a push that changes `AGENTS.md`,

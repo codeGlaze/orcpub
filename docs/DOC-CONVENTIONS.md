@@ -57,7 +57,7 @@ transcripts or commit messages where they'll be lost.
 1. **One topic per file**, descriptive filename
 2. **Start with a purpose statement** — what is this doc about and why does it exist
 3. **Include code references** (`file:line`) where relevant
-4. **KB pages and branch handoffs go on `agents/develop`**, never on a code branch (`AGENTS.md`, top)
+4. **Every KB page ends up on `agents/develop`.** A working branch may hold pages in progress in its `docs/kb/`; they move to agents/develop at a milestone and before the branch merges into `integration` (`AGENTS.md`, top). Branch handoffs are only ever on agents/develop
 5. **Keep docs current** — in the same PR as the code change, and on agents/develop at the same time (`AGENTS.md`, "Docs")
 
 ### Where docs live

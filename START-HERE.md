@@ -13,9 +13,9 @@ git log --oneline -3
 git ls-tree -r HEAD --name-only docs/kb/ | wc -l
 ```
 
-**Some branches carry their own `docs/kb/`** (the Fall Update branches: `feature/grant-rows` and
-those cut from it), and neither it nor `agents/develop`'s is a superset. Where findings from such a
-branch go is in its handoff (`branches/<branch>.md` on `agents/develop`). A branch name can mislead:
+**Some branches carry KB pages in progress** in their own `docs/kb/` (the Fall Update branches:
+`feature/grant-rows` and those built on it). They are edited there and move to `agents/develop`
+later (`AGENTS.md`, top); until they do, read both. A branch name can mislead:
 `perf/entity-build` is mostly AC engine work, not a finished perf spike.
 
 ## 1. Run this
@@ -48,8 +48,8 @@ git show origin/agents/develop:docs/kb/e2e-logged-in-sessions.md
 
 ## 3. Two rules that cause the most rework here
 
-**Findings go to `agents/develop`, never to a code branch**, in `docs/kb/`, indexed in
-`docs/kb/README.md`. An unindexed doc is invisible and `check-docs.sh` will fail the
+**Findings end up on `agents/develop`**, in `docs/kb/`, indexed in `docs/kb/README.md`. You may
+write them on your working branch first and move them later (`AGENTS.md`, top). An unindexed doc is invisible and `check-docs.sh` will fail the
 commit. Read the KB from a code branch without checking it out:
 
 ```bash
