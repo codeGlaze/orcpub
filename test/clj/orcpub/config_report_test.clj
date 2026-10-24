@@ -225,8 +225,9 @@
       (is (seq tail) (pr-str out))
       (is (str/includes? (first tail) (str/upper-case config/current-release)) (first tail))
       (is (not-any? #(str/includes? % "(!!)") tail) "nothing critical prints after it"))
-    (testing "it names the new settings still unset, with what they do"
-      (is (some #(and (str/includes? % "ORCPUB_NEW_UNSET") (str/includes? % "the new one")) tail)))
+    (testing "it names the new settings still unset, without repeating the notes the table shows"
+      (is (some #(str/includes? % "ORCPUB_NEW_UNSET") tail))
+      (is (not-any? #(str/includes? % "the new one") tail)))
     (testing "and not the ones already set, or older ones"
       (is (not-any? #(str/includes? % "ORCPUB_NEW_SET") tail))
       (is (not-any? #(str/includes? % "ORCPUB_OLD_UNSET") tail)))))
@@ -273,3 +274,23 @@
     (let [out (config/report-lines [set-row] nil nil (config/deployment-lines {}))]
       (is (some #(str/includes? % "TRANSACTOR_HOST") out) (pr-str out))
       (is (some #(str/includes? % "DEPLOYMENT") out)))))
+
+(deftest each-group-is-listed-once
+  (let [row (fn [v g] {:var v :group g :value 1 :set? true :note "n"})
+        out (lines [(row "A1" "alpha") (row "B1" "beta") (row "A2" "alpha")])]
+    (is (= 1 (count (filter #(= "  [ALPHA]" %) out))) (pr-str out))
+    (testing "its settings together, in the order they were listed"
+      (let [names (keep #(re-find #"^  ([AB]\d)" %) out)]
+        (is (= ["A1" "A2" "B1"] (map second names)))))))
+
+(deftest new-in-wraps-a-long-list
+  (let [rows (for [i (range 30)] (assoc new-unset :var (str "ORCPUB_NEW_SETTING_" i)))
+        tail (drop-while #(not (str/includes? % "NEW IN")) (lines rows))]
+    (is (every? #(<= (count %) 100) tail) (pr-str (remove #(<= (count %) 100) tail)))
+    (is (< (count tail) 15) "the names share lines rather than one row each")
+    (is (some #(str/includes? % "ORCPUB_NEW_SETTING_29") tail))))
+
+(deftest notes-are-short
+  (testing "a note fits beside the table on a narrow screen"
+    (is (empty? (filter #(> (count (:note %)) 60) config/settings))
+        (pr-str (map (juxt :var (comp count :note)) (filter #(> (count (:note %)) 60) config/settings))))))

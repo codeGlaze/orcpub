@@ -350,76 +350,76 @@
    `:since`: the release that added it; `current-release` rows end the report while unset."
   (concat
    [{:group "runtime"  :var "PORT" :since "2.5"}
-    {:group "runtime"  :var "DEV_MODE" :since "2.5"      :note "dev-only behaviour and relaxed CORS"}
+    {:group "runtime"  :var "DEV_MODE" :since "2.5"      :note "development only: relaxed CORS"}
     {:group "database" :var "DATOMIC_URL" :since "2.5"   :get #(get-datomic-uri) :redact? true}
     {:group "database" :var "DATOMIC_PASSWORD" :since "2.5" :secret? true}
     {:group "security" :var "SIGNATURE" :since "2.5"     :secret? true :critical? true
-     :note "JWT signing key; every login and API call fails without it"
+     :note "signs logins; every login and API call fails without it"
      :fix signature-missing-message}
     {:group "security" :var "TRUST_CLOUDFLARE" :since current-release
      :get #(if (trust-cloudflare?) "true" "false")
-     :note "true only when the site is served through Cloudflare: then players' real addresses are used"}
+     :note "true when the site is served through Cloudflare"}
     {:group "security" :var "TRUSTED_PROXIES" :since current-release
-     :note "extra proxies in front of the app (comma-separated addresses or ranges); private networks are always trusted"}
-    {:group "security" :var "CSP_POLICY" :since "2.5"    :note "overrides the built-in policy"}
+     :note "proxies to trust besides private networks; comma-separated"}
+    {:group "security" :var "CSP_POLICY" :since "2.5"    :note "strict, permissive or none"}
     {:group "email"    :var "EMAIL_SERVER_URL" :since "2.5" :critical? true :fix email-missing-message
-     :note "SMTP host; signup and password reset fail without it"}
-    {:group "email"    :var "EMAIL_SERVER_PORT" :since "2.5" :note "defaults to 587"}
-    {:group "email"    :var "EMAIL_SSL" :since "2.5" :note "TRUE to connect to the mail server over SSL"}
-    {:group "email"    :var "EMAIL_TLS" :since "2.5" :note "TRUE to use STARTTLS with the mail server"}
+     :note "SMTP host; sign-up and password reset need it"}
+    {:group "email"    :var "EMAIL_SERVER_PORT" :since "2.5" :note "default 587"}
+    {:group "email"    :var "EMAIL_SSL" :since "2.5" :note "TRUE: connect over SSL"}
+    {:group "email"    :var "EMAIL_TLS" :since "2.5" :note "TRUE: use STARTTLS"}
     {:group "email"    :var "ALLOW_UNVERIFIED_REGISTRATION" :since current-release
-     :note "true lets people sign up without confirming their email; only when EMAIL_SERVER_URL is empty"}
+     :note "true: sign-up without an email check; only with no SMTP"}
     {:group "email"    :var "EMAIL_ACCESS_KEY" :since "2.5" :secret? true}
     {:group "email"    :var "EMAIL_SECRET_KEY" :since "2.5" :secret? true}
     {:group "email"    :var "EMAIL_FROM_ADDRESS" :since "2.5"}
     {:group "email"    :var "EMAIL_ERRORS_TO" :since "2.5"}
     {:group "email"    :var "ALERT_SPOOL_DIR" :since current-release :get #(get-alert-spool-dir)
      :accepts (complement str/blank?) :expects "a directory path"
-     :note "admin alerts not yet sent wait here; a volume, so a new container keeps them"}
+     :note "unsent admin alerts; keep it on a volume"}
     {:group "email"    :var "ALERT_MAX_PER_HOUR" :since current-release :get #(get-alert-max-per-hour)
      :accepts positive-int-text? :expects "a positive whole number"
-     :note "admin alert emails per hour; past it they are logged only"}
+     :note "alert emails per hour; more are only logged"}
     {:group "email"    :var "EMAIL_ADMIN_TO" :since current-release
-     :note "artist-account notices; falls back to EMAIL_ERRORS_TO"}
+     :note "artist-account notices; default EMAIL_ERRORS_TO"}
     {:group "security" :var "PROFILE_ENCRYPTION_KEYS" :since current-release :secret? true
-     :note "encrypts preferred names; or the profile_encryption_keys secret"}
-    {:group "content"  :var "LOAD_HOMEBREW_URL" :since "2.5" :note "homebrew loaded at page load"}
+     :note "encrypts preferred names; or its Docker secret"}
+    {:group "content"  :var "LOAD_HOMEBREW_URL" :since "2.5" :note "homebrew loaded with every page"}
     {:group "content"  :var "PORTRAIT_ARTISTS" :since current-release
-     :note "artist credits and artist accounts; see ARTISTS.md"}
+     :note "artist credits and accounts; see ARTISTS.md"}
     {:group "content"  :var "APP_URL" :since "2.5"
-     :note "public site address; artist emails need it for their links"}]
+     :note "public site address, for links in emails"}]
    [{:group "capacity" :var "ORCPUB_HTTP_MAX_THREADS" :since current-release :get #(get-http-max-threads)
-     :note "worker pool: requests of any kind in flight"}
+     :note "requests handled at once"}
     {:group "capacity" :var "ORCPUB_PDF_CONCURRENCY" :since current-release :get #(get-pdf-concurrency)
-     :note "sheets generated at once"}
+     :note "PDF sheets made at once"}
     {:group "capacity" :var "ORCPUB_PDF_QUEUE_TIMEOUT_MS" :since current-release :get #(get-pdf-queue-timeout-ms)
      :note "how long an export waits for a slot"}
     {:group "capacity" :var "ORCPUB_PORTRAIT_CONCURRENCY" :since current-release :get #(get-portrait-concurrency)
-     :note "shared-link portraits drawn at once"}
+     :note "share-link portraits drawn at once"}
     {:group "capacity" :var "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS" :since current-release :get #(get-portrait-queue-timeout-ms)
      :note "how long a portrait waits to be drawn"}
     {:group "capacity" :var "PORTRAIT_STORE_DIR" :since current-release :get #(get-portrait-store-dir)
      :accepts (complement str/blank?) :expects "a directory path"
-     :note "where shared-link portrait drawings are kept"}
+     :note "where share-link portraits are kept"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_RETRIES" :since current-release :get #(get-pdf-max-retries)
-     :note "busy-page retries before it waits for a click"}
+     :note "busy retries before asking for a click"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :since current-release :get #(get-pdf-max-caster-sections)
-     :note "spellcasting sections one sheet may grow to"}
+     :note "spellcasting sections per sheet, at most"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_CARDS" :since current-release :get #(get-pdf-max-cards)
-     :note "cards of each kind per export; 9 to a sheet, so 22 sheets"}
+     :note "cards of each kind per export, 9 a sheet"}
     {:group "capacity" :var "ORCPUB_SHARE_MAX_UPLOAD_KB" :since current-release :get #(get-share-max-upload-kb)
-     :note "compressed share data one share link keeps"}
+     :note "one share link's data, compressed"}
     {:group "capacity" :var "ORCPUB_SHARE_MAX_TEXT_KB" :since current-release :get #(get-share-max-text-kb)
-     :note "that share data unpacked"}
+     :note "one share link's data, unpacked"}
     {:group "capacity" :var "ORCPUB_SHARE_MAX_ACCOUNT_KB" :since current-release :get #(get-share-max-account-kb)
-     :note "share data one account keeps in all"}
+     :note "share data per account, in all"}
     {:group "runtime" :var "ORCPUB_PWNED_CHECK" :since current-release :get #(if (pwned-check-enabled?) "on" "off")
      :accepts #(contains? #{"on" "off" "true" "false" "1" "0" "yes" "no"} (.toLowerCase (str/trim %) Locale/ROOT))
      :expects "on or off"
-     :note "screens a new password against known breaches; fails open, off disables the call"}
+     :note "checks new passwords against known breaches"}
     {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :since current-release :get #(get-share-prune-days)
      :accepts #(some-> % str/trim parse-long (>= 0)) :expects "a whole number of days, 0 or more"
-     :note "days unused before a character's share link and share data are deleted; 0 keeps them, at least 30"}]))
+     :note "days before an unused share link is deleted; 0 never"}]))
 
 (def ^:private tunables
   "Kept for the capacity rows' typo detection: only these parse as integers."
@@ -448,6 +448,17 @@
        :set? (boolean (and raw (not ignored?)))
        :ignored? ignored?})))
 
+(defn- wrap-names
+  "`names` joined with commas into lines of at most `width` characters, each indented two spaces."
+  [names width]
+  (reduce (fn [lines nm]
+            (let [last-line (peek lines)
+                  joined    (str last-line ", " nm)]
+              (if (and last-line (<= (count joined) width))
+                (conj (pop lines) joined)
+                (conj lines (str "  " nm)))))
+          [] names))
+
 (defn report-lines
   "The boot banner, as lines: `rows` from `report`, `actual` values read off the running server
    (var name to value), and `branding-ignored`, the branding values that fell back to a default
@@ -470,7 +481,9 @@
          ;; says nothing, and "DEFAULT" next to "NOT SET" reads as though there is a
          ;; default password.
          source (fn [{:keys [set? secret?]}] (cond secret? "" set? "SET" :else "DEFAULT"))
-         rows   (vec rows)
+         ;; Each group once, in the order groups first appear; rows keep their order within it.
+         order  (into {} (map-indexed (fn [i g] [g i]) (distinct (map :group rows))))
+         rows   (vec (sort-by (comp order :group) rows))
          w      (apply max (map (comp count :var) rows))
          vw     (min 46 (apply max (map (comp count val) rows)))
          sw     7
@@ -518,7 +531,7 @@
         (concat
          [rule (str "  NEW IN " (.toUpperCase ^String current-release Locale/ROOT)
                     ": " (count fresh) " setting" (when (next fresh) "s") " not set yet, using defaults")]
-         (map #(trim (format (str "  %-" w "s   %s") (:var %) (or (:note %) ""))) fresh)))
+         (wrap-names (map :var fresh) 100)))
       [rule]))))
 
 (def deployment-notes
