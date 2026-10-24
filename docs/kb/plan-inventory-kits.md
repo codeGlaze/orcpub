@@ -96,6 +96,8 @@ stored: the same 13 torches split 10/3 or 3/10 depending on refill history.
    ([data-safety-layers.md](data-safety-layers.md): heal lazily; save is a subset of load).
 3. **Containers.** Don/doff; Not Carried places (camp, mount, wagon, ship); moving kits; grouped and
    alphabetical views; the PDF lists each place under its own header.
+   **Split (owner, 2026-10-23):** backpack on/off lands on `feature/inventory-kits`; camp, mount,
+   wagon (and moving kits between places) wait, deferred until the owner picks them up.
 4. **Homebrew kits.** A content type: name, cost, container, items with targets, choices from a pool
    (the pool + grant layer, [content-extensibility-framework.md](content-extensibility-framework.md)),
    able to list custom items.
