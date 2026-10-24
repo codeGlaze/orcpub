@@ -92,6 +92,32 @@ cljs-test-runner-out
 # at the repo root.
 /CLAUDE.md
 
+# The rest of the agent instructions, copied in the same way (AGENTS.md, BRANCH.md), and the
+# instruction and state files other AI coding tools create. None belongs in a branch that ships
+# to the public repo.
+/AGENTS.md
+/BRANCH.md
+/CLAUDE.local.md
+/GEMINI.md
+.gemini/
+.cursorrules
+.windsurfrules
+.windsurf/
+.clinerules
+.roo/
+.roomodes
+.aider*
+.continue/
+.codex/
+.junie/
+.amazonq/
+.kiro/
+.augment/
+.opencode/
+.specstory/
+/.mcp.json
+/.github/copilot-instructions.md
+
 # NewRelic (DMV-specific, contains license key)
 newrelic*
 
