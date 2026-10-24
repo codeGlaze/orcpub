@@ -65,6 +65,23 @@ file defaults `support-email` to `thDM@dungeonmastersvault.com` while its `.env.
 `EMAIL_ERRORS_TO` empty, so crash alerts reached nobody. The admin deploys through Portainer
 (Swarm, `docker stack update`), not `./run`, so email is the one channel that reaches him unasked.
 
+### No email, no start; the report where it is read (owner, 2026-10-24)
+
+- **A deployed server refuses to start without `EMAIL_SERVER_URL`** (`config/start-refusal`, checked
+  in `orcpub.server/-main`), unless `DEV_MODE=true`, `EMAIL_REQUIRED=false`, or
+  `ALLOW_UNVERIFIED_REGISTRATION=true`. Why: a public site needs email, and with none the admin
+  hears about nothing; a failed start is the one signal Portainer shows him. Restart loops only
+  happen when settings change, which is when he is watching. `EMAIL_REQUIRED=false` is its own
+  opt-out because `ALLOW_UNVERIFIED_REGISTRATION` would also open sign-up. `./run` writes it when
+  setup leaves email empty; `./run --upgrade` adds it to installs without email, so none stops on
+  upgrade (`test-upgrade.sh` checks every fixture can start). The `:e2e` profile sets it.
+- **The report is saved** to `startup-report.txt` beside the crash files and ends with the line
+  naming it; **`./run` prints it last** after starting Compose or Swarm, reading only log lines
+  since the start (`scripts/startup-report.sh`, `test-startup-report.sh`).
+- **Next, not built yet:** classes per setting (required, recommended, tuning) and the startup
+  email (problems, then new settings, then "Worth setting"; once per release, again when the list
+  changes, a 7-day reminder for problems only; remembers names and states, never values).
+
 ### Future improvement: a Discord webhook as a second channel
 
 **Deferred, not built** (owner, 2026-10-24: record it for later; was wary of it). How it would work:

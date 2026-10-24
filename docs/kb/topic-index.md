@@ -295,7 +295,7 @@ _agent-hooks · agent hooks_
 
 _already-held-grants · already held grants_
 
-**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, fixture, grant, implements, option-prereq, pool, pool-grant-map, proficiencies, proficiency, race, replacement, skill, srd, tools, wasted
+**topics:** builder-disposition-audit, content-extensibility-framework, duplicate, expertise, grant, implements, option-prereq, pool, pool-grant-map, proficiencies, proficiency, race, replacement, skill, skills, srd, tools, wasted
 
 - The rule being modelled
 - The four paths
@@ -2863,13 +2863,14 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** admin, alert, alerts, artist, channel, database, discord, email, emails, mail, outbox, sent, shutdown, spool, stage, swarm, webhook, worker
+**topics:** admin, alert, alerts, artist, channel, database, discord, email, emails, mail, outbox, sent, settings, spool, stage, swarm, webhook, worker
 
 - The problem
 - Two kinds of email
 - Player email: the transactional outbox
 - Admin alerts: independent of the database
 - One admin address (owner, 2026-10-24)
+- No email, no start; the report where it is read (owner, 2026-10-24)
 - Future improvement: a Discord webhook as a second channel
 - Settings: in the registry, and announced at start-up (owner, 2026-10-17)
 - Docker, Compose and Swarm
