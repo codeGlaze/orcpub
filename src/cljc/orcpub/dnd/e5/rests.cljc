@@ -48,8 +48,8 @@
 
 (defn- actions
   "The actions a request takes, in order: the rest, then each time of day. Takes {:rest :times}."
-  [{:keys [rest times]}]
-  (cond-> [] rest (conj rest) (contains? times :dawn) (conj :dawn) (contains? times :dusk) (conj :dusk)))
+  [{kind :rest times :times}]
+  (cond-> [] kind (conj kind) (contains? times :dawn) (conj :dawn) (contains? times :dusk) (conj :dusk)))
 
 (defn- time-of?
   "Whether an item recharges at dawn or dusk, by its charges or by a power's own recharge."
@@ -84,9 +84,9 @@
 
 (defn- rest-values
   "A character's values after a rest: a long rest also restores hit points and spell slots."
-  [character rest]
+  [character kind]
   (cond-> character
-    (= :long rest) (update ::entity/values dissoc ::spells/slots-used
+    (= :long kind) (update ::entity/values dissoc ::spells/slots-used
                            ::char5e/current-hit-points ::char5e/max-hit-points)))
 
 (defn apply-actions
@@ -119,8 +119,8 @@
   "Whether to ask \"did dawn or dusk pass?\" after a rest taken with no time chosen: the
   character holds dawn or dusk things and dawn or dusk would bring something back. Takes the
   character (before the rest), its carried items and the request."
-  [character items {:keys [rest times]}]
-  (boolean (and rest (empty? times) (has-time-of-day? character items)
+  [character items {kind :rest times :times}]
+  (boolean (and kind (empty? times) (has-time-of-day? character items)
                 (some (fn [t] (let [{:keys [items uses]} (would-recharge character items t)]
                                 (or (seq items) (pos? uses))))
                       [:dawn :dusk]))))

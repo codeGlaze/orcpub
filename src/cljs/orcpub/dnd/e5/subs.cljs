@@ -1340,6 +1340,10 @@
             ::char5e/prepared-spells-by-class])))
 
 (reg-sub
+ ::char5e/rest-result
+ (fn [db _] (::char5e/rest-result db)))
+
+(reg-sub
  ::char5e/feature-used?
  (fn [[_ id units nm]]
    (subscribe [::char5e/features-used id]))
