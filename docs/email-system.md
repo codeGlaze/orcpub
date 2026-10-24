@@ -15,7 +15,7 @@ All email is sent via [postal](https://github.com/drewr/postal) using SMTP crede
 | `EMAIL_SSL` | Enable SSL (`true`/`false`) |
 | `EMAIL_TLS` | Enable TLS (`true`/`false`) |
 | `EMAIL_FROM_ADDRESS` | Sender address (default `no-reply@example.com`, a placeholder that cannot deliver) |
-| `EMAIL_ERRORS_TO` | Address for error notification emails (optional) |
+| `EMAIL_ERRORS_TO` | Address for admin alerts (optional; falls back to `EMAIL_ADMIN_TO`, then `APP_SUPPORT_EMAIL`) |
 
 Configuration is read at send-time by `email/email-cfg` (`src/clj/orcpub/email.clj`).
 
@@ -143,8 +143,8 @@ server answers. The person is never told to try again for something that already
 
 **Trigger:** any request that fails with an unhandled error.
 
-The error becomes an admin alert. It is written to the server log and emailed to
-`EMAIL_ERRORS_TO`, if that is set. The request that failed does not wait for the email: alerts
+The error becomes an admin alert. It is written to the server log and emailed to the admin
+address (`EMAIL_ERRORS_TO`, else `EMAIL_ADMIN_TO`, else `APP_SUPPORT_EMAIL`), if one is set. The request that failed does not wait for the email: alerts
 are sent separately, and never use the database.
 
 - **One email per problem.** Errors count as the same problem when they have the same cause and

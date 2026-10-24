@@ -85,6 +85,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** the add buttons on homebrew builders repeat below a long list of traits or options.
 
 ### Changed
+- **Server:** admin alerts and artist notices fall back to the public support address (`APP_SUPPORT_EMAIL`) when `EMAIL_ERRORS_TO` and `EMAIL_ADMIN_TO` are unset, and the startup report names the address in use.
 
 - **Characters:** switching between Race and Class no longer freezes the builder, and an edit rebuilds the character once. (#621)
 - **Characters:** the Missing Content warning also covers spells and languages, and ignores the built-in "Custom" option. (#524)

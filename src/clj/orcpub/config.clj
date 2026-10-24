@@ -372,7 +372,8 @@
     {:group "email"    :var "EMAIL_ACCESS_KEY" :since "2.5" :secret? true}
     {:group "email"    :var "EMAIL_SECRET_KEY" :since "2.5" :secret? true}
     {:group "email"    :var "EMAIL_FROM_ADDRESS" :since "2.5"}
-    {:group "email"    :var "EMAIL_ERRORS_TO" :since "2.5"}
+    {:group "email"    :var "EMAIL_ERRORS_TO" :since "2.5"
+     :note "admin alerts; default EMAIL_ADMIN_TO, APP_SUPPORT_EMAIL"}
     {:group "email"    :var "ALERT_SPOOL_DIR" :since current-release :get #(get-alert-spool-dir)
      :accepts (complement str/blank?) :expects "a directory path"
      :note "unsent admin alerts; keep it on a volume"}
@@ -380,7 +381,7 @@
      :accepts positive-int-text? :expects "a positive whole number"
      :note "alert emails per hour; more are only logged"}
     {:group "email"    :var "EMAIL_ADMIN_TO" :since current-release
-     :note "artist-account notices; default EMAIL_ERRORS_TO"}
+     :note "artist notices; default EMAIL_ERRORS_TO, APP_SUPPORT_EMAIL"}
     {:group "security" :var "PROFILE_ENCRYPTION_KEYS" :since current-release :secret? true
      :note "encrypts preferred names; or its Docker secret"}
     {:group "content"  :var "LOAD_HOMEBREW_URL" :since "2.5" :note "homebrew loaded with every page"}
@@ -534,6 +535,28 @@
          (wrap-names (map :var fresh) 100)))
       [rule]))))
 
+(defn- first-address
+  "The first of `vars` (env var names) with a value, then APP_SUPPORT_EMAIL (which fork branding may
+   default), as {:address :from}; nil when none is set."
+  [vars]
+  (or (some (fn [v] (when-let [a (env/value (keyword (str/lower-case (str/replace v "_" "-"))))]
+                      {:address a :from v}))
+            vars)
+      (when (seq branding/support-email)
+        {:address branding/support-email :from "APP_SUPPORT_EMAIL"})))
+
+(defn alert-address
+  "Where admin alerts go: EMAIL_ERRORS_TO, else EMAIL_ADMIN_TO, else APP_SUPPORT_EMAIL, as
+   {:address :from} (:from names the setting it came from); nil when none is set."
+  []
+  (first-address ["EMAIL_ERRORS_TO" "EMAIL_ADMIN_TO"]))
+
+(defn admin-notice-address
+  "Where artist-account notices go: EMAIL_ADMIN_TO, else EMAIL_ERRORS_TO, else APP_SUPPORT_EMAIL,
+   as {:address :from}; nil when none is set."
+  []
+  (first-address ["EMAIL_ADMIN_TO" "EMAIL_ERRORS_TO"]))
+
 (def deployment-notes
   "This release's deployment changes, one line each, printed in the boot report's DEPLOYMENT
    block so an admin who deploys without ./run still sees them. docs/DOCKER.md has the detail."
@@ -552,13 +575,18 @@
 
 (defn deployment-lines
   "The boot report's DEPLOYMENT block, as lines. Takes `:crash-dir` and `:alert-dir`, the resolved
-   folders for crash files and unsent alerts (either nil when unknown), and `:max-heap-bytes`, the
-   most memory Java may use (nil leaves the line out). Says where those files land, flags a folder
+   folders for crash files and unsent alerts (either nil when unknown), `:max-heap-bytes`, the
+   most memory Java may use (nil leaves the line out), and `:admin`, `alert-address`'s answer
+   (the line appears when the key is given). Says where those files land, flags a folder
    inside the container with the mount that moves it, gives the memory limit, and ends with
    `deployment-notes`."
-  [{:keys [crash-dir alert-dir max-heap-bytes]}]
+  [{:keys [crash-dir alert-dir max-heap-bytes admin] :as dirs}]
   (let [inside? #(and % (str/starts-with? % "/var/lib/orcpub/"))]
     (concat
+     (when (contains? dirs :admin)
+       [(if admin
+          (str "Admin email: " (:address admin) " (from " (:from admin) ")")
+          "Admin email: nobody; crash and failure alerts are only logged. Set APP_SUPPORT_EMAIL or EMAIL_ERRORS_TO.")])
      [(str "Crash files: " (if crash-dir (shown-dir crash-dir) "not configured (no -XX:HeapDumpPath)"))
       (str "Unsent alerts: " (if alert-dir (shown-dir alert-dir) "-"))]
      (when (or (inside? crash-dir) (inside? alert-dir))
@@ -610,7 +638,8 @@
      ;; stream. A banner that arrives in pieces is worse than no banner.
      (println (str/join (System/lineSeparator) (report-lines (report) actual @branding/ignored
                                                              (deployment-lines (assoc (crash-and-alert-dirs)
-                                                                                      :max-heap-bytes (.maxMemory (Runtime/getRuntime)))))))
+                                                                                      :max-heap-bytes (.maxMemory (Runtime/getRuntime))
+                                                                                      :admin (alert-address))))))
      (flush))))
 
 (defn get-secure-headers-config

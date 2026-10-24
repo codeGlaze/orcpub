@@ -462,13 +462,13 @@
                            (build-body request real-ex pedestal-meta))))
 
 (defn send-alert!
-  "Emails alert `message` ({:subject :body}) to EMAIL_ERRORS_TO, naming this server's copy.
+  "Emails alert `message` ({:subject :body}) to `config/alert-address`, naming this server's copy.
   Returns true when the mail server accepted it; throws when it did not."
   [{:keys [subject body]}]
   (let [result (postal/send-message
                 (email-cfg)
                 {:from    (str branding/app-name " Errors <" (emailfrom) ">")
-                 :to      (str (env/value :email-errors-to))
+                 :to      (:address (config/alert-address))
                  :subject subject
                  :body    [{:type "text/plain"
                             :content (str body "\n\n-- " (config/copy-name))}]})]
@@ -491,9 +491,10 @@
   (when (configured?) send-message!))
 
 (defn alert-channel
-  "`send-alert!` when admin alerts can be emailed (a mail server and EMAIL_ERRORS_TO are set), else nil."
+  "`send-alert!` when admin alerts can be emailed (a mail server and an admin address, see
+  `config/alert-address`), else nil."
   []
-  (when (and (configured?) (env/value :email-errors-to)) send-alert!))
+  (when (and (configured?) (config/alert-address)) send-alert!))
 
 ;; ---------------------------------------------------------------------------
 ;; User-initiated "this character won't load" report

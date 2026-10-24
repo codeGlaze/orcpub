@@ -171,7 +171,7 @@
     ;; Admin alerts: no database, so they still go out when it is down. Started before traffic.
     :alerts
     (alerts/new-alerts {:send! (email/alert-channel)
-                        :to (env/value :email-errors-to)
+                        :to (:address (config/alert-address))
                         :max-per-hour (config/get-alert-max-per-hour)
                         :spool-file (str (io/file (config/get-alert-spool-dir)
                                                   (str "alerts-" (config/copy-name) ".edn")))})

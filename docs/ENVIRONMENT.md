@@ -202,7 +202,7 @@ the table in half. Plain ASCII, no colour: it is read in aggregators as often as
 |----------|---------|-------------|
 | `PORTRAIT_ARTISTS` | — | JSON of artist credits and accounts (see `ARTISTS.md`). An `account` email gets an artist account and a welcome email at startup. |
 | `APP_URL` | — | The site's address, used for links in artist emails (sent at startup, with no request to read it from). |
-| `EMAIL_ADMIN_TO` | `EMAIL_ERRORS_TO` | Who hears about artist account and credit changes. |
+| `EMAIL_ADMIN_TO` | `EMAIL_ERRORS_TO`, then `APP_SUPPORT_EMAIL` | Who hears about artist account and credit changes. |
 | `PORTRAIT_STORE_DIR` | `orcpub-portraits` in the system temp directory | Where the server keeps its drawings of shared-link portraits, one file per character. A shared volume lets several containers draw each portrait once; without one each container draws it on first request and keeps the file. In Docker, mount a shared volume at `/var/lib/orcpub/portraits` (the image creates it for the app's user) and set this to that path. A failed write is logged and the drawing is still served. Derived files: losing them only means drawing again. |
 
 ### Security
@@ -261,14 +261,14 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 | `EMAIL_SERVER_PORT` | `587` | SMTP port |
 | `ALLOW_UNVERIFIED_REGISTRATION` | `false` | Set to `true`, with `EMAIL_SERVER_URL` empty, to let people sign up without confirming their email. For private sites only. Does nothing if SMTP is set up. You have to ask for this on purpose, so that losing your SMTP settings by accident can't quietly stop the site checking addresses. |
 | `EMAIL_FROM_ADDRESS` | `no-reply@dungeonmastersvault.com` | Sender email address |
-| `EMAIL_ERRORS_TO` | — | Where admin alerts are emailed: server errors and anything else that needs an administrator. Leave it empty and alerts are written to the server log only. |
+| `EMAIL_ERRORS_TO` | `EMAIL_ADMIN_TO`, then `APP_SUPPORT_EMAIL` | Where admin alerts are emailed: server errors and anything else that needs an administrator. Unset, they go to `EMAIL_ADMIN_TO`, then to the public support address `APP_SUPPORT_EMAIL`; with none of the three set, alerts are written to the server log only. The startup report's DEPLOYMENT block names the address in use. |
 | `EMAIL_SSL` | `FALSE` | Enable SSL for SMTP |
 | `EMAIL_TLS` | `FALSE` | Enable TLS for SMTP |
 
 ### Admin alerts
 
 When something goes wrong on the server, an alert is written to the server log and emailed to
-`EMAIL_ERRORS_TO`. Alerts are built to keep working when the rest of the site is struggling:
+the admin address: `EMAIL_ERRORS_TO`, else `EMAIL_ADMIN_TO`, else `APP_SUPPORT_EMAIL`. Alerts are built to keep working when the rest of the site is struggling:
 they never use the database, and sending one never slows down the request that hit the error.
 
 - **One email per problem.** The first time an error happens it is emailed straight away. If the
