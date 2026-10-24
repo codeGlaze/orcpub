@@ -106,6 +106,16 @@ without the fields. The item builder gets the handoff's Charges group (§7).
   the carried item's entry (a Datomic tuple of longs, at most 8; Datomic Pro 1.0.7482 has tuples).
   The rolled maximum needs a second per-item value beside it.
 
+## Built against the drawing (2026-10-23, `2dbf4234`)
+
+The owner compared the build with the drawn frames ("90% of the way there"). Where `Rest Handoff.md`
+§2 and the drawing differ, **the drawing wins**: the 10px gap sits between the time-of-day group and
+Now, and 5px between Now and the rests (the text says the reverse). Also matched from the drawing:
+button text weight 600, a 44px heading row. **Garden trap:** a style map with both `:border 0` and
+`:border-left` can emit the shorthand last and wipe the divider; the dividers are a separate
+`.rest-seg + .rest-seg` rule. Open: the box reads darker than the drawing, which put the same
+`rgba(0,0,0,.18)` tint on a lighter frame than the app's page.
+
 ## Open, for the owner
 
 - Where a used charge is stored.

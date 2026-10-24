@@ -1901,7 +1901,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-rest-controls · handoff rest controls_
 
-**topics:** 2026-10-23, charge, charges, dawn, dismissible, dusk, handoff, item, lasts, maximum, plan-charges-and-casting, powers, regain, regains, rest, rolled, undo, wand
+**topics:** 2026-10-23, charge, charges, dawn, drawing, dusk, handoff, item, lasts, maximum, powers, regain, regains, rest, rests, rolled, undo, wand
 
 - Where it is
 - The design in one paragraph
@@ -1909,6 +1909,7 @@ _handoff-rest-controls · handoff rest controls_
 - How charges work today (checked 2026-10-23)
 - Decided (owner, 2026-10-23)
 - A real charge system (2026-10-23)
+- Built against the drawing (2026-10-23, 2dbf4234)
 - Open, for the owner
 
 ## handoff-weapons-table.md
@@ -3851,7 +3852,7 @@ _weapon-mastery-plan · weapon mastery plan_
 
 _weapons-extra-damage-design · weapons extra damage design_
 
-**topics:** 44px, charges, chip, colour, crit, damage, dot, dots, effects, extra, hit, menu, on-hit, roll, rolls, strip, tile, vicious
+**topics:** charges, chip, colour, crit, damage, dot, dots, effects, extra, hit, menu, on-hit, roll, rolls, strip, switches, tile, vicious
 
 - Decisions
 - Damage-type palette
