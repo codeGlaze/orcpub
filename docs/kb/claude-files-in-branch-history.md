@@ -37,7 +37,7 @@ is that nothing NEW or RECENT leaks:
 - Tips cleaned 2026-10-24 (one normal commit each, which also removed a tracked `BRANCH.md` and
   saved it as the branch handoff in `branches/`): `feature/grant-rows` c78a888f0,
   `feature/extras-companions` 1edadf0c4, `srd52/develop` 7ae0503eb,
-  `refactor/content-extensibility` dd35694dc, `perf/memoize-audit` 4f5025b20 (its `CLAUDE.md`'s
+  `refactor/content-extensibility` (renamed `refactor/main` the same day) dd35694dc, `perf/memoize-audit` 4f5025b20 (its `CLAUDE.md`'s
   own lines are in `branches/perf/memoize-audit.md`), `perf/entity-build` 9f4e9d867 (`BRANCH.md`).
 - Still carrying them: `feature/fighting-style-authoring` and `feature/demo-content-tier` (both
   already merged into agents/develop), and the stale branches listed in `branch-inventory.md`.

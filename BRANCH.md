@@ -61,31 +61,28 @@ carries live state.*
 
 ```
 integration          hotfixes; mints the Summer Patch tag, then quiet
-   └── refactor/      working parent for the big refactor. Pulls integration in,
-        └── leaves    holds merges from its leaves: content-extensibility,
-                      data-extraction, garden-inline-styles, views-extraction,
-                      banner-parts-and-design
-             └── feature/grant-rows   the live tip of content-extensibility.
-                      Verified 2026-09-13: content-extensibility is an ancestor of it
-                      (integration was then; no longer). The most active Fall Update branch
+   └── refactor/main  trunk of the refactor tree (renamed from refactor/content-extensibility,
+        │             2026-10-24). Pulls integration in; leaves are cut from it and merge back
+        └── feature/grant-rows   built on it; the most active Fall Update branch.
+                      Also built on it (merged it in): feature/extras-companions,
+                      srd52/develop, feature/fighting-style-authoring
 
-agents/develop       a silo, off to the side. An ancestor of develop, not a leaf of
-                     anything. Pulls stable changes in; ships nothing back. Its job is
-                     to hold the agentic tooling and docs that carry flow across
-                     conversations.
+agents/develop       a silo, off to the side, not a leaf of anything. Pulls stable changes
+                     in; ships nothing back. Holds the agentic tooling and the docs that
+                     carry flow across conversations.
 ```
 
-**As drawn 2026-09-13; checked 2026-10-23, and three things have moved:** there is no bare
-`refactor/` branch (the refactor branches on origin are `content-extensibility`, `card-shape-layer`,
-`pdf-canvas`, `garden-inline-styles`, `data-extraction` and `views-extraction`; no
-`banner-parts-and-design`); `feature/grant-rows` is 230 commits behind `integration` (2026-10-24); and
-`agents/develop` is no longer an ancestor of `develop`.
+**Checked 2026-10-24.** `feature/grant-rows` is 230 commits behind `integration`. Other refactor
+branches went straight to `integration` instead: `refactor/garden-harvest` and
+`refactor/picks-namespace` merged there; `refactor/pdf-canvas` (#63, with
+`refactor/card-shape-layer`) and `refactor/garden-inline-styles` target it; whether they move to
+`refactor/main` is the owner's call. `refactor/views-extraction` and `refactor/data-extraction`: below.
 
 Releases are tags, not branches, so no branch name says which release it serves.
 **Summer Patch** ships from `integration` once the last hotfixes land — nothing tagged yet.
 **After that tag, everything is Fall Update: the refactor tree.**
 
-`refactor/` is not a release family — it predates the Summer Patch. Don't rename it after a
+`refactor/main` is not a release family — it predates the Summer Patch. Don't rename it after a
 release; the next one inherits the branches. `refactor/views-extraction` is dead (it raced a
 churning mainline); `refactor/data-extraction` is a reference for splitting the monoliths, not
 revived (owner, 2026-10-19). Splitting the monoliths now goes one small extraction at a time

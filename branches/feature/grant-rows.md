@@ -165,7 +165,7 @@ or closes, or a branch changes role, update this section in the same commit.
 | branch | role |
 |---|---|
 | `feature/grant-rows` | this branch: grants, and the KB for everything above |
-| `refactor/content-extensibility` | the refactor trunk |
+| `refactor/main` | the refactor trunk (named `refactor/content-extensibility` until 2026-10-24) |
 | `port/save-gate` | the homebrew-keys fix; merged into `integration` as `614c17ff` (#37, 2026-09-30) |
 | `fix/comment-check` | folded into #37 (2026-09-30); PR #38 closed. Owner to delete the branch |
 | `integration` | the active trunk; carries the homebrew-keys fix and #39; comment baseline empty |

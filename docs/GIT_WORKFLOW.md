@@ -9,7 +9,8 @@ How branches, PRs and the agent tooling fit together. The rules themselves are i
 develop            upstream trunk; takes integration through the release PR (owner only)
   integration      active trunk; every feature, fix and hotfix PR lands here
     feature/* fix/* hotfix/* perf/* docs/* test/* upgrade/*   one branch per piece of work, cut from integration
-    refactor/*     parent for the refactor tree; its leaves PR into it
+    refactor/main  trunk of the refactor tree; pulls integration in
+      refactor/*   its leaves: cut from refactor/main, PR back into it
 agents/develop     agent home, off to the side: KB, docs, agent config, hooks, branch
                    handoffs, agent-facing research and measurement tooling. No app tests. Merges integration in for file:line accuracy; ships nothing
 claude/*           harness auto-branches; never merged, re-homed onto a typed branch first
@@ -103,6 +104,17 @@ you are about to restore has changes you did not make, report it instead. Never 
 `git stash`, `git clean`, `git commit -a` or `git add -A` in a shared worktree: they wipe or take the
 parent's edits.
 
+### A branch renamed on GitHub
+
+GitHub retargets open PRs and redirects the old name, but clones keep it. In each one:
+
+```bash
+git fetch --prune origin
+git branch -m <old> <new> && git branch -u origin/<new> <new>   # only where <old> was checked out
+```
+
+Then move the branch's handoff: `branches/<old>.md` to `branches/<new>.md` on agents/develop.
+
 ### Merging integration in
 
 ```bash
@@ -122,7 +134,7 @@ branch without the file: `git show origin/feature/email-and-alerts:.github/workf
 
 - **When they run:** on a PR into `develop` or `integration` whose diff against its base touches
   any listed path, on every push and every label change, docs-only pushes included: GitHub matches
-  the filter against the whole PR diff. Not on a refactor leaf's PR into its `refactor/` parent. A PR
+  the filter against the whole PR diff. Not on a refactor leaf's PR into `refactor/main`. A PR
   run uses the workflow from the PR merged into its base, so it runs once either side carries
   `docker-heavy.yml`: today only `feature/email-and-alerts`; every PR into `integration` once that
   merges, older branches included.

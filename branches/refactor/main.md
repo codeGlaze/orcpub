@@ -1,4 +1,5 @@
-> **Handoff for `refactor/content-extensibility`** (and, until they get their own, `feature/extras-companions`,
+> **Handoff for `refactor/main`**, the refactor trunk, named `refactor/content-extensibility` until
+> 2026-10-24 (and, until they get their own, `feature/extras-companions`,
 > `srd52/develop` and `perf/entity-build`, which carried the same file). Copied from its own
 > `BRANCH.md` on 2026-10-24, not yet trimmed. It was written on the session branch
 > `claude/zen-wright-04xhdz`, hence its title. Push targets and where code goes: `AGENTS.md`, which

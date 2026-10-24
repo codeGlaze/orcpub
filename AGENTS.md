@@ -31,7 +31,7 @@ is the one change to this file that needs no owner's yes.*
 | `develop` | **OWNER ONLY** | The upstream trunk. It takes `integration` through the release PR (#32), which the owner merges. Agents never push to or merge into it. |
 | `integration` | **PR REQUIRED** | The active trunk, ahead of `develop`; hotfixes land here. No direct pushes. |
 | `agents/develop` | **AGENT HOME** | What agents need to know, remember, run or use: KB, docs, introductions, agent config (`.claude/*`), hooks (`.githooks/*`), branch handoffs (`branches/`), and **agent-facing tooling**: research and measurement scripts, anything that helps an agent check its work and that a human developer would not reach for. **App source, and every test that checks the app (`lein test`, the cljs suite, browser probes and regression scripts, even those run by hand), stay with the code, with what runs them (`scripts/test/run-browser-probes.js`, `trace-probe.js`, `probe-baseline.json`), as do the dev tools a human developer uses (`dev/` REPL tools).** `testing/develop` is retired; its agent-facing parts come here. It carries integration's code for `file:line` accuracy, but code changed here conflicts with the next merge down. |
-| `refactor/*` | **OPEN** | The refactor tree's branches. |
+| `refactor/*` | **OPEN** | The refactor tree. `refactor/main` is its trunk (renamed from `refactor/content-extensibility` 2026-10-24); every other `refactor/*` branch is a leaf, cut from `refactor/main` and merged back into it. |
 | `upgrade/*` | **OPEN** | Dependency upgrades (one live: `upgrade/datomic-pro`). Not a place to start other work. |
 | `feature/*` `fix/*` `hotfix/*` `perf/*` `docs/*` `test/*` | **OPEN** | Agents may work freely. |
 | `claude/*` | **DO NOT MERGE** | Harness auto-branches. Re-home the commits onto a typed branch first. |
@@ -40,7 +40,7 @@ is the one change to this file that needs no owner's yes.*
 approved for you by name, and `agents/develop`.
 
 1. Branch from `integration` for anything that must ship; its PR goes into `integration`, and a
-   refactor leaf's into its `refactor/` parent. Push the branch as you go; open the PR only when
+   refactor leaf's into `refactor/main`, which it was cut from. Push the branch as you go; open the PR only when
    the owner says. Never merge a PR, yours or anyone's, unless the owner tells you to merge that
    PR; the owner merges. Keep PRs small (one upgrade per PR); a breaking change
    carries migration notes.
