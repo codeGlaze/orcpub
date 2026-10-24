@@ -13,13 +13,10 @@ git log --oneline -3
 git ls-tree -r HEAD --name-only docs/kb/ | wc -l
 ```
 
-**You may already be on the right branch, with a fuller KB than `agents/develop` has.** The
-refactor leaves carry their own `docs/kb/` — `perf/entity-build` has 42 docs, `agents/develop`
-has 68, and neither is a superset. A branch name can mislead: `perf/entity-build` is mostly AC
-engine work, not a finished perf spike.
-
-If the work belongs to a Fall Update leaf, it belongs on that leaf — not here. Check what your
-branch descends from (`git merge-base --is-ancestor`) before deciding where anything goes.
+**Some branches carry their own `docs/kb/`** (the Fall Update branches: `feature/grant-rows` and
+those cut from it), and neither it nor `agents/develop`'s is a superset. Where findings from such a
+branch go is in its handoff (`branches/<branch>.md` on `agents/develop`). A branch name can mislead:
+`perf/entity-build` is mostly AC engine work, not a finished perf spike.
 
 ## 1. Run this
 
@@ -34,8 +31,9 @@ changing anything.
 
 ## 2. Read what it points you at
 
-`BRANCH.md` on `agents/develop` carries the live state and the active plan. Read it
-before proposing work — the plan may have moved since the last session.
+`BRANCH.md` on `agents/develop` carries the project's live state and the active plan, and your
+branch's handoff, `branches/<branch>.md`, carries its own. Read both before proposing work: the
+plan may have moved since the last session. A branch with no handoff has nothing carried over.
 
 ## 2b. If you are going to run anything
 
@@ -45,7 +43,7 @@ Four test layers, and picking the wrong one wastes a build. There is a **seeded 
 anyone wrote that down:
 
 ```bash
-git show agents/develop:docs/kb/e2e-logged-in-sessions.md
+git show origin/agents/develop:docs/kb/e2e-logged-in-sessions.md
 ```
 
 ## 3. Two rules that cause the most rework here
@@ -55,8 +53,8 @@ git show agents/develop:docs/kb/e2e-logged-in-sessions.md
 commit. Read the KB from a code branch without checking it out:
 
 ```bash
-git show agents/develop:docs/kb/<file>.md
-git ls-tree -r agents/develop --name-only docs/kb/
+git show origin/agents/develop:docs/kb/<file>.md
+git ls-tree -r origin/agents/develop --name-only docs/kb/
 ```
 
 **Do not grep Clojure with `grep`.** `#_` discards the next form, so discarded code
@@ -65,4 +63,4 @@ reads as live — 27 subclasses in `classes.cljc` are switched off this way. Use
 
 ---
 
-Full conventions: `git show agents/develop:docs/kb/documentation-discipline.md`
+Full conventions: `git show origin/agents/develop:docs/kb/documentation-discipline.md`

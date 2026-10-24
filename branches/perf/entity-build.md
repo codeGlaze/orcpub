@@ -1,0 +1,5 @@
+# perf/entity-build
+
+This branch carried the same `BRANCH.md` as `refactor/content-extensibility` until 2026-10-24, so
+its handoff is that one until it gets its own:
+`git show origin/agents/develop:branches/refactor/content-extensibility.md`.

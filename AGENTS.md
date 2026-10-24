@@ -1,497 +1,346 @@
+# Agent instructions — OrcPub / Dungeon Master's Vault
 
-# AI Agent Instructions — OrcPub/Dungeon Master's Vault
+Rules every agent follows on every branch. Reference material is linked at the end: read it when
+the task needs it, not before.
 
-> **Purpose**: Help AI coding agents get immediately productive in this repository while respecting project governance and workflow rules.
+**Read docs from `agents/develop`:** `git show origin/agents/develop:<path>`. The KB (`docs/kb/`),
+`SETUP.md` and `CODEBASE.md` exist only there; other `docs/` pages also sit on code branches,
+sometimes as older copies, and the `agents/develop` copy is the current one. A bare `docs/<page>` in
+these instructions means that copy, even where your branch has none.
+`scripts/agent-setup.sh` on agents/develop sets up the tooling and prints where the KB index is; the SessionStart hook runs it from the local copy, or
+run `git show origin/agents/develop:scripts/agent-setup.sh | bash`, which fetches first: do that after
+any fetch that moved `origin/agents/develop`, to refresh the copies.
 
----
+**Write to agents/develop** (a KB finding, a doc fix, a branch handoff) from a separate worktree of
+it, one per code branch, never by switching the code branch's worktree, and push straight to it, no PR:
+the commands are in `docs/GIT_WORKFLOW.md`, "Writing to agents/develop". Writing there is part of
+the job, not "touching someone else's branch". **Except:** a push that changes `AGENTS.md`,
+`CLAUDE.md`, `.githooks/`, `scripts/agent-setup.sh` or `.claude/` needs the owner's yes for that
+push, asked in Needs you: every session loads or runs them, so one broken push reaches every agent
+(the one exception: correcting the branch table, below).
+List the worktree and what you will write in your stop rules.
 
-## Critical Rules (Read First)
+## Branches — MUST FOLLOW
 
-### Branch Protection — MUST FOLLOW
-
-*Verified against `git ls-remote` on 2026-09-24. If a branch named here does not exist,
-correct this table rather than working around it — see `docs/kb/documentation-discipline.md`.*
+*Verified against `git ls-remote` on 2026-10-24. If a branch named here does not exist, correct
+this table rather than working around it (`docs/kb/documentation-discipline.md`); that correction
+is the one change to this file that needs no owner's yes.*
 
 | Branch | Protection | Rule |
 |--------|-----------|------|
-| `develop` | **OWNER ONLY** | Never merge or push. The upstream trunk; PRs target it. |
-| `integration` | **PR REQUIRED** | The active trunk — hotfixes land here and it is ahead of `develop`. No direct pushes. |
-| `agents/develop` | **AGENT HOME** | What agents need to know, remember, run or use: KB, docs, introductions, agent config (`.claude/*`), hooks (`.githooks/*`), and **agent-facing tests and tooling**: probes, browser scripts run by hand, research and measurement scripts, anything that helps an agent check its work and that a human developer would not reach for. **App source, and the tests and dev tools a human developer uses (`lein test`, CI, `dev/` REPL tools), stay with the code.** `testing/develop` is retired; its agent-facing parts come here. It carries integration's code for `file:line` accuracy, but code changed here conflicts with the next merge down. |
-| `refactor/*` | **OPEN** | Working parent for the refactor tree and its leaves. |
-| `feature/*` `fix/*` `hotfix/*` `perf/*` `docs/*` | **OPEN** | Agents may work freely. Typed prefixes; these are what the tree actually uses. |
-| `claude/*` | **DO NOT MERGE** | Harness auto-branches. Re-home commits onto a typed branch before merging anything. |
+| `develop` | **OWNER ONLY** | The upstream trunk. It takes `integration` through the release PR (#32), which the owner merges. Agents never push to or merge into it. |
+| `integration` | **PR REQUIRED** | The active trunk, ahead of `develop`; hotfixes land here. No direct pushes. |
+| `agents/develop` | **AGENT HOME** | What agents need to know, remember, run or use: KB, docs, introductions, agent config (`.claude/*`), hooks (`.githooks/*`), branch handoffs (`branches/`), and **agent-facing tooling**: research and measurement scripts, anything that helps an agent check its work and that a human developer would not reach for. **App source, and every test that checks the app (`lein test`, the cljs suite, browser probes and regression scripts, even those run by hand), stay with the code, with what runs them (`scripts/test/run-browser-probes.js`, `trace-probe.js`, `probe-baseline.json`), as do the dev tools a human developer uses (`dev/` REPL tools).** `testing/develop` is retired; its agent-facing parts come here. It carries integration's code for `file:line` accuracy, but code changed here conflicts with the next merge down. |
+| `refactor/*` | **OPEN** | The refactor tree's branches. |
+| `upgrade/*` | **OPEN** | Dependency upgrades (one live: `upgrade/datomic-pro`). Not a place to start other work. |
+| `feature/*` `fix/*` `hotfix/*` `perf/*` `docs/*` `test/*` | **OPEN** | Agents may work freely. |
+| `claude/*` | **DO NOT MERGE** | Harness auto-branches. Re-home the commits onto a typed branch first. |
 
-### Agent Workflow Rules
+"Someone else's branch", below, means any branch other than the one you were given, one the owner
+approved for you by name, and `agents/develop`.
 
-1. Never merge or push directly to `develop` or `integration`
-2. Work in a typed branch — `feature/`, `fix/`, `hotfix/`, `perf/`, `refactor/`
-3. Branch from `integration` for anything that must ship; it is ahead of `develop`
-4. Create Pull Requests for review — do not merge them yourself
-5. `claude/*` branches do not merge. Re-home the commits first
-6. Source or test changes do not belong on `agents/develop`
-7. **Declare stop rules before starting work** — see below
-8. **Never create a branch the owner has not approved by name.** A web agent can push a branch but
+1. Branch from `integration` for anything that must ship; its PR goes into `integration`, and a
+   refactor leaf's into its `refactor/` parent. Push the branch as you go; open the PR only when
+   the owner says. Never merge a PR, yours or anyone's, unless the owner tells you to merge that
+   PR; the owner merges. Keep PRs small (one upgrade per PR); a breaking change
+   carries migration notes.
+2. **Given a `claude/*` branch by the harness, ask in your first reply** (in Needs you) to move the
+   work to a typed branch, naming it (`Move this to fix/builder-tab from integration?`), so no stray
+   branches pile up, and say if it was not cut from `integration`. Until the owner answers, work on
+   the `claude/*` branch; on no, keep working there, and it never merges. The check and the move:
+   `docs/GIT_WORKFLOW.md`, "Moving off a claude/* branch".
+3. **Never create a branch the owner has not approved by name.** A web agent can push a branch but
    cannot delete one, so every branch it makes is the owner's to clean up. Ask it as its own yes/no
    question naming the branch (`Create fix/comment-check from integration?`). A yes to a plan that
-   mentions "its own PR" or "a separate branch" is not a yes to the branch. Unapproved, the work goes
-   on the branch you were given.
-9. **Search the KB before calling a bug new** (`grep -ril "<term>" docs/kb/`). If a decision is
-   there, build it; do not ask the owner again.
-10. **A test works around a known bug only if it names the bug and where it is tracked.** A silent
-    workaround keeps the bug alive: the Option Source box came back three times this way.
+   mentions "its own PR" or "a separate branch" is not a yes to the branch. Unapproved, the work
+   goes on the branch you were given.
+4. **Before calling a bug new or starting a feature, search for it:** the KB (`grep -ril "<term>"
+   docs/kb/` on agents/develop, `git grep -il "<term>" origin/agents/develop -- docs/kb/` from a
+   code branch), `BRANCH.md`'s "In flight" list, and the remote branches (`git branch -r | grep -i
+   <term>`). If a decision is there, build it; do not ask the owner again. If another branch is
+   already building it, stop and say so in Needs you.
+5. **When a doc contradicts this file, do not pick a winner silently.** If one side plainly does
+   not match the code or the remote, fix that side and say so in your report; otherwise ask in
+   Needs you. An owner decision recorded in a doc (`BRANCH.md`, a KB page) is not yours to
+   change: raise it only. Change `AGENTS.md` itself only with the owner's yes (the branch table above is the
+   one exception: correct it when a branch named there does not exist).
+6. **A test works around a known bug only if it names the bug and where it is tracked.** A silent
+   workaround keeps the bug alive: the Option Source box came back three times this way.
 
-**Removed 2026-09-24, verified absent from the remote:** this section named
-`modernize-stack` as PR-protected and instructed agents to "branch new features from
-`upgrade/security-jackson-guava`". Neither branch exists — `git ls-remote` returns zero refs
-for both — and they had not for roughly eight months, while sitting under a MUST FOLLOW
-heading that is the first thing an agent reads. `upgrade/*` survives as a convention with one
-live branch and is no longer the place to start work.
+## PRs and releases — MUST FOLLOW
 
+- **Agents never push to or merge into `develop`.** `integration` reaches it only through the
+  release PR (#32), which the owner merges.
+- **Merge gate:** green CI (apart from "Branch changelog folded", which stays red until the fold;
+  Changelogs, below), and a CodeRabbit review of the last push that changed behaviour in which every
+  actionable comment is either fixed by a later push that does nothing else, with a reply on its
+  thread naming the fixing commit, or answered on its thread.
+- **CodeRabbit reviews are scarce: request one on purpose.** All agents and the owner share one
+  allowance (every agent pushes as codeGlaze; no paid overage). It reviews a PR once by itself, when
+  it is first opened as ready, and never again on its own; for a PR opened as a draft, see
+  `docs/GIT_WORKFLOW.md`, "CodeRabbit". After pushes that
+  change behaviour the last review did not see, batch them and ask once; a push that only fixes the
+  last review's comments needs none; after asking, do not push until the review posts. How to ask
+  and what to expect: `docs/GIT_WORKFLOW.md`, "CodeRabbit".
+- **Fork-only files** may live on our `develop` and are removed before any PR to `Orcpub/orcpub`.
+  The list is in `BRANCH.md` on agents/develop; add each new one there.
 
-### Stop Rules and Budget — MUST FOLLOW
+## Stop rules and budget — MUST FOLLOW
 
-The person running a session often has a limited plan and **neither they nor any agent can
-see how many tokens are left.** A run with no written stopping point can spend the rest of
-the budget redoing finished work. This has happened here: an agent committed all its fixes,
-never reported, and kept going — 137k to 203k tokens — re-rewriting a flaky test in the same
-worktree another test suite was using. The prompt had told it to "fix anything that fails",
-and a flaky test fails at random, so it never had a reason to stop.
-
-**Every response that does work starts with its stop rules**, before any tool runs, so the
-person can see them and interrupt if something looks wrong:
+Nobody can see how many tokens are left, and a run with no written stopping point can spend the
+rest of the budget redoing finished work. **Every response that does work starts with its stop
+rules**, before any tool runs, so the person can interrupt. A read-only lookup of five tool calls or
+fewer is not work here; if it needs a sixth, post stop rules before making it. A task that will
+edit anything is work, even when its first steps are reads.
 
 > **Stop rules for this turn**
 > - what gets done, and what does not
-> - the attempt budget for each risky item (usually one)
+> - the loop guard: an attempt budget for each change that can loop (usually one)
 > - what makes it stop and report instead of retrying
-> - anything it will NOT do (push, touch another branch, run a second suite)
+> - anything it will NOT do (push, touch someone else's branch, run a second suite)
 > - new branches: none, or the one the owner approved by name
 
-Rules that apply every time:
+**Loop guard.** A change that can loop is one you only find out about by running it (a fix for a
+failing test, a dependency or build change, a conflicted merge, a migration), so a failure tempts
+another try. Each gets an attempt budget, usually one. At the limit, stop and analyse; do not retry.
 
-- **Flaky means stop.** If a result changes between runs with nothing changed, stop and
-  report it as flaky. Do not try to fix it by retrying, and do not change code to make it
-  pass. Retrying a race looks like progress and never ends.
-- **Attempt budgets, in the prompt.** Give every subagent a hard limit: one implementation
-  attempt, a set number of verification runs, and a tool-call ceiling. When it hits the
-  limit, it restores its changes and reports.
+- **Flaky means stop.** A result that changes between runs with nothing changed is reported as
+  flaky. Never retry it or change code to make it pass: retrying a race looks like progress and
+  never ends. (An agent told to "fix anything that fails" spent 66k tokens re-rewriting a flaky
+  test after its real work was committed.)
 - **Contained fixes are done, not asked.** A fix that only removes a bug, with no knock-on effect
   (a duplicate require, a missing config entry, a stale comment), is made and reported. Ask when a
   fix changes behaviour, makes a design choice, or touches someone else's branch.
-- **Verify once.** After committing, run one verification pass and report. Do not loop
-  back into fixing.
-- **Watch the only budget signal there is.** Task notifications show a subagent's
-  `subagent_tokens` and `tool_uses`. If they keep climbing and nothing new is committed,
-  check `git log` / `git status` yourself; if the work has landed, stop the agent.
-- **Narrow agents.** One agent per risky item, not one agent for a batch, so a single bad
-  item cannot spend the whole batch's budget.
-- **Use the cheaper model for mechanical work.** A well-specified fix or search goes to a
-  smaller model; keep the larger model for judgement.
-- **Fetch before you read a remote branch.** `origin/*` is a snapshot from the last
-  `git fetch`, not the remote. Run `git fetch --prune origin` before reading, searching or
-  diffing any `origin/*` ref, every time -- sessions run for days and other agents push
-  during them. An agent searched a stale `origin/agents/develop`, found no budget rule, and
-  reported that none existed; it had been pushed hours earlier, and 9 of 112 refs were out
-  of date.
-- **Never share a worktree with a running `lein`.** Two `lein` processes in one worktree
-  overwrite `.lein-env` and corrupt each other's results.
+- **Verify once.** Run the "Before committing" checks (Tests, below) once, on the final change. A
+  code commit made only so its test can be seen to fail (Tests) and that test's commit are one
+  change: run the checks once, after the test is green and before the test's commit.
+  If one fails, do not commit over it: report it in Needs you, and do not start another fix unless
+  your stop rules budgeted one.
+- **Subagents get hard limits** in their prompt: one implementation attempt, a set number of
+  verification runs, a tool-call ceiling. In a shared worktree a subagent never wipes or commits
+  the parent's edits: it records which files were clean when it started. Finished, verified work it
+  commits, only those files; at its limit with the work unfinished it restores only those files; a file that already had changes is reported, never restored or
+  committed. Never `git checkout .`, `git stash`, `git clean`, `git commit -a` or `git add -A`
+  there. The commands: `docs/GIT_WORKFLOW.md`, "Subagents in a shared worktree".
+- **One agent per change that can loop,** not one for a batch, so a single bad change cannot
+  spend the whole batch's budget. A well-specified fix or search goes to a smaller model; keep the larger model for
+  judgement.
+- **Watch the only budget signal there is:** task notifications show a subagent's
+  `subagent_tokens` and `tool_uses`. If they keep climbing with nothing new committed, check
+  `git log` and `git status` yourself; if the work has landed, stop the agent.
+- **Fetch before you read a remote branch:** `git fetch --prune origin`, every time, before reading,
+  searching or diffing any `origin/*` ref. `origin/*` is a snapshot from the last fetch, not the
+  remote, and other agents push during long sessions: an agent once reported a rule missing that
+  had been pushed hours earlier.
+- **Never run two `lein` processes in one worktree at once,** main agent or subagent: a REPL,
+  `lein e2e-server` and `lein fig:build` each count. They overwrite `.lein-env` and
+  corrupt each other's results. Stop a running server before building or testing there, or use a
+  second worktree.
 
-### Reporting back — MUST FOLLOW
+## Reporting back — MUST FOLLOW
 
 The owner reads every reply, often on a phone, and the log of a long turn already shows the work.
 
-- **End every long response with a short summary:** three to six lines of outcome (what changed
-  for players or admins, whether it was verified, anything that went wrong), then **Needs you**.
-  Do not restate test counts, file lists or the steps already shown; detail lives in commits and
-  `docs/kb/`.
+- **End every response that did work with a short summary:** three to six lines of outcome (what
+  changed for players or admins, whether it was verified, anything that went wrong), then
+  **Needs you**. Do not restate test counts, file lists or steps already shown; detail lives in
+  commits and `docs/kb/`.
 - **Questions go only in Needs you,** one per number, each readable on its own: what it is, why
   it matters, what yes or no does.
-- **Lead with the answer** when asked a question. A short question gets a short answer.
+- **Lead with the answer** when asked a question; a short question gets a short answer. A read-only
+  lookup of five tool calls or fewer needs no stop rules (see Stop rules). A question that needs
+  more work opens with them, and the answer leads the closing summary.
 
----
+## Code — MUST FOLLOW
 
-> **TOP PRIORITY:** Agents MUST maintain up-to-date documentation whenever features, commands, or workflows are added or changed. See `docs/DOC-CONVENTIONS.md` for the documentation structure.
+- **Placement:** shared logic in `src/cljc/`, server-only in `src/clj/`, client-only in `src/cljs/`
+  or `web/cljs/`. Components follow `com.stuartsierra/component` and restart cleanly through the
+  `dev/user.clj` helpers; auth uses Buddy JWS tokens, handled as `orcpub.routes` does.
+- **Homebrew keys are user-facing.** Never rename one without a backwards-compatible mapping.
+- **Swapping a library keeps its alias** (`[clj-time.core :as t]` becomes `[java-time.api :as t]`).
+- **Config comes from one `.env` at the repo root**, git-ignored (`.env.example` has safe defaults).
+  Clojure never reads `.env` itself: `scripts/common.sh` sources it with `set -a`, and `environ`
+  sees ordinary environment variables. Scripts load it over the shell; Docker Compose lets a shell
+  variable beat it; plain `lein` does not load it at all (table: `docs/ENVIRONMENT.md`). There is no
+  `dotenv` dependency; do not add one. Read values through `orcpub.env/value`, which treats blank as
+  absent (`docs/kb/blank-env-values.md`). Never commit secrets (`SIGNATURE`, DB credentials): they
+  go in `.env` or the CI secret store. Variables: `docs/ENVIRONMENT.md`.
+- **Built-ins before scripts:** `lein test`, `lein lint`, `lein garden`, `lein uberjar`, `lein deps`,
+  local JARs through the `file:lib` repository. A custom script only orchestrates several tools or
+  sets up an environment (`scripts/start.sh`, `./menu`). Follow existing patterns and names
+  (re-frame event and sub names as in `web/cljs/orcpub/*`).
+- **Reuse before you write:** look for an existing function, script or test that does the job, and
+  call or extend it rather than writing a second one. Where new code then goes is a separate
+  question: a feature of its own gets its own namespace instead of growing a big file ("Shrinking
+  the big files" below).
+- **UX:** read [docs/kb/ux-guide.md](docs/kb/ux-guide.md) before designing anything a player sees.
+  It is a floor: existing screens are not precedent, and an agreed improvement updates the guide.
 
----
+### re-frame
 
-## Required Reading
-
-Before working on this project, read these documents:
-
-| Document | Purpose | When to Read |
-|----------|---------|--------------|
-| [`BRANCH.md`](BRANCH.md) | Branch-specific context and handoff notes | Every session start |
-| [`docs/kb/UPGRADE_PLAN.md`](docs/kb/UPGRADE_PLAN.md) | **Largely historical.** Records the Jan 2026 stack modernisation; its pins are landed. One live item: nothing tracks CVEs continuously. | Before dependency work |
-| [`README.md`](README.md) | Project overview, getting started, Docker setup | First time setup |
-| [`docs/DOC-CONVENTIONS.md`](docs/DOC-CONVENTIONS.md) | Documentation structure and KB conventions | When creating/updating docs |
-
----
-
-## Environment Variable Pattern (Canonical)
-
-**All configuration for Datomic, secrets, and app settings is managed via a single `.env` file at the repo root.**
-
-- All shell scripts and the canonical installer source `.env` if present.
-- Docker Compose and devcontainer use `.env` via `env_file` or `containerEnv` (as fallback).
-- Clojure never reads `.env` itself. `scripts/common.sh` sources it with `set -a`, so the
-  entries become ordinary environment variables and `environ` picks them up like any other.
-  There is no `dotenv` dependency and there never has been — read values through
-  `orcpub.env/value`, which treats a blank value as absent (see `docs/kb/blank-env-values.md`).
-- `.env.example` provides safe defaults; `.env` is git-ignored.
-
-**Precedence:**
-1. `.env` in repo root (authoritative, always sourced if present)
-2. Docker Compose/devcontainer: use `env_file: .env` or `containerEnv` as fallback
-3. Shell scripts: always source `.env` if present
-4. Clojure: `environ`, reading the environment variables the shell exported — not the file
-
-See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for full details.
-
----
-
-## Project Overview
-
-**Stack**: Full-stack Clojure/ClojureScript application
-- **Backend**: Pedestal + Datomic + Buddy auth
-- **Frontend**: Reagent + re-frame + Figwheel
-- **Build**: Leiningen + figwheel-main
-
-For Datomic installation and transactor setup, see [`docs/DATOMIC_SETUP.md`](docs/DATOMIC_SETUP.md).
-
-### Key Files & Entry Points
-
-| Purpose | Location |
-|---------|----------|
-| Server entry | `src/clj/orcpub/server.clj`, `src/clj/orcpub/system.clj` |
-| Frontend entry | `web/cljs/orcpub/core.cljs` |
-| Re-frame events | `src/cljs/orcpub/dnd/e5/events.cljs` |
-| Re-frame subs | `src/cljs/orcpub/dnd/e5/subs.cljs` |
-| Routes & auth | `src/clj/orcpub/routes.clj` |
-| DB schema | `src/clj/orcpub/db/schema.clj` |
-| Shared domain logic | `src/cljc/orcpub/entity.cljc`, `src/cljc/orcpub/template.cljc` |
-| D&D 5e rules | `src/cljc/orcpub/dnd/e5/` |
-| REPL/dev helpers | `dev/user.clj` |
-| PDF generation | `src/clj/orcpub/pdf.clj` |
-| Styles (Garden) | `src/clj/orcpub/styles/` |
-| Splash page (CLJC) | `src/cljc/orcpub/dnd/e5/views_2.cljc` |
-| Project config | `project.clj` |
-
-### Code Organization
-
-```
-src/
-├── clj/      # Server-only Clojure (JVM)
-├── cljc/     # Shared code (runs on JVM and JS)
-└── cljs/     # Client-only ClojureScript
-web/
-└── cljs/     # Frontend application code
-```
-
----
-
-## Development Commands
-
-### Validation (Run Before Committing)
-
-```bash
-# Server-side tests (Clojure JVM only)
-lein test
-
-# ClojureScript compilation — REQUIRED after frontend changes
-lein fig:build
-
-# Linter
-lein lint
-
-# Full frontend with hot reload (figwheel-main)
-lein fig:dev
-```
-
-### Starting Development Environment
-
-```bash
-# Using the menu (recommended)
-./menu
-
-# Or using scripts directly:
-./scripts/start.sh datomic      # Start Datomic transactor
-./scripts/start.sh init-db      # Initialize DB (first time only)
-./scripts/start.sh server       # Start backend REPL
-./scripts/start.sh figwheel     # Optional: Frontend hot-reload
-./scripts/start.sh garden       # Optional: CSS watcher
-```
-
-### Calva (VSCode)
-
-For interactive development, use Calva's "Jack-in" command. Select profiles:
-- **start-server**: Auto-starts the web server on REPL launch
-- **css-watch**: Auto-recompiles CSS (Garden) on file changes
-- **dev**: Development mode with debugging tools
-
-### Lein Profiles
-
-```bash
-lein with-profile +start-server repl              # REPL with auto-start server
-lein with-profile +start-server,+css-watch repl   # REPL with server + CSS watch
-lein garden once                                   # Compile CSS once
-lein garden auto                                   # Watch CSS for changes
-```
-
----
-
-## Tooling Philosophy — Use Built-in Capabilities First
-
-**CRITICAL PRINCIPLE**: Before writing custom scripts or tools, explore what Leiningen, Clojure, and Figwheel provide natively.
-
-### Built-in Leiningen Capabilities
-
-| Task | Built-in Solution | Custom Script |
-|------|------------------|---------------|
-| Install local JAR | Use `file:lib` repository (existing pattern) | Avoid |
-| Run tests | `lein test` | Avoid |
-| Lint code | `lein lint` (via plugin) | Avoid |
-| Compile CSS | `lein garden` (via plugin) | Avoid |
-| Start REPL | `lein repl` | Avoid |
-| Build uberjar | `lein uberjar` | Avoid |
-| Dependency management | `lein deps` | Avoid |
-
-### When Custom Scripts Are Acceptable
-
-Scripts that orchestrate multiple tools or handle environment-specific setup:
-- `scripts/start.sh` — Unified service launcher
-- `scripts/stop.sh` — Service stopper with graceful shutdown
-- `scripts/dev-setup.sh` — Orchestrates initial dev environment setup
-- `./menu` — Interactive development hub
-
-### Look for Existing Functionality First
-
-1. **Check existing test files** — Use established testing patterns
-2. **Review existing scripts** — Extend rather than duplicate
-3. **Examine existing code** — Look for reusable functions
-4. **Follow established patterns** — Match naming conventions
-5. **Add to existing files** — Extend integration tests, route handlers
-6. **Create new files only as last resort**
-
----
-
-## Environment Variables
-
-Key environment variables (via `environ`):
-
-| Variable | Purpose |
-|----------|---------|
-| `DATOMIC_URL` | Database connection string |
-| `DATOMIC_PASSWORD` | Database password |
-| `SIGNATURE` | JWT signing secret (authentication) |
-| `PORT` | Web server port (production) |
-| `EMAIL_*` | SMTP configuration for emails |
-
----
-
-## Code Patterns & Conventions
-
-### Must Preserve
-
-1. **Shared logic** goes in `src/cljc/`, backend-only in `src/clj/`, client-only in `src/cljs/` or `web/cljs/`
-
-2. **Component lifecycle**: Use `com.stuartsierra/component` patterns. Restart cleanly via `dev/user.clj` helpers.
-
-3. **Authentication**: Buddy JWS tokens. Keep token handling consistent with `orcpub.routes`.
-
-4. **Homebrew compatibility**: Front-facing keys in exports are user-facing. Never rename without providing backwards compatibility mapping.
-
-5. **Require aliases**: When swapping libraries, keep the same alias:
-   ```clojure
-   ;; Good: same alias
-   [clj-time.core :as t]  →  [java-time.api :as t]
-
-   ;; Bad: new alias causes churn
-   [java-time.api :as jt]
-   ```
-
-### UX — read before designing anything a player sees
-
-[docs/kb/ux-guide.md](docs/kb/ux-guide.md): placement, wording, notices and how designs are reviewed. It is a
-floor, not a ceiling: existing screens are not precedent, and an agreed improvement updates the guide.
-
-### Re-frame Conventions
-
-Follow existing event/subscription naming in `web/cljs/orcpub/*`.
-
-**Work derived from an edit never runs inside the edit.** The handler or interceptor that applies a
-click or keystroke does only that. Builds, settles and other derived work run afterwards on their own
-(a follow-up event, or a debounced subscription like `debounced-build-sub`); a failure there logs and
-leaves the edit in place. Measure before adding anything to an edit's path.
-
-**Nothing loads until something on the page needs it; then once, and cached.** Data is fetched by
-the view that shows it, on first use (a subscription that starts its own fetch, like
-`:portrait/artist-overrides`, or a load on opening, like the SRD rules for the Orcacle), never at
-start-up or on a page that does not show it. A new start-up step, or a new request on a page's
-load, needs a written reason. The artist credits were once fetched on every page; nothing noticed
-until an unrelated test logged the 404. `test/page-load-budget` is adding a browser check that fails
-on any request a page's allowance does not list.
+- **Work derived from an edit never runs inside the edit.** The handler or interceptor that applies
+  a click or keystroke does only that. Builds, settles and other derived work run afterwards (a
+  follow-up event, or a debounced subscription like `debounced-build-sub`); a failure there logs and
+  leaves the edit in place. Measure before adding anything to an edit's path.
+- **Nothing loads until something on the page needs it; then once, and cached.** The view that
+  shows data fetches it on first use (a subscription that starts its own fetch, like
+  `:portrait/artist-overrides`, or a load on opening, like the Orcacle's SRD rules), never at
+  start-up or on a page that does not show it. A new start-up step, or a new request on a page's
+  load, needs its reason written in the PR description: the artist credits were once fetched on
+  every page, and only an unrelated test's 404 showed it. The unmerged branch
+  `test/page-load-budget` adds a browser check that fails on any request a page's allowance does
+  not list.
 
 ### Shrinking the big files — SHOULD FOLLOW
 
 Most logic sits in a few huge files: `views.cljs` (11.5k lines), `events.cljs` (8.8k),
 `styles/core.clj` (3.7k), `options.cljc` (3.7k), `pdf.clj` (3.3k), `character_builder.cljs`
-(2.9k), `routes.clj` (2.8k). Don't add to them; take things out as you pass.
+(2.9k), `routes.clj` (2.8k). Don't add new features to them. A fix can stay in place when moving its code out would be a
+big move of its own; otherwise look for the piece your work touches that could move out with it.
+Report what you moved. When you find code that could move out and you did not move it, ask in
+Needs you: what it is, where it would go, and why.
 
-- **New code goes in its own namespace** when it is a feature of its own (a page, a builder
-  panel, a route group). A big file gets only the wiring: a require, a route entry, a call.
-- **Move what you are already working in.** When a branch changes a self-contained group in a
-  big file (a feature's views, its events and subs, a route group), move it to its own namespace
-  in the same branch: small, well bounded, its own commit with no behaviour change.
-- **Don't move** code you are not otherwise touching, code an open PR is changing in the same
-  file (wait until it lands), or a group tangled with half the file. Note it as a candidate in the
-  branch's KB instead.
+- **New code goes in its own namespace** when it is a feature of its own (a page, a builder panel,
+  a route group). A big file gets only the wiring: a require, a route entry, a call.
+- **A namespace holds a concept family, not one small concept:** `inventory`, with kits inside it,
+  not a `kits` namespace of its own. Splitting a monolith into dozens of micro-namespaces trades one
+  problem for another.
+- **Move what you are already working in.** When a branch adds to or reworks a self-contained group
+  in a big file (a feature's views, its events and subs, a route group), move it to its own
+  namespace. A one-line fix inside a group does not trigger a move.
+  - **A small move goes in the same branch,** as its own commit with no behaviour change.
+  - **A big move gets its own branch, and you ask first** (naming the branch). Small is one
+    self-contained group whose callers you can update in the same commit; anything more, or any
+    doubt, counts as big. A big extraction left in a long-lived branch races the mainline and
+    dies: `refactor/views-extraction` did. Plans: `docs/kb/monolith-decomposition-plan.md`,
+    `docs/kb/class-builder-extraction-plan.md`.
+- **Don't move** code you are not otherwise touching, code an open PR is changing in the same file
+  (wait until it lands), or a group tangled with half the file. Note it as a candidate in the
+  branch handoff instead.
 - **A move changes nothing else:** same names, same re-frame event and sub ids, callers updated,
-  tests green before and after.
+  tests green before and after. Moved functions count as new to the docstring hook: give any that
+  lack one its docstring in the move commit (a docstring is not a behaviour change).
 - **Data files are exempt:** `monsters.cljc`, `spells.cljc`, `magic_items.cljc`, `classes.cljc`
   hold SRD data, not logic.
 - **Report it:** give the file's line count before and after.
 
-### Comments and Docstrings — MUST FOLLOW
+### Comments and docstrings — MUST FOLLOW
 
-- **Every function gets a docstring, and docstrings are spec:** what it does, its args, what it
-  returns. A new dev should know what any function does without reading its body.
+- **Every function you add, change or move gets a docstring, and docstrings are spec** (every
+  `defn`, `defn-` and `defmacro`, test helpers included; a `deftest` needs none): what it does, its
+  args, what it returns. A new dev should know what any function does without reading its body.
 - **A GOTCHA line is the rare exception, never a required part:** one or two lines, only for a
   tricky function or code that is easy to break by accident. Most docstrings have none.
 - **Comments say what the code does and why it is surprising.** No history ("used to", "was
-  once"), no rationale or decision narrative, no worked examples. Those go in `docs/kb/`, and the
-  comment links the page by name (`key-collision-behavior.md`).
-- **Keep KB pointers** (`page.md`). Trimming history leaves a pointer to where it went. Change one
+  once"), no rationale or decision narrative, no worked examples: those go in `docs/kb/`, and the
+  comment names the page (`key-collision-behavior.md`).
+- **Keep KB pointers** (`page.md`): trimming history leaves a pointer to where it went. Change one
   only if the page moved, the code is gone, or it names the wrong page.
 - **`;; FIELD NOTE (id):` comments are protected.** They record a verified fact a reader would get
-  wrong (data in the wild, a trap, where to trace a behaviour). Do not remove or shorten one in a
-  cleanup; change it only when the fact changes, and record its new hash in
+  wrong (data in the wild, a trap, where to trace a behaviour). **Never remove or shorten one in a
+  cleanup**; change it only when the fact changes, and record its new hash in
   `test/comment-baseline.edn` `:field-notes` (`comment_discipline_test` prints the line).
-- Checked by `comment_discipline_test` (PR #37): history phrasing, docstrings over 6 lines and
-  comment blocks over 4 fail. **Review each hit:** fix it, or approve it in
-  `test/comment-baseline.edn` `:allowed` with a written reason. Never approve unread.
-- Full rule and examples: `docs/kb/documentation-discipline.md`, "Docstrings are SPEC, not prose".
+- `comment_discipline_test` fails on history phrasing, docstrings over 6 lines and comment blocks
+  over 4. Fix each hit, or approve it in `test/comment-baseline.edn` `:allowed` with a written
+  reason. Never approve unread. Examples: `docs/kb/documentation-discipline.md`.
 
 ### SRD text is verbatim — MUST FOLLOW
 
 - **Never write wording the SRD does not use into SRD data** (open5e fixtures, generated SRD
-  files). A fix touches only what is broken; text with no SRD sentence (a casting option `desc`) is
-  the SRD's own sentence with the slot's number put in. No paraphrase, no "clearer" rewording.
-- `scripts/srd/check-srd-data.py` checks the whole branch against these rules in about a second;
-  the open5e clone's `pre-push` hook runs it. Our own summaries go in a separate field.
-- Edit open5e records only with `scripts/srd/open5e_records.py`. For a new kind of defect, add its
-  rule first and see it fail, then fix.
-- Rules and why: `docs/kb/open5e-upstream-notes.md`, "SRD data checks".
+  files). A fix touches only what is broken. Where a field has no SRD sentence of its own (a casting
+  option's `desc`), use the SRD sentence it comes from, changing only the slot number. **No
+  paraphrase, no "clearer" rewording.** Our own summaries go in a separate field.
+- `scripts/srd/check-srd-data.py` (on agents/develop) checks a branch in about a second; the open5e
+  clone's `pre-push` hook runs it. Edit open5e records only with `scripts/srd/open5e_records.py`;
+  for a new kind of defect, add its rule first and see it fail. Why:
+  `docs/kb/open5e-upstream-notes.md`, "SRD data checks".
 
-### Changelogs — MUST FOLLOW
+## Tests — MUST FOLLOW
 
-- **A changelog says what the branch DID, not the commits it took.** One line per outcome a user or
-  maintainer would notice: "New sign-up, sign-in and account-recovery pages", not the 85 commits
-  behind them.
-- **Fixed is for bugs that existed before.** A fix to something the same branch or release built is
-  part of building it and gets no line. No internal work (tests, CI, refactors, tooling).
-- Lines go under Added / Changed / Fixed / Security and open with their area in bold
-  (`**Accounts:**`). Cite the upstream issue (#N) when one matches; no commit hashes.
-- The rules and an example are in `docs/branch-changelog.template.md` on integration; fold with
-  `scripts/fold-branch-changelog.sh`, which files each line under its type.
+- **Before committing:** the checks for what you changed (`lein test`, `lein fig:build` and the cljs
+  suite, and lint of the changed files): which folder needs which is in `docs/TESTING.md`, "Before
+  committing". Run the full `lein lint` before committing a merge, before opening a PR, and before
+  marking a draft ready. Merge with `--no-commit`, so the checks run before the merge commit: a
+  merge with no conflicts otherwise commits itself, unchecked (`docs/GIT_WORKFLOW.md`, "Merging
+  integration in").
+- **Merges and the docstring hook:** on a merge commit the hook checks only functions new to both
+  sides, so the other side's functions pass and any you write while resolving conflicts are checked.
+  **Never commit or push with `--no-verify` without the owner's yes for that commit or push**,
+  whatever a hook's message suggests. Ask one commit or push at a time, naming the hook that is in
+  the way, why its check is wrong here, and what else the flag skips: it skips every hook, including the one that strips session
+  URLs from commit messages and the guard that blocks agent files (`CLAUDE.md`, `AGENTS.md`, `BRANCH.md`, `.claude/`) on code branches.
+- **A test is seen to fail before it is committed.** A test only ever seen passing proves nothing:
+  a spellbook check passed only because the export it measured had lost its spell list. Commit the
+  code under test first, without the test; for each claim, break only the files (or hunk) that claim
+  depends on back to the source before that commit (for code committed earlier, a hand edit of that
+  path); see the expected checks fail, and only those; restore the files; run the test
+  green. **Never break a file with uncommitted changes** (the restore overwrites it for good), never
+  restore a whole directory, and never commit a break. Put the failing output in the test commit's
+  message and in the PR beside the pass. A break that does not fail the test means the test is weak:
+  strengthen the test, never weaken the break. The commands: `docs/TESTING.md`, "Seeing a test fail".
+- **Large schema changes** need migration scripts and tests.
+- **Deployment changes:** a change to any path in the `paths:` list of
+  `.github/workflows/docker-heavy.yml` (Docker, compose, deploy, `run`, the swarm, release, env and
+  start scripts, the crash and alert code). On a PR whose branch or base carries that workflow, one
+  such file anywhere in the PR runs about 20 minutes of heavy Docker checks on **every** push, docs-only
+  pushes included. So once such a PR is open, or before you open it, ask in Needs you before the first push that
+  brings a listed file in and before every push after (pushes to `feature/email-and-alerts` itself:
+  `docs/GIT_WORKFLOW.md`, "Heavy Docker checks"), and push only after the owner says yes (an exception to "push
+  the branch as you go"). The owner can waive this for the session; then push and say so in your
+  summary. Before asking for review of such a PR, its heavy Docker run must be green. When they run and how to start them: `docs/GIT_WORKFLOW.md`, "Heavy Docker checks".
+- **Where a test goes and how to run it:** `docs/TESTING.md` has the four layers. A regression test
+  goes in the lowest layer that can reach the bug. **Before a PR:** `lein test`, the cljs suite, the
+  full `lein lint`, and the real-app browser suites for what the branch changed.
 
----
+## Changelogs — MUST FOLLOW
 
-## Documentation Standards
+- **A changelog says what the branch DID, not the commits it took:** one line per outcome a user or
+  maintainer would notice ("New sign-up, sign-in and account-recovery pages", not the 85 commits
+  behind them).
+- **Fixed is for bugs that existed before.** A fix to something the same branch or release built
+  gets no line. No internal work (tests, CI, refactors, tooling).
+- Lines go under Added / Changed / Fixed / Security, open with their area in bold
+  (`**Accounts:**`), and cite the upstream issue (#N) when one matches; no commit hashes.
+- **Copy `docs/branch-changelog.template.md` to `docs/branch-changelog.md`** on the branch at its
+  start and fill it in as work lands. Its "Branch changelog folded" CI check stays red on the PR
+  until the fold; that is expected while the PR is reviewed, because the fold drops the
+  reviewer-only section. **Fold when the owner says the PR is about to merge**
+  (`scripts/fold-branch-changelog.sh "<release>"`), commit, push.
 
-See [`docs/DOC-CONVENTIONS.md`](docs/DOC-CONVENTIONS.md) for the three-tier structure
-(CLAUDE.md / AGENTS.md / BRANCH.md) and KB conventions.
+## Docs — MUST FOLLOW
 
-### Documentation Locations
+- **TOP PRIORITY: keep the docs current.** When a feature, command or workflow is added or
+  changed, update the docs carried on the code branch (README, `docs/` pages there) in the same
+  PR, and the KB and agents/develop docs with a commit to agents/develop at the same time (top of
+  this file). A doc that exists on both (`README.md`, `docs/ENVIRONMENT.md`): change both copies.
+  When the PR is opened, name the agents/develop commit in its description.
+- **Read `BRANCH.md` and your branch's handoff at every session start.** `BRANCH.md` on
+  agents/develop holds the project-wide state and plan; `branches/<branch>.md` holds this branch's
+  own. The generated `CLAUDE.md` inlines both. Start a handoff from `branches/TEMPLATE.md` when the
+  branch has state the next agent needs; keep it current and short (`branches/README.md`).
+- **Findings go in `docs/kb/`**, linked from `docs/kb/README.md`; an unlinked page is invisible.
+  Discoveries belong there, not in session transcripts.
+- **One source of truth:** link to a doc instead of repeating it, and put docs close to what they
+  document. `CLAUDE.md` is the thin Claude bootstrapper, `AGENTS.md` the owner's rules for every
+  agent, `BRANCH.md` the project-wide state and plan, a branch handoff (`branches/<branch>.md`)
+  one branch's own state. Structure: `docs/DOC-CONVENTIONS.md`.
 
-| Document | Purpose | Owner |
-|----------|---------|-------|
-| `CLAUDE.md` | Claude Code bootstrapper (auto-loads AGENTS.md + BRANCH.md) | Thin, rarely changes |
-| `AGENTS.md` | Universal AI agent instructions (this file) | Repo owner |
-| `BRANCH.md` | Branch-specific context and handoff notes | Current branch maintainer |
-| `README.md` | Project overview, setup, usage | All contributors |
-| `docs/` | Knowledge base — technical reference docs | As needed |
-| `docs/DOC-CONVENTIONS.md` | Documentation structure and conventions | Repo owner |
+## Reference — read when the task needs it
 
-### Documentation Principles
+| For | Read |
+|-----|------|
+| Where things are: entry points, key files, dev profiles | `CODEBASE.md` |
+| Running the app: `./menu`, `scripts/start.sh`, Docker | `README.md`, `SETUP.md` |
+| Branches, PR flow, agent tooling and hooks | `docs/GIT_WORKFLOW.md` |
+| Datomic install; Datomic Free does not run on Java 21 | `docs/DATOMIC_SETUP.md` |
+| `.env` and environment variables | `docs/ENVIRONMENT.md` |
+| Entity build pipeline | `docs/kb/entity-options-architecture.md`, `docs/kb/perf-entity-build.md` |
+| Dependency history (largely historical; nothing tracks CVEs continuously) | `docs/kb/UPGRADE_PLAN.md` |
+| Theming, icons, theme screenshots (describes the unmerged `claude/add-color-themes-gyRhI`) | `docs/THEMING.md` |
 
-1. **Single source of truth** — Don't duplicate information; reference other documents
-2. **Keep it current** — Update docs in the same PR as code changes
-3. **Capture insights as KB docs** — Discoveries belong in `docs/*.md`, not session transcripts
-4. **Proximity** — Put docs close to what they document
-5. **Agent-friendly** — Use clear headings and tables for easy parsing
+**Known warnings you cannot fix:** `garden.color/abs` shadows `clojure.core/abs` (Garden);
+`datomic.common/requiring-resolve` (Datomic Free).
 
----
-
-## Testing Guidelines
-
-1. **Always run `lein test`** before committing server changes
-2. **Always run `lein fig:build`** after frontend/CLJS changes
-3. **Lint the files you changed** while iterating; run the full **`lein lint`** at milestones (before a
-   merge, before a PR is opened or marked ready), so errors outside your diff are seen too
-4. Large schema changes require migration scripts and tests
-5. **See `docs/TESTING.md`** for test suite inventory, gotchas, and patterns
-6. **See `docs/ENTITY-BUILD.md`** for the character build pipeline architecture
-7. **`warlock_test.clj`** is the entity/build integration test — use it as a pattern
-   for adding new build tests (e.g. other classes, multiclassing)
-8. **Deployment changes get the heavy Docker checks.** A change to a file listed under `paths:` in
-   `.github/workflows/docker-heavy.yml` (Dockerfile, compose, `./run`, `swarm.sh`, start scripts,
-   crash and alert code) sets off real out-of-memory and Swarm tests on its PR, about 20 minutes.
-   **Tell the owner before such a push, with the time.** Run them before asking for review:
-   `gh workflow run docker-heavy.yml --ref <branch>` (the pre-push hook prints this). They are not
-   part of the general suite. During rapid pushes, the PR label `heavy-docker: later` pauses them.
-
-### Tests prove their fail state — MUST FOLLOW
-
-**Before a test is committed, it is seen to fail.** A test only ever seen passing proves nothing:
-the spellbook's "packing saves a page" check passed only because the packed export had lost its
-spell list.
-
-- Break what the test guards: check out the pre-fix source for a regression test, or change the
-  code path it claims to cover (one break per claim). Run it and see the expected checks fail,
-  and only those.
-- Restore with git (`git checkout HEAD -- src`) and confirm the worktree is clean. A break is
-  never committed.
-- Then run it green, and put the failing output in the PR description beside the pass.
-- A break that does not make the test fail means the test is weak. Strengthen the test; never
-  weaken the break.
-
----
-
-## PR & Safety Guidelines
-
-1. Run `lein lint` and `lein test` before proposing changes
-2. Never commit secrets (`SIGNATURE`, DB credentials)
-3. Use `.env` or CI secret stores for sensitive values
-4. Keep PRs small and atomic — one upgrade per PR
-5. Include migration notes for breaking changes
-
----
-
-## Known Warnings (Cannot Fix)
-
-These warnings come from third-party libraries and are unfixable from our code:
-
-1. **`garden.color/abs`** — shadows `clojure.core/abs` (Garden library issue)
-2. **`datomic.common/requiring-resolve`** — Datomic Free is unmaintained
-3. **PDFBox font fallback** — no longer from exports (all drawn fonts embedded since
-   2026-10-22). When seen, text was read or rendered before save: `docs/kb/pdf-generation-architecture.md`
-
-## Compatibility Warning
-
-**Datomic Free + Java 21:** Datomic Free 0.9.5703 does NOT work on Java 21.
-See [`docs/DATOMIC_SETUP.md`](docs/DATOMIC_SETUP.md) for details and test results.
-
----
-
-## Additional Resources
-
-- [Clojure Documentation](https://clojure.org/reference)
-- [ClojureScript Documentation](https://clojurescript.org/)
-- [Reagent](https://reagent-project.github.io/)
-- [re-frame](https://day8.github.io/re-frame/)
-- [Pedestal](http://pedestal.io/pedestal/0.7/)
-- [Datomic](https://docs.datomic.com/)
-
----
-
-*Last updated: September 2026*
+**A PDFBox font-fallback warning is a bug, not noise:** every drawn font is embedded since
+2026-10-22, so exports no longer cause it; one seen means text was read or rendered before save
+(`docs/kb/pdf-generation-architecture.md`).

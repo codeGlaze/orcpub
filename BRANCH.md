@@ -1,60 +1,61 @@
-# Branch Context: agents/develop
+# Branch Context: agents/develop — and the project's live state
 
 Agent config, onboarding docs and the knowledge base. `.claude/` is tracked here because the
 code branches gitignore it — this is the only place the hooks and skills can be versioned.
+**This file is also the project-wide state and plan:** `agent-setup.sh` inlines it into every
+code branch's `CLAUDE.md`, ahead of that branch's own handoff (`branches/<branch>.md`).
 
 Carries integration's code, merged in periodically. Deliberate: KB docs cite `file:line`, and
 a stale branch cites lines that have moved.
 
+Earlier detail (the full Summer Patch merge list, the #669 merge plan, the picks-strand analysis,
+the custom-item-classification table) is word for word in
+[`docs/kb/branch-md-2026-10-23.md`](docs/kb/branch-md-2026-10-23.md).
+
 ## Current state
 
-*Updated 2026-10-06. Update at every milestone — nothing else here carries live state.*
+*Updated 2026-10-23, checked against `git` that day. Update at every milestone — nothing else here
+carries live state.*
 
-### Summer Patch: where it stands (2026-10-08)
+### Summer Patch: where it stands
 
-- **On `integration`:** everything for the release, plus #50 spellbook, #51 parallel fresh-server
-  browser runs, #52 spec docstrings, #53 the changelog rewritten by outcome, #54 What's New,
-  #55 the Robe of the Archmagi and tortle AC fix, #56 a browser test that an equipped Ring of
-  Protection reaches the shown AC on natural armor (`test/browser/natural_armor_ring_e2e.js`).
-- **#58 merged 2026-10-08** (`0e2cba89`): 2014 SRD data fixes (monster skills and traits, gear prices,
-  the Alchemy Jug), monster reactions on the stat block, and a **Rules tab**: the full SRD 5.1 rules
-  and conditions as static data files (`resources/public/srd/2014/`), with links, hover / tap
-  previews, and rules in the Orcacle. Folded into `[Summer Patch]`; its Highlights paragraph does not
-  mention it yet (owner's call). The data is generated on `srd52/develop` from the open5e clone's
-  `srd-corrections` branch: [srd-improvements.md](docs/kb/srd-improvements.md).
-- **#60 and #61 merged 2026-10-08/09:** the Rules reference in the Summer Patch highlights (#60);
-  weapon and armor prices and weights, our own clarification notes on rules (Sage Advice rulings
-  in our words, linked), and condition links with previews in spell, item and monster text (#61).
+- **Not released yet:** no tag exists. Everything for it is on `integration`, including the Rules
+  tab and SRD fixes (#58, #60, #61), the hidden-picks hold (#67, 2026-10-16) and portraits with
+  per-character builder drafts (#64, 2026-10-18). The Summer Patch Highlights paragraph does not
+  mention the Rules tab yet (owner's call). The SRD data is generated on `srd52/develop` from the
+  open5e clone's `srd-corrections` branch: [srd-improvements.md](docs/kb/srd-improvements.md);
   open5e corrections are filed upstream as PRs #995-#997 and #999, issue #998.
-- **Tests prove their fail state** before they are committed (AGENTS.md, Testing Guidelines). #56
-  and `robe_ac_test.clj` were both checked against the pre-#55 source and a broken item path.
-- **Still in development, not in this release yet:** `fix/hidden-multiclass-skill-pick`, steps 1-4 of
-  its plan done (`plan-hidden-pick-fix-and-grant-fields.md` on `feature/grant-rows`); step 5 (the
-  first-class reset) and the PR remain, and it is 10 commits behind `integration`.
-- **#32 is parked; nothing goes to `develop` until the owner says so.** When it is picked up: `develop`
-  has two commits `integration` lacks (`15e1fe04` the design-handoff gitignore, `93c15c03`), which
-  conflict in `.gitignore`; and CodeQL fails on a regex built from a CLI argument in
-  `scripts/test/trace-probe.js:52`, with two docker workflows missing a `permissions` block.
+- **#32 is parked; nothing goes to `develop` until the owner says so.** When it is picked up: re-measure
+  what `develop` has that `integration` lacks. On 2026-10-06 it was two commits (`15e1fe04` the
+  design-handoff gitignore, `93c15c03`), which conflict in `.gitignore`; on 2026-10-23
+  `git log --cherry-pick --right-only integration...develop` listed 44. And CodeQL fails on a regex built from a CLI argument in
+  `scripts/test/trace-probe.js` (cited 2026-10-06 as line 52, which no longer matches: re-read the
+  CodeQL alert), with two docker workflows missing a `permissions` block.
+- **Release, when the owner says so:** #32 takes `integration` into `develop`; then refresh or replace
+  upstream #674 with "Fixes #N" for the 35 issues the release answers.
 - **Upstream issues:** #704 (two-tab character contamination, below) and #705-#712, umbrella issues
   for outcomes no issue covered. The changelog cites them.
-- **Release, when the owner says so:** #32 takes `integration` into `develop`; then refresh or replace
-  upstream #674 with "Fixes #N" for the 35 issues the release answers. **Standing rule (owner,
-  2026-10-16): fork-only files may live on our `develop`, and are removed before any PR to
-  Orcpub/orcpub.** Fork-only so far: `.coderabbit.yaml` (added on #64: auto-reviews PRs into
-  `integration`). Add each new one here.
-- **Merge gate:** a clean CodeRabbit review (no actionable comments, its check green) and green CI.
-  Greptile's trial is out of credits. CodeRabbit reviews automatically only PRs into the default
-  branch: on a PR into `integration`, request one with `@coderabbitai full review`. Plain
-  `@coderabbitai review` answers "Review failed" there (it only works while automatic reviews are
-  paused; checked 2026-10-16 on #64).
-- **CodeRabbit reviews are scarce: request one on purpose, never after every push.** Limits are per
-  developer identity, and every agent pushes as codeGlaze, so all agents and the owner share one
-  allowance. The Advanced plan refills 10 an hour below 50 reviews in its rolling window and drops
-  to 1 an hour at 80+; on 2026-10-21 it was at 1 an hour. No paid overage (owner). Ask once when the
-  PR is ready, and again only if a push changes behaviour the last review did not see; a push that
-  only applies a finding CodeRabbit marked addressed needs none. Push once, not in bursts: a review
-  replaced by a newer push still counts. A rate-limited request costs nothing but does nothing:
-  wait out the reset. Source: docs.coderabbit.ai/management/rate-limits.
+- **Fork-only files** (standing rule, owner, 2026-10-16: may live on our `develop`, removed before any
+  PR to Orcpub/orcpub; the rule is in AGENTS.md, "PRs and releases"). Fork-only so far:
+  `.coderabbit.yaml` (added on #64, so already on `integration`: reviews PRs into `develop` and
+  `integration` once each, not on later pushes, since #71). Add each new one here.
+- **Merge gate and CodeRabbit limits:** the rules are in `AGENTS.md`, "PRs and releases", and the
+  mechanics in `docs/GIT_WORKFLOW.md`, "CodeRabbit" (moved 2026-10-23, so agents on code branches see
+  them). Measured detail: the Advanced plan refills 10 reviews an hour
+  below 50 in its rolling window and 1 an hour at 80+ (1 an hour on 2026-10-21); Greptile's trial is
+  out of credits; plain `@coderabbitai review` works only while automatic reviews are paused
+  (checked 2026-10-16 on #64); `.coderabbit.yaml` auto-reviews PRs into `develop` and `integration`. Source: docs.coderabbit.ai/management/rate-limits.
+- **In flight** (checked 2026-10-23; this list goes stale, so before starting anything also check
+  `git branch -r` and the open PRs):
+  - Open PRs into `integration`: #63 `refactor/pdf-canvas`, #66 `test/page-load-budget`,
+    #69 `feature/asi-spreads`, #70 `feature/registration-in-boot-report`. #65
+    `feature/artist-pages` targets `feature/portrait-builder`, which has already merged (#64).
+    #35 targets `mirror/upstream-develop`.
+  - Active, no PR yet: `feature/character-rescue` (Data View and the server's version check;
+    handoff in `branches/`), `feature/email-and-alerts` (brings the heavy Docker checks; nearly
+    ready, owner 2026-10-23), `feature/inventory-kits` (the `inventory` namespace and the Kits panel,
+    [`plan-inventory-kits.md`](docs/kb/plan-inventory-kits.md)), `feature/weapons-table` (item
+    charges; overlaps inventory-kits), `feature/guarded-homebrew`, `feature/srd-pipeline`.
 
 ### The tree
 
@@ -65,8 +66,8 @@ integration          hotfixes; mints the Summer Patch tag, then quiet
                       data-extraction, garden-inline-styles, views-extraction,
                       banner-parts-and-design
              └── feature/grant-rows   the live tip of content-extensibility.
-                      Verified 2026-09-13: content-extensibility is an ancestor of it,
-                      so is integration. The most active Fall Update branch
+                      Verified 2026-09-13: content-extensibility is an ancestor of it
+                      (integration was then; no longer). The most active Fall Update branch
 
 agents/develop       a silo, off to the side. An ancestor of develop, not a leaf of
                      anything. Pulls stable changes in; ships nothing back. Its job is
@@ -74,21 +75,28 @@ agents/develop       a silo, off to the side. An ancestor of develop, not a leaf
                      conversations.
 ```
 
+**As drawn 2026-09-13; checked 2026-10-23, and three things have moved:** there is no bare
+`refactor/` branch (the refactor branches on origin are `content-extensibility`, `card-shape-layer`,
+`pdf-canvas`, `garden-inline-styles`, `data-extraction` and `views-extraction`; no
+`banner-parts-and-design`); `feature/grant-rows` is 230 commits behind `integration` (2026-10-24); and
+`agents/develop` is no longer an ancestor of `develop`.
+
 Releases are tags, not branches, so no branch name says which release it serves.
 **Summer Patch** ships from `integration` once the last hotfixes land — nothing tagged yet.
 **After that tag, everything is Fall Update: the refactor tree.**
 
 `refactor/` is not a release family — it predates the Summer Patch. Don't rename it after a
-release; the next one inherits the branches.
+release; the next one inherits the branches. `refactor/views-extraction` is dead (it raced a
+churning mainline); `refactor/data-extraction` is a reference for splitting the monoliths, not
+revived (owner, 2026-10-19). Splitting the monoliths now goes one small extraction at a time
+(AGENTS.md, "Shrinking the big files").
 
 ### Fall Update leaves
 
-**`feature/grant-rows` is the live one** and everything below is downstream of it. Merged into
-this branch on 2026-09-13 (371 commits). Its KB arrived with it — 51 docs that did not exist
-here, against 73 here that did not exist there, with only 7 filenames in common. Neither side
-was a superset; both had been written without the other. Start at
-[`docs/kb/roadmap.md`](docs/kb/roadmap.md), then
-[`docs/kb/handoff-grant-rows.md`](docs/kb/handoff-grant-rows.md).
+**`feature/grant-rows` is the live one** (unmerged; last code commit 2026-10-19) and everything below is
+downstream of it. Its KB came over in the 2026-09-13 merge. Start at
+[`docs/kb/roadmap.md`](docs/kb/roadmap.md) (labelled 2026-09-25 as `feature/grant-rows`' own
+plan), then [`docs/kb/handoff-grant-rows.md`](docs/kb/handoff-grant-rows.md).
 
 - **Companions, summons and Wild Shape** —
   [`docs/kb/plan-companions-and-wild-shape.md`](docs/kb/plan-companions-and-wild-shape.md) and
@@ -110,163 +118,86 @@ was a superset; both had been written without the other. Start at
   shares the copy-on-adopt statblock shape.
 - No other leaf planned or started.
 
-### The picks framework — three strands, partly merged (2026-10-13)
+### Picks: the hold and the rescue
 
 `src/cljc/orcpub/dnd/e5/picks.cljc` is the shared store-and-rewrite layer for a character's stored
-picks. **It is already on `integration`**, which is why it reads as merged — but only the base is.
-Two branches have since extended the same file **independently**, from the same baseline:
+picks. The hold (`fix/hidden-multiclass-skill-pick`: a pick whose gate has closed is held out of the
+built character) **merged as #67** on 2026-10-16. The rescue (`feature/character-rescue`: Data View
+and its Remove, Undo and Save) is in flight and carries #67's `picks.cljc`.
 
-| | `picks.cljc` | own commits vs integration | state |
-| --- | --- | --- | --- |
-| `integration` — `439593dd` (10-04) "Move the pick walker into a shared picks namespace; add `remove-at`, `put-at`" | 121 lines | — | **merged** |
-| `fix/hidden-multiclass-skill-pick` | **284** lines (+163) | 25 | unmerged |
-| `feature/character-rescue` | **139** lines (+18) | 14 | unmerged |
-
-**The rescue branch was spun off the fix** (per the owner), and the content agrees even though
-git does not: their merge-base is an integration commit (`afe0a14e`, 10-05), so it was either cut
-from `integration` carrying one function across, or cut from the fix and rebased since.
-
-**The conflict is small.** The fix added `addresses` plus ten more (`disqualified`, `overflow`,
-`to-planned`, `from-planned`, `update-planned`, `requirements-met?`, `waiting`, `stored-entries`,
-`drop-nested`, `removed-with-container`); the rescue added **only `addresses`**, and the two copies
-differ by one trailing blank line. So merging is a duplicate-add on one function — keep either copy
-— not a hand reconciliation. The fix's other ten collide with nothing in the rescue branch.
-
-*(Corrected 2026-10-13. An earlier revision of this section claimed 145 divergent lines needing
-hand resolution. That number came from diffing the two branch tips against each other, which
-counts the fix's own additions as divergence; it is not a conflict measure.)*
-
-And they are solving adjoining halves of one problem:
-
-- **`fix/hidden-multiclass-skill-pick`** built a **planned hold**: a pick whose gate has closed is
-  held out of the built character rather than applied. `74fcb11a` removed an earlier skills-only
-  fix (per-arm modifier conditions) on the grounds that "the hold covers every pick" — so skills,
-  tools and equipment are all covered by one mechanism, and no per-family work remains.
-- **`feature/character-rescue`** built the **repair UI**: a character data page with Remove, Undo
-  and Save, plus research commits on what the app does *after* the page removes a class or the
-  ability scores (`30e6886e`) — which is the same scenario the hold catches, approached from the
-  other side.
-
-**Before either merges, someone should decide whether the hold and the rescue page share one
-mechanism or two.** `30e6886e` and the hold are asking the same question in two places.
-
-Naming: `fix/hidden-multiclass-skill-pick` no longer describes its contents — it carries the pick
-hold, not a skills fix. Its own diff is 24 files / +3,117, so the scope is a normal feature branch;
-only the name misleads. Worth renaming (e.g. `feat/planned-picks`) if nothing else references it.
+**Open for the owner:** do the hold and the rescue share one mechanism or two? The rescue agent's
+view is two: the hold decides what the built character applies; Data View edits what is stored.
 
 ### Deferred to the refactor — known, not yet owned
 
-- **Multi-tab character contamination** —
+- **Multi-tab character contamination** (#704) —
   [`docs/kb/multi-tab-character-contamination.md`](docs/kb/multi-tab-character-contamination.md).
-  The character draft is cached under one localStorage key with no id (`db.cljs:34`), so two builder
-  tabs share a slot and a reload rehydrates whichever saved last. `::char5e/notes` carries
-  `:db/noHistory`, so what it overwrites is unrecoverable. **Deliberately parked** during the Summer
-  Patch bugfix run: the fix is a storage-shape change (key drafts by character id, tie the restore
-  to the id in the URL) and there was no good answer for it under time pressure. It wants doing when
-  the storage shape is already being moved, i.e. in `refactor/`, not as a hotfix. Investigation and
-  five pinning tests sit on `claude/fix-character-notes-merge-4YNzf` (`702fffc7`) — 16 commits ahead
-  of a 2026-04-09 base. Filed upstream as #704 (2026-10-06).
+  **The character builder's half landed in #64:** one draft per character
+  (`src/cljs/orcpub/dnd/e5/character_drafts.cljs`, [`plan-character-drafts.md`](docs/kb/plan-character-drafts.md)).
+  The other builders (homebrew forms, encounter, combat) still share one slot per kind.
+  `::char5e/notes` carries `:db/noHistory`, so what an overwrite replaces is unrecoverable. The rest
+  of the fix is a storage-shape change: do it in `refactor/` when the storage shape is already
+  being moved, not as a hotfix. Pinning
+  tests sit on `claude/fix-character-notes-merge-4YNzf` (`702fffc7`, unmerged).
 
 ## Active sequence — do these in order
 
-*Set 2026-09-13. This exists because the custom-item work went off course with no map back; the
-point of the ordering is that each step names its own blocker.*
+*Set 2026-09-13; statuses checked 2026-10-23. Each step names its own blocker.*
 
-### 1. Land the #669 stale-filtered-list fix
-
-**Done 2026-09-13** (`3bd77862`, via `fix/filtered-list-staleness`).
-
-Verified ready: merge is 3 conflict hunks, the cljs suite is green at 354/1699, and the tests are
-proven to fail when the defect is reinstated. See
-[`docs/kb/plan-669-merge-verification.md`](docs/kb/plan-669-merge-verification.md) and
-[`docs/kb/filtered-list-staleness.md`](docs/kb/filtered-list-staleness.md).
-
-**Blocker: the work is on `claude/fix-custom-items-disappearing-DW8rb`, and `claude/*` branches do
-not merge.** They are harness auto-branches. Re-home the commits
-onto a typed branch first — `fix/…`, matching `fix/ac-unarmored-natural-stacking`,
-`fix/item-stable-identity`.
-
-**Take all five units, and test all five.** Of them only P1 fixes something broken on `integration`;
-P2 relocates a `get-auth-token` that already exists there, P3 is a `console.warn`, P4 removes an
-unreachable sub carrying an always-false guard, and P5 collapses five hand-written auth guards onto
-one. So the testing is asymmetric in kind, not in effort: P1 must be proven to fix, P2–P5 must be
-proven to change nothing — and P5 touches the app's five primary data loaders, three of which have no
-automated coverage at all. The table in the plan doc is for bisecting by unit if a stage fails, not
-for choosing a subset.
-
-### 2. Vet the roadmap that lives here
-
-**`docs/kb/roadmap.md` and `docs/kb/plan-next.md` are scoped to `feature/fighting-style-authoring`,
-not to this branch.** They arrived with the `feature/grant-rows` merge. `roadmap.md` opens
-*"One reconciled plan for branch `feature/fighting-style-authoring`"* and `plan-next.md` is that
-branch's ordered worklist, including items about its own merge hygiene.
-
-So "the roadmap" currently means one leaf's plan sitting in the shared KB. Decide the scope before
-vetting the contents: either it stays that leaf's plan and is labelled as such, or this branch grows a
-roadmap that spans the tree. Its status claims are commit-anchored and therefore checkable, which is
-what makes vetting worth doing rather than guessing.
-
-### 3. Add `fix/custom-item-classification` to it, then finish that branch
-
-**This branch was never finished and never merged, and nothing said so until now.**
-
-| | |
-|---|---|
-| tip | `b234db2b`, 2026-08-30 |
-| base | `e632297d`, 2026-07-07 — `integration` has moved **539 commits** since |
-| size | 36 commits |
-| why it stopped | its own last commit: *"Paused for a security branch, so the reasoning is written down rather than carried in someone's head"* |
-| what is left | bulk review of unclassified items — designed, not built. `docs/issues/bulk-review-of-unclassified-items.md` on that branch |
-| state of the feature on `integration` | **absent.** `classification-tx`, `effective-item`, `backfill-report` all score zero there |
-| what did leak across | only `dev/e2e_boot.clj`, carried over separately (byte-identical, different commit `23eb07cf`). The harness landed; the suite that used it did not |
-
-**Merge `integration` into it before anything else.** As it stands the merge is 17 hunks across 12
-files and grows with every integration commit. One of those hunks is not really a conflict:
-`scripts/e2e/run.js` is **two unrelated suites contesting one filename** — 394 lines of PDF
-scenarios on `integration`, 566 lines of custom-item flows on the branch. Give them distinct names
-first and that hunk disappears. `integration`'s `run.sh` already takes a script argument
-(`node "scripts/e2e/${1:-run.js}"`), so nothing else has to change. Naming is an open question —
-`test/browser/` uses a `*_e2e.js` suffix, `test/e2e/` uses plain descriptive names, and
-`scripts/e2e/` has no precedent yet.
-
-Also worth lifting while in there: that branch's `login()` helper into a shared
-`scripts/e2e/lib.js`, so the next session does not re-derive it.
-[`docs/kb/e2e-logged-in-sessions.md`](docs/kb/e2e-logged-in-sessions.md) has the detail.
-
-### 4. Only then, resume combing branches
-
-**Resumed 2026-10-06.** Every branch and its status: [branch-inventory.md](docs/kb/branch-inventory.md),
-with a log of the 65 branches deleted that day and their tips. 28 unmerged branches are still
-untriaged. Earlier findings:
-[`claude-branch-triage.md`](docs/kb/claude-branch-triage.md),
-[`unsaved-knowledge-on-prunable-branches.md`](docs/kb/unsaved-knowledge-on-prunable-branches.md),
-[`rescued/`](docs/kb/rescued/README.md). Deletion is the owner's call, branch by branch.
+1. **Land the #669 stale-filtered-list fix.** Done 2026-09-13 (`3bd77862`). Plan and proof:
+   [`plan-669-merge-verification.md`](docs/kb/plan-669-merge-verification.md).
+2. **Vet the roadmap that lives here.** Half done: on 2026-09-25 `roadmap.md` was labelled as
+   `feature/grant-rows`' own plan. Still open: does this branch grow a roadmap that spans the tree?
+   Its status claims are commit-anchored and therefore checkable, which is what makes vetting worth
+   doing rather than guessing.
+3. **Finish `fix/custom-item-classification`.** Not started: still unmerged, untouched since
+   2026-08-30, and further behind `integration` every day. Its own last commit: *"Paused for a
+   security branch, so the reasoning is written down rather than carried in someone's head"*. What is
+   left: bulk review of unclassified items, designed, not built
+   (`docs/issues/bulk-review-of-unclassified-items.md` on that branch); the feature is absent from
+   `integration`. **Merge `integration` into it before anything else.** `integration` has since renamed its
+   suite (`run.sh` is the entry point now), so after that merge rename the branch's own
+   `scripts/e2e/run.js` to match. Then lift its `login()` helper into the shared
+   `scripts/e2e/lib.js` ([`e2e-logged-in-sessions.md`](docs/kb/e2e-logged-in-sessions.md)). Full
+   table: the 2026-10-23 snapshot.
+4. **Then comb branches.** Resumed 2026-10-06: [branch-inventory.md](docs/kb/branch-inventory.md),
+   with the deletion log. Re-run it before trusting a row. Earlier findings:
+   [`claude-branch-triage.md`](docs/kb/claude-branch-triage.md),
+   [`unsaved-knowledge-on-prunable-branches.md`](docs/kb/unsaved-knowledge-on-prunable-branches.md),
+   [`rescued/`](docs/kb/rescued/README.md). Deletion is the owner's call, branch by branch.
 
 ## Agent tooling
 
 Everything this branch exists to hold. **The hooks arm themselves at session start**
-(`agent-setup.sh --hooks-only`); `agent-setup.sh --check` says whether they are armed and current.
+(the SessionStart hook, `.claude/hooks/session-start.sh`, runs `agent-setup.sh --session`); `agent-setup.sh --check` says whether they are armed and current.
 One installer, one versioned set: [`docs/kb/agent-hooks.md`](docs/kb/agent-hooks.md).
 
 | Piece | What it does |
 | --- | --- |
 | `START-HERE.md` | Entry point. Prompt a new session with *"read START-HERE.md on agents/develop and follow it"* |
-| `scripts/agent-setup.sh` | Pulls this branch's tooling into any code branch's working tree (gitignored there, so it cannot reach a PR), arms the hooks, prints where the KB is. `--check` verifies only |
+| `scripts/agent-setup.sh` | Pulls this branch's tooling into any code branch's working tree (gitignored there, so it cannot reach a PR), generates its `CLAUDE.md` (AGENTS.md, this file and the branch handoff inlined), arms the hooks, prints where the KB is. `--check` verifies only |
+| `branches/` | One handoff per code branch (`branches/<branch>.md`), from `TEMPLATE.md`; rules in `branches/README.md` |
 | `scripts/clj-grep.py` | Greps Clojure with `#_` discards separated from live code. `classes.cljc` has 160 discarded `:name "` hits against 346 live — plain grep reports both as real. Also on `integration` |
 | `scripts/check-docs.sh` | Dangling links, orphaned KB docs, the develop superset. Runs from `pre-commit` |
 | `.githooks/commit-msg` | Strips agent attribution trailers (`Co-Authored-By: Claude`, `Claude-Session:`) |
-| `.githooks/pre-push` | Blocks an un-folded branch changelog onto integration |
+| `.githooks/pre-commit` | Blocks `CLAUDE.md`, `AGENTS.md`, `BRANCH.md` or `.claude/` on a code branch; blocks a commit that adds a function without a docstring; warns on history wording; runs `check-docs.sh` here |
+| `.githooks/pre-push` | Blocks an un-folded branch changelog onto integration, develop or main; prints the heavy-Docker heads-up when a push changes deployment files |
 | `.claude/hooks/kb-doc-reminder.sh` | On push: code changed, no docs? Nudge. Register in `.claude/settings.json` |
 | `.claude/hooks/kb-audit-reminder.sh` | Same nudge at Stop. Register under `Stop` |
 | `docs/kb/README.md` | The index. An unlinked KB doc is invisible; `check-docs` fails the commit |
 
-## Rules
+## Rules for work on agents/develop itself
+
+These apply when working on this branch, not on a code branch.
 
 - Findings go in `docs/kb/`, linked from its README.
-- **Merge `feature/grant-rows` in before planning Fall Update work.** Its KB is where the
-  content track's decisions live, and it moves daily.
-- Keep the `.gitignore` exception for `.claude/` when merging integration in.
-- Doc-touching PRs target this branch.
+- **Before planning Fall Update work here, bring `feature/grant-rows`' KB into agents/develop.** It is
+  where the content track's decisions live, and it moves daily. Since 2026-10-24 that branch (and
+  the others cut from it) no longer tracks the agent files, so a plain merge deletes them here.
+  Merge with `git merge --no-commit --no-ff origin/feature/grant-rows`, then
+  `git restore --source=HEAD --staged --worktree -- CLAUDE.md AGENTS.md BRANCH.md .claude .gitignore`,
+  check `git status` shows none of them, and commit.
+- When merging integration into agents/develop, keep the `.gitignore` exception for `.claude/`.
 
 ## Related
 
