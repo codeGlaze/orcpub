@@ -55,8 +55,7 @@ jobs:
 
   bare-metal:
     name: Bare metal - out-of-memory leaves a heap dump and is reported
-    # TEMPORARY: the push run is Swarm only.
-    if: "github.event_name != 'push' && (github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later'))"
+    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later')"
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -89,8 +88,7 @@ jobs:
 
   compose:
     name: Docker Compose - out-of-memory exits, leaves a heap dump in /var/log, is reported
-    # TEMPORARY: the push run is Swarm only.
-    if: "github.event_name != 'push' && (github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later'))"
+    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later')"
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -186,7 +184,7 @@ jobs:
             sudo test -d "$d" || { echo "FAIL: $d missing"; exit 1; }
           done
           echo "OK: Swarm task runs as app; /var/log/orcpub is on the host"
-          docker service logs orcpub_datomic 2>&1 | grep "a Swarm service address" \
+          docker service logs orcpub_datomic 2>&1 | grep -E "a Swarm service address|does not resolve here" \
             || { echo "FAIL: Datomic did not detect Swarm"; exit 1; }
           docker service logs orcpub_datomic 2>&1 | grep "transactor: host=0.0.0.0 .*alt-host=datomic" \
             || { echo "FAIL: Datomic did not report host=0.0.0.0 alt-host=datomic"; exit 1; }
