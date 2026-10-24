@@ -73,3 +73,15 @@
     (is (= 0 (mi/able-to-pay wand entry 1)) "the first wand has 1 left")
     (is (= 1 (mi/able-to-pay wand entry 3)) "only the second has 3")
     (is (nil? (mi/able-to-pay wand entry 6)) "neither has 6")))
+
+(deftest a-stack-casts-from-its-fullest-item
+  (let [entry {::char-equip/quantity 2 ::char-equip/charges [(rec 0 6) (rec 1 2)]}]
+    (is (= 5 (mi/most-charges-left wand entry)) "the second wand has 5")
+    (is (= [true true true true true false false]
+           (map :affordable? (mi/cast-levels (first (::mi/casts wand)) (mi/most-charges-left wand entry))))
+        "up to 7th with 5 charges")))
+
+(deftest the-higher-levels-sentence-is-found
+  (is (= "The damage increases by 1d6 for each slot level above 3rd."
+         (mi/higher-levels-text {:description "A bright streak.\nAt Higher Levels. The damage increases by 1d6 for each slot level above 3rd."})))
+  (is (nil? (mi/higher-levels-text {:description "No scaling."}))))

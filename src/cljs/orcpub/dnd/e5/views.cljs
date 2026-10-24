@@ -4293,11 +4293,104 @@
               [:button.item-charges-step {:type "button" :aria-label "Spend a charge" :on-click (change i 1)} "\u2212"]
               [:button.item-charges-step {:type "button" :aria-label "Get a charge back" :on-click (change i -1)} "+"]])]))])))
 
+(defn- best-spell-save-dc
+  "The character's highest spell save DC across its casting classes, or nil for a non-caster."
+  [spell-modifiers]
+  (some->> spell-modifiers vals (keep :spell-save-dc) seq (apply max)))
+
+(defn cast-panel
+  "Casting a spell from a charged item (plan-charges-and-casting.md): the item's spells when it has
+  several, the levels priced in charges (unaffordable ones greyed), the DC, and Cast. After a cast
+  it shows the spell at that level with Undo. Takes the character id, the selection key, the item
+  key, the item, its carried entry and a close fn. Returns hiccup."
+  []
+  (let [state (r/atom {:pick 0 :level nil :result nil})]
+    (fn [id selection-key item-kw item entry close]
+      (let [spells-map @(subscribe [::spells/spells-map])
+            your-dc (best-spell-save-dc @(subscribe [::char/spell-modifiers id]))
+            casts (::mi/casts item)
+            {:keys [pick level result]} @state
+            cast (nth casts pick (first casts))
+            spell (spells-map (::mi/cast-spell cast))
+            left (mi/most-charges-left item entry)
+            levels (mi/cast-levels cast left)
+            chosen (or (some #(when (= level (:level %)) %) levels) (first levels))
+            dc (or (::mi/save-dc cast) your-dc)
+            dc-text (if dc (str "DC " dc) "your spell save DC")
+            spell-name (or (:name spell) (common/kw-to-name (::mi/cast-spell cast)))]
+        [:div.cast-panel {:on-click #(.stopPropagation %) :role "dialog" :aria-label (str "Cast " spell-name)}
+         (if result
+           (let [{:keys [lvl cost i]} result]
+             [:<>
+              [:div.cast-head [:b (str spell-name " \u00B7 " (common/ordinal lvl) " level \u00B7 " dc-text)]
+               [:span (str (::mi/name item) " \u00B7 " cost (if (= 1 cost) " charge" " charges") " spent")]]
+              (when spell [:div.cast-spell [spell-component spell false]])
+              [:div.cast-foot
+               [:button.rest-link {:type "button"
+                                   :on-click (fn [] (dispatch [::char/change-item-charges id selection-key item-kw item i (- cost)])
+                                               (swap! state assoc :result nil))} "Undo"]
+               [:button.form-button.cast-go {:type "button" :on-click close} "Done"]]])
+           [:<>
+            [:div.cast-head [:b spell-name]
+             [:span (str (::mi/name item) " \u00B7 " dc-text " \u00B7 " left (if (= 1 left) " charge" " charges") " left")]]
+            (when (next casts)
+              [:div.cast-spells {:role "radiogroup" :aria-label "Spell"}
+               (doall (for [[k c] (map-indexed vector casts)]
+                        ^{:key k}
+                        [:button.cast-spell-pick
+                         {:type "button" :role "radio" :aria-checked (= k pick) :class (when (= k pick) "on")
+                          :on-click #(swap! state assoc :pick k :level nil)}
+                         (or (:name (spells-map (::mi/cast-spell c))) (common/kw-to-name (::mi/cast-spell c)))
+                         [:span (str " " (::mi/cast-cost c))]]))])
+            [:div.cast-levels {:role "radiogroup" :aria-label "Level"}
+             (doall (for [{lvl :level cost :cost ok :affordable?} levels]
+                      ^{:key lvl}
+                      [:button.cast-level
+                       {:type "button" :role "radio" :aria-checked (= lvl (:level chosen))
+                        :aria-disabled (not ok)
+                        :class (str (when (= lvl (:level chosen)) "on") (when-not ok " off"))
+                        :on-click #(when ok (swap! state assoc :level lvl))}
+                       [:b (common/ordinal lvl)] [:span (str cost " ch")]]))]
+            [:div.cast-foot
+             [:span.cast-note (or (mi/higher-levels-text spell) "")]
+             (let [{lvl :level cost :cost ok :affordable?} chosen]
+               [:button.form-button.cast-go
+                {:type "button" :aria-disabled (not ok) :class (when-not ok "unavailable")
+                 :on-click (fn []
+                             (when-let [i (and ok (mi/able-to-pay item entry cost))]
+                               (dispatch [::char/change-item-charges id selection-key item-kw item i cost])
+                               (swap! state assoc :result {:lvl lvl :cost cost :i i})))}
+                (str "Cast at " (common/ordinal lvl) " \u00B7 " cost (if (= 1 cost) " charge" " charges"))])]])]))))
+
+(defn cast-sheet
+  "The cast panel as a bottom sheet over a dimmed page (phones). Takes the panel's args and the
+  close fn. Returns hiccup."
+  [id selection-key item-kw item entry close]
+  [:<>
+   [:div.cast-dim {:on-click (fn [e] (.stopPropagation e) (close))}]
+   [:div.cast-sheet {:on-click #(.stopPropagation %)}
+    [:div.cast-handle]
+    [:button.cast-x {:type "button" :aria-label "Close" :on-click close} "\u2715"]
+    [cast-panel id selection-key item-kw item entry close]]])
+
+(defn cast-button
+  "The button that opens an item's cast panel: \"Cast Fireball\", or \"Cast\" for an item with
+  several spells. Takes the item and the open fn. Returns hiccup, nil when it casts nothing."
+  [item open]
+  (when-let [casts (seq (::mi/casts item))]
+    [:button.form-button.cast-open
+     {:type "button" :on-click (fn [e] (.stopPropagation e) (open))}
+     (if (next casts)
+       "Cast"
+       (str "Cast " (or (:name (@(subscribe [::spells/spells-map]) (::mi/cast-spell (first casts))))
+                        (common/kw-to-name (::mi/cast-spell (first casts))))))]))
+
 (defn magic-item-rows
-  "Table rows for the carried magic items: name with its charges, type and rarity, and the
-  details row when expanded. Takes the character id, the expanded-details atom and the carried
-  item, weapon and armor maps (item key to carried entry). Returns a seq of hiccup rows."
-  [id expanded-details magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
+  "Table rows for the carried magic items: name with its charges and Cast button, type and rarity,
+  the cast panel (a sheet on phones, a row on desktop) and the details row. Takes the character id,
+  the expanded-details and cast-open atoms and the carried item, weapon and armor maps (item key to
+  carried entry). Returns a seq of hiccup rows."
+  [id expanded-details cast-open magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
   (let [magic-item-map @(subscribe [::mi/all-magic-items-map])
         mobile? @(subscribe [:mobile?])]
     (mapcat
@@ -4308,7 +4401,11 @@
            {:on-click (toggle-details-expanded-handler expanded-details item-kw)}
            [:td.p-10.f-w-b (or (:name item) name)
             [item-charges id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
-             item-kw item item-cfg]]
+             item-kw item item-cfg]
+            [cast-button item #(reset! cast-open item-kw)]
+            (when (and mobile? (= item-kw @cast-open))
+              [cast-sheet id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+               item-kw item (rests/as-entry item-cfg) #(reset! cast-open nil)])]
            [:td.p-10 (str (common/kw-to-name type)
                           ", "
                           (common/kw-to-name rarity))]
@@ -4318,6 +4415,11 @@
                  [:span.underline (if expanded? "less" "more")])
              [:i.fa.m-l-5
               {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]]
+          (when (and (not mobile?) (= item-kw @cast-open))
+            [:tr.cast-row
+             [:td {:col-span 3}
+              [cast-panel id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+               item-kw item (rests/as-entry item-cfg) #(reset! cast-open nil)]]])
           (when expanded?
             [:tr
              [:td.p-10
@@ -4329,7 +4431,8 @@
       magic-armor-cfgs))))
 
 (defn magic-items-section-2 []
-  (let [expanded-details (r/atom {})]
+  (let [expanded-details (r/atom {})
+        cast-open (r/atom nil)]
     (fn [id]
       (let [mobile? @(subscribe [:mobile?])
             magic-item-cfgs @(subscribe [::char/magic-items id])
@@ -4355,6 +4458,7 @@
                   {:key i}))
               (magic-item-rows id
                                expanded-details
+                               cast-open
                                magic-item-cfgs
                                magic-weapon-cfgs
                                magic-armor-cfgs)))]]]]))))
@@ -4865,6 +4969,49 @@
       [actions-section id "Reactions" "van-damme-split" reactions]
       [actions-section id "Features, Traits, and Feats" "vitruvian-man" traits]]]))
 
+(defn items-spells-section
+  "The Spells tab's From Items table: each spell the character's carried items can cast, with the
+  item, base level, DC, the item's charges and Cast, which opens the same panel as on the item.
+  Takes the character id. Returns hiccup, nil when no carried item casts a spell."
+  []
+  (let [open (r/atom nil)]
+    (fn [id]
+      (let [mobile? @(subscribe [:mobile?])
+            items-by-key @(subscribe [::mi/all-magic-items-map])
+            spells-map @(subscribe [::spells/spells-map])
+            your-dc (best-spell-save-dc @(subscribe [::char/spell-modifiers id]))
+            weapon-cfgs @(subscribe [::char/magic-weapons id])
+            carried (merge @(subscribe [::char/magic-items id]) weapon-cfgs)
+            rows (for [[k cfg] carried
+                       :let [item (items-by-key k)]
+                       :when (seq (::mi/casts item))
+                       [n c] (map-indexed vector (::mi/casts item))]
+                   {:k k :n n :item item :entry (rests/as-entry cfg) :cast c
+                    :sel (if (contains? weapon-cfgs k) :magic-weapons :other-magic-items)})]
+        (when (seq rows)
+          [:div.m-b-20.f-s-14.f-w-n
+           [:div.f-w-b.f-s-16.m-b-5 "From Items"]
+           [:table.w-100-p.t-a-l.striped
+            [:tbody.items-spells
+             [:tr.f-w-b.f-s-12 [:th.p-5 "Name"] [:th.p-5 "Item"] [:th.p-5 "Lvl"] [:th.p-5 "DC"] [:th]]
+             (doall
+              (for [{:keys [k n item entry cast sel]} rows
+                    :let [open? (= [k n] @open)
+                          close #(reset! open nil)]]
+                ^{:key (str k n)}
+                [:<>
+                 [:tr
+                  [:td.p-5.f-w-b (or (:name (spells-map (::mi/cast-spell cast))) (common/kw-to-name (::mi/cast-spell cast)))
+                   [:div.item-charges [:span.item-charges-count (str (mi/most-charges-left item entry) "/" (mi/charge-max item entry 0))]]]
+                  [:td.p-5 (::mi/name item)]
+                  [:td.p-5 (str (::mi/cast-level cast) (when (::mi/cast-per-level cast) "+"))]
+                  [:td.p-5 (or (::mi/save-dc cast) your-dc "\u2014")]
+                  [:td.p-5 [:button.form-button.cast-open {:type "button" :on-click #(reset! open [k n])} "Cast"]
+                   (when (and open? mobile?)
+                     [cast-sheet id sel k (assoc item ::mi/casts [cast]) entry close])]]
+                 (when (and open? (not mobile?))
+                   [:tr.cast-row [:td {:col-span 5} [cast-panel id sel k (assoc item ::mi/casts [cast]) entry close]]])]))]]])))))
+
 (defn spell-details [num-columns id]
   (let [spells-known @(subscribe [::char/spells-known id])
         spell-slots @(subscribe [::char/spell-slots id])
@@ -4876,6 +5023,7 @@
      {:class (when (= 2 num-columns) "flex")}
      [:div.flex-grow-1.details-column-2
       {:class (when (= 2 num-columns) "w-50-p m-l-20")}
+      [items-spells-section id]
       (when (seq spells-known) [spells-known-section
                               id
                               spells-known

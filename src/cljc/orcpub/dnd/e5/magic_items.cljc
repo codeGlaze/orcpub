@@ -128,6 +128,16 @@
   [item entry n]
   (first (filter #(<= n (charges-left item entry %)) (range (max 1 (::char-equip5e/quantity entry 1))))))
 
+(defn most-charges-left
+  "The most charges any one item in a carried stack has left. Takes the item and the entry."
+  [item entry]
+  (apply max 0 (map #(charges-left item entry %) (range (max 1 (::char-equip5e/quantity entry 1))))))
+
+(defn higher-levels-text
+  "A spell's \"At Higher Levels.\" sentence from its description, or nil."
+  [spell]
+  (some->> (:description spell) (re-find #"At Higher Levels\.\s*([^\n]+)") second))
+
 (defn roll-regain
   "How many charges the item regains when it recharges, rolled with `roll-die` (a fn of sides).
   Returns {:amount :rolls :dice}: amount :all when the item names no regain."

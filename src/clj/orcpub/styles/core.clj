@@ -157,6 +157,43 @@
     {:cursor :pointer
      :text-decoration "underline dotted"
      :text-underline-offset "3px"}]
+;; casting a spell from a charged item (views.cljs cast-panel; plan-charges-and-casting.md)
+   [:.cast-open {:margin "6px 0 0" :padding "4px 10px" :font-size "12px" :font-weight 600}]
+   [:.cast-row [:td {:padding "0 10px 10px"}]]
+   [:.cast-panel {:box-sizing :border-box :padding "10px 12px" :font-size "13px" :font-weight :normal
+                  :border-radius "6px" :background "rgba(0,0,0,.22)" :border "1px solid rgba(255,255,255,.14)"}]
+   [:.cast-sheet [:.cast-panel {:background :none :border 0 :padding 0}]]
+   [:.cast-sheet {:position :fixed :left 0 :right 0 :bottom 0 :z-index 10001 :max-height "80vh" :overflow-y :auto
+                  :background-color "#2c3445" :color "#e6e9ee" :border-radius "14px 14px 0 0"
+                  :padding "10px 16px 22px" :box-shadow "0 -6px 24px rgba(0,0,0,.5)"}]
+   [:.cast-dim {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 10000 :background "rgba(0,0,0,.35)"}]
+   [:.cast-handle {:width "40px" :height "4px" :border-radius "2px" :background "rgba(255,255,255,.35)" :margin "0 auto 10px"}]
+   [:.cast-x {:position :absolute :right "8px" :top "6px" :width "44px" :height "44px" :background :none :border 0
+              :color :inherit :font-size "18px" :cursor :pointer}]
+   [:.cast-head {:display :flex :flex-direction :column :gap "2px" :padding-right "36px"}]
+   [:.cast-head [:b {:font-size "15px"}] [:span {:opacity 0.7 :font-size "12px"}]]
+   [:.cast-spells {:display :flex :flex-wrap :wrap :gap "4px" :margin "10px 0 0"}]
+   [:.cast-spell-pick {:position :relative :min-height "30px" :padding "0 10px" :border-radius "15px" :font-size "12px"
+                       :border "1px solid rgba(230,233,238,.3)" :background :none :color :inherit :cursor :pointer}]
+   [:.cast-spell-pick [:span {:opacity 0.6}]]
+   [:.cast-spell-pick.on {:border-color "#f0a100" :color "#f0a100" :background-color "rgba(240,161,0,.16)"}]
+   [:.cast-levels {:display :grid :grid-template-columns "repeat(auto-fill, minmax(42px, 1fr))" :gap "4px" :margin "10px 0"}]
+   [:.cast-level {:height "40px" :border-radius "5px" :border "1px solid rgba(230,233,238,.3)" :background :none :color :inherit
+                  :display :flex :flex-direction :column :align-items :center :justify-content :center :line-height 1.15
+                  :font-size "11px" :cursor :pointer :padding 0}]
+   [:.cast-level [:b {:font-size "12.5px"}] [:span {:opacity 0.7 :font-size "10px"}]]
+   [:.cast-level.on {:background-color "rgba(240,161,0,.16)" :border-color "#f0a100" :color "#f0a100"}]
+   [:.cast-level.off {:opacity 0.35 :cursor :default}]
+   [:.cast-foot {:display :flex :align-items :center :gap "8px" :flex-wrap :wrap}]
+   [:.cast-note {:opacity 0.7 :font-size "12px" :flex 1 :min-width "140px"}]
+   [:.cast-go {:margin "0 0 0 auto" :min-height "36px" :padding "0 12px" :font-size "12px" :font-weight 600}]
+   [:.cast-go.unavailable {:opacity 0.5 :cursor :default}]
+   [:.cast-spell {:max-height "40vh" :overflow-y :auto :margin "8px 0" :font-size "13px"}]
+   [".app.light-theme .cast-sheet" {:background-color :white :color "#222"}]
+   [".app.light-theme .cast-panel" {:background "rgba(255,255,255,.6)" :border-color "rgba(0,0,0,.14)"}]
+   [".app.light-theme .cast-level.on" ".app.light-theme .cast-spell-pick.on" {:color "#33658A" :border-color "#33658A"
+                                                                             :background-color "rgba(51,101,138,.12)"}]
+
 ;; the Rest box, first on the Features tab (views.cljs rest-box; handoff-rest-controls.md)
    [:.rest-box {:background "rgba(0,0,0,.18)" :border "1px solid rgba(255,255,255,.14)" :border-radius "6px"
                 :padding "8px 10px 10px" :margin "8px 0 16px"}]
