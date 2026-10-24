@@ -6,7 +6,9 @@
 // lit pip spends a charge from that wand only (6/7) and tapping a dim one gives it back (7/7); the
 // cube's 36 charges show as a count with − and +, and − spends one (35/36); the necklace, whose
 // beads start as dice, asks to roll 1d6+3 or type a number, and typing 6 gives it 6 pips; a tap on
-// a pip does not open the row's details.
+// a pip does not open the row's details. Then a Staff of Striking on the Combat tab: its + menu
+// offers +1d6, +2d6 and +3d6 force at 1, 2 and 3 charges with what is left; picking one spends from
+// the staff (10 to 9 on the Equipment tab), and once only 1 is left, +2d6 and +3d6 are greyed.
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/item_charges_e2e.js`). No login.
 // Runs in:   ~25s. SHOT_DIR=<dir> saves item-charges.png.
@@ -42,7 +44,8 @@ function check(name, pass, detail) {
       {:${s}/key :ability-scores :${s}/option {:${s}/key :standard-scores
         :${s}/map-value {:${c}/str 15 :${c}/dex 14 :${c}/con 13 :${c}/int 12 :${c}/wis 10 :${c}/cha 8}}}
       {:${s}/key :class :${s}/options [{:${s}/key :fighter :${s}/selections [{:${s}/key :levels :${s}/options [{:${s}/key :level-1}]}]}]}
-      {:${s}/key :other-magic-items :${s}/options [${opt(':wand-of-fireballs', 2)} ${opt(':cube-of-force', 1)} ${opt(':necklace-of-fireballs', 1)}]}]}`;
+      {:${s}/key :other-magic-items :${s}/options [${opt(':wand-of-fireballs', 2)} ${opt(':cube-of-force', 1)} ${opt(':necklace-of-fireballs', 1)}]}
+      {:${s}/key :magic-weapons :${s}/options [${opt(':staff-of-striking', 1)}]}]}`;
     re_frame.core.dispatch_sync(cljs.core.PersistentVector.fromArray([rd(':set-character'), orcpub.dnd.e5.character.from_strict(rd(strict))], true));
   });
   // a phone shows the sheet under the Details tab, its sections behind icon tabs
@@ -90,6 +93,44 @@ function check(name, pass, detail) {
       await page.screenshot({ path: `${SHOT_DIR}/item-charges.png` });
     }
   }
+  // the Staff of Striking's charged powers, from the weapons table's + menu
+  const tab = icon => page.evaluate(icon => {
+    const t = [...document.querySelectorAll('div.b-b-2.pointer')].find(d => d.offsetParent && d.innerHTML.includes(icon));
+    if (t) t.click(); return !!t; }, icon);
+  // an unsaved character takes one update at a time (writing-browser-tests.md rule 5): each pick
+  // waits until the staff's count shows its result before the next one
+  const staffShows = async want => {
+    await tab('backpack');
+    return shows(row('Staff of Striking').locator('.item-charges-count'), want); };
+  const staffRow = page.locator('.weapon-row').filter({ has: page.locator('.weapon-name', { hasText: /^Staff of Striking$/ }) });
+  const menu = async () => {
+    await tab('sword-clash');
+    await staffRow.locator('.weapon-plus').click({ timeout: 5000 }).catch(() => {});
+    // read the menu once its charged rows have drawn (writing-browser-tests.md rule 2)
+    await page.locator('[role=menuitem]', { hasText: '+3d6 force' }).waitFor({ timeout: 5000 }).catch(() => {});
+    return page.locator('[role=menuitem]'); };
+  const pick = async label => {
+    const items = await menu();
+    await items.filter({ hasText: label }).first().click({ timeout: 5000 }).catch(() => {});
+    await page.locator('.weapon-sheet-done').click({ timeout: 3000 }).catch(() => {}); };
+  let items = await menu();
+  const texts = await items.allInnerTexts().catch(() => []);
+  check('the staff\'s + menu offers +1d6, +2d6 and +3d6 force with their cost and what is left',
+        ['+1d6 force', '+2d6 force', '+3d6 force'].every(l => texts.some(x => x.includes(l)))
+          && texts.some(x => /1 charge\s*\u00B7\s*10 left/.test(x)), texts.filter(x => x.includes('force')).join(' | '));
+  await page.keyboard.press('Escape');
+  await pick('+1d6 force');
+  check('picking +1d6 spends one of the staff\'s charges', await staffShows('9/10'));
+  await pick('+3d6 force');
+  const six = await staffShows('6/10');
+  await pick('+3d6 force');
+  check('two +3d6 leave 3', six && await staffShows('3/10'));
+  await pick('+2d6 force');
+  await staffShows('1/10');
+  items = await menu();
+  const disabled = async l => (await items.filter({ hasText: l }).first().getAttribute('aria-disabled', { timeout: 3000 }).catch(() => null)) === 'true';
+  check('with 1 left, +2d6 and +3d6 are greyed and +1d6 is not',
+        await disabled('+2d6 force') && await disabled('+3d6 force') && !(await disabled('+1d6 force')));
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
   await browser.close();
   const failed = results.filter(r => !r.pass).length;

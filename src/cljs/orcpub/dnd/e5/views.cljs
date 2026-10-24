@@ -3981,10 +3981,10 @@
           [:button.weapon-sheet-done {:type "button" :on-click done} "Done"]]]))))
 
 (defn weapon-menu-item-used?
-  "Whether a once-per-rest menu item is spent. Takes the character id and the item.
-  Returns a boolean; items without a :recharge are never spent."
-  [id {:keys [recharge label]}]
-  (boolean (and recharge @(subscribe [::char/feature-used? id recharge label]))))
+  "Whether a menu item is spent: a once-per-rest use already taken, or a charged power the item
+  cannot pay for (:spent?). Takes the character id and the item. Returns a boolean."
+  [id {:keys [recharge label spent?]}]
+  (boolean (or spent? (and recharge @(subscribe [::char/feature-used? id recharge label])))))
 
 (defn weapon-menu
   "The + menu under a damage tile: items as menu rows, the first an amber Roll damage. Keys:
@@ -3992,8 +3992,9 @@
   id, the weapon name, the items (from disp/weapon-menu-items), whether it opens upward
   and the close fn. Returns hiccup."
   [id nm items up? close & [on-pick]]
-  (let [pick (fn [{:keys [label entries recharge] :as item}]
+  (let [pick (fn [{:keys [label entries recharge spend] :as item}]
                (when-not (weapon-menu-item-used? id item)
+                 (when spend (dispatch spend))
                  (if on-pick
                    (on-pick item)
                    (dispatch [:show-message-2 (str nm " " (s/lower-case label) ": " (parts-roll-text entries))]))
@@ -4035,9 +4036,9 @@
   "One weapon's row: name, grey line, to-hit and damage tiles, lines under it, details when open.
   Takes the weapon, to-hit bonus, damage modifier fn, proficient?, lowest crit roll, the off-hand
   holder (\"a Shield\" or nil), hand (:main :off nil), character id, last? (menu opens up), mastery
-  band or nil, desktop? (switches in Details) and the state atom ({:open? :two-handed? :toggles
-  :pulse-done? :menu-open?}). Returns hiccup."
-  [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand hand id last? mastery desktop? state]
+  band or nil, desktop? (switches in Details), the state atom ({:open? :two-handed? :toggles
+  :pulse-done? :menu-open?}), the weapon's key and its carried entry (charges). Returns hiccup."
+  [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand hand id last? mastery desktop? state weapon-key entry]
   (let [{:keys [open? toggles pulse-done?]} @state
         toggles (or toggles #{})
         hands-blocked? (boolean (and off-hand (::weapon/versatile weapon)))
@@ -4070,7 +4071,14 @@
         hands-note (when needs-hands? " (needs both hands)")
         roll-ctx {:weapon weapon :name (str nm hands-note) :mod modifier :two-handed? (boolean two-handed?)
                   :toggles toggles :crit-min crit-min}
-        menu-items (when base (disp/weapon-menu-items weapon modifier (boolean two-handed?) toggles))
+        menu-items (when base
+                     (some->> (disp/weapon-menu-items weapon modifier (boolean two-handed?) toggles)
+                              (mapv #(if-let [cost (:cost %)]
+                                       (let [i (mi/able-to-pay weapon entry cost)]
+                                         (cond-> (update % :sub str " \u00B7 " (mi/charges-left weapon entry (or i 0)) " left")
+                                           i (assoc :spend [::char/change-item-charges id :magic-weapons weapon-key weapon i cost])
+                                           (nil? i) (assoc :spent? true)))
+                                       %))))
         menu-open? (and menu-items (:menu-open? @state))
         open-menu #(swap! state assoc :menu-open? true)
         close-menu #(swap! state assoc :menu-open? false)
@@ -4237,7 +4245,9 @@
                                   :prof (or prof 2)
                                   :damage-type (weapon-damage/weapon-type weapon)})
               desktop?
-              (r/cursor row-state [weapon-key])]))]]))))
+              (r/cursor row-state [weapon-key])
+              weapon-key
+              (get all-weapons weapon-key)]))]]))))
 
 (defn item-charges
   "The charges of a carried item, one line per item in its stack: pips up to 10 (tap a lit one

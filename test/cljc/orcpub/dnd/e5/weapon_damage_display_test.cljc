@@ -164,3 +164,10 @@
            ((juxt :name :trigger :summary)
             (disp/mastery-band (assoc (weapon :greatsword) :orcpub.dnd.e5.weapons/mastery :graze)
                                #{:greatsword} made-up-masteries ctx))))))
+
+(deftest charged-powers-join-the-menu-with-their-cost
+  (let [staff (mi/all-weapons-map :staff-of-striking)
+        items (filter :cost (disp/weapon-menu-items staff 3 false #{}))]
+    (is (some? staff) "the staff is in the weapons map")
+    (is (= [["+1d6 force" 1] ["+2d6 force" 2] ["+3d6 force" 3]] (map (juxt :label :cost) items)))
+    (is (= "2 charges" (:sub (second items))))))

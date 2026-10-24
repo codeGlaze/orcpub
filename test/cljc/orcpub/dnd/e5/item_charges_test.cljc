@@ -67,3 +67,9 @@
   (testing "a fixed cost (a staff): one level only"
     (is (= [{:level 3 :cost 3 :affordable? true}]
            (mi/cast-levels {::mi/cast-spell :fireball ::mi/cast-level 3 ::mi/cast-cost 3} 10)))))
+
+(deftest the-first-item-that-can-pay-pays
+  (let [entry {::char-equip/quantity 2 ::char-equip/charges [(rec 0 6) (rec 1 2)]}]
+    (is (= 0 (mi/able-to-pay wand entry 1)) "the first wand has 1 left")
+    (is (= 1 (mi/able-to-pay wand entry 3)) "only the second has 3")
+    (is (nil? (mi/able-to-pay wand entry 6)) "neither has 6")))

@@ -303,21 +303,22 @@
                            entries)))
 
 (defn weapon-menu-items
-  "The + menu of a weapon with anything conditional, else nil: Roll damage, Roll vs each
-  target, Critical damage (and vs each target), then each once-per-rest use. Takes the weapon,
-  its damage modifier, two-handed? and the toggles on. Returns [{:id :label :sub :value
-  :entries :recharge}]; :recharge marks a use, spent through features-used."
+  "The + menu of a weapon with anything conditional, else nil: Roll damage, Roll vs each target,
+  Critical damage (and vs each target), each once-per-rest use, each power paid in charges. Takes
+  the weapon, its damage modifier, two-handed? and the toggles on. Returns [{:id :label :sub :value
+  :entries :recharge :cost}]: :recharge spends a use (features-used), :cost the item's charges."
   [weapon damage-modifier two-handed? toggles-on]
   (let [roll #(weapon-damage/applying-damage weapon damage-modifier two-handed? (assoc % :toggles toggles-on))
         conditional (concat (::mi/extra-damage weapon) (::mi/effects weapon))
         targets (distinct (keep ::mi/against (remove off-row? conditional)))
         crit-only? (some #(or (= :crit (::mi/on %)) (::mi/min-roll %)) (::mi/extra-damage weapon))
         uses (filter ::mi/recharge conditional)
+        paid (filter ::mi/charge-cost conditional)
         vs-label #(creature-types-str % "and")
         item (fn [id label sub situation crit?]
                (let [es (cond-> (roll situation) crit? crit-entries)]
                  {:id id :label label :sub sub :value (dice-sum-str es) :entries es}))]
-    (when (or (seq targets) crit-only? (seq uses))
+    (when (or (seq targets) crit-only? (seq uses) (seq paid))
       (vec (concat
             [(item :damage "Roll damage" nil {} false)]
             (for [t targets] (item [:vs t] (str "Roll vs " (vs-label t)) "base + bonus" {:against (first (sort t))} false))
@@ -333,7 +334,13 @@
               {:id [:use i] :label label
                :sub (str "once per " (recharge-names (::mi/recharge e) (common/safe-name (::mi/recharge e))))
                :value (if (::mi/effect-type e) (when (seq es) (damage-str (first es))) (plus-str e))
-               :entries es :recharge (::mi/recharge e)}))))))
+               :entries es :recharge (::mi/recharge e)})
+            (for [[i e] (map-indexed vector paid)
+                  :let [e (weapon-damage/resolve-extra weapon e)
+                        cost (::mi/charge-cost e)
+                        es (conj (roll {:attack-type (::mi/attack-type e)}) e)]]
+              {:id [:charge i] :label (plus-str e) :sub (str cost (if (= 1 cost) " charge" " charges"))
+               :value (plus-str e) :entries es :cost cost}))))))
 
 (defn mastery-summary
   "A Weapon Mastery's short summary for the band, in our words: \"DC 13 Con or prone\".

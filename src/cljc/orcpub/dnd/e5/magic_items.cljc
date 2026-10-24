@@ -122,6 +122,12 @@
   (let [used (::char-equip5e/charges-used (charge-record entry i) 0)]
     (set-charge entry i ::char-equip5e/charges-used (if (= :all amount) 0 (max 0 (- used amount))))))
 
+(defn able-to-pay
+  "The position of the first item in a carried stack with at least `n` charges left, or nil when
+  none can pay. Takes the item, the carried entry and n."
+  [item entry n]
+  (first (filter #(<= n (charges-left item entry %)) (range (max 1 (::char-equip5e/quantity entry 1))))))
+
 (defn roll-regain
   "How many charges the item regains when it recharges, rolled with `roll-die` (a fn of sides).
   Returns {:amount :rolls :dice}: amount :all when the item names no regain."
@@ -2727,6 +2733,7 @@ The staff regains 1d6 + 4 expended charges daily at dawn. If you expend the last
 The staff regains 1d6 + 4 expended charges daily at dawn. If you expend the last charge, roll a d20. On a 1, the staff vanishes in a flash of light, lost forever."
      }{
      name-key "Staff of Power"
+     ::extra-damage [{::weapons5e/damage-die-count 1 ::weapons5e/damage-die 6 ::weapons5e/damage-type :force ::attack-type :melee ::charge-cost 1}]
      ::charges 20 ::charges-recharge ::units5e/dawn ::charges-regain "2d8+4"
      ::casts [{::cast-spell :cone-of-cold ::cast-level 5 ::cast-cost 5}
                {::cast-spell :fireball ::cast-level 5 ::cast-cost 5}
@@ -2756,6 +2763,7 @@ Retributive Strike. You can use an action to break the staff over your knee or a
 You have a 50 percent chance to instantly travel to a random plane of existence, avoiding the explosion. If you fail to avoid the effect, you take force damage equal to 16 × the number of charges in the staff. Every other creature in the area must make a DC 17 Dexterity saving throw. On a failed save, a creature takes an amount of damage based on how far away it is from the point of origin, as shown in the following table. On a successful save, a creature takes half as much damage."
      }{
      name-key "Staff of Striking"
+     ::extra-damage [{::weapons5e/damage-die-count 1 ::weapons5e/damage-die 6 ::weapons5e/damage-type :force ::attack-type :melee ::charge-cost 1} {::weapons5e/damage-die-count 2 ::weapons5e/damage-die 6 ::weapons5e/damage-type :force ::attack-type :melee ::charge-cost 2} {::weapons5e/damage-die-count 3 ::weapons5e/damage-die 6 ::weapons5e/damage-type :force ::attack-type :melee ::charge-cost 3}]
      ::charges 10 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+4"
        ::type :weapon
        ::item-subtype :staff
@@ -2870,6 +2878,7 @@ Thunderclap. You can use an action to cause the staff to issue a deafening thund
 Thunder and Lightning. You can use an action to use the Lightning Strike and Thunderclap properties at the same time. Doing so doesn’t expend the daily use of those properties, only the use of this one."
      }{
      name-key "Staff of Withering"
+     ::extra-damage [{::weapons5e/damage-die-count 2 ::weapons5e/damage-die 10 ::weapons5e/damage-type :necrotic ::charge-cost 1}]
      ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
      ::type :weapon
      ::item-subtype :staff

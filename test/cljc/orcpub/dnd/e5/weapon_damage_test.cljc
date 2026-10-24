@@ -30,7 +30,12 @@
    "Javelin of Lightning" [(assoc (dice 4 6 :lightning) ::mi/attack-type :ranged ::mi/recharge ::units/dawn)]
    "Sword of Life Stealing" [(assoc (dice 3 6 :necrotic) ::mi/min-roll 20 ::mi/not-against #{:construct :undead})]
    "Sword of Sharpness" [(assoc (dice 4 6 :slashing) ::mi/min-roll 20)]
-   "Vorpal Sword" [(assoc (dice 6 8 :slashing) ::mi/min-roll 20)]})
+   "Vorpal Sword" [(assoc (dice 6 8 :slashing) ::mi/min-roll 20)]
+   "Staff of Power" [(assoc (dice 1 6 :force) ::mi/attack-type :melee ::mi/charge-cost 1)]
+   "Staff of Striking" [(assoc (dice 1 6 :force) ::mi/attack-type :melee ::mi/charge-cost 1)
+                        (assoc (dice 2 6 :force) ::mi/attack-type :melee ::mi/charge-cost 2)
+                        (assoc (dice 3 6 :force) ::mi/attack-type :melee ::mi/charge-cost 3)]
+   "Staff of Withering" [(assoc (dice 2 10 :necrotic) ::mi/charge-cost 1)]})
 
 (defn weapon
   "The weapon with this key from the static weapons map."
