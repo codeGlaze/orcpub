@@ -113,8 +113,8 @@ The owner compared the build with the drawn frames ("90% of the way there"). Whe
 Now, and 5px between Now and the rests (the text says the reverse). Also matched from the drawing:
 button text weight 600, a 44px heading row. **Garden trap:** a style map with both `:border 0` and
 `:border-left` can emit the shorthand last and wipe the divider; the dividers are a separate
-`.rest-seg + .rest-seg` rule. Open: the box reads darker than the drawing, which put the same
-`rgba(0,0,0,.18)` tint on a lighter frame than the app's page.
+`.rest-seg + .rest-seg` rule. The box reads darker than the drawing: same tint, darker page behind it.
+**Kept as built** (owner, 2026-10-23: the design agent's mockups do not use the app's exact CSS).
 
 ## Open, for the owner
 
