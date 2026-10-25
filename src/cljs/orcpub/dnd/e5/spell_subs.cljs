@@ -25,6 +25,7 @@
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.homebrew-guard :as guard]
+            [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.starting-equipment-ledger :as sel]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.route-map :as routes]
@@ -38,10 +39,12 @@
 ;; Version: 1.05 - Fix: preserve map keys for classes/subclasses (enables renamed keys)
 ;; =============================================================================
 
+;; Every homebrew subscription reads the library and shared content through these two, so the
+;; read check is here, once. See homebrew-check/checked.
 (reg-sub
  ::e5/plugins
  (fn [db _]
-   (get db :plugins)))
+   (homebrew-check/checked :plugins (get db :plugins))))
 
 ;; Whether the footer's diagnostic tools are revealed on this device.
 (reg-sub
@@ -93,7 +96,7 @@
 (reg-sub
  ::e5/shared-plugins
  (fn [db _]
-   (get db :shared-plugins)))
+   (homebrew-check/checked :shared-plugins (get db :shared-plugins))))
 
 ;; Summary for the shared-content banner: {:count n :collisions [...]} while a
 ;; shared character with embedded homebrew is being viewed, else nil.

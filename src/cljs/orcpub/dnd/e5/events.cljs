@@ -6718,15 +6718,6 @@
  ::keep-pre-fix-copy
  (fn [plugins] (keep-pre-fix-copy! plugins)))
 
-(defn- unreadable-reports
-  "A report for each entry `findings` could not read, carrying the entry as `library` held it."
-  [library findings]
-  (for [[[src ct k] fs] (group-by (juxt :source :content-type :key)
-                                  (filter #(= :unreadable (:action %)) findings))
-        :when k]
-    {:content-type ct :key k :source src :original (get-in library [src ct k])
-     :error (str (s/join ", " (map #(pr-str (:path %)) fs)) " could not be read")}))
-
 (defn homebrew-shapes-checked
   "An event's effects, with the homebrew it changed made to fit homebrew-shapes. The library: what
    was fixed is in the new state and stored through the gate (after a copy of the library as it
@@ -6761,8 +6752,8 @@
                 (when-not (identical? cleaned lib)
                   [[::keep-pre-fix-copy lib]
                    [:dispatch [::e5/set-plugins cleaned]]])
-                (for [r (concat (unreadable-reports lib findings)
-                                (unreadable-reports shared shared-findings))]
+                (for [r (concat (homebrew-check/unreadable-reports lib findings)
+                                (homebrew-check/unreadable-reports shared shared-findings))]
                   [::homebrew-check/report r])
                 (when (seq changed)
                   [[::homebrew-check/check-entries changed]]))]
@@ -6777,6 +6768,17 @@
 (reg-global-interceptor
  (->interceptor
   :id ::homebrew-shapes
+  ;; and on the way in: the handler reads the library as checked, whatever wrote app-db last
+  :before (fn [ctx]
+            (update-in ctx [:coeffects :db]
+                       (fn [db]
+                         (let [lib (:plugins db)
+                               shared (:shared-plugins db)
+                               lib' (homebrew-check/checked :plugins lib)
+                               shared' (homebrew-check/checked :shared-plugins shared)]
+                           (cond-> db
+                             (not (identical? lib lib')) (assoc :plugins lib') ;; not app-db
+                             (not (identical? shared shared')) (assoc :shared-plugins shared'))))))
   :after (fn [ctx]
            (update ctx :effects #(homebrew-shapes-checked (get-in ctx [:coeffects :db]) %)))))
 

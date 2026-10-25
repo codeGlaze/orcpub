@@ -52,5 +52,7 @@ into every field of every content type, by every way in, to prove it (docs/HOMEB
   monster list.
 - **Homebrew:** a subrace, subclass, boon or invocation whose name could not be read no longer
   disappears without a word; it is set aside for repair.
+- **Homebrew:** a feat whose ability score increases were stored as a list no longer breaks its
+  builder.
 
 ## Security

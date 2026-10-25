@@ -210,19 +210,25 @@ recognising how a write was made (it scans for `assoc`, `update` and `dissoc` on
 Builder drafts are restored by `reg-local-store-cofx`, which TODO.md pins as hands-off; they are
 covered by (5).
 
-### 3. Inside the app: every read is checked
+### 3. Inside the app: every read is checked (built)
 
-Data can change after it came in: a script writing to the app's memory, an event storing raw
-data, a bug of ours. So the shape check also runs where the app reads homebrew:
-`process-plugin-vals` and `process-plugins-with-sources` (every homebrew subscription, so every
-builder, page, option and character, reads through them), and the few event handlers that read
-the library directly. Whatever is in memory is checked there, so the functions after it only ever
-receive the right shapes, and none of them changes. Anything unclean found there is cleaned for
-reading and reported as a bug: nothing should reach it that way.
+Data can change after it came in without an event: a script writing to the app's memory, the
+console, a bug of ours. So the shape check also runs where the app reads homebrew, in one
+function, `homebrew-check/checked`, called from two places:
 
-The check is a read-only walk. It runs over the whole library on each change if that measures as
-cheap; if not, it checks only entries that changed (by object identity: data is immutable, so a
-change is a new object, and gets checked).
+- **every view**: the `::e5/plugins` and `::e5/shared-plugins` subscriptions, which every other
+  homebrew subscription (so every builder, page, option and character) is built on;
+- **every event handler**: the global interceptor's `:before` hands each handler the library as
+  checked, so the 57 handlers that read `(:plugins db)` directly need no change.
+
+Whatever is in memory is checked there, so the functions after it only ever receive the right
+shapes, and none of them changes. Anything unclean found there is read with its fixes, an entry
+that cannot be read is left out and reported (to the quarantine panel, by the guard's reporter),
+and the whole is logged as a bug: nothing should reach it that way. It writes nothing.
+
+It remembers the last library it read and what it gave for it, so a library already checked costs
+one comparison (0.002 ms), and a new one is walked only where it differs from the last (one
+entry changed: 0.2 ms).
 
 ### 4. Never silent, with what exists
 
@@ -278,7 +284,7 @@ Nothing here may make the app slower to use.
 | Cleaning | Only on a write: an import, a builder save (one entry), the first load after this lands. Reading costs nothing. | 12-source test library: under 30 ms |
 | The global interceptor | One identity comparison per event; work only when the library changed, and only on the entries that changed. | no measurable change |
 | Later loads | The library is already clean: a read-only walk that finds nothing and writes nothing. | under 10 ms |
-| The in-app read check | A read-only walk on each library change; if it measures above budget, only entries that changed. | under 10 ms |
+| The in-app read check | One comparison per read; on a library change, only the entries that changed. | 0.002 ms; 0.2 ms after a change |
 | The conversion check at a way in | Only the entries that came in or changed; `guard/realize` now walks each shared part once. | a builder save: one entry |
 | Downstream | A clean entry is the identical object, so the per-type `=` firewall still holds: editing a spell does not rebuild races. | no extra recomputation |
 | The deep check | `guard/realize` walks each shared part once (done): one homebrew class went from seconds to milliseconds. | done |
@@ -313,14 +319,18 @@ alone 0.001 ms; an event that changes one entry 0.05 ms, then its deep check 35 
    `guard/realize` walking each part once.
 2. **Done:** audit canaries and counted coverage.
 3. **Done:** the global interceptor, and the table in the loader. The audit went from 659 to 37
-   in 132 s. Left: a feat's `:ability-increases` as a list in its builder (27; the builder's
-   copy, step 4), a background skill that names no skill (6; a lookup in our code, step 5), and a
-   subrace or subclass from a share link whose parent does not exist (4; not shown in My Content,
-   so silent). The everyday suites, `homebrew_safety_net_e2e`, `fixes_persist_e2e`,
+   in 132 s. The everyday suites, `homebrew_safety_net_e2e`, `fixes_persist_e2e`,
    `quarantine-restore` and `library-repairs` pass; a second load writes nothing (a test).
-   `boot_rescue_e2e` fails 3 of 16 before and after this step: it clicks an "expand" link My
-   Content no longer has.
-4. **The in-app read check**, measured; changed-only only if needed.
+4. **Done:** the in-app read check, changed-only from the start (the full walk is 7 ms on
+   test-pak, on every read it would not be). A feat's `:ability-increases` is now read as a set,
+   the only form this build's builder reads (27 failures: a list reached the builder). The audit
+   went from 37 to 10 in 135 s. Left: a background skill that names no skill (6; a lookup in
+   our code, step 5) and a subrace or subclass from a share link whose parent does not exist (4;
+   not shown in My Content, so silent). `boot_rescue_e2e` now passes 17/17: run by hand, it had
+   no overlay suppression, and the What's New panel covered the link it clicks.
+   **When PR #69 merges**, its list of `[amount pool]` spreads goes into the feats row with the
+   builder that reads it, in the merge itself: until then this build would turn a spread into a
+   set on load and set it aside, as it cannot read it.
 5. **Hardened core helpers**, ranked by the audit.
 6. **Containment:** per-item boundaries, the event error handler, the guard on 13 types.
 7. **Enforcement:** the audit in CI at zero, the AGENTS.md rules, the documents corrected, the
@@ -332,9 +342,8 @@ refactor branch (owner, 2026-10-21).
 
 ## For the owner
 
-- **An unreadable field**: move the whole entry to the quarantine panel with the reason
-  (recommended: it is what keeps the active library clean, so nothing is found again), or keep
-  the entry and read past the field, with a mark?
+- **An unreadable field**: the whole entry moves to the quarantine panel with the reason
+  (owner, 2026-10-25).
 - **Boons and invocations keyed by name** (known, above): fix it here by passing the stored key?
   Characters that picked one hold the name-derived key; where the stored key differs (a source
   tag), they heal through `:former-keys`, the way renamed keys heal today.

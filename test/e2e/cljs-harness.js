@@ -11,7 +11,9 @@ const srv=http.createServer((q,r)=>{const u=decodeURIComponent(q.url.split('?')[
 (async()=>{await new Promise(r=>srv.listen(0,r));const port=srv.address().port;
  const br=await chromium.launch({executablePath:findChrome()});const pg=await br.newPage();const out=[];
  pg.on('console',m=>out.push(m.text()));pg.on('pageerror',e=>out.push('PAGEERROR '+e));
- await pg.goto(`http://localhost:${port}/runner-all.html`);
+ // The tests run while the page loads, so its load event comes only when they finish (~30s):
+ // wait for navigation alone, and leave the time limit to the totals wait below.
+ await pg.goto(`http://localhost:${port}/runner-all.html`,{waitUntil:'commit'});
  // Figwheel's auto-testing page reports a "Totals" block, not cljs.test's "Ran N tests" line.
  try{await pg.waitForFunction(()=>/Ran \d+ tests|Totals\s+\d+ Tests/.test(document.body.innerText),null,{timeout:240000});}catch(e){out.push('TIMEOUT waiting for the totals');}
  const body=await pg.evaluate(()=>document.body.innerText);

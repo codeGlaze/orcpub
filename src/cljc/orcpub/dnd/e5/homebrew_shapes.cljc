@@ -305,9 +305,11 @@
    :orcpub.dnd.e5/selections [:map {:name :string :options cards}]
 
    :orcpub.dnd.e5/feats
-   ;; :ability-increases is a set of ability keys (the released form) or, from PR #69, a list
+   ;; :ability-increases is a set of ability keys, the only form this build's feat builder reads.
+   ;; PR #69 adds a list of [amount pool] spreads and the builder that reads them: when it merges,
+   ;; this becomes [:or [:set :keyword] <its list>], or its spreads are turned into sets on load.
    [:map {:name :string :description :string
-          :ability-increases [:or [:set :keyword] [:list :any]]
+          :ability-increases [:set :keyword]
           :prereqs [:set :keyword] :path-prereqs [:map {:race flags}] :props props}]
 
    :orcpub.dnd.e5/races

@@ -5,8 +5,10 @@
    GOTCHA: realizing costs ~20ms an entry (9s for test-pak's 464), so call it only for the
    entries a change wrote (the homebrew-shapes interceptor's ::check-entries), or after a page
    has already failed. See docs/HOMEBREW_GUARD.md."
-  (:require [orcpub.dnd.e5 :as e5]
+  (:require [clojure.string :as s]
+            [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.homebrew-guard :as guard]
+            [orcpub.dnd.e5.homebrew-shapes :as shapes]
             [re-frame.core :refer [reg-fx dispatch subscribe]]
             [reagent.core :as r]))
 
@@ -67,3 +69,39 @@
    (when (seq entries)
      ;; after the current event, so its own notice draws first
      (js/setTimeout #(check-and-set-aside! (set (map first entries)) entries) 0))))
+
+(defn unreadable-reports
+  "A report for each entry `findings` could not read, carrying the entry as `library` held it."
+  [library findings]
+  (for [[[src ct k] fs] (group-by (juxt :source :content-type :key)
+                                  (filter #(= :unreadable (:action %)) findings))
+        :when k]
+    {:content-type ct :key k :source src :original (get-in library [src ct k])
+     :error (str (s/join ", " (map #(pr-str (:path %)) fs)) " could not be read")}))
+
+;; Per db slot (:plugins, :shared-plugins): the last library read through `checked`, and what the
+;; app was given for it. Each event and each view read compares against it, so a library already
+;; checked costs one comparison, and a new one is walked only where it differs from the last.
+(defonce ^:private last-read (atom {}))
+
+(defn checked
+  "`library`, from the db `slot`, as the app may read it. Every write goes through the
+   homebrew-shapes interceptor, so this finds nothing unless something wrote app-db another way (a
+   script, the console, a bug of ours): then the fixes are read, an entry that cannot be read is
+   left out and reported, and the whole is logged as a bug. Writes nothing."
+  [slot library]
+  (let [{:keys [raw given]} (get @last-read slot)]
+    (cond
+      (identical? library raw) given
+      (or (identical? library given) (not (map? library))) library
+      :else
+      (let [{cleaned :library findings :findings} (shapes/clean-library library given)
+            {given' :library} (shapes/split-unreadable cleaned library findings)]
+        (when (seq findings)
+          (js/console.error "Homebrew reached the app without the shape check (a bug):"
+                            (pr-str slot (map #(select-keys % [:source :content-type :key :path :action])
+                                              findings)))
+          (doseq [r (unreadable-reports library findings)]
+            (guard/report! r)))
+        (swap! last-read assoc slot {:raw library :given given'})
+        given'))))

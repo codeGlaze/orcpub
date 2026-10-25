@@ -6,6 +6,7 @@
             [re-frame.db :refer [app-db]]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
+            [orcpub.dnd.e5.homebrew-guard :as guard]
             [orcpub.dnd.e5.events :as events]))
 
 (def ^:private race {:name "Hill" :key :hill :option-pack "P" :speed "25"})
@@ -80,3 +81,41 @@
                             {"P" {::e5/races {:hill (dissoc bad :abilities)}}} {}
                             [{:content-type ::e5/races :key :hill :source "P" :original bad}])]
     (is (= bad (get-in rejected ["P" ::e5/races :hill])))))
+
+;; ---------------------------------------------------------------------------
+;; The read check: what a script or a bug writes to app-db outside any event
+;; ---------------------------------------------------------------------------
+
+(def ^:private read-by-handler (atom nil))
+(rf/reg-event-db ::read-the-library (fn [db _] (reset! read-by-handler (:plugins db)) db))
+
+(deftest a-library-written-outside-any-event-is-read-checked
+  (let [was @app-db
+        reports (atom [])
+        bad (assoc race :key :bad :abilities 42)
+        written {"P" {::e5/races {:hill race :bad bad}}}]
+    (try
+      (guard/call-with-reporter
+       #(swap! reports conj %)
+       (fn []
+         (reset! app-db {:plugins written})
+         (testing "a view reads the fix, and not the entry that cannot be read"
+           (let [races (get-in @(rf/subscribe [::e5/plugins]) ["P" ::e5/races])]
+             (is (= 25 (get-in races [:hill :speed])))
+             (is (not (contains? races :bad)))))
+         (testing "so does an event handler"
+           (rf/dispatch-sync [::read-the-library])
+           (is (= 25 (get-in @read-by-handler ["P" ::e5/races :hill :speed])))
+           (is (not (contains? (get-in @read-by-handler ["P" ::e5/races]) :bad))))
+         (testing "the entry is reported once, as written, however often it is read"
+           @(rf/subscribe [::e5/plugins])
+           (rf/dispatch-sync [::read-the-library])
+           (is (= [[:bad bad]] (map (juxt :key :original) @reports))))))
+      (finally
+        (rf/purge-event-queue)
+        (reset! app-db was)))))
+
+(deftest a-checked-library-costs-one-comparison
+  (let [lib' {"P" {::e5/races {:hill (assoc race :speed 25)}}}]
+    (is (identical? lib' (homebrew-check/checked ::test lib')) "a sound library is the same object")
+    (is (identical? lib' (homebrew-check/checked ::test lib')))))

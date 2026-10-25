@@ -10,6 +10,8 @@
 // that is simply always on would pass everything above.
 const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
+// a run by hand gets no overlay preload, so the What's New panel would cover every click
+const { suppressWhatsNew } = require('./lib/orcbrew-import');
 const fs = require('fs'), path = require('path');
 const BASE = 'http://localhost:8890';
 const OUT = process.env.PROBE_OUT || '/tmp/boot-rescue';
@@ -27,6 +29,7 @@ function check(name, pass, detail) {
 // Seeds localStorage before any app code runs, so the control has something to save.
 async function seeded(browser, { breakage } = {}) {
   const ctx = await browser.newContext({ acceptDownloads: true });
+  await suppressWhatsNew(ctx);
   await ctx.addInitScript(v => {
     try {
       localStorage.setItem('plugins', v);
@@ -161,6 +164,7 @@ async function rescues(page, label, expected = PLUGINS) {
   //  built after the page opened never reached the copy it kept.
   {
     const ctx = await browser.newContext({ acceptDownloads: true });
+    await suppressWhatsNew(ctx);
     // Deliberately opens with NOTHING stored, so a load-time read would both
     // fail to arm the control and have nothing to give.
     await ctx.addInitScript(() => {
@@ -213,6 +217,7 @@ async function rescues(page, label, expected = PLUGINS) {
   //  panel is what handles this.
   {
     const ctx = await browser.newContext();
+    await suppressWhatsNew(ctx);
     await ctx.addInitScript(() => {
       try {
         localStorage.setItem('plugins', '{:this is not (valid edn at all');
@@ -234,6 +239,7 @@ async function rescues(page, label, expected = PLUGINS) {
   //  boundary, so every page stayed on the loading spinner with only this control.
   {
     const ctx = await browser.newContext();
+    await suppressWhatsNew(ctx);
     await ctx.addInitScript(() => {
       try {
         localStorage.setItem('plugins', '{"Bad Key Pak" {:orcpub.dnd.e5/races {:x {:key "text" :option-pack "Bad Key Pak" :name "X" :speed 30}}}}');
@@ -255,6 +261,7 @@ async function rescues(page, label, expected = PLUGINS) {
   // ---- 5. sensitivity: no homebrew stored means no control ----------------
   {
     const ctx = await browser.newContext();
+    await suppressWhatsNew(ctx);
     const page = await ctx.newPage();
     await page.goto(BASE + '/dnd/5e/my-content', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2500);
