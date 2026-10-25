@@ -83,6 +83,14 @@
     (for [r rows]
       (str/trimr (format (str "  %-" w "s   %-" v "s   %s") (:var r) (shown r) (or (:note r) ""))))))
 
+(defn- wrapped-names
+  "`names` comma-separated after `lead`, wrapped into lines of at most 100 characters."
+  [lead names]
+  (reduce (fn [lines nm]
+            (let [joined (str (peek lines) (if (= lead (peek lines)) " " ", ") nm)]
+              (if (<= (count joined) 100) (conj (pop lines) joined) (conj lines (str "    " nm)))))
+          [lead] names))
+
 (defn email
   "The email for `summary`, as {:subject :body}. Opts: `:app-name`, `:release`, and `:admin`, the
    report's admin-address line (or nil). Sections appear only when they have something in them."
@@ -94,7 +102,12 @@
                 (when (seq problems)
                   (concat ["NEEDS FIXING"] (map #(str "  " (:text %)) problems) [""]))
                 (when (seq fresh)
-                  (concat [(str "NEW IN THE " (str/upper-case release))] (table fresh) [""]))
+                  (let [tuning? #(= :tuning (get config/setting-classes (:var %) :tuning))
+                        [quiet loud] ((juxt filter remove) #(and (tuning? %) (not (:ignored? %))) fresh)]
+                    (concat [(str "NEW IN THE " (str/upper-case release))]
+                            (table loud)
+                            (when (seq quiet) (wrapped-names "  Also new, fine at their defaults:" (map :var quiet)))
+                            [""])))
                 (when (seq worth)
                   (concat ["WORTH SETTING"] (table worth) [""]))
                 (when (pos? tuning-defaults)
