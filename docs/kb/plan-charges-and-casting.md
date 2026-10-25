@@ -121,7 +121,18 @@ On `feature/weapons-table` (owner: "just finish building it here"):
    the shots, not mocked. `item_casting_e2e.js`, 16 checks, each seen failing (two were weak, reading
    a count before the change landed, and were strengthened). No damage roll yet (spell data).
    **Not yet:** the Dev mode switch for the inline panel on phones (step 8).
-7. **Item builder:** Charges group and casts; schema for the new item fields.
+7. **Item builder: done.** `fe6db87a` moves the builder fields (`dropdown`, `base-builder-field`,
+   `number-field` and the rest) to `views/builder_fields.cljs`, no behaviour change. `cbd64b84` the
+   Charges group, its own namespace `views/charges_builder.cljs`: charges (a number, or dice kept as
+   a rolled start), recharge time, regain, and the spells it casts (spell, level, charges, + per
+   level, up to level, DC). Under each spell, what it rolls, from the SRD spell data
+   (`spell-rolls.edn`, loaded through `:load-srd :spell-rolls` when the group opens; built on
+   `feature/srd-pipeline`, cherry-picked). Custom items save the fields: `schema.clj`
+   `magic-item-schema`, `::mi/magic-item`, `from-internal-item`. Tests: `item_charges_save_test.clj`,
+   `charges_builder_test.cljs`, every claim seen failing. **Not built:** a charge cost for weapon
+   powers (`::mi/charge-cost`) in the builder; custom-item weapon powers are not editable at all yet.
+   **Trap:** a namespace `views.item-charges` clashed with the var `views/item-charges` in compiled
+   JS (a compile warning), hence the name `charges-builder`.
 8. **Later, its own step:** floating Rest button with the Import log move, Dev mode setting (handoff
    §9-10).
 
