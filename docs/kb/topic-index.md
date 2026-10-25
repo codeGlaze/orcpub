@@ -3763,7 +3763,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** 2026-10-16, assets, box, details, notice, phone, picks, planned, player, png, replaced, restored, row, steel, undo, undone, ux-guide, width
+**topics:** assets, box, details, drafts, notice, phone, picks, planned, player, png, replaced, restored, row, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
@@ -3876,7 +3876,7 @@ _weapon-mastery-plan · weapon mastery plan_
 
 _weapons-extra-damage-design · weapons extra damage design_
 
-**topics:** charges, chip, colour, crit, damage, dot, dots, effects, extra, hit, menu, on-hit, roll, rolls, strip, switches, tile, vicious
+**topics:** charges, chip, colour, crit, damage, dot, dots, effects, extra, hit, menu, on-hit, roll, rolls, strip, tile, vicious, white
 
 - Decisions
 - Damage-type palette

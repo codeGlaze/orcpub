@@ -204,3 +204,8 @@ Newest last. Date, ruling, and what it replaced.
 - 2026-10-22: an option that changes what a button does sits above the button: set it, then act.
   The result (an Undo line) sits below. First used for "dawn passes" over the rest buttons.
 - 2026-10-22: the builder's "select any number / complete" line is hidden on sections with no minimum, no maximum and no held picks: it can only ever say complete (Label only what the player would miss). A switch under Developer mode, "Hide empty pick counts", brings it back; on by default. `planned-text/count-says-nothing?`, `feature/inventory-kits`.
+- 2026-10-25: Data View, in a tab with no draft of its own: a list of this browser's drafts, one card
+  each with Show, newest edit first (the newest is the likeliest to be the broken one); drafts open
+  in another tab are listed and marked. Once one is shown, a dropdown at the top switches drafts,
+  each entry with name, kind, time edited and "open in another tab". Replaced a message sending the
+  player back to the builder. `feature/character-rescue`.
