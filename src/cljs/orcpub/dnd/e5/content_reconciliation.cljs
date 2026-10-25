@@ -379,11 +379,12 @@
 (def record-former-key links/record-former-key)
 
 (def ^:private named-before
-  #{:orcpub.dnd.e5/backgrounds :orcpub.dnd.e5/boons :orcpub.dnd.e5/invocations})
+  #{:orcpub.dnd.e5/backgrounds :orcpub.dnd.e5/boons :orcpub.dnd.e5/invocations
+    :orcpub.dnd.e5/subraces})
 
 (defn- items-with-formers
-  "[{:type :key :formers}] for every item in `plugins`. The name-derived key of a background, boon
-   or invocation counts as a former key."
+  "[{:type :key :formers}] for every item in `plugins`. The name-derived key of a background, boon,
+   invocation or subrace counts as a former key."
   [plugins]
   (for [[_ plugin] plugins
         :when (map? plugin)

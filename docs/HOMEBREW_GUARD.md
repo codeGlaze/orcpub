@@ -332,7 +332,20 @@ alone 0.001 ms; an event that changes one entry 0.05 ms, then its deep check 35 
    **When PR #69 merges**, its list of `[amount pool]` spreads goes into the feats row with the
    builder that reads it, in the merge itself: until then this build would turn a spread into a
    set on load and set it aside, as it cannot read it.
-5. **Hardened core helpers**, ranked by the audit.
+5. **Done:** hardened core helpers. The audit with the shape check off (`JUNK_UNGUARDED=1`, which
+   lets every junk value reach our code) recorded where each crash happened; most went through
+   `plugin-modifiers` and `collect-map-modifiers`, then the monster list's filter. Those, the feat
+   builders' `:ability-increases`, `safe-capitalize-kw` and the skill-proficiency modifier now
+   take what they are given through `common/usable`: a value of the wrong shape costs that field
+   and a console warning, not the page. Unguarded: 554 to 396 (monsters 103 to 14, subraces 101
+   to 50). What is left there are single-field readers in each option builder, which the shape
+   table covers and step 6 contains; hardening each one is the per-site work this design avoids.
+   Lifting the audit's allowance for name-derived keys showed homebrew subraces had the same bug
+   as boons: offered under their name's key. They now use the stored key, and old picks heal.
+   Guarded: 10 to 5, all from a share link, all "never offered": a subrace or subclass whose
+   parent does not exist (4), and a subclass named "x" (1, not yet traced). Found on the way:
+   `class-option` merges homebrew subclasses into a set sorted by name, so a homebrew subclass
+   with the same name as another (built in, or from another source) is dropped without a word.
 6. **Containment:** per-item boundaries, the event error handler, the guard on 13 types.
 7. **Enforcement:** the audit in CI at zero, the AGENTS.md rules, the documents corrected, the
    testing/develop scenarios gone through.

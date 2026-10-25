@@ -2042,6 +2042,7 @@
                       languages
                       source
                       {:keys [name
+                              key
                               abilities
                               profs
                               size
@@ -2063,7 +2064,10 @@
                      clojure.core/key
                      (filter val options)))]
     (t/option-cfg
+     ;; a homebrew subrace under its stored :key (a built-in one has none, and keeps its name's);
+     ;; picks of the name's key heal (content-reconciliation, items-with-formers)
      {:name name
+      :key key
       :edit-event edit-event
       :selections (concat
                    (when (seq skill-kws)
@@ -3452,14 +3456,16 @@
                                              spell-lists)]
       nil)))
 
-(defn collect-map-modifiers [m modifier-fn]
+(defn collect-map-modifiers
+  "A modifier for each key `m`, a map of key to true or false, marks true."
+  [m modifier-fn]
   (sequence
    (comp
     filter-true
     (map
      (fn [[k]]
        (modifier-fn k))))
-   m))
+   (common/usable map? m {} "a map of keys to true")))
 
 (defn make-feat-modifiers [k v option-key]
   (when v
@@ -3532,10 +3538,11 @@
          (concat mods feat-mods)
          mods)))
    []
-   props))
+   (common/usable map? props {} "an option's :props")))
 
 (defn feat-modifiers [key name description props ability-increases]
-  (let [without-saves (sets/intersection ability-increases
+  (let [without-saves (sets/intersection (common/usable set? ability-increases #{}
+                                                        "a feat's :ability-increases")
                                          (into #{} character/ability-keys))]
     (concat
      (plugin-modifiers props key)
@@ -3552,7 +3559,9 @@
         :description description})])))
 
 (defn feat-selections [language-map spells-map spell-lists proficiency-weapons props ability-increases]
-  (let [without-saves (sets/intersection ability-increases
+  (let [ability-increases (common/usable set? ability-increases #{} "a feat's :ability-increases")
+        props (common/usable map? props {} "a feat's :props")
+        without-saves (sets/intersection ability-increases
                                          (into #{} character/ability-keys))]
     (reduce
      (fn [selections [k v]]

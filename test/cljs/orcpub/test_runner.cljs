@@ -3,6 +3,7 @@
             [re-frame.core :as rf]
             ;; .cljc tests (run on both JVM and CLJS)
             [orcpub.common-test]
+            [orcpub.hardened-helpers-test]
             [orcpub.dnd.e5.homebrew-guard-test]
             [orcpub.dnd.e5.event-utils-test]
             [orcpub.dnd.e5.compute-test]
@@ -60,6 +61,7 @@
 
 (defn -main []
   (run-tests 'orcpub.common-test
+             'orcpub.hardened-helpers-test
    'orcpub.dnd.e5.homebrew-guard-test
              'orcpub.dnd.e5.event-utils-test
              'orcpub.dnd.e5.compute-test

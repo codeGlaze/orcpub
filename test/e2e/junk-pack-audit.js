@@ -5,6 +5,7 @@
 //
 //   lein fig:junk && NODE_PATH=/opt/node22/lib/node_modules node test/e2e/junk-pack-audit.js [pages] [types]
 // pages: how many run at once (default 4). types: a comma list such as races,feats (default all).
+// JUNK_UNGUARDED=1 turns the shape check off, to measure what our own code does with junk.
 // Failures go to target/junk-audit/junk-audit.txt, one per line, and each page's console to
 // console-<n>.log beside it. Exit 0 = nothing threw.
 const http = require('http'), fs = require('fs'), path = require('path');
@@ -25,7 +26,7 @@ const srv = http.createServer((q, r) => {
 
 (async () => {
   const n = Number(process.argv[2] || 4);
-  const types = process.argv[3] ? `=${process.argv[3]}` : '';
+  const types = (process.argv[3] ? `=${process.argv[3]}` : '') + (process.env.JUNK_UNGUARDED ? '&unguarded' : '');
   if (!fs.existsSync(path.join(ROOT, 'js/junk-audit.js'))) { console.error('Run lein fig:junk first.'); process.exit(2); }
   await new Promise(r => srv.listen(0, '127.0.0.1', r));
   const port = srv.address().port;

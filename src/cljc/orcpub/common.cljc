@@ -294,11 +294,23 @@
     (name kw)
     (warn (str "non-keyword value passed to safe-name: " kw))))
 
+(defn usable
+  "`x` when `(ok? x)`, else `fallback`, with a warning naming `what` unless `x` is nil. For the
+   helpers every option, choice and modifier passes through: homebrew reaches them already made to
+   fit (docs/HOMEBREW_GUARD.md), so a value of the wrong shape here is a bug of ours, and costs
+   that field rather than the page."
+  [ok? x fallback what]
+  (cond
+    (ok? x) x
+    (nil? x) fallback
+    :else (do (warn (str "Skipped " what ", which is not the shape it should be: " (pr-str x)))
+              fallback)))
+
 (defn safe-capitalize [s]
   (when (string? s) (s/capitalize s)))
 
 (defn safe-capitalize-kw [kw]
-  (some-> kw
+  (some-> (usable #(or (keyword? %) (string? %)) kw nil "a name to capitalize")
           name
           safe-capitalize))
 

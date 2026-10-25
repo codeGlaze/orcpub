@@ -338,7 +338,7 @@
                             [~skill-kw
                              ~source]
                             true)
-                 (s/capitalize (-> ~skill-kw skill5e/skills-map :name))
+                 (skill5e/skill-name ~skill-kw)
                  "proficiency"
                  ~conditions))
 

@@ -1273,13 +1273,14 @@
  :<- [::char5e/monster-sort-criteria]
  :<- [::char5e/monster-sort-direction]
  (fn [[monsters sort-criteria sort-direction]]
-   (let [comparator (if (= sort-direction "asc") compare #(compare %2 %1))]
+   (let [comparator (if (= sort-direction "asc") common/safe-compare #(common/safe-compare %2 %1))]
      (case sort-criteria
        "name" (sort-by :name comparator monsters)
        "cr" (sort-by :challenge comparator monsters)))))
 
 (defn all-subtypes-removed? [subtypes hidden-subtypes]
-  (and (seq subtypes)
+  (and (coll? subtypes)
+       (seq subtypes)
        (seq hidden-subtypes)
        (->> subtypes
             (remove
@@ -1290,10 +1291,11 @@
   (let [lower-case-filter-text (s/lower-case filter-text)]
     (filter
       (fn [{:keys [name type subtypes size]}]
+        ;; looked up, not called: a size or type that is not a keyword must not break the list
         (and (or (< (count filter-text) 3)
-                 (s/includes? (s/lower-case name) lower-case-filter-text))
-             (not (or (-> monster-filters :size size)
-                      (-> monster-filters :type type)
+                 (and (string? name) (s/includes? (s/lower-case name) lower-case-filter-text)))
+             (not (or (get (:size monster-filters) size)
+                      (get (:type monster-filters) type)
                       (all-subtypes-removed? subtypes (:subtype monster-filters))))))
       monsters)))
 

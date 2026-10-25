@@ -54,7 +54,9 @@ into every field of every content type, by every way in, to prove it (docs/HOMEB
   disappears without a word; it is set aside for repair.
 - **Homebrew:** a feat whose ability score increases were stored as a list no longer breaks its
   builder.
-- **Homebrew:** a homebrew pact boon or eldritch invocation that was renamed, or given a new key
-  on import to settle a conflict, stays picked on the warlocks that chose it.
+- **Homebrew:** a homebrew subrace, pact boon or eldritch invocation that was renamed, or given a
+  new key on import to settle a conflict, stays picked on the characters that chose it.
+- **Homebrew:** a background, feat or class granting a skill that does not exist no longer stops
+  the character options from loading.
 
 ## Security
