@@ -78,9 +78,15 @@ file defaults `support-email` to `thDM@dungeonmastersvault.com` while its `.env.
 - **The report is saved** to `startup-report.txt` beside the crash files and ends with the line
   naming it; **`./run` prints it last** after starting Compose or Swarm, reading only log lines
   since the start (`scripts/startup-report.sh`, `test-startup-report.sh`).
-- **Next, not built yet:** classes per setting (required, recommended, tuning) and the startup
-  email (problems, then new settings, then "Worth setting"; once per release, again when the list
-  changes, a 7-day reminder for problems only; remembers names and states, never values).
+- **The startup email, built 2026-10-24** (`orcpub.startup-email`, called from
+  `orcpub.pedestal/boot-report!` on its own thread). Classes per setting in
+  `config/setting-classes` (owner checked the list; move any later). Sections: NEEDS FIXING
+  (required missing, ignored values, state inside the container), NEW IN <release> (required and
+  recommended as a table, tuning ones named on one wrapped line), WORTH SETTING (recommended,
+  unset, not new), a count of tuning defaults, the admin address. Sent through
+  `alerts/raise-current!`: on a release's first start, again when problem keys or unset names
+  change, one reminder after 7 days for problems only. Memory: `startup-email.edn` beside the
+  startup report, names and states only (`the-memory-keeps-names-not-values`).
 
 ### Future improvement: a Discord webhook as a second channel
 
