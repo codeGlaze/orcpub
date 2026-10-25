@@ -2884,7 +2884,7 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** 2026-10-24, admin, alert, alerts, artist, database, discord, email, emails, mail, outbox, sent, settings, spool, stage, swarm, webhook, worker
+**topics:** 2026-10-24, admin, alert, alerts, artist, channel, database, discord, email, emails, mail, outbox, sent, settings, spool, swarm, webhook, worker
 
 - The problem
 - Two kinds of email

@@ -116,7 +116,12 @@ Where it differs from open5e's own fields, and why ours is right (`--report` lis
   objects' table; a distance formula). Animate Objects' attack table is a gap here, not yet data.
 
 Found on the way: **Branding Smite's app text is a PHB summary** (`:source :phb`, 7 others carry it too),
-not the SRD's, and lacks its At Higher Levels line; the test skips it by name until that is decided.
+not the SRD's, and lacks its At Higher Levels line; the test skips it by name. **Already decided**
+(srd-2024-roadmap.md): such summaries move to the spell's `:summary` field and the SRD text takes
+`:description`. Waits for Stage 1's spell text, because `spell-component` (`views.cljs:1626`) shows
+`:summary` only when there is no description, so a summary moved now would vanish. The seven SRD
+spells: Animal Friendship, Branding Smite, Compulsion, Counterspell, Goodberry, Guardian of Faith,
+Vicious Mockery. Hunter's Mark is also `:source :phb` but is not an SRD spell, so it keeps its text.
 Chain Lightning's extra bolt per slot is a target count, not yet data.
 
 ## What verifying open5e's spells taught us (2026-10-13)
