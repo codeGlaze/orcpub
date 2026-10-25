@@ -194,6 +194,24 @@
    [".app.light-theme .cast-level.on" ".app.light-theme .cast-spell-pick.on" {:color "#33658A" :border-color "#33658A"
                                                                              :background-color "rgba(51,101,138,.12)"}]
 
+;; the floating Rest button and the box it opens (views/rest_controls.cljs rest-fab)
+   [:.rest-fab {:position :fixed :right "12px" :bottom "16px" :z-index 160 :width "56px" :height "56px"
+                :border-radius "28px" :border :none :color :white :cursor :pointer :font-size "20px"
+                :box-shadow "0 3px 10px rgba(0,0,0,.45)" :background-image "linear-gradient(to bottom,#f1a20f,#dbab50)"}]
+   [:.rest-fab-dim {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 170 :background "rgba(0,0,0,.45)"}]
+   [:.rest-fab-dim.clear {:background :none}]
+   [:.rest-fab-sheet {:position :fixed :left 0 :right 0 :bottom 0 :z-index 180 :background-color "#2c3445"
+                      :border-radius "12px 12px 0 0" :box-shadow "0 -6px 20px rgba(0,0,0,.35)" :padding "8px 12px 16px"}]
+   [:.rest-fab-card {:position :fixed :right "16px" :bottom "84px" :z-index 180 :width "max-content" :min-width "330px" :max-width "calc(100% - 32px)"
+                     :box-sizing :border-box :background-color "#2c3445" :border "1px solid rgba(255,255,255,.14)"
+                     :border-radius "8px" :box-shadow "0 8px 24px rgba(0,0,0,.45)" :padding "8px 10px 10px"}]
+   [:.rest-fab-handle {:width "36px" :height "4px" :border-radius "2px" :background "rgba(255,255,255,.5)" :margin "0 auto 2px"}]
+   [".rest-fab-sheet .rest-box" ".rest-fab-card .rest-box" {:background :none :border 0 :padding 0 :margin 0}]
+   ["body:has(.rest-fab-slot) .import-log-button" {:bottom "84px"}]
+   [".app.light-theme .rest-fab" {:background-image "linear-gradient(to bottom,#33658A,#33658A)"}]
+   [".app.light-theme .rest-fab-sheet" ".app.light-theme .rest-fab-card" {:background-color "#fff" :color "#363636"}]
+   [".app.light-theme .rest-fab-card" {:border-color "rgba(0,0,0,.14)"}]
+   [".app.light-theme .rest-fab-handle" {:background "rgba(0,0,0,.4)"}]
 ;; the Rest box, first on the Features tab (views.cljs rest-box; handoff-rest-controls.md)
    [:.rest-box {:background "rgba(0,0,0,.18)" :border "1px solid rgba(255,255,255,.14)" :border-radius "6px"
                 :padding "8px 10px 10px" :margin "8px 0 16px"}]
@@ -244,7 +262,9 @@
                                               :color "rgba(0,0,0,.38)"}]
 
    ;; the item builder's Charges group (views/charges_builder.cljs)
-   [:.item-charges-field {:margin "0 10px 10px 0" :min-width "160px"}]
+   [:.item-charges-field {:margin "0 10px 10px 0"}]
+   [:.item-charges-field.charges-count {:width "76px"}]
+   [:.item-charges-field.charges-regains {:width "96px"}]
    [:.item-cast-row {:padding "8px 0" :border-bottom "1px solid rgba(255,255,255,.12)"}]
    [:.item-cast-spell {:flex "1 1 200px" :margin-right "10px"}]
    [:.item-cast-number {:width "86px" :margin-right "8px"}]

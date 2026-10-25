@@ -52,7 +52,9 @@
  ::mi/set-item-charges-regain
  events/item-interceptors
  (fn [item [_ text]]
-   (if (s/blank? text) (dissoc item ::mi/charges-regain) (assoc item ::mi/charges-regain (s/trim text)))))
+   (if (or (s/blank? text) (= "all" (s/lower-case (s/trim text))))
+     (dissoc item ::mi/charges-regain)
+     (assoc item ::mi/charges-regain (s/trim text)))))
 
 (reg-event-db
  ::mi/add-item-cast
@@ -72,12 +74,12 @@
  (fn [item [_ i k v spell-level]] (set-cast item i k v spell-level)))
 
 (def recharge-options
-  "The times a builder item's charges can come back, as dropdown items."
+  "The times a builder item's charges can come back, as dropdown items (handoff section 7)."
   [{:value "" :title "Never"}
-   {:value (name ::units5e/dawn) :title "At dawn"}
-   {:value (name ::units5e/dusk) :title "At dusk"}
-   {:value (name ::units5e/short-rest) :title "After a short rest"}
-   {:value (name ::units5e/long-rest) :title "After a long rest"}])
+   {:value (name ::units5e/short-rest) :title "Short rest"}
+   {:value (name ::units5e/long-rest) :title "Long rest"}
+   {:value (name ::units5e/dawn) :title "Dawn"}
+   {:value (name ::units5e/dusk) :title "Dusk"}])
 
 (defn- part-text
   "One damage or healing part as text: \"8d6 fire\", \"1d8 + modifier\", \"2d8 fire or cold\"."
@@ -144,19 +146,20 @@
     [:div.m-b-40.item-charges-builder
      [:div.m-b-10 [:span.f-s-24.f-w-b "Charges"]]
      [:div.flex.flex-wrap
-      [:div.item-charges-field
+      [:div.item-charges-field.charges-count
        [input-builder-field "Charges" (or charges charges-start)
-        #(dispatch [::mi/set-item-charges %]) {:class "input" :placeholder "7, or 1d8+1"}]
+        #(dispatch [::mi/set-item-charges %]) {:class "input"}]
        (when bad-start? [:div.item-cast-hint.red "Type a number, or dice like 1d8+1"])]
       (when (or charges charges-start)
         [:div.item-charges-field
-         (base-builder-field "Recharge" [dropdown {:items recharge-options
+         (base-builder-field "Recharges at" [dropdown {:items recharge-options
                                                    :value (some-> charges-recharge name)
                                                    :on-change #(dispatch [::mi/set-item-charges-recharge %])}])])
       (when charges-recharge
-        [:div.item-charges-field
-         [input-builder-field "Regains" charges-regain #(dispatch [::mi/set-item-charges-regain %])
-          {:class "input" :placeholder "All, or 1d6+1"}]])]
+        [:div.item-charges-field.charges-regains
+         [input-builder-field "Regains" (or charges-regain "all") #(dispatch [::mi/set-item-charges-regain %])
+          {:class "input"}]])]
+     [:div.item-cast-hint "An item that recharges at dawn or dusk adds the time-of-day toggle to the character's Rest box."]
      (when (or charges charges-start)
        [:div.m-t-10
         [:div.f-w-b.m-b-5 "Spells it casts"]

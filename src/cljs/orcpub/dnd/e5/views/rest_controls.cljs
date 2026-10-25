@@ -132,3 +132,27 @@
          (cond
            result [rest-result-line id result]
            hint [:div.rest-line.hint {:role "status"} hint])]))))
+
+(defn rest-fab
+  "The floating Rest button (handoff-rest-controls.md, D1 and section 9) for character `id` on sheet
+  tab `tab`: opens the Rest box as a bottom sheet on phones, a popover elsewhere. Hidden on the
+  Features tab, which shows the box itself. While the box asks about dawn or dusk it stays open."
+  []
+  (let [open? (r/atom false)]
+    (fn [id tab]
+      (let [asking? (let [res @(subscribe [::char/rest-result])] (and (= id (:id res)) (:ask? res)))
+            mobile? @(subscribe [:mobile?])
+            close #(when-not asking? (reset! open? false))]
+        [:div.rest-fab-slot
+         (when (and @open? (not= "features" tab))
+           [:<>
+            [:div.rest-fab-dim {:class (when-not mobile? "clear") :on-click close}]
+            [:div {:class (if mobile? "rest-fab-sheet" "rest-fab-card")
+                   :role "dialog" :aria-modal "true" :aria-label "Rest"}
+             (when mobile? [:div.rest-fab-handle])
+             [rest-box id]]])
+         (when (not= "features" tab)
+           [:button.rest-fab
+            {:type "button" :aria-label "Rest" :aria-expanded (str @open?)
+             :on-click #(if @open? (close) (reset! open? true))}
+            [:i.fas {:class (if (and @open? (not asking?)) "fa-times" "fa-bed") :aria-hidden true}]])]))))

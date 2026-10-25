@@ -1393,6 +1393,22 @@
   [ds]
   (.stringify js/JSON (clj->js ds) nil 2))
 
+(defonce cast-inline-on-phones
+  ;; Developer mode setting: open item casting under the item on phones, as on a desktop.
+  (r/atom (try (= "1" (.getItem js/localStorage "orcpub:cast-inline")) (catch :default _ false))))
+
+(defn toggle-cast-inline!
+  "Flips the cast-inline-on-phones setting and remembers it on this device."
+  []
+  (swap! cast-inline-on-phones not)
+  (try (.setItem js/localStorage "orcpub:cast-inline" (if @cast-inline-on-phones "1" "0")) (catch :default _ nil)))
+
+(defn cast-as-sheet?
+  "Whether the cast panel opens as a bottom sheet: on phones, unless Developer mode's
+  cast-inline-on-phones setting is on."
+  []
+  (and @(subscribe [:mobile?]) (not @cast-inline-on-phones)))
+
 (defn debug-data []
   (let [expanded? (r/atom false)]
     (fn []
@@ -1412,6 +1428,7 @@
            {:on-click (make-event-handler ::e5/toggle-dev-mode)}
            "Developer mode"]]
          (when dev?
+          [:<>
            [:div.dev-mode-tools
             [:span.dev-mode-tool
              {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
@@ -1422,7 +1439,12 @@
              {:on-click #(swap! expanded? not)
               :title "Browser and build details, for a bug report"}
              [:i.fa.fa-bug.m-r-5 {:class (when @expanded? "white")}]
-             "Debug info"]])
+             "Debug info"]]
+           [:div.dev-mode-row
+            [:span.dev-mode-switch.compact
+             (merge (switch-attrs @cast-inline-on-phones toggle-cast-inline!)
+                    {:class (when @cast-inline-on-phones "on") :on-click toggle-cast-inline!})]
+            [:span.dev-mode-label {:on-click toggle-cast-inline!} "Open item casting under the item on phones"]]])
          ;; One box, not the two identical ones that were here: the same map was
          ;; rendered twice, once with str and once with clj->json.
          (when (and dev? @expanded?)
@@ -4366,7 +4388,7 @@
   carried entry). Returns a seq of hiccup rows."
   [id expanded-details cast-open magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
   (let [magic-item-map @(subscribe [::mi/all-magic-items-map])
-        mobile? @(subscribe [:mobile?])]
+        mobile? (cast-as-sheet?)]
     (mapcat
      (fn [[item-kw item-cfg]]
        (let [{:keys [::mi/name ::mi/type ::mi/item-subtype ::mi/rarity ::mi/attunement ::mi/description ::mi/summary] :as item} (magic-item-map item-kw)
@@ -4826,7 +4848,7 @@
   []
   (let [open (r/atom nil)]
     (fn [id]
-      (let [mobile? @(subscribe [:mobile?])
+      (let [mobile? (cast-as-sheet?)
             items-by-key @(subscribe [::mi/all-magic-items-map])
             spells-map @(subscribe [::spells/spells-map])
             your-dc (best-spell-save-dc @(subscribe [::char/spell-modifiers id]))
@@ -5220,6 +5242,7 @@
             [error-boundary
              (fn [error stack retry] [feature-render-error (s/capitalize tab) id error stack retry])
              [(-> tab details-tabs :view) num-columns id]]]]
+          [rest-controls/rest-fab id tab]
           [:div.p-10
            [:span.orange.underline.pointer
             {:on-click #(swap! show-selections? not)}
