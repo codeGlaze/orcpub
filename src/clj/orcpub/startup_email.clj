@@ -83,15 +83,17 @@
     (for [r rows]
       (str/trimr (format (str "  %-" w "s   %-" v "s   %s") (:var r) (shown r) (or (:note r) ""))))))
 
-(defn- wrapped-names
-  "`names` comma-separated after `lead`, wrapped into lines of at most 100 characters."
-  [lead names]
-  (reduce (fn [lines nm]
-            (let [joined (str (peek lines) (if (= lead (peek lines)) " " ", ") nm)]
-              (if (<= (count joined) 100)
-                (conj (pop lines) joined)
-                (conj (pop lines) (str (peek lines) ",") (str "    " nm)))))
-          [lead] names))
+(defn- by-area
+  "`rows` one per line under their area heading (the row's :group, capitalised), in the order the
+   areas first appear: the name, then its note, aligned."
+  [rows]
+  (let [w (apply max 0 (map (comp count :var) rows))]
+    (mapcat (fn [[area rs]]
+              (cons (str "    " (str/capitalize (or area "other")))
+                    (for [r rs] (str/trimr (format (str "      %-" w "s   %s") (:var r) (or (:note r) ""))))))
+            (let [order (distinct (map :group rows))
+                  groups (group-by :group rows)]
+              (map (juxt identity groups) order)))))
 
 (defn email
   "The email for `summary`, as {:subject :body}. Opts: `:app-name`, `:release`, and `:admin`, the
@@ -108,7 +110,7 @@
                         [quiet loud] ((juxt filter remove) #(and (tuning? %) (not (:ignored? %))) fresh)]
                     (concat [(str "NEW IN THE " (str/upper-case release))]
                             (table loud)
-                            (when (seq quiet) (wrapped-names "  Also new, fine at their defaults:" (map :var quiet)))
+                            (when (seq quiet) (cons "  Also new, fine at their defaults:" (by-area quiet)))
                             [""])))
                 (when (seq worth)
                   (concat ["WORTH SETTING"] (table worth) [""]))
