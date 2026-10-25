@@ -87,7 +87,7 @@ per slot or character level, most repeating the parent with one dice string chan
 part of it (damage, types, save, attack, area, scaling) as compact EDN is **about 9 KB** for 167
 spells; 152 spells carry no rolling data. Scaling: 37 spells follow one rule per slot level ("+1d4 per
 slot level"), 2 need a per-slot table, and cantrips repeat the standard 5th/11th/17th step as 16 rows
-each. Proposed shape (owner asked for efficiency, 2026-10-24; not yet agreed):
+each. **Shape agreed by the owner, 2026-10-24** ("sounds good"); where and when it is built is open:
 
 - only fields with a value; nothing that restates a default;
 - scaling as a rule (`:per-slot "1d4"`, a cantrip flag for the standard steps), a table only for the
