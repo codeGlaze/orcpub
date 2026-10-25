@@ -59,6 +59,19 @@ Decided 2026-10-24: old history stays, no rewrites. `feature/fighting-style-auth
 before either merges into `integration`. The other branches were cleaned 2026-10-24.
 [claude-files-in-branch-history.md](kb/claude-files-in-branch-history.md).
 
+## Post to GitHub without the Claude Code footer (owner interested, not now)
+
+Every post from a cloud session goes through Anthropic's GitHub connection, which adds the
+footer on the way out; nothing in the container can strip it (measured 2026-10-25, and the
+current "post, then edit" route is a stopgap: `docs/GIT_WORKFLOW.md`, "Removing the Claude
+Code footer"). Idea: the owner adds a fine-grained token (codeglaze/orcpub only, Issues and Pull
+requests write) as an environment secret, `ORCPUB_POST_TOKEN`, which survives container
+reclaims; an agent-facing `scripts/gh-post.sh` on agents/develop creates and edits PR bodies,
+comments and review replies straight against `api.github.com` (reachable from the container,
+HTTP 200). First step: check a direct post comes out clean. Alternative: a GitHub Action that
+posts for agents, but that is a fork-only workflow in `develop`'s history and posts as
+`github-actions[bot]`.
+
 ## Homebrew fighting-style authoring — never wired (refactor follow-up)
 
 **Status:** Open — a deliberate loose end left mid-refactor.
