@@ -82,7 +82,8 @@ file defaults `support-email` to `thDM@dungeonmastersvault.com` while its `.env.
   `orcpub.pedestal/boot-report!` on its own thread). Classes per setting in
   `config/setting-classes` (owner checked the list; move any later). Sections: NEEDS FIXING
   (required missing, ignored values, state inside the container), NEW IN <release> (required and
-  recommended as a table, tuning ones named on one wrapped line), WORTH SETTING (recommended,
+  recommended as a table; tuning ones one per line with their note, under their area: the
+  owner rejected a comma-separated list of names as unreadable, 2026-10-24), WORTH SETTING (recommended,
   unset, not new), a count of tuning defaults, the admin address. Sent through
   `alerts/raise-current!`: on a release's first start, again when problem keys or unset names
   change, one reminder after 7 days for problems only. Memory: `startup-email.edn` beside the
