@@ -2636,9 +2636,12 @@
 (defn pact-boon-options [plugin-boons spell-lists spells-map]
  (concat
    (map
-    (fn [{:keys [name description edit-event]}]
+    ;; offered under the stored :key, not one made from the name: a renamed or conflict-tagged
+    ;; boon kept its picks only by luck. Picks of the name's key heal (items-with-formers).
+    (fn [{:keys [name key description edit-event]}]
       (t/option-cfg
        {:name name
+        :key key
         :modifiers [(mod5e/trait-cfg
                      {:name (str "Pact Boon: " name)
                       :description description})]
@@ -2684,9 +2687,11 @@
 (defn eldritch-invocation-options [plugin-invocations spell-lists spells-map]
   (concat
    (map
-    (fn [{:keys [name description]}]
+    ;; under the stored :key, as boons are
+    (fn [{:keys [name key description]}]
       (t/option-cfg
        {:name name
+        :key key
         :modifiers [(mod5e/trait-cfg
                      {:name (str "Eldritch Invocation: " name)
                       :description description})]}))

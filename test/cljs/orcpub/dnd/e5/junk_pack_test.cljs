@@ -229,8 +229,8 @@
 
 (defn- pick
   "`c` with option `k` picked wherever it is offered and not yet picked, as the builder picks it,
-   repeated so a pick that offers it again (a subrace under a race) is followed. `k` may be a set
-   of keys: boons and invocations key their option by the entry's name, not its :key."
+   repeated so a pick that offers it again (a subrace under a race) is followed. `ks`: a set of
+   keys."
   [template c ks]
   (loop [c c i 0]
     (let [[_ avail] (offered template c)
@@ -255,8 +255,7 @@
   "Pick homebrew entry `k` in `c`, build it, and draw what the builder draws under it: every
    selection whose path runs through `k`, fully realized. Throws when `k` is never offered."
   [template k c & [entry]]
-  (let [nm (:name entry)
-        ks (cond-> #{k} (string? nm) (conj (common/name-to-kw nm)))
+  (let [ks #{k}
         c (pick template c ks)
         [built avail] (offered template c)]
     (when (and k (not (some ks (tree-seq coll? seq c))))
@@ -572,8 +571,7 @@
                                                                             [t :junk-base])))]
                          [(keyword (str "junk-" (name t) "-" j "-" i)) [t p v]]))]
     {:cases cases
-     ;; the name is the key's own text, so a type that keys its options by name (boons,
-     ;; invocations) still names this entry; a junk :name stays junk
+     ;; the name is the key's own text; a junk :name stays junk
      :entries (reduce-kv (fn [m k [t p v]]
                            (assoc-in m [t k] (assoc-in (assoc (get-in @base-entries [t :junk-base])
                                                               :key k :name (name k))

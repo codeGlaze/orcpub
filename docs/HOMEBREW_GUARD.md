@@ -309,9 +309,10 @@ alone 0.001 ms; an event that changes one entry 0.05 ms, then its deep check 35 
   `deep-check`; HOMEBREW_REQUIRED_FIELDS.md; the browser probes.
 - **On grant-rows**: `builder_fields.cljc` and `content_types.cljc`; their schemas feed this table
   when grant-rows merges, so there is one description of a field, not two.
-- **Known, not fixed**: homebrew boons and invocations key their option by name, not their stored
-  `:key` (`pact-boon-options`, `classes.cljc`; content-extensibility-compatibility.md calls it a
-  latent footgun).
+- **Fixed here** (owner, 2026-10-25): homebrew boons and invocations keyed their option by name,
+  not their stored `:key` (`pact-boon-options`, `classes.cljc`; content-extensibility-compatibility.md
+  called it a latent footgun, as a rule for later grant work that never came). They are offered
+  under the stored key; a pick of the name's key heals to it, as a background's does.
 
 ## Order of work, each step gated
 
@@ -344,6 +345,4 @@ refactor branch (owner, 2026-10-21).
 
 - **An unreadable field**: the whole entry moves to the quarantine panel with the reason
   (owner, 2026-10-25).
-- **Boons and invocations keyed by name** (known, above): fix it here by passing the stored key?
-  Characters that picked one hold the name-derived key; where the stored key differs (a source
-  tag), they heal through `:former-keys`, the way renamed keys heal today.
+- **Boons and invocations keyed by name**: fixed here (owner, 2026-10-25), above.
