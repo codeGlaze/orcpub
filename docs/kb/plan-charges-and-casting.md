@@ -133,8 +133,20 @@ On `feature/weapons-table` (owner: "just finish building it here"):
    powers (`::mi/charge-cost`) in the builder; custom-item weapon powers are not editable at all yet.
    **Trap:** a namespace `views.item-charges` clashed with the var `views/item-charges` in compiled
    JS (a compile warning), hence the name `charges-builder`.
-8. **Later, its own step:** floating Rest button with the Import log move, Dev mode setting (handoff
-   §9-10).
+8. **Floating Rest button: done.** `ce250ecc` moves the Rest box group to `views/rest_controls.cljs`
+   (no behaviour change). `8bbac32a` `rest-fab`: 56px, bottom-right, on every sheet tab but
+   Features; a bottom sheet on phones, a popover elsewhere (its width fits the box: at the drawn
+   330px the Long button was cut off); while the box asks about dawn or dusk the dimmed page does
+   not close it. The Import log button sits at 84px whenever a sheet is on the page
+   (`body:has(.rest-fab-slot)`). Developer mode (the footer switch, per device) gains "Open item
+   casting under the item on phones" (`cast-inline-on-phones`, `cast-as-sheet?` in `views.cljs`).
+   `rest_fab_e2e.js`, 13 checks, every claim seen failing. **Not built, on purpose:** the Import log
+   dismiss control (the button already hides when its log is empty, which is what dismissing was
+   for); the "Finish long rest" Dev mode setting (handoff section 10: it ships with that button's
+   removal, D4, after the new Rest UI settles). There is no Settings page; Developer mode lives in
+   the page footer.
+   The Charges group was brought to the handoff's section 7 in the same commit ("Recharges at",
+   76px and 96px fields, "all", the helper line); step 7 had been built before reading it.
 
 On `srd52/develop`, separately: spell damage parts and casting options as data (srd-improvements.md).
 Then a cast rolls damage through the weapon roll engine.

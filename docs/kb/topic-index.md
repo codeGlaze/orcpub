@@ -1464,7 +1464,7 @@ _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
 _e2e-logged-in-sessions · e2e logged in sessions_
 
-**topics:** 2026-09-13, cljs-headless-harness, credentials, e2e-boot, fast-browser-probes, helper, journey, kaylee, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
+**topics:** 2026-09-13, 394, cljs-headless-harness, credentials, e2e-boot, fast-browser-probes, journey, kaylee, logged-in, login, scenarios, script, seeding, seeds, server, suite, suites, testing-infrastructure
 
 - The credentials
 - The one command
@@ -2795,7 +2795,7 @@ _plan-character-drafts · plan character drafts_
 
 _plan-charges-and-casting · plan charges and casting_
 
-**topics:** beads, cast, casting, charges, damage, dawn, dice, fireball, fireballs, item, phones, powers, regain, rolled, spell, spells, staff, staffs
+**topics:** beads, cast, casting, charges, damage, dawn, dice, fireball, fireballs, item, phones, powers, regain, rest, rolled, spell, spells, staff
 
 - What exists (verified)
 - The connecting idea
@@ -2982,7 +2982,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _plan-pdf-page-sizes · plan pdf page sizes_
 
-**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, border, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
+**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, border, height, inches, ink, letter, primitives, rect, spellbook, translate, widget
 
 - The problem in one paragraph
 - Order, and why this order
