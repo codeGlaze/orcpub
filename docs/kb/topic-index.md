@@ -3559,12 +3559,13 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 20d6, actions, concentration, conditions, damage, dice, editions, explosion, links, monster, monsters, open5e, previews, rules, spell, spells, srd
+**topics:** 2014, 20d6, actions, concentration, conditions, damage, data, dice, editions, explosion, links, monster, open5e, previews, rules, spell, spells, srd
 
 - How this was measured
 - What the app shows today
 - Defects in the shipped 2014 data
 - What is prose that should be data
+- Spell rolling data: open5e's size against a compact form (measured 2026-10-24)
 - What verifying open5e's spells taught us (2026-10-13)
 - Built (PR #58, 2026-10-08)
 - Built (PR #61, 2026-10-08)

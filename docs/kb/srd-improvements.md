@@ -80,6 +80,26 @@ Extends the catalogue in implementation-notes 9a with measured counts from the 2
 | monsters: senses, speed | strings ("darkvision 60 ft., passive Perception 9") | named values, so encounters can search and filter on them |
 | magic items: charges | in the description (55 items mention charges) | a resource with a recharge rule |
 
+## Spell rolling data: open5e's size against a compact form (measured 2026-10-24)
+
+open5e srd-2014: `Spell.json` 550 KB and `SpellCastingOption.json` 298 KB (1,004 rows: one per spell
+per slot or character level, most repeating the parent with one dice string changed). The rolling
+part of it (damage, types, save, attack, area, scaling) as compact EDN is **about 9 KB** for 167
+spells; 152 spells carry no rolling data. Scaling: 37 spells follow one rule per slot level ("+1d4 per
+slot level"), 2 need a per-slot table, and cantrips repeat the standard 5th/11th/17th step as 16 rows
+each. Proposed shape (owner asked for efficiency, 2026-10-24; not yet agreed):
+
+- only fields with a value; nothing that restates a default;
+- scaling as a rule (`:per-slot "1d4"`, a cantrip flag for the standard steps), a table only for the
+  irregular few;
+- damage as **parts** in the weapons' shape (dice, type, label), so several-part spells fit and the
+  weapon roll engine rolls them;
+- keyed by our spell keys, merged onto the existing spell entries at load; the text stays where it is;
+- generated from the open5e clone and checked against the SRD text (open5e's values have errors; see
+  below), one EDN file per edition (`resources/public/srd/<edition>/`, as decided).
+
+Scratch measurement: `spells-compact-2014.edn` (job scratch, not kept).
+
 ## What verifying open5e's spells taught us (2026-10-13)
 
 Checking every spell value in both editions against the SRD (open5e-upstream-notes.md, "SRD data
