@@ -424,6 +424,25 @@
      :accepts #(some-> % str/trim parse-long (>= 0)) :expects "a whole number of days, 0 or more"
      :note "days before an unused share link is deleted; 0 never"}]))
 
+(def setting-classes
+  "Each setting's class, for the startup email (`orcpub.startup-email`): :required (a public site
+   cannot run right without it), :recommended (worth setting; mentioned once), :tuning (the
+   default suits nearly everyone; only counted). Every row of `settings` has an entry."
+  (merge
+   (zipmap ["SIGNATURE" "DATOMIC_URL" "DATOMIC_PASSWORD" "EMAIL_SERVER_URL" "EMAIL_FROM_ADDRESS"]
+           (repeat :required))
+   (zipmap ["APP_URL" "PROFILE_ENCRYPTION_KEYS" "EMAIL_ACCESS_KEY" "EMAIL_SECRET_KEY" "TRUST_CLOUDFLARE"]
+           (repeat :recommended))
+   (zipmap ["PORT" "DEV_MODE" "TRUSTED_PROXIES" "CSP_POLICY" "EMAIL_SERVER_PORT" "EMAIL_SSL" "EMAIL_TLS"
+            "EMAIL_REQUIRED" "ALLOW_UNVERIFIED_REGISTRATION" "EMAIL_ERRORS_TO" "EMAIL_ADMIN_TO"
+            "ALERT_SPOOL_DIR" "ALERT_MAX_PER_HOUR" "LOAD_HOMEBREW_URL" "PORTRAIT_ARTISTS"
+            "ORCPUB_HTTP_MAX_THREADS" "ORCPUB_PDF_CONCURRENCY" "ORCPUB_PDF_QUEUE_TIMEOUT_MS"
+            "ORCPUB_PORTRAIT_CONCURRENCY" "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS" "PORTRAIT_STORE_DIR"
+            "ORCPUB_PDF_MAX_RETRIES" "ORCPUB_PDF_MAX_CASTER_SECTIONS" "ORCPUB_PDF_MAX_CARDS"
+            "ORCPUB_SHARE_MAX_UPLOAD_KB" "ORCPUB_SHARE_MAX_TEXT_KB" "ORCPUB_SHARE_MAX_ACCOUNT_KB"
+            "ORCPUB_PWNED_CHECK" "ORCPUB_SHARE_PRUNE_DAYS"]
+           (repeat :tuning))))
+
 (def ^:private tunables
   "Kept for the capacity rows' typo detection: only these parse as integers."
   (filter #(= "capacity" (:group %)) settings))
