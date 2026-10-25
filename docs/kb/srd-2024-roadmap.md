@@ -94,7 +94,8 @@ damage roll. Both are in [srd-improvements.md](srd-improvements.md), "What is pr
 data", and both serve the homebrew spell builder too.
 
 **Decided:** `e5`'s rewritten spell summaries are kept, as a separate summary field beside the SRD
-text (owner, October 2026).
+text (owner, October 2026). **On the full spell card the SRD text is shown and the summary is not,
+except as an optional section at the bottom for comparing** (owner, 2026-10-25).
 
 **When types join (owner, 2026-10-15):** a type joins the pipeline once its data is verified, not
 before. Re-running a generator is cheap, but the departure review above needs final data, so a

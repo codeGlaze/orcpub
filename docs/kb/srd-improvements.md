@@ -119,7 +119,9 @@ Found on the way: **Branding Smite's app text is a PHB summary** (`:source :phb`
 not the SRD's, and lacks its At Higher Levels line; the test skips it by name. **Already decided**
 (srd-2024-roadmap.md): such summaries move to the spell's `:summary` field and the SRD text takes
 `:description`. Waits for Stage 1's spell text, because `spell-component` (`views.cljs:1626`) shows
-`:summary` only when there is no description, so a summary moved now would vanish. The seven SRD
+`:summary` only when there is no description, so a summary moved now would vanish. At Stage 1
+the full card shows the SRD text, with the summary at most an optional section at its bottom
+(owner, 2026-10-25). The seven SRD
 spells: Animal Friendship, Branding Smite, Compulsion, Counterspell, Goodberry, Guardian of Faith,
 Vicious Mockery. Hunter's Mark is also `:source :phb` but is not an SRD spell, so it keeps its text.
 Chain Lightning's extra bolt per slot is a target count, not yet data.
