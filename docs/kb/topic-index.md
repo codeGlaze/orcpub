@@ -2134,7 +2134,7 @@ _homebrew-safety-net · homebrew safety net_
 
 _homebrew-save-rework · homebrew save rework_
 
-**topics:** address, belief, draft, four, identity, item, key-less, origin, persisted, registration, round, rounds, save, stamp, stamps, ten, thirteen, untagged
+**topics:** address, belief, blank-source, draft, four, identity, item, key-less, origin, persisted, registration, round, save, stamp, stamps, ten, thirteen, untagged
 
 - The rule, if you read nothing else
 - Why re-deriving identity cannot work
@@ -3559,7 +3559,7 @@ _srd-data-consumers · srd data consumers_
 
 _srd-improvements · srd improvements_
 
-**topics:** 2014, 20d6, actions, concentration, conditions, damage, data, dice, editions, explosion, links, monster, open5e, previews, rules, spell, spells, srd
+**topics:** 2014, 20d6, concentration, conditions, damage, data, dice, editions, explosion, magic, monster, open5e, previews, rolls, spell, spells, srd, text
 
 - How this was measured
 - What the app shows today

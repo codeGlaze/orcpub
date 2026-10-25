@@ -98,7 +98,26 @@ each. **Shape agreed by the owner, 2026-10-24** ("sounds good"); where and when 
 - generated from the open5e clone and checked against the SRD text (open5e's values have errors; see
   below), one EDN file per edition (`resources/public/srd/<edition>/`, as decided).
 
-Scratch measurement: `spells-compact-2014.edn` (job scratch, not kept).
+**Built 2026-10-24 on `feature/srd-pipeline`** (`babc8cf9`, test `2010c990`), the SRD data line, as
+the owner asked; `feature/weapons-table` takes it by cherry-pick or merge when it rolls spells.
+`resources/public/srd/2014/spell-rolls.edn`, 164 spells, 12 KB, from `scripts/srd/emit-spell-rolls.py`
+(its docstring is the format). Patterns read the text; a hand table in the script covers what they
+cannot (Prismatic Spray's colours, Storm of Vengeance's rounds, Magic Missile's darts, Spiritual
+Weapon's every-two-slots step, Flame Strike's upcast of either type). Every dice string, number, type
+and label is checked against open5e's text by the generator, and against the app's own text in
+`spells.cljc` by `srd_spell_rolls_test.clj`. Not loaded by the app yet.
+
+Where it differs from open5e's own fields, and why ours is right (`--report` lists them):
+- Earthquake: open5e's save is the Constitution save that breaks concentration; the damage (5d6, half
+  on a success) comes with the Dexterity save.
+- Symbol: open5e's save is Insanity's (Intelligence); the damaging glyph, Death, is Constitution.
+- Spirit Guardians and Fire Shield: one type, the caster's choice, not two parts.
+- Animate Objects and Etherealness: open5e lists damage types with no roll the caster makes (the
+  objects' table; a distance formula). Animate Objects' attack table is a gap here, not yet data.
+
+Found on the way: **Branding Smite's app text is a PHB summary** (`:source :phb`, 7 others carry it too),
+not the SRD's, and lacks its At Higher Levels line; the test skips it by name until that is decided.
+Chain Lightning's extra bolt per slot is a target count, not yet data.
 
 ## What verifying open5e's spells taught us (2026-10-13)
 
