@@ -53,6 +53,7 @@
                                                         base-builder-field builder-field
                                                         input-builder-field textarea-field
                                                         number-field]]
+            [orcpub.dnd.e5.views.charges-builder :as charges-builder]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
@@ -9794,6 +9795,7 @@
        [:div.m-b-40 [base-weapon-selector]])
      [:div.m-b-40
       [attunement-selector attunement]]
+     [charges-builder/charges-group item]
      [item-bonuses item]]))
 
 (defn import-file [e]

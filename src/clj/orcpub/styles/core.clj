@@ -243,6 +243,14 @@
    [".app.light-theme .rest-now.unavailable" {:background-image "linear-gradient(rgba(0,0,0,.08), rgba(0,0,0,.08))"
                                               :color "rgba(0,0,0,.38)"}]
 
+   ;; the item builder's Charges group (views/charges_builder.cljs)
+   [:.item-charges-field {:margin "0 10px 10px 0" :min-width "160px"}]
+   [:.item-cast-row {:padding "8px 0" :border-bottom "1px solid rgba(255,255,255,.12)"}]
+   [:.item-cast-spell {:flex "1 1 200px" :margin-right "10px"}]
+   [:.item-cast-number {:width "86px" :margin-right "8px"}]
+   [:.item-cast-remove {:margin-bottom "8px"}]
+   [:.item-cast-hint {:font-size "12px" :opacity 0.8 :margin-top "2px"}]
+   [".app.light-theme .item-cast-row" {:border-bottom-color "rgba(0,0,0,.12)"}]
    ;; an item's charges under its name (views.cljs item-charges)
    [:.item-charges {:margin-top "4px" :font-weight :normal :font-size "12px"}]
    [:.item-charges-line {:display :flex :align-items :center :gap "6px" :flex-wrap :wrap :min-height "22px"}]

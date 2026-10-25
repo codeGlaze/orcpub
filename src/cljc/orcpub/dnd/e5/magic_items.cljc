@@ -182,7 +182,12 @@
                    ::magical-damage-bonus
                    ::owner
                    ::subtypes
-                   ::attunement]))
+                   ::attunement
+                   ::charges
+                   ::charges-start
+                   ::charges-recharge
+                   ::charges-regain
+                   ::casts]))
 
 (spec/def ::internal-magic-item
   (spec/keys :opt [::name
@@ -357,6 +362,11 @@
                     ::magical-attack-bonus
                     ::magical-ac-bonus
                     ::modifiers
+                    ::charges
+                    ::charges-start
+                    ::charges-recharge
+                    ::charges-regain
+                    ::casts
                     ::weapons5e/type
                     ::weapons5e/damage-type
                     ::weapons5e/damage-die-count

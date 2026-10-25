@@ -387,11 +387,14 @@
     [::mi5e/name
      ::mi5e/owner
      ::mi5e/description
-     ::mi5e/string-arg])
+     ::mi5e/string-arg
+     ::mi5e/charges-start
+     ::mi5e/charges-regain])
    (map
     many-ref-no-history
     [::mod/args
-     ::mi5e/modifiers])
+     ::mi5e/modifiers
+     ::mi5e/casts])
    (map
     many-kws-no-history
     [::mi5e/subtypes
@@ -401,13 +404,21 @@
     [::mod/int-arg
      ::mi5e/magical-damage-bonus
      ::mi5e/magical-attack-bonus
-     ::mi5e/magical-ac-bonus])
+     ::mi5e/magical-ac-bonus
+     ::mi5e/charges
+     ::mi5e/cast-level
+     ::mi5e/cast-cost
+     ::mi5e/cast-per-level
+     ::mi5e/cast-max-level
+     ::mi5e/save-dc])
    (map
     kw-prop-no-history
     [::mod/key
      ::mod/keyword-arg
      ::mi5e/type
-     ::mi5e/rarity])))
+     ::mi5e/rarity
+     ::mi5e/charges-recharge
+     ::mi5e/cast-spell])))
 
 (def weapon-schema
   (concat
