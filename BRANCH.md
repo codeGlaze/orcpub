@@ -44,7 +44,7 @@ carries live state.*
   them). Measured detail: the Advanced plan refills 10 reviews an hour
   below 50 in its rolling window and 1 an hour at 80+ (1 an hour on 2026-10-21); Greptile's trial is
   out of credits; plain `@coderabbitai review` works only while automatic reviews are paused
-  (checked 2026-10-16 on #64); `.coderabbit.yaml` auto-reviews PRs into `develop` and `integration`. Source: docs.coderabbit.ai/management/rate-limits.
+  (checked 2026-10-16 on #64); `.coderabbit.yaml` turns automatic reviews off (#73). Source: docs.coderabbit.ai/management/rate-limits.
 - **In flight** (checked 2026-10-23; this list goes stale, so before starting anything also check
   `git branch -r` and the open PRs):
   - Open PRs into `integration`: #63 `refactor/pdf-canvas`, #66 `test/page-load-budget`,

@@ -72,11 +72,10 @@ git worktree remove "$D"                                   # when the branch is 
 
 ### CodeRabbit
 
-- **When it reviews by itself:** once, when a PR into `integration` or `develop` is first opened as
-  ready. It skips drafts and does not review later pushes on its own (`.coderabbit.yaml`:
-  `auto_review`, `auto_incremental_review: false`; docs.coderabbit.ai/configuration/auto-review).
-  The docs do not say whether marking a draft ready starts a review: if 10 minutes later there is no
-  CodeRabbit comment and no in-progress status on the PR, ask.
+- **It never reviews on its own** (`.coderabbit.yaml`: `auto_review.enabled: false`, #73). It reads
+  that file from the PR's own branch, so a branch cut before #73 merged keeps the older setting and
+  is reviewed when its PR opens. Pause such a PR with `@coderabbitai pause` (a command, not a
+  review); #63, #66, #69 and #70 were paused on 2026-10-25.
 - **Asking:** a `@coderabbitai full review` comment on the PR. Plain `@coderabbitai review` has
   answered "Review failed" on PRs into `integration` (it worked only while automatic reviews were
   paused; checked 2026-10-16 on #64).

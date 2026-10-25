@@ -82,10 +82,9 @@ approved for you by name, and `agents/develop`.
   actionable comment is either fixed by a later push that does nothing else, with a reply on its
   thread naming the fixing commit, or answered on its thread.
 - **CodeRabbit reviews are scarce: request one on purpose.** All agents and the owner share one
-  allowance (every agent pushes as codeGlaze; no paid overage). It reviews a PR once by itself, when
-  it is first opened as ready, and never again on its own; for a PR opened as a draft, see
-  `docs/GIT_WORKFLOW.md`, "CodeRabbit". After pushes that
-  change behaviour the last review did not see, batch them and ask once; a push that only fixes the
+  allowance (every agent pushes as codeGlaze; no paid overage). It never reviews on its own: when
+  the PR is ready, ask once with `@coderabbitai full review`. After pushes that change behaviour
+  the last review did not see, batch them and ask once; a push that only fixes the
   last review's comments needs none; after asking, do not push until the review posts. How to ask
   and what to expect: `docs/GIT_WORKFLOW.md`, "CodeRabbit".
 - **Fork-only files** may live on our `develop` and are removed before any PR to `Orcpub/orcpub`.
