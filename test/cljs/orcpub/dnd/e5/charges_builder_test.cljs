@@ -30,4 +30,5 @@
          (cb/roll-hint {:damage [{:dice "1d4 + 1" :type :force}] :count {:n 3 :per-slot 1}} 1)))
   (is (= "1d8 force + modifier · Melee spell attack · +1d8 per 2 levels above 2nd"
          (cb/roll-hint {:attack :melee :damage [{:dice "1d8" :type :force :mod? true :per-slot "1d8" :slot-step 2}]} 2)))
-  (is (nil? (cb/roll-hint {:save :wis} 1)) "a save with no roll says nothing"))
+  (is (nil? (cb/roll-hint {:save :wis} 1)) "a save with no roll says nothing")
+  (is (nil? (cb/roll-hint nil nil)) "a cast with no spell chosen yet, or a spell with no rolling data"))
