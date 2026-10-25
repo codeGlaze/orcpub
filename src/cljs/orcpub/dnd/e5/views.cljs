@@ -49,6 +49,10 @@
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
+            [orcpub.dnd.e5.views.builder-fields :refer [event-value dropdown labeled-dropdown
+                                                        base-builder-field builder-field
+                                                        input-builder-field textarea-field
+                                                        number-field]]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
@@ -89,9 +93,6 @@
   (merge
    input-style
    {:border-color "rgba(72,72,72,0.37)"}))
-
-(defn event-value [e]
-  (.. e -target -value))
 
 (defn set-value [atom key e]
   (swap! atom assoc key (event-value e)))
@@ -2788,35 +2789,6 @@
                       {:on-click #(dispatch [::char/toggle-spell-slot-used id level i])}
                       (comps/checkbox @(subscribe [::char/spell-slot-used? id level i]) false)]))]])
               spell-slots))])]))))
-
-(defn dropdown [{:keys [items value on-change]}]
-  ;; Dedup items by :value as a safety net — duplicate option values from
-  ;; homebrew plugins can slip through if imported before dedup was added.
-  (let [unique-items (->> items
-                          (reduce (fn [{:keys [seen result]} item]
-                                    (let [v (:value item)]
-                                      (if (contains? seen v)
-                                        {:seen seen :result result}
-                                        {:seen (conj seen v) :result (conj result item)})))
-                                  {:seen #{} :result []})
-                          :result)]
-    [:select.builder-option.builder-option-dropdown.m-t-0
-     {:value (or value "")
-      :on-change #(on-change (event-value %))}
-     (doall
-      (map-indexed
-       (fn [i {:keys [value title disabled?]}]
-         ^{:key (str i "-" (or value title))}
-         [:option.builder-dropdown-item
-          (cond-> {:value value}
-            disabled? (assoc :disabled true))
-          title])
-       unique-items))]))
-
-(defn labeled-dropdown [label cfg]
-  [:div
-   [:div.f-w-b.m-b-5 label]
-   [dropdown cfg]])
 
 (defn button-roll-fn [message roll]
   (fn [e]
@@ -5993,20 +5965,6 @@
       [item-component item]
       ]]))
 
-(defn base-builder-field [name comp]
-  [:div.field.main-text-color.m-t-0
-   [:div.personality-label.f-s-16 name]
-   comp])
-
-(defn builder-field [el-type name value on-change attrs & [children]]
-  (base-builder-field
-   name
-   [comps/input-field
-    el-type
-    value
-    on-change
-    attrs]))
-
 ;; dead — zero callers
 #_(defn select-builder-field [name value on-change children]
   (base-builder-field
@@ -6015,28 +5973,6 @@
             [:option {:value :none}
              "None"]]
      children (concat children))))
-
-(defn input-builder-field [name value on-change attrs]
-  [builder-field :input name value on-change attrs])
-
-(defn textarea-field [{:keys [value on-change]}]
-  [comps/input-field
-   :textarea
-   value
-   on-change
-   {:class-name "input"
-    :maxLength (:notes branding/field-limits)}])
-
-(defn number-field [{:keys [value on-change]}]
-  [comps/input-field
-   :input
-   value
-   (fn [v]
-     (on-change
-      (when (re-matches #"\d+" v) (js/parseInt v))))
-   {:class "input"
-    :type :number
-    :maxLength (:number branding/field-limits)}])
 
 (defn attunement-value [attunement key name]
   [:div
