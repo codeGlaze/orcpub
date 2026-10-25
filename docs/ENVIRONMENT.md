@@ -269,7 +269,13 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 ### Admin alerts
 
 When something goes wrong on the server, an alert is written to the server log and emailed to
-the admin address: `EMAIL_ERRORS_TO`, else `EMAIL_ADMIN_TO`, else `APP_SUPPORT_EMAIL`. Alerts are built to keep working when the rest of the site is struggling:
+the admin address: `EMAIL_ERRORS_TO`, else `EMAIL_ADMIN_TO`, else `APP_SUPPORT_EMAIL`.
+
+The same address gets a **startup email** when the server first starts on a new release: what
+needs fixing, this release's new settings, and the settings worth setting. It is sent again only
+when that list changes, plus one reminder after a week while something still needs fixing. The
+server remembers what it sent in `startup-email.edn` beside the startup report (setting names
+only, never values). Alerts are built to keep working when the rest of the site is struggling:
 they never use the database, and sending one never slows down the request that hit the error.
 
 - **One email per problem.** The first time an error happens it is emailed straight away. If the

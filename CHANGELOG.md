@@ -15,6 +15,7 @@ House style and the branch → release fold: [`docs/branch-changelog.template.md
 Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use and given a portrait drawn from an illustrator's layered art, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read.
 
 ### Added
+- **Server:** a startup email to the admin on each new release: what needs fixing, the release's new settings, and those worth setting; sent again only when that changes, with one reminder a week later while something still needs fixing.
 - **Server:** the startup report is saved to `startup-report.txt` beside the crash files (`/var/log/orcpub` on Docker), and `./run` prints it as the last thing after starting the server.
 - **Server:** `./run --upgrade` and `./run --check` say what the release changes for your install: only what needs doing on screen, the full notes in `logs/upgrade-report.txt`. Datomic logs the addresses it gives the app when it starts, and the app's startup report has a DEPLOYMENT block: where crash files and alerts are kept (with the mount to add when they are inside the container) and this release's deployment changes, for installs that do not use `./run`.
 

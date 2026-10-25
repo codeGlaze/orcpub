@@ -88,7 +88,9 @@
   [lead names]
   (reduce (fn [lines nm]
             (let [joined (str (peek lines) (if (= lead (peek lines)) " " ", ") nm)]
-              (if (<= (count joined) 100) (conj (pop lines) joined) (conj lines (str "    " nm)))))
+              (if (<= (count joined) 100)
+                (conj (pop lines) joined)
+                (conj (pop lines) (str (peek lines) ",") (str "    " nm)))))
           [lead] names))
 
 (defn email
