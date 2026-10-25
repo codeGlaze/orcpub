@@ -8,6 +8,10 @@
 name: Heavy Docker checks
 
 on:
+  # TEMPORARY: one run on this branch, which cannot start it by hand until it is on the default
+  # branch. Removed after that run.
+  push:
+    branches: [feature/email-and-alerts]
   workflow_dispatch:
   pull_request:
     branches: [develop, integration]
