@@ -91,7 +91,7 @@
   "What a spell rolls, in one line, from its rolling data `r` (spell-rolls.edn) and its `level`:
   \"8d6 fire · Dex save, half on success · +1d6 per level above 3rd\". Nil when it rolls nothing."
   [r level]
-  (let [parts (concat (:damage r) (keep r [:heal :temp-hp]))
+  (let [parts (concat (:damage r) (keep #(get r %) [:heal :temp-hp]))
         scaling (some :per-slot parts)
         step (some :slot-step parts)]
     (when (seq parts)
