@@ -76,12 +76,18 @@
     (is (str/includes? body "ALERT_MAX_PER_HOUR=lots was ignored"))
     (is (not (str/includes? body "hunter2")) "never a secret's value")
     (is (str/includes? body "1 tuning setting at its default"))
-    (testing "a new setting whose default suits nearly everyone is named, not tabled"
-      (let [{body2 :body} (se/email (se/summary [(row "ORCPUB_PWNED_CHECK" :since config/current-release :value "on")]
+    (testing "new settings whose defaults suit nearly everyone: one per line, with their note, under their area"
+      (let [{body2 :body} (se/email (se/summary [(row "ORCPUB_PWNED_CHECK" :group "runtime" :since config/current-release
+                                                      :value "on" :note "checks passwords")
+                                                 (row "ORCPUB_PDF_MAX_CARDS" :group "capacity" :since config/current-release
+                                                      :value 198 :note "cards per export")]
                                                 {:sender-ok? true :deployment-problems []})
-                                    {:app-name "V" :release config/current-release})]
-        (is (str/includes? body2 "Also new, fine at their defaults: ORCPUB_PWNED_CHECK") body2)
-        (is (not (str/includes? body2 "on (default)")) body2)))))
+                                    {:app-name "V" :release config/current-release})
+            lines (str/split-lines body2)]
+        (is (some #(re-matches #"      ORCPUB_PWNED_CHECK +checks passwords" %) lines) body2)
+        (is (some #(= "    Runtime" %) lines) body2)
+        (is (some #(= "    Capacity" %) lines) body2)
+        (is (not-any? #(re-find #"ORCPUB_PWNED_CHECK.*ORCPUB_PDF_MAX_CARDS" %) lines) "one name per line")))))
 
 (deftest the-memory-keeps-names-not-values
   (let [s (se/summary [(row "EMAIL_SERVER_URL" :raw "smtp.secret.test" :value "smtp.secret.test" :set? true)
