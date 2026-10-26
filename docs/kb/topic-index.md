@@ -376,7 +376,7 @@ _artist-links-and-referrer · artist links and referrer_
 
 _auth-state-in-app-db · auth state in app db_
 
-**topics:** 401, 669, account, deletes, env-and-auth, filtered-list-staleness, kaylee, loader, log, logged, login, merges, reframe-subscription-patterns, rejected, response, server, todo, token
+**topics:** 24-hour, 401, 669, account, deletes, env-and-auth, filtered-list-staleness, kaylee, loader, log, logged, login, merges, reframe-subscription-patterns, response, server, todo, token
 
 - The shape
 - Read the token with get-auth-token
@@ -2945,7 +2945,7 @@ _plan-inventory-kits · plan inventory kits_
 
 _plan-lookup-indexes · plan lookup indexes_
 
-**topics:** 100k, 2026-10-26, accounts, add-test-user, attribute, backfill, email, indexes, lookup-indexes, lookups, lowercase, lowercased, manage-user, old-schema, postgres, pro, re-audit, transacted
+**topics:** 2026-10-26, accounts, add-test-user, attribute, backfill, email, indexed, indexes, lookup-indexes, lookups, lowercase, lowercased, manage-user, old-schema, postgres, pro, re-audit, transacted
 
 - 1. Indexes (schema only, no data change)
 - 2. Lowercase email field
@@ -3308,7 +3308,7 @@ _save-dc-sources · save dc sources_
 
 _secrets-in-boot-output · secrets in boot output_
 
-**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, branding, credential, ex-info, find-and-replace, leak, log, logs, print, redact, rejected, settings-registry-and-boot-report, uri
+**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, branding, credential, ex-info, find-and-replace, innocuous, leak, log, logs, print, redact, settings-registry-and-boot-report, uri
 
 - It was in four places, not one
 - Redact at the boundary, and only what is logged

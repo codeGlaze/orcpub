@@ -37,6 +37,11 @@ of the attribute and fills the peer's object cache.
   `manage-user.clj` inlines the normaliser so it never depends on app code. During the first
   backfill after the upgrade (background, seconds to a minute at 100k accounts) older accounts can
   sign in by username but not by email. Tests: `user_email_test.clj`.
+- **Review rounds on #76 (2026-10-26)** hardened the backfill: it reads the missing accounts once,
+  then writes each key as `[:db/cas e :orcpub.user/email-key nil k]` (Datomic Pro accepts `nil` as
+  the expected value of a missing attribute), retrying a rejected batch one account at a time, so an
+  email change confirmed mid-backfill keeps its own key. Until an account has its key, email lookups
+  also match the stored address exactly (indexed), so only older mixed-case addresses wait for it.
 
 - New attribute `:orcpub.user/email-key`: string, `:db/index true`, the trimmed, lowercased address.
   Not `:db/unique` yet: live data may hold duplicate emails (`docs/email-system.md`, known issues).
