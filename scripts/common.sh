@@ -22,14 +22,10 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$COMMON_DIR/.." && pwd)}"
 # Environment Configuration
 # -----------------------------------------------------------------------------
 
-# Source .env if present (authoritative config)
-# tr -d '\r' strips Windows line endings so values don't silently include \r
-if [[ -f "$REPO_ROOT/.env" ]]; then
-    set -a
-    # shellcheck disable=SC1091
-    . <(tr -d '\r' < "$REPO_ROOT/.env")
-    set +a
-fi
+# Load .env if present (authoritative config). Read, never run: scripts/load-env.sh.
+# shellcheck source=scripts/load-env.sh
+. "$REPO_ROOT/scripts/load-env.sh"
+load_env "$REPO_ROOT/.env"
 
 # Configuration reporting and the DEV_MODE decision.
 #

@@ -116,7 +116,16 @@ git pull
 docker compose up --build -d
 ```
 
+After starting, the app prints its **startup report**: every setting in use, where crash files
+and alerts go, the admin email address, and this release's changes. `./run` waits for it and
+prints it last, so it does not scroll away; it is also saved to
+`/var/log/orcpub/startup-report.txt` on the host (Portainer: the service's Logs, search
+"orcpub started").
+
 The upgrade script:
+- **Says what this release changes for your install.** It checks your `.env` and
+  Swarm stack, prints only what you need to do, and writes the full notes to
+  `logs/upgrade-report.txt`. `./run --check` prints the same.
 - **Backs up** your `.env` before changing anything
 - **Detects** old patterns (password in URL, missing variables)
 - **Fixes** them automatically
@@ -124,6 +133,15 @@ The upgrade script:
 - **Does nothing** if your `.env` is already fine
 
 Your `data/`, `logs/`, and SSL certs are never touched.
+
+**Check your `.env` before upgrading to the Summer Patch.** Before this release, most settings
+in `.env` never reached the app container: Docker only passes the settings named in the
+compose file, and that list was short. It now names every setting the server reads. So a line
+that has been sitting in your `.env` doing nothing, such as `APP_NAME=...` or an
+`ORCPUB_PDF_...` value, takes effect after this upgrade. Look through `.env` for `APP_`,
+`ORCPUB_` and `ALERT_` lines and remove any you do not mean. A branding value set here
+replaces the one in your branding file. After the upgrade, the server's start-up output shows
+each setting as `SET` or `DEFAULT`, so you can confirm what is in force.
 
 <details>
 <summary>What does --upgrade actually check?</summary>
@@ -207,7 +225,8 @@ These are the variables you'll actually touch. Full reference in
 | `SIGNATURE` | Yes | — | JWT signing secret. All login and API calls fail without it. |
 | `DATOMIC_URL` | Yes | `datomic:dev://datomic:4334/orcpub` | Database connection URI. No `?password=` — the app adds it from `DATOMIC_PASSWORD`. |
 | `PORT` | No | `8890` | App server port. Nginx and healthcheck adapt automatically. |
-| `ALT_HOST` | No | `127.0.0.1` | Transactor peer fallback host. Change to `datomic` for Swarm. |
+| `TRANSACTOR_HOST` | No | Compose `datomic`, Swarm `0.0.0.0` | The address the transactor serves on and gives the app. Each setup has the right default; set it only to override. |
+| `ALT_HOST` | No | Compose `127.0.0.1`, Swarm `datomic` | The second address the app tries. Same: leave it unset unless you mean to override it, since a Compose value in `.env` breaks Swarm. |
 | `EMAIL_SERVER_URL` | No | *(empty)* | Your SMTP server. Leave it empty and nobody can sign up: the site can't send the confirmation email, so it turns registration off rather than letting people in unchecked. To run without email, see the next setting. |
 | `ALLOW_UNVERIFIED_REGISTRATION` | No | `false` | Set this to `true`, and leave `EMAIL_SERVER_URL` empty, to let people sign up without confirming their email. Their accounts work right away. Only do this on a private site — anyone can sign up using an address that isn't theirs. It does nothing if you have SMTP set up. |
 | `CSP_POLICY` | No | `strict` | Content Security Policy: `strict`, `permissive`, or `none`. |
@@ -259,14 +278,15 @@ changed.
 ### Current Approach
 
 `docker/transactor.properties.template` is a **complete** transactor config
-with all structural settings hardcoded. Only four values use `${VAR}`
+with all structural settings hardcoded. Only five values use `${VAR}`
 placeholders for runtime substitution:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `DATOMIC_PASSWORD` | *(required)* | Storage access password |
 | `ADMIN_PASSWORD` | *(required)* | Admin/monitoring password |
-| `ALT_HOST` | `127.0.0.1` | Advertised host for peer connections |
+| `TRANSACTOR_HOST` | `datomic` | Address the transactor serves on and advertises |
+| `ALT_HOST` | `127.0.0.1` | Fallback host peers try when `TRANSACTOR_HOST` does not reach it |
 | `ENCRYPT_CHANNEL` | `true` | Peer-transactor encryption |
 
 `deploy/start.sh` handles startup:
@@ -277,29 +297,31 @@ placeholders for runtime substitution:
 
 ## host=datomic Rationale
 
-The `host=` property in transactor.properties controls what the transactor
-**advertises** to peers — it is not what it binds to.
+The transactor's `host=` setting is both the address it serves on and the
+address it tells the app to connect to. Datomic has no separate setting for
+each, so the right value depends on how Docker names the service.
 
-Connection flow:
-1. Peer connects to the transactor using the URI hostname (e.g., `datomic` in
-   `datomic:dev://datomic:4334/orcpub`)
-2. Transactor responds with its advertised `host=` value
-3. Peer uses the advertised host for subsequent connections
+**Compose: `datomic`.** The service name resolves to the container's own
+address, so the transactor can serve there and the app can reach it by name.
 
-**Why `host=0.0.0.0` is wrong:** It works on single-host Docker Compose by
-accident because the `dev://` protocol reuses the URI hostname rather than the
-advertised address. In Docker Swarm with a multi-node overlay network, a peer
-on node A would try to connect to `0.0.0.0:4334` locally, hitting itself
-instead of the transactor on node B.
+**Swarm: `0.0.0.0`, with `ALT_HOST=datomic`.** On a Swarm overlay network the
+service name resolves to a virtual address that load-balances to the task. The
+transactor cannot serve on that address: it starts, fails to reach itself, and
+exits with "Serve failed". `0.0.0.0` serves on every interface, and `alt-host`
+gives the app the service name to connect to instead.
 
-**Why `host=datomic` is correct:** The Docker Compose service name resolves
-via Docker DNS in both single-host bridge networks and multi-node overlay
-networks.
+Both come from settings filled in when the transactor starts, so one image runs
+either way. The stack file `./run --swarm` writes sets them for Swarm. When
+`TRANSACTOR_HOST` is not set at all, the transactor works it out: if `datomic`
+resolves to an address that is not its own container, or does not resolve at all
+(Swarm only publishes the name once the service is healthy), it is on Swarm, so it
+serves on `0.0.0.0` and gives the app `datomic` (unless `ALT_HOST` is set). It
+prints which it chose, `transactor: host=... alt-host=...`, so a stack deployed
+without `./run` (pasted into Portainer, say) still works and says what it did.
 
-**If `host=datomic` fails to resolve:** The containers are not on a shared
+**If `datomic` does not resolve at all:** the containers are not on a shared
 Docker network. `docker compose` creates one automatically. Standalone
-`docker run` requires `--network <name>`. Host networking bypasses Docker DNS
-entirely.
+`docker run` requires `--network <name>`.
 
 ## Jetty Binding
 
@@ -364,10 +386,50 @@ Rules of thumb (from Datomic capacity planning docs):
 - `memory-index-max`: ~13% of `-Xmx` (minimum 2x threshold)
 - `object-cache-max`: ~50% of `-Xmx` minus index memory
 
+## Logs, crashes and the app's memory
+
+**Logs.** Docker keeps everything each container prints in a file on the host, outside the
+container, so a crash or restart does not lose it; `docker compose logs orcpub` shows it. The file
+is lost only when the container is replaced (a new image, or a changed compose file). Each
+container keeps at most `LOG_MAX_FILES` files of `LOG_MAX_SIZE` each (default 5 of 10 MB), so logs
+can no longer fill the disk. Set both in `.env`.
+
+The app's log holds what the app reports: its start-up settings, warnings, errors, admin alerts
+and a line for each security event (sign-ins and failed sign-ins, sign-ups, password resets,
+email changes, deleted accounts, refused logins). It does not list every web request: the `web`
+(nginx) container's log already has one line per request, with time, address and page. To see
+request lines in the app's log too, add `-Dorg.slf4j.simpleLogger.log.io.pedestal=info` to
+`JAVA_OPTS`.
+
+**When the app runs out of memory** it writes a heap dump and exits straight away, and Docker
+restarts it clean, rather than limping on half-broken. If Java itself crashes it writes a crash
+log. Both go to `/var/log/orcpub/crash/` on the host, the usual place for logs on Linux, the same on
+Docker Compose and on Swarm. To use another name, set `APP_LOGS_NAME` in `.env` (for example
+`APP_LOGS_NAME=dmv` for `/var/log/dmv`); the folder is always inside `/var/log`. The files survive
+the container being replaced, and the folder is private to the app's user, so read it with `sudo`.
+
+The app mounts the host's `/var/log` because it exists on every machine: on Swarm, a container that
+lands on any server starts without preparation. At start-up it creates its own folder there and
+gives only that folder to the app's user; nothing else in `/var/log` is touched. If the host's
+`/var/log` is closed to other users, the app says so at start-up and keeps the files inside the
+container instead. On the next start the server emails an admin alert saying
+what happened, when, and where the file is.
+
+- The heap dump (`heap.hprof`) is as large as the app's memory and holds everything that was in
+  it, player data included. Keep it private, and delete it once read: Java does not overwrite it,
+  so the next crash cannot write a new one while it is there.
+- Unsent admin alerts wait in `/var/log/orcpub/alerts/` in the same way.
+
+**The app's memory.** `JAVA_OPTS` in `.env` sets Java's memory options for the app, for example
+`JAVA_OPTS=-XX:MaxRAMPercentage=75.0` (use up to 75% of the container's memory). Left empty, Java
+uses only 25% of the container's memory. Before the Summer Patch `JAVA_OPTS` was passed to the
+container but never reached Java, so if you set it earlier, it starts taking effect now.
+
 ## Volumes
 
 | Volume Mount | Service | Purpose |
 |--------------|---------|---------|
+| `/var/log` → `/host-log` | orcpub | The app keeps crash files and unsent admin alerts in `/var/log/$APP_LOGS_NAME` (default `orcpub`); survives the container being replaced. Compose and Swarm both |
 | `./data` | datomic | Datomic dev storage data files |
 | `./logs` → `/log` | datomic | Transactor log output (host `logs/`, container `/log`) |
 | `./backups` | datomic | Datomic backup destination |
@@ -448,6 +510,46 @@ Running `./run --swarm` when `docker-compose.swarm.yaml` already exists:
 New canonical env vars added upstream are appended to each service's
 environment block — existing vars are never reordered or removed.
 
+**If your stack has things the generator does not write** (another service, a
+top-level `configs:` section, a key such as `hostname:` on a service), `./run --swarm`
+leaves your file as it is, writes the new one to `docker-compose.swarm.yaml.new`,
+and lists what the new one would drop. Copy those parts across, or copy this
+release's changes into your own file. Extra environment variables, volumes,
+networks, Traefik labels and resource limits are carried over.
+
+**Upgrading to the release with `TRANSACTOR_HOST`:** regenerate the stack with
+`./run --swarm` (or add `TRANSACTOR_HOST: 0.0.0.0` to the datomic service by hand)
+before deploying the new images. Without it the transactor serves on `datomic`,
+which does not work on Swarm. `./run --upgrade` also removes `ALT_HOST=127.0.0.1`
+from `.env`, the Compose default it used to write, which would otherwise override
+the stack's `datomic`. `./run --check` tells you if either is still wrong. Deploying without `./run`?
+The app's startup log has a DEPLOYMENT block that says where its crash files
+and alerts are kept and lists this release's deployment changes, and Datomic's
+log says which addresses it chose. If `git pull` refuses because
+`docker/transactor.properties.template` has local changes, those were the old
+way of switching to Swarm: discard them with
+`git checkout -- docker/transactor.properties.template` and pull again.
+
+### Upgrading a Portainer stack
+
+Portainer keeps its own copy of the stack file and of your variables, so an upgrade has to
+reach both:
+
+1. On the server's checkout, pull the new code and run `./run --upgrade-swarm`. It reads the
+   `docker-compose.swarm.yaml` on disk, keeps your changes, and adds any settings the new
+   release reads (the Summer Patch adds many; without them Swarm drops those settings on the way
+   into the container).
+2. **If you have edited the stack in Portainer's own editor**, copy those edits into
+   `docker-compose.swarm.yaml` on disk first. The upgrade reads the file on disk, not
+   Portainer's copy, so edits made only in Portainer are lost when you paste the new file.
+3. In Portainer, open the stack and replace the compose text with the new
+   `docker-compose.swarm.yaml`.
+4. Your variables (pasted earlier from `.env.portainer`) stay as they are. Add any new setting
+   you want to use in **Advanced mode**, one `KEY=VALUE` per line. Before deploying, look for
+   `APP_`, `ORCPUB_` and `ALERT_` lines you did not mean to set: they now take effect.
+5. Update the stack. The app's log starts with the settings it is using, each marked `SET` or
+   `DEFAULT`.
+
 ### Scaling notes
 
 - **datomic**: Must be exactly 1 replica (Datomic transactor is a singleton).
@@ -463,9 +565,10 @@ headroom for off-heap memory (metaspace, thread stacks, NIO buffers).
 
 | Approach | Example | When to use |
 |----------|---------|-------------|
-| Auto-percentage (recommended) | `JAVA_OPTS=-XX:MaxRAMPercentage=75.0` | JDK 11+, lets JVM scale with container limit |
-| Explicit heap | `XMS=-Xms1g` / `XMX=-Xmx1g` | When you need predictable fixed sizing |
-| Default (no setting) | Leave `JAVA_OPTS`, `XMS`, `XMX` empty | Small deployments, JVM picks conservative defaults |
+| Auto-percentage (recommended, app) | `JAVA_OPTS=-XX:MaxRAMPercentage=75.0` | Lets the app's Java scale with its container limit |
+| Explicit heap (app) | `JAVA_OPTS=-Xms1g -Xmx1g` | When you need predictable fixed sizing |
+| Explicit heap (transactor) | `XMS=-Xms1g` / `XMX=-Xmx1g` | Read by Datomic's transactor only, not the app |
+| Default (no setting) | Leave `JAVA_OPTS`, `XMS`, `XMX` empty | The app's Java then uses 25% of its container's memory |
 
 The Swarm compose sets `deploy.resources.limits.memory` (hard ceiling) and
 `deploy.resources.reservations.memory` (scheduling minimum). Configure these

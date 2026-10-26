@@ -514,6 +514,26 @@
    {:db/ident :orcpub.outage/from :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.outage/to :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}])
 
+(def outbox-schema
+  "Player emails waiting to be sent, see orcpub.outbox: written in the same transaction as the
+   action that causes them, deleted once sent. The message holds reset and verification links, so
+   it keeps no history."
+  [{:db/ident :orcpub.outbox/id :db/valueType :db.type/uuid :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity}
+   {:db/ident :orcpub.outbox/kind :db/valueType :db.type/keyword :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/to :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.outbox/message :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.outbox/status :db/valueType :db.type/keyword :db/cardinality :db.cardinality/one
+    :db/index true}
+   {:db/ident :orcpub.outbox/attempts :db/valueType :db.type/long :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/next-at :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/claimed-until :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/created :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/last-error :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}])
+
 (def all-schemas
   (concat
    db-functions
@@ -528,4 +548,5 @@
    magic-item-schema
    weapon-schema
    share-schema
+   outbox-schema
    heartbeat-schema))
