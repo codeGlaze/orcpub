@@ -46,28 +46,36 @@ const mountFollowing = (page, n) => page.evaluate(n => {
       c.PersistentVector.fromArray([c.keyword(null, 'user-data'), c.keyword(null, 'token')], true));
   });
   check(!!token, 'signed in as kaylee');
-  const followed = await page.evaluate(async ({ url, token }) =>
-    (await fetch(url, { method: 'POST', headers: { Authorization: `Token ${token}` } })).status,
-    { url: `${BASE}/following/users/zoe`, token });
-  check(followed === 200, 'kaylee follows zoe', `status ${followed}`);
+  const follow = method => page.evaluate(async ({ url, token, method }) =>
+    (await fetch(url, { method, headers: { Authorization: `Token ${token}` } })).status,
+    { url: `${BASE}/following/users/zoe`, token, method });
+  // A follow kaylee already had (a shared server) is left as it was.
+  const before = await following(page);
+  const created = !before.includes('zoe');
+  try {
+    if (created) check((await follow('POST')) === 200, 'kaylee follows zoe');
 
-  userGets.length = 0;
-  await page.goto(`${BASE}/pages/dnd/5e/characters`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => window.re_frame && window.cljs, null, { timeout: 60000 });
-  await page.waitForTimeout(3000);
-  check(userGets.length === 1, 'a page load fetches the account once', `${userGets.length} GET /user`);
-  check((await following(page)).includes('zoe'), 'after a reload the app still knows kaylee follows zoe',
-    JSON.stringify(await following(page)));
+    userGets.length = 0;
+    await page.goto(`${BASE}/pages/dnd/5e/characters`, { waitUntil: 'domcontentloaded' });
+    // the start-up GET /user has answered and been kept
+    await page.waitForFunction(() => {
+      const c = window.cljs && window.cljs.core;
+      return c && c.get(window.re_frame.db.app_db.state, c.keyword(null, 'user')) != null;
+    }, null, { timeout: 60000 });
+    await page.waitForTimeout(1000);
+    check(userGets.length === 1, 'a page load fetches the account once', `${userGets.length} GET /user`);
+    check((await following(page)).includes('zoe'), 'after a reload the app still knows kaylee follows zoe',
+      JSON.stringify(await following(page)));
 
-  userGets.length = 0;
-  await mountFollowing(page, 5);
-  await page.waitForTimeout(2000);
-  check(userGets.length === 0, 'five views that show other accounts ask for nothing more',
-    `${userGets.length} GET /user`);
+    userGets.length = 0;
+    await mountFollowing(page, 5);
+    await page.waitForTimeout(2000);
+    check(userGets.length === 0, 'five views that show other accounts ask for nothing more',
+      `${userGets.length} GET /user`);
 
-  await page.evaluate(async ({ url, token }) =>
-    fetch(url, { method: 'DELETE', headers: { Authorization: `Token ${token}` } }),
-    { url: `${BASE}/following/users/zoe`, token });
+  } finally {
+    if (created) await follow('DELETE');
+  }
   await browser.close();
   console.log(failures() ? `\n${failures()} FAILED` : '\nALL PASSED');
   process.exit(failures() ? 1 : 0);

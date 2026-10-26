@@ -53,7 +53,7 @@ User attributes related to email and verification (`src/clj/orcpub/db/schema.clj
 
 | Attribute | Type | Purpose |
 |-----------|------|---------|
-| `:orcpub.user/email` | string | Confirmed email address, as the person typed it |
+| `:orcpub.user/email` | string | Confirmed email address, as stored for display and sending (registration stores it lowercased; older accounts may be mixed-case) |
 | `:orcpub.user/email-key` | string | The same address trimmed and lowercased; indexed, and what every email lookup matches |
 | `:orcpub.user/pending-email` | string | Requested new email (awaiting verification) |
 | `:orcpub.user/verified?` | boolean | Whether the user has verified their email |
@@ -65,7 +65,7 @@ User attributes related to email and verification (`src/clj/orcpub/db/schema.clj
 
 **Note:** neither email attribute has a uniqueness constraint in the schema. Uniqueness is enforced at the application level via `email-query`. See the known issues section.
 
-**Writing an email:** set both attributes with `orcpub.user-email/email-attrs`, and normalise any address you look up with `orcpub.user-email/email-key`. Accounts written without the key (older data, or an old copy of `manage-user.clj`) get it from a backfill that runs in the background on every start; until it finishes, those accounts can sign in by username but not by email.
+**Writing an email:** set both attributes with `orcpub.user-email/email-attrs`, and normalise any address you look up with `orcpub.user-email/email-key`. Accounts written without the key (older data, or an old copy of `manage-user.clj`) get it from a backfill that runs in the background on every start. Until it reaches them, lookups also match the stored address exactly, so an account whose stored address is already lowercase is found; only an older mixed-case one waits for the backfill to sign in by email.
 
 ## Flows
 
