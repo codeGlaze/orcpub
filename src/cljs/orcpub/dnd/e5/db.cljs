@@ -771,10 +771,10 @@
    (assoc cofx
           ::e5/plugins
           (when-let [stored (get-local-storage-item local-storage-plugins-key)]
-            ;; Put damaged shapes back first (e5/mend-library), a library stored as
+            ;; Put damaged structure back first (homebrew-shapes/read-library), a library stored as
             ;; text included. The mended library is written back below, so each
             ;; repair happens once.
-            (let [{mended :library repairs :repairs} (e5/mend-library stored)]
+            (let [{mended :library repairs :repairs} (shapes/read-library stored)]
               (if (not (map? mended))
                 ;; Still not a library: preserve raw in the :corrupt slot — NOT
                 ;; :rejected, a clean name-keyed map we must not clobber — and load

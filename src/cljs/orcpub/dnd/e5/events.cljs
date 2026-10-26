@@ -6692,13 +6692,10 @@
   :after (fn [ctx]
            (update ctx :effects #(homebrew-check/homebrew-shapes-checked (get-in ctx [:coeffects :db]) %)))))
 
-;; An event that throws changes nothing: re-frame applies no effect of a handler that did not
-;; finish. This says so to the person, at most once a few seconds for the same event, and keeps
-;; the error in the console with the event that raised it. re-frame's own handler rethrew, which
-;; drops every event still queued (this notice with them), so a click that failed did nothing
-;; visible. core.cljs registers it once startup is done: startup's recovery needs
-;; :initialize-db to throw, and the test builds, which never load core, keep re-frame's handler,
-;; so a throw still fails a test. See docs/HOMEBREW_GUARD.md, 5.
+;; An event that throws changes nothing (re-frame applies no effect of an unfinished handler):
+;; event-failed says so, once a few seconds per event, and logs it; re-frame's own handler rethrew,
+;; dropping every queued event. core.cljs registers it after startup, whose recovery needs
+;; :initialize-db to throw; the test builds keep re-frame's. See docs/HOMEBREW_GUARD.md, 5.
 (def ^:private last-event-error (atom nil))
 
 (def event-failed-message

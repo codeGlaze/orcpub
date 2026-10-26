@@ -178,11 +178,19 @@
         "so a second load changes nothing")))
 
 (deftest loading-repairs-a-damaged-entry-once
+  ;; a text key stopped the app from starting; traits that cannot be read set the entry aside
   (.setItem js/window.localStorage db/local-storage-plugins-key
-            "{\"Bad Pak\" {:orcpub.dnd.e5/races {:x {:key \"text\" :option-pack \"Bad Pak\" :name \"X\" :traits 42}}}}")
-  (let [race (get-in (load-plugins!) ["Bad Pak" :orcpub.dnd.e5/races :x])]
-    (is (= :x (:key race)) "a text key stopped the app from starting")
-    (is (not (contains? race :traits))))
+            (str "{\"Bad Pak\" {:orcpub.dnd.e5/races {"
+                 ":x {:key \"text\" :option-pack \"Bad Pak\" :name \"X\" :traits \"Keen\"} "
+                 ":y {:key :y :option-pack \"Bad Pak\" :name \"Y\" :traits 42}}}}"))
+  (let [races (get-in (load-plugins!) ["Bad Pak" :orcpub.dnd.e5/races])]
+    (is (= :x (get-in races [:x :key])))
+    (is (= [{:name "Keen"}] (get-in races [:x :traits])))
+    (is (not (contains? races :y)))
+    (is (= 42 (get-in (reader/read-string (.getItem js/window.localStorage
+                                                    db/local-storage-plugins-rejected-key))
+                      ["Bad Pak" :orcpub.dnd.e5/races :y :traits]))
+        "set aside as written"))
   (let [stored (.getItem js/window.localStorage db/local-storage-plugins-key)]
     (is (not (.includes stored "\"text\"")) "written back")
     (load-plugins!)

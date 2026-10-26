@@ -29,8 +29,10 @@
     (testing "every write is marked"
       (is (empty? (remove (fn [{:keys [text]}] (some #(str/includes? text %) markers)) writes))
           "a library write outside the gate: route it through events/commit-library"))
+    ;; homebrew_check holds the shape check every event's write passes through, registered as a
+    ;; global interceptor in events.cljs beside commit-library: part of the gate
     (testing "and the gate is where it says"
-      (is (every? #(re-find #"events\.cljs$|db\.cljs$" (:file %))
+      (is (every? #(re-find #"events\.cljs$|db\.cljs$|homebrew_check\.cljs$" (:file %))
                   (filter #(str/includes? (:text %) ";; library gate") writes))))
     (testing "the scan finds the gate at all"
       (is (<= 3 (count (filter #(str/includes? (:text %) ";; library gate") writes)))))))

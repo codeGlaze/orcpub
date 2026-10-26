@@ -41,6 +41,8 @@ into every field of every content type, by every way in, to prove it (docs/HOMEB
 - **Homebrew:** an entry with a field that cannot be read (a number where a list of traits
   belongs) is set aside in My Content for repair, as it was written, instead of breaking pages.
   From a share link it is left out.
+- **Homebrew:** the import report lists each field it fixed, and each entry it will set aside
+  for repair.
 - **Homebrew:** checking homebrew after an import or a Restore takes a fraction of the time for
   classes: each shared part of a class is checked once, not once per level.
 

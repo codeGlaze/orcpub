@@ -16,6 +16,7 @@
             [orcpub.template :as t]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.homebrew-guard :as guard]
+            [orcpub.dnd.e5.homebrew-shapes :as shapes]
             [orcpub.dnd.e5.views.guards :as guards]
             [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.options :as opt5e]
@@ -575,7 +576,7 @@
       (with-redefs [views/my-content-type (fn [& _] (canary))]
         (is (caught? (canary-run) #(= [:page :my-content] (take 2 (:stage %)))))))
     (testing "startup that throws"
-      (with-redefs [e5/mend-library (fn [_] (canary))]
+      (with-redefs [shapes/read-library (fn [_] (canary))]
         (is (caught? (canary-run) #(= :startup (:stage %))))))
     (testing "the deep check that throws"
       (with-redefs [homebrew-check/deep-check (fn [_] (canary))]

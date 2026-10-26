@@ -31,7 +31,7 @@ path, so new code is protected without anyone remembering to protect it.
 | Layer | Where | What it does |
 |---|---|---|
 | Load floor | `content_specs/valid-item-for-load?`, `::e5/plugin` | Keeps an entry if its key is a keyword and it has an `:option-pack` string. A whole section may be `true` (the spec allows `boolean?`). Nothing else is checked: a presence contract, not a shape contract (orcbrew-level-modifiers.md). |
-| Repairs | `e5/mend-library`, `mend-cards` | On load and import: `:key`, `:traits`, a selection's `:options`, a spell's `:spell-lists`. Not run on share-link content. |
+| Repairs | `homebrew-shapes/read-library`, `read-import` (were `e5/mend-*`) | On load and import: a library, source or section kept as text or a list. Field repairs are the table's. Not run on share-link content. |
 | Guard | `guard-entry` at 7 sites | Catches a throw while one entry converts, sets the entry aside into `plugins:rejected`, says so for 60 s. |
 | Deep check | `homebrew_check/deep-check` | Converts and fully realizes 5 of 13 content types; after import, Restore, or a crash that reaches the app root. |
 | Quarantine panel | top of My Content | Per source and per item: rename, Restore, Auto-name & Restore, Export raw, Discard. A damaged section is listed whole. |
@@ -148,8 +148,14 @@ contained to one item and reported (5), and the audit, rerun in minutes, finds t
 - **`homebrew_shapes.cljc`** says, for each of the 13 content types, every field the app reads and
   its shape. **`clean-entry` / `clean-library`** return the entry made to fit, and what they found:
   - **fixed** when the meaning is obvious (`"5"` → `5`; one card → a list of one; a set of keys →
-    a key-to-true map). `mend-cards`' rules move into the table: one repair mechanism, not two;
-  - **unreadable** when it is not (a number where a map belongs).
+    a key-to-true map; text where a card belongs → a card with that name; a :key that is not a
+    key → the one it is filed under). One repair path: `e5/mend-*` is folded in here;
+  - **unreadable** when it is not (a number where a map belongs), or when a field an entry cannot
+    be used without is missing (a subrace's `:race`, a subclass's `:class`).
+- A field holding nil reads as absent, as every reader takes it: the builders store some on
+  purpose (a class's `:spell-list-kw`), and the import keeps them (`nil-preserve-fields`).
+- How a library is stored comes first (`read-library`, `read-import`): a library, source or
+  section kept as text is read back, a section kept as a list is keyed, an empty one dropped.
 - A sound entry comes back as the identical object. Loading is never stricter than saving: every
   real fixture comes through with nothing unreadable (a test). Fixes produce only shapes the
   builders write, so exported files still import into older builds.
@@ -168,6 +174,7 @@ obvious:
   [:enum #{...}]        one of these values
   [:or s ...]           any one of them
   [:list s]             a vector or list of s (a lone s becomes a list of one)
+  [:cards card]         a list of cards (text names a card; a lone card or text is a list of one)
   [:coll s]             a vector, list or set of s
   [:set s]              a set of s (a list of s becomes a set; a lone s a set of one)
   [:map-of k v]         a map whose keys are k and values v
@@ -304,7 +311,7 @@ alone 0.001 ms; an event that changes one entry 0.05 ms, then its deep check 35 
   Go through it once and port what the junk audit does not cover, rather than keep two suites.
 - **Fixtures on integration**: `broken-content`, `cruft-shapes`, `keyword-trap`, `test-pak`.
 - **On integration**: the write gate and `library_gate_test`; `persist-set-aside!` and
-  `plugins:pre-fix`; `mend-*` (folded into the table); the quarantine panel and
+  `plugins:pre-fix`; `mend-*` (folded into homebrew-shapes); the quarantine panel and
   `repair-quarantined-source`; `library/dangling`; `render-guard`; `register-conversions!` and
   `deep-check`; HOMEBREW_REQUIRED_FIELDS.md; the browser probes.
 - **On grant-rows**: `builder_fields.cljc` and `content_types.cljc`; their schemas feed this table
@@ -366,6 +373,17 @@ alone 0.001 ms; an event that changes one entry 0.05 ms, then its deep check 35 
      offered, by any way in; its class is there. The audit's former allowances hid it. Suspected,
      not shown: `class-option` merges subclasses into a set sorted by name. Guarded audit: 4, all
      this case.
+   **Consolidated** (owner, 2026-10-26): one repair path, `e5/mend-*` folded into homebrew-shapes
+   (`read-library` and `read-import` for structure, the table for fields); the import lists the
+   table's fixes and what will be set aside in its log. An unreadable `:traits` or `:spell-lists`
+   now sets its entry aside, as the owner decided for any unreadable field; the old repair
+   dropped the field. Not duplicated after all: `content-specs` is the identity floor (a
+   letter-first key and a source), the save specs and the import validator check which fields
+   are present; the table checks the form of those that are. Found on the way and fixed: the
+   table counted nil as unreadable, which would have set aside a class saved with a nil
+   `:spell-list-kw` on load; and an unchanged entry dropped its findings. Moved, no behaviour
+   change: the view guards to `views/guards.cljs` (views.cljs 11,557 to 11,342 lines); the
+   set-aside and write-check logic to `homebrew_check.cljs` (events.cljs 8,904 to 8,805).
 7. **Enforcement:** the audit in CI at zero, the AGENTS.md rules, the documents corrected, the
    testing/develop scenarios gone through.
 8. **grant-rows** merges this, adds its fields to the table, and runs the audit.

@@ -96,3 +96,14 @@
         {kept :library set-aside :set-aside} (shapes/split-unreadable cleaned lib findings)]
     (is (= {"P" {:orcpub.dnd.e5/races {:ok {:name "Ok"}}}} kept))
     (is (= {"P" {:orcpub.dnd.e5/races {:bad bad} :orcpub.dnd.e5/feats 42}} set-aside))))
+
+(deftest a-field-holding-nil-reads-as-absent
+  ;; the class builder stores :spell-list-kw and :ability as nil on purpose (orcbrew-validation's
+  ;; nil-preserve-fields); such a class must load, not be set aside
+  (let [cls {:name "Warden" :key :warden
+             :spellcasting {:spell-list-kw nil :ability nil :level-factor 3}
+             :description nil}
+        lib {"P" {:orcpub.dnd.e5/classes {:warden cls}}}
+        {cleaned :library findings :findings} (shapes/clean-library lib)]
+    (is (empty? findings))
+    (is (identical? lib cleaned))))
