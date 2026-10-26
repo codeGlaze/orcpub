@@ -3969,17 +3969,17 @@
       (when (next (:parts damage))
         [:div.weapon-sheet-total [:span "Total damage"] [:b (:total damage)]])
       (doall (for [[i {:keys [label text]}] (map-indexed vector (:after damage))]
-               ^{:key i} [:div.weapon-sheet-after [:span label] [:b text]]))]
+               ^{:key i} [:div.weapon-sheet-after [:span label] [:b [srd-linked-text text]]]))]
      [:<>
       [:div.weapon-sheet-big (:total attack)
        (when (:crit? attack) [:span.weapon-sheet-crit "CRITICAL"])
        [d20-detail attack]]
       [:div.weapon-sheet-label "Roll damage"]
-      (doall (for [{:keys [label sub value situation primary?]}
+      (doall (for [{:keys [label sub value situation primary? pulse?]}
                    (weapon-rolls/damage-options weapon mod two-handed? toggles (:crit? attack))]
                ^{:key label}
                [:button.weapon-sheet-option
-                {:type "button" :class (when primary? "primary")
+                {:type "button" :class (str (when primary? "primary") (when pulse? " pulse"))
                  :on-click #(dispatch [:weapon-roll/damage
                                        (weapon-rolls/roll-damage weapon mod two-handed?
                                                                  (assoc situation :toggles toggles)

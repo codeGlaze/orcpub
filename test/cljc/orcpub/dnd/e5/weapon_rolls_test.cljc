@@ -49,7 +49,7 @@
 (deftest saves-come-after-the-total
   (let [r (rolls/roll-damage (weapon :giant-slayer-greataxe) 4 false {:against :giant} false (dice 7 3 4))]
     (is (= 18 (:total r)) "1d12+4 (7+4) and 2d6 (3+4): the save adds nothing")
-    (is (= [{:label "Target saves" :text "DC 15 Str or prone"}] (:after r))))
+    (is (= [{:label "Target saves" :text "The target makes a DC 15 Str save or falls Prone."}] (:after r))))
   (is (= [] (:after (rolls/roll-damage (weapon :giant-slayer-greataxe) 4 false {} false (dice 7))))
       "no save against a target that is not a giant"))
 

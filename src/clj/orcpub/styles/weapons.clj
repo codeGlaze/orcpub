@@ -174,6 +174,8 @@
       :box-shadow "inset 0 0 0 2px #f0a100"}]
     [:.roll-button.weapon-tile.needs-hands [:.weapon-tile-body {:text-shadow :none}]]
     [:.weapon-switch.pulse {:animation "weapon-pulse 10s ease-out 0s 6"}]
+    ;; an option that continues the chain (Missed?) pulses the same way
+    [:.weapon-sheet-option.pulse {:animation "weapon-pulse 10s ease-out 0s 6"}]
     [:.weapon-hands-note {:font-weight 600}]
     [:.share-pill.weapon-hand-pill
      {:flex-shrink 0 :align-self :center :gap "4px" :font-size "11px" :padding "1px 7px"

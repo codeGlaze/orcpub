@@ -224,6 +224,18 @@
     (str "DC " save-dc " " (s/capitalize (common/safe-name save-ability))
          (if save-fail (str " or " (common/safe-name save-fail)) " save"))))
 
+(defn effect-sentence
+  "An effect as the roll result says it: a save as \"The target makes a DC 13 Con save or falls
+  Prone.\" (worded so condition links find it), else the effect's own text. Takes the effect;
+  returns a string, or nil when it has neither."
+  [{:keys [::mi/save-dc ::mi/save-ability ::mi/save-fail ::mi/text]}]
+  (if save-dc
+    (str "The target makes a DC " save-dc " " (s/capitalize (common/safe-name save-ability)) " save"
+         (when save-fail
+           (if (= :prone save-fail) " or falls Prone" (str " or is " (common/safe-name save-fail))))
+         ".")
+    text))
+
 (defn extra-damage-str
   "One extra damage entry with its conditions: \"+2d6 fire while Ablaze\". Takes the
   entry (type resolved) and a map of toggle id to name; returns a string."

@@ -48,13 +48,14 @@
 (defn after-total
   "The lines listed after a damage total and never added to it: each save or effect that
   applies in the situation. Takes the weapon and a situation (as for weapon-damage/applies?).
-  Returns [{:label :text}], e.g. {:label \"Target saves\" :text \"DC 15 Str or prone\"}."
+  Returns [{:label :text}]: {:label \"Target saves\" :text \"The target makes a DC 15 Str save or
+  falls Prone.\"} for a save, {:label \"Effect\" :text <its text>} for any other."
   [weapon situation]
   (for [e (::mi/effects weapon)
         :when (weapon-damage/applies? e situation)
-        :let [summary (disp/effect-summary e)]
-        :when summary]
-    {:label "Target saves" :text summary}))
+        :let [sentence (disp/effect-sentence e)]
+        :when sentence]
+    {:label (if (::mi/save-dc e) "Target saves" "Effect") :text sentence}))
 
 (defn roll-entries
   "Rolls ready-made damage entries for a weapon. Takes the weapon, the entries, the situation
@@ -80,20 +81,26 @@
 (defn damage-options
   "The damage buttons a to-hit result offers: Damage (or Critical damage on a crit), then one
   per target the weapon names (\"vs undead\"). Takes the weapon, its damage modifier,
-  two-handed?, the toggles on and crit?. Returns [{:label :sub :value :situation :primary?}]."
+  two-handed?, the toggles on and crit?; then \"Missed?\" for a weapon with damage on a miss.
+  Returns [{:label :sub :value :situation :primary? :pulse?}]."
   [weapon damage-modifier two-handed? toggles crit?]
   (let [entries #(cond-> (weapon-damage/applying-damage weapon damage-modifier two-handed?
                                                          (assoc % :toggles toggles))
                    crit? disp/crit-entries)
         crit-sit (if crit? {:crit? true :roll 20} {})
+        miss? (and (not crit?) (some #(= :miss (::mi/on %)) (::mi/extra-damage weapon)))
         targets (distinct (keep ::mi/against (remove disp/off-row? (concat (::mi/extra-damage weapon)
                                                                           (::mi/effects weapon)))))]
-    (vec (cons {:label (if crit? "Critical damage" "Damage") :sub (when crit? "all dice doubled")
-                :value (disp/dice-sum-str (entries crit-sit)) :situation crit-sit :primary? true}
+    (vec (concat
+          [{:label (if crit? "Critical damage" "Damage") :sub (when crit? "all dice doubled")
+                :value (disp/dice-sum-str (entries crit-sit)) :situation crit-sit :primary? true}]
                (for [t targets
                      :let [sit (assoc crit-sit :against (first (sort t)))]]
                  {:label (str (if crit? "Critical vs " "vs ") (disp/creature-types-str t "and"))
-                  :value (disp/dice-sum-str (entries sit)) :situation sit})))))
+                  :value (disp/dice-sum-str (entries sit)) :situation sit})
+               (when miss?
+                 [{:label "Missed?" :sub "damage on a miss" :value (disp/dice-sum-str (entries {:miss? true}))
+                   :situation {:miss? true} :pulse? true}])))))
 
 (defn spell-entries
   "A spell's damage as damage entries at a cast level, from its rolling data `r` (spell-rolls.edn):
