@@ -1,6 +1,7 @@
 (ns orcpub.dnd.e5.weapon-ability-modifier-test
-  "The ability modifier an attack uses, as the mastery band reads it: Str or Dex by the weapon,
-   the better for a finesse weapon, and no damage bonus in it (a stand-in for Dueling's +2)."
+  "The ability an attack uses and its modifier: Str or Dex by the weapon, the better for a finesse
+   weapon, a monk weapon's Dex, no damage bonus in it (a stand-in for Dueling's +2); and the
+   weapon's own save DC built from it."
   (:require [clojure.test :refer [deftest is]]
             [orcpub.entity :as entity]
             [orcpub.template :as t]
@@ -57,3 +58,14 @@
   (let [ability (char5e/best-weapon-ability-modifier-fn (build 10 18))]
     (is (= 4 (ability (weapons5e/weapons-map :rapier))) "Dex 18")
     (is (= 0 (ability (weapons5e/weapons-map :longsword))) "Str 10, the longsword is not finesse")))
+
+(deftest a-feature-that-does-not-apply-adds-nothing
+  (let [ability (char5e/best-weapon-ability-modifier-fn (build 8 14))]
+    (is (= -1 (ability (weapons5e/weapons-map :longsword)))
+        "a monk with Str 8: Martial Arts does not cover a longsword, so Str's -1 stands")
+    (is (= 2 (ability (weapons5e/weapons-map :shortsword))) "a monk weapon may use Dex 14")))
+
+(deftest a-weapon-save-dc-uses-the-attacks-ability
+  (let [dc (char5e/weapon-save-dc-fn (build 16 18))]
+    (is (= 13 (dc (weapons5e/weapons-map :longsword))) "8 + 2 proficiency + Str 16's 3")
+    (is (= 14 (dc (weapons5e/weapons-map :rapier))) "finesse: Dex 18's 4")))
