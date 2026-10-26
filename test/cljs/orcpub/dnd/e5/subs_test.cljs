@@ -197,3 +197,9 @@
   (is (= {:theme "dark-theme"} (:user-data @app-db)))
   (is (nil? (:user @app-db)) "the account kept from GET /user, who it follows included"))
 
+(deftest a-startup-account-for-an-old-login-is-dropped
+  (reset! app-db {:user-data {:token "new"} :user {:username "zoe"}})
+  (rf/dispatch-sync [:set-user-for-token "old" {:username "kaylee" :following ["zoe"]}])
+  (is (= {:username "zoe"} (:user @app-db)) "the answer was for a login that has since changed")
+  (rf/dispatch-sync [:set-user-for-token "new" {:username "zoe" :following ["mal"]}])
+  (is (= ["mal"] (get-in @app-db [:user :following])) "an answer for the current login is kept"))
