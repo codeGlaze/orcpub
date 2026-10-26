@@ -51,9 +51,10 @@ carries live state.*
     #69 `feature/asi-spreads`, #70 `feature/registration-in-boot-report`. #65
     `feature/artist-pages` targets `feature/portrait-builder`, which has already merged (#64).
     #35 targets `mirror/upstream-develop`.
+  - Merged 2026-10-26: #75 `feature/email-and-alerts` (email outbox, admin alerts, crash
+    evidence, the startup report and email; brings the heavy Docker checks to `integration`).
   - Active, no PR yet: `feature/character-rescue` (Data View and the server's version check;
-    handoff in `branches/`), `feature/email-and-alerts` (brings the heavy Docker checks; nearly
-    ready, owner 2026-10-23), `feature/inventory-kits` (the `inventory` namespace and the Kits panel,
+    handoff in `branches/`), `feature/inventory-kits` (the `inventory` namespace and the Kits panel,
     [`plan-inventory-kits.md`](docs/kb/plan-inventory-kits.md)), `feature/weapons-table` (item
     charges; overlaps inventory-kits), `feature/guarded-homebrew`, `feature/srd-pipeline`.
 
