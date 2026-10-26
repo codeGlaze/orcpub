@@ -415,7 +415,7 @@ Each step: tests seen failing first, scoped checks, own commit, KB updated.
 4. **Mastery definitions as data**: `{key {:name :text :summary? :extra-damage [...] :effects [...]}}`
    in the item vocabulary; `mastery-band` builds the band from them; delete `mastery-summary`. Fix the
    subs comment to point here.
-5. **Half done 2026-10-26.** Built (owner-approved shape: reuse, no mastery names): effect lines as
+5. **Done 2026-10-26.** Built (owner-approved shape: reuse, no mastery names): effect lines as
    sentences with condition links (`disp/effect-sentence`, `after-total`, rendered by
    `srd-linked-text`); text-only effects listed; "Missed?" as a `damage-options` entry for any
    `on :miss` extra, pulsing (`.weapon-sheet-option.pulse`). **Left, with where to build:**
@@ -425,7 +425,10 @@ Each step: tests seen failing first, scoped checks, own commit, KB updated.
      it, preset the chain's next attack mode (`views.cljs` `weapon-roll-result`, where the next
      `roll-attack` takes `:mode`, ~line 4006 and ~4157), marked "(Vex)", one tap back to normal,
      pulsing.
-   - **Cleave:** a `+` menu use (`disp/weapon-menu-items` already spends `::recharge` uses;
+   - **Cleave: done 2026-10-26.** An effect with `::mi/extra-attack :omit-ability-mod` and
+     `::mi/recharge ::units/turn` is a + menu use; `resolve-values` fills `::mi/extra-attack-drop`; the
+     pick adds an attack whose damage modifier is that much lower. Unit-tested; the pick itself has no
+     browser check yet (no SRD item uses it until mastery data arrives). **Was:** a `+` menu use (`disp/weapon-menu-items` already spends `::recharge` uses;
      `::units/turn` and "new turn" exist) whose action adds an attack to the chain with a field
      `::mi/extra-attack {:ability-mod :omit}` dropping a positive ability modifier from its damage.
    - **Done 2026-10-26 (header switch and long press, `attack_mode_e2e.js`).** Phones cannot roll advantage or disadvantage (ctrl and shift click only). Held by the owner

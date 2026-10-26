@@ -19,7 +19,8 @@ the owner keeps CodeRabbit for backend work). **KB:** `plan-charges-and-casting.
   (low-Strength monk), cited in the changelog.
 - Done 2026-10-26: attack mode both ways (header switch, long press; `weapon-rolls/attack-mode`,
   `:weapon-roll/mode`; `attack_mode_e2e.js`). Vex's preset can set `:weapon-roll/set-mode`.
-- Next: finish mastery step 5; a charge cost for weapon powers in the item
+- Mastery step 5 done 2026-10-26 (effect sentences, Missed?, Vex, Cleave).
+- Next: mastery step 6 (tests for all eight with made-up data); a charge cost for weapon powers in the item
   builder; light theme shots; the parked wording review.
 
 ## Owner decisions
