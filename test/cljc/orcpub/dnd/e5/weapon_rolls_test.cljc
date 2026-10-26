@@ -145,3 +145,12 @@
   (is (= :dis (rolls/attack-mode nil :dis)) "no click mode: the header's")
   (is (= :adv (rolls/attack-mode :normal :adv)) "a plain click keeps the header's Adv")
   (is (= :normal (rolls/attack-mode nil nil))))
+
+(deftest an-effect-can-set-the-next-attacks-mode
+  (let [vexing (assoc referencing-weapon ::mi/extra-damage []
+                      ::mi/effects [{::mi/effect-type :condition ::mi/text "Advantage on your next attack against it."
+                                     ::mi/next-attack :adv}])]
+    (is (spec/valid? ::mi/effects (::mi/effects vexing)))
+    (is (= :adv (:next-mode (rolls/roll-damage vexing 3 false {} false (constantly 1)))) "after a hit")
+    (is (nil? (:next-mode (rolls/roll-damage vexing 3 false {:miss? true} false (constantly 1)))) "not after a miss")
+    (is (nil? (:next-mode (rolls/roll-damage referencing-weapon 3 false {} false (constantly 1)))) "not without the field")))
