@@ -27,8 +27,9 @@ Fork-only files may live on our `develop` and are removed before any PR to `Orcp
    go to `agents/develop` (`AGENTS.md`, branch table).
 3. Before a merge or a PR: merge `integration` in, run the suites for what the branch changed and the
    full `lein lint` (`docs/TESTING.md`, "Before a PR"). Leave
-   `docs/branch-changelog.md` unfolded while the PR is reviewed (its CI check stays red until the
-   fold); fold it when the owner says the PR is about to merge (`AGENTS.md`, "Changelogs").
+   `docs/branch-changelog.md` unfolded while the PR is reviewed (its CI check is skipped until the
+   PR carries the `ready to merge` label); fold it and add the label when the owner says the PR is
+   about to merge (`AGENTS.md`, "Changelogs").
 4. Open the PR into `integration` when the owner says. The merge gate is in `AGENTS.md`, "PRs and
    releases". Agents never merge unless the owner says to merge that PR.
 

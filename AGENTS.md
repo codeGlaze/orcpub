@@ -77,8 +77,8 @@ approved for you by name, and `agents/develop`.
 
 - **Agents never push to or merge into `develop`.** `integration` reaches it only through the
   release PR (#32), which the owner merges.
-- **Merge gate:** green CI (apart from "Branch changelog folded", which stays red until the fold;
-  Changelogs, below), and a CodeRabbit review of the last push that changed behaviour in which every
+- **Merge gate:** green CI ("Branch changelog folded" is skipped until the fold; Changelogs,
+  below), and a CodeRabbit review of the last push that changed behaviour in which every
   actionable comment is either fixed by a later push that does nothing else, with a reply on its
   thread naming the fixing commit, or answered on its thread.
 - **CodeRabbit reviews are scarce: request one on purpose.** All agents and the owner share one
@@ -328,10 +328,11 @@ Needs you: what it is, where it would go, and why.
 - Lines go under Added / Changed / Fixed / Security, open with their area in bold
   (`**Accounts:**`), and cite the upstream issue (#N) when one matches; no commit hashes.
 - **Copy `docs/branch-changelog.template.md` to `docs/branch-changelog.md`** on the branch at its
-  start and fill it in as work lands. Its "Branch changelog folded" CI check stays red on the PR
-  until the fold; that is expected while the PR is reviewed, because the fold drops the
-  reviewer-only section. **Fold when the owner says the PR is about to merge**
-  (`scripts/fold-branch-changelog.sh "<release>"`), commit, push.
+  start and fill it in as work lands; it stays unfolded while the PR is reviewed, because the fold
+  drops the reviewer-only section. **Fold when the owner says the PR is about to merge**
+  (`scripts/fold-branch-changelog.sh "<release>"`), commit, push, and add the `ready to merge`
+  label to the PR: its "Branch changelog folded" check is skipped until the label is on, then
+  passes only once the fold is done.
 
 ## Docs — MUST FOLLOW
 
