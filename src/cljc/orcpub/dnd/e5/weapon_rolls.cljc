@@ -71,13 +71,16 @@
 
 (defn roll-entries
   "Rolls ready-made damage entries for a weapon. Takes the weapon, the entries, the situation
-  they were chosen for and a die fn of sides. Returns {:parts [...] :total :after [...]}."
+  they were chosen for and a die fn of sides. Returns {:parts [...] :total :after [...]
+  :next-mode}, :next-mode the mode an applying effect gives the next attack (Vex's :adv), or nil."
   [weapon entries situation roll-die]
   (let [names (disp/toggle-names weapon)
-        parts (mapv #(roll-part % names roll-die) entries)]
-    {:parts parts
-     :total (apply + (map :subtotal parts))
-     :after (vec (after-total weapon situation))}))
+        parts (mapv #(roll-part % names roll-die) entries)
+        next-mode (some #(when (weapon-damage/applies? % situation) (::mi/next-attack %)) (::mi/effects weapon))]
+    (cond-> {:parts parts
+             :total (apply + (map :subtotal parts))
+             :after (vec (after-total weapon situation))}
+      next-mode (assoc :next-mode next-mode))))
 
 (defn roll-damage
   "Rolls a weapon's damage in a situation. Takes the weapon, its damage modifier, two-handed?,

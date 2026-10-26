@@ -3951,10 +3951,12 @@
                  ^{:key i} [:span.weapon-sheet-dot {:class (when (< i k) "done")}]))
         (if (<= k per-turn) (str "attack " k " of " per-turn) (str "attack " k))])]
     (when attack
-      [:button.roll-button.weapon-tile.weapon-hit-tile.weapon-sheet-next
-       {:type "button" :aria-label (str "Roll attack " (inc k)) :on-click next-attack}
-       [:span.weapon-tile-body (str "\u21BB " (common/bonus-str (:bonus attack)))]
-       [:span.weapon-strip (str "attack " (inc k))]])]
+      (let [next-mode (:next-mode damage)]
+        [:button.roll-button.weapon-tile.weapon-hit-tile.weapon-sheet-next
+         {:type "button" :aria-label (str "Roll attack " (inc k) (case next-mode :adv " with advantage" :dis " with disadvantage" ""))
+          :class (when next-mode "pulse") :on-click next-attack}
+         [:span.weapon-tile-body (str "\u21BB " (common/bonus-str (:bonus attack)))]
+         [:span.weapon-strip (str "attack " (inc k) (case next-mode :adv " \u00B7 adv" :dis " \u00B7 dis" ""))]]))]
    (if damage
      [:<>
       [:div.weapon-sheet-big (:total damage)
@@ -4005,7 +4007,8 @@
                                     (assoc (dissoc current :damage)
                                            :attack (weapon-rolls/roll-attack
                                                     (assoc (select-keys (:attack current) [:bonus])
-                                                           :mode (weapon-rolls/attack-mode nil sticky)
+                                                           :mode (or (get-in current [:damage :next-mode])
+                                                                     (weapon-rolls/attack-mode nil sticky))
                                                            :crit-min (:crit-min current 20))
                                                     rand-die))])]
         [:div.weapon-sheet {:class (if desktop? "card" "sheet") :role "dialog" :aria-label "Roll result"}

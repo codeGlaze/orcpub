@@ -70,11 +70,12 @@
       (::extra-damage weapon) (update ::extra-damage #(mapv fill %))
       (::effects weapon) (update ::effects #(mapv fill %)))))
 (spec/def ::save-ability keyword?)
+(spec/def ::next-attack #{:adv :dis})
 (spec/def ::save-fail keyword?)
 (spec/def ::text string?)
 (spec/def ::effect
   (spec/and (spec/keys :req [::effect-type ::text]
-                       :opt [::save-dc ::save-ability ::save-fail])
+                       :opt [::save-dc ::save-ability ::save-fail ::next-attack])
             ::condition-fields
             #(or (nil? (::weapons5e/damage-die %)) (spec/valid? ::dice %))))
 (spec/def ::effects (spec/coll-of ::effect :kind vector?))
