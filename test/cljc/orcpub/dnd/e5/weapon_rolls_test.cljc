@@ -1,5 +1,8 @@
 (ns orcpub.dnd.e5.weapon-rolls-test
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.spec.alpha :as spec]
+            [orcpub.dnd.e5.display :as disp]
+            [orcpub.dnd.e5.weapons :as weapons]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.weapon-rolls :as rolls]))
 
@@ -94,3 +97,25 @@
 (deftest a-flat-amount-and-no-damage
   (is (= 20 (:total (rolls/roll-spell {:damage [{:dice "20" :type :radiant}]} 4 4 nil (constantly 6)))))
   (is (nil? (rolls/roll-spell {:save :wis} 1 1 nil (constantly 1))) "a spell with no damage rolls nothing"))
+
+(def referencing-weapon
+  "A made-up longsword whose extra damage and effect name the attack's values, not numbers:
+  damage equal to the ability modifier on a miss, and a save at the weapon's own DC on a hit."
+  {:name "Test Blade" ::weapons/damage-die 8 ::weapons/damage-die-count 1 ::weapons/damage-type :slashing
+   ::weapons/melee? true
+   ::mi/extra-damage [{::mi/damage-bonus :ability-mod ::mi/on :miss}]
+   ::mi/effects [{::mi/effect-type :save ::mi/save-dc :attack-save-dc ::mi/save-ability :con
+                  ::mi/save-fail :prone ::mi/text "Prone on a failed save."}]})
+
+(deftest references-are-valid-item-data
+  (is (spec/valid? ::mi/extra-damage (::mi/extra-damage referencing-weapon)))
+  (is (spec/valid? ::mi/effect (first (::mi/effects referencing-weapon)))))
+
+(deftest a-weapons-references-become-its-numbers
+  (let [w (mi/resolve-values referencing-weapon {:ability-mod 3 :save-dc 13})]
+    (testing "the text"
+      (is (= "+3" (disp/damage-dice-str (first (::mi/extra-damage w)))))
+      (is (= "DC 13 Con or prone" (disp/effect-summary (first (::mi/effects w))))))
+    (testing "the roll: a miss deals the modifier"
+      (is (= 3 (:total (rolls/roll-damage w 3 false {:miss? true} false (constantly 1))))))))
+
