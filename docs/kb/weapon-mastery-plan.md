@@ -399,7 +399,8 @@ Each step: tests seen failing first, scoped checks, own commit, KB updated.
    the session's scratch space); the desktop result-card check was committed on its own. **Was:** Discard the special-cased code. Revert the uncommitted Graze/Vex/Cleave sheet branches
    (`views.cljs`), the `:weapon-roll/arm` event and sub only if step 5 does not reuse them, and the
    `case` in `mastery-summary`. Keep the desktop ctrl-click card check.
-2. **Expose the weapon's ability modifier** (`character.cljc` accessor + sub, like
+2. **Half done 2026-10-26:** `char5e/best-weapon-ability-modifier-fn` and its sub; the band uses it
+   (`weapon_ability_modifier_test.clj`). The DC waits for decision 1. **Was:** Expose the weapon's ability modifier (`character.cljc` accessor + sub, like
    `best-weapon-damage-modifier-fn`), and the DC chosen in decision 1. Replace the views' approximation.
 3. **Value references**: spec `:ability-mod` and `:attack-save-dc` as allowed values of
    `::damage-bonus` and `::save-dc`; one resolver; formatter and engine call it.
