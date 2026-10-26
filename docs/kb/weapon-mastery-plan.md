@@ -384,7 +384,7 @@ dark ends, round ends beside the bar). Open.
    included. Recommended: (a), since the SRD defines it by the attack's modifier, not an ability.
 2. **The `?spell-save-dc-bonus` leak.** Fix now (a base DC without item spell bonuses, spells adding
    them on top) or file it. It changes printed DCs for characters wearing those items.
-3. **Where definitions live.** Data on the 5.5 line (`srd52/develop`), in the app's data shape, read
+3. **Settled 2026-10-26 (owner: yes):** definitions are data on `srd52/develop`; `feature/weapons-table` carries test data only. **Where definitions live.** Data on the 5.5 line (`srd52/develop`), in the app's data shape, read
    by a subscription; this branch carries only test data. Recommended, per
    [srd-2024-roadmap.md](srd-2024-roadmap.md) (mastery belongs on the 5.5 trunk).
 4. **Band summary wording.** Derived from the data (`effect-summary`, `extra-damage-str`), so no

@@ -1732,7 +1732,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** archery, attack, blindsight, damage, defense, dueling, fighting, great, interception, pool, predicate, prop, protection, style, styles, three-state, thrown, weapon
+**topics:** ability, archery, attack, blindsight, damage, dueling, fighting, great, interception, pool, predicate, prop, protection, style, styles, thrown, vocabulary, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -1742,6 +1742,7 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 - What driving the real app caught
 - Verified end to end in the real app
 - GAP: an imported style cannot be picked by the class that has the feature
+- Attacks with another ability (found 2026-10-26, feature/weapons-table)
 
 ## filtered-list-staleness.md
 

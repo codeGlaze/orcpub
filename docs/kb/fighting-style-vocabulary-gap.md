@@ -189,3 +189,17 @@ one-line swap: the pool lives in a cljs subscription while `fighting-style-selec
 `.cljc` template construction, so the pool has to be threaded in the way `template.cljc:1483`
 already threads it for grants. Pinned by the e2e as characterization — flip that assertion when it
 lands.
+
+## Attacks with another ability (found 2026-10-26, `feature/weapons-table`)
+
+The plumbing exists: `?weapon-abilities` in `template_base.cljc` is a list of fns of
+`[weapon finesse?]`, each naming the ability an attack may use (`::char5e/dex`) or nil; the attack,
+its damage and the weapon's own save DC (`?weapon-save-dc`) use the named ability with the highest
+bonus. Monk Martial Arts is the only live entry (the UA Hexblade's Cha entry is `#_` discarded
+reference code). What is missing is the data side: homebrew cannot carry fns, so a feat, custom
+class or custom weapon cannot say "use Cha with these weapons". It belongs here, as an
+[authoring vocabulary](authoring-vocabulary.md) entry such as `{:weapon-ability {:ability :cha
+:weapons <which weapons>}}` compiled to one `?weapon-abilities` entry; "which weapons" is the harder
+half (see that page, "A predicate is not the same as a spec"). Upstream asks: #665 (custom weapons
+with other ability scores), #191 (choose the ability for a finesse weapon).
+
