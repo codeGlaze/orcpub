@@ -1254,11 +1254,9 @@
      :weapon-choices [{:name "Weapon"
                        :options {:shortsword 1
                                  :simple 1}}]
-     :modifiers [(mod/vec-mod ?weapon-ability-modifiers
+     :modifiers [(mod/vec-mod ?weapon-abilities
                               (fn [weapon finesse?]
-                                (if (monk-weapon? weapon)
-                                  (get ?ability-bonuses ::char5e/dex)
-                                  0)))
+                                (when (monk-weapon? weapon) ::char5e/dex)))
                  (mod/vec-mod ?unarmored-defense :monk)
                  (mod/cum-sum-mod ?unarmored-ac-bonus
                                   (?ability-bonuses ::char5e/wis)

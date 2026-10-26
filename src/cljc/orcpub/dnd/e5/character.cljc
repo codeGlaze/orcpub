@@ -641,6 +641,12 @@
 (defn best-weapon-damage-modifier-fn [built-char]
   (get-prop built-char :best-weapon-damage-modifier))
 
+(defn weapon-save-dc-fn
+  "A fn of a weapon giving its own save DC (Topple's): 8 + proficiency + the modifier of the
+  ability its attack uses (save-dc-sources.md). No item spell DC bonus is in it."
+  [built-char]
+  (get-prop built-char :weapon-save-dc))
+
 (defn best-weapon-ability-modifier-fn
   "A fn of a weapon giving the ability modifier an attack with it uses: Str or Dex by the weapon,
   the better of the two for a finesse weapon. No magic or other damage bonus is in it."

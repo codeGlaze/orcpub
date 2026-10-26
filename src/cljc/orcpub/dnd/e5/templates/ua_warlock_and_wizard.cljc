@@ -20,12 +20,11 @@
                              (mod5e/armor-proficiency :medium)
                              (mod5e/armor-proficiency :shields)]
                  :levels {1 {:modifiers [(mod5e/weapon-proficiency :martial)
-                                         (mod/vec-mod ?weapon-ability-modifiers
+                                         (mod/vec-mod ?weapon-abilities
                                                       (fn [weapon finesse?]
-                                                        (if (and (?has-weapon-prof? weapon)
-                                                                 (not (::weapon5e/two-handed? weapon)))
-                                                          (get ?ability-bonuses ::char5e/cha)
-                                                          0)))
+                                                        (when (and (?has-weapon-prof? weapon)
+                                                                   (not (::weapon5e/two-handed? weapon)))
+                                                          ::char5e/cha)))
                                          (mod5e/bonus-action
                                           {:name "Hexblade's Curse"
                                            :page 1
