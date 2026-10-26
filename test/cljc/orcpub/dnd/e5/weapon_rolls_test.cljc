@@ -62,3 +62,35 @@
          (map (juxt :label :value) (rolls/damage-options (weapon :longsword) 2 false #{} false)))
       "a plain weapon offers Damage alone")
   (is (= {:against :undead} (:situation (second (rolls/damage-options (weapon :sun-blade-longsword) 5 false #{} false))))))
+
+(def fireball
+  "Fireball's rolling data as spell-rolls.edn writes it."
+  {:save :dex :save-half? true :damage [{:dice "8d6" :type :fire :per-slot "1d6"}]})
+
+(deftest a-spell-rolls-more-dice-at-a-higher-slot
+  (let [{:keys [parts total]} (rolls/roll-spell fireball 3 5 nil (constantly 2))]
+    (is (= ["fire"] (map :label parts)))
+    (is (= 10 (count (:rolls (first parts)))) "8d6 at 3rd, +2d6 at 5th")
+    (is (= 20 total))))
+
+(deftest every-dart-rolls-on-its-own
+  (let [missile {:damage [{:dice "1d4 + 1" :type :force}] :count {:n 3 :per-slot 1}}
+        {:keys [parts total]} (rolls/roll-spell missile 1 3 nil (constantly 1))]
+    (is (= 5 (count parts)) "three darts at 1st, five at 3rd")
+    (is (= 10 total) "each dart 1 + 1")))
+
+(deftest some-spells-scale-every-two-levels
+  (let [weapon {:attack :melee :damage [{:dice "1d8" :type :force :mod? true :per-slot "1d8" :slot-step 2}]}]
+    (is (= 2 (count (:rolls (first (:parts (rolls/roll-spell weapon 2 4 3 (constantly 1))))))) "2d8 at 4th")
+    (is (= 1 (count (:rolls (first (:parts (rolls/roll-spell weapon 2 3 3 (constantly 1))))))) "still 1d8 at 3rd")
+    (is (= 5 (:total (rolls/roll-spell weapon 2 3 3 (constantly 2)))) "the modifier is added")))
+
+(deftest a-choice-of-type-adds-its-own-part
+  (let [strike {:damage [{:dice "4d6" :type :fire} {:dice "4d6" :type :radiant}]
+                :per-slot {:dice "1d6" :types [:fire :radiant]}}]
+    (is (= 2 (count (:parts (rolls/roll-spell strike 5 5 nil (constantly 1))))) "nothing extra at 5th")
+    (is (= 2 (count (:rolls (last (:parts (rolls/roll-spell strike 5 7 nil (constantly 1))))))) "2d6 more at 7th")))
+
+(deftest a-flat-amount-and-no-damage
+  (is (= 20 (:total (rolls/roll-spell {:damage [{:dice "20" :type :radiant}]} 4 4 nil (constantly 6)))))
+  (is (nil? (rolls/roll-spell {:save :wis} 1 1 nil (constantly 1))) "a spell with no damage rolls nothing"))
