@@ -1,17 +1,18 @@
 // Overlays:  suppressed (cookie notice and What's New).
-// Does an event that throws in the real app tell the person, and change nothing?
+// Does a bug cost only the item it is in, in the real app? See docs/HOMEBREW_GUARD.md, 5.
 //
-// re-frame applies no effect of a handler that did not finish; events/event-failed, registered
-// by core.cljs once startup is done, says so in the error notice instead of rethrowing (which
-// dropped every queued event, the notice with them). See docs/HOMEBREW_GUARD.md, 5.
-//
+// Events: re-frame applies no effect of a handler that did not finish; events/event-failed,
+// registered by core.cljs once startup is done, says so in the error notice instead of
+// rethrowing (which dropped every queued event, the notice with them).
 //   1. the app starts with a library, so startup's recovery is not broken by the handler
 //   2. an event that throws shows the notice once, and its change is not applied
 //   3. the same event failing again straight away does not show a second notice
 //   4. the next event still runs: the queue was not dropped
+// Drawing: each My Content source row is in a render-guard (React's error boundary).
+//   5. a row that throws while drawing shows its fallback, and the page keeps working
 //
 // Needs:     server (`lein e2e-server`). No login.
-// Runs in:   ~20s.
+// Runs in:   ~25s.
 const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
 const { suppressOverlays } = require('./lib/orcbrew-import');
@@ -70,6 +71,22 @@ function check(name, pass, detail) {
   check('the next event still runs', await page.evaluate(() =>
     cljs.core.get(cljs.core.deref(re_frame.db.app_db), cljs.core.keyword('e2e-after')) === true));
   check('nothing escaped as an uncaught error', errors.length === 0, errors.join(' | '));
+
+  // ── a source row that throws while drawing ───────────────────────────────────
+  const poisoned = await page.evaluate(() => {
+    const v = orcpub.dnd.e5.views;
+    if (!v.source_disabled_counts) return 'views ns unreachable';
+    v.source_disabled_counts = function () { throw new Error('a deliberate drawing bug'); };
+    return 'ok';
+  });
+  check('could break the row', poisoned === 'ok', poisoned);
+  // the row draws again when it is expanded
+  await page.locator('text=expand').first().click({ timeout: 10000 });
+  await page.waitForTimeout(1500);
+  check('the row shows its fallback', (await page.locator('text=couldn’t be displayed').count()) > 0);
+  check('the page does not fall over',
+        (await page.locator('text=Something went wrong on this page').count()) === 0);
+  check('the rest of the page still works', await page.locator('button.b-export').isVisible());
 
   await browser.close();
   const failed = results.filter(r => !r.pass).length;

@@ -96,8 +96,8 @@
     "checks": 9,
     "seconds": 10
   },
-  "event_error_notice_e2e.js": {
-    "checks": 6,
-    "seconds": 20
+  "containment_e2e.js": {
+    "checks": 10,
+    "seconds": 25
   }
 }

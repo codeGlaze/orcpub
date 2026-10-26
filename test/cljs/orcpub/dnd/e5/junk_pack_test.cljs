@@ -178,8 +178,16 @@
       (sequential? v) (realize-each (filter homebrew? (items v)))
       :else (do (realize! v) nil))))
 
+(def ^:private contained
+  "The first error a render-guard caught while the current stage drew: shown on screen, but still
+   a failure here, as junk should not reach a page at all (the shape table missed a field)."
+  (atom nil))
+
 (defn- attempt [stage f]
-  (try (f) nil (catch :default e {:stage stage :error (msg e)})))
+  (reset! contained nil)
+  (try (f)
+       (when-let [e @contained] {:stage stage :error (str "contained: " e)})
+       (catch :default e {:stage stage :error (msg e)})))
 
 (def ^:private storage-slots
   "What a pack can leave in browser storage."
@@ -268,7 +276,20 @@
   "Draw `x` the way Reagent would: a vector headed by a function is a child component, so call it
    (twice for a component that returns its render function) and draw what it returns."
   [x]
-  (cond (and (vector? x) (fn? (first x)))
+  (cond (and (vector? x) (= views/guard-fallback (first x)))
+        ;; the fallback a guard draws for what it caught, whichever guard
+        (let [[_ data e] x]
+          (swap! contained #(or % (msg e)))
+          (expand (views/guard-fallback data e)))
+        (and (vector? x) (= views/error-boundary (first x)))
+        ;; as React does: the child, or the fallback when drawing it throws. What it contains is
+        ;; drawn on screen, so it is not a failure
+        (let [[_ fallback child] x]
+          (try (expand child)
+               (catch :default e
+                 (swap! contained #(or % (msg e)))
+                 (expand (fallback e nil nil)))))
+        (and (vector? x) (fn? (first x)))
         (let [[f & args] x
               r (apply f args)]
           (expand (if (fn? r) (apply r args) r)))
@@ -368,14 +389,15 @@
              (for [m (try (doall @(rf/subscribe [::monsters5e/filtered-monsters]))
                           (catch :default _ nil))
                    :when (homebrew? m)]
-               [(:key m) #(expand [views/monster-list-item m])]))
+               ;; drawn as the list draws each one, inside its guard
+               [(:key m) #(expand [views/render-guard m [views/monster-list-item m]])]))
      (for [[t es] (when builders? entries) :when (map? es)
            :let [[open builder] (builders t)]
            :when open
            [k e] es :when (map? e)]
        (do (covered! :drawn k)
            (some-> (once [:builder (hash e)] [:builder k]
-                         #(do (rf/dispatch-sync [open e]) (expand [builder])))
+                         #(do (rf/dispatch-sync [open e]) (expand (views/guarded-form e builder))))
                    (assoc :stage [:builder k] :key k)))))))
 
 (defn- run-pack!

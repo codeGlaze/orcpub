@@ -113,8 +113,9 @@ async function rescues(page, label, expected = PLUGINS) {
   //  The app boots fine and clears the control; only then does a render throw
   //  into the app-root error boundary. This is the case a naive "remove on
   //  mount" gets wrong, and the reason the control hides rather than deletes.
-  //  reduce-kv is poisoned because My Content calls it per source on every
-  //  render, so the next render is a real throw through React's own error path.
+  //  The move/copy bar is poisoned: My Content draws it outside the per-source and per-list
+  //  guards (which contain a throw to their own row), so the next render of the page is a real
+  //  throw through React's own error path to the app root.
   {
     const { ctx, page } = await seeded(browser);
     await page.goto(BASE + '/dnd/5e/my-content', { waitUntil: 'domcontentloaded' });
@@ -128,20 +129,20 @@ async function rescues(page, label, expected = PLUGINS) {
     // so the rescue must hand back what is stored at the crash, not the seed.
     const storedBeforeCrash = await page.evaluate(() => localStorage.getItem('plugins'));
 
-    // Poison the function My Content calls while rendering each source row, so
-    // the next render is a genuine throw through React's own error path.
+    // Poison the bar My Content draws in select mode, so the next render of the page itself is
+    // a genuine throw through React's own error path.
     const poisoned = await page.evaluate(() => {
       var v = window.orcpub && window.orcpub.dnd && window.orcpub.dnd.e5
               && window.orcpub.dnd.e5.views;
-      if (!v || !v.source_disabled_counts) return 'views ns unreachable';
-      v.source_disabled_counts = function () { throw new Error('simulated render failure'); };
+      if (!v || !v.relocate_bar) return 'views ns unreachable';
+      v.relocate_bar = function () { throw new Error('simulated render failure'); };
       return 'ok';
     });
     check('could poison a render-path fn', poisoned === 'ok', String(poisoned));
 
-    // Force the next render of that row.
-    const expand = page.locator('text=expand').first();
-    const clicked = await expand.click({ timeout: 10000 }).then(() => 'clicked')
+    // Turn select mode on, so the page draws the bar.
+    const toggle = page.locator('button.b-move').first();
+    const clicked = await toggle.click({ timeout: 10000 }).then(() => 'clicked')
                                 .catch(e => e.message.split('\n')[0]);
     check('could force a re-render', clicked === 'clicked', String(clicked));
     await page.waitForTimeout(2500);

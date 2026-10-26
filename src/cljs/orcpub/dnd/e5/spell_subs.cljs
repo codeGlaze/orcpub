@@ -303,7 +303,8 @@
  (fn [plugins _]
    (keep
     (fn [race]
-      (guard/guard-entry
+      ;; realized inside the guard: the modifiers are lazy, and a throw in them escaped it
+      (guard/guard-option
        ::e5/races race
        #(assoc %
                :modifiers
@@ -319,7 +320,8 @@
  (fn [plugins _]
    (keep
     (fn [subrace]
-      (guard/guard-entry
+      ;; realized inside the guard: the modifiers are lazy, and a throw in them escaped it
+      (guard/guard-option
        ::e5/subraces subrace
        #(assoc %
                :modifiers (concat (opt5e/plugin-modifiers (:props %)

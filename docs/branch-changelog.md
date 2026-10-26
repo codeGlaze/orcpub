@@ -48,6 +48,9 @@ into every field of every content type, by every way in, to prove it (docs/HOMEB
 
 - **Site:** an action that fails now says so and changes nothing. Before, nothing visible
   happened, and the actions queued after it were dropped.
+- **Homebrew:** a homebrew entry that cannot be drawn costs its own part of the page: one section
+  of its builder (the rest still edits and saves), one list or source in My Content, one row of
+  the monster list. Before, the whole page fell over.
 
 - **Homebrew:** a library with a content section stored as `true` no longer stops the app from
   starting.
