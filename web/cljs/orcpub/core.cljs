@@ -6,7 +6,6 @@
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views]
-            [orcpub.dnd.e5.views.guards :as guards]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
@@ -177,8 +176,8 @@
      ;; page is caught here as a last resort; finer boundaries below catch closer
      ;; and give better messages first. Keyed by route so navigating clears it.
      ^{:key handler}
-     [guards/error-boundary
-      (fn [error stack retry] [guards/app-error-fallback error stack retry])
+     [views/error-boundary
+      (fn [error stack retry] [views/app-error-fallback error stack retry])
       [:<>
        [view (assoc route-params :query query-map)]
        [boot-ok]]]

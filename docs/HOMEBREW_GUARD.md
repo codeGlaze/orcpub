@@ -382,8 +382,9 @@ alone 0.001 ms; an event that changes one entry 0.05 ms, then its deep check 35 
    are present; the table checks the form of those that are. Found on the way and fixed: the
    table counted nil as unreadable, which would have set aside a class saved with a nil
    `:spell-list-kw` on load; and an unchanged entry dropped its findings. Moved, no behaviour
-   change: the view guards to `views/guards.cljs` (views.cljs 11,557 to 11,342 lines); the
-   set-aside and write-check logic to `homebrew_check.cljs` (events.cljs 8,904 to 8,805).
+   change: the set-aside and write-check logic to `homebrew_check.cljs`, which already held the
+   rest of this wiring (events.cljs 8,904 to 8,805). The view guards stay in views.cljs: ~220
+   lines are not a namespace's worth (owner, 2026-10-26).
 7. **Enforcement:** the audit in CI at zero, the AGENTS.md rules, the documents corrected, the
    testing/develop scenarios gone through.
 8. **grant-rows** merges this, adds its fields to the table, and runs the audit.

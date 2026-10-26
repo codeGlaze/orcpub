@@ -17,7 +17,6 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.homebrew-guard :as guard]
             [orcpub.dnd.e5.homebrew-shapes :as shapes]
-            [orcpub.dnd.e5.views.guards :as guards]
             [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
@@ -278,12 +277,12 @@
   "Draw `x` the way Reagent would: a vector headed by a function is a child component, so call it
    (twice for a component that returns its render function) and draw what it returns."
   [x]
-  (cond (and (vector? x) (= guards/guard-fallback (first x)))
+  (cond (and (vector? x) (= views/guard-fallback (first x)))
         ;; the fallback a guard draws for what it caught, whichever guard
         (let [[_ data e] x]
           (swap! contained #(or % (msg e)))
-          (expand (guards/guard-fallback data e)))
-        (and (vector? x) (= guards/error-boundary (first x)))
+          (expand (views/guard-fallback data e)))
+        (and (vector? x) (= views/error-boundary (first x)))
         ;; as React does: the child, or the fallback when drawing it throws. What it contains is
         ;; drawn on screen, so it is not a failure
         (let [[_ fallback child] x]
@@ -392,14 +391,14 @@
                           (catch :default _ nil))
                    :when (homebrew? m)]
                ;; drawn as the list draws each one, inside its guard
-               [(:key m) #(expand [guards/render-guard m [views/monster-list-item m]])]))
+               [(:key m) #(expand [views/render-guard m [views/monster-list-item m]])]))
      (for [[t es] (when builders? entries) :when (map? es)
            :let [[open builder] (builders t)]
            :when open
            [k e] es :when (map? e)]
        (do (covered! :drawn k)
            (some-> (once [:builder (hash e)] [:builder k]
-                         #(do (rf/dispatch-sync [open e]) (expand (guards/guarded-form e builder))))
+                         #(do (rf/dispatch-sync [open e]) (expand (views/guarded-form e builder))))
                    (assoc :stage [:builder k] :key k)))))))
 
 (defn- run-pack!
