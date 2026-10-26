@@ -176,6 +176,9 @@ The owner reads every reply, often on a phone, and the log of a long turn alread
 - **Lead with the answer** when asked a question; a short question gets a short answer. A read-only
   lookup of five tool calls or fewer needs no stop rules (see Stop rules). A question that needs
   more work opens with them, and the answer leads the closing summary.
+- **Name the branches.** Open every summary with the branch you are working on, and give the
+  branch beside every PR or issue number you mention: `Working on: feature/guarded-homebrew` ·
+  `#69 (feature/asi-spreads)`.
 
 ## Code — MUST FOLLOW
 
