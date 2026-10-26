@@ -326,7 +326,8 @@
   "The + menu of a weapon with anything conditional, else nil: Roll damage, Roll vs each target,
   Critical damage (and vs each target), each once-per-rest use, each power paid in charges. Takes
   the weapon, its damage modifier, two-handed? and the toggles on. Returns [{:id :label :sub :value
-  :entries :recharge :cost}]: :recharge spends a use (features-used), :cost the item's charges."
+  :entries :recharge :cost :extra-attack :drop}]: :recharge spends a use (features-used), :cost the
+  item's charges, :extra-attack an attack to add (its damage :drop lower)."
   [weapon damage-modifier two-handed? toggles-on]
   (let [roll #(weapon-damage/applying-damage weapon damage-modifier two-handed? (assoc % :toggles toggles-on))
         conditional (concat (::mi/extra-damage weapon) (::mi/effects weapon))
@@ -347,14 +348,15 @@
                                    {:crit? true :roll 20 :against (first (sort t))} true))
             (for [[i e] (map-indexed vector uses)
                   :let [e (weapon-damage/resolve-extra weapon e)
-                        label (if (::mi/effect-type e) (effect-summary e) (plus-str e))
+                        label (if (::mi/effect-type e) (or (effect-summary e) (::mi/text e)) (plus-str e))
                         es (if (::mi/effect-type e)
                              (if (::weapons/damage-die e) [e] [])
                              (conj (roll {:attack-type (::mi/attack-type e)}) e))]]
               {:id [:use i] :label label
                :sub (str "once per " (recharge-names (::mi/recharge e) (common/safe-name (::mi/recharge e))))
                :value (if (::mi/effect-type e) (when (seq es) (damage-str (first es))) (plus-str e))
-               :entries es :recharge (::mi/recharge e)})
+               :entries es :recharge (::mi/recharge e)
+               :extra-attack (::mi/extra-attack e) :drop (::mi/extra-attack-drop e 0)})
             (for [[i e] (map-indexed vector paid)
                   :let [e (weapon-damage/resolve-extra weapon e)
                         cost (::mi/charge-cost e)

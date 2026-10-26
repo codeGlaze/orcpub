@@ -4216,14 +4216,20 @@
           "+"])
        (when menu-open?
          [weapon-menu id nm menu-items last? close-menu
-          (fn [{:keys [label entries id]}]
+          (fn [{:keys [label entries id extra-attack drop]}]
+            (if extra-attack
+              (dispatch [:weapon-roll/add
+                         (assoc roll-ctx :name (str nm " \u00B7 extra attack") :mod (- modifier (or drop 0))
+                                :attack (weapon-rolls/roll-attack {:bonus attack-bonus :crit-min crit-min
+                                                                   :mode (weapon-rolls/attack-mode nil sticky-mode)}
+                                                                  rand-die))])
             (dispatch [:weapon-roll/add
                        (assoc roll-ctx :name (str nm " \u00B7 " (s/lower-case label))
                               :damage (weapon-rolls/roll-entries weapon entries
                                                                  (if (and (vector? id) (#{:vs :crit-vs} (first id)))
                                                                    {:against (first (sort (second id)))}
                                                                    {})
-                                                                 rand-die))]))])]]
+                                                                 rand-die))])))])]]
      (when (or controls-below? (seq lines))
        [:div.weapon-lines
         (when controls-below?

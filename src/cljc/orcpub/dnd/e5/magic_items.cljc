@@ -61,21 +61,25 @@
 (defn resolve-values
   "`weapon` with the value references in its extra damage and effects replaced by numbers:
   ::damage-bonus :ability-mod by `ability-mod`, ::save-dc :attack-save-dc by `save-dc` (the
-  attack's ability modifier and the weapon's save DC). weapon-mastery-plan.md, step 3."
+  attack's ability modifier and the weapon's save DC), and an extra attack that leaves out a
+  positive ability modifier given ::extra-attack-drop. weapon-mastery-plan.md, steps 3 and 5."
   [weapon {:keys [ability-mod save-dc]}]
   (let [fill (fn [e] (cond-> e
                           (= :ability-mod (::damage-bonus e)) (assoc ::damage-bonus ability-mod)
-                          (= :attack-save-dc (::save-dc e)) (assoc ::save-dc save-dc)))]
+                          (= :attack-save-dc (::save-dc e)) (assoc ::save-dc save-dc)
+                          (= :omit-ability-mod (::extra-attack e)) (assoc ::extra-attack-drop (max 0 (or ability-mod 0)))))]
     (cond-> weapon
       (::extra-damage weapon) (update ::extra-damage #(mapv fill %))
       (::effects weapon) (update ::effects #(mapv fill %)))))
 (spec/def ::save-ability keyword?)
 (spec/def ::next-attack #{:adv :dis})
+(spec/def ::extra-attack #{:omit-ability-mod :same})
+(spec/def ::extra-attack-drop nat-int?)
 (spec/def ::save-fail keyword?)
 (spec/def ::text string?)
 (spec/def ::effect
   (spec/and (spec/keys :req [::effect-type ::text]
-                       :opt [::save-dc ::save-ability ::save-fail ::next-attack])
+                       :opt [::save-dc ::save-ability ::save-fail ::next-attack ::extra-attack])
             ::condition-fields
             #(or (nil? (::weapons5e/damage-die %)) (spec/valid? ::dice %))))
 (spec/def ::effects (spec/coll-of ::effect :kind vector?))
