@@ -3465,9 +3465,12 @@
  :clear-login
  [user->local-store-interceptor]
  (fn [db [_ user-data]]
-   (update db :user-data dissoc :user-data :token)))
+   (-> db
+       (update :user-data dissoc :user-data :token)
+       (dissoc :user))))
 
-;; Startup auth check — validates stored token on app load (core.cljs).
+;; Startup auth check — validates stored token on app load (core.cljs) and keeps the account it
+;; answers in db :user, the one GET /user of a page load.
 ;; Clears stale sessions before reg-sub-raw subs fire HTTP with expired tokens.
 (reg-event-fx
  :verify-user-session
@@ -3476,7 +3479,7 @@
      (do (go (let [response (<! (http/get (url-for-route routes/user-route)
                                           {:headers (authorization-headers db)}))]
                (case (:status response)
-                 200 nil
+                 200 (dispatch [:set-user (:body response)])
                  401 (do (dispatch [:clear-login])
                          (dispatch [:set-loading false]))
                  nil)))
@@ -3721,7 +3724,9 @@
  (fn [{:keys [db]} [_ backtrack? response]]
    ;; A button-text choice saved on the account wins over this browser's.
    {:db (let [account-choice (-> response :body :user-data :dark-button-text?)]
-          (cond-> (update db :user-data merge (-> response :body))
+          (cond-> (-> db
+                      (update :user-data merge (-> response :body))
+                      (assoc :user (-> response :body :user-data)))
             (some? account-choice) (assoc-in [:user-data :dark-button-text?] account-choice)))
     :dispatch [:route (or
                        (:return-route db)
