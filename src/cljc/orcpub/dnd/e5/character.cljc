@@ -641,6 +641,13 @@
 (defn best-weapon-damage-modifier-fn [built-char]
   (get-prop built-char :best-weapon-damage-modifier))
 
+(defn best-weapon-ability-modifier-fn
+  "A fn of a weapon giving the ability modifier an attack with it uses: Str or Dex by the weapon,
+  the better of the two for a finesse weapon. No magic or other damage bonus is in it."
+  [built-char]
+  (let [f (get-prop built-char :weapon-ability-modifier)]
+    (fn [weapon] (max (f weapon false) (f weapon true)))))
+
 (defn option-sources [built-char]
   (get-prop built-char :option-sources))
 

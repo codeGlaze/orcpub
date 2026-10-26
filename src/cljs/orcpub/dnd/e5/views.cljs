@@ -4242,6 +4242,7 @@
             main-hand-kw @(subscribe [::char/main-hand-weapon id])
             weapon-attack-modifier @(subscribe [::char/best-weapon-attack-modifier-fn id])
             weapon-damage-modifier @(subscribe [::char/best-weapon-damage-modifier-fn id])
+            weapon-ability-modifier @(subscribe [::char/best-weapon-ability-modifier-fn id])
             has-weapon-prof @(subscribe [::char/has-weapon-prof id])
             crit-values @(subscribe [::char/critical-hit-values id])
             trained @(subscribe [::char/weapon-masteries id])
@@ -4286,7 +4287,7 @@
               id
               (= weapon-key last-key)
               (disp/mastery-band weapon trained mastery-definitions
-                                 {:ability-mod (- (weapon-damage-modifier weapon) (or (::mi/magical-damage-bonus weapon) 0))
+                                 {:ability-mod (weapon-ability-modifier weapon)
                                   :prof (or prof 2)
                                   :damage-type (weapon-damage/weapon-type weapon)})
               desktop?
