@@ -15,6 +15,9 @@ House style and the branch → release fold: [`docs/branch-changelog.template.md
 Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use and given a portrait drawn from an illustrator's layered art, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read.
 
 ### Added
+- **Server:** a startup email to the admin on each new release: what needs fixing, the release's new settings, and those worth setting; sent again only when that changes, with one reminder a week later while something still needs fixing.
+- **Server:** the startup report is saved to `startup-report.txt` beside the crash files (`/var/log/orcpub` on Docker), and `./run` prints it as the last thing after starting the server.
+- **Server:** `./run --upgrade` and `./run --check` say what the release changes for your install: only what needs doing on screen, the full notes in `logs/upgrade-report.txt`. Datomic logs the addresses it gives the app when it starts, and the app's startup report has a DEPLOYMENT block: where crash files and alerts are kept (with the mount to add when they are inside the container) and this release's deployment changes, for installs that do not use `./run`.
 
 - **Homebrew:** move or copy content between sources, one item or many at a time. (#705)
 - **Homebrew:** turn all homebrew, a source or one section off without deleting it, and search inside a source. (#475)
@@ -37,7 +40,11 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** a busy server answers a PDF export with a page that retries by itself instead of timing out. (#710)
 - **Site:** a What's New panel shows each release's highlights once. (#711)
 - **Site:** a "Dark Button Text" option for the yellow buttons. (#711)
-- **Server:** a startup report of the server's settings, naming what is missing and never printing secrets. (#712)
+- **Server:** a startup report of the server's settings, naming what is missing and never printing secrets, and ending with the settings new in this release that are not set yet. (#712)
+- **Accounts:** sign-up, password reset and the other account emails are kept and retried until the mail server takes them, so signing up works while the mail server is down, and no email is lost to a busy one.
+- **Server:** after the app runs out of memory or crashes, it restarts clean and the admin is emailed what happened; the evidence is kept in `/var/log/orcpub` on the host, on Docker Compose and Swarm alike. Docker logs are capped so they cannot fill the disk.
+- **Server:** sign-ins, failed sign-ins, sign-ups, password resets, email changes, deleted accounts and refused logins are written to the server log, without passwords or email addresses. The log no longer lists every web request; the web proxy keeps that record.
+- **Server:** admin alerts: one email per problem with a count of repeats, an hourly ceiling, and nothing lost or slowed down when the mail server or the database is down.
 - **Rules:** a Rules tab with the full SRD 5.1 rules reference, by section, and the 15 conditions.
 - **Rules:** links in rules text to the spells, conditions and rules they name, with a preview
   on hover, or on a first tap on a phone.
@@ -80,6 +87,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** the add buttons on homebrew builders repeat below a long list of traits or options.
 
 ### Changed
+- **Server:** a deployed server will not start without a mail server unless `EMAIL_REQUIRED=false` says that is intended, and the message names the setting to add. Development mode is exempt; `./run` and `./run --upgrade` set the opt-out for installs that run without email, so none stops on upgrade.
+- **Server:** admin alerts and artist notices fall back to the public support address (`APP_SUPPORT_EMAIL`) when `EMAIL_ERRORS_TO` and `EMAIL_ADMIN_TO` are unset, and the startup report names the address in use.
 
 - **Characters:** switching between Race and Class no longer freezes the builder, and an edit rebuilds the character once. (#621)
 - **Characters:** the Missing Content warning also covers spells and languages, and ignores the built-in "Custom" option. (#524)
@@ -96,6 +105,14 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 
 ### Fixed
 
+- **Server:** the setup scripts read `.env` the way Docker does, so a value with an apostrophe or spaces (`APP_NAME=Dungeon Master's Vault`) no longer breaks `./run`, `docker-user.sh` or the start scripts.
+- **Accounts:** behind a proxy, sign-in, sign-up and password-reset limits now count each player separately. Every visitor shared the proxy's address, so a few mistyped passwords could lock everyone out of signing in for a minute. Set `TRUST_CLOUDFLARE=true` when the site is behind Cloudflare.
+- **Server:** on Docker and other production starts, the heartbeat, the crash report and the startup check for stranded characters now run; they were waiting behind the web server and never started.
+- **Server:** Datomic starts on Docker Swarm from the stack `./run --swarm` writes, with or without `--secrets`; it used to need the transactor template edited and the image rebuilt, and an `ALT_HOST` written for Compose broke it. With neither address set, Datomic detects Swarm and picks them itself, so an older stack pasted into Portainer works too (docs/DOCKER.md, "Upgrading an existing Swarm deployment").
+- **Server:** regenerating a Swarm stack with `./run --swarm` no longer turns its own network into a missing external one, and no longer drops services or sections it does not know: it keeps your file and writes the new one beside it.
+- **Server:** the Swarm stack file `./run --swarm` writes is accepted by `docker stack deploy`; it started with a top-level `name` that Swarm rejects.
+- **Server:** `JAVA_OPTS` now reaches Java in Docker; memory settings set there were ignored, so the app ran with a quarter of its container's memory.
+- **Server:** settings set in `.env` now reach the server under Docker Compose and Swarm. Branding (`APP_*`) and most other settings were dropped on the way into the container, so the site ran on defaults whatever `.env` said.
 - **Homebrew:** a custom element with a blank or symbol-only name no longer breaks the character. (#675)
 - **Homebrew:** older spell names (Leomund's, Tasha's, Bigby's) match in imported packs. (#676)
 - **Homebrew:** a homebrew class's source label no longer corrupts saved spell selections. (#670)

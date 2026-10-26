@@ -43,6 +43,7 @@
             [orcpub.privacy :as privacy]
             [orcpub.config :as config]
             [orcpub.email :as email]
+            [orcpub.outbox :as outbox]
             [orcpub.loading-spinner :as spinner]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
@@ -227,17 +228,21 @@
                        minted (get-in updated-request [:identity :minted])]
                    (cond
                      (not (and (:identity updated-request) username))
-                     (terminate-request context 401 "Unauthorized")
+                     (do (when (get-in request [:headers "authorization"])
+                           (security/audit! :token-invalid request))
+                         (terminate-request context 401 "Unauthorized"))
 
                      ;; Changing a password takes back the sessions that existed
                      ;; before it. The same 401 as any other refusal: which of
                      ;; the two reasons it was is not the caller's business.
                      (security/token-withdrawn? username minted)
-                     (terminate-request context 401 "Unauthorized")
+                     (do (security/audit! :token-withdrawn request username)
+                         (terminate-request context 401 "Unauthorized"))
 
                      :else
                      (assoc context :request (assoc updated-request :username username))))
                  (catch Exception e
+                   (security/audit! :token-invalid (:request context))
                    (terminate-request context 401
                                       (str "Authentication failed: "
                                            (.getMessage e)))))))}))
@@ -422,6 +427,8 @@
     (do (security/note-refusal! :login-username)
         (login-error errors/too-many-attempts))
     (let [user-for-username (find-user-by-username-or-email db username)]
+      ;; A name with no account is not logged: it is sometimes a password typed in the wrong box.
+      (security/audit! :sign-in-failed request (:orcpub.user/username user-for-username))
       ;; Several addresses failing against ONE account inside a minute is also what
       ;; a person with a phone, a laptop and a tablet looks like -- so it notifies
       ;; the owner rather than locking them out. Runs on another thread, and its
@@ -430,11 +437,15 @@
                  (security/multiple-ip-attempts-to-same-account? username)
                  (security/claim-sign-in-notice! username))
         (future
-          (email/send-sign-in-attempts-email
-           (base-url request)
-           {:email (:orcpub.user/email user-for-username)
-            :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)
-            :user-agent (get (:headers request) "user-agent")})))
+          (try
+            (outbox/enqueue! (:conn request) :sign-in-attempts
+                             (email/sign-in-attempts-message
+                              (base-url request)
+                              {:email (:orcpub.user/email user-for-username)
+                               :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)
+                               :user-agent (get (:headers request) "user-agent")}))
+            (catch Exception e
+              (println "ERROR: could not queue a sign-in attempts notice:" (.getMessage e))))))
       ;; One answer for both. Telling somebody the username does not exist made
       ;; the login form the same membership test the reset endpoint was, and a
       ;; cheaper one, since it needs no mail to be sent.
@@ -480,7 +491,8 @@
                 (and unverified? expired?) (login-error errors/unverified-expired)
                 unverified? (login-error errors/unverified {:email email})
                 :else
-                (create-login-response db conn user id))))))
+                (do (security/audit! :sign-in request (:orcpub.user/username user))
+                    (create-login-response db conn user id)))))))
 
 (defn login [request]
   (login-response request))
@@ -504,23 +516,13 @@
       auth/verification-display-name
       (:orcpub.user/username user)))
 
-(defn send-verification-email [request params verification-key]
-  (email/send-verification-email
-   (base-url request)
-   params
-   verification-key))
-
-(defn send-email-change-verification [request params verification-key]
-  (email/send-email-change-verification
-   (base-url request)
-   params
-   verification-key))
 
 (defn do-verification
-  "Create or refresh a pending verification, then email the link. The key is written BEFORE the
-   send (the link only resolves once stored), so a failed send is rolled back: a new account is
-   retracted, an existing one gets its previous key back. Tests: registration_rollback_test.clj.
-   docs/email-system.md mirrors this flow for operators; change both together."
+  "Creates or refreshes a pending verification and queues its email in the same transaction
+   (orcpub.outbox), so the account and the email are saved together or not at all; the outbox
+   sends it and retries while the mail server is down. `params` is the user map, `tx-data` the
+   account attributes (an existing {:db/id} for a resend). Returns the response map.
+   Tests: registration_email_test.clj. docs/email-system.md mirrors this flow; change both."
   [request params conn & [tx-data]]
   (cond
     ;; No SMTP and no ALLOW_UNVERIFIED_REGISTRATION: fail closed. A typo'd or empty mount must
@@ -556,64 +558,25 @@
                           e)))))
     :else
     (let [verification-key (str (java.util.UUID/randomUUID))
-        now (java.util.Date.)
-        ;; re-verify passes an existing {:db/id id}; register does not. The two
-        ;; need different rollbacks -- never retract the ENTITY for a user who
-        ;; already existed, only the attributes this attempt set.
-        existing-id (:db/id tx-data)
-        tempid "verification-subject"
-        report (try
-                 @(d/transact
-                   conn
-                   [(merge
-                     tx-data
-                     {:db/id (or existing-id tempid)
-                      :orcpub.user/verified? false
-                      :orcpub.user/verification-key verification-key
-                      :orcpub.user/verification-sent now})])
-                 (catch Exception e
-                   (println "ERROR: Failed to create verification record:" (.getMessage e))
-                   (throw (ex-info "Unable to complete registration. Please try again or contact support."
-                                   {:error :verification-failed}
-                                   e))))
-        eid (or existing-id (get (:tempids report) tempid))
-        ;; What this resend overwrote, read from the database just before ITS OWN write, so an
-        ;; overlapping resend that wrote and emailed in between is what comes back if ours fails.
-        ;; verification-key is cardinality-one: without this the link already in the inbox dies.
-        previous (when existing-id
-                   (d/pull (:db-before report)
-                           [:orcpub.user/verification-key :orcpub.user/verification-sent]
-                           existing-id))]
-    (try
-      (send-verification-email request params verification-key)
-      {:status 200}
-      (catch Throwable e
-        (println "ERROR: Verification email failed, rolling back:" (.getMessage e))
-        (try
-          @(d/transact conn (if existing-id
-                              ;; Restore or remove ONLY while still ours: an overlapping newer
-                              ;; resend may own the inbox link now. :db/cas makes it conditional.
-                              (let [{old-key :orcpub.user/verification-key
-                                     old-sent :orcpub.user/verification-sent} previous]
-                                [(if old-key
-                                   [:db/cas eid :orcpub.user/verification-key verification-key old-key]
-                                   [:db/retract eid :orcpub.user/verification-key verification-key])
-                                 (if old-sent
-                                   [:db/cas eid :orcpub.user/verification-sent now old-sent]
-                                   [:db/retract eid :orcpub.user/verification-sent now])])
-                              [[:db/retractEntity eid]]))
-          (catch Exception re
-            (if (re-find #"cas-failed" (str re (some-> re .getCause)))
-              ;; Not a failure: a newer resend superseded this attempt, so its
-              ;; state is the right state to keep.
-              (println "INFO: verification rollback skipped — a newer resend owns the key now.")
-              ;; Report the rollback failure, but surface the original cause.
-              (println "ERROR: Rollback ALSO failed; a partial account may remain:"
-                       (.getMessage re)))))
-        (throw (ex-info "Unable to complete registration. Please try again or contact support."
-                        {:error :verification-email-failed}
-                        e)))))))
-
+          existing-id (:db/id tx-data)]
+      (try
+        @(d/transact
+          conn
+          [(merge
+            tx-data
+            {:db/id (or existing-id "verification-subject")
+             :orcpub.user/verified? false
+             :orcpub.user/verification-key verification-key
+             :orcpub.user/verification-sent (java.util.Date.)})
+           (outbox/email-tx :verification
+                            (email/verification-message (base-url request) params verification-key))])
+        (catch Exception e
+          (println "ERROR: Failed to create verification record:" (.getMessage e))
+          (throw (ex-info "Unable to complete registration. Please try again or contact support."
+                          {:error :verification-failed}
+                          e))))
+      (outbox/sent!)
+      {:status 200})))
 
 (defn- breach-message
   "Why this reads as a strength verdict, not a security warning: the corpus
@@ -675,19 +638,21 @@
     (if (seq validation)
       {:status 400
        :body validation}
-      (do-verification
-       request
-       json-params
-       conn
-       (merge
-        {:orcpub.user/email email
-         :orcpub.user/username username
-         :orcpub.user/password (hashers/encrypt password)
-         :orcpub.user/send-updates? send-updates?
-         :orcpub.user/created now}
-        (when auth/record-last-login-at-registration?
-          {:orcpub.user/last-login now})
-        (user-data/registration-defaults))))))
+      (let [response (do-verification
+                      request
+                      json-params
+                      conn
+                      (merge
+                       {:orcpub.user/email email
+                        :orcpub.user/username username
+                        :orcpub.user/password (hashers/encrypt password)
+                        :orcpub.user/send-updates? send-updates?
+                        :orcpub.user/created now}
+                       (when auth/record-last-login-at-registration?
+                         {:orcpub.user/last-login now})
+                       (user-data/registration-defaults)))]
+        (when (= 200 (:status response)) (security/audit! :registered request username))
+        response))))
 
 (def user-for-verification-key-query
   '[:find ?e
@@ -755,6 +720,7 @@
                                    [:db/retract id :orcpub.user/verification-key key]
                                    [:db/retract id :orcpub.user/verification-sent verification-sent]])
                 (link-artist-on-confirm! conn id)
+                (security/audit! :email-change-confirmed request username)
                 (redirect route-map/verify-success-route)))
 
           ;; No artist link here: whoever registered chose the password, and confirming
@@ -882,6 +848,17 @@
 ;; the way home, on a site whose worst case is a character sheet.
 (def password-reset-valid-hours 2)
 
+(defn- notice-tx
+  "Transaction data queuing the email `build` returns (a function of no arguments) as `kind`, or
+   nil when building it fails, which is logged. For notices that must never cost the change they
+   report on."
+  [kind build]
+  (try (outbox/email-tx kind (build))
+       (catch Exception e
+         (println "ERROR: could not build a" (name kind) "email; the change goes ahead without it:"
+                  (.getMessage e))
+         nil)))
+
 (defn do-send-password-reset [user-id email conn request]
   (let [key (str (java.util.UUID/randomUUID))]
     (try
@@ -889,17 +866,19 @@
         conn
         (cond-> [{:db/id user-id
                   :orcpub.user/password-reset-key (hash-reset-key key)
-                  :orcpub.user/password-reset-sent (java.util.Date.)}]
+                  :orcpub.user/password-reset-sent (java.util.Date.)}
+                 (outbox/email-tx :password-reset
+                                  (email/reset-message
+                                   (base-url request)
+                                   {:first-and-last-name (preferred-name-of (d/entity (d/db conn) user-id))
+                                    :email email}
+                                   key))]
           ;; a fresh ordinary reset replaces a week-long welcome link, so it
           ;; must not inherit that link's expiry
           (:orcpub.user/password-reset-expires (d/entity (d/db conn) user-id))
           (conj [:db/retract user-id :orcpub.user/password-reset-expires
                  (:orcpub.user/password-reset-expires (d/entity (d/db conn) user-id))])))
-      (email/send-reset-email
-       (base-url request)
-       {:first-and-last-name (preferred-name-of (d/entity (d/db conn) user-id))
-        :email email}
-       key)
+      (outbox/sent!)
       {:status 200}
       (catch Exception e
         (println "ERROR: Failed to initiate password reset for user" user-id ":" (.getMessage e))
@@ -933,6 +912,8 @@
     (when (and id (security/reset-email-allowed? email remote-addr))
       (try
         (do-send-password-reset id email conn request)
+        (security/audit! :password-reset-requested request
+                         (:orcpub.user/username (d/entity db id)))
         (catch Exception e
           ;; Swallowed on purpose. Letting this escape would restore the oracle
           ;; in a subtler form -- only a real account can fail to be emailed,
@@ -958,24 +939,24 @@
         ;; The link is spent with the password it set, in the same transaction.
         (:orcpub.user/password-reset-key user)
         (conj [:db/retract user-id :orcpub.user/password-reset-key
-               (:orcpub.user/password-reset-key user)])))
+               (:orcpub.user/password-reset-key user)])
+        ;; The notice goes with the change: it is the only sign an unauthorised reset leaves.
+        (and request (:orcpub.user/email user))
+        (conj (notice-tx :password-changed
+                         #(email/password-changed-message
+                           (base-url request)
+                           {:email (:orcpub.user/email user)
+                            :first-and-last-name (:orcpub.user/first-and-last-name user)
+                            :user-agent (get (:headers request) "user-agent")})))
+        true (->> (remove nil?))))
+    (outbox/sent!)
     ;; Before anything else that can fail: every token minted before now is no
     ;; longer good for this account, including the one this very request is
     ;; using. That is the point -- a reset is how somebody takes their account
     ;; back, and leaving the intruder's session alive would defeat it.
     (when-let [username (:orcpub.user/username user)]
-      (security/note-password-changed! username))
-    ;; After the transact, on another thread, and its outcome never reaches the
-    ;; response: the password HAS changed by now, and a mail failure must not
-    ;; report an error for something that already happened -- somebody would
-    ;; simply do it again.
-    (when (and request (:orcpub.user/email user))
-      (future
-        (email/send-password-changed-email
-         (base-url request)
-         {:email (:orcpub.user/email user)
-          :first-and-last-name (:orcpub.user/first-and-last-name user)
-          :user-agent (get (:headers request) "user-agent")})))
+      (security/note-password-changed! username)
+      (when request (security/audit! :password-reset request username)))
     {:status 200}
     (catch Exception e
       (if (odb/cas-failed? e)
@@ -2213,9 +2194,9 @@
     {:status 200 :body (user-body db user)}))
 
 (defn delete-user
-  "Deletes the authenticated user's account. Returns 200.
+  "Deletes the authenticated user's account and logs it. Returns 200.
   Throws ExceptionInfo :user-deletion-failed on database failure."
-  [{:keys [db conn identity]}]
+  [{:keys [db conn identity] :as request}]
   (let [username (:user identity)
         user (d/q '[:find ?u .
                     :in $ ?username
@@ -2226,6 +2207,7 @@
       {:username username}
       "Unable to delete user account. Please try again or contact support."
       @(d/transact conn [[:db/retractEntity user]])
+      (security/audit! :account-deleted request username)
       {:status 200})))
 
 (defn rate-limit-remaining-secs
@@ -2303,46 +2285,40 @@
                    (and (>= elapsed (* 1 60 1000))
                         (< elapsed (* 5 60 1000)))))
             (try
-              (send-email-change-verification request
-                                              {:email new-email :username username
-                                                 :preferred-name (preferred-name-of user)}
-                                              (:orcpub.user/verification-key user))
+              (outbox/enqueue! conn :email-change-verification
+                               (email/email-change-verification-message
+                                (base-url request)
+                                {:email new-email :username username
+                                 :preferred-name (preferred-name-of user)}
+                                (:orcpub.user/verification-key user)))
               {:status 200 :body {:pending-email new-email}}
               (catch Throwable e
-                (prn "Email resend failed:" (.getMessage e))
+                (prn "Email resend could not be queued:" (.getMessage e))
                 {:status 500 :body {:error :email-send-failed}}))
 
             :else
             (let [verification-key (str (java.util.UUID/randomUUID))
                   now (java.util.Date.)]
-              @(d/transact conn [{:db/id id
+              ;; The verification goes to the NEW address, unreachable by the owner if this
+              ;; wasn't them, so the notice to the current address goes in the same transaction.
+              @(d/transact conn (remove nil? [{:db/id id
                                   :orcpub.user/pending-email new-email
                                   :orcpub.user/verification-key verification-key
-                                  :orcpub.user/verification-sent now}])
-              ;; Roll back pending-email if verification email fails to send
-              (try
-                (send-email-change-verification request
-                                                {:email new-email :username username
-                                                 :preferred-name (preferred-name-of user)}
-                                                verification-key)
-                ;; Tells the address that currently owns the account. Verification goes to
-                ;; the NEW address, unreachable by the owner if this wasn't them, so without
-                ;; this notice the losing party is never told. Runs on another thread: the
-                ;; change is already accepted, so a failure here must not report an error.
-                (future
-                  (email/send-email-change-notice
-                   (base-url request)
-                   {:email email
-                    :first-and-last-name (:orcpub.user/first-and-last-name user)
-                    :new-email new-email}))
-                {:status 200 :body {:pending-email new-email}}
-                (catch Throwable e
-                  (errors/log-error "ERROR:" (str "Email send failed, rolling back pending state: " (.getMessage e)))
-                  ;; Full rollback: retract all attributes set by the failed attempt
-                  @(d/transact conn [[:db/retract id :orcpub.user/pending-email new-email]
-                                     [:db/retract id :orcpub.user/verification-key verification-key]
-                                     [:db/retract id :orcpub.user/verification-sent now]])
-                  {:status 500 :body {:error :email-send-failed}})))))))
+                                  :orcpub.user/verification-sent now}
+                                 (outbox/email-tx :email-change-verification
+                                                  (email/email-change-verification-message
+                                                   (base-url request)
+                                                   {:email new-email :username username
+                                                    :preferred-name (preferred-name-of user)}
+                                                   verification-key))
+                                 (notice-tx :email-change-notice
+                                            #(email/email-change-notice-message
+                                              {:email email
+                                               :first-and-last-name (:orcpub.user/first-and-last-name user)
+                                               :new-email new-email}))]))
+              (outbox/sent!)
+              (security/audit! :email-change-requested request username)
+              {:status 200 :body {:pending-email new-email}})))))
     (catch Throwable e (prn e) (throw e))))
 
 (defn character-summary-description [{:keys [::char5e/race-name ::char5e/subrace-name ::char5e/classes]}]

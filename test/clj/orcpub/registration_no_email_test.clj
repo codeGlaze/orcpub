@@ -52,6 +52,11 @@
                  :password "hunter2hunter2"
                  :send-updates? false}})
 
+(defn- queued-emails
+  "How many emails are queued in `db`."
+  [db]
+  (or (d/q '[:find (count ?e) . :where [?e :orcpub.outbox/id]] db) 0))
+
 (defn- find-user [db]
   (when-let [e (d/q '[:find ?e . :where [?e :orcpub.user/username "newcomer"]] db)]
     (d/pull db '[*] e)))
@@ -60,13 +65,10 @@
   (let [conn (fresh-conn)]
     (testing "registration succeeds and the account is already verified"
       (with-redefs [email/configured? (constantly false)
-                    email/unverified-registration-allowed? (constantly true)
-                    ;; If this is ever called the test should fail loudly: the
-                    ;; whole point is that no send is attempted.
-                    routes/send-verification-email
-                    (fn [& _] (throw (AssertionError. "tried to send mail with no SMTP configured")))]
+                    email/unverified-registration-allowed? (constantly true)]
         (let [resp (routes/register (register-request conn))
               user (find-user (d/db conn))]
+          (is (zero? (queued-emails (d/db conn))) "no email is queued with no mail server to send it")
           (is (= 200 (:status resp)))
           (is (true? (get-in resp [:body :verified?]))
               "the client branches on this to show \"you can log in\" instead of \"check your email\"")
@@ -79,8 +81,7 @@
   ;; before this change a mail-less instance produced accounts nobody could use.
   (let [conn (fresh-conn)]
     (with-redefs [email/configured? (constantly false)
-                    email/unverified-registration-allowed? (constantly true)
-                  routes/send-verification-email (fn [& _] nil)]
+                    email/unverified-registration-allowed? (constantly true)]
       (routes/register (register-request conn)))
     (testing "the account registered without SMTP can sign in"
       (let [resp (routes/login-response
@@ -93,12 +94,10 @@
                  "instance. Got: " (pr-str (select-keys resp [:status :body]))))))))
 
 (deftest with-smtp-configured-nothing-changes
-  (let [conn (fresh-conn)
-        sent (atom 0)]
-    (testing "the normal flow still creates an unverified account and mails a link"
+  (let [conn (fresh-conn)]
+    (testing "the normal flow still creates an unverified account and queues a link"
       (with-redefs [email/configured? (constantly true)
-                    email/unverified-registration-allowed? (constantly false)
-                    routes/send-verification-email (fn [& _] (swap! sent inc) nil)]
+                    email/unverified-registration-allowed? (constantly false)]
         (let [resp (routes/register (register-request conn))
               user (find-user (d/db conn))]
           (is (= 200 (:status resp)))
@@ -106,7 +105,7 @@
               "no :verified? flag, so the client shows \"check your email\"")
           (is (false? (:orcpub.user/verified? user)))
           (is (some? (:orcpub.user/verification-key user)))
-          (is (= 1 @sent) "exactly one verification email"))))))
+          (is (= 1 (queued-emails (d/db conn))) "exactly one verification email"))))))
 
 (deftest losing-smtp-config-fails-closed
   ;; The security case. Auto-verify keyed on "no SMTP" ALONE fails open: a
@@ -121,10 +120,9 @@
   (let [conn (fresh-conn)]
     (testing "no SMTP and no explicit opt-in refuses to register anyone"
       (with-redefs [email/configured? (constantly false)
-                    email/unverified-registration-allowed? (constantly false)
-                    routes/send-verification-email
-                    (fn [& _] (throw (AssertionError. "must not attempt a send")))]
+                    email/unverified-registration-allowed? (constantly false)]
         (let [resp (routes/register (register-request conn))]
+          (is (zero? (queued-emails (d/db conn))) "no email is queued")
           (is (= 503 (:status resp))
               "registration must be REFUSED when email config is missing and nothing opted out")
           ;; A response rather than a throw: a throw reached the client as a bare

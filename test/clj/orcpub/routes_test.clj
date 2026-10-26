@@ -18,6 +18,7 @@
    [orcpub.security :as security]
    [orcpub.pwned :as pwned]
    [orcpub.email :as email]
+   [orcpub.outbox :as outbox]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
 
@@ -449,8 +450,8 @@
                   (constantly {:db/id 17
                                :orcpub.user/email "kaylee@serenity.example"
                                :orcpub.user/first-and-last-name "Kaylee"})
-                  email/send-sign-in-attempts-email
-                  (fn [base to] (deliver posted [base to]))]
+                  outbox/enqueue!
+                  (fn [_conn _kind message] (deliver posted message))]
 
       (testing "the response says bad credentials either way, as it did before"
         (with-redefs [security/multiple-ip-attempts-to-same-account? (constantly true)
@@ -458,15 +459,15 @@
           (is (= errors/bad-credentials (-> (call) :body :error)))))
 
       (testing "and the notice reaches the address on the account"
-        (let [[base to] (deref posted 2000 :never-sent)]
-          (is (= "https://example.test" base))
-          (is (= "kaylee@serenity.example" (:email to)))))))
+        (let [message (deref posted 2000 :never-sent)]
+          (is (= "kaylee@serenity.example" (:to message)))
+          (is (re-find #"https://example\.test" (pr-str (:body message))) "linking to this site")))))
 
   (testing "a spread of addresses that never happened sends nothing"
     (let [posted (atom [])]
       (with-redefs [routes/find-user-by-username-or-email (constantly {:db/id 17})
                     security/multiple-ip-attempts-to-same-account? (constantly false)
-                    email/send-sign-in-attempts-email (fn [& a] (swap! posted conj a))]
+                    outbox/enqueue! (fn [& a] (swap! posted conj a))]
         (routes/bad-credentials-response nil "kaylee" "1.2.3.4" {})
         (Thread/sleep 60)
         (is (empty? @posted)))))
@@ -475,7 +476,7 @@
     (let [posted (atom [])]
       (with-redefs [routes/find-user-by-username-or-email (constantly nil)
                     security/multiple-ip-attempts-to-same-account? (constantly true)
-                    email/send-sign-in-attempts-email (fn [& a] (swap! posted conj a))]
+                    outbox/enqueue! (fn [& a] (swap! posted conj a))]
         (routes/bad-credentials-response nil "nobody" "1.2.3.4" {})
         (Thread/sleep 60)
         (is (empty? @posted))))))
@@ -582,8 +583,7 @@
                        :orcpub.user/verified? true
                        :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
                        :orcpub.user/password-reset-sent sent}])
-      (with-redefs-fn {#'routes/breach-errors (constantly nil)
-                       #'email/send-password-changed-email (fn [& _] nil)}
+      (with-redefs-fn {#'routes/breach-errors (constantly nil)}
         (fn []
           (testing "opening the link grants no session"
             (let [resp (routes/reset-password-page {:query-params {:key reset-key} :db (d/db c)
@@ -609,6 +609,9 @@
             (let [user (routes/first-user-by (d/db c) routes/username-query "resetter")]
               (is (not= "old-hash" (:orcpub.user/password user)))
               (is (nil? (:orcpub.user/password-reset-key user)) "the key was not retired"))
+            (is (= #{[:password-changed "resetter@test.com"]}
+                   (d/q '[:find ?k ?to :where [?e :orcpub.outbox/kind ?k] [?e :orcpub.outbox/to ?to]] (d/db c)))
+                "the password-changed notice is queued with the change")
             (is (= 400 (:status (routes/reset-password (request {:password "another long passphrase"
                                                                  :verify-password "another long passphrase"
                                                                  :key reset-key}))))
@@ -624,8 +627,7 @@
                        :orcpub.user/password "old-hash"
                        :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
                        :orcpub.user/password-reset-sent (java.util.Date.)}])
-      (with-redefs-fn {#'routes/breach-errors (constantly nil)
-                       #'email/send-password-changed-email (fn [& _] nil)}
+      (with-redefs-fn {#'routes/breach-errors (constantly nil)}
         (fn []
           (let [before (d/db c)
                 submit (fn [pw] (routes/reset-password {:json-params {:password pw :verify-password pw :key reset-key}
