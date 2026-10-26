@@ -148,8 +148,8 @@ On `feature/weapons-table` (owner: "just finish building it here"):
    The Charges group was brought to the handoff's section 7 in the same commit ("Recharges at",
    76px and 96px fields, "all", the helper line); step 7 had been built before reading it.
 
-On `srd52/develop`, separately: spell damage parts and casting options as data (srd-improvements.md).
-Then a cast rolls damage through the weapon roll engine.
+Spell damage: built 2026-10-25. The data is `spell-rolls.edn` (built on `feature/srd-pipeline`); a
+cast's Roll damage uses `weapon-rolls/roll-spell` (branches/feature/weapons-table.md).
 
 ## Against open5e's data (checked 2026-10-23, clone at `~/projects/open5e-api`, `3d623fe3`)
 

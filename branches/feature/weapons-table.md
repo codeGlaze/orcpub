@@ -11,7 +11,9 @@ the owner keeps CodeRabbit for backend work). **KB:** `plan-charges-and-casting.
 - Done: the Weapons table; charges model, data and pips; the Rest box and floating Rest button;
   casting from items; the item builder's Charges group; SRD spell rolling data (`spell-rolls.edn`,
   cherry-picked from `feature/srd-pipeline`); changelog written, not folded.
-- In progress: rolling a cast's damage through `weapon_rolls.cljc`, from `spell-rolls.edn`.
+- Done 2026-10-25: Roll damage on a cast result (`weapon-rolls/roll-spell`, `spell-entries`); shown in
+  the cast panel, not the weapon result sheet (that sheet is built around attack chains). Parts
+  marked `:mod?` get no modifier yet (nil passed): items rarely cast those spells. Healing not rolled.
 - Next: weapon mastery (`weapon-mastery-plan.md`); a charge cost for weapon powers in the item
   builder; light theme shots; the parked wording review.
 
