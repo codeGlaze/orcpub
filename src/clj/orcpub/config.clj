@@ -575,7 +575,7 @@
   "The first of `vars` (env var names) with a value, then APP_SUPPORT_EMAIL (which fork branding may
    default), as {:address :from}; nil when none is set."
   [vars]
-  (or (some (fn [v] (when-let [a (env/value (keyword (str/lower-case (str/replace v "_" "-"))))]
+  (or (some (fn [v] (when-let [a (env-raw v)]
                       {:address a :from v}))
             vars)
       (when (seq branding/support-email)

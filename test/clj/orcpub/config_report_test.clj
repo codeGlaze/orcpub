@@ -4,7 +4,8 @@
    because getting the third wrong reports a default as though it were your value."
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.string :as str]
-            [orcpub.config :as config]))
+            [orcpub.config :as config])
+  (:import [java.util Locale]))
 
 (defn- lines [rows] (config/report-lines rows))
 (defn- row-for [out v] (first (filter #(str/includes? % v) out)))
@@ -239,10 +240,10 @@
   (testing "each APP_* name branding.clj reads is in branding-vars, so the count covers it"
     (let [src (slurp "src/clj/orcpub/fork/branding.clj")
           read-names (->> (re-seq #":app-[a-z-]+" src)
-                          (map #(-> % (subs 1) (str/replace "-" "_") str/upper-case))
+                          (map #(-> % (subs 1) (str/replace "-" "_") (.toUpperCase Locale/ROOT)))
                           set)
           socials (->> (re-find #"\[:patreon[^\]]*\]" src) (re-seq #":([a-z]+)")
-                       (map #(str "APP_SOCIAL_" (str/upper-case (second %)))))]
+                       (map #(str "APP_SOCIAL_" (.toUpperCase ^String (second %) Locale/ROOT))))]
       (is (empty? (remove (set config/branding-vars) (concat read-names socials)))
           (pr-str (remove (set config/branding-vars) (concat read-names socials)))))))
 
