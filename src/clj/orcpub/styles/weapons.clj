@@ -238,9 +238,10 @@
      [:.roll-button.weapon-tile {:width "58px"}]
      [:.roll-button.weapon-damage-tile :.weapon-no-roll {:width "102px"}]]
 
-    ;; the result: a bottom sheet on a phone (no backdrop), a card on desktop
+    ;; the result: a bottom sheet on a phone (no backdrop), a card on desktop; above the floating
+    ;; Rest button (core.clj .rest-fab, 160), which would cover its Done in the same corner
     [:.weapon-sheet
-     {:position :fixed :z-index 60 :background "var(--wpn-menu-bg)" :color "var(--wpn-menu-ink)"
+     {:position :fixed :z-index 190 :background "var(--wpn-menu-bg)" :color "var(--wpn-menu-ink)"
       :box-shadow "0 -4px 18px rgba(0,0,0,.35)" :padding "10px 16px 14px" :overflow-y :auto
       :max-height "70vh" :box-sizing :border-box}]
     [:.weapon-sheet.sheet {:left 0 :right 0 :bottom 0 :border-radius "14px 14px 0 0"}]
