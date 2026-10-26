@@ -3830,13 +3830,14 @@ _views-builders-split · views builders split_
 
 _weapon-damage-model · weapon damage model_
 
-**topics:** 2026-10-17, blade, champion, charges, crit, damage, extra, handoff-weapons-table, period, periods, sometimes, sun, sword, vicious, vorpal, weapon, weapon-data-model, weapon-mastery-plan
+**topics:** 2026-10-17, blade, champion, charges, crit, damage, extra, handoff-weapons-table, mastery, pdf, period, periods, sun, sword, vorpal, weapon, weapon-data-model, weapon-mastery-plan
 
 - Where it lives (feature/weapons-table)
 - The fields
 - Why it is shaped this way
 - Traps
 - Not built yet
+- Value references (2026-10-26)
 
 ## weapon-data-model.md
 

@@ -93,3 +93,10 @@ Datomic schema for these fields (needed before the custom item builder can save 
 counts on items (the handoff lists recharge timing and zero charges as undecided). `.orcbrew` files
 cannot carry items, so they are not affected: custom items belong to an account and are saved in the
 database (owner, 2026-10-18).
+
+## Value references (2026-10-26)
+
+An extra's `::mi/damage-bonus` may be `:ability-mod` (the attack's ability modifier) and an effect's
+`::mi/save-dc` `:attack-save-dc` (the weapon's own DC, `?weapon-save-dc`). `mi/resolve-values`
+replaces them with the weapon's numbers before anything formats or rolls it; call it wherever a
+weapon enters the sheet or the PDF. For Weapon Mastery: [weapon-mastery-plan.md](weapon-mastery-plan.md).

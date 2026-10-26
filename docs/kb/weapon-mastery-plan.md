@@ -406,7 +406,11 @@ Each step: tests seen failing first, scoped checks, own commit, KB updated.
    counted, so a Str 8 monk's longsword attacked at +0. A feature letting attacks use another
    ability (Pact of the Blade, Shillelagh) is now one entry naming it. The UA Hexblade Cha entry in `ua_warlock_and_wizard.cljc` is `#_` discarded reference code, left as it was. `weapon_ability_modifier_test.clj`. **Was:** Expose the weapon's ability modifier (`character.cljc` accessor + sub, like
    `best-weapon-damage-modifier-fn`), and the DC chosen in decision 1. Replace the views' approximation.
-3. **Value references**: spec `:ability-mod` and `:attack-save-dc` as allowed values of
+3. **Done 2026-10-26** (`831a4126`): `::mi/damage-bonus` may be `:ability-mod`, `::mi/save-dc`
+   `:attack-save-dc`; `mi/resolve-values` fills a weapon's numbers where the sheet (`weapons-section-2`)
+   and the PDF (`attacks-and-spellcasting-fields`) pick it up, so every reader sees numbers. The specs
+   are plain predicates: `spec/or` inside `spec/and` passes its tagged value on and fails the next
+   check. **Was:** Value references: spec `:ability-mod` and `:attack-save-dc` as allowed values of
    `::damage-bonus` and `::save-dc`; one resolver; formatter and engine call it.
 4. **Mastery definitions as data**: `{key {:name :text :summary? :extra-damage [...] :effects [...]}}`
    in the item vocabulary; `mastery-band` builds the band from them; delete `mastery-summary`. Fix the
