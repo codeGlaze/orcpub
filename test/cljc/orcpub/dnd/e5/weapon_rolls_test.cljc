@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.spec.alpha :as spec]
             [orcpub.dnd.e5.display :as disp]
+            [orcpub.dnd.e5.srd-conditions :as srd-conditions]
             [orcpub.dnd.e5.weapons :as weapons]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.weapon-rolls :as rolls]))
@@ -119,3 +120,22 @@
     (testing "the roll: a miss deals the modifier"
       (is (= 3 (:total (rolls/roll-damage w 3 false {:miss? true} false (constantly 1))))))))
 
+
+(deftest a-miss-damage-weapon-offers-missed
+  (let [w (mi/resolve-values referencing-weapon {:ability-mod 3 :save-dc 13})
+        missed (some #(when (= "Missed?" (:label %)) %) (rolls/damage-options w 3 false nil false))]
+    (is (= "+3" (:value missed)))
+    (is (:pulse? missed) "it pulses, as an option that continues the turn")
+    (is (not-any? #(= "Missed?" (:label %)) (rolls/damage-options w 3 false nil true)) "not after a crit")
+    (is (not-any? #(= "Missed?" (:label %)) (rolls/damage-options (dissoc w ::mi/extra-damage) 3 false nil false))
+        "not for a weapon with no damage on a miss")))
+
+(deftest effects-read-as-sentences-a-link-can-find
+  (let [w (mi/resolve-values referencing-weapon {:ability-mod 3 :save-dc 13})]
+    (is (= [{:label "Target saves" :text "The target makes a DC 13 Con save or falls Prone."}]
+           (rolls/after-total w {})))
+    (is (= [{:label "Effect" :text "It is pushed."}]
+           (rolls/after-total (assoc w ::mi/effects [{::mi/effect-type :condition ::mi/text "It is pushed."}]) {}))
+        "a text-only effect is listed too")
+    (is (some vector? (srd-conditions/link-conditions "The target makes a DC 13 Con save or falls Prone."))
+        "the condition link finds \"falls Prone\"")))
