@@ -10,7 +10,8 @@
             ;; the rename history (:former-keys) is written here and read by the heal path
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.library-links :as links]
-            [orcpub.common :as common]))
+            [orcpub.common :as common]
+            [orcpub.dnd.e5.orcbrew-format :as orcbrew-format]))
 
 ;; Forward declarations for functions used before definition
 (declare is-multi-plugin?)
@@ -1898,9 +1899,27 @@
                          after-commas)
                        edn-text)
         ;; Step 2: Parse EDN
-        parse-result (parse-edn cleaned-text)]
+        parse-result (parse-edn cleaned-text)
+        ;; Step 2.4: Format-version gate. A v2 envelope from a NEWER build than this
+        ;; one is refused with a clear message; a supported envelope is unwrapped so
+        ;; the rest validates the plugin map, not the wrapper; a plain v1 file passes
+        ;; through untouched.
+        compat (when (:success parse-result)
+                 (orcbrew-format/compat-check (:data parse-result)))
+        parse-result (if (and compat (:ok? compat))
+                       (update parse-result :data orcbrew-format/unwrap)
+                       parse-result)]
 
-    (if (:success parse-result)
+    (cond
+      (and compat (not (:ok? compat)))
+      {:success false
+       :parse-error false
+       :errors [(:message compat)]
+       :error (:message compat)
+       :changes @string-changes
+       :skipped-items []}
+
+      (:success parse-result)
 
         ;; Step 2.25: put damaged sections back in shape before anything walks them.
         ;; A section stored as text or as a list still holds its data; left alone it
@@ -1970,6 +1989,7 @@
                  :key-conflicts key-conflicts
                  :key-warnings key-warnings))))
 
+      :else
         ;; Parse failed - return detailed error
         {:success false
          :parse-error true
