@@ -39,6 +39,6 @@ use one, and fetches the account once per session. Plan: `plan-lookup-indexes.md
 
 ## Fixed
 
-- **Server:** sign-in and character, party, folder and item lists no longer slow down and use more memory as the site grows.
+- **Server:** sign-in, password reset and character, party, folder and item lists no longer slow down and use more memory as the site grows.
 
 ## Security

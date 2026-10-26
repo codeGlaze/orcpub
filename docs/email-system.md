@@ -53,7 +53,8 @@ User attributes related to email and verification (`src/clj/orcpub/db/schema.clj
 
 | Attribute | Type | Purpose |
 |-----------|------|---------|
-| `:orcpub.user/email` | string | Confirmed email address |
+| `:orcpub.user/email` | string | Confirmed email address, as the person typed it |
+| `:orcpub.user/email-key` | string | The same address trimmed and lowercased; indexed, and what every email lookup matches |
 | `:orcpub.user/pending-email` | string | Requested new email (awaiting verification) |
 | `:orcpub.user/verified?` | boolean | Whether the user has verified their email |
 | `:orcpub.user/verification-key` | string | UUID used in verification links |
@@ -62,7 +63,9 @@ User attributes related to email and verification (`src/clj/orcpub/db/schema.clj
 | `:orcpub.user/password-reset-sent` | instant | When the password reset email was sent |
 | `:orcpub.user/password-reset` | instant | When the password was actually reset |
 
-**Note:** `:orcpub.user/email` has no uniqueness constraint in the schema. Uniqueness is enforced at the application level via `email-query`. See the known issues section.
+**Note:** neither email attribute has a uniqueness constraint in the schema. Uniqueness is enforced at the application level via `email-query`. See the known issues section.
+
+**Writing an email:** set both attributes with `orcpub.user-email/email-attrs`, and normalise any address you look up with `orcpub.user-email/email-key`. Accounts written without the key (older data, or an old copy of `manage-user.clj`) get it from a backfill that runs in the background on every start; until it finishes, those accounts can sign in by username but not by email.
 
 ## Flows
 
@@ -221,6 +224,6 @@ The 429 response includes `retry-after-secs` so the client can display a specifi
 
 ## Known Issues
 
-- **No uniqueness constraint on email in schema.** Uniqueness is enforced at the application level by `email-query` (at request time) and a race-condition guard (at verify time). A Datomic `:db.unique/value` constraint on `:orcpub.user/email` would be the proper fix but requires a data migration to handle any existing duplicates.
+- **No uniqueness constraint on email in schema.** Uniqueness is enforced at the application level by `email-query` (at request time) and a race-condition guard (at verify time). A `:db.unique/value` constraint on `:orcpub.user/email-key` would be the proper fix, once any existing duplicates are found and resolved.
 
 - **Pending-email conflicts not checked.** Two users can simultaneously request the same new email. Both receive verification emails, but only the first to verify succeeds — the second is caught by the race-condition guard. The "loser" gets a confusing failure after clicking a valid-looking link.
