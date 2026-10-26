@@ -21,20 +21,39 @@
    :orcpub.user/email-key (email-key email)})
 
 (defn missing-keys
-  "The accounts in `db` with an email but no email key, as {:db/id :orcpub.user/email-key} ready to
-   transact. An account whose email is blank has no key to give and is left out."
+  "The accounts in `db` with an email but no email key, as [:db/cas id :orcpub.user/email-key nil key]
+   ops: each writes only while the account still has no key, so an email change confirmed meanwhile
+   keeps its own. An account whose email is blank has no key to give and is left out."
   [db]
   (->> (d/q '[:find ?e ?email
               :where [?e :orcpub.user/email ?email]
                      [(missing? $ ?e :orcpub.user/email-key)]]
             db)
-       (keep (fn [[e email]] (when-let [k (email-key email)] {:db/id e :orcpub.user/email-key k})))))
+       (keep (fn [[e email]] (when-let [k (email-key email)] [:db/cas e :orcpub.user/email-key nil k])))))
+
+(defn- cas-failed?
+  "Whether `e` or one of its causes is a rejected compare-and-set."
+  [e]
+  (some #(= :db.error/cas-failed (:db/error (ex-data %))) (take-while some? (iterate ex-cause e))))
+
+(defn- transact-keys!
+  "Transacts the `ops` (from `missing-keys`) in `conn` as one transaction, or one at a time when one
+   of them is rejected because its account got a key meanwhile. Returns how many were written."
+  [conn ops]
+  (try @(d/transact conn ops)
+       (count ops)
+       (catch Exception e
+         (if-not (cas-failed? e)
+           (throw e)
+           (count (filter (fn [op] (try @(d/transact conn [op]) true
+                                        (catch Exception e2 (if (cas-failed? e2) false (throw e2)))))
+                          ops))))))
 
 (defn backfill!
   "Gives every account in `conn` without an email key its key: reads them once, then transacts
    `batch` accounts at a time. Returns the number of accounts updated."
   [conn batch]
-  (reduce (fn [done tx] @(d/transact conn tx) (+ done (count tx)))
+  (reduce (fn [done ops] (+ done (transact-keys! conn ops)))
           0
           (partition-all batch (missing-keys (d/db conn)))))
 
