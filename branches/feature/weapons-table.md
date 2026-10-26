@@ -17,7 +17,11 @@ the owner keeps CodeRabbit for backend work). **KB:** `plan-charges-and-casting.
 - Mastery (2026-10-26): steps 2, 3 done; step 5 half done (Vex and Cleave left, with pointers in
   `weapon-mastery-plan.md` step 5); step 4 waits for the 2024 line; step 6 after 5. Upstream #713 filed
   (low-Strength monk), cited in the changelog.
-- Next: finish mastery step 5; a charge cost for weapon powers in the item
+- Next: the attack mode, both ways (owner, 2026-10-26: "why not just do both?"): the header
+  Normal / Advantage / Disadvantage switch from `handoff-weapons-table.md` build step 3 (sticky; Vex's
+  preset shows there), and a long-press on an attack tile opening the existing + menu popup with the
+  three modes for that one roll. One mode in the engine (`roll-attack` `:mode`); ctrl/shift-click stays.
+  Then finish mastery step 5; a charge cost for weapon powers in the item
   builder; light theme shots; the parked wording review.
 
 ## Owner decisions
@@ -26,6 +30,7 @@ the owner keeps CodeRabbit for backend work). **KB:** `plan-charges-and-casting.
 - 2026-10-25: on a full spell card the SRD text shows; a summary only as an optional section at the
   bottom (`srd-2024-roadmap.md`).
 - 2026-10-25: the PR is not sent to CodeRabbit for now; another agent uses the allowance.
+- 2026-10-26: attack mode both ways, header switch and long-press menu (above).
 
 ## Gotchas for the next agent
 
