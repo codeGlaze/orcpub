@@ -154,3 +154,18 @@
     (is (= :adv (:next-mode (rolls/roll-damage vexing 3 false {} false (constantly 1)))) "after a hit")
     (is (nil? (:next-mode (rolls/roll-damage vexing 3 false {:miss? true} false (constantly 1)))) "not after a miss")
     (is (nil? (:next-mode (rolls/roll-damage referencing-weapon 3 false {} false (constantly 1)))) "not without the field")))
+
+(deftest an-extra-attack-is-a-limited-use-in-the-menu
+  (let [cleaving (mi/resolve-values
+                  (assoc referencing-weapon ::mi/extra-damage []
+                         ::mi/effects [{::mi/effect-type :condition ::mi/text "Attack a second creature."
+                                        ::mi/extra-attack :omit-ability-mod ::mi/recharge :orcpub.dnd.e5.units/turn}])
+                  {:ability-mod 3 :save-dc 13})
+        use (some #(when (:extra-attack %) %) (disp/weapon-menu-items cleaving 3 false #{}))]
+    (is (spec/valid? ::mi/effects (::mi/effects cleaving)))
+    (is (= "Attack a second creature." (:label use)))
+    (is (= 3 (:drop use)) "its damage leaves out the +3")
+    (is (= :orcpub.dnd.e5.units/turn (:recharge use)) "spent once per turn")
+    (let [weak (mi/resolve-values (assoc-in cleaving [::mi/effects 0 ::mi/extra-attack] :omit-ability-mod)
+                                  {:ability-mod -1})]
+      (is (= 0 (::mi/extra-attack-drop (first (::mi/effects weak)))) "a negative modifier is not left out"))))
