@@ -9,7 +9,7 @@
      1. Reset app-db to a known state (with or without token)
      2. Deref the subscription to trigger it
      3. Assert the return value and check for side effects (:loading)"
-  (:require [cljs.test :refer-macros [deftest testing is use-fixtures]]
+  (:require [cljs.test :refer-macros [deftest testing is use-fixtures async]]
             [re-frame.core :as rf]
             [re-frame.db :refer [app-db]]
             [cljs-http.client :as http]
@@ -18,9 +18,9 @@
             [orcpub.dnd.e5.party :as party5e]
             [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.api-subs :as api-subs]
-            ;; Side effect: registers subscriptions. Aliased as `subs` so
-            ;; tests can reach user-sub-on-401.
-            [orcpub.dnd.e5.subs :as subs]
+            [orcpub.dnd.e5.http-safe :as http-safe]
+            ;; Side effect: registers subscriptions.
+            [orcpub.dnd.e5.subs]
             ;; Registers :clear-login and :set-user-data.
             [orcpub.dnd.e5.events]))
 
@@ -98,11 +98,10 @@
 ;; Fixed to check [:user-data :token] (same as auth-headers).
 ;; ---------------------------------------------------------------------------
 
-(deftest user-no-token-returns-empty
-  (testing "without auth token, subscription returns [] without HTTP call"
+(deftest user-is-nil-until-fetched
+  (testing "without a kept account, the :user sub reads nil"
     (reset! app-db {})
-    (let [result @(rf/subscribe [:user])]
-      (is (= [] result)))))
+    (is (nil? @(rf/subscribe [:user])))))
 
 (deftest user-stale-user-no-token-still-guarded
   (testing "a stale :user key with no token must NOT trigger an HTTP fetch"
@@ -119,11 +118,24 @@
           (is (false? @called?) "no token → no HTTP, despite the stale :user key")
           (is (= {:name "stale-user"} result) "sub passes the db value through unchanged"))))))
 
-(deftest user-with-token-returns-default
-  (testing "with token, subscription fires (returns default until HTTP resolves)"
-    (reset! app-db {:user-data {:token "test-token"}})
-    (let [result @(rf/subscribe [:user])]
-      (is (= [] result)))))
+(deftest the-user-sub-never-fetches
+  (testing "signed in, subscribing reads the account kept at start and sends no request"
+    (reset! app-db {:user-data {:token "test-token"} :user {:username "kaylee" :following ["zoe"]}})
+    (rf/clear-subscription-cache!)
+    ;; A fetch would run in a go block after this function returns, so the stub stays in place
+    ;; until a timeout has let any such block run.
+    (let [called? (atom false)
+          real-get http-safe/get]
+      (set! http-safe/get (fn [url & _]
+                            (when (re-find #"/user$" (str url)) (reset! called? true))
+                            (async/chan)))
+      (is (= #{"zoe"} @(rf/subscribe [:following-users])))
+      (async done
+        (js/setTimeout (fn []
+                         (set! http-safe/get real-get)
+                         (is (false? @called?) "GET /user runs once per page load, in :verify-user-session")
+                         (done))
+                       50)))))
 
 ;; ---------------------------------------------------------------------------
 ;; ::folder5e/folders — token guard
@@ -176,14 +188,12 @@
     (is (false? @ran?))))
 
 (deftest clear-login-drops-the-token-and-account-and-keeps-the-theme
-  (reset! app-db {:user-data {:token "t0ken" :user-data {:username "kaylee"} :theme "dark-theme"}})
+  (reset! app-db {:user-data {:token "t0ken" :user-data {:username "kaylee"} :theme "dark-theme"}
+                  :user {:username "kaylee" :following ["zoe"]}})
   (rf/dispatch-sync [:set-user-data (dissoc (:user-data @app-db) :user-data :token)])
   (is (= "t0ken" (get-in @app-db [:user-data :token]))
       "what the :user sub's 401 used to do: a merge cannot remove the token")
   (rf/dispatch-sync [:clear-login])
-  (is (= {:theme "dark-theme"} (:user-data @app-db))))
+  (is (= {:theme "dark-theme"} (:user-data @app-db)))
+  (is (nil? (:user @app-db)) "the account kept from GET /user, who it follows included"))
 
-(deftest the-user-sub-routes-to-login-only-when-required
-  (is (= [[:route-to-login]] (dispatched-by #(subs/user-sub-on-401 [:user true]))))
-  (is (= [] (dispatched-by #(subs/user-sub-on-401 [:user false]))))
-  (is (= [] (dispatched-by #(subs/user-sub-on-401 [:user])))))
