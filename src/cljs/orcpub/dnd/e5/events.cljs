@@ -3475,11 +3475,11 @@
 (reg-event-fx
  :verify-user-session
  (fn [{:keys [db]} _]
-   (if (event-utils/get-auth-token db)
+   (if-let [token (event-utils/get-auth-token db)]
      (do (go (let [response (<! (http/get (url-for-route routes/user-route)
                                           {:headers (authorization-headers db)}))]
                (case (:status response)
-                 200 (dispatch [:set-user (:body response)])
+                 200 (dispatch [:set-user-for-token token (:body response)])
                  401 (do (dispatch [:clear-login])
                          (dispatch [:set-loading false]))
                  nil)))
@@ -3490,6 +3490,14 @@
  :set-user
  (fn [db [_ user-data]]
    (assoc db :user user-data)))
+
+;; Keeps the account GET /user answered for `token` only while that is still the login: a logout or
+;; another sign-in while the request was out must not get the old account back.
+(reg-event-db
+ :set-user-for-token
+ (fn [db [_ token user-data]]
+   (cond-> db
+     (= token (event-utils/get-auth-token db)) (assoc :user user-data))))
 
 #_ ;; never dispatched from UI
   (defn set-active-tabs [db [_ active-tabs]]
