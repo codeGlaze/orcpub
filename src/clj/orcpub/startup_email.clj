@@ -38,7 +38,7 @@
         missing (for [r rows :when (and (= :required (class r)) (missing? r))]
                   {:key (str "missing:" (:var r))
                    :text (str (:var r) " is not set" (when (:note r) (str ": " (:note r))) ".")})
-        sender  (when-not sender-ok?
+        sender  (when (and (not sender-ok?) (not-any? #(= "missing:EMAIL_FROM_ADDRESS" (:key %)) missing))
                   [{:key "missing:EMAIL_FROM_ADDRESS"
                     :text "EMAIL_FROM_ADDRESS is not an address mail can be sent from; set it."}])
         ignored (for [r rows :when (:ignored? r)]

@@ -39,7 +39,11 @@
 
 (deftest a-sender-that-cannot-deliver-is-a-problem
   (is (some #(= "missing:EMAIL_FROM_ADDRESS" (:key %))
-            (:problems (se/summary [] {:sender-ok? false :deployment-problems []})))))
+            (:problems (se/summary [] {:sender-ok? false :deployment-problems []}))))
+  (is (= 1 (count (filter #(= "missing:EMAIL_FROM_ADDRESS" (:key %))
+                          (:problems (se/summary [(row "EMAIL_FROM_ADDRESS")]
+                                                 {:sender-ok? false :deployment-problems []})))))
+      "an unset From address is one problem, not two"))
 
 (def ^:private day (* 24 60 60 1000))
 
