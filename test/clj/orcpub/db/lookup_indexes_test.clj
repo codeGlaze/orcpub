@@ -19,7 +19,7 @@
     (d/create-database uri)
     (doto (d/connect uri) (-> (d/transact tx-data) deref))))
 
-(defn- indexed?
+(defn- value-indexed?
   "Whether attribute `a` has a value index in `db`: :db/index or :db/unique."
   [db a]
   (let [attr (d/attribute db a)]
@@ -32,7 +32,7 @@
 
 (deftest every-value-lookup-is-indexed
   (let [db (d/db (fresh-conn schema/all-schemas))]
-    (is (= [] (remove #(indexed? db %) looked-up-by-value)))))
+    (is (= [] (remove #(value-indexed? db %) looked-up-by-value)))))
 
 (deftest an-old-database-gains-the-indexes-on-start
   (let [conn (fresh-conn old-schema)
@@ -40,11 +40,11 @@
               :orcpub.user/verification-key "k1"}
         e (get (:tempids @(d/transact conn [(assoc user :db/id "u") {:orcpub.entity.strict/owner "kaylee"}])) "u")]
     (testing "the old schema had none of them"
-      (is (not-any? #(indexed? (d/db conn) %) looked-up-by-value)))
+      (is (not-any? #(value-indexed? (d/db conn) %) looked-up-by-value)))
     @(d/transact conn schema/all-schemas)
     (let [db (d/db conn)]
       (testing "the start transacts the schema, which adds them"
-        (is (= [] (remove #(indexed? db %) looked-up-by-value))))
+        (is (= [] (remove #(value-indexed? db %) looked-up-by-value))))
       (testing "and changes no data"
         (is (= user (d/pull db (keys user) e)))
         (is (= 1 (count (seq (d/datoms db :avet :orcpub.entity.strict/owner "kaylee"))))
