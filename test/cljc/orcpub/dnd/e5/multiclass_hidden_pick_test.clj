@@ -42,7 +42,9 @@
      []                                                    ; feats
      language-map))))
 
-(defn- lvl [n] {:orcpub.entity/key (keyword (str "level-" n))
+(defn- lvl
+  "Stored level entry for level `n` with an average hit-point roll of 5."
+  [n] {:orcpub.entity/key (keyword (str "level-" n))
                 :orcpub.entity/options {:hit-points {:orcpub.entity/key :average
                                                      :orcpub.entity/value 5}}})
 
@@ -59,12 +61,16 @@
                                                {:orcpub.entity/key :intimidation}]
                            :levels [(lvl 1)]}})
 
-(defn- character-of [classes]
+(defn- character-of
+  "Stored character with the standard-roll ability scores and `classes` as its class entries."
+  [classes]
   {:orcpub.entity/options
    {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value abilities}
     :class classes}})
 
-(defn- build [classes] (entity/build (character-of classes) @the-template))
+(defn- build
+  "Builds the character of `classes` against the shared template. Returns the built character."
+  [classes] (entity/build (character-of classes) @the-template))
 
 (defn- offered
   "The skill-proficiency selections the builder would SHOW — after prereq filtering."
@@ -94,7 +100,9 @@
                            :multiclass-skill-proficiency [{:orcpub.entity/key :athletics}]
                            :levels [(lvl 1)]}})
 
-(defn- skills-of [classes]
+(defn- skills-of
+  "Skill proficiency keys of the built character of `classes`. Returns a set."
+  [classes]
   (set (keys (char5e/skill-proficiencies (build classes)))))
 
 (defn- settled-skills-of
@@ -138,7 +146,9 @@
     (doseq [[nm path] (offered classes)]
       (println (format "   offered: %-34s at %s" nm (pr-str path))))))
 
-(defn- offered-paths [classes] (set (map second (offered classes))))
+(defn- offered-paths
+  "Paths of the skill-proficiency selections the builder would show for `classes`. Returns a set."
+  [classes] (set (map second (offered classes))))
 
 (deftest a-multiclass-skill-pick-stops-applying-when-it-becomes-the-first-class
   (let [multiclassed [fighter-first rogue-multiclassed]
@@ -183,10 +193,14 @@
 (def ^:private rogue-plain
   {:orcpub.entity/key :rogue :orcpub.entity/options {:levels [(lvl 1)]}})
 
-(defn- equipment-keys [classes]
+(defn- equipment-keys
+  "Keys of the normal equipment inventory of the built character of `classes`. Returns a set."
+  [classes]
   (set (keys (char5e/normal-equipment-inventory (build classes)))))
 
-(defn- equipment-selections [classes]
+(defn- equipment-selections
+  "Paths of the equipment-tagged selections the builder would show for `classes`. Returns a set."
+  [classes]
   (let [char (character-of classes)]
     (->> (entity/get-all-selections-2 @the-template (entity/make-path-map char) (build classes))
          (filter #(contains? (::t/tags %) :equipment))

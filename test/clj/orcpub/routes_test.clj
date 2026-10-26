@@ -92,7 +92,16 @@
                                         {:user "testy"}))]
           (is (= "testy" (::se/owner updated-character)))
           (is (= "Charry" (-> saved-character ::se/summary ::char5e/character-name)))
-          (is (= "Charry-2" (-> updated-character ::se/summary ::char5e/character-name))))))))
+          (is (= "Charry-2" (-> updated-character ::se/summary ::char5e/character-name)))))
+      (testing "Saving a character deleted since it was opened answers 410 :character-gone"
+        (let [saved (:body (routes/do-save-character (d/db mocked-conn) mocked-conn (test-character) {:user "testy"}))
+              _ @(d/transact mocked-conn [[:db/retractEntity (:db/id saved)]])
+              response (routes/do-save-character (d/db mocked-conn) mocked-conn saved {:user "testy"})]
+          (is (= 410 (:status response)))
+          (is (= :character-gone (-> response :body :error)))))
+      (testing "Saving another player's character still answers 401"
+        (let [saved (:body (routes/do-save-character (d/db mocked-conn) mocked-conn (test-character) {:user "testy"}))]
+          (is (= 401 (:status (routes/do-save-character (d/db mocked-conn) mocked-conn saved {:user "testy-2"})))))))))
 
 (deftest test-save-entity
   (with-conn conn

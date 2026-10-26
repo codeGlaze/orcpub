@@ -1,0 +1,12 @@
+# CodeRabbit settings for the codeGlaze/orcpub fork only. Leave this file out of pull requests to
+# Orcpub/orcpub. The fork's default branch is develop, so without this CodeRabbit reviews only PRs
+# into develop automatically; work lands on integration first.
+reviews:
+  auto_review:
+    enabled: true
+    # Review a PR when it opens or is marked ready, not again on every push: every agent pushes as
+    # codeGlaze, so all share one review allowance. Ask for a later one with @coderabbitai full review.
+    auto_incremental_review: false
+    base_branches:
+      - develop
+      - integration

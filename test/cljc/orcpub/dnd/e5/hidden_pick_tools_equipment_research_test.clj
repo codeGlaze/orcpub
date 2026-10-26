@@ -21,7 +21,10 @@
   {::char5e/str 15 ::char5e/dex 15 ::char5e/con 14
    ::char5e/int 13 ::char5e/wis 13 ::char5e/cha 13})
 
-(defn- class-opts []
+(defn- class-opts
+  "The fighter, rogue, bard, cleric, monk and sorcerer class options, built with the test spell
+   lists, spell map, language map and weapons map. Returns a vector."
+  []
   (mapv #(% sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)
         [classes5e/fighter-option classes5e/rogue-option classes5e/bard-option
          classes5e/cleric-option classes5e/monk-option classes5e/sorcerer-option]))
@@ -34,37 +37,62 @@
      sl5e/spell-lists spells5e/spell-map
      [] [] (class-opts) [] language-map))))
 
-(defn- lvl [n] {::entity/key (keyword (str "level-" n))
+(defn- lvl
+  "Stored level entry for level `n` with an average hit-point roll of 5."
+  [n] {::entity/key (keyword (str "level-" n))
                 ::entity/options {:hit-points {::entity/key :average ::entity/value 5}}})
 
-(defn- cls [k opts] {::entity/key k ::entity/options (assoc opts :levels [(lvl 1)])})
-(defn- pick [k] [{::entity/key k}])
-(defn- picks [& ks] (mapv (fn [k] {::entity/key k}) ks))
-(defn- nested [k sel-k & ks] [{::entity/key k ::entity/options {sel-k (apply picks ks)}}])
+(defn- cls
+  "Stored class entry for class key `k`: `opts` plus a single level-1 entry. Returns the entry map."
+  [k opts] {::entity/key k ::entity/options (assoc opts :levels [(lvl 1)])})
+(defn- pick
+  "Stored single pick of option key `k`. Returns a one-element vector."
+  [k] [{::entity/key k}])
+(defn- picks
+  "Stored picks of the option keys `ks`. Returns a vector with one entry per key."
+  [& ks] (mapv (fn [k] {::entity/key k}) ks))
+(defn- nested
+  "Stored single pick of option `k` whose selection `sel-k` holds the picks of keys `ks`.
+   Returns a one-element vector."
+  [k sel-k & ks] [{::entity/key k ::entity/options {sel-k (apply picks ks)}}])
 
 (def ^:private instruments-sel (keyword "tool-selection--:musical-instruments"))
 (def ^:private mc-instruments-sel (keyword "multiclass-tool-selection--:musical-instruments"))
 
-(defn- char-of [classes]
+(defn- char-of
+  "Stored character with the standard-roll ability scores and `classes` as its class entries."
+  [classes]
   {::entity/options {:ability-scores {::entity/key :standard-roll ::entity/value abilities}
                      :class classes}})
 
-(defn- build [classes] (entity/build (char-of classes) @the-template))
+(defn- build
+  "Builds the character of `classes` against the shared template. Returns the built character."
+  [classes] (entity/build (char-of classes) @the-template))
 
-(defn- offered-paths [classes]
+(defn- offered-paths
+  "Paths of the selections the builder would show for `classes`, after prereq filtering.
+   Returns a set."
+  [classes]
   (->> (entity/get-all-selections-2 @the-template (entity/make-path-map (char-of classes))
                                     (build classes))
        (map ::entity/path)
        set))
 
-(defn- tools-of [classes] (set (keys (char5e/tool-proficiencies (build classes)))))
+(defn- tools-of
+  "Tool proficiency keys of the built character of `classes`. Returns a set."
+  [classes] (set (keys (char5e/tool-proficiencies (build classes)))))
 
-(defn- inventory [built]
+(defn- inventory
+  "Keys of the weapons, armor and equipment in the normal inventories of `built`.
+   Returns a set."
+  [built]
   (set (concat (keys (char5e/normal-weapons-inventory built))
                (keys (char5e/normal-armor-inventory built))
                (keys (char5e/normal-equipment-inventory built)))))
 
-(defn- inv-of [classes] (inventory (build classes)))
+(defn- inv-of
+  "Inventory keys of the built character of `classes`. Returns a set."
+  [classes] (inventory (build classes)))
 
 (def ^:private fighter-plain (cls :fighter {}))
 
@@ -100,7 +128,10 @@
 
 ;; ---------------------------------------------------------------- D2: the multiclass tool gate
 
-(defn- bard-selection-gate [sel-k]
+(defn- bard-selection-gate
+  "The prereq function of the bard selection keyed `sel-k`. Returns nil when the bard has no
+   such selection or it has no prereq function."
+  [sel-k]
   (let [bard (some #(when (= :bard (::t/key %)) %) (class-opts))]
     (some #(when (= sel-k (::t/key %)) (::t/prereq-fn %)) (::t/selections bard))))
 
@@ -172,18 +203,25 @@
 
 ;; ---------------------------------------------------------------- D4: fixed starting gear
 
-(defn- class-opt [k] (some #(when (= k (::t/key %)) %) (class-opts)))
+(defn- class-opt
+  "The class option keyed `k` among `class-opts`, or nil."
+  [k] (some #(when (= k (::t/key %)) %) (class-opts)))
 
 (def ^:private rogue-fixed #{:dagger :leather :thieves-tools})
 (def ^:private bard-fixed #{:dagger :leather})
 
-(defn- stored-gear [c]
+(defn- stored-gear
+  "Keys of the stored weapons, armor and equipment entries of character `c` flagged as class
+   starting equipment. Returns a set."
+  [c]
   (set (for [k [:weapons :armor :equipment]
              e (get-in c [::entity/options k])
              :when (get-in e [::entity/value ::char-equip/class-starting-equipment?])]
          (::entity/key e))))
 
-(defn- swap-classes [c] (update-in c [::entity/options :class] (comp vec reverse)))
+(defn- swap-classes
+  "Character `c` with the order of its class entries reversed."
+  [c] (update-in c [::entity/options :class] (comp vec reverse)))
 
 (deftest d4-fixed-gear-is-stored-data-written-by-set-class-at-index-0
   ;; D4: REFUTED as stated. set-class writes fixed gear into the character only at index 0; the

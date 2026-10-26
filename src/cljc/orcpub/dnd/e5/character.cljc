@@ -4,6 +4,8 @@
             #?(:clj [clojure.spec.test.alpha :as stest])
             #?(:cljs [cljs.spec.test.alpha :as stest])
             [clojure.string :as s]
+            #?(:clj [clojure.edn :as edn])
+            #?(:cljs [cljs.reader :as reader])
             [orcpub.entity-spec :as es]
             [orcpub.dice :as dice]
             [orcpub.common :as common]
@@ -701,6 +703,73 @@
 
 (defn image-url [built-char]
   (get-prop built-char ::image-url))
+
+(defn- sane-tweak
+  "Portrait tweak `t` with only the values the compositor can use: an :override that is a #rrggbb
+   colour, a :shade and :depth that are numbers. nil when `t` is not a map."
+  [t]
+  (when (map? t)
+    (cond-> t
+      (not (and (string? (:override t)) (re-matches #"#[0-9a-fA-F]{6}" (:override t)))) (dissoc :override)
+      (not (number? (:shade t))) (dissoc :shade)
+      (not (number? (:depth t))) (dissoc :depth))))
+
+(defn- sane-colours
+  "Colour slots map `cs` with only the values that can tint: a #rrggbb colour, or \"none\" (no
+   whites) for :whites."
+  [cs]
+  (into {} (filter (fn [[k v]] (and (string? v)
+                                    (or (re-matches #"#[0-9a-fA-F]{6}" v)
+                                        (and (= k :whites) (= v "none"))))))
+        cs))
+
+(defn- sane-portrait
+  "Portrait map `m` without values the compositor cannot read: :layers, :colors and :tweaks that
+   are not maps, colours sane-colours drops, tweaks that are not maps, and tweak values sane-tweak
+   drops. nil when `m` is not a map. A crafted stored portrait must not break the page that shows it
+   (fail-soft-rendering.md)."
+  [m]
+  (when (map? m)
+    (cond-> m
+      (not (map? (:layers m))) (dissoc :layers)
+      (not (map? (:colors m))) (dissoc :colors)
+      (map? (:colors m)) (update :colors sane-colours)
+      (not (map? (:tweaks m))) (dissoc :tweaks)
+      (map? (:tweaks m)) (update :tweaks #(into {} (keep (fn [[k t]] (some->> (sane-tweak t) (vector k)))) %)))))
+
+(def max-portrait-chars
+  "The longest stored portrait read. A full one is about 1.5 KB; anything far past that is not a
+   portrait, and refusing it unread keeps a crafted value from costing the reader."
+  8000)
+
+(defn parse-portrait
+  "Coerce a stored portrait value into {:layers {…} :colors {…} :tweaks {…}}
+   or nil.
+
+   The portrait is persisted as an EDN STRING: ::se/values is a Datomic
+   component ref, so every key in it must be a registered attribute and none
+   can hold a nested map (see db/schema.clj). Tolerates an already-parsed map
+   (in-memory drafts before a save round-trip) and returns nil for blank or
+   malformed values rather than throwing — a corrupt portrait should degrade
+   to 'no portrait', not break the character sheet."
+  [v]
+  (cond
+    (map? v) (sane-portrait v)
+    (string? v)
+    (when (and (not (s/blank? v)) (<= (count v) max-portrait-chars))
+      (let [parsed (try
+                     #?(:clj (edn/read-string v)
+                        :cljs (reader/read-string v))
+                     ;; Throwable on the JVM: deep nesting overflows the reader's stack with an Error
+                     (catch #?(:clj Throwable :cljs :default) _ nil))]
+        ;; sane-portrait on THIS branch too. It is the one that matters: a
+        ;; stored string is what a client actually persisted, while the map
+        ;; branch only sees in-memory drafts.
+        (sane-portrait parsed)))
+    :else nil))
+
+(defn portrait [built-char]
+  (parse-portrait (get-prop built-char ::portrait)))
 
 (defn faction-image-url [built-char]
   (get-prop built-char ::faction-image-url))
