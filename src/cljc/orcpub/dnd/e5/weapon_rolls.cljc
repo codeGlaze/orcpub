@@ -19,6 +19,18 @@
         kept (case mode :adv (apply max dice) :dis (apply min dice) (first dice))]
     {:dice dice :kept kept :bonus bonus :total (+ kept bonus) :crit? (>= kept crit-min) :mode mode}))
 
+(defn attack-mode
+  "The mode an attack rolls with: a ctrl or shift click's (:adv :dis) over the sticky setting from
+  the Weapons header, else :normal. Takes the clicked mode (or nil) and the sticky one (or nil)."
+  [clicked sticky]
+  (if (and clicked (not= :normal clicked)) clicked (or sticky :normal)))
+
+(def mode-options
+  "The attack modes as + menu items, for a long press on an attack tile and the header switch."
+  [{:id :normal :label "Normal" :sub "one d20" :value "d20"}
+   {:id :adv :label "Advantage" :sub "roll two, keep the higher" :value "2d20"}
+   {:id :dis :label "Disadvantage" :sub "roll two, keep the lower" :value "2d20"}])
+
 (defn part-label
   "A damage part's name in a result: its type, then why it applies, such as \"fire · ablaze\"
   or \"radiant · vs undead\". Takes the entry and the toggle names (id to name)."

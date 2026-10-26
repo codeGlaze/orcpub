@@ -176,6 +176,9 @@
     [:.weapon-switch.pulse {:animation "weapon-pulse 10s ease-out 0s 6"}]
     ;; an option that continues the chain (Missed?) pulses the same way
     [:.weapon-sheet-option.pulse {:animation "weapon-pulse 10s ease-out 0s 6"}]
+    ;; the attack mode switch in the heading, and no text-selection callout on a long press
+    [:.weapon-mode {:margin-left :auto}]
+    [:.weapon-attack-cell {:-webkit-touch-callout :none :user-select :none :-webkit-user-select :none}]
     [:.weapon-hands-note {:font-weight 600}]
     [:.share-pill.weapon-hand-pill
      {:flex-shrink 0 :align-self :center :gap "4px" :font-size "11px" :padding "1px 7px"

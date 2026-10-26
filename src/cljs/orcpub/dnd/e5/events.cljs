@@ -4055,6 +4055,12 @@
    (update db :weapon-roll/chain #(conj (pop %) (assoc (peek %) :damage damage)))))
 
 (reg-event-db
+ :weapon-roll/set-mode
+ ;; The sticky attack mode from the Weapons header: :normal, :adv or :dis.
+ (fn [db [_ mode]]
+   (assoc db :weapon-roll/mode mode)))
+
+(reg-event-db
  :weapon-roll/done
  (fn [db _]
    (dissoc db :weapon-roll/chain)))

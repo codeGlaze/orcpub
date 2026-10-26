@@ -4000,10 +4000,12 @@
       (let [current (peek chain)
             k (count (filter :attack chain))
             with-damage (filter :damage chain)
+            sticky @(subscribe [:weapon-roll/mode])
             next-attack #(dispatch [:weapon-roll/add
                                     (assoc (dissoc current :damage)
                                            :attack (weapon-rolls/roll-attack
-                                                    (assoc (select-keys (:attack current) [:bonus :mode])
+                                                    (assoc (select-keys (:attack current) [:bonus])
+                                                           :mode (weapon-rolls/attack-mode nil sticky)
                                                            :crit-min (:crit-min current 20))
                                                     rand-die))])]
         [:div.weapon-sheet {:class (if desktop? "card" "sheet") :role "dialog" :aria-label "Roll result"}
@@ -4116,6 +4118,15 @@
         hands-note (when needs-hands? " (needs both hands)")
         roll-ctx {:weapon weapon :name (str nm hands-note) :mod modifier :two-handed? (boolean two-handed?)
                   :toggles toggles :crit-min crit-min}
+        sticky-mode @(subscribe [:weapon-roll/mode])
+        roll-attack! (fn [mode]
+                       (dispatch [:weapon-roll/add
+                                  (assoc roll-ctx :attack (weapon-rolls/roll-attack
+                                                           {:bonus attack-bonus :crit-min crit-min
+                                                            :mode (weapon-rolls/attack-mode mode sticky-mode)}
+                                                           rand-die))]))
+        close-modes #(swap! state assoc :mode-menu? false)
+        press-end #(some-> (:press @state) js/clearTimeout)
         menu-items (when base
                      (some->> (disp/weapon-menu-items weapon modifier (boolean two-handed?) toggles)
                               (mapv #(if-let [cost (:cost %)]
@@ -4150,13 +4161,21 @@
           (doall toggle-switches)
           (when (seq props) [:span (s/join " · " props)])]
          [:div.weapon-grey-line.text (s/join " · " (cons kind props))])]
-      [:div.weapon-cell-tile {:on-click-capture stop-pulse}
+      ;; a long press (or right-click) opens the attack modes for this one roll
+      [:div.weapon-cell-tile.weapon-attack-cell
+       {:on-click-capture (fn [e]
+                            (stop-pulse)
+                            (when (:long-pressed? @state)
+                              (.stopPropagation e) (.preventDefault e)
+                              (swap! state dissoc :long-pressed?)))
+        :on-context-menu (fn [e] (.preventDefault e) (swap! state assoc :mode-menu? true))
+        :on-pointer-down (fn [_] (press-end)
+                           (swap! state assoc :press (js/setTimeout #(swap! state assoc :mode-menu? true :long-pressed? true) 500)))
+        :on-pointer-up press-end :on-pointer-leave press-end :on-pointer-cancel press-end}
+       (when (:mode-menu? @state)
+         [weapon-menu id nm weapon-rolls/mode-options last? close-modes (fn [{mode :id}] (roll-attack! mode))])
        [roll-button (str nm " attack" hands-note ": ") (str "1d20" (common/mod-str attack-bonus))
-        :on-roll (fn [mode]
-                   (dispatch [:weapon-roll/add
-                              (assoc roll-ctx :attack (weapon-rolls/roll-attack {:bonus attack-bonus :mode mode
-                                                                                  :crit-min crit-min}
-                                                                                 rand-die))]))
+        :on-roll roll-attack!
         :class (str "weapon-tile weapon-hit-tile" (when needs-hands? " needs-hands"))
         :text [:<>
                [:span.weapon-tile-body (common/bonus-str attack-bonus)]
@@ -4266,6 +4285,14 @@
         [:div.weapons-section {:class (when desktop? "desktop")}
          [:div.weapons-heading
           [section-header "crossed-swords" "Weapons"]
+          (let [mode @(subscribe [:weapon-roll/mode])]
+            (into [:div.rest-segs.weapon-mode {:role "radiogroup" :aria-label "Attack rolls"}]
+                  (for [[m label] [[:normal "Normal"] [:adv "Adv"] [:dis "Dis"]]]
+                    ^{:key m}
+                    [:button.rest-seg {:type "button" :role "radio" :aria-checked (= m mode) :aria-label label
+                                       :class (when (= m mode) (if (= :normal m) "none-on" "on"))
+                                       :on-click #(dispatch [:weapon-roll/set-mode m])}
+                     [:span label]])))
           (when off-hand-item
             [:span.share-pill.share-pill-expired.weapons-reason
              (str (weapon-name off-hand-item) " in off hand")])]
