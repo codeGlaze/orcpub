@@ -19,6 +19,7 @@ and cherry-picked here; those two commits will also arrive with that branch.
 ## Added
 
 - **Characters:** a new Weapons table: attack and damage tiles that roll, results in a sheet that chains the turn's attacks, conditional damage from a + menu, main-hand and off-hand marks, and a desktop layout with a Details column.
+- **Characters:** roll attacks with advantage or disadvantage on any device: a switch in the Weapons heading, or a long press on an attack tile for one roll.
 - **Characters:** every SRD magic weapon's extra damage and once-per-dawn powers, on the sheet and in the PDF.
 - **Characters:** charges for the SRD's charged items, shown as pips to tap; staffs spend them on their powers.
 - **Characters:** a Rest box on the Features tab, and a floating Rest button on the other tabs: short and long rests, dawn and dusk, recharging items by their roll or yours, with Undo.
