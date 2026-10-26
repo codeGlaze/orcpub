@@ -9,9 +9,11 @@
             [re-frame.core]
             [re-frame.interceptor]
             [re-frame.registrar]
+            [re-frame.db]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.homebrew-guard :as guard]
-            [orcpub.dnd.e5.spell-subs :as spell-subs]))
+            [orcpub.dnd.e5.spell-subs :as spell-subs]
+            [orcpub.dnd.e5.views.notifications :as notifications]))
 
 (deftest an-invocation-that-breaks-the-warlock-costs-only-itself
   (let [reports (atom [])
@@ -69,3 +71,32 @@
   ;; so an event that throws in a test fails it; the app registers its own in core.cljs
   (is (= re-frame.interceptor/default-error-handler
          (re-frame.registrar/get-handler :error :event-handler))))
+
+(deftest a-shared-entry-that-fails-is-named-in-the-share-banner
+  ;; it is not in the library, so there is nothing to set aside: the banner names it instead
+  (let [was @re-frame.db/app-db]
+    (try
+      (reset! re-frame.db/app-db {:plugins {}
+                                  :shared-plugins {"Shared Pak" {::e5/races {:ok {:name "Ok"}}}}
+                                  :shared-content-info {:count 1}})
+      (re-frame.core/dispatch-sync
+       [::e5/set-aside-broken-homebrew
+        [{:content-type ::e5/races :key :bad :name "Bad" :source "Shared Pak"}]])
+      (is (= #{{:content-type ::e5/races :key :bad :name "Bad"}}
+             (get-in @re-frame.db/app-db [:shared-content-info :left-out])))
+      (finally
+        (re-frame.core/purge-event-queue)
+        (reset! re-frame.db/app-db was)))))
+
+(deftest the-share-banner-names-what-it-cannot-use
+  (let [was @re-frame.db/app-db
+        text (fn [] (pr-str (notifications/shared-content-banner nil)))]
+    (try
+      (reset! re-frame.db/app-db
+              {:shared-plugins {"S" {::e5/subraces {:kin {:name "Hill Kin" :key :kin :race :hill}}}}
+               :shared-content-info {:count 1 :left-out #{{:content-type ::e5/races :key :bad
+                                                            :name "Bad Race"}}}
+               :orcpub.dnd.e5.content-reconciliation/offered-by-type {::e5/races #{:dwarf}}})
+      (is (re-find #"1 could not be read, and are left out \(Bad Race\)" (text)))
+      (is (re-find #"1 belong to a race or class the link did not carry.*\(Hill Kin\)" (text)))
+      (finally (reset! re-frame.db/app-db was)))))

@@ -346,7 +346,26 @@ alone 0.001 ms; an event that changes one entry 0.05 ms, then its deep check 35 
    parent does not exist (4), and a subclass named "x" (1, not yet traced). Found on the way:
    `class-option` merges homebrew subclasses into a set sorted by name, so a homebrew subclass
    with the same name as another (built in, or from another source) is dropped without a word.
-6. **Containment:** per-item boundaries, the event error handler, the guard on 13 types.
+6. **Done:** containment.
+   - **Events:** `events/event-failed`, registered by `core.cljs` after the startup steps (whose
+     recovery needs `:initialize-db` to throw): an event that throws shows the error notice and
+     changes nothing; re-frame's own handler rethrew, dropping every queued event.
+   - **Character options:** each built-in class is built on its own, and a homebrew subclass,
+     invocation or boon that breaks it is set aside by itself (before, all twelve classes went);
+     each subrace has its own guard inside its race. The deep check covers the eleven types that
+     become options; monsters and encounters become none.
+   - **Pages:** each builder section, My Content list, source row and monster row has a
+     render-guard. With the shape check off, 184 page crashes are now contained; with it on, none
+     is reached. What still throws with the check off is the template building options lazily:
+     the deep check at each write and the page fallback hold that, as designed.
+   - **Share links:** the banner names what the link carried that cannot be used: entries that
+     could not be read or broke (reported, with nothing to set aside), and subraces or subclasses
+     whose race or class the link did not carry (`library/orphans`). Only a missing parent keeps an
+     entry from being offered; the audit counted any link to nothing until now.
+   - **Open:** a homebrew subclass named "x" (or whose missing name an import fills) is never
+     offered, by any way in; its class is there. The audit's former allowances hid it. Suspected,
+     not shown: `class-option` merges subclasses into a set sorted by name. Guarded audit: 4, all
+     this case.
 7. **Enforcement:** the audit in CI at zero, the AGENTS.md rules, the documents corrected, the
    testing/develop scenarios gone through.
 8. **grant-rows** merges this, adds its fields to the table, and runs the audit.

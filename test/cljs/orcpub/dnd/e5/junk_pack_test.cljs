@@ -444,17 +444,20 @@
                           #(homebrew-check/deep-check nil)))
              template (try @(rf/subscribe [::char5e/template]) (catch :default _ nil))
              ;; an entry set aside (reported, or in the quarantine panel) is not offered, and is
-             ;; allowed, as is one My Content marks as a link to nothing (only stored content is
-             ;; shown there); one silently not offered is lost
+             ;; allowed, as is one marked as a link to nothing (in My Content, or for a share
+             ;; link in its banner); one silently not offered is lost
              set-aside (into (into (set (map :key @reports))
                                    (for [[_ section] (get (:quarantined-plugins @app-db) source)
                                          :when (map? section)
                                          k (keys section)]
                                      k))
-                             (when (and template (not= via :share))
+                             (when template
                                ;; reads every option, so a throw in one is the stages' to report
-                               (try (map last (keys (library/dangling
-                                                     (:plugins @app-db)
+                               ;; only a missing parent keeps an entry from being offered
+                               (try (map last (library/orphans (library/dangling
+                                                     (get @app-db (if (= via :share)
+                                                                    :shared-plugins
+                                                                    :plugins))
                                                      (library/offered-by-type template))))
                                     (catch :default _ nil))))
              entry (fn [k] (some #(when (map? %) (get % k)) (vals entries)))

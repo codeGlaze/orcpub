@@ -48,6 +48,9 @@ into every field of every content type, by every way in, to prove it (docs/HOMEB
 
 - **Site:** an action that fails now says so and changes nothing. Before, nothing visible
   happened, and the actions queued after it were dropped.
+- **Sharing:** the banner for a shared character names the homebrew it carried that cannot be
+  used: entries that could not be read, and subraces or subclasses whose race or class was not
+  shared.
 - **Homebrew:** a homebrew entry that cannot be drawn costs its own part of the page: one section
   of its builder (the rest still edits and saves), one list or source in My Content, one row of
   the monster list. Before, the whole page fell over.

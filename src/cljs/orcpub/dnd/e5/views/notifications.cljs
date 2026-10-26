@@ -7,7 +7,8 @@
   (:require [re-frame.core :refer [subscribe dispatch]]
             [clojure.string :as s]
             [orcpub.dnd.e5 :as e5]
-            [orcpub.dnd.e5.character :as char]))
+            [orcpub.dnd.e5.character :as char]
+            [orcpub.dnd.e5.library :as library]))
 
 (defn- as-parts
   "Normalise a producer's message into {:title :details}, or {:body hiccup}.
@@ -125,8 +126,13 @@
    flags entries that collide by name with the viewer's own content (the shared version wins on
    this sheet, their copy is untouched). Renders nothing when there's no shared content."
   [id]
-  (when-let [{:keys [count item-count collisions]} @(subscribe [::e5/shared-content-info])]
+  (when-let [{:keys [count item-count collisions left-out]} @(subscribe [::e5/shared-content-info])]
     (let [char-name @(subscribe [::char/character-name id])
+          shared @(subscribe [::e5/shared-plugins])
+          ;; never silent: what the link carried that cannot be used here is named
+          dangling (for [[src ct k] (library/orphans @(subscribe [::e5/shared-dangling]))]
+                     (or (get-in shared [src ct k :name]) (name k)))
+          names (fn [xs] (str " (" (s/join ", " (take 4 xs)) (when (> (clojure.core/count xs) 4) ", …") ")"))
           n-coll (clojure.core/count collisions)
           item-count (or item-count 0)
           parts (cond-> []
@@ -145,6 +151,14 @@
                        (when-let [names (seq (map :name (take 4 collisions)))]
                          (str " (" (s/join ", " names) (when (> n-coll 4) ", …") ")"))
                        ".")])
+               (when (seq left-out)
+                 [:div.f-s-12.m-t-5 {:style {:color "#d9a520"}}
+                  (str (clojure.core/count left-out) " could not be read, and are left out"
+                       (names (map #(or (:name %) (name (:key %))) left-out)) ".")])
+               (when (seq dangling)
+                 [:div.f-s-12.m-t-5 {:style {:color "#d9a520"}}
+                  (str (clojure.core/count dangling) " belong to a race or class the link did not carry, "
+                       "so they are not offered" (names dangling) ".")])
                (when (pos? item-count)
                  [:div.f-s-12.m-t-5 {:style {:opacity 0.8}}
                   "Custom magic items are shown for this view only (keeping items isn't supported yet)."])]

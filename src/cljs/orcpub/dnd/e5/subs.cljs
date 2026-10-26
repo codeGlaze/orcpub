@@ -1891,6 +1891,15 @@
  (fn [[plugins offered] _]
    (library/dangling plugins offered)))
 
+;; The same for a share link's content, which My Content does not show: the share banner names
+;; these, as they are not offered.
+(reg-sub
+ :orcpub.dnd.e5/shared-dangling
+ :<- [:orcpub.dnd.e5/shared-plugins]
+ :<- [::content-recon/offered-by-type]
+ (fn [[shared offered] _]
+   (library/dangling shared offered)))
+
 (reg-sub
  ::content-recon/offered-keys
  (fn [db _]

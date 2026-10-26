@@ -254,3 +254,13 @@
     (is (= [:orcpub.dnd.e5/backgrounds] (library/pick-types [:background] types)))
     (is (= [:orcpub.dnd.e5/feats] (library/pick-types [:class :background] types))
         "a class's own choice named :background is not the background")))
+
+(deftest only-a-missing-parent-makes-an-orphan
+  ;; a link to a missing spell or language leaves the entry offered; a missing race or class
+  ;; does not
+  (is (= #{["P" :orcpub.dnd.e5/subraces :hill-kin]}
+         (library/orphans
+          {["P" :orcpub.dnd.e5/subraces :hill-kin] [{:link :subrace->race :to :orcpub.dnd.e5/races
+                                                     :target :hill}]
+           ["P" :orcpub.dnd.e5/subclasses :oath] [{:link :class->own-list
+                                                   :to :orcpub.dnd.e5/spells :target :zap}]}))))

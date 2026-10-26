@@ -6694,10 +6694,18 @@
 (reg-event-fx
  ::e5/set-aside-broken-homebrew
  (fn [{:keys [db]} [_ reports]]
-   (let [{:keys [plugins rejected moved]}
-         (set-aside-broken-entries (:plugins db) (get-rejected-plugins)
-                                   (concat reports (:homebrew-broken db)))
-         db (dissoc db :homebrew-broken)]
+   (let [all-reports (concat reports (:homebrew-broken db))
+         {:keys [plugins rejected moved]}
+         (set-aside-broken-entries (:plugins db) (get-rejected-plugins) all-reports)
+         ;; one from a share link has nothing to set aside: the share banner names it instead
+         moved? (set (map (juxt :content-type :key) moved))
+         left-out (for [{:keys [content-type key name source option-pack]} all-reports
+                        :when (and (contains? (:shared-plugins db) (or source option-pack))
+                                   (not (moved? [content-type key])))]
+                    {:content-type content-type :key key :name name})
+         db (cond-> (dissoc db :homebrew-broken)
+              (and (seq left-out) (:shared-content-info db))
+              (update-in [:shared-content-info :left-out] (fnil into #{}) left-out))]
      (if (empty? moved)
        {:db db}
        ;; The set-aside copy first, as the loader does: if storage refuses it, nothing moves,
