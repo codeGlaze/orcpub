@@ -6827,9 +6827,10 @@
                         "These replace the Ability Increase Options above; clear those first."]
          ^{:key "asi"} [ability-increase-choices
                         (if spread? feat (assoc feat :ability-increases []))
-                        #(dispatch [::feats/set-feat-prop :ability-increases (if (seq %) % #{})])])
+                        (fn [f] (dispatch [::feats/update-feat-prop :ability-increases
+                                           (fn [v] (let [r (f v)] (if (seq r) r #{})))]))])
        ^{:key "saves"} [save-proficiency-choices feat
-                        #(dispatch [::feats/set-feat-prop :save-proficiencies %])]]]
+                        #(dispatch [::feats/update-feat-prop :save-proficiencies %])]]]
      ;; outside the section, which starts closed on junk; a released set is checked on its own terms
      ^{:key "notes"} [ability-save-notes (if (set? ai) (dissoc feat :ability-increases) feat)]
      ^{:key "set-notes"} [builder-notes (opt/released-set-warnings ai) {:severity :error}]]))
@@ -7801,9 +7802,9 @@
       ;; siblings would all carry the subclass's key.
       [:div
        ^{:key "asi"} [ability-increase-choices subclass
-                      #(dispatch [::classes/set-subclass-prop :ability-increases %])]
+                      #(dispatch [::classes/update-subclass-prop :ability-increases %])]
        ^{:key "saves"} [save-proficiency-choices subclass
-                        #(dispatch [::classes/set-subclass-prop :save-proficiencies %])]]]
+                        #(dispatch [::classes/update-subclass-prop :save-proficiencies %])]]]
      ;; outside the section, which starts closed when the fields hold junk
      ^{:key "ability-notes"} [ability-save-notes subclass]
      (when (#{:fighter :rogue :warlock :cleric :paladin} class-key)
@@ -8013,9 +8014,9 @@
           opt/abilities))]]
       ;; Explicit keys: Reagent takes a first-argument map's :key as the React key.
       ^{:key "asi"} [ability-increase-choices subrace
-                     #(dispatch [::races/set-subrace-path-prop [:ability-increases] %])]
+                     #(dispatch [::races/update-subrace-path-prop [:ability-increases] %])]
       ^{:key "saves"} [save-proficiency-choices subrace
-                       #(dispatch [::races/set-subrace-path-prop [:save-proficiencies] %])]
+                       #(dispatch [::races/update-subrace-path-prop [:save-proficiencies] %])]
       ^{:key "notes"} [ability-save-notes subrace]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
@@ -8099,13 +8100,22 @@
    [:span.f-s-12.i.red (str "This entry can't be read: " (pr-str e))]
    [:button.m-l-5 {:on-click on-remove} "Remove"]])
 
+(defn- grant-rows
+  "Stored grant value `v` as the rows its editor lists: a vector when it is a list, else empty."
+  [v]
+  (if (sequential? v) (vec v) []))
+
 (defn ability-increase-choices
   "Authoring UI for an :ability-increases spread, a list of [amount pool] increments. Each row is an
    Amount and a To: a single stat is FIXED, a group (Any/Martial/Mental) is the player's choice. It
    stores short keywords ([2 :cha] [1 :martial]); explicit sets (#{:wis :con}) are valid data but
-   written by hand, not here. Any silo: `item` is the content map, `set-ai!` stores the new spread."
-  [item set-ai!]
-  (let [ais (let [v (:ability-increases item)] (if (sequential? v) (vec v) []))
+   written by hand, not here. Any silo: `item` is the content map; `update-ai!` is called with a
+   function of the stored spread, so a second click before a redraw builds on the first."
+  [item update-ai!]
+  (let [ais (grant-rows (:ability-increases item))
+        edit! (fn [f] (update-ai! #(f (grant-rows %))))
+        edit-at! (fn [i g] (edit! #(if (< i (count %)) (update % i g) %)))
+        remove-at! (fn [i] (edit! #(if (< i (count %)) (common/remove-at-index % i) %)))
         amount-items (map (fn [n] {:title (common/bonus-str n) :value n}) (range 1 4))
         target-items (concat
                       [{:title "Any (all six)" :value :any}
@@ -8124,7 +8134,7 @@
       (map-indexed
        (fn [i e]
          (if-not (opt/pool-entry? e)
-           ^{:key i} [unreadable-row e #(set-ai! (common/remove-at-index ais i))]
+           ^{:key i} [unreadable-row e #(remove-at! i)]
            (let [[amount pool save-flag] e
                  save? (= :save save-flag)]
              ^{:key i}
@@ -8132,25 +8142,29 @@
               [labeled-dropdown "Amount" {:items (with-current-number amount-items amount
                                                                       common/bonus-str)
                                           :value (or amount 1) :typed? true
-                                          :on-change #(set-ai! (assoc ais i (mk % pool save?)))}]
+                                          :on-change (fn [a] (edit-at! i (fn [[_ p s]] (mk a p (= :save s)))))}]
               [labeled-dropdown "To" {:items (with-current-pool target-items pool)
                                       :value (or pool :any) :typed? true
-                                      :on-change #(set-ai! (assoc ais i (mk amount % save?)))}]
+                                      :on-change (fn [p] (edit-at! i (fn [[a _ s]] (mk a p (= :save s)))))}]
               ;; opt-in rider: also grant the save for this increment's ability, toggled through
               ;; the tested opt/toggle-increment-save
               [:span.m-l-5 [comps/labeled-checkbox "+ save prof"
                             save? false
-                            #(set-ai! (assoc ais i (opt/toggle-increment-save (nth ais i))))]]
-              [:button.m-l-5 {:on-click #(set-ai! (common/remove-at-index ais i))} "Remove"]])))
+                            #(edit-at! i opt/toggle-increment-save)]]
+              [:button.m-l-5 {:on-click #(remove-at! i)} "Remove"]])))
        ais))
-     [:button {:on-click #(set-ai! (conj ais [1 :any]))} "Add increase"]]))
+     [:button {:on-click #(edit! (fn [rows] (conj rows [1 :any])))} "Add increase"]]))
 
 (defn save-proficiency-choices
   "Authoring UI for :save-proficiencies — a list of [count pool] entries, saving-throw proficiencies
    INDEPENDENT of any ability bump. A single stat grants that fixed save; a group lets the player
-   choose `count` saves from it. Silo-generic like ability-increase-choices (`item` + a setter)."
-  [item set-sp!]
-  (let [sps (let [v (:save-proficiencies item)] (if (sequential? v) (vec v) []))
+   choose `count` saves from it. Silo-generic like ability-increase-choices: `item`, and `update-sp!`
+   called with a function of the stored list."
+  [item update-sp!]
+  (let [sps (grant-rows (:save-proficiencies item))
+        edit! (fn [f] (update-sp! #(f (grant-rows %))))
+        edit-at! (fn [i g] (edit! #(if (< i (count %)) (update % i g) %)))
+        remove-at! (fn [i] (edit! #(if (< i (count %)) (common/remove-at-index % i) %)))
         count-items (map (fn [n] {:title (str n) :value n}) (range 1 4))
         target-items (concat
                       [{:title "Any (all six)" :value :any}
@@ -8167,7 +8181,7 @@
       (map-indexed
        (fn [i e]
          (if-not (opt/save-entry? e)
-           ^{:key i} [unreadable-row e #(set-sp! (common/remove-at-index sps i))]
+           ^{:key i} [unreadable-row e #(remove-at! i)]
            ;; a pool gives at most one save per ability in it: show the count it gives
            (let [[cnt pool] e
                  size #(count (opt/resolve-pool %))
@@ -8177,13 +8191,13 @@
               [labeled-dropdown "How many" {:items (with-current-number
                                                     (take (size pool) count-items) shown str)
                                             :value shown :typed? true
-                                            :on-change #(set-sp! (assoc sps i [% pool]))}]
+                                            :on-change (fn [c] (edit-at! i (fn [[_ p]] [c p])))}]
               [labeled-dropdown "From" {:items (with-current-pool target-items pool)
                                         :value (or pool :any) :typed? true
-                                        :on-change #(set-sp! (assoc sps i [(min cnt (size %)) %]))}]
-              [:button.m-l-5 {:on-click #(set-sp! (common/remove-at-index sps i))} "Remove"]])))
+                                        :on-change (fn [p] (edit-at! i (fn [[c _]] [(min c (size p)) p])))}]
+              [:button.m-l-5 {:on-click #(remove-at! i)} "Remove"]])))
        sps))
-     [:button {:on-click #(set-sp! (conj sps [1 :any]))} "Add save"]]))
+     [:button {:on-click #(edit! (fn [rows] (conj rows [1 :any])))} "Add save"]]))
 
 (defn builder-notes
   "Render `problems`, a seq of human-readable strings, as a builder form's item-level notes.
@@ -8307,9 +8321,9 @@
          opt/abilities))]
       ;; Explicit keys: Reagent takes a first-argument map's :key as the React key.
       ^{:key "asi"} [ability-increase-choices race
-                     #(dispatch [::races/set-race-path-prop [:ability-increases] %])]
+                     #(dispatch [::races/update-race-path-prop [:ability-increases] %])]
       ^{:key "saves"} [save-proficiency-choices race
-                       #(dispatch [::races/set-race-path-prop [:save-proficiencies] %])]
+                       #(dispatch [::races/update-race-path-prop [:save-proficiencies] %])]
       ^{:key "notes"} [ability-save-notes race]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
@@ -8386,9 +8400,9 @@
         {:value (get background :help)
          :on-change #(dispatch [::bg/set-background-prop :help %])}]]
      [:div [ability-increase-choices background
-            #(dispatch [::bg/set-background-prop :ability-increases %])]]
+            #(dispatch [::bg/update-background-prop :ability-increases %])]]
      [:div [save-proficiency-choices background
-            #(dispatch [::bg/set-background-prop :save-proficiencies %])]]
+            #(dispatch [::bg/update-background-prop :save-proficiencies %])]]
      [:div [ability-save-notes background]]
      [:div [background-skill-proficiencies background]]
      [:div [background-languages background]]

@@ -5312,17 +5312,38 @@
  (fn [race [_ prop-path prop-value]]
    (assoc-in race prop-path prop-value)))
 
+;; Applies `f` to the stored value, so an edit made twice before a redraw builds on the first.
+(reg-event-db
+ ::race5e/update-race-path-prop
+ race-interceptors
+ (fn [race [_ prop-path f]]
+   (update-in race prop-path f)))
+
 (reg-event-db
  ::race5e/set-subrace-path-prop
  subrace-interceptors
  (fn [subrace [_ prop-path prop-value]]
    (assoc-in subrace prop-path prop-value)))
 
+;; Applies `f` to the stored value, so an edit made twice before a redraw builds on the first.
+(reg-event-db
+ ::race5e/update-subrace-path-prop
+ subrace-interceptors
+ (fn [subrace [_ prop-path f]]
+   (update-in subrace prop-path f)))
+
 (reg-event-db
  ::bg5e/set-background-prop
  background-interceptors
  (fn [background [_ prop-key prop-value]]
    (assoc background prop-key prop-value)))
+
+;; Applies `f` to the stored value, so an edit made twice before a redraw builds on the first.
+(reg-event-db
+ ::bg5e/update-background-prop
+ background-interceptors
+ (fn [background [_ prop-key f]]
+   (update background prop-key f)))
 
 (reg-event-db
  ::langs5e/set-language-prop
@@ -5365,6 +5386,13 @@
  subclass-interceptors
  (fn [subclass [_ prop-key prop-value]]
    (assoc subclass prop-key prop-value)))
+
+;; Applies `f` to the stored value, so an edit made twice before a redraw builds on the first.
+(reg-event-db
+ ::class5e/update-subclass-prop
+ subclass-interceptors
+ (fn [subclass [_ prop-key f]]
+   (update subclass prop-key f)))
 
 (reg-event-db
  ::class5e/toggle-save-prof
@@ -5481,6 +5509,13 @@
  feat-interceptors
  (fn [feat [_ prop-key prop-value]]
    (assoc feat prop-key prop-value)))
+
+;; Applies `f` to the stored value, so an edit made twice before a redraw builds on the first.
+(reg-event-db
+ ::feats5e/update-feat-prop
+ feat-interceptors
+ (fn [feat [_ prop-key f]]
+   (update feat prop-key f)))
 
 #_ ;; never dispatched from UI
   (reg-event-db
