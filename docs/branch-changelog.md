@@ -22,7 +22,7 @@ and cherry-picked here; those two commits will also arrive with that branch.
 - **Characters:** every SRD magic weapon's extra damage and once-per-dawn powers, on the sheet and in the PDF.
 - **Characters:** charges for the SRD's charged items, shown as pips to tap; staffs spend them on their powers.
 - **Characters:** a Rest box on the Features tab, and a floating Rest button on the other tabs: short and long rests, dawn and dusk, recharging items by their roll or yours, with Undo.
-- **Characters:** cast spells from charged items, priced in charges per level, from the item or from the Spells tab.
+- **Characters:** cast spells from charged items, priced in charges per level, from the item or from the Spells tab, and roll the spell's damage at the level cast.
 - **Homebrew:** custom items can have charges, a recharge time and the spells they cast.
 
 ## Changed
