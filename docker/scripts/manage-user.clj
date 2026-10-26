@@ -52,7 +52,8 @@
          :where
          (or-join [?e ?needle ?key]
                   [?e :orcpub.user/username ?needle]
-                  [?e :orcpub.user/email-key ?key])]
+                  [?e :orcpub.user/email-key ?key]
+                  [?e :orcpub.user/email ?key])]
        db
        username-or-email
        (or (email-key username-or-email) "")))
@@ -66,7 +67,9 @@
         username (s/trim username)]
     (cond
       (d/q '[:find ?e . :in $ ?email
-             :where [?e :orcpub.user/email-key ?email]] db email)
+             :where (or-join [?e ?email]
+                             [?e :orcpub.user/email-key ?email]
+                             [?e :orcpub.user/email ?email])] db email)
       {:duplicate (str "Email already registered: " email)}
 
       (d/q '[:find ?e . :in $ ?username

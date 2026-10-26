@@ -68,7 +68,9 @@
 (defn- users-with-email [db email]
   (d/q '[:find [(pull ?e pattern) ...]
          :in $ pattern ?email
-         :where [?e :orcpub.user/email-key ?email]]
+         :where (or-join [?e ?email]
+                         [?e :orcpub.user/email-key ?email]
+                         [?e :orcpub.user/email ?email])]
        db user-pull email))
 
 (defn- accounts-for-artist [db artist-id]

@@ -153,11 +153,15 @@
     :in $ ?username
     :where [?e :orcpub.user/username ?username]])
 
-;; Email lookup by the indexed key. Callers pass (user-email/email-key address).
+;; Email lookup by the indexed key, or the stored address when it equals the key: registration has
+;; long stored addresses lowercased, so those match while the start-up backfill has yet to reach
+;; them (orcpub.user-email). Callers pass (user-email/email-key address).
 (def email-query
   '[:find ?e
     :in $ ?email
-    :where [?e :orcpub.user/email-key ?email]])
+    :where (or-join [?e ?email]
+                    [?e :orcpub.user/email-key ?email]
+                    [?e :orcpub.user/email ?email])])
 
 (defn find-user-by-username-or-email
   "The account, pulled whole, whose username is `username-or-email` or whose email matches it in
@@ -168,7 +172,8 @@
      :in $ ?name ?key
      :where (or-join [?e ?name ?key]
                      [?e :orcpub.user/username ?name]
-                     [?e :orcpub.user/email-key ?key])]
+                     [?e :orcpub.user/email-key ?key]
+                     [?e :orcpub.user/email ?key])]
    db
    username-or-email
    (or (user-email/email-key username-or-email) "")))
@@ -198,7 +203,9 @@
   (first-user-by db
                  '{:find [?e]
                    :in [$ [?email ?password]]
-                   :where [[?e :orcpub.user/email-key ?email]
+                   :where [(or-join [?e ?email]
+                                    [?e :orcpub.user/email-key ?email]
+                                    [?e :orcpub.user/email ?email])
                            [?e :orcpub.user/password ?enc]
                            [(buddy.hashers/check ?password ?enc)]]}
                  [(user-email/email-key email) password]))
@@ -509,7 +516,9 @@
   (first-user-by db
                  '{:find [?e]
                    :in [$ ?email]
-                   :where [[?e :orcpub.user/email-key ?email]]}
+                   :where [(or-join [?e ?email]
+                                    [?e :orcpub.user/email-key ?email]
+                                    [?e :orcpub.user/email ?email])]}
                  (user-email/email-key email)))
 
 (defn preferred-name-of
