@@ -1,10 +1,9 @@
 # Plan: indexed lookups, a lowercase email field, and GET /user once per session
 
-**Status:** planned 2026-10-22, not started. Owner decisions: indexes yes; a separate lowercase email
-field yes; `GET /user` once per session yes. Branch: proposed `fix/lookup-indexes` from
-`integration`, created only when the owner approves it by name. Why: [lookup-indexes.md](lookup-indexes.md)
-(measured: at 100k users the email lookup costs 151 ms and 120 MB per call; indexed lookups stay
-under 1 ms).
+**Status:** in progress on `fix/lookup-indexes` (from `integration`, approved by the owner). Step 2
+(indexes) done 2026-10-26. Owner decisions: indexes yes; a separate lowercase email field yes;
+`GET /user` once per session yes. Why: [lookup-indexes.md](lookup-indexes.md) (measured: at 100k
+users the email lookup costs 151 ms and 120 MB per call; indexed lookups stay under 1 ms).
 
 Live context: the live site runs roughly upstream `develop` on **Datomic Pro with Postgres storage**.
 Postgres holds Datomic's segments only; queries run in the app JVM, so SQL indexes do not apply.
@@ -23,6 +22,11 @@ of the attribute and fills the peer's object cache.
   `{:db/ident …}` map for an existing attribute without `:db.alter/_attribute` (it does on recent
   Pro; prove it in a test against a database created with the old schema, then started with the
   new one).
+- **Done 2026-10-26.** Confirmed: Datomic Pro accepts `:db/index true` on an existing attribute when
+  the ident map is transacted again, no `:db.alter/_attribute` needed
+  (`test/clj/orcpub/db/lookup_indexes_test.clj` upgrades an old-schema database in place). The
+  re-audit added `:orcpub.party-share/character` (looked up by value when a share is pruned);
+  `folder/character-ids` is a ref, which Datomic already serves from VAET.
 - The transactor builds the AVET index in its next indexing job. Large databases: index build time
   and transactor memory; note it for the admin in the changelog / DOCKER.md upgrade notes.
 

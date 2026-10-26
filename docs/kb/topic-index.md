@@ -2943,7 +2943,7 @@ _plan-inventory-kits · plan inventory kits_
 
 _plan-lookup-indexes · plan lookup indexes_
 
-**topics:** add-test-user, approves, attribute, backfill, email, indexes, lookup-indexes, lookups, lowercase, lowercased, manage-user, old-schema, postgres, pro, queries, scan, schema, users
+**topics:** 2026-10-26, add-test-user, attribute, backfill, datomic, email, indexes, lookup-indexes, lookups, lowercase, lowercased, manage-user, old-schema, postgres, pro, re-audit, schema, transacted
 
 - 1. Indexes (schema only, no data change)
 - 2. Lowercase email field
