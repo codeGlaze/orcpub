@@ -169,3 +169,52 @@
     (let [weak (mi/resolve-values (assoc-in cleaving [::mi/effects 0 ::mi/extra-attack] :omit-ability-mod)
                                   {:ability-mod -1})]
       (is (= 0 (::mi/extra-attack-drop (first (::mi/effects weak)))) "a negative modifier is not left out"))))
+
+(def ^:private masteries
+  "The eight 2024 masteries as item data, made up here (the real definitions arrive with the 2024
+  line): each uses only fields a homebrew item can use too. weapon-mastery-plan.md."
+  {:topple {::mi/effects [{::mi/effect-type :save ::mi/save-dc :attack-save-dc ::mi/save-ability :con
+                           ::mi/save-fail :prone ::mi/text "Topple."}]}
+   :graze {::mi/extra-damage [{::mi/damage-bonus :ability-mod ::mi/on :miss}]}
+   :vex {::mi/effects [{::mi/effect-type :condition ::mi/text "Advantage on your next attack against it."
+                        ::mi/next-attack :adv}]}
+   :sap {::mi/effects [{::mi/effect-type :condition ::mi/text "It has Disadvantage on its next attack roll."}]}
+   :push {::mi/effects [{::mi/effect-type :condition ::mi/text "Push it up to 10 feet away."}]}
+   :slow {::mi/effects [{::mi/effect-type :condition ::mi/text "Its Speed drops by 10 feet."}]}
+   :cleave {::mi/effects [{::mi/effect-type :condition ::mi/text "Attack a second creature within 5 feet."
+                           ::mi/extra-attack :omit-ability-mod ::mi/recharge :orcpub.dnd.e5.units/turn}]}
+   :nick {::mi/effects [{::mi/effect-type :condition ::mi/text "The extra attack is part of the Attack action."}]}})
+
+(defn- with-mastery
+  "A plain longsword carrying mastery `k`'s data, resolved for a +3 attacker with DC 13."
+  [k]
+  (mi/resolve-values (merge {:name "Longsword" ::weapons/damage-die 8 ::weapons/damage-die-count 1
+                             ::weapons/damage-type :slashing ::weapons/melee? true}
+                            (masteries k))
+                     {:ability-mod 3 :save-dc 13}))
+
+(deftest every-mastery-is-plain-item-data
+  (doseq [[k data] masteries]
+    (testing (name k)
+      (is (spec/valid? ::mi/effects (::mi/effects data [])))
+      (is (spec/valid? ::mi/extra-damage (::mi/extra-damage data []))))))
+
+(deftest every-mastery-shows-in-the-roll-result
+  (let [hit #(rolls/roll-damage (with-mastery %) 3 false {} false (constantly 1))
+        line #(:text (first (:after (hit %))))]
+    (testing "Topple: the save, with the attack's DC"
+      (is (= "The target makes a DC 13 Con save or falls Prone." (line :topple))))
+    (testing "Sap, Push, Slow and Nick: their text after a hit"
+      (is (= "It has Disadvantage on its next attack roll." (line :sap)))
+      (is (= "Push it up to 10 feet away." (line :push)))
+      (is (= "Its Speed drops by 10 feet." (line :slow)))
+      (is (= "The extra attack is part of the Attack action." (line :nick))))
+    (testing "Graze: Missed? deals the modifier"
+      (is (= "+3" (:value (some #(when (= "Missed?" (:label %)) %)
+                                (rolls/damage-options (with-mastery :graze) 3 false nil false))))))
+    (testing "Vex: the next attack has advantage"
+      (is (= :adv (:next-mode (hit :vex)))))
+    (testing "Cleave: a once-per-turn extra attack without the +3"
+      (let [use (some #(when (:extra-attack %) %) (disp/weapon-menu-items (with-mastery :cleave) 3 false #{}))]
+        (is (= [3 :orcpub.dnd.e5.units/turn] [(:drop use) (:recharge use)])))
+      (is (empty? (:after (hit :cleave))) "a limited use is not listed after an ordinary hit"))))
