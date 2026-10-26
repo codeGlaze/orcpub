@@ -38,6 +38,7 @@
             [orcpub.dnd.e5.coverage-pak-test]
             [orcpub.dnd.e5.junk-pack-test]
             [orcpub.dnd.e5.homebrew-interceptor-test]
+            [orcpub.dnd.e5.containment-test]
             [orcpub.dnd.e5.reference-web-test]
             [orcpub.dnd.e5.views-test]
             [orcpub.dnd.e5.portrait-credit-thumb-test]
@@ -88,6 +89,7 @@
              'orcpub.dnd.e5.coverage-pak-test
              'orcpub.dnd.e5.junk-pack-test
              'orcpub.dnd.e5.homebrew-interceptor-test
+             'orcpub.dnd.e5.containment-test
              'orcpub.dnd.e5.reference-web-test
              'orcpub.dnd.e5.views-test
              'orcpub.dnd.e5.portrait-credit-thumb-test

@@ -58,5 +58,8 @@ into every field of every content type, by every way in, to prove it (docs/HOMEB
   new key on import to settle a conflict, stays picked on the characters that chose it.
 - **Homebrew:** a background, feat or class granting a skill that does not exist no longer stops
   the character options from loading.
+- **Homebrew:** a homebrew subclass, invocation or boon that breaks a built-in class costs only
+  itself: it is set aside, named, and the class is still offered. Before, every built-in class
+  disappeared from the builder. A subrace that breaks is set aside on its own, not with its race.
 
 ## Security

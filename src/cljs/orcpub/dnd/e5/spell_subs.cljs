@@ -1068,19 +1068,50 @@
         tiefling-option-cfg]))))))
 
 
+(def ^:private built-in-classes
+  "Each built-in class's key, and how to build it with the homebrew it takes."
+  (let [plain (fn [option-fn] (fn [sl sm psm lm wm _ _] (option-fn sl sm psm lm wm)))]
+    [[:barbarian (plain classes5e/barbarian-option)]
+     [:bard (plain classes5e/bard-option)]
+     [:cleric (plain classes5e/cleric-option)]
+     [:druid (plain classes5e/druid-option)]
+     [:fighter (plain classes5e/fighter-option)]
+     [:monk (plain classes5e/monk-option)]
+     [:paladin (plain classes5e/paladin-option)]
+     [:ranger (plain classes5e/ranger-option)]
+     [:rogue (plain classes5e/rogue-option)]
+     [:sorcerer (plain classes5e/sorcerer-option)]
+     [:warlock classes5e/warlock-option]
+     [:wizard (plain classes5e/wizard-option)]]))
+
+(defn- base-class-option
+  "Built-in class `k`, built by `build` with its homebrew subclasses (and the warlock's invocations
+   and boons). When one of those stops it building, each is tried alone: the ones that fail are
+   reported through the guard, which sets them aside, and the class is built without them. A
+   class that fails with none is a bug of ours: logged, and left out, not the other eleven."
+  [k build spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons]
+  (let [b #(build spell-lists spells-map %1 language-map weapons-map %2 %3)]
+    (try
+      (b plugin-subclasses-map invocations boons)
+      (catch :default _
+        (let [alone (fn [content-type entries make]
+                      ;; the entries that build alone, the rest reported
+                      (filterv #(guard/guard-entry content-type % (fn [e] (make e) e)) entries))
+              subclasses (alone ::e5/subclasses (get plugin-subclasses-map k) #(b {k [%]} [] []))
+              warlock? (= k :warlock)
+              invocations (if warlock? (alone ::e5/invocations invocations #(b {} [%] [])) invocations)
+              boons (if warlock? (alone ::e5/boons boons #(b {} [] [%])) boons)]
+          (try
+            (b (assoc plugin-subclasses-map k subclasses) invocations boons)
+            (catch :default e
+              (js/console.error "Could not build the built-in class" (str k) e)
+              nil)))))))
+
 (defn base-class-options [spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons]
-  [(classes5e/barbarian-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/bard-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/cleric-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/druid-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/fighter-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/monk-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/paladin-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/ranger-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/rogue-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/sorcerer-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/warlock-option spell-lists spells-map plugin-subclasses-map language-map  weapons-map invocations boons)
-   (classes5e/wizard-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)])
+  (vec (keep (fn [[k build]]
+               (base-class-option k build spell-lists spells-map plugin-subclasses-map language-map
+                                  weapons-map invocations boons))
+             built-in-classes)))
 
 (reg-sub
  ::classes5e/classes
@@ -1093,12 +1124,9 @@
  :<- [::classes5e/boons]
  :<- [::mi5e/custom-and-standard-weapons-map]
  (fn [[spell-lists spells-map plugin-subclasses-map language-map plugin-classes invocations boons weapons-map] _]
-   ;; Defensive handling: ensure base classes always render even if plugin classes fail
-   (let [base-classes (try
-                        (base-class-options spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons)
-                        (catch js/Error e
-                          (js/console.error "Failed to build base classes:" e)
-                          []))
+   ;; each built-in class is built on its own, so homebrew that breaks one costs only itself
+   (let [base-classes (base-class-options spell-lists spells-map plugin-subclasses-map language-map
+                                          weapons-map invocations boons)
          plugin-class-options (keep
                                (fn [plugin-class]
                                  (try
@@ -1567,6 +1595,45 @@
                     (or (some #(when (= class-key (:key %))
                                  (opt5e/class-option spell-lists spells-map only-this language-map weapons-map %))
                               plugin-classes)
-                        (some #(when (= class-key (::t/key %)) %)
-                              (base-class-options spell-lists spells-map only-this language-map
-                                                  weapons-map invocations boons)))))))}})
+                        ;; its built-in class alone, built raw so a throw is this subclass's
+                        (some (fn [[k build]]
+                                (when (= k class-key)
+                                  (build spell-lists spells-map only-this language-map weapons-map
+                                         invocations boons)))
+                              built-in-classes))))))}
+  ;; a subrace is built inside its race, as that race's only subrace, and blamed on itself
+  ::e5/subraces
+  {:entries #(% [::races5e/plugin-subraces])
+   :convert (fn [sub]
+              (let [races (sub [::races5e/races])
+                    convert (partial opt5e/race-option (sub [::spells5e/spell-lists])
+                                     (sub [::spells5e/spells-map]) (sub [::langs5e/language-map])
+                                     (sub [::mi5e/all-weapons-map]))]
+                (fn [{race-key :race :as subrace}]
+                  (some #(when (= race-key (:key %)) (convert (assoc % :subraces [subrace])))
+                        races))))}
+  ;; the warlock, with this invocation or boon as its only homebrew one
+  ::e5/invocations
+  {:entries #(% [::classes5e/plugin-invocations])
+   :convert (fn [sub]
+              #(classes5e/warlock-option (sub [::spells5e/spell-lists]) (sub [::spells5e/spells-map]) {}
+                                         (sub [::langs5e/language-map])
+                                         (sub [::mi5e/custom-and-standard-weapons-map]) [%] []))}
+  ::e5/boons
+  {:entries #(% [::classes5e/plugin-boons])
+   :convert (fn [sub]
+              #(classes5e/warlock-option (sub [::spells5e/spell-lists]) (sub [::spells5e/spells-map]) {}
+                                         (sub [::langs5e/language-map])
+                                         (sub [::mi5e/custom-and-standard-weapons-map]) [] [%]))}
+  ;; a selection is offered where a class or subclass level names it
+  ::e5/selections
+  {:entries #(% [::selections5e/plugin-selections])
+   :convert (fn [_]
+              #(level-selection :selection-check {(:key %) %} {:type (:key %) :num 1}))}
+  ::e5/spells
+  {:entries #(% [::spells5e/plugin-spells])
+   :convert (fn [_]
+              #(spell-option {(:key %) %} [nil (:key %) ::char5e/int "Wizard"]))}
+  ::e5/languages
+  {:entries #(% [::langs5e/plugin-languages])
+   :convert (fn [_] #(opt5e/language-selection-aux [%] 1))}})

@@ -2206,8 +2206,11 @@
       :min (if subraces 1 0)
       :options (cond->
                 (if (seq subraces)
-                  (map
-                   (partial subrace-option race spell-lists spells-map language-map source)
+                  ;; each subrace in a guard of its own, so one that fails is blamed, not its race
+                  (keep
+                   #(guard/guard-entry :orcpub.dnd.e5/subraces %
+                                       (partial subrace-option race spell-lists spells-map
+                                                language-map source))
                    (if source
                      (map (fn [sr] (assoc sr :source source)) subraces)
                      subraces))
