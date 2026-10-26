@@ -24,7 +24,7 @@
   "Prints that `setting` (a keyword like :app-help-url) was ignored, and why, and adds
    {:var :value :why} to `ignored` for the boot report. Returns nil."
   [setting value why]
-  (let [var-name (s/upper-case (s/replace (name setting) "-" "_"))]
+  (let [var-name (.toUpperCase ^String (s/replace (name setting) "-" "_") java.util.Locale/ROOT)]
     (swap! ignored conj {:var var-name :value (pr-str value) :why why})
     (println (str "branding: " var-name " ignored (" why "): " (pr-str value)))))
 

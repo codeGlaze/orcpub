@@ -16,7 +16,7 @@
 (defn- env-name
   "Keyword `k` (:email-ssl) as its environment name (EMAIL_SSL)."
   [k]
-  (s/upper-case (s/replace (name k) "-" "_")))
+  (.toUpperCase ^String (s/replace (name k) "-" "_") java.util.Locale/ROOT))
 
 (defn- names-read
   "Every environment name the server source reads through orcpub.env or config's readers."
