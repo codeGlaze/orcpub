@@ -51,6 +51,15 @@
       (is (= "kaylee" (:orcpub.user/username (routes/find-user-by-username-or-email db "kaylee@example.test")))
           "an account named by its email"))))
 
+(deftest an-account-with-a-blank-email-does-not-stop-the-backfill
+  (let [conn (fresh-conn)]
+    @(d/transact conn [{:orcpub.user/username "blank" :orcpub.user/email "  "}
+                       {:orcpub.user/username "river" :orcpub.user/email "River@Example.Test"}])
+    (is (= 1 (ue/backfill! conn 500)) "the account with an address gets its key")
+    (is (= "river@example.test" (:orcpub.user/email-key (account conn "river"))))
+    (is (nil? (:orcpub.user/email-key (account conn "blank"))) "the blank one has nothing to key")
+    (is (zero? (ue/backfill! conn 500)) "and is not tried again")))
+
 (deftest registration-sets-the-key
   (let [conn (fresh-conn)]
     (with-redefs [security/registration-allowed? (constantly true)
