@@ -14,7 +14,10 @@ the owner keeps CodeRabbit for backend work). **KB:** `plan-charges-and-casting.
 - Done 2026-10-25: Roll damage on a cast result (`weapon-rolls/roll-spell`, `spell-entries`); shown in
   the cast panel, not the weapon result sheet (that sheet is built around attack chains). Parts
   marked `:mod?` get no modifier yet (nil passed): items rarely cast those spells. Healing not rolled.
-- Next: weapon mastery (`weapon-mastery-plan.md`); a charge cost for weapon powers in the item
+- Mastery (2026-10-26): steps 2, 3 done; step 5 half done (Vex and Cleave left, with pointers in
+  `weapon-mastery-plan.md` step 5); step 4 waits for the 2024 line; step 6 after 5. Upstream #713 filed
+  (low-Strength monk), cited in the changelog.
+- Next: finish mastery step 5; a charge cost for weapon powers in the item
   builder; light theme shots; the parked wording review.
 
 ## Owner decisions

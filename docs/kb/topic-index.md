@@ -2609,7 +2609,7 @@ _pdf-generation-architecture · pdf generation architecture_
 
 _pdf-namespace-family · pdf namespace family_
 
-**topics:** 540, acroform, beast, caller, card, cards, companion, consumer, coordinate, drawing, frame, inches, primitives, private, public, region, spellbook, svg
+**topics:** 540, acroform, beast, caller, card, cards, companion, consumer, coordinate, frame, inches, ornament, primitives, private, public, region, spellbook, svg
 
 - Verdict on the starting hypothesis
 - 1. Inventory
@@ -3854,7 +3854,7 @@ _weapon-data-model · weapon data model_
 
 _weapon-mastery-plan · weapon mastery plan_
 
-**topics:** 2026-10-21, attack, band, cleave, dawn, dusk, graze, long, masteries, mastery, owner, preview, rest, srd, tap, topple, undo, weapon
+**topics:** 2026-10-21, attack, band, cleave, dawn, dusk, graze, long, masteries, mastery, owner, rest, srd, tap, topple, undo, vex, weapon
 
 - The rule
 - What exists, and where (verified 2026-10-19)

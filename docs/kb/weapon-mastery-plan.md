@@ -415,7 +415,20 @@ Each step: tests seen failing first, scoped checks, own commit, KB updated.
 4. **Mastery definitions as data**: `{key {:name :text :summary? :extra-damage [...] :effects [...]}}`
    in the item vocabulary; `mastery-band` builds the band from them; delete `mastery-summary`. Fix the
    subs comment to point here.
-5. **Generic sheet kinds**: "Missed?" for any `on :miss` extra; after-damage effects as buttons
+5. **Half done 2026-10-26.** Built (owner-approved shape: reuse, no mastery names): effect lines as
+   sentences with condition links (`disp/effect-sentence`, `after-total`, rendered by
+   `srd-linked-text`); text-only effects listed; "Missed?" as a `damage-options` entry for any
+   `on :miss` extra, pulsing (`.weapon-sheet-option.pulse`). **Left, with where to build:**
+   - **Vex:** one effect field `::mi/next-attack :adv`; when a damage roll's applying effects carry
+     it, preset the chain's next attack mode (`views.cljs` `weapon-roll-result`, where the next
+     `roll-attack` takes `:mode`, ~line 4006 and ~4157), marked "(Vex)", one tap back to normal,
+     pulsing.
+   - **Cleave:** a `+` menu use (`disp/weapon-menu-items` already spends `::recharge` uses;
+     `::units/turn` and "new turn" exist) whose action adds an attack to the chain with a field
+     `::mi/extra-attack {:ability-mod :omit}` dropping a positive ability modifier from its damage.
+   - **Phones cannot roll advantage or disadvantage** (ctrl and shift click only). Held by the owner
+     (2026-10-26): a long-press menu on the attack tile, needs a drawing first.
+   **Was:** Generic sheet kinds: "Missed?" for any `on :miss` extra; after-damage effects as buttons
    (`:next-attack :adv` arms the chain's next roll); `:extra-attack` turns the corner tile into that
    attack once per turn. None names a mastery.
 6. **Tests with made-up data** for all eight (custom items, writing-browser-tests.md rule 6), plus a
