@@ -1044,6 +1044,7 @@
    ::char5e/best-weapon-attack-modifier-fn char5e/best-weapon-attack-modifier-fn
    ::char5e/best-weapon-damage-modifier-fn char5e/best-weapon-damage-modifier-fn
    ::char5e/best-weapon-ability-modifier-fn char5e/best-weapon-ability-modifier-fn
+   ::char5e/weapon-save-dc-fn char5e/weapon-save-dc-fn
    ::char5e/total-levels char5e/total-levels
    ::char5e/class-level-fn char5e/class-level-fn
    ::char5e/dual-wield-weapon-fn char5e/dual-wield-weapon-fn

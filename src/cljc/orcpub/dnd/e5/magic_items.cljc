@@ -33,7 +33,7 @@
 (spec/def ::against (spec/coll-of keyword? :kind set? :min-count 1))
 (spec/def ::not-against ::against)
 (spec/def ::attack-type #{:melee :ranged})
-(spec/def ::damage-bonus int?)
+(spec/def ::damage-bonus #(or (int? %) (= :ability-mod %)))
 (spec/def ::on #{:hit :miss :crit})
 (spec/def ::min-roll (spec/int-in 1 21))
 (spec/def ::charge-cost pos-int?)
@@ -52,10 +52,23 @@
             (spec/keys :opt [::damage-bonus])
             #(if (::weapons5e/damage-die %)
                (spec/valid? ::dice %)
-               (int? (::damage-bonus %)))))
+               (spec/valid? ::damage-bonus (::damage-bonus %)))))
 (spec/def ::extra-damage (spec/coll-of ::extra-damage-entry :kind vector?))
 (spec/def ::effect-type #{:save :heal :condition})
-(spec/def ::save-dc pos-int?)
+;; a plain predicate, not spec/or: spec/and would pass the tagged value on to its next check
+(spec/def ::save-dc #(or (pos-int? %) (= :attack-save-dc %)))
+
+(defn resolve-values
+  "`weapon` with the value references in its extra damage and effects replaced by numbers:
+  ::damage-bonus :ability-mod by `ability-mod`, ::save-dc :attack-save-dc by `save-dc` (the
+  attack's ability modifier and the weapon's save DC). weapon-mastery-plan.md, step 3."
+  [weapon {:keys [ability-mod save-dc]}]
+  (let [fill (fn [e] (cond-> e
+                          (= :ability-mod (::damage-bonus e)) (assoc ::damage-bonus ability-mod)
+                          (= :attack-save-dc (::save-dc e)) (assoc ::save-dc save-dc)))]
+    (cond-> weapon
+      (::extra-damage weapon) (update ::extra-damage #(mapv fill %))
+      (::effects weapon) (update ::effects #(mapv fill %)))))
 (spec/def ::save-ability keyword?)
 (spec/def ::save-fail keyword?)
 (spec/def ::text string?)

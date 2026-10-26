@@ -734,9 +734,11 @@
   weapon-damage-N) and lines in :attacks-and-spellcasting after the number of attacks and
   the character's :attacks."
   [built-char all-weapons-map]
-  (let [weapons (remove
-                 (fn [{:keys [::weapon5e/type]}] (= type :ammunition))
-                 (mi5e/equipped-items-details (char5e/all-weapons-inventory built-char) all-weapons-map))
+  (let [ability-mod (char5e/best-weapon-ability-modifier-fn built-char)
+        save-dc (char5e/weapon-save-dc-fn built-char)
+        weapons (->> (mi5e/equipped-items-details (char5e/all-weapons-inventory built-char) all-weapons-map)
+                     (remove (fn [{:keys [::weapon5e/type]}] (= type :ammunition)))
+                     (map #(mi5e/resolve-values % {:ability-mod (ability-mod %) :save-dc (save-dc %)})))
         entries (map (fn [weapon sheet-name]
                        (assoc (first (weapon-entries weapon
                                                      (char5e/best-weapon-attack-modifier built-char weapon)

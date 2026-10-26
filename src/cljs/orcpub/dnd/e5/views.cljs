@@ -4243,6 +4243,7 @@
             weapon-attack-modifier @(subscribe [::char/best-weapon-attack-modifier-fn id])
             weapon-damage-modifier @(subscribe [::char/best-weapon-damage-modifier-fn id])
             weapon-ability-modifier @(subscribe [::char/best-weapon-ability-modifier-fn id])
+            weapon-save-dc @(subscribe [::char/weapon-save-dc-fn id])
             has-weapon-prof @(subscribe [::char/has-weapon-prof id])
             crit-values @(subscribe [::char/critical-hit-values id])
             trained @(subscribe [::char/weapon-masteries id])
@@ -4273,7 +4274,9 @@
          [:div.weapon-rows
           (doall
            (for [[weapon-key _] all-weapons
-                 :let [weapon (all-weapons-map weapon-key)]
+                 :let [weapon (some-> (all-weapons-map weapon-key)
+                                      (as-> w (mi/resolve-values w {:ability-mod (weapon-ability-modifier w)
+                                                                    :save-dc (weapon-save-dc w)})))]
                  :when (and weapon (not= :ammunition (::weapon/type weapon)))]
              ^{:key weapon-key}
              [weapon-row
