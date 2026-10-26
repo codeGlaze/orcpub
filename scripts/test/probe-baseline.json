@@ -95,5 +95,9 @@
   "cookie_notice_e2e.js": {
     "checks": 9,
     "seconds": 10
+  },
+  "event_error_notice_e2e.js": {
+    "checks": 6,
+    "seconds": 20
   }
 }

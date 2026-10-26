@@ -46,6 +46,9 @@ into every field of every content type, by every way in, to prove it (docs/HOMEB
 
 ## Fixed
 
+- **Site:** an action that fails now says so and changes nothing. Before, nothing visible
+  happened, and the actions queued after it were dropped.
+
 - **Homebrew:** a library with a content section stored as `true` no longer stops the app from
   starting.
 - **Homebrew:** a monster from a share link with a broken name, size or type no longer breaks the

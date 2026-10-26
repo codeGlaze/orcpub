@@ -6782,6 +6782,34 @@
   :after (fn [ctx]
            (update ctx :effects #(homebrew-shapes-checked (get-in ctx [:coeffects :db]) %)))))
 
+;; An event that throws changes nothing: re-frame applies no effect of a handler that did not
+;; finish. This says so to the person, at most once a few seconds for the same event, and keeps
+;; the error in the console with the event that raised it. re-frame's own handler rethrew, which
+;; drops every event still queued (this notice with them), so a click that failed did nothing
+;; visible. core.cljs registers it once startup is done: startup's recovery needs
+;; :initialize-db to throw, and the test builds, which never load core, keep re-frame's handler,
+;; so a throw still fails a test. See docs/HOMEBREW_GUARD.md, 5.
+(def ^:private last-event-error (atom nil))
+
+(def event-failed-message
+  "That didn't work, so nothing was changed. If it keeps happening, refresh the page.")
+
+(defn event-failed
+  "Handles an event that threw: logs it, and dispatches the notice unless the same event was
+   noticed in the last few seconds, or the event was the notice itself."
+  [original-error re-frame-error]
+  (let [{:keys [event-v direction interceptor]} (ex-data re-frame-error)
+        id (first event-v)
+        now (.now js/Date)
+        {:keys [at event]} @last-event-error]
+    (js/console.error "An event failed and changed nothing:" (pr-str id)
+                      (str "(" (pr-str interceptor) ", " (name (or direction :handler)) ")")
+                      original-error)
+    (when-not (or (= id :show-error-message)
+                  (and (= id event) (< (- now at) 5000)))
+      (reset! last-event-error {:at now :event id})
+      (dispatch [:show-error-message event-failed-message]))))
+
 ;; ============================================================================
 ;; Export Warning Modal Events
 ;; ============================================================================

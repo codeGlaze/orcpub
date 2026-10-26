@@ -5,6 +5,10 @@
             [orcpub.template :as t]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.classes :as classes5e]
+            [orcpub.dnd.e5.events :as events]
+            [re-frame.core]
+            [re-frame.interceptor]
+            [re-frame.registrar]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.homebrew-guard :as guard]
             [orcpub.dnd.e5.spell-subs :as spell-subs]))
@@ -48,3 +52,20 @@
   (is (= #{::e5/races ::e5/subraces ::e5/backgrounds ::e5/feats ::e5/classes ::e5/subclasses
            ::e5/invocations ::e5/boons ::e5/selections ::e5/spells ::e5/languages}
          (set (keys (guard/conversions))))))
+
+(deftest an-event-that-throws-is-noticed-once-and-changes-nothing
+  (let [dispatched (atom [])
+        err #(ex-info "re-frame" {:event-v [::broken %] :interceptor :db-handler :direction :before})]
+    (with-redefs [re-frame.core/dispatch #(swap! dispatched conj %)]
+      (events/event-failed (js/Error. "a bug") (err 1))
+      (events/event-failed (js/Error. "a bug") (err 2))
+      (is (= [[:show-error-message events/event-failed-message]] @dispatched)
+          "told once, however many times it fails in a row")
+      (events/event-failed (js/Error. "a bug")
+                           (ex-info "re-frame" {:event-v [:show-error-message "x"]}))
+      (is (= 1 (count @dispatched)) "the notice failing does not notice itself"))))
+
+(deftest the-tests-keep-re-frames-handler
+  ;; so an event that throws in a test fails it; the app registers its own in core.cljs
+  (is (= re-frame.interceptor/default-error-handler
+         (re-frame.registrar/get-handler :error :event-handler))))

@@ -62,6 +62,7 @@ const PROBES = [
   { file: 'export_busy_retry_e2e.js',          needs: 'busy-server' },
   { file: 'boot_rescue_e2e.js',                needs: 'server' },
   { file: 'builder_card_export_e2e.js',        needs: 'server' },
+  { file: 'event_error_notice_e2e.js',         needs: 'server' },
   { file: 'fixes_persist_e2e.js',              needs: 'server' },
   { file: 'header_menus_e2e.js',               needs: 'server' },
   { file: 'homebrew_safety_net_e2e.js',        needs: 'server' },
