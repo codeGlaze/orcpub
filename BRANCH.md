@@ -48,9 +48,11 @@ carries live state.*
 - **In flight** (checked 2026-10-23; this list goes stale, so before starting anything also check
   `git branch -r` and the open PRs):
   - Open PRs into `integration`: #63 `refactor/pdf-canvas`, #66 `test/page-load-budget`,
-    #69 `feature/asi-spreads`, #70 `feature/registration-in-boot-report`. #65
+    #70 `feature/registration-in-boot-report`. #65
     `feature/artist-pages` targets `feature/portrait-builder`, which has already merged (#64).
     #35 targets `mirror/upstream-develop`.
+  - Merged 2026-10-26: #69 `feature/asi-spreads` (homebrew ability-score increases the player
+    places, and save-proficiency grants).
   - Merged 2026-10-26: #75 `feature/email-and-alerts` (email outbox, admin alerts, crash
     evidence, the startup report and email; brings the heavy Docker checks to `integration`).
   - Active, no PR yet: `feature/character-rescue` (Data View and the server's version check;
