@@ -203,3 +203,14 @@
   (is (= {:username "zoe"} (:user @app-db)) "the answer was for a login that has since changed")
   (rf/dispatch-sync [:set-user-for-token "new" {:username "zoe" :following ["mal"]}])
   (is (= ["mal"] (get-in @app-db [:user :following])) "an answer for the current login is kept"))
+
+(deftest a-401-for-an-old-login-leaves-the-new-one-signed-in
+  (reset! app-db {:user-data {:token "new" :user-data {:username "zoe"}} :user {:username "zoe"}})
+  (rf/dispatch-sync [:clear-login "old"])
+  (is (= "new" (get-in @app-db [:user-data :token])) "the 401 was for a login already replaced")
+  (rf/dispatch-sync [:clear-login "new"])
+  (is (nil? (get-in @app-db [:user-data :token])) "a 401 for the current login signs out")
+  (reset! app-db {:user-data {:token "t"}})
+  (rf/dispatch-sync [:clear-login])
+  (is (nil? (get-in @app-db [:user-data :token])) "with no token given, always"))
+

@@ -77,6 +77,21 @@
       (is (= 5 (ue/backfill! conn 2))))
     (is (= 1 @reads) "one read of the accounts, then batches of writes")))
 
+(deftest the-backfill-never-overwrites-a-newer-key
+  (let [conn (fresh-conn) real-missing ue/missing-keys]
+    @(d/transact conn [{:orcpub.user/username "inara" :orcpub.user/email "Inara@Old.Test"}
+                       {:orcpub.user/username "book" :orcpub.user/email "Book@Example.Test"}])
+    (with-redefs [ue/missing-keys
+                  (fn [db]
+                    (let [found (real-missing db)
+                          id (:db/id (account conn "inara"))]
+                      ;; inara confirms an email change after the backfill read her old address
+                      @(d/transact conn [(assoc (ue/email-attrs "inara@new.test") :db/id id)])
+                      found))]
+      (is (= 1 (ue/backfill! conn 500)) "book gets a key; inara already has the right one"))
+    (is (= "inara@new.test" (:orcpub.user/email-key (account conn "inara"))))
+    (is (= "book@example.test" (:orcpub.user/email-key (account conn "book"))))))
+
 (deftest registration-sets-the-key
   (let [conn (fresh-conn)]
     (with-redefs [security/registration-allowed? (constantly true)
