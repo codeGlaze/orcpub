@@ -126,14 +126,18 @@
 (defn- claim!
   "Claims email `e` until `until`. Compare-and-set on its claim as read in `db`, and on its status
    still being :pending, so only one worker wins and an email another worker has already sent and
-   deleted cannot be claimed. Returns true when this worker holds it."
+   deleted cannot be claimed. Returns true when this worker holds it, false when another does;
+   throws any other failure (the database not answering)."
   [conn db e ^Date until]
   (let [current (:orcpub.outbox/claimed-until (d/entity db e))]
     (try
       @(d/transact conn [[:db/cas e :orcpub.outbox/status :pending :pending]
                          [:db/cas e :orcpub.outbox/claimed-until current until]])
       true
-      (catch Exception _ false))))
+      (catch Exception e
+        (if (some #(= :db.error/cas-failed (:db/error (ex-data %))) (take-while some? (iterate ex-cause e)))
+          false
+          (throw e))))))
 
 (defn- fail!
   "Records failed attempt `ex` on email `ent` at `now`: retried later, or marked failed with an
@@ -165,7 +169,9 @@
 (defn send-due!
   "One pass of the worker: claims and sends up to `batch-size` due emails with `send!` (a function
    of a postal message that returns when the server took it and throws when it did not), deleting
-   each sent one. `now` is a function returning the current Date. Returns the number sent."
+   each sent one (one that cannot be deleted is logged and sent again once its claim runs out).
+   `now` is a function returning the current Date. Returns the number sent; throws when the
+   database cannot be updated."
   [conn send! now]
   (let [t (now)
         db (d/db conn)
@@ -175,13 +181,14 @@
        (if-not (claim! conn db e until)
          sent
          (let [ent (d/entity (d/db conn) e)]
-           (try
-             (send! (edn/read-string (:orcpub.outbox/message ent)))
-             @(d/transact conn [[:db/retractEntity e]])
-             (inc sent)
-             (catch Exception ex
-               (fail! conn (d/touch ent) ex t)
-               sent)))))
+           (if-let [ex (try (send! (edn/read-string (:orcpub.outbox/message ent))) nil
+                            (catch Exception ex ex))]
+             (do (fail! conn (d/touch ent) ex t) sent)
+             (do (try @(d/transact conn [[:db/retractEntity e]])
+                      (catch Exception ex
+                        (log! (str "an email was sent but could not be deleted; it may be sent again: "
+                                   (.getMessage ex)))))
+                 (inc sent))))))
      0
      (due db t batch-size))))
 

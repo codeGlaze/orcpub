@@ -128,3 +128,26 @@
   (is (not (outbox/permanent? (SMTPAddressFailedException. (InternetAddress. "a@b.test") "RCPT" 451 "later"))))
   (is (outbox/permanent? (javax.mail.internet.AddressException. "bad address")))
   (is (not (outbox/permanent? (javax.mail.MessagingException. "Connection refused")))))
+
+(deftest a-database-outage-is-not-taken-for-a-lost-claim
+  (let [conn (fresh-conn) sends (atom 0) real-transact d/transact]
+    (queue! conn)
+    (with-redefs [d/transact (fn [c tx] (if (= c conn)
+                                          (future (throw (ex-info "Transactor not available" {})))
+                                          (real-transact c tx)))]
+      (is (thrown? Exception (outbox/send-due! conn (fn [_] (swap! sends inc)) #(Date.)))
+          "the failure reaches the worker's pass, which alerts the admin"))
+    (is (zero? @sends))))
+
+(deftest a-sent-email-the-database-cannot-delete-is-not-a-failed-send
+  (let [conn (fresh-conn) raised (atom 0) real-transact d/transact]
+    (queue! conn)
+    (with-redefs [d/transact (fn [c tx] (if (some #(and (vector? %) (= :db/retractEntity (first %))) tx)
+                                          (future (throw (ex-info "Transactor not available" {})))
+                                          (real-transact c tx)))
+                  alerts/raise-current! (fn [& _] (swap! raised inc))]
+      (is (= 1 (outbox/send-due! conn (constantly true) #(Date.))) "counted as sent"))
+    (let [[e] (emails conn)]
+      (is (= :pending (:orcpub.outbox/status e)) "left for the claim to run out")
+      (is (zero? (:orcpub.outbox/attempts e)) "no failed attempt recorded"))
+    (is (zero? @raised) "and no alert for an email that was delivered")))
