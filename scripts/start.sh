@@ -412,7 +412,12 @@ start_server() {
     # $LOG_DIR/app/crash, and the next start emails the admin (orcpub.crash-report). No
     # exit-on-out-of-memory here: nothing would restart a bare-metal server.
     mkdir -p "$LOG_DIR/app/crash"
-    export JVM_OPTS="${JVM_OPTS:-} -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$LOG_DIR/app/crash/heap.hprof -XX:ErrorFile=$LOG_DIR/app/crash/jvm-crash-%p.log"
+    # lein splits JVM_OPTS on spaces, so a path with one would break the options apart.
+    if [[ "$LOG_DIR" =~ [[:space:]] ]]; then
+        log_warn "The folder path has a space ($LOG_DIR); crash files are not kept for this start."
+    else
+        export JVM_OPTS="${JVM_OPTS:-} -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$LOG_DIR/app/crash/heap.hprof -XX:ErrorFile=$LOG_DIR/app/crash/jvm-crash-%p.log"
+    fi
 
     # Use headless mode if not running interactively (background/nohup)
     local rc=0

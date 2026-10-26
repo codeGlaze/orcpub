@@ -19,12 +19,25 @@ color_bold=$'\033[1m'
 color_dim=$'\033[2m'
 
 # ---------------------------------------------------------------------------
-# swarm_stack_lacks_transactor_host FILE
-# Succeeds when FILE exists and its datomic service sets no TRANSACTOR_HOST: a stack written
-# before that setting, on which the transactor cannot start under Swarm. Fails otherwise.
+# swarm_service_names FILE
+# Prints the Datomic service's name and the app service's name in stack FILE, space-separated:
+# the first service whose name has "datomic" in it and the first that does not, else datomic and
+# orcpub.
+swarm_service_names() {
+  local names d a
+  names=$(sed -n '/^services:/,/^[a-z]/{ /^  [a-z].*:$/p }' "$1" 2>/dev/null | sed 's/://;s/^[[:space:]]*//' || true)
+  d=$(grep -i 'datomic' <<<"$names" | head -1 || true)
+  a=$(grep -iv 'datomic' <<<"$names" | head -1 || true)
+  printf '%s %s\n' "${d:-datomic}" "${a:-orcpub}"
+}
+
+# swarm_stack_lacks_transactor_host FILE [SERVICE]
+# Succeeds when FILE exists and its Datomic service (SERVICE, default datomic) sets no
+# TRANSACTOR_HOST: a stack written before that setting, on which the transactor cannot start under
+# Swarm. Fails otherwise.
 swarm_stack_lacks_transactor_host() {
   [ -f "$1" ] || return 1
-  ! sed -n '/^  datomic:/,/^  [a-z]/p' "$1" | grep -q 'TRANSACTOR_HOST'
+  ! sed -n "/^  ${2:-datomic}:/,/^  [a-z]/p" "$1" | grep -q 'TRANSACTOR_HOST'
 }
 
 # _stack_paths FILE
@@ -68,11 +81,10 @@ extract_swarm_config() {
   _swarm_stack_name=$(grep -E '^(# Stack name:|name:)' "$existing" 2>/dev/null | head -1 | sed -E 's/^(# Stack name:|name:)[[:space:]]*//; s/[[:space:]]+\(.*$//' | tr -d '\r' || true)
 
   # Service names — top-level keys under services:
-  _swarm_datomic_svc=$(sed -n '/^services:/,/^[a-z]/{ /^  [a-z].*:$/p }' "$existing" | grep -i 'datomic' | head -1 | sed 's/://;s/^[[:space:]]*//' || true)
-  _swarm_app_svc=$(sed -n '/^services:/,/^[a-z]/{ /^  [a-z].*:$/p }' "$existing" | grep -iv 'datomic' | head -1 | sed 's/://;s/^[[:space:]]*//' || true)
+  read -r _swarm_datomic_svc _swarm_app_svc < <(swarm_service_names "$existing")
 
-  local d_svc="${_swarm_datomic_svc:-datomic}"
-  local a_svc="${_swarm_app_svc:-orcpub}"
+  local d_svc="$_swarm_datomic_svc"
+  local a_svc="$_swarm_app_svc"
 
   # Images
   _swarm_datomic_image=$(sed -n "/^  ${d_svc}:/,/^  [a-z]/{ /image:/p }" "$existing" | head -1 | sed 's/.*image:[[:space:]]*//' | tr -d '\r' || true)

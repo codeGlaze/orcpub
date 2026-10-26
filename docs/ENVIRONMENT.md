@@ -295,7 +295,7 @@ they never use the database, and sending one never slows down the request that h
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ALERT_SPOOL_DIR` | `orcpub-alerts` in the system temp directory; in Docker Compose, `/var/lib/orcpub/state/alerts` on the `orcpub-state` volume | Where alerts wait when they cannot be emailed yet. Keep it on a volume: a folder inside the container is lost when the container is replaced, and so are the alerts in it. |
+| `ALERT_SPOOL_DIR` | `orcpub-alerts` in the system temp directory; in Docker, `/var/lib/orcpub/state/alerts`, which is `/var/log/$APP_LOGS_NAME/alerts` on the host when `/var/log` is mounted at `/host-log` (the default) | Where alerts wait when they cannot be emailed yet. Without that mount the folder is inside the container and is lost, with its alerts, when the container is replaced. |
 | `ALERT_MAX_PER_HOUR` | `20` | The most alert emails sent in an hour. Must be a whole number above zero; anything else is ignored and the default is used. |
 
 ### Logging

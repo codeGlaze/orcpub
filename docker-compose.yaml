@@ -159,6 +159,8 @@ services:
       # ALT_HOST: what the transactor advertises to peers for fallback connections.
       # Default 127.0.0.1 works for single-host. Set to "datomic" for Swarm.
       ALT_HOST: ${ALT_HOST:-127.0.0.1}
+      # TRANSACTOR_HOST: the address Datomic serves on; blank lets deploy/start.sh choose.
+      TRANSACTOR_HOST: ${TRANSACTOR_HOST:-}
       ENCRYPT_CHANNEL: ${ENCRYPT_CHANNEL:-true}
     volumes:
       - ./data:/data

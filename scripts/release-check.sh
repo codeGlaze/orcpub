@@ -44,27 +44,28 @@ release_check() {
   logs_name=$(read_env_val APP_LOGS_NAME "$env_file" 2>/dev/null); logs_name="${logs_name:-orcpub}"
 
   if [ -f "$stack" ]; then
-    local th alt
-    if declare -F swarm_stack_lacks_transactor_host >/dev/null && swarm_stack_lacks_transactor_host "$stack"; then
+    local th alt db_svc=datomic app_svc=orcpub
+    declare -F swarm_service_names >/dev/null && read -r db_svc app_svc < <(swarm_service_names "$stack")
+    if declare -F swarm_stack_lacks_transactor_host >/dev/null && swarm_stack_lacks_transactor_host "$stack" "$db_svc"; then
       todo+=("Swarm: $(basename "$stack") sets no TRANSACTOR_HOST, so Datomic will not start. Run ./run --swarm, or add TRANSACTOR_HOST: 0.0.0.0 to the datomic service.")
     else
-      th=$(_release_effective "$(_release_stack_value "$stack" datomic TRANSACTOR_HOST)" "$th_env")
+      th=$(_release_effective "$(_release_stack_value "$stack" "$db_svc" TRANSACTOR_HOST)" "$th_env")
       case "$th" in
         0.0.0.0) notes+=("Swarm: Datomic serves on 0.0.0.0, as Swarm needs.") ;;
         *) todo+=("Swarm: Datomic would serve on '$th' (from .env TRANSACTOR_HOST); Swarm needs 0.0.0.0. Remove TRANSACTOR_HOST from .env.") ;;
       esac
     fi
-    alt=$(_release_effective "$(_release_stack_value "$stack" datomic ALT_HOST)" "$alt_env")
+    alt=$(_release_effective "$(_release_stack_value "$stack" "$db_svc" ALT_HOST)" "$alt_env")
     case "$alt" in
       datomic) notes+=("Swarm: the app reaches Datomic as 'datomic' (ALT_HOST), as Swarm needs.") ;;
       *) todo+=("Swarm: ALT_HOST is '$alt'; on Swarm the app cannot reach Datomic that way. Remove ALT_HOST from .env (the stack defaults it to datomic), or set it to datomic.") ;;
     esac
-    if _release_service_block "$stack" orcpub | grep -q ':/host-log'; then
+    if _release_service_block "$stack" "$app_svc" | grep -q ':/host-log'; then
       notes+=("Logs: crash files and unsent alerts are kept in /var/log/${logs_name} on the host.")
     else
       todo+=("Logs: the orcpub service does not mount /var/log, so crash files stay inside the container. Run ./run --swarm, or add - /var/log:/host-log to its volumes.")
     fi
-    if _release_service_block "$stack" orcpub | grep -q '^    user:'; then
+    if _release_service_block "$stack" "$app_svc" | grep -q '^    user:'; then
       todo+=("Swarm: the orcpub service sets user:. Remove it: the container now starts as root, prepares /var/log/${logs_name}, then runs the app as 'app'.")
     fi
   fi

@@ -559,6 +559,9 @@ SWARMENV
   cp "$SWARM_COMPOSE" "$stack"
   sed -i 's/^  orcpub:$/  orcpub:\n    user: "1000"/' "$stack"
   release_case "user: on the app service is flagged" 1 "sets user:"
+  cp "$SWARM_COMPOSE" "$stack"
+  sed -i 's/^  datomic:$/  dmv-datomic:/; s/^  orcpub:$/  dmv-app:/' "$stack"
+  release_case "a current stack with its own service names needs nothing" 0 "To do: nothing."
 
   rm -rf "$tmpdir"
 }
