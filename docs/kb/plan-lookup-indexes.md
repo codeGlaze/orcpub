@@ -1,7 +1,7 @@
 # Plan: indexed lookups, a lowercase email field, and GET /user once per session
 
-**Status:** in progress on `fix/lookup-indexes` (from `integration`, approved by the owner). Step 2
-(indexes) done 2026-10-26. Owner decisions: indexes yes; a separate lowercase email field yes;
+**Status:** in progress on `fix/lookup-indexes` (from `integration`, approved by the owner). Steps 2
+(indexes) and 3 (`email-key`) done 2026-10-26. Owner decisions: indexes yes; a separate lowercase email field yes;
 `GET /user` once per session yes. Why: [lookup-indexes.md](lookup-indexes.md) (measured: at 100k
 users the email lookup costs 151 ms and 120 MB per call; indexed lookups stay under 1 ms).
 
@@ -31,6 +31,13 @@ of the attribute and fills the peer's object cache.
   and transactor memory; note it for the admin in the changelog / DOCKER.md upgrade notes.
 
 ## 2. Lowercase email field
+
+- **Done 2026-10-26** in `orcpub.user-email` (`email-key`, `email-attrs`, `backfill!`, the
+  `:email-keys` component). The key is lowercased in `Locale/ROOT`, and every lookup normalises its
+  input with the same function: `str/lower-case` on a Turkish JVM would store `i` and look up `ı`.
+  `manage-user.clj` inlines the normaliser so it never depends on app code. During the first
+  backfill after the upgrade (background, seconds to a minute at 100k accounts) older accounts can
+  sign in by username but not by email. Tests: `user_email_test.clj`.
 
 - New attribute `:orcpub.user/email-key`: string, `:db/index true`, the trimmed, lowercased address.
   Not `:db/unique` yet: live data may hold duplicate emails (`docs/email-system.md`, known issues).
