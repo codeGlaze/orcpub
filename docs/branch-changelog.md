@@ -37,7 +37,11 @@ use one, and fetches the account once per session. Plan: `plan-lookup-indexes.md
 
 ## Changed
 
+- **Server:** the first start after upgrading builds new database indexes and gives older accounts an email lookup key, both in the background; until that finishes, older accounts sign in by username rather than email.
+
 ## Fixed
+
+- **Accounts:** follow buttons remember who you follow after the page reloads.
 
 - **Server:** sign-in, password reset and character, party, folder and item lists no longer slow down and use more memory as the site grows.
 
