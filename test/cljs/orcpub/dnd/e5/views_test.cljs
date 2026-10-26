@@ -221,7 +221,7 @@
   (let [row (fn [entry]
               (let [stored (atom nil)
                     form (views/save-proficiency-choices {:save-proficiencies [entry]}
-                                                         #(reset! stored %))
+                                                         #(reset! stored (% [entry])))
                     dd (fn [label] (some #(when (and (vector? %) (= label (second %))) (nth % 2))
                                          (tree-seq coll? seq form)))]
                 {:how-many (dd "How many") :from (dd "From") :stored stored}))]
@@ -231,3 +231,19 @@
     (let [{:keys [from stored]} (row [3 :any])]
       ((:on-change from) :str)
       (is (= [[1 :str]] @stored) "choosing one ability brings the count down to one"))))
+
+(defn- on-click-of
+  "The :on-click of the button labelled `label` in hiccup `form`."
+  [form label]
+  (some #(when (and (vector? %) (= :button (first %)) (= label (last %))) (:on-click (second %)))
+        (tree-seq coll? seq form)))
+
+(deftest two-adds-before-a-redraw-keep-both-rows
+  (doseq [[editor field label] [[views/ability-increase-choices :ability-increases "Add increase"]
+                                [views/save-proficiency-choices :save-proficiencies "Add save"]]]
+    (let [stored (atom {field [[1 :str]]})
+          form (editor @stored #(swap! stored update field %))
+          add! (on-click-of form label)]
+      (add!)
+      (add!)
+      (is (= 3 (count (field @stored))) (str label ": the second click works on what the first stored")))))
