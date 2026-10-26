@@ -37,7 +37,7 @@ use one, and fetches the account once per session. Plan: `plan-lookup-indexes.md
 
 ## Changed
 
-- **Server:** the first start after upgrading builds new database indexes and gives older accounts an email lookup key, both in the background; until that finishes, older accounts sign in by username rather than email.
+- **Server:** the first start after upgrading builds new database indexes and gives older accounts an email lookup key, both in the background; until that finishes, an older account with a mixed-case address signs in by username rather than email.
 
 ## Fixed
 
