@@ -21,26 +21,22 @@
    :orcpub.user/email-key (email-key email)})
 
 (defn missing-keys
-  "The accounts in `db` with an email but no email key, at most `n`, as {:db/id :orcpub.user/email-key}
-   ready to transact. An account whose email is blank has no key to give and is left out."
-  [db n]
+  "The accounts in `db` with an email but no email key, as {:db/id :orcpub.user/email-key} ready to
+   transact. An account whose email is blank has no key to give and is left out."
+  [db]
   (->> (d/q '[:find ?e ?email
               :where [?e :orcpub.user/email ?email]
                      [(missing? $ ?e :orcpub.user/email-key)]]
             db)
-       (keep (fn [[e email]] (when-let [k (email-key email)] {:db/id e :orcpub.user/email-key k})))
-       (take n)))
+       (keep (fn [[e email]] (when-let [k (email-key email)] {:db/id e :orcpub.user/email-key k})))))
 
 (defn backfill!
-  "Gives every account in `conn` without an email key its key, `batch` accounts per transaction.
-   Returns the number of accounts updated."
+  "Gives every account in `conn` without an email key its key: reads them once, then transacts
+   `batch` accounts at a time. Returns the number of accounts updated."
   [conn batch]
-  (loop [done 0]
-    (let [tx (missing-keys (d/db conn) batch)]
-      (if (empty? tx)
-        done
-        (do @(d/transact conn tx)
-            (recur (+ done (count tx))))))))
+  (reduce (fn [done tx] @(d/transact conn tx) (+ done (count tx)))
+          0
+          (partition-all batch (missing-keys (d/db conn)))))
 
 (defrecord EmailKeys [conn]
   component/Lifecycle
