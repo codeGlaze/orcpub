@@ -404,7 +404,7 @@ Each step: tests seen failing first, scoped checks, own commit, KB updated.
    `?weapon-ability` picks the best, and `?weapon-save-dc` (`char5e/weapon-save-dc-fn`) is `?save-dc`
    with it (owner, 2026-10-26). Fixed on the way: a non-applying entry returned 0, which `max`
    counted, so a Str 8 monk's longsword attacked at +0. A feature letting attacks use another
-   ability (Pact of the Blade, Shillelagh) is now one entry naming it. `weapon_ability_modifier_test.clj`. **Was:** Expose the weapon's ability modifier (`character.cljc` accessor + sub, like
+   ability (Pact of the Blade, Shillelagh) is now one entry naming it. The UA Hexblade Cha entry in `ua_warlock_and_wizard.cljc` is `#_` discarded reference code, left as it was. `weapon_ability_modifier_test.clj`. **Was:** Expose the weapon's ability modifier (`character.cljc` accessor + sub, like
    `best-weapon-damage-modifier-fn`), and the DC chosen in decision 1. Replace the views' approximation.
 3. **Value references**: spec `:ability-mod` and `:attack-save-dc` as allowed values of
    `::damage-bonus` and `::save-dc`; one resolver; formatter and engine call it.
