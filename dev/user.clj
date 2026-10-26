@@ -185,7 +185,10 @@
 (defn email-exists?
   "Whether an account in `db` has email `email`, in any casing."
   [db email]
-  (boolean (datomic/q '[:find ?e . :in $ ?email :where [?e :orcpub.user/email-key ?email]]
+  (boolean (datomic/q '[:find ?e . :in $ ?email
+                         :where (or-join [?e ?email]
+                                         [?e :orcpub.user/email-key ?email]
+                                         [?e :orcpub.user/email ?email])]
                       db (user-email/email-key email))))
 
 (defn username-exists? [db username]
