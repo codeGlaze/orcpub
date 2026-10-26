@@ -4,6 +4,7 @@
   rules: weapons-table-spec.md, handoff-weapons-table.md (stage 2)."
   (:require [clojure.string :as s]
             [orcpub.common :as common]
+            [orcpub.dice :as dice]
             [orcpub.dnd.e5.display :as disp]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.weapons :as weapons]
@@ -93,3 +94,38 @@
                      :let [sit (assoc crit-sit :against (first (sort t)))]]
                  {:label (str (if crit? "Critical vs " "vs ") (disp/creature-types-str t "and"))
                   :value (disp/dice-sum-str (entries sit)) :situation sit})))))
+
+(defn spell-entries
+  "A spell's damage as damage entries at a cast level, from its rolling data `r` (spell-rolls.edn):
+  dice added per slot level above `spell-level` (or per :slot-step levels), one entry per dart or
+  ray, and a caster's-choice part (:per-slot at the top) when cast higher. `ability-mod` is added
+  to parts marked :mod?. Returns entries in roll-part's shape, each with :spell/label."
+  [r spell-level cast-level ability-mod]
+  (let [steps (fn [step] (max 0 (quot (- cast-level spell-level) (or step 1))))
+        entry (fn [{:keys [dice type types per-slot slot-step mod? label]}]
+                (let [{:keys [num sides mod]} (dice/parse-dice dice)
+                      extra (some-> per-slot dice/parse-dice)
+                      n (if extra (steps slot-step) 0)]
+                  {::weapons/damage-die-count (+ num (* n (:num extra 0)))
+                   ::weapons/damage-die (or sides (:sides extra))
+                   ::weapons/damage-type (or type (first types))
+                   ::mi/damage-bonus (+ mod (* n (:mod extra 0)) (if mod? (or ability-mod 0) 0))
+                   :spell/label (or label (some-> (or type (first types)) name))}))
+        {cn :n cper :per-slot} (:count r)
+        darts (when cn (+ cn (* (or cper 0) (steps nil))))
+        top (:per-slot r)]
+    (vec (concat (mapcat #(repeat (or darts 1) (entry %)) (:damage r))
+                 (when (and top (pos? (steps nil)))
+                   [(entry (assoc top :per-slot nil
+                                  :dice (let [{:keys [num sides]} (dice/parse-dice (:dice top))]
+                                          (str (* num (steps nil)) "d" sides))))])))))
+
+(defn roll-spell
+  "Rolls a spell's damage at a cast level. Takes its rolling data, its level, the cast level, the
+  caster's ability modifier (or nil) and a die fn of sides. Returns {:parts [...] :total}, nil
+  when the spell rolls no damage."
+  [r spell-level cast-level ability-mod roll-die]
+  (when (seq (:damage r))
+    (let [parts (mapv #(assoc (roll-part % {} roll-die) :label (:spell/label %))
+                      (spell-entries r spell-level cast-level ability-mod))]
+      {:parts parts :total (apply + (map :subtotal parts))})))

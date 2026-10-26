@@ -161,6 +161,9 @@
 ;; casting a spell from a charged item (views.cljs cast-panel; plan-charges-and-casting.md)
    [:.cast-open {:margin "6px 0 0" :padding "4px 10px" :font-size "12px" :font-weight 600}]
    [:.cast-row [:td {:padding "0 10px 10px"}]]
+   [:.cast-damage {:margin "8px 0" :font-size "13px"}]
+   [:.cast-damage-part {:display :flex :justify-content :space-between :gap "10px"}]
+   [:.cast-damage-total {:margin "4px 0" :font-size "15px"}]
    [:.cast-panel {:box-sizing :border-box :padding "10px 12px" :font-size "13px" :font-weight :normal
                   :border-radius "6px" :background "rgba(0,0,0,.22)" :border "1px solid rgba(255,255,255,.14)"}]
    [:.cast-sheet [:.cast-panel {:background :none :border 0 :padding 0}]]

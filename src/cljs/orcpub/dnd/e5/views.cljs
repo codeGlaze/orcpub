@@ -4358,9 +4358,11 @@
   it shows the spell at that level with Undo. Takes the character id, the selection key, the item
   key, the item, its carried entry and a close fn. Returns hiccup."
   []
-  (let [state (r/atom {:pick 0 :level nil :result nil})]
+  (let [state (r/atom {:pick 0 :level nil :result nil})
+        _ (dispatch [:load-srd :spell-rolls])]
     (fn [id selection-key item-kw item entry close]
       (let [spells-map @(subscribe [::spells/spells-map])
+            spell-rolls @(subscribe [:srd :spell-rolls])
             your-dc (best-spell-save-dc @(subscribe [::char/spell-modifiers id]))
             casts (::mi/casts item)
             {:keys [pick level result]} @state
@@ -4378,6 +4380,23 @@
              [:<>
               [:div.cast-head [:b (str spell-name " \u00B7 " (common/ordinal lvl) " level \u00B7 " dc-text)]
                [:span (str (::mi/name item) " \u00B7 " cost (if (= 1 cost) " charge" " charges") " spent")]]
+              (let [r (get spell-rolls (::mi/cast-spell cast))
+                    {:keys [parts total]} (:damage result)]
+                (when (seq (:damage r))
+                  [:div.cast-damage
+                   (if parts
+                     [:<>
+                      (doall (for [[n {:keys [label detail subtotal]}] (map-indexed vector parts)]
+                               ^{:key n} [:div.cast-damage-part [:span label] [:span (str detail " = " subtotal)]]))
+                      [:div.cast-damage-total [:b (str "Total damage " total)]]
+                      (when (:save r)
+                        [:div (str dc-text " " (s/capitalize (name (:save r))) " save"
+                                   (when (:save-half? r) ", half on a success"))])]
+                     [:button.form-button.cast-open
+                      {:type "button"
+                       :on-click #(swap! state assoc-in [:result :damage]
+                                         (weapon-rolls/roll-spell r (:level spell) lvl nil (fn [sides] (inc (rand-int sides)))))}
+                      "Roll damage"])]))
               (when spell [:div.cast-spell [spell-component spell false]])
               [:div.cast-foot
                [:button.rest-link {:type "button"
