@@ -60,6 +60,23 @@
     (is (nil? (:orcpub.user/email-key (account conn "blank"))) "the blank one has nothing to key")
     (is (zero? (ue/backfill! conn 500)) "and is not tried again")))
 
+(deftest an-account-is-found-by-its-stored-address-before-the-backfill
+  (testing "registration has long stored the address lowercased, so these match exactly while the key is missing"
+    (let [conn (fresh-conn)]
+      @(d/transact conn [{:orcpub.user/username "simon" :orcpub.user/email "simon@example.test"
+                          :orcpub.user/password (hashers/encrypt "shiny-hunter2")}])
+      (let [db (d/db conn)]
+        (is (seq (d/q routes/email-query db "simon@example.test")) "sign-up sees the address as taken")
+        (is (some? (:db/id (routes/user-for-email db "Simon@Example.test"))) "password reset")
+        (is (= "simon" (:orcpub.user/username (routes/lookup-user db "SIMON@example.test" "shiny-hunter2"))))))))
+
+(deftest the-backfill-reads-the-accounts-once
+  (let [conn (fresh-conn) reads (atom 0) real-q d/q]
+    @(d/transact conn (for [i (range 5)] {:orcpub.user/username (str "u" i) :orcpub.user/email (str "U" i "@x.test")}))
+    (with-redefs [d/q (fn [& args] (swap! reads inc) (apply real-q args))]
+      (is (= 5 (ue/backfill! conn 2))))
+    (is (= 1 @reads) "one read of the accounts, then batches of writes")))
+
 (deftest registration-sets-the-key
   (let [conn (fresh-conn)]
     (with-redefs [security/registration-allowed? (constantly true)
