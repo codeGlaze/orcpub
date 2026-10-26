@@ -9,6 +9,9 @@
 ;;   verify <username-or-email>            — Verify an existing unverified user
 ;;   check  <username-or-email>            — Check if a user exists and their status
 ;;   list                                  — List all users (username + email + verified)
+;;
+;; Accounts are found by :orcpub.user/email-key, the email trimmed and lowercased in the root locale,
+;; as orcpub.user-email/email-key makes it. Inlined: the script must not depend on app code.
 
 (ns manage-user
   (:require [datomic.api :as d]
@@ -34,29 +37,36 @@
         (println "  Is the transactor running? Cause:" (.getMessage e)))
       (System/exit 1))))
 
+(defn email-key
+  "The lookup form of email text `email`: trimmed, lowercased in the root locale; nil when blank."
+  [email]
+  (some-> email str s/trim not-empty (.toLowerCase java.util.Locale/ROOT)))
+
 (defn find-user [db username-or-email]
   (d/q '[:find (pull ?e [:orcpub.user/username
                          :orcpub.user/email
                          :orcpub.user/verified?
                          :orcpub.user/created
                          :db/id]) .
-         :in $ ?needle
+         :in $ ?needle ?key
          :where
-         (or [?e :orcpub.user/username ?needle]
-             [?e :orcpub.user/email ?needle])]
+         (or-join [?e ?needle ?key]
+                  [?e :orcpub.user/username ?needle]
+                  [?e :orcpub.user/email-key ?key])]
        db
-       username-or-email))
+       username-or-email
+       (or (email-key username-or-email) "")))
 
 (defn try-create-user!
   "Creates a user. Returns {:ok true} on success, {:duplicate \"reason\"} if the
    user/email already exists, or {:error \"message\"} on unexpected failure."
   [conn username email password]
   (let [db       (d/db conn)
-        email    (s/lower-case (s/trim email))
+        email    (email-key email)
         username (s/trim username)]
     (cond
       (d/q '[:find ?e . :in $ ?email
-             :where [?e :orcpub.user/email ?email]] db email)
+             :where [?e :orcpub.user/email-key ?email]] db email)
       {:duplicate (str "Email already registered: " email)}
 
       (d/q '[:find ?e . :in $ ?username
@@ -67,6 +77,7 @@
       (do
         @(d/transact conn
            [{:orcpub.user/email      email
+             :orcpub.user/email-key  email
              :orcpub.user/username   username
              :orcpub.user/password   (hashers/encrypt password)
              :orcpub.user/verified?  true

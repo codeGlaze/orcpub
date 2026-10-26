@@ -8,6 +8,7 @@
             [orcpub.routes :as routes]
             [orcpub.datomic :as datomic]
             [orcpub.artist-accounts :as artist-accounts]
+            [orcpub.user-email :as user-email]
             [orcpub.portrait-pack.strands :as strands]
             [orcpub.heartbeat :as heartbeat]
             [orcpub.routes.share :as share]
@@ -154,7 +155,7 @@
       ;; as the server runs, so a component that starts after :pedestal never starts.
       ;; system_start_order_test.clj fails when one is missing.
       [:service-map :conn :token-withdrawals :alerts :outbox
-       :heartbeat :crash-report :artist-accounts :strand-check])
+       :heartbeat :crash-report :artist-accounts :strand-check :email-keys])
 
     ;; Tells the admin, once, when the previous run crashed (heap dump or JVM crash log).
     :crash-report
@@ -202,6 +203,12 @@
     (component/using
       (artist-accounts/new-artist-accounts)
       [:conn :outbox])
+
+    ;; gives accounts written before :orcpub.user/email-key their key; in the background
+    :email-keys
+    (component/using
+      (user-email/new-email-keys)
+      [:conn])
 
     ;; says in the log if the portrait art shipped without its strand fields
     :strand-check

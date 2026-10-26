@@ -121,6 +121,12 @@
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one
     :db/index true}
+   ;; The email trimmed and lowercased, for lookups (orcpub.user-email). Not unique: older data may
+   ;; hold one address on two accounts.
+   {:db/ident :orcpub.user/email-key
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.user/password
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}

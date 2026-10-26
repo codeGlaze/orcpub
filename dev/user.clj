@@ -7,7 +7,8 @@
             [orcpub.routes :as r]
             [orcpub.system :as s]
             [orcpub.db.schema :as schema]
-            [orcpub.config :as config])
+            [orcpub.config :as config]
+            [orcpub.user-email :as user-email])
   (:gen-class))
 
 ;; ---------------------------------------------------------------------------
@@ -181,9 +182,11 @@
 ;; User CRUD (for CLI and REPL use — does not require a running server)
 ;; ---------------------------------------------------------------------------
 
-(defn email-exists? [db email]
-  (boolean (datomic/q '[:find ?e . :in $ ?email :where [?e :orcpub.user/email ?email]]
-                      db (str/lower-case email))))
+(defn email-exists?
+  "Whether an account in `db` has email `email`, in any casing."
+  [db email]
+  (boolean (datomic/q '[:find ?e . :in $ ?email :where [?e :orcpub.user/email-key ?email]]
+                      db (user-email/email-key email))))
 
 (defn username-exists? [db username]
   (boolean (datomic/q '[:find ?e . :in $ ?username :where [?e :orcpub.user/username ?username]]
@@ -199,7 +202,7 @@
     lein with-profile init-db run -m user create-user bob bob@example.com pass verify"
   [conn {:keys [username email password verify? send-updates?] :or {verify? false send-updates? false}}]
   (let [db (datomic/db conn)
-        email (when email (str/lower-case (str/trim email)))
+        email (user-email/email-key email)
         username (when username (str/trim username))]
     (cond
       (and email (email-exists? db email))
@@ -212,6 +215,7 @@
       (let [now (java.util.Date.)
             pw (hashers/encrypt (or password "password"))
             tx {:orcpub.user/email email
+                :orcpub.user/email-key email
                 :orcpub.user/username username
                 :orcpub.user/password pw
                 :orcpub.user/created now

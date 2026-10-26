@@ -61,6 +61,7 @@
             [orcpub.entity.strict :as se]
             [orcpub.entity :as entity]
             [orcpub.security :as security]
+            [orcpub.user-email :as user-email]
             [orcpub.fork.branding :as branding]
             [orcpub.fork.auth :as auth]
             [orcpub.fork.user-data :as user-data]
@@ -152,22 +153,25 @@
     :in $ ?username
     :where [?e :orcpub.user/username ?username]])
 
-;; Case-insensitive email lookup to guard against mixed-case legacy data.
-;; Callers must pass a lowercased email.
+;; Email lookup by the indexed key. Callers pass (user-email/email-key address).
 (def email-query
   '[:find ?e
     :in $ ?email
-    :where [?e :orcpub.user/email ?stored]
-           [(clojure.string/lower-case ?stored) ?email]])
+    :where [?e :orcpub.user/email-key ?email]])
 
-(defn find-user-by-username-or-email [db username-or-email]
+(defn find-user-by-username-or-email
+  "The account, pulled whole, whose username is `username-or-email` or whose email matches it in
+   any casing; nil when none does."
+  [db username-or-email]
   (d/q
    '[:find (pull ?e [*]) .
-     :in $ ?user-or-email
-     :where (or [?e :orcpub.user/username ?user-or-email]
-                [?e :orcpub.user/email ?user-or-email])]
+     :in $ ?name ?key
+     :where (or-join [?e ?name ?key]
+                     [?e :orcpub.user/username ?name]
+                     [?e :orcpub.user/email-key ?key])]
    db
-   username-or-email))
+   username-or-email
+   (or (user-email/email-key username-or-email) "")))
 
 (defn find-user-by-username [db username]
   (d/q '[:find (pull ?e [*]) .
@@ -187,17 +191,17 @@
                   [username password])]
     user))
 
-(defn lookup-user-by-email [db email password]
-  (let [user (first-user-by db
-                         '{:find [?e]
-                           :in [$ [?email ?password]]
-                           :where [[?e :orcpub.user/email ?email-2]
-                                   [(clojure.string/lower-case ?email-2)
-                                    ?email]
-                                   [?e :orcpub.user/password ?enc]
-                                   [(buddy.hashers/check ?password ?enc)]]}
-                         [(s/lower-case email) password])]
-    user))
+(defn lookup-user-by-email
+  "The account, pulled whole, whose email matches `email` in any casing and whose password is
+   `password`; without a :db/id when none does."
+  [db email password]
+  (first-user-by db
+                 '{:find [?e]
+                   :in [$ [?email ?password]]
+                   :where [[?e :orcpub.user/email-key ?email]
+                           [?e :orcpub.user/password ?enc]
+                           [(buddy.hashers/check ?password ?enc)]]}
+                 [(user-email/email-key email) password]))
 
 (defn lookup-user [db username password]
   (if (re-matches registration/email-format username)
@@ -498,15 +502,15 @@
   (login-response request))
 
 
-(defn user-for-email [db email]
-  (let [user (first-user-by db
-                            '{:find [?e]
-                              :in [$ ?email]
-                              :where [[?e :orcpub.user/email ?email-2]
-                                      [(clojure.string/lower-case ?email-2)
-                                       ?email]]}
-                            (s/lower-case email))]
-    user))
+(defn user-for-email
+  "The account, pulled whole, whose email matches `email` in any casing; without a :db/id when none
+   does."
+  [db email]
+  (first-user-by db
+                 '{:find [?e]
+                   :in [$ ?email]
+                   :where [[?e :orcpub.user/email-key ?email]]}
+                 (user-email/email-key email)))
 
 (defn preferred-name-of
   "The name an email greets the account by: its preferred name, decrypted, else the fork's
@@ -616,7 +620,7 @@
 (defn register [{:keys [json-params db conn remote-addr] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
         username (when username (s/trim username))
-        email (when email (s/lower-case (s/trim email)))
+        email (user-email/email-key email)
         password (when password (s/trim password))
         validation (registration/validate-registration
                     json-params
@@ -643,11 +647,11 @@
                       json-params
                       conn
                       (merge
-                       {:orcpub.user/email email
-                        :orcpub.user/username username
+                       {:orcpub.user/username username
                         :orcpub.user/password (hashers/encrypt password)
                         :orcpub.user/send-updates? send-updates?
                         :orcpub.user/created now}
+                       (user-email/email-attrs email)
                        (when auth/record-last-login-at-registration?
                          {:orcpub.user/last-login now})
                        (user-data/registration-defaults)))]
@@ -709,13 +713,12 @@
           ;; Guard: re-check that the target email hasn't been claimed since request.
           ;; All paths retract verification-key and verification-sent to prevent
           ;; link reuse and avoid stale rate-limit data.
-          (if (seq (d/q email-query (d/db conn) pending-email))
+          (if (seq (d/q email-query (d/db conn) (user-email/email-key pending-email)))
             (do @(d/transact conn [[:db/retract id :orcpub.user/pending-email pending-email]
                                    [:db/retract id :orcpub.user/verification-key key]
                                    [:db/retract id :orcpub.user/verification-sent verification-sent]])
                 (redirect route-map/verify-failed-route))
-            (do @(d/transact conn [{:db/id id
-                                    :orcpub.user/email pending-email}
+            (do @(d/transact conn [(assoc (user-email/email-attrs pending-email) :db/id id)
                                    [:db/retract id :orcpub.user/pending-email pending-email]
                                    [:db/retract id :orcpub.user/verification-key key]
                                    [:db/retract id :orcpub.user/verification-sent verification-sent]])
@@ -1762,7 +1765,7 @@
   (check-field username-query (:username query-params) db))
 
 (defn check-email [{:keys [db query-params]}]
-  (check-field email-query (some-> (:email query-params) s/lower-case) db))
+  (check-field email-query (user-email/email-key (:email query-params)) db))
 
 (defn character-for-id [db id]
   (d/pull db '[*] id))
@@ -2243,7 +2246,7 @@
 (defn request-email-change [{:keys [transit-params db conn identity] :as request}]
   (try
     ;; Client sends {:new-email "..."} (confirm-email is validated client-side only)
-    (let [new-email (s/lower-case (s/trim (str (:new-email transit-params))))
+    (let [new-email (or (user-email/email-key (:new-email transit-params)) "")
           current-password (:current-password transit-params)
           username (:user identity)]
       (if (nil? username)
@@ -2266,7 +2269,7 @@
             (registration/bad-email? new-email)
             {:status 400 :body {:error :invalid-email}}
 
-            (= new-email (some-> email s/lower-case))
+            (= new-email (user-email/email-key email))
             {:status 400 :body {:error :same-as-current}}
 
             (email-change-rate-limited? verification-sent pending-email new-email)
