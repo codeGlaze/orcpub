@@ -139,3 +139,9 @@
         "a text-only effect is listed too")
     (is (some vector? (srd-conditions/link-conditions "The target makes a DC 13 Con save or falls Prone."))
         "the condition link finds \"falls Prone\"")))
+
+(deftest a-click-mode-wins-over-the-switch
+  (is (= :adv (rolls/attack-mode :adv :dis)) "ctrl-click over the header's Dis")
+  (is (= :dis (rolls/attack-mode nil :dis)) "no click mode: the header's")
+  (is (= :adv (rolls/attack-mode :normal :adv)) "a plain click keeps the header's Adv")
+  (is (= :normal (rolls/attack-mode nil nil))))
