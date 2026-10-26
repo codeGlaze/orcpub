@@ -419,14 +419,16 @@ Each step: tests seen failing first, scoped checks, own commit, KB updated.
    sentences with condition links (`disp/effect-sentence`, `after-total`, rendered by
    `srd-linked-text`); text-only effects listed; "Missed?" as a `damage-options` entry for any
    `on :miss` extra, pulsing (`.weapon-sheet-option.pulse`). **Left, with where to build:**
-   - **Vex:** one effect field `::mi/next-attack :adv`; when a damage roll's applying effects carry
+   - **Vex: done 2026-10-26.** `::mi/next-attack :adv|:dis` on an effect; `roll-entries` reports
+     `:next-mode`; the chain's next attack rolls with it over the heading switch, its tile marked and
+     pulsing. **Was:** one effect field `::mi/next-attack :adv`; when a damage roll's applying effects carry
      it, preset the chain's next attack mode (`views.cljs` `weapon-roll-result`, where the next
      `roll-attack` takes `:mode`, ~line 4006 and ~4157), marked "(Vex)", one tap back to normal,
      pulsing.
    - **Cleave:** a `+` menu use (`disp/weapon-menu-items` already spends `::recharge` uses;
      `::units/turn` and "new turn" exist) whose action adds an attack to the chain with a field
      `::mi/extra-attack {:ability-mod :omit}` dropping a positive ability modifier from its damage.
-   - **Phones cannot roll advantage or disadvantage** (ctrl and shift click only). Held by the owner
+   - **Done 2026-10-26 (header switch and long press, `attack_mode_e2e.js`).** Phones cannot roll advantage or disadvantage (ctrl and shift click only). Held by the owner
      (2026-10-26): a long-press menu on the attack tile, needs a drawing first.
    **Was:** Generic sheet kinds: "Missed?" for any `on :miss` extra; after-damage effects as buttons
    (`:next-attack :adv` arms the chain's next roll); `:extra-attack` turns the corner tile into that
