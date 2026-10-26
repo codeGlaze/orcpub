@@ -35,7 +35,7 @@ and cherry-picked here; those two commits will also arrive with that branch.
 
 - **Characters:** a magic item's spell DC bonus no longer raises ki, Breath Weapon and other DCs that are not spell DCs.
 - **Characters:** uses that come back once a day were never reset; they now reset at dawn.
-- **Characters:** a monk (or UA Hexblade) with a low Strength no longer attacks at +0 with a weapon their feature does not cover; the attack uses the real modifier.
+- **Characters:** a monk with a low Strength no longer attacks at +0 with a weapon their feature does not cover; the attack uses the real modifier.
 - **Rules:** a rule's preview card fits on a phone screen.
 
 ## Security
