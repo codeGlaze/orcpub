@@ -1,7 +1,6 @@
 # Plan: indexed lookups, a lowercase email field, and GET /user once per session
 
-**Status:** in progress on `fix/lookup-indexes` (from `integration`, approved by the owner). Steps 2
-(indexes) and 3 (`email-key`) done 2026-10-26. Owner decisions: indexes yes; a separate lowercase email field yes;
+**Status:** in progress on `fix/lookup-indexes` (from `integration`, approved by the owner). All steps done 2026-10-26; PR into `integration`. Owner decisions: indexes yes; a separate lowercase email field yes;
 `GET /user` once per session yes. Why: [lookup-indexes.md](lookup-indexes.md) (measured: at 100k
 users the email lookup costs 151 ms and 120 MB per call; indexed lookups stay under 1 ms).
 
@@ -61,6 +60,12 @@ of the attribute and fills the peer's object cache.
 - Optional later: duplicates report, then `:db/unique` on `email-key`.
 
 ## 3. GET /user once per session
+
+- **Done 2026-10-26.** `:user` is a plain sub on db `:user`, which `:verify-user-session` (start)
+  and `:login-success` fill and `:clear-login` empties. The kept answer carries `:following`, so
+  follow buttons now survive a reload (before, `:following` was only built locally after a click).
+  `subs_test` `the-user-sub-never-fetches` is async: the old fetch ran in a go block after the
+  test returned, so a synchronous check passed against the old code.
 
 - `src/cljs/orcpub/dnd/e5/subs.cljs` `:user` uses `reg-api-sub` (`api_subs.cljs`): a
   `reg-sub-raw` that fetches on every new subscription instance; the response is discarded.

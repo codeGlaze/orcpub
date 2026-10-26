@@ -460,7 +460,7 @@ _blank-env-values · blank env values_
 
 _branch-context-history · branch context history_
 
-**topics:** boon, branch, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine
+**topics:** boon, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine, subs
 
 - (was) Branch Context: claude/zen-wright-04xhdz
 - Purpose
@@ -2299,14 +2299,15 @@ _locale-safety · locale safety_
 
 _lookup-indexes · lookup indexes_
 
-**topics:** 100k, 120, 2026-10-22, allocates, attribute, email, heap, indexed, lookup, lowercased, mixed-case, oom, plan-email-and-alerts, plan-lookup-indexes, queries, sign-ins, unindexed, uniqueness
+**topics:** 100k, 10k, 120, 2026-10-22, allocates, email, heap, indexed, indexes, lookup, lowercased, mixed-case, oom, plan-email-and-alerts, plan-lookup-indexes, queries, sign-ins, username
 
 - The cause
 - Measured
+- After the fix (measured 2026-10-26, fix/lookup-indexes)
 - Why GET /user runs so often (found 2026-10-22)
 - Why one email lookup allocates ~1.2 KB per user
 - Normalised email: separate field (decided direction, 2026-10-22)
-- Fix, not yet done: plan-lookup-indexes.md (owner approved the approach 2026-10-22)
+- Fix, done on fix/lookup-indexes: plan-lookup-indexes.md (owner approved the approach 2026-10-22)
 
 ## memoize-antipattern-scan.md
 

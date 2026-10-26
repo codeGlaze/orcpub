@@ -48,6 +48,23 @@ a party, a folder and an item each; the real queries from `routes.clj`; median o
 - The in-memory database flatters the scans: on the live storage a scan also pulls every segment
   of the attribute into the object cache.
 
+## After the fix (measured 2026-10-26, `fix/lookup-indexes`)
+
+`dev/measure_lookups.clj` on the branch's schema (indexes and `:orcpub.user/email-key`; the email
+lookup is given an upper-case address, so it proves the match ignores case):
+
+| Lookup | 10k users | 100k users |
+|---|---|---|
+| page load account lookup (`find-user-by-username-or-email`) | 1.8 ms | 3.0 ms |
+| sign in by username | 0.8 ms | 1.1 ms |
+| **by email (`user-for-email`, the key)** | 0.8 ms, 0.12 MB | **1.1 ms, 0.12 MB** (was 151 ms, 120 MB) |
+| character list (by owner) | 0.5 ms | 0.9 ms |
+| magic item list (by owner) | 0.6 ms | 0.6 ms |
+
+The account lookup's `or-join` over username and email key costs a little more than one indexed
+clause, still flat. And it now runs once per page load: `GET /user` is no longer sent when a view
+mounts (`scripts/e2e/user-fetched-once.js`).
+
 ## Why `GET /user` runs so often (found 2026-10-22)
 
 `subs.cljs` registers `:user` with `reg-api-sub` (`api_subs.cljs`), a `reg-sub-raw` that issues the
@@ -77,7 +94,7 @@ also works but loses the original and is a live data rewrite. The separate field
 `:db/unique` (email has no uniqueness constraint today; see `docs/email-system.md` known issues),
 once existing duplicates are found and resolved.
 
-## Fix, not yet done: [plan-lookup-indexes.md](plan-lookup-indexes.md) (owner approved the approach 2026-10-22)
+## Fix, done on `fix/lookup-indexes`: [plan-lookup-indexes.md](plan-lookup-indexes.md) (owner approved the approach 2026-10-22)
 
 1. `:db/index true` on the attributes above: a schema alteration added to `schema.clj`, applied on
    start. No data change.
