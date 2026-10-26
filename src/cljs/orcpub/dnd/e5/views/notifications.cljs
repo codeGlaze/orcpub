@@ -158,7 +158,7 @@
                (when (seq dangling)
                  [:div.f-s-12.m-t-5 {:style {:color "#d9a520"}}
                   (str (clojure.core/count dangling) " belong to a race or class the link did not carry, "
-                       "so they are not offered" (names dangling) ".")])
+                       "so they can't be picked in the character builder" (names dangling) ".")])
                (when (pos? item-count)
                  [:div.f-s-12.m-t-5 {:style {:opacity 0.8}}
                   "Custom magic items are shown for this view only (keeping items isn't supported yet)."])]

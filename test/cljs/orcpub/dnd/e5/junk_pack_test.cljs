@@ -261,13 +261,13 @@
 
 (defn- use-entry!
   "Pick homebrew entry `k` in `c`, build it, and draw what the builder draws under it: every
-   selection whose path runs through `k`, fully realized. Throws when `k` is never offered."
+   selection whose path runs through `k`, fully realized. Throws when `k` is not in the character builder."
   [template k c & [entry]]
   (let [ks #{k}
         c (pick template c ks)
         [built avail] (offered template c)]
     (when (and k (not (some ks (tree-seq coll? seq c))))
-      (throw (js/Error. "never offered")))
+      (throw (js/Error. "not in the character builder")))
     (when k (covered! :picked k))
     (realize! (char5e/ability-values built))
     (realize! (filter #(some ks (entity/actual-path %)) avail))))
@@ -470,7 +470,7 @@
                        (some-> r (assoc :stage [:character k]) (cond-> k (assoc :key k)))))
              builds (when (and template (not light?))
                       (doall
-                       (remove #(and (= "never offered" (:error %)) (set-aside (second (:stage %))))
+                       (remove #(and (= "not in the character builder" (:error %)) (set-aside (second (:stage %))))
                                (keep build (cons [nil stored-character] (seeds entries))))))
              drawn (doall (pages entries (not light?)))]
          (doall (remove nil? (concat [boot shared] sub-fails [built-ins deep] builds drawn
@@ -561,7 +561,7 @@
                    #(and (= :junk-races (:key %)) (= "canary" (:error %))))))
     (testing "a race that silently goes missing"
       (is (caught? (with-race-option (constantly nil) canary-run)
-                   #(= {:stage [:character :junk-races] :error "never offered"}
+                   #(= {:stage [:character :junk-races] :error "not in the character builder"}
                        (select-keys % [:stage :error])))))
     (testing "an entry set aside that is not the pack's own"
       (is (caught? (with-race-option #(do (guard/report! {:content-type ::e5/races :key :elf}) %)

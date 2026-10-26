@@ -6668,7 +6668,8 @@
     {:title (if (= 1 n) "A homebrew entry was set aside" (str n " homebrew entries were set aside"))
      :details [(str (s/join ", " (map label (take 3 moved)))
                     (when (> n 3) (str " and " (- n 3) " more"))
-                    " stopped the character options from loading, so "
+                    ;; true whether a field could not be read or the entry broke the builder
+                    " couldn't be used, so "
                     (if (= 1 n) "it was" "they were")
                     " set aside. Everything else still works.")
                [:span.pointer.underline.orange
