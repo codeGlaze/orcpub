@@ -20,7 +20,9 @@ the owner keeps CodeRabbit for backend work). **KB:** `plan-charges-and-casting.
 - Done 2026-10-26: attack mode both ways (header switch, long press; `weapon-rolls/attack-mode`,
   `:weapon-roll/mode`; `attack_mode_e2e.js`). Vex's preset can set `:weapon-roll/set-mode`.
 - Mastery step 5 done 2026-10-26 (effect sentences, Missed?, Vex, Cleave).
-- Next: mastery step 6 (tests for all eight with made-up data); a charge cost for weapon powers in the item
+- Mastery step 6 done 2026-10-26. Mastery now waits on its 2024 data (step 4, `srd52/develop`) and
+  the panel (designed, round 6).
+- Next: a charge cost for weapon powers in the item
   builder; light theme shots; the parked wording review.
 
 ## Owner decisions

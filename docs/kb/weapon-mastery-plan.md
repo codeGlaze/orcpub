@@ -436,7 +436,8 @@ Each step: tests seen failing first, scoped checks, own commit, KB updated.
    **Was:** Generic sheet kinds: "Missed?" for any `on :miss` extra; after-damage effects as buttons
    (`:next-attack :adv` arms the chain's next roll); `:extra-attack` turns the corner tile into that
    attack once per turn. None names a mastery.
-6. **Tests with made-up data** for all eight (custom items, writing-browser-tests.md rule 6), plus a
+6. **Done 2026-10-26:** `weapon_rolls_test.cljc` `masteries`: all eight as item data, through the
+   engine. Only step 4 (definitions as data, from the 2024 line) and the panel remain. **Was:** Tests with made-up data for all eight (custom items, writing-browser-tests.md rule 6), plus a
    homebrew item using the same kinds, to prove nothing is mastery-specific.
 
 Out of scope here: setting `:weapon-masteries` from class features (5.5 line, grant pools), and the
