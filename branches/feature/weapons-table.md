@@ -1,0 +1,33 @@
+# feature/weapons-table
+
+**Purpose:** the character sheet's Weapons table rebuilt around a roll engine, and the item charges
+it led to: charges on the sheet, the Rest box, casting from charged items, item builder fields.
+**Base:** integration (merged in 2026-10-25). **PR into:** integration, #74 (open, not reviewed;
+the owner keeps CodeRabbit for backend work). **KB:** `plan-charges-and-casting.md`,
+`handoff-weapons-table.md`, `handoff-rest-controls.md`, `weapon-mastery-plan.md`.
+
+## State (updated 2026-10-25)
+
+- Done: the Weapons table; charges model, data and pips; the Rest box and floating Rest button;
+  casting from items; the item builder's Charges group; SRD spell rolling data (`spell-rolls.edn`,
+  cherry-picked from `feature/srd-pipeline`); changelog written, not folded.
+- In progress: rolling a cast's damage through `weapon_rolls.cljc`, from `spell-rolls.edn`.
+- Next: weapon mastery (`weapon-mastery-plan.md`); a charge cost for weapon powers in the item
+  builder; light theme shots; the parked wording review.
+
+## Owner decisions
+
+- 2026-10-24: spell data built on `feature/srd-pipeline`, cherry-picked here.
+- 2026-10-25: on a full spell card the SRD text shows; a summary only as an optional section at the
+  bottom (`srd-2024-roadmap.md`).
+- 2026-10-25: the PR is not sent to CodeRabbit for now; another agent uses the allowance.
+
+## Gotchas for the next agent
+
+- Stop `lein e2e-server` before any `lein` build here; kill it by pid (`ps`, then check
+  `/proc/<pid>/cwd`): `pkill -f` and `pgrep -f` match your own shell and kill it.
+- Garden CSS is a separate build (`lein garden once`); a style change is invisible until it runs.
+- Browser scripts outside `scripts/e2e` need `NODE_PATH=$PWD/scripts/e2e/node_modules`; the server
+  runs on `PORT=8897 E2E_PORT=8897`.
+- A namespace `views.x` clashes with a var `views/x` in compiled JS (a compile warning).
+- Fold the changelog (`scripts/fold-branch-changelog.sh`) only when the owner says #74 is about to merge.
