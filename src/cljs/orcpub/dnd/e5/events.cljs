@@ -3465,10 +3465,14 @@
 (reg-event-db
  :clear-login
  [user->local-store-interceptor]
- (fn [db [_ user-data]]
-   (-> db
-       (update :user-data dissoc :user-data :token)
-       (dissoc :user))))
+ ;; With a token: only while that is still the login, so a 401 that answers a login already
+ ;; replaced does not sign the new one out.
+ (fn [db [_ expected-token]]
+   (if (or (nil? expected-token) (= expected-token (event-utils/get-auth-token db)))
+     (-> db
+         (update :user-data dissoc :user-data :token)
+         (dissoc :user))
+     db)))
 
 ;; Startup auth check — validates stored token on app load (core.cljs) and keeps the account it
 ;; answers in db :user, the one GET /user of a page load.
@@ -3481,7 +3485,7 @@
                                           {:headers (authorization-headers db)}))]
                (case (:status response)
                  200 (dispatch [:set-user-for-token token (:body response)])
-                 401 (do (dispatch [:clear-login])
+                 401 (do (dispatch [:clear-login token])
                          (dispatch [:set-loading false]))
                  nil)))
          {})
