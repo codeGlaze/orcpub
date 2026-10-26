@@ -1184,13 +1184,69 @@
 (defn ability-value [v]
   [:div.f-s-18.f-w-b v])
 
+(defn ability-bag-assigner
+  "Renders one :ability-increases spread, carried on the selection's ::t/spread as
+   {:idx :amount :pool :fixed?} increments. A single-stat increment is a label (\"Strength +2\"), the
+   rest pick from their own pool. Every increment lands on a DISTINCT ability, so a stat taken by
+   one is left out of the other pickers. Picks are the slot's asi-<idx>-<ability> option keys, set
+   with :increase/:decrease-ability-value, so storage and the build are unchanged."
+  [built-template selection _ability-keys]
+  (let [character @(subscribe [:character])
+        incs (::t/spread selection)
+        path (::entity/path selection)
+        increases-path (entity/get-entity-path built-template character path)
+        chosen-keys (set (map ::entity/key (get-in character increases-path)))
+        slot-key (fn [idx k] (keyword (str "asi-" idx "-" (cljs.core/name k))))
+        ability-name (fn [k] (:name (opt5e/abilities-map k)))
+        slot-pick (fn [{:keys [idx pool]}]
+                    (some (fn [k] (when (chosen-keys (slot-key idx k)) k)) pool))
+        floating (remove :fixed? incs)
+        ;; one ability per spread: leave out stats taken by fixed increments and other picks
+        used (set (concat (map (comp first :pool) (filter :fixed? incs))
+                          (keep slot-pick floating)))
+        ancestors-title (views-aux/ancestor-names-string built-template path)
+        num-remaining (- (count floating) (count (keep slot-pick floating)))
+        pick! (fn [idx current new-k]
+                (when (not= new-k current)
+                  (when current
+                    (dispatch [:decrease-ability-value increases-path (slot-key idx current)]))
+                  (when new-k
+                    (dispatch [:increase-ability-value increases-path (slot-key idx new-k)]))))]
+    [:div
+     [:div.flex.justify-cont-s-b.m-t-10.align-items-c
+      [:div.m-l-5.i (str "Improvement: " ancestors-title)]
+      (remaining-component 2 num-remaining)]
+     (doall
+      (map
+       (fn [{:keys [idx amount pool fixed?] :as increment}]
+         ^{:key idx}
+         [:div.flex.align-items-c.m-t-5.m-l-5
+          [:div.w-40.f-w-b (common/bonus-str amount)]
+          (if fixed?
+            [:div.m-l-5 (ability-name (first pool))]
+            (let [current (slot-pick increment)
+                  opts (filter (fn [k] (or (= k current) (not (used k)))) pool)]
+              [:div.flex-grow-1
+               [views5e/dropdown
+                {:typed? true
+                 :value current
+                 :items (cons {:title "— choose —" :value nil}
+                              (map (fn [k] {:title (ability-name k) :value k}) opts))
+                 :on-change #(pick! idx current %)}]]))])
+       incs))]))
+
 (defn ability-increases-component [built-template asi-selections ability-keys]
   (let [total-abilities @(subscribe [::char5e/abilities])
         character @(subscribe [:character])]
     [:div
      (doall
       (map-indexed
-       (fn [i {:keys [::t/name ::t/key ::t/min ::t/max ::t/options ::t/different? ::entity/path] :as selection}]
+       (fn [i {:keys [::t/name ::t/key ::t/min ::t/max ::t/options ::t/different? ::t/spread
+                      ::entity/path] :as selection}]
+         ;; a spread (it carries ::t/spread) renders through the bag assigner; every other
+         ;; ability-increase selection (built-in races, class ASI) keeps the +/- UI below.
+         (if spread
+           ^{:key i} [ability-bag-assigner built-template selection ability-keys]
          (let [increases-path (entity/get-entity-path built-template character path)
                selected-options (get-in character increases-path)
                ability-increases (frequencies (map ::entity/key selected-options))
@@ -1242,7 +1298,7 @@
                                   (fn []
                                     (when (not increase-disabled?)
                                       (dispatch [:increase-ability-value increases-path k]))))}]]]))
-               ability-keys))]]))
+               ability-keys))]])))
        asi-selections))]))
 
 (defn race-abilities-component [ability-keys]
