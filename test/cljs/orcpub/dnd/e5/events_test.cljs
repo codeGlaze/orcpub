@@ -48,7 +48,8 @@
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.equipment-subs]
             ;; Side effect: registers all event handlers
-            [orcpub.dnd.e5.events :as events]))
+            [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.homebrew-check :as homebrew-check]))
 
 ;; ---------------------------------------------------------------------------
 ;; Fixtures
@@ -1432,7 +1433,7 @@
       (.removeItem js/localStorage "plugins"))))
 
 (deftest a-report-for-content-not-in-the-library-moves-nothing
-  (is (= [] (:moved (events/set-aside-broken-entries {"P" {::e5/races {}}} nil
+  (is (= [] (:moved (homebrew-check/set-aside-broken-entries {"P" {::e5/races {}}} nil
                                                      [{:content-type ::e5/races :key :gone :option-pack "P"}])))))
 
 (deftest reporting-a-character-problem-sends-the-auth-token

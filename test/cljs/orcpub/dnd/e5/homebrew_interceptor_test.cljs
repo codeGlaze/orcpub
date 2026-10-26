@@ -18,19 +18,19 @@
 (deftest an-event-that-leaves-the-library-alone-is-left-alone
   (let [db {:plugins lib}
         effects {:db (assoc db :other 1)}]
-    (is (identical? effects (events/homebrew-shapes-checked db effects)))))
+    (is (identical? effects (homebrew-check/homebrew-shapes-checked db effects)))))
 
 (deftest a-fix-is-used-and-stored
-  (let [effects (events/homebrew-shapes-checked {:plugins {}} {:db {:plugins lib}})
+  (let [effects (homebrew-check/homebrew-shapes-checked {:plugins {}} {:db {:plugins lib}})
         cleaned (get-in effects [:db :plugins])]
     (is (= 25 (get-in cleaned ["P" ::e5/races :hill :speed])) "the app reads 25 at once")
-    (is (= [lib] (fx-of effects ::events/keep-pre-fix-copy)) "the library as it was is kept first")
+    (is (= [lib] (fx-of effects ::homebrew-check/keep-pre-fix-copy)) "the library as it was is kept first")
     (is (= [[::e5/set-plugins cleaned]] (fx-of effects :dispatch)) "and the fix is stored")))
 
 (deftest an-unreadable-entry-is-set-aside-as-written
   (let [bad (assoc race :abilities 42)
         written {"P" {::e5/races {:hill bad}}}
-        effects (events/homebrew-shapes-checked {:plugins {}} {:db {:plugins written}})
+        effects (homebrew-check/homebrew-shapes-checked {:plugins {}} {:db {:plugins written}})
         broke (fx-of effects ::homebrew-check/report)]
     (is (= 1 (count broke)))
     (is (= {:content-type ::e5/races :key :hill :source "P" :original bad}
@@ -42,20 +42,20 @@
   (let [before {"P" {::e5/races {:hill (assoc race :speed 25)}} "Q" {}}
         after (assoc-in before ["P" ::e5/races :dale] {:name "Dale" :key :dale :option-pack "P"})]
     (is (= [#{["P" ::e5/races :dale]}]
-           (fx-of (events/homebrew-shapes-checked {:plugins before} {:db {:plugins after}})
+           (fx-of (homebrew-check/homebrew-shapes-checked {:plugins before} {:db {:plugins after}})
                   ::homebrew-check/check-entries))
         "only the entry that changed")
-    (is (empty? (fx-of (events/homebrew-shapes-checked {} {:db {:plugins after}})
+    (is (empty? (fx-of (homebrew-check/homebrew-shapes-checked {} {:db {:plugins after}})
                        ::homebrew-check/check-entries))
         "not the whole library on load")))
 
 (deftest shared-content-is-used-not-stored
-  (let [effects (events/homebrew-shapes-checked {} {:db {:shared-plugins lib}})]
+  (let [effects (homebrew-check/homebrew-shapes-checked {} {:db {:shared-plugins lib}})]
     (is (= 25 (get-in effects [:db :shared-plugins "P" ::e5/races :hill :speed])))
     (is (empty? (:fx effects)) "never stored"))
   (testing "an entry that cannot be read is left out, and named"
     (let [bad {"P" {::e5/races {:hill (assoc race :abilities 42) :dale (assoc race :key :dale)}}}
-          effects (events/homebrew-shapes-checked {} {:db {:shared-plugins bad}})]
+          effects (homebrew-check/homebrew-shapes-checked {} {:db {:shared-plugins bad}})]
       (is (= #{:dale} (set (keys (get-in effects [:db :shared-plugins "P" ::e5/races])))))
       (is (= [:hill] (map :key (fx-of effects ::homebrew-check/report)))))))
 
@@ -77,7 +77,7 @@
 
 (deftest a-set-aside-entry-keeps-what-was-written
   (let [bad (assoc race :abilities 42)
-        {:keys [rejected]} (events/set-aside-broken-entries
+        {:keys [rejected]} (homebrew-check/set-aside-broken-entries
                             {"P" {::e5/races {:hill (dissoc bad :abilities)}}} {}
                             [{:content-type ::e5/races :key :hill :source "P" :original bad}])]
     (is (= bad (get-in rejected ["P" ::e5/races :hill])))))

@@ -105,7 +105,6 @@
             [orcpub.dnd.e5.character-drafts :as drafts]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.library :as library]
-            [orcpub.dnd.e5.homebrew-shapes :as shapes]
             [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.compute :as compute]
@@ -6629,55 +6628,6 @@
 ;; Homebrew that breaks the character options
 ;; ============================================================================
 
-(defn- find-broken-entry
-  "Where a reported entry sits in the library, as [source entry]: the source the report
-   names, then the entry's own :option-pack, then any source holding that key."
-  [plugins {:keys [content-type key source option-pack]}]
-  (let [holds? (fn [src] (map? (get-in plugins [src content-type key])))
-        src (cond
-              (and source (holds? source)) source
-              (and option-pack (holds? option-pack)) option-pack
-              :else (some #(when (holds? %) %) (keys plugins)))]
-    (when src
-      [src (get-in plugins [src content-type key])])))
-
-(defn set-aside-broken-entries
-  "Move each reported entry from `plugins` into `rejected`. Returns {:plugins :rejected
-   :moved [{:source :content-type :key :entry}]}. A report whose entry is not in the
-   library (shared content, or already gone) moves nothing. A report's `:original` is what is
-   set aside when it has one: the entry as it was written, before anything was read past."
-  [plugins rejected reports]
-  (reduce (fn [acc {:keys [content-type key original] :as report}]
-            (if-let [[src entry] (find-broken-entry (:plugins acc) report)]
-              (-> acc
-                  (update-in [:plugins src content-type] dissoc key)
-                  (assoc-in [:rejected src content-type key] (or original entry))
-                  (update :moved conj {:source src :content-type content-type :key key :entry entry}))
-              acc))
-          {:plugins plugins :rejected (or rejected {}) :moved []}
-          reports))
-
-(defn- broken-homebrew-notice [moved]
-  (let [n (count moved)
-        label (fn [{:keys [source content-type key entry]}]
-                (str "“" (if (and (string? (:name entry)) (not (s/blank? (:name entry))))
-                                (:name entry)
-                                (str key))
-                     "” (" (s/lower-case (get orcbrew-val/content-type-singular content-type "entry"))
-                     ") in “" source "”"))]
-    {:title (if (= 1 n) "A homebrew entry was set aside" (str n " homebrew entries were set aside"))
-     :details [(str (s/join ", " (map label (take 3 moved)))
-                    (when (> n 3) (str " and " (- n 3) " more"))
-                    ;; true whether a field could not be read or the entry broke the builder
-                    " couldn't be used, so "
-                    (if (= 1 n) "it was" "they were")
-                    " set aside. Everything else still works.")
-               [:span.pointer.underline.orange
-                {:on-click (fn [e]
-                             (.stopPropagation e)
-                             (dispatch [:route routes/dnd-e5-my-content-route]))}
-                "Fix or discard it in My Content"]]}))
-
 ;; Conversions re-run whenever their inputs change, so one bad entry is reported many
 ;; times; each is queued once, and the queue is handled together a moment later.
 (reg-event-fx
@@ -6697,7 +6647,7 @@
  (fn [{:keys [db]} [_ reports]]
    (let [all-reports (concat reports (:homebrew-broken db))
          {:keys [plugins rejected moved]}
-         (set-aside-broken-entries (:plugins db) (get-rejected-plugins) all-reports)
+         (homebrew-check/set-aside-broken-entries (:plugins db) (get-rejected-plugins) all-reports)
          ;; one from a share link has nothing to set aside: the share banner names it instead
          moved? (set (map (juxt :content-type :key) moved))
          left-out (for [{:keys [content-type key name source option-pack]} all-reports
@@ -6720,57 +6670,8 @@
          (let [{db' :db ok? :ok? refused :dispatch-n} (commit-library db plugins {:deleting? true})]
            (if ok?
              {:db (assoc db' :quarantined-plugins rejected)
-              :dispatch [:show-warning-message (broken-homebrew-notice moved) 60000]}
+              :dispatch [:show-warning-message (homebrew-check/broken-homebrew-notice moved) 60000]}
              {:db db' :dispatch-n refused})))))))
-
-(reg-fx
- ::keep-pre-fix-copy
- (fn [plugins] (keep-pre-fix-copy! plugins)))
-
-(defn homebrew-shapes-checked
-  "An event's effects, with the homebrew it changed made to fit homebrew-shapes. The library: what
-   was fixed is in the new state and stored through the gate (after a copy of the library as it
-   was); an entry with a field that cannot be read is set aside, as written; the entries it
-   changed are converted by the deep check. Shared content is never stored: what is fixed is used,
-   and an entry that cannot be read is left out and reported.
-   Nothing to do when the event left both as they were, which is nearly every event."
-  [before-db effects]
-  (let [db (:db effects)
-        before (:plugins before-db)
-        lib (:plugins db)
-        shared-before (:shared-plugins before-db)
-        shared (:shared-plugins db)]
-    (if (or (nil? db) (and (identical? lib before) (identical? shared shared-before)))
-      effects
-      (let [{cleaned :library findings :findings} (if (map? lib)
-                                                    (shapes/clean-library lib before)
-                                                    {:library lib})
-            {shared' :library shared-findings :findings}
-            (if (map? shared) (shapes/clean-library shared shared-before) {:library shared})
-            shared' (:library (shapes/split-unreadable shared' shared shared-findings))
-            changed (when (and (map? cleaned) (map? before))
-                      (set (for [[src source] cleaned
-                                 :when (and (map? source) (not (identical? source (get before src))))
-                                 [ct section] source
-                                 :when (and (map? section)
-                                            (not (identical? section (get-in before [src ct]))))
-                                 [k entry] section
-                                 :when (not (identical? entry (get-in before [src ct k])))]
-                             [src ct k])))
-            fx (concat
-                (when-not (identical? cleaned lib)
-                  [[::keep-pre-fix-copy lib]
-                   [:dispatch [::e5/set-plugins cleaned]]])
-                (for [r (concat (homebrew-check/unreadable-reports lib findings)
-                                (homebrew-check/unreadable-reports shared shared-findings))]
-                  [::homebrew-check/report r])
-                (when (seq changed)
-                  [[::homebrew-check/check-entries changed]]))]
-        (cond-> (assoc effects :db
-                       (cond-> db
-                         (not (identical? cleaned lib)) (assoc :plugins cleaned) ;; library gate
-                         (not (identical? shared' shared)) (assoc :shared-plugins shared')))
-          (seq fx) (update :fx (fnil into []) fx))))))
 
 ;; Every event, whatever it changed and however: the homebrew it leaves is checked here, so no
 ;; write can skip the check by going around commit-library. See docs/HOMEBREW_GUARD.md.
@@ -6789,7 +6690,7 @@
                              (not (identical? lib lib')) (assoc :plugins lib') ;; not app-db
                              (not (identical? shared shared')) (assoc :shared-plugins shared'))))))
   :after (fn [ctx]
-           (update ctx :effects #(homebrew-shapes-checked (get-in ctx [:coeffects :db]) %)))))
+           (update ctx :effects #(homebrew-check/homebrew-shapes-checked (get-in ctx [:coeffects :db]) %)))))
 
 ;; An event that throws changes nothing: re-frame applies no effect of a handler that did not
 ;; finish. This says so to the person, at most once a few seconds for the same event, and keeps
