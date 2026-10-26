@@ -378,7 +378,7 @@ dark ends, round ends beside the bar). Open.
 
 ## Decisions for the owner
 
-1. **Topple's DC.** (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +
+1. **Settled 2026-10-26 (see step 2).** Topple's DC. (a) A new template prop `?weapon-save-dc (fn [weapon])` = 8 + prof +
    `?weapon-ability-modifier`, exposed like its neighbours, with no spell bonus (the SRD rule); or
    (b) reuse `?spell-save-dc` with the weapon's ability, matching the 12 features that do, bonus bug
    included. Recommended: (a), since the SRD defines it by the attack's modifier, not an ability.
@@ -399,8 +399,12 @@ Each step: tests seen failing first, scoped checks, own commit, KB updated.
    the session's scratch space); the desktop result-card check was committed on its own. **Was:** Discard the special-cased code. Revert the uncommitted Graze/Vex/Cleave sheet branches
    (`views.cljs`), the `:weapon-roll/arm` event and sub only if step 5 does not reuse them, and the
    `case` in `mastery-summary`. Keep the desktop ctrl-click card check.
-2. **Half done 2026-10-26:** `char5e/best-weapon-ability-modifier-fn` and its sub; the band uses it
-   (`weapon_ability_modifier_test.clj`). The DC waits for decision 1. **Was:** Expose the weapon's ability modifier (`character.cljc` accessor + sub, like
+2. **Done 2026-10-26:** `char5e/best-weapon-ability-modifier-fn` and its sub; the band uses it.
+   Decision 1 settled as neither option: `?weapon-abilities` entries now NAME an ability (or nil),
+   `?weapon-ability` picks the best, and `?weapon-save-dc` (`char5e/weapon-save-dc-fn`) is `?save-dc`
+   with it (owner, 2026-10-26). Fixed on the way: a non-applying entry returned 0, which `max`
+   counted, so a Str 8 monk's longsword attacked at +0. A feature letting attacks use another
+   ability (Pact of the Blade, Shillelagh) is now one entry naming it. `weapon_ability_modifier_test.clj`. **Was:** Expose the weapon's ability modifier (`character.cljc` accessor + sub, like
    `best-weapon-damage-modifier-fn`), and the DC chosen in decision 1. Replace the views' approximation.
 3. **Value references**: spec `:ability-mod` and `:attack-save-dc` as allowed values of
    `::damage-bonus` and `::save-dc`; one resolver; formatter and engine call it.
