@@ -236,7 +236,7 @@
              ;; In-memory Datomic for local/e2e runs — the full stack boots with no
              ;; transactor and no external DB. Used by the `e2e-server` alias; environ
              ;; feeds :datomic-url to orcpub.config/get-datomic-uri.
-             :e2e {:env {:datomic-url "datomic:mem://orcpub"}}
+             :e2e {:env {:datomic-url "datomic:mem://orcpub" :email-required "false"}}
              ;; An export queue small enough to reach on one machine, for seeing
              ;; the busy page. Stacks on :e2e -- see the e2e-server-busy alias.
              ;; The wait is 1ms because the slot queue is fair: with 250ms an export

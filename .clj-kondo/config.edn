@@ -133,7 +133,6 @@
              (orcpub.routes-test/with-conn)
              (orcpub.routes.folder-test/with-conn)
              (orcpub.email-change-test/with-conn)
-             (orcpub.registration-rollback-test/with-conn)
              (orcpub.routes.public-reads-test/with-conn)
              (orcpub.routes.item-save-test/with-conn)
              (orcpub.routes.share-test/with-conn)

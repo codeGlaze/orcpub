@@ -11,6 +11,8 @@
             [clojure.string :as s]
             [orcpub.route-map :as routes]
             [orcpub.fork.branding :as branding]
+            [orcpub.alerts :as alerts]
+            [orcpub.config :as config]
             [cuerdas.core :as str]))
 
 (defn- social-links-footer
@@ -118,63 +120,30 @@
   []
   branding/email-from-address)
 
-(defn send-verification-email
-  "Sends the account verification email to a new user.
-  Args: base-url (for the link), a user map with :email :username :first-and-last-name, and
-  verification-key. Returns the postal send-message result.
-  Throws ExceptionInfo {:error :verification-email-failed} if the email cannot be sent."
+(defn verification-message
+  "The account verification email for a new user: `base-url` for the link, a user map with
+  :email :username :first-and-last-name, and `verification-key`. Returns the postal message."
   [base-url {:keys [email username first-and-last-name]} verification-key]
-  (try
-    (let [result (postal/send-message (email-cfg)
-                                      {:from (str branding/email-sender-name " <" (emailfrom) ">")
-                                       :to email
-                                       :subject (str branding/app-name " Email Verification")
-                                       :body (verification-email
-                                              first-and-last-name
-                                              username
-                                              (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))})]
-      (when (not= :SUCCESS (:error result))
-        (throw (ex-info "Failed to send verification email"
-                        {:error :email-send-failed
-                         :email email
-                         :postal-response result})))
-      result)
-    (catch Exception e
-      (println "ERROR: Failed to send verification email to" email ":" (.getMessage e))
-      (throw (ex-info "Unable to send verification email. Please check your email configuration or try again later."
-                      {:error :verification-email-failed
-                       :email email
-                       :username username}
-                      e)))))
+  {:from (str branding/email-sender-name " <" (emailfrom) ">")
+   :to email
+   :subject (str branding/app-name " Email Verification")
+   :body (verification-email
+          first-and-last-name
+          username
+          (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))})
 
-(defn send-email-change-verification
-  "Sends the verification email for an email-change request (not registration).
-  Args: base-url (for the link), a user map with :email :username, and verification-key.
-  Returns the postal send-message result.
-  Throws ExceptionInfo {:error :email-change-verification-failed} if it cannot be sent."
+(defn email-change-verification-message
+  "The verification email for an email-change request, sent to the new address: `base-url` for
+  the link, a user map with :email :username :preferred-name, and `verification-key`. Returns the
+  postal message."
   [base-url {:keys [email username preferred-name]} verification-key]
-  (try
-    (let [result (postal/send-message (email-cfg)
-                                      {:from (str branding/email-sender-name " <" (emailfrom) ">")
-                                       :to email
-                                       :subject (str branding/app-name " Email Change Verification")
-                                       :body (email-change-verification-email
-                                              preferred-name
-                                              username
-                                              (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))})]
-      (when (not= :SUCCESS (:error result))
-        (throw (ex-info "Failed to send email change verification"
-                        {:error :email-send-failed
-                         :email email
-                         :postal-response result})))
-      result)
-    (catch Exception e
-      (println "ERROR: Failed to send email change verification to" email ":" (.getMessage e))
-      (throw (ex-info "Unable to send email change verification. Please check your email configuration or try again later."
-                      {:error :email-change-verification-failed
-                       :email email
-                       :username username}
-                      e)))))
+  {:from (str branding/email-sender-name " <" (emailfrom) ">")
+   :to email
+   :subject (str branding/app-name " Email Change Verification")
+   :body (email-change-verification-email
+          preferred-name
+          username
+          (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))})
 
 (defn reset-password-email-html [first-and-last-name reset-url]
   (into
@@ -201,33 +170,16 @@
   [{:type "text/html"
     :content (str (hiccup/html (reset-password-email-html first-and-last-name reset-url)))}])
 
-(defn send-reset-email
-  "Sends the password reset email to a user.
-  Args: base-url (for the link), a user map with :email :username :first-and-last-name, and
-  reset-key. Returns the postal send-message result.
-  Throws ExceptionInfo {:error :reset-email-failed} if the email cannot be sent."
-  [base-url {:keys [email username first-and-last-name]} reset-key]
-  (try
-    (let [result (postal/send-message (email-cfg)
-                                      {:from (str branding/email-sender-name " <" (emailfrom) ">")
-                                       :to email
-                                       :subject (str branding/app-name " Password Reset")
-                                       :body (reset-password-email
-                                              first-and-last-name
-                                              (str base-url (routes/path-for routes/reset-password-page-route) "?key=" reset-key))})]
-      (when (not= :SUCCESS (:error result))
-        (throw (ex-info "Failed to send password reset email"
-                        {:error :email-send-failed
-                         :email email
-                         :postal-response result})))
-      result)
-    (catch Exception e
-      (println "ERROR: Failed to send password reset email to" email ":" (.getMessage e))
-      (throw (ex-info "Unable to send password reset email. Please check your email configuration or try again later."
-                      {:error :reset-email-failed
-                       :email email
-                       :username username}
-                      e)))))
+(defn reset-message
+  "The password reset email: `base-url` for the link, a user map with :email
+  :first-and-last-name, and `reset-key`. Returns the postal message."
+  [base-url {:keys [email first-and-last-name]} reset-key]
+  {:from (str branding/email-sender-name " <" (emailfrom) ">")
+   :to email
+   :subject (str branding/app-name " Password Reset")
+   :body (reset-password-email
+          first-and-last-name
+          (str base-url (routes/path-for routes/reset-password-page-route) "?key=" reset-key))})
 
 (defn describe-browser
   "A user agent in the words a person would use. Deliberately coarse: this goes
@@ -293,25 +245,19 @@
     :content (str (hiccup/html (sign-in-attempts-email-html
                                 first-and-last-name reset-url browser when-str)))}])
 
-(defn send-sign-in-attempts-email
-  "Tells an account holder that failed sign-ins arrived from several places at once.
-   GOTCHA: never throws and leaks nothing (success, failure, timing) to the
-   response -- sent on behalf of someone not signed in, possibly an attacker.
-   Links to the reset PAGE, never a token, to avoid training people to click
-   mailed credentials. See account-flows.md."
+(defn sign-in-attempts-message
+  "The notice that failed sign-ins arrived from several places at once: `base-url`, and a map
+  with :email :first-and-last-name :user-agent. Links to the reset PAGE, never a token, so people
+  are not trained to click mailed credentials (account-flows.md). Returns the postal message."
   [base-url {:keys [email first-and-last-name user-agent]}]
-  (try
-    (postal/send-message (email-cfg)
-                         {:from (str branding/email-sender-name " <" (emailfrom) ">")
-                          :to email
-                          :subject (str branding/app-name " sign-in attempts")
-                          :body (sign-in-attempts-email
-                                 first-and-last-name
-                                 (str base-url (routes/path-for routes/send-password-reset-page-route))
-                                 (describe-browser user-agent)
-                                 (attempt-time))})
-    (catch Exception e
-      (println "ERROR: could not send a sign-in attempts notice:" (.getMessage e)))))
+  {:from (str branding/email-sender-name " <" (emailfrom) ">")
+   :to email
+   :subject (str branding/app-name " sign-in attempts")
+   :body (sign-in-attempts-email
+          first-and-last-name
+          (str base-url (routes/path-for routes/send-password-reset-page-route))
+          (describe-browser user-agent)
+          (attempt-time))})
 
 (defn password-changed-email-html [first-and-last-name reset-url browser when-str]
   (into
@@ -338,24 +284,19 @@
     :content (str (hiccup/html (password-changed-email-html
                                 first-and-last-name reset-url browser when-str)))}])
 
-(defn send-password-changed-email
-  "Tells an account holder their password has just been changed.
-   GOTCHA: the only signal that makes an unauthorised reset visible; never
-   throws since the reset is already committed. Same no-token reset-page link
-   as the sign-in notice. See account-flows.md."
+(defn password-changed-message
+  "The notice that an account's password was just changed: `base-url`, and a map with :email
+  :first-and-last-name :user-agent. The only signal that makes an unauthorised reset visible
+  (account-flows.md). Returns the postal message."
   [base-url {:keys [email first-and-last-name user-agent]}]
-  (try
-    (postal/send-message (email-cfg)
-                         {:from (str branding/email-sender-name " <" (emailfrom) ">")
-                          :to email
-                          :subject (str branding/app-name " password changed")
-                          :body (password-changed-email
-                                 first-and-last-name
-                                 (str base-url (routes/path-for routes/send-password-reset-page-route))
-                                 (describe-browser user-agent)
-                                 (attempt-time))})
-    (catch Exception e
-      (println "ERROR: could not send a password-changed notice:" (.getMessage e)))))
+  {:from (str branding/email-sender-name " <" (emailfrom) ">")
+   :to email
+   :subject (str branding/app-name " password changed")
+   :body (password-changed-email
+          first-and-last-name
+          (str base-url (routes/path-for routes/send-password-reset-page-route))
+          (describe-browser user-agent)
+          (attempt-time))})
 
 (defn email-change-notice-html [first-and-last-name new-email when-str]
   (into
@@ -380,24 +321,18 @@
     :content (str (hiccup/html (email-change-notice-html
                                 first-and-last-name new-email when-str)))}])
 
-(defn send-email-change-notice
-  "Tells the address that currently OWNS the account that somebody is moving it.
-   GOTCHA: goes to the new address, unreachable by the current owner if this
-   wasn't them -- the only notice the losing address gets. Never throws: the
-   change is already accepted, so a failure here must not report an error for it.
-   See account-flows.md."
-  [base-url {:keys [email first-and-last-name new-email]}]
-  (try
-    (postal/send-message (email-cfg)
-                         {:from (str branding/email-sender-name " <" (emailfrom) ">")
-                          :to email
-                          :subject (str branding/app-name " email change requested")
-                          :body (email-change-notice
-                                 first-and-last-name
-                                 new-email
-                                 (attempt-time))})
-    (catch Exception e
-      (println "ERROR: could not send an email-change notice:" (.getMessage e)))))
+(defn email-change-notice-message
+  "The notice to the address that currently owns an account that somebody is moving it: a map with
+  :email :first-and-last-name :new-email. The only notice the losing address gets
+  (account-flows.md). Returns the postal message."
+  [{:keys [email first-and-last-name new-email]}]
+  {:from (str branding/email-sender-name " <" (emailfrom) ">")
+   :to email
+   :subject (str branding/app-name " email change requested")
+   :body (email-change-notice
+          first-and-last-name
+          new-email
+          (attempt-time))})
 
 (defn unsubscribe-url
   "Build a full unsubscribe URL from a base-url and a pre-signed JWT token.
@@ -408,12 +343,6 @@
 ;; ---------------------------------------------------------------------------
 ;; Error email — helpers
 ;; ---------------------------------------------------------------------------
-
-(def ^:private error-throttle
-  "Maps fingerprint string → last-sent-ms. Suppresses duplicate error emails."
-  (atom {}))
-
-(def ^:private throttle-window-ms (* 5 60 1000))
 
 (defn- root-cause [^Throwable ex]
   (loop [e ex]
@@ -471,13 +400,6 @@
       (let [msg (or (.getMessage root) "")]
         (str root-class "+" (subs msg 0 (min 60 (count msg))))))))
 
-(defn- throttled? [fp]
-  (when-let [t (get @error-throttle fp)]
-    (< (- (System/currentTimeMillis) t) throttle-window-ms)))
-
-(defn- record-sent! [fp]
-  (swap! error-throttle assoc fp (System/currentTimeMillis)))
-
 (def ^:private safe-headers
   #{"user-agent" "referer" "content-type" "accept-language" "cf-ipcountry"
     "x-forwarded-for" "x-real-ip" "cf-ray" "sec-fetch-site" "sec-fetch-mode"
@@ -524,37 +446,56 @@
 ;; ---------------------------------------------------------------------------
 
 (defn send-error-email
-  "Sends a scrubbed error notification to EMAIL_ERRORS_TO; does nothing when that is unset.
-  Strips credentials, cookies, body params and Datomic objects from the request; keeps orcpub.*
-  stack frames (else the deepest non-infra frame); walks the whole cause chain; puts Pedestal
-  interceptor metadata in its own section. At most one email per error fingerprint per 5
-  minutes. Returns the postal result, or nil."
+  "Reports a server error to the admin alerts (orcpub.alerts), which email EMAIL_ERRORS_TO and
+  log it. Strips credentials, cookies, body params and Datomic objects from the request; keeps
+  orcpub.* stack frames (else the deepest non-infra frame); walks the whole cause chain; puts
+  Pedestal interceptor metadata in its own section. The same error is one alert with a count.
+  Returns at once; nothing is sent on the caller's thread. Returns nil."
   [context exception]
-  (when (env/value :email-errors-to)
-    (let [data-map      (ex-data exception)
-          pedestal?     (pedestal-wrapper? data-map)
-          real-ex       (if pedestal? (:exception data-map) exception)
-          pedestal-meta (when pedestal? (dissoc data-map :exception :exception-type))
-          request       (or (:request context) {})
-          fp            (throttle-fingerprint real-ex)]
-      (if (throttled? fp)
-        (println "INFO: Suppressed duplicate error email (fingerprint:" fp ")")
-        (do
-          (record-sent! fp)
-          (try
-            (let [result (postal/send-message
-                          (email-cfg)
-                          {:from    (str branding/app-name " Errors <" (emailfrom) ">")
-                           :to      (str (env/value :email-errors-to))
-                           :subject (email-subject real-ex request)
-                           :body    [{:type    "text/plain"
-                                      :content (build-body request real-ex pedestal-meta)}]})]
-              (when (not= :SUCCESS (:error result))
-                (println "WARNING: Failed to send error notification email:" (:error result)))
-              result)
-            (catch Exception e
-              (println "ERROR: Failed to send error notification email:" (.getMessage e))
-              nil)))))))
+  (let [data-map      (ex-data exception)
+        pedestal?     (pedestal-wrapper? data-map)
+        real-ex       (if pedestal? (:exception data-map) exception)
+        pedestal-meta (when pedestal? (dissoc data-map :exception :exception-type))
+        request       (or (:request context) {})]
+    (alerts/raise-current! (throttle-fingerprint real-ex)
+                           (email-subject real-ex request)
+                           (build-body request real-ex pedestal-meta))))
+
+(defn send-alert!
+  "Emails alert `message` ({:subject :body}) to `config/alert-address`, naming this server's copy.
+  Returns true when the mail server accepted it; throws when it did not."
+  [{:keys [subject body]}]
+  (let [result (postal/send-message
+                (email-cfg)
+                {:from    (str branding/app-name " Errors <" (emailfrom) ">")
+                 :to      (:address (config/alert-address))
+                 :subject subject
+                 :body    [{:type "text/plain"
+                            :content (str body "\n\n-- " (config/copy-name))}]})]
+    (when (not= :SUCCESS (:error result))
+      (throw (ex-info "alert email refused" {:postal-response result})))
+    true))
+
+(defn send-message!
+  "Sends postal message `message` with the configured mail server; how the outbox sends. Returns
+  true when the server took it; throws when it did not (orcpub.outbox decides whether to retry)."
+  [message]
+  (let [result (postal/send-message (email-cfg) message)]
+    (when (not= :SUCCESS (:error result))
+      (throw (ex-info "mail server did not accept the message" {:postal-response result})))
+    true))
+
+(defn outbox-channel
+  "`send-message!` when a mail server is configured, else nil (player emails then wait queued)."
+  []
+  (when (configured?) send-message!))
+
+(defn alert-channel
+  "`send-alert!` when admin alerts can be emailed (a mail server and an admin address, see
+  `config/alert-address`), else nil."
+  []
+  (when (and (configured?) (config/alert-address)) send-alert!))
+
 ;; ---------------------------------------------------------------------------
 ;; User-initiated "this character won't load" report
 ;; ---------------------------------------------------------------------------
