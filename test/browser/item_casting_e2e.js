@@ -3,10 +3,10 @@
 //
 // A level 1 fighter carries a Wand of Fireballs and a Staff of Fire. On a 390px phone: the wand's
 // Cast Fireball opens a bottom sheet with DC 15, 7 charges left and levels 3rd to 9th; casting at
-// 5th spends 3 (4/7) and says "Fireball · 5th level · DC 15"; reopened, 7th and up are greyed
-// (4 left); a cast then Undo gives the charge back; the staff's Cast offers its three spells and,
-// for a non-caster, "your spell save DC"; the Spells tab's From Items lists the item spells and its
-// Cast opens the same sheet. On a desktop the panel opens inline under the item, not as a sheet.
+// 5th spends 3 (4/7) and says "Fireball · 5th level · DC 15", and Roll damage rolls 10d6 with the
+// save; reopened, 7th and up are greyed (4 left); a cast then Undo gives the charge back; the
+// staff's Cast offers its three spells and, for a non-caster, "your spell save DC"; the Spells
+// tab's From Items lists the item spells and its Cast opens the same sheet. On a desktop the panel opens inline under the item, not as a sheet.
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/item_casting_e2e.js`). No login.
 // Runs in:   ~40s. SHOT_DIR=<dir> saves item-casting-*.png.
@@ -75,6 +75,9 @@ const shows = (loc, text) => loc.filter({ hasText: text }).first().waitFor({ tim
   check('5th costs 3 charges', await shows(sheet.locator('.cast-go'), 'Cast at 5th · 3 charges'));
   await sheet.locator('.cast-go').click({ timeout: 5000 }).catch(() => {});
   check('casting says what was cast', await shows(sheet.locator('.cast-head'), 'Fireball · 5th level · DC 15'));
+  await sheet.getByRole('button', { name: 'Roll damage' }).click({ timeout: 5000 }).catch(() => {});
+  check('Roll damage rolls 10d6 fire at 5th, with the save', await shows(sheet.locator('.cast-damage-part'), '10d6')
+        && await shows(sheet.locator('.cast-damage'), 'DC 15 Dex save, half on a success'));
   await shot('result');
   await sheet.locator('.cast-go', { hasText: 'Done' }).click({ timeout: 5000 }).catch(() => {});
   check('and the wand has 4 left', await shows(row('Wand of Fireballs').locator('.item-charges-count'), '4/7'));
