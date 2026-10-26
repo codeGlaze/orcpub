@@ -147,6 +147,22 @@ another try. Each gets an attempt budget, usually one. At the limit, stop and an
   corrupt each other's results. Stop a running server before building or testing there, or use a
   second worktree.
 
+## Token habits — SHOULD FOLLOW
+
+Usage is hard to predict, so there is no token budget: these change how work is done, never when it
+stops. Every tool call re-sends the whole conversation, so a long chat makes each call dear.
+
+- **Delegate long mechanical runs** (a test suite, a merge and its conflict list, screenshots and
+  measurements, a data generator with its checks, a wide search) to a subagent on a smaller model,
+  with exact commands and what "pass" means. Keep judgement here: design, conflict resolution,
+  whether a test is weak, anything the owner sees. A check of a call or two stays here.
+- **Measure layout from the page** (positions, sizes) and send screenshots to the owner; read one
+  back only when the page cannot answer. Images cost far more than text.
+- **Write long output to a file and read the summary lines** (`Ran`, `failures`, `checks passed`).
+- **Reuse and extend saved scripts and tests**; do not write a throwaway one that redoes their setup.
+- **Batch the breaks** that prove tests fail: several per build and run, one break per claim.
+- **One chat per roadmap step**, started from the branch handoff, not one chat for a whole branch.
+
 ## Reporting back — MUST FOLLOW
 
 The owner reads every reply, often on a phone, and the log of a long turn already shows the work.
