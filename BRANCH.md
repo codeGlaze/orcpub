@@ -47,10 +47,12 @@ carries live state.*
   (checked 2026-10-16 on #64); `.coderabbit.yaml` turns automatic reviews off (#73). Source: docs.coderabbit.ai/management/rate-limits.
 - **In flight** (checked 2026-10-23; this list goes stale, so before starting anything also check
   `git branch -r` and the open PRs):
-  - Open PRs into `integration`: #63 `refactor/pdf-canvas`, #66 `test/page-load-budget`,
+  - Open PRs into `integration`: #66 `test/page-load-budget`,
     #70 `feature/registration-in-boot-report`. #65
     `feature/artist-pages` targets `feature/portrait-builder`, which has already merged (#64).
     #35 targets `mirror/upstream-develop`.
+  - Merged 2026-10-27: #63 `refactor/pdf-canvas` (the PDF drawing layer split out, A4, embedded
+    fonts).
   - Merged 2026-10-26: #76 `fix/lookup-indexes` (indexed lookups, the email lookup key, GET /user
     once per page load; the changelog check now waits for the `ready to merge` label).
   - Merged 2026-10-26: #69 `feature/asi-spreads` (homebrew ability-score increases the player
