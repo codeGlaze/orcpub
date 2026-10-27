@@ -35,6 +35,8 @@ the owner keeps CodeRabbit for backend work). **KB:** `plan-charges-and-casting.
   bottom (`srd-2024-roadmap.md`).
 - 2026-10-25: the PR is not sent to CodeRabbit for now; another agent uses the allowance.
 - 2026-10-26: attack mode both ways, header switch and long-press menu (above).
+- 2026-10-26: on phones every weapon picker opens in the bottom sheet overlay (`weapon-menu-sheet`): the
+  + menu and the long-press modes; desktop keeps the dropdown. The mode switch shows "—" for Normal.
 
 ## Gotchas for the next agent
 
