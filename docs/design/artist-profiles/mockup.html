@@ -320,9 +320,9 @@ td.m { color: var(--accent); font-weight: 600; white-space: nowrap; }
         <p id="switch-note">On: the page is public, and credits show “About the artist”.</p>
       </div>
       <div class="opt pick">
-        <h3>A visitor sees · plain 404 <span class="rec">Built</span></h3>
+        <h3>A visitor sees · the artists list <span class="rec">Built</span></h3>
         <div class="miniweb" id="off-404"><b>Example Artist</b>Page and links as in section 1.</div>
-        <p>Off looks exactly like an address nobody has, so it doesn't confirm the person is registered.</p>
+        <p>Off sends the visitor to the artists list without naming anyone, so it doesn't confirm the person is registered.</p>
       </div>
       <div class="opt">
         <h3>A visitor sees · “private” note</h3>
@@ -441,7 +441,7 @@ td.m { color: var(--accent); font-weight: 600; white-space: nowrap; }
     document.getElementById('switch-note').textContent = on
       ? 'On: the page is public, and credits show “About the artist”.'
       : 'Off: the page is gone, it leaves the artists list, and credits drop “About the artist”. The name still links to Commission info.';
-    document.getElementById('off-404').innerHTML = on ? '<b>Example Artist</b>Page and links as in section 1.' : '<b>404</b>There is no portrait artist at this address.<br><span class="url">See all portrait artists</span>';
+    document.getElementById('off-404').innerHTML = on ? '<b>Example Artist</b>Page and links as in section 1.' : '<b>Portrait artists</b>The address redirects here; the list no longer shows this artist.<br><span class="url">/artists</span>';
     document.getElementById('off-note').innerHTML = on ? '<b>Example Artist</b>Page and links as in section 1.' : '<b>Example Artist</b>This artist has made their page private.';
   });
 })();

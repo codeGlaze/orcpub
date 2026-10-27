@@ -5,11 +5,13 @@
 require('../../../test/browser/lib/suppress-overlays-preload.js');
 const { chromium, devices } = require('playwright');
 const { findChrome } = require('../../../test/browser/lib/find-chrome.js');
-const { login } = require('../../../scripts/e2e/lib.js');
 const fs = require('fs');
 const path = require('path');
 
 const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';
+// login() reads its address from E2E_BASE when its module loads, so it signs in on this server.
+process.env.E2E_BASE = BASE;
+const { login } = require('../../../scripts/e2e/lib.js');
 
 // A view of one page. Restyle swaps the round's variant CSS; clips are page rectangles for shoot.
 class View {

@@ -14,7 +14,7 @@ quieter link.
 |---|---|---|
 | `/artists` | index HTML, generic share tags | lists every registered artist |
 | `/artists/<slug>` | index HTML with that artist's share tags (title, description, `og:image`); **404** for an unknown slug | the profile |
-| `/artists/<slug>/examples/<n>` | example `n` (1 to 3) as a small watermarked JPEG, rendered once per server start; the first is the `og:image` | shown as plain images |
+| `/artists/<slug>/examples/<n>` | example `n` (1 to 3) as a small watermarked JPEG, rendered on first request and kept in a bounded cache (a failed render is retried after 60 s); the first is the `og:image` | shown as plain images |
 
 Declared once in `route-map.cljc` (bidi), served by `routes.clj`, and dispatched in
 `core.cljs` like every other page. This follows the character page: an SPA view, with
@@ -146,12 +146,12 @@ to write it. When it is off:
 
 ## What was verified
 
-- `lein test`: the new `artist-profile-test` (19 tests) and `artist-page-test` (5 tests)
+- `lein test`: the new `artist-profile-test` (27 tests) and `artist-page-test` (15 tests)
   pass, as do the existing `portrait-test`, `portrait-og-test` and `routes-test`.
   Other artists in the tests are obvious placeholders set up with `with-redefs`. No
   registry entry was added.
 - `lein fig:build` compiles clean. `lein garden once` runs.
-- `test/browser/artist_profile_e2e.js` passes all 51 checks against `lein e2e-server`. It
+- `test/browser/artist_profile_e2e.js` passes all 46 checks against `lein e2e-server`. It
   is now in `run-browser-probes.js` and the baseline. It covers:
   - the share tags, the og PNG and the 404;
   - both themes: the page repaints and the portrait frames stay dark;
@@ -179,7 +179,7 @@ to write it. When it is off:
 3. **Example colours** are picked from the picker's presets by a seed. An artist may want
    to choose their own showcase portraits instead, which could be a registry field or an
    account feature later.
-4. **When a page is turned off**, the address simply 404s. A short "this artist has made
+4. **When a page is turned off**, the address redirects to `/artists`, as if nobody were there. A short "this artist has made
    their page private" message would be kinder, but it would also confirm that someone
    is registered there.
 5. **The slug cannot be overridden** by a deployment, so a fork that renames Fusspot keeps
@@ -202,7 +202,8 @@ The owner: pre-generate three examples that between them use every piece, and se
 same three every time. They were composed in the browser from the full-size layer files,
 so the page downloaded every piece at full size.
 
-Now the server renders each example once per start (`routes/example-jpeg`, memoized),
+Now the server renders each example on first request (`routes/example-jpeg`) and keeps it in a
+bounded cache, single-flight so a burst shares one render; a failed render is retried after 60 s. Each is
 flattened onto the frame's own gradient at 240x300, about the size the page shows it, with
 the artist's host and the site's mark tiled diagonally across it, as a JPEG at quality 0.72.
 The first is also the `og:image`. The browser probe checks that neither artist page fetches
