@@ -2,9 +2,9 @@
 // The attack mode, both ways (handoff-weapons-table.md build step 3; owner, 2026-10-26).
 //
 // A level 1 fighter with a longsword, on a 390px phone: the Weapons heading's switch starts on
-// Normal and an attack rolls one d20; choosing Adv makes the next attack roll two d20s; a long
-// press on the attack tile opens the modes, and Disadvantage there rolls two d20s for that one roll
-// while the switch stays on Adv.
+// Normal (shown as a dash) and an attack rolls one d20; choosing Adv makes the next attack roll
+// two d20s; a long press on the attack tile opens the modes in a bottom sheet, and Disadvantage
+// there rolls two d20s for that one roll while the switch stays on Adv.
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/attack_mode_e2e.js`). No login.
 // Runs in:   ~30s. SHOT_DIR=<dir> saves attack-mode-*.png.
@@ -61,13 +61,14 @@ function check(name, pass, detail) {
     await sheet.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
   };
 
+  check('Normal reads as a dash', (await modes.getByRole('radio', { name: 'Normal' }).innerText({ timeout: 15000 }).catch(() => '')).trim() === '\u2014');
   check('the heading switch starts on Normal',
         await modes.getByRole('radio', { name: 'Normal' }).getAttribute('aria-checked', { timeout: 15000 }).catch(() => null) === 'true');
   await tile.click({ timeout: 10000 }).catch(() => {});
   check('a Normal attack rolls one d20', await dice() === 1);
   await done();
 
-  await modes.getByRole('radio', { name: 'Adv' }).click({ timeout: 5000 }).catch(() => {});
+  await modes.getByRole('radio', { name: 'Advantage', exact: true }).click({ timeout: 5000 }).catch(() => {});
   await modes.locator('[aria-checked="true"]', { hasText: 'Adv' }).waitFor({ timeout: 5000 }).catch(() => {});
   await shot('switch');
   await tile.click({ timeout: 5000 }).catch(() => {});
@@ -84,6 +85,7 @@ function check(name, pass, detail) {
   }
   const menu = page.locator('.weapon-menu');
   check('a long press opens the modes', await menu.getByRole('menuitem', { name: /Disadvantage/ }).waitFor({ timeout: 5000 }).then(() => true, () => false));
+  check('in the bottom sheet, on a phone', await page.locator('.weapon-mode-sheet .weapon-menu').count() === 1);
   check('and does not roll', await sheet.count() === 0);
   await shot('long-press');
   await menu.getByRole('menuitem', { name: /Disadvantage/ }).click({ timeout: 5000 }).catch(() => {});
@@ -94,7 +96,7 @@ function check(name, pass, detail) {
   check('Disadvantage from it rolls two d20s, kept as disadvantage', await dice() === 2 && await lastMode() === 'dis');
   await done();
   check('and the switch stays on Adv',
-        await modes.getByRole('radio', { name: 'Adv' }).getAttribute('aria-checked', { timeout: 3000 }).catch(() => null) === 'true');
+        await modes.getByRole('radio', { name: 'Advantage', exact: true }).getAttribute('aria-checked', { timeout: 3000 }).catch(() => null) === 'true');
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '));
   await browser.close();
   const failed = results.filter(r => !r.pass).length;
