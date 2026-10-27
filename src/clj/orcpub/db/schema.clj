@@ -112,13 +112,21 @@
 (def user-schema
   [{:db/ident :orcpub.user/username
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.user/first-and-last-name
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/email
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
+   ;; The email trimmed and lowercased, for lookups (orcpub.user-email). Not unique: older data may
+   ;; hold one address on two accounts.
+   {:db/ident :orcpub.user/email-key
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.user/password
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
@@ -135,7 +143,8 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/verification-key
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.user/created
     :db/valueType :db.type/instant
     :db/cardinality :db.cardinality/one}
@@ -156,7 +165,8 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/password-reset-key
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.user/pending-email
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
@@ -218,7 +228,8 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident ::se/owner
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident ::se/homebrew?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
@@ -369,7 +380,8 @@
 (def party-schema
   [{:db/ident ::party5e/owner
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident ::party5e/name
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
@@ -384,7 +396,8 @@
     :db/isComponent true}
    {:db/ident :orcpub.party-share/character
     :db/valueType :db.type/long
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.party-share/token
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}])
@@ -392,7 +405,8 @@
 (def folder-schema
   [{:db/ident ::folder5e/owner
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident ::folder5e/name
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
@@ -415,9 +429,9 @@
    (map
     string-prop-no-history
     [::mi5e/name
-     ::mi5e/owner
      ::mi5e/description
      ::mi5e/string-arg])
+   [(assoc (string-prop-no-history ::mi5e/owner) :db/index true)]
    (map
     many-ref-no-history
     [::mod/args

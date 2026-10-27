@@ -1,12 +1,13 @@
 (ns measure-lookups
-  "Measures what the site's lookups by value cost as the user count grows, and what an index on
-   each looked-up field would change. Builds a throwaway in-memory database; never touches a real
+  "Measures what the site's lookups by value cost as the user count grows, with the schema's
+   indexes and the email lookup key. Builds a throwaway in-memory database; never touches a real
    one. Run: JVM_OPTS=-Xmx2500m lein with-profile +tools run -m measure-lookups 10000"
   (:require [buddy.hashers :as hashers]
             [clojure.string :as s]
             [datomic.api :as d]
             [orcpub.db.schema :as schema]
-            [orcpub.routes :as routes])
+            [orcpub.routes :as routes]
+            [orcpub.user-email :as user-email])
   (:import [java.lang.management ManagementFactory]
            [java.util UUID]))
 
@@ -27,7 +28,8 @@
   (let [username (str "user" i)
         email (if (zero? (mod i 10)) (str "User" i "@Example.test") (str "user" i "@example.test"))]
     (concat
-     [{:orcpub.user/username username :orcpub.user/email email :orcpub.user/password password-hash
+     [{:orcpub.user/username username :orcpub.user/email email
+       :orcpub.user/email-key (user-email/email-key email) :orcpub.user/password password-hash
        :orcpub.user/verified? true :orcpub.user/verification-key (str (UUID/randomUUID))}
       {:orcpub.dnd.e5.party/owner username :orcpub.dnd.e5.party/name (str "party" i)}
       {:orcpub.dnd.e5.folder/owner username :orcpub.dnd.e5.folder/name (str "folder" i)}
@@ -69,14 +71,12 @@
         email (str "user" i "@example.test")]
     [["page load: account lookup (get-user)" #(routes/find-user-by-username-or-email % username)]
      ["sign in by username (no password check)" #(routes/first-user-by % routes/username-query username)]
-     ["sign in / reset / sign-up check by email" #(routes/first-user-by % routes/email-query email)]
+     ["sign in / reset / sign-up check by email" #(routes/user-for-email % (s/upper-case email))]
      ["character list (by owner)"
       #(d/q '[:find ?e :in $ [?idents ...] :where [?e :orcpub.entity.strict/owner ?idents]]
             % [username email])]
      ["magic item list (by owner)"
-      #(d/q '[:find ?e :in $ ?username :where [?e :orcpub.dnd.e5.magic-items/owner ?username]] % username)]
-     ["email, exact match (what a fix would run)"
-      #(d/q '[:find ?e . :in $ ?email :where [?e :orcpub.user/email ?email]] % email)]]))
+      #(d/q '[:find ?e :in $ ?username :where [?e :orcpub.dnd.e5.magic-items/owner ?username]] % username)]]))
 
 (defn- report
   "Measures every lookup against `db` and prints one line each under `title`."
@@ -87,8 +87,8 @@
       (println (format "    %-46s %9.2f ms  %9.2f MB allocated" label ms mb)))))
 
 (defn -main
-  "Builds a database of each user count in `args` and prints each lookup's cost before and after
-   indexing the fields looked up by value."
+  "Builds a database of each user count in `args` and prints each lookup's cost once the database
+   has built its indexes."
   [& args]
   (doseq [n (map #(Long/parseLong %) (or (seq args) ["10000"]))]
     (let [t (System/nanoTime)
@@ -96,14 +96,9 @@
           i (quot n 2)]
       (println (format "\n== %,d users, %,d characters (built in %.0f s)"
                        n (* n characters-per-user) (/ (- (System/nanoTime) t) 1e9)))
-      (report "as the site runs today (no indexes)" (d/db conn) i)
-      @(d/transact conn (for [a [:orcpub.user/username :orcpub.user/email :orcpub.entity.strict/owner
-                                 :orcpub.dnd.e5.party/owner :orcpub.dnd.e5.folder/owner
-                                 :orcpub.dnd.e5.magic-items/owner]]
-                          {:db/id a :db/index true}))
       (d/request-index conn)
       @(d/sync-index conn (d/basis-t (d/db conn)))
-      (report "with those fields indexed (same queries)" (d/db conn) i)
+      (report "with the indexes and the email key" (d/db conn) i)
       (d/release conn)))
   (shutdown-agents)
   (System/exit 0))

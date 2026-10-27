@@ -32,11 +32,11 @@
   @(d/transact conn schema/all-schemas)
   @(d/transact conn
     [{:orcpub.user/username   "alice"
-      :orcpub.user/email      "alice@test.com"
+      :orcpub.user/email      "alice@test.com" :orcpub.user/email-key "alice@test.com"
       :orcpub.user/password   (hashers/encrypt "pass123")
       :orcpub.user/verified?  true}
      {:orcpub.user/username   "bob"
-      :orcpub.user/email      "bob@test.com"
+      :orcpub.user/email      "bob@test.com" :orcpub.user/email-key "bob@test.com"
       :orcpub.user/password   (hashers/encrypt "pass456")
       :orcpub.user/verified?  true}]))
 
@@ -109,6 +109,10 @@
                   (is (= success-path (redirect-location vresp)))
                   (let [updated (find-user (d/db mocked-conn) "alice")]
                     (is (= "newalice@test.com" (:orcpub.user/email updated)))
+                    (is (seq (d/q routes/email-query (d/db mocked-conn) "newalice@test.com"))
+                        "the new address is what lookups find")
+                    (is (empty? (d/q routes/email-query (d/db mocked-conn) "alice@test.com"))
+                        "and the old one no longer is")
                     (is (nil? (:orcpub.user/pending-email updated)))
                     ;; Verification key invalidated — link can't be reused
                     (is (nil? (:orcpub.user/verification-key updated))))))))))))
@@ -241,7 +245,7 @@
             ;; Meanwhile, someone else claims that email
             @(d/transact mocked-conn
                [{:orcpub.user/username  "charlie"
-                 :orcpub.user/email     "unclaimed@test.com"
+                 :orcpub.user/email     "unclaimed@test.com" :orcpub.user/email-key "unclaimed@test.com"
                  :orcpub.user/password  (hashers/encrypt "pass789")
                  :orcpub.user/verified? true}])
             ;; Alice clicks verify — should be rejected

@@ -109,6 +109,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** opening a character whose choices no longer apply sets them aside and lists them in a notice; the saved copy changes only when you save.
 - **Printing:** a character portrait whose host is briefly unreachable is fetched a second time before the export gives up on it.
 - **Printing:** every sans-serif line in an export -- sheet fields, spell-column headings, the site line, the notice page and card captions -- is set in one embedded font with Helvetica's exact widths, so it looks the same in every PDF viewer and prints names such as Łukasz.
+- **Server:** the first start after upgrading builds new database indexes and gives older accounts an email lookup key, both in the background; until that finishes, an older account with a mixed-case address signs in by username rather than email.
 
 ### Fixed
 
@@ -183,6 +184,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** a long class name in a spellbook chapter heading, or a long custom spell name, is now shortened to fit instead of running off the page.
 - **Printing:** an export with more spells or magic items than the cap allows now says so on the notice page; the extras were dropped in silence.
 - **Printing:** on a server whose JVM runs a non-English locale, spell-card school names and the sheet's ability labels drew the wrong letter: a Turkish server printed "İllusion" and "İNT".
+- **Accounts:** follow buttons remember who you follow after the page reloads.
+- **Server:** sign-in, password reset and character, party, folder and item lists no longer slow down and use more memory as the site grows.
 
 ### Security
 

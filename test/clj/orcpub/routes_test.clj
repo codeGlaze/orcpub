@@ -76,9 +76,9 @@
     (let [mocked-conn (dm/fork-conn conn)]
       @(d/transact mocked-conn schema/all-schemas)
       @(d/transact mocked-conn [{:orcpub.user/username "testy"
-                                 :orcpub.user/email "test@test.com"}
+                                 :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"}
                                 {:orcpub.user/username "testy-2"
-                                 :orcpub.user/email "test-2@test.com"}])
+                                 :orcpub.user/email "test-2@test.com" :orcpub.user/email-key "test-2@test.com"}])
       (testing "Save new character"
         (let [character (test-character)
               saved-character (:body (routes/do-save-character (d/db mocked-conn) mocked-conn character {:user "testy"}))]
@@ -109,9 +109,9 @@
     (let [mocked-conn (dm/fork-conn conn)]
       @(d/transact mocked-conn schema/all-schemas)
       @(d/transact mocked-conn [{:orcpub.user/username "testy"
-                                 :orcpub.user/email "test@test.com"}
+                                 :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"}
                                 {:orcpub.user/username "testy-2"
-                                 :orcpub.user/email "test-2@test.com"}])
+                                 :orcpub.user/email "test-2@test.com" :orcpub.user/email-key "test-2@test.com"}])
 
       (testing "Save new entity"
         (let [entity {::mi/name "Cool Item"}
@@ -281,7 +281,7 @@
     (let [mocked-conn (dm/fork-conn conn)]
       @(d/transact mocked-conn schema/all-schemas)
       @(d/transact mocked-conn [{:orcpub.user/username "testy"
-                                  :orcpub.user/email "test@test.com"
+                                  :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"
                                   :orcpub.user/send-updates? true}])
 
       (testing "Valid token unsubscribes user"
@@ -326,7 +326,7 @@
     (let [mocked-conn (dm/fork-conn conn)]
       @(d/transact mocked-conn schema/all-schemas)
       @(d/transact mocked-conn [{:orcpub.user/username "testy"
-                                  :orcpub.user/email "test@test.com"
+                                  :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"
                                   :orcpub.user/send-updates? false}])
 
       (testing "Toggle send-updates to true"
@@ -362,7 +362,7 @@
     (let [mocked-conn (dm/fork-conn conn)]
       @(d/transact mocked-conn schema/all-schemas)
       @(d/transact mocked-conn [{:orcpub.user/username "testy"
-                                  :orcpub.user/email "test@test.com"
+                                  :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"
                                   :orcpub.user/send-updates? true}])
       (let [db (d/db mocked-conn)
             user (routes/user-for-email db "test@test.com")
@@ -375,7 +375,7 @@
     (let [mocked-conn (dm/fork-conn conn)]
       @(d/transact mocked-conn schema/all-schemas)
       @(d/transact mocked-conn [{:orcpub.user/username "testy"
-                                  :orcpub.user/email "test@test.com"
+                                  :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"
                                   :orcpub.user/send-updates? true}])
       (let [put! (fn [params] (routes/update-user-preferences
                                {:transit-params params :db (d/db mocked-conn)
@@ -448,7 +448,7 @@
         call #(routes/bad-credentials-response nil "kaylee" "1.2.3.4" request)]
     (with-redefs [routes/find-user-by-username-or-email
                   (constantly {:db/id 17
-                               :orcpub.user/email "kaylee@serenity.example"
+                               :orcpub.user/email "kaylee@serenity.example" :orcpub.user/email-key "kaylee@serenity.example"
                                :orcpub.user/first-and-last-name "Kaylee"})
                   outbox/enqueue!
                   (fn [_conn _kind message] (deliver posted message))]
@@ -578,7 +578,7 @@
                                 :scheme :https})]
       @(d/transact c schema/all-schemas)
       @(d/transact c [{:orcpub.user/username "resetter"
-                       :orcpub.user/email "resetter@test.com"
+                       :orcpub.user/email "resetter@test.com" :orcpub.user/email-key "resetter@test.com"
                        :orcpub.user/password "old-hash"
                        :orcpub.user/verified? true
                        :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
@@ -623,7 +623,7 @@
     (let [c (dm/fork-conn conn)
           reset-key "raced-key"]
       @(d/transact c schema/all-schemas)
-      @(d/transact c [{:orcpub.user/username "racer" :orcpub.user/email "racer@test.com"
+      @(d/transact c [{:orcpub.user/username "racer" :orcpub.user/email "racer@test.com" :orcpub.user/email-key "racer@test.com"
                        :orcpub.user/password "old-hash"
                        :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
                        :orcpub.user/password-reset-sent (java.util.Date.)}])
@@ -643,7 +643,7 @@
           reset-key "an-old-key"]
       @(d/transact c schema/all-schemas)
       @(d/transact c [{:orcpub.user/username "late"
-                       :orcpub.user/email "late@test.com"
+                       :orcpub.user/email "late@test.com" :orcpub.user/email-key "late@test.com"
                        :orcpub.user/password "old-hash"
                        :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
                        :orcpub.user/password-reset-sent (java.util.Date. (- (System/currentTimeMillis)

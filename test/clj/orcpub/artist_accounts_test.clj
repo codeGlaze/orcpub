@@ -5,7 +5,8 @@
             [orcpub.artist-accounts :as aa]
             [orcpub.crypto :as crypto]
             [orcpub.db.schema :as schema]
-            [orcpub.routes :as routes])
+            [orcpub.routes :as routes]
+            [orcpub.user-email :as ue])
   (:import [java.util UUID Base64 Date]))
 
 (defmacro with-conn [conn-binding & body]
@@ -26,6 +27,7 @@
 (defn- add-user! [conn username email verified?]
   @(d/transact conn [{:orcpub.user/username username
                       :orcpub.user/email email
+                      :orcpub.user/email-key (ue/email-key email)
                       :orcpub.user/password (hashers/encrypt "pw123456")
                       :orcpub.user/verified? verified?}])
   (d/q '[:find ?e . :in $ ?u :where [?e :orcpub.user/username ?u]] (d/db conn) username))

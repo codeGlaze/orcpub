@@ -3465,20 +3465,27 @@
 (reg-event-db
  :clear-login
  [user->local-store-interceptor]
- (fn [db [_ user-data]]
-   (update db :user-data dissoc :user-data :token)))
+ ;; With a token: only while that is still the login, so a 401 that answers a login already
+ ;; replaced does not sign the new one out.
+ (fn [db [_ expected-token]]
+   (if (or (nil? expected-token) (= expected-token (event-utils/get-auth-token db)))
+     (-> db
+         (update :user-data dissoc :user-data :token)
+         (dissoc :user))
+     db)))
 
-;; Startup auth check — validates stored token on app load (core.cljs).
+;; Startup auth check — validates stored token on app load (core.cljs) and keeps the account it
+;; answers in db :user, the one GET /user of a page load.
 ;; Clears stale sessions before reg-sub-raw subs fire HTTP with expired tokens.
 (reg-event-fx
  :verify-user-session
  (fn [{:keys [db]} _]
-   (if (event-utils/get-auth-token db)
+   (if-let [token (event-utils/get-auth-token db)]
      (do (go (let [response (<! (http/get (url-for-route routes/user-route)
                                           {:headers (authorization-headers db)}))]
                (case (:status response)
-                 200 nil
-                 401 (do (dispatch [:clear-login])
+                 200 (dispatch [:set-user-for-token token (:body response)])
+                 401 (do (dispatch [:clear-login token])
                          (dispatch [:set-loading false]))
                  nil)))
          {})
@@ -3488,6 +3495,14 @@
  :set-user
  (fn [db [_ user-data]]
    (assoc db :user user-data)))
+
+;; Keeps the account GET /user answered for `token` only while that is still the login: a logout or
+;; another sign-in while the request was out must not get the old account back.
+(reg-event-db
+ :set-user-for-token
+ (fn [db [_ token user-data]]
+   (cond-> db
+     (= token (event-utils/get-auth-token db)) (assoc :user user-data))))
 
 #_ ;; never dispatched from UI
   (defn set-active-tabs [db [_ active-tabs]]
@@ -3722,7 +3737,9 @@
  (fn [{:keys [db]} [_ backtrack? response]]
    ;; A button-text choice saved on the account wins over this browser's.
    {:db (let [account-choice (-> response :body :user-data :dark-button-text?)]
-          (cond-> (update db :user-data merge (-> response :body))
+          (cond-> (-> db
+                      (update :user-data merge (-> response :body))
+                      (assoc :user (-> response :body :user-data)))
             (some? account-choice) (assoc-in [:user-data :dark-button-text?] account-choice)))
     :dispatch [:route (or
                        (:return-route db)
