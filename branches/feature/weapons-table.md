@@ -27,8 +27,10 @@ the owner keeps CodeRabbit for backend work). **KB:** `plan-charges-and-casting.
   and sent. Then (same day) switches, While, Only against, Attack, Next attack and Extra attack
   (`add-toggle`, `remove-toggle`); `applies?` reads targets as a set (saved items return vectors).
   The mode switch shows a d20 for Normal (owner).
-- Next: the wording list (owner asked what it is, 2026-10-26: one page of every new player-facing
-  line); the owner's light-theme review.
+- Wording list published 2026-10-27: https://claude.ai/artifact/FmY7pE4i1K8NoaLGWxGcF3 (280 lines,
+  collected by hand from the diff, may miss some). The owner's edits land in its `db` collection
+  `edits` (doc id = line id, `{text, original}`); read them with ArtifactData `list` and apply.
+- Next: apply the owner's wording edits; the owner's light-theme review.
 
 ## Owner decisions
 
