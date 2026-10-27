@@ -72,6 +72,12 @@ HTTP 200). First step: check a direct post comes out clean. Alternative: a GitHu
 posts for agents, but that is a fork-only workflow in `develop`'s history and posts as
 `github-actions[bot]`.
 
+## Weapons table follow-ups (from PR #74)
+
+Mastery definitions and panel (waiting on 2024 data), attacks with another ability (refactor
+vocabulary), SRD spell text Stage 1, and a few small gaps:
+**[docs/kb/weapons-table-follow-ups.md](kb/weapons-table-follow-ups.md)**.
+
 ## Homebrew fighting-style authoring — never wired (refactor follow-up)
 
 **Status:** Open — a deliberate loose end left mid-refactor.

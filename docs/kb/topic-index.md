@@ -681,7 +681,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, pick, picks, renamed, report, saved, spell-selection, toast
+**topics:** binding, character, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, pick, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -1683,7 +1683,7 @@ _fail-soft-rendering · fail soft rendering_
 
 _fast-browser-probes · fast browser probes_
 
-**topics:** 126s, 17s, 2-2s, 393s, 400s, 52s, homebrew-fixes-persist, measuring, nine, playwright, probe, probes, runner, sheets, sleeps, slow, timeout, waited
+**topics:** 126s, 17s, 2-2s, 393s, 400s, 52s, homebrew-fixes-persist, measuring, nine, playwright, probe, probes, run, runner, sheets, sleeps, slow, timeout
 
 - Where the time actually goes
 - The rule: batch variables into ONE run
@@ -1788,7 +1788,7 @@ _fonts · fonts_
 
 _fork-customization · fork customization_
 
-**topics:** -------------, adsense, api, branches, branding-setup, bridge, cljs, csp, customization, dmv, domains, integrations, matomo, override, production, public, stubs, views
+**topics:** -------------, adsense, api, basic, branding-setup, bridge, cljs, csp, customization, dmv, domains, integrations, matomo, override, production, public, stubs, views
 
 - Override File Pattern
 - Architecture
@@ -1810,7 +1810,7 @@ _fork-customization · fork customization_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, chip, chips, chrome, css, menu, menus, mock, multi-select, omv, popover, redesign, spacing, switcher, theme, title, tray, workaround
+**topics:** accent, cards, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, title, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -1938,7 +1938,7 @@ _handoff-rest-controls · handoff rest controls_
 
 _handoff-weapons-table · handoff weapons table_
 
-**topics:** 2026-10-17, 2d6, about, blade, bullets, cleave, crit, damage, desktop, mastery, owner, pdf, phone, shield, sun, weapon, weapons, weapons-extra-damage-design
+**topics:** 2026-10-17, 2d6, about, blade, bullets, crit, damage, desktop, graze, mastery, owner, pdf, phone, shield, sun, weapon, weapons, weapons-extra-damage-design
 
 - Where things are
 - Decisions the v5 handoff does not carry
@@ -2150,7 +2150,7 @@ _homebrew-save-rework · homebrew save rework_
 
 _http-fx-patterns · http fx patterns_
 
-**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, interop, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
+**topics:** ------, 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
 
 - How the :http fx works
 - on-success / on-failure MUST be dispatch vectors
@@ -2513,7 +2513,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _page-load-budget · page load budget_
 
-**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, page, parties, portrait, repeat, sheet, signed, visit
+**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, parties, portrait, repeat, sheet, signed, stylesheet, visit
 
 - Why it exists
 - Audit of integration (2026-10-15, b8035afe, production bundle)
@@ -3107,7 +3107,7 @@ _reframe-subscription-patterns · reframe subscription patterns_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon, boon-like, builder-form, copy-pasted, form, fully-scattered, hand-built, input-field, per-type, plumbing, registry-driven, representative, spec-valid, type, wires
+**topics:** 000, adding, bits, boon, boon-like, builder-form, copy-pasted, form, fully-scattered, hand-built, input-field, per-type, registry-driven, representative, routes, spec-valid, type, wires
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -3622,7 +3622,7 @@ _starting-equipment-override-ledger · starting equipment override ledger_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, builder-item, choice, class, consumption, delta, detach, equipment, expand, export, grants, ingestion, keys, pseudo-keys, serializable, srd, sub-selection, untouched
+**topics:** barbarian, choice, class, consumption, delta, detach, equipment, expand, export, grants, ingestion, keys, nested, pseudo-keys, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -3900,6 +3900,17 @@ _weapons-extra-damage-handoff · weapons extra damage handoff_
 - What is decided and must not change
 - The squeeze
 - Please deliver
+
+## weapons-table-follow-ups.md
+
+_weapons-table-follow-ups · weapons table follow ups_
+
+**topics:** 2024, 2026-10-27, 713, band, branding, cast, fighting-style-vocabulary-gap, fmy7pe4i1k8noalgwxgcf3, low-strength, mastery, monks, plumbing, smite, srd-improvements, summaries, upstream, weapon-mastery-plan, weapons-table
+
+- Waiting on 2024 data (the owner keeps 2024 content off this branch)
+- For the refactor's homebrew vocabulary
+- SRD text, Stage 1
+- Smaller gaps
 
 ## weapons-table-spec.md
 

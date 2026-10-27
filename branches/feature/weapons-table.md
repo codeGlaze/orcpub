@@ -31,7 +31,7 @@ the owner keeps CodeRabbit for backend work). **KB:** `plan-charges-and-casting.
   collected by hand from the diff, may miss some). The owner's edits land in its `db` collection
   `edits` (doc id = line id, `{text, original}`); read them with ArtifactData `list` and apply.
 - Owner (2026-10-27): the wording pass is busy work; one edit applied (the two-hands message), the
-  page kept for later reference, not a task. Next: merge #74.
+  page kept for later reference, not a task. Next: merge #74. Follow-ups: [weapons-table-follow-ups.md](../../docs/kb/weapons-table-follow-ups.md).
 
 ## Owner decisions
 

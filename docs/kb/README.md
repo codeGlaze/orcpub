@@ -406,3 +406,4 @@ references — not speculation.
 - If you are reasoning from circumstantial evidence, mark the paragraph **⚠️ UNVALIDATED SPECULATION — [brief rationale]**.
 - Include the date the analysis was done and the artifact(s) it was based on.
 - Do not remove speculation flags — when something is later verified, replace the flag with **✅ VERIFIED — [how]** and update the text.
+- [weapons-table-follow-ups.md](weapons-table-follow-ups.md) — what PR #74 left for later: mastery data and panel, attacks with another ability, SRD spell text, small gaps
