@@ -10,9 +10,9 @@
   (.. e -target -value))
 
 (defn dropdown
-  "A select of `items` ([{:value :title :disabled?}]) showing `value`; calls `on-change` with the
-   picked value as a string."
-  [{:keys [items value on-change]}]
+  "A select of `items` ([{:value :title :disabled?}]) showing `value`. `on-change` gets the picked
+  value as a string, or with :typed? the item's own :value of any type. :class-name styles it."
+  [{:keys [items value on-change typed? class-name]}]
   ;; Dedup items by :value as a safety net — duplicate option values from
   ;; homebrew plugins can slip through if imported before dedup was added.
   (let [unique-items (->> items
@@ -23,18 +23,38 @@
                                         {:seen (conj seen v) :result (conj result item)})))
                                   {:seen #{} :result []})
                           :result)]
-    [:select.builder-option.builder-option-dropdown.m-t-0
-     {:value (or value "")
-      :on-change #(on-change (event-value %))}
-     (doall
-      (map-indexed
-       (fn [i {:keys [value title disabled?]}]
-         ^{:key (str i "-" (or value title))}
-         [:option.builder-dropdown-item
-          (cond-> {:value value}
-            disabled? (assoc :disabled true))
-          title])
-       unique-items))]))
+    ;; A <select>'s value is always a string, so the default path's :on-change yields a string the
+    ;; caller must coerce back to the item's type (keyword/int/...). :typed? avoids that: option
+    ;; values are indices and :on-change gets the selected item's original :value, any type incl.
+    ;; nil and qualified keywords. See docs/kb/dropdown-value-coercion.md (D32).
+    (if typed?
+      (let [idx (first (keep-indexed (fn [i it] (when (= (:value it) value) i)) unique-items))]
+        [:select.builder-option.builder-option-dropdown.m-t-0
+         {:class class-name
+          :value (if idx (str idx) "")
+          :on-change #(on-change (:value (nth unique-items (js/parseInt (event-value %)))))}
+         (doall
+          (map-indexed
+           (fn [i {:keys [title disabled?]}]
+             ^{:key i}
+             [:option.builder-dropdown-item
+              (cond-> {:value (str i)}
+                disabled? (assoc :disabled true))
+              title])
+           unique-items))])
+      [:select.builder-option.builder-option-dropdown.m-t-0
+       {:class class-name
+        :value (or value "")
+        :on-change #(on-change (event-value %))}
+       (doall
+        (map-indexed
+         (fn [i {:keys [value title disabled?]}]
+           ^{:key (str i "-" (or value title))}
+           [:option.builder-dropdown-item
+            (cond-> {:value value}
+              disabled? (assoc :disabled true))
+            title])
+         unique-items))])))
 
 (defn labeled-dropdown
   "A `dropdown` (cfg as there) under a bold `label`."

@@ -53,6 +53,10 @@ jobs:
             printf '  %-10s %s\n' "$t" "$(command -v "$t" 2>/dev/null || echo '(absent)')"
           done
 
+      # Windows-edited .env files carry CRLF line endings and are read in Git Bash.
+      - name: ASSERT scripts read .env the same way here (apostrophes, quotes, $, CRLF)
+        run: bash test/docker/test-env-loading.sh
+
       - name: ASSERT uname reports MINGW/MSYS
         run: |
           case "$(uname -s)" in

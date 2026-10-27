@@ -5,8 +5,9 @@ infrastructure. For architecture and configuration reference, see `DOCKER.md`.
 
 ## Non-Root Containers
 
-Both containers create non-root users at build time. The transactor uses an
-entrypoint-chown-drop pattern; the app uses a static `USER` directive.
+Both containers create non-root users at build time, and both use an
+entrypoint-chown-drop pattern: they start as root only long enough to give a
+mounted folder to their user, then run as that user.
 
 ### Transactor (`datomic` user) — Entrypoint-Chown-Drop
 
@@ -44,15 +45,25 @@ target command — no intermediate process, transactor becomes PID 1 as the
 
 ### App (`app` user)
 
-The app is stateless inside its container. The only runtime writes go to `/tmp`
-for temporary PDF generation (PDFBox `createTempFile`). `/tmp` is
-world-writable by default on Alpine, so no chown is needed. No bind mounts
-means the static `USER` directive works fine:
+The app keeps crash files and unsent admin alerts in `/var/log/$APP_LOGS_NAME`
+on the host (default `orcpub`). The host's `/var/log` is mounted at
+`/host-log`, because it exists on every machine and so never stops a Swarm task
+starting. The app starts as root and `deploy/app-start.sh`:
 
-```dockerfile
-RUN addgroup -S app && adduser -S -G app app
-USER app
-```
+1. checks `APP_LOGS_NAME` is a plain folder name (no `/`, no `..`), else uses
+   `orcpub`, so the folder can never be outside `/var/log`;
+2. creates that folder and its `alerts/` and `crash/`, and gives **those three
+   only** to `app`, private (`750`). It never changes ownership recursively and
+   never touches `/var/log` itself or anything else in it;
+3. checks the app can reach the folder; if the host's `/var/log` is closed to
+   other users it says so and keeps the files inside the container;
+4. runs Java as `app` with `su-exec`, so the app itself never runs as root.
+
+The cost: until step 4 the start script runs as root with the host's `/var/log`
+mounted. It is the only code that runs then, and it only does the steps above.
+
+`docker-user.sh` runs its commands in the container with `docker exec -u app`.
+`test/docker/test-app-start.sh` checks the user, the ownership and the privacy.
 
 ### Why This Matters
 

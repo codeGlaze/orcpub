@@ -76,7 +76,7 @@
   ["src/clj/orcpub/portrait_render.clj"
    :long-docstring
    "ns orcpub.portrait-render"
-   "5bc44e178f0a"]
+   "51262181839c"]
   ["src/clj/orcpub/routes.clj"
    :history-phrase
    "defn character-summary-for-id | it used to"
@@ -306,7 +306,9 @@
    "ns orcpub.dnd.e5.portrait"
    "73118ff3edc9"]],
  :field-notes
- {["src/cljc/orcpub/dnd/e5/options.cljc" "background-name-key"]
+ {["src/clj/orcpub/pdf/draw.clj" "glyph-throw"]
+  "fca62d7237f8",
+  ["src/cljc/orcpub/dnd/e5/options.cljc" "background-name-key"]
   "e8e6f28a2ab7",
   ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs" "heal-sites"]
   "0c6c2fd217f8",

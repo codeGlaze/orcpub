@@ -25,7 +25,8 @@
             [orcpub.dnd.e5.spell-annotations :as ann]
             [orcpub.dnd.e5.spell-packing :as packing]
             [orcpub.dnd.e5.spells :as spells]
-            [orcpub.pdf :as pdf])
+            [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw])
   (:import [java.io File FileOutputStream]
            [javax.imageio ImageIO]
            [org.apache.pdfbox Loader]
@@ -103,14 +104,16 @@
         {:keys [fields relabels headings pages unplaced]} (packing/packed-fields style classes)]
     (with-open [doc (Loader/loadPDF (.readAllBytes (.openStream (io/resource file))))]
       (pdf/grow-spell-sections! doc pages :all)
-      (let [[ok refused] (pdf/apply-relabel-instructions! doc relabels pages style)]
+      (let [sans (draw/load-sans doc)
+            printed (pdf/site-line-pages doc (boolean prints-site-line?))
+            [ok refused] (pdf/apply-relabel-instructions! doc sans relabels pages style)]
         (pdf/reserve-annotation-columns! doc)
         (let [dropped (pdf/write-fields! doc fields false {})]
-          (pdf/annotate-spell-rows! doc #(some-> (get spells/spell-map (common/name-to-kw %))
+          (pdf/annotate-spell-rows! doc sans #(some-> (get spells/spell-map (common/name-to-kw %))
                                                  ann/annotation))
           (doseq [{:keys [class box section] :as h} headings]
-            (pdf/draw-column-heading! doc style box (or section 1) class h))
-          (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
+            (pdf/draw-column-heading! doc sans style box (or section 1) class h))
+          (pdf/stamp-site-line! doc sans site-line printed)
           (when out
             (with-open [o (FileOutputStream. (File. (str out ".pdf")))] (.save doc o))
             (let [idx (.indexOf (vec (.getPages doc))

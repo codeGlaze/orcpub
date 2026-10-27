@@ -259,9 +259,19 @@
  ::bg5e/plugin-backgrounds
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (map
+   (keep
     (fn [background]
-      (assoc background :edit-event [::bg5e/edit-background background]))
+      ;; A background's ability and save grants (the 2024 rules give the ASI here) compile to
+      ;; extra modifiers and selections, the same hook as races. Guarded like races: a background
+      ;; that throws is reported and set aside, never the whole list.
+      (guard/guard-option
+       ::e5/backgrounds background
+       #(let [{ai-mods :modifiers ai-sels :selections}
+              (opt5e/compile-ability-grants % {:attribution :general})]
+          (assoc %
+                 :modifiers (concat (:modifiers %) ai-mods)
+                 :selections (concat (:selections %) ai-sels)
+                 :edit-event [::bg5e/edit-background %]))))
     (mapcat (comp vals ::e5/backgrounds) plugins))))
 
 (reg-sub
@@ -300,14 +310,19 @@
  (fn [plugins _]
    (keep
     (fn [race]
+      ;; A race's ability and save grants (:ability-increases, :save-proficiencies) compile to
+      ;; extra modifiers and selections; a race without them is unchanged.
       (guard/guard-entry
        ::e5/races race
-       #(assoc %
-               :modifiers
-               (concat (opt5e/plugin-modifiers (:props %)
-                                               (:key %))
-                       (spell-modifiers % (:name %)))
-               :edit-event [::races5e/edit-race %])))
+       #(let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants %)]
+          (assoc %
+                 :modifiers
+                 (concat (opt5e/plugin-modifiers (:props %)
+                                                 (:key %))
+                         (spell-modifiers % (:name %))
+                         ai-mods)
+                 :selections (concat (:selections %) ai-sels)
+                 :edit-event [::races5e/edit-race %]))))
     (mapcat (comp vals ::e5/races) plugins))))
 
 (reg-sub
@@ -316,13 +331,18 @@
  (fn [plugins _]
    (keep
     (fn [subrace]
+      ;; The same ability and save grants hook as races.
       (guard/guard-entry
        ::e5/subraces subrace
-       #(assoc %
-               :modifiers (concat (opt5e/plugin-modifiers (:props %)
-                                                          (:key %))
-                                  (spell-modifiers % (:name %)))
-               :edit-event [::races5e/edit-subrace %])))
+       #(let [{ai-mods :modifiers ai-sels :selections}
+              (opt5e/compile-ability-grants % {:attribution :subrace})]
+          (assoc %
+                 :modifiers (concat (opt5e/plugin-modifiers (:props %)
+                                                            (:key %))
+                                    (spell-modifiers % (:name %))
+                                    ai-mods)
+                 :selections (concat (:selections %) ai-sels)
+                 :edit-event [::races5e/edit-subrace %]))))
     (mapcat (comp vals ::e5/subraces) plugins))))
 
 (defn level-modifier [class-key {:keys [type value] :as modifier}]
@@ -598,9 +618,14 @@
   "A homebrew subclass as the class options take it (`plugin-subclasses-map`): its levels built by
    `make-levels`, its props as modifiers. `subclass-key` (the map key) wins over its `:key`."
   [spell-lists spells-map selection-map source-name subclass-key subclass]
-  (let [subclass-with-key (assoc subclass :key subclass-key)]
+  (let [subclass-with-key (assoc subclass :key subclass-key)
+        ;; A subclass's ability and save grants: non-standard for 5e, so the builder authors
+        ;; them behind an optional section. None -> nothing added.
+        {ai-mods :modifiers ai-sels :selections}
+        (opt5e/compile-ability-grants subclass {:attribution :general})]
     (assoc subclass-with-key
-           :modifiers (opt5e/plugin-modifiers (:props subclass) subclass-key)
+           :modifiers (concat (opt5e/plugin-modifiers (:props subclass) subclass-key) ai-mods)
+           :selections (concat (:selections subclass) ai-sels)
            :levels (make-levels spell-lists spells-map selection-map subclass-with-key)
            :plugin-source source-name
            :edit-event [::classes5e/edit-subclass subclass-with-key

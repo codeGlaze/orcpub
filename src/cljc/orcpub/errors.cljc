@@ -34,6 +34,29 @@
    (when (seq context)
      (println "  Context:" context))))
 
+(def ^:dynamic *notices*
+  "Where `note!` records what an export dropped, or nil when nobody is collecting.
+   An atom holding a vector of {:what :detail}. Bound per document.
+
+   The macros below all RE-THROW. An export must not: a failed spellbook should not
+   cost someone their character sheet. So it degrades, and this is how it says so."
+  nil)
+
+(defn note!
+  "Records that `what` was dropped or degraded, with a one-line `detail` for the reader.
+   A no-op when nothing is collecting, so callers need no guard. Also logs, so the
+   server's console keeps what it had before."
+  [what detail]
+  (log-error "DEGRADED:" (str what " -- " detail))
+  (when *notices*
+    (swap! *notices* conj {:what what :detail detail}))
+  nil)
+
+(defn notices
+  "What has been recorded, oldest first; empty when nothing was."
+  []
+  (if *notices* @*notices* []))
+
 (defn create-error
   "An ExceptionInfo with message `user-msg` (user-friendly) and ex-data `context` plus
   `:error error-code`, wrapping the optional underlying exception `cause`."
