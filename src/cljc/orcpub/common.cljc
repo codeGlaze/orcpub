@@ -48,6 +48,25 @@
     #?(:clj  (.toUpperCase ^String t java.util.Locale/ROOT)
        :cljs (.toUpperCase t))))
 
+(defn ascii-capitalize
+  "clojure.string/capitalize without the machine's locale. A Turkish JVM upper-cases the
+   \"i\" of \"illusion\" to the dotted \"\u0130\", which is outside WinAnsi, so the PDF fonts
+   substituted it and the school heading drew a different glyph."
+  [x]
+  (let [t (str x)]
+    (if (< (count t) 2)
+      (ascii-upper-case t)
+      (str (ascii-upper-case (subs t 0 1)) (ascii-lower-case (subs t 1))))))
+
+(defn decimal-str
+  "`x` to `places` decimals with a dot, whatever the machine's locale. A default locale
+   writes \"5,00\"; SVG path data and PDF operands are machine tokens, so a comma there
+   is not a different spelling but a second number. docs/kb/locale-safety.md."
+  [places x]
+  #?(:clj  (String/format java.util.Locale/ROOT (str "%." places "f")
+                          (object-array [(double x)]))
+     :cljs (.toFixed (double x) places)))
+
 (defn- name-to-kw-aux [name ns]
   (when (string? name)
     (as-> name $

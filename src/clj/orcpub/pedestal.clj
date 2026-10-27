@@ -9,6 +9,7 @@
             [java-time.api :as t]
             [orcpub.csp :as csp]
             [orcpub.config :as config]
+            [orcpub.startup-email :as startup-email]
             [orcpub.fork.integrations :as integrations])
   (:import [java.io File]
            [java.time.format DateTimeFormatter]
@@ -108,6 +109,14 @@
                 (log/error :msg "ETag interceptor error" :exception t)
                 context)))}))
 
+(defn- boot-report!
+  "Prints the boot banner for server map `created`, then checks the startup email on its own
+   thread (`startup-email/check!`), so the server never waits on it. Returns nil."
+  [created]
+  (config/print-report! created)
+  (future (startup-email/check!))
+  nil)
+
 (defn- arm-boot-report!
   "Print the boot banner when Jetty reports itself started.
 
@@ -120,8 +129,8 @@
       (.addEventListener
        ^org.eclipse.jetty.util.component.LifeCycle server
        (reify org.eclipse.jetty.util.component.LifeCycle$Listener
-         (lifeCycleStarted [_ _] (config/print-report! created))))
-      (catch Throwable _ (config/print-report! created)))))
+         (lifeCycleStarted [_ _] (boot-report! created))))
+      (catch Throwable _ (boot-report! created)))))
 
 (defrecord Pedestal [service-map conn service]
   component/Lifecycle

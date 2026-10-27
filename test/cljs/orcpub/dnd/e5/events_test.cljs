@@ -324,26 +324,22 @@
       (is (= ["orcpub-EMERGENCY-backup.orcbrew" broken]
              (events/select-emergency-export broken nil))))))
 
-;; ---------------------------------------------------------------------------
-;; serialize-orcbrew (pure serialization, split from the saveAs side effect)
-;; ---------------------------------------------------------------------------
+;; serialize-orcbrew moved to orcpub.dnd.e5.orcbrew-format (shared with the JVM
+;; demo emitter); its round-trip tests live in orcbrew-format-test.
 
-(def ^:private sample-content
-  {:orcpub.dnd.e5/classes {:artificer {:name "Artificer" :option-pack "Pack"}}})
-
-(deftest serialize-orcbrew-compact-roundtrips
-  (testing "compact output is readable EDN that round-trips to the same data"
-    (let [s (events/serialize-orcbrew sample-content)]
-      (is (string? s))
-      (is (= sample-content (reader/read-string s))))))
-
-(deftest serialize-orcbrew-pretty-differs-but-same-data
-  (testing "pretty-print is multi-line and larger, but the same data round-trips"
-    (let [compact (events/serialize-orcbrew sample-content)
-          pretty  (events/serialize-orcbrew sample-content :pretty-print? true)]
-      (is (not= compact pretty))
-      (is (re-find #"\n" pretty) "pretty output spans multiple lines")
-      (is (= sample-content (reader/read-string pretty))))))
+(deftest raw-export-always-produces-text
+  (let [bad {"P" {:orcpub.dnd.e5/classes {:x {:name "X" :key :x :option-pack "P"
+                                               :starting-equipment-base :barbarian
+                                               :weapons true}}}}]
+    (testing "the ordinary export throws on a malformed class while collapsing it"
+      (is (thrown? js/Error (events/orcbrew-text bad))))
+    (testing "the escape hatch writes the data as it is instead"
+      (is (= bad (reader/read-string (events/orcbrew-text bad :raw? true)))))
+    (testing "good data still goes through collapse and stamp on the raw path"
+      (is (re-find #":orcbrew/format-version 2"
+                   (events/orcbrew-text {"P" {:orcpub.dnd.e5/feats
+                                              {:f {:ability-increases [[1 :any]]}}}}
+                                        :raw? true))))))
 
 ;; ---------------------------------------------------------------------------
 ;; spec-field-problems — nested-element diagnosability
@@ -2177,3 +2173,10 @@
                          [:orcpub.entity/options :background :orcpub.entity/key]))))
   (is (= :blue (get-in @app-db [::char5e/character-map 7 :orcpub.entity/options :background :orcpub.entity/key]))
       "nothing is written back"))
+
+(deftest feat-checkbox-starts-a-set-from-anything-else
+  (doseq [start [[] nil #{}]]
+    (reset! app-db {::feats5e/builder-item {:name "F" :ability-increases start}})
+    (rf/dispatch-sync [::feats5e/toggle-feat-ability-increase :orcpub.dnd.e5.character/str])
+    (is (= #{:orcpub.dnd.e5.character/str} (get-in @app-db [::feats5e/builder-item :ability-increases]))
+        (str "from " (pr-str start)))))

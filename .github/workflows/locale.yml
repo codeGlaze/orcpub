@@ -14,11 +14,26 @@
 
 name: Locale
 
+# Only when something the JVM suite exercises changes: code, tests, the classpath, the build.
 on:
   push:
     branches: [hotfix/locale-safety, integration, develop, main]
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'dev/**'
+      - 'resources/**'
+      - 'project.clj'
+      - '.github/workflows/locale.yml'
   pull_request:
     branches: [integration, develop, main]
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'dev/**'
+      - 'resources/**'
+      - 'project.clj'
+      - '.github/workflows/locale.yml'
   workflow_dispatch:
 
 permissions:

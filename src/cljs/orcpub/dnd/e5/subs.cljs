@@ -11,7 +11,7 @@
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.db :refer [tab-path]]
             [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route
-                                                                    show-generic-error mod-cfg
+                                                                    mod-cfg
                                                                     default-mod-set
                                                                     handle-api-response]]
             [orcpub.dnd.e5.character :as char5e]
@@ -650,27 +650,12 @@
   :context    "fetch parties"})
 
 
-(defn user-sub-on-401
-  "The :user sub's 401 handler, after reg-api-sub has logged the user out: routes to login only
-   when the caller flagged the request as required."
-  [[_ required?]]
-  (when required? (dispatch [:route-to-login])))
-
-(defn user-sub-on-500
-  "Conditional 500 handler for the :user sub: bounces to the generic
-   error toast only when the caller flagged the request as required."
-  [[_ required?]]
-  (when required? (dispatch (show-generic-error))))
-
-(reg-api-sub
- {:sub-key    :user
-  :route      routes/user-route
-  :db-key     :user
-  ;; The response is not stored. db :user holds only the :following list that :follow-user and
-  ;; :unfollow-user build locally.
-  :on-401     user-sub-on-401
-  :on-500     user-sub-on-500
-  :context    "fetch user"})
+;; The account as GET /user last answered (:verify-user-session at start, :login-success), with
+;; :follow-user and :unfollow-user updating its :following. Read only: subscribing fetches nothing.
+(reg-sub
+ :user
+ (fn [db _]
+   (:user db)))
 
 (reg-sub
  :following-users

@@ -30,6 +30,10 @@
       :headline "Starting equipment for homebrew classes"
       :detail "The full SRD form — fixed gear, choice groups, bundles, and nested weapon choices — and you can start from an SRD class and change only what you want."}
      {:group "Your homebrew library"
+      :icon "fa-arrow-up"
+      :headline "Ability score increases the player places"
+      :detail "Homebrew races, subraces, backgrounds and feats can give 2024-style increases: +2 to one ability and +1 to another, +1 to any martial ability, or a fixed bonus. Saving throw proficiencies can be given the same way, and subclasses can do both in an optional section."}
+     {:group "Your homebrew library"
       :icon "fa-clone"
       :headline "Homebrew is safe in two tabs"
       :detail "Saving homebrew in one tab no longer erases homebrew you saved in another: the older tab's change is merged in, and a real clash is shown to you. When you rename an item, links to it in the same source follow, and you are asked about links in other sources."}

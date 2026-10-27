@@ -10,12 +10,20 @@ name: Docker Integration Test
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [develop, integration]
     paths:
       - 'docker/**'
       - 'docker-compose*.yaml'
       - 'run'
       - 'docker-user.sh'
+      - 'docker-migrate.sh'
+      - 'scripts/load-env.sh'
+      - 'scripts/swarm.sh'
+      - 'scripts/release-check.sh'
+      - 'scripts/startup-report.sh'
+      - 'scripts/common.sh'
+      - '.env.example'
+      - 'test/docker/**'
       - 'deploy/**'
       - '.github/workflows/docker-integration.yml'
   workflow_dispatch:
@@ -69,7 +77,24 @@ jobs:
       - name: Lint shell scripts
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          shellcheck -x --severity=warning run docker-user.sh scripts/swarm.sh
+          shellcheck -x --severity=warning run docker-user.sh scripts/swarm.sh scripts/load-env.sh scripts/release-check.sh scripts/startup-report.sh
+
+      # .env is read, never run: the reader matches a real Compose container on tricky values,
+      # existing .env formats load as before, and --upgrade still fixes every historical format.
+      - name: Test — .env reading
+        run: COMPARE_WITH_DOCKER=1 bash test/docker/test-env-loading.sh
+
+      - name: Test — .env upgrades
+        run: bash test/docker/test-upgrade.sh
+
+      - name: Test — the app's start script (runs Java as app, folder ownership, privacy)
+        run: bash test/docker/test-app-start.sh
+
+      - name: Test — Datomic's start script (its addresses on Compose and Swarm)
+        run: bash test/docker/test-transactor-start.sh
+
+      - name: Test — ./run shows the app's startup report last
+        run: bash test/docker/test-startup-report.sh
 
       - name: Run run --auto
         run: |
@@ -210,6 +235,14 @@ jobs:
             sleep 2
           done
 
+      # Values the stack must carry from .env into the app: a branding name, a capacity
+      # setting and an alert setting. Compose passes only the names it lists, so a name
+      # missing from docker-compose.yaml shows here as DEFAULT instead of SET.
+      - name: Set test settings in .env
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          printf '\nAPP_NAME="CI Vault"\nORCPUB_PDF_CONCURRENCY=3\nALERT_MAX_PER_HOUR=5\n' >> .env
+
       - name: Start orcpub and web
         if: steps.start-datomic.outcome == 'success'
         run: |
@@ -246,6 +279,33 @@ jobs:
             sleep 2
           done
           docker compose ps
+
+      - name: Test — settings from .env reach the app
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          LOGS=$(docker compose logs --no-color orcpub)
+          for row in "ORCPUB_PDF_CONCURRENCY +3 +SET" "ALERT_MAX_PER_HOUR +5 +SET"; do
+            if ! echo "$LOGS" | grep -Eq "^[^ ]* *\| +${row}|^ +${row}"; then
+              echo "FAIL: start-up report lacks: ${row}"
+              echo "$LOGS" | grep -E "ORCPUB_PDF_CONCURRENCY|ALERT_MAX_PER_HOUR" || true
+              exit 1
+            fi
+          done
+          if ! curl -sk https://localhost/ | grep -q "CI Vault"; then
+            echo "FAIL: APP_NAME from .env is not in the served page"
+            exit 1
+          fi
+          echo "OK: .env settings reached the app"
+
+      - name: Test — the app runs as its own user and keeps its files in /var/log/orcpub
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          OWNER=$(docker compose exec -T orcpub stat -c %U /proc/1)
+          [ "$OWNER" = "app" ] || { echo "FAIL: Java runs as '$OWNER', not app"; exit 1; }
+          for d in /var/log/orcpub /var/log/orcpub/crash /var/log/orcpub/alerts; do
+            sudo test -d "$d" || { echo "FAIL: $d is missing on the host"; sudo ls -la /var/log || true; exit 1; }
+          done
+          echo "OK: Java runs as app; /var/log/orcpub, crash/ and alerts/ are on the host"
 
       - name: Test — create user
         if: steps.start-datomic.outcome == 'success'

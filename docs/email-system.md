@@ -14,10 +14,38 @@ All email is sent via [postal](https://github.com/drewr/postal) using SMTP crede
 | `EMAIL_SERVER_PORT` | SMTP port (default `587`) |
 | `EMAIL_SSL` | Enable SSL (`true`/`false`) |
 | `EMAIL_TLS` | Enable TLS (`true`/`false`) |
-| `EMAIL_FROM_ADDRESS` | Sender address (default `no-reply@orcpub.com`) |
-| `EMAIL_ERRORS_TO` | Address for error notification emails (optional) |
+| `EMAIL_FROM_ADDRESS` | Sender address (default `no-reply@example.com`, a placeholder that cannot deliver) |
+| `EMAIL_ERRORS_TO` | Address for admin alerts (optional; falls back to `EMAIL_ADMIN_TO`, then `APP_SUPPORT_EMAIL`) |
 
 Configuration is read at send-time by `email/email-cfg` (`src/clj/orcpub/email.clj`).
+
+## How player emails are sent
+
+Every email a player gets (sign-up verification, password reset, the password-changed and
+email-change notices, the sign-in attempts notice, and the artist emails) goes through an
+**outbox** in the database instead of being sent while the player waits.
+
+- **Saved with the action that causes it.** The email is written in the same database transaction
+  as the account, the reset key or the email change. Either both are saved or neither is, so there
+  is never an account whose email was lost, or an email for a change that did not happen.
+- **Sent straight away, from the background.** A worker sends it within a second or two. The
+  player's request does not wait for the mail server.
+- **Retried when the mail server is busy or down.** A failed send is tried again after about 1
+  minute, then 5, 30, 2 hours, and every 6 hours after that. Signing up while the mail server is
+  down still works: the email arrives once the server is back.
+- **Given up on only when it cannot work.** A permanent refusal (the mail server says the address
+  does not exist) is not retried. After 8 attempts, about a day, an email is given up on too. Either
+  way it is kept, marked failed, and an admin alert says so.
+- **Deleted once sent.** Verification and reset emails contain links that sign a person in or
+  prove an address, so nothing is kept after the mail server accepts the email, not even in the
+  database's history.
+- **Several servers.** Each email is claimed by one server before it is sent, so running several
+  copies of the site never sends the same email twice.
+- **No mail server configured.** Emails wait in the database and are sent once `EMAIL_SERVER_URL`
+  is set and the server restarted.
+
+The player's "this character won't load" report is the one exception: it is sent directly, because
+the page tells the player on the spot whether it went out and offers a copy to send themselves.
 
 ## Schema
 
@@ -25,7 +53,8 @@ User attributes related to email and verification (`src/clj/orcpub/db/schema.clj
 
 | Attribute | Type | Purpose |
 |-----------|------|---------|
-| `:orcpub.user/email` | string | Confirmed email address |
+| `:orcpub.user/email` | string | Confirmed email address, as stored for display and sending (registration stores it lowercased; older accounts may be mixed-case) |
+| `:orcpub.user/email-key` | string | The same address trimmed and lowercased; indexed, and what every email lookup matches |
 | `:orcpub.user/pending-email` | string | Requested new email (awaiting verification) |
 | `:orcpub.user/verified?` | boolean | Whether the user has verified their email |
 | `:orcpub.user/verification-key` | string | UUID used in verification links |
@@ -34,7 +63,9 @@ User attributes related to email and verification (`src/clj/orcpub/db/schema.clj
 | `:orcpub.user/password-reset-sent` | instant | When the password reset email was sent |
 | `:orcpub.user/password-reset` | instant | When the password was actually reset |
 
-**Note:** `:orcpub.user/email` has no uniqueness constraint in the schema. Uniqueness is enforced at the application level via `email-query`. See the known issues section.
+**Note:** neither email attribute has a uniqueness constraint in the schema. Uniqueness is enforced at the application level via `email-query`. See the known issues section.
+
+**Writing an email:** set both attributes with `orcpub.user-email/email-attrs`, and normalise any address you look up with `orcpub.user-email/email-key`. Accounts written without the key (older data, or an old copy of `manage-user.clj`) get it from a backfill that runs in the background on every start. Until it reaches them, lookups also match the stored address exactly, so an account whose stored address is already lowercase is found; only an older mixed-case one waits for the backfill to sign in by email.
 
 ## Flows
 
@@ -44,8 +75,9 @@ User attributes related to email and verification (`src/clj/orcpub/db/schema.clj
 
 1. Validate username, email, password
 2. Check email/username not already taken (`email-query`, `username-query`)
-3. Create user entity with `verified? false`, generate `verification-key`, set `verification-sent`
-4. Send registration verification email (`email/send-verification-email`)
+3. Create user entity with `verified? false`, generate `verification-key`, set `verification-sent`,
+   and queue the verification email, all in one transaction
+4. The outbox sends the email (see "How player emails are sent")
 5. User clicks link → `GET /verify?key=...` → `routes/verify`
 
 **Verify behavior (registration path):**
@@ -53,7 +85,9 @@ User attributes related to email and verification (`src/clj/orcpub/db/schema.clj
 - If `verification-sent` is nil or expired (24h) → redirect to failed
 - Otherwise → set `verified? true`, redirect to success
 
-**Re-verify:** `GET /re-verify?email=...` (`routes/re-verify`) re-sends the verification email for unverified accounts.
+**Re-verify:** `GET /re-verify?email=...` (`routes/re-verify`) stores a new key and queues a new
+verification email for an unverified account. For an address with no account it answers the same
+way and does nothing.
 
 **No SMTP configured:** `do-verification` checks `email/configured?` first. With no SMTP host and
 `ALLOW_UNVERIFIED_REGISTRATION=true`, the account is transacted `verified? true`, no mail is sent,
@@ -62,12 +96,12 @@ and the response carries `{:verified? true}` so the client shows "you can log in
 `:email-not-configured` — fail closed, so a lost SMTP value cannot quietly become open
 registration. Startup warns in all three abnormal combinations; a correct config is silent.
 
-**Send failure:** the account is rolled back. `register` retracts the new entity; `re-verify`
-retracts only the attributes that attempt set, never the existing user.
+**Mail server down:** the account is created and its email waits in the outbox, sent once the
+server answers. The person is never told to try again for something that already worked.
 
 **Login gate:** Unverified users cannot log in. If the verification has expired, the login error tells them to re-register.
 
-**Files:** `routes.clj:register`, `routes.clj:do-verification`, `routes.clj:verify`, `email.clj:send-verification-email`
+**Files:** `routes.clj:register`, `routes.clj:do-verification`, `routes.clj:verify`, `email.clj:verification-message`, `outbox.clj`
 
 ### 2. Email Change
 
@@ -75,9 +109,10 @@ retracts only the attributes that attempt set, never the existing user.
 
 1. Validate new email (format, not same as current, not already taken)
 2. Check rate limit (see Rate Limiting below)
-3. Store `pending-email`, generate new `verification-key`, set `verification-sent`
-4. Send email-change verification to the **new** address (`email/send-email-change-verification`)
-5. If send fails → full rollback (retract `pending-email`, `verification-key`, `verification-sent`), return 500
+3. Store `pending-email`, generate new `verification-key`, set `verification-sent`, and queue two
+   emails in the same transaction: the verification link to the **new** address, and a notice to
+   the address that owns the account now (the only warning it gets if the change was not theirs)
+4. The outbox sends both
 
 **Verify behavior (email-change path):**
 - If expired (24h) → retract `pending-email`, `verification-key`, `verification-sent`; redirect to failed
@@ -88,47 +123,60 @@ retracts only the attributes that attempt set, never the existing user.
 
 **Free resend:** Within 1–5 minutes of the original request, resending the same email re-uses the existing `verification-key` and does not update `verification-sent` (no rolling window). See Rate Limiting.
 
-**Files:** `routes.clj:request-email-change`, `routes.clj:verify` (pending-email branch), `email.clj:send-email-change-verification`, `events.cljs:change-email`, `views.cljs:my-account-page`
+**Files:** `routes.clj:request-email-change`, `routes.clj:verify` (pending-email branch), `email.clj:email-change-verification-message`, `email.clj:email-change-notice-message`, `events.cljs:change-email`, `views.cljs:my-account-page`
 
 ### 3. Password Reset
 
 **Trigger:** `GET /send-password-reset?email=...` (via `routes/send-password-reset`)
 
 1. Look up user by email
-2. Generate `password-reset-key`, set `password-reset-sent`
-3. Send password reset email (`email/send-reset-email`)
+2. Generate `password-reset-key`, set `password-reset-sent`, and queue the reset email in the same
+   transaction; the outbox sends it
 
 **Reset behavior:** `POST /reset-password` (via `routes/reset-password`)
 - Validates new password and password match
-- Sets new password hash, sets `password-reset` timestamp, sets `verified? true`
+- Sets new password hash, sets `password-reset` timestamp, sets `verified? true`, and queues the
+  "your password was changed" notice in the same transaction
 
 **Expiration:** `password-reset-expired?` checks if `password-reset-sent` is older than 24 hours.
 
-**Files:** `routes.clj:send-password-reset`, `routes.clj:do-send-password-reset`, `routes.clj:reset-password`, `email.clj:send-reset-email`
+**Files:** `routes.clj:send-password-reset`, `routes.clj:do-send-password-reset`, `routes.clj:reset-password`, `email.clj:reset-message`, `email.clj:password-changed-message`
 
-### 4. Error Notification
+### 4. Admin Alerts (server errors)
 
-**Trigger:** Called from `service-error-handler` interceptor in `routes.clj` on unhandled exceptions
+**Trigger:** any request that fails with an unhandled error.
 
-- Only sends if `EMAIL_ERRORS_TO` env var is set
-- Sends plaintext email with scrubbed request, filtered stack trace, and cause chain
-- Throttled: one email per unique error fingerprint per 5 minutes
-- Detects Pedestal-wrapped exceptions (extracts real exception from `ex-data :exception`)
+The error becomes an admin alert. It is written to the server log and emailed to the admin
+address (`EMAIL_ERRORS_TO`, else `EMAIL_ADMIN_TO`, else `APP_SUPPORT_EMAIL`), if one is set. The request that failed does not wait for the email: alerts
+are sent separately, and never use the database.
 
-**Subject format:** `[AppName] ExceptionClass: message @ METHOD /uri`
+- **One email per problem.** Errors count as the same problem when they have the same cause and
+  happen in the same place in our code. The first is emailed at once; repeats within 15 minutes
+  are counted and reported in one follow-up email.
+- **At most `ALERT_MAX_PER_HOUR` emails an hour** (20 by default). The rest are logged.
+- **Nothing is lost to a busy mail server.** Alerts that cannot be sent wait in a file in
+  `ALERT_SPOOL_DIR` and are retried every minute, on shutdown, and at the next start. After three
+  failures in a row the server waits five minutes before trying again.
 
-**Request scrubbing:** Strips credentials (`:json-params`, `:transit-params`, `:form-params`), session
-data (`:identity`, `:body`), Datomic objects (`:db`, `:conn`), servlet internals, and cookie headers.
-Only safe headers are included (user-agent, referer, content-type, CF headers, etc.).
+The settings, and what happens on restarts and with several copies of the server, are in
+[ENVIRONMENT.md, Admin alerts](ENVIRONMENT.md#admin-alerts).
 
-**Stack trace filtering:** Shows only `orcpub.*` frames. Falls back to deepest non-infrastructure
-frame when no app frames exist. Infrastructure prefixes (Jetty, Pedestal, clojure.lang, Thread)
-are suppressed with a count.
+**Subject format:** `[AppName] ExceptionClass: message @ METHOD /uri`, with
+`(N more times)` added on a follow-up.
 
-**Throttle fingerprint:** Root cause class + deepest `orcpub.*` frame method (or first 60 chars
-of root message). Suppressed duplicates are logged to stdout.
+**What the email contains:** the request with private parts removed, the error and every error
+that caused it, and Pedestal's details when the error came through Pedestal. Removed from the
+request: anything sent in its body (passwords and form data), the login identity, cookies, and
+database objects. Only harmless headers are kept (browser, referrer, content type, Cloudflare
+country and ray id, and similar).
 
-**Files:** `email.clj:send-error-email`, `routes.clj:service-error-handler`
+**Stack traces** show only our own code (`orcpub.*`). When none of our code is involved, the
+deepest frame that is not part of Jetty, Pedestal or Clojure itself is shown instead, and the
+number of hidden frames is noted.
+
+**Files:** `alerts.clj` (sending, counting, the spool), `email.clj` (`send-error-email`, the
+email itself), `routes.clj` (`service-error-handler`), `system.clj` (starts alerts before the
+site takes requests)
 
 ## Rate Limiting (Email Change)
 
@@ -164,6 +212,8 @@ The 429 response includes `retry-after-secs` so the client can display a specifi
 | File | Role |
 |------|------|
 | `src/clj/orcpub/email.clj` | Email templates and send functions (postal) |
+| `src/clj/orcpub/alerts.clj` | Admin alerts: one email per problem, the hourly ceiling, the spool file |
+| `src/clj/orcpub/outbox.clj` | Player emails: queued with their action, sent and retried by one worker, deleted once sent |
 | `src/clj/orcpub/routes.clj` | Server handlers: register, verify, email change, password reset |
 | `src/clj/orcpub/db/schema.clj` | Datomic schema for user attributes |
 | `src/cljc/orcpub/route_map.cljc` | Route definitions (shared server/client) |
@@ -174,6 +224,6 @@ The 429 response includes `retry-after-secs` so the client can display a specifi
 
 ## Known Issues
 
-- **No uniqueness constraint on email in schema.** Uniqueness is enforced at the application level by `email-query` (at request time) and a race-condition guard (at verify time). A Datomic `:db.unique/value` constraint on `:orcpub.user/email` would be the proper fix but requires a data migration to handle any existing duplicates.
+- **No uniqueness constraint on email in schema.** Uniqueness is enforced at the application level by `email-query` (at request time) and a race-condition guard (at verify time). A `:db.unique/value` constraint on `:orcpub.user/email-key` would be the proper fix, once any existing duplicates are found and resolved.
 
 - **Pending-email conflicts not checked.** Two users can simultaneously request the same new email. Both receive verification emails, but only the first to verify succeeds — the second is caught by the race-condition guard. The "loser" gets a confusing failure after clicking a valid-looking link.
