@@ -101,7 +101,9 @@ What the site shows is layered, and later layers win field by field:
 
 1. the registry in `portrait_assets.cljc` (the public default)
 2. the artist's own edits, from My Account → Artist credit
-3. `name`, `link` and `links` in `PORTRAIT_ARTISTS`
+3. `name`, `link` and `links` in `PORTRAIT_ARTISTS`; and `profile`, `show_examples`,
+   `show_links` and `show_count` set to `false` turn the artist's page, or that part of it, off
+   whatever the artist chose (`true` does nothing: the site cannot force a page on)
 
 So you can always correct a credit from config without touching the
 account. Fields the config sets show as fixed on the artist's settings

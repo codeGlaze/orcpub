@@ -57,20 +57,31 @@
 
 (defn- jpeg-mark
   "The mark's text in JPEG bytes `b`, or nil: a comment segment holding the keyword, NUL, then the
-   text. Reads the segments before the image data."
+   text, anywhere among the marker segments, those between the scans of a progressive JPEG
+   included. Image data is skipped by its markers, never searched, so its bytes cannot match."
   [b]
   (when (jpeg? b)
-    (let [prefix (str mark-keyword "\u0000")]
+    (let [prefix (str mark-keyword "\u0000")
+          n (alength b)
+          ;; past a scan's entropy-coded data: the next 0xFF that is not a stuffed 0x00, a fill 0xFF
+          ;; or a restart marker (RST0-7, 0xD0-0xD7)
+          after-scan (fn [i] (loop [j i]
+                               (cond (>= (inc j) n) n
+                                     (and (= 0xFF (u8 b j))
+                                          (not (#{0x00 0xFF} (u8 b (inc j))))
+                                          (not (<= 0xD0 (u8 b (inc j)) 0xD7))) j
+                                     :else (recur (inc j)))))]
       (loop [i 2]
-        (when (and (<= (+ i 4) (alength b)) (= 0xFF (u8 b i)))
+        (when (and (<= (+ i 4) n) (= 0xFF (u8 b i)))
           (let [kind (u8 b (inc i))
                 len (+ (* 256 (u8 b (+ i 2))) (u8 b (+ i 3)))
                 start (+ i 4) end (+ i 2 len)]
             (cond
-              (#{0xDA 0xD9} kind) nil ; start of scan, end of image
-              (and (= 0xFE kind) (<= end (alength b))
+              (= 0xD9 kind) nil ; end of image
+              (and (= 0xFE kind) (<= end n)
                    (= prefix (ascii b start (min end (+ start (count prefix))))))
               (utf8 b (+ start (count prefix)) end)
+              (= 0xDA kind) (recur (after-scan end)) ; start of scan: its header, then the data
               :else (recur end))))))))
 
 (defn read-mark

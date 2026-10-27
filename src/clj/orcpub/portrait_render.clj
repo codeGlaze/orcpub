@@ -746,10 +746,12 @@
                 (.setCompressionMode ImageWriteParam/MODE_EXPLICIT)
                 (.setCompressionQuality (float quality)))
         out (ByteArrayOutputStream.)]
-    (with-open [ios (ImageIO/createImageOutputStream out)]
-      (.setOutput writer ios)
-      (.write writer nil (IIOImage. img nil nil) param)
-      (.dispose writer))
+    (try
+      (with-open [ios (ImageIO/createImageOutputStream out)]
+        (.setOutput writer ios)
+        (.write writer nil (IIOImage. img nil nil) param))
+      ;; the writer holds native resources, released even when the write throws
+      (finally (.dispose writer)))
     (.toByteArray out)))
 
 (def example-quality

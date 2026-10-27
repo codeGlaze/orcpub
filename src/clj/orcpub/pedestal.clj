@@ -151,8 +151,7 @@
       this
       (cond-> service-map
         ;; nonce-interceptor first: runs last in :leave phase (sets CSP header after response built)
-        true (update ::http/interceptors conj nonce-interceptor referrer-policy-interceptor
-                     (db-interceptor conn) etag-interceptor)
+        true (update ::http/interceptors conj nonce-interceptor (db-interceptor conn) etag-interceptor)
         true http/create-server
         ;; Arm the banner here, fire it when Jetty says it is up. It cannot go after
         ;; http/start -- that BLOCKS in prod, where join? defaults true, so the first

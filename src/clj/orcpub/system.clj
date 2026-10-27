@@ -77,6 +77,12 @@
   [service-map]
   (update service-map ::http/interceptors #(into [routes/portrait-art-guard] %)))
 
+(defn with-referrer-policy
+  "The service map with pedestal/referrer-policy-interceptor first in its chain, so its :leave runs
+   last and reaches every response: static files, the art guard's and the default 404 included."
+  [service-map]
+  (update service-map ::http/interceptors #(into [pedestal/referrer-policy-interceptor] %)))
+
 (def prod-service-map
   {::http/routes routes/routes
    ::http/type :jetty
@@ -145,6 +151,7 @@
       true http/default-interceptors
       true with-portrait-guard
       true with-client-address
+      true with-referrer-policy
       (= :dev env) http/dev-interceptors)
 
     ;; :token-withdrawals is listed only so Component starts it first; Pedestal

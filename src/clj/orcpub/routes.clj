@@ -396,7 +396,8 @@
   (when-let [{:keys [artist-id default current own locked]} (artist-credit/credit-for-account db user-id)]
     {:artist-id (name artist-id)
      :default default
-     :current (select-keys current [:artist/id :artist/name :artist/link :artist/links])
+     :current (select-keys current (into [:artist/id :artist/name :artist/link :artist/links]
+                                         (vals artist-credit/page-switches)))
      :own own
      :locked locked
      ;; so the page can show which icon a link will get as it's typed

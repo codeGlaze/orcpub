@@ -1849,7 +1849,7 @@
      [".ap-foot a, .ap-missing a"
       {:color :inherit :text-decoration "underline dotted var(--lk-under)"
        :text-underline-offset "3px"}]
-     [".ap-foot a:hover, .ap-missing a:hover" {:color "var(--lk-glow-text)"}]
+     [".ap-foot a:hover, .ap-missing a:hover" {:color "var(--lk-under-lit)"}]
      [:.ap-missing {:text-align :center :font-size "13px" :color "var(--lk-dim)"}]
      [:.ap-index
       {:display :grid :grid-template-columns "repeat(auto-fill, minmax(150px, 1fr))"
@@ -1859,7 +1859,7 @@
        :text-decoration :none :text-align :center}]
      [".ap-index-card .lk-name" {:font-size "18px" :white-space :normal}]
      [".ap-index-card:hover .lk-name, .ap-index-card:focus-visible .lk-name"
-      {:color "var(--lk-glow-text)" :text-shadow "var(--lk-glow)"}]
+      {:color "var(--lk-under-lit)" :filter "var(--lk-halo)"}]
      [".ap-index-card:focus-visible" {:outline :none}]
      [:.ap-index-count {:font-size "11px" :color "var(--lk-dim)"}]
      (at-media {:max-width "560px"}

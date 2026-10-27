@@ -189,9 +189,11 @@
 ;; ─── Portrait Artist Credits ───────────────────────────────────────
 
 (defn artist-override
-  "One artist's credit `fields` from PORTRAIT_ARTISTS (:name :link :links :license) as overrides.
+  "One artist's credit `fields` from PORTRAIT_ARTISTS (:name :link :links :license, and the page
+   switches :profile :show_examples :show_links :show_count, kept only when false) as overrides.
    Links pass artist-links/url-problem, the check an artist's own edits pass; a link's icon and
-   colour come from its address (artist-links/link-entry), never from the setting. Returns the map."
+   colour come from its address (artist-links/link-entry), never from the setting. A switch can
+   only turn a page or its part off. Returns the map."
   [fields]
   (let [ok-url (fn [u] (if (links/url-problem u)
                          (do (warn! :portrait-artists u (links/url-problem u)) nil)
@@ -205,7 +207,11 @@
       (string? (:name fields))    (assoc :artist/name (:name fields))
       link                        (assoc :artist/link link)
       (seq extra)                 (assoc :artist/links extra)
-      (string? (:license fields)) (assoc :artist/license (:license fields)))))
+      (string? (:license fields)) (assoc :artist/license (:license fields))
+      true (merge (into {} (for [[k ck] {:profile :artist/profile? :show_examples :artist/show-examples?
+                                         :show_links :artist/show-links? :show_count :artist/show-count?}
+                                 :when (false? (get fields k))]
+                             [ck false]))))))
 
 (def portrait-artists
   "Deployment overrides for portrait artist credits, {artist-id {:artist/name :artist/link
