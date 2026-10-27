@@ -25,7 +25,7 @@ and cherry-picked here; those two commits will also arrive with that branch.
 - **Characters:** a Rest box on the Features tab, and a floating Rest button on the other tabs: short and long rests, dawn and dusk, recharging items by their roll or yours, with Undo.
 - **Characters:** cast spells from charged items, priced in charges per level, from the item or from the Spells tab, and roll the spell's damage at the level cast.
 - **Homebrew:** custom items can have charges, a recharge time and the spells they cast.
-- **Homebrew:** custom weapons can have extra damage and effects (saves, conditions), on a hit, miss or crit, limited per turn, rest or dawn, or paid in charges.
+- **Homebrew:** custom weapons can have switches the player turns on (like Flame Tongue), extra damage and effects (saves, conditions, advantage on the next attack, an extra attack), applying on a hit, miss or crit, against a creature type, in melee or at range, limited per turn, rest or dawn, or paid in charges.
 
 ## Changed
 
