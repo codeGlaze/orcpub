@@ -10,6 +10,10 @@ these instructions means that copy, even where your branch has none.
 `scripts/agent-setup.sh` on agents/develop sets up the tooling and prints where the KB index is; the SessionStart hook runs it from the local copy, or
 run `git show origin/agents/develop:scripts/agent-setup.sh | bash`, which fetches first: do that after
 any fetch that moved `origin/agents/develop`, to refresh the copies.
+**Refresh every 12 to 24 hours** (owner, 2026-10-27). A session that runs longer does not see rules
+pushed after it started. At least that often, run the command above, then read what changed:
+`git log --since='24 hours ago' --format='%h %s' origin/agents/develop -- AGENTS.md BRANCH.md docs/GIT_WORKFLOW.md`,
+and follow the new rules from the next response on. Say in that response's summary what changed.
 
 **The KB ends up on agents/develop, every page of it.** While you work, you may create and edit KB
 pages in your working branch's `docs/kb/`, committed with the work. Move them to agents/develop at a
