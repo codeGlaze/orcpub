@@ -85,3 +85,11 @@
   (is (= "The damage increases by 1d6 for each slot level above 3rd."
          (mi/higher-levels-text {:description "A bright streak.\nAt Higher Levels. The damage increases by 1d6 for each slot level above 3rd."})))
   (is (nil? (mi/higher-levels-text {:description "No scaling."}))))
+
+(deftest a-saved-weapons-powers-load-and-save-cleanly
+  (is (= #{:undead} (get-in (mi/to-internal-item {::mi/name "X" ::mi/extra-damage [{::mi/damage-bonus 2 ::mi/against [:undead]}]})
+                            [::mi/extra-damage 0 ::mi/against]))
+      "creature types saved as a vector load as a set")
+  (is (= [{::mi/damage-bonus 2}]
+         (::mi/extra-damage (mi/complete-powers {::mi/extra-damage [{::mi/damage-bonus 2} {::mi/damage-bonus :ability-mod}]})))
+      "a row holding a reference is not sent to the save"))

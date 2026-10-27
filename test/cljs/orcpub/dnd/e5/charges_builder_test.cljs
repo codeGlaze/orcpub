@@ -57,3 +57,7 @@
     (is (= #{:undead} (get-in (cb/set-power item ::mi/extra-damage 0 ::mi/against :undead) [::mi/extra-damage 0 ::mi/against]))
         "a creature type is stored as a set of one")))
 
+
+(deftest half-typed-dice-leave-the-row
+  (is (= {:orcpub.dnd.e5.weapons/damage-die 6 :orcpub.dnd.e5.weapons/damage-die-count 2}
+         (cb/set-power-dice {:orcpub.dnd.e5.weapons/damage-die 6 :orcpub.dnd.e5.weapons/damage-die-count 2} "2d"))))

@@ -2219,3 +2219,9 @@
     (reset! app-db {::char5e/character-map {7 ch} ::char5e/rest-result {:id 8 :before {:orcpub.entity/values {}}}})
     (effects-of [::char5e/undo-rest 7] [::char5e/save-character-throttled])
     (is (= ch (kept)) "another character's result: nothing changes")))
+
+(deftest a-sheet-edit-closes-an-open-rest-result
+  (reset! app-db {::char5e/character-map {7 {:orcpub.entity/values {}}}
+                  ::char5e/rest-result {:id "7" :before {:orcpub.entity/values {}}}})
+  (effects-of [::char5e/toggle-feature-used "7" ::units5e/dawn "Javelin of Lightning"] [::char5e/save-character-throttled])
+  (is (nil? (::char5e/rest-result @app-db)) "so Undo cannot overwrite the edit"))
