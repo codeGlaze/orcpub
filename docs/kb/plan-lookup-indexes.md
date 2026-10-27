@@ -1,6 +1,6 @@
 # Plan: indexed lookups, a lowercase email field, and GET /user once per session
 
-**Status:** in progress on `fix/lookup-indexes` (from `integration`, approved by the owner). All steps done 2026-10-26; PR into `integration`. Owner decisions: indexes yes; a separate lowercase email field yes;
+**Status:** in progress on `fix/lookup-indexes` (from `integration`, approved by the owner). All steps done; merged into `integration` as #76 on 2026-10-26. Owner decisions: indexes yes; a separate lowercase email field yes;
 `GET /user` once per session yes. Why: [lookup-indexes.md](lookup-indexes.md) (measured: at 100k
 users the email lookup costs 151 ms and 120 MB per call; indexed lookups stay under 1 ms).
 

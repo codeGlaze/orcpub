@@ -51,6 +51,8 @@ carries live state.*
     #70 `feature/registration-in-boot-report`. #65
     `feature/artist-pages` targets `feature/portrait-builder`, which has already merged (#64).
     #35 targets `mirror/upstream-develop`.
+  - Merged 2026-10-26: #76 `fix/lookup-indexes` (indexed lookups, the email lookup key, GET /user
+    once per page load; the changelog check now waits for the `ready to merge` label).
   - Merged 2026-10-26: #69 `feature/asi-spreads` (homebrew ability-score increases the player
     places, and save-proficiency grants).
   - Merged 2026-10-26: #75 `feature/email-and-alerts` (email outbox, admin alerts, crash
