@@ -24,9 +24,11 @@ the owner keeps CodeRabbit for backend work). **KB:** `plan-charges-and-casting.
   the panel (designed, round 6).
 - Done 2026-10-26: Weapon powers group in the item builder (`views/charges_builder.cljs`
   `powers-group`; schema; `mi/complete-powers` drops half-filled rows). Light theme shots taken
-  and sent (no changes yet). Not in the builder: toggles (`::mi/while`), creature targets
-  (`::mi/against`), the attack-type limit, Vex/Cleave fields.
-- Next: the owner's light-theme review; the parked wording review.
+  and sent. Then (same day) switches, While, Only against, Attack, Next attack and Extra attack
+  (`add-toggle`, `remove-toggle`); `applies?` reads targets as a set (saved items return vectors).
+  The mode switch shows a d20 for Normal (owner).
+- Next: the wording list (owner asked what it is, 2026-10-26: one page of every new player-facing
+  line); the owner's light-theme review.
 
 ## Owner decisions
 
