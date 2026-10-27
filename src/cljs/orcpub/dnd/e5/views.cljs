@@ -4176,7 +4176,16 @@
                            (swap! state assoc :press (js/setTimeout #(swap! state assoc :mode-menu? true :long-pressed? true) 500)))
         :on-pointer-up press-end :on-pointer-leave press-end :on-pointer-cancel press-end}
        (when (:mode-menu? @state)
-         [weapon-menu id nm weapon-rolls/mode-options last? close-modes (fn [{mode :id}] (roll-attack! mode))])
+         (let [menu [weapon-menu id nm weapon-rolls/mode-options last? close-modes (fn [{mode :id}] (roll-attack! mode))]]
+           ;; a phone gets the bottom sheet the other pickers use; a desktop the + menu's dropdown
+           (if @(subscribe [:mobile?])
+             [:<>
+              [:div.cast-dim {:on-click (fn [e] (.stopPropagation e) (close-modes))}]
+              [:div.cast-sheet.weapon-mode-sheet {:on-click #(.stopPropagation %)}
+               [:div.cast-handle]
+               [:div.weapon-mode-title (str nm " \u00B7 roll the attack with")]
+               menu]]
+             menu)))
        [roll-button (str nm " attack" hands-note ": ") (str "1d20" (common/mod-str attack-bonus))
         :on-roll roll-attack!
         :class (str "weapon-tile weapon-hit-tile" (when needs-hands? " needs-hands"))
@@ -4296,12 +4305,12 @@
           [section-header "crossed-swords" "Weapons"]
           (let [mode @(subscribe [:weapon-roll/mode])]
             (into [:div.rest-segs.weapon-mode {:role "radiogroup" :aria-label "Attack rolls"}]
-                  (for [[m label] [[:normal "Normal"] [:adv "Adv"] [:dis "Dis"]]]
+                  (for [[m label shown] [[:normal "Normal" "\u2014"] [:adv "Advantage" "Adv"] [:dis "Disadvantage" "Dis"]]]
                     ^{:key m}
-                    [:button.rest-seg {:type "button" :role "radio" :aria-checked (= m mode) :aria-label label
+                    [:button.rest-seg {:type "button" :role "radio" :aria-checked (= m mode) :aria-label label :title label
                                        :class (when (= m mode) (if (= :normal m) "none-on" "on"))
                                        :on-click #(dispatch [:weapon-roll/set-mode m])}
-                     [:span label]])))
+                     [:span shown]])))
           (when off-hand-item
             [:span.share-pill.share-pill-expired.weapons-reason
              (str (weapon-name off-hand-item) " in off hand")])]
