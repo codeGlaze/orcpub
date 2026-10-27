@@ -311,3 +311,35 @@
       (is (= 200 (:status (orcpub.routes/update-artist-credit
                            (req conn "fusspot" {:name "" :link "" :links [] :profile? false :show-count? true})))))
       (is (false? (:artist/profile? (pa/artist-info :house-pack))) "what My Account sends is what is saved"))))
+
+(deftest a-change-after-an-unflushed-window-keeps-the-batch
+  (testing "a save after the window ends, before the minute job runs, still emails the waiting changes"
+    (with-conn conn
+      (add-artist! conn "fusspot" :house-pack)
+      (let [sent (atom []) clock (atom 0)]
+        (with-emails sent clock
+          (save-name! conn "A")
+          (reset! clock 1) (save-name! conn "B")
+          (reset! clock 11) (save-name! conn "C")
+          (is (= [[0 nil "A"] [11 "A" "C"]] @sent) "one email, from before B to C")
+          (flush! conn (at 12))
+          (is (= 2 (count @sent)) "and the batch is not sent a second time"))))))
+
+(defn- queued-credit-emails
+  "How many artist credit emails are waiting in the outbox of `conn`."
+  [conn]
+  (or (d/q '[:find (count ?e) . :where [?e :orcpub.outbox/kind :artist]] (d/db conn)) 0))
+
+(deftest credit-emails-are-queued-with-the-change-that-causes-them
+  (testing "queued in the outbox in the same transaction, so the outbox retries a failed send"
+    (with-conn conn
+      (add-artist! conn "fusspot" :house-pack)
+      (with-redefs [orcpub.artist-email/email-on? (constantly true)
+                    orcpub.artist-email/admin-recipient (constantly "admin@example.test")
+                    orcpub.heartbeat/now (fn [] (at 0))]
+        (save-name! conn "A")
+        (is (= 2 (queued-credit-emails conn)) "the artist's and the admin's, queued as the window opened")
+        (with-redefs [orcpub.heartbeat/now (fn [] (at 1))] (save-name! conn "B"))
+        (is (= 2 (queued-credit-emails conn)) "a change in the window waits")
+        (flush! conn (at 10))
+        (is (= 4 (queued-credit-emails conn)) "the batch's two, queued as it was claimed")))))
