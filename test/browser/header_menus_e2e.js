@@ -51,6 +51,7 @@ const PARTIAL_PACK = '{:orcpub.dnd.e5/spells {:valid-spell {:option-pack "Header
   + ':invalid-spell "not an entry" :another-valid {:option-pack "Header Menus Probe" :name "Another Valid"}}}';
 
 const results = [];
+let desktopTabCount = null; // the first pass's menu count, which the phones must match
 const check = (name, ok, detail = '') => {
   results.push({ name, ok });
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
@@ -73,6 +74,7 @@ const check = (name, ok, detail = '') => {
     const tabs = page.locator('.header-tab:has(.header-flyout)');
     const tabCount = await tabs.count();
     check(`${label}: the header has flyout menus to test`, tabCount > 0, `${tabCount} tabs`);
+    if (desktopTabCount === null) desktopTabCount = tabCount;
 
     for (let i = 0; i < tabCount; i++) {
       const tab = tabs.nth(i);
@@ -175,8 +177,9 @@ const check = (name, ok, detail = '') => {
     await short.close();
   }
 
-  // Phones: every tab, and each menu opened by tapping it, sits inside the screen. A menu that
-  // did not open measures 0-0, so it has to have a width to count.
+  // Phones: every tab, and each menu, sits inside the screen. Each menu is opened by focusing its
+  // tab, the state a tap leaves it in. A menu that did not open measures 0-0, so it has to have a
+  // width to count, and a phone must show as many menus as the desktop did.
   const { devices } = require('playwright');
   for (const device of ['iPhone SE', 'iPhone 13']) {
     const phone = await browser.newContext({ ...devices[device] });
@@ -191,7 +194,10 @@ const check = (name, ok, detail = '') => {
       .filter(([, r]) => r.left < 0 || r.right > innerWidth).map(([i, r]) => `tab ${i} ${Math.round(r.left)}-${Math.round(r.right)}`));
     check(`${device} (${width}px): every header tab is on screen`, off.length === 0, off.join(', '));
     const tabs = p.locator('.header-tab:has(.header-flyout)');
-    for (let i = 0, n = await tabs.count(); i < n; i++) {
+    const n = await tabs.count();
+    check(`${device} (${width}px): the header has the desktop's ${desktopTabCount} menus`,
+          n > 0 && n === desktopTabCount, `${n} menus`);
+    for (let i = 0; i < n; i++) {
       await tabs.nth(i).focus();
       await p.waitForTimeout(200);
       const r = await tabs.nth(i).locator('.header-flyout').evaluate(f => {
