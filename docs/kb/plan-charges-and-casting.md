@@ -101,7 +101,12 @@ On `feature/weapons-table` (owner: "just finish building it here"):
    "once per dawn", saves and resets, so turning them into pools of 1 would add risk with no visible
    change. Withering's Con save is not tied to the spend yet (an effect with a cost would be a second
    paid item).
-5. **Rest box: done.** `d40aa2de` reset times: a long rest clears `[::long-rest ::rest]` only;
+5. **Rest box: done.** *Changed 2026-10-27 after CodeRabbit's review of #74:* any other sheet edit now
+   closes an open Rest result (`update-character-fx` drops `::char5e/rest-result`; the rest events
+   put theirs back), so Undo cannot overwrite a later edit; every recharge amount, rolled or typed,
+   is kept in the result's `:amounts` (`kept-amounts`), so a typed amount or a time-of-day answer
+   re-applies the others instead of rolling again; the rest events act only on this character's
+   result (`current-rest-result`).  `d40aa2de` reset times: a long rest clears `[::long-rest ::rest]` only;
    `::dusk` added (spec, schema, names); `units/dawn-clears` `[::dawn ::day]` (once-per-day uses come
    back at dawn) and `dusk-clears`; Robe of Stars (6 stars, 1d6 at dusk). `71b4f433` the engine,
    `orcpub.dnd.e5.rests`: `carried`, `apply-actions` (rest and times; charges rolled or typed),

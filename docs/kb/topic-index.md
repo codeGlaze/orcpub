@@ -3905,7 +3905,7 @@ _weapons-extra-damage-handoff · weapons extra damage handoff_
 
 _weapons-table-follow-ups · weapons table follow ups_
 
-**topics:** 2024, 2026-10-27, 713, band, branding, cast, fighting-style-vocabulary-gap, fmy7pe4i1k8noalgwxgcf3, low-strength, mastery, monks, plumbing, smite, srd-improvements, summaries, upstream, weapon-mastery-plan, weapons-table
+**topics:** 2024, 713, band, branding, cast, fighting-style-vocabulary-gap, fmy7pe4i1k8noalgwxgcf3, low-strength, mastery, monks, plumbing, roll-result, smite, srd-improvements, summaries, upstream, weapon-mastery-plan, weapons-table
 
 - Waiting on 2024 data (the owner keeps 2024 content off this branch)
 - For the refactor's homebrew vocabulary
