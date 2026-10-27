@@ -53,13 +53,15 @@ setting.
 
 ## Resets: rests and dawn
 
-Once-per-rest and charged features use the reset buttons the character sheet already has: finish
-long rest, finish short rest, new round and new turn. Many SRD items say "until the next dawn", so
-there are **dawn** and **dusk** resets as well. They are separate from rests: a long rest does not
+Once-per-rest and charged features reset from the Rest box, first on the Features tab and behind a
+floating Rest button on the other tabs (short rest, long rest), and from the sheet's new round and
+new turn buttons. Many SRD items say "until the next dawn", so there are **dawn** and **dusk**
+resets as well. They are separate from rests: a long rest does not
 count as dawn. The Rest box on the Features tab passes dawn or dusk on its own (Now), or asks after
 a rest whether one passed.
 
-Charges use the same tick boxes the sheet already shows for limited-use features.
+Charges show as pips under the item (tap one to spend or regain it); a rest or a dawn that
+recharges an item rolls its regain, which the player can type over.
 
 ## The SRD weapons that have it
 

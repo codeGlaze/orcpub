@@ -4781,6 +4781,9 @@
    for re-applying after a refused save). When the builder has that character open, the edit is
    applied there too. With no `id` the character is unsaved, so the edit goes to the builder's copy."
   [db id update-fn]
+  ;; Any sheet edit closes an open Rest result, so its Undo cannot overwrite the edit; the rest
+  ;; events put their own result back (with-rest-result).
+  (let [db (dissoc db ::char5e/rest-result)]
   (if id
     (let [int-id (js/parseInt id)
           stored (get-in db [::char5e/character-map int-id])
@@ -4796,7 +4799,7 @@
         (and open (not (:draft/held db))) (assoc ::builder-draft->local-store open)))
     ;; No id: the character being built has never been saved, so this is an
     ;; edit to the one in hand, not a switch.
-    {:dispatch [:character-updated (update-fn (:character db))]}))
+    {:db db :dispatch [:character-updated (update-fn (:character db))]})))
 
 (reg-fx
  ::builder-draft->local-store
@@ -4834,6 +4837,12 @@
   [before items-by-key request amounts]
   (rests/apply-actions before (rests/carried before items-by-key) request amounts dice/die-roll))
 
+(defn- kept-amounts
+  "`amounts` ({[item-key i] n}) with every recharge in `recharged` added, rolled or typed, so a
+  later change to one amount or the time of day re-applies them rather than rolling again."
+  [amounts recharged]
+  (into amounts (map (fn [{:keys [item-key i amount]}] [[item-key i] amount])) recharged))
+
 (reg-event-fx
  ::char5e/take-rest
  (fn [{:keys [db]} [_ id request items-by-key]]
@@ -4841,8 +4850,8 @@
          {:keys [character recharged]} (rest-outcome before items-by-key request {})
          ask? (rests/ask-time-of-day? before (rests/carried before items-by-key) request)]
      (with-rest-result db id character
-       {:id id :before before :request request :items-by-key items-by-key :amounts {}
-        :recharged recharged :ask? ask?}))))
+       {:id id :before before :request request :items-by-key items-by-key
+        :amounts (kept-amounts {} recharged) :recharged recharged :ask? ask?}))))
 
 (defn- current-rest-result
   "The stored Rest box result if it belongs to character `id`, else nil: a second queued click
@@ -4856,7 +4865,8 @@
    (when-let [{:keys [before request items-by-key amounts] :as result} (current-rest-result db id)]
      (let [request (assoc request :times times)
            {:keys [character recharged]} (rest-outcome before items-by-key request amounts)]
-       (with-rest-result db id character (assoc result :request request :recharged recharged :ask? false))))))
+       (with-rest-result db id character (assoc result :request request :recharged recharged :ask? false
+                                                :amounts (kept-amounts amounts recharged)))))))
 
 (reg-event-fx
  ::char5e/set-rest-amount
@@ -4864,7 +4874,7 @@
    (when-let [{:keys [before request items-by-key amounts] :as result} (current-rest-result db id)]
      (let [amounts (assoc amounts [item-key i] n)
          {:keys [character recharged]} (rest-outcome before items-by-key request amounts)]
-     (with-rest-result db id character (assoc result :amounts amounts :recharged recharged))))))
+     (with-rest-result db id character (assoc result :amounts (kept-amounts amounts recharged) :recharged recharged))))))
 
 (reg-event-fx
  ::char5e/undo-rest

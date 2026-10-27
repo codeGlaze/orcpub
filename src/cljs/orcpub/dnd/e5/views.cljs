@@ -4347,7 +4347,7 @@
               desktop?
               (r/cursor row-state [weapon-key])
               weapon-key
-              (get all-weapons weapon-key)]))]]))))
+              (rests/as-entry (get all-weapons weapon-key))]))]]))))
 
 (defn item-charges
   "The charges of a carried item, one line per item in its stack: pips up to 10 (tap a lit one
@@ -4529,7 +4529,7 @@
            {:on-click (toggle-details-expanded-handler expanded-details item-kw)}
            [:td.p-10.f-w-b (or (:name item) name)
             [item-charges id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
-             item-kw item item-cfg]
+             item-kw item (rests/as-entry item-cfg)]
             [cast-button item #(reset! cast-open item-kw)]
             (when (and mobile? (= item-kw @cast-open))
               [cast-sheet id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)

@@ -273,8 +273,20 @@
    {}
    modifiers))
 
-(defn to-internal-item [{:keys [::modifiers ::subtypes] :as item}]
+(defn- as-sets
+  "A power row with its creature-type fields as sets: a saved item's come back as vectors."
+  [row]
+  (cond-> row
+    (::against row) (update ::against set)
+    (::not-against row) (update ::not-against set)))
+
+(defn to-internal-item
+  "A saved item as the builder holds it: modifiers in their internal form, sets where the specs
+  want sets (attunement, subtypes, power rows' creature types), empty fields dropped."
+  [{:keys [::modifiers ::subtypes] :as item}]
   (cond-> item
+    (::extra-damage item) (update ::extra-damage #(mapv as-sets %))
+    (::effects item) (update ::effects #(mapv as-sets %))
     (seq modifiers) (assoc ::internal-modifiers (to-internal-modifiers (::modifiers item)))
     true (dissoc ::modifiers)
     true (update ::attunement set)
@@ -366,12 +378,16 @@
    modifiers))
 
 (defn complete-powers
-  "`item` keeping only the extra damage and effect rows its spec accepts: a row the builder has
-  only half filled in is left out of the save rather than failing it."
+  "`item` keeping only the extra damage and effect rows that can be saved: valid by spec, and
+  with numbers where the SRD data may use references (:ability-mod, :attack-save-dc), which the
+  item schema stores as numbers only."
   [item]
-  (cond-> item
-    (::extra-damage item) (update ::extra-damage #(filterv (partial spec/valid? ::extra-damage-entry) %))
-    (::effects item) (update ::effects #(filterv (partial spec/valid? ::effect) %))))
+  (let [savable (fn [row-spec row] (and (spec/valid? row-spec row)
+                                        (not (keyword? (::damage-bonus row)))
+                                        (not (keyword? (::save-dc row)))))]
+    (cond-> item
+      (::extra-damage item) (update ::extra-damage #(filterv (partial savable ::extra-damage-entry) %))
+      (::effects item) (update ::effects #(filterv (partial savable ::effect) %)))))
 
 (defn from-internal-item
   "A builder item as it is saved: modifiers in their stored form, half-filled power rows left

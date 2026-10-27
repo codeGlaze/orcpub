@@ -459,7 +459,8 @@
     many-kws-no-history
     [::mi5e/subtypes
      ::mi5e/attunement
-     ::mi5e/against])
+     ::mi5e/against
+     ::mi5e/not-against])
    (map
     long-prop-no-history
     [::mod/int-arg
@@ -473,7 +474,8 @@
      ::mi5e/cast-max-level
      ::mi5e/save-dc
      ::mi5e/charge-cost
-     ::mi5e/damage-bonus])
+     ::mi5e/damage-bonus
+     ::mi5e/min-roll])
    (map
     kw-prop-no-history
     [::mod/key

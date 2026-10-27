@@ -175,14 +175,17 @@
 
 (defn set-power-dice
   "An extra damage row with its dice typed as `text`: \"2d6\" or \"2d6+1\" sets the dice and any
-  flat bonus, a plain number only the bonus, anything else clears both."
+  flat bonus, a plain number only the bonus, blank clears both, and anything half typed (\"2d\")
+  leaves the row as it was, so the field keeps the text while the player types."
   [row text]
+  (if (and (not (s/blank? text)) (nil? (dice/parse-dice text)))
+    row
   (let [{:keys [num sides mod]} (dice/parse-dice text)
         row (dissoc row ::weapons/damage-die ::weapons/damage-die-count ::mi/damage-bonus)]
     (cond-> row
       sides (assoc ::weapons/damage-die sides ::weapons/damage-die-count num)
       (and mod (not (zero? mod))) (assoc ::mi/damage-bonus mod)
-      (and (nil? sides) mod) (assoc ::mi/damage-bonus mod))))
+      (and (nil? sides) mod) (assoc ::mi/damage-bonus mod)))))
 
 (defn set-power
   "`item` with key `k` of row `i` under `kind` (::mi/extra-damage or ::mi/effects) set to `v`, or
