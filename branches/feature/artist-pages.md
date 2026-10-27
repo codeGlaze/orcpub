@@ -11,63 +11,19 @@ Account, plus the review fixes to the portrait work and batched credit-change em
 
 - Done: `integration` merged in (`155fd259`); the first review's 7 comments fixed and answered
   (`04becd21`..`406d4e19`); CI green, merges clean; `@coderabbitai full review` asked once.
-- That full review (2026-10-27 13:40 UTC) posted **12 inline + 1 outside-diff, all Minor**. Not
-  started. The plan below is the next session's whole job; do not ask for another review until all
-  13 are pushed and answered.
+- That full review (2026-10-27 13:40 UTC) posted 12 inline + 1 outside-diff, all Minor: all 13
+  fixed or answered (`4784ea78`..`6acf7c4e`, pushed), replies name the commits, the outside-diff
+  one in a PR comment. `lein test` 1329/0, cljs 740/0, lint 0 errors, header probe 52/52.
+  `@coderabbitai full review` asked once more after that push.
 - Worktree used: `/home/user/orcpub-artist-pages` (container-local; recreate with
   `git worktree add /home/user/orcpub-artist-pages feature/artist-pages`).
 
-## Next: the 13 comments, in four batches (one test run and one break run per batch)
+## Next
 
-Each fix commits before its test; each test is seen to fail by restoring only its fix's files
-(`docs/TESTING.md`, "Seeing a test fail"). Reply on each thread naming the fixing commit.
-
-**Batch A, server (`lein test`):**
-1. `routes.clj:399` (outside diff) `artist-credit-body` select-keys drops the page switches from
-   `:current`, so a switch the config forces off reads On in My Account. Add the four switch keys.
-   Test: the route body carries `:artist/profile? false` when the config sets it.
-2. `PORTRAIT-COMPOSITOR.md:116` real bug: `fork/branding.clj` `artist-override` drops every page
-   switch from `PORTRAIT_ARTISTS`, so a deployment cannot force a page or section off (tests only
-   passed by redef'ing `branding/portrait-artists`). Parse each switch, keeping only `false`.
-   Test: parsing the env JSON with each switch off.
-3. `pedestal.clj:154` the Referrer-Policy interceptor sits after the portrait guard and the static
-   resources (`system.clj`), and runs before the default 404 is built, so those responses lack it.
-   Move it first in the chain. Test: full chain (`io.pedestal.test/response-for`) for a static
-   file and an unmatched route.
-4. `styles/portrait.clj:690` `.lk-about` hover and `.ap-foot a:hover` use `--lk-glow-text` and
-   `--lk-glow`, undefined since the Garden move: use `--lk-under-lit` and `--lk-halo`. Test: every
-   `var(--lk-*)` in the compiled stylesheet is declared somewhere in it.
-5. `portrait_art_guard_test.clj:114` / `art_mark.cljc` `jpeg-mark` stops at the first SOS, so a
-   marked COM between scans (progressive JPEG) passes the guard. After SOS, skip entropy-coded data
-   to the next real marker (0xFF then not 0x00 and not RST0-7), continue; no raw byte search
-   (false positives). Test: pinned bytes with the COM after a scan (cljc, both platforms).
-6. `portrait_render.clj:752` `jpeg-bytes` does not `.dispose` the writer when `.write` throws: put
-   it in `finally`. No observable behaviour to test; say so on the thread.
-
-**Batch B, client (`lein fig:test` + `node test/e2e/cljs-harness.js`):**
-7. `components.cljc:34` the prepared-spell box (`views.cljs` ~2930) is disabled when no
-   preparations remain, but its span's on-click still dispatches `::char5e/toggle-spell-prepared`.
-   Check first whether that event (`events.cljs:4733`) refuses it; if not, guard the click in the
-   caller. Pre-existing on `integration`? If so, a Fixed changelog line.
-8. `autosave_fx.cljs:104` only merge commits touch this file here, yet the PR's diff changes 3
-   lines of it: compare with `integration`; if this branch carries an older copy, take
-   `integration`'s and answer that the heal logic is not this PR's.
-
-**Batch C, the header probe (needs `lein fig:build` and the e2e server, once):**
-9. `header_menus_e2e.js:194` assert the expected tab and flyout counts before the bounds loop, so
-   a missing header fails instead of passing. Break: hide `.header-tab` in the stylesheet.
-10. `header_menus_e2e.js:195` keep `focus()`, fix the comment that says menus open by tapping.
-
-**Batch D, docs (no tests):**
-11. `mockup.html:325` and its switch preview (~444): show the redirect, not a 404.
-12. `PLAN.md:184`: item 4 still says 404; also line 17 and 205-206 ("once per server start",
-    memoized: now a bounded cache with a 60 s failure cache), 149-150 test counts, 154 (51 checks;
-    `probe-baseline.json` has the real count).
-13. `docs/design/capture/lib.js:8`: `login` uses `E2E_BASE`, capture uses `ORCPUB_BASE`; pass the
-    capture's base through (or set `E2E_BASE` from it).
-
-Then: one full `lein test`, cljs suite and full `lein lint`; push; replies on all 13; one
-`@coderabbitai full review`.
+- Wait for the full review asked for on 2026-10-27 (after `6acf7c4e`). Then work its comments under
+  the merge gate: fix each with a push that does nothing else and reply naming the commit, or answer
+  it on its thread. A push that only fixes those comments needs no new review.
+- Before any merge: `integration` in with `--no-commit`, then the checks.
 
 ## Owner decisions
 
@@ -90,3 +46,8 @@ Then: one full `lein test`, cljs suite and full `lein lint`; push; replies on al
   from `integration` may still say `mark-of`/`with-mark`/`composed`: grep after every merge.
 - Open known bug, not this branch's: My Account is white text in the light theme
   ([my-account-light-theme-white-text.md](../../docs/kb/my-account-light-theme-white-text.md)).
+- `autosave_fx.cljs` differs from `integration` on purpose: the heal re-dispatches
+  `:character-updated` so the portrait draft survives (pinned by `events_test`). Keep ours in merges.
+- Running a browser probe by hand needs `NODE_PATH=$(npm root -g)` and
+  `NODE_OPTIONS=--require test/browser/lib/suppress-overlays-preload.js` (the "What's new" overlay
+  blocks hovers otherwise); `run-browser-probes.js` sets the preload itself.
