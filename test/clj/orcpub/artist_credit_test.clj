@@ -134,7 +134,7 @@
   (with-conn conn
     (add-artist! conn "fusspot" :house-pack)
     (let [told (atom [])]
-      (with-redefs [orcpub.artist-email/credit-changed! #(swap! told conj %)
+      (with-redefs [orcpub.artist-email/credit-changed-tx #(do (swap! told conj %) [])
                     clojure.core/future-call (fn [f] (f) (delay nil))]
         (let [bad (orcpub.routes/update-artist-credit
                    (req conn "fusspot" {:link "http://x.test"}))
@@ -164,8 +164,8 @@
 (defmacro ^:private with-emails
   "Run `body` with credit emails collected in `sent` (as [minute before-name after-name]) instead of sent."
   [sent clock & body]
-  `(with-redefs [orcpub.artist-email/credit-changed!
-                 (fn [e#] (swap! ~sent conj [@~clock (:artist/name (:before e#)) (:artist/name (:after e#))]))
+  `(with-redefs [orcpub.artist-email/credit-changed-tx
+                 (fn [e#] (swap! ~sent conj [@~clock (:artist/name (:before e#)) (:artist/name (:after e#))]) [])
                  orcpub.heartbeat/now (fn [] (at @~clock))
                  clojure.core/future-call (fn [f#] (f#) (delay nil))]
      ~@body))
@@ -306,7 +306,7 @@
 (deftest the-page-switches-arrive-through-the-route
   (with-conn conn
     (add-artist! conn "fusspot" :house-pack)
-    (with-redefs [orcpub.artist-email/credit-changed! (fn [_])
+    (with-redefs [orcpub.artist-email/credit-changed-tx (fn [_] [])
                   clojure.core/future-call (fn [f] (f) (delay nil))]
       (is (= 200 (:status (orcpub.routes/update-artist-credit
                            (req conn "fusspot" {:name "" :link "" :links [] :profile? false :show-count? true})))))

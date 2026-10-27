@@ -415,14 +415,18 @@
                  (println "artist-email: APP_URL is not set; upgrade email not sent")))
    :unlinked (fn [event] (deliver! :unlinked (unlinked-message event) event))})
 
-(defn credit-changed!
-  "Tell the artist and the admin that a credit changed. Unlike the startup
-   emails this needs no APP_URL -- the message reads fine without the link."
+(defn credit-changed-tx
+  "Outbox transaction data telling the artist and the admin that a credit changed (`event`:
+   :artist-id, :user, :before, :after), for the transaction that records the change, so the emails
+   are queued exactly when it commits and retried until sent. [] when email is off. No APP_URL
+   needed: the message reads fine without the link."
   [event]
   (if-not (email-on?)
-    (println "artist-email: email is off; credit change for"
-             (get-in event [:user :orcpub.user/username]) "not announced")
-    (do (send! (credit-changed-message (base-url) event))
-        (if (admin-recipient)
-          (send! (credit-admin-message event))
-          (println "artist-email: no admin address (EMAIL_ADMIN_TO, EMAIL_ERRORS_TO, APP_SUPPORT_EMAIL); admin copy not sent")))))
+    (do (println "artist-email: email is off; credit change for"
+                 (get-in event [:user :orcpub.user/username]) "not announced")
+        [])
+    (let [artist (outbox/email-tx :artist (credit-changed-message (base-url) event))]
+      (if (admin-recipient)
+        [artist (outbox/email-tx :artist (credit-admin-message event))]
+        (do (println "artist-email: no admin address (EMAIL_ADMIN_TO, EMAIL_ERRORS_TO, APP_SUPPORT_EMAIL); admin copy not sent")
+            [artist])))))
