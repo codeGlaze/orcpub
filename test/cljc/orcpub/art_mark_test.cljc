@@ -61,3 +61,15 @@
   (is (nil? (mark/combine-marks [nil nil])) "no marked piece, no mark")
   (is (= "licensed; composed from licensed; pack v1; artist a"
          (mark/combine-marks [nil "licensed; pack v1; artist a" "licensed; pack v1; artist a"]))))
+
+(deftest a-mark-between-the-scans-of-a-progressive-jpeg-is-found
+  (let [com (fn [text] (let [t (map #(#?(:clj int :cljs .charCodeAt) %) (str "orcpub-art" (char 0) text))
+                             n (+ 2 (count t))]
+                         (concat [255 254 (quot n 256) (rem n 256)] t)))
+        sos [255 218 0 8 1 1 0 0 63 0]
+        ;; entropy-coded data with a stuffed FF00, a restart marker and a fill byte, none of them markers
+        data [18 255 0 52 255 208 86 255 255]
+        jpeg (concat [255 216] sos data (com "x") [255 217])]
+    (is (= "x" (mark/read-mark (bytes-of jpeg))) "the comment after the first scan is read")
+    (is (nil? (mark/read-mark (bytes-of (concat [255 216] sos (map #(#?(:clj int :cljs .charCodeAt) %) "orcpub-art") [255 217]))))
+        "the keyword inside image data is not a mark")))

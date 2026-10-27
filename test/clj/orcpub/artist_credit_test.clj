@@ -356,3 +356,16 @@
         (let [{:keys [current locked]} (ac/credit-for-account (d/db conn) id)]
           (is (false? (:artist/profile? current)) "the config cannot force a page on")
           (is (not (contains? locked :artist/profile?)) "so it leaves the switch with the artist"))))))
+
+(deftest the-account-route-carries-the-switches-in-force
+  (with-conn conn
+    (let [id (add-artist! conn "fusspot" :house-pack)]
+      (with-redefs [branding/portrait-artists {:house-pack {:artist/show-links? false}}]
+        (is (false? (get-in (orcpub.routes/artist-credit-body (d/db conn) id) [:current :artist/show-links?]))
+            "what the form starts a locked switch from")))))
+
+(deftest the-deployment-settings-can-switch-a-page-off
+  (is (= {:artist/profile? false :artist/show-links? false}
+         (select-keys (branding/artist-override {:profile false :show_links false :show_count true})
+                      [:artist/profile? :artist/show-links? :artist/show-count?]))
+      "false turns a switch off; true is not a setting, since the site cannot force a page on"))

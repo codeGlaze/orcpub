@@ -11,7 +11,10 @@
       log/error's value instead discards the response: Pedestal then has
       nothing to write and Jetty emits a bare 200. That is what made defect 1
       silent -- the exception was logged, but the response was already gone."
-  (:require [clojure.test :refer [deftest testing is use-fixtures]]
+  (:require [io.pedestal.http]
+            [io.pedestal.test]
+            [orcpub.system]
+            [clojure.test :refer [deftest testing is use-fixtures]]
             [orcpub.pedestal :as pedestal])
   (:import [java.time ZonedDateTime]
            [java.time.format DateTimeFormatter]
@@ -113,3 +116,21 @@
       (is (= "no-referrer"
              (get-in (leave {:response {:status 200 :headers {"Referrer-Policy" "no-referrer"}}})
                      [:response :headers "Referrer-Policy"]))))))
+
+(defn- service-response
+  "The response of a minimal service built the way system.clj builds the real one (default
+   interceptors, then the referrer policy first), for a GET of `path`."
+  [path]
+  (let [with-policy (or (some-> (ns-resolve 'orcpub.system 'with-referrer-policy) deref) identity)
+        service (-> {:io.pedestal.http/routes #{["/here" :get (fn [_] {:status 200 :body "ok"}) :route-name ::here]}
+                     :io.pedestal.http/resource-path "/public"
+                     :io.pedestal.http/type :jetty}
+                    io.pedestal.http/default-interceptors
+                    with-policy
+                    io.pedestal.http/create-servlet
+                    :io.pedestal.http/service-fn)]
+    (io.pedestal.test/response-for service :get path)))
+
+(deftest static-files-and-404s-carry-the-referrer-policy-too
+  (doseq [path ["/favicon.ico" "/no-such-page"]]
+    (is (= "strict-origin-when-cross-origin" (get-in (service-response path) [:headers "Referrer-Policy"])) path)))
