@@ -219,7 +219,14 @@
             ;; trampoline re-execs in a fresh JVM so System/exit propagates
             ;; (without it, lein suppresses the exit code).
             ;; native/ is excluded — directory only exists for React Native builds.
-            "lint" ["trampoline" "with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "test" "web" "--fail-level" "error"]
+            ;; dev/ is linted for its ERRORS. It contributes ~41 warnings that are the
+            ;; scripts' own idiom -- they load-file each other, so re-requiring and
+            ;; re-defining is normal -- and --fail-level error ignores those. Not silenced
+            ;; via :config-in-ns: the scripts have no ns form, so kondo does not resolve
+            ;; them to `user` and the suppression only caught 3 of the 41.
+            ;; Added because this refactor shipped an unbalanced paren in 5 dev scripts
+            ;; across 2 commits, unseen: kondo calls it an error, and dev/ was unlinted.
+            "lint" ["trampoline" "with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "test" "web" "dev" "--fail-level" "error"]
             "prod-build" ^{:doc "Recompile code with prod profile."}
             ["externs"
              ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]]}

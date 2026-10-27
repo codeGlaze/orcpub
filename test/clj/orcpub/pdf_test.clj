@@ -3,15 +3,32 @@
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.java.io :as io]
             [clojure.string :as str]
+            [orcpub.errors :as errors]
             [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw]
+            [orcpub.pdf.cards :as cards]
+            [orcpub.pdf-ops :as ops]
             [orcpub.dnd.e5.spell-packing :as packing])
   (:import (org.apache.pdfbox Loader)
-           (org.apache.pdfbox.cos COSName)
+           (org.apache.pdfbox.cos COSName COSString)
+           (org.apache.pdfbox.pdfparser PDFStreamParser)
+           (org.apache.pdfbox.contentstream.operator Operator)
            (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream PDResources)
            (org.apache.pdfbox.pdmodel.common PDRectangle)
            (org.apache.pdfbox.pdmodel.font PDType1Font Standard14Fonts$FontName)
            (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget)
            (org.apache.pdfbox.pdmodel.interactive.form PDAcroForm PDTextField)))
+
+(def ^:private sans
+  "A Nimbus Sans map for MEASURING only. Drawing with it would register its faces with
+   the drawn document, and a second document's save then throws (see draw/load-sans);
+   a test that draws loads its own."
+  (delay (draw/load-sans (PDDocument.))))
+
+(defn- face
+  "Nimbus Sans `f` (:plain, :bold or :bold-italic) from `sans`, to measure with."
+  [f]
+  (draw/sans @sans f))
 
 (defn- all-fields [form]
   (iterator-seq (.iterator (.getFieldTree form))))
@@ -59,21 +76,22 @@
             "flattened form has no interactive fields left")))))
 
 (deftest write-fields-handles-non-winansi-without-blanking
-  (testing "a field value with smart quotes / CJK is coerced (not thrown on), so the
-            field still gets written — regression for PDFBox 3's WinAnsi encoder"
+  (testing "a field value with CJK is coerced (not thrown on), so the field still gets
+            written -- regression for PDFBox 3's WinAnsi encoder. Smart quotes and the
+            dash were once downgraded too; they are WinAnsi, and Helvetica draws them."
     (with-open [doc (load-template)]
       (let [form (.getAcroForm (.getDocumentCatalog doc))
             fname (.getFullyQualifiedName
                    (->> (all-fields form) (filter #(instance? PDTextField %)) first))]
         (pdf/write-fields! doc {(keyword fname) "“René” — 日"} false {})
-        (is (= "\"René\" -- ?" (.getValueAsString (.getField form fname)))
-            "smart quotes/dash downgraded, CJK -> '?', Latin-1 kept")))))
+        (is (= "“René” — ?" (.getValueAsString (.getField form fname)))
+            "punctuation kept, CJK -> '?': Nimbus Sans has no CJK either")))))
 
 (deftest make-image-loader-embeds-once
   (testing "the per-document loader memoizes: the same icon path returns the SAME
             embedded image object (embedded/decoded once, referenced thereafter)"
     (with-open [doc (PDDocument.)]
-      (let [img (pdf/make-image-loader doc)
+      (let [img (draw/make-image-loader doc)
             a (img "public/image/shiny-purse.png")
             b (img "public/image/shiny-purse.png")]
         (is (identical? a b) "same path -> same PDImageXObject, not a re-embed")))))
@@ -83,21 +101,21 @@
             renders a spell without throwing (load-fonts + icon embed hoisted out)"
     (with-open [doc (PDDocument.)]
       (.addPage doc (PDPage.))
-      (let [fonts (pdf/load-fonts doc)
-            img (pdf/make-image-loader doc)
+      (let [fonts (draw/load-fonts doc)
+            img (draw/make-image-loader doc)
             page (.getPage doc 0)]
         (with-open [cs (PDPageContentStream. doc page)]
           (let [spell [{:spell {:name "Bolt" :level 1 :school "evocation"
                                 :components {:verbal true}}
                         :class-nm "Wizard" :dc 13 :attack-bonus 5}]]
             (is (sequential?
-                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false false false))
+                 (cards/print-spells cs doc fonts img 2.5 3.5 spell 0 false false false))
                 "color icons: returns the remaining-lines sequence without throwing")
             (is (sequential?
-                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false true false))
+                 (cards/print-spells cs doc fonts img 2.5 3.5 spell 0 false true false))
                 "B&W solid: solid-black -bw icons + halo labels, renders without throwing")
             (is (sequential?
-                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false true true))
+                 (cards/print-spells cs doc fonts img 2.5 3.5 spell 0 false true true))
                 "B&W faded: grayscale icons (reduced alpha), renders without throwing")))))))
 
 (deftest print-backs-renders-with-optional-logo
@@ -106,23 +124,24 @@
             printing; the grayscale/black choice is a caller-resolved resource)"
     (with-open [doc (PDDocument.)]
       (.addPage doc (PDPage.))
-      (let [fonts (pdf/load-fonts doc)
-            img (pdf/make-image-loader doc)
+      (let [fonts (draw/load-fonts doc)
+            img (draw/make-image-loader doc)
             page (.getPage doc 0)
             lines (vec (repeat 9 {:remaining-lines ["overflow line"] :spell-name "Bolt"}))]
         (with-open [cs (PDPageContentStream. doc page)]
-          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-bw.png"))
+          (is (sequential? (cards/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-bw.png"))
               "grayscale logo on")
-          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-black.png"))
+          (is (sequential? (cards/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-black.png"))
               "solid-black logo on")
-          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 nil))
+          (is (sequential? (cards/print-backs cs fonts img 2.5 3.5 lines 0 nil))
               "logo off"))))))
 
 (deftest normalize-text-coerces-to-winansi
-  (testing "unit: smart punctuation downgraded, controls dropped, non-Latin-1 -> '?'"
-    (let [nt #'orcpub.pdf/normalize-text]
-      (is (= "'q' \"d\" - -- ..."
-             (nt "‘q’ “d” – — …")))
+  (testing "unit: WinAnsi punctuation kept, controls dropped, the rest -> '?'"
+    ;; Reversed 2026-10-21: this asserted the punctuation was downgraded, on the belief
+    ;; that WinAnsi meant U+0000-U+00FF. See winansi_test.
+    (let [nt #'orcpub.pdf.draw/normalize-text]
+      (is (= "‘q’ “d” – — …" (nt "‘q’ “d” – — …")))
       (is (= "ab c" (nt "ab\tc")) "BEL dropped, tab -> space")
       (is (= "??" (nt "日本")) "CJK -> placeholders, no throw")
       (is (nil? (nt nil))))))
@@ -131,7 +150,7 @@
   (testing "Font creation and ability to print latin and cyrillic characters"
     (let [^PDDocument doc (PDDocument.)
           ^PDPage page (PDPage.)
-          fonts (pdf/load-fonts doc)
+          fonts (draw/load-fonts doc)
           required-keys [:plain :bold :italic :bold-italic]]
       (is (every? some? (map fonts required-keys)))
       (.addPage doc page)
@@ -261,22 +280,22 @@
     (let [;; roughly the bonds/ideals/flaws box
           w 149.0 h 31.0]
       (testing "short text fits whole"
-        (let [{:keys [head tail]} (pdf/fit-text "Owes a patron he has never seen." w h)]
+        (let [{:keys [head tail]} (pdf/fit-text (face :plain) "Owes a patron he has never seen." w h)]
           (is (nil? tail))
           (is (= "Owes a patron he has never seen." head))))
       (testing "long text splits, and nothing is lost between head and tail"
         (let [words (str/join " " (map #(str "w" %) (range 200)))
-              {:keys [head tail]} (pdf/fit-text words w h)]
+              {:keys [head tail]} (pdf/fit-text (face :plain) words w h)]
           (is (some? tail) "200 words cannot fit a three-line box at 7pt")
           (is (= words (str/join " " [head tail]))
               "head and tail together reproduce the input exactly")))
       (testing "blank and nil are handled without blowing up"
-        (is (= {:head "" :tail nil :lines 0} (pdf/fit-text "" w h)))
-        (is (= {:head "" :tail nil :lines 0} (pdf/fit-text nil w h))))
+        (is (= {:head "" :tail nil :lines 0} (pdf/fit-text (face :plain) "" w h)))
+        (is (= {:head "" :tail nil :lines 0} (pdf/fit-text (face :plain) nil w h))))
       (testing "a bigger box holds more of the same text"
         (let [words (str/join " " (map #(str "w" %) (range 200)))
-              small (pdf/fit-text words w h)
-              large (pdf/fit-text words 350.0 300.0)]
+              small (pdf/fit-text (face :plain) words w h)
+              large (pdf/fit-text (face :plain) words 350.0 300.0)]
           (is (> (count (:head large)) (count (:head small)))))))))
 
 (deftest widget-box-measures-the-on-page-widget
@@ -303,7 +322,7 @@
                            (if (>= (inc lo) hi)
                              lo
                              (let [mid (quot (+ lo hi) 2)]
-                               (if (nil? (:tail (apply pdf/fit-text (lines-of mid) box)))
+                               (if (nil? (:tail (apply pdf/fit-text (face :plain) (lines-of mid) box)))
                                  (recur mid hi)
                                  (recur lo mid)))))))]
         (doseq [[field-name expected] {"ideals" 3
@@ -324,8 +343,8 @@
             `lines` without bound. Reachable from /character.pdf, which is
             unauthenticated: draw-text-to-box renders custom spell names into a
             roughly two-inch card box."
-    (let [result (future (pdf/split-lines "supercalifragilisticexpialidocious tail"
-                                          pdf/HELVETICA 8.0 0.2))
+    (let [result (future (draw/split-lines "supercalifragilisticexpialidocious tail"
+                                          (face :plain) 8.0 0.2))
           value (deref result 5000 ::timed-out)]
       (when (= ::timed-out value) (future-cancel result))
       (is (not= ::timed-out value) "split-lines must terminate")
@@ -338,9 +357,9 @@
             own line. Wrapping must not flatten them."
     (let [text "FIRST\nalpha beta\n\nSECOND\ndelta"]
       (testing "kept intact when everything fits"
-        (is (= text (:head (pdf/fit-text text 300.0 60.0)))))
+        (is (= text (:head (pdf/fit-text (face :plain) text 300.0 60.0)))))
       (testing "kept on both sides of a split"
-        (let [{:keys [head tail]} (pdf/fit-text text 300.0 12.0)]
+        (let [{:keys [head tail]} (pdf/fit-text (face :plain) text 300.0 12.0)]
           (is (some? tail))
           (is (str/includes? (str head tail) "\n")
               "breaks survive rather than being joined with spaces"))))))
@@ -511,7 +530,7 @@
                     (let [size (baked-size form nm)
                           widget (first (.getWidgets (.getField form nm)))
                           available (- (.getWidth (.getRectangle widget)) 2.0)]
-                      (<= (* 72.0 (pdf/string-width value pdf/HELVETICA size)) available)))]
+                      (<= (* 72.0 (draw/string-width value (face :plain) size)) available)))]
         (is (= 8.0 (baked-size form "int-save"))
             "a value that already fits is left at the size PDFBox chose")
         (is (< (baked-size form "wis-save") 8.0) "a wide value is shrunk")
@@ -552,12 +571,27 @@
           (is (nil? (pdf/spell-level-numeral-box doc 12 1))))))))
 
 (defn- drawn-text
-  "The strings a field's generated appearance actually shows."
+  "The strings a field's generated appearance actually shows, decoded through the font
+   it sets. The form is in embedded Nimbus Sans, a Type0 font, so a shown string's bytes
+   are glyph codes: read as text, a drawn \"4\" looked like nothing was drawn."
   [form field-name]
   (let [widget (first (.getWidgets (.getField form field-name)))
-        stream (.getAppearanceStream (.getNormalAppearance (.getAppearance widget)))]
-    (with-open [in (.createInputStream (.getCOSObject stream))]
-      (map second (re-seq #"\(([^)]*)\)\s*Tj" (String. (.readAllBytes in) "ISO-8859-1"))))))
+        stream (.getAppearanceStream (.getNormalAppearance (.getAppearance widget)))
+        res (or (.getResources stream) (.getDefaultResources form))]
+    (loop [[t & more] (seq (.parse (PDFStreamParser. stream))), args [], font nil, out []]
+      (cond
+        (nil? t) out
+        (not (instance? Operator t)) (recur more (conj args t) font out)
+        (= "Tf" (.getName ^Operator t))
+        (recur more [] (or (.getFont res (first args)) (.getFont (.getDefaultResources form) (first args))) out)
+        (and (= "Tj" (.getName ^Operator t)) font (instance? COSString (last args)))
+        (let [in (java.io.ByteArrayInputStream. (.getBytes ^COSString (last args)))
+              text (apply str (loop [acc []]
+                                (if (pos? (.available in))
+                                  (recur (conj acc (.toUnicode font (.readCode font in))))
+                                  acc)))]
+          (recur more [] font (conj out text)))
+        :else (recur more [] font out)))))
 
 (deftest slot-totals-and-expended-reach-the-page
   (testing "SLOTS TOTAL is spell-slots-<level>-<class> and SLOTS EXPENDED is a
@@ -747,10 +781,47 @@
         (with-open [in (.openStream (io/resource source))
                     doc (Loader/loadPDF (.readAllBytes in))]
           (pdf/grow-spell-sections! doc casters (if (zero? casters) :all marks))
-          (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
-          (doseq [i (range (.getNumberOfPages doc))]
-            (is (= 1 (count (re-seq (re-pattern pdf/site-stamp) (page-text doc i))))
-                (str "style " style ", " casters " caster(s), page " (inc i)))))))))
+          (pdf/stamp-site-line! doc (draw/load-sans doc) site-line
+                                (pdf/site-line-pages doc (boolean prints-site-line?)))
+          (with-open [saved (ops/reloaded doc)]
+            (doseq [i (range (.getNumberOfPages saved))]
+              (is (= 1 (count (re-seq (re-pattern draw/site-stamp) (page-text saved i))))
+                  (str "style " style ", " casters " caster(s), page " (inc i))))))))))
+
+(deftest a-page-added-after-the-scan-is-stamped
+  ;; The scan runs before anything is drawn (reading text drawn in a not-yet-embedded
+  ;; font logs a fallback warning per face), so pages the export adds later -- the
+  ;; overflow pages -- are absent from it and must still get the line.
+  (let [{:keys [file marks site-line]} (get pdf/sheet-masters 4)]
+    (with-open [in (.openStream (io/resource file))
+                doc (Loader/loadPDF (.readAllBytes in))]
+      (pdf/grow-spell-sections! doc 1 marks)
+      (let [printed (pdf/site-line-pages doc true)]
+        (is (seq printed) "style 4's spell pages print their own")
+        (.addPage doc (PDPage.))
+        (pdf/stamp-site-line! doc (draw/load-sans doc) site-line printed)
+        (with-open [saved (ops/reloaded doc)]
+          (doseq [i (range (.getNumberOfPages saved))]
+            (is (= 1 (count (re-seq (re-pattern draw/site-stamp) (page-text saved i))))
+                (str "page " (inc i)))))))))
+
+(deftest an-overflow-copy-of-an-artwork-page-is-not-stamped-again
+  ;; spill-overflow! copies style 4's continuation page, which prints its own site line,
+  ;; after the scan: each copy shares that page's artwork, so it counts as printed too.
+  (let [{:keys [without-casters site-line]} (get pdf/sheet-masters 4)]
+    (with-open [in (.openStream (io/resource without-casters))
+                doc (Loader/loadPDF (.readAllBytes in))]
+      (pdf/grow-spell-sections! doc 0 :all)
+      (let [printed (pdf/site-line-pages doc true)
+            before (.getNumberOfPages doc)]
+        (pdf/spill-overflow! doc {:features-and-traits
+                                  (str/join " " (repeat 300 "Overflowing feature text."))})
+        (is (> (.getNumberOfPages doc) before) "the text spilled onto added pages")
+        (pdf/stamp-site-line! doc (draw/load-sans doc) site-line printed)
+        (with-open [saved (ops/reloaded doc)]
+          (doseq [i (range (.getNumberOfPages saved))]
+            (is (= 1 (count (re-seq (re-pattern draw/site-stamp) (page-text saved i))))
+                (str "page " (inc i)))))))))
 
 (defn- ink-free?
   "Whether the stamp-sized box at `x`,`y` inches from the page's bottom-left is
@@ -761,7 +832,7 @@
   (let [dpi 300.0
         img (.renderImageWithDPI (org.apache.pdfbox.rendering.PDFRenderer. doc)
                                  index (float dpi))
-        w (pdf/string-width pdf/site-stamp pdf/HELVETICA 6)
+        w (draw/string-width draw/site-stamp (face :plain) 6)
         h (/ 8.0 72)
         height (.getHeight img)
         x0 (int (* x dpi))
@@ -943,6 +1014,29 @@
                      "\n  declared unsupported: " (pr-str (sort declared))
                      "\n  actually dropped:     " (pr-str (sort dropped))))))))))
 
+(deftest a-declared-unsupported-field-is-not-a-degraded-export
+  ;; The notice page exists to say an export lost something. Style 4 has no inspiration
+  ;; box BY DESIGN -- unsupported-fields declares it, and the guard above asserts it --
+  ;; so noting it put "Some of this export did not fit" in front of every style 4 sheet.
+  (testing "style 4's declared drop raises no notice"
+    (let [{:keys [file]} (get pdf/sheet-masters 4)]
+      (with-open [in (.openStream (io/resource file))
+                  doc (Loader/loadPDF (.readAllBytes in))]
+        (binding [errors/*notices* (atom [])]
+          (let [fields (pdf/merge-style-fields 4 (filled-to-capacity 4))
+                dropped (set (pdf/write-fields! doc fields false {}
+                                                (get pdf/unsupported-fields 4)))]
+            (is (= #{"inspiration"} dropped) "it is still dropped, and still logged")
+            (is (empty? (errors/notices)) "but it is not reported as a loss"))))))
+  (testing "an undeclared drop still raises one, so the guard is not vacuous"
+    (let [{:keys [file]} (get pdf/sheet-masters 4)]
+      (with-open [in (.openStream (io/resource file))
+                  doc (Loader/loadPDF (.readAllBytes in))]
+        (binding [errors/*notices* (atom [])]
+          (pdf/write-fields! doc {:no-such-field-at-all "x"} false {}
+                             (get pdf/unsupported-fields 4))
+          (is (= ["Sheet fields"] (mapv :what (errors/notices)))))))))
+
 (deftest merge-style-fields-folds-sections-into-one-box
   (testing "a style with no shared box passes its fields through untouched"
     (let [fields {:backstory "b" :allies "a" :character-name "n"}]
@@ -1041,7 +1135,7 @@
           (pdf/reserve-annotation-columns! doc)
           (is (< (Math/abs (- before (wide))) 0.01)
               (str "style " style " keeps its compartment"))
-          (is (= "Warlock" (:label (@#'pdf/fit-heading "Warlock" (- (wide) 6.0))))
+          (is (= "Warlock" (:label (@#'pdf/fit-heading (face :bold) "Warlock" (- (wide) 6.0))))
               (str "style " style " fits a class name")))))))
 
 (deftest a-filled-row-keeps-its-name-clear-of-the-columns
@@ -1073,7 +1167,7 @@
                       size (some-> (re-find #"/\S+\s+([0-9.]+)\s+Tf" (String. (.toByteArray b)))
                                    second Double/parseDouble)]
                   (when size
-                    (is (<= (* 72 (pdf/string-width v pdf/HELVETICA size))
+                    (is (<= (* 72 (draw/string-width v (face :plain) size))
                             (.getWidth r))
                         (str "style " style " " n " \"" v "\" at " size "pt"))))))))))))
 
@@ -1113,7 +1207,7 @@
       (pdf/grow-spell-sections! doc 2 :all)
       (let [[applied refused]
             (pdf/apply-relabel-instructions!
-             doc
+             doc (draw/load-sans doc)
              [{:section 1 :box 5 :label "2"}
               {:section 9 :box 1 :label "1"}
               {:section 1 :box 99 :label "1"}
@@ -1130,7 +1224,7 @@
                 doc (Loader/loadPDF (.readAllBytes in))]
       (pdf/grow-spell-sections! doc 1 :all)
       (let [flood (repeat 5000 {:section 1 :box 5 :label "2"})
-            [applied refused] (pdf/apply-relabel-instructions! doc flood 1)]
+            [applied refused] (pdf/apply-relabel-instructions! doc (draw/load-sans doc) flood 1)]
         (is (= 10 applied) "capped at the ten level boxes a page has")
         (is (= 4990 refused))))))
 
@@ -1138,14 +1232,14 @@
   ;; Class names are not a fixed length -- Bard against Eldritch Knight -- and the
   ;; compartment is. A single size either wastes the room or runs the name through
   ;; the bar's divider, which is what 9.5pt in a level box's 35pt compartment did.
-  (let [size #'pdf/heading-size]
+  (let [size (partial #'pdf/heading-size (face :bold))]
     (testing "a name that fits is drawn at the target size"
       (is (= @#'pdf/heading-target-size (size "Bard" 60.0))))
     (testing "a name too wide is scaled down"
       (is (< (size "Eldritch Knight" 35.0) @#'pdf/heading-target-size)))
     (testing "and never below the floor, where it stops reading as a heading"
       (is (= 6.0 (size "A Very Long Homebrew Class Name Indeed" 10.0)))))
-  (let [fit #'pdf/fit-heading]
+  (let [fit (partial #'pdf/fit-heading (face :bold))]
     (testing "a name that fits is left alone"
       (is (= {:label "Bard" :size @#'pdf/heading-target-size} (fit "Bard" 60.0))))
     (testing "a name too long even at the floor is shortened, not overflowed"
@@ -1154,12 +1248,12 @@
       (let [{:keys [label size]} (fit "Eldritch Knight" 35.0)]
         (is (not= "Eldritch Knight" label))
         (is (clojure.string/ends-with? label "\u2026"))
-        (is (<= (* 72 (pdf/string-width label pdf/HELVETICA_BOLD size)) 35.0))))
+        (is (<= (* 72 (draw/string-width label (face :bold) size)) 35.0))))
     (testing "every real class name fits a level box's compartment"
       (doseq [nm ["Bard" "Cleric" "Druid" "Paladin" "Ranger" "Sorcerer" "Warlock"
                   "Wizard" "Arcane Trickster" "Eldritch Knight"]]
         (let [{:keys [label size]} (fit nm 35.0)]
-          (is (<= (* 72 (pdf/string-width label pdf/HELVETICA_BOLD size)) 35.0)
+          (is (<= (* 72 (draw/string-width label (face :bold) size)) 35.0)
               (str nm " -> " label)))))))
 
 (deftest a-label-on-box-0-is-refused
@@ -1174,7 +1268,7 @@
                 doc (Loader/loadPDF (.readAllBytes in))]
       (pdf/grow-spell-sections! doc 1 marks)
       (let [[applied refused] (pdf/apply-relabel-instructions!
-                               doc [{:section 1 :box 0 :label "1"}
+                               doc (draw/load-sans doc) [{:section 1 :box 0 :label "1"}
                                     {:section 1 :box 0 :label nil}] 1 3)]
         (is (= 1 applied) "the blank is applied")
         (is (= 1 refused) "the label is refused")))))
@@ -1196,7 +1290,7 @@
           (pdf/grow-spell-sections! doc 1 marks)
           (let [[applied refused]
                 (pdf/apply-relabel-instructions!
-                 doc [{:section 1 :box 5 :label "2"}] 1 style)]
+                 doc (draw/load-sans doc) [{:section 1 :box 5 :label "2"}] 1 style)]
             (is (= 1 applied) (str "style " style))
             (is (zero? refused) (str "style " style)))))))
   (testing "an unmeasured style applies no relabel rather than printing a lie"
@@ -1206,7 +1300,7 @@
                   doc (Loader/loadPDF (.readAllBytes in))]
         (pdf/grow-spell-sections! doc 1 marks)
         (let [[applied refused] (pdf/apply-relabel-instructions!
-                                 doc [{:section 1 :box 5 :label "2"}] 1 5)]
+                                 doc (draw/load-sans doc) [{:section 1 :box 5 :label "2"}] 1 5)]
           (is (zero? applied))
           (is (= 1 refused)))))))
 
