@@ -65,6 +65,12 @@
    ;; See orcpub.config/get-secure-headers-config
    })
 
+(defn with-static-caching
+  "The service map with pedestal/static-cache-interceptor at the front of its chain, ahead of the
+   static file handler."
+  [service-map]
+  (update service-map ::http/interceptors #(into [pedestal/static-cache-interceptor] %)))
+
 (defn with-client-address
   "The service map with the player's-address interceptor first in its chain, so every limit and
    log line sees the player rather than the proxy (orcpub.client-address)."
@@ -142,6 +148,7 @@
               prod-service-map
               (when (= :dev env) dev-service-map-overrides))
       true http/default-interceptors
+      true with-static-caching
       true with-portrait-guard
       true with-client-address
       (= :dev env) http/dev-interceptors)

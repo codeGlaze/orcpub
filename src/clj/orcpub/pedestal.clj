@@ -1,5 +1,6 @@
 (ns orcpub.pedestal
   (:require [com.stuartsierra.component :as component]
+            [clojure.java.io :as io]
             [io.pedestal.http :as http]
             [io.pedestal.interceptor :as interceptor]
             [io.pedestal.log :as log]
@@ -78,6 +79,50 @@
 
 ;; Create the nonce interceptor with current dev-mode? setting
 (def nonce-interceptor (make-nonce-interceptor (config/dev-mode?)))
+
+(defn- read-content-stamp
+  "The first 12 hex digits of the SHA-1 of the public resource at `path`, or nil when it is missing."
+  [path]
+  (when-let [r (io/resource (str "public" path))]
+    (with-open [in (io/input-stream r)] (subs (sha1 in) 0 12))))
+
+(def content-stamp
+  "The content stamp of public file `path` (read-content-stamp), remembered: files do not change
+   while the server runs. index/asset-url puts it in addresses as ?v=."
+  (memoize read-content-stamp))
+
+(defn static-cache-control
+  "The Cache-Control for a static file response at `uri`, or nil to leave the response alone.
+   `stamp` is :current when the request's ?v= is this file's content stamp (kept a year: that
+   address names exactly this file), :stale when it names another build (rechecked), else nil.
+   Unstamped compiled files are rechecked every time; images, fonts and vendored assets kept a week."
+  [uri stamp]
+  (cond
+    (and (= :current stamp) (re-find #"^/(js|css)/" uri)) "public, max-age=31536000, immutable"
+    (and (= :stale stamp) (re-find #"^/(js|css)/" uri))   "no-cache"
+    (re-find #"^/(js|css)/compiled/" uri)       "no-cache"
+    (re-find #"^/(image|fonts|assets|favicon)/" uri) "public, max-age=604800"
+    (re-find #"^/(js|css)/[^/]+$" uri)          "public, max-age=86400"))
+
+(defn make-static-cache-interceptor
+  "Interceptor that sets Cache-Control (static-cache-control) on a successful GET of a static file
+   whose response sets none. Does nothing when `dev-mode?`, where Figwheel rewrites the files.
+   GOTCHA: Pedestal's static files answer ahead of every route, so this must be FIRST in the chain
+   (system/with-static-caching) for its :leave to see them."
+  [dev-mode?]
+  (interceptor/interceptor
+   {:name ::static-cache
+    :leave (fn [ctx]
+             (let [{:keys [request-method uri query-string]} (:request ctx)
+                   {:keys [status headers]} (:response ctx)
+                   cc (when (and (not dev-mode?) (= :get request-method) (= 200 status)
+                                 (not (get headers "Cache-Control")))
+                        (static-cache-control (str uri)
+                                              (when-let [v (some->> query-string (re-find #"(?:^|&)v=([^&]*)") second)]
+                                                (if (= v (content-stamp uri)) :current :stale))))]
+               (cond-> ctx cc (assoc-in [:response :headers "Cache-Control"] cc))))}))
+
+(def static-cache-interceptor (make-static-cache-interceptor (config/dev-mode?)))
 
 (def etag-interceptor
   (interceptor/interceptor
