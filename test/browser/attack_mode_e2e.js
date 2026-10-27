@@ -85,7 +85,7 @@ function check(name, pass, detail) {
   }
   const menu = page.locator('.weapon-menu');
   check('a long press opens the modes', await menu.getByRole('menuitem', { name: /Disadvantage/ }).waitFor({ timeout: 5000 }).then(() => true, () => false));
-  check('in the bottom sheet, on a phone', await page.locator('.weapon-mode-sheet .weapon-menu').count() === 1);
+  check('in the bottom sheet, on a phone', await page.locator('.weapon-menu-sheet .weapon-menu').count() === 1);
   check('and does not roll', await sheet.count() === 0);
   await shot('long-press');
   await menu.getByRole('menuitem', { name: /Disadvantage/ }).click({ timeout: 5000 }).catch(() => {});

@@ -255,6 +255,7 @@ async function layout(page, theme) {
     check('Enter opens the menu on Roll damage',
           await holyRow.locator('.weapon-menu').waitFor({ timeout: 5000 }).then(() => true, () => false)
           && /^Roll damage/.test(await focused()));
+    check('on a phone it opens in the bottom sheet', await page.locator('.weapon-menu-sheet .weapon-menu').count() === 1);
     await page.keyboard.press('ArrowDown');
     check('Down moves to the next item', /^Roll vs fiends and undead/.test(await focused()));
     await page.keyboard.press('Escape');
