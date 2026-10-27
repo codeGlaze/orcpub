@@ -133,6 +133,13 @@ and its Remove, Undo and Save) is in flight and carries #67's `picks.cljc`.
 **Open for the owner:** do the hold and the rescue share one mechanism or two? The rescue agent's
 view is two: the hold decides what the built character applies; Data View edits what is stored.
 
+### Someday — when there is a session to spare
+
+- **Trim the app bundle** (owner, 2026-10-27). The compressed `orcpub.js` grew from 842 KB to
+  870 KB with #69, #75, #63 and #76 (measured by #66's `test/browser/page_load_budget_e2e.js`).
+  Look for code a page loads but never runs, and for large dependencies, before raising the ceiling
+  again.
+
 ### Deferred to the refactor — known, not yet owned
 
 - **Multi-tab character contamination** (#704) —
