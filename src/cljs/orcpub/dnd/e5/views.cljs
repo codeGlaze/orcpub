@@ -4311,7 +4311,7 @@
           [section-header "crossed-swords" "Weapons"]
           (let [mode @(subscribe [:weapon-roll/mode])]
             (into [:div.rest-segs.weapon-mode {:role "radiogroup" :aria-label "Attack rolls"}]
-                  (for [[m label shown] [[:normal "Normal" "\u2014"] [:adv "Advantage" "Adv"] [:dis "Disadvantage" "Dis"]]]
+                  (for [[m label shown] [[:normal "Normal" [:i.fas.fa-dice-d20 {:aria-hidden true}]] [:adv "Advantage" "Adv"] [:dis "Disadvantage" "Dis"]]]
                     ^{:key m}
                     [:button.rest-seg {:type "button" :role "radio" :aria-checked (= m mode) :aria-label label :title label
                                        :class (when (= m mode) (if (= :normal m) "none-on" "on"))

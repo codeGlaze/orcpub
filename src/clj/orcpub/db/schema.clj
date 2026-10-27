@@ -431,18 +431,21 @@
      ::mi5e/string-arg
      ::mi5e/charges-start
      ::mi5e/charges-regain
-     ::mi5e/text])
+     ::mi5e/text
+     ::mi5e/toggle-name])
    (map
     many-ref-no-history
     [::mod/args
      ::mi5e/modifiers
      ::mi5e/casts
      ::mi5e/extra-damage
-     ::mi5e/effects])
+     ::mi5e/effects
+     ::mi5e/toggles])
    (map
     many-kws-no-history
     [::mi5e/subtypes
-     ::mi5e/attunement])
+     ::mi5e/attunement
+     ::mi5e/against])
    (map
     long-prop-no-history
     [::mod/int-arg
@@ -469,7 +472,12 @@
      ::mi5e/recharge
      ::mi5e/effect-type
      ::mi5e/save-ability
-     ::mi5e/save-fail])))
+     ::mi5e/save-fail
+     ::mi5e/while
+     ::mi5e/attack-type
+     ::mi5e/next-attack
+     ::mi5e/extra-attack
+     ::mi5e/toggle-id])))
 
 (def weapon-schema
   (concat

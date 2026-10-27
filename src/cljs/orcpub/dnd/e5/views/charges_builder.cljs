@@ -14,6 +14,7 @@
             [orcpub.dnd.e5.weapons :as weapons]
             [orcpub.dnd.e5.damage-types :as damage-types5e]
             [orcpub.dnd.e5.srd-conditions :as srd-conditions]
+            [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.views.builder-fields :refer [base-builder-field input-builder-field
                                                         dropdown number-field]]))
 
@@ -191,7 +192,31 @@
              (fn [row]
                (let [row (if (or (nil? v) (= "" v)) (dissoc row k) (assoc row k v))]
                  (cond-> row
-                   (= ::mi/save-ability k) (assoc ::mi/effect-type (if (::mi/save-ability row) :save :condition)))))))
+                   (= ::mi/save-ability k) (assoc ::mi/effect-type (if (::mi/save-ability row) :save :condition))
+                   (and (= ::mi/against k) (keyword? v)) (assoc ::mi/against #{v}))))))
+
+(defn add-toggle
+  "`item` with a new switch the player can turn on (Flame Tongue's \"Ablaze\"), named `nm`. Its id
+  is made once and kept, so renaming it keeps the rows that apply while it is on."
+  [item nm]
+  (let [ids (set (map ::mi/toggle-id (::mi/toggles item)))
+        id (first (remove ids (map #(keyword (str "switch-" %)) (range))))]
+    (update item ::mi/toggles (fnil conj []) {::mi/toggle-id id ::mi/toggle-name nm})))
+
+(defn remove-toggle
+  "`item` without its `i`th switch, and without that switch on any extra damage or effect row."
+  [item i]
+  (let [id (get-in item [::mi/toggles i ::mi/toggle-id])
+        toggles (vec (concat (subvec (::mi/toggles item) 0 i) (subvec (::mi/toggles item) (inc i))))
+        unhook (fn [rows] (mapv #(if (= id (::mi/while %)) (dissoc % ::mi/while) %) rows))]
+    (cond-> (if (seq toggles) (assoc item ::mi/toggles toggles) (dissoc item ::mi/toggles))
+      (::mi/extra-damage item) (update ::mi/extra-damage unhook)
+      (::mi/effects item) (update ::mi/effects unhook))))
+
+(reg-event-db ::mi/add-item-toggle events/item-interceptors (fn [item _] (add-toggle item "Switch")))
+(reg-event-db ::mi/remove-item-toggle events/item-interceptors (fn [item [_ i]] (remove-toggle item i)))
+(reg-event-db ::mi/set-item-toggle-name events/item-interceptors
+              (fn [item [_ i nm]] (assoc-in item [::mi/toggles i ::mi/toggle-name] nm)))
 
 (reg-event-db
  ::mi/add-item-power
@@ -227,11 +252,25 @@
    {:value (name ::units5e/dawn) :title "Once per dawn"}])
 
 (defn- power-row
-  "The controls shared by a power row: when it applies, how often, and its charge cost. Takes the
-  kind, the position and the row."
-  [kind i row]
-  (let [setter (fn [k f] #(dispatch [::mi/set-item-power kind i k (f %)]))]
+  "The controls shared by a power row: when it applies (a hit, miss or crit, while a switch is on,
+  against a creature type, melee or ranged), how often, and its charge cost. Takes the kind, the
+  position, the row and the item's switches."
+  [kind i row toggles]
+  (let [setter (fn [k f] #(dispatch [::mi/set-item-power kind i k (f %)]))
+        kw-or-nil #(when-not (s/blank? %) (keyword %))]
     [:<>
+     (when (seq toggles)
+       [:div.item-cast-number.wide (base-builder-field "While" [dropdown {:items (cons {:value "" :title "Always"}
+                                                                                        (map (fn [t] {:value (name (::mi/toggle-id t)) :title (::mi/toggle-name t)}) toggles))
+                                                                           :value (some-> (::mi/while row) name)
+                                                                           :on-change (setter ::mi/while kw-or-nil)}])])
+     [:div.item-cast-number.wide (base-builder-field "Only against" [dropdown {:items (cons {:value "" :title "Any creature"}
+                                                                                            (map (fn [t] {:value (name t) :title (common/kw-to-name t)}) monsters/monster-types))
+                                                                               :value (some-> (::mi/against row) first name)
+                                                                               :on-change (setter ::mi/against kw-or-nil)}])]
+     [:div.item-cast-number.wide (base-builder-field "Attack" [dropdown {:items [{:value "" :title "Melee or ranged"} {:value "melee" :title "Melee only"} {:value "ranged" :title "Ranged only"}]
+                                                                         :value (some-> (::mi/attack-type row) name)
+                                                                         :on-change (setter ::mi/attack-type kw-or-nil)}])]
      [:div.item-cast-number.wide (base-builder-field "When" [dropdown {:items when-options :value (some-> (::mi/on row) name)
                                                                        :on-change (setter ::mi/on #(when-not (s/blank? %) (keyword %)))}])]
      [:div.item-cast-number.wide (base-builder-field "Uses" [dropdown {:items use-options :value (some-> (::mi/recharge row) name)
@@ -242,7 +281,7 @@
 
 (defn powers-group
   "The item builder's Weapon powers group for `item`: extra damage rows and effect rows."
-  [{:keys [::mi/extra-damage ::mi/effects]}]
+  [{:keys [::mi/extra-damage ::mi/effects ::mi/toggles]}]
   (let [types (cons {:value "" :title "Weapon's type"}
                     (map (fn [t] {:value (name t) :title (common/kw-to-name t)}) damage-types5e/damage-types))
         abilities (cons {:value "" :title "No save"}
@@ -251,6 +290,15 @@
         conditions (cons {:value "" :title "No condition"} (map (fn [c] {:value (name c) :title (common/kw-to-name c)}) (sort srd-conditions/condition-keys)))]
     [:div.m-b-40.item-powers-builder
      [:div.m-b-10 [:span.f-s-24.f-w-b "Weapon powers"]]
+     [:div.f-w-b.m-b-5 "Switches"]
+     [:div.item-cast-hint.m-b-5 "Something the player turns on, such as a blade set ablaze; a power can apply only while it is on."]
+     (doall (map-indexed (fn [i t]
+                           ^{:key i}
+                           [:div.flex.align-items-end.item-cast-row
+                            [:div.item-cast-number.wide [input-builder-field "Switch" (::mi/toggle-name t) #(dispatch [::mi/set-item-toggle-name i %]) {:class "input"}]]
+                            [:button.form-button.item-cast-remove {:on-click #(dispatch [::mi/remove-item-toggle i])} "Remove"]])
+                         toggles))
+     [:button.form-button.m-t-5.m-b-10 {:on-click #(dispatch [::mi/add-item-toggle])} "Add a switch"]
      [:div.f-w-b.m-b-5 "Extra damage"]
      (doall
       (map-indexed
@@ -264,7 +312,7 @@
              #(dispatch [::mi/set-item-power-dice i %]) {:class "input" :placeholder "2d6"}]]
            [:div.item-cast-number.wide (base-builder-field "Type" [dropdown {:items types :value (some-> (::weapons/damage-type row) name)
                                                                              :on-change #(dispatch [::mi/set-item-power ::mi/extra-damage i ::weapons/damage-type (when-not (s/blank? %) (keyword %))])}])]
-           [power-row ::mi/extra-damage i row]]])
+           [power-row ::mi/extra-damage i row toggles]]])
        extra-damage))
      [:button.form-button.m-t-5.m-b-10 {:on-click #(dispatch [::mi/add-item-power ::mi/extra-damage])} "Add extra damage"]
      [:div.f-w-b.m-b-5.m-t-10 "Effects"]
@@ -283,6 +331,12 @@
                                                                                   :on-change #(dispatch [::mi/set-item-power ::mi/effects i ::mi/save-dc (when (and % (pos? %)) %)])}])]
               [:div.item-cast-number.wide (base-builder-field "On a failed save" [dropdown {:items conditions :value (some-> (::mi/save-fail row) name)
                                                                                             :on-change #(dispatch [::mi/set-item-power ::mi/effects i ::mi/save-fail (when-not (s/blank? %) (keyword %))])}])]])
-           [power-row ::mi/effects i row]]])
+           [:div.item-cast-number.wide (base-builder-field "Next attack" [dropdown {:items [{:value "" :title "No change"} {:value "adv" :title "Advantage"} {:value "dis" :title "Disadvantage"}]
+                                                                                     :value (some-> (::mi/next-attack row) name)
+                                                                                     :on-change #(dispatch [::mi/set-item-power ::mi/effects i ::mi/next-attack (when-not (s/blank? %) (keyword %))])}])]
+           [:div.item-cast-number.wide (base-builder-field "Extra attack" [dropdown {:items [{:value "" :title "None"} {:value "same" :title "One more attack"} {:value "omit-ability-mod" :title "One more, no ability modifier"}]
+                                                                                      :value (some-> (::mi/extra-attack row) name)
+                                                                                      :on-change #(dispatch [::mi/set-item-power ::mi/effects i ::mi/extra-attack (when-not (s/blank? %) (keyword %))])}])]
+           [power-row ::mi/effects i row toggles]]])
        effects))
      [:button.form-button.m-t-5 {:on-click #(dispatch [::mi/add-item-power ::mi/effects])} "Add an effect"]]))

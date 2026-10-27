@@ -73,8 +73,9 @@
           :crit (and (not miss?) (boolean crit?)))
         (or (nil? min-roll) (and roll (>= roll min-roll)))
         (or (nil? toggle) (contains? (set toggles) toggle))
-        (or (nil? against) (contains? against target))
-        (not (contains? not-against target))
+        ;; sets in code data; a saved custom item's many-valued field may come back as a vector
+        (or (nil? against) (contains? (set against) target))
+        (not (contains? (set not-against) target))
         (or (nil? attack-type) (= attack-type used-type)))))
 
 (defn applying-damage

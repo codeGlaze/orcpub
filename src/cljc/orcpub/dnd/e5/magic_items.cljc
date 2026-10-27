@@ -399,6 +399,7 @@
                     ::casts
                     ::extra-damage
                     ::effects
+                    ::toggles
                     ::weapons5e/type
                     ::weapons5e/damage-type
                     ::weapons5e/damage-die-count
