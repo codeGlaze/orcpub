@@ -343,3 +343,16 @@
         (is (= 2 (queued-credit-emails conn)) "a change in the window waits")
         (flush! conn (at 10))
         (is (= 4 (queued-credit-emails conn)) "the batch's two, queued as it was claimed")))))
+
+(deftest the-settings-page-shows-the-switches-in-force
+  (with-conn conn
+    (let [id (add-artist! conn "fusspot" :house-pack)]
+      (with-redefs [branding/portrait-artists {:house-pack {:artist/profile? false}}]
+        (let [{:keys [current locked]} (ac/credit-for-account (d/db conn) id)]
+          (is (false? (:artist/profile? current)) "the site's off is what the page reads")
+          (is (contains? locked :artist/profile?) "and the artist cannot switch it")))
+      (ac/save! conn id {:profile? false})
+      (with-redefs [branding/portrait-artists {:house-pack {:artist/profile? true}}]
+        (let [{:keys [current locked]} (ac/credit-for-account (d/db conn) id)]
+          (is (false? (:artist/profile? current)) "the config cannot force a page on")
+          (is (not (contains? locked :artist/profile?)) "so it leaves the switch with the artist"))))))

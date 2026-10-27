@@ -116,3 +116,13 @@
             (some-> (some #(when (= "Save credit" (.-textContent %)) %) (array-seq (.querySelectorAll el "button"))) .click)
             (is (= {:profile? true :show-examples? false :show-links? false :show-count? true}
                    (select-keys @sent [:profile? :show-examples? :show-links? :show-count?])))))))))
+
+(deftest a-switch-the-site-fixes-shows-its-setting-and-is-locked
+  (with-page [views/artist-credit-form {:own {} :default {} :current {:artist/profile? false}
+                                        :locked #{:artist/profile?}}]
+    (fn [el]
+      (let [box (some #(when (= "Show my artist page" (.-textContent %)) %)
+                      (array-seq (.querySelectorAll el "[role=checkbox]")))]
+        (is (= "false" (some-> box (.getAttribute "aria-checked"))) "reads Off, as the site has it")
+        (is (= "true" (some-> box (.getAttribute "aria-disabled"))) "and cannot be switched")
+        (is (re-find #"Set by the site's admins" (.-textContent el)))))))
