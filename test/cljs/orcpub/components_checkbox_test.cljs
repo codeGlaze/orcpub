@@ -4,7 +4,8 @@
   (:require [cljs.test :refer-macros [deftest is]]
             [reagent.core :as r]
             [reagent.dom :as rdom]
-            [orcpub.components :as comps]))
+            [orcpub.components :as comps]
+            [orcpub.dnd.e5.views :as views]))
 
 (defn- with-rendered
   "Renders `view` into a detached element, calls `f` with it, and cleans up."
@@ -56,3 +57,17 @@
           (is (= 1 (.-length (.querySelectorAll el "[tabindex='0']"))) "one stop, not two")
           (press! row "Enter")
           (is (= 1 @clicks)))))))
+
+(deftest a-spell-cannot-be-prepared-past-the-limit
+  (let [sent (atom [])]
+    (with-redefs [re-frame.core/dispatch #(swap! sent conj (first %))]
+      (with-rendered [views/prepared-spell-box 1 :wizard :shield "Shield" false false 0]
+        (fn [el]
+          (let [box (.querySelector el ".checkbox")]
+            (is (= "true" (.getAttribute box "aria-disabled")) "no preparations left: the box is off")
+            (.click box)
+            (is (empty? @sent) "and a click prepares nothing"))))
+      (with-rendered [views/prepared-spell-box 1 :wizard :shield "Shield" false false 1]
+        (fn [el]
+          (.click (.querySelector el ".checkbox"))
+          (is (= 1 (count @sent)) "with one left, a click prepares it"))))))
