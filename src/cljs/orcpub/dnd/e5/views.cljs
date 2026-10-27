@@ -3978,7 +3978,7 @@
        [d20-detail attack]]
       [:div.weapon-sheet-label "Roll damage"]
       (doall (for [{:keys [label sub value situation primary? pulse?]}
-                   (weapon-rolls/damage-options weapon mod two-handed? toggles (:crit? attack))]
+                   (weapon-rolls/damage-options weapon mod two-handed? toggles (:crit? attack) (:kept attack))]
                ^{:key label}
                [:button.weapon-sheet-option
                 {:type "button" :class (str (when primary? "primary") (when pulse? " pulse"))

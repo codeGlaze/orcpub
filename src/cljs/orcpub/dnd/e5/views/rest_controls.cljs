@@ -54,12 +54,14 @@
                    ^{:key (str item-key i)}
                    [:label.rest-recharged-row
                     [:span name (when (pos? i) (str " (" (inc i) ")"))]
+                    (if (= :all amount)
+                      [:span.rest-amount-all "all"]
                     [:input.input.rest-amount
                      {:type "number" :min 0 :default-value amount :aria-label (str name " charges regained")
                       :on-key-down #(when (= "Enter" (.-key %)) (.blur (.-target %)))
                       :on-blur #(let [v (js/parseInt (.. % -target -value))]
                                   (when (and (not (js/isNaN v)) (not= v amount))
-                                    (dispatch [::char/set-rest-amount id item-key i (max 0 v)])))}]
+                                    (dispatch [::char/set-rest-amount id item-key i (max 0 v)])))}])
                     [:span.rest-dice (if dice (str "rolled " dice) "typed")]]))])])))
 
 (defn rest-box
@@ -71,7 +73,8 @@
         labels? (r/atom (rest-labels-shown?))]
     (fn [id]
       (let [items-by-key @(subscribe [::mi/all-magic-items-map])
-            carried-cfgs (merge @(subscribe [::char/magic-items id]) @(subscribe [::char/magic-weapons id]))
+            carried-cfgs (merge @(subscribe [::char/magic-items id]) @(subscribe [::char/magic-weapons id])
+                                @(subscribe [::char/magic-armor id]))
             carried (for [[k cfg] carried-cfgs :let [item (items-by-key k)] :when item]
                       {:item-key k :item item :entry (rests/as-entry cfg)})
             features-used @(subscribe [::char/features-used id])

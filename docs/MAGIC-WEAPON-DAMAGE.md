@@ -55,9 +55,9 @@ setting.
 
 Once-per-rest and charged features use the reset buttons the character sheet already has: finish
 long rest, finish short rest, new round and new turn. Many SRD items say "until the next dawn", so
-there is now a **dawn** reset as well. Finishing a long rest also clears anything that resets at
-dawn, because most tables treat the two as the same moment; the data still says "dawn", so a table
-that tracks days separately could reset them apart later.
+there are **dawn** and **dusk** resets as well. They are separate from rests: a long rest does not
+count as dawn. The Rest box on the Features tab passes dawn or dusk on its own (Now), or asks after
+a rest whether one passed.
 
 Charges use the same tick boxes the sheet already shows for limited-use features.
 
@@ -105,7 +105,6 @@ no migration.
 
 ## Not yet
 
-- The weapons table, rolls and PDF do not show the extra damage yet; that is the work this data is
-  for.
-- Custom items cannot set extra damage yet. The item builder needs new fields, and the server needs
-  to accept them, before it can.
+- The weapons table, the roll results and the PDF show this damage, and custom weapons set it in
+  the item builder's Weapon powers group. Nothing is outstanding here; later work is in the KB,
+  `weapons-table-follow-ups.md` on agents/develop.

@@ -96,13 +96,14 @@
 (defn damage-options
   "The damage buttons a to-hit result offers: Damage (or Critical damage on a crit), then one
   per target the weapon names (\"vs undead\"). Takes the weapon, its damage modifier,
-  two-handed?, the toggles on and crit?; then \"Missed?\" for a weapon with damage on a miss.
+  two-handed?, the toggles on, crit? and the kept d20 (so a crit on 19 is not taken for a 20);
+  then \"Missed?\" for a weapon with damage on a miss.
   Returns [{:label :sub :value :situation :primary? :pulse?}]."
-  [weapon damage-modifier two-handed? toggles crit?]
+  [weapon damage-modifier two-handed? toggles crit? & [roll]]
   (let [entries #(cond-> (weapon-damage/applying-damage weapon damage-modifier two-handed?
                                                          (assoc % :toggles toggles))
                    crit? disp/crit-entries)
-        crit-sit (if crit? {:crit? true :roll 20} {})
+        crit-sit (if crit? {:crit? true :roll (or roll 20)} {})
         miss? (and (not crit?) (some #(= :miss (::mi/on %)) (::mi/extra-damage weapon)))
         targets (distinct (keep ::mi/against (remove disp/off-row? (concat (::mi/extra-damage weapon)
                                                                           (::mi/effects weapon)))))]

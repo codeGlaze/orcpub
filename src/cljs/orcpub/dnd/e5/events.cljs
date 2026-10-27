@@ -3434,7 +3434,7 @@
                                                    path
                                                    js/window.location.port)))
          ;; the Rest box's Undo belongs to the page it was made on
-         (cond-> {:db (-> db (assoc :route new-route) (dissoc ::char5e/rest-result))
+         (cond-> {:db (-> db (assoc :route new-route) (dissoc ::char5e/rest-result :weapon-roll/chain))
                   :dispatch-n [[:hide-message]
                                [:close-orcacle]]}
            (not no-return?) (assoc-in [:db :return-route] new-route)
@@ -4844,26 +4844,32 @@
        {:id id :before before :request request :items-by-key items-by-key :amounts {}
         :recharged recharged :ask? ask?}))))
 
+(defn- current-rest-result
+  "The stored Rest box result if it belongs to character `id`, else nil: a second queued click
+  can arrive after Undo or a route change has cleared it."
+  [db id]
+  (let [r (::char5e/rest-result db)] (when (and r (= id (:id r))) r)))
+
 (reg-event-fx
  ::char5e/answer-time-of-day
  (fn [{:keys [db]} [_ id times]]
-   (let [{:keys [before request items-by-key amounts] :as result} (::char5e/rest-result db)
-         request (assoc request :times times)
-         {:keys [character recharged]} (rest-outcome before items-by-key request amounts)]
-     (with-rest-result db id character (assoc result :request request :recharged recharged :ask? false)))))
+   (when-let [{:keys [before request items-by-key amounts] :as result} (current-rest-result db id)]
+     (let [request (assoc request :times times)
+           {:keys [character recharged]} (rest-outcome before items-by-key request amounts)]
+       (with-rest-result db id character (assoc result :request request :recharged recharged :ask? false))))))
 
 (reg-event-fx
  ::char5e/set-rest-amount
  (fn [{:keys [db]} [_ id item-key i n]]
-   (let [{:keys [before request items-by-key amounts] :as result} (::char5e/rest-result db)
-         amounts (assoc amounts [item-key i] n)
+   (when-let [{:keys [before request items-by-key amounts] :as result} (current-rest-result db id)]
+     (let [amounts (assoc amounts [item-key i] n)
          {:keys [character recharged]} (rest-outcome before items-by-key request amounts)]
-     (with-rest-result db id character (assoc result :amounts amounts :recharged recharged)))))
+     (with-rest-result db id character (assoc result :amounts amounts :recharged recharged))))))
 
 (reg-event-fx
  ::char5e/undo-rest
  (fn [{:keys [db]} [_ id]]
-   (let [{:keys [before]} (::char5e/rest-result db)]
+   (when-let [{:keys [before]} (current-rest-result db id)]
      (with-rest-result db id before nil))))
 
 (reg-event-db
