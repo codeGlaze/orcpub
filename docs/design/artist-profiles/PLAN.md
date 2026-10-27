@@ -128,8 +128,8 @@ accounts are being built elsewhere, so this branch adds only the switch the page
 `set-artist-overrides!` next to the other credit fields, so the account setting only has
 to write it. When it is off:
 
-- `/artists/<slug>` and its example images return 404, the same as for a name nobody
-  has, and the 404's share tags don't name the artist;
+- `/artists/<slug>` redirects (302, never 301, so turning it back on works at once) to
+  `/artists`, and its example images return 404; neither response names the artist;
 - the artist drops out of `/artists`;
 - the credit loses its "About the artist" line;
 - the credit's name still links to the artist's own `:artist/link`.

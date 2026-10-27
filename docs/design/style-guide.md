@@ -93,8 +93,8 @@ These recur as literals. **Proposed:** give each a name.
 | `#8a5a00` | Warning text (light counterpart of `amber-on-dark`) |
 | `#55637a` | Note text |
 
-`#33658A` does for the light theme what `orange` does for the dark one, but it has no name.
-**Proposed:** `accent-light`.
+`#33658A` does for the light theme what `orange` does for the dark one: `slate-blue` in
+`core.clj`, the name the palette above uses.
 
 ### Near-duplicates to fold together
 

@@ -100,8 +100,9 @@ The registry in `portrait_assets.cljc` holds the structure, which artist drew wh
 and that has to be public because the app cannot resolve an asset without it. How a credit
 is presented is a deployment concern: a fork may ship the same art under a different
 arrangement with the artist, or add artists its own users contributed. So `:artist/name`,
-`:artist/link`, `:artist/links`, `:artist/license` and `:artist/profile?` are overridable,
-and nothing else is. A fork can credit its own contributors without editing shared code, and
+`:artist/link`, `:artist/links`, `:artist/license` and the page switches (`:artist/profile?`,
+`:artist/show-examples?`, `:artist/show-links?`, `:artist/show-count?`) are overridable, and
+nothing else is. A fork can credit its own contributors without editing shared code, and
 cannot silently re-attribute someone's art to a different pack.
 
 - **`PORTRAIT_ARTISTS` that does not parse is ignored with a warning.** A broken credit
