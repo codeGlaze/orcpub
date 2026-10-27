@@ -218,3 +218,9 @@
       (let [use (some #(when (:extra-attack %) %) (disp/weapon-menu-items (with-mastery :cleave) 3 false #{}))]
         (is (= [3 :orcpub.dnd.e5.units/turn] [(:drop use) (:recharge use)])))
       (is (empty? (:after (hit :cleave))) "a limited use is not listed after an ordinary hit"))))
+
+(deftest a-crit-on-19-is-not-a-20
+  (let [vicious (assoc referencing-weapon ::mi/extra-damage [{::mi/damage-bonus 7 ::mi/min-roll 20}] ::mi/effects [])
+        crit-value (fn [kept] (:value (first (rolls/damage-options vicious 3 false nil true kept))))]
+    (is (not= (crit-value 19) (crit-value 20)) "the +7 that needs a natural 20")
+    (is (= (crit-value nil) (crit-value 20)) "no kept die given: taken as a 20, as before")))

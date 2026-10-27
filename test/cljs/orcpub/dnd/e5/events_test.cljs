@@ -2209,3 +2209,13 @@
     (rf/dispatch-sync [::feats5e/toggle-feat-ability-increase :orcpub.dnd.e5.character/str])
     (is (= #{:orcpub.dnd.e5.character/str} (get-in @app-db [::feats5e/builder-item :ability-increases]))
         (str "from " (pr-str start)))))
+
+(deftest rest-events-ignore-a-missing-or-other-characters-result
+  (let [ch {:orcpub.entity/values {::char5e/features-used {::units5e/dawn #{"x"}}}}
+        kept #(get-in @app-db [::char5e/character-map 7])]
+    (reset! app-db {::char5e/character-map {7 ch}})
+    (effects-of [::char5e/undo-rest 7] [::char5e/save-character-throttled])
+    (is (= ch (kept)) "no stored result: Undo changes nothing")
+    (reset! app-db {::char5e/character-map {7 ch} ::char5e/rest-result {:id 8 :before {:orcpub.entity/values {}}}})
+    (effects-of [::char5e/undo-rest 7] [::char5e/save-character-throttled])
+    (is (= ch (kept)) "another character's result: nothing changes")))
