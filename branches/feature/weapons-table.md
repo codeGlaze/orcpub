@@ -22,8 +22,11 @@ the owner keeps CodeRabbit for backend work). **KB:** `plan-charges-and-casting.
 - Mastery step 5 done 2026-10-26 (effect sentences, Missed?, Vex, Cleave).
 - Mastery step 6 done 2026-10-26. Mastery now waits on its 2024 data (step 4, `srd52/develop`) and
   the panel (designed, round 6).
-- Next: a charge cost for weapon powers in the item
-  builder; light theme shots; the parked wording review.
+- Done 2026-10-26: Weapon powers group in the item builder (`views/charges_builder.cljs`
+  `powers-group`; schema; `mi/complete-powers` drops half-filled rows). Light theme shots taken
+  and sent (no changes yet). Not in the builder: toggles (`::mi/while`), creature targets
+  (`::mi/against`), the attack-type limit, Vex/Cleave fields.
+- Next: the owner's light-theme review; the parked wording review.
 
 ## Owner decisions
 
