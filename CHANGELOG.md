@@ -105,6 +105,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   not set one, instead of "Hi there".
 - **Characters:** the builder's tab bar wraps on narrow screens.
 - **Characters:** opening a character whose choices no longer apply sets them aside and lists them in a notice; the saved copy changes only when you save.
+- **Server:** the first start after upgrading builds new database indexes and gives older accounts an email lookup key, both in the background; until that finishes, an older account with a mixed-case address signs in by username rather than email.
 
 ### Fixed
 
@@ -172,6 +173,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** a choice that no longer applied, such as a skill picked for a level since lowered, stayed hidden on the character and still counted on its sheet.
 - **Characters:** deleting or changing a character's first class no longer wipes the other classes' choices.
 - **Homebrew:** a homebrew class's choices that share a name show in level order; levels 10 and 17 came before level 3.
+- **Accounts:** follow buttons remember who you follow after the page reloads.
+- **Server:** sign-in, password reset and character, party, folder and item lists no longer slow down and use more memory as the site grows.
 
 ### Security
 
