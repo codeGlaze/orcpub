@@ -2,6 +2,7 @@
   "The tick box is a keyboard control: a screen reader hears a checkbox and its state, Tab reaches
    it, and Space or Enter does what a click does."
   (:require [cljs.test :refer-macros [deftest is]]
+            [re-frame.core :as rf]
             [reagent.core :as r]
             [reagent.dom :as rdom]
             [orcpub.components :as comps]
@@ -60,7 +61,7 @@
 
 (deftest a-spell-cannot-be-prepared-past-the-limit
   (let [sent (atom [])]
-    (with-redefs [re-frame.core/dispatch #(swap! sent conj (first %))]
+    (with-redefs [rf/dispatch #(swap! sent conj (first %))]
       (with-rendered [views/prepared-spell-box 1 :wizard :shield "Shield" false false 0]
         (fn [el]
           (let [box (.querySelector el ".checkbox")]
