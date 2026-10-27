@@ -4266,7 +4266,7 @@
      (when open?
        [weapon-opened weapon nm
         (cond
-          hands-blocked? (str "Two hands: not while your off hand holds " off-hand ".")
+          hands-blocked? (str "Two hands: needs both hands, unequip your " (s/replace-first off-hand #"^an? " "") ".")
           needs-hands? (str "Needs both hands: your off hand holds " off-hand "."))
         mastery])]))
 

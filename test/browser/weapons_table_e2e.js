@@ -212,7 +212,7 @@ async function layout(page, theme) {
     check('and the longsword is back to one-handed dice', /1d8\+2/.test(await ls.locator('.weapon-damage-tile').innerText()));
     check('no pulse while the off hand holds a shield', await ls.locator('.weapon-switch.pulse').count() === 0);
     await ls.locator('.weapon-name-line').click();
-    check('the opened longsword says why', await shows(ls, 'Two hands: not while your off hand holds a Shield.'));
+    check('the opened longsword says why', await shows(ls, 'Two hands: needs both hands, unequip your Shield.'));
     const bow = row('Longbow');
     check('the two-handed longbow\'s tiles become outlines', await bow.locator('.needs-hands').count() === 2);
     await bow.locator('.weapon-name-line').click();
