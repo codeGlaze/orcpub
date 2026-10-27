@@ -1,5 +1,6 @@
 (ns orcpub.index
-  (:require [hiccup.page :refer [html5 include-css]]
+  (:require [hiccup.page :refer [include-css]]
+            [hiccup2.core :as h]
             [cheshire.core :as cheshire]
             [orcpub.oauth :as oauth]
             [orcpub.fork.branding :as branding]
@@ -44,6 +45,17 @@
       (into [:script attrs] body)
       [:script attrs])))
 
+(defn script-json
+  "JSON for an inline <script>: `<`, `>`, `&` and the line separators become
+   \\u escapes, so a value (an artist's credit) cannot close the tag."
+  [x]
+  (-> (cheshire/generate-string x)
+      (.replace "<" "\\u003c")
+      (.replace ">" "\\u003e")
+      (.replace "&" "\\u0026")
+      (.replace "\u2028" "\\u2028")
+      (.replace "\u2029" "\\u2029")))
+
 (def ^:private rescue-filename "orcpub-homebrew-rescue.orcbrew")
 
 (defn boot-rescue
@@ -68,7 +80,8 @@
      "Download my homebrew"]]
    (script-tag
     {:nonce nonce}
-    (str "
+    ;; raw: the page's own script; nothing in it comes from a request or a user
+    (h/raw (str "
      (function () {
        var el = document.getElementById('boot-rescue');
        var btn = document.getElementById('boot-rescue-btn');
@@ -129,7 +142,7 @@
 
        show();
      })();
-    "))))
+    ")))))
 
 (defn index-page [{:keys [url
                           title
@@ -139,8 +152,13 @@
                           nonce
                           spinner-kind]}
                   & [splash?]]
-  (html5
-   {:lang :en}
+  ;; hiccup2 escapes every string by default; html5 (hiccup 1) escaped none, so a character's
+  ;; name went into <title> as markup. Only the page's own scripts and styles are raw, below.
+  (str
+   "<!DOCTYPE html>\n"
+   (h/html
+    {:mode :html}
+    [:html {:lang "en"}
    [:head
     (meta-tag "og:url" url)
     (meta-tag "og:type" fb-type)
@@ -154,19 +172,26 @@
     (meta-tag "twitter:title" title)
     (meta-tag "twitter:description" description)
     (meta-tag "twitter:image" image)
+    ;; Opt out of generative-AI training and image reuse. This is the
+    ;; DeviantArt-originated convention: a `robots` meta carrying only the
+    ;; `noai`/`noimageai` tokens, which does NOT imply noindex. Voluntary --
+    ;; honoured by some crawlers, ignored by others -- so it sits alongside
+    ;; robots.txt and the art licence rather than replacing either.
+    [:meta {:name "robots" :content "noai, noimageai"}]
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport"
             :content "width=device-width, initial-scale=1.0, minimum-scale=1.0"}]
-    (fi/install :png-prefix "favicon-"
-                :img "/favicon"
-                :xml "/favicon"
-                :ver "1")
+    ;; raw: a hiccup 1 helper that returns its markup as a string
+    (h/raw (fi/install :png-prefix "favicon-"
+                       :img "/favicon"
+                       :xml "/favicon"
+                       :ver "1"))
     (include-css (asset-url "/css/cookiestyles.css"))
     (script-tag {:nonce nonce}
-     "document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`);
-     window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));")
+     (h/raw "document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`);
+     window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));"))
     [:style
-     "
+     (h/raw "
 .splash-page-content {}
 .splash-button .splash-button-content {height: 120px; width: 120px}
 .splash-button .svg-icon {height: 64px; width: 64px}
@@ -240,18 +265,20 @@ table {
 
 html {
 	min-height: 100%;
-}"]
-    [:style spinner/css]
+}")]
+    [:style (h/raw spinner/css)]
     [:title title]
     (integrations/head-tags nonce)
     (script-tag {:nonce nonce}
-     (str "window.__BRANDING__=" (cheshire/generate-string (branding/client-config)) ";"
-          "window.__INTEGRATIONS__=" (cheshire/generate-string (integrations/client-config)) ";"))]
+     ;; raw: operator settings as JSON, escaped for a script by script-json
+     (h/raw (str "window.__BRANDING__=" (script-json (branding/client-config)) ";"
+                 "window.__INTEGRATIONS__=" (script-json (integrations/client-config)) ";")))]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
        (views-2/splash-page)
-       (spinner/markup (or spinner-kind (spinner/pick nil))))]
+       ;; raw: the spinner's own markup; its kind is one of three keywords (spinner/pick)
+       (h/raw (spinner/markup (or spinner-kind (spinner/pick nil)))))]
     ;; Homebrew rescue, a dead-man's switch: present by default, removed by the app once it has
     ;; rendered, so any boot failure (broken bundle, CLJS error, crashing homebrew) leaves it up.
     ;; It depends on nothing the app owns: server-rendered markup, inline styles (styles.css may
@@ -264,10 +291,11 @@ html {
     (script-tag {:src (asset-url "/js/cookies.js") :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
     ;; Open Sans is served from this site (styles.core/open-sans-faces), not Google Fonts.
-    (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
+    (script-tag {:nonce nonce} (h/raw " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})"))
     (when homebrew-url
       (script-tag {:nonce nonce}
-       (str "
+       ;; raw: the page's own script; homebrew-url is the operator's LOAD_HOMEBREW_URL setting
+       (h/raw (str "
         const noLibrary = () => {
           const p = localStorage.getItem('plugins');
           return p === null || p === '{}' || p === '{\"Default Option Source\" {}}';
@@ -292,6 +320,5 @@ html {
               console.error('Error fetching plugins:', error);
             });
         }
-       ")))
-   ]))
+       "))))]])))
   

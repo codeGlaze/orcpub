@@ -114,11 +114,12 @@ run_fixture() {
   tmpdir=$(mktemp -d)
   # Don't trap RETURN — we clean up at the end of the function
 
-  # Copy fixture as .env and the setup script into tmpdir.
-  # run uses SCRIPT_DIR (dirname of the script) to find .env,
-  # so the script must live next to the .env for it to find the fixture.
+  # Copy fixture as .env, the setup script and the .env reader it needs into tmpdir.
+  # run uses SCRIPT_DIR (dirname of the script) to find .env and scripts/load-env.sh,
+  # so they must sit next to it, as in a checkout.
   cp "$fixture_file" "${tmpdir}/.env"
   cp "$SETUP_SCRIPT" "${tmpdir}/run"
+  mkdir -p "${tmpdir}/scripts" && cp "${PROJECT_ROOT}/scripts/load-env.sh" "${tmpdir}/scripts/"
 
   local output
   output=$(bash "${tmpdir}/run" --upgrade --auto 2>&1) || true
@@ -127,6 +128,24 @@ run_fixture() {
   local label="[${fixture_name}] "
 
   printf '\n%s--- %s ---%s\n' "$cyan" "$fixture_name" "$reset"
+
+  # Every setup without a mail server can still start: it says email is not needed.
+  _val() { grep -m1 "^${1}=" "$result_env" 2>/dev/null | cut -d= -f2- | tr -d '\r' || true; }
+  if [ -z "$(_val EMAIL_SERVER_URL)" ] && [ "$(_val EMAIL_REQUIRED)" != "false" ] \
+     && [ "$(_val ALLOW_UNVERIFIED_REGISTRATION | tr '[:upper:]' '[:lower:]')" != "true" ]; then
+    fail "${label}no mail server and no EMAIL_REQUIRED=false: the server would not start"
+  else
+    pass "${label}starts: a mail server, or EMAIL_REQUIRED=false"
+  fi
+  TESTS=$((TESTS + 1))
+
+  # Every setup: ALT_HOST=127.0.0.1, the Compose default ./run used to write, is removed.
+  if grep -qE '^ALT_HOST=127\.0\.0\.1' "$result_env"; then
+    fail "${label}ALT_HOST=127.0.0.1 left in .env (breaks Swarm)"
+  else
+    pass "${label}no ALT_HOST=127.0.0.1 in .env"
+  fi
+  TESTS=$((TESTS + 1))
 
   case "$fixture_name" in
 
@@ -237,6 +256,7 @@ run_secrets_test() {
   # Use v3-current as the base .env (already up to date)
   cp "${FIXTURE_DIR}/env-v3-current.env" "${tmpdir}/.env"
   cp "$SETUP_SCRIPT" "${tmpdir}/run"
+  mkdir -p "${tmpdir}/scripts" && cp "${PROJECT_ROOT}/scripts/load-env.sh" "${tmpdir}/scripts/"
 
   local output
   output=$(bash "${tmpdir}/run" --secrets --auto 2>&1) || true
@@ -373,6 +393,14 @@ SWARMENV
   fi
   TESTS=$((TESTS + 1))
 
+  # The transactor cannot serve on Swarm's virtual address for "datomic" (docs/DOCKER.md).
+  if sed -n '/^  datomic:/,/^  [a-z]/p' "$SWARM_COMPOSE" | grep -q 'TRANSACTOR_HOST: .*0\.0\.0\.0'; then
+    pass "${label}datomic serves on 0.0.0.0"
+  else
+    fail "${label}datomic service lacks TRANSACTOR_HOST 0.0.0.0"
+  fi
+  TESTS=$((TESTS + 1))
+
   # --- Test: .env.portainer ---
   generate_env_portainer "$ENV_FILE" "$SWARM_PORTAINER_ENV"
   if [ -f "$SWARM_PORTAINER_ENV" ]; then
@@ -408,16 +436,64 @@ SWARMENV
   fi
   TESTS=$((TESTS + 1))
 
-  # Backup and regenerate
+  # Backup and regenerate, from a stack written before TRANSACTOR_HOST existed
   local backup="${SWARM_COMPOSE}.backup"
+  sed -i '/TRANSACTOR_HOST/d' "$SWARM_COMPOSE"
   cp "$SWARM_COMPOSE" "$backup"
+  if swarm_stack_lacks_transactor_host "$SWARM_COMPOSE"; then
+    pass "${label}an older stack is reported as lacking TRANSACTOR_HOST"
+  else
+    fail "${label}an older stack is not reported"
+  fi
+  TESTS=$((TESTS + 1))
+  extract_swarm_config "$SWARM_COMPOSE"
   generate_swarm_compose "$SWARM_COMPOSE" "true"
+
+  if sed -n '/^  datomic:/,/^  [a-z]/p' "$SWARM_COMPOSE" | grep -q 'TRANSACTOR_HOST: .*0\.0\.0\.0'; then
+    pass "${label}upgrade adds TRANSACTOR_HOST to an older stack"
+    if swarm_stack_lacks_transactor_host "$SWARM_COMPOSE"; then
+      fail "${label}a regenerated stack is still reported"
+    else
+      pass "${label}a regenerated stack is not reported"
+    fi
+    TESTS=$((TESTS + 1))
+  else
+    fail "${label}upgrade did not add TRANSACTOR_HOST"
+  fi
+  TESTS=$((TESTS + 1))
 
   # Regenerated file should still have services
   if grep -q '^  datomic:' "$SWARM_COMPOSE" && grep -q '^  orcpub:' "$SWARM_COMPOSE"; then
     pass "${label}upgrade preserves services"
   else
     fail "${label}upgrade lost services"
+  fi
+  TESTS=$((TESTS + 1))
+
+  # The stack's own overlay network stays its own: the sample "#   external: true" is a comment.
+  if sed -n '/^networks:/,/^[a-z]/p' "$SWARM_COMPOSE" | grep -q 'driver: overlay'; then
+    pass "${label}regenerating keeps the backend overlay network"
+  else
+    fail "${label}regenerating turned the backend network external"
+  fi
+  TESTS=$((TESTS + 1))
+
+  if [ -z "$(swarm_stack_losses "$backup" "$SWARM_COMPOSE")" ]; then
+    pass "${label}regenerating drops nothing from a generated stack"
+  else
+    fail "${label}regenerating drops: $(swarm_stack_losses "$backup" "$SWARM_COMPOSE" | tr '\n' ' ')"
+  fi
+  TESTS=$((TESTS + 1))
+
+  local edited="${SWARM_COMPOSE}.edited"
+  cp "$SWARM_COMPOSE" "$edited"
+  printf '\nconfigs:\n  myconf:\n    external: true\n' >> "$edited"
+  sed -i 's/^  orcpub:$/  orcpub:\n    hostname: myapp/' "$edited"
+  _lost=$(swarm_stack_losses "$edited" "$SWARM_COMPOSE")
+  if echo "$_lost" | grep -qx 'configs' && echo "$_lost" | grep -qx 'services/orcpub/hostname'; then
+    pass "${label}a top-level section and a service key the generator does not write are reported"
+  else
+    fail "${label}additions not reported (got: $(echo "$_lost" | tr '\n' ' '))"
   fi
   TESTS=$((TESTS + 1))
 
@@ -454,6 +530,38 @@ SWARMENV
     fail "${label}secrets still commented after activation"
   fi
   TESTS=$((TESTS + 1))
+
+  # --- Test: what this release changes for an install (scripts/release-check.sh) ---
+  printf '\n%s--- release check ---%s\n' "$cyan" "$reset"
+  # shellcheck source=../../scripts/release-check.sh
+  . "${PROJECT_ROOT}/scripts/release-check.sh"
+  local report="${tmpdir}/logs/upgrade-report.txt" stack="${tmpdir}/stack-check.yaml"
+
+  # release_case NAME WANT_ACTIONS WANT_TEXT: runs release_check on $stack and ${ENV_FILE}.
+  release_case() {
+    WARNING_MSGS=()
+    release_check "$ENV_FILE" "$stack" "$report" >/dev/null
+    if [ "$RELEASE_ACTIONS" -eq "$2" ] && { [ -z "$3" ] || grep -qF "$3" "$report"; }; then
+      pass "${label}release check: $1"
+    else
+      fail "${label}release check: $1 (got ${RELEASE_ACTIONS} to do; report: $(grep '^  - ' "$report" | head -3 | tr '\n' ' '))"
+    fi
+    TESTS=$((TESTS + 1))
+  }
+
+  cp "$SWARM_COMPOSE" "$stack"
+  release_case "a current stack needs nothing" 0 "To do: nothing."
+  sed -i 's/^ALT_HOST=.*/ALT_HOST=127.0.0.1/' "$ENV_FILE"
+  release_case "ALT_HOST=127.0.0.1 in .env is flagged for Swarm" 1 "ALT_HOST is '127.0.0.1'"
+  sed -i 's/^ALT_HOST=.*/ALT_HOST=datomic/' "$ENV_FILE"
+  sed -i '/TRANSACTOR_HOST/d; /host-log/d' "$stack"
+  release_case "an older stack: no TRANSACTOR_HOST, no /var/log" 2 "sets no TRANSACTOR_HOST"
+  cp "$SWARM_COMPOSE" "$stack"
+  sed -i 's/^  orcpub:$/  orcpub:\n    user: "1000"/' "$stack"
+  release_case "user: on the app service is flagged" 1 "sets user:"
+  cp "$SWARM_COMPOSE" "$stack"
+  sed -i 's/^  datomic:$/  dmv-datomic:/; s/^  orcpub:$/  dmv-app:/' "$stack"
+  release_case "a current stack with its own service names needs nothing" 0 "To do: nothing."
 
   rm -rf "$tmpdir"
 }

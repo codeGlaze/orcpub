@@ -18,6 +18,7 @@
    [orcpub.security :as security]
    [orcpub.pwned :as pwned]
    [orcpub.email :as email]
+   [orcpub.outbox :as outbox]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
 
@@ -75,9 +76,9 @@
     (let [mocked-conn (dm/fork-conn conn)]
       @(d/transact mocked-conn schema/all-schemas)
       @(d/transact mocked-conn [{:orcpub.user/username "testy"
-                                 :orcpub.user/email "test@test.com"}
+                                 :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"}
                                 {:orcpub.user/username "testy-2"
-                                 :orcpub.user/email "test-2@test.com"}])
+                                 :orcpub.user/email "test-2@test.com" :orcpub.user/email-key "test-2@test.com"}])
       (testing "Save new character"
         (let [character (test-character)
               saved-character (:body (routes/do-save-character (d/db mocked-conn) mocked-conn character {:user "testy"}))]
@@ -92,16 +93,25 @@
                                         {:user "testy"}))]
           (is (= "testy" (::se/owner updated-character)))
           (is (= "Charry" (-> saved-character ::se/summary ::char5e/character-name)))
-          (is (= "Charry-2" (-> updated-character ::se/summary ::char5e/character-name))))))))
+          (is (= "Charry-2" (-> updated-character ::se/summary ::char5e/character-name)))))
+      (testing "Saving a character deleted since it was opened answers 410 :character-gone"
+        (let [saved (:body (routes/do-save-character (d/db mocked-conn) mocked-conn (test-character) {:user "testy"}))
+              _ @(d/transact mocked-conn [[:db/retractEntity (:db/id saved)]])
+              response (routes/do-save-character (d/db mocked-conn) mocked-conn saved {:user "testy"})]
+          (is (= 410 (:status response)))
+          (is (= :character-gone (-> response :body :error)))))
+      (testing "Saving another player's character still answers 401"
+        (let [saved (:body (routes/do-save-character (d/db mocked-conn) mocked-conn (test-character) {:user "testy"}))]
+          (is (= 401 (:status (routes/do-save-character (d/db mocked-conn) mocked-conn saved {:user "testy-2"})))))))))
 
 (deftest test-save-entity
   (with-conn conn
     (let [mocked-conn (dm/fork-conn conn)]
       @(d/transact mocked-conn schema/all-schemas)
       @(d/transact mocked-conn [{:orcpub.user/username "testy"
-                                 :orcpub.user/email "test@test.com"}
+                                 :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"}
                                 {:orcpub.user/username "testy-2"
-                                 :orcpub.user/email "test-2@test.com"}])
+                                 :orcpub.user/email "test-2@test.com" :orcpub.user/email-key "test-2@test.com"}])
 
       (testing "Save new entity"
         (let [entity {::mi/name "Cool Item"}
@@ -271,7 +281,7 @@
     (let [mocked-conn (dm/fork-conn conn)]
       @(d/transact mocked-conn schema/all-schemas)
       @(d/transact mocked-conn [{:orcpub.user/username "testy"
-                                  :orcpub.user/email "test@test.com"
+                                  :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"
                                   :orcpub.user/send-updates? true}])
 
       (testing "Valid token unsubscribes user"
@@ -316,7 +326,7 @@
     (let [mocked-conn (dm/fork-conn conn)]
       @(d/transact mocked-conn schema/all-schemas)
       @(d/transact mocked-conn [{:orcpub.user/username "testy"
-                                  :orcpub.user/email "test@test.com"
+                                  :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"
                                   :orcpub.user/send-updates? false}])
 
       (testing "Toggle send-updates to true"
@@ -352,7 +362,7 @@
     (let [mocked-conn (dm/fork-conn conn)]
       @(d/transact mocked-conn schema/all-schemas)
       @(d/transact mocked-conn [{:orcpub.user/username "testy"
-                                  :orcpub.user/email "test@test.com"
+                                  :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"
                                   :orcpub.user/send-updates? true}])
       (let [db (d/db mocked-conn)
             user (routes/user-for-email db "test@test.com")
@@ -365,7 +375,7 @@
     (let [mocked-conn (dm/fork-conn conn)]
       @(d/transact mocked-conn schema/all-schemas)
       @(d/transact mocked-conn [{:orcpub.user/username "testy"
-                                  :orcpub.user/email "test@test.com"
+                                  :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"
                                   :orcpub.user/send-updates? true}])
       (let [put! (fn [params] (routes/update-user-preferences
                                {:transit-params params :db (d/db mocked-conn)
@@ -438,10 +448,10 @@
         call #(routes/bad-credentials-response nil "kaylee" "1.2.3.4" request)]
     (with-redefs [routes/find-user-by-username-or-email
                   (constantly {:db/id 17
-                               :orcpub.user/email "kaylee@serenity.example"
+                               :orcpub.user/email "kaylee@serenity.example" :orcpub.user/email-key "kaylee@serenity.example"
                                :orcpub.user/first-and-last-name "Kaylee"})
-                  email/send-sign-in-attempts-email
-                  (fn [base to] (deliver posted [base to]))]
+                  outbox/enqueue!
+                  (fn [_conn _kind message] (deliver posted message))]
 
       (testing "the response says bad credentials either way, as it did before"
         (with-redefs [security/multiple-ip-attempts-to-same-account? (constantly true)
@@ -449,15 +459,15 @@
           (is (= errors/bad-credentials (-> (call) :body :error)))))
 
       (testing "and the notice reaches the address on the account"
-        (let [[base to] (deref posted 2000 :never-sent)]
-          (is (= "https://example.test" base))
-          (is (= "kaylee@serenity.example" (:email to)))))))
+        (let [message (deref posted 2000 :never-sent)]
+          (is (= "kaylee@serenity.example" (:to message)))
+          (is (re-find #"https://example\.test" (pr-str (:body message))) "linking to this site")))))
 
   (testing "a spread of addresses that never happened sends nothing"
     (let [posted (atom [])]
       (with-redefs [routes/find-user-by-username-or-email (constantly {:db/id 17})
                     security/multiple-ip-attempts-to-same-account? (constantly false)
-                    email/send-sign-in-attempts-email (fn [& a] (swap! posted conj a))]
+                    outbox/enqueue! (fn [& a] (swap! posted conj a))]
         (routes/bad-credentials-response nil "kaylee" "1.2.3.4" {})
         (Thread/sleep 60)
         (is (empty? @posted)))))
@@ -466,7 +476,7 @@
     (let [posted (atom [])]
       (with-redefs [routes/find-user-by-username-or-email (constantly nil)
                     security/multiple-ip-attempts-to-same-account? (constantly true)
-                    email/send-sign-in-attempts-email (fn [& a] (swap! posted conj a))]
+                    outbox/enqueue! (fn [& a] (swap! posted conj a))]
         (routes/bad-credentials-response nil "nobody" "1.2.3.4" {})
         (Thread/sleep 60)
         (is (empty? @posted))))))
@@ -568,13 +578,12 @@
                                 :scheme :https})]
       @(d/transact c schema/all-schemas)
       @(d/transact c [{:orcpub.user/username "resetter"
-                       :orcpub.user/email "resetter@test.com"
+                       :orcpub.user/email "resetter@test.com" :orcpub.user/email-key "resetter@test.com"
                        :orcpub.user/password "old-hash"
                        :orcpub.user/verified? true
                        :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
                        :orcpub.user/password-reset-sent sent}])
-      (with-redefs-fn {#'routes/breach-errors (constantly nil)
-                       #'email/send-password-changed-email (fn [& _] nil)}
+      (with-redefs-fn {#'routes/breach-errors (constantly nil)}
         (fn []
           (testing "opening the link grants no session"
             (let [resp (routes/reset-password-page {:query-params {:key reset-key} :db (d/db c)
@@ -600,6 +609,9 @@
             (let [user (routes/first-user-by (d/db c) routes/username-query "resetter")]
               (is (not= "old-hash" (:orcpub.user/password user)))
               (is (nil? (:orcpub.user/password-reset-key user)) "the key was not retired"))
+            (is (= #{[:password-changed "resetter@test.com"]}
+                   (d/q '[:find ?k ?to :where [?e :orcpub.outbox/kind ?k] [?e :orcpub.outbox/to ?to]] (d/db c)))
+                "the password-changed notice is queued with the change")
             (is (= 400 (:status (routes/reset-password (request {:password "another long passphrase"
                                                                  :verify-password "another long passphrase"
                                                                  :key reset-key}))))
@@ -611,12 +623,11 @@
     (let [c (dm/fork-conn conn)
           reset-key "raced-key"]
       @(d/transact c schema/all-schemas)
-      @(d/transact c [{:orcpub.user/username "racer" :orcpub.user/email "racer@test.com"
+      @(d/transact c [{:orcpub.user/username "racer" :orcpub.user/email "racer@test.com" :orcpub.user/email-key "racer@test.com"
                        :orcpub.user/password "old-hash"
                        :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
                        :orcpub.user/password-reset-sent (java.util.Date.)}])
-      (with-redefs-fn {#'routes/breach-errors (constantly nil)
-                       #'email/send-password-changed-email (fn [& _] nil)}
+      (with-redefs-fn {#'routes/breach-errors (constantly nil)}
         (fn []
           (let [before (d/db c)
                 submit (fn [pw] (routes/reset-password {:json-params {:password pw :verify-password pw :key reset-key}
@@ -632,7 +643,7 @@
           reset-key "an-old-key"]
       @(d/transact c schema/all-schemas)
       @(d/transact c [{:orcpub.user/username "late"
-                       :orcpub.user/email "late@test.com"
+                       :orcpub.user/email "late@test.com" :orcpub.user/email-key "late@test.com"
                        :orcpub.user/password "old-hash"
                        :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
                        :orcpub.user/password-reset-sent (java.util.Date. (- (System/currentTimeMillis)

@@ -135,11 +135,15 @@
    []
    homebrew-paths))
 
-(defn to-strict [{:keys [:db/id ::options ::values ::homebrew-paths ::owner]}]
+(defn to-strict
+  "`entity` (options, values, id, owner, version) in the stored form the server takes: selections,
+   values without nils, id, owner and version, with empty fields removed. Returns that map."
+  [{:keys [:db/id ::options ::values ::homebrew-paths ::owner ::version]}]
   (cond-> {::strict/selections (to-strict-selections options [] homebrew-paths)}
     values (assoc ::strict/values (into {} (remove (comp nil? val)) values))
     id (assoc :db/id id)
     owner (assoc ::strict/owner owner)              ;; round-trip ::strict/owner via ::owner
+    version (assoc ::strict/version version)        ;; the stored version a save was made from
     true remove-empty-fields))
 
 (spec/fdef to-strict
@@ -212,13 +216,17 @@
    {}
    selections))
 
-(defn from-strict [{:keys [:db/id ::strict/selections ::strict/values ::strict/owner] :as strict-entity}]
+(defn from-strict
+  "`strict-entity`, as stored, in the form the app edits: options, homebrew paths, id, values, owner
+   and version. Returns that map."
+  [{:keys [:db/id ::strict/selections ::strict/values ::strict/owner ::strict/version] :as strict-entity}]
   (let [homebrew-paths (selections-homebrew-paths selections [])]
     (cond-> {::options (from-strict-selections selections)}
       (seq homebrew-paths) (assoc ::homebrew-paths homebrew-paths) 
       id (assoc :db/id id)
       values (assoc ::values values)
-      owner (assoc ::owner owner))))
+      owner (assoc ::owner owner)
+      version (assoc ::version version))))
 
 (spec/fdef from-strict
            :args (spec/cat :entity ::strict/entity)

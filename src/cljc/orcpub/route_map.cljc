@@ -10,6 +10,9 @@
 (def dnd-e5-char-share-token-route :char-share-token-5e)
 (def dnd-e5-char-report-route :char-load-report-5e)
 (def dnd-e5-char-page-route :char-5e-page)
+;; Server-rendered PNG of a composed portrait, for og:image -- a share crawler
+;; has no browser to bake the layers the way the PDF export does.
+(def dnd-e5-char-portrait-route :char-5e-portrait)
 (def dnd-e5-char-list-page-route :char-list-5e-page)
 (def dnd-e5-char-summary-list-route :char-summary-list-5e-page)
 (def dnd-e5-char-parties-route :char-parties-5e)
@@ -65,6 +68,7 @@
 
 (def dnd-e5-items-route :items-5e)
 (def dnd-e5-item-summaries-route :item-summaries-5e)
+(def dnd-e5-portrait-artists-route :portrait-artists-5e)
 (def dnd-e5-item-route :item-5e)
 (def dnd-e5-item-list-page-route :item-list-5e-page)
 (def dnd-e5-item-page-route :item-5e-page)
@@ -113,6 +117,7 @@
 (def check-username-route :check-username)
 (def user-route :user)
 (def user-email-route :user-email)
+(def user-artist-credit-route :user-artist-credit)
 (def user-sessions-route :user-sessions)
 (def reset-password-page-route :reset-password-page)
 (def reset-password-route :reset-password)
@@ -139,6 +144,7 @@
                   "login" login-route
                   "user" {"" user-route
                           "/email" user-email-route
+                          "/artist-credit" user-artist-credit-route
                           "/sessions" user-sessions-route}
 
                   "character.pdf" character-pdf-route
@@ -171,6 +177,7 @@
                           "items" {"" dnd-e5-items-route
                                    ["/" :id] dnd-e5-item-route}
                           "item-summaries" dnd-e5-item-summaries-route
+                          "portrait-artists" dnd-e5-portrait-artists-route
                           "parties" {"" dnd-e5-char-parties-route
                                      ["/" :id] {"" dnd-e5-char-party-route
                                                 "/name" dnd-e5-char-party-name-route
@@ -192,7 +199,8 @@
                              {"character-builder" dnd-e5-char-builder-route
                               "newb-character-builder" dnd-e5-newb-char-builder-route
                               "characters" {"" dnd-e5-char-list-page-route
-                                            ["/" :id] dnd-e5-char-page-route}
+                                            ["/" :id] dnd-e5-char-page-route
+                                            ["/" :id "/portrait.png"] dnd-e5-char-portrait-route}
                               "orcacle" dnd-e5-orcacle-page-route
                               "parties" dnd-e5-char-parties-page-route
                               "background-builder" dnd-e5-background-builder-page-route
