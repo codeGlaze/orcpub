@@ -141,8 +141,9 @@
 ;; ---------------------------------------------------------------------------
 
 (defn credit-for-account
-  "What the settings page shows an artist: {:current <what the site shows>
-   :own <their saved edits> :locked #{fields the config decides}}."
+  "What the settings page shows an artist: {:current <what the site shows> :own <their saved edits>
+   :locked #{fields the config decides}}. A page switch is locked only when the config turns it
+   off: the config cannot force a page on (`effective`)."
   [db user-id]
   (let [{:orcpub.user/keys [artist artist-credit]}
         (d/pull db [:orcpub.user/artist :orcpub.user/artist-credit] user-id)]
@@ -152,9 +153,10 @@
             base (some #(when (= artist (:artist/id %)) %) pa/registry)]
         {:artist-id artist
          :default (select-keys base [:artist/name :artist/link :artist/links])
-         :current (merge base own config)
+         :current (get (effective {artist (merge base own)} {artist config}) artist)
          :own own
-         :locked (set (keys config))}))))
+         :locked (set (remove #(and (contains? (set (vals page-switches)) %) (not (false? (get config %))))
+                              (keys config)))}))))
 
 (def save-cap
   "Changes an account may save in an hour: generous for an artist, a wall against a script."

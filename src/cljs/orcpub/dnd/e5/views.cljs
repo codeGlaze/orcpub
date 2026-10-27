@@ -10337,7 +10337,9 @@
                next-id (atom 0)
                new-row (fn [url] {:id (swap! next-id inc) :url url})
                links (r/atom (vec (for [l (:artist/links own)] (new-row (:link/url l)))))
-               switches (r/atom (into {} (for [[k ck] page-switches] [k (not (false? (get own ck)))])))
+               ;; a switch the site's config fixes starts from what is in force, not the artist's own
+               switches (r/atom (into {} (for [[k ck] page-switches]
+                                           [k (not (false? (get (if (contains? (set locked) ck) (:current credit) own) ck)))])))
                ;; fields the person has left, keyed :name / :link / row id
                left (r/atom #{})]
     (let [save-status @(subscribe [:account-save-status :artist-credit-save])
@@ -10415,13 +10417,17 @@
         (let [[[pk _ plabel] & parts] page-switches]
           [:div
            [:div.m-b-5
-            [comps/labeled-checkbox [:span.f-s-14 plabel] (pk @switches) false #(do (swap! switches update pk not) (clear!))]]
+            [comps/labeled-checkbox [:span.f-s-14 plabel] (pk @switches) (locked? (second (first page-switches)))
+             #(when-not (locked? (second (first page-switches))) (swap! switches update pk not) (clear!))]
+            (when (locked? (second (first page-switches))) fixed-note)]
            (when (pk @switches)
              [:div.m-l-20
-              (for [[k _ label] parts]
+              (for [[k ck label] parts]
                 ^{:key k}
                 [:div.m-b-5
-                 [comps/labeled-checkbox [:span.f-s-14 label] (k @switches) false #(do (swap! switches update k not) (clear!))]])])])]
+                 [comps/labeled-checkbox [:span.f-s-14 label] (k @switches) (locked? ck)
+                  #(when-not (locked? ck) (swap! switches update k not) (clear!))]
+                 (when (locked? ck) fixed-note)])])])]
        [:div.p-5.m-t-5
         [:button.form-button
          {:disabled (boolean (seq blocking))
