@@ -4030,6 +4030,19 @@
           [:span (when (next with-damage) (str "Turn total " (apply + (map (comp :total :damage) with-damage))))]
           [:button.weapon-sheet-done {:type "button" :on-click done} "Done"]]]))))
 
+(defn weapon-menu-sheet
+  "`menu` (a weapon-menu) as a phone shows it, in the bottom sheet overlay the other pickers use,
+  under `title`; elsewhere the menu as it is, a dropdown. `close` runs on a tap outside."
+  [title close menu]
+  (if @(subscribe [:mobile?])
+    [:<>
+     [:div.cast-dim {:on-click (fn [e] (.stopPropagation e) (close))}]
+     [:div.cast-sheet.weapon-menu-sheet {:on-click #(.stopPropagation %)}
+      [:div.cast-handle]
+      [:div.weapon-mode-title title]
+      menu]]
+    menu))
+
 (defn weapon-menu-item-used?
   "Whether a menu item is spent: a once-per-rest use already taken, or a charged power the item
   cannot pay for (:spent?). Takes the character id and the item. Returns a boolean."
@@ -4176,16 +4189,8 @@
                            (swap! state assoc :press (js/setTimeout #(swap! state assoc :mode-menu? true :long-pressed? true) 500)))
         :on-pointer-up press-end :on-pointer-leave press-end :on-pointer-cancel press-end}
        (when (:mode-menu? @state)
-         (let [menu [weapon-menu id nm weapon-rolls/mode-options last? close-modes (fn [{mode :id}] (roll-attack! mode))]]
-           ;; a phone gets the bottom sheet the other pickers use; a desktop the + menu's dropdown
-           (if @(subscribe [:mobile?])
-             [:<>
-              [:div.cast-dim {:on-click (fn [e] (.stopPropagation e) (close-modes))}]
-              [:div.cast-sheet.weapon-mode-sheet {:on-click #(.stopPropagation %)}
-               [:div.cast-handle]
-               [:div.weapon-mode-title (str nm " \u00B7 roll the attack with")]
-               menu]]
-             menu)))
+         [weapon-menu-sheet (str nm " \u00B7 roll the attack with") close-modes
+          [weapon-menu id nm weapon-rolls/mode-options last? close-modes (fn [{mode :id}] (roll-attack! mode))]])
        [roll-button (str nm " attack" hands-note ": ") (str "1d20" (common/mod-str attack-bonus))
         :on-roll roll-attack!
         :class (str "weapon-tile weapon-hit-tile" (when needs-hands? " needs-hands"))
@@ -4224,7 +4229,8 @@
            :on-key-down (fn [e] (when (= "ArrowDown" (.-key e)) (.preventDefault e) (open-menu)))}
           "+"])
        (when menu-open?
-         [weapon-menu id nm menu-items last? close-menu
+         [weapon-menu-sheet (str nm " \u00B7 damage") close-menu
+          [weapon-menu id nm menu-items last? close-menu
           (fn [{:keys [label entries id extra-attack drop]}]
             (if extra-attack
               (dispatch [:weapon-roll/add
@@ -4238,7 +4244,7 @@
                                                                  (if (and (vector? id) (#{:vs :crit-vs} (first id)))
                                                                    {:against (first (sort (second id)))}
                                                                    {})
-                                                                 rand-die))])))])]]
+                                                                 rand-die))])))]])]]
      (when (or controls-below? (seq lines))
        [:div.weapon-lines
         (when controls-below?

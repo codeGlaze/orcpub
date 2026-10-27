@@ -179,7 +179,7 @@
     ;; the attack mode switch in the heading, and no text-selection callout on a long press
     [:.weapon-mode {:margin-left :auto}]
     ;; the long-press modes in a bottom sheet: the + menu's rows, laid flat in the sheet
-    [:.weapon-mode-sheet
+    [:.weapon-menu-sheet
      [:.weapon-menu-backdrop {:display :none}]
      [:.weapon-menu {:position :static :width :auto :max-width :none :box-shadow :none :margin-top "6px"}]]
     [:.weapon-mode-title {:font-size "12px" :font-weight 700 :text-transform :uppercase :letter-spacing ".06em" :opacity 0.7}]
