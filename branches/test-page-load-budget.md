@@ -7,6 +7,10 @@ allowance does not list. **Base:** `integration`. **PR into:** `integration` (#6
 
 ## State (updated 2026-10-27)
 
+- **#66 merged into `integration` on 2026-10-27.** Steps 1 to 5 are done: the 900 KB ceiling
+  (871 KB at merge), the shared logo request, the allowances, and the portrait-artists known bug
+  (`PORTRAIT_ARTISTS_BUG`, for #65 to remove). **Only step 6 (#70) remains.**
+
 - Done: CodeRabbit reviewed the PR's head (`660261aa0`, 2026-10-17), and every thread is resolved.
 - Done, **committed locally, not pushed:** `integration` merged in as `a841b4d3c`, in the worktree
   `/home/codeglaze/projects/orcpub-loadbudget` (branch `test/page-load-budget`, ahead of origin).

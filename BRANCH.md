@@ -51,6 +51,8 @@ carries live state.*
     #70 `feature/registration-in-boot-report`. #65
     `feature/artist-pages` targets `feature/portrait-builder`, which has already merged (#64).
     #35 targets `mirror/upstream-develop`.
+  - Merged 2026-10-27: #66 `test/page-load-budget` (self-hosted font, cache-stamped assets, the
+    page-load test with a 900 KB bundle ceiling).
   - Merged 2026-10-27: #63 `refactor/pdf-canvas` (the PDF drawing layer split out, A4, embedded
     fonts).
   - Merged 2026-10-26: #76 `fix/lookup-indexes` (indexed lookups, the email lookup key, GET /user
