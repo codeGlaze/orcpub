@@ -90,6 +90,14 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** the add buttons on homebrew builders repeat below a long list of traits or options.
 - **Printing:** A4 as well as US Letter, for the character sheet, spell cards, magic item cards and the spellbook. An A4 spellbook page carries about 7% more than a Letter one.
 - **Printing:** when part of an export cannot be produced, the PDF opens with a page naming what was left out and why. A clean export is unchanged and gains no page.
+- **Characters:** a new Weapons table: attack and damage tiles that roll, results in a sheet that chains the turn's attacks, conditional damage from a + menu, main-hand and off-hand marks, and a desktop layout with a Details column.
+- **Characters:** roll attacks with advantage or disadvantage on any device: a switch in the Weapons heading, or a long press on an attack tile for one roll.
+- **Characters:** every SRD magic weapon's extra damage and once-per-dawn powers, on the sheet and in the PDF.
+- **Characters:** charges for the SRD's charged items, shown as pips to tap; staffs spend them on their powers.
+- **Characters:** a Rest box on the Features tab, and a floating Rest button on the other tabs: short and long rests, dawn and dusk, recharging items by their roll or yours, with Undo.
+- **Characters:** cast spells from charged items, priced in charges per level, from the item or from the Spells tab, and roll the spell's damage at the level cast.
+- **Homebrew:** custom items can have charges, a recharge time and the spells they cast.
+- **Homebrew:** custom weapons can have switches the player turns on (like Flame Tongue), extra damage and effects (saves, conditions, advantage on the next attack, an extra attack), applying on a hit, miss or crit, against a creature type, in melee or at range, limited per turn, rest or dawn, or paid in charges.
 
 ### Changed
 - **Server:** a deployed server will not start without a mail server unless `EMAIL_REQUIRED=false` says that is intended, and the message names the setting to add. Development mode is exempt; `./run` and `./run --upgrade` set the opt-out for installs that run without email, so none stops on upgrade.
@@ -110,6 +118,9 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** a character portrait whose host is briefly unreachable is fetched a second time before the export gives up on it.
 - **Printing:** every sans-serif line in an export -- sheet fields, spell-column headings, the site line, the notice page and card captions -- is set in one embedded font with Helvetica's exact widths, so it looks the same in every PDF viewer and prints names such as Łukasz.
 - **Server:** the first start after upgrading builds new database indexes and gives older accounts an email lookup key, both in the background; until that finishes, an older account with a mixed-case address signs in by username rather than email.
+- **Printing:** each weapon is named once on the PDF, with its two-handed damage and extras as bullets beneath it.
+- **Characters:** a long rest no longer counts as dawn; items that recharge at dawn or dusk wait for it.
+- **Content:** SRD weapon and armor names in Title Case, without the Wikipedia links.
 
 ### Fixed
 
@@ -186,6 +197,9 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** on a server whose JVM runs a non-English locale, spell-card school names and the sheet's ability labels drew the wrong letter: a Turkish server printed "İllusion" and "İNT".
 - **Accounts:** follow buttons remember who you follow after the page reloads.
 - **Server:** sign-in, password reset and character, party, folder and item lists no longer slow down and use more memory as the site grows.
+- **Characters:** a magic item's spell DC bonus no longer raises ki, Breath Weapon and other DCs that are not spell DCs.
+- **Characters:** uses that come back once a day were never reset; they now reset at dawn.
+- **Characters:** a monk with a low Strength no longer attacks at +0 with a weapon Martial Arts does not cover; the attack uses the real modifier (#713).
 
 ### Security
 
