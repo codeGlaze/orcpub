@@ -1,5 +1,5 @@
 (ns orcpub.dnd.e5.views.charges-builder
-  "The item builder's Charges group: how many charges a custom item has, when and how many come
+  "The item builder's Charges group and Weapon powers group: how many charges a custom item has, when and how many come
    back, and the spells it casts with their price in charges. Its events edit ::mi/builder-item.
    Plan: plan-charges-and-casting.md, step 7."
   (:require [clojure.string :as s]
@@ -11,6 +11,9 @@
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.units :as units5e]
+            [orcpub.dnd.e5.weapons :as weapons]
+            [orcpub.dnd.e5.damage-types :as damage-types5e]
+            [orcpub.dnd.e5.srd-conditions :as srd-conditions]
             [orcpub.dnd.e5.views.builder-fields :refer [base-builder-field input-builder-field
                                                         dropdown number-field]]))
 
@@ -165,3 +168,121 @@
         [:div.f-w-b.m-b-5 "Spells it casts"]
         (doall (map-indexed (fn [i c] ^{:key i} [cast-row i c spells-map spells rolls]) casts))
         [:button.form-button.m-t-5 {:on-click #(dispatch [::mi/add-item-cast])} "Add a spell"]])])))
+
+;; Weapon powers: extra damage and effects on a custom weapon, in the fields the SRD weapons use
+;; (weapon-damage-model.md).
+
+(defn set-power-dice
+  "An extra damage row with its dice typed as `text`: \"2d6\" or \"2d6+1\" sets the dice and any
+  flat bonus, a plain number only the bonus, anything else clears both."
+  [row text]
+  (let [{:keys [num sides mod]} (dice/parse-dice text)
+        row (dissoc row ::weapons/damage-die ::weapons/damage-die-count ::mi/damage-bonus)]
+    (cond-> row
+      sides (assoc ::weapons/damage-die sides ::weapons/damage-die-count num)
+      (and mod (not (zero? mod))) (assoc ::mi/damage-bonus mod)
+      (and (nil? sides) mod) (assoc ::mi/damage-bonus mod))))
+
+(defn set-power
+  "`item` with key `k` of row `i` under `kind` (::mi/extra-damage or ::mi/effects) set to `v`, or
+  removed when `v` is nil or blank. A save ability makes an effect a save, none a plain effect."
+  [item kind i k v]
+  (update-in item [kind i]
+             (fn [row]
+               (let [row (if (or (nil? v) (= "" v)) (dissoc row k) (assoc row k v))]
+                 (cond-> row
+                   (= ::mi/save-ability k) (assoc ::mi/effect-type (if (::mi/save-ability row) :save :condition)))))))
+
+(reg-event-db
+ ::mi/add-item-power
+ events/item-interceptors
+ (fn [item [_ kind]]
+   (update item kind (fnil conj []) (if (= kind ::mi/effects) {::mi/effect-type :condition ::mi/text ""} {}))))
+
+(reg-event-db
+ ::mi/remove-item-power
+ events/item-interceptors
+ (fn [item [_ kind i]]
+   (let [rows (vec (concat (subvec (get item kind) 0 i) (subvec (get item kind) (inc i))))]
+     (if (seq rows) (assoc item kind rows) (dissoc item kind)))))
+
+(reg-event-db
+ ::mi/set-item-power
+ events/item-interceptors
+ (fn [item [_ kind i k v]] (set-power item kind i k v)))
+
+(reg-event-db
+ ::mi/set-item-power-dice
+ events/item-interceptors
+ (fn [item [_ i text]] (update-in item [::mi/extra-damage i] set-power-dice text)))
+
+(def ^:private when-options
+  [{:value "" :title "On a hit"} {:value "miss" :title "On a miss"} {:value "crit" :title "On a critical hit"}])
+
+(def ^:private use-options
+  [{:value "" :title "Every time"}
+   {:value (name ::units5e/turn) :title "Once per turn"}
+   {:value (name ::units5e/short-rest) :title "Once per short rest"}
+   {:value (name ::units5e/long-rest) :title "Once per long rest"}
+   {:value (name ::units5e/dawn) :title "Once per dawn"}])
+
+(defn- power-row
+  "The controls shared by a power row: when it applies, how often, and its charge cost. Takes the
+  kind, the position and the row."
+  [kind i row]
+  (let [setter (fn [k f] #(dispatch [::mi/set-item-power kind i k (f %)]))]
+    [:<>
+     [:div.item-cast-number.wide (base-builder-field "When" [dropdown {:items when-options :value (some-> (::mi/on row) name)
+                                                                       :on-change (setter ::mi/on #(when-not (s/blank? %) (keyword %)))}])]
+     [:div.item-cast-number.wide (base-builder-field "Uses" [dropdown {:items use-options :value (some-> (::mi/recharge row) name)
+                                                                       :on-change (setter ::mi/recharge #(when-not (s/blank? %) (keyword "orcpub.dnd.e5.units" %)))}])]
+     [:div.item-cast-number (base-builder-field "Charges" [number-field {:value (::mi/charge-cost row)
+                                                                         :on-change #(dispatch [::mi/set-item-power kind i ::mi/charge-cost (when (and % (pos? %)) %)])}])]
+     [:button.form-button.item-cast-remove {:aria-label "Remove" :on-click #(dispatch [::mi/remove-item-power kind i])} "Remove"]]))
+
+(defn powers-group
+  "The item builder's Weapon powers group for `item`: extra damage rows and effect rows."
+  [{:keys [::mi/extra-damage ::mi/effects]}]
+  (let [types (cons {:value "" :title "Weapon's type"}
+                    (map (fn [t] {:value (name t) :title (common/kw-to-name t)}) damage-types5e/damage-types))
+        abilities (cons {:value "" :title "No save"}
+                        (map (fn [[k t]] {:value (name k) :title t})
+                             [[:str "Strength"] [:dex "Dexterity"] [:con "Constitution"] [:int "Intelligence"] [:wis "Wisdom"] [:cha "Charisma"]]))
+        conditions (cons {:value "" :title "No condition"} (map (fn [c] {:value (name c) :title (common/kw-to-name c)}) (sort srd-conditions/condition-keys)))]
+    [:div.m-b-40.item-powers-builder
+     [:div.m-b-10 [:span.f-s-24.f-w-b "Weapon powers"]]
+     [:div.f-w-b.m-b-5 "Extra damage"]
+     (doall
+      (map-indexed
+       (fn [i row]
+         ^{:key i}
+         [:div.item-cast-row
+          [:div.flex.flex-wrap.align-items-end
+           [:div.item-cast-number.wide
+            [input-builder-field "Dice" (str (when (::weapons/damage-die row) (str (::weapons/damage-die-count row) "d" (::weapons/damage-die row)))
+                                              (when-let [b (::mi/damage-bonus row)] (if (::weapons/damage-die row) (common/mod-str b) (str b))))
+             #(dispatch [::mi/set-item-power-dice i %]) {:class "input" :placeholder "2d6"}]]
+           [:div.item-cast-number.wide (base-builder-field "Type" [dropdown {:items types :value (some-> (::weapons/damage-type row) name)
+                                                                             :on-change #(dispatch [::mi/set-item-power ::mi/extra-damage i ::weapons/damage-type (when-not (s/blank? %) (keyword %))])}])]
+           [power-row ::mi/extra-damage i row]]])
+       extra-damage))
+     [:button.form-button.m-t-5.m-b-10 {:on-click #(dispatch [::mi/add-item-power ::mi/extra-damage])} "Add extra damage"]
+     [:div.f-w-b.m-b-5.m-t-10 "Effects"]
+     (doall
+      (map-indexed
+       (fn [i row]
+         ^{:key i}
+         [:div.item-cast-row
+          [input-builder-field "What happens" (::mi/text row) #(dispatch [::mi/set-item-power ::mi/effects i ::mi/text %]) {:class "input"}]
+          [:div.flex.flex-wrap.align-items-end
+           [:div.item-cast-number.wide (base-builder-field "Save" [dropdown {:items abilities :value (some-> (::mi/save-ability row) name)
+                                                                             :on-change #(dispatch [::mi/set-item-power ::mi/effects i ::mi/save-ability (when-not (s/blank? %) (keyword %))])}])]
+           (when (::mi/save-ability row)
+             [:<>
+              [:div.item-cast-number (base-builder-field "Save DC" [number-field {:value (::mi/save-dc row)
+                                                                                  :on-change #(dispatch [::mi/set-item-power ::mi/effects i ::mi/save-dc (when (and % (pos? %)) %)])}])]
+              [:div.item-cast-number.wide (base-builder-field "On a failed save" [dropdown {:items conditions :value (some-> (::mi/save-fail row) name)
+                                                                                            :on-change #(dispatch [::mi/set-item-power ::mi/effects i ::mi/save-fail (when-not (s/blank? %) (keyword %))])}])]])
+           [power-row ::mi/effects i row]]])
+       effects))
+     [:button.form-button.m-t-5 {:on-click #(dispatch [::mi/add-item-power ::mi/effects])} "Add an effect"]]))

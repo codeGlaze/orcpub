@@ -365,8 +365,20 @@
    []
    modifiers))
 
-(defn from-internal-item [item]
+(defn complete-powers
+  "`item` keeping only the extra damage and effect rows its spec accepts: a row the builder has
+  only half filled in is left out of the save rather than failing it."
+  [item]
+  (cond-> item
+    (::extra-damage item) (update ::extra-damage #(filterv (partial spec/valid? ::extra-damage-entry) %))
+    (::effects item) (update ::effects #(filterv (partial spec/valid? ::effect) %))))
+
+(defn from-internal-item
+  "A builder item as it is saved: modifiers in their stored form, half-filled power rows left
+  out, and only the keys the item schema holds. Takes the builder item; returns the item."
+  [item]
   (-> item
+      complete-powers
       (assoc ::modifiers (from-internal-modifiers (::internal-modifiers item)))
       (select-keys [:db/id
                     ::name
@@ -385,6 +397,8 @@
                     ::charges-recharge
                     ::charges-regain
                     ::casts
+                    ::extra-damage
+                    ::effects
                     ::weapons5e/type
                     ::weapons5e/damage-type
                     ::weapons5e/damage-die-count

@@ -9835,6 +9835,7 @@
      [:div.m-b-40
       [attunement-selector attunement]]
      [charges-builder/charges-group item]
+     (when (= :weapon type) [charges-builder/powers-group item])
      [item-bonuses item]]))
 
 (defn import-file [e]

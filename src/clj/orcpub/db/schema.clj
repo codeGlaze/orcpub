@@ -430,12 +430,15 @@
      ::mi5e/description
      ::mi5e/string-arg
      ::mi5e/charges-start
-     ::mi5e/charges-regain])
+     ::mi5e/charges-regain
+     ::mi5e/text])
    (map
     many-ref-no-history
     [::mod/args
      ::mi5e/modifiers
-     ::mi5e/casts])
+     ::mi5e/casts
+     ::mi5e/extra-damage
+     ::mi5e/effects])
    (map
     many-kws-no-history
     [::mi5e/subtypes
@@ -451,7 +454,9 @@
      ::mi5e/cast-cost
      ::mi5e/cast-per-level
      ::mi5e/cast-max-level
-     ::mi5e/save-dc])
+     ::mi5e/save-dc
+     ::mi5e/charge-cost
+     ::mi5e/damage-bonus])
    (map
     kw-prop-no-history
     [::mod/key
@@ -459,7 +464,12 @@
      ::mi5e/type
      ::mi5e/rarity
      ::mi5e/charges-recharge
-     ::mi5e/cast-spell])))
+     ::mi5e/cast-spell
+     ::mi5e/on
+     ::mi5e/recharge
+     ::mi5e/effect-type
+     ::mi5e/save-ability
+     ::mi5e/save-fail])))
 
 (def weapon-schema
   (concat

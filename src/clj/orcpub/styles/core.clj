@@ -272,6 +272,7 @@
    [:.item-cast-row {:padding "8px 0" :border-bottom "1px solid rgba(255,255,255,.12)"}]
    [:.item-cast-spell {:flex "1 1 200px" :margin-right "10px"}]
    [:.item-cast-number {:width "86px" :margin-right "8px"}]
+   [:.item-cast-number.wide {:width "150px"}]
    [:.item-cast-remove {:margin-bottom "8px"}]
    [:.item-cast-hint {:font-size "12px" :opacity 0.8 :margin-top "2px"}]
    [".app.light-theme .item-cast-row" {:border-bottom-color "rgba(0,0,0,.12)"}]
