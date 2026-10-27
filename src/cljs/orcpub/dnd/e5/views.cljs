@@ -2945,6 +2945,21 @@
 (def expanded-spell-background-style
   {:background-color "rgba(0,0,0,0.1)"})
 
+(defn prepared-spell-box
+  "The tick box that prepares spell `key` (named `spell-name`) for `class` on character `id`: ticked
+   when `always-prepared?` or `prepared?`; with no preparations left (`remaining-preps`) an unticked
+   box is disabled and a click on it does nothing, as does any click on an always-prepared spell."
+  [id class key spell-name always-prepared? prepared? remaining-preps]
+  (let [selected? (or always-prepared? prepared?)
+        disabled? (and (not selected?) (not (pos? remaining-preps)))]
+    [:span.m-r-5
+     {:class (when (or always-prepared? disabled?) "cursor-disabled")
+      :on-click (fn [e]
+                  (when-not (or always-prepared? disabled?)
+                    (dispatch [::char/toggle-spell-prepared id class key]))
+                  (.stopPropagation e))}
+     (comps/checkbox selected? (or disabled? always-prepared?) (str spell-name " prepared"))]))
+
 (defn spell-row [id lvl spell-modifiers prepares-spells prepared-spells-by-class {:keys [key ability qualifier class always-prepared?]} expanded? on-click prepare-spell-count prepared-spell-count]
   (let [spell-map @(subscribe [::spells/spells-map])
         spell (spell-map key)
@@ -2957,21 +2972,8 @@
       [:td.p-l-10.p-b-5.p-t-5.f-w-b
        (when (and (pos? lvl)
                 (get prepares-spells class))
-         [:span.m-r-5
-          {:class (when always-prepared?
-                         "cursor-disabled")
-           :on-click (fn [e]
-                       (when (not always-prepared?)
-                         (dispatch [::char/toggle-spell-prepared id class key]))
-                       (.stopPropagation e))}
-          (let [selected? (or always-prepared?
-                              (get-in prepared-spells-by-class [class key]))]
-            (comps/checkbox
-             selected?
-             (and (not selected?)
-                  (or always-prepared?
-                      (not (pos? remaining-preps))))
-             (str (:name spell) " prepared")))])
+         [prepared-spell-box id class key (:name spell) always-prepared?
+          (get-in prepared-spells-by-class [class key]) remaining-preps])
        (:name spell)]
       [:td.p-l-10.p-b-5.p-t-5 class]
       [:td.p-l-10.p-b-5.p-t-5 (when ability (s/upper-case (common/safe-name ability)))]

@@ -24,6 +24,7 @@ and the batched emails an artist's credit edits send.
 ## Fixed
 
 - **Site:** all seven header tabs and their menus fit on a 320px phone.
+- **Spells:** a spell can no longer be prepared once every preparation is used.
 
 ## Security
 
