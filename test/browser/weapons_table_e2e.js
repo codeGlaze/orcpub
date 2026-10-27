@@ -23,7 +23,7 @@
 // as a card with both dice, the unused one struck.
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/weapons_table_e2e.js`). No login.
-// Runs in:   ~30s. SHOT_DIR=<dir> saves weapons-dark.png and weapons-light.png.
+// Runs in:   ~30s. SHOT_DIR=<dir> saves weapons-dark.png, weapons-light.png and weapons-plus-menu.png.
 const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
 const BASE = process.env.E2E_BASE || 'http://localhost:8890';
@@ -256,6 +256,7 @@ async function layout(page, theme) {
           await holyRow.locator('.weapon-menu').waitFor({ timeout: 5000 }).then(() => true, () => false)
           && /^Roll damage/.test(await focused()));
     check('on a phone it opens in the bottom sheet', await page.locator('.weapon-menu-sheet .weapon-menu').count() === 1);
+    if (SHOT_DIR) { await page.waitForTimeout(250); await page.screenshot({ path: `${SHOT_DIR}/weapons-plus-menu.png` }); }
     await page.keyboard.press('ArrowDown');
     check('Down moves to the next item', /^Roll vs fiends and undead/.test(await focused()));
     await page.keyboard.press('Escape');
