@@ -32,3 +32,18 @@
          (cb/roll-hint {:attack :melee :damage [{:dice "1d8" :type :force :mod? true :per-slot "1d8" :slot-step 2}]} 2)))
   (is (nil? (cb/roll-hint {:save :wis} 1)) "a save with no roll says nothing")
   (is (nil? (cb/roll-hint nil nil)) "a cast with no spell chosen yet, or a spell with no rolling data"))
+
+(deftest typed-dice-set-the-damage-fields
+  (is (= {:orcpub.dnd.e5.weapons/damage-die 6 :orcpub.dnd.e5.weapons/damage-die-count 2} (cb/set-power-dice {} "2d6")))
+  (is (= {:orcpub.dnd.e5.weapons/damage-die 8 :orcpub.dnd.e5.weapons/damage-die-count 1 ::mi/damage-bonus 2}
+         (cb/set-power-dice {} "1d8+2")))
+  (is (= {::mi/damage-bonus 3} (cb/set-power-dice {:orcpub.dnd.e5.weapons/damage-die 6} "3")) "a flat amount")
+  (is (= {::mi/on :miss} (cb/set-power-dice {::mi/on :miss :orcpub.dnd.e5.weapons/damage-die 6} "")) "blank clears the dice only"))
+
+(deftest choosing-a-save-makes-an-effect-a-save
+  (let [item {::mi/effects [{::mi/effect-type :condition ::mi/text "Knocked down."}]}]
+    (is (= :save (get-in (cb/set-power item ::mi/effects 0 ::mi/save-ability :str) [::mi/effects 0 ::mi/effect-type])))
+    (is (= :condition (get-in (-> item (cb/set-power ::mi/effects 0 ::mi/save-ability :str)
+                                  (cb/set-power ::mi/effects 0 ::mi/save-ability nil))
+                              [::mi/effects 0 ::mi/effect-type]))
+        "and no save makes it a plain effect again")))

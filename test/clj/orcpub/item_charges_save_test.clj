@@ -37,7 +37,7 @@
     (let [{:keys [status body] :as response}
           (routes/save-item {:db (d/db conn) :conn conn :transit-params (mi/from-internal-item item) :identity {:user "alice"}})]
       (if (= 200 status)
-        (-> (d/pull (d/db conn) '[* {::mi/casts [*]}] (:db/id body))
+        (-> (d/pull (d/db conn) '[* {::mi/casts [*]} {::mi/extra-damage [*]} {::mi/effects [*]}] (:db/id body))
             (dissoc :db/id ::mi/owner)
             (update ::mi/casts #(mapv (fn [c] (dissoc c :db/id)) %)))
         response))
@@ -59,3 +59,22 @@
    (fn [conn]
      (let [item (saved conn (-> wand (dissoc ::mi/charges) (assoc ::mi/charges-start "1d8+1")))]
        (is (= "1d8+1" (::mi/charges-start item)) (pr-str item))))))
+
+(def flaming-blade
+  "A custom weapon with a power of each kind, and one extra damage row left half filled."
+  {::mi/name "Flaming Blade" ::mi/type :weapon ::mi/rarity :rare
+   ::mi/extra-damage [{:orcpub.dnd.e5.weapons/damage-die 6 :orcpub.dnd.e5.weapons/damage-die-count 2
+                       :orcpub.dnd.e5.weapons/damage-type :fire ::mi/on :crit}
+                      {::mi/on :miss}]
+   ::mi/effects [{::mi/effect-type :save ::mi/text "Knocked down." ::mi/save-ability :str ::mi/save-dc 15
+                  ::mi/save-fail :prone ::mi/recharge ::units5e/dawn ::mi/charge-cost 1}]})
+
+(deftest a-custom-weapon-keeps-its-powers
+  (with-conn
+   (fn [conn]
+     (let [item (saved conn flaming-blade)
+           strip (fn [rows] (mapv #(dissoc % :db/id) rows))]
+       (testing "the complete extra damage row, and only it"
+         (is (= [(first (::mi/extra-damage flaming-blade))] (strip (::mi/extra-damage item))) (pr-str item)))
+       (testing "the effect with its save, use and cost"
+         (is (= (::mi/effects flaming-blade) (strip (::mi/effects item)))))))))
