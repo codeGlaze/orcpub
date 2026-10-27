@@ -207,3 +207,8 @@
   (let [bow (assoc (weapon :longbow) ::mi/extra-damage [(assoc (dice 1 4) ::mi/attack-type :ranged)])]
     (is (= 2 (count (wd/applying-damage bow 0 false {}))))
     (is (= 1 (count (wd/applying-damage bow 0 false {:attack-type :melee}))))))
+
+(deftest targets-read-as-a-set-even-when-saved-as-a-vector
+  (is (wd/applies? {::mi/against [:undead]} {:against :undead}) "a saved custom item's vector")
+  (is (not (wd/applies? {::mi/not-against [:undead]} {:against :undead}))))
+

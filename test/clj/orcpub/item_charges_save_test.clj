@@ -37,7 +37,7 @@
     (let [{:keys [status body] :as response}
           (routes/save-item {:db (d/db conn) :conn conn :transit-params (mi/from-internal-item item) :identity {:user "alice"}})]
       (if (= 200 status)
-        (-> (d/pull (d/db conn) '[* {::mi/casts [*]} {::mi/extra-damage [*]} {::mi/effects [*]}] (:db/id body))
+        (-> (d/pull (d/db conn) '[* {::mi/casts [*]} {::mi/extra-damage [*]} {::mi/effects [*]} {::mi/toggles [*]}] (:db/id body))
             (dissoc :db/id ::mi/owner)
             (update ::mi/casts #(mapv (fn [c] (dissoc c :db/id)) %)))
         response))
@@ -78,3 +78,23 @@
          (is (= [(first (::mi/extra-damage flaming-blade))] (strip (::mi/extra-damage item))) (pr-str item)))
        (testing "the effect with its save, use and cost"
          (is (= (::mi/effects flaming-blade) (strip (::mi/effects item)))))))))
+
+(def blazing-blade
+  "A custom weapon with a switch, and powers that use every kind of condition."
+  {::mi/name "Blazing Blade" ::mi/type :weapon ::mi/rarity :rare
+   ::mi/toggles [{::mi/toggle-id :switch-0 ::mi/toggle-name "Ablaze"}]
+   ::mi/extra-damage [{:orcpub.dnd.e5.weapons/damage-die 6 :orcpub.dnd.e5.weapons/damage-die-count 2
+                       :orcpub.dnd.e5.weapons/damage-type :fire ::mi/while :switch-0
+                       ::mi/against #{:undead} ::mi/attack-type :melee}]
+   ::mi/effects [{::mi/effect-type :condition ::mi/text "Again!" ::mi/next-attack :adv
+                  ::mi/extra-attack :same ::mi/recharge ::units5e/turn}]})
+
+(deftest a-custom-weapon-keeps-its-switches-and-conditions
+  (with-conn
+   (fn [conn]
+     (let [item (saved conn blazing-blade)
+           clean (fn [rows] (mapv #(cond-> (dissoc % :db/id) (::mi/against %) (update ::mi/against set)) rows))]
+       (is (= (::mi/toggles blazing-blade) (clean (::mi/toggles item))) (pr-str item))
+       (is (= (::mi/extra-damage blazing-blade) (clean (::mi/extra-damage item))))
+       (is (= (::mi/effects blazing-blade) (clean (::mi/effects item))))))))
+

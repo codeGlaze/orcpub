@@ -2,7 +2,7 @@
 // The attack mode, both ways (handoff-weapons-table.md build step 3; owner, 2026-10-26).
 //
 // A level 1 fighter with a longsword, on a 390px phone: the Weapons heading's switch starts on
-// Normal (shown as a dash) and an attack rolls one d20; choosing Adv makes the next attack roll
+// Normal (shown as a d20) and an attack rolls one d20; choosing Adv makes the next attack roll
 // two d20s; a long press on the attack tile opens the modes in a bottom sheet, and Disadvantage
 // there rolls two d20s for that one roll while the switch stays on Adv.
 //
@@ -61,7 +61,7 @@ function check(name, pass, detail) {
     await sheet.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
   };
 
-  check('Normal reads as a dash', (await modes.getByRole('radio', { name: 'Normal' }).innerText({ timeout: 15000 }).catch(() => '')).trim() === '\u2014');
+  check('Normal shows a d20', await modes.getByRole('radio', { name: 'Normal' }).locator('.fa-dice-d20').count() === 1);
   check('the heading switch starts on Normal',
         await modes.getByRole('radio', { name: 'Normal' }).getAttribute('aria-checked', { timeout: 15000 }).catch(() => null) === 'true');
   await tile.click({ timeout: 10000 }).catch(() => {});

@@ -47,3 +47,13 @@
                                   (cb/set-power ::mi/effects 0 ::mi/save-ability nil))
                               [::mi/effects 0 ::mi/effect-type]))
         "and no save makes it a plain effect again")))
+
+(deftest a-switch-keeps-its-id-and-leaves-cleanly
+  (let [item (-> {} (cb/add-toggle "Ablaze") (cb/add-toggle "Frost"))
+        item (assoc item ::mi/extra-damage [{::mi/while :switch-0 ::mi/damage-bonus 2}])]
+    (is (= [:switch-0 :switch-1] (map ::mi/toggle-id (::mi/toggles item))))
+    (is (= [{::mi/damage-bonus 2}] (::mi/extra-damage (cb/remove-toggle item 0))) "its rows no longer wait for it")
+    (is (= [:switch-1] (map ::mi/toggle-id (::mi/toggles (cb/remove-toggle item 0)))))
+    (is (= #{:undead} (get-in (cb/set-power item ::mi/extra-damage 0 ::mi/against :undead) [::mi/extra-damage 0 ::mi/against]))
+        "a creature type is stored as a set of one")))
+
