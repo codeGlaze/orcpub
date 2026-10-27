@@ -680,10 +680,10 @@
 
 (defn shade-hex
   "Mix a #rrggbb color toward white (pct > 0) or black (pct < 0); pct is
-   clamped to [-100, 100]. A zero/nil pct or a non-#rrggbb input returns
+   clamped to [-100, 100]. A pct that is zero or not a number, or a non-#rrggbb input, returns
    `hex` unchanged."
   [hex pct]
-  (if (or (nil? pct) (zero? pct) (not (re-matches hex-re (str hex))))
+  (if (or (not (number? pct)) (zero? pct) (not (re-matches hex-re (str hex))))
     hex
     (let [p      (/ (min 100 (Math/abs pct)) 100.0)
           target (if (neg? pct) 0 255)
@@ -774,4 +774,4 @@
                (boolean (or override
                             (and (number? shade) (not (zero? shade)))
                             (and (number? depth) (not (zero? depth)))))))
-           (layers-in-slot slot)))
+           (layers-in-slot portrait slot)))

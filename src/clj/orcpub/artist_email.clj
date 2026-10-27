@@ -18,7 +18,8 @@
    pure so they can be tested and previewed without sending."
   (:require [clojure.string :as s]
             [hiccup2.core :as hiccup]
-            [postal.core :as postal]
+            [orcpub.config :as config]
+            [orcpub.outbox :as outbox]
             [orcpub.env :as env]
             [orcpub.crypto :as crypto]
             [orcpub.email :as email]
@@ -39,9 +40,9 @@
   (some-> branding/app-url not-empty (s/replace #"/+$" "")))
 
 (defn admin-recipient
-  "Where artist-account notices go: EMAIL_ADMIN_TO, else the error inbox."
+  "Where artist-account notices go (`config/admin-notice-address`), or nil when no admin address is set."
   []
-  (or (env/value :email-admin-to) (env/value :email-errors-to)))
+  (:address (config/admin-notice-address)))
 
 (defn- email-on? [] (boolean (env/value :email-server-url)))
 
@@ -378,15 +379,10 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- send!
-  "Send `msg`; true if the mail server took it."
+  "Queues `msg` in the outbox, which sends it and retries while the mail server is down; true when
+  it was queued."
   [msg]
-  (try
-    (let [result (postal/send-message (email/email-cfg) msg)]
-      (or (= :SUCCESS (:error result))
-          (do (println "artist-email: not sent to" (:to msg) "-" (:error result)) false)))
-    (catch Exception e
-      (println "artist-email: failed to send to" (:to msg) "-" (.getMessage e))
-      false)))
+  (outbox/enqueue-current! :artist msg))
 
 (defn- deliver!
   "Send the artist's message and the admin copy; true if the artist's went out."
@@ -400,7 +396,7 @@
       (let [sent? (when artist-msg (send! artist-msg))]
         (if (admin-recipient)
           (send! (admin-message kind event))
-          (println "artist-email: no EMAIL_ADMIN_TO or EMAIL_ERRORS_TO; admin copy not sent"))
+          (println "artist-email: no admin address (EMAIL_ADMIN_TO, EMAIL_ERRORS_TO, APP_SUPPORT_EMAIL); admin copy not sent"))
         sent?))))
 
 (def notify
@@ -429,4 +425,4 @@
     (do (send! (credit-changed-message (base-url) event))
         (if (admin-recipient)
           (send! (credit-admin-message event))
-          (println "artist-email: no EMAIL_ADMIN_TO or EMAIL_ERRORS_TO; admin copy not sent")))))
+          (println "artist-email: no admin address (EMAIL_ADMIN_TO, EMAIL_ERRORS_TO, APP_SUPPORT_EMAIL); admin copy not sent")))))

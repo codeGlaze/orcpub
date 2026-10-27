@@ -118,10 +118,14 @@ function check(label, ok, detail) {
   // reported PASS for something it had not looked at.
   const launcherVisible = await launcher.isVisible().catch(() => false);
   check('"Compose portrait" launcher renders in Description tab', launcherVisible);
-  if (!launcherVisible) { console.log('  (skipping the rest: no launcher to open)'); }
+  if (!launcherVisible) {
+    console.log('  (skipping the rest: no launcher to open)');
+    await browser.close();
+    console.log(`\ndone — ${failures} failing\n`);
+    process.exit(1);
+  }
 
-  // The drawer's <style> also styles the launcher, so it must be mounted even
-  // while the drawer is closed -- which is exactly when the launcher is seen.
+  // The launcher is styled while the drawer is closed, which is exactly when it is seen.
   const launcherBgClosed = await launcher.evaluate(el => getComputedStyle(el).backgroundImage);
   check('launcher is styled while the drawer is closed',
         /gradient/.test(launcherBgClosed), launcherBgClosed);

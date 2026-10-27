@@ -19,6 +19,54 @@ color_bold=$'\033[1m'
 color_dim=$'\033[2m'
 
 # ---------------------------------------------------------------------------
+# swarm_service_names FILE
+# Prints the Datomic service's name and the app service's name in stack FILE, space-separated:
+# the first service whose name has "datomic" in it and the first that does not, else datomic and
+# orcpub.
+swarm_service_names() {
+  local names d a
+  names=$(sed -n '/^services:/,/^[a-z]/{ /^  [a-z].*:$/p }' "$1" 2>/dev/null | sed 's/://;s/^[[:space:]]*//' || true)
+  d=$(grep -i 'datomic' <<<"$names" | head -1 || true)
+  a=$(grep -iv 'datomic' <<<"$names" | head -1 || true)
+  printf '%s %s\n' "${d:-datomic}" "${a:-orcpub}"
+}
+
+# swarm_stack_lacks_transactor_host FILE [SERVICE]
+# Succeeds when FILE exists and its Datomic service (SERVICE, default datomic) sets no
+# TRANSACTOR_HOST: a stack written before that setting, on which the transactor cannot start under
+# Swarm. Fails otherwise.
+swarm_stack_lacks_transactor_host() {
+  [ -f "$1" ] || return 1
+  ! sed -n "/^  ${2:-datomic}:/,/^  [a-z]/p" "$1" | grep -q 'TRANSACTOR_HOST'
+}
+
+# _stack_paths FILE
+# Prints each key and list item of a stack file as a path, one per line, sorted: top-level keys,
+# services, their keys, and two levels below (environment names, labels, volumes). Values of
+# keys are left out, so a changed value is not a difference. Comments and blank lines are skipped.
+_stack_paths() {
+  awk '
+    /^[[:space:]]*(#|$)/ { next }
+    {
+      match($0, /^ */); level = int(RLENGTH / 2); text = substr($0, RLENGTH + 1)
+      if (level > 4) next
+      if (text ~ /^- /) { item = substr(text, 3); sub(/=.*/, "", item); gsub(/["\047]/, "", item); key = "[" item "]" }
+      else if (text ~ /:/) { key = text; sub(/:.*/, "", key) }
+      else next
+      path[level] = key; out = path[0]
+      for (i = 1; i <= level; i++) out = out "/" path[i]
+      print out
+    }' "$1" | sort -u
+}
+
+# swarm_stack_losses OLD NEW
+# Prints the paths in OLD that NEW does not have: what regenerating would drop. The top-level
+# name: is left out, since the generator writes it as a comment (Swarm rejects it).
+swarm_stack_losses() {
+  comm -23 <(_stack_paths "$1") <(_stack_paths "$2") | grep -v '^name$' || true
+}
+
+# ---------------------------------------------------------------------------
 # extract_swarm_config — parse existing Swarm compose into shell variables
 # ---------------------------------------------------------------------------
 # Sets _swarm_* variables for use by generate_swarm_compose and
@@ -29,14 +77,14 @@ extract_swarm_config() {
   [ -f "$existing" ] || return 1
 
   # Stack name
-  _swarm_stack_name=$(grep -E '^name:' "$existing" 2>/dev/null | head -1 | sed 's/^name:[[:space:]]*//' | tr -d '\r' || true)
+  # Read from "# Stack name: x" (written now) or a top-level "name: x" (older files).
+  _swarm_stack_name=$(grep -E '^(# Stack name:|name:)' "$existing" 2>/dev/null | head -1 | sed -E 's/^(# Stack name:|name:)[[:space:]]*//; s/[[:space:]]+\(.*$//' | tr -d '\r' || true)
 
   # Service names — top-level keys under services:
-  _swarm_datomic_svc=$(sed -n '/^services:/,/^[a-z]/{ /^  [a-z].*:$/p }' "$existing" | grep -i 'datomic' | head -1 | sed 's/://;s/^[[:space:]]*//' || true)
-  _swarm_app_svc=$(sed -n '/^services:/,/^[a-z]/{ /^  [a-z].*:$/p }' "$existing" | grep -iv 'datomic' | head -1 | sed 's/://;s/^[[:space:]]*//' || true)
+  read -r _swarm_datomic_svc _swarm_app_svc < <(swarm_service_names "$existing")
 
-  local d_svc="${_swarm_datomic_svc:-datomic}"
-  local a_svc="${_swarm_app_svc:-orcpub}"
+  local d_svc="$_swarm_datomic_svc"
+  local a_svc="$_swarm_app_svc"
 
   # Images
   _swarm_datomic_image=$(sed -n "/^  ${d_svc}:/,/^  [a-z]/{ /image:/p }" "$existing" | head -1 | sed 's/.*image:[[:space:]]*//' | tr -d '\r' || true)
@@ -59,7 +107,9 @@ extract_swarm_config() {
   done < <(sed -n '/^networks:/,/^[a-z]/{/^  [a-z]/p}' "$existing" 2>/dev/null || true)
 
   for net in "${_swarm_networks[@]}"; do
-    if sed -n "/^  ${net}:/,/^  [a-z]/p" "$existing" 2>/dev/null | grep -q 'external.*true'; then
+    # Only this entry's own lines, without comments: the sample "#   external: true" is not a setting.
+    if sed -n '/^networks:/,/^[a-z]/p' "$existing" 2>/dev/null | sed -n "/^  ${net}:/,/^  [a-z#]/p" \
+         | grep -v '^[[:space:]]*#' | grep -q 'external:[[:space:]]*true'; then
       _swarm_networks_external+=("$net")
     fi
   done
@@ -75,7 +125,9 @@ extract_swarm_config() {
   done < <(sed -n '/^volumes:/,/^[a-z]/{/^  [a-z]/p}' "$existing" 2>/dev/null || true)
 
   for vol in "${_swarm_volumes[@]}"; do
-    if sed -n "/^  ${vol}:/,/^  [a-z]/p" "$existing" 2>/dev/null | grep -q 'external.*true'; then
+    # Only this entry's own lines, without comments: the sample "#   external: true" is not a setting.
+    if sed -n '/^volumes:/,/^[a-z]/p' "$existing" 2>/dev/null | sed -n "/^  ${vol}:/,/^  [a-z#]/p" \
+         | grep -v '^[[:space:]]*#' | grep -q 'external:[[:space:]]*true'; then
       _swarm_volumes_external+=("$vol")
     fi
   done
@@ -165,6 +217,8 @@ generate_transactor_reference() {
   local template="${SCRIPT_DIR}/docker/transactor.properties.template"
   local output="${SCRIPT_DIR}/transactor.properties.reference"
   [ -f "$template" ] || return 1
+  # This reference is for Swarm, where the transactor must serve on 0.0.0.0 (docs/DOCKER.md).
+  local TRANSACTOR_HOST="${TRANSACTOR_HOST:-0.0.0.0}"
 
   # Resolve ${VAR} and ${VAR:-default} from environment (sourced from .env)
   local line
@@ -324,12 +378,19 @@ generate_swarm_compose() {
   for m in "${_swarm_bind_mounts_app[@]+"${_swarm_bind_mounts_app[@]}"}"; do
     [ -n "$m" ] && a_bind_mounts="${a_bind_mounts}      - ${m}\n"
   done
+  # The host's /var/log, where the app keeps crash files and unsent alerts in /var/log/$APP_LOGS_NAME.
+  # /var/log exists on every machine, so a node never refuses the task for a missing folder.
+  case "$a_bind_mounts" in
+    *":/host-log"*) ;;
+    *) a_bind_mounts="${a_bind_mounts}      - /var/log:/host-log\n" ;;
+  esac
 
   # --- Build env blocks ---
   # Define canonical env vars for each service (name:default pairs)
   local -a _d_env_defaults=(
     "ADMIN_PASSWORD:\${ADMIN_PASSWORD}"
     "DATOMIC_PASSWORD:\${DATOMIC_PASSWORD}"
+    "TRANSACTOR_HOST:\${TRANSACTOR_HOST:-0.0.0.0}"
     "ALT_HOST:\${ALT_HOST:-datomic}"
     "ENCRYPT_CHANNEL:\${ENCRYPT_CHANNEL:-true}"
     "XMS:${xms}"
@@ -351,7 +412,58 @@ generate_swarm_compose() {
     "DATOMIC_URL:\${DATOMIC_URL:-datomic:dev://datomic:4334/orcpub}"
     "DATOMIC_PASSWORD:\${DATOMIC_PASSWORD}"
     "JAVA_OPTS:${java_opts}"
+    "JDK_JAVA_OPTIONS:\"-XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/lib/orcpub/state/crash/heap.hprof -XX:ErrorFile=/var/lib/orcpub/state/crash/jvm-crash-%p.log ${java_opts}\""
     "CSP_POLICY:\${CSP_POLICY:-strict}"
+    # Every other setting the server reads; empty means its default. An upgrade appends any of
+    # these an existing stack file lacks. settings_lists_test keeps this list complete.
+    "DEV_MODE:\${DEV_MODE:-}"
+    "ALLOW_UNVERIFIED_REGISTRATION:\${ALLOW_UNVERIFIED_REGISTRATION:-}"
+    "EMAIL_REQUIRED:\${EMAIL_REQUIRED:-}"
+    "LOAD_HOMEBREW_URL:\${LOAD_HOMEBREW_URL:-}"
+    "PORTRAIT_ARTISTS:\${PORTRAIT_ARTISTS:-}"
+    "PROFILE_ENCRYPTION_KEYS:\${PROFILE_ENCRYPTION_KEYS:-}"
+    "APP_URL:\${APP_URL:-}"
+    "EMAIL_ADMIN_TO:\${EMAIL_ADMIN_TO:-}"
+    "PORTRAIT_STORE_DIR:\${PORTRAIT_STORE_DIR:-}"
+    "APP_LOGS_NAME:\${APP_LOGS_NAME:-orcpub}"
+    "TRUST_CLOUDFLARE:\${TRUST_CLOUDFLARE:-}"
+    "TRUSTED_PROXIES:\${TRUSTED_PROXIES:-}"
+    "ALERT_SPOOL_DIR:\${ALERT_SPOOL_DIR:-/var/lib/orcpub/state/alerts}"
+    "ALERT_MAX_PER_HOUR:\${ALERT_MAX_PER_HOUR:-}"
+    "ORCPUB_HTTP_MAX_THREADS:\${ORCPUB_HTTP_MAX_THREADS:-}"
+    "ORCPUB_PDF_CONCURRENCY:\${ORCPUB_PDF_CONCURRENCY:-}"
+    "ORCPUB_PDF_QUEUE_TIMEOUT_MS:\${ORCPUB_PDF_QUEUE_TIMEOUT_MS:-}"
+    "ORCPUB_PDF_MAX_RETRIES:\${ORCPUB_PDF_MAX_RETRIES:-}"
+    "ORCPUB_PDF_MAX_CASTER_SECTIONS:\${ORCPUB_PDF_MAX_CASTER_SECTIONS:-}"
+    "ORCPUB_PDF_MAX_CARDS:\${ORCPUB_PDF_MAX_CARDS:-}"
+    "ORCPUB_PORTRAIT_CONCURRENCY:\${ORCPUB_PORTRAIT_CONCURRENCY:-}"
+    "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS:\${ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS:-}"
+    "ORCPUB_SHARE_MAX_UPLOAD_KB:\${ORCPUB_SHARE_MAX_UPLOAD_KB:-}"
+    "ORCPUB_SHARE_MAX_TEXT_KB:\${ORCPUB_SHARE_MAX_TEXT_KB:-}"
+    "ORCPUB_SHARE_MAX_ACCOUNT_KB:\${ORCPUB_SHARE_MAX_ACCOUNT_KB:-}"
+    "ORCPUB_SHARE_PRUNE_DAYS:\${ORCPUB_SHARE_PRUNE_DAYS:-}"
+    "ORCPUB_PWNED_CHECK:\${ORCPUB_PWNED_CHECK:-}"
+    "APP_NAME:\${APP_NAME:-}"
+    "APP_TAGLINE:\${APP_TAGLINE:-}"
+    "APP_PAGE_TITLE:\${APP_PAGE_TITLE:-}"
+    "APP_LOGO_PATH:\${APP_LOGO_PATH:-}"
+    "APP_OG_IMAGE:\${APP_OG_IMAGE:-}"
+    "APP_HELP_URL:\${APP_HELP_URL:-}"
+    "APP_SUPPORT_EMAIL:\${APP_SUPPORT_EMAIL:-}"
+    "APP_EMAIL_SENDER_NAME:\${APP_EMAIL_SENDER_NAME:-}"
+    "APP_EMAIL_SIGNOFF:\${APP_EMAIL_SIGNOFF:-}"
+    "APP_COPYRIGHT_HOLDER:\${APP_COPYRIGHT_HOLDER:-}"
+    "APP_COPYRIGHT_URL:\${APP_COPYRIGHT_URL:-}"
+    "APP_COPYRIGHT_YEAR:\${APP_COPYRIGHT_YEAR:-}"
+    "APP_FIELD_LIMIT_NOTES:\${APP_FIELD_LIMIT_NOTES:-}"
+    "APP_FIELD_LIMIT_TEXT:\${APP_FIELD_LIMIT_TEXT:-}"
+    "APP_FIELD_LIMIT_NUMBER:\${APP_FIELD_LIMIT_NUMBER:-}"
+    "APP_SOCIAL_PATREON:\${APP_SOCIAL_PATREON:-}"
+    "APP_SOCIAL_FACEBOOK:\${APP_SOCIAL_FACEBOOK:-}"
+    "APP_SOCIAL_BLUESKY:\${APP_SOCIAL_BLUESKY:-}"
+    "APP_SOCIAL_TWITTER:\${APP_SOCIAL_TWITTER:-}"
+    "APP_SOCIAL_REDDIT:\${APP_SOCIAL_REDDIT:-}"
+    "APP_SOCIAL_DISCORD:\${APP_SOCIAL_DISCORD:-}"
   )
 
   # Build env blocks: carry forward old vars, append any new canonical vars missing from old
@@ -413,7 +525,7 @@ generate_swarm_compose() {
   cat > "$output" <<SWARM_YAML
 # Generated by ./${SCRIPT_NAME} --swarm on $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 # Import into Portainer or deploy with: docker stack deploy -c $(basename "$output") <stack>
-name: ${stack_name}
+# Stack name: ${stack_name} (given when deploying; docker stack deploy rejects a top-level name)
 
 services:
   ${datomic_svc}:
@@ -665,7 +777,7 @@ print_swarm_summary() {
     printf '     4. Paste contents of %s\n' ".env.portainer"
     echo
     printf '   %sCLI:%s\n' "$color_bold" "$color_reset"
-    printf '     set -a; source .env; set +a\n'
+    printf '     . scripts/load-env.sh && load_env .env\n'
     printf '     docker stack deploy -c %s %s\n' "$(basename "$compose_file")" "${_swarm_stack_name:-orcpub}"
     echo
 

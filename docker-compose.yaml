@@ -26,6 +26,15 @@
 # See docs/ENVIRONMENT.md for all available variables.
 # ============================================================================
 
+
+# Docker keeps each container's output in a log file on the host. Without a limit it grows until
+# the disk is full; this keeps the last LOG_MAX_FILES files of LOG_MAX_SIZE each per container.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "${LOG_MAX_SIZE:-10m}"
+    max-file: "${LOG_MAX_FILES:-5}"
+
 services:
   orcpub:
     # Build: docker compose up --build
@@ -57,6 +66,7 @@ services:
       # Empty EMAIL_SERVER_URL makes registration refuse rather than silently
       # accept unverified accounts; this is how you opt into the weaker mode.
       ALLOW_UNVERIFIED_REGISTRATION: ${ALLOW_UNVERIFIED_REGISTRATION:-}
+      EMAIL_REQUIRED: ${EMAIL_REQUIRED:-}
       LOAD_HOMEBREW_URL: ${LOAD_HOMEBREW_URL:-}
       # Portrait artists' credits and accounts, the key that encrypts preferred names, and the
       # site address artist emails link to. See .env.example.
@@ -68,6 +78,57 @@ services:
       # for every container (a volume at /var/lib/orcpub/portraits, with this set to that path);
       # without one, each container keeps its own under /tmp.
       PORTRAIT_STORE_DIR: ${PORTRAIT_STORE_DIR:-}
+      # Java's start-up flags. When it runs out of memory it writes a heap dump and exits so it is
+      # restarted clean; a JVM crash writes a crash log. Both go to /var/log/$APP_LOGS_NAME on the host, and the
+      # next start emails the admin. JAVA_OPTS (memory settings, see docs/DOCKER.md) comes last,
+      # so it can override any of these.
+      JDK_JAVA_OPTIONS: "-XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/lib/orcpub/state/crash/heap.hprof -XX:ErrorFile=/var/lib/orcpub/state/crash/jvm-crash-%p.log ${JAVA_OPTS:-}"
+      # Every other setting the server reads. Empty means "use the default", so these change
+      # nothing until set in .env. Only names listed here reach the container.
+      # Proxies in front of the app (docs/ENVIRONMENT.md, Security)
+      APP_LOGS_NAME: ${APP_LOGS_NAME:-orcpub}
+      TRUST_CLOUDFLARE: ${TRUST_CLOUDFLARE:-}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      # Admin alerts (docs/ENVIRONMENT.md, Admin alerts)
+      ALERT_SPOOL_DIR: ${ALERT_SPOOL_DIR:-/var/lib/orcpub/state/alerts}
+      ALERT_MAX_PER_HOUR: ${ALERT_MAX_PER_HOUR:-}
+      # Capacity (docs/ENVIRONMENT.md, Capacity)
+      ORCPUB_HTTP_MAX_THREADS: ${ORCPUB_HTTP_MAX_THREADS:-}
+      ORCPUB_PDF_CONCURRENCY: ${ORCPUB_PDF_CONCURRENCY:-}
+      ORCPUB_PDF_QUEUE_TIMEOUT_MS: ${ORCPUB_PDF_QUEUE_TIMEOUT_MS:-}
+      ORCPUB_PDF_MAX_RETRIES: ${ORCPUB_PDF_MAX_RETRIES:-}
+      ORCPUB_PDF_MAX_CASTER_SECTIONS: ${ORCPUB_PDF_MAX_CASTER_SECTIONS:-}
+      ORCPUB_PDF_MAX_CARDS: ${ORCPUB_PDF_MAX_CARDS:-}
+      ORCPUB_PORTRAIT_CONCURRENCY: ${ORCPUB_PORTRAIT_CONCURRENCY:-}
+      ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS: ${ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS:-}
+      # Share links and passwords
+      ORCPUB_SHARE_MAX_UPLOAD_KB: ${ORCPUB_SHARE_MAX_UPLOAD_KB:-}
+      ORCPUB_SHARE_MAX_TEXT_KB: ${ORCPUB_SHARE_MAX_TEXT_KB:-}
+      ORCPUB_SHARE_MAX_ACCOUNT_KB: ${ORCPUB_SHARE_MAX_ACCOUNT_KB:-}
+      ORCPUB_SHARE_PRUNE_DAYS: ${ORCPUB_SHARE_PRUNE_DAYS:-}
+      ORCPUB_PWNED_CHECK: ${ORCPUB_PWNED_CHECK:-}
+      # Branding (docs/BRANDING-AND-INTEGRATIONS.md). Set, these override the branding file's defaults
+      APP_NAME: ${APP_NAME:-}
+      APP_TAGLINE: ${APP_TAGLINE:-}
+      APP_PAGE_TITLE: ${APP_PAGE_TITLE:-}
+      APP_LOGO_PATH: ${APP_LOGO_PATH:-}
+      APP_OG_IMAGE: ${APP_OG_IMAGE:-}
+      APP_HELP_URL: ${APP_HELP_URL:-}
+      APP_SUPPORT_EMAIL: ${APP_SUPPORT_EMAIL:-}
+      APP_EMAIL_SENDER_NAME: ${APP_EMAIL_SENDER_NAME:-}
+      APP_EMAIL_SIGNOFF: ${APP_EMAIL_SIGNOFF:-}
+      APP_COPYRIGHT_HOLDER: ${APP_COPYRIGHT_HOLDER:-}
+      APP_COPYRIGHT_URL: ${APP_COPYRIGHT_URL:-}
+      APP_COPYRIGHT_YEAR: ${APP_COPYRIGHT_YEAR:-}
+      APP_FIELD_LIMIT_NOTES: ${APP_FIELD_LIMIT_NOTES:-}
+      APP_FIELD_LIMIT_TEXT: ${APP_FIELD_LIMIT_TEXT:-}
+      APP_FIELD_LIMIT_NUMBER: ${APP_FIELD_LIMIT_NUMBER:-}
+      APP_SOCIAL_PATREON: ${APP_SOCIAL_PATREON:-}
+      APP_SOCIAL_FACEBOOK: ${APP_SOCIAL_FACEBOOK:-}
+      APP_SOCIAL_BLUESKY: ${APP_SOCIAL_BLUESKY:-}
+      APP_SOCIAL_TWITTER: ${APP_SOCIAL_TWITTER:-}
+      APP_SOCIAL_REDDIT: ${APP_SOCIAL_REDDIT:-}
+      APP_SOCIAL_DISCORD: ${APP_SOCIAL_DISCORD:-}
     depends_on:
       datomic:
         condition: service_healthy
@@ -81,6 +142,11 @@ services:
       retries: 30
       start_period: 60s
     restart: always
+    logging: *logging
+    # The host's /var/log: the app keeps crash files and unsent admin alerts in
+    # /var/log/$APP_LOGS_NAME (default orcpub), kept when the container is replaced.
+    volumes:
+      - /var/log:/host-log
   datomic:
     image: ${DATOMIC_IMAGE:-orcpub-datomic}
     build:
@@ -93,6 +159,8 @@ services:
       # ALT_HOST: what the transactor advertises to peers for fallback connections.
       # Default 127.0.0.1 works for single-host. Set to "datomic" for Swarm.
       ALT_HOST: ${ALT_HOST:-127.0.0.1}
+      # TRANSACTOR_HOST: the address Datomic serves on; blank lets deploy/start.sh choose.
+      TRANSACTOR_HOST: ${TRANSACTOR_HOST:-}
       ENCRYPT_CHANNEL: ${ENCRYPT_CHANNEL:-true}
     volumes:
       - ./data:/data
@@ -105,6 +173,7 @@ services:
       retries: 30
       start_period: 40s
     restart: always
+    logging: *logging
   web:
     image: nginx:alpine
     ports:
@@ -123,6 +192,8 @@ services:
       orcpub:
         condition: service_healthy
     restart: always
+    logging: *logging
+
 
 # --- Docker Secrets ---
 # Uncomment to use Docker secrets instead of .env for passwords.

@@ -43,6 +43,14 @@
    "fe978b474568"]
   ["src/clj/orcpub/routes.clj"
    :long-comment
+   "A composed (paper-doll) portrait has no URL that could produce"
+   "1211a445058a"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "Inside this let, so it can see whether the composed portrait was"
+   "0e6915ffee6d"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
    "The wildcard cannot take the path above. `*` asks whether a"
    "8a2d62b299e0"]
   ["src/clj/orcpub/routes.clj"
@@ -122,7 +130,8 @@
    "---------------- solid insides (developer tool) ----------------"
    "6f6c60e817d8"]],
  :field-notes
- {["src/cljc/orcpub/dnd/e5/options.cljc" "background-name-key"]
+ {["src/clj/orcpub/pdf/draw.clj" "glyph-throw"] "fca62d7237f8",
+  ["src/cljc/orcpub/dnd/e5/options.cljc" "background-name-key"]
   "e8e6f28a2ab7",
   ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs" "heal-sites"]
   "e8848afc64b2",

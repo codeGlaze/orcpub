@@ -8,6 +8,7 @@
             [orcpub.routes :as routes]
             [orcpub.datomic :as datomic]
             [orcpub.artist-accounts :as artist-accounts]
+            [orcpub.user-email :as user-email]
             [orcpub.portrait-pack.strands :as strands]
             [orcpub.heartbeat :as heartbeat]
             [orcpub.artist-credit-notices :as credit-notices]
@@ -15,6 +16,12 @@
             [orcpub.pwned :as pwned]
             [orcpub.security :as security]
             [orcpub.config :as config]
+            [orcpub.alerts :as alerts]
+            [orcpub.outbox :as outbox]
+            [orcpub.crash-report :as crash-report]
+            [orcpub.client-address :as client-address]
+            [orcpub.email :as email]
+            [clojure.java.io :as io]
             [orcpub.pdf :as pdf])
   (:import (org.eclipse.jetty.server.handler.gzip GzipHandler)))
 
@@ -59,6 +66,12 @@
    ;; See orcpub.config/get-secure-headers-config
    })
 
+(defn with-client-address
+  "The service map with the player's-address interceptor first in its chain, so every limit and
+   log line sees the player rather than the proxy (orcpub.client-address)."
+  [service-map]
+  (update service-map ::http/interceptors #(into [(client-address/configured-interceptor)] %)))
+
 (defn with-portrait-guard
   "The service map with the portrait art guard first in its chain (see routes/portrait-art-guard)."
   [service-map]
@@ -74,7 +87,7 @@
    ;; Pedestal 0.7+ requires explicit interceptor coercion for maps/functions
    ::http/enable-session false  ; Disable default session handling if not needed
    ::http/port (configured-port)
-   ::http/join false
+   ::http/join? true
    ::http/resource-path "/public"
    ;; CSP configured via CSP_POLICY env var (strict|permissive|none)
    ;; See orcpub.config for details
@@ -131,6 +144,7 @@
               (when (= :dev env) dev-service-map-overrides))
       true http/default-interceptors
       true with-portrait-guard
+      true with-client-address
       (= :dev env) http/dev-interceptors)
 
     ;; :token-withdrawals is listed only so Component starts it first; Pedestal
@@ -138,7 +152,31 @@
     :pedestal
     (component/using
       (pedestal/new-pedestal)
-      [:service-map :conn :token-withdrawals])
+      ;; Everything else is listed so it starts first: in production http/start blocks for as long
+      ;; as the server runs, so a component that starts after :pedestal never starts.
+      ;; system_start_order_test.clj fails when one is missing.
+      [:service-map :conn :token-withdrawals :alerts :outbox
+       :heartbeat :crash-report :artist-accounts :strand-check :email-keys])
+
+    ;; Tells the admin, once, when the previous run crashed (heap dump or JVM crash log).
+    :crash-report
+    (component/using
+      (crash-report/new-crash-report)
+      [:alerts])
+
+    ;; Player email: queued in the database with the action that causes it, sent from here.
+    :outbox
+    (component/using
+      (outbox/new-outbox (email/outbox-channel))
+      [:conn])
+
+    ;; Admin alerts: no database, so they still go out when it is down. Started before traffic.
+    :alerts
+    (alerts/new-alerts {:send! (email/alert-channel)
+                        :to (:address (config/alert-address))
+                        :max-per-hour (config/get-alert-max-per-hour)
+                        :spool-file (str (io/file (config/get-alert-spool-dir)
+                                                  (str "alerts-" (config/copy-name) ".edn")))})
 
     ;; Reads the recent password changes back into memory BEFORE the server takes
     ;; traffic (enforced by :pedestal depending on it). The heartbeat also refreshes it, but not until a minute in, and a
@@ -171,6 +209,12 @@
     :artist-accounts
     (component/using
       (artist-accounts/new-artist-accounts)
+      [:conn :outbox])
+
+    ;; gives accounts written before :orcpub.user/email-key their key; in the background
+    :email-keys
+    (component/using
+      (user-email/new-email-keys)
       [:conn])
 
     ;; says in the log if the portrait art shipped without its strand fields

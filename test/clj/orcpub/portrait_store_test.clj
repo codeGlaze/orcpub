@@ -167,3 +167,32 @@
             (is (= :ok outcome))
             (is (pos? (alength ^bytes png)) "the drawing is served though it could not be kept")))
         (finally (.delete blocker))))))
+
+(deftest drawing-code-counts-in-a-jar-built-without-sources
+  ;; Production jars omit .clj and .cljc files (:omit-source), so the drawing code cannot be read
+  ;; from the classpath there; the digest must not depend on reading it at run time.
+  (let [visible (#'store/art-digest*)
+        read-resource @#'store/resource-bytes]
+    (with-redefs [store/resource-bytes (fn [p] (when-not (re-find #"\.cljc?$" p) (read-resource p)))]
+      (is (= visible (#'store/art-digest*))))))
+
+(deftest each-write-uses-a-temporary-file-of-its-own
+  ;; Several containers can share one store directory. A second writer's half-written temporary
+  ;; file, at the name every writer of this drawing would once have used, must be left alone.
+  (let [fp (str "\"" (apply str (repeat 64 "a")) "\"")
+        f (store/file-for 42 fp)
+        theirs (io/file *dir* (str "." (.getName f) ".tmp"))]
+    (spit theirs "another container, half done")
+    (#'store/write-stored! 42 fp (.getBytes "our png"))
+    (is (= "another container, half done" (slurp theirs)) "the other writer's file is untouched")
+    (is (= "our png" (slurp f)) "and ours is in place")))
+
+(deftest a-failed-write-leaves-no-temporary-file
+  ;; a directory where the drawing should go makes the move fail
+  (let [fp (str "\"" (apply str (repeat 64 "b")) "\"")
+        f (store/file-for 43 fp)]
+    (.mkdirs f)
+    (spit (io/file f "occupied") "x")
+    (is (thrown? Exception (#'store/write-stored! 43 fp (.getBytes "our png"))))
+    (is (empty? (filter #(str/ends-with? (.getName ^java.io.File %) ".tmp") (.listFiles *dir*)))
+        "the temporary file is gone")))

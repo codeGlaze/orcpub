@@ -265,7 +265,8 @@
     (let [id (add-artist! conn "someone" nil)
           sent (atom nil)]
       (with-redefs [orcpub.crypto/configured-keys (constantly test-keys)
-                    orcpub.email/send-reset-email (fn [_ user _] (reset! sent user))]
+                    orcpub.email/reset-message (fn [_ user _] (reset! sent user)
+                                                {:to (:email user) :subject "reset" :body []})]
         (orcpub.routes/do-send-password-reset id "someone@example.test" conn {:headers {"host" "x.test"} :scheme :https})
         (is (= "someone" (:first-and-last-name @sent)) "no preferred name yet: greeted by username")
         (orcpub.routes/update-user-preferences (req conn "someone" {:preferred-name "Kaylee"}))

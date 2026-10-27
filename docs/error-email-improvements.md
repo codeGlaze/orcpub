@@ -1,5 +1,10 @@
 # Error Email Improvements — Analysis & Handoff
 
+> **How error emails are sent now is described in [email-system.md](email-system.md#4-admin-alerts-server-errors).**
+> They became admin alerts in the Summer Patch: one email per problem, an hourly ceiling, and a
+> spool for when the mail server is down. This page keeps the earlier analysis of real error
+> emails and the Datomic crash investigation.
+
 Live document. Updated as each email example is analyzed. When all examples are covered, convert the plan section into implementation tasks and commit.
 
 **Branch:** `dmv/hotfix-integrations` (keep in sync with `breaking/`)  

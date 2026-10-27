@@ -911,7 +911,7 @@
    Keyed by the credits too, which are drawn into the picture and may arrive after a first bake.
    Keeps the last few, since a builder session walks through many portraits."
   [portrait]
-  (when (seq (:layers portrait))
+  (when (pa/drawable? portrait)
     (let [k [portrait (pa/current-overrides)]]
       (or (:promise (get @baked k))
           (when-let [png (find (get @baked k) :png)] (js/Promise.resolve (val png)))
@@ -1580,7 +1580,7 @@
   [portrait-data image-url editable?]
   (let [_ @(subscribe [:portrait/artist-overrides])] ; re-render when the credits arrive
     (cond
-      (seq (:layers portrait-data))
+      (pa/drawable? portrait-data)
       [:div.m-r-20.m-t-10.m-b-10
        [:div.image-character-thumbnail.pl-thumb-box
         [composite portrait-data]

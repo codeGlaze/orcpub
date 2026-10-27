@@ -125,10 +125,19 @@
   (let [f (io/file loom-file)]
     (if (.exists f) (edn/read-string (slurp f)) {})))
 
+(defn prefer-arg
+  "The --prefer value in command-line `args`: :first, :last, or nil when absent. Throws ex-info
+   for any other value, so a mistyped flag cannot settle conflicts the tool would stop on."
+  [args]
+  (when-let [v (second (drop-while #(not= "--prefer" %) args))]
+    (or (#{:first :last} (keyword v))
+        (throw (ex-info (str "--prefer takes first or last, not " v) {:value v})))))
+
 (defn -main [& args]
   (let [path (first (remove #(s/starts-with? % "--") args))
         dry? (some #{"--dry-run"} args)
-        prefer (some->> (drop-while #(not= "--prefer" %) args) second keyword)]
+        prefer (try (prefer-arg args)
+                    (catch clojure.lang.ExceptionInfo e (println (.getMessage e)) (System/exit 2)))]
     (when-not path
       (println "usage: lein run -m orcpub.portrait-pack.import <manifest.json> [--dry-run] [--prefer first|last]")
       (System/exit 2))

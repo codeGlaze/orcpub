@@ -33,9 +33,11 @@
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.feats :as feats5e]
             [orcpub.dnd.e5.db :as db]
+            [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [cljs.spec.alpha :as s]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.dnd.e5.character-drafts :as drafts]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.library :as library]
@@ -321,26 +323,22 @@
       (is (= ["orcpub-EMERGENCY-backup.orcbrew" broken]
              (events/select-emergency-export broken nil))))))
 
-;; ---------------------------------------------------------------------------
-;; serialize-orcbrew (pure serialization, split from the saveAs side effect)
-;; ---------------------------------------------------------------------------
+;; serialize-orcbrew moved to orcpub.dnd.e5.orcbrew-format (shared with the JVM
+;; demo emitter); its round-trip tests live in orcbrew-format-test.
 
-(def ^:private sample-content
-  {:orcpub.dnd.e5/classes {:artificer {:name "Artificer" :option-pack "Pack"}}})
-
-(deftest serialize-orcbrew-compact-roundtrips
-  (testing "compact output is readable EDN that round-trips to the same data"
-    (let [s (events/serialize-orcbrew sample-content)]
-      (is (string? s))
-      (is (= sample-content (reader/read-string s))))))
-
-(deftest serialize-orcbrew-pretty-differs-but-same-data
-  (testing "pretty-print is multi-line and larger, but the same data round-trips"
-    (let [compact (events/serialize-orcbrew sample-content)
-          pretty  (events/serialize-orcbrew sample-content :pretty-print? true)]
-      (is (not= compact pretty))
-      (is (re-find #"\n" pretty) "pretty output spans multiple lines")
-      (is (= sample-content (reader/read-string pretty))))))
+(deftest raw-export-always-produces-text
+  (let [bad {"P" {:orcpub.dnd.e5/classes {:x {:name "X" :key :x :option-pack "P"
+                                               :starting-equipment-base :barbarian
+                                               :weapons true}}}}]
+    (testing "the ordinary export throws on a malformed class while collapsing it"
+      (is (thrown? js/Error (events/orcbrew-text bad))))
+    (testing "the escape hatch writes the data as it is instead"
+      (is (= bad (reader/read-string (events/orcbrew-text bad :raw? true)))))
+    (testing "good data still goes through collapse and stamp on the raw path"
+      (is (re-find #":orcbrew/format-version 2"
+                   (events/orcbrew-text {"P" {:orcpub.dnd.e5/feats
+                                              {:f {:ability-increases [[1 :any]]}}}}
+                                        :raw? true))))))
 
 ;; ---------------------------------------------------------------------------
 ;; spec-field-problems — nested-element diagnosability
@@ -1273,6 +1271,9 @@
 
 (deftest a-reloaded-draft-heals-when-the-template-arrives
   (let [broken {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}]
+    ;; A browser holding only the old single-slot draft: other tests' drafts and tab key cleared.
+    (doseq [k (drafts/draft-keys)] (drafts/remove-draft! k))
+    (.removeItem js/sessionStorage "builder-draft-key")
     (.setItem js/localStorage "plugins" (pr-str stored-plugins))
     (.setItem js/localStorage "character" (pr-str (char5e/to-strict broken)))
     (try
@@ -1288,8 +1289,10 @@
         (is (= [{:from :half-elf-phb :to :half-elf-ua}] (get-in @app-db [:character-healed :rewrote])))
         (is (true? (get-in @app-db [:character-healed :announced?]))))
       (testing "and the healed draft is stored, so the next load restores it healed"
-        (is (not (.includes (.getItem js/localStorage "character") "half-elf-phb"))))
+        (is (not (.includes (.getItem js/localStorage (drafts/storage-key (drafts/tab-key))) "half-elf-phb"))))
       (finally
+        (some-> (drafts/tab-key) drafts/remove-draft!)
+        (.removeItem js/sessionStorage "builder-draft-key")
         (.removeItem js/localStorage "character")
         (.removeItem js/localStorage "plugins")))))
 
@@ -1303,6 +1306,10 @@
     (is (true? (::autosave-fx/ensure-template-cache
                 (effects-of [:route r {:skip-path? true}] [::autosave-fx/ensure-template-cache])))
         (pr-str r)))
+  (doseq [r [routes/dnd-e5-my-content-route routes/dnd-e5-subrace-builder-page-route]]
+    (is (true? (::autosave-fx/ensure-template-cache
+                (effects-of [:route r {:skip-path? true}] [::autosave-fx/ensure-template-cache])))
+        (str r ": its repair panel and missing-link marks need what the template offers")))
   (is (nil? (::autosave-fx/ensure-template-cache
              (effects-of [:route routes/dnd-e5-spell-list-page-route {:skip-path? true}]
                          [::autosave-fx/ensure-template-cache])))
@@ -1642,6 +1649,343 @@
             (rf/reg-fx :dispatch-n real)
             (rf/clear-fx :dispatch-n)))))))
 
+(defn- with-fx
+  "Calls `f` with each effect in `stubs` (fx id -> handler) replaced, then puts the real ones back."
+  [stubs f]
+  (let [real (into {} (map (fn [k] [k (get-in @registrar/kind->id->handler [:fx k])])) (keys stubs))]
+    (try
+      (doseq [[k h] stubs] (rf/reg-fx k h))
+      (f)
+      (finally
+        (doseq [[k h] real] (if h (rf/reg-fx k h) (rf/clear-fx k)))))))
+
+(def ^:private hp ::char5e/current-hit-points)
+(def ^:private char-name ::char5e/character-name)
+
+(deftest a-sheet-edit-reaches-the-builder-copy-of-the-same-character
+  (with-fx {::char5e/save-character-throttled identity ::events/builder-draft->local-store identity}
+    (fn []
+      (reset! app-db (assoc pristine-db
+                            :character {:db/id 111 :changed true ::entity/values {char-name "Unsaved"}}
+                            ::char5e/character-map {111 {:db/id 111 ::entity/values {char-name "Stored"}}}))
+      (rf/dispatch-sync [::char5e/set-current-hit-points "111" 7])
+      (is (= {char-name "Unsaved" hp 7} (get-in @app-db [:character ::entity/values]))
+          "the builder gets the sheet's hit points and keeps its own name")
+      (is (= {char-name "Stored" hp 7} (get-in @app-db [::char5e/character-map 111 ::entity/values]))
+          "the stored copy, which is what autosaves, is edited as before")
+      (is (= #{hp} (get-in @app-db [::events/sheet-edited 111])) "and the changed key is recorded")
+      (rf/dispatch-sync [::char5e/set-current-hit-points "222" 3])
+      (is (= 7 (get-in @app-db [:character ::entity/values hp]))
+          "an edit to another character does not touch the builder")
+      (is (= #{hp} (get-in @app-db [::events/sheet-edited 222]))
+          "but its changed key is recorded too, for re-applying after a refused save"))))
+
+(deftest an-autosave-reply-keeps-the-builders-unsaved-edits
+  (let [dispatched (atom [])
+        saved (atom nil)
+        reply {:body (char5e/to-strict {:db/id 111 ::entity/version 5 ::entity/values {char-name "Stored" hp 7}})}]
+    (with-fx {:dispatch-n #(reset! dispatched (vec %))
+              ::autosave-fx/saved #(reset! saved %)
+              ::events/builder-draft->local-store identity}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              :character {:db/id 111 :changed true
+                                          ::entity/values {char-name "Unsaved" hp 6}}
+                              ::events/sheet-edited {111 #{hp}}))
+        (rf/dispatch-sync [:character-save-success {:for-id 111} reply])
+        (is (= {char-name "Unsaved" hp 7} (get-in @app-db [:character ::entity/values]))
+            "the builder keeps its name and takes only the key the sheet changed")
+        (is (true? (get-in @app-db [:character :changed])) "and still counts as unsaved")
+        (is (= 5 (get-in @app-db [:character ::entity/version]))
+            "and takes the version the save was given, so its own Save is not refused")
+        (is (not (contains? (into #{} (map first) @dispatched) :character-updated))
+            "the reply does not replace the builder")
+        (is (nil? (get-in @app-db [::events/sheet-edited 111])) "the record is cleared")
+        (is (= 111 @saved) "and the autosave is reported as confirmed")
+
+        (testing "with nothing unsaved in the builder the reply is installed as before"
+          (reset! app-db (assoc pristine-db :character {:db/id 111 ::entity/values {}}))
+          (rf/dispatch-sync [:character-save-success {:for-id 111} reply])
+          (is (contains? (into #{} (map first) @dispatched) :character-updated)))))))
+
+(deftest a-copy-that-matches-what-is-stored-sends-no-save
+  ;; No template is cached, so a save that goes ahead retries (:dispatch-later); one skipped does not.
+  (let [stored {:db/id 111 ::entity/values {hp 9}}
+        fx-keys [:http :dispatch-later ::autosave-fx/ensure-template-cache ::autosave-fx/saved]]
+    (reset! app-db pristine-db)
+    (rf/dispatch-sync [::char5e/set-character 111 stored])
+    (is (= (events/stored-shape stored) (get-in @app-db [::events/stored-shape 111]))
+        "a copy from the server is recorded as stored")
+    (let [fx (effects-of [::char5e/save-character "111"] fx-keys)]
+      (is (nil? (:dispatch-later fx)) "an unchanged copy goes no further")
+      (is (nil? (:http fx)))
+      (is (= "111" (::autosave-fx/saved fx)) "and counts as confirmed, so the close warning can go"))
+    (swap! app-db assoc-in [::char5e/character-map 111 ::entity/values hp] 8)
+    (is (some? (:dispatch-later (effects-of [::char5e/save-character "111"] fx-keys)))
+        "a changed copy goes on toward sending")))
+
+(deftest an-edit-made-while-its-save-is-in-flight-outlives-the-reply
+  (let [dispatched (atom [])]
+    (with-fx {:dispatch-n #(reset! dispatched (vec %))
+              ::autosave-fx/saved identity
+              ::char5e/save-character-throttled identity}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              ::char5e/character-map {111 {:db/id 111 ::entity/values {hp 3}}}
+                              ::events/in-flight {111 true}))
+        (rf/dispatch-sync [::char5e/set-current-hit-points "111" 4])
+        (is (true? (get-in @app-db [::events/edited-in-flight 111])) "the edit is marked as newer")
+        (let [reply {:db/id 111 ::entity/version 5 ::entity/values {hp 3}}]
+          (rf/dispatch-sync [:character-save-success {:for-id 111} {:body (char5e/to-strict reply)}])
+          (is (= 4 (get-in @app-db [::char5e/character-map 111 ::entity/values hp]))
+              "the reply does not put the older value back")
+          (is (= 5 (get-in @app-db [::char5e/character-map 111 ::entity/version]))
+              "but the copy takes the version its own save was given")
+          (is (not (contains? (into #{} (map first) @dispatched) ::char5e/set-character))
+              "it is not installed in the map")
+          (is (= (events/stored-shape reply) (get-in @app-db [::events/stored-shape 111]))
+              "but it is recorded as what is stored, so the next save is not skipped")
+          (is (nil? (get-in @app-db [::events/in-flight 111])))
+          (is (nil? (get-in @app-db [::events/edited-in-flight 111]))))))))
+
+(deftest the-version-is-not-part-of-what-a-copy-holds
+  (let [c {:db/id 111 ::entity/values {hp 4}}]
+    (is (= (events/stored-shape (assoc c ::entity/version 1)) (events/stored-shape (assoc c ::entity/version 2)))
+        "two copies differing only in version hold the same character")))
+
+(def ^:private refused
+  "A 409 for character 111: stored now with another name and hit points 9, at version 2."
+  {:status 409
+   :body {:error :stale-character
+          :current (char5e/to-strict {:db/id 111 ::entity/version 2
+                                      ::entity/values {char-name "Renamed elsewhere" hp 9}})}})
+
+(deftest a-refused-autosave-reapplies-its-own-change-once
+  (let [dispatched (atom [])]
+    (with-fx {:dispatch #(swap! dispatched conj %) :dispatch-n #(swap! dispatched into %)}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              ::char5e/character-map {111 {:db/id 111 ::entity/version 1
+                                                           ::entity/values {char-name "Old" hp 4}}}
+                              ::events/sheet-edited {111 #{hp}}))
+        (rf/dispatch-sync [::char5e/save-refused {:for-id 111} refused])
+        (is (= {char-name "Renamed elsewhere" hp 4}
+               (select-keys (get-in @app-db [::char5e/character-map 111 ::entity/values]) [char-name hp]))
+            "the stored character, with only the sheet's own change put back on it")
+        (is (= 2 (get-in @app-db [::char5e/character-map 111 ::entity/version])) "at the stored version")
+        (is (some #(= [::char5e/save-character 111] %) @dispatched) "and saved again")
+        (reset! dispatched [])
+        (rf/dispatch-sync [::char5e/save-refused {:for-id 111} refused])
+        (is (not (some #(= ::char5e/save-character (first %)) @dispatched)) "a second refusal in a row is not retried")
+        (is (some #(= :show-error-message (first %)) @dispatched) "but shown")))))
+
+(deftest a-retry-with-nothing-left-to-send-ends-the-refusal
+  ;; The re-applied change was already stored by the other copy, so the retry sends nothing; the
+  ;; next refusal must be retried again rather than shown at once.
+  (let [stored {:db/id 111 ::entity/values {hp 9}}]
+    (reset! app-db pristine-db)
+    (rf/dispatch-sync [::char5e/set-character 111 stored])
+    (swap! app-db assoc-in [::events/refused 111] true)
+    (effects-of [::char5e/save-character "111"] [:http :dispatch-later ::autosave-fx/saved])
+    (is (nil? (get-in @app-db [::events/refused 111])))))
+
+(deftest a-refused-autosave-leaves-the-builders-unsaved-edits-alone
+  (with-fx {:dispatch identity :dispatch-n identity}
+    (fn []
+      (let [builder {:db/id 111 :changed true ::entity/version 1 ::entity/values {char-name "Builder edit" hp 4}}]
+        (reset! app-db (assoc pristine-db
+                              :character builder
+                              ::char5e/character-map {111 {:db/id 111 ::entity/version 1 ::entity/values {hp 4}}}
+                              ::events/sheet-edited {111 #{hp}}))
+        (rf/dispatch-sync [::char5e/save-refused {:for-id 111} refused])
+        (is (= builder (:character @app-db)) "the builder's own Save will meet the change instead")
+        (is (= 2 (get-in @app-db [::char5e/character-map 111 ::entity/version])) "only the sheet's copy is rebased")))))
+
+(defn- as-user!
+  "Stores `username` as the logged-in account, as login does (nil: logged out)."
+  [username]
+  (if username
+    (.setItem js/localStorage "user" (str {:user-data {:username username} :token "t"}))
+    (.removeItem js/localStorage "user")))
+
+(defn- put-draft!
+  "Stores a draft with unsaved changes under draft key `k`, named `nm`, made by `owner`."
+  [k nm owner & [extra]]
+  (.setItem js/localStorage (str "character-draft/" k)
+            (str (merge {::se/values {char-name nm} :changed true :draft/owner owner} extra))))
+
+(defn- clear-drafts!
+  "Deletes every stored draft and this tab's draft key. Returns nil."
+  []
+  (doseq [k (drafts/draft-keys)] (drafts/remove-draft! k))
+  (.removeItem js/sessionStorage "builder-draft-key"))
+
+(deftest a-draft-records-the-account-that-made-it
+  (try
+    (clear-drafts!)
+    (as-user! "kaylee")
+    (db/character->local-store {:db/id 777 ::entity/values {char-name "Mine"}})
+    (is (= "kaylee" (:draft/owner (db/read-draft "777"))))
+    (as-user! nil)
+    (db/character->local-store {:db/id 778 ::entity/values {char-name "Anyone's"}})
+    (is (nil? (:draft/owner (db/read-draft "778"))) "logged out: no owner")
+    (finally (clear-drafts!) (as-user! nil))))
+
+(deftest the-drafts-list-shows-only-your-own-and-logged-out-drafts
+  (try
+    (clear-drafts!)
+    (put-draft! "kept-a" "Kaylee's" "kaylee")
+    (put-draft! "kept-b" "Logged out" nil)
+    (put-draft! "kept-c" "Zoe's" "zoe")
+    (as-user! "zoe")
+    (is (= #{"Logged out" "Zoe's"} (set (map :name (db/unsaved-drafts)))))
+    (finally (clear-drafts!) (as-user! nil))))
+
+(deftest another-accounts-draft-is-never-offered
+  (let [saved {:db/id 111 ::entity/values {char-name "Saved"}}
+        base (events/stored-version saved)]
+    (try
+      (doseq [[owner offered?] [["kaylee" false] ["zoe" true]]]
+        (clear-drafts!)
+        (put-draft! "111" "Unsaved" owner {:draft/base base})
+        (reset! app-db (assoc pristine-db :user-data {:user-data {:username "zoe"} :token "t"}))
+        (rf/dispatch-sync [:set-character saved])
+        (is (= offered? (some? (:draft/offer @app-db))) (str owner "'s draft, with zoe logged in")))
+      (finally (clear-drafts!)))))
+
+(deftest logging-out-starts-a-fresh-builder
+  (let [dispatched (atom [])]
+    (with-fx {:dispatch-n #(reset! dispatched (vec %))}
+      (fn []
+        (rf/dispatch-sync [:logout])
+        (is (some #(= [:reset-character] %) @dispatched)
+            "the builder is cleared on screen; the draft stays, filed under its account")))))
+
+(deftest saves-that-did-not-go-through-are-sent-again-when-back-online
+  (let [sent (atom [])
+        before @autosave-fx/unconfirmed-saves]
+    (try
+      (reset! autosave-fx/unconfirmed-saves #{111})
+      (with-redefs [rf/dispatch #(swap! sent conj %)]
+        (.dispatchEvent js/window (js/Event. "online")))
+      (is (= [[::char5e/save-character 111]] @sent))
+      (finally (reset! autosave-fx/unconfirmed-saves before)))))
+
+(def ^:private changed-elsewhere
+  "A 409 for a builder Save of character 111: stored now as \"Theirs\" at version 2."
+  {:status 409
+   :body {:error :stale-character
+          :current (char5e/to-strict {:db/id 111 ::entity/version 2 ::entity/values {char-name "Theirs" hp 5}})}})
+
+(deftest a-builder-save-refused-as-out-of-date-says-what-differs
+  (reset! app-db (assoc pristine-db :character {:db/id 111 :changed true ::entity/version 1
+                                                ::entity/values {char-name "Mine" hp 5}}))
+  (rf/dispatch-sync [::char5e/builder-save-refused {:epoch 0} changed-elsewhere])
+  (let [fields (get-in @app-db [:draft/conflict :fields])]
+    (is (= [{:label "Character Name" :mine "Mine" :saved "Theirs"}] fields)
+        "only the field that differs, with both values"))
+  (is (= "Mine" (get-in @app-db [:character ::entity/values char-name])) "the builder keeps its copy meanwhile"))
+
+(def ^:private gone
+  "A 410 for a save of a character deleted since it was opened."
+  {:status 410 :body {:error :character-gone}})
+
+(defn- ids-in
+  "Every :db/id in strict form `x`, at any depth."
+  [x]
+  (filter some? (map :db/id (filter map? (tree-seq coll? seq x)))))
+
+(deftest a-builder-save-of-a-deleted-character-keeps-the-edit-to-save-as-new
+  (let [shown (atom nil) written (atom nil) removed (atom nil)]
+    (with-fx {:dispatch #(reset! shown %)
+              ::events/builder-draft->local-store #(reset! written %)
+              ::events/remove-draft #(reset! removed %)}
+      (fn []
+        (reset! app-db (assoc pristine-db :character
+                              (assoc (char5e/from-strict
+                                      {:db/id 111
+                                       ::se/values {char-name "Mine"}
+                                       ::se/selections [{:db/id 112 ::se/key :race
+                                                         ::se/option {:db/id 113 ::se/key :elf}}]})
+                                     :changed true)))
+        (rf/dispatch-sync [::char5e/builder-save-refused {:epoch 0} gone])
+        (is (= "Mine" (get-in @app-db [:character ::entity/values char-name])) "the edit is kept")
+        (is (:changed (:character @app-db)) "and still unsaved")
+        (is (empty? (ids-in (char5e/to-strict (:character @app-db)))) "with no ids, so Save stores it anew")
+        (is (= :show-error-message (first @shown)))
+        (is (re-find #"deleted" (str (second @shown))) "and says the character was deleted")
+        (is (= "Mine" (get-in @written [::entity/values char-name])) "the draft is written without its id")
+        (is (nil? (:db/id @written)))
+        (is (= "111" @removed) "and the deleted id's draft is removed")))))
+
+(deftest an-autosave-of-a-deleted-character-says-so
+  (let [shown (atom nil)]
+    (with-fx {:dispatch #(reset! shown %)}
+      (fn []
+        (reset! app-db (assoc pristine-db ::char5e/character-map {111 {:db/id 111 ::entity/values {hp 4}}}))
+        (rf/dispatch-sync [::char5e/save-refused {:for-id 111} gone])
+        (is (= :show-error-message (first @shown)))
+        (is (re-find #"deleted" (str (second @shown))))))))
+
+(deftest save-mine-takes-the-stored-version-so-the-next-save-goes-through
+  (reset! app-db (assoc pristine-db :character {:db/id 111 :changed true ::entity/version 1
+                                                ::entity/values {char-name "Mine"}}))
+  (rf/dispatch-sync [::char5e/builder-save-refused {:epoch 0} changed-elsewhere])
+  (rf/dispatch-sync [::char5e/keep-mine])
+  (is (= 2 (get-in @app-db [:character ::entity/version])))
+  (is (= "Mine" (get-in @app-db [:character ::entity/values char-name])))
+  (is (nil? (:draft/conflict @app-db))))
+
+(deftest use-saved-loads-the-saved-copy-and-keeps-mine-as-a-draft
+  (let [written (atom nil)]
+    (with-fx {::events/write-draft #(reset! written %) :dispatch identity}
+      (fn []
+        (reset! app-db (assoc pristine-db :character {:db/id 111 :changed true ::entity/version 1
+                                                      ::entity/values {char-name "Mine"}}))
+        (rf/dispatch-sync [::char5e/builder-save-refused {:epoch 0} changed-elsewhere])
+        (rf/dispatch-sync [::char5e/use-saved])
+        (is (= "Theirs" (get-in @app-db [:character ::entity/values char-name])))
+        (is (= "Mine" (get-in (:draft @written) [::se/values char-name])) "mine is kept in Unsaved drafts")
+        (is (nil? (:draft/conflict @app-db)))))))
+
+(deftest a-save-reply-does-not-write-the-draft-another-tab-holds
+  (let [written (atom :none)]
+    (with-fx {::events/builder-draft->local-store #(reset! written %)
+              :dispatch-n identity ::autosave-fx/saved identity}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              :character {:db/id 111 :changed true ::entity/values {char-name "Mine"}}
+                              :draft/held 111
+                              ::events/sheet-edited {111 #{hp}}))
+        (rf/dispatch-sync [:character-save-success {:for-id 111}
+                           {:body (char5e/to-strict {:db/id 111 ::entity/values {char-name "Stored" hp 3}})}])
+        (is (= :none @written) "the other tab's draft under the same key is left alone")
+        (is (= 3 (get-in @app-db [:character ::entity/values hp])) "the copy on screen is still updated")))))
+
+(deftest a-refused-draft-write-leaves-the-tab-on-its-previous-draft
+  (try
+    (clear-drafts!)
+    (drafts/set-tab-key! "111")
+    (with-redefs [db/set-item (constantly false)]
+      (db/character->local-store {:db/id 222 ::entity/values {char-name "Other"}}))
+    (is (= "111" (drafts/tab-key)) "the tab still points at the draft it has")
+    (finally (clear-drafts!))))
+
+(deftest level-up-opens-the-stored-copy-only-when-the-builder-has-another-character
+  (let [dispatched (atom nil)]
+    (with-fx {:dispatch #(reset! dispatched %)}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              :character {:db/id 111 :changed true ::entity/values {char-name "Unsaved"}}
+                              ::char5e/character-map {111 {:db/id 111 ::entity/values {}}
+                                                      222 {:db/id 222 ::entity/values {}}}))
+        (rf/dispatch-sync [::char5e/open-stored-in-builder 111])
+        (is (= [:route routes/dnd-e5-char-builder-route] @dispatched)
+            "the builder already has it, with the new level applied there: only route")
+        (rf/dispatch-sync [::char5e/open-stored-in-builder 222])
+        (is (= [:edit-character {:db/id 222 ::entity/values {}}] @dispatched)
+            "another character is opened from its stored copy, read when this runs")))))
+
 (deftest replacing-the-character-being-edited-counts-an-epoch
   (testing "the epoch is what lets an answer tell whether the question is still
             on screen, so it has to move whenever the draft is dropped"
@@ -1675,6 +2019,20 @@
     (is (nil? (:portrait/draft @app-db))
         "a blank character must not inherit the previous portrait")
     (is (nil? (:portrait/drawer-open? @app-db)))))
+
+(deftest new-keeps-the-never-saved-draft-it-replaces
+  (testing "Log Out and New reset the character; a never-saved one's draft must stay to be listed"
+    (try
+      (clear-drafts!)
+      (drafts/set-tab-key! "new-abc")
+      (reset! app-db (assoc pristine-db
+                            :character {:changed true ::entity/values {char-name "Unsaved work"}}))
+      (db/character->local-store (:character @app-db))
+      (rf/dispatch-sync [:reset-character])
+      (is (not= "new-abc" (drafts/tab-key)) "the new character has a key of its own")
+      (is (.includes (str (.getItem js/localStorage (drafts/storage-key "new-abc"))) "Unsaved work")
+          "the draft it replaced is still stored")
+      (finally (clear-drafts!)))))
 
 (deftest editing-an-unsaved-character-keeps-the-draft
   (testing "update-character-fx routes edits to a character with no id back
@@ -1815,3 +2173,10 @@
                          [:orcpub.entity/options :background :orcpub.entity/key]))))
   (is (= :blue (get-in @app-db [::char5e/character-map 7 :orcpub.entity/options :background :orcpub.entity/key]))
       "nothing is written back"))
+
+(deftest feat-checkbox-starts-a-set-from-anything-else
+  (doseq [start [[] nil #{}]]
+    (reset! app-db {::feats5e/builder-item {:name "F" :ability-increases start}})
+    (rf/dispatch-sync [::feats5e/toggle-feat-ability-increase :orcpub.dnd.e5.character/str])
+    (is (= #{:orcpub.dnd.e5.character/str} (get-in @app-db [::feats5e/builder-item :ability-increases]))
+        (str "from " (pr-str start)))))
