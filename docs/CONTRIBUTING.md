@@ -60,9 +60,10 @@ no one has to hunt for the rules here. In short: say what the branch DID in a li
 under Added / Changed / Fixed / Security, each line opening with its area in bold. Not the
 commits it took, not fixes to work the same release built, not internal work. **Before the branch merges into `integration`, fold its entries into the
 current in-progress release section of root `CHANGELOG.md` (e.g. `[Summer Patch]`) and
-delete the branch changelog — it's consumed.** Fold as the branch's last commit, then
-merge: a merge through GitHub cannot run the fold, and the PR check stays red until it is
-done. That keeps root `CHANGELOG.md` a live
+delete the branch changelog — it's consumed.** Fold as the branch's last commit and add the
+`ready to merge` label to the PR, then merge: a merge through GitHub cannot run the fold. The
+PR's "Branch changelog folded" check is skipped until the label is on, then fails until the
+fold is done. That keeps root `CHANGELOG.md` a live
 reflection of the pending-release diff on `integration`. Folding is a **deliberate
 step**, not automatic — don't skip it.
 

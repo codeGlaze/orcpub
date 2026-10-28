@@ -3,9 +3,10 @@
    These pin the three answers it can give -- set, default, and present-but-rejected --
    because getting the third wrong reports a default as though it were your value."
   (:require [clojure.test :refer [deftest testing is]]
-            [orcpub.email :as email]
+            [orcpub.env :as env]
             [clojure.string :as str]
-            [orcpub.config :as config]))
+            [orcpub.config :as config])
+  (:import [java.util Locale]))
 
 (defn- lines [rows] (config/report-lines rows))
 (defn- row-for [out v] (first (filter #(str/includes? % v) out)))
@@ -212,23 +213,137 @@
                                   [false false "REFUSED: no mail server"]
                                   [false true  "OPEN: no address check"]
                                   [true  true  "verified by email (flag set, inert)"]]]
-    (with-redefs [email/configured? (constantly smtp?)
-                  email/unverified-registration-allowed? (constantly open?)]
-      (is (= expected (config/registration-mode))
-          (str "smtp? " smtp? ", flag " open?)))))
+    (is (= expected (config/registration-mode smtp? open?))
+        (str "smtp? " smtp? ", flag " open?))))
+
+(defn- banner-with-env
+  "The boot report lines with the environment faked as map `vars` (keyword -> string)."
+  [vars]
+  (with-redefs [env/value (fn ([k] (get vars k)) ([k d] (get vars k d)))]
+    (config/report-lines)))
 
 (deftest the-registration-row-is-in-the-boot-report
-  (with-redefs [email/configured? (constantly false)
-                email/unverified-registration-allowed? (constantly false)]
-    (let [banner (config/report-lines)]
-      (is (some #(and (re-find #"ALLOW_UNVERIFIED_REGISTRATION" %)
-                      (re-find #"REFUSED: no mail server" %)) banner)
-          "a refused signup must be visible in the banner, not inferred from a missing SMTP row")
-      (is (every? #(re-matches #"[\x00-\x7F]*" %) banner)
-          "the new row keeps the banner plain ASCII"))))
+  (let [banner (banner-with-env {})]
+    (is (some #(and (re-find #"ALLOW_UNVERIFIED_REGISTRATION" %)
+                    (re-find #"REFUSED: no mail server" %)) banner)
+        "a refused signup must be visible in the banner, not inferred from a missing SMTP row")
+    (is (every? #(re-matches #"[\x00-\x7F]*" %) banner)
+        "the new row keeps the banner plain ASCII"))
+  (testing "the value follows the environment: the flag with no mail server opens signup"
+    (is (some #(and (re-find #"ALLOW_UNVERIFIED_REGISTRATION" %) (re-find #"OPEN: no address check" %))
+              (banner-with-env {:allow-unverified-registration "true"}))))
+  (testing "a mail server makes it verified by email"
+    (is (some #(and (re-find #"ALLOW_UNVERIFIED_REGISTRATION" %) (re-find #"verified by email" %))
+              (banner-with-env {:email-server-url "smtp.example.org"})))))
 
 (deftest the-no-smtp-message-no-longer-describes-the-old-bug
   ;; Signup no longer throws and asks the user to try again, so the message must not say it does.
   (is (not (re-find #"try again" config/email-missing-message)))
   (is (re-find #"ALLOW_UNVERIFIED_REGISTRATION" config/email-missing-message)
       "it must point at the setting that decides what signup does"))
+
+(deftest every-setting-says-which-release-added-it
+  (testing "the end-of-boot block lists what this release added, so every row names its release"
+    (is (empty? (remove :since config/settings))
+        (str "rows with no :since: " (pr-str (map :var (remove :since config/settings)))))))
+
+(def ^:private new-unset
+  {:var "ORCPUB_NEW_UNSET" :group "email" :value nil :raw nil :set? false :note "the new one"
+   :since config/current-release})
+(def ^:private new-set
+  (assoc new-unset :var "ORCPUB_NEW_SET" :raw "x" :value "x" :set? true))
+(def ^:private old-unset
+  (assoc new-unset :var "ORCPUB_OLD_UNSET" :since "2.5"))
+
+(deftest new-settings-left-unset-end-the-report
+  (let [out (vec (lines [secret-missing new-unset new-set old-unset]))
+        tail (drop-while #(not (str/includes? % "NEW IN")) out)]
+    (testing "a block headed with this release closes the report, after the critical ones"
+      (is (seq tail) (pr-str out))
+      (is (str/includes? (first tail) (str/upper-case config/current-release)) (first tail))
+      (is (not-any? #(str/includes? % "(!!)") tail) "nothing critical prints after it"))
+    (testing "it names the new settings still unset, without repeating the notes the table shows"
+      (is (some #(str/includes? % "ORCPUB_NEW_UNSET") tail))
+      (is (not-any? #(str/includes? % "the new one") tail)))
+    (testing "and not the ones already set, or older ones"
+      (is (not-any? #(str/includes? % "ORCPUB_NEW_SET") tail))
+      (is (not-any? #(str/includes? % "ORCPUB_OLD_UNSET") tail)))))
+
+(deftest no-block-when-every-new-setting-is-set
+  (is (not-any? #(str/includes? % "NEW IN") (lines [new-set old-unset]))))
+
+(deftest every-branding-setting-is-counted
+  (testing "each APP_* name branding.clj reads is in branding-vars, so the count covers it"
+    (let [src (slurp "src/clj/orcpub/fork/branding.clj")
+          read-names (->> (re-seq #":app-[a-z-]+" src)
+                          (map #(-> % (subs 1) (str/replace "-" "_") (.toUpperCase Locale/ROOT)))
+                          set)
+          socials (->> (re-find #"\[:patreon[^\]]*\]" src) (re-seq #":([a-z]+)")
+                       (map #(str "APP_SOCIAL_" (.toUpperCase ^String (second %) Locale/ROOT))))]
+      (is (empty? (remove (set config/branding-vars) (concat read-names socials)))
+          (pr-str (remove (set config/branding-vars) (concat read-names socials)))))))
+
+(deftest a-rejected-branding-value-is-named
+  (testing "a branding value that fell back to its default says so in the report, not only in the log"
+    (let [out (config/report-lines [set-row] nil [{:var "APP_HELP_URL" :value "help me" :why "not a web address or site path"}])]
+      (is (some #(and (str/includes? % "(!)") (str/includes? % "APP_HELP_URL")
+                      (str/includes? % "help me") (str/includes? % "not a web address")) out)
+          (pr-str out)))))
+
+(deftest the-report-says-where-crash-files-land
+  (testing "a folder linked to the host's /var/log is named as the host path"
+    (let [out (config/deployment-lines {:crash-dir "/host-log/dmv/crash" :alert-dir "/host-log/dmv/alerts"})]
+      (is (some #(str/includes? % "/var/log/dmv/crash on the host") out) (pr-str out))
+      (is (not-any? #(str/includes? % "inside the container") out))))
+  (testing "a folder inside the container says so, with the mount that moves it"
+    (let [out (config/deployment-lines {:crash-dir "/var/lib/orcpub/state/crash" :alert-dir "/var/lib/orcpub/state/alerts"})]
+      (is (some #(str/includes? % "inside the container") out) (pr-str out))
+      (is (some #(str/includes? % "/var/log:/host-log") out))))
+  (testing "bare metal: the folders as they are, and no mount advice"
+    (let [out (config/deployment-lines {:crash-dir "/srv/orcpub/logs/app/crash" :alert-dir "/tmp/orcpub-alerts"})]
+      (is (some #(str/includes? % "Crash files: /srv/orcpub/logs/app/crash") out) (pr-str out))
+      (is (not-any? #(str/includes? % "/host-log") out))))
+  (testing "the memory Java may use is shown, with how to change it"
+    (let [out (config/deployment-lines {:max-heap-bytes (* 1536 1024 1024)})]
+      (is (some #(and (str/includes? % "Java memory limit: 1536 MB") (str/includes? % "JAVA_OPTS")) out)
+          (pr-str out))))
+  (testing "the release's deployment notes come with them, and the block is in the report"
+    (let [out (config/report-lines [set-row] nil nil (config/deployment-lines {}))]
+      (is (some #(str/includes? % "TRANSACTOR_HOST") out) (pr-str out))
+      (is (some #(str/includes? % "DEPLOYMENT") out)))))
+
+(deftest each-group-is-listed-once
+  (let [row (fn [v g] {:var v :group g :value 1 :set? true :note "n"})
+        out (lines [(row "A1" "alpha") (row "B1" "beta") (row "A2" "alpha")])]
+    (is (= 1 (count (filter #(= "  [ALPHA]" %) out))) (pr-str out))
+    (testing "its settings together, in the order they were listed"
+      (let [names (keep #(re-find #"^  ([AB]\d)" %) out)]
+        (is (= ["A1" "A2" "B1"] (map second names)))))))
+
+(deftest new-in-wraps-a-long-list
+  (let [rows (for [i (range 30)] (assoc new-unset :var (str "ORCPUB_NEW_SETTING_" i)))
+        tail (drop-while #(not (str/includes? % "NEW IN")) (lines rows))]
+    (is (every? #(<= (count %) 100) tail) (pr-str (remove #(<= (count %) 100) tail)))
+    (is (< (count tail) 15) "the names share lines rather than one row each")
+    (is (some #(str/includes? % "ORCPUB_NEW_SETTING_29") tail))))
+
+(deftest notes-are-short
+  (testing "a note fits beside the table on a narrow screen"
+    (is (empty? (filter #(> (count (:note %)) 60) config/settings))
+        (pr-str (map (juxt :var (comp count :note)) (filter #(> (count (:note %)) 60) config/settings))))))
+
+(deftest the-report-is-saved-beside-the-crash-files
+  (testing "the folder: the crash folder's parent, else the alert folder's"
+    (is (= "/host-log/orcpub" (config/report-dir {:crash-dir "/host-log/orcpub/crash" :alert-dir "/x/alerts"})))
+    (is (= "/srv/state" (config/report-dir {:alert-dir "/srv/state/alerts"})))
+    (is (nil? (config/report-dir {}))))
+  (testing "saved as startup-report.txt, and the line saying so names the host path"
+    (let [dir (str (java.nio.file.Files/createTempDirectory "report" (make-array java.nio.file.attribute.FileAttribute 0)))
+          line (config/save-report! dir ["  orcpub started" "  rest"])]
+      (is (= "  orcpub started\n  rest\n" (slurp (str dir "/startup-report.txt"))))
+      (is (str/includes? line (str dir "/startup-report.txt")) line)))
+  (testing "a folder it cannot write gives no line and no error"
+    (is (nil? (config/save-report! "/proc/no-such-dir" ["x"]))))
+  (testing "a /host-log folder is named as the host's /var/log"
+    (is (= "This report is saved in /var/log/orcpub/startup-report.txt on the host"
+           (config/saved-line "/host-log/orcpub/startup-report.txt")))))

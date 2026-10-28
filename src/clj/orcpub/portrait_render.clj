@@ -6,7 +6,7 @@
    og:image out of the page HTML and fetches that URL, so the image has to be
    rendered here.
 
-   No new dependency is needed. Vector assets reuse pdf/svg-path-ops -- the
+   No new dependency is needed. Vector assets reuse draw/svg-path-ops -- the
    same `d`-attribute parser the card icons are drawn with -- and its
    [:move]/[:line]/[:curve]/[:close] output maps directly onto a Java2D
    Path2D. Raster assets -- the illustrator's own layer art, read off the
@@ -21,7 +21,7 @@
             [clojure.java.io :as io]
             [clojure.string :as s]
             [orcpub.fork.branding :as branding]
-            [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.portrait-layout :as layout]
             [orcpub.dnd.e5.portrait-colorize :as colorize]
@@ -100,7 +100,7 @@
 ;; ---------- one layer ----------
 
 (defn ops->path2d
-  "Build a Path2D from pdf/svg-path-ops output, scaled by sx/sy."
+  "Build a Path2D from draw/svg-path-ops output, scaled by sx/sy."
   [ops sx sy]
   (let [p (Path2D$Double.)]
     (doseq [op ops]
@@ -119,9 +119,9 @@
    colour means the caller had no tint for it, and the layer is skipped rather
    than filled with whatever Graphics2D happens to be set to."
   [^Graphics2D g svg ^Color color w h]
-  (when-let [d (and color (pdf/last-svg-path svg))]
+  (when-let [d (and color (draw/last-svg-path svg))]
     (let [[vw vh] (svg-view-box svg)
-          path (ops->path2d (pdf/svg-path-ops d) (/ w vw) (/ h vh))]
+          path (ops->path2d (draw/svg-path-ops d) (/ w vw) (/ h vh))]
       (.setColor g color)
       (.fill g path)
       ;; The registry's placeholder art strokes as well as fills, in the same
