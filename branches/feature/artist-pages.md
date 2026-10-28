@@ -7,23 +7,24 @@ Account, plus the review fixes to the portrait work and batched credit-change em
 **KB:** [artist-credit-change-emails.md](../../docs/kb/artist-credit-change-emails.md),
 [artist-links-and-referrer.md](../../docs/kb/artist-links-and-referrer.md).
 
-## State (updated 2026-10-27)
+## State (updated 2026-10-28)
 
-- Done: `integration` merged in (`155fd259`); the first review's 7 comments fixed and answered
-  (`04becd21`..`406d4e19`); CI green, merges clean; `@coderabbitai full review` asked once.
-- That full review (2026-10-27 13:40 UTC) posted 12 inline + 1 outside-diff, all Minor: all 13
-  fixed or answered (`4784ea78`..`6acf7c4e`, pushed), replies name the commits, the outside-diff
-  one in a PR comment. `lein test` 1329/0, cljs 740/0, lint 0 errors, header probe 52/52.
-  `@coderabbitai full review` asked once more after that push.
-- Worktree used: `/home/user/orcpub-artist-pages` (container-local; recreate with
-  `git worktree add /home/user/orcpub-artist-pages feature/artist-pages`).
+- Done: `integration` merged in again (`134d04ca4`, with the #70 and #66 work); the second full
+  review's 12 inline comments all fixed or answered, replies on each thread name the commit
+  (`4a15c78ee` source, `5cafb4736` copy, design page and probes, `4ed89a7b7` tests, each seen to
+  fail against the old code). Declined with a reason on its thread: a capture round for the
+  examples page (design images stay local by `.gitignore`), and the change-email switch rows
+  (they show the artist's saved choices; My Account shows the locked switch).
+- Checks on the final change: `lein test` 1341/0, cljs 875/0, lint 0 errors. CI was running on
+  `4ed89a7b7` when this was written. No new CodeRabbit review asked: the push only fixed the last
+  review's comments.
+- Worktree: `/home/codeglaze/projects/orcpub-artist`.
 
 ## Next
 
-- Wait for the full review asked for on 2026-10-27 (after `6acf7c4e`). Then work its comments under
-  the merge gate: fix each with a push that does nothing else and reply naming the commit, or answer
-  it on its thread. A push that only fixes those comments needs no new review.
-- Before any merge: `integration` in with `--no-commit`, then the checks.
+- Check CI on `4ed89a7b7`. When the owner says merge: `integration` in with `--no-commit` and the
+  checks, fold the changelog (`scripts/fold-branch-changelog.sh "Summer Patch"`), push, then the
+  owner adds `ready to merge`.
 
 ## Owner decisions
 
@@ -34,9 +35,7 @@ Account, plus the review fixes to the portrait work and batched credit-change em
 
 ## Open questions for the owner
 
-- None yet. When the 13 are done and CI and review are clean: the owner says merge, the agent folds
-  `docs/branch-changelog.md` (`scripts/fold-branch-changelog.sh "Summer Patch"`), and the owner adds
-  `ready to merge`.
+- None open. The owner says merge when CI is green.
 
 ## Gotchas for the next agent
 
