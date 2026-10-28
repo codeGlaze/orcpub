@@ -217,10 +217,13 @@
         (str "smtp? " smtp? ", flag " open?))))
 
 (defn- banner-with-env
-  "The boot report lines with the environment faked as map `vars` (keyword -> string)."
+  "The boot report lines with the environment faked as map `vars` (keyword -> string). Both
+   readers are stubbed, so the real process environment cannot reach the report."
   [vars]
   (with-redefs [env/value (fn ([k] (get vars k)) ([k d] (get vars k d)))]
-    (config/report-lines)))
+    (with-redefs-fn {#'config/env-raw
+                     (fn [n] (get vars (keyword (.toLowerCase (str/replace n "_" "-") Locale/ROOT))))}
+      #(config/report-lines))))
 
 (deftest the-registration-row-is-in-the-boot-report
   (let [banner (banner-with-env {})]
