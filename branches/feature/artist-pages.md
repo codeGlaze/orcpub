@@ -37,6 +37,16 @@ Account, plus the review fixes to the portrait work and batched credit-change em
 
 - None open. The owner says merge when CI is green.
 
+## After #65 merges (owner, 2026-10-28; do not lose track)
+
+- **Edit #32's body** (`integration` into `develop`, codeGlaze/orcpub): add `Fixes` for the cited issues it
+  lacks (#169, #520, #699-#701, #703-#712) and for the umbrella issues filed 2026-10-28 on Orcpub/orcpub:
+  #714 portraits and artist pages, #715 Rules and SRD data, #716 email, alerts and crash evidence,
+  #717 homebrew ASI spreads, #718 held choices, #719 A4, #720 AC, #721 lookups and page loads.
+  Also list the branches merged into `integration` with no PR, 2026-08-27 to 2026-09-18.
+- The changelog already cites #714-#721 (commit `5041c6c76`). #65 also adds `!docs/design/**` to
+  `.coderabbit.yaml`: CodeRabbit skipped #65 for being over 100 files.
+
 ## Gotchas for the next agent
 
 - `artist_credit_test` sets the clock by redef'ing `orcpub.heartbeat/now`; credit emails go through
