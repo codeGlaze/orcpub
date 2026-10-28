@@ -3,6 +3,7 @@
    These pin the three answers it can give -- set, default, and present-but-rejected --
    because getting the third wrong reports a default as though it were your value."
   (:require [clojure.test :refer [deftest testing is]]
+            [orcpub.env :as env]
             [clojure.string :as str]
             [orcpub.config :as config])
   (:import [java.util Locale]))
@@ -179,9 +180,8 @@
 (deftest critical-settings-are-the-ones-that-actually-break-the-site
   (testing "SIGNATURE: no login, signup or authenticated call works"
     (is (some #(and (= "SIGNATURE" (:var %)) (:critical? %)) config/settings)))
-  (testing "EMAIL_SERVER_URL: send-verification-email runs INSIDE the signup transaction,
-            so unconfigured mail does not merely skip the email -- registration throws and
-            tells the user to try again, which never works. Password reset fails too."
+  (testing "EMAIL_SERVER_URL: without it password reset cannot work at all, and signup is
+            refused unless ALLOW_UNVERIFIED_REGISTRATION opts out of address checks"
     (is (some #(and (= "EMAIL_SERVER_URL" (:var %)) (:critical? %)) config/settings)))
   (testing "and the ones that degrade rather than break are NOT marked, so the (!!) lines
             keep meaning something"
@@ -205,6 +205,55 @@
   (testing "cards-per-page matches what pdf.clj derives: (int (/ 8.5 2.5)) by
             (int (/ 11.0 3.5)), the box size the card call sites pass"
     (is (= config/cards-per-page (* (int (/ 8.5 2.5)) (int (/ 11.0 3.5)))))))
+
+(deftest registration-mode-names-what-signup-will-actually-do
+  ;; Two settings decide signup together, so the report shows the combination rather than
+  ;; leaving the operator to work it out from two rows.
+  (doseq [[smtp? open? expected] [[true  false "verified by email"]
+                                  [false false "REFUSED: no mail server"]
+                                  [false true  "OPEN: no address check"]
+                                  [true  true  "verified by email (flag set, inert)"]]]
+    (is (= expected (config/registration-mode smtp? open?))
+        (str "smtp? " smtp? ", flag " open?))))
+
+(defn- banner-with-env
+  "The boot report lines with the environment faked as map `vars` (keyword -> string). Both
+   readers are stubbed, so the real process environment cannot reach the report."
+  [vars]
+  (with-redefs [env/value (fn ([k] (get vars k)) ([k d] (get vars k d)))]
+    (with-redefs-fn {#'config/env-raw
+                     (fn [n] (get vars (keyword (.toLowerCase (str/replace n "_" "-") Locale/ROOT))))}
+      #(config/report-lines))))
+
+(deftest the-registration-row-is-in-the-boot-report
+  (let [banner (banner-with-env {})]
+    (is (some #(and (re-find #"ALLOW_UNVERIFIED_REGISTRATION" %)
+                    (re-find #"REFUSED: no mail server" %)) banner)
+        "a refused signup must be visible in the banner, not inferred from a missing SMTP row")
+    (is (every? #(re-matches #"[\x00-\x7F]*" %) banner)
+        "the new row keeps the banner plain ASCII"))
+  (testing "the value follows the environment: the flag with no mail server opens signup"
+    (is (some #(and (re-find #"ALLOW_UNVERIFIED_REGISTRATION" %) (re-find #"OPEN: no address check" %))
+              (banner-with-env {:allow-unverified-registration "true"}))))
+  (testing "a mail server makes it verified by email"
+    (is (some #(and (re-find #"ALLOW_UNVERIFIED_REGISTRATION" %) (re-find #"verified by email" %))
+              (banner-with-env {:email-server-url "smtp.example.org"})))))
+
+(deftest the-no-smtp-message-matches-what-start-refusal-allows
+  ;; A deployed server without SMTP does not start unless it opted out, so the row appears only
+  ;; on an opted-out server and must name each way to opt out, in the words start-refusal uses.
+  (testing "it says the server started without mail on purpose, and names every opt-out"
+    (is (re-find #"on purpose" config/email-missing-message))
+    (doseq [opt-out ["DEV_MODE" "EMAIL_REQUIRED=false" "ALLOW_UNVERIFIED_REGISTRATION=true"]]
+      (is (str/includes? config/email-missing-message opt-out) opt-out)))
+  (testing "and says what each outcome of signup is"
+    (is (str/includes? config/email-missing-message "REFUSED"))))
+
+(deftest the-no-smtp-message-no-longer-describes-the-old-bug
+  ;; Signup no longer throws and asks the user to try again, so the message must not say it does.
+  (is (not (re-find #"try again" config/email-missing-message)))
+  (is (re-find #"ALLOW_UNVERIFIED_REGISTRATION" config/email-missing-message)
+      "it must point at the setting that decides what signup does"))
 
 (deftest every-setting-says-which-release-added-it
   (testing "the end-of-boot block lists what this release added, so every row names its release"
