@@ -11,6 +11,7 @@
             [datomic.api :as d]
             [orcpub.artist-credit :as artist-credit]
             [orcpub.artist-email :as artist-email]
+            [orcpub.datomic :as orcpub-datomic]
             [orcpub.outbox :as outbox]
             [orcpub.heartbeat :as heartbeat])
   (:import [java.util.concurrent Executors ScheduledExecutorService ThreadFactory TimeUnit]))
@@ -38,7 +39,12 @@
         overdue (when-not (s/blank? artist-credit-pending) artist-credit-pending)]
     (if (window-open? artist-credit-window now)
       (do (when-not overdue
-            @(d/transact conn [{:db/id id :orcpub.user/artist-credit-pending (pr-str (or before {}))}]))
+            ;; claimed from the empty value read above; if a concurrent save claimed it first,
+            ;; its `before` stands
+            (try @(d/transact conn [[:db/cas id :orcpub.user/artist-credit-pending
+                                     artist-credit-pending (pr-str (or before {}))]])
+                 (catch Exception e
+                   (when-not (orcpub-datomic/cas-failed? e) (throw e)))))
           :pending)
       (let [from (if overdue (not-empty (edn/read-string overdue)) before)]
         ;; the cas fails if a flush took the overdue batch first; that flush then emails it

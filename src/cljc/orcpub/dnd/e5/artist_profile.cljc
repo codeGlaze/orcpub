@@ -90,12 +90,15 @@
 
 (defn ascii-url
   "`url` with an international host in its encoded (punycode) form, so lookalike letters show as
-   what they are: https://ex\u0430mple.test/ is https://xn--exmple-4nf.test/. Anything else as given."
+   what they are: https://ex\u0430mple.test/ is https://xn--exmple-4nf.test/. Anything else as given;
+   nil when the host cannot be encoded."
   [url]
   (let [u (some-> url str s/trim)]
     (if-let [[_ head host tail] (some->> u (re-find #"^(https?://)([^/?#:]+)(.*)$"))]
       (if (re-find #"[^\x00-\x7F]" host)
-        (str head #?(:clj (java.net.IDN/toASCII host) :cljs (.-hostname (js/URL. (str "https://" host)))) tail)
+        (try
+          (str head #?(:clj (java.net.IDN/toASCII host) :cljs (.-hostname (js/URL. (str "https://" host)))) tail)
+          (catch #?(:clj Exception :cljs :default) _ nil))
         u)
       u)))
 
@@ -150,7 +153,8 @@
    (orcpub.artist-links/url-problem), https only, hostname characters only, no userinfo, its host
    read encoded, no whitespace. A mailto:, a javascript:, plain http and a bare address are not."
   [u]
-  (and (string? u) (not (re-find #"\s" (s/trim u))) (nil? (artist-links/url-problem (ascii-url u)))))
+  (and (string? u) (not (re-find #"\s" (s/trim u)))
+       (when-let [a (ascii-url u)] (nil? (artist-links/url-problem a)))))
 
 (defn external-link
   "Anchor attributes for a link to an artist's own site, or nil when `url` is not one this site

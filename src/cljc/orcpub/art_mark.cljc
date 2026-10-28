@@ -72,17 +72,19 @@
                                           (not (<= 0xD0 (u8 b (inc j)) 0xD7))) j
                                      :else (recur (inc j)))))]
       (loop [i 2]
-        (when (and (<= (+ i 4) n) (= 0xFF (u8 b i)))
-          (let [kind (u8 b (inc i))
-                len (+ (* 256 (u8 b (+ i 2))) (u8 b (+ i 3)))
-                start (+ i 4) end (+ i 2 len)]
-            (cond
-              (= 0xD9 kind) nil ; end of image
-              (and (= 0xFE kind) (<= end n)
-                   (= prefix (ascii b start (min end (+ start (count prefix))))))
-              (utf8 b (+ start (count prefix)) end)
-              (= 0xDA kind) (recur (after-scan end)) ; start of scan: its header, then the data
-              :else (recur end))))))))
+        (if (and (< (inc i) n) (= 0xFF (u8 b i)) (= 0xFF (u8 b (inc i))))
+          (recur (inc i)) ; a fill byte before a marker
+          (when (and (<= (+ i 4) n) (= 0xFF (u8 b i)))
+            (let [kind (u8 b (inc i))
+                  len (+ (* 256 (u8 b (+ i 2))) (u8 b (+ i 3)))
+                  start (+ i 4) end (+ i 2 len)]
+              (cond
+                (= 0xD9 kind) nil ; end of image
+                (and (= 0xFE kind) (<= end n)
+                     (= prefix (ascii b start (min end (+ start (count prefix))))))
+                (utf8 b (+ start (count prefix)) end)
+                (= 0xDA kind) (recur (after-scan end)) ; start of scan: its header, then the data
+                :else (recur end)))))))))
 
 (defn read-mark
   "The mark's text in image bytes `b` (byte[] or Uint8Array), or nil: PNG or JPEG; any other

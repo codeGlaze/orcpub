@@ -170,7 +170,7 @@
       ;; as the server runs, so a component that starts after :pedestal never starts.
       ;; system_start_order_test.clj fails when one is missing.
       [:service-map :conn :token-withdrawals :alerts :outbox
-       :heartbeat :crash-report :artist-accounts :strand-check :email-keys])
+       :heartbeat :crash-report :artist-accounts :strand-check :email-keys :credit-notices])
 
     ;; Tells the admin, once, when the previous run crashed (heap dump or JVM crash log).
     :crash-report

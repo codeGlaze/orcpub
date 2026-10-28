@@ -817,8 +817,9 @@
         (cond
           errors {:status 400 :body {:errors errors}}
           wait {:status 429 :headers {"Retry-After" (str wait)}
-                :body {:error (str "That's a lot of changes for one hour. Try again in "
-                                   (max 1 (quot (+ wait 59) 60)) " minutes.")}}
+                :body {:error (let [m (max 1 (quot (+ wait 59) 60))]
+                                (str "That's a lot of changes for one hour. Try again in "
+                                     m (if (= 1 m) " minute." " minutes.")))}}
           unchanged {:status 200 :body (artist-credit-body (d/db conn) id)}
           :else
           (do (credit-notices/saved! conn {:artist-id artist-id :user user :before before :after saved})
