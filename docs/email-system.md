@@ -94,7 +94,19 @@ way and does nothing.
 and the response carries `{:verified? true}` so the client shows "you can log in" rather than
 "check your email". With no SMTP host and **no** opt-in, registration is refused with
 `:email-not-configured` — fail closed, so a lost SMTP value cannot quietly become open
-registration. Startup warns in all three abnormal combinations; a correct config is silent.
+registration.
+
+Since the startup report and refusal landed, a deployed server without `EMAIL_SERVER_URL` does not
+start at all (`config/start-refusal`) unless `DEV_MODE=true`, `EMAIL_REQUIRED=false` or
+`ALLOW_UNVERIFIED_REGISTRATION=true` says that is intended. So "no mail server" signup states
+occur only on a server that opted out: `EMAIL_REQUIRED=false` (or `DEV_MODE`) leaves signup
+refused; the flag opens it.
+
+The startup report has an `ALLOW_UNVERIFIED_REGISTRATION` row whose value says what signup will
+do: `verified by email`, `REFUSED: no mail server` (an opted-out server with no flag),
+`OPEN: no address check` (no SMTP, flag set), or `verified by email (flag set, inert)` when the
+flag is set but SMTP works. The last one still matters: if the SMTP value is lost, a restart
+opens signup instead of refusing the start.
 
 **Mail server down:** the account is created and its email waits in the outbox, sent once the
 server answers. The person is never told to try again for something that already worked.
