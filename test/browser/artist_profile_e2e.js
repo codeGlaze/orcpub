@@ -18,6 +18,7 @@ const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 const { suppressOverlays } = require('./lib/orcbrew-import');
+const { findChrome } = require('./lib/find-chrome');
 
 const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';
 const SHOTS = process.env.ORCPUB_SHOTS;
@@ -25,20 +26,6 @@ const SHOTS = process.env.ORCPUB_SHOTS;
 async function clickIfVisible(locator, { timeout = 2500 } = {}) {
   try { await locator.click({ timeout }); return true; }
   catch (_) { return false; }
-}
-
-function findChrome() {
-  if (process.env.ORCPUB_CHROME) return process.env.ORCPUB_CHROME;
-  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const dir = fs.readdirSync(base)
-      .filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
-    if (dir) {
-      const p = path.join(base, dir, 'chrome-linux', 'chrome');
-      if (fs.existsSync(p)) return p;
-    }
-  } catch (_) {}
-  return undefined;
 }
 
 let failures = 0;

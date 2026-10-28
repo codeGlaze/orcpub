@@ -61,7 +61,7 @@
      {:group "Characters"
       :icon "fa-palette"
       :headline "Meet the artists"
-      :detail "Each portrait artist has a page with their name, how many pieces they drew, a few example portraits and the links they chose. The credit under a portrait takes you there."}
+      :detail "Each portrait artist has a page with their name, how many pieces they drew, a few example portraits and the links they chose. The portrait picker's About the artist link, and the artists list, take you there."}
 
 
      {:group "Sharing"

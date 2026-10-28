@@ -28,9 +28,9 @@ const labelRollButtons = v => v.page.evaluate(() => document.querySelectorAll('.
 
 // Variants of the ability-button rim: white text (`white`, null) on the plain page, the rest with
 // dark text on. Shot as roll-<key>.
-async function rimRound(cap, variants, suffix = '') {
+async function rimRound(cap, variants, suffix = '', dpr = 2) {
   for (const darkText of [false, true]) {
-    const v = await cap.open(BUILDER, { darkText });
+    const v = await cap.open(BUILDER, { darkText, dpr });
     await labelRollButtons(v);
     for (const [k, css] of Object.entries(variants)) {
       if ((css === null) === darkText) continue;
@@ -281,7 +281,7 @@ module.exports = {
       'o-reverse': gradientRim('linear-gradient(to bottom, #dbab50 40%, #f1a20f 62%)'),
       'p-bottom-solid': gradientRim('#dbab50'),
       'q-yellow-reverse': gradientRim('linear-gradient(to bottom, #ffd21a 40%, #dbab50 62%)'),
-      'r-bevel': gradientRim('linear-gradient(to bottom, #ffd21a 40%, #b37a00 62%)') }, process.env.DPR ? `@${process.env.DPR}` : '')
+      'r-bevel': gradientRim('linear-gradient(to bottom, #ffd21a 40%, #b37a00 62%)') }, process.env.DPR ? `@${process.env.DPR}` : '', +(process.env.DPR || 2))
   },
 
   'label-size': {
