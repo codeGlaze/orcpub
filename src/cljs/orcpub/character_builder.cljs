@@ -838,7 +838,7 @@
         [:div.flex-grow-1
          [:div.flex.align-items-c
           (when multiselect?
-            [:span.m-r-5 (comps/checkbox selected? disable-checkbox? name)])
+            [:span.m-r-5 (comps/checkbox selected? (or disable-checkbox? (not selectable?)) name)])
           (when icon [:div.m-r-5 (views5e/svg-icon icon 24)])
           [:span.f-w-b.f-s-1.flex-grow-1 name]
           (when edit-event

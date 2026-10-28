@@ -805,7 +805,8 @@
 (defn update-artist-credit
   "PUT /user/artist-credit -- an artist edits how they're credited. The artist and the admin hear
    about every change, batched by orcpub.artist-credit-notices; 429 with a Retry-After once the
-   account has saved artist-credit/save-cap changes in the hour."
+   account has saved artist-credit/save-cap changes in the hour. A notice that cannot be recorded
+   is logged and the saved change still answers 200."
   [{:keys [transit-params db conn identity]}]
   (let [user (find-user-by-username db (:user identity))
         id (:db/id user)]
@@ -822,7 +823,9 @@
                                      m (if (= 1 m) " minute." " minutes.")))}}
           unchanged {:status 200 :body (artist-credit-body (d/db conn) id)}
           :else
-          (do (credit-notices/saved! conn {:artist-id artist-id :user user :before before :after saved})
+          (do (try (credit-notices/saved! conn {:artist-id artist-id :user user :before before :after saved})
+                   (catch Exception e
+                     (println "ERROR: artist credit saved, but its notice could not be recorded:" (.getMessage e))))
               {:status 200 :body (artist-credit-body (d/db conn) id)}))))))
 
 (defn hash-reset-key

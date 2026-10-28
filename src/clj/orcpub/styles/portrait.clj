@@ -686,6 +686,7 @@
                  :text-decoration "none"
                  :padding "3px 2px"}
                 {:transition "color 160ms ease"}]
+   [".lk-about:visited" {:color "var(--lk-dim)"}]
    [".lk-about-arrow" {:padding-left "4px" :letter-spacing "0"}]
    [".lk-about:hover, .lk-about:focus-visible" {:color "var(--lk-under-lit)" :outline "none"}]
    [".lk-about:focus-visible" {:text-decoration "underline" :text-underline-offset "3px"}]

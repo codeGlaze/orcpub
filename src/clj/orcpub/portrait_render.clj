@@ -643,7 +643,7 @@
            (try (light! img portrait drawable placed-of w h)
                 (catch Exception e
                   (println "portrait-render: light skipped -" (.getMessage e))))
-           (when marks?
+           (when (not (false? marks?))
              (try
                (when-let [names (not-empty (pa/credit-names portrait))]
                  (draw-credit! g names w h))

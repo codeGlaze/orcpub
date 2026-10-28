@@ -10297,6 +10297,14 @@
    [:show-links? :artist/show-links? "Links"]
    [:show-count? :artist/show-count? "How many pieces you drew"]])
 
+(defn- submitted-switches
+  "The page switches the form sends: `shown` ({:profile? true ..}, as on screen) except each switch
+   the site fixes (its credit key is in `locked`), which goes as the artist's own saved value in
+   `own`, so the site's setting is never stored as their choice. Returns {edit key boolean}."
+  [shown locked own]
+  (into {} (for [[k ck] page-switches]
+             [k (if (contains? (set locked) ck) (not (false? (get own ck))) (get shown k))])))
+
 (defn room-for-a-link?
   "Whether the credit form can show another link row, given its `rows` as on screen. Blank rows
    count: credit-edit drops them, so counting the edit would let rows pile up without limit."
@@ -10349,7 +10357,7 @@
     (let [save-status @(subscribe [:account-save-status :artist-credit-save])
           server-errors (:errors save-status)
           clear! #(dispatch [:clear-account-save-status :artist-credit-save])
-          edit (credit-edit @nm @link @links @switches)
+          edit (credit-edit @nm @link @links (submitted-switches @switches locked own))
           blocking (artist-links/edit-errors edit)
           locked? (fn [k] (contains? (set locked) k))
           left? #(contains? @left %)

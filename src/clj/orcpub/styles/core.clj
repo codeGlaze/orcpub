@@ -1792,6 +1792,9 @@
         light ".ap-root.light-theme"]
     [[:.ap-root {:font-family open-sans :color portrait-panel-text :padding "24px 12px 40px"}]
      [light {:color light-text}]
+     ;; .pl-root.light-theme sets --lk-dim on this same element and is emitted later, so match it
+     ;; with a third class; #5f6672 is 5.8:1 on white, #858c96 only 3.4:1
+     [(str ".pl-root" light) {:--lk-dim "#5f6672"}]
      [:.ap-card
       {:max-width "640px" :margin "0 auto" :padding "28px 28px 24px"
        :background portrait-panel :border (str "1px solid " orange-hairline)
@@ -1821,8 +1824,10 @@
      [".ap-link .lk-ico" {:color "var(--lk-mark-color, currentColor)"}]
      ;; the domain a link really opens, so a label cannot pass for another site
      [:.ap-link-host {:font-weight 400 :letter-spacing 0 :color "var(--lk-dim)"}]
+     [:.ap-link:visited {:color portrait-panel-text}]
      [(str light " .ap-link")
       {:border-color "rgba(0,0,0,0.14)" :background :white :color light-text}]
+     [(str light " .ap-link:visited") {:color light-text}]
      [(str light " .ap-link:hover, " light " .ap-link:focus-visible")
       {:border-color slate-blue :background "rgba(51,101,138,0.06)"}]
      [:.ap-section {:display :flex :flex-direction :column :gap "14px"}]
@@ -1849,6 +1854,7 @@
      [".ap-foot a, .ap-missing a"
       {:color :inherit :text-decoration "underline dotted var(--lk-under)"
        :text-underline-offset "3px"}]
+     [".ap-foot a:visited, .ap-missing a:visited" {:color :inherit}]
      [".ap-foot a:hover, .ap-missing a:hover" {:color "var(--lk-under-lit)"}]
      [:.ap-missing {:text-align :center :font-size "13px" :color "var(--lk-dim)"}]
      [:.ap-index

@@ -55,7 +55,8 @@ A deployment can restate a credit without editing shared code, via
 PORTRAIT_ARTISTS='{"house-pack": {"name": "…", "link": "https://…"}}'
 ```
 
-Only `name`, `link`, `links` and `license` are honoured. Which artist drew which asset
+`name`, `link`, `links` and `license` are honoured, and `profile`, `show_examples`, `show_links` and
+`show_count` only when set to `false` (the list below). Which artist drew which asset
 is structural, lives in the registry, and is not overridable — a configuration
 cannot quietly re-attribute someone's work to a different pack.
 
