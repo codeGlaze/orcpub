@@ -1,5 +1,6 @@
 (ns orcpub.artist-credit-test
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+  (:require [clojure.edn :as edn]
+            [clojure.test :refer [deftest is testing use-fixtures]]
             [datomic.api :as d]
             [orcpub.artist-credit :as ac]
             [orcpub.fork.branding :as branding]
@@ -369,3 +370,39 @@
          (select-keys (branding/artist-override {:profile false :show_links false :show_count true})
                       [:artist/profile? :artist/show-links? :artist/show-count?]))
       "false turns a switch off; true is not a setting, since the site cannot force a page on"))
+
+(deftest a-concurrent-save-in-the-window-keeps-the-first-before
+  (testing "two in-window saves that both read the pending batch as empty: the first's `before` stands"
+    (with-conn conn
+      (let [id (add-artist! conn "fusspot" :house-pack)
+            sent (atom []) clock (atom 0)
+            real-pull d/pull
+            saved (fn [before after]
+                    (@(requiring-resolve 'orcpub.artist-credit-notices/saved!)
+                     conn {:user {:db/id id} :artist-id :house-pack
+                           :before {:artist/name before} :after {:artist/name after}}))]
+        (with-emails sent clock
+          (save-name! conn "A")
+          (reset! clock 1)
+          (is (= :pending (saved "A" "B")))
+          (with-redefs [d/pull (fn [db pat e]
+                                 (if (= 2 (count pat))
+                                   {:orcpub.user/artist-credit-window (at 0)
+                                    :orcpub.user/artist-credit-pending ""}
+                                   (real-pull db pat e)))]
+            (is (= :pending (saved "B" "C"))))
+          (is (= {:artist/name "A"}
+                 (edn/read-string (:orcpub.user/artist-credit-pending
+                                   (d/pull (d/db conn) [:orcpub.user/artist-credit-pending] id))))
+              "the later save did not overwrite the earliest before"))))))
+
+(deftest the-throttle-message-says-minute-or-minutes
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (let [sent (atom []) clock (atom 0)
+          error #(get-in (save-name! conn "over") [:body :error])]
+      (with-emails sent clock
+        (dotimes [i 60] (save-name! conn (str "N" i)))
+        (is (re-find #"in 60 minutes\.$" (error)))
+        (reset! clock 59)
+        (is (re-find #"in 1 minute\.$" (error)))))))

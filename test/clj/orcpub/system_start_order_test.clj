@@ -6,14 +6,11 @@
             [com.stuartsierra.dependency :as dep]
             [orcpub.system :as system]))
 
-(defn- start-order
-  "The keys of system map `s` in the order component/start-system starts them."
-  [s]
-  (sort (dep/topo-comparator (component/dependency-graph s (keys s))) (keys s)))
-
 (deftest every-component-starts-before-the-web-server
-  (let [order (vec (start-order (system/system :prod)))
-        after (subvec order (inc (.indexOf order :pedestal)))]
-    (is (empty? after)
-        (str "these start after :pedestal, whose start blocks in production, so they never start: "
-             (pr-str after) " (add them to :pedestal's component/using in system.clj)"))))
+  (let [s (system/system :prod)
+        graph (component/dependency-graph s (keys s))
+        before-pedestal (dep/transitive-dependencies graph :pedestal)
+        missing (sort (remove (conj before-pedestal :pedestal) (keys s)))]
+    (is (empty? missing)
+        (str "these are not started before :pedestal, whose start blocks in production, so they may "
+             "never start: " (pr-str missing) " (add them to :pedestal's component/using in system.clj)"))))

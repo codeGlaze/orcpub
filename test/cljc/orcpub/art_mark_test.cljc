@@ -73,3 +73,12 @@
     (is (= "x" (mark/read-mark (bytes-of jpeg))) "the comment after the first scan is read")
     (is (nil? (mark/read-mark (bytes-of (concat [255 216] sos (map #(#?(:clj int :cljs .charCodeAt) %) "orcpub-art") [255 217]))))
         "the keyword inside image data is not a mark")))
+
+(deftest fill-bytes-before-a-marker-are-skipped
+  (let [com (fn [text] (let [t (map #(#?(:clj int :cljs .charCodeAt) %) (str "orcpub-art" (char 0) text))
+                             n (+ 2 (count t))]
+                         (concat [255 254 (quot n 256) (rem n 256)] t)))]
+    (is (= "x" (mark/read-mark (bytes-of (concat [255 216] [255 255 255] (com "x") [255 217]))))
+        "padding FF bytes before a marker are not a marker")
+    (is (= "x" (mark/read-mark (bytes-of (concat [255 216 255 224 0 4 0 0] [255 255] (com "x") [255 217]))))
+        "and between segments")))

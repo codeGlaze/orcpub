@@ -277,3 +277,12 @@
     (is (= "/artists/placeholder-a"
            (:href (ap/profile-link (map pa/artist-info [:placeholder-a :placeholder-b]))))
         "with only one profile left among two artists, the credit links that one")))
+
+(deftest a-host-that-cannot-be-encoded-is-not-a-link
+  (testing "a link whose international host fails to encode is dropped, not thrown"
+    (let [bad (str "https://" (apply str (repeat 70 "\u00e9")) ".test/")]
+      #?(:clj (do (is (nil? (ap/ascii-url bad)))
+                  (is (not (ap/web-url? bad)))
+                  (is (= [] (ap/listed-links {:artist/link bad}))))
+         :cljs (is (some? (ap/listed-links {:artist/link bad}))
+                   "the browser's URL parser accepts a long label, so only the call is checked")))))
