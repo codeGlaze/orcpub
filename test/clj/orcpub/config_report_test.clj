@@ -236,6 +236,16 @@
     (is (some #(and (re-find #"ALLOW_UNVERIFIED_REGISTRATION" %) (re-find #"verified by email" %))
               (banner-with-env {:email-server-url "smtp.example.org"})))))
 
+(deftest the-no-smtp-message-matches-what-start-refusal-allows
+  ;; A deployed server without SMTP does not start unless it opted out, so the row appears only
+  ;; on an opted-out server and must name each way to opt out, in the words start-refusal uses.
+  (testing "it says the server started without mail on purpose, and names every opt-out"
+    (is (re-find #"on purpose" config/email-missing-message))
+    (doseq [opt-out ["DEV_MODE" "EMAIL_REQUIRED=false" "ALLOW_UNVERIFIED_REGISTRATION=true"]]
+      (is (str/includes? config/email-missing-message opt-out) opt-out)))
+  (testing "and says what each outcome of signup is"
+    (is (str/includes? config/email-missing-message "REFUSED"))))
+
 (deftest the-no-smtp-message-no-longer-describes-the-old-bug
   ;; Signup no longer throws and asks the user to try again, so the message must not say it does.
   (is (not (re-find #"try again" config/email-missing-message)))
