@@ -9,7 +9,7 @@ allowance does not list. **Base:** `integration`. **PR into:** `integration` (#6
 
 - **#66 merged into `integration` on 2026-10-27.** Steps 1 to 5 are done: the 900 KB ceiling
   (871 KB at merge), the shared logo request, the allowances, and the portrait-artists known bug
-  (`PORTRAIT_ARTISTS_BUG`, for #65 to remove). **Only step 6 (#70) remains.**
+  (`PORTRAIT_ARTISTS_BUG`, for #65 to remove). **Only step 6 (#70) remains; its merge and push are done (2026-10-28), review pending, below.**
 
 - Done: CodeRabbit reviewed the PR's head (`660261aa0`, 2026-10-17), and every thread is resolved.
 - Done, **committed locally, not pushed:** `integration` merged in as `a841b4d3c`, in the worktree
@@ -46,7 +46,13 @@ allowance does not list. **Base:** `integration`. **PR into:** `integration` (#6
    `gh api -X POST repos/codeGlaze/orcpub/issues/66/labels -f 'labels[]=ready to merge'`),
    wait for CI, and merge with `--match-head-commit`. No new CodeRabbit review is needed (owner,
    below). The branch has no `docs/branch-changelog.md`: it writes `CHANGELOG.md` directly.
-6. **Then #70** (`feature/registration-in-boot-report`). Merge `integration` in. It conflicts in
+6. **Then #70** (`feature/registration-in-boot-report`). **State 2026-10-28: integration merged (`b4f01f627`),
+   the wording test seen to fail then green (`24461df6d`), pushed, and one `@coderabbitai full review`
+   requested on the PR (comment 6460758578). Left: wait for the review, fix its findings in one push
+   that does nothing else and reply on each thread, wait for CI, then the owner's merge. Note: `gh pr view 70`
+   without `-R codeGlaze/orcpub` shows upstream's #70. `config` cannot require `email` (email requires
+   config): `config/registration-mode` takes `smtp?` and `open?` and the row reads `env` itself.**
+  Original plan: Merge `integration` in. It conflicts in
    `config.clj`, `config_report_test.clj` and `CHANGELOG.md` with #75's startup report.
    - #70 makes the `ALLOW_UNVERIFIED_REGISTRATION` row's value the outcome (verified by email /
      REFUSED / OPEN / inert flag) and removes the startup printlns in `routes.clj`
