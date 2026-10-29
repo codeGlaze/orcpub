@@ -85,11 +85,11 @@
     (is (= bad (get-in rejected ["P" ::e5/races :hill])))))
 
 (deftest a-report-from-shared-content-never-sets-aside-a-local-entry
-  (let [lib {"P" {::e5/races {:hill (dissoc race :abilities)}}}
+  (let [held {"P" {::e5/races {:hill (dissoc race :abilities)}}}
         {:keys [plugins moved]} (homebrew-check/set-aside-broken-entries
-                                 lib {} [{:content-type ::e5/races :key :hill :source "P"
+                                 held {} [{:content-type ::e5/races :key :hill :source "P"
                                           :shared? true :original (assoc race :abilities 42)}])]
-    (is (= lib plugins))
+    (is (= held plugins))
     (is (empty? moved))))
 
 (deftest an-entry-replaced-since-its-report-is-not-set-aside
