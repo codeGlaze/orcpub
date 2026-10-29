@@ -3,5 +3,8 @@
 # agent (all push as codeGlaze). Ask with `@coderabbitai full review` when a PR is ready.
 # CodeRabbit reads this file from the PR's own branch, so a branch made before a change keeps the old one.
 reviews:
+  # Design mockups and capture scripts are not reviewed: a PR over 100 files is skipped whole.
+  path_filters:
+    - "!docs/design/**"
   auto_review:
     enabled: false

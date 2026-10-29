@@ -72,9 +72,9 @@
   "CSP that allows same-origin scripts without strict-dynamic.
    Compatible with traditional <script src> tags. Less secure than strict mode."
   {:default-src "'self'"
-   :script-src "'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com"
-   :style-src "'self' 'unsafe-inline' https://fonts.googleapis.com"
-   :font-src "'self' https://fonts.gstatic.com"
+   :script-src "'self' 'unsafe-inline' 'unsafe-eval'"
+   :style-src "'self' 'unsafe-inline'"   ; + https://fonts.googleapis.com to use Google Fonts
+   :font-src "'self'"                    ; + https://fonts.gstatic.com to use Google Fonts
    :img-src "'self' data: https:"
    :object-src "'none'"})
 
@@ -265,16 +265,30 @@
        "   Keep it stable: changing it signs out everyone and invalidates unsubscribe links."))
 
 (def email-missing-message
-  "Registration is inside the same try as the verification email, so an unconfigured mail
-   server does not merely skip the email -- signup throws and the caller is told to \"try
-   again\", which will never work. Password reset fails the same way."
+  "Fix text for the EMAIL_SERVER_URL row. `start-refusal` stops a deployed server that has no SMTP
+   unless DEV_MODE, EMAIL_REQUIRED=false or ALLOW_UNVERIFIED_REGISTRATION opts out, so this row
+   shows only on a server that opted out. What signup does then is the value of the
+   ALLOW_UNVERIFIED_REGISTRATION row, so the text names both outcomes."
   (str "EMAIL_SERVER_URL is not set, so no mail can be sent.\n"
-       "   Registration FAILS for every new user -- the verification email is sent inside the\n"
-       "   signup transaction, so the whole signup errors with \"please try again\". Password\n"
-       "   reset fails too, so existing users cannot recover an account.\n"
+       "   This server started without it on purpose (DEV_MODE, EMAIL_REQUIRED=false or\n"
+       "   ALLOW_UNVERIFIED_REGISTRATION=true). Password reset FAILS and admin alerts reach nobody.\n"
+       "   Signup is REFUSED with a message, unless ALLOW_UNVERIFIED_REGISTRATION=true,\n"
+       "   which accepts accounts without checking the address -- private sites only.\n"
+       "   The ALLOW_UNVERIFIED_REGISTRATION row above shows which is in effect.\n"
        "   Fix: set EMAIL_SERVER_URL to your SMTP host, with EMAIL_ACCESS_KEY and\n"
        "        EMAIL_SECRET_KEY for authentication, then restart.\n"
        "        EMAIL_SERVER_PORT defaults to 587; set EMAIL_SSL or EMAIL_TLS if required."))
+
+(defn registration-mode
+  "What signup will do, given `smtp?` (EMAIL_SERVER_URL set) and `open?`
+   (ALLOW_UNVERIFIED_REGISTRATION=true): the VALUE of that row. Returns \"verified by email\",
+   \"REFUSED: no mail server\", \"OPEN: no address check\" or \"verified by email (flag set, inert)\".
+   GOTCHA: inert is not harmless; if the SMTP value is lost, signup opens on the next start."
+  [smtp? open?]
+  (cond (and smtp? open?) "verified by email (flag set, inert)"
+        smtp?             "verified by email"
+        open?             "OPEN: no address check"
+        :else             "REFUSED: no mail server"))
 
 (def current-release
   "The release this build ships as. Settings whose `:since` is this one end the boot report while
@@ -370,7 +384,9 @@
     {:group "email"    :var "EMAIL_SSL" :since "2.5" :note "TRUE: connect over SSL"}
     {:group "email"    :var "EMAIL_TLS" :since "2.5" :note "TRUE: use STARTTLS"}
     {:group "email"    :var "ALLOW_UNVERIFIED_REGISTRATION" :since current-release
-     :note "true: sign-up without an email check; only with no SMTP"}
+     :get #(registration-mode (some? (env/value :email-server-url))
+                              (env/flag? :allow-unverified-registration))
+     :note "true: sign-up without an email check; private sites"}
     {:group "email"    :var "EMAIL_ACCESS_KEY" :since "2.5" :secret? true}
     {:group "email"    :var "EMAIL_SECRET_KEY" :since "2.5" :secret? true}
     {:group "email"    :var "EMAIL_FROM_ADDRESS" :since "2.5"}

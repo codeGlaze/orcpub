@@ -207,6 +207,16 @@
    {:db/ident :orcpub.user/artist-credit
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
+   ;; When this artist was last emailed at once about a credit change: the start of a ten-minute
+   ;; window in which further changes are collected rather than emailed (orcpub.artist-credit-notices).
+   {:db/ident :orcpub.user/artist-credit-window
+    :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one}
+   ;; The credit, as EDN, from before the first change not yet emailed; empty when none is waiting.
+   ;; Cleared by compare-and-set, so one container sends each batch.
+   {:db/ident :orcpub.user/artist-credit-pending
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
    ;; When the artist welcome email for this account was handed to the mail
    ;; server. Unset means it never went out, so the next start sends it again.
    {:db/ident :orcpub.user/artist-welcome-sent

@@ -11,6 +11,7 @@
             [orcpub.user-email :as user-email]
             [orcpub.portrait-pack.strands :as strands]
             [orcpub.heartbeat :as heartbeat]
+            [orcpub.artist-credit-notices :as credit-notices]
             [orcpub.routes.share :as share]
             [orcpub.pwned :as pwned]
             [orcpub.security :as security]
@@ -65,6 +66,12 @@
    ;; See orcpub.config/get-secure-headers-config
    })
 
+(defn with-static-caching
+  "The service map with pedestal/static-cache-interceptor at the front of its chain, ahead of the
+   static file handler."
+  [service-map]
+  (update service-map ::http/interceptors #(into [pedestal/static-cache-interceptor] %)))
+
 (defn with-client-address
   "The service map with the player's-address interceptor first in its chain, so every limit and
    log line sees the player rather than the proxy (orcpub.client-address)."
@@ -75,6 +82,12 @@
   "The service map with the portrait art guard first in its chain (see routes/portrait-art-guard)."
   [service-map]
   (update service-map ::http/interceptors #(into [routes/portrait-art-guard] %)))
+
+(defn with-referrer-policy
+  "The service map with pedestal/referrer-policy-interceptor first in its chain, so its :leave runs
+   last and reaches every response: static files, the art guard's and the default 404 included."
+  [service-map]
+  (update service-map ::http/interceptors #(into [pedestal/referrer-policy-interceptor] %)))
 
 (def prod-service-map
   {::http/routes routes/routes
@@ -142,8 +155,10 @@
               prod-service-map
               (when (= :dev env) dev-service-map-overrides))
       true http/default-interceptors
+      true with-static-caching
       true with-portrait-guard
       true with-client-address
+      true with-referrer-policy
       (= :dev env) http/dev-interceptors)
 
     ;; :token-withdrawals is listed only so Component starts it first; Pedestal
@@ -155,7 +170,7 @@
       ;; as the server runs, so a component that starts after :pedestal never starts.
       ;; system_start_order_test.clj fails when one is missing.
       [:service-map :conn :token-withdrawals :alerts :outbox
-       :heartbeat :crash-report :artist-accounts :strand-check :email-keys])
+       :heartbeat :crash-report :artist-accounts :strand-check :email-keys :credit-notices])
 
     ;; Tells the admin, once, when the previous run crashed (heap dump or JVM crash log).
     :crash-report
@@ -195,6 +210,12 @@
                                 ;; being read.
                                 "breach check summary" pwned/summary-job
                                 "rate limit summary" security/summary-job})
+      [:conn])
+
+    ;; emails the batched artist credit changes whose ten minutes are up, every minute
+    :credit-notices
+    (component/using
+      (credit-notices/new-credit-notices)
       [:conn])
 
     ;; links or creates artist accounts named in PORTRAIT_ARTISTS; runs in the

@@ -16,6 +16,8 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 - [🚨 Error Handling](ERROR_HANDLING.md) - Error handling utilities
 - [🗡️ Language Selection Fix](LANGUAGE_SELECTION_FIX.md) - Ranger favored enemy language corruption (#296)
 - [🐳 Docker User Management](docker-user-management.md) - Verified user setup for Docker deployments
+- [Portrait Compositor](PORTRAIT-COMPOSITOR.md) - Why the paper-doll portrait code is shaped as it is: shared geometry, the baked credit, untrusted saves, PDF sizing, ETags, the draft
+- [Portrait Tinting](PORTRAIT-TINTING.md) - How character colours reach the line art: multiply, the untinted mouth, colorized eyes and lips, floor and gamma
 
 **For Operators:**
 - [🖼️ Character Image Fetch](CHARACTER-IMAGE-FETCH.md) - Why a portrait is missing from a PDF, the limits on the fetch, and how nginx/Compose/Swarm/egress proxies affect it

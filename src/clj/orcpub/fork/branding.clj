@@ -189,9 +189,11 @@
 ;; ─── Portrait Artist Credits ───────────────────────────────────────
 
 (defn artist-override
-  "One artist's credit `fields` from PORTRAIT_ARTISTS (:name :link :links :license) as overrides.
+  "One artist's credit `fields` from PORTRAIT_ARTISTS (:name :link :links :license, and the page
+   switches :profile :show_examples :show_links :show_count, kept only when false) as overrides.
    Links pass artist-links/url-problem, the check an artist's own edits pass; a link's icon and
-   colour come from its address (artist-links/link-entry), never from the setting. Returns the map."
+   colour come from its address (artist-links/link-entry), never from the setting. A switch can
+   only turn a page or its part off. Returns the map."
   [fields]
   (let [ok-url (fn [u] (if (links/url-problem u)
                          (do (warn! :portrait-artists u (links/url-problem u)) nil)
@@ -205,25 +207,18 @@
       (string? (:name fields))    (assoc :artist/name (:name fields))
       link                        (assoc :artist/link link)
       (seq extra)                 (assoc :artist/links extra)
-      (string? (:license fields)) (assoc :artist/license (:license fields)))))
+      (string? (:license fields)) (assoc :artist/license (:license fields))
+      true (merge (into {} (for [[k ck] {:profile :artist/profile? :show_examples :artist/show-examples?
+                                         :show_links :artist/show-links? :show_count :artist/show-count?}
+                                 :when (false? (get fields k))]
+                             [ck false]))))))
 
 (def portrait-artists
-  "Deployment overrides for how portrait artists are credited, as
-   {artist-id {:artist/name .. :artist/link .. :artist/license ..}}.
-
-   PORTRAIT_ARTISTS is JSON keyed by artist id:
-
-     {\"house-pack\": {\"name\": \"Someone\", \"link\": \"https://...\"}}
-
-   The registry in portrait-assets.cljc holds the public default and the
-   structure -- which artist drew which asset -- because the app cannot
-   resolve an asset without it. Only the presentation of the credit is
-   overridable, so a fork can credit its own contributors without editing
-   shared code, and cannot silently re-attribute someone's art to a
-   different pack.
-
-   A malformed value is ignored with a warning rather than taking down the
-   page: a broken credit should cost the credit, not the site."
+  "Deployment overrides for portrait artist credits, {artist-id {:artist/name :artist/link
+   :artist/links :artist/license}}, from PORTRAIT_ARTISTS: JSON keyed by artist id, e.g.
+   {\"house-pack\": {\"name\": \"Someone\", \"link\": \"https://...\"}}. Which artist drew
+   which asset is not overridable. See PORTRAIT-COMPOSITOR.md, \"Deployment overrides\".
+   A value that does not parse is ignored with a warning."
   (or (when-let [raw (not-empty (env/value :portrait-artists))]
         (try
           (into {}

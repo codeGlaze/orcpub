@@ -1,5 +1,5 @@
 (ns orcpub.styles.core
-     (:require [garden.stylesheet :refer [at-media at-keyframes]]
+     (:require [garden.stylesheet :refer [at-media at-keyframes at-font-face]]
                [garden.units :refer [px]]
                [orcpub.constants :as const]
                [garden.selectors :as s]
@@ -29,6 +29,16 @@
 (def error-tint "#fdf5f6")
 (def warning-yellow "#ffd21a") ; attention severity: unresolved conflicts, missing fields
 (def broken-red "#e5637a")     ; broken severity: invalid / unexportable data
+(def light-text "#363636")     ; body text in the light theme
+(def slate-blue "#33658A")     ; the light theme's accent, where the dark theme uses orange
+(def button-ink "#15202e")     ; dark text on amber: buttons with dark text on, a checked box
+(def orange-hairline "rgba(240,161,0,0.16)") ; orange border on dark portrait panels
+
+;; Portrait surfaces: the artist pages here, the compositor drawer in portrait.cljs.
+(def portrait-panel "#131924")      ; card and tile ground, dark theme
+(def portrait-panel-text "#ebeef4") ; text on portrait-panel
+(def portrait-frame-glow "#202939") ; portrait frame gradient, centre
+(def portrait-frame-edge "#0f141c") ; portrait frame gradient, edge
 
 ;; Text on the amber buttons is small and low-contrast either way, so it gets a
 ;; faint edge in the opposite tone: dark under white text, light under dark.
@@ -1774,8 +1784,123 @@
      [:.details-column
       {:max-width "500px"}])])
 
+(def artist-pages
+  "The public artist pages (views/artist_page.cljs), inside .pl-root so the drawer's
+   --lk-* variables and credit classes apply. .ap-* is only what the drawer lacks."
+  (let [vollkorn "'Vollkorn', Georgia, serif"
+        open-sans "'Open Sans', system-ui, sans-serif"
+        light ".ap-root.light-theme"]
+    [[:.ap-root {:font-family open-sans :color portrait-panel-text :padding "24px 12px 40px"}]
+     [light {:color light-text}]
+     ;; .pl-root.light-theme sets --lk-dim on this same element and is emitted later, so match it
+     ;; with a third class; #5f6672 is 5.8:1 on white, #858c96 only 3.4:1
+     [(str ".pl-root" light) {:--lk-dim "#5f6672"}]
+     [:.ap-card
+      {:max-width "640px" :margin "0 auto" :padding "28px 28px 24px"
+       :background portrait-panel :border (str "1px solid " orange-hairline)
+       :border-radius "12px" :box-shadow "0 20px 50px -30px rgba(0,0,0,0.7)"
+       :display :flex :flex-direction :column :gap "30px"}]
+     [(str light " .ap-card")
+      {:background :white :border-color "rgba(0,0,0,0.10)"
+       :box-shadow "0 20px 50px -34px rgba(0,0,0,0.35)"}]
+     [:.ap-head {:display :flex :flex-direction :column :gap "12px" :text-align :center}]
+     [:.ap-name
+      {:margin 0 :font (str "italic 400 40px/1.1 " vollkorn)
+       :color "var(--lk-name)" :white-space :normal :text-wrap :balance}]
+     [".ap-head .lk-row" {:gap "16px"}]
+     [:.ap-lede {:margin 0 :font-size "13px" :line-height 1.5 :color "var(--lk-dim)"}]
+     [:.ap-links
+      {:display :flex :flex-wrap :wrap :justify-content :center :gap "8px" :margin-top "4px"}]
+     [:.ap-link
+      {:display :inline-flex :align-items :center :gap "8px"
+       :padding "9px 16px" :border-radius "5px"
+       :border "1px solid rgba(255,255,255,0.10)" :background "rgba(255,255,255,0.02)"
+       :color portrait-panel-text :text-decoration :none
+       :font (str "600 12px/1 " open-sans) :letter-spacing "0.04em"
+       :transition "border-color 160ms ease, background-color 160ms ease"}]
+     [".ap-link:hover, .ap-link:focus-visible"
+      {:border-color orange :background "rgba(240,161,0,0.06)" :outline :none}]
+     [".ap-link .lk-ico" {:width "14px" :height "14px"}]
+     [".ap-link .lk-ico" {:color "var(--lk-mark-color, currentColor)"}]
+     ;; the domain a link really opens, so a label cannot pass for another site
+     [:.ap-link-host {:font-weight 400 :letter-spacing 0 :color "var(--lk-dim)"}]
+     [:.ap-link:visited {:color portrait-panel-text}]
+     [(str light " .ap-link")
+      {:border-color "rgba(0,0,0,0.14)" :background :white :color light-text}]
+     [(str light " .ap-link:visited") {:color light-text}]
+     [(str light " .ap-link:hover, " light " .ap-link:focus-visible")
+      {:border-color slate-blue :background "rgba(51,101,138,0.06)"}]
+     [:.ap-section {:display :flex :flex-direction :column :gap "14px"}]
+     [".ap-section > .lk-cap" {:margin 0}]
+     [:.ap-examples {:display :grid :grid-template-columns "repeat(3, 1fr)" :gap "14px"}]
+     [:.ap-example {:margin 0 :display :flex :flex-direction :column :gap "7px"}]
+     ;; Dark in both themes, like the drawer's frame: a light frame would swallow pale
+     ;; skin and blonde hair.
+     [:.ap-frame
+      {:width "100%" :aspect-ratio "4 / 5" :box-sizing :border-box
+       :position :relative :overflow :hidden :border-radius "10px"
+       :background (str "radial-gradient(circle at 50% 35%, " portrait-frame-glow ", "
+                        portrait-panel " 60%, " portrait-frame-edge ")")
+       :border (str "1px solid " orange-hairline)}]
+     [(str light " .ap-frame") {:border-color "rgba(0,0,0,0.12)"}]
+     [:.ap-example-img
+      {:display :block :width "100%" :height "100%" :object-fit :cover}]
+     [".ap-example figcaption"
+      {:font (str "italic 12px/1.4 " vollkorn) :color "var(--lk-dim)" :text-align :center}]
+     [:.ap-foot
+      {:margin 0 :padding-top "16px" :border-top "1px solid rgba(255,255,255,0.06)"
+       :font-size "12px" :line-height 1.55 :color "var(--lk-dim)" :text-align :center}]
+     [(str light " .ap-foot") {:border-top-color "rgba(0,0,0,0.08)"}]
+     [".ap-foot a, .ap-missing a"
+      {:color :inherit :text-decoration "underline dotted var(--lk-under)"
+       :text-underline-offset "3px"}]
+     [".ap-foot a:visited, .ap-missing a:visited" {:color :inherit}]
+     [".ap-foot a:hover, .ap-missing a:hover" {:color "var(--lk-under-lit)"}]
+     [:.ap-missing {:text-align :center :font-size "13px" :color "var(--lk-dim)"}]
+     [:.ap-index
+      {:display :grid :grid-template-columns "repeat(auto-fill, minmax(150px, 1fr))"
+       :gap "16px"}]
+     [:.ap-index-card
+      {:display :flex :flex-direction :column :gap "8px"
+       :text-decoration :none :text-align :center}]
+     [".ap-index-card .lk-name" {:font-size "18px" :white-space :normal}]
+     [".ap-index-card:hover .lk-name, .ap-index-card:focus-visible .lk-name"
+      {:color "var(--lk-under-lit)" :filter "var(--lk-halo)"}]
+     [".ap-index-card:focus-visible" {:outline :none}]
+     [:.ap-index-count {:font-size "11px" :color "var(--lk-dim)"}]
+     (at-media {:max-width "560px"}
+       [:.ap-card {:padding "22px 16px 18px" :gap "26px"}]
+       [:.ap-name {:font-size "32px"}]
+       [:.ap-examples {:gap "8px"}])]))
+
+(def open-sans-subsets
+  "Open Sans character sets as [subset unicode-range], one variable-weight woff2 file each under
+   resources/public/fonts/open-sans/ (OFL, see OFL.txt there). A browser downloads only the files
+   whose range a page's text uses."
+  [["cyrillic-ext" "U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F"]
+   ["cyrillic" "U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116"]
+   ["greek-ext" "U+1F00-1FFF"]
+   ["greek" "U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF"]
+   ["hebrew" "U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F"]
+   ["math" "U+0302-0303, U+0305, U+0307-0308, U+0310, U+0312, U+0315, U+031A, U+0326-0327, U+032C, U+032F-0330, U+0332-0333, U+0338, U+033A, U+0346, U+034D, U+0391-03A1, U+03A3-03A9, U+03B1-03C9, U+03D1, U+03D5-03D6, U+03F0-03F1, U+03F4-03F5, U+2016-2017, U+2034-2038, U+203C, U+2040, U+2043, U+2047, U+2050, U+2057, U+205F, U+2070-2071, U+2074-209F, U+20D0-20DC, U+20E1, U+20E5-20EF, U+2100-2112, U+2114-2115, U+2117-2121, U+2123-214F, U+2190, U+2192, U+2194-21AE, U+21B0-21E5, U+21F1-21F2, U+21F4-2211, U+2213-2214, U+2216-22FF, U+2308-230B, U+2310, U+2319, U+231C-2321, U+2336-237A, U+237C, U+2395, U+239B-23B7, U+23D0, U+23DC-23E1, U+2474-2475, U+25AF, U+25B3, U+25B7, U+25BD, U+25C1, U+25CA, U+25CC, U+25FB, U+266D-266F, U+27C0-27FF, U+2900-2AFF, U+2B0E-2B11, U+2B30-2B4C, U+2BFE, U+3030, U+FF5B, U+FF5D, U+1D400-1D7FF, U+1EE00-1EEFF"]
+   ["symbols" "U+0001-000C, U+000E-001F, U+007F-009F, U+20DD-20E0, U+20E2-20E4, U+2150-218F, U+2190, U+2192, U+2194-2199, U+21AF, U+21E6-21F0, U+21F3, U+2218-2219, U+2299, U+22C4-22C6, U+2300-243F, U+2440-244A, U+2460-24FF, U+25A0-27BF, U+2800-28FF, U+2921-2922, U+2981, U+29BF, U+29EB, U+2B00-2BFF, U+4DC0-4DFF, U+FFF9-FFFB, U+10140-1018E, U+10190-1019C, U+101A0, U+101D0-101FD, U+102E0-102FB, U+10E60-10E7E, U+1D2C0-1D2D3, U+1D2E0-1D37F, U+1F000-1F0FF, U+1F100-1F1AE, U+1F1E6-1F1FF, U+1F30D-1F30F, U+1F315, U+1F31C, U+1F31E, U+1F320-1F32C, U+1F336, U+1F378, U+1F37D, U+1F382, U+1F393-1F39F, U+1F3A7-1F3A8, U+1F3AC-1F3AF, U+1F3C2, U+1F3C4-1F3C6, U+1F3CA-1F3CE, U+1F3D4-1F3E0, U+1F3ED, U+1F3F1-1F3F3, U+1F3F5-1F3F7, U+1F408, U+1F415, U+1F41F, U+1F426, U+1F43F, U+1F441-1F442, U+1F444, U+1F446-1F449, U+1F44C-1F44E, U+1F453, U+1F46A, U+1F47D, U+1F4A3, U+1F4B0, U+1F4B3, U+1F4B9, U+1F4BB, U+1F4BF, U+1F4C8-1F4CB, U+1F4D6, U+1F4DA, U+1F4DF, U+1F4E3-1F4E6, U+1F4EA-1F4ED, U+1F4F7, U+1F4F9-1F4FB, U+1F4FD-1F4FE, U+1F503, U+1F507-1F50B, U+1F50D, U+1F512-1F513, U+1F53E-1F54A, U+1F54F-1F5FA, U+1F610, U+1F650-1F67F, U+1F687, U+1F68D, U+1F691, U+1F694, U+1F698, U+1F6AD, U+1F6B2, U+1F6B9-1F6BA, U+1F6BC, U+1F6C6-1F6CF, U+1F6D3-1F6D7, U+1F6E0-1F6EA, U+1F6F0-1F6F3, U+1F6F7-1F6FC, U+1F700-1F80B, U+1F810-1F847, U+1F850-1F859, U+1F860-1F887, U+1F890-1F8AD, U+1F8B0-1F8BB, U+1F8C0-1F8C1, U+1F8D0-1F8D8, U+1F900-1F90B, U+1F93B, U+1F946, U+1F984, U+1F996, U+1F9E9, U+1FA00-1FA6F, U+1FA70-1FA7C, U+1FA80-1FAC6, U+1FAC8, U+1FACC-1FADD, U+1FADF-1FAEB, U+1FAEF-1FAFA, U+1FB00-1FBFF"]
+   ["vietnamese" "U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB"]
+   ["latin-ext" "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF"]
+   ["latin" "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD"]])
+
+(def open-sans-faces
+  "@font-face rules serving Open Sans from this site, weights 400 to 700, one per character set."
+  (for [[subset unicode-range] open-sans-subsets]
+    (at-font-face {:font-family "Open Sans"
+                   :font-style "normal"
+                   :font-weight "400 700"
+                   :font-display "swap"
+                   :src (str "url(/fonts/open-sans/open-sans-" subset ".woff2) format(\"woff2\")")
+                   :unicode-range unicode-range})))
+
 (def app
   (concat
+   open-sans-faces
    [[:.character-builder-header
      {:margin-bottom "19px"}]
 
@@ -1810,7 +1935,7 @@
     ;; is 7.8:1. Dark theme only; the light theme's slate buttons pass in white.
     [".app.dark-button-text:not(.light-theme)"
      [:.form-button :.mc-btn :.roll-button
-      {:color "#15202e"
+      {:color button-ink
        :text-shadow text-lift-light}]
      ;; the ability buttons are short numbers: a stronger glow and a yellow rim to
      ;; hold them up. paint-order draws the rim behind the letters, not over them.
@@ -1835,11 +1960,14 @@
      {:text-shadow text-lift-dark}
      [:.title {:letter-spacing "-0.04em"}]]
     ;; The tabs are spaced by the row's gap, not their own margins; on a phone the
-    ;; row's padding is the 10px gutter.
+    ;; row's padding is the 10px gutter, and the tabs share the row with no side
+    ;; padding of their own, so all seven fit a 320px screen.
     [:.app-header-menu
      {:gap "4px"
       :padding "0 2px"}
-     [:&.phone-tabs {:padding "0 10px"}]]
+     [:&.phone-tabs {:padding "0 10px"}
+      [:.header-tab {:min-width 0}
+       [:>.p-10 {:padding-left 0 :padding-right 0}]]]]
 
     ;; The header bar's search and login boxes, and the desktop slot left of the
     ;; tabs that holds the supporter link.
@@ -2408,20 +2536,56 @@
       :padding "11px 0"
       :align-items :center}]
 
+    ;; comps/checkbox: a rounded box that fills with the accent and shows a dark tick
+    ;; when checked (amber in the dark theme, slate blue in the light one). The tick is
+    ;; drawn (an L of two borders, turned 45deg), not a font glyph, so it sits dead
+    ;; centre: a glyph centres its text box, not its ink.
     [:.checkbox
-     {:width "16px"
+     {:display :inline-flex
+      :align-items :center
+      :justify-content :center
+      :box-sizing :border-box
+      :width "16px"
       :height "16px"
-      :box-shadow "0 1px 0 0 #f0a100"
-      :background-color :white
-      :cursor :pointer}
-
-     [:.fa-check
-      {:font-size "14px"
-       :margin "1px"}]]
-
-    [:.checkbox.checked.disabled
-     {:background-color "rgba(255, 255, 255, 0.37)"
-      :cursor :not-allowed}]
+      :flex-shrink 0
+      :border "1.5px solid rgba(255,255,255,0.55)"
+      :border-radius "4px"
+      ;; opaque, so a box on a white panel is still a dark box there, not a see-through tint
+      :background-color "#1b2130"
+      :color button-ink
+      :vertical-align :middle
+      :cursor :pointer
+      :transition "background-color 0.12s, border-color 0.12s"}
+     [:&:hover {:border-color orange}]
+     [:&.checked
+      {:background-color orange
+       :border-color orange}
+      [:&:after
+       {:content "\"\""
+        :width "28%"
+        :height "55%"
+        :border-style :solid
+        :border-color :currentColor
+        :border-width "0 2px 2px 0"
+        :transform "translateY(-15%) rotate(45deg)"}]]
+     [:&.disabled
+      {:opacity 0.5
+       :cursor :not-allowed}]]
+    ;; the keyboard's place: on the box, or on the box of a labelled row that is the control
+    [".checkbox:focus-visible, .checkbox-row:focus-visible .checkbox"
+     {:outline (str "2px solid " orange)
+      :outline-offset "2px"}]
+    [".app.light-theme .checkbox:focus-visible, .app.light-theme .checkbox-row:focus-visible .checkbox"
+     {:outline-color slate-blue}]
+    [:.checkbox-row:focus-visible {:outline :none}]
+    [".app.light-theme .checkbox"
+     {:border-color muted-on-light
+      :background-color :white}
+     [:&:hover {:border-color slate-blue}]
+     [:&.checked
+      {:background-color slate-blue
+       :border-color slate-blue
+       :color :white}]]
 
     [:.checkbox-text
      {:margin-left "5px"}]
@@ -2450,11 +2614,7 @@
       {:background-color "rgba(255,255,255,0.08)"}]
      [:.checkbox
       {:width "14px"
-       :height "14px"
-       :min-width "14px"
-       :flex-shrink 0}
-      [:.fa-check
-       {:font-size "12px"}]]
+       :height "14px"}]
      [:.flex.pointer
       {:align-items :center
        :gap "8px"}]]
@@ -3464,13 +3624,6 @@
      {:padding "20px 5px"
       :background-color "rgba(0,0,0,0.15)"}]
 
-    [:.checkbox-border
-     {:margin-top "-3px"
-      :border-color "#f0a100"
-      :border-style :solid
-      :border-width "1px"
-      :border-bottom-width "3px"}]
-
     [:.close-btn-posn
      {:right "8px"
       :top "8px"}]
@@ -3683,6 +3836,7 @@
     [:.z-200 {:z-index 200}]
 
 ];concat-bracket
+   artist-pages
    margin-lefts
    margin-tops
    min-widths

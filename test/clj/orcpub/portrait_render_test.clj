@@ -161,6 +161,21 @@
       (is (not-any? (fn [[_ y]] (> y (* h 0.94))) changed)
           "and never reaches the caption band at the bottom"))))
 
+(defn- argb-pixels
+  "Every ARGB pixel of `img`, as a vector."
+  [img]
+  (vec (.getRGB ^java.awt.image.BufferedImage img 0 0 (.getWidth img) (.getHeight img) nil 0 (.getWidth img))))
+
+(deftest marks-stay-on-unless-switched-off
+  (testing "an options map that leaves :marks? out keeps both marks; only false removes them"
+    (with-redefs [branding/app-url "orcpub.com"]
+      (let [p (portrait-with [:head :shirt])
+            default (argb-pixels (pr/render p 200 250))
+            omitted (argb-pixels (pr/render p 200 250 {}))
+            off (argb-pixels (pr/render p 200 250 {:marks? false}))]
+        (is (= default omitted) "{} draws what the three-argument form draws")
+        (is (not= default off) "the marks really are drawn by default")))))
+
 (deftest no-site-mark-when-branding-is-unset
   (let [p (portrait-with [:head])]
     (is (= (vec (pr/render-png p))

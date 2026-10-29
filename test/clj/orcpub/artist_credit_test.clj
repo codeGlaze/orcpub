@@ -1,5 +1,6 @@
 (ns orcpub.artist-credit-test
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+  (:require [clojure.edn :as edn]
+            [clojure.test :refer [deftest is testing use-fixtures]]
             [datomic.api :as d]
             [orcpub.artist-credit :as ac]
             [orcpub.fork.branding :as branding]
@@ -7,6 +8,7 @@
             [orcpub.db.schema :as schema]
             [orcpub.crypto]
             [orcpub.artist-email]
+            [orcpub.heartbeat]
             [orcpub.routes])
   (:import [java.util UUID]))
 
@@ -133,7 +135,7 @@
   (with-conn conn
     (add-artist! conn "fusspot" :house-pack)
     (let [told (atom [])]
-      (with-redefs [orcpub.artist-email/credit-changed! #(swap! told conj %)
+      (with-redefs [orcpub.artist-email/credit-changed-tx #(do (swap! told conj %) [])
                     clojure.core/future-call (fn [f] (f) (delay nil))]
         (let [bad (orcpub.routes/update-artist-credit
                    (req conn "fusspot" {:link "http://x.test"}))
@@ -150,6 +152,89 @@
           (is (= 200 (:status again)))
           (is (= 1 (count @told)) "one notice per real change, none for a failed or no-op save")
           (is (= {:artist/name "Fuss"} (select-keys (:after (first @told)) [:artist/name]))))))))
+
+(def ^:private t0 (java.util.Date. 1760000000000))
+(defn- at "`m` minutes after t0." [m] (java.util.Date. (+ (.getTime ^java.util.Date t0) (* m 60000))))
+
+(defn- flush!
+  "Send the credit-change batches that are due on `conn` at time `t`; nothing when there is no sender."
+  [conn t]
+  (when-let [f (try (requiring-resolve 'orcpub.artist-credit-notices/flush-due!) (catch Exception _ nil))]
+    (with-redefs [orcpub.heartbeat/now (constantly t)] (f conn))))
+
+(defmacro ^:private with-emails
+  "Run `body` with credit emails collected in `sent` (as [minute before-name after-name]) instead of sent."
+  [sent clock & body]
+  `(with-redefs [orcpub.artist-email/credit-changed-tx
+                 (fn [e#] (swap! ~sent conj [@~clock (:artist/name (:before e#)) (:artist/name (:after e#))]) [])
+                 orcpub.heartbeat/now (fn [] (at @~clock))
+                 clojure.core/future-call (fn [f#] (f#) (delay nil))]
+     ~@body))
+
+(defn- save-name!
+  "Save the credit name `n` as fusspot through the route; returns the response."
+  [conn n]
+  (orcpub.routes/update-artist-credit (req conn "fusspot" {:name n})))
+
+(deftest a-single-change-is-emailed-at-once
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (let [sent (atom []) clock (atom 0)]
+      (with-emails sent clock
+        (is (= 200 (:status (save-name! conn "Fuss One"))))
+        (is (= [[0 nil "Fuss One"]] @sent) "straight away, to the artist and the admin")
+        (reset! clock 30) (flush! conn (at 30))
+        (is (= 1 (count @sent)) "and nothing follows it")))))
+
+(deftest a-burst-is-one-email-now-and-one-batch
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (let [sent (atom []) clock (atom 0)]
+      (with-emails sent clock
+        (save-name! conn "One")
+        (reset! clock 1) (is (= 200 (:status (save-name! conn "Two"))) "a change in the window is saved")
+        (reset! clock 2) (save-name! conn "Three")
+        (is (= [[0 nil "One"]] @sent) "only the first went at once")
+        (flush! conn (at 9))
+        (is (= 1 (count @sent)) "the batch waits for the window to end")
+        (flush! conn (at 10))
+        (is (= [[0 nil "One"] [0 "One" "Three"]] (mapv #(assoc % 0 0) @sent))
+            "one email for the rest, from before the first of them to the last")
+        (flush! conn (at 11))
+        (is (= 2 (count @sent)) "sent once")))))
+
+(deftest editing-more-cannot-hold-the-batch-back
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (let [sent (atom []) clock (atom 0)]
+      (with-emails sent clock
+        (save-name! conn "A")
+        (doseq [[m n] [[4 "B"] [8 "C"]]] (reset! clock m) (save-name! conn n))
+        (flush! conn (at 10))
+        (is (= 2 (count @sent)) "the window ends ten minutes after the first change, however many follow")
+        (reset! clock 12) (save-name! conn "D")
+        (is (= 3 (count @sent)) "the next change after it is a first change again: emailed at once")))))
+
+(deftest a-batch-is-sent-once-whoever-flushes
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (let [sent (atom []) clock (atom 0)]
+      (with-emails sent clock
+        (save-name! conn "A") (reset! clock 1) (save-name! conn "B")
+        (let [fs (doall (repeatedly 3 #(future (flush! conn (at 10)))))] (run! deref fs))
+        (is (= 2 (count @sent)) "three containers flushing at once send it once")))))
+
+(deftest saves-are-capped-against-abuse
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (let [sent (atom []) clock (atom 0)]
+      (with-emails sent clock
+        (dotimes [i 60] (save-name! conn (str "N" i)))
+        (let [r (save-name! conn "one too many")]
+          (is (= 429 (:status r)))
+          (is (some? (get-in r [:headers "Retry-After"]))))
+        (reset! clock 61)
+        (is (= 200 (:status (save-name! conn "an hour on"))))))))
 
 (deftest a-non-artist-cannot-save-a-credit
   (with-conn conn
@@ -188,3 +273,147 @@
         (orcpub.routes/update-user-preferences (req conn "someone" {:preferred-name "Kaylee"}))
         (orcpub.routes/do-send-password-reset id "someone@example.test" conn {:headers {"host" "x.test"} :scheme :https})
         (is (= "Kaylee" (:first-and-last-name @sent)))))))
+
+(deftest the-artist-turns-their-page-and-its-parts-off
+  (with-conn conn
+    (let [id (add-artist! conn "fusspot" :house-pack)]
+      (testing "the page"
+        (is (:saved (ac/save! conn id {:profile? false})))
+        (is (false? (:artist/profile? (pa/artist-info :house-pack))))
+        (is (nil? (orcpub.dnd.e5.artist-profile/artist-by-slug "fusspot")) "no page")
+        (is (false? (get-in (ac/credit-for-account (d/db conn) id) [:own :artist/profile?]))
+            "the settings page reads the switch back"))
+      (testing "and, with the page on, its parts one by one"
+        (is (:saved (ac/save! conn id {:show-examples? false :show-links? false :show-count? false})))
+        (is (= {:artist/show-examples? false :artist/show-links? false :artist/show-count? false}
+               (select-keys (pa/artist-info :house-pack)
+                            [:artist/show-examples? :artist/show-links? :artist/show-count?])))
+        (is (some? (orcpub.dnd.e5.artist-profile/artist-by-slug "fusspot")) "the page is back")))))
+
+(deftest the-deployment-can-force-a-page-off-but-not-on
+  (with-conn conn
+    (let [id (add-artist! conn "fusspot" :house-pack)]
+      (ac/save! conn id {:profile? false})
+      (with-redefs [branding/portrait-artists {:house-pack {:artist/profile? true}}]
+        @(d/transact conn [{:db/id id :orcpub.user/username "fusspot"}])
+        (ac/refresh! (d/db conn))
+        (is (false? (:artist/profile? (pa/artist-info :house-pack))) "the artist's off stands"))
+      (ac/save! conn id {:profile? true})
+      (with-redefs [branding/portrait-artists {:house-pack {:artist/profile? false}}]
+        @(d/transact conn [{:db/id id :orcpub.user/username "fusspot"}])
+        (ac/refresh! (d/db conn))
+        (is (false? (:artist/profile? (pa/artist-info :house-pack))) "the deployment's off stands")))))
+
+(deftest the-page-switches-arrive-through-the-route
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (with-redefs [orcpub.artist-email/credit-changed-tx (fn [_] [])
+                  clojure.core/future-call (fn [f] (f) (delay nil))]
+      (is (= 200 (:status (orcpub.routes/update-artist-credit
+                           (req conn "fusspot" {:name "" :link "" :links [] :profile? false :show-count? true})))))
+      (is (false? (:artist/profile? (pa/artist-info :house-pack))) "what My Account sends is what is saved"))))
+
+(deftest a-notice-that-cannot-be-recorded-does-not-fail-the-saved-credit
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (with-redefs [orcpub.artist-credit-notices/saved! (fn [& _] (throw (ex-info "outbox down" {})))
+                  orcpub.artist-email/credit-changed-tx (fn [_] [])
+                  clojure.core/future-call (fn [f] (f) (delay nil))]
+      (let [res (orcpub.routes/update-artist-credit (req conn "fusspot" {:name "Fuss"}))]
+        (is (= 200 (:status res)) "the artist is not told a saved change failed")
+        (is (= "Fuss" (get-in res [:body :current :artist/name])) "the response reads the saved credit")
+        (is (= "Fuss" (:artist/name (pa/artist-info :house-pack))) "the credit stands")))))
+
+(deftest a-change-after-an-unflushed-window-keeps-the-batch
+  (testing "a save after the window ends, before the minute job runs, still emails the waiting changes"
+    (with-conn conn
+      (add-artist! conn "fusspot" :house-pack)
+      (let [sent (atom []) clock (atom 0)]
+        (with-emails sent clock
+          (save-name! conn "A")
+          (reset! clock 1) (save-name! conn "B")
+          (reset! clock 11) (save-name! conn "C")
+          (is (= [[0 nil "A"] [11 "A" "C"]] @sent) "one email, from before B to C")
+          (flush! conn (at 12))
+          (is (= 2 (count @sent)) "and the batch is not sent a second time"))))))
+
+(defn- queued-credit-emails
+  "How many artist credit emails are waiting in the outbox of `conn`."
+  [conn]
+  (or (d/q '[:find (count ?e) . :where [?e :orcpub.outbox/kind :artist]] (d/db conn)) 0))
+
+(deftest credit-emails-are-queued-with-the-change-that-causes-them
+  (testing "queued in the outbox in the same transaction, so the outbox retries a failed send"
+    (with-conn conn
+      (add-artist! conn "fusspot" :house-pack)
+      (with-redefs [orcpub.artist-email/email-on? (constantly true)
+                    orcpub.artist-email/admin-recipient (constantly "admin@example.test")
+                    orcpub.heartbeat/now (fn [] (at 0))]
+        (save-name! conn "A")
+        (is (= 2 (queued-credit-emails conn)) "the artist's and the admin's, queued as the window opened")
+        (with-redefs [orcpub.heartbeat/now (fn [] (at 1))] (save-name! conn "B"))
+        (is (= 2 (queued-credit-emails conn)) "a change in the window waits")
+        (flush! conn (at 10))
+        (is (= 4 (queued-credit-emails conn)) "the batch's two, queued as it was claimed")))))
+
+(deftest the-settings-page-shows-the-switches-in-force
+  (with-conn conn
+    (let [id (add-artist! conn "fusspot" :house-pack)]
+      (with-redefs [branding/portrait-artists {:house-pack {:artist/profile? false}}]
+        (let [{:keys [current locked]} (ac/credit-for-account (d/db conn) id)]
+          (is (false? (:artist/profile? current)) "the site's off is what the page reads")
+          (is (contains? locked :artist/profile?) "and the artist cannot switch it")))
+      (ac/save! conn id {:profile? false})
+      (with-redefs [branding/portrait-artists {:house-pack {:artist/profile? true}}]
+        (let [{:keys [current locked]} (ac/credit-for-account (d/db conn) id)]
+          (is (false? (:artist/profile? current)) "the config cannot force a page on")
+          (is (not (contains? locked :artist/profile?)) "so it leaves the switch with the artist"))))))
+
+(deftest the-account-route-carries-the-switches-in-force
+  (with-conn conn
+    (let [id (add-artist! conn "fusspot" :house-pack)]
+      (with-redefs [branding/portrait-artists {:house-pack {:artist/show-links? false}}]
+        (is (false? (get-in (orcpub.routes/artist-credit-body (d/db conn) id) [:current :artist/show-links?]))
+            "what the form starts a locked switch from")))))
+
+(deftest the-deployment-settings-can-switch-a-page-off
+  (is (= {:artist/profile? false :artist/show-links? false}
+         (select-keys (branding/artist-override {:profile false :show_links false :show_count true})
+                      [:artist/profile? :artist/show-links? :artist/show-count?]))
+      "false turns a switch off; true is not a setting, since the site cannot force a page on"))
+
+(deftest a-concurrent-save-in-the-window-keeps-the-first-before
+  (testing "two in-window saves that both read the pending batch as empty: the first's `before` stands"
+    (with-conn conn
+      (let [id (add-artist! conn "fusspot" :house-pack)
+            sent (atom []) clock (atom 0)
+            real-pull d/pull
+            saved (fn [before after]
+                    (@(requiring-resolve 'orcpub.artist-credit-notices/saved!)
+                     conn {:user {:db/id id} :artist-id :house-pack
+                           :before {:artist/name before} :after {:artist/name after}}))]
+        (with-emails sent clock
+          (save-name! conn "A")
+          (reset! clock 1)
+          (is (= :pending (saved "A" "B")))
+          (with-redefs [d/pull (fn [db pat e]
+                                 (if (= 2 (count pat))
+                                   {:orcpub.user/artist-credit-window (at 0)
+                                    :orcpub.user/artist-credit-pending ""}
+                                   (real-pull db pat e)))]
+            (is (= :pending (saved "B" "C"))))
+          (is (= {:artist/name "A"}
+                 (edn/read-string (:orcpub.user/artist-credit-pending
+                                   (d/pull (d/db conn) [:orcpub.user/artist-credit-pending] id))))
+              "the later save did not overwrite the earliest before"))))))
+
+(deftest the-throttle-message-says-minute-or-minutes
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (let [sent (atom []) clock (atom 0)
+          error #(get-in (save-name! conn "over") [:body :error])]
+      (with-emails sent clock
+        (dotimes [i 60] (save-name! conn (str "N" i)))
+        (is (re-find #"in 60 minutes\.$" (error)))
+        (reset! clock 59)
+        (is (re-find #"in 1 minute\.$" (error)))))))

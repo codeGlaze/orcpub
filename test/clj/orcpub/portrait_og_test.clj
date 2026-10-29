@@ -309,7 +309,7 @@
         (is (= [1 2 3] (vec (second (render tag (a-portrait))))))
         (is (= 1 @renders)))
       (testing "with every render slot taken, a new portrait is refused, not queued forever"
-        (let [slots (work-pool/permits @#'store/pool)
+        (let [slots (work-pool/permits @#'store/draw-pool)
               n (.drainPermits slots)]
           (try
             (is (pos? n))

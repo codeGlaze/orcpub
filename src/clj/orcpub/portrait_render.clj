@@ -1,22 +1,9 @@
 (ns orcpub.portrait-render
-  "Server-side rasterization of a composed paper-doll portrait.
-
-   The PDF path gets its picture from the browser, which bakes the layers with
-   canvas before posting them. A share crawler has no browser: it reads
-   og:image out of the page HTML and fetches that URL, so the image has to be
-   rendered here.
-
-   No new dependency is needed. Vector assets reuse draw/svg-path-ops -- the
-   same `d`-attribute parser the card icons are drawn with -- and its
-   [:move]/[:line]/[:curve]/[:close] output maps directly onto a Java2D
-   Path2D. Raster assets -- the illustrator's own layer art, read off the
-   classpath under resources/public -- are tinted with AlphaComposite/SrcIn,
-   which is the exact server-side equivalent of the canvas 'source-in' trick
-   the client uses.
-
-   Every failure degrades to 'no portrait' rather than throwing: a share card
-   without a picture is a state the page already handles, and it must not cost
-   the character their page."
+  "Server-side rendering of a composed portrait to PNG, for the share card (og:image).
+   Entry points: `render-png`, `site-mark`. Vector assets are drawn with pdf/svg-path-ops;
+   raster assets are read off the classpath and tinted by `multiply!`.
+   Every failure returns nil (no portrait) rather than throwing.
+   Why: PORTRAIT-COMPOSITOR.md, \"Rendering on the server\"."
   (:require [orcpub.env :as env]
             [clojure.java.io :as io]
             [clojure.string :as s]
@@ -31,12 +18,12 @@
             [orcpub.portrait-pack.strands :as strands]
             [orcpub.dnd.e5.portrait-face :as face]
             [orcpub.dnd.e5.portrait-light :as light])
-  (:import [java.awt AlphaComposite BasicStroke Color Graphics2D RenderingHints]
-           [java.awt.geom AffineTransform Area Ellipse2D$Double Path2D$Double]
+  (:import [java.awt AlphaComposite BasicStroke Color Graphics2D RadialGradientPaint RenderingHints]
+           [java.awt.geom AffineTransform Area Ellipse2D$Double Path2D$Double Point2D$Double]
            [java.awt.image BufferedImage]
            [java.io ByteArrayInputStream ByteArrayOutputStream]
            [java.util Base64]
-           [javax.imageio ImageIO]))
+           [javax.imageio IIOImage ImageIO ImageWriteParam]))
 
 (def ^:private default-width 600)
 (def ^:private default-height 750)   ;; 4:5, matching the on-screen frame
@@ -56,14 +43,9 @@
         (catch Exception _ nil)))))
 
 (defn asset-source
-  "Bytes for an asset URL, plus the mime that decides how to draw it.
-
-   The registry moved from inline data URIs to real files under
-   resources/public once the illustrator's inventory landed, so this resolves
-   both: a data URI is decoded in place, and a site-absolute path is read off
-   the classpath. Anything else -- an off-site URL especially -- returns nil,
-   because rendering a share card must never become a way to make the server
-   fetch arbitrary URLs."
+  "{:mime :bytes} for an asset URL: a base64 data URI decoded in place, or a site-absolute
+   path read off the classpath under public/. nil for anything else.
+   An off-site URL is never fetched."
   [uri]
   (or (parse-data-uri uri)
       (when (and (string? uri) (s/starts-with? uri "/") (not (s/includes? uri "..")))
@@ -168,16 +150,9 @@
     out))
 
 (defn- multiply!
-  "out.rgb = colour.rgb * art.rgb, out.a = art.a, in place.
-
-   Masking -- which is what this did -- reads the asset's ALPHA and throws its
-   RGB away, so a drawing with black lines over a white fill came out as one
-   flat colour, indistinguishable from its own silhouette. Multiply keeps the
-   lines: white fill takes the colour exactly, black lines stay black, a grey
-   darkens the colour by however grey it is.
-
-   Java2D has no multiply -- AlphaComposite is Porter-Duff only -- so this is a
-   pixel pass over the frame's backing int[]."
+  "Tints `img` in place: out.rgb = colour.rgb * art.rgb, out.a = art.a. A pixel pass over
+   the backing int[], because Java2D's AlphaComposite has no multiply.
+   Why multiply and not a mask: PORTRAIT-TINTING.md."
   [^BufferedImage img ^Color colour]
   (let [dst (.. img getRaster getDataBuffer getData)
         tr (.getRed colour) tg (.getGreen colour) tb (.getBlue colour)
@@ -507,13 +482,8 @@
 (def mark-face "public/fonts/Vollkorn-Regular.ttf")
 
 (def ^:private load-face
-  "Vollkorn off the classpath, parsed once.
-
-   Not java.awt.Font/SANS_SERIF: that is a *logical* family the JVM resolves
-   through the host's fontconfig, so a slim container renders the marks in
-   whatever it happens to have, or in a fallback full of boxes. This is the
-   same face the PDF is set in, shipped with the app, so the picture looks the
-   same wherever it is rendered."
+  "The java.awt.Font at classpath `path`, parsed once per path; nil if it will not load.
+   Faces ship with the app, so rendering does not depend on the host's fonts."
   (memoize
     (fn [path]
       (try
@@ -532,17 +502,10 @@
     (java.awt.Font. java.awt.Font/SANS_SERIF java.awt.Font/PLAIN (int size))))
 
 (defn- draw-credit!
-  "Burn the artist credit into the picture itself.
-
-   The page and the sheet can both carry a credit beside the portrait, but the
-   composed image is what people actually pass around -- saved off a share
-   card, pulled out of a PDF -- and it arrives detached from either. A caption
-   in the pixels travels with it.
-
-   Dark fill under a white outline, because the background is unknowable: the
-   PNG is transparent, so it may land on a white page or a dark chat client,
-   and one of the two always reads. Not a watermark -- a crop removes it --
-   just a credit that survives being right-click-saved."
+  "Draws the credit for artist `names` centred along the bottom of a `w`x`h` frame, outlined
+   then filled: the longest wording from pa/credit-variants that fits beside the site mark
+   (layout/fit-credit). Why it is in the pixels: PORTRAIT-COMPOSITOR.md, \"The baked credit
+   and the site mark\"."
   [^Graphics2D g names w h]
   (let [{:keys [halo baseline]
          [or* og ob oa] :outline
@@ -615,10 +578,12 @@
       (finally (.setTransform g saved)))))
 
 (defn render
-  "Composite `portrait` ({:layers :colors :tweaks}) into a BufferedImage, or
-   nil when it selects nothing drawable."
+  "Composite `portrait` ({:layers :colors :tweaks}) into a `w`x`h` ARGB BufferedImage, or
+   nil when it selects nothing drawable. The credit and site mark are drawn in unless
+   `marks?` is false."
   ([portrait] (render portrait default-width default-height))
-  ([portrait w h]
+  ([portrait w h] (render portrait w h {:marks? true}))
+  ([portrait w h {:keys [marks?]}]
    (let [drawable (keep (fn [k]
                           (when-let [asset (some->> (get-in portrait [:layers k])
                                                     :asset/id
@@ -678,15 +643,25 @@
            (try (light! img portrait drawable placed-of w h)
                 (catch Exception e
                   (println "portrait-render: light skipped -" (.getMessage e))))
-           (try
-             (when-let [names (not-empty (pa/credit-names portrait))]
-               (draw-credit! g names w h))
-             (when-let [mark (site-mark)]
-               (draw-site-mark! g mark w h))
-             (catch Exception e
-               (println "portrait-render: marks skipped -" (.getMessage e))))
+           (when (not (false? marks?))
+             (try
+               (when-let [names (not-empty (pa/credit-names portrait))]
+                 (draw-credit! g names w h))
+               (when-let [mark (site-mark)]
+                 (draw-site-mark! g mark w h))
+               (catch Exception e
+                 (println "portrait-render: marks skipped -" (.getMessage e)))))
            (finally (.dispose g)))
          img)))))
+
+(defn source-marks
+  "The licensed-art marks of the pieces `portrait` is drawn from, one per selected layer (nil for
+   an unmarked piece): what anything drawn from it must carry, via art-mark/carry-marks."
+  [portrait]
+  (for [k pa/layer-order
+        :let [url (some-> (pa/selected-asset portrait k) :asset/url)]
+        :when url]
+    (some-> (asset-source url) :bytes art-mark/read-mark)))
 
 (defn render-png
   "PNG bytes for `portrait`, or nil when there is nothing to draw. Carries the licensed-art mark
@@ -697,12 +672,113 @@
      (when-let [img (render portrait w h)]
        (let [out (ByteArrayOutputStream.)]
          (when (ImageIO/write img "png" out)
-           (let [marks (for [k pa/layer-order
-                             :let [url (some-> (pa/selected-asset portrait k) :asset/url)]
-                             :when url]
-                         (some-> (asset-source url) :bytes art-mark/mark-of))]
-             (cond-> (.toByteArray out)
-               (some some? marks) (art-mark/with-mark (art-mark/composed marks)))))))
+           (art-mark/carry-marks (.toByteArray out) (source-marks portrait)))))
      (catch Exception e
        (println "portrait-render: render failed -" (.getMessage e))
        nil))))
+
+;; ---------- example images for the artist pages ----------
+
+(defn- halve-toward
+  "`img` scaled by bilinear steps of at most half until it is `w`x`h`, so a large
+   reduction does not skip pixels the way one bilinear step would."
+  ^BufferedImage [^BufferedImage img w h]
+  (loop [^BufferedImage src img]
+    (if (and (= w (.getWidth src)) (= h (.getHeight src)))
+      src
+      (let [nw (max w (quot (.getWidth src) 2))
+            nh (max h (quot (.getHeight src) 2))
+            dst (BufferedImage. nw nh BufferedImage/TYPE_INT_ARGB)
+            g (.createGraphics dst)]
+        (try
+          (.setRenderingHint g RenderingHints/KEY_INTERPOLATION
+                             RenderingHints/VALUE_INTERPOLATION_BILINEAR)
+          (.drawImage g src 0 0 (int nw) (int nh) nil)
+          (finally (.dispose g)))
+        (recur dst)))))
+
+(defn- rgb
+  "An [r g b] vector as an opaque java.awt.Color."
+  [[r g b]]
+  (Color. (int r) (int g) (int b)))
+
+(defn- rgba
+  "An [r g b a] vector, a out of 255, as a java.awt.Color."
+  [[r g b a]]
+  (Color. (int r) (int g) (int b) (int a)))
+
+(defn- paint-ground!
+  "Fills a `w`x`h` frame with layout/example-ground, the portrait frame's gradient."
+  [^Graphics2D g w h]
+  (let [{:keys [centre mid edge]} layout/example-ground
+        cx (/ w 2.0) cy (* h 0.35)
+        radius (Math/hypot (max cx (- w cx)) (max cy (- h cy)))]
+    (.setPaint g (RadialGradientPaint. (Point2D$Double. cx cy) (float radius)
+                                       (float-array [0.0 0.6 1.0])
+                                       (into-array Color [(rgb centre) (rgb mid) (rgb edge)])))
+    (.fillRect g 0 0 (int w) (int h))))
+
+(defn- draw-watermark!
+  "Tiles `text` across the whole `w`x`h` frame in diagonal rows, at
+   layout/example-watermark-layout's metrics, alternate rows offset by half a repeat."
+  [^Graphics2D g ^String text w h]
+  (let [{:keys [size angle step-x step-y fill outline]} (layout/example-watermark-layout w h)
+        font (face mark-face size)
+        repeat-w (+ (.stringWidth (.getFontMetrics g font) text) step-x)
+        reach (int (Math/hypot w h))
+        saved (.getTransform g)]
+    (try
+      (.setFont g font)
+      (.rotate g (double angle) (/ w 2.0) (/ h 2.0))
+      (doseq [[row y] (map-indexed vector (range (- reach) (* 2 reach) step-y))
+              x (range (- (- reach) (if (odd? row) (quot repeat-w 2) 0)) (* 2 reach) repeat-w)]
+        (.setColor g (rgba outline))
+        (.drawString g text (int (inc x)) (int (inc y)))
+        (.setColor g (rgba fill))
+        (.drawString g text (int x) (int y)))
+      (finally (.setTransform g saved)))))
+
+(defn- jpeg-bytes
+  "`img` as JPEG bytes at `quality` (0 to 1)."
+  ^bytes [^BufferedImage img quality]
+  (let [writer (.next (ImageIO/getImageWritersByFormatName "jpeg"))
+        param (doto (.getDefaultWriteParam writer)
+                (.setCompressionMode ImageWriteParam/MODE_EXPLICIT)
+                (.setCompressionQuality (float quality)))
+        out (ByteArrayOutputStream.)]
+    (try
+      (with-open [ios (ImageIO/createImageOutputStream out)]
+        (.setOutput writer ios)
+        (.write writer nil (IIOImage. img nil nil) param))
+      ;; the writer holds native resources, released even when the write throws
+      (finally (.dispose writer)))
+    (.toByteArray out)))
+
+(def example-quality
+  "JPEG quality of an artist page's example: lossy on purpose."
+  0.72)
+
+(defn render-example-jpeg
+  "JPEG bytes of `portrait` as an artist page shows it: flattened onto the frame's ground
+   at layout/example-size, with `watermark` tiled across it and no credit line. nil when
+   there is nothing to draw or the render fails."
+  [portrait watermark]
+  (try
+    (when-let [full (render portrait default-width default-height {:marks? false})]
+      (let [[w h] layout/example-size
+            out (BufferedImage. w h BufferedImage/TYPE_INT_RGB)
+            g (.createGraphics out)]
+        (try
+          (doto g
+            (.setRenderingHint RenderingHints/KEY_ANTIALIASING RenderingHints/VALUE_ANTIALIAS_ON)
+            (.setRenderingHint RenderingHints/KEY_TEXT_ANTIALIASING
+                               RenderingHints/VALUE_TEXT_ANTIALIAS_ON))
+          (paint-ground! g w h)
+          (.drawImage g (halve-toward full w h) 0 0 nil)
+          (when-not (s/blank? watermark) (draw-watermark! g watermark w h))
+          (finally (.dispose g)))
+        (art-mark/carry-marks (jpeg-bytes out example-quality) (source-marks portrait))))
+    (catch Exception e
+      (println "portrait-render: example failed -" (.getMessage e))
+      nil)))
+
