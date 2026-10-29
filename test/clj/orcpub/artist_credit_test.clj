@@ -313,6 +313,17 @@
                            (req conn "fusspot" {:name "" :link "" :links [] :profile? false :show-count? true})))))
       (is (false? (:artist/profile? (pa/artist-info :house-pack))) "what My Account sends is what is saved"))))
 
+(deftest a-notice-that-cannot-be-recorded-does-not-fail-the-saved-credit
+  (with-conn conn
+    (add-artist! conn "fusspot" :house-pack)
+    (with-redefs [orcpub.artist-credit-notices/saved! (fn [& _] (throw (ex-info "outbox down" {})))
+                  orcpub.artist-email/credit-changed-tx (fn [_] [])
+                  clojure.core/future-call (fn [f] (f) (delay nil))]
+      (let [res (orcpub.routes/update-artist-credit (req conn "fusspot" {:name "Fuss"}))]
+        (is (= 200 (:status res)) "the artist is not told a saved change failed")
+        (is (= "Fuss" (get-in res [:body :current :artist/name])) "the response reads the saved credit")
+        (is (= "Fuss" (:artist/name (pa/artist-info :house-pack))) "the credit stands")))))
+
 (deftest a-change-after-an-unflushed-window-keeps-the-batch
   (testing "a save after the window ends, before the minute job runs, still emails the waiting changes"
     (with-conn conn

@@ -126,3 +126,13 @@
         (is (= "false" (some-> box (.getAttribute "aria-checked"))) "reads Off, as the site has it")
         (is (= "true" (some-> box (.getAttribute "aria-disabled"))) "and cannot be switched")
         (is (re-find #"Set by the site's admins" (.-textContent el)))))))
+
+(deftest a-fixed-switch-is-not-saved-as-the-artists-own-choice
+  (let [sent (atom nil)]
+    (with-redefs [re-frame.core/dispatch (fn [ev] (when (= :save-artist-credit (first ev)) (reset! sent (second ev))))]
+      (with-page [views/artist-credit-form {:own {} :default {} :current {:artist/profile? false}
+                                            :locked #{:artist/profile?}}]
+        (fn [el]
+          (some-> (some #(when (= "Save credit" (.-textContent %)) %) (array-seq (.querySelectorAll el "button"))) .click)
+          (is (some? @sent) "Save went out")
+          (is (true? (:profile? @sent)) "the site's Off is not sent as the artist's own setting"))))))
