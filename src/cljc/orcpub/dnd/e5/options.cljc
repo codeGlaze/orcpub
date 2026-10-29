@@ -2948,7 +2948,10 @@
      conj
      (total-levels-prereq-2 lvl (:key cls)))))
 
-(defn subclass-option [spell-lists
+(defn subclass-option
+  "The template option for subclass `subcls` of class `cls`, offered under the subclass's
+   stored `:key` (its name's key when it has none), whatever its `:name` is."
+  [spell-lists
                        spells-map
                        language-map
                        cls
@@ -3012,6 +3015,7 @@
                          levels)]
     (t/option-cfg
      {:name name
+      :key kw
       :edit-event edit-event
       :prereqs prereqs
       :selections (map
