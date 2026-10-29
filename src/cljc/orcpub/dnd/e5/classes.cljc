@@ -150,7 +150,7 @@
                                             {:name "Intimidating Presence"
                                              :level 10
                                              :page 49
-                                             :summary (str "Frighten (Wisdom save DC " (?spell-save-dc ::char5e/cha) ") a creature with 30 ft.")})]}
+                                             :summary (str "Frighten (Wisdom save DC " (?save-dc ::char5e/cha) ") a creature with 30 ft.")})]}
                            14 {:modifiers [(mod5e/reaction
                                             {:name "Retaliation"
                                              :page 49
@@ -1254,11 +1254,9 @@
      :weapon-choices [{:name "Weapon"
                        :options {:shortsword 1
                                  :simple 1}}]
-     :modifiers [(mod/vec-mod ?weapon-ability-modifiers
+     :modifiers [(mod/vec-mod ?weapon-abilities
                               (fn [weapon finesse?]
-                                (if (monk-weapon? weapon)
-                                  (get ?ability-bonuses ::char5e/dex)
-                                  0)))
+                                (when (monk-weapon? weapon) ::char5e/dex)))
                  (mod/vec-mod ?unarmored-defense :monk)
                  (mod/cum-sum-mod ?unarmored-ac-bonus
                                   (?ability-bonuses ::char5e/wis)
@@ -1314,7 +1312,7 @@
                               {:name "Stunning Strike"
                                :page 79
                                :level 5
-                               :summary (str "when you hit a creature with melee attack, spend 1 ki point to stun the creature if it fails a DC " (?spell-save-dc ::char5e/wis) " CON save")})]}
+                               :summary (str "when you hit a creature with melee attack, spend 1 ki point to stun the creature if it fails a DC " (?save-dc ::char5e/wis) " CON save")})]}
               6 {:modifiers [(mod5e/unarmored-speed-bonus 5)]}
               7 {:modifiers [(mod5e/action
                               {:name "Stillness of Mind"
@@ -1368,7 +1366,7 @@
                    :modifiers [(mod5e/dependent-trait
                                 {:name "Open Hand Technique"
                                  :page 79
-                                 :summary (str "when you hit with Flurry of Blows, you impose one of the effects on the target: 1) must make a DC " (?spell-save-dc ::char5e/wis) " DEX save or be knocked prone. 2) make a DC " (?spell-save-dc ::char5e/wis) " STR save or be pushed 15 ft. 3) can't take reactions until end of your next turn")})]
+                                 :summary (str "when you hit with Flurry of Blows, you impose one of the effects on the target: 1) must make a DC " (?save-dc ::char5e/wis) " DEX save or be knocked prone. 2) make a DC " (?save-dc ::char5e/wis) " STR save or be pushed 15 ft. 3) can't take reactions until end of your next turn")})]
                    :levels {6 {:modifiers [(mod5e/action
                                             {:name "Wholeness of Body"
                                              :page 79
@@ -1379,12 +1377,12 @@
                                              {:name "Tranquility"
                                               :page 80
                                               :level 11
-                                              :summary (str "gain effects of sanctuary spell (save DC " (?spell-save-dc ::char5e/wis) ") between rests")})]}
+                                              :summary (str "gain effects of sanctuary spell (save DC " (?save-dc ::char5e/wis) ") between rests")})]}
                             17 {:modifiers [(mod5e/dependent-trait
                                              {:name "Quivering Palm"
                                               :level 17
                                               :page 80
-                                              :summary (str "when you hit a creature with unarmed strike, set up vibrations that last " (?class-level :monk) " days. Use an action to end the vibrations, reducing the target to 0 HPs on failed DC " (?spell-save-dc ::char5e/wis) " CON save. It takes 10d10 necrotic damage on successful save.")})]}}}
+                                              :summary (str "when you hit a creature with unarmed strike, set up vibrations that last " (?class-level :monk) " days. Use an action to end the vibrations, reducing the target to 0 HPs on failed DC " (?save-dc ::char5e/wis) " CON save. It takes 10d10 necrotic damage on successful save.")})]}}}
                   #_{:name "Way of Shadow"
                      :modifiers [(mod5e/spells-known 0 :minor-illusion ::char5e/wis "Monk (Way of Shadow)")
                                  (mod5e/action

@@ -11,8 +11,9 @@
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.units :as units5e]
+            [orcpub.dice :as dice]
             [clojure.string :as s]
-            [clojure.set :refer [intersection difference]])
+            [clojure.set :as set :refer [intersection difference]])
   #?(:cljs (:require-macros [orcpub.dnd.e5.modifiers :as mod5e])))
 
 ;(spec/def ::name string?)
@@ -26,6 +27,157 @@
 (spec/def ::modifiers (spec/coll-of ::mod/mod-cfg))
 (spec/def ::subtypes (spec/coll-of keyword?))
 (spec/def ::attunement (spec/coll-of keyword?))
+
+;; Extra damage, effects, toggles and charges on a magic weapon: weapon-damage-model.md
+(spec/def ::while keyword?)
+(spec/def ::against (spec/coll-of keyword? :kind set? :min-count 1))
+(spec/def ::not-against ::against)
+(spec/def ::attack-type #{:melee :ranged})
+(spec/def ::damage-bonus #(or (int? %) (= :ability-mod %)))
+(spec/def ::on #{:hit :miss :crit})
+(spec/def ::min-roll (spec/int-in 1 21))
+(spec/def ::charge-cost pos-int?)
+(spec/def ::recharge #{::units5e/turn ::units5e/round ::units5e/short-rest
+                       ::units5e/long-rest ::units5e/rest ::units5e/dawn ::units5e/dusk})
+(spec/def ::dice
+  (spec/and #(pos-int? (::weapons5e/damage-die %))
+            #(pos-int? (::weapons5e/damage-die-count %))
+            #(or (nil? (::weapons5e/damage-type %))
+                 ((set damage-types5e/damage-types) (::weapons5e/damage-type %)))))
+(spec/def ::condition-fields
+  (spec/keys :opt [::while ::against ::not-against ::attack-type ::on ::min-roll
+                   ::charge-cost ::recharge]))
+(spec/def ::extra-damage-entry
+  (spec/and ::condition-fields
+            (spec/keys :opt [::damage-bonus])
+            #(if (::weapons5e/damage-die %)
+               (spec/valid? ::dice %)
+               (spec/valid? ::damage-bonus (::damage-bonus %)))))
+(spec/def ::extra-damage (spec/coll-of ::extra-damage-entry :kind vector?))
+(spec/def ::effect-type #{:save :heal :condition})
+;; a plain predicate, not spec/or: spec/and would pass the tagged value on to its next check
+(spec/def ::save-dc #(or (pos-int? %) (= :attack-save-dc %)))
+
+(defn resolve-values
+  "`weapon` with the value references in its extra damage and effects replaced by numbers:
+  ::damage-bonus :ability-mod by `ability-mod`, ::save-dc :attack-save-dc by `save-dc` (the
+  attack's ability modifier and the weapon's save DC), and an extra attack that leaves out a
+  positive ability modifier given ::extra-attack-drop. weapon-mastery-plan.md, steps 3 and 5."
+  [weapon {:keys [ability-mod save-dc]}]
+  (let [fill (fn [e] (cond-> e
+                          (= :ability-mod (::damage-bonus e)) (assoc ::damage-bonus ability-mod)
+                          (= :attack-save-dc (::save-dc e)) (assoc ::save-dc save-dc)
+                          (= :omit-ability-mod (::extra-attack e)) (assoc ::extra-attack-drop (max 0 (or ability-mod 0)))))]
+    (cond-> weapon
+      (::extra-damage weapon) (update ::extra-damage #(mapv fill %))
+      (::effects weapon) (update ::effects #(mapv fill %)))))
+(spec/def ::save-ability keyword?)
+(spec/def ::next-attack #{:adv :dis})
+(spec/def ::extra-attack #{:omit-ability-mod :same})
+(spec/def ::extra-attack-drop nat-int?)
+(spec/def ::save-fail keyword?)
+(spec/def ::text string?)
+(spec/def ::effect
+  (spec/and (spec/keys :req [::effect-type ::text]
+                       :opt [::save-dc ::save-ability ::save-fail ::next-attack ::extra-attack])
+            ::condition-fields
+            #(or (nil? (::weapons5e/damage-die %)) (spec/valid? ::dice %))))
+(spec/def ::effects (spec/coll-of ::effect :kind vector?))
+(spec/def ::toggle-id keyword?)
+(spec/def ::toggle-name string?)
+(spec/def ::toggles (spec/coll-of (spec/keys :req [::toggle-id ::toggle-name]) :kind vector?))
+(spec/def ::crit-from (spec/int-in 2 21))
+(spec/def ::charges pos-int?)
+(spec/def ::charges-recharge ::recharge)
+(spec/def ::charges-start string?)
+(spec/def ::charges-regain string?)
+(spec/def ::cast-spell keyword?)
+(spec/def ::cast-level (spec/int-in 0 10))
+(spec/def ::cast-cost pos-int?)
+(spec/def ::cast-per-level pos-int?)
+(spec/def ::cast-max-level (spec/int-in 1 10))
+(spec/def ::cast (spec/keys :req [::cast-spell ::cast-level ::cast-cost] :opt [::cast-per-level ::cast-max-level ::save-dc]))
+(spec/def ::casts (spec/coll-of ::cast :kind vector?))
+
+(defn charge-record
+  "The charges record of the `i`th item in a carried stack (`entry`'s ::char-equip5e/charges), or nil."
+  [entry i]
+  (some #(when (= i (::char-equip5e/charge-index %)) %) (::char-equip5e/charges entry)))
+
+(defn charge-max
+  "The most charges the `i`th item of a carried stack can hold: the maximum rolled for it when
+  added, else the item's ::charges. Nil without charges."
+  [item entry i]
+  (or (::char-equip5e/charges-max (charge-record entry i)) (::charges item)))
+
+(defn charges-left
+  "Charges the `i`th item of a carried stack has left. Takes the item, the carried entry and i."
+  [item entry i]
+  (max 0 (- (or (charge-max item entry i) 0) (::char-equip5e/charges-used (charge-record entry i) 0))))
+
+(defn set-charge
+  "`entry` with field `k` (::char-equip5e/charges-used or charges-max) of its `i`th item's record set
+  to `n`, adding the record if missing."
+  [entry i k n]
+  (let [records (::char-equip5e/charges entry [])]
+    (assoc entry ::char-equip5e/charges
+           (if (charge-record entry i)
+             (mapv #(if (= i (::char-equip5e/charge-index %)) (assoc % k n) %) records)
+             (conj (vec records) {::char-equip5e/charge-index i k n})))))
+
+(defn spend-charges
+  "`entry` with `n` charges spent from its `i`th item, or nil when that item has fewer than n
+  left. Takes the item, the carried entry, i and n."
+  [item entry i n]
+  (when (<= n (charges-left item entry i))
+    (set-charge entry i ::char-equip5e/charges-used
+                (+ (::char-equip5e/charges-used (charge-record entry i) 0) n))))
+
+(defn regain-charges
+  "`entry` with `amount` charges given back to its `i`th item, never past its maximum; amount
+  :all refills it. Takes the item, the carried entry, i and the amount."
+  [item entry i amount]
+  (let [used (::char-equip5e/charges-used (charge-record entry i) 0)]
+    (set-charge entry i ::char-equip5e/charges-used (if (= :all amount) 0 (max 0 (- used amount))))))
+
+(defn able-to-pay
+  "The position of the first item in a carried stack with at least `n` charges left, or nil when
+  none can pay. Takes the item, the carried entry and n."
+  [item entry n]
+  (first (filter #(<= n (charges-left item entry %)) (range (max 1 (::char-equip5e/quantity entry 1))))))
+
+(defn most-charges-left
+  "The most charges any one item in a carried stack has left. Takes the item and the entry."
+  [item entry]
+  (apply max 0 (map #(charges-left item entry %) (range (max 1 (::char-equip5e/quantity entry 1))))))
+
+(defn higher-levels-text
+  "A spell's \"At Higher Levels.\" sentence from its description, or nil."
+  [spell]
+  (some->> (:description spell) (re-find #"At Higher Levels\.\s*([^\n]+)") second))
+
+(defn roll-regain
+  "How many charges the item regains when it recharges, rolled with `roll-die` (a fn of sides).
+  Returns {:amount :rolls :dice}: amount :all when the item names no regain."
+  [item roll-die]
+  (if-let [dice (some-> (::charges-regain item) dice/parse-dice)]
+    (assoc (set/rename-keys (dice/roll-dice dice roll-die) {:total :amount}) :dice (::charges-regain item))
+    {:amount :all :rolls [] :dice nil}))
+
+(defn roll-charge-max
+  "A maximum rolled for an item whose charges start as dice (::charges-start, \"1d8+1\"), with
+  `roll-die`. Returns {:total :rolls}, or nil for an item without a rolled start."
+  [item roll-die]
+  (some-> (::charges-start item) dice/parse-dice (dice/roll-dice roll-die)))
+
+(defn cast-levels
+  "The levels a cast can be made at, priced in charges, up to ::cast-max-level (else 9th): each
+  level above the base costs ::cast-per-level more; without it only the base level. Takes the cast
+  and the charges left. Returns [{:level :cost :affordable?}]."
+  [{::keys [cast-level cast-cost cast-per-level cast-max-level]} left]
+  (for [lvl (if cast-per-level (range cast-level (inc (or cast-max-level 9))) [cast-level])
+        :let [cost (+ cast-cost (* (- lvl cast-level) (or cast-per-level 0)))]]
+    {:level lvl :cost cost :affordable? (<= cost left)}))
 
 (def name-key ::name)
 (def item-type-key ::type)
@@ -48,7 +200,12 @@
                    ::magical-damage-bonus
                    ::owner
                    ::subtypes
-                   ::attunement]))
+                   ::attunement
+                   ::charges
+                   ::charges-start
+                   ::charges-recharge
+                   ::charges-regain
+                   ::casts]))
 
 (spec/def ::internal-magic-item
   (spec/keys :opt [::name
@@ -116,8 +273,20 @@
    {}
    modifiers))
 
-(defn to-internal-item [{:keys [::modifiers ::subtypes] :as item}]
+(defn- as-sets
+  "A power row with its creature-type fields as sets: a saved item's come back as vectors."
+  [row]
+  (cond-> row
+    (::against row) (update ::against set)
+    (::not-against row) (update ::not-against set)))
+
+(defn to-internal-item
+  "A saved item as the builder holds it: modifiers in their internal form, sets where the specs
+  want sets (attunement, subtypes, power rows' creature types), empty fields dropped."
+  [{:keys [::modifiers ::subtypes] :as item}]
   (cond-> item
+    (::extra-damage item) (update ::extra-damage #(mapv as-sets %))
+    (::effects item) (update ::effects #(mapv as-sets %))
     (seq modifiers) (assoc ::internal-modifiers (to-internal-modifiers (::modifiers item)))
     true (dissoc ::modifiers)
     true (update ::attunement set)
@@ -208,8 +377,24 @@
    []
    modifiers))
 
-(defn from-internal-item [item]
+(defn complete-powers
+  "`item` keeping only the extra damage and effect rows that can be saved: valid by spec, and
+  with numbers where the SRD data may use references (:ability-mod, :attack-save-dc), which the
+  item schema stores as numbers only."
+  [item]
+  (let [savable (fn [row-spec row] (and (spec/valid? row-spec row)
+                                        (not (keyword? (::damage-bonus row)))
+                                        (not (keyword? (::save-dc row)))))]
+    (cond-> item
+      (::extra-damage item) (update ::extra-damage #(filterv (partial savable ::extra-damage-entry) %))
+      (::effects item) (update ::effects #(filterv (partial savable ::effect) %)))))
+
+(defn from-internal-item
+  "A builder item as it is saved: modifiers in their stored form, half-filled power rows left
+  out, and only the keys the item schema holds. Takes the builder item; returns the item."
+  [item]
   (-> item
+      complete-powers
       (assoc ::modifiers (from-internal-modifiers (::internal-modifiers item)))
       (select-keys [:db/id
                     ::name
@@ -223,6 +408,14 @@
                     ::magical-attack-bonus
                     ::magical-ac-bonus
                     ::modifiers
+                    ::charges
+                    ::charges-start
+                    ::charges-recharge
+                    ::charges-regain
+                    ::casts
+                    ::extra-damage
+                    ::effects
+                    ::toggles
                     ::weapons5e/type
                     ::weapons5e/damage-type
                     ::weapons5e/damage-die-count
@@ -1017,6 +1210,7 @@ one of those creatures. You don’t need to concentrate on this suggestion to ma
      ::description "While touching it, you can cast the scrying spell (save DC 17) with it. While scrying with the crystal ball, you have truesight with a radius of 120 feet centered on the spell’s sensor."}
     {
      name-key "Cube of Force"
+     ::charges 36 ::charges-recharge ::units5e/dawn ::charges-regain "1d20"
      ::type :wondrous-item
 
      ::rarity :rare
@@ -1028,6 +1222,8 @@ If your movement causes the barrier to come into contact with a solid object tha
 The cube loses charges when the barrier is targeted by certain spells or comes into contact with certain spell or magic item effects, as shown in the table below."
      }{
      name-key "Cubic Gate"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
+     ::casts [{::cast-spell :plane-shift ::cast-level 7 ::cast-cost 1 ::save-dc 17}]
      ::type :wondrous-item
      ::rarity :legendary
      ::description "This cube is 3 inches across and radiates palpable magical energy. The six sides of the cube are each keyed to a different plane of existence, one of which is the Material Plane. The other sides are linked to planes determined by the GM.
@@ -1040,6 +1236,13 @@ The cube has 3 charges. Each use of the cube expends 1 charge. The cube regains 
      ::rarity :rare
      ::magical-attack-bonus 1
      ::magical-damage-bonus 1
+     ::effects [{::effect-type :save
+                 ::save-dc 15
+                 ::save-ability ::char5e/con
+                 ::save-fail :poisoned
+                 ::weapons5e/damage-die-count 2 ::weapons5e/damage-die 10 ::weapons5e/damage-type :poison
+                 ::recharge ::units5e/dawn
+                 ::text "That creature must succeed on a DC 15 Constitution saving throw or take 2d10 poison damage and become poisoned for 1 minute."}]
      ::description "You gain a +1 bonus to attack and damage rolls made with this magic weapon.
 You can use an action to cause thick, black poison to coat the blade. The poison remains for 1 minute or until an attack using this weapon hits a creature. That creature must succeed on a DC 15 Constitution saving throw or take 2d10 poison damage and become poisoned for 1 minute. The dagger can’t be used this way again until the next dawn."
      }{
@@ -1166,6 +1369,7 @@ You and any creature you designate when you use the shackles can use an action t
      ::rarity :rare
      ::magical-attack-bonus 1
      ::magical-damage-bonus 1
+     ::extra-damage [{::weapons5e/damage-die-count 3 ::weapons5e/damage-die 6 ::against #{:dragon}}]
      ::description "You gain a +1 bonus to attack and damage rolls made with this magic weapon.
 When you hit a dragon with this weapon, the dragon takes an extra 3d6 damage of the weapon’s type. For the purpose of this weapon, “dragon”
 refers to any creature with the dragon type, including dragon turtles and wyverns."
@@ -1233,6 +1437,8 @@ spell can also end the effect on a creature.}{"
      ::attunement [:dwarf]
      ::magical-attack-bonus 3
      ::magical-damage-bonus 3
+     ::extra-damage [{::weapons5e/damage-die-count 1 ::weapons5e/damage-die 8 ::attack-type :ranged ::not-against #{:giant}}
+                     {::weapons5e/damage-die-count 2 ::weapons5e/damage-die 8 ::attack-type :ranged ::against #{:giant}}]
      ::description "You gain a +3 bonus to attack and damage rolls made with this magic weapon. It has the thrown property with a normal range of 20 feet and a long range of 60 feet. When you hit with a ranged attack using this weapon, it deals an extra 1d8 damage or, if the target is a giant, 2d8 damage. Immediately after the attack, the weapon flies back to your hand."
      }{
      name-key "Efficient Quiver"
@@ -1268,6 +1474,8 @@ spell, and the gem’s magic is lost. The type of gem determines the elemental s
 The cloud persists as long as the bottle is open. Closing the bottle requires you to speak its command word as an action. Once the bottle is closed, the cloud disperses after 10 minutes. A moderate wind (11 to 20 miles per hour) can also disperse the smoke after 1 minute, and a strong wind (21 or more miles per hour) can do so after 1 round."
      }{
      name-key "Eyes of Charming"
+     ::charges 3 ::charges-recharge ::units5e/dawn
+     ::casts [{::cast-spell :charm-person ::cast-level 1 ::cast-cost 1 ::save-dc 13}]
      ::type :wondrous-item
 
      ::rarity :uncommon
@@ -1360,6 +1568,8 @@ it has been used, it can’t be used again until 2 days have passed. While in ra
      ::rarity :rare
 
      ::attunement [:any]
+     ::toggles [{::toggle-id :ablaze ::toggle-name "Ablaze"}]
+     ::extra-damage [{::weapons5e/damage-die-count 2 ::weapons5e/damage-die 6 ::weapons5e/damage-type :fire ::while :ablaze}]
      ::description "You can use a bonus action to speak this magic sword’s command word, causing flames to erupt from the blade. These flames shed bright light in a 40-foot radius and dim light for an additional 40 feet. While the sword is ablaze, it deals an extra 2d6 fire damage to any target it hits. The flames last until you use a bonus action to speak the command word again or until you drop or sheathe the sword."
      }{
      name-key "Folding Boat"
@@ -1379,6 +1589,7 @@ to fold back into a box, provided that no creatures are aboard. Any objects in t
      ::rarity :very-rare
 
      ::attunement [:any]
+     ::extra-damage [{::weapons5e/damage-die-count 1 ::weapons5e/damage-die 6 ::weapons5e/damage-type :cold}]
      ::description "When you hit with an attack using this magic sword, the target takes an extra 1d6 cold damage. In addition, while you hold the sword, you have resistance to fire damage.
 In freezing temperatures, the blade sheds bright light in a 10-foot radius and dim light for an additional 10 feet.
 When you draw this weapon, you can extinguish all nonmagical flames within 30 feet of you. This property can be used no more than once per hour."
@@ -1394,6 +1605,7 @@ When you draw this weapon, you can extinguish all nonmagical flames within 30 fe
      ::description "Your Strength score is 19 while you wear these gauntlets. They have no effect on you if your Strength is already 19 or higher."
      }{
      name-key "Gem of Brightness"
+     ::charges 50
      ::type :wondrous-item
      ::rarity :uncommon
      ::description "This prism has 50 charges. While you are holding it, you can use an action to speak one of three command words to cause one of the following effects:
@@ -1404,6 +1616,7 @@ foot cone originating from it. Each creature in the cone must make a saving thro
 When all of the gem’s charges are expended, the gem becomes a nonmagical jewel worth 50 gp."
      }{
      name-key "Gem of Seeing"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
      ::type :wondrous-item
 
      ::rarity :rare
@@ -1418,6 +1631,13 @@ The gem regains 1d3 expended charges daily at dawn."
      ::rarity :rare
      ::magical-attack-bonus 1
      ::magical-damage-bonus 1
+     ::extra-damage [{::weapons5e/damage-die-count 2 ::weapons5e/damage-die 6 ::against #{:giant}}]
+     ::effects [{::effect-type :save
+                 ::save-dc 15
+                 ::save-ability ::char5e/str
+                 ::save-fail :prone
+                 ::against #{:giant}
+                 ::text "When you hit a giant with it, the giant takes an extra 2d6 damage of the weapon’s type and must succeed on a DC 15 Strength saving throw or fall prone."}]
      ::description "You gain a +1 bonus to attack and damage rolls made with this magic weapon.
 When you hit a giant with it, the giant takes an extra 2d6 damage of the weapon’s type and must succeed on a DC 15 Strength saving throw or fall prone. For the purpose of this weapon, “giant” refers to any creature with the giant type, including ettins and trolls."
      }{
@@ -1468,6 +1688,7 @@ When you hit a giant with it, the giant takes an extra 2d6 damage of the weapon�
      ::description "While wearing these dark lenses, you have darkvision out to a range of 60 feet. If you already have darkvision, wearing the goggles increases its range by 60 feet."
      }{
      name-key "Hammer of Thunderbolts"
+     ::charges 5 ::charges-recharge ::units5e/dawn ::charges-regain "1d4+1"
      ::type :weapon
      ::item-subtype :maul
      ::rarity :legendary
@@ -1537,6 +1758,8 @@ a bonus action to do so—while your focus on it continues.
 While focusing on a creature with detect thoughts, you can use an action to cast the suggestion spell (save DC 13) from the helm on that creature. Once used, the suggestion property can’t be used again until the next dawn."
      }{
      name-key "Helm of Teleportation"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
+     ::casts [{::cast-spell :teleport ::cast-level 7 ::cast-cost 1}]
      ::type :wondrous-item
 
      ::rarity :rare
@@ -1553,6 +1776,7 @@ While focusing on a creature with detect thoughts, you can use an action to cast
      ::attunement [:paladin]
      ::magical-attack-bonus 3
      ::magical-damage-bonus 3
+     ::extra-damage [{::weapons5e/damage-die-count 2 ::weapons5e/damage-die 10 ::weapons5e/damage-type :radiant ::against #{:fiend :undead}}]
      ::description "You gain a +3 bonus to attack and damage rolls made with this magic weapon. When you hit a fiend or an undead with it, that creature takes an extra 2d10 radiant damage.
 While you hold the drawn sword, it creates an aura in a 10-foot radius around you. You and all creatures friendly to you in the aura have advantage
 on saving throws against spells and other magical effects. If you have 17 or more levels in the paladin class, the radius of the aura increases to 30 feet."
@@ -1665,6 +1889,13 @@ An identify spell reveals that a creature is inside the flask, but the only way 
      ::type :weapon
      ::item-subtype javelin?
      ::rarity :uncommon
+     ::extra-damage [{::weapons5e/damage-die-count 4 ::weapons5e/damage-die 6 ::weapons5e/damage-type :lightning ::attack-type :ranged ::recharge ::units5e/dawn}]
+     ::effects [{::effect-type :save
+                 ::save-dc 13
+                 ::save-ability ::char5e/dex
+                 ::weapons5e/damage-die-count 4 ::weapons5e/damage-die 6 ::weapons5e/damage-type :lightning
+                 ::recharge ::units5e/dawn
+                 ::text "Each creature in the line excluding you and the target must make a DC 13 Dexterity saving throw, taking 4d6 lightning damage on a failed save, and half as much damage on a successful one."}]
      ::description "This javelin is a magic weapon. When you hurl it and speak its command word, it transforms into a bolt of lightning, forming a line 5 feet wide that extends out from you to a target within 120 feet. Each creature in the line excluding you and the target must make a DC 13 Dexterity saving throw, taking 4d6 lightning damage on a failed save, and half as much damage on a successful one. The lightning bolt turns back into a javelin when it reaches the target. Make a ranged weapon attack against the target. On a hit, the target takes damage from the javelin plus 4d6 lightning damage.
 The javelin’s property can’t be used again until the next dawn. In the meantime, the javelin can still be used as a magic weapon."
      }{
@@ -1675,6 +1906,8 @@ The javelin’s property can’t be used again until the next dawn. In the meant
 foot radius."
      }{
      name-key "Luck Blade"
+     ::charges-start "1d4-1"
+     ::casts [{::cast-spell :wish ::cast-level 9 ::cast-cost 1}]
      ::type :weapon
      ::item-subtype sword?
 
@@ -1695,6 +1928,13 @@ Wish. The sword has 1d4 – 1 charges. While holding it, you can use an action t
      ::rarity :rare
 
      ::attunement [:any]
+     ::extra-damage [{::weapons5e/damage-die-count 2 ::weapons5e/damage-die 6 ::weapons5e/damage-type :radiant ::against #{:fiend :undead}}]
+     ::effects [{::effect-type :save
+                 ::save-dc 15
+                 ::save-ability ::char5e/wis
+                 ::save-fail :destroyed
+                 ::against #{:fiend :undead}
+                 ::text "If the target has 25 hit points or fewer after taking this damage, it must succeed on a DC 15 Wisdom saving throw or be destroyed. On a successful save, the creature becomes frightened of you until the end of your next turn."}]
      ::description "When you hit a fiend or an undead with this magic weapon, that creature takes an extra 2d6 radiant damage. If the target has 25 hit points or fewer after taking this damage, it must succeed on a DC 15 Wisdom saving throw or be destroyed. On a successful save, the creature becomes frightened of you until the end of your next turn.
 While you hold this weapon, it sheds bright light in a 20-foot radius and dim light for an additional 20 feet."
      }{
@@ -1704,10 +1944,18 @@ While you hold this weapon, it sheds bright light in a 20-foot radius and dim li
      ::rarity :rare
      ::magical-attack-bonus 1
      ::magical-damage-bonus 1
+     ::extra-damage [{::damage-bonus 2 ::against #{:construct}}
+                     {::weapons5e/damage-die-count 2 ::weapons5e/damage-die 6 ::weapons5e/damage-type :bludgeoning ::min-roll 20 ::not-against #{:construct}}
+                     {::weapons5e/damage-die-count 4 ::weapons5e/damage-die 6 ::weapons5e/damage-type :bludgeoning ::min-roll 20 ::against #{:construct}}]
+     ::effects [{::effect-type :condition
+                 ::min-roll 20
+                 ::against #{:construct}
+                 ::text "If a construct has 25 hit points or fewer after taking this damage, it is destroyed."}]
      ::description "You gain a +1 bonus to attack and damage rolls made with this magic weapon. The bonus increases to +3 when you use the mace to attack a construct.
 When you roll a 20 on an attack roll made with this weapon, the target takes an extra 2d6 bludgeoning damage, or 4d6 bludgeoning damage if it’s a construct. If a construct has 25 hit points or fewer after taking this damage, it is destroyed."
      }{
      name-key "Mace of Terror"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
      ::type :weapon
      ::item-subtype :mace
 
@@ -1760,6 +2008,8 @@ Nothing created by the pigments can have a value greater than 25 gp. If you pain
 If you paint a form of energy such as fire or lightning, the energy appears but dissipates as soon as you complete the painting, doing no harm to anything."
      }{
      name-key "Medallion of Thoughts"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
+     ::casts [{::cast-spell :detect-thoughts ::cast-level 2 ::cast-cost 1 ::save-dc 13}]
      ::type :wondrous-item
 
      ::rarity :uncommon
@@ -1796,6 +2046,8 @@ trapped in the mirror. The freed creature appears, along with its possessions, i
      ::description "While wearing this necklace, you can breathe normally in any environment, and you have advantage on saving throws made against harmful gases and vapors (such as cloudkill and stinking cloud effects, inhaled poisons, and the breath weapons of some dragons)."
      }{
      name-key "Necklace of Fireballs"
+     ::charges-start "1d6+3"
+     ::casts [{::cast-spell :fireball ::cast-level 3 ::cast-cost 1 ::cast-per-level 1 ::save-dc 15}]
      ::type :wondrous-item
      ::rarity :rare
      ::description "This necklace has 1d6 + 3 beads hanging from it. You can use an action to detach a bead and throw it up to 60 feet away. When it reaches the end of its trajectory, the bead detonates as a 3rd-level fireball
@@ -1813,6 +2065,7 @@ Six types of magic beads exist. The GM decides the type of each bead on the neck
 is cast, that bead can’t be used again until the next dawn."
      }{
      name-key "Nine Lives Stealer"
+     ::charges-start "1d8+1"
      ::type :weapon
      ::item-subtype sword?
 
@@ -1831,6 +2084,8 @@ The sword has 1d8 + 1 charges. If you score a critical hit against a creature th
      ::rarity :very-rare
 
      ::attunement [:any]
+     ::toggles [{::toggle-id :sworn-enemy ::toggle-name "Sworn enemy"}]
+     ::extra-damage [{::weapons5e/damage-die-count 3 ::weapons5e/damage-die 6 ::weapons5e/damage-type :piercing ::while :sworn-enemy}]
      ::description "When you nock an arrow on this bow, it whispers in Elvish, “Swift defeat to my enemies.” When you use this weapon to make a ranged attack, you can, as a command phrase, say, “Swift death to you who have
 wronged me.” The target of your attack becomes your sworn enemy until it dies or until dawn seven days later. You can have only one such sworn enemy at a time. When your sworn enemy dies, you can choose a new one after the next dawn.
 When you make a ranged attack roll with this weapon against your sworn enemy, you have advantage on the roll. In addition, your target gains no benefit from cover, other than total cover, and you suffer no disadvantage due to long range. If the attack hits, your sworn enemy takes an extra 3d6 piercing damage.
@@ -1886,11 +2141,13 @@ Alternatively, the oil can be poured on the ground as an action, where it covers
      ::description "The next time you see a creature within 10 minutes after drinking this philter, you become charmed by that creature for 1 hour. If the creature is of a species and gender you are normally attracted to, you regard it as your true love while you are charmed. This potion’s rose-hued, effervescent liquid contains one easy-to-miss bubble shaped like a heart."
      }{
      name-key "Pipes of Haunting"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
      ::type :wondrous-item
      ::rarity :uncommon
      ::description "You must be proficient with wind instruments to use these pipes. They have 3 charges. You can use an action to play them and expend 1 charge to create an eerie, spellbinding tune. Each creature within 30 feet of you that hears you play must succeed on a DC 15 Wisdom saving throw or become frightened of you for 1 minute. If you wish, all creatures in the area that aren’t hostile toward you automatically succeed on the saving throw. A creature that fails the saving throw can repeat it at the end of each of its turns, ending the effect on itself on a success. A creature that succeeds on its saving throw is immune to the effect of these pipes for 24 hours. The pipes regain 1d3 expended charges daily at dawn."
      }{
      name-key "Pipes of the Sewers"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
      ::type :wondrous-item
 
      ::rarity :uncommon
@@ -2024,6 +2281,10 @@ If you drink it, you take 3d6 poison damage, and you must succeed on a DC 13 Con
 As an action, one dose of the ointment can be swallowed or applied to the skin. The creature that receives it regains 2d8 + 2 hit points, ceases to be poisoned, and is cured of any disease."
      }{
      name-key "Ring of Animal Influence"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
+     ::casts [{::cast-spell :animal-friendship ::cast-level 1 ::cast-cost 1 ::save-dc 13}
+               {::cast-spell :fear ::cast-level 3 ::cast-cost 1 ::save-dc 13}
+               {::cast-spell :speak-with-animals ::cast-level 1 ::cast-cost 1}]
      ::type :ring
      ::rarity :rare
      ::description "This ring has 3 charges, and it regains 1d3 expended charges daily at dawn. While wearing the ring, you can use an action to expend 1 of its charges to cast one of the following spells:
@@ -2042,6 +2303,7 @@ While summoned, the djinni is friendly to you and your companions. It obeys any 
 After the djinni departs, it can’t be summoned again for 24 hours, and the ring becomes nonmagical if the djinni dies."
      }{
      name-key "Ring of Elemental Command"
+     ::charges 5 ::charges-recharge ::units5e/dawn ::charges-regain "1d4+1"
      ::type :ring
 
      ::rarity :legendary
@@ -2070,6 +2332,7 @@ If you help slay a water elemental while attuned to the ring, you gain access to
 • You can cast the following spells from the ring, expending the necessary number of charges: create or destroy water (1 charge), control water (3 charges), ice storm (2 charges), or wall of ice (3 charges)."
      }{
      name-key "Ring of Evasion"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
      ::type :ring
 
      ::rarity :rare
@@ -2138,6 +2401,8 @@ If you die while wearing the ring, your soul enters it, unless it already houses
      ::description "While wearing this ring, you regain 1d6 hit points every 10 minutes, provided that you have at least 1 hit point. If you lose a body part, the ring causes the missing part to regrow and return to full functionality after 1d6 + 1 days if you have at least 1 hit point the whole time."
      }{
      name-key "Ring of Shooting Stars"
+     ::charges 6 ::charges-recharge ::units5e/dawn ::charges-regain "1d6"
+     ::casts [{::cast-spell :faerie-fire ::cast-level 1 ::cast-cost 1}]
        ::type :ring
        ::rarity :very-rare
        ::attunement [:any]
@@ -2183,6 +2448,7 @@ While wearing this ring, you can cast any spell stored in it. The spell uses the
 spell at will, but you can target only objects that aren’t being worn or carried."
      }{
      name-key "Ring of the Ram"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
      ::type :ring
 
      ::rarity :rare
@@ -2192,6 +2458,8 @@ spell at will, but you can target only objects that aren’t being worn or carri
 Alternatively, you can expend 1 to 3 of the ring’s charges as an action to try to break an object you can see within 60 feet of you that isn’t being worn or carried. The ring makes a Strength check with a +5 bonus for each charge you spend."
      }{
      name-key "Ring of Three Wishes"
+     ::charges 3
+     ::casts [{::cast-spell :wish ::cast-level 9 ::cast-cost 1}]
      ::type :ring
      ::rarity :legendary
      ::description "While wearing this ring, you can use an action to expend 1 of its 3 charges to cast the wish spell from it. The ring becomes nonmagical when you use the last charge."
@@ -2232,6 +2500,7 @@ The eyes on the robe can’t be closed or averted. Although you can close or ave
 A light spell cast on the robe or a daylight spell cast within 5 feet of the robe causes you to be blinded for 1 minute. At the end of each of your turns, you can make a Constitution saving throw (DC 11 for light or DC 15 for daylight), ending the blindness on a success."
      }{
      name-key "Robe of Scintillating Colors"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
      ::type :wondrous-item
 
      ::rarity :very-rare
@@ -2240,6 +2509,8 @@ A light spell cast on the robe or a daylight spell cast within 5 feet of the rob
      ::description "This robe has 3 charges, and it regains 1d3 expended charges daily at dawn. While you wear it, you can use an action and expend 1 charge to cause the garment to display a shifting pattern of dazzling hues until the end of your next turn. During this time, the robe sheds bright light in a 30-foot radius and dim light for an additional 30 feet. Creatures that can see you have disadvantage on attack rolls against you. In addition, any creature in the bright light that can see you when the robe’s power is activated must succeed on a DC 15 Wisdom saving throw or become stunned until the effect ends."
      }{
      name-key "Robe of Stars"
+     ::charges 6 ::charges-recharge ::units5e/dusk ::charges-regain "1d6"
+     ::casts [{::cast-spell :magic-missile ::cast-level 5 ::cast-cost 1}]
      ::type :wondrous-item
 
      ::rarity :very-rare
@@ -2364,6 +2635,7 @@ You can release the creature by using a bonus action to speak a second command w
 The rope has AC 20 and 20 hit points. It regains 1 hit point every 5 minutes as long as it has at least 1 hit point. If the rope drops to 0 hit points, it is destroyed."
      }{
      name-key "Scarab of Protection"
+     ::charges 12
      ::type :wondrous-item
 
      ::rarity :legendary
@@ -2474,6 +2746,10 @@ If you attempt to control a sphere that is under another creature’s control, y
 If the sphere comes into contact with a planar portal, such as that created by the gate spell, or an extradimensional space, such as that within a portable hole, the GM determines randomly what happens, using the following table."
      }{
      name-key "Staff of Charming"
+     ::charges 10 ::charges-recharge ::units5e/dawn ::charges-regain "1d8+2"
+     ::casts [{::cast-spell :charm-person ::cast-level 1 ::cast-cost 1}
+               {::cast-spell :command ::cast-level 1 ::cast-cost 1}
+               {::cast-spell :comprehend-languages ::cast-level 1 ::cast-cost 1}]
      ::type :weapon
      ::item-subtype :staff
      ::rarity :rare
@@ -2484,6 +2760,10 @@ If you are holding the staff and fail a saving throw against an enchantment spel
 The staff regains 1d8 + 2 expended charges daily at dawn. If you expend the last charge, roll a d20. On a 1, the staff becomes a nonmagical quarterstaff."
      }{
      name-key "Staff of Fire"
+     ::charges 10 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+4"
+     ::casts [{::cast-spell :burning-hands ::cast-level 1 ::cast-cost 1}
+               {::cast-spell :fireball ::cast-level 3 ::cast-cost 3}
+               {::cast-spell :wall-of-fire ::cast-level 4 ::cast-cost 4}]
      ::type :weapon
      ::item-subtype :staff
      ::rarity :very-rare
@@ -2495,6 +2775,11 @@ The staff has 10 charges. While holding it, you can use an action to expend 1 or
 The staff regains 1d6 + 4 expended charges daily at dawn. If you expend the last charge, roll a d20. On a 1, the staff blackens, crumbles into cinders, and is destroyed."
      }{
      name-key "Staff of Frost"
+     ::charges 10 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+4"
+     ::casts [{::cast-spell :cone-of-cold ::cast-level 5 ::cast-cost 5}
+               {::cast-spell :fog-cloud ::cast-level 1 ::cast-cost 1}
+               {::cast-spell :ice-storm ::cast-level 4 ::cast-cost 4}
+               {::cast-spell :wall-of-ice ::cast-level 6 ::cast-cost 4}]
      ::type :weapon
      ::item-subtype :staff
      ::rarity :very-rare
@@ -2506,6 +2791,10 @@ The staff has 10 charges. While holding it, you can use an action to expend 1 or
 The staff regains 1d6 + 4 expended charges daily at dawn. If you expend the last charge, roll a d20. On a 1, the staff turns to water and is destroyed."
      }{
      name-key "Staff of Healing"
+     ::charges 10 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+4"
+     ::casts [{::cast-spell :cure-wounds ::cast-level 1 ::cast-cost 1 ::cast-per-level 1 ::cast-max-level 4}
+               {::cast-spell :lesser-restoration ::cast-level 2 ::cast-cost 2}
+               {::cast-spell :mass-cure-wounds ::cast-level 5 ::cast-cost 5}]
      ::type :weapon
      ::item-subtype :staff
      ::rarity :rare
@@ -2515,6 +2804,17 @@ The staff regains 1d6 + 4 expended charges daily at dawn. If you expend the last
 The staff regains 1d6 + 4 expended charges daily at dawn. If you expend the last charge, roll a d20. On a 1, the staff vanishes in a flash of light, lost forever."
      }{
      name-key "Staff of Power"
+     ::extra-damage [{::weapons5e/damage-die-count 1 ::weapons5e/damage-die 6 ::weapons5e/damage-type :force ::attack-type :melee ::charge-cost 1}]
+     ::charges 20 ::charges-recharge ::units5e/dawn ::charges-regain "2d8+4"
+     ::casts [{::cast-spell :cone-of-cold ::cast-level 5 ::cast-cost 5}
+               {::cast-spell :fireball ::cast-level 5 ::cast-cost 5}
+               {::cast-spell :globe-of-invulnerability ::cast-level 6 ::cast-cost 6}
+               {::cast-spell :hold-monster ::cast-level 5 ::cast-cost 5}
+               {::cast-spell :levitate ::cast-level 2 ::cast-cost 2}
+               {::cast-spell :lightning-bolt ::cast-level 5 ::cast-cost 5}
+               {::cast-spell :magic-missile ::cast-level 1 ::cast-cost 1}
+               {::cast-spell :ray-of-enfeeblement ::cast-level 2 ::cast-cost 1}
+               {::cast-spell :wall-of-force ::cast-level 5 ::cast-cost 5}]
      ::type :weapon
      ::item-subtype :staff
      ::magical-attack-bonus 2
@@ -2534,6 +2834,8 @@ Retributive Strike. You can use an action to break the staff over your knee or a
 You have a 50 percent chance to instantly travel to a random plane of existence, avoiding the explosion. If you fail to avoid the effect, you take force damage equal to 16 × the number of charges in the staff. Every other creature in the area must make a DC 17 Dexterity saving throw. On a failed save, a creature takes an amount of damage based on how far away it is from the point of origin, as shown in the following table. On a successful save, a creature takes half as much damage."
      }{
      name-key "Staff of Striking"
+     ::extra-damage [{::weapons5e/damage-die-count 1 ::weapons5e/damage-die 6 ::weapons5e/damage-type :force ::attack-type :melee ::charge-cost 1} {::weapons5e/damage-die-count 2 ::weapons5e/damage-die 6 ::weapons5e/damage-type :force ::attack-type :melee ::charge-cost 2} {::weapons5e/damage-die-count 3 ::weapons5e/damage-die 6 ::weapons5e/damage-type :force ::attack-type :melee ::charge-cost 3}]
+     ::charges 10 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+4"
        ::type :weapon
        ::item-subtype :staff
        ::rarity :very-rare
@@ -2545,6 +2847,9 @@ You have a 50 percent chance to instantly travel to a random plane of existence,
 The staff has 10 charges. When you hit with a melee attack using it, you can expend up to 3 of its charges. For each charge you expend, the target takes an extra 1d6 force damage. The staff regains 1d6 + 4 expended charges daily at dawn. If you expend the last charge, roll a d20. On a 1, the staff becomes a nonmagical quarterstaff."
      }{
      name-key "Staff of Swarming Insects"
+     ::charges 10 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+4"
+     ::casts [{::cast-spell :giant-insect ::cast-level 4 ::cast-cost 4}
+               {::cast-spell :insect-plague ::cast-level 5 ::cast-cost 5}]
      ::type :weapon
      ::item-subtype :staff
      ::rarity :rare
@@ -2555,6 +2860,20 @@ Spells. While holding the staff, you can use an action to expend some of its cha
 Insect Cloud. While holding the staff, you can use an action and expend 1 charge to cause a swarm of harmless flying insects to spread out in a 30-foot radius from you. The insects remain for 10 minutes, making the area heavily obscured for creatures other than you. The swarm moves with you, remaining centered on you. A wind of at least 10 miles per hour disperses the swarm and ends the effect."
      }{
      name-key "Staff of the Magi"
+     ::charges 50 ::charges-recharge ::units5e/dawn ::charges-regain "4d6+2"
+     ::casts [{::cast-spell :conjure-elemental ::cast-level 5 ::cast-cost 7}
+               {::cast-spell :dispel-magic ::cast-level 3 ::cast-cost 3}
+               {::cast-spell :fireball ::cast-level 7 ::cast-cost 7}
+               {::cast-spell :flaming-sphere ::cast-level 2 ::cast-cost 2}
+               {::cast-spell :ice-storm ::cast-level 4 ::cast-cost 4}
+               {::cast-spell :invisibility ::cast-level 2 ::cast-cost 2}
+               {::cast-spell :knock ::cast-level 2 ::cast-cost 2}
+               {::cast-spell :lightning-bolt ::cast-level 7 ::cast-cost 7}
+               {::cast-spell :passwall ::cast-level 5 ::cast-cost 5}
+               {::cast-spell :plane-shift ::cast-level 7 ::cast-cost 7}
+               {::cast-spell :telekinesis ::cast-level 5 ::cast-cost 5}
+               {::cast-spell :wall-of-fire ::cast-level 4 ::cast-cost 4}
+               {::cast-spell :web ::cast-level 2 ::cast-cost 2}]
      ::type :weapon
      ::item-subtype :staff
      ::rarity :legendary
@@ -2590,6 +2909,14 @@ On your turn, you can mentally command the snake if it is within 60 feet of you 
 If the snake is reduced to 0 hit points, it dies and reverts to its staff form. The staff then shatters and is destroyed. If the snake reverts to staff form before losing all its hit points, it regains all of them."
      }{
      name-key "Staff of the Woodlands"
+     ::charges 10 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+4"
+     ::casts [{::cast-spell :animal-friendship ::cast-level 1 ::cast-cost 1}
+               {::cast-spell :awaken ::cast-level 5 ::cast-cost 5}
+               {::cast-spell :barkskin ::cast-level 2 ::cast-cost 2}
+               {::cast-spell :locate-animals-or-plants ::cast-level 2 ::cast-cost 2}
+               {::cast-spell :speak-with-animals ::cast-level 1 ::cast-cost 1}
+               {::cast-spell :speak-with-plants ::cast-level 3 ::cast-cost 3}
+               {::cast-spell :wall-of-thorns ::cast-level 6 ::cast-cost 6}]
      ::type :weapon
      ::item-subtype :staff
      ::rarity :rare
@@ -2622,6 +2949,8 @@ Thunderclap. You can use an action to cause the staff to issue a deafening thund
 Thunder and Lightning. You can use an action to use the Lightning Strike and Thunderclap properties at the same time. Doing so doesn’t expend the daily use of those properties, only the use of this one."
      }{
      name-key "Staff of Withering"
+     ::extra-damage [{::weapons5e/damage-die-count 2 ::weapons5e/damage-die 10 ::weapons5e/damage-type :necrotic ::charge-cost 1}]
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
      ::type :weapon
      ::item-subtype :staff
      ::rarity :rare
@@ -2656,6 +2985,7 @@ The staff can be wielded as a magic quarterstaff. On a hit, it deals damage as a
      ::magical-damage-bonus 2
      ::magical-damage-type :radiant
      ::magical-finesse? true
+     ::extra-damage [{::weapons5e/damage-die-count 1 ::weapons5e/damage-die 8 ::weapons5e/damage-type :radiant ::against #{:undead}}]
 
      ::description "This item appears to be a longsword hilt. While grasping the hilt, you can use a bonus action to cause a blade of pure radiance to spring into existence, or make the blade disappear. While the blade exists, this magic longsword has the finesse property. If you are proficient with shortswords or longswords, you are proficient with the sun blade.
 You gain a +2 bonus to attack and damage rolls made with this weapon, which deals radiant damage instead of slashing damage. When you hit an undead with it, that target takes an extra 1d8 radiant damage.
@@ -2668,6 +2998,11 @@ The sword’s luminous blade emits bright light in a 15-foot radius and dim ligh
      ::rarity :rare
 
      ::attunement [:any]
+     ::extra-damage [{::weapons5e/damage-die-count 3 ::weapons5e/damage-die 6 ::weapons5e/damage-type :necrotic ::min-roll 20 ::not-against #{:construct :undead}}]
+     ::effects [{::effect-type :heal
+                 ::min-roll 20
+                 ::not-against #{:construct :undead}
+                 ::text "You gain temporary hit points equal to the extra damage dealt."}]
      ::description "When you attack a creature with this magic weapon and roll a 20 on the attack roll, that target takes an extra 3d6 necrotic damage, provided that the target isn’t a construct or an undead. You gain temporary hit points equal to the extra damage dealt."
      }{
      name-key "Sword of Sharpness"
@@ -2676,6 +3011,10 @@ The sword’s luminous blade emits bright light in a 15-foot radius and dim ligh
      ::rarity :very-rare
 
      ::attunement [:any]
+     ::extra-damage [{::weapons5e/damage-die-count 4 ::weapons5e/damage-die 6 ::weapons5e/damage-type :slashing ::min-roll 20}]
+     ::effects [{::effect-type :condition
+                 ::min-roll 20
+                 ::text "Then roll another d20. If you roll a 20, you lop off one of the target’s limbs, with the effect of such loss determined by the GM. If the creature has no limb to sever, you lop off a portion of its body instead."}]
      ::description "When you attack an object with this magic sword and hit, maximize your weapon damage dice against the target.
 When you attack a creature with this weapon and roll a 20 on the attack roll, that target takes an extra 4d6 slashing damage. Then roll another d20. If you roll a 20, you lop off one of the target’s limbs, with the effect of such loss determined by the GM. If the creature has no limb to sever, you lop off a portion of its body instead.
 In addition, you can speak the sword’s command word to cause the blade to shed bright light in a 10-
@@ -2690,6 +3029,7 @@ foot radius and dim light for an additional 10 feet. Speaking the command word a
 Once per turn, when you hit a creature with an attack using this magic weapon, you can wound the target. At the start of each of the wounded creature’s turns, it takes 1d4 necrotic damage for each time you’ve wounded it, and it can then make a DC 15 Constitution saving throw, ending the effect of all such wounds on itself on a success. Alternatively, the wounded creature, or a creature within 5 feet of it, can use an action to make a DC 15 Wisdom (Medicine) check, ending the effect of such wounds on it on a success."
      }{
      name-key "Talisman of Pure Good"
+     ::charges 7
        ::type :wondrous-item
 
        ::rarity :legendary
@@ -2708,6 +3048,7 @@ The talisman has 7 charges. If you are wearing or holding it, you can use an act
      ::description "When you make an Intelligence (Arcana) check to control a sphere of annihilation while you are holding this talisman, you double your proficiency bonus on the check. In addition, when you start your turn with control over a sphere of annihilation, you can use an action to levitate it 10 feet plus a number of additional feet equal to 10 × your Intelligence modifier."
      }{
      name-key "Talisman of Ultimate Evil"
+     ::charges 6
      ::type :wondrous-item
 
      ::rarity :legendary
@@ -2751,6 +3092,8 @@ The talisman has 6 charges. If you are wearing or holding it, you can use an act
        ::modifiers [(mod5e/ability ::char5e/wis 2)]
        }{
      name-key "Trident of Fish Command"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
+     ::casts [{::cast-spell :dominate-beast ::cast-level 4 ::cast-cost 1 ::save-dc 15}]
      ::type :weapon
      ::item-subtype :trident
      ::rarity :uncommon
@@ -2767,6 +3110,7 @@ on a beast that has an innate swimming speed. The trident regains 1d3 expended c
      ::type :weapon
      ::item-subtype weapon-not-ammunition?
      ::rarity :rare
+     ::extra-damage [{::weapons5e/damage-die-count 2 ::weapons5e/damage-die 6 ::min-roll 20}]
      ::description "When you roll a 20 on your attack roll with this magic weapon, your critical hit deals an extra 2d6 damage of the weapon’s type."
      }{
      name-key "Vorpal Sword"
@@ -2776,10 +3120,17 @@ on a beast that has an innate swimming speed. The trident regains 1d3 expended c
      ::attunement [:any]
      ::magical-attack-bonus 3
      ::magical-damage-bonus 3
+     ::extra-damage [{::weapons5e/damage-die-count 6 ::weapons5e/damage-die 8 ::weapons5e/damage-type :slashing ::min-roll 20}]
+     ::effects [{::effect-type :condition
+                 ::min-roll 20
+                 ::text "When you attack a creature that has at least one head with this weapon and roll a 20 on the attack roll, you cut off one of the creature’s heads. The creature dies if it can’t survive without the lost head."}]
      ::description "You gain a +3 bonus to attack and damage rolls made with this magic weapon. In addition, the weapon ignores resistance to slashing damage.
 When you attack a creature that has at least one head with this weapon and roll a 20 on the attack roll, you cut off one of the creature’s heads. The creature dies if it can’t survive without the lost head. A creature is immune to this effect if it is immune to slashing damage, doesn’t have or need a head, has legendary actions, or the GM decides that the creature is too big for its head to be cut off with this weapon. Such a creature instead takes an extra 6d8 slashing damage from the hit."
      }{
      name-key "Wand of Binding"
+     ::charges 7 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+1"
+     ::casts [{::cast-spell :hold-monster ::cast-level 5 ::cast-cost 5 ::save-dc 17}
+               {::cast-spell :hold-person ::cast-level 2 ::cast-cost 2 ::save-dc 17}]
      ::type :wand
 
      ::rarity :rare
@@ -2790,6 +3141,7 @@ Spells. While holding the wand, you can use an action to expend some of its char
 Assisted Escape. While holding the wand, you can use your reaction to expend 1 charge and gain advantage on a saving throw you make to avoid being paralyzed or restrained, or you can expend 1 charge and gain advantage on any check you make to escape a grapple."
      }{
      name-key "Wand of Enemy Detection"
+     ::charges 7 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+1"
      ::type :wand
 
      ::rarity :rare
@@ -2799,6 +3151,7 @@ Assisted Escape. While holding the wand, you can use your reaction to expend 1 c
 The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand’s last charge, roll a d20. On a 1, the wand crumbles into ashes and is destroyed."
      }{
      name-key "Wand of Fear"
+     ::charges 7 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+1"
      ::type :wand
 
      ::rarity :rare
@@ -2809,6 +3162,8 @@ Command. While holding the wand, you can use an action to expend 1 charge and co
 Cone of Fear. While holding the wand, you can use an action to expend 2 charges, causing the wand’s tip to emit a 60-foot cone of amber light. Each creature in the cone must succeed on a DC 15 Wisdom saving throw or become frightened of you for 1 minute. While it is frightened in this way, a creature must spend its turns trying to move as far away from you as it can, and it can’t willingly move to a space within 30 feet of you. It also can’t take reactions. For its action, it can use only the Dash action or try to escape from an effect that prevents it from moving. If it has nowhere it can move, the creature can use the Dodge action. At the end of each of its turns, a creature can repeat the saving throw, ending the effect on itself on a success."
      }{
      name-key "Wand of Fireballs"
+     ::charges 7 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+1"
+     ::casts [{::cast-spell :fireball ::cast-level 3 ::cast-cost 1 ::cast-per-level 1 ::save-dc 15}]
      ::type :wand
 
      ::rarity :rare
@@ -2819,6 +3174,8 @@ The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand�
 d20. On a 1, the wand crumbles into ashes and is destroyed."
      }{
      name-key "Wand of Lightning Bolts"
+     ::charges 7 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+1"
+     ::casts [{::cast-spell :lightning-bolt ::cast-level 3 ::cast-cost 1 ::cast-per-level 1 ::save-dc 15}]
      ::type :wand
 
      ::rarity :rare
@@ -2828,18 +3185,23 @@ d20. On a 1, the wand crumbles into ashes and is destroyed."
 The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand’s last charge, roll a d20. On a 1, the wand crumbles into ashes and is destroyed."
      }{
      name-key "Wand of Magic Detection"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
+     ::casts [{::cast-spell :detect-magic ::cast-level 1 ::cast-cost 1}]
      ::type :wand
      ::rarity :uncommon
      ::description "This wand has 3 charges. While holding it, you can expend 1 charge as an action to cast the detect magic
 spell from it. The wand regains 1d3 expended charges daily at dawn."
      }{
      name-key "Wand of Magic Missiles"
+     ::charges 7 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+1"
+     ::casts [{::cast-spell :magic-missile ::cast-level 1 ::cast-cost 1 ::cast-per-level 1}]
      ::type :wand
      ::rarity :uncommon
      ::description "This wand has 7 charges. While holding it, you can use an action to expend 1 or more of its charges to cast the magic missile spell from it. For 1 charge, you cast the 1st-level version of the spell. You can increase the spell slot level by one for each additional charge you expend.
 The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand’s last charge, roll a d20. On a 1, the wand crumbles into ashes and is destroyed."
      }{
      name-key "Wand of Paralysis"
+     ::charges 7 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+1"
      ::type :wand
 
      ::rarity :rare
@@ -2850,6 +3212,8 @@ The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand�
 The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand’s last charge, roll a d20. On a 1, the wand crumbles into ashes and is destroyed."
      }{
      name-key "Wand of Polymorph"
+     ::charges 7 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+1"
+     ::casts [{::cast-spell :polymorph ::cast-level 4 ::cast-cost 1 ::save-dc 15}]
      ::type :wand
      ::rarity :very-rare
      ::attunement [:spellcaster]
@@ -2857,6 +3221,7 @@ The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand�
 The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand’s last charge, roll a d20. On a 1, the wand crumbles into ashes and is destroyed."
      }{
      name-key "Wand of Secrets"
+     ::charges 3 ::charges-recharge ::units5e/dawn ::charges-regain "1d3"
      ::type :wand
      ::rarity :uncommon
      ::description "The wand has 3 charges. While holding it, you can use an action to expend 1 of its charges, and if a secret door or trap is within 30 feet of you, the wand pulses and points at the one nearest to you. The wand regains 1d3 expended charges daily at dawn."
@@ -2872,6 +3237,8 @@ The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand�
                         "While holding this wand, you gain a +3 bonus to spell attack rolls. In addition, you ignore half cover when making a spell attack.")
      {
      name-key "Wand of Web"
+     ::charges 7 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+1"
+     ::casts [{::cast-spell :web ::cast-level 2 ::cast-cost 1 ::save-dc 15}]
      ::type :wand
      ::rarity :uncommon
      ::attunement [:spellcaster]
@@ -2879,6 +3246,7 @@ The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand�
 The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand’s last charge, roll a d20. On a 1, the wand crumbles into ashes and is destroyed."
      }{
      name-key "Wand of Wonder"
+     ::charges 7 ::charges-recharge ::units5e/dawn ::charges-regain "1d6+1"
      ::type :wand
      ::rarity :rare
      ::attunement [:spellcaster]

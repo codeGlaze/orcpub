@@ -2,6 +2,7 @@
      (:require [garden.stylesheet :refer [at-media at-keyframes at-font-face]]
                [garden.units :refer [px]]
                [orcpub.constants :as const]
+               [orcpub.styles.weapons :as weapons]
                [garden.selectors :as s]
                [orcpub.styles.portrait :as portrait]))
 
@@ -167,8 +168,145 @@
     {:cursor :pointer
      :text-decoration "underline dotted"
      :text-underline-offset "3px"}]
+;; casting a spell from a charged item (views.cljs cast-panel; plan-charges-and-casting.md)
+   [:.cast-open {:margin "6px 0 0" :padding "4px 10px" :font-size "12px" :font-weight 600}]
+   [:.cast-row [:td {:padding "0 10px 10px"}]]
+   [:.cast-damage {:margin "8px 0" :font-size "13px"}]
+   [:.cast-damage-part {:display :flex :justify-content :space-between :gap "10px"}]
+   [:.cast-damage-total {:margin "4px 0" :font-size "15px"}]
+   [:.cast-panel {:box-sizing :border-box :padding "10px 12px" :font-size "13px" :font-weight :normal
+                  :border-radius "6px" :background "rgba(0,0,0,.22)" :border "1px solid rgba(255,255,255,.14)"}]
+   [:.cast-sheet [:.cast-panel {:background :none :border 0 :padding 0}]]
+   [:.cast-sheet {:position :fixed :left 0 :right 0 :bottom 0 :z-index 10001 :max-height "80vh" :overflow-y :auto
+                  :background-color "#2c3445" :color "#e6e9ee" :border-radius "14px 14px 0 0"
+                  :padding "10px 16px 22px" :box-shadow "0 -6px 24px rgba(0,0,0,.5)"}]
+   [:.cast-dim {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 10000 :background "rgba(0,0,0,.35)"}]
+   [:.cast-handle {:width "40px" :height "4px" :border-radius "2px" :background "rgba(255,255,255,.35)" :margin "0 auto 10px"}]
+   [:.cast-x {:position :absolute :right "8px" :top "6px" :width "44px" :height "44px" :background :none :border 0
+              :color :inherit :font-size "18px" :cursor :pointer}]
+   [:.cast-head {:display :flex :flex-direction :column :gap "2px" :padding-right "36px"}]
+   [:.cast-head [:b {:font-size "15px"}] [:span {:opacity 0.7 :font-size "12px"}]]
+   [:.cast-spells {:display :flex :flex-wrap :wrap :gap "4px" :margin "10px 0 0"}]
+   [:.cast-spell-pick {:position :relative :min-height "30px" :padding "0 10px" :border-radius "15px" :font-size "12px"
+                       :border "1px solid rgba(230,233,238,.3)" :background :none :color :inherit :cursor :pointer}]
+   [:.cast-spell-pick [:span {:opacity 0.6}]]
+   [:.cast-spell-pick.on {:border-color "#f0a100" :color "#f0a100" :background-color "rgba(240,161,0,.16)"}]
+   [:.cast-levels {:display :grid :grid-template-columns "repeat(auto-fill, minmax(42px, 1fr))" :gap "4px" :margin "10px 0"}]
+   [:.cast-level {:height "40px" :border-radius "5px" :border "1px solid rgba(230,233,238,.3)" :background :none :color :inherit
+                  :display :flex :flex-direction :column :align-items :center :justify-content :center :line-height 1.15
+                  :font-size "11px" :cursor :pointer :padding 0}]
+   [:.cast-level [:b {:font-size "12.5px"}] [:span {:opacity 0.7 :font-size "10px"}]]
+   [:.cast-level.on {:background-color "rgba(240,161,0,.16)" :border-color "#f0a100" :color "#f0a100"}]
+   [:.cast-level.off {:opacity 0.35 :cursor :default}]
+   [:.cast-foot {:display :flex :align-items :center :gap "8px" :flex-wrap :wrap}]
+   [:.cast-note {:opacity 0.7 :font-size "12px" :flex 1 :min-width "140px"}]
+   [:.cast-go {:margin "0 0 0 auto" :min-height "36px" :padding "0 12px" :font-size "12px" :font-weight 600}]
+   [:.cast-go.unavailable {:opacity 0.5 :cursor :default}]
+   [:.cast-spell {:max-height "40vh" :overflow-y :auto :margin "8px 0" :font-size "13px"}]
+   [".app.light-theme .cast-sheet" {:background-color :white :color "#222"}]
+   [".app.light-theme .cast-panel" {:background "rgba(255,255,255,.6)" :border-color "rgba(0,0,0,.14)"}]
+   [".app.light-theme .cast-level.on" ".app.light-theme .cast-spell-pick.on" {:color "#33658A" :border-color "#33658A"
+                                                                             :background-color "rgba(51,101,138,.12)"}]
+
+;; the floating Rest button and the box it opens (views/rest_controls.cljs rest-fab)
+   [:.rest-fab {:position :fixed :right "12px" :bottom "16px" :z-index 160 :width "56px" :height "56px"
+                :border-radius "28px" :border :none :color :white :cursor :pointer :font-size "20px"
+                :box-shadow "0 3px 10px rgba(0,0,0,.45)" :background-image "linear-gradient(to bottom,#f1a20f,#dbab50)"}]
+   [:.rest-fab-dim {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 170 :background "rgba(0,0,0,.45)"}]
+   [:.rest-fab-dim.clear {:background :none}]
+   [:.rest-fab-sheet {:position :fixed :left 0 :right 0 :bottom 0 :z-index 180 :background-color "#2c3445"
+                      :border-radius "12px 12px 0 0" :box-shadow "0 -6px 20px rgba(0,0,0,.35)" :padding "8px 12px 16px"}]
+   [:.rest-fab-card {:position :fixed :right "16px" :bottom "84px" :z-index 180 :width "max-content" :min-width "330px" :max-width "calc(100% - 32px)"
+                     :box-sizing :border-box :background-color "#2c3445" :border "1px solid rgba(255,255,255,.14)"
+                     :border-radius "8px" :box-shadow "0 8px 24px rgba(0,0,0,.45)" :padding "8px 10px 10px"}]
+   [:.rest-fab-handle {:width "36px" :height "4px" :border-radius "2px" :background "rgba(255,255,255,.5)" :margin "0 auto 2px"}]
+   [".rest-fab-sheet .rest-box" ".rest-fab-card .rest-box" {:background :none :border 0 :padding 0 :margin 0}]
+   ["body:has(.rest-fab-slot) .import-log-button" {:bottom "84px"}]
+   [".app.light-theme .rest-fab" {:background-image "linear-gradient(to bottom,#33658A,#33658A)"}]
+   [".app.light-theme .rest-fab-sheet" ".app.light-theme .rest-fab-card" {:background-color "#fff" :color "#363636"}]
+   [".app.light-theme .rest-fab-card" {:border-color "rgba(0,0,0,.14)"}]
+   [".app.light-theme .rest-fab-handle" {:background "rgba(0,0,0,.4)"}]
+;; the Rest box, first on the Features tab (views.cljs rest-box; handoff-rest-controls.md)
+   [:.rest-box {:background "rgba(0,0,0,.18)" :border "1px solid rgba(255,255,255,.14)" :border-radius "6px"
+                :padding "8px 10px 10px" :margin "8px 0 16px"}]
+   [:.rest-head {:display :flex :align-items :center :gap "8px" :min-height "44px"}]
+   [:.rest-bed {:color "#f0a100" :font-size "16px"}]
+   [:.rest-title {:font-size "16px" :font-weight 600}]
+   [:.rest-labels :.rest-link
+    {:position :relative :display :inline-flex :align-items :center :gap "4px" :background :none :border 0 :padding "0 4px"
+     :color "#f0a100" :text-decoration :underline :text-transform :uppercase :font-size "12px" :font-weight 700
+     :min-height "32px" :cursor :pointer}]
+   [:.rest-labels {:margin-left :auto}]
+   [".rest-labels::after" ".rest-link::after" {:content "\"\"" :position :absolute :inset "-6px 0"}]
+   [:.rest-link.right {:margin-left :auto}]
+   [:.rest-caption {:font-size "11px" :font-weight 700 :text-transform :uppercase :letter-spacing ".06em"
+                    :opacity 0.65 :margin "2px 0 4px"}]
+   [:.rest-row {:display :flex :gap "5px" :align-items :stretch}]
+   [:.rest-rests {:display :flex :gap "5px" :flex 1}]
+   [:.rest-segs {:display :flex :flex "none" :border "1px solid rgba(255,255,255,.32)" :border-radius "6px" :overflow :hidden}]
+   [:.rest-segs.wide {:width "100%" :margin-bottom "5px"}]
+   [:.rest-seg {:width "44px" :height "44px" :padding 0 :border :none
+                :background :none :color :inherit :font-size "13px" :font-weight 600 :display :flex
+                :align-items :center :justify-content :center :gap "5px" :cursor :pointer}]
+   [".rest-seg + .rest-seg" {:border-left "1px solid rgba(255,255,255,.32)"}]
+   [:.rest-segs.wide [:.rest-seg {:flex 1 :width :auto}]]
+   [:.rest-seg.on {:background-color "rgba(240,161,0,.16)" :color "#f0a100" :box-shadow "inset 0 -3px 0 #f0a100"}]
+   [:.rest-seg.none-on {:background-color "rgba(255,255,255,.14)"}]
+   [:.rest-btn {:height "44px" :margin 0 :padding "0 6px" :flex 1 :font-size "12px" :font-weight 600}]
+   [:.rest-row [:.rest-now {:flex "none" :width "48px" :margin-left "5px"}]]
+   [:.rest-row.labels [:.rest-now {:flex 1 :width :auto :margin-left 0}]]
+   [:.rest-now.unavailable {:background-color :transparent
+                            :background-image "linear-gradient(rgba(255,255,255,.1), rgba(255,255,255,.1))"
+                            :color "rgba(255,255,255,.42)" :text-shadow :none :cursor :default}]
+   [:.rest-line {:display :flex :flex-wrap :wrap :align-items :center :gap "6px" :font-size "13px" :margin-top "8px"}]
+   [:.rest-line.hint {:opacity 0.8}]
+   [:.rest-answers {:display :flex :flex-wrap :wrap :gap "8px" :width "100%"}]
+   [:.rest-close {:background :none :border 0 :color :inherit :font-size "18px" :min-width "32px" :min-height "32px" :cursor :pointer}]
+   [:.rest-recharged {:width "100%"}]
+   [:.rest-recharged-row {:display :flex :align-items :center :gap "8px" :font-size "12px" :margin-top "4px"}]
+   [:.rest-amount {:width "56px" :height "26px" :font-size "12px"}]
+   [:.rest-dice {:opacity 0.6}]
+   [".app.light-theme .rest-box" {:background "rgba(255,255,255,.6)" :border-color "rgba(0,0,0,.14)"}]
+   [".app.light-theme .rest-bed" ".app.light-theme .rest-seg.on" {:color "#33658A"}]
+   [".app.light-theme .rest-seg.on" {:background-color "rgba(51,101,138,.12)" :box-shadow "inset 0 -3px 0 #33658A"}]
+   [".app.light-theme .rest-seg.none-on" {:background-color "rgba(0,0,0,.12)"}]
+   [".app.light-theme .rest-segs" ".app.light-theme .rest-seg + .rest-seg" {:border-color "rgba(0,0,0,.28)"}]
+   [".app.light-theme .rest-labels" ".app.light-theme .rest-link" {:color "#363636"}]
+   [".app.light-theme .rest-now.unavailable" {:background-image "linear-gradient(rgba(0,0,0,.08), rgba(0,0,0,.08))"
+                                              :color "rgba(0,0,0,.38)"}]
+
+   ;; the item builder's Charges group (views/charges_builder.cljs)
+   [:.item-charges-field {:margin "0 10px 10px 0"}]
+   [:.item-charges-field.charges-count {:width "76px"}]
+   [:.item-charges-field.charges-regains {:width "96px"}]
+   [:.item-cast-row {:padding "8px 0" :border-bottom "1px solid rgba(255,255,255,.12)"}]
+   [:.item-cast-spell {:flex "1 1 200px" :margin-right "10px"}]
+   [:.item-cast-number {:width "86px" :margin-right "8px"}]
+   [:.item-cast-number.wide {:width "150px"}]
+   [:.item-cast-remove {:margin-bottom "8px"}]
+   [:.item-cast-hint {:font-size "12px" :opacity 0.8 :margin-top "2px"}]
+   [".app.light-theme .item-cast-row" {:border-bottom-color "rgba(0,0,0,.12)"}]
+   ;; an item's charges under its name (views.cljs item-charges)
+   [:.item-charges {:margin-top "4px" :font-weight :normal :font-size "12px"}]
+   [:.item-charges-line {:display :flex :align-items :center :gap "6px" :flex-wrap :wrap :min-height "22px"}]
+   [:.item-charges-n {:opacity 0.6 :min-width "10px"}]
+   [:.item-charges-pips {:display :flex :gap "3px"}]
+   [:.item-charge-pip
+    {:position :relative :width "12px" :height "12px" :padding 0 :border-radius "50%"
+     :border "1.5px solid #f0a100" :background-color "#f0a100" :cursor :pointer}]
+   [".item-charge-pip::after" {:content "\"\"" :position :absolute :inset "-10px -2px"}]
+   [:.item-charge-pip.used {:background-color :transparent :opacity 0.7}]
+   [:.item-charges-count {:font-variant-numeric "tabular-nums" :opacity 0.8}]
+   [:.item-charges-count.big {:font-size "13px" :font-weight :bold :opacity 1}]
+   [:.item-charges-step
+    {:position :relative :width "26px" :height "22px" :padding 0 :border-radius "4px" :font-weight :bold
+     :border "1px solid currentColor" :background :none :color :inherit :cursor :pointer}]
+   [".item-charges-step::after" {:content "\"\"" :position :absolute :inset "-11px -4px"}]
+   [:.item-charges-roll {:margin 0 :padding "2px 8px" :font-size "12px"}]
+   [:.item-charges-input {:width "64px" :height "24px" :font-size "12px"}]
    [:.srd-preview
     {:position :fixed
+     :box-sizing :border-box
      :z-index 10001
      :overflow-y :auto
      :padding "12px 14px"
@@ -3843,6 +3981,7 @@
    widths
    font-sizes
    props
+   weapons/weapons
    media-queries
    ;; last: the portrait rules win ties with the rules above
    portrait/styles) ;concat

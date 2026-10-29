@@ -5,7 +5,7 @@
 // builder, opens the display's Combat tab, and expands each row. Expected, from the SRD 5.1
 // tables (p. 66, p. 64):
 //   Longsword             Cost 15 gp, Weight 3 lb.
-//   Chain mail + Shield   Cost 75 gp, Weight 55 lbs., Shield Cost 10 gp
+//   Chain Mail + Shield   Cost 75 gp, Weight 55 lbs., Shield Cost 10 gp
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/srd_equipment_e2e.js`). No login.
 // Runs in:   ~15s. SHOT_DIR=<dir> also saves a screenshot of the expanded rows.
@@ -55,18 +55,18 @@ const load = page => page.evaluate(() => {
   await load(page);
   await page.getByText('combat', { exact: true }).first().click();
 
-  const weapon = page.locator('tr.weapon', { hasText: 'Longsword' }).first();
+  const weapon = page.locator('.weapon-row', { hasText: 'Longsword' }).first();
   await weapon.waitFor({ timeout: 20000 }).catch(() => {});
   if (await weapon.count()) {
-    await weapon.click();
-    await weapon.getByText('Two-handed?').waitFor({ timeout: 5000 }).catch(() => {});  // expanded
+    await weapon.locator('.weapon-name-line').click();
+    await weapon.locator('.weapon-opened').waitFor({ timeout: 5000 }).catch(() => {});  // expanded
     const t = await weapon.innerText();
-    check('the longsword shows its SRD price', /Cost:\s*15 gp/.test(t), t.replace(/\s+/g, ' ').slice(0, 120));
-    check('and its weight', /Weight:\s*3 lb\./.test(t));
+    check('the longsword shows its SRD price', /Cost 15 gp/.test(t), t.replace(/\s+/g, ' ').slice(0, 160));
+    check('and its weight', /Weight 3 lb\./.test(t));
   } else {
     check('the combat tab lists the longsword', false, 'no row');
   }
-  const armor = page.locator('tbody.armor tr.item', { hasText: 'Chain mail + Shield' }).first();
+  const armor = page.locator('tbody.armor tr.item', { hasText: 'Chain Mail + Shield' }).first();
   if (await armor.count()) {
     await armor.click();
     await armor.getByText('Base AC:').waitFor({ timeout: 5000 }).catch(() => {});  // expanded

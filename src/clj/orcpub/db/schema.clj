@@ -385,7 +385,10 @@
      ::units5e/day
      ::units5e/round
      ::units5e/rest
-     ::units5e/long-rest])))
+     ::units5e/short-rest
+     ::units5e/long-rest
+     ::units5e/dawn
+     ::units5e/dusk])))
 
 (def party-schema
   [{:db/ident ::party5e/owner
@@ -432,7 +435,15 @@
     bool-prop
     [::char-equip-5e/equipped?
      ::char-equip-5e/background-starting-equipment?
-     ::char-equip-5e/class-starting-equipment?])))
+     ::char-equip-5e/class-starting-equipment?])
+   ;; per item in a stack, one record each: plan-charges-and-casting.md
+   [{:db/ident ::char-equip-5e/charges
+     :db/valueType :db.type/ref
+     :db/isComponent true
+     :db/cardinality :db.cardinality/many
+     :db/noHistory true}]
+   (map #(assoc (long-prop %) :db/noHistory true)
+        [::char-equip-5e/charge-index ::char-equip-5e/charges-used ::char-equip-5e/charges-max])))
 
 (def magic-item-schema
   (concat
@@ -440,28 +451,59 @@
     string-prop-no-history
     [::mi5e/name
      ::mi5e/description
-     ::mi5e/string-arg])
+     ::mi5e/string-arg
+     ::mi5e/charges-start
+     ::mi5e/charges-regain
+     ::mi5e/text
+     ::mi5e/toggle-name])
    [(assoc (string-prop-no-history ::mi5e/owner) :db/index true)]
    (map
     many-ref-no-history
     [::mod/args
-     ::mi5e/modifiers])
+     ::mi5e/modifiers
+     ::mi5e/casts
+     ::mi5e/extra-damage
+     ::mi5e/effects
+     ::mi5e/toggles])
    (map
     many-kws-no-history
     [::mi5e/subtypes
-     ::mi5e/attunement])
+     ::mi5e/attunement
+     ::mi5e/against
+     ::mi5e/not-against])
    (map
     long-prop-no-history
     [::mod/int-arg
      ::mi5e/magical-damage-bonus
      ::mi5e/magical-attack-bonus
-     ::mi5e/magical-ac-bonus])
+     ::mi5e/magical-ac-bonus
+     ::mi5e/charges
+     ::mi5e/cast-level
+     ::mi5e/cast-cost
+     ::mi5e/cast-per-level
+     ::mi5e/cast-max-level
+     ::mi5e/save-dc
+     ::mi5e/charge-cost
+     ::mi5e/damage-bonus
+     ::mi5e/min-roll])
    (map
     kw-prop-no-history
     [::mod/key
      ::mod/keyword-arg
      ::mi5e/type
-     ::mi5e/rarity])))
+     ::mi5e/rarity
+     ::mi5e/charges-recharge
+     ::mi5e/cast-spell
+     ::mi5e/on
+     ::mi5e/recharge
+     ::mi5e/effect-type
+     ::mi5e/save-ability
+     ::mi5e/save-fail
+     ::mi5e/while
+     ::mi5e/attack-type
+     ::mi5e/next-attack
+     ::mi5e/extra-attack
+     ::mi5e/toggle-id])))
 
 (def weapon-schema
   (concat

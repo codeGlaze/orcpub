@@ -605,6 +605,12 @@
 (defn critical-hit-values [built-char]
   (get-prop built-char :critical))
 
+(defn weapon-masteries
+  "The weapon kinds whose Weapon Mastery the character can use: a set of base weapon keys
+  (2024 rules), or nil when nothing grants any. Takes the built character."
+  [built-char]
+  (get-prop built-char :weapon-masteries))
+
 (defn crit-values-str [built-char]
   (let [critical-hit-values (critical-hit-values built-char)]
     (if (> (count critical-hit-values) 1)
@@ -634,6 +640,19 @@
 
 (defn best-weapon-damage-modifier-fn [built-char]
   (get-prop built-char :best-weapon-damage-modifier))
+
+(defn weapon-save-dc-fn
+  "A fn of a weapon giving its own save DC (Topple's): 8 + proficiency + the modifier of the
+  ability its attack uses (save-dc-sources.md). No item spell DC bonus is in it."
+  [built-char]
+  (get-prop built-char :weapon-save-dc))
+
+(defn best-weapon-ability-modifier-fn
+  "A fn of a weapon giving the ability modifier an attack with it uses: Str or Dex by the weapon,
+  the better of the two for a finesse weapon. No magic or other damage bonus is in it."
+  [built-char]
+  (let [f (get-prop built-char :weapon-ability-modifier)]
+    (fn [weapon] (max (f weapon false) (f weapon true)))))
 
 (defn option-sources [built-char]
   (get-prop built-char :option-sources))

@@ -946,7 +946,7 @@
                                         11 4
                                         6 3
                                         2)
-                    :save-dc (?spell-save-dc ::char5e/con)})))]
+                    :save-dc (?save-dc ::char5e/con)})))]
    :selections [(t/selection-cfg
                  {:name "Draconic Ancestry"
                   :tags #{:subrace}

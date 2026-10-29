@@ -57,7 +57,8 @@
             ;; orcbrew import/export validation
             [orcpub.dnd.e5.orcbrew-validation-test]
             ;; encrypted share snapshots use Web Crypto, so they run only here
-            [orcpub.dnd.e5.share-url-test]))
+            [orcpub.dnd.e5.share-url-test]
+            [orcpub.dnd.e5.charges-builder-test]))
 
 
 ;; Building the character template starts a watcher that recomputes it on every app-db change and
@@ -109,7 +110,8 @@
              'orcpub.character-builder-test
              'orcpub.dnd.e5.db-test
              'orcpub.dnd.e5.orcbrew-validation-test
-             'orcpub.dnd.e5.share-url-test))
+             'orcpub.dnd.e5.share-url-test
+             'orcpub.dnd.e5.charges-builder-test))
 
 ;; Auto-run when figwheel reloads
 (defn ^:after-load on-reload []

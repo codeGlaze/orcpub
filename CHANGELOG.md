@@ -88,6 +88,14 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** a file that uses these is marked so an older version of the site refuses it instead of loading it wrong. (#717)
 - **Characters:** the character builder's Back and Next repeat at the bottom of each page, and open the next page at its top.
 - **Homebrew:** the add buttons on homebrew builders repeat below a long list of traits or options.
+- **Characters:** a new Weapons table: attack and damage rolls in one place, a sheet that chains a turn's attacks, extra damage you add as it applies, and main-hand and off-hand marks.
+- **Characters:** roll attacks with advantage or disadvantage on any device: a switch in the Weapons heading, or a long press on an attack tile for one roll.
+- **Characters:** every SRD magic weapon's extra damage and once-per-dawn powers, on the sheet and in the PDF.
+- **Characters:** charges for the SRD's charged items, shown as pips to tap; staffs spend them on their powers.
+- **Characters:** a Rest box on the Features tab, and a floating Rest button on the other tabs: short and long rests, dawn and dusk, recharging items by their roll or yours, with Undo.
+- **Characters:** cast spells from charged items, priced in charges per level, from the item or from the Spells tab, and roll the spell's damage at the level cast.
+- **Homebrew:** custom items can have charges, a recharge time and the spells they cast.
+- **Homebrew:** custom weapons can have switches the player turns on (like Flame Tongue) and extra damage or effects that apply under conditions you set, such as on a hit, against a creature type, or limited per turn or rest.
 - **Printing:** A4 as well as US Letter, for the character sheet, spell cards, magic item cards and the spellbook. An A4 spellbook page carries about 7% more than a Letter one. (#719)
 - **Printing:** when part of an export cannot be produced, the PDF opens with a page naming what was left out and why. A clean export is unchanged and gains no page. (#719)
 - **Site:** a public page for each portrait artist, with their name, how many pieces they drew,
@@ -115,6 +123,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** the builder's tab bar wraps on narrow screens.
 - **Characters:** opening a character whose choices no longer apply sets them aside and lists them in a notice; the saved copy changes only when you save.
 - **Printing:** a character portrait whose host is briefly unreachable is fetched a second time before the export gives up on it.
+- **Printing:** each weapon is named once on the PDF, with its two-handed damage and extras as bullets beneath it.
+- **Content:** SRD weapon and armor names in Title Case, without the Wikipedia links.
 - **Printing:** every sans-serif line in an export -- sheet fields, spell-column headings, the site line, the notice page and card captions -- is set in one embedded font with Helvetica's exact widths, so it looks the same in every PDF viewer and prints names such as Łukasz. (#719)
 - **Server:** the first start after upgrading builds new database indexes and gives older accounts an email lookup key, both in the background; until that finishes, an older account with a mixed-case address signs in by username rather than email. (#721)
 - **Site:** tick boxes are rounded and fill with the theme's accent when ticked (amber in the dark
@@ -195,6 +205,9 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** on a server whose JVM runs a non-English locale, spell-card school names and the sheet's ability labels drew the wrong letter: a Turkish server printed "İllusion" and "İNT".
 - **Accounts:** follow buttons remember who you follow after the page reloads. (#721)
 - **Server:** sign-in, password reset and character, party, folder and item lists no longer slow down and use more memory as the site grows.
+- **Characters:** a magic item's spell DC bonus no longer raises ki, Breath Weapon and other DCs that are not spell DCs.
+- **Characters:** uses that come back once a day were never reset; they now reset at dawn.
+- **Characters:** a monk with a low Strength no longer attacks at +0 with a weapon Martial Arts does not cover; the attack uses the real modifier (#713).
 - **Site:** all seven header tabs and their menus fit on a 320px phone.
 - **Spells:** a spell can no longer be prepared once every preparation is used.
 

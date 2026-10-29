@@ -548,7 +548,7 @@
      :modifiers [(modifiers/action
                   {:name "Fist of Unbroken Air"
                    :page 81
-                   :summary (str "spend 2 + X ki, a creature within 30 ft. takes 3d10 + Xd10 damage on failed DC " (?spell-save-dc ::character/wis) " STR save, is pushed up to 20 ft., and is knocked prone. On successful save it just takes half damage.")})]})
+                   :summary (str "spend 2 + X ki, a creature within 30 ft. takes 3d10 + Xd10 damage on failed DC " (?save-dc ::character/wis) " STR save, is pushed up to 20 ft., and is knocked prone. On successful save it just takes half damage.")})]})
    (t/option-cfg
     {:name "Flames of the Phoenix"
      :modifiers [(modifiers/action
@@ -607,7 +607,7 @@
      :modifiers [(modifiers/bonus-action
                   {:name "Water Whip"
                    :page 81
-                   :summary (str "spend 2 + X ki, a creature within 30 ft. takes 3d10 + Xd10 damage on failed DC " (?spell-save-dc ::character/wis) " DEX save, is pulled up to 25 ft. or knocked prone. On successful save it just takes half damage.")})]})
+                   :summary (str "spend 2 + X ki, a creature within 30 ft. takes 3d10 + Xd10 damage on failed DC " (?save-dc ::character/wis) " DEX save, is pulled up to 25 ft. or knocked prone. On successful save it just takes half damage.")})]})
    (t/option-cfg
     {:name "Wave of Rolling Earth"
      :modifiers [(modifiers/action

@@ -29,6 +29,7 @@
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.spells :as spells]
+            [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.selections :as selections5e]
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.feats :as feats5e]
@@ -2175,9 +2176,54 @@
   (is (= :blue (get-in @app-db [::char5e/character-map 7 :orcpub.entity/options :background :orcpub.entity/key]))
       "nothing is written back"))
 
+(deftest finish-long-rest-keeps-dawn-and-shorter-periods
+  (reset! app-db {::char5e/character-map
+                  {7 {:orcpub.entity/values
+                      {::char5e/features-used {::units5e/long-rest #{"a"}
+                                               ::units5e/rest #{"b"}
+                                               ::units5e/dawn #{"Dagger of Venom"}
+                                               ::units5e/turn #{"c"}}}}}})
+  (effects-of [::char5e/finish-long-rest "7"] [::char5e/save-character-throttled])
+  (is (= {::units5e/turn #{"c"} ::units5e/dawn #{"Dagger of Venom"}}
+         (get-in @app-db [::char5e/character-map 7 :orcpub.entity/values ::char5e/features-used]))
+      "a long rest does not mean dawn passed"))
+
+(deftest charges-are-spent-and-given-back-per-wand
+  (let [wand (some #(when (= "Wand of Fireballs" (::mi/name %)) %) mi/magic-items)
+        entry #(get-in @app-db [::char5e/character-map 7 :orcpub.entity/options :other-magic-items 0 :orcpub.entity/value])
+        used (fn [] (into {} (map (juxt :orcpub.dnd.e5.character.equipment/charge-index
+                                        :orcpub.dnd.e5.character.equipment/charges-used))
+                          (:orcpub.dnd.e5.character.equipment/charges (entry))))]
+    (reset! app-db {::char5e/character-map
+                    {7 {:orcpub.entity/options
+                        {:other-magic-items [{:orcpub.entity/key :wand-of-fireballs :orcpub.entity/value 2}]}}}})
+    (effects-of [::char5e/change-item-charges "7" :other-magic-items :wand-of-fireballs wand 1 3] [::char5e/save-character-throttled])
+    (is (= {1 3} (used)) "the second wand spends 3; a bare quantity became a map")
+    (is (= 2 (:orcpub.dnd.e5.character.equipment/quantity (entry))) "and keeps its quantity")
+    (effects-of [::char5e/change-item-charges "7" :other-magic-items :wand-of-fireballs wand 1 5] [::char5e/save-character-throttled])
+    (is (= {1 3} (used)) "5 more than the 4 left changes nothing")
+    (effects-of [::char5e/change-item-charges "7" :other-magic-items :wand-of-fireballs wand 1 -2] [::char5e/save-character-throttled])
+    (is (= {1 1} (used)) "2 given back")))
+
 (deftest feat-checkbox-starts-a-set-from-anything-else
   (doseq [start [[] nil #{}]]
     (reset! app-db {::feats5e/builder-item {:name "F" :ability-increases start}})
     (rf/dispatch-sync [::feats5e/toggle-feat-ability-increase :orcpub.dnd.e5.character/str])
     (is (= #{:orcpub.dnd.e5.character/str} (get-in @app-db [::feats5e/builder-item :ability-increases]))
         (str "from " (pr-str start)))))
+
+(deftest rest-events-ignore-a-missing-or-other-characters-result
+  (let [ch {:orcpub.entity/values {::char5e/features-used {::units5e/dawn #{"x"}}}}
+        kept #(get-in @app-db [::char5e/character-map 7])]
+    (reset! app-db {::char5e/character-map {7 ch}})
+    (effects-of [::char5e/undo-rest 7] [::char5e/save-character-throttled])
+    (is (= ch (kept)) "no stored result: Undo changes nothing")
+    (reset! app-db {::char5e/character-map {7 ch} ::char5e/rest-result {:id 8 :before {:orcpub.entity/values {}}}})
+    (effects-of [::char5e/undo-rest 7] [::char5e/save-character-throttled])
+    (is (= ch (kept)) "another character's result: nothing changes")))
+
+(deftest a-sheet-edit-closes-an-open-rest-result
+  (reset! app-db {::char5e/character-map {7 {:orcpub.entity/values {}}}
+                  ::char5e/rest-result {:id "7" :before {:orcpub.entity/values {}}}})
+  (effects-of [::char5e/toggle-feature-used "7" ::units5e/dawn "Javelin of Lightning"] [::char5e/save-character-throttled])
+  (is (nil? (::char5e/rest-result @app-db)) "so Undo cannot overwrite the edit"))
