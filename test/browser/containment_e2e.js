@@ -1,5 +1,5 @@
 // Overlays:  suppressed (cookie notice and What's New).
-// Does a bug cost only the item it is in, in the real app? See docs/HOMEBREW_GUARD.md, 5.
+// Does a bug cost only the item it is in, in the real app? See homebrew-guard.md, 5.
 //
 // Events: re-frame applies no effect of a handler that did not finish; events/event-failed,
 // registered by core.cljs once startup is done, says so in the error notice instead of

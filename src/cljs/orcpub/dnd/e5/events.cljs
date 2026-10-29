@@ -6813,7 +6813,7 @@
              {:db db' :dispatch-n refused})))))))
 
 ;; Every event, whatever it changed and however: the homebrew it leaves is checked here, so no
-;; write can skip the check by going around commit-library. See docs/HOMEBREW_GUARD.md.
+;; write can skip the check by going around commit-library. See homebrew-guard.md.
 (reg-global-interceptor
  (->interceptor
   :id ::homebrew-shapes
@@ -6834,7 +6834,7 @@
 ;; An event that throws changes nothing (re-frame applies no effect of an unfinished handler):
 ;; event-failed says so, once a few seconds per event, and logs it; re-frame's own handler rethrew,
 ;; dropping every queued event. core.cljs registers it after startup, whose recovery needs
-;; :initialize-db to throw; the test builds keep re-frame's. See docs/HOMEBREW_GUARD.md, 5.
+;; :initialize-db to throw; the test builds keep re-frame's. See homebrew-guard.md, 5.
 (def ^:private last-event-error (atom nil))
 
 (def event-failed-message

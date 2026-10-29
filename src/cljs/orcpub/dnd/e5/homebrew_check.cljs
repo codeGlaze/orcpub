@@ -4,7 +4,7 @@
    builder guarding would miss.
    GOTCHA: realizing costs ~20ms an entry (9s for test-pak's 464), so call it only for the
    entries a change wrote (the homebrew-shapes interceptor's ::check-entries), or after a page
-   has already failed. See docs/HOMEBREW_GUARD.md."
+   has already failed. See homebrew-guard.md."
   (:require [clojure.string :as s]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5 :as e5]

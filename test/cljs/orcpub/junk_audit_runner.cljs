@@ -17,7 +17,7 @@
   (js/console.log "JUNKDONE" (pr-str (select-keys m [:test :pass :fail :error]))))
 
 ;; ?unguarded: the shape check lets everything through, so the junk reaches our own code. What
-;; fails then is what containment and the hardened helpers must catch (docs/HOMEBREW_GUARD.md, 5).
+;; fails then is what containment and the hardened helpers must catch (homebrew-guard.md, 5).
 (when (re-find #"[?&]unguarded" (str (.-search js/location)))
   (set! shapes/clean-library (fn [library & _] {:library library :findings []})))
 

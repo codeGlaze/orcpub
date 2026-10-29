@@ -3,7 +3,7 @@
    Homebrew is untrusted: an imported, hand-edited or injected entry can hold anything anywhere.
    Code that reads homebrew assumes these shapes, so the seams run entries through here first.
    `read-structure` comes first, for a library as stored: a library, source or section kept as
-   text, a section kept as a list. Requires only orcpub.common. See docs/HOMEBREW_GUARD.md."
+   text, a section kept as a list. Requires only orcpub.common. See homebrew-guard.md."
   (:require [clojure.string :as str]
             #?(:clj [clojure.edn :as edn])
             #?(:cljs [cljs.reader :as reader])
@@ -11,7 +11,7 @@
 
 ;; ---------------------------------------------------------------------------------------------
 ;; Shapes are data: :string, :num, [:list s], [:map {field s}] and so on. What each form means,
-;; and what `clean` fixes for each, is in docs/HOMEBREW_GUARD.md, "The shape forms".
+;; and what `clean` fixes for each, is in homebrew-guard.md, "The shape forms".
 
 (defn fits?
   "Does `v` fit `shape` as it is? Allocates nothing, so a sound entry costs one walk."

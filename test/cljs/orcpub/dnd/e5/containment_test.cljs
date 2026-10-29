@@ -1,6 +1,6 @@
 (ns orcpub.dnd.e5.containment-test
   "A bug of ours, or homebrew the checks before it miss, costs the one item it is in, and is
-   reported: docs/HOMEBREW_GUARD.md, 5."
+   reported: homebrew-guard.md, 5."
   (:require [cljs.test :refer-macros [deftest testing is]]
             [orcpub.template :as t]
             [orcpub.dnd.e5 :as e5]

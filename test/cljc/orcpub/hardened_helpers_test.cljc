@@ -1,6 +1,6 @@
 (ns orcpub.hardened-helpers-test
   "The helpers every option, choice and modifier passes through skip a value of the wrong shape
-   instead of throwing (docs/HOMEBREW_GUARD.md, 5)."
+   instead of throwing (homebrew-guard.md, 5)."
   (:require #?(:clj  [clojure.test :refer [deftest testing is]]
                :cljs [cljs.test :refer-macros [deftest testing is]])
             [orcpub.common :as common]

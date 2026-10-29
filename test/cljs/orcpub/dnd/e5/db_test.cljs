@@ -199,7 +199,7 @@
 
 (deftest loading-makes-the-library-fit-its-shapes-once
   ;; A subclasses section stored as true stopped the app from starting; the loader read it
-  ;; before anything else could. See docs/HOMEBREW_GUARD.md.
+  ;; before anything else could. See homebrew-guard.md.
   (.setItem js/window.localStorage db/local-storage-plugins-key
             (str "{\"P\" {:orcpub.dnd.e5/subclasses true :orcpub.dnd.e5/races {"
                  ":hill {:key :hill :option-pack \"P\" :name \"Hill\" :speed \"25\"} "

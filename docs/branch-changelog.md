@@ -29,7 +29,7 @@ Homebrew was checked where code remembered to check it, and trusted everywhere e
 the wrong shape in one field could break a page, stop the app from starting, or make an entry
 vanish without a word. This branch checks every change to the homebrew library in one place,
 whichever way it came in, against one table of what each field holds; and a test loads junk
-into every field of every content type, by every way in, to prove it (docs/HOMEBREW_GUARD.md).
+into every field of every content type, by every way in, to prove it (homebrew-guard.md).
 
 ## Added
 

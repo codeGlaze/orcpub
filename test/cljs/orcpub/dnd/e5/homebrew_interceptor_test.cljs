@@ -1,6 +1,6 @@
 (ns orcpub.dnd.e5.homebrew-interceptor-test
   "The global interceptor: whatever an event does to the homebrew library, and however, what it
-   leaves is made to fit the shape table. See docs/HOMEBREW_GUARD.md."
+   leaves is made to fit the shape table. See homebrew-guard.md."
   (:require [cljs.test :refer-macros [deftest testing is]]
             [re-frame.core :as rf]
             [re-frame.db :refer [app-db]]
