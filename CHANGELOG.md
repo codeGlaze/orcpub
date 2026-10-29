@@ -90,6 +90,12 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** the add buttons on homebrew builders repeat below a long list of traits or options.
 - **Printing:** A4 as well as US Letter, for the character sheet, spell cards, magic item cards and the spellbook. An A4 spellbook page carries about 7% more than a Letter one. (#719)
 - **Printing:** when part of an export cannot be produced, the PDF opens with a page naming what was left out and why. A clean export is unchanged and gains no page. (#719)
+- **Site:** a public page for each portrait artist, with their name, how many pieces they drew,
+  three small watermarked example portraits and the links they listed, and a page listing
+  every artist.
+- **Characters:** the portrait credit links to the artist's page.
+- **Accounts:** artists choose on My Account whether they have a page, and whether it shows
+  their example portraits, their links and how many pieces they drew.
 
 ### Changed
 - **Server:** a deployed server will not start without a mail server unless `EMAIL_REQUIRED=false` says that is intended, and the message names the setting to add. Development mode is exempt; `./run` and `./run --upgrade` set the opt-out for installs that run without email, so none stops on upgrade. (#716)
@@ -111,6 +117,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** a character portrait whose host is briefly unreachable is fetched a second time before the export gives up on it.
 - **Printing:** every sans-serif line in an export -- sheet fields, spell-column headings, the site line, the notice page and card captions -- is set in one embedded font with Helvetica's exact widths, so it looks the same in every PDF viewer and prints names such as Łukasz. (#719)
 - **Server:** the first start after upgrading builds new database indexes and gives older accounts an email lookup key, both in the background; until that finishes, an older account with a mixed-case address signs in by username rather than email. (#721)
+- **Site:** tick boxes are rounded and fill with the theme's accent when ticked (amber in the dark
+  theme, blue in the light), and the sign-up page's updates box matches the rest.
 
 ### Fixed
 
@@ -187,6 +195,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** on a server whose JVM runs a non-English locale, spell-card school names and the sheet's ability labels drew the wrong letter: a Turkish server printed "İllusion" and "İNT".
 - **Accounts:** follow buttons remember who you follow after the page reloads. (#721)
 - **Server:** sign-in, password reset and character, party, folder and item lists no longer slow down and use more memory as the site grows.
+- **Site:** all seven header tabs and their menus fit on a 320px phone.
+- **Spells:** a spell can no longer be prepared once every preparation is used.
 
 ### Security
 
@@ -194,6 +204,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 
 - Sign-in, password reset, share links, image fetching and PDF export are hardened against misuse, and secrets are no longer printed at startup.
 - **Site:** pages no longer load fonts from Google, so visiting the site no longer sends your address to Google. (#721)
+- **Site:** other sites a page links to are told only this site's domain, never the page's address.
 
 ## [breaking/2026-stack-modernization]
 
