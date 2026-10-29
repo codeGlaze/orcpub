@@ -78,7 +78,7 @@ async function openBuilder(page) {
 }
 
 async function section(page, name) {
-  const re = new RegExp('^' + name.replace(/[/]/g, '\\/') + '$');
+  const re = new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&') + '$');
   await page.locator('div.f-s-10', { hasText: re }).first().click({ timeout: 10000 });
   await settle(page);
 }
