@@ -99,5 +99,9 @@
   "cookie_notice_e2e.js": {
     "checks": 9,
     "seconds": 10
+  },
+  "containment_e2e.js": {
+    "checks": 10,
+    "seconds": 25
   }
 }

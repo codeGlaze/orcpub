@@ -10,6 +10,7 @@
             ;; the rename history (:former-keys) is written here and read by the heal path
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.library-links :as links]
+            [orcpub.dnd.e5.homebrew-shapes :as shapes]
             [orcpub.common :as common]
             [orcpub.dnd.e5.orcbrew-format :as orcbrew-format]))
 
@@ -1805,8 +1806,22 @@
 ;; Main Validation Entry Point
 ;; ============================================================================
 
+(defn finding-description
+  "Import-log wording for one homebrew-shapes finding (homebrew-shapes/fix-library): a field fixed,
+   or one that cannot be read, whose entry is set aside for repair when the import is stored."
+  [{:keys [source content-type key path action found]}]
+  (let [entry (if (some? key)
+                (str (get content-type-singular content-type "Entry") " " key)
+                (str "the " (get content-type-names content-type (name content-type)) " section"))
+        in (when (seq source) (str " in \"" source "\""))
+        field (str/join " " (map #(if (keyword? %) (name %) (str %)) path))]
+    (if (= :fixed action)
+      (str "Fixed " (if (seq field) field "the value") " of " entry in " (it was " (pr-str found) ")")
+      (str entry in ": " (if (seq field) field "it") " could not be read, so it will be set aside for "
+           "repair in My Content"))))
+
 (defn repair-description
-  "Import-log wording for one e5/mend-import-data repair."
+  "Import-log wording for one homebrew-shapes/read-import repair."
   [{:keys [source section key field repair named dropped]}]
   (let [what (when section (str "the " (get content-type-names section (name section)) " section"))
         in (when source (str " in \"" source "\""))
@@ -1921,15 +1936,25 @@
 
       (:success parse-result)
 
-        ;; Step 2.25: put damaged sections back in shape before anything walks them.
-        ;; A section stored as text or as a list still holds its data; left alone it
-        ;; imported as "successful" and failed later at export, and a whole file
-        ;; stored as text crashed the steps below.
-        (let [{mended :data repairs :repairs} (e5/mend-import-data (:data parse-result))
-              repair-changes (mapv (fn [r] {:type :repaired-section
-                                            :description (repair-description r)
-                                            :entry (when (:key r) [(:source r) (:section r) (:key r)])})
-                                   repairs)]
+        ;; Step 2.25: damaged structure read back (a file, source or section kept as text or a list)
+        ;; before anything walks it, then the shape table's fixes, each listed. An entry it cannot
+        ;; read stays as written, and is set aside for repair when the import is stored.
+        (let [{read-data :data repairs :repairs} (shapes/read-import (:data parse-result))
+              library? (and (map? read-data) (every? string? (keys read-data)))
+              {fixed :library findings :findings} (when (and auto-clean (map? read-data))
+                                                    (shapes/fix-library (if library? read-data {"" read-data})))
+              mended (cond (or (not auto-clean) (not (map? read-data))) read-data
+                           library? fixed
+                           :else (get fixed ""))
+              repair-changes (into (mapv (fn [r] {:type :repaired-section
+                                                  :description (repair-description r)
+                                                  :entry (when (:key r) [(:source r) (:section r) (:key r)])})
+                                         repairs)
+                                   (map (fn [f] {:type :repaired-section
+                                                 :description (finding-description f)
+                                                 :entry (when (:key f)
+                                                          [(not-empty (:source f)) (:content-type f) (:key f)])}))
+                                   findings)]
           (if-not (map? mended)
             {:success false
              :errors ["This file doesn't contain homebrew content that can be read."]

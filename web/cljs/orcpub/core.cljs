@@ -14,7 +14,7 @@
             [orcpub.user-agent :as user-agent]
             [cljs-http.client :as http]
             [clojure.string :as s]
-            [re-frame.core :refer [dispatch dispatch-sync subscribe]]
+            [re-frame.core :refer [dispatch dispatch-sync subscribe reg-event-error-handler]]
             [reagent.core :as r]
             [reagent.dom.client :as rdc]
             [goog.events])
@@ -62,6 +62,10 @@
 ;; Tidies what past renames left in the library. Its own step: a failure here must not
 ;; undo a load that worked.
 (boot-step "settle-loaded-library" #(dispatch [:orcpub.dnd.e5/settle-loaded-library]))
+
+;; From here an event that throws is noticed and changes nothing, rather than rethrown: not
+;; before, as the recovery above needs :initialize-db to throw. See events/event-failed.
+(reg-event-error-handler events/event-failed)
 
 ;; Startup builds nothing from homebrew, except the character template on a page that shows a
 ;; character (build-template, below). See homebrew-safety-net.md.

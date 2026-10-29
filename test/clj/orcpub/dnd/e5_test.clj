@@ -511,59 +511,9 @@
     (is (= {} (e5/reconcile-rejected-items nil nil nil)))))
 
 ;; ---------------------------------------------------------------------------
-;; Mending damaged sections, and setting aside what cannot be mended
+;; Setting aside what cannot be loaded. Reading damaged structure back, and fixing fields:
+;; homebrew_structure_test, homebrew_shape_table_test.
 ;; ---------------------------------------------------------------------------
-
-(def ^:private spell-a {:option-pack "P" :key :fire-bolt :name "Fire Bolt" :level 0 :school "evocation"})
-(def ^:private spell-b {:option-pack "P" :key :witch-bolt :name "Witch Bolt" :level 1 :school "evocation"})
-
-(deftest mend-section-recovers-the-shapes-damage-takes
-  (testing "a section stored as text"
-    (is (= {:section {:fire-bolt spell-a} :repair :section-from-text}
-           (e5/mend-section (pr-str {:fire-bolt spell-a})))))
-  (testing "a section stored as a list, keyed by each entry's own key"
-    (is (= {:section {:fire-bolt spell-a :witch-bolt spell-b} :repair :section-from-list}
-           (e5/mend-section [spell-a spell-b]))))
-  (testing "a list entry without a key gets the key its name derives"
-    (is (= :fire-bolt (-> (e5/mend-section [(dissoc spell-a :key)]) :section :fire-bolt :key))))
-  (testing "an empty section is dropped"
-    (doseq [v [nil [] "" "  " '()]]
-      (is (= {:dropped :empty-section} (e5/mend-section v)) (pr-str v))))
-  (testing "a good section and a true/false are left alone"
-    (is (= {:section {:fire-bolt spell-a}} (e5/mend-section {:fire-bolt spell-a})))
-    (is (= {:section true} (e5/mend-section true)))))
-
-(deftest mend-section-does-not-guess
-  (testing "text that does not read as entries"
-    (is (= {:damaged "corrupted"} (e5/mend-section "corrupted"))))
-  (testing "two list entries claiming one key -- keying them would lose one"
-    (is (contains? (e5/mend-section [spell-a spell-a]) :damaged)))
-  (testing "a list element that is not an entry"
-    (is (contains? (e5/mend-section [spell-a 42]) :damaged))))
-
-(deftest mend-plugin-reports-each-repair
-  (let [{p :plugin rs :repairs} (e5/mend-plugin {:orcpub.dnd.e5/spells (pr-str {:fire-bolt spell-a})
-                                                 :orcpub.dnd.e5/feats nil
-                                                 :disabled? false})]
-    (is (= {:fire-bolt spell-a} (:orcpub.dnd.e5/spells p)))
-    (is (not (contains? p :orcpub.dnd.e5/feats)))
-    (is (false? (:disabled? p)) "non-content keys are untouched")
-    (is (= #{{:section :orcpub.dnd.e5/spells :repair :section-from-text}
-             {:section :orcpub.dnd.e5/feats :repair :empty-section}}
-           (set rs)))))
-
-(deftest mend-library-reads-a-source-stored-as-text
-  (let [{l :library rs :repairs} (e5/mend-library {"P" (pr-str {:orcpub.dnd.e5/spells {:fire-bolt spell-a}})})]
-    (is (= {:fire-bolt spell-a} (get-in l ["P" :orcpub.dnd.e5/spells])))
-    (is (= [{:source "P" :repair :source-from-text}] rs))))
-
-(deftest mend-import-data-reads-a-whole-file-stored-as-text
-  (let [{d :data rs :repairs} (e5/mend-import-data (pr-str {:orcpub.dnd.e5/spells [spell-a]}))]
-    (is (= {:fire-bolt spell-a} (:orcpub.dnd.e5/spells d)))
-    (is (= [:file-from-text :section-from-list] (map :repair rs)))))
-
-(deftest a-mended-section-passes-the-load-check
-  (is (spec/valid? ::e5/plugin (:plugin (e5/mend-plugin {:orcpub.dnd.e5/spells [spell-a spell-b]})))))
 
 (deftest salvage-sets-aside-a-damaged-section-and-keeps-the-rest
   (let [{:keys [kept rejected]}
@@ -597,16 +547,6 @@
          (e5/merge-plugins {:orcpub.dnd.e5/spells {:a 1}}
                            {:orcpub.dnd.e5/spells {:b 2} :orcpub.dnd.e5/feats {:c 3}}))))
 
-(deftest mend-library-reads-back-a-library-stored-as-text
-  (let [lib {"P" {:orcpub.dnd.e5/feats {:tough {:option-pack "P" :key :tough :name "Tough"}}}}
-        {:keys [library repairs]} (e5/mend-library (pr-str lib))]
-    (is (= lib library))
-    (is (= [{:repair :library-from-text}] repairs)))
-  (testing "text that reads as a single source is not taken for a library"
-    (is (string? (:library (e5/mend-library (pr-str {:orcpub.dnd.e5/feats {}}))))))
-  (testing "text that does not read stays as it is"
-    (is (= "nope {" (:library (e5/mend-library "nope {"))))))
-
 (deftest an-entry-with-no-source-takes-the-name-of-its-source
   (let [lib {"My Pak" {:orcpub.dnd.e5/spells {:a {:key :a :option-pack "My Pak" :name "A"}
                                               :b {:key :b :name "B"}
@@ -627,41 +567,6 @@
   (testing "entries that are not maps are left for the checks that set them aside"
     (is (= "garbage" (get-in (:plugin (e5/fill-missing-sources {:orcpub.dnd.e5/feats {:x "garbage"}} "Mine"))
                              [:orcpub.dnd.e5/feats :x])))))
-
-(deftest mend-cards-puts-a-card-list-back-together
-  (is (= {:value [{:name "A"}]} (e5/mend-cards [{:name "A"}])) "a sound list is left alone")
-  (is (= {:value [{:name "Darkvision"} {:name "B"}] :repair :cards-mended :named 1 :dropped 1}
-         (e5/mend-cards ["Darkvision" 42 {:name "B"}])))
-  (is (= [{:name "Solo"}] (:value (e5/mend-cards {:name "Solo"}))))
-  (is (= [{:name "Darkvision"}] (:value (e5/mend-cards "Darkvision"))))
-  (is (= {:remove? true :repair :cards-not-a-list} (e5/mend-cards 42)))
-  (is (= {:remove? true :repair :cards-not-a-list} (e5/mend-cards :kw))))
-
-(deftest mend-plugin-repairs-damaged-entries-and-says-which
-  (let [plugin {:orcpub.dnd.e5/races {:elfish {:key "text" :name "Elfish" :option-pack "P"
-                                               :traits [42 "Keen Senses"] :options 7}
-                                      :fine {:key :fine :name "Fine" :option-pack "P" :traits [{:name "T"}]}}
-                :orcpub.dnd.e5/selections {:pick {:key :pick :name "Pick" :option-pack "P" :options 7}}}
-        {p :plugin rs :repairs} (e5/mend-plugin plugin)]
-    (is (= :elfish (get-in p [:orcpub.dnd.e5/races :elfish :key])) "a text key stopped the app from starting")
-    (is (= [{:name "Keen Senses"}] (get-in p [:orcpub.dnd.e5/races :elfish :traits])))
-    (is (= 7 (get-in p [:orcpub.dnd.e5/races :elfish :options])) ":options is only a card list on a selection")
-    (is (= (get-in plugin [:orcpub.dnd.e5/races :fine]) (get-in p [:orcpub.dnd.e5/races :fine])) "a sound entry is untouched")
-    (is (not (contains? (get-in p [:orcpub.dnd.e5/selections :pick]) :options)))
-    (is (= #{[:elfish :key :key-restored] [:elfish :traits :cards-mended] [:pick :options :cards-not-a-list]}
-           (set (map (juxt :key :field :repair) rs)))))
-  (testing "a healthy source reports no repairs, so nothing is written back"
-    (is (= [] (:repairs (e5/mend-plugin {:orcpub.dnd.e5/races {:fine {:key :fine :name "Fine" :option-pack "P"
-                                                                     :traits [{:name "T"}]}}}))))))
-
-(deftest a-spell-whose-class-lists-are-not-a-map-keeps-loading-without-them
-  (let [{p :plugin rs :repairs} (e5/mend-plugin {:orcpub.dnd.e5/spells
-                                                 {:bolt {:key :bolt :name "Bolt" :option-pack "P" :spell-lists 42}
-                                                  :fine {:key :fine :name "Fine" :option-pack "P" :spell-lists {:wizard true}}}})]
-    (is (= {:key :bolt :name "Bolt" :option-pack "P"} (get-in p [:orcpub.dnd.e5/spells :bolt]))
-        "it stopped the character options from building")
-    (is (= {:wizard true} (get-in p [:orcpub.dnd.e5/spells :fine :spell-lists])))
-    (is (= [[:bolt :spell-lists :spell-lists-not-a-map]] (map (juxt :key :field :repair) rs)))))
 
 (deftest test-rekey-plugin-records-the-old-key-and-repoints-links
   (let [plugin {:orcpub.dnd.e5/subclasses {:oath {:name "Oath" :class :9-lives}}

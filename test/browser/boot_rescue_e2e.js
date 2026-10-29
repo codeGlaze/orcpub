@@ -10,6 +10,8 @@
 // that is simply always on would pass everything above.
 const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
+// a run by hand gets no overlay preload, so the What's New panel would cover every click
+const { suppressWhatsNew } = require('./lib/orcbrew-import');
 const fs = require('fs'), path = require('path');
 const BASE = 'http://localhost:8890';
 const OUT = process.env.PROBE_OUT || '/tmp/boot-rescue';
@@ -27,6 +29,7 @@ function check(name, pass, detail) {
 // Seeds localStorage before any app code runs, so the control has something to save.
 async function seeded(browser, { breakage } = {}) {
   const ctx = await browser.newContext({ acceptDownloads: true });
+  await suppressWhatsNew(ctx);
   await ctx.addInitScript(v => {
     try {
       localStorage.setItem('plugins', v);
@@ -110,8 +113,9 @@ async function rescues(page, label, expected = PLUGINS) {
   //  The app boots fine and clears the control; only then does a render throw
   //  into the app-root error boundary. This is the case a naive "remove on
   //  mount" gets wrong, and the reason the control hides rather than deletes.
-  //  reduce-kv is poisoned because My Content calls it per source on every
-  //  render, so the next render is a real throw through React's own error path.
+  //  The move/copy bar is poisoned: My Content draws it outside the per-source and per-list
+  //  guards (which contain a throw to their own row), so the next render of the page is a real
+  //  throw through React's own error path to the app root.
   {
     const { ctx, page } = await seeded(browser);
     await page.goto(BASE + '/dnd/5e/my-content', { waitUntil: 'domcontentloaded' });
@@ -125,20 +129,20 @@ async function rescues(page, label, expected = PLUGINS) {
     // so the rescue must hand back what is stored at the crash, not the seed.
     const storedBeforeCrash = await page.evaluate(() => localStorage.getItem('plugins'));
 
-    // Poison the function My Content calls while rendering each source row, so
-    // the next render is a genuine throw through React's own error path.
+    // Poison the bar My Content draws in select mode, so the next render of the page itself is
+    // a genuine throw through React's own error path.
     const poisoned = await page.evaluate(() => {
       var v = window.orcpub && window.orcpub.dnd && window.orcpub.dnd.e5
               && window.orcpub.dnd.e5.views;
-      if (!v || !v.source_disabled_counts) return 'views ns unreachable';
-      v.source_disabled_counts = function () { throw new Error('simulated render failure'); };
+      if (!v || !v.relocate_bar) return 'views ns unreachable';
+      v.relocate_bar = function () { throw new Error('simulated render failure'); };
       return 'ok';
     });
     check('could poison a render-path fn', poisoned === 'ok', String(poisoned));
 
-    // Force the next render of that row.
-    const expand = page.locator('text=expand').first();
-    const clicked = await expand.click({ timeout: 10000 }).then(() => 'clicked')
+    // Turn select mode on, so the page draws the bar.
+    const toggle = page.locator('button.b-move').first();
+    const clicked = await toggle.click({ timeout: 10000 }).then(() => 'clicked')
                                 .catch(e => e.message.split('\n')[0]);
     check('could force a re-render', clicked === 'clicked', String(clicked));
     await page.waitForTimeout(2500);
@@ -161,6 +165,7 @@ async function rescues(page, label, expected = PLUGINS) {
   //  built after the page opened never reached the copy it kept.
   {
     const ctx = await browser.newContext({ acceptDownloads: true });
+    await suppressWhatsNew(ctx);
     // Deliberately opens with NOTHING stored, so a load-time read would both
     // fail to arm the control and have nothing to give.
     await ctx.addInitScript(() => {
@@ -213,6 +218,7 @@ async function rescues(page, label, expected = PLUGINS) {
   //  panel is what handles this.
   {
     const ctx = await browser.newContext();
+    await suppressWhatsNew(ctx);
     await ctx.addInitScript(() => {
       try {
         localStorage.setItem('plugins', '{:this is not (valid edn at all');
@@ -234,6 +240,7 @@ async function rescues(page, label, expected = PLUGINS) {
   //  boundary, so every page stayed on the loading spinner with only this control.
   {
     const ctx = await browser.newContext();
+    await suppressWhatsNew(ctx);
     await ctx.addInitScript(() => {
       try {
         localStorage.setItem('plugins', '{"Bad Key Pak" {:orcpub.dnd.e5/races {:x {:key "text" :option-pack "Bad Key Pak" :name "X" :speed 30}}}}');
@@ -255,6 +262,7 @@ async function rescues(page, label, expected = PLUGINS) {
   // ---- 5. sensitivity: no homebrew stored means no control ----------------
   {
     const ctx = await browser.newContext();
+    await suppressWhatsNew(ctx);
     const page = await ctx.newPage();
     await page.goto(BASE + '/dnd/5e/my-content', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2500);

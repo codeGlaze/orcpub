@@ -730,6 +730,23 @@
     (is (nil? (get (reconcile/former-key-index plugins #{:folk-hero}) :folk-hero))
         "a built-in background with that key still answers")))
 
+(deftest a-boon-or-invocation-picked-by-its-name-heals-to-its-stored-key
+  ;; both were offered under their name's key until they were offered under the stored one
+  (let [plugins {"Pak" {:orcpub.dnd.e5/boons {:pact-of-ash-pk {:name "Pact of Ash" :key :pact-of-ash-pk}}
+                        :orcpub.dnd.e5/invocations {:ember-sight-2 {:name "Ember Sight" :key :ember-sight-2}}}}
+        warlock {::entity/options {:class [{::entity/key :warlock
+                                            ::entity/options {:pact-boon {::entity/key :pact-of-ash}
+                                                              :eldritch-invocations
+                                                              [{::entity/key :ember-sight}]}}]}}
+        {:keys [character rewrote]}
+        (reconcile/reconcile-former-keys
+         warlock (reconcile/former-key-indexes plugins #{:warlock :pact-of-ash-pk :ember-sight-2} {}))]
+    (is (= :pact-of-ash-pk (get-in character [::entity/options :class 0 ::entity/options :pact-boon ::entity/key])))
+    (is (= :ember-sight-2 (get-in character [::entity/options :class 0 ::entity/options
+                                             :eldritch-invocations 0 ::entity/key])))
+    (is (= #{{:from :pact-of-ash :to :pact-of-ash-pk} {:from :ember-sight :to :ember-sight-2}}
+           (set rewrote)))))
+
 ;; A key names nothing without its type: a heal or a lookup that ignores the type reads one kind
 ;; of content as another (docs/kb/typed-keys.md).
 

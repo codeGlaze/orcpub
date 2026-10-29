@@ -1588,15 +1588,23 @@
              (get-in (import! "{:orcpub.dnd.e5/feats {:tough {:key :tough :name \"Tough\"}}}")
                      [:data :orcpub.dnd.e5/feats :tough :option-pack]))))))
 
-(deftest import-mends-card-lists-and-keys-instead-of-crashing
-  (let [result (orcbrew-val/validate-import
-                "{\"P\" {:orcpub.dnd.e5/classes {:x {:key \"text\" :option-pack \"P\" :name \"X\" :traits [42 \"Darkvision\"]}}}}"
-                {:strategy :progressive :auto-clean true})]
-    (is (:success result) "it threw: No protocol method IAssociative.-assoc defined for type number")
-    (is (= :x (get-in result [:data "P" :orcpub.dnd.e5/classes :x :key])))
-    (is (= "Darkvision" (get-in result [:data "P" :orcpub.dnd.e5/classes :x :traits 0 :name])))
-    (is (some #(re-find #"Repaired 1 damaged entry" %)
-              (map #(if (map? %) (:text %) %) (:details (orcbrew-val/format-import-result result)))))))
+(deftest import-fixes-cards-and-keys-and-keeps-what-it-cannot-read-instead-of-crashing
+  (testing "a text key and a trait listed by name are fixed, and the import log says so"
+    (let [result (orcbrew-val/validate-import
+                  "{\"P\" {:orcpub.dnd.e5/classes {:x {:key \"text\" :option-pack \"P\" :name \"X\" :traits [\"Darkvision\"]}}}}"
+                  {:strategy :progressive :auto-clean true})]
+      (is (:success result) "it threw: No protocol method IAssociative.-assoc defined for type number")
+      (is (= :x (get-in result [:data "P" :orcpub.dnd.e5/classes :x :key])))
+      (is (= "Darkvision" (get-in result [:data "P" :orcpub.dnd.e5/classes :x :traits 0 :name])))
+      (is (some #(re-find #"Fixed traits 0 of Class :x" (str (:description %))) (:changes result)))))
+  (testing "a trait that cannot be read: the entry stays as written, to be set aside when stored"
+    (let [result (orcbrew-val/validate-import
+                  "{\"P\" {:orcpub.dnd.e5/classes {:x {:key \"text\" :option-pack \"P\" :name \"X\" :traits [42 \"Darkvision\"]}}}}"
+                  {:strategy :progressive :auto-clean true})]
+      (is (:success result))
+      (is (= [42 "Darkvision"] (get-in result [:data "P" :orcpub.dnd.e5/classes :x :traits])))
+      (is (some #(re-find #"could not be read, so it will be set aside" (str (:description %)))
+                (:changes result))))))
 
 (deftest import-of-a-source-that-is-not-a-map-does-not-crash
   (doseq [text ["{\"P\" 42}" "{\"P\" :kw}" "{\"P\" \"text\"}"]]

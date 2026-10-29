@@ -3,6 +3,7 @@
             [re-frame.core :as rf]
             ;; .cljc tests (run on both JVM and CLJS)
             [orcpub.common-test]
+            [orcpub.hardened-helpers-test]
             [orcpub.dnd.e5.homebrew-guard-test]
             [orcpub.dnd.e5.event-utils-test]
             [orcpub.dnd.e5.compute-test]
@@ -40,6 +41,9 @@
             [orcpub.dnd.e5.ability-increase-grant-cljs-test]
             [orcpub.dnd.e5.plan-picks-test]
             [orcpub.dnd.e5.coverage-pak-test]
+            [orcpub.dnd.e5.junk-pack-test]
+            [orcpub.dnd.e5.homebrew-interceptor-test]
+            [orcpub.dnd.e5.containment-test]
             [orcpub.dnd.e5.reference-web-test]
             [orcpub.dnd.e5.views-test]
             [orcpub.dnd.e5.portrait-credit-thumb-test]
@@ -64,6 +68,7 @@
 
 (defn -main []
   (run-tests 'orcpub.common-test
+             'orcpub.hardened-helpers-test
    'orcpub.dnd.e5.homebrew-guard-test
              'orcpub.dnd.e5.event-utils-test
              'orcpub.dnd.e5.compute-test
@@ -92,6 +97,9 @@
              'orcpub.dnd.e5.ability-increase-grant-cljs-test
              'orcpub.dnd.e5.plan-picks-test
              'orcpub.dnd.e5.coverage-pak-test
+             'orcpub.dnd.e5.junk-pack-test
+             'orcpub.dnd.e5.homebrew-interceptor-test
+             'orcpub.dnd.e5.containment-test
              'orcpub.dnd.e5.reference-web-test
              'orcpub.dnd.e5.views-test
              'orcpub.dnd.e5.portrait-credit-thumb-test

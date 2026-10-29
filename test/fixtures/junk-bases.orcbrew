@@ -1,0 +1,746 @@
+{"Junk Pak"
+ #:orcpub.dnd.e5{:boons
+                 {:junk-base
+                  {:name "Junk boons",
+                   :description "You gain junk.",
+                   :key :junk-base,
+                   :option-pack "Junk Pak"}},
+                 :languages
+                 {:junk-base
+                  {:name "Junk languages",
+                   :description "Spoken by junk.",
+                   :key :junk-base,
+                   :option-pack "Junk Pak"}},
+                 :classes
+                 {:junk-base
+                  {:key :junk-base,
+                   :level-modifiers
+                   [{:type :weapon-prof, :value :crossbow-light}
+                    {:type :weapon-prof, :value :dart}
+                    {:type :weapon-prof, :value :sling}
+                    {:type :weapon-prof, :value :dagger}
+                    {:type :weapon-prof, :value :quarterstaff}],
+                   :name "Junk classes",
+                   :option-pack "Junk Pak",
+                   :subclass-title "Cause Plain",
+                   :level-selections
+                   [{:type :metamagic, :num 2, :level 3}
+                    {:type :metamagic, :level 10}
+                    {:type :metamagic, :level 17}],
+                   :spellcasting
+                   {:level-factor 1,
+                    :known-mode :schedule,
+                    :ability :orcpub.dnd.e5.character/cha,
+                    :spells-known
+                    {7 1,
+                     1 2,
+                     4 1,
+                     15 1,
+                     13 1,
+                     6 1,
+                     17 1,
+                     3 1,
+                     2 1,
+                     11 1,
+                     9 1,
+                     5 1,
+                     10 1,
+                     8 1},
+                    :cantrips? true,
+                    :cantrips-known {1 4, 4 1, 10 1},
+                    :spell-list
+                    {0
+                     #{:shape-water
+                       :dancing-lights
+                       :ray-of-frost
+                       :acid-splash
+                       :mage-hand
+                       :lightning-lure
+                       :toll-the-dead
+                       :frostbite
+                       :booming-blade
+                       :minor-illusion
+                       :thunderclap
+                       :fire-bolt
+                       :guidance
+                       :word-of-radiance
+                       :mending
+                       :sacred-flame
+                       :resistance
+                       :shocking-grasp
+                       :control-flames
+                       :friends
+                       :virtue
+                       :chill-touch
+                       :true-strike
+                       :create-bonfire
+                       :spare-the-dying
+                       :mold-earth
+                       :poison-spray
+                       :sword-burst
+                       :hand-of-radiance
+                       :light
+                       :blade-ward
+                       :thaumaturgy
+                       :prestidigitation
+                       :gust
+                       :infestation
+                       :message
+                       :green-flame-blade},
+                     7
+                     #{:whirlwind
+                       :crown-of-stars
+                       :power-word-pain
+                       :prismatic-spray
+                       :conjure-celestial
+                       :symbol
+                       :divine-word
+                       :temple-of-the-gods
+                       :regenerate
+                       :delayed-blast-fireball
+                       :plane-shift
+                       :reverse-gravity
+                       :etherealness
+                       :teleport
+                       :fire-storm
+                       :finger-of-death
+                       :resurrection},
+                     1
+                     #{:thunderwave
+                       :create-or-destroy-water
+                       :guiding-hand
+                       :ray-of-sickness
+                       :detect-magic
+                       :earth-tremor
+                       :shield
+                       :purify-food-and-drink
+                       :feather-fall
+                       :detect-evil-and-good
+                       :ice-knife
+                       :magic-missile
+                       :protection-from-evil-and-good
+                       :witch-bolt
+                       :command
+                       :fog-cloud
+                       :chaos-bolt
+                       :bless
+                       :sudden-awakening
+                       :comprehend-languages
+                       :bane
+                       :disguise-self
+                       :shield-of-faith
+                       :inflict-wounds
+                       :false-life
+                       :healing-word
+                       :expeditious-retreat
+                       :ceremony
+                       :absorb-elements
+                       :charm-person
+                       :catapult
+                       :guiding-bolt
+                       :sanctuary
+                       :detect-poison-and-disease
+                       :cure-wounds
+                       :mage-armor
+                       :burning-hands
+                       :sleep
+                       :color-spray
+                       :jump
+                       :silent-image
+                       :chromatic-orb},
+                     4
+                     #{:dimension-door
+                       :ice-storm
+                       :confusion
+                       :blight
+                       :dominate-beast
+                       :banishment
+                       :polymorph
+                       :storm-sphere
+                       :locate-creature
+                       :sickening-radiance
+                       :control-water
+                       :watery-sphere
+                       :wall-of-fire
+                       :charm-monster
+                       :divination
+                       :freedom-of-movement
+                       :vitriolic-sphere
+                       :guardian-of-faith
+                       :greater-invisibility
+                       :death-ward
+                       :stone-shape
+                       :stoneskin},
+                     6
+                     #{:move-earth
+                       :planar-ally
+                       :globe-of-invulnerability
+                       :chain-lightning
+                       :mass-suggestion
+                       :sunbeam
+                       :investiture-of-ice
+                       :forbiddance
+                       :harm
+                       :blade-barrier
+                       :scatter
+                       :arcane-gate
+                       :true-seeing
+                       :find-the-path
+                       :heroes-feast
+                       :mental-prison
+                       :heal
+                       :disintegrate
+                       :word-of-recall
+                       :investiture-of-wind
+                       :investiture-of-stone
+                       :eyebite
+                       :investiture-of-flame
+                       :create-undead
+                       :circle-of-death},
+                     3
+                     #{:animate-dead
+                       :daylight
+                       :sending
+                       :counterspell
+                       :thorn-s-minute-meteors
+                       :blink
+                       :sleet-storm
+                       :water-breathing
+                       :stinking-cloud
+                       :remove-curse
+                       :clairvoyance
+                       :dispel-magic
+                       :create-food-and-water
+                       :spirit-guardians
+                       :mass-healing-word
+                       :hypnotic-pattern
+                       :catnap
+                       :feign-death
+                       :meld-into-stone
+                       :glyph-of-warding
+                       :haste
+                       :life-transference
+                       :fly
+                       :tongues
+                       :revivify
+                       :magic-circle
+                       :major-image
+                       :slow
+                       :wall-of-water
+                       :tidal-wave
+                       :enemies-abound
+                       :lightning-bolt
+                       :protection-from-energy
+                       :flame-arrows
+                       :fireball
+                       :bestow-curse
+                       :speak-with-dead
+                       :erupting-earth
+                       :beacon-of-hope
+                       :water-walk
+                       :fear
+                       :thunder-step
+                       :gaseous-form},
+                     2
+                     #{:crown-of-madness
+                       :augury
+                       :calm-emotions
+                       :spiritual-weapon
+                       :gentle-repose
+                       :blindness-deafness
+                       :prayer-of-healing
+                       :mind-spike
+                       :dust-devil
+                       :scorching-ray
+                       :zone-of-truth
+                       :shadow-blade
+                       :silence
+                       :protection-from-poison
+                       :continual-flame
+                       :enhance-ability
+                       :lesser-restoration
+                       :enlarge-reduce
+                       :shatter
+                       :darkvision
+                       :dragon-s-breath
+                       :alter-self
+                       :suggestion
+                       :see-invisibility
+                       :detect-thoughts
+                       :levitate
+                       :cinder-s-earthen-grasp
+                       :mirror-image
+                       :cloud-of-daggers
+                       :phantasmal-force
+                       :warding-bond
+                       :find-traps
+                       :blur
+                       :pyrotechnics
+                       :ember-s-scorcher
+                       :invisibility
+                       :earthbind
+                       :warding-wind
+                       :locate-animals-or-plants
+                       :aid
+                       :hold-person
+                       :gust-of-wind
+                       :spider-climb
+                       :darkness
+                       :knock
+                       :frost-s-snowball-swarm
+                       :web
+                       :misty-step},
+                     9
+                     #{:meteor-swarm
+                       :astral-projection
+                       :power-word-kill
+                       :wish
+                       :time-stop
+                       :mass-heal
+                       :psychic-scream
+                       :gate
+                       :true-resurrection
+                       :mass-polymorph},
+                     5
+                     #{:dawn
+                       :creation
+                       :greater-restoration
+                       :seeming
+                       :cloudkill
+                       :animate-objects
+                       :enervation
+                       :mass-cure-wounds
+                       :commune
+                       :wall-of-light
+                       :dispel-evil-and-good
+                       :raise-dead
+                       :dominate-person
+                       :control-winds
+                       :insect-plague
+                       :synaptic-static
+                       :cone-of-cold
+                       :hold-monster
+                       :teleportation-circle
+                       :planar-binding
+                       :flame-strike
+                       :legend-lore
+                       :hallow
+                       :holy-weapon
+                       :wall-of-stone
+                       :telekinesis
+                       :contagion
+                       :scrying
+                       :immolation
+                       :geas
+                       :far-step
+                       :skill-empowerment},
+                     8
+                     #{:hollows-horrid-wilting
+                       :control-weather
+                       :holy-aura
+                       :dominate-monster
+                       :earthquake
+                       :sunburst
+                       :power-word-stun
+                       :antimagic-field
+                       :incendiary-cloud}}},
+                   :ability-increase-levels [4 8 12 16 19],
+                   :profs
+                   {:save
+                    #:orcpub.dnd.e5.character{:cha true, :con true},
+                    :skill-expertise-options {:choose 0, :options {}},
+                    :skill-options
+                    {:choose 2,
+                     :options
+                     {:arcana true,
+                      :deception true,
+                      :insight true,
+                      :intimidation true,
+                      :persuasion true,
+                      :religion true}}},
+                   :hit-die 6,
+                   :traits
+                   [{:name "Cliff Storm",
+                     :description
+                     "Thread travel beyond attention glass fortune reason bold shore boat north shade call. Below island patient close dust sun almost follow form along cover castle yard. Tower beneath willow letter cause follow away both company storm ancient deep below another brown gentle. Attention harbor over wave letter reed gentle ocean above reed early. Light fortune salt mist river tree ask mind deep word brown fair appear meadow. Share color field plain wide tower valley south across cold apple figure. Brave bone body company deep cause. Brown distance shell cloth crowd metal candle frost peace praise follow east deep river circle. Back night thread keep answer around honor ancient desert attention mind glass city bear against letter ocean. Call trade field both road harbor almost after broad bird alone. Cloud edge castle call course close wood. Castle early beauty ground appear south dark kind shape climb. Distance flow water custom city frost forest flow brown brown. Cover wind country become arrive fire course book wide ocean every tree. Trade able glass end distance ancient. Both stream pine copper long guard before hand. Again hollow leaf bone boat clean empty. Coast bone long rock about table harvest dance fortune drift harbor fortune east around branch. Song measure dance open again.",
+                     :level 2}
+                    {:name "Small Door",
+                     :level 3,
+                     :description
+                     "Back wind long deep east empty root clean gather. Distance dust reed pine crown copper wind sun. Clear burn near hill light mirror cliff smooth pool ground. East number country brown journey rock crown willow attention road company letter mind figure willow flight. Open land apple frost river able."}
+                    {:name "True Along Letter",
+                     :level 20,
+                     :description
+                     "Reason measure craft alone blue road forest number early color build broad dawn slope. Word grain."}
+                    {:description
+                     "Land begin shore word company green course honor word rain grain summer small quiet gather become. Along bring meadow follow dawn flow. Brown chance ocean burn stream rain lake back silver close around course young crown moon change climb. Over grain above flight over plate flow wide loose morning spark broad crowd. Become black dream along border brown burn journey rain harbor sky carry narrow autumn. Moon year table loose loose frost ask about honor brown circle island burn wind. Answer grass path bright calm choose corner land morning enough grove bold effort simple apple guard. Cloth land any morning order back any branch voyage count simple harvest. Brown being small gather copper cloth drift hill ground clear away earth shadow measure. Branch journey tide rain child break peace small branch sail choose arrive distance honor true. Iron art high willow shore thread attention hand yellow candle pine.",
+                     :name "Alone Already Dance"}
+                    {:description
+                     "Tree land pine bind young bear letter art beyond round another shore young reason. Sail all cross dark first arrive silver attention art shade willow night hollow both shore brother open. Path true shore early already begin winter quiet bird root shade alone leaf salt feather clay spark. Company empty wood road feather.",
+                     :name "Lake"}
+                    {:description
+                     "Every clay almost cross follow frost cover light become art smooth loose metal. Morning notice soft wood grove young dawn sand metal beyond pool another line. Mind fortune below simple call hill shape enough behind paper brown song crown pool distance above. Black cloud company south shell word garden cloth book slope long mountain metal. Valley winter cloth border east trade rock against.",
+                     :name "Wide Among",
+                     :level 6}
+                    {:description
+                     "Rock gather smooth brown grain pine measure mirror. Edge coast wind blue care mist able another small shape salt art crowd kind figure willow. Bring follow color mountain being already color. Almost around along journey long stream river. Against bird tree forest forest flight common every brother river also bear brother. Sail bread rain land bird begin. Mist spark field plate candle iron tide answer share line high care. Frost river appear open before able west road border journey patient weather pale.",
+                     :name "Able",
+                     :level 14}
+                    {:name "Island Bird",
+                     :description
+                     "Fall year clear broad bird calm effort black reason soft tower sun beyond. Away journey border count alone sun. Flow break bring road flame body tree blue company chance gentle. Number mirror small east company ocean enough honor soft almost already young brave measure across rock. Brave patient open silent become song letter appear bind cross sail.",
+                     :level 18}]}},
+                 :subclasses
+                 {:junk-base
+                  {:key :junk-base,
+                   :level-modifiers
+                   [{:type :armor-prof, :value :heavy}],
+                   :name "Junk subclasses",
+                   :option-pack "Junk Pak",
+                   :cleric-spells
+                   {1 {0 :speak-with-animals, 1 :animal-friendship},
+                    2 {0 :barkskin, 1 :spike-growth},
+                    3 {0 :plant-growth, 1 :wind-wall},
+                    4 {0 :dominate-beast, 1 :grasping-vine},
+                    5 {0 :insect-plague, 1 :tree-stride}},
+                   :level-selections [{:type :druid-cantrips}],
+                   :class :cleric,
+                   :profs
+                   {:skill-options
+                    {:options
+                     {:animal-handling true,
+                      :nature true,
+                      :survival true}}},
+                   :traits
+                   [{:description
+                     "Yard bear always broad kind frost smooth color forest craft river hollow shore keep. Common desert share dawn word another pine call bind carry attention form high early round.",
+                     :name "Deep Gather Boat"}
+                    {:description
+                     "Meadow appear harvest candle morning yellow color leaf body around shore voyage dream candle. South carry grain sky travel guard heart almost before all far soft break wave common weather keep. Edge glass journey trade root above keep. Always shadow spark answer build cloud sand flow root stream figure carry pool dream. Cliff high number craft dark bind path fire among. Shade moment valley dawn change bank table flight choose. Sand wide wind shore metal pine begin distance. Company fire open north border copper shore grain.",
+                     :level 2,
+                     :name "Line Boat Corner"}
+                    {:description
+                     "Brother light early company attention change dawn beauty always. Shore moon clear feather beauty north being paper travel country. Dark cover frost autumn behind beneath among door circle reed. Brave course mind crowd follow sky bank wide circle first.",
+                     :level 6,
+                     :name "Among Another"}
+                    {:description
+                     "Cold begin brown leaf over become metal south silent guard about around bring bread cloth shade. Copper letter sand broad heart begin share drift honor before. Desert near island dance tide color all child any season travel order branch season close shell field. Book shell mind heart gather crown among order letter. Bread morning east flow rock praise reason root cross.",
+                     :level 8,
+                     :name "Young"}
+                    {:description
+                     "Reed mist round evening beneath dust along silent dance shore. Border dance iron rock horizon wood road wind current. Always boat wide arrive sky gather keep all care chance count true hollow iron quiet timber appear. Narrow high near branch able again art child burn morning beyond.",
+                     :level 17,
+                     :name "Begin City"}
+                    {:description
+                     "Dream able before smooth pine moon any summer light.",
+                     :name "Attention"}]}},
+                 :monsters
+                 {:junk-base
+                  {:senses "darkvision 60 ft.",
+                   :armor-notes "leather armor, shield",
+                   :key :junk-base,
+                   :int 10,
+                   :speed "30 ft.",
+                   :name "Junk monsters",
+                   :alignment "neutral evil",
+                   :cha 8,
+                   :hit-points
+                   {:mean 7, :die-count 2, :die 6, :modifier 0},
+                   :type :humanoid,
+                   :actions
+                   [{:name "Scimitar",
+                     :description "Melee Weapon Attack: +4 to hit."}],
+                   :size :small,
+                   :option-pack "Junk Pak",
+                   :armor-class 15,
+                   :skills {:stealth 6},
+                   :str 8,
+                   :saving-throws {:dex 4},
+                   :challenge 0.25,
+                   :con 10,
+                   :dex 14,
+                   :wis 8,
+                   :languages "Common",
+                   :subtypes #{:goblinoid},
+                   :traits
+                   [{:name "Nimble Escape",
+                     :description
+                     "Disengage or Hide as a bonus action."}]}},
+                 :feats
+                 {:junk-base
+                  {:ability-increases #{},
+                   :prereqs #{},
+                   :option-pack "Junk Pak",
+                   :name "Junk feats",
+                   :description
+                   "Plain north beauty sail among water peace close. Hill west burn crowd clean beneath broad reed able bear enough climb. Care quiet flame voyage metal ground number smooth water keep current color ground narrow. Art garden soft timber grass pine country. Valley beyond wave bird ocean break harbor. East west bear leaf forest evening wide any being. Choose common cloth evening hill company behind deep. Moon wave tide round yellow weather carry climb line year weather east. Book clear brother mind mind wind word pine share.",
+                   :props {:language-choice 1, :skill-tool-choice 2},
+                   :key :junk-base,
+                   :path-prereqs
+                   {:race
+                    {:half-elf-mark-of-detection- true,
+                     :human-mark-of-making- true,
+                     :half-orc true,
+                     :human-mark-of-sentinel- true,
+                     :half-elf-mark-of-storm- true,
+                     :human true,
+                     :half-orc-mark-of-finding- true,
+                     :human-mark-of-finding- true,
+                     :human-mark-of-passage- true,
+                     :human-mark-of-handling- true,
+                     :half-elf true}}}},
+                 :backgrounds
+                 {:junk-base
+                  {:key :junk-base,
+                   :name "Junk backgrounds",
+                   :equipment {:clothes-traveler-s 1, :pouch 1},
+                   :treasure {:gp 5},
+                   :equipment-choices
+                   [{:name "Hill",
+                     :options
+                     {:flute 1,
+                      :horn 1,
+                      :dulcimer 1,
+                      :viol 1,
+                      :drum 1,
+                      :pan-flute 1,
+                      :bagpipes 1,
+                      :shawm 1,
+                      :lute 1,
+                      :lyre 1}}],
+                   :option-pack "Junk Pak",
+                   :help
+                   "Beyond figure guard letter flow apple order always meadow flow choose clay course tree. Garden carry sail cold night almost night common carry wind.",
+                   :profs
+                   {:language-options
+                    {:choose 1, :options {:any true}},
+                    :skill {:insight true, :perception true},
+                    :tool-options
+                    {:gaming-set 1, :musical-instrument 1}},
+                   :traits
+                   [{:name "Slope",
+                     :summary
+                     "Bind first table edge patient bind morning praise. Storm break gather appear beneath beneath near fair always bright almost bank tree plate table winter. Below voyage shell course all edge field clay sand appear road cloth timber. Again order edge brave ask beauty. Leaf hand distance cross common after book leaf carry number count island blue journey. Crown beauty metal kind road garden root boat north change always river cloud. Being season appear above high metal timber high tide arrive tower corner willow before drift order copper. Sail again clean cold high north fair child dance harvest. Brown cold bread meadow first break.",
+                     :description
+                     "Dawn also stream arrive peace form yard cloth far harbor thread field. Flame pale mist moon voyage ancient garden patient clay wide song brown wide form dream. Form drift cross build sail tide forest. Dark balance reed grass earth form bright every dawn almost share. Praise hollow tide fall bank gentle kind below beauty. Change frost follow coast loose bear form around root. Moon meadow moon far silver about across road willow country another heart. Apple yellow pine kind hill flow spring water autumn weather grass reed spring already reason spring. After young chance bold end end sail care small bread deep below."}
+                    {:name "Autumn",
+                     :description
+                     "Castle across form letter land beauty enough below pool stone pool. Smooth all grove mind meadow body patient year grass desert form young soft grain corner able fortune. Far cloth empty boat lake hollow notice edge shade begin gather follow peace empty yard fall yard. Course appear after end frost around alone deep sky frost feather long copper first garden. Arrive river autumn measure clear island soft small willow word young. Cloud weather slope reed across."}]}},
+                 :invocations
+                 {:junk-base
+                  {:option-pack "Junk Pak",
+                   :description
+                   "Song land island almost common beauty near valley about pool field calm. Dance shadow thread craft mist true broad smooth spring brave bind carry desert dawn. End mist ancient branch summer summer road light evening grass wind burn. Distance garden cloth chance grove pool willow beauty boat brown become empty shore grain burn call pool. Clear company water figure cover bring morning all moment salt pale. Across honor south rain among common cause share song begin sky. Meadow notice reason below mirror across wave willow also keep bear ancient being hill another. Earth south.",
+                   :name "Junk invocations",
+                   :key :junk-base}},
+                 :subraces
+                 {:junk-base
+                  {:key :junk-base,
+                   :race :elf,
+                   :name "Junk subraces",
+                   :darkvision 120,
+                   :spells
+                   [{:value
+                     {:ability :cha, :key :dancing-lights, :level 0}}
+                    {:level 3,
+                     :value
+                     {:ability :cha, :key :faerie-fire, :level 1}}
+                    {:level 5,
+                     :value
+                     {:ability :cha, :key :darkness, :level 2}}],
+                   :abilities #:orcpub.dnd.e5.character{:cha 1},
+                   :option-pack "Junk Pak",
+                   :props
+                   {:weapon-prof
+                    {:crossbow-hand true,
+                     :rapier true,
+                     :shortbow false,
+                     :shortsword true}},
+                   :traits
+                   [{:description
+                     "About ocean letter over letter meadow about candle edge hollow also kind corner. Flame custom body castle cause change bread. Paper east north cloud black early brave slope around country quiet. Grain apple.",
+                     :name "Shape Pine Small"}
+                    {:description
+                     "Feather against count all apple course cover young.",
+                     :name "Ancient"}
+                    {:description
+                     "Share number sun border praise answer feather away effort climb wood. Simple song mirror ocean arrive arrive cloth child honor. Moon brown country care also clay form attention. Bind custom city road spark fire attention hill loose book earth cold busy calm sail. Door black form branch attention long again glass fair. Moon bear island among sail carry round hill against.",
+                     :name "Yard"}
+                    {:description
+                     "Bring along sand body child drift crown hand voyage.",
+                     :name "Ground Shell"}]}},
+                 :spells
+                 {:junk-base
+                  {:description
+                   "Frost paper brown sand glass voyage mountain country earth grove city attention art. Tide wide harbor flight smooth call sail true hollow storm any root autumn green storm fall. Body path metal wind flight sail reason chance field. Bright count coast build spark brave. Broad reed dream being brother morning catch almost edge common word follow border journey. Already weather land path reason number cliff soft shade reason gentle child timber shadow shore. Stream carry burn yard empty small root willow common pine number. Open spring number black apple weather cover child young moment circle alone. Reed cloud back both timber gentle apple cloth chance road pine tide cold north. Cloud again feather above reed copper travel being dream. Distance loose city spark voyage cross quiet hollow glass wind shell build gather balance yellow shell. Every open dust bread bold thread island ask first quiet early bread share slope away kind. Below river dust country desert fair early stone moon sail body land young ground path. Chance boat across flame already cause bank carry empty north. Root grain land circle hollow flame black carry corner door distance both another. Fortune glass bird border road below. Crown wide grain child ask field slope frost honor. Measure long border spring hollow enough order point table river cold. Sun about chance clean horizon above timber castle burn. Around custom guard reed boat choose plate dawn fall river cloth. Clay among broad praise climb word about river. Smooth reason west country.",
+                   :key :junk-base,
+                   :school "abjuration",
+                   :name "Junk spells",
+                   :duration "Instantaneous",
+                   :level 1,
+                   :option-pack "Junk Pak",
+                   :components
+                   {:material-component
+                    "also wave table dust always burn glass rain also carry",
+                    :verbal true,
+                    :somatic true,
+                    :material true},
+                   :ritual true,
+                   :edit-event
+                   [:orcpub.dnd.e5.spells/edit-spell
+                    {:description
+                     "Craft shade drift plate cliff summer rock meadow against cloth clear line above far harvest travel. Small ground bring south calm apple quiet small beyond garden salt. Road chance keep west harvest notice silent any long clay silent. Path evening voyage enough road boat carry dream able custom silent wood measure both clear dream. Rock keep near early mist grain summer rock near. Salt every soft season rain coast cold castle door border patient distance harbor close. Any catch almost deep hill peace water first branch. Long light voyage glass gentle green effort bird number pool salt mountain. Calm shore share narrow chance company wave. Company change notice spark paper road green against among beneath bring catch. Storm fall moon leaf bind figure water away another answer iron. Away keep dark chance cause wood already honor evening land before winter guard before. Cross guard blue kind above custom being. Cliff hill bank metal reed shore land alone. Grove sky clear green early any spring across. Grove voyage word forest dance able beyond. Young light bear corner keep chance voyage current catch. Course light both reed call flight cliff. Glass along bank both catch craft every yellow end number praise effort stone balance word sand. Crown wave spring reason fortune clay early tower grove fair point autumn wave stream gather number change. Salt spark bank long country north reason flame carry spark sand honor bank. Light winter end body grass catch metal harbor root build weather circle castle.",
+                     :key :ceremony,
+                     :school "abjuration",
+                     :name "Weather Begin",
+                     :duration "Instantaneous",
+                     :level 1,
+                     :option-pack "Source Collection 09",
+                     :components
+                     {:material-component
+                      "yard almost cover copper before notice mountain among soft distance",
+                      :verbal true,
+                      :somatic true,
+                      :material true},
+                     :casting-time "1 hour",
+                     :spell-lists {:cleric true, :paladin true},
+                     :range "Touch"}],
+                   :casting-time "1 hour (ritual)",
+                   :spell-lists {:cleric true, :paladin true},
+                   :range "Touch"}},
+                 :encounters
+                 {:junk-base
+                  {:name "Junk encounters",
+                   :creatures
+                   [{:type :monster,
+                     :creature {:monster :goblin, :num 3}}],
+                   :key :junk-base,
+                   :option-pack "Junk Pak"}},
+                 :selections
+                 {:junk-base
+                  {:options
+                   [{:name "Pine",
+                     :description
+                     "Honor among hollow among choose morning spring about back clay crown bird small table shape mountain open. Break moment path high silent water fire rock flight horizon honor above tide count cause."}
+                    {:name "Meadow Build Year",
+                     :description
+                     "Wide bread north metal all early willow line horizon dream any back number. Trade field cross fall choose tide reed. Cause tower feather figure share harbor distance attention island silent desert. Above corner."}
+                    {:name "Paper West",
+                     :description
+                     "Among plate song west sun art harbor close. Peace field attention leaf against river. Copper spring drift about flame light. Shore plain above moon heart grove timber begin shade brother metal busy long."}
+                    {:description
+                     "Shore sky color cause about branch mist book become slope glass east. Wide reason night smooth harvest count patient distance frost mind. Pale castle order point clear close light after castle.",
+                     :name "Paper Fortune Also"}
+                    {:description
+                     "Current form choose plate quiet stream mirror behind around. Field company silver point back brother shape away close behind. Keep course salt city south salt. Letter guard shade dance letter peace leaf.",
+                     :name "Earth"}
+                    {:description
+                     "Weather boat forest edge ground deep rain plain long feather feather beauty storm clay true against bird. Loose grain sun count answer door. Meadow both any grove sand common yellow clay bird.",
+                     :name "Brown"}
+                    {:description
+                     "Cloud bold iron trade art enough line coast song young climb color land gather. Another edge word lake water flow wind copper against dream. Empty young alone grain storm bird hand.",
+                     :name "Young"}
+                    {:description
+                     "Fortune alone become hand number point. Moment effort country begin tower paper south quiet. Grain water again brother around child. Song brown below yard crown open fair horizon custom against thread long catch.",
+                     :name "Horizon"}
+                    {:description
+                     "Almost metal salt mind island dark season table river dream away paper shape near begin. Round reed again notice far sun rock company. Road alone letter below sand distance below harvest.",
+                     :name "Distance Wood Distance"}
+                    {:description
+                     "Word open broad gather soft black garden night narrow spark point dark form crowd chance. Change order chance drift behind earth sun hand tide dream narrow meadow bread custom always. Early mountain garden.",
+                     :name "Small Earth"}
+                    {:description
+                     "Garden meadow letter company brave flow count earth. Early bring shore long narrow pool. North enough guard path kind after blue already young. Pine again deep follow patient weather balance thread table long.",
+                     :name "Fair Simple"}
+                    {:description
+                     "Heart flame open boat field beneath sky garden notice beauty crown course frost yard open. Against choose book enough cross also beneath rock castle willow timber border notice iron land. Long spark gentle.",
+                     :name "Always Across"}
+                    {:description
+                     "Beneath dream moon sail word also dance. Yard yellow dawn year quiet shell wide shell wave change book. All hill sky grain plain wind measure. Yard wide against call fire attention fire city.",
+                     :name "Bright"}
+                    {:description
+                     "Patient bear able river wood beneath ocean broad dawn ground bread cold. Common weather beauty across reason shape after. Bird bear any book near ancient enough distance. Art over art beneath among candle.",
+                     :name "Table Storm Always"}
+                    {:description
+                     "Against iron ocean true slope heart bank build cross order across beneath. Pine desert rock also begin able cloth loose boat count cross hand sky cloth. Stream company bread plate fortune round grass.",
+                     :name "Enough"}
+                    {:name "Plate Young",
+                     :description
+                     "Common broad change always long follow cover west shadow wide moon cover also. Tower flow garden already child always morning among blue pale dream. Climb beauty behind shell border beyond after over shore."}
+                    {:name "Smooth Behind Bread",
+                     :description
+                     "Weather paper forest become small kind dance alone shape field earth book sail about carry. Blue brown color beauty season point call apple hand metal. End circle call also end cloth. Along common."}
+                    {:name "Cold Tide",
+                     :description
+                     "Boat always garden current shore table corner another smooth always company. Silent cold dark attention castle wind tide cross east build guard wood water alone. Alone gentle horizon iron among north across."}
+                    {:name "Calm Mountain",
+                     :description
+                     "City shade tower able hill grass song order. Heart dark metal order west bank any among loose gather morning spark. Number shore coast letter feather copper beauty plain another city willow already."}
+                    {:name "Bone Answer Grove",
+                     :description
+                     "Pool course garden crown cross always willow share. Fair coast cover near keep quiet balance mind plain moon. Stream fortune beyond enough shore field body art iron cloth along calm high among."}
+                    {:name "Winter Forest",
+                     :description
+                     "Season soft border island above brown across gentle table reed line become. Bread book praise across after harbor above plate dance evening reason about summer journey wind. Answer dream forest almost calm boat."}
+                    {:name "Above Field",
+                     :description
+                     "Cover bright become across count harvest over thread ground choose. Near honor true valley color bring. Water dust climb true color about fall night circle company high bold. Grain attention horizon gentle wave."}
+                    {:name "Soft",
+                     :description
+                     "Gentle heart answer spark coast metal country evening first green grass hollow stream heart. Number order count bind dust cloud call above boat ocean lake dream tree enough. Balance carry narrow fortune."}
+                    {:name "Far",
+                     :description
+                     "Narrow all ocean first early small. Evening weather bright stream hollow cloud door yellow. Paper plain catch away burn desert brave clear grass away paper metal year silent. Soft root shape."}
+                    {:name "Drift Across",
+                     :description
+                     "Young every letter path cause bone fair glass mirror before travel feather cause border. End brave summer brother path beauty ocean tide field letter beneath west dawn east bind willow color. Table light."}
+                    {:name "Order Shape Below",
+                     :description
+                     "Dark below crowd heart over over. Island blue beauty begin stone harvest narrow tree burn castle. Bird mind silver another begin letter storm being silver broad about. Cold meadow current timber."}
+                    {:name "Clean",
+                     :description
+                     "Among hand leaf praise near copper quiet burn heart around keep gather before. Long chance sand weather table dream leaf cold round both bright call brave apple ground loose. Door climb attention."}
+                    {:name "West Leaf Ask",
+                     :description
+                     "Bear silver high across branch crown copper follow brown summer. Bring cross shade any branch bread shell begin bread being break chance custom bear both hollow. True loose number rock flight away."}
+                    {:name "Dust Round",
+                     :description
+                     "Dawn balance over near leaf silent south meadow already. Open able night cloud point wind both shore. Country flow true wood empty order slope fair blue company round iron kind. Across dust arrive."}],
+                   :option-pack "Junk Pak",
+                   :name "Junk selections",
+                   :key :junk-base}},
+                 :races
+                 {:junk-base
+                  {:key :junk-base,
+                   :speed 30,
+                   :name "Junk races",
+                   :darkvision 60,
+                   :spells
+                   [{:value
+                     {:ability :orcpub.dnd.e5.character/cha,
+                      :key :light}}
+                    {:level 3,
+                     :value
+                     {:level 2,
+                      :key :lesser-restoration,
+                      :ability :orcpub.dnd.e5.character/cha}}
+                    {:value
+                     {:level 3,
+                      :key :daylight,
+                      :ability :orcpub.dnd.e5.character/cha},
+                     :level 5}],
+                   :abilities
+                   #:orcpub.dnd.e5.character{:wis 1, :cha 2},
+                   :size :medium,
+                   :option-pack "Junk Pak",
+                   :languages #{"Common" "Celestial"},
+                   :props
+                   {:damage-resistance
+                    {:necrotic true, :radiant true}},
+                   :traits
+                   [{:description
+                     "Night hollow door alone land yellow body. Branch valley grass open along clay. Course course road autumn road blue among pool autumn pool. Beauty smooth back notice beyond arrive border custom near dance travel song back circle. Mirror castle table broad gather sun evening. Close candle long ground thread hill round. Keep castle clear field coast narrow broad autumn first away moment evening being road forest. Mind answer over behind lake morning keep. Brother call ground.",
+                     :name "Close"}
+                    {:description
+                     "City also copper quiet measure clear stream sun ask.",
+                     :name "Carry"}]}}}}

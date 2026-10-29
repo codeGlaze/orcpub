@@ -129,6 +129,16 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Server:** the first start after upgrading builds new database indexes and gives older accounts an email lookup key, both in the background; until that finishes, an older account with a mixed-case address signs in by username rather than email. (#721)
 - **Site:** tick boxes are rounded and fill with the theme's accent when ticked (amber in the dark
   theme, blue in the light), and the sign-up page's updates box matches the rest.
+- **Homebrew:** a value in the wrong form whose meaning is plain (`"25"` for a speed, one trait
+  where a list belongs) is corrected once, on load, import, save or from a share link, and the
+  correction is what is stored and exported. A library saved before is backed up first.
+- **Homebrew:** an entry with a field that cannot be read (a number where a list of traits
+  belongs) is set aside in My Content for repair, as it was written, instead of breaking pages.
+  From a share link it is left out.
+- **Homebrew:** the import report lists each field it fixed, and each entry it will set aside
+  for repair.
+- **Homebrew:** checking homebrew after an import or a Restore takes a fraction of the time for
+  classes: each shared part of a class is checked once, not once per level.
 
 ### Fixed
 
@@ -210,6 +220,31 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** a monk with a low Strength no longer attacks at +0 with a weapon Martial Arts does not cover; the attack uses the real modifier (#713).
 - **Site:** all seven header tabs and their menus fit on a 320px phone.
 - **Spells:** a spell can no longer be prepared once every preparation is used.
+- **Site:** an action that fails now says so and changes nothing. Before, nothing visible
+  happened, and the actions queued after it were dropped.
+- **Sharing:** the banner for a shared character names the homebrew it carried that cannot be
+  used: entries that could not be read, and subraces or subclasses whose race or class was not
+  shared.
+- **Homebrew:** a homebrew entry that cannot be drawn costs its own part of the page: one section
+  of its builder (the rest still edits and saves), one list or source in My Content, one row of
+  the monster list. Before, the whole page fell over.
+- **Homebrew:** a library with a content section stored as `true` no longer stops the app from
+  starting.
+- **Homebrew:** a monster from a share link with a broken name, size or type no longer breaks the
+  monster list.
+- **Homebrew:** a subrace, subclass, boon or invocation whose name could not be read no longer
+  disappears without a word; it is set aside for repair.
+- **Homebrew:** a feat whose ability score increases were stored as a list no longer breaks its
+  builder.
+- **Homebrew:** a homebrew subrace, subclass, pact boon or eldritch invocation that was renamed, or
+  given a new key on import to settle a conflict, stays picked on the characters that chose it.
+- **Homebrew:** a homebrew subclass with a very short name, or none, is offered in the character
+  builder. Before, its class was there and the subclass was missing.
+- **Homebrew:** a background, feat or class granting a skill that does not exist no longer breaks
+  the character builder.
+- **Homebrew:** a homebrew subclass, invocation or boon that breaks a built-in class costs only
+  itself: it is set aside, named, and the class is still in the builder. Before, every built-in class
+  disappeared from the builder. A subrace that breaks is set aside on its own, not with its race.
 
 ### Security
 

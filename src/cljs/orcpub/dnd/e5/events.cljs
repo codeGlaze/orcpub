@@ -112,7 +112,7 @@
             [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.compute :as compute]
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx reg-cofx inject-cofx path
-                                   after dispatch ->interceptor]]
+                                   after dispatch ->interceptor reg-global-interceptor]]
             [cljs.spec.alpha :as spec]
             [orcpub.dnd.e5.http-safe :as http]
             [cljs.core.async :refer [<! timeout]]
@@ -6265,15 +6265,11 @@
  ::e5/store-plugins
  (fn [{:keys [db]} [_ plugins on-success]]
    ;; Import paths: re-importing a source replaces what it held (homebrew-keys-design.md §9, Q4).
-   (let [changed (not-empty (set (for [[src p] plugins
-                                       :when (not (identical? p (get (:plugins db) src)))]
-                                   src)))
-         {:keys [ok?] :as committed} (commit-library db plugins {:deleting? true :on-success on-success})]
+   ;; the entries it changes are checked for one that breaks the character options by the
+   ;; homebrew-shapes interceptor, now rather than the next time someone opens the builder
+   (let [{:keys [ok?] :as committed} (commit-library db plugins {:deleting? true :on-success on-success})]
      (cond-> (select-keys committed [:db :dispatch-n])
-       ok? (update :db dissoc :homebrew-reported)
-       ;; check the sources this import changed for an entry that breaks the character
-       ;; options, now rather than the next time someone opens the builder
-       (and ok? changed) (assoc ::homebrew-check/check-builds changed)))))
+       ok? (update :db dissoc :homebrew-reported)))))
 
 ;; `plugins->local-store` dispatches this when the localStorage write
 ;; fails (typically a full quota). The save lives in memory but would vanish on
@@ -6370,9 +6366,9 @@
          (if-not ok?
            {:db db' :dispatch-n refused}
            (do (set-rejected-plugins new-rejected)
+               ;; a restored entry that still breaks the character options is set aside again,
+               ;; by the homebrew-shapes interceptor's check of what this wrote
                {:db (-> db' (assoc :quarantined-plugins new-rejected) (dissoc :homebrew-reported))
-                ;; a restored entry that still breaks the character options is set aside again
-                ::homebrew-check/check-builds (when (pos? n-fixed) #{source-name})
                 :dispatch [(if (pos? n-fixed) :show-warning-message :show-error-message)
                            (restore-message source-name bad kept-items still-bad)]})))))))
 
@@ -6771,55 +6767,16 @@
 ;; Homebrew that breaks the character options
 ;; ============================================================================
 
-(defn- find-broken-entry
-  "Where a reported entry sits in the library, as [source entry]: the source the report
-   names, then the entry's own :option-pack, then any source holding that key."
-  [plugins {:keys [content-type key source option-pack]}]
-  (let [holds? (fn [src] (map? (get-in plugins [src content-type key])))
-        src (cond
-              (and source (holds? source)) source
-              (and option-pack (holds? option-pack)) option-pack
-              :else (some #(when (holds? %) %) (keys plugins)))]
-    (when src
-      [src (get-in plugins [src content-type key])])))
-
-(defn set-aside-broken-entries
-  "Move each reported entry from `plugins` into `rejected`. Returns {:plugins :rejected
-   :moved [{:source :content-type :key :entry}]}. A report whose entry is not in the
-   library (shared content, or already gone) moves nothing."
-  [plugins rejected reports]
-  (reduce (fn [acc {:keys [content-type key] :as report}]
-            (if-let [[src entry] (find-broken-entry (:plugins acc) report)]
-              (-> acc
-                  (update-in [:plugins src content-type] dissoc key)
-                  (assoc-in [:rejected src content-type key] entry)
-                  (update :moved conj {:source src :content-type content-type :key key :entry entry}))
-              acc))
-          {:plugins plugins :rejected (or rejected {}) :moved []}
-          reports))
-
-(defn- broken-homebrew-notice [moved]
-  (let [n (count moved)
-        label (fn [{:keys [source content-type key entry]}]
-                (str "“" (if (and (string? (:name entry)) (not (s/blank? (:name entry))))
-                                (:name entry)
-                                (str key))
-                     "” (" (s/lower-case (get orcbrew-val/content-type-singular content-type "entry"))
-                     ") in “" source "”"))]
-    {:title (if (= 1 n) "A homebrew entry was set aside" (str n " homebrew entries were set aside"))
-     :details [(str (s/join ", " (map label (take 3 moved)))
-                    (when (> n 3) (str " and " (- n 3) " more"))
-                    " stopped the character options from loading, so "
-                    (if (= 1 n) "it was" "they were")
-                    " set aside. Everything else still works.")
-               [:span.pointer.underline.orange
-                {:on-click (fn [e]
-                             (.stopPropagation e)
-                             (dispatch [:route routes/dnd-e5-my-content-route]))}
-                "Fix or discard it in My Content"]]}))
-
 ;; Conversions re-run whenever their inputs change, so one bad entry is reported many
 ;; times; each is queued once, and the queue is handled together a moment later.
+(defn- count-plugin-items
+  "The number of content entries in library `pl` (a {source {content-type {key entry}}} map)."
+  [pl]
+  (reduce + 0 (for [[_ p] pl
+                    [ct items] p
+                    :when (and (qualified-keyword? ct) (map? items))]
+                (count items))))
+
 (reg-event-fx
  ::e5/homebrew-entry-broke
  (fn [{:keys [db]} [_ report]]
@@ -6835,10 +6792,20 @@
 (reg-event-fx
  ::e5/set-aside-broken-homebrew
  (fn [{:keys [db]} [_ reports]]
-   (let [{:keys [plugins rejected moved]}
-         (set-aside-broken-entries (:plugins db) (get-rejected-plugins)
-                                   (concat reports (:homebrew-broken db)))
-         db (dissoc db :homebrew-broken)]
+   (let [all-reports (concat reports (:homebrew-broken db))
+         {:keys [plugins rejected moved]}
+         (homebrew-check/set-aside-broken-entries (:plugins db) (get-rejected-plugins) all-reports)
+         ;; one from a share link has nothing to set aside: the share banner names it instead
+         moved? (set (map (juxt :content-type :key) moved))
+         left-out (for [{:keys [content-type key name source option-pack shared?]} all-reports
+                        :when (or shared?
+                                  (and (contains? (:shared-plugins db) (or source option-pack))
+                                       (not (moved? [content-type key]))))]
+                    {:content-type content-type :key key :name name})
+         db (cond-> (dissoc db :homebrew-broken)
+              (and (seq left-out) (:shared-content-info db))
+              (-> (update-in [:shared-content-info :left-out] (fnil into #{}) left-out)
+                  (assoc-in [:shared-content-info :count] (count-plugin-items (:shared-plugins db)))))]
      (if (empty? moved)
        {:db db}
        ;; The set-aside copy first, as the loader does: if storage refuses it, nothing moves,
@@ -6852,8 +6819,52 @@
          (let [{db' :db ok? :ok? refused :dispatch-n} (commit-library db plugins {:deleting? true})]
            (if ok?
              {:db (assoc db' :quarantined-plugins rejected)
-              :dispatch [:show-warning-message (broken-homebrew-notice moved) 60000]}
+              :dispatch [:show-warning-message (homebrew-check/broken-homebrew-notice moved) 60000]}
              {:db db' :dispatch-n refused})))))))
+
+;; Every event, whatever it changed and however: the homebrew it leaves is checked here, so no
+;; write can skip the check by going around commit-library. See homebrew-guard.md.
+(reg-global-interceptor
+ (->interceptor
+  :id ::homebrew-shapes
+  ;; and on the way in: the handler reads the library as checked, whatever wrote app-db last
+  :before (fn [ctx]
+            (update-in ctx [:coeffects :db]
+                       (fn [db]
+                         (let [lib (:plugins db)
+                               shared (:shared-plugins db)
+                               lib' (homebrew-check/checked :plugins lib)
+                               shared' (homebrew-check/checked :shared-plugins shared)]
+                           (cond-> db
+                             (not (identical? lib lib')) (assoc :plugins lib') ;; not app-db
+                             (not (identical? shared shared')) (assoc :shared-plugins shared'))))))
+  :after (fn [ctx]
+           (update ctx :effects #(homebrew-check/homebrew-shapes-checked (get-in ctx [:coeffects :db]) %)))))
+
+;; An event that throws changes nothing (re-frame applies no effect of an unfinished handler):
+;; event-failed says so, once a few seconds per event, and logs it; re-frame's own handler rethrew,
+;; dropping every queued event. core.cljs registers it after startup, whose recovery needs
+;; :initialize-db to throw; the test builds keep re-frame's. See homebrew-guard.md, 5.
+(def ^:private last-event-error (atom nil))
+
+(def event-failed-message
+  "That didn't work, so nothing was changed. If it keeps happening, refresh the page.")
+
+(defn event-failed
+  "Handles an event that threw: logs it, and dispatches the notice unless the same event was
+   noticed in the last few seconds, or the event was the notice itself."
+  [original-error re-frame-error]
+  (let [{:keys [event-v direction interceptor]} (ex-data re-frame-error)
+        id (first event-v)
+        now (.now js/Date)
+        {:keys [at event]} @last-event-error]
+    (js/console.error "An event failed and changed nothing:" (pr-str id)
+                      (str "(" (pr-str interceptor) ", " (name (or direction :handler)) ")")
+                      original-error)
+    (when-not (or (= id :show-error-message)
+                  (and (= id event) (< (- now at) 5000)))
+      (reset! last-event-error {:at now :event id})
+      (dispatch [:show-error-message event-failed-message]))))
 
 ;; ============================================================================
 ;; Export Warning Modal Events
@@ -7374,12 +7385,6 @@
  ::e5/load-shared-content
  (fn [_ [_ payload]]
    {::decode-shared! payload}))
-
-(defn- count-plugin-items [pl]
-  (reduce + 0 (for [[_ p] pl
-                    [ct items] p
-                    :when (and (qualified-keyword? ct) (map? items))]
-                (count items))))
 
 (reg-event-fx
  ::e5/apply-shared-content

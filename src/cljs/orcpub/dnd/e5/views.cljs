@@ -10394,7 +10394,10 @@
              (doall
               (for [{:keys [type-name type-key icon add-event edit-event delete-event plural]} my-content-types]
                 ^{:key type-name}
-                [my-content-type name plugin type-name type-key icon add-event edit-event delete-event plural q show?]))
+                ;; one list that cannot draw costs that list, not the source or the page
+                [render-guard {:source name :type type-name}
+                 [my-content-type name plugin type-name type-key icon add-event edit-event delete-event
+                  plural q show?]]))
              (let [missing (remove #(seq ((:type-key %) plugin)) my-content-types)]
                (when (seq missing)
                  [add-content-menu name missing]))]])]))))
@@ -10590,7 +10593,7 @@
        (map
         (fn [[name plugin]]
           ^{:key name}
-          [my-content-item name plugin])
+          [render-guard {:source name} [my-content-item name plugin]])
         plugins)))]]))
 
 (defn quarantine-source-repair
@@ -11292,6 +11295,25 @@
                                    " \u201c" (if (keyword? target) (name target) target) "\u201d")))
                ", which isn't in your library.")])])))
 
+(defn guarded-form
+  "`builder`'s form with each of its sections in a render-guard, so a field that throws while
+   drawing costs that section and the rest of the form still edits and saves; one that throws
+   before it has a form shows `item` in the fallback. Every builder returns its form directly
+   (none keeps state in a render function), so calling it here draws the same thing."
+  [item builder]
+  (try
+    (let [form (builder)]
+      (if (and (vector? form) (keyword? (first form)))
+        (let [[tag & more] form
+              [attrs children] (if (map? (first more)) [(first more) (rest more)] [nil more])]
+          (into (cond-> [tag] attrs (conj attrs))
+                (map #(if (vector? %) [render-guard item %] %))
+                children))
+        form))
+    (catch :default e
+      (js/console.error "A builder could not draw its form:" e)
+      [guard-fallback item e])))
+
 (defn builder-page [item-title reset-event save-event builder & [title]]
   ;; The draft event and the builder-item sub are both derived from save-event
   ;; (events/draft-event-for, events/builder-drafts), so the Export-draft hatch and the
@@ -11313,7 +11335,7 @@
        :icon "download"
        :on-click #(dispatch [export-draft-event])}]
      [:div
-      [builder]
+      (guarded-form item builder)
       ;; The key is the item's address, not a field an author fills in — so it sits after the form,
       ;; under a hairline, in a muted register.
       [item-key-row item save-event]]]))
@@ -12147,7 +12169,8 @@
        (map
          (fn [{:keys [name] :as monster}]
            ^{:key name}
-           [monster-list-item monster])
+           ;; a monster that cannot draw costs its own row
+           [render-guard monster [monster-list-item monster]])
          filtered-monsters))]))
 
 (defn clear-monsters-filter []
