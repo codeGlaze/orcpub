@@ -74,13 +74,18 @@
      (js/setTimeout #(check-and-set-aside! (set (map first entries)) entries) 0))))
 
 (defn unreadable-reports
-  "A report for each entry `findings` could not read, carrying the entry as `library` held it."
-  [library findings]
-  (for [[[src ct k] fs] (group-by (juxt :source :content-type :key)
-                                  (filter #(= :unreadable (:action %)) findings))
-        :when k]
-    {:content-type ct :key k :source src :original (get-in library [src ct k])
-     :error (str (s/join ", " (map #(pr-str (:path %)) fs)) " could not be read")}))
+  "A report for each entry `findings` could not read, carrying the entry as `library` held it and,
+   as :unreadable, [path value] for each field that could not be read, as `current` (the library
+   the app now holds; `library` when omitted) has it, so a later set-aside can tell the entry has
+   not been replaced since."
+  ([library findings] (unreadable-reports library findings library))
+  ([library findings current]
+   (for [[[src ct k] fs] (group-by (juxt :source :content-type :key)
+                                   (filter #(= :unreadable (:action %)) findings))
+         :when k]
+     {:content-type ct :key k :source src :original (get-in library [src ct k])
+      :unreadable (mapv (fn [{:keys [path]}] [path (get-in current (into [src ct k] path))]) fs)
+      :error (str (s/join ", " (map #(pr-str (:path %)) fs)) " could not be read")})))
 
 ;; Per db slot (:plugins, :shared-plugins): the last library read through `checked`, and what the
 ;; app was given for it. Each event and each view read compares against it, so a library already
@@ -105,7 +110,7 @@
                             (pr-str slot (map #(select-keys % [:source :content-type :key :path :action])
                                               findings)))
           (doseq [r (unreadable-reports library findings)]
-            (guard/report! r)))
+            (guard/report! (cond-> r (= slot :shared-plugins) (assoc :shared? true)))))
         (swap! last-read assoc slot {:raw library :given given'})
         given'))))
 
@@ -128,16 +133,19 @@
 
 (defn set-aside-broken-entries
   "Move each reported entry from `plugins` into `rejected`. Returns {:plugins :rejected
-   :moved [{:source :content-type :key :entry}]}. A report whose entry is not in the
-   library (shared content, or already gone) moves nothing. A report's `:original` is what is
+   :moved [{:source :content-type :key :entry}]}. A report moves nothing when its entry is not in
+   the library (already gone), came from shared content (:shared?), or has been replaced since:
+   an :unreadable field the entry no longer holds as reported. A report's `:original` is what is
    set aside when it has one: the entry as it was written, before anything was read past."
   [plugins rejected reports]
-  (reduce (fn [acc {:keys [content-type key original] :as report}]
-            (if-let [[src entry] (find-broken-entry (:plugins acc) report)]
-              (-> acc
-                  (update-in [:plugins src content-type] dissoc key)
-                  (assoc-in [:rejected src content-type key] (or original entry))
-                  (update :moved conj {:source src :content-type content-type :key key :entry entry}))
+  (reduce (fn [acc {:keys [content-type key original unreadable shared?] :as report}]
+            (if-let [[src entry] (when-not shared? (find-broken-entry (:plugins acc) report))]
+              (if-not (every? (fn [[path v]] (= v (get-in entry path))) unreadable)
+                acc
+                (-> acc
+                    (update-in [:plugins src content-type] dissoc key)
+                    (assoc-in [:rejected src content-type key] (or original entry))
+                    (update :moved conj {:source src :content-type content-type :key key :entry entry})))
               acc))
           {:plugins plugins :rejected (or rejected {}) :moved []}
           reports))
@@ -204,8 +212,9 @@
                 (when-not (identical? cleaned lib)
                   [[::keep-pre-fix-copy lib]
                    [:dispatch [::e5/set-plugins cleaned]]])
-                (for [r (concat (unreadable-reports lib findings)
-                                (unreadable-reports shared shared-findings))]
+                (for [r (concat (unreadable-reports lib findings cleaned)
+                                (map #(assoc % :shared? true)
+                                     (unreadable-reports shared shared-findings)))]
                   [::report r])
                 (when (seq changed)
                   [[::check-entries changed]]))]

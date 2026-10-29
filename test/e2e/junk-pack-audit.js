@@ -34,6 +34,7 @@ const srv = http.createServer((q, r) => {
   fs.writeFileSync(OUT, '');
   const t0 = Date.now();
   let fails = 0;
+  let pageErrors = 0;
   const results = await Promise.all([...Array(n).keys()].map(async i => {
     const pg = await br.newPage();
     let summary = null;
@@ -46,7 +47,7 @@ const srv = http.createServer((q, r) => {
       if (l.startsWith('JUNKJOB ')) console.log(`page ${i + 1}: ${l.slice(8)}`);
       if (l.startsWith('JUNKDONE ')) { summary = l.slice(9); res(); }
     }));
-    pg.on('pageerror', e => console.log(`page ${i + 1}: ${e.message.split('\n')[0]}`));
+    pg.on('pageerror', e => { pageErrors++; console.log(`page ${i + 1}: ${e.message.split('\n')[0]}`); });
     await pg.goto(`http://localhost:${port}/audit.html?junk-audit${types}&part=${i}/${n}`, { waitUntil: 'commit' });
     await done;
     console.log(`page ${i + 1}/${n} done in ${Math.round((Date.now() - t0) / 1000)} s: ${summary}`);
@@ -54,6 +55,7 @@ const srv = http.createServer((q, r) => {
     return summary;
   }));
   console.log(`${fails} failure(s) in ${Math.round((Date.now() - t0) / 1000)} s`);
-  process.exitCode = fails === 0 && results.every(Boolean) ? 0 : 1;
+  const failed = results.some(s => !s || /:(fail|error) [1-9]/.test(s));
+  process.exitCode = fails === 0 && pageErrors === 0 && !failed ? 0 : 1;
   await br.close(); srv.close();
 })().catch(e => { console.error(e); process.exit(2); });

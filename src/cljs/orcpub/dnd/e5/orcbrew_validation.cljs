@@ -1941,9 +1941,9 @@
         ;; read stays as written, and is set aside for repair when the import is stored.
         (let [{read-data :data repairs :repairs} (shapes/read-import (:data parse-result))
               library? (and (map? read-data) (every? string? (keys read-data)))
-              {fixed :library findings :findings} (when (map? read-data)
+              {fixed :library findings :findings} (when (and auto-clean (map? read-data))
                                                     (shapes/fix-library (if library? read-data {"" read-data})))
-              mended (cond (not (map? read-data)) read-data
+              mended (cond (or (not auto-clean) (not (map? read-data))) read-data
                            library? fixed
                            :else (get fixed ""))
               repair-changes (into (mapv (fn [r] {:type :repaired-section

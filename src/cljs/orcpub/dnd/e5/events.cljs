@@ -6769,6 +6769,14 @@
 
 ;; Conversions re-run whenever their inputs change, so one bad entry is reported many
 ;; times; each is queued once, and the queue is handled together a moment later.
+(defn- count-plugin-items
+  "The number of content entries in library `pl` (a {source {content-type {key entry}}} map)."
+  [pl]
+  (reduce + 0 (for [[_ p] pl
+                    [ct items] p
+                    :when (and (qualified-keyword? ct) (map? items))]
+                (count items))))
+
 (reg-event-fx
  ::e5/homebrew-entry-broke
  (fn [{:keys [db]} [_ report]]
@@ -6789,13 +6797,15 @@
          (homebrew-check/set-aside-broken-entries (:plugins db) (get-rejected-plugins) all-reports)
          ;; one from a share link has nothing to set aside: the share banner names it instead
          moved? (set (map (juxt :content-type :key) moved))
-         left-out (for [{:keys [content-type key name source option-pack]} all-reports
-                        :when (and (contains? (:shared-plugins db) (or source option-pack))
-                                   (not (moved? [content-type key])))]
+         left-out (for [{:keys [content-type key name source option-pack shared?]} all-reports
+                        :when (or shared?
+                                  (and (contains? (:shared-plugins db) (or source option-pack))
+                                       (not (moved? [content-type key]))))]
                     {:content-type content-type :key key :name name})
          db (cond-> (dissoc db :homebrew-broken)
               (and (seq left-out) (:shared-content-info db))
-              (update-in [:shared-content-info :left-out] (fnil into #{}) left-out))]
+              (-> (update-in [:shared-content-info :left-out] (fnil into #{}) left-out)
+                  (assoc-in [:shared-content-info :count] (count-plugin-items (:shared-plugins db)))))]
      (if (empty? moved)
        {:db db}
        ;; The set-aside copy first, as the loader does: if storage refuses it, nothing moves,
@@ -7375,12 +7385,6 @@
  ::e5/load-shared-content
  (fn [_ [_ payload]]
    {::decode-shared! payload}))
-
-(defn- count-plugin-items [pl]
-  (reduce + 0 (for [[_ p] pl
-                    [ct items] p
-                    :when (and (qualified-keyword? ct) (map? items))]
-                (count items))))
 
 (reg-event-fx
  ::e5/apply-shared-content

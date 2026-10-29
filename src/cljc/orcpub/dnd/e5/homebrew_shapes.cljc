@@ -81,7 +81,8 @@
   "The number `s` spells, or nil: \"3\" and \"0.5\" read, \"three\" does not."
   [s]
   (when (re-matches #"\s*-?\d+(\.\d+)?\s*" s)
-    #?(:clj (edn/read-string (str/trim s)) :cljs (js/parseFloat s))))
+    #?(:clj (edn/read-string (str/replace (str/trim s) #"^(-?)0+(?=\d)" "$1"))
+       :cljs (js/parseFloat s))))
 
 (defn- text->key
   "The keyword text stands for, or nil for blank text: \"Medium\" and \":medium\" read as :medium."
@@ -323,6 +324,7 @@
 
    :orcpub.dnd.e5/monsters
    [:map {:name :string :size :key :type :key :subtypes [:set :key] :challenge :num
+          :str :num :dex :num :con :num :int :num :wis :num :cha :num
           :hit-points [:map {:die :num :die-count :num :modifier :num :mean :num}]
           :saving-throws [:map-of :keyword :num] :skills [:map-of :keyword :num]
           :condition-immunities :string
@@ -356,7 +358,7 @@
    ;; pairs (a spread, as for races: options.cljc compile-ability-increases); the pool is
    ;; checked there, so it is :any here.
    [:map {:name :string :description :string
-          :ability-increases [:or [:set :keyword] [:list [:list :any]]]
+          :ability-increases [:or [:set :keyword] [:coll [:list :any]]]
           :prereqs [:set :keyword] :path-prereqs [:map {:race flags}] :props props}]
 
    :orcpub.dnd.e5/races

@@ -801,7 +801,8 @@
                       {shaped :library unreadable :set-aside}
                       (shapes/split-unreadable cleaned mended findings)
                       reshaped? (not (identical? shaped mended))
-                      _ (when reshaped? (keep-pre-fix-copy! mended))
+                      ;; the repaired library is written back only once a copy of the original is kept
+                      backed-up? (not (and reshaped? (:failed? (keep-pre-fix-copy! mended))))
                       ;; An entry with no source takes the name of the source it is
                       ;; stored under (e5/source-for) rather than being set aside --
                       ;; written back with the repairs below.
@@ -819,7 +820,7 @@
                                   kept)]
                   (persist-set-aside! set-item
                                       #(when js/window.localStorage (.removeItem js/window.localStorage %))
-                                      kept reconciled rejected (or (seq repairs) (seq fills) reshaped?))
+                                      kept reconciled rejected (or (seq repairs) (seq fills) (and reshaped? backed-up?)))
                   (when reshaped?
                     (js/console.warn
                      (str "Made damaged homebrew fit on load: "
