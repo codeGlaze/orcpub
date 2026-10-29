@@ -9,20 +9,19 @@ Account, plus the review fixes to the portrait work and batched credit-change em
 
 ## State (updated 2026-10-28)
 
-- Done: `integration` merged in again (`134d04ca4`, with the #70 and #66 work); the second full
-  review's 12 inline comments all fixed or answered, replies on each thread name the commit
-  (`4a15c78ee` source, `5cafb4736` copy, design page and probes, `4ed89a7b7` tests, each seen to
-  fail against the old code). Declined with a reason on its thread: a capture round for the
-  examples page (design images stay local by `.gitignore`), and the change-email switch rows
-  (they show the artist's saved choices; My Account shows the locked switch).
-- Checks on the final change: `lein test` 1341/0, cljs 875/0, lint 0 errors. CI was running on
-  `4ed89a7b7` when this was written. No new CodeRabbit review asked: the push only fixed the last
-  review's comments.
+- Done: `integration` merged in again (`134d04ca4`); the second review's 12 comments fixed or answered
+  (`4a15c78ee`, `5cafb4736`, `4ed89a7b7`). The third review (on `e466caea4`, 8 comments) fixed in
+  `d2cef8692` (marks default, notice failure, locked switches, visited links, contrast, disabled
+  option) with tests in `a812f907c`, each seen to fail against the old code. Declined on its thread:
+  round21 captures (design images stay local). The route keeps a try/catch and a log instead of
+  CodeRabbit's transactional rewrite. All seven threads answered, naming the commits.
+- Checks on `a812f907c`: `lein test` 1345/0, cljs 877/0, lint 0 errors. No new CodeRabbit review asked:
+  the push only fixed the last review's comments.
 - Worktree: `/home/codeglaze/projects/orcpub-artist`.
 
 ## Next
 
-- Check CI on `4ed89a7b7`. When the owner says merge: `integration` in with `--no-commit` and the
+- Check CI on `a812f907c`. When the owner says merge: `integration` in with `--no-commit` and the
   checks, fold the changelog (`scripts/fold-branch-changelog.sh "Summer Patch"`), push, then the
   owner adds `ready to merge`.
 
