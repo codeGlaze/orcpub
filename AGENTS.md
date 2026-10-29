@@ -190,6 +190,7 @@ The owner reads every reply, often on a phone, and the log of a long turn alread
   or `web/cljs/`. Components follow `com.stuartsierra/component` and restart cleanly through the
   `dev/user.clj` helpers; auth uses Buddy JWS tokens, handled as `orcpub.routes` does.
 - **Homebrew keys are user-facing.** Never rename one without a backwards-compatible mapping.
+- **Homebrew is only written, read or loaded through the shape table.** A new content field gets a row in `homebrew_shapes.cljc`, and the junk audit (`docs/kb/homebrew-guard.md`) must stay at zero failures.
 - **Swapping a library keeps its alias** (`[clj-time.core :as t]` becomes `[java-time.api :as t]`).
 - **Config comes from one `.env` at the repo root**, git-ignored (`.env.example` has safe defaults).
   Clojure never reads `.env` itself: `scripts/common.sh` sources it with `set -a`, and `environ`
