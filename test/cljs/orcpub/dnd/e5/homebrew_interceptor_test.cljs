@@ -84,6 +84,24 @@
                             [{:content-type ::e5/races :key :hill :source "P" :original bad}])]
     (is (= bad (get-in rejected ["P" ::e5/races :hill])))))
 
+(deftest a-report-from-shared-content-never-sets-aside-a-local-entry
+  (let [lib {"P" {::e5/races {:hill (dissoc race :abilities)}}}
+        {:keys [plugins moved]} (homebrew-check/set-aside-broken-entries
+                                 lib {} [{:content-type ::e5/races :key :hill :source "P"
+                                          :shared? true :original (assoc race :abilities 42)}])]
+    (is (= lib plugins))
+    (is (empty? moved))))
+
+(deftest an-entry-replaced-since-its-report-is-not-set-aside
+  (let [report (first (homebrew-check/unreadable-reports
+                       {"P" {::e5/races {:hill (assoc race :abilities 42)}}}
+                       [{:source "P" :content-type ::e5/races :key :hill
+                         :path [:abilities] :action :unreadable}]))
+        healthy {"P" {::e5/races {:hill race}}}
+        still-bad {"P" {::e5/races {:hill (assoc race :abilities 42)}}}]
+    (is (empty? (:moved (homebrew-check/set-aside-broken-entries healthy {} [report]))))
+    (is (= 1 (count (:moved (homebrew-check/set-aside-broken-entries still-bad {} [report])))))))
+
 ;; ---------------------------------------------------------------------------
 ;; The read check: what a script or a bug writes to app-db outside any event
 ;; ---------------------------------------------------------------------------

@@ -112,3 +112,23 @@
         {cleaned :library findings :findings} (shapes/clean-library lib)]
     (is (empty? findings))
     (is (identical? lib cleaned))))
+
+(defn- cleaned-entry
+  "`entry` of `content-type`, run through the shape table: {:entry the cleaned entry :findings [...]}."
+  [content-type entry]
+  (let [{cleaned :library findings :findings} (shapes/clean-library {"P" {content-type {:k entry}}})]
+    {:entry (get-in cleaned ["P" content-type :k]) :findings findings}))
+
+(deftest a-number-written-with-leading-zeros-reads-as-that-number
+  (is (= 8 (:speed (:entry (cleaned-entry :orcpub.dnd.e5/races {:name "R" :speed "08"})))))
+  (is (= -8 (:speed (:entry (cleaned-entry :orcpub.dnd.e5/races {:name "R" :speed "-008"})))))
+  (is (= 0.5 (:speed (:entry (cleaned-entry :orcpub.dnd.e5/races {:name "R" :speed "00.5"}))))))
+
+(deftest a-monster-score-that-is-not-a-number-is-read-or-reported
+  (let [{:keys [entry findings]} (cleaned-entry :orcpub.dnd.e5/monsters {:name "M" :str "18" :dex "tall"})]
+    (is (= 18 (:str entry)))
+    (is (some #(and (= [:dex] (:path %)) (= :unreadable (:action %))) findings))))
+
+(deftest a-lone-number-is-not-an-ability-increase
+  (let [{:keys [findings]} (cleaned-entry :orcpub.dnd.e5/feats {:name "F" :ability-increases 42})]
+    (is (some #(and (= [:ability-increases] (:path %)) (= :unreadable (:action %))) findings))))
