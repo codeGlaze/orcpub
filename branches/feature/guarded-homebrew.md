@@ -3,8 +3,7 @@
 **Purpose:** protect the app from malformed homebrew by default: one shape table checks every
 write, read and load; what cannot be read is set aside for repair, never silently dropped; a bug
 costs the item it is in, not the page. **Base:** `integration` at `d51938c1`. **PR into:**
-`integration` (not opened). **Design and progress:** `docs/HOMEBREW_GUARD.md` on the branch
-(move it to `docs/kb/` here before the branch merges).
+`integration` (not opened). **Design and progress:** [docs/kb/homebrew-guard.md](../../docs/kb/homebrew-guard.md) (moved here 2026-10-29).
 
 ## State (updated 2026-10-27, after the integration merge)
 
@@ -14,7 +13,7 @@ costs the item it is in, not the page. **Base:** `integration` at `d51938c1`. **
   on every read (`homebrew-check/checked`); the old `e5/mend-*` is folded into it; set-aside
   homebrew goes to the quarantine panel; event errors show a notice; render guards on builder
   sections, My Content lists and rows, monster rows; the share banner names unusable entries.
-- Remote head `c878e9887` (2026-10-28): `integration` merged in again (after #65), checks green. Earlier `06c054f1`: merged with #69. AI trailers stripped
+- Remote head `04e153bbd` (2026-10-29): subclass-key bug fixed (junk audit 0 failures), `integration` (with #74) merged, branch changelog written, PR next. Earlier `c878e9887` (2026-10-28): `integration` merged in again (after #65), checks green. Earlier `06c054f1`: merged with #69. AI trailers stripped
   from the branch's commits (force-pushed 2026-10-27).
 - Next, in order:
   1. **Step 7, enforcement:** the junk audit in CI at zero, the AGENTS.md rules (owner's yes),

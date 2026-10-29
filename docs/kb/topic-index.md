@@ -665,7 +665,7 @@ _building-a-class-from-builders · building a class from builders_
 
 _built-character-representation · built character representation_
 
-**topics:** -ref, accessor, body, character-validation, computed, deferred, entity, flat, function, literally, macro, plain, predicates, realized, spec, symbol, test-suite-state, writing
+**topics:** -ref, accessor, body, character-validation, computed, deferred, entity, expressible, flat, literally, macro, plain, predicates, realized, spec, symbol, test-suite-state, writing
 
 - One-liner
 - How it actually works (verified)
@@ -1153,7 +1153,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, spell, spell-choice, spellcasting, subclass, subclasses, sustainability, vocab, vocabulary
+**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab, vocabulary
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -1440,7 +1440,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
-**topics:** abbreviation, bulk, characters, dash, derivation, key, match, orphans, rebind, relink, rename, repair, rung, save, shim, trailing, trim, trimming
+**topics:** abbreviation, bulk, characters, dash, derivation, item, key, match, orphans, rebind, relink, rename, rung, save, shim, trailing, trim, trimming
 
 - The problem, stated properly
 - The invariant to establish
@@ -1540,7 +1540,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, loader, non-word, prevention, rescued, throw, token
+**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, non-word, prevention, rescued, root-caused, throw, token, unfindable
 
 - The failure
 - The two defences, and where they are
@@ -2049,6 +2049,31 @@ _homebrew-fixes-persist · homebrew fixes persist_
 - Checked and not a bug
 - Related
 
+## homebrew-guard.md
+
+_homebrew-guard · homebrew guard_
+
+**topics:** 659, aside, audit, deep, entry, event, grant-rows, guard, integration, interceptor, junk, library, link, offered, quarantine, repairs, startup, unreadable
+
+- The problem in one paragraph
+- How we got here
+- What exists today
+- Baseline: what crashes today
+- What our documents already say
+- Why per-site fixes keep failing
+- The design
+- What it promises, and what proves it
+- 1. One cleaning step, from a table of shapes (built)
+- 2. Where homebrew comes in: fix once, check it works, store it (built)
+- 3. Inside the app: every read is checked (built)
+- 4. Never silent, with what exists
+- 5. Containment for bugs in our own code
+- 6. Enforcement, and tests that cannot pass by accident
+- Efficiency
+- Prep work already done, to reuse
+- Order of work, each step gated
+- For the owner
+
 ## homebrew-key-map.md
 
 _homebrew-key-map · homebrew key map_
@@ -2243,7 +2268,7 @@ _keyword-trap-name-repair · keyword trap name repair_
 
 _lein-uberjar-hang · lein uberjar hang_
 
-**topics:** attempts, bare-metal, classpath, cljsbuild, hangs, hooks, inclusion, jar, lein, lein-cljsbuild, prep-tasks, profile, profile-based, profiles, re-merge, resource-paths, subprocess, uberjar
+**topics:** 7gb, attempts, bare-metal, classpath, cljsbuild, hangs, inclusion, jar, lein, lein-cljsbuild, prep-tasks, profile, profile-based, profiles, re-merge, resource-paths, subprocess, uberjar
 
 - Summary
 - Final Working Solution: Three-Step Docker Build
@@ -2524,7 +2549,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _page-load-budget · page load budget_
 
-**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, page, parties, portrait, repeat, sheet, signed, visit
+**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, parties, portrait, repeat, sheet, signed, stylesheet, visit
 
 - Why it exists
 - Audit of integration (2026-10-15, b8035afe, production bundle)
@@ -2796,7 +2821,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** 2026-10-16, days, draft, drafts, edit, elsewhere, expire, expires, leftover, never-saved, notice, owner, rescue, restore, saved, start-up, tab, unsaved
+**topics:** 2026-10-16, days, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)
@@ -2823,7 +2848,7 @@ _plan-charges-and-casting · plan charges and casting_
 
 _plan-chunked-library-storage · plan chunked library storage_
 
-**topics:** blob, capacity, chars, chunk, granularity, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike, write
+**topics:** blob, capacity, chars, chunk, complexity, granularity, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike
 
 - Read this first: why this plan is parked
 - The problem, in one line
@@ -2918,7 +2943,7 @@ _plan-email-and-alerts · plan email and alerts_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, pool, published, skill, wrapper
+**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, published, skill, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -2968,7 +2993,7 @@ _plan-lookup-indexes · plan lookup indexes_
 
 _plan-next · plan next_
 
-**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, damage, macro, natural-armor, number, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged, windows
+**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged, windows
 
 - 0. Standing, do these first
 - 0b. September support sessions — tracked separately
@@ -3299,7 +3324,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifier, modifiers, play-state, player, positioning, recomputes, sheet, static, toggle
+**topics:** arbitrary, armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -3347,7 +3372,7 @@ _settings-registry-and-boot-report · settings registry and boot report_
 
 _share-bundle-dependency-extraction · share bundle dependency extraction_
 
-**topics:** cljc, cljs, closure, def, direct, extractor, keys, languages, plugins, race, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
+**topics:** cljc, cljs, closure, def, direct, entity, extractor, index, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
 
 - Why this is not trivial
 - The content types (master list)
@@ -3708,7 +3733,7 @@ _support-session-ledger · support session ledger_
 
 _test-suite-state · test suite state_
 
-**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, harness, jvm, pre-existing, run, spec, suite, theater, unresolved, unrun, unshallowed
+**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, figwheel, harness, jvm, pre-existing, spec, suite, theater, unresolved, unrun, unshallowed
 
 - 0. Current measured state — 2026-09-12, feature/grant-rows (after the integration merge)
 - 0.1 Earlier measured state — 2026-09-05, feature/fighting-style-authoring
@@ -3722,7 +3747,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reader, reg-event-db, testing, utilities
+**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners
