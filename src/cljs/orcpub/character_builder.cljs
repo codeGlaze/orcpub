@@ -454,7 +454,7 @@
        [:div.f-w-b.flex.align-items-c
         [:div.pointer.m-l-5.m-r-5
          {:on-click check-fn}
-         (comps/checkbox equipped? false)]
+         (comps/checkbox equipped? false (str item-name " equipped"))]
         (if user-created?
           [comps/input-field
            :input
@@ -839,7 +839,7 @@
         [:div.flex-grow-1
          [:div.flex.align-items-c
           (when multiselect?
-            [:span.m-r-5 (comps/checkbox selected? disable-checkbox?)])
+            [:span.m-r-5 (comps/checkbox selected? (or disable-checkbox? (not selectable?)) name)])
           (when icon [:div.m-r-5 (views5e/svg-icon icon 24)])
           [:span.f-w-b.f-s-1.flex-grow-1 name]
           (when edit-event
@@ -2772,7 +2772,7 @@
     [:div.pointer.setting-toggle
      (merge {:on-click toggle-theme}
             (views5e/switch-attrs (= "light-theme" theme) toggle-theme))
-     [:span.m-r-5 (comps/checkbox (= "light-theme" theme) false)]
+     [:span.m-r-5 (comps/checkbox-mark (= "light-theme" theme) false)]
      [:span.main-text-color "Light Theme"]]))
 
 (defn button-text-toggle
@@ -2785,7 +2785,7 @@
       (let [toggle #(dispatch [:toggle-dark-button-text])]
         [:div.pointer.setting-toggle.m-l-20
          (merge {:on-click toggle} (views5e/switch-attrs on? toggle))
-         [:span.m-r-5 (comps/checkbox on? false)]
+         [:span.m-r-5 (comps/checkbox-mark on? false)]
          [:span.main-text-color "Dark Button Text"]]))))
 
 (defn set-loading []

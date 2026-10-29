@@ -55,7 +55,8 @@ A deployment can restate a credit without editing shared code, via
 PORTRAIT_ARTISTS='{"house-pack": {"name": "…", "link": "https://…"}}'
 ```
 
-Only `name`, `link`, `links` and `license` are honoured. Which artist drew which asset
+`name`, `link`, `links` and `license` are honoured, and `profile`, `show_examples`, `show_links` and
+`show_count` only when set to `false` (the list below). Which artist drew which asset
 is structural, lives in the registry, and is not overridable — a configuration
 cannot quietly re-attribute someone's work to a different pack.
 
@@ -101,11 +102,16 @@ What the site shows is layered, and later layers win field by field:
 
 1. the registry in `portrait_assets.cljc` (the public default)
 2. the artist's own edits, from My Account → Artist credit
-3. `name`, `link` and `links` in `PORTRAIT_ARTISTS`
+3. `name`, `link` and `links` in `PORTRAIT_ARTISTS`; and `profile`, `show_examples`,
+   `show_links` and `show_count` set to `false` turn the artist's page, or that part of it, off
+   whatever the artist chose (`true` does nothing: the site cannot force a page on)
 
 So you can always correct a credit from config without touching the
 account. Fields the config sets show as fixed on the artist's settings
-page. Every edit is emailed to the artist and to the admin.
+page. Edits are emailed to the artist and to the admin: the first change
+after a quiet spell at once, and any further changes in the ten minutes
+after it together in one email when those ten minutes end (more editing
+cannot postpone it). An account can save up to 60 changes an hour.
 
 ### Settings these need
 

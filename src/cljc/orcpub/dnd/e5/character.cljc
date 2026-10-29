@@ -756,15 +756,9 @@
   8000)
 
 (defn parse-portrait
-  "Coerce a stored portrait value into {:layers {…} :colors {…} :tweaks {…}}
-   or nil.
-
-   The portrait is persisted as an EDN STRING: ::se/values is a Datomic
-   component ref, so every key in it must be a registered attribute and none
-   can hold a nested map (see db/schema.clj). Tolerates an already-parsed map
-   (in-memory drafts before a save round-trip) and returns nil for blank or
-   malformed values rather than throwing — a corrupt portrait should degrade
-   to 'no portrait', not break the character sheet."
+  "A stored portrait, an EDN string or an in-memory map, as {:layers {…} :colors {…}
+   :tweaks {…}} through sane-portrait; nil for blank or malformed input, never a throw.
+   Stored as a string because ::se/values cannot hold a nested map (db/schema.clj)."
   [v]
   (cond
     (map? v) (sane-portrait v)

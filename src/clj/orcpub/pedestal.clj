@@ -80,6 +80,17 @@
 ;; Create the nonce interceptor with current dev-mode? setting
 (def nonce-interceptor (make-nonce-interceptor (config/dev-mode?)))
 
+(def referrer-policy-interceptor
+  "Sets Referrer-Policy: strict-origin-when-cross-origin on every response that has not set its own,
+   so a site this one links to sees only its domain. A handler's own policy wins (the
+   password-reset page sends no-referrer)."
+  (interceptor/interceptor
+   {:name :referrer-policy
+    :leave (fn [ctx]
+             (if (get-in ctx [:response :headers "Referrer-Policy"])
+               ctx
+               (assoc-in ctx [:response :headers "Referrer-Policy"] "strict-origin-when-cross-origin")))}))
+
 (defn- read-content-stamp
   "The first 12 hex digits of the SHA-1 of the public resource at `path`, or nil when it is missing."
   [path]

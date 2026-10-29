@@ -30,6 +30,16 @@
 (def error-tint "#fdf5f6")
 (def warning-yellow "#ffd21a") ; attention severity: unresolved conflicts, missing fields
 (def broken-red "#e5637a")     ; broken severity: invalid / unexportable data
+(def light-text "#363636")     ; body text in the light theme
+(def slate-blue "#33658A")     ; the light theme's accent, where the dark theme uses orange
+(def button-ink "#15202e")     ; dark text on amber: buttons with dark text on, a checked box
+(def orange-hairline "rgba(240,161,0,0.16)") ; orange border on dark portrait panels
+
+;; Portrait surfaces: the artist pages here, the compositor drawer in portrait.cljs.
+(def portrait-panel "#131924")      ; card and tile ground, dark theme
+(def portrait-panel-text "#ebeef4") ; text on portrait-panel
+(def portrait-frame-glow "#202939") ; portrait frame gradient, centre
+(def portrait-frame-edge "#0f141c") ; portrait frame gradient, edge
 
 ;; Text on the amber buttons is small and low-contrast either way, so it gets a
 ;; faint edge in the opposite tone: dark under white text, light under dark.
@@ -1912,6 +1922,95 @@
      [:.details-column
       {:max-width "500px"}])])
 
+(def artist-pages
+  "The public artist pages (views/artist_page.cljs), inside .pl-root so the drawer's
+   --lk-* variables and credit classes apply. .ap-* is only what the drawer lacks."
+  (let [vollkorn "'Vollkorn', Georgia, serif"
+        open-sans "'Open Sans', system-ui, sans-serif"
+        light ".ap-root.light-theme"]
+    [[:.ap-root {:font-family open-sans :color portrait-panel-text :padding "24px 12px 40px"}]
+     [light {:color light-text}]
+     ;; .pl-root.light-theme sets --lk-dim on this same element and is emitted later, so match it
+     ;; with a third class; #5f6672 is 5.8:1 on white, #858c96 only 3.4:1
+     [(str ".pl-root" light) {:--lk-dim "#5f6672"}]
+     [:.ap-card
+      {:max-width "640px" :margin "0 auto" :padding "28px 28px 24px"
+       :background portrait-panel :border (str "1px solid " orange-hairline)
+       :border-radius "12px" :box-shadow "0 20px 50px -30px rgba(0,0,0,0.7)"
+       :display :flex :flex-direction :column :gap "30px"}]
+     [(str light " .ap-card")
+      {:background :white :border-color "rgba(0,0,0,0.10)"
+       :box-shadow "0 20px 50px -34px rgba(0,0,0,0.35)"}]
+     [:.ap-head {:display :flex :flex-direction :column :gap "12px" :text-align :center}]
+     [:.ap-name
+      {:margin 0 :font (str "italic 400 40px/1.1 " vollkorn)
+       :color "var(--lk-name)" :white-space :normal :text-wrap :balance}]
+     [".ap-head .lk-row" {:gap "16px"}]
+     [:.ap-lede {:margin 0 :font-size "13px" :line-height 1.5 :color "var(--lk-dim)"}]
+     [:.ap-links
+      {:display :flex :flex-wrap :wrap :justify-content :center :gap "8px" :margin-top "4px"}]
+     [:.ap-link
+      {:display :inline-flex :align-items :center :gap "8px"
+       :padding "9px 16px" :border-radius "5px"
+       :border "1px solid rgba(255,255,255,0.10)" :background "rgba(255,255,255,0.02)"
+       :color portrait-panel-text :text-decoration :none
+       :font (str "600 12px/1 " open-sans) :letter-spacing "0.04em"
+       :transition "border-color 160ms ease, background-color 160ms ease"}]
+     [".ap-link:hover, .ap-link:focus-visible"
+      {:border-color orange :background "rgba(240,161,0,0.06)" :outline :none}]
+     [".ap-link .lk-ico" {:width "14px" :height "14px"}]
+     [".ap-link .lk-ico" {:color "var(--lk-mark-color, currentColor)"}]
+     ;; the domain a link really opens, so a label cannot pass for another site
+     [:.ap-link-host {:font-weight 400 :letter-spacing 0 :color "var(--lk-dim)"}]
+     [:.ap-link:visited {:color portrait-panel-text}]
+     [(str light " .ap-link")
+      {:border-color "rgba(0,0,0,0.14)" :background :white :color light-text}]
+     [(str light " .ap-link:visited") {:color light-text}]
+     [(str light " .ap-link:hover, " light " .ap-link:focus-visible")
+      {:border-color slate-blue :background "rgba(51,101,138,0.06)"}]
+     [:.ap-section {:display :flex :flex-direction :column :gap "14px"}]
+     [".ap-section > .lk-cap" {:margin 0}]
+     [:.ap-examples {:display :grid :grid-template-columns "repeat(3, 1fr)" :gap "14px"}]
+     [:.ap-example {:margin 0 :display :flex :flex-direction :column :gap "7px"}]
+     ;; Dark in both themes, like the drawer's frame: a light frame would swallow pale
+     ;; skin and blonde hair.
+     [:.ap-frame
+      {:width "100%" :aspect-ratio "4 / 5" :box-sizing :border-box
+       :position :relative :overflow :hidden :border-radius "10px"
+       :background (str "radial-gradient(circle at 50% 35%, " portrait-frame-glow ", "
+                        portrait-panel " 60%, " portrait-frame-edge ")")
+       :border (str "1px solid " orange-hairline)}]
+     [(str light " .ap-frame") {:border-color "rgba(0,0,0,0.12)"}]
+     [:.ap-example-img
+      {:display :block :width "100%" :height "100%" :object-fit :cover}]
+     [".ap-example figcaption"
+      {:font (str "italic 12px/1.4 " vollkorn) :color "var(--lk-dim)" :text-align :center}]
+     [:.ap-foot
+      {:margin 0 :padding-top "16px" :border-top "1px solid rgba(255,255,255,0.06)"
+       :font-size "12px" :line-height 1.55 :color "var(--lk-dim)" :text-align :center}]
+     [(str light " .ap-foot") {:border-top-color "rgba(0,0,0,0.08)"}]
+     [".ap-foot a, .ap-missing a"
+      {:color :inherit :text-decoration "underline dotted var(--lk-under)"
+       :text-underline-offset "3px"}]
+     [".ap-foot a:visited, .ap-missing a:visited" {:color :inherit}]
+     [".ap-foot a:hover, .ap-missing a:hover" {:color "var(--lk-under-lit)"}]
+     [:.ap-missing {:text-align :center :font-size "13px" :color "var(--lk-dim)"}]
+     [:.ap-index
+      {:display :grid :grid-template-columns "repeat(auto-fill, minmax(150px, 1fr))"
+       :gap "16px"}]
+     [:.ap-index-card
+      {:display :flex :flex-direction :column :gap "8px"
+       :text-decoration :none :text-align :center}]
+     [".ap-index-card .lk-name" {:font-size "18px" :white-space :normal}]
+     [".ap-index-card:hover .lk-name, .ap-index-card:focus-visible .lk-name"
+      {:color "var(--lk-under-lit)" :filter "var(--lk-halo)"}]
+     [".ap-index-card:focus-visible" {:outline :none}]
+     [:.ap-index-count {:font-size "11px" :color "var(--lk-dim)"}]
+     (at-media {:max-width "560px"}
+       [:.ap-card {:padding "22px 16px 18px" :gap "26px"}]
+       [:.ap-name {:font-size "32px"}]
+       [:.ap-examples {:gap "8px"}])]))
+
 (def open-sans-subsets
   "Open Sans character sets as [subset unicode-range], one variable-weight woff2 file each under
    resources/public/fonts/open-sans/ (OFL, see OFL.txt there). A browser downloads only the files
@@ -1974,7 +2073,7 @@
     ;; is 7.8:1. Dark theme only; the light theme's slate buttons pass in white.
     [".app.dark-button-text:not(.light-theme)"
      [:.form-button :.mc-btn :.roll-button
-      {:color "#15202e"
+      {:color button-ink
        :text-shadow text-lift-light}]
      ;; the ability buttons are short numbers: a stronger glow and a yellow rim to
      ;; hold them up. paint-order draws the rim behind the letters, not over them.
@@ -1999,11 +2098,14 @@
      {:text-shadow text-lift-dark}
      [:.title {:letter-spacing "-0.04em"}]]
     ;; The tabs are spaced by the row's gap, not their own margins; on a phone the
-    ;; row's padding is the 10px gutter.
+    ;; row's padding is the 10px gutter, and the tabs share the row with no side
+    ;; padding of their own, so all seven fit a 320px screen.
     [:.app-header-menu
      {:gap "4px"
       :padding "0 2px"}
-     [:&.phone-tabs {:padding "0 10px"}]]
+     [:&.phone-tabs {:padding "0 10px"}
+      [:.header-tab {:min-width 0}
+       [:>.p-10 {:padding-left 0 :padding-right 0}]]]]
 
     ;; The header bar's search and login boxes, and the desktop slot left of the
     ;; tabs that holds the supporter link.
@@ -2572,20 +2674,56 @@
       :padding "11px 0"
       :align-items :center}]
 
+    ;; comps/checkbox: a rounded box that fills with the accent and shows a dark tick
+    ;; when checked (amber in the dark theme, slate blue in the light one). The tick is
+    ;; drawn (an L of two borders, turned 45deg), not a font glyph, so it sits dead
+    ;; centre: a glyph centres its text box, not its ink.
     [:.checkbox
-     {:width "16px"
+     {:display :inline-flex
+      :align-items :center
+      :justify-content :center
+      :box-sizing :border-box
+      :width "16px"
       :height "16px"
-      :box-shadow "0 1px 0 0 #f0a100"
-      :background-color :white
-      :cursor :pointer}
-
-     [:.fa-check
-      {:font-size "14px"
-       :margin "1px"}]]
-
-    [:.checkbox.checked.disabled
-     {:background-color "rgba(255, 255, 255, 0.37)"
-      :cursor :not-allowed}]
+      :flex-shrink 0
+      :border "1.5px solid rgba(255,255,255,0.55)"
+      :border-radius "4px"
+      ;; opaque, so a box on a white panel is still a dark box there, not a see-through tint
+      :background-color "#1b2130"
+      :color button-ink
+      :vertical-align :middle
+      :cursor :pointer
+      :transition "background-color 0.12s, border-color 0.12s"}
+     [:&:hover {:border-color orange}]
+     [:&.checked
+      {:background-color orange
+       :border-color orange}
+      [:&:after
+       {:content "\"\""
+        :width "28%"
+        :height "55%"
+        :border-style :solid
+        :border-color :currentColor
+        :border-width "0 2px 2px 0"
+        :transform "translateY(-15%) rotate(45deg)"}]]
+     [:&.disabled
+      {:opacity 0.5
+       :cursor :not-allowed}]]
+    ;; the keyboard's place: on the box, or on the box of a labelled row that is the control
+    [".checkbox:focus-visible, .checkbox-row:focus-visible .checkbox"
+     {:outline (str "2px solid " orange)
+      :outline-offset "2px"}]
+    [".app.light-theme .checkbox:focus-visible, .app.light-theme .checkbox-row:focus-visible .checkbox"
+     {:outline-color slate-blue}]
+    [:.checkbox-row:focus-visible {:outline :none}]
+    [".app.light-theme .checkbox"
+     {:border-color muted-on-light
+      :background-color :white}
+     [:&:hover {:border-color slate-blue}]
+     [:&.checked
+      {:background-color slate-blue
+       :border-color slate-blue
+       :color :white}]]
 
     [:.checkbox-text
      {:margin-left "5px"}]
@@ -2614,11 +2752,7 @@
       {:background-color "rgba(255,255,255,0.08)"}]
      [:.checkbox
       {:width "14px"
-       :height "14px"
-       :min-width "14px"
-       :flex-shrink 0}
-      [:.fa-check
-       {:font-size "12px"}]]
+       :height "14px"}]
      [:.flex.pointer
       {:align-items :center
        :gap "8px"}]]
@@ -3628,13 +3762,6 @@
      {:padding "20px 5px"
       :background-color "rgba(0,0,0,0.15)"}]
 
-    [:.checkbox-border
-     {:margin-top "-3px"
-      :border-color "#f0a100"
-      :border-style :solid
-      :border-width "1px"
-      :border-bottom-width "3px"}]
-
     [:.close-btn-posn
      {:right "8px"
       :top "8px"}]
@@ -3847,6 +3974,7 @@
     [:.z-200 {:z-index 200}]
 
 ];concat-bracket
+   artist-pages
    margin-lefts
    margin-tops
    min-widths

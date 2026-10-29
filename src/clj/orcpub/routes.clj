@@ -30,6 +30,7 @@
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
+            [orcpub.dnd.e5.artist-profile :as artist-profile]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.spell-annotations :as spell-annotations]
             [orcpub.dnd.e5.magic-items :as mi5e]
@@ -54,6 +55,7 @@
             [orcpub.portrait-pack.strands :as strands]
             [orcpub.dnd.e5.portrait-effects :as portrait-fx]
             [orcpub.artist-credit :as artist-credit]
+            [orcpub.artist-credit-notices :as credit-notices]
             [orcpub.artist-email :as artist-email]
             [orcpub.crypto :as crypto]
             [orcpub.spellbook :as spellbook]
@@ -360,7 +362,8 @@
   (when-let [{:keys [artist-id default current own locked]} (artist-credit/credit-for-account db user-id)]
     {:artist-id (name artist-id)
      :default default
-     :current (select-keys current [:artist/id :artist/name :artist/link :artist/links])
+     :current (select-keys current (into [:artist/id :artist/name :artist/link :artist/links]
+                                         (vals artist-credit/page-switches)))
      :own own
      :locked locked
      ;; so the page can show which icon a link will get as it's typed
@@ -800,21 +803,29 @@
       {:status 400 :body {:error "User not found"}})))
 
 (defn update-artist-credit
-  "PUT /user/artist-credit -- an artist edits how they're credited. The
-   artist and the admin both hear about every change."
+  "PUT /user/artist-credit -- an artist edits how they're credited. The artist and the admin hear
+   about every change, batched by orcpub.artist-credit-notices; 429 with a Retry-After once the
+   account has saved artist-credit/save-cap changes in the hour. A notice that cannot be recorded
+   is logged and the saved change still answers 200."
   [{:keys [transit-params db conn identity]}]
   (let [user (find-user-by-username db (:user identity))
         id (:db/id user)]
     (if-not id
       {:status 400 :body {:error "User not found"}}
-      (let [{:keys [errors unchanged saved before artist-id]}
-            (artist-credit/save! conn id (select-keys transit-params [:name :link :links]))]
+      (let [{:keys [errors unchanged wait saved before artist-id]}
+            (artist-credit/save! conn id (select-keys transit-params
+                                                      (into [:name :link :links] (keys artist-credit/page-switches))))]
         (cond
           errors {:status 400 :body {:errors errors}}
+          wait {:status 429 :headers {"Retry-After" (str wait)}
+                :body {:error (let [m (max 1 (quot (+ wait 59) 60))]
+                                (str "That's a lot of changes for one hour. Try again in "
+                                     m (if (= 1 m) " minute." " minutes.")))}}
           unchanged {:status 200 :body (artist-credit-body (d/db conn) id)}
           :else
-          (do (future (artist-email/credit-changed! {:artist-id artist-id :user user
-                                                     :before before :after saved}))
+          (do (try (credit-notices/saved! conn {:artist-id artist-id :user user :before before :after saved})
+                   (catch Exception e
+                     (println "ERROR: artist credit saved, but its notice could not be recorded:" (.getMessage e))))
               {:status 200 :body (artist-credit-body (d/db conn) id)}))))))
 
 (defn hash-reset-key
@@ -1114,7 +1125,7 @@
   (try
     (let [info (.getDocumentInformation doc)]
       ;; drawn from the licensed art: the sheet says so where the repository's guard looks
-      (when art-mark (.setCustomMetadataValue info art-mark/key-word art-mark))
+      (when art-mark (.setCustomMetadataValue info art-mark/mark-keyword art-mark))
       (.setTitle info (or (some-> character-name s/trim not-empty)
                           branding/default-page-title))
       (.setCreator info branding/app-name)
@@ -1704,7 +1715,7 @@
                                      :art-mark (when composed
                                                  (some-> (try (.decode (java.util.Base64/getDecoder) ^String portrait-png)
                                                               (catch Exception _ nil))
-                                                         art-mark/mark-of))}))
+                                                         art-mark/read-mark))}))
         ;; Last, so every notice is in: it prepends a page naming what was left out, and
         ;; adds nothing at all when nothing was.
         (pdf/add-notice-page! doc sans)
@@ -2211,12 +2222,9 @@
                              (seq items) (assoc ::char5e/custom-items items))}))))
 
 (defn character-summary-for-id
-  "The share-card data for a character: {::se/summary … ::se/values …}.
-
-   Returns the WHOLE pull, not just ::se/summary. It used to return the summary
-   submap while its caller went on to destructure ::se/summary and ::se/values
-   back out of it -- so every og:title and og:image came out nil and shared
-   links fell back to the site defaults."
+  "The share-card data for a character: the whole pull, {::se/summary … ::se/values …}.
+   GOTCHA: character-page destructures both keys, so returning only the summary submap
+   blanks every og:title and og:image."
   [db id]
   (d/pull db
           '[::se/summary
@@ -2446,28 +2454,16 @@
    [route-map/dnd-e5-orcacle-page-route]])
 
 (defn- any-representation-requested?
-  "Whether If-None-Match is the wildcard.
-
-   RFC 7232 s3.2 gives the grammar as `\"*\" / 1#entity-tag`, so the wildcard is
-   the ENTIRE header value and can never be a list member. Reading it as one
-   meant a tag containing commas -- which the grammar permits inside the quotes
-   -- could be split into a bare `*` and fabricate a match, answering 304 to a
-   client holding a stale picture. A miss costs a render; this costs
-   correctness, so the two are not symmetrical."
+  "Whether the If-None-Match `header` is the wildcard.
+   GOTCHA: `*` is the whole header value, never a list member (RFC 7232 s3.2); splitting a
+   quoted tag on commas can invent one and answer 304 to a stale client."
   [header]
   (= "*" (some-> header s/trim)))
 
 (defn- covered-by-if-none-match?
-  "Whether an If-None-Match header lists `tag`.
-
-   Entity tags are quoted strings and the grammar does not forbid a comma inside
-   one, so the tags are MATCHED OUT rather than split on -- splitting is what
-   invented a wildcard above. Comparison is the weak one RFC 7232 s3.2 specifies
-   for If-None-Match, so W/\"x\" covers \"x\"; the --gzip suffix some re-encoding
-   proxies append is dropped the way the app's own etag-interceptor drops it.
-
-   The wildcard is deliberately NOT handled here: it asks whether a
-   representation exists at all, which cannot be answered before rendering one."
+  "Whether an If-None-Match `header` lists `tag`, by weak comparison (W/\"x\" covers \"x\"),
+   ignoring a --gzip suffix. Tags are matched out of the header, not split on commas.
+   The wildcard is not handled here; see any-representation-requested?."
   [header tag]
   (boolean
    (when (and (not (s/blank? header)) tag)
@@ -2476,15 +2472,10 @@
        (contains? offered (bare tag))))))
 
 (defn character-portrait-png
-  "PNG of a character's composed portrait, for og:image.
-
-   A crawler has no browser, so unlike the PDF path (where the client bakes
-   the layers with canvas) this is rendered here. Access matches the character
-   page itself -- unauthenticated by id -- because that page already exposes
-   the same character's name, race and description in its meta tags.
-
-   404 when the character has no composed portrait, so a crawler falls back to
-   whatever og:image the page did declare."
+  "Ring handler: PNG of character :id's composed portrait, for og:image. Unauthenticated,
+   like the character page, whose meta tags already expose the character. 304 when
+   If-None-Match covers portrait-etag; 404 when nothing composed is drawable. A `v` query
+   param matching the tag's version makes the response long-cacheable."
   [{:keys [db headers query-params] {:keys [id]} :path-params}]
   (artist-credit/refresh! db)
   (let [stored (some-> (d/pull db '[{::se/values [::char5e/portrait]}] id)
@@ -2558,11 +2549,9 @@
         ;; sheet, the summary and the PDF use. It is served as a real PNG
         ;; because crawlers will not render CSS masks -- or, mostly, SVG.
         parsed-portrait (char5e/parse-portrait portrait)
-        ;; drawable?, not (seq :layers). A selection naming only assets this
-        ;; deployment does not have is non-empty and draws nothing, so the card
-        ;; pointed at /portrait.png, the renderer returned 404, and the link
-        ;; previewed broken -- even when the character had a usable image-url
-        ;; to fall back on.
+        ;; drawable?, not (seq :layers): a selection of assets this deployment lacks is
+        ;; non-empty, draws nothing, and would point the card at a 404 instead of
+        ;; falling back to image-url.
         composed? (portrait-assets5e/drawable? parsed-portrait)
         ;; Versioned, so a link preview made after the portrait changes fetches the new
         ;; picture instead of the copy every chat app kept under the old address.
@@ -2582,6 +2571,98 @@
                                             (when credit (str " · " credit)))
                           :image-url share-image}
                          {"X-Frame-Options" "ALLOW-FROM https://www.worldanvil.com/"})))
+
+(defn artists-page
+  "The list of portrait artists. The page itself is the SPA's; this only
+   gives the share card a title of its own."
+  [request]
+  (index-page-response request {:title "Portrait artists"
+                                :description "The artists who drew the portrait pieces here."}))
+
+(defn artist-page
+  "An artist's profile. The body is the SPA's; the share tags are set here because a crawler never
+   runs the JavaScript. A page its artist switched off redirects (302) to /artists; an unknown
+   slug is a real 404, so a mistyped link is not indexed (the SPA says there is nobody here)."
+  [{:keys [headers db] {:keys [slug]} :path-params :as request}]
+  ;; before the artist's own switches are read
+  (when db (artist-credit/refresh! db))
+  (if-let [artist (artist-profile/artist-by-slug slug)]
+    (index-page-response
+     request
+     (cond-> {:title (artist-profile/page-title artist)
+              :description (artist-profile/share-description artist)}
+       (artist-profile/shows? artist :examples)
+       (assoc :image-url (str "https://" (headers "host") (artist-profile/example-path artist 1)))))
+    (if (artist-profile/registered-by-slug slug)
+      ;; switched off: 302, never 301, so switching it back on works at once
+      {:status 302 :headers {"Location" (artist-profile/index-path)} :body ""}
+      (assoc (index-page-response request {:title "No such artist"}) :status 404))))
+
+(def ^:private example-jpegs
+  "Rendered examples by [artist n watermark]. Single-flight, so a burst of requests for a new page
+   shares one render; bounded, since every edit to an artist's links makes new watermark keys."
+  (bounded-cache/cache {:max-entries 64}))
+
+(def ^:private example-failures
+  "Examples that failed to render, remembered for a minute so a broken one is not redrawn on every
+   request."
+  (bounded-cache/cache {:max-entries 64 :max-age-ms 60000}))
+
+(defn- example-jpeg
+  "JPEG bytes of example `n` (1-based) for `artist-id`, watermarked with `text`: nil when there is
+   none or it failed within the last minute, {:busy retry-seconds} when no draw slot frees. Drawn
+   once through the portrait draw pool and kept."
+  [artist-id n text]
+  (let [k [artist-id n text]]
+    (when-not (bounded-cache/lookup example-failures k)
+      (try
+        (bounded-cache/fetch!
+         example-jpegs k
+         #(let [{:keys [result busy]}
+                (work-pool/run portrait-store/draw-pool
+                               (fn [] (some-> (artist-profile/example-portraits artist-id)
+                                              (get (dec n))
+                                              (portrait-render/render-example-jpeg text))))]
+            (cond busy (throw (ex-info "example draw busy" {::busy busy}))
+                  result result
+                  :else (throw (ex-info "no example" {::failed true})))))
+        (catch clojure.lang.ExceptionInfo e
+          (let [{::keys [busy]} (ex-data e)]
+            (if busy
+              {:busy busy}
+              (do (bounded-cache/put! example-failures k true) nil))))
+        (catch Exception e
+          (println "artist example" k "failed -" (.getMessage e))
+          (bounded-cache/put! example-failures k true)
+          nil)))))
+
+(defn artist-example-jpeg
+  "Ring handler: example image :n (1 to example-count) of the artist at :slug, small,
+   flattened and watermarked. 404 for an unknown slug, a page or examples switched off, or any
+   other :n;
+   503 with a Retry-After when every draw slot is taken."
+  [{:keys [db] {:keys [slug n]} :path-params}]
+  ;; before the watermark is worked out from the artist's links
+  (when db (artist-credit/refresh! db))
+  (let [artist (artist-profile/artist-by-slug slug)
+        n (some->> n (re-matches #"[1-9]") parse-long)
+        jpeg (when (and artist n (<= n artist-profile/example-count) (artist-profile/shows? artist :examples))
+               (example-jpeg (:artist/id artist) n
+                             (artist-profile/watermark-text
+                              artist (or (portrait-render/site-mark) branding/app-name))))]
+    (cond
+      (:busy jpeg)
+      {:status 503 :headers {"Retry-After" (str (:busy jpeg)) "Content-Type" "text/plain"} :body "busy"}
+
+      jpeg
+      {:status 200
+       :headers {"Content-Type" "image/jpeg"
+                 "Cache-Control" "public, max-age=86400"
+                 ;; contributed artwork -- see character-portrait-png
+                 "X-Robots-Tag" "noai, noimageai"}
+       :body (ByteArrayInputStream. jpeg)}
+
+      :else {:status 404 :body "no such example"})))
 
 (def header-style
   {:style "color:#2c3445"})
@@ -2764,6 +2845,12 @@
         {:get `character-page}]
        [(route-map/path-for route-map/dnd-e5-char-portrait-route :id ":id") ^:interceptors [parse-id]
         {:get `character-portrait-png}]
+       [(route-map/path-for route-map/artists-page-route)
+        {:get `artists-page}]
+       [(route-map/path-for route-map/artist-page-route :slug ":slug")
+        {:get `artist-page}]
+       [(route-map/path-for route-map/artist-example-route :slug ":slug" :n ":n")
+        {:get `artist-example-jpeg}]
        [(route-map/path-for route-map/dnd-e5-portrait-artists-route)
         {:get `portrait-artists}]
        [(route-map/path-for route-map/dnd-e5-char-parties-route) ^:interceptors [check-auth]
