@@ -18,7 +18,8 @@
 const { chromium } = require('playwright');
 // Playwright's own chromium is not installed here; lib.js finds the preinstalled one.
 const { findChrome, dismissWhatsNew } = require('./lib');
-const http = require('http'), fs = require('fs'), path = require('path');
+const path = require('path');
+const { createStaticServer } = require('./static-server');
 
 const REPO = process.env.REPO || path.resolve(__dirname, '../..');
 const ROOT = path.join(REPO, 'resources/public');
@@ -27,20 +28,8 @@ const HOST = `<!DOCTYPE html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="/css/compiled/styles.css">
 <link rel="stylesheet" href="/assets/font-awesome/5.13.1/css/all.min.css"></head>
 <body><div id="app"></div><script src="/js/compiled/orcpub.js"></script></body></html>`;
-const mime = {'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png',
-  '.svg':'image/svg+xml','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf','.map':'application/json'};
-
 // Static server rooted at resources/public, with SPA fallback (deep route -> host page).
-const server = http.createServer((req, res) => {
-  const p = decodeURIComponent(req.url.split('?')[0]);
-  const root = path.resolve(ROOT), fp = path.resolve(root, '.' + p);
-  if (fp !== root && !fp.startsWith(root + path.sep)) { res.statusCode = 404; return res.end(); }
-  fs.readFile(fp, (e, d) => {
-    if (e) { res.setHeader('Content-Type', 'text/html'); res.end(HOST); return; }
-    res.setHeader('Content-Type', mime[path.extname(fp)] || 'application/octet-stream');
-    res.end(d);
-  });
-});
+const server = createStaticServer(ROOT, HOST);
 
 (async () => {
   await new Promise(r => server.listen(PORT, '127.0.0.1', r));
