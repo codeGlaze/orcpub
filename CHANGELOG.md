@@ -40,7 +40,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** a busy server answers a PDF export with a page that retries by itself instead of timing out. (#710)
 - **Site:** a What's New panel shows each release's highlights once. (#711)
 - **Site:** a "Dark Button Text" option for the yellow buttons. (#711)
-- **Server:** a startup report of the server's settings, naming what is missing and never printing secrets, and ending with the settings new in this release that are not set yet. (#712)
+- **Server:** a startup report of the server's settings, naming what is missing and what signup will do, never printing secrets, and ending with the settings new in this release that are not set yet. (#712)
 - **Accounts:** sign-up, password reset and the other account emails are kept and retried until the mail server takes them, so signing up works while the mail server is down, and no email is lost to a busy one.
 - **Server:** after the app runs out of memory or crashes, it restarts clean and the admin is emailed what happened; the evidence is kept in `/var/log/orcpub` on the host, on Docker Compose and Swarm alike. Docker logs are capped so they cannot fill the disk.
 - **Server:** sign-ins, failed sign-ins, sign-ups, password resets, email changes, deleted accounts and refused logins are written to the server log, without passwords or email addresses. The log no longer lists every web request; the web proxy keeps that record.
@@ -111,6 +111,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** on phones the header, menus and ability buttons fit the screen. (#711)
 - **Server:** blank settings count as unset, Docker secrets work for the login key, and the Windows start scripts find their ports. (#701)
 - **Server:** without email configured, registration is refused unless explicitly allowed. (#712)
+- **Site:** returning visitors download the app again only when it has changed, and see a new release straight away.
 - **Accounts:** site emails greet you by your preferred name, or by your username when you have
   not set one, instead of "Hi there".
 - **Characters:** the builder's tab bar wraps on narrow screens.
@@ -206,6 +207,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Accounts:** on a server whose JVM runs a non-English locale, an email address containing a capital I folded to a different account key, so sign-in, password reset, the unsubscribe link and email change could all miss the account.
 
 - Sign-in, password reset, share links, image fetching and PDF export are hardened against misuse, and secrets are no longer printed at startup.
+- **Site:** pages no longer load fonts from Google, so visiting the site no longer sends your address to Google.
 
 ## [breaking/2026-stack-modernization]
 

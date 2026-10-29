@@ -1,10 +1,5 @@
 function Pop() {
-    var cssRuleFile = "/css/cookiestyles.css";
-    let lnk = document.createElement("link");
-    lnk.setAttribute("rel", "stylesheet");
-    lnk.setAttribute("type", "text/css");
-    lnk.setAttribute("href", cssRuleFile);
-    document.getElementsByTagName("head")[0].appendChild(lnk);
+    // Its stylesheet is linked by the page itself (index.clj), with the file's content stamp.
     let styl = "undefined";
     var conDivObj;
     var fadeInTime = 10;

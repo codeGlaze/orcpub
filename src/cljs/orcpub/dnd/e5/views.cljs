@@ -669,7 +669,9 @@
   (dispatch [:route routes/dnd-e5-my-encounters-route]))
 
 (def logo [:a {:href "/" } [:img.h-60.pointer
-           {:src branding/logo-path}]])
+           ;; CSS mask-image (the portrait placeholder) fetches the same logo in CORS mode; a CORS-mode
+           ;; img lets the browser answer both from one request.
+           {:src branding/logo-path :cross-origin "anonymous"}]])
 
 (defn app-header []
   (let [device-type @(subscribe [:device-type])
