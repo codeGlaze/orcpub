@@ -9,6 +9,7 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 - [⚔️ Conflict Resolution](CONFLICT_RESOLUTION.md) - Handle duplicate keys during import
 - [🔍 Missing Content Detection](CONTENT_RECONCILIATION.md) - Find/fix missing content references
 - [📋 Required Fields Guide](HOMEBREW_REQUIRED_FIELDS.md) - Required fields per content type
+- [Magic Weapon Damage](MAGIC-WEAPON-DAMAGE.md) - How a magic weapon states its extra damage, crits, charges and resets
 
 **For Developers:**
 - [🌿 Contributing & Workflow](CONTRIBUTING.md) - Branching, releases, changelog fold, commit & PR conventions

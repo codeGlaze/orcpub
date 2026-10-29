@@ -38,6 +38,8 @@
             [orcpub.dnd.e5.combat :as combat]
             [orcpub.dnd.e5.weapons :as weapons]
             [orcpub.dnd.e5.magic-items :as mi]
+            [orcpub.dnd.e5.modifiers :as mod5e]
+            [orcpub.dnd.e5.rests :as rests]
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
@@ -3147,6 +3149,15 @@
  character-interceptors
  toggle-inventory-item-equipped)
 
+(defn change-item-charges
+  "`character` with `n` charges spent from (n positive) or given back to (n negative) the `i`th
+  `item` (key `item-key`) carried under `selection-key`. Spending more than is left changes nothing."
+  [character selection-key item-key item i n]
+  (rests/update-carried character selection-key item-key
+                       (fn [entry] (if (pos? n)
+                                     (or (mi/spend-charges item entry i n) entry)
+                                     (mi/regain-charges item entry i (- n))))))
+
 (defn toggle-custom-inventory-item-equipped [character [_ custom-equipment-key item-index]]
   (common/toggle-in
    character
@@ -3384,7 +3395,8 @@
                                                    js/window.location.hostname
                                                    path
                                                    js/window.location.port)))
-         (cond-> {:db (assoc db :route new-route)
+         ;; the Rest box's Undo belongs to the page it was made on
+         (cond-> {:db (-> db (assoc :route new-route) (dissoc ::char5e/rest-result :weapon-roll/chain))
                   :dispatch-n [[:hide-message]
                                [:close-orcacle]]}
            (not no-return?) (assoc-in [:db :return-route] new-route)
@@ -4012,6 +4024,28 @@
           ::char5e/summary-map (common/map-by-id characters))))
 
 (reg-event-db
+ :weapon-roll/add
+ ;; One roll joins the turn's chain: {:weapon :name :mod :two-handed? :toggles :attack :damage}.
+ (fn [db [_ entry]]
+   (update db :weapon-roll/chain (fnil conj []) entry)))
+
+(reg-event-db
+ :weapon-roll/damage
+ (fn [db [_ damage]]
+   (update db :weapon-roll/chain #(conj (pop %) (assoc (peek %) :damage damage)))))
+
+(reg-event-db
+ :weapon-roll/set-mode
+ ;; The sticky attack mode from the Weapons header: :normal, :adv or :dis.
+ (fn [db [_ mode]]
+   (assoc db :weapon-roll/mode mode)))
+
+(reg-event-db
+ :weapon-roll/done
+ (fn [db _]
+   (dissoc db :weapon-roll/chain)))
+
+(reg-event-db
  ::mi/set-custom-items
  (fn [db [_ items]]
    (assoc db ::mi/custom-items items)))
@@ -4559,6 +4593,7 @@
   "Where each SRD data file is served from, by kind."
   {:conditions srd-conditions/data-path
    :rules srd-rules/data-path
+   :spell-rolls "/srd/2014/spell-rolls.edn"
    :clarifications srd-rules/notes-path})
 
 (reg-fx
@@ -4708,6 +4743,9 @@
    for re-applying after a refused save). When the builder has that character open, the edit is
    applied there too. With no `id` the character is unsaved, so the edit goes to the builder's copy."
   [db id update-fn]
+  ;; Any sheet edit closes an open Rest result, so its Undo cannot overwrite the edit; the rest
+  ;; events put their own result back (with-rest-result).
+  (let [db (dissoc db ::char5e/rest-result)]
   (if id
     (let [int-id (js/parseInt id)
           stored (get-in db [::char5e/character-map int-id])
@@ -4723,11 +4761,92 @@
         (and open (not (:draft/held db))) (assoc ::builder-draft->local-store open)))
     ;; No id: the character being built has never been saved, so this is an
     ;; edit to the one in hand, not a switch.
-    {:dispatch [:character-updated (update-fn (:character db))]}))
+    {:db db :dispatch [:character-updated (update-fn (:character db))]})))
 
 (reg-fx
  ::builder-draft->local-store
  (fn [character] (character->local-store character)))
+
+(reg-event-fx
+ ::char5e/change-item-charges
+ (fn [{:keys [db]} [_ id selection-key item-key item i n]]
+   (update-character-fx db id #(change-item-charges % selection-key item-key item i n))))
+
+(reg-event-fx
+ ::char5e/set-item-charges-max
+ (fn [{:keys [db]} [_ id selection-key item-key i n]]
+   (update-character-fx db id #(rests/update-carried % selection-key item-key
+                                                    (fn [entry] (mi/set-charge entry i ::char-equip5e/charges-max n))))))
+
+;; The Rest box (handoff-rest-controls.md): its last action, kept until its line is closed, so
+;; Undo can put the character back and a typed amount can replace a roll.
+(defn- current-character
+  "The character a sheet event changes: the saved one with `id`, else the builder's."
+  [db id]
+  (if id (get-in db [::char5e/character-map (js/parseInt id)] {}) (:character db)))
+
+(defn- with-rest-result
+  "The effects of setting the character to `character` (update-character-fx) plus the Rest box's
+  result `result` (nil removes it), whether or not the effects already carry a :db."
+  [db id character result]
+  (let [fx (update-character-fx db id (constantly character))
+        db' (or (:db fx) db)]
+    (assoc fx :db (if result (assoc db' ::char5e/rest-result result) (dissoc db' ::char5e/rest-result)))))
+
+(defn- rest-outcome
+  "The rest result for `request` applied to the `before` character: the new character and what
+  came back. `amounts` holds typed amounts ({[item-key i] n})."
+  [before items-by-key request amounts]
+  (rests/apply-actions before (rests/carried before items-by-key) request amounts dice/die-roll))
+
+(defn- kept-amounts
+  "`amounts` ({[item-key i] n}) with every recharge in `recharged` added, rolled or typed, so a
+  later change to one amount or the time of day re-applies them rather than rolling again."
+  [amounts recharged]
+  (into amounts (map (fn [{:keys [item-key i amount]}] [[item-key i] amount])) recharged))
+
+(reg-event-fx
+ ::char5e/take-rest
+ (fn [{:keys [db]} [_ id request items-by-key]]
+   (let [before (current-character db id)
+         {:keys [character recharged]} (rest-outcome before items-by-key request {})
+         ask? (rests/ask-time-of-day? before (rests/carried before items-by-key) request)]
+     (with-rest-result db id character
+       {:id id :before before :request request :items-by-key items-by-key
+        :amounts (kept-amounts {} recharged) :recharged recharged :ask? ask?}))))
+
+(defn- current-rest-result
+  "The stored Rest box result if it belongs to character `id`, else nil: a second queued click
+  can arrive after Undo or a route change has cleared it."
+  [db id]
+  (let [r (::char5e/rest-result db)] (when (and r (= id (:id r))) r)))
+
+(reg-event-fx
+ ::char5e/answer-time-of-day
+ (fn [{:keys [db]} [_ id times]]
+   (when-let [{:keys [before request items-by-key amounts] :as result} (current-rest-result db id)]
+     (let [request (assoc request :times times)
+           {:keys [character recharged]} (rest-outcome before items-by-key request amounts)]
+       (with-rest-result db id character (assoc result :request request :recharged recharged :ask? false
+                                                :amounts (kept-amounts amounts recharged)))))))
+
+(reg-event-fx
+ ::char5e/set-rest-amount
+ (fn [{:keys [db]} [_ id item-key i n]]
+   (when-let [{:keys [before request items-by-key amounts] :as result} (current-rest-result db id)]
+     (let [amounts (assoc amounts [item-key i] n)
+         {:keys [character recharged]} (rest-outcome before items-by-key request amounts)]
+     (with-rest-result db id character (assoc result :amounts (kept-amounts amounts recharged) :recharged recharged))))))
+
+(reg-event-fx
+ ::char5e/undo-rest
+ (fn [{:keys [db]} [_ id]]
+   (when-let [{:keys [before]} (current-rest-result db id)]
+     (with-rest-result db id before nil))))
+
+(reg-event-db
+ ::char5e/close-rest-result
+ (fn [db _] (dissoc db ::char5e/rest-result)))
 
 (reg-event-fx
  ::char5e/toggle-spell-prepared
@@ -4867,18 +4986,18 @@
 (reg-event-fx
  ::char5e/finish-long-rest
  (fn [{:keys [db]} [_ id]]
-   (clear-period db
-                 id
-                 (fn [character]
-                   (update
-                    character
-                    ::entity/values
-                    dissoc
-                    ::spells/slots-used
-                    character
-                    ::char5e/current-hit-points ::char5e/max-hit-points))
-                 ::units5e/long-rest
-                 ::units5e/rest)))
+   (apply clear-period
+          db
+          id
+          (fn [character]
+            (update
+             character
+             ::entity/values
+             dissoc
+             ::spells/slots-used
+             character
+             ::char5e/current-hit-points ::char5e/max-hit-points))
+          units5e/long-rest-clears)))
 
 (reg-event-fx
  ::char5e/finish-short-rest-warlock
@@ -4896,7 +5015,7 @@
 (reg-event-fx
  ::char5e/finish-short-rest
  (fn [{:keys [db]} [_ id]]
-   (clear-period db id nil ::units5e/short-rest ::units5e/rest)))
+   (apply clear-period db id nil units5e/short-rest-clears)))
 
 (reg-event-fx
  ::char5e/new-round

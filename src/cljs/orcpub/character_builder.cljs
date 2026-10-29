@@ -40,6 +40,7 @@
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
+            [orcpub.dnd.e5.views.builder-fields :as builder-fields]
             [orcpub.dnd.e5.subs :as subs5e]
             [orcpub.route-map :as routes]
             [orcpub.pdf-spec :as pdf-spec]
@@ -1227,7 +1228,7 @@
             (let [current (slot-pick increment)
                   opts (filter (fn [k] (or (= k current) (not (used k)))) pool)]
               [:div.flex-grow-1
-               [views5e/dropdown
+               [builder-fields/dropdown
                 {:typed? true
                  :value current
                  :items (cons {:title "— choose —" :value nil}

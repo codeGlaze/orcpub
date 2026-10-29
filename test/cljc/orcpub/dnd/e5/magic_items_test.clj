@@ -4,7 +4,11 @@
             [orcpub.dnd.e5.character :as char]
             [orcpub.dnd.e5.weapons :as weapons5e]
             [orcpub.modifiers :as mod]
-            [orcpub.dnd.e5.modifiers :as mod5e]))
+            [orcpub.dnd.e5.modifiers :as mod5e]
+            [orcpub.dnd.e5.spells :as spells]
+            [orcpub.dice :as dice]
+            [clojure.spec.alpha :as spec]
+            [clojure.string :as s]))
 
 (deftest test-to-internal-item
   (testing "Ability override modifier"
@@ -123,7 +127,7 @@
           names (set (map :name expansion))]
       (is (= 2 (count expansion)))
       (is (names "My Item, Plate"))
-      (is (names "My Item, Chain mail"))))
+      (is (names "My Item, Chain Mail"))))
   (testing "function subtype matches the proper subtypes"
     (let [item {mi/name-key "My Item"
                 ::mi/type :armor
@@ -314,3 +318,55 @@
           "special? must survive serialization")
       (is (true? (::weapons5e/loading? serialized))
           "loading? must survive serialization"))))
+
+(defn- charged-items
+  "The SRD magic items that carry charge data."
+  []
+  (filter #(or (::mi/charges %) (::mi/charges-start %)) mi/magic-items))
+
+(deftest charge-data-matches-the-srd-text
+  (testing "an item whose text says it has N charges carries ::charges N"
+    (doseq [{::mi/keys [name description charges]} (charged-items)
+            :let [[_ n] (re-find #"(?i)\b(?:has|have|starts with) (\d+) charges" (str description))]
+            :when n]
+      (is (= (parse-long n) charges) name)))
+  (testing "an item whose text says it regains dice at dawn carries that regain and a dawn recharge"
+    (doseq [{::mi/keys [name description charges-regain charges-recharge]} (charged-items)
+            :let [[_ d] (re-find #"(?i)regains? (\d+d\d+(?: \+ \d+)?) expended charges daily at dawn" (str description))]
+            :when d]
+      (is (= (s/replace d " " "") charges-regain) name)
+      (is (= :orcpub.dnd.e5.units/dawn charges-recharge) name)))
+  (testing "a regain and a rolled start always parse as dice or a number"
+    (doseq [{::mi/keys [name charges-regain charges-start]} (charged-items)
+            v (remove nil? [charges-regain charges-start])]
+      (is (some? (dice/parse-dice v)) (str name ": " v)))))
+
+(deftest every-cast-names-a-real-spell
+  (doseq [{::mi/keys [name casts]} (charged-items)
+          c casts]
+    (is (spec/valid? ::mi/cast c) (str name " " c))
+    (is (contains? spells/spell-map (::mi/cast-spell c)) (str name ": " (::mi/cast-spell c)))))
+
+(deftest casts-are-priced-as-the-text-says
+  (let [by-name (into {} (map (juxt ::mi/name identity)) (charged-items))
+        levels (fn [item spell] (map (juxt :level :cost)
+                                     (mi/cast-levels (some #(when (= spell (::mi/cast-spell %)) %) (::mi/casts (by-name item))) 99)))]
+    (is (= [[3 1] [4 2] [5 3] [6 4] [7 5] [8 6] [9 7]] (levels "Wand of Fireballs" :fireball))
+        "1 charge for 3rd, one more per level")
+    (is (= [[1 1] [2 2] [3 3] [4 4]] (levels "Staff of Healing" :cure-wounds)) "1 charge per spell level, up to 4th")
+    (is (= [[7 7]] (levels "Staff of the Magi" :fireball)) "the 7th-level version, 7 charges")
+    (is (= "1d4-1" (::mi/charges-start (by-name "Luck Blade"))) "1d4 - 1 charges, rolled once")
+    (is (= [6 :orcpub.dnd.e5.units/dusk "1d6" [[5 1]]]
+           ((juxt ::mi/charges ::mi/charges-recharge ::mi/charges-regain (fn [_] (levels "Robe of Stars" :magic-missile)))
+            (by-name "Robe of Stars")))
+        "six stars, 1d6 back daily at dusk, each a 5th-level magic missile")))
+
+(def ^:private uncharged-on-purpose
+  "Items whose text gives charges or beads the one-pool model cannot hold: only one of the Ivory
+  Goats has charges (24, all back after 7 days); each prayer bead is its own once-per-dawn power."
+  #{"Figurine of Wondrous Power: Ivory Goats" "Necklace of Prayer Beads"})
+
+(deftest no-charged-item-is-left-out
+  (doseq [{::mi/keys [name description] :as item} mi/magic-items
+          :when (and (not (uncharged-on-purpose name)) (re-find #"(?i)\b(?:has|have|starts with) (?:\d+d\d+|\d+)[^.]{0,6} (?:magic )?(?:charges|beads)" (str description)))]
+    (is (or (::mi/charges item) (::mi/charges-start item)) name)))

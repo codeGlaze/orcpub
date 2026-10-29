@@ -26,6 +26,7 @@
             [orcpub.dnd.e5.folder :as folder]
             [orcpub.dnd.e5.character.random :as char-random]
             [orcpub.dnd.e5.character.equipment :as char-equip]
+            [orcpub.dnd.e5.rests :as rests]
             [orcpub.dnd.e5.portrait :as portrait]
             [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.registration :as registration]
@@ -44,10 +45,18 @@
             [orcpub.dnd.e5.armor :as armor]
             [orcpub.dnd.e5.srd-starting-equipment :as srd-equip]
             [orcpub.dnd.e5.display :as disp]
+            [orcpub.dnd.e5.weapon-damage :as weapon-damage]
+            [orcpub.dnd.e5.weapon-rolls :as weapon-rolls]
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
+            [orcpub.dnd.e5.views.builder-fields :refer [event-value dropdown labeled-dropdown
+                                                        base-builder-field builder-field
+                                                        input-builder-field textarea-field
+                                                        number-field]]
+            [orcpub.dnd.e5.views.charges-builder :as charges-builder]
+            [orcpub.dnd.e5.views.rest-controls :as rest-controls]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
@@ -89,9 +98,6 @@
   (merge
    input-style
    {:border-color "rgba(72,72,72,0.37)"}))
-
-(defn event-value [e]
-  (.. e -target -value))
 
 (defn set-value [atom key e]
   (swap! atom assoc key (event-value e)))
@@ -1445,6 +1451,22 @@
   [ds]
   (.stringify js/JSON (clj->js ds) nil 2))
 
+(defonce cast-inline-on-phones
+  ;; Developer mode setting: open item casting under the item on phones, as on a desktop.
+  (r/atom (try (= "1" (.getItem js/localStorage "orcpub:cast-inline")) (catch :default _ false))))
+
+(defn toggle-cast-inline!
+  "Flips the cast-inline-on-phones setting and remembers it on this device."
+  []
+  (swap! cast-inline-on-phones not)
+  (try (.setItem js/localStorage "orcpub:cast-inline" (if @cast-inline-on-phones "1" "0")) (catch :default _ nil)))
+
+(defn cast-as-sheet?
+  "Whether the cast panel opens as a bottom sheet: on phones, unless Developer mode's
+  cast-inline-on-phones setting is on."
+  []
+  (and @(subscribe [:mobile?]) (not @cast-inline-on-phones)))
+
 (defn debug-data []
   (let [expanded? (r/atom false)]
     (fn []
@@ -1464,6 +1486,7 @@
            {:on-click (make-event-handler ::e5/toggle-dev-mode)}
            "Developer mode"]]
          (when dev?
+          [:<>
            [:div.dev-mode-tools
             [:span.dev-mode-tool
              {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
@@ -1474,7 +1497,12 @@
              {:on-click #(swap! expanded? not)
               :title "Browser and build details, for a bug report"}
              [:i.fa.fa-bug.m-r-5 {:class (when @expanded? "white")}]
-             "Debug info"]])
+             "Debug info"]]
+           [:div.dev-mode-row
+            [:span.dev-mode-switch.compact
+             (merge (switch-attrs @cast-inline-on-phones toggle-cast-inline!)
+                    {:class (when @cast-inline-on-phones "on") :on-click toggle-cast-inline!})]
+            [:span.dev-mode-label {:on-click toggle-cast-inline!} "Open item casting under the item on phones"]]])
          ;; One box, not the two identical ones that were here: the same map was
          ;; rendered twice, once with str and once with clj->json.
          (when (and dev? @expanded?)
@@ -2845,55 +2873,6 @@
                                       (str (common/ordinal level) " level slot " (inc i) " used"))]))]])
               spell-slots))])]))))
 
-(defn dropdown [{:keys [items value on-change typed? class-name]}]
-  ;; Dedup items by :value as a safety net — duplicate option values from
-  ;; homebrew plugins can slip through if imported before dedup was added.
-  (let [unique-items (->> items
-                          (reduce (fn [{:keys [seen result]} item]
-                                    (let [v (:value item)]
-                                      (if (contains? seen v)
-                                        {:seen seen :result result}
-                                        {:seen (conj seen v) :result (conj result item)})))
-                                  {:seen #{} :result []})
-                          :result)]
-    ;; A <select>'s value is always a string, so the default path's :on-change yields a string the
-    ;; caller must coerce back to the item's type (keyword/int/...). :typed? avoids that: option
-    ;; values are indices and :on-change gets the selected item's original :value, any type incl.
-    ;; nil and qualified keywords. See docs/kb/dropdown-value-coercion.md (D32).
-    (if typed?
-      (let [idx (first (keep-indexed (fn [i it] (when (= (:value it) value) i)) unique-items))]
-        [:select.builder-option.builder-option-dropdown.m-t-0
-         {:class class-name
-          :value (if idx (str idx) "")
-          :on-change #(on-change (:value (nth unique-items (js/parseInt (event-value %)))))}
-         (doall
-          (map-indexed
-           (fn [i {:keys [title disabled?]}]
-             ^{:key i}
-             [:option.builder-dropdown-item
-              (cond-> {:value (str i)}
-                disabled? (assoc :disabled true))
-              title])
-           unique-items))])
-      [:select.builder-option.builder-option-dropdown.m-t-0
-       {:class class-name
-        :value (or value "")
-        :on-change #(on-change (event-value %))}
-       (doall
-        (map-indexed
-         (fn [i {:keys [value title disabled?]}]
-           ^{:key (str i "-" (or value title))}
-           [:option.builder-dropdown-item
-            (cond-> {:value value}
-              disabled? (assoc :disabled true))
-            title])
-         unique-items))])))
-
-(defn labeled-dropdown [label cfg]
-  [:div
-   [:div.f-w-b.m-b-5 label]
-   [dropdown cfg]])
-
 (defn button-roll-fn [message roll]
   (fn [e]
     (if (.-shiftKey e)
@@ -2904,14 +2883,24 @@
 
 (def button-roll-handler (memoize button-roll-fn))
 
-(defn roll-button [message roll & {:keys [text disable-tooltip style]}]
+(defn roll-button
+  "An amber button that rolls `roll` (dice text such as \"1d20+4\") and shows the result
+  after `message`; ctrl-click rolls with advantage, shift-click with disadvantage. Options:
+  :text (its label, any hiccup), :style, :class, :disable-tooltip, and :on-roll, a fn of the
+  mode (:normal :adv :dis) called instead of showing a message. Returns hiccup."
+  [message roll & {:keys [text disable-tooltip style class on-roll]}]
   ;; the tip is about ctrl and shift, so it follows the device, not the width
   (let [mobile? (= :mobile @(subscribe [:ua-device-type]))
         button [:button.roll-button
                 {:on-click (fn [e]
                              (.stopPropagation e)
-                             ((button-roll-handler message roll) e))
-                 :style style}
+                             (if on-roll
+                               (on-roll (cond (.-shiftKey e) :dis
+                                              (or (.-ctrlKey e) (.-metaKey e)) :adv
+                                              :else :normal))
+                               ((button-roll-handler message roll) e)))
+                 :style style
+                 :class class}
                 (or text "Roll")]]
     (if (or mobile? disable-tooltip)
       button
@@ -3091,15 +3080,10 @@
 (defn finish-long-rest-fn [id]
   #(dispatch [::char/finish-long-rest id]))
 
-(defn finish-short-rest-fn [id]
-  #(dispatch [::char/finish-short-rest id]))
-
 (defn finish-short-rest-warlock-fn [id]
   #(dispatch [::char/finish-short-rest-warlock id]))
 
 (def finish-long-rest-handler (memoize finish-long-rest-fn))
-
-(def finish-short-rest-handler (memoize finish-short-rest-fn))
 
 (def finish-short-rest-handler-warlock (memoize finish-short-rest-warlock-fn))
 
@@ -3107,11 +3091,6 @@
   [:button.form-button.p-5
    {:on-click (finish-long-rest-handler id)}
    "finish long rest"])
-
-(defn finish-short-rest-button [id]
-  [:button.form-button.p-5.m-l-5
-   {:on-click (finish-short-rest-handler id)}
-   "finish short rest"])
 
 (defn finish-short-rest-button-warlock [id]
   [:button.form-button.p-5.m-l-5
@@ -3724,60 +3703,6 @@
   [{:keys [num type]}]
   (str num " " (common/safe-name type)))
 
-(defn weapon-details
-  "The expanded details of a weapon row: type, damage type, magic bonuses, reach, range and
-   properties. Args: the weapon map; damage-modifier-fn, (fn [weapon off-hand?]) giving the
-   damage modifier for the versatile damage. Returns hiccup. Damage type reads \"None\" with
-   no damage die (the Net)."
-  [{:keys [::weapon/description
-                              ::weapon/type
-                              ::weapon/damage-type
-                              ::mi/magical-damage-bonus
-                              ::mi/magical-attack-bonus
-                              ::mi/magical-damage-type
-                              ::weapon/ranged?
-                              ::weapon/melee?
-                              ::weapon/range
-                              ::weapon/two-handed?
-                              ::weapon/finesse?
-                              ::mi/magical-finesse?
-                              ::weapon/link
-                              ::weapon/versatile
-                              ::weapon/thrown]
-                       :as weapon}
-                      damage-modifier-fn]
-  [:div.m-t-10.i
-   (weapon-details-field "Type" (common/safe-name type))
-   (if magical-damage-type
-     (weapon-details-field "Damage Type" (common/safe-name magical-damage-type))
-     (weapon-details-field "Damage Type" (if (::weapon/damage-die weapon) (common/safe-name damage-type) "None")))
-   (when magical-damage-bonus
-     (weapon-details-field "Magical Damage Bonus" magical-damage-bonus))
-   (when magical-attack-bonus
-     (weapon-details-field "Magical Attack Bonus" magical-attack-bonus))
-   (weapon-details-field "Melee/Ranged" (if melee? "melee" "ranged"))
-   (when range
-     (weapon-details-field "Range" (str (::weapon/min range) "/" (::weapon/max range) " ft.")))
-   (if magical-finesse?
-     (weapon-details-field "Finesse?" (yes-no magical-finesse?))
-     (weapon-details-field "Finesse?" (yes-no finesse?)))
-   (weapon-details-field "Two-handed?" (yes-no two-handed?))
-   (weapon-details-field "Versatile" (if versatile
-                                       (str (::weapon/damage-die-count versatile)
-                                            "d"
-                                            (::weapon/damage-die versatile)
-                                            (common/mod-str (damage-modifier-fn weapon false))
-                                            " damage")
-                                       "no"))
-   ;; A magic weapon is built from its base weapon, so it carries the base price: shown for
-   ;; mundane weapons only.
-   (when (and (:cost weapon) (not (::mi/rarity weapon)))
-     (weapon-details-field "Cost" (cost-str (:cost weapon))))
-   (when (:weight weapon)
-     (weapon-details-field "Weight" (:weight weapon)))
-   (when description
-     [:div.m-t-10 description])])
-
 (defn armor-details-section [{:keys [type
                                      base-ac
                                      weight
@@ -3892,93 +3817,727 @@
    (svg-icon icon 32)
    [:span.m-l-5.f-w-b.f-s-18 title]])
 
+(defn weapon-grey-line-parts
+  "The weapon's grey line, SRD style: its attack type with range first, then properties.
+  Takes the weapon map; returns a vector of strings such as [\"Melee\" \"Thrown (20/60)\"
+  \"Finesse\"]. Versatile is left out: the 1H | 2H switch stands in for it."
+  [{:keys [::weapon/melee? ::weapon/ranged? ::weapon/range ::weapon/thrown ::weapon/finesse?
+           ::mi/magical-finesse? ::weapon/light? ::weapon/heavy? ::weapon/two-handed?
+           ::weapon/reach ::weapon/loading? ::weapon/special?]}]
+  (let [rng (when range (str " (" (::weapon/min range) "/" (::weapon/max range) ")"))]
+    (cond-> []
+      melee? (conj "Melee")
+      (and ranged? (not thrown)) (conj (str "Ranged" rng))
+      thrown (conj (str "Thrown" rng))
+      (or finesse? magical-finesse?) (conj "Finesse")
+      light? (conj "Light")
+      heavy? (conj "Heavy")
+      two-handed? (conj "Two-handed")
+      reach (conj "Reach")
+      loading? (conj "Loading")
+      special? (conj "Special"))))
+
+(defn weapon-switch
+  "A segmented switch: one button per option, the chosen one filled. Takes the screen
+  reader label, the options as [[value text]], the chosen value, the on-change fn of a
+  value, and options :damage-type (colours the on state), :disabled? and :pulse?.
+  Returns hiccup."
+  [label options chosen on-change & {:keys [damage-type disabled? pulse?]}]
+  [:span.weapon-switch {:role "radiogroup" :aria-label label
+                        :aria-disabled (boolean disabled?)
+                        :class (str (when disabled? "disabled") (when pulse? " pulse"))}
+   (doall
+    (for [[v text] options]
+      ^{:key (str v)}
+      [:button.weapon-switch-option
+       {:type "button" :role "radio" :aria-checked (= v chosen) :disabled (boolean disabled?)
+        :class (str (when (= v chosen) "on")
+                    (when (and damage-type (= v chosen) v) (str " typed dt-" (name damage-type))))
+        :on-click (fn [e] (.stopPropagation e) (on-change v))}
+       text]))])
+
+(defn weapon-type-strip
+  "The damage tile's strip: a type dot and name (a filled ribbon on the light theme).
+  Takes the damage type keyword, or nil. Returns hiccup."
+  [damage-type]
+  [:span.weapon-strip.typed {:class (when damage-type (str "dt-" (name damage-type)))}
+   (when damage-type [:span.weapon-dot])
+   (when damage-type (common/safe-name damage-type))])
+
+(defn parts-roll-text
+  "Rolls each damage entry and describes the results on one line, for the result bar.
+  Takes the entries; returns a string such as \"1d8+3 slashing: [5] + 3 = 8 | ...\"."
+  [entries]
+  (s/join "  |  "
+          (for [e entries]
+            (let [die (::weapon/damage-die e)
+                  flat (+ (or (::mi/damage-bonus e) 0) (or (::weapon-damage/bonus e) 0))]
+              (str (disp/damage-str e) ": "
+                   (if die
+                     (dice/dice-roll-text-2 (str (::weapon/damage-die-count e) "d" die (common/mod-str flat)))
+                     flat))))))
+
+(defn weapon-properties-line
+  "A weapon's full properties, SRD style, for its opened row: rarity and attunement for a
+  magic weapon, then category and every property with its numbers, such as
+  \"Rare (requires attunement) · Martial melee · Versatile (1d10)\". Takes the weapon map."
+  [{:keys [::weapon/type ::weapon/melee? ::weapon/range ::weapon/thrown ::weapon/ammunition?
+           ::weapon/versatile ::mi/rarity ::mi/attunement] :as weapon}]
+  (let [rng (when range (str " (" (::weapon/min range) "/" (::weapon/max range) ")"))
+        [_ & props] (weapon-grey-line-parts weapon)]
+    (s/join " \u00B7 "
+            (concat
+             (when rarity [(str (s/capitalize (common/kw-to-name rarity))
+                                (when (seq attunement) " (requires attunement)"))])
+             [(str (s/capitalize (common/safe-name type)) (if melee? " melee" " ranged"))]
+             (when ammunition? [(str "Ammunition" rng)])
+             (remove #(or (s/starts-with? % "Ranged") (and thrown (s/starts-with? % "Thrown") ammunition?)) props)
+             (when versatile [(str "Versatile (" (::weapon/damage-die-count versatile) "d"
+                                   (::weapon/damage-die versatile) ")")])))))
+
+(defn weapon-mastery-band
+  "The Weapon Mastery band at the foot of a row: an amber cap with the mastery's name, its
+  trigger, then the summary, cut off when long. Takes the band map from disp/mastery-band."
+  [{:keys [name trigger summary]}]
+  [:div.weapon-mastery-band
+   [:span.weapon-mastery-cap name]
+   (when trigger [:span.weapon-mastery-trigger (str "on " (common/safe-name trigger))])
+   [:span.weapon-mastery-summary summary]])
+
+(defn weapon-opened
+  "A weapon row's opened card: full name, properties, why two hands are blocked or needed,
+  a magic weapon's rules text, its Weapon Mastery (or that it is not trained), then cost
+  (mundane weapons only) and weight. Takes the weapon, its name, the hands note (or nil) and
+  the mastery band map (or nil). Returns hiccup."
+  [weapon nm hands-note mastery]
+  (let [description (::mi/description weapon)
+        cost (when (and (:cost weapon) (not (::mi/rarity weapon))) (str "Cost " (cost-str (:cost weapon))))
+        weight (when (:weight weapon) (str "Weight " (:weight weapon)))]
+    [:div.weapon-opened
+     [:b.weapon-opened-name nm]
+     [:span.weapon-opened-props (weapon-properties-line weapon)]
+     (when hands-note [:span.weapon-hands-note hands-note])
+     (when description [:span.weapon-opened-rules description])
+     (when mastery
+       (if (:trained? mastery)
+         [:span.weapon-opened-rules [:b (str (:name mastery) ".")] " " (:text mastery)]
+         [:span.weapon-opened-props (str "Mastery: " (:name mastery) " (not trained)")]))
+     (when (or cost weight) [:span.weapon-opened-props (s/join " \u00B7 " (remove nil? [cost weight]))])]))
+
+(defn rand-die
+  "A random roll of a die with this many sides, from 1."
+  [sides]
+  (inc (rand-int sides)))
+
+(defn d20-detail
+  "An attack's d20 as written in a result: \"d20 [13] + 7\", or with advantage or disadvantage
+  \"d20 [14, ~6~] + 7\", the unused die struck through. Takes the attack result. Returns hiccup."
+  [{:keys [dice kept bonus]}]
+  (let [unused (when (= 2 (count dice)) (if (= kept (first dice)) 1 0))]
+    [:span.weapon-sheet-d20
+     "d20 ["
+     (doall (for [[i d] (map-indexed vector dice)]
+              ^{:key i} [:<> (when (pos? i) ", ") (if (= i unused) [:s d] [:b d])]))
+     "] " (common/mod-str bonus)]))
+
+(defn weapon-sheet-entry
+  "The current roll in the result sheet: the to-hit result and its damage buttons, or the
+  damage, one line per part, the total, then saves. Takes the entry, its attack number, the
+  attacks per turn and the next-attack fn. Returns hiccup."
+  [{:keys [name attack damage weapon mod two-handed? toggles]} k per-turn next-attack]
+  [:div.weapon-sheet-current
+   [:div.weapon-sheet-top
+    [:div
+     [:div.weapon-sheet-title (str name " \u00B7 " (if damage "damage" "to hit"))]
+     (when attack
+       [:div.weapon-sheet-count
+        (doall (for [i (range (max per-turn k))]
+                 ^{:key i} [:span.weapon-sheet-dot {:class (when (< i k) "done")}]))
+        (if (<= k per-turn) (str "attack " k " of " per-turn) (str "attack " k))])]
+    (when attack
+      (let [next-mode (:next-mode damage)]
+        [:button.roll-button.weapon-tile.weapon-hit-tile.weapon-sheet-next
+         {:type "button" :aria-label (str "Roll attack " (inc k) (case next-mode :adv " with advantage" :dis " with disadvantage" ""))
+          :class (when next-mode "pulse") :on-click next-attack}
+         [:span.weapon-tile-body (str "\u21BB " (common/bonus-str (:bonus attack)))]
+         [:span.weapon-strip (str "attack " (inc k) (case next-mode :adv " \u00B7 adv" :dis " \u00B7 dis" ""))]]))]
+   (if damage
+     [:<>
+      [:div.weapon-sheet-big (:total damage)
+       (when attack [:span.weapon-sheet-small (str "to hit " (:total attack) (when (:crit? attack) " \u00B7 crit"))])]
+      (doall (for [[i {:keys [label type detail subtotal]}] (map-indexed vector (:parts damage))]
+               ^{:key i}
+               [:div.weapon-sheet-part
+                [:span.weapon-dot {:class (when type (str "dt-" (cljs.core/name type)))}]
+                [:span.weapon-sheet-part-label label]
+                [:span.weapon-sheet-part-detail detail]
+                [:b subtotal]]))
+      (when (next (:parts damage))
+        [:div.weapon-sheet-total [:span "Total damage"] [:b (:total damage)]])
+      (doall (for [[i {:keys [label text]}] (map-indexed vector (:after damage))]
+               ^{:key i} [:div.weapon-sheet-after [:span label] [:b [srd-linked-text text]]]))]
+     [:<>
+      [:div.weapon-sheet-big (:total attack)
+       (when (:crit? attack) [:span.weapon-sheet-crit "CRITICAL"])
+       [d20-detail attack]]
+      [:div.weapon-sheet-label "Roll damage"]
+      (doall (for [{:keys [label sub value situation primary? pulse?]}
+                   (weapon-rolls/damage-options weapon mod two-handed? toggles (:crit? attack) (:kept attack))]
+               ^{:key label}
+               [:button.weapon-sheet-option
+                {:type "button" :class (str (when primary? "primary") (when pulse? " pulse"))
+                 :on-click #(dispatch [:weapon-roll/damage
+                                       (weapon-rolls/roll-damage weapon mod two-handed?
+                                                                 (assoc situation :toggles toggles)
+                                                                 (:crit? attack) rand-die)])}
+                [:span.weapon-menu-text [:span.weapon-menu-label label]
+                 (when sub [:span.weapon-menu-sub sub])]
+                [:span.weapon-menu-value value]]))])])
+
+(defn weapon-roll-result
+  "The turn's rolls: a bottom sheet on a phone, a card on desktop. Finished attacks fold into
+  rows above the current one; a turn total shows once two attacks have damage. Done, a swipe
+  down or the close button ends the turn. Takes desktop? and the attacks per turn."
+  [desktop? per-turn]
+  (let [chain @(subscribe [:weapon-roll/chain])
+        done #(dispatch [:weapon-roll/done])
+        touch-y (atom nil)]
+    (when (seq chain)
+      (let [current (peek chain)
+            k (count (filter :attack chain))
+            with-damage (filter :damage chain)
+            sticky @(subscribe [:weapon-roll/mode])
+            next-attack #(dispatch [:weapon-roll/add
+                                    (assoc (dissoc current :damage)
+                                           :attack (weapon-rolls/roll-attack
+                                                    (assoc (select-keys (:attack current) [:bonus])
+                                                           :mode (or (get-in current [:damage :next-mode])
+                                                                     (weapon-rolls/attack-mode nil sticky))
+                                                           :crit-min (:crit-min current 20))
+                                                    rand-die))])]
+        [:div.weapon-sheet {:class (if desktop? "card" "sheet") :role "dialog" :aria-label "Roll result"}
+         [:div.weapon-sheet-bar
+          {:on-touch-start #(reset! touch-y (.-clientY (aget (.-touches %) 0)))
+           :on-touch-end #(when (and @touch-y (> (- (.-clientY (aget (.-changedTouches %) 0)) @touch-y) 60)) (done))}
+          (when-not desktop? [:div.weapon-sheet-handle])
+          [:button.weapon-sheet-close {:type "button" :aria-label "End the turn" :on-click done} "\u00D7"]]
+         (when (next chain)
+           [:div.weapon-sheet-history
+            (doall (for [[i {:keys [attack damage]}] (map-indexed vector (butlast chain))]
+                     ^{:key i}
+                     [:div.weapon-sheet-history-row
+                      [:span (inc i)]
+                      [:span (when attack (str "to hit " (:total attack) (when (:crit? attack) " crit")))]
+                      [:span (when damage (str (:total damage) " dmg"))]]))])
+         [weapon-sheet-entry current k (or per-turn 1) next-attack]
+         [:div.weapon-sheet-foot
+          [:span (when (next with-damage) (str "Turn total " (apply + (map (comp :total :damage) with-damage))))]
+          [:button.weapon-sheet-done {:type "button" :on-click done} "Done"]]]))))
+
+(defn weapon-menu-sheet
+  "`menu` (a weapon-menu) as a phone shows it, in the bottom sheet overlay the other pickers use,
+  under `title`; elsewhere the menu as it is, a dropdown. `close` runs on a tap outside."
+  [title close menu]
+  (if @(subscribe [:mobile?])
+    [:<>
+     [:div.cast-dim {:on-click (fn [e] (.stopPropagation e) (close))}]
+     [:div.cast-sheet.weapon-menu-sheet {:on-click #(.stopPropagation %)}
+      [:div.cast-handle]
+      [:div.weapon-mode-title title]
+      menu]]
+    menu))
+
+(defn weapon-menu-item-used?
+  "Whether a menu item is spent: a once-per-rest use already taken, or a charged power the item
+  cannot pay for (:spent?). Takes the character id and the item. Returns a boolean."
+  [id {:keys [recharge label spent?]}]
+  (boolean (or spent? (and recharge @(subscribe [::char/feature-used? id recharge label])))))
+
+(defn weapon-menu
+  "The + menu under a damage tile: items as menu rows, the first an amber Roll damage. Keys:
+  Up and Down move, Esc closes and returns focus to the +, Tab closes. Takes the character
+  id, the weapon name, the items (from disp/weapon-menu-items), whether it opens upward
+  and the close fn. Returns hiccup."
+  [id nm items up? close & [on-pick]]
+  (let [pick (fn [{:keys [label entries recharge spend] :as item}]
+               (when-not (weapon-menu-item-used? id item)
+                 (when spend (dispatch spend))
+                 (if on-pick
+                   (on-pick item)
+                   (dispatch [:show-message-2 (str nm " " (s/lower-case label) ": " (parts-roll-text entries))]))
+                 (when recharge (dispatch [::char/toggle-feature-used id recharge label]))
+                 (close)))
+        move (fn [e step]
+               (.preventDefault e)
+               (let [items (vec (.querySelectorAll (.closest (.-target e) ".weapon-menu") ".weapon-menu-item"))
+                     i (.indexOf items (.-target e))]
+                 (.focus (nth items (mod (+ i step) (count items))))))]
+    [:<>
+     [:div.weapon-menu-backdrop {:on-click (fn [e] (.stopPropagation e) (close))}]
+     [:div.weapon-menu {:role "menu" :aria-label (str nm " damage rolls") :class (when up? "up")
+                        :on-click #(.stopPropagation %)}
+      (doall
+       (for [[i {item-id :id :keys [label sub value] :as item}] (map-indexed vector items)
+             :let [used? (weapon-menu-item-used? id item)]]
+         ^{:key (str item-id)}
+         [:button.weapon-menu-item
+          {:type "button" :role "menuitem" :aria-disabled used?
+           :class (str (when (zero? i) "primary") (when used? " used"))
+           :ref (when (zero? i) #(when % (js/setTimeout (fn [] (.focus %)) 0)))
+           :on-click #(pick item)
+           :on-key-down (fn [e]
+                          (case (.-key e)
+                            "ArrowDown" (move e 1)
+                            "ArrowUp" (move e -1)
+                            "Escape" (let [plus (some-> (.-target e) (.closest ".weapon-cell-tile")
+                                                        (.querySelector ".weapon-plus"))]
+                                       (.preventDefault e) (close) (some-> plus .focus))
+                            "Tab" (close)
+                            nil))}
+          [:span.weapon-menu-text
+           [:span.weapon-menu-label label]
+           (when sub [:span.weapon-menu-sub sub])]
+          [:span.weapon-menu-value (if used? "used" value)]]))]]))
+
+(defn weapon-row
+  "One weapon's row: name, grey line, to-hit and damage tiles, lines under it, details when open.
+  Takes the weapon, to-hit bonus, damage modifier fn, proficient?, lowest crit roll, the off-hand
+  holder (\"a Shield\" or nil), hand (:main :off nil), character id, last? (menu opens up), mastery
+  band or nil, desktop? (switches in Details), the state atom ({:open? :two-handed? :toggles
+  :pulse-done? :menu-open?}), the weapon's key and its carried entry (charges). Returns hiccup."
+  [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand hand id last? mastery desktop? state weapon-key entry]
+  (let [{:keys [open? toggles pulse-done?]} @state
+        toggles (or toggles #{})
+        hands-blocked? (boolean (and off-hand (::weapon/versatile weapon)))
+        needs-hands? (boolean (and off-hand (::weapon/two-handed? weapon)))
+        two-handed? (and (:two-handed? @state) (not hands-blocked?))
+        stop-pulse #(swap! state assoc :pulse-done? true)
+        nm (weapon-name weapon)
+        versatile? (boolean (::weapon/versatile weapon))
+        item-toggles (::mi/toggles weapon)
+        extras-by-toggle (into {} (keep (fn [e] (when-let [t (::mi/while e)] [t (::weapon/damage-type e)])))
+                               (::mi/extra-damage weapon))
+        hands (when versatile?
+                [weapon-switch "Versatile: one hand or two hands" [[false "1H"] [true "2H"]]
+                 (boolean two-handed?) #(swap! state assoc :two-handed? % :pulse-done? true)
+                 :disabled? hands-blocked?
+                 :pulse? (and (not off-hand) (not two-handed?) (not pulse-done?))])
+        toggle-switches (for [{:keys [::mi/toggle-id ::mi/toggle-name]} item-toggles]
+                          ^{:key toggle-id}
+                          [weapon-switch toggle-name [[nil "Off"] [toggle-id toggle-name]]
+                           (toggles toggle-id)
+                           (fn [v] (swap! state update :toggles
+                                          #(if v (conj (or % #{}) v) (disj (or % #{}) toggle-id))))
+                           :damage-type (extras-by-toggle toggle-id)])
+        controls-below? (and (not desktop?) (seq item-toggles))
+        modifier (damage-modifier-fn weapon)
+        base (weapon-damage/base-damage weapon modifier (boolean two-handed?))
+        {:keys [tile lines]} (disp/weapon-row-lines weapon toggles)
+        rolled (weapon-damage/applying-damage weapon modifier (boolean two-handed?) {:toggles toggles})
+        [kind & props] (weapon-grey-line-parts weapon)
+        hands-note (when needs-hands? " (needs both hands)")
+        roll-ctx {:weapon weapon :name (str nm hands-note) :mod modifier :two-handed? (boolean two-handed?)
+                  :toggles toggles :crit-min crit-min}
+        sticky-mode @(subscribe [:weapon-roll/mode])
+        roll-attack! (fn [mode]
+                       (dispatch [:weapon-roll/add
+                                  (assoc roll-ctx :attack (weapon-rolls/roll-attack
+                                                           {:bonus attack-bonus :crit-min crit-min
+                                                            :mode (weapon-rolls/attack-mode mode sticky-mode)}
+                                                           rand-die))]))
+        close-modes #(swap! state assoc :mode-menu? false)
+        press-end #(some-> (:press @state) js/clearTimeout)
+        menu-items (when base
+                     (some->> (disp/weapon-menu-items weapon modifier (boolean two-handed?) toggles)
+                              (mapv #(if-let [cost (:cost %)]
+                                       (let [i (mi/able-to-pay weapon entry cost)]
+                                         (cond-> (update % :sub str " \u00B7 " (mi/charges-left weapon entry (or i 0)) " left")
+                                           i (assoc :spend [::char/change-item-charges id :magic-weapons weapon-key weapon i cost])
+                                           (nil? i) (assoc :spent? true)))
+                                       %))))
+        menu-open? (and menu-items (:menu-open? @state))
+        open-menu #(swap! state assoc :menu-open? true)
+        close-menu #(swap! state assoc :menu-open? false)
+        hand-pill (when hand
+                    [:span.share-pill.share-pill-neutral.weapon-hand-pill
+                     {:aria-label (if (= :main hand) "main hand" "off hand")}
+                     [:i.fa.fa-hand-paper {:class (when (= :off hand) "fa-flip-horizontal")
+                                           :aria-hidden true}]
+                     (if (= :main hand) "main" "off")])]
+    [:div.weapon-row
+     [:div.weapon-row-main
+      [:div.weapon-cell-name
+       {:on-click #(swap! state update :open? not)}
+       [:button.weapon-name-line
+        {:type "button" :aria-expanded (boolean open?)
+         :on-click (fn [e] (.stopPropagation e) (swap! state update :open? not))}
+        [:span.weapon-name nm]
+        hand-pill
+        [:span.weapon-caret (if open? "▴" "▾")]]
+       (if (and (or hands (seq item-toggles)) (not controls-below?))
+         [:div.weapon-grey-line
+          [:span kind]
+          hands
+          (doall toggle-switches)
+          (when (seq props) [:span (s/join " · " props)])]
+         [:div.weapon-grey-line.text (s/join " · " (cons kind props))])]
+      ;; a long press (or right-click) opens the attack modes for this one roll
+      [:div.weapon-cell-tile.weapon-attack-cell
+       {:on-click-capture (fn [e]
+                            (stop-pulse)
+                            (when (:long-pressed? @state)
+                              (.stopPropagation e) (.preventDefault e)
+                              (swap! state dissoc :long-pressed?)))
+        :on-context-menu (fn [e] (.preventDefault e) (swap! state assoc :mode-menu? true))
+        :on-pointer-down (fn [_] (press-end)
+                           (swap! state assoc :press (js/setTimeout #(swap! state assoc :mode-menu? true :long-pressed? true) 500)))
+        :on-pointer-up press-end :on-pointer-leave press-end :on-pointer-cancel press-end}
+       (when (:mode-menu? @state)
+         [weapon-menu-sheet (str nm " \u00B7 roll the attack with") close-modes
+          [weapon-menu id nm weapon-rolls/mode-options last? close-modes (fn [{mode :id}] (roll-attack! mode))]])
+       [roll-button (str nm " attack" hands-note ": ") (str "1d20" (common/mod-str attack-bonus))
+        :on-roll roll-attack!
+        :class (str "weapon-tile weapon-hit-tile" (when needs-hands? " needs-hands"))
+        :text [:<>
+               [:span.weapon-tile-body (common/bonus-str attack-bonus)]
+               (cond
+                 (not proficient?) [:span.weapon-strip.no-prof "no prof"]
+                 (< crit-min 20) [:span.weapon-strip "crit" [:span.weapon-strip-num (str crit-min "+")]]
+                 :else [:span.weapon-strip "hit"])]]]
+      [:div.weapon-cell-tile {:on-click-capture stop-pulse}
+       (if base
+         [:button.roll-button.weapon-tile.weapon-damage-tile
+          {:type "button"
+           :class (when needs-hands? "needs-hands")
+           :on-context-menu (when menu-items (fn [e] (.preventDefault e) (open-menu)))
+           :on-click (fn [e]
+                       (.stopPropagation e)
+                       (dispatch [:weapon-roll/add
+                                  (assoc roll-ctx :damage (weapon-rolls/roll-entries weapon rolled {:toggles toggles}
+                                                                                     rand-die))]))}
+          [:span.weapon-tile-body {:class (when tile "with-more")}
+           [:span (disp/damage-dice-str base)]
+           (when tile
+             [:span.weapon-more (:text tile)
+              (doall (for [[i t] (map-indexed vector (:types tile))]
+                       ^{:key i} [:span.weapon-dot {:class (when t (str "dt-" (name t)))}]))])]
+          [weapon-type-strip (::weapon/damage-type base)]]
+         [:div.weapon-no-roll
+          [:span.weapon-no-roll-effect (or (:summary weapon) "Special")]
+          [:span.weapon-no-roll-label "no roll"]])
+       (when menu-items
+         [:button.weapon-plus
+          {:type "button" :aria-haspopup "menu" :aria-expanded (boolean menu-open?)
+           :aria-label (str nm ": more damage rolls")
+           :on-click (fn [e] (.stopPropagation e) (if menu-open? (close-menu) (open-menu)))
+           :on-key-down (fn [e] (when (= "ArrowDown" (.-key e)) (.preventDefault e) (open-menu)))}
+          "+"])
+       (when menu-open?
+         [weapon-menu-sheet (str nm " \u00B7 damage") close-menu
+          [weapon-menu id nm menu-items last? close-menu
+          (fn [{:keys [label entries id extra-attack drop]}]
+            (if extra-attack
+              (dispatch [:weapon-roll/add
+                         (assoc roll-ctx :name (str nm " \u00B7 extra attack") :mod (- modifier (or drop 0))
+                                :attack (weapon-rolls/roll-attack {:bonus attack-bonus :crit-min crit-min
+                                                                   :mode (weapon-rolls/attack-mode nil sticky-mode)}
+                                                                  rand-die))])
+            (dispatch [:weapon-roll/add
+                       (assoc roll-ctx :name (str nm " \u00B7 " (s/lower-case label))
+                              :damage (weapon-rolls/roll-entries weapon entries
+                                                                 (if (and (vector? id) (#{:vs :crit-vs} (first id)))
+                                                                   {:against (first (sort (second id)))}
+                                                                   {})
+                                                                 rand-die))])))]])]]
+     (when (or controls-below? (seq lines))
+       [:div.weapon-lines
+        (when controls-below?
+          [:div.weapon-line hands (doall toggle-switches)])
+        (doall
+         (for [{:keys [label chips]} lines]
+           ^{:key label}
+           [:div.weapon-line
+            [:span.weapon-line-label label]
+            (doall
+             (for [[i {:keys [text type style ringed?]}] (map-indexed vector chips)]
+               ^{:key i}
+               [:span.weapon-chip {:class (str (name style)
+                                               (when ringed? " ringed")
+                                               (when type (str " dt-" (name type))))}
+                text]))]))])
+     (when (:trained? mastery)
+       [weapon-mastery-band mastery])
+     (when open?
+       [weapon-opened weapon nm
+        (cond
+          hands-blocked? (str "Two hands: needs both hands, unequip your " (s/replace-first off-hand #"^an? " "") ".")
+          needs-hands? (str "Needs both hands: your off hand holds " off-hand "."))
+        mastery])]))
+
 (defn weapons-section-2
-  "The character sheet's weapons table: one row per weapon with proficiency, attack and damage
-   roll buttons, and expandable details. Returns a component fn of the character id. A weapon
-   with no damage die (the Net) shows \"None\" in place of a damage roll."
+  "The character sheet's Weapons table: headings, then one row per weapon except
+  ammunition. Takes the character id. Returns a reagent component."
   []
-  (let [expanded-details (r/atom {})]
+  (let [row-state (r/atom {})
+        off-hand-was (atom nil)]
     (fn [id]
       (let [all-weapons @(subscribe [::char/all-weapons id])
-            weapon-profs (set @(subscribe [::char/weapon-profs id]))
+            all-armor-map @(subscribe [::mi/all-armor-map])
+            shield-kw (or @(subscribe [::char/wielded-shield id])
+                          (-> @(subscribe [::char/best-armor-combo id]) :shield :key))
+            off-hand-kw @(subscribe [::char/off-hand-weapon id])
+            main-hand-kw @(subscribe [::char/main-hand-weapon id])
             weapon-attack-modifier @(subscribe [::char/best-weapon-attack-modifier-fn id])
             weapon-damage-modifier @(subscribe [::char/best-weapon-damage-modifier-fn id])
+            weapon-ability-modifier @(subscribe [::char/best-weapon-ability-modifier-fn id])
+            weapon-save-dc @(subscribe [::char/weapon-save-dc-fn id])
             has-weapon-prof @(subscribe [::char/has-weapon-prof id])
-            device-type @(subscribe [:device-type])
-            mobile? (= :mobile device-type)
-            proficiency-bonus @(subscribe [::char/proficiency-bonus id])
-            all-weapons-map @(subscribe [::mi/all-weapons-map])]
-        [:div
-         [section-header "crossed-swords" "Weapons"]
-         [:div
-          [:table.w-100-p.t-a-l.striped
-           [:tbody.weapons
-            [:tr.f-w-b
-             {:class (when mobile? "f-s-12")}
-             [:th.p-10 "Name"]
-             (when (not mobile?) [:th.p-10 "Proficient?"])
-             [:th.p-10 "Details"]
-             [:th.t-a-c (if mobile? "Atk" [:div.w-60 "Attack"])]
-             [:th.t-a-c (if mobile? "Dmg" [:div.w-60 "Damage"])]
-             [:th.p-10]]
-            (doall
-             (map
-              (fn [[weapon-key {:keys [equipped?]}]]
-                (let [{:keys [name description ranged? ::weapon/type ::weapon/damage-die-count ::weapon/damage-die ::weapon/versatile] :as weapon} (all-weapons-map weapon-key)
-                      proficient? (when has-weapon-prof (has-weapon-prof weapon))
-                      expanded? (@expanded-details weapon-key)
-                      damage-modifier (weapon-damage-modifier weapon)
-                      versatile-damage-die-count (:orcpub.dnd.e5.weapons/damage-die-count versatile)
-                      versatile-damage-die (:orcpub.dnd.e5.weapons/damage-die versatile)
-                      droll (str damage-die-count "d" damage-die)]
-                  (when (not= type :ammunition)
-                    ^{:key weapon-key}
-                    [:tr.weapon.pointer
-                     {:on-click (toggle-details-expanded-handler expanded-details weapon-key)}
-                     [:td.p-10.f-w-b (or (:name weapon)
-                                         (::mi/name weapon))]
-                     (when (not mobile?)
-                       [:td.p-10 (boolean-icon proficient?)])
-                     [:td.p-10.w-100-p
-                      [:div
-                       (weapon-attack-description-short weapon)]
-                      (when expanded?
-                        (weapon-details weapon weapon-damage-modifier))]
-                     [:td (roll-button
-                           (str name " attack: ")
-                           (str "1d20" (common/mod-str (weapon-attack-modifier weapon)))
-                           :text (str "1d20" (common/mod-str (weapon-attack-modifier weapon))))]
-                     [:td (if damage-die
-                            (roll-button
-                             (str name " damage: ")
-                             (str damage-die-count "d" damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                             :text (str damage-die-count "d" damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                             :style {:width "100%"})
-                            [:span.p-10 "None"])
-                      (when versatile
-                        (roll-button
-                         (str name " versatile damage: ")
-                         (str versatile-damage-die-count "d" versatile-damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                         :text (str "v " versatile-damage-die-count "d" versatile-damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                         :style {:width "100%"}))]
-                     [:td.pointer
-                      [:div.orange
-                       #_(if (not mobile?)
-                           [:span.underline (if expanded? "less" "more")])
-                       [:i.fa.m-l-5
-                        {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]])))
-              all-weapons))]]]]))))
+            crit-values @(subscribe [::char/critical-hit-values id])
+            trained @(subscribe [::char/weapon-masteries id])
+            mastery-definitions @(subscribe [::weapon/mastery-definitions])
+            prof @(subscribe [::char/proficiency-bonus id])
+            desktop? (not= :mobile @(subscribe [:device-type]))
+            all-weapons-map @(subscribe [::mi/all-weapons-map])
+            off-hand-item (cond
+                            (and shield-kw (not= :none shield-kw)) (all-armor-map shield-kw)
+                            (and off-hand-kw (not= :none off-hand-kw)) (all-weapons-map off-hand-kw))
+            off-hand (when off-hand-item (str "a " (weapon-name off-hand-item)))
+            last-key (last (for [[k _] all-weapons
+                                 :let [w (all-weapons-map k)]
+                                 :when (and w (not= :ammunition (::weapon/type w)))]
+                             k))]
+        ;; the pulse returns whenever the off hand comes free again
+        (when (and @off-hand-was (nil? off-hand))
+          (swap! row-state #(into {} (map (fn [[k v]] [k (dissoc v :pulse-done?)])) %)))
+        (reset! off-hand-was off-hand)
+        [:div.weapons-section {:class (when desktop? "desktop")}
+         [:div.weapons-heading
+          [section-header "crossed-swords" "Weapons"]
+          (let [mode @(subscribe [:weapon-roll/mode])]
+            (into [:div.rest-segs.weapon-mode {:role "radiogroup" :aria-label "Attack rolls"}]
+                  (for [[m label shown] [[:normal "Normal" [:i.fas.fa-dice-d20 {:aria-hidden true}]] [:adv "Advantage" "Adv"] [:dis "Disadvantage" "Dis"]]]
+                    ^{:key m}
+                    [:button.rest-seg {:type "button" :role "radio" :aria-checked (= m mode) :aria-label label :title label
+                                       :class (when (= m mode) (if (= :normal m) "none-on" "on"))
+                                       :on-click #(dispatch [:weapon-roll/set-mode m])}
+                     [:span shown]])))
+          (when off-hand-item
+            [:span.share-pill.share-pill-expired.weapons-reason
+             (str (weapon-name off-hand-item) " in off hand")])]
+         [:div.weapon-head [:span "Weapon"] (when desktop? [:span "Details"]) [:span "To hit"] [:span "Damage"]]
+         [weapon-roll-result desktop? @(subscribe [::char/number-of-attacks id])]
+         [:div.weapon-rows
+          (doall
+           (for [[weapon-key _] all-weapons
+                 :let [weapon (some-> (all-weapons-map weapon-key)
+                                      (as-> w (mi/resolve-values w {:ability-mod (weapon-ability-modifier w)
+                                                                    :save-dc (weapon-save-dc w)})))]
+                 :when (and weapon (not= :ammunition (::weapon/type weapon)))]
+             ^{:key weapon-key}
+             [weapon-row
+              weapon
+              (weapon-attack-modifier weapon)
+              weapon-damage-modifier
+              (boolean (when has-weapon-prof (has-weapon-prof weapon)))
+              (weapon-damage/crit-min crit-values weapon)
+              (when (not= weapon-key off-hand-kw) off-hand)
+              (cond (= weapon-key main-hand-kw) :main (= weapon-key off-hand-kw) :off)
+              id
+              (= weapon-key last-key)
+              (disp/mastery-band weapon trained mastery-definitions
+                                 {:ability-mod (weapon-ability-modifier weapon)
+                                  :prof (or prof 2)
+                                  :damage-type (weapon-damage/weapon-type weapon)})
+              desktop?
+              (r/cursor row-state [weapon-key])
+              weapon-key
+              (rests/as-entry (get all-weapons weapon-key))]))]]))))
 
-(defn magic-item-rows [expanded-details magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
+(defn item-charges
+  "The charges of a carried item, one line per item in its stack: pips up to 10 (tap a lit one
+  to spend it, a dim one to get it back), a count with − and + above that, or a roll-or-type
+  prompt for an item whose charges start as dice. Takes the character id, the selection key, the
+  item key, the item and its carried entry. Returns hiccup, or nil for an item without charges."
+  [id selection-key item-kw item entry]
+  (when (or (::mi/charges item) (::mi/charges-start item))
+    (let [qty (max 1 (::char-equip/quantity entry 1))
+          change (fn [i n] (fn [e] (.stopPropagation e)
+                             (dispatch [::char/change-item-charges id selection-key item-kw item i n])))]
+      [:div.item-charges {:on-click #(.stopPropagation %)}
+       (doall
+        (for [i (range qty)
+              :let [mx (mi/charge-max item entry i)
+                    left (mi/charges-left item entry i)]]
+          ^{:key i}
+          [:div.item-charges-line
+           (when (> qty 1) [:span.item-charges-n (inc i)])
+           (cond
+             (nil? mx)
+             [:<>
+              [:button.form-button.item-charges-roll
+               {:type "button"
+                :on-click (fn [e] (.stopPropagation e)
+                            (dispatch [::char/set-item-charges-max id selection-key item-kw i
+                                       (:total (mi/roll-charge-max item dice/die-roll))]))}
+               (str "Roll " (::mi/charges-start item))]
+              [:input.input.item-charges-input
+               {:type "number" :min 0 :placeholder "or type" :aria-label "Starting charges"
+                :on-key-down #(when (= "Enter" (.-key %)) (.blur (.-target %)))
+                :on-blur #(let [v (js/parseInt (.. % -target -value))]
+                            (when-not (js/isNaN v)
+                              (dispatch [::char/set-item-charges-max id selection-key item-kw i (max 0 v)])))}]]
+
+             (<= mx 10)
+             [:<>
+              [:span.item-charges-pips
+               (doall
+                (for [k (range mx)
+                      :let [lit? (< k left)]]
+                  ^{:key k}
+                  [:button.item-charge-pip
+                   {:type "button" :class (when-not lit? "used")
+                    :aria-label (if lit? "Spend a charge" "Get a charge back")
+                    :on-click (change i (if lit? 1 -1))}]))]
+              [:span.item-charges-count (str left "/" mx)]]
+
+             :else
+             [:<>
+              [:span.item-charges-count.big (str left "/" mx)]
+              [:button.item-charges-step {:type "button" :aria-label "Spend a charge" :on-click (change i 1)} "\u2212"]
+              [:button.item-charges-step {:type "button" :aria-label "Get a charge back" :on-click (change i -1)} "+"]])]))])))
+
+(defn- best-spell-save-dc
+  "The character's highest spell save DC across its casting classes, or nil for a non-caster."
+  [spell-modifiers]
+  (some->> spell-modifiers vals (keep :spell-save-dc) seq (apply max)))
+
+(defn cast-panel
+  "Casting a spell from a charged item (plan-charges-and-casting.md): the item's spells when it has
+  several, the levels priced in charges (unaffordable ones greyed), the DC, and Cast. After a cast
+  it shows the spell at that level with Undo. Takes the character id, the selection key, the item
+  key, the item, its carried entry and a close fn. Returns hiccup."
+  []
+  (let [state (r/atom {:pick 0 :level nil :result nil})
+        _ (dispatch [:load-srd :spell-rolls])]
+    (fn [id selection-key item-kw item entry close]
+      (let [spells-map @(subscribe [::spells/spells-map])
+            spell-rolls @(subscribe [:srd :spell-rolls])
+            your-dc (best-spell-save-dc @(subscribe [::char/spell-modifiers id]))
+            casts (::mi/casts item)
+            {:keys [pick level result]} @state
+            cast (nth casts pick (first casts))
+            spell (spells-map (::mi/cast-spell cast))
+            left (mi/most-charges-left item entry)
+            levels (mi/cast-levels cast left)
+            chosen (or (some #(when (= level (:level %)) %) levels) (first levels))
+            dc (or (::mi/save-dc cast) your-dc)
+            dc-text (if dc (str "DC " dc) "your spell save DC")
+            spell-name (or (:name spell) (common/kw-to-name (::mi/cast-spell cast)))]
+        [:div.cast-panel {:on-click #(.stopPropagation %) :role "dialog" :aria-label (str "Cast " spell-name)}
+         (if result
+           (let [{:keys [lvl cost i]} result]
+             [:<>
+              [:div.cast-head [:b (str spell-name " \u00B7 " (common/ordinal lvl) " level \u00B7 " dc-text)]
+               [:span (str (::mi/name item) " \u00B7 " cost (if (= 1 cost) " charge" " charges") " spent")]]
+              (let [r (get spell-rolls (::mi/cast-spell cast))
+                    {:keys [parts total]} (:damage result)]
+                (when (seq (:damage r))
+                  [:div.cast-damage
+                   (if parts
+                     [:<>
+                      (doall (for [[n {:keys [label detail subtotal]}] (map-indexed vector parts)]
+                               ^{:key n} [:div.cast-damage-part [:span label] [:span (str detail " = " subtotal)]]))
+                      [:div.cast-damage-total [:b (str "Total damage " total)]]
+                      (when (:save r)
+                        [:div (str dc-text " " (s/capitalize (name (:save r))) " save"
+                                   (when (:save-half? r) ", half on a success"))])]
+                     [:button.form-button.cast-open
+                      {:type "button"
+                       :on-click #(swap! state assoc-in [:result :damage]
+                                         (weapon-rolls/roll-spell r (:level spell) lvl nil (fn [sides] (inc (rand-int sides)))))}
+                      "Roll damage"])]))
+              (when spell [:div.cast-spell [spell-component spell false]])
+              [:div.cast-foot
+               [:button.rest-link {:type "button"
+                                   :on-click (fn [] (dispatch [::char/change-item-charges id selection-key item-kw item i (- cost)])
+                                               (swap! state assoc :result nil))} "Undo"]
+               [:button.form-button.cast-go {:type "button" :on-click close} "Done"]]])
+           [:<>
+            [:div.cast-head [:b spell-name]
+             [:span (str (::mi/name item) " \u00B7 " dc-text " \u00B7 " left (if (= 1 left) " charge" " charges") " left")]]
+            (when (next casts)
+              [:div.cast-spells {:role "radiogroup" :aria-label "Spell"}
+               (doall (for [[k c] (map-indexed vector casts)]
+                        ^{:key k}
+                        [:button.cast-spell-pick
+                         {:type "button" :role "radio" :aria-checked (= k pick) :class (when (= k pick) "on")
+                          :on-click #(swap! state assoc :pick k :level nil)}
+                         (or (:name (spells-map (::mi/cast-spell c))) (common/kw-to-name (::mi/cast-spell c)))
+                         [:span (str " " (::mi/cast-cost c))]]))])
+            [:div.cast-levels {:role "radiogroup" :aria-label "Level"}
+             (doall (for [{lvl :level cost :cost ok :affordable?} levels]
+                      ^{:key lvl}
+                      [:button.cast-level
+                       {:type "button" :role "radio" :aria-checked (= lvl (:level chosen))
+                        :aria-disabled (not ok)
+                        :class (str (when (= lvl (:level chosen)) "on") (when-not ok " off"))
+                        :on-click #(when ok (swap! state assoc :level lvl))}
+                       [:b (common/ordinal lvl)] [:span (str cost " ch")]]))]
+            [:div.cast-foot
+             [:span.cast-note (or (mi/higher-levels-text spell) "")]
+             (let [{lvl :level cost :cost ok :affordable?} chosen]
+               [:button.form-button.cast-go
+                {:type "button" :aria-disabled (not ok) :class (when-not ok "unavailable")
+                 :on-click (fn []
+                             (when-let [i (and ok (mi/able-to-pay item entry cost))]
+                               (dispatch [::char/change-item-charges id selection-key item-kw item i cost])
+                               (swap! state assoc :result {:lvl lvl :cost cost :i i})))}
+                (str "Cast at " (common/ordinal lvl) " \u00B7 " cost (if (= 1 cost) " charge" " charges"))])]])]))))
+
+(defn cast-sheet
+  "The cast panel as a bottom sheet over a dimmed page (phones). Takes the panel's args and the
+  close fn. Returns hiccup."
+  [id selection-key item-kw item entry close]
+  [:<>
+   [:div.cast-dim {:on-click (fn [e] (.stopPropagation e) (close))}]
+   [:div.cast-sheet {:on-click #(.stopPropagation %)}
+    [:div.cast-handle]
+    [:button.cast-x {:type "button" :aria-label "Close" :on-click close} "\u2715"]
+    [cast-panel id selection-key item-kw item entry close]]])
+
+(defn cast-button
+  "The button that opens an item's cast panel: \"Cast Fireball\", or \"Cast\" for an item with
+  several spells. Takes the item and the open fn. Returns hiccup, nil when it casts nothing."
+  [item open]
+  (when-let [casts (seq (::mi/casts item))]
+    [:button.form-button.cast-open
+     {:type "button" :on-click (fn [e] (.stopPropagation e) (open))}
+     (if (next casts)
+       "Cast"
+       (str "Cast " (or (:name (@(subscribe [::spells/spells-map]) (::mi/cast-spell (first casts))))
+                        (common/kw-to-name (::mi/cast-spell (first casts))))))]))
+
+(defn magic-item-rows
+  "Table rows for the carried magic items: name with its charges and Cast button, type and rarity,
+  the cast panel (a sheet on phones, a row on desktop) and the details row. Takes the character id,
+  the expanded-details and cast-open atoms and the carried item, weapon and armor maps (item key to
+  carried entry). Returns a seq of hiccup rows."
+  [id expanded-details cast-open magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
   (let [magic-item-map @(subscribe [::mi/all-magic-items-map])
-        mobile? @(subscribe [:mobile?])]
+        mobile? (cast-as-sheet?)]
     (mapcat
      (fn [[item-kw item-cfg]]
        (let [{:keys [::mi/name ::mi/type ::mi/item-subtype ::mi/rarity ::mi/attunement ::mi/description ::mi/summary] :as item} (magic-item-map item-kw)
              expanded? (@expanded-details item-kw)]
          [[:tr.pointer
            {:on-click (toggle-details-expanded-handler expanded-details item-kw)}
-           [:td.p-10.f-w-b (or (:name item) name)]
+           [:td.p-10.f-w-b (or (:name item) name)
+            [item-charges id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+             item-kw item (rests/as-entry item-cfg)]
+            [cast-button item #(reset! cast-open item-kw)]
+            (when (and mobile? (= item-kw @cast-open))
+              [cast-sheet id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+               item-kw item (rests/as-entry item-cfg) #(reset! cast-open nil)])]
            [:td.p-10 (str (common/kw-to-name type)
                           ", "
                           (common/kw-to-name rarity))]
@@ -3988,6 +4547,11 @@
                  [:span.underline (if expanded? "less" "more")])
              [:i.fa.m-l-5
               {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]]
+          (when (and (not mobile?) (= item-kw @cast-open))
+            [:tr.cast-row
+             [:td {:col-span 3}
+              [cast-panel id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+               item-kw item (rests/as-entry item-cfg) #(reset! cast-open nil)]]])
           (when expanded?
             [:tr
              [:td.p-10
@@ -3999,7 +4563,8 @@
       magic-armor-cfgs))))
 
 (defn magic-items-section-2 []
-  (let [expanded-details (r/atom {})]
+  (let [expanded-details (r/atom {})
+        cast-open (r/atom nil)]
     (fn [id]
       (let [mobile? @(subscribe [:mobile?])
             magic-item-cfgs @(subscribe [::char/magic-items id])
@@ -4023,7 +4588,9 @@
                 (with-meta
                   row
                   {:key i}))
-              (magic-item-rows expanded-details
+              (magic-item-rows id
+                               expanded-details
+                               cast-open
                                magic-item-cfgs
                                magic-weapon-cfgs
                                magic-armor-cfgs)))]]]]))))
@@ -4388,18 +4955,14 @@
 
      [:div.flex-grow-1.details-column-2
       {:class (when (= 2 num-columns) "w-50-p m-l-20")}
+      [rest-controls/rest-box id]
       [list-item-section "Damage Resistances" "surrounded-shield" resistances resistance-str]
       [list-item-section "Damage Vulnerabilities" nil damage-vulnerabilities resistance-str]
       [list-item-section "Damage Immunities" nil damage-immunities resistance-str]
       [list-item-section "Condition Immunities" nil condition-immunities resistance-str]
       [list-item-section "Immunities" nil immunities resistance-str]
       [:div.flex.justify-cont-end.align-items-c
-       (when (or (freqs ::units/long-rest)
-               (freqs ::units/rest))
-         [finish-long-rest-button id])
-       (when (or (freqs ::units/short-rest)
-               (freqs ::units/rest))
-          [finish-short-rest-button id])
+
        (when (freqs ::units/round)
          [:button.form-button.p-5.m-l-5
           {:on-click (make-event-handler ::char/new-round id)}
@@ -4414,6 +4977,49 @@
       [actions-section id "Reactions" "van-damme-split" reactions]
       [actions-section id "Features, Traits, and Feats" "vitruvian-man" traits]]]))
 
+(defn items-spells-section
+  "The Spells tab's From Items table: each spell the character's carried items can cast, with the
+  item, base level, DC, the item's charges and Cast, which opens the same panel as on the item.
+  Takes the character id. Returns hiccup, nil when no carried item casts a spell."
+  []
+  (let [open (r/atom nil)]
+    (fn [id]
+      (let [mobile? (cast-as-sheet?)
+            items-by-key @(subscribe [::mi/all-magic-items-map])
+            spells-map @(subscribe [::spells/spells-map])
+            your-dc (best-spell-save-dc @(subscribe [::char/spell-modifiers id]))
+            weapon-cfgs @(subscribe [::char/magic-weapons id])
+            carried (merge @(subscribe [::char/magic-items id]) weapon-cfgs)
+            rows (for [[k cfg] carried
+                       :let [item (items-by-key k)]
+                       :when (seq (::mi/casts item))
+                       [n c] (map-indexed vector (::mi/casts item))]
+                   {:k k :n n :item item :entry (rests/as-entry cfg) :cast c
+                    :sel (if (contains? weapon-cfgs k) :magic-weapons :other-magic-items)})]
+        (when (seq rows)
+          [:div.m-b-20.f-s-14.f-w-n
+           [:div.f-w-b.f-s-16.m-b-5 "From Items"]
+           [:table.w-100-p.t-a-l.striped
+            [:tbody.items-spells
+             [:tr.f-w-b.f-s-12 [:th.p-5 "Name"] [:th.p-5 "Item"] [:th.p-5 "Lvl"] [:th.p-5 "DC"] [:th]]
+             (doall
+              (for [{:keys [k n item entry cast sel]} rows
+                    :let [open? (= [k n] @open)
+                          close #(reset! open nil)]]
+                ^{:key (str k n)}
+                [:<>
+                 [:tr
+                  [:td.p-5.f-w-b (or (:name (spells-map (::mi/cast-spell cast))) (common/kw-to-name (::mi/cast-spell cast)))
+                   [:div.item-charges [:span.item-charges-count (str (mi/most-charges-left item entry) "/" (mi/charge-max item entry 0))]]]
+                  [:td.p-5 (::mi/name item)]
+                  [:td.p-5 (str (::mi/cast-level cast) (when (::mi/cast-per-level cast) "+"))]
+                  [:td.p-5 (or (::mi/save-dc cast) your-dc "\u2014")]
+                  [:td.p-5 [:button.form-button.cast-open {:type "button" :on-click #(reset! open [k n])} "Cast"]
+                   (when (and open? mobile?)
+                     [cast-sheet id sel k (assoc item ::mi/casts [cast]) entry close])]]
+                 (when (and open? (not mobile?))
+                   [:tr.cast-row [:td {:col-span 5} [cast-panel id sel k (assoc item ::mi/casts [cast]) entry close]]])]))]]])))))
+
 (defn spell-details [num-columns id]
   (let [spells-known @(subscribe [::char/spells-known id])
         spell-slots @(subscribe [::char/spell-slots id])
@@ -4425,6 +5031,7 @@
      {:class (when (= 2 num-columns) "flex")}
      [:div.flex-grow-1.details-column-2
       {:class (when (= 2 num-columns) "w-50-p m-l-20")}
+      [items-spells-section id]
       (when (seq spells-known) [spells-known-section
                               id
                               spells-known
@@ -4771,6 +5378,7 @@
             [error-boundary
              (fn [error stack retry] [feature-render-error (s/capitalize tab) id error stack retry])
              [(-> tab details-tabs :view) num-columns id]]]]
+          [rest-controls/rest-fab id tab]
           [:div.p-10
            [:span.orange.underline.pointer
             {:on-click #(swap! show-selections? not)}
@@ -5395,20 +6003,6 @@
       [item-component item]
       ]]))
 
-(defn base-builder-field [name comp]
-  [:div.field.main-text-color.m-t-0
-   [:div.personality-label.f-s-16 name]
-   comp])
-
-(defn builder-field [el-type name value on-change attrs & [children]]
-  (base-builder-field
-   name
-   [comps/input-field
-    el-type
-    value
-    on-change
-    attrs]))
-
 ;; dead — zero callers
 #_(defn select-builder-field [name value on-change children]
   (base-builder-field
@@ -5417,28 +6011,6 @@
             [:option {:value :none}
              "None"]]
      children (concat children))))
-
-(defn input-builder-field [name value on-change attrs]
-  [builder-field :input name value on-change attrs])
-
-(defn textarea-field [{:keys [value on-change]}]
-  [comps/input-field
-   :textarea
-   value
-   on-change
-   {:class-name "input"
-    :maxLength (:notes branding/field-limits)}])
-
-(defn number-field [{:keys [value on-change]}]
-  [comps/input-field
-   :input
-   value
-   (fn [v]
-     (on-change
-      (when (re-matches #"\d+" v) (js/parseInt v))))
-   {:class "input"
-    :type :number
-    :maxLength (:number branding/field-limits)}])
 
 (defn attunement-value [attunement key name]
   [:div
@@ -9506,6 +10078,8 @@
        [:div.m-b-40 [base-weapon-selector]])
      [:div.m-b-40
       [attunement-selector attunement]]
+     [charges-builder/charges-group item]
+     (when (= :weapon type) [charges-builder/powers-group item])
      [item-bonuses item]]))
 
 (defn import-file [e]
