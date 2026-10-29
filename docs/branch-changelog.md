@@ -65,8 +65,10 @@ into every field of every content type, by every way in, to prove it (docs/HOMEB
   disappears without a word; it is set aside for repair.
 - **Homebrew:** a feat whose ability score increases were stored as a list no longer breaks its
   builder.
-- **Homebrew:** a homebrew subrace, pact boon or eldritch invocation that was renamed, or given a
-  new key on import to settle a conflict, stays picked on the characters that chose it.
+- **Homebrew:** a homebrew subrace, subclass, pact boon or eldritch invocation that was renamed, or
+  given a new key on import to settle a conflict, stays picked on the characters that chose it.
+- **Homebrew:** a homebrew subclass with a very short name, or none, is offered in the character
+  builder. Before, its class was there and the subclass was missing.
 - **Homebrew:** a background, feat or class granting a skill that does not exist no longer breaks
   the character builder.
 - **Homebrew:** a homebrew subclass, invocation or boon that breaks a built-in class costs only
