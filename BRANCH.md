@@ -38,7 +38,8 @@ carries live state.*
 - **Fork-only files** (standing rule, owner, 2026-10-16: may live on our `develop`, removed before any
   PR to Orcpub/orcpub; the rule is in AGENTS.md, "PRs and releases"). Fork-only so far:
   `.coderabbit.yaml` (added on #64, so already on `integration`: reviews PRs into `develop` and
-  `integration` once each, not on later pushes, since #71). Add each new one here.
+  `integration` once each, not on later pushes, since #71), and `.github/workflows/agent-trailers.yml`
+  (added on #77: fails a PR whose commits carry agent trailers or session links). Add each new one here.
 - **Merge gate and CodeRabbit limits:** the rules are in `AGENTS.md`, "PRs and releases", and the
   mechanics in `docs/GIT_WORKFLOW.md`, "CodeRabbit" (moved 2026-10-23, so agents on code branches see
   them). Measured detail: the Advanced plan refills 10 reviews an hour
