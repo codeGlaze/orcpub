@@ -21,9 +21,8 @@ Account, plus the review fixes to the portrait work and batched credit-change em
 
 ## Next
 
-- Check CI on `a812f907c`. When the owner says merge: `integration` in with `--no-commit` and the
-  checks, fold the changelog (`scripts/fold-branch-changelog.sh "Summer Patch"`), push, then the
-  owner adds `ready to merge`.
+- Nothing: #65 merged into `integration` on 2026-10-28 (last head `af89cf011`, changelog folded) and
+  #32's body is edited. This handoff can be retired.
 
 ## Owner decisions
 
@@ -36,7 +35,7 @@ Account, plus the review fixes to the portrait work and batched credit-change em
 
 - None open. The owner says merge when CI is green.
 
-## After #65 merges (owner, 2026-10-28; do not lose track)
+## After #65 merges (owner, 2026-10-28): DONE, #32 edited the same day
 
 - **Edit #32's body** (`integration` into `develop`, codeGlaze/orcpub): add `Fixes` for the cited issues it
   lacks (#169, #520, #699-#701, #703-#712) and for the umbrella issues filed 2026-10-28 on Orcpub/orcpub:

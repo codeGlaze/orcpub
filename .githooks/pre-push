@@ -54,6 +54,23 @@ if [ "${guarded:-0}" = "1" ] && [ -x scripts/lint-changelog.py ] && command -v p
   fi
 fi
 
+# Agent attribution trailers: commit-msg strips them, but only where it is armed (a cloud session's
+# first commits can precede the setup script). Checks the commits this push adds, not history.
+while read -r _l local_sha remote_ref _r; do
+  [ "$local_sha" = "$zero" ] && continue
+  bad="$(git log --format='%h %s%n%b' "$local_sha" --not --remotes 2>/dev/null |
+    grep -iE '^(Co-Authored-By:[[:space:]]*Claude|Claude-Session:|Generated with \[?Claude Code)|claude\.ai/code/session' | head -3)"
+  if [ -n "$bad" ]; then
+    echo "" >&2
+    echo "  pre-push blocked: commits bound for '${remote_ref#refs/heads/}' carry agent attribution trailers:" >&2
+    echo "$bad" | sed 's/^/      /' >&2
+    echo "  Reword them (git rebase, not -i: git filter-branch --msg-filter or git commit --amend for the tip)" >&2
+    echo "  and run scripts/agent-setup.sh so commit-msg is armed. agents: --no-verify needs the owner's yes." >&2
+    echo "" >&2
+    status=1
+  fi
+done < <(printf '%s\n' "$pushed_refs")
+
 # Heads-up, never blocks: a push that changes the files deployment depends on sets off the heavy
 # Docker checks on its PR (about 20 minutes). The file list is read from that workflow, so the two
 # cannot drift apart.

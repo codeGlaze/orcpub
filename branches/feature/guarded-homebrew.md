@@ -14,7 +14,7 @@ costs the item it is in, not the page. **Base:** `integration` at `d51938c1`. **
   on every read (`homebrew-check/checked`); the old `e5/mend-*` is folded into it; set-aside
   homebrew goes to the quarantine panel; event errors show a notice; render guards on builder
   sections, My Content lists and rows, monster rows; the share banner names unusable entries.
-- Remote head `06c054f1`: `integration` merged in (with #69), level with it. AI trailers stripped
+- Remote head `c878e9887` (2026-10-28): `integration` merged in again (after #65), checks green. Earlier `06c054f1`: merged with #69. AI trailers stripped
   from the branch's commits (force-pushed 2026-10-27).
 - Next, in order:
   1. **Step 7, enforcement:** the junk audit in CI at zero, the AGENTS.md rules (owner's yes),
@@ -30,14 +30,11 @@ costs the item it is in, not the page. **Base:** `integration` at `d51938c1`. **
 
 ## Open questions for the owner
 
-- Rewrite `integration`, `develop` and `agents/develop` to strip their old trailers? Recommended
-  no: every later hash changes and every open branch must be rebuilt.
-- Keep the set-aside logic in `homebrew_check.cljs` (moved from `events.cljs`, ~100 lines, into a
-  namespace that already held this wiring), or move it back?
-- Run the `pre-commit` hook's checks over the branch's earlier commits? They were made with no
-  hooks armed.
-- Prevention for trailers: a `pre-push` block on agents/develop (owner's yes for `.githooks`), a PR
-  check on GitHub, and `agent-setup.sh` in the environment's setup script (owner's setting).
+- None open. Answered 2026-10-28: no rewrite of the trunks (none was needed here: this branch has no
+  trailers); the set-aside logic stays in `homebrew_check.cljs`; the hook replay over the earlier
+  commits (done: missing docstrings and one history comment, fixed in a later commit); trailer
+  prevention yes (the `pre-push` block is on agents/develop; the PR check and the setup-script
+  line still to place).
 
 ## Gotchas for the next agent
 
