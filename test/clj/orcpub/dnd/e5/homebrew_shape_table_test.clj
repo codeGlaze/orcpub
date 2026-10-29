@@ -6,13 +6,18 @@
             [clojure.edn :as edn]
             [orcpub.dnd.e5.homebrew-shapes :as shapes]))
 
-(defn- fixture [f]
+(defn- fixture
+  "The EDN in test/fixtures/`f`, read with unknown tagged literals kept as tagged-literal values."
+  [f]
   (edn/read-string {:default tagged-literal} (slurp (str "test/fixtures/" f))))
 
 (def ^:private sound
   ["test-pak.orcbrew" "coverage-pak.orcbrew" "sourced-classes.orcbrew" "junk-bases.orcbrew"])
 
-(defn- library [data]
+(defn- library
+  "`data` as a {source-name source} library: a file holding one bare source is wrapped as
+   \"Fixture\"."
+  [data]
   ;; a file holds one source or a {source-name source} library
   (if (every? string? (keys data)) data {"Fixture" data}))
 

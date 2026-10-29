@@ -83,7 +83,10 @@
 ;; ---------------------------------------------------------------------------------------------
 ;; Cases: [content-type path value]. A path is [field] or [field index-or-key field].
 
-(defn- field-paths [entry]
+(defn- field-paths
+  "Each field of `entry` except :key and :option-pack, as a path: [field], plus [field inner] for a
+   map field and [field 0 inner] for a list of maps (first element's fields)."
+  [entry]
   (let [skip #{:key :option-pack}]
     (concat
      (for [k (keys entry) :when (not (skip k))] [k])
@@ -128,7 +131,9 @@
            (let [k (or (::t/key x) (:key x))]
              (and (keyword? k) (str/starts-with? (name k) "junk-"))))))
 
-(defn- msg [e] (first (str/split-lines (or (ex-message e) (str e)))))
+(defn- msg
+  "The first line of the error `e`'s message (or of `e` printed when it has none)."
+  [e] (first (str/split-lines (or (ex-message e) (str e)))))
 
 (def ^:private seen
   "What this pack has already realized, by identity. The class list, the class map, the template
@@ -184,7 +189,10 @@
    a failure here, as junk should not reach a page at all (the shape table missed a field)."
   (atom nil))
 
-(defn- attempt [stage f]
+(defn- attempt
+  "Runs the thunk `f` for `stage`. Returns {:stage :error} if it throws, or if a render-guard
+   caught an error while it ran; nil when it ran clean."
+  [stage f]
   (reset! contained nil)
   (try (f)
        (when-let [e @contained] {:stage stage :error (str "contained: " e)})
@@ -200,14 +208,18 @@
    the My Content lists :listed. A stage that ran on nothing must not read as a pass."
   (atom {}))
 
-(defn- covered! [stage x] (swap! coverage update stage (fnil conj #{}) x))
+(defn- covered!
+  "Records `x` (an entry key) in the coverage set for `stage`. Returns the new coverage map."
+  [stage x] (swap! coverage update stage (fnil conj #{}) x))
 
 (def ^:private stored-character
   {::entity/options {:race {::entity/key :human}
                      :class [{::entity/key :fighter
                               ::entity/options {:levels [{::entity/key :level-1}]}}]}})
 
-(defn- levels [n] (vec (for [i (range 1 (inc n))] {::entity/key (keyword (str "level-" i))})))
+(defn- levels
+  "A stored class's level options for levels 1 to `n`, as a vector of {::entity/key :level-i}."
+  [n] (vec (for [i (range 1 (inc n))] {::entity/key (keyword (str "level-" i))})))
 
 (defn- seeds
   "Characters to start from for each homebrew entry: a class or subclass needs levels to offer its
@@ -327,7 +339,10 @@
   "What the app offers with no homebrew at all, read once by the base-pack test."
   (atom nil))
 
-(defn- missing-built-ins []
+(defn- missing-built-ins
+  "Throws if any class, race or background key recorded in `built-in-keys` is no longer offered.
+   Returns nil when all are present, or when nothing was recorded."
+  []
   (when-let [before @built-in-keys]
     (let [now (offered-keys)
           gone (into {} (for [[k ks] before
@@ -494,7 +509,10 @@
           []))
     (run-pack! lib via opts)))
 
-(defn- cleanup! []
+(defn- cleanup!
+  "Resets what a pack run leaves behind: the re-frame event queue, the browser storage slots,
+   app-db and the subscription cache. Returns nothing useful."
+  []
   (rf/purge-event-queue)
   (doseq [k storage-slots] (.removeItem js/localStorage k))
   (reset! app-db {})
@@ -604,7 +622,9 @@
                                                        p v)))
                          {} cases)}))
 
-(defn- sub-pack [entries ks]
+(defn- sub-pack
+  "`entries` ({type {key entry}}) cut down to the entries whose key is in `ks`."
+  [entries ks]
   (let [ks (set ks)]
     (into {} (for [[t es] entries] [t (into {} (filter (comp ks key)) es)]))))
 

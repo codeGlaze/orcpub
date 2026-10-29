@@ -12,7 +12,9 @@
 (def ^:private race {:name "Hill" :key :hill :option-pack "P" :speed "25"})
 (def ^:private lib {"P" {::e5/races {:hill race}}})
 
-(defn- fx-of [effects kind]
+(defn- fx-of
+  "The values of the `kind` effects in `effects`' :fx list, as a lazy seq."
+  [effects kind]
   (for [[k v] (:fx effects) :when (= k kind)] v))
 
 (deftest an-event-that-leaves-the-library-alone-is-left-alone

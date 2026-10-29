@@ -102,7 +102,7 @@
                  [[:options] :unreadable])))
 
 (deftest a-spell-whose-class-lists-cannot-be-read-is-set-aside
-  ;; it stopped the character options from building; it used to load without its class lists
+  ;; it stopped the character options from building; it now sets the spell aside
   (is (contains? (:findings (clean :orcpub.dnd.e5/spells :bolt {:key :bolt :name "Bolt" :spell-lists 42}))
                  [[:spell-lists] :unreadable]))
   (is (empty? (:findings (clean :orcpub.dnd.e5/spells :fine {:key :fine :name "Fine" :spell-lists {:wizard true}})))))

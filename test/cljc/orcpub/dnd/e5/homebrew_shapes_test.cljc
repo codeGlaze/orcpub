@@ -11,7 +11,9 @@
          :traits [:list card]
          :size [:or :keyword :string]}])
 
-(defn- clean [v] (shapes/clean-value entry-shape v []))
+(defn- clean
+  "Runs `v` through the table against entry-shape at the root path. Returns {:value :findings}."
+  [v] (shapes/clean-value entry-shape v []))
 
 (deftest a-sound-entry-comes-back-identical
   (let [e {:name "Elf" :abilities {:dex 2} :languages #{"Elvish"} :traits [{:name "Keen"}]

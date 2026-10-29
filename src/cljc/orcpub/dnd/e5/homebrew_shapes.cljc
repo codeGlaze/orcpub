@@ -71,7 +71,10 @@
         :map "a map"
         (pr-str shape)))))
 
-(defn- finding [path action v shape]
+(defn- finding
+  "A finding record: the `path` it is at, the `action` taken (:fixed or :unreadable), a
+   description of the found value `v`, and the name of the wanted `shape`."
+  [path action v shape]
   {:path path :action action :found (describe v) :wanted (shape-name shape)})
 
 (defn- parse-number
@@ -102,7 +105,10 @@
           {:value [] :findings []}
           (map-indexed vector xs)))
 
-(defn- unreadable [path v shape]
+(defn- unreadable
+  "The result for a value `v` at `path` that cannot be made to fit `shape`: only an :unreadable
+   finding, no :value."
+  [path v shape]
   {:findings [(finding path :unreadable v shape)]})
 
 (defn- fixed
@@ -110,10 +116,15 @@
   [r path v shape]
   (update r :findings #(into [(finding path :fixed v shape)] %)))
 
-(defn- lone [v]
+(defn- lone
+  "True when `v` is a single value (not nil, not a collection), which a list or set shape wraps."
+  [v]
   (and (some? v) (not (coll? v))))
 
-(defn- clean-scalar [shape v path]
+(defn- clean-scalar
+  "Text `v` at `path` read as the scalar `shape` (:num or :key), as a :fixed result; any other
+   shape or unreadable text gives an :unreadable result."
+  [shape v path]
   (let [parsed (case shape
                  :num (when (string? v) (parse-number v))
                  :key (when (string? v) (text->key v))
@@ -122,7 +133,10 @@
       {:value parsed :findings [(finding path :fixed v shape)]}
       (unreadable path v shape))))
 
-(defn- clean-list [a v path shape]
+(defn- clean-list
+  "`v` cleaned as a list of shape `a`: a sequence is cleaned element by element; a lone value or
+   map is a list of one (a :fixed result); anything else is :unreadable."
+  [a v path shape]
   (cond
     (sequential? v) (clean-each a v path)
     (or (map? v) (lone v)) (let [r (clean-value a v (conj path 0))]
@@ -151,7 +165,10 @@
                                   (unreadable path v shape)))
     :else (unreadable path v shape)))
 
-(defn- clean-set [a v path shape]
+(defn- clean-set
+  "`v` cleaned as a set of shape `a`: a set element by element; a sequence or a lone value becomes
+   a set (a :fixed result); anything else is :unreadable."
+  [a v path shape]
   (cond
     (set? v) (update (clean-each a v path) :value set)
     (sequential? v) (fixed (update (clean-each a v path) :value set) path v shape)
