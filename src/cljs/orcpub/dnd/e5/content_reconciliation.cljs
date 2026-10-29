@@ -360,8 +360,8 @@
 ;; Long form and tracing: character-heals.md.
 ;;
 ;; FIELD NOTE (heal-sites): every heal goes through reconcile-former-keys, from three places:
-;;   events/set-character          the builder's character, on every load
-;;   autosave-fx/cache-template    re-dispatches :set-character once, when the offered-key list
+;;   events/reconciled-character   the builder's character, on :set-character and :character-updated
+;;   autosave-fx/cache-template    re-dispatches :character-updated once, when the offered-key list
 ;;                                 first exists (before it, the indexes are empty)
 ;;   subs ::char5e/character       saved characters as pages read them; never stored
 ;; A pick healed in the builder but not on a page (or the reverse) means a path skips one of these.

@@ -87,3 +87,21 @@
                     ["Bag (large)" "(l"] ["AXE" "ax"]]]
       (let [[before hit after] (parts (cb/highlight-match nm q))]
         (is (= nm (str before hit after)) (str "rejoining " nm " around " q))))))
+
+(defn- checkbox-of
+  "The :span.checkbox attribute map in the hiccup `option-selector-base` draws for `opts`."
+  [opts]
+  (let [render (cb/option-selector-base)]
+    (->> (tree-seq vector? seq (render opts))
+         (filter #(and (vector? %) (= :span.checkbox (first %))))
+         first
+         second)))
+
+(deftest a-multiselect-option-that-cannot-be-picked-has-a-disabled-checkbox
+  (testing "an option the character cannot take reads as disabled to a screen reader and a keyboard"
+    (let [attrs (checkbox-of {:name "X" :multiselect? true :selected? false :selectable? false})]
+      (is (= "true" (:aria-disabled attrs)))
+      (is (= -1 (:tab-index attrs)))))
+  (testing "a pickable option and a chosen one stay enabled"
+    (is (nil? (:aria-disabled (checkbox-of {:name "X" :multiselect? true :selected? false :selectable? true}))))
+    (is (nil? (:aria-disabled (checkbox-of {:name "X" :multiselect? true :selected? true :selectable? true}))))))

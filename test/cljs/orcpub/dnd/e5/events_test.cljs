@@ -1165,8 +1165,9 @@
         fx (autosave-fx/cache-template {:db {:plugins renamed-plugins :character character}}
                                        [::autosave-fx/cache-template small-template])]
     (is (= #{:race :half-elf-ua} (get-in fx [:db ::content-recon/offered-keys])))
-    (is (= [[:set-character character] [::e5/announce-heal]] (:dispatch-n fx))
-        "the waiting heal runs once the list exists, and announces itself: no route follows it")
+    (is (= [[:character-updated character] [::e5/announce-heal]] (:dispatch-n fx))
+        "the waiting heal runs once the list exists, as an update so the portrait draft stays,
+         and announces itself: no route follows it")
     (is (nil? (:dispatch-n (autosave-fx/cache-template {:db (:db fx)}
                                                        [::autosave-fx/cache-template small-template])))
         "and only on the first list")))

@@ -134,9 +134,9 @@
 ;; Drawing
 ;; ---------------------------------------------------------------------------
 
-(def ^:private pool
-  "Portraits drawn at once, sized by ORCPUB_PORTRAIT_CONCURRENCY. Each draw is about half a second
-   of one core; seeded at that."
+(def draw-pool
+  "Portraits drawn at once, sized by ORCPUB_PORTRAIT_CONCURRENCY: the stored drawings here and the
+   artist pages' examples. Each draw is about half a second of one core; seeded at that."
   (work-pool/pool {:size #(config/get-portrait-concurrency)
                    :timeout-ms #(config/get-portrait-queue-timeout-ms)
                    :seed-ms 500}))
@@ -155,7 +155,7 @@
           drawn [id fp]
           #(or (read-stored id fp)
                (let [{:keys [result busy]}
-                     (work-pool/run pool (fn [] (portrait-render/render-png (char5e/parse-portrait stored))))]
+                     (work-pool/run draw-pool (fn [] (portrait-render/render-png (char5e/parse-portrait stored))))]
                  (cond busy (throw (ex-info "portrait draw busy" {::busy busy}))
                        result (do (try (write-stored! id fp result)
                                        (catch Exception e

@@ -97,8 +97,8 @@
    there; the file's own compression hides it from a plain byte search)."
   [^bytes b]
   (try (with-open [doc (org.apache.pdfbox.Loader/loadPDF b)]
-         (some? (.getCustomMetadataValue (.getDocumentInformation doc) art-mark/key-word)))
-       (catch Exception _ (str/includes? (String. b "ISO-8859-1") art-mark/key-word))))
+         (some? (.getCustomMetadataValue (.getDocumentInformation doc) art-mark/mark-keyword)))
+       (catch Exception _ (str/includes? (String. b "ISO-8859-1") art-mark/mark-keyword))))
 
 (defn marked-files
   "Paths git tracks or would commit that carry the licensed-art mark: a PNG's orcpub-art chunk, or
@@ -111,9 +111,9 @@
                      (.isFile (io/file path))
                      (not (and private? (str/starts-with? path (str art-dir "/")))))
           :let [b (Files/readAllBytes (.toPath (io/file path)))]
-          :when (cond (re-find #"(?i)\.png$" path) (art-mark/marked? b)
+          :when (cond (re-find #"(?i)\.(png|jpe?g)$" path) (art-mark/marked? b)
                       (re-find #"(?i)\.pdf$" path) (pdf-marked? b)
-                      :else (str/includes? (String. ^bytes b "ISO-8859-1") art-mark/key-word))]
+                      :else (str/includes? (String. ^bytes b "ISO-8859-1") art-mark/mark-keyword))]
       path)))
 
 (defn linework
@@ -158,14 +158,18 @@
           (println "recorded" (count found) "images to" reviewed-file "-- describe each new one"))
       (testing "every image is one a person has looked at: the licensed art must never be in this
                 repository, in docs/ or anywhere else, and no measure tells it from a logo reliably"
-        (doseq [[path digest] found]
-          (is (and (= digest (get-in reviewed [path :sha256]))
-                   (not (str/starts-with? (str (get-in reviewed [path :what])) "DESCRIBE")))
-              (str path " (linework " (linework path) "%) is not a reviewed image. Look at it: if it"
+        ;; The message is built only on a miss: `is` evaluates it on a pass too, and scoring
+        ;; every image for linework takes seconds each.
+        (doseq [[path digest] found
+                :let [ok? (and (= digest (get-in reviewed [path :sha256]))
+                               (not (str/starts-with? (str (get-in reviewed [path :what])) "DESCRIBE")))]]
+          (is ok?
+              (when-not ok?
+               (str path " (linework " (linework path) "%) is not a reviewed image. Look at it: if it"
                    " contains the licensed portrait art, it must not be committed here (it belongs only"
                    " on the private deployment branch). A silhouette composite, screenshot, logo or"
                    " photo: REVIEWED_IMAGES=record lein test :only orcpub.portrait-art-guard-test,"
-                   " then say what it is in " reviewed-file)))))))
+                   " then say what it is in " reviewed-file))))))))
 
 (deftest the-guard-fails-when-it-cannot-list-files
   ;; a guard that sees no files passes; git failing must fail it instead

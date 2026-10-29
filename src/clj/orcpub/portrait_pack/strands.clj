@@ -48,8 +48,7 @@
   ^bytes [^bytes art layer-key]
   (let [out (ByteArrayOutputStream.)]
     (ImageIO/write (field->image (field-of (ImageIO/read (java.io.ByteArrayInputStream. art)) layer-key)) "png" out)
-    (cond-> (.toByteArray out)
-      (art-mark/marked? art) (art-mark/with-mark (art-mark/composed [(art-mark/mark-of art)])))))
+    (art-mark/carry-marks (.toByteArray out) [(art-mark/read-mark art)])))
 
 (def ^:private worked-out
   "Strand PNGs worked out at runtime for art deployed without its file, by art URL."
