@@ -1083,7 +1083,7 @@ _data-safety-layers · data safety layers_
 
 _datomic-crash-analysis · datomic crash analysis_
 
-**topics:** config, contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, observed, postgres, seconds, speculation, transactor, unvalidated, write
+**topics:** contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, observed, postgres, seconds, speculation, threshold, transactor, unvalidated, write
 
 - Active transactor configuration (verified from log startup lines)
 - Crash mechanism — verified
@@ -2002,7 +2002,7 @@ _hidden-selection-picks · hidden selection picks_
 
 _homebrew-class-spellcasting · homebrew class spellcasting_
 
-**topics:** ------, --------, 435, cantrip, class, compilation, dropdown, generic, homebrew, homebrew-reference-web, level, magic, pact, pact-magic, slot, slots, spell, spellcasting
+**topics:** ------, --------, 435, class, compilation, dropdown, generic, hardcoded, homebrew, homebrew-reference-web, level, magic, pact, pact-magic, slot, slots, spell, spellcasting
 
 - Builder UI
 - Not exposed in builder
@@ -2549,7 +2549,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _page-load-budget · page load budget_
 
-**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, parties, portrait, repeat, sheet, signed, stylesheet, visit
+**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, page, parties, portrait, repeat, sheet, signed, visit
 
 - Why it exists
 - Audit of integration (2026-10-15, b8035afe, production bundle)
@@ -2821,7 +2821,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** 2026-10-16, days, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, unsaved
+**topics:** 2026-10-16, days, draft, drafts, edit, elsewhere, expire, expires, leftover, never-saved, notice, owner, rescue, restore, saved, start-up, tab, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)
@@ -3372,7 +3372,7 @@ _settings-registry-and-boot-report · settings registry and boot report_
 
 _share-bundle-dependency-extraction · share bundle dependency extraction_
 
-**topics:** cljc, cljs, closure, def, direct, entity, extractor, index, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
+**topics:** cljc, cljs, closure, def, direct, entity, extractor, keys, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
 
 - Why this is not trivial
 - The content types (master list)
@@ -3504,7 +3504,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 285, 313, 317, 319, 322, 5etools, armor, conditions, counterpart, editions, monsters, open5e, species, srd, text, weapons
+**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, armor, conditions, counterpart, editions, magic, monsters, open5e, species, srd, text, weapons
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -3640,6 +3640,14 @@ _srd-vs-plugin-content · srd vs plugin content_
 - What Comes From Plugins
 - Lesson Learned
 
+## stale-bundle-banner.md
+
+_stale-bundle-banner · stale bundle banner_
+
+**topics:** 2026-10-30, banner, build, bundle, deployed, dev, disk, figwheel, hashes, index-page, mode, modification, newest, portraits, rebuilds, stale-bundle, stamp, stamping
+
+
+
 ## starting-equipment-override-ledger.md
 
 _starting-equipment-override-ledger · starting equipment override ledger_
@@ -3733,7 +3741,7 @@ _support-session-ledger · support session ledger_
 
 _test-suite-state · test suite state_
 
-**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, figwheel, harness, jvm, pre-existing, spec, suite, theater, unresolved, unrun, unshallowed
+**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, harness, jvm, pre-existing, run, spec, suite, theater, unresolved, unrun, unshallowed
 
 - 0. Current measured state — 2026-09-12, feature/grant-rows (after the integration merge)
 - 0.1 Earlier measured state — 2026-09-05, feature/fighting-style-authoring
@@ -3929,7 +3937,7 @@ _weapons-extra-damage-design · weapons extra damage design_
 
 _weapons-extra-damage-handoff · weapons extra damage handoff_
 
-**topics:** 1d8, 2d6, ablaze, bar, blade, colour, damage, dark, deals, extra, frost, radiant, roll, strip, sun, tile, type, undead
+**topics:** 1d8, 2d6, ablaze, blade, colour, damage, dark, deals, extra, frost, radiant, roll, strip, sun, thunder, tile, type, undead
 
 - The problem
 - The five cases, from SRD 5.1 (text checked)
