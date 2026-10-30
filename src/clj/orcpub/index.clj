@@ -10,6 +10,7 @@
             [orcpub.loading-spinner :as spinner]
             [orcpub.env :as env]
             [orcpub.config :as config]
+            [orcpub.stale-bundle :as stale-bundle]
             [orcpub.pedestal :as pedestal]))
 
 
@@ -284,6 +285,7 @@ html {
     ;; It depends on nothing the app owns: server-rendered markup, inline styles (styles.css may
     ;; not have loaded), plain localStorage, and a vanilla anchor download, not FileSaver.
     (boot-rescue nonce)
+    (stale-bundle/banner)
     (include-css (asset-url "/css/compiled/styles.css"))
     ;; Every script tag carries the per-request nonce. It is nil in dev mode,
     ;; where no CSP header is set at all; enforcing otherwise.
