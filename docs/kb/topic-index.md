@@ -598,7 +598,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, bespoke, disposition, effect, expertise, extensible, feat, grant, legacy, pool, race, registry, row, rows, shim, widget, widgets
+**topics:** ---, arm, bespoke, disposition, effect, extensible, feat, grant, legacy, monster, pool, race, registry, row, rows, shim, widget, widgets
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -666,7 +666,7 @@ _building-a-class-from-builders · building a class from builders_
 
 _built-character-representation · built character representation_
 
-**topics:** -ref, accessor, body, character-validation, computed, deferred, entity, expressible, flat, literally, macro, plain, predicates, realized, spec, symbol, test-suite-state, writing
+**topics:** -ref, accessor, body, character-validation, computed, deferred, entity, flat, function, literally, macro, plain, predicates, realized, spec, symbol, test-suite-state, writing
 
 - One-liner
 - How it actually works (verified)
@@ -908,7 +908,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** ancestry, bespoke, descriptor, draconic, field, ftd, grant, maintainability, metadata, openness, page-map, parametric, per-type, pool, pools, primitive, registry, wiring
+**topics:** ancestry, bespoke, built-ins, descriptor, draconic, field, ftd, grant, maintainability, metadata, page-map, parametric, per-type, pool, pools, primitive, registry, wiring
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -1351,7 +1351,7 @@ _docker-setup-flow · docker setup flow_
 
 _docker-swarm-compat · docker swarm compat_
 
-**topics:** cli, codespaces, compose, datomic, deploy, dmv-production-changes, dns, docker, host, incompatibilities, outputs, service, specification, stack, swarm, task, vip, yaml
+**topics:** cli, codespaces, compose, datomic, deploy, dmv-production-changes, dns, docker, healthy, host, incompatibilities, outputs, service, stack, swarm, task, vip, yaml
 
 - Context
 - Solution
@@ -1642,7 +1642,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** armor, climber, damage, dash, die, equipment, firearms, gear, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
+**topics:** ammunition, armor, climber, damage, dash, die, equipment, gear, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -1669,6 +1669,15 @@ _error-handling-import-validation · error handling import validation_
 - Deferred Items
 - Test Coverage
 - Kondo Config
+
+## expertise-chats.md
+
+_expertise-chats · expertise chats_
+
+**topics:** 215k, 642k, agent, cache, chat, chats, cheaply, expertise, four-month, handoffs, happen, quiz, reopening, routine, subagent, summarizer, tokens, user-level
+
+- The routine (once per chat)
+- What keeps it working
 
 ## extras-definitions.md
 
@@ -2331,7 +2340,7 @@ _lifting-mechanics-from-prose · lifting mechanics from prose_
 
 _locale-safety · locale safety_
 
-**topics:** 2026-10, 7231, case-folding, dotless, english, english-locale, etag, locale, locale-independent, machine, pedestal-csp-history, protocol, regional, spanish, survey, turkish, webjar, windows
+**topics:** 2026-10, 7231, case-folding, deterministic, dotless, english, english-locale, etag, locale, locale-independent, machine, pedestal-csp-history, protocol, spanish, survey, turkish, webjar, windows
 
 - 1. The ETag crash
 - Why only /assets/
@@ -2409,7 +2418,7 @@ _modifier-vs-trait-slots · modifier vs trait slots_
 
 _monolith-decomposition-plan · monolith decomposition plan_
 
-**topics:** -------, 2026-09-15, 623, 821, cljs, cohesive, domain, domain-based, extractions, incrementally, monolith, phase, sorted-map, split, splitting, tier, todo, views
+**topics:** -------, 2026-09-15, 623, 821, cljs, cohesive, decomposition, domain, domain-based, extractions, incrementally, monolith, phase, split, splitting, tier, todo, views
 
 - 1. Did the Builders Split Make Issues Easier to Find?
 - 2. What Files Can or Should Be Broken Down?
@@ -2954,7 +2963,7 @@ _plan-email-and-alerts · plan email and alerts_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, published, skill, wrapper
+**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, pool, published, skill, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -3335,7 +3344,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** arbitrary, armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, sheet, static, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifier, modifiers, play-state, player, positioning, recomputes, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
