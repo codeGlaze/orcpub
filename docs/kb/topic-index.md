@@ -357,7 +357,7 @@ _armor-class-refactor · armor class refactor_
 
 _artist-credit-change-emails · artist credit change emails_
 
-**topics:** admin, artist, batch, burst, change, credit, email, emailed, emails, flood, hour, hourly, minute, pending, retraction, send, sent, window
+**topics:** artist, batch, burst, change, containers, credit, email, emailed, emails, flood, hour, hourly, minute, pending, retraction, send, sent, window
 
 - The rule (owner's decision)
 - Rejected first: one change a minute
@@ -415,7 +415,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, control, css, docstrings, expression, form, icon, invented, item, lesson, pin, portrait, review, row, sat, signing, unknown, vanished
+**topics:** 2026-09-29, builder, control, css, docstrings, expression, form, icon, invented, item, lesson, pin, review, row, sat, signing, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -621,7 +621,7 @@ _builder-disposition-audit · builder disposition audit_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, 2026-06-15, 2026-09-05, bespoke, builders, creatures, feat, form, fragment, framework, june, node, schema, tier, titled, traits, type, widgets
+**topics:** ---, 2026-06-15, bespoke, builders, compiler, creatures, feat, form, fragment, framework, june, node, schema, tier, titled, traits, type, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -760,7 +760,7 @@ _character-validation · character validation_
 
 _class-builder-extraction-plan · class builder extraction plan_
 
-**topics:** big-bang, class-builder-first, class-builder-only, decomposition, extract, extraction, grep, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
+**topics:** big-bang, builder, class-builder-first, class-builder-only, decomposition, extract, extraction, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
 
 - Why this shape (the lesson from refactor/views-extraction)
 - Starting reality (differs from the dead branch's assumption)
@@ -931,7 +931,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, positional-threading, read-seams, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, homebrew, level-3, name-keyword, pact, phase, phases, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1083,7 +1083,7 @@ _data-safety-layers · data safety layers_
 
 _datomic-crash-analysis · datomic crash analysis_
 
-**topics:** contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, observed, postgres, seconds, speculation, threshold, transactor, unvalidated, write
+**topics:** config, contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, observed, postgres, seconds, speculation, transactor, unvalidated, write
 
 - Active transactor configuration (verified from log startup lines)
 - Crash mechanism — verified
@@ -1229,6 +1229,16 @@ _dev-tooling-decisions · dev tooling decisions_
 - What It Contains
 - Figwheel Port
 - CI Java Version
+
+## dmv-premerge.md
+
+_dmv-premerge · dmv premerge_
+
+**topics:** 2026-10-29, accessibility, blank-env-values, branding, bringing, crawlers, disallows, dmv, dungeon, empty-value, insert, integration, pre-merged, re-apply, subagent, truncates, update, vault
+
+- Where it happens
+- How to resolve conflicts
+- Checks
 
 ## dmv-production-changes.md
 
@@ -1883,7 +1893,7 @@ _growable-option-menus · growable option menus_
 
 _handoff-669-final-pass · handoff 669 final pass_
 
-**topics:** 401, accounts, api, cljs-headless-harness, defect, e2e-logged-in-sessions, end, items, link-embedded, login, loop, merge, parents, plan-669-merge-verification, suite, union, unit, units
+**topics:** 401, accounts, api, cljs-headless-harness, defect, e2e-logged-in-sessions, end, items, link-embedded, login, loop, merge, parents, plan-669-merge-verification, resolving, suite, unit, units
 
 - What the change is
 - Already verified — do not spend time re-running
@@ -2993,7 +3003,7 @@ _plan-lookup-indexes · plan lookup indexes_
 
 _plan-next · plan next_
 
-**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged, windows
+**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, damage, macro, natural-armor, number, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged, windows
 
 - 0. Standing, do these first
 - 0b. September support sessions — tracked separately
