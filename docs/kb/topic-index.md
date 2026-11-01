@@ -1366,6 +1366,7 @@ _docker-swarm-compat · docker swarm compat_
 - Compose teardown before Swarm init
 - Codespaces limitation
 - Environment tested on
+- Docker releases (owner, confirmed 2026-11-01)
 
 ## docker-testing-guide.md
 

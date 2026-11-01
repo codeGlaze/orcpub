@@ -140,3 +140,8 @@ from the browser. Use Compose for Codespaces development.
 - Docker Compose v2.40.3
 - jq 1.6
 - mawk 1.3.4 (limited — avoid for YAML processing)
+
+## Docker releases (owner, confirmed 2026-11-01)
+
+Docker releases come only from upstream `develop`, not the owner's fork. Tags should not go on every
+little push.
