@@ -37,3 +37,18 @@ integration wins. Taking one whole side breaks either the build or the branding.
   `REVIEWED_IMAGES=record` truncates at 50 entries and writes invalid EDN, so insert by hand and
   parse the result with the EDN reader.
 - Some integration tests assume the public defaults, such as an unset app URL.
+
+## Audit of the branch, 2026-11-01
+
+Checked `aaa34c997` against `gitea/dmv` (`31cd8be24`) and `origin/integration`, by file and by commit.
+No code was run.
+
+- Every `gitea/dmv` commit is in the branch. It is 2 commits behind `integration`: the dev-mode
+  stale-bundle banner (`d7643882c`, `c06a3ebda`).
+- `robots.txt` is absent, as DMV wants.
+- 18 of the 68 files DMV changed since the merge base differ from `dmv`. Eight are real mixes,
+  including the `fork/` files. Ten match `integration`: seven are source files (share links, homebrew
+  validation), where `integration` carries its own later version of those features. Their behaviour
+  was not compared line by line.
+- PR #10's description is stale: it says 188 files and the frozen Summer Patch tip; the PR shows 800.
+

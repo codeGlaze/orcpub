@@ -932,7 +932,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, homebrew, level-3, name-keyword, pact, phase, phases, read-seams, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, positional-threading, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1235,11 +1235,12 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 2026-10-29, blank-env-values, branding, bringing, crawlers, disallows, dmv, dungeon, empty-value, insert, integration, merge, pre-merged, pushing, subagent, truncates, update, vault
+**topics:** 188, 2026-10-29, blank-env-values, branding, bringing, disallows, dmv, dungeon, empty-value, insert, integration, merge, patch, pre-merged, pushing, stale-bundle, subagent, summer
 
 - Where it happens
 - How to resolve conflicts
 - Checks
+- Audit of the branch, 2026-11-01
 
 ## dmv-production-changes.md
 
@@ -3666,9 +3667,9 @@ _srd-vs-plugin-content · srd vs plugin content_
 
 _stale-bundle-banner · stale bundle banner_
 
-**topics:** 2026-10-30, banner, build, bundle, deployed, dev, disk, figwheel, hashes, index-page, mode, modification, newest, portraits, rebuilds, stale-bundle, stamp, stamping
+**topics:** 2026-10-30, banner, build, bundle, dev, disk, figwheel, hashes, index-page, modification, owed, port, portraits, rebuilds, stale-bundle, stamp, stamping, worktree
 
-
+- Why it keeps happening, and the fix still owed
 
 ## starting-equipment-override-ledger.md
 

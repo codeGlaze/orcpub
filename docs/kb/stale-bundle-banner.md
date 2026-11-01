@@ -27,3 +27,12 @@ from those files. It warns only; it never rebuilds or refuses to start. The e2e 
 
 Code: `src/clj/orcpub/stale_bundle.clj`, wired in `index-page` (`src/clj/orcpub/index.clj`); test
 `test/clj/orcpub/stale_bundle_test.clj`. On `integration` from `c06a3ebda` (2026-10-30).
+
+## Why it keeps happening, and the fix still owed
+
+`./menu` and `scripts/start.sh` never build. `start_figwheel` also exits successfully when its port is
+held, and every worktree uses the same port, so Figwheel from one worktree can make another skip its
+own. The banner reports the result; it does not prevent it. `scripts/e2e/run.sh` already holds the
+check to reuse: `newer_sources`, `newer_build_inputs`, then `lein fig:build` and `lein garden once`.
+`scripts/start.sh` is on the heavy Docker path list.
+

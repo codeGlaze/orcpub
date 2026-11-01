@@ -25,7 +25,7 @@ carries live state.*
   mention the Rules tab yet (owner's call). The SRD data is generated on `srd52/develop` from the
   open5e clone's `srd-corrections` branch: [srd-improvements.md](docs/kb/srd-improvements.md);
   open5e corrections are filed upstream as PRs #995-#997 and #999, issue #998.
-- **#32 is parked; nothing goes to `develop` until the owner says so.** When it is picked up: re-measure
+- **#32 is wanted now (owner, 2026-11-01); it is blocked by a `.gitignore` conflict with `develop` (below).** Before that it was parked. Measure again before relying on these older notes: re-measure
   what `develop` has that `integration` lacks. On 2026-10-06 it was two commits (`15e1fe04` the
   design-handoff gitignore, `93c15c03`), which conflict in `.gitignore`; on 2026-10-23
   `git log --cherry-pick --right-only integration...develop` listed 44. And CodeQL fails on a regex built from a CLI argument in
