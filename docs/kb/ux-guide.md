@@ -209,3 +209,9 @@ Newest last. Date, ruling, and what it replaced.
   in another tab are listed and marked. Once one is shown, a dropdown at the top switches drafts,
   each entry with name, kind, time edited and "open in another tab". Replaced a message sending the
   player back to the builder. `feature/character-rescue`.
+
+## Owner's notes (recorded 2026-11-01)
+
+- No emojis on the live site; use purposely chosen colourized SVG icons (2026-09-06).
+- Unearthed Arcana is always `ua` in keys and abbreviations (2026-09-08).
+- Marketing wording stays plain: "You can move things between homebrew libraries now!" (2026-09-07).

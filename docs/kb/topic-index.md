@@ -55,7 +55,7 @@ _DATOMIC_JAVA21_TEST_RESULTS · DATOMIC_JAVA21_TEST_RESULTS_
 
 _DEPENDENCY_VALIDATION · DEPENDENCY_VALIDATION_
 
-**topics:** 2-jre, automated, backward, com, compatibility, cves, dependencies, dependency, fasterxml, github, guava, jackson, libraries, maintains, outdated, pedestal, pre-upgrade, vulnerabilities
+**topics:** 2-jre, automated, backward, com, compatibility, cves, dependencies, dependency, fasterxml, github, guava, jackson, maintain, maintains, outdated, pedestal, pre-upgrade, vulnerabilities
 
 - Summary
 - Changes Made
@@ -258,7 +258,7 @@ _ac-tests-and-modifier-order · ac tests and modifier order_
 
 _account-flows · account flows_
 
-**topics:** account, composition, corpus, credential, email, link, login, mail, meter, oracle, password, refused, reset, server, signing, somebody, suite, username
+**topics:** account, breach, composition, corpus, credential, email, mail, meter, oracle, password, refused, registration, reset, signing, somebody, suite, uncommon, username
 
 - 1. The reason none of it had coverage
 - Traps inside the harness itself
@@ -276,6 +276,7 @@ _account-flows · account flows_
 - Notifications
 - 7. Open, and deliberately so
 - 8. Corrections — claims made here that were wrong
+- Owner's wording (2026-09-19 to 09-20)
 
 ## agent-hooks.md
 
@@ -1234,7 +1235,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 2026-10-29, accessibility, blank-env-values, branding, bringing, crawlers, disallows, dmv, dungeon, empty-value, insert, integration, pre-merged, re-apply, subagent, truncates, update, vault
+**topics:** 2026-10-29, blank-env-values, branding, bringing, crawlers, disallows, dmv, dungeon, empty-value, insert, integration, merge, pre-merged, pushing, subagent, truncates, update, vault
 
 - Where it happens
 - How to resolve conflicts
@@ -1519,7 +1520,7 @@ _e2e-runner · e2e runner_
 
 _edition-drift · edition drift_
 
-**topics:** 2014, 2024, 5etools, attack, crossbow, dual, eligibility, feat, fighting, hand, light, melee, off-hand, one-handed, property, two-weapon, weapon, wielder
+**topics:** 2014, 2024, 5etools, attack, crossbow, dual, eligibility, feat, fighting, light, melee, non-two-handed, off-hand, one-handed, property, two-weapon, weapon, wielder
 
 - Two-weapon fighting, side by side
 - What each difference costs us
@@ -2831,7 +2832,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** 2026-10-16, days, draft, drafts, edit, elsewhere, expire, expires, leftover, never-saved, notice, owner, rescue, restore, saved, start-up, tab, unsaved
+**topics:** 2026-10-16, days, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)
@@ -3068,7 +3069,7 @@ _pool-grant-map · pool grant map_
 
 _proposal-indexeddb-storage · proposal indexeddb storage_
 
-**topics:** asynchronous, capacity, chunking, cross-tab, drawbacks, goal, indexeddb, library, localstorage, long-term, on-demand, per-key, perf-homebrew-builder-loop, plan-chunked-library-storage, recorded, safari, storage, trial
+**topics:** asynchronous, capacity, chunking, cross-tab, drawbacks, goal, indexeddb, library, localstorage, long-term, on-demand, per-key, perf-homebrew-builder-loop, plan-chunked-library-storage, quota, safari, storage, trial
 
 - The idea
 - Why it is worth looking at
@@ -3382,7 +3383,7 @@ _settings-registry-and-boot-report · settings registry and boot report_
 
 _share-bundle-dependency-extraction · share bundle dependency extraction_
 
-**topics:** cljc, cljs, closure, def, direct, entity, extractor, keys, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
+**topics:** cljc, cljs, closure, def, direct, entity, extractor, index, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
 
 - Why this is not trivial
 - The content types (master list)
@@ -3424,6 +3425,7 @@ _share-links · share links_
 - Open
 - Traps hit building it
 - Checks
+- Discord and long links (owner, 2026-08-12)
 
 ## source-tagged-keys.md
 
@@ -3833,6 +3835,7 @@ _ux-guide · ux guide_
 - Where things go
 - Phone first, and how designs are reviewed
 - Decisions log
+- Owner's notes (recorded 2026-11-01)
 
 ## verification-discipline.md
 

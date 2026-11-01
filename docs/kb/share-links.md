@@ -195,3 +195,8 @@ and removal; `share_test.clj` also covers pruning, use keeping a share alive, da
 without the token recording nothing, the sweep deleting share records and nothing else, time the server
 was off not counting, 0 days and the 30-day minimum, the expiry note (shown to the owner only, cleared by
 Share link or Dismiss, removed after another window), and Stop sharing.
+
+## Discord and long links (owner, 2026-08-12)
+
+Discord turns a long link into a `.txt` attachment, which people must expand and copy by hand, and
+that invites copy errors. This is a real problem for long links, not a non-issue.

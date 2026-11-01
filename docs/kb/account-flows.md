@@ -284,3 +284,10 @@ Recorded because the confident wrong version is what survives otherwise.
   silently replaced its `docs/branch-changelog.md` with the incoming branch's, because
   integration's tip is the merge base for every branch cut from it. Check `head -1` after
   every merge.
+
+## Owner's wording (2026-09-19 to 09-20)
+
+- Keep "Success! Registration is complete!": "you want to celebrate registration".
+- The password breach check must not alarm people: neutral "too common" or "uncommon password"
+  language, without announcing the lookup.
+- Avoid wording that sounds "agent-y".

@@ -3,6 +3,10 @@
 How the Summer Patch work reaches the Dungeon Master's Vault fork, and what a merge there must
 preserve. Learned on the 2026-10-29 update of PR #10.
 
+**"Pre-merge" means a test merge** (owner): "test merge and fix the flags before pushing a branch out
+for PR." The merge and its fixes come first and are checked; pushing or opening the PR is a separate
+step, not what the word means.
+
 ## Where it happens
 
 - **Repo:** `code.dungeonmastersvault.com/DMV/DMV` (remote `gitea`), base branch `dmv`.
