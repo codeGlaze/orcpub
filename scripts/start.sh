@@ -33,6 +33,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source shared utilities
 # shellcheck source=common.sh
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/bundle-check.sh"
 
 # -----------------------------------------------------------------------------
 # Install
@@ -407,6 +408,7 @@ start_server() {
     fi
 
     cd "$REPO_ROOT"
+    ensure_fresh_build || exit $EXIT_RUNTIME
 
     # When Java runs out of memory or crashes it leaves a heap dump or crash log in
     # $LOG_DIR/app/crash, and the next start emails the admin (orcpub.crash-report). No
@@ -647,9 +649,10 @@ start_all() {
         exit $EXIT_SUCCESS
     fi
 
+    cd "$REPO_ROOT"
+    ensure_fresh_build || exit $EXIT_RUNTIME
     log_info "Starting REPL with server (profile: +dev,+start-server)..."
     log_info "Note: Ctrl+C will stop both server and Datomic"
-    cd "$REPO_ROOT"
     local rc=0
     if [[ "$(repl_mode)" == "interactive" ]]; then
         lein with-profile +dev,+start-server repl || rc=$?
