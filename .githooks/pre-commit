@@ -30,6 +30,12 @@ case "$branch" in
     ;;
 esac
 
+# New files of the wrong kind, and a heads-up on branch size (docs/kb/agent-hooks.md).
+case "$branch" in
+  agents/*) ;;
+  *) [ -x "$(dirname "$0")/branch-shape" ] && { "$(dirname "$0")/branch-shape" staged || exit 1; } ;;
+esac
+
 # Every function gets a spec docstring (AGENTS.md, "Comments and Docstrings"). Blocks a commit that
 # ADDS a defn, defn- or defmacro with none; warns on history wording in added comment lines, using
 # comment_discipline_test's pattern. Runs in every worktree: core.hooksPath is shared by the clone.

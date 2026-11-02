@@ -282,7 +282,7 @@ _account-flows · account flows_
 
 _agent-hooks · agent hooks_
 
-**topics:** agent, armed, arming, docstring, hook, hooks, installer, orcpub-garden, push, reminder, session, sessionstart, setup, stripper, trailer, transcript, worktree, worktrees
+**topics:** agent, agents, armed, arming, clone, docstring, hook, hooks, orcpub-garden, push, reminder, session, sessionstart, setup, trailer, transcript, worktree, worktrees
 
 - The rule
 - The entry point follows the same rule
@@ -291,6 +291,8 @@ _agent-hooks · agent hooks_
 - The docstring gate
 - Why it is built this way
 - Limits
+- Branch shape
+- Picking up changes after a gap
 
 ## already-held-grants.md
 
@@ -377,7 +379,7 @@ _artist-links-and-referrer · artist links and referrer_
 
 _auth-state-in-app-db · auth state in app db_
 
-**topics:** 24-hour, 401, 669, account, deletes, env-and-auth, filtered-list-staleness, kaylee, loader, log, logged, login, merges, reframe-subscription-patterns, response, server, todo, token
+**topics:** 401, 669, account, deletes, env-and-auth, filtered-list-staleness, kaylee, loader, log, logged, login, merges, reframe-subscription-patterns, rejected, response, server, todo, token
 
 - The shape
 - Read the token with get-auth-token
@@ -476,7 +478,7 @@ _branch-context-history · branch context history_
 
 _branch-inventory · branch inventory_
 
-**topics:** added, attached, changelog, claude, contained, copied, develop, elsewhere, gitignore, integration, landed, local, local-only, remote, src, superseded, tip, worktree
+**topics:** ---, added, attached, changelog, claude, contained, copied, develop, elsewhere, gitignore, integration, landed, local-only, remote, src, superseded, tip, worktree
 
 - Trunk (9)
 - Release (1)
@@ -666,7 +668,7 @@ _building-a-class-from-builders · building a class from builders_
 
 _built-character-representation · built character representation_
 
-**topics:** -ref, accessor, body, character-validation, computed, deferred, entity, flat, function, literally, macro, plain, predicates, realized, spec, symbol, test-suite-state, writing
+**topics:** -ref, accessor, body, character-validation, computed, deferred, entity, expressible, flat, literally, macro, plain, predicates, realized, spec, symbol, test-suite-state, writing
 
 - One-liner
 - How it actually works (verified)
@@ -1235,7 +1237,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 188, 2026-10-29, blank-env-values, branding, bringing, disallows, dmv, dungeon, empty-value, insert, integration, merge, patch, pre-merged, pushing, stale-bundle, subagent, summer
+**topics:** 188, 2026-10-29, blank-env-values, branding, bringing, disallows, dmv, dungeon, empty-value, insert, integration, merge, patch, pre-merged, pushing, stale-bundle, summer, vault
 
 - Where it happens
 - How to resolve conflicts
@@ -1352,7 +1354,7 @@ _docker-setup-flow · docker setup flow_
 
 _docker-swarm-compat · docker swarm compat_
 
-**topics:** cli, codespaces, compose, datomic, deploy, dmv-production-changes, dns, docker, healthy, host, incompatibilities, outputs, service, stack, swarm, task, vip, yaml
+**topics:** cli, codespaces, compose, datomic, deploy, dmv-production-changes, dns, docker, host, incompatibilities, outputs, service, specification, stack, swarm, task, vip, yaml
 
 - Context
 - Solution
@@ -1676,7 +1678,7 @@ _error-handling-import-validation · error handling import validation_
 
 _expertise-chats · expertise chats_
 
-**topics:** 215k, 642k, agent, cache, chat, chats, cheaply, expertise, four-month, handoffs, happen, quiz, reopening, routine, subagent, summarizer, tokens, user-level
+**topics:** 215k, 642k, agent, cache, chat, chats, cheaply, expertise, four-month, handoffs, happen, quiz, reopening, routine, sessionstart, summarizer, tokens, user-level
 
 - The routine (once per chat)
 - What keeps it working
@@ -2453,7 +2455,7 @@ _multi-tab-character-contamination · multi tab character contamination_
 
 _my-account-light-theme-white-text · my account light theme white text_
 
-**topics:** 2017, 2026-10-14, account, artist, body, credit, grey, grounds, hard-coded, light, news, predates, theme, themes, unticked, username, utility, white
+**topics:** 2017, 2026-10-14, account, body, credit, driving, grey, grounds, hard-coded, light, news, predates, theme, themes, unticked, username, utility, white
 
 
 
@@ -3042,7 +3044,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _plan-pdf-page-sizes · plan pdf page sizes_
 
-**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, border, height, inches, ink, letter, primitives, rect, spellbook, translate, widget
+**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, border, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
 
 - The problem in one paragraph
 - Order, and why this order
@@ -3177,6 +3179,14 @@ _registry-before-after · registry before after_
 - BEFORE — a bespoke input-field wrapper + a hand-built form, in views.cljs
 - AFTER — one line (the generic form is data):
 - 4. So what do you actually WRITE to add a type now?
+
+## release-deploy-traps.md
+
+_release-deploy-traps · release deploy traps_
+
+**topics:** alt-host, de-index, dmv, edn, ending, folder, hand-insert, host, in-browser, lag, logged, parsers, projects, release, reviewing, robots, slips, swarm
+
+- Open and unchecked
 
 ## remote-dev.md
 
@@ -3366,7 +3376,7 @@ _save-dc-sources · save dc sources_
 
 _secrets-in-boot-output · secrets in boot output_
 
-**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, branding, credential, ex-info, find-and-replace, innocuous, leak, log, logs, print, redact, settings-registry-and-boot-report, uri
+**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, branding, credential, ex-info, find-and-replace, leak, log, logs, print, redact, rejected, settings-registry-and-boot-report, uri
 
 - It was in four places, not one
 - Redact at the boundary, and only what is logged
@@ -3584,7 +3594,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, edition, editions, monsters, open5e, owner, pdf, served, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2026-10-07, 5etools, data, edition, editions, monsters, open5e, owner, pdf, served, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -3744,7 +3754,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale, locale-safety, port, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale-safety, port, session, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged
@@ -3852,7 +3862,7 @@ _ux-guide · ux guide_
 
 _verification-discipline · verification discipline_
 
-**topics:** adjudicating, armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
+**topics:** armed, baseline, behavior, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested

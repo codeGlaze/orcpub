@@ -102,3 +102,34 @@ than assumes.
 - `--no-verify` skips them. Agents use it only with the owner's yes for that commit or push (AGENTS.md).
 - Integration also tracks a `.githooks/pre-push`, identical to this one, for contributors who are
   not agents. Keep the two identical; `--check` compares against `agents/develop`'s.
+
+## Branch shape
+
+`.githooks/branch-shape`, called from `pre-commit` and `pre-push`, stops a branch growing into a
+PR nobody can review. Test: `scripts/test-branch-shape.sh`.
+
+- **At commit:** refuses new mockups, plans, reports and one-off scripts (`docs/design`,
+  `docs/issues`, `.txt`, `.html` or `.log` under `docs/`, `dev/scan_*`, `measure_*`, `stress_*`,
+  `compare_*`, `*_proof.clj`, `design_handoff`, `Zone.Identifier`, any `.log`, and `.html` outside
+  `resources/` and `test/`). A merge is skipped, because it brings the other side's files. Warns past 80 files.
+- **At push:** refuses a branch that changes more than 100 files, CodeRabbit's limit. It compares the
+  branch with where it joined its target, so merging `integration` in adds nothing. A branch already
+  over the limit is warned, not refused: the block falls on the push that crosses it.
+- **Exempt:** `integration`, `develop`, `main`, `agents/*`, `mirror/*`, `premerge/*`, `dmv*`, and any
+  remote but `origin`.
+- **Exceptions, with the owner's yes, for one command:** `ALLOW_STRAY_FILES=1`, `ALLOW_LARGE_BRANCH=1`.
+  Neither skips any other hook, as `--no-verify` would.
+- **Backstop:** `.github/workflows/branch-shape.yml` runs the same script from agents/develop on PRs
+  into `integration` and `refactor/main`. The `large change` label skips it. It is the second line:
+  hooks do not reach a person without them, or an edit in GitHub's web page.
+
+The hooks live in the clone's shared `.git/agent-hooks`, so arming them once arms every worktree.
+
+## Picking up changes after a gap
+
+`.claude/hooks/session-start.sh` fetches `agents/develop` when its stamp
+(`.git/agents-develop-fetched`) is over a day old, then arms the hooks and regenerates `CLAUDE.md`
+from that copy. So a chat loaded after a gap gets the current rules and hooks. Offline, or when the
+8-second fetch fails, it uses the local copy and tries again next start. A session that stays open
+still has to refresh by hand (AGENTS.md).
+

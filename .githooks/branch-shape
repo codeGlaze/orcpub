@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Keeps a branch the shape a PR should be, before it gets that far: no mockups, plans, reports or
+# one-off research scripts, and no more changed files than a reviewer can take. docs/kb/agent-hooks.md.
+#
+#   branch-shape staged                   pre-commit: refuses new files of the wrong kind
+#   branch-shape range TARGET HEAD [OLD]  pre-push and the PR check: the whole branch against TARGET.
+#                                         OLD is the commit the remote already has, so a branch over
+#                                         the limit is refused once, as it crosses, then only warned.
+#
+# With the owner's yes, for one commit or push: ALLOW_STRAY_FILES=1, ALLOW_LARGE_BRANCH=1. Unlike
+# --no-verify these leave every other hook running.
+limit=100
+warn_at=80
+
+strays() {
+  grep -E '^docs/(design|issues)/|^docs/.*\.(txt|html|log)$|^dev/(scan|measure|stress|compare)_|^dev/.*_proof\.clj$|design_handoff|Zone\.Identifier|\.log$|\.html$' |
+    grep -vE '^(resources|test)/.*\.html$'
+}
+
+refuse_strays() {
+  [ -n "$1" ] || return 0
+  [ "${ALLOW_STRAY_FILES:-}" = 1 ] && { echo "  branch-shape: stray files allowed by ALLOW_STRAY_FILES" >&2; return 0; }
+  echo "" >&2
+  echo "  blocked: these do not belong on a code branch (mockups, plans, reports, one-off scripts):" >&2
+  echo "$1" | sed 's/^/    /' >&2
+  echo "  Put them on agents/develop (docs/kb/, scripts/), or leave them untracked." >&2
+  echo "  A real exception, with the owner's yes: ALLOW_STRAY_FILES=1 on this one command." >&2
+  echo "" >&2
+  return 1
+}
+
+case "$1" in
+  staged)
+    [ -f "$(git rev-parse --git-dir)/MERGE_HEAD" ] && exit 0   # a merge brings the other side's files
+    refuse_strays "$(git diff --cached --name-only --diff-filter=A | strays)" || exit 1
+    case "$(git symbolic-ref --short -q HEAD)" in
+      refactor/main) target=origin/integration ;;
+      refactor/*) target=origin/refactor/main ;;
+      *) target=origin/integration ;;
+    esac
+    base="$(git merge-base HEAD "$target" 2>/dev/null)" || exit 0
+    n="$(git diff --cached --name-only "$base" | wc -l)"
+    [ "$n" -gt "$warn_at" ] && echo "  heads-up: this branch changes $n files; a push over $limit is refused. Split it while you can." >&2
+    exit 0
+    ;;
+  range)
+    target="$2"; head="$3"; old="${4:-}"
+    base="$(git merge-base "$target" "$head" 2>/dev/null)" || exit 0
+    n="$(git diff --name-only "$base" "$head" | wc -l)"
+    was=0; added_before=""
+    if [ -n "$old" ] && git cat-file -e "$old^{commit}" 2>/dev/null; then
+      oldbase="$(git merge-base "$target" "$old" 2>/dev/null)"
+      if [ -n "$oldbase" ]; then
+        was="$(git diff --name-only "$oldbase" "$old" | wc -l)"
+        added_before="$(git diff --name-only --diff-filter=A "$oldbase" "$old")"
+      fi
+    fi
+    new="$(git diff --name-only --diff-filter=A "$base" "$head" | grep -vxFf <(printf '%s\n' "$added_before") | strays)"
+    status=0
+    refuse_strays "$new" || status=1
+    if [ "$n" -gt "$limit" ]; then
+      if [ "$was" -gt "$limit" ]; then
+        echo "  heads-up: this branch changes $n files against $target, over the limit of $limit." >&2
+      elif [ "${ALLOW_LARGE_BRANCH:-}" = 1 ]; then
+        echo "  branch-shape: $n files allowed by ALLOW_LARGE_BRANCH" >&2
+      else
+        echo "" >&2
+        echo "  blocked: this branch changes $n files against $target; the limit is $limit." >&2
+        echo "  Most common files:" >&2
+        git diff --name-only "$base" "$head" | awk -F/ '{print $1"/"$2}' | sort | uniq -c | sort -rn | head -6 | sed 's/^/    /' >&2
+        echo "  Look for files that do not belong, or split the branch. CodeRabbit skips a PR this size whole." >&2
+        echo "  Really this big, with the owner's yes: ALLOW_LARGE_BRANCH=1 on this one push." >&2
+        echo "" >&2
+        status=1
+      fi
+    fi
+    exit $status
+    ;;
+esac
+exit 0

@@ -71,6 +71,24 @@ while read -r _l local_sha remote_ref _r; do
   fi
 done < <(printf '%s\n' "$pushed_refs")
 
+# Branch shape: the whole branch against what it merges into (docs/kb/agent-hooks.md). Trunks, agent
+# branches and DMV pushes are exempt.
+shape="$(dirname "$0")/branch-shape"
+if [ -x "$shape" ] && [ "${1:-}" = origin ]; then
+  while read -r _l local_sha remote_ref remote_sha; do
+    [ "$local_sha" = "$zero" ] && continue
+    pushed="${remote_ref#refs/heads/}"
+    case "$pushed" in
+      integration|develop|main|agents/*|mirror/*|premerge/*|dmv*) continue ;;
+      refactor/main) target=origin/integration ;;
+      refactor/*) target=origin/refactor/main ;;
+      *) target=origin/integration ;;
+    esac
+    [ "$remote_sha" = "$zero" ] && remote_sha=""
+    "$shape" range "$target" "$local_sha" $remote_sha || status=1
+  done < <(printf '%s\n' "$pushed_refs")
+fi
+
 # Heads-up, never blocks: a push that changes the files deployment depends on sets off the heavy
 # Docker checks on its PR (about 20 minutes). The file list is read from that workflow, so the two
 # cannot drift apart.

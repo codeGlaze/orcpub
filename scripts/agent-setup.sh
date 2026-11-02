@@ -192,7 +192,7 @@ fi
 # track or commit it. core.hooksPath is in the clone's shared config, so this arms every
 # worktree at once, and it is the only thing that sets it: anything else pointing
 # core.hooksPath elsewhere is replaced here (agent-hooks.md).
-HOOKS="commit-msg pre-commit pre-push"
+HOOKS="commit-msg pre-commit pre-push branch-shape"
 hooks_dir="$(cd "$(git rev-parse --git-common-dir)" && pwd)/agent-hooks"
 hook_src() {
   if [ "$branch" = "$KB" ]; then cat ".githooks/$1"; else git show "$KB_REF:.githooks/$1"; fi
