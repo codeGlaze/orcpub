@@ -513,7 +513,7 @@
 
    `:down` values are inches from the card's TOP edge, `:up` values from its
    BOTTOM. Declared in one place rather than spelled out at each draw site, so the
-   vertical rhythm can be measured -- dev/measure_item_card.clj reports the gap
+   vertical rhythm can be measured -- scripts/research/measure_item_card.clj on agents/develop reports the gap
    between every pair -- instead of adjusted a sixteenth at a time by eye."
   {:down {:frame 0.09
           :rail 0.245
