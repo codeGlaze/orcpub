@@ -167,16 +167,31 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
   const laneB = async () => {
     const { ctx, page } = await lane({ width: 1280, height: 900 }, true);
 
-    // Most people ignore a cookie notice rather than dismissing it, and it returns
-    // every visit — a hold that waits for dismissal is a panel they never see.
+    // The panel opens at boot with the cookie notice still showing; it never waits
+    // for the notice. A first visit gets both, and "Got it!" must stay usable.
     await page.goto(BASE, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#poper', { timeout: 30000 });
+    await page.waitForFunction(() => {
+      const app = document.getElementById('app');
+      return app && app.childElementCount > 0
+        && !app.querySelector('img[src*="spiral.gif"], [data-spinner]');
+    }, null, { timeout: 60000 });
+    const t = Date.now();
     await page.waitForSelector('.whats-new-panel', { timeout: 25000 });
-    check('an ignored notice does not suppress the panel', await visible(page),
-          'never clicked the notice');
+    const waited = Date.now() - t;
+    check('the panel opens at once, not held for the notice', waited < 1500, `${waited}ms after the app mounted`);
     check('the notice is still there behind it',
           await page.locator('#poper').isVisible().catch(() => false));
-    await page.screenshot({ path: path.join(OUT, '4-notice-ignored.png') });
+    await page.screenshot({ path: path.join(OUT, '4-notice-with-panel.png') });
+    // The panel's backdrop sits over the notice, so "Got it!" is reachable once it closes.
+    await page.keyboard.press('Escape');
+    check('closing the panel leaves the notice up',
+          await page.locator('#poper').isVisible().catch(() => false));
+    const clicked = await page.locator('#cookie-btn').click({ timeout: 3000 }).then(() => true, () => false);
+    check('"Got it!" can be clicked after the panel closes', clicked);
+    await page.waitForTimeout(1500);
+    check('"Got it!" removes the notice',
+          !(await page.locator('#poper').isVisible().catch(() => false)));
 
     // An embedded sheet is someone else's page: never interrupted. Same context,
     // second tab, so it boots while the checks above are settling.

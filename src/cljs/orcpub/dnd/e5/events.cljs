@@ -84,7 +84,6 @@
                                       dev-mode->local-store
                                       health-dismissed->local-store
                                       whats-new-seen->local-store
-                                      cookie-banner-pending?
                                       get-rejected-plugins
                                       set-rejected-plugins
                                       corrupt-slot-key
@@ -205,37 +204,8 @@
 (def health-dismissed->local-store-interceptor
   (after (fn [db] (health-dismissed->local-store (:health-dismissed db)))))
 
-(def ^:private hold-ceiling-ms
-  "How long the release panel waits on the cookie notice before showing anyway.
-   Long enough to let someone dismiss the notice first, short enough that ignoring
-   it costs them the panel for a few seconds rather than forever."
-  10000)
-
 (def whats-new-seen->local-store-interceptor
   (after (fn [db] (whats-new-seen->local-store (:whats-new-seen db)))))
-
-(reg-fx
- ::e5/watch-cookie-notice
- ;; Holds the release panel while the cookie notice is up, so a first visit gets one
- ;; overlay. Releases after any click once the notice is gone, or after hold-ceiling-ms
- ;; (an ignored notice never goes away). Takes a flag: an effect map entry runs its
- ;; handler whatever the value.
- (fn [watch?]
-   (when watch?
-     (let [handler (atom nil)
-           done? (atom false)
-           release! (fn []
-                      (when-not @done?
-                        (reset! done? true)
-                        (when-let [h @handler]
-                          (js/document.removeEventListener "click" h true))
-                        (dispatch [::e5/release-whats-new])))]
-       (reset! handler
-               (fn [_]
-                 ;; after the notice's own fade-out, so the two don't cross
-                 (js/setTimeout #(when-not (cookie-banner-pending?) (release!)) 450)))
-       (js/document.addEventListener "click" @handler true)
-       (js/setTimeout release! hold-ceiling-ms)))))
 
 (def set-changed (->interceptor
                   :id :set-changed
@@ -550,8 +520,7 @@
                  ;; The release panel opens itself once per release, on the boot that
                  ;; first sees a new id. Reading the stamp here (not at render) keeps it
                  ;; to one showing per browser rather than one per page view.
-                 (and (whats-new/unseen? whats-new-seen)
-                      (not (cookie-banner-pending?)))
+                 (whats-new/unseen? whats-new-seen)
                  (assoc :whats-new-open? true)
                  ;; Through set-character, not a bare assoc: reconciles a key an import
                  ;; conflict renamed, against the plugins already threaded in above.
@@ -563,9 +532,7 @@
                  (seq local-store-builder-items) (merge local-store-builder-items)
                  (seq builder-origin) (assoc :builder-origin builder-origin)
                  tracker-item (assoc ::combat/tracker-item tracker-item)))]
-     (cond-> {::e5/watch-cookie-notice (and (whats-new/unseen? whats-new-seen)
-                                            (cookie-banner-pending?))
-              :db db'}
+     (cond-> {:db db'}
        ;; The restored draft was repaired on the way in. Save the repair back now,
        ;; or the next refresh repairs and announces the same thing again.
        (seq (get-in db' [:character-healed :rewrote]))
@@ -7179,15 +7146,6 @@
  ::e5/open-whats-new
  (fn [db _]
    (assoc db :whats-new-open? true)))
-
-(reg-event-db
- ::e5/release-whats-new
- ;; The end of a hold, not a request to open: if the reader has meanwhile opened
- ;; and closed the panel from the footer, the release is stamped and there is
- ;; nothing left to show.
- (fn [db _]
-   (cond-> db
-     (whats-new/unseen? (:whats-new-seen db)) (assoc :whats-new-open? true))))
 
 (reg-event-db
  ::e5/close-whats-new
