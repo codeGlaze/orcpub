@@ -1,0 +1,30 @@
+# Fork-only. The second line behind the branch-shape git hook (docs/kb/agent-hooks.md on agents/develop):
+# refuses a PR with stray files or over 100 changed files, for changes the hook never saw. The script
+# comes from agents/develop, so the hook and this check cannot drift. The `large change` label skips it.
+name: Branch shape
+
+on:
+  pull_request:
+    branches: [integration, refactor/main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-shape:
+    name: Branch shape
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'large change') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: No stray files, no more than 100 changed files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch -q origin agents/develop
+          git show FETCH_HEAD:.githooks/branch-shape > "$RUNNER_TEMP/branch-shape"
+          bash "$RUNNER_TEMP/branch-shape" range "$BASE_SHA" "$HEAD_SHA"
