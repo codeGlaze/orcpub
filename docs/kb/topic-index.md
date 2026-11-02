@@ -90,7 +90,7 @@ _DEPENDENCY_VALIDATION · DEPENDENCY_VALIDATION_
 
 _SESSION-SUMMARY · SESSION SUMMARY_
 
-**topics:** -----, 2026, 3449, added, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
+**topics:** -----, 2026, added, cleanup, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
 
 - Final State
 - Key Decisions Made
@@ -3667,7 +3667,7 @@ _srd-vs-plugin-content · srd vs plugin content_
 
 _stale-bundle-banner · stale bundle banner_
 
-**topics:** 2026-10-30, banner, build, bundle, dev, disk, figwheel, hashes, index-page, modification, owed, port, portraits, rebuilds, stale-bundle, stamp, stamping, worktree
+**topics:** 2026-10-30, banner, build, bundle, dev, disk, figwheel, garden, held, index-page, modification, owed, port, rebuilds, server, skipping, stamp, worktree
 
 - Why it keeps happening, and the fix still owed
 
@@ -3764,7 +3764,7 @@ _support-session-ledger · support session ledger_
 
 _test-suite-state · test suite state_
 
-**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, harness, jvm, pre-existing, run, spec, suite, theater, unresolved, unrun, unshallowed
+**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, figwheel, harness, jvm, pre-existing, spec, suite, theater, unresolved, unrun, unshallowed
 
 - 0. Current measured state — 2026-09-12, feature/grant-rows (after the integration merge)
 - 0.1 Earlier measured state — 2026-09-05, feature/fighting-style-authoring

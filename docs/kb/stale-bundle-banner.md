@@ -30,9 +30,15 @@ Code: `src/clj/orcpub/stale_bundle.clj`, wired in `index-page` (`src/clj/orcpub/
 
 ## Why it keeps happening, and the fix still owed
 
-`./menu` and `scripts/start.sh` never build. `start_figwheel` also exits successfully when its port is
-held, and every worktree uses the same port, so Figwheel from one worktree can make another skip its
-own. The banner reports the result; it does not prevent it. `scripts/e2e/run.sh` already holds the
-check to reuse: `newer_sources`, `newer_build_inputs`, then `lein fig:build` and `lein garden once`.
-`scripts/start.sh` is on the heavy Docker path list.
+`start_all` in `scripts/start.sh` (`./menu start`, the menu's "start all") starts Datomic and the
+server REPL only. It never starts Figwheel or Garden and has no build step, so the earlier line above
+about it skipping Figwheel because a port was held is wrong. After a pull or merge touches sources, the
+bundle stays older than them until someone builds by hand, so the banner stays up. The owner reports
+this (2026-11-01): the banner is constantly out of date, and its tip is wrong.
 
+`start_figwheel` does exit quietly when port 3449 is held, and every worktree uses that port, so
+`./menu start figwheel` from a second worktree can do nothing.
+
+Planned fix: `start all` and `start server` run the same check as `scripts/e2e/run.sh`
+(`newer_sources`, `newer_build_inputs`) and build once before the server starts; the banner and its
+test go. `scripts/start.sh` is on the heavy Docker path list.
