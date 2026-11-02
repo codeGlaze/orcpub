@@ -1678,7 +1678,7 @@ _error-handling-import-validation · error handling import validation_
 
 _expertise-chats · expertise chats_
 
-**topics:** 215k, 642k, agent, cache, chat, chats, cheaply, expertise, four-month, handoffs, happen, quiz, reopening, routine, sessionstart, summarizer, tokens, user-level
+**topics:** 215k, 642k, cache, chat, chats, cheaply, expertise, four-month, handoffs, happen, quiz, reopening, routine, sessionstart, subagent, summarizer, tokens, user-level
 
 - The routine (once per chat)
 - What keeps it working
@@ -3677,7 +3677,7 @@ _srd-vs-plugin-content · srd vs plugin content_
 
 _start-build · start build_
 
-**topics:** 2026-10-30, 2026-11-01, bundle, dev-mode, disk, docker, february, figwheel, file-time, folder, garden, hashes, port, portraits, stamp, uberjar, worktree, worktrees
+**topics:** 2026-10-30, bundle, constantly, dev-mode, disk, docker, february, figwheel, file-time, folder, garden, hashes, port, portraits, stamp, start, worktree, worktrees
 
 
 

@@ -18,8 +18,10 @@ folder's own Figwheel or Garden keeps current, so there is never a second `lein`
 names the folder when another worktree holds Figwheel's port. All worktrees share that port.
 `scripts/e2e/run.sh` reads the same helpers. Docker and production builds are untouched.
 
-**The banner this replaced.** A dev-mode amber bar (`d7643882c`, `c06a3ebda`), pushed to `integration`
-with no PR, warned that the build was old. It only reported the problem, stayed up because nothing
-rebuilt, and its tip was wrong (owner, 2026-11-01). It was removed in the same branch.
+**The dev-mode banner.** An amber bar (`d7643882c`, `c06a3ebda`), pushed to `integration` with no PR,
+warned that the build was old. The owner reported two bugs on 2026-11-01: its check was constantly out
+of date, and its tip was wrong. `fix/release-cleanup` removes it; that was the agent's proposal, not the
+owner's request, and whether it returns fixed is open. Without it, a plain `lein repl` start has no
+warning.
 
 Test: `test/docker/test-start-build.sh`.
