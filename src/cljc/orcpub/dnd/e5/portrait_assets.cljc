@@ -238,7 +238,7 @@
    :artist/link    "https://fusspot.rip/"
    ;; Exactly the links she asked for; add none she did not list. :link/icon names a mark
    ;; in /image/social (no icon shows the label as text); :link/color is the mark's colour,
-   ;; worn at rest. Reasons: docs/archive/design/artist-profiles/PLAN.md, "Fusspot's links".
+   ;; worn at rest. Reasons: agents/develop docs/archive/design/artist-profiles/PLAN.md, "Fusspot's links".
    :artist/links   [{:link/label "Site"   :link/icon "site"
                      :link/color "#f0a100"
                      :link/url "https://fusspot.rip/"}

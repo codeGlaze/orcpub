@@ -41,7 +41,7 @@ raster assets are read off the classpath and tinted by `multiply!`.
 
 - **The artist pages' examples are rendered here once and kept**, small, flattened and
   watermarked, so those pages never send layer files to the browser. See
-  `docs/archive/design/artist-profiles/PLAN.md`, "the examples are rendered once".
+  `docs/archive/design/artist-profiles/PLAN.md` on agents/develop, "the examples are rendered once".
 
 ## The baked credit and the site mark
 

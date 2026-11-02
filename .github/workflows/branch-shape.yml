@@ -6,7 +6,7 @@ name: Branch shape
 on:
   pull_request:
     branches: [integration, refactor/main]
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
 
 permissions:
   contents: read

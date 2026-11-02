@@ -650,7 +650,10 @@ start_all() {
     fi
 
     cd "$REPO_ROOT"
-    ensure_fresh_build || exit $EXIT_RUNTIME
+    if ! ensure_fresh_build; then
+        (exit "$EXIT_RUNTIME")   # cleanup_on_exit exits with the status it finds
+        cleanup_on_exit
+    fi
     log_info "Starting REPL with server (profile: +dev,+start-server)..."
     log_info "Note: Ctrl+C will stop both server and Datomic"
     local rc=0

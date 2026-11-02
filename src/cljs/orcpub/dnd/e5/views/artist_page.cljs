@@ -3,7 +3,7 @@
    decided in artist-profile (cljc). The page wears .pl-root so the drawer's stylesheet,
    credit face and --lk-* theme variables apply; what the drawer lacks is .ap-*, in
    styles/core.clj `artist-pages`.
-   Plan and look: docs/archive/design/artist-profiles/PLAN.md."
+   Plan and look: agents/develop docs/archive/design/artist-profiles/PLAN.md."
   (:require [re-frame.core :refer [subscribe]]
             [orcpub.dnd.e5.artist-profile :as ap]
             [orcpub.dnd.e5.views :as views]))

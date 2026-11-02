@@ -17,14 +17,18 @@ cljs_dirs() {
   sed -n 's/.*:watch-dirs *\[\([^]]*\)\].*/\1/p' "$cfg" | tr -d '"'
 }
 newer_sources() { local a="$1"; shift; find "$@" -name '*.clj*' -newer "$a" 2>/dev/null | head -5; }
-# The build config and the externs it names are inputs too: an externs change alters the
-# production bundle without touching a source file.
+# The build config, the externs it names and project.clj are inputs too: each can alter the bundle
+# without touching a source file.
 newer_build_inputs() {
   local cfg=prod.cljs.edn; [ "$1" = dev ] && cfg=dev.cljs.edn
-  for f in "$cfg" $(sed -n 's/.*:externs *\[\([^]]*\)\].*/\1/p' "$cfg" | tr -d '"'); do
+  for f in "$cfg" project.clj $(sed -n 's/.*:externs *\[\([^]]*\)\].*/\1/p' "$cfg" | tr -d '"'); do
     [ -f "$f" ] && [ "$f" -nt "$BUNDLE" ] && echo "$f"
   done
 }
+
+# Whether process $1 exists and its command line mentions $2. A JVM started by lein names its tools
+# only in the classpath, which is what this finds.
+process_is() { [ -n "$1" ] && tr '\0' ' ' 2>/dev/null <"/proc/$1/cmdline" | grep -q "$2"; }
 
 # Prints why the $1 (dev or prod) bundle needs building; prints nothing when it does not.
 bundle_out_of_date() {
@@ -41,14 +45,19 @@ bundle_out_of_date() {
 # watcher keeps current, and says when another folder holds Figwheel's port. Returns non-zero when a
 # build fails: an old client served in silence is the failure this exists to stop.
 ensure_fresh_build() {
-  local need=prod holder="" pid why
-  case "${DEV_MODE:-}" in true|1|yes|on) need=dev ;; esac
+  local need=prod holder="" pid="" why
+  # As env/flag? reads it: only "true" counts. Unset is dev, because start.sh runs the :dev profile.
+  case "$(printf '%s' "${DEV_MODE-true}" | LC_ALL=C tr '[:upper:]' '[:lower:]')" in true) need=dev ;; esac
 
   if port_in_use "$FIGWHEEL_PORT"; then
     pid="$(find_pids_by_port "$FIGWHEEL_PORT" | awk '{print $1}')"
     holder="$(readlink "/proc/$pid/cwd" 2>/dev/null)"
   fi
-  if [ -n "$holder" ] && [ "$holder" = "$(pwd)" ]; then
+  if [ "$holder" = "$(pwd)" ] && process_is "$pid" figwheel; then
+    if [ "$need" != dev ]; then
+      log_error "Figwheel is building a development client here, but DEV_MODE asks for production. Stop Figwheel or set DEV_MODE=true."
+      return 1
+    fi
     log_info "Figwheel is running here and keeps the client built."
   else
     [ -n "$holder" ] && log_warn "Figwheel's port $FIGWHEEL_PORT is held from $holder, so it is not building this folder."
@@ -60,7 +69,7 @@ ensure_fresh_build() {
     fi
   fi
 
-  if pid_alive "$(cat "${LOG_DIR:-logs}/garden.pid" 2>/dev/null)" 2>/dev/null; then
+  if process_is "$(cat "${LOG_DIR:-logs}/garden.pid" 2>/dev/null)" garden; then
     log_info "Garden is running and keeps the stylesheet built."
   elif [ ! -f "$SHEET" ] || [ -n "$(newer_sources "$SHEET" src/clj/orcpub/styles)" ]; then
     log_info "Building the stylesheet first."

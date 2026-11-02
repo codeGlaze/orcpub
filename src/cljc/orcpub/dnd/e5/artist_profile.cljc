@@ -4,7 +4,7 @@
    overrides; nothing is stored or tied to a site account. Used by the server (share tags,
    og image) and the browser (the page). Entry points: `profile`, `artist-by-slug`,
    `example-portraits`, `listed-links`, `profile-link`.
-   Plan and decisions: docs/archive/design/artist-profiles/PLAN.md."
+   Plan and decisions: agents/develop docs/archive/design/artist-profiles/PLAN.md."
   (:require [clojure.string :as s]
             [orcpub.artist-links :as artist-links]
             [orcpub.route-map :as route-map]
