@@ -114,25 +114,7 @@ fi
 # --- the bundle the suite needs, fresh ------------------------------------------------------
 # The server compiles from source at every boot; the bundle is an artifact nothing rebuilds. So a
 # fresh server can serve old client code, and every signal says it is new.
-bundle_kind() {
-  [ -f "$BUNDLE" ] || { echo none; return; }
-  grep -q CLOSURE_UNCOMPILED_DEFINES "$BUNDLE" 2>/dev/null && echo dev || echo prod
-}
-# The folders the bundle compiles from, read from its own build config, never kept here: a list
-# kept here once missed web/cljs, and startup edits were tested against an old bundle unwarned.
-cljs_dirs() {
-  local cfg=prod.cljs.edn; [ "$1" = dev ] && cfg=dev.cljs.edn
-  sed -n 's/.*:watch-dirs *\[\([^]]*\)\].*/\1/p' "$cfg" | tr -d '"'
-}
-newer_sources() { local a="$1"; shift; find "$@" -name '*.clj*' -newer "$a" 2>/dev/null | head -5; }
-# The build config and the externs it names are inputs too: an externs change alters the
-# production bundle without touching a source file.
-newer_build_inputs() {
-  local cfg=prod.cljs.edn; [ "$1" = dev ] && cfg=dev.cljs.edn
-  for f in "$cfg" $(sed -n 's/.*:externs *\[\([^]]*\)\].*/\1/p' "$cfg" | tr -d '"'); do
-    [ -f "$f" ] && [ "$f" -nt "$BUNDLE" ] && echo "$f"
-  done
-}
+source scripts/bundle-check.sh
 build_bundle() {
   echo "  Building the $NEED bundle..."
   if [ "$NEED" = dev ]; then lein fig:build; else lein fig:prod; fi || fail "the $NEED bundle did not build"

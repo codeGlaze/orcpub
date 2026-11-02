@@ -290,7 +290,7 @@
    is the no-spell-page file for non-casters, so pages are only ever added (and style
    4's licence line, on its spell page, is kept). :prints-site-line? = the artwork names
    the site (style 4), so site-line-pages lists its pages. :site-line is where that line
-   goes, [x y] inches from bottom-left, MEASURED by dev/scan_site_line.clj, held by a test."
+   goes, [x y] inches from bottom-left, MEASURED by scripts/research/scan_site_line.clj on agents/develop, held by a test."
   {1 {:file "fillable-char-sheetstyle-1-1-spells.pdf" :marks :all
       :without-casters "fillable-char-sheetstyle-1-0-spells.pdf"
       :site-line [0.95 0.13]}
@@ -1662,7 +1662,7 @@
 
 (def numeral-boxes
   "Where each style prints a level's numeral, relative to that level's SLOTS TOTAL
-   box, and the size to set a replacement at. Measured by dev/scan_numerals.clj.
+   box, and the size to set a replacement at. Measured by scripts/research/scan_numerals.clj on agents/develop.
    The box fits the style's widest and TALLEST digit plus a point of margin (style
    3's 1 is taller than its other digits, and a box holding 1 may be relabelled 9).
    It covers the DIGIT, not its badge: the paper around every printed numeral is
@@ -2088,7 +2088,7 @@
    from the bar's middle plus a couple of points of margin; draw-column-heading!
    covers it before writing the class name there. Per style: the word sits at
    different heights, and one band wide enough for all painted over style 4's rules.
-   Measured by dev/scan_cantrips_word.clj, except style 4's, read off the render.
+   Measured by scripts/research/scan_cantrips_word.clj on agents/develop, except style 4's, read off the render.
    A style with no entry gets no patch and keeps its printed word."
   {1 {:dy -5.3 :h 9.0}
    2 {:dy -5.3 :h 9.2}

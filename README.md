@@ -245,6 +245,8 @@ lein cljsbuild once dev
 | `lein fig:dev` | Interactive REPL | You want a ClojureScript REPL in your terminal |
 | `lein fig:build` | One-time build | CI or quick compilation check |
 
+`./menu start` and `./menu start server` build the client and stylesheet first when their sources have changed, and skip it when nothing has. Use `./menu start figwheel` for hot reload while you work. A plain `lein repl` skips this check, so build first with `lein fig:build` and `lein garden once`.
+
 **CSS** is compiled separately by Garden (`lein garden once` or `./scripts/start.sh garden` for auto-watch). Both Figwheel and Garden need to run during active frontend work.
 
 ### Editors
