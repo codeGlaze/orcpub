@@ -27,9 +27,9 @@ done
 echo x >docs/design/a.md; git add docs/design/a.md; check "allow flag" 0 env ALLOW_STRAY_FILES=1 git commit -qm allowed
 git rm -q docs/design/a.md; git commit -qm gone
 check "small push" 0 git push -q origin feature/x
-many src/f 1 96
-check "96 new files pushes" 0 git push -q origin feature/x
-many src/g 1 5
+many src/f 1 90
+check "under 100 pushes" 0 git push -q origin feature/x
+many src/g 1 10
 check "crossing 100 refused" 1 git push -q origin feature/x
 check "crossing with flag" 0 env ALLOW_LARGE_BRANCH=1 git push -q origin feature/x
 echo y >>a; git add a; git commit -qm more
