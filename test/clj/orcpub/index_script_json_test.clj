@@ -19,3 +19,11 @@
     (is (= {:name hostile}
            (cheshire/parse-string (index/script-json {:name hostile}) true))))
   (is (not (re-find #"[<>&  ]" (index/script-json {:name hostile})))))
+
+(deftest the-home-page-opens-with-a-plain-english-sentence
+  (let [page (index/index-page {:nonce "n"} true)]
+    (is (.contains page "Build, print and share Dungeons &amp; Dragons 5th Edition characters, with your own homebrew content, for free."))
+    (is (.contains page "<html lang=\"en\""))
+    (is (not (.contains page "notranslate")))
+    (is (not (.contains (index/index-page {:nonce "n"}) "Build, print and share"))
+        "only the home page's static block carries it")))

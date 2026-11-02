@@ -144,6 +144,14 @@
      })();
     ")))))
 
+(def intro-sentence
+  "A plain English sentence for the static home page, which otherwise holds only short labels a
+   browser's language guess can take for French. Small, muted and out of the layout's way; the app
+   replaces it when it mounts."
+  [:p {:style (str "position:fixed;top:4px;left:0;right:0;margin:0;text-align:center;"
+                   "font:11px/1.3 sans-serif;color:rgba(255,255,255,0.45);pointer-events:none")}
+   "Build, print and share Dungeons & Dragons 5th Edition characters, with your own homebrew content, for free."])
+
 (defn index-page [{:keys [url
                           title
                           description
@@ -276,7 +284,7 @@ html {
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
-       (views-2/splash-page)
+       (list (views-2/splash-page) intro-sentence)
        ;; raw: the spinner's own markup; its kind is one of three keywords (spinner/pick)
        (h/raw (spinner/markup (or spinner-kind (spinner/pick nil)))))]
     ;; Homebrew rescue, a dead-man's switch: present by default, removed by the app once it has
