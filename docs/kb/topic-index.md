@@ -1237,7 +1237,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 188, 2026-10-29, 2026-11-02, admin, art, blank-env-values, branding, classpath, disallows, dmv, empty-value, git-ignored, insert, integration, launch, merge, pushing, summer
+**topics:** 188, 2026-10-29, 2026-11-02, admin, art, blank-env-values, branding, byte, checkout, dmv, images, integration, launch, licensed, merge, private, pushing, summer
 
 - Where it happens
 - How to resolve conflicts
@@ -3678,7 +3678,7 @@ _srd-vs-plugin-content · srd vs plugin content_
 
 _start-build · start build_
 
-**topics:** 2026-10-30, bundle, constantly, dev-mode, disk, docker, february, figwheel, file-time, folder, garden, hashes, port, portraits, stamp, start, worktree, worktrees
+**topics:** 2026-10-30, 2026-11-02, constantly, disk, docker, february, figwheel, file-time, folder, garden, hashes, heuristic, port, portraits, server, stamp, start, worktree
 
 
 

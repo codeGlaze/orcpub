@@ -24,4 +24,10 @@ of date, and its tip was wrong. `fix/release-cleanup` removes it; that was the a
 owner's request, and whether it returns fixed is open. Without it, a plain `lein repl` start has no
 warning.
 
+**`stop` could leave the old server up** (found 2026-11-02, fix on `fix/release-polish`). `find_service_pids`
+returned the PID file's lein wrapper and skipped the port scan, so the child JVM kept port 8890, the next
+start gave up, and the old code kept serving after a success message.
+
+**Dev mode set no `Cache-Control`** (same branch), so browsers could reuse old files under `js/compiled/out/` by heuristic.
+
 Test: `test/docker/test-start-build.sh`.

@@ -57,7 +57,11 @@ No code was run.
 The startup and config code match `integration`. `orcpub-dmv/.env` is the likely reason a local launch
 errors (2026-11-02, not confirmed: no log survived): it has no `DATOMIC_URL`, and its Datomic and admin
 passwords and `SIGNATURE` differ from the working `.env`. The licensed art is only on this branch, so a
-public-branch launch shows silhouettes. Proposed, untested: copy the art outside the repo and put that
-folder ahead of `resources` on the classpath through a git-ignored lein profile, since static files are
-served from the classpath.
+public-branch launch shows silhouettes.
+
+**Licensed art on any local launch** (working, 2026-11-02). The art is copied to `~/orcpub-private-art/public/image/portraits`,
+without the `PRIVATE-ART` marker, and a git-ignored `profiles.clj` in the checkout prepends it:
+`{:user {:resource-paths ^:prepend ["/home/codeglaze/orcpub-private-art"]}}`. Static files and strand
+images read the classpath, so served files match the private branch byte for byte, and git sees nothing.
+`lein test` in that checkout picks the folder up too. A new art pack means copying again.
 
