@@ -117,7 +117,9 @@
 
 (defn make-static-cache-interceptor
   "Interceptor that sets Cache-Control (static-cache-control) on a successful GET of a static file
-   whose response sets none. Does nothing when `dev-mode?`, where Figwheel rewrites the files.
+   whose response sets none. In `dev-mode?` only /js/ and /css/ files get \"no-cache\" (Figwheel
+   rewrites them, and a browser must recheck rather than guess how long a copy stays good); the
+   production rules are untouched.
    GOTCHA: Pedestal's static files answer ahead of every route, so this must be FIRST in the chain
    (system/with-static-caching) for its :leave to see them."
   [dev-mode?]
@@ -126,11 +128,13 @@
     :leave (fn [ctx]
              (let [{:keys [request-method uri query-string]} (:request ctx)
                    {:keys [status headers]} (:response ctx)
-                   cc (when (and (not dev-mode?) (= :get request-method) (= 200 status)
+                   cc (when (and (= :get request-method) (= 200 status)
                                  (not (get headers "Cache-Control")))
-                        (static-cache-control (str uri)
-                                              (when-let [v (some->> query-string (re-find #"(?:^|&)v=([^&]*)") second)]
-                                                (if (= v (content-stamp uri)) :current :stale))))]
+                        (if dev-mode?
+                          (when (re-find #"^/(js|css)/" (str uri)) "no-cache")
+                          (static-cache-control (str uri)
+                                                (when-let [v (some->> query-string (re-find #"(?:^|&)v=([^&]*)") second)]
+                                                  (if (= v (content-stamp uri)) :current :stale)))))]
                (cond-> ctx cc (assoc-in [:response :headers "Cache-Control"] cc))))}))
 
 (def static-cache-interceptor (make-static-cache-interceptor (config/dev-mode?)))
