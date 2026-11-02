@@ -90,7 +90,7 @@ _DEPENDENCY_VALIDATION · DEPENDENCY_VALIDATION_
 
 _SESSION-SUMMARY · SESSION SUMMARY_
 
-**topics:** -----, 2026, added, cleanup, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
+**topics:** -----, 2026, 3449, added, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
 
 - Final State
 - Key Decisions Made
@@ -2314,7 +2314,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -3673,13 +3673,13 @@ _srd-vs-plugin-content · srd vs plugin content_
 - What Comes From Plugins
 - Lesson Learned
 
-## stale-bundle-banner.md
+## start-build.md
 
-_stale-bundle-banner · stale bundle banner_
+_start-build · start build_
 
-**topics:** 2026-10-30, banner, build, bundle, dev, disk, figwheel, garden, held, index-page, modification, owed, port, rebuilds, server, skipping, stamp, worktree
+**topics:** 2026-10-30, 2026-11-01, bundle, dev-mode, disk, docker, february, figwheel, file-time, folder, garden, hashes, port, portraits, stamp, uberjar, worktree, worktrees
 
-- Why it keeps happening, and the fix still owed
+
 
 ## starting-equipment-override-ledger.md
 

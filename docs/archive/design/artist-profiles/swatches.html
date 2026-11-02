@@ -1,0 +1,136 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site Mark Colour Pairs</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Vollkorn:ital,wght@1,400&display=swap">
+<style>
+/* Layout: one column; each option is a row of real-app captures (desktop, then phone), with a theme switch that swaps every capture at once. */
+:root {
+  --bg: #0e131a; --card: #131924; --fg: #ebeef4; --dim: #8b95a5; --accent: #f0a100;
+  --accent-soft: rgba(240,161,0,0.10); --line: rgba(255,255,255,0.08); --good: #6fbf73; --good-soft: rgba(111,191,115,0.12);
+  --serif: 'Vollkorn', Georgia, serif; --sans: 'Open Sans', system-ui, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; } }
+:root[data-theme="light"] {
+  --bg: #eef0f3; --card: #fff; --fg: #363636; --dim: #6b7280; --accent: #33658A;
+  --accent-soft: rgba(51,101,138,0.08); --line: rgba(0,0,0,0.10); --good: #2f7d3a; --good-soft: rgba(47,125,58,0.10); color-scheme: light; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.55 var(--sans); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 36px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+h1 { margin: 0; font: italic 400 38px/1.1 var(--serif); }
+.sub { margin: 6px 0 0; color: var(--dim); max-width: 66ch; }
+.cap { font: 600 10px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { font: 600 12px/1 var(--sans); padding: 9px 14px; background: transparent; color: var(--dim); border: 0; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+section { display: flex; flex-direction: column; gap: 12px; }
+h2 { margin: 0; font: 700 18px/1.3 var(--sans); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.rec { font: 700 10px/1 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--good); background: var(--good-soft); padding: 5px 7px; border-radius: 4px; }
+section > p { margin: 0; color: var(--dim); max-width: 70ch; }
+.shots { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); display: block; }
+figcaption { font-size: 12px; color: var(--dim); }
+.ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.ex figure img { width: 240px; max-width: 100%; }
+ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+li::marker { color: var(--accent); }
+.note { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.note h3 { margin: 0; font: 700 14px/1.3 var(--sans); }
+</style>
+
+<style>
+.tw { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; }
+.grid table { min-width: 900px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+thead th { font: 600 10px/1.2 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+tbody th { font: 600 13px/1.3 var(--sans); white-space: nowrap; }
+tr:last-child th, tr:last-child td { border-bottom: 0; }
+code { font: 12px/1 ui-monospace, Menlo, monospace; }
+.sw { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-right: 7px; vertical-align: -3px; border: 1px solid var(--line); }
+.crop { width: 150px; overflow: hidden; }
+.crop img { display: block; width: 250px; max-width: none; margin-left: -50px; height: auto; }
+.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.panels img { border: 0; width: 100%; max-width: 570px; height: auto; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; }
+</style>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="cap">OrcPub · portrait artists</div>
+      <h1>Site mark colour pairs</h1>
+      <p class="sub">Each colour an artist can pick has a dark-theme half and a light-theme half, shown as a split swatch. Visitors see the half that matches their theme. Two ways to pair them are shown. Everything is captured from the running site.</p>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Colour set">
+        <button type="button" data-set="paired">Paired colours</button>
+        <button type="button" data-set="deeper">Same colour, deeper</button>
+      </div>
+      <div class="seg" role="group" aria-label="Screenshot theme">
+        <button type="button" data-t="dark">Dark</button>
+        <button type="button" data-t="light">Light</button>
+      </div>
+    </div>
+  </header>
+  <p class="sub" id="set-note"></p>
+
+  <section>
+    <h2>The picker</h2>
+    <p>Drawn inside the site in place of the profile card, since the account page it belongs on doesn’t exist yet. The preview at the bottom is the real credit markup.</p>
+    <div class="panels" id="panels"></div>
+  </section>
+
+  <section class="grid">
+    <h2>In the credit</h2>
+    <div class="tw"><table><thead><tr id="grid-head"></tr></thead><tbody id="grid-body"></tbody></table></div>
+  </section>
+
+  <section>
+    <h2>The pairs</h2>
+    <p>Every colour is at least 4.3:1 on its own background (icons need 3:1).</p>
+    <div class="tw"><table style="min-width:0"><thead><tr><th>Colour</th><th>Dark theme</th><th>Light theme</th></tr></thead><tbody id="pairs"></tbody></table></div>
+  </section>
+
+  <div class="note">
+    <h3>Trade-off</h3>
+    <ul>
+      <li><b>Paired colours</b> give each theme its best colour, the way the site pairs amber with slate blue. But the artist’s mark changes colour when a visitor switches themes, and gold on light is the site’s own slate blue.</li>
+      <li><b>Same colour, deeper</b> keeps the mark recognisably the same in both themes, the way Twitch stays purple, but the light theme gets muddier versions.</li>
+      <li>The yellow in both sets is the site’s <code>warning-yellow</code>, which also marks problems in the library health bar.</li>
+    </ul>
+  </div>
+</div>
+<script>
+const SETS = {"paired": {"dir": "swatches-rehue", "label": "Paired colours", "sel": [["ph-browser-fill", "tide"], ["ph-sparkle-fill", "gold"]], "pairs": [["gold", "#ffd21a", "#33658A"], ["ember", "#ff6b57", "#0f7c80"], ["tide", "#1fb5a3", "#b4532a"], ["bloom", "#f06aa6", "#1f7a4a"], ["moss", "#43b85c", "#8e3a78"]]}, "deeper": {"dir": "swatches", "label": "Same colour, deeper", "sel": [["ph-browser-fill", "teal"], ["ph-sparkle-fill", "yellow"]], "pairs": [["coral", "#ff6b57", "#d9432f"], ["teal", "#1fb5a3", "#0f8577"], ["yellow", "#ffd21a", "#9a7400"], ["rose", "#f06aa6", "#c2386f"], ["green", "#43b85c", "#2f8a44"]]}};
+const ICONS = [["ph-browser-fill", "Browser window"], ["ph-house-fill", "House"], ["ph-compass-fill", "Compass"], ["ph-sparkle-fill", "Sparkle"]];
+const NOTES = {
+  paired: 'Paired colours: each light half is roughly the opposite of its dark half, as the site pairs amber with slate blue.',
+  deeper: 'Same colour, deeper: each light half is the dark colour darkened until it reads on white.'
+};
+let set = 'paired';
+const root = document.documentElement;
+const theme = () => root.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+const sw = (d, l) => `<span class="sw" style="background:linear-gradient(135deg,${d} 0 50%,${l} 50% 100%)"></span>`;
+function render() {
+  const s = SETS[set], t = theme();
+  document.getElementById('set-note').textContent = NOTES[set];
+  document.getElementById('panels').innerHTML = s.sel.map(([i, c]) =>
+    `<figure><img src="${s.dir}/panel-${t}-${i}-${c}.png" alt="Picker with ${i} in ${c}"><figcaption>${i.replace('ph-', '').replace('-fill', '')}, ${c}</figcaption></figure>`).join('');
+  document.getElementById('grid-head').innerHTML = '<th>Icon</th>' + s.pairs.map(([n, d, l]) => `<th>${sw(d, l)}${n}</th>`).join('');
+  document.getElementById('grid-body').innerHTML = ICONS.map(([f, lab]) =>
+    `<tr><th scope="row">${lab}</th>` + s.pairs.map(([n]) => `<td><div class="crop"><img src="${s.dir}/credit-${t}-${f}-${n}.png" alt="${lab} in ${n}"></div></td>`).join('') + '</tr>').join('');
+  document.getElementById('pairs').innerHTML = s.pairs.map(([n, d, l]) => `<tr><th scope="row">${sw(d, l)}${n}</th><td><code>${d}</code></td><td><code>${l}</code></td></tr>`).join('');
+  document.querySelectorAll('[data-set]').forEach(b => b.setAttribute('aria-pressed', b.dataset.set === set));
+  document.querySelectorAll('[data-t]').forEach(b => b.setAttribute('aria-pressed', b.dataset.t === t));
+}
+document.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', () => { set = b.dataset.set; render(); }));
+document.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => { root.dataset.theme = b.dataset.t; render(); }));
+try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', render); } catch (_) {}
+render();
+</script>
