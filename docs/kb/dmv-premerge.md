@@ -52,3 +52,12 @@ No code was run.
   was not compared line by line.
 - PR #10's description is stale: it says 188 files and the frozen Summer Patch tip; the PR shows 800.
 
+## Launching the DMV side locally
+
+The startup and config code match `integration`. `orcpub-dmv/.env` is the likely reason a local launch
+errors (2026-11-02, not confirmed: no log survived): it has no `DATOMIC_URL`, and its Datomic and admin
+passwords and `SIGNATURE` differ from the working `.env`. The licensed art is only on this branch, so a
+public-branch launch shows silhouettes. Proposed, untested: copy the art outside the repo and put that
+folder ahead of `resources` on the classpath through a git-ignored lein profile, since static files are
+served from the classpath.
+

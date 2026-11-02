@@ -1237,12 +1237,13 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 188, 2026-10-29, blank-env-values, branding, bringing, disallows, dmv, dungeon, empty-value, insert, integration, merge, patch, pre-merged, pushing, stale-bundle, summer, vault
+**topics:** 188, 2026-10-29, 2026-11-02, admin, art, blank-env-values, branding, classpath, disallows, dmv, empty-value, git-ignored, insert, integration, launch, merge, pushing, summer
 
 - Where it happens
 - How to resolve conflicts
 - Checks
 - Audit of the branch, 2026-11-01
+- Launching the DMV side locally
 
 ## dmv-production-changes.md
 
@@ -1812,7 +1813,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, licensed, ofl, re-add, redistribution, sandboxed, sans, subset, subsets
+**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, ofl, re-add, redistribution, sandboxed, sans, sil, subset, subsets
 
 - Why
 - What is checked in
