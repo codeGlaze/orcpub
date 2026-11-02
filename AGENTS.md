@@ -156,10 +156,19 @@ another try. Each gets an attempt budget, usually one. At the limit, stop and an
 Usage is hard to predict, so there is no token budget: these change how work is done, never when it
 stops. Every tool call re-sends the whole conversation, so a long chat makes each call dear.
 
-- **Delegate long mechanical runs** (a test suite, a merge and its conflict list, screenshots and
-  measurements, a data generator with its checks, a wide search) to a subagent on a smaller model,
-  with exact commands and what "pass" means. Keep judgement here: design, conflict resolution,
-  whether a test is weak, anything the owner sees. A check of a call or two stays here.
+- **A long chat orchestrates; subagents do the noisy work.** This chat pays again on every call for
+  everything it has read, so test runs, audits, wide searches and merges go to a subagent, with exact
+  commands, what "pass" means, a tool-call limit, logs in a file and a short report back. A check of a
+  call or two stays here, because a subagent starts knowing nothing. Name the model on every spawn:
+
+  | Model | For | Test |
+  |-------|-----|------|
+  | `haiku` | Run and report: a suite, finding where something is mentioned | A wrong result would be obvious from the output |
+  | `sonnet` | Audits, sorting files, well-specified fixes | The job can be fully written down |
+  | Opus | Hard debugging or design | It cannot be fully written down |
+  | This chat | Decisions, conflict resolution, whether a test is weak, anything the owner reads | It needs what this chat knows |
+
+  Check a subagent's diff, not its report: one reported success after flipping a live DMV setting.
 - **Measure layout from the page** (positions, sizes) and send screenshots to the owner; read one
   back only when the page cannot answer. Images cost far more than text.
 - **Write long output to a file and read the summary lines** (`Ran`, `failures`, `checks passed`).
