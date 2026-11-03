@@ -222,6 +222,7 @@ Newest last. Date, ruling, and what it replaced.
   Edit portrait; the pop-over is the only place layers are picked. A second, cramped copy of the
   editor in the tab read as a worse version of the pop-over.
 - **What's New is reachable from every page:** in the account menu, and as an orange link with a
-  gift icon at the start of the header's second row, beside the social icons. Under LOGIN it read
-  as a caption on the button; grey was too easy to miss.
+  gift icon at the start of the header's second row, beside the social icons, in a dark pill
+  (`.whats-new-pill`): bare text floated on the header art. Under LOGIN it read as a caption on the
+  button; grey was too easy to miss.
 
