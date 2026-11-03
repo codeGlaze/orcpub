@@ -611,7 +611,7 @@
    (at-keyframes "lk-prism"
      ["from" {:background-position "0% 50%"}]
      ["to" {:background-position "300% 50%"}])
-   [".lk-name" {:font "italic 14px/1 'Vollkorn', Georgia, serif"
+   [".lk-name" {:font "italic 16px/1 'Vollkorn', Georgia, serif"
                 :color "var(--lk-name)"
                 :text-decoration "none"
                 :white-space "nowrap"}]
