@@ -877,7 +877,9 @@
                   :font-family "'Open Sans', system-ui, sans-serif"
                   :color "#ebeef4"}
                  {:margin-bottom "20px"}]
-   [".pl-inline .pl-drawer-body" {:max-height "70vh"}]
+   [".pl-inline .pl-drawer-body" {:max-height "70vh"
+                                  :height "70vh"
+                                  :grid-template-rows "minmax(0, 1fr)"}]
    [".pl-inline .pl-btn-primary:disabled" {:opacity "0.45"
                                            :cursor "default"
                                            :filter "none"}]
@@ -886,7 +888,9 @@
                                       :border-color "rgba(0,0,0,0.1)"}]
    ;; on a phone the two columns already stack; let the page scroll, not the panel
    (at-media {:max-width "700px"}
-     [".pl-inline .pl-drawer-body" {:max-height "none"}])])
+     [".pl-inline .pl-drawer-body" {:max-height "none"
+                                    :height "auto"
+                                    :grid-template-rows "none"}])])
 
 (def empty-slot
   "The empty frame and thumbnail: a shallow gradient with the site logo debossed in it. The logo

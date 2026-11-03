@@ -102,6 +102,20 @@ async function openBuilder(ctx, width) {
   check('all 10 pickers render inline',
         await panel.locator('.pl-picker').count() === 10);
 
+  // Each column scrolls on its own: the body's row is bounded, so overflow-y: auto
+  // can act and the last control is reachable without Full screen.
+  for (const [name, sel] of [['pickers', '.pl-pickers-side'], ['colour controls', '.pl-canvas-side']]) {
+    const m = await panel.locator(sel).evaluate(el => {
+      el.scrollTop = 0;
+      const sh = el.scrollHeight, ch = el.clientHeight;
+      el.scrollTop = el.scrollHeight;
+      const r = el.getBoundingClientRect(), l = el.lastElementChild.getBoundingClientRect();
+      return { sh, ch, visible: l.top >= r.top - 1 && l.bottom <= r.bottom + 1 };
+    });
+    check(`the ${name} column overflows its bounded height`, m.sh > m.ch, `${m.sh} > ${m.ch}`);
+    check(`scrolled to the bottom, the last ${name} control is visible`, m.visible);
+  }
+
   // a tab has no open/close, so it has to seed its own draft
   check('save starts disabled -- nothing edited yet',
         await panel.locator('.pl-btn-primary').last().isDisabled());
@@ -163,6 +177,9 @@ async function openBuilder(ctx, width) {
   const bodyMax = await phone.locator('.pl-inline .pl-drawer-body')
     .evaluate(el => getComputedStyle(el).maxHeight);
   check('the phone scrolls the page, not a nested panel', bodyMax === 'none', bodyMax);
+  const inner = await phone.locator('.pl-inline .pl-canvas-side, .pl-inline .pl-pickers-side')
+    .evaluateAll(els => els.map(e => e.scrollHeight - e.clientHeight));
+  check('no inner scrollbars on the phone', inner.length === 2 && inner.every(d => d <= 1), inner.join(','));
 
   // A fourth tab overflowed the bar: at phone width the labels ran together
   // into OPTIONSDESCRIPTIONPORTRAIT with no gap between them.
