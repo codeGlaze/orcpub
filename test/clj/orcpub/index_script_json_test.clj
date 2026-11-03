@@ -20,13 +20,12 @@
            (cheshire/parse-string (index/script-json {:name hostile}) true))))
   (is (not (re-find #"[<>&  ]" (index/script-json {:name hostile})))))
 
-(deftest the-home-page-opens-with-a-plain-english-sentence
+(deftest the-home-page-text-does-not-read-as-french
+  ;; Chrome reads "5e" as French "fifth"; the splash buttons draw their "D&D 5e" prefix in CSS.
   (let [page (index/index-page {:nonce "n"} true)]
-    (is (.contains page "Build, print and share Dungeons &amp; Dragons 5th Edition characters, with your own homebrew content, for free."))
+    (is (<= (count (re-seq #">[^<>]*\b5e\b[^<>]*<" page)) 1) "only the <title> carries 5e as text")
     (is (.contains page "<html lang=\"en\""))
-    (is (not (.contains page "notranslate")))
-    (is (not (.contains (index/index-page {:nonce "n"}) "Build, print and share"))
-        "only the home page's static block carries it")))
+    (is (not (.contains page "notranslate")))))
 
 (deftest the-home-page-carries-a-whats-new-link
   (is (re-find #"What.{1,6}s New" (index/index-page {:nonce "n"} true))))
