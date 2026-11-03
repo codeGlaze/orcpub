@@ -215,3 +215,13 @@ Newest last. Date, ruling, and what it replaced.
 - No emojis on the live site; use purposely chosen colourized SVG icons (2026-09-06).
 - Unearthed Arcana is always `ua` in keys and abbreviations (2026-09-08).
 - Marketing wording stays plain: "You can move things between homebrew libraries now!" (2026-09-07).
+
+## Decided 2026-11-02 (owner)
+
+- **One portrait editor.** The builder's Portrait tab shows the portrait, its credit, Randomize and
+  Edit portrait; the pop-over is the only place layers are picked. A second, cramped copy of the
+  editor in the tab read as a worse version of the pop-over.
+- **What's New is reachable from every page:** in the account menu, and as an orange link with a
+  gift icon at the start of the header's second row, beside the social icons. Under LOGIN it read
+  as a caption on the button; grey was too easy to miss.
+

@@ -2556,7 +2556,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _orcbrew-level-modifiers · orcbrew level modifiers_
 
-**topics:** arrive, audits, consumed, driven, editor, grant, integer, keyword, level, level-modifier, presence, race, races, racial, subclass, subclasses, trait, warden
+**topics:** arrive, audits, consumed, driven, grant, integer, keyword, level, level-modifier, presence, race, races, racial, subclass, subclasses, trait, vocabularies, warden
 
 - Nothing validates the shape of a brew
 - Two grant vocabularies, with different shapes
@@ -2574,7 +2574,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _page-load-budget · page load budget_
 
-**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, parties, portrait, repeat, sheet, signed, stylesheet, visit
+**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, page, parties, repeat, sheet, signed, stylesheet, visit
 
 - Why it exists
 - Audit of integration (2026-10-15, b8035afe, production bundle)
@@ -3858,6 +3858,7 @@ _ux-guide · ux guide_
 - Phone first, and how designs are reviewed
 - Decisions log
 - Owner's notes (recorded 2026-11-01)
+- Decided 2026-11-02 (owner)
 
 ## verification-discipline.md
 
