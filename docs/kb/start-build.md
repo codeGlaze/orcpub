@@ -36,4 +36,9 @@ with the commit and build time, amber with a tooltip when a source is newer than
 `cljsc_opts.edn` and `goog/deps.js` together, so the badge compares the newest output. Measured once only:
 the watcher hung on its next compile, so a change to a leaf file was not checked.
 
+**Chrome offered to translate the site from French** (2026-11-02). It read "5e" as French "fifth": the
+home page's static HTML wrote "D&D 5e" on all 14 splash buttons. An added English sentence did not outweigh
+it. The prefix is now drawn by CSS (`.splash-button-title-prefix:before`), which is not page text.
+`index_script_json_test` allows "5e" only in the `<title>`.
+
 Test: `test/docker/test-start-build.sh`.

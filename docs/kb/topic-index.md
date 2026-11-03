@@ -2574,7 +2574,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _page-load-budget · page load budget_
 
-**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, page, parties, portrait, repeat, sheet, signed, visit
+**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, parties, portrait, repeat, sheet, signed, stylesheet, visit
 
 - Why it exists
 - Audit of integration (2026-10-15, b8035afe, production bundle)
@@ -3678,7 +3678,7 @@ _srd-vs-plugin-content · srd vs plugin content_
 
 _start-build · start build_
 
-**topics:** 2026-10-30, 2026-11-02, amber, badge, dev, disk, docker, february, file-time, folder, garden, newer, port, portraits, server, stamp, start, worktree
+**topics:** 2026-10-30, 2026-11-02, amber, badge, dev, disk, docker, file-time, folder, french, garden, newer, outweigh, port, server, stamp, start, worktree
 
 
 
