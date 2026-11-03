@@ -350,9 +350,11 @@ Bypass loopback, or requests to the app under test go out to the relay as well.
 
 ## portrait_tab_e2e.js
 
-The compositor rendered as a builder tab rather than in the drawer. Covers the
-seams between the two: draft seeding without an open/close, handing in-progress
-edits to the drawer via "Full screen", and Save leaving the panel populated.
+The builder's Portrait tab, a preview of the portrait with its credit and the
+buttons Save portrait (only when edited), Randomize and Edit portrait / Make a
+portrait. Covers Make and Edit opening the drawer (the only place layers are
+picked), Randomize filling the preview and showing Save, and Save saving and
+hiding itself.
 
 Also covers the tab bar itself at phone width, in a context with a mobile UA —
 see *Testing the phone layout* above for why the viewport alone is not enough.

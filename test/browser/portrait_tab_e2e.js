@@ -1,11 +1,9 @@
 // Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
-// The compositor as a builder tab, in place rather than in the drawer.
+// The builder's Portrait tab: a preview with Save, Randomize and Edit/Make, the drawer opened from it.
 //
-// The drawer and the tab share one draft and one body component, so the
-// things worth checking are the seams: that the tab seeds a draft with no
-// open/close of its own, that popping the drawer from the tab carries the
-// in-progress edits across instead of resetting them, and that Save here
-// keeps the panel populated instead of emptying it.
+// The tab shows the draft; the drawer is the only place layers are picked.
+// Worth checking are the seams: Make/Edit open the drawer on the same draft,
+// Randomize fills the preview and brings Save, and Save keeps it populated.
 //
 //   lein fig:build && lein e2e-server
 //   node test/browser/portrait_tab_e2e.js
@@ -97,71 +95,62 @@ async function openBuilder(ctx, width) {
   await page.waitForTimeout(400);
 
   const panel = page.locator('.pl-inline');
-  check('tab renders the compositor in place', await panel.isVisible());
-  check('no drawer overlaying it', await page.locator('.pl-drawer').count() === 0);
-  check('all 10 pickers render inline',
-        await panel.locator('.pl-picker').count() === 10);
+  const frameLayers = () => panel.locator('.pl-portrait-frame .portrait-layer').count();
+  const drawer = page.locator('.pl-drawer');
+  check('tab renders the preview in place', await panel.isVisible());
+  check('no drawer overlaying it', await drawer.count() === 0);
+  check('the tab holds no layer pickers; the drawer is the only place they live',
+        await panel.locator('.pl-picker').count() === 0);
+  check('Save portrait is absent while nothing is edited',
+        await panel.getByRole('button', { name: 'Save portrait' }).count() === 0);
+  check('with no portrait the tab offers Make a portrait',
+        await panel.getByRole('button', { name: 'Make a portrait' }).count() === 1);
 
-  // Each column scrolls on its own: the body's row is bounded, so overflow-y: auto
-  // can act and the last control is reachable without Full screen.
-  for (const [name, sel] of [['pickers', '.pl-pickers-side'], ['colour controls', '.pl-canvas-side']]) {
-    const m = await panel.locator(sel).evaluate(el => {
-      el.scrollTop = 0;
-      const sh = el.scrollHeight, ch = el.clientHeight;
-      el.scrollTop = el.scrollHeight;
-      const r = el.getBoundingClientRect(), l = el.lastElementChild.getBoundingClientRect();
-      return { sh, ch, visible: l.top >= r.top - 1 && l.bottom <= r.bottom + 1 };
-    });
-    check(`the ${name} column overflows its bounded height`, m.sh > m.ch, `${m.sh} > ${m.ch}`);
-    check(`scrolled to the bottom, the last ${name} control is visible`, m.visible);
-  }
-
-  // a tab has no open/close, so it has to seed its own draft
-  check('save starts disabled -- nothing edited yet',
-        await panel.locator('.pl-btn-primary').last().isDisabled());
-
-  await panel.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
+  // Make a portrait opens the drawer
+  await panel.getByRole('button', { name: 'Make a portrait' }).click();
+  await drawer.waitFor({ state: 'visible', timeout: 10000 });
+  check('Make a portrait opens the drawer', await drawer.isVisible());
+  check('the drawer has the layer pickers', await drawer.locator('.pl-picker').count() > 0);
+  await drawer.locator('.pl-drawer-close').click();
   await page.waitForTimeout(400);
-  const layers = await panel.locator('.pl-portrait-frame .portrait-layer').count();
-  check('randomize composes layers inline', layers > 0, `${layers} layers`);
-  check('save enables once there is an edit',
-        !(await panel.locator('.pl-btn-primary').last().isDisabled()));
+  check('closing the drawer returns to the preview',
+        await drawer.count() === 0 && await panel.isVisible());
+
+  // Randomize fills the preview and brings Save
+  await panel.getByRole('button', { name: 'Randomize' }).click();
+  await page.waitForTimeout(400);
+  const layers = await frameLayers();
+  check('Randomize fills the preview', layers > 0, `${layers} layers`);
+  check('Save portrait appears once there is an edit',
+        await panel.getByRole('button', { name: 'Save portrait' }).count() === 1);
+  check('the main button now reads Edit portrait',
+        await panel.getByRole('button', { name: 'Edit portrait' }).count() === 1);
 
   if (SHOT) { await page.screenshot({ path: SHOT }); console.log(`\n  screenshot -> ${SHOT}`); }
 
-  // ---------- the tab hands its work to the drawer ----------
-  await panel.locator('.pl-btn-ghost', { hasText: 'Full screen' }).click();
-  const drawer = page.locator('.pl-drawer');
-  await drawer.waitFor({ state: 'visible', timeout: 10000 });
-  const inDrawer = await drawer.locator('.pl-portrait-frame .portrait-layer').count();
-  check('full screen carries the in-progress edits over, not a blank draft',
-        inDrawer === layers, `tab=${layers} drawer=${inDrawer}`);
-
-  // cancel discards, and must not leave the tab underneath empty
-  await drawer.locator('.pl-drawer-close').click();
-  await page.waitForTimeout(400);
-  check('cancel closes the drawer', await page.locator('.pl-drawer').count() === 0);
-  check('the tab is still rendering afterwards', await panel.isVisible());
-  check('cancel discarded the edit',
-        await panel.locator('.pl-portrait-frame .portrait-layer').count() === 0);
-
-  // ---------- save keeps the panel populated ----------
-  await panel.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
-  await page.waitForTimeout(400);
-  await panel.locator('.pl-btn-primary').last().click();
+  // Save saves, keeps the preview populated, and hides Save
+  await panel.getByRole('button', { name: 'Save portrait' }).click();
   await page.waitForTimeout(600);
-  const afterSave = await panel.locator('.pl-portrait-frame .portrait-layer').count();
-  check('saving does not empty the panel', afterSave > 0, `${afterSave} layers`);
-  check('save goes quiet once saved',
-        await panel.locator('.pl-btn-primary').last().isDisabled());
+  const afterSave = await frameLayers();
+  check('saving does not empty the preview', afterSave > 0, `${afterSave} layers`);
+  check('Save portrait goes away once saved',
+        await panel.getByRole('button', { name: 'Save portrait' }).count() === 0);
 
-  // and it really persisted
   await page.locator('.builder-tab', { hasText: /^Options$/ }).first().click();
   await page.waitForTimeout(300);
   await tab.click();
   await page.waitForTimeout(400);
-  check('the saved portrait is there when you come back',
-        await panel.locator('.pl-portrait-frame .portrait-layer').count() > 0);
+  check('the saved portrait is there when you come back', await frameLayers() > 0);
+
+  // Edit portrait opens the drawer with the saved portrait, not a blank draft
+  await panel.getByRole('button', { name: 'Edit portrait' }).click();
+  await drawer.waitFor({ state: 'visible', timeout: 10000 });
+  const inDrawer = await drawer.locator('.pl-portrait-frame .portrait-layer').count();
+  check('Edit portrait opens the drawer on the current portrait',
+        inDrawer === afterSave, `preview=${afterSave} drawer=${inDrawer}`);
+  await drawer.locator('.pl-drawer-close').click();
+  await page.waitForTimeout(400);
+  check('the preview is still populated after closing', await frameLayers() === afterSave);
 
   // ---------- the phone layout has the tab too ----------
   const phoneCtx = await browser.newContext({ userAgent: PHONE_UA, isMobile: true,
@@ -174,13 +163,6 @@ async function openBuilder(ctx, width) {
   await mtab.click();
   await phone.waitForTimeout(400);
   check('and renders the panel there', await phone.locator('.pl-inline').isVisible());
-  const bodyMax = await phone.locator('.pl-inline .pl-drawer-body')
-    .evaluate(el => getComputedStyle(el).maxHeight);
-  check('the phone scrolls the page, not a nested panel', bodyMax === 'none', bodyMax);
-  const inner = await phone.locator('.pl-inline .pl-canvas-side, .pl-inline .pl-pickers-side')
-    .evaluateAll(els => els.map(e => e.scrollHeight - e.clientHeight));
-  check('no inner scrollbars on the phone', inner.length === 2 && inner.every(d => d <= 1), inner.join(','));
-
   // A fourth tab overflowed the bar: at phone width the labels ran together
   // into OPTIONSDESCRIPTIONPORTRAIT with no gap between them.
   const tabBoxes = await phone.locator('.builder-tabs .builder-tab').evaluateAll(
@@ -255,7 +237,7 @@ async function openBuilder(ctx, width) {
   await portraitTab.click();
   await page.waitForTimeout(300);
   if (!(await layerCount())) {
-    await inline.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
+    await inline.getByRole('button', { name: 'Randomize' }).click();
     await page.waitForTimeout(400);
   }
   const before = await layerCount();
@@ -281,7 +263,7 @@ async function openBuilder(ctx, width) {
 
   // Randomize again so the shot after the second switch is not confused with
   // the shot after the first.
-  await inline.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
+  await inline.getByRole('button', { name: 'Randomize' }).click();
   await page.waitForTimeout(400);
   const rebuilt = await layerCount();
   check('the new character can be given its own portrait', rebuilt > 0, `${rebuilt} layers`);
@@ -314,7 +296,7 @@ async function openBuilder(ctx, width) {
   await portraitTab.click();
   await page.waitForTimeout(300);
   if (!(await layerCount())) {
-    await inline.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
+    await inline.getByRole('button', { name: 'Randomize' }).click();
     await page.waitForTimeout(400);
   }
   const heldLayers = await layerCount();
