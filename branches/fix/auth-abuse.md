@@ -6,7 +6,7 @@ verification, Turnstile on sign-up, and the "email taken" check. **Base:** `inte
 
 ## State (updated 2026-11-03)
 
-- Done: branch created from `integration` (`837a2620`) on 2026-11-03; nothing committed yet.
+- Done: branch created from `integration` (`5ec530cb`) on 2026-11-03; nothing committed yet.
 - Next, in order:
   1. `re-verify` (`routes.clj:718`): reuse `security/under-limit?` with per-address and per-host
      keys like `reset-email-allowed?`, add both to `busiest-summary`'s caps, answer 200 either way.
