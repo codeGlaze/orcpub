@@ -30,4 +30,10 @@ start gave up, and the old code kept serving after a success message.
 
 **Dev mode set no `Cache-Control`** (same branch), so browsers could reuse old files under `js/compiled/out/` by heuristic.
 
+**The dev build badge** (`orcpub.build-badge`, `fix/release-polish`) replaces the banner: a grey corner badge
+with the commit and build time, amber with a tooltip when a source is newer than the build. Measured
+2026-11-02 against a real `lein fig:watch`: a changed source rewrote `orcpub.js`, `out/cljs_deps.js`,
+`cljsc_opts.edn` and `goog/deps.js` together, so the badge compares the newest output. Measured once only:
+the watcher hung on its next compile, so a change to a leaf file was not checked.
+
 Test: `test/docker/test-start-build.sh`.
