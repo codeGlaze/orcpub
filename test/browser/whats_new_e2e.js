@@ -159,6 +159,13 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
     await page.waitForSelector('.whats-new-panel', { state: 'detached', timeout: 5000 });
     check('a click outside closes it', !(await visible(page)));
 
+    // The header pill is there for everyone, logged in or not, once the panel is dismissed.
+    const pill = page.locator('.whats-new-pill');
+    check('the header has a What\'s New pill', await pill.count() === 1);
+    await pill.click().catch(() => {});
+    check('the header pill opens it after it was dismissed',
+          await page.waitForSelector('.whats-new-panel', { timeout: 5000 }).then(() => true, () => false));
+
     await ctx.close();
   };
 

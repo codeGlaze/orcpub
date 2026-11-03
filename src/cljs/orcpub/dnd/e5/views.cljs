@@ -439,7 +439,10 @@
   (let [user-menu (js/document.getElementById "user-menu")]
     (.remove (.-classList user-menu) "open")))
 
-(defn user-header-view []
+(defn user-header-view
+  "The header's account box: LOGIN when logged out; otherwise the username, with a hover menu
+   of What's New, Log out and Account."
+  []
   (let [username @(subscribe [:username])
         mobile? @(subscribe [:mobile?])]
     [:div#user-header.pointer.posn-rel
@@ -462,6 +465,9 @@
         [:i.fa.m-l-5.fa-caret-down])]
      [:div#user-menu.user-menu.shadow.f-w-b
       {:on-click hide-user-menu}
+      [:div.p-10.opacity-5.hover-opacity-full
+       {:on-click #(dispatch [::e5/open-whats-new])}
+       "WHAT'S NEW"]
       [:div.p-10.opacity-5.hover-opacity-full
        {:on-click dispatch-logout}
        "LOG OUT"]
@@ -673,7 +679,10 @@
            ;; img lets the browser answer both from one request.
            {:src branding/logo-path :cross-origin "anonymous"}]])
 
-(defn app-header []
+(defn app-header
+  "The site header: logo, search and the account box, then a second row with the supporter link,
+   What's New and the social icons. A phone hides the second row."
+  []
   (let [device-type @(subscribe [:device-type])
         mobile? (= :mobile device-type)
         active-route @(subscribe [:route])]
@@ -715,6 +724,9 @@
            [integrations/supporter-link @(subscribe [:user-tier]) mobile? svg-icon]
            (when (not mobile?)
              [:div.main-text-color.p-10
+              [:span.whats-new-pill.m-r-10
+               {:on-click #(dispatch [::e5/open-whats-new]) :title "What's New"}
+               [:i.fa.fa-gift] "What's New"]
               (when-let [url (not-empty (:facebook branding/social-links))]
                 (social-icon "facebook-f" url))
               (when-let [url (not-empty (:bluesky branding/social-links))]
