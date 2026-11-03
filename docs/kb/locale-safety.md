@@ -251,3 +251,11 @@ The pin makes them deterministic in production; whether each one is right is a s
 **For future localisation:** the pin is the base, not an obstacle. One JVM serves every user at once,
 so a user's language has to travel with the request anyway. Default deterministic, pass a locale
 explicitly wherever a human reads the result.
+
+## Open: process numbers on Windows (parked 2026-10)
+
+`scripts/common.sh` `pid_alive` and `signal_pid` ask both Git Bash (MSYS) and Windows about a pid,
+but the two number their processes separately. Rarely a pid matches an unrelated process in the
+other space: a false "still running", or in the worst case `taskkill` on the wrong process. It made
+one Windows CI run fail on 2026-10-04; later runs are green. Fix when picked up: record which space
+each pid came from and ask only that one. Not a regression.

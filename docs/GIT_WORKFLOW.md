@@ -101,6 +101,10 @@ PR description and comment it **creates**, through `gh api` and the GitHub tools
 
 So post, then edit straight away with the tool. Upstream, none of this applies: no agent posts there.
 
+**Never edit a comment that holds a CodeRabbit command** (`@coderabbitai ...`): CodeRabbit runs an
+edited command again (2026-10-25, #70 `feature/registration-in-boot-report`: an edited `pause` ran
+twice). Editing a `full review` spends a review, so leave the footer on those.
+
 ### Subagents in a shared worktree
 
 ```bash

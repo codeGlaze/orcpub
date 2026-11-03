@@ -323,6 +323,8 @@ wrong, and why.
 
 ### Accounts & auth
 
+- **[auth-abuse-limits.md](auth-abuse-limits.md)** -- which account form has which abuse limit, live and on
+  integration; the 2026-11-03 reset-spam incident; Turnstile research and decisions.
 - **[account-flows.md](account-flows.md)** -- signing up, verifying, signing in, recovering.
   Why these flows had NO coverage and no route to any (the keys exist only inside an email,
   and registration fails outright when none can be sent), the stale-artifact asymmetry that
