@@ -6,7 +6,7 @@ verification, Turnstile on sign-up, and the "email taken" check. **Base:** `inte
 
 ## State (updated 2026-11-03)
 
-- Done: nothing on the branch yet (branch name awaiting the owner's yes).
+- Done: branch created from `integration` (`837a2620`) on 2026-11-03; nothing committed yet.
 - Next, in order:
   1. `re-verify` (`routes.clj:718`): reuse `security/under-limit?` with per-address and per-host
      keys like `reset-email-allowed?`, add both to `busiest-summary`'s caps, answer 200 either way.
@@ -17,19 +17,25 @@ verification, Turnstile on sign-up, and the "email taken" check. **Base:** `inte
      for both keys (secret never printed); tests with a stubbed `siteverify` (pass, fail,
      unreachable -> let through). Allow the script in the page-load budget test for the sign-up
      page only.
-  3. `check-email`: whatever the owner decides (open question below).
+  3. `check-email` / sign-up: a neutral answer for a taken address (owner decision below).
   4. One branch changelog line per outcome; one CodeRabbit `full review` when ready.
 
 ## Owner decisions
 
 - 2026-11-03: one branch for all of it. Turnstile: sign-up only, managed mode, fail open.
 - 2026-11-03: live stopgap is a Cloudflare edge rule on `/send-password-reset` (admin adding it).
+- 2026-11-03: a taken address gets a neutral answer, in the owner's words "cannot use this email,
+  check again" or similar, not "already associated with another account"
+  (`registration.cljc:258`).
 
 ## Open questions for the owner
 
-- `check-email` lets anyone test whether an address has an account, and sign-up calls it on every
-  email edit. Options: limit it per host; or drop the live check and answer "taken" only on submit
-  (a membership test either way, but slower and limited); or accept it. Owner unsure 2026-11-03.
+- How neutral is neutral? Softer wording still tells a bot the address is unusable, which for a
+  well-formed address means "has an account", as long as the live check answers differently for
+  taken addresses. Put both to the owner before building: (a) the owner's wording on the live
+  check, plus a per-host limit on `check-email`; or (b) no live check: sign-up answers the same for
+  every well-formed address ("check your email") and mails the existing owner instead of creating
+  a second account. (b) closes the membership test; (a) is smaller.
 
 ## Gotchas for the next agent
 

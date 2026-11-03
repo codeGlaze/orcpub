@@ -62,5 +62,6 @@ Cloudflare Turnstile, from its docs (`developers.cloudflare.com/turnstile/`, `/p
 **Owner decisions 2026-11-03:** sign-up only; **managed** mode; **fail open** when Cloudflare cannot
 be reached (the 10/hour sign-up limit still holds); off unless `TURNSTILE_SITE_KEY` and
 `TURNSTILE_SECRET_KEY` are set, so self-hosters and dev are unaffected. All of this, the
-`re-verify` limit and whatever is decided about `check-email` go on **one branch**
+`re-verify` limit and a neutral answer for a taken address on sign-up (owner's wording: "cannot
+use this email, check again") go on **one branch**
 (handoff: `branches/fix/auth-abuse.md`).
