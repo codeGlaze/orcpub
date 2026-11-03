@@ -27,3 +27,6 @@
     (is (not (.contains page "notranslate")))
     (is (not (.contains (index/index-page {:nonce "n"}) "Build, print and share"))
         "only the home page's static block carries it")))
+
+(deftest the-home-page-carries-a-whats-new-link
+  (is (re-find #"What.{1,6}s New" (index/index-page {:nonce "n"} true))))

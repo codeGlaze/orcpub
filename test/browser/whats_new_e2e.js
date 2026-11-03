@@ -33,7 +33,7 @@ const path = require('path');
 const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
 
-const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
+const BASE = process.env.E2E_BASE || process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const OUT = process.env.ORCPUB_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'whats-new-'));
 
 const results = [];
@@ -192,6 +192,15 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
     await page.waitForTimeout(1500);
     check('"Got it!" removes the notice',
           !(await page.locator('#poper').isVisible().catch(() => false)));
+
+    // The home page carries its own What's New link, at the size of the footer's small links.
+    const homeLink = page.locator('.splash-page-content a', { hasText: "What's New" });
+    check('the home page has a What\'s New link', await homeLink.count() === 1);
+    check('it is the footer link size',
+          await homeLink.evaluate(a => getComputedStyle(a).fontSize).catch(() => '') === '12px');
+    await homeLink.click().catch(() => {});
+    check('the home page link opens the panel',
+          await page.waitForSelector('.whats-new-panel', { timeout: 3000 }).then(() => true, () => false));
 
     // An embedded sheet is someone else's page: never interrupted. Same context,
     // second tab, so it boots while the checks above are settling.

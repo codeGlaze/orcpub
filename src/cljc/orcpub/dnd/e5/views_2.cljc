@@ -2,7 +2,8 @@
   (:require [orcpub.route-map :as routes]
             [clojure.string :as s]
             [orcpub.fork.branding :as branding]
-            [orcpub.fork.splash :as splash]))
+            [orcpub.fork.splash :as splash]
+            #?(:cljs [re-frame.core :refer [dispatch]])))
 
 (defn style [style]
   #?(:cljs style)
@@ -60,7 +61,21 @@
         ^{:key href}
         [:a.m-l-5 {:href href :target :_blank} label]))]))
 
-(defn splash-page []
+(defn whats-new-link
+  "A small \"What's New\" link, at the footer's link size, that opens the release panel
+   (:orcpub.dnd.e5/open-whats-new). Takes no args; returns hiccup. Inert in the server-rendered
+   page, which the app replaces on mount."
+  []
+  [:div.f-s-12.t-a-c.m-t-10
+   [:a.orange.pointer
+    #?(:cljs {:on-click #(dispatch [:orcpub.dnd.e5/open-whats-new])}
+       :clj {})
+    "What's New"]])
+
+(defn splash-page
+  "The home page: the logo, the grid of tool buttons and a small What's New link. Takes no args;
+   returns hiccup. Rendered by the server as the first paint and by the app after mount."
+  []
   [:div.app.h-full
    {:style (style {:display :flex
                    :flex-direction :column})}
@@ -163,4 +178,5 @@
                   :margin-top "10px"})}
         (for [{:keys [title icon route]} splash/generator-buttons]
           ^{:key route}
-          (splash-page-button title icon route))])]]])
+          (splash-page-button title icon route))])
+     (whats-new-link)]]])
