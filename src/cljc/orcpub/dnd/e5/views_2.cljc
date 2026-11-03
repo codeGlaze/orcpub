@@ -41,7 +41,7 @@
     [:div
      (svg-icon-2 icon 64 "dark")
      [:div
-      [:span.splash-button-title-prefix] [:span title]]]]])
+      [:span.splash-button-title-prefix {:translate "no" :lang "en"} "D&D 5e "] [:span title]]]]])
 
 (def orange-style
   {:color :orange})

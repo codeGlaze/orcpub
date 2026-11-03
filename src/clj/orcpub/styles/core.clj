@@ -2042,10 +2042,6 @@
    [[:.character-builder-header
      {:margin-bottom "19px"}]
 
-    ;; Drawn, not written: Chrome reads "5e" as French and offers to translate (docs/kb/start-build.md).
-    [:.splash-button-title-prefix:before
-     {:content "\"D&D 5e \""}]
-
     [:.senses
      {:width "450px"}]
 
