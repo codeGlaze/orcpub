@@ -21,7 +21,7 @@ if (process.env.PROBE_SUPPRESS !== '0') {
       }),
       context.addInitScript(id => {
         try { localStorage.setItem('whats-new-seen', JSON.stringify(id)); } catch (e) {}
-      }, process.env.PROBE_WHATS_NEW_RELEASE || 'summer-patch-2026'),
+      }, process.env.PROBE_WHATS_NEW_RELEASE || 'long-rest-update-2026'),
     ]);
 
     const wrap = browser => {

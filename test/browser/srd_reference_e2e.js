@@ -48,7 +48,7 @@ async function textOnceShown(page, text) {
   await ctx.addInitScript(() => {
     try {
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+      localStorage.setItem('whats-new-seen', '"long-rest-update-2026"');
     } catch (e) {}
   });
   const page = await ctx.newPage();
@@ -186,7 +186,7 @@ async function textOnceShown(page, text) {
   const phone = await browser.newContext({ ...devices['iPhone 13'] });
   await phone.addInitScript(() => {
     try { localStorage.setItem('orcpub:no-cookie-banner', '1');
-          localStorage.setItem('whats-new-seen', '"summer-patch-2026"'); } catch (e) {}
+          localStorage.setItem('whats-new-seen', '"long-rest-update-2026"'); } catch (e) {}
   });
   const tp = await phone.newPage();
   await tp.goto(`${BASE}/pages/dnd/5e/rules/madness`, { waitUntil: 'domcontentloaded' });

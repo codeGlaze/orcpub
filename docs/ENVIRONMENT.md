@@ -29,7 +29,7 @@ reach the app.
 > source .env && lein repl
 > ```
 
-## New in the Summer Patch
+## New in the Long Rest Update
 
 These settings are new in this release. Every one has a working default, so an upgrade runs
 without setting any of them. The server lists the ones you have not set at the end of its
@@ -150,7 +150,7 @@ picked up:
         e.g.  openssl rand -base64 48
         Keep it stable: changing it signs out everyone and invalidates unsubscribe links.
 -------------------------------------------------------------------------------------------------------
-  NEW IN SUMMER PATCH: 2 settings not set yet, using defaults
+  NEW IN LONG REST UPDATE: 2 settings not set yet, using defaults
   ALERT_MAX_PER_HOUR               admin alert emails per hour; past it they are logged only
   ORCPUB_PDF_MAX_CARDS             cards of each kind per export; 9 to a sheet, so 22 sheets
 -------------------------------------------------------------------------------------------------------

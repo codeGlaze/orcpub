@@ -19,7 +19,7 @@ async function newContext(browser, library) {
   await ctx.addInitScript(lib => {
     try {
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', JSON.stringify('summer-patch-2026'));
+      localStorage.setItem('whats-new-seen', JSON.stringify('long-rest-update-2026'));
       if (lib && !localStorage.getItem('plugins')) localStorage.setItem('plugins', lib);
     } catch (e) {}
     Object.defineProperty(navigator, 'clipboard', {

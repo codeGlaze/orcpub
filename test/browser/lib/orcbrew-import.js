@@ -116,7 +116,7 @@ async function importPack(page, absPath, { timeout = 300000 } = {}) {
 // scripts/e2e/run.sh reads the newest `:id` from src/cljc/orcpub/whats_new.cljc into
 // PROBE_WHATS_NEW_RELEASE; the literal is only for a suite run with bare `node`. A stamp of an
 // older id would undo the runner's own and bring the panel back over every click.
-const WHATS_NEW_RELEASE = process.env.PROBE_WHATS_NEW_RELEASE || 'summer-patch-2026';
+const WHATS_NEW_RELEASE = process.env.PROBE_WHATS_NEW_RELEASE || 'long-rest-update-2026';
 
 async function suppressWhatsNew(context) {
   return context.addInitScript(id => {

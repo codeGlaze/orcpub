@@ -9,8 +9,8 @@
    they appear here.")
 
 (def releases
-  [{:id "summer-patch-2026"
-    :title "Summer Patch"
+  [{:id "long-rest-update-2026"
+    :title "Long Rest Update"
     :subtitle "Homebrew you can manage, characters that recover and share, safer accounts, and sheets that print everything."
     :items
     [{:group "Your homebrew library"
@@ -62,6 +62,23 @@
       :icon "fa-palette"
       :headline "Meet the artists"
       :detail "Each portrait artist has a page with their name, how many pieces they drew, a few example portraits and the links they chose. The portrait picker's About the artist link, and the artists list, take you there."}
+     {:group "Characters"
+      :icon "fa-fist-raised"
+      :headline "A Weapons table for attacks"
+      :detail "Roll attack and damage in one place, with advantage or disadvantage from a switch or a long press, and see every SRD magic weapon's extra damage."}
+     {:group "Characters"
+      :icon "fa-bolt"
+      :headline "Charges and rests"
+      :detail "Charged items show pips to tap, and a Rest box handles short and long rests, dawn and dusk, and recharges, with Undo. Staffs and wands cast spells for charges."}
+     {:group "Characters"
+      :icon "fa-undo"
+      :headline "Lower a level and nothing is lost"
+      :detail "Choices that stop applying when you lower a level or change a class are set aside, listed beside the level picker, and return by themselves, with Undo."}
+
+     {:group "Rules"
+      :icon "fa-book"
+      :headline "A Rules tab, with previews"
+      :detail "The SRD's rules and 15 conditions, by section. Hover a link, or tap it once on a phone, to preview a spell, condition or rule without leaving the page. The Orcacle finds them by name."}
 
 
      {:group "Sharing"
@@ -94,6 +111,10 @@
       :icon "fa-columns"
       :headline "Multiclass casters fit on fewer pages"
       :detail "Spells can pack one class to a column instead of one page each, with a Warlock's Pact Magic kept as its own pool rather than added into the shared slots. Two of the four styles could not export a two-class caster at all; now they can."}
+     {:group "Printing"
+      :icon "fa-file-pdf"
+      :headline "A4 as well as US Letter"
+      :detail "Choose A4 for the sheet, spell cards, magic item cards and the spellbook. If part of an export can't be produced, the PDF opens with a page saying what was left out."}
      {:group "Printing"
       :icon "fa-scroll"
       :headline "Spell rows say more, and items get cards"

@@ -725,7 +725,7 @@ async function logOut(page) {
       userAgent: 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
       viewport: { width: 400, height: 860 } });
     await ctx.addInitScript(() => { try { localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', JSON.stringify('summer-patch-2026')); } catch (e) {} });
+      localStorage.setItem('whats-new-seen', JSON.stringify('long-rest-update-2026')); } catch (e) {} });
     const page = await ctx.newPage();
     page.on('pageerror', e => errors.push(e.message));
     await step(page, 'phone: logged-out character saved through login', async () => {

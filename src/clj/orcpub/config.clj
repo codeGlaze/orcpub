@@ -293,7 +293,7 @@
 (def current-release
   "The release this build ships as. Settings whose `:since` is this one end the boot report while
    unset, so an operator upgrading sees what is new."
-  "Summer Patch")
+  "Long Rest Update")
 
 (def branding-vars
   "The APP_* fork-branding variables. Reported as a count rather than twenty rows -- a
