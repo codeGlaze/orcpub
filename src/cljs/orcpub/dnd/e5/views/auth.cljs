@@ -107,7 +107,7 @@
           [:div.m-t-10
            [:div {:ref #(reset! el %)}]
            (when @(subscribe [:turnstile-blocked?])
-             [notifications/message :warning errors/turnstile-blocked-message identity])])}))))
+             [notifications/message :warning errors/turnstile-blocked-message #(dispatch [:turnstile-blocked false])])])}))))
 
 ;; ---- Account screens ----
 
