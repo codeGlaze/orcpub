@@ -4,7 +4,7 @@
             [orcpub.route-map :as routes]
             [orcpub.common :as common]
             [orcpub.entity :as entity]
-            [orcpub.components :as comps]
+            [orcpub.components :as comps :refer [orange base-input form-input make-event-handler]]
             [orcpub.entity-spec :as es]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.dnd.e5.spell-packing :as packing]
@@ -51,7 +51,7 @@
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
-            [orcpub.dnd.e5.views.builder-fields :refer [event-value dropdown labeled-dropdown
+            [orcpub.dnd.e5.views.builder-fields :refer [event-value set-value dropdown labeled-dropdown
                                                         base-builder-field builder-field
                                                         input-builder-field textarea-field
                                                         number-field]]
@@ -84,8 +84,6 @@
 
 (def text-color "#484848")
 
-(def orange "#f0a100")
-
 (def input-style
   {:height "38px"
    :border-style "solid"
@@ -100,9 +98,6 @@
    input-style
    {:border-color "rgba(72,72,72,0.37)"}))
 
-(defn set-value [atom key e]
-  (swap! atom assoc key (event-value e)))
-
 (defn validation-messages [messages]
   (when messages
     [:ul.t-a-l.p-l-20.p-r-20.m-b-10
@@ -112,78 +107,6 @@
          ^{:key i}
          [:li.red (str common/dot-char " " msg)])
        messages))]))
-
-(defn base-input
-  "One auth field: a notched-outline label, an optional reveal button, and the
-   notice slot `messages`/`hint` render into.
-   GOTCHA: both label positions are always rendered and the stylesheet picks
-   via :placeholder-shown / .is-wrong, so a live check and a submit lay out
-   the same. :messages, :hint, :reveal? are optional; other keys pass to <input>.
-   See account-flows.md."
-  [{:keys [title messages hint action reveal? revealed? on-reveal] :as attrs}]
-  (let [id (str "f-" (name (or (:name attrs) (:key attrs) (gensym "x"))))
-        message-id (str id "-message")
-        wrong? (boolean (seq messages))
-        input-attrs (-> attrs
-                        (dissoc :title :messages :hint :action :reveal? :revealed? :on-reveal :key)
-                        (assoc :id id
-                               ;; the selector the notch is driven by
-                               :placeholder " "
-                               :aria-describedby message-id)
-                        (cond-> wrong? (assoc :aria-invalid true)))]
-    [:div.field {:class (when wrong? "is-wrong")}
-     [:label.lift {:for id} title]
-     [:div.field-notice.is-error {:id message-id}
-      (when wrong? [:span.field-notice-what (first messages)])]
-     [:div.field-box
-      [:input input-attrs]
-      [:label.notch {:for id} title]
-      (when reveal?
-        [:button.peek {:type "button"
-                       :aria-controls id
-                       :aria-pressed (boolean revealed?)
-                       :on-click on-reveal}
-         (if revealed? "Hide" "Show")])]
-     (when (or hint action)
-       [:div.field-notice.is-note
-        (when hint [:span.field-notice-what hint])
-        (when-let [{:keys [label on-choose]} action]
-          ;; on-mouse-down, NOT on-click: blur re-renders this notice and the
-          ;; button is gone before mouseup, so a click handler here never fires.
-          ;; preventDefault stops focus moving at all.
-          [:button.field-notice-action
-           {:type "button"
-            :on-mouse-down (fn [e] (.preventDefault e) (on-choose))}
-           label])])]))
-
-(defn form-input []
-  (let [blurred? (r/atom false)
-        revealed? (r/atom false)]
-    ;; show-errors? is how a submit reveals faults in fields nobody has visited.
-    ;; Without it, pressing the button on a form with an untouched empty field
-    ;; had nothing to say, which is why the button used to dim instead.
-    (fn [{:keys [title key value messages type on-change show-errors? hint action reveal?]
-          reveal-state :revealed? on-reveal :on-reveal}]
-      ;; The reveal is usually this field's own business. A password and its
-      ;; confirmation have to share one, so the caller can own it instead.
-      (let [shown (when (or @blurred? show-errors?) messages)
-            shown-as-text? (if (some? reveal-state) reveal-state @revealed?)
-            flip (or on-reveal #(swap! revealed? not))]
-        [base-input
-         {:name key
-          ;; A revealed password is a text field. The type is the reveal.
-          :type (if (and reveal? shown-as-text?) :text type)
-          :value value
-          :title title
-          :messages shown
-          :hint hint
-          :action action
-          :reveal? reveal?
-          :revealed? shown-as-text?
-          :on-reveal flip
-          :on-focus (fn [_] (reset! blurred? false))
-          :on-change on-change
-          :on-blur (fn [_] (reset! blurred? true))}]))))
 
 (def ^:private password-rule-chips
   "One chip per rule: which rule it is, and whether `password` satisfies it.
@@ -932,11 +855,6 @@
               [:div.m-t-10.auth-form fields]
               (when tail [:div.m-t-10.auth-tail tail])]
              {:legal-links? legal-links?}))
-
-(def make-event-handler
-  (memoize
-   (fn [event-kw & args]
-     #(dispatch (vec (cons event-kw args))))))
 
 (def make-stop-prop-event-handler
   (memoize
