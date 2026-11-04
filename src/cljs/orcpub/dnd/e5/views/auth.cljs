@@ -5,7 +5,7 @@
    the page (window.__TURNSTILE_SITE_KEY__), and only when the form mounts, so no other page
    fetches anything from Cloudflare. Fails open on the client: if the script never loads, nothing
    is blocked; the server decides."
-  (:require [re-frame.core :refer [subscribe dispatch]]
+  (:require [re-frame.core :refer [subscribe dispatch reg-fx]]
             [reagent.core :as r]
             [orcpub.route-map :as routes]
             [orcpub.components :as comps :refer [base-input form-input make-event-handler]]
@@ -60,6 +60,12 @@
   (dispatch [:turnstile-token nil])
   (when-let [id @widget-id]
     (try (call-api "reset" id) (catch :default _ nil))))
+
+;; The :turnstile-reset event (events/auth) returns this effect, so it need not require this
+;; namespace; core.cljs loads this one at startup, before anything dispatches.
+(reg-fx
+ ::turnstile-reset
+ (fn [_] (reset-widget!)))
 
 (defn- render! [el key]
   (when (and (api) (nil? @widget-id) (.-isConnected el))

@@ -8,7 +8,6 @@
              :refer [backend-url show-generic-error user->local-store-interceptor
                      auth-headers]
              :rename {auth-headers authorization-headers}]
-            [orcpub.dnd.e5.views.auth :as views-auth]
             [orcpub.errors :as errors]
             [orcpub.fork.branding :as branding]
             [orcpub.route-map :as routes]
@@ -196,8 +195,8 @@
 (reg-event-fx
  :turnstile-reset
  (fn [_ _]
-   (views-auth/reset-widget!)
-   nil))
+   ;; Registered in views/auth, which owns the widget.
+   {:orcpub.dnd.e5.views.auth/turnstile-reset true}))
 
 #_ ;; dead stub — real impl is orcpub.registration/validate-registration
   (defn validate-registration [])
