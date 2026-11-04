@@ -4,6 +4,7 @@
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.equipment-subs]
             [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.events.auth :as events-auth]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views.auth :as auth-views]
@@ -132,7 +133,7 @@
   (let [route (when js/window.location
                 (routes/match-route js/window.location.pathname))
         config {:skip-path? true}]
-    (dispatch [:route route (if (events/login-routes (:handler route))
+    (dispatch [:route route (if (events-auth/login-routes (:handler route))
                               (merge
                                config
                                {:no-return? true})

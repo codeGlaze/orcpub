@@ -27,6 +27,8 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.entity :as entity]
             [orcpub.dnd.e5.character :as char5e]
+            ;; the account events (:logout, :clear-login) are registered here
+            [orcpub.dnd.e5.events.auth]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.units :as units5e]
