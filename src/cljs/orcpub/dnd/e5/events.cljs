@@ -124,7 +124,7 @@
             [orcpub.errors :as errors]
             [orcpub.fork.integrations :as integrations]
             [orcpub.fork.branding :as branding]
-            [orcpub.turnstile :as turnstile]
+            [orcpub.dnd.e5.views.auth :as views-auth]
             [clojure.set :as sets]
             [cljsjs.filesaverjs]
             [clojure.pprint :as pprint])
@@ -3673,12 +3673,6 @@
               ::entity/value]
              name)))
 
-(defn cookies []
-  (let [cookie js/document.cookie]
-    (into {}
-          (map #(s/split % "="))
-          (s/split cookie "; "))))
-
 (def show-generic-error event-utils/show-generic-error)
 
 (reg-fx
@@ -3822,7 +3816,7 @@
 (reg-event-fx
  :turnstile-reset
  (fn [_ _]
-   (turnstile/reset-widget!)
+   (views-auth/reset-widget!)
    nil))
 
 #_ ;; dead stub — real impl is orcpub.registration/validate-registration

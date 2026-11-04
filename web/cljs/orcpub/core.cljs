@@ -6,6 +6,7 @@
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views]
+            [orcpub.dnd.e5.views.auth :as auth-views]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
@@ -112,18 +113,18 @@
    routes/dnd-e5-char-parties-page-route views/parties
    routes/dnd-e5-my-content-route views/my-content-page
    routes/my-account-page-route views/my-account-page
-   routes/register-page-route views/register-form
-   routes/verify-failed-route views/verify-failed
-   routes/verify-success-route views/verify-success
-   routes/verify-sent-route views/verify-sent
-   routes/login-page-route views/login-page
-   routes/send-password-reset-page-route views/send-password-reset-page
-   routes/password-reset-sent-route views/password-reset-sent
-   routes/reset-password-page-route views/password-reset-page
-   routes/password-reset-success-route views/password-reset-success
-   routes/password-reset-expired-route views/password-reset-expired-page
-   routes/password-reset-used-route views/password-reset-used-page
-   routes/unsubscribe-success-route views/unsubscribe-success
+   routes/register-page-route auth-views/register-form
+   routes/verify-failed-route auth-views/verify-failed
+   routes/verify-success-route auth-views/verify-success
+   routes/verify-sent-route auth-views/verify-sent
+   routes/login-page-route auth-views/login-page
+   routes/send-password-reset-page-route auth-views/send-password-reset-page
+   routes/password-reset-sent-route auth-views/password-reset-sent
+   routes/reset-password-page-route auth-views/password-reset-page
+   routes/password-reset-success-route auth-views/password-reset-success
+   routes/password-reset-expired-route auth-views/password-reset-expired-page
+   routes/password-reset-used-route auth-views/password-reset-used-page
+   routes/unsubscribe-success-route auth-views/unsubscribe-success
    routes/artists-page-route artist-page/artists-page
    routes/artist-page-route artist-page/artist-page})
 

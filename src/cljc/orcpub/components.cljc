@@ -196,3 +196,5 @@
   (memoize
    (fn [event-kw & args]
      #(dispatch (vec (cons event-kw args)))))))
+
+(def text-color "#484848")
