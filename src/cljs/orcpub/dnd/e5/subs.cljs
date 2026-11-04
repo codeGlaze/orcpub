@@ -876,6 +876,11 @@
    (:login-message-shown? db)))
 
 (reg-sub
+ :login-challenge?
+ (fn [db _]
+   (boolean (:login-challenge? db))))
+
+(reg-sub
  :message
  (fn [db _]
    (:message db)))

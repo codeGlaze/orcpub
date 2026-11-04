@@ -325,6 +325,16 @@
               (when tail [:div.m-t-10.auth-tail tail])]
              {:legal-links? legal-links?}))
 
+(defn hide-login-message []
+  (dispatch [:hide-login-message]))
+
+(defn- login-message-block
+  "The form's refusal message, when there is one."
+  []
+  (when @(subscribe [:login-message-shown?])
+    [:div.m-t-5.p-r-5.p-l-5
+     [notifications/message :error @(subscribe [:login-message]) hide-login-message]]))
+
 (defn verify-failed []
   (let [params (r/atom {})]
     (fn []
@@ -332,18 +342,19 @@
        {:heading "Your key has expired"
         :lede (str "You must verify your email within 24 hours of registering. "
                    "Send another verification email by submitting your address here.")
-        :fields [base-input
-                 {:name :email
-                  :value (:email @params)
-                  :type :email
-                  :title "Email address"
-                  :on-change (partial set-value params :email)}]
+        :fields [:div
+                 [base-input
+                  {:name :email
+                   :value (:email @params)
+                   :type :email
+                   :title "Email address"
+                   :on-change (partial set-value params :email)}]
+                 ;; A refused challenge is answered here, as on the reset page.
+                 [login-message-block]
+                 [widget]]
         :tail [:button.form-button.form-submit-btn
                {:on-click (make-event-handler :re-verify @params)}
                "RESEND"]}))))
-
-(defn hide-login-message []
-  (dispatch [:hide-login-message]))
 
 (defn send-password-reset-page []
   (let [params (r/atom {})]
@@ -365,13 +376,8 @@
              :type :email
              :value email
              :on-change (partial set-value params :email)}]
-           (when @(subscribe [:login-message-shown?])
-             [:div.m-t-5.p-r-5.p-l-5
-              [notifications/message
-               :error
-               @(subscribe [:login-message])
-               hide-login-message]])
-           ]
+           [login-message-block]
+           [widget]]
           :tail
           [:div
            [:button.form-button.form-submit-btn
@@ -702,6 +708,8 @@
                         :value (:password @params)
                         :type :password
                         :on-change #(swap! params assoc :password (event-value %))}]
+           ;; Only after a failed attempt: the server flags it, :login-failure sets this.
+           (when @(subscribe [:login-challenge?]) [widget])
            (when login-message-shown?
              [:div.m-t-5 [notifications/message
                           :error

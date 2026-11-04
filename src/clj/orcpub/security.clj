@@ -463,3 +463,55 @@
                              (str "HTTP " st)
                              (.. e getClass getSimpleName)))
         :unreachable))))
+
+(defn turnstile-refused?
+  "True when route `route-name` lists :turnstile in auth-guards, the challenge is on, and `token`
+   fails it. :unreachable is not a refusal. A route that does not list :turnstile is never refused."
+  [route-name token remote-ip]
+  (boolean (and (guarded-by? route-name :turnstile)
+                (turnstile-enabled?)
+                (= :fail (turnstile-verify token remote-ip)))))
+
+;; ---------------------------------------------------------------------------
+;; Sign-in challenge after a failure. A failed sign-in marks the NEXT attempt from that
+;; connection with that typed name as needing the challenge. The key is the typed text, trimmed
+;; and lowercased as the lookup does, never the account, so a mark exists for a name with no
+;; account exactly as for one with an account and reveals nothing about either.
+;; ---------------------------------------------------------------------------
+
+(def login-challenge-ms (* 15 60 1000))
+
+;; Bounds memory against a flood of invented names from many connections.
+(def ^:private login-challenge-cap 50000)
+
+(def ^:private login-challenges (atom {}))
+
+(defn- login-challenge-key [typed-name remote-ip]
+  [(s/lower-case (s/trim (str typed-name))) remote-ip])
+
+(defn mark-login-challenge!
+  "Marks `typed-name` from `remote-ip` as needing the challenge on its next attempt, for 15 minutes.
+   Does nothing while Turnstile is off."
+  [typed-name remote-ip]
+  (when (turnstile-enabled?)
+    (let [now (System/currentTimeMillis)]
+      (swap! login-challenges
+             (fn [m]
+               (assoc (if (< login-challenge-cap (count m))
+                        {}
+                        (into {} (remove (fn [[_ until]] (< until now))) m))
+                      (login-challenge-key typed-name remote-ip)
+                      (+ now login-challenge-ms))))))
+  nil)
+
+(defn clear-login-challenge! [typed-name remote-ip]
+  (swap! login-challenges dissoc (login-challenge-key typed-name remote-ip))
+  nil)
+
+(defn login-challenge-required?
+  "True while Turnstile is on and `typed-name` from `remote-ip` failed a sign-in in the last 15 minutes."
+  [typed-name remote-ip]
+  (boolean (and (guarded-by? :orcpub.routes.auth/login :turnstile-after-failure)
+                (turnstile-enabled?)
+                (when-let [until (get @login-challenges (login-challenge-key typed-name remote-ip))]
+                  (> until (System/currentTimeMillis))))))

@@ -189,11 +189,18 @@
 (defn base-url [{:keys [scheme headers]}]
   (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
 
+(defn- challenge-flag
+  "Tells the form to show the challenge for the retry. The same map for every failure, so it
+   cannot tell an unknown name from a wrong password; nil while Turnstile is off."
+  []
+  (when (security/turnstile-enabled?) {:challenge? true}))
+
 (defn bad-credentials-response [db username ip request]
   (security/add-failed-login-attempt! username ip)
+  (security/mark-login-challenge! username ip)
   (if (security/too-many-attempts-for-username? username)
     (do (security/note-refusal! :login-username)
-        (login-error errors/too-many-attempts))
+        (login-error errors/too-many-attempts (challenge-flag)))
     (let [user-for-username (find-user-by-username-or-email db username)]
       ;; A name with no account is not logged: it is sometimes a password typed in the wrong box.
       (security/audit! :sign-in-failed request (:orcpub.user/username user-for-username))
@@ -217,7 +224,7 @@
       ;; One answer for both. Telling somebody the username does not exist made
       ;; the login form the same membership test the reset endpoint was, and a
       ;; cheaper one, since it needs no mail to be sent.
-      (login-error errors/bad-credentials))))
+      (login-error errors/bad-credentials (challenge-flag)))))
 
 (defn create-login-response [db conn user id & [headers]]
   (let [token (create-token (:orcpub.user/username user)
@@ -244,7 +251,15 @@
       ;; failing from this address inside a minute -- one person on several devices can't, a spray across accounts can.
       (security/multiple-account-access? remote-addr)
       (do (security/note-refusal! :login-spray)
-          (login-error errors/too-many-attempts))
+          (security/mark-login-challenge! raw-username remote-addr)
+          (login-error errors/too-many-attempts (challenge-flag)))
+
+      ;; Only for a name that just failed from this connection, and BEFORE the credentials are
+      ;; looked at, so a bot without a token learns nothing from the answer. A blank token is
+      ;; :fail without calling Cloudflare; :unreachable is a pass.
+      (and (security/login-challenge-required? raw-username remote-addr)
+           (= :fail (security/turnstile-verify (:turnstile-token json-params) remote-addr)))
+      (login-error errors/challenge-required {:challenge? true})
 
       :else (let [username (s/trim raw-username)
                   password (s/trim raw-password)
@@ -259,7 +274,8 @@
                 (and unverified? expired?) (login-error errors/unverified-expired)
                 unverified? (login-error errors/unverified {:email email})
                 :else
-                (do (security/audit! :sign-in request (:orcpub.user/username user))
+                (do (security/clear-login-challenge! username remote-addr)
+                    (security/audit! :sign-in request (:orcpub.user/username user))
                     (create-login-response db conn user id)))))))
 
 (defn login [request]
@@ -384,6 +400,13 @@
 (def ^:private turnstile-failed-message
   "We couldn't confirm you're not a bot. Please try the check again.")
 
+(defn- turnstile-refusal
+  "A 400 for a failed challenge, or nil. Answered the same for every address and checked before
+   any lookup, so it cannot say whether an account exists. The caller retries with a fresh token."
+  [route-name token remote-addr]
+  (when (security/turnstile-refused? route-name token remote-addr)
+    {:status 400 :body {:general [turnstile-failed-message]}}))
+
 (defn register [{:keys [json-params db conn remote-addr] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
         username (when username (s/trim username))
@@ -404,8 +427,7 @@
         ;; be rejected anyway never costs a verification. :unreachable is a pass (fail open).
         ;; :general for the same reason as the throttle below.
         validation (if (and (empty? validation)
-                            (security/turnstile-enabled?)
-                            (= :fail (security/turnstile-verify (:turnstile-token json-params) remote-addr)))
+                            (security/turnstile-refused? ::register (:turnstile-token json-params) remote-addr))
                      (assoc validation :general [turnstile-failed-message])
                      validation)
         ;; Checked last, so a form that was going to be rejected anyway is not
@@ -505,10 +527,14 @@
 
 (defn re-verify [{:keys [query-params db conn remote-addr] :as request}]
   (let [email (:email query-params)
+        refusal (turnstile-refusal ::re-verify (:turnstile-token query-params) remote-addr)
+        query-params (dissoc query-params :turnstile-token)
         {:keys [:orcpub.user/verification-sent
                 :orcpub.user/verified?
-                :db/id] :as user} (user-for-email db email)]
+                :db/id] :as user} (when-not refusal (user-for-email db email))]
     (cond
+      ;; Before the lookup and before either allowance is spent.
+      refusal refusal
       verified? (redirect route-map/verify-success-route)
       ;; No account for this address: answer like a resend and create nothing. Passing
       ;; {:db/id nil} on would register a key-only record and email a link to any address typed.
@@ -589,12 +615,13 @@
 
 (defn send-password-reset [{:keys [query-params db conn remote-addr] :as request}]
   (let [email (:email query-params)
-        {:keys [:db/id]} (user-for-email db email)]
+        refusal (turnstile-refusal ::send-password-reset (:turnstile-token query-params) remote-addr)
+        {:keys [:db/id]} (when-not refusal (user-for-email db email))]
     ;; The answer is identical whether or not that address has an account:
     ;; confirmed-valid addresses are precisely what a stuffing run needs.
     ;; The per-address limit is checked AFTER the lookup but never changes the
     ;; response -- a limit that visibly altered it would itself be a membership oracle, which the uniform 200 closes.
-    (when (and id (security/reset-email-allowed? email remote-addr))
+    (when (and id (not refusal) (security/reset-email-allowed? email remote-addr))
       (try
         (do-send-password-reset id email conn request)
         (security/audit! :password-reset-requested request
@@ -605,7 +632,7 @@
           ;; so an error response would mark the address as registered.
           (println "ERROR: password reset for a known address could not be sent:"
                    (.getMessage e)))))
-    {:status 200}))
+    (or refusal {:status 200})))
 
 (def reset-link-spent-message
   "This reset link has expired or has already been used. Request a new one from the login page.")

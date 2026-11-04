@@ -86,6 +86,7 @@
    ;; A button-text choice saved on the account wins over this browser's.
    {:db (let [account-choice (-> response :body :user-data :dark-button-text?)]
           (cond-> (-> db
+                      (dissoc :login-challenge?)
                       (update :user-data merge (-> response :body))
                       (assoc :user (-> response :body :user-data)))
             (some? account-choice) (assoc-in [:user-data :dark-button-text?] account-choice)))
@@ -108,21 +109,32 @@
 (reg-event-fx
  :login-failure
  (fn [{:keys [db]} [_ response]]
-   (let [error-code (-> response :body :error)]
-     (cond
-       (= error-code errors/username-required) (dispatch-login-failure "Username is required.")
-       (= error-code errors/too-many-attempts) (dispatch-login-failure "Too many attempts just now. Wait a minute and try again.")
-       (= error-code errors/password-required) (dispatch-login-failure "Password is required.")
-       (= error-code errors/bad-credentials) {:dispatch-n [[:clear-login]
-                                                           (sign-in-failed-message)]}
-       (= error-code errors/unverified) {:db (assoc db :temp-email (-> response :body :email))
-                                         :dispatch [:route routes/verify-sent-route]}
-       (= error-code errors/unverified-expired) {:dispatch [:route routes/verify-failed-route]}
-       :else (dispatch-login-failure
-              (if (seq branding/support-email)
-                [:div "An error occurred. If the problem persists please email "
-                 [:a {:href (str "mailto:" branding/support-email) :target :blank} branding/support-email]]
-                [:div "An error occurred. Please try again later."]))))))
+   (let [error-code (-> response :body :error)
+         ;; The server sends the flag identically after every failed sign-in, so the form shows
+         ;; the challenge for the retry; the token just used is spent either way.
+         challenge? (boolean (-> response :body :challenge?))
+         with-challenge (fn [fx]
+                          (cond-> fx
+                            challenge? (assoc :db (assoc db :login-challenge? true))
+                            challenge? (update :dispatch-n (fnil conj []) [:turnstile-reset])))]
+     (with-challenge
+       (cond
+         (= error-code errors/challenge-required)
+         {:dispatch-n [[:clear-login]
+                       [:show-login-message "Please complete the security check below, then sign in again."]]}
+         (= error-code errors/username-required) (dispatch-login-failure "Username is required.")
+         (= error-code errors/too-many-attempts) (dispatch-login-failure "Too many attempts just now. Wait a minute and try again.")
+         (= error-code errors/password-required) (dispatch-login-failure "Password is required.")
+         (= error-code errors/bad-credentials) {:dispatch-n [[:clear-login]
+                                                             (sign-in-failed-message)]}
+         (= error-code errors/unverified) {:db (assoc db :temp-email (-> response :body :email))
+                                           :dispatch [:route routes/verify-sent-route]}
+         (= error-code errors/unverified-expired) {:dispatch [:route routes/verify-failed-route]}
+         :else (dispatch-login-failure
+                (if (seq branding/support-email)
+                  [:div "An error occurred. If the problem persists please email "
+                   [:a {:href (str "mailto:" branding/support-email) :target :blank} branding/support-email]]
+                  [:div "An error occurred. Please try again later."])))))))
 
 (reg-event-fx
  :logout
@@ -149,7 +161,8 @@
  (fn [{:keys [db]} [_ params backtrack?]]
    {:http {:method :post
            :url login-url
-           :json-params params
+           :json-params (cond-> params
+                          (:turnstile-token db) (assoc :turnstile-token (:turnstile-token db)))
            :on-success [:login-success backtrack?]
            :on-unauthorized [:login-failure]}}))
 
@@ -306,14 +319,30 @@
                       routes/verify-success-route
                       routes/verify-sent-route))))
 
+(defn- challenge-failure
+  "Effects for a request the server refused: its :general message when it gave one (the failed or
+   missing challenge), else the generic error. The token is spent either way."
+  [response]
+  (let [message (first (get-in response [:body :general]))]
+    (if message
+      {:dispatch-n [[:show-login-message message] [:turnstile-reset]]}
+      {:dispatch-n [(show-generic-error) [:turnstile-reset]]})))
+
+(reg-event-fx
+ :re-verify-failure
+ (fn [_ [_ response]]
+   (challenge-failure response)))
+
 (reg-event-fx
  :re-verify
  (fn [{:keys [db]} [_ params]]
    {:db (assoc db :temp-email (:email params))
     :http {:method :get
            :url (backend-url (bidi/path-for routes/routes routes/re-verify-route))
-           :query-params params
-           :on-success [:re-verify-success]}}))
+           :query-params (cond-> params
+                           (:turnstile-token db) (assoc :turnstile-token (:turnstile-token db)))
+           :on-success [:re-verify-success]
+           :on-failure [:re-verify-failure]}}))
 
 (reg-event-db
  :send-password-reset-success
@@ -322,11 +351,10 @@
 
 (reg-event-fx
  :send-password-reset-failure
- ;; The endpoint answers 200 for every address now, so :no-account cannot arrive
- ;; here and the branch that handled it is gone. Anything reaching this handler
- ;; is a network or server fault, which is what the generic error is for.
- (fn [_ _]
-   (show-generic-error)))
+ ;; The endpoint answers 200 for every address, so :no-account cannot arrive here. A refused
+ ;; challenge carries a :general message; anything else is a network or server fault.
+ (fn [_ [_ response]]
+   (challenge-failure response)))
 
 (reg-event-fx
  :send-password-reset
@@ -334,7 +362,8 @@
    {:db (assoc db :temp-email (:email params))
     :http {:method :get
            :url (backend-url (bidi/path-for routes/routes routes/send-password-reset-route))
-           :query-params params
+           :query-params (cond-> params
+                           (:turnstile-token db) (assoc :turnstile-token (:turnstile-token db)))
            :on-success [:send-password-reset-success]
            :on-failure [:send-password-reset-failure]}}))
 

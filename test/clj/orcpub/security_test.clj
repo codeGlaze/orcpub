@@ -316,11 +316,17 @@
 (use-fixtures :each
   (fn [f]
     (reset! @#'s/sightings {})
+    (reset! @#'s/login-challenges {})
+    (reset! s/failed-login-attempts-by-username {})
+    (reset! s/failed-login-attempts-by-ip {})
     (with-redefs [email/configured? (constantly true)
                   pwned/check (constantly 0)]
       (binding [errors/*error-prefix* "TEST_ERROR:"]
         (f)))
-    (reset! @#'s/sightings {})))
+    (reset! @#'s/sightings {})
+    (reset! @#'s/login-challenges {})
+    (reset! s/failed-login-attempts-by-username {})
+    (reset! s/failed-login-attempts-by-ip {})))
 
 (def ^:private secret "s3cr3t-turnstile-value-9f2c")
 
@@ -456,3 +462,170 @@
       (is (or (and (set? guard) (seq guard))
               (and (map? guard) (string? (:none guard)) (seq (:none guard))))
           (str route " needs guards or a reason for having none")))))
+
+;; ---- Turnstile on password reset, resend verification and sign-in after a failure ----
+
+(defn- verify-calls
+  "Runs `f` with Turnstile on and siteverify answering `answer` (a map, or :throw); returns
+   [result number-of-siteverify-calls]."
+  [answer f]
+  (let [calls (atom 0)]
+    (with-redefs [s/turnstile-enabled? (constantly true)
+                  s/post-siteverify (fn [& _]
+                                      (swap! calls inc)
+                                      (if (= :throw answer)
+                                        (throw (java.net.SocketTimeoutException. "slow"))
+                                        answer))]
+      [(f) @calls])))
+
+(defn- lookups-fail-the-test [& _] (throw (AssertionError. "looked the address up before the challenge")))
+
+(deftest reset-and-resend-check-the-challenge-before-anything-else
+  (doseq [[label handler route-name]
+          [["send-password-reset" auth/send-password-reset :orcpub.routes.auth/send-password-reset]
+           ["re-verify" auth/re-verify :orcpub.routes.auth/re-verify]]]
+    (let [call (fn [token] (handler {:query-params (cond-> {:email "someone@example.com"}
+                                                     token (assoc :turnstile-token token))
+                                     :db nil :conn nil :remote-addr "9.9.9.9"}))]
+      (testing (str label ": a failed challenge is told to retry, before any lookup or allowance")
+        (with-redefs [auth/user-for-email lookups-fail-the-test]
+          (let [[resp calls] (verify-calls {:success false} #(call "bad"))]
+            (is (= 400 (:status resp)))
+            (is (str/includes? (first (get-in resp [:body :general])) "not a bot"))
+            (is (= 1 calls))
+            (is (empty? @@#'s/sightings) "no allowance was spent"))
+          (testing "a missing token is refused the same way, without calling Cloudflare"
+            (let [[resp calls] (verify-calls {:success true} #(call nil))]
+              (is (= 400 (:status resp)))
+              (is (zero? calls))))))
+      (testing (str label ": the refusal is the same whether or not the address has an account")
+        (let [refused (fn [user]
+                        (with-redefs [auth/user-for-email (constantly user)]
+                          (first (verify-calls {:success false} #(call "bad")))))]
+          (is (= (refused {:db/id 5}) (refused {})))))
+      (testing (str label ": a passing challenge proceeds to the usual work")
+        (let [looked-up (atom 0)]
+          (with-redefs [auth/user-for-email (fn [& _] (swap! looked-up inc) {})]
+            (let [[resp calls] (verify-calls {:success true} #(call "good"))]
+              (is (= {:status 200} resp))
+              (is (= 1 calls))
+              (is (= 1 @looked-up))))))
+      (testing (str label ": an unreachable Cloudflare fails open")
+        (with-redefs [auth/user-for-email (constantly {})]
+          (is (= {:status 200} (first (verify-calls :throw #(call "any")))))))
+      (testing (str label ": with Turnstile off nothing is checked")
+        (let [calls (atom 0)]
+          (with-redefs [s/turnstile-enabled? (constantly false)
+                        s/post-siteverify (fn [& _] (swap! calls inc) {:success false})
+                        auth/user-for-email (constantly {})]
+            (is (= {:status 200} (call nil)))
+            (is (zero? @calls))))))))
+
+(deftest the-resend-token-does-not-reach-the-mail
+  (let [seen (atom nil)]
+    (with-redefs [s/turnstile-enabled? (constantly true)
+                  s/post-siteverify (fn [& _] {:success true})
+                  auth/user-for-email (constantly {:db/id 17})
+                  auth/do-verification (fn [_ params & _] (reset! seen params) {:status 200})]
+      (auth/re-verify {:query-params {:email "a@b.com" :turnstile-token "t"}
+                       :db nil :conn nil :remote-addr "9.9.9.9"})
+      (is (not (contains? @seen :turnstile-token))))))
+
+(defn- login [typed token ip]
+  (auth/login-response {:json-params (cond-> {:username typed :password "pw"}
+                                       token (assoc :turnstile-token token))
+                        :db nil :conn nil :remote-addr ip :headers {}}))
+
+(defmacro ^:private with-login-stubs
+  "Sign-in with Turnstile on: `known` is the one typed name whose password is right."
+  [known & body]
+  `(with-redefs [s/turnstile-enabled? (constantly true)
+                 auth/lookup-user (fn [_# u# _#] (if (= ~known u#) {:db/id 1 :orcpub.user/verified? true} {}))
+                 auth/find-user-by-username-or-email (constantly nil)
+                 auth/create-login-response (fn [& _#] {:status 200 :body {:token "t"}})]
+     ~@body))
+
+(deftest sign-in-needs-no-challenge-until-it-fails
+  (with-login-stubs "kaylee"
+    (let [[resp calls] (verify-calls {:success false} #(login "kaylee" nil "1.1.1.1"))]
+      (is (= 200 (:status resp)))
+      (is (zero? calls) "Cloudflare is not asked"))))
+
+(deftest a-failure-looks-the-same-for-an-unknown-name-and-a-wrong-password
+  (with-login-stubs "kaylee"
+    (let [unknown (login "nobody" nil "1.1.1.1")
+          ;; "kaylee" exists, but this lookup stub is told it is wrong
+          wrong (with-redefs [auth/lookup-user (fn [& _] {})
+                              auth/find-user-by-username-or-email (constantly {:db/id 1 :orcpub.user/username "kaylee"})]
+                  (login "kaylee" nil "1.1.1.1"))]
+      (is (= 401 (:status unknown)))
+      (is (= errors/bad-credentials (-> unknown :body :error)))
+      (is (true? (-> unknown :body :challenge?)))
+      (is (= unknown wrong) "identical, including the flag"))))
+
+(deftest the-flag-is-absent-while-turnstile-is-off
+  (with-redefs [s/turnstile-enabled? (constantly false)
+                auth/lookup-user (constantly {})
+                auth/find-user-by-username-or-email (constantly nil)]
+    (is (= {:status 401 :body {:error errors/bad-credentials}} (login "nobody" nil "1.1.1.1")))
+    (is (= {:status 401 :body {:error errors/bad-credentials}} (login "nobody" nil "1.1.1.1"))
+        "and a second failure still asks for nothing")))
+
+(deftest after-a-failure-the-next-attempt-needs-a-passing-token
+  (with-login-stubs "kaylee"
+    (login "kaylee-typo" nil "1.1.1.1")
+    (testing "no token: challenge required, and the credentials are not looked at"
+      (with-redefs [auth/lookup-user lookups-fail-the-test]
+        (let [[resp calls] (verify-calls {:success true} #(login "kaylee-typo" nil "1.1.1.1"))]
+          (is (= 401 (:status resp)))
+          (is (= errors/challenge-required (-> resp :body :error)))
+          (is (true? (-> resp :body :challenge?)))
+          (is (zero? calls)))))
+    (testing "a failing token is the same"
+      (is (= errors/challenge-required
+             (-> (first (verify-calls {:success false} #(login "kaylee-typo" "bad" "1.1.1.1"))) :body :error))))
+    (testing "a passing token reaches the credentials"
+      (is (= errors/bad-credentials
+             (-> (first (verify-calls {:success true} #(login "kaylee-typo" "good" "1.1.1.1"))) :body :error))))
+    (testing "an unreachable Cloudflare fails open"
+      (is (= errors/bad-credentials
+             (-> (first (verify-calls :throw #(login "kaylee-typo" "any" "1.1.1.1"))) :body :error))))))
+
+(deftest a-successful-sign-in-clears-the-mark
+  (with-login-stubs "kaylee"
+    (login "nobody" nil "1.1.1.1")
+    (login "kaylee" nil "1.1.1.1")
+    (is (true? (s/login-challenge-required? "nobody" "1.1.1.1")) "a different name keeps its own mark")
+    (login "nobody" nil "2.2.2.2")
+    (s/mark-login-challenge! "kaylee" "1.1.1.1")
+    (is (= 200 (:status (first (verify-calls {:success true} #(login "kaylee" "good" "1.1.1.1"))))))
+    (is (false? (s/login-challenge-required? "kaylee" "1.1.1.1")) "the success cleared it")
+    (is (= 200 (:status (login "kaylee" nil "1.1.1.1"))) "so the next one needs no token")))
+
+(deftest the-mark-is-per-typed-name-and-connection
+  (with-login-stubs "kaylee"
+    (login "  Wash " nil "1.1.1.1")
+    (is (true? (s/login-challenge-required? "wash" "1.1.1.1")) "trimmed and lowercased as the lookup does")
+    (is (false? (s/login-challenge-required? "wash" "2.2.2.2")) "another connection")
+    (is (false? (s/login-challenge-required? "zoe" "1.1.1.1")) "another name")))
+
+(deftest the-mark-lapses
+  (with-login-stubs "kaylee"
+    (s/mark-login-challenge! "wash" "1.1.1.1")
+    (with-redefs [s/login-challenge-ms -1]
+      (s/mark-login-challenge! "zoe" "1.1.1.1")
+      (is (false? (s/login-challenge-required? "zoe" "1.1.1.1"))))
+    (is (true? (s/login-challenge-required? "wash" "1.1.1.1")))))
+
+(deftest nothing-is-marked-while-turnstile-is-off
+  (with-redefs [s/turnstile-enabled? (constantly false)]
+    (s/mark-login-challenge! "wash" "1.1.1.1"))
+  (is (empty? @@#'s/login-challenges)))
+
+(deftest a-sprayed-or-throttled-refusal-also-marks-the-next-attempt
+  (with-login-stubs "kaylee"
+    (with-redefs [s/multiple-account-access? (constantly true)]
+      (let [r (login "wash" nil "3.3.3.3")]
+        (is (= errors/too-many-attempts (-> r :body :error)))
+        (is (true? (-> r :body :challenge?)))))
+    (is (true? (s/login-challenge-required? "wash" "3.3.3.3")))))
