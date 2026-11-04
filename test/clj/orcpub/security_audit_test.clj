@@ -8,6 +8,7 @@
             [orcpub.db.schema :as schema]
             [orcpub.email :as email]
             [orcpub.routes :as routes]
+            [orcpub.routes.auth :as auth]
             [orcpub.security :as security])
   (:import [java.util UUID]))
 
@@ -42,7 +43,7 @@
 (defn- sign-up!
   "Registers newcomer / newcomer@test.com in `conn` and marks the account verified."
   [conn]
-  (routes/register (request conn {:json-params {:username "newcomer" :email "newcomer@test.com"
+  (auth/register (request conn {:json-params {:username "newcomer" :email "newcomer@test.com"
                                                 :verify-email "newcomer@test.com"
                                                 :password "hunter2hunter2" :send-updates? false}}))
   (let [id (d/q '[:find ?e . :where [?e :orcpub.user/username "newcomer"]] (d/db conn))]
@@ -58,16 +59,16 @@
   (let [conn (fresh-conn)]
     (sign-up! conn)
     (testing "a good sign-in"
-      (let [lines (security-lines #(routes/login-response
+      (let [lines (security-lines #(auth/login-response
                                     (request conn {:json-params {:username "newcomer" :password "hunter2hunter2"}})))]
         (is (= ["security: sign-in user=newcomer ip=10.0.0.9 fwd=203.0.113.7, 10.0.0.9"] lines))))
     (testing "a wrong password on a real account names the account"
-      (let [lines (security-lines #(routes/login-response
+      (let [lines (security-lines #(auth/login-response
                                     (request conn {:json-params {:username "newcomer" :password "wrong-one"}})))]
         (is (= ["security: sign-in-failed user=newcomer ip=10.0.0.9 fwd=203.0.113.7, 10.0.0.9"] lines))
         (is (not-any? #(s/includes? % "wrong-one") lines) "never the password")))
     (testing "a name with no account is not written down: it may be a password in the wrong box"
-      (let [lines (security-lines #(routes/login-response
+      (let [lines (security-lines #(auth/login-response
                                     (request conn {:json-params {:username "MySecretPass1" :password "x"}})))]
         (is (= ["security: sign-in-failed ip=10.0.0.9 fwd=203.0.113.7, 10.0.0.9"] lines))))))
 

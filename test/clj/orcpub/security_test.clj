@@ -8,6 +8,7 @@
             [orcpub.pedestal :as pedestal]
             [orcpub.pwned :as pwned]
             [orcpub.routes :as routes]
+            [orcpub.routes.auth :as auth]
             [orcpub.time :as time :refer [seconds minutes hours millis ago now]]
             [orcpub.security :as s]
             [orcpub.db.schema :as schema]
@@ -350,7 +351,7 @@
     (with-redefs [s/turnstile-enabled? (constantly false)
                   s/turnstile-verify (fn [& _] (swap! calls inc) :fail)
                   s/post-siteverify (fn [& _] (swap! calls inc) (throw (ex-info "no" {})))]
-      (is (= 200 (:status (routes/register (request conn nil)))))
+      (is (= 200 (:status (auth/register (request conn nil)))))
       (is (user-exists? conn))
       (is (zero? @calls) "siteverify is never called"))))
 
@@ -358,14 +359,14 @@
   (let [conn (fresh-conn)]
     (with-redefs [s/turnstile-enabled? (constantly true)
                   s/post-siteverify (fn [& _] {:success true})]
-      (is (= 200 (:status (routes/register (request conn "good-token")))))
+      (is (= 200 (:status (auth/register (request conn "good-token")))))
       (is (user-exists? conn)))))
 
 (deftest enabled-and-failing-refuses-without-using-the-host-allowance
   (let [conn (fresh-conn)]
     (with-redefs [s/turnstile-enabled? (constantly true)
                   s/post-siteverify (fn [& _] {:success false})]
-      (let [resp (routes/register (request conn "bad-token"))]
+      (let [resp (auth/register (request conn "bad-token"))]
         (is (= 400 (:status resp)))
         (is (= 1 (count (get-in resp [:body :general]))) "a :general error")
         (is (str/includes? (first (get-in resp [:body :general])) "not a bot"))
@@ -377,7 +378,7 @@
   (let [conn (fresh-conn)]
     (with-redefs [s/turnstile-enabled? (constantly true)
                   s/post-siteverify (fn [& _] (throw (java.net.SocketTimeoutException. "slow")))]
-      (is (= 200 (:status (routes/register (request conn "any-token")))))
+      (is (= 200 (:status (auth/register (request conn "any-token")))))
       (is (user-exists? conn)))))
 
 (deftest a-blank-token-fails-without-calling-cloudflare
@@ -390,7 +391,7 @@
       (let [conn (fresh-conn)]
         (with-redefs [s/turnstile-enabled? (constantly true)
                       s/post-siteverify (fn [& _] (swap! calls inc) {:success true})]
-          (is (= 400 (:status (routes/register (request conn nil)))))
+          (is (= 400 (:status (auth/register (request conn nil)))))
           (is (zero? @calls)))))))
 
 (deftest verify-maps-cloudflare-answers

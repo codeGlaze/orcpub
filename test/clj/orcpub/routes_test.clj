@@ -8,6 +8,7 @@
    [buddy.sign.jwt :as jwt]
    [environ.core :as environ]
    [orcpub.routes :as routes]
+   [orcpub.routes.auth :as auth]
             [orcpub.env :as env]
    [orcpub.dnd.e5.magic-items :as mi]
    [orcpub.dnd.e5.character :as char5e]
@@ -291,7 +292,7 @@
                                          :conn mocked-conn})]
           (is (= 302 (:status resp))
               "Should redirect to success page")
-          (let [user (routes/user-for-email (d/db mocked-conn) "test@test.com")]
+          (let [user (auth/user-for-email (d/db mocked-conn) "test@test.com")]
             (is (false? (:orcpub.user/send-updates? user))
                 "send-updates? should be false after unsubscribe"))))
 
@@ -336,7 +337,7 @@
                       :conn mocked-conn
                       :identity {:user "testy"}})]
           (is (= 200 (:status resp)))
-          (let [user (routes/user-for-email (d/db mocked-conn) "test@test.com")]
+          (let [user (auth/user-for-email (d/db mocked-conn) "test@test.com")]
             (is (true? (:orcpub.user/send-updates? user))))))
 
       (testing "Toggle send-updates back to false"
@@ -346,7 +347,7 @@
                       :conn mocked-conn
                       :identity {:user "testy"}})]
           (is (= 200 (:status resp)))
-          (let [user (routes/user-for-email (d/db mocked-conn) "test@test.com")]
+          (let [user (auth/user-for-email (d/db mocked-conn) "test@test.com")]
             (is (false? (:orcpub.user/send-updates? user))))))
 
       (testing "Unknown user returns 400"
@@ -365,8 +366,8 @@
                                   :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"
                                   :orcpub.user/send-updates? true}])
       (let [db (d/db mocked-conn)
-            user (routes/user-for-email db "test@test.com")
-            body (routes/user-body db user)]
+            user (auth/user-for-email db "test@test.com")
+            body (auth/user-body db user)]
         (is (true? (:send-updates? body))
             "user-body should include send-updates? field")))))
 
@@ -381,7 +382,7 @@
                                {:transit-params params :db (d/db mocked-conn)
                                 :conn mocked-conn :identity {:user "testy"}}))
             body (fn [] (let [db (d/db mocked-conn)]
-                          (routes/user-body db (routes/user-for-email db "test@test.com"))))]
+                          (auth/user-body db (auth/user-for-email db "test@test.com"))))]
         (testing "never chosen: absent, so the browser's own choice is not overwritten at login"
           (is (not (contains? (body) :dark-button-text?))))
         (testing "turning it on saves it and returns it"
@@ -406,17 +407,17 @@
                  :remote-addr "1.2.3.4"}]
     (testing "an address that sprayed five accounts is turned away"
       (with-redefs [security/multiple-account-access? (constantly true)]
-        (let [{:keys [status body]} (routes/login-response request)]
+        (let [{:keys [status body]} (auth/login-response request)]
           (is (= 401 status))
           (is (= errors/too-many-attempts (:error body))))))
     (testing "an ordinary address still reaches the credential check"
       (with-redefs [security/multiple-account-access? (constantly false)]
-        (is (thrown? Exception (routes/login-response request)))))
+        (is (thrown? Exception (auth/login-response request)))))
     (testing "a blank field is still answered before the address is consulted"
       (with-redefs [security/multiple-account-access?
                     (fn [_] (throw (AssertionError. "consulted too early")))]
         (is (= errors/username-required
-               (-> (routes/login-response (assoc-in request [:json-params :username] ""))
+               (-> (auth/login-response (assoc-in request [:json-params :username] ""))
                    :body :error)))))))
 
 
@@ -425,21 +426,21 @@
   ;; account, which turned it into a membership test anyone could run.
   (let [sent (atom [])
         request {:query-params {:email "someone@example.com"} :db nil :conn nil}]
-    (with-redefs [routes/do-send-password-reset
+    (with-redefs [auth/do-send-password-reset
                   (fn [id email _ _] (swap! sent conj [id email]) {:status 200})]
       (testing "an address with no account"
-        (with-redefs [routes/user-for-email (constantly nil)]
-          (is (= {:status 200} (routes/send-password-reset request)))
+        (with-redefs [auth/user-for-email (constantly nil)]
+          (is (= {:status 200} (auth/send-password-reset request)))
           (is (empty? @sent) "no mail for an address we do not know")))
       (testing "an address with an account gets the identical answer"
-        (with-redefs [routes/user-for-email (constantly {:db/id 17})]
-          (is (= {:status 200} (routes/send-password-reset request)))
+        (with-redefs [auth/user-for-email (constantly {:db/id 17})]
+          (is (= {:status 200} (auth/send-password-reset request)))
           (is (= [[17 "someone@example.com"]] @sent)))))
     (testing "a send that fails does not mark the address as registered"
-      (with-redefs [routes/user-for-email (constantly {:db/id 17})
-                    routes/do-send-password-reset
+      (with-redefs [auth/user-for-email (constantly {:db/id 17})
+                    auth/do-send-password-reset
                     (fn [& _] (throw (ex-info "smtp is down" {})))]
-        (is (= {:status 200} (routes/send-password-reset request)))))))
+        (is (= {:status 200} (auth/send-password-reset request)))))))
 
 
 (defn- clear-limits! []
@@ -448,11 +449,11 @@
 (deftest resend-verification-is-limited-per-address-and-answers-the-same
   (let [sent (atom 0)
         resend (fn [email ip]
-                 (routes/re-verify {:query-params {:email email} :db nil :conn nil
+                 (auth/re-verify {:query-params {:email email} :db nil :conn nil
                                     :remote-addr ip}))]
     (clear-limits!)
-    (with-redefs [routes/user-for-email (constantly {:db/id 17})
-                  routes/do-verification (fn [& _] (swap! sent inc) {:status 200})]
+    (with-redefs [auth/user-for-email (constantly {:db/id 17})
+                  auth/do-verification (fn [& _] (swap! sent inc) {:status 200})]
       (testing "within the per-address limit, mail goes out"
         (dotimes [_ 3]
           (is (= {:status 200} (resend "someone@example.com" "1.2.3.4"))))
@@ -464,11 +465,11 @@
 
 (deftest resend-verification-is-limited-per-host-and-answers-the-same
   (let [sent (atom 0)
-        resend (fn [n] (routes/re-verify {:query-params {:email (str "user" n "@example.com")}
+        resend (fn [n] (auth/re-verify {:query-params {:email (str "user" n "@example.com")}
                                           :db nil :conn nil :remote-addr "5.6.7.8"}))]
     (clear-limits!)
-    (with-redefs [routes/user-for-email (constantly {:db/id 17})
-                  routes/do-verification (fn [& _] (swap! sent inc) {:status 200})]
+    (with-redefs [auth/user-for-email (constantly {:db/id 17})
+                  auth/do-verification (fn [& _] (swap! sent inc) {:status 200})]
       (testing "ten different addresses from one host get mail"
         (dotimes [n 10]
           (is (= {:status 200} (resend n))))
@@ -481,11 +482,11 @@
 (deftest password-reset-is-limited-per-address-and-answers-the-same
   (let [sent (atom 0)
         reset (fn [email ip]
-                (routes/send-password-reset {:query-params {:email email} :db nil :conn nil
+                (auth/send-password-reset {:query-params {:email email} :db nil :conn nil
                                              :remote-addr ip}))]
     (clear-limits!)
-    (with-redefs [routes/user-for-email (constantly {:db/id 17})
-                  routes/do-send-password-reset (fn [& _] (swap! sent inc) {:status 200})]
+    (with-redefs [auth/user-for-email (constantly {:db/id 17})
+                  auth/do-send-password-reset (fn [& _] (swap! sent inc) {:status 200})]
       (let [first-response (reset "someone@example.com" "1.2.3.4")]
         (testing "within the per-address limit, mail goes out"
           (dotimes [_ 2]
@@ -498,11 +499,11 @@
 
 (deftest password-reset-is-limited-per-host-and-answers-the-same
   (let [sent (atom 0)
-        reset (fn [n] (routes/send-password-reset {:query-params {:email (str "user" n "@example.com")}
+        reset (fn [n] (auth/send-password-reset {:query-params {:email (str "user" n "@example.com")}
                                                    :db nil :conn nil :remote-addr "5.6.7.8"}))]
     (clear-limits!)
-    (with-redefs [routes/user-for-email (constantly {:db/id 17})
-                  routes/do-send-password-reset (fn [& _] (swap! sent inc) {:status 200})]
+    (with-redefs [auth/user-for-email (constantly {:db/id 17})
+                  auth/do-send-password-reset (fn [& _] (swap! sent inc) {:status 200})]
       (let [first-response (reset 0)]
         (testing "ten different addresses from one host get mail"
           (dotimes [n 9]
@@ -515,14 +516,14 @@
 
 (deftest password-reset-for-an-unknown-address-sends-nothing-and-answers-the-same
   (let [sent (atom 0)
-        reset (fn [email] (routes/send-password-reset {:query-params {:email email} :db nil :conn nil
+        reset (fn [email] (auth/send-password-reset {:query-params {:email email} :db nil :conn nil
                                                        :remote-addr "9.9.9.9"}))]
     (clear-limits!)
-    (with-redefs [routes/do-send-password-reset (fn [& _] (swap! sent inc) {:status 200})]
-      (let [known (with-redefs [routes/user-for-email (constantly {:db/id 17})]
+    (with-redefs [auth/do-send-password-reset (fn [& _] (swap! sent inc) {:status 200})]
+      (let [known (with-redefs [auth/user-for-email (constantly {:db/id 17})]
                     (reset "known@example.com"))
             sent-for-known @sent
-            unknown (with-redefs [routes/user-for-email (constantly {})]
+            unknown (with-redefs [auth/user-for-email (constantly {})]
                       (reset "nobody@example.com"))]
         (is (= 1 sent-for-known))
         (is (= known unknown))
@@ -533,8 +534,8 @@
 (deftest the-owner-is-told-when-one-account-is-tried-from-several-places
   (let [posted (promise)
         request {:scheme :https :headers {"host" "example.test"}}
-        call #(routes/bad-credentials-response nil "kaylee" "1.2.3.4" request)]
-    (with-redefs [routes/find-user-by-username-or-email
+        call #(auth/bad-credentials-response nil "kaylee" "1.2.3.4" request)]
+    (with-redefs [auth/find-user-by-username-or-email
                   (constantly {:db/id 17
                                :orcpub.user/email "kaylee@serenity.example" :orcpub.user/email-key "kaylee@serenity.example"
                                :orcpub.user/first-and-last-name "Kaylee"})
@@ -553,19 +554,19 @@
 
   (testing "a spread of addresses that never happened sends nothing"
     (let [posted (atom [])]
-      (with-redefs [routes/find-user-by-username-or-email (constantly {:db/id 17})
+      (with-redefs [auth/find-user-by-username-or-email (constantly {:db/id 17})
                     security/multiple-ip-attempts-to-same-account? (constantly false)
                     outbox/enqueue! (fn [& a] (swap! posted conj a))]
-        (routes/bad-credentials-response nil "kaylee" "1.2.3.4" {})
+        (auth/bad-credentials-response nil "kaylee" "1.2.3.4" {})
         (Thread/sleep 60)
         (is (empty? @posted)))))
 
   (testing "an address with no account here is told nothing at all"
     (let [posted (atom [])]
-      (with-redefs [routes/find-user-by-username-or-email (constantly nil)
+      (with-redefs [auth/find-user-by-username-or-email (constantly nil)
                     security/multiple-ip-attempts-to-same-account? (constantly true)
                     outbox/enqueue! (fn [& a] (swap! posted conj a))]
-        (routes/bad-credentials-response nil "nobody" "1.2.3.4" {})
+        (auth/bad-credentials-response nil "nobody" "1.2.3.4" {})
         (Thread/sleep 60)
         (is (empty? @posted))))))
 
@@ -595,12 +596,12 @@
 
 (deftest the-reset-key-is-stored-as-a-digest
   (let [key "0a5f8e2c-1111-2222-3333-444455556666"
-        digest (routes/hash-reset-key key)]
+        digest (auth/hash-reset-key key)]
     (is (= 64 (count digest)) "SHA-256 as hex")
     (is (re-matches #"[0-9a-f]{64}" digest))
     (is (not= key digest) "the emailed secret is not what the table holds")
-    (is (= digest (routes/hash-reset-key key)) "and the lookup can reproduce it")
-    (is (not= digest (routes/hash-reset-key (str key "x"))))))
+    (is (= digest (auth/hash-reset-key key)) "and the lookup can reproduce it")
+    (is (not= digest (auth/hash-reset-key (str key "x"))))))
 
 
 (deftest the-corpus-refuses-only-the-egregious
@@ -610,14 +611,14 @@
   ;; first is the strength meter's to argue with while someone is still typing.
   (doseq [[n refused?] {0 false, 1 false, 297 false, 999 false, 1000 true, 52372427 true}]
     (with-redefs [pwned/check (constantly n)]
-      (is (= refused? (some? (#'routes/breach-errors "irrelevant")))
+      (is (= refused? (some? (#'auth/breach-errors "irrelevant")))
           (str n " appearances"))))
   (testing "a service that could not answer is not an objection"
     (with-redefs [pwned/check (constantly :unknown)]
-      (is (nil? (#'routes/breach-errors "irrelevant")))))
+      (is (nil? (#'auth/breach-errors "irrelevant")))))
   (testing "the verdict is keyed for the METER, not as a field fault"
     (with-redefs [pwned/check (constantly 52372427)]
-      (let [answer (#'routes/breach-errors "irrelevant")]
+      (let [answer (#'auth/breach-errors "irrelevant")]
         ;; :password would render it as a red error above the input, directly
         ;; over a meter reporting UNCOMMON in green about the same password.
         (is (nil? (:password answer)) "not keyed with the rule faults")
@@ -669,9 +670,9 @@
                        :orcpub.user/email "resetter@test.com" :orcpub.user/email-key "resetter@test.com"
                        :orcpub.user/password "old-hash"
                        :orcpub.user/verified? true
-                       :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
+                       :orcpub.user/password-reset-key (auth/hash-reset-key reset-key)
                        :orcpub.user/password-reset-sent sent}])
-      (with-redefs-fn {#'routes/breach-errors (constantly nil)}
+      (with-redefs-fn {#'auth/breach-errors (constantly nil)}
         (fn []
           (testing "opening the link grants no session"
             (let [resp (routes/reset-password-page {:query-params {:key reset-key} :db (d/db c)
@@ -684,23 +685,23 @@
                   "the key in the URL must not leak through the Referer of anything the page loads")))
           (testing "a submit without the key, or with a wrong one, changes nothing"
             (doseq [k [nil "" "not-the-key"]]
-              (let [resp (routes/reset-password (request {:password "a fresh long passphrase"
+              (let [resp (auth/reset-password (request {:password "a fresh long passphrase"
                                                           :verify-password "a fresh long passphrase"
                                                           :key k}))]
                 (is (= 400 (:status resp)) (str "key " (pr-str k)))
                 (is (seq (get-in resp [:body :general])))))
-            (is (= "old-hash" (:orcpub.user/password (routes/first-user-by (d/db c) routes/username-query "resetter")))))
+            (is (= "old-hash" (:orcpub.user/password (auth/first-user-by (d/db c) auth/username-query "resetter")))))
           (testing "the key sets the password once, and is then spent"
-            (is (= 200 (:status (routes/reset-password (request {:password "a fresh long passphrase"
+            (is (= 200 (:status (auth/reset-password (request {:password "a fresh long passphrase"
                                                                  :verify-password "a fresh long passphrase"
                                                                  :key reset-key})))))
-            (let [user (routes/first-user-by (d/db c) routes/username-query "resetter")]
+            (let [user (auth/first-user-by (d/db c) auth/username-query "resetter")]
               (is (not= "old-hash" (:orcpub.user/password user)))
               (is (nil? (:orcpub.user/password-reset-key user)) "the key was not retired"))
             (is (= #{[:password-changed "resetter@test.com"]}
                    (d/q '[:find ?k ?to :where [?e :orcpub.outbox/kind ?k] [?e :orcpub.outbox/to ?to]] (d/db c)))
                 "the password-changed notice is queued with the change")
-            (is (= 400 (:status (routes/reset-password (request {:password "another long passphrase"
+            (is (= 400 (:status (auth/reset-password (request {:password "another long passphrase"
                                                                  :verify-password "another long passphrase"
                                                                  :key reset-key}))))
                 "a used link worked twice")))))))
@@ -713,12 +714,12 @@
       @(d/transact c schema/all-schemas)
       @(d/transact c [{:orcpub.user/username "racer" :orcpub.user/email "racer@test.com" :orcpub.user/email-key "racer@test.com"
                        :orcpub.user/password "old-hash"
-                       :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
+                       :orcpub.user/password-reset-key (auth/hash-reset-key reset-key)
                        :orcpub.user/password-reset-sent (java.util.Date.)}])
-      (with-redefs-fn {#'routes/breach-errors (constantly nil)}
+      (with-redefs-fn {#'auth/breach-errors (constantly nil)}
         (fn []
           (let [before (d/db c)
-                submit (fn [pw] (routes/reset-password {:json-params {:password pw :verify-password pw :key reset-key}
+                submit (fn [pw] (auth/reset-password {:json-params {:password pw :verify-password pw :key reset-key}
                                                         :db before :conn c :headers {"host" "example.test"}}))
                 first-resp (submit "the first long passphrase")
                 second-resp (submit "the second long passphrase")]
@@ -733,15 +734,15 @@
       @(d/transact c [{:orcpub.user/username "late"
                        :orcpub.user/email "late@test.com" :orcpub.user/email-key "late@test.com"
                        :orcpub.user/password "old-hash"
-                       :orcpub.user/password-reset-key (routes/hash-reset-key reset-key)
+                       :orcpub.user/password-reset-key (auth/hash-reset-key reset-key)
                        :orcpub.user/password-reset-sent (java.util.Date. (- (System/currentTimeMillis)
                                                                             (* 3 3600 1000)))}])
-      (with-redefs-fn {#'routes/breach-errors (constantly nil)}
+      (with-redefs-fn {#'auth/breach-errors (constantly nil)}
         (fn []
-          (let [resp (routes/reset-password {:json-params {:password "a fresh long passphrase"
+          (let [resp (auth/reset-password {:json-params {:password "a fresh long passphrase"
                                                            :verify-password "a fresh long passphrase"
                                                            :key reset-key}
                                              :db (d/db c) :conn c :headers {"host" "example.test"}})]
             (is (= 400 (:status resp)))
             (is (= "old-hash" (:orcpub.user/password
-                               (routes/first-user-by (d/db c) routes/username-query "late"))))))))))
+                               (auth/first-user-by (d/db c) auth/username-query "late"))))))))))

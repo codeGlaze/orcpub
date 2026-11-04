@@ -22,6 +22,7 @@
    [orcpub.email :as email]
    [orcpub.errors :as errors]
    [orcpub.routes :as routes]
+   [orcpub.routes.auth :as auth]
    [orcpub.security :as security]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
@@ -66,7 +67,7 @@
     (testing "registration succeeds and the account is already verified"
       (with-redefs [email/configured? (constantly false)
                     email/unverified-registration-allowed? (constantly true)]
-        (let [resp (routes/register (register-request conn))
+        (let [resp (auth/register (register-request conn))
               user (find-user (d/db conn))]
           (is (zero? (queued-emails (d/db conn))) "no email is queued with no mail server to send it")
           (is (= 200 (:status resp)))
@@ -82,9 +83,9 @@
   (let [conn (fresh-conn)]
     (with-redefs [email/configured? (constantly false)
                     email/unverified-registration-allowed? (constantly true)]
-      (routes/register (register-request conn)))
+      (auth/register (register-request conn)))
     (testing "the account registered without SMTP can sign in"
-      (let [resp (routes/login-response
+      (let [resp (auth/login-response
                   {:conn conn
                    :db (d/db conn)
                    :remote-addr "127.0.0.1"
@@ -98,7 +99,7 @@
     (testing "the normal flow still creates an unverified account and queues a link"
       (with-redefs [email/configured? (constantly true)
                     email/unverified-registration-allowed? (constantly false)]
-        (let [resp (routes/register (register-request conn))
+        (let [resp (auth/register (register-request conn))
               user (find-user (d/db conn))]
           (is (= 200 (:status resp)))
           (is (nil? (get-in resp [:body :verified?]))
@@ -121,7 +122,7 @@
     (testing "no SMTP and no explicit opt-in refuses to register anyone"
       (with-redefs [email/configured? (constantly false)
                     email/unverified-registration-allowed? (constantly false)]
-        (let [resp (routes/register (register-request conn))]
+        (let [resp (auth/register (register-request conn))]
           (is (zero? (queued-emails (d/db conn))) "no email is queued")
           (is (= 503 (:status resp))
               "registration must be REFUSED when email config is missing and nothing opted out")

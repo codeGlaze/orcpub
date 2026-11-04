@@ -13,6 +13,7 @@
    [orcpub.errors :as errors]
    [orcpub.outbox :as outbox]
    [orcpub.routes :as routes]
+   [orcpub.routes.auth :as auth]
    [orcpub.security :as security]
    [orcpub.db.schema :as schema])
   (:import [java.util Date UUID]))
@@ -70,7 +71,7 @@
 
 (deftest sign-up-saves-the-account-and-its-email-together
   (let [conn (fresh-conn)
-        resp (routes/register (register-request conn))
+        resp (auth/register (register-request conn))
         user (find-user (d/db conn) "newcomer")
         [email & more] (queued conn)]
     (is (= 200 (:status resp)))
@@ -83,7 +84,7 @@
 (deftest sign-up-works-while-the-mail-server-is-down
   (let [conn (fresh-conn)
         down (fn [_] (throw (javax.mail.MessagingException. "Connection refused")))]
-    (is (= 200 (:status (routes/register (register-request conn)))) "the person is not turned away")
+    (is (= 200 (:status (auth/register (register-request conn)))) "the person is not turned away")
     (outbox/send-due! conn down #(Date.))
     (is (some? (find-user (d/db conn) "newcomer")) "the account stays")
     (is (= :pending (:status (first (queued conn)))) "and its email waits for another try")
@@ -95,10 +96,10 @@
 
 (deftest a-resend-replaces-the-key-and-queues-a-new-email
   (let [conn (fresh-conn)]
-    (routes/register (register-request conn))
+    (auth/register (register-request conn))
     (outbox/send-due! conn (constantly true) #(Date.))
     (let [before (find-user (d/db conn) "newcomer")
-          resp (routes/re-verify (re-verify-request conn "newcomer@test.com"))
+          resp (auth/re-verify (re-verify-request conn "newcomer@test.com"))
           after (find-user (d/db conn) "newcomer")
           [email] (queued conn)]
       (is (= 200 (:status resp)))
@@ -111,7 +112,7 @@
 (deftest a-resend-to-an-unknown-address-creates-nothing
   ;; re-verify is unauthenticated, so it answers like a resend and reveals nothing.
   (let [conn (fresh-conn)
-        resp (routes/re-verify (re-verify-request conn "nobody@test.com"))]
+        resp (auth/re-verify (re-verify-request conn "nobody@test.com"))]
     (is (= 200 (:status resp)) "answers like any resend")
     (is (nil? (d/q '[:find (count ?e) . :where [?e :orcpub.user/verification-key]] (d/db conn)))
         "no record was created for an unknown address")

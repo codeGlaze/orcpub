@@ -5,6 +5,7 @@
             [datomic.api :as datomic]
             [buddy.hashers :as hashers]
             [orcpub.routes :as r]
+            [orcpub.routes.auth :as auth]
             [orcpub.system :as s]
             [orcpub.common :as common]
             [orcpub.server :as server]
@@ -125,9 +126,9 @@
    since the email never gets sent."
   [username-or-email]
   (with-db [conn db]
-    (let [user (r/find-user-by-username-or-email db username-or-email)
+    (let [user (auth/find-user-by-username-or-email db username-or-email)
           verification-key (:orcpub.user/verification-key user)]
-      (r/verify {:query-params {:key verification-key}
+      (auth/verify {:query-params {:key verification-key}
                  :conn conn
                  :db db}))))
 
@@ -170,7 +171,7 @@
     (let [username "test"
           email "test@example.com"
           password "testpass"]
-      (r/register {:username username :email email :password password :verified true}))
+      (auth/register {:username username :email email :password password :verified true}))
     (println "add-test-user is disabled outside dev environment.")))
 
 ;; ---------------------------------------------------------------------------
@@ -236,7 +237,7 @@
    Does not require a running server."
   [conn username-or-email]
   (let [db (datomic/db conn)
-        user (r/find-user-by-username-or-email db username-or-email)]
+        user (auth/find-user-by-username-or-email db username-or-email)]
     (if-not user
       (throw (ex-info "User not found" {:username-or-email username-or-email}))
       @(datomic/transact conn [[:db/add (:db/id user) :orcpub.user/verified? true]]))))
@@ -245,7 +246,7 @@
   "Remove a user entity by username or email. Dev only."
   [conn username-or-email]
   (let [db (datomic/db conn)
-        user (r/find-user-by-username-or-email db username-or-email)]
+        user (auth/find-user-by-username-or-email db username-or-email)]
     (if-not user
       (throw (ex-info "User not found" {:username-or-email username-or-email}))
       @(datomic/transact conn [[:db/retractEntity (:db/id user)]]))))
