@@ -715,7 +715,7 @@
         {:status 400}))
     {:status 400}))
 
-(defn re-verify [{:keys [query-params db conn] :as request}]
+(defn re-verify [{:keys [query-params db conn remote-addr] :as request}]
   (let [email (:email query-params)
         {:keys [:orcpub.user/verification-sent
                 :orcpub.user/verified?
@@ -725,6 +725,8 @@
       ;; No account for this address: answer like a resend and create nothing. Passing
       ;; {:db/id nil} on would register a key-only record and email a link to any address typed.
       (nil? id) {:status 200}
+      ;; Over the limit: the same answer as an unknown address, so the limit is not a membership oracle.
+      (not (security/reverify-email-allowed? email remote-addr)) {:status 200}
       :else
       (do-verification request
                        (merge query-params

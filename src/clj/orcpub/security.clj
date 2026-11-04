@@ -286,6 +286,18 @@
   (and (under-limit? [:reset-address email] reset-per-address-hourly (hours 1))
        (under-limit? [:reset-host ip] reset-per-host-hourly (hours 1))))
 
+;; Same ceilings as reset: the resend endpoint mails any registered, unverified
+;; address just as the reset endpoint does, so it gets the same two limits.
+(def reverify-per-address-hourly 3)
+(def reverify-per-host-hourly 10)
+
+(defn reverify-email-allowed?
+  "True while `email` and `ip` are both under their hourly resend-verification
+   limits. Counts the attempt against each limit, so call it once per request."
+  [email ip]
+  (and (under-limit? [:reverify-address email] reverify-per-address-hourly (hours 1))
+       (under-limit? [:reverify-host ip] reverify-per-host-hourly (hours 1))))
+
 ;; What this defends is NOT the account table -- an unverified account cannot log
 ;; in, so bulk signups sit inert. What signup CAN do is send mail to an address
 ;; the filler doesn't own, same as the reset endpoint. Sized to real use (eight
@@ -322,6 +334,8 @@
   (let [caps {:register registrations-per-host-hourly
               :reset-address reset-per-address-hourly
               :reset-host reset-per-host-hourly
+              :reverify-address reverify-per-address-hourly
+              :reverify-host reverify-per-host-hourly
               :image-probe-host image-probe-per-host-hourly}
         near (for [[what n] highs
                    :let [cap (get caps what)]

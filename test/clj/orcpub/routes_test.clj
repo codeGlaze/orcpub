@@ -442,6 +442,43 @@
         (is (= {:status 200} (routes/send-password-reset request)))))))
 
 
+(defn- clear-limits! []
+  (reset! @#'security/sightings {}))
+
+(deftest resend-verification-is-limited-per-address-and-answers-the-same
+  (let [sent (atom 0)
+        resend (fn [email ip]
+                 (routes/re-verify {:query-params {:email email} :db nil :conn nil
+                                    :remote-addr ip}))]
+    (clear-limits!)
+    (with-redefs [routes/user-for-email (constantly {:db/id 17})
+                  routes/do-verification (fn [& _] (swap! sent inc) {:status 200})]
+      (testing "within the per-address limit, mail goes out"
+        (dotimes [_ 3]
+          (is (= {:status 200} (resend "someone@example.com" "1.2.3.4"))))
+        (is (= 3 @sent)))
+      (testing "the fourth in the hour sends nothing and answers the same"
+        (is (= {:status 200} (resend "someone@example.com" "1.2.3.4")))
+        (is (= 3 @sent))))
+    (clear-limits!)))
+
+(deftest resend-verification-is-limited-per-host-and-answers-the-same
+  (let [sent (atom 0)
+        resend (fn [n] (routes/re-verify {:query-params {:email (str "user" n "@example.com")}
+                                          :db nil :conn nil :remote-addr "5.6.7.8"}))]
+    (clear-limits!)
+    (with-redefs [routes/user-for-email (constantly {:db/id 17})
+                  routes/do-verification (fn [& _] (swap! sent inc) {:status 200})]
+      (testing "ten different addresses from one host get mail"
+        (dotimes [n 10]
+          (is (= {:status 200} (resend n))))
+        (is (= 10 @sent)))
+      (testing "the eleventh sends nothing and answers the same"
+        (is (= {:status 200} (resend 10)))
+        (is (= 10 @sent))))
+    (clear-limits!)))
+
+
 (deftest the-owner-is-told-when-one-account-is-tried-from-several-places
   (let [posted (promise)
         request {:scheme :https :headers {"host" "example.test"}}
