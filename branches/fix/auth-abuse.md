@@ -4,11 +4,16 @@
 verification, Turnstile on sign-up, and the "email taken" check. **Base:** `integration`.
 **PR into:** `integration`. **KB:** `docs/kb/auth-abuse-limits.md` (read it first).
 
-## State (updated 2026-11-03)
+## State (updated 2026-11-04)
 
 - Done: step 1, `re-verify` limited 3/address/hr and 10/host/hr, plain 200 when throttled
   (`dffcbc17`; `routes_test.clj` resend tests, fail-first shown).
-- In progress: step 1b, tests for the password-reset limits (none existed).
+- Done: step 1b, password-reset limit tests (`e082c3b8`).
+- Done: step 2, Turnstile on sign-up (`07cff998`; `turnstile.clj`/`.cljs`, `turnstile_test.clj`,
+  9 tests, fail-first shown; full suite 1479/0; prod CLJS compiles). Not yet tried in a browser
+  against Cloudflare (use the always-pass test keys in `docs/ENVIRONMENT.md`). A browser that
+  blocks the Cloudflare script sends no token and is refused; only the server side fails open.
+  The page-load budget e2e does not visit sign-up, so it needed no change.
 - Next, in order:
   1. `re-verify` (`routes.clj:718`): reuse `security/under-limit?` with per-address and per-host
      keys like `reset-email-allowed?`, add both to `busiest-summary`'s caps, answer 200 either way.
