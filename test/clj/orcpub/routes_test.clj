@@ -397,189 +397,46 @@
           (is (true? (:send-updates? (body)))))))))
 
 
-(deftest a-sprayed-address-is-refused-before-the-credentials
-  ;; :db is nil deliberately. lookup-user would throw on it, so these only pass
-  ;; if the address is judged before any credential work is attempted -- which
-  ;; is the point of the check: stuffing ends on the account it guesses RIGHT,
-  ;; and a check that runs only after a failed lookup never sees that attempt.
-  (let [request {:json-params {:username "kaylee" :password "whatever"}
-                 :db nil
-                 :remote-addr "1.2.3.4"}]
-    (testing "an address that sprayed five accounts is turned away"
-      (with-redefs [security/multiple-account-access? (constantly true)]
-        (let [{:keys [status body]} (auth/login-response request)]
-          (is (= 401 status))
-          (is (= errors/too-many-attempts (:error body))))))
-    (testing "an ordinary address still reaches the credential check"
-      (with-redefs [security/multiple-account-access? (constantly false)]
-        (is (thrown? Exception (auth/login-response request)))))
-    (testing "a blank field is still answered before the address is consulted"
-      (with-redefs [security/multiple-account-access?
-                    (fn [_] (throw (AssertionError. "consulted too early")))]
-        (is (= errors/username-required
-               (-> (auth/login-response (assoc-in request [:json-params :username] ""))
-                   :body :error)))))))
+(deftest a-failed-send-does-not-mark-a-reset-address-as-registered
+  ;; Swallowed on purpose: only a real account can fail to be emailed, so an error response would
+  ;; reopen the membership test the uniform 200 closed. (Everything else about the reset form's
+  ;; limits and answers is read off security/auth-guards in security_test.clj.)
+  (with-redefs [auth/user-for-email (constantly {:db/id 17})
+                auth/do-send-password-reset (fn [& _] (throw (ex-info "smtp is down" {})))]
+    (is (= {:status 200} (auth/send-password-reset {:query-params {:email "someone@example.com"}
+                                                    :db nil :conn nil :remote-addr "9.9.9.9"})))))
 
-
-(deftest password-reset-says-the-same-thing-about-every-address
-  ;; The endpoint used to answer 400 {:error :no-account} for an address with no
-  ;; account, which turned it into a membership test anyone could run.
-  (let [sent (atom [])
-        request {:query-params {:email "someone@example.com"} :db nil :conn nil}]
-    (with-redefs [auth/do-send-password-reset
-                  (fn [id email _ _] (swap! sent conj [id email]) {:status 200})]
-      (testing "an address with no account"
-        (with-redefs [auth/user-for-email (constantly nil)]
-          (is (= {:status 200} (auth/send-password-reset request)))
-          (is (empty? @sent) "no mail for an address we do not know")))
-      (testing "an address with an account gets the identical answer"
-        (with-redefs [auth/user-for-email (constantly {:db/id 17})]
-          (is (= {:status 200} (auth/send-password-reset request)))
-          (is (= [[17 "someone@example.com"]] @sent)))))
-    (testing "a send that fails does not mark the address as registered"
-      (with-redefs [auth/user-for-email (constantly {:db/id 17})
-                    auth/do-send-password-reset
-                    (fn [& _] (throw (ex-info "smtp is down" {})))]
-        (is (= {:status 200} (auth/send-password-reset request)))))))
-
-
-(defn- clear-limits! []
-  (reset! @#'security/sightings {}))
-
-(deftest resend-verification-is-limited-per-address-and-answers-the-same
-  (let [sent (atom 0)
-        resend (fn [email ip]
-                 (auth/re-verify {:query-params {:email email} :db nil :conn nil
-                                    :remote-addr ip}))]
-    (clear-limits!)
-    (with-redefs [auth/user-for-email (constantly {:db/id 17})
-                  auth/do-verification (fn [& _] (swap! sent inc) {:status 200})]
-      (testing "within the per-address limit, mail goes out"
-        (dotimes [_ 3]
-          (is (= {:status 200} (resend "someone@example.com" "1.2.3.4"))))
-        (is (= 3 @sent)))
-      (testing "the fourth in the hour sends nothing and answers the same"
-        (is (= {:status 200} (resend "someone@example.com" "1.2.3.4")))
-        (is (= 3 @sent))))
-    (clear-limits!)))
-
-(deftest resend-verification-is-limited-per-host-and-answers-the-same
-  (let [sent (atom 0)
-        resend (fn [n] (auth/re-verify {:query-params {:email (str "user" n "@example.com")}
-                                          :db nil :conn nil :remote-addr "5.6.7.8"}))]
-    (clear-limits!)
-    (with-redefs [auth/user-for-email (constantly {:db/id 17})
-                  auth/do-verification (fn [& _] (swap! sent inc) {:status 200})]
-      (testing "ten different addresses from one host get mail"
-        (dotimes [n 10]
-          (is (= {:status 200} (resend n))))
-        (is (= 10 @sent)))
-      (testing "the eleventh sends nothing and answers the same"
-        (is (= {:status 200} (resend 10)))
-        (is (= 10 @sent))))
-    (clear-limits!)))
-
-(deftest password-reset-is-limited-per-address-and-answers-the-same
-  (let [sent (atom 0)
-        reset (fn [email ip]
-                (auth/send-password-reset {:query-params {:email email} :db nil :conn nil
-                                             :remote-addr ip}))]
-    (clear-limits!)
-    (with-redefs [auth/user-for-email (constantly {:db/id 17})
-                  auth/do-send-password-reset (fn [& _] (swap! sent inc) {:status 200})]
-      (let [first-response (reset "someone@example.com" "1.2.3.4")]
-        (testing "within the per-address limit, mail goes out"
-          (dotimes [_ 2]
-            (is (= first-response (reset "someone@example.com" "1.2.3.4"))))
-          (is (= 3 @sent)))
-        (testing "the fourth in the hour sends nothing and answers the same"
-          (is (= first-response (reset "someone@example.com" "1.2.3.4")))
-          (is (= 3 @sent)))))
-    (clear-limits!)))
-
-(deftest password-reset-is-limited-per-host-and-answers-the-same
-  (let [sent (atom 0)
-        reset (fn [n] (auth/send-password-reset {:query-params {:email (str "user" n "@example.com")}
-                                                   :db nil :conn nil :remote-addr "5.6.7.8"}))]
-    (clear-limits!)
-    (with-redefs [auth/user-for-email (constantly {:db/id 17})
-                  auth/do-send-password-reset (fn [& _] (swap! sent inc) {:status 200})]
-      (let [first-response (reset 0)]
-        (testing "ten different addresses from one host get mail"
-          (dotimes [n 9]
-            (is (= first-response (reset (inc n)))))
-          (is (= 10 @sent)))
-        (testing "the eleventh sends nothing and answers the same"
-          (is (= first-response (reset 10)))
-          (is (= 10 @sent)))))
-    (clear-limits!)))
-
-(deftest password-reset-for-an-unknown-address-sends-nothing-and-answers-the-same
-  (let [sent (atom 0)
-        reset (fn [email] (auth/send-password-reset {:query-params {:email email} :db nil :conn nil
-                                                       :remote-addr "9.9.9.9"}))]
-    (clear-limits!)
-    (with-redefs [auth/do-send-password-reset (fn [& _] (swap! sent inc) {:status 200})]
-      (let [known (with-redefs [auth/user-for-email (constantly {:db/id 17})]
-                    (reset "known@example.com"))
-            sent-for-known @sent
-            unknown (with-redefs [auth/user-for-email (constantly {})]
-                      (reset "nobody@example.com"))]
-        (is (= 1 sent-for-known))
-        (is (= known unknown))
-        (is (= 1 @sent))))
-    (clear-limits!)))
-
+(defn- fail-from [ip typed request]
+  (auth/bad-credentials-response nil typed ip request))
 
 (deftest the-owner-is-told-when-one-account-is-tried-from-several-places
-  (let [posted (promise)
+  (reset! @#'security/sightings {})
+  (let [posted (atom [])
         request {:scheme :https :headers {"host" "example.test"}}
-        call #(auth/bad-credentials-response nil "kaylee" "1.2.3.4" request)]
-    (with-redefs [auth/find-user-by-username-or-email
-                  (constantly {:db/id 17
-                               :orcpub.user/email "kaylee@serenity.example" :orcpub.user/email-key "kaylee@serenity.example"
-                               :orcpub.user/first-and-last-name "Kaylee"})
-                  outbox/enqueue!
-                  (fn [_conn _kind message] (deliver posted message))]
-
-      (testing "the response says bad credentials either way, as it did before"
-        (with-redefs [security/multiple-ip-attempts-to-same-account? (constantly true)
-                      security/claim-sign-in-notice! (constantly true)]
-          (is (= errors/bad-credentials (-> (call) :body :error)))))
-
-      (testing "and the notice reaches the address on the account"
-        (let [message (deref posted 2000 :never-sent)]
-          (is (= "kaylee@serenity.example" (:to message)))
-          (is (re-find #"https://example\.test" (pr-str (:body message))) "linking to this site")))))
-
-  (testing "a spread of addresses that never happened sends nothing"
-    (let [posted (atom [])]
-      (with-redefs [auth/find-user-by-username-or-email (constantly {:db/id 17})
-                    security/multiple-ip-attempts-to-same-account? (constantly false)
-                    outbox/enqueue! (fn [& a] (swap! posted conj a))]
-        (auth/bad-credentials-response nil "kaylee" "1.2.3.4" {})
-        (Thread/sleep 60)
-        (is (empty? @posted)))))
-
-  (testing "an address with no account here is told nothing at all"
-    (let [posted (atom [])]
-      (with-redefs [auth/find-user-by-username-or-email (constantly nil)
-                    security/multiple-ip-attempts-to-same-account? (constantly true)
-                    outbox/enqueue! (fn [& a] (swap! posted conj a))]
-        (auth/bad-credentials-response nil "nobody" "1.2.3.4" {})
-        (Thread/sleep 60)
-        (is (empty? @posted))))))
-
-(deftest a-sign-in-notice-is-claimed-once-per-window
-  ;; Without this an attacker who can trigger the condition can trigger it on a
-  ;; loop, turning the warning into a way to mail-bomb any account by username.
-  (let [who (str "claim-test-" (System/nanoTime))]
-    (is (true? (security/claim-sign-in-notice! who)))
-    (is (false? (security/claim-sign-in-notice! who)))
-    (is (false? (security/claim-sign-in-notice! who)))
-    (is (true? (security/claim-sign-in-notice! (str who "-other")))
-        "a different account has its own window")))
-
+        account {:db/id 17 :orcpub.user/email "kaylee@serenity.example"
+                 :orcpub.user/first-and-last-name "Kaylee"}]
+    (with-redefs [outbox/enqueue! (fn [_conn _kind message] (swap! posted conj message))]
+      (testing "a spread of addresses that never happened sends nothing"
+        (with-redefs [auth/find-user-by-username-or-email (constantly account)]
+          (fail-from "1.1.1.1" "kaylee" request)
+          (fail-from "2.2.2.2" "kaylee" request)
+          (Thread/sleep 60)
+          (is (empty? @posted))))
+      (testing "an address with no account here is told nothing at all"
+        (with-redefs [auth/find-user-by-username-or-email (constantly nil)]
+          (dotimes [i 3] (fail-from (str "3.3.3." i) "nobody" request))
+          (Thread/sleep 60)
+          (is (empty? @posted))))
+      (testing "three places at once reach the address on the account; the answer is bad credentials either way"
+        (with-redefs [auth/find-user-by-username-or-email (constantly account)]
+          (is (= errors/bad-credentials (-> (fail-from "3.3.3.3" "kaylee" request) :body :error)))
+          (let [message (do (Thread/sleep 100) (first @posted))]
+            (is (= "kaylee@serenity.example" (:to message)))
+            (is (re-find #"https://example\.test" (pr-str (:body message))) "linking to this site")
+            )
+          (fail-from "4.4.4.4" "kaylee" request)
+          (Thread/sleep 100)
+          (is (= 1 (count @posted)) "a further attempt inside the gap sends nothing more"))))))
 
 (deftest a-user-agent-is-described-the-way-a-person-would
   ;; Order matters in describe-browser: Edge and Opera both claim to be Chrome,

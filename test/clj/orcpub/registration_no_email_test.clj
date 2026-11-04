@@ -28,12 +28,13 @@
   (:import [java.util UUID]))
 
 (use-fixtures :each
-  ;; registration-allowed? counts sign-ups per address in memory for the whole JVM, and these
-  ;; tests all register from a nil address; this file tests mail-less registration, not the throttle.
+  ;; Sign-ups are counted per connection in memory for the whole JVM, and these tests all register
+  ;; from a nil address; this file tests mail-less registration, not the throttle.
   (fn [f]
-    (with-redefs [security/registration-allowed? (constantly true)]
-      (binding [errors/*error-prefix* "TEST_ERROR:"]
-        (f)))))
+    (reset! @#'security/sightings {})
+    (binding [errors/*error-prefix* "TEST_ERROR:"]
+      (f))
+    (reset! @#'security/sightings {})))
 
 (defn- fresh-conn []
   (let [uri (str "datomic:mem:rne-" (UUID/randomUUID))]

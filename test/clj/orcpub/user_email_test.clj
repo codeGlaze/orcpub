@@ -95,7 +95,7 @@
 
 (deftest registration-sets-the-key
   (let [conn (fresh-conn)]
-    (with-redefs [security/registration-allowed? (constantly true)
+    (with-redefs [security/guard (constantly nil)
                   email/configured? (constantly false)
                   email/unverified-registration-allowed? (constantly true)]
       (is (= 200 (:status (auth/register {:conn conn :db (d/db conn) :scheme :https :headers {"host" "example.test"}

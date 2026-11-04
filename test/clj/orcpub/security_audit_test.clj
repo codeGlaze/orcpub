@@ -14,10 +14,8 @@
 
 (use-fixtures :each
   (fn [f]
-    (with-redefs [security/registration-allowed? (constantly true)
-                  security/multiple-account-access? (constantly false)
-                  security/too-many-attempts-for-username? (constantly false)
-                  security/multiple-ip-attempts-to-same-account? (constantly false)
+    (with-redefs [security/guard (constantly nil)
+                  security/record! (constantly nil)
                   email/configured? (constantly true)]
       (f))))
 

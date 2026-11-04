@@ -195,36 +195,57 @@
   []
   (when (security/turnstile-enabled?) {:challenge? true}))
 
+(def ^:private turnstile-failed-message
+  "We couldn't confirm you're not a bot. Please try the check again.")
+
+(defn- turnstile-message
+  "Why the challenge refused: a blank token means the widget never ran (a blocked script), which the
+   player can fix; a token that failed verification just means try the check again."
+  [blank?]
+  (if blank? errors/turnstile-blocked-message turnstile-failed-message))
+
+(defn- refusal-response
+  "The response to a refusal from security/guard or record!, in the style the route's policy names
+   (:answer in security/auth-guards). The same for every address and name, and nothing here looks
+   anything up, so a refusal cannot say whether an account exists. A failed challenge is retried
+   with a fresh token."
+  [route {:keys [reason blank?]}]
+  (let [{:keys [answer message]} (security/policy route)]
+    (cond
+      (and (= reason :turnstile) (= answer :error)) (login-error errors/challenge-required {:challenge? true})
+      (= reason :turnstile) {:status 400 :body {:general [(turnstile-message blank?)]}}
+      (= answer :uniform) {:status 200}
+      (= answer :error) (login-error errors/too-many-attempts (challenge-flag))
+      :else {:status 400 :body {:general [message]}})))
+
 (defn bad-credentials-response [db username ip request]
-  (security/add-failed-login-attempt! username ip)
-  (security/mark-login-challenge! username ip)
-  (if (security/too-many-attempts-for-username? username)
-    (do (security/note-refusal! :login-username)
-        (login-error errors/too-many-attempts (challenge-flag)))
-    (let [user-for-username (find-user-by-username-or-email db username)]
-      ;; A name with no account is not logged: it is sometimes a password typed in the wrong box.
-      (security/audit! :sign-in-failed request (:orcpub.user/username user-for-username))
-      ;; Several addresses failing against ONE account inside a minute is also what
-      ;; a person with a phone, a laptop and a tablet looks like -- so it notifies
-      ;; the owner rather than locking them out. Runs on another thread, and its
-      ;; outcome never reaches the response: failing logins must not learn a thing.
-      (when (and (:db/id user-for-username)
-                 (security/multiple-ip-attempts-to-same-account? username)
-                 (security/claim-sign-in-notice! username))
-        (future
-          (try
-            (outbox/enqueue! (:conn request) :sign-in-attempts
-                             (email/sign-in-attempts-message
-                              (base-url request)
-                              {:email (:orcpub.user/email user-for-username)
-                               :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)
-                               :user-agent (get (:headers request) "user-agent")}))
-            (catch Exception e
-              (println "ERROR: could not queue a sign-in attempts notice:" (.getMessage e))))))
-      ;; One answer for both. Telling somebody the username does not exist made
-      ;; the login form the same membership test the reset endpoint was, and a
-      ;; cheaper one, since it needs no mail to be sent.
-      (login-error errors/bad-credentials (challenge-flag)))))
+  (let [{:keys [refusal notify]} (security/record! ::login :failure {:ip ip :typed-name username})]
+    (if refusal
+      (refusal-response ::login refusal)
+      (let [user-for-username (find-user-by-username-or-email db username)
+            notice (and notify (:db/id user-for-username)
+                        (security/claim-sign-in-notice! username))]
+        ;; A name with no account is not logged: it is sometimes a password typed in the wrong box.
+        (security/audit! :sign-in-failed request (:orcpub.user/username user-for-username))
+        ;; Several addresses failing against ONE account inside a minute is also what
+        ;; a person with a phone, a laptop and a tablet looks like -- so it notifies
+        ;; the owner rather than locking them out. Runs on another thread, and its
+        ;; outcome never reaches the response: failing logins must not learn a thing.
+        (when notice
+          (future
+            (try
+              (outbox/enqueue! (:conn request) :sign-in-attempts
+                               (email/sign-in-attempts-message
+                                (base-url request)
+                                {:email (:orcpub.user/email user-for-username)
+                                 :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)
+                                 :user-agent (get (:headers request) "user-agent")}))
+              (catch Exception e
+                (println "ERROR: could not queue a sign-in attempts notice:" (.getMessage e))))))
+        ;; One answer for both. Telling somebody the username does not exist made
+        ;; the login form the same membership test the reset endpoint was, and a
+        ;; cheaper one, since it needs no mail to be sent.
+        (login-error errors/bad-credentials (challenge-flag))))))
 
 (defn create-login-response [db conn user id & [headers]]
   (let [token (create-token (:orcpub.user/username user)
@@ -240,26 +261,17 @@
 
 (defn login-response
   [{:keys [json-params db conn remote-addr] :as request}]
-  (let [{raw-username :username raw-password :password} json-params]
+  (let [{raw-username :username raw-password :password} json-params
+        refusal (when-not (or (s/blank? raw-username) (s/blank? raw-password))
+                  ;; Before the credentials are looked at, so a bot without a token learns nothing
+                  ;; from the answer, and a spray is stopped before it can land on the account it
+                  ;; guesses right (see security/auth-guards).
+                  (security/guard ::login {:ip remote-addr :typed-name raw-username
+                                           :token (:turnstile-token json-params)}))]
     (cond
       (s/blank? raw-username) (login-error errors/username-required)
       (s/blank? raw-password) (login-error errors/password-required)
-
-      ;; Checked before the credentials, not on the failure path: stuffing ends on
-      ;; the one account it guesses right, so a check that only runs after a failed
-      ;; lookup would never see that attempt. Trips on five DISTINCT usernames
-      ;; failing from this address inside a minute -- one person on several devices can't, a spray across accounts can.
-      (security/multiple-account-access? remote-addr)
-      (do (security/note-refusal! :login-spray)
-          (security/mark-login-challenge! raw-username remote-addr)
-          (login-error errors/too-many-attempts (challenge-flag)))
-
-      ;; Only for a name that just failed from this connection, and BEFORE the credentials are
-      ;; looked at, so a bot without a token learns nothing from the answer. A blank token is
-      ;; :fail without calling Cloudflare; :unreachable is a pass.
-      (and (security/login-challenge-required? raw-username remote-addr)
-           (= :fail (security/turnstile-verify (:turnstile-token json-params) remote-addr)))
-      (login-error errors/challenge-required {:challenge? true})
+      refusal (refusal-response ::login refusal)
 
       :else (let [username (s/trim raw-username)
                   password (s/trim raw-password)
@@ -274,7 +286,7 @@
                 (and unverified? expired?) (login-error errors/unverified-expired)
                 unverified? (login-error errors/unverified {:email email})
                 :else
-                (do (security/clear-login-challenge! username remote-addr)
+                (do (security/record! ::login :success {:ip remote-addr :typed-name username})
                     (security/audit! :sign-in request (:orcpub.user/username user))
                     (create-login-response db conn user id)))))))
 
@@ -393,26 +405,6 @@
       ;; sitting right above a meter reporting UNCOMMON in green: two disagreeing verdicts.
       {:password-common [(breach-message result)]})))
 
-(def ^:private registration-throttled-message
-  (str "Too many accounts have been created from this connection in the last hour. "
-       "Try again a little later, or email us if you are stuck."))
-
-(def ^:private turnstile-failed-message
-  "We couldn't confirm you're not a bot. Please try the check again.")
-
-(defn- turnstile-message
-  "Why the challenge refused: no token at all means the widget never ran (a blocked script), which
-   the player can fix; a token that failed verification just means try the check again."
-  [token]
-  (if (s/blank? token) errors/turnstile-blocked-message turnstile-failed-message))
-
-(defn- turnstile-refusal
-  "A 400 for a failed challenge, or nil. Answered the same for every address and checked before
-   any lookup, so it cannot say whether an account exists. The caller retries with a fresh token."
-  [route-name token remote-addr]
-  (when (security/turnstile-refused? route-name token remote-addr)
-    {:status 400 :body {:general [(turnstile-message token)]}}))
-
 (def ^:private taken-email-refusal-message
   "This email can't be used. Check it and try again, or sign in.")
 
@@ -462,25 +454,17 @@
         validation (if (seq validation)
                      validation
                      (or (breach-errors password) validation))
-        ;; Before the host allowance, so a bot that fails the challenge does not use up the
-        ;; host's signups. After validation and the breach check, so a form that was going to
-        ;; be rejected anyway never costs a verification. :unreachable is a pass (fail open).
-        ;; :general for the same reason as the throttle below.
-        validation (if (and (empty? validation)
-                            (security/turnstile-refused? ::register (:turnstile-token json-params) remote-addr))
-                     (assoc validation :general [(turnstile-message (:turnstile-token json-params))])
-                     validation)
-        ;; Checked last, so a form that was going to be rejected anyway is not
-        ;; counted against the host. :general rather than a field key: nobody
-        ;; can edit their way past a rate limit, so it must not sit in the map
-        ;; that disables the button.
-        validation (if (or (seq validation) (security/registration-allowed? remote-addr))
-                     validation
-                     (assoc validation :general [registration-throttled-message]))]
+        ;; Only for a form that was going to go through: no reason to ask a third party about a
+        ;; malformed sign-up, or to count it against the host. The challenge comes first, so a bot
+        ;; that fails it does not use up the host's sign-ups.
+        refusal (when (empty? validation)
+                  (security/guard ::register {:ip remote-addr :token (:turnstile-token json-params)}))]
     (cond
       (seq validation)
       {:status 400
        :body validation}
+
+      refusal (refusal-response ::register refusal)
 
       taken?
       (answer-taken-email request email password)
@@ -573,20 +557,23 @@
 
 (defn re-verify [{:keys [query-params db conn remote-addr] :as request}]
   (let [email (:email query-params)
-        refusal (turnstile-refusal ::re-verify (:turnstile-token query-params) remote-addr)
+        user (delay (user-for-email db email))
+        ;; The challenge first, then (only for an unverified account that exists) the allowances.
+        ;; A limit answers like an unknown address, so it is not a membership oracle.
+        refusal (security/guard ::re-verify
+                                {:ip remote-addr :address email
+                                 :token (:turnstile-token query-params)
+                                 :actionable (delay (and (:db/id @user)
+                                                         (not (:orcpub.user/verified? @user))))})
         query-params (dissoc query-params :turnstile-token)
-        {:keys [:orcpub.user/verification-sent
-                :orcpub.user/verified?
-                :db/id] :as user} (when-not refusal (user-for-email db email))]
+        {:keys [:orcpub.user/verified?
+                :db/id] :as user} (when-not refusal @user)]
     (cond
-      ;; Before the lookup and before either allowance is spent.
-      refusal refusal
+      refusal (refusal-response ::re-verify refusal)
       verified? (redirect route-map/verify-success-route)
       ;; No account for this address: answer like a resend and create nothing. Passing
       ;; {:db/id nil} on would register a key-only record and email a link to any address typed.
       (nil? id) {:status 200}
-      ;; Over the limit: the same answer as an unknown address, so the limit is not a membership oracle.
-      (not (security/reverify-email-allowed? email remote-addr)) {:status 200}
       :else
       (do-verification request
                        (merge query-params
@@ -661,24 +648,28 @@
 
 (defn send-password-reset [{:keys [query-params db conn remote-addr] :as request}]
   (let [email (:email query-params)
-        refusal (turnstile-refusal ::send-password-reset (:turnstile-token query-params) remote-addr)
-        {:keys [:db/id]} (when-not refusal (user-for-email db email))]
-    ;; The answer is identical whether or not that address has an account:
-    ;; confirmed-valid addresses are precisely what a stuffing run needs.
-    ;; The per-address limit is checked AFTER the lookup but never changes the
-    ;; response -- a limit that visibly altered it would itself be a membership oracle, which the uniform 200 closes.
-    (when (and id (not refusal) (security/reset-email-allowed? email remote-addr))
-      (try
-        (do-send-password-reset id email conn request)
-        (security/audit! :password-reset-requested request
-                         (:orcpub.user/username (d/entity db id)))
-        (catch Exception e
-          ;; Swallowed on purpose. Letting this escape would restore the oracle
-          ;; in a subtler form -- only a real account can fail to be emailed,
-          ;; so an error response would mark the address as registered.
-          (println "ERROR: password reset for a known address could not be sent:"
-                   (.getMessage e)))))
-    (or refusal {:status 200})))
+        user (delay (user-for-email db email))
+        ;; The answer is identical whether or not that address has an account: confirmed-valid
+        ;; addresses are precisely what a stuffing run needs. The allowances are spent only for an
+        ;; address that has an account, after the lookup, and a limit never changes the response --
+        ;; one that visibly altered it would itself be a membership oracle.
+        refusal (security/guard ::send-password-reset
+                                {:ip remote-addr :address email
+                                 :token (:turnstile-token query-params)
+                                 :actionable (delay (:db/id @user))})]
+    (or (when refusal (refusal-response ::send-password-reset refusal))
+        (do (when-let [id (:db/id @user)]
+              (try
+                (do-send-password-reset id email conn request)
+                (security/audit! :password-reset-requested request
+                                 (:orcpub.user/username (d/entity db id)))
+                (catch Exception e
+                  ;; Swallowed on purpose. Letting this escape would restore the oracle
+                  ;; in a subtler form -- only a real account can fail to be emailed,
+                  ;; so an error response would mark the address as registered.
+                  (println "ERROR: password reset for a known address could not be sent:"
+                           (.getMessage e)))))
+            {:status 200}))))
 
 (def reset-link-spent-message
   "This reset link has expired or has already been used. Request a new one from the login page.")

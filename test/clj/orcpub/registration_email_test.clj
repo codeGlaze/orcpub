@@ -20,13 +20,14 @@
   (:import [java.util Date UUID]))
 
 (use-fixtures :each
-  ;; registration-allowed? counts sign-ups per address in memory for the whole JVM, and these
-  ;; tests all register from a nil address; this file tests the email, not the throttle.
+  ;; Sign-ups are counted per connection in memory for the whole JVM, and these tests all register
+  ;; from a nil address; this file tests the email, not the throttle.
   (fn [f]
-    (with-redefs [security/registration-allowed? (constantly true)
-                  email/configured? (constantly true)]
+    (reset! @#'security/sightings {})
+    (with-redefs [email/configured? (constantly true)]
       (binding [errors/*error-prefix* "TEST_ERROR:"]
-        (f)))))
+        (f)))
+    (reset! @#'security/sightings {})))
 
 (defn- fresh-conn
   "A connection to a new in-memory database with the full schema."
@@ -144,7 +145,7 @@
     (is (= 1 (count (accounts-with conn "newcomer@test.com"))) "no second account")
     (is (nil? (find-user (d/db conn) "third")) "and nothing created under the new username")))
 
-(deftest the-owner-is-mailed-once-a-day-with-nothing-to-replay
+(deftest the-owner-is-mailed-once-with-nothing-to-replay
   (reset! @#'security/sightings {})
   (let [conn (fresh-conn)
         _ (sign-up conn "newcomer" "newcomer@test.com")
@@ -154,7 +155,7 @@
         _ (sign-up conn "intruder2" "newcomer@test.com")
         notices (filter #(= :signup-attempt (:kind %)) (queued conn))
         text (body (:message (first notices)))]
-    (is (= 1 (count notices)) "two attempts in a day, one notice")
+    (is (= 1 (count notices)) "two attempts close together, one notice")
     (is (= "newcomer@test.com" (:to (first notices))))
     (is (str/includes? text "/login") "a way to sign in")
     (is (str/includes? text "send-password-reset") "and to reset the password")
@@ -171,24 +172,23 @@
   (let [conn (fresh-conn)
         _ (sign-up conn "newcomer" "newcomer@test.com")
         hashed (atom 0)
-        allowed (atom 0)]
-    (with-redefs [hashers/encrypt (fn [& _] (swap! hashed inc) "hash")
-                  security/registration-allowed? (fn [_] (swap! allowed inc) true)]
+        spent #(count (get @@#'security/sightings [:register-per-host nil]))]
+    (reset! @#'security/sightings {})
+    (with-redefs [hashers/encrypt (fn [& _] (swap! hashed inc) "hash")]
       (sign-up conn "fresh" "fresh@test.com")
-      (is (= [1 1] [@hashed @allowed]) "a new sign-up")
+      (is (= [1 1] [@hashed (spent)]) "a new sign-up")
       (sign-up conn "third" "newcomer@test.com")
-      (is (= [2 2] [@hashed @allowed])
+      (is (= [2 2] [@hashed (spent)])
           "a taken one is counted against the host and hashes the password too"))
     (testing "a failed challenge refuses a taken address exactly as a new one"
       (with-redefs [security/turnstile-enabled? (constantly true)
-                    security/turnstile-verify (constantly :fail)
-                    security/registration-allowed? (fn [_] (swap! allowed inc) true)]
-        (let [before @allowed
+                    security/turnstile-verify (constantly :fail)]
+        (let [before (spent)
               new-resp (sign-up conn "fresh2" "fresh2@test.com")
               taken-resp (sign-up conn "third" "newcomer@test.com")]
           (is (= 400 (:status taken-resp)))
           (is (= new-resp taken-resp))
-          (is (= before @allowed) "and spends no allowance"))))))
+          (is (= before (spent)) "and spends no allowance"))))))
 
 (deftest the-address-check-route-is-gone
   (is (not-any? #(= "/check-email" (:path %)) routes/routes))

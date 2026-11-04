@@ -9,230 +9,21 @@
             [orcpub.pwned :as pwned]
             [orcpub.routes :as routes]
             [orcpub.routes.auth :as auth]
-            [orcpub.time :as time :refer [seconds minutes hours millis ago now]]
+            [orcpub.time :as time]
             [orcpub.security :as s]
             [orcpub.db.schema :as schema]
             [clojure.set :as sets])
   (:import [java.util UUID]))
 
-;; Convenience wrappers for tests - these take n and return an Instant n units ago
-(defn seconds-ago [n] (-> n seconds ago))
-(defn minutes-ago [n] (-> n minutes ago))
-(defn hours-ago [n] (-> n hours ago))
-(defn millis-ago [n] (-> n millis ago))
-
-(defn attempts-set [attempts]
-  (into
-   (sorted-set-by s/compare-dates)
-   attempts))
-
-(defn attempts-for-dates [dates]
-  (into
-   (sorted-set-by s/compare-dates)
-   (map
-    (fn [date]
-      {:date date})
-    dates)))
-
-(deftest test-compare-dates
-  (is (= 1 (s/compare-dates
-            {:date (seconds-ago 10)}
-            {:date (seconds-ago 11)})))
-  (is (= 1 (s/compare-dates
-            {:date (seconds-ago 10)}
-            {:date (minutes-ago 11)})))
-  (is (= -1 (s/compare-dates
-            {:date (seconds-ago 10)}
-            {:date (seconds-ago 9)})))
-  (is (= -1 (s/compare-dates
-            {:date (minutes-ago 10)}
-            {:date (seconds-ago 9)}))))
-
-(deftest test-too-many-attempts-for-username?
-  (let [attempts {"larry" (attempts-for-dates (map seconds-ago (range 5)))
-                  "larry-2" (attempts-for-dates (map seconds-ago (range 6)))
-                  "redorc" (attempts-for-dates (map seconds-ago (range 4)))
-                  "redorc-2" (sets/union
-                              (attempts-for-dates (map seconds-ago (range 1 5)))
-                              (attempts-for-dates (map hours-ago (range 1 6))))}]
-    (is (s/too-many-attempts-for-username-aux "larry" attempts))
-    (is (s/too-many-attempts-for-username-aux "larry-2" attempts))
-    (is (not (s/too-many-attempts-for-username-aux "redorc" attempts)))
-    (is (= 5 (-> "redorc-2" attempts (subseq < {:date (minutes-ago 1)}) count)))
-    (is (= 4 (-> "redorc-2" attempts (subseq > {:date (minutes-ago 1)}) count)))
-    (is (not (s/too-many-attempts-for-username-aux "redorc-2" attempts)))
-    (is (not (s/too-many-attempts-for-username-aux "larry-3" attempts)))))
-
-(deftest test-multiple-account-access?
-  (let [attempts {"1.2.3.4" (attempts-set
-                             (map
-                              (fn [i]
-                                {:date (seconds-ago i)
-                                 :user (str "user-" i)})
-                              (range 5)))
-                  "1.2.3.5" (attempts-set
-                             (map
-                              (fn [i]
-                                {:date (seconds-ago i)
-                                 :user (str "user-" i)})
-                              (range 6)))
-                  "1.2.3.6" (attempts-set
-                             (map
-                              (fn [i]
-                                {:date (seconds-ago i)
-                                 :user (str "user-" i)})
-                              (range 4)))}
-        attempts-2 (update
-                    attempts
-                    "1.2.3.4"
-                    sets/union
-                    (attempts-set
-                     (map
-                      (fn [i]
-                        {:date (hours-ago i)
-                         :user (str "user-" i)})
-                      (range 1 10))))]
-    (is (s/multiple-account-access-aux "1.2.3.4" attempts))
-    (is (s/multiple-account-access-aux "1.2.3.5" attempts))
-    (is (not (s/multiple-account-access-aux "1.2.3.6" attempts)))
-    (is (not (s/multiple-account-access-aux "1.2.3.6" attempts-2)))
-    (is (not (s/multiple-account-access-aux "1.2.3.8" attempts-2)))))
-
-;; Was disabled with "TODO: Fix / remove test" because the function it covers
-;; never called its own aux -- it returned the attempts atom, which is truthy
-;; even when empty, so every assertion expecting false failed. The function is
-;; fixed, so the test is live again.
-(deftest test-multiple-ip-attempts-to-same-account?
-  (let [attempts {"user-1" (attempts-set
-                            (map
-                             (fn [i]
-                               {:date (millis-ago i)
-                                :ip (str i)})
-                             (range 3)))
-                  "user-2" (attempts-set
-                            (map
-                             (fn [i]
-                               {:date (millis-ago i)
-                                :ip (str i)})
-                             (range 4)))
-                  "user-3" (attempts-set
-                            (map
-                             (fn [i]
-                               {:date (millis-ago i)
-                                :ip (str i)})
-                             (range 2)))}]
-    (is (s/multiple-ip-attempts-to-same-account-aux
-         "user-1"
-         attempts))
-    (is (s/multiple-ip-attempts-to-same-account-aux
-         "user-1"
-         (update
-          attempts
-          "user-1"
-          (fn [as]
-            (sets/union
-             as
-             (attempts-set
-              (map
-               (fn [s]
-                 (assoc s :ip "0"))
-               as)))))))
-    (is (not
-         (s/multiple-ip-attempts-to-same-account-aux
-          "user-3"
-          (update
-           attempts
-           "user-3"
-           (fn [as]
-            (sets/union
-             as
-             (attempts-set
-              (map
-               (fn [s]
-                 (assoc s :ip "0"))
-               as))))))))
-    (is (s/multiple-ip-attempts-to-same-account-aux
-         "user-2"
-         attempts))
-    (is (not (s/multiple-ip-attempts-to-same-account-aux
-              "user-3"
-              attempts)))
-    (is (not (s/multiple-ip-attempts-to-same-account-aux
-              "user-4"
-              attempts)))))
-
-(deftest test-add-and-remove-old
-  (let [attempts {"user-1" (attempts-set
-                            (map
-                             (fn [i]
-                               {:ip (str i)
-                                :user "user-1"
-                                :date (minutes-ago i)})
-                             (range 1 10)))
-                  "user-2" (attempts-set
-                            (map
-                             (fn [i]
-                               {:ip (str i)
-                                :user "user-2"
-                                :date (minutes-ago (+ i 10))})
-                             (range 1 10)))
-                  "user-3" (attempts-set
-                            (map
-                             (fn [i]
-                               {:ip (str i)
-                                :user "user-3"
-                                :date (minutes-ago i)})
-                             (range 1 20)))}
-        result (s/add-and-remove-old
-                "user-1"
-                {:ip "x"
-                 :user "user-1"
-                 :date (now)}
-                attempts
-                (minutes-ago 10))]
-    (is (-> "user-2" result nil?))
-    (is (= 10 (-> "user-1" result count)))
-    (is (= 9 (-> "user-3" result count)))))
-
-(deftest multiple-ip-attempts-answers-no-for-an-untouched-account
-  ;; The precise shape of the bug: the function returned the attempts map
-  ;; instead of calling its aux, and an empty map is truthy in Clojure, so it
-  ;; answered "yes" for an account with no attempts at all.
-  (is (not (s/multiple-ip-attempts-to-same-account-aux "nobody" {})))
-  (is (not (s/multiple-ip-attempts-to-same-account? "nobody"))
-      "and through the public predicate, which is what callers use"))
-
-(deftest attempts-sharing-an-instant-collapse
-  ;; A property of the production structure, not a test artifact: attempts live
-  ;; in a sorted-set-by compare-dates, which orders on :date alone, so two
-  ;; attempts recorded in the same instant are treated as one element and one
-  ;; is dropped. Worth knowing before trusting these counts as exact.
-  (let [instant (now)
-        two-ips (into (sorted-set-by s/compare-dates)
-                      [{:user "u" :ip "1.1.1.1" :date instant}
-                       {:user "u" :ip "2.2.2.2" :date instant}])]
-    (is (= 1 (count two-ips))
-        "two attempts, one instant, one surviving entry")))
-
-
 (deftest refusals-are-counted-so-the-numbers-can-be-tuned
   (s/take-refusals!)
   (is (nil? (s/refusal-summary {})) "a quiet hour says nothing")
   ;; Eleven signups from one host inside the hour: the first ten pass.
-  (dotimes [_ 11] (s/registration-allowed? "9.9.9.9"))
+  (dotimes [_ 11] (s/guard :orcpub.routes.auth/register {:ip "9.9.9.9"}))
   (let [counts (s/take-refusals!)]
-    (is (= 1 (:n (:register counts))))
-    (is (= "limits: register 1" (s/refusal-summary counts))))
+    (is (= 1 (:n (:register-per-host counts))))
+    (is (= "limits: register-per-host 1" (s/refusal-summary counts))))
   (is (= {} (s/take-refusals!)) "taking them resets, so each hour is its own period"))
-
-(deftest a-limit-turns-away-only-what-is-past-it
-  (s/take-refusals!)
-  (let [host (str "10.0.0." (rand-int 250))]
-    (is (every? true? (repeatedly 10 #(s/registration-allowed? host))))
-    (is (false? (s/registration-allowed? host)))
-    (is (true? (s/registration-allowed? (str host ".other")))
-        "a different host has its own allowance")))
-
 
 (deftest one-host-hammering-reads-differently-from-a-spread
   ;; The count alone cannot tell these apart, and they are not the same event:
@@ -248,17 +39,19 @@
   ;; The case refusals cannot see at all: a host taking nine of its ten signups
   ;; an hour, every hour, trips nothing and is never counted. busiest-summary
   ;; is pure, so it is tested on its own rather than through the shared atom.
-  (is (= "limits, busiest source: register 9/10" (s/busiest-summary {:register 9} 0.8)))
-  (is (= "limits, busiest source: register 10/10" (s/busiest-summary {:register 10} 0.8)))
-  (is (nil? (s/busiest-summary {:register 2} 0.8)) "an ordinary hour says nothing")
-  (is (nil? (s/busiest-summary {:unknown-limit 99} 0.8)) "a limit with no cap is not guessed at"))
+  (is (= "limits, busiest source: register-per-host 9/10" (s/busiest-summary {:register-per-host 9} 0.8)))
+  (is (nil? (s/busiest-summary {:register-per-host 2} 0.8)) "an ordinary hour says nothing")
+  (is (nil? (s/busiest-summary {:unknown-limit 99} 0.8)) "a limit with no cap is not guessed at")
+  (testing "every hourly limit in the table has its cap, derived from it"
+    (doseq [[route p] s/auth-guards, [scope n window] (:limits p) :when (= :hour window)]
+      (is (str/ends-with? (s/busiest-summary {(s/limit-name route scope) n} 0.8)
+                          (str (name (s/limit-name route scope)) " " n "/" n))))))
 
 (deftest busiest-reads-the-live-window
   (let [host (str "7.7.7." (rand-int 250))]
-    (dotimes [_ 9] (s/registration-allowed? host))
+    (dotimes [_ 9] (s/guard :orcpub.routes.auth/register {:ip host}))
     ;; Other tests share this atom, so the floor is what matters, not the value.
-    (is (>= (:register (s/busiest)) 9))))
-
+    (is (>= (:register-per-host (s/busiest)) 9))))
 
 (deftest a-password-change-withdraws-the-tokens-that-came-before-it
   (s/restore-password-changes! {})
@@ -308,25 +101,16 @@
   (is (false? (s/token-withdrawn? "wash" 6000)) "and expired entries still drop out")
   (s/restore-password-changes! {}))
 
-;; ---- Cloudflare Turnstile on the sign-up form (moved from turnstile_test.clj) ----
-;; Off unless both keys are set, fails open when Cloudflare is unreachable, refuses only on an
-;; explicit failure, and a refused attempt does not use up the host's signup allowance.
-;; No test reaches the network.
-
 (use-fixtures :each
   (fn [f]
     (reset! @#'s/sightings {})
     (reset! @#'s/login-challenges {})
-    (reset! s/failed-login-attempts-by-username {})
-    (reset! s/failed-login-attempts-by-ip {})
     (with-redefs [email/configured? (constantly true)
                   pwned/check (constantly 0)]
       (binding [errors/*error-prefix* "TEST_ERROR:"]
         (f)))
     (reset! @#'s/sightings {})
-    (reset! @#'s/login-challenges {})
-    (reset! s/failed-login-attempts-by-username {})
-    (reset! s/failed-login-attempts-by-ip {})))
+    (reset! @#'s/login-challenges {})))
 
 (def ^:private secret "s3cr3t-turnstile-value-9f2c")
 
@@ -337,68 +121,12 @@
       @(d/transact conn schema/all-schemas)
       conn)))
 
-(defn- request [conn token]
-  {:conn conn :db (d/db conn) :scheme :https :headers {"host" "example.test"}
-   :remote-addr "7.7.7.7"
-   :json-params (cond-> {:username "newcomer" :email "newcomer@test.com"
-                         :verify-email "newcomer@test.com"
-                         :password "hunter2hunter2" :send-updates? false}
-                  token (assoc :turnstile-token token))})
-
-(defn- user-exists? [conn]
-  (some? (d/q '[:find ?e . :where [?e :orcpub.user/username "newcomer"]] (d/db conn))))
-
-(defn- host-count []
-  (count (get @@#'s/sightings [:register "7.7.7.7"])))
-
-
-(deftest disabled-register-works-and-never-calls-cloudflare
-  (let [conn (fresh-conn) calls (atom 0)]
-    (with-redefs [s/turnstile-enabled? (constantly false)
-                  s/turnstile-verify (fn [& _] (swap! calls inc) :fail)
-                  s/post-siteverify (fn [& _] (swap! calls inc) (throw (ex-info "no" {})))]
-      (is (= 200 (:status (auth/register (request conn nil)))))
-      (is (user-exists? conn))
-      (is (zero? @calls) "siteverify is never called"))))
-
-(deftest enabled-and-passing-creates-the-account
-  (let [conn (fresh-conn)]
-    (with-redefs [s/turnstile-enabled? (constantly true)
-                  s/post-siteverify (fn [& _] {:success true})]
-      (is (= 200 (:status (auth/register (request conn "good-token")))))
-      (is (user-exists? conn)))))
-
-(deftest enabled-and-failing-refuses-without-using-the-host-allowance
-  (let [conn (fresh-conn)]
-    (with-redefs [s/turnstile-enabled? (constantly true)
-                  s/post-siteverify (fn [& _] {:success false})]
-      (let [resp (auth/register (request conn "bad-token"))]
-        (is (= 400 (:status resp)))
-        (is (= 1 (count (get-in resp [:body :general]))) "a :general error")
-        (is (str/includes? (first (get-in resp [:body :general])) "not a bot"))
-        (is (= [:general] (keys (:body resp))) "no field key")
-        (is (not (user-exists? conn)) "nothing created")
-        (is (zero? (host-count)) "the host's allowance is not consumed")))))
-
-(deftest enabled-and-unreachable-fails-open
-  (let [conn (fresh-conn)]
-    (with-redefs [s/turnstile-enabled? (constantly true)
-                  s/post-siteverify (fn [& _] (throw (java.net.SocketTimeoutException. "slow")))]
-      (is (= 200 (:status (auth/register (request conn "any-token")))))
-      (is (user-exists? conn)))))
-
 (deftest a-blank-token-fails-without-calling-cloudflare
   (let [calls (atom 0)]
     (with-redefs [s/post-siteverify (fn [& _] (swap! calls inc) {:success true})]
       (doseq [t [nil "" "   "]]
         (is (= :fail (s/turnstile-verify t "1.2.3.4"))))
-      (is (zero? @calls) "no HTTP call"))
-    (testing "and through register, while enabled"
-      (let [conn (fresh-conn)]
-        (with-redefs [s/turnstile-enabled? (constantly true)
-                      s/post-siteverify (fn [& _] (swap! calls inc) {:success true})]
-          (is (= 400 (:status (auth/register (request conn nil)))))
-          (is (zero? @calls)))))))
+      (is (zero? @calls) "no HTTP call"))))
 
 (deftest verify-maps-cloudflare-answers
   (with-redefs [s/post-siteverify (fn [& _] {:success true})]
@@ -458,12 +186,127 @@
         "auth routes with no entry in security/auth-guards")
     (is (= #{} (sets/difference listed actual))
         "auth-guards entries that name no route")
-    (doseq [[route guard] s/auth-guards]
-      (is (or (and (set? guard) (seq guard))
-              (and (map? guard) (string? (:none guard)) (seq (:none guard))))
-          (str route " needs guards or a reason for having none")))))
+    (doseq [[route p] s/auth-guards]
+      (testing (str route)
+        (if (:none p)
+          (is (string? (:none p)) "a reason for having none")
+          (do (is (seq (:limits p)) "limits")
+              (is (every? (fn [[scope n window]] (and (#{:per-address :per-host :per-name :names-per-host} scope)
+                                                      (pos? n) (#{:minute :hour} window)))
+                          (:limits p)))
+              (is (#{:always :after-failure nil} (:turnstile p)))
+              (is (#{:uniform :message :error} (:answer p)))
+              (is (or (not= :message (:answer p)) (seq (:message p))) "a message to show")))))))
 
-;; ---- Turnstile on password reset, resend verification and sign-in after a failure ----
+;; The table-driven tests read the table, so deleting a row would also delete its tests. This pins
+;; what must stay in it: the forms that cost something to serve, and the limits each one has.
+(deftest the-forms-that-cost-something-stay-guarded
+  (doseq [[route [challenge scopes]]
+          {:orcpub.routes.auth/login [:after-failure #{:names-per-host :per-name}]
+           :orcpub.routes.auth/register [:always #{:per-host}]
+           :orcpub.routes.auth/re-verify [:always #{:per-address :per-host}]
+           :orcpub.routes.auth/send-password-reset [:always #{:per-address :per-host}]}
+          :let [p (s/policy route)]]
+    (is (= challenge (:turnstile p)) (str route " keeps its challenge"))
+    (is (sets/subset? scopes (set (map first (:limits p)))) (str route " keeps its limits"))))
+
+;; ---- the table-driven tests: one body for every form, read off s/auth-guards ----
+;; A new row in the table is tested the moment it is added; a route with a policy and no driver
+;; below fails here, so nothing is guarded without being tested.
+
+(def ^:private worked
+  "Counts the real work the stubbed handlers were asked to do (a mail, a verification, an account)."
+  (atom 0))
+
+(defn- reg-ctx-request [conn n ip token]
+  {:conn conn :db (d/db conn) :scheme :https :headers {"host" "example.test"} :remote-addr ip
+   :json-params (cond-> {:username (str "user" n) :email (str "user" n "@test.com")
+                         :verify-email (str "user" n "@test.com")
+                         :password "hunter2hunter2" :send-updates? false}
+                  token (assoc :turnstile-token token))})
+
+(defn- login [typed token ip]
+  (auth/login-response {:json-params (cond-> {:username typed :password "pw"}
+                                       token (assoc :turnstile-token token))
+                        :db nil :conn nil :remote-addr ip :headers {}}))
+
+(def ^:private drivers
+  "route -> (fn [] call), where (call {:address :ip :token :typed}) runs the real handler."
+  (letfn [(by-query [handler]
+            (fn [] (fn [{:keys [address ip token]}]
+                     (handler {:query-params (cond-> {:email address} token (assoc :turnstile-token token))
+                               :db nil :conn nil :remote-addr ip}))))]
+    {:orcpub.routes.auth/send-password-reset (by-query auth/send-password-reset)
+     :orcpub.routes.auth/re-verify (by-query auth/re-verify)
+     :orcpub.routes.auth/register (fn [] (let [conn (fresh-conn) n (atom 0)]
+                                           (fn [{:keys [ip token]}]
+                                             (auth/register (reg-ctx-request conn (swap! n inc) ip token)))))
+     :orcpub.routes.auth/login (fn [] (fn [{:keys [typed ip token]}] (login typed token ip)))}))
+
+(defmacro ^:private in-world
+  "Runs `body` with Turnstile off, every address known and unverified, sends counted in `worked`, and
+   every sign-in a failure."
+  [& body]
+  `(with-redefs [s/turnstile-enabled? (constantly false)
+                 auth/user-for-email (constantly {:db/id 17})
+                 auth/do-send-password-reset (fn [& _#] (swap! worked inc) {:status 200})
+                 auth/do-verification (fn [& _#] (swap! worked inc) {:status 200})
+                 auth/lookup-user (constantly {})
+                 auth/find-user-by-username-or-email (constantly nil)]
+     (reset! worked 0)
+     ~@body))
+
+(defn- guarded-routes [pred]
+  (for [[route p] s/auth-guards :when (and (not (:none p)) (pred p))]
+    [route p ((or (drivers route) (throw (ex-info (str "no driver for guarded route " route) {}))))]))
+
+(defn- ctx-for
+  "A request that varies in every way but `scope`'s subject, so only that limit can fill up."
+  [scope i]
+  {:address (if (= :per-address scope) "same@example.com" (str "u" i "@example.com"))
+   :ip (if (#{:per-host :names-per-host} scope) "5.5.5.5" (str "10.0." i ".1"))
+   :typed (if (= :per-name scope) "Same-Name" (str "name" i))})
+
+(defn- refused? [p resp before]
+  (case (:answer p)
+    :uniform (= before @worked)
+    :message (= [(:message p)] (get-in resp [:body :general]))
+    :error (= errors/too-many-attempts (get-in resp [:body :error]))))
+
+(deftest every-limit-refuses-when-its-number-is-reached
+  (doseq [[route p call] (guarded-routes :limits)
+          [scope n _ when-failing] (:limits p)]
+    (testing (str route " " scope " " n)
+      (reset! @#'s/sightings {})
+      (in-world
+       (let [outcomes (vec (for [i (range 1 (+ n 2))]
+                             (let [before @worked, resp (call (ctx-for scope i))]
+                               (refused? p resp before))))
+             first-refused (inc (count (take-while false? outcomes)))]
+         ;; a limit refuses the request after the n-th that counted; one that only refuses a
+         ;; FAILING attempt refuses the n-th itself
+         (is (= (if when-failing n (inc n)) first-refused))
+         (is (every? true? (drop (dec first-refused) outcomes)) "and stays refused")
+         (is (= (if (= :error (:answer p)) 0 n) @worked)
+             "only the requests inside the limit did any work"))))))
+
+(deftest a-uniform-answer-does-not-depend-on-the-address
+  (doseq [[route p call] (guarded-routes #(= :uniform (:answer %)))]
+    (testing (str route)
+      (let [attempts (+ 2 (apply max (map second (:limits p))))
+            run (fn [lookup]
+                  (reset! @#'s/sightings {})
+                  (in-world
+                   (with-redefs [auth/user-for-email (constantly lookup)]
+                     (let [resps (vec (for [_ (range attempts)] (call {:address "a@example.com" :ip "6.6.6.6"})))]
+                       [(set resps) @worked]))))
+            [known-responses known-work] (run {:db/id 17})
+            [unknown-responses unknown-work] (run {})]
+        (is (= known-responses unknown-responses) "one answer, limited or not, known or not")
+        (is (= 1 (count known-responses)))
+        (is (pos? known-work))
+        (is (< known-work attempts) "and the known address was in fact limited")
+        (is (zero? unknown-work) "nothing is done for an address with no account")))))
 
 (defn- verify-calls
   "Runs `f` with Turnstile on and siteverify answering `answer` (a map, or :throw); returns
@@ -480,61 +323,48 @@
 
 (defn- lookups-fail-the-test [& _] (throw (AssertionError. "looked the address up before the challenge")))
 
-(deftest reset-and-resend-check-the-challenge-before-anything-else
-  (doseq [[label handler route-name]
-          [["send-password-reset" auth/send-password-reset :orcpub.routes.auth/send-password-reset]
-           ["re-verify" auth/re-verify :orcpub.routes.auth/re-verify]]]
-    (let [call (fn [token] (handler {:query-params (cond-> {:email "someone@example.com"}
-                                                     token (assoc :turnstile-token token))
-                                     :db nil :conn nil :remote-addr "9.9.9.9"}))]
-      (testing (str label ": a failed challenge is told to retry, before any lookup or allowance")
-        (with-redefs [auth/user-for-email lookups-fail-the-test]
-          (let [[resp calls] (verify-calls {:success false} #(call "bad"))]
-            (is (= 400 (:status resp)))
-            (is (str/includes? (first (get-in resp [:body :general])) "not a bot"))
-            (is (= 1 calls))
-            (is (empty? @@#'s/sightings) "no allowance was spent"))
-          (testing "a missing token is refused the same way, without calling Cloudflare"
-            (let [[resp calls] (verify-calls {:success true} #(call nil))]
-              (is (= 400 (:status resp)))
-              (is (zero? calls))))))
-      (testing (str label ": the refusal is the same whether or not the address has an account")
-        (let [refused (fn [user]
-                        (with-redefs [auth/user-for-email (constantly user)]
-                          (first (verify-calls {:success false} #(call "bad")))))]
-          (is (= (refused {:db/id 5}) (refused {})))))
-      (testing (str label ": a passing challenge proceeds to the usual work")
-        (let [looked-up (atom 0)]
-          (with-redefs [auth/user-for-email (fn [& _] (swap! looked-up inc) {})]
-            (let [[resp calls] (verify-calls {:success true} #(call "good"))]
-              (is (= {:status 200} resp))
-              (is (= 1 calls))
-              (is (= 1 @looked-up))))))
-      (testing (str label ": an unreachable Cloudflare fails open")
-        (with-redefs [auth/user-for-email (constantly {})]
-          (is (= {:status 200} (first (verify-calls :throw #(call "any")))))))
-      (testing (str label ": with Turnstile off nothing is checked")
-        (let [calls (atom 0)]
-          (with-redefs [s/turnstile-enabled? (constantly false)
-                        s/post-siteverify (fn [& _] (swap! calls inc) {:success false})
-                        auth/user-for-email (constantly {})]
-            (is (= {:status 200} (call nil)))
-            (is (zero? @calls))))))))
-
-(deftest the-resend-token-does-not-reach-the-mail
-  (let [seen (atom nil)]
-    (with-redefs [s/turnstile-enabled? (constantly true)
-                  s/post-siteverify (fn [& _] {:success true})
-                  auth/user-for-email (constantly {:db/id 17})
-                  auth/do-verification (fn [_ params & _] (reset! seen params) {:status 200})]
-      (auth/re-verify {:query-params {:email "a@b.com" :turnstile-token "t"}
-                       :db nil :conn nil :remote-addr "9.9.9.9"})
-      (is (not (contains? @seen :turnstile-token))))))
-
-(defn- login [typed token ip]
-  (auth/login-response {:json-params (cond-> {:username typed :password "pw"}
-                                       token (assoc :turnstile-token token))
-                        :db nil :conn nil :remote-addr ip :headers {}}))
+(deftest the-challenge-is-checked-before-any-allowance-or-lookup
+  (doseq [[route p call] (guarded-routes #(= :always (:turnstile %)))]
+    (let [ctx (ctx-for :per-host 1)]
+      (testing (str route ": a failed token is told to retry, with nothing spent or looked up")
+        (reset! @#'s/sightings {})
+        (in-world
+         (with-redefs [auth/user-for-email lookups-fail-the-test]
+           (let [[resp calls] (verify-calls {:success false} #(call (assoc ctx :token "bad")))]
+             (is (= 400 (:status resp)))
+             (is (str/includes? (first (get-in resp [:body :general])) "not a bot"))
+             (is (= [:general] (keys (:body resp))) "a :general error, no field key")
+             (is (= 1 calls))
+             (is (empty? @@#'s/sightings) "no allowance was spent")
+             (is (zero? @worked))))))
+      (testing (str route ": a missing token says the script is blocked, without calling Cloudflare")
+        (in-world
+         (with-redefs [auth/user-for-email lookups-fail-the-test]
+           (doseq [blank [nil "" "   "]]
+             (let [[resp calls] (verify-calls {:success true} #(call (assoc ctx :token blank)))]
+               (is (= [errors/turnstile-blocked-message] (get-in resp [:body :general])))
+               (is (zero? calls)))))))
+      (testing (str route ": a passing token goes on to the work")
+        (reset! @#'s/sightings {})
+        (in-world
+         (let [[resp calls] (verify-calls {:success true} #(call (assoc ctx :token "good")))]
+           (is (= 200 (:status resp)))
+           (is (= 1 calls))
+           (is (= 1 @worked)))))
+      (testing (str route ": an unreachable Cloudflare fails open")
+        (reset! @#'s/sightings {})
+        (in-world
+         (let [[resp _] (verify-calls :throw #(call (assoc ctx :token "any")))]
+           (is (= 200 (:status resp)))
+           (is (= 1 @worked)))))
+      (testing (str route ": with Turnstile off nothing is checked")
+        (reset! @#'s/sightings {})
+        (in-world
+         (let [calls (atom 0)]
+           (with-redefs [s/post-siteverify (fn [& _] (swap! calls inc) {:success false})]
+             (is (= 200 (:status (call ctx))))
+             (is (zero? @calls))
+             (is (= 1 @worked)))))))))
 
 (defmacro ^:private with-login-stubs
   "Sign-in with Turnstile on: `known` is the one typed name whose password is right."
@@ -545,114 +375,89 @@
                  auth/create-login-response (fn [& _#] {:status 200 :body {:token "t"}})]
      ~@body))
 
-(deftest sign-in-needs-no-challenge-until-it-fails
-  (with-login-stubs "kaylee"
-    (let [[resp calls] (verify-calls {:success false} #(login "kaylee" nil "1.1.1.1"))]
-      (is (= 200 (:status resp)))
-      (is (zero? calls) "Cloudflare is not asked"))))
+(deftest a-route-that-challenges-after-failure-asks-only-after-one
+  (doseq [[route _ call] (guarded-routes #(= :after-failure (:turnstile %)))]
+    (reset! @#'s/sightings {})
+    (let [ip "1.1.1.1"
+          attempt (fn [typed token ip] (call {:typed typed :token token :ip ip}))]
+      (testing (str route ": no challenge until a failure")
+        (with-login-stubs "kaylee"
+          (let [[resp calls] (verify-calls {:success false} #(attempt "kaylee" nil ip))]
+            (is (= 200 (:status resp)))
+            (is (zero? calls) "Cloudflare is not asked"))))
+      (testing (str route ": a failure looks the same for an unknown name and a wrong password")
+        (with-login-stubs "kaylee"
+          (let [unknown (attempt "nobody" nil ip)
+                wrong (with-redefs [auth/lookup-user (constantly {})
+                                    auth/find-user-by-username-or-email
+                                    (constantly {:db/id 1 :orcpub.user/username "kaylee"})]
+                        (attempt "kaylee" nil ip))]
+            (is (= errors/bad-credentials (-> unknown :body :error)))
+            (is (true? (-> unknown :body :challenge?)))
+            (is (= unknown wrong) "identical, including the flag"))))
+      (testing (str route ": the flag is absent while Turnstile is off")
+        (reset! @#'s/login-challenges {})
+        (with-redefs [s/turnstile-enabled? (constantly false)
+                      auth/lookup-user (constantly {})
+                      auth/find-user-by-username-or-email (constantly nil)]
+          (is (= {:status 401 :body {:error errors/bad-credentials}} (attempt "nobody" nil ip)))
+          (is (= {:status 401 :body {:error errors/bad-credentials}} (attempt "nobody" nil ip)))
+          (is (empty? @@#'s/login-challenges) "and nothing is marked")))
+      (testing (str route ": after a failure the next attempt needs a passing token")
+        (reset! @#'s/login-challenges {})
+        (with-login-stubs "kaylee"
+          (attempt "kaylee-typo" nil ip)
+          (with-redefs [auth/lookup-user lookups-fail-the-test]
+            (let [[resp calls] (verify-calls {:success true} #(attempt "kaylee-typo" nil ip))]
+              (is (= errors/challenge-required (-> resp :body :error)) "credentials are not looked at")
+              (is (true? (-> resp :body :challenge?)))
+              (is (zero? calls)))
+            (is (= errors/challenge-required
+                   (-> (first (verify-calls {:success false} #(attempt "kaylee-typo" "bad" ip))) :body :error))))
+          (is (= errors/bad-credentials
+                 (-> (first (verify-calls {:success true} #(attempt "kaylee-typo" "good" ip))) :body :error)))
+          (is (= errors/bad-credentials
+                 (-> (first (verify-calls :throw #(attempt "kaylee-typo" "any" ip))) :body :error))
+              "an unreachable Cloudflare fails open")))
+      (testing (str route ": the mark is per typed name and connection, trimmed and lowercased")
+        (reset! @#'s/login-challenges {})
+        (with-login-stubs "kaylee"
+          (attempt "  Wash " nil ip)
+          (is (true? (s/login-challenge-required? "wash" ip)))
+          (is (false? (s/login-challenge-required? "wash" "2.2.2.2")) "another connection")
+          (is (false? (s/login-challenge-required? "zoe" ip)) "another name")))
+      (testing (str route ": a successful sign-in clears the mark")
+        (with-login-stubs "kaylee"
+          (s/mark-login-challenge! "kaylee" ip)
+          (is (= 200 (:status (first (verify-calls {:success true} #(attempt "kaylee" "good" ip))))))
+          (is (false? (s/login-challenge-required? "kaylee" ip)))
+          (is (= 200 (:status (attempt "kaylee" nil ip))) "so the next one needs no token")))
+      (testing (str route ": the mark lapses")
+        (with-login-stubs "kaylee"
+          (with-redefs [s/login-challenge-ms -1]
+            (s/mark-login-challenge! "zoe" ip)
+            (is (false? (s/login-challenge-required? "zoe" ip))))))
+      (testing (str route ": a refusal by a limit also marks the next attempt")
+        (reset! @#'s/sightings {})
+        (with-login-stubs "kaylee"
+          (dotimes [i 5] (attempt (str "spray" i) nil "3.3.3.3"))
+          (let [r (attempt "wash" nil "3.3.3.3")]
+            (is (= errors/too-many-attempts (-> r :body :error)))
+            (is (true? (-> r :body :challenge?)))
+            (is (true? (s/login-challenge-required? "wash" "3.3.3.3")))))))))
 
-(deftest a-failure-looks-the-same-for-an-unknown-name-and-a-wrong-password
-  (with-login-stubs "kaylee"
-    (let [unknown (login "nobody" nil "1.1.1.1")
-          ;; "kaylee" exists, but this lookup stub is told it is wrong
-          wrong (with-redefs [auth/lookup-user (fn [& _] {})
-                              auth/find-user-by-username-or-email (constantly {:db/id 1 :orcpub.user/username "kaylee"})]
-                  (login "kaylee" nil "1.1.1.1"))]
-      (is (= 401 (:status unknown)))
-      (is (= errors/bad-credentials (-> unknown :body :error)))
-      (is (true? (-> unknown :body :challenge?)))
-      (is (= unknown wrong) "identical, including the flag"))))
+(deftest a-blank-field-is-answered-before-the-guard-is-consulted
+  (with-redefs [s/guard (fn [& _] (throw (AssertionError. "consulted too early")))]
+    (is (= errors/username-required
+           (-> (auth/login-response {:json-params {:username "" :password "x"} :remote-addr "1.2.3.4"})
+               :body :error)))))
 
-(deftest the-flag-is-absent-while-turnstile-is-off
-  (with-redefs [s/turnstile-enabled? (constantly false)
-                auth/lookup-user (constantly {})
-                auth/find-user-by-username-or-email (constantly nil)]
-    (is (= {:status 401 :body {:error errors/bad-credentials}} (login "nobody" nil "1.1.1.1")))
-    (is (= {:status 401 :body {:error errors/bad-credentials}} (login "nobody" nil "1.1.1.1"))
-        "and a second failure still asks for nothing")))
-
-(deftest after-a-failure-the-next-attempt-needs-a-passing-token
-  (with-login-stubs "kaylee"
-    (login "kaylee-typo" nil "1.1.1.1")
-    (testing "no token: challenge required, and the credentials are not looked at"
-      (with-redefs [auth/lookup-user lookups-fail-the-test]
-        (let [[resp calls] (verify-calls {:success true} #(login "kaylee-typo" nil "1.1.1.1"))]
-          (is (= 401 (:status resp)))
-          (is (= errors/challenge-required (-> resp :body :error)))
-          (is (true? (-> resp :body :challenge?)))
-          (is (zero? calls)))))
-    (testing "a failing token is the same"
-      (is (= errors/challenge-required
-             (-> (first (verify-calls {:success false} #(login "kaylee-typo" "bad" "1.1.1.1"))) :body :error))))
-    (testing "a passing token reaches the credentials"
-      (is (= errors/bad-credentials
-             (-> (first (verify-calls {:success true} #(login "kaylee-typo" "good" "1.1.1.1"))) :body :error))))
-    (testing "an unreachable Cloudflare fails open"
-      (is (= errors/bad-credentials
-             (-> (first (verify-calls :throw #(login "kaylee-typo" "any" "1.1.1.1"))) :body :error))))))
-
-(deftest a-successful-sign-in-clears-the-mark
-  (with-login-stubs "kaylee"
-    (login "nobody" nil "1.1.1.1")
-    (login "kaylee" nil "1.1.1.1")
-    (is (true? (s/login-challenge-required? "nobody" "1.1.1.1")) "a different name keeps its own mark")
-    (login "nobody" nil "2.2.2.2")
-    (s/mark-login-challenge! "kaylee" "1.1.1.1")
-    (is (= 200 (:status (first (verify-calls {:success true} #(login "kaylee" "good" "1.1.1.1"))))))
-    (is (false? (s/login-challenge-required? "kaylee" "1.1.1.1")) "the success cleared it")
-    (is (= 200 (:status (login "kaylee" nil "1.1.1.1"))) "so the next one needs no token")))
-
-(deftest the-mark-is-per-typed-name-and-connection
-  (with-login-stubs "kaylee"
-    (login "  Wash " nil "1.1.1.1")
-    (is (true? (s/login-challenge-required? "wash" "1.1.1.1")) "trimmed and lowercased as the lookup does")
-    (is (false? (s/login-challenge-required? "wash" "2.2.2.2")) "another connection")
-    (is (false? (s/login-challenge-required? "zoe" "1.1.1.1")) "another name")))
-
-(deftest the-mark-lapses
-  (with-login-stubs "kaylee"
-    (s/mark-login-challenge! "wash" "1.1.1.1")
-    (with-redefs [s/login-challenge-ms -1]
-      (s/mark-login-challenge! "zoe" "1.1.1.1")
-      (is (false? (s/login-challenge-required? "zoe" "1.1.1.1"))))
-    (is (true? (s/login-challenge-required? "wash" "1.1.1.1")))))
-
-(deftest nothing-is-marked-while-turnstile-is-off
-  (with-redefs [s/turnstile-enabled? (constantly false)]
-    (s/mark-login-challenge! "wash" "1.1.1.1"))
-  (is (empty? @@#'s/login-challenges)))
-
-(deftest a-sprayed-or-throttled-refusal-also-marks-the-next-attempt
-  (with-login-stubs "kaylee"
-    (with-redefs [s/multiple-account-access? (constantly true)]
-      (let [r (login "wash" nil "3.3.3.3")]
-        (is (= errors/too-many-attempts (-> r :body :error)))
-        (is (true? (-> r :body :challenge?)))))
-    (is (true? (s/login-challenge-required? "wash" "3.3.3.3")))))
-
-;; ---- a blocked widget and a failed check are told apart ----
-
-(deftest no-token-is-told-to-allow-the-script-and-a-bad-token-to-retry
-  (let [messages (fn [resp] (get-in resp [:body :general]))
-        blocked errors/turnstile-blocked-message]
-    (is (str/includes? blocked "ad blocker"))
-    (is (str/includes? blocked "challenges.cloudflare.com"))
-    (doseq [[label call]
-            [["register" (fn [token] (auth/register (request (fresh-conn) token)))]
-             ["send-password-reset"
-              (fn [token] (auth/send-password-reset
-                           {:query-params (cond-> {:email "a@b.com"} token (assoc :turnstile-token token))
-                            :db nil :conn nil :remote-addr "9.9.9.9"}))]
-             ["re-verify"
-              (fn [token] (auth/re-verify
-                           {:query-params (cond-> {:email "a@b.com"} token (assoc :turnstile-token token))
-                            :db nil :conn nil :remote-addr "9.9.9.9"}))]]]
-      (testing label
-        (with-redefs [auth/user-for-email lookups-fail-the-test]
-          (doseq [blank [nil "" "   "]]
-            (is (= [blocked] (messages (first (verify-calls {:success true} #(call blank)))))
-                "a blank token gets the ad-blocker message"))
-          (let [msgs (messages (first (verify-calls {:success false} #(call "bad"))))]
-            (is (= 1 (count msgs)))
-            (is (not= [blocked] msgs) "a failed token does not")
-            (is (str/includes? (first msgs) "not a bot"))))))))
+(deftest the-resend-token-does-not-reach-the-mail
+  (let [seen (atom nil)]
+    (with-redefs [s/turnstile-enabled? (constantly true)
+                  s/post-siteverify (fn [& _] {:success true})
+                  auth/user-for-email (constantly {:db/id 17})
+                  auth/do-verification (fn [_ params & _] (reset! seen params) {:status 200})]
+      (auth/re-verify {:query-params {:email "a@b.com" :turnstile-token "t"}
+                       :db nil :conn nil :remote-addr "9.9.9.9"})
+      (is (not (contains? @seen :turnstile-token))))))
