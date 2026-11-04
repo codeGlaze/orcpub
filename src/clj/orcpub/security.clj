@@ -424,6 +424,14 @@
                 (refuse! k))))
           (:limits p))))
 
+(defn challenge-flag
+  "What a failed request on `route` tells its form about the challenge: {:challenge? true} when
+   the route's policy is :turnstile :after-failure and Turnstile is on, else nil. The same map for
+   every failure, so it cannot tell an unknown name from a wrong password."
+  [route]
+  (when (and (= :after-failure (:turnstile (policy route))) (turnstile-enabled?))
+    {:challenge? true}))
+
 (defn guard
   "nil when the request may go on, else a refusal: {:reason :turnstile :blank? bool} or
    {:reason :limit :limit kw}. `route` is a key of auth-guards; `ctx` holds what the handler knows:

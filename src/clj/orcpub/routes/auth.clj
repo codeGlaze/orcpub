@@ -189,12 +189,6 @@
 (defn base-url [{:keys [scheme headers]}]
   (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
 
-(defn- challenge-flag
-  "Tells the form to show the challenge for the retry. The same map for every failure, so it
-   cannot tell an unknown name from a wrong password; nil while Turnstile is off."
-  []
-  (when (security/turnstile-enabled?) {:challenge? true}))
-
 (def ^:private turnstile-failed-message
   "We couldn't confirm you're not a bot. Please try the check again.")
 
@@ -215,7 +209,7 @@
       (and (= reason :turnstile) (= answer :error)) (login-error errors/challenge-required {:challenge? true})
       (= reason :turnstile) {:status 400 :body {:general [(turnstile-message blank?)]}}
       (= answer :uniform) {:status 200}
-      (= answer :error) (login-error errors/too-many-attempts (challenge-flag))
+      (= answer :error) (login-error errors/too-many-attempts (security/challenge-flag ::login))
       :else {:status 400 :body {:general [message]}})))
 
 (defn bad-credentials-response [db username ip request]
@@ -246,7 +240,7 @@
         ;; One answer for both. Telling somebody the username does not exist made
         ;; the login form the same membership test the reset endpoint was, and a
         ;; cheaper one, since it needs no mail to be sent.
-        (login-error errors/bad-credentials (challenge-flag))))))
+        (login-error errors/bad-credentials (security/challenge-flag ::login))))))
 
 (defn create-login-response [db conn user id & [headers]]
   (let [token (create-token (:orcpub.user/username user)
