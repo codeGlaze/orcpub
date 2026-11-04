@@ -62,7 +62,6 @@
             [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.registration :as registration]
             [orcpub.pwned :as pwned]
-            [orcpub.turnstile :as turnstile]
             [orcpub.entity.strict :as se]
             [orcpub.entity :as entity]
             [orcpub.security :as security]
@@ -621,8 +620,8 @@
         ;; be rejected anyway never costs a verification. :unreachable is a pass (fail open).
         ;; :general for the same reason as the throttle below.
         validation (if (and (empty? validation)
-                            (turnstile/enabled?)
-                            (= :fail (turnstile/verify (:turnstile-token json-params) remote-addr)))
+                            (security/turnstile-enabled?)
+                            (= :fail (security/turnstile-verify (:turnstile-token json-params) remote-addr)))
                      (assoc validation :general [turnstile-failed-message])
                      validation)
         ;; Checked last, so a form that was going to be rejected anyway is not

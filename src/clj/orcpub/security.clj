@@ -1,7 +1,9 @@
 (ns orcpub.security
   "Login attempt tracking and rate limiting.
    See orcpub.time for date/time utilities."
-  (:require [clojure.string]
+  (:require [clj-http.client :as client]
+            [clojure.string :as s]
+            [orcpub.config :as config]
             [orcpub.time :as time :refer [minutes hours ago]]))
 
 (defn compare-dates [attempt-1 attempt-2]
@@ -354,3 +356,64 @@
       (println line))
     (when-let [line (busiest-summary highs 0.8)]
       (println line))))
+
+;; ---------------------------------------------------------------------------
+;; Cloudflare Turnstile check for the sign-up form (managed mode).
+;; GOTCHA: fails OPEN. If Cloudflare cannot be reached, the signup goes through; only an
+;; answer of success=false (or no token at all) refuses. The secret key is never logged.
+;; ---------------------------------------------------------------------------
+
+(def ^:private turnstile-endpoint "https://challenges.cloudflare.com/turnstile/v0/siteverify")
+
+;; Short enough that a stalled third party cannot hold a signup open (same idea as orcpub.pwned).
+(def ^:private turnstile-timeout-ms 4000)
+
+(defn turnstile-enabled?
+  "True only when both TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY are set."
+  []
+  (config/turnstile-enabled?))
+
+(defn- post-siteverify
+  "POSTs to Cloudflare; returns the parsed JSON body as a map. Throws on transport failure,
+   non-2xx or an unparseable body. A separate fn so tests can with-redefs it."
+  [token remote-ip]
+  (let [{:keys [status body]}
+        (client/post turnstile-endpoint
+                     {:form-params (cond-> {:secret (config/turnstile-secret-key)
+                                            :response token}
+                                     (not (s/blank? remote-ip)) (assoc :remoteip remote-ip))
+                      :as :json
+                      :socket-timeout turnstile-timeout-ms
+                      :connection-timeout turnstile-timeout-ms
+                      :throw-exceptions false
+                      :cookie-policy :none
+                      :redirect-strategy :none})]
+    (if (<= 200 status 299)
+      body
+      (throw (ex-info "siteverify non-2xx" {:status status})))))
+
+;; A sustained outage would otherwise log a line per signup.
+(def ^:private turnstile-log-window-ms 60000)
+(def ^:private turnstile-last-logged (atom 0))
+
+(defn- turnstile-warn-unreachable! [reason]
+  (let [now (System/currentTimeMillis)
+        [before _] (swap-vals! turnstile-last-logged #(if (> (- now %) turnstile-log-window-ms) now %))]
+    (when (> (- now before) turnstile-log-window-ms)
+      ;; Reason is an exception class name or HTTP status: never the secret or the token.
+      (println "turnstile: siteverify unreachable, letting signup through -" reason))))
+
+(defn turnstile-verify
+  "Checks a Turnstile `token` for `remote-ip`. Returns :pass, :fail, or :unreachable (the caller
+   treats :unreachable as a pass). A blank token is :fail without calling Cloudflare."
+  [token remote-ip]
+  (if (s/blank? token)
+    :fail
+    (try
+      (let [result (post-siteverify token remote-ip)]
+        (if (true? (:success result)) :pass :fail))
+      (catch Exception e
+        (turnstile-warn-unreachable! (if-let [st (:status (ex-data e))]
+                             (str "HTTP " st)
+                             (.. e getClass getSimpleName)))
+        :unreachable))))
