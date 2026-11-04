@@ -478,6 +478,57 @@
         (is (= 10 @sent))))
     (clear-limits!)))
 
+(deftest password-reset-is-limited-per-address-and-answers-the-same
+  (let [sent (atom 0)
+        reset (fn [email ip]
+                (routes/send-password-reset {:query-params {:email email} :db nil :conn nil
+                                             :remote-addr ip}))]
+    (clear-limits!)
+    (with-redefs [routes/user-for-email (constantly {:db/id 17})
+                  routes/do-send-password-reset (fn [& _] (swap! sent inc) {:status 200})]
+      (let [first-response (reset "someone@example.com" "1.2.3.4")]
+        (testing "within the per-address limit, mail goes out"
+          (dotimes [_ 2]
+            (is (= first-response (reset "someone@example.com" "1.2.3.4"))))
+          (is (= 3 @sent)))
+        (testing "the fourth in the hour sends nothing and answers the same"
+          (is (= first-response (reset "someone@example.com" "1.2.3.4")))
+          (is (= 3 @sent)))))
+    (clear-limits!)))
+
+(deftest password-reset-is-limited-per-host-and-answers-the-same
+  (let [sent (atom 0)
+        reset (fn [n] (routes/send-password-reset {:query-params {:email (str "user" n "@example.com")}
+                                                   :db nil :conn nil :remote-addr "5.6.7.8"}))]
+    (clear-limits!)
+    (with-redefs [routes/user-for-email (constantly {:db/id 17})
+                  routes/do-send-password-reset (fn [& _] (swap! sent inc) {:status 200})]
+      (let [first-response (reset 0)]
+        (testing "ten different addresses from one host get mail"
+          (dotimes [n 9]
+            (is (= first-response (reset (inc n)))))
+          (is (= 10 @sent)))
+        (testing "the eleventh sends nothing and answers the same"
+          (is (= first-response (reset 10)))
+          (is (= 10 @sent)))))
+    (clear-limits!)))
+
+(deftest password-reset-for-an-unknown-address-sends-nothing-and-answers-the-same
+  (let [sent (atom 0)
+        reset (fn [email] (routes/send-password-reset {:query-params {:email email} :db nil :conn nil
+                                                       :remote-addr "9.9.9.9"}))]
+    (clear-limits!)
+    (with-redefs [routes/do-send-password-reset (fn [& _] (swap! sent inc) {:status 200})]
+      (let [known (with-redefs [routes/user-for-email (constantly {:db/id 17})]
+                    (reset "known@example.com"))
+            sent-for-known @sent
+            unknown (with-redefs [routes/user-for-email (constantly {})]
+                      (reset "nobody@example.com"))]
+        (is (= 1 sent-for-known))
+        (is (= known unknown))
+        (is (= 1 @sent))))
+    (clear-limits!)))
+
 
 (deftest the-owner-is-told-when-one-account-is-tried-from-several-places
   (let [posted (promise)
