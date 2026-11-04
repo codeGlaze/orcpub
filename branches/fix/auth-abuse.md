@@ -41,6 +41,18 @@ verification, Turnstile on sign-up, and the "email taken" check. **Base:** `inte
 - 2026-11-04: with no mail server (refused, or `ALLOW_UNVERIFIED_REGISTRATION` open mode) the owner
   cannot be mailed, so a taken address gets a plain refusal in those modes only.
 
+- 2026-11-04: auth code moves on THIS branch (no new branch), pure moves, no renames, following
+  existing folders: `routes/auth.clj` (handlers out of `routes.clj`), `views/auth.cljs` (screens +
+  Turnstile widget), `events/auth.cljs` (per `monolith-decomposition-plan.md`). Turnstile server
+  check folds into `security.clj`; tests into existing files. Shared helpers go to
+  `event_utils.cljc` / `orcpub.components`; children never require their monolith.
+- 2026-11-04: one guard table in `security.clj` listing every auth form and its checks, plus a test
+  that reads the route table and fails if an auth route is missing from it.
+- 2026-11-04: Turnstile also on password reset and resend-verification. Login: only after a failed
+  attempt, counted by the typed name (not the account) and shown after any failure, so it reveals
+  nothing; the failure message stays as is. Show an ad-blocker message when the script can't load.
+- 2026-11-04: summaries include a before -> after line count per touched file.
+
 ## Open questions for the owner
 
 - None.
