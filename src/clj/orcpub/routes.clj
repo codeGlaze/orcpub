@@ -2037,8 +2037,6 @@
         {:get `community-guidelines-page}]
        [(route-map/path-for route-map/cookies-policy-route)
         {:get `cookie-policy-page}]
-       [(route-map/path-for route-map/check-email-route)
-        {:get `auth/check-email}]
        [(route-map/path-for route-map/check-username-route)
         {:get `auth/check-username}]
        ["/health"

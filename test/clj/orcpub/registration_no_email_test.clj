@@ -132,3 +132,21 @@
               (str "expected a specific, actionable error. Got: " (pr-str resp)))
           (is (nil? (find-user (d/db conn)))
               "and no account may be created, verified or otherwise"))))))
+
+(deftest a-taken-address-gets-a-plain-refusal-when-there-is-no-mail-server
+  ;; Nobody can be mailed, so the sign-up cannot be answered like a new one. The refusal is
+  ;; general: it must not be a field error that names the address as taken.
+  (doseq [unverified-allowed? [true false]]
+    (let [conn (fresh-conn)]
+      (with-redefs [email/configured? (constantly false)
+                    email/unverified-registration-allowed? (constantly true)]
+        (auth/register (register-request conn)))
+      (with-redefs [email/configured? (constantly false)
+                    email/unverified-registration-allowed? (constantly unverified-allowed?)]
+        (let [resp (auth/register (assoc-in (register-request conn) [:json-params :username] "second"))]
+          (is (= 400 (:status resp)))
+          (is (= {:general ["This email can't be used. Check it and try again, or sign in."]}
+                 (:body resp))
+              "a general error, with no :email key")
+          (is (= 1 (d/q '[:find (count ?e) . :where [?e :orcpub.user/email]] (d/db conn)))
+              "and no second account"))))))

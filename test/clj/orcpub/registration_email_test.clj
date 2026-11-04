@@ -7,7 +7,7 @@
   (:require
    [clojure.edn :as edn]
    [clojure.string :as str]
-   [clojure.test :refer [deftest is use-fixtures]]
+   [clojure.test :refer [deftest is testing use-fixtures]]
    [datomic.api :as d]
    [orcpub.email :as email]
    [orcpub.errors :as errors]
@@ -15,6 +15,7 @@
    [orcpub.routes :as routes]
    [orcpub.routes.auth :as auth]
    [orcpub.security :as security]
+   [buddy.hashers :as hashers]
    [orcpub.db.schema :as schema])
   (:import [java.util Date UUID]))
 
@@ -117,3 +118,78 @@
     (is (nil? (d/q '[:find (count ?e) . :where [?e :orcpub.user/verification-key]] (d/db conn)))
         "no record was created for an unknown address")
     (is (empty? (queued conn)) "and no email was queued for it")))
+
+;; ---- Sign-up never says an address is taken: the owner is mailed instead ----
+
+(defn- sign-up
+  "A sign-up as `username` with `address`, against `conn`."
+  [conn username address]
+  (-> (register-request conn)
+      (assoc-in [:json-params :username] username)
+      (assoc-in [:json-params :email] address)
+      (assoc-in [:json-params :verify-email] address)
+      auth/register))
+
+(defn- accounts-with [conn address]
+  (d/q '[:find [?e ...] :in $ ?a :where [?e :orcpub.user/email ?a]] (d/db conn) address))
+
+(deftest a-taken-address-gets-the-same-answer-as-a-new-one
+  (reset! @#'security/sightings {})
+  (let [conn (fresh-conn)
+        _ (sign-up conn "newcomer" "newcomer@test.com")
+        fresh (sign-up conn "second" "fresh@test.com")
+        taken (sign-up conn "third" "newcomer@test.com")]
+    (is (= {:status 200} fresh))
+    (is (= fresh taken) "same status, same body")
+    (is (= 1 (count (accounts-with conn "newcomer@test.com"))) "no second account")
+    (is (nil? (find-user (d/db conn) "third")) "and nothing created under the new username")))
+
+(deftest the-owner-is-mailed-once-a-day-with-nothing-to-replay
+  (reset! @#'security/sightings {})
+  (let [conn (fresh-conn)
+        _ (sign-up conn "newcomer" "newcomer@test.com")
+        key (:orcpub.user/verification-key (find-user (d/db conn) "newcomer"))
+        _ (outbox/send-due! conn (constantly true) #(Date.))
+        _ (sign-up conn "intruder" "newcomer@test.com")
+        _ (sign-up conn "intruder2" "newcomer@test.com")
+        notices (filter #(= :signup-attempt (:kind %)) (queued conn))
+        text (body (:message (first notices)))]
+    (is (= 1 (count notices)) "two attempts in a day, one notice")
+    (is (= "newcomer@test.com" (:to (first notices))))
+    (is (str/includes? text "/login") "a way to sign in")
+    (is (str/includes? text "send-password-reset") "and to reset the password")
+    (doseq [secret ["hunter2hunter2" key "newcomer" "intruder"]]
+      (is (not (str/includes? text secret)) (str "no " secret)))
+    (testing "a different address has its own allowance"
+      (sign-up conn "other" "other@test.com")
+      (sign-up conn "other2" "other@test.com")
+      (is (= 2 (count (filter #(= :signup-attempt (:kind %)) (queued conn))) )
+          "only the one taken address added a notice"))))
+
+(deftest a-taken-address-goes-through-the-same-checks-and-costs-the-same
+  (reset! @#'security/sightings {})
+  (let [conn (fresh-conn)
+        _ (sign-up conn "newcomer" "newcomer@test.com")
+        hashed (atom 0)
+        allowed (atom 0)]
+    (with-redefs [hashers/encrypt (fn [& _] (swap! hashed inc) "hash")
+                  security/registration-allowed? (fn [_] (swap! allowed inc) true)]
+      (sign-up conn "fresh" "fresh@test.com")
+      (is (= [1 1] [@hashed @allowed]) "a new sign-up")
+      (sign-up conn "third" "newcomer@test.com")
+      (is (= [2 2] [@hashed @allowed])
+          "a taken one is counted against the host and hashes the password too"))
+    (testing "a failed challenge refuses a taken address exactly as a new one"
+      (with-redefs [security/turnstile-enabled? (constantly true)
+                    security/turnstile-verify (constantly :fail)
+                    security/registration-allowed? (fn [_] (swap! allowed inc) true)]
+        (let [before @allowed
+              new-resp (sign-up conn "fresh2" "fresh2@test.com")
+              taken-resp (sign-up conn "third" "newcomer@test.com")]
+          (is (= 400 (:status taken-resp)))
+          (is (= new-resp taken-resp))
+          (is (= before @allowed) "and spends no allowance"))))))
+
+(deftest the-address-check-route-is-gone
+  (is (not-any? #(= "/check-email" (:path %)) routes/routes))
+  (is (nil? (resolve 'orcpub.routes.auth/check-email))))

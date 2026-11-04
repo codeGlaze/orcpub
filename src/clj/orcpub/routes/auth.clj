@@ -413,14 +413,48 @@
   (when (security/turnstile-refused? route-name token remote-addr)
     {:status 400 :body {:general [(turnstile-message token)]}}))
 
+(def ^:private taken-email-refusal-message
+  "This email can't be used. Check it and try again, or sign in.")
+
+(defn- notify-taken-owner!
+  "Mails the owner of `email` that somebody tried to sign up with it, at most once a day. Never
+   throws and never changes the answer: a failure here must not tell a taken address from a new one."
+  [{:keys [db conn] :as request} email]
+  (try
+    (let [owner (user-for-email db email)]
+      (when (and (:db/id owner)
+                 (security/claim-taken-signup-notice! email))
+        (outbox/enqueue! conn :signup-attempt
+                         (email/signup-attempt-message
+                          (base-url request)
+                          {:email (or (:orcpub.user/email owner) email)}))))
+    (catch Exception e
+      (println "ERROR: could not queue a sign-up attempt notice:" (.getMessage e)))))
+
+(defn- answer-taken-email
+  "The answer for a well-formed sign-up whose address already has an account. With a mail server:
+   exactly what a new sign-up answers, nothing created, the owner mailed instead. Without one there
+   is nobody to mail, so a plain refusal (owner decision 2026-11-04), not a field error naming the
+   address.
+   The password is hashed and thrown away so this path costs about what a new sign-up does, since a
+   much faster answer would tell a taken address apart by timing alone."
+  [request email password]
+  (hashers/encrypt password)
+  (if (email/configured?)
+    (do (notify-taken-owner! request email)
+        {:status 200})
+    {:status 400 :body {:general [taken-email-refusal-message]}}))
+
 (defn register [{:keys [json-params db conn remote-addr] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
         username (when username (s/trim username))
         email (user-email/email-key email)
         password (when password (s/trim password))
+        ;; Whether the address is taken is judged AFTER every check a new sign-up goes through,
+        ;; and never shown: see answer-taken-email.
+        taken? (boolean (seq (d/q email-query db email)))
         validation (registration/validate-registration
                     json-params
-                    (seq (d/q email-query db email))
                     (seq (d/q username-query db username)))
         now (java.util.Date.)
         ;; Checked only once the form is otherwise valid: no reason to ask a third
@@ -443,9 +477,15 @@
         validation (if (or (seq validation) (security/registration-allowed? remote-addr))
                      validation
                      (assoc validation :general [registration-throttled-message]))]
-    (if (seq validation)
+    (cond
+      (seq validation)
       {:status 400
        :body validation}
+
+      taken?
+      (answer-taken-email request email password)
+
+      :else
       (let [response (do-verification
                       request
                       json-params
@@ -748,9 +788,6 @@
 
 (defn check-username [{:keys [db query-params]}]
   (check-field username-query (:username query-params) db))
-
-(defn check-email [{:keys [db query-params]}]
-  (check-field email-query (user-email/email-key (:email query-params)) db))
 
 (defn rate-limit-remaining-secs
   "Seconds until the user can act again. In the 0–1 min zone (email in transit)

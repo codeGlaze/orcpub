@@ -221,11 +221,6 @@
   (defn validate-registration [])
 
 (reg-event-db
- :email-taken
- (fn [db [_ response]]
-   (assoc db :email-taken? (-> response :body (= "true")))))
-
-(reg-event-db
  :username-taken
  (fn [db [_ response]]
    (assoc db :username-taken? (-> response :body (= "true")))))
@@ -236,11 +231,10 @@
    (fn [db [_ first-and-last-name]]
      (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
 
-(reg-event-fx
+(reg-event-db
  :registration-email
- (fn [{:keys [db]} [_ email]]
-   {:db (assoc-in db [:registration-form :email] email)
-    :dispatch [:check-email email]}))
+ (fn [db [_ email]]
+   (assoc-in db [:registration-form :email] email)))
 
 (reg-event-fx
  :registration-verify-email
@@ -286,14 +280,6 @@
    :register-first-and-last-name
    (fn [db [_ first-and-last-name]]
      (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
-
-(reg-event-fx
- :check-email
- (fn [{:keys [db]} [_ email]]
-   {:http {:method :get
-           :url (backend-url (bidi/path-for routes/routes routes/check-email-route))
-           :query-params {:email email}
-           :on-success [:email-taken]}}))
 
 (reg-event-fx
  :check-username

@@ -118,7 +118,8 @@ async function resetLinkFor(page, sink, email) {
   check((await heading(page)).toLowerCase().includes('registration is complete'),
         'a new account registers and verifies', await heading(page));
 
-  // The same address and name a second time must be refused, per field.
+  // The same name a second time is refused, per field. The address is NOT: sign-up never says an
+  // address is taken (it answers "check your email" and mails the owner instead).
   await page.goto(`${BASE}/pages/register-page`, { waitUntil: 'networkidle' });
   await page.waitForSelector('.auth-form input');
   let b = authInputs(page);
@@ -127,8 +128,8 @@ async function resetLinkFor(page, sink, email) {
   // GOTCHA: matches the server's messages; the page always shows "Already have an account?".
   await submit(page, () => press(page, 'JOIN'), /already taken by another user/);
   const taken = await cardText(page);
-  check(/already taken by another user/i.test(taken) && /already associated with another account/i.test(taken),
-        'a username and email already in use are refused',
+  check(/already taken by another user/i.test(taken) && !/already associated|already in use|taken/i.test(taken.replace(/already taken by another user/ig, '')),
+        'a username already in use is refused, and the email is not named as taken',
         taken.replace(/\n/g, ' | ').slice(0, 120));
 
   // Short password: the rules must say what is wrong, not just refuse.

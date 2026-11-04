@@ -259,6 +259,54 @@
           (describe-browser user-agent)
           (attempt-time))})
 
+(defn signup-attempt-email-html
+  "Says nothing that identifies the account: no name, username, credential or token. Both links go
+  to pages, so the reader decides what to do and nothing in this mail can be replayed."
+  [sign-in-url reset-url]
+  (into
+   [:div
+    "Hello,"
+    [:br]
+    [:br]
+    (str "Someone just tried to sign up for " branding/app-name " with this email address, which already has an account.")
+    [:br]
+    [:br]
+    "If it was you, you do not need a second account. Sign in here:"
+    [:br]
+    [:br]
+    [:a {:href sign-in-url} sign-in-url]
+    [:br]
+    [:br]
+    "If you have forgotten your password, you can pick a new one here:"
+    [:br]
+    [:br]
+    [:a {:href reset-url} reset-url]
+    [:br]
+    [:br]
+    "If it was not you, you can ignore this email. Nothing has changed and nobody got in."
+    [:br]
+    [:br]
+    "Sincerely,"
+    [:br]
+    [:br]
+    (str "The " branding/email-sender-name)]
+   (social-links-footer)))
+
+(defn signup-attempt-email [sign-in-url reset-url]
+  [{:type "text/html"
+    :content (str (hiccup/html (signup-attempt-email-html sign-in-url reset-url)))}])
+
+(defn signup-attempt-message
+  "The notice to the owner of an address somebody tried to sign up with again: `base-url`, and a map
+  with :email. Links to the sign-in and reset PAGES only. Returns the postal message."
+  [base-url {:keys [email]}]
+  {:from (str branding/email-sender-name " <" (emailfrom) ">")
+   :to email
+   :subject (str branding/app-name " sign-up attempt")
+   :body (signup-attempt-email
+          (str base-url (routes/path-for routes/login-page-route))
+          (str base-url (routes/path-for routes/send-password-reset-page-route)))})
+
 (defn password-changed-email-html [first-and-last-name reset-url browser when-str]
   (into
    [:div

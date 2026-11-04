@@ -277,6 +277,10 @@
 (defn claim-sign-in-notice! [username]
   (claim-once? [:sign-in-notice username] (hours notice-cooldown-hours)))
 
+;; Same reason, for the notice a taken address gets when somebody signs up with it again.
+(defn claim-taken-signup-notice! [email-key]
+  (claim-once? [:taken-signup-notice email-key] (hours notice-cooldown-hours)))
+
 ;; Three reset mails an hour to one address leaves room for "it never arrived,
 ;; send it again" and takes the bombing ceiling off unlimited. The per-address
 ;; limit is the one that protects a PERSON; the per-host limit is the one that
@@ -337,8 +341,6 @@
    {:none "a page; needs the unguessable reset key and changes nothing"}
    :orcpub.routes.auth/check-username
    {:none "usernames are public handles (profiles, shares), so membership is not a secret"}
-   :orcpub.routes.auth/check-email
-   {:none "TEMPORARY: removed by the sign-up change that stops revealing a taken address"}
    :orcpub.routes.auth/request-email-change
    #{:authenticated :cooldown}
    :orcpub.routes/unsubscribe
