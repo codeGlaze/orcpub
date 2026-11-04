@@ -8,7 +8,7 @@
   (:require [re-frame.core :refer [subscribe dispatch]]
             [reagent.core :as r]
             [orcpub.route-map :as routes]
-            [orcpub.components :as comps :refer [text-color base-input form-input make-event-handler]]
+            [orcpub.components :as comps :refer [base-input form-input make-event-handler]]
             [orcpub.registration :as registration]
             [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.views-2 :as views-2]
@@ -237,20 +237,6 @@
   (.stopPropagation e)
   (dispatch [:route-to-login]))
 
-(def registration-content-style
-  {:background-color :white
-   :border "1px solid white"
-   :color text-color})
-
-(def registration-left-column-style
-  {:flex-direction :column
-   :width "435px"})
-
-(def registration-header-style
-  {:height "65px"
-   :background-color "#1a2532"
-   :border-right "1px solid white"})
-
 (defn route-to-default-page []
   (dispatch [:route :default]))
 
@@ -262,11 +248,9 @@
   [:div.sans.h-full.flex.flex-column
    [:div.flex.justify-cont-s-a.align-items-c.flex-grow-1.h-100-p
     [:div.registration-content
-     {:style registration-content-style}
      [:div.flex.h-100-p
-      [:div.flex {:style registration-left-column-style}
-       [:div.flex.justify-cont-s-a.align-items-c
-        {:style registration-header-style}
+      [:div.flex.registration-left-col
+       [:div.flex.justify-cont-s-a.align-items-c.registration-header
         [:img.pointer
          {:class branding/registration-logo-class
           :src branding/logo-path
