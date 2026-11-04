@@ -20,7 +20,9 @@ verification, Turnstile on sign-up, and the "email taken" check. **Base:** `inte
   failure (mark = typed name + connection, 15 min); ad-blocker message; step 3 option (b) built
   (`check-email` removed, taken address answered like a new one, owner notice once a day, plain
   refusal with no mail server). Full suite 1497/0; browser-checked with the test keys.
-- Left: branch changelog, KB page update, one CodeRabbit `full review`, PR into `integration`.
+- 2026-11-04 later: protections unified (`auth-guards` policy + one `guard`, table-driven tests, one
+  `claim-notice!`, `auth-form-page :challenge`); branch changelog written; KB page updated; PR opened.
+- Left: one CodeRabbit `full review`, its fixes, owner's merge call.
 - Known, accepted: `check-username` stays live (public handles); email change still says
   `:email-taken` (signed-in only); `text-color` still in `components.cljc` until `views.cljs`
   inline styles go to Garden; page-load bundle already over its 900 KB ceiling before this branch.
