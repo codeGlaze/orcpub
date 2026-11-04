@@ -14,6 +14,7 @@
             [orcpub.email :as email]
             [orcpub.errors :as errors]
             [orcpub.fork.auth :as fork-auth]
+            [orcpub.fork.branding :as branding]
             [orcpub.fork.user-data :as user-data]
             [orcpub.index :refer [index]]
             [orcpub.outbox :as outbox]
@@ -189,6 +190,12 @@
 (defn base-url [{:keys [scheme headers]}]
   (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
 
+(defn- site-url
+  "The configured public site address (APP_URL), without a trailing slash, or nil. What links in
+   mail to a stranger are built on, since a request's own headers are the sender's to choose."
+  []
+  (some-> branding/app-url not-empty (s/replace #"/+$" "")))
+
 (def ^:private turnstile-failed-message
   "We couldn't confirm you're not a bot. Please try the check again.")
 
@@ -236,6 +243,7 @@
                                         :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)
                                         :user-agent (get (:headers request) "user-agent")})))
               (catch Exception e
+                (security/release-notice! notify (:db/id user-for-username) notice)
                 (println "ERROR: could not queue a sign-in attempts notice:" (.getMessage e))))))
         ;; One answer for both. Telling somebody the username does not exist made
         ;; the login form the same membership test the reset endpoint was, and a
@@ -349,24 +357,34 @@
                           e)))))
     :else
     (let [verification-key (str (java.util.UUID/randomUUID))
-          existing-id (:db/id tx-data)]
-      (try
-        @(d/transact
-          conn
-          [(merge
-            tx-data
-            {:db/id (or existing-id "verification-subject")
-             :orcpub.user/verified? false
-             :orcpub.user/verification-key verification-key
-             :orcpub.user/verification-sent (java.util.Date.)})
-           (outbox/email-tx :verification
-                            (email/verification-message (base-url request) params verification-key))])
-        (catch Exception e
-          (println "ERROR: Failed to create verification record:" (.getMessage e))
-          (throw (ex-info "Unable to complete registration. Please try again or contact support."
-                          {:error :verification-failed}
-                          e))))
-      (outbox/sent!)
+          existing-id (:db/id tx-data)
+          ;; A resend may not undo a verification that landed after the caller read the account:
+          ;; the write is a compare-and-swap on the value read just now, and a verified account is
+          ;; left alone.
+          verified-now (when existing-id
+                         (:orcpub.user/verified? (d/entity (d/db conn) existing-id)))]
+      (when-not (true? verified-now)
+        (let [queued? (try
+                        @(d/transact
+                          conn
+                          (cond-> [(merge
+                                    tx-data
+                                    {:db/id (or existing-id "verification-subject")
+                                     :orcpub.user/verification-key verification-key
+                                     :orcpub.user/verification-sent (java.util.Date.)}
+                                    (when-not existing-id {:orcpub.user/verified? false}))
+                                   (outbox/email-tx :verification
+                                                    (email/verification-message (base-url request) params verification-key))]
+                            existing-id (conj [:db/cas existing-id :orcpub.user/verified? verified-now false])))
+                        true
+                        (catch Exception e
+                          (when-not (odb/cas-failed? e)
+                            (println "ERROR: Failed to create verification record:" (.getMessage e))
+                            (throw (ex-info "Unable to complete registration. Please try again or contact support."
+                                            {:error :verification-failed}
+                                            e)))
+                          false))]
+          (when queued? (outbox/sent!))))
       {:status 200})))
 
 (defn- breach-message
@@ -406,17 +424,25 @@
 (defn- notify-taken-owner!
   "Mails the owner of `email` that somebody tried to sign up with it, at most once a day. Never
    throws and never changes the answer: a failure here must not tell a taken address from a new one."
-  [{:keys [db conn] :as request} email]
-  (try
-    (let [owner (user-for-email db email)]
-      (when-let [notice (and (:db/id owner)
-                             (security/claim-notice! :taken-signup email))]
-        (outbox/enqueue! conn :signup-attempt
-                         (email/signup-attempt-message
-                          (base-url request)
-                          (assoc notice :email (or (:orcpub.user/email owner) email))))))
-    (catch Exception e
-      (println "ERROR: could not queue a sign-up attempt notice:" (.getMessage e)))))
+  [{:keys [db conn]} email]
+  (let [claimed (atom nil)]
+    (try
+      ;; GOTCHA: links come from the configured site address, never the request's Host or
+      ;; X-Forwarded-Proto, which the sender controls: a forged Host would put a phishing link in
+      ;; mail from us to the account's owner. No configured address, no notice.
+      (when-let [site (site-url)]
+        (let [owner (user-for-email db email)]
+          (when-let [notice (and (:db/id owner)
+                                 (security/claim-notice! :taken-signup email))]
+            (reset! claimed notice)
+            (outbox/enqueue! conn :signup-attempt
+                             (email/signup-attempt-message
+                              site
+                              (assoc notice :email (or (:orcpub.user/email owner) email)))))))
+      (catch Exception e
+        ;; The claim is given back, or the owner is never told about this attempt.
+        (when-let [notice @claimed] (security/release-notice! :taken-signup email notice))
+        (println "ERROR: could not queue a sign-up attempt notice:" (.getMessage e))))))
 
 (defn- answer-taken-email
   "The answer for a well-formed sign-up whose address already has an account. With a mail server:

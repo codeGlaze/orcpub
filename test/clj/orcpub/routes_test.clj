@@ -406,6 +406,17 @@
     (is (= {:status 200} (auth/send-password-reset {:query-params {:email "someone@example.com"}
                                                     :db nil :conn nil :remote-addr "9.9.9.9"})))))
 
+(defn- await-count
+  "Waits up to `timeout-ms` for `posted` to hold `n` messages (the notice is queued on another
+   thread), polling rather than sleeping a fixed time. Returns the messages."
+  [posted n timeout-ms]
+  (let [deadline (+ (System/currentTimeMillis) timeout-ms)]
+    (loop []
+      (when (and (< (count @posted) n) (< (System/currentTimeMillis) deadline))
+        (Thread/sleep 5)
+        (recur)))
+    @posted))
+
 (defn- fail-from [ip typed request]
   (auth/bad-credentials-response nil typed ip request))
 
@@ -421,23 +432,20 @@
         (with-redefs [auth/find-user-by-username-or-email (constantly account)]
           (fail-from "1.1.1.1" "kaylee" request)
           (fail-from "2.2.2.2" "kaylee" request)
-          (Thread/sleep 60)
-          (is (empty? @posted))))
+          (is (empty? (await-count posted 1 100)) "nothing arrives inside a short bounded wait")))
       (testing "an address with no account here is told nothing at all"
         (with-redefs [auth/find-user-by-username-or-email (constantly nil)]
           (dotimes [i 3] (fail-from (str "3.3.3." i) "nobody" request))
-          (Thread/sleep 60)
-          (is (empty? @posted))))
+          (is (empty? (await-count posted 1 100)) "nothing arrives inside a short bounded wait")))
       (testing "three places at once reach the address on the account; the answer is bad credentials either way"
         (with-redefs [auth/find-user-by-username-or-email (constantly account)]
           (is (= errors/bad-credentials (-> (fail-from "3.3.3.3" "kaylee" request) :body :error)))
-          (let [message (do (Thread/sleep 100) (first @posted))]
+          (let [message (first (await-count posted 1 5000))]
             (is (= "kaylee@serenity.example" (:to message)))
             (is (re-find #"https://example\.test" (pr-str (:body message))) "linking to this site")
             (is (not (re-find #"more attempts" (pr-str (:body message)))) "the first says nothing of a count"))
           (fail-from "4.4.4.4" "kaylee" request)
-          (Thread/sleep 100)
-          (is (= 1 (count @posted)) "a further attempt inside the gap sends nothing more"))))))
+          (is (= 1 (count (await-count posted 2 200))) "a further attempt inside the gap sends nothing more"))))))
 
 (deftest a-follow-up-notice-says-how-many-attempts-came-in
   (doseq [[label message]

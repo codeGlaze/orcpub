@@ -144,21 +144,36 @@
 ;; name behind a connection, or the connection behind a typed name); nil when nothing needs it.
 (def ^:private sightings (atom {}))
 
-;; The longest window any limit uses; entries older than this belong to nobody.
+;; Bounds on the map. Every key is pruned by ITS OWN limit's window (carried as metadata on its
+;; entries vector, so the shape other code reads is unchanged); a key with no recorded window falls
+;; back to the longest any limit uses.
 (def ^:private prune-horizon (hours 24))
 
-(defn- prune [m cutoff]
+;; Ceiling on distinct keys. Over it, the stalest keys go; the key being recorded is never refused,
+;; since refusing would switch limiting off for whoever floods new keys.
+(def ^:private sighting-key-cap 100000)
+
+(defn- live-entries [ts cutoff]
+  (filterv #(not (.isBefore ^java.time.Instant (first %) cutoff)) ts))
+
+(defn- prune [m]
   (into {}
         (keep (fn [[k ts]]
-                (let [live (filterv #(not (.isBefore ^java.time.Instant (first %) cutoff)) ts)]
-                  (when (seq live) [k live]))))
+                (let [live (live-entries ts (ago (or (:window (meta ts)) prune-horizon)))]
+                  (when (seq live) [k (with-meta live (meta ts))]))))
         m))
+
+(defn- cap-keys [m]
+  (if (<= (count m) sighting-key-cap)
+    m
+    (let [keep-n (long (* 0.9 sighting-key-cap))
+          newest (fn [[_ ts]] (.toEpochMilli ^java.time.Instant (first (peek ts))))]
+      (into {} (take-last keep-n (sort-by newest m))))))
 
 (defn- recent
   "The sightings of `k` inside `window`, without recording anything."
   [k window]
-  (let [cutoff (ago window)]
-    (filterv #(not (.isBefore ^java.time.Instant (first %) cutoff)) (get @sightings k))))
+  (live-entries (get @sightings k) (ago window)))
 
 (defn- sight!
   "Records one sighting of `k` by `who` and returns those inside `window` from BEFORE it. The
@@ -169,10 +184,10 @@
         at (time/now)
         [before _] (swap-vals! sightings
                                (fn [m]
-                                 (-> (prune m (ago prune-horizon))
-                                     (update k #(conj (filterv (fn [e] (not (.isBefore ^java.time.Instant (first e) cutoff))) %)
-                                                      [at who])))))]
-    (filterv #(not (.isBefore ^java.time.Instant (first %) cutoff)) (get before k))))
+                                 (let [mine (live-entries (get m k) cutoff)
+                                       m (-> m (dissoc k) prune cap-keys)]
+                                   (assoc m k (with-meta (conj mine [at who]) {:window window})))))]
+    (live-entries (get before k) cutoff)))
 
 (defn under-limit?
   "True while `k` has been seen fewer than `limit` times inside `window`, and false once it has hit
@@ -204,10 +219,11 @@
    :names-per-host; window :minute :hour; a fourth element :when-failing refuses only the failing
    attempt that reaches n), :counted-on :failure (else every request counts), :spend
    :when-actionable (only when ctx's :actionable delay is true), :turnstile :always or
-   :after-failure, :answer :uniform (the ordinary 200) :message (the :message) :error (the form's
+   :after-failure, :challenge-limit [:per-host n window] (caps Cloudflare checks per host), :answer :uniform (the ordinary 200) :message (the :message) :error (the form's
    own), :notify {:kind :scope :distinct :window} (see record!); or {:none \"why\"}."
   {:orcpub.routes.auth/login
    {:limits [[:names-per-host 5 :minute] [:per-name 5 :minute :when-failing]]
+    :challenge-limit [:per-host 30 :minute]
     :counted-on :failure
     :turnstile :after-failure
     :answer :error
@@ -217,6 +233,7 @@
    ;; Sized to real use (eight people at one game night, plus retries and typos).
    :orcpub.routes.auth/register
    {:limits [[:per-host 10 :hour]]
+    :challenge-limit [:per-host 30 :minute]
     :turnstile :always
     :answer :message
     :message (str "Too many accounts have been created from this connection in the last hour. "
@@ -227,11 +244,13 @@
    ;; per-host limit stops somebody walking a list of addresses through the endpoint.
    :orcpub.routes.auth/re-verify
    {:limits [[:per-address 3 :hour] [:per-host 10 :hour]]
+    :challenge-limit [:per-host 30 :minute]
     :turnstile :always
     :answer :uniform
     :spend :when-actionable}
    :orcpub.routes.auth/send-password-reset
    {:limits [[:per-address 3 :hour] [:per-host 10 :hour]]
+    :challenge-limit [:per-host 30 :minute]
     :turnstile :always
     :answer :uniform
     :spend :when-actionable}
@@ -298,8 +317,10 @@
   (config/turnstile-enabled?))
 
 (defn- post-siteverify
-  "POSTs to Cloudflare; returns the parsed JSON body as a map. Throws on transport failure,
-   non-2xx or an unparseable body. A separate fn so tests can with-redefs it."
+  "POSTs to Cloudflare; returns the parsed JSON body as a map. A 4xx is an answer (Cloudflare
+   refused the request or the token), so it returns the body, or {} when that is not a map, and
+   the caller reads it as a failure. Throws on transport failure and on anything else non-2xx (5xx
+   is Cloudflare being down). A separate fn so tests can with-redefs it."
   [token remote-ip]
   (let [{:keys [status body]}
         (client/post turnstile-endpoint
@@ -312,9 +333,10 @@
                       :throw-exceptions false
                       :cookie-policy :none
                       :redirect-strategy :none})]
-    (if (<= 200 status 299)
-      body
-      (throw (ex-info "siteverify non-2xx" {:status status})))))
+    (cond
+      (<= 200 status 299) body
+      (<= 400 status 499) (if (map? body) body {})
+      :else (throw (ex-info "siteverify unavailable" {:status status})))))
 
 ;; A sustained outage would otherwise log a line per signup.
 (def ^:private turnstile-log-window-ms 60000)
@@ -327,11 +349,18 @@
       ;; Reason is an exception class name or HTTP status: never the secret or the token.
       (println "turnstile: siteverify unreachable, letting signup through -" reason))))
 
+(defn- blank-token?
+  "True for no token: nil, blank text, or anything that is not text (a number, map or vector sent
+   in the JSON body)."
+  [token]
+  (or (not (string? token)) (s/blank? token)))
+
 (defn turnstile-verify
   "Checks a Turnstile `token` for `remote-ip`. Returns :pass, :fail, or :unreachable (the caller
-   treats :unreachable as a pass). A blank token is :fail without calling Cloudflare."
+   treats :unreachable as a pass; only a transport failure or a 5xx is that). A blank or non-text
+   token is :fail without calling Cloudflare."
   [token remote-ip]
-  (if (s/blank? token)
+  (if (blank-token? token)
     :fail
     (try
       (let [result (post-siteverify token remote-ip)]
@@ -367,11 +396,16 @@
     (let [now (System/currentTimeMillis)]
       (swap! login-challenges
              (fn [m]
-               (assoc (if (< login-challenge-cap (count m))
-                        {}
-                        (into {} (remove (fn [[_ until]] (< until now))) m))
-                      (login-challenge-key typed-name remote-ip)
-                      (+ now login-challenge-ms))))))
+               (let [k (login-challenge-key typed-name remote-ip)
+                     m (if (>= (count m) login-challenge-cap)
+                         (into {} (remove (fn [[_ until]] (< until now))) m)
+                         m)]
+                 ;; Still full of LIVE marks: leave them all and skip this one. Clearing them would
+                 ;; let a flood of invented names lift every real challenge. Skipping is safe: an
+                 ;; unmarked pair gets the one unchallenged try a fresh connection already gets.
+                 (if (and (>= (count m) login-challenge-cap) (not (contains? m k)))
+                   m
+                   (assoc m k (+ now login-challenge-ms))))))))
   nil)
 
 (defn clear-login-challenge! [typed-name remote-ip]
@@ -394,15 +428,29 @@
   (note-refusal! (first k) (second k))
   {:reason :limit :limit (first k)})
 
+(defn- challenge-limit-refusal
+  "A limit refusal when this host has already used the route's :challenge-limit of Cloudflare
+   checks, else nil. Counts the attempt, so it is called only when a check is about to be made.
+   Its own key, apart from the route's limits: a failed challenge spends none of those."
+  [route p {:keys [ip]}]
+  (when-let [[scope n window] (:challenge-limit p)]
+    (let [k [(keyword (str (name route) "-challenge")) (normalise ip)]]
+      (when (full? scope n (sight! k (windows window) nil))
+        (refuse! k)))))
+
 (defn- challenge-refusal
-  "{:reason :turnstile :blank? ...} when the policy wants the challenge for this request, it is on,
-   and the token fails it. :unreachable is not a refusal."
-  [p {:keys [token ip typed-name]}]
+  "A refusal when the policy wants the challenge for this request, it is on, and the token fails
+   it: {:reason :turnstile :blank? ...}, or a limit refusal when the host has asked for too many
+   checks (no call is made then). :unreachable is not a refusal."
+  [route p {:keys [token ip typed-name] :as ctx}]
   (when (and (:turnstile p)
              (turnstile-enabled?)
-             (or (= :always (:turnstile p)) (login-challenge-required? typed-name ip))
-             (= :fail (turnstile-verify token ip)))
-    {:reason :turnstile :blank? (s/blank? token)}))
+             (or (= :always (:turnstile p)) (login-challenge-required? typed-name ip)))
+    (if (blank-token? token)
+      {:reason :turnstile :blank? true}
+      (or (challenge-limit-refusal route p ctx)
+          (when (= :fail (turnstile-verify token ip))
+            {:reason :turnstile :blank? false})))))
 
 (defn- inspect-limits
   "The first limit already full, without counting this request: for forms that count failures."
@@ -447,7 +495,7 @@
               (when (= :after-failure (:turnstile p))
                 (mark-login-challenge! (:typed-name ctx) (:ip ctx)))
               r))
-          (challenge-refusal p ctx)
+          (challenge-refusal route p ctx)
           (when-not on-failure? (spend-limits route p ctx))))))
 
 (defn record!
@@ -491,11 +539,12 @@
    trips anything and so never appears in the refusals at all -- this is the
    only place it shows up."
   []
-  (->> @sightings
-       (reduce (fn [acc [k ts]]
-                 (let [limit (if (vector? k) (first k) k)]
-                   (update acc limit (fnil max 0) (count ts))))
-               {})))
+  (let [cutoff (ago (hours 1))]
+    (->> @sightings
+         (reduce (fn [acc [k ts]]
+                   (let [limit (if (vector? k) (first k) k)]
+                     (update acc limit (fnil max 0) (count (live-entries ts cutoff)))))
+                 {}))))
 
 (defn- caps
   "What each hourly limit allows, read off the policy table (plus the image probe)."
@@ -568,3 +617,21 @@
                      (fn [m]
                        (claimed (into {} (remove (fn [[_ e]] (.isBefore ^java.time.Instant (:seen e) day-ago))) m))))]
     (:claimed (get after entry-key))))
+
+(defn release-notice!
+  "Gives back a claim from `claim-notice!` whose mail could not be queued, so the notice is not
+   counted as sent and the next attempt is due again: drops the latest send time, restores the
+   attempts that were waiting (`notice` is what the claim returned) and, for a first notice, the
+   not-yet-notified state."
+  [kind k notice]
+  (swap! notice-state
+         (fn [m]
+           (if-let [e (get m [kind k])]
+             (assoc m [kind k]
+                    (-> e
+                        (update :sent #(if (seq %) (pop %) %))
+                        (assoc :pending (:since-last notice 1))
+                        (assoc :notified? (contains? notice :since-last))
+                        (dissoc :claimed)))
+             m)))
+  nil)

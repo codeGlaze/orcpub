@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing use-fixtures]]
             [datomic.api :as d]
+            [clj-http.client :as client]
             [orcpub.config :as config]
             [orcpub.email :as email]
             [orcpub.errors :as errors]
@@ -135,8 +136,32 @@
     (is (= :pass (s/turnstile-verify "t" "1.2.3.4"))))
   (with-redefs [s/post-siteverify (fn [& _] {:success false :error-codes ["x"]})]
     (is (= :fail (s/turnstile-verify "t" "1.2.3.4"))))
-  (with-redefs [s/post-siteverify (fn [& _] (throw (ex-info "siteverify non-2xx" {:status 500})))]
+  (with-redefs [s/post-siteverify (fn [& _] (throw (ex-info "siteverify unavailable" {:status 500})))]
     (is (= :unreachable (s/turnstile-verify "t" "1.2.3.4")))))
+
+(defn- verify-with-http
+  "turnstile-verify against a stubbed HTTP client answering `response` (a map, or a function that throws)."
+  [response]
+  (with-redefs [config/turnstile-secret-key (constantly secret)
+                client/post (fn [& _] (if (fn? response) (response) response))]
+    (s/turnstile-verify "t" "1.2.3.4")))
+
+(deftest only-a-transport-failure-or-a-server-error-fails-open
+  (is (= :fail (verify-with-http {:status 400 :body {:success false :error-codes ["invalid-input-response"]}}))
+      "Cloudflare refusing the token is a refusal")
+  (is (= :fail (verify-with-http {:status 400 :body "<html>bad</html>"})) "even with a body that is not JSON")
+  (is (= :fail (verify-with-http {:status 403 :body nil})))
+  (is (= :unreachable (verify-with-http {:status 500 :body {}})) "Cloudflare being down")
+  (is (= :unreachable (verify-with-http {:status 503 :body nil})))
+  (is (= :unreachable (verify-with-http #(throw (java.net.SocketTimeoutException. "slow")))))
+  (is (= :pass (verify-with-http {:status 200 :body {:success true}}))))
+
+(deftest a-token-that-is-not-text-is-a-missing-token
+  (let [calls (atom 0)]
+    (with-redefs [s/post-siteverify (fn [& _] (swap! calls inc) {:success true})]
+      (doseq [t [42 {:a 1} ["x"] true]]
+        (is (= :fail (s/turnstile-verify t "1.2.3.4")) (pr-str t)))
+      (is (zero? @calls) "no HTTP call"))))
 
 (deftest only-both-keys-enable-it
   (doseq [[site secret-key expected] [[nil nil false] ["s" nil false] [nil "k" false] ["s" "k" true]]]
@@ -197,6 +222,10 @@
                                                       (pos? n) (#{:minute :hour} window)))
                           (:limits p)))
               (is (#{:always :after-failure nil} (:turnstile p)))
+              (when (:turnstile p)
+                (let [[scope n window] (:challenge-limit p)]
+                  (is (and (= :per-host scope) (pos? n) (#{:minute :hour} window))
+                      "a challenge needs a bound on the checks it makes")))
               (is (#{:uniform :message :error} (:answer p)))
               (is (or (not= :message (:answer p)) (seq (:message p))) "a message to show")))))))
 
@@ -323,6 +352,36 @@
                                         answer))]
       [(f) @calls])))
 
+(defn- challenge-ctx [route i]
+  {:ip "5.5.5.5" :address (str "u" i "@example.com") :typed-name "same-name" :token "tok"})
+
+(deftest the-checks-a-host-can-make-are-bounded-before-cloudflare-is-called
+  (doseq [[route p] s/auth-guards
+          :let [[_ n window] (:challenge-limit p)]
+          :when n]
+    (testing (str route " " n)
+      (reset! @#'s/sightings {})
+      (reset! @#'s/login-challenges {})
+      (let [calls (atom 0)]
+        (with-redefs [s/turnstile-enabled? (constantly true)
+                      s/post-siteverify (fn [& _] (swap! calls inc) {:success true})]
+          (when (= :after-failure (:turnstile p))
+            (s/mark-login-challenge! "same-name" "5.5.5.5"))
+          (let [results (vec (for [i (range (inc n))] (s/guard route (challenge-ctx route i))))]
+            (is (= n @calls) "the N+1th attempt made no call")
+            (is (= {:reason :limit :limit (keyword (str (name route) "-challenge"))} (peek results))
+                "and is refused as a limit"))
+          (testing "another host is unaffected"
+            (is (not= :limit (:reason (s/guard route (assoc (challenge-ctx route 0) :ip "6.6.6.6")))))))))))
+
+(deftest a-failed-challenge-spends-no-allowance-but-counts-as-a-check
+  (reset! @#'s/sightings {})
+  (with-redefs [s/turnstile-enabled? (constantly true)
+                s/post-siteverify (fn [& _] {:success false})]
+    (is (= :turnstile (:reason (s/guard :orcpub.routes.auth/register {:ip "9.9.9.9" :token "bad"}))))
+    (is (nil? (get @@#'s/sightings [:orcpub.routes.auth/register-per-host "9.9.9.9"])))
+    (is (= 1 (count (get @@#'s/sightings [:register-challenge "9.9.9.9"]))))))
+
 (defn- lookups-fail-the-test [& _] (throw (AssertionError. "looked the address up before the challenge")))
 
 (deftest the-challenge-is-checked-before-any-allowance-or-lookup
@@ -337,7 +396,8 @@
              (is (str/includes? (first (get-in resp [:body :general])) "not a bot"))
              (is (= [:general] (keys (:body resp))) "a :general error, no field key")
              (is (= 1 calls))
-             (is (empty? @@#'s/sightings) "no allowance was spent")
+             (is (empty? (remove (fn [[k]] (str/ends-with? (name (first k)) "-challenge")) @@#'s/sightings))
+                 "no allowance was spent (the check itself is counted apart)")
              (is (zero? @worked))))))
       (testing (str route ": a missing token says the script is blocked, without calling Cloudflare")
         (in-world
@@ -500,3 +560,70 @@
                (for [i (range 5)] (do (at (* i 61)) (some? (s/claim-notice! :k "x"))))))
         (at (+ (* 24 60) 1))
         (is (= {:since-last 2} (s/claim-notice! :k "x")) "the first notice has left the day")))))
+
+;; ---- memory bounds ----
+
+(defn- ts-ago [minutes] (.minus (time/now) (time/minutes minutes)))
+
+(deftest each-key-is-pruned-by-its-own-window
+  (let [fresh (atom {})]
+    (reset! @#'s/sightings
+            {[:short "a"] (with-meta [[(ts-ago 5) nil]] {:window (time/minutes 1)})
+             [:long "b"] (with-meta [[(ts-ago 5) nil]] {:window (time/hours 1)})})
+    (#'s/sight! [:other "c"] (time/minutes 1) nil)
+    (is (nil? (get @@#'s/sightings [:short "a"])) "past its own minute, though inside any global horizon")
+    (is (some? (get @@#'s/sightings [:long "b"])) "still inside its hour")
+    (is (some? fresh))))
+
+(deftest the-sightings-map-has-a-ceiling-on-keys
+  (with-redefs-fn {#'s/sighting-key-cap 10}
+    (fn []
+      (dotimes [i 40] (#'s/sight! [:flood (str "k" i)] (time/hours 1) nil))
+      (is (<= (count @@#'s/sightings) 10))
+      (is (some? (get @@#'s/sightings [:flood "k39"])) "the key just recorded is always kept")
+      (is (nil? (get @@#'s/sightings [:flood "k0"])) "the oldest went first")
+      (testing "limiting still works for the current key at the ceiling"
+        (dotimes [_ 3] (#'s/sight! [:flood "mine"] (time/hours 1) nil))
+        (is (= 3 (count (#'s/sight! [:flood "mine"] (time/hours 1) nil))))))))
+
+(deftest login-marks-are-bounded-without-clearing-live-ones
+  (with-redefs [s/turnstile-enabled? (constantly true)]
+    (with-redefs-fn {#'s/login-challenge-cap 3}
+      (fn []
+        (doseq [n ["a" "b" "c"]] (s/mark-login-challenge! n "1.1.1.1"))
+        (s/mark-login-challenge! "d" "1.1.1.1")
+        (is (= 3 (count @@#'s/login-challenges)) "full of live marks: no growth")
+        (is (every? #(s/login-challenge-required? % "1.1.1.1") ["a" "b" "c"]) "and none cleared")
+        (is (false? (s/login-challenge-required? "d" "1.1.1.1")) "the newcomer is simply unmarked")
+        (testing "expired marks make room first"
+          (swap! @#'s/login-challenges assoc (#'s/login-challenge-key "a" "1.1.1.1") 0)
+          (s/mark-login-challenge! "d" "1.1.1.1")
+          (is (true? (s/login-challenge-required? "d" "1.1.1.1")))
+          (is (true? (s/login-challenge-required? "b" "1.1.1.1"))))
+        (testing "a pair already marked is refreshed even when full"
+          (s/mark-login-challenge! "b" "1.1.1.1")
+          (is (= 3 (count @@#'s/login-challenges))))))))
+
+(deftest busiest-counts-only-the-last-hour
+  (reset! @#'s/sightings
+          {[:x "1"] (with-meta (vec (repeat 5 [(ts-ago 90) nil])) {:window (time/hours 24)})
+           [:y "1"] (with-meta (vec (repeat 2 [(ts-ago 5) nil])) {:window (time/hours 1)})})
+  (is (= {:x 0 :y 2} (s/busiest))))
+
+(deftest a-notice-whose-mail-could-not-be-queued-is-given-back
+  (let [claim #(s/claim-notice! :taken-signup "x@y.z")]
+    (let [first-notice (claim)]
+      (is (= {} first-notice))
+      (s/release-notice! :taken-signup "x@y.z" first-notice)
+      (is (= {} (claim)) "due again at once, as a first notice"))
+    (reset! @#'s/notice-state {})
+    (let [[now-fn at] (clock-from t0)]
+      (with-redefs [time/now now-fn]
+        (claim)
+        (at 1)
+        (is (nil? (claim)) "one more attempt waits")
+        (at (* 7 60))
+        (let [later (claim)]
+          (is (= {:since-last 2} later))
+          (s/release-notice! :taken-signup "x@y.z" later)
+          (is (= {:since-last 3} (claim)) "and the attempts that were waiting are not lost"))))))

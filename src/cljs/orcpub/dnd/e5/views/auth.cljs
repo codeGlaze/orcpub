@@ -545,11 +545,13 @@
 (defn verify-sent []
   (email-sent
    [:div
-    [:span "We sent a verification email to "]
+    ;; Conditional on purpose, like password-reset-sent: sign-up and resend answer the same for an
+    ;; address that is taken or unknown, so this page cannot claim a mail went to it.
+    [:span "If a verification email can be sent to "]
     ;; Ink, not .red. Red is what a fault looks like on every one of these
     ;; pages, and this is the address somebody just typed correctly.
     [:span.auth-emphasis @(subscribe [:temp-email])]
-    [:span ". You must verify to complete registration and the link we sent will only be valid for 24 hours."]
+    [:span ", it is on its way. You must verify to complete registration and the link will only be valid for 24 hours."]
     [:span " "]
     [:span "Remember to check your spam folder."]]))
 

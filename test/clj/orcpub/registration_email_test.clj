@@ -11,6 +11,7 @@
    [datomic.api :as d]
    [orcpub.email :as email]
    [orcpub.errors :as errors]
+   [orcpub.fork.branding :as branding]
    [orcpub.outbox :as outbox]
    [orcpub.routes :as routes]
    [orcpub.routes.auth :as auth]
@@ -25,7 +26,8 @@
   (fn [f]
     (reset! @#'security/sightings {})
     (reset! @#'security/notice-state {})
-    (with-redefs [email/configured? (constantly true)]
+    (with-redefs [email/configured? (constantly true)
+                  branding/app-url "https://site.example"]
       (binding [errors/*error-prefix* "TEST_ERROR:"]
         (f)))
     (reset! @#'security/sightings {})))
@@ -158,7 +160,7 @@
         text (body (:message (first notices)))]
     (is (= 1 (count notices)) "two attempts close together, one notice")
     (is (= "newcomer@test.com" (:to (first notices))))
-    (is (str/includes? text "/login") "a way to sign in")
+    (is (str/includes? text "https://site.example/pages/login-page") "a way to sign in, on the configured site")
     (is (str/includes? text "send-password-reset") "and to reset the password")
     (doseq [secret ["hunter2hunter2" key "newcomer" "intruder"]]
       (is (not (str/includes? text secret)) (str "no " secret)))
@@ -194,3 +196,62 @@
 (deftest the-address-check-route-is-gone
   (is (not-any? #(= "/check-email" (:path %)) routes/routes))
   (is (nil? (resolve 'orcpub.routes.auth/check-email))))
+
+(deftest the-notice-links-to-the-configured-site-not-the-request-host
+  (let [conn (fresh-conn)
+        _ (sign-up conn "newcomer" "newcomer@test.com")
+        forged (-> (register-request conn)
+                   (assoc :headers {"host" "evil.example" "x-forwarded-proto" "http"})
+                   (assoc-in [:json-params :username] "intruder")
+                   (assoc-in [:json-params :email] "newcomer@test.com")
+                   (assoc-in [:json-params :verify-email] "newcomer@test.com"))
+        _ (auth/register forged)
+        text (body (:message (first (filter #(= :signup-attempt (:kind %)) (queued conn)))))]
+    (is (str/includes? text "https://site.example/"))
+    (is (not (str/includes? text "evil.example")) "nothing the sender controls reaches the links")))
+
+(deftest no-configured-site-means-no-notice
+  (let [conn (fresh-conn)]
+    (sign-up conn "newcomer" "newcomer@test.com")
+    (with-redefs [branding/app-url ""]
+      (is (= {:status 200} (sign-up conn "intruder" "newcomer@test.com")) "the answer is unchanged"))
+    (is (empty? (filter #(= :signup-attempt (:kind %)) (queued conn))))))
+
+(deftest a-failed-enqueue-does-not-spend-the-notice
+  (let [conn (fresh-conn)]
+    (sign-up conn "newcomer" "newcomer@test.com")
+    (with-redefs [outbox/enqueue! (fn [& _] (throw (ex-info "db down" {})))]
+      (is (= {:status 200} (sign-up conn "intruder" "newcomer@test.com"))))
+    (sign-up conn "intruder2" "newcomer@test.com")
+    (is (= 1 (count (filter #(= :signup-attempt (:kind %)) (queued conn))))
+        "the next attempt still gets the notice the failed one could not send")))
+
+(deftest a-resend-does-not-unverify-an-account-verified-meanwhile
+  (let [conn (fresh-conn)
+        _ (auth/register (register-request conn))
+        id (:db/id (find-user (d/db conn) "newcomer"))
+        stale {:db/id id :orcpub.user/verified? false}]
+    @(d/transact conn [[:db/add id :orcpub.user/verified? true]])
+    (outbox/send-due! conn (constantly true) #(Date.))
+    ;; the handler read `stale` at request start; the account verified before it wrote
+    (with-redefs [auth/user-for-email (constantly stale)]
+      (is (= {:status 200} (auth/re-verify (re-verify-request conn "newcomer@test.com")))))
+    (let [after (find-user (d/db conn) "newcomer")]
+      (is (true? (:orcpub.user/verified? after)) "still verified")
+      (is (empty? (filter #(= :verification (:kind %)) (queued conn))) "and no mail was queued"))))
+
+(deftest the-verified-write-is-conditional-on-the-value-read
+  (let [conn (fresh-conn)
+        _ (auth/register (register-request conn))
+        id (:db/id (find-user (d/db conn) "newcomer"))
+        reads (atom 0)
+        real-entity d/entity]
+    ;; verification lands between the fresh read inside do-verification and its transaction
+    (with-redefs [d/entity (fn [db e]
+                             (let [r (real-entity db e)]
+                               (when (= 1 (swap! reads inc))
+                                 @(d/transact conn [[:db/add id :orcpub.user/verified? true]]))
+                               r))]
+      (is (= {:status 200} (auth/do-verification (re-verify-request conn "newcomer@test.com")
+                                                 {} conn {:db/id id}))))
+    (is (true? (:orcpub.user/verified? (find-user (d/db conn) "newcomer"))) "the swap refused to un-verify")))
