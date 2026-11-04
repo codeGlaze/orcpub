@@ -3,13 +3,13 @@
    and the Cloudflare Turnstile widget the sign-up form carries.
    The Turnstile widget (moved from orcpub.turnstile) loads only when the server put a site key on
    the page (window.__TURNSTILE_SITE_KEY__), and only when the form mounts, so no other page
-   fetches anything from Cloudflare. Fails open on the client: if the script never loads, nothing
-   is blocked; the server decides."
+   fetches anything from Cloudflare. If the script cannot load, the form says so."
   (:require [re-frame.core :refer [subscribe dispatch reg-fx]]
             [reagent.core :as r]
             [orcpub.route-map :as routes]
             [orcpub.components :as comps :refer [base-input form-input make-event-handler]]
             [orcpub.registration :as registration]
+            [orcpub.errors :as errors]
             [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.notifications :as notifications]
@@ -50,14 +50,19 @@
         (set! (.-async el) true)
         (set! (.-defer el) true)
         (.addEventListener el "load" f)
-        ;; Script failed to load: leave the form as it is; the server fails open.
-        (.addEventListener el "error" (fn [_] (dispatch [:turnstile-token nil])))
+        ;; Script failed to load (an ad blocker, usually): say so where the widget would be, and
+        ;; drop the tag so remounting the form tries again.
+        (.addEventListener el "error" (fn [_]
+                                        (.remove el)
+                                        (dispatch [:turnstile-token nil])
+                                        (dispatch [:turnstile-blocked true])))
         (.appendChild (.-head js/document) el)))))
 
 (defn reset-widget!
   "Tokens are single use: asks the widget for a fresh one. No-op without a widget."
   []
   (dispatch [:turnstile-token nil])
+  (dispatch [:turnstile-blocked false])
   (when-let [id @widget-id]
     (try (call-api "reset" id) (catch :default _ nil))))
 
@@ -75,7 +80,9 @@
                        #js {:sitekey key
                             :callback (fn [token] (dispatch [:turnstile-token token]))
                             :expired-callback (fn [] (dispatch [:turnstile-token nil]))
-                            :error-callback (fn [] (dispatch [:turnstile-token nil]))})
+                            :error-callback (fn []
+                                              (dispatch [:turnstile-token nil])
+                                              (dispatch [:turnstile-blocked true]))})
               (catch :default _ nil)))))
 
 (defn widget
@@ -86,7 +93,9 @@
       (r/create-class
        {:display-name "turnstile-widget"
         :component-did-mount
-        (fn [_] (with-api #(when @el (render! @el key))))
+        (fn [_]
+          (dispatch [:turnstile-blocked false])
+          (with-api #(when @el (render! @el key))))
         :component-will-unmount
         (fn [_]
           (when-let [id @widget-id]
@@ -94,7 +103,11 @@
           (reset! widget-id nil)
           (dispatch [:turnstile-token nil]))
         :reagent-render
-        (fn [] [:div.m-t-10 {:ref #(reset! el %)}])}))))
+        (fn []
+          [:div.m-t-10
+           [:div {:ref #(reset! el %)}]
+           (when @(subscribe [:turnstile-blocked?])
+             [notifications/message :warning errors/turnstile-blocked-message identity])])}))))
 
 ;; ---- Account screens ----
 

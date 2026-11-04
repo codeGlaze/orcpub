@@ -629,3 +629,30 @@
         (is (= errors/too-many-attempts (-> r :body :error)))
         (is (true? (-> r :body :challenge?)))))
     (is (true? (s/login-challenge-required? "wash" "3.3.3.3")))))
+
+;; ---- a blocked widget and a failed check are told apart ----
+
+(deftest no-token-is-told-to-allow-the-script-and-a-bad-token-to-retry
+  (let [messages (fn [resp] (get-in resp [:body :general]))
+        blocked errors/turnstile-blocked-message]
+    (is (str/includes? blocked "ad blocker"))
+    (is (str/includes? blocked "challenges.cloudflare.com"))
+    (doseq [[label call]
+            [["register" (fn [token] (auth/register (request (fresh-conn) token)))]
+             ["send-password-reset"
+              (fn [token] (auth/send-password-reset
+                           {:query-params (cond-> {:email "a@b.com"} token (assoc :turnstile-token token))
+                            :db nil :conn nil :remote-addr "9.9.9.9"}))]
+             ["re-verify"
+              (fn [token] (auth/re-verify
+                           {:query-params (cond-> {:email "a@b.com"} token (assoc :turnstile-token token))
+                            :db nil :conn nil :remote-addr "9.9.9.9"}))]]]
+      (testing label
+        (with-redefs [auth/user-for-email lookups-fail-the-test]
+          (doseq [blank [nil "" "   "]]
+            (is (= [blocked] (messages (first (verify-calls {:success true} #(call blank)))))
+                "a blank token gets the ad-blocker message"))
+          (let [msgs (messages (first (verify-calls {:success false} #(call "bad"))))]
+            (is (= 1 (count msgs)))
+            (is (not= [blocked] msgs) "a failed token does not")
+            (is (str/includes? (first msgs) "not a bot"))))))))

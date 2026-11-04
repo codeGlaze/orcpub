@@ -400,12 +400,18 @@
 (def ^:private turnstile-failed-message
   "We couldn't confirm you're not a bot. Please try the check again.")
 
+(defn- turnstile-message
+  "Why the challenge refused: no token at all means the widget never ran (a blocked script), which
+   the player can fix; a token that failed verification just means try the check again."
+  [token]
+  (if (s/blank? token) errors/turnstile-blocked-message turnstile-failed-message))
+
 (defn- turnstile-refusal
   "A 400 for a failed challenge, or nil. Answered the same for every address and checked before
    any lookup, so it cannot say whether an account exists. The caller retries with a fresh token."
   [route-name token remote-addr]
   (when (security/turnstile-refused? route-name token remote-addr)
-    {:status 400 :body {:general [turnstile-failed-message]}}))
+    {:status 400 :body {:general [(turnstile-message token)]}}))
 
 (defn register [{:keys [json-params db conn remote-addr] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
@@ -428,7 +434,7 @@
         ;; :general for the same reason as the throttle below.
         validation (if (and (empty? validation)
                             (security/turnstile-refused? ::register (:turnstile-token json-params) remote-addr))
-                     (assoc validation :general [turnstile-failed-message])
+                     (assoc validation :general [(turnstile-message (:turnstile-token json-params))])
                      validation)
         ;; Checked last, so a form that was going to be rejected anyway is not
         ;; counted against the host. :general rather than a field key: nobody

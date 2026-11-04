@@ -205,6 +205,12 @@
  (fn [db [_ token]]
    (assoc db :turnstile-token token)))
 
+(reg-event-db
+ :turnstile-blocked
+ ;; True when the widget's script could not load or the widget reported an error.
+ (fn [db [_ blocked?]]
+   (assoc db :turnstile-blocked? (boolean blocked?))))
+
 (reg-event-fx
  :turnstile-reset
  (fn [_ _]

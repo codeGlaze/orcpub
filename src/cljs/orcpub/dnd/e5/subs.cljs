@@ -876,6 +876,11 @@
    (:login-message-shown? db)))
 
 (reg-sub
+ :turnstile-blocked?
+ (fn [db _]
+   (boolean (:turnstile-blocked? db))))
+
+(reg-sub
  :login-challenge?
  (fn [db _]
    (boolean (:login-challenge? db))))

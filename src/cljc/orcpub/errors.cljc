@@ -16,6 +16,12 @@
 (def too-many-attempts :too-many-attempts)
 (def challenge-required :challenge-required)
 
+(def turnstile-blocked-message
+  "Shown where the security check would be when its script cannot load, and by the server when a
+   form arrives with no token at all (the same cause, seen from the other end)."
+  (str "The security check couldn't load. If you use an ad blocker or privacy extension, "
+       "allow challenges.cloudflare.com, then reload this page."))
+
 ;; Error handling utilities
 
 (def ^:dynamic *error-prefix*
