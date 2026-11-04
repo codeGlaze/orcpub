@@ -24,6 +24,7 @@
   ;; from a nil address; this file tests the email, not the throttle.
   (fn [f]
     (reset! @#'security/sightings {})
+    (reset! @#'security/notice-state {})
     (with-redefs [email/configured? (constantly true)]
       (binding [errors/*error-prefix* "TEST_ERROR:"]
         (f)))

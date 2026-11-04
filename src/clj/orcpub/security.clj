@@ -185,11 +185,6 @@
                      (when (vector? k) (second k))))
     allowed))
 
-(defn claim-once?
-  "True the first time `k` is claimed inside `window`, false until it lapses."
-  [k window]
-  (under-limit? k 1 window))
-
 ;; The probe has no login, so IP is the only handle on who is asking. A real
 ;; character builder fires it once per image field, well under this; a script
 ;; walking a URL list to keep the fetch pool occupied is what it stops.
@@ -526,13 +521,42 @@
     (when-let [line (busiest-summary highs 0.8)]
       (println line))))
 
-;; One sign-in notice per account per day, and one taken-sign-up notice per address per day. An
-;; attacker who can trigger the condition can trigger it on a loop, so without this the warning
-;; would be a way to mail-bomb anyone whose username or address is known.
-(def notice-cooldown-hours 24)
+;; ---------------------------------------------------------------------------
+;; Notices to an account's owner about attempts on it: the first at once, then only when new
+;; attempts came in, no sooner than :min-gap-hours after the last and at most :max-per-day in a
+;; rolling day, each saying how many came in. Without a cadence the warning mail-bombs the owner.
+;; ---------------------------------------------------------------------------
 
-(defn claim-sign-in-notice! [username]
-  (claim-once? [:sign-in-notice username] (hours notice-cooldown-hours)))
+(def notices
+  {:sign-in-attempts {:first :immediate :min-gap-hours 6 :max-per-day 4}
+   :taken-signup {:first :immediate :min-gap-hours 6 :max-per-day 4}})
 
-(defn claim-taken-signup-notice! [email-key]
-  (claim-once? [:taken-signup-notice email-key] (hours notice-cooldown-hours)))
+(def ^:private notice-state (atom {}))
+
+(defn claim-notice!
+  "Counts one attempt for `kind` (a key of `notices`) against `k` (the account or address) and says
+   whether to mail the owner now: nil when not, {} for the first notice, {:since-last n} for a
+   follow-up, n being the attempts since the previous notice, this one included."
+  [kind k]
+  (let [{:keys [min-gap-hours max-per-day]} (notices kind)
+        at (time/now)
+        day-ago (.minus ^java.time.Instant at (hours 24))
+        gap-ago (.minus ^java.time.Instant at (hours min-gap-hours))
+        entry-key [kind k]
+        claimed (fn [m]
+                  (let [{:keys [pending sent notified?] :or {pending 0 sent []}} (get m entry-key)
+                        sent (filterv #(.isAfter ^java.time.Instant % day-ago) sent)
+                        pending (inc pending)
+                        due? (if (empty? sent)
+                               (or notified? (= :immediate (:first (notices kind))))
+                               (and (not (.isAfter ^java.time.Instant (peek sent) gap-ago))
+                                    (< (count sent) max-per-day)))]
+                    (assoc m entry-key
+                           (if due?
+                             {:pending 0 :sent (conj sent at) :seen at :notified? true
+                              :claimed (if notified? {:since-last pending} {})}
+                             {:pending pending :sent sent :seen at :notified? notified?}))))
+        after (swap! notice-state
+                     (fn [m]
+                       (claimed (into {} (remove (fn [[_ e]] (.isBefore ^java.time.Instant (:seen e) day-ago))) m))))]
+    (:claimed (get after entry-key))))

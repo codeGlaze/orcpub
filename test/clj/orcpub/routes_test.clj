@@ -411,6 +411,7 @@
 
 (deftest the-owner-is-told-when-one-account-is-tried-from-several-places
   (reset! @#'security/sightings {})
+  (reset! @#'security/notice-state {})
   (let [posted (atom [])
         request {:scheme :https :headers {"host" "example.test"}}
         account {:db/id 17 :orcpub.user/email "kaylee@serenity.example"
@@ -433,10 +434,21 @@
           (let [message (do (Thread/sleep 100) (first @posted))]
             (is (= "kaylee@serenity.example" (:to message)))
             (is (re-find #"https://example\.test" (pr-str (:body message))) "linking to this site")
-            )
+            (is (not (re-find #"more attempts" (pr-str (:body message)))) "the first says nothing of a count"))
           (fail-from "4.4.4.4" "kaylee" request)
           (Thread/sleep 100)
           (is (= 1 (count @posted)) "a further attempt inside the gap sends nothing more"))))))
+
+(deftest a-follow-up-notice-says-how-many-attempts-came-in
+  (doseq [[label message]
+          [["sign-in" (email/sign-in-attempts-message "https://example.test" {:email "a@b.c" :since-last 7})]
+           ["sign-up" (email/signup-attempt-message "https://example.test" {:email "a@b.c" :since-last 7})]]]
+    (let [text (pr-str (:body message))]
+      (is (re-find #"7 more attempts" text) label)
+      (is (not (re-find #"more attempts"
+                        (pr-str (:body (email/signup-attempt-message "https://example.test" {:email "a@b.c"}))))))
+      (is (not (re-find #"token|key=" text)) "no credential, only pages"))))
+
 
 (deftest a-user-agent-is-described-the-way-a-person-would
   ;; Order matters in describe-browser: Edge and Opera both claim to be Chrome,

@@ -213,7 +213,7 @@
   (.format (java.time.format.DateTimeFormatter/ofPattern "d MMMM yyyy 'at' HH:mm 'UTC'")
            (java.time.ZonedDateTime/now java.time.ZoneOffset/UTC)))
 
-(defn sign-in-attempts-email-html [first-and-last-name reset-url browser when-str]
+(defn sign-in-attempts-email-html [first-and-last-name reset-url browser when-str since-last]
   (into
    [:div
     (str "Dear " (if (seq first-and-last-name) first-and-last-name (str branding/app-name " User")) ",")
@@ -225,6 +225,10 @@
     (str "The last of those attempts was on " when-str ", from " browser ".")
     [:br]
     [:br]
+    (when since-last
+      (list (str "Since the last email about this, there have been " since-last " more attempts.")
+            [:br]
+            [:br]))
     "Usually this is nothing. A phone and a laptop both signed out at the same time will do it, as will a password you half remember. Nobody got in, nothing has changed, and your account is not locked."
     [:br]
     [:br]
@@ -240,16 +244,17 @@
     (str "The " branding/email-sender-name)]
    (social-links-footer)))
 
-(defn sign-in-attempts-email [first-and-last-name reset-url browser when-str]
+(defn sign-in-attempts-email [first-and-last-name reset-url browser when-str since-last]
   [{:type "text/html"
     :content (str (hiccup/html (sign-in-attempts-email-html
-                                first-and-last-name reset-url browser when-str)))}])
+                                first-and-last-name reset-url browser when-str since-last)))}])
 
 (defn sign-in-attempts-message
   "The notice that failed sign-ins arrived from several places at once: `base-url`, and a map
-  with :email :first-and-last-name :user-agent. Links to the reset PAGE, never a token, so people
-  are not trained to click mailed credentials (account-flows.md). Returns the postal message."
-  [base-url {:keys [email first-and-last-name user-agent]}]
+  with :email :first-and-last-name :user-agent, and :since-last (how many attempts since the previous
+  notice) on a follow-up. Links to the reset PAGE, never a token, so people are not trained to click
+  mailed credentials (account-flows.md). Returns the postal message."
+  [base-url {:keys [email first-and-last-name user-agent since-last]}]
   {:from (str branding/email-sender-name " <" (emailfrom) ">")
    :to email
    :subject (str branding/app-name " sign-in attempts")
@@ -257,12 +262,13 @@
           first-and-last-name
           (str base-url (routes/path-for routes/send-password-reset-page-route))
           (describe-browser user-agent)
-          (attempt-time))})
+          (attempt-time)
+          since-last)})
 
 (defn signup-attempt-email-html
   "Says nothing that identifies the account: no name, username, credential or token. Both links go
   to pages, so the reader decides what to do and nothing in this mail can be replayed."
-  [sign-in-url reset-url]
+  [sign-in-url reset-url since-last]
   (into
    [:div
     "Hello,"
@@ -271,6 +277,10 @@
     (str "Someone just tried to sign up for " branding/app-name " with this email address, which already has an account.")
     [:br]
     [:br]
+    (when since-last
+      (list (str "Since the last email about this, there have been " since-last " more attempts.")
+            [:br]
+            [:br]))
     "If it was you, you do not need a second account. Sign in here:"
     [:br]
     [:br]
@@ -292,20 +302,22 @@
     (str "The " branding/email-sender-name)]
    (social-links-footer)))
 
-(defn signup-attempt-email [sign-in-url reset-url]
+(defn signup-attempt-email [sign-in-url reset-url since-last]
   [{:type "text/html"
-    :content (str (hiccup/html (signup-attempt-email-html sign-in-url reset-url)))}])
+    :content (str (hiccup/html (signup-attempt-email-html sign-in-url reset-url since-last)))}])
 
 (defn signup-attempt-message
   "The notice to the owner of an address somebody tried to sign up with again: `base-url`, and a map
-  with :email. Links to the sign-in and reset PAGES only. Returns the postal message."
-  [base-url {:keys [email]}]
+  with :email, and :since-last (attempts since the previous notice) on a follow-up. Links to the
+  sign-in and reset PAGES only. Returns the postal message."
+  [base-url {:keys [email since-last]}]
   {:from (str branding/email-sender-name " <" (emailfrom) ">")
    :to email
    :subject (str branding/app-name " sign-up attempt")
    :body (signup-attempt-email
           (str base-url (routes/path-for routes/login-page-route))
-          (str base-url (routes/path-for routes/send-password-reset-page-route)))})
+          (str base-url (routes/path-for routes/send-password-reset-page-route))
+          since-last)})
 
 (defn password-changed-email-html [first-and-last-name reset-url browser when-str]
   (into

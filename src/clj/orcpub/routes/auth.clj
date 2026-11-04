@@ -223,8 +223,8 @@
     (if refusal
       (refusal-response ::login refusal)
       (let [user-for-username (find-user-by-username-or-email db username)
-            notice (and notify (:db/id user-for-username)
-                        (security/claim-sign-in-notice! username))]
+            notice (when (and notify (:db/id user-for-username))
+                     (security/claim-notice! notify (:db/id user-for-username)))]
         ;; A name with no account is not logged: it is sometimes a password typed in the wrong box.
         (security/audit! :sign-in-failed request (:orcpub.user/username user-for-username))
         ;; Several addresses failing against ONE account inside a minute is also what
@@ -237,9 +237,10 @@
               (outbox/enqueue! (:conn request) :sign-in-attempts
                                (email/sign-in-attempts-message
                                 (base-url request)
-                                {:email (:orcpub.user/email user-for-username)
-                                 :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)
-                                 :user-agent (get (:headers request) "user-agent")}))
+                                (merge notice
+                                       {:email (:orcpub.user/email user-for-username)
+                                        :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)
+                                        :user-agent (get (:headers request) "user-agent")})))
               (catch Exception e
                 (println "ERROR: could not queue a sign-in attempts notice:" (.getMessage e))))))
         ;; One answer for both. Telling somebody the username does not exist made
@@ -414,12 +415,12 @@
   [{:keys [db conn] :as request} email]
   (try
     (let [owner (user-for-email db email)]
-      (when (and (:db/id owner)
-                 (security/claim-taken-signup-notice! email))
+      (when-let [notice (and (:db/id owner)
+                             (security/claim-notice! :taken-signup email))]
         (outbox/enqueue! conn :signup-attempt
                          (email/signup-attempt-message
                           (base-url request)
-                          {:email (or (:orcpub.user/email owner) email)}))))
+                          (assoc notice :email (or (:orcpub.user/email owner) email))))))
     (catch Exception e
       (println "ERROR: could not queue a sign-up attempt notice:" (.getMessage e)))))
 

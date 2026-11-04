@@ -105,12 +105,14 @@
   (fn [f]
     (reset! @#'s/sightings {})
     (reset! @#'s/login-challenges {})
+    (reset! @#'s/notice-state {})
     (with-redefs [email/configured? (constantly true)
                   pwned/check (constantly 0)]
       (binding [errors/*error-prefix* "TEST_ERROR:"]
         (f)))
     (reset! @#'s/sightings {})
-    (reset! @#'s/login-challenges {})))
+    (reset! @#'s/login-challenges {})
+    (reset! @#'s/notice-state {})))
 
 (def ^:private secret "s3cr3t-turnstile-value-9f2c")
 
@@ -461,3 +463,40 @@
       (auth/re-verify {:query-params {:email "a@b.com" :turnstile-token "t"}
                        :db nil :conn nil :remote-addr "9.9.9.9"})
       (is (not (contains? @seen :turnstile-token))))))
+
+;; ---- notices to an account's owner: first at once, then at most every 6 hours and 4 a day ----
+
+(defn- clock-from [t0]
+  (let [clock (atom t0)]
+    [(fn [] @clock) (fn [minutes] (reset! clock (.plusSeconds t0 (* 60 minutes))))]))
+
+(def ^:private t0 (.toInstant #inst "2026-01-01T00:00:00Z"))
+
+(deftest every-notice-follows-its-cadence
+  (doseq [[kind {:keys [min-gap-hours]}] s/notices]
+    (testing (str kind)
+      (reset! @#'s/notice-state {})
+      (let [[now-fn at] (clock-from t0)
+            gap (* 60 min-gap-hours)
+            claim #(s/claim-notice! kind "someone")]
+        (with-redefs [time/now now-fn]
+          (is (= {} (claim)) "the first attempt is told at once")
+          (is (nil? (claim)) "a second inside the gap is not")
+          (at (dec gap))
+          (is (nil? (claim)) "nor one just short of it")
+          (at (inc gap))
+          (is (= {:since-last 3} (claim)) "after the gap the next attempt is told, with how many came in since")
+          (is (nil? (claim)) "and then the gap starts again")
+          (dotimes [_ 4] (claim))
+          (at (+ (* 2 (inc gap)) 2))
+          (is (= {:since-last 6} (claim)) "attempts are counted while suppressed")
+          (is (= {} (s/claim-notice! kind "someone-else")) "a different key has its own cadence"))))))
+
+(deftest no-more-than-the-daily-maximum-goes-out-in-a-rolling-day
+  (with-redefs [s/notices {:k {:first :immediate :min-gap-hours 1 :max-per-day 4}}]
+    (let [[now-fn at] (clock-from t0)]
+      (with-redefs [time/now now-fn]
+        (is (= [true true true true false]
+               (for [i (range 5)] (do (at (* i 61)) (some? (s/claim-notice! :k "x"))))))
+        (at (+ (* 24 60) 1))
+        (is (= {:since-last 2} (s/claim-notice! :k "x")) "the first notice has left the day")))))
