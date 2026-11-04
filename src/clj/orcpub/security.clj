@@ -140,6 +140,33 @@
   []
   @password-changes)
 
+;; ---------------------------------------------------------------------------
+;; Where the mutable state lives. Everything the limits remember -- sightings, sign-in challenge
+;; marks, notice claims -- goes through this protocol, so the memory of ONE app container can be
+;; swapped for a store shared by several (Redis, when REDIS_URL is set) without touching the
+;; policy code. To add a store, implement these seven operations; nothing else reads the state.
+;; ---------------------------------------------------------------------------
+
+(defprotocol LimitStore
+  (-recent [store k window]
+    "The sightings of `k` inside `window`, oldest first, as [instant who]; records nothing.")
+  (-sight! [store k window who]
+    "Records one sighting of `k` by `who`, and returns those inside `window` from BEFORE it. The
+     record and the read are ONE atomic step, so simultaneous callers cannot both be told yes on
+     the last slot. `k` is a vector [limit-name subject]; `window` a Duration.")
+  (-busiest [store window]
+    "{limit-name highest-count-of-any-one-key inside window} over everything recorded.")
+  (-mark! [store k ttl-ms]
+    "Marks `k` for `ttl-ms` milliseconds.")
+  (-marked? [store k]
+    "Whether `k` is marked and the mark has not run out.")
+  (-unmark! [store k]
+    "Removes the mark on `k`.")
+  (-update-notice! [store k ttl-ms f]
+    "Replaces notice entry `k` with (f entry), `entry` being nil when there is none, and returns
+     the new entry; a nil from `f` leaves things as they were. The read, `f` and the write happen
+     as one step. An entry nobody touched for `ttl-ms` is forgotten."))
+
 ;; Every recorded event is [instant who]: `who` is what a distinct-count limit counts (the typed
 ;; name behind a connection, or the connection behind a typed name); nil when nothing needs it.
 (def ^:private sightings (atom {}))
@@ -170,24 +197,133 @@
           newest (fn [[_ ts]] (.toEpochMilli ^java.time.Instant (first (peek ts))))]
       (into {} (take-last keep-n (sort-by newest m))))))
 
+;; Bounds memory against a flood of invented names from many connections.
+(def ^:private login-challenge-cap 50000)
+
+;; key -> the millisecond its mark runs out
+(def ^:private login-challenges (atom {}))
+
+;; entry key -> notice cadence entry (see claim-notice!); times are epoch milliseconds
+(def ^:private notice-state (atom {}))
+
+(defn- mark-in-memory! [m k ttl-ms now]
+  (let [m (if (>= (count m) login-challenge-cap)
+            (into {} (remove (fn [[_ until]] (< until now))) m)
+            m)]
+    ;; Still full of LIVE marks: leave them all and skip this one. Clearing them would
+    ;; let a flood of invented names lift every real challenge. Skipping is safe: an
+    ;; unmarked pair gets the one unchallenged try a fresh connection already gets.
+    (if (and (>= (count m) login-challenge-cap) (not (contains? m k)))
+      m
+      (assoc m k (+ now ttl-ms)))))
+
+(defrecord MemoryStore []
+  LimitStore
+  (-recent [_ k window]
+    (live-entries (get @sightings k) (ago window)))
+  (-sight! [_ k window who]
+    (let [cutoff (ago window)
+          at (time/now)
+          [before _] (swap-vals! sightings
+                                 (fn [m]
+                                   (let [mine (live-entries (get m k) cutoff)
+                                         m (-> m (dissoc k) prune cap-keys)]
+                                     (assoc m k (with-meta (conj mine [at who]) {:window window})))))]
+      (live-entries (get before k) cutoff)))
+  (-busiest [_ window]
+    (let [cutoff (ago window)]
+      (reduce (fn [acc [k ts]]
+                (let [limit (if (vector? k) (first k) k)]
+                  (update acc limit (fnil max 0) (count (live-entries ts cutoff)))))
+              {} @sightings)))
+  (-mark! [_ k ttl-ms]
+    (swap! login-challenges mark-in-memory! k ttl-ms (System/currentTimeMillis))
+    nil)
+  (-marked? [_ k]
+    (when-let [until (get @login-challenges k)]
+      (> until (System/currentTimeMillis))))
+  (-unmark! [_ k]
+    (swap! login-challenges dissoc k)
+    nil)
+  (-update-notice! [_ k ttl-ms f]
+    (let [stale-before (- (.toEpochMilli ^java.time.Instant (time/now)) ttl-ms)]
+      (get (swap! notice-state
+                  (fn [m]
+                    (let [m (into {} (remove (fn [[_ e]] (< (:seen e) stale-before))) m)
+                          e (f (get m k))]
+                      (if (nil? e) m (assoc m k e)))))
+           k))))
+
+(def memory-store
+  "The default store: this process's own memory, which is all one app container needs."
+  (->MemoryStore))
+
+;; A shared store can fail, and a limit that stops limiting when it does is worse than a limit
+;; that counts per container for a while. So the shared store is wrapped: any call that throws
+;; (or times out -- the store sets short socket timeouts) is answered by the memory store
+;; instead, and the failure is logged at most once a minute.
+(def ^:private store-warn-window-ms 60000)
+(def ^:private store-last-warned (atom 0))
+
+(defn- store-failed! [e]
+  (let [now (System/currentTimeMillis)
+        [before _] (swap-vals! store-last-warned #(if (> (- now %) store-warn-window-ms) now %))]
+    (when (> (- now before) store-warn-window-ms)
+      (println "limits: shared store failed, counting in this server's memory meanwhile -"
+               (.. e getClass getSimpleName)))))
+
+(defn- with-fallback [primary f]
+  (try (f primary)
+       (catch Throwable e
+         (store-failed! e)
+         (f memory-store))))
+
+(defrecord FallbackStore [primary]
+  LimitStore
+  (-recent [_ k window] (with-fallback primary #(-recent % k window)))
+  (-sight! [_ k window who] (with-fallback primary #(-sight! % k window who)))
+  (-busiest [_ window] (with-fallback primary #(-busiest % window)))
+  (-mark! [_ k ttl-ms] (with-fallback primary #(-mark! % k ttl-ms)))
+  (-marked? [_ k] (with-fallback primary #(-marked? % k)))
+  (-unmark! [_ k] (with-fallback primary #(-unmark! % k)))
+  (-update-notice! [_ k ttl-ms f] (with-fallback primary #(-update-notice! % k ttl-ms f))))
+
+(defn- build-store
+  "The store in use: Redis when REDIS_URL is set (namespace loaded only then, so a deployment
+   without it never touches the client), else memory."
+  []
+  (if-let [url (config/redis-url)]
+    (try
+      (let [redis ((requiring-resolve 'orcpub.security.redis-store/redis-store) url)]
+        (println "limits: counted in Redis (REDIS_URL set), shared by every app container")
+        (->FallbackStore redis))
+      (catch Throwable e
+        (println "limits: Redis store could not start, counting in memory -" (.. e getClass getSimpleName))
+        memory-store))
+    memory-store))
+
+(def ^:private configured-store (delay (build-store)))
+
+;; Tests put a store here; nil means the configured one.
+(def ^:private store-override (atom nil))
+
+(defn use-store!
+  "Uses `s` as the limit store from now on; nil returns to the configured one. For tests."
+  [s]
+  (reset! store-override s)
+  nil)
+
+(defn- store [] (or @store-override @configured-store))
+
 (defn- recent
   "The sightings of `k` inside `window`, without recording anything."
   [k window]
-  (live-entries (get @sightings k) (ago window)))
+  (-recent (store) k window))
 
 (defn- sight!
-  "Records one sighting of `k` by `who` and returns those inside `window` from BEFORE it. The
-   record and the read are one swap, so simultaneous callers cannot both be told yes on the last
-   slot."
+  "Records one sighting of `k` by `who` and returns those inside `window` from BEFORE it."
   [k window who]
-  (let [cutoff (ago window)
-        at (time/now)
-        [before _] (swap-vals! sightings
-                               (fn [m]
-                                 (let [mine (live-entries (get m k) cutoff)
-                                       m (-> m (dissoc k) prune cap-keys)]
-                                   (assoc m k (with-meta (conj mine [at who]) {:window window})))))]
-    (live-entries (get before k) cutoff)))
+  (-sight! (store) k window who))
 
 (defn under-limit?
   "True while `k` has been seen fewer than `limit` times inside `window`, and false once it has hit
@@ -380,11 +516,6 @@
 
 (def login-challenge-ms (* 15 60 1000))
 
-;; Bounds memory against a flood of invented names from many connections.
-(def ^:private login-challenge-cap 50000)
-
-(def ^:private login-challenges (atom {}))
-
 (defn- login-challenge-key [typed-name remote-ip]
   [(normalise (str typed-name)) remote-ip])
 
@@ -393,31 +524,18 @@
    Does nothing while Turnstile is off."
   [typed-name remote-ip]
   (when (turnstile-enabled?)
-    (let [now (System/currentTimeMillis)]
-      (swap! login-challenges
-             (fn [m]
-               (let [k (login-challenge-key typed-name remote-ip)
-                     m (if (>= (count m) login-challenge-cap)
-                         (into {} (remove (fn [[_ until]] (< until now))) m)
-                         m)]
-                 ;; Still full of LIVE marks: leave them all and skip this one. Clearing them would
-                 ;; let a flood of invented names lift every real challenge. Skipping is safe: an
-                 ;; unmarked pair gets the one unchallenged try a fresh connection already gets.
-                 (if (and (>= (count m) login-challenge-cap) (not (contains? m k)))
-                   m
-                   (assoc m k (+ now login-challenge-ms))))))))
+    (-mark! (store) (login-challenge-key typed-name remote-ip) login-challenge-ms))
   nil)
 
 (defn clear-login-challenge! [typed-name remote-ip]
-  (swap! login-challenges dissoc (login-challenge-key typed-name remote-ip))
+  (-unmark! (store) (login-challenge-key typed-name remote-ip))
   nil)
 
 (defn login-challenge-required?
   "True while Turnstile is on and `typed-name` from `remote-ip` failed a sign-in in the last 15 minutes."
   [typed-name remote-ip]
   (boolean (and (turnstile-enabled?)
-                (when-let [until (get @login-challenges (login-challenge-key typed-name remote-ip))]
-                  (> until (System/currentTimeMillis))))))
+                (-marked? (store) (login-challenge-key typed-name remote-ip)))))
 
 ;; ---------------------------------------------------------------------------
 ;; The one guard. A handler calls `guard` before it does the work and, for a form that counts
@@ -539,12 +657,7 @@
    trips anything and so never appears in the refusals at all -- this is the
    only place it shows up."
   []
-  (let [cutoff (ago (hours 1))]
-    (->> @sightings
-         (reduce (fn [acc [k ts]]
-                   (let [limit (if (vector? k) (first k) k)]
-                     (update acc limit (fnil max 0) (count (live-entries ts cutoff)))))
-                 {}))))
+  (-busiest (store) (hours 1)))
 
 (defn- caps
   "What each hourly limit allows, read off the policy table (plus the image probe)."
@@ -588,7 +701,7 @@
   {:sign-in-attempts {:first :immediate :min-gap-hours 6 :max-per-day 4}
    :taken-signup {:first :immediate :min-gap-hours 6 :max-per-day 4}})
 
-(def ^:private notice-state (atom {}))
+(def ^:private day-ms (* 24 60 60 1000))
 
 (defn claim-notice!
   "Counts one attempt for `kind` (a key of `notices`) against `k` (the account or address) and says
@@ -596,27 +709,22 @@
    follow-up, n being the attempts since the previous notice, this one included."
   [kind k]
   (let [{:keys [min-gap-hours max-per-day]} (notices kind)
-        at (time/now)
-        day-ago (.minus ^java.time.Instant at (hours 24))
-        gap-ago (.minus ^java.time.Instant at (hours min-gap-hours))
-        entry-key [kind k]
-        claimed (fn [m]
-                  (let [{:keys [pending sent notified?] :or {pending 0 sent []}} (get m entry-key)
-                        sent (filterv #(.isAfter ^java.time.Instant % day-ago) sent)
+        at (.toEpochMilli ^java.time.Instant (time/now))
+        day-ago (- at day-ms)
+        gap-ago (- at (* min-gap-hours 60 60 1000))
+        claimed (fn [entry]
+                  (let [{:keys [pending sent notified?] :or {pending 0 sent []}} entry
+                        sent (filterv #(> % day-ago) sent)
                         pending (inc pending)
                         due? (if (empty? sent)
                                (or notified? (= :immediate (:first (notices kind))))
-                               (and (not (.isAfter ^java.time.Instant (peek sent) gap-ago))
+                               (and (<= (peek sent) gap-ago)
                                     (< (count sent) max-per-day)))]
-                    (assoc m entry-key
-                           (if due?
-                             {:pending 0 :sent (conj sent at) :seen at :notified? true
-                              :claimed (if notified? {:since-last pending} {})}
-                             {:pending pending :sent sent :seen at :notified? notified?}))))
-        after (swap! notice-state
-                     (fn [m]
-                       (claimed (into {} (remove (fn [[_ e]] (.isBefore ^java.time.Instant (:seen e) day-ago))) m))))]
-    (:claimed (get after entry-key))))
+                    (if due?
+                      {:pending 0 :sent (conj sent at) :seen at :notified? true
+                       :claimed (if notified? {:since-last pending} {})}
+                      {:pending pending :sent sent :seen at :notified? notified?})))]
+    (:claimed (-update-notice! (store) [kind k] day-ms claimed))))
 
 (defn release-notice!
   "Gives back a claim from `claim-notice!` whose mail could not be queued, so the notice is not
@@ -624,14 +732,12 @@
    attempts that were waiting (`notice` is what the claim returned) and, for a first notice, the
    not-yet-notified state."
   [kind k notice]
-  (swap! notice-state
-         (fn [m]
-           (if-let [e (get m [kind k])]
-             (assoc m [kind k]
-                    (-> e
-                        (update :sent #(if (seq %) (pop %) %))
-                        (assoc :pending (:since-last notice 1))
-                        (assoc :notified? (contains? notice :since-last))
-                        (dissoc :claimed)))
-             m)))
+  (-update-notice! (store) [kind k] day-ms
+                   (fn [e]
+                     (when e
+                       (-> e
+                           (update :sent #(if (seq %) (pop %) %))
+                           (assoc :pending (:since-last notice 1))
+                           (assoc :notified? (contains? notice :since-last))
+                           (dissoc :claimed)))))
   nil)

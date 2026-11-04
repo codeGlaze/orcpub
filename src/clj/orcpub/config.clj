@@ -226,6 +226,12 @@
   []
   (env/flag? :trust-cloudflare))
 
+(defn redis-url
+  "REDIS_URL, where the abuse limits are counted when several app containers share them, or nil
+   for this server's own memory. May carry a password: never print it."
+  []
+  (env/value :redis-url))
+
 (defn copy-name
   "This server's name among several copies: HOSTNAME (Docker and Swarm set it per container), else
    the machine's host name, else \"server\". Names its alert spool file and its alerts."
@@ -393,6 +399,8 @@
      :note "true when the site is served through Cloudflare"}
     {:group "security" :var "TRUSTED_PROXIES" :since current-release
      :note "proxies to trust besides private networks; comma-separated"}
+    {:group "security" :var "REDIS_URL" :since current-release :secret? true
+     :note "shared abuse limits; unset counts in memory"}
     {:group "security" :var "CSP_POLICY" :since "2.5"    :note "strict, permissive or none"}
     {:group "email"    :var "EMAIL_SERVER_URL" :since "2.5" :critical? true :fix email-missing-message
      :note "SMTP host; sign-up and password reset need it"}
@@ -471,7 +479,7 @@
            (repeat :required))
    (zipmap ["APP_URL" "PROFILE_ENCRYPTION_KEYS" "EMAIL_ACCESS_KEY" "EMAIL_SECRET_KEY" "TRUST_CLOUDFLARE"]
            (repeat :recommended))
-   (zipmap ["PORT" "DEV_MODE" "TRUSTED_PROXIES" "CSP_POLICY" "EMAIL_SERVER_PORT" "EMAIL_SSL" "EMAIL_TLS"
+   (zipmap ["PORT" "DEV_MODE" "TRUSTED_PROXIES" "CSP_POLICY" "REDIS_URL" "EMAIL_SERVER_PORT" "EMAIL_SSL" "EMAIL_TLS"
             "EMAIL_REQUIRED" "ALLOW_UNVERIFIED_REGISTRATION" "EMAIL_ERRORS_TO" "EMAIL_ADMIN_TO"
             "ALERT_SPOOL_DIR" "ALERT_MAX_PER_HOUR" "LOAD_HOMEBREW_URL" "PORTRAIT_ARTISTS"
             "ORCPUB_HTTP_MAX_THREADS" "ORCPUB_PDF_CONCURRENCY" "ORCPUB_PDF_QUEUE_TIMEOUT_MS"
