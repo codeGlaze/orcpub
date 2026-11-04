@@ -65,6 +65,7 @@
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.fork.integrations :as integrations]
             [orcpub.fork.branding :as branding]
+            [orcpub.turnstile :as turnstile]
             [orcpub.fork.splash :as splash]
             [orcpub.fork.user-tier]
             [orcpub.ver :as v]
@@ -1271,6 +1272,7 @@
        [:div.m-t-20.t-a-l.m-l-15
         [comps/labeled-checkbox (str "Yes! Send me updates about " branding/app-name) send-updates? false
          #(dispatch [:registration-send-updates? (not send-updates?)])]]
+       [turnstile/widget]
        ]
       :tail
       [:div

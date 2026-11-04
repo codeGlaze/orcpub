@@ -78,6 +78,8 @@
    :img-src "'self' data: https:"
    :object-src "'none'"})
 
+(def turnstile-origin "https://challenges.cloudflare.com")
+
 (defn get-csp-policy
   "Return the CSP policy from CSP_POLICY env var. Defaults to 'strict'."
   []
@@ -349,6 +351,22 @@
   (let [raw (some-> (env-raw "ORCPUB_PWNED_CHECK") str/trim (.toLowerCase Locale/ROOT))]
     (not (contains? #{"off" "false" "0" "no"} raw))))
 
+(defn turnstile-site-key
+  "TURNSTILE_SITE_KEY (public, sent to the browser), or nil when unset or blank."
+  []
+  (env-raw "TURNSTILE_SITE_KEY"))
+
+(defn turnstile-secret-key
+  "TURNSTILE_SECRET_KEY, or nil when unset or blank. NEVER log, print or send it."
+  []
+  (env-raw "TURNSTILE_SECRET_KEY"))
+
+(defn turnstile-enabled?
+  "Whether the sign-up form asks for a Cloudflare Turnstile check: only when BOTH
+   TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY are set."
+  []
+  (boolean (and (turnstile-site-key) (turnstile-secret-key))))
+
 (defn- positive-int-text?
   "Whether text `raw` reads as a positive whole number."
   [raw]
@@ -436,6 +454,10 @@
      :accepts #(contains? #{"on" "off" "true" "false" "1" "0" "yes" "no"} (.toLowerCase (str/trim %) Locale/ROOT))
      :expects "on or off"
      :note "checks new passwords against known breaches"}
+    {:group "security" :var "TURNSTILE_SITE_KEY" :since current-release :get #(turnstile-site-key)
+     :note "Turnstile on sign-up; needs the secret key too"}
+    {:group "security" :var "TURNSTILE_SECRET_KEY" :since current-release :secret? true
+     :note "Turnstile on sign-up; needs the site key too"}
     {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :since current-release :get #(get-share-prune-days)
      :accepts #(some-> % str/trim parse-long (>= 0)) :expects "a whole number of days, 0 or more"
      :note "days before an unused share link is deleted; 0 never"}]))
@@ -456,7 +478,8 @@
             "ORCPUB_PORTRAIT_CONCURRENCY" "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS" "PORTRAIT_STORE_DIR"
             "ORCPUB_PDF_MAX_RETRIES" "ORCPUB_PDF_MAX_CASTER_SECTIONS" "ORCPUB_PDF_MAX_CARDS"
             "ORCPUB_SHARE_MAX_UPLOAD_KB" "ORCPUB_SHARE_MAX_TEXT_KB" "ORCPUB_SHARE_MAX_ACCOUNT_KB"
-            "ORCPUB_PWNED_CHECK" "ORCPUB_SHARE_PRUNE_DAYS"]
+            "ORCPUB_PWNED_CHECK" "ORCPUB_SHARE_PRUNE_DAYS" "TURNSTILE_SITE_KEY"
+            "TURNSTILE_SECRET_KEY"]
            (repeat :tuning))))
 
 (def ^:private tunables
@@ -738,5 +761,11 @@
     {:content-security-policy-settings nil}
 
     ;; Default to permissive
+    ;; Turnstile loads its script and renders in a frame from Cloudflare.
     :else
-    {:content-security-policy-settings permissive-csp-settings}))
+    {:content-security-policy-settings
+     (if (turnstile-enabled?)
+       (assoc permissive-csp-settings
+              :script-src (str (:script-src permissive-csp-settings) " " turnstile-origin)
+              :frame-src (str "'self' " turnstile-origin))
+       permissive-csp-settings)}))

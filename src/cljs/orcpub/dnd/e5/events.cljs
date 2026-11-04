@@ -124,6 +124,7 @@
             [orcpub.errors :as errors]
             [orcpub.fork.integrations :as integrations]
             [orcpub.fork.branding :as branding]
+            [orcpub.turnstile :as turnstile]
             [clojure.set :as sets]
             [cljsjs.filesaverjs]
             [clojure.pprint :as pprint])
@@ -3810,7 +3811,19 @@
                    {:general ["Registration is currently unavailable. Please contact the site administrator."]}
                    (and (map? body) (not (contains? body :error))) body
                    :else {:general ["Registration failed. Please try again."]}))
-      :dispatch [:clear-login]})))
+      ;; A Turnstile token is single use: any failed attempt needs a fresh one.
+      :dispatch-n [[:clear-login] [:turnstile-reset]]})))
+
+(reg-event-db
+ :turnstile-token
+ (fn [db [_ token]]
+   (assoc db :turnstile-token token)))
+
+(reg-event-fx
+ :turnstile-reset
+ (fn [_ _]
+   (turnstile/reset-widget!)
+   nil))
 
 #_ ;; dead stub — real impl is orcpub.registration/validate-registration
   (defn validate-registration [])
@@ -3906,7 +3919,8 @@
      {:db (assoc db :temp-email (:email registration-form))
       :http {:method :post
              :url (backend-url (bidi/path-for routes/routes routes/register-route))
-             :json-params registration-form
+             :json-params (cond-> registration-form
+                            (:turnstile-token db) (assoc :turnstile-token (:turnstile-token db)))
              :on-success [:register-success backtrack?]
              :on-failure [:register-failure]}})))
 

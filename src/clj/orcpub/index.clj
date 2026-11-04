@@ -272,7 +272,10 @@ html {
     (script-tag {:nonce nonce}
      ;; raw: operator settings as JSON, escaped for a script by script-json
      (h/raw (str "window.__BRANDING__=" (script-json (branding/client-config)) ";"
-                 "window.__INTEGRATIONS__=" (script-json (integrations/client-config)) ";")))]
+                 "window.__INTEGRATIONS__=" (script-json (integrations/client-config)) ";"
+                 ;; The PUBLIC site key only, and only when Turnstile is fully configured.
+                 (when (config/turnstile-enabled?)
+                   (str "window.__TURNSTILE_SITE_KEY__=" (script-json (config/turnstile-site-key)) ";")))))]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?

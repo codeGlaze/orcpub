@@ -62,6 +62,7 @@
             [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.registration :as registration]
             [orcpub.pwned :as pwned]
+            [orcpub.turnstile :as turnstile]
             [orcpub.entity.strict :as se]
             [orcpub.entity :as entity]
             [orcpub.security :as security]
@@ -597,6 +598,9 @@
   (str "Too many accounts have been created from this connection in the last hour. "
        "Try again a little later, or email us if you are stuck."))
 
+(def ^:private turnstile-failed-message
+  "We couldn't confirm you're not a bot. Please try the check again.")
+
 (defn register [{:keys [json-params db conn remote-addr] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
         username (when username (s/trim username))
@@ -612,6 +616,15 @@
         validation (if (seq validation)
                      validation
                      (or (breach-errors password) validation))
+        ;; Before the host allowance, so a bot that fails the challenge does not use up the
+        ;; host's signups. After validation and the breach check, so a form that was going to
+        ;; be rejected anyway never costs a verification. :unreachable is a pass (fail open).
+        ;; :general for the same reason as the throttle below.
+        validation (if (and (empty? validation)
+                            (turnstile/enabled?)
+                            (= :fail (turnstile/verify (:turnstile-token json-params) remote-addr)))
+                     (assoc validation :general [turnstile-failed-message])
+                     validation)
         ;; Checked last, so a form that was going to be rejected anyway is not
         ;; counted against the host. :general rather than a field key: nobody
         ;; can edit their way past a rate limit, so it must not sit in the map
