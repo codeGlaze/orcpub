@@ -17,25 +17,25 @@ verification, Turnstile on sign-up, and the "email taken" check. **Base:** `inte
      for both keys (secret never printed); tests with a stubbed `siteverify` (pass, fail,
      unreachable -> let through). Allow the script in the page-load budget test for the sign-up
      page only.
-  3. `check-email` / sign-up: a neutral answer for a taken address (owner decision below).
+  3. Sign-up never says an address is taken (option b, owner decision below): remove the live
+     `:check-email` dispatch from the form and the `check-email` route; `register` answers a taken
+     address exactly as a new one, creates nothing, and mails the existing owner a notice (no
+     credential in it; at most one a day per address via `claim-once?`). Drop the "already
+     associated" message (`registration.cljc:258`).
   4. One branch changelog line per outcome; one CodeRabbit `full review` when ready.
 
 ## Owner decisions
 
 - 2026-11-03: one branch for all of it. Turnstile: sign-up only, managed mode, fail open.
 - 2026-11-03: live stopgap is a Cloudflare edge rule on `/send-password-reset` (admin adding it).
-- 2026-11-03: a taken address gets a neutral answer, in the owner's words "cannot use this email,
-  check again" or similar, not "already associated with another account"
-  (`registration.cljc:258`).
+- 2026-11-04: option (b): sign-up never reveals a taken address. It answers every well-formed
+  address the same ("check your email") and mails the existing owner instead of creating a second
+  account. Chosen over softer wording on the live check, which would still be a membership test.
 
 ## Open questions for the owner
 
-- How neutral is neutral? Softer wording still tells a bot the address is unusable, which for a
-  well-formed address means "has an account", as long as the live check answers differently for
-  taken addresses. Put both to the owner before building: (a) the owner's wording on the live
-  check, plus a per-host limit on `check-email`; or (b) no live check: sign-up answers the same for
-  every well-formed address ("check your email") and mails the existing owner instead of creating
-  a second account. (b) closes the membership test; (a) is smaller.
+- With no mail server (refused or `ALLOW_UNVERIFIED_REGISTRATION` open mode), option (b) cannot
+  mail the owner. Proposal: in those modes keep a plain refusal for a taken address; ask the owner.
 
 ## Gotchas for the next agent
 
