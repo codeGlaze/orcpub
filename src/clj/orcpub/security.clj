@@ -309,6 +309,52 @@
 (defn registration-allowed? [ip]
   (under-limit? [:register ip] registrations-per-host-hourly (hours 1)))
 
+;; ---------------------------------------------------------------------------
+;; One table of what guards every account endpoint a stranger can reach, keyed by Pedestal
+;; route name. A value is a set of guards or {:none "why nothing is needed"}; the route-table
+;; test in security_test.clj fails when a route is missing here or this names a route that
+;; does not exist. Limit code is not driven by it; the test is the check.
+
+;; Guards: :per-address-limit, :per-host-limit, :per-account-limit (typed name),
+;; :turnstile, :turnstile-after-failure, :uniform-answer (cannot tell whether an address
+;; or account exists), :cooldown (email change), :authenticated.
+;; ---------------------------------------------------------------------------
+
+(def auth-guards
+  {:orcpub.routes.auth/login
+   #{:per-account-limit :per-host-limit :turnstile-after-failure :uniform-answer}
+   :orcpub.routes.auth/register
+   #{:per-host-limit :turnstile :uniform-answer}
+   :orcpub.routes.auth/verify
+   {:none "the link carries an unguessable verification key; a wrong key changes nothing"}
+   :orcpub.routes.auth/re-verify
+   #{:per-address-limit :per-host-limit :turnstile :uniform-answer}
+   :orcpub.routes.auth/send-password-reset
+   #{:per-address-limit :per-host-limit :turnstile :uniform-answer}
+   :orcpub.routes.auth/reset-password
+   {:none "needs the unguessable single-use reset key from the mailed link"}
+   :orcpub.routes.auth/reset-password-page
+   {:none "a page; needs the unguessable reset key and changes nothing"}
+   :orcpub.routes.auth/check-username
+   {:none "usernames are public handles (profiles, shares), so membership is not a secret"}
+   :orcpub.routes.auth/check-email
+   {:none "TEMPORARY: removed by the sign-up change that stops revealing a taken address"}
+   :orcpub.routes.auth/request-email-change
+   #{:authenticated :cooldown}
+   :orcpub.routes/unsubscribe
+   {:none "the link carries a signed token; an unsigned or tampered one is refused"}})
+
+(defn guard-of
+  "The guards of route `route-name`, or nil for an unknown route."
+  [route-name]
+  (get auth-guards route-name))
+
+(defn guarded-by?
+  "True when route `route-name` lists `guard` in auth-guards."
+  [route-name guard]
+  (let [g (guard-of route-name)]
+    (boolean (and (set? g) (contains? g guard)))))
+
 ;; The probe has no login, so IP is the only handle on who is asking. A real
 ;; character builder fires it once per image field, well under this; a script
 ;; walking a URL list to keep the fetch pool occupied is what it stops.

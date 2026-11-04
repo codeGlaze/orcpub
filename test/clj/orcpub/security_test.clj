@@ -430,3 +430,29 @@
         (is (not (str/includes? printed secret)) "not in the banner")
         (is (str/includes? printed "1x00000000000000000000AA") "the public site key may show")
         (is (:set? (first (filter #(= "TURNSTILE_SECRET_KEY" (:var %)) rows))))))))
+
+;; ---- the guard table covers the real route table ----
+
+(def ^:private extra-auth-routes
+  "Account endpoints whose handlers live outside orcpub.routes.auth."
+  #{:orcpub.routes/unsubscribe})
+
+(defn- auth-route-names []
+  (->> routes/routes
+       (map :route-name)
+       (filter #(or (= "orcpub.routes.auth" (namespace %))
+                    (contains? extra-auth-routes %)))
+       set))
+
+(deftest every-auth-route-is-in-the-guard-table
+  (let [actual (auth-route-names)
+        listed (set (keys s/auth-guards))]
+    (is (seq actual) "the route table was read")
+    (is (= #{} (sets/difference actual listed))
+        "auth routes with no entry in security/auth-guards")
+    (is (= #{} (sets/difference listed actual))
+        "auth-guards entries that name no route")
+    (doseq [[route guard] s/auth-guards]
+      (is (or (and (set? guard) (seq guard))
+              (and (map? guard) (string? (:none guard)) (seq (:none guard))))
+          (str route " needs guards or a reason for having none")))))
