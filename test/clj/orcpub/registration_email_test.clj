@@ -255,3 +255,36 @@
       (is (= {:status 200} (auth/do-verification (re-verify-request conn "newcomer@test.com")
                                                  {} conn {:db/id id}))))
     (is (true? (:orcpub.user/verified? (find-user (d/db conn) "newcomer"))) "the swap refused to un-verify")))
+
+;; Links in mail are built on APP_URL when it is set; the request's Host and X-Forwarded-Proto are
+;; the sender's to choose, so they are only a fallback for an install that has not set it.
+(def ^:private forged
+  {:scheme :http :headers {"host" "evil.example" "x-forwarded-proto" "https"}})
+
+(defn- reset-link-base
+  "The base address the password-reset mail for a new account is built on, for forged `request`."
+  [request]
+  (let [conn (fresh-conn)
+        _ (auth/register (register-request conn))
+        id (:db/id (find-user (d/db conn) "newcomer"))
+        base (atom nil)]
+    (with-redefs [email/reset-message (fn [b _ _] (reset! base b) {:to "newcomer@test.com" :subject "r" :body []})]
+      (auth/do-send-password-reset id "newcomer@test.com" conn request))
+    @base))
+
+(deftest reset-mail-links-to-the-configured-site-not-the-forged-host
+  (is (= "https://site.example" (reset-link-base forged)))
+  (with-redefs [branding/app-url "https://site.example/"]
+    (is (= "https://site.example" (reset-link-base forged)) "a trailing slash is trimmed")))
+
+(deftest verification-mail-links-to-the-configured-site-not-the-forged-host
+  (let [conn (fresh-conn)]
+    (auth/register (-> (register-request conn) (merge forged)))
+    (let [text (body (:message (first (filter #(= :verification (:kind %)) (queued conn)))))]
+      (is (str/includes? text "https://site.example/"))
+      (is (not (str/includes? text "evil.example"))))))
+
+(deftest without-a-configured-site-mail-follows-the-request
+  (with-redefs [branding/app-url ""]
+    (is (= "https://evil.example" (reset-link-base forged)))
+    (is (= "https://example.test" (reset-link-base {:scheme :https :headers {"host" "example.test"}})))))

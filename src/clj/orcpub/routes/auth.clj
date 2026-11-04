@@ -196,6 +196,15 @@
   []
   (some-> branding/app-url not-empty (s/replace #"/+$" "")))
 
+(defn mail-base-url
+  "The address links in account mail are built on: the configured site URL (APP_URL) when set, else
+   the request's own scheme and Host (`base-url`). Every mail link goes through here. GOTCHA: the
+   request fallback exists so an install without APP_URL still works; those headers are the
+   sender's to choose, so a production site sets APP_URL (the boot report says so when it is
+   not). The taken-address notice does NOT fall back: it uses `site-url` and sends nothing without it."
+  [request]
+  (or (site-url) (base-url request)))
+
 (def ^:private turnstile-failed-message
   "We couldn't confirm you're not a bot. Please try the check again.")
 
@@ -237,7 +246,7 @@
             (try
               (outbox/enqueue! (:conn request) :sign-in-attempts
                                (email/sign-in-attempts-message
-                                (base-url request)
+                                (mail-base-url request)
                                 (merge notice
                                        {:email (:orcpub.user/email user-for-username)
                                         :first-and-last-name (:orcpub.user/first-and-last-name user-for-username)
@@ -374,7 +383,7 @@
                                      :orcpub.user/verification-sent (java.util.Date.)}
                                     (when-not existing-id {:orcpub.user/verified? false}))
                                    (outbox/email-tx :verification
-                                                    (email/verification-message (base-url request) params verification-key))]
+                                                    (email/verification-message (mail-base-url request) params verification-key))]
                             existing-id (conj [:db/cas existing-id :orcpub.user/verified? verified-now false])))
                         true
                         (catch Exception e
@@ -634,7 +643,7 @@
                   :orcpub.user/password-reset-sent (java.util.Date.)}
                  (outbox/email-tx :password-reset
                                   (email/reset-message
-                                   (base-url request)
+                                   (mail-base-url request)
                                    {:first-and-last-name (preferred-name-of (d/entity (d/db conn) user-id))
                                     :email email}
                                    key))]
@@ -714,7 +723,7 @@
         (and request (:orcpub.user/email user))
         (conj (notice-tx :password-changed
                          #(email/password-changed-message
-                           (base-url request)
+                           (mail-base-url request)
                            {:email (:orcpub.user/email user)
                             :first-and-last-name (:orcpub.user/first-and-last-name user)
                             :user-agent (get (:headers request) "user-agent")})))
@@ -878,7 +887,7 @@
             (try
               (outbox/enqueue! conn :email-change-verification
                                (email/email-change-verification-message
-                                (base-url request)
+                                (mail-base-url request)
                                 {:email new-email :username username
                                  :preferred-name (preferred-name-of user)}
                                 (:orcpub.user/verification-key user)))
@@ -898,7 +907,7 @@
                                   :orcpub.user/verification-sent now}
                                  (outbox/email-tx :email-change-verification
                                                   (email/email-change-verification-message
-                                                   (base-url request)
+                                                   (mail-base-url request)
                                                    {:email new-email :username username
                                                     :preferred-name (preferred-name-of user)}
                                                    verification-key))

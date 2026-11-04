@@ -652,12 +652,15 @@
   "The boot report's DEPLOYMENT block, as lines. Takes `:crash-dir` and `:alert-dir`, the resolved
    folders for crash files and unsent alerts (either nil when unknown), `:max-heap-bytes`, the
    most memory Java may use (nil leaves the line out), and `:admin`, `alert-address`'s answer
-   (the line appears when the key is given). Says where those files land, flags a folder
-   inside the container with the mount that moves it, gives the memory limit, and ends with
-   `deployment-notes`."
+   (the line appears when the key is given), `:app-url` (a warning when given and empty). Says where
+   those files land, flags a folder inside the container with the mount that moves it, gives the
+   memory limit, and ends with `deployment-notes`."
   [{:keys [crash-dir alert-dir max-heap-bytes admin] :as dirs}]
   (let [inside? #(and % (str/starts-with? % "/var/lib/orcpub/"))]
     (concat
+     ;; The one startup warning about APP_URL: printed with the boot report, not per request.
+     (when (and (contains? dirs :app-url) (str/blank? (:app-url dirs)))
+       ["Warning: APP_URL is not set, so links in account emails follow the request's Host header. Set APP_URL in production."])
      (when (contains? dirs :admin)
        [(if admin
           (str "Admin email: " (:address admin) " (from " (:from admin) ")")
@@ -733,7 +736,8 @@
          lines  (vec (report-lines (report) actual @branding/ignored
                                    (deployment-lines (assoc dirs
                                                             :max-heap-bytes (.maxMemory (Runtime/getRuntime))
-                                                            :admin (alert-address)))))
+                                                            :admin (alert-address)
+                                                            :app-url branding/app-url))))
          saved  (some-> (report-dir dirs) (save-report! lines))]
      ;; One write, then flush. Printed line by line, Jetty's own logging interleaved with it
      ;; and cut the table in half -- buffered stdout against unbuffered stderr in the same
