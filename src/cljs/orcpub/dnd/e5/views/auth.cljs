@@ -326,18 +326,6 @@
      :on-confirm on-confirm}]
    [password-meter password context refused]])
 
-(defn auth-form-page
-  "An auth-page shell for a form: `fields` in a column, then `tail` (submit and
-   any links or fineprint) below them.
-   See account-flows.md."
-  [{:keys [heading lede fields tail legal-links?]
-    :or {legal-links? true}}]
-  (auth-page heading lede
-             [:div
-              [:div.m-t-10.auth-form fields]
-              (when tail [:div.m-t-10.auth-tail tail])]
-             {:legal-links? legal-links?}))
-
 (defn hide-login-message []
   (dispatch [:hide-login-message]))
 
@@ -347,6 +335,25 @@
   (when @(subscribe [:login-message-shown?])
     [:div.m-t-5.p-r-5.p-l-5
      [notifications/message :error @(subscribe [:login-message]) hide-login-message]]))
+
+(defn auth-form-page
+  "An auth-page shell for a form: `fields` in a column, then the form's protection, then `tail`
+   (submit and any links or fineprint). `challenge` is :always or :after-failure (or absent): the
+   shell places the Turnstile widget and its blocked-script message, so a page never does.
+   `message?` adds the form's refusal message under the widget.
+   See account-flows.md."
+  [{:keys [heading lede fields tail legal-links? challenge message?]
+    :or {legal-links? true}}]
+  (auth-page heading lede
+             [:div
+              [:div.m-t-10.auth-form
+               fields
+               (when (or (= :always challenge)
+                         (and (= :after-failure challenge) @(subscribe [:login-challenge?])))
+                 [widget])
+               (when message? [login-message-block])]
+              (when tail [:div.m-t-10.auth-tail tail])]
+             {:legal-links? legal-links?}))
 
 (defn verify-failed []
   (let [params (r/atom {})]
@@ -361,10 +368,9 @@
                    :value (:email @params)
                    :type :email
                    :title "Email address"
-                   :on-change (partial set-value params :email)}]
-                 ;; A refused challenge is answered here, as on the reset page.
-                 [login-message-block]
-                 [widget]]
+                   :on-change (partial set-value params :email)}]]
+        :challenge :always
+        :message? true
         :tail [:button.form-button.form-submit-btn
                {:on-click (make-event-handler :re-verify @params)}
                "RESEND"]}))))
@@ -388,9 +394,9 @@
                            [])
              :type :email
              :value email
-             :on-change (partial set-value params :email)}]
-           [login-message-block]
-           [widget]]
+             :on-change (partial set-value params :email)}]]
+          :challenge :always
+          :message? true
           :tail
           [:div
            [:button.form-button.form-submit-btn
@@ -658,9 +664,8 @@
          :on-confirm (fn [e] (dispatch [:registration-verify-password (event-value e)]))}]
        [:div.m-t-20.t-a-l.m-l-15
         [comps/labeled-checkbox (str "Yes! Send me updates about " branding/app-name) send-updates? false
-         #(dispatch [:registration-send-updates? (not send-updates?)])]]
-       [widget]
-       ]
+         #(dispatch [:registration-send-updates? (not send-updates?)])]]]
+      :challenge :always
       :tail
       [:div
        (when-let [notice @(subscribe [:registration-notice])]
@@ -701,55 +706,49 @@
 (defn login-page []
   (let [params (r/atom {})]
     (fn []
-      (let [login-message-shown? @(subscribe [:login-message-shown?])
-            login-message @(subscribe [:login-message])]
-        ;; .login-form-inputs was this page's own container, so its fields were
-        ;; 350px where every other page's are the column's width, and the tail
-        ;; nested inside it came out narrower than the fields above it. It is on
-        ;; the same shape as the rest now.
-        (auth-form-page
-         {:heading "Welcome back"
-          :fields
-          [:div
-           [form-input {:title "Username or Email"
-                        :key :username
-                        :value (:username @params)
-                        :type :username
-                        :on-change #(swap! params assoc :username (event-value %))}]
-           [form-input {:title "Password"
-                        :key :password
-                        :value (:password @params)
-                        :type :password
-                        :on-change #(swap! params assoc :password (event-value %))}]
-           ;; Only after a failed attempt: the server flags it, :login-failure sets this.
-           (when @(subscribe [:login-challenge?]) [widget])
-           (when login-message-shown?
-             [:div.m-t-5 [notifications/message
-                          :error
-                          login-message
-                          hide-login-message]])]
-          :tail
-          [:div
-            [:button.form-button.join-button
-             {:on-click #(dispatch [:login @params true])}
-             "LOGIN"]
-            ;; One group, one rhythm: each question and its answer share a line,
-            ;; the way the register page already asks its one.
-            [:div.m-t-20.auth-alts
-             [:div.auth-alt
-              [:span "Don't have a login?"]
-              [:span.orange.underline.pointer
-               {:on-click route-to-register-page}
-               "REGISTER NOW"]]
-             [:div.auth-alt
-              [:span "Forgot your password?"]
-              [:span.orange.underline.pointer
-               {:on-click route-to-reset-password-page}
-               "RESET PASSWORD"]]]
-            ;; Kept apart from the pair above: it is not another way in, it is
-            ;; what to do when the way in never arrived.
-            [:div.auth-help
-             [:span "Didn't receive the validation email? Check your spam folder, or "]
-             [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"}
-              "read how to let our email through"]
-             [:span "."]]]})))))
+      ;; .login-form-inputs was this page's own container, so its fields were
+      ;; 350px where every other page's are the column's width, and the tail
+      ;; nested inside it came out narrower than the fields above it. It is on
+      ;; the same shape as the rest now.
+      (auth-form-page
+       {:heading "Welcome back"
+        :fields
+        [:div
+         [form-input {:title "Username or Email"
+                      :key :username
+                      :value (:username @params)
+                      :type :username
+                      :on-change #(swap! params assoc :username (event-value %))}]
+         [form-input {:title "Password"
+                      :key :password
+                      :value (:password @params)
+                      :type :password
+                      :on-change #(swap! params assoc :password (event-value %))}]]
+        ;; Only after a failed attempt: the server flags it, :login-failure sets the flag.
+        :challenge :after-failure
+        :message? true
+        :tail
+        [:div
+          [:button.form-button.join-button
+           {:on-click #(dispatch [:login @params true])}
+           "LOGIN"]
+          ;; One group, one rhythm: each question and its answer share a line,
+          ;; the way the register page already asks its one.
+          [:div.m-t-20.auth-alts
+           [:div.auth-alt
+            [:span "Don't have a login?"]
+            [:span.orange.underline.pointer
+             {:on-click route-to-register-page}
+             "REGISTER NOW"]]
+           [:div.auth-alt
+            [:span "Forgot your password?"]
+            [:span.orange.underline.pointer
+             {:on-click route-to-reset-password-page}
+             "RESET PASSWORD"]]]
+          ;; Kept apart from the pair above: it is not another way in, it is
+          ;; what to do when the way in never arrived.
+          [:div.auth-help
+           [:span "Didn't receive the validation email? Check your spam folder, or "]
+           [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"}
+            "read how to let our email through"]
+           [:span "."]]]}))))

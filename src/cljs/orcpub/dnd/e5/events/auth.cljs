@@ -11,7 +11,27 @@
             [orcpub.errors :as errors]
             [orcpub.fork.branding :as branding]
             [orcpub.route-map :as routes]
-            [re-frame.core :refer [reg-event-db reg-event-fx]]))
+            [re-frame.core :refer [->interceptor reg-event-db reg-event-fx]]))
+
+;; The protection every auth request shares (security/auth-guards decides which forms ask for it):
+;; the current Turnstile token goes out with the request, and a failure asks the widget for a fresh
+;; one, because a token works once. Attach these to the events that send and that receive.
+(def challenge-request
+  (->interceptor
+   :id :challenge-request
+   :after (fn [context]
+            (let [token (:turnstile-token (get-in context [:coeffects :db]))
+                  http (get-in context [:effects :http])
+                  params-key (if (contains? http :json-params) :json-params :query-params)]
+              (cond-> context
+                (and token http) (assoc-in [:effects :http params-key]
+                                           (assoc (get http params-key) :turnstile-token token)))))))
+
+(def challenge-reset
+  (->interceptor
+   :id :challenge-reset
+   :after (fn [context]
+            (update-in context [:effects :dispatch-n] (fnil conj []) [:turnstile-reset]))))
 
 (reg-event-fx
  :change-email
@@ -108,15 +128,15 @@
 
 (reg-event-fx
  :login-failure
+ [challenge-reset]
  (fn [{:keys [db]} [_ response]]
    (let [error-code (-> response :body :error)
          ;; The server sends the flag identically after every failed sign-in, so the form shows
-         ;; the challenge for the retry; the token just used is spent either way.
+         ;; the challenge for the retry.
          challenge? (boolean (-> response :body :challenge?))
          with-challenge (fn [fx]
                           (cond-> fx
-                            challenge? (assoc :db (assoc db :login-challenge? true))
-                            challenge? (update :dispatch-n (fnil conj []) [:turnstile-reset])))]
+                            challenge? (assoc :db (assoc db :login-challenge? true))))]
      (with-challenge
        (cond
          (= error-code errors/challenge-required)
@@ -158,11 +178,11 @@
 
 (reg-event-fx
  :login
- (fn [{:keys [db]} [_ params backtrack?]]
+ [challenge-request]
+ (fn [_ [_ params backtrack?]]
    {:http {:method :post
            :url login-url
-           :json-params (cond-> params
-                          (:turnstile-token db) (assoc :turnstile-token (:turnstile-token db)))
+           :json-params params
            :on-success [:login-success backtrack?]
            :on-unauthorized [:login-failure]}}))
 
@@ -189,6 +209,7 @@
  :register-failure
  ;; :registration-server-errors holds what only the server can judge, shown by field; any other
  ;; failure becomes a :general notice, so no server-side failure is silent. account-flows.md.
+ [challenge-reset]
  (fn [{:keys [db]} [_ response]]
    (let [body (:body response)]
      {:db (assoc db :registration-server-errors
@@ -197,8 +218,7 @@
                    {:general ["Registration is currently unavailable. Please contact the site administrator."]}
                    (and (map? body) (not (contains? body :error))) body
                    :else {:general ["Registration failed. Please try again."]}))
-      ;; A Turnstile token is single use: any failed attempt needs a fresh one.
-      :dispatch-n [[:clear-login] [:turnstile-reset]]})))
+      :dispatch-n [[:clear-login]]})))
 
 (reg-event-db
  :turnstile-token
@@ -291,13 +311,13 @@
 
 (reg-event-fx
  :register
+ [challenge-request]
  (fn [{:keys [db]} [_ params backtrack?]]
    (let [registration-form (:registration-form db)]
      {:db (assoc db :temp-email (:email registration-form))
       :http {:method :post
              :url (backend-url (bidi/path-for routes/routes routes/register-route))
-             :json-params (cond-> registration-form
-                            (:turnstile-token db) (assoc :turnstile-token (:turnstile-token db)))
+             :json-params registration-form
              :on-success [:register-success backtrack?]
              :on-failure [:register-failure]}})))
 
@@ -311,28 +331,27 @@
                       routes/verify-success-route
                       routes/verify-sent-route))))
 
-(defn- challenge-failure
+(defn- refused-request
   "Effects for a request the server refused: its :general message when it gave one (the failed or
-   missing challenge), else the generic error. The token is spent either way."
+   missing challenge), else the generic error."
   [response]
   (let [message (first (get-in response [:body :general]))]
-    (if message
-      {:dispatch-n [[:show-login-message message] [:turnstile-reset]]}
-      {:dispatch-n [(show-generic-error) [:turnstile-reset]]})))
+    {:dispatch-n [(if message [:show-login-message message] (show-generic-error))]}))
 
 (reg-event-fx
  :re-verify-failure
+ [challenge-reset]
  (fn [_ [_ response]]
-   (challenge-failure response)))
+   (refused-request response)))
 
 (reg-event-fx
  :re-verify
+ [challenge-request]
  (fn [{:keys [db]} [_ params]]
    {:db (assoc db :temp-email (:email params))
     :http {:method :get
            :url (backend-url (bidi/path-for routes/routes routes/re-verify-route))
-           :query-params (cond-> params
-                           (:turnstile-token db) (assoc :turnstile-token (:turnstile-token db)))
+           :query-params params
            :on-success [:re-verify-success]
            :on-failure [:re-verify-failure]}}))
 
@@ -345,17 +364,18 @@
  :send-password-reset-failure
  ;; The endpoint answers 200 for every address, so :no-account cannot arrive here. A refused
  ;; challenge carries a :general message; anything else is a network or server fault.
+ [challenge-reset]
  (fn [_ [_ response]]
-   (challenge-failure response)))
+   (refused-request response)))
 
 (reg-event-fx
  :send-password-reset
+ [challenge-request]
  (fn [{:keys [db]} [_ params]]
    {:db (assoc db :temp-email (:email params))
     :http {:method :get
            :url (backend-url (bidi/path-for routes/routes routes/send-password-reset-route))
-           :query-params (cond-> params
-                           (:turnstile-token db) (assoc :turnstile-token (:turnstile-token db)))
+           :query-params params
            :on-success [:send-password-reset-success]
            :on-failure [:send-password-reset-failure]}}))
 
