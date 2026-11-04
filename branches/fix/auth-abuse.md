@@ -6,7 +6,9 @@ verification, Turnstile on sign-up, and the "email taken" check. **Base:** `inte
 
 ## State (updated 2026-11-03)
 
-- Done: branch created from `integration` (`5ec530cb`) on 2026-11-03; nothing committed yet.
+- Done: step 1, `re-verify` limited 3/address/hr and 10/host/hr, plain 200 when throttled
+  (`dffcbc17`; `routes_test.clj` resend tests, fail-first shown).
+- In progress: step 1b, tests for the password-reset limits (none existed).
 - Next, in order:
   1. `re-verify` (`routes.clj:718`): reuse `security/under-limit?` with per-address and per-host
      keys like `reset-email-allowed?`, add both to `busiest-summary`'s caps, answer 200 either way.
@@ -31,11 +33,12 @@ verification, Turnstile on sign-up, and the "email taken" check. **Base:** `inte
 - 2026-11-04: option (b): sign-up never reveals a taken address. It answers every well-formed
   address the same ("check your email") and mails the existing owner instead of creating a second
   account. Chosen over softer wording on the live check, which would still be a membership test.
+- 2026-11-04: with no mail server (refused, or `ALLOW_UNVERIFIED_REGISTRATION` open mode) the owner
+  cannot be mailed, so a taken address gets a plain refusal in those modes only.
 
 ## Open questions for the owner
 
-- With no mail server (refused or `ALLOW_UNVERIFIED_REGISTRATION` open mode), option (b) cannot
-  mail the owner. Proposal: in those modes keep a plain refusal for a taken address; ask the owner.
+- None.
 
 ## Gotchas for the next agent
 
