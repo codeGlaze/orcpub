@@ -675,7 +675,7 @@
       (with-redefs-fn {#'auth/breach-errors (constantly nil)}
         (fn []
           (testing "opening the link grants no session"
-            (let [resp (routes/reset-password-page {:query-params {:key reset-key} :db (d/db c)
+            (let [resp (auth/reset-password-page {:query-params {:key reset-key} :db (d/db c)
                                                     :headers {"host" "example.test"}
                                                     :uri "/reset-password-page"})]
               (is (= 200 (:status resp)))

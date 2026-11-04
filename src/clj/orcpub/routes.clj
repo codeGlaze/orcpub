@@ -42,8 +42,7 @@
             [orcpub.privacy :as privacy]
             [orcpub.config :as config]
             [orcpub.email :as email]
-            [orcpub.loading-spinner :as spinner]
-            [orcpub.index :refer [index-page]]
+            [orcpub.index :refer [index index-page-response default-index-page]]
             [orcpub.pdf :as pdf]
             [orcpub.pdf.draw :as draw]
             [orcpub.pdf.cards :as cards]
@@ -1083,68 +1082,6 @@
                  :headers {"Content-Type" "text/html"}})]
     merged))
 
-(def default-title branding/default-page-title)
-
-(def default-description branding/app-tagline)
-
-(defn default-image-url
-  "OG meta image URL. Uses https:// for social sharing compatibility."
-  [host]
-  (str "https://" host branding/og-image-filename))
-
-(defn index-page-response [{:keys [headers uri csp-nonce] :as request}
-                           {:keys [title description image-url]}
-                           & [response]]
-  (let [host (headers "host")]
-    ;; before index-page reads the credits into __BRANDING__
-    (when-let [db (:db request)] (artist-credit/refresh! db))
-    (merge
-     response
-     {:status 200
-      :headers (merge {"Content-Type" "text/html"} (:headers response))
-      :body
-      (index-page
-       {:url (str "http://" host uri)
-        :title (or title default-title)
-        :description (or description default-description)
-        :image (or image-url (default-image-url host))
-        :nonce csp-nonce
-        :spinner-kind (spinner/pick (get-in request [:query-params :spinner]))}
-       (= "/" uri))})))
-
-(defn default-index-page [request & [response]]
-  (index-page-response request {} response))
-
-(defn index [{:keys [headers scheme uri server-name] :as request} & [response]]
-  (default-index-page request response))
-
-(defn reset-password-page [{:keys [query-params db] :as req}]
-  (let [key (:key query-params)
-        {:keys [:db/id
-                :orcpub.user/username
-                :orcpub.user/password-reset-sent
-                :orcpub.user/password-reset] :as user}
-        ;; The link carries the key; the table holds only its digest.
-        (when-not (s/blank? key)
-          (auth/first-user-by db auth/user-by-password-reset-key-query (auth/hash-reset-key key)))
-        expired? (auth/reset-link-expired? user)
-        already-reset? (auth/password-already-reset? password-reset password-reset-sent)]
-    (cond
-      ;; Covers both no key at all and a key matching nobody, so neither bare-strings
-      ;; a "Key is required" error nor falls through to :else and signs a token for
-      ;; a nil username. A mangled link and an expired one are the same event to the
-      ;; reader -- it doesn't work -- so both land on the page offering to send a new one.
-      (nil? id) (auth/redirect route-map/password-reset-expired-route)
-      expired? (auth/redirect route-map/password-reset-expired-route)
-      already-reset? (auth/redirect route-map/password-reset-used-route)
-      ;; No session: the key in the URL is what the form submits. The username cookie grants
-      ;; nothing; it lets the meter flag a password equal to it. no-referrer keeps the key out of
-      ;; the Referer of anything this page loads.
-      :else (index req {:headers {"Referrer-Policy" "no-referrer"}
-                        :cookies {"reset-username" {:value username :path "/"
-                                                    :max-age (* auth/password-reset-valid-hours 3600)
-                                                    :same-site :strict}}}))))
-
 (defn character-for-id [db id]
   (d/pull db '[*] id))
 
@@ -2089,7 +2026,7 @@
        [(route-map/path-for route-map/reset-password-route) ^:interceptors [ring/cookies]
         {:post `auth/reset-password}]
        [(route-map/path-for route-map/reset-password-page-route) ^:interceptors [ring/cookies]
-        {:get `reset-password-page}]
+        {:get `auth/reset-password-page}]
        [(route-map/path-for route-map/send-password-reset-route)
         {:get `auth/send-password-reset}]
        [(route-map/path-for route-map/privacy-policy-route)

@@ -15,6 +15,7 @@
             [orcpub.errors :as errors]
             [orcpub.fork.auth :as fork-auth]
             [orcpub.fork.user-data :as user-data]
+            [orcpub.index :refer [index]]
             [orcpub.outbox :as outbox]
             [orcpub.pwned :as pwned]
             [orcpub.registration :as registration]
@@ -828,3 +829,30 @@
               (security/audit! :email-change-requested request username)
               {:status 200 :body {:pending-email new-email}})))))
     (catch Throwable e (prn e) (throw e))))
+
+(defn reset-password-page [{:keys [query-params db] :as req}]
+  (let [key (:key query-params)
+        {:keys [:db/id
+                :orcpub.user/username
+                :orcpub.user/password-reset-sent
+                :orcpub.user/password-reset] :as user}
+        ;; The link carries the key; the table holds only its digest.
+        (when-not (s/blank? key)
+          (first-user-by db user-by-password-reset-key-query (hash-reset-key key)))
+        expired? (reset-link-expired? user)
+        already-reset? (password-already-reset? password-reset password-reset-sent)]
+    (cond
+      ;; Covers both no key at all and a key matching nobody, so neither bare-strings
+      ;; a "Key is required" error nor falls through to :else and signs a token for
+      ;; a nil username. A mangled link and an expired one are the same event to the
+      ;; reader -- it doesn't work -- so both land on the page offering to send a new one.
+      (nil? id) (redirect route-map/password-reset-expired-route)
+      expired? (redirect route-map/password-reset-expired-route)
+      already-reset? (redirect route-map/password-reset-used-route)
+      ;; No session: the key in the URL is what the form submits. The username cookie grants
+      ;; nothing; it lets the meter flag a password equal to it. no-referrer keeps the key out of
+      ;; the Referer of anything this page loads.
+      :else (index req {:headers {"Referrer-Policy" "no-referrer"}
+                        :cookies {"reset-username" {:value username :path "/"
+                                                    :max-age (* password-reset-valid-hours 3600)
+                                                    :same-site :strict}}}))))

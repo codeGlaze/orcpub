@@ -5,6 +5,7 @@
             [orcpub.db.schema :as schema]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.routes :as routes]
+            [orcpub.index :as index]
             [orcpub.route-map]
             [cheshire.core])
   (:import [java.util UUID]))
@@ -35,7 +36,7 @@
 (deftest an-artist-credit-is-never-written-into-the-page
   (with-conn conn
     (artist! conn)
-    (let [html (:body (routes/index-page-response {:db (d/db conn) :headers {"host" "example.test"} :uri "/"}
+    (let [html (:body (index/index-page-response {:db (d/db conn) :headers {"host" "example.test"} :uri "/"}
                                                   {:title "t" :description "d"}))]
       (is (string? html))
       (is (not (re-find #"MARK" html)) "artist-editable text reaches the browser as data, not page source"))))
