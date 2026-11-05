@@ -72,6 +72,31 @@ HTTP 200). First step: check a direct post comes out clean. Alternative: a GitHu
 posts for agents, but that is a fork-only workflow in `develop`'s history and posts as
 `github-actions[bot]`.
 
+## Auth abuse follow-ups (after #80, `fix/auth-abuse`, merged 2026-11-05)
+
+Background: `docs/kb/auth-abuse-limits.md`.
+
+- **Live config (admin, unanswered).** Set `APP_URL` to the site's exact address: without it,
+  account-email links follow the request's Host header and the taken-email notice is not sent.
+  If live runs more than one app container (it has run 3, and may autoscale), set `REDIS_URL`
+  and run a small Redis next to the app; otherwise each container counts limits alone and the
+  login challenge can be dodged by landing on another container. Questions to send the admin
+  are in this chat's history: scaling, Traefik routing, which header carries the client IP,
+  Redis, the Cloudflare edge rule's coverage and thresholds, the site URL.
+- **Client IP behind nginx + Traefik.** Confirm the app sees the visitor's address, not the
+  proxy's (`client_address.clj` trusted proxies). If it sees the proxy's, every per-host limit
+  counts all visitors as one host.
+- **Redis in CI.** The Redis contract tests in `security_store_test.clj` skip without
+  `REDIS_TEST_URL`; add a `redis:7` service container to the test workflow and set it.
+- **Redis outage breaker.** Each limit check waits up to 200 ms before falling back to memory,
+  so pages slow while Redis is down. Stop trying Redis for a minute after a failure.
+- **`security.clj` size.** 743 lines holding the policy table, guard, store and Turnstile. If it
+  keeps growing, the store and Turnstile are the natural pieces to split out (folder
+  `security/` already exists).
+- **Live until the release ships** (#32 `integration` -> `develop`, upstream, deploy): the
+  Cloudflare edge rate limits are the only protection; keep them on `/send-password-reset`,
+  `/re-verify`, `/register` and `/login`.
+
 ## Framing: should World Anvil embed character sheets again? (open, owner)
 
 Character pages sent `X-Frame-Options: ALLOW-FROM https://www.worldanvil.com/`, which every
