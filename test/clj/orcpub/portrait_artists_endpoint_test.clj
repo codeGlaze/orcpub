@@ -50,12 +50,13 @@
   (with-redefs [orcpub.fork.branding/og-image-filename "/image/card.png"]
     (is (= "https://example.test/image/card.png" (index/default-image-url "example.test")))))
 
-(deftest the-character-page-carries-the-worldanvil-frame-header
+(deftest the-character-page-sends-no-frame-header
+  ;; Framing is decided by the CSP's frame-ancestors on every page; the old X-Frame-Options
+  ;; ALLOW-FROM line was ignored by every current browser and has been removed.
   (with-redefs [routes/character-summary-for-id (constantly {})]
     (let [resp (routes/character-page {:headers {"host" "example.test"} :uri "/" :path-params {:id "1"}})]
-      (is (= "ALLOW-FROM https://www.worldanvil.com/" (get-in resp [:headers "X-Frame-Options"])))
-      (is (= "text/html" (get-in resp [:headers "Content-Type"])) "the default header is kept")
-      (is (not (contains? resp "X-Frame-Options")) "and no stray top-level key"))))
+      (is (nil? (get-in resp [:headers "X-Frame-Options"])))
+      (is (= "text/html" (get-in resp [:headers "Content-Type"])) "the default header is kept"))))
 
 (deftest the-endpoint-serves-the-saved-credit-as-json
   (with-conn conn

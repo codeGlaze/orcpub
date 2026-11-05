@@ -1705,8 +1705,7 @@
                                             ". "
                                             description
                                             (when credit (str " · " credit)))
-                          :image-url share-image}
-                         {:headers {"X-Frame-Options" "ALLOW-FROM https://www.worldanvil.com/"}})))
+                          :image-url share-image})))
 
 (defn artists-page
   "The list of portrait artists. The page itself is the SPA's; this only
