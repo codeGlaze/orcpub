@@ -64,11 +64,6 @@
    (get db :username-taken?)))
 
 (reg-sub
- :email-taken?
- (fn [db [_]]
-   (get db :email-taken?)))
-
-(reg-sub
  :srd-message-closed?
  (fn [db [_]]
    (get db :srd-message-closed? false)))
@@ -86,14 +81,13 @@
 (reg-sub
  :registration-validation
  :<- [:registration-form]
- :<- [:email-taken?]
  :<- [:username-taken?]
  :<- [:registration-server-errors]
- (fn [[form email-taken? username-taken? server] [_]]
+ (fn [[form username-taken? server] [_]]
    ;; Merged per field, so a server objection sits alongside anything the form
    ;; found rather than replacing it.
    (merge-with (comp vec distinct concat)
-               (registration/validate-registration form email-taken? username-taken?)
+               (registration/validate-registration form username-taken?)
                ;; :general is excluded: the submit button disables while this map has
                ;; anything in it, and a rate limit here would leave it stuck forever.
                ;; :password-common is excluded too -- it's the meter's verdict already,
@@ -874,6 +868,16 @@
  :login-message-shown?
  (fn [db _]
    (:login-message-shown? db)))
+
+(reg-sub
+ :turnstile-blocked?
+ (fn [db _]
+   (boolean (:turnstile-blocked? db))))
+
+(reg-sub
+ :login-challenge?
+ (fn [db _]
+   (boolean (:login-challenge? db))))
 
 (reg-sub
  :message

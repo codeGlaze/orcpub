@@ -360,3 +360,9 @@
   (testing "a /host-log folder is named as the host's /var/log"
     (is (= "This report is saved in /var/log/orcpub/startup-report.txt on the host"
            (config/saved-line "/host-log/orcpub/startup-report.txt")))))
+
+(deftest the-report-warns-once-when-app-url-is-unset
+  (let [warns #(filter (fn [l] (str/includes? l "APP_URL is not set")) (config/deployment-lines %))]
+    (is (= 1 (count (warns {:app-url ""}))))
+    (is (empty? (warns {:app-url "https://site.test"})))
+    (is (empty? (warns {})) "callers that do not pass it get no warning")))

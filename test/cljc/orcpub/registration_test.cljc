@@ -65,7 +65,7 @@
   (let [errs (reg/validate-registration
               {:email "ana@example.com" :verify-email "ana@example.com"
                :username "thornwood" :password "thornwood1"}
-              false false)]
+              false)]
     (testing "the identifier rule fires through the registration path"
       (is (some #(re-find #"username and email" %) (:password errs))))))
 

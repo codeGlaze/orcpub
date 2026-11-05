@@ -6,6 +6,7 @@
             [orcpub.crypto :as crypto]
             [orcpub.db.schema :as schema]
             [orcpub.routes :as routes]
+            [orcpub.routes.auth :as auth]
             [orcpub.user-email :as ue])
   (:import [java.util UUID Base64 Date]))
 
@@ -114,8 +115,8 @@
           (is (not (hashers/check "pw123456" (:orcpub.user/password u))) "the registrant's password is gone")
           (is (nil? (:orcpub.user/verification-key u)) "and so is their confirmation link")
           (is (false? (:orcpub.user/verified? u)))
-          (is (= (:db/id u) (:db/id (routes/first-user-by (d/db conn) routes/user-by-password-reset-key-query
-                                                          (routes/hash-reset-key (:reset-key (first @sent))))))
+          (is (= (:db/id u) (:db/id (auth/first-user-by (d/db conn) auth/user-by-password-reset-key-query
+                                                          (auth/hash-reset-key (:reset-key (first @sent))))))
               "the welcome sent to the address is what opens it")
           (is (some? (:orcpub.user/artist-welcome-sent u)))))
       (is (= {:house-pack :already} (aa/reconcile! conn fuss notify)))
@@ -133,8 +134,8 @@
       (is (= {:house-pack :resent} (aa/reconcile! conn fuss notify)) "the next start tries again")
       (is (not= (first @tries) (second @tries)) "with a new key, since the first is not kept")
       (is (= (:db/id (pull-user conn "fusspot"))
-             (:db/id (routes/first-user-by (d/db conn) routes/user-by-password-reset-key-query
-                                           (routes/hash-reset-key (second @tries)))))
+             (:db/id (auth/first-user-by (d/db conn) auth/user-by-password-reset-key-query
+                                           (auth/hash-reset-key (second @tries)))))
           "and the new key is the one that works")
       (is (= {:house-pack :already} (aa/reconcile! conn fuss notify)) "once sent, never again")
       (is (= 2 (count @tries)))
@@ -226,12 +227,12 @@
 
 (deftest a-welcome-link-outlasts-an-ordinary-reset
   (testing "an ordinary reset link still expires after 24 hours"
-    (is (routes/reset-link-expired? {:orcpub.user/password-reset-sent (days-ago 2)})))
+    (is (auth/reset-link-expired? {:orcpub.user/password-reset-sent (days-ago 2)})))
   (testing "a welcome link sent two days ago is still good for the rest of its week"
-    (is (not (routes/reset-link-expired? {:orcpub.user/password-reset-sent (days-ago 2)
+    (is (not (auth/reset-link-expired? {:orcpub.user/password-reset-sent (days-ago 2)
                                            :orcpub.user/password-reset-expires (days-ahead 5)}))))
   (testing "and does expire at the end of it"
-    (is (routes/reset-link-expired? {:orcpub.user/password-reset-sent (days-ago 8)
+    (is (auth/reset-link-expired? {:orcpub.user/password-reset-sent (days-ago 8)
                                       :orcpub.user/password-reset-expires (days-ago 1)}))))
 
 (deftest a-first-confirmation-does-not-link-the-account
@@ -242,7 +243,7 @@
                             :orcpub.user/verification-key "k-123"
                             :orcpub.user/verification-sent (Date.)}])
         (with-redefs [aa/configured (constantly fuss)]
-          (routes/verify {:query-params {:key "k-123"} :db (d/db conn) :conn conn}))
+          (auth/verify {:query-params {:key "k-123"} :db (d/db conn) :conn conn}))
         (is (true? (:orcpub.user/verified? (pull-user conn "fusspotart"))))
         (is (nil? (artist-of conn "fusspotart")))))))
 
@@ -254,7 +255,7 @@
                           :orcpub.user/verification-key "k-456"
                           :orcpub.user/verification-sent (Date.)}])
       (with-redefs [aa/configured (constantly fuss)]
-        (routes/verify {:query-params {:key "k-456"} :db (d/db conn) :conn conn}))
+        (auth/verify {:query-params {:key "k-456"} :db (d/db conn) :conn conn}))
       (is (= :house-pack (artist-of conn "fusspotart"))))))
 
 (deftest a-welcome-link-works-with-hashed-reset-keys
@@ -269,13 +270,13 @@
             u (pull-user conn "fusspot")]
         (is (string? emailed))
         (is (not= emailed (:orcpub.user/password-reset-key u)) "the table holds a digest, not the emailed key")
-        (is (= (:db/id u) (:db/id (routes/first-user-by (d/db conn) routes/user-by-password-reset-key-query
-                                                        (routes/hash-reset-key emailed))))
+        (is (= (:db/id u) (:db/id (auth/first-user-by (d/db conn) auth/user-by-password-reset-key-query
+                                                        (auth/hash-reset-key emailed))))
             "the reset page finds the account from the key in the email")
         (let [three-hours-ago (Date. (- (System/currentTimeMillis) (* 3 3600 1000)))
               aged (assoc u :orcpub.user/password-reset-sent three-hours-ago)]
-          (is (not (routes/reset-link-expired? aged)) "three hours on, past an ordinary link's two, it still works")
-          (is (routes/reset-link-expired? (dissoc aged :orcpub.user/password-reset-expires))
+          (is (not (auth/reset-link-expired? aged)) "three hours on, past an ordinary link's two, it still works")
+          (is (auth/reset-link-expired? (dissoc aged :orcpub.user/password-reset-expires))
               "an ordinary link of the same age has expired"))))))
 
 (deftest a-username-keeps-every-letter-whatever-the-locale

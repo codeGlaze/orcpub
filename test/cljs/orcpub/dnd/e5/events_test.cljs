@@ -27,6 +27,8 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.entity :as entity]
             [orcpub.dnd.e5.character :as char5e]
+            ;; the account events (:logout, :clear-login) are registered here
+            [orcpub.dnd.e5.events.auth]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.units :as units5e]
@@ -2227,3 +2229,11 @@
                   ::char5e/rest-result {:id "7" :before {:orcpub.entity/values {}}}})
   (effects-of [::char5e/toggle-feature-used "7" ::units5e/dawn "Javelin of Lightning"] [::char5e/save-character-throttled])
   (is (nil? (::char5e/rest-result @app-db)) "so Undo cannot overwrite the edit"))
+
+(deftest a-resend-carries-the-turnstile-token
+  ;; The server refuses a resend with no token when Turnstile is on, so :re-verify must keep the
+  ;; challenge-request interceptor that copies the widget's token into the query.
+  (reset! app-db {:turnstile-token "tok-resend"})
+  (let [fx (effects-of [:re-verify {:email "a@b.com"}] [:http])]
+    (is (= "tok-resend" (get-in fx [:http :query-params :turnstile-token])))
+    (is (= "a@b.com" (get-in fx [:http :query-params :email])) "next to the address it was typed with")))

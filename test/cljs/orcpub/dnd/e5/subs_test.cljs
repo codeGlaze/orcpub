@@ -15,6 +15,8 @@
             [cljs-http.client :as http]
             [cljs.core.async :as async]
             [orcpub.dnd.e5.character :as char5e]
+            ;; the account events (:logout, :clear-login) are registered here
+            [orcpub.dnd.e5.events.auth]
             [orcpub.dnd.e5.party :as party5e]
             [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.api-subs :as api-subs]

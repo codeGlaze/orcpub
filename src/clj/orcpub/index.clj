@@ -8,6 +8,7 @@
             [orcpub.favicon :as fi]
             [orcpub.fork.integrations :as integrations]
             [orcpub.loading-spinner :as spinner]
+            [orcpub.artist-credit :as artist-credit]
             [orcpub.env :as env]
             [orcpub.config :as config]
             [orcpub.pedestal :as pedestal]))
@@ -272,7 +273,10 @@ html {
     (script-tag {:nonce nonce}
      ;; raw: operator settings as JSON, escaped for a script by script-json
      (h/raw (str "window.__BRANDING__=" (script-json (branding/client-config)) ";"
-                 "window.__INTEGRATIONS__=" (script-json (integrations/client-config)) ";")))]
+                 "window.__INTEGRATIONS__=" (script-json (integrations/client-config)) ";"
+                 ;; The PUBLIC site key only, and only when Turnstile is fully configured.
+                 (when (config/turnstile-enabled?)
+                   (str "window.__TURNSTILE_SITE_KEY__=" (script-json (config/turnstile-site-key)) ";")))))]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
@@ -322,3 +326,42 @@ html {
         }
        "))))]])))
   
+
+(def default-title branding/default-page-title)
+
+(def default-description branding/app-tagline)
+
+(defn default-image-url
+  "OG meta image URL. Uses https:// for social sharing compatibility. An APP_OG_IMAGE that is
+   already an absolute http(s) URL is returned as it is; a site path gets the host in front."
+  [host]
+  (let [image branding/og-image-filename]
+    (if (re-find #"(?i)^https?://" (str image))
+      image
+      (str "https://" host image))))
+
+(defn index-page-response [{:keys [headers uri csp-nonce] :as request}
+                           {:keys [title description image-url]}
+                           & [response]]
+  (let [host (headers "host")]
+    ;; before index-page reads the credits into __BRANDING__
+    (when-let [db (:db request)] (artist-credit/refresh! db))
+    (merge
+     response
+     {:status 200
+      :headers (merge {"Content-Type" "text/html"} (:headers response))
+      :body
+      (index-page
+       {:url (str "http://" host uri)
+        :title (or title default-title)
+        :description (or description default-description)
+        :image (or image-url (default-image-url host))
+        :nonce csp-nonce
+        :spinner-kind (spinner/pick (get-in request [:query-params :spinner]))}
+       (= "/" uri))})))
+
+(defn default-index-page [request & [response]]
+  (index-page-response request {} response))
+
+(defn index [{:keys [headers scheme uri server-name] :as request} & [response]]
+  (default-index-page request response))

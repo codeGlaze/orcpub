@@ -5,7 +5,8 @@
   (:require [orcpub.modifiers :as mod]
             [orcpub.route-map :as routes]
             [clojure.string :as s]
-            #?(:cljs [re-frame.core :refer [dispatch]])))
+            #?(:cljs [re-frame.core :refer [dispatch after]])
+            #?(:cljs [orcpub.dnd.e5.db :refer [user->local-store]])))
 
 ;; -- URL helpers (CLJS-only: depend on js/window.location) --
 
@@ -42,6 +43,11 @@
   (if-let [token (get-auth-token db)]
     {"Authorization" (str "Token " token)}
     {}))
+
+;; -- Local store --
+
+#?(:cljs
+(def user->local-store-interceptor (after (fn [db] (user->local-store (:user-data db))))))
 
 ;; -- Error helpers --
 
