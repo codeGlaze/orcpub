@@ -9,12 +9,20 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 - [⚔️ Conflict Resolution](CONFLICT_RESOLUTION.md) - Handle duplicate keys during import
 - [🔍 Missing Content Detection](CONTENT_RECONCILIATION.md) - Find/fix missing content references
 - [📋 Required Fields Guide](HOMEBREW_REQUIRED_FIELDS.md) - Required fields per content type
+- [Magic Weapon Damage](MAGIC-WEAPON-DAMAGE.md) - How a magic weapon states its extra damage, crits, charges and resets
 
 **For Developers:**
+- [🌿 Contributing & Workflow](CONTRIBUTING.md) - Branching, releases, changelog fold, commit & PR conventions
 - [ClojureScript Type Tolerance](clojurescript-type-tolerance.md) - What cljs silently tolerates vs. what crashes (and why); the string-op crash pattern behind render black screens
 - [🚨 Error Handling](ERROR_HANDLING.md) - Error handling utilities
 - [🗡️ Language Selection Fix](LANGUAGE_SELECTION_FIX.md) - Ranger favored enemy language corruption (#296)
 - [🐳 Docker User Management](docker-user-management.md) - Verified user setup for Docker deployments
+- [Portrait Compositor](PORTRAIT-COMPOSITOR.md) - Why the paper-doll portrait code is shaped as it is: shared geometry, the baked credit, untrusted saves, PDF sizing, ETags, the draft
+- [Portrait Tinting](PORTRAIT-TINTING.md) - How character colours reach the line art: multiply, the untinted mouth, colorized eyes and lips, floor and gamma
+
+**For Operators:**
+- [🖼️ Character Image Fetch](CHARACTER-IMAGE-FETCH.md) - Why a portrait is missing from a PDF, the limits on the fetch, and how nginx/Compose/Swarm/egress proxies affect it
+- [📄 PDF Export Capacity](PDF-EXPORT-CAPACITY.md) - What an export costs, and how to size the export stack
 
 ## Key Design Decisions
 
@@ -56,7 +64,9 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 
 **Gotcha:** Two different "key" concepts exist: language `:key` (data keyword like `:aquan`) and option `::entity/key` (derived from display name via `name-to-kw`). The fallback must produce names that round-trip correctly through `key-to-name` / `name-to-kw`.
 
-> [LANGUAGE_SELECTION_FIX.md](LANGUAGE_SELECTION_FIX.md)
+→ [LANGUAGE_SELECTION_FIX.md](LANGUAGE_SELECTION_FIX.md)
+
+### Why Centralized Error Handling?
 
 **Problem:** Inconsistent error handling across codebase. Some code logged, some didn't. User messages inconsistent.
 

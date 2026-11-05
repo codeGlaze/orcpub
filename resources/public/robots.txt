@@ -1,2 +1,16 @@
+# Nothing is crawled, except by the link-preview fetchers below: they read a page only when
+# someone pastes its link into a chat, to draw the card. Without them shared character links
+# show no preview on Discord, Mastodon, Slack, Telegram or X.
 User-agent: *
 Disallow: /
+
+User-agent: Discordbot
+User-agent: Twitterbot
+User-agent: Slackbot-LinkExpanding
+User-agent: TelegramBot
+User-agent: WhatsApp
+User-agent: Mastodon
+User-agent: SkypeUriPreview
+User-agent: redditbot
+User-agent: LinkedInBot
+Allow: /

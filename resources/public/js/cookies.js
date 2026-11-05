@@ -1,10 +1,5 @@
 function Pop() {
-    var cssRuleFile = "/css/cookiestyles.css";
-    let lnk = document.createElement("link");
-    lnk.setAttribute("rel", "stylesheet");
-    lnk.setAttribute("type", "text/css");
-    lnk.setAttribute("href", cssRuleFile);
-    document.getElementsByTagName("head")[0].appendChild(lnk);
+    // Its stylesheet is linked by the page itself (index.clj), with the file's content stamp.
     let styl = "undefined";
     var conDivObj;
     var fadeInTime = 10;
@@ -70,10 +65,25 @@ function Pop() {
             "1" +
             ";expires=" +
             expires.toUTCString() +
-            "path=" +
+            ";path=" +
             cookie.path;
     };
+    // Opt-out for automated runs and local testing. The banner is position-fixed at the
+    // bottom of the page and overlays whatever is under it - notably the import
+    // conflict-resolution modal's buttons - so a UI test clicking there gets
+    // "subtree intercepts pointer events" and fails in a way that looks like an app bug.
+    // localStorage is the harness-friendly form (set it before load, no interaction);
+    // the query param is for driving a browser by hand.
+    let suppressed = function() {
+        try {
+            if (new URLSearchParams(window.location.search).has("no-cookie-banner")) {
+                localStorage.setItem("orcpub:no-cookie-banner", "1");
+            }
+            return localStorage.getItem("orcpub:no-cookie-banner") === "1";
+        } catch (e) { return false; }
+    };
     this.init = function(param) {
+        if (suppressed()) return;
         if (checkCookie(cookie.name)) return;
         if (typeof param === "object") {
             if ("ButtonText" in param) content.btnText = param.ButtonText;

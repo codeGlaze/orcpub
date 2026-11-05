@@ -33,6 +33,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source shared utilities
 # shellcheck source=common.sh
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/bundle-check.sh"
 
 # -----------------------------------------------------------------------------
 # Install
@@ -174,7 +175,7 @@ run_checks() {
         echo -e "${GREEN}OK${NC}"
     else
         echo -e "${RED}FAILED${NC}"
-        ((failed++))
+        failed=$((failed + 1))
     fi
 
     echo -n "Leiningen: "
@@ -182,7 +183,7 @@ run_checks() {
         echo -e "${GREEN}OK${NC}"
     else
         echo -e "${RED}FAILED${NC}"
-        ((failed++))
+        failed=$((failed + 1))
     fi
 
     # Target-specific checks
@@ -193,7 +194,7 @@ run_checks() {
                 echo -e "${GREEN}OK${NC}"
             else
                 echo -e "${RED}FAILED${NC}"
-                ((failed++))
+                failed=$((failed + 1))
             fi
 
             echo -n "Datomic config: "
@@ -209,7 +210,7 @@ run_checks() {
                 fi
             else
                 echo -e "${RED}FAILED${NC} (no config or template)"
-                ((failed++))
+                failed=$((failed + 1))
             fi
 
             echo -n "Datomic port ($DATOMIC_PORT): "
@@ -264,6 +265,9 @@ run_checks() {
             fi
             ;;
     esac
+
+    echo ""
+    print_env_config
 
     echo ""
     if [[ $failed -gt 0 ]]; then
@@ -404,15 +408,33 @@ start_server() {
     fi
 
     cd "$REPO_ROOT"
+    ensure_fresh_build || exit $EXIT_RUNTIME
+
+    # When Java runs out of memory or crashes it leaves a heap dump or crash log in
+    # $LOG_DIR/app/crash, and the next start emails the admin (orcpub.crash-report). No
+    # exit-on-out-of-memory here: nothing would restart a bare-metal server.
+    mkdir -p "$LOG_DIR/app/crash"
+    # lein splits JVM_OPTS on spaces, so a path with one would break the options apart.
+    if [[ "$LOG_DIR" =~ [[:space:]] ]]; then
+        log_warn "The folder path has a space ($LOG_DIR); crash files are not kept for this start."
+    else
+        export JVM_OPTS="${JVM_OPTS:-} -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$LOG_DIR/app/crash/heap.hprof -XX:ErrorFile=$LOG_DIR/app/crash/jvm-crash-%p.log"
+    fi
 
     # Use headless mode if not running interactively (background/nohup)
-    if [[ -t 0 ]]; then
+    local rc=0
+    if [[ "$(repl_mode)" == "interactive" ]]; then
         log_info "Starting REPL with server (profile: +dev,+start-server)..."
-        lein with-profile +dev,+start-server repl
+        lein with-profile +dev,+start-server repl || rc=$?
     else
         log_info "Starting headless server (profile: +dev,+start-server)..."
-        lein with-profile +dev,+start-server repl :headless
+        is_windows && log_info "Headless on Windows: the Git Bash REPL exits on start and stops the server."
+        lein with-profile +dev,+start-server repl :headless || rc=$?
     fi
+    # The REPL held the terminal until now; this is the first chance to explain
+    # a bind failure, and the only place the reserved-port case is visible.
+    [[ $rc -ne 0 ]] && explain_bind_failure "$SERVER_PORT"
+    return $rc
 }
 
 start_figwheel() {
@@ -431,6 +453,8 @@ start_figwheel() {
 
     # Clean up stale PID file
     cleanup_stale_pid "figwheel"
+
+    confirm_dev_mode || exit $EXIT_SUCCESS
 
     # ── Remote dev environment detection ──────────────────────────────
     # Figwheel's default connect URL (ws://localhost:PORT) only works when
@@ -519,7 +543,7 @@ start_garden() {
             show_startup_failure "garden" "$LOG_DIR/garden.log" ""
             exit $EXIT_RUNTIME
         fi
-        ((checks++))
+        checks=$((checks + 1))
     done
     log_info "Garden is running"
 }
@@ -625,10 +649,22 @@ start_all() {
         exit $EXIT_SUCCESS
     fi
 
+    cd "$REPO_ROOT"
+    if ! ensure_fresh_build; then
+        (exit "$EXIT_RUNTIME")   # cleanup_on_exit exits with the status it finds
+        cleanup_on_exit
+    fi
     log_info "Starting REPL with server (profile: +dev,+start-server)..."
     log_info "Note: Ctrl+C will stop both server and Datomic"
-    cd "$REPO_ROOT"
-    lein with-profile +dev,+start-server repl
+    local rc=0
+    if [[ "$(repl_mode)" == "interactive" ]]; then
+        lein with-profile +dev,+start-server repl || rc=$?
+    else
+        is_windows && log_info "Headless on Windows: the Git Bash REPL exits on start and stops the server."
+        lein with-profile +dev,+start-server repl :headless || rc=$?
+    fi
+    [[ $rc -ne 0 ]] && explain_bind_failure "$SERVER_PORT"
+    return $rc
 }
 
 # -----------------------------------------------------------------------------
@@ -766,6 +802,24 @@ main() {
         run_checks "$target"
         exit $?
     fi
+
+    # First-run .env offer. A prompt is read; a banner is not -- so this is the
+    # one interactive thing that happens before startup.
+    #
+    # It goes HERE, below every non-startup branch, not above them: `help`,
+    # `--install` and `--check` are not requests to start a server, and none of
+    # them should stop to ask whether to write a file. (`--help` already exits
+    # during argument parsing.) It used to sit above all three.
+    #
+    # Return 10 means the file was written. Stop there rather than start: .env
+    # was sourced before it existed, so the answers just given are not in this
+    # shell and the server would launch on the configuration the user was asked
+    # about and answered.
+    offer_env_file || {
+        rc=$?
+        [[ $rc -eq 10 ]] && exit $EXIT_SUCCESS
+        exit $rc
+    }
 
     # Check prerequisites for runtime targets
     check_java || exit $EXIT_PREREQ

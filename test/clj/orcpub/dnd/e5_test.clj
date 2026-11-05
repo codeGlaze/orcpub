@@ -497,10 +497,10 @@
 (deftest test-reconcile-rejected-items
   (testing "merges old + new set-aside entries, prunes any now live in kept"
     (let [old {"S" {:orcpub.dnd.e5/feats {:a {:name "A"}}}}
-          new {"S" {:orcpub.dnd.e5/feats {:b {:name "B"}}}}
+          incoming {"S" {:orcpub.dnd.e5/feats {:b {:name "B"}}}}
           kept {"S" {:orcpub.dnd.e5/feats {:a {:option-pack "S" :name "A"}}}}] ; :a now live
       (is (= {"S" {:orcpub.dnd.e5/feats {:b {:name "B"}}}}
-             (e5/reconcile-rejected-items old new kept))
+             (e5/reconcile-rejected-items old incoming kept))
           ":a pruned (now live), :b stays set aside")))
   (testing "a source whose entries are all pruned disappears"
     (is (= {} (e5/reconcile-rejected-items
@@ -509,3 +509,76 @@
                {"S" {:orcpub.dnd.e5/feats {:a {:option-pack "S" :name "A"}}}}))))
   (testing "nil inputs never throw"
     (is (= {} (e5/reconcile-rejected-items nil nil nil)))))
+
+;; ---------------------------------------------------------------------------
+;; Setting aside what cannot be loaded. Reading damaged structure back, and fixing fields:
+;; homebrew_structure_test, homebrew_shape_table_test.
+;; ---------------------------------------------------------------------------
+
+(deftest salvage-sets-aside-a-damaged-section-and-keeps-the-rest
+  (let [{:keys [kept rejected]}
+        (e5/salvage-plugin-items content-specs/valid-item-for-load?
+                                 {:disabled? true
+                                  :orcpub.dnd.e5/spells "corrupted"
+                                  :orcpub.dnd.e5/feats {:tough {:option-pack "P" :name "Tough"}}})]
+    (is (= "corrupted" (:orcpub.dnd.e5/spells rejected)))
+    (is (not (contains? kept :orcpub.dnd.e5/spells)) "kept, it loaded silently and broke export")
+    (is (true? (:disabled? kept)))
+    (is (= {:tough {:option-pack "P" :name "Tough"}} (:orcpub.dnd.e5/feats kept)))))
+
+(deftest salvage-sets-aside-a-whole-source-that-is-not-a-map
+  ;; dropped from both sides, the load write-back would erase it
+  (let [{:keys [kept rejected]}
+        (e5/salvage-library-items content-specs/valid-item-for-load?
+                                  {"Good" {:orcpub.dnd.e5/feats {:t {:option-pack "Good"}}}
+                                   "Bad" "not a source"})]
+    (is (= "not a source" (get rejected "Bad")))
+    (is (contains? kept "Good"))))
+
+(deftest set-aside-damage-survives-the-next-load
+  ;; merging set-aside data used to call merge on text, which throws while starting up
+  (is (= {"S" {:orcpub.dnd.e5/spells "junk two"} "W" "whole junk"}
+         (e5/reconcile-rejected-items {"S" {:orcpub.dnd.e5/spells "junk one"} "W" "whole junk"}
+                                      {"S" {:orcpub.dnd.e5/spells "junk two"}}
+                                      {}))))
+
+(deftest merge-plugins-is-unchanged-for-sections-that-are-maps
+  (is (= {:orcpub.dnd.e5/spells {:a 1 :b 2} :orcpub.dnd.e5/feats {:c 3}}
+         (e5/merge-plugins {:orcpub.dnd.e5/spells {:a 1}}
+                           {:orcpub.dnd.e5/spells {:b 2} :orcpub.dnd.e5/feats {:c 3}}))))
+
+(deftest an-entry-with-no-source-takes-the-name-of-its-source
+  (let [lib {"My Pak" {:orcpub.dnd.e5/spells {:a {:key :a :option-pack "My Pak" :name "A"}
+                                              :b {:key :b :name "B"}
+                                              :c {:key :c :option-pack "" :name "C"}}}}
+        {:keys [library filled]} (e5/fill-library-sources lib)]
+    (is (= "My Pak" (get-in library ["My Pak" :orcpub.dnd.e5/spells :b :option-pack]))
+        "a missing field used to be skipped on import and set aside on load")
+    (is (= "My Pak" (get-in library ["My Pak" :orcpub.dnd.e5/spells :c :option-pack])))
+    (is (= #{:b :c} (set (map :key filled)))))
+  (testing "with no source name to take: what the entries share, else the default"
+    (is (= "Shared" (e5/source-for "" {:orcpub.dnd.e5/feats {:x {:option-pack "Shared"}}})))
+    (is (= e5/default-option-source (e5/source-for nil {:orcpub.dnd.e5/feats {:x {:name "X"}}})))
+    (is (= e5/default-option-source
+           (e5/source-for nil {:orcpub.dnd.e5/feats {:x {:option-pack "A"} :y {:option-pack "B"}}}))))
+  (testing "an entry that names a source keeps it"
+    (is (= "Other" (get-in (:plugin (e5/fill-missing-sources {:orcpub.dnd.e5/feats {:x {:option-pack "Other"}}} "Mine"))
+                           [:orcpub.dnd.e5/feats :x :option-pack]))))
+  (testing "entries that are not maps are left for the checks that set them aside"
+    (is (= "garbage" (get-in (:plugin (e5/fill-missing-sources {:orcpub.dnd.e5/feats {:x "garbage"}} "Mine"))
+                             [:orcpub.dnd.e5/feats :x])))))
+
+(deftest test-rekey-plugin-records-the-old-key-and-repoints-links
+  (let [plugin {:orcpub.dnd.e5/subclasses {:oath {:name "Oath" :class :9-lives}}
+                :orcpub.dnd.e5/classes {:9-lives {:name "Nine Lives" :option-pack "P"}}}
+        out (e5/rekey-plugin plugin)]
+    (is (= [:9-lives] (get-in out [:orcpub.dnd.e5/classes :nine-lives :former-keys]))
+        "a character that chose the old key can follow it")
+    (is (= :nine-lives (get-in out [:orcpub.dnd.e5/subclasses :oath :class]))
+        "a subclass in a content type re-keyed after it still follows")))
+
+(deftest rekey-plugin-never-moves-an-item-onto-a-key-the-live-source-holds
+  (let [trapped {::e5/races {:9-lives {:name "Nine Lives"}}}
+        live {::e5/races {:nine-lives {:name "Nine Lives" :description "the live one"}}}]
+    (is (= #{:nine-lives-2} (set (keys (::e5/races (e5/rekey-plugin trapped live))))))
+    (is (= #{:nine-lives} (set (keys (::e5/races (e5/rekey-plugin trapped))))) "without it, the key is free")))

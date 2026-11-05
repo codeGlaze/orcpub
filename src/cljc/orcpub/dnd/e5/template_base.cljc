@@ -37,8 +37,7 @@
    {?armor-class (+ 10 (?ability-bonuses ::char5e/dex))
     ?base-armor-class (+ 10 (?ability-bonuses ::char5e/dex)
                          ;; Checks whether barbarian unarmored bonus exists (or is higher) than natural AC/Draconic Bloodline AC
-                         (if (> ?unarmored-ac-bonus ?natural-ac-bonus ) 0 ?natural-ac-bonus)
-                         ?magical-ac-bonus)
+                         (if (> ?unarmored-ac-bonus ?natural-ac-bonus ) 0 ?natural-ac-bonus))
     ?levels {}
     ?ac-bonus 0
     ?natural-ac-bonus 0
@@ -46,7 +45,6 @@
     ?unarmored-with-shield-ac-bonus 0
     ?armored-ac-bonus 0
     ?max-medium-armor-bonus 2
-    ?magical-ac-bonus 0
     ?armor-stealth-disadvantage? (fn [armor]
                                    (:stealth-disadvantage? armor))
     ?armor-dex-bonus (fn [armor]
@@ -57,10 +55,17 @@
                            0)))
     ?shield-ac-bonus (fn [shield]
                        (+ 2 (or (::mi5e/magical-ac-bonus shield) 0)))
-    ?unarmored-armor-class (+ ?base-armor-class ?unarmored-ac-bonus ?ac-bonus)
+    ;; Unarmored-defense (Con/Wis) and natural-armor (?natural-ac-bonus) are competing
+    ;; "AC = 10 + Dex + X" bases — take the BETTER, never both. ?base-armor-class drops
+    ;; natural when unarmored wins; the two `if`s below drop unarmored when natural wins,
+    ;; or a character with both (Lizardfolk Barbarian) STACKS them.
+    ?unarmored-armor-class (+ ?base-armor-class
+                             (if (> ?unarmored-ac-bonus ?natural-ac-bonus) ?unarmored-ac-bonus 0)
+                             ?ac-bonus)
     ?unarmored-with-shield-armor-class (fn [shield]
                                          (+ ?base-armor-class
-                                            ?unarmored-with-shield-ac-bonus
+                                            (if (> ?unarmored-with-shield-ac-bonus ?natural-ac-bonus)
+                                              ?unarmored-with-shield-ac-bonus 0)
                                             ?ac-bonus
                                             (?shield-ac-bonus shield)))
     ?dual-wield-weapon? weapon5e/light-melee-weapon?
@@ -74,8 +79,7 @@
                                                   (or ?armored-ac-bonus 0)
                                                   (:base-ac armor)
                                                   (::mi5e/magical-ac-bonus armor)
-                                                  ?ac-bonus
-                                                  ?magical-ac-bonus)))
+                                                  ?ac-bonus)))
     ?armor-class-with-armor (fn [armor & [shield]]
                               (let [max-ac (apply max
                                                   (?armor-class-with-armor-base armor shield)
@@ -185,23 +189,23 @@
                          (if (?has-weapon-prof? weapon)
                            ?prof-bonus
                            0))
-    ?weapon-ability-modifiers [(fn [weapon finesse?]
-                                 (let [definitely-finesse?
-                                       (and finesse?
-                                            (::weapon5e/finesse? weapon))
-                                       melee? (::weapon5e/melee? weapon)]
-                                   (?ability-bonuses
-                                    (if (or (and melee? (not definitely-finesse?))
-                                            (and (not melee?) definitely-finesse?))
-                                      ::char5e/str
-                                      ::char5e/dex))))]
+    ;; Each entry names the ability an attack with the weapon may use, or nil when it does not
+    ;; apply; the attack uses the named ability with the highest bonus.
+    ?weapon-abilities [(fn [weapon finesse?]
+                         (let [definitely-finesse?
+                               (and finesse?
+                                    (::weapon5e/finesse? weapon))
+                               melee? (::weapon5e/melee? weapon)]
+                           (if (or (and melee? (not definitely-finesse?))
+                                   (and (not melee?) definitely-finesse?))
+                             ::char5e/str
+                             ::char5e/dex)))]
+    ?weapon-ability (fn [weapon finesse?]
+                      (apply max-key
+                             #(get ?ability-bonuses % 0)
+                             (keep (fn [ability-fn] (ability-fn weapon finesse?)) ?weapon-abilities)))
     ?weapon-ability-modifier (fn [weapon finesse?]
-                               (apply
-                                max
-                                (map
-                                 (fn [mod-fn]
-                                   (mod-fn weapon finesse?))
-                                 ?weapon-ability-modifiers)))
+                               (get ?ability-bonuses (?weapon-ability weapon finesse?) 0))
     ?weapon-attack-modifier (fn [weapon finesse?]
                               (apply +
                                      (?weapon-prof-bonus weapon)
@@ -228,13 +232,8 @@
                                 (apply +
                                        (+ (or (::mi5e/magical-damage-bonus weapon) 0)
                                           (?weapon-ability-damage-modifier weapon definitely-finesse? off-hand?))
-                                       ;(if melee?
-                                       ;  (map
-                                       ;   #(% weapon)
-                                       ;   ?melee-damage-bonus-fns)
-                                       ;  (map
-                                       ;   #(% weapon)
-                                       ;   ?ranged-damage-bonus-fns)) ;any non-melee is assumed to be ranged/finesse/dex
+                                       ;; Only ?damage-bonus-fns apply; ?melee-damage-bonus-fns
+                                       ;; is never read (see modifiers.cljc :user/comment).
                                        (map
                                         #(% weapon)
                                         ?damage-bonus-fns))))
@@ -246,11 +245,19 @@
                              (+ ?prof-bonus
                                 (?ability-bonuses ability-kw)
                                 ?spell-attack-modifier-bonus))
+    ;; ?save-dc is for features whose text gives their own DC (ki, Breath Weapon); only
+    ;; ?spell-save-dc takes item spell DC bonuses. save-dc-sources.md lists which feature uses which.
+    ?save-dc (fn [ability-kw]
+               (+ 8
+                  ?prof-bonus
+                  (get ?ability-bonuses ability-kw 0)))
+    ;; A weapon's own save DC (Topple): ?save-dc with the ability its attack uses.
+    ?weapon-save-dc (fn [weapon]
+                      (max (?save-dc (?weapon-ability weapon false))
+                           (?save-dc (?weapon-ability weapon true))))
     ?spell-save-dc-bonus 0
     ?spell-save-dc (fn [ability-kw]
-                     (+ 8
-                        ?prof-bonus
-                        (get ?ability-bonuses ability-kw 0)
+                     (+ (?save-dc ability-kw)
                         ?spell-save-dc-bonus))
     ?spell-modifiers (reduce
                       (fn [m {:keys [ability class]}]
@@ -282,21 +289,31 @@
                              (+ ability-mod (if-let [lvl (?class-level class-kw)]
                                               (int (/ lvl slot-factor))
                                               0))))
-    ?spell-slots (merge-with
-                  +
-                  (cond
-                    (> (count ?spell-slot-factors) 1)
-                    (opt5e/total-slots
-                     ?total-spellcaster-levels
-                     1)
-                    (= 1 (count ?spell-slot-factors))
-                    (opt5e/total-slots (let [k (some-> ?spell-slot-factors first key)]
-                                         (:class-level (?levels k)))
-                                       (some-> ?spell-slot-factors first val))
+    ;; The slots every non-pact caster draws on. 5e gives a multiclass ONE table
+    ;; computed from combined caster levels, so this is shared rather than per
+    ;; class -- a Sorcerer 5 / Wizard 5 has one pool, not two.
+    ?shared-spell-slots (cond
+                          (> (count ?spell-slot-factors) 1)
+                          (opt5e/total-slots
+                           ?total-spellcaster-levels
+                           1)
+                          (= 1 (count ?spell-slot-factors))
+                          (opt5e/total-slots (let [k (some-> ?spell-slot-factors first key)]
+                                               (:class-level (?levels k)))
+                                             (some-> ?spell-slot-factors first val))
 
-                    :else {})
-                  (when ?pact-magic?
-                    (warlock-spell-slot-schedule (?class-level :warlock))))
+                          :else {})
+    ;; Pact Magic is a SEPARATE pool at its own level, and the one thing that does
+    ;; not merge. It is kept apart so a sheet can print it against the Warlock
+    ;; rather than against everyone.
+    ?pact-spell-slots (if ?pact-magic?
+                        (warlock-spell-slot-schedule (?class-level :warlock))
+                        {})
+    ;; The two added together, which is what a sheet with one slot row per level
+    ;; has to show and what everything downstream has always read. Adding them is
+    ;; lossy -- a Warlock 5 / Sorcerer 5 shows one number where the player has two
+    ;; pools -- which is why the parts above are kept.
+    ?spell-slots (merge-with + ?shared-spell-slots ?pact-spell-slots)
     ?classes []
     ?reactions []
     ?actions []

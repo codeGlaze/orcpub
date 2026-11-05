@@ -25,6 +25,8 @@
                  [org.clojure/clojurescript "1.12.134"]
                  [org.clojure/core.async "1.8.741"] 
                  [org.postgresql/postgresql "42.7.3"]
+                 ;; Redis client, used only when REDIS_URL is set (orcpub.security.redis-store).
+                 [com.taoensso/carmine "3.4.1"]
                  ;; React 18 + Reagent 2.0 (Concurrent Mode)
                  [cljsjs/react "18.3.1-1"]
                  [cljsjs/react-dom "18.3.1-1"]
@@ -73,12 +75,17 @@
                  ;; datomock fork with Datomic Pro 1.0.6527+ compatibility (new transact signature)
                  ;; Original vvvvalvalval/datomock 0.2.0 causes AbstractMethodError with Datomic Pro
                  [org.clojars.favila/datomock "0.2.2-favila1"]
-                 ;; Datomic Pro: Free under Apache 2.0, supports Java 11/17/21, actively maintained.
+                 ;; The peer library, free under Apache 2.0, Java 11/17/21.
                  ;; Exclude slf4j-nop to avoid duplicate SLF4J binding warnings.
-                 ;; Installed to lib/com/datomic/datomic-pro/1.0.7482/ during Docker build/postCreateCommand
-                 ;; Uses existing file:lib repository pattern (same as pdfbox)
+                 ;; Resolves from MAVEN CENTRAL -- not from file:lib, and no local
+                 ;; install is needed to build or test. The commented-out
+                 ;; com.datomic/datomic-pro coordinate that used to sit here did need
+                 ;; one, and its comment kept implying this dependency still does.
+                 ;; lib/com/datomic/datomic-pro/<version>/ is still populated, but by
+                 ;; .devcontainer/post-create.sh and docker/Dockerfile, and for the
+                 ;; TRANSACTOR BINARY that scripts/common.sh:257 and start.sh run --
+                 ;; not for this jar.
                  ;; Latest version: https://docs.datomic.com/releases-pro.html
-                 ;[com.datomic/datomic-pro "1.0.7482" :exclusions [org.slf4j/slf4j-nop]]
                  [com.datomic/peer "1.0.7482" :exclusions [org.slf4j/slf4j-nop]]
                  ;; cuerdas 026.415: Latest release on Clojars... does not match GH release versioning.
                  [funcool/cuerdas "2026.415"]
@@ -189,6 +196,8 @@
             "fig:build" ["run" "-m" "figwheel.main" "--" "--build-once" "dev"]
             "fig:prod" ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]
             "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
+            ;; only the junk-pack test, for test/e2e/junk-pack-audit.js
+            "fig:junk" ["run" "-m" "figwheel.main" "--" "--build-once" "junk-audit"]
             ;; Preview the character-load report email (no send) — email endpoint dev tool
             "report-preview" ["with-profile" "+tools" "run" "-m" "orcpub.dev.report-preview"]
             ;; Single-command production build: clean → CLJS → uberjar.
@@ -201,17 +210,45 @@
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
             "rebuild-modules" ["run" "-m" "user" "--rebuild-modules"]
+            ;; Boot the FULL app (Pedestal + in-memory Datomic) on :8890 for browser e2e —
+            ;; no transactor, no external DB. Run `lein e2e-server`, then drive Playwright
+            ;; against http://localhost:8890 through the real UI. See test/browser/README.md.
+            "e2e-server" ["with-profile" "+e2e" "run"]
+            ;; Same server, but with the export queue small enough to hit on one
+            ;; machine: one sheet at a time, a quarter-second wait for a slot, two
+            ;; self-retries. Click Export twice quickly, or run
+            ;; test/browser/export_busy_retry_e2e.js, to see the busy page.
+            "e2e-server-busy" ["with-profile" "+e2e,+busy-export" "run"]
             ;; --fail-level error: exit 0 on warnings, exit 1 only on errors.
             ;; trampoline re-execs in a fresh JVM so System/exit propagates
             ;; (without it, lein suppresses the exit code).
             ;; native/ is excluded — directory only exists for React Native builds.
-            "lint" ["trampoline" "with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "test" "web" "--fail-level" "error"]
+            ;; dev/ is linted for its ERRORS. It contributes ~41 warnings that are the
+            ;; scripts' own idiom -- they load-file each other, so re-requiring and
+            ;; re-defining is normal -- and --fail-level error ignores those. Not silenced
+            ;; via :config-in-ns: the scripts have no ns form, so kondo does not resolve
+            ;; them to `user` and the suppression only caught 3 of the 41.
+            ;; Added because this refactor shipped an unbalanced paren in 5 dev scripts
+            ;; across 2 commits, unseen: kondo calls it an error, and dev/ was unlinted.
+            "lint" ["trampoline" "with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "test" "web" "dev" "--fail-level" "error"]
             "prod-build" ^{:doc "Recompile code with prod profile."}
             ["externs"
              ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]]}
   :profiles {;; Minimal profile to run dev/ command-line tools (e.g. report-preview)
              ;; with base runtime deps but WITHOUT the heavy cljs/devtools :dev-config.
              :tools {:source-paths ["dev"]}
+             ;; In-memory Datomic for local/e2e runs — the full stack boots with no
+             ;; transactor and no external DB. Used by the `e2e-server` alias; environ
+             ;; feeds :datomic-url to orcpub.config/get-datomic-uri.
+             :e2e {:env {:datomic-url "datomic:mem://orcpub" :email-required "false"}}
+             ;; An export queue small enough to reach on one machine, for seeing
+             ;; the busy page. Stacks on :e2e -- see the e2e-server-busy alias.
+             ;; The wait is 1ms because the slot queue is fair: with 250ms an export
+             ;; arriving under load reached the front and got its PDF 5 times in 12,
+             ;; failing export_busy_retry for no app reason; at 1ms it was 0 in 12.
+             :busy-export {:env {:orcpub-pdf-concurrency "1"
+                                 :orcpub-pdf-queue-timeout-ms "1"
+                                 :orcpub-pdf-max-retries "2"}}
              ;; Legacy cljsbuild build configs — retained for lein figwheel (legacy
              ;; dev server) and reference. lein-cljsbuild PLUGIN has been removed;
              ;; prod CLJS builds now use figwheel-main (prod.cljs.edn / fig:prod).
@@ -245,7 +282,8 @@
                                            [nrepl "1.3.0"]
                                            [cider/piggieback "0.5.3"]
                                            [day8.re-frame/re-frame-10x "1.11.0" :exclusions [zprint rewrite-clj]]
-                                           ]
+                                           ;; comment_discipline_test parses source with it
+                                           [rewrite-clj "0.5.2"]]
                             :env       {:dev-mode  "true"
                                         :signature "dev-secret-do-not-use-in-production"}
                             ;; need to add dev source path here to get user.clj loaded
@@ -284,7 +322,6 @@
                                                                     :optimizations :none}}]}
                             :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}
              ;; NOTE: :prod was for React Native builds (legacy, may be unused)
-             ;; datomic-pro dependency removed - peer is already in main deps
              :prod         {:cljsbuild    {:builds [{:id           "main"
                                                      :source-paths ["src/cljs" "native/cljs" "src/cljc" "env/prod"]
                                                      :compiler     {:output-to          "main.js"

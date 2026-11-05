@@ -1,6 +1,6 @@
 (ns orcpub.email-change-test
   "Tests for the email change flow (PR #644).
-   Uses datomock for in-memory Datomic and with-redefs to stub email sending."
+   Uses datomock for in-memory Datomic. Emails are queued in the outbox, never sent, during a test."
   (:require
    [clojure.test :refer [deftest is testing use-fixtures]]
    [datomic.api :as d]
@@ -8,6 +8,7 @@
    [buddy.hashers :as hashers]
    [orcpub.errors :as errors]
    [orcpub.routes :as routes]
+   [orcpub.routes.auth :as auth]
    [orcpub.route-map :as route-map]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
@@ -32,24 +33,37 @@
   @(d/transact conn schema/all-schemas)
   @(d/transact conn
     [{:orcpub.user/username   "alice"
-      :orcpub.user/email      "alice@test.com"
+      :orcpub.user/email      "alice@test.com" :orcpub.user/email-key "alice@test.com"
       :orcpub.user/password   (hashers/encrypt "pass123")
       :orcpub.user/verified?  true}
      {:orcpub.user/username   "bob"
-      :orcpub.user/email      "bob@test.com"
+      :orcpub.user/email      "bob@test.com" :orcpub.user/email-key "bob@test.com"
       :orcpub.user/password   (hashers/encrypt "pass456")
       :orcpub.user/verified?  true}]))
 
+(def seeded-passwords
+  "What seed-users gives each account. Moving an account to another address now
+   takes the password as well as a session, so every request here carries one."
+  {"alice" "pass123" "bob" "pass456"})
+
 (defn make-request
-  "Build a minimal request map for request-email-change."
-  [conn new-email username]
-  {:transit-params {:new-email new-email}
-   :db             (d/db conn)
-   :conn           conn
-   :identity       {:user username}
-   ;; send-email-change-verification reads scheme + headers for base-url
-   :scheme         :https
-   :headers        {"host" "localhost"}})
+  "Build a minimal request map for request-email-change.
+
+   `current-password` defaults to the account's real one. These tests are about
+   what the endpoint does once it knows who is asking; without it every one of
+   them would stop at the re-authentication check and assert nothing about the
+   behaviour it was written for."
+  ([conn new-email username]
+   (make-request conn new-email username (get seeded-passwords username)))
+  ([conn new-email username current-password]
+   {:transit-params {:new-email new-email
+                     :current-password current-password}
+    :db             (d/db conn)
+    :conn           conn
+    :identity       {:user username}
+    ;; the email builders read scheme + headers for the site's address
+    :scheme         :https
+    :headers        {"host" "localhost"}}))
 
 (defn find-user [db username]
   (d/q '[:find (pull ?e [:orcpub.user/email
@@ -77,8 +91,7 @@
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-users mocked-conn)
       (testing "Request email change stores pending-email and returns 200"
-        (with-redefs [routes/send-email-change-verification (fn [& _] nil)]
-          (let [resp (routes/request-email-change
+        (let [resp (auth/request-email-change
                        (make-request mocked-conn "newalice@test.com" "alice"))]
             (is (= 200 (:status resp)))
             (let [user (find-user (d/db mocked-conn) "alice")]
@@ -89,7 +102,7 @@
 
               (testing "Verify link swaps email and clears pending-email"
                 (let [key   (:orcpub.user/verification-key user)
-                      vresp (routes/verify {:query-params {:key key}
+                      vresp (auth/verify {:query-params {:key key}
                                             :db           (d/db mocked-conn)
                                             :conn         mocked-conn})]
                   (is (= 302 (:status vresp)))
@@ -97,79 +110,77 @@
                   (is (= success-path (redirect-location vresp)))
                   (let [updated (find-user (d/db mocked-conn) "alice")]
                     (is (= "newalice@test.com" (:orcpub.user/email updated)))
+                    (is (seq (d/q auth/email-query (d/db mocked-conn) "newalice@test.com"))
+                        "the new address is what lookups find")
+                    (is (empty? (d/q auth/email-query (d/db mocked-conn) "alice@test.com"))
+                        "and the old one no longer is")
                     (is (nil? (:orcpub.user/pending-email updated)))
                     ;; Verification key invalidated — link can't be reused
-                    (is (nil? (:orcpub.user/verification-key updated)))))))))))))
+                    (is (nil? (:orcpub.user/verification-key updated))))))))))))
 
 (deftest test-email-change-duplicate-rejected
   (with-conn conn
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-users mocked-conn)
       (testing "Changing to an already-taken email returns 400 :email-taken"
-        (with-redefs [routes/send-email-change-verification (fn [& _] nil)]
-          (let [resp (routes/request-email-change
+        (let [resp (auth/request-email-change
                        (make-request mocked-conn "bob@test.com" "alice"))]
             (is (= 400 (:status resp)))
             (is (= :email-taken (-> resp :body :error)))
             ;; DB unchanged
             (let [user (find-user (d/db mocked-conn) "alice")]
               (is (= "alice@test.com" (:orcpub.user/email user)))
-              (is (nil? (:orcpub.user/pending-email user))))))))))
+              (is (nil? (:orcpub.user/pending-email user)))))))))
 
 (deftest test-email-change-same-as-current
   (with-conn conn
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-users mocked-conn)
       (testing "Changing to your own current email returns 400 :same-as-current"
-        (with-redefs [routes/send-email-change-verification (fn [& _] nil)]
-          (let [resp (routes/request-email-change
+        (let [resp (auth/request-email-change
                        (make-request mocked-conn "alice@test.com" "alice"))]
             (is (= 400 (:status resp)))
             (is (= :same-as-current (-> resp :body :error)))
             ;; DB unchanged
             (let [user (find-user (d/db mocked-conn) "alice")]
               (is (= "alice@test.com" (:orcpub.user/email user)))
-              (is (nil? (:orcpub.user/pending-email user))))))))))
+              (is (nil? (:orcpub.user/pending-email user)))))))))
 
 (deftest test-email-change-invalid-format
   (with-conn conn
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-users mocked-conn)
       (testing "Badly formatted email returns 400 :invalid-email"
-        (with-redefs [routes/send-email-change-verification (fn [& _] nil)]
-          (let [resp (routes/request-email-change
+        (let [resp (auth/request-email-change
                        (make-request mocked-conn "not-an-email" "alice"))]
             (is (= 400 (:status resp)))
             (is (= :invalid-email (-> resp :body :error)))
             ;; DB unchanged
             (let [user (find-user (d/db mocked-conn) "alice")]
               (is (= "alice@test.com" (:orcpub.user/email user)))
-              (is (nil? (:orcpub.user/pending-email user))))))))))
+              (is (nil? (:orcpub.user/pending-email user)))))))))
 
 (deftest test-email-change-nil-email
   (with-conn conn
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-users mocked-conn)
       (testing "Nil new-email returns 400 :invalid-email"
-        (with-redefs [routes/send-email-change-verification (fn [& _] nil)]
-          (let [resp (routes/request-email-change
+        (let [resp (auth/request-email-change
                        (make-request mocked-conn nil "alice"))]
             (is (= 400 (:status resp)))
-            (is (= :invalid-email (-> resp :body :error))))))
+            (is (= :invalid-email (-> resp :body :error)))))
       (testing "Empty string new-email returns 400 :invalid-email"
-        (with-redefs [routes/send-email-change-verification (fn [& _] nil)]
-          (let [resp (routes/request-email-change
+        (let [resp (auth/request-email-change
                        (make-request mocked-conn "" "alice"))]
             (is (= 400 (:status resp)))
-            (is (= :invalid-email (-> resp :body :error)))))))))
+            (is (= :invalid-email (-> resp :body :error))))))))
 
 (deftest test-email-change-no-auth
   (with-conn conn
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-users mocked-conn)
       (testing "Request without identity returns 400 :user-not-found"
-        (with-redefs [routes/send-email-change-verification (fn [& _] nil)]
-          (let [resp (routes/request-email-change
+        (let [resp (auth/request-email-change
                        {:transit-params {:new-email "x@test.com"}
                         :db (d/db mocked-conn)
                         :conn mocked-conn
@@ -177,34 +188,31 @@
                         :scheme :https
                         :headers {"host" "localhost"}})]
             (is (= 400 (:status resp)))
-            (is (= :user-not-found (-> resp :body :error)))))))))
+            (is (= :user-not-found (-> resp :body :error))))))))
 
-(deftest test-email-send-failure-rolls-back
+(deftest test-email-change-queues-both-emails-with-the-change
   (with-conn conn
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-users mocked-conn)
-      (testing "When email send fails, pending-email is retracted and returns 500"
-        (with-redefs [routes/send-email-change-verification
-                      (fn [& _] (throw (Exception. "SMTP down")))]
-          (let [resp (routes/request-email-change
-                       (make-request mocked-conn "newalice@test.com" "alice"))]
-            (is (= 500 (:status resp)))
-            (is (= :email-send-failed (-> resp :body :error)))
-            ;; Full rollback: pending-email, verification-key, and verification-sent all cleared
-            (let [user (find-user (d/db mocked-conn) "alice")]
-              (is (nil? (:orcpub.user/pending-email user)))
-              (is (nil? (:orcpub.user/verification-key user)))
-              (is (nil? (:orcpub.user/verification-sent user)))
-              (is (= "alice@test.com" (:orcpub.user/email user))))))))))
+      (testing "the pending change and both emails are saved together; the outbox sends them"
+        (let [resp (auth/request-email-change (make-request mocked-conn "newalice@test.com" "alice"))
+              user (find-user (d/db mocked-conn) "alice")
+              emails (d/q '[:find ?kind ?to :where [?e :orcpub.outbox/kind ?kind] [?e :orcpub.outbox/to ?to]]
+                          (d/db mocked-conn))]
+          (is (= 200 (:status resp)))
+          (is (= "newalice@test.com" (:orcpub.user/pending-email user)))
+          (is (= #{[:email-change-verification "newalice@test.com"] [:email-change-notice "alice@test.com"]}
+                 emails)
+              "the link goes to the new address and the notice to the one that owns the account now")
+          (is (= "alice@test.com" (:orcpub.user/email user)) "nothing moves until the link is used"))))))
 
 (deftest test-expired-verification-cleans-pending
   (with-conn conn
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-users mocked-conn)
       (testing "Expired verification link clears stale pending-email"
-        (with-redefs [routes/send-email-change-verification (fn [& _] nil)]
-          ;; Request a change so pending-email is set
-          (routes/request-email-change
+        ;; Request a change so pending-email is set
+          (auth/request-email-change
             (make-request mocked-conn "newalice@test.com" "alice"))
           (let [user (find-user (d/db mocked-conn) "alice")
                 key  (:orcpub.user/verification-key user)]
@@ -213,7 +221,7 @@
                [{:db/id (:db/id user)
                  :orcpub.user/verification-sent
                  (java.util.Date. (- (System/currentTimeMillis) (* 25 60 60 1000)))}])
-            (let [vresp (routes/verify {:query-params {:key key}
+            (let [vresp (auth/verify {:query-params {:key key}
                                         :db           (d/db mocked-conn)
                                         :conn         mocked-conn})]
               ;; Must redirect to failed, not success
@@ -223,27 +231,26 @@
               (let [updated (find-user (d/db mocked-conn) "alice")]
                 (is (nil? (:orcpub.user/pending-email updated)))
                 (is (nil? (:orcpub.user/verification-key updated)))
-                (is (= "alice@test.com" (:orcpub.user/email updated)))))))))))
+                (is (= "alice@test.com" (:orcpub.user/email updated))))))))))
 
 (deftest test-race-condition-email-claimed-between-request-and-verify
   (with-conn conn
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-users mocked-conn)
       (testing "If target email is claimed by another user before verify, swap is rejected"
-        (with-redefs [routes/send-email-change-verification (fn [& _] nil)]
-          ;; Alice requests change to unclaimed@test.com
-          (routes/request-email-change
+        ;; Alice requests change to unclaimed@test.com
+          (auth/request-email-change
             (make-request mocked-conn "unclaimed@test.com" "alice"))
           (let [user (find-user (d/db mocked-conn) "alice")
                 key  (:orcpub.user/verification-key user)]
             ;; Meanwhile, someone else claims that email
             @(d/transact mocked-conn
                [{:orcpub.user/username  "charlie"
-                 :orcpub.user/email     "unclaimed@test.com"
+                 :orcpub.user/email     "unclaimed@test.com" :orcpub.user/email-key "unclaimed@test.com"
                  :orcpub.user/password  (hashers/encrypt "pass789")
                  :orcpub.user/verified? true}])
             ;; Alice clicks verify — should be rejected
-            (let [vresp (routes/verify {:query-params {:key key}
+            (let [vresp (auth/verify {:query-params {:key key}
                                         :db           (d/db mocked-conn)
                                         :conn         mocked-conn})]
               (is (= 302 (:status vresp)))
@@ -252,56 +259,52 @@
               (let [updated (find-user (d/db mocked-conn) "alice")]
                 (is (= "alice@test.com" (:orcpub.user/email updated)))
                 (is (nil? (:orcpub.user/pending-email updated)))
-                (is (nil? (:orcpub.user/verification-key updated)))))))))))
+                (is (nil? (:orcpub.user/verification-key updated))))))))))
 
 (deftest test-rate-limiting
   (with-conn conn
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-users mocked-conn)
       (testing "Immediate resend of same email is blocked (email still in transit)"
-        (with-redefs [routes/send-email-change-verification (fn [& _] nil)]
-          (let [resp1 (routes/request-email-change
+        (let [resp1 (auth/request-email-change
                         (make-request mocked-conn "new1@test.com" "alice"))]
             (is (= 200 (:status resp1)))
             ;; Immediate resend — within 1-min transit zone, should be blocked
-            (let [resp2 (routes/request-email-change
+            (let [resp2 (auth/request-email-change
                           (make-request mocked-conn "new1@test.com" "alice"))]
               (is (= 429 (:status resp2)))
               ;; retry-after-secs counts down to 1-min mark (resend window)
               (is (pos? (-> resp2 :body :retry-after-secs)))
-              (is (<= (-> resp2 :body :retry-after-secs) 60))))))
+              (is (<= (-> resp2 :body :retry-after-secs) 60)))))
 
       (testing "Different email within 5 minutes is rate-limited"
-        (with-redefs [routes/send-email-change-verification (fn [& _] nil)]
-          (let [resp (routes/request-email-change
+        (let [resp (auth/request-email-change
                        (make-request mocked-conn "new2@test.com" "alice"))]
             (is (= 429 (:status resp)))
             ;; retry-after-secs counts down to 5-min mark
             (is (pos? (-> resp :body :retry-after-secs)))
             ;; pending-email unchanged
             (let [user (find-user (d/db mocked-conn) "alice")]
-              (is (= "new1@test.com" (:orcpub.user/pending-email user)))))))
+              (is (= "new1@test.com" (:orcpub.user/pending-email user))))))
 
       (testing "Resend of same email after 1 min is allowed (free resend)"
-        (with-redefs [routes/send-email-change-verification (fn [& _] nil)]
-          ;; Backdate verification-sent to 2 minutes ago (past 1-min transit, within 5-min cooldown)
+        ;; Backdate verification-sent to 2 minutes ago (past 1-min transit, within 5-min cooldown)
           (let [user (find-user (d/db mocked-conn) "alice")]
             @(d/transact mocked-conn
                [{:db/id (:db/id user)
                  :orcpub.user/verification-sent
                  (java.util.Date. (- (System/currentTimeMillis) (* 2 60 1000)))}]))
-          (let [resp (routes/request-email-change
+          (let [resp (auth/request-email-change
                        (make-request mocked-conn "new1@test.com" "alice"))]
-            (is (= 200 (:status resp)))))))))
+            (is (= 200 (:status resp))))))))
 
 (deftest test-second-change-replaces-pending
   (with-conn conn
     (let [mocked-conn (dm/fork-conn conn)]
       (seed-users mocked-conn)
       (testing "After rate-limit window, a new request overwrites old pending-email"
-        (with-redefs [routes/send-email-change-verification (fn [& _] nil)]
-          ;; First request
-          (routes/request-email-change
+        ;; First request
+          (auth/request-email-change
             (make-request mocked-conn "old-pending@test.com" "alice"))
           (let [user (find-user (d/db mocked-conn) "alice")
                 old-key (:orcpub.user/verification-key user)]
@@ -311,10 +314,36 @@
                  :orcpub.user/verification-sent
                  (java.util.Date. (- (System/currentTimeMillis) (* 6 60 1000)))}])
             ;; Second request should succeed and overwrite pending-email
-            (let [resp (routes/request-email-change
+            (let [resp (auth/request-email-change
                          (make-request mocked-conn "new-pending@test.com" "alice"))]
               (is (= 200 (:status resp)))
               (let [updated (find-user (d/db mocked-conn) "alice")]
                 (is (= "new-pending@test.com" (:orcpub.user/pending-email updated)))
                 ;; Verification key should be replaced so old link is dead
-                (is (not= old-key (:orcpub.user/verification-key updated)))))))))))
+                (is (not= old-key (:orcpub.user/verification-key updated))))))))))
+
+
+(deftest moving-an-account-takes-the-password-not-just-a-session
+  ;; A session was the whole gate: anyone holding one -- a borrowed laptop, a
+  ;; reset link followed and left open -- could move the account to an address
+  ;; of their choosing, and only the NEW address was ever asked to confirm.
+  (with-conn conn
+    (seed-users conn)
+    (testing "the wrong password moves nothing"
+      (let [resp (auth/request-email-change
+                  (make-request conn "elsewhere@test.com" "alice" "not-her-password"))]
+        (is (= 400 (:status resp)))
+        (is (= :bad-credentials (-> resp :body :error)))
+        (is (nil? (:orcpub.user/pending-email (find-user (d/db conn) "alice")))
+            "and leaves no pending change behind")))
+    (testing "no password at all is the same answer"
+      (let [resp (auth/request-email-change
+                  (make-request conn "elsewhere@test.com" "alice" nil))]
+        (is (= 400 (:status resp)))
+        (is (= :bad-credentials (-> resp :body :error)))))
+    (testing "checked BEFORE the address is even looked at, so an unauthenticated
+              caller learns nothing about which addresses are taken"
+      (let [resp (auth/request-email-change
+                  (make-request conn "bob@test.com" "alice" "not-her-password"))]
+        (is (= :bad-credentials (-> resp :body :error))
+            "not :email-taken, which would answer a question nobody proved they may ask")))))

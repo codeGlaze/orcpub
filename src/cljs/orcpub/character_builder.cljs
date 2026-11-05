@@ -1,5 +1,7 @@
 (ns orcpub.character-builder
   (:require [goog.dom :as gdom]
+            [orcpub.image-capture :as image-capture]
+            [orcpub.image-url :as image-url]
             [goog.string :as gs]
             [goog.labs.userAgent.device :as device]
             [cljs.pprint :as pprint]
@@ -20,6 +22,8 @@
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.planned-text :as planned-text]
+            [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.feats :as feats]
@@ -30,11 +34,13 @@
             [orcpub.dnd.e5.armor :as armor5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.display :as disp5e]
+            [orcpub.dnd.e5.portrait :as portrait5e]
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
+            [orcpub.dnd.e5.views.builder-fields :as builder-fields]
             [orcpub.dnd.e5.subs :as subs5e]
             [orcpub.route-map :as routes]
             [orcpub.pdf-spec :as pdf-spec]
@@ -162,16 +168,25 @@
           (js/console.warn "NO PREREQ_FN" (::t/name option) prereq)))
       (::t/prereqs option)))))
 
+;; ---------------------------------------------------------------------------
+;; DO NOT wrap the handler factories below in cljs.core/memoize: its cache is a linear
+;; scan comparing arguments with `=`, so a large argument (options-map) is deep-compared,
+;; realising its lazy seqs, on every call. If a factory ever needs caching, key it on
+;; something small (an index, a keyword) -- never options, a character or a template.
+;; ---------------------------------------------------------------------------
+
 (defn set-class-fn [i options-map]
   (fn [e] (let [new-key (keyword (.. e -target -value))]
             (dispatch [:set-class new-key i options-map]))))
 
-(def set-class (memoize set-class-fn))
+;; DO NOT MEMOIZE. See the block comment above set-class-fn.
+(def set-class set-class-fn)
 
-(def make-options-map
-  (memoize
-   (fn [options]
-     (zipmap (map ::t/key options) options))))
+(defn make-options-map
+  "DO NOT MEMOIZE -- the key would be the options seq. See set-class-fn. The work is a
+   zipmap over ~141 items; the cache lookup would cost far more."
+  [options]
+  (zipmap (map ::t/key options) options))
 
 (defn set-class-level-fn [i]
   (fn [e]
@@ -184,13 +199,16 @@
 (defn delete-class-fn [key i options-map]
   (fn [_] (dispatch [:delete-class key i options-map])))
 
-(def delete-class (memoize delete-class-fn))
+;; DO NOT MEMOIZE -- keyed on options-map, every class in the library. See set-class-fn.
+(def delete-class delete-class-fn)
 
 (defn filter-classes-fn [key unselected-classes-set]
   #(or (= key (::t/key %))
        (unselected-classes-set (::t/key %))))
 
-(def filter-classes (memoize filter-classes-fn))
+;; DO NOT MEMOIZE -- caches a one-line predicate behind a deep-comparing lookup.
+;; See set-class-fn.
+(def filter-classes filter-classes-fn)
 
 (def levels-selection #(when (= :levels (::t/key %)) %))
 
@@ -199,9 +217,108 @@
     (str name " (" plugin-source ")")
     name))
 
+(defn planned-toggle
+  "A Planned line: tapping it opens or closes its panel; the arrow says which."
+  [open? text & [class-name]]
+  [:button.planned-toggle.orange {:class class-name :aria-expanded @open?
+                                  :on-click #(swap! open? not)}
+   text
+   [:i.fa {:class (if @open? "fa-angle-up" "fa-angle-down") :aria-hidden true}]])
+
+(defn- choice-line
+  "One row of the Choices list: `section`, the picked `names` and their `status`, with a Clear
+   button when `on-clear` is given and a `note` line under it when given. Returns hiccup."
+  [section names status & [{:keys [on-clear note]}]]
+  [:div.choice-line
+   [:div [:span.f-w-b section] " \u2014 " names [:span.planned-aside (str " \u00b7 " status)]
+    (when on-clear
+      [:button.link-button.underline.f-w-b.f-s-14.m-l-5 {:on-click on-clear} "Clear"])]
+   (when note [:div.planned-aside.i.f-s-14 note])])
+
+(defn choices-list
+  "The Choices link above the options: every pick the character stores, missing (homebrew not
+   loaded here) and planned first, each with Clear, then the active ones by section. Nothing is
+   cleared on its own."
+  []
+  (let [open? (r/atom false)]
+    (fn []
+      (let [rows @(subscribe [:orcpub.dnd.e5/choices])
+            held @(subscribe [:orcpub.dnd.e5/held-picks])
+            section-of (fn [address] (common/kw-to-name (peek (pop address)) true))]
+        [:div.choices {:class (if @(subscribe [:mobile?]) "m-l-10 m-b-10" "m-l-20 m-b-20")}
+         [planned-toggle open? "Choices" "choices-toggle"]
+         (when @open?
+           [:div.choices-panel.main-text-color.b-1.b-rad-5.p-10.m-t-5.f-s-14
+            (doall
+             (for [{:keys [address section name]} (filter #(= :missing (:status %)) rows)]
+               ^{:key (str address)}
+               [choice-line section name "missing"
+                {:on-clear #(dispatch [:orcpub.dnd.e5/clear-pick address])
+                 :note "Not loaded here"}]))
+            (doall
+             (for [{{:keys [address]} :record :keys [name returns]} held]
+               ^{:key (str "held" address)}
+               [choice-line (section-of address) name
+                (str "planned" (when-let [w (planned-text/when-short returns)] (str " (" w ")")))
+                {:on-clear #(dispatch [:orcpub.dnd.e5/clear-planned address])}]))
+            (doall
+             (for [group (partition-by (comp pop :address)
+                                       (filter #(= :active (:status %)) rows))]
+               ^{:key (str (pop (:address (first group))))}
+               [choice-line (:section (first group)) (s/join ", " (map :name group)) "active"]))])]))))
+
+(defn planned-panel
+  "What tapping a Planned line shows: a row per held pick with Clear, leaving out what the line
+   says (`says-reason?`: the line states the reason they share). docs/kb/ux-guide.md."
+  [held says-reason?]
+  (let [rows (planned-text/panel-rows held says-reason?)
+        {:keys [label aside]} (first rows)]
+    [:div.p-10.m-t-5.bg-note.callout-accent-brand
+     [:div.planned-rows {:class (cond (nil? label) "no-label" (nil? aside) "no-aside")}
+      (doall
+       (for [{:keys [held label aside]} rows
+             :let [address (get-in held [:record :address])]]
+         ^{:key (str address)}
+         [:div.planned-row
+          (when label [:span label])
+          (when aside [:span.planned-aside aside])
+          [:button.link-button.underline.f-w-b.f-s-14
+           {:on-click #(dispatch [:orcpub.dnd.e5/clear-planned address])}
+           "Clear"]]))]]))
+
+(defn class-planned-line
+  "Under a class row: its held picks whose sections are not on screen, beside the level picker
+   that brings most of them back. Tapping lists them with Clear."
+  []
+  (let [open? (r/atom false)]
+    (fn [cls]
+      (let [held @(subscribe [:orcpub.dnd.e5/held-for-class cls])]
+        (when (seq held)
+          [:div.m-t-5.m-b-5
+           [planned-toggle open? (planned-text/class-line held)]
+           (when @open? [planned-panel held true])])))))
+
+(defn first-class-badge
+  "Before each class row when there are several: \"1st\" lit on the starting class; on another, a
+   tap makes it the starting class, or says why the current one can't become a second class."
+  [key class-name {first-name ::t/name :as first-option} options-map first? built-char]
+  (if first?
+    [:span.class-first-badge.on {:title (str class-name " is your starting class")} "1st"]
+    (let [blocked (seq (prereq-failures first-option built-char))]
+      [:button.class-first-badge
+       {:type "button"
+        :class (when blocked "blocked")
+        :aria-label (str "Make " class-name " your starting class")
+        :on-click #(dispatch
+                    (if blocked
+                      [:show-message (str first-name " can't become a second class: "
+                                          (s/join ", " blocked) ".") 6000]
+                      [::char5e/make-starting-class key options-map]))}
+       "1st"])))
+
 (defn class-level-selector []
   (let [expanded? (r/atom false)]
-    (fn [i key selected-class options unselected-classes-set built-char]
+    (fn [i key selected-class options unselected-classes-set built-char & [first-option]]
       (let [options-map (make-options-map options)
             class-template-option (options-map key)
             path [:class-levels key]
@@ -209,6 +326,9 @@
         [:div.m-b-5
          {:class (when @expanded? "b-1 b-rad-5 p-5")}
          [:div.flex.align-items-c
+          (when first-option
+            [first-class-badge key (::t/name class-template-option) first-option options-map
+             (zero? i) built-char])
           [:select.builder-option.builder-option-dropdown.flex-grow-1.m-t-0
            {:value key
             :on-change (set-class i options-map)}
@@ -246,8 +366,9 @@
                available-levels))])
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
+         [class-planned-line key]
          (when @expanded?
-           [:div.m-t-5.m-b-10 (::t/help class-template-option)])]))))
+           [:div.m-t-5.m-b-10 (views-aux/realize-help (::t/help class-template-option))])]))))
 
 (def select-template-key #(select-keys % [::t/key]))
 
@@ -271,7 +392,8 @@
     (let [first-unselected (::t/key (first remaining-classes))]
       (dispatch [:add-class first-unselected]))))
 
-(def add-class (memoize add-class-fn))
+;; DO NOT MEMOIZE -- keyed on a seq of class options. See set-class-fn.
+(def add-class add-class-fn)
 
 (defn class-levels-selector [{:keys [selection]}]
   (let [options (::t/options selection)
@@ -297,7 +419,9 @@
        (map-indexed
         (fn [i [key selected-class]]
           ^{:key key}
-          [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set built-char])
+          [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set built-char
+           (when (> (count selected-classes) 1)
+             (some #(when (= (ffirst selected-classes) (::t/key %)) %) options))])
         selected-classes))]
      (when (seq remaining-classes)
        [:div.orange.p-5.underline.pointer
@@ -330,7 +454,7 @@
        [:div.f-w-b.flex.align-items-c
         [:div.pointer.m-l-5.m-r-5
          {:on-click check-fn}
-         (comps/checkbox equipped? false)]
+         (comps/checkbox equipped? false (str item-name " equipped"))]
         (if user-created?
           [comps/input-field
            :input
@@ -366,18 +490,226 @@
    :key (or key id)})
 
 ;;; selection creator for character builder
+#_ ;; DEPRECATED 2026-09-06 -- superseded by inventory-combobox, which gets the top layer,
+   ;; light dismiss, Escape and focus from popover="auto" instead of the backdrop and
+   ;; keydown listener below. Unreferenced; remove once the combobox ships cleanly.
+(defn inventory-picker
+  "Compact 'Add item' control: a button that opens a small search overlay, lists up to 12
+   matches, and closes on pick. Nothing renders until it is opened.
+   Open state is a local r/atom, not app-db: transient UI state that nothing else reads."
+  []
+  (let [open? (r/atom false)
+        query (r/atom "")]
+    (fn [key options selected-keys]
+      (let [items   (common/aloof-sort-by
+                     :name
+                     (sequence (comp (remove (inventory-option-selected? selected-keys))
+                                     (map name-and-key))
+                               options))
+            q       (s/lower-case (s/trim @query))
+            matches (if (s/blank? q)
+                      items
+                      (filterv #(s/includes? (s/lower-case (str (:name %))) q) items))
+            ;; Only ever build a screenful. Search is the way to reach the rest.
+            shown   (take 12 matches)
+            close!  (fn [] (reset! open? false) (reset! query ""))]
+        [:div.inv-picker
+         [:button.inv-picker-btn
+          {:on-click #(swap! open? not)}
+          [:i.fa.fa-plus.m-r-5]
+          (str "Add" (when (seq items) (str " (" (count items) ")")))]
+         (when @open?
+           [:div
+            ;; backdrop closes on any outside click without a document-level listener
+            [:div.inv-picker-backdrop {:on-click close!}]
+            [:div.inv-picker-pop
+             [:input.inv-picker-search
+              {:auto-focus true
+               :value @query
+               :placeholder "Search…"
+               :on-change #(reset! query (.. % -target -value))
+               :on-key-down #(when (= 27 (.-keyCode %)) (close!))}]
+             (if (empty? matches)
+               [:div.inv-picker-empty (str "Nothing matches “" @query "”")]
+               [:div.inv-picker-list
+                (doall
+                 (for [{item-key :key item-name :name} shown]
+                   ^{:key item-key}
+                   [:div.inv-picker-row
+                    {:on-click (fn []
+                                 (dispatch [:add-inventory-item key item-key])
+                                 (close!))}
+                    item-name]))])
+             (when (> (count matches) (count shown))
+               [:div.inv-picker-more
+                (str (count matches) " matches — keep typing to narrow")])]])]))))
+
+(defn inventory-datalist
+  "Native filtering dropdown: a text input whose suggestions come from a <datalist>.
+   The browser filters and paints the list, so the <option>s are a data source, never laid
+   out. GOTCHA: the input is themed; the dropdown is drawn by the browser and not styleable."
+  []
+  (let [value (r/atom "")]
+    (fn [key options selected-keys]
+      (let [items    (common/aloof-sort-by
+                      :name
+                      (sequence (comp (remove (inventory-option-selected? selected-keys))
+                                      (map name-and-key))
+                                options))
+            by-name  (into {} (map (juxt :name :key)) items)
+            list-id  (str "inv-list-" (clojure.core/name key))]
+        [:div.inv-datalist
+         [:input.inv-datalist-input
+          {:list list-id
+           :value @value
+           :placeholder (str "Add an item… (" (count items) ")")
+           :on-change (fn [e]
+                        (let [v (.. e -target -value)]
+                          ;; A pick from the list arrives as a complete, exact name; typing
+                          ;; arrives partial. Only dispatch on an exact hit, then clear.
+                          (if-let [item-key (by-name v)]
+                            (do (dispatch [:add-inventory-item key item-key])
+                                (reset! value ""))
+                            (reset! value v))))}]
+         [:datalist {:id list-id}
+          (doall
+           (for [{item-name :name item-key :key} items]
+             ^{:key item-key}
+             [:option {:value item-name}]))]]))))
+
+(defn- show-popover! [id]
+  ;; showPopover throws if it is already open, and the attribute is unsupported on old
+  ;; engines -- both are non-fatal, so the control degrades to a plain filtered list.
+  (when-let [el (.getElementById js/document id)]
+    (try (when-not (.matches el ":popover-open") (.showPopover el))
+         (catch :default _ nil))))
+
+(defn- hide-popover! [id]
+  (when-let [el (.getElementById js/document id)]
+    (try (when (.matches el ":popover-open") (.hidePopover el))
+         (catch :default _ nil))))
+
+(defn highlight-match
+  "Bold the part of the name the query matched. Standard combobox affordance: it shows WHY a
+   row is in the list, which matters when a substring match lands mid-word.
+
+   `q` must already be lower-cased -- the caller lower-cases once per render rather than once
+   per row. Plain substring search, not a regex, so `+1` and `(` are literals. Returns the
+   name unchanged when there is no match, so callers can render the result directly."
+  [item-name q]
+  (let [nm (str item-name)
+        i  (when-not (s/blank? q) (s/index-of (s/lower-case nm) q))]
+    (if-not i
+      item-name
+      (let [end (+ i (count q))]
+        [:span
+         (subs nm 0 i)
+         [:span.inv-combo-hit (subs nm i end)]
+         (subs nm end)]))))
+
+(defn- scroll-active-into-view! [pop-id]
+  ;; Runs after the re-render that moved the highlight, hence the rAF.
+  (js/requestAnimationFrame
+   (fn []
+     (some-> (.getElementById js/document pop-id)
+             (.querySelector ".inv-combo-row.active")
+             (.scrollIntoView #js {:block "nearest"})))))
+
+(defn inventory-combobox
+  "Filter-and-pick dropdown on the native Popover API: the list is a `popover=\"auto\"`
+   element, so the top layer, light dismiss and Escape come from the browser. CSS anchor
+   positioning pins it under its input (centred where unsupported). Every match renders, so
+   the list can be browsed by scrolling or arrow keys. Rows mount only while open; the open
+   handlers set open state, and a `beforetoggle` listener catches the browser's own closes."
+  []
+  (let [query     (r/atom "")
+        active    (r/atom -1)
+        open?     (r/atom false)
+        on-toggle (fn [e] (reset! open? (= "open" (.-newState e))))
+        el*       (atom nil)
+        ;; Defined once per instance, not per render: a fresh closure each render would make
+        ;; React tear down and re-attach, adding a listener every time.
+        ref-fn    (fn [el]
+                    (when-let [old @el*] (.removeEventListener old "beforetoggle" on-toggle))
+                    (reset! el* el)
+                    (when el (.addEventListener el "beforetoggle" on-toggle)))]
+    (fn [key options selected-keys]
+      (let [items    (vec (common/aloof-sort-by
+                           :name
+                           (sequence (comp (remove (inventory-option-selected? selected-keys))
+                                           (map name-and-key))
+                                     options)))
+            kname    (clojure.core/name key)
+            pop-id   (str "inv-pop-" kname)
+            anchor   (str "--inv-anchor-" kname)
+            q        (s/lower-case (s/trim @query))
+            matches  (if (s/blank? q)
+                       items
+                       (filterv #(s/includes? (s/lower-case (str (:name %))) q) items))
+            n        (count matches)
+            pick!    (fn [item-key]
+                       (dispatch [:add-inventory-item key item-key])
+                       (reset! query "")
+                       (reset! active -1)
+                       (reset! open? false)
+                       (hide-popover! pop-id))
+            open!    (fn [] (reset! open? true) (show-popover! pop-id))
+            move!    (fn [e delta]
+                       (.preventDefault e)
+                       (open!)
+                       (swap! active #(-> (+ % delta) (max 0) (min (dec n))))
+                       (scroll-active-into-view! pop-id))]
+        [:div.inv-combo
+         [:input.inv-combo-input
+          {:style {:anchor-name anchor}
+           :value @query
+           :placeholder (str "Filter or browse… (" (count items) ")")
+           ;; on-click, not on-focus: focus fires on mousedown, and light dismiss then treats
+           ;; that same pointer sequence as an outside click and shuts the popover again.
+           ;; Measured -- opening on focus left popoverOpen=0 after a click.
+           :on-click #(open!)
+           :on-key-down (fn [e]
+                          (case (.-key e)
+                            "ArrowDown" (move! e 1)
+                            "ArrowUp"   (move! e -1)
+                            "Enter"     (when-let [it (nth matches @active nil)]
+                                          (.preventDefault e)
+                                          (pick! (:key it)))
+                            nil))
+           :on-change (fn [e]
+                        (reset! query (.. e -target -value))
+                        ;; The old highlight points into the old result list.
+                        (reset! active -1)
+                        (open!))}]
+         [:div.inv-combo-pop
+          {:id pop-id
+           :popover "auto"
+           :ref ref-fn
+           :style {:position-anchor anchor}}
+          (cond
+            (not @open?) nil
+            (zero? n)    [:div.inv-combo-empty (str "Nothing matches \u201c" @query "\u201d")]
+            :else
+            [:div.inv-combo-list
+             (doall
+              (map-indexed
+               (fn [i {item-name :name item-key :key}]
+                 ^{:key item-key}
+                 [:div.inv-combo-row
+                  {:class (when (= i @active) "active")
+                   :on-click #(pick! item-key)}
+                  (highlight-match item-name q)])
+               matches))])
+          (when (pos? n)
+            [:div.inv-combo-hint
+             [:span (str n (if (= 1 n) " item" " items"))]
+             [:span.inv-combo-keys "\u2191\u2193 browse \u00b7 \u21b5 add \u00b7 esc close"]])]]))))
+
 (defn inventory-adder [key options selected-keys]
-  [comps/selection-adder
-   (common/aloof-sort-by
-    :name
-    (sequence
-     (comp
-      (remove
-       (inventory-option-selected? selected-keys))
-      (map
-       name-and-key))
-     options))
-   (add-inventory-item key)])
+  ;; Switch by changing this line. inventory-datalist is kept live: it hands the dropdown to
+  ;; the OS, which is the better control on mobile if the Popover API ever proves a problem.
+  ;; inventory-picker above is deprecated, not an alternative.
+  [inventory-combobox key options selected-keys])
 
 (defn inventory-check-fn [key i]
   #(dispatch [:toggle-inventory-item-equipped key i]))
@@ -507,7 +839,7 @@
         [:div.flex-grow-1
          [:div.flex.align-items-c
           (when multiselect?
-            [:span.m-r-5 (comps/checkbox selected? disable-checkbox?)])
+            [:span.m-r-5 (comps/checkbox selected? (or disable-checkbox? (not selectable?)) name)])
           (when icon [:div.m-r-5 (views5e/svg-icon icon 24)])
           [:span.f-w-b.f-s-1.flex-grow-1 name]
           (when edit-event
@@ -517,7 +849,7 @@
           (when help
             [show-info-button expanded?])]
          (when (and help @expanded?)
-           [help-section help])
+           [help-section (views-aux/realize-help help)])
          (when (and content selected?)
            content)
          (when explanation-text
@@ -567,10 +899,16 @@
       ^{:key (::t/key option)}
       [option-selector-base (assoc data
                                    :help
+                                   ;; A THUNK until the expanded? gate: this wrapper is rebuilt
+                                   ;; on every render of every visible option card, so forcing
+                                   ;; it here builds a peek nobody opened. option-selector-base
+                                   ;; forces it only inside (when @expanded? ...).
                                    (when (or help has-named-mods?)
-                                        [:div
-                                         (when has-named-mods? [:div.i modifiers-str])
-                                         [:div {:class (when has-named-mods? "m-t-5")} help]])
+                                     (fn []
+                                       [:div
+                                        (when has-named-mods? [:div.i modifiers-str])
+                                        [:div {:class (when has-named-mods? "m-t-5")}
+                                         (views-aux/realize-help help)]]))
                                    :edit-event (::t/edit-event option))])))
 
 (defn selection-section-title [title]
@@ -618,10 +956,12 @@
      [:span.tooltiptext text]]))
 
 (defn selection-section-base []
-  (let [expanded? (r/atom false)]
+  (let [expanded? (r/atom false)
+        planned-open? (r/atom false)]
     (fn [{:keys [title path parent-title name icon help max min remaining body hide-lock? hide-homebrew?]}]
       (let [locked? @(subscribe [:locked path])
-            homebrew? @(subscribe [:homebrew? path])]
+            homebrew? @(subscribe [:homebrew? path])
+            held (when path @(subscribe [:orcpub.dnd.e5/held-at path]))]
         [:div.p-5.m-b-20.m-b-0-last
          (when (and (or title name) parent-title)
            (selection-section-parent-title parent-title))
@@ -655,13 +995,20 @@
          (when (int? min)
            [:div.p-5.f-s-16
             [:div.flex.align-items-c.justify-cont-s-b
-             [:span.i.m-r-10 (str "select " (cond
-                                              (= min max) min
-                                              (zero? min) (if (nil? max)
-                                                            "any number"
-                                                            (str "up to " max))
-                                              :else (str "at least " min)))]
-             (remaining-component max remaining)]])
+             ;; The Planned marker sits after "select N" and wraps under it only when the row cannot
+             ;; fit it, so "complete" never moves. docs/kb/ux-guide.md on agents/develop.
+             [:div.flex.flex-wrap.align-items-c {:style {:min-width 0 :column-gap "10px"}}
+              [:span.i (str "select " (cond
+                                        (= min max) min
+                                        (zero? min) (if (nil? max)
+                                                      "any number"
+                                                      (str "up to " max))
+                                        :else (str "at least " min)))]
+              (when (seq held)
+                [planned-toggle planned-open? (planned-text/marker held)])]
+             (remaining-component max remaining)]
+            (when (and (seq held) @planned-open?)
+              [planned-panel held false])])
          body]))))
 
 (defn selection-section-column [option-selectors]
@@ -838,13 +1185,69 @@
 (defn ability-value [v]
   [:div.f-s-18.f-w-b v])
 
+(defn ability-bag-assigner
+  "Renders one :ability-increases spread, carried on the selection's ::t/spread as
+   {:idx :amount :pool :fixed?} increments. A single-stat increment is a label (\"Strength +2\"), the
+   rest pick from their own pool. Every increment lands on a DISTINCT ability, so a stat taken by
+   one is left out of the other pickers. Picks are the slot's asi-<idx>-<ability> option keys, set
+   with :increase/:decrease-ability-value, so storage and the build are unchanged."
+  [built-template selection _ability-keys]
+  (let [character @(subscribe [:character])
+        incs (::t/spread selection)
+        path (::entity/path selection)
+        increases-path (entity/get-entity-path built-template character path)
+        chosen-keys (set (map ::entity/key (get-in character increases-path)))
+        slot-key (fn [idx k] (keyword (str "asi-" idx "-" (cljs.core/name k))))
+        ability-name (fn [k] (:name (opt5e/abilities-map k)))
+        slot-pick (fn [{:keys [idx pool]}]
+                    (some (fn [k] (when (chosen-keys (slot-key idx k)) k)) pool))
+        floating (remove :fixed? incs)
+        ;; one ability per spread: leave out stats taken by fixed increments and other picks
+        used (set (concat (map (comp first :pool) (filter :fixed? incs))
+                          (keep slot-pick floating)))
+        ancestors-title (views-aux/ancestor-names-string built-template path)
+        num-remaining (- (count floating) (count (keep slot-pick floating)))
+        pick! (fn [idx current new-k]
+                (when (not= new-k current)
+                  (when current
+                    (dispatch [:decrease-ability-value increases-path (slot-key idx current)]))
+                  (when new-k
+                    (dispatch [:increase-ability-value increases-path (slot-key idx new-k)]))))]
+    [:div
+     [:div.flex.justify-cont-s-b.m-t-10.align-items-c
+      [:div.m-l-5.i (str "Improvement: " ancestors-title)]
+      (remaining-component 2 num-remaining)]
+     (doall
+      (map
+       (fn [{:keys [idx amount pool fixed?] :as increment}]
+         ^{:key idx}
+         [:div.flex.align-items-c.m-t-5.m-l-5
+          [:div.w-40.f-w-b (common/bonus-str amount)]
+          (if fixed?
+            [:div.m-l-5 (ability-name (first pool))]
+            (let [current (slot-pick increment)
+                  opts (filter (fn [k] (or (= k current) (not (used k)))) pool)]
+              [:div.flex-grow-1
+               [builder-fields/dropdown
+                {:typed? true
+                 :value current
+                 :items (cons {:title "— choose —" :value nil}
+                              (map (fn [k] {:title (ability-name k) :value k}) opts))
+                 :on-change #(pick! idx current %)}]]))])
+       incs))]))
+
 (defn ability-increases-component [built-template asi-selections ability-keys]
   (let [total-abilities @(subscribe [::char5e/abilities])
         character @(subscribe [:character])]
     [:div
      (doall
       (map-indexed
-       (fn [i {:keys [::t/name ::t/key ::t/min ::t/max ::t/options ::t/different? ::entity/path] :as selection}]
+       (fn [i {:keys [::t/name ::t/key ::t/min ::t/max ::t/options ::t/different? ::t/spread
+                      ::entity/path] :as selection}]
+         ;; a spread (it carries ::t/spread) renders through the bag assigner; every other
+         ;; ability-increase selection (built-in races, class ASI) keeps the +/- UI below.
+         (if spread
+           ^{:key i} [ability-bag-assigner built-template selection ability-keys]
          (let [increases-path (entity/get-entity-path built-template character path)
                selected-options (get-in character increases-path)
                ability-increases (frequencies (map ::entity/key selected-options))
@@ -896,7 +1299,7 @@
                                   (fn []
                                     (when (not increase-disabled?)
                                       (dispatch [:increase-ability-value increases-path k]))))}]]]))
-               ability-keys))]]))
+               ability-keys))]])))
        asi-selections))]))
 
 (defn race-abilities-component [ability-keys]
@@ -1421,7 +1824,7 @@
         :body (hit-points-entry character selections built-template)}])))
 
 (defn info-block [text]
-  [:div.bg-light.b-rad-5.p-10.f-w-b.m-l-5.m-r-5.m-b-5.white
+  [:div.bg-light.b-rad-5.p-10.m-l-5.m-r-5.m-b-5.white
    text])
 
 (defn known-mode-info []
@@ -1474,7 +1877,7 @@
   (info-block [:span
                [:span (str srd-prefix "Don't see a " type-name " here that you want to use? ")]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route event])}
                  (str "CLICK HERE TO ADD A " (s/upper-case type-name))]]]))
 
@@ -1488,11 +1891,11 @@
   (info-block [:span
                [:span (str srd-prefix "Don't see a race or subrace here that you want to use?")]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-race-builder-page-route])}
                  "CLICK HERE TO ADD A RACE"]]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-subrace-builder-page-route])}
                  "CLICK HERE TO ADD A SUBRACE"]]]))
 
@@ -1503,11 +1906,11 @@
   (info-block [:span
                [:span (str srd-prefix "Don't see a class or subclass here that you want to use?")]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-class-builder-page-route])}
                  "CLICK HERE TO ADD A CLASS"]]
                [:div.m-t-5
-                [:span.pointer.underline.orange
+                [:span.pointer.underline.orange.f-w-b
                  {:on-click #(dispatch [:route routes/dnd-e5-subclass-builder-page-route])}
                  "CLICK HERE TO ADD A SUBCLASS"]]]))
 
@@ -1568,6 +1971,58 @@
                {:key :treasure
                 :hide-homebrew? true
                 :ui-fn (fn [v] [inventory-selector [::equip5e/treasure-map] 100 (select-selection v) ::char5e/custom-treasure])}])}])
+
+(defn picks-notice
+  "Picks that came back on their own, when they are not where the player is looking (another tab)
+   or several came back: one short notice with Undo, then \"Undone · Redo\". Closed by its ×.
+   docs/kb/ux-guide.md on agents/develop."
+  []
+  (let [{:keys [restored undone]} @(subscribe [:orcpub.dnd.e5/restore-notice])
+        dismiss #(dispatch [:orcpub.dnd.e5/dismiss-restore])
+        box {:icon "fa-history orange" :tone :note :accent :brand :on-close dismiss :compact? true}
+        framed (fn [cfg]
+                 [notifications/callout (update cfg :text #(vector :span.main-text-color %))])]
+    (cond
+      (seq undone)
+      (framed
+       (assoc box :text "Undone"
+              :actions [{:label "Redo" :link? true
+                         :on-click #(dispatch [:orcpub.dnd.e5/redo-restore])}]))
+
+      (seq restored)
+      (let [available @(subscribe [:available-selections])
+            by-path (into {} (map (juxt (comp vec entity/actual-path) identity)) available)
+            tags (:tags (pages (or @(subscribe [:page]) 0)))
+            in-view? (fn [{:keys [address]}] (some tags (::t/tags (by-path (pop address)))))
+            named (fn [{:keys [address]}]
+                    {:name (or (some #(when (= (peek address) (::t/key %)) (::t/name %))
+                                     (some-> (by-path (pop address)) entity/selection-options))
+                               (common/kw-to-name (peek address) true))
+                     :class (when (= :class (first address)) (second address))})]
+        (when (or (> (count restored) 1) (not (every? in-view? restored)))
+          (framed
+           (assoc box :text (planned-text/restored (map named restored))
+                  :actions [{:label "Undo" :link? true
+                             :on-click #(dispatch [:orcpub.dnd.e5/undo-restore])}])))))))
+
+(defn open-notice
+  "On opening a character whose stored choices no longer apply: how many, with Details
+   listing each and what brings it back. Closed by its ×."
+  []
+  (let [open? (r/atom false)]
+    (fn []
+      (let [held @(subscribe [:orcpub.dnd.e5/open-notice-held])]
+        (when (seq held)
+          [notifications/callout
+           {:icon "fa-info-circle orange" :tone :note :accent :brand :compact? true
+            :on-close #(dispatch [:orcpub.dnd.e5/dismiss-open-notice])
+            :text [:div.main-text-color (planned-text/opened (count held))]
+            :details (when @open?
+                       (for [{:keys [record name] :as h} held]
+                         {:key (str (:address record)) :label name
+                          :aside (planned-text/returns-line h)}))
+            :actions [{:label "Details" :link? true :expanded @open?
+                       :on-click #(swap! open? not)}]}])))))
 
 (defn section-tabs [available-selections built-template character page-index]
   (let [device-type @(subscribe [:device-type])]
@@ -1647,12 +2102,22 @@
               [{:name "5e SRD"
                 :url t5e/srd-url}]))))])])))
 
-(def selection-order-title
-  (juxt ::t/order ::t/name ::entity/path))
+(defn- path-level
+  "The class level a selection's path sits under (`:level-10` is 10), else 0."
+  [path]
+  (or (some #(when (keyword? %) (some-> (re-matches #"level-(\d+)" (name %)) second js/parseInt))
+            path)
+      0))
+
+(defn selection-order-title
+  "How the options column orders sections: order (none last), name, then the level the section
+   comes at, so a selection named alike at levels 3, 10 and 17 reads in that order."
+  [s]
+  (let [path (::entity/path s)]
+    [(or (::t/order s) 1000) (str (::t/name s)) (path-level path) (pr-str path)]))
 
 (defn compare-selections [s1 s2]
-  (< (selection-order-title s1)
-     (selection-order-title s2)))
+  (compare (selection-order-title s1) (selection-order-title s2)))
 
 (defn compare-paths [s1 s2]
   (< (::entity/path s1)
@@ -1660,6 +2125,43 @@
 
 (defn sorted-selection-set [selections]
   (into (sorted-set-by compare-paths) selections))
+
+(defn- show-page-top!
+  "After the next render, scrolls the builder's page to its top, just below the sticky header,
+   and moves focus to the page title so a screen reader starts there. No args; returns nil.
+   GOTCHA: the page change must already be in the db (dispatch-sync), or this measures the old page."
+  []
+  (r/after-render
+   (fn []
+     (when-let [col (.getElementById js/document "options-column")]
+       (let [header (or (some-> (.querySelector js/document ".sticky-header") .-offsetHeight) 0)]
+         (.scrollTo js/window 0 (- (+ (.-scrollY js/window) (.-top (.getBoundingClientRect col))) header))
+         (some-> (.getElementById js/document "builder-page-title") (.focus #js {:preventScroll true})))))))
+
+(defn page-nav-bar
+  "Back / page title / Next bar for the character builder; wraps at either end.
+   Args: page-index, the current page index; page-name, the title shown; bottom?, true for the
+   copy below the page, whose buttons also bring the new page's top into view.
+   Returns hiccup."
+  [page-index page-name bottom?]
+  (let [go (fn [i]
+             (if bottom?
+               (do (dispatch-sync [:set-page i])
+                   (show-page-top!))
+               (dispatch [:set-page i])))]
+    [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
+     [:button.form-button.p-5-10.m-r-5
+      {:on-click (fn [_] (go (let [prev (dec page-index)]
+                               (if (neg? prev) (dec (count pages)) prev))))}
+      "Back"]
+     [:div.flex-grow-1
+      (if bottom?
+        [:h3.f-w-b.f-s-20.t-a-c page-name]
+        [:h3#builder-page-title.f-w-b.f-s-20.t-a-c {:tab-index -1} page-name])]
+     [:button.form-button.p-5-10.m-l-5
+      {:on-click (fn [_] (go (let [next (inc page-index)]
+                               (if (>= next (count pages)) 0 next))))}
+      "Next"]]))
 
 (defn new-options-column [num-columns]
   (let [character @(subscribe [:character])
@@ -1675,27 +2177,12 @@
         final-selections combined-selections]
     (when print-enabled? (js/console.log "FINAL SELECTIONS" final-selections))
     [:div.w-100-p
+     ;; Above the column, at its width: a notice shares the page's edges and never changes size.
+     [open-notice]
+     [picks-notice]
      [:div#options-column.b-1.b-rad-5
       [section-tabs available-selections built-template character page-index]
-      [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
-       [:button.form-button.p-5-10.m-r-5
-        {:on-click
-         (fn [_]
-           (dispatch [:set-page (let [prev (dec page-index)]
-                                  (if (neg? prev)
-                                    (dec (count pages))
-                                    prev))]))}
-        "Back"]
-       [:div.flex-grow-1
-        [:h3.f-w-b.f-s-20.t-a-c (:name page)]]
-       [:button.form-button.p-5-10.m-l-5
-        {:on-click
-         (fn [_]
-           (dispatch [:set-page (let [next (inc page-index)]
-                                  (if (>= next (count pages))
-                                    0
-                                    next))]))}
-        "Next"]]
+      [page-nav-bar page-index (:name page) false]
       (let [ui-fn-selections (mapcat
                               (fn [{:keys [key group? ui-fn]}]
                                 (if group?
@@ -1764,7 +2251,9 @@
                              selection
                              num-columns
                              remaining)])))
-                sorted-selections)))])])]]))
+                sorted-selections)))])])
+      ;; Repeated below the page so a long page needs no scroll back up.
+      [page-nav-bar page-index (:name page) true]]]))
 
 
 (defn set-random-name
@@ -1779,16 +2268,177 @@
 (defn set-faction-image-url [v]
   (dispatch [:set-faction-image-url v]))
 
-(defn image-error-fn [event-key image-url]
-  (dispatch [event-key image-url]))
+(defn image-error-fn
+  "Returns the on-error handler.
+
+   It has to RETURN one rather than dispatch when called: this runs at render
+   time, so a bare dispatch marked every fresh URL failed before the browser had
+   tried it. The builder flashed a load failure at pictures that were
+   perfectly fine, and only the subsequent load took the mark back."
+  [event-key image-url]
+  (fn [_] (dispatch [event-key image-url])))
 
 (def image-error (memoize image-error-fn))
 
-(defn image-loaded []
-  (dispatch [:loaded-image]))
+(defn image-load-fn
+  "Returns an on-load handler: clears the failed flag (a no-op when clear) and asks for the
+   picture's bytes. It does not read the flag, which is still clear when the handler is built.
+   GOTCHA: the read starts at load -- not at the export click (an await there spends the user
+   activation the new tab needs), nor earlier (its crossOrigin request failing first would
+   take the thumbnail down)."
+  [event-key url]
+  (fn []
+    (dispatch [event-key])
+    (dispatch [::char5e/capture-image url])))
 
-(defn faction-image-loaded []
-  (dispatch [:loaded-faction-image]))
+(def image-load (memoize image-load-fn))
+
+(defn image-paste-fn
+  "Returns an on-paste handler that reads a pasted picture locally. The route out for a host
+   that allows nobody to read its pictures: the clipboard carries the decoded image, so the
+   host's rules do not apply. Keyed by the URL on the character, so the paste stands in for
+   exactly the picture that could not be read."
+  [url]
+  (fn [e]
+    (let [files (some-> e .-clipboardData .-files)]
+      (when (and files (pos? (.-length files)))
+        (when-let [file (aget files 0)]
+          (.preventDefault e)
+          (image-capture/capture-file
+           file
+           #(dispatch [::char5e/image-captured url %])))))))
+
+(def image-paste (memoize image-paste-fn))
+
+(def ^:private image-failure-notes
+  "One short sentence per reason the server gave. This is the whole message: a
+   picture that cannot be had is one problem however it failed."
+  {:blocked-address "That address can't be fetched."
+   :not-found       "The host has nothing at that address."
+   :redirect        "That link redirects instead of being the picture."
+   :not-an-image    "That isn't a PNG or JPEG."
+   :unreachable     "That host couldn't be reached."
+   :refused         "The host won't serve it to us."
+   :too-large       "That picture is over 2 MB."
+   :too-many-pixels "That picture is over 2000x2000."
+   :timeout         "The host took too long to answer."
+   :host-error      "The host had an error of its own."
+   :rate-limited    "The host is asking us to slow down -- try again shortly."
+   :unknown         "That picture couldn't be fetched."})
+
+(defn image-field-notice
+  "Renders the one thing worth saying about this picture, and at most one thing to do about
+   it. Only one shows, in order: a mechanical correction beside the fault, what the address
+   gives away, what the server found, or that it did not load. Other routes wait behind the
+   disclosure. GOTCHA: advice waits until typing stops (the field commits every keystroke,
+   so it would object to `htt`); a load failure does not wait."
+  [_url _failed? _state _reach _set-fn]
+  (let [settled (r/atom nil)
+        timer (atom nil)
+        seen (atom ::unseen)
+        open? (r/atom false)
+        note (r/atom nil)
+        ;; The http -> https upgrade, checked in the browser before it is made.
+        https-tried (atom nil)
+        https-state (r/atom nil)
+        upgraded-to (r/atom nil)]
+    (fn [url failed? state reach set-fn]
+      (when (not= url @seen)
+        (reset! seen url)
+        (reset! open? false)
+        ;; Drop the old advice the moment the address changes. Left up for the
+        ;; debounce it is not merely stale: its correction is clickable, and it
+        ;; corrects the PREVIOUS address.
+        (reset! settled nil)
+        (when-not (= url @upgraded-to)
+          (reset! https-state nil)
+          (reset! upgraded-to nil))
+        (some-> @timer js/clearTimeout)
+        (reset! timer (js/setTimeout #(reset! settled url) 900)))
+      (let [{:keys [level message fix]} (image-url/advise @settled)
+            unreachable (when (= :unavailable state) (get image-failure-notes reach))
+            ;; The branch is named here and read below. Re-deriving it from the
+            ;; text it produced tests a variable that has since been rebound.
+            upgrade-note (when (and @upgraded-to (= url @upgraded-to))
+                           (str "Changed http to https -- this page can only "
+                                "display pictures over https."))
+            [mode shown-level shown-text]
+            (cond
+              upgrade-note [:upgraded :note upgrade-note]
+              ;; Known not to be served over https, so there is nothing to offer.
+              (and message (= :no @https-state))
+              [:no-https :error
+               (str "This page can only display pictures over https, and this "
+                    "host does not seem to offer it.")]
+              message     [:advice level message]
+              unreachable [:unreachable
+                           (if (= :rate-limited reach) :warning :error)
+                           unreachable]
+              failed?     [:failed :error "That picture didn't load."]
+              :else       [nil nil nil])]
+        ;; An http picture cannot display here at all: the CSP allows images over https
+        ;; only. The https address is checked with a plain <img> load and swapped in only
+        ;; once it loads, so a failed rewrite never leaves an address nobody typed.
+        (when (and fix
+                   (string? @settled)
+                   (s/starts-with? @settled "http://")
+                   (not= @https-tried @settled))
+          (reset! https-tried @settled)
+          (reset! https-state :checking)
+          (image-capture/displays?
+           fix
+           (fn [ok?]
+             (if ok?
+               (do (reset! upgraded-to fix)
+                   (reset! https-state :ok)
+                   (set-fn fix))
+               (reset! https-state :no)))))
+        (cond
+          (= :pending state)
+          [:div.f-s-12.m-t-5 "Reading image..."]
+
+          mode
+          [:div
+           [:div {:class (str "field-notice " (case shown-level
+                                                :error "is-error"
+                                                :warning "is-warning"
+                                                "is-note"))}
+            [:span.field-notice-what shown-text]
+            (cond
+              ;; While the https one is being tried there is nothing to offer yet,
+              ;; and once it is tried the answer is applied or explained.
+              (and (= :advice mode) fix (nil? @https-state))
+              [:button.field-notice-action {:on-click #(set-fn fix)} (str "Use " fix)]
+
+              (= :unreachable mode)
+              [:button.field-notice-action {:on-click #(swap! open? not)}
+               (if @open? "Hide the other ways" "Supply it yourself")]
+
+              :else nil)]
+           (when (and (= :unreachable mode) @open?)
+             [:div.field-remedy
+              [:span "Right-click the picture, choose Copy image, then:"]
+              [:button.form-button.p-5
+               {:on-click
+                (fn [_]
+                  (reset! note "Reading the copied image...")
+                  (image-capture/capture-clipboard
+                   (fn [payload]
+                     (reset! note (when-not payload
+                                    "No picture on the clipboard. Copy one first."))
+                     (dispatch [::char5e/image-captured url payload]))))}
+               "Use copied image"]
+              [:span "or choose a file:"]
+              [:input {:type "file"
+                       :accept "image/png,image/jpeg"
+                       :on-change (fn [e]
+                                    (when-let [file (some-> e .-target .-files (aget 0))]
+                                      (image-capture/capture-file
+                                       file
+                                       #(dispatch [::char5e/image-captured url %]))))}]
+              (when @note [:span @note])])]
+
+          :else nil)))))
 
 (defn description-fields []
   (let [entity-values @(subscribe [:entity-values])
@@ -1796,7 +2446,9 @@
         image-url @(subscribe [::char5e/image-url])
         image-url-failed @(subscribe [::char5e/image-url-failed])
         faction-image-url @(subscribe [::char5e/faction-image-url])
-        faction-image-url-failed @(subscribe [::char5e/faction-image-url-failed])]
+        faction-image-url-failed @(subscribe [::char5e/faction-image-url-failed])
+        image-bytes @(subscribe [::char5e/image-bytes])
+        server-reach @(subscribe [::char5e/image-server-reach])]
     [:div.flex-grow-1
      [:div.m-t-5
       [:span.personality-label.f-s-18 "Character Name"]
@@ -1854,12 +2506,17 @@
       (when image-url
         [:img.m-r-10.image-character-thumbnail {:src image-url
                       :on-error (image-error :failed-loading-image image-url)
-                      :on-load (when image-url-failed image-loaded)}])
+                      :on-load (image-load :loaded-image image-url)}])
       [:div.flex-grow-1
+       {:on-paste (image-paste image-url)}
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
-       (when image-url-failed
-         [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
+       ;; integration's notice replaces the flat "failed to load" line; the
+       ;; launcher still belongs beside it, since composing a portrait is the
+       ;; other way to fill this slot.
+       [image-field-notice image-url image-url-failed
+        (get image-bytes image-url) (get server-reach image-url) set-image-url]
+       [portrait5e/launcher-button]]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -1867,13 +2524,14 @@
       (when faction-image-url
         [:img.m-r-10.image-faction-thumbnail {:src faction-image-url
                       :on-error (image-error :failed-loading-faction-image faction-image-url)
-                      :on-load (when faction-image-url-failed
-                                 faction-image-loaded)}])
+                      :on-load (image-load :loaded-faction-image faction-image-url)}])
       [:div.flex-grow-1
+       {:on-paste (image-paste faction-image-url)}
        [:span.personality-label.f-s-18 "Faction Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/faction-image-url nil set-faction-image-url]
-       (when faction-image-url-failed
-         [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
+       [image-field-notice faction-image-url faction-image-url-failed
+        (get image-bytes faction-image-url) (get server-reach faction-image-url)
+        set-faction-image-url]]]
      [:div.field
       [:span.personality-label.f-s-18 "Description/Backstory"]
       [character-textarea entity-values ::char5e/description "h-800"]]]))
@@ -1897,25 +2555,35 @@
        [:div.builder-tabs
         [builder-tab "Options" :options current-tab]
         [builder-tab "Description" :description current-tab]
+        [builder-tab "Portrait" :portrait current-tab]
         [builder-tab "Details" :details current-tab]]
        (case current-tab
          :options [new-options-column 1]
          :description [description-fields]
+         :portrait [portrait5e/tab-panel]
+         ;; nil id = the builder's own character (not a saved one).
          [views5e/character-display nil true 1])]]]))
 
 
 (defn desktop-or-tablet-columns [device-type]
-  (let [current-tab (or @(subscribe [::char5e/builder-tab]) :options)]
+  ;; The phone's Details tab is the right column here, so a window widened while
+  ;; on it lands on Description; narrowing keeps Description too. Options and
+  ;; Portrait are tabs on both.
+  (let [tab (or @(subscribe [::char5e/builder-tab]) :options)
+        current-tab (if (#{:options :portrait} tab) tab :description)]
     [:div.w-100-p
      [:div.flex-grow-1.flex.p-l-10.p-t-10
       [:div.w-50-p
        [:div.builder-tabs
         [builder-tab "Options" :options current-tab]
-        [builder-tab "Description" :details current-tab]]
-       (if (= current-tab :options)
-         [new-options-column (if (= device-type :desktop) 2 1)]
+        [builder-tab "Description" :description current-tab]
+        [builder-tab "Portrait" :portrait current-tab]]
+       (case current-tab
+         :options [new-options-column (if (= device-type :desktop) 2 1)]
+         :portrait [portrait5e/tab-panel]
          [description-fields])]
       [:div.w-50-p.m-l-20.m-r-10
+       ;; nil id = the builder's own character (not a saved one).
        [views5e/character-display nil true 1]]]]))
 
 (defn builder-columns []
@@ -1933,6 +2601,22 @@
 ;; ============================================================================
 ;; Missing Content Warning
 ;; ============================================================================
+
+(defn relink-question-banner
+  "Asks, once, which item a character meant after an import renamed the library's copy of it.
+   Stays until the author answers."
+  []
+  (when-let [{imported-pack :import :keys [from to-name from-name]} @(subscribe [:orcpub.dnd.e5/relink-question])]
+    (let [item (or from-name (name from))]
+      [:div.decision-callout
+       [:div.message-title (str "Which \u201c" item "\u201d did this character mean?")]
+       [:div.message-detail
+        (str "Importing " (if imported-pack (str "\u201c" imported-pack "\u201d") "a pack") " added a different \u201c"
+             item "\u201d. Yours is now called \u201c" to-name "\u201d.")]
+       [:div.decision-actions
+        [:button.form-button {:on-click #(dispatch [:orcpub.dnd.e5/answer-relink :switch])} "Use yours"]
+        [:button.link-button.underline {:on-click #(dispatch [:orcpub.dnd.e5/answer-relink :keep])}
+         "Use the imported one"]]])))
 
 (defn missing-content-warning
   "Displays a warning when the character references content that isn't loaded."
@@ -1984,11 +2668,19 @@
                      [:div.f-s-12.m-t-5.main-text-color
                       [:span "Likely from source: "]
                       [:span.i inferred-source]])
+                   ;; The suggestions are the choice: picking one rebinds the character's
+                   ;; stored key to that content. This is the end of the resolution ladder:
+                   ;; the automatic rungs rebind only when the answer is unambiguous.
                    (when (seq suggestions)
                      [:div.m-t-5
-                      [:span.f-s-12.main-text-color "Similar available: "]
-                      [:span.f-s-12.main-text-color
-                       (s/join ", " (map #(or (:name %) (str ":" (name (:key %)))) suggestions))]])])
+                      [:div.f-s-12.main-text-color.m-b-5 "Use instead:"]
+                      [:div.chip-row
+                       (for [{s-key :key s-name :name} suggestions]
+                         ^{:key (str s-key)}
+                         [:button.form-button.f-s-12
+                          {:title (str "Point this character at :" (name s-key))
+                           :on-click #(dispatch [::char5e/relink-content key s-key])}
+                          (or s-name (str ":" (name s-key)))])]])])
                 (:items report))]])])))))
 
 #_(defn al-legality []
@@ -2077,13 +2769,85 @@
 
 (defn theme-toggle []
   (let [theme @(subscribe [:theme])]
-    [:div.pointer
-     {:on-click toggle-theme}
-     [:span.m-r-5 (comps/checkbox (= "light-theme" theme) false)]
+    [:div.pointer.setting-toggle
+     (merge {:on-click toggle-theme}
+            (views5e/switch-attrs (= "light-theme" theme) toggle-theme))
+     [:span.m-r-5 (comps/checkbox-mark (= "light-theme" theme) false)]
      [:span.main-text-color "Light Theme"]]))
+
+(defn button-text-toggle
+  "Dark text on the amber buttons. Dark theme only: the light theme's buttons
+   are slate blue and already read well in white."
+  []
+  (let [theme @(subscribe [:theme])
+        on? @(subscribe [:dark-button-text?])]
+    (when (not= "light-theme" theme)
+      (let [toggle #(dispatch [:toggle-dark-button-text])]
+        [:div.pointer.setting-toggle.m-l-20
+         (merge {:on-click toggle} (views5e/switch-attrs on? toggle))
+         [:span.m-r-5 (comps/checkbox-mark on? false)]
+         [:span.main-text-color "Dark Button Text"]]))))
 
 (defn set-loading []
   (dispatch-sync [:set-loading true]))
+
+(defn changed-elsewhere-notice
+  "\"Saved somewhere else since you opened it\" after a builder Save the server refused as out of
+   date (`conflict`: {:current :fields}): Details lists what differs, here and saved; Save mine
+   saves the builder's copy over it; Use saved loads it, keeping the builder's copy as a draft."
+  [conflict]
+  (let [open? (r/atom false)]
+    (fn [{:keys [fields]}]
+      (let [built-char @(subscribe [:built-character])
+            shown (fn [v] (or v "changed"))]
+        [notifications/callout
+         {:icon "fa-exclamation-circle orange" :tone :note :accent :brand :compact? true
+          :text [:span.main-text-color "Saved somewhere else since you opened it"]
+          :actions [{:label "Details" :link? true :expanded @open? :on-click #(swap! open? not)}
+                    {:label "Save mine" :link? true
+                     :on-click #(do (dispatch [::char5e/keep-mine])
+                                    (dispatch [:save-character built-char]))}
+                    {:label "Use saved" :link? true :on-click #(dispatch [::char5e/use-saved])}]
+          :details (when @open?
+                     (for [{:keys [label mine saved]} fields]
+                       {:key label :label label
+                        :aside (str "here: " (shown mine) " · saved: " (shown saved))}))}]))))
+
+(defn draft-notices
+  "The builder's notices about unsaved drafts, above the options: a Save refused because the
+   character was saved elsewhere; a character open in another tab, held until Edit here; a
+   leftover draft offered once, then Undo and Redo; then the list of other unsaved drafts.
+   plan-character-drafts.md; wording in ux-guide.md (2026-10-16)."
+  []
+  (let [conflict @(subscribe [::char5e/draft-conflict])
+        held @(subscribe [::char5e/draft-held])
+        offer @(subscribe [::char5e/draft-offer])
+        restored @(subscribe [::char5e/draft-restored])
+        box {:tone :note :accent :brand :compact? true :icon "fa-history orange"}
+        line (fn [cfg] [notifications/callout (update cfg :text #(vector :span.main-text-color %))])
+        link (fn [label event] {:label label :link? true :on-click #(dispatch event)})
+        dismiss #(dispatch [::char5e/dismiss-draft-notice])]
+    [:div.drafts-notices.m-l-10.m-r-10
+     (cond
+       conflict
+       [changed-elsewhere-notice conflict]
+
+       held
+       (line (assoc box :icon "fa-clone orange" :text "Open in another tab"
+                    :actions [(link "Edit here" [::char5e/edit-here held])]))
+
+       (:undone? restored)
+       (line (assoc box :text "Undone" :on-close dismiss
+                    :actions [(link "Redo" [::char5e/redo-restore])]))
+
+       restored
+       (line (assoc box :text (str "Changes from " (views5e/draft-time (:touched restored)) " restored")
+                    :on-close dismiss :actions [(link "Undo" [::char5e/undo-restore])]))
+
+       offer
+       (line (assoc box :text (str "Unsaved changes from " (views5e/draft-time (:touched offer)))
+                    :on-close dismiss :actions [(link "Restore" [::char5e/restore-draft])])))
+     [views5e/drafts-list]]))
 
 (defn save-character
   "Dispatch manual save. Passes built-char so the handler can compute
@@ -2126,12 +2890,11 @@
                              (not= db/default-character character))]
     (when print-enabled? (print-char built-char))
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
-    [views5e/content-page
+    [:<>
+     [portrait5e/drawer]
+     [views5e/content-page
      "Character Builder"
-     (into
-      (if character-id
-        (vec (integrations/share-links character-id @(subscribe [::char5e/character-name character-id])))
-        [])
+     (vec
       (remove nil?
        [{:title "Random"
          :icon "random"
@@ -2160,6 +2923,10 @@
                   "Save New Character")
          :icon "save"
          :style (when character-changed? unsaved-button-style)
+         ;; A reconciler repaired a stored key on load. That repair only exists in
+         ;; memory, so the button keeps glinting until the character is saved --
+         ;; a toast alone is gone in eight seconds and takes the fix with it.
+         :class-name (when @(subscribe [:character-healed]) "save-healed")
          :on-click #(save-character built-char)}
         (when (:db/id character)
           {:title "View"
@@ -2173,14 +2940,21 @@
        [:div.content
         [:div.flex.justify-cont-s-b.align-items-c.flex-wrap
          [:div
-          [missing-content-warning]]
-         [:div.flex
+          [missing-content-warning]
+          [relink-question-banner]
+          [choices-list]]
+         ;; .content has no side padding of its own; keep the toggles off the edge
+         [:div.flex.flex-wrap.justify-cont-end.p-r-10
           [theme-toggle]
+          [button-text-toggle]
           (when character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c
                                   (views5e/svg-icon "thunder-skull" 24 24)
                                   (when (not mobile?)
                                     [:span "You have unsaved changes"])])]]]]
       [:div.flex.justify-cont-c.p-b-40
        [:div.f-s-14.main-text-color.content
-        [:div.flex.w-100-p
-         [builder-columns]]]]]]))
+        [draft-notices]
+        ;; Held while another tab edits this character: nothing here takes input until Edit here.
+        [:div.flex.w-100-p (when @(subscribe [::char5e/draft-held]) {:class "builder-held" :inert ""})
+         [builder-columns]]]]]
+     :subheader (when character-id [integrations/share-line character-id])]]))

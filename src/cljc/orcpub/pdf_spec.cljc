@@ -14,6 +14,8 @@
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.skills :as skill5e]
+            [orcpub.dnd.e5.spell-packing :as packing]
+            [orcpub.dnd.e5.emblems :as emblems]
 ))
 
 (defn entity-vals [built-char kws]
@@ -249,17 +251,13 @@
 
 
 
-(def level-max-spells
-  {0 8
-   1 12
-   2 13
-   3 13
-   4 13
-   5 9
-   6 9
-   7 9
-   8 7
-   9 7})
+(defn level-max-spells
+  "Rows the chosen sheet style prints at each spell level, as {level rows}, read from
+   spell-packing/sheet-geometry. Falls back to style 1 for an unrecognised id, matching the
+   server, which clamps an unknown style to the default rather than failing the export."
+  [style]
+  (let [rows (get packing/sheet-geometry style (get packing/sheet-geometry 1))]
+    (into {} (map-indexed vector rows))))
 
 (defn filter-prepared [spell-cfgs
                        lvl
@@ -303,7 +301,8 @@
                   print-prepared-spells
                   prepares-spells
                   prepared-spells-by-class
-                  spells-map]
+                  spells-map
+                  style]
   (let [page-map (make-page-map spells
                                 print-prepared-spells
                                 prepares-spells
@@ -319,7 +318,8 @@
                                levels))
              split-levels (common/map-vals
                            (fn [level spells]
-                             (vec (partition-all (level-max-spells (or level 0)) spells)))
+                             (vec (partition-all (get (level-max-spells style) (or level 0))
+                                                 spells)))
                            levels)
              num-pages (apply max
                               (map (fn [[level parts]]
@@ -333,6 +333,34 @@
                             :spells (get-in split-levels [level page-index])})
                          (range 10))})))
      page-map)))
+
+(defn magic-item-card-info
+  "The magic items a character carries, in the shape the card printer needs.
+
+   Every magic item, equipped or not: a card is a reference you fan through, and
+   an item left in the bag is exactly the one whose wording you have forgotten.
+   Only the fields a card draws are sent -- the full entries carry modifier
+   functions and weapon statistics that would bloat the request for nothing."
+  [built-char all-magic-items-map]
+  (let [item-map (merge mi5e/magic-item-map all-magic-items-map)
+        carried (merge (es/entity-val built-char :magic-items)
+                       (es/entity-val built-char :magic-armor)
+                       (es/entity-val built-char :magic-weapons))]
+    (->> (keys carried)
+         (keep item-map)
+         (map #(select-keys % [:name
+                               ::mi5e/name
+                               ::mi5e/type
+                               ::mi5e/subtype
+                               ::mi5e/rarity
+                               ::mi5e/attunement
+                               ::mi5e/attunement-details
+                               ::mi5e/description
+                               ::mi5e/summary
+                               ::mi5e/page
+                               ::mi5e/source]))
+         (sort-by #(or (:name %) (::mi5e/name %)))
+         vec)))
 
 (defn make-spell-card-info [spells-known
                             save-dc-fn
@@ -380,6 +408,55 @@
       :spells-known filtered-spells-known}
      flat-spells)))
 
+(defn packing-classes
+  "The per-class lists spell-packing/packed-fields takes, sorted by class: `spells-known`
+   (keyed by LEVEL, each value spell-key -> config carrying its :class) regrouped by class.
+   Slots follow 5e: every non-pact caster gets the SHARED `shared-slots` (one multiclass
+   pool), a pact caster its own `pact-slots` and `:pact? true`, with its whole list at its
+   highest pact level. `:dc`/`:attack` come from `save-dc-fn`/`attack-mod-fn` on its ability."
+  [spells-known spells-map shared-slots pact-slots save-dc-fn attack-mod-fn]
+  (let [by-class (reduce-kv
+                  (fn [acc level cfgs]
+                    (reduce (fn [a cfg]
+                              (update-in a [(:class cfg) level] (fnil conj []) cfg))
+                            acc
+                            (vals cfgs)))
+                  {}
+                  spells-known)
+        pact-level (when (seq pact-slots) (apply max (keys pact-slots)))]
+    (vec
+     (for [[class levels] (sort-by key by-class)
+           :let [pact? (and pact-level
+                            (some #(= :warlock (common/name-to-kw (str (:class %))))
+                                  (mapcat val levels)))
+                 ability (:ability (first (mapcat val levels)))
+                 named (fn [cfgs]
+                         (mapv (fn [cfg]
+                                 (let [d (get spells-map (:key cfg))]
+                                   (or (:name d)
+                                       (when (:key cfg) (name (:key cfg)))
+                                       "(Unknown Spell)")))
+                               cfgs))
+                 ;; A Warlock's spells all sit at its pact level; everyone else's
+                 ;; stay at the level they were learned.
+                 levels (if pact?
+                          (let [cantrips (get levels 0)
+                                at-pact (mapcat val (dissoc levels 0))]
+                            (cond-> {}
+                              (seq cantrips) (assoc 0 (named cantrips))
+                              (seq at-pact) (assoc pact-level (named at-pact))))
+                          (into {} (map (fn [[lvl cfgs]] [lvl (named cfgs)])) levels))]]
+       (cond-> {:class class
+                :levels levels
+                :slots (if pact? pact-slots shared-slots)
+                ;; The ABBREVIATION -- "CHA" -- because this heads a column in a
+                ;; bar, not the section box that reads SPELLCASTING ABILITY and
+                ;; wants the full word.
+                :ability (when ability (:abbr (opt5e/abilities-map ability)))}
+         pact? (assoc :pact? true)
+         ability (assoc :dc (save-dc-fn ability)
+                        :attack (common/bonus-str (attack-mod-fn ability))))))))
+
 (defn spell-page-fields [spells
                          spell-slots
                          save-dc-fn
@@ -388,12 +465,14 @@
                          prepares-spells
                          prepared-spells-by-class
                          spells-map
-                         plugin-spells-map]
+                         plugin-spells-map
+                         style]
   (let [spell-pages (make-pages spells
                                 print-prepared-spells?
                                 prepares-spells
                                 prepared-spells-by-class
-                                spells-map)]
+                                spells-map
+                                style)]
     (apply
      merge
      (make-spell-card-info spells
@@ -407,8 +486,15 @@
      (flatten
       (map-indexed
        (fn [i {:keys [ability classes spells]}]
+         ;; A class whose list outgrows one page takes another, and both would
+         ;; otherwise be headed with the bare class name and carry the same slot
+         ;; totals -- two identical "SLOTS EXPENDED" rows for one set of slots,
+         ;; with nothing saying which page follows which.
          (let [suffix (str "-" (inc i))
-               class-header {(keyword (str "spellcasting-class" suffix)) (s/join ", " classes)}]
+               continued? (some #(= classes (:classes %)) (take i spell-pages))
+               class-header {(keyword (str "spellcasting-class" suffix))
+                             (cond-> (s/join ", " classes)
+                               continued? (str " (continued)"))}]
            [(if ability
               (merge
                class-header
@@ -430,12 +516,61 @@
                           qualifier (:qualifier spell)]
                       (str spell-name (when qualifier (str " (" qualifier ")"))))})
                  spells)
-                {(keyword (str "spell-slots-" level suffix))
-                 (spell-slots level)}))
+                ;; Slots belong to the class, not the page, so only the first
+                ;; page of a class carries them.
+                (when-not continued?
+                  {(keyword (str "spell-slots-" level suffix))
+                   (spell-slots level)})))
              spells)]))
        spell-pages)))))
 
-(defn spellcasting-fields [built-char print-prepared-spells? spells-map plugin-spells-map]
+(defn casting-classes
+  "The casting classes of `built-char`, grouped the way a packed layout needs.
+
+   Separate from spellcasting-fields so the builder can ask how many casting
+   classes a character has without building a field map: with one class there is
+   nothing to pack, and the layout choice is not worth offering."
+  [built-char spells-map]
+  (packing-classes (into {}
+                         (map (fn [[id datum]]
+                                [id (into (sorted-map) datum)]))
+                         (char5e/spells-known built-char))
+                   spells-map
+                   (or (char5e/shared-spell-slots built-char) {})
+                   (or (char5e/pact-spell-slots built-char) {})
+                   (char5e/spell-save-dc-fn built-char)
+                   (char5e/spell-attack-modifier-fn built-char)))
+
+(defn default-spell-layout
+  "Which layout suits this character, before any override: :packed when there is more than
+   one casting class, the style's numerals can be relabelled (`packing-supported?`) and the
+   packing holds every spell; else :per-class."
+  [classes style]
+  (if (and (> (count classes) 1)
+           (packing/packing-supported? style)
+           ;; A packing that cannot hold the character is not offered as the
+           ;; default, and choosing it explicitly falls back below.
+           (packing/fits? style (packing/packing-shape classes)))
+    :packed
+    :per-class))
+
+(defn packed-spellcasting-fields
+  "The field map, relabel list and column headings for a packed layout."
+  [classes style]
+  (let [{:keys [fields relabels headings]} (packing/packed-fields style classes)]
+    (assoc fields
+           :spell-relabels relabels
+           :spell-headings headings)))
+
+(defn spellcasting-fields
+  "The spell page fields, in whichever layout `spell-layout` asks for: :per-class (a section
+   per casting ability) or :packed (each class its own run of boxes, so a pact caster carries
+   its own slots). nil asks for `default-spell-layout`. :packed falls back to :per-class when
+   the style is unsupported, nothing casts, or the packing would lose spells."
+  ([built-char print-prepared-spells? spells-map plugin-spells-map style]
+   (spellcasting-fields built-char print-prepared-spells? spells-map plugin-spells-map
+                        style nil))
+  ([built-char print-prepared-spells? spells-map plugin-spells-map style spell-layout]
   (let [spell-attack-modifier-fn (char5e/spell-attack-modifier-fn built-char)
         spell-save-dc-fn (char5e/spell-save-dc-fn built-char)
         spell-slots (char5e/spell-slots built-char)
@@ -444,17 +579,72 @@
         sorted-spells-known (into {}
                                   (map (fn [[id datum]]
                                          [id (into (sorted-map) datum)]))
-                                  (char5e/spells-known built-char))]
+                                  (char5e/spells-known built-char))
+        classes (casting-classes built-char spells-map)
+        layout (or spell-layout (default-spell-layout classes style))]
+    (if (and (= :packed layout) (packing/packing-supported? style) (seq classes)
+             ;; Even when asked for outright. A packed page that lost a class is
+             ;; worse than the layout the caller did not want.
+             (packing/fits? style (packing/packing-shape classes)))
+      ;; The spell list for the cards and the spellbook, which every layout must send.
+      (merge (make-spell-card-info sorted-spells-known
+                                   spell-save-dc-fn
+                                   spell-attack-modifier-fn
+                                   print-prepared-spells?
+                                   prepares-spells
+                                   prepared-spells-by-class
+                                   spells-map
+                                   plugin-spells-map)
+             (packed-spellcasting-fields classes style))
+      (spell-page-fields sorted-spells-known
+                         spell-slots
+                         spell-save-dc-fn
+                         spell-attack-modifier-fn
+                         print-prepared-spells?
+                         prepares-spells
+                         prepared-spells-by-class
+                         spells-map
+                         plugin-spells-map
+                         style)))))
 
-    (spell-page-fields sorted-spells-known
-                       spell-slots
-                       spell-save-dc-fn
-                       spell-attack-modifier-fn
-                       print-prepared-spells?
-                       prepares-spells
-                       prepared-spells-by-class
-                       spells-map
-                       plugin-spells-map)))
+(def spellbook-defaults
+  "What the spellbook prints when its options are untouched."
+  {:layout :book :order :level :class-break :runon :tabs :head})
+
+(defn spellbook-classes
+  "One entry per casting class for the spellbook pages, in the order casting-classes gives:
+   the class as the spells name it, its level, casting ability, DC and attack, and the
+   emblem to head it. `chosen-emblems` is the player's picks, class keyword to icon name."
+  [built-char spells-map chosen-emblems]
+  (let [levels (char5e/levels built-char)
+        abilities (into {}
+                        (for [cfg (char5e/flat-spells (char5e/spells-known built-char))]
+                          [(:class cfg) (:ability cfg)]))]
+    (vec
+     (for [{:keys [class dc attack pact?]} (casting-classes built-char spells-map)
+           :let [class-kw (common/name-to-kw (str class))
+                 ability (get abilities class)]]
+       (cond-> {:class (str class)
+                :class-kw class-kw
+                :level (get-in levels [class-kw :class-level])
+                :ability (:name (opt5e/abilities-map ability))
+                :dc dc
+                :attack attack
+                :icon (emblems/icon-for class-kw (get chosen-emblems class-kw))}
+         pact? (assoc :pact? true))))))
+
+(defn spellbook-spec
+  "The :spellbook map the server lays its pages out from, or nil when none is wanted."
+  [built-char spells-map {:keys [print-spellbook? spellbook-layout spell-order
+                                 spellbook-class-break spellbook-tabs spellbook-emblems]}]
+  (when (and print-spellbook? (seq (char5e/spells-known built-char)))
+    {:layout (or spellbook-layout (:layout spellbook-defaults))
+     :order (or spell-order (:order spellbook-defaults))
+     :class-break (or spellbook-class-break (:class-break spellbook-defaults))
+     :tabs (or spellbook-tabs (:tabs spellbook-defaults))
+     :classes (spellbook-classes built-char spells-map spellbook-emblems)
+     :slots (or (char5e/shared-spell-slots built-char) {})
+     :pact-slots (or (char5e/pact-spell-slots built-char) {})}))
 
 (defn profs-paragraph [profs prof-map title]
   (when (seq profs)
@@ -484,65 +674,89 @@
        (profs-paragraph armor-profs armor5e/armor-map "Armor")
        (profs-paragraph languages language-map "Language")]))))
 
-(defn damage-str [die die-count mod damage-type]
-  (str (dice/dice-string die-count die mod)
-       (when damage-type
-         (str " " (if (keyword? damage-type) (name damage-type) (str damage-type))))))
+(defn damage-str
+  "A weapon's damage for the PDF, e.g. \"1d8+2 slashing\".
+   Args: die, die-count, mod (the damage modifier), damage-type (keyword or string), and
+   optionally summary, the weapon's short effect. Returns a string; with no die (the Net) it is
+   \"None\", or \"None (restrains)\" given a summary, and no modifier."
+  ([die die-count mod damage-type] (damage-str die die-count mod damage-type nil))
+  ([die die-count mod damage-type summary]
+   (if-not die
+     (str "None" (when summary (str " (" summary ")")))
+     (str (dice/dice-string die-count die mod)
+          (when damage-type
+            (str " " (if (keyword? damage-type) (name damage-type) (str damage-type))))))))
+
+(defn weapon-entries
+  "The PDF's entry for one weapon: its main roll, and :bullets for its variants, the
+  two-handed dice of a Versatile weapon (\"versatile 1d10+5\") then each extra or save an
+  item adds. Takes the weapon map, its attack bonus and its damage modifier; returns a
+  one-entry seq of {:name :attack-bonus :damage :bullets}."
+  [weapon attack-bonus damage-modifier]
+  (let [{:keys [name ::weapon5e/damage-die ::weapon5e/damage-die-count ::weapon5e/versatile]} weapon
+        damage-type (or (::mi5e/magical-damage-type weapon) (::weapon5e/damage-type weapon))
+        extras (disp5e/weapon-extras-str weapon)]
+    [{:name name
+      :attack-bonus attack-bonus
+      :damage (damage-str damage-die damage-die-count damage-modifier damage-type (:summary weapon))
+      :bullets (cond-> []
+                 versatile (conj (str "versatile " (damage-str (::weapon5e/damage-die versatile)
+                                                               (::weapon5e/damage-die-count versatile)
+                                                               damage-modifier nil)))
+                 extras (into (s/split extras #"; ")))}]))
+
+(defn sheet-weapon-names
+  "Each weapon's name on the sheet: a magic weapon's own name (\"Flame Tongue\"), or its
+  full name (\"Flame Tongue, Longsword\") when two carried weapons share the short one.
+  Takes the weapon maps in order; returns their names in the same order."
+  [weapons]
+  (let [short-name #(or (::mi5e/name %) (:name %))
+        counts (frequencies (map short-name weapons))]
+    (map #(if (= 1 (counts (short-name %))) (short-name %) (:name %)) weapons)))
+
+(defn weapon-sheet-fields
+  "Lays weapon entries out on the sheet: the first three fill the weapon rows; the attacks
+  text then lists each row weapon's variants under its name, and every later weapon as a
+  name line with its roll, each followed by indented bullets. Takes the entries in order;
+  returns {:rows [entry ...] :lines [string ...]}."
+  [entries]
+  (let [bullets #(map (fn [b] (str "  \u2022 " b)) (:bullets %))]
+    {:rows (vec (take 3 entries))
+     :lines (vec (concat
+                  (mapcat #(when (seq (:bullets %)) (cons (:name %) (bullets %))) (take 3 entries))
+                  (mapcat #(cons (str (:name %) ". " (common/bonus-str (:attack-bonus %)) ", " (:damage %))
+                                 (bullets %))
+                          (drop 3 entries))))}))
 
 (defn attacks-and-spellcasting-fields 
-  "For each weapon, we are creating a new map with the name, the attack bonus, and the damage.
-  The attack bonus is calculated using the function 'char5e/best-weapon-attack-modifier' which
-  calculates the attack bonus for a specific weapon.
-  The damage is calculated using the function 'damage-str' which takes the damage die, damage die count,
-  the damage modifier, and the damage type, and combines them into a string of the form 'dice-string damage-type'.
-  If the weapon is versatile, we also create a second map, where the name is suffixed with ' (two-handed)'
-  and the attack bonus and damage is calculated for the versatile form of the weapon.
-  We then remove any nil maps, and mapcat concatenates all of the maps into a single list.
-  The remove function filters out weapons of type 'ammunition'."
+  "The attack fields for `built-char`'s equipped weapons, ammunition excluded, laid out by
+  `weapon-sheet-fields`: three weapon rows (weapon-name-N, weapon-attack-bonus-N,
+  weapon-damage-N) and lines in :attacks-and-spellcasting after the number of attacks and
+  the character's :attacks."
   [built-char all-weapons-map]
-  (let [all-weapons ; map of all weapons in inventory
-        (mi5e/equipped-items-details ; function to filter for equipped weapons
-         (char5e/all-weapons-inventory built-char)
-         all-weapons-map)
-        weapon-fields (mapcat
-                       (fn [{:keys [name ::weapon5e/damage-die ::weapon5e/damage-die-count ::weapon5e/damage-type] :as weapon}]
-                         (let [versatile (:versatile weapon)
-                               normal-damage-modifier (char5e/best-weapon-damage-modifier built-char weapon false)
-                               finesse-damage-modifier (char5e/weapon-damage-modifier built-char weapon true)
-                               normal {:name (:name weapon)
-                                       :attack-bonus (char5e/best-weapon-attack-modifier built-char weapon)
-                                       :damage (damage-str damage-die damage-die-count normal-damage-modifier damage-type)}]
-                           (remove
-                            nil?
-                            [normal
-                             (when (:versatile weapon)
-                               {:name (str (:name weapon) " (two-handed)")
-                                :attack-bonus (char5e/weapon-attack-modifier built-char weapon false)
-                                :damage (damage-str (:damage-die versatile) (:damage-die-count versatile) normal-damage-modifier damage-type)})])))
-                       (remove
-                        (fn [{:keys [::weapon5e/type]}]
-                          (= type :ammunition))
-                        all-weapons))
-        first-3-weapons (take 3 weapon-fields)
-        rest-weapons (drop 3 weapon-fields)
-        number-of-attacks (char5e/number-of-attacks built-char)]
-
+  (let [ability-mod (char5e/best-weapon-ability-modifier-fn built-char)
+        save-dc (char5e/weapon-save-dc-fn built-char)
+        weapons (->> (mi5e/equipped-items-details (char5e/all-weapons-inventory built-char) all-weapons-map)
+                     (remove (fn [{:keys [::weapon5e/type]}] (= type :ammunition)))
+                     (map #(mi5e/resolve-values % {:ability-mod (ability-mod %) :save-dc (save-dc %)})))
+        entries (map (fn [weapon sheet-name]
+                       (assoc (first (weapon-entries weapon
+                                                     (char5e/best-weapon-attack-modifier built-char weapon)
+                                                     (char5e/best-weapon-damage-modifier built-char weapon false)))
+                              :name sheet-name))
+                     weapons
+                     (sheet-weapon-names weapons))
+        {:keys [rows lines]} (weapon-sheet-fields entries)]
     (apply merge
-     {:attacks-and-spellcasting (str "Number of Attacks: " number-of-attacks "\n"
-                                     (s/join "\n"
-                                        (concat (map
-                                                 attack-string
-                                                 (es/entity-val built-char :attacks))
-                                                (map
-                                                 (fn [{:keys [name attack-bonus damage]}]
-                                                   (str name ". " (common/bonus-str attack-bonus) ", " damage))
-                                                 rest-weapons))))}
+     {:attacks-and-spellcasting (str "Number of Attacks: " (char5e/number-of-attacks built-char) "\n"
+                                     (s/join "\n" (concat (map attack-string (es/entity-val built-char :attacks))
+                                                          lines)))}
      (map-indexed
       (fn [i {:keys [name attack-bonus damage]}]
         {(keyword (str "weapon-name-" (inc i))) name
          (keyword (str "weapon-attack-bonus-" (inc i))) (common/bonus-str attack-bonus)
          (keyword (str "weapon-damage-" (inc i))) damage})
-      first-3-weapons))))
+      rows))))
 
 (defn speed [built-char]
   (let [speed (char5e/base-land-speed built-char)
@@ -568,10 +782,20 @@
    {}
    vals))
 
+(defn- captured-bytes
+  "The base64 the browser read for `url`, or nil.
+
+   :pending and :unavailable both read as nil, so the server falls back to
+   fetching the address itself -- what it did before any of this existed."
+  [image-bytes url]
+  (let [captured (get image-bytes url)]
+    (when (map? captured)
+      (:data captured))))
+
 (defn make-spec
   "Generate the PDF field spec. plugin-data is a map with keys:
    :spells-map, :plugin-spells-map, :language-map,
-   :all-weapons-map, :all-magic-items-map, :current-armor-class
+   :all-weapons-map, :all-magic-items-map, :current-armor-class, :image-bytes
    — all pre-subscribed by the calling component."
   [built-char
    id
@@ -584,9 +808,13 @@
            print-card-back-logo?
            card-back-logo-faded?
            print-bw?
-           bw-faded?] :as options}
+           bw-faded?
+           print-magic-item-cards?
+           spell-layout
+           spell-order] :as options}
    {:keys [spells-map plugin-spells-map language-map
-           all-weapons-map all-magic-items-map current-armor-class]}]
+           all-weapons-map all-magic-items-map current-armor-class
+           image-bytes]}]
   (let [race (char5e/race built-char)
         subrace (char5e/subrace built-char)
         abilities (abilities-spec
@@ -654,8 +882,10 @@
       :hair (char5e/hair built-char)
       :image-url (char5e/image-url built-char)
       :image-url-failed (char5e/image-url-failed built-char)
+      :image-data (captured-bytes image-bytes (char5e/image-url built-char))
       :faction-image-url (char5e/faction-image-url built-char)
       :faction-image-url-failed (char5e/faction-image-url-failed built-char)
+      :faction-image-data (captured-bytes image-bytes (char5e/faction-image-url built-char))
       :faction-name (char5e/faction-name built-char)
       :print-character-sheet? print-character-sheet?
       :print-spell-cards? print-spell-cards?
@@ -665,6 +895,11 @@
       :card-back-logo-faded? card-back-logo-faded?
       :print-bw? print-bw?
       :bw-faded? bw-faded?
+      :print-magic-item-cards? print-magic-item-cards?
+      :spell-order spell-order
+      :spellbook (spellbook-spec built-char spells-map options)
+      :magic-items-known (when print-magic-item-cards?
+                           (magic-item-card-info built-char all-magic-items-map))
       }
      (attacks-and-spellcasting-fields built-char all-weapons-map)
      (skill-fields built-char)
@@ -678,4 +913,5 @@
       char5e/ability-keys)
      (traits-fields built-char)
      (equipment-fields built-char all-magic-items-map)
-     (spellcasting-fields built-char print-prepared-spells? spells-map plugin-spells-map))))
+     (spellcasting-fields built-char print-prepared-spells? spells-map plugin-spells-map
+                          print-character-sheet-style? spell-layout))))

@@ -7,7 +7,12 @@
             [cljs.reader :as reader]
             [clojure.string :as str]
             [orcpub.dnd.e5 :as e5]
-            [orcpub.common :as common]))
+            ;; the rename history (:former-keys) is written here and read by the heal path
+            [orcpub.dnd.e5.content-reconciliation :as content-recon]
+            [orcpub.dnd.e5.library-links :as links]
+            [orcpub.dnd.e5.homebrew-shapes :as shapes]
+            [orcpub.common :as common]
+            [orcpub.dnd.e5.orcbrew-format :as orcbrew-format]))
 
 ;; Forward declarations for functions used before definition
 (declare is-multi-plugin?)
@@ -77,15 +82,11 @@
     s))
 
 (defn count-non-ascii
-  "Count non-ASCII chars left after normalization so the importer can WARN about
-   content `normalize-text` deliberately keeps (e.g. accented letters — the
-   `unicode-to-ascii` map normalizes typographic punctuation but NOT letters).
-   Returns {:count N :chars #{...}} or nil if all ASCII. No callers yet; kept
-   correct for a future warn-don't-strip wire-up.
-
-   NOTE: cljs has no char type — seq'ing a string yields 1-char STRINGS, and
-   `(int \"é\")` is 0, NOT the code point, so `(> (int %) 127)` silently never
-   fires. Use `.charCodeAt`."
+  "Counts the non-ASCII chars `normalize-text` leaves (accented letters; `unicode-to-ascii` maps
+   punctuation only), for a future import warning; no callers yet. Returns {:count N :chars #{...}},
+   or nil when `s` is all ASCII or not a string.
+   GOTCHA: seq'ing a cljs string yields 1-char strings, and `(int \"é\")` is 0, not the code point;
+   use `.charCodeAt`."
   [s]
   (when (string? s)
     (let [non-ascii (filter #(> (.charCodeAt % 0) 127) s)]
@@ -110,59 +111,54 @@
 ;; ============================================================================
 
 (def required-fields
-  "Map of content types to their required fields and dummy values.
-   Fields listed here will be auto-filled on import and validated on export.
-
-   Structure: {content-type {:field-name {:dummy <value> :check-fn <optional-predicate>}}}
-
-   :dummy - The placeholder value to use when field is missing
-   :check-fn - Optional predicate; if provided, field fails if (check-fn value) is false
-               Default check is just (some? value)"
+  "Required fields per content type, filled with dummies on import and validated on export.
+   Shape: {content-type {field {:dummy <placeholder when missing> :check-fn <optional pred>}}}.
+   A field fails when (check-fn value) is false; without :check-fn, when (some? value) is false."
   {:orcpub.dnd.e5/classes
-   {:name {:dummy "[Missing Name]"}}
+   {:name {:dummy "Missing Name"}}
    ;; :key is auto-derived from :name, not checked here
 
    :orcpub.dnd.e5/subclasses
-   {:name {:dummy "[Missing Subclass Name]"}
+   {:name {:dummy "Missing Subclass Name"}
     :class {:dummy nil}} ; parent class ref, checked specially
 
    :orcpub.dnd.e5/races
-   {:name {:dummy "[Missing Race Name]"}}
+   {:name {:dummy "Missing Race Name"}}
 
    :orcpub.dnd.e5/subraces
-   {:name {:dummy "[Missing Subrace Name]"}
+   {:name {:dummy "Missing Subrace Name"}
     :race {:dummy nil}} ; parent race ref, checked specially
 
    :orcpub.dnd.e5/backgrounds
-   {:name {:dummy "[Missing Background Name]"}}
+   {:name {:dummy "Missing Background Name"}}
 
    :orcpub.dnd.e5/feats
-   {:name {:dummy "[Missing Feat Name]"}}
+   {:name {:dummy "Missing Feat Name"}}
 
    :orcpub.dnd.e5/spells
-   {:name {:dummy "[Missing Spell Name]"}
+   {:name {:dummy "Missing Spell Name"}
     :level {:dummy 0 :check-fn number?}
     :school {:dummy "unknown"}}
 
    :orcpub.dnd.e5/monsters
-   {:name {:dummy "[Missing Monster Name]"}}
+   {:name {:dummy "Missing Monster Name"}}
 
    :orcpub.dnd.e5/invocations
-   {:name {:dummy "[Missing Invocation Name]"}}
+   {:name {:dummy "Missing Invocation Name"}}
 
    :orcpub.dnd.e5/languages
-   {:name {:dummy "[Missing Language Name]"}}
+   {:name {:dummy "Missing Language Name"}}
 
    :orcpub.dnd.e5/selections
-   {:name {:dummy "[Missing Selection Name]"}}
+   {:name {:dummy "Missing Selection Name"}}
 
    :orcpub.dnd.e5/encounters
-   {:name {:dummy "[Missing Encounter Name]"}}})
+   {:name {:dummy "Missing Encounter Name"}}})
 
 (def trait-required-fields
   "Required fields for traits (nested within other content types).
    Traits appear in :traits vectors within classes, races, etc."
-  {:name {:dummy "[Missing Trait Name]"}})
+  {:name {:dummy "Missing Trait Name"}})
 
 (defn field-missing?
   "Check if a required field is missing or invalid.
@@ -231,7 +227,7 @@
   [item]
   (if-let [traits (:traits item)]
     (if (vector? traits)
-      (let [results (map fill-missing-trait-fields traits)
+      (let [results (map #(if (map? %) (fill-missing-trait-fields %) [% []]) traits)
             updated-traits (mapv first results)
             total-changes (reduce + 0 (map #(count (second %)) results))]
         [(assoc item :traits updated-traits) total-changes])
@@ -240,7 +236,7 @@
 
 (def option-required-fields
   "Required fields for options within selections."
-  {:name {:dummy "[Missing Option Name]"}})
+  {:name {:dummy "Missing Option Name"}})
 
 (defn fill-missing-option-fields
   "Fill missing required fields in an option with placeholder values.
@@ -252,7 +248,7 @@
                    (if (or (nil? (get option field))
                            (and (string? (get option field))
                                 (str/blank? (get option field))))
-                     (conj acc {:field field :dummy (str "[Option " (inc index) "]")})
+                     (conj acc {:field field :dummy (str "Option " (inc index))})
                      acc))
                  []
                  option-required-fields)]
@@ -269,7 +265,7 @@
   [item]
   (if-let [options (:options item)]
     (if (vector? options)
-      (let [results (map-indexed fill-missing-option-fields options)
+      (let [results (map-indexed (fn [i o] (if (map? o) (fill-missing-option-fields i o) [o []])) options)
             updated-options (mapv first results)
             total-changes (reduce + 0 (map #(count (second %)) results))]
         [(assoc item :options updated-options) total-changes])
@@ -288,18 +284,47 @@
                :traits-fixed trait-changes
                :options-fixed options-changes}}))
 
+(defn coerce-name
+  "A valid (letter-leading) name is returned trimmed; a leading-NUMBER name is
+   salvaged to its word form (\"9 Lives\" -> \"Nine Lives\") via
+   common/repair-name-lead; anything that can't be salvaged that way becomes the
+   fallback placeholder."
+  [nm fallback]
+  (or (common/repair-name-lead nm) fallback))
+
+(defn sanitize-item-names
+  "`item` with its :name, and any nested :traits/:options names, coerced to a valid
+   letter-starting name; invalid or blank ones become \"Unnamed <type-label>\".
+   Never touches :key: a key is minted once and changed only by rename-key-in-plugin."
+  [item type-label]
+  (let [coerce-nested (fn [coll]
+                        (if (vector? coll)
+                          (mapv (fn [m] (if (and (map? m) (contains? m :name))
+                                          (update m :name coerce-name "Unnamed")
+                                          m))
+                                coll)
+                          coll))
+        item* (cond-> (update item :name coerce-name (str "Unnamed " type-label))
+                (:traits item)  (update :traits coerce-nested)
+                (:options item) (update :options coerce-nested))]
+    item*))
+
 (defn fill-missing-in-content-group
   "Fill missing fields for all items in a content group.
    Returns {:items updated-items :changes [{:key :changes}...]}"
   [content-type items]
   (reduce-kv
    (fn [acc item-key item]
-     (let [{:keys [item changes]} (fill-all-missing-fields item content-type)]
-       (if (or (seq (:fields changes)) (pos? (:traits-fixed changes)) (pos? (:options-fixed changes)))
-         {:items (assoc (:items acc) item-key item)
-          :changes (conj (:changes acc) {:key item-key :changes changes})}
-         {:items (assoc (:items acc) item-key item)
-          :changes (:changes acc)})))
+     (if-not (map? item)
+       ;; Not an entry, so no fields to fill. Validation skips it and the import log
+       ;; lists it; assoc'ing into it crashed the whole import.
+       (assoc-in acc [:items item-key] item)
+       (let [{:keys [item changes]} (fill-all-missing-fields item content-type)]
+         (if (or (seq (:fields changes)) (pos? (:traits-fixed changes)) (pos? (:options-fixed changes)))
+           {:items (assoc (:items acc) item-key item)
+            :changes (conj (:changes acc) {:key item-key :changes changes})}
+           {:items (assoc (:items acc) item-key item)
+            :changes (:changes acc)}))))
    {:items {} :changes []}
    items))
 
@@ -331,7 +356,9 @@
       ;; Multi-plugin: fill each plugin separately
       (let [results (reduce-kv
                      (fn [acc plugin-name plugin]
-                       (let [{:keys [plugin all-changes]} (fill-missing-in-plugin plugin)]
+                       (let [{:keys [plugin all-changes]} (if (map? plugin)
+                                                          (fill-missing-in-plugin plugin)
+                                                          {:plugin plugin :all-changes []})]
                          {:data (assoc (:data acc) plugin-name plugin)
                           :all-changes (into (:all-changes acc)
                                              (map #(assoc % :plugin plugin-name) all-changes))}))
@@ -417,11 +444,7 @@
   "Dedup options for a content item, handling BOTH shapes → [updated-item changes]:
    - a top-level homebrew selection whose `:options` live on the item, and
    - a content item (class/race/…) with a nested `:selections` map, each carrying
-     its own `:options`.
-
-   The first branch closed a gap: dedup used to walk only nested `:selections`, so
-   duplicate options on an actual homebrew Selection went undeduped on import
-   (guarded by test-dedup-options-in-import-full-pipeline)."
+     its own `:options`."
   [item]
   (cond
     ;; Top-level selection item — dedup its own :options.
@@ -480,7 +503,9 @@
     (if is-multi
       (let [results (reduce-kv
                      (fn [acc plugin-name plugin]
-                       (let [{:keys [plugin changes]} (dedup-options-in-plugin plugin)]
+                       (let [{:keys [plugin changes]} (if (map? plugin)
+                                                      (dedup-options-in-plugin plugin)
+                                                      {:plugin plugin :changes []})]
                          {:data (assoc (:data acc) plugin-name plugin)
                           :changes (into (:changes acc)
                                          (map #(assoc % :plugin plugin-name) changes))}))
@@ -512,10 +537,10 @@
             :traits-needing-names [{:index N}...]}"
   [item content-type]
   (let [missing-fields (find-missing-fields item content-type)
-        trait-details (when-let [traits (:traits item)]
+        trait-details (when-let [traits (when (sequential? (:traits item)) (:traits item))]
                         (keep-indexed
                          (fn [idx trait]
-                           (when (seq (find-missing-trait-fields trait))
+                           (when (and (map? trait) (seq (find-missing-trait-fields trait)))
                              {:index idx :current-name (:name trait)}))
                          traits))
         traits-missing (count trait-details)]
@@ -559,14 +584,9 @@
 ;; ============================================================================
 ;; Error Message Formatting
 ;;
-;; Spec problems are notoriously hard to read in the dev console: predicates
-;; come through as raw compiler forms like
-;;   (cljs.core/fn [v] (cljs.core/or (cljs.core/= v :disabled?) ...))
-;; and the `:in` path uses bare integers (0 = a map entry's key, 1 = its
-;; value) that mean nothing to a human. The helpers below translate problems
-;; into plain English, using the failing spec name (`:via`) and a small table
-;; of known predicates, and surface the offending item's :name/:key instead of
-;; a value blindly chopped at 50 characters.
+;; Turns spec problems into plain English for the console: names the failing spec (`:via`) and
+;; known predicates from a small table, drops the 0/1 map-entry selectors from `:in` paths, and
+;; shows the offending item's :name/:key instead of a value cut at 50 characters.
 ;; ============================================================================
 
 (defn- pred-base-name
@@ -602,7 +622,7 @@
 (def ^:private spec-descriptions
   "Plain-English descriptions for orcpub domain specs, keyed by the leaf spec
    name from a problem's `:via` (the most specific spec that failed)."
-  {"content-keyword" "must be a content-type key like :orcpub.dnd.e5/spells (or :disabled?). Plugin names that are plain strings belong at the multi-plugin top level, not inside a plugin."
+  {"content-keyword" "must be a content-type key like :orcpub.dnd.e5/spells (or :disabled? / :abbreviation). Plugin names that are plain strings belong at the multi-plugin top level, not inside a plugin."
    "option-pack" "must be a text string naming the source/pack"
    "homebrew-item" "is missing the required :option-pack field"
    "homebrew-items" "must be a map of content items"
@@ -674,6 +694,9 @@
   [in]
   (if (empty? in)
     "the top level"
+    ;; A trailing 0 means the problem is about a map KEY (0 = key, 1 = value in map-of
+    ;; navigation), so the crumb says "the key". A genuine vector index 0/1 is dropped as entry
+    ;; navigation too: `:in` alone cannot tell them apart.
     (let [targets-key? (= 0 (last in))
           segs (->> in
                     (remove map-entry-selector?)
@@ -728,11 +751,9 @@
   ([explain-data max-problems]
    (when explain-data
      (let [problems (:cljs.spec.alpha/problems explain-data)
-           ;; `:in` paths of the more specific (non-boolean) failures. When a
-           ;; map value fails `(s/or :items ... :bool boolean?)`, spec reports
-           ;; both the deep :items failure and a shallow "must be true or false"
-           ;; twin at the value's path; the latter is just noise, so drop it
-           ;; when a deeper specific failure exists under the same path.
+           ;; `:in` paths of the specific (non-boolean) failures. A value failing
+           ;; `(s/or :items ... :bool boolean?)` also reports a shallow "must be true or false"
+           ;; twin at its path; that twin is dropped when a deeper specific failure exists.
            specific-paths (keep (fn [{:keys [pred in]}]
                                   (when (not= "boolean?" (pred-base-name pred)) in))
                                 problems)
@@ -863,13 +884,9 @@
      :invalid-items (mapv #(select-keys % [:key :errors]) invalid)}))
 
 (defn validate-plugin-progressive
-  "Validates a plugin progressively, identifying which specific items are invalid.
-
-  Returns map with:
-    :valid - true if entire plugin is valid
-    :content-groups - validation results for each content type
-    :valid-items-count - total valid items
-    :invalid-items-count - total invalid items"
+  "Validates each content group of `plugin`, identifying which items are invalid. Returns
+   {:valid <true when no item is invalid> :content-groups <per-type results>
+   :valid-items-count n :invalid-items-count n}."
   [plugin]
   (let [content-groups (filter
                         (fn [[k _]] (and (qualified-keyword? k)
@@ -879,7 +896,10 @@
                      (fn [[k v]]
                        (if (map? v)
                          (validate-content-group k v)
-                         {:content-type k :valid-count 1 :invalid-count 0 :invalid-items []}))
+                         ;; not a group of entries (a true/false, or a damaged section that
+                         ;; mend could not read) -- counted as imported, it said "Imported 1
+                         ;; items" for a section that held nothing usable
+                         {:content-type k :valid-count 0 :invalid-count 0 :invalid-items []}))
                      content-groups)
         total-valid (reduce + 0 (map :valid-count validations))
         total-invalid (reduce + 0 (map :invalid-count validations))]
@@ -961,18 +981,24 @@
    {:fillable [] :blockers [] :clean []}
    plugins))
 
+(defn library-export-issue-counts
+  "Reuse classify-plugins-for-export to count export-readiness problems across the
+   whole library, for the passive health status:
+     :missing = items missing a required field (fillable → a resolvable warning)
+     :blocked = sources with a spec error that can't export at all (→ broken)
+   No new detection — the exact checks the export flow already runs."
+  [plugins]
+  (let [{:keys [fillable blockers]} (classify-plugins-for-export plugins)]
+    {:missing (reduce + 0 (for [{:keys [issues]} fillable
+                                {:keys [invalid-items]} issues]
+                            (count invalid-items)))
+     :blocked (count blockers)}))
+
 (defn apply-user-edits-to-plugin
-  "Apply the user's export-modal edits to a plugin, then dummy-fill remaining gaps
-   into complete/valid content. Used wherever auto-fixed data is needed: the export
-   FILE, the write-back to My Content (so library matches file; placeholders are
-   self-labeling and flagged), and quarantine repair (re-validates first).
-
-   edits is a map of vector-path → value, e.g.:
-     [\"My Pack\" :orcpub.dnd.e5/spells :fireball :level] → 3
-     [\"My Pack\" :orcpub.dnd.e5/spells :fireball :trait 0 :name] → \"Fire Aura\"
-
-   Only edits whose first element matches plugin-name are applied; blank/NaN
-   values are ignored."
+  "Applies the export-modal `edits` ({[plugin-name content-type item-key & field-path] value}) to
+   `plugin`, then dummy-fills the remaining gaps (fill-missing-for-export). Only edits for
+   `plugin-name` apply; nil, NaN and blank values are skipped. A [:trait idx field] path edits that
+   trait. Used for the export file, the write-back to My Content, and quarantine repair."
   [plugin plugin-name edits]
   (let [edited-plugin
         (reduce-kv
@@ -1050,24 +1076,17 @@
    plugin))
 
 (defn import-progressive
-  "Progressive import: imports valid items and reports invalid ones.
-
-  Returns:
-    {:success true
-     :data <cleaned-plugin>
-     :imported-count <number>
-     :skipped-count <number>
-     :skipped-items [...]}
-
-  This allows users to recover as much data as possible from corrupted files.
-  Handles both single-plugin and multi-plugin structures."
+  "Imports the valid items of `plugin` and reports the invalid ones. Returns {:success true
+   :data <cleaned plugin> :imported-count n :skipped-count n :skipped-items [...] :had-errors b},
+   or {:success false :errors [...]} for a non-map. A multi-plugin map passes through whole and is
+   only counted."
   [plugin]
   (if (map? plugin)
     (if (is-multi-plugin? plugin)
       ;; Multi-plugin: aggregate counts from all inner plugins
       (let [total-items (reduce
                          (fn [total [_plugin-name inner-plugin]]
-                           (+ total (count-items-in-plugin inner-plugin)))
+                           (+ total (if (map? inner-plugin) (count-items-in-plugin inner-plugin) 0)))
                          0
                          plugin)]
         {:success true
@@ -1101,7 +1120,7 @@
 ;; Fields where nil should be replaced with a default value. A source-less item
 ;; lands in the real built-in "Default Option Source" plugin (db.cljs) rather than
 ;; a phantom "Unnamed Content" one, so it's manageable content, not an orphan.
-(def default-option-source "Default Option Source")
+(def default-option-source e5/default-option-source)
 
 (def nil-replace-defaults
   {:disabled? false
@@ -1237,8 +1256,10 @@
      {:data data :changes []})))
 
 (defn rename-empty-plugin-key-with-log
-  "Renames empty string plugin key to a unique name, tracking changes.
-   Returns {:data <cleaned> :changes [...]}"
+  "Renames a blank top-level SOURCE key (\"\") to \"Unnamed Content\" (numbered \"Unnamed
+   Content 2\", … when taken). Returns {:data <cleaned> :changes [...]}.
+   GOTCHA: deliberately NOT `default-option-source`, which is for source-less ITEMS (blank
+   :option-pack); a nameless source stays a distinct bucket the user can find in My Content."
   [data]
   (if (and (map? data) (contains? data ""))
     (let [base-name "Unnamed Content"
@@ -1270,7 +1291,8 @@
                            (:changes step2)
                            (:changes step3)))}))
 
-;; Keep original functions for backwards compatibility
+;; Wrappers returning only the :data of the *-with-log fns above, kept for backwards compatibility.
+;; INVESTIGATE: no callers found; confirm the compatibility need still applies, then remove.
 (defn clean-nil-in-map [m]
   (:data (clean-nil-in-map-with-log m)))
 
@@ -1342,6 +1364,57 @@
    :orcpub.dnd.e5/languages "languages"
    :orcpub.dnd.e5/encounters "encounters"})
 
+(def content-type-singular
+  "Singular, capitalized label per content type, for placeholder names like
+   'Unnamed Race' (sanitize-item-names appends it after 'Unnamed ')."
+  {:orcpub.dnd.e5/classes "Class"       :orcpub.dnd.e5/subclasses "Subclass"
+   :orcpub.dnd.e5/races "Race"          :orcpub.dnd.e5/subraces "Subrace"
+   :orcpub.dnd.e5/backgrounds "Background" :orcpub.dnd.e5/feats "Feat"
+   :orcpub.dnd.e5/spells "Spell"        :orcpub.dnd.e5/monsters "Monster"
+   :orcpub.dnd.e5/invocations "Invocation" :orcpub.dnd.e5/selections "Selection"
+   :orcpub.dnd.e5/languages "Language"  :orcpub.dnd.e5/encounters "Encounter"
+   :orcpub.dnd.e5/boons "Boon"})
+
+(defn fill-option-pack
+  "`plugin` with every item's blank or missing `:option-pack` set to `source-name`, the source it
+   is stored under. Items that name a source keep it."
+  [plugin source-name]
+  (reduce-kv (fn [p ct items]
+               (assoc p ct (if (and (qualified-keyword? ct) (map? items))
+                             (reduce-kv (fn [m k item]
+                                          (assoc m k (if (and (map? item)
+                                                              (str/blank? (str (:option-pack item))))
+                                                       (assoc item :option-pack source-name)
+                                                       item)))
+                                        {} items)
+                             items)))
+             {} plugin))
+
+(defn coerce-invalid-names
+  "Coerce any present-but-INVALID item name (and nested trait/option names) to a
+   valid letter-leading placeholder. Keys are left alone; e5/rekey-plugin moves an
+   item whose key is invalid to the key derived from its fixed name.
+   Blanks are already handled by fill-missing-*; this catches the
+   present-but-invalid case (e.g. \"@@@\") so the recovery panel's 'Fix & Restore'
+   just works in one click instead of forcing the user to hand-type a name."
+  [plugin]
+  (if-not (map? plugin)
+    plugin
+    (reduce-kv
+     (fn [p ct items]
+       (if (and (qualified-keyword? ct) (map? items))
+         (assoc p ct
+                (reduce-kv
+                 (fn [m ik item]
+                   (assoc m ik (sanitize-item-names item (get content-type-singular ct "Item"))))
+                 {} items))
+         (assoc p ct items)))
+     {} plugin)))
+
+;; INVESTIGATE 2026-08-23: pre-existing before this branch (af228f12); a
+;; content-library code sweep found no callers anywhere in the repo. Left in
+;; place pending a dedicated housekeeping pass to confirm and remove — not
+;; deleted here to keep this feature branch's scope focused.
 (defn find-duplicate-keys-in-content
   "Finds duplicate keys within a single content group.
    Returns a vector of {:key :content-type :sources [...]} for each duplicate."
@@ -1382,7 +1455,7 @@
   [plugins]
   (reduce
    (fn [acc [source-name plugin]]
-     (let [plugin-keys (collect-all-keys-from-plugin plugin source-name)]
+     (let [plugin-keys (when (map? plugin) (collect-all-keys-from-plugin plugin source-name))]
        (merge-with into acc plugin-keys)))
    {}
    plugins))
@@ -1410,17 +1483,128 @@
    []
    keys-by-type))
 
+;; ============================================================================
+;; Collision-risk types + mutual-exclusion (same-key twins across sources)
+;; ============================================================================
+
+(def collision-risk-types
+  "Content types where two same-key items COLLAPSE to one at read time and the
+   surviving copy is picked nondeterministically (source-name hash order). Only
+   these can mutually exclude — leaving both enabled yields an unpredictable
+   winner, so duplicate-key resolution turns the loser off (deterministic).
+   For the other (pool/list) types a duplicate merely shows twice, harmlessly.
+   Canonical home; the conflict modal and events both read it from here."
+  #{:orcpub.dnd.e5/spells   :orcpub.dnd.e5/races      :orcpub.dnd.e5/classes
+    :orcpub.dnd.e5/monsters :orcpub.dnd.e5/encounters :orcpub.dnd.e5/selections})
+
+(defn collision-twin-index
+  "Index the whole library for same-key items in collision-risk types that live
+   in MORE THAN ONE source. Key = [content-type item-key]; value = vector of
+   {:source :name :disabled?}. A group with >1 entry is a real mutual-exclusion
+   set (only one may be enabled). Derived at display time — nothing stored."
+  [plugins]
+  (->> (for [[source plugin] plugins
+             :when (map? plugin)
+             [ct items] plugin
+             :when (and (contains? collision-risk-types ct) (map? items))
+             [k item] items
+             :when (map? item)]
+         [[ct k] {:source source
+                  :name (:name item)
+                  :disabled? (boolean (:disabled? item))}])
+       (reduce (fn [acc [gk entry]] (update acc gk (fnil conj []) entry)) {})
+       (into {} (filter (fn [[_ entries]] (< 1 (count entries)))))))
+
+(defn twin-note
+  "Describes one item's relationship with its same-key twins in other sources, or nil when there
+   is none. Given the twin index, the item's [source content-type key] and its disabled? flag,
+   returns {:kind k :twin-name .. :twin-source ..}: :conflict when this item and a twin are both
+   ON (unresolved; the app can't tell which wins), :off when this is OFF and a twin ON, :on when
+   this is ON and a twin OFF. Never fires for plain user-disables with no live twin."
+  [twin-idx source content-type key disabled?]
+  (when-let [entries (get twin-idx [content-type key])]
+    (let [others (remove #(= source (:source %)) entries)]
+      (cond
+        ;; UNRESOLVED: two enabled copies at once — the actionable conflict.
+        (and (not disabled?) (some (comp not :disabled?) others))
+        (let [on (first (remove :disabled? others))]
+          {:kind :conflict :twin-name (:name on) :twin-source (:source on)})
+
+        (and disabled? (some (comp not :disabled?) others))
+        (let [on (first (remove :disabled? others))]
+          {:kind :off :twin-name (:name on) :twin-source (:source on)})
+
+        (and (not disabled?) (some :disabled? others))
+        (let [off (first (filter :disabled? others))]
+          {:kind :on :twin-name (:name off) :twin-source (:source off)})))))
+
+(defn unresolved-collisions
+  "Details of each UNRESOLVED collision group (2+ enabled copies of one key), for
+   naming the conflict and tinting the offenders. Returns
+   [{:content-type ct :key k :name <item name> :sources [enabled source names]} …]."
+  [plugins]
+  (->> (collision-twin-index plugins)
+       (keep (fn [[[ct k] entries]]
+               (let [on (remove :disabled? entries)]
+                 (when (>= (count on) 2)
+                   {:content-type ct :key k
+                    :name (:name (first on))
+                    :sources (mapv :source on)}))))
+       vec))
+
+(defn unresolved-conflict-sources
+  "Set of source names that hold at least one item in an unresolved conflict —
+   used to flag the offending library rows."
+  [plugins]
+  (into #{} (mapcat :sources (unresolved-collisions plugins))))
+
+(defn enabled-twin-paths
+  "Paths [source content-type key] of every ENABLED same-key twin of the given
+   item, in OTHER sources — the items swap-on-enable must turn off first so the
+   ≤1-enabled invariant holds. Empty when the item isn't in a collision-risk
+   type or has no live twin."
+  [plugins source content-type key]
+  (when (contains? collision-risk-types content-type)
+    (for [[src plugin] plugins
+          :when (and (not= src source) (map? plugin))
+          :let [item (get-in plugin [content-type key])]
+          :when (and (map? item) (not (:disabled? item)))]
+      [src content-type key])))
+
+(defn mutual-exclusion-off-count
+  "How many items are OFF only because a same-key twin is ON — the number behind
+   the library-level 'N items are off because a duplicate is on' summary. Derived
+   from the twin index; nothing stored."
+  [plugins]
+  (let [twin-idx (collision-twin-index plugins)]
+    (reduce (fn [n [source plugin]]
+              (if (map? plugin)
+                (reduce (fn [m [ct items]]
+                          (if (and (contains? collision-risk-types ct) (map? items))
+                            (reduce (fn [c [k item]]
+                                      (if (and (map? item)
+                                               (= :off (:kind (twin-note twin-idx source ct k
+                                                                         (boolean (:disabled? item))))))
+                                        (inc c) c))
+                                    m items)
+                            m))
+                        n plugin)
+                n))
+            0 plugins)))
+
+(defn unresolved-collision-count
+  "How many same-key collision groups are still UNRESOLVED — i.e. two or more
+   copies of one key are enabled at once, so the surviving item is picked
+   nondeterministically. Zero means every cross-source duplicate already has a
+   deterministic winner (all but one turned off). Just the length of
+   unresolved-collisions, so the 'which groups' and 'how many' answers can't drift."
+  [plugins]
+  (count (unresolved-collisions plugins)))
+
 (defn detect-duplicate-keys
-  "Detects duplicate keys in imported data and against existing plugins.
-
-   Parameters:
-   - import-data: the data being imported (single or multi-plugin)
-   - existing-plugins: currently loaded plugins map (optional)
-   - import-source-name: name for single-plugin imports
-
-   Returns:
-   {:internal-conflicts [...] - duplicates within the import
-    :external-conflicts [...] - conflicts with existing plugins}"
+  "Detects duplicate keys within `import-data` (single or multi-plugin) and against
+   `existing-plugins` (optional); `import-source-name` names a single-plugin import.
+   Returns {:internal-conflicts [...] :external-conflicts [...]}."
   [import-data existing-plugins import-source-name]
   (let [;; Normalize import to multi-plugin format for consistent processing
         import-as-multi (if (is-multi-plugin? import-data)
@@ -1477,6 +1661,9 @@
 ;; ============================================================================
 ;; Fuzzy Key Matching
 ;; ============================================================================
+;; INVESTIGATE: no callers found for this cluster (entry point suggest-key-matches); the live "did
+;; you mean" matcher is key-similarity/find-similar-content in content-reconciliation. Confirm,
+;; then remove it with its Levenshtein tests.
 
 (defn levenshtein-distance
   "Calculate the Levenshtein edit distance between two strings.
@@ -1592,18 +1779,11 @@
 ;; ============================================================================
 
 (defn correct-library
-  "Runs the same data-level cleanups the importer runs, but over an entire
-   already-parsed library (multi-plugin map of source-name -> plugin), and
-   detects cross-source key conflicts. This is the single gate both boundaries
-   share: whatever import would fix, export runs too.
-
-   Returns {:data <corrected library>
-            :changes [...]                ; silent fixes applied (for logging)
-            :key-conflicts {:internal-conflicts [...] :external-conflicts [...]}}.
-
-   Note: unlike the import pipeline this does NOT auto-fill missing required
-   fields — on export those are surfaced to the user through the fill-in dialog
-   (classify-plugins-for-export) rather than silently placeholdered."
+  "Runs the importer's data-level cleanups and cross-source key-conflict detection over a parsed
+   library ({source-name plugin}): the one gate import and export share. Returns {:data <corrected>
+   :changes [...silent fixes] :key-conflicts {:internal-conflicts [...] :external-conflicts [...]}}.
+   GOTCHA: does NOT fill missing required fields; export surfaces those in the fill-in dialog
+   (classify-plugins-for-export)."
   [library]
   (let [normalized (normalize-text-in-data library)
         text-normalized? (not= library normalized)
@@ -1626,18 +1806,74 @@
 ;; Main Validation Entry Point
 ;; ============================================================================
 
+(defn finding-description
+  "Import-log wording for one homebrew-shapes finding (homebrew-shapes/fix-library): a field fixed,
+   or one that cannot be read, whose entry is set aside for repair when the import is stored."
+  [{:keys [source content-type key path action found]}]
+  (let [entry (if (some? key)
+                (str (get content-type-singular content-type "Entry") " " key)
+                (str "the " (get content-type-names content-type (name content-type)) " section"))
+        in (when (seq source) (str " in \"" source "\""))
+        field (str/join " " (map #(if (keyword? %) (name %) (str %)) path))]
+    (if (= :fixed action)
+      (str "Fixed " (if (seq field) field "the value") " of " entry in " (it was " (pr-str found) ")")
+      (str entry in ": " (if (seq field) field "it") " could not be read, so it will be set aside for "
+           "repair in My Content"))))
+
+(defn repair-description
+  "Import-log wording for one homebrew-shapes/read-import repair."
+  [{:keys [source section key field repair named dropped]}]
+  (let [what (when section (str "the " (get content-type-names section (name section)) " section"))
+        in (when source (str " in \"" source "\""))
+        entry (when (some? key)
+                (str (get content-type-singular section "Entry") " " (if (keyword? key) key (pr-str key))))
+        field-name (when field (name field))
+        plural (fn [n one many] (if (= 1 n) one many))]
+    (case repair
+      :file-from-text     "The file's content was stored as text; read it back"
+      :source-from-text   (str "Source \"" source "\" was stored as text; read it back")
+      :section-from-text  (str "Read " what in " back from text")
+      :section-from-list  (str "Turned " what in " from a list back into entries")
+      :empty-section      (str "Dropped " what in ", which was empty")
+      :key-restored       (str entry in ": its :key was not a keyword, so it now matches the key it is filed under")
+      :cards-mended       (str "Fixed the " field-name " of " entry in
+                               (let [parts (cond-> []
+                                             (pos? named) (conj (str named (plural named " text item kept as a named card"
+                                                                                   " text items kept as named cards")))
+                                             (pos? dropped) (conj (str "dropped " dropped (plural dropped " item that was not a card"
+                                                                                                     " items that were not cards"))))]
+                                 (when (seq parts) (str ": " (str/join ", " parts)))))
+      :cards-not-a-list   (str "Removed the " field-name " of " entry in ", which were not a list")
+      :spell-lists-not-a-map (str "Removed the class lists of " entry in
+                                  ", which were not a map of classes; add it to classes in the spell builder")
+      (str "Repaired " (or what "a section") in))))
+
+(defn fill-import-sources
+  "Give each entry with no source one (e5/source-for) in freshly read import data, a
+   single source or a {source-name source} library. The July rule filled a blank or
+   nil :option-pack with the default but skipped an entry that left the field out.
+   Returns {:data d :changes [...]}, a :fixed-option-pack change per entry."
+  [data]
+  (let [{:keys [filled] :as result}
+        (if (is-multi-plugin? data)
+          (let [{l :library f :filled} (e5/fill-library-sources data)]
+            {:data l :filled f})
+          (let [to (e5/source-for nil data)
+                {p :plugin f :filled} (e5/fill-missing-sources data to)]
+            {:data p :filled (map #(assoc % :to to) f)}))]
+    {:data (:data result)
+     :changes (mapv (fn [{:keys [source section key to]}]
+                      {:type :fixed-option-pack
+                       :path (cond-> [] source (conj source) true (conj section key))
+                       :from nil
+                       :to to})
+                    filled)}))
+
 (defn validate-import
-  "Main validation function for orcbrew file imports.
-
-  Options:
-    :strategy - :strict (all-or-nothing) or :progressive (import valid items)
-    :auto-clean - whether to apply automatic cleaning fixes
-    :existing-plugins - currently loaded plugins (for duplicate key detection)
-    :import-source-name - name to use for single-plugin imports
-
-  Returns detailed validation results with user-friendly error messages.
-  Includes :changes key with list of all cleaning operations performed.
-  Includes :key-conflicts key with duplicate key warnings."
+  "Validates and cleans orcbrew `edn-text` for import. Opts: :strategy :strict (all-or-nothing) or
+   :progressive (default; imports valid items), :auto-clean (default true) applies cleaning fixes,
+   :existing-plugins for duplicate-key detection, :import-source-name names a single-plugin import.
+   Returns results with user-friendly errors, :changes (the cleaning performed) and :key-conflicts."
   [edn-text {:keys [strategy auto-clean existing-plugins import-source-name]
              :or {strategy :progressive auto-clean true}}]
 
@@ -1678,12 +1914,58 @@
                          after-commas)
                        edn-text)
         ;; Step 2: Parse EDN
-        parse-result (parse-edn cleaned-text)]
+        parse-result (parse-edn cleaned-text)
+        ;; Step 2.4: Format-version gate. A v2 envelope from a NEWER build than this
+        ;; one is refused with a clear message; a supported envelope is unwrapped so
+        ;; the rest validates the plugin map, not the wrapper; a plain v1 file passes
+        ;; through untouched.
+        compat (when (:success parse-result)
+                 (orcbrew-format/compat-check (:data parse-result)))
+        parse-result (if (and compat (:ok? compat))
+                       (update parse-result :data orcbrew-format/unwrap)
+                       parse-result)]
 
-    (if (:success parse-result)
+    (cond
+      (and compat (not (:ok? compat)))
+      {:success false
+       :parse-error false
+       :errors [(:message compat)]
+       :error (:message compat)
+       :changes @string-changes
+       :skipped-items []}
+
+      (:success parse-result)
+
+        ;; Step 2.25: damaged structure read back (a file, source or section kept as text or a list)
+        ;; before anything walks it, then the shape table's fixes, each listed. An entry it cannot
+        ;; read stays as written, and is set aside for repair when the import is stored.
+        (let [{read-data :data repairs :repairs} (shapes/read-import (:data parse-result))
+              library? (and (map? read-data) (every? string? (keys read-data)))
+              {fixed :library findings :findings} (when (and auto-clean (map? read-data))
+                                                    (shapes/fix-library (if library? read-data {"" read-data})))
+              mended (cond (or (not auto-clean) (not (map? read-data))) read-data
+                           library? fixed
+                           :else (get fixed ""))
+              repair-changes (into (mapv (fn [r] {:type :repaired-section
+                                                  :description (repair-description r)
+                                                  :entry (when (:key r) [(:source r) (:section r) (:key r)])})
+                                         repairs)
+                                   (map (fn [f] {:type :repaired-section
+                                                 :description (finding-description f)
+                                                 :entry (when (:key f)
+                                                          [(not-empty (:source f)) (:content-type f) (:key f)])}))
+                                   findings)]
+          (if-not (map? mended)
+            {:success false
+             :errors ["This file doesn't contain homebrew content that can be read."]
+             :changes (into @string-changes repair-changes)}
 
         ;; Step 2.5: Normalize text (Unicode → ASCII) for reliable PDF/export
-        (let [parsed-data (:data parse-result)
+        (let [;; Step 2.4: an entry with no source takes the name of the source it is
+              ;; filed under, or the one its sibling entries share, else the default.
+              {parsed-data :data source-changes :changes} (if auto-clean
+                                                            (fill-import-sources mended)
+                                                            {:data mended :changes []})
               normalized-data (if auto-clean
                                 (normalize-text-in-data parsed-data)
                                 parsed-data)
@@ -1706,6 +1988,8 @@
                              {:data (:data fill-result) :changes []})
 
               all-changes (vec (concat @string-changes
+                                       repair-changes
+                                       source-changes
                                        (when text-normalized?
                                          [{:type :text-normalization
                                            :description "Normalized Unicode characters (smart quotes, dashes, etc.) to ASCII"}])
@@ -1728,8 +2012,9 @@
           (assoc validation-result
                  :changes all-changes
                  :key-conflicts key-conflicts
-                 :key-warnings key-warnings))
+                 :key-warnings key-warnings))))
 
+      :else
         ;; Parse failed - return detailed error
         {:success false
          :parse-error true
@@ -1742,21 +2027,82 @@
 ;; Key Renaming (for conflict resolution)
 ;; ============================================================================
 
-(def key-reference-map
+;; DEPRECATED 2026-09-27, remove after 2026-12: superseded by library-links/links.
+#_(def key-reference-map
   "Maps content types to fields that reference other content keys.
    Used to update internal references when renaming keys."
   {:orcpub.dnd.e5/subclasses {:class :orcpub.dnd.e5/classes}    ; :class field references a class key
    :orcpub.dnd.e5/subraces {:race :orcpub.dnd.e5/races}})       ; :race field references a race key
 
-(defn generate-new-key
-  "Generate a new key by appending source identifier.
-   E.g., :artificer + 'Kibbles Tasty' → :artificer-kibbles-tasty
-   Uses common/name-to-kw pattern for consistent slugification."
-  [original-key source-name]
-  (let [source-slug (name (common/name-to-kw source-name))]
-    (keyword (str (name original-key) "-" source-slug))))
+(defn generate-new-identity
+  "The {:name :key} an item takes when its source disambiguates it: \"Artificer\" from \"Kibbles
+   Tasty\" becomes {:name \"Artificer (KsTy)\" :key :artificer-ksty}. The key derives from the
+   tagged name, so re-deriving it reproduces it. `taken?` (optional) is a predicate on a candidate
+   key; on a clash the counter goes inside the parentheses (\"Artificer (KsTy 2)\")."
+  ([item-name source-name] (common/disambiguated item-name source-name))
+  ([item-name source-name taken?] (common/disambiguated item-name source-name taken?)))
 
-(defn update-references-in-item
+(def ^:private referenced-content-types
+  "Content types another item can point at by key (library-links/links :to)."
+  (set (map :to links/links)))
+
+(declare rename-key-in-plugin)
+
+(defn relocate-content
+  "Moves (`op` :move) or copies (:copy) `selections` ([source content-type key] ...) in `plugins`
+   to source `target`, as {:plugins :placed :renamed [{:from :to :ct :source}] :missing}. A move
+   keeps key and name unless `target` holds the key; then, and always for a copy, the name gains
+   the target's abbreviation (\"Artificer (KsTy)\") and the key derives from it. Moving to the
+   item's own source does nothing. Parents (classes, races) go first so later keys avoid earlier
+   ones."
+  [plugins selections target op]
+  (let [copy? (= op :copy)]
+    (reduce
+     (fn [{:keys [plugins] :as acc} [src ct k]]
+       (let [item (get-in plugins [src ct k])]
+         (cond
+           (nil? item)                       (update acc :missing inc)
+           (and (not copy?) (= src target))  (update acc :placed inc) ; already home
+           :else
+           (let [target-map (get-in plugins [target ct])
+                 ;; A renaming relocation disambiguates by NAME and derives the key from it, as an
+                 ;; import conflict does; the new key must also be free inside the source, where a
+                 ;; renaming move rekeys it.
+                 source-map (get-in plugins [src ct])
+                 ident      (when (or copy? (contains? target-map k))
+                              (generate-new-identity (or (:name item) (common/kw-to-name k))
+                                                     target
+                                                     #(or (contains? target-map %)
+                                                          (and (not copy?) (not= % k)
+                                                               (contains? source-map %)))))
+                 new-key    (if ident (:key ident) k)
+                 ;; A renaming MOVE goes through rename-key-in-plugin in the source first, as an
+                 ;; import conflict does: it repoints the source's subclasses/subraces and records
+                 ;; the old key so characters rebind. A copy skips this.
+                 renamed-in-src (if (and ident (not copy?))
+                                  (update plugins src rename-key-in-plugin ct k new-key (:name ident))
+                                  plugins)
+                 new-item   (cond-> (assoc (if (and ident (not copy?))
+                                             (get-in renamed-in-src [src ct new-key])
+                                             item)
+                                           :key new-key :option-pack target)
+                              ident (assoc :name (:name ident))
+                              ;; the original keeps its history; a copy claiming it too would make
+                              ;; every old key ambiguous, and characters would stop healing
+                              copy? (dissoc :former-keys :former-key))
+                 p1         (assoc-in renamed-in-src [target ct new-key] new-item)
+                 p2         (if copy? p1 (update-in p1 [src ct] dissoc (if ident new-key k)))]
+             (cond-> (-> acc (assoc :plugins p2) (update :placed inc)) ;; not app-db
+               (not= new-key k) (update :renamed conj {:from k :to new-key :ct ct :source src}))))))
+     {:plugins plugins :renamed [] :placed 0 :missing 0}
+     ;; Parents first. The selection arrives as a set, in hash order, so a subclass
+     ;; could otherwise move before its class; the class's rename then repoints only
+     ;; what is still in the source, and the subclass sits in the target on the old
+     ;; key, under the target's same-keyed class. Stable, so order within a rank holds.
+     (sort-by (fn [[_ ct _]] (if (contains? referenced-content-types ct) 0 1)) selections))))
+
+;; DEPRECATED 2026-09-27, remove after 2026-12: superseded by library-links/repoint.
+#_(defn update-references-in-item
   "Update references to a renamed key within a single item.
    reference-field: the field in this item that may reference the old key
    old-key: the original key being renamed
@@ -1766,7 +2112,7 @@
     (assoc item reference-field new-key)
     item))
 
-(defn update-references-in-content-group
+#_(defn update-references-in-content-group
   "Update all references to a renamed key within a content group."
   [items reference-field old-key new-key]
   (into {}
@@ -1775,83 +2121,58 @@
              items)))
 
 (defn rename-key-in-plugin
-  "Rename a key within a single plugin, updating all internal references.
-
-   Parameters:
-   - plugin: the plugin data map
-   - content-type: which content type contains the key (e.g., :orcpub.dnd.e5/classes)
-   - old-key: the current key to rename
-   - new-key: the new key to use
-
-   Returns the updated plugin with:
-   1. The item moved to the new key
-   2. All internal references updated (e.g., subclasses pointing to renamed class)"
-  [plugin content-type old-key new-key]
+  "`plugin` with `content-type`'s `old-key` renamed to `new-key`: the item moves, takes `new-name`
+   as its `:name` when given (a disambiguating rename), records `old-key` in `:former-keys`, and
+   every link in this plugin that named `old-key` is repointed (library-links/links)."
+  ([plugin content-type old-key new-key] (rename-key-in-plugin plugin content-type old-key new-key nil))
+  ([plugin content-type old-key new-key new-name]
   (if-let [content-group (get plugin content-type)]
-    ;; Only rename when the item actually exists. A redundant rename (e.g. a key
-    ;; that is BOTH an internal conflict — same key across import sources — and an
-    ;; external one vs existing content generates two renames for it) would
-    ;; otherwise hit an already-moved key and `(assoc new-key nil)`, fabricating a
-    ;; `key -> nil` entry that fails ::plugin and quarantines the whole source.
+    ;; Only rename when the item exists. A key that is both an internal and an external conflict
+    ;; gets two renames; the second would `(assoc new-key nil)`, and that `key -> nil` entry fails
+    ;; ::plugin and quarantines the whole source.
     (if-let [item (get content-group old-key)]
-      (let [;; Step 1: Rename the key in its content group
+      (let [;; Step 1: move the item to new-key. Its own :key moves too (content subs key by :key,
+            ;; so a stale one re-collides); :former-keys records old-key so characters that chose
+            ;; it rebind on load (former-key-index); new-name, when given, moves with the key, or
+            ;; the next editor save derives the OLD key back from the name.
             updated-group (-> content-group
                               (dissoc old-key)
-                              (assoc new-key item))
+                              (assoc new-key (cond-> (-> item
+                                                          (assoc :key new-key)
+                                                          (content-recon/record-former-key old-key))
+                                               new-name (assoc :name new-name))))
 
-            ;; Step 2: Find content types that reference this type
-            referencing-types (keep (fn [[ct refs]]
-                                      (when (some #(= (val %) content-type) refs)
-                                        [ct (key (first (filter #(= (val %) content-type) refs)))]))
-                                    key-reference-map)
-
-            ;; Step 3: Update references in those content types
-            updated-plugin (reduce
-                            (fn [p [ref-content-type ref-field]]
-                              (if-let [ref-group (get p ref-content-type)]
-                                (assoc p ref-content-type
-                                       (update-references-in-content-group
-                                        ref-group ref-field old-key new-key))
-                                p))
-                            (assoc plugin content-type updated-group)
-                            referencing-types)]
+            ;; Step 2: repoint every link in this source that names the old key.
+            updated-plugin (links/repoint (assoc plugin content-type updated-group)
+                                          content-type old-key new-key)]
         updated-plugin)
       ;; old-key already gone — a no-op, not a nil-clobber.
       plugin)
-    plugin))
+    plugin)))
 
 (defn rename-key-in-plugins
-  "Rename a key within a multi-plugin structure.
-
-   Parameters:
-   - plugins: map of {source-name plugin-data}
-   - source-name: which source contains the key to rename
-   - content-type: which content type (e.g., :orcpub.dnd.e5/classes)
-   - old-key: current key
-   - new-key: new key
-
-   Returns updated plugins map."
-  [plugins source-name content-type old-key new-key]
-  (if-let [plugin (get plugins source-name)]
-    (assoc plugins source-name
-           (rename-key-in-plugin plugin content-type old-key new-key))
-    plugins))
+  "`plugins` ({source-name plugin}) with `source-name`'s `content-type` item renamed from
+   `old-key` to `new-key` (and `new-name` when given), as rename-key-in-plugin does. Unchanged
+   when the source is absent."
+  ([plugins source-name content-type old-key new-key]
+   (rename-key-in-plugins plugins source-name content-type old-key new-key nil))
+  ([plugins source-name content-type old-key new-key new-name]
+   (if-let [plugin (get plugins source-name)]
+     (assoc plugins source-name
+            (rename-key-in-plugin plugin content-type old-key new-key new-name))
+     plugins)))
 
 (defn apply-key-renames
-  "Apply a batch of key renames to import data.
-
-   Parameters:
-   - data: the import data (single or multi-plugin)
-   - renames: vector of {:source :content-type :from :to}
-
-   Returns updated data with all renames applied."
+  "Import `data` (one plugin or several) with `renames` ({:source :content-type :from :to :to-name?}
+   ...) applied; `:to-name` also renames the item. Links follow only inside each item's own source;
+   `library/repoint-offer` finds the rest, to ask about."
   [data renames]
   (let [is-multi (is-multi-plugin? data)]
     (reduce
-     (fn [d {:keys [source content-type from to]}]
+     (fn [d {:keys [source content-type from to to-name]}]
        (if is-multi
-         (rename-key-in-plugins d source content-type from to)
-         (rename-key-in-plugin d content-type from to)))
+         (rename-key-in-plugins d source content-type from to to-name)
+         (rename-key-in-plugin d content-type from to to-name)))
      data
      renames)))
 
@@ -1859,66 +2180,91 @@
 ;; User-Friendly Error Messages
 ;; ============================================================================
 
-(defn format-key-conflict-section
-  "Formats key conflicts into a section for display."
-  [{:keys [key-conflicts key-warnings]}]
+(defn format-key-conflict-details
+  "Key conflicts as display LINES, one per idea — not a paragraph with newlines
+   inside it. The banner renders each line itself, so structure survives HTML."
+  [{:keys [key-warnings]}]
   (when (seq key-warnings)
     (let [internal (filter #(= :internal-duplicate (:type %)) key-warnings)
           external (filter #(= :external-duplicate (:type %)) key-warnings)]
-      (str "\n\n⚠️ Key Conflicts Detected:\n"
-           (when (seq internal)
-             (str "\nWithin this file:\n"
-                  (str/join "\n" (map #(str "  • " (:message %)) internal))))
-           (when (seq external)
-             (str "\nWith existing content:\n"
-                  (str/join "\n" (map #(str "  • " (:message %)) external))))
-           "\n\nDuplicate keys can cause unexpected behavior. "
-           "Consider renaming one of the conflicting items."))))
+      (concat
+       (when (seq internal)
+         (cons "Key conflicts within this file:"
+               (map #(str "• " (:message %)) internal)))
+       (when (seq external)
+         (cons "Key conflicts with existing content:"
+               (map #(str "• " (:message %)) external)))
+       ["Duplicate keys can cause unexpected behavior. Consider renaming one of the conflicting items."]))))
+
+(defn- repair-lines
+  "One line for the import notice when mend repaired anything; the log has each repair."
+  [result]
+  (let [rs (filter #(= :repaired-section (:type %)) (:changes result))
+        n-entries (count (distinct (keep :entry rs)))
+        n-sections (count (remove :entry rs))
+        parts (cond-> []
+                (pos? n-sections) (conj (str n-sections " damaged section" (when (not= 1 n-sections) "s")))
+                (pos? n-entries) (conj (str n-entries " damaged entr" (if (= 1 n-entries) "y" "ies"))))]
+    (when (seq parts)
+      [(str "Repaired " (str/join " and " parts) " (details in the import log)")])))
+
+(defn import-notice-type
+  "Tone for an import that went through: :warning when something was skipped or a
+   key clashed, so a partial import no longer arrives dressed as a clean one."
+  [result]
+  (if (or (:had-errors result) (seq (:key-warnings result))) :warning :success))
+
+(defn- counted [n noun]
+  (str n " " noun (when (not= 1 n) "s")))
 
 (defn format-import-result
-  "Formats validation result into a user-friendly message."
+  "What an import result should say, as {:title :details} — a headline and its
+   supporting lines. The caller decides tone and whether to offer an action.
+   A partial import marks lines {:mark :text}, colour on the icon not the text.
+   GOTCHA: :details must stay a seq of strings, not one string with embedded
+   newlines — the banner renders HTML, where newlines collapse to spaces.
+   See homebrew-safety-net.md."
   [result]
-  (let [key-conflict-section (format-key-conflict-section result)]
+  (let [conflicts (format-key-conflict-details result)]
     (cond
       ;; Parse error
       (:parse-error result)
-      (str "⚠️ Could not read file\n\n"
-           "Error: " (:error result) "\n"
-           (when (:line result)
-             (str "Line: " (:line result) "\n"))
-           "\n" (:hint result)
-           "\n\nThe file may be corrupted or incomplete. "
-           "Try exporting a fresh copy if you have the original source.")
+      {:title "Could not read file"
+       :details (concat [(str "Error: " (:error result))]
+                        (when (:line result) [(str "Line: " (:line result))])
+                        (when (:hint result) [(:hint result)])
+                        ["The file may be corrupted or incomplete. Try exporting a fresh copy if you have the original source."])}
 
       ;; Validation error (strict mode)
       (and (not (:success result)) (:errors result))
-      (str "⚠️ Invalid orcbrew file\n\n"
-           (str/join "\n\n" (:errors result))
-           "\n\nTo recover data from this file, you can:"
-           "\n1. Try progressive import (imports valid items, skips invalid ones)"
-           "\n2. Check the browser console for detailed validation errors"
-           "\n3. Export a fresh copy if you have the original source")
+      {:title "Invalid orcbrew file"
+       :details (concat (:errors result)
+                        ["To recover data from this file, you can:"
+                         "1. Try progressive import (imports valid items, skips invalid ones)"
+                         "2. Check the browser console for detailed validation errors"
+                         "3. Export a fresh copy if you have the original source"])}
 
       ;; Progressive import with some items skipped
       (:had-errors result)
-      (str "⚠️ Import completed with warnings\n\n"
-           "Imported: " (:imported-count result) " valid items\n"
-           "Skipped: " (:skipped-count result) " invalid items\n\n"
-           "Invalid items were skipped. Check the browser console for details."
-           key-conflict-section
-           "\n\nTo be safe, export all content now to create a clean backup.")
+      {:title "Import completed with warnings"
+       :details (concat [{:mark :done
+                          :text (str "Imported " (counted (:imported-count result) "item"))}
+                         {:mark :skipped
+                          :text (str "Skipped " (counted (:skipped-count result) "item")
+                                     " that couldn't be imported (the import log says why)")}]
+                        (map (fn [line] {:mark :repaired :text line}) (repair-lines result))
+                        conflicts)}
 
       ;; Successful import (but may have key conflicts)
       (:success result)
-      (str (if (seq (:key-warnings result))
-             "⚠️ Import successful with warnings"
-             "✅ Import successful")
-           "\n\n"
-           (when (:imported-count result)
-             (str "Imported " (:imported-count result) " items"))
-           key-conflict-section
-           "\n\nTo be safe, export all content now to create a clean backup.")
+      {:title (if (seq (:key-warnings result))
+                "Import successful, with warnings"
+                "Import successful")
+       :details (concat (when (:imported-count result)
+                          [(str "Imported " (:imported-count result) " items")])
+                        (repair-lines result)
+                        conflicts)}
 
       ;; Unknown result
       :else
-      "❌ Unknown import result")))
+      {:title "Unknown import result"})))

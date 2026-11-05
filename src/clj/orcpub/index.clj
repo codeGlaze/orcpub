@@ -1,18 +1,34 @@
 (ns orcpub.index
-  (:require [hiccup.page :refer [html5 include-css]]
+  (:require [hiccup.page :refer [include-css]]
+            [hiccup2.core :as h]
             [cheshire.core :as cheshire]
             [orcpub.oauth :as oauth]
             [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
             [orcpub.fork.integrations :as integrations]
-            [environ.core :refer [env]]))
+            [orcpub.loading-spinner :as spinner]
+            [orcpub.artist-credit :as artist-credit]
+            [orcpub.build-badge :as build-badge]
+            [orcpub.env :as env]
+            [orcpub.config :as config]
+            [orcpub.pedestal :as pedestal]))
+
+
+(defn asset-url
+  "`path` (a public file such as /js/compiled/orcpub.js) with ?v= its content stamp, so a new build
+   has a new address and can be cached for a year (pedestal/static-cache-control). The bare `path`
+   in dev mode, where Figwheel rewrites the file, or when the file is missing."
+  [path]
+  (if-let [v (when-not (config/dev-mode?) (pedestal/content-stamp path))]
+    (str path "?v=" v)
+    path))
 
 (def homebrew-url
   "URL to fetch server-hosted .orcbrew plugins from on first load.
    Set LOAD_HOMEBREW_URL to enable (e.g. \"/homebrew.orcbrew\" or a full URL).
    When unset, no fetch is attempted — plugins come only from local imports."
-  (env :load-homebrew-url))
+  (env/value :load-homebrew-url))
 
 (defn meta-tag [property content]
   (when content
@@ -31,15 +47,120 @@
       (into [:script attrs] body)
       [:script attrs])))
 
+(defn script-json
+  "JSON for an inline <script>: `<`, `>`, `&` and the line separators become
+   \\u escapes, so a value (an artist's credit) cannot close the tag."
+  [x]
+  (-> (cheshire/generate-string x)
+      (.replace "<" "\\u003c")
+      (.replace ">" "\\u003e")
+      (.replace "&" "\\u0026")
+      (.replace "\u2028" "\\u2028")
+      (.replace "\u2029" "\\u2029")))
+
+(def ^:private rescue-filename "orcpub-homebrew-rescue.orcbrew")
+
+(defn boot-rescue
+  "The rescue control plus the inline script that arms it. Separate <script>
+   tags are independent, so a throw inside the app bundle cannot stop this one
+   from having run. `window.orcpubBootOk` is what the app calls to take it away."
+  [nonce]
+  (list
+   [:div#boot-rescue
+    {:style (str "position:fixed;left:0;right:0;bottom:0;z-index:2147483000;"
+                 "display:none;gap:12px;align-items:center;justify-content:center;"
+                 "flex-wrap:wrap;padding:10px 14px;background:#2c3445;"
+                 "border-top:1px solid rgba(255,255,255,0.15);"
+                 "font-family:Open Sans,system-ui,sans-serif;font-size:13px;"
+                 "color:#e8ebf0;line-height:1.5")}
+    [:span#boot-rescue-note]
+    [:button#boot-rescue-btn
+     {:type "button"
+      :style (str "font:inherit;font-weight:600;letter-spacing:0.04em;"
+                  "text-transform:uppercase;color:#080A0D;background:#f0a100;"
+                  "border:0;border-radius:3px;padding:8px 16px;cursor:pointer")}
+     "Download my homebrew"]]
+   (script-tag
+    {:nonce nonce}
+    ;; raw: the page's own script; nothing in it comes from a request or a user
+    (h/raw (str "
+     (function () {
+       var el = document.getElementById('boot-rescue');
+       var btn = document.getElementById('boot-rescue-btn');
+       var note = document.getElementById('boot-rescue-note');
+       if (!el || !btn || !note) { return; }
+
+       // Read at every decision point, never once at load. A snapshot taken when
+       // the page opened is how a rescue hands someone an empty or hours-old
+       // file: they had nothing when it loaded, or they built for an hour after,
+       // and the copy it kept never moved.
+       function readPlugins() {
+         try {
+           var v = localStorage.getItem('plugins');
+           return (!v || v === '{}') ? null : v;
+         } catch (e) { return null; }
+       }
+
+       function sizeOf(s) {
+         var kb = s.length / 1024;
+         return kb < 1 ? s.length + ' bytes'
+              : kb < 10 ? kb.toFixed(1) + ' KB'
+              : Math.round(kb) + ' KB';
+       }
+
+       // Shown only when there is something to save, and labelled with what is
+       // there RIGHT NOW — the size is the only evidence the user has that the
+       // file about to download is really their content.
+       function show() {
+         var raw = readPlugins();
+         if (!raw) { el.style.display = 'none'; return; }
+         note.textContent = 'Your homebrew is saved in this browser ('
+           + sizeOf(raw) + '). Download a copy:';
+         el.style.display = 'flex';
+       }
+
+       // Hidden, not removed: the app can crash AFTER a clean first render, and
+       // then the error screen asks for it back — re-checked at that moment, so
+       // work done during the session counts even if the page opened empty.
+       window.orcpubBootOk = function () { el.style.display = 'none'; };
+       window.orcpubBootRescue = show;
+
+       btn.addEventListener('click', function () {
+         var raw = readPlugins();
+         if (!raw) {
+           note.textContent = 'Nothing is saved in this browser to download.';
+           return;
+         }
+         var url = URL.createObjectURL(
+           new Blob([raw], { type: 'text/plain;charset=utf-8' }));
+         var a = document.createElement('a');
+         a.href = url;
+         a.download = '" rescue-filename "';
+         document.body.appendChild(a);
+         a.click();
+         document.body.removeChild(a);
+         setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+       });
+
+       show();
+     })();
+    ")))))
+
 (defn index-page [{:keys [url
                           title
                           description
                           image
                           fb-type
-                          nonce]}
+                          nonce
+                          spinner-kind]}
                   & [splash?]]
-  (html5
-   {:lang :en}
+  ;; hiccup2 escapes every string by default; html5 (hiccup 1) escaped none, so a character's
+  ;; name went into <title> as markup. Only the page's own scripts and styles are raw, below.
+  (str
+   "<!DOCTYPE html>\n"
+   (h/html
+    {:mode :html}
+    [:html {:lang "en"}
    [:head
     (meta-tag "og:url" url)
     (meta-tag "og:type" fb-type)
@@ -53,19 +174,26 @@
     (meta-tag "twitter:title" title)
     (meta-tag "twitter:description" description)
     (meta-tag "twitter:image" image)
+    ;; Opt out of generative-AI training and image reuse. This is the
+    ;; DeviantArt-originated convention: a `robots` meta carrying only the
+    ;; `noai`/`noimageai` tokens, which does NOT imply noindex. Voluntary --
+    ;; honoured by some crawlers, ignored by others -- so it sits alongside
+    ;; robots.txt and the art licence rather than replacing either.
+    [:meta {:name "robots" :content "noai, noimageai"}]
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport"
             :content "width=device-width, initial-scale=1.0, minimum-scale=1.0"}]
-    (fi/install :png-prefix "favicon-"
-                :img "/favicon"
-                :xml "/favicon"
-                :ver "1")
-    (include-css "/css/cookiestyles.css")
+    ;; raw: a hiccup 1 helper that returns its markup as a string
+    (h/raw (fi/install :png-prefix "favicon-"
+                       :img "/favicon"
+                       :xml "/favicon"
+                       :ver "1"))
+    (include-css (asset-url "/css/cookiestyles.css"))
     (script-tag {:nonce nonce}
-     "document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`);
-     window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));")
+     (h/raw "document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`);
+     window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));"))
     [:style
-     "
+     (h/raw "
 .splash-page-content {}
 .splash-button .splash-button-content {height: 120px; width: 120px}
 .splash-button .svg-icon {height: 64px; width: 64px}
@@ -139,32 +267,46 @@ table {
 
 html {
 	min-height: 100%;
-}"]
+}")]
+    [:style (h/raw spinner/css)]
     [:title title]
     (integrations/head-tags nonce)
     (script-tag {:nonce nonce}
-     (str "window.__BRANDING__=" (cheshire/generate-string (branding/client-config)) ";"
-          "window.__INTEGRATIONS__=" (cheshire/generate-string (integrations/client-config)) ";"))]
+     ;; raw: operator settings as JSON, escaped for a script by script-json
+     (h/raw (str "window.__BRANDING__=" (script-json (branding/client-config)) ";"
+                 "window.__INTEGRATIONS__=" (script-json (integrations/client-config)) ";"
+                 ;; The PUBLIC site key only, and only when Turnstile is fully configured.
+                 (when (config/turnstile-enabled?)
+                   (str "window.__TURNSTILE_SITE_KEY__=" (script-json (config/turnstile-site-key)) ";")))))]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
        (views-2/splash-page)
-       [:div.h-full {:style "display:flex;justify-content:space-around"}
-        [:img {:src "/image/spiral.gif"
-               :style "height:200px;width:200px;margin-top:200px"}]])]
-    (include-css "/css/compiled/styles.css")
-    ;; Dev mode uses Report-Only CSP (logs violations but doesn't block)
-    ;; Prod mode uses enforcing CSP with nonces
-    (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
-    (script-tag {:src "/js/cookies.js" :nonce nonce})
+       ;; raw: the spinner's own markup; its kind is one of three keywords (spinner/pick)
+       (h/raw (spinner/markup (or spinner-kind (spinner/pick nil)))))]
+    ;; Homebrew rescue, a dead-man's switch: present by default, removed by the app once it has
+    ;; rendered, so any boot failure (broken bundle, CLJS error, crashing homebrew) leaves it up.
+    ;; It depends on nothing the app owns: server-rendered markup, inline styles (styles.css may
+    ;; not have loaded), plain localStorage, and a vanilla anchor download, not FileSaver.
+    (boot-rescue nonce)
+    (build-badge/badge)
+    (include-css (asset-url "/css/compiled/styles.css"))
+    ;; Every script tag carries the per-request nonce. It is nil in dev mode,
+    ;; where no CSP header is set at all; enforcing otherwise.
+    (script-tag {:src (asset-url "/js/compiled/orcpub.js") :nonce nonce})
+    (script-tag {:src (asset-url "/js/cookies.js") :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
-    (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
-    (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
+    ;; Open Sans is served from this site (styles.core/open-sans-faces), not Google Fonts.
+    (script-tag {:nonce nonce} (h/raw " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})"))
     (when homebrew-url
       (script-tag {:nonce nonce}
-       (str "
-        let plugins = localStorage.getItem('plugins');
-        if (plugins === null || plugins === '{}') {
+       ;; raw: the page's own script; homebrew-url is the operator's LOAD_HOMEBREW_URL setting
+       (h/raw (str "
+        const noLibrary = () => {
+          const p = localStorage.getItem('plugins');
+          return p === null || p === '{}' || p === '{\"Default Option Source\" {}}';
+        };
+        if (noLibrary()) {
           fetch('" homebrew-url "')
             .then(resp => {
               if (!resp.ok) {
@@ -173,8 +315,10 @@ html {
               return resp.text();
             })
             .then(text => {
-              if (!text.toUpperCase().includes('NOT FOUND')) {
+              // only into a library that is still empty, and bumped like any write so other tabs reload
+              if (!text.toUpperCase().includes('NOT FOUND') && noLibrary()) {
                 localStorage.setItem('plugins', text);
+                localStorage.setItem('plugins:rev', String(Number(localStorage.getItem('plugins:rev') || 0) + 1));
                 window.location.reload(false);
               }
             })
@@ -182,6 +326,44 @@ html {
               console.error('Error fetching plugins:', error);
             });
         }
-       ")))
-   ]))
+       "))))]])))
   
+
+(def default-title branding/default-page-title)
+
+(def default-description branding/app-tagline)
+
+(defn default-image-url
+  "OG meta image URL. Uses https:// for social sharing compatibility. An APP_OG_IMAGE that is
+   already an absolute http(s) URL is returned as it is; a site path gets the host in front."
+  [host]
+  (let [image branding/og-image-filename]
+    (if (re-find #"(?i)^https?://" (str image))
+      image
+      (str "https://" host image))))
+
+(defn index-page-response [{:keys [headers uri csp-nonce] :as request}
+                           {:keys [title description image-url]}
+                           & [response]]
+  (let [host (headers "host")]
+    ;; before index-page reads the credits into __BRANDING__
+    (when-let [db (:db request)] (artist-credit/refresh! db))
+    (merge
+     response
+     {:status 200
+      :headers (merge {"Content-Type" "text/html"} (:headers response))
+      :body
+      (index-page
+       {:url (str "http://" host uri)
+        :title (or title default-title)
+        :description (or description default-description)
+        :image (or image-url (default-image-url host))
+        :nonce csp-nonce
+        :spinner-kind (spinner/pick (get-in request [:query-params :spinner]))}
+       (= "/" uri))})))
+
+(defn default-index-page [request & [response]]
+  (index-page-response request {} response))
+
+(defn index [{:keys [headers scheme uri server-name] :as request} & [response]]
+  (default-index-page request response))

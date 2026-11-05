@@ -4,6 +4,8 @@
             #?(:clj [clojure.spec.test.alpha :as stest])
             #?(:cljs [cljs.spec.test.alpha :as stest])
             [clojure.string :as s]
+            #?(:clj [clojure.edn :as edn])
+            #?(:cljs [cljs.reader :as reader])
             [orcpub.entity-spec :as es]
             [orcpub.dice :as dice]
             [orcpub.common :as common]
@@ -525,6 +527,21 @@
 (defn pact-magic? [built-char]
   (get-prop built-char :pact-magic?))
 
+(defn shared-spell-slots
+  "The slot table every non-pact caster draws on.
+
+   5e gives a multiclass ONE table from combined caster levels, so this is shared
+   rather than per class. spell-slots is this plus pact-spell-slots, added -- and
+   the addition is lossy, since a Warlock beside another caster has two pools and
+   one number."
+  [built-char]
+  (get-prop built-char :shared-spell-slots))
+
+(defn pact-spell-slots
+  "A Warlock's Pact Magic slots, which are a separate pool at their own level."
+  [built-char]
+  (get-prop built-char :pact-spell-slots))
+
 (defn spell-slot-factors [built-char]
   (get-prop built-char :spell-slot-factors))
 
@@ -588,6 +605,12 @@
 (defn critical-hit-values [built-char]
   (get-prop built-char :critical))
 
+(defn weapon-masteries
+  "The weapon kinds whose Weapon Mastery the character can use: a set of base weapon keys
+  (2024 rules), or nil when nothing grants any. Takes the built character."
+  [built-char]
+  (get-prop built-char :weapon-masteries))
+
 (defn crit-values-str [built-char]
   (let [critical-hit-values (critical-hit-values built-char)]
     (if (> (count critical-hit-values) 1)
@@ -617,6 +640,19 @@
 
 (defn best-weapon-damage-modifier-fn [built-char]
   (get-prop built-char :best-weapon-damage-modifier))
+
+(defn weapon-save-dc-fn
+  "A fn of a weapon giving its own save DC (Topple's): 8 + proficiency + the modifier of the
+  ability its attack uses (save-dc-sources.md). No item spell DC bonus is in it."
+  [built-char]
+  (get-prop built-char :weapon-save-dc))
+
+(defn best-weapon-ability-modifier-fn
+  "A fn of a weapon giving the ability modifier an attack with it uses: Str or Dex by the weapon,
+  the better of the two for a finesse weapon. No magic or other damage bonus is in it."
+  [built-char]
+  (let [f (get-prop built-char :weapon-ability-modifier)]
+    (fn [weapon] (max (f weapon false) (f weapon true)))))
 
 (defn option-sources [built-char]
   (get-prop built-char :option-sources))
@@ -680,6 +716,67 @@
 
 (defn image-url [built-char]
   (get-prop built-char ::image-url))
+
+(defn- sane-tweak
+  "Portrait tweak `t` with only the values the compositor can use: an :override that is a #rrggbb
+   colour, a :shade and :depth that are numbers. nil when `t` is not a map."
+  [t]
+  (when (map? t)
+    (cond-> t
+      (not (and (string? (:override t)) (re-matches #"#[0-9a-fA-F]{6}" (:override t)))) (dissoc :override)
+      (not (number? (:shade t))) (dissoc :shade)
+      (not (number? (:depth t))) (dissoc :depth))))
+
+(defn- sane-colours
+  "Colour slots map `cs` with only the values that can tint: a #rrggbb colour, or \"none\" (no
+   whites) for :whites."
+  [cs]
+  (into {} (filter (fn [[k v]] (and (string? v)
+                                    (or (re-matches #"#[0-9a-fA-F]{6}" v)
+                                        (and (= k :whites) (= v "none"))))))
+        cs))
+
+(defn- sane-portrait
+  "Portrait map `m` without values the compositor cannot read: :layers, :colors and :tweaks that
+   are not maps, colours sane-colours drops, tweaks that are not maps, and tweak values sane-tweak
+   drops. nil when `m` is not a map. A crafted stored portrait must not break the page that shows it
+   (fail-soft-rendering.md)."
+  [m]
+  (when (map? m)
+    (cond-> m
+      (not (map? (:layers m))) (dissoc :layers)
+      (not (map? (:colors m))) (dissoc :colors)
+      (map? (:colors m)) (update :colors sane-colours)
+      (not (map? (:tweaks m))) (dissoc :tweaks)
+      (map? (:tweaks m)) (update :tweaks #(into {} (keep (fn [[k t]] (some->> (sane-tweak t) (vector k)))) %)))))
+
+(def max-portrait-chars
+  "The longest stored portrait read. A full one is about 1.5 KB; anything far past that is not a
+   portrait, and refusing it unread keeps a crafted value from costing the reader."
+  8000)
+
+(defn parse-portrait
+  "A stored portrait, an EDN string or an in-memory map, as {:layers {…} :colors {…}
+   :tweaks {…}} through sane-portrait; nil for blank or malformed input, never a throw.
+   Stored as a string because ::se/values cannot hold a nested map (db/schema.clj)."
+  [v]
+  (cond
+    (map? v) (sane-portrait v)
+    (string? v)
+    (when (and (not (s/blank? v)) (<= (count v) max-portrait-chars))
+      (let [parsed (try
+                     #?(:clj (edn/read-string v)
+                        :cljs (reader/read-string v))
+                     ;; Throwable on the JVM: deep nesting overflows the reader's stack with an Error
+                     (catch #?(:clj Throwable :cljs :default) _ nil))]
+        ;; sane-portrait on THIS branch too. It is the one that matters: a
+        ;; stored string is what a client actually persisted, while the map
+        ;; branch only sees in-memory drafts.
+        (sane-portrait parsed)))
+    :else nil))
+
+(defn portrait [built-char]
+  (parse-portrait (get-prop built-char ::portrait)))
 
 (defn faction-image-url [built-char]
   (get-prop built-char ::faction-image-url))
@@ -825,17 +922,22 @@
              custom-equipment))))
          (meta equipment))))))
 
+(defn use-class-starting-equipment
+  "`character` with its class starting equipment replaced by `class-option`'s: what the first class
+   brings. Its other stored picks are untouched."
+  [character class-option]
+  (-> character
+      (remove-starting-equipment ::equip/class-starting-equipment?)
+      (add-associated-options (::t/associated-options class-option))))
+
 (defn set-class [character class-key class-index new-class-option]
-  (let [associated-options (::t/associated-options new-class-option)
-        with-new-class (assoc-in
+  (let [with-new-class (assoc-in
                         character
                         [::entity/options :class class-index]
                         {::entity/key class-key
-                         ::entity/options {:levels [{::entity/key :level-1}]}})
-        without-starting-equipment (remove-starting-equipment with-new-class ::equip/class-starting-equipment?)
-        with-new-starting-equipment (add-associated-options without-starting-equipment associated-options)]
+                         ::entity/options {:levels [{::entity/key :level-1}]}})]
     (if (zero? class-index)
-      with-new-starting-equipment
+      (use-class-starting-equipment with-new-class new-class-option)
       with-new-class)))
 
 (defn skill-prof-bonuses [prof-bonus skill-profs skill-expertise default-skill-bonus-fns]

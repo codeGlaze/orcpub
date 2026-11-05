@@ -24,6 +24,10 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.homebrew-guard :as guard]
+            [orcpub.dnd.e5.homebrew-check :as homebrew-check]
+            [orcpub.dnd.e5.starting-equipment-ledger :as sel]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.event-utils]
             [orcpub.dnd.e5.template-base :as t-base]
@@ -35,10 +39,71 @@
 ;; Version: 1.05 - Fix: preserve map keys for classes/subclasses (enables renamed keys)
 ;; =============================================================================
 
+;; Every homebrew subscription reads the library and shared content through these two, so the
+;; read check is here, once. See homebrew-check/checked.
 (reg-sub
  ::e5/plugins
  (fn [db _]
-   (get db :plugins)))
+   (homebrew-check/checked :plugins (get db :plugins))))
+
+;; Whether the footer's diagnostic tools are revealed on this device.
+(reg-sub
+ ::e5/dev-mode?
+ (fn [db _]
+   (boolean (:dev-mode? db))))
+
+;; ---------------------------------------------------------------------------
+;; Memoized library-health detectors. Each walks the WHOLE library; as reactions on ::e5/plugins
+;; they compute once per library change and share one result across every row, section and page.
+;; Keep them here, not inline in views, so no caller can bypass the caching.
+;; ---------------------------------------------------------------------------
+
+;; Cross-source same-key index for the collision-risk types — backs the
+;; per-item twin notes (why an item is off / which duplicate it silences).
+(reg-sub
+ ::e5/collision-twin-index
+ :<- [::e5/plugins]
+ (fn [plugins _]
+   (orcbrew-val/collision-twin-index plugins)))
+
+;; One derived summary for the health card and the library-row conflict flag:
+;; the unresolved conflicts (2+ enabled copies of a key), the set of source
+;; names that hold one, and the export issue counts (missing required fields /
+;; blocked-invalid sources). All the health UI reads this single sub.
+(reg-sub
+ ::e5/library-health
+ :<- [::e5/plugins]
+ (fn [plugins _]
+   (let [conflicts (orcbrew-val/unresolved-collisions plugins)
+         counts    (orcbrew-val/library-export-issue-counts plugins)]
+     {:conflicts        conflicts
+      :conflict-sources (into #{} (mapcat :sources conflicts))
+      :missing          (:missing counts)
+      :blocked          (:blocked counts)})))
+
+;; How many items are off ONLY because a same-key twin is on — the library-level
+;; "N items are off because a duplicate is on" summary line.
+(reg-sub
+ ::e5/mutual-exclusion-off-count
+ :<- [::e5/plugins]
+ (fn [plugins _]
+   (orcbrew-val/mutual-exclusion-off-count plugins)))
+
+;; Ephemeral overlay for a SHARED character being viewed: content embedded in a share link lives
+;; here, NOT in :plugins, so it is never persisted and vanishes on reload. The content-lookup subs
+;; fold it in last (it wins key collisions for the shared view); the library manager and export
+;; read :plugins and never see it. See orcpub.dnd.e5.share-url / share-bundle.
+(reg-sub
+ ::e5/shared-plugins
+ (fn [db _]
+   (homebrew-check/checked :shared-plugins (get db :shared-plugins))))
+
+;; Summary for the shared-content banner: {:count n :collisions [...]} while a
+;; shared character with embedded homebrew is being viewed, else nil.
+(reg-sub
+ ::e5/shared-content-info
+ (fn [db _]
+   (get db :shared-content-info)))
 
 ;; The name-keyed quarantine map ({source-name → bad-source}) loaded at
 ;; boot, kept in sync by the repair event. Drives the quarantine repair panel.
@@ -47,60 +112,169 @@
  (fn [db _]
    (get db :quarantined-plugins)))
 
-(reg-sub
- ::e5/plugin-vals
- :<- [::e5/plugins]
- (fn [plugins]
-   ;; Defensive handling: filter out malformed plugin data to prevent
-   ;; subscription chain failures that can break the class dropdown
-   (let [result (keep
-                 (fn [p]
-                   (try
-                     (when (map? p)
+(defn process-plugin-vals
+  "Clean {content-type {key def}} maps from `plugins`, dropping malformed and disabled items so one
+   bad entry cannot break the subscription chain. Each item carries its address (`:key`,
+   `:option-pack`), which the builders' edit and delete buttons trust. `overlay` (optional) adds the
+   local disable levels: :global? drops everything, :sections drops [source content-type] pairs."
+  ([plugins] (process-plugin-vals plugins nil))
+  ([plugins overlay]
+   (if (:global? overlay)
+     []
+     (let [sections (:sections overlay #{})]
+       (keep
+        (fn [[source-name p]]
+          (try
+            (when (and (map? p) (not (:disabled? p)))
+              (into
+               {}
+               (keep
+                (fn [[type-k type-m]]
+                  (when (and type-k
+                             (or (nil? type-m) (map? type-m))
+                             (not (contains? sections [source-name type-k])))
+                    [type-k
+                     (if (map? type-m)
                        (into
                         {}
                         (keep
-                         (fn [[type-k type-m]]
-                           (when (and type-k (or (nil? type-m) (map? type-m)))
-                             [type-k
-                              (if (map? type-m)
-                                (into
-                                 {}
-                                 (keep
-                                  (fn [[k v]]
-                                    ;; Only include if v is a map and not disabled
-                                    (when (and (map? v) (not (:disabled? v)))
-                                      [k v]))
-                                  type-m))
-                                type-m)]))
-                         p)))
-                     (catch js/Error e
-                       (js/console.warn "Skipping malformed plugin data:" (pr-str p) e)
-                       nil)))
-                 (filter (fn [p] (and (map? p) (not (:disabled? p))))
-                         (vals plugins)))]
-     result)))
+                         (fn [[k v]]
+                           ;; Only include if v is a map and not disabled
+                           (when (and (map? v) (not (:disabled? v)))
+                             ;; Stamp the address on the item: a stored item may lack `:key` (from
+                             ;; before keys were stored) or carry a stale `:option-pack` (a renamed
+                             ;; source), and this map is the one place both are known.
+                             [k (assoc v :key k :option-pack source-name)]))
+                         type-m))
+                       type-m)]))
+                p)))
+            (catch js/Error e
+              (js/console.warn "Skipping malformed plugin data:" (pr-str p) e)
+              nil)))
+        plugins)))))
+
+(reg-sub
+ ::e5/disable-overlay
+ (fn [db _]
+   (get db :disable-overlay)))
+
+(reg-sub
+ ::e5/health-dismissed
+ (fn [db _]
+   (get db :health-dismissed)))
+
+(reg-sub
+ ::e5/whats-new-open?
+ (fn [db _]
+   (boolean (:whats-new-open? db))))
+
+(reg-sub
+ ::e5/global-disabled?
+ :<- [::e5/disable-overlay]
+ (fn [overlay _]
+   (boolean (:global? overlay))))
+
+;; Is this [source content-type] section turned off in the local overlay? Used to
+;; render the section toggle and to dim a section's items (inherited state).
+(reg-sub
+ ::e5/section-disabled?
+ :<- [::e5/disable-overlay]
+ (fn [overlay [_ source type-key]]
+   (contains? (:sections overlay #{}) [source type-key])))
+
+;; ── Move/copy selection state ───────────────────────────────────────────────
+(reg-sub
+ ::e5/content-select-mode?
+ (fn [db _]
+   (boolean (:content-select-mode? db))))
+
+(reg-sub
+ ::e5/content-selection
+ (fn [db _]
+   (get db :content-selection #{})))
+
+(reg-sub
+ ::e5/content-selected?
+ :<- [::e5/content-selection]
+ (fn [selection [_ source type-key key]]
+   (contains? selection [source type-key key])))
+
+(reg-sub
+ ::e5/content-selection-count
+ :<- [::e5/content-selection]
+ (fn [selection _]
+   (count selection)))
+
+(reg-sub
+ ::e5/plugin-vals
+ :<- [::e5/plugins]
+ :<- [::e5/shared-plugins]
+ :<- [::e5/disable-overlay]
+ (fn [[plugins shared overlay] _]
+   ;; The disable overlay is a preference over the user's OWN library, so it
+   ;; applies to `plugins` only — shared (view-once) content is never hidden by
+   ;; the recipient's global/section toggles. Shared is appended LAST so it wins
+   ;; key collisions against the recipient's own library for the shared view only.
+   (concat (process-plugin-vals plugins overlay)
+           (process-plugin-vals shared))))
 
 ;; Subscription that preserves source names when extracting content from plugins.
 ;; This is needed for disambiguation when multiple sources have same-named content.
+(defn process-plugins-with-sources
+  ;; [source-name plugin-data] pairs, skipping disabled and malformed entries. Items carry their
+  ;; address as process-plugin-vals stamps it, and the same disable overlay applies, so the
+  ;; dropdowns hide what the rest of the builder hides.
+  ([plugins] (process-plugins-with-sources plugins nil))
+  ([plugins overlay]
+   (if (:global? overlay)
+     []
+     (let [sections (:sections overlay #{})]
+       (keep
+        (fn [[source-name plugin-data]]
+          (when (and (map? plugin-data) (not (:disabled? plugin-data)))
+            [source-name
+             (into {}
+                   (keep (fn [[type-k type-m]]
+                           (when-not (contains? sections [source-name type-k])
+                             [type-k
+                              (if (map? type-m)
+                                (into {} (map (fn [[k v]]
+                                                [k (cond-> v
+                                                     (map? v) (assoc :key k
+                                                                     :option-pack source-name))]))
+                                      type-m)
+                                type-m)])))
+                   plugin-data)]))
+        plugins)))))
+
 (reg-sub
  ::e5/plugins-with-sources
  :<- [::e5/plugins]
- (fn [plugins]
-   ;; Returns seq of [source-name plugin-data] pairs
-   (keep
-    (fn [[source-name plugin-data]]
-      (when (and (map? plugin-data) (not (:disabled? plugin-data)))
-        [source-name plugin-data]))
-    plugins)))
+ :<- [::e5/shared-plugins]
+ :<- [::e5/disable-overlay]
+ (fn [[plugins shared overlay] _]
+   ;; Shared (view-once) sources appended LAST so they win key collisions for
+   ;; the shared view only; the overlay applies to the user's own library only.
+   (concat (process-plugins-with-sources plugins overlay)
+           (process-plugins-with-sources shared))))
 
 (reg-sub
  ::bg5e/plugin-backgrounds
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (map
+   (keep
     (fn [background]
-      (assoc background :edit-event [::bg5e/edit-background background]))
+      ;; A background's ability and save grants (the 2024 rules give the ASI here) compile to
+      ;; extra modifiers and selections, the same hook as races. Guarded like races: a background
+      ;; that throws is reported and set aside, never the whole list.
+      (guard/guard-option
+       ::e5/backgrounds background
+       #(let [{ai-mods :modifiers ai-sels :selections}
+              (opt5e/compile-ability-grants % {:attribution :general})]
+          (assoc %
+                 :modifiers (concat (:modifiers %) ai-mods)
+                 :selections (concat (:selections %) ai-sels)
+                 :edit-event [::bg5e/edit-background %]))))
     (mapcat (comp vals ::e5/backgrounds) plugins))))
 
 (reg-sub
@@ -137,27 +311,42 @@
  ::races5e/plugin-races
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (map
+   (keep
     (fn [race]
-      (assoc race
-             :modifiers
-             (concat (opt5e/plugin-modifiers (:props race)
-                                             (:key race))
-                     (spell-modifiers race (:name race)))
-             :edit-event [::races5e/edit-race race]))
+      ;; A race's ability and save grants (:ability-increases, :save-proficiencies) compile to
+      ;; extra modifiers and selections; a race without them is unchanged. Realized inside the
+      ;; guard: the modifiers are lazy, and a throw in them escaped it.
+      (guard/guard-option
+       ::e5/races race
+       #(let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants %)]
+          (assoc %
+                 :modifiers
+                 (concat (opt5e/plugin-modifiers (:props %)
+                                                 (:key %))
+                         (spell-modifiers % (:name %))
+                         ai-mods)
+                 :selections (concat (:selections %) ai-sels)
+                 :edit-event [::races5e/edit-race %]))))
     (mapcat (comp vals ::e5/races) plugins))))
 
 (reg-sub
  ::races5e/plugin-subraces
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (map
+   (keep
     (fn [subrace]
-      (assoc subrace
-             :modifiers (concat (opt5e/plugin-modifiers (:props subrace)
-                                                        (:key subrace))
-                                (spell-modifiers subrace (:name subrace)))
-             :edit-event [::races5e/edit-subrace subrace]))
+      ;; The same ability and save grants hook as races, realized inside the guard.
+      (guard/guard-option
+       ::e5/subraces subrace
+       #(let [{ai-mods :modifiers ai-sels :selections}
+              (opt5e/compile-ability-grants % {:attribution :subrace})]
+          (assoc %
+                 :modifiers (concat (opt5e/plugin-modifiers (:props %)
+                                                            (:key %))
+                                    (spell-modifiers % (:name %))
+                                    ai-mods)
+                 :selections (concat (:selections %) ai-sels)
+                 :edit-event [::races5e/edit-subrace %]))))
     (mapcat (comp vals ::e5/subraces) plugins))))
 
 (defn level-modifier [class-key {:keys [type value] :as modifier}]
@@ -429,6 +618,23 @@
          (:warlock-spells option))))
      by-level)))
 
+(defn plugin-subclass
+  "A homebrew subclass as the class options take it (`plugin-subclasses-map`): its levels built by
+   `make-levels`, its props as modifiers. `subclass-key` (the map key) wins over its `:key`."
+  [spell-lists spells-map selection-map source-name subclass-key subclass]
+  (let [subclass-with-key (assoc subclass :key subclass-key)
+        ;; A subclass's ability and save grants: non-standard for 5e, so the builder authors
+        ;; them behind an optional section. None -> nothing added.
+        {ai-mods :modifiers ai-sels :selections}
+        (opt5e/compile-ability-grants subclass {:attribution :general})]
+    (assoc subclass-with-key
+           :modifiers (concat (opt5e/plugin-modifiers (:props subclass) subclass-key) ai-mods)
+           :selections (concat (:selections subclass) ai-sels)
+           :levels (make-levels spell-lists spells-map selection-map subclass-with-key)
+           :plugin-source source-name
+           :edit-event [::classes5e/edit-subclass subclass-with-key
+                        source-name subclass-key ::e5/subclasses])))
+
 (reg-sub
  ::classes5e/plugin-subclasses
  :<- [::e5/plugins-with-sources]
@@ -440,17 +646,10 @@
     (fn [[source-name subclass-key subclass]]
       (try
         (when (and (map? subclass) subclass-key)
-          ;; Ensure the subclass has its key set (the map key is authoritative)
-          (let [subclass-with-key (assoc subclass :key subclass-key)
-                levels (make-levels spell-lists spells-map selection-map subclass-with-key)]
-            (assoc subclass-with-key
-                   :modifiers (opt5e/plugin-modifiers (:props subclass)
-                                                      subclass-key)
-                   :levels levels
-                   :plugin-source source-name
-                   :edit-event [::classes5e/edit-subclass subclass-with-key])))
+          (plugin-subclass spell-lists spells-map selection-map source-name subclass-key subclass))
         (catch js/Error e
-          (js/console.warn "Skipping malformed subclass:" subclass-key e)
+          (guard/report! {:content-type ::e5/subclasses :key subclass-key :source source-name
+                         :name (:name subclass) :error e})
           nil)))
     ;; Extract subclasses from each plugin with the map key
     (for [[source-name plugin-data] plugins-with-sources
@@ -474,7 +673,9 @@
     (fn [[source-name class-key class]]
       (try
         (when (and (map? class) class-key)
-          (let [class-with-key (assoc class :key class-key)
+          ;; Defensive: if any ingestion path ever left a base+delta starting-equipment in the
+          ;; library, expand it here so class-option gets the full form (no-op otherwise).
+          (let [class-with-key (assoc (sel/expand-class class) :key class-key)
                 levels (make-levels spell-lists spells-map selection-map class-with-key)]
             (assoc class-with-key
                    :plugin-source source-name
@@ -482,7 +683,8 @@
                                                       class-key)
                    :levels levels)))
         (catch js/Error e
-          (js/console.warn "Skipping malformed class:" class-key e)
+          (guard/report! {:content-type ::e5/classes :key class-key :source source-name
+                         :name (:name class) :error e})
           nil)))
     ;; Extract classes from each plugin with their source name AND the map key
     ;; The map key (e.g., :artificer-kibbles-tasty) is the authoritative key
@@ -541,46 +743,12 @@
     acolyte-bg
     plugin-backgrounds)))
 
-(def languages
-  [{:name "Common"
-    :key :common}
-   {:name "Dwarvish"
-    :key :dwarvish}
-   {:name "Elvish"
-    :key :elvish}
-   {:name "Giant"
-    :key :giant}
-   {:name "Gnomish"
-    :key :gnomish}
-   {:name "Goblin"
-    :key :goblin}
-   {:name "Halfling"
-    :key :halfling}
-   {:name "Orc"
-    :key :orc}
-   {:name "Abyssal"
-    :key :abyssal}
-   {:name "Celestial"
-    :key :celestial}
-   {:name "Draconic"
-    :key :draconic}
-   {:name "Deep Speech"
-    :key :deep-speech}
-   {:name "Infernal"
-    :key :infernal}
-   {:name "Primordial"
-    :key :primordial}
-   {:name "Sylvan"
-    :key :sylvan}
-   {:name "Undercommon"
-    :key :undercommon}])
-
 (reg-sub
  ::langs5e/languages
  :<- [::langs5e/plugin-languages]
  (fn [plugin-languages]
    (concat
-    languages
+    langs5e/languages
     plugin-languages)))
 
 (reg-sub
@@ -778,7 +946,7 @@
                                         11 4
                                         6 3
                                         2)
-                    :save-dc (?spell-save-dc ::char5e/con)})))]
+                    :save-dc (?save-dc ::char5e/con)})))]
    :selections [(t/selection-cfg
                  {:name "Draconic Ancestry"
                   :tags #{:subrace}
@@ -895,7 +1063,7 @@
    (group-by :class plugin-subclasses)))
 
 (defn compare-keys [x y]
-  (compare (:key x) (:key y)))
+  (common/safe-compare (:key x) (:key y)))
 
 (reg-sub
  ::races5e/races
@@ -926,19 +1094,50 @@
         tiefling-option-cfg]))))))
 
 
+(def ^:private built-in-classes
+  "Each built-in class's key, and how to build it with the homebrew it takes."
+  (let [plain (fn [option-fn] (fn [sl sm psm lm wm _ _] (option-fn sl sm psm lm wm)))]
+    [[:barbarian (plain classes5e/barbarian-option)]
+     [:bard (plain classes5e/bard-option)]
+     [:cleric (plain classes5e/cleric-option)]
+     [:druid (plain classes5e/druid-option)]
+     [:fighter (plain classes5e/fighter-option)]
+     [:monk (plain classes5e/monk-option)]
+     [:paladin (plain classes5e/paladin-option)]
+     [:ranger (plain classes5e/ranger-option)]
+     [:rogue (plain classes5e/rogue-option)]
+     [:sorcerer (plain classes5e/sorcerer-option)]
+     [:warlock classes5e/warlock-option]
+     [:wizard (plain classes5e/wizard-option)]]))
+
+(defn- base-class-option
+  "Built-in class `k`, built by `build` with its homebrew subclasses (and the warlock's invocations
+   and boons). When one of those stops it building, each is tried alone: the ones that fail are
+   reported through the guard, which sets them aside, and the class is built without them. A
+   class that fails with none is a bug of ours: logged, and left out, not the other eleven."
+  [k build spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons]
+  (let [b #(build spell-lists spells-map %1 language-map weapons-map %2 %3)]
+    (try
+      (b plugin-subclasses-map invocations boons)
+      (catch :default _
+        (let [alone (fn [content-type entries make]
+                      ;; the entries that build alone, the rest reported
+                      (filterv #(guard/guard-entry content-type % (fn [e] (make e) e)) entries))
+              subclasses (alone ::e5/subclasses (get plugin-subclasses-map k) #(b {k [%]} [] []))
+              warlock? (= k :warlock)
+              invocations (if warlock? (alone ::e5/invocations invocations #(b {} [%] [])) invocations)
+              boons (if warlock? (alone ::e5/boons boons #(b {} [] [%])) boons)]
+          (try
+            (b (assoc plugin-subclasses-map k subclasses) invocations boons)
+            (catch :default e
+              (js/console.error "Could not build the built-in class" (str k) e)
+              nil)))))))
+
 (defn base-class-options [spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons]
-  [(classes5e/barbarian-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/bard-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/cleric-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/druid-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/fighter-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/monk-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/paladin-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/ranger-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/rogue-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/sorcerer-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/warlock-option spell-lists spells-map plugin-subclasses-map language-map  weapons-map invocations boons)
-   (classes5e/wizard-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)])
+  (vec (keep (fn [[k build]]
+               (base-class-option k build spell-lists spells-map plugin-subclasses-map language-map
+                                  weapons-map invocations boons))
+             built-in-classes)))
 
 (reg-sub
  ::classes5e/classes
@@ -951,12 +1150,9 @@
  :<- [::classes5e/boons]
  :<- [::mi5e/custom-and-standard-weapons-map]
  (fn [[spell-lists spells-map plugin-subclasses-map language-map plugin-classes invocations boons weapons-map] _]
-   ;; Defensive handling: ensure base classes always render even if plugin classes fail
-   (let [base-classes (try
-                        (base-class-options spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons)
-                        (catch js/Error e
-                          (js/console.error "Failed to build base classes:" e)
-                          []))
+   ;; each built-in class is built on its own, so homebrew that breaks one costs only itself
+   (let [base-classes (base-class-options spell-lists spells-map plugin-subclasses-map language-map
+                                          weapons-map invocations boons)
          plugin-class-options (keep
                                (fn [plugin-class]
                                  (try
@@ -968,12 +1164,14 @@
                                     weapons-map
                                     plugin-class)
                                    (catch js/Error e
-                                     (js/console.warn "Skipping plugin class due to error:" (:key plugin-class) e)
+                                     (guard/report! {:content-type ::e5/classes :key (:key plugin-class)
+                                                   :source (:plugin-source plugin-class)
+                                                   :name (:name plugin-class) :error e})
                                      nil)))
                                plugin-classes)]
      (vec
       (into
-       (sorted-set-by #(compare (::t/key %1) (::t/key %2)))
+       (sorted-set-by #(common/safe-compare (::t/key %1) (::t/key %2)))
        (concat (reverse plugin-class-options) base-classes))))))
 
 (reg-sub
@@ -1129,13 +1327,14 @@
  :<- [::char5e/monster-sort-criteria]
  :<- [::char5e/monster-sort-direction]
  (fn [[monsters sort-criteria sort-direction]]
-   (let [comparator (if (= sort-direction "asc") compare #(compare %2 %1))]
+   (let [comparator (if (= sort-direction "asc") common/safe-compare #(common/safe-compare %2 %1))]
      (case sort-criteria
        "name" (sort-by :name comparator monsters)
        "cr" (sort-by :challenge comparator monsters)))))
 
 (defn all-subtypes-removed? [subtypes hidden-subtypes]
-  (and (seq subtypes)
+  (and (coll? subtypes)
+       (seq subtypes)
        (seq hidden-subtypes)
        (->> subtypes
             (remove
@@ -1146,10 +1345,11 @@
   (let [lower-case-filter-text (s/lower-case filter-text)]
     (filter
       (fn [{:keys [name type subtypes size]}]
+        ;; looked up, not called: a size or type that is not a keyword must not break the list
         (and (or (< (count filter-text) 3)
-                 (s/includes? (s/lower-case name) lower-case-filter-text))
-             (not (or (-> monster-filters :size size)
-                      (-> monster-filters :type type)
+                 (and (string? name) (s/includes? (s/lower-case name) lower-case-filter-text)))
+             (not (or (get (:size monster-filters) size)
+                      (get (:type monster-filters) type)
                       (all-subtypes-removed? subtypes (:subtype monster-filters))))))
       monsters)))
 
@@ -1219,14 +1419,18 @@
  :<- [::spells5e/plugin-spells]
  (fn [plugin-spells _]
    (reduce
-    (fn [lists {:keys [key level spell-lists]}]
-      (reduce-kv
-       (fn [l k v]
-         (if v
-           (update-in l [k level] conj key)
-           l))
-       lists
-       spell-lists))
+    (fn [lists {:keys [key level spell-lists] :as spell}]
+      (or (guard/guard-entry
+           ::e5/spells spell
+           (fn [_]
+             (reduce-kv
+              (fn [l k v]
+                (if v
+                  (update-in l [k level] conj key)
+                  l))
+              lists
+              spell-lists)))
+          lists))
     {}
     plugin-spells)))
 
@@ -1371,3 +1575,91 @@
    :<- [::classes5e/builder-item]
    (fn [class [_ prof-type prof-key]]
      (some? (get-in class [:profs prof-type prof-key]))))
+
+;; ============================================================================
+;; The deep homebrew check (orcpub.dnd.e5.homebrew-check): each homebrew entry, with the
+;; conversion the builder uses for it.
+;; ============================================================================
+
+(defn- homebrew-entry? [e]
+  (some? (or (:plugin-source e) (:option-pack e))))
+
+(guard/register-conversions!
+ {::e5/races
+  {:entries #(filter homebrew-entry? (% [::races5e/races]))
+   :convert (fn [sub]
+              (partial opt5e/race-option (sub [::spells5e/spell-lists]) (sub [::spells5e/spells-map])
+                       (sub [::langs5e/language-map]) (sub [::mi5e/all-weapons-map])))}
+  ::e5/backgrounds
+  {:entries #(filter homebrew-entry? (% [::bg5e/backgrounds]))
+   :convert (fn [sub]
+              (partial opt5e/background-option (sub [::langs5e/language-map]) (sub [::mi5e/all-weapons-map])))}
+  ::e5/feats
+  {:entries #(filter homebrew-entry? (% [::feats5e/feats]))
+   :convert (fn [sub]
+              (partial opt5e/feat-option-from-cfg (sub [::langs5e/language-map]) (sub [::spells5e/spells-map])
+                       (sub [::spells5e/spell-lists]) (sub [::mi5e/custom-and-standard-weapons])
+                       (common/map-by-key (sub [::races5e/races]))))}
+  ::e5/classes
+  {:entries #(% [::classes5e/plugin-classes])
+   :convert (fn [sub]
+              (partial opt5e/class-option (sub [::spells5e/spell-lists]) (sub [::spells5e/spells-map]) {}
+                       (sub [::langs5e/language-map]) (sub [::mi5e/custom-and-standard-weapons-map])))}
+  ;; a subclass is built inside its class, with itself as that class's only plugin subclass
+  ::e5/subclasses
+  {:entries #(% [::classes5e/plugin-subclasses])
+   :convert (fn [sub]
+              (let [spell-lists (sub [::spells5e/spell-lists])
+                    spells-map (sub [::spells5e/spells-map])
+                    language-map (sub [::langs5e/language-map])
+                    weapons-map (sub [::mi5e/custom-and-standard-weapons-map])
+                    plugin-classes (sub [::classes5e/plugin-classes])
+                    invocations (sub [::classes5e/invocations])
+                    boons (sub [::classes5e/boons])]
+                (fn [{class-key :class :as subclass}]
+                  (let [only-this {class-key [subclass]}]
+                    (or (some #(when (= class-key (:key %))
+                                 (opt5e/class-option spell-lists spells-map only-this language-map weapons-map %))
+                              plugin-classes)
+                        ;; its built-in class alone, built raw so a throw is this subclass's
+                        (some (fn [[k build]]
+                                (when (= k class-key)
+                                  (build spell-lists spells-map only-this language-map weapons-map
+                                         invocations boons)))
+                              built-in-classes))))))}
+  ;; a subrace is built inside its race, as that race's only subrace, and blamed on itself
+  ::e5/subraces
+  {:entries #(% [::races5e/plugin-subraces])
+   :convert (fn [sub]
+              (let [races (sub [::races5e/races])
+                    convert (partial opt5e/race-option (sub [::spells5e/spell-lists])
+                                     (sub [::spells5e/spells-map]) (sub [::langs5e/language-map])
+                                     (sub [::mi5e/all-weapons-map]))]
+                (fn [{race-key :race :as subrace}]
+                  (some #(when (= race-key (:key %)) (convert (assoc % :subraces [subrace])))
+                        races))))}
+  ;; the warlock, with this invocation or boon as its only homebrew one
+  ::e5/invocations
+  {:entries #(% [::classes5e/plugin-invocations])
+   :convert (fn [sub]
+              #(classes5e/warlock-option (sub [::spells5e/spell-lists]) (sub [::spells5e/spells-map]) {}
+                                         (sub [::langs5e/language-map])
+                                         (sub [::mi5e/custom-and-standard-weapons-map]) [%] []))}
+  ::e5/boons
+  {:entries #(% [::classes5e/plugin-boons])
+   :convert (fn [sub]
+              #(classes5e/warlock-option (sub [::spells5e/spell-lists]) (sub [::spells5e/spells-map]) {}
+                                         (sub [::langs5e/language-map])
+                                         (sub [::mi5e/custom-and-standard-weapons-map]) [] [%]))}
+  ;; a selection is offered where a class or subclass level names it
+  ::e5/selections
+  {:entries #(% [::selections5e/plugin-selections])
+   :convert (fn [_]
+              #(level-selection :selection-check {(:key %) %} {:type (:key %) :num 1}))}
+  ::e5/spells
+  {:entries #(% [::spells5e/plugin-spells])
+   :convert (fn [_]
+              #(spell-option {(:key %) %} [nil (:key %) ::char5e/int "Wizard"]))}
+  ::e5/languages
+  {:entries #(% [::langs5e/plugin-languages])
+   :convert (fn [_] #(opt5e/language-selection-aux [%] 1))}})

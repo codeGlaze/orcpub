@@ -4,6 +4,7 @@
 ;; comment in common_test.clj before treating that as a bug.
 (ns orcpub.common-test
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.string :as str]
             #?(:cljs [cljs.reader])
             [orcpub.common :as common]))
 
@@ -188,14 +189,14 @@
   (testing "bare-colon tokens become unique placeholders; result is readable"
     (let [{:keys [text count]} (common/sanitize-edn-colons "{: {:a 1}}")]
       (is (= 1 count))
-      (is (clojure.string/includes? text ":unnamed-1")))
+      (is (str/includes? text ":unnamed-1")))
     (let [{:keys [text count]} (common/sanitize-edn-colons "{:k :}")]
       (is (= 1 count))
-      (is (clojure.string/includes? text ":unnamed-1")))
+      (is (str/includes? text ":unnamed-1")))
     (let [{:keys [text count]} (common/sanitize-edn-colons "{: 1 : 2}")]
       (is (= 2 count) "two bad tokens get distinct placeholders (no map-key collision)")
-      (is (clojure.string/includes? text ":unnamed-1"))
-      (is (clojure.string/includes? text ":unnamed-2"))))
+      (is (str/includes? text ":unnamed-1"))
+      (is (str/includes? text ":unnamed-2"))))
   (testing "already-clean input is untouched (count 0)"
     (is (= 0 (:count (common/sanitize-edn-colons "{:fighter 1 :orcpub.dnd.e5/x 2}"))))
     (is (= 0 (:count (common/sanitize-edn-colons "#:orcpub.dnd.e5{:c {:artificer {:key :artificer}}}")))))
@@ -203,7 +204,7 @@
     (let [in (str "{:desc " (pr-str "Choose one: fire") "}")
           {:keys [text count]} (common/sanitize-edn-colons in)]
       (is (= 0 count))
-      (is (clojure.string/includes? text "Choose one: fire"))))
+      (is (str/includes? text "Choose one: fire"))))
   (testing "non-string input is returned unchanged"
     (is (= {:text nil :count 0} (common/sanitize-edn-colons nil)))))
 
@@ -264,3 +265,196 @@
          (let [{t1 :text} (common/sanitize-edn-colons s)
                {t2 :text} (common/sanitize-edn-colons t1)]
            (= t1 t2))))))
+
+;; ---------------------------------------------------------------------------
+;; Number-word translation + name repair (for keyword-trap recovery)
+;; ---------------------------------------------------------------------------
+
+(deftest cardinal->words-covers-the-range
+  (testing "cardinals compose correctly, and decline outside 0..999"
+    (is (= "zero" (common/cardinal->words 0)))
+    (is (= "nine" (common/cardinal->words 9)))
+    (is (= "nineteen" (common/cardinal->words 19)))
+    (is (= "twenty" (common/cardinal->words 20)))
+    (is (= "forty-seven" (common/cardinal->words 47)))
+    (is (= "one hundred" (common/cardinal->words 100)))
+    (is (= "one hundred one" (common/cardinal->words 101)))
+    (is (= "three hundred" (common/cardinal->words 300)))
+    (is (= "nine hundred ninety-nine" (common/cardinal->words 999)))
+    (is (nil? (common/cardinal->words 1000)) "above the range declines")
+    (is (nil? (common/cardinal->words -1)))))
+
+(deftest ordinal->words-ordinalizes-the-final-atom
+  (testing "irregular stems + composed ordinals"
+    (is (= "first" (common/ordinal->words 1)))
+    (is (= "second" (common/ordinal->words 2)))
+    (is (= "third" (common/ordinal->words 3)))
+    (is (= "fifth" (common/ordinal->words 5)))
+    (is (= "ninth" (common/ordinal->words 9)))
+    (is (= "thirteenth" (common/ordinal->words 13)))
+    (is (= "twentieth" (common/ordinal->words 20)))
+    (is (= "twenty-first" (common/ordinal->words 21)))
+    (is (= "one hundredth" (common/ordinal->words 100)))
+    (is (nil? (common/ordinal->words 1000)))))
+
+(deftest lead-number->words-cardinal-and-ordinal
+  (testing "translates a leading number, preserving the rest of the name"
+    (is (= "Nine Lives" (common/lead-number->words "9 Lives")))
+    (is (= "Twenty Sided" (common/lead-number->words "20 Sided")))
+    (is (= "Forty-seven Ronin" (common/lead-number->words "47 Ronin")))
+    (is (= "One Hundred Hands" (common/lead-number->words "100 Hands")))
+    (is (= "One Hundred One Damnations" (common/lead-number->words "101 Damnations")))
+    (is (= "Second Wind" (common/lead-number->words "2nd Wind")))
+    (is (= "First Strike" (common/lead-number->words "1st Strike")))
+    (is (= "Thirteenth Warrior" (common/lead-number->words "13th Warrior")))
+    (is (= "Twenty-first Century" (common/lead-number->words "21st Century")))
+    ;; leading whitespace is tolerated (left-trimmed to find the number); the
+    ;; caller (repair-name-lead) is what fully trims — see its test below.
+    (is (= "Nine Lives" (common/lead-number->words "  9 Lives")))))
+
+(deftest lead-number->words-declines-non-name-numbers
+  (testing "bails (nil) on out-of-range, dice/version tokens, and non-numeric leads"
+    (is (nil? (common/lead-number->words "2020 Vision")) "above cap = a year, not a word")
+    (is (nil? (common/lead-number->words "3d6 Damage")) "dice notation, not a number word")
+    (is (nil? (common/lead-number->words "5e Feat")) "glued to a letter")
+    (is (nil? (common/lead-number->words "Bob")) "already letter-leading")
+    (is (nil? (common/lead-number->words "@@@Bob")) "symbol-leading, not numeric")))
+
+(deftest repair-name-lead-chain
+  (testing "number->word only; symbol-led junk declines (caller -> placeholder)"
+    (is (= "Bob" (common/repair-name-lead "Bob")) "already valid, unchanged")
+    (is (= "Nine Lives" (common/repair-name-lead "9 Lives")) "number -> word")
+    (is (= "Second Wind" (common/repair-name-lead "2nd Wind")) "ordinal -> word")
+    (is (= "Three Hundred" (common/repair-name-lead "300")))
+    (is (nil? (common/repair-name-lead "@@@Bob")) "symbol-led -> nil (placeholder, not salvage)")
+    (is (nil? (common/repair-name-lead "@@@")) "nothing usable -> nil")
+    (is (nil? (common/repair-name-lead "1@-asdml;")) "number glued to junk -> nil (not 'One@-…')")
+    (is (nil? (common/repair-name-lead "2020")) "out-of-range number -> nil")
+    (is (= "Nine Lives" (common/repair-name-lead "  9 Lives  ")) "trims"))
+  (testing "every non-nil repair derives a valid letter-leading key"
+    (doseq [nm ["9 Lives" "2nd Wind" "300" "13th Warrior" "Bob"]]
+      (let [r (common/repair-name-lead nm)]
+        (is (common/keyword-starts-with-letter? (common/name-to-kw r))
+            (str nm " -> " (pr-str r) " must key-validate"))))))
+
+;; ---------------------------------------------------------------------------
+;; source-abbreviation / disambiguated
+;;
+;; These matter most under CLJS, which is where the import path calls them and
+;; where the regexes are a JS RegExp rather than a java.util.regex.Pattern. The
+;; two dialects disagree on \p{L} and on \Q...\E, so a rule that reads fine in
+;; Clojure can silently split on the wrong characters in the browser.
+;; ---------------------------------------------------------------------------
+
+(deftest source-abbreviation-short-sources-use-first-and-last-letters
+  (is (= "KsTy" (common/source-abbreviation "Kibbles Tasty")))
+  (is (= "BdMc" (common/source-abbreviation "Bard Magic")))
+  (testing "an apostrophe joins its word instead of splitting it"
+    ;; "Tasha's" must stay one word; splitting there would add a stray "s" and
+    ;; push a 3-word source into the initials branch.
+    (is (= "TsGe" (common/source-abbreviation "Tasha's Guide"))))
+  (testing "a one-letter word contributes one letter, not a doubled one"
+    (is (= "A" (common/source-abbreviation "A")))))
+
+(deftest source-abbreviation-long-sources-use-initials
+  (is (= "TCoE" (common/source-abbreviation "Tasha's Cauldron of Everything")))
+  (is (= "XGtE" (common/source-abbreviation "Xanathar's Guide to Everything")))
+  (testing "each word keeps its own case, which is what makes the lowercase o"
+    (is (= "TCoE" (common/source-abbreviation "Tasha's Cauldron of Everything")))))
+
+(deftest source-abbreviation-defers-to-the-real-world-form
+  ;; The derivation is right about invented source names and wrong by definition
+  ;; about ones that already have an abbreviation. Nobody writes UdAa.
+  (testing "however the source is spelled, Unearthed Arcana is UA"
+    (doseq [s ["Unearthed Arcana" "unearthed arcana" "Unearthed Arcana:"
+               "unearthed-arcana" "UA" "ua" "Ua"]]
+      (is (= "UA" (common/source-abbreviation s)) (pr-str s))))
+  (testing "other sources the two-shape rule would mangle"
+    (is (= "MM" (common/source-abbreviation "Monster Manual")))
+    (is (= "PHB" (common/source-abbreviation "Player's Handbook")))
+    (is (= "DMG" (common/source-abbreviation "Dungeon Master's Guide")))
+    (is (= "EB" (common/source-abbreviation "Eberron"))))
+  (testing "an initialism with a description after it keeps the initialism whole"
+    ;; How a release in a series is actually named. The two-shape rule mangled both halves:
+    ;; three words gave UaGtOs and four gave UHoK.
+    (is (= "UAGO" (common/source-abbreviation "UA - Giant Options")))
+    (is (= "UAHoK" (common/source-abbreviation "UA - Heroes of Krynn")))
+    (is (= "UAGO" (common/source-abbreviation "UA: Giant Options")))
+    (is (= "MMEM" (common/source-abbreviation "MM Extra Monsters")))
+    (testing "and a year is not one, or the tag would carry all four digits"
+      (is (= "UA2HoK" (common/source-abbreviation "Unearthed Arcana 2022: Heroes of Krynn")))))
+
+  (testing "a source that is ALREADY an abbreviation passes through unchanged"
+    ;; "SRD" must not come back "Srd" -- same name, meaning filed off.
+    (is (= "SRD" (common/source-abbreviation "SRD")))
+    (is (= "XGE" (common/source-abbreviation "XGE"))))
+  (testing "sources the rule already gets right are NOT in the override table,
+            so there is only one place they can be wrong"
+    (is (= "TCoE" (common/source-abbreviation "Tasha's Cauldron of Everything")))
+    (is (= "VGtM" (common/source-abbreviation "Volo's Guide to Monsters")))))
+
+(deftest source-abbreviation-is-nil-when-there-is-nothing-to-abbreviate
+  ;; nil, not "" — the caller has to be able to tell "no tag" from "empty tag"
+  ;; so it can leave the name alone rather than producing "Artificer ()".
+  (doseq [s [nil "" "   " "!!!" "---"]]
+    (is (nil? (common/source-abbreviation s)) (pr-str s))))
+
+(deftest source-abbreviation-keeps-accented-letters-in-their-word
+  ;; Splitting on a non-ASCII letter would turn "Café" into "Caf" + a dropped
+  ;; letter. The word-separator class spells out the Latin ranges for this.
+  (is (= "CéNr" (common/source-abbreviation "Café Noir"))))
+
+(deftest disambiguated-key-is-always-derived-from-the-name
+  ;; The whole point of A. If these ever disagree, the editor's save path
+  ;; re-derives a DIFFERENT key from the name and the conflict comes back.
+  (doseq [[item-name source] [["Artificer" "Kibbles Tasty"]
+                              ["Artificer" "Tasha's Cauldron of Everything"]
+                              ["Bag of Holding" "Kibbles Tasty"]
+                              ["Fireball" "Unearthed Arcana"]
+                              ["Fireball" "UA"]
+                              ["Artificer" "Eberron"]
+                              ["Élan" "Kibbles Tasty"]
+                              ["Artificer" "Café Noir"]
+                              ["Artificer" "!!!"]]]
+    (let [{:keys [name key]} (common/disambiguated item-name source)]
+      (is (= key (common/name-to-kw name))
+          (str (pr-str item-name) " + " (pr-str source)
+               " -> " (pr-str name) " / " (pr-str key))))))
+
+(deftest disambiguated-tags-the-name-and-derives-the-key
+  (is (= {:name "Artificer (KsTy)" :key :artificer-ksty}
+         (common/disambiguated "Artificer" "Kibbles Tasty")))
+  (is (= {:name "Artificer (TCoE)" :key :artificer-tcoe}
+         (common/disambiguated "Artificer" "Tasha's Cauldron of Everything"))))
+
+(deftest disambiguated-does-not-stack-the-same-tag-twice
+  ;; Importing the same file twice must not yield "Artificer (KsTy) (KsTy)".
+  (let [once (common/disambiguated "Artificer" "Kibbles Tasty")
+        twice (common/disambiguated (:name once) "Kibbles Tasty")]
+    (is (= once twice)))
+  (testing "a DIFFERENT source still tags a name that already carries one"
+    (is (= "Artificer (KsTy) (TCoE)"
+           (:name (common/disambiguated "Artificer (KsTy)"
+                                        "Tasha's Cauldron of Everything"))))))
+
+(deftest disambiguated-tie-breaks-inside-the-parentheses
+  ;; The counter has to ride in the NAME, or the tie-broken key stops being
+  ;; derivable from it and the invariant above breaks for exactly the items
+  ;; that needed disambiguating most.
+  (let [taken? #{:artificer-ksty :artificer-ksty-2}
+        r (common/disambiguated "Artificer" "Kibbles Tasty" taken?)]
+    (is (= {:name "Artificer (KsTy 3)" :key :artificer-ksty-3} r))
+    (is (= (:key r) (common/name-to-kw (:name r))))))
+
+(deftest disambiguated-leaves-the-name-alone-when-the-source-has-no-tag
+  ;; Degrade to today's behaviour rather than inventing "Artificer ()".
+  (is (= {:name "Artificer" :key :artificer}
+         (common/disambiguated "Artificer" "!!!"))))
+
+(deftest safe-compare-orders-mixed-types-without-throwing
+  (is (= [:a :b] (sort common/safe-compare [:b :a])) "same types compare as usual")
+  (is (every? #(integer? (common/safe-compare (first %) (second %)))
+              [[:dwarf "text"] ["text" :dwarf] [42 :kw] [nil "x"] [[1 2] {}] [{} [1 2]]])
+      "a keyword against text threw, and a stored race with a text key stopped startup")
+  (is (= [nil 42 :kw "text" [1 2]] (sort common/safe-compare ["text" [1 2] :kw nil 42]))))
+

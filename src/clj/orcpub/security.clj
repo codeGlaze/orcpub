@@ -1,92 +1,743 @@
 (ns orcpub.security
-  "Login attempt tracking and rate limiting.
+  "Abuse limits on the account forms: one policy table (auth-guards), one guard over it, the
+   Turnstile check, and the cadence of the notices sent to account owners.
    See orcpub.time for date/time utilities."
-  (:require [orcpub.time :as time :refer [minutes ago]]))
+  (:require [clj-http.client :as client]
+            [clojure.string :as s]
+            [orcpub.config :as config]
+            [orcpub.time :as time :refer [minutes hours ago]]))
 
-(defn compare-dates [attempt-1 attempt-2]
-  (compare (:date attempt-1) (:date attempt-2)))
+(defn- log-safe
+  "`v` as text fit for one log line: control characters removed, at most 100 characters; nil stays nil."
+  [v]
+  (when (some? v)
+    (let [t (clojure.string/replace (str v) #"\p{Cntrl}" "")]
+      (subs t 0 (min 100 (count t))))))
 
-(def failed-login-attempts-by-username
-  (atom {}))
+(defn audit!
+  "Writes one log line for security event `event` (a keyword, like :sign-in-failed) on `request`,
+   naming account `username` when given: the player's address, the proxy it came through when that
+   differs, and the forwarded chain; never a password, token or email address. Returns nil."
+  ([event request] (audit! event request nil))
+  ([event request username]
+   (println (str "security: " (name event)
+                 (when username (str " user=" (log-safe username)))
+                 " ip=" (log-safe (:remote-addr request))
+                 (when-let [p (:peer-addr request)]
+                   (when (not= p (:remote-addr request)) (str " via=" (log-safe p))))
+                 (when-let [f (get-in request [:headers "x-forwarded-for"])]
+                   (str " fwd=" (log-safe f)))))
+   nil))
 
-(def failed-login-attempts-by-ip
-  (atom {}))
+;; ---------------------------------------------------------------------------
+;; Windowed limits for the endpoints that cost something to serve: the two that
+;; SEND MAIL spend our sending reputation on a message a stranger chose, not us.
+;; Neither limit may change the response -- an endpoint that answers differently
+;; once throttled is an oracle for whether a limit was reached, which on reset is the membership test already closed.
+;; ---------------------------------------------------------------------------
 
-(defn threshold []
-  (-> 1 minutes ago))
+;; A limit nobody counts is a limit nobody can tune: numbers like ten signups
+;; an hour from one household are guesses, validated only by how often they bite.
+;; Steady refusals across many hosts means the number is too low and hurting real
+;; people; a sudden spike on one host means it's doing its job.
+(def ^:private refusals (atom {}))
 
-(defn remove-old [attempts threshold-date]
-  (reduce
-   (fn [as [k v]]
-     (let [past-threshold (into (sorted-set-by compare-dates) (subseq v > {:date threshold-date}))]
-       (if (seq past-threshold)
-         (assoc as k past-threshold)
-         as)))
-   {}
-   attempts))
+(defn note-refusal!
+  "Records a refusal against a limit, and WHO it was. The count alone cannot
+   tell one host refused twenty times from twenty hosts refused once each --
+   the first is somebody hammering, the second is a spread, and only the second
+   suggests a pool of addresses working through the same list."
+  ([what] (note-refusal! what nil))
+  ([what who]
+   (swap! refusals update what
+          (fn [{:keys [n who-set] :or {n 0 who-set #{}}}]
+            {:n (inc n) :who-set (cond-> who-set who (conj who))}))
+   nil))
 
-(defn add-and-remove-old [key attempt attempts threshold-date]
-  (-> attempts
-      (remove-old threshold-date)
-      (update key #(conj (or % (sorted-set-by compare-dates)) attempt))))
+(defn take-refusals! []
+  (first (reset-vals! refusals {})))
 
-(defn add-failed-login-attempt! [username ip]
-  (let [attempt {:user username
-                 :ip ip
-                 :date (time/now)}]
-    (swap! failed-login-attempts-by-username
-           #(add-and-remove-old username attempt % (threshold)))
-    (swap! failed-login-attempts-by-ip
-           #(add-and-remove-old ip attempt % (threshold)))))
+(defn refusal-summary
+  "A line for the log, or nil on an hour when nothing was turned away. Each
+   limit reports how many refusals and across how many distinct sources, which
+   is the difference between one bad actor and a pool of them."
+  [counts]
+  (when (seq counts)
+    (str "limits: "
+         (->> counts
+              (sort-by (comp - :n val))
+              (map (fn [[what {:keys [n who-set]}]]
+                     (str (name what) " " n
+                          (when (> (count who-set) 1)
+                            (str " from " (count who-set) " sources")))))
+              (interpose ", ")
+              (apply str)))))
 
-(defn threshold-attempts [attempts time]
-  (let [thresholded (subseq attempts > {:date time})]
-    thresholded))
+;; ---------------------------------------------------------------------------
+;; Tokens withdrawn by a password change
+;;
+;; Holds the moment each account's password last moved; a token minted before
+;; that is refused. IN MEMORY, not a database read, because check-auth runs on
+;; every request doing pure signature verification, and only holds accounts whose password moved within the token lifetime -- older entries have already expired on their own.
+;; ---------------------------------------------------------------------------
 
-(defn too-many-attempts-for-username-aux [username attempts-by-username]
-  (some-> username
-          attempts-by-username
-          (threshold-attempts (threshold))
-          count
-          (>= 5)))
+(def ^:private password-changes (atom {}))
 
-(defn too-many-attempts-for-username? [username]
-  (too-many-attempts-for-username-aux
-   username
-   @failed-login-attempts-by-username))
+(defn note-password-changed!
+  "Records that `username`'s password moved, withdrawing every token minted
+   before that instant. Defaults to now."
+  ([username] (note-password-changed! username (System/currentTimeMillis)))
+  ([username at-millis]
+   (swap! password-changes assoc username at-millis)
+   at-millis))
 
-(defn usernames-for-attempts [attempts]
-  (set (map :user attempts)))
+(defn token-withdrawn?
+  "Whether a token minted at `minted-millis` has been withdrawn for `username`.
 
-(defn ips-for-attempts [attempts]
-  (set (map :ip attempts)))
+   A token carrying no minted stamp counts as older than any change: it predates
+   this mechanism, and the only accounts in the map are ones whose password moved
+   recently enough for the question to still matter."
+  [username minted-millis]
+  (boolean
+   (when-let [changed-at (get @password-changes username)]
+     (< (or minted-millis 0) changed-at))))
 
-(defn multiple-account-access-aux [ip attempts-by-ip]
-  (some-> ip
-          attempts-by-ip
-          ;; Filter attempts newer than 1 minute ago.
-          ;; Uses {:date ...} map because sorted-set compares by :date field.
-          (subseq > {:date (-> 1 minutes ago)})
-          usernames-for-attempts
-          count
-          (>= 5)))
+(defn forget-password-changes-before!
+  "Drops entries older than `cutoff-millis`. Every token they could withdraw has
+   expired by then, so keeping them only grows the map."
+  [cutoff-millis]
+  (swap! password-changes
+         (fn [m] (into {} (remove (fn [[_ at]] (< at cutoff-millis))) m)))
+  nil)
 
-(defn multiple-account-access? [ip]
-  (multiple-account-access-aux
-   ip
-   @failed-login-attempts-by-ip))
+(defn absorb-password-changes!
+  "Folds `username->millis`, read from the database, into the map, keeping the
+   later instant per account, then drops entries older than `cutoff-millis`.
+   GOTCHA: merges rather than replaces -- the database read is a snapshot, and
+   a reset or sign-out-everywhere committing after the read would be dropped
+   by a replace, reinstating the tokens it withdrew until the next hourly
+   refresh. See account-flows.md."
+  [username->millis cutoff-millis]
+  (swap! password-changes
+         (fn [m]
+           (into {}
+                 (remove (fn [[_ at]] (< at cutoff-millis)))
+                 (merge-with max m (into {} username->millis)))))
+  nil)
 
-(defn multiple-ip-attempts-to-same-account-aux [username attempts-by-username]
-  (some-> username
-          attempts-by-username
-          ;; Filter attempts newer than 1 minute ago.
-          ;; Uses {:date ...} map because sorted-set compares by :date field.
-          (subseq > {:date (-> 1 minutes ago)})
-          ips-for-attempts
-          count
-          (>= 3)))
+(defn restore-password-changes!
+  "Repopulates the map, for boot.
 
-(defn multiple-ip-attempts-to-same-account? [username]
-  multiple-ip-attempts-to-same-account-aux
-  username
-  @failed-login-attempts-by-username)
+   Without this a restart quietly reinstates every token the map was holding, and
+   nothing would notice -- the failure is silent and looks exactly like working,
+   which is why it has a test of its own."
+  [username->millis]
+  (reset! password-changes (into {} username->millis))
+  nil)
+
+(defn password-changes-snapshot
+  "The map as it stands. For the boot summary and for tests."
+  []
+  @password-changes)
+
+;; ---------------------------------------------------------------------------
+;; Where the mutable state lives. Everything the limits remember -- sightings, sign-in challenge
+;; marks, notice claims -- goes through this protocol, so the memory of ONE app container can be
+;; swapped for a store shared by several (Redis, when REDIS_URL is set) without touching the
+;; policy code. To add a store, implement these seven operations; nothing else reads the state.
+;; ---------------------------------------------------------------------------
+
+(defprotocol LimitStore
+  (-recent [store k window]
+    "The sightings of `k` inside `window`, oldest first, as [instant who]; records nothing.")
+  (-sight! [store k window who]
+    "Records one sighting of `k` by `who`, and returns those inside `window` from BEFORE it. The
+     record and the read are ONE atomic step, so simultaneous callers cannot both be told yes on
+     the last slot. `k` is a vector [limit-name subject]; `window` a Duration.")
+  (-busiest [store window]
+    "{limit-name highest-count-of-any-one-key inside window} over everything recorded.")
+  (-mark! [store k ttl-ms]
+    "Marks `k` for `ttl-ms` milliseconds.")
+  (-marked? [store k]
+    "Whether `k` is marked and the mark has not run out.")
+  (-unmark! [store k]
+    "Removes the mark on `k`.")
+  (-update-notice! [store k ttl-ms f]
+    "Replaces notice entry `k` with (f entry), `entry` being nil when there is none, and returns
+     the new entry; a nil from `f` leaves things as they were. The read, `f` and the write happen
+     as one step. An entry nobody touched for `ttl-ms` is forgotten."))
+
+;; Every recorded event is [instant who]: `who` is what a distinct-count limit counts (the typed
+;; name behind a connection, or the connection behind a typed name); nil when nothing needs it.
+(def ^:private sightings (atom {}))
+
+;; Bounds on the map. Every key is pruned by ITS OWN limit's window (carried as metadata on its
+;; entries vector, so the shape other code reads is unchanged); a key with no recorded window falls
+;; back to the longest any limit uses.
+(def ^:private prune-horizon (hours 24))
+
+;; Ceiling on distinct keys. Over it, the stalest keys go; the key being recorded is never refused,
+;; since refusing would switch limiting off for whoever floods new keys.
+(def ^:private sighting-key-cap 100000)
+
+(defn- live-entries [ts cutoff]
+  (filterv #(not (.isBefore ^java.time.Instant (first %) cutoff)) ts))
+
+(defn- prune [m]
+  (into {}
+        (keep (fn [[k ts]]
+                (let [live (live-entries ts (ago (or (:window (meta ts)) prune-horizon)))]
+                  (when (seq live) [k (with-meta live (meta ts))]))))
+        m))
+
+(defn- cap-keys [m]
+  (if (<= (count m) sighting-key-cap)
+    m
+    (let [keep-n (long (* 0.9 sighting-key-cap))
+          newest (fn [[_ ts]] (.toEpochMilli ^java.time.Instant (first (peek ts))))]
+      (into {} (take-last keep-n (sort-by newest m))))))
+
+;; Bounds memory against a flood of invented names from many connections.
+(def ^:private login-challenge-cap 50000)
+
+;; key -> the millisecond its mark runs out
+(def ^:private login-challenges (atom {}))
+
+;; entry key -> notice cadence entry (see claim-notice!); times are epoch milliseconds
+(def ^:private notice-state (atom {}))
+
+(defn- mark-in-memory! [m k ttl-ms now]
+  (let [m (if (>= (count m) login-challenge-cap)
+            (into {} (remove (fn [[_ until]] (< until now))) m)
+            m)]
+    ;; Still full of LIVE marks: leave them all and skip this one. Clearing them would
+    ;; let a flood of invented names lift every real challenge. Skipping is safe: an
+    ;; unmarked pair gets the one unchallenged try a fresh connection already gets.
+    (if (and (>= (count m) login-challenge-cap) (not (contains? m k)))
+      m
+      (assoc m k (+ now ttl-ms)))))
+
+(defrecord MemoryStore []
+  LimitStore
+  (-recent [_ k window]
+    (live-entries (get @sightings k) (ago window)))
+  (-sight! [_ k window who]
+    (let [cutoff (ago window)
+          at (time/now)
+          [before _] (swap-vals! sightings
+                                 (fn [m]
+                                   (let [mine (live-entries (get m k) cutoff)
+                                         m (-> m (dissoc k) prune cap-keys)]
+                                     (assoc m k (with-meta (conj mine [at who]) {:window window})))))]
+      (live-entries (get before k) cutoff)))
+  (-busiest [_ window]
+    (let [cutoff (ago window)]
+      (reduce (fn [acc [k ts]]
+                (let [limit (if (vector? k) (first k) k)]
+                  (update acc limit (fnil max 0) (count (live-entries ts cutoff)))))
+              {} @sightings)))
+  (-mark! [_ k ttl-ms]
+    (swap! login-challenges mark-in-memory! k ttl-ms (System/currentTimeMillis))
+    nil)
+  (-marked? [_ k]
+    (when-let [until (get @login-challenges k)]
+      (> until (System/currentTimeMillis))))
+  (-unmark! [_ k]
+    (swap! login-challenges dissoc k)
+    nil)
+  (-update-notice! [_ k ttl-ms f]
+    (let [stale-before (- (.toEpochMilli ^java.time.Instant (time/now)) ttl-ms)]
+      (get (swap! notice-state
+                  (fn [m]
+                    (let [m (into {} (remove (fn [[_ e]] (< (:seen e) stale-before))) m)
+                          e (f (get m k))]
+                      (if (nil? e) m (assoc m k e)))))
+           k))))
+
+(def memory-store
+  "The default store: this process's own memory, which is all one app container needs."
+  (->MemoryStore))
+
+;; A shared store can fail, and a limit that stops limiting when it does is worse than a limit
+;; that counts per container for a while. So the shared store is wrapped: any call that throws
+;; (or times out -- the store sets short socket timeouts) is answered by the memory store
+;; instead, and the failure is logged at most once a minute.
+(def ^:private store-warn-window-ms 60000)
+(def ^:private store-last-warned (atom 0))
+
+(defn- store-failed! [e]
+  (let [now (System/currentTimeMillis)
+        [before _] (swap-vals! store-last-warned #(if (> (- now %) store-warn-window-ms) now %))]
+    (when (> (- now before) store-warn-window-ms)
+      (println "limits: shared store failed, counting in this server's memory meanwhile -"
+               (.. e getClass getSimpleName)))))
+
+(defn- with-fallback [primary f]
+  (try (f primary)
+       (catch Throwable e
+         (store-failed! e)
+         (f memory-store))))
+
+(defrecord FallbackStore [primary]
+  LimitStore
+  (-recent [_ k window] (with-fallback primary #(-recent % k window)))
+  (-sight! [_ k window who] (with-fallback primary #(-sight! % k window who)))
+  (-busiest [_ window] (with-fallback primary #(-busiest % window)))
+  (-mark! [_ k ttl-ms] (with-fallback primary #(-mark! % k ttl-ms)))
+  (-marked? [_ k] (with-fallback primary #(-marked? % k)))
+  (-unmark! [_ k] (with-fallback primary #(-unmark! % k)))
+  (-update-notice! [_ k ttl-ms f] (with-fallback primary #(-update-notice! % k ttl-ms f))))
+
+(defn- build-store
+  "The store in use: Redis when REDIS_URL is set (namespace loaded only then, so a deployment
+   without it never touches the client), else memory."
+  []
+  (if-let [url (config/redis-url)]
+    (try
+      (let [redis ((requiring-resolve 'orcpub.security.redis-store/redis-store) url)]
+        (println "limits: counted in Redis (REDIS_URL set), shared by every app container")
+        (->FallbackStore redis))
+      (catch Throwable e
+        (println "limits: Redis store could not start, counting in memory -" (.. e getClass getSimpleName))
+        memory-store))
+    memory-store))
+
+(def ^:private configured-store (delay (build-store)))
+
+;; Tests put a store here; nil means the configured one.
+(def ^:private store-override (atom nil))
+
+(defn use-store!
+  "Uses `s` as the limit store from now on; nil returns to the configured one. For tests."
+  [s]
+  (reset! store-override s)
+  nil)
+
+(defn- store [] (or @store-override @configured-store))
+
+(defn- recent
+  "The sightings of `k` inside `window`, without recording anything."
+  [k window]
+  (-recent (store) k window))
+
+(defn- sight!
+  "Records one sighting of `k` by `who` and returns those inside `window` from BEFORE it."
+  [k window who]
+  (-sight! (store) k window who))
+
+(defn under-limit?
+  "True while `k` has been seen fewer than `limit` times inside `window`, and false once it has hit
+   the limit. `k` is any value; a vector's first element names the limit in the logs. Used directly
+   only by endpoints that are not account forms; those go through `guard`."
+  [k limit window]
+  (let [allowed (< (count (sight! k window nil)) limit)]
+    (when-not allowed
+      (note-refusal! (if (vector? k) (first k) k)
+                     (when (vector? k) (second k))))
+    allowed))
+
+;; The probe has no login, so IP is the only handle on who is asking. A real
+;; character builder fires it once per image field, well under this; a script
+;; walking a URL list to keep the fetch pool occupied is what it stops.
+(def image-probe-per-host-hourly 300)
+
+(defn image-probe-allowed? [ip]
+  (under-limit? [:image-probe-host ip] image-probe-per-host-hourly (hours 1)))
+
+;; ---------------------------------------------------------------------------
+;; The policy of every account endpoint a stranger can reach, as data. `guard` and `record!` below
+;; are the only code that reads it; handlers hold no numbers. The route-table test fails when a
+;; route is missing or stale, and the table-driven tests iterate it.
+;; ---------------------------------------------------------------------------
+
+(def auth-guards
+  "Per route key: :limits [[scope n window] ...] (scope :per-address :per-host :per-name
+   :names-per-host; window :minute :hour; a fourth element :when-failing refuses only the failing
+   attempt that reaches n), :counted-on :failure (else every request counts), :spend
+   :when-actionable (only when ctx's :actionable delay is true), :turnstile :always or
+   :after-failure, :challenge-limit [:per-host n window] (caps Cloudflare checks per host), :answer :uniform (the ordinary 200) :message (the :message) :error (the form's
+   own), :notify {:kind :scope :distinct :window} (see record!); or {:none \"why\"}."
+  {:orcpub.routes.auth/login
+   {:limits [[:names-per-host 5 :minute] [:per-name 5 :minute :when-failing]]
+    :challenge-limit [:per-host 30 :minute]
+    :counted-on :failure
+    :turnstile :after-failure
+    :answer :error
+    :notify {:kind :sign-in-attempts :scope :per-name :distinct 3 :window :minute}}
+   ;; What this defends is NOT the account table -- an unverified account cannot log in, so bulk
+   ;; signups sit inert. What signup CAN do is send mail to an address the filler doesn't own.
+   ;; Sized to real use (eight people at one game night, plus retries and typos).
+   :orcpub.routes.auth/register
+   {:limits [[:per-host 10 :hour]]
+    :challenge-limit [:per-host 30 :minute]
+    :turnstile :always
+    :answer :message
+    :message (str "Too many accounts have been created from this connection in the last hour. "
+                  "Try again a little later, or email us if you are stuck.")}
+   :orcpub.routes.auth/verify
+   {:none "the link carries an unguessable verification key; a wrong key changes nothing"}
+   ;; Three mails an hour to one address leaves room for "it never arrived, send it again"; the
+   ;; per-host limit stops somebody walking a list of addresses through the endpoint.
+   :orcpub.routes.auth/re-verify
+   {:limits [[:per-address 3 :hour] [:per-host 10 :hour]]
+    :challenge-limit [:per-host 30 :minute]
+    :turnstile :always
+    :answer :uniform
+    :spend :when-actionable}
+   :orcpub.routes.auth/send-password-reset
+   {:limits [[:per-address 3 :hour] [:per-host 10 :hour]]
+    :challenge-limit [:per-host 30 :minute]
+    :turnstile :always
+    :answer :uniform
+    :spend :when-actionable}
+   :orcpub.routes.auth/reset-password
+   {:none "needs the unguessable single-use reset key from the mailed link"}
+   :orcpub.routes.auth/reset-password-page
+   {:none "a page; needs the unguessable reset key and changes nothing"}
+   :orcpub.routes.auth/check-username
+   {:none "usernames are public handles (profiles, shares), so membership is not a secret"}
+   :orcpub.routes.auth/request-email-change
+   {:none "needs a signed-in session and the current password, and has its own cooldown (email-change-rate-limited?)"}
+   :orcpub.routes/unsubscribe
+   {:none "the link carries a signed token; an unsigned or tampered one is refused"}})
+
+(defn policy
+  "The guard policy of `route`, or nil for a route that has none (or is unknown)."
+  [route]
+  (let [p (get auth-guards route)]
+    (when-not (:none p) p)))
+
+(def ^:private windows {:minute (minutes 1) :hour (hours 1)})
+
+(def ^:private scopes
+  {:per-address {:subject :address}
+   :per-host {:subject :ip}
+   :per-name {:subject :typed-name :who :ip}
+   :names-per-host {:subject :ip :who :typed-name :distinct? true}})
+
+(defn limit-name
+  "The name a limit goes by in the logs and the busiest line: the route plus the scope."
+  [route scope]
+  (keyword (str (name route) "-" (name scope))))
+
+(defn- normalise
+  "Typed text as the lookups see it: trimmed and lowercased. Anything else is left alone."
+  [v]
+  (if (string? v) (s/lower-case (s/trim v)) v))
+
+(defn- limit-key [route scope ctx]
+  [(limit-name route scope) (normalise (get ctx (:subject (scopes scope))))])
+
+(defn- who-of [scope ctx]
+  (normalise (some->> (:who (scopes scope)) (get ctx))))
+
+(defn- full?
+  "Whether `entries` (sightings of one limit) have reached `n`."
+  [scope n entries]
+  (>= (if (:distinct? (scopes scope)) (count (distinct (map second entries))) (count entries)) n))
+
+;; ---------------------------------------------------------------------------
+;; Cloudflare Turnstile (managed mode), on the forms whose policy asks for it.
+;; GOTCHA: fails OPEN. If Cloudflare cannot be reached the request goes through; only an
+;; answer of success=false (or no token at all) refuses. The secret key is never logged.
+;; ---------------------------------------------------------------------------
+
+(def ^:private turnstile-endpoint "https://challenges.cloudflare.com/turnstile/v0/siteverify")
+
+;; Short enough that a stalled third party cannot hold a signup open (same idea as orcpub.pwned).
+(def ^:private turnstile-timeout-ms 4000)
+
+(defn turnstile-enabled?
+  "True only when both TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY are set."
+  []
+  (config/turnstile-enabled?))
+
+(defn- post-siteverify
+  "POSTs to Cloudflare; returns the parsed JSON body as a map. A 4xx is an answer (Cloudflare
+   refused the request or the token), so it returns the body, or {} when that is not a map, and
+   the caller reads it as a failure. Throws on transport failure and on anything else non-2xx (5xx
+   is Cloudflare being down). A separate fn so tests can with-redefs it."
+  [token remote-ip]
+  (let [{:keys [status body]}
+        (client/post turnstile-endpoint
+                     {:form-params (cond-> {:secret (config/turnstile-secret-key)
+                                            :response token}
+                                     (not (s/blank? remote-ip)) (assoc :remoteip remote-ip))
+                      :as :json
+                      :socket-timeout turnstile-timeout-ms
+                      :connection-timeout turnstile-timeout-ms
+                      :throw-exceptions false
+                      :cookie-policy :none
+                      :redirect-strategy :none})]
+    (cond
+      (<= 200 status 299) body
+      (<= 400 status 499) (if (map? body) body {})
+      :else (throw (ex-info "siteverify unavailable" {:status status})))))
+
+;; A sustained outage would otherwise log a line per signup.
+(def ^:private turnstile-log-window-ms 60000)
+(def ^:private turnstile-last-logged (atom 0))
+
+(defn- turnstile-warn-unreachable! [reason]
+  (let [now (System/currentTimeMillis)
+        [before _] (swap-vals! turnstile-last-logged #(if (> (- now %) turnstile-log-window-ms) now %))]
+    (when (> (- now before) turnstile-log-window-ms)
+      ;; Reason is an exception class name or HTTP status: never the secret or the token.
+      (println "turnstile: siteverify unreachable, letting signup through -" reason))))
+
+(defn- blank-token?
+  "True for no token: nil, blank text, or anything that is not text (a number, map or vector sent
+   in the JSON body)."
+  [token]
+  (or (not (string? token)) (s/blank? token)))
+
+(defn turnstile-verify
+  "Checks a Turnstile `token` for `remote-ip`. Returns :pass, :fail, or :unreachable (the caller
+   treats :unreachable as a pass; only a transport failure or a 5xx is that). A blank or non-text
+   token is :fail without calling Cloudflare."
+  [token remote-ip]
+  (if (blank-token? token)
+    :fail
+    (try
+      (let [result (post-siteverify token remote-ip)]
+        (if (true? (:success result)) :pass :fail))
+      (catch Exception e
+        (turnstile-warn-unreachable! (if-let [st (:status (ex-data e))]
+                             (str "HTTP " st)
+                             (.. e getClass getSimpleName)))
+        :unreachable))))
+
+;; ---------------------------------------------------------------------------
+;; Sign-in challenge after a failure. A failed sign-in marks the NEXT attempt from that
+;; connection with that typed name as needing the challenge. The key is the typed text, trimmed
+;; and lowercased as the lookup does, never the account, so a mark exists for a name with no
+;; account exactly as for one with an account and reveals nothing about either.
+;; ---------------------------------------------------------------------------
+
+(def login-challenge-ms (* 15 60 1000))
+
+(defn- login-challenge-key [typed-name remote-ip]
+  [(normalise (str typed-name)) remote-ip])
+
+(defn mark-login-challenge!
+  "Marks `typed-name` from `remote-ip` as needing the challenge on its next attempt, for 15 minutes.
+   Does nothing while Turnstile is off."
+  [typed-name remote-ip]
+  (when (turnstile-enabled?)
+    (-mark! (store) (login-challenge-key typed-name remote-ip) login-challenge-ms))
+  nil)
+
+(defn clear-login-challenge! [typed-name remote-ip]
+  (-unmark! (store) (login-challenge-key typed-name remote-ip))
+  nil)
+
+(defn login-challenge-required?
+  "True while Turnstile is on and `typed-name` from `remote-ip` failed a sign-in in the last 15 minutes."
+  [typed-name remote-ip]
+  (boolean (and (turnstile-enabled?)
+                (-marked? (store) (login-challenge-key typed-name remote-ip)))))
+
+;; ---------------------------------------------------------------------------
+;; The one guard. A handler calls `guard` before it does the work and, for a form that counts
+;; failures, `record!` when one happens; both read auth-guards and nothing else.
+;; ---------------------------------------------------------------------------
+
+(defn- refuse! [k]
+  (note-refusal! (first k) (second k))
+  {:reason :limit :limit (first k)})
+
+(defn- challenge-limit-refusal
+  "A limit refusal when this host has already used the route's :challenge-limit of Cloudflare
+   checks, else nil. Counts the attempt, so it is called only when a check is about to be made.
+   Its own key, apart from the route's limits: a failed challenge spends none of those."
+  [route p {:keys [ip]}]
+  (when-let [[scope n window] (:challenge-limit p)]
+    (let [k [(keyword (str (name route) "-challenge")) (normalise ip)]]
+      (when (full? scope n (sight! k (windows window) nil))
+        (refuse! k)))))
+
+(defn- challenge-refusal
+  "A refusal when the policy wants the challenge for this request, it is on, and the token fails
+   it: {:reason :turnstile :blank? ...}, or a limit refusal when the host has asked for too many
+   checks (no call is made then). :unreachable is not a refusal."
+  [route p {:keys [token ip typed-name] :as ctx}]
+  (when (and (:turnstile p)
+             (turnstile-enabled?)
+             (or (= :always (:turnstile p)) (login-challenge-required? typed-name ip)))
+    (if (blank-token? token)
+      {:reason :turnstile :blank? true}
+      (or (challenge-limit-refusal route p ctx)
+          (when (= :fail (turnstile-verify token ip))
+            {:reason :turnstile :blank? false})))))
+
+(defn- inspect-limits
+  "The first limit already full, without counting this request: for forms that count failures."
+  [route p ctx]
+  (some (fn [[scope n window when-failing]]
+          (let [k (limit-key route scope ctx)]
+            (when (and (not when-failing) (full? scope n (recent k (windows window))))
+              (refuse! k))))
+        (:limits p)))
+
+(defn- spend-limits
+  "Counts this request against each limit in order, stopping at the first that is full. Skipped when
+   the policy spends only on an actionable request and this one is not."
+  [route p ctx]
+  (when (or (not= :when-actionable (:spend p)) (force (:actionable ctx)))
+    (some (fn [[scope n window]]
+            (let [k (limit-key route scope ctx)]
+              (when (full? scope n (sight! k (windows window) (who-of scope ctx)))
+                (refuse! k))))
+          (:limits p))))
+
+(defn challenge-flag
+  "What a failed request on `route` tells its form about the challenge: {:challenge? true} when
+   the route's policy is :turnstile :after-failure and Turnstile is on, else nil. The same map for
+   every failure, so it cannot tell an unknown name from a wrong password."
+  [route]
+  (when (and (= :after-failure (:turnstile (policy route))) (turnstile-enabled?))
+    {:challenge? true}))
+
+(defn guard
+  "nil when the request may go on, else a refusal: {:reason :turnstile :blank? bool} or
+   {:reason :limit :limit kw}. `route` is a key of auth-guards; `ctx` holds what the handler knows:
+   :ip, :address, :typed-name, :token, and :actionable (a delay: whether this request has anything
+   to do, forced only after the challenge). A route with no policy is never refused. Order: limits
+   that merely look (failure-counted forms), the challenge, then limits that count -- so a failed
+   challenge spends no allowance and a refusal can never come from a lookup."
+  [route ctx]
+  (when-let [p (policy route)]
+    (let [on-failure? (= :failure (:counted-on p))]
+      (or (when on-failure?
+            (when-let [r (inspect-limits route p ctx)]
+              (when (= :after-failure (:turnstile p))
+                (mark-login-challenge! (:typed-name ctx) (:ip ctx)))
+              r))
+          (challenge-refusal route p ctx)
+          (when-not on-failure? (spend-limits route p ctx))))))
+
+(defn record!
+  "Counts an outcome for a form whose policy counts failures. :failure records it against every
+   limit, marks the next attempt for the challenge when the policy has one, and returns
+   {:refusal r-or-nil :notify kind-or-nil}: a refusal when a :when-failing limit is now full, and the
+   kind of notice to claim when the policy's :notify spread has been reached. :success clears the
+   mark. Returns nil for a route with no policy."
+  [route event ctx]
+  (when-let [p (policy route)]
+    (case event
+      :success (do (when (= :after-failure (:turnstile p))
+                     (clear-login-challenge! (:typed-name ctx) (:ip ctx)))
+                   nil)
+      :failure
+      (let [seen (mapv (fn [[scope n window when-failing :as limit]]
+                         (let [k (limit-key route scope ctx)]
+                           [limit k (sight! k (windows window) (who-of scope ctx))]))
+                       (:limits p))
+            _ (when (= :after-failure (:turnstile p))
+                (mark-login-challenge! (:typed-name ctx) (:ip ctx)))
+            {:keys [kind scope distinct window]} (:notify p)]
+        {:refusal (some (fn [[[scope n _ when-failing] k before]]
+                          (when (and when-failing
+                                     (full? scope n (conj before [nil (who-of scope ctx)])))
+                            (refuse! k)))
+                        seen)
+         :notify (when (and kind
+                            (>= (count (clojure.core/distinct
+                                        (map second (recent (limit-key route scope ctx) (windows window)))))
+                                distinct))
+                   kind)}))))
+
+;; ---------------------------------------------------------------------------
+;; What the hourly heartbeat reports.
+;; ---------------------------------------------------------------------------
+
+(defn busiest
+  "The heaviest single user of each limit in the window, whether or not it was
+   ever refused. A host that stops at ten signups an hour, every hour, never
+   trips anything and so never appears in the refusals at all -- this is the
+   only place it shows up."
+  []
+  (-busiest (store) (hours 1)))
+
+(defn- caps
+  "What each hourly limit allows, read off the policy table (plus the image probe)."
+  []
+  (into {:image-probe-host image-probe-per-host-hourly}
+        (for [[route p] auth-guards
+              [scope n window] (:limits p)
+              :when (= :hour window)]
+          [(limit-name route scope) n])))
+
+(defn busiest-summary
+  "A line naming any limit whose heaviest user is at least at `floor` of it --
+   the quiet version of abuse, which sits just inside every number it is given."
+  [highs floor]
+  (let [caps (caps)
+        near (for [[what n] highs
+                   :let [cap (get caps what)]
+                   :when (and cap (>= n (* floor cap)))]
+               (str (name what) " " n "/" cap))]
+    (when (seq near)
+      (str "limits, busiest source: " (apply str (interpose ", " near))))))
+
+(defn summary-job
+  "Heartbeat job: at most two lines an hour, and silent when there is nothing
+   to say. The first is what was turned away and how widely; the second is the
+   heaviest user of any limit that is sitting at 80% or more of it."
+  [_conn]
+  (let [highs (busiest)]
+    (when-let [line (refusal-summary (take-refusals!))]
+      (println line))
+    (when-let [line (busiest-summary highs 0.8)]
+      (println line))))
+
+;; ---------------------------------------------------------------------------
+;; Notices to an account's owner about attempts on it: the first at once, then only when new
+;; attempts came in, no sooner than :min-gap-hours after the last and at most :max-per-day in a
+;; rolling day, each saying how many came in. Without a cadence the warning mail-bombs the owner.
+;; ---------------------------------------------------------------------------
+
+(def notices
+  {:sign-in-attempts {:first :immediate :min-gap-hours 6 :max-per-day 4}
+   :taken-signup {:first :immediate :min-gap-hours 6 :max-per-day 4}})
+
+(def ^:private day-ms (* 24 60 60 1000))
+
+(defn claim-notice!
+  "Counts one attempt for `kind` (a key of `notices`) against `k` (the account or address) and says
+   whether to mail the owner now: nil when not, {} for the first notice, {:since-last n} for a
+   follow-up, n being the attempts since the previous notice, this one included."
+  [kind k]
+  (let [{:keys [min-gap-hours max-per-day]} (notices kind)
+        at (.toEpochMilli ^java.time.Instant (time/now))
+        day-ago (- at day-ms)
+        gap-ago (- at (* min-gap-hours 60 60 1000))
+        claimed (fn [entry]
+                  (let [{:keys [pending sent notified?] :or {pending 0 sent []}} entry
+                        sent (filterv #(> % day-ago) sent)
+                        pending (inc pending)
+                        due? (if (empty? sent)
+                               (or notified? (= :immediate (:first (notices kind))))
+                               (and (<= (peek sent) gap-ago)
+                                    (< (count sent) max-per-day)))]
+                    (if due?
+                      {:pending 0 :sent (conj sent at) :seen at :notified? true
+                       :claimed (if notified? {:since-last pending} {})}
+                      {:pending pending :sent sent :seen at :notified? notified?})))]
+    (:claimed (-update-notice! (store) [kind k] day-ms claimed))))
+
+(defn release-notice!
+  "Gives back a claim from `claim-notice!` whose mail could not be queued, so the notice is not
+   counted as sent and the next attempt is due again: drops the latest send time, restores the
+   attempts that were waiting (`notice` is what the claim returned) and, for a first notice, the
+   not-yet-notified state."
+  [kind k notice]
+  (-update-notice! (store) [kind k] day-ms
+                   (fn [e]
+                     (when e
+                       (-> e
+                           (update :sent #(if (seq %) (pop %) %))
+                           (assoc :pending (:since-last notice 1))
+                           (assoc :notified? (contains? notice :since-last))
+                           (dissoc :claimed)))))
+  nil)

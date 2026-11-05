@@ -51,7 +51,7 @@ In CSP Level 3 browsers (all modern browsers), `strict-dynamic` causes the brows
 1. `nonce-interceptor` (in `pedestal.clj`) generates a 128-bit nonce per request
 2. The nonce is stored in `[:request :csp-nonce]` for templates to read
 3. On `:leave`, the interceptor sets the `Content-Security-Policy` header with the nonce
-4. **Dev mode**: The nonce interceptor is a no-op — no nonce is generated, no CSP header is added. Pedestal 0.7's built-in `secure-headers` still applies its own defaults, but the custom nonce header is skipped entirely. This avoids flooding the browser console with Report-Only violations from Figwheel's inline scripts.
+4. **Dev mode**: The nonce interceptor is a no-op — no nonce is generated, no CSP header is added. Pedestal 0.7's built-in `secure-headers` still applies its own defaults, but the custom nonce header is skipped entirely. This is what lets Figwheel's inline scripts and its `ws://localhost:3449` connection through: the policy is not softened, it is simply not sent. (Earlier revisions of this file called that a "Report-Only" mode. No such mode exists here — nothing has ever emitted `Content-Security-Policy-Report-Only`.)
 5. **Prod mode**: Enforcing `Content-Security-Policy` with per-request nonces
 
 **Configuration** via `CSP_POLICY` env var (see `.env.example`):

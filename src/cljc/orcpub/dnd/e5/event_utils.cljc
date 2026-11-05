@@ -5,18 +5,20 @@
   (:require [orcpub.modifiers :as mod]
             [orcpub.route-map :as routes]
             [clojure.string :as s]
-            #?(:cljs [re-frame.core :refer [dispatch]])))
+            #?(:cljs [re-frame.core :refer [dispatch after]])
+            #?(:cljs [orcpub.dnd.e5.db :refer [user->local-store]])))
 
 ;; -- URL helpers (CLJS-only: depend on js/window.location) --
 
 #?(:cljs
    (defn backend-url
-     "Rewrites a path to the backend URL in local dev (port 8890)."
+     "A path on the server that served the page.
+
+      Assumes frontend and backend share an origin: dev.cljs.edn opens the app on the server itself, so
+      logins and API calls follow whatever port served the page. Running the frontend from any other
+      localhost port breaks this -- there is no prefix here to redirect it to the backend's port."
      [path]
-     (if (and js/window.location
-              (s/starts-with? js/window.location.href "http://localhost"))
-       (str "http://localhost:8890" (when (not (s/starts-with? path "/")) "/") path)
-       path)))
+     (if (s/starts-with? path "/") path (str "/" path))))
 
 #?(:cljs
    (defn url-for-route
@@ -26,13 +28,26 @@
 
 ;; -- Auth --
 
+(defn get-auth-token
+  "Returns the JWT at `[:user-data :token]` in app-db, or nil when not logged in.
+   The one access to that path: use it for the token (Authorization header, `:http` fx
+   `:auth-token`) and, since nil is falsy, as the logged-in guard everywhere.
+   GOTCHA: if 'logged in' ever needs more conditions, add a `logged-in?` predicate;
+   never inline compound logic at call sites."
+  [db]
+  (-> db :user-data :token))
+
 (defn auth-headers
   "Returns Authorization header map from db. Handles nil token gracefully."
   [db]
-  (let [token (-> db :user-data :token)]
-    (if token
-      {"Authorization" (str "Token " token)}
-      {})))
+  (if-let [token (get-auth-token db)]
+    {"Authorization" (str "Token " token)}
+    {}))
+
+;; -- Local store --
+
+#?(:cljs
+(def user->local-store-interceptor (after (fn [db] (user->local-store (:user-data db))))))
 
 ;; -- Error helpers --
 

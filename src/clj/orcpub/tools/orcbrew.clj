@@ -1,11 +1,8 @@
 (ns orcpub.tools.orcbrew
   "Command-line tools for inspecting and debugging orcbrew files.
-
    Usage:
      lein prettify-orcbrew <file.orcbrew>           - Pretty-print EDN
-     lein prettify-orcbrew <file.orcbrew> --analyze - Show potential issues
-
-   Version: 0.01"
+     lein prettify-orcbrew <file.orcbrew> --analyze - Show potential issues"
   (:require [clojure.edn :as edn]
             [clojure.pprint :as pp]
             [clojure.string :as str]

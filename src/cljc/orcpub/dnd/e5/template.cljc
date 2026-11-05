@@ -10,6 +10,7 @@
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.homebrew-guard :as guard]
             [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.weapons :as weapon5e]
             [orcpub.dnd.e5.equipment :as equip5e]
@@ -1526,23 +1527,26 @@
                opt5e/alignment-titles)})
    (opt5e/race-selection
     {:options (conj
-               (map
-                (partial opt5e/race-option spell-lists spells-map language-map weapon-map)
+               (keep
+                #(guard/guard-entry :orcpub.dnd.e5/races %
+                                     (partial opt5e/race-option spell-lists spells-map language-map weapon-map))
                 races)
                (opt5e/custom-race-option spell-lists spells-map language-map weapon-map))})
    (opt5e/background-selection
     {:help "Background broadly describes your character origin. It also affords you two skill proficiencies and possibly proficiencies with tools or languages."
      :options (conj
-               (map
-                (partial opt5e/background-option language-map weapon-map)
+               (keep
+                #(guard/guard-entry :orcpub.dnd.e5/backgrounds %
+                                     (partial opt5e/background-option language-map weapon-map))
                 backgrounds)
                (opt5e/custom-background-option language-map))})
    (opt5e/feat-selection-2
     {:options (concat
                (opt5e/feat-options spell-lists spells-map)
                (let [race-map (common/map-by-key races)]
-                 (map
-                  (partial opt5e/feat-option-from-cfg language-map spells-map spell-lists custom-and-standard-weapons race-map)
+                 (keep
+                  #(guard/guard-entry :orcpub.dnd.e5/feats %
+                                       (partial opt5e/feat-option-from-cfg language-map spells-map spell-lists custom-and-standard-weapons race-map))
                   feats)))
      :show-if-zero? true
      :min 0

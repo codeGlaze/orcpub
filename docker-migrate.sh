@@ -99,7 +99,8 @@ load_env() {
     # Read specific variables we need rather than exporting everything
     # tr -d '\r' handles Windows line endings in .env
     # shellcheck disable=SC1090
-    DATOMIC_PASSWORD="${DATOMIC_PASSWORD:-$(. <(tr -d '\r' < "$env_file") && echo "${DATOMIC_PASSWORD:-}")}"
+    # shellcheck source=scripts/load-env.sh
+    DATOMIC_PASSWORD="${DATOMIC_PASSWORD:-$(. "${SCRIPT_DIR}/scripts/load-env.sh" && load_env "$env_file" && echo "${DATOMIC_PASSWORD:-}")}"
   fi
 }
 

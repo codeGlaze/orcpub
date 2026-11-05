@@ -2,7 +2,8 @@
   (:require [orcpub.route-map :as routes]
             [clojure.string :as s]
             [orcpub.fork.branding :as branding]
-            [orcpub.fork.splash :as splash]))
+            [orcpub.fork.splash :as splash]
+            #?(:cljs [re-frame.core :refer [dispatch]])))
 
 (defn style [style]
   #?(:cljs style)
@@ -40,19 +41,47 @@
     [:div
      (svg-icon-2 icon 64 "dark")
      [:div
-      [:span.splash-button-title-prefix "D&D 5e "] [:span title]]]]])
+      [:span.splash-button-title-prefix {:translate "no" :lang "en"} "D&D 5e "] [:span title]]]]])
 
 (def orange-style
   {:color :orange})
 
-(defn legal-footer []
-  [:div.m-l-15.m-b-10.m-t-10.t-a-l
-   [:span (str "\u00a9 " branding/copyright-year " " branding/copyright-holder)]
-   (for [{:keys [label href]} splash/legal-footer-links]
-     ^{:key href}
-     [:a.m-l-5 {:href href :target :_blank} label])])
+(defn legal-footer
+  "The site-wide copyright line and its two legal links.
 
-(defn splash-page []
+   `links?` false leaves the copyright and drops the links, for a page that has
+   already linked both documents in its own consent copy. Printing them twice
+   sixteen pixels apart does not make the agreement any more agreed to."
+  ([] (legal-footer true))
+  ([links?]
+   [:div.m-l-15.m-b-10.m-t-10.t-a-l
+    [:span (str "\u00a9 " branding/copyright-year " " branding/copyright-holder)]
+    (when links?
+      (for [{:keys [label href]} splash/legal-footer-links]
+        ^{:key href}
+        [:a.m-l-5 {:href href :target :_blank} label]))]))
+
+(defn whats-new-link
+  "A small \"What's New\" link, at the footer's link size, that opens the release panel
+   (:orcpub.dnd.e5/open-whats-new), by click or by Enter or Space when focused. Takes no args;
+   returns hiccup. Inert in the server-rendered page, which the app replaces on mount."
+  []
+  [:div.f-s-12.t-a-c.m-t-10
+   [:a.orange.pointer
+    #?(:cljs {:role "button"
+              :tab-index 0
+              :on-click #(dispatch [:orcpub.dnd.e5/open-whats-new])
+              :on-key-down (fn [e]
+                             (when (#{"Enter" " "} (.-key e))
+                               (.preventDefault e)
+                               (dispatch [:orcpub.dnd.e5/open-whats-new])))}
+       :clj {})
+    "What's New"]])
+
+(defn splash-page
+  "The home page: the logo, the grid of tool buttons and a small What's New link. Takes no args;
+   returns hiccup. Rendered by the server as the first paint and by the app after mount."
+  []
   [:div.app.h-full
    {:style (style {:display :flex
                    :flex-direction :column})}
@@ -155,4 +184,5 @@
                   :margin-top "10px"})}
         (for [{:keys [title icon route]} splash/generator-buttons]
           ^{:key route}
-          (splash-page-button title icon route))])]]])
+          (splash-page-button title icon route))])
+     (whats-new-link)]]])

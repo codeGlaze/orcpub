@@ -1,5 +1,10 @@
 (ns orcpub.routes
   (:require [io.pedestal.http :as http]
+            [orcpub.bounded-cache :as bounded-cache]
+            [cheshire.core :as cheshire]
+            [orcpub.work-pool :as work-pool]
+            [orcpub.portrait-store :as portrait-store]
+            [orcpub.art-mark :as art-mark]
             [io.pedestal.http.route :as route]
             [io.pedestal.test :as test]
             [io.pedestal.http.ring-middlewares :as ring]
@@ -13,18 +18,21 @@
             [buddy.auth.protocols :as proto]
             [buddy.auth.backends :as backends]
             [buddy.sign.jwt :as jwt]
-            [buddy.hashers :as hashers]
             [buddy.auth.middleware :refer [authentication-request]]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [orcpub.time :as time :refer [hours ago from-now instant before?]]
+            [orcpub.time :as time]
             [clojure.string :as s]
             [clojure.spec.alpha :as spec]
             [clojure.pprint]
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
+            [orcpub.dnd.e5.artist-profile :as artist-profile]
             [orcpub.dnd.e5.spells :as spells]
+            [orcpub.dnd.e5.spell-annotations :as spell-annotations]
             [orcpub.dnd.e5.magic-items :as mi5e]
+            [orcpub.dnd.e5.share-bundle :as sb]
             [orcpub.dnd.e5.template :as t5e]
             [datomic.api :as d]
             [bidi.bidi :as bidi]
@@ -32,31 +40,39 @@
             [orcpub.route-map :as route-map]
             [orcpub.errors :as errors]
             [orcpub.privacy :as privacy]
+            [orcpub.config :as config]
             [orcpub.email :as email]
-            [orcpub.index :refer [index-page]]
+            [orcpub.index :refer [index index-page-response default-index-page]]
             [orcpub.pdf :as pdf]
-            [orcpub.registration :as registration]
+            [orcpub.pdf.draw :as draw]
+            [orcpub.pdf.cards :as cards]
+            [orcpub.portrait-render :as portrait-render]
+            [orcpub.portrait-pack.strands :as strands]
+            [orcpub.dnd.e5.portrait-effects :as portrait-fx]
+            [orcpub.artist-credit :as artist-credit]
+            [orcpub.artist-credit-notices :as credit-notices]
+            [orcpub.artist-email :as artist-email]
+            [orcpub.crypto :as crypto]
+            [orcpub.spellbook :as spellbook]
+            [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.entity.strict :as se]
             [orcpub.entity :as entity]
             [orcpub.security :as security]
             [orcpub.fork.branding :as branding]
-            [orcpub.fork.auth :as auth]
-            [orcpub.fork.user-data :as user-data]
+            [orcpub.fork.auth :as fork-auth]
+            [orcpub.routes.auth :as auth]
             [orcpub.routes.party :as party]
             [orcpub.routes.folder :as folder]
+            [orcpub.routes.share :as share]
             [hiccup.page :as page]
-            [environ.core :as environ]
+            [hiccup2.core :as h]
+            [orcpub.env :as env]
             [clojure.set :as sets]
             [ring.middleware.head :as head]
             [ring.util.codec :as codec]
             [ring.util.request :as req])
-  ;; PDFBox 3.x: Use Loader class instead of PDDocument.load() static method
-  ;; OLD (2.x): (PDDocument/load input-stream)
-  ;; NEW (3.x): (Loader/loadPDF byte-array)  — does NOT accept InputStream
-  ;; 
-  ;; Import syntax notes for Clojure newcomers:
-  ;;   - (org.apache.pdfbox.pdmodel PDDocument PDPage) imports multiple classes from one package
-  ;;   - org.apache.pdfbox.Loader imports a single class (no parens needed)
+  ;; PDFBox 3.x loads documents through Loader/loadPDF, which takes a byte array, not an
+  ;; InputStream.
   (:import (org.apache.pdfbox.pdmodel PDPage PDPageContentStream)
            org.apache.pdfbox.Loader
            (java.io ByteArrayOutputStream ByteArrayInputStream))
@@ -64,79 +80,7 @@
 
 (deftype FixedBuffer [^long len])
 
-(def ^:private jwt-secret
-  "JWT signing secret from SIGNATURE env var.
-   nil when unset — check-auth returns 500 with a diagnostic message."
-  (environ/env :signature))
-
-(when-not jwt-secret
-  (println "WARNING: SIGNATURE env var is not set — all authenticated API calls will fail"))
-
-(def backend (backends/jws {:secret jwt-secret}))
-
-(defn first-user-by [db query value]
-  (let [result (d/q query
-                    db
-                    value)
-        user-id (ffirst result)]
-    (d/pull db '[*] user-id)))
-
-(def username-query
-  '[:find ?e
-    :in $ ?username
-    :where [?e :orcpub.user/username ?username]])
-
-;; Case-insensitive email lookup to guard against mixed-case legacy data.
-;; Callers must pass a lowercased email.
-(def email-query
-  '[:find ?e
-    :in $ ?email
-    :where [?e :orcpub.user/email ?stored]
-           [(clojure.string/lower-case ?stored) ?email]])
-
-(defn find-user-by-username-or-email [db username-or-email]
-  (d/q
-   '[:find (pull ?e [*]) .
-     :in $ ?user-or-email
-     :where (or [?e :orcpub.user/username ?user-or-email]
-                [?e :orcpub.user/email ?user-or-email])]
-   db
-   username-or-email))
-
-(defn find-user-by-username [db username]
-  (d/q '[:find (pull ?e [*]) .
-         :in $ ?username
-         :where [?e :orcpub.user/username ?username]]
-       db
-       username))
-
-(defn lookup-user-by-username [db username password]
-  (let [user (d/q '[:find (pull ?e [*]) .
-                    :in $ [?username ?password]
-                    :where
-                    [?e :orcpub.user/username ?username]
-                    [?e :orcpub.user/password ?enc]
-                    [(buddy.hashers/check ?password ?enc)]]
-                  db
-                  [username password])]
-    user))
-
-(defn lookup-user-by-email [db email password]
-  (let [user (first-user-by db
-                         '{:find [?e]
-                           :in [$ [?email ?password]]
-                           :where [[?e :orcpub.user/email ?email-2]
-                                   [(clojure.string/lower-case ?email-2)
-                                    ?email]
-                                   [?e :orcpub.user/password ?enc]
-                                   [(buddy.hashers/check ?password ?enc)]]}
-                         [(s/lower-case email) password])]
-    user))
-
-(defn lookup-user [db username password]
-  (if (re-matches registration/email-format username)
-    (lookup-user-by-email db username password)
-    (lookup-user-by-username db username password)))
+(def backend (backends/jws {:secret auth/jwt-secret}))
 
 (defn terminate-request [context status message]
   (-> context
@@ -150,21 +94,90 @@
   (interceptor/interceptor
    {:name :check-auth
     :enter (fn [context]
-             (if-not jwt-secret
+             (if-not auth/jwt-secret
+               ;; The full remedy, not just the symptom: whoever sees this 500 in a log is
+               ;; the person who can fix it.
                (terminate-request context 500
-                                  "Server misconfigured: SIGNATURE env var not set")
+                                  (str "Server misconfigured. " config/signature-missing-message))
                (try
                  (let [request (:request context)
                        updated-request (authentication-request request backend)
-                       username (get-in updated-request [:identity :user])]
-                   (if (and (:identity updated-request)
-                            username)
-                     (assoc context :request (assoc updated-request :username username))
-                     (terminate-request context 401 "Unauthorized")))
+                       username (get-in updated-request [:identity :user])
+                       minted (get-in updated-request [:identity :minted])]
+                   (cond
+                     (not (and (:identity updated-request) username))
+                     (do (when (get-in request [:headers "authorization"])
+                           (security/audit! :token-invalid request))
+                         (terminate-request context 401 "Unauthorized"))
+
+                     ;; Changing a password takes back the sessions that existed
+                     ;; before it. The same 401 as any other refusal: which of
+                     ;; the two reasons it was is not the caller's business.
+                     (security/token-withdrawn? username minted)
+                     (do (security/audit! :token-withdrawn request username)
+                         (terminate-request context 401 "Unauthorized"))
+
+                     :else
+                     (assoc context :request (assoc updated-request :username username))))
                  (catch Exception e
+                   (security/audit! :token-invalid (:request context))
                    (terminate-request context 401
                                       (str "Authentication failed: "
                                            (.getMessage e)))))))}))
+
+(defn withdraw-sessions
+  "Signs every session for this account out, including the one asking.
+
+   Deliberately does NOT require the password: somebody who thinks their account
+   is open somewhere they cannot reach should be able to close it from the
+   session they already hold, and they have already proved they hold it. It
+   grants an attacker with a session nothing -- they can sign themselves out."
+  [{:keys [conn db identity] :as _request}]
+  (let [username (:user identity)
+        {:keys [:db/id]} (when username (auth/first-user-by db auth/username-query username))]
+    (if-not id
+      {:status 400 :body {:error :user-not-found}}
+      (let [now (java.util.Date.)]
+        @(d/transact conn [{:db/id id :orcpub.user/sessions-withdrawn now}])
+        (security/note-password-changed! username (.getTime now))
+        {:status 200 :body {:withdrawn true}}))))
+
+(def ^:private recent-password-changes-query
+  ;; Either reason a token is withdrawn. The caller keeps the LATER per account,
+  ;; so signing out everywhere and then resetting -- or the reverse -- does not
+  ;; let the earlier of the two reinstate anything.
+  '[:find ?username ?changed
+    :in $ ?since
+    :where
+    (or [?e :orcpub.user/password-reset ?changed]
+        [?e :orcpub.user/sessions-withdrawn ?changed])
+    [(> ?changed ?since)]
+    [?e :orcpub.user/username ?username]])
+
+(defn refresh-token-withdrawals!
+  "Rebuilds the in-memory register of passwords that moved recently, from the
+   database, where the durable record lives.
+   GOTCHA: memory-only, so a restart silently reinstates every token it was
+   holding, looking exactly like working; only changes inside the token
+   lifetime matter, since older ones already expired. See account-flows.md."
+  [db]
+  (let [since (java.util.Date. (- (System/currentTimeMillis)
+                                  (* fork-auth/token-lifetime-hours 60 60 1000)))
+        rows (d/q recent-password-changes-query db since)]
+    (security/absorb-password-changes!
+     (reduce (fn [m [username ^java.util.Date changed]]
+               (update m username (fnil max 0) (.getTime changed)))
+             {}
+             rows)
+     (.getTime since))
+    (count rows)))
+
+(defn withdrawal-refresh-job
+  "Heartbeat job: re-read the register from the database. Also repairs it if a
+   note was ever lost, since the database is the record and this is the cache."
+  [conn]
+  (refresh-token-withdrawals! (d/db conn))
+  nil)
 
 (defn party-owner [db id]
   (d/q '[:find ?owner .
@@ -215,174 +228,7 @@
                  (= (:user identity) owner) context
                  :else (terminate-request context 401 "You don't own this folder"))))}))
 
-(defn redirect [route-key]
-  (ring-resp/redirect (route-map/path-for route-key)))
-
-
-(defn verification-expired? [verification-sent]
-  (before? (instant verification-sent) (-> 24 hours ago)))
-
-(defn login-error [error-key & [data]]
-  {:status 401 :body (merge
-                      data
-                      {:error error-key})})
-
-(defn create-token [username exp]
-  (jwt/sign {:user username
-             :exp exp}
-            (environ/env :signature)))
-
-(defn following-usernames [db ids]
-  (map :orcpub.user/username
-       (d/pull-many db '[:orcpub.user/username] ids)))
-
-(defn user-body
-  "Build the user API response. Core fields are inline; fork-specific
-   fields (e.g. tier data) are added by user-data/enrich-response."
-  [db user]
-  (cond-> (user-data/enrich-response
-           {:username (:orcpub.user/username user)
-            :email (:orcpub.user/email user)
-            :send-updates? (boolean (:orcpub.user/send-updates? user))
-            :following (following-usernames db (map :db/id (:orcpub.user/following user)))}
-           user)
-    (:orcpub.user/pending-email user)
-    (assoc :pending-email (:orcpub.user/pending-email user))))
-
-(defn bad-credentials-response [db username ip]
-  (security/add-failed-login-attempt! username ip)
-  (if (security/too-many-attempts-for-username? username)
-    (login-error errors/too-many-attempts)
-    (let [user-for-username (find-user-by-username-or-email db username)]
-      (login-error (if (:db/id user-for-username)
-                     errors/bad-credentials
-                     errors/no-account)))))
-
-(defn create-login-response [db conn user id & [headers]]
-  (let [token (create-token (:orcpub.user/username user)
-                            (-> auth/token-lifetime-hours hours from-now))
-        now (java.util.Date.)]
-    (when auth/track-last-login?
-      (d/transact conn [{:db/id id
-                         :orcpub.user/last-login now}]))
-    {:status 200
-     :headers headers
-     :body {:user-data (user-body db user)
-            :token token}}))
-
-(defn login-response
-  [{:keys [json-params db conn remote-addr] :as request}]
-  (let [{raw-username :username raw-password :password} json-params]
-    (cond
-      (s/blank? raw-username) (login-error errors/username-required)
-      (s/blank? raw-password) (login-error errors/password-required)
-      :else (let [username (s/trim raw-username)
-                  password (s/trim raw-password)
-                  {:keys [:orcpub.user/verified?
-                          :orcpub.user/verification-sent
-                          :orcpub.user/email
-                          :db/id] :as user} (lookup-user db username password)
-                  unverified? (not verified?)
-                  expired? (and verification-sent (verification-expired? verification-sent))]
-              (cond
-                (nil? id) (bad-credentials-response db username remote-addr)
-                (and unverified? expired?) (login-error errors/unverified-expired)
-                unverified? (login-error errors/unverified {:email email})
-                :else
-                (create-login-response db conn user id))))))
-
-(defn login [{:keys [json-params db] :as request}]
-  (try
-    (let [resp (login-response request)]
-      resp)
-    (catch Throwable e (prn "E" e) (throw e))))
-
-
-(defn user-for-email [db email]
-  (let [user (first-user-by db
-                            '{:find [?e]
-                              :in [$ ?email]
-                              :where [[?e :orcpub.user/email ?email-2]
-                                      [(clojure.string/lower-case ?email-2)
-                                       ?email]]}
-                            (s/lower-case email))]
-    user))
-
-(defn base-url [{:keys [scheme headers]}]
-  (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
-
-(defn send-verification-email [request params verification-key]
-  (email/send-verification-email
-   (base-url request)
-   params
-   verification-key))
-
-(defn send-email-change-verification [request params verification-key]
-  (email/send-email-change-verification
-   (base-url request)
-   params
-   verification-key))
-
-(defn do-verification [request params conn & [tx-data]]
-  (let [verification-key (str (java.util.UUID/randomUUID))
-        now (java.util.Date.)]
-    (try
-      @(d/transact
-        conn
-        [(merge
-          tx-data
-          {:orcpub.user/verified? false
-           :orcpub.user/verification-key verification-key
-           :orcpub.user/verification-sent now})])
-      (send-verification-email request params verification-key)
-      {:status 200}
-      (catch Exception e
-        (println "ERROR: Failed to create verification record:" (.getMessage e))
-        (throw (ex-info "Unable to complete registration. Please try again or contact support."
-                        {:error :verification-failed}
-                        e))))))
-
-(defn register [{:keys [json-params db conn] :as request}]
-  (let [{:keys [username email password send-updates?]} json-params
-        username (when username (s/trim username))
-        email (when email (s/lower-case (s/trim email)))
-        password (when password (s/trim password))
-        validation (registration/validate-registration
-                    json-params
-                    (seq (d/q email-query db email))
-                    (seq (d/q username-query db username)))
-        now (java.util.Date.)]
-    (try
-      (if (seq validation)
-        {:status 400
-         :body validation}
-        (do-verification
-         request
-         json-params
-         conn
-         (merge
-          {:orcpub.user/email email
-           :orcpub.user/username username
-           :orcpub.user/password (hashers/encrypt password)
-           :orcpub.user/send-updates? send-updates?
-           :orcpub.user/created now}
-          (when auth/record-last-login-at-registration?
-            {:orcpub.user/last-login now})
-          (user-data/registration-defaults))))
-      (catch Throwable e (prn e) (throw e)))))
-
-(def user-for-verification-key-query
-  '[:find ?e
-    :in $ ?key
-    :where [?e :orcpub.user/verification-key ?key]])
-
-(def user-for-email-query
-  '[:find ?e
-    :in $ ?email
-    :where [?e :orcpub.user/email ?email]])
-
-(defn user-for-verification-key [db key]
-  (first-user-by db user-for-verification-key-query key))
+(def max-preferred-name-length 40)
 
 (defn user-id-for-username [db username]
   (d/q
@@ -392,72 +238,14 @@
    db
    username))
 
-(defn verify [{:keys [query-params db conn] :as request}]
-  (if-let [key (:key query-params)]
-    (let [{:keys [:orcpub.user/verification-sent
-                  :orcpub.user/verified?
-                  :orcpub.user/username
-                  :orcpub.user/pending-email
-                  :db/id] :as user} (user-for-verification-key (d/db conn) key)]
-      (if username
-        (cond
-          (and verified? (nil? pending-email))
-          (redirect route-map/verify-success-route)
-
-          (or (nil? verification-sent)
-              (verification-expired? verification-sent))
-          ;; Clean up stale pending state so user can request a fresh change
-          (do (let [retractions (cond-> [[:db/retract id :orcpub.user/verification-key key]
-                                         [:db/retract id :orcpub.user/verification-sent verification-sent]]
-                                  pending-email
-                                  (conj [:db/retract id :orcpub.user/pending-email pending-email]))]
-                @(d/transact conn retractions))
-              (redirect route-map/verify-failed-route))
-
-          pending-email
-          ;; Guard: re-check that the target email hasn't been claimed since request.
-          ;; All paths retract verification-key and verification-sent to prevent
-          ;; link reuse and avoid stale rate-limit data.
-          (if (seq (d/q email-query (d/db conn) pending-email))
-            (do @(d/transact conn [[:db/retract id :orcpub.user/pending-email pending-email]
-                                   [:db/retract id :orcpub.user/verification-key key]
-                                   [:db/retract id :orcpub.user/verification-sent verification-sent]])
-                (redirect route-map/verify-failed-route))
-            (do @(d/transact conn [{:db/id id
-                                    :orcpub.user/email pending-email}
-                                   [:db/retract id :orcpub.user/pending-email pending-email]
-                                   [:db/retract id :orcpub.user/verification-key key]
-                                   [:db/retract id :orcpub.user/verification-sent verification-sent]])
-                (redirect route-map/verify-success-route)))
-
-          :else
-          (do @(d/transact conn [{:db/id id
-                                  :orcpub.user/verified? true}])
-              (redirect route-map/verify-success-route)))
-        {:status 400}))
-    {:status 400}))
-
-(defn re-verify [{:keys [query-params db conn] :as request}]
-  (let [email (:email query-params)
-        {:keys [:orcpub.user/verification-sent
-                :orcpub.user/verified?
-                :db/id] :as user} (user-for-email db email)]
-    (if verified?
-      (redirect route-map/verify-success-route)
-      (do-verification request
-                       (merge query-params
-                              {:first-and-last-name auth/verification-display-name})
-                       conn
-                       {:db/id id}))))
-
 ;; ─── Email Preferences ─────────────────────────────────────────────
 
 (defn unsubscribe-token
   "Create a JWT-signed unsubscribe token for embedding in email links.
    Stateless — no DB storage needed. Verified by checking JWT signature."
   [email]
-  (jwt/sign {:email (s/lower-case email) :action "unsubscribe"}
-            (environ/env :signature)))
+  (jwt/sign {:email (common/ascii-lower-case email) :action "unsubscribe"}
+            (auth/signature-or-throw)))
 
 (defn unsubscribe
   "GET handler for /unsubscribe?token=<jwt>.
@@ -468,100 +256,83 @@
     (if (s/blank? token)
       {:status 400 :body "Missing token"}
       (try
-        (let [{:keys [email action]} (jwt/unsign token (environ/env :signature))]
+        (let [{:keys [email action]} (jwt/unsign token (auth/signature-or-throw))]
           (if (not= "unsubscribe" action)
             {:status 400 :body "Invalid token"}
-            (let [{:keys [:db/id]} (user-for-email (d/db conn) email)]
+            (let [{:keys [:db/id]} (auth/user-for-email (d/db conn) email)]
               (if id
                 (do @(d/transact conn [{:db/id id :orcpub.user/send-updates? false}])
-                    (redirect route-map/unsubscribe-success-route))
+                    (auth/redirect route-map/unsubscribe-success-route))
                 {:status 400 :body "Unknown email"}))))
         (catch Exception _
           {:status 400 :body "Invalid or tampered token"})))))
 
 (defn update-user-preferences
-  "PUT handler for /user — update user preferences (currently send-updates?).
+  "PUT handler for /user — update user preferences (send-updates?, dark-button-text?).
    Requires authentication. Only updates fields present in transit-params.
    Re-reads from DB after transact to return authoritative state."
   [{:keys [transit-params db conn identity]}]
   (let [username (:user identity)
-        {:keys [:db/id]} (find-user-by-username db username)]
+        {:keys [:db/id]} (auth/find-user-by-username db username)]
     (if id
-      (do (when (contains? transit-params :send-updates?)
-            @(d/transact conn [{:db/id id
-                                :orcpub.user/send-updates? (boolean (:send-updates? transit-params))}]))
-          ;; Re-read from DB after transact for authoritative response
-          (let [updated-user (d/entity (d/db conn) id)]
-            {:status 200
-             :body {:send-updates? (boolean (:orcpub.user/send-updates? updated-user))}}))
+      (let [pn (when (contains? transit-params :preferred-name)
+                 (some-> (:preferred-name transit-params) str s/trim (s/replace #"\s+" " ")))]
+        (cond
+          (and pn (> (count pn) max-preferred-name-length))
+          {:status 400 :body {:error (str "Names can be up to " max-preferred-name-length " characters")}}
+
+          ;; refuse rather than store it readable: the point was that it isn't
+          (and (seq pn) (not (crypto/enabled?)))
+          {:status 400 :body {:error "Preferred names aren't available on this site yet"}}
+
+          :else
+          (do (when (contains? transit-params :send-updates?)
+                @(d/transact conn [{:db/id id
+                                    :orcpub.user/send-updates? (boolean (:send-updates? transit-params))}]))
+              (when (contains? transit-params :dark-button-text?)
+                @(d/transact conn [{:db/id id
+                                    :orcpub.user/dark-button-text? (boolean (:dark-button-text? transit-params))}]))
+              (when (contains? transit-params :preferred-name)
+                (let [old (:orcpub.user/preferred-name (d/entity (d/db conn) id))]
+                  (cond
+                    (seq pn) @(d/transact conn [{:db/id id :orcpub.user/preferred-name
+                                                 (crypto/encrypt crypto/preferred-name-purpose pn)}])
+                    old @(d/transact conn [[:db/retract id :orcpub.user/preferred-name old]]))))
+              ;; Re-read from DB after transact for authoritative response
+              (let [updated-user (d/entity (d/db conn) id)]
+                {:status 200
+                 :body (cond-> {:send-updates? (boolean (:orcpub.user/send-updates? updated-user))
+                                :preferred-name (crypto/decrypt crypto/preferred-name-purpose
+                                                                (:orcpub.user/preferred-name updated-user))}
+                         (some? (:orcpub.user/dark-button-text? updated-user))
+                         (assoc :dark-button-text? (:orcpub.user/dark-button-text? updated-user)))}))))
       {:status 400 :body {:error "User not found"}})))
 
-(defn do-send-password-reset [user-id email conn request]
-  (let [key (str (java.util.UUID/randomUUID))]
-    (try
-      @(d/transact
-        conn
-        [{:db/id user-id
-          :orcpub.user/password-reset-key key
-          :orcpub.user/password-reset-sent (java.util.Date.)}])
-      (email/send-reset-email
-       (base-url request)
-       {:first-and-last-name auth/verification-display-name
-        :email email}
-       key)
-      {:status 200}
-      (catch Exception e
-        (println "ERROR: Failed to initiate password reset for user" user-id ":" (.getMessage e))
-        (throw (ex-info "Unable to initiate password reset. Please try again or contact support."
-                        {:error :password-reset-failed
-                         :user-id user-id}
-                        e))))))
-
-(defn password-reset-expired? [password-reset-sent]
-  (and password-reset-sent (before? (instant password-reset-sent) (-> 24 hours ago))))
-
-(defn password-already-reset? [password-reset password-reset-sent]
-  (and password-reset (before? (instant password-reset-sent) (instant password-reset))))
-
-(defn send-password-reset [{:keys [query-params db conn scheme headers] :as request}]
-  (try
-    (let [email (:email query-params)
-          {:keys [:orcpub.user/password-reset-sent
-                  :orcpub.user/password-reset
-                  :db/id] :as user} (user-for-email db email)
-          expired? (password-reset-expired? password-reset-sent)
-          already-reset? (password-already-reset? password-reset password-reset-sent)]
-      (if id
-        (do-send-password-reset id email conn request)
-        {:status 400 :body {:error :no-account}}))
-    (catch Throwable e (prn e) (throw e))))
-
-(defn do-password-reset [conn user-id password]
-  (try
-    @(d/transact
-      conn
-      [{:db/id user-id
-        :orcpub.user/password (hashers/encrypt (s/trim password))
-        :orcpub.user/password-reset (java.util.Date.)
-        :orcpub.user/verified? true}])
-    {:status 200}
-    (catch Exception e
-      (println "ERROR: Failed to reset password for user" user-id ":" (.getMessage e))
-      (throw (ex-info "Unable to reset password. Please try again or contact support."
-                      {:error :password-update-failed
-                       :user-id user-id}
-                      e)))))
-
-(defn reset-password [{:keys [json-params db conn cookies identity] :as request}]
-  (try
-    (let [{:keys [password verify-password]} json-params
-          username (:user identity)
-          {:keys [:db/id] :as user} (first-user-by db username-query username)]
-      (cond
-        (not= password verify-password) {:status 400 :message "Passwords do not match"}
-        (seq (registration/validate-password password)) {:status 400 :message "New password is invalid"}
-        :else (do-password-reset conn id password)))
-    (catch Throwable t (prn t) (throw t))))
+(defn update-artist-credit
+  "PUT /user/artist-credit -- an artist edits how they're credited. The artist and the admin hear
+   about every change, batched by orcpub.artist-credit-notices; 429 with a Retry-After once the
+   account has saved artist-credit/save-cap changes in the hour. A notice that cannot be recorded
+   is logged and the saved change still answers 200."
+  [{:keys [transit-params db conn identity]}]
+  (let [user (auth/find-user-by-username db (:user identity))
+        id (:db/id user)]
+    (if-not id
+      {:status 400 :body {:error "User not found"}}
+      (let [{:keys [errors unchanged wait saved before artist-id]}
+            (artist-credit/save! conn id (select-keys transit-params
+                                                      (into [:name :link :links] (keys artist-credit/page-switches))))]
+        (cond
+          errors {:status 400 :body {:errors errors}}
+          wait {:status 429 :headers {"Retry-After" (str wait)}
+                :body {:error (let [m (max 1 (quot (+ wait 59) 60))]
+                                (str "That's a lot of changes for one hour. Try again in "
+                                     m (if (= 1 m) " minute." " minutes.")))}}
+          unchanged {:status 200 :body (auth/artist-credit-body (d/db conn) id)}
+          :else
+          (do (try (credit-notices/saved! conn {:artist-id artist-id :user user :before before :after saved})
+                   (catch Exception e
+                     (println "ERROR: artist credit saved, but its notice could not be recorded:" (.getMessage e))))
+              {:status 200 :body (auth/artist-credit-body (d/db conn) id)}))))))
 
 (def font-sizes
   (merge
@@ -581,40 +352,163 @@
     :weapon-name-2 8
     :weapon-name-3 8}))
 
-(defn add-spell-cards! [doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img bw? bw-faded?]  (try
+(defn- bound-collection
+  "At most `n` entries, whether `v` is a list or a map of lists.
+
+   A map is capped across ALL its values, not per key: spells-known is keyed by
+   class, so a per-key cap would let thirteen classes carry the limit each."
+  [n v]
+  (cond
+    (map? v) (first (reduce (fn [[m left] [k xs]]
+                              (if (sequential? xs)
+                                [(assoc m k (take left xs)) (max 0 (- left (count xs)))]
+                                [(assoc m k xs) left]))
+                            [{} n] v))
+    (sequential? v) (take n v)
+    :else v))
+
+(defn- collection-size
+  "Entries in `v`, counted the way bound-collection caps them; nil if it caps nothing."
+  [v]
+  (cond
+    (map? v) (reduce + 0 (map #(if (sequential? %) (count %) 0) (vals v)))
+    (sequential? v) (count v)
+    :else nil))
+
+(defn bound-request
+  "Returns `fields` with everything caller-supplied capped, before any part of the export
+   sees it. Acts on the REQUEST, so a feature added later that reads the body is bounded
+   without being wired up: a `spellcasting-class-N` field past the section ceiling is
+   dropped, and every collection is truncated to the card ceiling (nine cards to a page, so
+   an uncapped list is an uncapped page count). Generators keep their own clamps as well."
+  [fields]
+  (let [max-sections (config/get-pdf-max-caster-sections)
+        max-cards (config/get-pdf-max-cards)
+        past-ceiling? (fn [k]
+                        (when-let [[_ n] (re-matches #"spellcasting-class-(\d+)" (name k))]
+                          (> (or (parse-long n) 0) max-sections)))
+        dropped (count (filter past-ceiling? (keys fields)))]
+    (when (pos? dropped)
+      (println (format "pdf: dropped %d spellcasting-class field(s) past section %d"
+                       dropped max-sections)))
+    (reduce-kv (fn [m k v]
+                 (if (past-ceiling? k)
+                   m
+                   (let [bounded (bound-collection max-cards v)
+                         before (collection-size v)
+                         after (collection-size bounded)]
+                     ;; Reported HERE, not in bound-cards: this runs first, so by the
+                     ;; time bound-cards counts, the list is already the cap and its
+                     ;; own check can never be true. The entries went in silence.
+                     (when (and before after (> before after))
+                       (errors/note! "Export size"
+                                     (format "%s: %d requested, %d printed -- the export is capped at %d"
+                                             (name k) before after max-cards)))
+                     (assoc m k bounded))))
+               {} fields)))
+
+(defn- bound-cards
+  "At most ORCPUB_PDF_MAX_CARDS of `cards`, reporting when it truncates.
+
+   Nine cards to a page and the caller decides how many, so an export is otherwise
+   only as bounded as the request body: 2 MB of spell keys is some 13,000 pages
+   and a quarter of an hour with an export slot held the whole time. The queue
+   timeout bounds how long a request WAITS for a slot, not how long it keeps one."
+  [kind cards]
+  (let [limit (config/get-pdf-max-cards)
+        n (count cards)]
+    (when (> n limit)
+      (errors/note! (str (common/ascii-capitalize kind) " cards")
+                    (format "%d requested, %d printed -- the export is capped at %d"
+                            n limit limit))
+      (println (format "pdf: %d %s cards requested, printing the first %d"
+                       n kind limit)))
+    (take limit cards)))
+
+(defn pdf-safe-text
+  "PDFBox's standard-14 fonts are WinAnsi: a name with a character outside it
+   throws on showText and would take the whole sheet down. Drop what cannot be
+   encoded rather than lose the export, and keep the line short enough to fit
+   under the portrait box."
+  [s]
+  (some-> s
+          (s/replace #"[^\u0020-\u007e\u00a0-\u00ff]" "")
+          ;; dropping a character must not leave a gap where it was
+          (s/replace #"\s+" " ")
+          s/trim
+          (as-> t (when (seq t) (if (> (count t) 78) (str (subs t 0 75) "...") t)))))
+
+(defn stamp-document-info!
+  "Set the exported sheet's own metadata.
+
+   The templates are third-party InDesign files, so a fresh export inherits
+   their info dictionary and claims to have been made by 'Adobe InDesign CS6
+   (Macintosh)' with an empty Author -- which is simply untrue, and is what a
+   digital-asset tool or a search index reads. Overwriting it costs nothing
+   and puts the art credit somewhere besides the picture.
+
+   This is provenance, not protection: metadata strips in seconds."
+  [doc {:keys [character-name credit art-mark]}]
+  (try
+    (let [info (.getDocumentInformation doc)]
+      ;; drawn from the licensed art: the sheet says so where the repository's guard looks
+      (when art-mark (.setCustomMetadataValue info art-mark/mark-keyword art-mark))
+      (.setTitle info (or (some-> character-name s/trim not-empty)
+                          branding/default-page-title))
+      (.setCreator info branding/app-name)
+      (.setProducer info branding/app-name)
+      (when-let [c (pdf-safe-text credit)]
+        (.setSubject info c)
+        (.setKeywords info c)))
+    (catch Exception e
+      (println "pdf: could not stamp document info -" (.getMessage e)))))
+
+(defn add-spell-cards!
+  "Appends spell card pages, nine to a sheet, each with its back.
+
+   `fonts` and `img` belong to the caller because they are per-DOCUMENT: each
+   load-fonts embeds its own subset of every face used, so building a set here and
+   another in add-magic-item-cards! puts two complete copies of Vollkorn in a
+   character sheet that prints both kinds of card."
+  [doc fonts img spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img bw? bw-faded? & [spell-order]]
+  (try
     (let [custom-spells-map (common/map-by-key custom-spells)
           spells-map (merge spells/spell-map custom-spells-map)
-          flat-spells (-> spells-known vals flatten)
+          ;; Bound the CARDS, not the classes: spells-known is keyed by class, so
+          ;; capping it would keep the first few classes whole and drop the rest.
+          flat-spells (bound-cards "spell" (-> spells-known vals flatten))
+          ;; By class, then spellbook/spell-sort-key: level and name, or name alone.
           sorted-spells (sort-by
                          (fn [{:keys [class key]}]
-                           [(if (keyword? class)
-                              (common/kw-to-name class)
-                              class)
-                            key])
+                           (into [(if (keyword? class)
+                                    (common/kw-to-name class)
+                                    (str class))]
+                                 (spellbook/spell-sort-key spell-order (spells-map key))))
                          flat-spells)
-          parts (vec (partition-all 9 flat-spells))
-          ;; Load the embedded fonts + build the memoized image embedder ONCE per
-          ;; document, not once per page (print-spells/print-backs used to re-parse
-          ;; 4 TTFs per call, and each card icon was re-decoded+embedded per spell).
-          fonts (pdf/load-fonts doc)
-          img (pdf/make-image-loader doc)]
+          ;; Capacity, not 9: print-spells draws only as many as the page has cells,
+          ;; so a literal 9 drops the rest on any paper that holds fewer.
+          parts (vec (partition-all (draw/cards-per-page 2.5 3.5) sorted-spells))]
       (doseq [i (range (count parts))
               :let [part (parts i)]]
-        (let [page (PDPage.)]
+        (let [page (PDPage. (draw/page-rect))]
           (.addPage doc page)
           (with-open [cs (PDPageContentStream. doc page)]
             (let [spells (sequence
                           (comp
                            (filter (fn [spell] (spells-map (:key spell))))
                            (map
+                            ;; The DC and attack maps come from the request and may
+                            ;; be absent. Calling nil threw an NPE that the catch
+                            ;; below swallowed, so every card vanished and the
+                            ;; export looked like it had simply ignored the option.
                             (fn [{:keys [key class]}]
                               {:spell (spells-map key)
                                :class-nm class
-                               :dc (spell-save-dcs class)
-                               :attack-bonus (spell-attack-mods class)})))
+                               :dc (get spell-save-dcs class)
+                               :attack-bonus (get spell-attack-mods class)})))
                           part)
                   remaining-desc-lines (vec
-                                        (pdf/print-spells
+                                        (cards/print-spells
                                          cs
                                          doc
                                          fonts
@@ -626,22 +520,340 @@
                                          print-spell-card-dc-mod?
                                          bw?
                                          bw-faded?))
-                  back-page (PDPage.)]
+                  back-page (PDPage. (draw/page-rect))]
               (with-open [back-page-cs (PDPageContentStream. doc back-page)]
                 (.addPage doc back-page)
-                (pdf/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
-                                 logo-img)))))))
-    (catch Exception e (prn "FAILED ADDING SPELLS CARDS!" e))))
+                (cards/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
+                                   logo-img)))))))
+    (catch Exception e
+      (errors/note! "Spell cards"
+                    (str "could not be drawn and were left out (" (.getMessage e) ")")))))
 
-(defn character-pdf-2 [req]
-  (let [fields (try
-                 (-> req :form-params :body edn/read-string)
-                 (catch Exception e
-                   (throw (ex-info "Invalid character data format. Unable to parse PDF request."
-                                   {:error :invalid-pdf-data}
-                                   e))))
-        
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? character-name class-level player-name flatten?]} fields
+(defn add-magic-item-cards!
+  "Appends card pages for `magic-items`, nine to a sheet, each with its back; the same layout
+   as the spell cards. A card page that throws is logged, not propagated, so it cannot cost
+   the character their sheet. `fonts` and `img` are the caller's, for the reason given on
+   add-spell-cards!."
+  [doc fonts img magic-items logo-img bw? bw-faded?]
+  (try
+    (let [parts (vec (partition-all (draw/cards-per-page 2.5 3.5)
+                                    (bound-cards "magic item" magic-items)))]
+      (doseq [i (range (count parts))
+              :let [part (parts i)]]
+        (let [page (PDPage. (draw/page-rect))]
+          (.addPage doc page)
+          (with-open [cs (PDPageContentStream. doc page)]
+            (let [remaining-desc-lines (vec (cards/print-items cs doc fonts img 2.5 3.5
+                                                               part i bw? bw-faded?))
+                  back-page (PDPage. (draw/page-rect))]
+              (with-open [back-page-cs (PDPageContentStream. doc back-page)]
+                (.addPage doc back-page)
+                (cards/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
+                                   logo-img)))))))
+    (catch Exception e
+      (errors/note! "Magic item cards"
+                    (str "could not be drawn and were left out (" (.getMessage e) ")")))))
+
+(defn- one-of
+  "`v` as a keyword when it names one of `allowed` (keyword or string), else `default`."
+  [allowed v default]
+  (let [k (cond (keyword? v) v (string? v) (keyword v))]
+    (if (contains? allowed k) k default)))
+
+(defn- small-int
+  "`v` when it is an integer from `lo` to `hi`, else nil."
+  [v lo hi]
+  (when (and (integer? v) (<= lo v hi)) v))
+
+(defn- short-str
+  "`v` cut to at most `n` characters when it is a string, else nil."
+  [v n]
+  (when (string? v) (subs v 0 (min n (count v)))))
+
+(defn- slot-table
+  "A slot table {level count} from request map `m`, keeping levels 1-9 with counts 0-20; level
+   keys may arrive as keywords."
+  [m]
+  (into {}
+        (for [[l n] (when (map? m) m)
+              :let [l (small-int (if (keyword? l) (parse-long (name l)) l) 1 9)
+                    n (small-int n 0 20)]
+              :when (and l n)]
+          [l n])))
+
+(defn spellbook-options
+  "The :spellbook request map made safe to lay out from, or nil. Caller-supplied, so every
+   value is checked: unknown choices fall back to the defaults, numbers are bounded, strings
+   cut short, and an emblem must be one of the vendored icons, since its name becomes part
+   of a resource path."
+  [sb character-name]
+  (when (map? sb)
+    (let [classes (->> (:classes sb)
+                       (filter map?)
+                       (take (config/get-pdf-max-caster-sections))
+                       (keep (fn [{:keys [class level ability dc attack pact? icon]}]
+                               (when-let [class (short-str class 60)]
+                                 (let [class-kw (common/name-to-kw class)]
+                                   {:class class
+                                    :class-kw class-kw
+                                    :level (small-int level 1 30)
+                                    :ability (short-str ability 20)
+                                    :dc (small-int dc 0 99)
+                                    :attack (short-str attack 6)
+                                    :pact? (true? pact?)
+                                    :icon (emblems/icon-for class-kw icon)}))))
+                       vec)]
+      (when (seq classes)
+        {:layout (one-of #{:book :ledger :prep} (:layout sb) :book)
+         :order (one-of #{:level :alpha} (:order sb) :level)
+         :class-break (one-of #{:runon :page} (:class-break sb) :runon)
+         :tabs (one-of #{:head :inset :off} (:tabs sb) :head)
+         :classes classes
+         :slots (slot-table (:slots sb))
+         :pact-slots (slot-table (:pact-slots sb))
+         :character-name (short-str character-name 80)}))))
+
+(defn add-spellbook!
+  "Appends the spellbook pages. Like the cards, a failure is logged rather than thrown, so
+   it cannot cost the character their sheet."
+  [doc fonts img opts spells-known custom-spells]
+  (try
+    (let [spells-map (merge spells/spell-map (common/map-by-key custom-spells))
+          ;; Bounded by the card ceiling; the pages read only the flat list, under one key.
+          spells-known {:all (bound-cards "spellbook" (-> spells-known vals flatten))}]
+      (spellbook/add-spellbook! doc fonts img opts spells-known spells-map))
+    (catch Exception e
+      (errors/note! "Spellbook"
+                    (str "could not be drawn and was left out (" (.getMessage e) ")")))))
+
+(def valid-sheet-styles
+  "Style ids with a template on disk: resources/fillable-char-sheetstyle-N-*.pdf"
+  #{1 2 3 4})
+
+(def valid-page-sizes
+  "Paper the export draws on: Letter, the default, and A4. Anything else falls back to
+   Letter. The character-sheet TEMPLATES are 612x792 whatever this says -- their
+   artwork is fixed, and fit-sheet-to-page! re-papers them onto A4."
+  #{:letter :a4})
+
+(def default-sheet-style 1)
+
+(def ^:private pdf-option-keys
+  "Keys the client sends alongside the field values to steer the export. They name
+   no field, so they are removed before write-fields!, which reports whatever it
+   cannot place and would otherwise flag every one of these on every request."
+  #{:image-url :image-url-failed :image-data
+    :faction-image-url :faction-image-url-failed :faction-image-data
+    :spells-known :custom-spells :spell-save-dcs :spell-attack-mods
+    :print-character-sheet? :print-spell-cards? :print-character-sheet-style?
+    :print-spell-card-dc-mod? :print-card-back-logo? :card-back-logo-faded?
+    :print-bw? :bw-faded? :print-prepared-spells? :print-large-abilities?
+    :print-spell-annotations? :spell-relabels :spell-headings :spell-layout
+    :magic-items-known :print-magic-item-cards?
+    :spellbook :spell-order
+    :page-size
+    ;; The composed portrait's bytes and its credit line. They are drawn, not written
+    ;; into a field, so leaving them here made write-fields! report two unplaceable
+    ;; values -- a notice page on every composed-portrait export.
+    :portrait-png :portrait-credit
+    :flatten?})
+
+(def ^:private image-url-shape
+  "Cheap shape check before any lookup: refuses file:// and ftp:// without
+   touching DNS. pdf/safe-image-bytes does the real address validation."
+  #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]")
+
+(defn- well-formed-image-url? [url]
+  (boolean (and (string? url) (re-matches image-url-shape url))))
+
+(def ^:private probe-ttl-ms
+  "How long a probe's answer stands. Long enough that the export following a
+   probe reuses it, short enough that a host having a bad minute is not written
+   off for the afternoon."
+  (* 10 60 1000))
+
+(def ^:private probe-max-entries
+  "Entries kept. These hold image bytes and the endpoint that fills them needs no
+   login, so the cache is bounded in count as well as in age: 64 x 128 KB."
+  64)
+
+(def ^:private probed-images
+  "url -> {:image {:data :jpg?} or nil, :reason ..}.
+
+   A nil :image is an answer too, and worth keeping: a host that would not serve
+   this server a moment ago will not serve the export either, and remembering it
+   is what stops the export repeating the fetch."
+  (bounded-cache/cache {:max-entries probe-max-entries :max-age-ms probe-ttl-ms}))
+
+(defn- probed-outcome
+  "Fetches `url` once and remembers the outcome -- the picture, or why not -- so a
+   probe and the export that follows it cost the host one request rather than two,
+   even when they ask at the same moment."
+  [url]
+  (bounded-cache/fetch! probed-images url #(pdf/fetch-image-outcome url)))
+
+(def ^:private probe-max-concurrency
+  "Outbound fetches the probe endpoint may have running at once. This endpoint
+   needs no login and answers one URL per request, so without a bound a caller
+   can hand it many distinct not-yet-cached addresses and park a Jetty worker
+   on someone else's slow host per request. Small on purpose: this is one
+   request's worth of curiosity about one picture, not sheet generation."
+  8)
+
+(def ^:private probe-pool
+  "Never waits: a probe that finds every fetch slot taken is answered rate-limited at once."
+  (work-pool/pool {:size (constantly probe-max-concurrency) :timeout-ms (constantly 0) :seed-ms 500}))
+
+(defn image-probe
+  "Whether this server can fetch the picture at the posted `:url`, asked by the builder before it exports one the browser couldn't read.
+   Answers 200 with a reason: ok, blocked-address, the fetch's failure reason, unknown, or rate-limited; fetched bytes are kept for the export that follows.
+   A cache hit always answers; a miss is gated by a per-host hourly limit and the concurrency bound, since misses are what let an unauthenticated caller park Jetty workers on hosts of their choosing -- both refusals surface as rate-limited.
+
+   GOTCHA: no login is required, so this must never return the picture itself; that would make it an open proxy."
+  [{:keys [transit-params remote-addr]}]
+  (let [url (:url transit-params)
+        cached (some-> (bounded-cache/lookup probed-images url) first)
+        reason (cond
+                 (not (well-formed-image-url? url))
+                 :blocked-address
+
+                 cached
+                 (let [{:keys [image reason]} cached]
+                   (if image :ok (or reason :unknown)))
+
+                 (not (security/image-probe-allowed? remote-addr))
+                 :rate-limited
+
+                 :else
+                 (let [{:keys [busy result]} (work-pool/run probe-pool #(probed-outcome url))]
+                   (cond busy :rate-limited
+                         (:image result) :ok
+                         :else (or (:reason result) :unknown))))]
+    ;; The HOST only, never the URL: an image address can carry a signed query
+    ;; string. This is how the genuinely unreachable set gets measured rather than
+    ;; guessed at.
+    (when (and (not= :ok reason) (well-formed-image-url? url))
+      (println "pdf: no route to a picture at" (some-> url java.net.URI. .getHost)
+               "-" (name reason)))
+    {:status 200 :body (name reason)}))
+
+(def ^:private export-pool
+  "Permits for sheet generation, one per concurrent export, sized by ORCPUB_PDF_CONCURRENCY and
+   waited on for ORCPUB_PDF_QUEUE_TIMEOUT_MS (orcpub.config). Held for the PDF work only, not
+   the whole request, so parsing and the response write stay outside it. Seeded at a plausible
+   250 ms per export; the mean converges on the real figure within a few."
+  (work-pool/pool {:size #(config/get-pdf-concurrency)
+                   :timeout-ms #(config/get-pdf-queue-timeout-ms)
+                   :seed-ms 250}))
+
+(defn export-queue-depth
+  "How many export requests are waiting for a slot right now."
+  []
+  (work-pool/queue-depth export-pool))
+
+(def ^:private busy-page-js
+  "(function(){
+     var el = document.getElementById('countdown');
+     var form = document.getElementById('retry-form');
+     if (!el || !form) { return; }
+     var base = parseInt(el.getAttribute('data-seconds'), 10);
+     if (!base || base < 1) { base = 3; }
+     /* Jitter so a crowd turned away together does not come back together. */
+     var left = Math.max(1, Math.round(base * (0.75 + Math.random() * 0.5)));
+     (function tick(){
+       if (left <= 0) { el.textContent = 'Starting your sheet now.'; form.submit(); return; }
+       el.textContent = left === 1 ? 'Trying again in 1 second.'
+                                   : 'Trying again in ' + left + ' seconds.';
+       left -= 1;
+       setTimeout(tick, 1000);
+     })();
+   })();")
+
+(defn- busy-page
+  "The page a turned-away export lands on. The export is a form POST into a new tab, so this
+   response IS what the person sees: it retries by resubmitting the original body from a
+   hidden field, and past `max-retries` (`attempt` counts retries spent) waits to be clicked.
+   GOTCHA: that body is caller-supplied and reflected into the field, so render only through
+   hiccup2, which escapes it. Builder markup and scripts are absent in this tab, so it uses
+   plain card classes; its own rules live in orcpub.styles.core."
+  [{:keys [body attempt max-retries retry-seconds nonce action]}]
+  (let [auto? (< attempt max-retries)]
+    (str
+     "<!DOCTYPE html>"
+     (h/html
+      [:html {:lang "en"}
+       [:head
+        [:meta {:charset "utf-8"}]
+        [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
+        [:title (str "Busy right now - " branding/app-name)]
+        [:link {:rel "stylesheet" :type "text/css" :href "/css/style.css"}]
+        [:link {:rel "stylesheet" :type "text/css" :href "/css/compiled/styles.css"}]]
+       [:body.sans.busy-body
+        [:div.app-header-bar.container {:style "background-color:#2c3445"}
+         [:div.content
+          [:div.flex.justify-cont-s-b.align-items-c.w-100-p.p-l-20.p-r-20
+           [:a {:href "/"} [:img.h-72.pointer {:src branding/logo-path :alt branding/app-name}]]]]]
+        [:div.busy-wrap
+         [:div.busy-card
+          [:h1 "Lots of sheets are being made right now"]
+          (if auto?
+            [:p "Your character sheet is queued. This page will keep trying on its own."]
+            [:p "We tried " (str max-retries) " times and could not get through. "
+             "The rush should pass shortly."])
+          (when auto?
+            [:p#countdown.busy-countdown {:data-seconds (str retry-seconds)}
+             "Trying again in " (str retry-seconds) " seconds."])
+          [:form#retry-form {:method "POST" :action action}
+           [:input {:type "hidden" :name "body" :value body}]
+           [:input {:type "hidden" :name "retry" :value (str (inc attempt))}]
+           [:button.form-button {:type "submit"} (if auto? "Try now" "Try again")]]]]
+        (when auto? [:script {:nonce nonce} (h/raw busy-page-js)])]]))))
+
+(defn- attempt-count
+  "Retries already spent, from the hidden field the busy page posts back. Anything
+   that is not a non-negative number counts as a first try, so a hand-edited value
+   cannot buy extra attempts."
+  [req]
+  (let [raw (get-in req [:form-params :retry])
+        n (try (Integer/parseInt (str raw)) (catch Exception _ 0))]
+    (if (and (nat-int? n) (<= n 1000)) n 0)))
+
+(defn- with-export-slot
+  "Runs `f` holding one export slot, or answers 503 with a Retry-After and the busy page if
+   none frees up within the configured wait. Bounding the work rather than the request keeps
+   memory predictable; sizing is in docs/PDF-EXPORT-CAPACITY.md."
+  [req f]
+  (let [{:keys [result busy waiting]} (work-pool/run export-pool f)]
+    (if-not busy
+      result
+      (let [attempt (attempt-count req)]
+        (println (format "pdf: no export slot within %d ms, %d waiting, attempt %d"
+                         (config/get-pdf-queue-timeout-ms) waiting attempt))
+        {:status 503
+         :headers {"Retry-After" (str busy)
+                   "Content-Type" "text/html; charset=utf-8"}
+         :body (busy-page {:body (get-in req [:form-params :body])
+                           :attempt attempt
+                           :max-retries (config/get-pdf-max-retries)
+                           :retry-seconds busy
+                           :nonce (:csp-nonce req)
+                           :action (or (:uri req) "/character.pdf")})}))))
+
+(defn- spell-annotation
+  "The marks for the spell printed under `nm`, or nil.
+
+   By NAME, because that is all the row carries: the server is handed a flat map
+   of field names to values. A homebrew spell, or one whose name does not match
+   the data, gets no marks rather than a wrong one."
+  [nm]
+  (some-> (get spells/spell-map (common/name-to-kw nm))
+          spell-annotations/annotation))
+
+(defn- generate-character-pdf*
+  "The export itself. `fields` is already parsed and bounded; the caller binds the page
+   and the notice collector around it."
+  [req fields]
+  (let [{:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? portrait-png portrait-credit spellbook spell-order page-size]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -657,21 +869,29 @@
                                "public/image/dmv-mark-faded-orange.png"
                                "public/image/dmv-mark-black.png"))
 
-        sheet6 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-6-spells.pdf")
-        sheet5 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-5-spells.pdf")
-        sheet4 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-4-spells.pdf")
-        sheet3 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-3-spells.pdf")
-        sheet2 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-2-spells.pdf")
-        sheet1 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-1-spells.pdf")
-        sheet0 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-0-spells.pdf")
-        input (.openStream (io/resource (cond
-                                          (find fields :spellcasting-class-6) sheet6
-                                          (find fields :spellcasting-class-5) sheet5
-                                          (find fields :spellcasting-class-4) sheet4
-                                          (find fields :spellcasting-class-3) sheet3
-                                          (find fields :spellcasting-class-2) sheet2
-                                          (find fields :spellcasting-class-1) sheet1
-                                          :else sheet0)))
+        ;; The id is interpolated into a resource name, so an unrecognised value
+        ;; resolves to a missing resource and throws. Restrict it to ids with a
+        ;; template on disk; see valid-sheet-styles.
+        print-character-sheet-style? (if (contains? valid-sheet-styles
+                                                    print-character-sheet-style?)
+                                       print-character-sheet-style?
+                                       default-sheet-style)
+        ;; One master per style, grown to the character's shape; pdf/sheet-masters has the
+        ;; reasoning. Clamped: the count comes from the field NAMES the caller sent, so
+        ;; "spellcasting-class-9999" would otherwise ask for 9,998 cloned pages.
+        requested-casters (->> (keys fields)
+                               (keep #(second (re-matches #"spellcasting-class-(\d+)" (name %))))
+                               (keep #(try (Integer/parseInt %) (catch Exception _ nil)))
+                               (reduce max 0))
+        casters (min requested-casters (config/get-pdf-max-caster-sections))
+        {:keys [file marks without-casters site-line prints-site-line?]}
+        (get pdf/sheet-masters print-character-sheet-style?)
+        ;; A character who casts nothing opens the variant that has no spell page
+        ;; rather than one with its spell page taken out: removing a page leaves
+        ;; the resources it referenced behind, and for style 4 it would take the
+        ;; licence line with it.
+        no-casters? (and (zero? casters) (some? without-casters))
+        input (.openStream (io/resource (if no-casters? without-casters file)))
         output (ByteArrayOutputStream.)
         filename (cond
                    (and (s/blank? player-name) (s/blank? character-name)) "character.pdf"
@@ -681,35 +901,177 @@
     ;; PDFBox 3.x: Loader/loadPDF accepts byte[], File, or RandomAccessRead —
     ;; NOT InputStream. Read the resource stream into a byte array first.
     (with-open [doc (Loader/loadPDF (.readAllBytes input))]
-      ;; Fillable in every browser by default. The old non-Chrome flattening was a
-      ;; workaround for Firefox ignoring NeedAppearances; write-fields! now bakes
-      ;; real appearance streams, so values render everywhere AND the form stays
-      ;; editable. Clients that want a locked/static PDF pass `:flatten? true`.
-      (pdf/write-fields! doc fields (true? flatten?) font-sizes)
-      (when (and print-spell-cards? (seq spells-known))
-        (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? card-back-logo-img bw? bw-faded?))
+      ;; The document's one Nimbus Sans: every face loads once, when first drawn.
+      (let [sans (draw/load-sans doc)
+            ;; Fillable in every browser by default: write-fields! bakes real appearance streams, so
+            ;; values render everywhere and the form stays editable. `:flatten? true` gives a static PDF.
+            fields (apply dissoc fields pdf-option-keys)
+            ;; No prune: the masters are pruned by dev/prepare_templates.clj and growing only adds
+            ;; pages. add-missing-spell-pages! still prunes where it generates pages.
+            ;; Both run before write-fields!, so the fields they create or trim exist by then.
+            _ (pdf/grow-spell-sections! doc casters (if no-casters? :all marks))
+            _ (pdf/add-missing-spell-pages! doc fields (config/get-pdf-max-caster-sections))
+            ;; Once the template pages exist and before anything is drawn on them.
+            printed (pdf/site-line-pages doc (boolean prints-site-line?))]
+        ;; Merge before spilling, so a style's shared box is measured as the one
+        ;; value it prints rather than as its parts.
+        (let [fields (pdf/merge-style-fields print-character-sheet-style? fields)]
+          ;; Narrow the rows before the values are written: the rows auto-size, so this is what
+          ;; makes a long name shrink to clear the annotation columns. The builder decides the
+          ;; packing and sends this instruction list; it arrives from the client, so it is
+          ;; bounds-checked against the sections this document actually grew.
+          (when (seq spell-relabels)
+            (let [[applied refused]
+                  (pdf/apply-relabel-instructions! doc sans spell-relabels casters
+                                                   print-character-sheet-style?)]
+              (when (pos? refused)
+                (errors/note! "Spell slot renumbering"
+                              (format "%d of %d instructions were not valid for this sheet style"
+                                      refused (+ applied refused)))
+                (println (format "pdf: refused %d of %d relabel instruction(s)"
+                                 refused (+ applied refused))))))
+          (when print-spell-annotations?
+            (pdf/reserve-annotation-columns! doc))
+          ;; The style's declared drops are not degradation -- see unsupported-fields.
+          (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes
+                             (get pdf/unsupported-fields print-character-sheet-style?))
+          (when print-spell-annotations?
+            (pdf/annotate-spell-rows! doc sans spell-annotation))
+          ;; After the values, so a heading is drawn over a finished bar. Names
+          ;; each packed column with the class holding it; caller-supplied, so the
+          ;; box and section are checked the way the relabels are.
+          (doseq [{:keys [box section class] :as heading} spell-headings
+                  :when (and (integer? box) (<= 0 box 9)
+                             (integer? section) (<= 1 section casters)
+                             (string? class) (<= 1 (count class) 60))]
+            (pdf/draw-column-heading! doc sans print-character-sheet-style?
+                                      box section class heading)))
+        ;; After the overflow pages exist, so they are stamped too, and before the
+        ;; card pages are appended -- those carry the line on their backs already.
+        (pdf/stamp-site-line! doc sans site-line printed)
+        ;; Before the card and spellbook pages, which are already drawn at the right size:
+        ;; this re-papers the TEMPLATE pages only, and is a no-op on Letter.
+        (pdf/fit-sheet-to-page! doc)
+        ;; One set of fonts and one image embedder for the whole document. Both are
+        ;; per-document: a second load-fonts embeds a second subset of every face,
+        ;; and a second loader re-embeds the 998x998 card-back mark. Built only when
+        ;; a card page is actually coming, since a plain sheet needs neither.
+        (let [spell-cards? (and print-spell-cards? (seq spells-known))
+              item-cards? (and print-magic-item-cards? (seq magic-items-known))
+              book (when (seq spells-known) (spellbook-options spellbook character-name))
+              spell-order (one-of #{:level :alpha} spell-order :level)
+              fonts (when (or spell-cards? item-cards? book) (draw/load-fonts doc sans))
+              img (when (or spell-cards? item-cards? book) (draw/make-image-loader doc))]
+          ;; Order: sheet, spellbook, then cards.
+          (when book
+            (add-spellbook! doc fonts img book spells-known custom-spells))
+          (when spell-cards?
+            (add-spell-cards! doc fonts img spells-known spell-save-dcs spell-attack-mods
+                              custom-spells print-spell-card-dc-mod? card-back-logo-img
+                              bw? bw-faded? spell-order))
+          (when item-cards?
+            (add-magic-item-cards! doc fonts img magic-items-known card-back-logo-img
+                                   bw? bw-faded?)))
 
-      (when (and image-url
-                 (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)
-                 (not image-url-failed))
-        (case print-character-sheet-style?
-          1 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
-          2 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
-          3 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
-          4 (pdf/draw-image! doc (pdf/get-page doc 0) image-url 0.50 0.85 2.35 3.15)))
-      (when (and faction-image-url
-                 (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" faction-image-url)
-                 (not faction-image-url-failed))
-        (case print-character-sheet-style?
-          1 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.4 1.905 1.52)
-          2 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.4 1.905 1.52)
-          3 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.0 1.905 1.52)
-          4 nil))
-      (.save doc output))
+        ;; Both images are resolved BEFORE either is drawn, fetched concurrently: a fetch holds an
+        ;; export slot, so in sequence two slow images would cost two worst cases.
+        ;; No pdf/safe-image-url? here: pdf/fetch-image validates through safe-image-bytes, pinned to
+        ;; the addresses it resolved. The regex stays; it refuses file:// and ftp:// without a lookup.
+        (let [wanted (fn [url failed?]
+                       (and url (not failed?) (well-formed-image-url? url) url))
+              ;; Bytes the browser read beat the URL and skip the fetch entirely.
+              ;; Every arm derefs to {:image} or {:reason}, so nothing below has to
+              ;; know which it got; nil when no picture was asked for.
+              image (fn [supplied url failed?]
+                      (when-not (and (s/blank? (str supplied)) (s/blank? (str url)))
+                        (if-let [bytes (pdf/decode-image-bytes supplied)]
+                          (delay {:image bytes})
+                          ;; probed-outcome, not fetch-image: the builder usually
+                          ;; asked about this URL a moment ago, and that answer is
+                          ;; cached.
+                          (if-let [u (wanted url failed?)]
+                            (future (probed-outcome u))
+                            (delay {:reason (cond failed? :failed-in-builder
+                                                  (s/blank? (str url)) :unreadable
+                                                  :else :not-an-image-address)})))))
+              ;; A composed (paper-doll) portrait has no URL that could produce
+              ;; it -- the client bakes its CSS-mask layers -- and it arrives
+              ;; larger than an uploaded picture may be, so it goes through
+              ;; decode-artwork-bytes, which fits it instead of refusing it.
+              ;;
+              ;; Decoded eagerly rather than in a delay: it is local CPU with no
+              ;; network in it, and a delay that derefs to nil would be truthy
+              ;; here, so a portrait that failed to decode would suppress the
+              ;; pasted image-url that should have taken over.
+              composed (pdf/decode-artwork-bytes portrait-png)
+              portrait (if composed
+                         (delay {:image composed})
+                         (image image-data image-url image-url-failed))
+              faction (image faction-image-data faction-image-url faction-image-url-failed)]
+          (when-let [{:keys [data jpg?]} (some-> portrait deref :image)]
+            (case print-character-sheet-style?
+              1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
+              2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
+              3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
+              4 (pdf/draw-image-bytes! doc (pdf/get-page doc 0) data jpg? 0.50 0.85 2.35 3.15))
+            ;; The credit is baked into the composed PNG itself now (see
+            ;; portrait/draw-credit!), so there is nothing to print here: a
+            ;; second drawn line landed 0.12in under the first and said the
+            ;; same thing.
+            )
+          (when-let [{:keys [data jpg?]} (some-> faction deref :image)]
+            (case print-character-sheet-style?
+              1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
+              2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
+              3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.0 1.905 1.52)
+              4 nil))
+          ;; A picture asked for and not printed is named on the notice page. Style 4
+          ;; has no faction box, so a faction image there is left out by design.
+          (doseq [[what outcome] [["Portrait" portrait]
+                                  ["Faction image" (when (not= 4 print-character-sheet-style?) faction)]]
+                  :let [{:keys [image reason]} (some-> outcome deref)]
+                  :when (and outcome (nil? image))]
+            (errors/note! what (str "was left out (" (s/replace (name (or reason :unknown)) "-" " ") ")")))
+          ;; Inside this let, so it can see whether the composed portrait was
+          ;; actually used. Keyed on the decode, not on the field being present:
+          ;; a portrait-png that fails to decode falls back to the pasted
+          ;; image-url above, and crediting the illustrator for somebody else's
+          ;; photograph is the one thing this feature must not do.
+          (stamp-document-info! doc {:character-name character-name
+                                     :credit (when composed portrait-credit)
+                                     :art-mark (when composed
+                                                 (some-> (try (.decode (java.util.Base64/getDecoder) ^String portrait-png)
+                                                              (catch Exception _ nil))
+                                                         art-mark/read-mark))}))
+        ;; Last, so every notice is in: it prepends a page naming what was left out, and
+        ;; adds nothing at all when nothing was.
+        (pdf/add-notice-page! doc sans)
+        (.save doc output)))
     (let [a (.toByteArray output)]
       {:status 200
        :headers {"Content-Disposition" (str "inline; filename=\"" filename "\"")}
        :body (ByteArrayInputStream. a)})))
+
+(defn- generate-character-pdf
+  "Parses the request once, then runs the export with the notice collector and the page
+   bound for its whole length: a section that degrades can say so, and every drawing
+   call agrees on the paper. An unknown :page-size falls back to :letter rather than
+   throwing -- a bad option must not cost someone their sheet."
+  [req]
+  ;; The collector opens BEFORE the parse: bound-request truncates an oversized
+  ;; request, and a notice raised outside this binding is logged and then dropped.
+  (binding [errors/*notices* (atom [])]
+    (let [fields (try
+                   (-> req :form-params :body edn/read-string bound-request)
+                   (catch Exception e
+                     (throw (ex-info "Invalid character data format. Unable to parse PDF request."
+                                     {:error :invalid-pdf-data}
+                                     e))))]
+      (binding [draw/*page* (one-of valid-page-sizes (:page-size fields) :letter)]
+        (generate-character-pdf* req fields)))))
+
+(defn character-pdf-2 [req]
+  (with-export-slot req #(generate-character-pdf req)))
 
 (defn html-response
   [html & [response]]
@@ -719,74 +1081,6 @@
                  :body html
                  :headers {"Content-Type" "text/html"}})]
     merged))
-
-(def user-by-password-reset-key-query
-  '[:find ?e
-    :in $ ?key
-    :where [?e :orcpub.user/password-reset-key ?key]])
-
-(def default-title branding/default-page-title)
-
-(def default-description branding/app-tagline)
-
-(defn default-image-url
-  "OG meta image URL. Uses https:// for social sharing compatibility."
-  [host]
-  (str "https://" host branding/og-image-filename))
-
-(defn index-page-response [{:keys [headers uri csp-nonce] :as request}
-                           {:keys [title description image-url]}
-                           & [response]]
-  (let [host (headers "host")]
-    (merge
-     response
-     {:status 200
-      :headers {"Content-Type" "text/html" }
-      :body
-      (index-page
-       {:url (str "http://" host uri)
-        :title (or title default-title)
-        :description (or description default-description)
-        :image (or image-url (default-image-url host))
-        :nonce csp-nonce}
-       (= "/" uri))})))
-
-(defn default-index-page [request & [response]]
-  (index-page-response request {} response))
-
-(defn index [{:keys [headers scheme uri server-name] :as request} & [response]]
-  (default-index-page request response))
-
-(defn reset-password-page [{:keys [query-params db conn] :as req}]
-  (if-let [key (:key query-params)]
-    (let [{:keys [:db/id
-                  :orcpub.user/username
-                  :orcpub.user/password-reset-key
-                  :orcpub.user/password-reset-sent
-                  :orcpub.user/password-reset] :as user}
-          (first-user-by db user-by-password-reset-key-query key)
-          expired? (password-reset-expired? password-reset-sent)
-          already-reset? (password-already-reset? password-reset password-reset-sent)]
-      (cond
-        expired? (redirect route-map/password-reset-expired-route)
-        already-reset? (redirect route-map/password-reset-used-route)
-        :else (let [token (create-token username (-> 1 hours from-now))]
-                (index req {:cookies {"token" token}}))))
-    {:status 400
-     :body "Key is required"}))
-
-(defn check-field [query value db]
-  {:status 200
-   :body (-> (d/q query db value)
-             seq
-             boolean
-             str)})
-
-(defn check-username [{:keys [db query-params]}]
-  (check-field username-query (:username query-params) db))
-
-(defn check-email [{:keys [db query-params]}]
-  (check-field email-query (some-> (:email query-params) s/lower-case) db))
 
 (defn character-for-id [db id]
   (d/pull db '[*] id))
@@ -865,7 +1159,7 @@
       (create-entity conn username without-empty-fields owner-prop))))
 
 (defn owns-entity? [db username entity-id]
-  (let [user (find-user-by-username db username)
+  (let [user (auth/find-user-by-username db username)
         username (:orcpub.user/username user)
         email (:orcpub.user/email user)
         entity (d/pull db '[:orcpub.entity.strict/owner] entity-id)
@@ -890,7 +1184,11 @@
          ::se/game-version :e5
          ::se/type :character))
 
-(defn update-character [db conn character username]
+(defn update-character
+  "Stores `character` (strict, with its :db/id) over the stored one, as owned by `username`, and
+   returns the stored character pulled after the save. Throws ExceptionInfo :character-gone when
+   nothing is stored at its id (deleted), :not-user-character when someone else owns it."
+  [db conn character username]
   (let [id (:db/id character)]
     (if (owns-entity? db username id)
       (let [current-character (d/pull db '[*] id)
@@ -925,22 +1223,13 @@
                                add-dnd-5e-character-tags))]
               @(d/transact conn tx)
               (d/pull (d/db conn) '[*] id)))))
-      (throw (ex-info "Not user character"
-                      {:error :not-user-character})))))
+      (throw (if (empty? (d/datoms db :eavt id))
+               (ex-info "Character gone" {:error :character-gone})
+               (ex-info "Not user character" {:error :not-user-character}))))))
 
 (defn create-new-character
-  "Creates a new D&D 5e character.
-
-  Args:
-    conn - Database connection
-    character - Character data map
-    username - Owner username
-
-  Returns:
-    Created character entity
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Creates a D&D 5e character owned by `username` and returns the pulled entity.
+  Throws ExceptionInfo :character-creation-failed on database failure."
   [conn character username]
   (errors/with-db-error-handling :character-creation-failed
     {:username username}
@@ -954,17 +1243,36 @@
       (d/pull (d/db conn) '[*] new-id))))
 
 (defn clean-up-character [character]
-  (if (-> character ::se/values ::char5e/xps string?)
-    (update-in character
-               [::se/values ::char5e/xps]
+  (cond-> character
+    (-> character ::se/values ::char5e/xps string?)
+    (update-in [::se/values ::char5e/xps]
                #(try
                   (if-not (s/blank? %)
                     (Long/parseLong %)
                     0)
                   (catch NumberFormatException e 0)))
-    character))
+    ;; a portrait the server cannot read is not stored: the save goes through without it
+    (let [p (-> character ::se/values ::char5e/portrait)]
+      (and (some? p) (not (s/blank? (str p))) (nil? (char5e/parse-portrait p))))
+    (-> (update ::se/values dissoc ::char5e/portrait)
+        (as-> c (cond-> c (empty? (::se/values c)) (dissoc ::se/values))))))
 
-(defn do-save-character [db conn transit-params identity]
+(defn- note-saved-portrait!
+  "Tell the portrait store a character was saved, so its shared-link picture is drawn if the
+   portrait changed (orcpub.portrait-store/saved!). Never fails the save."
+  [conn id]
+  (try
+    (when id
+      (portrait-store/saved! id (some-> (d/pull (d/db conn) '[{::se/values [::char5e/portrait]}] id)
+                                        ::se/values ::char5e/portrait)))
+    (catch Exception e (println "portrait-store: not told about" id "-" (.getMessage e)))))
+
+(defn do-save-character
+  "Saves the strict character `transit-params` for the user in `identity`: creates it when it has
+   no :db/id, else updates it. Returns a response map: 200 with the stored character, 400 with the
+   spec or problem data, 401 when another player owns it, 410 {:error :character-gone} when it
+   has been deleted."
+  [db conn transit-params identity]
   (let [character (entity/remove-empty-fields transit-params)
         username (:user identity)
         current-id (:db/id character)]
@@ -975,12 +1283,14 @@
               updated-character (if (:db/id clean-character)
                                   (update-character db conn clean-character username)
                                   (create-new-character conn clean-character username))]
+          (note-saved-portrait! conn (:db/id updated-character))
           {:status 200 :body updated-character}))
       (catch clojure.lang.ExceptionInfo e
         (let [data (ex-data e)]
           (case (:error data)
             :character-problems {:status 400 :body (:problems data)}
             :not-user-character {:status 401 :body "You do not own this character"}
+            :character-gone {:status 410 :body {:error :character-gone}}
             (throw e))))   ; re-throw unrecognised ExceptionInfo (e.g. :db/error from Datomic)
       (catch Exception e (prn "ERROR" e) (throw e)))))
 
@@ -999,24 +1309,20 @@
       {:status 200
        :body result})))
 
-(defn get-item [{:keys [db] {:keys [:id]} :path-params}]
+(defn get-item
+  "A custom item, for its owner only. Anyone else gets the 404 a missing item gets, so an id
+   says nothing about whether it exists."
+  [{:keys [db username] {:keys [:id]} :path-params}]
   (let [item (d/pull db '[*] id)]
-    (if (::mi5e/owner item)
+    (if (and (::mi5e/owner item) (= username (::mi5e/owner item)))
       {:status 200
        :body item}
       {:status 404})))
 
 (defn delete-item
-  "Deletes a magic item owned by the user.
-
-  Args:
-    request - HTTP request with item ID
-
-  Returns:
-    HTTP 200 on success, 401 if not owned
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Deletes the magic item at path-param :id if the requesting user owns it.
+  Returns 200, or 401 if not owned. Throws ExceptionInfo :item-deletion-failed on database
+  failure."
   [{:keys [db conn username] {:keys [:id]} :path-params}]
   (let [{:keys [::mi5e/owner]} (d/pull db '[::mi5e/owner] id)]
     (if (= username owner)
@@ -1039,7 +1345,7 @@
 
 (defn character-list [{:keys [db identity] :as request}]
   (let [username (:user identity)
-        user (find-user-by-username-or-email db username)
+        user (auth/find-user-by-username-or-email db username)
         ids (d/q '[:find ?e
                    :in $ [?idents ...]
                    :where
@@ -1052,9 +1358,9 @@
 
 (defn character-summary-list [{:keys [db body conn identity] :as request}]
   (let [username (:user identity)
-        user (find-user-by-username-or-email db username)
+        user (auth/find-user-by-username-or-email db username)
         following-ids (map :db/id (:orcpub.user/following user))
-        following-usernames (following-usernames db following-ids)
+        following-usernames (auth/following-usernames db following-ids)
         results (d/q '[:find (pull ?e [:db/id
                                        ::se/summary
                                        ::se/owner])
@@ -1078,16 +1384,8 @@
     {:status 200 :body characters}))
 
 (defn follow-user
-  "Adds a user to the authenticated user's following list.
-
-  Args:
-    request - HTTP request with username to follow
-
-  Returns:
-    HTTP 200 on success
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Adds path-param :user to the authenticated user's following list. Returns 200.
+  Throws ExceptionInfo :follow-user-failed on database failure."
   [{:keys [db conn identity] {:keys [user]} :path-params}]
   (let [other-user-id (user-id-for-username db user)
         username (:user identity)
@@ -1100,16 +1398,8 @@
       {:status 200})))
 
 (defn unfollow-user
-  "Removes a user from the authenticated user's following list.
-
-  Args:
-    request - HTTP request with username to unfollow
-
-  Returns:
-    HTTP 200 on success
-
-  Throws:
-    ExceptionInfo on database failure"
+  "Removes path-param :user from the authenticated user's following list. Returns 200.
+  Throws ExceptionInfo :unfollow-user-failed on database failure."
   [{:keys [db conn identity] {:keys [user]} :path-params}]
   (let [other-user-id (user-id-for-username db user)
         username (:user identity)
@@ -1121,16 +1411,9 @@
       {:status 200})))
 
 (defn delete-character
-  "Deletes a character owned by the authenticated user.
-
-  Args:
-    request - HTTP request with character ID in path params
-
-  Returns:
-    HTTP 200 on success, 400 for problems, 401 if not owned
-
-  Throws:
-    ExceptionInfo on invalid ID or database failure"
+  "Deletes the character at path-param :id if the authenticated user owns it.
+  Returns 200, 400 with the problems found, or 401 if not owned. Throws ExceptionInfo on an
+  invalid ID or database failure."
   [{:keys [db conn identity] {:keys [id]} :path-params}]
   (let [parsed-id (errors/with-validation :invalid-character-id
                     {:id id}
@@ -1144,34 +1427,60 @@
         (errors/with-db-error-handling :character-deletion-failed
           {:character-id parsed-id}
           "Unable to delete character. Please try again or contact support."
-          @(d/transact conn [[:db/retractEntity parsed-id]])
+          @(d/transact conn (cons [:db/retractEntity parsed-id]
+                                  (share/retractions-for-character db parsed-id)))
           {:status 200})
         {:status 400 :body problems})
       {:status 401 :body "You do not own this character"})))
+
+(defn- public-owner
+  "The owner as a character read shows it: the username, or nil. For nine days in May 2017 the
+   login token carried whatever the user typed (e3cdf5f to cf170fc), so characters saved then name
+   their owner by email address; this read needs no login, so the address must not go out."
+  [db owner]
+  (if-let [user (auth/find-user-by-username-or-email db owner)]
+    (:orcpub.user/username user)
+    (when-not (s/includes? owner "@") owner)))
+
+(defn- equipped-custom-items
+  "The owner's custom items this character has equipped, without database ids or owner. Whoever may
+   read the character sees these, because the sheet is drawn from them; the owner's other items stay
+   out. Any failure sends none rather than failing the character read."
+  [db username character]
+  (try
+    (sb/used-custom-items (entity/from-strict character)
+                          (d/q '[:find [(pull ?e [*]) ...] :in $ ?owner :where [?e ::mi5e/owner ?owner]]
+                               db username)
+                          #(mi5e/expand-magic-items [%]))
+    (catch Exception e
+      (println "WARNING: custom items not attached to character" (:db/id character) ":" (.getMessage e))
+      nil)))
 
 (defn get-character-for-id [db id]
   (let [{:keys [::se/owner] :as character} (d/pull db '[*] id)
         problems [] #_(dnd-e5-char-type-problems character)]
     (if (or (not owner) (seq problems))
       {:status 400 :body problems}
-      {:status 200 :body character})))
+      (let [shown (public-owner db owner)
+            items (when shown (equipped-custom-items db shown character))]
+        {:status 200 :body (cond-> (if shown
+                                     (assoc character ::se/owner shown)
+                                     (dissoc character ::se/owner))
+                             (seq items) (assoc ::char5e/custom-items items))}))))
 
-(defn character-summary-for-id [db id]
-  ;; Fixed: bare destructuring outside let silently returned nil
-  (let [{:keys [::se/summary]} (d/pull db '[::se/summary {::se/values [::char5e/description ::char5e/image-url]}] id)]
-    summary))
+(defn character-summary-for-id
+  "The share-card data for a character: the whole pull, {::se/summary … ::se/values …}.
+   GOTCHA: character-page destructures both keys, so returning only the summary submap
+   blanks every og:title and og:image."
+  [db id]
+  (d/pull db
+          '[::se/summary
+            {::se/values [::char5e/description ::char5e/image-url ::char5e/portrait]}]
+          id))
 
 (defn get-character
-  "Retrieves a character by ID.
-
-  Args:
-    request - HTTP request with character ID in path params
-
-  Returns:
-    HTTP response with character data
-
-  Throws:
-    ExceptionInfo on invalid ID format"
+  "Retrieves the character at path-param :id via `get-character-for-id`: 200 with the
+  character, or 400 if it has no owner. Throws ExceptionInfo on an invalid ID format."
   [{:keys [db] {:keys [:id]} :path-params}]
   (let [parsed-id (errors/with-validation :invalid-character-id
                     {:id id}
@@ -1187,7 +1496,7 @@
    {:sent? .. :reason ..} so the client can fall back to the copyable report."
   [{:keys [db transit-params identity]}]
   (let [username   (:user identity)
-        user       (find-user-by-username-or-email db username)
+        user       (auth/find-user-by-username-or-email db username)
         user-email (:orcpub.user/email user)
         {:keys [char-id error raw]} transit-params]
     {:status 200
@@ -1196,21 +1505,13 @@
 
 (defn get-user [{:keys [db identity]}]
   (let [username (:user identity)
-        user (find-user-by-username-or-email db username)]
-    {:status 200 :body (user-body db user)}))
+        user (auth/find-user-by-username-or-email db username)]
+    {:status 200 :body (auth/user-body db user)}))
 
 (defn delete-user
-  "Deletes the authenticated user's account.
-
-  Args:
-    request - HTTP request with authenticated user identity
-
-  Returns:
-    HTTP 200 on success
-
-  Throws:
-    ExceptionInfo on database failure"
-  [{:keys [db conn identity]}]
+  "Deletes the authenticated user's account and logs it. Returns 200.
+  Throws ExceptionInfo :user-deletion-failed on database failure."
+  [{:keys [db conn identity] :as request}]
   (let [username (:user identity)
         user (d/q '[:find ?u .
                     :in $ ?username
@@ -1221,107 +1522,8 @@
       {:username username}
       "Unable to delete user account. Please try again or contact support."
       @(d/transact conn [[:db/retractEntity user]])
+      (security/audit! :account-deleted request username)
       {:status 200})))
-
-(defn rate-limit-remaining-secs
-  "Seconds until the user can act again. In the 0–1 min zone (email in transit)
-   returns time until the 1-min resend window opens. In the 1–5 min zone (for a
-   different email) returns time until the 5-min cooldown expires."
-  [verification-sent new-email pending-email]
-  (when verification-sent
-    (let [elapsed-ms (- (System/currentTimeMillis) (.getTime ^java.util.Date verification-sent))
-          ;; If same email, they're waiting for the 1-min resend window to open.
-          ;; If different email, they're waiting for the full 5-min cooldown.
-          target-ms (if (= new-email pending-email)
-                      (* 1 60 1000)
-                      (* 5 60 1000))
-          remaining-ms (- target-ms elapsed-ms)]
-      (when (pos? remaining-ms)
-        (int (Math/ceil (/ remaining-ms 1000.0)))))))
-
-(defn email-change-rate-limited? [verification-sent pending-email new-email]
-  ;; Only rate-limit if the last key was generated for a pending email change
-  ;; (not for initial registration verification).
-  ;; Three zones from verification-sent:
-  ;;   0–1 min  → too soon, email is in transit (always blocked)
-  ;;   1–5 min  → free resend allowed for same email, otherwise blocked
-  ;;   5+ min   → open for any request
-  (and pending-email
-       verification-sent
-       (let [elapsed-ms (- (System/currentTimeMillis) (.getTime ^java.util.Date verification-sent))
-             same-email? (= new-email pending-email)]
-         (cond
-           (>= elapsed-ms (* 5 60 1000)) false          ;; past cooldown
-           (< elapsed-ms (* 1 60 1000))  true           ;; too soon
-           :else                          (not same-email?)))) ;; 1-5 min: resend ok, new email blocked
-  )
-
-(defn request-email-change [{:keys [transit-params db conn identity] :as request}]
-  (try
-    ;; Client sends {:new-email "..."} (confirm-email is validated client-side only)
-    (let [new-email (s/lower-case (s/trim (str (:new-email transit-params))))
-          username (:user identity)]
-      (if (nil? username)
-        {:status 400 :body {:error :user-not-found}}
-        (let [{:keys [:db/id
-                      :orcpub.user/email
-                      :orcpub.user/pending-email
-                      :orcpub.user/verification-sent] :as user} (find-user-by-username db username)]
-          (cond
-            (nil? id)
-            {:status 400 :body {:error :user-not-found}}
-
-            (registration/bad-email? new-email)
-            {:status 400 :body {:error :invalid-email}}
-
-            (= new-email (some-> email s/lower-case))
-            {:status 400 :body {:error :same-as-current}}
-
-            (email-change-rate-limited? verification-sent pending-email new-email)
-            {:status 429 :body {:error :too-many-requests
-                                :retry-after-secs (rate-limit-remaining-secs verification-sent new-email pending-email)}}
-
-            ;; Check no other account already owns this email
-            (seq (d/q email-query db new-email))
-            {:status 400 :body {:error :email-taken}}
-
-            ;; Free resend: same email, 1–5 min after original send. Re-send with
-            ;; existing key and don't update verification-sent (no rolling window).
-            (and (= new-email pending-email)
-                 verification-sent
-                 (let [elapsed (- (System/currentTimeMillis) (.getTime ^java.util.Date verification-sent))]
-                   (and (>= elapsed (* 1 60 1000))
-                        (< elapsed (* 5 60 1000)))))
-            (try
-              (send-email-change-verification request
-                                              {:email new-email :username username}
-                                              (:orcpub.user/verification-key user))
-              {:status 200 :body {:pending-email new-email}}
-              (catch Throwable e
-                (prn "Email resend failed:" (.getMessage e))
-                {:status 500 :body {:error :email-send-failed}}))
-
-            :else
-            (let [verification-key (str (java.util.UUID/randomUUID))
-                  now (java.util.Date.)]
-              @(d/transact conn [{:db/id id
-                                  :orcpub.user/pending-email new-email
-                                  :orcpub.user/verification-key verification-key
-                                  :orcpub.user/verification-sent now}])
-              ;; Roll back pending-email if verification email fails to send
-              (try
-                (send-email-change-verification request
-                                                {:email new-email :username username}
-                                                verification-key)
-                {:status 200 :body {:pending-email new-email}}
-                (catch Throwable e
-                  (errors/log-error "ERROR:" (str "Email send failed, rolling back pending state: " (.getMessage e)))
-                  ;; Full rollback: retract all attributes set by the failed attempt
-                  @(d/transact conn [[:db/retract id :orcpub.user/pending-email new-email]
-                                     [:db/retract id :orcpub.user/verification-key verification-key]
-                                     [:db/retract id :orcpub.user/verification-sent now]])
-                  {:status 500 :body {:error :email-send-failed}})))))))
-    (catch Throwable e (prn e) (throw e))))
 
 (defn character-summary-description [{:keys [::char5e/race-name ::char5e/subrace-name ::char5e/classes]}]
   (str race-name
@@ -1345,6 +1547,10 @@
    [route-map/dnd-e5-monster-page-route :key ":key"]
    [route-map/dnd-e5-spell-list-page-route]
    [route-map/dnd-e5-spell-page-route :key ":key"]
+   [route-map/dnd-e5-rules-page-route]
+   [route-map/dnd-e5-rule-section-page-route :key ":key"]
+   [route-map/dnd-e5-condition-list-page-route]
+   [route-map/dnd-e5-condition-page-route :key ":key"]
    [route-map/dnd-e5-spell-builder-page-route]
    [route-map/dnd-e5-monster-builder-page-route]
    [route-map/dnd-e5-selection-builder-page-route]
@@ -1371,6 +1577,11 @@
    [route-map/login-page-route]
    [route-map/verify-sent-route]
    [route-map/password-reset-sent-route]
+   ;; Was the only one of these missing. The client routes here after a reset,
+   ;; so it renders inside a session -- but a refresh, a back button or a
+   ;; bookmark asked the server for it and got "Not Found", on the one page
+   ;; whose whole job is to confirm the password was changed.
+   [route-map/password-reset-success-route]
    [route-map/password-reset-expired-route]
    [route-map/password-reset-used-route]
    [route-map/verify-failed-route]
@@ -1378,20 +1589,215 @@
    [route-map/unsubscribe-success-route]
    [route-map/dnd-e5-orcacle-page-route]])
 
+(defn- any-representation-requested?
+  "Whether the If-None-Match `header` is the wildcard.
+   GOTCHA: `*` is the whole header value, never a list member (RFC 7232 s3.2); splitting a
+   quoted tag on commas can invent one and answer 304 to a stale client."
+  [header]
+  (= "*" (some-> header s/trim)))
+
+(defn- covered-by-if-none-match?
+  "Whether an If-None-Match `header` lists `tag`, by weak comparison (W/\"x\" covers \"x\"),
+   ignoring a --gzip suffix. Tags are matched out of the header, not split on commas.
+   The wildcard is not handled here; see any-representation-requested?."
+  [header tag]
+  (boolean
+   (when (and (not (s/blank? header)) tag)
+     (let [bare #(-> % s/trim (s/replace #"(?i)^W/" "") (s/replace #"--gzip$" ""))
+           offered (into #{} (map bare) (re-seq #"(?i)W/\"[^\"]*\"|\"[^\"]*\"" header))]
+       (contains? offered (bare tag))))))
+
+(defn character-portrait-png
+  "Ring handler: PNG of character :id's composed portrait, for og:image. Unauthenticated,
+   like the character page, whose meta tags already expose the character. 304 when
+   If-None-Match covers portrait-etag; 404 when nothing composed is drawable. A `v` query
+   param matching the tag's version makes the response long-cacheable."
+  [{:keys [db headers query-params] {:keys [id]} :path-params}]
+  (artist-credit/refresh! db)
+  (let [stored (some-> (d/pull db '[{::se/values [::char5e/portrait]}] id)
+                       ::se/values
+                       ::char5e/portrait)
+        portrait (some-> stored char5e/parse-portrait)
+        tag (portrait-store/tag stored)
+        png-headers {"Content-Type" "image/png"
+                     ;; The share page names the picture by version (?v=), so that address
+                     ;; never changes content and can be kept for good; a bare or stale one
+                     ;; is revalidated after five minutes.
+                     "Cache-Control" (if (and tag (= (:v query-params) (portrait-store/version tag)))
+                                       "public, max-age=31536000, immutable"
+                                       "public, max-age=300")
+                     ;; This is contributed artwork. The header is the per-response
+                     ;; twin of the page's `noai` meta -- a crawler that fetches the
+                     ;; PNG directly never parses the HTML that carries the meta.
+                     "X-Robots-Tag" "noai, noimageai"
+                     "ETag" tag}]
+    (cond
+      (nil? portrait) {:status 404 :body "no composed portrait"}
+
+      ;; BEFORE rendering, which is the point. A 304 here costs a pull and a
+      ;; hash; the alternative is decoding up to ten PNGs, scaling, tinting,
+      ;; compositing and encoding, to produce bytes the caller already has.
+      (covered-by-if-none-match? (get headers "if-none-match") tag)
+      {:status 304 :headers (dissoc png-headers "Content-Type")}
+
+      :else
+      ;; The wildcard cannot take the path above. `*` asks whether a
+      ;; representation EXISTS, and a stored portrait selecting nothing drawable
+      ;; has none -- it 404s. Answering 304 there would tell a client its cached
+      ;; copy is current when the resource has no current copy at all. So it
+      ;; renders first and lets the outcome decide, which costs the saving on a
+      ;; wildcard request and keeps it on every request that names a tag.
+      (let [[outcome x] (portrait-store/png id tag stored)
+            png (when (= :ok outcome) x)]
+        (cond
+          (= :busy outcome)
+          {:status 503 :headers {"Retry-After" (str x) "Content-Type" "text/plain"} :body "busy"}
+
+          (nil? png) {:status 404 :body "no composed portrait"}
+
+          (any-representation-requested? (get headers "if-none-match"))
+          {:status 304 :headers (dissoc png-headers "Content-Type")}
+
+          :else {:status 200 :headers png-headers :body (ByteArrayInputStream. png)})))))
+
+(defn portrait-artists
+  "The artists' credits in force, as JSON for the browser: their own edits under the deployment's
+   settings (orcpub.artist-credit/refresh!). Public, as the credits are; cached for a minute so an
+   artist's edit shows within one. Served as data rather than written into the page, so text an
+   artist typed never becomes page source."
+  [{:keys [db]}]
+  (when db (artist-credit/refresh! db))
+  {:status 200
+   :headers {"Content-Type" "application/json; charset=utf-8"
+             "Cache-Control" "public, max-age=60"}
+   :body (cheshire/generate-string (portrait-assets5e/current-overrides))})
+
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
+  ;; before the credit line and the image version below are worked out from it
+  (when db (artist-credit/refresh! db))
   (let [host (headers "host")
-        {:keys [::se/summary
-                ::se/values] :as summary-obj} (character-summary-for-id db id)
+        {:keys [::se/summary ::se/values]} (character-summary-for-id db id)
         {:keys [::char5e/character-name]} summary
         {:keys [::char5e/description
-                ::char5e/image-url]} values]
+                ::char5e/image-url
+                ::char5e/portrait]} values
+        ;; A composed portrait wins over a pasted URL, the same precedence the
+        ;; sheet, the summary and the PDF use. It is served as a real PNG
+        ;; because crawlers will not render CSS masks -- or, mostly, SVG.
+        parsed-portrait (char5e/parse-portrait portrait)
+        ;; drawable?, not (seq :layers): a selection of assets this deployment lacks is
+        ;; non-empty, draws nothing, and would point the card at a 404 instead of
+        ;; falling back to image-url.
+        composed? (portrait-assets5e/drawable? parsed-portrait)
+        ;; Versioned, so a link preview made after the portrait changes fetches the new
+        ;; picture instead of the copy every chat app kept under the old address.
+        share-image (if composed?
+                      (str "https://" host
+                           (route-map/path-for route-map/dnd-e5-char-portrait-route :id id)
+                           "?v=" (portrait-store/version (portrait-store/tag portrait)))
+                      image-url)
+        ;; A shared link is where the art actually travels, so the card names
+        ;; the artists too -- the same line the sheet prints.
+        credit (when composed? (portrait-assets5e/credit-line parsed-portrait))]
     (index-page-response request
                          {:title character-name
                           :description (str (character-summary-description summary)
                                             ". "
-                                            description)
-                          :image-url image-url}
-                         {"X-Frame-Options" "ALLOW-FROM https://www.worldanvil.com/"})))
+                                            description
+                                            (when credit (str " · " credit)))
+                          :image-url share-image})))
+
+(defn artists-page
+  "The list of portrait artists. The page itself is the SPA's; this only
+   gives the share card a title of its own."
+  [request]
+  (index-page-response request {:title "Portrait artists"
+                                :description "The artists who drew the portrait pieces here."}))
+
+(defn artist-page
+  "An artist's profile. The body is the SPA's; the share tags are set here because a crawler never
+   runs the JavaScript. A page its artist switched off redirects (302) to /artists; an unknown
+   slug is a real 404, so a mistyped link is not indexed (the SPA says there is nobody here)."
+  [{:keys [headers db] {:keys [slug]} :path-params :as request}]
+  ;; before the artist's own switches are read
+  (when db (artist-credit/refresh! db))
+  (if-let [artist (artist-profile/artist-by-slug slug)]
+    (index-page-response
+     request
+     (cond-> {:title (artist-profile/page-title artist)
+              :description (artist-profile/share-description artist)}
+       (artist-profile/shows? artist :examples)
+       (assoc :image-url (str "https://" (headers "host") (artist-profile/example-path artist 1)))))
+    (if (artist-profile/registered-by-slug slug)
+      ;; switched off: 302, never 301, so switching it back on works at once
+      {:status 302 :headers {"Location" (artist-profile/index-path)} :body ""}
+      (assoc (index-page-response request {:title "No such artist"}) :status 404))))
+
+(def ^:private example-jpegs
+  "Rendered examples by [artist n watermark]. Single-flight, so a burst of requests for a new page
+   shares one render; bounded, since every edit to an artist's links makes new watermark keys."
+  (bounded-cache/cache {:max-entries 64}))
+
+(def ^:private example-failures
+  "Examples that failed to render, remembered for a minute so a broken one is not redrawn on every
+   request."
+  (bounded-cache/cache {:max-entries 64 :max-age-ms 60000}))
+
+(defn- example-jpeg
+  "JPEG bytes of example `n` (1-based) for `artist-id`, watermarked with `text`: nil when there is
+   none or it failed within the last minute, {:busy retry-seconds} when no draw slot frees. Drawn
+   once through the portrait draw pool and kept."
+  [artist-id n text]
+  (let [k [artist-id n text]]
+    (when-not (bounded-cache/lookup example-failures k)
+      (try
+        (bounded-cache/fetch!
+         example-jpegs k
+         #(let [{:keys [result busy]}
+                (work-pool/run portrait-store/draw-pool
+                               (fn [] (some-> (artist-profile/example-portraits artist-id)
+                                              (get (dec n))
+                                              (portrait-render/render-example-jpeg text))))]
+            (cond busy (throw (ex-info "example draw busy" {::busy busy}))
+                  result result
+                  :else (throw (ex-info "no example" {::failed true})))))
+        (catch clojure.lang.ExceptionInfo e
+          (let [{::keys [busy]} (ex-data e)]
+            (if busy
+              {:busy busy}
+              (do (bounded-cache/put! example-failures k true) nil))))
+        (catch Exception e
+          (println "artist example" k "failed -" (.getMessage e))
+          (bounded-cache/put! example-failures k true)
+          nil)))))
+
+(defn artist-example-jpeg
+  "Ring handler: example image :n (1 to example-count) of the artist at :slug, small,
+   flattened and watermarked. 404 for an unknown slug, a page or examples switched off, or any
+   other :n;
+   503 with a Retry-After when every draw slot is taken."
+  [{:keys [db] {:keys [slug n]} :path-params}]
+  ;; before the watermark is worked out from the artist's links
+  (when db (artist-credit/refresh! db))
+  (let [artist (artist-profile/artist-by-slug slug)
+        n (some->> n (re-matches #"[1-9]") parse-long)
+        jpeg (when (and artist n (<= n artist-profile/example-count) (artist-profile/shows? artist :examples))
+               (example-jpeg (:artist/id artist) n
+                             (artist-profile/watermark-text
+                              artist (or (portrait-render/site-mark) branding/app-name))))]
+    (cond
+      (:busy jpeg)
+      {:status 503 :headers {"Retry-After" (str (:busy jpeg)) "Content-Type" "text/plain"} :body "busy"}
+
+      jpeg
+      {:status 200
+       :headers {"Content-Type" "image/jpeg"
+                 "Cache-Control" "public, max-age=86400"
+                 ;; contributed artwork -- see character-portrait-png
+                 "X-Robots-Tag" "noai, noimageai"}
+       :body (ByteArrayInputStream. jpeg)}
+
+      :else {:status 404 :body "no such example"})))
 
 (def header-style
   {:style "color:#2c3445"})
@@ -1441,7 +1847,65 @@
 
 (def get-js get-file)
 
-(def get-image get-file)
+(def ^:private portrait-files
+  "Every URL the art directory answers: each registered piece, and a strand file beside each
+   hair piece. Anything else there (an unregistered piece, a manifest) is a 404."
+  (delay (set (for [{:artist/keys [layers]} portrait-assets5e/registry
+                    [layer assets] layers
+                    {:asset/keys [url]} assets
+                    u (cond-> [url]
+                        (portrait-fx/hair-layer? layer) (conj (s/replace url #"\.png$" ".strands.png")))]
+                u))))
+
+(defn- strands-on-the-fly
+  "PNG bytes of a registered hair piece's strand field when no .strands.png was deployed beside
+   its art (orcpub.portrait-pack.strands/worked-out-png), so the builder's request does not 404.
+   nil for anything else. The build step stays the fast path."
+  [uri]
+  (when (and (contains? @portrait-files uri) (s/ends-with? uri ".strands.png"))
+    (strands/worked-out-png (s/replace uri #"\.strands\.png$" ".png"))))
+
+(defn- served-path
+  "`uri` as the static file server will read it: percent-decoded, with `.` and `..` segments
+   resolved. The guard judges this, or an encoded path (/image/%70ortraits/...) walks past it."
+  [uri]
+  (let [decoded (or (codec/url-decode (str uri)) (str uri))]
+    (str "/" (s/join "/" (reduce (fn [acc seg]
+                                   (case seg
+                                     ("" ".") acc
+                                     ".." (if (seq acc) (pop acc) acc)
+                                     (conj acc seg)))
+                                 [] (s/split decoded #"/")))
+         (when (s/ends-with? decoded "/") "/"))))
+
+(defn- portrait-art?
+  "Whether `uri`, as the file server reads it, is in the portrait art directory."
+  [uri]
+  (s/starts-with? (served-path uri) "/image/portraits/"))
+
+(defn get-image [{:keys [uri] :as request}]
+  (or (get-file request)
+      (when-let [bytes (strands-on-the-fly uri)]
+        {:status 200
+         :headers {"Content-Type" "image/png" "Cache-Control" "public, max-age=86400"}
+         :body bytes})))
+
+(def portrait-art-guard
+  "First in the chain, ahead of Pedestal's static files, which answer before any route: the
+   portrait art directory serves the registered pieces and their strand files, nothing else (a
+   manifest or stray file unpacked beside the art would otherwise be public), and every piece it
+   serves asks not to be used for AI."
+  (interceptor/interceptor
+   {:name ::portrait-art-guard
+    :enter (fn [ctx]
+             (let [uri (get-in ctx [:request :uri])]
+               (if (and (portrait-art? uri) (not (contains? @portrait-files (served-path uri))))
+                 (assoc ctx :response {:status 404 :headers {"Content-Type" "text/plain"} :body "Not found"})
+                 ctx)))
+    :leave (fn [ctx]
+             (if (and (portrait-art? (get-in ctx [:request :uri])) (:response ctx))
+               (assoc-in ctx [:response :headers "X-Robots-Tag"] "noai, noimageai")
+               ctx))}))
 
 (def get-favicon get-file)
 
@@ -1467,13 +1931,17 @@
        ["/image/*" {:get `get-image}]
        ["/favicon/*" {:get `get-favicon}]
        [(route-map/path-for route-map/register-route)
-        {:post `register}]
+        {:post `auth/register}]
        [(route-map/path-for route-map/user-route) ^:interceptors [check-auth]
         {:get `get-user
          :put `update-user-preferences
          :delete `delete-user}]
        [(route-map/path-for route-map/user-email-route) ^:interceptors [check-auth]
-        {:put `request-email-change}]
+        {:put `auth/request-email-change}]
+       [(route-map/path-for route-map/user-artist-credit-route) ^:interceptors [check-auth]
+        {:put `update-artist-credit}]
+       [(route-map/path-for route-map/user-sessions-route) ^:interceptors [check-auth]
+        {:delete `withdraw-sessions}]
        [(route-map/path-for route-map/follow-user-route :user ":user") ^:interceptors [check-auth]
         {:post `follow-user
          :delete `unfollow-user}]
@@ -1483,9 +1951,8 @@
         {:post `save-item
          :get `item-list}]
        [(route-map/path-for route-map/dnd-e5-item-route :id ":id") ^:interceptors [check-auth parse-id]
-        {:delete `delete-item}]
-       [(route-map/path-for route-map/dnd-e5-item-route :id ":id") ^:interceptors [parse-id]
-        {:get `get-item}]
+        {:get `get-item
+         :delete `delete-item}]
 
        ;; Characters
        [(route-map/path-for route-map/dnd-e5-char-list-route) ^:interceptors [check-auth]
@@ -1499,9 +1966,28 @@
         {:delete `delete-character}]
        [(route-map/path-for route-map/dnd-e5-char-route :id ":id")
         {:get `get-character}]
+       [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :token ":token") ^:interceptors [parse-id]
+        {:get `share/get-share}]
+       [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :token ":token") ^:interceptors [check-auth parse-id]
+        {:put `share/put-share}]
+       [(route-map/path-for route-map/dnd-e5-char-share-token-route :id ":id") ^:interceptors [check-auth parse-id]
+        {:get `share/get-token
+         :put `share/create-token
+         :post `share/new-token
+         :delete `share/stop-sharing}]
 
        [(route-map/path-for route-map/dnd-e5-char-page-route :id ":id") ^:interceptors [parse-id]
         {:get `character-page}]
+       [(route-map/path-for route-map/dnd-e5-char-portrait-route :id ":id") ^:interceptors [parse-id]
+        {:get `character-portrait-png}]
+       [(route-map/path-for route-map/artists-page-route)
+        {:get `artists-page}]
+       [(route-map/path-for route-map/artist-page-route :slug ":slug")
+        {:get `artist-page}]
+       [(route-map/path-for route-map/artist-example-route :slug ":slug" :n ":n")
+        {:get `artist-example-jpeg}]
+       [(route-map/path-for route-map/dnd-e5-portrait-artists-route)
+        {:get `portrait-artists}]
        [(route-map/path-for route-map/dnd-e5-char-parties-route) ^:interceptors [check-auth]
         {:post `party/create-party
          :get `party/parties}]
@@ -1525,21 +2011,23 @@
        [(route-map/path-for route-map/dnd-e5-char-folder-character-route :id ":id" :character-id ":character-id") ^:interceptors [check-auth parse-id check-folder-owner]
         {:delete `folder/remove-character}]
        [(route-map/path-for route-map/login-route)
-        {:post `login}]
+        {:post `auth/login}]
        [(route-map/path-for route-map/character-pdf-route)
         {:post `character-pdf-2}]
+       [(route-map/path-for route-map/image-probe-route)
+        {:post `image-probe}]
        [(route-map/path-for route-map/verify-route)
-        {:get `verify}]
+        {:get `auth/verify}]
        [(route-map/path-for route-map/re-verify-route)
-        {:get `re-verify}]
+        {:get `auth/re-verify}]
        [(route-map/path-for route-map/unsubscribe-route)
         {:get `unsubscribe}]
-       [(route-map/path-for route-map/reset-password-route) ^:interceptors [ring/cookies check-auth]
-        {:post `reset-password}]
+       [(route-map/path-for route-map/reset-password-route) ^:interceptors [ring/cookies]
+        {:post `auth/reset-password}]
        [(route-map/path-for route-map/reset-password-page-route) ^:interceptors [ring/cookies]
-        {:get `reset-password-page}]
+        {:get `auth/reset-password-page}]
        [(route-map/path-for route-map/send-password-reset-route)
-        {:get `send-password-reset}]
+        {:get `auth/send-password-reset}]
        [(route-map/path-for route-map/privacy-policy-route)
         {:get `privacy-policy-page}]
        [(route-map/path-for route-map/terms-of-use-route)
@@ -1548,10 +2036,8 @@
         {:get `community-guidelines-page}]
        [(route-map/path-for route-map/cookies-policy-route)
         {:get `cookie-policy-page}]
-       [(route-map/path-for route-map/check-email-route)
-        {:get `check-email}]
        [(route-map/path-for route-map/check-username-route)
-        {:get `check-username}]
+        {:get `auth/check-username}]
        ["/health"
         {:get `health-check}]]]])
    expanded-index-routes))

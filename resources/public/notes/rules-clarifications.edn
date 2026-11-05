@@ -1,0 +1,16 @@
+;; Our notes on SRD rules, in our own words: not SRD text, and not covered by the SRD's licence.
+;; Each one says what an official ruling holds and links where Wizards published it. Shown after
+;; the rule it clarifies on the Rules pages (srd-improvements.md, "Rules clarifications").
+{:notes
+ [{:section :attacking
+   :anchor :rolling-1-or-20
+   :title "Spell attacks can be critical hits"
+   :text "A spell that makes an attack roll scores a critical hit on a 20 like any other attack: the critical hit rule covers every attack roll, from a weapon or a spell."
+   :source {:name "Sage Advice Compendium (v1.01)"
+            :url "https://media.wizards.com/2015/downloads/dnd/SA_Compendium_1.01.pdf"}}
+  {:section :combat-sequence
+   :anchor :bonus-actions
+   :title "Actions and bonus actions don't trade"
+   :text "You can't spend your action on something that takes a bonus action, or the other way round. A bard who grants Bardic Inspiration with their bonus action can't also cast healing word, which takes a bonus action too, by spending their action on it."
+   :source {:name "Sage Advice Compendium (v1.01)"
+            :url "https://media.wizards.com/2015/downloads/dnd/SA_Compendium_1.01.pdf"}}]}

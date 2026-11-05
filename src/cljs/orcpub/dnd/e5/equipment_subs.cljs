@@ -1,5 +1,5 @@
 (ns orcpub.dnd.e5.equipment-subs
-  (:require [re-frame.core :refer [reg-sub reg-sub-raw dispatch #_subscribe]]
+  (:require [re-frame.core :refer [reg-sub]]
             [orcpub.common :as common]
             [orcpub.template :as t]
             [orcpub.dnd.e5.spell-subs]
@@ -17,44 +17,60 @@
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.route-map :as routes]
-            [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route auth-headers
-                                                                    handle-api-response]]
+            [orcpub.dnd.e5.event-utils :as event-utils]
+            [orcpub.dnd.e5.api-subs :as api-subs]
             [reagent.ratom :as ra]
             [clojure.string :as s]
-            [orcpub.dnd.e5.http-safe :as http]
-            [cljs.core.async :refer [<!]])
-  (:require-macros [cljs.core.async.macros :refer [go]]))
+            [orcpub.dnd.e5.http-safe :as http]))
 
 
 (def sorted-items
   (delay (sort-by mi5e/name-key mi5e/magic-items))
   )
 
+;; With no window (the test runner) this is a plain sub returning [], so tests never reach the
+;; network.
 (if js/window.location
-  (reg-sub-raw
-   ::mi5e/custom-items
-   (fn [app-db [_ user-data]]
-     (when (and (:user-data @app-db) (:token (:user-data @app-db)))
-       (go (dispatch [:set-loading true])
-           (let [response (<! (http/get (url-for-route routes/dnd-e5-items-route)
-                                        {:headers (auth-headers @app-db)}))]
-             (dispatch [:set-loading false])
-             (handle-api-response response
-               #(dispatch [::mi5e/set-custom-items (:body response)])
-               :on-401 (fn [])
-               :context "fetch custom items"))))
-     (ra/make-reaction
-      (fn [] (get @app-db ::mi5e/custom-items [])))))
+  (api-subs/reg-api-sub
+   {:sub-key    ::mi5e/custom-items
+    :route      routes/dnd-e5-items-route
+    :db-key     ::mi5e/custom-items
+    :set-event  ::mi5e/set-custom-items
+    ;; Silent 401 on purpose: the default (:route-to-login) can login-loop, since this sub fires
+    ;; on first subscribe and can race :verify-user-session. The warn is diagnostic only (#669);
+    ;; grep the console for "custom-items fetch rejected".
+    :on-401     (fn [_]
+                  (js/console.warn
+                   "custom-items fetch rejected (401); session may be stale"))
+    :context    "fetch custom items"})
   (reg-sub
    ::mi5e/custom-items
-   (fn [_ _] []))
-  )
+   (fn [_ _] [])))
+
+;; Custom items on the sheet in view that are not the viewer's own: from a share link, or sent by
+;; the server with the character on the page. Never persisted, never in the item editor, and folded
+;; into resolution below.
+(reg-sub
+ ::mi5e/shared-custom-items
+ (fn [db _]
+   (mi5e/shared-custom-items db)))
+
+(defn- safe-expand-items
+  "expand-magic-items per item, dropping any that throw. Used for the SHARED
+   (untrusted) overlay so one malformed item can't blank the whole sheet. (These
+   are already filtered to expandable items at ingest; this is belt-and-suspenders.)"
+  [raw-items]
+  (mapcat (fn [it] (try (mi5e/expand-magic-items [it]) (catch :default _ nil)))
+          raw-items))
 
 (reg-sub
  ::mi5e/expanded-custom-items
  :<- [::mi5e/custom-items]
- (fn [custom-items _]
-   (mi5e/expand-magic-items custom-items)))
+ :<- [::mi5e/shared-custom-items]
+ (fn [[custom-items shared] _]
+   ;; Shared items appended LAST so they win key collisions on the shared sheet.
+   (concat (mi5e/expand-magic-items custom-items)
+           (safe-expand-items shared))))
 
 (reg-sub
  ::mi5e/custom-item-map
@@ -242,35 +258,41 @@
           mi5e/all-magic-items-map
           maps)))
 
-(reg-sub
- ::mi5e/remote-items
- (fn [db _]
-   (::mi5e/remote-items db)))
+;; ============================================================================
+;; ORPHANED: client side of `GET /api/dnd/e5/items/:id` (another user's item by db-id).
+;; Nothing subscribes; views/item-page reads ::mi/custom-item instead. To restore, also
+;; uncomment ::mi/add-remote-item in events.cljs; see plan-669-merge-verification.md
+;; (agents/develop). GET /dnd/5e/items/:id currently answers the owner only (404 otherwise) -- decide cross-user access before wiring this back up.
+;; ============================================================================
 
-(reg-sub-raw
- ::mi5e/remote-item
- (fn [app-db [_ id]]
-   (when (and (:user @app-db) (:token (:user @app-db)))
-    (go (dispatch [:set-loading true])
-       (let [response (<! (http/get (url-for-route
-                                      routes/dnd-e5-item-route
-                                      :id id)
-                                    {:headers (auth-headers @app-db)}))]
-         (dispatch [:set-loading false])
-         (handle-api-response response
-           #(dispatch [::mi5e/add-remote-item (:body response)])
-           :context "fetch item"))))
-   (ra/make-reaction
-    (fn [] (get-in @app-db [::mi5e/remote-items id] {})))))
+#_(reg-sub
+    ::mi5e/remote-items
+    (fn [db _]
+      (::mi5e/remote-items db)))
 
-;; Unused — item detail lookup with remote HTTP fetch for int keys.
-;; Groundwork for a magic item detail page. Restore when needed.
 #_(reg-sub-raw
-   ::mi5e/item
-   (fn [_app-db [_ key]]
-     (if (int? key)
-       (subscribe [::mi5e/remote-item key])
-       (ra/make-reaction (fn [] (get mi5e/all-equipment-map key))))))
+    ::mi5e/remote-item
+    (fn [app-db [_ id]]
+      
+      (when (event-utils/get-auth-token @app-db)
+        (go (dispatch [:set-loading true])
+            (let [response (<! (http/get (url-for-route
+                                           routes/dnd-e5-item-route
+                                           :id id)
+                                         {:headers (auth-headers @app-db)}))]
+              (dispatch [:set-loading false])
+              (handle-api-response response
+                #(dispatch [::mi5e/add-remote-item (:body response)])
+                :context "fetch item"))))
+      (ra/make-reaction
+       (fn [] (get-in @app-db [::mi5e/remote-items id] {})))))
+
+#_(reg-sub-raw
+    ::mi5e/item
+    (fn [_app-db [_ key]]
+      (if (int? key)
+        (subscribe [::mi5e/remote-item key])
+        (ra/make-reaction (fn [] (get mi5e/all-equipment-map key))))))
 
 (reg-sub
  ::equipment5e/armor-map

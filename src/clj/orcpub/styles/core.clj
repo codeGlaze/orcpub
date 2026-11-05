@@ -1,16 +1,54 @@
 (ns orcpub.styles.core
-     (:require [garden.stylesheet :refer [at-media at-keyframes]]
+     (:require [garden.stylesheet :refer [at-media at-keyframes at-font-face]]
                [garden.units :refer [px]]
                [orcpub.constants :as const]
-               [garden.selectors :as s]))
+               [orcpub.styles.weapons :as weapons]
+               [garden.selectors :as s]
+               [orcpub.styles.portrait :as portrait]))
 
 ;; Color palette — used across UI for consistent theming
 (def orange "#f0a100")
+;; The light theme's accent: its buttons and highlights are blue where the dark theme's are amber.
+(def accent-on-light "#33658A")
 (def button-color orange)
 (def red "#9a031e")
+;; One red cannot serve both themes: #9a031e reads at about 9:1 on white and about
+;; 2:1 on the app's near-black ground, under half the readable minimum. The dark
+;; theme is the default and takes red-on-dark; .app.light-theme takes red back.
+(def red-on-dark "#ff6b6b")
+(def amber-on-dark "#f5b942")
+(def muted-on-dark "#9fb0c3")
 (def green "#70a800")
 (def cyan "#47eaf8")      ; import log, conflict rename option
 (def purple "#8b7ec8")    ; conflict skip option
+;; Field-error red (GOV.UK's, not the site's own wine-toned red): 4.86:1 as text on the white
+;; card, 4.52:1 as a border on its own tint -- never run as text ON that tint, which only clears 4.52:1 (AA-scrape).
+;; Ink/muted on the white auth card: 8.9:1 and 4.6:1 respectively (counterparts to muted-on-dark).
+(def text-color-light "#4b545e")
+(def auth-card-ink "#484848")        ; body text on the white auth card (the old text-color in views/auth)
+(def auth-banner-ground "#1a2532")   ; the logo band above the auth card's form
+(def muted-on-light "#6b7681")
+(def error-red "#d4351c")
+(def error-tint "#fdf5f6")
+(def warning-yellow "#ffd21a") ; attention severity: unresolved conflicts, missing fields
+(def broken-red "#e5637a")     ; broken severity: invalid / unexportable data
+(def light-text "#363636")     ; body text in the light theme
+(def slate-blue "#33658A")     ; the light theme's accent, where the dark theme uses orange
+(def button-ink "#15202e")     ; dark text on amber: buttons with dark text on, a checked box
+(def orange-hairline "rgba(240,161,0,0.16)") ; orange border on dark portrait panels
+
+;; Portrait surfaces: the artist pages here, the compositor drawer in portrait.cljs.
+(def portrait-panel "#131924")      ; card and tile ground, dark theme
+(def portrait-panel-text "#ebeef4") ; text on portrait-panel
+(def portrait-frame-glow "#202939") ; portrait frame gradient, centre
+(def portrait-frame-edge "#0f141c") ; portrait frame gradient, edge
+
+;; Text on the amber buttons is small and low-contrast either way, so it gets a
+;; faint edge in the opposite tone: dark under white text, light under dark.
+(def text-lift-dark "0 1px 1px rgba(0,0,0,0.35), 0 0 1px rgba(0,0,0,0.25)")
+(def text-lift-light "0 0 2px rgba(255,255,255,0.45), 0 1px 0 rgba(255,255,255,0.3)")
+;; for the short ability-button labels, which have too little stroke for the standard lift
+(def text-lift-light-strong "0 0 2px rgba(255,255,255,0.7), 0 1px 0 rgba(255,255,255,0.55)")
 
 (def container-style
   {:display :flex
@@ -40,7 +78,14 @@
   (px-prop
    :margin-top
    :m-t
-   (concat (range 0 10) [21] (range 10 30 5))))
+   ;; 100 drops a success message clear of the registration panel's heading.
+   (concat (range 0 10) [21] (range 10 30 5) [100])))
+
+(def min-widths
+  (px-prop
+   :min-width
+   :min-w
+   [53 120 160]))
 
 (def widths
   (px-prop
@@ -96,6 +141,192 @@
     {:list-style-type :disc
      :list-style-position :inside}]
 
+   ;; SRD text (Rules and Conditions pages): tables, lists, sidebars, and links with previews.
+   [:.srd-table
+    {:border-collapse :collapse}
+    [:th :td {:text-align :left
+              :vertical-align :top
+              :padding "2px 16px 2px 0"}]]
+   [:.srd-list
+    {:padding-left "22px"}]
+   [:ul.srd-list {:list-style-type :disc}]
+   [:ol.srd-list {:list-style-type :decimal}]
+   [:.srd-aside
+    {:margin "12px 0"
+     :padding "4px 12px 10px"
+     :border-left "3px solid rgba(240,161,0,0.7)"
+     :background-color "rgba(255,255,255,0.06)"}]
+   [:.srd-note
+    {:margin "12px 0"
+     :padding "8px 12px"
+     :border "1px dashed rgba(240,161,0,0.7)"
+     :border-radius "4px"}]
+   [:.srd-section-list
+    {:display :flex
+     :flex-wrap :wrap
+     :gap "6px 20px"
+     :margin-top "6px"}]
+   [:.srd-link
+    {:cursor :pointer
+     :text-decoration "underline dotted"
+     :text-underline-offset "3px"}]
+;; casting a spell from a charged item (views.cljs cast-panel; plan-charges-and-casting.md)
+   [:.cast-open {:margin "6px 0 0" :padding "4px 10px" :font-size "12px" :font-weight 600}]
+   [:.cast-row [:td {:padding "0 10px 10px"}]]
+   [:.cast-damage {:margin "8px 0" :font-size "13px"}]
+   [:.cast-damage-part {:display :flex :justify-content :space-between :gap "10px"}]
+   [:.cast-damage-total {:margin "4px 0" :font-size "15px"}]
+   [:.cast-panel {:box-sizing :border-box :padding "10px 12px" :font-size "13px" :font-weight :normal
+                  :border-radius "6px" :background "rgba(0,0,0,.22)" :border "1px solid rgba(255,255,255,.14)"}]
+   [:.cast-sheet [:.cast-panel {:background :none :border 0 :padding 0}]]
+   [:.cast-sheet {:position :fixed :left 0 :right 0 :bottom 0 :z-index 10001 :max-height "80vh" :overflow-y :auto
+                  :background-color "#2c3445" :color "#e6e9ee" :border-radius "14px 14px 0 0"
+                  :padding "10px 16px 22px" :box-shadow "0 -6px 24px rgba(0,0,0,.5)"}]
+   [:.cast-dim {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 10000 :background "rgba(0,0,0,.35)"}]
+   [:.cast-handle {:width "40px" :height "4px" :border-radius "2px" :background "rgba(255,255,255,.35)" :margin "0 auto 10px"}]
+   [:.cast-x {:position :absolute :right "8px" :top "6px" :width "44px" :height "44px" :background :none :border 0
+              :color :inherit :font-size "18px" :cursor :pointer}]
+   [:.cast-head {:display :flex :flex-direction :column :gap "2px" :padding-right "36px"}]
+   [:.cast-head [:b {:font-size "15px"}] [:span {:opacity 0.7 :font-size "12px"}]]
+   [:.cast-spells {:display :flex :flex-wrap :wrap :gap "4px" :margin "10px 0 0"}]
+   [:.cast-spell-pick {:position :relative :min-height "30px" :padding "0 10px" :border-radius "15px" :font-size "12px"
+                       :border "1px solid rgba(230,233,238,.3)" :background :none :color :inherit :cursor :pointer}]
+   [:.cast-spell-pick [:span {:opacity 0.6}]]
+   [:.cast-spell-pick.on {:border-color "#f0a100" :color "#f0a100" :background-color "rgba(240,161,0,.16)"}]
+   [:.cast-levels {:display :grid :grid-template-columns "repeat(auto-fill, minmax(42px, 1fr))" :gap "4px" :margin "10px 0"}]
+   [:.cast-level {:height "40px" :border-radius "5px" :border "1px solid rgba(230,233,238,.3)" :background :none :color :inherit
+                  :display :flex :flex-direction :column :align-items :center :justify-content :center :line-height 1.15
+                  :font-size "11px" :cursor :pointer :padding 0}]
+   [:.cast-level [:b {:font-size "12.5px"}] [:span {:opacity 0.7 :font-size "10px"}]]
+   [:.cast-level.on {:background-color "rgba(240,161,0,.16)" :border-color "#f0a100" :color "#f0a100"}]
+   [:.cast-level.off {:opacity 0.35 :cursor :default}]
+   [:.cast-foot {:display :flex :align-items :center :gap "8px" :flex-wrap :wrap}]
+   [:.cast-note {:opacity 0.7 :font-size "12px" :flex 1 :min-width "140px"}]
+   [:.cast-go {:margin "0 0 0 auto" :min-height "36px" :padding "0 12px" :font-size "12px" :font-weight 600}]
+   [:.cast-go.unavailable {:opacity 0.5 :cursor :default}]
+   [:.cast-spell {:max-height "40vh" :overflow-y :auto :margin "8px 0" :font-size "13px"}]
+   [".app.light-theme .cast-sheet" {:background-color :white :color "#222"}]
+   [".app.light-theme .cast-panel" {:background "rgba(255,255,255,.6)" :border-color "rgba(0,0,0,.14)"}]
+   [".app.light-theme .cast-level.on" ".app.light-theme .cast-spell-pick.on" {:color "#33658A" :border-color "#33658A"
+                                                                             :background-color "rgba(51,101,138,.12)"}]
+
+;; the floating Rest button and the box it opens (views/rest_controls.cljs rest-fab)
+   [:.rest-fab {:position :fixed :right "12px" :bottom "16px" :z-index 160 :width "56px" :height "56px"
+                :border-radius "28px" :border :none :color :white :cursor :pointer :font-size "20px"
+                :box-shadow "0 3px 10px rgba(0,0,0,.45)" :background-image "linear-gradient(to bottom,#f1a20f,#dbab50)"}]
+   [:.rest-fab-dim {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 170 :background "rgba(0,0,0,.45)"}]
+   [:.rest-fab-dim.clear {:background :none}]
+   [:.rest-fab-sheet {:position :fixed :left 0 :right 0 :bottom 0 :z-index 180 :background-color "#2c3445"
+                      :border-radius "12px 12px 0 0" :box-shadow "0 -6px 20px rgba(0,0,0,.35)" :padding "8px 12px 16px"}]
+   [:.rest-fab-card {:position :fixed :right "16px" :bottom "84px" :z-index 180 :width "max-content" :min-width "330px" :max-width "calc(100% - 32px)"
+                     :box-sizing :border-box :background-color "#2c3445" :border "1px solid rgba(255,255,255,.14)"
+                     :border-radius "8px" :box-shadow "0 8px 24px rgba(0,0,0,.45)" :padding "8px 10px 10px"}]
+   [:.rest-fab-handle {:width "36px" :height "4px" :border-radius "2px" :background "rgba(255,255,255,.5)" :margin "0 auto 2px"}]
+   [".rest-fab-sheet .rest-box" ".rest-fab-card .rest-box" {:background :none :border 0 :padding 0 :margin 0}]
+   ["body:has(.rest-fab-slot) .import-log-button" {:bottom "84px"}]
+   [".app.light-theme .rest-fab" {:background-image "linear-gradient(to bottom,#33658A,#33658A)"}]
+   [".app.light-theme .rest-fab-sheet" ".app.light-theme .rest-fab-card" {:background-color "#fff" :color "#363636"}]
+   [".app.light-theme .rest-fab-card" {:border-color "rgba(0,0,0,.14)"}]
+   [".app.light-theme .rest-fab-handle" {:background "rgba(0,0,0,.4)"}]
+;; the Rest box, first on the Features tab (views.cljs rest-box; handoff-rest-controls.md)
+   [:.rest-box {:background "rgba(0,0,0,.18)" :border "1px solid rgba(255,255,255,.14)" :border-radius "6px"
+                :padding "8px 10px 10px" :margin "8px 0 16px"}]
+   [:.rest-head {:display :flex :align-items :center :gap "8px" :min-height "44px"}]
+   [:.rest-bed {:color "#f0a100" :font-size "16px"}]
+   [:.rest-title {:font-size "16px" :font-weight 600}]
+   [:.rest-labels :.rest-link
+    {:position :relative :display :inline-flex :align-items :center :gap "4px" :background :none :border 0 :padding "0 4px"
+     :color "#f0a100" :text-decoration :underline :text-transform :uppercase :font-size "12px" :font-weight 700
+     :min-height "32px" :cursor :pointer}]
+   [:.rest-labels {:margin-left :auto}]
+   [".rest-labels::after" ".rest-link::after" {:content "\"\"" :position :absolute :inset "-6px 0"}]
+   [:.rest-link.right {:margin-left :auto}]
+   [:.rest-caption {:font-size "11px" :font-weight 700 :text-transform :uppercase :letter-spacing ".06em"
+                    :opacity 0.65 :margin "2px 0 4px"}]
+   [:.rest-row {:display :flex :gap "5px" :align-items :stretch}]
+   [:.rest-rests {:display :flex :gap "5px" :flex 1}]
+   [:.rest-segs {:display :flex :flex "none" :border "1px solid rgba(255,255,255,.32)" :border-radius "6px" :overflow :hidden}]
+   [:.rest-segs.wide {:width "100%" :margin-bottom "5px"}]
+   [:.rest-seg {:width "44px" :height "44px" :padding 0 :border :none
+                :background :none :color :inherit :font-size "13px" :font-weight 600 :display :flex
+                :align-items :center :justify-content :center :gap "5px" :cursor :pointer}]
+   [".rest-seg + .rest-seg" {:border-left "1px solid rgba(255,255,255,.32)"}]
+   [:.rest-segs.wide [:.rest-seg {:flex 1 :width :auto}]]
+   [:.rest-seg.on {:background-color "rgba(240,161,0,.16)" :color "#f0a100" :box-shadow "inset 0 -3px 0 #f0a100"}]
+   [:.rest-seg.none-on {:background-color "rgba(255,255,255,.14)"}]
+   [:.rest-btn {:height "44px" :margin 0 :padding "0 6px" :flex 1 :font-size "12px" :font-weight 600}]
+   [:.rest-row [:.rest-now {:flex "none" :width "48px" :margin-left "5px"}]]
+   [:.rest-row.labels [:.rest-now {:flex 1 :width :auto :margin-left 0}]]
+   [:.rest-now.unavailable {:background-color :transparent
+                            :background-image "linear-gradient(rgba(255,255,255,.1), rgba(255,255,255,.1))"
+                            :color "rgba(255,255,255,.42)" :text-shadow :none :cursor :default}]
+   [:.rest-line {:display :flex :flex-wrap :wrap :align-items :center :gap "6px" :font-size "13px" :margin-top "8px"}]
+   [:.rest-line.hint {:opacity 0.8}]
+   [:.rest-answers {:display :flex :flex-wrap :wrap :gap "8px" :width "100%"}]
+   [:.rest-close {:background :none :border 0 :color :inherit :font-size "18px" :min-width "32px" :min-height "32px" :cursor :pointer}]
+   [:.rest-recharged {:width "100%"}]
+   [:.rest-recharged-row {:display :flex :align-items :center :gap "8px" :font-size "12px" :margin-top "4px"}]
+   [:.rest-amount {:width "56px" :height "26px" :font-size "12px"}]
+   [:.rest-dice {:opacity 0.6}]
+   [".app.light-theme .rest-box" {:background "rgba(255,255,255,.6)" :border-color "rgba(0,0,0,.14)"}]
+   [".app.light-theme .rest-bed" ".app.light-theme .rest-seg.on" {:color "#33658A"}]
+   [".app.light-theme .rest-seg.on" {:background-color "rgba(51,101,138,.12)" :box-shadow "inset 0 -3px 0 #33658A"}]
+   [".app.light-theme .rest-seg.none-on" {:background-color "rgba(0,0,0,.12)"}]
+   [".app.light-theme .rest-segs" ".app.light-theme .rest-seg + .rest-seg" {:border-color "rgba(0,0,0,.28)"}]
+   [".app.light-theme .rest-labels" ".app.light-theme .rest-link" {:color "#363636"}]
+   [".app.light-theme .rest-now.unavailable" {:background-image "linear-gradient(rgba(0,0,0,.08), rgba(0,0,0,.08))"
+                                              :color "rgba(0,0,0,.38)"}]
+
+   ;; the item builder's Charges group (views/charges_builder.cljs)
+   [:.item-charges-field {:margin "0 10px 10px 0"}]
+   [:.item-charges-field.charges-count {:width "76px"}]
+   [:.item-charges-field.charges-regains {:width "96px"}]
+   [:.item-cast-row {:padding "8px 0" :border-bottom "1px solid rgba(255,255,255,.12)"}]
+   [:.item-cast-spell {:flex "1 1 200px" :margin-right "10px"}]
+   [:.item-cast-number {:width "86px" :margin-right "8px"}]
+   [:.item-cast-number.wide {:width "150px"}]
+   [:.item-cast-remove {:margin-bottom "8px"}]
+   [:.item-cast-hint {:font-size "12px" :opacity 0.8 :margin-top "2px"}]
+   [".app.light-theme .item-cast-row" {:border-bottom-color "rgba(0,0,0,.12)"}]
+   ;; an item's charges under its name (views.cljs item-charges)
+   [:.item-charges {:margin-top "4px" :font-weight :normal :font-size "12px"}]
+   [:.item-charges-line {:display :flex :align-items :center :gap "6px" :flex-wrap :wrap :min-height "22px"}]
+   [:.item-charges-n {:opacity 0.6 :min-width "10px"}]
+   [:.item-charges-pips {:display :flex :gap "3px"}]
+   [:.item-charge-pip
+    {:position :relative :width "12px" :height "12px" :padding 0 :border-radius "50%"
+     :border "1.5px solid #f0a100" :background-color "#f0a100" :cursor :pointer}]
+   [".item-charge-pip::after" {:content "\"\"" :position :absolute :inset "-10px -2px"}]
+   [:.item-charge-pip.used {:background-color :transparent :opacity 0.7}]
+   [:.item-charges-count {:font-variant-numeric "tabular-nums" :opacity 0.8}]
+   [:.item-charges-count.big {:font-size "13px" :font-weight :bold :opacity 1}]
+   [:.item-charges-step
+    {:position :relative :width "26px" :height "22px" :padding 0 :border-radius "4px" :font-weight :bold
+     :border "1px solid currentColor" :background :none :color :inherit :cursor :pointer}]
+   [".item-charges-step::after" {:content "\"\"" :position :absolute :inset "-11px -4px"}]
+   [:.item-charges-roll {:margin 0 :padding "2px 8px" :font-size "12px"}]
+   [:.item-charges-input {:width "64px" :height "24px" :font-size "12px"}]
+   [:.srd-preview
+    {:position :fixed
+     :box-sizing :border-box
+     :z-index 10001
+     :overflow-y :auto
+     :padding "12px 14px"
+     :border-radius "6px"
+     :box-shadow "0 6px 24px rgba(0,0,0,0.5)"
+     :background-color "#2c3445"
+     :color :white
+     :line-height "19px"}]
+   [:.srd-preview-footer
+    {:margin-top "10px"
+     :padding-top "8px"
+     :border-top "1px solid rgba(255,255,255,0.2)"}]
+   [".app.light-theme .srd-preview"
+    {:background-color :white
+     :color "#222"}]
+   [".app.light-theme .srd-aside"
+    {:background-color "rgba(0,0,0,0.05)"}]
+
    [:.f-w-bold
     {:font-weight :bold}]
 
@@ -104,6 +335,10 @@
 
    [:.flex-basis-50-p
     {:flex-basis "50%"}]
+
+   ;; Space between the lines of a wrapping row whose buttons carry no vertical margin.
+   [:.row-gap-5
+    {:row-gap "5px"}]
 
    [:.i
     {:font-style :italic}]
@@ -117,6 +352,11 @@
    [:.f-w-b
     {:font-weight :bold}]
    [:.f-w-600
+    {:font-weight 600}]
+   ;; Bold at display sizes renders at 600: at 18px and up, 700 thickens
+   ;; mixed-case letters. Small caps labels keep 700. See the style guide.
+   [:.f-w-b.f-s-18 :.f-w-b.f-s-20 :.f-w-b.f-s-24 :.f-w-b.f-s-28
+    :.f-w-b.f-s-32 :.f-w-b.f-s-36 :.f-w-b.f-s-48
     {:font-weight 600}]
 
    [:.l-h-19
@@ -346,11 +586,12 @@
 
     [:a :a:visited
      {:color green}]]
+   ;; Dark theme is the default; .app.light-theme overrides this below.
    [:.red
-    {:color red}
+    {:color red-on-dark}
 
     [:a :a:visited
-     {:color red}]]
+     {:color red-on-dark}]]
    [:.uppercase
     {:text-transform :uppercase}]
    [:.bg-trans
@@ -480,6 +721,153 @@
                 :position "absolute"
                 :z-index "1"}]]
 
+   ;; A group heading in the PDF options. Set apart from the field labels under
+   ;; it -- a heading in the same weight as its own first label reads as one more
+   ;; option rather than as the name of the set.
+   [:.option-group-title
+    {:font-size "11px"
+     :font-weight "bold"
+     :letter-spacing "0.08em"
+     :text-transform "uppercase"
+     :opacity "0.6"
+     :padding-top "8px"
+     :margin-bottom "6px"
+     :border-top "1px solid currentColor"}]
+
+   ;; The ? beside a PDF option, and the line it opens. A ring rather than a
+   ;; word, so a column of them reads as one affordance repeated and not as
+   ;; another label to parse.
+   [:.option-help
+    {:display "inline-flex"
+     :align-items "center"
+     :justify-content "center"
+     :width "15px"
+     :height "15px"
+     :border-radius "50%"
+     :border "1px solid currentColor"
+     :font-size "10px"
+     :font-weight "bold"
+     :line-height "1"
+     :opacity "0.55"}]
+   [:.option-help:hover
+    {:opacity "1"}]
+   [:.option-help-text
+    {:font-size "12px"
+     :line-height "16px"
+     :max-width "320px"
+     :margin "4px 0 6px 21px"
+     :opacity "0.75"}]
+
+   [:.bf-meta-input
+    {:width "150px"}]
+
+   ;; Plumbing an author touches about once: the item's key. Set apart from the form by a hairline
+   ;; and the muted label colour the rest of this block already uses -- NOT a bespoke grey, which
+   ;; is what made an earlier version read as unstyled rather than as quiet.
+   [:.bf-meta
+    {:border-top "1px solid rgba(255,255,255,0.14)"
+     :padding-top "14px"
+     :margin-top "10px"
+     ;; clear of the page footer, which starts immediately below it
+     :margin-bottom "24px"
+     :color "rgba(255,255,255,0.55)"}
+    ;; the value is data, not chrome: readable
+    [:.bf-meta-value
+     {:color "rgba(255,255,255,0.85)"
+      :font-weight 700}]
+    ;; and the control is a link, in the app's link colour like every other link
+    [:.bf-meta-action
+     {:color "var(--accent, #f0a100)"
+      :text-decoration :underline}]]
+
+   ;; The spellbook's class emblems in PDF Options: black icons, inverted on the dark panel.
+   [:.emblem-icon
+    {:width "22px"
+     :height "22px"
+     :filter "invert(1)"
+     :opacity "0.85"}]
+   [:.emblem-choices
+    {:display "grid"
+     :grid-template-columns "repeat(auto-fill, minmax(34px, 1fr))"
+     :gap "4px"
+     :max-width "320px"
+     :margin "6px 0 8px 0"}]
+   [:.emblem-choice
+    {:display "flex"
+     :align-items "center"
+     :justify-content "center"
+     :height "34px"
+     :background "transparent"
+     :border "1px solid transparent"
+     :border-radius "4px"
+     :cursor "pointer"}]
+   [:.emblem-choice:hover
+    {:border-color "rgba(255,255,255,0.3)"}]
+   [:.emblem-choice.selected
+    {:border-color "var(--accent, #f0a100)"}]
+
+   ;; An always-on note under a control, saying what the current setting will do.
+   ;; Set like the ? lines so the two read as one kind of note, but its own class
+   ;; -- it is the state of the build, not a fixed explanation.
+   [:.option-note
+    {:font-size "12px"
+     :line-height "16px"
+     :max-width "320px"
+     :margin "4px 0 6px 0"
+     :opacity "0.75"}]
+
+   ;; ONE line under a field: one problem, one sentence, at most one action. Only
+   ;; the most actionable of the things that may be wrong is shown; the rest waits
+   ;; behind the disclosure.
+   [:.field-notice
+    {:display "flex"
+     :flex-wrap "wrap"
+     :align-items "baseline"
+     :gap "8px"
+     :margin "6px 0 0 0"
+     :padding "6px 10px"
+     :border-radius "4px"
+     :border-left "3px solid currentColor"
+     :background-color "rgba(255, 255, 255, 0.06)"
+     :font-size "12px"
+     :line-height "18px"
+     :max-width "560px"}]
+   [:.field-notice-what
+    {:flex "1 1 260px"}]
+   ;; The one action a notice may carry, and only ever one. Set as a link rather
+   ;; than a button: a notice that grows a control panel stops reading as a
+   ;; message. Form controls belong in .field-remedy, never here.
+   [:.field-notice-action
+    {:background "none"
+     :border "none"
+     :padding "0"
+     :font-size "12px"
+     :font-family "inherit"
+     :color orange
+     :cursor "pointer"
+     :text-decoration "underline"
+     :white-space "nowrap"
+     :word-break "break-all"}]
+   [:.field-notice.is-error {:color red-on-dark}]
+   [:.field-notice.is-warning {:color amber-on-dark}]
+   [:.field-notice.is-note {:color muted-on-dark}]
+
+   ;; The other ways in, behind the disclosure. Plain on purpose: controls, not a
+   ;; second warning.
+   [:.field-remedy
+    {:display "flex"
+     :flex-wrap "wrap"
+     :align-items "center"
+     :gap "10px"
+     :margin "6px 0 0 0"
+     :padding "8px 10px"
+     :border-radius "4px"
+     :border "1px solid rgba(255, 255, 255, 0.12)"
+     :max-width "560px"
+     :font-size "12px"}
+    [:button
+     {:white-space "nowrap"}]]
+
    [:.image-thumbnail
     {:max-height "100px"
      :max-width "200px"
@@ -542,6 +930,379 @@
     {:background-color "rgba(72,72,72,0.2)"}]
    [:.bg-lighter
     {:background-color "rgba(0,0,0,0.15)"}]
+
+   ;; The gryphon panel needs background-repeat:no-repeat and background-size:cover --
+   ;; without them, the moment the panel grows taller than the image (as on the
+   ;; register form, the tallest page, with its confirm fields) the browser tiles
+   ;; it by default: a second gryphon appears below the first, half cropped.
+   [:.registration-image
+    {:background-image "url(/image/login-side.jpg)"
+     :background-repeat :no-repeat
+     :background-size :cover
+     :background-position "center"
+     :background-clip :content-box
+     :width "350px"
+     :min-height "600px"}]
+   ;; The auth card is white whatever theme the app is in, so anything inside it needs
+   ;; the light-ground colours: .red otherwise resolves to red-on-dark (tuned for
+   ;; near-black) and washes out to about 2.6:1 on white. .app.light-theme already
+   ;; does this but that selector never matches here, hence the explicit override.
+   [:.registration-content
+    ;; GOTCHA: body{line-height:1} is UNITLESS, so each descendant multiplies 1 by
+    ;; its OWN font-size, not an inherited pixel value -- unset here, text renders
+    ;; SOLID, descenders hitting the next line's ascenders. Set once on the card for
+    ;; a readable default; boxes with tuned geometry pin their own below.
+    {:line-height "1.5"
+     :background-color :white
+     :border "1px solid white"
+     :color auth-card-ink}
+    [:.red {:color red}
+     [:a :a:visited {:color red}]]
+
+    ;; LIGHT-GROUND VARIANTS: .field-notice, .message and .callout default to dark-app
+    ;; tones (rgba(255,255,255,0.06) ground, red-on-dark text, color:white), which
+    ;; would put white text on white if dropped onto this card unchanged. Re-toned
+    ;; here rather than forked, so the auth pages reuse the same components as everywhere else.
+    [:.field-notice
+     {:background-color :transparent
+      :border-left :none
+      :padding "0"
+      :margin "0 2px 8px"
+      :font-size "13px"
+      :line-height "19px"
+      ;; The words are INK. Only the mark and the label carry the colour, because
+      ;; a wall of red text is most of what makes a form feel like it is shouting.
+      :color text-color-light
+      :text-align :left}
+     ;; An empty notice is not a notice. The slot is always rendered so a live
+     ;; check and a submitted one cannot lay the field out differently, which
+     ;; means every healthy field carried a bare "!" until this.
+     [:&:empty {:display :none}]
+     [:&.is-error:before
+      {:content "\"!\""
+       :flex "0 0 auto"
+       :font-weight :bold
+       :color error-red}]
+     [:&.is-note {:color muted-on-light
+                  :margin "7px 2px 0"}]]
+    ;; GOTCHA: flex-basis ZERO, not auto or the dark-app notice's 260px -- those
+    ;; size by content, so a long message (e.g. "Too common. A few words...")
+    ;; wraps as a whole block, stranding the "!" above. Zero lets it wrap INSIDE
+    ;; the remaining space beside the mark; min-width must go with it or a long unbroken word restores the floor.
+    [:.field-notice-what {:flex "1 1 0"
+                          :min-width "0"}]
+    [:.field-notice-action {:color "#c98700"
+                            :font-size "13px"}]
+    [:.field-notice.is-error {:color text-color-light}]
+    [:.field-notice.is-warning {:color text-color-light}]
+
+    [:.message {:color text-color-light}]
+    [:.message.tone-error {:background-color "rgba(212, 53, 28, 0.08)"
+                           :border-color "rgba(212, 53, 28, 0.45)"}]
+    [:.message.tone-warning {:background-color "rgba(240, 161, 0, 0.10)"
+                             :border-color "rgba(240, 161, 0, 0.5)"}]
+    [:.message.tone-success {:background-color "rgba(74, 112, 0, 0.09)"
+                             :border-color "rgba(74, 112, 0, 0.45)"}]
+    [:.tone-error [:.message-icon {:color error-red}]]
+    [:.tone-success [:.message-icon {:color "#4a7000"}]]
+
+    [:.bg-warning {:background-color "rgba(240, 161, 0, 0.10)"}]
+    [:.bg-note {:background-color "rgba(0, 0, 0, 0.04)"}]
+
+    ;; GOTCHA: the notch is driven by :placeholder-shown, not a class -- a class
+    ;; desyncs the moment someone types and tabs away, dropping the label back over
+    ;; their text (reads as the field clearing itself); every input needs
+    ;; placeholder=" " for the selector to match. Field owns its own alignment, not the page's text-align:center wrapper.
+    [:.field {:position :static
+              :margin-bottom "22px"
+              :text-align :left}]
+    ;; The heading. Ink with an amber rule under it, replacing an orange word
+    ;; carrying a drop shadow -- which six pages each held their own copy of.
+    ;; The rule carries the brand colour so the heading does not have to shout
+    ;; it, and ink reads at full contrast on the card where the orange did not.
+    [:.auth-heading {:margin "0"
+                     :font-size "25px"
+                     :font-weight :bold
+                     :letter-spacing "0.055em"
+                     :text-transform :uppercase
+                     :color "#23282e"
+                     :text-align :center
+                     :line-height "1.2"}]
+    [:.auth-rule {:width "54px"
+                  :height "3px"
+                  :background-color orange
+                  :border-radius "2px"
+                  :margin "10px auto 8px"}]
+    ;; Everything below the fields -- submit, "already have an account", consent --
+    ;; centres itself; a page-level text-align:center wrapper is NOT used, since
+    ;; that leaves a non-centred element hard against the left edge. .auth-summary uses
+    ;; .bg-note's neutral ground with an error-colour rail rather than a tinted box, since the fields below are already tinted and two pink areas stacked would crowd.
+    [:.auth-summary {:border-left (str "3px solid " error-red)
+                     :background-color "rgba(0, 0, 0, 0.035)"
+                     :border-radius "3px"
+                     :padding "12px 14px"
+                     :margin "0 0 22px"
+                     :text-align :left}]
+    [:.auth-summary-title {:font-weight :bold
+                           :color error-red
+                           :font-size "14px"
+                           :margin-bottom "6px"}]
+    [:.auth-summary-list {:margin "0"
+                          :padding-left "18px"
+                          :font-size "13.5px"
+                          :color text-color-light}
+     [:li {:margin-bottom "3px"}]
+     [:a {:color error-red
+          :text-decoration :underline
+          :text-underline-offset "2px"
+          :cursor :pointer}]]
+
+    [:.auth-tail {:text-align :center
+                  :padding "0 16px"
+                  :box-sizing :border-box
+                  :font-weight :normal
+                  :font-size "14px"
+                  :color text-color-light}]
+    ;; Full width, as the design pass settled: at 174px it read as one option
+    ;; among the links around it rather than the thing the page is for.
+    [:.join-button {:width "100%"
+                    :height "48px"
+                    :font-size "15px"
+                    :font-weight "700"
+                    :letter-spacing "0.12em"
+                    :margin-top "4px"}]
+    ;; text-wrap:balance avoids a single orphaned word on the second line of centred
+    ;; text in this 435px column (e.g. "off." or "Privacy Policy." alone) -- without
+    ;; it, browsers fall back to a ragged wrap. The card is a fixed 600px and these
+    ;; pages hold exactly three lines, so centring the block in the space below the heading settles it against the full-height image beside it.
+    [:.auth-outcome {:display :flex
+                     :flex-direction :column
+                     :align-items :center
+                     :justify-content :center
+                     :text-align :center
+                     :min-height "340px"
+                     :padding "0 16px"}]
+    ;; The one thing in an outcome sentence worth picking out -- the address the
+    ;; mail went to. Ink and bold, because red is a fault everywhere else here.
+    [:.auth-emphasis {:font-weight :bold
+                      :color "#23282e"
+                      :word-break :break-word}]
+    [:.auth-outcome-line {:color text-color-light
+                          :font-size "15px"
+                          :max-width "34ch"
+                          :text-wrap :balance}]
+    [:.auth-outcome-onward {:margin-top "26px"
+                            :width "100%"
+                            :max-width "260px"}]
+
+    ;; The other ways in. A question and the thing that answers it on ONE line,
+    ;; with one rhythm down the group -- these were three separate blocks, two
+    ;; of them holding a pair of <br> that pushed the answer three lines from
+    ;; its question.
+    [:.auth-alts {:display :flex
+                  :flex-direction :column
+                  :gap "10px"}]
+    [:.auth-alt {:display :flex
+                 :justify-content :center
+                 :align-items :baseline
+                 :flex-wrap :wrap
+                 :gap "8px"}]
+    ;; Set apart from the pair above it: not another way in, but what to do when
+    ;; the way in never arrived.
+    [:.auth-help {:margin-top "22px"
+                  :padding-top "18px"
+                  :border-top "1px solid #ebe7e1"
+                  :font-size "13.5px"
+                  :color muted-on-light
+                  :text-align :center}]
+
+
+    [:.auth-fineprint {:margin-top "16px"
+                       :font-size "12.5px"
+                       :color muted-on-light
+                       :text-align :center
+                       :text-wrap :balance
+                       :padding "0 16px"}]
+    [:.auth-lede {:margin "0 0 22px"
+                  :text-align :center
+                  :text-wrap :balance
+                  :color text-color-light
+                  :font-size "14.5px"}]
+
+    ;; The gutter base-input used to carry as .p-l-10.p-r-10 on every field.
+    ;; It belongs to the form, not to each field -- a field that indents itself
+    ;; cannot be put anywhere else -- and the wrong-state rail needs room to sit
+    ;; in, which is why it is 16px rather than 10.
+    [:.auth-form {:padding "0 16px"
+                  :box-sizing :border-box}]
+    [:.field-box {:position :relative}]
+    ;; border-box, because there is no global one: width:100% plus 13px of
+    ;; padding and a border made every field wider than the 435px column it
+    ;; sits in, and it ran out over the gryphon.
+    [:.field [:input {:width "100%"
+                      :box-sizing :border-box
+                      :height "50px"
+                      :padding "14px 13px 0"
+                      :font-size "15px"
+                      :color text-color-light
+                      :background-color :white
+                      :border "1px solid #d9dee3"
+                      :border-radius "3px"
+                      :color-scheme :light
+                      :outline :none
+                      :transition "border-color 0.15s, box-shadow 0.15s, background-color 0.15s"}]]
+    [:.field [:.notch {:position :absolute
+                       ;; Pinned: this is positioned to the pixel against the
+                       ;; input's border and the card's line-height would move it.
+                       :line-height "1"
+                       :left "11px"
+                       :top "15px"
+                       :padding "0 4px"
+                       :pointer-events :none
+                       :color muted-on-light
+                       :font-size "15px"
+                       :background-color :white
+                       :transition "top 0.14s, font-size 0.14s, color 0.14s, letter-spacing 0.14s"}]]
+    [:.field ["input:not(:placeholder-shown) + .notch" "input:focus + .notch"
+              {:top "-9px"
+               :font-size "11px"
+               :letter-spacing "0.08em"
+               :text-transform :uppercase
+               :color text-color-light}]]
+    [:.field ["input:focus" {:border-color orange
+                             :box-shadow "0 0 0 3px rgba(240, 161, 0, 0.20)"}]]
+    [:.field ["input:focus + .notch" {:color "#c98700"}]]
+
+    ;; GOTCHA: one container, not four -- tinting the input AND doubling its border
+    ;; AND boxing the message AND railing the box all at once looks pinched. The
+    ;; field visibly changes shape as a signal before the word is read; label
+    ;; leaves the notch for a plain line, GOV.UK order: explanation before the box to retype.
+    [:.field [:.lift {:display :none
+                      :line-height "1"
+                      :margin "0 0 5px"
+                      :font-size "11px"
+                      :letter-spacing "0.08em"
+                      :text-transform :uppercase
+                      :color error-red}]]
+    [:.field.is-wrong {:padding-left "13px"
+                       :border-left (str "3px solid " error-red)
+                       :margin-left "-16px"}]
+    [:.field.is-wrong [:.lift {:display :block}]]
+    [:.field.is-wrong [:.notch {:display :none}]]
+    [:.field.is-wrong [:input {:border-color error-red
+                               :background-color error-tint}]]
+    [:.field.is-wrong ["input:focus" {:box-shadow "0 0 0 3px rgba(212, 53, 28, 0.18)"}]]
+
+    ;; The reveal. Inside the field so it cannot be read as a control of its
+    ;; own; the input reserves room rather than letting text run under it.
+    [:.peek {:position :absolute
+             :right "6px"
+             :top "8px"
+             :height "34px"
+             :padding "0 11px"
+             :border :none
+             :background :none
+             :color muted-on-light
+             :font-size "11.5px"
+             :font-weight :bold
+             :letter-spacing "0.11em"
+             :text-transform :uppercase
+             :cursor :pointer
+             :border-radius "3px"}]
+    [:.peek:hover {:color text-color-light
+                   :background-color "#eef1f4"}]
+    ;; A keyword cannot carry the parens of :has(), so this selector is a string.
+    [".field-box:has(.peek) input" {:padding-right "78px"}]]
+
+   ;; Password meter: 4 slots, one fill sweeping through (continuous movement,
+   ;; countable milestones); min length lands on the first slot's edge so the gap
+   ;; marks it, no separate notch needed. Fill WIDTH alone is set inline (it IS the
+   ;; measurement). LIGHT-ground colours only -- *-on-dark washes out on this white card -- and fill/label colours stay separate families since Legendary's fill is a gradient (wrong behind text via currentColor).
+   [:.pw-slots {:display :flex
+                :gap "4px"
+                :height "10px"}]
+   [:.pw-slot {:flex "1"
+               :border-radius "2px"
+               :overflow :hidden
+               :background-color "rgba(0,0,0,0.12)"}]
+   [:.pw-fill {:height "100%"
+               :width "0"
+               :transition "width 0.22s cubic-bezier(0.4,0,0.2,1), background-color 0.2s"}]
+
+   ;; A broken rule takes every slot to the failure colour. The fill still
+   ;; reports the real length, so the bar never claims progress it has not made.
+   [:.pw-fill-fail {:background-color red}]
+   [:.pw-fill-0 {:background-color "#5d8c00"}]
+   [:.pw-fill-1 {:background-color "#2f6fb5"}]
+   [:.pw-fill-2 {:background-color purple}]
+   [:.pw-fill-3 {:background-image "linear-gradient(100deg,#b06d08,#e8b24a 42%,#ffe08a 52%,#e8b24a 62%,#b06d08)"}]
+
+   [:.pw-name-fail {:color red}]
+   [:.pw-name-0 {:color "#4a7000"}]
+   [:.pw-name-1 {:color "#2f6fb5"}]
+   [:.pw-name-2 {:color "#6f61b0"}]
+   [:.pw-name-3 {:color "#a2650c"}]
+
+   [:.pw-verdict {:display :flex
+                  :justify-content :space-between
+                  :align-items :center
+                  :gap "10px"
+                  :min-height "24px"
+                  :margin-top "9px"}]
+   ;; One chip per rule. Outlined and quiet: five of these have to sit under a
+   ;; field without reading as five warnings, so the satisfied state is a thin
+   ;; green line and the broken one a thin red line, neither of them filled.
+   [:.pw-chips {:display :flex
+                :flex-wrap :wrap
+                :gap "5px"
+                :margin-top "10px"}]
+   [:.pw-chip {:font-size "11.5px"
+               :line-height "16px"
+               :padding "3px 9px"
+               :border-radius "11px"
+               :border "1px solid #e3e7eb"
+               :color muted-on-light
+               :background-color "#fbfcfd"}]
+   [:.pw-chip.is-ok {:border-color "#c2dd8e"
+                     :color "#4a7000"
+                     :background-color "#f4f9ea"}]
+   [:.pw-chip.is-bad {:border-color "#f0b9c4"
+                      :color error-red
+                      :background-color error-tint}]
+
+   ;; The line under the bar, in both its readings: why a password was refused,
+   ;; and -- the rest of the time -- what buys the next rung. Ink rather than
+   ;; red: the bar and the word above it already carry the colour, and this is
+   ;; advice on writing a better password, not a second alarm.
+   [:.pw-note {:font-size "12.5px"
+               :line-height "18px"
+               :color text-color-light
+               :text-align :left
+               :margin-top "9px"
+               :max-width "38ch"}]
+   [:.pw-note.is-tip {:color muted-on-light}]
+   [:.pw-tier-name {:font-size "13px"
+                    :font-weight :bold
+                    :letter-spacing "0.08em"
+                    :text-transform :uppercase}]
+   [:.pw-next {:font-size "12px"
+               :color "#6b7681"
+               :font-variant-numeric "tabular-nums"}]
+
+   ;; The JOIN button's dimensions. They were four inline declarations on the
+   ;; element, alongside a class that dimmed it to 50% whenever the form was
+   ;; not ready -- which is gone: a control that looks dead reads as a broken
+   ;; site rather than an unfinished form, and it cannot say why it will not go.
+   [:.join-button {:height "40px"
+                   :width "174px"
+                   :font-size "16px"
+                   :font-weight "600"}]
+
+   [:.registration-notice
+    {:color red
+     :font-size "14px"
+     :line-height "1.5"}]
+
    [:.bg-orange
     {:background-color orange}]
    [:.bg-red
@@ -549,12 +1310,110 @@
    [:.bg-green
     {:background-color "#70a800"}]
 
+   ;; Transient banner. A row: severity icon, the message body, the dismiss.
+   ;; Tinted rather than filled — a solid saturated slab reads as an alarm even
+   ;; when what it says is "that worked".
    [:.message
-    {:padding "10px"
-     :border-radius "5px"
-     :display :flex
-     :justify-content :space-between
+    ;; Sized to what it says. A five-word confirmation was stretching the width of
+    ;; a desktop, with the dismiss a screen away from the words; then a flat cap
+    ;; squeezed a two-sentence warning into a narrow column. fit-content does both:
+    ;; small messages stay small, longer ones run out to the cap.
+    {:display :flex
+     :align-items :flex-start
+     :gap "12px"
+     :padding "12px 14px"
+     :width :fit-content
+     :max-width "min(100%, 900px)"
+     :border-radius "6px"
+     :border "1px solid transparent"
+     :line-height "1.45"
      :color :white}]
+
+   ;; A question that waits for an answer, in the page flow: framed, not tinted, so it reads as
+   ;; something to decide rather than something that happened. Holds .message-title,
+   ;; .message-detail and .decision-actions.
+   [:.decision-callout
+    {:border (str "2px solid " warning-yellow)
+     :border-radius "5px"
+     :padding "14px 18px"
+     :margin "0 10px 10px"
+     :line-height "1.45"
+     :color :white}]
+   ;; Waits on the author but asks nothing urgent.
+   ;; One line: what happened on the left, the ways back on the right.
+   [:.decision-callout.quiet
+    {:border "1px solid rgba(255,255,255,0.18)"
+     :padding "12px 18px"
+     :display :flex
+     :align-items :center
+     :justify-content :space-between
+     :flex-wrap :wrap
+     :gap "8px 24px"}
+    [:.decision-actions {:margin-top 0}]]
+   [:.decision-actions
+    {:display :flex
+     :align-items :center
+     :flex-wrap :wrap
+     :gap "16px"
+     :margin-top "12px"}]
+
+   [:.message.tone-success
+    {:background-color "rgba(112, 168, 0, 0.16)"
+     :border-color "rgba(112, 168, 0, 0.5)"}]
+   [:.message.tone-warning
+    {:background-color "rgba(240, 161, 0, 0.14)"
+     :border-color "rgba(240, 161, 0, 0.45)"}]
+   [:.message.tone-error
+    {:background-color "rgba(154, 3, 30, 0.18)"
+     :border-color "rgba(255, 107, 107, 0.5)"}]
+
+   ;; The icon carries the severity colour, so the box does not have to shout it.
+   [:.message-icon
+    {:font-size "18px"
+     :line-height "1.3"
+     :flex-shrink 0}]
+   [:.tone-success [:.message-icon {:color "#8cc63f"}]]
+   [:.tone-warning [:.message-icon {:color orange}]]
+   [:.tone-error [:.message-icon {:color red-on-dark}]]
+
+   ;; Per-line marks on a partial import: imported, repaired, skipped.
+   [:.message-mark
+    {:width "16px"
+     :margin-right "6px"
+     :text-align :center}]
+   [:.message-mark.mark-done :.message-mark.mark-repaired {:color "#8cc63f"}]
+   [:.message-mark.mark-skipped {:color orange}]
+
+   [:.message-body
+    {:flex "1 1 auto"
+     :min-width 0}]
+
+   [:.message-title
+    {:font-size "15px"
+     :font-weight 600}]
+
+   ;; Detail lines are the count, the conflicts, the hint — supporting text, not a
+   ;; second headline, which is what they looked like when everything was bold.
+   [:.message-detail
+    {:font-size "13px"
+     :font-weight 400
+     :opacity 0.85
+     :margin-top "2px"}]
+
+   ;; A bare glyph is a ~14px target on a phone. Pad it out to something a thumb
+   ;; can actually land on.
+   [:.message-close
+    {:flex-shrink 0
+     :padding "6px 4px"
+     :margin "-6px -4px 0 0"
+     :min-width "32px"
+     :min-height "32px"
+     :text-align :right
+     :opacity 0.75}
+    [:&:hover {:opacity 1}]]
+   [:button.message-close {:background :none :border 0 :font :inherit :cursor :pointer}]
+   ;; The builder's options while another tab edits the same character (plan-character-drafts.md R7).
+   [:.builder-held {:opacity 0.45 :pointer-events :none}]
 
    ;; Warning/alert styles
    [:.bg-warning
@@ -563,6 +1422,156 @@
      :border-radius "4px"}]
    [:.bg-warning-item
     {:background-color "rgba(0, 0, 0, 0.2)"
+     :border-radius "4px"}]
+
+   ;; Callout accents, coloured by identity rather than severity, so a notice says whose it
+   ;; is without the warning palette. Named options only -- a caller picks one rather than
+   ;; passing a colour.
+   ;; A one-line notice: text on the left, its action and close mark together on the right.
+   [:.callout-compact
+    {:padding "4px 6px 4px 12px !important"
+     :gap "12px !important"}
+    [:.link-button {:padding "8px 4px" :white-space :nowrap}]
+    [:.message-close {:min-width :auto
+                      :min-height :auto
+                      :margin "0 0 0 2px"
+                      :padding "8px 6px"
+                      :align-self :center}]
+    ;; The action and the close mark keep the line slim but take 44px taps: an invisible
+    ;; layer around each (the icon's own glyph is its :before, so :after).
+    [:.link-button :.message-close {:position :relative}]
+    [:.link-button:after :.message-close:after
+     {:content "''" :position :absolute :top "-7px" :bottom "-7px" :left 0 :right 0}]]
+
+   ;; A callout's :details: a square band across the box with the box showing below it, names
+   ;; in one column and when each applies in the next. docs/kb/ux-guide.md (2026-10-14).
+   [:.callout-details
+    {:flex-basis "100%"
+     :display :grid
+     :grid-template-columns "max-content 1fr"
+     :margin "0 -10px 8px"
+     :padding "2px 10px 2px 36px"
+     :background "rgba(0, 0, 0, 0.14)"
+     :font-size "14px"}
+    [:.callout-detail {:display :contents}]
+    [:span {:padding "7px 0"}]
+    ["span:first-child" {:padding-right "20px"}]
+    [".callout-detail + .callout-detail > span" {:border-top "1px solid rgba(255, 255, 255, 0.08)"}]
+    [:.callout-aside {:color muted-on-dark}]]
+   ;; Even spacing above and below the line and the band, so the box opens like a shell.
+   [:.callout-compact.flex-wrap {:row-gap "4px !important"}]
+   ;; A Planned line is a button that reads as the italic link it replaces, with a 44px tap area
+   ;; that does not move the row; its panel's rows share the notice's columns. ux-guide.md.
+   [:.planned-toggle
+    {:background :none
+     :border 0
+     :font-family :inherit
+     :font-style :italic
+     :font-size "16px"
+     :line-height :inherit
+     :text-align :left
+     :text-decoration :underline
+     :cursor :pointer
+     :padding "13px 0"
+     :margin "-13px 0"}
+    [:i {:display :inline-block :margin-left "6px" :text-decoration :none}]]
+   ;; "1st" before each class row: lit on the starting class, faded on the others (a tap makes
+   ;; one first). A small mark with a 44px tap layer. docs/kb/ux-guide.md.
+   [:.class-first-badge
+    {:position :relative
+     :flex-shrink 0
+     :margin-right "8px"
+     :padding "2px 6px"
+     :border "1px solid rgba(255, 255, 255, 0.3)"
+     :border-radius "4px"
+     :background :none
+     :color "rgba(255, 255, 255, 0.45)"
+     :font-family :inherit
+     :font-size "13px"
+     :font-weight :bold
+     :line-height 1.2
+     :cursor :pointer}
+    [:&:after {:content "''" :position :absolute :inset "-12px -4px"}]
+    [:&.on {:color orange :border-color orange :cursor :default}]
+    [:&.blocked {:opacity 0.5}]]
+   [".app.light-theme .class-first-badge"
+    {:border-color "rgba(0, 0, 0, 0.3)" :color "rgba(0, 0, 0, 0.45)"}
+    [:&.on {:color accent-on-light :border-color accent-on-light}]]
+   ;; The Choices link reads as a plain link, not a Planned line; its panel, one line per section.
+   [:.choices-toggle {:font-style :normal}]
+   [:.choice-line {:padding "4px 0"}]
+   [".choices-panel .planned-aside" {:color muted-on-dark}]
+   [".app.light-theme .choices-panel .planned-aside" {:color muted-on-light}]
+   [:.planned-rows
+    {:display :grid
+     :grid-template-columns "max-content 1fr auto"
+     :font-size "14px"}
+    [:&.no-label :&.no-aside {:grid-template-columns "1fr auto"}]
+    [:.planned-row {:display :contents}]
+    ;; Each row is a 44px tap target, so a Clear never lands on the row beside it.
+    [:span :.link-button {:display :flex :align-items :center :min-height "44px"}]
+    [:span {:padding "0 20px 0 0"}]
+    [:.link-button {:padding "0 0 0 16px" :border-radius 0 :font-size "14px"}]
+    [".planned-row + .planned-row > *" {:border-top "1px solid rgba(255, 255, 255, 0.08)"}]
+    [:.planned-aside {:color muted-on-dark}]]
+   [".app.light-theme .planned-rows"
+    [".planned-row + .planned-row > *" {:border-top "1px solid rgba(0, 0, 0, 0.08)"}]
+    [:.planned-aside {:color muted-on-light}]]
+   [".callout-compact .callout-details" {:margin "0 -6px 7px -12px" :padding-left "38px"}]
+   [".app.light-theme .callout-details"
+    {:background "rgba(0, 0, 0, 0.05)"}
+    [".callout-detail + .callout-detail > span" {:border-top "1px solid rgba(0, 0, 0, 0.08)"}]
+    [:.callout-aside {:color muted-on-light}]]
+
+   [:.callout-accent-brand
+    ;; A balanced gradient ring (amber at both sides, faint through top and bottom), drawn by
+    ;; a pseudo-element masked to its own edge: border-image squares off rounded corners.
+    ;; No fill colour, so a notice never reads as a warning. docs/kb/ux-guide.md (2026-10-13).
+    {:position :relative
+     :border-color :transparent}
+    [:&:before
+     {:content "''"
+      :position :absolute
+      :inset 0
+      :border-radius "4px"
+      :padding "1px"
+      :pointer-events :none
+      :background (str "linear-gradient(90deg, " orange ", rgba(255, 255, 255, 0.12) 30%, "
+                       "rgba(255, 255, 255, 0.12) 70%, " orange ")")
+      :-webkit-mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
+      :-webkit-mask-composite "xor"
+      :mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
+      :mask-composite "exclude"}]]
+   ;; On light, the ring takes the light theme's blue, and its faint stretch darkens to show.
+   [".app.light-theme .callout-accent-brand:before"
+    {:background (str "linear-gradient(90deg, " accent-on-light ", rgba(0, 0, 0, 0.12) 30%, "
+                      "rgba(0, 0, 0, 0.12) 70%, " accent-on-light ")")}]
+
+   ;; A small neutral pill for naming things inline -- the items a feature covers,
+   ;; the styles a sheet comes in. Same shape as .lib-badge without its reason
+   ;; colours or its row-specific margin, so it reads as a label rather than as a
+   ;; status. .chip-row lays a set of them out and lets them wrap.
+   [:.chip
+    {:display "inline-flex"
+     :align-items :center
+     :font-size "11px"
+     :font-weight 600
+     :padding "3px 9px"
+     :border-radius "999px"
+     :line-height 1.4
+     :background-color "rgba(255, 255, 255, 0.08)"
+     :border "1px solid rgba(255, 255, 255, 0.14)"}]
+   [:.chip-row
+    {:display :flex
+     :flex-wrap :wrap
+     :gap "6px"}]
+
+   ;; Neutral counterpart to .bg-warning, for a callout that is telling you
+   ;; something rather than warning you: same box, no severity colour, so an
+   ;; offer or an explanation does not read as a problem to fix.
+   [:.bg-note
+    {:background-color "rgba(255, 255, 255, 0.05)"
+     :border "1px solid rgba(255, 255, 255, 0.15)"
      :border-radius "4px"}]
 
    [:.fade-out
@@ -630,6 +1639,14 @@
     [:tr.visible-xs {:display "table-row !important"}]
     [:th.visible-xs,
      :td.visible-xs {:display "table-cell !important"}])
+
+   ;; Six 68px roll buttons need 432px, wider than a phone; share the row instead.
+   (at-media xs-query
+    [:.ability-scores
+     [:>div {:flex "1 1 0" :min-width 0}]
+     ;; with a keyboard the button sits in its ctrl/shift tip; let that fill too
+     [:.tooltip {:display "block"}]
+     [:.roll-button {:min-width 0 :width "calc(100% - 4px)"}]])
 
    (at-media xs-query
     [:.visible-xs-block
@@ -807,11 +1824,22 @@
      {:height :auto
       :background-image :none
       :background-color "rgba(0, 0, 0, 0.3)"
-      :min-height 0}]
+      :min-height 0
+      ;; A child wider than the bar scrolls the whole page sideways here; clip instead.
+      ;; clip, not hidden: hidden also clips vertically, which cut off the tab menus.
+      :overflow-x :clip}]
     [:.app-header-bar
      {:min-height (px 50)
       :backdrop-filter :none
-      :-webkit-backdrop-filter :none}]
+      :-webkit-backdrop-filter :none}
+     ;; A full-width child plus its padding measures wider than the bar without this.
+     [:.w-100-p {:box-sizing :border-box}]
+     ;; The logo is sized for the desktop header and crowds the search row here.
+     ;; On the narrowest phones it also gives up width before the login does.
+     [:a {:min-width 0}]
+     [:img {:max-height "40px" :max-width "100%" :object-fit "contain"}]]
+    [:.import-log-panel
+     {:max-width "100vw"}]
     [:.app-header-menu
      {:flex-grow 1}]
     [:.content
@@ -899,8 +1927,123 @@
      [:.details-column
       {:max-width "500px"}])])
 
+(def artist-pages
+  "The public artist pages (views/artist_page.cljs), inside .pl-root so the drawer's
+   --lk-* variables and credit classes apply. .ap-* is only what the drawer lacks."
+  (let [vollkorn "'Vollkorn', Georgia, serif"
+        open-sans "'Open Sans', system-ui, sans-serif"
+        light ".ap-root.light-theme"]
+    [[:.ap-root {:font-family open-sans :color portrait-panel-text :padding "24px 12px 40px"}]
+     [light {:color light-text}]
+     ;; .pl-root.light-theme sets --lk-dim on this same element and is emitted later, so match it
+     ;; with a third class; #5f6672 is 5.8:1 on white, #858c96 only 3.4:1
+     [(str ".pl-root" light) {:--lk-dim "#5f6672"}]
+     [:.ap-card
+      {:max-width "640px" :margin "0 auto" :padding "28px 28px 24px"
+       :background portrait-panel :border (str "1px solid " orange-hairline)
+       :border-radius "12px" :box-shadow "0 20px 50px -30px rgba(0,0,0,0.7)"
+       :display :flex :flex-direction :column :gap "30px"}]
+     [(str light " .ap-card")
+      {:background :white :border-color "rgba(0,0,0,0.10)"
+       :box-shadow "0 20px 50px -34px rgba(0,0,0,0.35)"}]
+     [:.ap-head {:display :flex :flex-direction :column :gap "12px" :text-align :center}]
+     [:.ap-name
+      {:margin 0 :font (str "italic 400 40px/1.1 " vollkorn)
+       :color "var(--lk-name)" :white-space :normal :text-wrap :balance}]
+     [".ap-head .lk-row" {:gap "16px"}]
+     [:.ap-lede {:margin 0 :font-size "13px" :line-height 1.5 :color "var(--lk-dim)"}]
+     [:.ap-links
+      {:display :flex :flex-wrap :wrap :justify-content :center :gap "8px" :margin-top "4px"}]
+     [:.ap-link
+      {:display :inline-flex :align-items :center :gap "8px"
+       :padding "9px 16px" :border-radius "5px"
+       :border "1px solid rgba(255,255,255,0.10)" :background "rgba(255,255,255,0.02)"
+       :color portrait-panel-text :text-decoration :none
+       :font (str "600 12px/1 " open-sans) :letter-spacing "0.04em"
+       :transition "border-color 160ms ease, background-color 160ms ease"}]
+     [".ap-link:hover, .ap-link:focus-visible"
+      {:border-color orange :background "rgba(240,161,0,0.06)" :outline :none}]
+     [".ap-link .lk-ico" {:width "14px" :height "14px"}]
+     [".ap-link .lk-ico" {:color "var(--lk-mark-color, currentColor)"}]
+     ;; the domain a link really opens, so a label cannot pass for another site
+     [:.ap-link-host {:font-weight 400 :letter-spacing 0 :color "var(--lk-dim)"}]
+     [:.ap-link:visited {:color portrait-panel-text}]
+     [(str light " .ap-link")
+      {:border-color "rgba(0,0,0,0.14)" :background :white :color light-text}]
+     [(str light " .ap-link:visited") {:color light-text}]
+     [(str light " .ap-link:hover, " light " .ap-link:focus-visible")
+      {:border-color slate-blue :background "rgba(51,101,138,0.06)"}]
+     [:.ap-section {:display :flex :flex-direction :column :gap "14px"}]
+     [".ap-section > .lk-cap" {:margin 0}]
+     [:.ap-examples {:display :grid :grid-template-columns "repeat(3, 1fr)" :gap "14px"}]
+     [:.ap-example {:margin 0 :display :flex :flex-direction :column :gap "7px"}]
+     ;; Dark in both themes, like the drawer's frame: a light frame would swallow pale
+     ;; skin and blonde hair.
+     [:.ap-frame
+      {:width "100%" :aspect-ratio "4 / 5" :box-sizing :border-box
+       :position :relative :overflow :hidden :border-radius "10px"
+       :background (str "radial-gradient(circle at 50% 35%, " portrait-frame-glow ", "
+                        portrait-panel " 60%, " portrait-frame-edge ")")
+       :border (str "1px solid " orange-hairline)}]
+     [(str light " .ap-frame") {:border-color "rgba(0,0,0,0.12)"}]
+     [:.ap-example-img
+      {:display :block :width "100%" :height "100%" :object-fit :cover}]
+     [".ap-example figcaption"
+      {:font (str "italic 12px/1.4 " vollkorn) :color "var(--lk-dim)" :text-align :center}]
+     [:.ap-foot
+      {:margin 0 :padding-top "16px" :border-top "1px solid rgba(255,255,255,0.06)"
+       :font-size "12px" :line-height 1.55 :color "var(--lk-dim)" :text-align :center}]
+     [(str light " .ap-foot") {:border-top-color "rgba(0,0,0,0.08)"}]
+     [".ap-foot a, .ap-missing a"
+      {:color :inherit :text-decoration "underline dotted var(--lk-under)"
+       :text-underline-offset "3px"}]
+     [".ap-foot a:visited, .ap-missing a:visited" {:color :inherit}]
+     [".ap-foot a:hover, .ap-missing a:hover" {:color "var(--lk-under-lit)"}]
+     [:.ap-missing {:text-align :center :font-size "13px" :color "var(--lk-dim)"}]
+     [:.ap-index
+      {:display :grid :grid-template-columns "repeat(auto-fill, minmax(150px, 1fr))"
+       :gap "16px"}]
+     [:.ap-index-card
+      {:display :flex :flex-direction :column :gap "8px"
+       :text-decoration :none :text-align :center}]
+     [".ap-index-card .lk-name" {:font-size "18px" :white-space :normal}]
+     [".ap-index-card:hover .lk-name, .ap-index-card:focus-visible .lk-name"
+      {:color "var(--lk-under-lit)" :filter "var(--lk-halo)"}]
+     [".ap-index-card:focus-visible" {:outline :none}]
+     [:.ap-index-count {:font-size "11px" :color "var(--lk-dim)"}]
+     (at-media {:max-width "560px"}
+       [:.ap-card {:padding "22px 16px 18px" :gap "26px"}]
+       [:.ap-name {:font-size "32px"}]
+       [:.ap-examples {:gap "8px"}])]))
+
+(def open-sans-subsets
+  "Open Sans character sets as [subset unicode-range], one variable-weight woff2 file each under
+   resources/public/fonts/open-sans/ (OFL, see OFL.txt there). A browser downloads only the files
+   whose range a page's text uses."
+  [["cyrillic-ext" "U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F"]
+   ["cyrillic" "U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116"]
+   ["greek-ext" "U+1F00-1FFF"]
+   ["greek" "U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF"]
+   ["hebrew" "U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F"]
+   ["math" "U+0302-0303, U+0305, U+0307-0308, U+0310, U+0312, U+0315, U+031A, U+0326-0327, U+032C, U+032F-0330, U+0332-0333, U+0338, U+033A, U+0346, U+034D, U+0391-03A1, U+03A3-03A9, U+03B1-03C9, U+03D1, U+03D5-03D6, U+03F0-03F1, U+03F4-03F5, U+2016-2017, U+2034-2038, U+203C, U+2040, U+2043, U+2047, U+2050, U+2057, U+205F, U+2070-2071, U+2074-209F, U+20D0-20DC, U+20E1, U+20E5-20EF, U+2100-2112, U+2114-2115, U+2117-2121, U+2123-214F, U+2190, U+2192, U+2194-21AE, U+21B0-21E5, U+21F1-21F2, U+21F4-2211, U+2213-2214, U+2216-22FF, U+2308-230B, U+2310, U+2319, U+231C-2321, U+2336-237A, U+237C, U+2395, U+239B-23B7, U+23D0, U+23DC-23E1, U+2474-2475, U+25AF, U+25B3, U+25B7, U+25BD, U+25C1, U+25CA, U+25CC, U+25FB, U+266D-266F, U+27C0-27FF, U+2900-2AFF, U+2B0E-2B11, U+2B30-2B4C, U+2BFE, U+3030, U+FF5B, U+FF5D, U+1D400-1D7FF, U+1EE00-1EEFF"]
+   ["symbols" "U+0001-000C, U+000E-001F, U+007F-009F, U+20DD-20E0, U+20E2-20E4, U+2150-218F, U+2190, U+2192, U+2194-2199, U+21AF, U+21E6-21F0, U+21F3, U+2218-2219, U+2299, U+22C4-22C6, U+2300-243F, U+2440-244A, U+2460-24FF, U+25A0-27BF, U+2800-28FF, U+2921-2922, U+2981, U+29BF, U+29EB, U+2B00-2BFF, U+4DC0-4DFF, U+FFF9-FFFB, U+10140-1018E, U+10190-1019C, U+101A0, U+101D0-101FD, U+102E0-102FB, U+10E60-10E7E, U+1D2C0-1D2D3, U+1D2E0-1D37F, U+1F000-1F0FF, U+1F100-1F1AE, U+1F1E6-1F1FF, U+1F30D-1F30F, U+1F315, U+1F31C, U+1F31E, U+1F320-1F32C, U+1F336, U+1F378, U+1F37D, U+1F382, U+1F393-1F39F, U+1F3A7-1F3A8, U+1F3AC-1F3AF, U+1F3C2, U+1F3C4-1F3C6, U+1F3CA-1F3CE, U+1F3D4-1F3E0, U+1F3ED, U+1F3F1-1F3F3, U+1F3F5-1F3F7, U+1F408, U+1F415, U+1F41F, U+1F426, U+1F43F, U+1F441-1F442, U+1F444, U+1F446-1F449, U+1F44C-1F44E, U+1F453, U+1F46A, U+1F47D, U+1F4A3, U+1F4B0, U+1F4B3, U+1F4B9, U+1F4BB, U+1F4BF, U+1F4C8-1F4CB, U+1F4D6, U+1F4DA, U+1F4DF, U+1F4E3-1F4E6, U+1F4EA-1F4ED, U+1F4F7, U+1F4F9-1F4FB, U+1F4FD-1F4FE, U+1F503, U+1F507-1F50B, U+1F50D, U+1F512-1F513, U+1F53E-1F54A, U+1F54F-1F5FA, U+1F610, U+1F650-1F67F, U+1F687, U+1F68D, U+1F691, U+1F694, U+1F698, U+1F6AD, U+1F6B2, U+1F6B9-1F6BA, U+1F6BC, U+1F6C6-1F6CF, U+1F6D3-1F6D7, U+1F6E0-1F6EA, U+1F6F0-1F6F3, U+1F6F7-1F6FC, U+1F700-1F80B, U+1F810-1F847, U+1F850-1F859, U+1F860-1F887, U+1F890-1F8AD, U+1F8B0-1F8BB, U+1F8C0-1F8C1, U+1F8D0-1F8D8, U+1F900-1F90B, U+1F93B, U+1F946, U+1F984, U+1F996, U+1F9E9, U+1FA00-1FA6F, U+1FA70-1FA7C, U+1FA80-1FAC6, U+1FAC8, U+1FACC-1FADD, U+1FADF-1FAEB, U+1FAEF-1FAFA, U+1FB00-1FBFF"]
+   ["vietnamese" "U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB"]
+   ["latin-ext" "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF"]
+   ["latin" "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD"]])
+
+(def open-sans-faces
+  "@font-face rules serving Open Sans from this site, weights 400 to 700, one per character set."
+  (for [[subset unicode-range] open-sans-subsets]
+    (at-font-face {:font-family "Open Sans"
+                   :font-style "normal"
+                   :font-weight "400 700"
+                   :font-display "swap"
+                   :src (str "url(/fonts/open-sans/open-sans-" subset ".woff2) format(\"woff2\")")
+                   :unicode-range unicode-range})))
+
 (def app
   (concat
+   open-sans-faces
    [[:.character-builder-header
      {:margin-bottom "19px"}]
 
@@ -913,15 +2056,6 @@
     [:.registration-content
      {:width "785px"
       :min-height "600px"}]
-
-    [:.login-form-inputs
-     {:max-width "350px"
-      :margin-left :auto
-      :margin-right :auto
-      :margin-top "50px"}
-     [:input
-      {:width "100%"
-       :box-sizing :border-box}]]
 
     [:.registration-input
      {:min-width "438px"}]
@@ -940,19 +2074,77 @@
     [:a :a:visited
      {:color orange}]
 
+    ;; Opt-in dark text on the amber buttons: white on this amber is 2.1:1, dark
+    ;; is 7.8:1. Dark theme only; the light theme's slate buttons pass in white.
+    [".app.dark-button-text:not(.light-theme)"
+     [:.form-button :.mc-btn :.roll-button
+      {:color button-ink
+       :text-shadow text-lift-light}]
+     ;; the ability buttons are short numbers: a stronger glow and a yellow rim to
+     ;; hold them up. paint-order draws the rim behind the letters, not over them.
+     [:.roll-button
+      {:text-shadow text-lift-light-strong
+       :-webkit-text-stroke (str "2px " warning-yellow)
+       :paint-order "stroke fill"}]]
+
+    ;; Browsers give buttons their own default font (Arial), not the page's, so every
+    ;; .form-button rendered in Arial beside Open Sans labels. Same fix as select.
+    [:button
+     {:font-family font-family}]
+
+    ;; Amber everywhere except .form-button in the light theme, which is slate.
+    [".app:not(.light-theme) .form-button" :.mc-btn :.roll-button
+     {:text-shadow text-lift-dark}]
+
+    ;; The header tabs sit on the banner art, and the active one on amber.
+    ;; -4% tracking fits MY CONTENT on one line at 700 in the fixed 110px tab
+    ;; (it needs 86.9px of 90px; untracked it needs 92.5px).
+    [:.header-tab
+     {:text-shadow text-lift-dark}
+     [:.title {:letter-spacing "-0.04em"}]]
+    ;; The tabs are spaced by the row's gap, not their own margins; on a phone the
+    ;; row's padding is the 10px gutter, and the tabs share the row with no side
+    ;; padding of their own, so all seven fit a 320px screen.
+    [:.app-header-menu
+     {:gap "4px"
+      :padding "0 2px"}
+     [:&.phone-tabs {:padding "0 10px"}
+      [:.header-tab {:min-width 0}
+       [:>.p-10 {:padding-left 0 :padding-right 0}]]]]
+
+    ;; The header bar's search and login boxes, and the desktop slot left of the
+    ;; tabs that holds the supporter link.
+    [:.header-search-box {:background-color "rgba(0,0,0,0.3)"}]
+    [:.header-login-box {:background-color "rgba(0,0,0,0.4)"}]
+    [:.supporter-slot {:min-width "53px"}]
+
+    ;; color-scheme is what makes the browser draw the native option LIST dark.
+    ;; Without it the popup is white while the options inherit the select's white
+    ;; text, so an unclassed dropdown opens as a blank white box with invisible
+    ;; entries. The explicit option colours cover browsers that ignore it.
     [:select
      {:font-family font-family
       :color "white"
+      :color-scheme "dark"
       :background-color :transparent}]
+
+    [:option
+     {:background-color "#1a1e28"
+      :color "rgba(255,255,255,0.9)"}]
 
     [:*:focus
      {:outline 0}]
 
+    ;; The header sticks itself; the chrome goes on only once it has, which is
+    ;; what the .stuck class the page's IntersectionObserver sets says. Sticky
+    ;; rather than a fixed duplicate of the header: see content-page.
     [:.sticky-header
-     {:top 0
-      :box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
-      :z-index 100
-      :display :none
+     {:position :sticky
+      :top 0
+      :z-index 100}]
+
+    [:.sticky-header.stuck
+     {:box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
       :background-color "#313A4D"}]
 
     [:.container
@@ -989,14 +2181,47 @@
     [:.item-list-item
      {:border-bottom "1px solid rgba(255,255,255,0.5)"}]
 
-    ;; Flyout menus: hidden by default, shown on hover (desktop) or focus-within (mobile tap)
-    ;; z-index on hover/focus-within prevents adjacent tabs from intercepting the dropdown
+    ;; Thin, themed scrollbar for a flyout that fit-flyout! had to cap (My Content on
+    ;; a short screen). The default is a light slab against a dark menu.
+    [:.header-flyout
+     {:scrollbar-width "thin"
+      :scrollbar-color "rgba(240,161,0,0.45) transparent"}]
+
+    ;; The flyout hangs under its tab (84px desktop tabs, 46px phone tabs), and the
+    ;; user menu under the login box. Both open over the page, so the z-index.
+    [:.header-flyout :.user-menu
+     {:position :absolute
+      :right 0
+      :z-index 10000
+      :background-color "#2c3445"}]
+    [:.header-flyout {:top "84px"}]
+    ;; On a phone the left three tabs open their menu to the right, so it stays on screen.
+    [:.phone-tabs
+     [:.header-flyout {:top "46px"}]
+     [".header-tab:nth-child(-n+3) .header-flyout" {:left 0 :right :auto}]]
+    [:.user-menu {:display :none}
+     [:&.open {:display :block}]]
+
+    ;; The current section's tab, and its page in the flyout.
+    [:.header-tab.active :.header-flyout>.active
+     {:background-color "rgba(240, 161, 0, 0.7)"}]
+
+    ;; The Light Theme and Dark Button Text settings are keyboard switches; the same
+    ;; focus ring as the dev-mode switch, since *:focus removes the browser's.
+    [:.setting-toggle:focus-visible
+     {:outline (str "2px solid " orange)
+      :outline-offset "3px"}]
+
+    ;; Flyout menus: hidden by default, shown on hover (desktop) or focus-within (tap).
+    ;; The tab's z-index must beat the sticky button row (`.sticky-header`, 100): the
+    ;; tab is a stacking context, so the flyout's own z-index resolves inside it, and at
+    ;; an equal 100 the row wins on document order and swallows the dropdown's clicks.
     [:.header-tab
      [:&:focus {:outline :none}]
      [:.header-flyout {:display :none}]
-     [:&:hover {:z-index 100}
+     [:&:hover {:z-index 200}
       [:.header-flyout {:display :block}]]
-     [:&:focus-within {:z-index 100}
+     [:&:focus-within {:z-index 200}
       [:.header-flyout {:display :block}]]]
 
     #_[:.header-tab:hover
@@ -1033,14 +2258,21 @@
       :margin-top (px 5)
       :font-weight :normal}]
 
+    ;; Wraps because the bar has to hold four tabs now: at phone width a
+    ;; single non-wrapping row ran OPTIONSDESCRIPTIONPORTRAIT together with no
+    ;; gap between the labels. min-width forces the break rather than letting
+    ;; flex-grow squeeze them all onto one line.
     [:.builder-tabs
      {:display :flex
+      :flex-wrap :wrap
+      :gap "10px"
       :padding "10px"
       :text-transform :uppercase
       :font-weight 600}]
 
     [:.builder-tab
-     {:flex-grow 1
+     {:flex "1 1 auto"
+      :min-width "110px"
       :padding-bottom "13px"
       :text-align :center
       :cursor :pointer
@@ -1124,9 +2356,6 @@
       :cursor :pointer
       :text-align :right}]
 
-    [:.fa-caret-square-o-down
-     {:color button-color}]
-
     [:.expand-collapse-button:hover
      {:color button-color}]
 
@@ -1140,7 +2369,7 @@
 
     [:.form-button
      {:color :white
-      :font-weight 600
+      :font-weight 700
       :font-size "12px"
       :border :none
       :border-radius "5px"
@@ -1149,14 +2378,89 @@
       :cursor :pointer
       :background-image "linear-gradient(to bottom, #f1a20f, #dbab50)"}]
 
+    ;; ── Library-header "disabled" badges ─────────────────────────────────────
+    ;; A pill on a collapsed library row counting items that are OFF, coloured by reason:
+    ;; blue = the user turned it off, amber = the app did (kept one of a duplicate).
+    ;; Light mode re-tones under .app.light-theme; prefers-contrast: more uses solid fills.
+    [:.lib-badge
+     {:display "inline-flex"
+      :align-items :center
+      :gap "5px"
+      :font-size "12px"
+      :font-weight 600
+      :padding "3px 10px"
+      :border-radius "999px"
+      :line-height 1
+      :margin-left "10px"
+      :vertical-align :middle}
+     [:.lib-dot {:width "6px" :height "6px" :border-radius "50%"}]]
+    [:.lib-badge-benign
+     {:background-color "rgba(110,168,220,0.18)" :color "#9ec7ea"}
+     [:.lib-dot {:background-color "#6ea8dc"}]]
+    [:.lib-badge-compat
+     {:background-color "rgba(217,165,32,0.20)" :color "#e5c169"}
+     [:.lib-dot {:background-color "#d9a520"}]]
+    (at-media {:prefers-contrast "more"}
+              [:.lib-badge-benign {:background-color "#6ea8dc" :color "#0b1a29"}]
+              [:.lib-badge-compat {:background-color "#d9a520" :color "#241a00"}]
+              [:.app.light-theme
+               [:.lib-badge-benign {:background-color "#33658A" :color "#ffffff"}]
+               [:.lib-badge-compat {:background-color "#8a5a00" :color "#ffffff"}]])
+
+    ;; ── Share line ───────────────────────────────────────────────────────────
+    ;; A character's sharing line: a status pill (label, never tappable) then actions as text
+    ;; buttons, 40px tall for a thumb target. Before a link exists it's the pill + Share link;
+    ;; after, Copy link / New link / Stop sharing. Light-theme colours are under .app.light-theme below.
+    [:.share-line
+     {:display :flex
+      :flex-wrap :wrap
+      :align-items :center
+      :column-gap "18px"
+      :text-transform :none}]
+    [:.share-pill
+     {:display :inline-flex
+      :align-items :center
+      :font-size "12px"
+      :font-weight 600
+      :line-height 1.4
+      :padding "3px 10px"
+      :border-radius "999px"
+      :white-space :nowrap}]
+    [:.share-pill-neutral {:background-color "rgba(255,255,255,0.08)" :color "rgba(255,255,255,0.75)"}]
+    [:.share-pill-shared {:background-color "rgba(110,168,220,0.18)" :color "#9ec7ea"}]
+    [:.share-pill-expired {:background-color "rgba(217,165,32,0.20)" :color "#e5c169"}]
+    [:.share-action
+     {:display :inline-flex
+      :align-items :center
+      :gap "6px"
+      :min-height "40px"
+      :padding 0
+      :border :none
+      :background :none
+      :cursor :pointer
+      :font-family "inherit"
+      :font-size "13px"
+      :font-weight 600
+      :color orange
+      :white-space :nowrap}
+     [:.fa {:font-size "14px"}]]
+    ;; Only where a pointer hovers: a phone keeps :hover after a tap, leaving the action underlined.
+    (at-media {:hover "hover"} [:.share-action:hover {:text-decoration :underline}])
+    [:.share-action:focus-visible {:outline (str "2px solid " orange) :outline-offset "2px" :border-radius "3px"}]
+    [:.share-action:disabled {:opacity 0.6 :cursor :default :text-decoration :none}]
+    [:.share-action-danger {:color "#ef8592"}]
+    [:.share-action-quiet {:color "rgba(255,255,255,0.7)"}]
+    (at-media xs-query [:.share-line {:column-gap "16px"}])
+
     [:.roll-button
      {:color :white
       :min-width "68px"
-      :font-weight 600
-      :font-size "14px"
+      :font-weight 700
+      ;; 16px reads at phone size; the trimmed padding keeps the button 31px tall
+      :font-size "16px"
       :border :none
       :border-radius "2px"
-      :padding "6px 6px"
+      :padding "4.5px 6px"
       :margin-right "2px"
       :margin-left "2px"
       :margin-bottom "2px"
@@ -1174,6 +2478,165 @@
 
     [:.form-button.disabled:hover
      {:box-shadow :none}]
+
+    ;; ── My Content toolbar + delete guard + move/copy select mode ──────────
+    ;; One tidy right-aligned row; icon+label buttons that collapse to icon-only
+    ;; in PRIORITY order (Delete first, Export last) as width tightens.
+    [:.mc-toolbar
+     {:position :relative
+      :display :flex
+      :flex-wrap :nowrap
+      :justify-content :space-between   ; content action left · library actions right
+      :align-items :center
+      :gap "10px"
+      :margin "0 10px"}]
+    [:.mc-right {:display :flex :align-items :center :gap "10px"}]
+    [:.mc-btn
+     {:color :white
+      :font-weight 700
+      :font-size "12px"
+      :border :none
+      :border-radius "5px"
+      :text-transform :uppercase
+      :padding "10px 15px"
+      :cursor :pointer
+      :white-space :nowrap
+      :display :inline-flex
+      :align-items :center
+      :gap "7px"
+      :background-image "linear-gradient(to bottom, #f1a20f, #dbab50)"}
+     [:.fa {:font-size "13px"}]]
+    [:.mc-btn:hover {:box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}]
+    ;; Export = primary: a subtle ring so the most-relied-on action leads.
+    [:.mc-primary {:box-shadow "0 0 0 2px rgba(241,162,15,0.35)"}]
+    [:.mc-primary:hover {:box-shadow "0 0 0 2px rgba(241,162,15,0.5), 0 2px 6px 0 rgba(0,0,0,0.5)"}]
+    ;; hairline divider between the safe cluster and the destructive guard
+    [:.mc-divider
+     {:width "1px" :align-self :stretch :min-height "26px"
+      :background-color "rgba(255,255,255,0.15)" :margin "0 5px"}]
+
+    ;; Delete: a quiet, slightly-transparent red guard that unfurls
+    [:.mc-guard-wrap {:position :relative :display :inline-flex}]
+    [:.mc-guard
+     {:display :inline-flex :align-items :center :gap "7px"
+      :background-color "rgba(154,3,30,0.26)"
+      :border "1px solid rgba(154,3,30,0.55)"
+      :color "#ef8592" :border-radius "5px" :padding "10px 14px"
+      :cursor :pointer :font-weight 600 :font-size "12px"
+      :text-transform :uppercase :white-space :nowrap}
+     [:.fa {:font-size "13px"}]]
+    [:.mc-guard:hover {:background-color "rgba(154,3,30,0.45)" :color :white}]
+    ;; the full button lifts OUT of the bar (absolute) — the row never reflows
+    [:.mc-liftpop
+     {:position :absolute :right "0" :bottom "calc(100% + 9px)"
+      :display :flex :align-items :center :gap "10px"
+      :background-color "#1a1013" :border "1px solid rgba(154,3,30,0.6)"
+      :border-radius "7px" :padding "8px 10px" :white-space :nowrap
+      :box-shadow "0 14px 34px rgba(0,0,0,0.55)" :z-index 20}]
+    ;; solid-red form-button variant (palette red #9a031e)
+    [:.mc-del {:background-image "linear-gradient(to bottom, #b3122a, #9a031e)"}]
+    ;; the are-you-sure bar, opens UNDERNEATH the toolbar
+    [:.mc-confirmbar
+     {:display :flex :align-items :center :gap "12px" :flex-wrap :wrap
+      :margin-top "12px" :padding "12px 14px"
+      :background-color "#1a1013" :border "1px solid rgba(154,3,30,0.55)"
+      :border-radius "6px"}]
+
+    ;; Move/copy select mode: round selector (distinct from the square enable)
+    ;; + whole-row tap.
+    [:.mc-selrow {:cursor :pointer :border-radius "4px"}]
+    [:.mc-selrow:hover {:background-color "rgba(255,255,255,0.03)"}]
+    [:.mc-selrow.selected
+     {:background-color "rgba(240,161,0,0.09)" :box-shadow "inset 3px 0 0 #f0a100"}]
+    [:.mc-selcircle
+     {:width "22px" :height "22px" :border-radius "50%"
+      :border "2px solid #6b7788" :display :inline-flex
+      :align-items :center :justify-content :center :flex "0 0 auto"}
+     [:.fa {:font-size "11px" :color "#101720" :opacity 0}]]
+    [:.mc-selcircle.on {:background-color "#f0a100" :border-color "#f0a100"}
+     [:.fa {:opacity 1}]]
+
+    ;; priority collapse — hide labels one at a time as the viewport narrows,
+    ;; Delete first (rare + red = unmistakable), Export last (most relied-on).
+    (at-media {:max-width "1000px"} [:.mc-toolbar [:.b-delete [:.mc-lbl {:display :none}]]])
+    (at-media {:max-width "740px"}  [:.mc-toolbar [:.b-move   [:.mc-lbl {:display :none}]]])
+    (at-media {:max-width "600px"}  [:.mc-toolbar [:.b-export [:.mc-lbl {:display :none}]]])
+
+    ;; ── Library health status ─────────────────────────────────────────────
+    ;; Shown only when something needs attention: warning-yellow for resolvable
+    ;; (conflicts, missing fields), red for broken; rail, icon and link share one colour.
+    ;; The flash fires on appearance and on every count change (the card is keyed on count).
+    (at-keyframes "health-pulse"
+                  [:0% {:box-shadow "0 0 0 0 rgba(255,210,26,0.55)"}]
+                  [:60% {:box-shadow "0 0 0 12px rgba(255,210,26,0)"}]
+                  [:100% {:box-shadow "0 0 0 0 rgba(255,210,26,0)"}])
+    [:.health-card
+     {:background-color "#171d27" :border-radius "6px" :overflow :hidden :margin-bottom "10px"
+      :position :relative}]
+    ;; dismiss × (never on My Content) — a quiet control in the corner
+    [:.health-x
+     {:position :absolute :top "6px" :right "10px" :cursor :pointer
+      :color "rgba(255,255,255,0.35)" :font-size "13px" :z-index 1}]
+    [:.health-x:hover {:color "rgba(255,255,255,0.75)"}]
+    [:.health-flash {:animation "health-pulse 1.15s ease-out 2"}]
+    [:.health-row
+     {:display :flex :align-items :center :gap "10px" :padding "12px 14px 12px 0"}]
+    [:.health-rail {:width "4px" :align-self :stretch :flex "0 0 auto" :background-color warning-yellow}]
+    [:.health-ico {:flex "0 0 auto" :width "20px" :text-align :center :color warning-yellow}]
+    [:.health-msg {:flex 1 :font-size "14px"}]
+    [:.health-act
+     {:color warning-yellow :text-transform :uppercase :font-weight 600 :font-size "12px"
+      :text-decoration :underline :cursor :pointer :white-space :nowrap :padding-left "8px"}]
+    ;; broken tier = red (reserved)
+    [:.health-broken
+     [:.health-rail {:background-color broken-red}]
+     [:.health-ico {:color broken-red}]
+     [:.health-act {:color broken-red}]]
+    (at-media {:prefers-reduced-motion "reduce"} [:.health-flash {:animation :none}])
+
+    ;; ── save button, carrying an unsaved repair ──────────────────────────────
+    ;; A reconciler fixed a stored key on load, in memory only, so the button glints
+    ;; until the character is saved. Unlike .health-flash it repeats: a standing
+    ;; condition, not an event. Slow and low-contrast: "worth doing", not an error.
+    (at-keyframes "save-healed-glint"
+                  [:0% {:box-shadow "0 0 0 0 rgba(255,210,26,0.0)"}]
+                  [:35% {:box-shadow "0 0 10px 2px rgba(255,210,26,0.45)"}]
+                  [:70% {:box-shadow "0 0 0 0 rgba(255,210,26,0.0)"}]
+                  [:100% {:box-shadow "0 0 0 0 rgba(255,210,26,0.0)"}])
+    [:.save-healed
+     {:animation "save-healed-glint 2.6s ease-in-out infinite"
+      :position :relative
+      ;; Above its neighbours. The header buttons are siblings in a row, so the
+      ;; next one along paints over anything this draws outside its own box --
+      ;; which swallowed most of the sparkle before this was here.
+      :z-index 1}]
+    ;; The sparkle itself. A pseudo-element rather than markup so the button's
+    ;; hiccup stays a plain button, and pointer-events none so it can never eat
+    ;; the click it is advertising.
+    [:.save-healed:after
+     {:content "'\\2726'"
+      :position :absolute
+      ;; Inset, not hung off the corner. Sitting outside the button put it in the
+      ;; gap between Save and the next button, where it read as belonging to
+      ;; neither and was half covered by whichever one painted later.
+      :top "3px"
+      :right "4px"
+      :font-size "11px"
+      :line-height 1
+      :color "rgba(255,210,26,0.95)"
+      :pointer-events :none
+      :animation "save-healed-sparkle 2.6s ease-in-out infinite"}]
+    (at-keyframes "save-healed-sparkle"
+                  [:0% {:opacity 0 :transform "scale(0.6)"}]
+                  [:35% {:opacity 1 :transform "scale(1)"}]
+                  [:70% {:opacity 0 :transform "scale(0.6)"}]
+                  [:100% {:opacity 0 :transform "scale(0.6)"}])
+    ;; Motion is the whole mechanism here, so with it suppressed the state still
+    ;; has to be visible -- a steady ring and a steady sparkle, no movement.
+    (at-media {:prefers-reduced-motion "reduce"}
+              [:.save-healed {:animation :none
+                              :box-shadow "0 0 0 2px rgba(255,210,26,0.55)"}]
+              [:.save-healed:after {:animation :none :opacity 1}])
 
     [:.link-button
      {:color button-color
@@ -1216,20 +2679,56 @@
       :padding "11px 0"
       :align-items :center}]
 
+    ;; comps/checkbox: a rounded box that fills with the accent and shows a dark tick
+    ;; when checked (amber in the dark theme, slate blue in the light one). The tick is
+    ;; drawn (an L of two borders, turned 45deg), not a font glyph, so it sits dead
+    ;; centre: a glyph centres its text box, not its ink.
     [:.checkbox
-     {:width "16px"
+     {:display :inline-flex
+      :align-items :center
+      :justify-content :center
+      :box-sizing :border-box
+      :width "16px"
       :height "16px"
-      :box-shadow "0 1px 0 0 #f0a100"
-      :background-color :white
-      :cursor :pointer}
-
-     [:.fa-check
-      {:font-size "14px"
-       :margin "1px"}]]
-
-    [:.checkbox.checked.disabled
-     {:background-color "rgba(255, 255, 255, 0.37)"
-      :cursor :not-allowed}]
+      :flex-shrink 0
+      :border "1.5px solid rgba(255,255,255,0.55)"
+      :border-radius "4px"
+      ;; opaque, so a box on a white panel is still a dark box there, not a see-through tint
+      :background-color "#1b2130"
+      :color button-ink
+      :vertical-align :middle
+      :cursor :pointer
+      :transition "background-color 0.12s, border-color 0.12s"}
+     [:&:hover {:border-color orange}]
+     [:&.checked
+      {:background-color orange
+       :border-color orange}
+      [:&:after
+       {:content "\"\""
+        :width "28%"
+        :height "55%"
+        :border-style :solid
+        :border-color :currentColor
+        :border-width "0 2px 2px 0"
+        :transform "translateY(-15%) rotate(45deg)"}]]
+     [:&.disabled
+      {:opacity 0.5
+       :cursor :not-allowed}]]
+    ;; the keyboard's place: on the box, or on the box of a labelled row that is the control
+    [".checkbox:focus-visible, .checkbox-row:focus-visible .checkbox"
+     {:outline (str "2px solid " orange)
+      :outline-offset "2px"}]
+    [".app.light-theme .checkbox:focus-visible, .app.light-theme .checkbox-row:focus-visible .checkbox"
+     {:outline-color slate-blue}]
+    [:.checkbox-row:focus-visible {:outline :none}]
+    [".app.light-theme .checkbox"
+     {:border-color muted-on-light
+      :background-color :white}
+     [:&:hover {:border-color slate-blue}]
+     [:&.checked
+      {:background-color slate-blue
+       :border-color slate-blue
+       :color :white}]]
 
     [:.checkbox-text
      {:margin-left "5px"}]
@@ -1258,11 +2757,7 @@
       {:background-color "rgba(255,255,255,0.08)"}]
      [:.checkbox
       {:width "14px"
-       :height "14px"
-       :min-width "14px"
-       :flex-shrink 0}
-      [:.fa-check
-       {:font-size "12px"}]]
+       :height "14px"}]
      [:.flex.pointer
       {:align-items :center
        :gap "8px"}]]
@@ -1300,18 +2795,37 @@
       :justify-content :space-between
       :align-items :center}]
 
-    ;; Prevent horizontal scroll caused by fixed-position elements
-    ;; spanning full viewport width when vertical scrollbar is present.
+    ;; Clip rather than hide. overflow-x: hidden makes .app a scroll container,
+    ;; and a scroll container between the sticky header and the viewport stops it
+    ;; sticking at all; clip trims the same overflow without becoming one.
     [:.app
-     {:overflow-x :hidden}]
+     {:overflow-x :clip}]
 
     [:.app.light-theme
      {:background-image "linear-gradient(182deg, #FFFFFF, #DDDDDD)"}
 
+     ;; A red that carries on near-black washes out on white, and the notice's
+     ;; ground has to darken rather than lighten.
+     [:.red
+      {:color red}
+      [:a :a:visited {:color red}]]
+     [:.field-notice
+      {:background-color "rgba(0, 0, 0, 0.05)"}]
+     [:.field-remedy
+      {:border "1px solid rgba(0, 0, 0, 0.18)"}]
+     [:.field-notice.is-error {:color red}]
+     [:.field-notice.is-warning {:color "#8a5a00"}]
+     [:.field-notice.is-note {:color "#55637a"}]
+
      [:select
       {:font-family font-family
        :color "black";
+       :color-scheme "light"
        :background-color :transparent}]
+
+     [:option
+      {:background-color :white
+       :color "#282828"}]
 
      [:.item-list
       {:border-top "1px solid rgba(0,0,0,0.5)"}]
@@ -1360,6 +2874,25 @@
      [:.b-color-gray
       {:border-color "rgba(0,0,0,0.3)"}]
 
+     ;; light-mode badge re-tone: deeper text on a pale tint (bright amber on
+     ;; white is unreadable, so compat uses a deep brown-amber). Blue ties to the
+     ;; light accent (#33658A). Same meaning, values inverted for the light bg.
+     [:.lib-badge-benign
+      {:background-color "rgba(51,101,138,0.14)" :color "#2b567a"}
+      [:.lib-dot {:background-color "#33658A"}]]
+     [:.lib-badge-compat
+      {:background-color "rgba(180,120,0,0.16)" :color "#8a5a00"}
+      [:.lib-dot {:background-color "#b47800"}]]
+
+     ;; Share line: the same meanings on a light ground, with the light theme's blue for actions.
+     [:.share-pill-neutral {:background-color "rgba(0,0,0,0.06)" :color "#4a4a4a"}]
+     [:.share-pill-shared {:background-color "rgba(51,101,138,0.14)" :color "#2b567a"}]
+     [:.share-pill-expired {:background-color "rgba(180,120,0,0.16)" :color "#8a5a00"}]
+     [:.share-action {:color "#33658A"}]
+     [:.share-action:focus-visible {:outline-color "#33658A"}]
+     [:.share-action-danger {:color "#9a031e"}]
+     [:.share-action-quiet {:color "#4a4a4a"}]
+
      [:.builder-option-dropdown
       (merge
        {:border "1px solid #282828"
@@ -1372,7 +2905,7 @@
       {:background-color :white
        :color "#282828"}]
 
-     [:.sticky-header
+     [:.sticky-header.stuck
       {:background-color :white}]
 
      [:table.striped
@@ -1385,9 +2918,13 @@
      {:background-image "linear-gradient(to right, #d35730, #eda41e)"
       :padding ".5em 2em"}]
 
-    [:.modal-container :.m-b-10,
-     :.modal-container :.link-button
-     {:font-weight "bold"}]
+    ;; GOTCHA: [:.modal-container :.m-b-10, :.modal-container :.link-button {...}] looks nested but
+    ;; garden treats every keyword before the map as a SEPARATE selector, compiling to
+    ;; .modal-container, .m-b-10, .modal-container, .link-button -- putting font-weight:bold on
+    ;; .m-b-10, a margin utility used 194 times across the app. Nest the vectors instead, as below.
+    [:.modal-container
+     [:.m-b-10 {:font-weight "bold"}]
+     [:.link-button {:font-weight "bold"}]]
     
     [:.modal-container :.link-button
      {:color "#f7c257"
@@ -1428,22 +2965,32 @@
       :z-index 10001
       :display :flex
       :align-items :center
-      :justify-content :center}]
+      :justify-content :center
+      ;; Mounted at the app root, outside the page shell that sets the app font.
+      :font-family font-family}]
 
     [:.conflict-modal
+     ;; Wide enough that a conflict row (two source names and a key) stays on one line.
+     ;; No fixed width, so a short modal still shrinks to its content; the clamp keeps
+     ;; it off the edges on a narrow screen.
      {:background "#1a1e28"
-      :border-radius "5px"
-      :max-width "600px"
+      :border "1px solid rgba(255,255,255,0.12)"
+      :border-radius "6px"
+      :max-width "min(860px, calc(100vw - 32px))"
       :max-height "80vh"
       :overflow :hidden
       :display :flex
       :flex-direction :column
-      :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}]
+      :box-shadow "0 12px 40px rgba(0,0,0,0.6)"}]
 
+    ;; A band and a title with the weight of the app's own panel headings.
     [:.conflict-modal-header
-     {:padding "16px 20px"
-      :border-bottom "1px solid rgba(255,255,255,0.15)"
-      :background "#2c3445"}]
+     {:padding "20px 24px 16px"
+      :border-bottom "1px solid rgba(255,255,255,0.12)"
+      :background "rgba(255,255,255,0.08)"}
+     ;; !important: the title and subtitle also carry f-s-* utilities, which are !important.
+     [:.conflict-title {:font-size "24px !important" :font-weight 700}]
+     [:.conflict-subtitle {:font-size "13px !important" :color "rgba(255,255,255,0.65)"}]]
 
     [:.conflict-modal-footer
      {:padding "16px 20px"
@@ -1453,17 +3000,51 @@
       :gap "12px"}]
 
     [:.conflict-modal-body
+     ;; The modal chrome is dark (#1a1e28) in both themes, so the body gets a light
+     ;; default; otherwise plain text (the import summary) inherits the app's dark
+     ;; text colour. The conflict cards set their own colours.
      {:padding "16px 20px"
       :overflow-y :auto
+      :color "rgba(255,255,255,0.85)"
       :flex 1}]
+
+    ;; On a phone the panel is the screen: less padding, more height. The footer
+    ;; wraps, since four nowrap buttons overflow a 360px viewport and push the modal
+    ;; past the clamp, and the primary action takes the full width when it does.
+    (at-media {:max-width "600px"}
+              [:.conflict-modal
+               {:max-width "calc(100vw - 16px)"
+                :max-height "92vh"}]
+              [:.conflict-modal-header {:padding "12px 14px"}]
+              [:.conflict-modal-body {:padding "12px 14px"}]
+              [:.conflict-modal-footer
+               {:padding "12px 14px"
+                :flex-wrap :wrap
+                :gap "8px"}
+               [:.form-button {:flex "1 1 auto"}]])
 
     ;; Header elements
     [:.conflict-title-icon
      {:color orange
       :font-size "18px"}]
 
+    ;; White like the app's own headings; .warn keeps the attention yellow.
     [:.conflict-title
-     {:color orange}]
+     {:color :white}]
+
+    ;; Attention-severity header (unresolved conflicts / missing fields) — speaks
+    ;; the same warning-yellow language as the My Content health card, so the modal
+    ;; that resolves an issue matches the banner that surfaced it. The confident
+    ;; "Ready to import" summary stays brand-orange (it's resolved, not flagged).
+    [:.conflict-title-icon.warn {:color warning-yellow}]
+    [:.conflict-title.warn {:color warning-yellow}]
+
+    ;; Inline "these can't coexist" note — FA triangle + yellow, matching the card.
+    [:.conflict-warn-note
+     {:color warning-yellow
+      :font-size "11px"
+      :margin "3px 0 2px"}
+     [:i.fa {:margin-right "5px"}]]
 
     [:.conflict-subtitle
      {:color "rgba(255,255,255,0.5)"
@@ -1473,20 +3054,62 @@
      {:color "rgba(255,255,255,0.5)"
       :margin-top "8px"}]
 
-    ;; Conflict card
+    ;; A nameless item in the missing-fields dialog: placeholder title, key beneath.
+    [:.issue-item-heading
+     {:margin-bottom "4px"}]
+
+    [:.issue-item-key
+     {:font-family "monospace"
+      :font-size "12px"
+      :color "rgba(255,255,255,0.5)"}]
+
+    ;; The z-index sits under an open header tab's 200, so a header menu long enough
+    ;; to reach this corner draws over the button; at 900 the button covered the
+    ;; menu's last item on a laptop screen. Still above the sticky button row (100).
+    ;; The log panel the button opens is at 950.
+    [:.import-log-button
+     {:position :fixed
+      :bottom "20px"
+      :right "20px"
+      :width "40px"
+      :height "40px"
+      :border-radius "50%"
+      :background "#2c3445"
+      :color :white
+      :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"
+      :z-index 150
+      :transition "all 0.2s ease"}
+     [:&.open {:background orange}]
+     [:.fa {:font-size "14px"}]]
+
+    [:.import-log-badge
+     {:position :absolute
+      :top "-4px"
+      :right "-4px"
+      :background "#d94b20"
+      :color :white
+      :font-size "10px"
+      :font-weight :bold
+      :min-width "16px"
+      :height "16px"
+      :border-radius "8px"
+      :padding "0 4px"}]
+
+    ;; Conflict card — an unresolved conflict is an attention item, so its rail and
+    ;; key carry the same warning-yellow used by the health card and library tint.
     [:.conflict-item
      {:background "rgba(255,255,255,0.07)"
       :border-radius "0 5px 5px 0"
       :padding "12px"
       :margin-bottom "8px"
       :border "1px solid rgba(255,255,255,0.12)"
-      :border-left (str "3px solid " orange)}]
+      :border-left (str "3px solid " warning-yellow)}]
 
     [:.conflict-item-header
      {:margin-bottom "10px"}]
 
     [:.conflict-item-key
-     {:color orange}]
+     {:color warning-yellow}]
 
     [:.conflict-item-type
      {:color "rgba(255,255,255,0.7)"
@@ -1633,6 +3256,258 @@
     [:.export-edit-select.unfilled
      {:border-color "#f0a100"}]
 
+    ;; Developer mode: a named switch in the footer, visible at all times -- the tools
+    ;; behind it get content out when the app misbehaves, so the way in cannot hide.
+    [:.dev-mode-row
+     {:display :flex
+      :align-items :center
+      :justify-content :flex-end
+      :gap "8px"
+      :margin-top "10px"}]
+
+    ;; also the account page's settings switches
+    [:.dev-mode-switch :.toggle-switch
+     {:position :relative
+      :display :inline-block
+      :width "34px"
+      :height "18px"
+      :flex-shrink 0
+      :border-radius "9px"
+      :background-color "rgba(255,255,255,0.16)"
+      :cursor :pointer
+      :transition "background-color 0.16s ease"}
+     [:&:after
+      {:content "''"
+       :position :absolute
+       :top "3px"
+       :left "3px"
+       :width "12px"
+       :height "12px"
+       :border-radius "50%"
+       :background-color "#fff"
+       :transition "transform 0.16s ease"}]
+     [:&.on
+      {:background-color orange}
+      [:&:after {:transform "translateX(16px)"}]]
+     [:&:focus-visible
+      {:outline (str "2px solid " orange)
+       :outline-offset "3px"}]
+     ;; Inside a pack (content types, items): the same colours, a size down, so the
+     ;; switch that covers more is the bigger one.
+     [:&.compact
+      {:width "28px" :height "16px" :border-radius "8px"}
+      [:&:after {:width "10px" :height "10px"}]
+      [:&.on [:&:after {:transform "translateX(12px)"}]]]]
+
+    ;; the off track has to show on a light page too
+    [:.app.light-theme :.app.light-plus-theme :.app.parchment-theme
+     [:.toggle-switch {:background-color "rgba(0,0,0,0.22)"}
+      [:&.on {:background-color orange}]]]
+
+    [:.dev-mode-label
+     {:font-size "12px"
+      :color "rgba(255,255,255,0.55)"
+      :cursor :pointer}]
+
+    [:.dev-mode-tools
+     {:display :flex
+      :align-items :center
+      :justify-content :flex-end
+      :flex-wrap :wrap
+      :gap "16px"
+      :margin-top "8px"}]
+
+    [:.dev-mode-tool
+     {:display :inline-flex
+      :align-items :center
+      :font-size "12px"
+      :color orange
+      :cursor :pointer}
+     [:&:hover {:text-decoration :underline}]]
+
+    ;; An expanded source's own row: search, show-disabled, then its actions. The side
+    ;; padding keeps the search off the panel wall; its flex-basis gives it a line of
+    ;; its own on a phone rather than squeezing to nothing.
+    [:.mc-source-toolbar
+     {:display :flex
+      :align-items :center
+      :flex-wrap :wrap
+      :gap "10px"
+      :padding "0 6px"
+      :margin-bottom "10px"}]
+
+    [:.mc-source-search
+     {:flex "1 1 240px"
+      :min-width "150px"}]
+
+    [:.mc-source-disabled
+     {:flex "0 0 auto"
+      :white-space :nowrap}]
+
+    ;; Pushed to the end of the row, and still together when the row wraps.
+    [:.mc-source-actions
+     {:flex "0 0 auto"
+      :margin-left :auto}]
+
+    ;;;; WHAT'S NEW PANEL
+
+    ;; Dark chrome in both themes, like the conflict modal: the panel is an overlay
+    ;; on top of the page rather than part of it.
+    [:.whats-new-backdrop
+     {:position :fixed
+      :top 0 :left 0 :right 0 :bottom 0
+      :background "rgba(0,0,0,0.7)"
+      :z-index 10002
+      :display :flex
+      :align-items :center
+      :justify-content :center
+      :padding "20px"}]
+
+    ;; The header's What's New link: a surface of its own, so it reads over the header art.
+
+    [:.whats-new-pill
+
+     {:display :inline-flex
+
+      :align-items :center
+
+      :gap "5px"
+
+      :padding "3px 10px"
+
+      :border-radius "999px"
+
+      :background "rgba(8, 10, 13, 0.62)"
+
+      :border "1px solid rgba(240, 161, 0, 0.45)"
+
+      :color "#f0a100"
+
+      :font-size "13px"
+
+      :line-height "18px"
+
+      :cursor :pointer}
+
+     [:&:hover {:background "rgba(8, 10, 13, 0.8)" :border-color "#f0a100"}]]
+
+    [:.whats-new-panel
+     {:background "#1a1e28"
+      :color "rgba(255,255,255,0.85)"
+      :border-radius "6px"
+      :width "100%"
+      :max-width "620px"
+      :max-height "84vh"
+      :display :flex
+      :flex-direction :column
+      :overflow :hidden
+      :box-shadow "0 4px 18px 0 rgba(0,0,0,0.6)"}]
+
+    [:.whats-new-header
+     {:padding "18px 22px"
+      :background "#2c3445"
+      :border-bottom "1px solid rgba(255,255,255,0.15)"}]
+
+    [:.whats-new-eyebrow
+     {:color orange
+      :font-size "12px"
+      :font-weight :bold
+      :letter-spacing "1px"
+      :text-transform :uppercase}]
+
+    [:.whats-new-title
+     {:font-size "24px"
+      :font-weight :bold
+      :color :white}]
+
+    [:.whats-new-subtitle
+     {:font-size "14px"
+      :color muted-on-dark
+      :margin-top "6px"}]
+
+    [:.whats-new-close
+     ;; A real <button> now (keyboard-focusable, with button semantics), so this
+     ;; also strips the UA chrome (background/border/appearance) a button carries
+     ;; by default -- the icon glyph itself still comes from .fa's own font-family,
+     ;; untouched here.
+     {:font-size "20px"
+      :color muted-on-dark
+      :cursor :pointer
+      :padding "4px 6px"
+      :background :none
+      :border :none
+      :appearance :none}
+     [:&:hover
+      {:color :white}]
+     [:&:focus-visible
+      {:outline (str "2px solid " orange)
+       :outline-offset "2px"}]]
+
+    [:.whats-new-body
+     ;; The inset shadow sits on the padding box, so it stays at the bottom edge
+     ;; while the list scrolls under it — the cue that there is more below.
+     {:padding "6px 22px 4px"
+      :overflow-y :auto
+      :flex 1
+      :box-shadow "inset 0 -14px 12px -12px rgba(0,0,0,0.55)"}]
+
+    ;; A group heading separates the sections; inside one, the item borders do it.
+    [:.whats-new-group-title
+     {:color orange
+      :font-size "11px"
+      :font-weight :bold
+      :letter-spacing "1.2px"
+      :text-transform :uppercase
+      :padding "18px 0 2px"
+      :margin-top "6px"
+      :border-top "1px solid rgba(255,255,255,0.12)"}]
+
+    [:.whats-new-group
+     [:&:first-child
+      [:.whats-new-group-title
+       {:border-top :none
+        :margin-top 0
+        :padding-top "12px"}]]]
+
+    [:.whats-new-item
+     {:display :flex
+      :align-items :flex-start
+      :padding "14px 0"
+      :border-bottom "1px solid rgba(255,255,255,0.08)"}
+     [:&:last-child
+      {:border-bottom :none}]]
+
+    [:.whats-new-item-icon
+     {:color orange
+      :font-size "18px"
+      :width "24px"
+      :margin-right "14px"
+      :margin-top "2px"
+      :text-align :center
+      :flex-shrink 0}]
+
+    [:.whats-new-item-headline
+     {:font-size "16px"
+      :font-weight :bold
+      :color :white}]
+
+    [:.whats-new-item-detail
+     {:font-size "14px"
+      :line-height "1.45"
+      :color muted-on-dark
+      :margin-top "3px"}]
+
+    [:.whats-new-footer
+     {:padding "14px 22px"
+      :border-top "1px solid rgba(255,255,255,0.15)"
+      :display :flex
+      :align-items :center
+      :justify-content :space-between}]
+
+    [:.whats-new-version
+     {:font-size "12px"
+      :color muted-on-dark}]
+
     ;; A required builder field left empty when a save was attempted. Same amber
     ;; cue as the export modal's unfilled dropdowns, for consistency.
     [:.builder-field-unfilled
@@ -1665,13 +3540,484 @@
       :font-size "11px"
       :text-decoration :underline
       :cursor :pointer
-      :margin-left "4px"}]];concat-bracket
+      :margin-left "4px"}]
+
+    ;; ── Export busy page ────────────────────────────────────────────────────
+    ;; Where a sheet export lands when every export slot is busy. Served into the
+    ;; download tab without the builder's markup or scripts, so it restates the #app
+    ;; gradient and #1a1e28 panel instead of reusing layout classes.
+    [:.busy-body
+     {:margin 0
+      :min-height "100vh"
+      :background-color "#080A0D"
+      :background-image "linear-gradient(182deg, #313A4D, #080A0D)"
+      :background-attachment :fixed}]
+
+    [:.busy-wrap
+     {:display :flex
+      :justify-content :center
+      :padding "56px 20px"}]
+
+    [:.busy-card
+     {:max-width "560px"
+      :width "100%"
+      :background-color "#1a1e28"
+      :border-radius "5px"
+      :padding "32px 36px"
+      :box-shadow "0 2px 16px rgba(0,0,0,0.45)"}
+     [:h1
+      (merge text-color
+             {:margin "0 0 14px"
+              :font-size "24px"
+              :font-weight 600})]
+     [:p
+      {:margin "0 0 16px"
+       :font-size "16px"
+       :line-height "1.6"
+       :color "rgba(255,255,255,0.7)"}]
+     ;; The countdown is the one line that changes while the page waits, so it
+     ;; sits at full strength against the muted text around it.
+     [:.busy-countdown
+      (merge text-color
+             {:font-weight 600
+              :font-variant-numeric :tabular-nums})]]
+
+    ;; ----- compact "Add item" popover (character-builder/inventory-picker) -----
+    ;; Self-contained: no theme tokens or CSS custom properties. Width-capped but never
+    ;; wider than the viewport; the list scrolls rather than growing the page.
+    [:.inv-picker {:position :relative
+                   :margin "6px 0 10px"}]
+
+    [:.inv-picker-btn
+     {:background "rgba(255,255,255,0.06)"
+      :border "1px solid rgba(255,255,255,0.18)"
+      :border-radius "4px"
+      :color "#f0a100"
+      :cursor :pointer
+      :font-size "14px"
+      :font-weight 600
+      :padding "7px 14px"}]
+
+    [:.inv-picker-backdrop
+     {:position :fixed
+      :top 0 :left 0 :right 0 :bottom 0
+      :z-index 40}]
+
+    [:.inv-picker-pop
+     {:position :absolute
+      :z-index 41
+      :top "calc(100% + 4px)"
+      :left 0
+      :width "320px"
+      :max-width "calc(100vw - 32px)"
+      :background "#1a2430"
+      :border "1px solid rgba(255,255,255,0.22)"
+      :border-radius "5px"
+      :box-shadow "0 8px 24px rgba(0,0,0,0.55)"
+      :padding "8px"}]
+
+    [:.inv-picker-search
+     {:width "100%"
+      :box-sizing :border-box
+      :background "rgba(0,0,0,0.35)"
+      :border "1px solid rgba(255,255,255,0.2)"
+      :border-radius "3px"
+      :color "#fff"
+      :font-size "14px"
+      :padding "8px 10px"
+      :margin-bottom "6px"}]
+
+    [:.inv-picker-list
+     {:max-height "280px"
+      :overflow-y :auto}]
+
+    [:.inv-picker-row
+     {:padding "8px 10px"
+      :border-radius "3px"
+      :color "rgba(255,255,255,0.88)"
+      :cursor :pointer
+      :font-size "14px"
+      :transition "background-color 90ms ease, box-shadow 90ms ease"}
+     [:&:hover {:background "rgba(240,161,0,0.18)"
+                :color "#fff"}]]
+
+    [:.inv-picker-empty
+     {:padding "10px"
+      :color "rgba(255,255,255,0.5)"
+      :font-size "13px"
+      :font-style :italic}]
+
+    [:.inv-picker-more
+     {:padding "8px 10px 2px"
+      :color "rgba(255,255,255,0.45)"
+      :font-size "12px"
+      :border-top "1px solid rgba(255,255,255,0.1)"
+      :margin-top "4px"}]
+
+    ;; ----- native filtering dropdown (character-builder/inventory-datalist) -----
+    ;; Only the INPUT is styleable. The suggestion list is a browser-drawn popup and
+    ;; ignores page CSS -- that is the trade against the custom popover above.
+    [:.inv-datalist {:margin "6px 0 10px"}]
+
+    [:.inv-datalist-input
+     {:width "100%"
+      :max-width "340px"
+      :box-sizing :border-box
+      :background "rgba(0,0,0,0.35)"
+      :border "1px solid rgba(255,255,255,0.22)"
+      :border-radius "4px"
+      :color "#fff"
+      :font-size "14px"
+      :padding "9px 12px"}]
+
+    ;; ----- filter-and-pick combobox on the native Popover API -----
+    ;; The popover element gets the browser's top layer, light dismiss and Escape handling;
+    ;; none of that is implemented here. Anchor positioning pins it under its input, and
+    ;; where unsupported the popover still opens (centred) rather than breaking.
+    [:.inv-combo {:margin "6px 0 10px"}]
+
+    [:.inv-combo-input
+     {:width "100%"
+      :max-width "340px"
+      :box-sizing :border-box
+      :background "rgba(0,0,0,0.35)"
+      :border "1px solid rgba(255,255,255,0.22)"
+      :border-radius "4px"
+      :color "#fff"
+      :font-size "14px"
+      :padding "9px 12px"}]
+
+    [:.inv-combo-pop
+     {:position :absolute
+      ;; content-box here made the dropdown 14px wider than its input (6px padding + 1px
+      ;; border each side), which anchor-size() alone does not correct.
+      :box-sizing :border-box
+      :position-area "bottom span-right"
+      ;; Flip above the input when there is no room below, instead of running off-screen.
+      :position-try-fallbacks "flip-block"
+      :margin "4px 0 0 0"
+      :width "320px"
+      :max-width "calc(100vw - 32px)"
+      ;; Depth, in the order light would build it: a hairline top highlight so the panel
+      ;; catches light from above, a tight contact shadow, then a wide soft one. A single
+      ;; flat shadow on a flat fill is what made this look pasted on.
+      :background "linear-gradient(180deg, #1f2b39 0%, #151f2a 100%)"
+      :border "1px solid rgba(255,255,255,0.16)"
+      :border-radius "6px"
+      :box-shadow (str "inset 0 1px 0 rgba(255,255,255,0.09), "
+                       "0 2px 6px rgba(0,0,0,0.45), "
+                       "0 14px 34px rgba(0,0,0,0.55)")
+      :padding "6px"
+      :inset :auto}]
+
+    ;; Entry animation. 120 ms is under the threshold where a menu starts to feel slow, and
+    ;; the 4px rise reads as the panel arriving from its input rather than blinking on.
+    [:.inv-combo-pop:popover-open
+     {:animation "inv-combo-in 120ms cubic-bezier(0.2, 0, 0.2, 1)"}]
+
+    ;; Separate rule, not a second :width in the map above -- duplicate keys are illegal in a
+    ;; Clojure map literal. 320px above is the fallback for engines without anchor-size();
+    ;; where this resolves the dropdown matches its input the way a native picker does.
+    [:.inv-combo-pop {:width "anchor-size(width)"}]
+
+    ;; Keep the dropdown short enough to sit below its input in the common case -- at 300px
+    ;; it did not fit and flip-block kept throwing it up over the page header.
+    [:.inv-combo-list
+     {;; The default scrollbar is a wide light slab against a dark panel -- a large part of
+      ;; why this read as cheap. Thin and themed, track left transparent.
+      :scrollbar-width "thin"
+      :scrollbar-color "rgba(240,161,0,0.45) transparent"
+      :max-height "230px"
+      :overflow-y :auto}]
+
+    [:.inv-combo-row
+     {:padding "9px 10px"
+      :border-radius "3px"
+      :color "rgba(255,255,255,0.88)"
+      :cursor :pointer
+      :font-size "14px"}
+     ;; inset box-shadow rather than a border-left: an accent bar that costs no layout, so
+     ;; the text does not jump sideways on hover.
+     [:&:hover {:background "rgba(240,161,0,0.16)"
+                :color "#fff"
+                :box-shadow "inset 3px 0 0 rgba(240,161,0,0.75)"}]
+     ;; Keyboard highlight. Stronger than :hover so the two are distinguishable when the
+     ;; pointer happens to rest on a different row than the arrow keys are on.
+     [:&.active {:background "rgba(240,161,0,0.28)"
+                 :color "#fff"
+                 :box-shadow "inset 3px 0 0 #f0a100"}]]
+
+    ;; The matched substring. Colour plus weight, so it still reads if the row is highlighted.
+    [:.inv-combo-hit {:color "#f0a100" :font-weight :bold}]
+
+    ;; Count and key hints. The arrow-key navigation is invisible otherwise.
+    [:.inv-combo-hint
+     {:display :flex
+      :justify-content :space-between
+      :align-items :center
+      :gap "10px"
+      :padding "7px 10px 2px"
+      :margin-top "4px"
+      :border-top "1px solid rgba(255,255,255,0.1)"
+      :color "rgba(255,255,255,0.45)"
+      :font-size "11px"}]
+
+    [:.inv-combo-keys {:white-space :nowrap :letter-spacing "0.02em"}]
+
+    [:.inv-combo-empty
+     {:padding "10px" :color "rgba(255,255,255,0.5)" :font-size "13px" :font-style :italic}]
+
+    [:.inv-combo-more
+     {:padding "8px 10px 2px"
+      :color "rgba(255,255,255,0.45)"
+      :font-size "12px"
+      :border-top "1px solid rgba(255,255,255,0.1)"
+      :margin-top "4px"}]
+
+    (at-keyframes
+     "inv-combo-in"
+     [:from {:opacity 0 :transform "translateY(-4px)"}]
+     [:to   {:opacity 1 :transform "translateY(0)"}])
+
+    ;; Motion is decoration here; the control works identically without it.
+    (at-media
+     {:prefers-reduced-motion :reduce}
+     [:.inv-combo-pop:popover-open {:animation :none}]
+     [:.inv-combo-row {:transition :none}])
+
+
+    ;; ── Harvested from refactor/garden-inline-styles ─────────────────────────
+    ;; Classes lifted here rather than merging that branch. Call sites that used
+    ;; these as inline :style maps are converted separately, against integration's
+    ;; current views.cljs. See garden-inline-styles-harvest.md.
+
+    [:.character-display
+     {:padding "20px 5px"
+      :background-color "rgba(0,0,0,0.15)"}]
+
+    [:.close-btn-posn
+     {:right "8px"
+      :top "8px"}]
+
+    [:.close-button
+     {:position "fixed"
+      :top "20px"
+      :right "40px"}]
+
+    [:.close-icon
+     {:top 0
+      :right 0
+      :padding "17px"}]
+
+    [:.columns-2
+     (handle-browsers :column-count 2)]
+
+    [:.columns-3
+     (handle-browsers :column-count 3)]
+
+    [:.debug-textarea
+     {:width "400px"
+      :height "450px"}]
+
+    [:.error-warning-box
+     {:background-color "rgba(255,0,0,0.1)"
+      :border "1px solid red"
+      :border-radius "4px"}]
+
+    [:.expanded-spell-background
+     {:background-color "rgba(0,0,0,0.1)"}]
+
+    [:.folder-dropdown
+     {:width :auto
+      :align-self :stretch
+      :box-sizing :border-box}]
+
+    [:.form-input-base
+     {:height "38px"
+      :border-style "solid"
+      :border-width "1px"
+      :border-radius "3px"
+      :font-size "14px"
+      :padding-left "10px"
+      :color "#484848"}]
+
+    [:.form-input-default
+     {:height "38px"
+      :border-style "solid"
+      :border-width "1px"
+      :border-radius "3px"
+      :font-size "14px"
+      :padding-left "10px"
+      :color "#484848"
+      :border-color "rgba(72,72,72,0.37)"}]
+
+    [:.form-submit-btn
+     {:height "40px"
+      :width "174px"
+      :font-size "16px"
+      :font-weight "600"}]
+
+    [:.fullscreen-overlay
+     {:top 0
+      :left 0
+      :right 0
+      :bottom 0
+      :z-index 100}]
+
+    [:.h-16
+    {:height "16px"}]
+
+    [:.h-42
+    {:height "42px"}]
+
+    [:.header-bar-item
+     {:display :flex
+      :align-items "stretch"}]
+
+    [:.header-bar-row
+     {:align-items :stretch}]
+
+    [:.header-controls
+     {:border-left "1px solid rgba(255,255,255,0.15)"
+      :padding-left "12px"
+      :margin-left :auto
+      :gap "4px"}]
+
+    [:.header-menu-dropdown
+     {:position :absolute
+      :background-color "#2c3445"
+      :z-index 10000
+      :top (px 84)
+      :right 0}]
+
+    [:.header-menu-dropdown-mobile
+     {:position :absolute
+      :background-color "#2c3445"
+      :z-index 10000
+      :top (px 46)
+      :right 0}]
+
+    [:.header-tab-active
+     {:background-color "rgba(240, 161, 0, 0.7)"}]
+
+    [:.highlight-spell-slot-row
+     {:background-color "rgba(255,255,255,0.3)"}]
+
+    [:.input-error
+     {:border "2px solid red"}]
+
+    [:.loading-overlay
+     {:position "fixed"
+      :height "100%"
+      :width "100%"
+      :top 0
+      :bottom 0
+      :right 0
+      :left 0
+      :z-index 100
+      :background-color "rgba(0,0,0,0.6)"}]
+
+    [:.login-menu
+     {:background-color :transparent
+      :border-radius "5px"
+      :transition "background-color 150ms ease"}
+     [:&:hover {:background-color "rgba(255,255,255,0.08)"}]]
+
+    [:.notes-textarea
+     {:height "400px"
+      :width "100%"}]
+
+    [:.oracle-frame
+     {:overflow-y "scroll"
+      :position "fixed"
+      :z-index 1
+      :background-color "rgba(0,0,0,0.95)"
+      :top 0
+      :left 0
+      :right 0
+      :bottom 0}]
+
+    [:.orcacle-icon
+     {:filter "drop-shadow(0 0 4px rgba(240,161,0,0.6)) drop-shadow(0 0 12px rgba(240,161,0,0.3))"}]
+
+    [:.orcacle-input
+     {:height "60px"
+      :margin-top "0px"
+      :border :none
+      :font-size "28px"
+      :background-color "rgba(255,255,255,0.1)"
+      :color :white}]
+
+    [:.print-disabled
+     {:opacity 0.5
+      :cursor :not-allowed
+      :pointer-events "none"}]
+
+    [:.registration-header
+     {:height "65px"
+      :background-color auth-banner-ground
+      :border-right "1px solid white"}]
+
+    [:.registration-left-col
+     {:flex-direction :column
+      :width "435px"}]
+
+    [:.search-input
+     {:height "60px"
+      :margin-top "0px"
+      :border :none
+      :font-size "28px"
+      :background-color :transparent
+      :color :white}]
+
+    [:.search-input-parent
+     {:background-color :transparent
+      :border-radius "5px"
+      :transition "background-color 150ms ease"}
+     [:&:hover {:background-color "rgba(255,255,255,0.08)"}]]
+
+    [:.social-icon
+     {:color :white
+      :font-size "20px"}]
+
+    [:.svg-bar-stroke
+     {:stroke-width 5
+      :stroke "#f0a100"
+      :opacity "0.8"}]
+
+    [:.svg-icon-inline
+     {:vertical-align "middle"
+      :fill "currentColor"}]
+
+    [:.svg-stroke
+     {:stroke-width 1}]
+
+    [:.text-color-dark
+     {:color "#484848"}]
+
+    [:.user-menu
+     {:background-color "#2c3445"
+      :z-index 10000
+      :position :absolute
+      :right 0
+      :display :none}]
+
+    [:.z-1 {:z-index 1}]
+
+    [:.z-200 {:z-index 200}]
+
+];concat-bracket
+   artist-pages
    margin-lefts
    margin-tops
+   min-widths
    widths
    font-sizes
    props
-   media-queries) ;concat
+   weapons/weapons
+   media-queries
+   ;; last: the portrait rules win ties with the rules above
+   portrait/styles) ;concat
 );def app
 
 

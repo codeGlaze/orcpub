@@ -3,7 +3,8 @@
    pdf_spec.cljc no longer has any re-frame subscribes,
    so all helpers are testable on JVM."
   (:require [clojure.test :refer [deftest testing is]]
-            [orcpub.pdf-spec :as pdf]))
+            [orcpub.pdf-spec :as pdf]
+            [orcpub.dnd.e5.magic-items :as mi]))
 
 ;; -- class-string --
 
@@ -107,3 +108,81 @@
     (let [result (pdf/trait-string "Darkvision" 42)]
       (is (string? result))
       (is (.contains result "Darkvision")))))
+
+;; -- captured-bytes --
+
+(def ^:private captured
+  "The private helper that turns what the browser managed to read into what the
+   export actually carries."
+  #'pdf/captured-bytes)
+
+(deftest bytes-the-browser-read-are-carried
+  (is (= "AAAA"
+         (captured {"http://host/portrait.png" {:mime "image/png" :data "AAAA"}}
+                   "http://host/portrait.png"))))
+
+(deftest a-capture-that-produced-no-bytes-carries-nothing
+  (testing "still running"
+    (is (nil? (captured {"u" :pending} "u"))))
+  (testing "refused by the host"
+    ;; Both are states rather than payloads, and both have to read as nil so the
+    ;; server falls back to fetching the address itself.
+    (is (nil? (captured {"u" :unavailable} "u")))))
+
+(deftest a-url-nobody-read-carries-nothing
+  (is (nil? (captured {} "u")))
+  (is (nil? (captured nil "u")))
+  (is (nil? (captured {"other" {:data "AAAA"}} "u"))))
+
+;; -- weapon-entries --
+
+(defn entry
+  "The one PDF entry for the weapon with this key."
+  [k attack-bonus damage-modifier]
+  (first (pdf/weapon-entries (mi/all-weapons-map k) attack-bonus damage-modifier)))
+
+(deftest weapon-entries-carry-versatile-as-a-bullet
+  (is (= {:name "Longsword" :attack-bonus 5 :damage "1d8+3 slashing" :bullets ["versatile 1d10+3"]}
+         (entry :longsword 5 3))))
+
+(deftest weapon-entries-without-variants-have-no-bullets
+  (is (= [] (:bullets (entry :greatsword 5 3)))))
+
+(deftest weapon-entries-use-the-magic-damage-type
+  (is (= "1d8+4 radiant" (:damage (entry :sun-blade-longsword 6 4)))))
+
+(deftest weapon-entries-list-each-extra-as-a-bullet
+  (is (= ["versatile 1d10+5" "+2d10 radiant vs fiends and undead"]
+         (:bullets (entry :holy-avenger-longsword 7 5))))
+  (is (= ["+2d6 slashing vs giants" "DC 15 Str or prone, vs giants"]
+         (:bullets (entry :giant-slayer-greataxe 6 4)))))
+
+;; -- sheet-weapon-names --
+
+(deftest magic-weapons-print-their-own-name
+  (is (= ["Flame Tongue" "Holy Avenger" "Longsword"]
+         (pdf/sheet-weapon-names (map mi/all-weapons-map [:flame-tongue-longsword :holy-avenger-longsword :longsword])))))
+
+(deftest two-of-the-same-item-keep-their-full-names
+  (is (= ["Flame Tongue, Longsword" "Flame Tongue, Greatsword" "Frost Brand"]
+         (pdf/sheet-weapon-names (map mi/all-weapons-map [:flame-tongue-longsword :flame-tongue-greatsword
+                                                          :frost-brand-rapier])))))
+
+;; -- weapon-sheet-fields --
+
+(deftest the-first-three-fill-the-rows-and-their-variants-follow
+  (let [e (fn [nm & bullets] {:name nm :attack-bonus 4 :damage "1d8+2 slashing" :bullets (vec bullets)})
+        {:keys [rows lines]} (pdf/weapon-sheet-fields
+                              [(e "Dagger") (e "Longsword" "versatile 1d10+2")
+                               (e "Flame Tongue" "versatile 1d10+2" "+2d6 fire while Ablaze")
+                               (e "Holy Avenger" "+2d10 radiant vs fiends and undead") (e "Club")])]
+    (is (= ["Dagger" "Longsword" "Flame Tongue"] (map :name rows)))
+    (is (= ["Longsword"
+            "  \u2022 versatile 1d10+2"
+            "Flame Tongue"
+            "  \u2022 versatile 1d10+2"
+            "  \u2022 +2d6 fire while Ablaze"
+            "Holy Avenger. +4, 1d8+2 slashing"
+            "  \u2022 +2d10 radiant vs fiends and undead"
+            "Club. +4, 1d8+2 slashing"]
+           lines))))

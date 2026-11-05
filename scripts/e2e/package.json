@@ -1,0 +1,11 @@
+{
+  "name": "orcpub-e2e",
+  "private": true,
+  "description": "Browser end-to-end checks. Chromium is expected to be already present; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 keeps npm from fetching another copy.",
+  "scripts": {
+    "test": "node run.js"
+  },
+  "dependencies": {
+    "playwright": "^1.62.0"
+  }
+}

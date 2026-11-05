@@ -1,32 +1,117 @@
 (ns orcpub.test-runner
   (:require [cljs.test :refer-macros [run-tests]]
+            [re-frame.core :as rf]
             ;; .cljc tests (run on both JVM and CLJS)
             [orcpub.common-test]
+            [orcpub.hardened-helpers-test]
+            [orcpub.dnd.e5.homebrew-guard-test]
             [orcpub.dnd.e5.event-utils-test]
             [orcpub.dnd.e5.compute-test]
             [orcpub.dnd.e5.hunter-evasion-test]
+            [orcpub.dnd.e5.picks-test]
+            ;; The spell page packer and row annotations run in the browser --
+            ;; the builder decides the layout -- so their tests run here too.
+            [orcpub.dnd.e5.portrait-layout-test]
+            ;; the artist pages' examples are drawn on the server and captioned here
+            [orcpub.dnd.e5.artist-profile-test]
+            [orcpub.dnd.e5.artist-page-credits-test]
+            [orcpub.components-checkbox-test]
+            [orcpub.dnd.e5.portrait-colorize-test]
+            [orcpub.dnd.e5.portrait-effects-test]
+            [orcpub.dnd.e5.portrait-face-test]
+            [orcpub.dnd.e5.portrait-light-test]
+            [orcpub.artist-links-test]
+            [orcpub.dnd.e5.spell-packing-test]
+            [orcpub.registration-test]
+            [orcpub.image-url-test]
+            [orcpub.whats-new-test]
+            ;; layout follows the window width, not just the device
+            [orcpub.user-agent-test]
+            [orcpub.dnd.e5.spell-annotations-test]
             ;; CLJS-only re-frame integration tests (events-test now also holds
             ;; the toggle-corruption stress harness)
             [orcpub.dnd.e5.events-test]
             [orcpub.dnd.e5.subs-test]
+            [orcpub.dnd.e5.equipment-subs-test]
+            [orcpub.dnd.e5.filtered-list-reactivity-test]
+            [orcpub.dnd.e5.built-character-debounce-test]
             [orcpub.dnd.e5.content-reconciliation-test]
+            ;; the save/key lifecycle: save twice, rename, restore a draft, land on a taken key
+            [orcpub.dnd.e5.homebrew-save-lifecycle-test]
+            [orcpub.dnd.e5.ability-increase-grant-cljs-test]
+            [orcpub.dnd.e5.plan-picks-test]
+            [orcpub.dnd.e5.coverage-pak-test]
+            [orcpub.dnd.e5.junk-pack-test]
+            [orcpub.dnd.e5.homebrew-interceptor-test]
+            [orcpub.dnd.e5.containment-test]
+            [orcpub.dnd.e5.reference-web-test]
             [orcpub.dnd.e5.views-test]
+            [orcpub.dnd.e5.portrait-credit-thumb-test]
+            [orcpub.dnd.e5.portrait-artists-arrive-test]
+            [orcpub.art-mark-test]
+            [orcpub.dnd.e5.portrait-save-test]
+            [orcpub.dnd.e5.portrait-whites-test]
+            [orcpub.character-builder-test]
             ;; storage layer (resilient loader read path)
             [orcpub.dnd.e5.db-test]
             ;; orcbrew import/export validation
-            [orcpub.dnd.e5.orcbrew-validation-test]))
+            [orcpub.dnd.e5.orcbrew-validation-test]
+            ;; encrypted share snapshots use Web Crypto, so they run only here
+            [orcpub.dnd.e5.share-url-test]
+            [orcpub.dnd.e5.charges-builder-test]))
+
+
+;; Building the character template starts a watcher that recomputes it on every app-db change and
+;; dispatches into whichever test runs next. Tests that need the request capture it (events-test
+;; effects-of), which overrides this.
+(rf/reg-fx :orcpub.dnd.e5.autosave-fx/ensure-template-cache (fn [_]))
 
 (defn -main []
   (run-tests 'orcpub.common-test
+             'orcpub.hardened-helpers-test
+   'orcpub.dnd.e5.homebrew-guard-test
              'orcpub.dnd.e5.event-utils-test
              'orcpub.dnd.e5.compute-test
              'orcpub.dnd.e5.hunter-evasion-test
+             'orcpub.dnd.e5.portrait-layout-test
+             'orcpub.dnd.e5.artist-profile-test
+             'orcpub.dnd.e5.artist-page-credits-test
+             'orcpub.components-checkbox-test
+             'orcpub.dnd.e5.portrait-colorize-test
+             'orcpub.dnd.e5.portrait-effects-test 'orcpub.dnd.e5.portrait-face-test 'orcpub.dnd.e5.portrait-light-test
+             'orcpub.artist-links-test
+             'orcpub.registration-test
+             'orcpub.dnd.e5.picks-test
+             'orcpub.dnd.e5.spell-packing-test
+             'orcpub.image-url-test
+             'orcpub.whats-new-test
+             'orcpub.user-agent-test
+             'orcpub.dnd.e5.spell-annotations-test
              'orcpub.dnd.e5.events-test
              'orcpub.dnd.e5.subs-test
+             'orcpub.dnd.e5.equipment-subs-test
+             'orcpub.dnd.e5.filtered-list-reactivity-test
+             'orcpub.dnd.e5.built-character-debounce-test
              'orcpub.dnd.e5.content-reconciliation-test
+             'orcpub.dnd.e5.homebrew-save-lifecycle-test
+             'orcpub.dnd.e5.ability-increase-grant-cljs-test
+             'orcpub.dnd.e5.plan-picks-test
+             'orcpub.dnd.e5.coverage-pak-test
+             'orcpub.dnd.e5.junk-pack-test
+             'orcpub.dnd.e5.homebrew-interceptor-test
+             'orcpub.dnd.e5.containment-test
+             'orcpub.dnd.e5.reference-web-test
              'orcpub.dnd.e5.views-test
+             'orcpub.dnd.e5.portrait-credit-thumb-test
+             'orcpub.dnd.e5.portrait-artists-arrive-test
+             'orcpub.art-mark-test
+             'orcpub.dnd.e5.portrait-save-test
+             'orcpub.dnd.e5.portrait-whites-test
+             'orcpub.character-builder-test
              'orcpub.dnd.e5.db-test
-             'orcpub.dnd.e5.orcbrew-validation-test))
+             'orcpub.dnd.e5.orcbrew-validation-test
+             'orcpub.dnd.e5.share-url-test
+             'orcpub.dnd.e5.charges-builder-test))
 
 ;; Auto-run when figwheel reloads
 (defn ^:after-load on-reload []

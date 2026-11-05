@@ -1,0 +1,218 @@
+// Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
+// Browser-driven e2e for the header dropdown menus.
+//
+// Drives the REAL app against `lein e2e-server` on :8890.
+//
+// WHAT IT PINS: every item in every header flyout is not just visible but
+// HITTABLE. A flyout that renders under the sticky button row looks fine in a
+// screenshot and cannot be clicked, so visibility alone is not the check —
+// document.elementFromPoint at each item's centre has to come back as that item.
+//
+// Run at three window heights. My Content is the tall one — eleven rows — and it
+// ran off the bottom of a 720-tall window with its last two items unreachable: a
+// hover menu closes the moment you move the pointer away to the page scrollbar,
+// so anything past the fold is simply gone. Each row is scrolled into view INSIDE
+// its menu before the hit test, which is what a user's wheel does over an open
+// menu, and the count of rows tested has to match the count in the DOM so a
+// skipped row cannot pass as a clean menu.
+//
+// The shortest window runs a second time with the import-log button showing. It
+// sits in the corner a tall menu reaches, and it used to draw over the menu's
+// last items; it is only on the page while there is an import log, so a first
+// pass alone cannot see it.
+//
+// Prerequisites:
+//   lein fig:build
+//   lein garden once
+//   lein e2e-server        (port 8890 free)
+// Run:  node test/browser/header_menus_e2e.js
+// Exit code 0 = all checks passed.
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { chromium } = require('playwright');
+const { findChrome } = require('./lib/find-chrome');
+const { suppressCookieBanner } = require('./lib/orcbrew-import');
+
+const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
+const OUT = process.env.ORCPUB_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'header-menus-'));
+
+// A tall desktop, the commonest laptop, and a short window. The bug only shows
+// itself below ~800px of height.
+const VIEWPORTS = [
+  { width: 1280, height: 900 },
+  { width: 1366, height: 720 },
+  { width: 1280, height: 620 },
+];
+
+// Two spells and a broken entry (text where an entry should be): a partial import,
+// which leaves a log.
+const PARTIAL_PACK = '{:orcpub.dnd.e5/spells {:valid-spell {:option-pack "Header Menus Probe" :name "Valid Spell"} '
+  + ':invalid-spell "not an entry" :another-valid {:option-pack "Header Menus Probe" :name "Another Valid"}}}';
+
+const results = [];
+let desktopTabCount = null; // the first pass's menu count, which the phones must match
+const check = (name, ok, detail = '') => {
+  results.push({ name, ok });
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
+};
+
+(async () => {
+  const browser = await chromium.launch({
+    executablePath: findChrome(),
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+  });
+  const ctx = await browser.newContext({ viewport: VIEWPORTS[0] });
+  await suppressCookieBanner(ctx);
+  const page = await ctx.newPage();
+
+  await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#app-main', { timeout: 30000 });
+  await page.waitForTimeout(1500);
+
+  async function testMenus(page, label) {
+    const tabs = page.locator('.header-tab:has(.header-flyout)');
+    const tabCount = await tabs.count();
+    check(`${label}: the header has flyout menus to test`, tabCount > 0, `${tabCount} tabs`);
+    if (desktopTabCount === null) desktopTabCount = tabCount;
+
+    for (let i = 0; i < tabCount; i++) {
+      const tab = tabs.nth(i);
+      const name = ((await tab.locator('.title').first().innerText().catch(() => '')) || `tab ${i}`).trim();
+      const t0 = Date.now();
+      await tab.hover();
+      const flyout = tab.locator('.header-flyout');
+      await flyout.waitFor({ state: 'visible', timeout: 3000 });
+      await page.waitForTimeout(120); // fit-flyout! measures in a frame
+
+      const rows = flyout.locator(':scope > *');
+      const rowCount = await rows.count();
+      const blocked = [];
+      let tested = 0;
+      const scrollYBefore = await page.evaluate(() => window.scrollY);
+      for (let j = 0; j < rowCount; j++) {
+        const row = rows.nth(j);
+        // Scroll INSIDE the menu only — what a wheel over an open menu does when the
+        // menu can scroll. scrollIntoView would scroll the PAGE instead, which no
+        // user can do here (the pointer leaves the menu and it closes), and that
+        // made an earlier version of this probe pass against the unfixed build.
+        await flyout.evaluate((f, j) => {
+          const el = f.children[j];
+          if (!el) return;
+          f.scrollTop = Math.max(0, el.offsetTop - (f.clientHeight - el.offsetHeight) / 2);
+        }, j);
+        const box = await row.boundingBox();
+        if (!box) { blocked.push(`row ${j} has no box`); continue; }
+        const x = Math.round(box.x + box.width / 2);
+        const y = Math.round(box.y + box.height / 2);
+        const covered = await page.evaluate(([x, y]) => {
+          if (y < 0 || y > window.innerHeight) return 'off the bottom of the window';
+          const el = document.elementFromPoint(x, y);
+          if (!el) return 'nothing at that point';
+          return el.closest('.header-flyout') ? null : (el.className || el.tagName);
+        }, [x, y]);
+        tested++;
+        if (covered) {
+          const text = ((await row.innerText().catch(() => '')) || `row ${j}`).replace(/\n/g, ' ').trim();
+          blocked.push(`${text} (${covered})`);
+        }
+      }
+      const scrolled = (await page.evaluate(() => window.scrollY)) !== scrollYBefore;
+      if (scrolled) blocked.push('the PAGE scrolled — the menu was not what moved');
+      check(`${label}: every item in "${name}" is reachable (${tested}/${rowCount})`,
+            blocked.length === 0 && tested === rowCount,
+            blocked.length ? blocked.slice(0, 3).join(' | ') : `${Date.now() - t0} ms`);
+    }
+  }
+
+  await testMenus(page, `${VIEWPORTS[0].height}px`);
+  await page.screenshot({ path: path.join(OUT, '1-menu-open.png') });
+
+  // Scrolled down, the button row is stuck to the top of the viewport — the state
+  // the screenshot in the bug report was taken in.
+  await page.mouse.wheel(0, 600);
+  await page.waitForTimeout(600);
+  await page.mouse.wheel(0, -600);
+  await page.waitForTimeout(600);
+  const lastTab = page.locator('.header-tab:has(.header-flyout)').last();
+  await lastTab.hover();
+  await lastTab.locator('.header-flyout').waitFor({ state: 'visible', timeout: 3000 });
+  const firstItem = lastTab.locator('.header-flyout a, .header-flyout div').first();
+  const b = await firstItem.boundingBox();
+  const coveredAfterScroll = await page.evaluate(([x, y]) => {
+    const el = document.elementFromPoint(x, y);
+    return el && el.closest('.header-flyout') ? null : (el ? (el.className || el.tagName) : 'nothing');
+  }, [Math.round(b.x + b.width / 2), Math.round(b.y + b.height / 2)]);
+  check('menus still open over a stuck button row', !coveredAfterScroll, String(coveredAfterScroll));
+  await page.screenshot({ path: path.join(OUT, '2-menu-over-stuck-header.png') });
+  await ctx.close();
+
+  // The shorter windows, where a tall menu runs past the bottom of the screen.
+  for (const vp of VIEWPORTS.slice(1)) {
+    const short = await browser.newContext({ viewport: vp });
+    await suppressCookieBanner(short);
+    const shortPage = await short.newPage();
+    await shortPage.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
+    await shortPage.waitForSelector('#app-main', { timeout: 30000 });
+    await shortPage.waitForTimeout(1500);
+    await testMenus(shortPage, `${vp.height}px`);
+    await shortPage.screenshot({ path: path.join(OUT, `3-menus-at-${vp.height}.png`) });
+
+    if (vp === VIEWPORTS[VIEWPORTS.length - 1]) {
+      await shortPage.evaluate(([name, text]) => re_frame.core.dispatch_sync(
+        cljs.core.conj(cljs.core.conj(cljs.reader.read_string('[:orcpub.dnd.e5/import-plugin]'), name), text)),
+        ['Header Menus Probe', PARTIAL_PACK]);
+      await shortPage.waitForTimeout(600);
+      // the import opens the log panel and a notice; neither is what's under test
+      await shortPage.evaluate(() => {
+        re_frame.core.dispatch_sync(cljs.reader.read_string('[:close-import-log-panel]'));
+        re_frame.core.dispatch_sync(cljs.reader.read_string('[:hide-message]'));
+      });
+      await shortPage.waitForTimeout(300);
+      check(`${vp.height}px: the import-log button is on the page for the second pass`,
+            await shortPage.locator('.import-log-button').isVisible());
+      await testMenus(shortPage, `${vp.height}px with the import-log button`);
+      await shortPage.screenshot({ path: path.join(OUT, `4-menus-with-import-log-button.png`) });
+    }
+    await short.close();
+  }
+
+  // Phones: every tab, and each menu, sits inside the screen. Each menu is opened by focusing its
+  // tab, the state a tap leaves it in. A menu that did not open measures 0-0, so it has to have a
+  // width to count, and a phone must show as many menus as the desktop did.
+  const { devices } = require('playwright');
+  for (const device of ['iPhone SE', 'iPhone 13']) {
+    const phone = await browser.newContext({ ...devices[device] });
+    await suppressCookieBanner(phone);
+    const p = await phone.newPage();
+    await p.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
+    await p.waitForSelector('#app-main', { timeout: 30000 });
+    await p.waitForTimeout(1500);
+    const width = p.viewportSize().width;
+    const off = await p.evaluate(() => [...document.querySelectorAll('.header-tab')]
+      .map((t, i) => [i + 1, t.getBoundingClientRect()])
+      .filter(([, r]) => r.left < 0 || r.right > innerWidth).map(([i, r]) => `tab ${i} ${Math.round(r.left)}-${Math.round(r.right)}`));
+    check(`${device} (${width}px): every header tab is on screen`, off.length === 0, off.join(', '));
+    const tabs = p.locator('.header-tab:has(.header-flyout)');
+    const n = await tabs.count();
+    check(`${device} (${width}px): the header has the desktop's ${desktopTabCount} menus`,
+          n > 0 && n === desktopTabCount, `${n} menus`);
+    for (let i = 0; i < n; i++) {
+      await tabs.nth(i).focus();
+      await p.waitForTimeout(200);
+      const r = await tabs.nth(i).locator('.header-flyout').evaluate(f => {
+        const b = f.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right), b.width];
+      });
+      check(`${device} (${width}px): menu ${i + 1} opens on screen`, r[2] > 0 && r[0] >= 0 && r[1] <= width,
+            r[2] > 0 ? `${r[0]}-${r[1]}` : 'did not open');
+      await p.evaluate(() => document.activeElement.blur());
+    }
+    await phone.close();
+  }
+  await browser.close();
+
+  const failed = results.filter(r => !r.ok);
+  console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
+  console.log(`screenshots: ${OUT}`);
+  process.exit(failed.length ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(1); });

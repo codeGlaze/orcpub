@@ -7,7 +7,7 @@
 # Secrets — never copy into build context
 .env
 .lein-env
-logs/console.log
+logs/
 docker-compose*
 test/*
 *.md

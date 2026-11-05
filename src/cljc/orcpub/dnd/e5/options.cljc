@@ -21,6 +21,7 @@
             [orcpub.dnd.e5.skills :as skills]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.event-handlers :as eh]
+            [orcpub.dnd.e5.homebrew-guard :as guard]
             [orcpub.components :as comps]
             [re-frame.core :refer [dispatch subscribe]]
             [re-frame.db])
@@ -259,6 +260,243 @@
     :selections [(ability-increase-selection ability-keys num-increases different?)]
     :modifiers [(modifiers/deferred-ability-increases)]}))
 
+;; --- Ability-increase spreads ------------------------------------------------------------------
+;; :ability-increases is ONE spread of [amount pool] pairs, e.g. [[2 :cha] [1 :martial]]; every
+;; increment lands on a DISTINCT ability. A pool is :any | :martial | :mental | an explicit set
+;; #{:wis :con} | a single stat such as :con (FIXED). Short ability keys are namespaced here.
+(def ability-groups
+  {:any     (set character/ability-keys)
+   :martial #{::character/str ::character/dex ::character/con}
+   :mental  #{::character/int ::character/wis ::character/cha}})
+
+(defn ns-ability
+  "Short ability keyword -> namespaced (:con -> :orcpub.dnd.e5.character/con); idempotent."
+  [k]
+  (keyword "orcpub.dnd.e5.character" (clojure.core/name k)))
+
+(defn resolve-pool
+  "A spread pool -> a set of namespaced ability keys: a named group, a set, or a single stat."
+  [pool]
+  (cond
+    (coll? pool)          (set (map ns-ability pool))
+    (ability-groups pool) (ability-groups pool)
+    :else                 #{(ns-ability pool)}))
+
+(def ^:private ability-names (set (map clojure.core/name character/ability-keys)))
+
+(defn pool-entry?
+  "Is `e` a well-formed [amount pool] entry: a vector, a numeric amount, and a pool naming a group,
+   an ability, or a non-empty set of abilities? Junk is skipped so one bad entry in a pack cannot
+   crash a whole race or background list, or leave a slot with nothing to pick.
+   GOTCHA: skipping is SILENT at runtime by design; the authoring form surfaces it
+   (`ignored-entry-warnings`)."
+  [e]
+  (let [ability? #(and (or (keyword? %) (string? %)) (contains? ability-names (clojure.core/name %)))
+        p (when (vector? e) (second e))]
+    (and (vector? e)
+         (number? (first e))
+         (cond (keyword? p) (or (contains? ability-groups p) (ability? p))
+               (coll? p)    (and (seq p) (every? ability? p))
+               :else        false))))
+
+(defn save-entry?
+  "A :save-proficiencies entry the compiler reads: a pool-entry? whose count is a positive whole
+   number. (An increase's amount may be any number: the race builder has always allowed -2.)"
+  [e]
+  (and (pool-entry? e) (pos-int? (first e))))
+
+(defn- first-per-ability
+  "Fixed increments, keeping the first for each ability: a list raises each ability once."
+  [fixed]
+  (second (reduce (fn [[seen acc] {:keys [pool] :as inc*}]
+                    (if (seen (first pool)) [seen acc] [(conj seen (first pool)) (conj acc inc*)]))
+                  [#{} []]
+                  fixed)))
+
+(defn released-set-warnings
+  "What the feat form shows for a released +1 set holding something that is not a namespaced ability
+   key (::character/str) or :saves?: the legacy compiler raises nothing for it. Empty otherwise."
+  [ai]
+  (let [bad (when (set? ai) (remove (conj (set character/ability-keys) :saves?) ai))]
+    (if (seq bad)
+      [(str (count bad) " Ability Increase Option entr" (if (= 1 (count bad)) "y is" "ies are")
+            " not an ability and will be IGNORED: " (s/join ", " (map pr-str bad)) ".")]
+      [])))
+
+(defn compile-ability-increases
+  "An :ability-increases spread -> {:modifiers :selections}. Single-stat pools are fixed; the rest
+   are floating slots in ONE :asi selection carrying the spread on ::t/spread. A trailing :save also
+   grants that ability's save. nil/empty -> no increments.
+   GOTCHA: :fixed-modifier picks the ability-breakdown column a fixed increment lands in; a
+   non-racial silo MUST pass a neutral one, or its +N shows as racial."
+  [ai-spread & [{:keys [fixed-modifier] :or {fixed-modifier modifiers/race-ability}}]]
+  (let [;; the races sub maps this over EVERY homebrew race, so a malformed entry is skipped
+        increments (map-indexed
+                    (fn [idx [amount pool :as incr]]
+                      (let [keys (resolve-pool pool)]
+                        {:idx idx :amount amount :pool (vec keys) :fixed? (= 1 (count keys))
+                         :save? (= :save (nth incr 2 nil))}))
+                    (filter pool-entry? (when (sequential? ai-spread) ai-spread)))
+        fixed-kept (first-per-ability (filter :fixed? increments))
+        ;; what the picker lists: the increments applied, in order (a repeated fixed one is not)
+        applied    (let [kept (set (map :idx fixed-kept))]
+                     (filter #(or (not (:fixed? %)) (kept (:idx %))) increments))
+        modifiers  (mapcat (fn [{:keys [amount pool save?]}]
+                             (concat (fixed-modifier (first pool) amount)
+                                     (when save? [(modifiers/saving-throws nil (first pool))])))
+                           fixed-kept)
+        floating   (remove :fixed? increments)
+        slot-opts  (fn [{:keys [idx amount pool save?]}]
+                     (map (fn [k]
+                            (t/option-cfg
+                             {:name      (str (:name (abilities-map k)) " "
+                                              (common/bonus-str amount)
+                                              (when save? " + save"))
+                              :key       (keyword (str "asi-" idx "-" (clojure.core/name k)))
+                              ;; a chosen floating pick IS a fixed increase on that ability, so it
+                              ;; credits the same column a fixed increment would, not level-up.
+                              :modifiers (cond-> (vec (fixed-modifier k amount))
+                                           save? (conj (modifiers/saving-throws nil k)))}))
+                          pool))]
+    {:modifiers  (vec modifiers)
+     :selections (if (seq floating)
+                   [(assoc (t/selection-cfg
+                            {:name         "Ability Score Improvement"
+                             :key          :asi
+                             :min          (count floating)
+                             :max          (count floating)
+                             :tags         #{:ability-scores}
+                             :multiselect? true
+                             :options      (vec (mapcat slot-opts floating))})
+                           ::t/spread (vec applied))]
+                   [])}))
+
+(defn toggle-increment-save
+  "Toggle the :save rider on ONE increment: [amount pool] <-> [amount pool :save]. Rebuilt from
+   amount and pool, so it is idempotent and a malformed longer increment normalizes back. It is a
+   keyword in a vector, not a map flag, so common/toggle-in does not apply. Backs the form's
+   '+ save prof' checkbox."
+  [increment]
+  (let [[amount pool] increment]
+    (if (= :save (nth increment 2 nil))
+      [amount pool]
+      [amount pool :save])))
+
+(defn compile-save-proficiencies
+  "A :save-proficiencies list ([[count pool] ...]) -> {:modifiers :selections}, independent of any
+   ability increase. A single-stat pool is a fixed save; a group is a choice of `count` distinct
+   saves from it. nil/empty -> nothing."
+  [save-spread]
+  (let [entries   (map-indexed
+                   (fn [idx [n pool]]
+                     (let [keys (resolve-pool pool)]
+                       ;; never more distinct saves than the pool holds, or the pick can't finish
+                       {:idx idx :n (min n (count keys)) :pool (vec keys)
+                        :fixed? (= 1 (count keys))}))
+                   (filter save-entry? (when (sequential? save-spread) save-spread)))
+        modifiers (map (fn [{:keys [pool]}] (modifiers/saving-throws nil (first pool)))
+                       (filter :fixed? entries))
+        choices   (remove :fixed? entries)
+        save-opt  (fn [idx k]
+                    (t/option-cfg
+                     {:name      (:name (abilities-map k))
+                      :key       (keyword (str "save-" idx "-" (clojure.core/name k)))
+                      :modifiers [(modifiers/saving-throws nil k)]}))]
+    {:modifiers  (vec modifiers)
+     :selections (vec (for [{:keys [idx n pool]} choices]
+                        (t/selection-cfg
+                         {:name         "Saving Throw Proficiency"
+                          :key          (keyword (str "save-prof-" idx))
+                          :min          n
+                          :max          n
+                          :tags         #{:profs}
+                          :multiselect? true
+                          :different?   true
+                          :options      (mapv #(save-opt idx %) pool)})))}))
+
+(defn general-ability
+  "A FIXED ability increase credited to no source column: a plain +N that the breakdown shows under
+   'other'. For background, subclass and feat, so their fixed increases don't read as racial
+   (race-ability also writes the race column). A vector, like race-ability and subrace-ability."
+  [ability-kw amount]
+  [(modifiers/ability ability-kw amount)])
+
+(defn compile-ability-grants
+  "The one hook a silo calls for an entry's ability and save data: the ASI spread and the
+   standalone :save-proficiencies, merged into {:modifiers :selections}. Additive.
+   GOTCHA: :attribution (:race default | :subrace | :general) picks the breakdown column a fixed
+   increment lands in. Non-racial silos MUST pass :general."
+  [{:keys [ability-increases save-proficiencies]} & [{:keys [attribution] :or {attribution :race}}]]
+  (let [fixed-modifier (case attribution
+                         :subrace modifiers/subrace-ability
+                         :general general-ability
+                         modifiers/race-ability)
+        ai (compile-ability-increases ability-increases {:fixed-modifier fixed-modifier})
+        sp (compile-save-proficiencies save-proficiencies)]
+    {:modifiers  (concat (:modifiers ai) (:modifiers sp))
+     :selections (concat (:selections ai) (:selections sp))}))
+
+(defn ignored-entry-warnings
+  "What the authoring form shows for entries the compilers skip: malformed :ability-increases or
+   :save-proficiencies entries (see pool-entry?). Skipping keeps the app running, but hides data
+   loss from someone editing an imported or hand-edited file. Also names an ability a list raises
+   twice. A vector of readable strings; empty when everything compiles."
+  [{:keys [ability-increases save-proficiencies]}]
+  (let [ignored (fn [field label ok?]
+                  (let [n (if (sequential? field) (count (remove ok? field)) (if field 1 0))]
+                    (when (pos? n)
+                      (str n " " label " entr" (if (= 1 n) "y is" "ies are")
+                           " malformed and will be IGNORED — each must be [amount pool]."))))
+        ;; abilities a list raises twice with a fixed increase; only the first counts
+        repeated (when (sequential? ability-increases)
+                   (->> (filter pool-entry? ability-increases)
+                        (map (comp resolve-pool second))
+                        (filter #(= 1 (count %)))
+                        (map first) frequencies (filter #(> (val %) 1)) (map key)))]
+    (vec (keep identity
+               [(ignored ability-increases "ability-increase" pool-entry?)
+                (ignored save-proficiencies "saving-throw" save-entry?)
+                (when (seq repeated)
+                  (str (s/join ", " (map #(s/upper-case (clojure.core/name %)) (sort repeated)))
+                       " is raised more than once here; only the first increase counts."))]))))
+
+(defn save-coverage-warnings
+  "Authoring guidance only, no effect on a character: redundant or overlapping save grants in ONE
+   entry's own data (:save riders and :save-proficiencies). Saves are a set at runtime, so a
+   duplicate is harmless; the note flags a wasted grant or pick. A vector of strings, empty when
+   clean."
+  [{:keys [ability-increases save-proficiencies]}]
+  (let [;; every save-granting source, as a set of abilities (one = fixed, several = a choice)
+        ;; only entries the compilers read: a malformed one would throw in resolve-pool
+        listed  #(when (sequential? %) %)
+        sources (concat (for [[_ pool sv] (filter pool-entry? (listed ability-increases))
+                              :when (= :save sv)]
+                          (resolve-pool pool))
+                        (for [[_ pool] (filter save-entry? (listed save-proficiencies))]
+                          (resolve-pool pool)))
+        nm      (fn [k] (s/upper-case (clojure.core/name k)))
+        fixed   (->> sources (filter #(= 1 (count %))) (map first))
+        choices (->> sources (filter #(> (count %) 1)))
+        dup-fixed       (->> (frequencies fixed) (filter #(> (val %) 1)) (map key) distinct)
+        fixed-in-choice (distinct (for [f (distinct fixed) c choices :when (contains? c f)] f))
+        choice-overlap? (boolean (some (fn [[a b]] (seq (sets/intersection a b)))
+                                       (for [i (range (count choices))
+                                             j (range (inc i) (count choices))]
+                                         [(nth choices i) (nth choices j)])))]
+    (cond-> []
+      (seq dup-fixed)
+      (conj (str "The " (s/join ", " (map nm dup-fixed)) " save"
+                 (when (> (count dup-fixed) 1) "s") " "
+                 (if (> (count dup-fixed) 1) "are" "is")
+                 " granted more than once here — the duplicate has no effect."))
+      (seq fixed-in-choice)
+      (conj (str "A player could pick " (s/join ", " (map nm fixed-in-choice))
+                 " from a save choice here, duplicating a save this content already grants"
+                 " outright."))
+      choice-overlap?
+      (conj (str "Two save choices here draw from overlapping pools — a player could pick the"
+                 " same save in both and waste one.")))))
+
 (defn min-ability [ability-kw min-value]
   (fn [c] (>= (ability-kw (character/ability-values c)) min-value)))
 
@@ -310,7 +548,7 @@
      :modifiers [(modifiers/action
                   {:name "Fist of Unbroken Air"
                    :page 81
-                   :summary (str "spend 2 + X ki, a creature within 30 ft. takes 3d10 + Xd10 damage on failed DC " (?spell-save-dc ::character/wis) " STR save, is pushed up to 20 ft., and is knocked prone. On successful save it just takes half damage.")})]})
+                   :summary (str "spend 2 + X ki, a creature within 30 ft. takes 3d10 + Xd10 damage on failed DC " (?save-dc ::character/wis) " STR save, is pushed up to 20 ft., and is knocked prone. On successful save it just takes half damage.")})]})
    (t/option-cfg
     {:name "Flames of the Phoenix"
      :modifiers [(modifiers/action
@@ -369,7 +607,7 @@
      :modifiers [(modifiers/bonus-action
                   {:name "Water Whip"
                    :page 81
-                   :summary (str "spend 2 + X ki, a creature within 30 ft. takes 3d10 + Xd10 damage on failed DC " (?spell-save-dc ::character/wis) " DEX save, is pulled up to 25 ft. or knocked prone. On successful save it just takes half damage.")})]})
+                   :summary (str "spend 2 + X ki, a creature within 30 ft. takes 3d10 + Xd10 damage on failed DC " (?save-dc ::character/wis) " DEX save, is pulled up to 25 ft. or knocked prone. On successful save it just takes half damage.")})]})
    (t/option-cfg
     {:name "Wave of Rolling Earth"
      :modifiers [(modifiers/action
@@ -454,7 +692,11 @@
      {:name (if prepend-level? (str level " - " display-name) display-name)
       :key key
       :edit-event edit-event
-      :help (spell-help spell)
+      ;; A thunk: spell-help renders the whole description, most of an option's build
+      ;; cost, and memoized-spell-option keeps one per (spell x class). Renderers force it
+      ;; with views-aux/realize-help when the peek opens; :help elsewhere is still a plain
+      ;; string or hiccup. See reagent-architecture-tenets.md #1.
+      :help #(spell-help spell)
       :prereqs [(t/option-prereq
                  "You already know this spell"
                  (fn [c] (let [spells-known (character/spells-known c)]
@@ -696,12 +938,10 @@
            all-spells (select-keys
                        (or spells (spell-lists (or spell-list-kw class-key)))
                        (keys slots))
-           ;; Reconcile pre-2024 wizard-possessive spell keys (e.g.
-           ;; :leomunds-secret-chest) to their current de-named SRD keys
-           ;; (:secret-chest) so imported paks that reference the old names resolve
-           ;; to the real spell. resolve-spell-key is non-destructive: it only
-           ;; remaps a known rename whose target is loaded, so loaded homebrew and
-           ;; genuinely-missing spells are left alone (and still flagged below).
+           ;; Resolve pre-2024 wizard-possessive spell keys (:leomunds-secret-chest) to
+           ;; their de-named SRD keys (:secret-chest). Only a known rename whose target
+           ;; is loaded is remapped; homebrew and missing spells pass through unchanged
+           ;; (and missing ones are flagged below).
            all-spells (reduce-kv
                        (fn [m lvl ks]
                          (assoc m lvl (into #{} (map #(spells/resolve-spell-key spells-map %)) ks)))
@@ -1215,7 +1455,9 @@
                 [(let [main-hand-weapon ?orcpub.dnd.e5.character/main-hand-weapon
                        off-hand-weapon ?orcpub.dnd.e5.character/off-hand-weapon
                        all-weapons-map (mi/compute-all-weapons-map
-                                        (get @re-frame.db/app-db ::mi/custom-items))]
+                                        ;; include view-once shared custom items so their conditional modifiers apply too
+                                        (concat (get @re-frame.db/app-db ::mi/custom-items)
+                                                (mi/shared-custom-items @re-frame.db/app-db)))]
                    (and main-hand-weapon
                         (-> all-weapons-map
                             main-hand-weapon
@@ -1794,7 +2036,9 @@
                               [(let [main-hand-weapon ?orcpub.dnd.e5.character/main-hand-weapon
                                      off-hand-weapon ?orcpub.dnd.e5.character/off-hand-weapon
                                      all-weapons-map (mi/compute-all-weapons-map
-                                                      (get @re-frame.db/app-db ::mi/custom-items))]
+                                                      ;; include view-once shared custom items so their conditional modifiers apply too
+                                        (concat (get @re-frame.db/app-db ::mi/custom-items)
+                                                (mi/shared-custom-items @re-frame.db/app-db)))]
                                  (and main-hand-weapon
                                       (-> all-weapons-map
                                           main-hand-weapon
@@ -2035,6 +2279,7 @@
                       languages
                       source
                       {:keys [name
+                              key
                               abilities
                               profs
                               size
@@ -2056,7 +2301,10 @@
                      clojure.core/key
                      (filter val options)))]
     (t/option-cfg
+     ;; a homebrew subrace under its stored :key (a built-in one has none, and keeps its name's);
+     ;; picks of the name's key heal (content-reconciliation, items-with-formers)
      {:name name
+      :key key
       :edit-event edit-event
       :selections (concat
                    (when (seq skill-kws)
@@ -2195,8 +2443,11 @@
       :min (if subraces 1 0)
       :options (cond->
                 (if (seq subraces)
-                  (map
-                   (partial subrace-option race spell-lists spells-map language-map source)
+                  ;; each subrace in a guard of its own, so one that fails is blamed, not its race
+                  (keep
+                   #(guard/guard-entry :orcpub.dnd.e5/subraces %
+                                       (partial subrace-option race spell-lists spells-map
+                                                language-map source))
                    (if source
                      (map (fn [sr] (assoc sr :source source)) subraces)
                      subraces))
@@ -2254,6 +2505,13 @@
                              (t/option-cfg
                               {:name "Two Languages"
                                :selections [(homebrew-language-selection language-map 2 2)]})]})]}))
+
+(defn language-key
+  "The key of the language `language-map` ({key language}) holds under the display name `nm`,
+   else the key derived from `nm`."
+  [language-map nm]
+  (or (some (fn [[k l]] (when (= nm (:name l)) k)) language-map)
+      (common/name-to-kw nm)))
 
 (defn race-option [spell-lists
                    spells-map
@@ -2314,7 +2572,7 @@
                     (darkvision-modifiers darkvision))
                   (map
                    (fn [language]
-                     (modifiers/language (common/name-to-kw language)))
+                     (modifiers/language (language-key language-map language)))
                    languages)
                   (map
                    (fn [[k v]]
@@ -2390,8 +2648,16 @@
         :prereq-fn prereq-fn
         :tags #{:profs :tool-profs}}))))
 
+(defn gated
+  "`prereq-fn` carrying `gate`, data saying what opens it, as metadata (`::t/gate`), so a held pick
+   can say when it returns (picks/describe-held). `gate`: {:class-level n :class k},
+   {:total-level n}, {:first-class k} or {:not-first-class k}."
+  [gate prereq-fn]
+  (with-meta prereq-fn {::t/gate gate}))
+
 (defn first-class? [class-kw & [classes]]
-  (fn [c] (= class-kw (first (or classes (character/classes c))))))
+  (gated {:first-class class-kw}
+         (fn [c] (= class-kw (first (or classes (character/classes c)))))))
 
 (defn new-starting-equipment-selection [class-kw {:keys [name options] :as cfg}]
   (t/selection-cfg
@@ -2480,6 +2746,93 @@
 (defn class-equipment-options [equipment-choices class-kw]
   (class-options class-kw (partial equipment-option class-kw) equipment-choices "Select equipment to start your adventuring career with."))
 
+;; Rich starting-equipment choice groups (:equipment-selections on the class map): unlike
+;; the shorthand :*-choices, an option can grant a bundle ({:grants [{:kind :key :qty}]})
+;; and/or offer nested sub-choices ({:choose [{:name :from}]}). Shape and worked Fighter
+;; example: starting-equipment.md.
+
+;; One fixed grant ({:kind :key :qty}) -> the matching modifier that drops the item
+;; onto the character's ?weapons/?armor/?equipment.
+(defn- equipment-grant->modifier [{:keys [kind key qty] :or {qty 1}}]
+  (case kind
+    :weapon    (modifiers/weapon key qty)
+    :armor     (modifiers/armor key qty)
+    :equipment (modifiers/equipment key qty)
+    nil))
+
+;; The grouped-equipment sub-choices, pointing at the un-shadowed member lists
+;; (equipment-map shadows these grouped keys with plain items via its zipmap merge).
+(def ^:private equipment-group-choosers
+  {:holy-symbol        {:name "Holy Symbol"        :items equipment/holy-symbols}
+   :arcane-focus       {:name "Arcane Focus"       :items equipment/arcane-focuses}
+   :druidic-focus      {:name "Druidic Focus"      :items equipment/druidic-focuses}
+   :musical-instrument {:name "Musical Instrument" :items equipment/musical-instruments}
+   :pack               {:name "Equipment Pack"     :items equipment/packs}})
+
+;; One sub-choice ({:from ...}) -> a nested "pick one" selection. :from is either a
+;; weapon class (:simple/:martial/:any-weapon) or a grouped-equipment key
+;; (:holy-symbol/:arcane-focus/:druidic-focus/:musical-instrument/:pack), which expands
+;; to a pick among that group's members (equipment-option handles pack-contents, etc.).
+(declare equipment-selection-option)
+
+(defn- equipment-subchoice->selection [class-kw weapon-map {:keys [name from options]}]
+  (cond
+    ;; Explicit enumerated pick — a nested selection listed option-by-option. The general
+    ;; fallback for a sub-choice that isn't one of the named pools (e.g. "pick one of these
+    ;; three specific items"). Built like a grouped pick — plain selection, name verbatim,
+    ;; no prefix / no "<none>" — so it round-trips exactly.
+    (seq options)
+    (t/selection-cfg
+     {:name name
+      :tags #{:equipment :starting-equipment}
+      :options (mapv #(equipment-selection-option class-kw weapon-map %) options)
+      :prereq-fn (first-class? class-kw)})
+
+    ;; Grouped-equipment pick (focus / holy symbol / instrument / pack). Mirrors the live
+    ;; equipment-option EXACTLY: named for the group, no "Starting Equipment: " prefix, no
+    ;; "<none>" opt-out, so an SRD-filled class reproduces the SRD's nested selection. The
+    ;; name also feeds the selection's minted key, which must stay stable.
+    (equipment-group-choosers from)
+    (let [chooser (equipment-group-choosers from)]
+      (t/selection-cfg
+       {:name (or name (:name chooser))
+        :tags #{:equipment :starting-equipment}
+        :options (mapv #(equipment-option class-kw [(:key %) 1]) (:items chooser))
+        :prereq-fn (first-class? class-kw)}))
+
+    ;; Weapon-class pick. Live builds these through new-starting-equipment-selection, so
+    ;; keep the prefix (and the "<none>" it appends) to match.
+    :else
+    (new-starting-equipment-selection
+     class-kw
+     {:name (or name (case from :simple "Simple Weapon" :martial "Martial Weapon"
+                       :simple-melee "Simple Melee Weapon" :any-weapon "Weapon" "Choose one"))
+      :min 1 :max 1
+      :options (cond
+                 (= from :simple)       (simple-weapon-options 1 (vals weapon-map))
+                 (= from :martial)      (martial-weapon-options 1 (vals weapon-map))
+                 (= from :simple-melee) (simple-melee-weapon-options 1 (vals weapon-map))
+                 (= from :any-weapon)   (weapon-options (vals weapon-map) 1)
+                 :else                  [])})))
+
+;; One option -> an option-cfg carrying its bundle (:grants -> :modifiers) and any
+;; nested picks (:choose -> :selections).
+(defn- equipment-selection-option [class-kw weapon-map {:keys [name grants choose]}]
+  (t/option-cfg
+   (cond-> {:name name}
+     (seq grants) (assoc :modifiers (vec (keep equipment-grant->modifier grants)))
+     (seq choose) (assoc :selections (mapv #(equipment-subchoice->selection class-kw weapon-map %) choose)))))
+
+;; A whole :equipment-selections vector -> the starting-equipment selections class-option
+;; splices into a class. This is the serializable twin of the SRD's hand-built form.
+(defn class-equipment-selections [equipment-selections class-kw weapon-map]
+  (mapv (fn [{:keys [name options]}]
+          (new-starting-equipment-selection
+           class-kw
+           {:name name
+            :options (mapv #(equipment-selection-option class-kw weapon-map %) options)}))
+        equipment-selections))
+
 (defn background-skills-cfg [background-nm skill-kws]
   {:modifiers (map
                (fn [skill-kw]
@@ -2504,6 +2857,7 @@
 (defn background-option [language-map
                          weapon-map
                          {:keys [name
+                                 key
                                  help
                                  page
                                  profs
@@ -2522,7 +2876,10 @@
                                  source
                                  edit-event]
                           :as background}]
-  (let [kw (common/name-to-kw name)
+  ;; FIELD NOTE (background-name-key): saved characters hold backgrounds by (common/name-to-kw name)
+  ;; even when the item stores another :key; earlier versions offered them that way. The heal
+  ;; counts the name's key as a former key (content-reconciliation/items-with-formers).
+  (let [kw (or key (common/name-to-kw name))
         {:keys [skill skill-options tool-options tool language-options]
          armor-profs :armor weapon-profs :weapon} profs
         {skill-num :choose options :options} skill-options
@@ -2557,10 +2914,11 @@
                    (tool-prof-modifiers (keys tool)))}))))
 
 (defn total-levels-prereq [level & [class-key]]
-  (fn [c] (>= (if class-key
-                ((character/class-level-fn c) class-key)
-                (character/total-levels c))
-              level)))
+  (gated (if class-key {:class-level level :class class-key} {:total-level level})
+         (fn [c] (>= (if class-key
+                       ((character/class-level-fn c) class-key)
+                       (character/total-levels c))
+                     level))))
 
 (defn total-levels-prereq-2 [level & [class-key]]
   (fn [c]
@@ -2590,7 +2948,10 @@
      conj
      (total-levels-prereq-2 lvl (:key cls)))))
 
-(defn subclass-option [spell-lists
+(defn subclass-option
+  "The template option for subclass `subcls` of class `cls`, offered under the subclass's
+   stored `:key` (its name's key when it has none), whatever its `:name` is."
+  [spell-lists
                        spells-map
                        language-map
                        cls
@@ -2633,8 +2994,7 @@
                              (fn [selection]
                                (assoc selection
                                       ::t/prereq-fn
-                                      (fn [c] (let [total-levels (character/total-levels c)]
-                                                (>= lvl total-levels)))))
+                                      (total-levels-prereq lvl (:key cls))))
                              selections))
                           (:selections spellcasting-template))
         level-selections (mapcat
@@ -2655,6 +3015,7 @@
                          levels)]
     (t/option-cfg
      {:name name
+      :key kw
       :edit-event edit-event
       :prereqs prereqs
       :selections (map
@@ -2858,8 +3219,9 @@
                            :tags #{:subclass}
                            :order 2
                            :options (conj
-                                     (map
-                                      #(subclass-option spell-lists spells-map language-map (assoc cls :key kw) %)
+                                     (keep
+                                      #(guard/guard-entry :orcpub.dnd.e5/subclasses %
+                                                           (partial subclass-option spell-lists spells-map language-map (assoc cls :key kw)))
                                       (if source (map (fn [sc] (assoc sc :source source)) subclasses) subclasses))
                                      (custom-subclass-option spell-lists spells-map weapon-map kw level-kw subclass-selection-key (some? spellcasting)))})]))
                     (when (and (not plugin?) (ability-inc-set i))
@@ -2868,8 +3230,9 @@
                       [(assoc
                         (hit-points-selection hit-die name i)
                         ::t/prereq-fn
-                        (fn [c] (or (not (= kw (first (character/classes c))))
-                                    (> i 1))))])))
+                        (gated {:not-first-class kw}
+                               (fn [c] (or (not (= kw (first (character/classes c))))
+                                           (> i 1)))))])))
       :modifiers (concat
                   (some-> levels (get i) :modifiers)
                   (traits-modifiers
@@ -2932,12 +3295,13 @@
                             weapons
                             equipment
                             equipment-choices
+                            equipment-selections
                             armor
                             armor-choices
                             spellcasting
                             multiclass-prereqs]
                      :as cls}]
-  (let [merged-class (update cls :subclasses #(into (sorted-set-by (fn [x y] (compare (:name x) (:name y)))) (concat (reverse (get plugin-subclasses-map key)) %)))
+  (let [merged-class (update cls :subclasses #(into (sorted-set-by (fn [x y] (common/safe-compare (:name x) (:name y)))) (concat (reverse (get plugin-subclasses-map key)) %)))
         kw (or key (common/name-to-kw name))
         {:keys [save skill-options skill-expertise-options multiclass-skill-options tool-options multiclass-tool-options tool]
          armor-profs :armor weapon-profs :weapon} profs
@@ -2951,8 +3315,9 @@
                                spells-map
                                (assoc spellcasting :class-key kw)
                                merged-class)
-        first-class? (fn [c] (let [first-class (first (character/classes c))]
-                               (= kw first-class)))]
+        first-class? (gated {:first-class kw}
+                            (fn [c] (let [first-class (first (character/classes c))]
+                                      (= kw first-class))))]
     (t/option-cfg
      {:name name
       :key kw
@@ -2969,16 +3334,21 @@
                     (when (seq tool-options)
                       [(tool-prof-selection tool-options :tool-selection first-class?)])
                     (when (seq multiclass-tool-options)
-                      [(tool-prof-selection multiclass-tool-options :multiclass-tool-selection (fn [c] (not= kw (first (:classes c)))))])
+                      [(tool-prof-selection multiclass-tool-options :multiclass-tool-selection
+                                            (gated {:not-first-class kw}
+                                                   (fn [c] (not= kw (first (:classes c))))))])
                     (when weapon-choices (class-weapon-options weapon-choices kw weapon-map))
                     (when armor-choices (class-armor-options armor-choices kw))
                     (when equipment-choices (class-equipment-options equipment-choices kw))
+                    (when equipment-selections (class-equipment-selections equipment-selections kw weapon-map))
                     (when skill-options
                       [(class-skill-selection skill-options :skill-proficiency first-class?)])
                     (when (seq skill-expertise-kws)
                       [(skill-expertise-selection skill-expertise-kws (:choose skill-expertise-options))])
                     (when multiclass-skill-options
-                      [(class-skill-selection multiclass-skill-options :multiclass-skill-proficiency (complement first-class?))])
+                      [(class-skill-selection multiclass-skill-options :multiclass-skill-proficiency
+                                              (gated {:not-first-class kw}
+                                                     (complement first-class?)))])
                     [(t/selection-cfg
                       {:name (str name " Levels")
                        :key :levels
@@ -3266,8 +3636,15 @@
                       key))
                     race-prereqs)]
      (when (seq race-keys)
-       (let [race-names (map (comp :name race-map) race-keys)]
-         [(race-prereq race-names)])))))
+       ;; A race the library no longer holds can never match; if none of them is held, the feat
+       ;; stays locked and says which race it needs.
+       (let [race-names (keep (comp :name race-map) race-keys)]
+         (if (seq race-names)
+           [(race-prereq race-names)]
+           [(t/option-prereq
+             (str "Needs " (common/list-print (map #(str "\u201c" (common/kw-to-name % true) "\u201d") race-keys) "or")
+                  ", which isn't in your library")
+             (constantly false))]))))))
 
 (def filter-true (filter val))
 
@@ -3323,14 +3700,16 @@
                                              spell-lists)]
       nil)))
 
-(defn collect-map-modifiers [m modifier-fn]
+(defn collect-map-modifiers
+  "A modifier for each key `m`, a map of key to true or false, marks true."
+  [m modifier-fn]
   (sequence
    (comp
     filter-true
     (map
      (fn [[k]]
        (modifier-fn k))))
-   m))
+   (common/usable map? m {} "a map of keys to true")))
 
 (defn make-feat-modifiers [k v option-key]
   (when v
@@ -3357,10 +3736,15 @@
                                              (?armor-class-with-armor armor shield))))])
       :tortle-ac (when v
                    [(mods/modifier ?natural-ac-bonus 7)
+                    ;; 17 + shield, whatever armor is worn; a competing calculation (the Robe of the
+                    ;; Archmagi) wins when higher, and bonuses such as a Ring of Protection add on top.
                     (mods/modifier ?armor-class-with-armor
                                   (fn [armor & [shield]]
-                                    (+ 17
-                                       (if shield (?shield-ac-bonus shield) 0))))])
+                                    (apply +
+                                           (apply max
+                                                  (+ 17 (if shield (?shield-ac-bonus shield) 0))
+                                                  (map #(% armor shield) ?ac-fns))
+                                           (map #(% armor shield) ?ac-bonus-fns))))])
       :language (collect-map-modifiers
                  v
                  #(modifiers/language %))
@@ -3398,10 +3782,11 @@
          (concat mods feat-mods)
          mods)))
    []
-   props))
+   (common/usable map? props {} "an option's :props")))
 
 (defn feat-modifiers [key name description props ability-increases]
-  (let [without-saves (sets/intersection ability-increases
+  (let [without-saves (sets/intersection (common/usable set? ability-increases #{}
+                                                        "a feat's :ability-increases")
                                          (into #{} character/ability-keys))]
     (concat
      (plugin-modifiers props key)
@@ -3418,7 +3803,9 @@
         :description description})])))
 
 (defn feat-selections [language-map spells-map spell-lists proficiency-weapons props ability-increases]
-  (let [without-saves (sets/intersection ability-increases
+  (let [ability-increases (common/usable set? ability-increases #{} "a feat's :ability-increases")
+        props (common/usable map? props {} "a feat's :props")
+        without-saves (sets/intersection ability-increases
                                          (into #{} character/ability-keys))]
     (reduce
      (fn [selections [k v]]
@@ -3456,18 +3843,30 @@
            path-prereqs
            props
            ability-increases
+           save-proficiencies
            edit-event]}]
-  (let [feat-mods (feat-modifiers key
-                                  name
-                                  description
-                                  props
-                                  ability-increases)
-        feat-selections (feat-selections language-map
-                                         spells-map
-                                         spell-lists
-                                         custom-and-standard-weapons
-                                         props
-                                         ability-increases)]
+  ;; :ability-increases by SHAPE: a list is a spread (compile-ability-increases), a set is the
+  ;; released feat format (#{:str :con}: +1 to one, optional :saves?), anything else is neither. A
+  ;; spread keeps the rest of feat-modifiers. A feat's fixed increase is :general, never racial.
+  (let [spread? (sequential? ability-increases)
+        legacy-ai (when (set? ability-increases) ability-increases)
+        {ai-mods :modifiers ai-sels :selections}
+        (when spread?
+          (compile-ability-increases ability-increases {:fixed-modifier general-ability}))
+        {sp-mods :modifiers sp-sels :selections} (compile-save-proficiencies save-proficiencies)
+        feat-mods (concat (feat-modifiers key
+                                          name
+                                          description
+                                          props
+                                          legacy-ai)
+                          ai-mods sp-mods)
+        feat-selections (concat (feat-selections language-map
+                                                 spells-map
+                                                 spell-lists
+                                                 custom-and-standard-weapons
+                                                 props
+                                                 legacy-ai)
+                                ai-sels sp-sels)]
     (t/option-cfg
      {:name name
       :key key

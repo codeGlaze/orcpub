@@ -10,26 +10,37 @@
 
 (defn compute-plugin-vals
   "Filters out disabled plugins and disabled entries within plugins.
-   Replicates ::e5/plugin-vals subscription."
-  [plugins]
-  (map
-   (fn [p]
-     (into
-      {}
-      (map
-       (fn [[type-k type-m]]
-         [type-k
-          (if (coll? type-m)
+   Replicates ::e5/plugin-vals subscription, including the local disable overlay
+   (:global? drops everything; :sections drops a [source content-type] pair) so
+   event-handler reads see exactly what the reactive builder sees."
+  ([plugins] (compute-plugin-vals plugins nil))
+  ([plugins overlay]
+   (if (:global? overlay)
+     []
+     (let [sections (:sections overlay #{})]
+       (keep
+        (fn [[source-name p]]
+          (when (and (map? p) (not (:disabled? p)))
             (into
              {}
-             (remove
-              (fn [[_k {:keys [disabled?]}]]
-                disabled?)
-              type-m))
-            type-m)])
-       p)))
-   (filter (comp not :disabled?)
-           (vals plugins))))
+             (keep
+              (fn [[type-k type-m]]
+                (when-not (contains? sections [source-name type-k])
+                  [type-k
+                   (if (coll? type-m)
+                     (into
+                      {}
+                      (keep
+                       (fn [[k v]]
+                         ;; stamp the address, exactly as process-plugin-vals does -- this is a
+                         ;; replica, and a replica that drifts is how the next reader gets it wrong
+                         (when-not (:disabled? v)
+                           [k (cond-> v
+                                (map? v) (assoc :key k :option-pack source-name))]))
+                       type-m))
+                     type-m)]))
+              p))))
+        plugins)))))
 
 (defn compute-sorted-spells
   "Computes sorted spells from db. Replicates the chain:
@@ -37,13 +48,13 @@
    ::spells5e/spells -> ::char5e/sorted-spells."
   [db]
   (let [plugins (get db :plugins)
-        plugin-vals (compute-plugin-vals plugins)
+        plugin-vals (compute-plugin-vals plugins (get db :disable-overlay))
         plugin-spells (map
                        (fn [spell]
                          (assoc spell :edit-event [::spells/edit-spell spell]))
                        (mapcat (comp vals ::e5/spells) plugin-vals))
         all-spells (into
-                    (sorted-set-by (fn [x y] (compare (:key x) (:key y))))
+                    (sorted-set-by (fn [x y] (common/safe-compare (:key x) (:key y))))
                     (concat
                      (reverse plugin-spells)
                      spells/spells))]
@@ -64,7 +75,9 @@
 (defn filter-by-name-xform
   "Returns a transducer that filters items by name matching filter-text."
   [filter-text name-key]
-  (let [pattern (re-pattern (str ".*" (s/lower-case filter-text) ".*"))]
+  ;; ascii-lower-case: on a Turkish JVM "FIRE" folds to "fıre" and matches
+  ;; neither Fireball nor Fire Bolt.
+  (let [pattern (re-pattern (str ".*" (common/ascii-lower-case filter-text) ".*"))]
     (filter
      (fn [x]
        ;; common/lower-case: an item with no name folds to "" (no match), not a crash

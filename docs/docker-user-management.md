@@ -88,7 +88,8 @@ The setup script creates a `.env` file used by `docker-compose.yaml`. You can al
 | `ADMIN_PASSWORD` | Datomic admin interface password | generated |
 | `DATOMIC_PASSWORD` | Datomic application password | generated |
 | `SIGNATURE` | JWT signing secret (20+ chars) | generated |
-| `EMAIL_SERVER_URL` | SMTP server (leave empty to skip email) | empty |
+| `EMAIL_SERVER_URL` | SMTP server. Leave it empty and sign-ups are turned off, unless you also set the next one | empty |
+| `ALLOW_UNVERIFIED_REGISTRATION` | Allow sign-ups without an email confirmation. Private sites only | `false` |
 | `EMAIL_ACCESS_KEY` | SMTP username | empty |
 | `EMAIL_SECRET_KEY` | SMTP password | empty |
 | `EMAIL_SERVER_PORT` | SMTP port | `587` |

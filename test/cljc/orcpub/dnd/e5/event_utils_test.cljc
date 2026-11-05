@@ -3,6 +3,43 @@
             [orcpub.modifiers :as mod]
             [orcpub.dnd.e5.event-utils :as eu]))
 
+;; -- get-auth-token --
+;;
+;; Canonical access for the JWT auth token at [:user-data :token].
+;; Dual use: retrieval (as a string value for HTTP headers) and predicate
+;; (nil-is-falsy, used directly under `when` in reg-sub-raw guards).
+;; See event_utils.cljc docstring for the full rationale.
+
+(deftest get-auth-token-test
+  (testing "returns token string when present at canonical path"
+    (is (= "abc123"
+           (eu/get-auth-token {:user-data {:token "abc123"}}))))
+
+  (testing "returns nil for empty db"
+    (is (nil? (eu/get-auth-token {}))))
+
+  (testing "returns nil when user-data is present but token is absent"
+    ;; This is the 'theme persists after logout' case — :user-data still
+    ;; has :theme but :token has been dissoced by :clear-login.
+    (is (nil? (eu/get-auth-token {:user-data {:theme "dark-theme"}}))))
+
+  (testing "returns nil when user-data is an empty map"
+    (is (nil? (eu/get-auth-token {:user-data {}}))))
+
+  (testing "ignores stale db[:user] key (regression guard for 45ef969 typo)"
+    ;; db[:user] is populated by :follow-user / :unfollow-user with a
+    ;; {:following [...]} shape. It has NEVER contained a :token key.
+    ;; get-auth-token must read from [:user-data :token], not [:user :token].
+    (is (nil? (eu/get-auth-token {:user {:following ["alice"]}}))))
+
+  (testing "as a predicate under `when`: nil is falsy (logged-out)"
+    (is (nil? (when (eu/get-auth-token {}) :guarded-action))))
+
+  (testing "as a predicate under `when`: token is truthy (logged-in)"
+    (is (= :guarded-action
+           (when (eu/get-auth-token {:user-data {:token "t"}})
+             :guarded-action)))))
+
 ;; -- auth-headers --
 
 (deftest auth-headers-test

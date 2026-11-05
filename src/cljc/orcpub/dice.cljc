@@ -35,6 +35,25 @@
     #?(:cljs (js/parseInt s))
     #?(:clj (Integer/valueOf s))))
 
+(defn parse-dice
+  "Reads a dice or number string: \"1d6+1\", \"2d8 + 4\", \"1d20\" or \"5\". Returns
+  {:num :sides :mod} for dice, {:num 0 :sides nil :mod n} for a plain number, or nil."
+  [text]
+  (let [t (some-> text str (.trim))]
+    (cond
+      (and t (re-matches #"\d+" t)) {:num 0 :sides nil :mod (parse-int t)}
+      :else (when-let [[_ num-str sides-str sign mod-str] (and t (re-matches dice-regex t))]
+              {:num (or (parse-int num-str) 1)
+               :sides (parse-int sides-str)
+               :mod (* (if (= "-" sign) -1 1) (or (parse-int mod-str) 0))}))))
+
+(defn roll-dice
+  "Rolls parsed dice (see parse-dice) with `roll-die`, a fn of sides, so a test can fix the
+  rolls. Returns {:total :rolls}; a plain number rolls nothing."
+  [{:keys [num sides mod]} roll-die]
+  (let [rolls (if sides (vec (repeatedly num #(roll-die sides))) [])]
+    {:total (apply + (or mod 0) rolls) :rolls rolls}))
+
 (defn dice-roll-text [dice-text]
   (when-let [[_ num-str sides-str plus-minus-str mod-str :as match]
            (re-matches dice-regex dice-text)]

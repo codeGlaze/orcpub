@@ -1,5 +1,6 @@
 (ns orcpub.pedestal
   (:require [com.stuartsierra.component :as component]
+            [clojure.java.io :as io]
             [io.pedestal.http :as http]
             [io.pedestal.interceptor :as interceptor]
             [io.pedestal.log :as log]
@@ -9,9 +10,11 @@
             [java-time.api :as t]
             [orcpub.csp :as csp]
             [orcpub.config :as config]
+            [orcpub.startup-email :as startup-email]
             [orcpub.fork.integrations :as integrations])
   (:import [java.io File]
-           [java.time.format DateTimeFormatter]))
+           [java.time.format DateTimeFormatter]
+           [java.util Locale]))
 
 (defn test?
   [service-map]
@@ -37,7 +40,9 @@
   nil)
 
 (def rfc822-formatter
-  (DateTimeFormatter/ofPattern "EEE, dd MMM yyyy HH:mm:ss Z"))
+  ;; Locale/ENGLISH: HTTP dates are English (RFC 7231), and without it a non-English JVM
+  ;; cannot parse "Mon" and parse-date throws. docs/kb/locale-safety.md.
+  (DateTimeFormatter/ofPattern "EEE, dd MMM yyyy HH:mm:ss Z" Locale/ENGLISH))
 
 (defn parse-date [date content-length]
   (when date
@@ -48,16 +53,11 @@
          content-length)))
 
 (defn make-nonce-interceptor
-  "Creates an interceptor that generates per-request CSP nonces.
-
-   In prod (dev-mode?=false) with CSP_POLICY=strict:
-   - :enter phase generates a nonce and stores it in [:request :csp-nonce]
-   - :leave phase adds enforcing Content-Security-Policy header with the nonce
-
-   In dev mode: CSP is skipped entirely. Pedestal 0.7's default CSP is still
-   active, but the nonce interceptor becomes a no-op. This avoids flooding the
-   browser console with Report-Only violations (inline Figwheel scripts, etc.)
-   that obscure real issues during development."
+  "Creates an interceptor that sets per-request CSP nonces when CSP_POLICY=strict and
+   `dev-mode?` is false (the default): :enter stores a nonce at [:request :csp-nonce], :leave
+   adds an enforcing Content-Security-Policy header. In dev mode it does nothing, and strict
+   disables Pedestal's own CSP, so dev sends no CSP at all (what Figwheel needs). There is no
+   Report-Only mode."
   [dev-mode?]
   (interceptor/interceptor
    {:name :nonce-interceptor
@@ -69,13 +69,77 @@
              (if-let [nonce (get-in ctx [:request :csp-nonce])]
                (assoc-in ctx [:response :headers "Content-Security-Policy"]
                          (csp/build-csp-header nonce
+                           ;; Always false here, and not a mistake: :enter only
+                           ;; makes a nonce when dev-mode? is false, so this
+                           ;; branch is unreachable in dev mode.
                            :dev-mode? false
                            :extra-connect-src (:connect-src integrations/csp-domains)
-                           :extra-frame-src (:frame-src integrations/csp-domains)))
+                           :extra-frame-src (cond-> (vec (:frame-src integrations/csp-domains))
+                                              (config/turnstile-enabled?)
+                                              (conj config/turnstile-origin))))
                ctx))}))
 
 ;; Create the nonce interceptor with current dev-mode? setting
 (def nonce-interceptor (make-nonce-interceptor (config/dev-mode?)))
+
+(def referrer-policy-interceptor
+  "Sets Referrer-Policy: strict-origin-when-cross-origin on every response that has not set its own,
+   so a site this one links to sees only its domain. A handler's own policy wins (the
+   password-reset page sends no-referrer)."
+  (interceptor/interceptor
+   {:name :referrer-policy
+    :leave (fn [ctx]
+             (if (get-in ctx [:response :headers "Referrer-Policy"])
+               ctx
+               (assoc-in ctx [:response :headers "Referrer-Policy"] "strict-origin-when-cross-origin")))}))
+
+(defn- read-content-stamp
+  "The first 12 hex digits of the SHA-1 of the public resource at `path`, or nil when it is missing."
+  [path]
+  (when-let [r (io/resource (str "public" path))]
+    (with-open [in (io/input-stream r)] (subs (sha1 in) 0 12))))
+
+(def content-stamp
+  "The content stamp of public file `path` (read-content-stamp), remembered: files do not change
+   while the server runs. index/asset-url puts it in addresses as ?v=."
+  (memoize read-content-stamp))
+
+(defn static-cache-control
+  "The Cache-Control for a static file response at `uri`, or nil to leave the response alone.
+   `stamp` is :current when the request's ?v= is this file's content stamp (kept a year: that
+   address names exactly this file), :stale when it names another build (rechecked), else nil.
+   Unstamped compiled files are rechecked every time; images, fonts and vendored assets kept a week."
+  [uri stamp]
+  (cond
+    (and (= :current stamp) (re-find #"^/(js|css)/" uri)) "public, max-age=31536000, immutable"
+    (and (= :stale stamp) (re-find #"^/(js|css)/" uri))   "no-cache"
+    (re-find #"^/(js|css)/compiled/" uri)       "no-cache"
+    (re-find #"^/(image|fonts|assets|favicon)/" uri) "public, max-age=604800"
+    (re-find #"^/(js|css)/[^/]+$" uri)          "public, max-age=86400"))
+
+(defn make-static-cache-interceptor
+  "Interceptor that sets Cache-Control (static-cache-control) on a successful GET of a static file
+   whose response sets none. In `dev-mode?` only /js/ and /css/ files get \"no-cache\" (Figwheel
+   rewrites them, and a browser must recheck rather than guess how long a copy stays good); the
+   production rules are untouched.
+   GOTCHA: Pedestal's static files answer ahead of every route, so this must be FIRST in the chain
+   (system/with-static-caching) for its :leave to see them."
+  [dev-mode?]
+  (interceptor/interceptor
+   {:name ::static-cache
+    :leave (fn [ctx]
+             (let [{:keys [request-method uri query-string]} (:request ctx)
+                   {:keys [status headers]} (:response ctx)
+                   cc (when (and (= :get request-method) (= 200 status)
+                                 (not (get headers "Cache-Control")))
+                        (if dev-mode?
+                          (when (re-find #"^/(js|css)/" (str uri)) "no-cache")
+                          (static-cache-control (str uri)
+                                                (when-let [v (some->> query-string (re-find #"(?:^|&)v=([^&]*)") second)]
+                                                  (if (= v (content-stamp uri)) :current :stale)))))]
+               (cond-> ctx cc (assoc-in [:response :headers "Cache-Control"] cc))))}))
+
+(def static-cache-interceptor (make-static-cache-interceptor (config/dev-mode?)))
 
 (def etag-interceptor
   (interceptor/interceptor
@@ -100,7 +164,36 @@
                   (if new-etag
                     (assoc-in context [:response :headers "etag"] new-etag)
                     context)))
-              (catch Throwable t (log/error :msg "ETag interceptor error" :exception t))))}))
+              ;; Return the context. Without it the catch yields log/error's
+              ;; value, discarding the response: the client gets 200 with an
+              ;; empty body and no headers, and nothing reports a problem.
+              (catch Throwable t
+                (log/error :msg "ETag interceptor error" :exception t)
+                context)))}))
+
+(defn- boot-report!
+  "Prints the boot banner for server map `created`, then checks the startup email on its own
+   thread (`startup-email/check!`), so the server never waits on it. Returns nil."
+  [created]
+  (config/print-report! created)
+  (future (startup-email/check!))
+  nil)
+
+(defn- arm-boot-report!
+  "Print the boot banner when Jetty reports itself started.
+
+   Best effort: if the listener cannot be attached -- a different container, a Jetty API
+   change -- print immediately rather than lose the banner, since a missing report is worse
+   than one a few milliseconds early."
+  [created]
+  (let [server (get created ::http/server)]
+    (try
+      (.addEventListener
+       ^org.eclipse.jetty.util.component.LifeCycle server
+       (reify org.eclipse.jetty.util.component.LifeCycle$Listener
+         (lifeCycleStarted [_ _] (boot-report! created))))
+      (catch Throwable _ (boot-report! created)))))
+
 (defrecord Pedestal [service-map conn service]
   component/Lifecycle
 
@@ -111,6 +204,11 @@
         ;; nonce-interceptor first: runs last in :leave phase (sets CSP header after response built)
         true (update ::http/interceptors conj nonce-interceptor (db-interceptor conn) etag-interceptor)
         true http/create-server
+        ;; Arm the banner here, fire it when Jetty says it is up. It cannot go after
+        ;; http/start -- that BLOCKS in prod, where join? defaults true, so the first
+        ;; version printed nothing in the one configuration it exists for -- and printing
+        ;; before start would call it "started" while it is not yet listening.
+        (not (test? service-map)) (doto arm-boot-report!)
         (not (test? service-map)) http/start
         true ((partial assoc this :service)))))
 

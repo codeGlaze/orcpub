@@ -22,18 +22,37 @@
             [cljs.reader :as reader]
             [re-frame.core :as rf]
             [re-frame.db :refer [app-db]]
+            ;; the fx registry, to put the real :http handler back after stubbing it
+            [re-frame.registrar :as registrar]
             [orcpub.dnd.e5 :as e5]
+            [orcpub.entity :as entity]
             [orcpub.dnd.e5.character :as char5e]
+            ;; the account events (:logout, :clear-login) are registered here
+            [orcpub.dnd.e5.events.auth]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.spells :as spells]
+            [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.selections :as selections5e]
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.feats :as feats5e]
             [orcpub.dnd.e5.db :as db]
+            [orcpub.entity.strict :as se]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [cljs.spec.alpha :as s]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.dnd.e5.character-drafts :as drafts]
+            [orcpub.route-map :as routes]
+            [orcpub.dnd.e5.content-reconciliation :as content-recon]
+            [orcpub.dnd.e5.library :as library]
+            [orcpub.template :as t]
+            [orcpub.common :as common]
+            [reagent.core :as r]
+            ;; Side effect: registers the subscriptions that build ::char5e/template
+            [orcpub.dnd.e5.subs]
+            [orcpub.dnd.e5.equipment-subs]
             ;; Side effect: registers all event handlers
-            [orcpub.dnd.e5.events :as events]))
+            [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.homebrew-check :as homebrew-check]))
 
 ;; ---------------------------------------------------------------------------
 ;; Fixtures
@@ -46,76 +65,81 @@
 (defn reset-db!
   "Reset app-db before each test to prevent state leakage."
   []
-  (reset! app-db pristine-db))
+  (reset! app-db pristine-db)
+  ;; Clear subscription cache so reactive subs re-evaluate against fresh db.
+  (rf/clear-subscription-cache!))
 
 (use-fixtures :each {:before reset-db!})
 
 ;; ---------------------------------------------------------------------------
 ;; ::char5e/filter-spells  (reg-event-db)
 ;;
-;; This handler was refactored to call compute-sorted-spells on db
-;; instead of @(subscribe [::char5e/sorted-spells]).
+;; Post-P1: the handler only stores ::char5e/spell-text-filter in db.
+;; The filtered list is computed reactively by the ::char5e/filtered-spells
+;; sub, which composes sorted-spells + spell-text-filter. See #669 for the
+;; snapshot-staleness bug these tests used to exercise via direct db reads.
 ;; ---------------------------------------------------------------------------
 
 (deftest filter-spells-short-text-returns-all-sorted
   (testing "filter text under 3 chars → all spells returned (no filtering)"
     (reset! app-db {:plugins {}})
     (rf/dispatch-sync [::char5e/filter-spells "fi"])
-    (let [db @app-db]
-      ;; Text stored for the UI input
-      (is (= "fi" (::char5e/spell-text-filter db)))
-      ;; All sorted spells returned (not filtered) because "fi" < 3 chars
-      (let [result (::char5e/filtered-spells db)
-            names (set (map :name result))]
-        ;; Should contain known static spells
-        (is (contains? names "Fireball"))
-        (is (contains? names "Shield"))))))
+    ;; Text stored for the UI input
+    (is (= "fi" (::char5e/spell-text-filter @app-db)))
+    ;; No snapshot written — that was the #669 bug for items
+    (is (nil? (::char5e/filtered-spells @app-db)))
+    ;; All sorted spells returned reactively via the sub (no filtering)
+    (let [result @(rf/subscribe [::char5e/filtered-spells])
+          names (set (map :name result))]
+      (is (contains? names "Fireball"))
+      (is (contains? names "Shield")))))
 
 (deftest filter-spells-long-text-filters
   (testing "filter text >= 3 chars → only matching spells returned"
     (reset! app-db {:plugins {}})
     (rf/dispatch-sync [::char5e/filter-spells "fire"])
-    (let [result (::char5e/filtered-spells @app-db)
+    (let [result @(rf/subscribe [::char5e/filtered-spells])
           names (set (map :name result))]
-      ;; Only spells containing "fire" (case-insensitive)
       (is (contains? names "Fireball"))
       (is (contains? names "Fire Bolt"))
       (is (not (contains? names "Shield"))))))
 
 (deftest filter-spells-includes-plugin-spells
   (testing "plugin spells are merged into the result"
-    (reset! app-db {:plugins {:test-plugin
+    (reset! app-db {:plugins {"test-plugin"
                               {::e5/spells
                                {:zap {:name "Zap" :key :zap}}}}})
     (rf/dispatch-sync [::char5e/filter-spells "zap"])
-    (let [result (::char5e/filtered-spells @app-db)
+    (let [result @(rf/subscribe [::char5e/filtered-spells])
           names (set (map :name result))]
       (is (contains? names "Zap")))))
 
 ;; ---------------------------------------------------------------------------
 ;; ::char5e/filter-items  (reg-event-db)
 ;;
-;; Same pattern as filter-spells but for magic items.
-;; Uses compute-sorted-items instead of subscribe.
+;; Post-P1: same as filter-spells — handler only stores text, sub composes
+;; reactively. The snapshot-to-db pattern was the root cause of #669 where
+;; the item list didn't refresh after create/edit/delete.
 ;; ---------------------------------------------------------------------------
 
 (deftest filter-items-short-text-returns-all
-  (testing "filter text under 3 chars → all items returned"
+  (testing "filter text under 3 chars → all items returned reactively"
     (reset! app-db {})
     (rf/dispatch-sync [::char5e/filter-items "ba"])
-    (let [result (::char5e/filtered-items @app-db)
+    (is (= "ba" (::char5e/item-text-filter @app-db)))
+    (is (nil? (::char5e/filtered-items @app-db))
+        "No snapshot should be written — this was #669's root cause")
+    (let [result @(rf/subscribe [::char5e/filtered-items])
           names (set (map mi/name-key result))]
-      ;; Known static item should be present
       (is (contains? names "Alchemy Jug")))))
 
 (deftest filter-items-long-text-filters
   (testing "filter text >= 3 chars → only matching items returned"
     (reset! app-db {})
     (rf/dispatch-sync [::char5e/filter-items "alchemy"])
-    (let [result (::char5e/filtered-items @app-db)
+    (let [result @(rf/subscribe [::char5e/filtered-items])
           names (set (map mi/name-key result))]
       (is (contains? names "Alchemy Jug"))
-      ;; Something unrelated should NOT be present
       (is (not (contains? names "Animated Shield"))))))
 
 ;; ---------------------------------------------------------------------------
@@ -130,17 +154,33 @@
 ;; handler doesn't crash and doesn't produce unwanted side effects.
 ;; ---------------------------------------------------------------------------
 
-(deftest save-character-skips-when-no-cached-template
-  (testing "without cached template, handler is a no-op (returns {})"
-    ;; Set up db with a character but no cached template
+(defn- effects-of
+  "The effects a handler returns under `fx-keys`, captured instead of run."
+  [event fx-keys]
+  (let [captured (atom {})
+        originals (into {} (map (fn [k] [k (registrar/get-handler :fx k)]) fx-keys))]
+    (doseq [k fx-keys] (rf/reg-fx k #(swap! captured assoc k %)))
+    (try
+      (rf/dispatch-sync event)
+      @captured
+      (finally (doseq [[k f] originals] (when f (rf/reg-fx k f)))))))
+
+(deftest save-character-starts-the-template-cache-and-retries-when-it-is-empty
+  (testing "without a cached template the save asks for the cache and tries again"
     (reset! app-db {::char5e/character-map {42 {:orcpub.entity/options {}}}})
-    ;; This should NOT throw or dispatch error — it should silently skip
-    ;; We verify by checking no error dispatch happened
-    (rf/dispatch-sync [::char5e/save-character "42"])
-    ;; If we got here without exception, the nil guard works.
-    ;; The db should not have :loading set to true (no save attempted)
-    (is (nil? (:loading @app-db))
-        "No save should be attempted without cached template")))
+    (let [fx (effects-of [::char5e/save-character "42"]
+                         [::autosave-fx/ensure-template-cache :dispatch-later :dispatch :http])]
+      (is (true? (::autosave-fx/ensure-template-cache fx)))
+      (is (= [::char5e/save-character "42" 1] (:dispatch (first (:dispatch-later fx)))))
+      (is (nil? (:http fx)) "nothing is sent")
+      (is (nil? (:loading @app-db)))))
+  (testing "when the retries run out it says so; it used to skip silently"
+    (reset! app-db {::char5e/character-map {42 {:orcpub.entity/options {}}}})
+    (let [fx (effects-of [::char5e/save-character "42" events/save-template-retries]
+                         [::autosave-fx/ensure-template-cache :dispatch-later :dispatch :http])]
+      (is (= :show-warning-message (first (:dispatch fx))))
+      (is (nil? (:dispatch-later fx)))
+      (is (nil? (:http fx))))))
 
 (deftest save-character-rejects-missing-abilities
   (testing "with cached template but no ability scores → error dispatch"
@@ -153,7 +193,8 @@
           character {:orcpub.entity/options {}}]
       (reset! app-db {::char5e/character-map {42 character}
                       ::autosave-fx/cached-template template})
-      (rf/dispatch-sync [::char5e/save-character "42"])
+      (effects-of [::char5e/save-character "42"]
+                  [::autosave-fx/ensure-template-cache :dispatch-later :dispatch :http])
       ;; no crash, and nothing was sent (no :loading set) — autosave skipped
       (is (nil? (:loading @app-db))
           "empty template → autosave safely skips this cycle"))))
@@ -198,6 +239,67 @@
     (is true "Handler completed without exception")))
 
 ;; ---------------------------------------------------------------------------
+;; Per-source export runs the same correction gate as Export All
+;;
+;; The cleanups below are what the two paths used to disagree on. Text
+;; normalization is NOT among them: builder saves and import both normalize on
+;; the way in, so it cannot tell the paths apart. A blank :option-pack, a nil
+;; value and duplicately-named selection options can — nothing on the builder
+;; save path touches those, so before this they survived a per-source export and
+;; were cleaned by Export All.
+;; ---------------------------------------------------------------------------
+
+(def ^:private uncleaned-source
+  {:orcpub.dnd.e5/spells {:witchbolt {:option-pack "" :name "Witch's Bolt" :level nil}}
+   :orcpub.dnd.e5/classes
+   {:artificer {:option-pack "Pack A"
+                :name "Artificer"
+                :selections {:specialism
+                             {:name "Specialism"
+                              :options [{:name "Alchemist"} {:name "Alchemist"}]}}}}})
+
+(deftest export-works-from-the-stored-source-not-a-copy-handed-in
+  (let [stored {:orcpub.dnd.e5/spells {:a {:name "A"} :added-later {:name "Added Later"}} :disabled? true}
+        stale {:orcpub.dnd.e5/spells {:a {:name "A"}}}]
+    (is (= stored (events/export-source {"P" stored} "P" stale))
+        "a copy from before a change never wins over the library")
+    (testing "a source the library does not hold falls back to the copy handed in"
+      (is (= stale (events/export-source {} "P" stale))))))
+
+(deftest single-source-export-fills-blank-option-pack
+  (testing "a blank :option-pack is given the default source, as on import"
+    (let [{:keys [plugin]} (events/correct-single-plugin "Pack A" uncleaned-source)]
+      (is (= orcbrew-val/default-option-source
+             (get-in plugin [:orcpub.dnd.e5/spells :witchbolt :option-pack]))))))
+
+(deftest single-source-export-strips-nils
+  (testing "nil values are dropped rather than written into the file"
+    (let [{:keys [plugin]} (events/correct-single-plugin "Pack A" uncleaned-source)]
+      (is (not (contains? (get-in plugin [:orcpub.dnd.e5/spells :witchbolt]) :level))))))
+
+(deftest single-source-export-dedups-selection-options
+  (testing "duplicately-named selection options collapse, as on import"
+    (let [{:keys [plugin]} (events/correct-single-plugin "Pack A" uncleaned-source)]
+      (is (= 1 (count (get-in plugin [:orcpub.dnd.e5/classes :artificer
+                                      :selections :specialism :options])))))))
+
+(deftest single-source-export-matches-whole-library-export
+  (testing "one source exported alone equals that source inside an all-sources export"
+    (let [library {"Pack A" uncleaned-source
+                   "Pack B" {:orcpub.dnd.e5/spells {:fireball {:option-pack "Pack B"}}}}
+          all (:data (orcbrew-val/correct-library library))]
+      (is (= (get all "Pack A")
+             (:plugin (events/correct-single-plugin "Pack A" uncleaned-source)))))))
+
+(deftest single-source-export-reports-what-it-changed
+  (testing "clean content reports no changes, dirty content reports some"
+    (is (empty? (:changes (events/correct-single-plugin
+                           "Pack B"
+                           {:orcpub.dnd.e5/spells {:fireball {:option-pack "Pack B"
+                                                              :name "Fireball"}}}))))
+    (is (seq (:changes (events/correct-single-plugin "Pack A" uncleaned-source))))))
+
+;; ---------------------------------------------------------------------------
 ;; Emergency raw export
 ;; ---------------------------------------------------------------------------
 
@@ -225,26 +327,22 @@
       (is (= ["orcpub-EMERGENCY-backup.orcbrew" broken]
              (events/select-emergency-export broken nil))))))
 
-;; ---------------------------------------------------------------------------
-;; serialize-orcbrew (pure serialization, split from the saveAs side effect)
-;; ---------------------------------------------------------------------------
+;; serialize-orcbrew moved to orcpub.dnd.e5.orcbrew-format (shared with the JVM
+;; demo emitter); its round-trip tests live in orcbrew-format-test.
 
-(def ^:private sample-content
-  {:orcpub.dnd.e5/classes {:artificer {:name "Artificer" :option-pack "Pack"}}})
-
-(deftest serialize-orcbrew-compact-roundtrips
-  (testing "compact output is readable EDN that round-trips to the same data"
-    (let [s (events/serialize-orcbrew sample-content)]
-      (is (string? s))
-      (is (= sample-content (reader/read-string s))))))
-
-(deftest serialize-orcbrew-pretty-differs-but-same-data
-  (testing "pretty-print is multi-line and larger, but the same data round-trips"
-    (let [compact (events/serialize-orcbrew sample-content)
-          pretty  (events/serialize-orcbrew sample-content :pretty-print? true)]
-      (is (not= compact pretty))
-      (is (re-find #"\n" pretty) "pretty output spans multiple lines")
-      (is (= sample-content (reader/read-string pretty))))))
+(deftest raw-export-always-produces-text
+  (let [bad {"P" {:orcpub.dnd.e5/classes {:x {:name "X" :key :x :option-pack "P"
+                                               :starting-equipment-base :barbarian
+                                               :weapons true}}}}]
+    (testing "the ordinary export throws on a malformed class while collapsing it"
+      (is (thrown? js/Error (events/orcbrew-text bad))))
+    (testing "the escape hatch writes the data as it is instead"
+      (is (= bad (reader/read-string (events/orcbrew-text bad :raw? true)))))
+    (testing "good data still goes through collapse and stamp on the raw path"
+      (is (re-find #":orcbrew/format-version 2"
+                   (events/orcbrew-text {"P" {:orcpub.dnd.e5/feats
+                                              {:f {:ability-increases [[1 :any]]}}}}
+                                        :raw? true))))))
 
 ;; ---------------------------------------------------------------------------
 ;; spec-field-problems — nested-element diagnosability
@@ -279,22 +377,35 @@
       (is (= :name (:field opt-prob)))
       (is (= :invalid (:status opt-prob))))))
 
-(deftest builder-error-hiccup-renders-location
-  (testing "the rendered banner names the specific option"
-    (let [problems [{:field :name :status :invalid
-                     :reason "must start with a letter" :location "Option 2"}]
-          hiccup (events/builder-error-hiccup "Selection" problems)
-          flat (pr-str hiccup)]
-      (is (re-find #"Option 2 Name" flat))
-      (is (re-find #"must start with a letter" flat)))))
+(deftest builder-error-message-renders-location
+  (testing "a field inside a nested option carries its location, so it can be found"
+    (let [problems [{:field :name :status :missing :location "Option 2"}]
+          {:keys [title details]} (events/builder-error-message "Selection" problems)]
+      (is (re-find #"Option 2 Name" (pr-str title)))
+      (is (empty? details)))))
 
-(deftest builder-error-hiccup-batches-top-level-missing
-  (testing "top-level missing fields still batch onto one 'Please fill in' line"
+(deftest builder-error-message-batches-top-level-missing
+  (testing "empty top-level fields batch into the headline, one line not three"
     (let [problems [{:field :name :status :missing}
                     {:field :option-pack :status :missing}]
-          flat (pr-str (events/builder-error-hiccup "Class" problems))]
+          {:keys [title details]} (events/builder-error-message "Class" problems)
+          flat (pr-str title)]
       (is (re-find #"Please fill in" flat))
-      (is (re-find #"Option Source Name" flat)))))
+      (is (re-find #"Name" flat))
+      (is (re-find #"Option Source Name" flat))
+      (is (empty? details)))))
+
+(deftest builder-error-message-leads-with-the-problem
+  (testing "no builder-name label line: the headline is the problem itself"
+    (let [{:keys [title]} (events/builder-error-message
+                           "Spell" [{:field :name :status :missing}])]
+      (is (not (re-find #"Spell:" (pr-str title))))))
+  (testing "the escape hatch is a detail under it, not the headline"
+    (let [{:keys [title details]} (events/builder-error-message
+                                   "Spell" [{:field :name :status :missing}]
+                                   :some/save-anyway)]
+      (is (re-find #"Please fill in" (pr-str title)))
+      (is (re-find #"Save anyway with placeholders" (pr-str details))))))
 
 ;; ---------------------------------------------------------------------------
 ;; ::e5/repair-quarantined-source — persist-to-library repair engine
@@ -350,6 +461,284 @@
     (is (empty? (:plugins @app-db)))
     (is (contains? (db/get-rejected-plugins) "Bugged Pack") "quarantine unchanged")
     (.clear js/window.localStorage)))
+
+;; What the user finds in their browser: a pack with a digit-led name and an entry with no source.
+(def ^:private quarantined-tide
+  {"Tide Pak" {:orcpub.dnd.e5/feats
+               {:9-lives        {:name "9 Lives" :key :9-lives :option-pack "Tide Pak"}
+                :stone-elf-trcs {:name "@@@" :key :stone-elf-trcs}}}})
+
+(deftest auto-name-and-restore-brings-back-every-entry-it-can-name
+  (.clear js/window.localStorage)
+  (db/set-rejected-plugins quarantined-tide)
+  (reset! app-db {:plugins {}})
+  (rf/dispatch-sync [::e5/repair-quarantined-source "Tide Pak" {} true])
+  (let [feats (get-in @app-db [:plugins "Tide Pak" :orcpub.dnd.e5/feats])]
+    (is (= #{:nine-lives :stone-elf-trcs} (set (keys feats)))
+        "both restored: the entry with no source is filed under the pack it was listed in")
+    (is (= "Tide Pak" (get-in feats [:stone-elf-trcs :option-pack])))
+    (is (= :stone-elf-trcs (get-in feats [:stone-elf-trcs :key])) "its working key is kept")
+    (is (nil? (get (db/get-rejected-plugins) "Tide Pak")) "nothing left set aside"))
+  (.clear js/window.localStorage))
+
+(deftest the-restore-message-says-what-happened
+  (let [before (get quarantined-tide "Tide Pak")
+        kept {:orcpub.dnd.e5/feats
+              {:nine-lives {:name "Nine Lives" :key :nine-lives :former-keys [:9-lives]}
+               :stone-elf-trcs {:name "Unnamed Feat" :key :stone-elf-trcs}}}]
+    (is (= (str "Restored 2 to \u201cTide Pak\u201d. \u201c9 Lives\u201d is now \u201cNine Lives\u201d; "
+                "\u201c@@@\u201d is now \u201cUnnamed Feat\u201d.")
+           (events/restore-message "Tide Pak" before kept {})))
+    (is (= (str "Restored 1 to \u201cTide Pak\u201d. \u201c@@@\u201d is now \u201cStone Elf\u201d. "
+                "1 still can't load: \u201c9 Lives\u201d needs a name that starts with a letter.")
+           (events/restore-message "Tide Pak" before
+                                   {:orcpub.dnd.e5/feats {:stone-elf-trcs {:name "Stone Elf"}}}
+                                   {:orcpub.dnd.e5/feats {:9-lives {:name "9 Lives"}}})))
+    (is (= "Nothing restored yet. \u201c9 Lives\u201d needs a name that starts with a letter."
+           (events/restore-message "Tide Pak" before {}
+                                   {:orcpub.dnd.e5/feats {:9-lives {:name "9 Lives"}}})))))
+
+;; Deleting something other items use asks first (owner's decision, Q7).
+
+(defn- run-through!
+  "dispatch-sync `event`, then every event it dispatches, in order, until none are left. The real
+   :dispatch and :dispatch-n are put back afterwards."
+  [event]
+  (let [queue (atom [event])
+        real (select-keys (get @registrar/kind->id->handler :fx) [:dispatch :dispatch-n])]
+    (try
+      (rf/reg-fx :dispatch #(swap! queue conj %))
+      (rf/reg-fx :dispatch-n #(swap! queue into (remove nil? %)))
+      (loop []
+        (when-let [e (first @queue)]
+          (swap! queue (comp vec rest))
+          (rf/dispatch-sync e)
+          (recur)))
+      (finally
+        (doseq [[id h] real] (rf/reg-fx id h))))))
+
+(def ^:private warden-and-tides
+  {"Classes" {:orcpub.dnd.e5/classes {:warden {:key :warden :name "Warden" :option-pack "Classes"}
+                                      :spare  {:key :spare :name "Spare" :option-pack "Classes"}}}
+   "Domains" {:orcpub.dnd.e5/subclasses {:tides {:key :tides :name "Oath of Tides" :class :warden
+                                                 :option-pack "Domains"}}}})
+
+(deftest deleting-an-item-others-use-asks-first
+  (.clear js/window.localStorage)
+  (reset! app-db {:plugins warden-and-tides})
+  (let [warden (get-in warden-and-tides ["Classes" :orcpub.dnd.e5/classes :warden])]
+    (run-through! [::classes5e/delete-class warden "Classes" :warden])
+    (is (some? (get-in @app-db [:plugins "Classes" :orcpub.dnd.e5/classes :warden])) "not deleted yet")
+    (is (= "\u201cOath of Tides\u201d uses \u201cWarden\u201d." (get-in @app-db [:message :title])))
+    (run-through! [::classes5e/delete-class warden "Classes" :warden true])
+    (is (nil? (get-in @app-db [:plugins "Classes" :orcpub.dnd.e5/classes :warden])) "deleted once confirmed"))
+  (.clear js/window.localStorage))
+
+(deftest deleting-an-item-nothing-uses-just-deletes
+  (.clear js/window.localStorage)
+  (reset! app-db {:plugins warden-and-tides})
+  (run-through! [::classes5e/delete-class
+                     (get-in warden-and-tides ["Classes" :orcpub.dnd.e5/classes :spare]) "Classes" :spare])
+  (is (nil? (get-in @app-db [:plugins "Classes" :orcpub.dnd.e5/classes :spare])))
+  (.clear js/window.localStorage))
+
+(deftest deleting-a-pack-others-use-asks-first
+  (.clear js/window.localStorage)
+  (reset! app-db {:plugins warden-and-tides})
+  (run-through! [::e5/delete-plugin "Classes"])
+  (is (contains? (:plugins @app-db) "Classes") "not deleted yet")
+  (is (= "\u201cOath of Tides\u201d uses content from \u201cClasses\u201d."
+         (get-in @app-db [:message :title])))
+  (run-through! [::e5/delete-plugin "Classes" true])
+  (is (not (contains? (:plugins @app-db) "Classes")) "deleted once confirmed")
+  (.clear js/window.localStorage))
+
+(deftest a-re-import-says-which-entries-it-updated
+  (is (= "Updated 2 entries \u201cTide Pak\u201d already had: \u201cWarden\u201d, \u201cTidecall\u201d."
+         (events/updated-line [{:source "Tide Pak" :key :warden :name "Warden"}
+                               {:source "Tide Pak" :key :tidecall :name "Tidecall"}]))))
+
+;; Two tabs: a write made on a stale copy is merged onto what the other tab stored.
+
+(deftest a-stale-tab-merges-its-write-onto-the-other-tabs
+  (.clear js/window.localStorage)
+  (let [base {"Pak" {:orcpub.dnd.e5/languages {:cant {:key :cant :name "Cant" :option-pack "Pak"}}}}
+        theirs (assoc-in base ["Pak" :orcpub.dnd.e5/languages :sea] {:key :sea :name "Sea" :option-pack "Pak"})]
+    (.setItem js/window.localStorage "plugins" (pr-str theirs))
+    (.setItem js/window.localStorage "plugins:rev" "5")
+    (reset! app-db {:plugins base :orcpub.dnd.e5/plugins-rev 4})
+    (rf/dispatch-sync [::e5/set-plugins
+                       (assoc-in base ["Pak" :orcpub.dnd.e5/languages :tide] {:name "Tide"})])
+    (is (= #{:cant :sea :tide} (set (keys (get-in @app-db [:plugins "Pak" :orcpub.dnd.e5/languages]))))
+        "the other tab's Sea is kept")
+    (is (= 6 (:orcpub.dnd.e5/plugins-rev @app-db)))
+    (is (= "6" (.getItem js/window.localStorage "plugins:rev"))))
+  (.clear js/window.localStorage))
+
+(deftest a-stale-tab-changing-what-the-other-tab-changed-reloads-instead
+  (.clear js/window.localStorage)
+  (let [base {"Pak" {:orcpub.dnd.e5/languages {:cant {:key :cant :name "Cant" :option-pack "Pak"}}}}
+        theirs (assoc-in base ["Pak" :orcpub.dnd.e5/languages :cant :name] "Thieves' Cant")]
+    (.setItem js/window.localStorage "plugins" (pr-str theirs))
+    (.setItem js/window.localStorage "plugins:rev" "5")
+    (reset! app-db {:plugins base :orcpub.dnd.e5/plugins-rev 4})
+    (rf/dispatch-sync [::e5/set-plugins (assoc-in base ["Pak" :orcpub.dnd.e5/languages :cant :name] "Cant (mine)")])
+    (is (= "Thieves' Cant" (get-in @app-db [:plugins "Pak" :orcpub.dnd.e5/languages :cant :name]))
+        "this tab now shows the other tab's version")
+    (is (= "5" (.getItem js/window.localStorage "plugins:rev")) "and nothing was written"))
+  (.clear js/window.localStorage))
+
+(def ^:private tidefolk-relinks
+  [{:content-type :orcpub.dnd.e5/classes :from :warden :to :warden-cl
+    :to-name "Warden (Cl)" :import "Tide Pak" :asked #{}}])
+
+(def ^:private two-wardens
+  {"Classes"  {:orcpub.dnd.e5/classes {:warden-cl {:name "Warden (Cl)"}}}
+   "Tide Pak" {:orcpub.dnd.e5/classes {:warden {:name "Warden"}}}})
+
+(def ^:private warden-character {:db/id 7 :orcpub.entity/options {:class [{:orcpub.entity/key :warden}]}})
+
+(defn- asked [] (:asked (first (cljs.reader/read-string (.getItem js/window.localStorage "plugins:relinks")))))
+
+(deftest a-character-caught-by-an-import-rename-is-asked-until-it-answers
+  (.clear js/window.localStorage)
+  (.setItem js/window.localStorage "plugins:relinks" (pr-str tidefolk-relinks))
+  (reset! app-db {:plugins two-wardens})
+  (run-through! [:set-character warden-character])
+  (is (= {:from :warden :to-name "Warden (Cl)" :from-name "Warden" :import "Tide Pak" :character-id 7}
+         (select-keys (:orcpub.dnd.e5/relink-question @app-db)
+                      [:from :to-name :from-name :import :character-id]))
+      "the builder has a question to show")
+  (is (empty? (asked)) "and it is not counted as asked just for being shown")
+  (run-through! [:set-character warden-character])
+  (is (some? (:orcpub.dnd.e5/relink-question @app-db)) "so a reload asks again")
+  (run-through! [::e5/answer-relink :keep])
+  (is (= #{7} (asked)) "an answer records it")
+  (is (nil? (:orcpub.dnd.e5/relink-question @app-db)))
+  (is (= :warden (get-in @app-db [:character :orcpub.entity/options :class 0 :orcpub.entity/key]))
+      "keeping leaves the character on the imported one")
+  (run-through! [:set-character warden-character])
+  (is (nil? (:orcpub.dnd.e5/relink-question @app-db)) "and it is not asked again")
+  (.clear js/window.localStorage))
+
+(deftest switching-points-the-character-at-its-renamed-item
+  (.clear js/window.localStorage)
+  (.setItem js/window.localStorage "plugins:relinks" (pr-str tidefolk-relinks))
+  (reset! app-db {:plugins two-wardens})
+  (run-through! [:set-character warden-character])
+  (run-through! [::e5/answer-relink :switch])
+  (is (= :warden-cl (get-in @app-db [:character :orcpub.entity/options :class 0 :orcpub.entity/key])))
+  (is (= #{7} (asked)))
+  (is (nil? (:orcpub.dnd.e5/relink-question @app-db)))
+  (.clear js/window.localStorage))
+
+(deftest the-loaded-library-is-stored-once-when-nothing-is-lost
+  (.clear js/window.localStorage)
+  (let [stored {"Pak" {:orcpub.dnd.e5/feats {:a {:name "A"}                 ; no :key or :option-pack
+                                             :9-bad {:name "9 Bad" :option-pack "Pak"}}}}
+        kept {"Pak" {:orcpub.dnd.e5/feats {:a {:name "A"}}}}]
+    (.setItem js/window.localStorage "plugins" (pr-str stored))
+    (.setItem js/window.localStorage "plugins:rejected"
+              (pr-str {"Pak" {:orcpub.dnd.e5/feats {:9-bad {:name "9 Bad" :option-pack "Pak"}}}}))
+    (reset! app-db {:plugins kept :orcpub.dnd.e5/plugins-rev 0})
+    (run-through! [::e5/settle-loaded-library])
+    (is (= {:name "A" :key :a :option-pack "Pak"}
+           (get-in (cljs.reader/read-string (.getItem js/window.localStorage "plugins")) ["Pak" :orcpub.dnd.e5/feats :a]))
+        "stored as loaded, each item filed under its key and source")
+    (is (some? (.getItem js/window.localStorage "plugins:pre-fix")) "after keeping the copy from before"))
+  (.clear js/window.localStorage))
+
+(deftest the-loaded-library-is-not-stored-when-a-dropped-entry-is-not-in-quarantine
+  (.clear js/window.localStorage)
+  (let [stored {"Pak" {:orcpub.dnd.e5/feats {:a {:name "A"} :9-bad {:name "9 Bad"}}}}]
+    (.setItem js/window.localStorage "plugins" (pr-str stored))
+    (reset! app-db {:plugins {"Pak" {:orcpub.dnd.e5/feats {:a {:name "A"}}}} :orcpub.dnd.e5/plugins-rev 0})
+    (run-through! [::e5/settle-loaded-library])
+    (is (= stored (cljs.reader/read-string (.getItem js/window.localStorage "plugins")))
+        "untouched: the dropped entry would otherwise be lost"))
+  (.clear js/window.localStorage))
+
+;; Invariant I11, character half: a character that picks an item whose link points at nothing
+;; still builds. The items are the ones test/e2e/links-to-nothing.js seeds.
+
+(def ^:private links-to-nothing
+  {"Nothing Pak"
+   {:orcpub.dnd.e5/races
+    {:ghost-race    {:key :ghost-race :option-pack "Nothing Pak" :name "Ghost Race"
+                     :spells [{:level 1 :value {:key :no-such-spell :ability :orcpub.dnd.e5.character/int}}]}
+     :ghost-speaker {:key :ghost-speaker :option-pack "Nothing Pak" :name "Ghost Speaker"
+                     :props {:language {:no-such-language true}}}
+     :ghost-talker  {:key :ghost-talker :option-pack "Nothing Pak" :name "Ghost Talker"
+                     :languages #{"No Such Language"}}}
+    :orcpub.dnd.e5/classes
+    {:ghost-borrower {:key :ghost-borrower :option-pack "Nothing Pak" :name "Ghost Borrower" :hit-die 8
+                      :spellcasting {:level-factor 1 :ability :orcpub.dnd.e5.character/int
+                                     :spell-list-kw :no-such-class}}
+     :ghost-caster   {:key :ghost-caster :option-pack "Nothing Pak" :name "Ghost Caster" :hit-die 8
+                      :spellcasting {:level-factor 1 :ability :orcpub.dnd.e5.character/int
+                                     :spell-list {1 #{:no-such-spell}}}}
+     :ghost-granter  {:key :ghost-granter :option-pack "Nothing Pak" :name "Ghost Granter" :hit-die 8
+                      :level-modifiers [{:type :spell :level 1 :value {:key :no-such-spell}}]}
+     :ghost-chooser  {:key :ghost-chooser :option-pack "Nothing Pak" :name "Ghost Chooser" :hit-die 8
+                      :level-selections [{:type :no-such-selection :level 1}]}}
+    :orcpub.dnd.e5/subclasses
+    {:ghost-oath   {:key :ghost-oath :option-pack "Nothing Pak" :name "Ghost Oath" :class :paladin
+                    :paladin-spells {1 {0 :no-such-spell}}}
+     :ghost-domain {:key :ghost-domain :option-pack "Nothing Pak" :name "Ghost Domain" :class :cleric
+                    :cleric-spells {1 {0 :no-such-spell}}}
+     :ghost-patron {:key :ghost-patron :option-pack "Nothing Pak" :name "Ghost Patron" :class :warlock
+                    :warlock-spells {1 {0 :no-such-spell}}}}
+    :orcpub.dnd.e5/feats
+    {:ghost-feat {:key :ghost-feat :option-pack "Nothing Pak" :name "Ghost Feat"
+                  :path-prereqs {:race {:no-such-race true}}}}}})
+
+(defn- levels [n & [at-level]]
+  (vec (for [i (range 1 (inc n))]
+         (cond-> {:orcpub.entity/key (keyword (str "level-" i))}
+           (and at-level (= i (first at-level))) (assoc :orcpub.entity/options (second at-level))))))
+
+(defn- read-sub
+  "A subscription's value, read inside a reactive context the way the app reads it."
+  [query]
+  (let [out (atom nil)
+        watcher (r/track! (fn [] (reset! out @(rf/subscribe query))))]
+    (r/dispose! watcher)
+    @out))
+
+(deftest a-character-picking-an-item-with-a-link-to-nothing-still-builds
+  (reset! app-db {:plugins links-to-nothing})
+  (rf/clear-subscription-cache!)
+  (let [template (read-sub [::char5e/built-template nil])
+        cls (fn [k & [at-level n]] {:orcpub.entity/options
+                                    {:class [{:orcpub.entity/key k
+                                              :orcpub.entity/options {:levels (levels (or n 1) at-level)}}]}})]
+    (doseq [[label character]
+            {"a race granting a missing spell"    {:orcpub.entity/options {:race {:orcpub.entity/key :ghost-race}}}
+             "a race granting a missing language" {:orcpub.entity/options {:race {:orcpub.entity/key :ghost-speaker}}}
+             "a race naming a missing language"   {:orcpub.entity/options {:race {:orcpub.entity/key :ghost-talker}}}
+             "a class borrowing a missing list"   (cls :ghost-borrower)
+             "a class listing a missing spell"    (cls :ghost-caster)
+             "a class granting a missing spell"   (cls :ghost-granter)
+             "a class offering a missing choice"  (cls :ghost-chooser)
+             "a paladin oath with a missing spell" (cls :paladin [3 {:sacred-oath {:orcpub.entity/key :ghost-oath}}] 3)
+             "a cleric domain with a missing spell" (cls :cleric [1 {:divine-domain {:orcpub.entity/key :ghost-domain}}])
+             "a warlock patron with a missing spell" (cls :warlock [1 {:otherworldly-patron {:orcpub.entity/key :ghost-patron}}])
+             "a feat requiring a missing race"    {:orcpub.entity/options {:feats [{:orcpub.entity/key :ghost-feat}]}}}]
+      (testing label
+        (let [built (try (entity/build character template) (catch :default e e))]
+          (is (not (instance? js/Error built)) (str "builds: " built))
+          (when-not (instance? js/Error built)
+            (when-let [race-key (get-in character [:orcpub.entity/options :race :orcpub.entity/key])]
+              (is (= (get-in links-to-nothing ["Nothing Pak" :orcpub.dnd.e5/races race-key :name])
+                     (char5e/race built))
+                  "the broken race really is the one built, so the test is not vacuous"))
+            (when-let [class-key (get-in character [:orcpub.entity/options :class 0 :orcpub.entity/key])]
+              (is (some #{class-key} (char5e/classes built))
+                  "the class really is the one built"))
+            (doseq [[what f] {"race" char5e/race "languages" char5e/languages "spells known" char5e/spells-known
+                              "traits" char5e/traits "actions" char5e/actions "levels" char5e/levels}]
+              (is (not (instance? js/Error (try (doall (f built)) (catch :default e e))))
+                  (str what " can be read")))))))))
 
 ;; ---- toggle corruption via real re-frame events (folded from toggle-stress-test) ----
 ;; Stress harness reproducing the emergent "repetitive clicking -> malformed data
@@ -455,7 +844,1396 @@
           "top-level keys remain the sub-source names (no nesting)"))))
 
 (deftest incoming-sources-wraps-single-plugin
-  (testing "a single plugin (keyword content-type keys) is wrapped under the
-            import name so it becomes a proper {source-name plugin} entry"
+  (testing "a single plugin wraps under the source its items DECLARE (:option-pack),
+            falling back to the import (filename) name only when they don't agree —
+            so a browser-numbered re-import lands in its real source, not a duplicate"
+    ;; items agree on :option-pack -> that is the source, even though the filename
+    ;; ('My Pack') differs. This is what prevents the 'Name 1' duplicate.
     (let [single {:orcpub.dnd.e5/feats {:brave {:option-pack "P" :name "Brave"}}}]
+      (is (= {"P" single} (events/incoming-sources "My Pack" single))))
+    ;; no usable :option-pack on the items -> fall back to the import name
+    (let [single {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]
       (is (= {"My Pack" single} (events/incoming-sources "My Pack" single))))))
+
+;; ---------------------------------------------------------------------------
+;; drop-skipped-imports — REGRESSION: "Skip this one" must actually skip.
+;; The bug was that a :skip decision was a no-op, so the colliding item still
+;; imported enabled — the exact nondeterministic twin the modal promised to avoid.
+;; ---------------------------------------------------------------------------
+
+(deftest drop-skipped-imports-removes-the-skipped-external-item
+  (testing "an external conflict marked :skip is dropped from incoming; its
+            non-conflicting sibling survives"
+    (let [incoming   {"NewPack" {:orcpub.dnd.e5/spells
+                                 {:fireball  {:name "Fireball"  :option-pack "NewPack"}
+                                  :frostbite {:name "Frostbite" :option-pack "NewPack"}}}}
+          conflicts  [{:id "external-0" :type :external :key :fireball
+                       :content-type :orcpub.dnd.e5/spells :import-source "NewPack"}]
+          decisions  {"external-0" {:action :skip}}
+          result     (events/drop-skipped-imports incoming conflicts decisions "NewPack")]
+      (is (nil? (get-in result ["NewPack" :orcpub.dnd.e5/spells :fireball]))
+          "the skipped item is gone")
+      (is (some? (get-in result ["NewPack" :orcpub.dnd.e5/spells :frostbite]))
+          "the sibling still imports"))))
+
+(deftest drop-skipped-imports-prunes-a-fully-skipped-source
+  (testing "skipping the only item collapses the empty content-type and source
+            so it can't import as a shell"
+    (let [incoming  {"Solo" {:orcpub.dnd.e5/spells
+                             {:fireball {:name "Fireball" :option-pack "Solo"}}}}
+          conflicts [{:id "external-0" :type :external :key :fireball
+                      :content-type :orcpub.dnd.e5/spells :import-source "Solo"}]
+          result    (events/drop-skipped-imports incoming conflicts
+                                                 {"external-0" {:action :skip}} "Solo")]
+      (is (= {} result) "nothing left to import"))))
+
+(deftest drop-skipped-imports-single-plugin-falls-back-to-import-name
+  (testing "when import-source is nil on the target (single-plugin wrap), the
+            source key falls back to import-name — matching incoming-sources"
+    (let [incoming  {"My Pack" {:orcpub.dnd.e5/spells
+                               {:fireball {:name "Fireball"}}}}
+          ;; single-plugin external conflicts still carry the import-source
+          conflicts [{:id "external-0" :type :external :key :fireball
+                      :content-type :orcpub.dnd.e5/spells :import-source "My Pack"}]
+          result    (events/drop-skipped-imports incoming conflicts
+                                                 {"external-0" {:action :skip}} "My Pack")]
+      (is (= {} result)))))
+
+(deftest drop-skipped-imports-leaves-non-skip-and-internal-alone
+  (testing "non-:skip decisions and internal conflicts (no import-source) are
+            never removed"
+    (let [incoming  {"P" {:orcpub.dnd.e5/spells {:fireball {:name "Fireball"}}}}
+          ;; keep-both decision — must not drop
+          keep-both (events/drop-skipped-imports
+                     incoming
+                     [{:id "e0" :type :external :key :fireball
+                       :content-type :orcpub.dnd.e5/spells :import-source "P"}]
+                     {"e0" {:action :keep-both}} "P")
+          ;; internal conflict marked :skip — no import-source, so left as-is
+          internal  (events/drop-skipped-imports
+                     incoming
+                     [{:id "i0" :type :internal :key :fireball
+                       :content-type :orcpub.dnd.e5/spells}]
+                     {"i0" {:action :skip}} "P")]
+      (is (= incoming keep-both) "keep-both leaves the item")
+      (is (= incoming internal) "internal skip is a no-op (nothing to defer to)"))))
+
+;; ---------------------------------------------------------------------------
+;; :route — REGRESSION: an unmatched URL makes match-route return nil, so
+;; [:route nil ...] gets dispatched. The handler used to compute path-for on the
+;; nil route and throw an ex-info; it must now no-op and leave the route intact.
+;; ---------------------------------------------------------------------------
+
+(deftest route-nil-is-a-no-op-not-a-crash
+  (testing "[:route nil ...] preserves the current route and throws nothing"
+    (reset! app-db {:route :some-existing-route})
+    (rf/dispatch-sync [:route nil {:skip-path? true}])
+    (is (= :some-existing-route (:route @app-db))
+        "current route kept — no clobber, no exception at path-for")))
+
+;; ---------------------------------------------------------------------------
+;; Single-source re-import must use the CONTENT's source, not the filename.
+;; A single-source export writes BARE content (no embedded source name); the
+;; browser numbers repeat downloads ("Name (1).orcbrew"); import derives the
+;; source from the filename -> a duplicate "Name 1" bucket. The items still
+;; carry the true source in :option-pack, so we should recover it from there.
+;; ---------------------------------------------------------------------------
+
+(deftest single-source-reimport-uses-content-source-not-filename
+  (testing "a filename-numbered re-import of a single-source export must NOT spawn a duplicate bucket"
+    (let [source "Default Option Source"
+          spell  {:name "Fireball" :key :fireball :level 3 :school "evocation" :option-pack source}
+          ;; what export-plugin writes to .orcbrew: BARE single-plugin, no source wrapper
+          exported-single {:orcpub.dnd.e5/spells {:fireball spell}}
+          ;; the library we're importing back into
+          existing {source {:orcpub.dnd.e5/spells {:fireball spell}}}
+          ;; browser saved the 2nd download as "Default Option Source 1.orcbrew"
+          filename-name "Default Option Source 1"
+          incoming (events/incoming-sources filename-name exported-single)
+          merged   (e5/merge-all-plugins existing incoming)]
+      (is (= [source] (vec (keys merged)))
+          (str "expected ONE bucket; got " (pr-str (vec (keys merged)))
+               " — filename-numbered re-import spawned a duplicate source")))))
+
+(deftest strip-dedup-suffix-cases
+  (testing "trailing OS/browser dedup markers are stripped; real names survive"
+    (is (= "Pack" (events/strip-dedup-suffix "Pack (1)")))
+    (is (= "Pack" (events/strip-dedup-suffix "Pack 2")))
+    (is (= "Pack" (events/strip-dedup-suffix "Pack - Copy")))
+    (is (= "Pack" (events/strip-dedup-suffix "Pack copy 3")))
+    ;; a real name ending in a number with NO space before it survives
+    (is (= "Homebrew v2" (events/strip-dedup-suffix "Homebrew v2")))
+    ;; strips only the dedup marker, keeps the meaningful "v2"
+    (is (= "Homebrew v2" (events/strip-dedup-suffix "Homebrew v2 (1)")))
+    (is (= "My Cool Pack" (events/strip-dedup-suffix "My Cool Pack")))
+    (is (= "2" (events/strip-dedup-suffix "2")))))
+
+(deftest incoming-sources-strips-dedup-suffix-in-fallback
+  (testing "a numbered single-source file with NO :option-pack lands in the base
+            source (dedup suffix stripped), not a numbered duplicate"
+    (let [single {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]   ; no :option-pack
+      (is (= {"Default Option Source" single}
+             (events/incoming-sources "Default Option Source (1)" single))))))
+
+(deftest source-name-mismatch-cases
+  (testing "prompt only on a meaningful filename-vs-content-source disagreement"
+    (let [data {:orcpub.dnd.e5/feats {:brave {:option-pack "Bob's Homebrew" :name "Brave"}}}]
+      ;; meaningful mismatch -> prompt payload
+      (is (= {:filename-name "Cool Stuff" :content-name "Bob's Homebrew"}
+             (events/source-name-mismatch "Cool Stuff" data)))
+      ;; filename equals content source (case/space-insensitive) -> no prompt
+      (is (nil? (events/source-name-mismatch "  bob's homebrew " data)))
+      ;; filename is only a browser dedup variant -> no prompt
+      (is (nil? (events/source-name-mismatch "Bob's Homebrew (1)" data)))
+      ;; generic / intentless filenames -> no prompt
+      (is (nil? (events/source-name-mismatch "orcbrew" data)))
+      (is (nil? (events/source-name-mismatch "download" data)))
+      (is (nil? (events/source-name-mismatch "42" data))))
+    ;; content declares no source -> nothing to disagree with -> no prompt
+    (let [data {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]
+      (is (nil? (events/source-name-mismatch "Whatever" data))))))
+
+;; ---------------------------------------------------------------------------
+;; Starting-equipment setter (class builder)
+;; ---------------------------------------------------------------------------
+
+(deftest set-equipment-writes-and-cleans-keys
+  (testing "fixed-grant map is set on the builder-item"
+    (reset! app-db {::classes5e/builder-item {:name "Eq" :key :eq}})
+    (rf/dispatch-sync [::classes5e/set-equipment :weapons {:javelin 4}])
+    (is (= {:javelin 4} (get-in @app-db [::classes5e/builder-item :weapons]))))
+  (testing "choice vector is set on the builder-item"
+    (reset! app-db {::classes5e/builder-item {:name "Eq" :key :eq}})
+    (rf/dispatch-sync [::classes5e/set-equipment :weapon-choices
+                       [{:name "Martial Weapon" :options {:greataxe 1 :martial 1}}]])
+    (is (= [{:name "Martial Weapon" :options {:greataxe 1 :martial 1}}]
+           (get-in @app-db [::classes5e/builder-item :weapon-choices]))))
+  (testing "an empty value drops the key entirely (no blank export)"
+    (reset! app-db {::classes5e/builder-item {:name "Eq" :key :eq :weapons {:javelin 4}}})
+    (rf/dispatch-sync [::classes5e/set-equipment :weapons {}])
+    (is (not (contains? (::classes5e/builder-item @app-db) :weapons))
+        ":weapons removed when emptied")))
+
+;; ── Save-time key collision ──────────────────────────────────────────────────
+;; `save-collision` is a pure function over the plugins map, so it is tested
+;; directly rather than by dispatching a save.
+
+(def ^:private ct :orcpub.dnd.e5/classes)
+
+(def ^:private plugins-fixture
+  {"My Stuff"  {ct {:artificer {:key :artificer :name "Artificer"}}}
+   "Someone's" {ct {:druid {:key :druid :name "Druid"}}}})
+
+(deftest save-collision-allows-saving-over-yourself
+  (testing "an edit returning to its own slot is not a collision"
+    ;; The occupant IS this item, which is what an ordinary edit looks like.
+    (is (nil? (events/save-collision plugins-fixture "My Stuff" ct :artificer
+                                     {:key :artificer :name "Artificer"})))))
+
+(deftest save-collision-blocks-replacing-a-different-item
+  (testing "landing on a key held by something else in the same source"
+    ;; Renaming "Artie" to "Artificer" would silently discard the real one.
+    (let [c (events/save-collision plugins-fixture "My Stuff" ct :artificer
+                                   {:key :artie :name "Artificer"})]
+      (is (= :overwrite (:kind c)))
+      (is (= "Artificer" (:name c)))
+      (is (= "My Stuff" (:source c)))))
+
+  (testing "a NEW item, with no key of its own, onto an occupied key"
+    (let [c (events/save-collision plugins-fixture "My Stuff" ct :artificer
+                                   {:name "Artificer"})]
+      (is (= :overwrite (:kind c))))))
+
+(deftest save-collision-reports-another-source
+  (testing "the same key in a different source is reported as :cross"
+    ;; Both kinds stop the save. They are distinguished so the message can say what
+    ;; is at stake -- losing an entry, versus creating a pair where only one can be
+    ;; switched on -- not because one of them is allowed through.
+    (let [c (events/save-collision plugins-fixture "My Stuff" ct :druid
+                                   {:name "Druid"})]
+      (is (= :cross (:kind c)))
+      (is (= "Someone's" (:source c))))))
+
+(deftest save-collision-is-silent-on-a-free-key
+  (testing "nothing there, in any source"
+    (is (nil? (events/save-collision plugins-fixture "My Stuff" ct :ranger
+                                     {:name "Ranger"})))))
+
+;; ── Renaming moves the entry, it does not copy it ────────────────────────────
+
+(deftest save-into-plugins-moves-a-renamed-item
+  (testing "the entry under the old key is gone"
+    ;; assoc-in alone left it behind: one item became two, the stale copy holding
+    ;; the previous data and still answering to the key characters had stored.
+    (let [plugins {"Pak" {ct {:artificer-2 {:key :artificer-2 :name "Artificer"}}}}
+          result (events/save-into-plugins
+                  plugins "Pak" ct :artificer
+                  {:key :artificer :name "Artificer" :former-key :artificer-2}
+                  :artificer-2)
+          group (get-in result ["Pak" ct])]
+      (is (= [:artificer] (keys group)))
+      (is (= :artificer-2 (:former-key (:artificer group))))))
+
+  (testing "an ordinary save writes in place and removes nothing"
+    (let [plugins {"Pak" {ct {:artificer {:key :artificer :name "Artificer"}}}}
+          result (events/save-into-plugins
+                  plugins "Pak" ct :artificer
+                  {:key :artificer :name "Artificer Revised"} nil)]
+      (is (= [:artificer] (keys (get-in result ["Pak" ct]))))
+      (is (= "Artificer Revised" (get-in result ["Pak" ct :artificer :name])))))
+
+  (testing "a sibling in the same source is untouched"
+    (let [plugins {"Pak" {ct {:artificer-2 {:key :artificer-2 :name "Artificer"}
+                              :druid {:key :druid :name "Druid"}}}}
+          result (events/save-into-plugins
+                  plugins "Pak" ct :artificer
+                  {:key :artificer :name "Artificer"} :artificer-2)]
+      (is (= #{:artificer :druid} (set (keys (get-in result ["Pak" ct]))))))))
+
+;; ---------------------------------------------------------------------------
+;; :set-character reports what it healed
+;;
+;; The reconcilers always returned a :rewrote list and set-character always threw
+;; it away, so an automatic repair was invisible -- and because the repair lives
+;; in memory until the character is saved, invisible meant routinely lost.
+;; ---------------------------------------------------------------------------
+
+(def ^:private renamed-plugins
+  {"Pak" {:orcpub.dnd.e5/races
+          {:half-elf-ua {:key :half-elf-ua
+                         :former-key :half-elf-phb
+                         :name "Half-Elf (UA)"}}}})
+
+(deftest set-character-flags-a-repair-so-the-save-button-can-ask-for-it
+  (reset! app-db {:plugins renamed-plugins ::content-recon/offered-keys #{}})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (testing "the stored key is repaired"
+    (is (= :half-elf-ua
+           (get-in @app-db [:character :orcpub.entity/options :race :orcpub.entity/key]))))
+  (testing "and the repair is recorded rather than discarded"
+    (is (= [{:from :half-elf-phb :to :half-elf-ua}]
+           (get-in @app-db [:character-healed :rewrote])))))
+
+(deftest set-character-stays-quiet-when-nothing-needed-fixing
+  ;; A clean load must not glint the save button, or the cue means nothing.
+  (reset! app-db {:plugins renamed-plugins ::content-recon/offered-keys #{}})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-ua}}}])
+  (is (nil? (:character-healed @app-db))))
+
+(deftest the-heal-flag-clears-itself-once-the-character-is-saved
+  ;; What makes this self-resetting rather than a banner someone has to dismiss:
+  ;; saving re-dispatches :set-character over the SAVED character, whose keys are
+  ;; now current, so the reconcilers find nothing and the flag drops on its own.
+  (reset! app-db {:plugins renamed-plugins ::content-recon/offered-keys #{}})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (is (some? (:character-healed @app-db)) "flagged on the broken load")
+  (let [healed (:character @app-db)]
+    ;; stands in for the post-save re-dispatch in ::char5e/save-character
+    (rf/dispatch-sync [:set-character healed])
+    (is (nil? (:character-healed @app-db))
+        "second pass over the repaired character clears the prompt")))
+
+;; The list of keys the builder offers decides what may be redirected.
+
+(def ^:private undone-override
+  {"Pak" {:orcpub.dnd.e5/classes
+          {:cleric-tc {:key :cleric-tc :former-keys [:cleric] :name "Cleric"}}}})
+
+(def ^:private took-the-built-in-cleric
+  {:orcpub.entity/options {:class [{:orcpub.entity/key :cleric}]}})
+
+(deftest undoing-an-override-leaves-characters-on-the-built-in
+  (reset! app-db {:plugins undone-override ::content-recon/offered-keys #{:class :cleric}})
+  (rf/dispatch-sync [:set-character took-the-built-in-cleric])
+  (is (= :cleric (get-in @app-db [:character :orcpub.entity/options :class 0 :orcpub.entity/key]))
+      "the stored key still names the built-in Cleric")
+  (is (nil? (:character-healed @app-db)) "and the save button is not asking to save a change"))
+
+(deftest nothing-is-redirected-before-the-list-exists
+  (reset! app-db {:plugins renamed-plugins})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (is (= :half-elf-phb (get-in @app-db [:character :orcpub.entity/options :race :orcpub.entity/key])))
+  (is (nil? (:character-healed @app-db))))
+
+(def ^:private small-template
+  {::t/selections [(t/selection-cfg
+                    {:name "Race" :key :race
+                     :options [(t/option-cfg {:name "Half-Elf (UA)" :key :half-elf-ua})]})]})
+
+(deftest the-first-list-heals-a-character-that-loaded-before-it
+  (let [character {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}
+        fx (autosave-fx/cache-template {:db {:plugins renamed-plugins :character character}}
+                                       [::autosave-fx/cache-template small-template])]
+    (is (= #{:race :half-elf-ua} (get-in fx [:db ::content-recon/offered-keys])))
+    (is (= [[:character-updated character] [::e5/announce-heal]] (:dispatch-n fx))
+        "the waiting heal runs once the list exists, as an update so the portrait draft stays,
+         and announces itself: no route follows it")
+    (is (nil? (:dispatch-n (autosave-fx/cache-template {:db (:db fx)}
+                                                       [::autosave-fx/cache-template small-template])))
+        "and only on the first list")))
+
+(deftest a-character-with-nothing-to-heal-is-not-reloaded
+  (let [fx (autosave-fx/cache-template
+            {:db {:plugins undone-override :character took-the-built-in-cleric}}
+            [::autosave-fx/cache-template
+             {::t/selections [(t/selection-cfg
+                               {:name "Class" :key :class
+                                :options [(t/option-cfg {:name "Cleric" :key :cleric})]})]}])]
+    (is (nil? (:dispatch fx)))))
+
+(defn- real-template
+  "The real ::char5e/template, read inside a reactive context the way the app's watcher reads it."
+  []
+  (let [out (atom nil)
+        watcher (r/track! (fn [] (reset! out @(rf/subscribe [::char5e/template]))))]
+    (r/dispose! watcher)
+    @out))
+
+(defn- texts
+  "Every string in a hiccup tree, joined."
+  [h]
+  (apply str (filter string? (tree-seq coll? seq h))))
+
+(deftest a-key-change-asks-before-moving-links-in-other-packs
+  (.clear js/window.localStorage)
+  (reset! app-db {:plugins warden-and-tides
+                  ::classes5e/builder-item (get-in warden-and-tides ["Classes" :orcpub.dnd.e5/classes :warden])
+                  :builder-origin {:orcpub.dnd.e5/classes {:source "Classes" :key :warden :name "Warden"}}})
+  (run-through! [::e5/change-builder-item-key ::classes5e/save-class "keeper"])
+  (is (some? (get-in @app-db [:plugins "Classes" :orcpub.dnd.e5/classes :keeper])) "the key changed")
+  (is (= :warden (get-in @app-db [:plugins "Domains" :orcpub.dnd.e5/subclasses :tides :class]))
+      "the other pack's link is not moved")
+  (is (re-find #"“Oath of Tides” \(Domains\) in other packs still uses the old key\. Point it at the new one"
+               (texts (get-in @app-db [:message :details])))
+      "it is offered")
+  (run-through! [::e5/apply-repairs (library/repoint-offer (:plugins @app-db) :orcpub.dnd.e5/classes
+                                                          :warden :keeper "Classes")])
+  (is (= :keeper (get-in @app-db [:plugins "Domains" :orcpub.dnd.e5/subclasses :tides :class]))
+      "and moved when accepted")
+  (.clear js/window.localStorage))
+
+(deftest the-real-builder-offers-every-built-in-key
+  ;; The built-in content the app defines (classes.cljc, spell_subs.cljs, spells.cljc). Subclasses
+  ;; carry no :key, so theirs are derived from the name, as option-cfg does.
+  (reset! app-db {})
+  (rf/clear-subscription-cache!)
+  (let [offered (content-recon/offered-keys (real-template))]
+    (doseq [[what ks] {"classes"     classes5e/base-class-keys
+                       "races"       #{:dwarf :elf :halfling :human :dragonborn :gnome
+                                       :half-elf :half-orc :tiefling}
+                       "subraces"    #{:hill-dwarf :high-elf :lightfoot :rock-gnome
+                                       :calishite :chondathan :damaran :illuskan :mulan
+                                       :rashemi :shou :tethyrian :turami}
+                       "backgrounds" #{:acolyte}
+                       "subclasses"  (set (map common/name-to-kw
+                                               ["Path of the Berserker" "College of Lore" "Life Domain"
+                                                "Circle of the Land" "Champion" "Way of the Open Hand"
+                                                "Oath of Devotion" "Hunter" "Thief" "Draconic Bloodline"
+                                                "School of Evocation" "The Fiend"]))
+                       "feats"       #{:grappler}
+                       "spells"      #{:fireball :cure-wounds :eldritch-blast}}]
+      (is (empty? (remove offered ks)) (str "every built-in " what " key is offered: missing "
+                                            (vec (remove offered ks)))))))
+
+(deftest healed-message-counts-what-moved
+  (is (= (events/healed-message [{:from :a :to :b}])
+         "Reconnected 1 reference to content that had been renamed. Save the character to keep the fix."))
+  (is (re-find #"^Reconnected 2 references"
+               (events/healed-message [{:from :a :to :b} {:from :c :to :d}]))))
+
+;; ---------------------------------------------------------------------------
+;; A heal waits for the template, and is announced once
+;;
+;; The heal reads the template's offered keys (homebrew-keys-design.md), and the template is
+;; built when a character is opened or its page reached, never at startup
+;; (homebrew-safety-net.md). So a reloaded draft heals when the template arrives, after the
+;; route to the builder, and announces itself then. Watched in a browser by
+;; test/browser/character_heal_e2e.js and scripts/e2e/template-on-open.js.
+;; ---------------------------------------------------------------------------
+
+(def ^:private stored-plugins
+  ;; :option-pack is required here, unlike renamed-plugins above: this one goes
+  ;; through the ::e5/plugins cofx, which quarantines a race that fails the spec.
+  {"Pak" {:orcpub.dnd.e5/races
+          {:half-elf-ua {:key :half-elf-ua
+                         :former-key :half-elf-phb
+                         :name "Half-Elf (UA)"
+                         :option-pack "Pak"}}}})
+
+(def ^:private race-key [:character :orcpub.entity/options :race :orcpub.entity/key])
+
+(defn- template-arrives!
+  "Runs ::autosave-fx/cache-template with `template`, then each event it queues, in order."
+  [template]
+  (let [fx (autosave-fx/cache-template {:db @app-db} [::autosave-fx/cache-template template])]
+    (reset! app-db (:db fx))
+    (doseq [e (:dispatch-n fx)] (rf/dispatch-sync e))))
+
+(deftest a-reloaded-draft-heals-when-the-template-arrives
+  (let [broken {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}]
+    ;; A browser holding only the old single-slot draft: other tests' drafts and tab key cleared.
+    (doseq [k (drafts/draft-keys)] (drafts/remove-draft! k))
+    (.removeItem js/sessionStorage "builder-draft-key")
+    (.setItem js/localStorage "plugins" (pr-str stored-plugins))
+    (.setItem js/localStorage "character" (pr-str (char5e/to-strict broken)))
+    (try
+      (reset! app-db {})
+      (rf/dispatch-sync [:initialize-db])
+      (is (= :half-elf-phb (get-in @app-db race-key)) "startup restores the draft as stored")
+      (is (true? (::autosave-fx/ensure-template-cache
+                  (effects-of [:route routes/dnd-e5-char-builder-route {:skip-path? true}]
+                              [::autosave-fx/ensure-template-cache]))))
+      (template-arrives! small-template)
+      (testing "the template's arrival heals it, records it and announces it"
+        (is (= :half-elf-ua (get-in @app-db race-key)))
+        (is (= [{:from :half-elf-phb :to :half-elf-ua}] (get-in @app-db [:character-healed :rewrote])))
+        (is (true? (get-in @app-db [:character-healed :announced?]))))
+      (testing "and the healed draft is stored, so the next load restores it healed"
+        (is (not (.includes (.getItem js/localStorage (drafts/storage-key (drafts/tab-key))) "half-elf-phb"))))
+      (finally
+        (some-> (drafts/tab-key) drafts/remove-draft!)
+        (.removeItem js/sessionStorage "builder-draft-key")
+        (.removeItem js/localStorage "character")
+        (.removeItem js/localStorage "plugins")))))
+
+(deftest a-character-is-opened-and-its-pages-reached-with-the-template-requested
+  (reset! app-db {:plugins renamed-plugins})
+  (is (true? (::autosave-fx/ensure-template-cache
+              (effects-of [:set-character {:orcpub.entity/options {}}]
+                          [::autosave-fx/ensure-template-cache]))))
+  (doseq [r [routes/dnd-e5-char-builder-route
+             {:handler routes/dnd-e5-char-page-route :route-params {:id 7}}]]
+    (is (true? (::autosave-fx/ensure-template-cache
+                (effects-of [:route r {:skip-path? true}] [::autosave-fx/ensure-template-cache])))
+        (pr-str r)))
+  (doseq [r [routes/dnd-e5-my-content-route routes/dnd-e5-subrace-builder-page-route]]
+    (is (true? (::autosave-fx/ensure-template-cache
+                (effects-of [:route r {:skip-path? true}] [::autosave-fx/ensure-template-cache])))
+        (str r ": its repair panel and missing-link marks need what the template offers")))
+  (is (nil? (::autosave-fx/ensure-template-cache
+             (effects-of [:route routes/dnd-e5-spell-list-page-route {:skip-path? true}]
+                         [::autosave-fx/ensure-template-cache])))
+      "a page with no character builds nothing"))
+
+(deftest routing-to-the-builder-announces-a-heal-once
+  ;; The offered keys are known, so :set-character heals at once.
+  (reset! app-db {:plugins renamed-plugins ::content-recon/offered-keys #{}})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (is (not (get-in @app-db [:character-healed :announced?]))
+      ":set-character records the heal without announcing it")
+  (rf/dispatch-sync [:route routes/dnd-e5-char-builder-route {:skip-path? true}])
+  (is (true? (get-in @app-db [:character-healed :announced?]))
+      "reaching the builder announces it")
+  (testing "the repair itself is untouched by announcing it"
+    (is (= [{:from :half-elf-phb :to :half-elf-ua}]
+           (get-in @app-db [:character-healed :rewrote])))))
+
+(deftest routing-elsewhere-does-not-announce-a-heal
+  ;; "Save the character to keep the fix" is meaningless off the builder.
+  (reset! app-db {:plugins renamed-plugins ::content-recon/offered-keys #{}})
+  (rf/dispatch-sync [:set-character
+                     {:orcpub.entity/options {:race {:orcpub.entity/key :half-elf-phb}}}])
+  (rf/dispatch-sync [:route routes/dnd-e5-spell-list-page-route {:skip-path? true}])
+  (is (not (get-in @app-db [:character-healed :announced?]))))
+
+;; ---------------------------------------------------------------------------
+;; An unreadable section is set aside on import, and the notice counts it
+;; ---------------------------------------------------------------------------
+
+(deftest importing-a-damaged-section-sets-it-aside-and-says-so
+  (try
+    (let [{:keys [merged quarantine message]}
+          (events/store-imported-sources
+           {}
+           {"P" {:orcpub.dnd.e5/spells "corrupted"
+                 :orcpub.dnd.e5/feats {:tough {:option-pack "P" :key :tough :name "Tough"}}}})]
+      (is (contains? (get-in merged ["P" :orcpub.dnd.e5/feats]) :tough) "the rest imports")
+      (is (not (contains? (get merged "P") :orcpub.dnd.e5/spells)) "the damaged section stays out of the library")
+      (is (= "corrupted" (get-in quarantine ["P" :orcpub.dnd.e5/spells])) "and is set aside")
+      (is (re-find #"1 damaged section couldn't be loaded and was set aside" (str message))
+          "the notice used to say 0 entries"))
+    (finally
+      (.removeItem js/localStorage "plugins:rejected"))))
+
+;; ---------------------------------------------------------------------------
+;; Fixes that must reach storage: what these handlers hand to the store
+;; ---------------------------------------------------------------------------
+
+(defn- dispatched-by
+  "What a handler hands to :dispatch-n, captured instead of queued."
+  [event]
+  (let [original (registrar/get-handler :fx :dispatch-n)
+        captured (atom nil)]
+    (rf/reg-fx :dispatch-n #(reset! captured %))
+    (try
+      (rf/dispatch-sync event)
+      @captured
+      (finally (rf/reg-fx :dispatch-n original)))))
+
+(defn- stored-by [events]
+  (some (fn [[id plugins]] (when (#{::e5/set-plugins ::e5/store-plugins} id) plugins)) events))
+
+(deftest selection-save-anyway-stores-a-key-the-next-load-keeps
+  (reset! app-db {:plugins {}
+                  ::selections5e/builder-item {:name "9 Lives" :option-pack ""
+                                               :options [{:name "First"}]}})
+  (let [stored (stored-by (dispatched-by [::selections5e/save-selection-anyway]))
+        [[k item]] (seq (get-in stored ["Default Option Source" ::e5/selections]))]
+    (is (re-matches #"[a-z][a-z0-9-]*" (name k))
+        "it was saved as :9-lives, which the next load sets aside")
+    (is (= k (:key item)))))
+
+(deftest a-rename-chosen-for-an-existing-item-is-stored-even-when-nothing-imports
+  ;; The incoming copy has no source, so the store sets it aside and merges nothing;
+  ;; the rename chosen for the existing copy used to go with it.
+  (try
+    (reset! app-db
+            {:plugins {"Pack A" {::e5/spells {:bolt {:key :bolt :option-pack "Pack A" :name "Bolt"
+                                                     :level 1 :school "evocation"}}}}
+             :conflict-resolution
+             {:active? true :mode :import :import-name "Pack B"
+              :import-data {"Pack B" {::e5/spells {:bolt {:key :bolt :name "Bolt" :level 1 :school "evocation"}}}}
+              :conflicts [{:id "external-0" :type :external :key :bolt :content-type ::e5/spells
+                           :import-source "Pack B" :import-name "Bolt"
+                           :existing-source "Pack A" :existing-name "Bolt"}]
+              :decisions {"external-0" {:action :rename-existing :new-key :bolt-a :new-name "Bolt A"}}}})
+    (let [stored (stored-by (dispatched-by [:apply-conflict-resolutions]))]
+      (is (contains? (get-in stored ["Pack A" ::e5/spells]) :bolt-a)))
+    (finally
+      (.removeItem js/localStorage "plugins:rejected"))))
+
+
+;; ---------------------------------------------------------------------------
+;; A homebrew entry that breaks the character options is set aside, once
+;; ---------------------------------------------------------------------------
+
+(deftest a-homebrew-entry-that-breaks-the-options-is-set-aside-and-reported
+  (try
+    (let [bad {:key :bad :option-pack "P" :name "Bad Race"}
+          report {:content-type ::e5/races :key :bad :option-pack "P" :name "Bad Race"}]
+      (reset! app-db {:plugins {"P" {::e5/races {:bad bad :good {:key :good :option-pack "P" :name "Good"}}}}})
+      (is (= [::e5/set-aside-broken-homebrew]
+             (:dispatch (first (:dispatch-later (effects-of [::e5/homebrew-entry-broke report] [:dispatch-later]))))))
+      (testing "the same entry reported again is not queued again"
+        (is (nil? (:dispatch-later (effects-of [::e5/homebrew-entry-broke report] [:dispatch-later])))))
+      (let [fx (effects-of [::e5/set-aside-broken-homebrew] [:dispatch])]
+        (is (not (contains? (get-in @app-db [:plugins "P" ::e5/races]) :bad)))
+        (is (contains? (get-in @app-db [:plugins "P" ::e5/races]) :good) "the rest of the source stays")
+        (is (= bad (get-in @app-db [:quarantined-plugins "P" ::e5/races :bad])))
+        (is (.includes (.getItem js/localStorage "plugins:rejected") ":bad")
+            "saved, so it stays set aside after a reload")
+        (is (= :show-warning-message (first (:dispatch fx))))))
+    (finally
+      (.removeItem js/localStorage "plugins:rejected")
+      (.removeItem js/localStorage "plugins"))))
+
+(deftest a-report-for-content-not-in-the-library-moves-nothing
+  (is (= [] (:moved (homebrew-check/set-aside-broken-entries {"P" {::e5/races {}}} nil
+                                                     [{:content-type ::e5/races :key :gone :option-pack "P"}])))))
+
+(deftest reporting-a-character-problem-sends-the-auth-token
+  (reset! app-db {:user-data {:token "t0ken"}})
+  (let [fx (effects-of [:report-character-problem 42 "boom" "{:raw 1}"] [:http])]
+    (is (= "t0ken" (get-in fx [:http :auth-token]))
+        "get-auth-token had moved to event-utils, so this handler threw and the report never sent")))
+
+;; :report-character-problem — the auth token reaches the request
+;; ---------------------------------------------------------------------------
+
+(deftest report-character-problem-sends-the-auth-token
+  ;; The handler called a bare `get-auth-token` that no longer resolves, so it threw the moment the
+  ;; button was pressed. The fix is one namespace qualifier; this is here so the next move does not
+  ;; put it back.
+  ;;
+  ;; GOTCHA: the :http stub is restored afterwards. reg-fx is GLOBAL and the file's fixture only
+  ;; resets app-db, so a stub left registered would quietly serve every later namespace that
+  ;; dispatches :http.
+  (let [sent (atom nil)
+        real (get-in @registrar/kind->id->handler [:fx :http])]
+    (try
+      (rf/reg-fx :http (fn [cfg] (reset! sent cfg)))
+      (reset! app-db {:user-data {:token "tok-123"}})
+      (rf/dispatch-sync [:report-character-problem 42 "boom" "{:raw 1}"])
+      (is (= "tok-123" (:auth-token @sent)) "the request carries the token")
+      (is (= :sending (get-in @app-db [:character-report-status 42]))
+          "and the button reflects that it is in flight")
+      (finally
+        (if real
+          (rf/reg-fx :http real)
+          (rf/clear-fx :http))))))
+
+;; ---------------------------------------------------------------------------
+;; Portrait draft ownership (PR #36 review, P1 twice over)
+;;
+;; The draft lives at the TOP of app-db, not inside the character, and both the
+;; drawer and the Portrait tab seed it only when it is missing. So it survived a
+;; switch from character A to character B and the next Save wrote A's portrait
+;; onto B.
+;;
+;; It cannot simply be cleared on :set-character either: that also runs after
+;; every save, over the SAVED character, and clearing there blanks the inline
+;; tab every time you press Save.
+;;
+;; Round 1 resolved that by comparing :db/id -- which was wrong in BOTH
+;; directions, and the second review caught it. A first save is where a new
+;; character gets its id, so an id change does not mean a different character;
+;; and two never-saved characters share a nil id, so an id match does not mean
+;; the same one. The callers that continue a character now say so.
+;; ---------------------------------------------------------------------------
+
+(defn- char-with-id [id]
+  {:db/id id ::entity/values {}})
+
+(deftest portrait-draft-does-not-follow-you-to-another-character
+  (reset! app-db (assoc pristine-db
+                        :character (char-with-id 111)
+                        :portrait/draft {:layers {:head {:asset/id :a-from-char-111}}}
+                        :portrait/draft-seed "seed-a"
+                        :portrait/open-slot :hair))
+  (rf/dispatch-sync [:set-character (char-with-id 222)])
+  (is (nil? (:portrait/draft @app-db))
+      "A's draft must not survive onto B, or Save writes A's portrait onto B")
+  (is (nil? (:portrait/draft-seed @app-db)))
+  (is (nil? (:portrait/open-slot @app-db))))
+
+(deftest re-opening-the-same-saved-character-keeps-the-draft
+  (testing "Edit, from a list, on the character already in the builder. A
+            courtesy rather than a correctness mechanism -- nothing about a save
+            reaches :set-character any more -- but losing an unsaved portrait to
+            a click that changes nothing would still be losing work"
+    (let [draft {:layers {:head {:asset/id :still-being-edited}}}]
+      (reset! app-db (assoc pristine-db
+                            :character (char-with-id 111)
+                            :portrait/draft draft))
+      (rf/dispatch-sync [:set-character (char-with-id 111)])
+      (is (= draft (:portrait/draft @app-db))
+          "same character, same draft"))))
+
+(deftest a-first-save-keeps-portrait-edits-that-are-still-in-the-draft
+  (testing "Save character before Save portrait: the edits exist ONLY in the
+            draft -- to-strict reads the character, not the draft -- so clearing
+            on the id the save response assigns loses them outright"
+    (let [draft {:layers {:head {:asset/id :edited-but-not-yet-saved}}}]
+      (reset! app-db (assoc pristine-db
+                            :character (char-with-id nil)
+                            :portrait/draft draft))
+      ;; What :character-save-success dispatches: same character, first id.
+      (rf/dispatch-sync [:character-updated (char-with-id 999)])
+      (is (= draft (:portrait/draft @app-db))
+          "the draft is the only copy of these edits; it must survive"))))
+
+(deftest a-save-of-the-character-on-screen-updates-it-rather-than-switching
+  (testing "the wiring, not a predicate: :set-character now MEANS a switch and
+            always drops the draft, so what this has to prove is that the save
+            path picks the other event. Captures :dispatch-n the way the :http
+            stub above captures a request."
+    (let [dispatched (atom [])
+          real (get-in @registrar/kind->id->handler [:fx :dispatch-n])]
+      (try
+        (rf/reg-fx :dispatch-n (fn [events] (reset! dispatched (vec events))))
+        (reset! app-db pristine-db)
+        ;; :epoch is what the manual save posts; pristine-db has no
+        ;; :character-epoch, so 0 is the epoch it was dispatched at.
+        (rf/dispatch-sync
+         [:character-save-success
+          {:epoch 0}
+          {:body {:db/id 999 :orcpub.entity.strict/values {}}}])
+        (let [events (into #{} (map first) @dispatched)]
+          (is (contains? events :character-updated)
+              "a first save is the same character acquiring an id, so it updates")
+          (is (not (contains? events :set-character))
+              "and must not go through the switch, which discards the draft"))
+        (finally
+          (if real
+            (rf/reg-fx :dispatch-n real)
+            (rf/clear-fx :dispatch-n)))))))
+
+(deftest the-response-arrives-last-because-the-http-effect-appends-it
+  (testing "the :http effect dispatches (conj on-success response), so the
+            response is APPENDED -- it lands AFTER whatever the caller put in
+            the on-success vector. Every other test here builds that event by
+            hand, which encodes the author's belief about the order and so
+            cannot catch getting it wrong. It was wrong: the handler read
+            [_ response save-context], bound the context as the response, and
+            every successful save silently failed to install the character it
+            got back -- including the first save's newly assigned :db/id.
+
+            This drives the real :save-character, takes the on-success vector it
+            actually hands the effect, and completes it the way the effect does."
+    (let [sent (atom nil)
+          dispatched (atom [])
+          real-http (get-in @registrar/kind->id->handler [:fx :http])
+          real-dn (get-in @registrar/kind->id->handler [:fx :dispatch-n])
+          abilities (zipmap char5e/ability-keys (repeat 12))]
+      (try
+        (rf/reg-fx :http (fn [cfg] (reset! sent cfg)))
+        (rf/reg-fx :dispatch-n (fn [evs] (reset! dispatched (vec evs))))
+        (reset! app-db (assoc pristine-db :character {::entity/values {}}))
+        (rf/dispatch-sync [:save-character {:base-abilities abilities}])
+
+        (let [on-success (:on-success @sent)]
+          (is (some? on-success) "the manual save posts, so it has an :on-success")
+          (is (= :character-save-success (first on-success)))
+          (is (map? (last on-success))
+              "and carries its save context -- the thing the response lands after")
+
+          ;; verbatim what (reg-fx :http) does with it
+          (rf/dispatch-sync
+           (conj on-success {:status 200
+                             :body {:db/id 4242 :orcpub.entity.strict/values {}}}))
+          (let [events (into #{} (map first) @dispatched)]
+            (is (contains? events :character-updated)
+                "a save of the character on screen installs what came back")))
+        (finally
+          (if real-http (rf/reg-fx :http real-http) (rf/clear-fx :http))
+          (if real-dn (rf/reg-fx :dispatch-n real-dn) (rf/clear-fx :dispatch-n)))))))
+
+(deftest a-stale-save-leaves-the-character-on-screen-alone
+  (testing "saving is asynchronous and the autosave queue is throttled by 7.5s,
+            with every sheet control feeding it -- so adjust hit points on one
+            character, open another inside that window, and the answer arrives
+            about a character that is no longer on screen. It used to replace
+            the one that was, taking db :character -- where unsaved edits live --
+            with it. The portrait draft was the loudest symptom, not the bug."
+    (let [dispatched (atom [])
+          real (get-in @registrar/kind->id->handler [:fx :dispatch-n])
+          events-for (fn [] (into #{} (map first) @dispatched))]
+      (try
+        (rf/reg-fx :dispatch-n (fn [events] (reset! dispatched (vec events))))
+
+        (testing "manual save, dispatched an epoch ago"
+          (reset! app-db (assoc pristine-db
+                                :character (char-with-id 222)
+                                :character-epoch 4
+                                :portrait/draft {:layers {:head {:asset/id :belongs-to-222}}}))
+          (rf/dispatch-sync
+           [:character-save-success
+            {:epoch 3}
+            {:body {:db/id 111 :orcpub.entity.strict/values {}}}])
+          (let [events (events-for)]
+            (is (not (contains? events :set-character)) "222 stays on screen")
+            (is (not (contains? events :character-updated)) "and is not rewritten as 111")
+            (is (not (contains? events :set-loading))
+                "and does NOT touch the loading counter: the :http effect already
+                 dispatches [:set-loading false] on every response, so a second
+                 one here clears the overlay while another request is in flight")
+            (is (contains? events :orcpub.dnd.e5.character/set-character)
+                "but 111 does belong in the character map")))
+
+        (testing "autosave, for a character that is not the one on screen"
+          (reset! app-db (assoc pristine-db
+                                :character (char-with-id 222)
+                                :portrait/draft {:layers {:head {:asset/id :belongs-to-222}}}))
+          (rf/dispatch-sync
+           [:character-save-success
+            {:for-id 111}
+            {:body {:db/id 111 :orcpub.entity.strict/values {}}}])
+          (let [events (events-for)]
+            (is (not (contains? events :set-character)))
+            (is (not (contains? events :character-updated)))))
+
+        (testing "autosave, for the character on screen"
+          (reset! app-db (assoc pristine-db
+                                :character (char-with-id 111)
+                                :portrait/draft {:layers {:head {:asset/id :belongs-to-111}}}))
+          (rf/dispatch-sync
+           [:character-save-success
+            {:for-id 111}
+            {:body {:db/id 111 :orcpub.entity.strict/values {}}}])
+          (let [events (events-for)]
+            (is (contains? events :character-updated)
+                "this one IS the character being edited")))
+        (finally
+          (if real
+            (rf/reg-fx :dispatch-n real)
+            (rf/clear-fx :dispatch-n)))))))
+
+(defn- with-fx
+  "Calls `f` with each effect in `stubs` (fx id -> handler) replaced, then puts the real ones back."
+  [stubs f]
+  (let [real (into {} (map (fn [k] [k (get-in @registrar/kind->id->handler [:fx k])])) (keys stubs))]
+    (try
+      (doseq [[k h] stubs] (rf/reg-fx k h))
+      (f)
+      (finally
+        (doseq [[k h] real] (if h (rf/reg-fx k h) (rf/clear-fx k)))))))
+
+(def ^:private hp ::char5e/current-hit-points)
+(def ^:private char-name ::char5e/character-name)
+
+(deftest a-sheet-edit-reaches-the-builder-copy-of-the-same-character
+  (with-fx {::char5e/save-character-throttled identity ::events/builder-draft->local-store identity}
+    (fn []
+      (reset! app-db (assoc pristine-db
+                            :character {:db/id 111 :changed true ::entity/values {char-name "Unsaved"}}
+                            ::char5e/character-map {111 {:db/id 111 ::entity/values {char-name "Stored"}}}))
+      (rf/dispatch-sync [::char5e/set-current-hit-points "111" 7])
+      (is (= {char-name "Unsaved" hp 7} (get-in @app-db [:character ::entity/values]))
+          "the builder gets the sheet's hit points and keeps its own name")
+      (is (= {char-name "Stored" hp 7} (get-in @app-db [::char5e/character-map 111 ::entity/values]))
+          "the stored copy, which is what autosaves, is edited as before")
+      (is (= #{hp} (get-in @app-db [::events/sheet-edited 111])) "and the changed key is recorded")
+      (rf/dispatch-sync [::char5e/set-current-hit-points "222" 3])
+      (is (= 7 (get-in @app-db [:character ::entity/values hp]))
+          "an edit to another character does not touch the builder")
+      (is (= #{hp} (get-in @app-db [::events/sheet-edited 222]))
+          "but its changed key is recorded too, for re-applying after a refused save"))))
+
+(deftest an-autosave-reply-keeps-the-builders-unsaved-edits
+  (let [dispatched (atom [])
+        saved (atom nil)
+        reply {:body (char5e/to-strict {:db/id 111 ::entity/version 5 ::entity/values {char-name "Stored" hp 7}})}]
+    (with-fx {:dispatch-n #(reset! dispatched (vec %))
+              ::autosave-fx/saved #(reset! saved %)
+              ::events/builder-draft->local-store identity}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              :character {:db/id 111 :changed true
+                                          ::entity/values {char-name "Unsaved" hp 6}}
+                              ::events/sheet-edited {111 #{hp}}))
+        (rf/dispatch-sync [:character-save-success {:for-id 111} reply])
+        (is (= {char-name "Unsaved" hp 7} (get-in @app-db [:character ::entity/values]))
+            "the builder keeps its name and takes only the key the sheet changed")
+        (is (true? (get-in @app-db [:character :changed])) "and still counts as unsaved")
+        (is (= 5 (get-in @app-db [:character ::entity/version]))
+            "and takes the version the save was given, so its own Save is not refused")
+        (is (not (contains? (into #{} (map first) @dispatched) :character-updated))
+            "the reply does not replace the builder")
+        (is (nil? (get-in @app-db [::events/sheet-edited 111])) "the record is cleared")
+        (is (= 111 @saved) "and the autosave is reported as confirmed")
+
+        (testing "with nothing unsaved in the builder the reply is installed as before"
+          (reset! app-db (assoc pristine-db :character {:db/id 111 ::entity/values {}}))
+          (rf/dispatch-sync [:character-save-success {:for-id 111} reply])
+          (is (contains? (into #{} (map first) @dispatched) :character-updated)))))))
+
+(deftest a-copy-that-matches-what-is-stored-sends-no-save
+  ;; No template is cached, so a save that goes ahead retries (:dispatch-later); one skipped does not.
+  (let [stored {:db/id 111 ::entity/values {hp 9}}
+        fx-keys [:http :dispatch-later ::autosave-fx/ensure-template-cache ::autosave-fx/saved]]
+    (reset! app-db pristine-db)
+    (rf/dispatch-sync [::char5e/set-character 111 stored])
+    (is (= (events/stored-shape stored) (get-in @app-db [::events/stored-shape 111]))
+        "a copy from the server is recorded as stored")
+    (let [fx (effects-of [::char5e/save-character "111"] fx-keys)]
+      (is (nil? (:dispatch-later fx)) "an unchanged copy goes no further")
+      (is (nil? (:http fx)))
+      (is (= "111" (::autosave-fx/saved fx)) "and counts as confirmed, so the close warning can go"))
+    (swap! app-db assoc-in [::char5e/character-map 111 ::entity/values hp] 8)
+    (is (some? (:dispatch-later (effects-of [::char5e/save-character "111"] fx-keys)))
+        "a changed copy goes on toward sending")))
+
+(deftest an-edit-made-while-its-save-is-in-flight-outlives-the-reply
+  (let [dispatched (atom [])]
+    (with-fx {:dispatch-n #(reset! dispatched (vec %))
+              ::autosave-fx/saved identity
+              ::char5e/save-character-throttled identity}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              ::char5e/character-map {111 {:db/id 111 ::entity/values {hp 3}}}
+                              ::events/in-flight {111 true}))
+        (rf/dispatch-sync [::char5e/set-current-hit-points "111" 4])
+        (is (true? (get-in @app-db [::events/edited-in-flight 111])) "the edit is marked as newer")
+        (let [reply {:db/id 111 ::entity/version 5 ::entity/values {hp 3}}]
+          (rf/dispatch-sync [:character-save-success {:for-id 111} {:body (char5e/to-strict reply)}])
+          (is (= 4 (get-in @app-db [::char5e/character-map 111 ::entity/values hp]))
+              "the reply does not put the older value back")
+          (is (= 5 (get-in @app-db [::char5e/character-map 111 ::entity/version]))
+              "but the copy takes the version its own save was given")
+          (is (not (contains? (into #{} (map first) @dispatched) ::char5e/set-character))
+              "it is not installed in the map")
+          (is (= (events/stored-shape reply) (get-in @app-db [::events/stored-shape 111]))
+              "but it is recorded as what is stored, so the next save is not skipped")
+          (is (nil? (get-in @app-db [::events/in-flight 111])))
+          (is (nil? (get-in @app-db [::events/edited-in-flight 111]))))))))
+
+(deftest the-version-is-not-part-of-what-a-copy-holds
+  (let [c {:db/id 111 ::entity/values {hp 4}}]
+    (is (= (events/stored-shape (assoc c ::entity/version 1)) (events/stored-shape (assoc c ::entity/version 2)))
+        "two copies differing only in version hold the same character")))
+
+(def ^:private refused
+  "A 409 for character 111: stored now with another name and hit points 9, at version 2."
+  {:status 409
+   :body {:error :stale-character
+          :current (char5e/to-strict {:db/id 111 ::entity/version 2
+                                      ::entity/values {char-name "Renamed elsewhere" hp 9}})}})
+
+(deftest a-refused-autosave-reapplies-its-own-change-once
+  (let [dispatched (atom [])]
+    (with-fx {:dispatch #(swap! dispatched conj %) :dispatch-n #(swap! dispatched into %)}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              ::char5e/character-map {111 {:db/id 111 ::entity/version 1
+                                                           ::entity/values {char-name "Old" hp 4}}}
+                              ::events/sheet-edited {111 #{hp}}))
+        (rf/dispatch-sync [::char5e/save-refused {:for-id 111} refused])
+        (is (= {char-name "Renamed elsewhere" hp 4}
+               (select-keys (get-in @app-db [::char5e/character-map 111 ::entity/values]) [char-name hp]))
+            "the stored character, with only the sheet's own change put back on it")
+        (is (= 2 (get-in @app-db [::char5e/character-map 111 ::entity/version])) "at the stored version")
+        (is (some #(= [::char5e/save-character 111] %) @dispatched) "and saved again")
+        (reset! dispatched [])
+        (rf/dispatch-sync [::char5e/save-refused {:for-id 111} refused])
+        (is (not (some #(= ::char5e/save-character (first %)) @dispatched)) "a second refusal in a row is not retried")
+        (is (some #(= :show-error-message (first %)) @dispatched) "but shown")))))
+
+(deftest a-retry-with-nothing-left-to-send-ends-the-refusal
+  ;; The re-applied change was already stored by the other copy, so the retry sends nothing; the
+  ;; next refusal must be retried again rather than shown at once.
+  (let [stored {:db/id 111 ::entity/values {hp 9}}]
+    (reset! app-db pristine-db)
+    (rf/dispatch-sync [::char5e/set-character 111 stored])
+    (swap! app-db assoc-in [::events/refused 111] true)
+    (effects-of [::char5e/save-character "111"] [:http :dispatch-later ::autosave-fx/saved])
+    (is (nil? (get-in @app-db [::events/refused 111])))))
+
+(deftest a-refused-autosave-leaves-the-builders-unsaved-edits-alone
+  (with-fx {:dispatch identity :dispatch-n identity}
+    (fn []
+      (let [builder {:db/id 111 :changed true ::entity/version 1 ::entity/values {char-name "Builder edit" hp 4}}]
+        (reset! app-db (assoc pristine-db
+                              :character builder
+                              ::char5e/character-map {111 {:db/id 111 ::entity/version 1 ::entity/values {hp 4}}}
+                              ::events/sheet-edited {111 #{hp}}))
+        (rf/dispatch-sync [::char5e/save-refused {:for-id 111} refused])
+        (is (= builder (:character @app-db)) "the builder's own Save will meet the change instead")
+        (is (= 2 (get-in @app-db [::char5e/character-map 111 ::entity/version])) "only the sheet's copy is rebased")))))
+
+(defn- as-user!
+  "Stores `username` as the logged-in account, as login does (nil: logged out)."
+  [username]
+  (if username
+    (.setItem js/localStorage "user" (str {:user-data {:username username} :token "t"}))
+    (.removeItem js/localStorage "user")))
+
+(defn- put-draft!
+  "Stores a draft with unsaved changes under draft key `k`, named `nm`, made by `owner`."
+  [k nm owner & [extra]]
+  (.setItem js/localStorage (str "character-draft/" k)
+            (str (merge {::se/values {char-name nm} :changed true :draft/owner owner} extra))))
+
+(defn- clear-drafts!
+  "Deletes every stored draft and this tab's draft key. Returns nil."
+  []
+  (doseq [k (drafts/draft-keys)] (drafts/remove-draft! k))
+  (.removeItem js/sessionStorage "builder-draft-key"))
+
+(deftest a-draft-records-the-account-that-made-it
+  (try
+    (clear-drafts!)
+    (as-user! "kaylee")
+    (db/character->local-store {:db/id 777 ::entity/values {char-name "Mine"}})
+    (is (= "kaylee" (:draft/owner (db/read-draft "777"))))
+    (as-user! nil)
+    (db/character->local-store {:db/id 778 ::entity/values {char-name "Anyone's"}})
+    (is (nil? (:draft/owner (db/read-draft "778"))) "logged out: no owner")
+    (finally (clear-drafts!) (as-user! nil))))
+
+(deftest the-drafts-list-shows-only-your-own-and-logged-out-drafts
+  (try
+    (clear-drafts!)
+    (put-draft! "kept-a" "Kaylee's" "kaylee")
+    (put-draft! "kept-b" "Logged out" nil)
+    (put-draft! "kept-c" "Zoe's" "zoe")
+    (as-user! "zoe")
+    (is (= #{"Logged out" "Zoe's"} (set (map :name (db/unsaved-drafts)))))
+    (finally (clear-drafts!) (as-user! nil))))
+
+(deftest another-accounts-draft-is-never-offered
+  (let [saved {:db/id 111 ::entity/values {char-name "Saved"}}
+        base (events/stored-version saved)]
+    (try
+      (doseq [[owner offered?] [["kaylee" false] ["zoe" true]]]
+        (clear-drafts!)
+        (put-draft! "111" "Unsaved" owner {:draft/base base})
+        (reset! app-db (assoc pristine-db :user-data {:user-data {:username "zoe"} :token "t"}))
+        (rf/dispatch-sync [:set-character saved])
+        (is (= offered? (some? (:draft/offer @app-db))) (str owner "'s draft, with zoe logged in")))
+      (finally (clear-drafts!)))))
+
+(deftest logging-out-starts-a-fresh-builder
+  (let [dispatched (atom [])]
+    (with-fx {:dispatch-n #(reset! dispatched (vec %))}
+      (fn []
+        (rf/dispatch-sync [:logout])
+        (is (some #(= [:reset-character] %) @dispatched)
+            "the builder is cleared on screen; the draft stays, filed under its account")))))
+
+(deftest saves-that-did-not-go-through-are-sent-again-when-back-online
+  (let [sent (atom [])
+        before @autosave-fx/unconfirmed-saves]
+    (try
+      (reset! autosave-fx/unconfirmed-saves #{111})
+      (with-redefs [rf/dispatch #(swap! sent conj %)]
+        (.dispatchEvent js/window (js/Event. "online")))
+      (is (= [[::char5e/save-character 111]] @sent))
+      (finally (reset! autosave-fx/unconfirmed-saves before)))))
+
+(def ^:private changed-elsewhere
+  "A 409 for a builder Save of character 111: stored now as \"Theirs\" at version 2."
+  {:status 409
+   :body {:error :stale-character
+          :current (char5e/to-strict {:db/id 111 ::entity/version 2 ::entity/values {char-name "Theirs" hp 5}})}})
+
+(deftest a-builder-save-refused-as-out-of-date-says-what-differs
+  (reset! app-db (assoc pristine-db :character {:db/id 111 :changed true ::entity/version 1
+                                                ::entity/values {char-name "Mine" hp 5}}))
+  (rf/dispatch-sync [::char5e/builder-save-refused {:epoch 0} changed-elsewhere])
+  (let [fields (get-in @app-db [:draft/conflict :fields])]
+    (is (= [{:label "Character Name" :mine "Mine" :saved "Theirs"}] fields)
+        "only the field that differs, with both values"))
+  (is (= "Mine" (get-in @app-db [:character ::entity/values char-name])) "the builder keeps its copy meanwhile"))
+
+(def ^:private gone
+  "A 410 for a save of a character deleted since it was opened."
+  {:status 410 :body {:error :character-gone}})
+
+(defn- ids-in
+  "Every :db/id in strict form `x`, at any depth."
+  [x]
+  (filter some? (map :db/id (filter map? (tree-seq coll? seq x)))))
+
+(deftest a-builder-save-of-a-deleted-character-keeps-the-edit-to-save-as-new
+  (let [shown (atom nil) written (atom nil) removed (atom nil)]
+    (with-fx {:dispatch #(reset! shown %)
+              ::events/builder-draft->local-store #(reset! written %)
+              ::events/remove-draft #(reset! removed %)}
+      (fn []
+        (reset! app-db (assoc pristine-db :character
+                              (assoc (char5e/from-strict
+                                      {:db/id 111
+                                       ::se/values {char-name "Mine"}
+                                       ::se/selections [{:db/id 112 ::se/key :race
+                                                         ::se/option {:db/id 113 ::se/key :elf}}]})
+                                     :changed true)))
+        (rf/dispatch-sync [::char5e/builder-save-refused {:epoch 0} gone])
+        (is (= "Mine" (get-in @app-db [:character ::entity/values char-name])) "the edit is kept")
+        (is (:changed (:character @app-db)) "and still unsaved")
+        (is (empty? (ids-in (char5e/to-strict (:character @app-db)))) "with no ids, so Save stores it anew")
+        (is (= :show-error-message (first @shown)))
+        (is (re-find #"deleted" (str (second @shown))) "and says the character was deleted")
+        (is (= "Mine" (get-in @written [::entity/values char-name])) "the draft is written without its id")
+        (is (nil? (:db/id @written)))
+        (is (= "111" @removed) "and the deleted id's draft is removed")))))
+
+(deftest an-autosave-of-a-deleted-character-says-so
+  (let [shown (atom nil)]
+    (with-fx {:dispatch #(reset! shown %)}
+      (fn []
+        (reset! app-db (assoc pristine-db ::char5e/character-map {111 {:db/id 111 ::entity/values {hp 4}}}))
+        (rf/dispatch-sync [::char5e/save-refused {:for-id 111} gone])
+        (is (= :show-error-message (first @shown)))
+        (is (re-find #"deleted" (str (second @shown))))))))
+
+(deftest save-mine-takes-the-stored-version-so-the-next-save-goes-through
+  (reset! app-db (assoc pristine-db :character {:db/id 111 :changed true ::entity/version 1
+                                                ::entity/values {char-name "Mine"}}))
+  (rf/dispatch-sync [::char5e/builder-save-refused {:epoch 0} changed-elsewhere])
+  (rf/dispatch-sync [::char5e/keep-mine])
+  (is (= 2 (get-in @app-db [:character ::entity/version])))
+  (is (= "Mine" (get-in @app-db [:character ::entity/values char-name])))
+  (is (nil? (:draft/conflict @app-db))))
+
+(deftest use-saved-loads-the-saved-copy-and-keeps-mine-as-a-draft
+  (let [written (atom nil)]
+    (with-fx {::events/write-draft #(reset! written %) :dispatch identity}
+      (fn []
+        (reset! app-db (assoc pristine-db :character {:db/id 111 :changed true ::entity/version 1
+                                                      ::entity/values {char-name "Mine"}}))
+        (rf/dispatch-sync [::char5e/builder-save-refused {:epoch 0} changed-elsewhere])
+        (rf/dispatch-sync [::char5e/use-saved])
+        (is (= "Theirs" (get-in @app-db [:character ::entity/values char-name])))
+        (is (= "Mine" (get-in (:draft @written) [::se/values char-name])) "mine is kept in Unsaved drafts")
+        (is (nil? (:draft/conflict @app-db)))))))
+
+(deftest a-save-reply-does-not-write-the-draft-another-tab-holds
+  (let [written (atom :none)]
+    (with-fx {::events/builder-draft->local-store #(reset! written %)
+              :dispatch-n identity ::autosave-fx/saved identity}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              :character {:db/id 111 :changed true ::entity/values {char-name "Mine"}}
+                              :draft/held 111
+                              ::events/sheet-edited {111 #{hp}}))
+        (rf/dispatch-sync [:character-save-success {:for-id 111}
+                           {:body (char5e/to-strict {:db/id 111 ::entity/values {char-name "Stored" hp 3}})}])
+        (is (= :none @written) "the other tab's draft under the same key is left alone")
+        (is (= 3 (get-in @app-db [:character ::entity/values hp])) "the copy on screen is still updated")))))
+
+(deftest a-refused-draft-write-leaves-the-tab-on-its-previous-draft
+  (try
+    (clear-drafts!)
+    (drafts/set-tab-key! "111")
+    (with-redefs [db/set-item (constantly false)]
+      (db/character->local-store {:db/id 222 ::entity/values {char-name "Other"}}))
+    (is (= "111" (drafts/tab-key)) "the tab still points at the draft it has")
+    (finally (clear-drafts!))))
+
+(deftest level-up-opens-the-stored-copy-only-when-the-builder-has-another-character
+  (let [dispatched (atom nil)]
+    (with-fx {:dispatch #(reset! dispatched %)}
+      (fn []
+        (reset! app-db (assoc pristine-db
+                              :character {:db/id 111 :changed true ::entity/values {char-name "Unsaved"}}
+                              ::char5e/character-map {111 {:db/id 111 ::entity/values {}}
+                                                      222 {:db/id 222 ::entity/values {}}}))
+        (rf/dispatch-sync [::char5e/open-stored-in-builder 111])
+        (is (= [:route routes/dnd-e5-char-builder-route] @dispatched)
+            "the builder already has it, with the new level applied there: only route")
+        (rf/dispatch-sync [::char5e/open-stored-in-builder 222])
+        (is (= [:edit-character {:db/id 222 ::entity/values {}}] @dispatched)
+            "another character is opened from its stored copy, read when this runs")))))
+
+(deftest replacing-the-character-being-edited-counts-an-epoch
+  (testing "the epoch is what lets an answer tell whether the question is still
+            on screen, so it has to move whenever the draft is dropped"
+    (reset! app-db (assoc pristine-db :character (char-with-id 111)))
+    (rf/dispatch-sync [:set-character (char-with-id 222)])
+    (is (= 1 (:character-epoch @app-db)) "switching characters counts")
+    (rf/dispatch-sync [:character-updated (char-with-id 222)])
+    (is (= 1 (:character-epoch @app-db))
+        "continuing the same character does not")))
+
+(deftest a-draft-does-not-cross-between-two-never-saved-characters
+  (testing "New and Clone both produce a nil :db/id, so comparing ids could not
+            tell the new character from the one it replaced"
+    (reset! app-db (assoc pristine-db
+                          :character (char-with-id nil)
+                          :portrait/draft {:layers {:head {:asset/id :a}}}
+                          :portrait/open-slot :hair))
+    (rf/dispatch-sync [:set-character (char-with-id nil)])
+    (is (nil? (:portrait/draft @app-db))
+        "an unsaved character's portrait must not follow onto another one")
+    (is (nil? (:portrait/open-slot @app-db)))))
+
+(deftest new-character-drops-the-draft-without-going-through-set-character
+  (testing ":reset-character replaces the character in place, so the discard has
+            to be in its own interceptor chain"
+    (reset! app-db (assoc pristine-db
+                          :character (char-with-id nil)
+                          :portrait/draft {:layers {:head {:asset/id :a}}}
+                          :portrait/drawer-open? true))
+    (rf/dispatch-sync [:reset-character])
+    (is (nil? (:portrait/draft @app-db))
+        "a blank character must not inherit the previous portrait")
+    (is (nil? (:portrait/drawer-open? @app-db)))))
+
+(deftest new-keeps-the-never-saved-draft-it-replaces
+  (testing "Log Out and New reset the character; a never-saved one's draft must stay to be listed"
+    (try
+      (clear-drafts!)
+      (drafts/set-tab-key! "new-abc")
+      (reset! app-db (assoc pristine-db
+                            :character {:changed true ::entity/values {char-name "Unsaved work"}}))
+      (db/character->local-store (:character @app-db))
+      (rf/dispatch-sync [:reset-character])
+      (is (not= "new-abc" (drafts/tab-key)) "the new character has a key of its own")
+      (is (.includes (str (.getItem js/localStorage (drafts/storage-key "new-abc"))) "Unsaved work")
+          "the draft it replaced is still stored")
+      (finally (clear-drafts!)))))
+
+(deftest editing-an-unsaved-character-keeps-the-draft
+  (testing "update-character-fx routes edits to a character with no id back
+            through :set-character; that is an edit, not a switch"
+    (let [draft {:layers {:head {:asset/id :mid-edit}}}]
+      (reset! app-db (assoc pristine-db
+                            :character (char-with-id nil)
+                            :portrait/draft draft))
+      (rf/dispatch-sync [:character-updated (char-with-id nil)])
+      (is (= draft (:portrait/draft @app-db))
+          "changing a spell must not discard the portrait being built"))))
+;; ── Review of the save gate: writes that must not claim or undo anything ─────
+
+(deftest a-save-over-an-item-changed-since-it-was-opened-asks-first
+  (let [stored {:key :cant :name "Cant" :option-pack "Pak" :description "another tab's"}
+        plugins {"Pak" {:orcpub.dnd.e5/languages {:cant stored}}}
+        opened (events/origin-of (assoc stored :description "as it was opened"))]
+    (is (= :changed (:reason (events/save-destination plugins opened :orcpub.dnd.e5/languages "Pak" :cant stored))))
+    (is (= :in-place (:action (events/save-destination plugins (events/origin-of stored)
+                                                       :orcpub.dnd.e5/languages "Pak" :cant stored)))
+        "unchanged since it was opened: saves in place")
+    (is (= :in-place (:action (events/save-destination plugins (dissoc opened :version)
+                                                       :orcpub.dnd.e5/languages "Pak" :cant stored)))
+        "a record from before versions were kept does not refuse")
+    (is (= {:action :in-place} (events/replacing {:action :refuse :reason :changed})) "Save yours over it")))
+
+(deftest a-builder-save-records-nothing-until-the-write-sticks
+  (let [fx (events/builder-save-fx {"Pak" {:orcpub.dnd.e5/languages {:cant {:name "Cant"}}}}
+                                   ::some-item :orcpub.dnd.e5/languages "Pak" :cant {:name "Cant"}
+                                   [:show-message "saved"])
+        [_ _ opts] (some #(when (= ::e5/set-plugins (first %)) %) (:dispatch-n fx))]
+    (is (nil? (:db fx)) "no builder state before the write")
+    (is (= ::e5/builder-saved (first (:on-success opts))) "it comes with the write's success")))
+
+(deftest keeping-shared-content-that-cannot-be-stored-keeps-it-on-view
+  (.clear js/window.localStorage)
+  (reset! app-db {:plugins {} :shared-plugins {"X" {:orcpub.dnd.e5/feats {:9-lives {:name "9 Lives"}}}}})
+  (run-through! [::e5/keep-shared-content "Kay"])
+  (is (some? (:shared-plugins @app-db)) "the shared content is still there to keep")
+  (is (not (re-find #"Saved this character" (pr-str (:message @app-db)))) "and no success is claimed")
+  (.clear js/window.localStorage))
+
+;; A tab that finds the "plugins" slot gone (another tab quarantined a corrupt
+;; value and removed it) must keep its own in-memory library, not reload {}.
+
+(deftest library-changed-elsewhere-keeps-this-tabs-copy-when-the-slot-is-gone
+  (.clear js/window.localStorage)
+  (let [mine {"Pak" {:orcpub.dnd.e5/languages {:cant {:key :cant :name "Cant" :option-pack "Pak"}}}}]
+    (reset! app-db {:plugins mine :orcpub.dnd.e5/plugins-rev 3})
+    (rf/dispatch-sync [::e5/library-changed-elsewhere])
+    (is (= mine (:plugins @app-db)) "this tab's library is unchanged")
+    (is (= 3 (:orcpub.dnd.e5/plugins-rev @app-db)) "and its rev is unchanged"))
+  (.clear js/window.localStorage))
+
+(deftest library-changed-elsewhere-reloads-when-the-slot-is-readable
+  (.clear js/window.localStorage)
+  (let [mine {"Pak" {:orcpub.dnd.e5/languages {:cant {:key :cant :name "Cant" :option-pack "Pak"}}}}
+        theirs (assoc-in mine ["Pak" :orcpub.dnd.e5/languages :sea] {:key :sea :name "Sea" :option-pack "Pak"})]
+    (.setItem js/window.localStorage "plugins" (pr-str theirs))
+    (.setItem js/window.localStorage "plugins:rev" "4")
+    (reset! app-db {:plugins mine :orcpub.dnd.e5/plugins-rev 3})
+    (rf/dispatch-sync [::e5/library-changed-elsewhere])
+    (is (= theirs (:plugins @app-db)) "reloaded from the readable slot")
+    (is (= 4 (:orcpub.dnd.e5/plugins-rev @app-db))))
+  (.clear js/window.localStorage))
+
+(deftest export-auto-fix-writes-the-edits-to-the-library-as-stored-now
+  (.clear js/window.localStorage)
+  (let [save-as (.-saveAs js/window)]
+    (set! (.-saveAs js/window) (fn [& _]))
+    (reset! app-db {:plugins {"Pak" {:orcpub.dnd.e5/feats {:a {:name "A"} :b {:name "B, added since"}}}}
+                    :export-warning {:mode :single :edits {}
+                                     :plugins [{:name "Pak"
+                                                :plugin {:orcpub.dnd.e5/feats {:a {:name "A" :note "corrected"}}}}]}})
+    (run-through! [:export-with-auto-fix])
+    (set! (.-saveAs js/window) save-as))
+  (is (some? (get-in @app-db [:plugins "Pak" :orcpub.dnd.e5/feats :b])) "what was added since is kept")
+  (is (nil? (get-in @app-db [:plugins "Pak" :orcpub.dnd.e5/feats :a :note])) "the export's corrections stay in the file")
+  (.clear js/window.localStorage))
+
+;; ── Outside review (Greptile) ───────────────────────────────────────────────
+
+(deftest a-same-revision-write-from-another-tab-gets-this-tabs-change-back
+  ;; Both tabs read revision 4 and wrote 5; theirs landed last.
+  (.clear js/window.localStorage)
+  (let [item (fn [k n] {:key k :name n :option-pack "Pak"})
+        base {"Pak" {:orcpub.dnd.e5/languages {:cant (item :cant "Cant")}}}
+        mine (assoc-in base ["Pak" :orcpub.dnd.e5/languages :mine] (item :mine "Mine"))
+        theirs (assoc-in base ["Pak" :orcpub.dnd.e5/languages :theirs] (item :theirs "Theirs"))]
+    (.setItem js/window.localStorage "plugins" (pr-str theirs))
+    (.setItem js/window.localStorage "plugins:rev" "5")
+    (reset! app-db {:plugins mine :orcpub.dnd.e5/plugins-rev 5
+                    :orcpub.dnd.e5/last-write {:rev 5 :base base :mine mine}})
+    (run-through! [::e5/library-changed-elsewhere])
+    (is (= #{:cant :mine :theirs} (set (keys (get-in @app-db [:plugins "Pak" :orcpub.dnd.e5/languages]))))
+        "both tabs' items are in the library")
+    (is (= #{:cant :mine :theirs} (set (keys (get-in (db/stored-plugins) ["Pak" :orcpub.dnd.e5/languages]))))
+        "and in storage"))
+  (.clear js/window.localStorage))
+
+(deftest a-key-change-over-an-item-changed-since-it-was-opened-is-refused
+  (.clear js/window.localStorage)
+  (let [warden (get-in warden-and-tides ["Classes" :orcpub.dnd.e5/classes :warden])]
+    (reset! app-db {:plugins warden-and-tides
+                    ::classes5e/builder-item warden
+                    :builder-origin {:orcpub.dnd.e5/classes
+                                     (events/origin-of (assoc warden :description "as it was opened"))}})
+    (run-through! [::e5/change-builder-item-key ::classes5e/save-class "keeper"])
+    (is (some? (get-in @app-db [:plugins "Classes" :orcpub.dnd.e5/classes :warden])) "not re-keyed")
+    (is (re-find #"changed somewhere else" (pr-str (:message @app-db)))))
+  (.clear js/window.localStorage))
+
+(deftest an-imports-relink-questions-are-recorded-by-its-success-event
+  (.clear js/window.localStorage)
+  (let [relink {:content-type :orcpub.dnd.e5/races :from :tidefolk :to :tidefolk-2 :import "Tide Pak" :asked #{}}]
+    (reset! app-db {})
+    (is (empty? (db/pending-relinks)) "nothing recorded before the write")
+    (run-through! [::e5/import-stored [relink] nil])
+    (is (= [relink] (db/pending-relinks)) "recorded once the write has stuck"))
+  (.clear js/window.localStorage))
+
+;; A saved character's own page reads it through ::char5e/character, not the builder.
+
+(deftest a-saved-characters-page-sees-a-renamed-pick-healed
+  ;; Picked when the background was offered under its name's key, :blue.
+  (reset! app-db {:plugins {"Pak" {:orcpub.dnd.e5/backgrounds
+                                   {:noble-pk {:name "Blue" :key :noble-pk :option-pack "Pak"}}}}
+                  ::content-recon/offered-keys #{}
+                  ::char5e/character-map {7 {:db/id 7 :orcpub.entity/options
+                                             {:background {:orcpub.entity/key :blue}}}}})
+  (rf/clear-subscription-cache!)
+  (is (= :noble-pk (get-in (read-sub [::char5e/character 7])
+                           [:orcpub.entity/options :background :orcpub.entity/key])))
+  (testing "before the builder's list exists, it reads as saved"
+    (swap! app-db dissoc ::content-recon/offered-keys)
+    (rf/clear-subscription-cache!)
+    (is (= :blue (get-in (read-sub [::char5e/character 7])
+                         [:orcpub.entity/options :background :orcpub.entity/key]))))
+  (is (= :blue (get-in @app-db [::char5e/character-map 7 :orcpub.entity/options :background :orcpub.entity/key]))
+      "nothing is written back"))
+
+(deftest finish-long-rest-keeps-dawn-and-shorter-periods
+  (reset! app-db {::char5e/character-map
+                  {7 {:orcpub.entity/values
+                      {::char5e/features-used {::units5e/long-rest #{"a"}
+                                               ::units5e/rest #{"b"}
+                                               ::units5e/dawn #{"Dagger of Venom"}
+                                               ::units5e/turn #{"c"}}}}}})
+  (effects-of [::char5e/finish-long-rest "7"] [::char5e/save-character-throttled])
+  (is (= {::units5e/turn #{"c"} ::units5e/dawn #{"Dagger of Venom"}}
+         (get-in @app-db [::char5e/character-map 7 :orcpub.entity/values ::char5e/features-used]))
+      "a long rest does not mean dawn passed"))
+
+(deftest charges-are-spent-and-given-back-per-wand
+  (let [wand (some #(when (= "Wand of Fireballs" (::mi/name %)) %) mi/magic-items)
+        entry #(get-in @app-db [::char5e/character-map 7 :orcpub.entity/options :other-magic-items 0 :orcpub.entity/value])
+        used (fn [] (into {} (map (juxt :orcpub.dnd.e5.character.equipment/charge-index
+                                        :orcpub.dnd.e5.character.equipment/charges-used))
+                          (:orcpub.dnd.e5.character.equipment/charges (entry))))]
+    (reset! app-db {::char5e/character-map
+                    {7 {:orcpub.entity/options
+                        {:other-magic-items [{:orcpub.entity/key :wand-of-fireballs :orcpub.entity/value 2}]}}}})
+    (effects-of [::char5e/change-item-charges "7" :other-magic-items :wand-of-fireballs wand 1 3] [::char5e/save-character-throttled])
+    (is (= {1 3} (used)) "the second wand spends 3; a bare quantity became a map")
+    (is (= 2 (:orcpub.dnd.e5.character.equipment/quantity (entry))) "and keeps its quantity")
+    (effects-of [::char5e/change-item-charges "7" :other-magic-items :wand-of-fireballs wand 1 5] [::char5e/save-character-throttled])
+    (is (= {1 3} (used)) "5 more than the 4 left changes nothing")
+    (effects-of [::char5e/change-item-charges "7" :other-magic-items :wand-of-fireballs wand 1 -2] [::char5e/save-character-throttled])
+    (is (= {1 1} (used)) "2 given back")))
+
+(deftest feat-checkbox-starts-a-set-from-anything-else
+  (doseq [start [[] nil #{}]]
+    (reset! app-db {::feats5e/builder-item {:name "F" :ability-increases start}})
+    (rf/dispatch-sync [::feats5e/toggle-feat-ability-increase :orcpub.dnd.e5.character/str])
+    (is (= #{:orcpub.dnd.e5.character/str} (get-in @app-db [::feats5e/builder-item :ability-increases]))
+        (str "from " (pr-str start)))))
+
+(deftest rest-events-ignore-a-missing-or-other-characters-result
+  (let [ch {:orcpub.entity/values {::char5e/features-used {::units5e/dawn #{"x"}}}}
+        kept #(get-in @app-db [::char5e/character-map 7])]
+    (reset! app-db {::char5e/character-map {7 ch}})
+    (effects-of [::char5e/undo-rest 7] [::char5e/save-character-throttled])
+    (is (= ch (kept)) "no stored result: Undo changes nothing")
+    (reset! app-db {::char5e/character-map {7 ch} ::char5e/rest-result {:id 8 :before {:orcpub.entity/values {}}}})
+    (effects-of [::char5e/undo-rest 7] [::char5e/save-character-throttled])
+    (is (= ch (kept)) "another character's result: nothing changes")))
+
+(deftest a-sheet-edit-closes-an-open-rest-result
+  (reset! app-db {::char5e/character-map {7 {:orcpub.entity/values {}}}
+                  ::char5e/rest-result {:id "7" :before {:orcpub.entity/values {}}}})
+  (effects-of [::char5e/toggle-feature-used "7" ::units5e/dawn "Javelin of Lightning"] [::char5e/save-character-throttled])
+  (is (nil? (::char5e/rest-result @app-db)) "so Undo cannot overwrite the edit"))
+
+(deftest a-resend-carries-the-turnstile-token
+  ;; The server refuses a resend with no token when Turnstile is on, so :re-verify must keep the
+  ;; challenge-request interceptor that copies the widget's token into the query.
+  (reset! app-db {:turnstile-token "tok-resend"})
+  (let [fx (effects-of [:re-verify {:email "a@b.com"}] [:http])]
+    (is (= "tok-resend" (get-in fx [:http :query-params :turnstile-token])))
+    (is (= "a@b.com" (get-in fx [:http :query-params :email])) "next to the address it was typed with")))

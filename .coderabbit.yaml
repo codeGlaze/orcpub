@@ -1,0 +1,7 @@
+# CodeRabbit settings for the codeGlaze/orcpub fork only. Leave this file out of pull requests to
+# Orcpub/orcpub. Reviews are requested, never automatic: the allowance is small and shared by every
+# agent (all push as codeGlaze). Ask with `@coderabbitai full review` when a PR is ready.
+# CodeRabbit reads this file from the PR's own branch, so a branch made before a change keeps the old one.
+reviews:
+  auto_review:
+    enabled: false

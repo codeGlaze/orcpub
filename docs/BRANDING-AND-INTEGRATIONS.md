@@ -106,7 +106,8 @@ All values have defaults in `fork/branding.clj`. Set env vars in `.env` to overr
 | Env Var | Default (public) | Default (production) | Where it shows up |
 |---------|-----------------|---------------------|-------------------|
 | `APP_EMAIL_SENDER_NAME` | OrcPub Team | Dungeon Master's Vault Team | "From" display name |
-| `EMAIL_FROM_ADDRESS` | no-reply@orcpub.com | no-reply@dungeonmastersvault.com | "From" address |
+| `APP_EMAIL_SIGNOFF` | The *(sender name)* | The *(sender name)* | Who the friendlier emails (such as the artist welcome) are signed from, for example "both of us at OrcPub" |
+| `EMAIL_FROM_ADDRESS` | no-reply@example.com | no-reply@dungeonmastersvault.com | "From" address. The public default is a placeholder that cannot deliver: set an address on a domain your mail provider has verified. |
 
 ### Social Links
 

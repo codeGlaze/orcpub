@@ -1,0 +1,34 @@
+# Guard: no commit in a pull request carries an agent attribution trailer or a session link.
+# The commit-msg hook strips them where it is armed; a cloud session's first commits can precede
+# that setup, and the PR is the last place a reword is still possible.
+
+name: Agent trailers
+
+on:
+  pull_request:
+    branches: [integration, develop, main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  no-agent-trailers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan the pull request's own commits
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          bad="$(git log --format='%h %s%n%b' "$BASE..$HEAD" |
+            grep -iE '^(Co-Authored-By:[[:space:]]*Claude|Claude-Session:|Generated with \[?Claude Code)|claude\.ai/code/session' | head -10 || true)"
+          if [ -n "$bad" ]; then
+            echo "::error::Commits in this pull request carry agent attribution trailers or session links:"
+            echo "$bad"
+            echo "Reword them (git rebase; git commit --amend for the tip) and force-push the branch."
+            exit 1
+          fi

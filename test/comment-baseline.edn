@@ -1,0 +1,142 @@
+;; Written by orcpub.comment-discipline-test. An entry is [file signal text hash].
+;; :baseline is debt from before the check: clean it, then prune.
+;; :allowed is reviewed exceptions, each with the reason it is spec.
+;; :field-notes is {[file id] hash} per FIELD NOTE; record a new or edited one by hand.
+{:allowed
+ {["src/cljc/orcpub/dnd/e5/library_links.cljc"
+   :long-docstring
+   "def links"
+   "89e2979c2962"]
+  "A field table: one line per field of a link entry, each defining it. Nothing in it is history."},
+ :baseline
+ [["src/clj/orcpub/artist_credit.clj"
+   :long-docstring
+   "ns orcpub.artist-credit"
+   "02b412026348"]
+  ["src/clj/orcpub/artist_email.clj"
+   :long-docstring
+   "ns orcpub.artist-email"
+   "e8f92481105b"]
+  ["src/clj/orcpub/crypto.clj"
+   :long-docstring
+   "ns orcpub.crypto"
+   "29ba21878a6f"]
+  ["src/clj/orcpub/db/schema.clj"
+   :long-comment
+   "One per artist account the SERVER created, keyed \"artist-id email\"."
+   "37abac3bfc34"]
+  ["src/clj/orcpub/db/schema.clj"
+   :long-docstring
+   "def db-functions"
+   "0d71805ea76c"]
+  ["src/clj/orcpub/dnd/e5/portrait_calibration.clj"
+   :long-docstring
+   "ns orcpub.dnd.e5.portrait-calibration"
+   "db2461976d52"]
+  ["src/clj/orcpub/index.clj"
+   :long-comment
+   "Opt out of generative-AI training and image reuse. This is the"
+   "9be8149c8797"]
+  ["src/clj/orcpub/portrait_pack/import.clj"
+   :long-docstring
+   "ns orcpub.portrait-pack.import"
+   "fe978b474568"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "A composed (paper-doll) portrait has no URL that could produce"
+   "1211a445058a"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "Inside this let, so it can see whether the composed portrait was"
+   "0e6915ffee6d"]
+  ["src/clj/orcpub/routes.clj"
+   :long-comment
+   "The wildcard cannot take the path above. `*` asks whether a"
+   "8a2d62b299e0"]
+  ["src/clj/orcpub/routes.clj"
+   :long-docstring
+   "defn stamp-document-info!"
+   "fc84684cb0b7"]
+  ["src/cljc/orcpub/artist_links.cljc"
+   :long-docstring
+   "ns orcpub.artist-links"
+   "19ded82cc1a0"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "def calibration-fields"
+   "25bc6e3fd7b3"]
+  ["src/cljc/orcpub/dnd/e5/portrait_assets.cljc"
+   :long-docstring
+   "defn credit-variants"
+   "c8989dac8740"]
+  ["src/cljc/orcpub/dnd/e5/portrait_colorize.cljc"
+   :long-comment
+   "Feathering the region's edge"
+   "0b174657d1fe"]
+  ["src/cljc/orcpub/dnd/e5/portrait_colorize.cljc"
+   :long-comment
+   "Solid insides"
+   "e01303513f88"]
+  ["src/cljc/orcpub/dnd/e5/portrait_colorize.cljc"
+   :long-comment
+   "The iris region"
+   "bdfcb7c2bc75"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-comment
+   "Streaks that follow the strands"
+   "f53e58cf0d4a"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-docstring
+   "defn arc-frame"
+   "17946ca80c79"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-docstring
+   "defn gradient-frame"
+   "981029c5ef9a"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-docstring
+   "defn piece-settings"
+   "8ebd6600d6a1"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-docstring
+   "defn strand-field"
+   "b91ef27f63d5"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-docstring
+   "defn- shine-band"
+   "85084a8f7e9c"]
+  ["src/cljc/orcpub/dnd/e5/portrait_effects.cljc"
+   :long-docstring
+   "ns orcpub.dnd.e5.portrait-effects"
+   "b9aa0bf60462"]
+  ["src/cljc/orcpub/dnd/e5/portrait_face.cljc"
+   :long-comment
+   "three groups, each [cx cy rx ry share]: the near cheek"
+   "8454d0de0f80"]
+  ["src/cljc/orcpub/dnd/e5/portrait_face.cljc"
+   :long-docstring
+   "ns orcpub.dnd.e5.portrait-face"
+   "97e179724c1b"]
+  ["src/cljc/orcpub/dnd/e5/portrait_light.cljc"
+   :long-docstring
+   "ns orcpub.dnd.e5.portrait-light"
+   "87319a407767"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-comment
+   "---------------- developer: the Eyes 01 far-iris alternative ---------"
+   "9aa5258ac663"]
+  ["src/cljs/orcpub/dnd/e5/portrait.cljs"
+   :long-comment
+   "---------------- solid insides (developer tool) ----------------"
+   "6f6c60e817d8"]],
+ :field-notes
+ {["src/clj/orcpub/pdf/draw.clj" "glyph-throw"] "fca62d7237f8",
+  ["src/cljc/orcpub/dnd/e5/options.cljc" "background-name-key"]
+  "e8e6f28a2ab7",
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs" "heal-sites"]
+  "e8848afc64b2",
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs" "heal-typed"]
+  "175cd837f475",
+  ["src/cljs/orcpub/dnd/e5/content_reconciliation.cljs"
+   "spell-selection-orphans"]
+  "bfc2aa7151d1"}}

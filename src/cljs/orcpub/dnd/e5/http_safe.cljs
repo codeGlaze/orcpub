@@ -1,21 +1,11 @@
 (ns orcpub.dnd.e5.http-safe
-  "A drop-in replacement for the cljs-http.client request/get/post/... fns whose
-   ONLY difference is a resilient application/edn response decoder.
-
-   Why this exists: cljs-http decodes an EDN response body with `read-string`
-   INSIDE `async/map`'s go-loop (see cljs-http.client/wrap-edn-response). If the
-   body carries a bare-colon empty keyword (`:`) — or any malformed EDN — that
-   throw dies uncaught in the go-loop, upstream of the caller's `(<! ...)`, so a
-   `try` around the take can never catch it. That is the crash a saved character
-   hits on load.
-
-   The fix has to live where the throw happens: we swap `read-string` for
-   `safe-edn-decode`, which (a) heals the bare-colon corruption via
-   `common/sanitize-edn-colons` and (b) catches anything still unreadable and
-   degrades to a marker instead of throwing. Everything else — status/401/500
-   routing, params encoding — is cljs-http's own middleware, untouched. Route
-   the app's HTTP loaders through this ns's `http` alias and the whole
-   uncaught-decode class is closed at one choke point."
+  "Drop-in replacement for the cljs-http.client request/get/post/... fns whose only difference is
+   the application/edn decoder: `safe-edn-decode` heals a bare-colon empty keyword
+   (`common/sanitize-edn-colons`) and degrades anything still unreadable to a marker instead of
+   throwing. See empty-keyword-corruption.md.
+   GOTCHA: cljs-http decodes inside `async/map`'s go-loop, so a throw there escapes any `try`
+   around the caller's `(<! ...)`; the fix has to live in the decoder."
+  (:refer-clojure :exclude [get])
   (:require [cljs-http.client :as client]
             [cljs-http.core :as core]
             [cljs.core.async :as async]
@@ -32,7 +22,7 @@
    (a clear message / their character list) instead of feeding the marker into
    from-strict, which would silently build a blank default."
   [body]
-  (boolean (and (map? body) (get body decode-error-key))))
+  (boolean (and (map? body) (cljs.core/get body decode-error-key))))
 
 (defn safe-edn-decode
   "Decode an application/edn response body without ever throwing out of the

@@ -245,6 +245,8 @@ lein cljsbuild once dev
 | `lein fig:dev` | Interactive REPL | You want a ClojureScript REPL in your terminal |
 | `lein fig:build` | One-time build | CI or quick compilation check |
 
+`./menu start` and `./menu start server` build the client and stylesheet first when their sources have changed, and skip it when nothing has. Use `./menu start figwheel` for hot reload while you work. A plain `lein repl` skips this check, so build first with `lein fig:build` and `lein garden once`.
+
 **CSS** is compiled separately by Garden (`lein garden once` or `./scripts/start.sh garden` for auto-watch). Both Figwheel and Garden need to run during active frontend work.
 
 ### Editors
@@ -273,7 +275,8 @@ Key variables:
 | `DATOMIC_URL` | Database connection string | `datomic:dev://localhost:4334/orcpub` |
 | `SIGNATURE` | JWT signing secret (**required**) | dev default in `.lein-env` |
 | `PORT` | Web server port | `8890` |
-| `EMAIL_SERVER_URL` | SMTP server | (optional) |
+| `EMAIL_SERVER_URL` | SMTP server — leave empty and nobody can sign up (see `ALLOW_UNVERIFIED_REGISTRATION`) | (optional) |
+| `ALLOW_UNVERIFIED_REGISTRATION` | Let people sign up without confirming their email. Private sites only | `false` |
 | `CSP_POLICY` | Content Security Policy mode | `strict` |
 | `DEV_MODE` | Enable dev features | `true` in dev |
 

@@ -7,3 +7,38 @@
 (spec/def ::key (spec/and keyword? common/keyword-starts-with-letter?))
 (spec/def ::option-pack string?)
 (spec/def ::homebrew-language (spec/keys :req-un [::name ::key ::option-pack]))
+
+(def languages
+  "The built-in languages, as {:name :key}."
+  [{:name "Common"
+    :key :common}
+   {:name "Dwarvish"
+    :key :dwarvish}
+   {:name "Elvish"
+    :key :elvish}
+   {:name "Giant"
+    :key :giant}
+   {:name "Gnomish"
+    :key :gnomish}
+   {:name "Goblin"
+    :key :goblin}
+   {:name "Halfling"
+    :key :halfling}
+   {:name "Orc"
+    :key :orc}
+   {:name "Abyssal"
+    :key :abyssal}
+   {:name "Celestial"
+    :key :celestial}
+   {:name "Draconic"
+    :key :draconic}
+   {:name "Deep Speech"
+    :key :deep-speech}
+   {:name "Infernal"
+    :key :infernal}
+   {:name "Primordial"
+    :key :primordial}
+   {:name "Sylvan"
+    :key :sylvan}
+   {:name "Undercommon"
+    :key :undercommon}])

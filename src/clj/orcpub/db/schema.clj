@@ -1,5 +1,6 @@
 (ns orcpub.db.schema
-  (:require [orcpub.modifiers :as mod]
+  (:require [datomic.api :as d]
+            [orcpub.modifiers :as mod]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.units :as units5e]
@@ -111,17 +112,30 @@
 (def user-schema
   [{:db/ident :orcpub.user/username
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.user/first-and-last-name
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/email
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
+   ;; The email trimmed and lowercased, for lookups (orcpub.user-email). Not unique: older data may
+   ;; hold one address on two accounts.
+   {:db/ident :orcpub.user/email-key
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.user/password
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/send-updates?
+    :db/valueType :db.type/boolean
+    :db/cardinality :db.cardinality/one}
+   ;; Dark text on the amber buttons in the dark theme, for contrast. Unset
+   ;; means the user never chose, which is not the same as choosing white.
+   {:db/ident :orcpub.user/dark-button-text?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/verified?
@@ -129,7 +143,8 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/verification-key
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.user/created
     :db/valueType :db.type/instant
     :db/cardinality :db.cardinality/one}
@@ -142,9 +157,16 @@
    {:db/ident :orcpub.user/password-reset
     :db/valueType :db.type/instant
     :db/cardinality :db.cardinality/one}
+   ;; When the account holder last signed every session out. Separate from
+   ;; password-reset because signing out everywhere must not require changing
+   ;; the password, and the withdrawal register takes the LATER of the two.
+   {:db/ident :orcpub.user/sessions-withdrawn
+    :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/password-reset-key
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.user/pending-email
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
@@ -159,7 +181,56 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/last-login
     :db/valueType :db.type/instant
-    :db/cardinality :db.cardinality/one}])
+    :db/cardinality :db.cardinality/one}
+   ;; When set, a password-reset link stays valid until this moment instead
+   ;; of the usual two hours. Used by the artist welcome email, which may sit
+   ;; unread for days; ordinary resets never set it.
+   {:db/ident :orcpub.user/password-reset-expires
+    :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one}
+   ;; What the person would like to be called in emails. Stored ENCRYPTED
+   ;; (orcpub.crypto): a stolen database or backup shows ciphertext. Encrypted
+   ;; from the first write because Datomic keeps every past value in its
+   ;; history, so a name written in plain text even once would stay readable.
+   {:db/ident :orcpub.user/preferred-name
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   ;; The portrait artist this account speaks for, as the registry's
+   ;; :artist/id. Set only by the server from deployment config
+   ;; (orcpub.artist-accounts), never by the account holder.
+   {:db/ident :orcpub.user/artist
+    :db/valueType :db.type/keyword
+    :db/cardinality :db.cardinality/one
+    :db/index true}
+   ;; The artist's own edits to how they are credited -- name, primary link,
+   ;; link icons -- as an EDN map. Public by nature, so not encrypted.
+   {:db/ident :orcpub.user/artist-credit
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   ;; When this artist was last emailed at once about a credit change: the start of a ten-minute
+   ;; window in which further changes are collected rather than emailed (orcpub.artist-credit-notices).
+   {:db/ident :orcpub.user/artist-credit-window
+    :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one}
+   ;; The credit, as EDN, from before the first change not yet emailed; empty when none is waiting.
+   ;; Cleared by compare-and-set, so one container sends each batch.
+   {:db/ident :orcpub.user/artist-credit-pending
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   ;; When the artist welcome email for this account was handed to the mail
+   ;; server. Unset means it never went out, so the next start sends it again.
+   {:db/ident :orcpub.user/artist-welcome-sent
+    :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one}
+   ;; One per artist account the SERVER created, keyed "artist-id email".
+   ;; Unique, so when several app containers start at once and all see no
+   ;; account yet, only the first one's creation commits; the rest fail on
+   ;; this and skip, and the artist gets one account and one email.
+   ;; (Account emails themselves are not unique in this schema.)
+   {:db/ident :orcpub.artist-provision/key
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/value}])
 
 (def entity-schema
   [{:db/ident ::se/key
@@ -167,7 +238,8 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident ::se/owner
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident ::se/homebrew?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
@@ -275,6 +347,7 @@
      ::char5e/flaws
      ::char5e/faction-image-url-failed
      ::char5e/image-url
+     ::char5e/portrait
      ::char5e/description
      ::char5e/personality-trait-1
      ::char5e/eyes
@@ -312,23 +385,41 @@
      ::units5e/day
      ::units5e/round
      ::units5e/rest
-     ::units5e/long-rest])))
+     ::units5e/short-rest
+     ::units5e/long-rest
+     ::units5e/dawn
+     ::units5e/dusk])))
 
 (def party-schema
   [{:db/ident ::party5e/owner
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident ::party5e/name
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
    {:db/ident ::party5e/character-ids
     :db/valueType :db.type/ref
-    :db/cardinality :db.cardinality/many}])
+    :db/cardinality :db.cardinality/many}
+   ;; The share token a character was added with, when it came from a share link, so the party page
+   ;; can load that character's homebrew.
+   {:db/ident ::party5e/shared-tokens
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many
+    :db/isComponent true}
+   {:db/ident :orcpub.party-share/character
+    :db/valueType :db.type/long
+    :db/cardinality :db.cardinality/one
+    :db/index true}
+   {:db/ident :orcpub.party-share/token
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}])
 
 (def folder-schema
   [{:db/ident ::folder5e/owner
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident ::folder5e/name
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
@@ -344,36 +435,75 @@
     bool-prop
     [::char-equip-5e/equipped?
      ::char-equip-5e/background-starting-equipment?
-     ::char-equip-5e/class-starting-equipment?])))
+     ::char-equip-5e/class-starting-equipment?])
+   ;; per item in a stack, one record each: plan-charges-and-casting.md
+   [{:db/ident ::char-equip-5e/charges
+     :db/valueType :db.type/ref
+     :db/isComponent true
+     :db/cardinality :db.cardinality/many
+     :db/noHistory true}]
+   (map #(assoc (long-prop %) :db/noHistory true)
+        [::char-equip-5e/charge-index ::char-equip-5e/charges-used ::char-equip-5e/charges-max])))
 
 (def magic-item-schema
   (concat
    (map
     string-prop-no-history
     [::mi5e/name
-     ::mi5e/owner
      ::mi5e/description
-     ::mi5e/string-arg])
+     ::mi5e/string-arg
+     ::mi5e/charges-start
+     ::mi5e/charges-regain
+     ::mi5e/text
+     ::mi5e/toggle-name])
+   [(assoc (string-prop-no-history ::mi5e/owner) :db/index true)]
    (map
     many-ref-no-history
     [::mod/args
-     ::mi5e/modifiers])
+     ::mi5e/modifiers
+     ::mi5e/casts
+     ::mi5e/extra-damage
+     ::mi5e/effects
+     ::mi5e/toggles])
    (map
     many-kws-no-history
     [::mi5e/subtypes
-     ::mi5e/attunement])
+     ::mi5e/attunement
+     ::mi5e/against
+     ::mi5e/not-against])
    (map
     long-prop-no-history
     [::mod/int-arg
      ::mi5e/magical-damage-bonus
      ::mi5e/magical-attack-bonus
-     ::mi5e/magical-ac-bonus])
+     ::mi5e/magical-ac-bonus
+     ::mi5e/charges
+     ::mi5e/cast-level
+     ::mi5e/cast-cost
+     ::mi5e/cast-per-level
+     ::mi5e/cast-max-level
+     ::mi5e/save-dc
+     ::mi5e/charge-cost
+     ::mi5e/damage-bonus
+     ::mi5e/min-roll])
    (map
     kw-prop-no-history
     [::mod/key
      ::mod/keyword-arg
      ::mi5e/type
-     ::mi5e/rarity])))
+     ::mi5e/rarity
+     ::mi5e/charges-recharge
+     ::mi5e/cast-spell
+     ::mi5e/on
+     ::mi5e/recharge
+     ::mi5e/effect-type
+     ::mi5e/save-ability
+     ::mi5e/save-fail
+     ::mi5e/while
+     ::mi5e/attack-type
+     ::mi5e/next-attack
+     ::mi5e/extra-attack
+     ::mi5e/toggle-id])))
 
 (def weapon-schema
   (concat
@@ -404,8 +534,75 @@
      ::weapon5e/reach?
      ::weapon5e/ammunition?])))
 
+(def db-functions
+  "Transaction functions installed with the schema.
+
+   retract-if-equal retracts [e a v] only if the attribute still holds v, and
+   otherwise fails the transaction. Datomic's built-in :db/cas cannot set a
+   value to nothing, so this is the guarded REMOVAL to go with it: when two
+   app containers race to unlink an artist account, one commits and the other
+   fails, instead of both succeeding and both emailing."
+  [{:db/ident :orcpub.fn/retract-if-equal
+    :db/fn (d/function
+            '{:lang :clojure
+              :params [db e a v]
+              :code (if (= v (get (datomic.api/entity db e) a))
+                      [[:db/retract e a v]]
+                      (throw (ex-info "cas failed: value changed" {:e e :a a :db/error :db.error/cas-failed})))})}])
+(def share-schema
+  "Shared homebrew, see orcpub.routes.share: one record per character, holding the homebrew its owner
+   last shared, compressed, and the token a share link must carry to load it."
+  [{:db/ident :orcpub.share/character :db/valueType :db.type/long :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity}
+   {:db/ident :orcpub.share/token :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.share/digest :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.share/owner :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/index true}
+   {:db/ident :orcpub.share/bundle :db/valueType :db.type/bytes :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.share/size :db/valueType :db.type/long :db/cardinality :db.cardinality/one}
+   ;; When the share was last used, recorded at most daily; see orcpub.routes.share/prune!.
+   {:db/ident :orcpub.share/used :db/valueType :db.type/instant :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   ;; A share that expired unused, kept as its character and the date so the owner's page can say so; see
+   ;; orcpub.routes.share/prune!.
+   {:db/ident :orcpub.share-expiry/character :db/valueType :db.type/long :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity}
+   {:db/ident :orcpub.share-expiry/on :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}])
+
+(def heartbeat-schema
+  "When the server was running, see orcpub.heartbeat: the last beat, on the entity :orcpub.heartbeat/clock,
+   and each gap between beats long enough to mean the server was off."
+  [{:db/ident :orcpub.heartbeat/beat :db/valueType :db.type/instant :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.outage/from :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outage/to :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}])
+
+(def outbox-schema
+  "Player emails waiting to be sent, see orcpub.outbox: written in the same transaction as the
+   action that causes them, deleted once sent. The message holds reset and verification links, so
+   it keeps no history."
+  [{:db/ident :orcpub.outbox/id :db/valueType :db.type/uuid :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity}
+   {:db/ident :orcpub.outbox/kind :db/valueType :db.type/keyword :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/to :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.outbox/message :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.outbox/status :db/valueType :db.type/keyword :db/cardinality :db.cardinality/one
+    :db/index true}
+   {:db/ident :orcpub.outbox/attempts :db/valueType :db.type/long :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/next-at :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/claimed-until :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/created :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/last-error :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}])
+
 (def all-schemas
   (concat
+   db-functions
    user-schema
    entity-schema
    entity-type-schema
@@ -415,4 +612,7 @@
    party-schema
    folder-schema
    magic-item-schema
-   weapon-schema))
+   weapon-schema
+   share-schema
+   outbox-schema
+   heartbeat-schema))

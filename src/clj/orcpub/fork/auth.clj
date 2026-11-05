@@ -21,5 +21,7 @@
 ;; ─── Display ────────────────────────────────────────────────────────
 
 (def verification-display-name
-  "Name shown in verification and password-reset emails."
-  "User")
+  "Name for verification and password-reset emails when the account has no
+   preferred name of its own (see the My Account page). nil greets them by
+   username."
+  nil)

@@ -338,7 +338,7 @@
                             [~skill-kw
                              ~source]
                             true)
-                 (s/capitalize (-> ~skill-kw skill5e/skills-map :name))
+                 (skill5e/skill-name ~skill-kw)
                  "proficiency"
                  ~conditions))
 
@@ -472,8 +472,12 @@
     (let [equipment-mod (equipment-mod-fn cfg)]
       (if (::char-equip/equipped? cfg)
         (let [mods (concat [equipment-mod]
+                           ;; CHARACTER magic (Ring/Cloak of Protection): applies to whichever AC
+                           ;; calculation wins, so it is a bonus. Distinct from ITEM magic, the
+                           ;; ::magical-ac-bonus field on a worn armor or shield, which is part of
+                           ;; that item's own value.
                            (when (and include-magic-bonus? magical-ac-bonus)
-                             [(mods/cum-sum-mod ?magical-ac-bonus magical-ac-bonus)])
+                             [(mods/vec-mod ?ac-bonus-fns (fn [_ _] magical-ac-bonus))])
                            modifiers)]
           mods)
         equipment-mod))))
@@ -558,14 +562,28 @@
 (defn armored-ac-bonus [bonus]
   (mods/cum-sum-mod ?armored-ac-bonus bonus))
 
-(defn unarmored-ac-bonus [bonus]
-  (mods/cum-sum-mod ?unarmored-ac-bonus bonus))
+(defn unarmored-ac-bonus
+  "A flat bonus while wearing no armor and using no shield — Bracers of Defense. A BONUS, so it
+  stacks onto whichever AC calculation wins.
+  GOTCHA: goes through ?ac-bonus-fns, not ?unarmored-ac-bonus, whose values compete and lose to
+  ?natural-ac-bonus in ?unarmored-armor-class. See armor-class-refactor.md."
+  [bonus]
+  (mods/vec-mod ?ac-bonus-fns (fn [armor shield] (if (or armor shield) 0 bonus))))
 
 (defn natural-ac-bonus [bonus]
   (mods/cum-sum-mod ?natural-ac-bonus bonus))
 
 (defmacro ac-bonus-fn [bonus-fn]
   `(mods/vec-mod ~'?ac-bonus-fns ~bonus-fn))
+
+(defmacro ac-formula
+  "Register a whole AC calculation — unarmored defense, natural armor, homebrew. `formula-fn` is
+  (fn [armor shield] -> number); return 0 when it does not apply.
+
+  GOTCHA: calculations COMPETE (max) and never stack. A flat +N belongs in ac-bonus, which sums
+  onto whichever calculation won."
+  [formula-fn]
+  `(mods/vec-mod ~'?ac-fns ~formula-fn))
 
 (defn unarmored-defense [cls]
   (mods/vec-mod ?unarmored-defense cls))

@@ -51,6 +51,12 @@
   (is (= (entity/from-strict strict-character) character))
   (stest/unstrument `entity/from-strict))
 
+(deftest the-stored-version-goes-to-the-client-and-back
+  (let [strict (assoc strict-character ::e/version 7)]
+    (is (= 7 (::entity/version (entity/from-strict strict))) "a stored version is on the client's copy")
+    (is (= strict (entity/to-strict (entity/from-strict strict))) "and its save carries it back"))
+  (is (not (contains? (entity/to-strict character) ::e/version)) "a copy with none sends none"))
+
 (deftest test-template-option-map
   (let [selections [(assoc
                      (t/selection-cfg

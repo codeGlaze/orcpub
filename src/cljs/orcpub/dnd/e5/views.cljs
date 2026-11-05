@@ -4,9 +4,11 @@
             [orcpub.route-map :as routes]
             [orcpub.common :as common]
             [orcpub.entity :as entity]
-            [orcpub.components :as comps]
+            [orcpub.components :as comps :refer [orange text-color make-event-handler]]
             [orcpub.entity-spec :as es]
             [orcpub.pdf-spec :as pdf-spec]
+            [orcpub.dnd.e5.spell-packing :as packing]
+            [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.dice :as dice]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.subs :as subs]
@@ -24,11 +26,16 @@
             [orcpub.dnd.e5.folder :as folder]
             [orcpub.dnd.e5.character.random :as char-random]
             [orcpub.dnd.e5.character.equipment :as char-equip]
+            [orcpub.dnd.e5.rests :as rests]
+            [orcpub.dnd.e5.portrait :as portrait]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.registration :as registration]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.damage-types :as damage-types]
             [orcpub.dnd.e5.monsters :as monsters]
+            [orcpub.dnd.e5.srd-conditions :as srd-conditions]
+            [orcpub.dnd.e5.srd-rules :as srd-rules]
             [orcpub.dnd.e5.encounters :as encounters]
             [orcpub.dnd.e5.combat :as combat]
             [orcpub.dnd.e5.spells :as spells]
@@ -36,18 +43,34 @@
             [orcpub.dnd.e5.equipment :as equip]
             [orcpub.dnd.e5.weapons :as weapon]
             [orcpub.dnd.e5.armor :as armor]
+            [orcpub.dnd.e5.srd-starting-equipment :as srd-equip]
             [orcpub.dnd.e5.display :as disp]
+            [orcpub.dnd.e5.weapon-damage :as weapon-damage]
+            [orcpub.dnd.e5.weapon-rolls :as weapon-rolls]
             [orcpub.dnd.e5.template :as t]
-            [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views.notifications :as notifications]
+            [orcpub.dnd.e5.views.whats-new :as whats-new-view]
+            [orcpub.dnd.e5.views.builder-fields :refer [event-value dropdown labeled-dropdown
+                                                        base-builder-field builder-field
+                                                        input-builder-field textarea-field
+                                                        number-field]]
+            [orcpub.dnd.e5.views.charges-builder :as charges-builder]
+            [orcpub.dnd.e5.views.rest-controls :as rest-controls]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
+            [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.event-utils :as event-utils]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.fork.integrations :as integrations]
             [orcpub.fork.branding :as branding]
+            [orcpub.dnd.e5.views.auth :refer [dispatch-route-to-login]]
             [orcpub.fork.splash :as splash]
             [orcpub.fork.user-tier]
             [orcpub.ver :as v]
             [clojure.string :as s]
+            [orcpub.artist-links :as artist-links]
+            [goog.crypt.base64 :as b64]
             [cljs.reader :as reader]
             [orcpub.user-agent :as user-agent]
             [bidi.bidi :as bidi]
@@ -57,10 +80,6 @@
 ;; the `amount` of "uses" an action may have before it warrants
 ;; using a dropdown instead of a list of checkboxes
 (def actions-amount-many 5)
-
-(def text-color "#484848")
-
-(def orange "#f0a100")
 
 (def input-style
   {:height "38px"
@@ -76,12 +95,6 @@
    input-style
    {:border-color "rgba(72,72,72,0.37)"}))
 
-(defn event-value [e]
-  (.. e -target -value))
-
-(defn set-value [atom key e]
-  (swap! atom assoc key (event-value e)))
-
 (defn validation-messages [messages]
   (when messages
     [:ul.t-a-l.p-l-20.p-r-20.m-b-10
@@ -92,51 +105,74 @@
          [:li.red (str common/dot-char " " msg)])
        messages))]))
 
-(defn base-input [attrs]
-  [:div.m-b-10
-   [:div.f-s-10.t-a-l.m-l-10 (:placeholder attrs)]
-   [:div.flex.p-l-10.p-l-10.p-r-10
-    [:input.flex-grow-1
-     (merge
-      attrs
-      ;; Rem'd out to allow auto fill on use/password
-      ;;{:auto-complete :off}
-     )]]])
+(defn- portrait-fields
+  "The spec's portrait fields for baked `png-b64`: the pixels and the credit, which travels with
+   them because the server has no layer selection. Fitted to the PDF metadata's 78 characters,
+   so whole names drop rather than one being cut."
+  [portrait png-b64]
+  (when png-b64
+    {:portrait-png png-b64
+     :portrait-credit (portrait-assets5e/fit-credit
+                       (portrait-assets5e/credit-names portrait)
+                       #(<= (count %) 78))}))
 
-(defn form-input []
-  (let [blurred? (r/atom false)]
-    (fn [{:keys [title key value messages type on-change]}]
-      [:div
-       [base-input
-        {:name key
-         :type type
-         :value value
-         :placeholder title
-         :style input-style
-         :class (if (and @blurred? (seq messages))
-                       "b-red"
-                       "b-gray")
-         :on-focus (fn [_] (reset! blurred? false))
-         :on-change on-change
-         :on-blur (fn [e] (reset! blurred? true))}]
-       (when @blurred? (validation-messages messages))])))
+(def portrait-wait-ms
+  "How long Create PDF waits for a portrait still baking before sending the PDF without it."
+  8000)
+
+(defn- within-wait
+  "`bake`, a promise of a portrait's base64 PNG, resolving to nil instead if it fails or is still
+   running after portrait-wait-ms. Never rejects."
+  [bake]
+  (-> (js/Promise.race #js [bake (js/Promise. (fn [ok _] (js/setTimeout #(ok nil) portrait-wait-ms)))])
+      (.catch (fn [_] nil))))
 
 (defn export-pdf
-  "Returns an onClick handler that generates and submits the PDF.
-   plugin-data map is pre-subscribed by the calling component."
+  "An onClick handler that submits the PDF form for `built-char`, with its portrait when one can be
+   drawn. Nothing optional stops the export: a missing, undrawable, failing or slow portrait sends
+   the PDF without it. If the PDF's data cannot be made, the player is told.
+   GOTCHA: the submit must stay inside the click or a popup blocker stops the new tab; an
+   unfinished bake opens the tab now and fills it when the bake resolves or the wait runs out."
   [built-char id plugin-data & [options]]
   (fn [_]
-    (let [field (.getElementById js/document "fields-input")]
-      (aset field "value" (str (pdf-spec/make-spec built-char id options plugin-data)))
-      (.submit (.getElementById js/document "download-form")))))
+    (try
+      (let [field (.getElementById js/document "fields-input")
+            form (.getElementById js/document "download-form")
+            spec (pdf-spec/make-spec built-char id options plugin-data)
+            portrait (char/portrait built-char)
+            submit! (fn [png-b64 target]
+                      (aset field "value" (str (merge spec (try (portrait-fields portrait png-b64)
+                                                                (catch :default _ nil)))))
+                      (aset form "target" target)
+                      (.submit form))
+            ready (when (portrait-assets5e/drawable? portrait) (portrait/baked-png portrait))]
+        (cond
+          (not (portrait-assets5e/drawable? portrait)) (submit! nil "_blank")
+          ready (submit! (first ready) "_blank")
+          :else (if-let [bake (try (portrait/bake-ahead! portrait) (catch :default _ nil))]
+                  (let [tab (str "orcpub-pdf-" (rand-int 1000000))
+                        target (if (.open js/window "" tab) tab "_blank")]
+                    (.then (within-wait bake) #(submit! % target)))
+                  (submit! nil "_blank"))))
+      (catch :default e
+        (js/console.error "PDF export could not start:" e)
+        (dispatch [:show-error-message
+                   "This character's PDF couldn't be made. Try again, or tell us with Feedback/Bug Reports at the bottom of the page."])))))
+
+(defn bake-portrait
+  "Bakes the character's composed portrait on mount and whenever it or the artist credits change,
+   so export can submit without waiting. Renders nothing."
+  [_portrait]
+  (let [bake #(portrait/bake-ahead! (second (r/argv %)))]
+    (r/create-class
+     {:component-did-mount bake
+      :component-did-update bake
+      :reagent-render (fn [_] @(subscribe [:portrait/artist-overrides]) nil)})))
 
 (defn download-form [built-char]
   [:form.download-form
    {:id "download-form"
-    :action (if (and js/window.location
-                     (s/starts-with? js/window.location.href "http://localhost"))
-              "http://localhost:8890/character.pdf"
-              "/character.pdf")
+    :action (event-utils/backend-url "/character.pdf")
     :method "POST"
     :target "_blank"}
    [:input {:type "hidden" :name "body" :id "fields-input"}]])
@@ -155,15 +191,8 @@
 (def login-style
   {:color "#f0a100"})
 
-(def login-style-menu
-  {:background-color "rgba(0,0,0,0.4)"})
-
 (defn dispatch-logout []
   (dispatch [:logout]))
-
-(defn dispatch-route-to-login [e]
-  (.stopPropagation e)
-  (dispatch [:route-to-login]))
 
 (defn dispatch-route-to-my-account [e]
   (dispatch [:route :my-account]))
@@ -172,33 +201,6 @@
 #_(def header-tab-style
   {:width "85px"})
 
-(def active-style {:background-color "rgba(240, 161, 0, 0.7)"})
-
-(def menu-color "#2c3445")
-
-(def header-menu-item-style
-  {:position :absolute
-   :background-color "#2c3445"
-   :z-index 10000
-   :top 84
-   :right 0})
-
-;; dead — zero callers
-#_(def desktop-menu-item-style
-  (assoc header-menu-item-style
-         :width "100%"))
-
-(def mobile-header-menu-item-style
-  (assoc header-menu-item-style
-         :top 46))
-
-(def user-menu-style
-  {:background-color menu-color
-   :z-index 10000
-   :position :absolute
-   :right 0
-   :display :none})
-
 (defn handle-user-menu [e]
   (let [user-header (js/document.getElementById "user-header")
         user-menu (js/document.getElementById "user-menu")
@@ -206,36 +208,42 @@
         width (.-offsetWidth user-header)
         bottom (.-bottom bounding-rect)
         right (.-right bounding-rect)
-        style (.-style user-menu)
         window-width js/document.documentElement.clientWidth]
-    (set! (.-display style) "block")))
+    (.add (.-classList user-menu) "open")))
 
 (defn hide-user-menu [e]
-  (let [user-menu (js/document.getElementById "user-menu")
-        style (.-style user-menu)]
-    (set! (.-display style) "none")))
+  (let [user-menu (js/document.getElementById "user-menu")]
+    (.remove (.-classList user-menu) "open")))
 
-(defn user-header-view []
+(defn user-header-view
+  "The header's account box: LOGIN when logged out; otherwise the username, with a hover menu
+   of What's New, Log out and Account."
+  []
   (let [username @(subscribe [:username])
         mobile? @(subscribe [:mobile?])]
     [:div#user-header.pointer.posn-rel
      (when username
        {:on-mouse-over handle-user-menu
         :on-mouse-out hide-user-menu})
-     [:div.b-rad-5.flex.align-items-c.p-l-10.p-r-10.p-t-5.p-b-5.f-s-16 {:style login-style-menu }
-      [:div.user-icon [svg-icon "orc-head" 35 ""]]
+     ;; on a phone: no icon, and the same 36px height as the search button
+     [:div.header-login-box.b-rad-5.flex.align-items-c.p-l-10.p-r-10.f-s-16
+      {:class (if mobile? "h-36" "p-t-5 p-b-5")}
+      ;; the gap rides on the icon, so a phone (which hides it) centres LOGIN
+      [:div.user-icon.m-r-5 [svg-icon "orc-head" 35 ""]]
       (if username
         [:span.f-w-b.t-a-r
          (when (not @(subscribe [:mobile?])) [:span.m-r-5 username])]
         [:span.pointer.flex.flex-column.align-items-end
-         [:span.white.f-w-b.m-l-5
+         [:span.white.f-w-b
           {:on-click dispatch-route-to-login}
           [:span "LOGIN"]]])
       (when username
         [:i.fa.m-l-5.fa-caret-down])]
-     [:div#user-menu.shadow.f-w-b
-      {:style user-menu-style
-       :on-click hide-user-menu}
+     [:div#user-menu.user-menu.shadow.f-w-b
+      {:on-click hide-user-menu}
+      [:div.p-10.opacity-5.hover-opacity-full
+       {:on-click #(dispatch [::e5/open-whats-new])}
+       "WHAT'S NEW"]
       [:div.p-10.opacity-5.hover-opacity-full
        {:on-click dispatch-logout}
        "LOG OUT"]
@@ -262,9 +270,23 @@
 
 (def route-handler (memoize route-fn))
 
+(defn- fit-flyout!
+  "Cap an opening flyout at the room left below it, and let it scroll.
+   GOTCHA: the menu is absolutely positioned, so its height ignores the window's, and a hover
+   menu cannot be scrolled into reach. Measured in a frame, once :hover has applied."
+  [e]
+  (when-let [flyout (some-> (.-currentTarget e) (.querySelector ".header-flyout"))]
+    (js/requestAnimationFrame
+     (fn []
+       (let [top (.-top (.getBoundingClientRect flyout))
+             room (- (.-innerHeight js/window) top 12)]
+         (when (pos? top)
+           (set! (.. flyout -style -maxHeight) (str (max 160 (js/Math.floor room)) "px"))
+           (set! (.. flyout -style -overflowY) "auto")))))))
+
 (defn header-tab [title icon on-click disabled active device-type & buttons]
   (let [mobile? (= :mobile device-type)]
-    [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
+    [:div.f-w-b.f-s-14.t-a-c.header-tab.posn-rel
      (cond-> {:on-mouse-down (fn [e]
                                (when (seq buttons)
                                  (let [tab (.. e -currentTarget)]
@@ -274,11 +296,15 @@
               :on-click (fn [e]
                           (when-not (seq buttons)
                             (on-click e)))
-              :style (when active active-style)
+              ;; .active: the amber of the current section (core.clj)
+              ;; on a phone the tabs share the row evenly instead of spreading out
               :class (str (if disabled "disabled" "pointer")
                           " "
-                          (when (not mobile?) " w-110"))}
-       (seq buttons) (assoc :tab-index 0))
+                          (if mobile? "flex-grow-1" "w-110")
+                          (when active " active"))}
+       (seq buttons) (assoc :tab-index 0
+                            :on-mouse-enter fit-flyout!
+                            :on-focus fit-flyout!))
      [:div.p-10
       {:class (when (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
       (let [size (if mobile? 24 48)] (svg-icon icon size ""))
@@ -286,15 +312,14 @@
         [:div.title.uppercase title])]
      (when (seq buttons)
        [:div.uppercase.shadow.header-flyout
-        {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
         (doall
          (map
           (fn [{:keys [name route]}]
             ^{:key name}
             [:div.p-10.opacity-5.hover-opacity-full
              (let [current-route @(subscribe [:route])]
-               {:style (when (or (= route current-route)
-                               (= route (get current-route :handler))) active-style)
+               {:class (when (or (= route current-route)
+                               (= route (get current-route :handler))) "active")
                 :on-click (fn [e]
                             (.stopPropagation e)
                             (when-let [tab (.. e -currentTarget -parentElement -parentElement)]
@@ -305,7 +330,7 @@
 
 (defn header-tab2 [title icon on-click disabled active device-type & buttons]
   (let [mobile? (= :mobile device-type)]
-    [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
+    [:div.f-w-b.f-s-14.t-a-c.header-tab.posn-rel
      (cond-> {:on-mouse-down (fn [e]
                                (when (seq buttons)
                                  (let [tab (.. e -currentTarget)]
@@ -315,19 +340,22 @@
               :on-click (fn [e]
                           (when-not (seq buttons)
                             (when (fn? on-click) (on-click e))))
-              :style (if active active-style)
+              ;; .active: the amber of the current section (core.clj)
               :class-name (str (if disabled "disabled" "pointer")
                                " "
-                               (if (not mobile?) "w-110"))}
-       (seq buttons) (assoc :tab-index 0))
+                               (if mobile? "flex-grow-1" "w-110")
+                               (when active " active"))}
+       (seq buttons) (assoc :tab-index 0
+                            :on-mouse-enter fit-flyout!
+                            :on-focus fit-flyout!))
      [:div.p-10
-      {:class-name (if (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
+      {:class-name (when-not active
+                     (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
       (let [size (if mobile? 24 48)] (svg-icon icon size ""))
-      (if (not mobile?)
+      (when-not mobile?
         [:div.title.uppercase title])]
      (when (seq buttons)
        [:div.uppercase.shadow.header-flyout
-        {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
         (doall
          (map
           (fn [{:keys [name route]}]
@@ -337,9 +365,9 @@
                           (.stopPropagation e)
                           (when-let [tab (.. e -currentTarget -parentElement -parentElement)]
                             (.blur tab)))
-              :style (let [current-route @(subscribe [:route])]
+              :class (let [current-route @(subscribe [:route])]
                        (when (or (= route current-route)
-                                 (= route (get current-route :handler))) active-style))}
+                                 (= route (get current-route :handler))) "active"))}
              [:a.no-text-decoration {:href route} name]])
           buttons))])]))
 
@@ -362,10 +390,9 @@
   [:a.p-5.opacity-5.hover-opacity-full.main-text-color
    {:style social-icon-style
     :href link :target :_blank}
-   [:svg {:xmlns "http://www.w3.org/2000/svg"
-          :viewBox "0 0 568 501"
-          :width "20" :height "18"
-          :style {:vertical-align "middle" :fill "currentColor"}}
+   [:svg.svg-icon-inline {:xmlns "http://www.w3.org/2000/svg"
+                          :viewBox "0 0 568 501"
+                          :width "20" :height "18"}
     [:path {:d "M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192 95.759-152.32 160.879-201.21C491.866-1.611 568-28.906 568 57.947c0 17.346-9.945 145.713-15.778 166.555-20.275 72.453-94.155 90.933-159.875 79.748C507.222 323.8 536.444 388.56 473.333 453.32c-119.86 122.992-172.272-30.859-185.702-70.281-2.462-7.227-3.614-10.608-3.631-7.733-.017-2.875-1.169.506-3.631 7.733-13.43 39.422-65.842 193.273-185.702 70.281-63.111-64.76-33.89-129.52 80.986-149.07-65.72 11.185-139.6-7.295-159.875-79.748C10.945 203.659 1 75.291 1 57.946 1-28.906 76.135-1.612 123.121 33.664Z"}]]])
 
 (def search-input-style
@@ -380,9 +407,6 @@
 #_(def search-icon-style
   {:top 6
    :right 25})
-
-(def search-input-parent-style
-  {:background-color "rgba(0,0,0,0.3)"})
 
 ;; dead — zero callers
 #_(def transparent-search-input-style
@@ -415,6 +439,11 @@
 (defn route-to-item-list-page []
   (dispatch [:route routes/dnd-e5-item-list-page-route]))
 
+(defn route-to-rules-page
+  "Opens the Rules page."
+  []
+  (dispatch [:route routes/dnd-e5-rules-page-route]))
+
 (defn route-to-my-content-page []
   (dispatch [:route routes/dnd-e5-my-content-route]))
 
@@ -422,9 +451,14 @@
   (dispatch [:route routes/dnd-e5-my-encounters-route]))
 
 (def logo [:a {:href "/" } [:img.h-60.pointer
-           {:src branding/logo-path}]])
+           ;; CSS mask-image (the portrait placeholder) fetches the same logo in CORS mode; a CORS-mode
+           ;; img lets the browser answer both from one request.
+           {:src branding/logo-path :cross-origin "anonymous"}]])
 
-(defn app-header []
+(defn app-header
+  "The site header: logo, search and the account box, then a second row with the supporter link,
+   What's New and the social icons. A phone hides the second row."
+  []
   (let [device-type @(subscribe [:device-type])
         mobile? (= :mobile device-type)
         active-route @(subscribe [:route])]
@@ -432,14 +466,17 @@
        [:div.app-header-bar.container
         [:div.content
          [:div.flex.align-items-c.h-100-p
-          [:div.flex.justify-cont-s-b.align-items-c.w-100-p.p-l-20.p-r-20.h-100-p
+          ;; phones share one 10px gutter with the tabs, title and builder below
+          [:div.flex.justify-cont-s-b.align-items-c.w-100-p.h-100-p
+           {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20")}
            logo
            (let [search-text @(subscribe [:search-text])
                  search-text? @(subscribe [:search-text?])]
              [:div
               {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20 flex-grow-1")}
-              [:div.b-rad-5.flex.align-items-c
-               {:style search-input-parent-style}
+              ;; on a phone the search is a 36px square with its icon centred
+              [:div.header-search-box.b-rad-5.flex.align-items-c
+               {:class (when mobile? "h-36 w-36 justify-cont-c")}
                (when (not mobile?)
                  [:div.p-l-20.flex-grow-1
                   [:input.w-100-p.main-text-color
@@ -448,19 +485,31 @@
                     :on-key-press search-input-keypress
                     :on-change set-search-text
                     :placeholder "search"}]])
-               [:div.p-r-10.pointer
-                {:on-click open-orcacle}
-                [svg-icon "magnifying-glass" (if mobile? 32 48) ""]]]])
+               [:div.pointer.flex
+                {:class (when (not mobile?) "p-r-10")
+                 :on-click open-orcacle}
+                [svg-icon "magnifying-glass" (if mobile? 24 48) ""]]]])
            [user-header-view]]]]]
        [:div.container
         [:div.content
          [:div.flex.w-100-p.align-items-end
           {:class (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
+          ;; room for the supporter link beside the social icons; a phone shows neither
           [:div
-           {:style {:min-width "53px"}}
+           {:class (when (not mobile?) "supporter-slot")}
            [integrations/supporter-link @(subscribe [:user-tier]) mobile? svg-icon]
            (when (not mobile?)
              [:div.main-text-color.p-10
+              [:span.whats-new-pill.m-r-10
+               {:role "button"
+                :tab-index 0
+                :on-click #(dispatch [::e5/open-whats-new])
+                :on-key-down (fn [e]
+                               (when (#{"Enter" " "} (.-key e))
+                                 (.preventDefault e)
+                                 (dispatch [::e5/open-whats-new])))
+                :title "What's New"}
+               [:i.fa.fa-gift] "What's New"]
               (when-let [url (not-empty (:facebook branding/social-links))]
                 (social-icon "facebook-f" url))
               (when-let [url (not-empty (:bluesky branding/social-links))]
@@ -472,6 +521,7 @@
               (when-let [url (not-empty (:discord branding/social-links))]
                 (social-icon "discord" url))])]
           [:div.flex.m-b-5.m-t-5.justify-cont-s-b.app-header-menu
+           {:class (when mobile? "phone-tabs")}
            [header-tab
             "characters"
             "battle-gear"
@@ -520,6 +570,17 @@
              :route routes/dnd-e5-item-list-page-route}
             {:name "Item Builder"
              :route routes/dnd-e5-item-builder-page-route}]
+           [header-tab
+            "rules"
+            "bookshelf"
+            route-to-rules-page
+            false
+            (routes/dnd-e5-rules-page-routes (or (:handler active-route) active-route))
+            device-type
+            {:name "Rules"
+             :route routes/dnd-e5-rules-page-route}
+            {:name "Conditions"
+             :route routes/dnd-e5-condition-list-page-route}]
            [header-tab
             "encounters"
             "dungeon-gate"
@@ -574,53 +635,6 @@
             {:name "Selection Builder"
              :route routes/dnd-e5-selection-builder-page-route}]]]]]]))
 
-(def registration-content-style
-  {:background-color :white
-   :border "1px solid white"
-   :color text-color})
-
-(def registration-page-style
-  {:background-image "url(/image/login-side.jpg)"
-   :background-clip :content-box
-   :width "350px"
-   :min-height "600px"})
-
-(def registration-left-column-style
-  {:flex-direction :column
-   :width "435px"})
-
-(def registration-header-style
-  {:height "65px"
-   :background-color "#1a2532"
-   :border-right "1px solid white"})
-
-(defn route-to-default-page []
-  (dispatch [:route :default]))
-
-(defn registration-page [content]
-  [:div.sans.h-full.flex
-   {:style {:flex-direction :column}}
-   [:div.flex.justify-cont-s-a.align-items-c.flex-grow-1.h-100-p
-    [:div.registration-content
-     {:style registration-content-style}
-     [:div.flex.h-100-p
-      [:div.flex {:style registration-left-column-style}
-       [:div.flex.justify-cont-s-a.align-items-c
-        {:style registration-header-style}
-        [:img.pointer
-         {:class branding/registration-logo-class
-          :src branding/logo-path
-          :on-click route-to-default-page}]]
-       [:div.flex-grow-1 content]
-       [views-2/legal-footer]]
-      [:div.registration-image
-       {:style registration-page-style}]]]]])
-
-(def make-event-handler
-  (memoize
-   (fn [event-kw & args]
-     #(dispatch (vec (cons event-kw args))))))
-
 (def make-stop-prop-event-handler
   (memoize
    (fn [event-kw & args]
@@ -628,375 +642,16 @@
        (dispatch (vec (cons event-kw args)))
        (.stopPropagation e)))))
 
-(defn verify-failed []
-  (let [params (r/atom {})]
-    (fn []
-      (registration-page
-       [:div.flex.justify-cont-s-b {:style {:text-align :center
-                           :flex-direction :column}}
-        [:div.p-20
-         [:div.f-w-b.f-s-24.p-b-10
-          "Your key has expired."]
-         [:div "You must verify your email within 24 hours of registering. Send another verification email by submitting you address here:"]
-         [base-input
-          {:name :email
-           :value (:email @params)
-           :type :email
-           :placeholder "Email"
-           :style default-input-style
-           :on-change (partial set-value params :email)}]
-         [:button.form-button.m-l-20.m-t-10
-          {:style {:height "40px"
-                   :width "174px"
-                   :font-size "16px"
-                   :font-weight "600"}
-           :on-click (make-event-handler :re-verify @params)}
-          "RESEND"]]]))))
-
-(defn message [message-type message-text close-handler]
-  [:div.pointer.f-w-b ;;.h-0.opacity-0.fade-out
-   {:on-click close-handler}
-   [:div.message
-    {:class (case message-type
-              :error "bg-red"
-              :warning "bg-orange"
-              "bg-green")}
-    [:span message-text]
-    [:i.fa.fa-times]]])
-
-(defn hide-login-message []
-  (dispatch [:hide-login-message]))
-
-(defn send-password-reset-page []
-  (let [params (r/atom {})]
-    (fn [error-message]
-      (let [email (:email @params)
-            bad-email? (registration/bad-email? email)]
-        (registration-page
-         [:div.flex.justify-cont-s-b.w-100-p
-          {:style {:text-align :center
-                   :flex-direction :column}}
-          [:div.p-t-10
-           (when error-message [:div.red.m-b-20 error-message])
-           [:div.f-w-b.f-s-24.p-b-10
-            "Send Password Reset Email"]
-           [:div.m-b-10 "Submit your email address here and we will send you a link to reset your password."]
-           [form-input
-            {:title "Email"
-             :key :email
-             :messages (if bad-email?
-                           ["Not a valid email address"]
-                           [])
-             :type :email
-             :value email
-             :on-change (partial set-value params :email)}]
-           (when @(subscribe [:login-message-shown?])
-             [:div.m-t-5.p-r-5.p-l-5
-              [message
-               :error
-               @(subscribe [:login-message])
-               hide-login-message]])
-           [:button.form-button.m-t-10
-            {:style {:height "40px"
-                     :width "174px"
-                     :font-size "16px"
-                     :font-weight "600"}
-             :class (when bad-email? "disabled opacity-5 hover-no-shadow")
-             :on-click (when (not bad-email?) (make-event-handler :send-password-reset @params))}
-            "SUBMIT"]
-           [:div.m-t-20
-            [:span "Didn't receive reset email? " [:br] [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"} "whitelist"] " our domain then try it again."]]
-           ]])))))
-
-(defn password-reset-expired-page []
-  [send-password-reset-page "Your reset link has expired, you must complete the reset within 24 hours. Please use the form below to send another reset email."])
-
-(defn password-reset-used-page []
-  [send-password-reset-page "Your reset link has already been used. Please use the form below to send another reset email."])
-
-(defn password-validation-messages [password]
-  (-> password
-      registration/validate-password
-      :password))
-
-(defn password-reset-page []
-  (let [params (r/atom {})]
-    (fn []
-      (let [password (:password @params)
-            verify-password (:verify-password @params)
-            password-messages (password-validation-messages password)
-            different? (not= password verify-password)
-            invalid? (or (seq password-messages)
-                         different?)]
-        (registration-page
-         [:div.flex.justify-cont-s-b {:style {:text-align :center
-                                              :flex-direction :column}}
-          [:div.p-20
-           [:div.f-w-b.f-s-24.p-b-10
-            "Reset Password"]
-           [:div "Create a new password."]
-           [form-input {:title "Password"
-                        :key :password
-                        :value password
-                        :type :password
-                        ;;:messages password-messages
-                        :on-change (fn [e] (swap! params assoc :password (event-value e)))}]
-           [form-input {:title "Verify Password"
-                        :key :verify-password
-                        :value verify-password
-                        :type :password
-                        :messages (when different? ["Passwords do not match"])
-                        :on-change (fn [e] (swap! params assoc :verify-password (event-value e)))}]
-           (when @(subscribe [:login-message-shown?])
-             [:div.m-t-5.p-r-5.p-l-5 [message
-                                      :error
-                                      @(subscribe [:login-message])
-                                      hide-login-message]])
-           [:button.form-button.m-l-20.m-t-10
-            {:style {:height "40px"
-                     :width "174px"
-                     :font-size "16px"
-                     :font-weight "600"}
-             :class (when invalid? "opacity-5 hover-no-shadow cursor-disabled")
-             :on-click (when (not invalid?) (make-event-handler :password-reset @params))}
-            "SUBMIT"]]])))))
-
-(defn login-link []
-  [:span.underline.f-w-b.m-l-10.pointer.orange
-   {:on-click dispatch-route-to-login}
-   "LOGIN"])
-
-(defn verify-success []
-  (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
-     "Success! Registration is complete"]
-    [:div.m-t-20 "You can now"]
-    [login-link]]))
-
-(defn password-reset-success []
-  (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
-     "Your password has been successfully reset"]
-    [:div.m-t-20 "You can now log in"]
-    [login-link]]))
-
-(defn unsubscribe-success []
-  (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
-     "Unsubscribed"]
-    [:div.m-t-20 "You have been successfully unsubscribed from email updates."]
-    [:div.m-t-10 "You can re-enable updates at any time from your account settings."]]))
-
-(defn email-sent [text]
-  (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
-     "Check your email"]
-    [:div.p-20
-     text]]))
-
-(defn verify-sent []
-  (email-sent
-   [:div
-    [:span "We sent a verification email to "]
-    [:span.f-w-b.red.f-s-18 @(subscribe [:temp-email])]
-    [:span ". You must verify to complete registration and the link we sent will only be valid for 24 hours."]
-    [:span " "]
-    [:span "Remember to check your spam folder."]]))
-
-(defn password-reset-sent []
-  (email-sent
-   (str "We sent an email to "
-        @(subscribe [:temp-email])
-        " with a link to reset your password.")))
-
-(defn register-form []
-  (let [registration-validation @(subscribe [:registration-validation])
-        registration-form @(subscribe [:registration-form])
-        send-updates? (not= false (:send-updates? registration-form))
-        password-strength (registration/password-strength (:password registration-form))]
-    (registration-page
-     [:div {:style {:text-align :center}}
-      [:div {:style {:color orange
-                     :font-weight :bold
-                     :font-size "36px"
-                     :text-transform :uppercase
-                     :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                     :margin-top "20px"}}
-       "join for free"]
-      [:div.f-s-16.m-t-20 "Join now to save your characters and more!"]
-      [:div.m-t-10
-       [form-input {:title "Username"
-                    :key :username
-                    :value (:username registration-form)
-                    :messages (:username registration-validation)
-                    :type :username
-                    :on-change (fn [e] (dispatch [:registration-username (event-value e)]))}]
-       [form-input {:title "Email"
-                    :key :email
-                    :value (:email registration-form)
-                    :messages (:email registration-validation)
-                    :type :email
-                    :on-change (fn [e] (dispatch [:registration-email (event-value e)]))}]
-       [form-input {:title "Verify Email"
-                    :key :verify-email
-                    :value (:verify-email registration-form)
-                    :messages (:verify-email registration-validation)
-                    :type :email
-                    :on-change (fn [e] (dispatch [:registration-verify-email (event-value e)]))}]
-       [form-input {:title "Password"
-                    :key :password
-                    :value (:password registration-form)
-                    :messages (:password registration-validation)
-                    :type :password
-                    :on-change (fn [e] (dispatch [:registration-password (event-value e)]))}]
-       (let [[color text]
-              (cond
-                (= 5 password-strength) ["bg-green" "Strong"]
-                (< 1 password-strength 5) ["bg-orange" "Moderate"]
-                :else ["bg-red" "Weak"])]
-         [:div.p-r-10.p-l-10.p-t-5
-          [:div
-           {:style {:position :relative
-                    :height "30px"}}
-           [:div.b-rad-5
-            {:style {:top 0
-                     :left 0
-                     :height "30px"
-                     :opacity "0.7"
-                     :width "100%"
-                     :position :absolute}
-             :class color}]
-           [:div.b-rad-5.password-strength-meter
-            {:style {:top 0
-                     :left 0
-                     :position :absolute
-                     :height "30px"
-                     :transition "width 1s"
-                     :width (str (* 100 (float (/ password-strength 5))) "%")}
-             :class color}]
-           [:div.main-text-color.p-l-10.b-rad-5
-            {:style {:position :absolute
-                     :padding-top "6px"}}
-             [:span "Password Strength:"]
-             [:span.f-w-b.m-l-5 text]]]])
-       [:div.m-t-20
-        {:style {:text-align :left
-                 :margin-left "15px"}}
-        [:i.fa.fa-check.f-s-14.pointer
-         {:class (if send-updates? "orange" "white")
-          :style {:margin-top "-3px"
-                  :border-color "#f0a100"
-                  :border-style :solid
-                  :border-width "1px"
-                  :border-bottom-width "3px"}
-          :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
-        [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name)]]
-       [:div.m-t-10
-        [:div.p-10
-         [:span "Already have an account?"]
-         (login-link)]
-        [:div.m-t-10.m-b-20 [:span "After clicking JOIN A validation email will be sent to the above email address."]]
-        [:button.form-button
-         {:style {:height "40px"
-                  :width "174px"
-                  :font-size "16px"
-                  :font-weight "600"}
-          :class (when (seq registration-validation) "opacity-5 hover-no-shadow cursor-disabled")
-          :on-click #(when (empty? registration-validation)
-                       (dispatch [:register]))}
-         "JOIN"]]]
-      [:div.m-t-5.p-r-10.p-l-10
-       [:span.f-s-14
-        "By clicking JOIN you agree to our"
-        [:a.m-l-5 {:href "/terms-of-use" :target :_blank
-                   :style {:color text-color}} "Terms of Use"]
-        [:span.m-l-5 "and that you've read our"]
-        [:a.m-l-5 {:href "/privacy-policy" :target :_blank
-                   :style {:color text-color}} "Privacy Policy"]]]])))
-
-(defn route-to-register-page []
-  (dispatch [:route routes/register-page-route {:secure true :no-return? true}]))
-
-(defn route-to-reset-password-page []
-  (dispatch [:route routes/send-password-reset-page-route {:secure? true :no-return? true}]))
-
-(defn login-page []
-  (let [params (r/atom {})]
-    (fn []
-      (let [login-message-shown? @(subscribe [:login-message-shown?])
-            login-message @(subscribe [:login-message])]
-        (registration-page
-         [:div {:style {:text-align :center}}
-          [:div {:style {:color orange
-                         :font-weight :bold
-                         :font-size "36px"
-                         :text-transform :uppercase
-                         :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                         :margin-top "20px"}}
-           "LOGIN"]
-          [:div.m-t-10]
-          [:div.login-form-inputs
-           [form-input {:title "Username or Email"
-                        :key :username
-                        :value (:username @params)
-                        :type :username
-                        :on-change #(swap! params assoc :username (event-value %))}]
-           [form-input {:title "Password"
-                        :key :password
-                        :value (:password @params)
-                        :type :password
-                        :on-change #(swap! params assoc :password (event-value %))}]
-           (when login-message-shown?
-             [:div.m-t-5.p-r-5.p-l-5 [message
-                                      :error
-                                      login-message
-                                      hide-login-message]])
-           [:div.m-t-10
-            
-            [:button.form-button
-             {:style {:height "40px"
-                      :width "174px"
-                      :font-size "16px"
-                      :font-weight "600"}
-              :on-click #(dispatch [:login @params true])}
-             "LOGIN"]
-            [:div.m-t-20
-             [:span "Don't have a login? "][:br][:br]
-             [:span.orange.underline.pointer
-              {:on-click route-to-register-page}
-              "REGISTER NOW"]]
-            [:div.m-t-20
-             [:span "Forgot your password? "][:br][:br]
-             [:span.orange.underline.pointer
-              {:on-click route-to-reset-password-page}
-              "RESET PASSWORD"]]
-            
-            [:div.m-t-20
-             [:span "Didn't receive validation the email? " [:br] [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"} "Whitelist"] " our domain then reset your password." ]]]]])))))
+(defn switch-attrs
+  "Attributes for a `.dev-mode-switch`: its role and state, keyboard focus, and Space or Enter
+   calling `handler` (the switch's click handler, given the key event). `handler` nil: disabled."
+  [on? handler]
+  (cond-> {:role "switch" :aria-checked (str (boolean on?)) :tabIndex (if handler 0 -1)}
+    handler (assoc :on-key-down (fn [e]
+                                  (when (#{" " "Enter"} (.-key e))
+                                    (.preventDefault e)
+                                    (handler e))))
+    (nil? handler) (assoc :aria-disabled "true")))
 
 (def loading-style
   {:position :fixed
@@ -1023,17 +678,20 @@
 
 (def confirm-handler (memoize confirm-fn))
 
-(defn header [title button-cfgs & {:keys [frame?]}]
+(defn header [title button-cfgs & {:keys [frame? subheader]}]
   (let [device-type @(subscribe [:device-type])]
     [:div.w-100-p
      [:div.flex.align-items-c.justify-cont-s-b.flex-wrap
       [:div.flex
-       [:h1.f-s-36.f-w-b.m-t-5.m-l-10
-        {:class (when (not= :mobile device-type) "m-t-21 m-b-20")}
+       ;; 36px fills a 320px phone with "Character Builder" alone
+       [:h1.f-w-b.m-t-5.m-l-10
+        {:class (if (= :mobile device-type) "f-s-28" "f-s-36 m-t-21 m-b-20")}
         title]
        (when frame?
          logo)]
-      [:div.flex.align-items-c.justify-cont-end.flex-wrap.m-r-10.m-l-10
+      ;; each button carries 5px of its own, so on a phone the row adds only 5
+      [:div.flex.align-items-c.justify-cont-end.flex-wrap
+       {:class (if (= :mobile device-type) "m-l-5 m-r-5" "m-l-10 m-r-10")}
        (map-indexed
         (fn [i {:keys [title icon on-click style class-name] :as cfg}]
           (if (vector? cfg)
@@ -1051,6 +709,9 @@
              [:span.m-l-5.header-button-text title]]
               ))
         button-cfgs)]]
+     ;; A full-width line under the title and buttons, such as a character's share line.
+     (when subheader
+       [:div.m-l-10.m-r-10.m-b-10 subheader])
      (when @(subscribe [:confirmation-shown?])
        [:div.flex.justify-cont-end.m-r-10.m-b-20.m-l-10
         (let [cfg @(subscribe [:confirmation-cfg])]
@@ -1066,8 +727,10 @@
      (when @(subscribe [::char/options-shown?])
        [:div.bg-light.m-b-10 @(subscribe [::char/options-component])])
      (when @(subscribe [:message-shown?])
-       [:div.p-b-10.p-r-10.p-l-10.white
-        [message
+       ;; p-t-10 as well as p-b: without it the banner sits flush against whatever
+       ;; is above it, which on a phone means jammed under the page title.
+       [:div.p-t-10.p-b-10.p-r-10.p-l-10.white
+        [notifications/message
          @(subscribe [:message-type])
          @(subscribe [:message])
          hide-message]])]))
@@ -1078,39 +741,70 @@
   [ds]
   (.stringify js/JSON (clj->js ds) nil 2))
 
+(defonce cast-inline-on-phones
+  ;; Developer mode setting: open item casting under the item on phones, as on a desktop.
+  (r/atom (try (= "1" (.getItem js/localStorage "orcpub:cast-inline")) (catch :default _ false))))
+
+(defn toggle-cast-inline!
+  "Flips the cast-inline-on-phones setting and remembers it on this device."
+  []
+  (swap! cast-inline-on-phones not)
+  (try (.setItem js/localStorage "orcpub:cast-inline" (if @cast-inline-on-phones "1" "0")) (catch :default _ nil)))
+
+(defn cast-as-sheet?
+  "Whether the cast panel opens as a bottom sheet: on phones, unless Developer mode's
+  cast-inline-on-phones setting is on."
+  []
+  (and @(subscribe [:mobile?]) (not @cast-inline-on-phones)))
+
 (defn debug-data []
   (let [expanded? (r/atom false)]
     (fn []
-      [:div.t-a-r
-       [:div.orange.pointer.underline
-        {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
-         :title "Development - Download all Orcbrews as Pretty Print, if you click this button it will take a long time to generate the orcbrew.  Click and wait."}
-        [:i.fa.fa-cloud-download-alt]]
-       [:div.orange.pointer.underline
-        {:on-click #(swap! expanded? not)
-         :title "Development - Debug Info" }
-        [:i.fa.fa-bug {:class (when @expanded? "white")}]]
-       (when @expanded?
-         [:textarea.m-t-5
-          {:read-only true
-           :style debug-data-style
-           :value (str {:browser (user-agent/browser)
-                        :browser-version (user-agent/browser-version)
-                        :device-type (user-agent/device-type)
-                        :platform (user-agent/platform)
-                        :platform-version (user-agent/platform-version)
-                        :character (char/to-strict @(subscribe [:character]))})}])
-       (when @expanded?
-         [:textarea.m-t-5
-          {:read-only true
-           :style debug-data-style
-           :value (clj->json {:browser (user-agent/browser)
-                              :browser-version (user-agent/browser-version)
-                              :device-type (user-agent/device-type)
-                              :platform (user-agent/platform)
-                              :platform-version (user-agent/platform-version)
-                              :character (char/to-strict @(subscribe [:character]))})}])
-       ])))
+      (let [dev? @(subscribe [::e5/dev-mode?])]
+        [:div.t-a-r
+         ;; The switch is always visible and named. The tools behind it are for
+         ;; getting content out when the app is misbehaving, so hiding the way to
+         ;; reach them would defeat the point — what the toggle removes is two
+         ;; unlabelled icons sitting in the footer of every page.
+         [:div.dev-mode-row
+          [:span.dev-mode-switch
+           (merge (switch-attrs dev? (make-event-handler ::e5/toggle-dev-mode))
+                  {:class (when dev? "on")
+                   :title "Show diagnostic tools for getting your content out"
+                   :on-click (make-event-handler ::e5/toggle-dev-mode)})]
+          [:span.dev-mode-label
+           {:on-click (make-event-handler ::e5/toggle-dev-mode)}
+           "Developer mode"]]
+         (when dev?
+          [:<>
+           [:div.dev-mode-tools
+            [:span.dev-mode-tool
+             {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
+              :title "Downloads every source exactly as stored, skipping the export checks. Large libraries take a while — click once and wait."}
+             [:i.fa.fa-cloud-download-alt.m-r-5]
+             "Dump library"]
+            [:span.dev-mode-tool
+             {:on-click #(swap! expanded? not)
+              :title "Browser and build details, for a bug report"}
+             [:i.fa.fa-bug.m-r-5 {:class (when @expanded? "white")}]
+             "Debug info"]]
+           [:div.dev-mode-row
+            [:span.dev-mode-switch.compact
+             (merge (switch-attrs @cast-inline-on-phones toggle-cast-inline!)
+                    {:class (when @cast-inline-on-phones "on") :on-click toggle-cast-inline!})]
+            [:span.dev-mode-label {:on-click toggle-cast-inline!} "Open item casting under the item on phones"]]])
+         ;; One box, not the two identical ones that were here: the same map was
+         ;; rendered twice, once with str and once with clj->json.
+         (when (and dev? @expanded?)
+           [:textarea.m-t-5
+            {:read-only true
+             :style debug-data-style
+             :value (clj->json {:browser (user-agent/browser)
+                                :browser-version (user-agent/browser-version)
+                                :device-type (user-agent/device-type)
+                                :platform (user-agent/platform)
+                                :platform-version (user-agent/platform-version)
+                                :character (char/to-strict @(subscribe [:character]))})}])]))))
 
 (defn dice-roll-result [{:keys [total rolls mod raw-mod plus-minus]}]
   [:div.white.f-s-32.flex.align-items-c
@@ -1142,13 +836,15 @@
 (def two-columns-second-empty-style
   {:width "50%"})
 
+(declare srd-linked-text)
+
 (defn paragraphs [str & [single-column?]]
   (let [mobile? @(subscribe [:mobile?])
         ps (s/split str #"\n")
         p-els (doall
                (map-indexed
                 (fn [i p]
-                  ^{:key i} [:p p])
+                  ^{:key i} [:p [srd-linked-text p]])
                 ps))]
     (if (or mobile?
             single-column?)
@@ -1306,6 +1002,234 @@
   {:max-width "300px"})
 
 
+(defn srd-route-handler
+  "Click handler opening what a link in SRD text points at: a condition's page, a spell's page,
+   or a rules section scrolled to the rule. `link` is a link's attributes, e.g.
+   {:kind :rule :section :movement :anchor :jumping}."
+  [{:keys [kind key section anchor]}]
+  (case kind
+    :condition (make-event-handler :route (routes/match-route
+                                           (routes/path-for routes/dnd-e5-condition-page-route :key (name key))))
+    :spell (make-event-handler :route (routes/match-route
+                                       (routes/path-for routes/dnd-e5-spell-page-route :key (name key))))
+    :rule (let [route (routes/match-route
+                       (routes/path-for routes/dnd-e5-rule-section-page-route :key (name section)))]
+            (fn [_]
+              (dispatch [:set-srd-scroll-target anchor])
+              (dispatch [:route route])))))
+
+(defn condition-page-handler
+  "Click handler that opens the page for the condition `key`."
+  [key]
+  (srd-route-handler {:kind :condition :key key}))
+
+;; The one open link preview: {:owner id :link attrs :style {...} :pinned? bool :hovered? bool}.
+;; `owner` is the body whose preview box draws it, so two bodies on a page never both draw it.
+(defonce srd-preview (r/atom nil))
+
+(defonce srd-preview-closers
+  ;; A scroll moves the link away from its fixed-position box, so the box closes; so does a
+  ;; tap outside a pinned one.
+  (do (.addEventListener js/window "scroll" #(reset! srd-preview nil) #js {:passive true})
+      (.addEventListener js/document "pointerdown"
+                         (fn [e]
+                           (when-not (some-> (.-target e) (.closest ".srd-preview, .srd-link"))
+                             (reset! srd-preview nil))))
+      true))
+
+(defn- preview-style
+  "Fixed-position style for a preview box beside `el`: below it, or above when the window has
+   no room below; inside the window either way."
+  [el]
+  (let [rect (.getBoundingClientRect el)
+        w (min 440 (- (.-innerWidth js/window) 32))
+        max-h (js/Math.floor (min 380 (* 0.6 (.-innerHeight js/window))))
+        left (-> (.-left rect) (min (- (.-innerWidth js/window) w 16)) (max 16))
+        below? (< (+ (.-bottom rect) 8 max-h) (.-innerHeight js/window))]
+    (cond-> {:left left :width w :max-height max-h}
+      below? (assoc :top (+ (.-bottom rect) 6))
+      (not below?) (assoc :bottom (+ (- (.-innerHeight js/window) (.-top rect)) 6)))))
+
+(defn- open-preview!
+  "Opens the preview for `link` beside the element `el`, drawn by the body `owner`, and loads the
+   SRD file it shows if that page had no need of it. `pinned?` (a tap) keeps it open until
+   closed, rather than until the pointer leaves."
+  [owner link el pinned?]
+  (case (:kind link)
+    :condition (dispatch [:load-srd :conditions])
+    :rule (dispatch [:load-srd :rules])
+    nil)
+  (reset! srd-preview {:owner owner :link link :style (preview-style el) :pinned? pinned?}))
+
+(defn- close-preview-soon!
+  "Closes an unpinned preview after a moment, unless the pointer has moved into it."
+  []
+  (let [current @srd-preview]
+    (js/setTimeout #(when (and (identical? current @srd-preview) (not (:hovered? current)))
+                      (reset! srd-preview nil))
+                   250)))
+
+(declare srd-inlines srd-body condition-component spell-component)
+
+(defn srd-text-link
+  "A link in SRD text. A mouse shows its preview on hover and a click opens the page; a first
+   tap shows the preview (with an Open link), a second opens the page. `owner` nil: no preview."
+  [link owner kids]
+  (into [:span.srd-link
+         (cond-> {:role "link"
+                  :tab-index 0
+                  :on-click (fn [e]
+                              (let [touch? (#{"touch" "pen"} (.. e -nativeEvent -pointerType))]
+                                (if (and owner touch? (not= link (:link @srd-preview)))
+                                  (do (.preventDefault e)
+                                      (open-preview! owner link (.-currentTarget e) true))
+                                  (do (reset! srd-preview nil)
+                                      ((srd-route-handler link) e)))))
+                  :on-key-down (fn [e]
+                                 (when (= "Enter" (.-key e))
+                                   (reset! srd-preview nil)
+                                   ((srd-route-handler link) e)))}
+           owner (assoc :on-pointer-enter (fn [e]
+                                            (when (= "mouse" (.-pointerType e))
+                                              (open-preview! owner link (.-currentTarget e) false)))
+                        :on-pointer-leave (fn [e]
+                                            (when (= "mouse" (.-pointerType e))
+                                              (close-preview-soon!)))))]
+        (srd-inlines kids nil)))
+
+(defn srd-inlines
+  "Hiccup for a vector of SRD inlines: strings, [:b ...], [:i ...] and [:a link ...] links."
+  [xs owner]
+  (map (fn [x]
+         (if (string? x)
+           x
+           (let [[tag & more] x]
+             (case tag
+               :b (into [:span.f-w-b] (srd-inlines more owner))
+               :i (into [:i] (srd-inlines more owner))
+               :a [srd-text-link (first more) owner (rest more)]
+               (str x)))))
+       xs))
+
+(defn- srd-block
+  "Hiccup for one SRD block (heading, paragraph, list, table or sidebar); `owner` is the body
+   whose box shows its links' previews, or nil for none."
+  [[tag & args] owner]
+  (case tag
+    :h (let [[level text anchor] args]
+         [(case level 2 :div.f-s-20.f-w-b.m-t-20 3 :div.f-s-18.f-w-b.m-t-15 :div.f-s-16.f-w-b.m-t-10)
+          {:id (when anchor (str "rule-" (name anchor)))}
+          text])
+    :p (into [:p.m-t-10] (srd-inlines args owner))
+    (:ul :ol) [(if (= :ul tag) :ul.srd-list :ol.srd-list)
+               (doall (map-indexed (fn [i item] ^{:key i} (into [:li.m-t-5] (srd-inlines item owner))) args))]
+    :table (let [{:keys [caption columns rows]} (first args)]
+             [:div.m-t-10
+              (when caption [:div.f-w-b caption])
+              [:table.srd-table
+               [:thead (into [:tr] (map (fn [c] [:th c]) columns))]
+               [:tbody
+                (doall (map-indexed (fn [i row]
+                                      ^{:key i} (into [:tr] (map (fn [cell] (into [:td] (srd-inlines cell owner))) row)))
+                                    rows))]]])
+    :aside (into [:div.srd-aside] (map (fn [b] [srd-block b owner]) args))
+    :note (let [{:keys [title text source]} (first args)]
+            [:div.srd-note
+             [:div.f-w-b (str "Clarification: " title)]
+             [:div.m-t-5 text]
+             [:div.f-s-12.opacity-5.m-t-5
+              "Our note, not SRD text. From "
+              [:a {:href (:url source) :target "_blank" :rel "noopener noreferrer"} (:name source)]
+              "."]])
+    nil))
+
+(defn- srd-preview-content
+  "What a link's preview shows: the condition, the spell, or the rule it points at."
+  [{:keys [kind key section anchor]}]
+  (case kind
+    :condition (if-let [c (get (srd-conditions/by-key @(subscribe [:srd :conditions])) key)]
+                 [condition-component c "SRD 5.1" true]
+                 [:div "Loading..."])
+    :spell (if-let [spell (spells/spell-map key)]
+             [spell-component spell true]
+             [:div "No such spell."])
+    :rule (let [data @(subscribe [:srd :rules])
+                {:keys [name]} (some #(when (and (= section (:section %)) (= anchor (:anchor %))) %)
+                                     (srd-rules/headings data))]
+            (if data
+              [:div
+               [:div.f-s-18.f-w-b name]
+               (into [:div] (map (fn [b] [srd-block b nil]) (srd-rules/rule-blocks data section anchor)))]
+              [:div "Loading..."]))
+    nil))
+
+(defn- srd-preview-box
+  "The open link preview, when it belongs to the body `owner`: its content, Open and Close."
+  [owner]
+  (let [{:keys [link style] :as p} @srd-preview]
+    (when (= owner (:owner p))
+      [:div.srd-preview
+       {:style style
+        :on-pointer-enter #(swap! srd-preview assoc :hovered? true)
+        :on-pointer-leave (fn [e]
+                            (when (= "mouse" (.-pointerType e))
+                              (swap! srd-preview assoc :hovered? false)
+                              (close-preview-soon!)))}
+       [srd-preview-content link]
+       [:div.srd-preview-footer
+        [:span.pointer.underline.f-w-b {:on-click (fn [e] (reset! srd-preview nil) ((srd-route-handler link) e))}
+         "Open"]
+        [:span.pointer.m-l-20 {:on-click #(reset! srd-preview nil)} "Close"]]])))
+
+(defn srd-body
+  "Draws an SRD body (a vector of blocks, see resources/srd/README.md) with its links and their
+   previews. `previews?` false: links still open their page, but show no preview."
+  [blocks & [previews?]]
+  (r/with-let [owner (gensym "srd")]
+    (let [owner (when-not (false? previews?) owner)]
+      [:div
+       (doall (map-indexed (fn [i b] ^{:key i} [srd-block b owner]) blocks))
+       (when owner [srd-preview-box owner])])))
+
+(defn srd-linked-text
+  "`text` as it is, with each place it names a condition (\"is charmed\", \"be paralyzed\") a link
+   with a preview. For spell, item and monster text, which is not SRD data with links marked."
+  [text]
+  (r/with-let [owner (gensym "linked")]
+    (let [parts (srd-conditions/link-conditions text)]
+      (if (some vector? parts)
+        (into [:span] (concat (srd-inlines parts owner) [[srd-preview-box owner]]))
+        [:span text]))))
+
+(defn condition-component
+  "One condition: its name, text and the SRD page it is from. `in-preview?`: no nested previews."
+  [{:keys [name page body]} document & [in-preview?]]
+  [:div.m-b-20
+   [:div.f-s-24.f-w-b name]
+   [srd-body body (not in-preview?)]
+   [:div.f-s-12.opacity-5.m-t-5 (str document ", p. " page)]])
+
+(defn srd-attribution
+  "The CC BY 4.0 attribution the SRD licence asks to be shown with its text."
+  [data]
+  [:div.f-s-12.opacity-5.m-t-20 (:srd/attribution data)])
+
+(defn condition-immunities-field
+  "The stat block's Condition Immunities line, each known condition a link to its page."
+  [text]
+  [:div
+   [:span.f-w-b "Condition Immunities:"]
+   [:span.m-l-10
+    (doall
+     (interpose
+      ", "
+      (map-indexed
+       (fn [i {:keys [text key]}]
+         (if key
+           ^{:key i} [:span.underline.pointer {:on-click (condition-page-handler key)} text]
+           ^{:key i} [:span text]))
+       (srd-conditions/immunity-parts text srd-conditions/condition-keys))))]])
+
 (defn monster-component [{:keys [name description size type subtypes hit-points alignment armor-class armor-notes speed saving-throws skills damage-vulnerabilities damage-resistances damage-immunities condition-immunities senses languages challenge traits actions legendary-actions source page] :as monster}]
   (let [traits-by-type (group-by :type traits)
         traits (traits-by-type nil)
@@ -1350,7 +1274,7 @@
      (when damage-vulnerabilities (spell-field "Damage Vulnerabilities" damage-vulnerabilities))
      (when damage-resistances (spell-field "Damage Resistances" damage-resistances))
      (when damage-immunities (spell-field "Damage Immunities" damage-immunities))
-     (when condition-immunities (spell-field "Condition Immunities" condition-immunities))
+     (when condition-immunities [condition-immunities-field condition-immunities])
      (when senses (spell-field "Senses" senses))
      (when languages (spell-field "Languages" languages))
      (when challenge (spell-field "Challenge" (str
@@ -1368,7 +1292,7 @@
          (map-indexed
           (fn [i {:keys [name description]}]
             ^{:key i}
-            [:div.m-t-10.wsp-prw (spell-field name description)])
+            [:div.m-t-10.wsp-prw (spell-field name [srd-linked-text description])])
           traits))])
      (when actions
        [:div.m-t-20
@@ -1378,8 +1302,18 @@
           (map-indexed
            (fn [i {:keys [name notes description]}]
              ^{:key i}
-             [:div.m-t-10.wsp-prw (spell-field (str name " " notes) description)])
+             [:div.m-t-10.wsp-prw (spell-field (str name " " notes) [srd-linked-text description])])
            actions))]])
+     (when-let [reactions (seq (monsters/reactions monster))]
+       [:div.m-t-20
+        [:div.i.f-w-b.f-s-18 "Reactions"]
+        [:div
+         (doall
+          (map-indexed
+           (fn [i {:keys [name notes description]}]
+             ^{:key i}
+             [:div.m-t-10.wsp-prw (spell-field (str name (when notes (str " " notes))) [srd-linked-text description])])
+           reactions))]])
      (when legendary-actions
        [:div.m-t-20
         [:div.i.f-w-b.f-s-18 "Legendary Actions"]
@@ -1391,7 +1325,7 @@
             (map-indexed
              (fn [i {:keys [name notes description]}]
                ^{:key i}
-               [:div.m-t-10 (spell-field (str name " " notes) description)])
+               [:div.m-t-10 (spell-field (str name " " notes) [srd-linked-text description])])
              (:actions legendary-actions)))])])
      (when description
        [:div.m-t-10 (str description)])]))
@@ -1401,6 +1335,56 @@
    [:div.flex
     (svg-icon "hydra" 36 "")
     [monster-component monster]]])
+
+(defn condition-result
+  "The Orcacle's top result for an exact condition name."
+  [condition]
+  [:div.white
+   [:div.flex
+    (svg-icon "surrounded-eye" 36 "")
+    [:div.m-l-10 [condition-component condition "SRD 5.1"]]]])
+
+(defn condition-results
+  "The Orcacle's list of conditions whose names match, each opening its page."
+  [results]
+  [:div.white
+   [:div.flex
+    (svg-icon "surrounded-eye" 36 36)
+    [:div.m-l-10
+     (doall
+      (map
+       (fn [{:keys [key name]}]
+         ^{:key key}
+         [:div.pointer.f-s-18 {:on-click (condition-page-handler key)} name])
+       results))]]])
+
+(defn rule-result
+  "The Orcacle's top result for an exact rule or section name: its text, and a link to it."
+  [{:keys [section anchor name]}]
+  (let [data @(subscribe [:srd :rules])]
+    [:div.white
+     [:div.flex
+      (svg-icon "bookshelf" 36 "")
+      [:div.m-l-10
+       [:div.f-s-24.f-w-b name]
+       [srd-body (srd-rules/rule-blocks data section anchor)]
+       [:div.pointer.underline.m-t-10
+        {:on-click (srd-route-handler {:kind :rule :section section :anchor anchor})}
+        "Open in the rules"]]]]))
+
+(defn rule-results
+  "The Orcacle's list of rules whose names match, each opening its place in the rules."
+  [results]
+  [:div.white
+   [:div.flex
+    (svg-icon "bookshelf" 36 36)
+    [:div.m-l-10
+     (doall
+      (map
+       (fn [{:keys [section anchor name]}]
+         ^{:key (str section anchor)}
+         [:div.pointer.f-s-18 {:on-click (srd-route-handler {:kind :rule :section section :anchor anchor})} name])
+       results))]]])
 
 (defn search-results []
   (when-let [{{:keys [result] :as top-result} :top-result
@@ -1416,6 +1400,8 @@
             :spell (spell-result result)
             :monster (monster-result result)
             :magic-item (magic-item-result result)
+            :condition (condition-result result)
+            :rule (rule-result result)
             :name (name-result result)
             :tavern-name (tavern-name-result result)
             nil))])
@@ -1427,7 +1413,9 @@
            [:div.p-20
             (case type
               :spell (spell-results results)
-              :monster (monster-results results))])
+              :monster (monster-results results)
+              :condition (condition-results results)
+              :rule (rule-results results))])
          results)))]))
 
 (def oracle-frame-style
@@ -1493,31 +1481,17 @@
 (defn current-year []
   (.getFullYear (js/Date.))) 
 
-;; ------------------------------------------------------------------
-;; A helper that lets us embed a raw string of HTML inside Reagent.
-;; (If you’re using reagent‑core ≥1.2, `:raw` is built‑in; otherwise
-;; you can use the small shim below.)
-;; ------------------------------------------------------------------
-;; Render *any* raw HTML string.  
-(defn raw-html [html]
-  ;; Note: no `:>` or `js/React.createElement`.  
-  [:div {:dangerouslySetInnerHTML #js {:__html html}}])
+(declare library-health-status)
+(declare meta-edit-row)      ; defined with builder-page, which is its other caller
 
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
-  ;; Plain atom (not r/atom) mirrors the :orcacle-open? subscription value
-  ;; for the scroll handler, which runs as a DOM event listener outside
-  ;; Reagent's reactive context. Synced from the render fn below.
-  (let [orcacle-open?* (atom false)
-        on-scroll (fn [e]
-                    (when-not @orcacle-open?*
-                      (let [app-header (js/document.getElementById "app-header")
-                            header-height (.-offsetHeight app-header)
-                            scroll-top (.-scrollTop (.-documentElement (.-target e)))
-                            sticky-header (js/document.getElementById "sticky-header")]
-                        (if (>= scroll-top header-height)
-                          (set! (.-display (.-style sticky-header)) "block")
-                          (set! (.-display (.-style sticky-header)) "none")))))]
-    
+  ;; Whether the header has reached the top of the viewport. position: sticky
+  ;; does the sticking, but CSS cannot say "is currently stuck", and the bar only
+  ;; wears its background and shadow once it is -- so a zero-height sentinel above
+  ;; the header is watched, and this follows it.
+  (let [stuck? (r/atom false)
+        observer (atom nil)]
+
     (r/create-class
      {:component-did-mount (fn [comp]
                              ;; Read directly from app-db — lifecycle methods are
@@ -1530,22 +1504,30 @@
                                  :username  (:username user-data)
                                  :email     (:email user-data)}))
                              (when-not frame?
-                               (js/window.addEventListener "scroll" on-scroll))
+                               (when-let [sentinel (js/document.getElementById "header-sentinel")]
+                                 (let [obs (js/IntersectionObserver.
+                                            (fn [entries]
+                                              (reset! stuck?
+                                                      (not (.-isIntersecting (aget entries 0)))))
+                                            #js {:threshold 0})]
+                                   (.observe obs sentinel)
+                                   (reset! observer obs))))
                              (js/window.scrollTo 0,0))
 
       :component-will-unmount (fn [comp]
-                                (when-not frame?
-                                  (js/window.removeEventListener "scroll" on-scroll)))
+                                (when-let [obs @observer]
+                                  (.disconnect obs)
+                                  (reset! observer nil)))
       :reagent-render
-      (fn [title button-cfgs content & {:keys [hide-header-message? frame?]}]
+      (fn [title button-cfgs content & {:keys [hide-header-message? frame? subheader]}]
         (let [srd-message-closed? @(subscribe [:srd-message-closed?])
               orcacle-open? @(subscribe [:orcacle-open?])
               theme @(subscribe [:theme])
+              dark-button-text? @(subscribe [:dark-button-text?])
               mobile? @(subscribe [:mobile?])
               username? @(subscribe [:username])]
-          (reset! orcacle-open?* orcacle-open?)
           [:div.app.min-h-full
-           {:class theme
+           {:class (str theme (when dark-button-text? " dark-button-text"))
             :on-scroll (when-not frame?
                          (fn [e]))}
            (when-not frame?
@@ -1558,13 +1540,15 @@
              [app-header])
            (when orcacle-open?
              [orcacle])
-           (let [hdr [header title button-cfgs :frame? frame?]]
+           (let [hdr [header title button-cfgs :frame? frame? :subheader subheader]]
              [:div
-              [:div#sticky-header.sticky-header.w-100-p.posn-fixed
-               [:div.flex.justify-cont-c
-                [:div#header-container.f-s-14.main-text-color.content
-                 hdr]]]              
+              ;; One header, sticky -- never a fixed copy of it, which would put every
+              ;; header control and its local state in the DOM twice. Not sticky inside a
+              ;; frame (no app header to scroll past) or behind the Orcacle panel.
+              [:div#header-sentinel]
               [:div.flex.justify-cont-c.main-text-color
+               {:class (str (when-not (or frame? orcacle-open?) "sticky-header ")
+                            (when @stuck? "stuck"))}
                [:div.content hdr]]
 
               ;; Support banner (integrations-gated)
@@ -1580,7 +1564,15 @@
               [integrations/content-slot @(subscribe [:user-tier])]
 
               [:div#app-main.container
-               [:div.content.w-100-p content]]
+               [:div.content.w-100-p
+                ;; Library-health status on every content page except the character list
+                ;; (it self-hides when clean). Always shown on My Content, dismissable
+                ;; elsewhere.
+                (let [handler (:handler @(subscribe [:route]))]
+                  (when-not (= handler routes/dnd-e5-char-list-page-route)
+                    [library-health-status
+                     (= handler routes/dnd-e5-my-content-route)]))
+                content]]
 
               [:div.main-text-color.flex.justify-cont-c
                [:div.content.f-w-n.f-s-12
@@ -1589,7 +1581,7 @@
 
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
-                  [:div.m-b-5 "Icons made by Lorc, Caduceus, and Delapouite. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
+                  [:div.m-b-5 "Icons made by Lorc, Delapouite, Caduceus, Caro Asercion, Faithtoken, Sbed, Skoll and Willdabeast. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
                   [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
                  [:div.m-l-10
                   [:div.m-b-5.justify-cont-c
@@ -1597,7 +1589,8 @@
                      [:a.orange {:href url :target :_blank} "Support this site on Patreon"])
                    (when (seq branding/help-url)
                      [:a.orange.m-l-5 {:href branding/help-url :target :_blank} "Help"])
-                   [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]]
+                   [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]
+                   [whats-new-view/footer-link]]]
                  [:div.m-l-10.m-r-10.p-10
                   [:div.m-b-5
                    (for [{:keys [label href]} splash/legal-footer-links]
@@ -1610,7 +1603,9 @@
                      branding/copyright-holder)]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2025 Wizards. All Rights Reserved."]
                   [:p branding/app-name " is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
-                  [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
+                  [:p.pointer.underline
+                   {:on-click #(dispatch [::e5/open-whats-new])}
+                   "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
                 [debug-data]]]])]))})))
 
 ;; dead — zero callers (4 style defs)
@@ -1682,13 +1677,18 @@
                            include-name?
                            owner
                            show-owner?
-                           show-follow?]
+                           show-follow?
+                           & [editable?]]
   (let [username @(subscribe [:username])
-        display-name (when include-name? (character-display-name summary))]
+        display-name (when include-name? (character-display-name summary))
+        ;; parsed {:layers :colors :tweaks} map, or nil — see char/portrait
+        portrait-data (::char/portrait summary)]
     [:div.flex.justify-cont-s-b.w-100-p.align-items-c
      [:div.flex.align-items-c.align-items-t
-      (when image-url
-        [:img.m-r-20.m-t-10.m-b-10.image-character-thumbnail {:src image-url }])
+      ;; a composed portrait wins over image-url when both are present; falls
+      ;; back to the pasted URL, then to nothing (existing behavior). With
+      ;; `editable?` the thumbnail also carries a pencil into the compositor.
+      [portrait/thumbnail portrait-data image-url editable?]
       [:div.flex.character-summary.m-t-20.m-b-20
        (when display-name [:span.m-r-20.m-b-5
                                                [:span.character-name display-name]
@@ -1733,6 +1733,7 @@
         eyes @(subscribe [::char/eyes id])
         skin @(subscribe [::char/skin id])
         image-url @(subscribe [::char/image-url id])
+        portrait-data @(subscribe [::char/portrait id])
         race @(subscribe [::char/race id])
         subrace @(subscribe [::char/subrace id])
         levels @(subscribe [::char/levels id])
@@ -1750,6 +1751,7 @@
       ::char/eyes eyes
       ::char/skin skin
       ::char/image-url image-url
+      ::char/portrait portrait-data
       ::char/race-name race
       ::char/subrace-name subrace
       ::char/alignment alignment
@@ -1765,7 +1767,10 @@
      include-name?
      owner
      true
-     true)))
+     true
+     ;; a nil id means the character currently in the builder -- the only
+     ;; place a drawer exists to open.
+     (nil? id))))
 
 ;; dead — character_builder.cljs has its own realize-char
 #_(defn realize-char [built-char]
@@ -1831,19 +1836,11 @@
   (into (subvec items 0 i) (subvec items (inc i))))
 
 (defn isolate-culprit
-  "Fault isolation by re-execution — the active counterpart to render-guard.
-   `render-coll` renders/processes a whole collection and may throw; `items` is
-   that collection. Return the item(s) NECESSARY for the failure: an item is a
-   culprit if removing it makes render-coll stop throwing. Catches AGGREGATE
-   failures (e.g. a sort over a nil key) that a per-item guard never sees — and
-   pinpoints the culprit even when the failure only manifests in combination
-   (a nil sort key never throws alone, but removing the item fixes the whole list,
-   so leave-one-out finds it where 'does this item alone fail?' cannot).
-
-   Returns nil if render-coll doesn't throw. Honest limit: with two INDEPENDENT
-   faulty items (each breaks things by itself), removing one still throws, so
-   neither looks necessary — we then fall back to the smallest failing subset
-   found by bisection rather than claim a single culprit."
+  "Fault isolation by re-execution, the active counterpart to render-guard. `render-coll`
+   processes the collection `items` and may throw. Returns the item(s) whose removal stops
+   it throwing -- catching aggregate failures (a sort over a nil key) a per-item guard never
+   sees -- or nil if it doesn't throw. GOTCHA: with two independent faulty items neither is
+   necessary, so it falls back to the smallest failing subset found by bisection."
   [render-coll items]
   (letfn [(throws? [coll]
             (try (doall (render-coll coll)) false (catch :default _ true)))
@@ -2162,37 +2159,9 @@
                      ^{:key i}
                      [:span.m-l-5
                       {:on-click #(dispatch [::char/toggle-spell-slot-used id level i])}
-                      (comps/checkbox @(subscribe [::char/spell-slot-used? id level i]) false)]))]])
+                      (comps/checkbox @(subscribe [::char/spell-slot-used? id level i]) false
+                                      (str (common/ordinal level) " level slot " (inc i) " used"))]))]])
               spell-slots))])]))))
-
-(defn dropdown [{:keys [items value on-change]}]
-  ;; Dedup items by :value as a safety net — duplicate option values from
-  ;; homebrew plugins can slip through if imported before dedup was added.
-  (let [unique-items (->> items
-                          (reduce (fn [{:keys [seen result]} item]
-                                    (let [v (:value item)]
-                                      (if (contains? seen v)
-                                        {:seen seen :result result}
-                                        {:seen (conj seen v) :result (conj result item)})))
-                                  {:seen #{} :result []})
-                          :result)]
-    [:select.builder-option.builder-option-dropdown.m-t-0
-     {:value (or value "")
-      :on-change #(on-change (event-value %))}
-     (doall
-      (map-indexed
-       (fn [i {:keys [value title disabled?]}]
-         ^{:key (str i "-" (or value title))}
-         [:option.builder-dropdown-item
-          (cond-> {:value value}
-            disabled? (assoc :disabled true))
-          title])
-       unique-items))]))
-
-(defn labeled-dropdown [label cfg]
-  [:div
-   [:div.f-w-b.m-b-5 label]
-   [dropdown cfg]])
 
 (defn button-roll-fn [message roll]
   (fn [e]
@@ -2204,13 +2173,24 @@
 
 (def button-roll-handler (memoize button-roll-fn))
 
-(defn roll-button [message roll & {:keys [text disable-tooltip style]}]
-  (let [mobile? @(subscribe [:mobile?])
+(defn roll-button
+  "An amber button that rolls `roll` (dice text such as \"1d20+4\") and shows the result
+  after `message`; ctrl-click rolls with advantage, shift-click with disadvantage. Options:
+  :text (its label, any hiccup), :style, :class, :disable-tooltip, and :on-roll, a fn of the
+  mode (:normal :adv :dis) called instead of showing a message. Returns hiccup."
+  [message roll & {:keys [text disable-tooltip style class on-roll]}]
+  ;; the tip is about ctrl and shift, so it follows the device, not the width
+  (let [mobile? (= :mobile @(subscribe [:ua-device-type]))
         button [:button.roll-button
                 {:on-click (fn [e]
                              (.stopPropagation e)
-                             ((button-roll-handler message roll) e))
-                 :style style}
+                             (if on-roll
+                               (on-roll (cond (.-shiftKey e) :dis
+                                              (or (.-ctrlKey e) (.-metaKey e)) :adv
+                                              :else :normal))
+                               ((button-roll-handler message roll) e)))
+                 :style style
+                 :class class}
                 (or text "Roll")]]
     (if (or mobile? disable-tooltip)
       button
@@ -2246,6 +2226,21 @@
 (def expanded-spell-background-style
   {:background-color "rgba(0,0,0,0.1)"})
 
+(defn prepared-spell-box
+  "The tick box that prepares spell `key` (named `spell-name`) for `class` on character `id`: ticked
+   when `always-prepared?` or `prepared?`; with no preparations left (`remaining-preps`) an unticked
+   box is disabled and a click on it does nothing, as does any click on an always-prepared spell."
+  [id class key spell-name always-prepared? prepared? remaining-preps]
+  (let [selected? (or always-prepared? prepared?)
+        disabled? (and (not selected?) (not (pos? remaining-preps)))]
+    [:span.m-r-5
+     {:class (when (or always-prepared? disabled?) "cursor-disabled")
+      :on-click (fn [e]
+                  (when-not (or always-prepared? disabled?)
+                    (dispatch [::char/toggle-spell-prepared id class key]))
+                  (.stopPropagation e))}
+     (comps/checkbox selected? (or disabled? always-prepared?) (str spell-name " prepared"))]))
+
 (defn spell-row [id lvl spell-modifiers prepares-spells prepared-spells-by-class {:keys [key ability qualifier class always-prepared?]} expanded? on-click prepare-spell-count prepared-spell-count]
   (let [spell-map @(subscribe [::spells/spells-map])
         spell (spell-map key)
@@ -2258,20 +2253,8 @@
       [:td.p-l-10.p-b-5.p-t-5.f-w-b
        (when (and (pos? lvl)
                 (get prepares-spells class))
-         [:span.m-r-5
-          {:class (when always-prepared?
-                         "cursor-disabled")
-           :on-click (fn [e]
-                       (when (not always-prepared?)
-                         (dispatch [::char/toggle-spell-prepared id class key]))
-                       (.stopPropagation e))}
-          (let [selected? (or always-prepared?
-                              (get-in prepared-spells-by-class [class key]))]
-            (comps/checkbox
-             selected?
-             (and (not selected?)
-                  (or always-prepared?
-                      (not (pos? remaining-preps))))))])
+         [prepared-spell-box id class key (:name spell) always-prepared?
+          (get-in prepared-spells-by-class [class key]) remaining-preps])
        (:name spell)]
       [:td.p-l-10.p-b-5.p-t-5 class]
       [:td.p-l-10.p-b-5.p-t-5 (when ability (s/upper-case (common/safe-name ability)))]
@@ -2358,7 +2341,7 @@
                                (toggle-spell-expanded! expanded-spells k)
                                prepare-spell-count
                                prepared-spell-count))))
-              (sort-by :key spells))))]]]))))
+              (sort-by :key common/safe-compare spells))))]]]))))
 
 (defn toggle-hide-unprepared-fn [hide-unprepared?]
   #(swap! hide-unprepared? not))
@@ -2387,15 +2370,10 @@
 (defn finish-long-rest-fn [id]
   #(dispatch [::char/finish-long-rest id]))
 
-(defn finish-short-rest-fn [id]
-  #(dispatch [::char/finish-short-rest id]))
-
 (defn finish-short-rest-warlock-fn [id]
   #(dispatch [::char/finish-short-rest-warlock id]))
 
 (def finish-long-rest-handler (memoize finish-long-rest-fn))
-
-(def finish-short-rest-handler (memoize finish-short-rest-fn))
 
 (def finish-short-rest-handler-warlock (memoize finish-short-rest-warlock-fn))
 
@@ -2403,11 +2381,6 @@
   [:button.form-button.p-5
    {:on-click (finish-long-rest-handler id)}
    "finish long rest"])
-
-(defn finish-short-rest-button [id]
-  [:button.form-button.p-5.m-l-5
-   {:on-click (finish-short-rest-handler id)}
-   "finish short rest"])
 
 (defn finish-short-rest-button-warlock [id]
   [:button.form-button.p-5.m-l-5
@@ -2550,7 +2523,7 @@
            ^{:key i}
            [:span
             {:on-click (toggle-feature-used-handler id units k)}
-            [:span.m-r-5 (comps/checkbox @(subscribe [::char/feature-used? id units k]) false)]])))]
+            [:span.m-r-5 (comps/checkbox @(subscribe [::char/feature-used? id units k]) false (str nm " use " (inc i)))]])))]
 
     ;; larger number of uses
     (let [initial-value @(subscribe [::char/feature-used-count id units nm amount])]
@@ -2564,14 +2537,9 @@
         (fn on-change [e]
           (let [v (-> e .-target .-value)]
             (when initial-value
-              ; we have to dispatch-sync because in the case where id is nil,
-              ; this event handler dispatches, so the call below gets
-              ; a stale DB value and overwrites this one. It ought be
-              ; possible to make it affect the :db directly, but I don't
-              ; know what sort of side effects that could have....
-              ; See: update-character-fx, and its use of :dispatch; might
-              ; be able to replace that with:
-              ;  {:db (set-character db (update-fn (:character db)))}
+              ; dispatch-sync: when id is nil this handler dispatches too, so the call
+              ; below would read a stale db and overwrite this value. See
+              ; update-character-fx's use of :dispatch.
               (dispatch-sync [::char/toggle-feature-used id units initial-value]))
             ((toggle-feature-used-handler id units v))))
 
@@ -2880,7 +2848,13 @@
 (def set-notes-handler (memoize set-notes-fn))
 
 (defn summary-details [num-columns id]
-  (let [built-char @(subscribe [:built-character id])
+  (let [;; The builder renders character-display with an explicit nil id, so this
+        ;; collapses [:built-character nil] into the builder's own [:built-character]
+        ;; rather than running a second debounced build. GOTCHA: [:built-character id]
+        ;; ignores id and returns the builder's character; changing it needs its own test.
+        built-char @(subscribe (if id
+                                 [:built-character id]
+                                 [:built-character]))
         {:keys [::entity/owner] :as character} @(subscribe [::char/character id])
         username @(subscribe [:username])
         race @(subscribe [::char/race id])
@@ -3014,48 +2988,10 @@
 (defn yes-no [v]
   (if v "yes" "no"))
 
-(defn weapon-details [{:keys [::weapon/description
-                              ::weapon/type
-                              ::weapon/damage-type
-                              ::mi/magical-damage-bonus
-                              ::mi/magical-attack-bonus
-                              ::mi/magical-damage-type
-                              ::weapon/ranged?
-                              ::weapon/melee?
-                              ::weapon/range
-                              ::weapon/two-handed?
-                              ::weapon/finesse?
-                              ::mi/magical-finesse?
-                              ::weapon/link
-                              ::weapon/versatile
-                              ::weapon/thrown]
-                       :as weapon}
-                      damage-modifier-fn]
-  [:div.m-t-10.i
-   (weapon-details-field "Type" (common/safe-name type))
-   (if magical-damage-type
-     (weapon-details-field "Damage Type" (common/safe-name magical-damage-type))
-     (weapon-details-field "Damage Type" (common/safe-name damage-type)))
-   (when magical-damage-bonus
-     (weapon-details-field "Magical Damage Bonus" magical-damage-bonus))
-   (when magical-attack-bonus
-     (weapon-details-field "Magical Attack Bonus" magical-attack-bonus))
-   (weapon-details-field "Melee/Ranged" (if melee? "melee" "ranged"))
-   (when range
-     (weapon-details-field "Range" (str (::weapon/min range) "/" (::weapon/max range) " ft.")))
-   (if magical-finesse?
-     (weapon-details-field "Finesse?" (yes-no magical-finesse?))
-     (weapon-details-field "Finesse?" (yes-no finesse?)))
-   (weapon-details-field "Two-handed?" (yes-no two-handed?))
-   (weapon-details-field "Versatile" (if versatile
-                                       (str (::weapon/damage-die-count versatile)
-                                            "d"
-                                            (::weapon/damage-die versatile)
-                                            (common/mod-str (damage-modifier-fn weapon false))
-                                            " damage")
-                                       "no"))
-   (when description
-     [:div.m-t-10 description])])
+(defn cost-str
+  "An item's price as the SRD writes it, e.g. \"10 gp\", from the {:num :type} cost map."
+  [{:keys [num type]}]
+  (str num " " (common/safe-name type)))
 
 (defn armor-details-section [{:keys [type
                                      base-ac
@@ -3066,7 +3002,8 @@
                                      ::mi/magical-ac-bonus
                                      stealth-disadvantage?]
                               :or {magical-ac-bonus 0
-                                   base-ac 10}}
+                                   base-ac 10}
+                              :as armor}
                              {shield-magic-bonus ::magical-ac-bonus :or {shield-magic-bonus 0} :as shield}
                              expanded?]
   [:div
@@ -3091,6 +3028,10 @@
        (weapon-details-field "Stealth Disadvantage?" (yes-no stealth-disadvantage?))
        (when weight
          (weapon-details-field "Weight" (str weight " lbs.")))
+       (when (and (:cost armor) (not (::mi/rarity armor)))
+         (weapon-details-field "Cost" (cost-str (:cost armor))))
+       (when (and (:cost shield) (not (::mi/rarity shield)))
+         (weapon-details-field "Shield Cost" (cost-str (:cost shield))))
        (when description
          [:div.m-t-10 (str "Armor: " description)])
        (when (:description shield)
@@ -3166,87 +3107,727 @@
    (svg-icon icon 32)
    [:span.m-l-5.f-w-b.f-s-18 title]])
 
-(defn weapons-section-2 []
-  (let [expanded-details (r/atom {})]
+(defn weapon-grey-line-parts
+  "The weapon's grey line, SRD style: its attack type with range first, then properties.
+  Takes the weapon map; returns a vector of strings such as [\"Melee\" \"Thrown (20/60)\"
+  \"Finesse\"]. Versatile is left out: the 1H | 2H switch stands in for it."
+  [{:keys [::weapon/melee? ::weapon/ranged? ::weapon/range ::weapon/thrown ::weapon/finesse?
+           ::mi/magical-finesse? ::weapon/light? ::weapon/heavy? ::weapon/two-handed?
+           ::weapon/reach ::weapon/loading? ::weapon/special?]}]
+  (let [rng (when range (str " (" (::weapon/min range) "/" (::weapon/max range) ")"))]
+    (cond-> []
+      melee? (conj "Melee")
+      (and ranged? (not thrown)) (conj (str "Ranged" rng))
+      thrown (conj (str "Thrown" rng))
+      (or finesse? magical-finesse?) (conj "Finesse")
+      light? (conj "Light")
+      heavy? (conj "Heavy")
+      two-handed? (conj "Two-handed")
+      reach (conj "Reach")
+      loading? (conj "Loading")
+      special? (conj "Special"))))
+
+(defn weapon-switch
+  "A segmented switch: one button per option, the chosen one filled. Takes the screen
+  reader label, the options as [[value text]], the chosen value, the on-change fn of a
+  value, and options :damage-type (colours the on state), :disabled? and :pulse?.
+  Returns hiccup."
+  [label options chosen on-change & {:keys [damage-type disabled? pulse?]}]
+  [:span.weapon-switch {:role "radiogroup" :aria-label label
+                        :aria-disabled (boolean disabled?)
+                        :class (str (when disabled? "disabled") (when pulse? " pulse"))}
+   (doall
+    (for [[v text] options]
+      ^{:key (str v)}
+      [:button.weapon-switch-option
+       {:type "button" :role "radio" :aria-checked (= v chosen) :disabled (boolean disabled?)
+        :class (str (when (= v chosen) "on")
+                    (when (and damage-type (= v chosen) v) (str " typed dt-" (name damage-type))))
+        :on-click (fn [e] (.stopPropagation e) (on-change v))}
+       text]))])
+
+(defn weapon-type-strip
+  "The damage tile's strip: a type dot and name (a filled ribbon on the light theme).
+  Takes the damage type keyword, or nil. Returns hiccup."
+  [damage-type]
+  [:span.weapon-strip.typed {:class (when damage-type (str "dt-" (name damage-type)))}
+   (when damage-type [:span.weapon-dot])
+   (when damage-type (common/safe-name damage-type))])
+
+(defn parts-roll-text
+  "Rolls each damage entry and describes the results on one line, for the result bar.
+  Takes the entries; returns a string such as \"1d8+3 slashing: [5] + 3 = 8 | ...\"."
+  [entries]
+  (s/join "  |  "
+          (for [e entries]
+            (let [die (::weapon/damage-die e)
+                  flat (+ (or (::mi/damage-bonus e) 0) (or (::weapon-damage/bonus e) 0))]
+              (str (disp/damage-str e) ": "
+                   (if die
+                     (dice/dice-roll-text-2 (str (::weapon/damage-die-count e) "d" die (common/mod-str flat)))
+                     flat))))))
+
+(defn weapon-properties-line
+  "A weapon's full properties, SRD style, for its opened row: rarity and attunement for a
+  magic weapon, then category and every property with its numbers, such as
+  \"Rare (requires attunement) · Martial melee · Versatile (1d10)\". Takes the weapon map."
+  [{:keys [::weapon/type ::weapon/melee? ::weapon/range ::weapon/thrown ::weapon/ammunition?
+           ::weapon/versatile ::mi/rarity ::mi/attunement] :as weapon}]
+  (let [rng (when range (str " (" (::weapon/min range) "/" (::weapon/max range) ")"))
+        [_ & props] (weapon-grey-line-parts weapon)]
+    (s/join " \u00B7 "
+            (concat
+             (when rarity [(str (s/capitalize (common/kw-to-name rarity))
+                                (when (seq attunement) " (requires attunement)"))])
+             [(str (s/capitalize (common/safe-name type)) (if melee? " melee" " ranged"))]
+             (when ammunition? [(str "Ammunition" rng)])
+             (remove #(or (s/starts-with? % "Ranged") (and thrown (s/starts-with? % "Thrown") ammunition?)) props)
+             (when versatile [(str "Versatile (" (::weapon/damage-die-count versatile) "d"
+                                   (::weapon/damage-die versatile) ")")])))))
+
+(defn weapon-mastery-band
+  "The Weapon Mastery band at the foot of a row: an amber cap with the mastery's name, its
+  trigger, then the summary, cut off when long. Takes the band map from disp/mastery-band."
+  [{:keys [name trigger summary]}]
+  [:div.weapon-mastery-band
+   [:span.weapon-mastery-cap name]
+   (when trigger [:span.weapon-mastery-trigger (str "on " (common/safe-name trigger))])
+   [:span.weapon-mastery-summary summary]])
+
+(defn weapon-opened
+  "A weapon row's opened card: full name, properties, why two hands are blocked or needed,
+  a magic weapon's rules text, its Weapon Mastery (or that it is not trained), then cost
+  (mundane weapons only) and weight. Takes the weapon, its name, the hands note (or nil) and
+  the mastery band map (or nil). Returns hiccup."
+  [weapon nm hands-note mastery]
+  (let [description (::mi/description weapon)
+        cost (when (and (:cost weapon) (not (::mi/rarity weapon))) (str "Cost " (cost-str (:cost weapon))))
+        weight (when (:weight weapon) (str "Weight " (:weight weapon)))]
+    [:div.weapon-opened
+     [:b.weapon-opened-name nm]
+     [:span.weapon-opened-props (weapon-properties-line weapon)]
+     (when hands-note [:span.weapon-hands-note hands-note])
+     (when description [:span.weapon-opened-rules description])
+     (when mastery
+       (if (:trained? mastery)
+         [:span.weapon-opened-rules [:b (str (:name mastery) ".")] " " (:text mastery)]
+         [:span.weapon-opened-props (str "Mastery: " (:name mastery) " (not trained)")]))
+     (when (or cost weight) [:span.weapon-opened-props (s/join " \u00B7 " (remove nil? [cost weight]))])]))
+
+(defn rand-die
+  "A random roll of a die with this many sides, from 1."
+  [sides]
+  (inc (rand-int sides)))
+
+(defn d20-detail
+  "An attack's d20 as written in a result: \"d20 [13] + 7\", or with advantage or disadvantage
+  \"d20 [14, ~6~] + 7\", the unused die struck through. Takes the attack result. Returns hiccup."
+  [{:keys [dice kept bonus]}]
+  (let [unused (when (= 2 (count dice)) (if (= kept (first dice)) 1 0))]
+    [:span.weapon-sheet-d20
+     "d20 ["
+     (doall (for [[i d] (map-indexed vector dice)]
+              ^{:key i} [:<> (when (pos? i) ", ") (if (= i unused) [:s d] [:b d])]))
+     "] " (common/mod-str bonus)]))
+
+(defn weapon-sheet-entry
+  "The current roll in the result sheet: the to-hit result and its damage buttons, or the
+  damage, one line per part, the total, then saves. Takes the entry, its attack number, the
+  attacks per turn and the next-attack fn. Returns hiccup."
+  [{:keys [name attack damage weapon mod two-handed? toggles]} k per-turn next-attack]
+  [:div.weapon-sheet-current
+   [:div.weapon-sheet-top
+    [:div
+     [:div.weapon-sheet-title (str name " \u00B7 " (if damage "damage" "to hit"))]
+     (when attack
+       [:div.weapon-sheet-count
+        (doall (for [i (range (max per-turn k))]
+                 ^{:key i} [:span.weapon-sheet-dot {:class (when (< i k) "done")}]))
+        (if (<= k per-turn) (str "attack " k " of " per-turn) (str "attack " k))])]
+    (when attack
+      (let [next-mode (:next-mode damage)]
+        [:button.roll-button.weapon-tile.weapon-hit-tile.weapon-sheet-next
+         {:type "button" :aria-label (str "Roll attack " (inc k) (case next-mode :adv " with advantage" :dis " with disadvantage" ""))
+          :class (when next-mode "pulse") :on-click next-attack}
+         [:span.weapon-tile-body (str "\u21BB " (common/bonus-str (:bonus attack)))]
+         [:span.weapon-strip (str "attack " (inc k) (case next-mode :adv " \u00B7 adv" :dis " \u00B7 dis" ""))]]))]
+   (if damage
+     [:<>
+      [:div.weapon-sheet-big (:total damage)
+       (when attack [:span.weapon-sheet-small (str "to hit " (:total attack) (when (:crit? attack) " \u00B7 crit"))])]
+      (doall (for [[i {:keys [label type detail subtotal]}] (map-indexed vector (:parts damage))]
+               ^{:key i}
+               [:div.weapon-sheet-part
+                [:span.weapon-dot {:class (when type (str "dt-" (cljs.core/name type)))}]
+                [:span.weapon-sheet-part-label label]
+                [:span.weapon-sheet-part-detail detail]
+                [:b subtotal]]))
+      (when (next (:parts damage))
+        [:div.weapon-sheet-total [:span "Total damage"] [:b (:total damage)]])
+      (doall (for [[i {:keys [label text]}] (map-indexed vector (:after damage))]
+               ^{:key i} [:div.weapon-sheet-after [:span label] [:b [srd-linked-text text]]]))]
+     [:<>
+      [:div.weapon-sheet-big (:total attack)
+       (when (:crit? attack) [:span.weapon-sheet-crit "CRITICAL"])
+       [d20-detail attack]]
+      [:div.weapon-sheet-label "Roll damage"]
+      (doall (for [{:keys [label sub value situation primary? pulse?]}
+                   (weapon-rolls/damage-options weapon mod two-handed? toggles (:crit? attack) (:kept attack))]
+               ^{:key label}
+               [:button.weapon-sheet-option
+                {:type "button" :class (str (when primary? "primary") (when pulse? " pulse"))
+                 :on-click #(dispatch [:weapon-roll/damage
+                                       (weapon-rolls/roll-damage weapon mod two-handed?
+                                                                 (assoc situation :toggles toggles)
+                                                                 (:crit? attack) rand-die)])}
+                [:span.weapon-menu-text [:span.weapon-menu-label label]
+                 (when sub [:span.weapon-menu-sub sub])]
+                [:span.weapon-menu-value value]]))])])
+
+(defn weapon-roll-result
+  "The turn's rolls: a bottom sheet on a phone, a card on desktop. Finished attacks fold into
+  rows above the current one; a turn total shows once two attacks have damage. Done, a swipe
+  down or the close button ends the turn. Takes desktop? and the attacks per turn."
+  [desktop? per-turn]
+  (let [chain @(subscribe [:weapon-roll/chain])
+        done #(dispatch [:weapon-roll/done])
+        touch-y (atom nil)]
+    (when (seq chain)
+      (let [current (peek chain)
+            k (count (filter :attack chain))
+            with-damage (filter :damage chain)
+            sticky @(subscribe [:weapon-roll/mode])
+            next-attack #(dispatch [:weapon-roll/add
+                                    (assoc (dissoc current :damage)
+                                           :attack (weapon-rolls/roll-attack
+                                                    (assoc (select-keys (:attack current) [:bonus])
+                                                           :mode (or (get-in current [:damage :next-mode])
+                                                                     (weapon-rolls/attack-mode nil sticky))
+                                                           :crit-min (:crit-min current 20))
+                                                    rand-die))])]
+        [:div.weapon-sheet {:class (if desktop? "card" "sheet") :role "dialog" :aria-label "Roll result"}
+         [:div.weapon-sheet-bar
+          {:on-touch-start #(reset! touch-y (.-clientY (aget (.-touches %) 0)))
+           :on-touch-end #(when (and @touch-y (> (- (.-clientY (aget (.-changedTouches %) 0)) @touch-y) 60)) (done))}
+          (when-not desktop? [:div.weapon-sheet-handle])
+          [:button.weapon-sheet-close {:type "button" :aria-label "End the turn" :on-click done} "\u00D7"]]
+         (when (next chain)
+           [:div.weapon-sheet-history
+            (doall (for [[i {:keys [attack damage]}] (map-indexed vector (butlast chain))]
+                     ^{:key i}
+                     [:div.weapon-sheet-history-row
+                      [:span (inc i)]
+                      [:span (when attack (str "to hit " (:total attack) (when (:crit? attack) " crit")))]
+                      [:span (when damage (str (:total damage) " dmg"))]]))])
+         [weapon-sheet-entry current k (or per-turn 1) next-attack]
+         [:div.weapon-sheet-foot
+          [:span (when (next with-damage) (str "Turn total " (apply + (map (comp :total :damage) with-damage))))]
+          [:button.weapon-sheet-done {:type "button" :on-click done} "Done"]]]))))
+
+(defn weapon-menu-sheet
+  "`menu` (a weapon-menu) as a phone shows it, in the bottom sheet overlay the other pickers use,
+  under `title`; elsewhere the menu as it is, a dropdown. `close` runs on a tap outside."
+  [title close menu]
+  (if @(subscribe [:mobile?])
+    [:<>
+     [:div.cast-dim {:on-click (fn [e] (.stopPropagation e) (close))}]
+     [:div.cast-sheet.weapon-menu-sheet {:on-click #(.stopPropagation %)}
+      [:div.cast-handle]
+      [:div.weapon-mode-title title]
+      menu]]
+    menu))
+
+(defn weapon-menu-item-used?
+  "Whether a menu item is spent: a once-per-rest use already taken, or a charged power the item
+  cannot pay for (:spent?). Takes the character id and the item. Returns a boolean."
+  [id {:keys [recharge label spent?]}]
+  (boolean (or spent? (and recharge @(subscribe [::char/feature-used? id recharge label])))))
+
+(defn weapon-menu
+  "The + menu under a damage tile: items as menu rows, the first an amber Roll damage. Keys:
+  Up and Down move, Esc closes and returns focus to the +, Tab closes. Takes the character
+  id, the weapon name, the items (from disp/weapon-menu-items), whether it opens upward
+  and the close fn. Returns hiccup."
+  [id nm items up? close & [on-pick]]
+  (let [pick (fn [{:keys [label entries recharge spend] :as item}]
+               (when-not (weapon-menu-item-used? id item)
+                 (when spend (dispatch spend))
+                 (if on-pick
+                   (on-pick item)
+                   (dispatch [:show-message-2 (str nm " " (s/lower-case label) ": " (parts-roll-text entries))]))
+                 (when recharge (dispatch [::char/toggle-feature-used id recharge label]))
+                 (close)))
+        move (fn [e step]
+               (.preventDefault e)
+               (let [items (vec (.querySelectorAll (.closest (.-target e) ".weapon-menu") ".weapon-menu-item"))
+                     i (.indexOf items (.-target e))]
+                 (.focus (nth items (mod (+ i step) (count items))))))]
+    [:<>
+     [:div.weapon-menu-backdrop {:on-click (fn [e] (.stopPropagation e) (close))}]
+     [:div.weapon-menu {:role "menu" :aria-label (str nm " damage rolls") :class (when up? "up")
+                        :on-click #(.stopPropagation %)}
+      (doall
+       (for [[i {item-id :id :keys [label sub value] :as item}] (map-indexed vector items)
+             :let [used? (weapon-menu-item-used? id item)]]
+         ^{:key (str item-id)}
+         [:button.weapon-menu-item
+          {:type "button" :role "menuitem" :aria-disabled used?
+           :class (str (when (zero? i) "primary") (when used? " used"))
+           :ref (when (zero? i) #(when % (js/setTimeout (fn [] (.focus %)) 0)))
+           :on-click #(pick item)
+           :on-key-down (fn [e]
+                          (case (.-key e)
+                            "ArrowDown" (move e 1)
+                            "ArrowUp" (move e -1)
+                            "Escape" (let [plus (some-> (.-target e) (.closest ".weapon-cell-tile")
+                                                        (.querySelector ".weapon-plus"))]
+                                       (.preventDefault e) (close) (some-> plus .focus))
+                            "Tab" (close)
+                            nil))}
+          [:span.weapon-menu-text
+           [:span.weapon-menu-label label]
+           (when sub [:span.weapon-menu-sub sub])]
+          [:span.weapon-menu-value (if used? "used" value)]]))]]))
+
+(defn weapon-row
+  "One weapon's row: name, grey line, to-hit and damage tiles, lines under it, details when open.
+  Takes the weapon, to-hit bonus, damage modifier fn, proficient?, lowest crit roll, the off-hand
+  holder (\"a Shield\" or nil), hand (:main :off nil), character id, last? (menu opens up), mastery
+  band or nil, desktop? (switches in Details), the state atom ({:open? :two-handed? :toggles
+  :pulse-done? :menu-open?}), the weapon's key and its carried entry (charges). Returns hiccup."
+  [weapon attack-bonus damage-modifier-fn proficient? crit-min off-hand hand id last? mastery desktop? state weapon-key entry]
+  (let [{:keys [open? toggles pulse-done?]} @state
+        toggles (or toggles #{})
+        hands-blocked? (boolean (and off-hand (::weapon/versatile weapon)))
+        needs-hands? (boolean (and off-hand (::weapon/two-handed? weapon)))
+        two-handed? (and (:two-handed? @state) (not hands-blocked?))
+        stop-pulse #(swap! state assoc :pulse-done? true)
+        nm (weapon-name weapon)
+        versatile? (boolean (::weapon/versatile weapon))
+        item-toggles (::mi/toggles weapon)
+        extras-by-toggle (into {} (keep (fn [e] (when-let [t (::mi/while e)] [t (::weapon/damage-type e)])))
+                               (::mi/extra-damage weapon))
+        hands (when versatile?
+                [weapon-switch "Versatile: one hand or two hands" [[false "1H"] [true "2H"]]
+                 (boolean two-handed?) #(swap! state assoc :two-handed? % :pulse-done? true)
+                 :disabled? hands-blocked?
+                 :pulse? (and (not off-hand) (not two-handed?) (not pulse-done?))])
+        toggle-switches (for [{:keys [::mi/toggle-id ::mi/toggle-name]} item-toggles]
+                          ^{:key toggle-id}
+                          [weapon-switch toggle-name [[nil "Off"] [toggle-id toggle-name]]
+                           (toggles toggle-id)
+                           (fn [v] (swap! state update :toggles
+                                          #(if v (conj (or % #{}) v) (disj (or % #{}) toggle-id))))
+                           :damage-type (extras-by-toggle toggle-id)])
+        controls-below? (and (not desktop?) (seq item-toggles))
+        modifier (damage-modifier-fn weapon)
+        base (weapon-damage/base-damage weapon modifier (boolean two-handed?))
+        {:keys [tile lines]} (disp/weapon-row-lines weapon toggles)
+        rolled (weapon-damage/applying-damage weapon modifier (boolean two-handed?) {:toggles toggles})
+        [kind & props] (weapon-grey-line-parts weapon)
+        hands-note (when needs-hands? " (needs both hands)")
+        roll-ctx {:weapon weapon :name (str nm hands-note) :mod modifier :two-handed? (boolean two-handed?)
+                  :toggles toggles :crit-min crit-min}
+        sticky-mode @(subscribe [:weapon-roll/mode])
+        roll-attack! (fn [mode]
+                       (dispatch [:weapon-roll/add
+                                  (assoc roll-ctx :attack (weapon-rolls/roll-attack
+                                                           {:bonus attack-bonus :crit-min crit-min
+                                                            :mode (weapon-rolls/attack-mode mode sticky-mode)}
+                                                           rand-die))]))
+        close-modes #(swap! state assoc :mode-menu? false)
+        press-end #(some-> (:press @state) js/clearTimeout)
+        menu-items (when base
+                     (some->> (disp/weapon-menu-items weapon modifier (boolean two-handed?) toggles)
+                              (mapv #(if-let [cost (:cost %)]
+                                       (let [i (mi/able-to-pay weapon entry cost)]
+                                         (cond-> (update % :sub str " \u00B7 " (mi/charges-left weapon entry (or i 0)) " left")
+                                           i (assoc :spend [::char/change-item-charges id :magic-weapons weapon-key weapon i cost])
+                                           (nil? i) (assoc :spent? true)))
+                                       %))))
+        menu-open? (and menu-items (:menu-open? @state))
+        open-menu #(swap! state assoc :menu-open? true)
+        close-menu #(swap! state assoc :menu-open? false)
+        hand-pill (when hand
+                    [:span.share-pill.share-pill-neutral.weapon-hand-pill
+                     {:aria-label (if (= :main hand) "main hand" "off hand")}
+                     [:i.fa.fa-hand-paper {:class (when (= :off hand) "fa-flip-horizontal")
+                                           :aria-hidden true}]
+                     (if (= :main hand) "main" "off")])]
+    [:div.weapon-row
+     [:div.weapon-row-main
+      [:div.weapon-cell-name
+       {:on-click #(swap! state update :open? not)}
+       [:button.weapon-name-line
+        {:type "button" :aria-expanded (boolean open?)
+         :on-click (fn [e] (.stopPropagation e) (swap! state update :open? not))}
+        [:span.weapon-name nm]
+        hand-pill
+        [:span.weapon-caret (if open? "▴" "▾")]]
+       (if (and (or hands (seq item-toggles)) (not controls-below?))
+         [:div.weapon-grey-line
+          [:span kind]
+          hands
+          (doall toggle-switches)
+          (when (seq props) [:span (s/join " · " props)])]
+         [:div.weapon-grey-line.text (s/join " · " (cons kind props))])]
+      ;; a long press (or right-click) opens the attack modes for this one roll
+      [:div.weapon-cell-tile.weapon-attack-cell
+       {:on-click-capture (fn [e]
+                            (stop-pulse)
+                            (when (:long-pressed? @state)
+                              (.stopPropagation e) (.preventDefault e)
+                              (swap! state dissoc :long-pressed?)))
+        :on-context-menu (fn [e] (.preventDefault e) (swap! state assoc :mode-menu? true))
+        :on-pointer-down (fn [_] (press-end)
+                           (swap! state assoc :press (js/setTimeout #(swap! state assoc :mode-menu? true :long-pressed? true) 500)))
+        :on-pointer-up press-end :on-pointer-leave press-end :on-pointer-cancel press-end}
+       (when (:mode-menu? @state)
+         [weapon-menu-sheet (str nm " \u00B7 roll the attack with") close-modes
+          [weapon-menu id nm weapon-rolls/mode-options last? close-modes (fn [{mode :id}] (roll-attack! mode))]])
+       [roll-button (str nm " attack" hands-note ": ") (str "1d20" (common/mod-str attack-bonus))
+        :on-roll roll-attack!
+        :class (str "weapon-tile weapon-hit-tile" (when needs-hands? " needs-hands"))
+        :text [:<>
+               [:span.weapon-tile-body (common/bonus-str attack-bonus)]
+               (cond
+                 (not proficient?) [:span.weapon-strip.no-prof "no prof"]
+                 (< crit-min 20) [:span.weapon-strip "crit" [:span.weapon-strip-num (str crit-min "+")]]
+                 :else [:span.weapon-strip "hit"])]]]
+      [:div.weapon-cell-tile {:on-click-capture stop-pulse}
+       (if base
+         [:button.roll-button.weapon-tile.weapon-damage-tile
+          {:type "button"
+           :class (when needs-hands? "needs-hands")
+           :on-context-menu (when menu-items (fn [e] (.preventDefault e) (open-menu)))
+           :on-click (fn [e]
+                       (.stopPropagation e)
+                       (dispatch [:weapon-roll/add
+                                  (assoc roll-ctx :damage (weapon-rolls/roll-entries weapon rolled {:toggles toggles}
+                                                                                     rand-die))]))}
+          [:span.weapon-tile-body {:class (when tile "with-more")}
+           [:span (disp/damage-dice-str base)]
+           (when tile
+             [:span.weapon-more (:text tile)
+              (doall (for [[i t] (map-indexed vector (:types tile))]
+                       ^{:key i} [:span.weapon-dot {:class (when t (str "dt-" (name t)))}]))])]
+          [weapon-type-strip (::weapon/damage-type base)]]
+         [:div.weapon-no-roll
+          [:span.weapon-no-roll-effect (or (:summary weapon) "Special")]
+          [:span.weapon-no-roll-label "no roll"]])
+       (when menu-items
+         [:button.weapon-plus
+          {:type "button" :aria-haspopup "menu" :aria-expanded (boolean menu-open?)
+           :aria-label (str nm ": more damage rolls")
+           :on-click (fn [e] (.stopPropagation e) (if menu-open? (close-menu) (open-menu)))
+           :on-key-down (fn [e] (when (= "ArrowDown" (.-key e)) (.preventDefault e) (open-menu)))}
+          "+"])
+       (when menu-open?
+         [weapon-menu-sheet (str nm " \u00B7 damage") close-menu
+          [weapon-menu id nm menu-items last? close-menu
+          (fn [{:keys [label entries id extra-attack drop]}]
+            (if extra-attack
+              (dispatch [:weapon-roll/add
+                         (assoc roll-ctx :name (str nm " \u00B7 extra attack") :mod (- modifier (or drop 0))
+                                :attack (weapon-rolls/roll-attack {:bonus attack-bonus :crit-min crit-min
+                                                                   :mode (weapon-rolls/attack-mode nil sticky-mode)}
+                                                                  rand-die))])
+            (dispatch [:weapon-roll/add
+                       (assoc roll-ctx :name (str nm " \u00B7 " (s/lower-case label))
+                              :damage (weapon-rolls/roll-entries weapon entries
+                                                                 (if (and (vector? id) (#{:vs :crit-vs} (first id)))
+                                                                   {:against (first (sort (second id)))}
+                                                                   {})
+                                                                 rand-die))])))]])]]
+     (when (or controls-below? (seq lines))
+       [:div.weapon-lines
+        (when controls-below?
+          [:div.weapon-line hands (doall toggle-switches)])
+        (doall
+         (for [{:keys [label chips]} lines]
+           ^{:key label}
+           [:div.weapon-line
+            [:span.weapon-line-label label]
+            (doall
+             (for [[i {:keys [text type style ringed?]}] (map-indexed vector chips)]
+               ^{:key i}
+               [:span.weapon-chip {:class (str (name style)
+                                               (when ringed? " ringed")
+                                               (when type (str " dt-" (name type))))}
+                text]))]))])
+     (when (:trained? mastery)
+       [weapon-mastery-band mastery])
+     (when open?
+       [weapon-opened weapon nm
+        (cond
+          hands-blocked? (str "Two hands: needs both hands, unequip your " (s/replace-first off-hand #"^an? " "") ".")
+          needs-hands? (str "Needs both hands: your off hand holds " off-hand "."))
+        mastery])]))
+
+(defn weapons-section-2
+  "The character sheet's Weapons table: headings, then one row per weapon except
+  ammunition. Takes the character id. Returns a reagent component."
+  []
+  (let [row-state (r/atom {})
+        off-hand-was (atom nil)]
     (fn [id]
       (let [all-weapons @(subscribe [::char/all-weapons id])
-            weapon-profs (set @(subscribe [::char/weapon-profs id]))
+            all-armor-map @(subscribe [::mi/all-armor-map])
+            shield-kw (or @(subscribe [::char/wielded-shield id])
+                          (-> @(subscribe [::char/best-armor-combo id]) :shield :key))
+            off-hand-kw @(subscribe [::char/off-hand-weapon id])
+            main-hand-kw @(subscribe [::char/main-hand-weapon id])
             weapon-attack-modifier @(subscribe [::char/best-weapon-attack-modifier-fn id])
             weapon-damage-modifier @(subscribe [::char/best-weapon-damage-modifier-fn id])
+            weapon-ability-modifier @(subscribe [::char/best-weapon-ability-modifier-fn id])
+            weapon-save-dc @(subscribe [::char/weapon-save-dc-fn id])
             has-weapon-prof @(subscribe [::char/has-weapon-prof id])
-            device-type @(subscribe [:device-type])
-            mobile? (= :mobile device-type)
-            proficiency-bonus @(subscribe [::char/proficiency-bonus id])
-            all-weapons-map @(subscribe [::mi/all-weapons-map])]
-        [:div
-         [section-header "crossed-swords" "Weapons"]
-         [:div
-          [:table.w-100-p.t-a-l.striped
-           [:tbody.weapons
-            [:tr.f-w-b
-             {:class (when mobile? "f-s-12")}
-             [:th.p-10 "Name"]
-             (when (not mobile?) [:th.p-10 "Proficient?"])
-             [:th.p-10 "Details"]
-             [:th.t-a-c (if mobile? "Atk" [:div.w-60 "Attack"])]
-             [:th.t-a-c (if mobile? "Dmg" [:div.w-60 "Damage"])]
-             [:th.p-10]]
-            (doall
-             (map
-              (fn [[weapon-key {:keys [equipped?]}]]
-                (let [{:keys [name description ranged? ::weapon/type ::weapon/damage-die-count ::weapon/damage-die ::weapon/versatile] :as weapon} (all-weapons-map weapon-key)
-                      proficient? (when has-weapon-prof (has-weapon-prof weapon))
-                      expanded? (@expanded-details weapon-key)
-                      damage-modifier (weapon-damage-modifier weapon)
-                      versatile-damage-die-count (:orcpub.dnd.e5.weapons/damage-die-count versatile)
-                      versatile-damage-die (:orcpub.dnd.e5.weapons/damage-die versatile)
-                      droll (str damage-die-count "d" damage-die)]
-                  (when (not= type :ammunition)
-                    ^{:key weapon-key}
-                    [:tr.weapon.pointer
-                     {:on-click (toggle-details-expanded-handler expanded-details weapon-key)}
-                     [:td.p-10.f-w-b (or (:name weapon)
-                                         (::mi/name weapon))]
-                     (when (not mobile?)
-                       [:td.p-10 (boolean-icon proficient?)])
-                     [:td.p-10.w-100-p
-                      [:div
-                       (weapon-attack-description-short weapon)]
-                      (when expanded?
-                        (weapon-details weapon weapon-damage-modifier))]
-                     [:td (roll-button
-                           (str name " attack: ")
-                           (str "1d20" (common/mod-str (weapon-attack-modifier weapon)))
-                           :text (str "1d20" (common/mod-str (weapon-attack-modifier weapon))))]
-                     [:td (roll-button
-                           (str name " damage: ")
-                           (str damage-die-count "d" damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                           :text (str damage-die-count "d" damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                           :style {:width "100%"})
-                      (when versatile
-                        (roll-button
-                         (str name " versatile damage: ")
-                         (str versatile-damage-die-count "d" versatile-damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                         :text (str "v " versatile-damage-die-count "d" versatile-damage-die (common/mod-str (weapon-damage-modifier weapon)))
-                         :style {:width "100%"}))]
-                     [:td.pointer
-                      [:div.orange
-                       #_(if (not mobile?)
-                           [:span.underline (if expanded? "less" "more")])
-                       [:i.fa.m-l-5
-                        {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]])))
-              all-weapons))]]]]))))
+            crit-values @(subscribe [::char/critical-hit-values id])
+            trained @(subscribe [::char/weapon-masteries id])
+            mastery-definitions @(subscribe [::weapon/mastery-definitions])
+            prof @(subscribe [::char/proficiency-bonus id])
+            desktop? (not= :mobile @(subscribe [:device-type]))
+            all-weapons-map @(subscribe [::mi/all-weapons-map])
+            off-hand-item (cond
+                            (and shield-kw (not= :none shield-kw)) (all-armor-map shield-kw)
+                            (and off-hand-kw (not= :none off-hand-kw)) (all-weapons-map off-hand-kw))
+            off-hand (when off-hand-item (str "a " (weapon-name off-hand-item)))
+            last-key (last (for [[k _] all-weapons
+                                 :let [w (all-weapons-map k)]
+                                 :when (and w (not= :ammunition (::weapon/type w)))]
+                             k))]
+        ;; the pulse returns whenever the off hand comes free again
+        (when (and @off-hand-was (nil? off-hand))
+          (swap! row-state #(into {} (map (fn [[k v]] [k (dissoc v :pulse-done?)])) %)))
+        (reset! off-hand-was off-hand)
+        [:div.weapons-section {:class (when desktop? "desktop")}
+         [:div.weapons-heading
+          [section-header "crossed-swords" "Weapons"]
+          (let [mode @(subscribe [:weapon-roll/mode])]
+            (into [:div.rest-segs.weapon-mode {:role "radiogroup" :aria-label "Attack rolls"}]
+                  (for [[m label shown] [[:normal "Normal" [:i.fas.fa-dice-d20 {:aria-hidden true}]] [:adv "Advantage" "Adv"] [:dis "Disadvantage" "Dis"]]]
+                    ^{:key m}
+                    [:button.rest-seg {:type "button" :role "radio" :aria-checked (= m mode) :aria-label label :title label
+                                       :class (when (= m mode) (if (= :normal m) "none-on" "on"))
+                                       :on-click #(dispatch [:weapon-roll/set-mode m])}
+                     [:span shown]])))
+          (when off-hand-item
+            [:span.share-pill.share-pill-expired.weapons-reason
+             (str (weapon-name off-hand-item) " in off hand")])]
+         [:div.weapon-head [:span "Weapon"] (when desktop? [:span "Details"]) [:span "To hit"] [:span "Damage"]]
+         [weapon-roll-result desktop? @(subscribe [::char/number-of-attacks id])]
+         [:div.weapon-rows
+          (doall
+           (for [[weapon-key _] all-weapons
+                 :let [weapon (some-> (all-weapons-map weapon-key)
+                                      (as-> w (mi/resolve-values w {:ability-mod (weapon-ability-modifier w)
+                                                                    :save-dc (weapon-save-dc w)})))]
+                 :when (and weapon (not= :ammunition (::weapon/type weapon)))]
+             ^{:key weapon-key}
+             [weapon-row
+              weapon
+              (weapon-attack-modifier weapon)
+              weapon-damage-modifier
+              (boolean (when has-weapon-prof (has-weapon-prof weapon)))
+              (weapon-damage/crit-min crit-values weapon)
+              (when (not= weapon-key off-hand-kw) off-hand)
+              (cond (= weapon-key main-hand-kw) :main (= weapon-key off-hand-kw) :off)
+              id
+              (= weapon-key last-key)
+              (disp/mastery-band weapon trained mastery-definitions
+                                 {:ability-mod (weapon-ability-modifier weapon)
+                                  :prof (or prof 2)
+                                  :damage-type (weapon-damage/weapon-type weapon)})
+              desktop?
+              (r/cursor row-state [weapon-key])
+              weapon-key
+              (rests/as-entry (get all-weapons weapon-key))]))]]))))
 
-(defn magic-item-rows [expanded-details magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
+(defn item-charges
+  "The charges of a carried item, one line per item in its stack: pips up to 10 (tap a lit one
+  to spend it, a dim one to get it back), a count with − and + above that, or a roll-or-type
+  prompt for an item whose charges start as dice. Takes the character id, the selection key, the
+  item key, the item and its carried entry. Returns hiccup, or nil for an item without charges."
+  [id selection-key item-kw item entry]
+  (when (or (::mi/charges item) (::mi/charges-start item))
+    (let [qty (max 1 (::char-equip/quantity entry 1))
+          change (fn [i n] (fn [e] (.stopPropagation e)
+                             (dispatch [::char/change-item-charges id selection-key item-kw item i n])))]
+      [:div.item-charges {:on-click #(.stopPropagation %)}
+       (doall
+        (for [i (range qty)
+              :let [mx (mi/charge-max item entry i)
+                    left (mi/charges-left item entry i)]]
+          ^{:key i}
+          [:div.item-charges-line
+           (when (> qty 1) [:span.item-charges-n (inc i)])
+           (cond
+             (nil? mx)
+             [:<>
+              [:button.form-button.item-charges-roll
+               {:type "button"
+                :on-click (fn [e] (.stopPropagation e)
+                            (dispatch [::char/set-item-charges-max id selection-key item-kw i
+                                       (:total (mi/roll-charge-max item dice/die-roll))]))}
+               (str "Roll " (::mi/charges-start item))]
+              [:input.input.item-charges-input
+               {:type "number" :min 0 :placeholder "or type" :aria-label "Starting charges"
+                :on-key-down #(when (= "Enter" (.-key %)) (.blur (.-target %)))
+                :on-blur #(let [v (js/parseInt (.. % -target -value))]
+                            (when-not (js/isNaN v)
+                              (dispatch [::char/set-item-charges-max id selection-key item-kw i (max 0 v)])))}]]
+
+             (<= mx 10)
+             [:<>
+              [:span.item-charges-pips
+               (doall
+                (for [k (range mx)
+                      :let [lit? (< k left)]]
+                  ^{:key k}
+                  [:button.item-charge-pip
+                   {:type "button" :class (when-not lit? "used")
+                    :aria-label (if lit? "Spend a charge" "Get a charge back")
+                    :on-click (change i (if lit? 1 -1))}]))]
+              [:span.item-charges-count (str left "/" mx)]]
+
+             :else
+             [:<>
+              [:span.item-charges-count.big (str left "/" mx)]
+              [:button.item-charges-step {:type "button" :aria-label "Spend a charge" :on-click (change i 1)} "\u2212"]
+              [:button.item-charges-step {:type "button" :aria-label "Get a charge back" :on-click (change i -1)} "+"]])]))])))
+
+(defn- best-spell-save-dc
+  "The character's highest spell save DC across its casting classes, or nil for a non-caster."
+  [spell-modifiers]
+  (some->> spell-modifiers vals (keep :spell-save-dc) seq (apply max)))
+
+(defn cast-panel
+  "Casting a spell from a charged item (plan-charges-and-casting.md): the item's spells when it has
+  several, the levels priced in charges (unaffordable ones greyed), the DC, and Cast. After a cast
+  it shows the spell at that level with Undo. Takes the character id, the selection key, the item
+  key, the item, its carried entry and a close fn. Returns hiccup."
+  []
+  (let [state (r/atom {:pick 0 :level nil :result nil})
+        _ (dispatch [:load-srd :spell-rolls])]
+    (fn [id selection-key item-kw item entry close]
+      (let [spells-map @(subscribe [::spells/spells-map])
+            spell-rolls @(subscribe [:srd :spell-rolls])
+            your-dc (best-spell-save-dc @(subscribe [::char/spell-modifiers id]))
+            casts (::mi/casts item)
+            {:keys [pick level result]} @state
+            cast (nth casts pick (first casts))
+            spell (spells-map (::mi/cast-spell cast))
+            left (mi/most-charges-left item entry)
+            levels (mi/cast-levels cast left)
+            chosen (or (some #(when (= level (:level %)) %) levels) (first levels))
+            dc (or (::mi/save-dc cast) your-dc)
+            dc-text (if dc (str "DC " dc) "your spell save DC")
+            spell-name (or (:name spell) (common/kw-to-name (::mi/cast-spell cast)))]
+        [:div.cast-panel {:on-click #(.stopPropagation %) :role "dialog" :aria-label (str "Cast " spell-name)}
+         (if result
+           (let [{:keys [lvl cost i]} result]
+             [:<>
+              [:div.cast-head [:b (str spell-name " \u00B7 " (common/ordinal lvl) " level \u00B7 " dc-text)]
+               [:span (str (::mi/name item) " \u00B7 " cost (if (= 1 cost) " charge" " charges") " spent")]]
+              (let [r (get spell-rolls (::mi/cast-spell cast))
+                    {:keys [parts total]} (:damage result)]
+                (when (seq (:damage r))
+                  [:div.cast-damage
+                   (if parts
+                     [:<>
+                      (doall (for [[n {:keys [label detail subtotal]}] (map-indexed vector parts)]
+                               ^{:key n} [:div.cast-damage-part [:span label] [:span (str detail " = " subtotal)]]))
+                      [:div.cast-damage-total [:b (str "Total damage " total)]]
+                      (when (:save r)
+                        [:div (str dc-text " " (s/capitalize (name (:save r))) " save"
+                                   (when (:save-half? r) ", half on a success"))])]
+                     [:button.form-button.cast-open
+                      {:type "button"
+                       :on-click #(swap! state assoc-in [:result :damage]
+                                         (weapon-rolls/roll-spell r (:level spell) lvl nil (fn [sides] (inc (rand-int sides)))))}
+                      "Roll damage"])]))
+              (when spell [:div.cast-spell [spell-component spell false]])
+              [:div.cast-foot
+               [:button.rest-link {:type "button"
+                                   :on-click (fn [] (dispatch [::char/change-item-charges id selection-key item-kw item i (- cost)])
+                                               (swap! state assoc :result nil))} "Undo"]
+               [:button.form-button.cast-go {:type "button" :on-click close} "Done"]]])
+           [:<>
+            [:div.cast-head [:b spell-name]
+             [:span (str (::mi/name item) " \u00B7 " dc-text " \u00B7 " left (if (= 1 left) " charge" " charges") " left")]]
+            (when (next casts)
+              [:div.cast-spells {:role "radiogroup" :aria-label "Spell"}
+               (doall (for [[k c] (map-indexed vector casts)]
+                        ^{:key k}
+                        [:button.cast-spell-pick
+                         {:type "button" :role "radio" :aria-checked (= k pick) :class (when (= k pick) "on")
+                          :on-click #(swap! state assoc :pick k :level nil)}
+                         (or (:name (spells-map (::mi/cast-spell c))) (common/kw-to-name (::mi/cast-spell c)))
+                         [:span (str " " (::mi/cast-cost c))]]))])
+            [:div.cast-levels {:role "radiogroup" :aria-label "Level"}
+             (doall (for [{lvl :level cost :cost ok :affordable?} levels]
+                      ^{:key lvl}
+                      [:button.cast-level
+                       {:type "button" :role "radio" :aria-checked (= lvl (:level chosen))
+                        :aria-disabled (not ok)
+                        :class (str (when (= lvl (:level chosen)) "on") (when-not ok " off"))
+                        :on-click #(when ok (swap! state assoc :level lvl))}
+                       [:b (common/ordinal lvl)] [:span (str cost " ch")]]))]
+            [:div.cast-foot
+             [:span.cast-note (or (mi/higher-levels-text spell) "")]
+             (let [{lvl :level cost :cost ok :affordable?} chosen]
+               [:button.form-button.cast-go
+                {:type "button" :aria-disabled (not ok) :class (when-not ok "unavailable")
+                 :on-click (fn []
+                             (when-let [i (and ok (mi/able-to-pay item entry cost))]
+                               (dispatch [::char/change-item-charges id selection-key item-kw item i cost])
+                               (swap! state assoc :result {:lvl lvl :cost cost :i i})))}
+                (str "Cast at " (common/ordinal lvl) " \u00B7 " cost (if (= 1 cost) " charge" " charges"))])]])]))))
+
+(defn cast-sheet
+  "The cast panel as a bottom sheet over a dimmed page (phones). Takes the panel's args and the
+  close fn. Returns hiccup."
+  [id selection-key item-kw item entry close]
+  [:<>
+   [:div.cast-dim {:on-click (fn [e] (.stopPropagation e) (close))}]
+   [:div.cast-sheet {:on-click #(.stopPropagation %)}
+    [:div.cast-handle]
+    [:button.cast-x {:type "button" :aria-label "Close" :on-click close} "\u2715"]
+    [cast-panel id selection-key item-kw item entry close]]])
+
+(defn cast-button
+  "The button that opens an item's cast panel: \"Cast Fireball\", or \"Cast\" for an item with
+  several spells. Takes the item and the open fn. Returns hiccup, nil when it casts nothing."
+  [item open]
+  (when-let [casts (seq (::mi/casts item))]
+    [:button.form-button.cast-open
+     {:type "button" :on-click (fn [e] (.stopPropagation e) (open))}
+     (if (next casts)
+       "Cast"
+       (str "Cast " (or (:name (@(subscribe [::spells/spells-map]) (::mi/cast-spell (first casts))))
+                        (common/kw-to-name (::mi/cast-spell (first casts))))))]))
+
+(defn magic-item-rows
+  "Table rows for the carried magic items: name with its charges and Cast button, type and rarity,
+  the cast panel (a sheet on phones, a row on desktop) and the details row. Takes the character id,
+  the expanded-details and cast-open atoms and the carried item, weapon and armor maps (item key to
+  carried entry). Returns a seq of hiccup rows."
+  [id expanded-details cast-open magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
   (let [magic-item-map @(subscribe [::mi/all-magic-items-map])
-        mobile? @(subscribe [:mobile?])]
+        mobile? (cast-as-sheet?)]
     (mapcat
      (fn [[item-kw item-cfg]]
        (let [{:keys [::mi/name ::mi/type ::mi/item-subtype ::mi/rarity ::mi/attunement ::mi/description ::mi/summary] :as item} (magic-item-map item-kw)
              expanded? (@expanded-details item-kw)]
          [[:tr.pointer
            {:on-click (toggle-details-expanded-handler expanded-details item-kw)}
-           [:td.p-10.f-w-b (or (:name item) name)]
+           [:td.p-10.f-w-b (or (:name item) name)
+            [item-charges id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+             item-kw item (rests/as-entry item-cfg)]
+            [cast-button item #(reset! cast-open item-kw)]
+            (when (and mobile? (= item-kw @cast-open))
+              [cast-sheet id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+               item-kw item (rests/as-entry item-cfg) #(reset! cast-open nil)])]
            [:td.p-10 (str (common/kw-to-name type)
                           ", "
                           (common/kw-to-name rarity))]
@@ -3256,6 +3837,11 @@
                  [:span.underline (if expanded? "less" "more")])
              [:i.fa.m-l-5
               {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]]
+          (when (and (not mobile?) (= item-kw @cast-open))
+            [:tr.cast-row
+             [:td {:col-span 3}
+              [cast-panel id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+               item-kw item (rests/as-entry item-cfg) #(reset! cast-open nil)]]])
           (when expanded?
             [:tr
              [:td.p-10
@@ -3267,7 +3853,8 @@
       magic-armor-cfgs))))
 
 (defn magic-items-section-2 []
-  (let [expanded-details (r/atom {})]
+  (let [expanded-details (r/atom {})
+        cast-open (r/atom nil)]
     (fn [id]
       (let [mobile? @(subscribe [:mobile?])
             magic-item-cfgs @(subscribe [::char/magic-items id])
@@ -3291,7 +3878,9 @@
                 (with-meta
                   row
                   {:key i}))
-              (magic-item-rows expanded-details
+              (magic-item-rows id
+                               expanded-details
+                               cast-open
                                magic-item-cfgs
                                magic-weapon-cfgs
                                magic-armor-cfgs)))]]]]))))
@@ -3656,18 +4245,14 @@
 
      [:div.flex-grow-1.details-column-2
       {:class (when (= 2 num-columns) "w-50-p m-l-20")}
+      [rest-controls/rest-box id]
       [list-item-section "Damage Resistances" "surrounded-shield" resistances resistance-str]
       [list-item-section "Damage Vulnerabilities" nil damage-vulnerabilities resistance-str]
       [list-item-section "Damage Immunities" nil damage-immunities resistance-str]
       [list-item-section "Condition Immunities" nil condition-immunities resistance-str]
       [list-item-section "Immunities" nil immunities resistance-str]
       [:div.flex.justify-cont-end.align-items-c
-       (when (or (freqs ::units/long-rest)
-               (freqs ::units/rest))
-         [finish-long-rest-button id])
-       (when (or (freqs ::units/short-rest)
-               (freqs ::units/rest))
-          [finish-short-rest-button id])
+
        (when (freqs ::units/round)
          [:button.form-button.p-5.m-l-5
           {:on-click (make-event-handler ::char/new-round id)}
@@ -3682,6 +4267,49 @@
       [actions-section id "Reactions" "van-damme-split" reactions]
       [actions-section id "Features, Traits, and Feats" "vitruvian-man" traits]]]))
 
+(defn items-spells-section
+  "The Spells tab's From Items table: each spell the character's carried items can cast, with the
+  item, base level, DC, the item's charges and Cast, which opens the same panel as on the item.
+  Takes the character id. Returns hiccup, nil when no carried item casts a spell."
+  []
+  (let [open (r/atom nil)]
+    (fn [id]
+      (let [mobile? (cast-as-sheet?)
+            items-by-key @(subscribe [::mi/all-magic-items-map])
+            spells-map @(subscribe [::spells/spells-map])
+            your-dc (best-spell-save-dc @(subscribe [::char/spell-modifiers id]))
+            weapon-cfgs @(subscribe [::char/magic-weapons id])
+            carried (merge @(subscribe [::char/magic-items id]) weapon-cfgs)
+            rows (for [[k cfg] carried
+                       :let [item (items-by-key k)]
+                       :when (seq (::mi/casts item))
+                       [n c] (map-indexed vector (::mi/casts item))]
+                   {:k k :n n :item item :entry (rests/as-entry cfg) :cast c
+                    :sel (if (contains? weapon-cfgs k) :magic-weapons :other-magic-items)})]
+        (when (seq rows)
+          [:div.m-b-20.f-s-14.f-w-n
+           [:div.f-w-b.f-s-16.m-b-5 "From Items"]
+           [:table.w-100-p.t-a-l.striped
+            [:tbody.items-spells
+             [:tr.f-w-b.f-s-12 [:th.p-5 "Name"] [:th.p-5 "Item"] [:th.p-5 "Lvl"] [:th.p-5 "DC"] [:th]]
+             (doall
+              (for [{:keys [k n item entry cast sel]} rows
+                    :let [open? (= [k n] @open)
+                          close #(reset! open nil)]]
+                ^{:key (str k n)}
+                [:<>
+                 [:tr
+                  [:td.p-5.f-w-b (or (:name (spells-map (::mi/cast-spell cast))) (common/kw-to-name (::mi/cast-spell cast)))
+                   [:div.item-charges [:span.item-charges-count (str (mi/most-charges-left item entry) "/" (mi/charge-max item entry 0))]]]
+                  [:td.p-5 (::mi/name item)]
+                  [:td.p-5 (str (::mi/cast-level cast) (when (::mi/cast-per-level cast) "+"))]
+                  [:td.p-5 (or (::mi/save-dc cast) your-dc "\u2014")]
+                  [:td.p-5 [:button.form-button.cast-open {:type "button" :on-click #(reset! open [k n])} "Cast"]
+                   (when (and open? mobile?)
+                     [cast-sheet id sel k (assoc item ::mi/casts [cast]) entry close])]]
+                 (when (and open? (not mobile?))
+                   [:tr.cast-row [:td {:col-span 5} [cast-panel id sel k (assoc item ::mi/casts [cast]) entry close]]])]))]]])))))
+
 (defn spell-details [num-columns id]
   (let [spells-known @(subscribe [::char/spells-known id])
         spell-slots @(subscribe [::char/spell-slots id])
@@ -3693,6 +4321,7 @@
      {:class (when (= 2 num-columns) "flex")}
      [:div.flex-grow-1.details-column-2
       {:class (when (= 2 num-columns) "w-50-p m-l-20")}
+      [items-spells-section id]
       (when (seq spells-known) [spells-known-section
                               id
                               spells-known
@@ -3809,14 +4438,10 @@
        vec))
 
 (defn feature-render-error
-  "Recovery panel shown in place of a character section that failed to render.
-   General fail-soft: we do NOT try to guess the cause — by design this catches
-   failures we did not anticipate and cannot name. What we CAN always tell the
-   user is which section broke, that their data is safe, and how to recover
-   (try again / reload / open it in the builder to locate it). The exact error
-   is one click away for a bug report. The specific malformed item, when a single
-   item is at fault, is surfaced in place by the per-item render-guard / the
-   bisection isolator (see isolate-culprit)."
+  "Recovery panel shown in place of a character section that failed to render. It does not
+   guess the cause: it says which section broke, that the data is safe, and how to recover
+   (edit in the builder / reload), with the exact error one click away. A single faulty
+   selection is traced by isolate-culprit-selection (Features section only)."
   [_section _id _error _stack _retry]
   (let [show-details? (r/atom false)
         copied? (r/atom false)
@@ -3883,19 +4508,11 @@
              [:pre.f-s-12.m-t-5.wsp-prw {:style {:user-select "text"}} report]])]]))))
 
 (defn error-boundary
-  "React error boundary. If a child throws while rendering, render
-   (fallback error retry) instead of letting the exception unmount the whole app
-   (the black screen). Give the boundary a :key that changes with its content
-   (e.g. the selected tab) so navigating away clears the error automatically.
-
-   Recovery is driven by React's static getDerivedStateFromError, which is the
-   only React-18 hook that re-renders the boundary to show a fallback (a
-   setState/atom reset in componentDidCatch alone does NOT). component-did-catch
-   runs in the commit phase and is where React hands us the component stack — the
-   one generically-available 'where' for an error we can't otherwise diagnose — so
-   we both log it and stash it in state for the fallback to surface.
-
-   The fallback is called as (fallback error component-stack retry)."
+  "React error boundary: if a child throws while rendering, renders
+   (fallback error component-stack retry) instead of unmounting the whole app. Key it on its
+   content (e.g. the selected tab) so navigating away clears the error.
+   GOTCHA: only getDerivedStateFromError re-renders into the fallback; component-did-catch
+   logs the component stack and stores it for the fallback."
   [_fallback _child]
   (r/create-class
    {:display-name "error-boundary"
@@ -3915,7 +4532,10 @@
         (if-let [e (.. this -state -error)]
           (fallback e
                     (.. this -state -componentStack)
-                    #(.setState this #js {:error nil :componentStack nil}))
+                    ;; Reagent re-renders on new props, not on React state alone, so
+                    ;; clearing the error has to force the redraw as well.
+                    #(.setState this #js {:error nil :componentStack nil}
+                                (fn [] (.forceUpdate this))))
           child)))}))
 
 (defn app-error-fallback
@@ -3924,7 +4544,17 @@
    can be any page): say something broke, reassure the data is safe, offer recovery,
    and expose the error for a report. Finer boundaries below this one give better,
    more specific messages where they apply; this is the last line of defense."
-  [_error _stack _retry]
+  [_error _stack retry]
+  ;; Bring the boot-shell rescue control back: the app rendered cleanly once and
+  ;; took it away, then this page threw. Getting homebrew out matters most in
+  ;; exactly the state where the app has stopped being able to export it.
+  (when-let [rescue (aget js/window "orcpubBootRescue")]
+    (rescue))
+  ;; The page may have failed on homebrew that only breaks once it is drawn. Check every
+  ;; entry deeply; if any are set aside, try the page again.
+  (js/setTimeout #(when (seq (homebrew-check/check-and-set-aside! nil))
+                    (js/setTimeout retry 500))
+                 0)
   (let [show? (r/atom false)
         copied? (r/atom false)]
     (fn [error stack retry]
@@ -3983,19 +4613,19 @@
                                       (isolate-culprit-selection character template has-nameless-feature?))
                                     (catch :default _ nil)))))
               label (when culprit (culprit-selection-label (::entity/options character) culprit))]
-          [:div.p-10.m-b-10.f-s-14.l-h-19
-           {:style {:border "1px solid #e9a227"
-                    :border-radius "5px"
-                    :background "rgba(233,162,39,0.12)"}}
-           [:div.f-w-b.m-b-5 "⚠ A feature on this character is missing its name"]
-           (if (and label (not (s/blank? label)))
-             [:div.m-b-5 "We traced it to this choice: "
-              [:span.f-w-600 label] ". Re-pick it in the builder so the feature has a name."]
-             [:div.m-b-5 "Open the character in the builder and re-select the option that grants it so it has a proper name."])
-           (when character
-             [:button.form-button.m-t-5
-              {:on-click #(dispatch [:edit-character character])}
-              "Open in the builder"])])))))
+          ;; A fail-soft component (its detection cluster stays here), rendered through the
+          ;; shared notifications/callout so it matches the other banners.
+          [notifications/callout
+           {:icon "fa-exclamation-triangle orange"
+            :text [:div.l-h-19
+                   [:div.f-w-b.m-b-5 "A feature on this character is missing its name"]
+                   (if (and label (not (s/blank? label)))
+                     [:div "We traced it to this choice: "
+                      [:span.f-w-600 label] ". Re-pick it in the builder so the feature has a name."]
+                     [:div "Open the character in the builder and re-select the option that grants it so it has a proper name."])]
+            :actions (when character
+                       [{:label "Open in the builder"
+                         :on-click #(dispatch [:edit-character character])}])}])))))
 
 (defn character-display []
   (let [show-selections? (r/atom false)]
@@ -4038,6 +4668,7 @@
             [error-boundary
              (fn [error stack retry] [feature-render-error (s/capitalize tab) id error stack retry])
              [(-> tab details-tabs :view) num-columns id]]]]
+          [rest-controls/rest-fab id tab]
           [:div.p-10
            [:span.orange.underline.pointer
             {:on-click #(swap! show-selections? not)}
@@ -4093,8 +4724,49 @@
 
 (defn labeled-checkbox [label selected?]
   [:div.flex.align-items-c.pointer.m-b-10
-   (comps/checkbox selected? false)
+   (comps/checkbox selected? false label)
    [:span.m-l-5.f-s-14 label]])
+
+(defn with-help
+  "`row` with a ? appended to it, and the line that ? opens beneath the whole row.
+
+   Appended rather than wrapped, because the row is a flex line: a help span
+   holding its own text would put the explanation beside the label instead of
+   under it. Click rather than hover -- the builder is used on phones, where a
+   hover tooltip never opens -- with `title` for a mouse that rests on it anyway."
+  [row help]
+  (let [open? (r/atom false)]
+    (fn [row help]
+      [:div
+       (conj row
+             [:span.option-help.pointer.m-l-5
+              {:title help
+               :on-click (fn [e] (.stopPropagation e) (swap! open? not))}
+              "?"])
+       (when @open?
+         [:div.option-help-text help])])))
+
+(defn option-checkbox
+  "One PDF option: its checkbox, and a ? holding `help`.
+
+   The ? sits outside the clickable label so reading the explanation does not
+   toggle the option."
+  [label selected? on-click help]
+  [:div.m-b-5
+   [with-help
+    [:div.flex.align-items-c
+     [:div.pointer {:on-click on-click}
+      [labeled-checkbox label selected?]]]
+    help]])
+
+(defn option-group
+  "A titled group of options. The panel carries three -- what goes on the sheet,
+   what cards follow it, and how either is inked -- because a flat list put the
+   known/prepared choice, a sheet setting, in the middle of the card ones."
+  [title & children]
+  (into [:div.m-b-16
+         [:div.option-group-title title]]
+        children))
 
 (defn export-pdf-fn [built-char
                      id
@@ -4108,11 +4780,16 @@
                      print-card-back-logo?
                      card-back-logo-faded?
                      print-bw?
-                     bw-faded?]
+                     bw-faded?
+                     print-magic-item-cards?
+                     spell-layout
+                     spellbook-options]
   #(let [export-fn (export-pdf built-char
                                id
                                plugin-data
-                               {:print-character-sheet? print-character-sheet?
+                               (merge
+                                spellbook-options
+                                {:print-character-sheet? print-character-sheet?
                                 :print-spell-cards? print-spell-cards?
                                 :print-prepared-spells? print-prepared-spells?
                                 :print-large-abilities? print-large-abilities?
@@ -4121,7 +4798,9 @@
                                 :print-card-back-logo? print-card-back-logo?
                                 :card-back-logo-faded? card-back-logo-faded?
                                 :print-bw? print-bw?
-                                :bw-faded? bw-faded?})]
+                                :bw-faded? bw-faded?
+                                :print-magic-item-cards? print-magic-item-cards?
+                                :spell-layout spell-layout}))]
      (export-fn)
      (dispatch [::char/hide-options])))
 
@@ -4146,9 +4825,70 @@
      :pointer-events "none"}))
 
 
+(defn capture-images
+  "Reads the character's pictures (`urls`) in the browser on mount, so their bytes are in
+   hand before export is clicked. Renders nothing; reads on mount only (no update hook).
+   GOTCHA: kept off the click handler: the export is a synchronous submit into a new tab, and
+   an await before .submit() spends the user activation that keeps it from being blocked."
+  [_urls]
+  (let [ask (fn [this]
+              (doseq [url (second (r/argv this))
+                      :when (seq url)]
+                (dispatch [::char/capture-image url])))]
+    (r/create-class
+     {:component-did-mount ask
+      :reagent-render (fn [_] nil)})))
+
+(defn emblem-picker
+  "One casting class's emblem, with the icons it can be swapped for behind a toggle. The
+   choice lasts the session, like the rest of the PDF options."
+  [_class-kw _class-name _chosen]
+  (let [open? (r/atom false)]
+    (fn [class-kw class-name chosen]
+      (let [icon (emblems/icon-for class-kw chosen)]
+        [:div.m-b-5
+         [:div.flex.align-items-c
+          [:img.emblem-icon {:src (str "/image/emblems/" icon ".svg") :alt ""}]
+          [:span.m-l-5 class-name]
+          [:span.orange.underline.pointer.f-s-12.m-l-10
+           {:on-click #(swap! open? not)}
+           (if @open? "Done" "Change")]]
+         (when @open?
+           (into [:div.emblem-choices]
+                 (for [[nm author] (emblems/options class-kw)]
+                   [:button.emblem-choice
+                    {:key nm
+                     :type "button"
+                     :class (when (= nm icon) "selected")
+                     :title (str (s/replace nm "-" " ") " by " (s/replace author "-" " "))
+                     :on-click #(dispatch [::char/set-spellbook-emblem class-kw nm])}
+                    [:img.emblem-icon {:src (str "/image/emblems/" nm ".svg") :alt (s/replace nm "-" " ")}]])))]))))
+
+(def spellbook-layouts
+  "The spellbook layouts PDF Options offers, as dropdown items."
+  [{:title "Spellbook: full text, two columns" :value "book"}
+   {:title "Ledger: one row a spell" :value "ledger"}
+   {:title "Prep sheet: a box to tick per spell" :value "prep"}])
+
+(def spellbook-option-handler
+  "The on-change handler setting spellbook option `k` from a dropdown value; blank clears it."
+  (memoize
+   (fn [k]
+     #(dispatch [::char/set-spellbook-option k (when-not (s/blank? %) (keyword %))]))))
+
+(defn spellbook-dropdown
+  "A labelled dropdown for spellbook option `k`, offering `items` with `value` selected."
+  [label k items value]
+  [:div.m-b-10.w-250
+   [labeled-dropdown label
+    {:items items
+     :value (name value)
+     :on-change (spellbook-option-handler k)}]])
+
 (defn print-options [id built-char]
   (let [print-character-sheet? @(subscribe [::char/print-character-sheet?])
         print-spell-cards? @(subscribe [::char/print-spell-cards?])
+        print-magic-item-cards? @(subscribe [::char/print-magic-item-cards?])
         print-prepared-spells? @(subscribe [::char/print-prepared-spells?])
         print-large-abilities? @(subscribe [::char/print-large-abilities?])
         print-character-sheet-style? @(subscribe [::char/print-character-sheet-style?])
@@ -4157,103 +4897,210 @@
         card-back-logo-faded? @(subscribe [::char/card-back-logo-faded?])
         print-bw? @(subscribe [::char/print-bw?])
         bw-faded? @(subscribe [::char/bw-faded?])
+        spell-layout @(subscribe [::char/spell-layout])
+        spellbook-options @(subscribe [::char/spellbook-options])
+        print-spellbook? (:print-spellbook? spellbook-options)
+        ;; Read off built-char, not [::char/image-url id]: a character still being
+        ;; built has no id yet, and the id-keyed subscription answers nil for it.
+        ;; This is the same accessor pdf-spec uses to put the URL in the export.
+        image-url (char/image-url built-char)
+        faction-image-url (char/faction-image-url built-char)
+        image-bytes @(subscribe [::char/image-bytes])
         plugin-data {:spells-map @(subscribe [::spells/spells-map])
                      :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
                      :language-map @(subscribe [::langs/language-map])
                      :all-weapons-map @(subscribe [::mi/all-weapons-map])
                      :all-magic-items-map @(subscribe [::mi/all-magic-items-map])
-                     :current-armor-class @(subscribe [::char/current-armor-class id])}
+                     :current-armor-class @(subscribe [::char/current-armor-class id])
+                     :image-bytes image-bytes}
         has-spells? (seq (char/spells-known built-char))
-        print-button-enabled (if (or (= print-character-sheet-style? nil)
-                                     (= (str print-character-sheet-style?) "NaN"))
-                               false true)
+        ;; Only a multiclass caster on a style that can be renumbered has a
+        ;; choice to make, so the control is not shown to anyone else.
+        casting-classes (when has-spells?
+                          (pdf-spec/casting-classes built-char
+                                                    (:spells-map plugin-data)))
+        packable? (and (> (count casting-classes) 1)
+                       (packing/packing-supported? print-character-sheet-style?)
+                       ;; Not offered when the columns cannot hold the character.
+                       ;; A Wizard 20 beside a Cleric leaves no column a Cleric
+                       ;; fits, and packing anyway would print without it.
+                       (packing/fits? print-character-sheet-style?
+                                      (packing/packing-shape casting-classes)))
+        ;; Exporting mid-read would send the address and let the server fetch what
+        ;; the browser was already holding. A read ends either way -- capture has
+        ;; its own deadline -- so this waits at most that long.
+        reading-pictures? (boolean (some #(= :pending (get image-bytes %))
+                                         (remove nil? [image-url faction-image-url])))
+        print-button-enabled (and (not reading-pictures?)
+                                  (not (or (nil? print-character-sheet-style?)
+                                           (= (str print-character-sheet-style?) "NaN"))))
         ]
     [:div.flex.justify-cont-end
      [:div.p-20
+      [capture-images [image-url faction-image-url]]
+      [bake-portrait (char/portrait built-char)]
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
-      [:div.m-b-2
-       [:div.flex.m-b-10
-        [:div.m-t-5
-         [labeled-dropdown
-          "Select Character sheet"
-          {:items (into [{:title "Select" :value " "}]
-                        (integrations/sheet-styles @(subscribe [:user-tier])))
-           :value print-character-sheet-style?
-           :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
+
+      ;; Grouped by what a setting changes: the sheet, the cards behind it, then
+      ;; how either is inked. The known / prepared choice is a sheet setting.
+      [option-group "Character Sheet"
+       [:div.m-b-10
+        [labeled-dropdown
+         "Sheet style"
+         {:items (into [{:title "Select" :value " "}]
+                       (integrations/sheet-styles @(subscribe [:user-tier])))
+          :value print-character-sheet-style?
+          :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]
        [integrations/pdf-options-slot @(subscribe [:user-tier])]
-       [:div.flex
-        [:div
-         {:on-click (make-event-handler ::char/toggle-large-abilities-print)}
-         [labeled-checkbox
-          "Print Abilities Large (and Bonuses Small)"
-          print-large-abilities?]]]]
-      (when has-spells?
-        [:div.m-b-2
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-spell-cards-print)}
-           [labeled-checkbox
-            "Print Spell Cards"
-            print-spell-cards?]]]])
-      (when print-spell-cards?
-        [:div.m-b-2
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-spell-cards-by-dc-mod)}
-           [labeled-checkbox
-            "Print Spell DC and MOD"
-            print-spell-card-dc-mod?]]]])
-      (when has-spells?
-        [:div.m-b-10
+       [option-checkbox
+        "Print Abilities Large (and Bonuses Small)"
+        print-large-abilities?
+        (make-event-handler ::char/toggle-large-abilities-print)
+        (str "The sheet prints the ability score big and its modifier small. "
+             "Tick this to swap them, so the number you roll with is the one "
+             "you can read across the table.")]
+       (when has-spells?
          [:div.m-b-10
-          [:span.f-w-b "Spells Printed"]]
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-           [labeled-checkbox
-            "Known"
-            (not print-prepared-spells?)]]
-          [:div.m-l-20
-           {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-           [labeled-checkbox
-            "Prepared"
-            print-prepared-spells?]]]])
-      ;; Appearance group — cosmetic/output options, set apart from the data
-      ;; options above (layout B). Only meaningful when spell cards are printed.
-      (when print-spell-cards?
-        [:div.m-b-10
-         [:div.m-b-5 [:span.f-w-b "Appearance"]]
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-print-bw)}
-           [labeled-checkbox
-            "Printer-friendly (black & white)"
-            print-bw?]]]
+          [with-help
+           [:div.flex.align-items-c.m-b-5
+            [:span.f-w-b "Spells Printed"]]
+           (str "Which spells go on the sheet and the cards. Known is every "
+                "spell the character has; Prepared is only the ones marked "
+                "prepared today, which is what a Cleric or a Wizard casts from.")]
+          [:div.flex
+           [:div.pointer
+            {:on-click (make-event-handler ::char/toggle-known-spells-print)}
+            [labeled-checkbox "Known" (not print-prepared-spells?)]]
+           [:div.m-l-20.pointer
+            {:on-click (make-event-handler ::char/toggle-known-spells-print)}
+            [labeled-checkbox "Prepared" print-prepared-spells?]]]])
+       (when packable?
+         [:div.m-b-10
+          [:div.w-250
+           [labeled-dropdown
+            "Spell Sheet Layout"
+            {:items [{:title "Automatic" :value ""}
+                     {:title "One column per class" :value "packed"}
+                     {:title "One page per class" :value "per-class"}]
+             :value (if spell-layout (name spell-layout) "")
+             :on-change (make-arg-event-handler ::char/set-spell-layout
+                                                #(when-not (s/blank? %) (keyword %)))}]]
+          ;; What the current setting will actually print, always on: this one is
+          ;; the state of the build rather than a fixed explanation, so it is not
+          ;; behind a ?. Set like the ? lines so the two read as one kind of note.
+          [:div.option-note
+           (if (= :per-class spell-layout)
+             (str (count casting-classes) " spell pages, one per class")
+             (str "One page, a column each for "
+                  (s/join ", " (map :class casting-classes))))]])]
+
+      [option-group "Cards"
+       (when has-spells?
+         [option-checkbox
+          "Print Spell Cards"
+          print-spell-cards?
+          (make-event-handler ::char/toggle-spell-cards-print)
+          (str "Adds a page of cut-out cards, one per spell, with its range, "
+               "duration and description. Printed after the sheet.")])
+       (when print-spell-cards?
+         [:div.m-l-20
+          [option-checkbox
+           "Print Spell DC and MOD"
+           print-spell-card-dc-mod?
+           (make-event-handler ::char/toggle-spell-cards-by-dc-mod)
+           (str "Prints this character's save DC and attack bonus on each card, "
+                "so the numbers are on the card being held rather than back on "
+                "the sheet.")]])
+       [option-checkbox
+        "Print Magic Item Cards"
+        print-magic-item-cards?
+        (make-event-handler ::char/toggle-magic-item-cards-print)
+        (str "The same cards for the magic items the character carries, "
+             "attunement and charges included.")]]
+
+      (when has-spells?
+        (let [opt (fn [k] (or (get spellbook-options k)
+                              (get pdf-spec/spellbook-defaults
+                                   (keyword (s/replace (name k) #"^spellbook-" "")))))]
+          [option-group "Spellbook"
+           [option-checkbox
+            "Print Spellbook"
+            print-spellbook?
+            (make-event-handler ::char/toggle-spellbook-print)
+            (str "Adds pages listing every printed spell by class, with its save DC and "
+                 "attack on every page. Fewer pages than cards and nothing to cut out.")]
+           (when print-spellbook?
+             [:div.m-l-20
+              [spellbook-dropdown "Layout" :spellbook-layout spellbook-layouts (opt :spellbook-layout)]
+              (when (> (count casting-classes) 1)
+                [spellbook-dropdown "New class starts" :spellbook-class-break
+                 [{:title "Straight after the last" :value "runon"}
+                  {:title "On a new page" :value "page"}]
+                 (opt :spellbook-class-break)])
+              [spellbook-dropdown "Level tabs" :spellbook-tabs
+               [{:title "In the page header" :value "head"}
+                {:title "Down the side (narrows the page)" :value "inset"}
+                {:title "Off" :value "off"}]
+               (opt :spellbook-tabs)]
+              [:div.f-w-b.m-b-5 "Class emblems"]
+              (for [{:keys [class]} casting-classes
+                    :let [class-kw (common/name-to-kw (str class))]]
+                ^{:key class}
+                [emblem-picker class-kw (str class)
+                 (get-in spellbook-options [:spellbook-emblems class-kw])])])
+           (when (or print-spellbook? print-spell-cards?)
+             [:div.m-t-10]) ;; clear of the last emblem row above
+           (when (or print-spellbook? print-spell-cards?)
+             [spellbook-dropdown "Spell order" :spell-order
+              [{:title "By level, then name" :value "level"}
+               {:title "By name" :value "alpha"}]
+              (or (:spell-order spellbook-options) :level)])
+           (when (or print-spellbook? print-spell-cards?)
+             [:div.option-note
+              (str "Orders the "
+                   (cond (and print-spellbook? print-spell-cards?) "spellbook and the cards"
+                         print-spellbook? "spellbook"
+                         :else "cards")
+                   " within each class.")])]))
+
+      ;; Both card kinds are inked the same way, so this group follows either --
+      ;; gating it on spell cards alone hid it from anyone printing only items.
+      (when (or print-spell-cards? print-magic-item-cards?)
+        [option-group "Appearance"
+         [option-checkbox
+          "Printer-friendly (black & white)"
+          print-bw?
+          (make-event-handler ::char/toggle-print-bw)
+          (str "Drops the colour from the cards so they cost less to print and "
+               "stay legible on a mono printer.")]
          ;; Under B&W: default is solid-black icons with white-halo labels;
          ;; opt into faded grayscale icons for a softer look.
          (when print-bw?
            [:div.m-l-20
-            [:div.flex
-             [:div
-              {:on-click (make-event-handler ::char/toggle-bw-faded)}
-              [labeled-checkbox
-               "Faded grayscale icons (else solid black)"
-               bw-faded?]]]])
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-print-card-back-logo)}
-           [labeled-checkbox
-            "Print logo on card backs"
-            print-card-back-logo?]]]
+            [option-checkbox
+             "Faded grayscale icons (else solid black)"
+             bw-faded?
+             (make-event-handler ::char/toggle-bw-faded)
+             (str "Sets the card icons as pale grey behind the text instead of "
+                  "solid black beside it.")]])
+         [option-checkbox
+          "Print logo on card backs"
+          print-card-back-logo?
+          (make-event-handler ::char/toggle-print-card-back-logo)
+          (str "Puts a logo on the reverse of every card, so a printed sheet cut "
+               "up and shuffled still has a back.")]
          ;; Treatment only matters when the logo is on AND B&W isn't forcing black.
          (when (and print-card-back-logo? (not print-bw?))
            [:div.m-l-20
-            [:div.flex
-             [:div
-              {:on-click (make-event-handler ::char/toggle-card-back-logo-faded)}
-              [labeled-checkbox
-               "Faded color (else solid black)"
-               card-back-logo-faded?]]]])])
+            [option-checkbox
+             "Faded color (else solid black)"
+             card-back-logo-faded?
+             (make-event-handler ::char/toggle-card-back-logo-faded)
+             (str "Prints the back logo as a pale colour wash rather than in "
+                  "solid black.")]])])
+
+      (when reading-pictures?
+        [:div.f-s-12.m-b-5 "Reading the character's picture..."])
       [:button.form-button.p-10.m-l-5
        {:style (print-button-style print-button-enabled)
         :on-click (export-pdf-handler built-char
@@ -4268,7 +5115,10 @@
                                       print-card-back-logo?
                                       card-back-logo-faded?
                                       print-bw?
-                                      bw-faded?)}
+                                      bw-faded?
+                                      print-magic-item-cards?
+                                      spell-layout
+                                      spellbook-options)}
        "Create PDF"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]
@@ -4330,7 +5180,7 @@
           ;; report below is the fallback.
           (when (and (seq branding/support-email) @(subscribe [:username]))
             (let [status @(subscribe [::char/character-report-status id])]
-              [:div.m-b-15
+              [:div.m-b-16
                [:button.form-button.m-b-5
                 {:disabled (= status :sending)
                  :on-click #(dispatch [:report-character-problem id error raw])}
@@ -4351,6 +5201,8 @@
                      :background "rgba(0,0,0,0.25)" :padding "8px" :border-radius "3px"}}
             report]]]]))))
 
+;; shared-content-banner lives in orcpub.dnd.e5.views.notifications (rendered via callout).
+
 (defn character-page []
   (let [expanded? (r/atom false)]
     (fn [{:keys [id] :as arg}]
@@ -4370,8 +5222,7 @@
         [content-page
          (when (not frame?)
            "Character Page")
-         (into
-          (vec (integrations/share-links id @(subscribe [::char/character-name id])))
+         (vec
           (remove nil?
            [#_[:div.m-l-5.hover-shadow.pointer
                {:on-click #(swap! expanded? not)}
@@ -4380,7 +5231,7 @@
                      owner
                      (= owner username))
               {:title "Edit"
-               :icon "pencil"
+               :icon "pencil-alt"
                :on-click (make-event-handler :edit-character character)})
             {:title "Export"
              :icon "download"
@@ -4395,8 +5246,10 @@
                 {:value (str url
                              (when (not (s/ends-with? url "?frame=true"))
                                "?frame=true"))}]]))
+          [notifications/shared-content-banner id]
           [character-display id true (if (= :mobile device-type) 1 2)]]
-         :frame? frame?])))))
+         :frame? frame?
+         :subheader [integrations/share-line id]])))))
 
 (defn monster-page [{:keys [key] :as arg}]
   (let [monster @(subscribe [::monsters/monster (keyword key)])]
@@ -4434,25 +5287,11 @@
           :on-click (delete-item-handler item-key)})
        (when owner?
          {:title "Edit"
-          :icon "pencil"
+          :icon "pencil-alt"
           :on-click (make-event-handler ::mi/edit-custom-item item)})])
      [:div.p-10.main-text-color
       [item-component item]
       ]]))
-
-(defn base-builder-field [name comp]
-  [:div.field.main-text-color.m-t-0
-   [:div.personality-label.f-s-16 name]
-   comp])
-
-(defn builder-field [el-type name value on-change attrs & [children]]
-  (base-builder-field
-   name
-   [comps/input-field
-    el-type
-    value
-    on-change
-    attrs]))
 
 ;; dead — zero callers
 #_(defn select-builder-field [name value on-change children]
@@ -4462,28 +5301,6 @@
             [:option {:value :none}
              "None"]]
      children (concat children))))
-
-(defn input-builder-field [name value on-change attrs]
-  [builder-field :input name value on-change attrs])
-
-(defn textarea-field [{:keys [value on-change]}]
-  [comps/input-field
-   :textarea
-   value
-   on-change
-   {:class-name "input"
-    :maxLength (:notes branding/field-limits)}])
-
-(defn number-field [{:keys [value on-change]}]
-  [comps/input-field
-   :input
-   value
-   (fn [v]
-     (on-change
-      (when (re-matches #"\d+" v) (js/parseInt v))))
-   {:class "input"
-    :type :number
-    :maxLength (:number branding/field-limits)}])
 
 (defn attunement-value [attunement key name]
   [:div
@@ -4496,7 +5313,7 @@
    [:div
     [:div.flex.align-items-c.m-b-10
      {:on-click (make-event-handler ::mi/toggle-attunement)}
-     (comps/checkbox attunement false)
+     (comps/checkbox attunement false "Attunement")
      [:span.f-s-24.f-w-b.m-l-5 "Attunement"]]
     (when attunement
       [:div
@@ -5363,7 +6180,7 @@
      false
      #(dispatch [::feats/toggle-feat-ability-increase :saves?])]]
    [:div (let [increases (:ability-increases feat)
-               non-save (disj increases :saves?)]
+               non-save (when (set? increases) (disj increases :saves?))]
            (when (seq non-save)
              (str "= \"Increase your "
                   (common/list-print
@@ -5637,6 +6454,15 @@
              #(dispatch [toggle-map-prop-event kw key])]])
          @(subscribe [::mi/custom-and-standard-weapons]))))])])
 
+(defn add-trait-button
+  "The add button of a builder's traits list.
+   Args: add-trait-event, the event vector to dispatch; button-title, the label
+   or nil for \"add feature / trait\". Returns hiccup."
+  [add-trait-event button-title]
+  [:button.form-button.m-l-5
+   {:on-click (make-event-handler add-trait-event)}
+   (or button-title "add feature / trait")])
+
 (defn option-traits [option
                      add-trait-event
                      edit-trait-name-event
@@ -5648,9 +6474,7 @@
    [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
     [:div.f-s-24.f-w-b.m-b-10 (or title "Features/Traits")]
     [:div
-     [:button.form-button.m-l-5
-      {:on-click (make-event-handler add-trait-event)}
-      (or button-title "add feature / trait")]]]
+     [add-trait-button add-trait-event button-title]]]
    [:div
     (if (seq (:traits option))
       (doall
@@ -5698,7 +6522,11 @@
        {:on-click #(dispatch [add-trait-event])}
        [:span "There are currently no features/traits, click "]
        [:span.orange.underline "here"]
-       [:span " or on the button above to add one."]])]])
+       [:span " or on the button above to add one."]])]
+   ;; Repeated below a non-empty list so a long one needs no scroll back up.
+   (when (seq (:traits option))
+     [:div.p-t-10.flex.justify-cont-end
+      [add-trait-button add-trait-event button-title]])])
 
 (defn option-saving-throw-advantages [option toggle-map-prop-event]
   [:div.m-b-20
@@ -5810,40 +6638,68 @@
          (sort-by common/lower-case (keys plugins)))))
 
 ;;; Create a datalist element and load the plugin names
-(defn plugin-datalist [label plugin-val dispatch-event] 
-  (let [selected-value (atom (or (:option-pack plugin-val) "")) ;TODO: reframe functions may or may not help handle this more efficiently
-        ]
-    (fn []
-      [:div.flex-grow-1
-       {:class "m-l-5 m-b-20"
-        :name "option-pack"}
-       [:div.f-w-b.m-b-5 label]
-       [:input {:type "text"
-                :list "plugins-list"
-                :name "plugins-choice"
-                :id "plugins-choice"
-                :class (str "input h-40"
-                            (case (get @(subscribe [:builder-field-errors]) :option-pack)
-                              :missing " builder-field-unfilled"
-                              :invalid " builder-field-invalid"
-                              ""))
-                :placeholder "Default Option Source"
-                :value @selected-value
-                :onChange #(do
-                             ; When user types in input field:
-                             ; 1. Update the local state of the component with the new value
-                             ; 2. Dispatch event to update the state of the entire app
-                             ;    w/ new value to save to app db (can be used elsewhere in app)
-                             (reset! selected-value (-> % .-target .-value))
-                             (dispatch [dispatch-event :option-pack @selected-value])
-                             (dispatch [:clear-builder-field-error :option-pack])
-                             )
-                }]
-       [:datalist {:id "plugins-list" :class "width-100-p"}
-        (for [{:keys [title value]} (get-plugin-names)]
-          [:option {:key title :value value}])]
-      ]
-       )))
+(defn plugin-datalist
+  "The Option Source Name box. It shows the item's own :option-pack on every draw and keeps no copy,
+   so the box and the draft cannot disagree. dispatch-sync keeps the caret in place while typing
+   (a deferred update would redraw the box from the old value)."
+  [label plugin-val dispatch-event]
+  [:div.flex-grow-1
+   {:class "m-l-5 m-b-20"
+    :name "option-pack"}
+   [:div.f-w-b.m-b-5 label]
+   [:input {:type "text"
+            :list "plugins-list"
+            :name "plugins-choice"
+            :id "plugins-choice"
+            :class (str "input h-40"
+                        (case (get @(subscribe [:builder-field-errors]) :option-pack)
+                          :missing " builder-field-unfilled"
+                          :invalid " builder-field-invalid"
+                          ""))
+            :placeholder "Default Option Source"
+            :value (or (:option-pack plugin-val) "")
+            :on-change #(do (dispatch-sync [dispatch-event :option-pack (-> % .-target .-value)])
+                            (dispatch [:clear-builder-field-error :option-pack]))}]
+   [:datalist {:id "plugins-list" :class "width-100-p"}
+    (for [{:keys [title value]} (get-plugin-names)]
+      [:option {:key title :value value}])]])
+
+(declare ability-increase-choices save-proficiency-choices ability-save-notes builder-notes
+         optional-builder-section)
+
+(defn- has-entries?
+  "Does a grant field hold anything? Imported data can be any shape; only a non-empty collection
+   counts, so `seq` never meets a number."
+  [v]
+  (boolean (and (coll? v) (seq v))))
+
+(defn feat-ability-score-section
+  "A feat's increases: the released \"+1 to one of these\" checkboxes, or a 2024-style spread in an
+   optional section. Both write :ability-increases (a set, or a list), so one shows at a time: the
+   spread waits until the checkboxes are cleared, and removing its last row brings them back."
+  [feat]
+  (let [ai (:ability-increases feat)
+        spread? (boolean (and (sequential? ai) (seq ai)))
+        legacy? (boolean (and (set? ai) (seq ai)))]
+    [:div
+     (if spread?
+       [:div.m-b-20.f-s-12.i "Ability Increase Options: using the 2024-style increases below."]
+       ^{:key "options"} [feat-ability-increase-options feat])
+     [optional-builder-section "Ability Score Increases (2024 style)"
+      (or spread? (has-entries? (:save-proficiencies feat)))
+      [:div
+       (if legacy?
+         ^{:key "asi"} [:div.m-b-20.f-s-12.i
+                        "These replace the Ability Increase Options above; clear those first."]
+         ^{:key "asi"} [ability-increase-choices
+                        (if spread? feat (assoc feat :ability-increases []))
+                        (fn [f] (dispatch [::feats/update-feat-prop :ability-increases
+                                           (fn [v] (let [r (f v)] (if (seq r) r #{})))]))])
+       ^{:key "saves"} [save-proficiency-choices feat
+                        #(dispatch [::feats/update-feat-prop :save-proficiencies %])]]]
+     ;; outside the section, which starts closed on junk; a released set is checked on its own terms
+     ^{:key "notes"} [ability-save-notes (if (set? ai) (dissoc feat :ability-increases) feat)]
+     ^{:key "set-notes"} [builder-notes (opt/released-set-warnings ai) {:severity :error}]]))
 
 (defn feat-builder []
   (let [feat @(subscribe [::feats/builder-item])
@@ -5868,7 +6724,7 @@
          :on-change #(dispatch [::feats/set-feat-prop :description %])}]]]
      [:div [feat-prereqs feat]]
      [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
-     [:div [feat-ability-increase-options feat]]
+     [:div [feat-ability-score-section feat]]
      [:div [feat-skill-proficiency feat]]
      [:div [feat-languages feat]]
      [:div [feat-weapon-proficiency feat]]
@@ -6227,6 +7083,251 @@
      edit-selection-level-event
      delete-selection-event]]])
 
+;; ---- Starting equipment (homebrew class builder) ---------------------------
+;; SRD shorthand keys, read by opt5e/class-option: fixed :weapons/:armor/:equipment
+;; {item-key qty}; choice :weapon-choices/:armor-choices/:equipment-choices
+;; [{:name .. :options {item-key qty}}]. No :selections form: fn modifiers don't serialize.
+
+(def starting-equipment-categories
+  [{:label "Weapons"   :fixed :weapons   :choice :weapon-choices}
+   {:label "Armor"     :fixed :armor     :choice :armor-choices}
+   {:label "Equipment" :fixed :equipment :choice :equipment-choices}])
+
+(defn- equipment-vocab-items [fixed-key]
+  (let [m (case fixed-key
+            :weapons   weapon/weapons-map
+            :armor     armor/armor-map
+            :equipment equip/equipment-map)
+        base (->> m
+                  (keep (fn [[k v]] (when (:name v) {:title (:name v) :value (name k)})))
+                  (sort-by :title))]
+    (if (= :weapons fixed-key)
+      (concat [{:title "Any simple weapon"  :value "simple"}
+               {:title "Any martial weapon" :value "martial"}]
+              base)
+      base)))
+
+(defn- first-absent-equipment-item [vocab present-keys]
+  (some (fn [{:keys [value]}]
+          (let [k (keyword value)]
+            (when-not (contains? present-keys k) k)))
+        vocab))
+
+(defn- equipment-qty-input [qty on-change]
+  [:input.input.h-40.w-60.m-l-5.m-r-5
+   {:type "number" :min 1 :value (or qty 1)
+    :on-change #(let [n (js/parseInt (event-value %))]
+                  (on-change (if (js/isNaN n) 1 (max 1 n))))}])
+
+(defn- equipment-item-dropdown [vocab item-key on-pick]
+  [dropdown {:items vocab
+             :value (name item-key)
+             :on-change #(on-pick (keyword %))}])
+
+(defn- fixed-equipment-block [class {:keys [label fixed]}]
+  (let [items (get class fixed)
+        vocab (equipment-vocab-items fixed)]
+    [:div.m-b-10
+     [:div.f-w-b.m-b-5 label]
+     (doall
+      (for [[item-key qty] items]
+        ^{:key (str item-key)}
+        [:div.flex.m-b-5 {:style {:align-items "center"}}
+         [:div.flex-grow-1
+          [equipment-item-dropdown vocab item-key
+           (fn [new-k] (dispatch [::classes/set-equipment fixed
+                                  (-> items (dissoc item-key) (assoc new-k qty))]))]]
+         [equipment-qty-input qty
+          (fn [n] (dispatch [::classes/set-equipment fixed (assoc items item-key n)]))]
+         [:button.form-button
+          {:on-click #(dispatch [::classes/set-equipment fixed (dissoc items item-key)])}
+          "remove"]]))
+     [:button.form-button.m-t-5
+      {:on-click #(when-let [k (first-absent-equipment-item vocab (set (keys items)))]
+                    (dispatch [::classes/set-equipment fixed (assoc items k 1)]))}
+      (str "+ Add " label)]]))
+
+;; ---- Rich equipment choices (:equipment-selections) ------------------------
+;; A choice group -> options; each option grants a BUNDLE of items and/or a nested
+;; weapon sub-choice: the full SRD form, which subsumes one item per option.
+;; Consumed by opt5e/class-equipment-selections.
+
+(def ^:private grant-kinds
+  [{:label "Weapon" :kind :weapon} {:label "Armor" :kind :armor} {:label "Equipment" :kind :equipment}])
+
+(defn- grant-vocab [kind]
+  (equipment-vocab-items (case kind :weapon :weapons :armor :armor :equipment :equipment)))
+
+(defn- default-grant-item [kind] (some-> (grant-vocab kind) first :value keyword))
+
+(def ^:private subchoice-froms
+  [{:title "Any simple weapon"        :value "simple"}
+   {:title "Any simple melee weapon"  :value "simple-melee"}
+   {:title "Any martial weapon"       :value "martial"}
+   {:title "Any weapon"               :value "any-weapon"}
+   {:title "A holy symbol"       :value "holy-symbol"}
+   {:title "An arcane focus"     :value "arcane-focus"}
+   {:title "A druidic focus"     :value "druidic-focus"}
+   {:title "A musical instrument" :value "musical-instrument"}
+   {:title "An equipment pack"   :value "pack"}])
+
+(defn- equipment-item-name [k]
+  (or (get {:simple "Any simple weapon" :martial "Any martial weapon"} k)
+      (get-in weapon/weapons-map [k :name])
+      (get-in armor/armor-map [k :name])
+      (get-in equip/equipment-map [k :name])
+      (name k)))
+
+;; Every edit rebuilds the whole :equipment-selections vector in the view and writes it
+;; through the one setter; set-equipment drops the key when the vector empties.
+(defn- put-selections [sels] (dispatch [::classes/set-equipment :equipment-selections sels]))
+
+;; One grant row: category (weapon/armor/equipment) + item + qty. Changing the category
+;; resets the item to that category's first entry.
+(defn- equipment-grant-row [sels gi oi ri {:keys [kind key qty]}]
+  (let [kind (or kind :weapon) gp [gi :options oi :grants ri]]
+    [:div.flex.m-b-5 {:style {:align-items "center"}}
+     [:div.w-150.m-r-5
+      [dropdown {:items (map (fn [{:keys [label kind]}] {:title label :value (name kind)}) grant-kinds)
+                 :value (name kind)
+                 :on-change (fn [k] (let [nk (keyword k)]
+                                      (put-selections (assoc-in sels gp {:kind nk :key (default-grant-item nk) :qty (or qty 1)}))))}]]
+     [:div.flex-grow-1
+      [dropdown {:items (grant-vocab kind) :value (some-> key name)
+                 :on-change (fn [k] (put-selections (assoc-in sels (conj gp :key) (keyword k))))}]]
+     [equipment-qty-input qty (fn [n] (put-selections (assoc-in sels (conj gp :qty) n)))]
+     [:button.form-button {:on-click #(put-selections (update-in sels [gi :options oi :grants] (fn [v] (common/remove-at-index (vec v) ri))))} "remove"]]))
+
+;; One sub-choice row: the "player also picks" pool (a weapon class or an equipment group).
+(defn- equipment-subchoice-row [sels gi oi ci {:keys [from]}]
+  [:div.flex.m-b-5 {:style {:align-items "center"}}
+   [:div.flex-grow-1
+    [dropdown {:items subchoice-froms :value (some-> (or from :martial) name)
+               :on-change (fn [v] (put-selections (assoc-in sels [gi :options oi :choose ci :from] (keyword v))))}]]
+   [:button.form-button {:on-click #(put-selections (update-in sels [gi :options oi :choose] (fn [v] (common/remove-at-index (vec v) ci))))} "remove"]])
+
+;; A collapsed option shows this one-line summary of what it grants, so the
+;; group -> option -> grants nesting stays scannable; you expand only to edit.
+(defn- option-summary [{:keys [grants choose]}]
+  (let [gs (map (fn [{:keys [key qty]}]
+                  (str (equipment-item-name key) (when (> (or qty 1) 1) (str " ×" qty))))
+                grants)
+        cs (map (fn [{:keys [from]}]
+                  (or (some #(when (= (name (or from :martial)) (:value %)) (s/lower-case (:title %)))
+                            subchoice-froms)
+                      "a choice"))
+                choose)]
+    (s/join ", " (concat gs cs))))
+
+;; One option in a choice group. Form-2: local collapse state (new/empty options open
+;; for editing; filled ones collapse to their summary). Expanded, it edits the bundle
+;; (:grants) and any nested picks (:choose).
+(defn- equipment-option-block [_sels _gi _oi init-option]
+  (let [expanded? (r/atom (s/blank? (:name init-option)))]
+    (fn [sels gi oi {:keys [name grants choose] :as option}]
+      [:div.b-rad-5.m-b-3 {:style {:border-left "3px solid #6b7280"
+                                   :background "rgba(255,255,255,0.03)" :padding "5px 10px"}}
+       [:div.flex.align-items-c
+        [:i.fa.pointer {:class (if @expanded? "fa-chevron-down" "fa-chevron-right")
+                        :style {:font-size "12px" :color "rgba(255,255,255,0.35)"
+                                :margin-right "8px" :width "12px"}
+                        :on-click #(swap! expanded? not)}]
+        (if @expanded?
+          [:input.input.h-40.flex-grow-1
+           {:type "text" :placeholder "Option label (e.g. \"Chain Mail\")"
+            :value (or name "")
+            :on-change #(put-selections (assoc-in sels [gi :options oi :name] (event-value %)))}]
+          [:div.flex-grow-1.pointer {:on-click #(reset! expanded? true)}
+           [:span.f-w-b (if (s/blank? name) "(unnamed option)" name)]
+           (let [sm (option-summary option)]
+             (when (seq sm) [:span.i.f-s-14.m-l-10 {:style {:opacity 0.65}} (str "— " sm)]))])
+        [:button.form-button.m-l-5
+         {:on-click #(put-selections (update-in sels [gi :options] (fn [v] (common/remove-at-index (vec v) oi))))}
+         "remove"]]
+       (when @expanded?
+         [:div.m-l-10.m-t-5
+          [:div.i.f-s-14.m-b-2 "Grants (all of these):"]
+          (doall (map-indexed (fn [ri g] ^{:key ri} [equipment-grant-row sels gi oi ri g]) grants))
+          [:button.form-button.m-t-5
+           {:on-click #(put-selections (update-in sels [gi :options oi :grants] (fn [v] (conj (vec v) {:kind :weapon :key (default-grant-item :weapon) :qty 1}))))}
+           "+ Add item"]
+          [:div.i.f-s-14.m-t-5.m-b-2 "…and the player also picks (optional):"]
+          (doall (map-indexed (fn [ci c] ^{:key ci} [equipment-subchoice-row sels gi oi ci c]) choose))
+          [:button.form-button.m-t-5
+           {:on-click #(put-selections (update-in sels [gi :options oi :choose] (fn [v] (conj (vec v) {:from :martial}))))}
+           "+ Add sub-choice"]])])))
+
+;; One choice group: a name + its options (the player picks one option at creation).
+(defn- equipment-selection-group [sels gi {:keys [name options]}]
+  [:div.b-rad-5.p-10.m-b-10 {:style {:border "1px solid #888"}}
+   [:div.flex.m-b-5 {:style {:align-items "center"}}
+    [:input.input.h-40.flex-grow-1
+     {:type "text" :placeholder "Choice group name (e.g. \"Armor\" or \"Primary Weapon\")"
+      :value (or name "")
+      :on-change #(put-selections (assoc-in sels [gi :name] (event-value %)))}]
+    [:button.form-button.m-l-5 {:on-click #(put-selections (common/remove-at-index sels gi))} "remove group"]]
+   [:div.m-l-10
+    [:div.i.f-s-14.m-b-5 "Options (player picks one):"]
+    (doall (map-indexed (fn [oi o] ^{:key oi} [equipment-option-block sels gi oi o]) options))
+    [:button.form-button.m-t-2 {:on-click #(put-selections (update-in sels [gi :options] (fn [v] (conj (vec v) {:name "" :grants [{:kind :weapon :key (default-grant-item :weapon) :qty 1}]}))))} "+ Add option"]]])
+
+;; The choices editor: the class's :equipment-selections groups + an add-group button.
+(defn- rich-equipment-choices [class]
+  (let [sels (vec (:equipment-selections class))]
+    [:div
+     (doall (map-indexed (fn [gi g] ^{:key gi} [equipment-selection-group sels gi g]) sels))
+     [:button.form-button
+      {:on-click #(put-selections (conj sels {:name "" :options [{:name "" :grants [{:kind :weapon :key (default-grant-item :weapon) :qty 1}]}]}))}
+      "+ Add choice group"]]))
+
+;; Convert legacy/imported shorthand :*-choices into editable :equipment-selections
+;; (lossless — each single-item option becomes an option with one grant).
+(defn- legacy-choices->selections [class]
+  (vec
+   (for [{:keys [choice]} starting-equipment-categories
+         {:keys [name options]} (get class choice)
+         :when (seq options)]
+     {:name (or name "")
+      :options (vec (for [[k q] options]
+                      {:name (equipment-item-name k)
+                       :grants [{:kind (case choice :weapon-choices :weapon
+                                         :armor-choices :armor :equipment-choices :equipment)
+                                 :key k :qty q}]}))})))
+
+(defn starting-equipment-section [class]
+  (let [legacy? (some #(seq (get class (:choice %))) starting-equipment-categories)]
+    [:div.m-b-30
+     [:div.f-s-24.f-w-b.m-b-10 "Starting Equipment"]
+     [:div.i.f-s-14.m-b-10
+      "Granted when a character takes this as their first class. Fixed items are always granted; each choice group lets the player pick one option — and an option can grant several items and/or a sub-choice (any simple/martial weapon, a holy symbol, an arcane/druidic focus, an instrument, a pack), so \"(a) chain mail, or (b) leather + a longbow + 20 arrows\" and \"a martial weapon and a shield\" are all expressible here. Click an option to expand or collapse it."]
+     [:div.flex.m-b-10 {:style {:align-items "center"}}
+      [:span.i.f-s-14.m-r-5 "Start from an SRD class:"]
+      [:div {:style {:width "220px"}}
+       [dropdown {:items (cons {:title "— choose —" :value ""}
+                               (map (fn [k] {:title (s/capitalize (name k)) :value (name k)})
+                                    (sort srd-equip/srd-class-keys)))
+                  :value ""
+                  :on-change (fn [v] (when-not (s/blank? v)
+                                       (dispatch [::classes/fill-starting-equipment (keyword v)])))}]]]
+     (when-let [base (:starting-equipment-base class)]
+       [notifications/callout
+        {:icon "fa-info-circle orange"
+         :text (str "Based on the " (s/capitalize (name base)) " class — only your changes are saved on export.")
+         :actions [{:label "Detach (save full copy)"
+                    :on-click #(dispatch [::classes/detach-starting-equipment-base])}]}])
+     [:div.f-w-b.f-s-18.m-b-5 "Always granted"]
+     (doall (for [category starting-equipment-categories]
+              ^{:key (:fixed category)} [fixed-equipment-block class category]))
+     [:div.f-w-b.f-s-18.m-t-15.m-b-5 "Choices (player picks one per group)"]
+     (when legacy?
+       [notifications/callout
+        {:icon "fa-info-circle orange"
+         :text "This class has simple choices from an older format."
+         :actions [{:label "Convert to editable form"
+                    :on-click #(dispatch [::classes/migrate-equipment-choices
+                                          (into (vec (:equipment-selections class)) (legacy-choices->selections class))])}]}])
+     [rich-equipment-choices class]]))
+
 (defn class-builder []
   (let [class @(subscribe [::classes/builder-item])
         spell-lists @(subscribe [::spells/spell-lists])
@@ -6459,6 +7560,7 @@
        class
        ::classes/set-class-path-prop
        ::classes/toggle-class-path-prop]]
+     [starting-equipment-section class]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [option-level-modifiers
@@ -6559,6 +7661,18 @@
          ::classes/set-subclass-prop
        ]
       ]
+     [optional-builder-section "Ability Score Increases (non-standard)"
+      (or (has-entries? (:ability-increases subclass))
+          (has-entries? (:save-proficiencies subclass)))
+      ;; Explicit keys: Reagent takes a first-argument map's :key as the React key, so the three
+      ;; siblings would all carry the subclass's key.
+      [:div
+       ^{:key "asi"} [ability-increase-choices subclass
+                      #(dispatch [::classes/update-subclass-prop :ability-increases %])]
+       ^{:key "saves"} [save-proficiency-choices subclass
+                        #(dispatch [::classes/update-subclass-prop :save-proficiencies %])]]]
+     ;; outside the section, which starts closed when the fields hold junk
+     ^{:key "ability-notes"} [ability-save-notes subclass]
      (when (#{:fighter :rogue :warlock :cleric :paladin} class-key)
        (let [spellcasting (get subclass :spellcasting)
              spellcasting? (some? spellcasting)]
@@ -6711,8 +7825,8 @@
                    {:title (name kw)
                     :value (name kw)})
                  ["small" "medium" "large"])
-         :value (name (or (get subrace :size)
-                          (get race :size)))
+         ;; A subrace whose race is missing, or has no size, has no size to show.
+         :value (some-> (or (get subrace :size) (get race :size)) name)
          :on-change #(dispatch [::races/set-subrace-prop :size (keyword %)])}]]
       [:div.m-r-5
        [labeled-dropdown
@@ -6763,7 +7877,13 @@
                           :on-change #(dispatch [::races/set-subrace-ability-increase key %])}]]
                [:td.p-2 "="]
                [:td.p-2 (+ race-bonus subrace-bonus)]]))
-          opt/abilities))]]]
+          opt/abilities))]]
+      ;; Explicit keys: Reagent takes a first-argument map's :key as the React key.
+      ^{:key "asi"} [ability-increase-choices subrace
+                     #(dispatch [::races/update-subrace-path-prop [:ability-increases] %])]
+      ^{:key "saves"} [save-proficiency-choices subrace
+                       #(dispatch [::races/update-subrace-path-prop [:save-proficiencies] %])]
+      ^{:key "notes"} [ability-save-notes subrace]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [:div [option-hps subrace ::races/toggle-subrace-value-prop]]
@@ -6802,6 +7922,174 @@
                :value :b-action}
               {:title "Reaction"
                :value :reaction}]]]))
+
+(defn optional-builder-section
+  "Opt-in builder section: a toggle labelled `label` that reveals `body`. Starts OPEN when
+   `has-content?`. Stores nothing itself: an unopened section adds nothing to the export.
+   `{:compact? true}` renders the trigger a size smaller and drops the \"click to add\" nudge."
+  [_label has-content? _body & [_opts]]
+  (let [open? (r/atom (boolean has-content?))]
+    (fn [label _has-content? body & [{:keys [compact?]}]]
+      [:div {:class (if compact? "m-b-10" "m-b-20")}
+       [:div.flex.align-items-c.pointer.m-b-5 {:on-click #(swap! open? not)}
+        [:i.fa.m-r-5 {:class (str (if @open? "fa-caret-down" "fa-caret-up")
+                                  (when compact? " f-s-12"))}]
+        [:span {:class (if compact? "f-s-14" "f-s-18 f-w-b")} label]
+        (when (and (not @open?) (not compact?))
+          [:span.m-l-10.f-s-12.i.orange "click to add"])]
+       (when @open? body)])))
+
+(defn- with-current-pool
+  "`items` plus the entry's own pool when no item names it (an explicit set such as #{:wis :con}
+   is valid but has no menu entry), so the menu shows what is stored, not its first item."
+  [items pool]
+  (if (or (nil? pool) (some #(= pool (:value %)) items))
+    items
+    (concat items [{:title (if (coll? pool)
+                             (s/join " or " (map #(s/capitalize (name %)) (sort-by name pool)))
+                             (s/capitalize (name pool)))
+                    :value pool}])))
+
+(defn- with-current-number
+  "`items` plus the stored number when no item has it (an imported +4, or the -2 the race builder
+   allows), so the menu shows what is stored, not its first item."
+  [items n fmt]
+  (if (or (not (number? n)) (some #(= n (:value %)) items))
+    items
+    (sort-by :value (conj (vec items) {:title (fmt n) :value n}))))
+
+(defn- unreadable-row
+  "A grant entry the compilers skip, shown as it is stored with a Remove, so the author can find it
+   and take it out; `ability-save-notes` says why it is skipped."
+  [e on-remove]
+  [:div.flex.flex-wrap.align-items-c.m-b-5
+   [:span.f-s-12.i.red (str "This entry can't be read: " (pr-str e))]
+   [:button.m-l-5 {:on-click on-remove} "Remove"]])
+
+(defn- grant-rows
+  "Stored grant value `v` as the rows its editor lists: a vector when it is a list, else empty."
+  [v]
+  (if (sequential? v) (vec v) []))
+
+(defn ability-increase-choices
+  "Authoring UI for an :ability-increases spread, a list of [amount pool] increments. Each row is an
+   Amount and a To: a single stat is FIXED, a group (Any/Martial/Mental) is the player's choice. It
+   stores short keywords ([2 :cha] [1 :martial]); explicit sets (#{:wis :con}) are valid data but
+   written by hand, not here. Any silo: `item` is the content map; `update-ai!` is called with a
+   function of the stored spread, so a second click before a redraw builds on the first."
+  [item update-ai!]
+  (let [ais (grant-rows (:ability-increases item))
+        edit! (fn [f] (update-ai! #(f (grant-rows %))))
+        edit-at! (fn [i g] (edit! #(if (< i (count %)) (update % i g) %)))
+        remove-at! (fn [i] (edit! #(if (< i (count %)) (common/remove-at-index % i) %)))
+        amount-items (map (fn [n] {:title (common/bonus-str n) :value n}) (range 1 4))
+        target-items (concat
+                      [{:title "Any (all six)" :value :any}
+                       {:title "Martial (Str/Dex/Con)" :value :martial}
+                       {:title "Mental (Int/Wis/Cha)" :value :mental}]
+                      (map (fn [{:keys [name key]}]
+                             {:title name :value (keyword (clojure.core/name key))})
+                           opt/abilities))
+        ;; rebuild an increment preserving the optional :save rider (3rd element)
+        mk (fn [amount pool save?] (if save? [amount pool :save] [amount pool]))]
+    [:div.m-b-20
+     [:div.f-s-18.f-w-b.m-b-10 "Ability Score Increases"]
+     [:div.f-s-12.i.m-b-10 (str "A single stat is fixed; a group is the player's choice. "
+                                "All increases go to different abilities.")]
+     (doall
+      (map-indexed
+       (fn [i e]
+         (if-not (opt/pool-entry? e)
+           ^{:key i} [unreadable-row e #(remove-at! i)]
+           (let [[amount pool save-flag] e
+                 save? (= :save save-flag)]
+             ^{:key i}
+             [:div.flex.flex-wrap.align-items-c.m-b-5
+              [labeled-dropdown "Amount" {:items (with-current-number amount-items amount
+                                                                      common/bonus-str)
+                                          :value (or amount 1) :typed? true
+                                          :on-change (fn [a] (edit-at! i (fn [[_ p s]] (mk a p (= :save s)))))}]
+              [labeled-dropdown "To" {:items (with-current-pool target-items pool)
+                                      :value (or pool :any) :typed? true
+                                      :on-change (fn [p] (edit-at! i (fn [[a _ s]] (mk a p (= :save s)))))}]
+              ;; opt-in rider: also grant the save for this increment's ability, toggled through
+              ;; the tested opt/toggle-increment-save
+              [:span.m-l-5 [comps/labeled-checkbox "+ save prof"
+                            save? false
+                            #(edit-at! i opt/toggle-increment-save)]]
+              [:button.m-l-5 {:on-click #(remove-at! i)} "Remove"]])))
+       ais))
+     [:button {:on-click #(edit! (fn [rows] (conj rows [1 :any])))} "Add increase"]]))
+
+(defn save-proficiency-choices
+  "Authoring UI for :save-proficiencies — a list of [count pool] entries, saving-throw proficiencies
+   INDEPENDENT of any ability bump. A single stat grants that fixed save; a group lets the player
+   choose `count` saves from it. Silo-generic like ability-increase-choices: `item`, and `update-sp!`
+   called with a function of the stored list."
+  [item update-sp!]
+  (let [sps (grant-rows (:save-proficiencies item))
+        edit! (fn [f] (update-sp! #(f (grant-rows %))))
+        edit-at! (fn [i g] (edit! #(if (< i (count %)) (update % i g) %)))
+        remove-at! (fn [i] (edit! #(if (< i (count %)) (common/remove-at-index % i) %)))
+        count-items (map (fn [n] {:title (str n) :value n}) (range 1 4))
+        target-items (concat
+                      [{:title "Any (all six)" :value :any}
+                       {:title "Martial (Str/Dex/Con)" :value :martial}
+                       {:title "Mental (Int/Wis/Cha)" :value :mental}]
+                      (map (fn [{:keys [name key]}]
+                             {:title name :value (keyword (clojure.core/name key))})
+                           opt/abilities))]
+    [:div.m-b-20
+     [:div.f-s-18.f-w-b.m-b-10 "Saving Throw Proficiencies"]
+     [:div.f-s-12.i.m-b-10 (str "A single stat grants that save; a group lets the player choose "
+                                "that many saves from it.")]
+     (doall
+      (map-indexed
+       (fn [i e]
+         (if-not (opt/save-entry? e)
+           ^{:key i} [unreadable-row e #(remove-at! i)]
+           ;; a pool gives at most one save per ability in it: show the count it gives
+           (let [[cnt pool] e
+                 size #(count (opt/resolve-pool %))
+                 shown (min cnt (size pool))]
+             ^{:key i}
+             [:div.flex.flex-wrap.align-items-c.m-b-5
+              [labeled-dropdown "How many" {:items (with-current-number
+                                                    (take (size pool) count-items) shown str)
+                                            :value shown :typed? true
+                                            :on-change (fn [c] (edit-at! i (fn [[_ p]] [c p])))}]
+              [labeled-dropdown "From" {:items (with-current-pool target-items pool)
+                                        :value (or pool :any) :typed? true
+                                        :on-change (fn [p] (edit-at! i (fn [[c _]] [(min c (size p)) p])))}]
+              [:button.m-l-5 {:on-click #(remove-at! i)} "Remove"]])))
+       sps))
+     [:button {:on-click #(edit! (fn [rows] (conj rows [1 :any])))} "Add save"]]))
+
+(defn builder-notes
+  "Render `problems`, a seq of human-readable strings, as a builder form's item-level notes.
+   `:severity :error` (blocking): 'Fix before saving:' and a red list. `:advisory` (default,
+   non-blocking): italic ⚠ lines. Empty seq renders nothing. Summary only; per-row highlighting
+   belongs to the producer."
+  [problems & [{:keys [severity] :or {severity :advisory}}]]
+  (when (seq problems)
+    (if (= severity :error)
+      [:div.w-100-p.m-t-10
+       [:div.f-w-b.red.m-b-5 "Fix before saving:"]
+       (into [:ul] (map (fn [p] ^{:key p} [:li.red p]) problems))]
+      [:div.m-b-20
+       (doall (map-indexed (fn [i p] ^{:key i} [:div.f-s-12.i.m-b-5.red "⚠ " p]) problems))])))
+
+(defn ability-save-notes
+  "Authoring-time notes under the ASI/save widgets for THIS content entry:
+     - :error   — malformed :ability-increases/:save-proficiencies entries that the compilers will
+                  IGNORE (opt/ignored-entry-warnings); surfaces the otherwise-silent drop.
+     - :advisory — redundant/overlapping save coverage (opt/save-coverage-warnings); harmless at
+                  runtime (saves are a set), just flags wasted authoring/picks.
+   Renders nothing when clean."
+  [item]
+  [:div
+   [builder-notes (opt/ignored-entry-warnings item) {:severity :error}]
+   [builder-notes (opt/save-coverage-warnings item) {:severity :advisory}]])
 
 (defn race-builder []
   (let [race @(subscribe [::races/builder-item])]
@@ -6896,7 +8184,13 @@
                       (range -2 3 1))
               :value (get-in race [:abilities key] 0)
               :on-change #(dispatch [::races/set-race-ability-increase key %])}]])
-         opt/abilities))]]
+         opt/abilities))]
+      ;; Explicit keys: Reagent takes a first-argument map's :key as the React key.
+      ^{:key "asi"} [ability-increase-choices race
+                     #(dispatch [::races/update-race-path-prop [:ability-increases] %])]
+      ^{:key "saves"} [save-proficiency-choices race
+                       #(dispatch [::races/update-race-path-prop [:save-proficiencies] %])]
+      ^{:key "notes"} [ability-save-notes race]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [:div.m-b-20
@@ -6971,6 +8265,11 @@
        [textarea-field
         {:value (get background :help)
          :on-change #(dispatch [::bg/set-background-prop :help %])}]]
+     [:div [ability-increase-choices background
+            #(dispatch [::bg/update-background-prop :ability-increases %])]]
+     [:div [save-proficiency-choices background
+            #(dispatch [::bg/update-background-prop :save-proficiencies %])]]
+     [:div [ability-save-notes background]]
      [:div [background-skill-proficiencies background]]
      [:div [background-languages background]]
      [:div [background-tool-proficiencies background]]
@@ -6994,6 +8293,14 @@
                   options)
         freqs (frequencies (remove nil? keys))]
     (set (map first (filter #(> (val %) 1) freqs)))))
+
+(defn add-option-button
+  "The selection builder's Add Option button; dispatches ::selections/add-option.
+   No args. Returns hiccup."
+  []
+  [:button.form-button
+   {:on-click #(dispatch [::selections/add-option])}
+   "Add Option"])
 
 (defn selection-builder []
   (let [selection @(subscribe [::selections/builder-item])
@@ -7025,9 +8332,7 @@
      [:div
       [:div.flex.justify-cont-s-b
        [:div.f-s-24.f-w-b "Options"]
-       [:button.form-button
-        {:on-click #(dispatch [::selections/add-option])}
-        "Add Option"]]
+       [add-option-button]]
       ;; Summary warning for duplicate names
       (when has-dupes?
         [:div.p-10.m-b-10.red
@@ -7082,7 +8387,11 @@
                [textarea-field
                 {:value description
                  :on-change #(dispatch [::selections/set-selection-path-prop [:options i :description] %])}]]]))
-         options))]]]))
+         options))]
+      ;; Repeated below a non-empty list so a long one needs no scroll back up.
+      (when (seq options)
+        [:div.p-t-10.flex.justify-cont-end
+         [add-option-button]])]]))
 
 (defn language-builder []
   (let [language @(subscribe [::langs/builder-item])]
@@ -7370,6 +8679,8 @@
        :types [{:title "Other"}
                {:title "Action"
                 :value :action}
+               {:title "Reaction"
+                :value :reaction}
                {:title "Legendary Action"
                 :value :legendary-action}]]]
      [:div.w-100-p.m-t-30
@@ -7975,7 +9286,7 @@
           [:div.m-r-10.pointer.m-b-10
            {:on-click #(do (dispatch [::spells/toggle-spell-list key])
                            (dispatch [:clear-builder-field-error :spell-lists]))}
-           [comps/checkbox (get-in spell [:spell-lists key])]
+           [comps/checkbox (get-in spell [:spell-lists key]) false name]
            [:span.m-l-5 name]])
         @(subscribe [::spells/spellcasting-classes]))]]]))
 
@@ -8057,6 +9368,8 @@
        [:div.m-b-40 [base-weapon-selector]])
      [:div.m-b-40
       [attunement-selector attunement]]
+     [charges-builder/charges-group item]
+     (when (= :weapon type) [charges-builder/powers-group item])
      [item-bonuses item]]))
 
 (defn import-file [e]
@@ -8080,277 +9393,498 @@
 
 (defn my-content-type []
   (let [expanded? (r/atom false)]
-    (fn [source-name plugin type-name type-key icon add-event edit-event delete-event plural]
-      (let [items (sort (type-key plugin))]
-        [:div.pointer.item-list-item
-         [:div.flex.justify-cont-s-b.align-items-c.p-10
-          {:on-click #(swap! expanded? not)}
-          [:div.flex.align-items-c
-           [:div.h-48.flex.align-items-c
-            (if (vector? icon)
-              (doall
-               (map-indexed
-                (fn [index ico]
-                  ^{:key index}
-                  [svg-icon ico (/ 48 (count icon)) @(subscribe [:theme])])
-                icon))
-              [svg-icon icon 48 @(subscribe [:theme])])]
-           [:span.m-l-10.f-s-24 (let [num (count items)
-                                      final-type-name (if plural
-                                                        (if (not= 1 num) plural type-name)
-                                                        (str type-name (when (not= 1 num) "s")))]
-                                  (str num " " (capitalize-words final-type-name)))]]
-          [:div.orange.pointer
-           [:i.fa.m-r-5
-            {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
-           [:span.underline (if @expanded? "collapse" "expand")]]]
-         (when @expanded?
-           [:div.bg-lighter.p-10
-            [:div.flex.justify-cont-end
-             [:button.form-button.m-l-5
-              {:on-click (make-event-handler add-event source-name)}
-              (str "add " type-name)]]
-            [:div
-             (doall
-              (map-indexed
-               (fn [i [key {:keys [name disabled?] :as item}]]
-                 ^{:key key}
-                 [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
-                  [:div.m-r-10.flex.align-items-c.flex-column
-                   {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
-                   [:div.f-s-10 "enabled?"]
-                   [comps/checkbox
-                    (not (get-in plugin [type-key key :disabled?]))
-                    false]]
-                  [:span.flex-grow-1 name]
-                  [:div
-                   [:button.form-button.m-l-5
-                    {:on-click (make-event-handler edit-event item)}
-                    "edit"]
-                   [:button.form-button.m-l-5
-                    {:on-click (make-stop-prop-event-handler delete-event item)}
-                    "delete"]]])
-               items))]])]))))
+    ;; `search` (lower-cased query, "" for none) and `show-disabled?` are threaded
+    ;; from my-content-item so one toolbar filters every category. The category
+    ;; self-hides when nothing matches, so hide-empty, search, and the disabled
+    ;; filter are one decision instead of three.
+    (fn [source-name plugin type-name type-key icon add-event edit-event delete-event plural search show-disabled?]
+      (let [all-items  (sort (type-key plugin))
+            total-n    (count all-items)
+            disabled-n (count (filter (fn [[_ item]] (:disabled? item)) all-items))
+            ;; Cross-source same-key collisions, computed at display time so a
+            ;; disabled item can say WHY it's off (its twin elsewhere is on) and
+            ;; the enabled winner can point at its silenced duplicate.
+            twin-idx   @(subscribe [::e5/collision-twin-index])
+            dangling   @(subscribe [::e5/dangling-links])
+            select-mode? @(subscribe [::e5/content-select-mode?])
+            q          (or search "")
+            visible    (filter (fn [[_ {:keys [name disabled?]}]]
+                                 (and (or show-disabled? (not disabled?))
+                                      (or (= "" q)
+                                          (s/includes? (s/lower-case (str name)) q))))
+                               all-items)]
+        (when (seq visible)
+         (let [section-off? @(subscribe [::e5/section-disabled? source-name type-key])
+               global-off?  @(subscribe [::e5/global-disabled?])
+               ;; effective/inherited: a section reads off if it's off itself OR an
+               ;; ancestor (the global toggle) is off. Only the section's OWN flag
+               ;; is user-editable here; the global part is shown, not toggled.
+               eff-off?     (or section-off? global-off?)]
+          [:div.pointer.item-list-item
+           [:div.flex.justify-cont-s-b.align-items-c.p-10
+            {:on-click #(swap! expanded? not)}
+            [:div.flex.align-items-c
+             ;; Section enable/disable (a whole content-type in this source). Dim +
+             ;; disabled when global is off, since the section is off by inheritance.
+             [:div.m-r-10.flex.align-items-c.flex-column
+              {:class (when global-off? "opacity-5")
+               ;; When global is off the section can't be individually re-enabled
+               ;; (its ancestor overrides it) — swallow the click without toggling.
+               :on-click (if global-off?
+                           (fn [e] (.stopPropagation e))
+                           (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key))}
+              [:span.dev-mode-switch.compact
+               (merge (switch-attrs (not eff-off?)
+                                    (when-not global-off?
+                                      (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key)))
+                      {:class (when-not eff-off? "on") :title "On in the builder"})]]
+             [:div.h-48.flex.align-items-c
+              {:class (when eff-off? "opacity-5")}
+              (if (vector? icon)
+                (doall
+                 (map-indexed
+                  (fn [index ico]
+                    ^{:key index}
+                    [svg-icon ico (/ 48 (count icon)) @(subscribe [:theme])])
+                  icon))
+                [svg-icon icon 48 @(subscribe [:theme])])]
+             [:span.m-l-10.f-s-24 {:class (when eff-off? "opacity-5")}
+              (let [num total-n
+                    final-type-name (if plural
+                                      (if (not= 1 num) plural type-name)
+                                      (str type-name (when (not= 1 num) "s")))]
+                (str num " " (capitalize-words final-type-name)))]
+             (when (and section-off? (not global-off?))
+               [:span.m-l-10.f-s-12.b-color-gray "· section off"])
+             (when global-off?
+               [:span.m-l-10.f-s-12.b-color-gray "· all homebrew off"])
+             (when (pos? disabled-n)
+               [:span.m-l-10.f-s-12.opacity-5 (str "· " disabled-n " disabled")])]
+            [:div.orange.pointer
+             [:i.fa.m-r-5
+              {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
+             [:span.underline (if @expanded? "collapse" "expand")]]]
+           (when @expanded?
+             [:div.bg-lighter.p-10
+              [:div.flex.justify-cont-end
+               [:button.form-button.m-l-5
+                {:on-click (make-event-handler add-event source-name)}
+                (str "add " type-name)]]
+              [:div
+               (doall
+                (map-indexed
+                 (fn [i [key {:keys [name disabled?] :as item}]]
+                   (let [note (orcbrew-val/twin-note twin-idx source-name type-key key disabled?)
+                         selected? (and select-mode?
+                                        @(subscribe [::e5/content-selected? source-name type-key key]))]
+                   ^{:key key}
+                   (if select-mode?
+                     ;; SELECT MODE: enable/edit/delete step aside; a round selector
+                     ;; (distinct from the square enable) + the whole row is the tap
+                     ;; target. Selected rows tint + get an amber rail.
+                     [:div.p-t-10.p-b-10.f-w-b.flex.align-items-c.mc-selrow
+                      {:class (when selected? "selected")
+                       :on-click (make-event-handler ::e5/toggle-content-selection source-name type-key key)}
+                      [:span.mc-selcircle.m-r-10 {:class (when selected? "on")}
+                       [:i.fa.fa-check]]
+                      [:span.flex-grow-1 name]]
+                     ;; NORMAL MODE: enable toggle + name (+ twin note) + edit/delete.
+                     ;; An UNRESOLVED conflict (:conflict) gets a red rail so the
+                     ;; offending entry is easy to spot from the health banner.
+                     [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
+                      {:class (when disabled? "opacity-5")
+                       :style (when (= :conflict (:kind note))
+                                {:box-shadow "inset 3px 0 0 #ffd21a"
+                                 :padding-left "8px"})}
+                      [:div.m-r-10.flex.align-items-c.flex-column
+                       {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
+                       (let [on? (not (get-in plugin [type-key key :disabled?]))]
+                         [:span.dev-mode-switch.compact
+                          (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key))
+                                 {:class (when on? "on") :title "On in the builder"})])]
+                      ;; name + (when there's a same-key twin) a small plain note
+                      ;; about the mutual-exclusion, so "off" never looks arbitrary.
+                      [:div.flex-grow-1
+                       [:span name]
+                       (when-let [missing (get dangling [source-name type-key key])]
+                         [:div.f-s-12 {:style {:color "#ffd21a"}}
+                          ;; `name` here is the item's name (destructured above), not the function.
+                          (str "Uses "
+                               (s/join ", " (for [{:keys [to target]} missing]
+                                              (str (s/lower-case (get orcbrew-val/content-type-singular to "item"))
+                                                   " \u201c" (if (keyword? target) (cljs.core/name target) target) "\u201d")))
+                               ", which isn't in your library.")])
+                       (when note
+                         [:div.f-s-12
+                          {:class (when (= :off (:kind note)) "b-color-gray")
+                           :style (when (= :conflict (:kind note)) {:color "#ffd21a"})}
+                          (when (= :conflict (:kind note))
+                            [:i.fa.fa-exclamation-triangle.m-r-5])
+                          (case (:kind note)
+                            :conflict (str "conflict — also enabled in " (:twin-source note))
+                            :off (str "off — \"" (:twin-name note) "\" in " (:twin-source note) " is on")
+                            (str "on — duplicate \"" (:twin-name note) "\" in " (:twin-source note) " is off"))])]
+                      [:div
+                       [:button.form-button.m-l-5
+                        {:on-click (make-event-handler edit-event item source-name key type-key)}
+                        "edit"]
+                       [:button.form-button.m-l-5
+                        {:on-click (make-stop-prop-event-handler delete-event item source-name key)}
+                        "delete"]]])))
+                 visible))]])]))))))
 
-(defn my-selections [name plugin]
-  [my-content-type
-   name
-   plugin
-   "selection"
-   ::e5/selections
-   "checklist"
-   ::selections/new-selection
-   ::selections/edit-selection
-   ::selections/delete-selection])
+;; The My Content library's content types, one entry each. Drives both the rendered
+;; category rows (my-content-item) and the add-content menu, so hiding empty categories
+;; and creating a type's first item read the same list. Order here is display order.
+(def my-content-types
+  [{:type-name "spell"               :type-key ::e5/spells      :icon "spell-book"                        :add-event ::spells/new-spell         :edit-event ::spells/edit-spell         :delete-event ::spells/delete-spell}
+   {:type-name "monster"             :type-key ::e5/monsters    :icon "hydra"                             :add-event ::monsters/new-monster     :edit-event ::monsters/edit-monster     :delete-event ::monsters/delete-monster}
+   {:type-name "encounter"           :type-key ::e5/encounters  :icon "hydra"                             :add-event ::encounters/new-encounter :edit-event ::encounters/edit-encounter :delete-event ::encounters/delete-encounter}
+   {:type-name "background"          :type-key ::e5/backgrounds :icon "ages"                              :add-event ::bg/new-background        :edit-event ::bg/edit-background        :delete-event ::bg/delete-background}
+   {:type-name "race"                :type-key ::e5/races       :icon "woman-elf-face"                    :add-event ::races/new-race           :edit-event ::races/edit-race           :delete-event ::races/delete-race}
+   {:type-name "subrace"             :type-key ::e5/subraces    :icon "woman-elf-face" :add-event ::races/new-subrace        :edit-event ::races/edit-subrace        :delete-event ::races/delete-subrace}
+   {:type-name "class"               :type-key ::e5/classes     :icon "mounted-knight"                    :add-event ::classes/new-class        :edit-event ::classes/edit-class        :delete-event ::classes/delete-class      :plural "classes"}
+   {:type-name "subclass"            :type-key ::e5/subclasses  :icon "mounted-knight" :add-event ::classes/new-subclass     :edit-event ::classes/edit-subclass     :delete-event ::classes/delete-subclass   :plural "subclasses"}
+   {:type-name "eldritch invocation" :type-key ::e5/invocations :icon "warlock-eye"                       :add-event ::classes/new-invocation   :edit-event ::classes/edit-invocation   :delete-event ::classes/delete-invocation}
+   {:type-name "pact boon"           :type-key ::e5/boons       :icon "cursed-star"                       :add-event ::classes/new-boon         :edit-event ::classes/edit-boon         :delete-event ::classes/delete-boon}
+   {:type-name "feat"                :type-key ::e5/feats       :icon "vitruvian-man"                     :add-event ::feats/new-feat           :edit-event ::feats/edit-feat           :delete-event ::feats/delete-feat}
+   {:type-name "language"            :type-key ::e5/languages   :icon "vitruvian-man"                     :add-event ::langs/new-language       :edit-event ::langs/edit-language       :delete-event ::langs/delete-language}
+   {:type-name "selection"           :type-key ::e5/selections  :icon "checklist"                         :add-event ::selections/new-selection :edit-event ::selections/edit-selection :delete-event ::selections/delete-selection}])
 
-(defn my-spells [name plugin]
-  [my-content-type
-   name
-   plugin
-   "spell"
-   ::e5/spells
-   "spell-book"
-   ::spells/new-spell
-   ::spells/edit-spell
-   ::spells/delete-spell])
+(defn add-content-menu
+  "Create the first item of a content type this source doesn't have yet. Empty
+   categories are hidden from the list, so this dropdown is the only entry point
+   for them; it lists exactly the types the source is currently missing."
+  [source-name missing-specs]
+  [:div.p-t-10
+   [:select.m-l-5.p-5.builder-option-dropdown.w-auto
+    {:value ""
+     :on-change (fn [e]
+                  (let [v (.. e -target -value)
+                        spec (first (filter #(= v (name (:type-key %))) missing-specs))]
+                    (set! (.. e -target -value) "")
+                    (when spec
+                      (dispatch [(:add-event spec) source-name]))))}
+    [:option.builder-dropdown-item {:value ""} "+ add content…"]
+    (doall
+     (for [{:keys [type-name type-key]} missing-specs]
+       ^{:key type-name}
+       [:option.builder-dropdown-item {:value (name type-key)} (str "add " type-name)]))]])
 
-(defn my-monsters [name plugin]
-  [my-content-type
-   name
-   plugin
-   "monster"
-   ::e5/monsters
-   "hydra"
-   ::monsters/new-monster
-   ::monsters/edit-monster
-   ::monsters/delete-monster])
+(defn source-disabled-count
+  "Total disabled items across every content type in one source — the number shown
+   on the source's 'show disabled (N)' toggle."
+  [plugin]
+  (reduce + 0
+          (for [[ct items] plugin
+                :when (and (qualified-keyword? ct) (map? items))
+                [_ item] items
+                :when (and (map? item) (:disabled? item))]
+            1)))
 
-(defn my-encounters [name plugin]
-  [my-content-type
-   name
-   plugin
-   "encounter"
-   ::e5/encounters
-   "hydra"
-   ::encounters/new-encounter
-   ::encounters/edit-encounter
-   ::encounters/delete-encounter])
-
-(defn my-backgrounds [name plugin]
-  [my-content-type
-   name
-   plugin
-   "background"
-   ::e5/backgrounds
-   "ages"
-   ::bg/new-background
-   ::bg/edit-background
-   ::bg/delete-background])
-
-(defn my-races [name plugin]
-  [my-content-type
-   name
-   plugin
-   "race"
-   ::e5/races
-   "woman-elf-face"
-   ::races/new-race
-   ::races/edit-race
-   ::races/delete-race])
-
-(defn my-subraces [name plugin]
-  [my-content-type
-   name
-   plugin
-   "subrace"
-   ::e5/subraces
-   ["woman-elf-face"
-    "woman-elf-face"]
-   ::races/new-subrace
-   ::races/edit-subrace
-   ::races/delete-subrace])
-
-
-(defn my-classes [name plugin]
-  [my-content-type
-   name
-   plugin
-   "class"
-   ::e5/classes
-   "mounted-knight"
-   ::classes/new-class
-   ::classes/edit-class
-   ::classes/delete-class
-   "classes"])
-
-
-(defn my-subclasses [name plugin]
-  [my-content-type
-   name
-   plugin
-   "subclass"
-   ::e5/subclasses
-   ["mounted-knight"
-    "mounted-knight"]
-   ::classes/new-subclass
-   ::classes/edit-subclass
-   ::classes/delete-subclass
-   "subclasses"])
-
-(defn my-invocations [name plugin]
-  [my-content-type
-   name
-   plugin
-   "eldritch invocation"
-   ::e5/invocations
-   "warlock-eye"
-   ::classes/new-invocation
-   ::classes/edit-invocation
-   ::classes/delete-invocation])
-
-(defn my-boons [name plugin]
-  [my-content-type
-   name
-   plugin
-   "pact boon"
-   ::e5/boons
-   "cursed-star"
-   ::classes/new-boon
-   ::classes/edit-boon
-   ::classes/delete-boon])
-
-(defn my-feats [name plugin]
-  [my-content-type
-   name
-   plugin
-   "feat"
-   ::e5/feats
-   "vitruvian-man"
-   ::feats/new-feat
-   ::feats/edit-feat
-   ::feats/delete-feat])
-
-(defn my-languages [name plugin]
-  [my-content-type
-   name
-   plugin
-   "language"
-   ::e5/languages
-   "vitruvian-man"
-   ::langs/new-language
-   ::langs/edit-language
-   ::langs/delete-language])
+(defn source-disabled-counts
+  "A source's disabled items split by REASON: {:compat n :benign n}. Compat = the
+   app turned it off to resolve a duplicate (:disabled-reason :compat); benign =
+   you turned it off. Drives the amber-vs-blue library-header badge."
+  [plugin]
+  (reduce (fn [acc [ct items]]
+            (if (and (qualified-keyword? ct) (map? items))
+              (reduce (fn [a [_ item]]
+                        (cond
+                          (not (and (map? item) (:disabled? item)))  a
+                          (= :compat (:disabled-reason item))         (update a :compat inc)
+                          :else                                       (update a :benign inc)))
+                      acc items)
+              acc))
+          {:compat 0 :benign 0} plugin))
 
 (defn my-content-item []
-  (let [expanded? (r/atom false)]
+  (let [expanded?      (r/atom false)
+        search         (r/atom "")
+        show-disabled? (r/atom true)]
     (fn [name plugin]
-      [:div.item-list-item
-       [:div.p-20.pointer.flex.justify-cont-s-b.align-items-c.main-text-color
-        {:on-click #(swap! expanded? not)}
-        [:div.m-r-10.flex.align-items-c.flex-column
-         {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin name)}
-         [:div.f-s-10 "enabled?"]
-         [comps/checkbox
-          (not (get plugin :disabled?))
-          false]]
-        [:span.f-s-24.flex-grow-1 name]
-        [:div.orange
-         [:i.fa.m-r-5
-          {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
-         [:span.pointer.underline (if @expanded? "collapse" "expand")]]]
-       (when @expanded?
-         [:div.bg-lighter.p-10
-          [:div.flex.justify-cont-end.uppercase.align-items-c.m-b-10
-           [:button.form-button.m-l-5
-            {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
-            "export"]
-           [:button.form-button.m-l-5
-            {:on-click (make-event-handler ::e5/delete-plugin name)}
-            "delete"]]
-          [:div.item-list
-           [my-spells name plugin]
-           [my-monsters name plugin]
-           [my-encounters name plugin]
-           [my-backgrounds name plugin]
-           [my-races name plugin]
-           [my-subraces name plugin]
-           [my-classes name plugin]
-           [my-subclasses name plugin]
-           [my-invocations name plugin]
-           [my-boons name plugin]
-           [my-feats name plugin]
-           [my-languages name plugin]
-           [my-selections name plugin]]])])))
+      (let [has-content? (some (fn [{:keys [type-key]}] (seq (type-key plugin))) my-content-types)
+            q            (-> @search s/lower-case s/trim)
+            show?        @show-disabled?
+            ;; does this source hold an item in an unresolved key conflict? (flags
+            ;; the row so the health banner's "resolve" has somewhere to point).
+            ;; Reads the memoized set so every row shares one library walk.
+            conflict?    (contains? (:conflict-sources @(subscribe [::e5/library-health])) name)]
+        [:div.item-list-item
+         [:div.p-20.pointer.flex.justify-cont-s-b.align-items-c.main-text-color
+          {:on-click #(swap! expanded? not)}
+          [:div.m-r-10.flex.align-items-c.flex-column
+           {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin name)}
+           (let [on? (not (get plugin :disabled?))]
+             [:span.dev-mode-switch
+              (merge (switch-attrs on? (make-stop-prop-event-handler ::e5/toggle-plugin name))
+                     {:class (when on? "on") :title "On in the builder"})])]
+          [:div.flex-grow-1.flex.align-items-c
+           [:span.f-s-24 name]
+           ;; disabled badge(s), colored by reason — amber (app/compat) shown first
+           ;; since it's the one worth noticing; blue (you turned it off) is benign.
+           (let [{:keys [compat benign]} (source-disabled-counts plugin)]
+             [:span
+              (when conflict?
+                [:span.lib-badge {:style {:background-color "rgba(255,210,26,0.16)" :color "#ffd21a"}}
+                 [:i.fa.fa-exclamation-triangle.m-r-5] "conflict"])
+              (when (pos? compat)
+                [:span.lib-badge.lib-badge-compat [:span.lib-dot] (str compat " off · compatibility")])
+              (when (pos? benign)
+                [:span.lib-badge.lib-badge-benign [:span.lib-dot] (str benign " off")])])]
+          [:div.orange
+           [:i.fa.m-r-5
+            {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
+           [:span.pointer.underline (if @expanded? "collapse" "expand")]]]
+         (when @expanded?
+           [:div.bg-lighter.p-10
+            ;; One row for the whole source: the search that filters every category
+            ;; below, the show-disabled toggle whose (N) is this source's disabled
+            ;; count, and the source's own actions. It wraps on a narrow screen —
+            ;; search first, then the toggle and the buttons.
+            [:div.mc-source-toolbar
+             (when has-content?
+               [:input.input.h-40.p-l-10.f-s-14.mc-source-search
+                {:type "text"
+                 :placeholder "search this source…"
+                 :value @search
+                 :on-change #(reset! search (.. % -target -value))}])
+             (when has-content?
+               (let [dn (source-disabled-count plugin)]
+                 [:div.flex.align-items-c.pointer.f-s-14.mc-source-disabled
+                  {:on-click #(swap! show-disabled? not)}
+                  [:span.dev-mode-switch.compact
+                   (merge (switch-attrs show? #(swap! show-disabled? not))
+                          {:class (when show? "on") :aria-label "Show disabled"})]
+                  [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]]))
+             [:div.flex.align-items-c.uppercase.mc-source-actions
+              [:button.form-button
+               {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
+               "export"]
+              [:button.form-button.m-l-5
+               {:on-click (make-event-handler ::e5/delete-plugin name)}
+               "delete"]]]
+            ;; The tag this source mints its keys with — the same quiet line as the item's key,
+            ;; because it is the same kind of thing. Blank means the derivation decides, and the
+            ;; derived value shows muted rather than being stored, so improving the rule reaches
+            ;; every source that never set one.
+            [meta-edit-row
+             {:label "key tag"
+              :value (or (:abbreviation plugin) (common/source-abbreviation name))
+              :derived? (nil? (:abbreviation plugin))
+              :placeholder (or (:abbreviation plugin) (common/source-abbreviation name))
+              :on-save #(dispatch [::e5/set-source-abbreviation name %])
+              :help (str "Keys minted in this source from now on end with this tag. "
+                         "Keys already minted keep the tag they have. "
+                         "Leave it blank to use the one derived from the source's name.")}]
+            [:div.item-list
+             ;; Render every type; each my-content-type self-hides when it has no
+             ;; items matching the search + show-disabled filter (so hide-empty and
+             ;; the filters are one decision). Missing types are offered below.
+             (doall
+              (for [{:keys [type-name type-key icon add-event edit-event delete-event plural]} my-content-types]
+                ^{:key type-name}
+                ;; one list that cannot draw costs that list, not the source or the page
+                [render-guard {:source name :type type-name}
+                 [my-content-type name plugin type-name type-key icon add-event edit-event delete-event
+                  plural q show?]]))
+             (let [missing (remove #(seq ((:type-key %) plugin)) my-content-types)]
+               (when (seq missing)
+                 [add-content-menu name missing]))]])]))))
+
+(defn relocate-bar
+  "Bulk action bar for move/copy. Shown while in select mode: pick a target source
+   and Move or Copy every selected item there. Single vs bulk is just how many are
+   ticked — the same bar drives both."
+  []
+  (let [target (r/atom nil)]
+    (fn []
+      (let [n       @(subscribe [::e5/content-selection-count])
+            sources (sort (keys @(subscribe [::e5/plugins])))
+            tgt     (or @target (first sources))
+            none?   (zero? n)]
+        [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.flex-wrap
+         [:span.f-w-b.f-s-16.m-r-10 (str n " selected")]
+         [:span.m-r-5.f-s-14 "to"]
+         [:select.m-r-10.p-5.f-s-14
+          {:value (str tgt)
+           :on-change #(reset! target (.. % -target -value))}
+          (doall (for [s sources] ^{:key s} [:option {:value s} s]))]
+         [:button.form-button.m-r-5
+          {:class (when none? "disabled") :disabled none?
+           :on-click #(dispatch [::e5/relocate-selected tgt :move])}
+          "Move here"]
+         [:button.form-button.m-r-10
+          {:class (when none? "disabled") :disabled none?
+           :on-click #(dispatch [::e5/relocate-selected tgt :copy])}
+          "Copy here"]
+         (when-not none?
+           [:span.link-button.pointer.m-r-10
+            {:on-click (make-event-handler ::e5/clear-content-selection)}
+            "clear"])
+         [:span.link-button.pointer
+          {:on-click (make-event-handler ::e5/toggle-select-mode)}
+          "done"]]))))
+
+(defn library-health-status
+  "Passive library-health card — appears only when something needs attention, and
+   collapses to nothing when clean. One fixed card, a line per problem TYPE with a
+   count (never per-item, so a big mess can't flood the page); each line routes into
+   the existing resolver. Warning-yellow for resolvable, red reserved for broken.
+   Re-keyed on the total so the one-time flash fires on appearance and on any change.
+   Reuses the existing detectors — no new detection/resolution logic here."
+  [always?]
+  (let [{:keys [conflicts missing blocked]} @(subscribe [::e5/library-health])
+        cn        (count conflicts)
+        ;; each line: {:sev :warn|:broken :n :msg :detail [..] :more :act-label :act}
+        lines (cond-> []
+                (pos? cn)
+                (conj {:sev :warn :n cn
+                       :msg (str cn " key conflict" (when (> cn 1) "s")
+                                 " — the app can't tell which copy to use")
+                       :detail (mapv (fn [{:keys [key sources]}]
+                                       (str ":" (name key) " in " (s/join ", " sources)))
+                                     (take 4 conflicts))
+                       :more (max 0 (- cn 4))
+                       :act-label "resolve" :act ::e5/check-content-conflicts})
+                (pos? missing)
+                (conj {:sev :warn :n missing
+                       :msg (str missing " item" (when (> missing 1) "s")
+                                 " missing a required field — won't export until fixed")
+                       :act-label "fix" :act ::e5/export-all-plugins})
+                (pos? blocked)
+                (conj {:sev :broken :n blocked
+                       :msg (str blocked " source" (when (> blocked 1) "s")
+                                 " can't export — invalid data")
+                       :act-label "review" :act ::e5/export-all-plugins}))
+        total (reduce + 0 (map :n lines))
+        ;; signature of the CURRENT problem set — dismissal is remembered against
+        ;; this, so the card re-appears the moment the problems change.
+        sig (hash [(vec (sort (map (comp str :key) conflicts))) missing blocked])
+        dismissed @(subscribe [::e5/health-dismissed])]
+    ;; My Content (always?) ignores dismissal — the hub always surfaces problems.
+    (when (and (seq lines) (or always? (not= sig dismissed)))
+      ^{:key total}
+      [:div.health-card.health-flash.m-b-10
+       (when-not always?
+         [:span.health-x {:title "Dismiss until it changes"
+                          :on-click (make-event-handler ::e5/dismiss-health sig)}
+          [:i.fa.fa-times]])
+       (doall
+        (for [{:keys [sev n msg detail more act-label act]} lines]
+          ^{:key act-label}
+          [:div.health-row {:class (when (= sev :broken) "health-broken")}
+           [:span.health-rail]
+           [:span.health-ico [:i.fa.fa-exclamation-triangle]]
+           [:span.health-msg
+            [:strong msg]
+            (when (seq detail)
+              [:div.f-s-12.opacity-7.m-t-2
+               (s/join " · " detail)
+               (when (pos? more) (str " · +" more " more"))])]
+           [:span.health-act
+            {:on-click (make-event-handler act)}
+            act-label]]))])))
+
+(defn delete-all-control
+  "Delete-all as a 3-step guard: a quiet red 'Delete…' guard unfurls the full red
+   button (which lifts OUT of the bar so the toolbar never reflows), and clicking
+   that opens the are-you-sure bar underneath (rendered by my-content). `armed` is
+   the local unfurl state; the confirm itself lives in db so the bar can span the
+   full width below."
+  []
+  (let [armed (r/atom false)]
+    (fn []
+      [:span.mc-guard-wrap
+       [:button.mc-guard.b-delete
+        {:title "Delete all sources" :on-click #(reset! armed true)}
+        [:i.fa.fa-trash] [:span.mc-lbl "Delete…"]]
+       (when @armed
+         [:div.mc-liftpop
+          [:button.form-button.mc-del
+           {:on-click #(do (reset! armed false)
+                           (dispatch [::char/show-delete-plugin-confirmation]))}
+           [:i.fa.fa-trash.m-r-5] "Delete all sources"]
+          [:span.link-button.pointer
+           {:on-click #(reset! armed false)}
+           "cancel"]])])))
 
 (defn my-content []
-  [:div.main-text-color
-   [:div.flex.justify-cont-end
-    [:button.form-button.m-r-10.m-b-10
-     {:on-click (make-event-handler ::char/show-delete-plugin-confirmation)}
-     "Delete All"]
-    [:button.form-button.m-r-10.m-b-10
-     {:on-click (make-event-handler ::e5/export-all-plugins)}
-     "Export All"]]
-   [:div.flex.justify-cont-end
+  (let [select-mode? @(subscribe [::e5/content-select-mode?])]
+   [:div.main-text-color
+    ;; Toolbar in two zones: a CONTENT action on the left (Move/copy — it operates
+    ;; on your items) and the whole-LIBRARY actions on the right (Export = primary,
+    ;; the quiet red Delete guard). Conflict-checking is NOT here — it's a passive
+    ;; health status below, surfaced only when there's something to fix.
+    [:div.mc-toolbar.m-b-10
+     [:button.mc-btn.b-move
+      {:title "Move / copy" :on-click (make-event-handler ::e5/toggle-select-mode)}
+      [:i.fa.fa-exchange-alt] [:span.mc-lbl (if select-mode? "Exit select" "Move / copy")]]
+     [:div.mc-right
+      [:button.mc-btn.mc-primary.b-export
+       {:title "Export All" :on-click (make-event-handler ::e5/export-all-plugins)}
+       [:i.fa.fa-download] [:span.mc-lbl "Export All"]]
+      [:span.mc-divider]
+      [delete-all-control]]]
+    (when select-mode?
+      [relocate-bar])
+    ;; are-you-sure bar, opens UNDERNEATH the toolbar (never reflows the row);
+    ;; carries the source count + an "Export a backup first" off-ramp.
     (when @(subscribe [::char/delete-plugin-confirmation-shown?])
-      [:div.p-20.flex.justify-cont-end
-       [:div
-        [:div.m-b-10 "Are you sure you want to delete ALL Option sources?"]
-        [:div.flex
+      (let [n (count @(subscribe [::e5/plugins]))]
+        [:div.mc-confirmbar
+         [:i.fa.fa-exclamation-triangle {:style {:color "#e5637a"}}]
+         [:span.f-s-14 "Delete all " [:strong n] " source" (when (not= 1 n) "s")
+          "? This can't be undone."]
+         [:div.flex-grow-1]
          [:button.form-button
+          {:on-click (make-event-handler ::e5/export-all-plugins)}
+          [:i.fa.fa-download.m-r-5] "Export a backup first"]
+         [:span.link-button.pointer.m-r-5
           {:on-click (make-event-handler ::char/hide-delete-plugin-confirmation)}
-          "cancel"]
-         [:span.link-button
+          "Cancel"]
+         [:button.form-button.mc-del
           {:on-click (make-event-handler ::char/delete-all-plugins)}
-          "delete"]]]])]
+          "Delete all " n " source" (when (not= 1 n) "s")]]))
+   ;; Library-health status is rendered by content-page, not here.
+   ;; When duplicate keys have forced items off, say so once at the top with a link into
+   ;; the conflict modal, explaining the silenced items in aggregate, not just per row.
+   (let [off-n @(subscribe [::e5/mutual-exclusion-off-count])]
+     (when (pos? off-n)
+       [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.justify-cont-s-b
+        [:span.f-s-14
+         [:i.fa.fa-random.m-r-5.opacity-7]
+         (str off-n " item" (when (> off-n 1) "s")
+              " off because a duplicate is on")]
+        [:span.link-button.pointer
+         {:on-click (make-event-handler ::e5/check-content-conflicts)}
+         "review"]]))
+   ;; Disable-hierarchy master switch (a local view preference, not stored in any
+   ;; .orcbrew): turning it off hides ALL homebrew from the builder at once while
+   ;; leaving every source saved. Section (per content-type) and source/item
+   ;; toggles live further down; this is the top of that hierarchy.
+   (let [global-off? @(subscribe [::e5/global-disabled?])]
+     [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c
+      [:div.flex.align-items-c.pointer
+       {:on-click (make-event-handler ::e5/toggle-global-disable)}
+       [:span.dev-mode-switch
+        (merge (switch-attrs (not global-off?) (make-event-handler ::e5/toggle-global-disable))
+               {:class (when-not global-off? "on") :aria-label "All homebrew"})]
+       [:span.m-l-10.f-s-16.f-w-b "All homebrew"]]
+      ;; explainer sits right beside the toggle, not floated to the far edge
+      (if global-off?
+        [:span.m-l-15.f-s-12.b-color-gray
+         "Off — your sources stay saved but won't appear in the builder."]
+        [:span.m-l-15.f-s-12.opacity-5
+         "On — turn off to hide every source from the builder at once."])])
    [:div.item-list
     (let [plugins (sort @(subscribe [::e5/plugins]))]
       (doall
        (map
         (fn [[name plugin]]
           ^{:key name}
-          [my-content-item name plugin])
-        plugins)))]])
+          [render-guard {:source name} [my-content-item name plugin]])
+        plugins)))]]))
 
 (defn quarantine-source-repair
   "Repair UI for ONE source's set-aside ENTRIES. Lists each broken item with
@@ -8359,24 +9893,45 @@
    the now-valid entries into the live library (::e5/repair-quarantined-source) —
    entries that still can't validate stay set aside. Raw-export + discard hatches
    are always offered."
-  [src-name plugin]
-  (let [entries (vec (for [[ct items] plugin
-                           :when (and (qualified-keyword? ct) (map? items))
-                           [ik item] items]
-                       {:ct ct :ik ik :item item}))
-        edits (r/atom (into {} (mapcat (fn [{:keys [ct ik item]}]
-                                         [[[ct ik :name] (or (:name item) "")]
-                                          [[ct ik :option-pack] (or (:option-pack item) "")]])
-                                       entries)))]
+  [_ _]
+  ;; Only what the user has typed, kept across restores: an entry that restored leaves `plugin`, so
+  ;; its typing stops showing; one still set aside keeps what was typed for the next try.
+  (let [typed (r/atom {})]
     (fn [src-name plugin]
-      (let [current @edits]
+      (let [entries (vec (for [[ct items] (when (map? plugin) plugin)
+                               :when (and (qualified-keyword? ct) (map? items))
+                               [ik item] items]
+                           {:ct ct :ik ik :item item}))
+            ;; Set aside whole because nothing readable was left in them. There is no
+            ;; name to type for these, so only the export and discard below apply.
+            damaged (if (map? plugin)
+                      (vec (for [[ct v] plugin :when (e5/damaged-section? ct v)] ct))
+                      [::whole-source])
+            default-of (into {} (mapcat (fn [{:keys [ct ik item]}]
+                                          [[[ct ik :name] (or (:name item) "")]
+                                           [[ct ik :option-pack] (or (not-empty (:option-pack item))
+                                                                     src-name)]])
+                                        entries))
+            current (merge default-of (select-keys @typed (keys default-of)))
+            edits typed]
         [:div.p-10.m-t-10.bg-lighter.b-rad-5
          [:div.f-w-b.f-s-18.orange src-name]
+         (when (seq damaged)
+           [:div.f-s-12.m-t-5.m-b-5
+            (if (= [::whole-source] damaged)
+              "This whole source is damaged: it isn't stored as homebrew content, so it can't be repaired here. "
+              (str "Damaged: the " (s/join ", " (map name damaged))
+                   (if (= 1 (count damaged)) " section isn't" " sections aren't")
+                   " stored as a list of entries, so nothing in "
+                   (if (= 1 (count damaged)) "it" "them") " can be repaired here. "))
+            "Export raw keeps a copy of exactly what is stored; Discard removes it."])
          (if (seq entries)
            [:div
             [:div.f-s-12.m-t-5.m-b-5
-             "These entries couldn't load. Give each a name (starting with a letter) "
-             "and an option source, then restore — blanks become placeholders."]
+             "These entries couldn't load. Type a valid Name (and Option source) and hit "
+             "Restore — or hit Auto-name & Restore to let the app name them: a leading "
+             "number becomes a word (“9 Lives” → “Nine Lives”); un-salvageable junk "
+             "becomes a placeholder."]
             (doall
              (for [{:keys [ct ik]} entries
                    :let [nk [ct ik :name]
@@ -8385,36 +9940,118 @@
                ^{:key (str ct "/" ik)}
                [:div.m-t-5.m-b-5
                 [:div.f-s-12.orange (str (name ct) " / " (name ik))]
+                (when-let [d (not-empty (str (get-in plugin [ct ik :description])))]
+                  [:div.f-s-12.i.m-t-5 {:style {:opacity 0.8}}
+                   (if (> (count d) 140) (str (subs d 0 140) "…") d)])
                 [:div.m-t-5.flex.align-items-c
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Name"]
                  [:input.input {:type "text" :value nm
                                 :on-change #(swap! edits assoc nk (.. % -target -value))}]
+                 ;; Preview what Auto-name would do to this entry: salvage a
+                 ;; leading number to a real name (orange, keeps intent), or —
+                 ;; when unsalvageable — replace it with a placeholder (amber).
                  (when-not (common/starts-with-letter? nm)
-                   [:span.red.m-l-5.f-s-12 "must start with a letter"])]
+                   (if-let [salvage (common/repair-name-lead nm)]
+                     [:span.m-l-5.f-s-12.orange (str "→ Auto-name: “" salvage "”")]
+                     [:span.m-l-5.f-s-12 {:style {:color "#d9a520"}}
+                      "→ Auto-name replaces this with a placeholder (Unnamed …)"]))]
                 [:div.m-t-5.flex.align-items-c
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Option source"]
                  [:input.input {:type "text" :value (get current ok "")
                                 :on-change #(swap! edits assoc ok (.. % -target -value))}]]]))]
-           [:div.f-s-12.m-t-5 "No entries to repair."])
-         [:div.m-t-10
-          (when (seq entries)
+           (when (empty? damaged)
+             [:div.f-s-12.m-t-5 "No entries to repair."]))
+         (let [edit-map (into {} (map (fn [[[ct ik field] v]]
+                                        [[src-name ct ik field] v])
+                                      current))
+               ;; Does auto-naming REPLACE a name (vs salvage it)? True when an
+               ;; entry's current name is invalid AND repair-name-lead can't
+               ;; salvage it — it'd get an "Unnamed …" placeholder. Tints the Auto
+               ;; button as destructive in that case.
+               any-replace? (boolean
+                             (some (fn [{:keys [ct ik]}]
+                                     (let [nm (get current [ct ik :name] "")]
+                                       (and (not (common/starts-with-letter? nm))
+                                            (nil? (common/repair-name-lead nm)))))
+                                   entries))]
+           [:div.m-t-10
+            ;; Manual: restore with the names you typed; anything still invalid
+            ;; stays quarantined (no silent auto-naming).
+            (when (seq entries)
+              [:button.form-button.m-r-5
+               {:on-click #(dispatch [::e5/repair-quarantined-source src-name edit-map false])}
+               "Restore"])
+            ;; Auto: salvage a leading number to a word ("9 Lives" -> "Nine Lives")
+            ;; else a placeholder. Amber when it will replace rather than salvage.
+            (when (seq entries)
+              [:button.form-button.m-r-5
+               ;; destructive tint: override .form-button's amber gradient with a
+               ;; red-orange one in the panel's own attention hue (#d94b20, the
+               ;; border color above) — distinct from the default action buttons,
+               ;; but part of this panel's palette rather than a foreign color.
+               (cond-> {:on-click #(dispatch [::e5/repair-quarantined-source src-name edit-map true])}
+                 any-replace? (assoc :style {:background-image "linear-gradient(to bottom, #e0602c, #d94b20)"}))
+               "Auto-name & Restore"])
             [:button.form-button.m-r-5
-             {:on-click #(dispatch [::e5/repair-quarantined-source src-name
-                                    (into {} (map (fn [[[ct ik field] v]]
-                                                    [[src-name ct ik field] v])
-                                                  @edits))])}
-             "Fix & Restore"])
-          [:button.form-button.m-r-5
-           {:on-click #(dispatch [::e5/export-quarantined-raw src-name])}
-           "Export raw"]
-          ;; Escape hatch for entries that can't be repaired and won't self-clear
-          ;; (e.g. stale ones from an earlier bad import). Confirms — only copy.
-          [:button.form-button
-           {:on-click #(when (js/confirm
-                             (str "Permanently discard the set-aside entries in \""
-                                  src-name "\"? Export raw first if you might want them."))
-                        (dispatch [::e5/discard-quarantined-source src-name]))}
-           "Discard"]]]))))
+             {:on-click #(dispatch [::e5/export-quarantined-raw src-name])}
+             "Export raw"]
+            ;; Escape hatch for entries that can't be repaired and won't self-clear
+            ;; (e.g. stale ones from an earlier bad import). Confirms — only copy.
+            [:button.form-button
+             {:on-click #(when (js/confirm
+                               (str "Permanently discard the set-aside entries in \""
+                                    src-name "\"? Export raw first if you might want them."))
+                          (dispatch [::e5/discard-quarantined-source src-name]))}
+             "Discard"]])]))))
+
+(defn- quoted [s] (str "\u201c" s "\u201d"))
+
+(defn- item-name-in
+  "The name of the item any source of `plugins` holds under `k` of type `ct`, else `k`'s name."
+  [plugins ct k]
+  (or (some #(get-in % [ct k :name]) (vals plugins)) (name k)))
+
+(defn repairs-panel
+  "Links a past rename left behind, each with its suggested fix; nothing changes until the author
+   picks. Renders nothing when there are none."
+  []
+  (let [repairs @(subscribe [::e5/suggested-repairs])
+        plugins @(subscribe [::e5/plugins])]
+    (when (seq repairs)
+      [:div.decision-callout
+       [:div
+        [:div
+         [:div.message-title (str (count repairs) (if (= 1 (count repairs)) " link" " links") " to fix")]
+         [:div.message-detail "A rename left these pointing at nothing."]
+         (doall
+          (for [{:keys [source type key name to target to-key] :as r} repairs]
+            ^{:key (str source type key target)}
+            [:div.flex.align-items-c.m-t-5
+             [:div.f-s-14
+              (str (quoted (or name (cljs.core/name key))) " uses "
+                   (quoted (cljs.core/name target))
+                   ", which was renamed. Switch it to "
+                   (quoted (item-name-in plugins to to-key))
+                   ". ")]
+             [:button.link-button.underline.m-l-5 {:on-click #(dispatch [::e5/apply-repairs [r]])} "Fix"]]))
+         [:div.decision-actions
+          [:button.form-button {:on-click #(dispatch [::e5/apply-repairs repairs])} "Fix all"]
+          [:button.link-button.underline {:on-click #(dispatch [::e5/dismiss-repairs repairs])} "Leave these"]]]]])))
+
+(defn pre-fix-copy-line
+  "The kept copy of the library from before it was first tidied, and the way back to it."
+  []
+  (when-let [at @(subscribe [::e5/pre-fix-at])]
+    [:div.decision-callout.quiet
+     [:div
+      [:div.message-title (str "Library tidied on " (.toLocaleDateString (js/Date. at)))]
+      [:div.message-detail "The copy from before is kept, in case you need it."]]
+     [:div.decision-actions
+     [:button.link-button.underline
+      {:on-click #(when (js/confirm "Replace your library with the copy from before it was tidied? Changes made since will be lost.")
+                    (dispatch [::e5/restore-pre-fix-library]))}
+      "Restore that copy"]
+     [:button.link-button.underline {:on-click #(dispatch [::e5/drop-pre-fix-copy])} "Discard it"]]]))
 
 (defn quarantine-panel
   "Surfaces the ENTRIES the loader set aside (grouped by their source). The rest of
@@ -8423,15 +10060,23 @@
   []
   (let [quarantined @(subscribe [::e5/quarantined-plugins])
         n-entries (reduce + 0 (for [[_ plugin] quarantined
+                                    :when (map? plugin)
                                     [ct items] plugin
                                     :when (and (qualified-keyword? ct) (map? items))]
-                                (count items)))]
+                                (count items)))
+        n-damaged (reduce + 0 (for [[_ plugin] quarantined]
+                                (if (map? plugin)
+                                  (count (filter (fn [[ct v]] (e5/damaged-section? ct v)) plugin))
+                                  1)))]
     (when (seq quarantined)
       [:div.p-20.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
        {:style {:border "2px solid #d94b20"}}
        [:div.f-w-b.f-s-24.m-b-5
         [:i.fa.fa-exclamation-triangle.m-r-5]
-        (str n-entries " entr" (if (= 1 n-entries) "y" "ies")
+        (str (s/join " and " (cond-> []
+                               (pos? n-entries) (conj (str n-entries " entr" (if (= 1 n-entries) "y" "ies")))
+                               (pos? n-damaged) (conj (str n-damaged " damaged section"
+                                                           (when (not= 1 n-damaged) "s")))))
              " couldn't load — needs attention")]
        [:div.f-s-12
         "The rest of each source loaded fine. Fix these back in, or export/discard them."]
@@ -8446,6 +10091,8 @@
    []
    [:div
     [quarantine-panel]
+    [repairs-panel]
+    [pre-fix-copy-line]
     [:div.p-20.bg-lighter.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
      [:div.f-w-b.f-s-24.m-b-5 "Import Option Source"]
      [:input {:type "file"
@@ -8453,9 +10100,249 @@
               :on-change import-file}]]
     [my-content]]])
 
+;; ─── Account settings: preferred name, artist credit ─────────────────
+
+(defn- save-note
+  "The line under a Save button: saving, saved, or what went wrong."
+  [{:keys [status error]}]
+  (case status
+    :saving [:span.m-l-10.f-s-14 "Saving…"]
+    :saved [:span.m-l-10.f-s-14 [:i.fa.fa-check.orange.m-r-5] "Saved"]
+    :error (when error [:div.m-t-5.red.f-s-14 error])
+    nil))
+
+(defn preferred-name-setting
+  "What the site calls them in emails. Everyone gets this, not just artists."
+  [saved]
+  (r/with-let [value (r/atom (or saved ""))]
+    (let [enabled? @(subscribe [:preferred-name-enabled?])
+          save-status @(subscribe [:account-save-status :preferred-name-save])
+          changed? (not= (s/trim @value) (or saved ""))]
+      [:div.p-5.m-t-10
+       [:div.f-w-b "What should we call you?"]
+       [:div.f-s-14.m-t-5.m-b-5.opacity-7
+        "A first name, a nickname, whatever you like. We'll use it to greet you in emails. "
+        "It's stored encrypted, so it isn't readable even from a copy of our database."]
+       (if-not enabled?
+         [:div.f-s-14.opacity-7 [:i "Not available on this site yet."]]
+         [:div.flex.align-items-c.flex-wrap
+          [:input.input {:type "text"
+                         :value @value
+                         :max-length 40
+                         :placeholder "e.g. Kaylee"
+                         :style {:max-width "260px"}
+                         :on-change #(do (reset! value (event-value %))
+                                         (dispatch [:clear-account-save-status :preferred-name-save]))}]
+          [:button.form-button.m-l-10
+           {:disabled (not changed?)
+            :on-click #(dispatch [:save-preferred-name (s/trim @value)])}
+           "Save"]
+          [save-note save-status]])])))
+
+(defn- field-note
+  "The line under a field: a problem in red, else nothing."
+  [problem]
+  (when problem [:div.m-t-5.red.f-s-14 problem]))
+
+(defn- problem-border [problem]
+  (when problem {:border-color "#e0602c"}))
+
+(defn- credit-edit
+  "The form's state as the edit the server takes: name, link, the non-blank link rows (so the
+   server's per-row errors line up with what is on screen) and the page `switches`
+   ({:profile? true ..})."
+  [nm link links switches]
+  (merge {:name (s/trim nm)
+          :link (s/trim link)
+          :links (vec (for [{:keys [url]} links :when (not (s/blank? url))] {:url url}))}
+         switches))
+
+(def ^:private page-switches
+  "The artist-page switches on My Account, as [edit key, credit key, label]; the first is the page."
+  [[:profile? :artist/profile? "Show my artist page"]
+   [:show-examples? :artist/show-examples? "Example portraits"]
+   [:show-links? :artist/show-links? "Links"]
+   [:show-count? :artist/show-count? "How many pieces you drew"]])
+
+(defn- submitted-switches
+  "The page switches the form sends: `shown` ({:profile? true ..}, as on screen) except each switch
+   the site fixes (its credit key is in `locked`), which goes as the artist's own saved value in
+   `own`, so the site's setting is never stored as their choice. Returns {edit key boolean}."
+  [shown locked own]
+  (into {} (for [[k ck] page-switches]
+             [k (if (contains? (set locked) ck) (not (false? (get own ck))) (get shown k))])))
+
+(defn room-for-a-link?
+  "Whether the credit form can show another link row, given its `rows` as on screen. Blank rows
+   count: credit-edit drops them, so counting the edit would let rows pile up without limit."
+  [rows]
+  (< (count rows) artist-links/max-links))
+
+(defn- credit-preview-info
+  "What the credit will look like once saved: the code's default, under the
+   artist's form, under whatever the site's config has fixed. Links that
+   wouldn't pass are left out, so the preview never shows a mark that the
+   save would refuse."
+  [{:keys [default current locked]} {:keys [name link links]}]
+  (let [good-links (remove #(artist-links/url-problem (:url %)) links)
+        form (cond-> {}
+               (seq name) (assoc :artist/name name)
+               (and (seq link) (nil? (artist-links/url-problem link))) (assoc :artist/link link)
+               (seq good-links) (assoc :artist/links (mapv (comp artist-links/link-entry :url) good-links)))]
+    (merge (assoc default :artist/id (keyword (or (:artist/id current) "preview")))
+           form
+           (select-keys current locked))))
+
+(defn- link-mark
+  "The mark a link will wear, in its own colour."
+  [url]
+  (let [{:keys [icon label color]} (artist-links/service-for-url url)]
+    [:span {:title label :aria-label label
+            :style {:width "20px" :height "20px" :flex-shrink 0 :margin-right "8px"
+                    :background-color color
+                    :WebkitMaskImage (str "url(/image/social/" icon ".svg)")
+                    :maskImage (str "url(/image/social/" icon ".svg)")
+                    :WebkitMaskSize "contain" :maskSize "contain"
+                    :WebkitMaskRepeat "no-repeat" :maskRepeat "no-repeat"
+                    :WebkitMaskPosition "center" :maskPosition "center"}}]))
+
+(defn artist-credit-form
+  "The same rules the server enforces (orcpub.artist-links), run as you type:
+   a wrong scheme is flagged at once, a half-typed address only once you
+   leave the box, and Save stays off while anything would be refused."
+  [{:keys [own locked default] :as credit}]
+  (r/with-let [nm (r/atom (or (:artist/name own) ""))
+               link (r/atom (or (:artist/link own) ""))
+               next-id (atom 0)
+               new-row (fn [url] {:id (swap! next-id inc) :url url})
+               links (r/atom (vec (for [l (:artist/links own)] (new-row (:link/url l)))))
+               ;; a switch the site's config fixes starts from what is in force, not the artist's own
+               switches (r/atom (into {} (for [[k ck] page-switches]
+                                           [k (not (false? (get (if (contains? (set locked) ck) (:current credit) own) ck)))])))
+               ;; fields the person has left, keyed :name / :link / row id
+               left (r/atom #{})]
+    (let [save-status @(subscribe [:account-save-status :artist-credit-save])
+          server-errors (:errors save-status)
+          clear! #(dispatch [:clear-account-save-status :artist-credit-save])
+          edit (credit-edit @nm @link @links (submitted-switches @switches locked own))
+          blocking (artist-links/edit-errors edit)
+          locked? (fn [k] (contains? (set locked) k))
+          left? #(contains? @left %)
+          leave! #(swap! left conj %)
+          name-problem (or (:name server-errors) (artist-links/name-problem @nm))
+          link-problem (or (:link server-errors) (artist-links/typing-problem @link (left? :link)))
+          fixed-note [:div.f-s-12.m-t-5.opacity-7 "Set by the site's admins. Reply to any of our emails if it needs changing."]]
+      [:div
+       [:div.m-t-10.m-b-10
+        [portrait/credit-preview (credit-preview-info credit edit)]]
+       [:div.p-5
+        [:div.f-s-14.f-w-b "Credited as"]
+        [:input.input {:type "text" :value @nm
+                       :disabled (locked? :artist/name)
+                       :placeholder (:artist/name default)
+                       :style (merge {:max-width "320px"} (problem-border name-problem))
+                       :on-change #(do (reset! nm (event-value %)) (clear!))}]
+        (when (locked? :artist/name) fixed-note)
+        [field-note name-problem]]
+       [:div.p-5
+        [:div.f-s-14.f-w-b "Your name links to"]
+        [:input.input {:type "url" :value @link
+                       :disabled (locked? :artist/link)
+                       :placeholder (:artist/link default)
+                       :style (merge {:max-width "420px"} (problem-border link-problem))
+                       :on-blur #(leave! :link)
+                       :on-change #(do (reset! link (event-value %)) (clear!))}]
+        (when (locked? :artist/link) fixed-note)
+        [field-note link-problem]]
+       [:div.p-5
+        [:div.f-s-14.f-w-b "Link icons"]
+        [:div.f-s-12.m-b-5.opacity-7
+         "Shown beside your name, in this order. Paste a link and its icon is picked for you: "
+         (s/join ", " (keep (fn [[_ {:keys [label hosts]}]] (when (seq hosts) label)) artist-links/services))
+         " get their own; anything else gets a globe. Leave empty to use the site's default."]
+        (if (locked? :artist/links)
+          fixed-note
+          [:div
+           (doall
+            (for [[i {:keys [id url]}] (map-indexed vector @links)
+                  :let [;; server errors index the non-blank rows
+                        server-e (when-not (s/blank? url)
+                                   (get (:link-errors server-errors)
+                                        (count (remove #(s/blank? (:url %)) (take i @links)))))
+                        problem (or server-e (artist-links/typing-problem url (left? id)))]]
+              ^{:key id}
+              [:div.m-b-5
+               [:div.flex.align-items-c
+                [link-mark url]
+                [:input.input {:type "url" :value (or url "")
+                               :placeholder "https://"
+                               :style (merge {:max-width "380px"} (problem-border problem))
+                               :on-blur #(leave! id)
+                               :on-change #(do (swap! links assoc-in [i :url] (event-value %)) (clear!))}]
+                [:button.link-button.m-l-10.f-s-14
+                 {:on-click #(do (swap! links (fn [ls] (into (subvec ls 0 i) (subvec ls (inc i))))) (clear!))}
+                 "Remove"]]
+               [field-note problem]]))
+           (when (room-for-a-link? @links)
+             [:button.link-button.f-s-14
+              {:on-click #(swap! links conj (new-row ""))}
+              "+ Add a link"])
+           [field-note (or (:links server-errors) (:links blocking))]])]
+       [:div.p-5
+        [:div.f-s-14.f-w-b "Your artist page"]
+        [:div.f-s-12.m-b-5.opacity-7
+         "A public page with your name. When it is off, the credit under a portrait still names you"
+         " and links to your site, but not to the page."]
+        (let [[[pk _ plabel] & parts] page-switches]
+          [:div
+           [:div.m-b-5
+            [comps/labeled-checkbox [:span.f-s-14 plabel] (pk @switches) (locked? (second (first page-switches)))
+             #(when-not (locked? (second (first page-switches))) (swap! switches update pk not) (clear!))]
+            (when (locked? (second (first page-switches))) fixed-note)]
+           (when (pk @switches)
+             [:div.m-l-20
+              (for [[k ck label] parts]
+                ^{:key k}
+                [:div.m-b-5
+                 [comps/labeled-checkbox [:span.f-s-14 label] (k @switches) (locked? ck)
+                  #(when-not (locked? ck) (swap! switches update k not) (clear!))]
+                 (when (locked? ck) fixed-note)])])])]
+       [:div.p-5.m-t-5
+        [:button.form-button
+         {:disabled (boolean (seq blocking))
+          :title (when (seq blocking) "Fix the highlighted fields first")
+          :on-click #(when (empty? blocking)
+                       (reset! links (vec (remove (comp s/blank? :url) @links)))
+                       (dispatch [:save-artist-credit edit]))}
+         "Save credit"]
+        [save-note save-status]]
+       [:div.f-s-12.p-5.opacity-7
+        "Changes are emailed to you and to the site's admins, so a change you didn't make gets noticed:"
+        " the first at once, and any made in the ten minutes after it together in one email."]])))
+
+(defn artist-credit-setting
+  "For artist accounts: how their art is credited across the site."
+  [credit]
+  (r/create-class
+   {:component-did-mount
+    (fn [_]
+      ;; the welcome and upgrade emails link straight here
+      (when (= "#artist-credit" (.. js/window -location -hash))
+        (some-> (.getElementById js/document "artist-credit") (.scrollIntoView #js {:block "start"}))))
+    :reagent-render
+    (fn [credit]
+      [:div#artist-credit.p-5.m-t-20
+       [:div.f-w-b "Artist credit"]
+       [:div.f-s-14.m-t-5.opacity-7
+        "How your art is credited everywhere it appears: the portrait builder, character sheets and shared cards."]
+       ;; remount with fresh fields whenever the saved credit changes
+       ^{:key (pr-str (:own credit))} [artist-credit-form credit]])}))
+
 (defn my-account-page []
-    (r/with-let [editing? (r/atom false)
+    (r/with-let [_ (dispatch [:load-account])
+                 editing? (r/atom false)
                  new-email (r/atom "")
+                 current-password (r/atom "")
                  confirm-email (r/atom "")]
       (let [current-email @(subscribe [:email])
             pending-email @(subscribe [:pending-email])
@@ -8466,12 +10353,25 @@
                             (registration/bad-email? @new-email))
             emails-dont-match? (and (seq @confirm-email)
                                     (not= @new-email @confirm-email))
-            can-submit? (and (seq @new-email)
+            can-submit? (and (seq @current-password)
+                             (seq @new-email)
                              (not bad-format?)
                              (= @new-email @confirm-email))]
         [content-page
          "My Account"
-         [{:title "Delete Account"
+         [;; No password asked for: somebody who thinks their account is open
+          ;; somewhere they cannot reach should be able to shut it from the
+          ;; session they already hold. It signs THIS one out too, which is why
+          ;; it confirms first.
+          {:title "Sign out everywhere"
+           :icon "sign-out"
+           :on-click #(dispatch
+                       [:show-confirmation
+                        {:confirm-button-text "SIGN OUT EVERYWHERE"
+                         :question (str "Sign out of every device, including this one? "
+                                        "You will need to sign in again. Your password does not change.")
+                         :event [:withdraw-sessions]}])}
+          {:title "Delete Account"
            :icon "trash"
            :on-click #(dispatch
                       [:show-confirmation
@@ -8493,6 +10393,7 @@
                {:on-click #(do (reset! editing? true)
                                (reset! new-email "")
                                (reset! confirm-email "")
+                               (reset! current-password "")
                                (dispatch [:change-email-clear]))}
                "Change again"]]
 
@@ -8513,16 +10414,25 @@
                 :on-change #(reset! confirm-email (event-value %))}]
               (when emails-dont-match?
                 [:div.m-t-5.red "Email addresses don't match"])
+              ;; Re-entering the password here proves the account holder, not just
+              ;; the session, before moving the account to another address.
+              ;; See account-flows.md.
+              [:input.input.m-t-5
+               {:type :password
+                :value @current-password
+                :placeholder "Your current password"
+                :on-change #(reset! current-password (event-value %))}]
               [:div.m-t-5
                [:button.form-button
                 {:disabled (not can-submit?)
                  :on-click #(when can-submit?
-                              (dispatch [:change-email @new-email]))}
+                              (dispatch [:change-email @new-email @current-password]))}
                 "Save"]
                [:button.link-button.m-l-10
                 {:on-click #(do (reset! editing? false)
                                 (reset! new-email "")
                                 (reset! confirm-email "")
+                                (reset! current-password "")
                                 (dispatch [:change-email-clear]))}
                 "Cancel"]]
               (when error
@@ -8535,6 +10445,7 @@
                {:on-click #(do (reset! editing? true)
                                (reset! new-email "")
                                (reset! confirm-email "")
+                               (reset! current-password "")
                                (dispatch [:change-email-clear]))}
                "Change"]
               (when pending-email
@@ -8547,21 +10458,30 @@
                   "Resend"]
                  (when error
                    [:span.m-l-5.red.f-s-14 error])])])]
-          ;; ─── Email Updates Toggle ─────────────────────────────────
-          [:div.p-5
-           [:span.f-w-b "Email Updates: "]
-           (let [send-updates? @(subscribe [:send-updates?])]
-             [:span
-              [:i.fa.fa-check.f-s-14.pointer.m-r-5
-               {:class (if send-updates? "orange" "white")
-                :style {:border-color "#f0a100"
-                        :border-style :solid
-                        :border-width "1px"
-                        :border-bottom-width "3px"}
-                :on-click #(dispatch [:toggle-send-updates (not send-updates?)])}]
-              (if send-updates?
-                (str "Receiving updates from " branding/app-name)
-                "Not receiving updates")])]]])))
+          ;; ─── Email Updates ────────────────────────────────────────
+          (let [send-updates? @(subscribe [:send-updates?])
+                toggle #(dispatch [:toggle-send-updates (not send-updates?)])]
+            [:div.p-5.m-t-10
+             [:div.f-w-b "News and updates"]
+             [:div.flex.align-items-c.m-t-5.pointer
+              {:on-click toggle}
+              [:span.toggle-switch
+               {:class (when send-updates? "on")
+                :role "switch"
+                :aria-checked (str send-updates?)
+                :aria-label (str "Email me news and updates from " branding/app-name)
+                :tabIndex 0
+                :on-key-down #(when (#{"Enter" " "} (.-key %)) (.preventDefault %) (toggle))}]
+              [:span.m-l-10.f-s-16
+               (str "Email me news and updates from " branding/app-name)]]
+             [:div.f-s-14.m-t-5.opacity-7
+              "Emails about your account, like password resets, are sent either way."]])
+          ;; ─── Preferred name ───────────────────────────────────────
+          (let [saved @(subscribe [:preferred-name])]
+            ^{:key (str "pn-" saved)} [preferred-name-setting saved])
+          ;; ─── Artist credit (artist accounts only) ─────────────────
+          (when-let [credit @(subscribe [:artist-credit])]
+            [artist-credit-setting credit])]])))
 
 
 (defn newb-character-builder-page []
@@ -8607,10 +10527,90 @@
    :hide-header-message? true])
 
 ;; events are set and passed by the individual pages defined below this
+(defn meta-edit-row
+  "A quiet `label value change` line that swaps in an input when `change` is clicked.
+   Opts: :label; :value shown at rest (nil renders nothing); :derived? the value is the app's
+   guess, shown muted; :placeholder seeds the input; :on-save gets the raw string typed
+   (blank is the caller's to interpret); :help, a line a `?` opens beneath the row."
+  [_]
+  (let [editing? (r/atom false)
+        draft    (r/atom "")]
+    (fn [{:keys [label value derived? placeholder on-save help]}]
+      (when value
+        (let [row [:div.bf-meta.f-s-14.flex.align-items-c.flex-wrap
+                   [:span.m-r-5 label]
+                   [:span.m-r-10 {:class (when-not derived? "bf-meta-value")} value]
+                   (if @editing?
+                     [:<>
+                      [:input.input.h-32.bf-meta-input.m-r-5
+                       {:type "text"
+                        :value @draft
+                        :auto-focus true
+                        :placeholder placeholder
+                        :on-change #(reset! draft (-> % .-target .-value))}]
+                      [:span.pointer.bf-meta-action.m-r-10
+                       {:on-click #(do (on-save @draft) (reset! editing? false))}
+                       "save"]
+                      [:span.pointer.bf-meta-action
+                       {:on-click #(reset! editing? false)}
+                       "cancel"]]
+                     [:span.pointer.bf-meta-action
+                      {:on-click #(do (reset! draft (or placeholder "")) (reset! editing? true))}
+                      "change"])]]
+          (if help
+            [with-help row help]
+            row))))))
+
+(defn item-key-row
+  "The saved item's key, and the one control that changes it.
+
+   Keys are minted once (D10a) — the Name field no longer re-addresses an item — so this is the
+   only way an author fixes a key minted from a typo. Renders nothing until the item has one."
+  [item save-event]
+  (when-let [k (:key item)]
+    (let [missing (some (fn [[[src _ ik] m]] (when (and (= src (:option-pack item)) (= ik k)) m))
+                        @(subscribe [::e5/dangling-links]))]
+      [:div
+       [meta-edit-row
+        {:label "key"
+         :value (str k)
+         :placeholder (name k)
+         ;; the raw string: the event distinguishes blank from junk, which name-to-kw cannot
+         :on-save #(dispatch [::e5/change-builder-item-key save-event %])}]
+       (when missing
+         [:div.f-s-12.m-t-5 {:style {:color "#ffd21a"}}
+          (str "The saved version uses "
+               (s/join ", " (for [{:keys [to target]} missing]
+                              (str (s/lower-case (get orcbrew-val/content-type-singular to "item"))
+                                   " \u201c" (if (keyword? target) (name target) target) "\u201d")))
+               ", which isn't in your library.")])])))
+
+(defn guarded-form
+  "`builder`'s form with each of its sections in a render-guard, so a field that throws while
+   drawing costs that section and the rest of the form still edits and saves; one that throws
+   before it has a form shows `item` in the fallback. Every builder returns its form directly
+   (none keeps state in a render function), so calling it here draws the same thing."
+  [item builder]
+  (try
+    (let [form (builder)]
+      (if (and (vector? form) (keyword? (first form)))
+        (let [[tag & more] form
+              [attrs children] (if (map? (first more)) [(first more) (rest more)] [nil more])]
+          (into (cond-> [tag] attrs (conj attrs))
+                (map #(if (vector? %) [render-guard item %] %))
+                children))
+        form))
+    (catch :default e
+      (js/console.error "A builder could not draw its form:" e)
+      [guard-fallback item e])))
+
 (defn builder-page [item-title reset-event save-event builder & [title]]
-  ;; Draft event is derived from save-event (events/draft-event-for) and registered
-  ;; from events/builder-drafts, so the Export-draft hatch needs no per-builder wiring.
-  (let [export-draft-event (events/draft-event-for save-event)]
+  ;; The draft event and the builder-item sub are both derived from save-event
+  ;; (events/draft-event-for, events/builder-drafts), so the Export-draft hatch and the
+  ;; key row reach every builder unwired.
+  (let [export-draft-event (events/draft-event-for save-event)
+        [item-sub] (get events/builder-drafts save-event)
+        item       (when item-sub @(subscribe [item-sub]))]
     [content-page
      (or title (str item-title " Builder"))
      [{:title (str "New " item-title)
@@ -8624,7 +10624,11 @@
       {:title "Export draft"
        :icon "download"
        :on-click #(dispatch [export-draft-event])}]
-     [builder]]))
+     [:div
+      (guarded-form item builder)
+      ;; The key is the item's address, not a field an author fills in — so it sits after the form,
+      ;; under a hairline, in a muted register.
+      [item-key-row item save-event]]]))
 
 (defn combat-tracker-page []
   [content-page
@@ -8654,7 +10658,7 @@
           :on-click (delete-item-handler item-key)})
        (if owner?
          {:title "Edit"
-          :icon "pencil"
+          :icon "pencil-alt"
           :on-click (make-event-handler [::mi/edit-custom-item item])})])
      [:div.p-10.main-text-color
       [item-component item]]]))
@@ -8692,7 +10696,10 @@
         base-buttons [{:title "New Item"
                        :icon "plus"
                        :on-click #(dispatch [::mi/reset-item])}
-                      {:title "Save to Browser Storage"
+                      ;; Not "Save to Browser Storage": a magic item is saved to the
+                      ;; server like a character (::mi/save-item posts to /dnd/5e/items
+                      ;; with an auth header), so saving needs an account.
+                      {:title "Save Item"
                        :icon "save"
                        :on-click #(dispatch [::mi/save-item])}]
         ]
@@ -8763,14 +10770,15 @@
                      :language-map @(subscribe [::langs/language-map])
                      :all-weapons-map @(subscribe [::mi/all-weapons-map])
                      :all-magic-items-map @(subscribe [::mi/all-magic-items-map])
-                     :current-armor-class @(subscribe [::char/current-armor-class id])}
+                     :current-armor-class @(subscribe [::char/current-armor-class id])
+                     :image-bytes @(subscribe [::char/image-bytes])}
         folders @(subscribe [::folder/folders])
         char-folder-map @(subscribe [::folder/character-folder-map])
         current-folder-id (get char-folder-map id)]
     [:div
      {:style character-display-style}
-     [:div.flex.justify-cont-end.uppercase.align-items-c
-      [integrations/share-link-www id]
+     [:div.flex.justify-cont-end.uppercase.align-items-c.flex-wrap.row-gap-5
+      [integrations/share-copy-button id]
       (when (= username owner)
         [:button.form-button
          {:on-click (make-event-handler :edit-character character)}
@@ -8782,6 +10790,8 @@
       [:button.form-button.m-l-5
        {:on-click (make-event-handler :route char-page-route)}
        "view"]
+      (when (or (not branding/restrict-print-to-owner?) (= username owner))
+        [bake-portrait (char/portrait built-char)])
       (when (or (not branding/restrict-print-to-owner?) (= username owner))
         [:button.form-button.m-l-5
          {:on-click (export-pdf
@@ -8845,7 +10855,8 @@
          {:on-click (fn [e]
                       (dispatch [::char/toggle-selected id])
                       (.stopPropagation e))}
-         (comps/checkbox (get selected-ids id) false)]
+         (comps/checkbox (get selected-ids id) false
+                         (str "Select " (or (::char/character-name summary) "this character")))]
         [:div.f-s-24.f-w-600
          [:div.list-character-summary
           [character-summary-2 summary true owner false]]]]
@@ -8949,6 +10960,114 @@
               summary])
            (sort-by ::char/character-name visible-chars)))])]]))))
 
+(defn- srd-load-failed
+  "The message shown when the SRD file `kind` (:rules or :conditions) could not be loaded."
+  [kind]
+  [:div (str "The " (name kind) " could not be loaded. Try reloading the page.")])
+
+(defn rules-page
+  "The rules reference: every SRD 5.1 rules section, by group, and the conditions."
+  []
+  (r/with-let [_ (dispatch [:load-srd :rules])]
+    (let [data @(subscribe [:srd :rules])
+          by-key (into {} (map (juxt :key identity)) (:sections data))]
+      [content-page
+       "Rules"
+       []
+       [:div.p-10.main-text-color
+        (cond
+          data [:div
+                (doall
+                 (for [{:keys [key name sections]} (:groups data)]
+                   ^{:key key}
+                   [:div.m-b-20
+                    [:div.f-s-20.f-w-b name]
+                    [:div.srd-section-list
+                     (doall
+                      (for [k sections]
+                        ^{:key k}
+                        [:span.pointer.underline {:on-click (srd-route-handler {:kind :rule :section k})}
+                         (:name (by-key k))]))]]))
+                [:div.m-b-20
+                 [:div.f-s-20.f-w-b "Conditions"]
+                 [:div.srd-section-list
+                  [:span.pointer.underline {:on-click (make-event-handler :route routes/dnd-e5-condition-list-page-route)}
+                   "Blinded, charmed, frightened, grappled and the rest"]]]
+                [srd-attribution data]]
+          @(subscribe [:srd-failed? :rules]) [srd-load-failed :rules]
+          :else [:div "Loading..."])]])))
+
+(defn rule-section-page
+  "One SRD 5.1 rules section, from the route's `:key`, scrolled to a rule when a link asked."
+  [{:keys [key]}]
+  (r/with-let [_ (dispatch [:load-srd :rules])
+               _ (dispatch [:load-srd :conditions])
+               _ (dispatch [:load-srd :clarifications])]
+    (let [data @(subscribe [:srd :rules])
+          notes (filter #(= (keyword key) (:section %)) (:notes @(subscribe [:srd :clarifications])))
+          {:keys [name pages body] :as sec} (some-> (srd-rules/section data (keyword key))
+                                                    (update :body srd-rules/with-notes notes))
+          target @(subscribe [:srd-scroll-target])]
+      (when (and sec target)
+        (r/after-render (fn []
+                          (some-> (.getElementById js/document (str "rule-" (cljs.core/name target)))
+                                  (.scrollIntoView))
+                          (dispatch [:set-srd-scroll-target nil]))))
+      [content-page
+       (or name "Rules")
+       []
+       [:div.p-10.main-text-color
+        (cond
+          sec [:div
+               (when-let [[a b] pages]
+                 [:div.f-s-12.opacity-5 (str (:srd/document data) (if (= a b) (str ", p. " a) (str ", pp. " a "-" b)))])
+               [srd-body body]
+               [:div.pointer.underline.m-t-20 {:on-click (make-event-handler :route routes/dnd-e5-rules-page-route)}
+                "All rules"]
+               [srd-attribution data]]
+          data [:div "No rules section by that name."]
+          @(subscribe [:srd-failed? :rules]) [srd-load-failed :rules]
+          :else [:div "Loading..."])]])))
+
+(defn condition-list-page
+  "Every SRD 5.1 condition, with the licence attribution."
+  []
+  (r/with-let [_ (dispatch [:load-srd :conditions])]
+    (let [data @(subscribe [:srd :conditions])]
+      [content-page
+       "Conditions"
+       []
+       [:div.p-10.main-text-color
+        (cond
+          data [:div
+                (doall
+                 (map (fn [c] ^{:key (:key c)} [condition-component c (:srd/document data)])
+                      (:conditions data)))
+                [srd-attribution data]]
+          @(subscribe [:srd-failed? :conditions]) [srd-load-failed :conditions]
+          :else [:div "Loading..."])]])))
+
+(defn condition-page
+  "One SRD 5.1 condition, from the route's `:key`."
+  [{:keys [key]}]
+  (r/with-let [_ (dispatch [:load-srd :conditions])]
+    (let [data @(subscribe [:srd :conditions])
+          condition (get (srd-conditions/by-key data) (keyword key))]
+      [content-page
+       "Condition"
+       []
+       [:div.p-10.main-text-color
+        (cond
+          condition [:div
+                     [condition-component condition (:srd/document data)]
+                     [:div.pointer.underline.m-t-10
+                      {:on-click (make-event-handler :route routes/dnd-e5-condition-list-page-route)}
+                      "All conditions"]
+                     [srd-attribution data]]
+          data [:div "No condition by that name."]
+          @(subscribe [:srd-failed? :conditions]) [srd-load-failed :conditions]
+          :else [:div "Loading..."])]])))
+
 (defn orcacle-page []
   [content-page
    "Orcacle"
@@ -8985,7 +11104,9 @@
           [:div.posn-rel.m-r-5.m-b-5
            [:input.input
             {:placeholder "Search by name..."
-             :style       {:width "200px"}
+             ;; Align with the filter buttons: same height (9px pad + 1px border ==
+             ;; the buttons' 10px pad) and no top-margin offset from .input.
+             :style       {:width "200px" :margin-top 0 :padding "9px 10px" :font-size "12px"}
              :value       name-filter
              :on-change   #(dispatch [::char/set-char-name-filter (.. % -target -value)])}]
            (when (not (s/blank? name-filter))
@@ -9056,6 +11177,43 @@
              [:i.fa.fa-times.m-r-5]
              "Clear"])]]))))
 
+(defn draft-time
+  "When a draft was last edited, from `ms` (epoch milliseconds), as a player reads it: weekday and
+   time within the last six days (\"Tue 14:02\"), else the date (\"Oct 9\")."
+  [ms]
+  (let [d (js/Date. ms)
+        recent? (< (- (.now js/Date) ms) (* 6 24 60 60 1000))]
+    (.toLocaleString d "en-US" (if recent?
+                                 #js {:weekday "short" :hour "2-digit" :minute "2-digit" :hour12 false}
+                                 #js {:month "short" :day "numeric"}))))
+
+(defn drafts-list
+  "\"Unsaved drafts (n) · Details\": this browser's drafts that are not open anywhere and not offered,
+   each with Open and Discard. Renders nothing when there are none. ux-guide.md (2026-10-16)."
+  []
+  (let [open? (r/atom false)]
+    (fn []
+      (let [drafts @(subscribe [::char/unsaved-drafts])]
+        (when (seq drafts)
+          [:div.drafts-list.main-text-color
+           [notifications/callout
+            {:icon "fa-file-alt orange"
+             :tone :note
+             :accent :brand
+             :compact? true
+             :text (str "Unsaved drafts (" (count drafts) ")")
+             :actions [{:label "Details" :link? true :expanded @open? :on-click #(swap! open? not)}]
+             :details (when @open?
+                        (for [{:keys [key name touched]} drafts]
+                          {:key key
+                           :label (if (s/blank? name) "New character" name)
+                           :aside [:span (draft-time touched) " · "
+                                   [:button.link-button.underline
+                                    {:on-click #(dispatch [::char/open-draft key])} "Open"]
+                                   " · "
+                                   [:button.link-button.underline
+                                    {:on-click #(dispatch [::char/discard-draft key])} "Discard"]]}))}]])))))
+
 (defn character-list []
   (let [characters @(subscribe [::char/filtered-characters])
         folders @(subscribe [::folder/folders])
@@ -9086,6 +11244,7 @@
        :icon "folder"
        :on-click #(dispatch [::folder/create-folder])}]
      [:div.p-5
+      [drafts-list]
       [character-filter-bar]
       [:div
        (let [filtered-char-ids (into #{} (map :db/id) characters)
@@ -9225,7 +11384,9 @@
                          [:div.main-text-color.item-list-item
                           [:div.pointer
                            [:div.flex.justify-cont-s-b.align-items-c
-                            {:on-click #(swap! expanded-characters update-in [id character-id] not)}
+                            {:on-click #(do (when-let [token (and (not expanded?) (:orcpub.party-share/token summary))]
+                                              (dispatch [::party/load-shared-homebrew character-id token]))
+                                            (swap! expanded-characters update-in [id character-id] not))}
                             [:div.m-l-10.flex.align-items-c
                              [:div.f-s-24.f-w-600
                               [:div.list-character-summary
@@ -9298,7 +11459,8 @@
        (map
          (fn [{:keys [name] :as monster}]
            ^{:key name}
-           [monster-list-item monster])
+           ;; a monster that cannot draw costs its own row
+           [render-guard monster [monster-list-item monster]])
          filtered-monsters))]))
 
 (defn clear-monsters-filter []
@@ -9337,7 +11499,8 @@
            ^{:key size}
            [:div.p-5.pointer
             {:on-click (make-event-handler ::char/toggle-monster-filter-hidden :size size)}
-            (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :size size])) false)
+            (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :size size])) false
+                            (s/capitalize (common/kw-to-name size)))
             (str " " (s/capitalize (common/kw-to-name size)))])
          @(subscribe [::char/monster-sizes])))]]
    [:div.main-text-color.p-20
@@ -9349,7 +11512,8 @@
            ^{:key type}
            [:div.p-5.pointer
             {:on-click (make-event-handler ::char/toggle-monster-filter-hidden :type type)}
-            (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :type type])) false)
+            (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :type type])) false
+                            (s/capitalize (common/kw-to-name type)))
             (str " " (s/capitalize (common/kw-to-name type)))])
          @(subscribe [::char/monster-types])))]]
    (let [subtypes @(subscribe [::char/monster-subtypes])]
@@ -9362,7 +11526,8 @@
              ^{:key subtype}
              [:div.p-5.pointer
               {:on-click (make-event-handler ::char/toggle-monster-filter-hidden :subtype subtype)}
-              (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :subtype subtype])) false)
+              (comps/checkbox (not @(subscribe [::char/monster-filter-hidden? :subtype subtype])) false
+                              (s/capitalize (common/kw-to-name subtype)))
               (str " " (s/capitalize (common/kw-to-name subtype)))])
            subtypes))]])])
 

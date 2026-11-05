@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [deftest testing is]]
             [cljs.reader :refer [read-string]]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
+            [orcpub.common :as common]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.content-specs :as content-specs]
             [cljs.spec.alpha :as spec]))
@@ -57,6 +58,15 @@
     {:valid-spell {:option-pack \"Test\"
                    :name \"Valid Spell\"}
      :invalid-spell {:name \"No Option Pack\"}
+     :another-valid {:option-pack \"Test\"
+                     :name \"Another Valid\"}}}")
+
+(def plugin-with-an-unreadable-entry
+  "An entry that is text, not a map: nothing to mend, so a progressive import skips it."
+  "{:orcpub.dnd.e5/spells
+    {:valid-spell {:option-pack \"Test\"
+                   :name \"Valid Spell\"}
+     :invalid-spell \"not an entry\"
      :another-valid {:option-pack \"Test\"
                      :name \"Another Valid\"}}}")
 
@@ -235,18 +245,19 @@
 
 (deftest test-full-import-workflow-progressive
   (testing "Complete import workflow with progressive strategy"
-    (let [result (orcbrew-val/validate-import plugin-with-mixed-validity
+    (let [result (orcbrew-val/validate-import plugin-with-an-unreadable-entry
                                              {:strategy :progressive
                                               :auto-clean true})]
       (is (:success result))
       (is (:had-errors result))
-      ;; Should have imported 2 valid items and skipped 1 invalid
+      ;; Should have imported 2 valid items and skipped 1 invalid. The invalid one
+      ;; used to crash the import instead.
       (is (= 2 (:imported-count result)))
       (is (= 1 (:skipped-count result))))))
 
 (deftest test-full-import-workflow-strict
   (testing "Complete import workflow with strict strategy"
-    (let [result (orcbrew-val/validate-import plugin-with-mixed-validity
+    (let [result (orcbrew-val/validate-import plugin-with-an-unreadable-entry
                                              {:strategy :strict
                                               :auto-clean true})]
       ;; Strict mode should fail because not all items are valid
@@ -274,44 +285,58 @@
 
 (deftest test-format-import-result-success
   (testing "Formatting successful import result"
-    (let [result {:success true :imported-count 5}
-          message (orcbrew-val/format-import-result result)]
-      (is (string? message))
-      (is (re-find #"✅" message))
-      (is (re-find #"successful" message)))))
+    (let [{:keys [title details]} (orcbrew-val/format-import-result {:success true :imported-count 5})]
+      (is (= "Import successful" title))
+      (is (some #(re-find #"5 items" %) details))
+      (testing "no newlines inside a line — the banner renders each line itself"
+        (is (every? #(not (re-find #"\n" %)) (cons title details)))))))
 
 (deftest test-format-import-result-with-warnings
   (testing "Formatting import result with warnings"
-    (let [result {:success true
-                  :had-errors true
-                  :imported-count 2
-                  :skipped-count 1}
-          message (orcbrew-val/format-import-result result)]
-      (is (string? message))
-      (is (re-find #"⚠️" message))
-      (is (re-find #"warning" message)))))
+    (let [result {:success true :had-errors true :imported-count 2 :skipped-count 1}
+          {:keys [title details]} (orcbrew-val/format-import-result result)]
+      (is (re-find #"warning" title))
+      (is (= :warning (orcbrew-val/import-notice-type result))
+          "a partial import used to show the green success card")
+      (is (= [:done :skipped] (map :mark details)))
+      (is (= "Imported 2 items" (:text (first details))))
+      (is (re-find #"^Skipped 1 item that" (:text (second details)))
+          "it said \"1 invalid items\""))))
+
+(deftest a-clean-import-keeps-the-success-tone
+  (is (= :success (orcbrew-val/import-notice-type {:success true :imported-count 2})))
+  (is (= :warning (orcbrew-val/import-notice-type
+                   {:success true :imported-count 2
+                    :key-warnings [{:type :external-duplicate :message "x"}]}))))
 
 (deftest test-format-import-result-parse-error
   (testing "Formatting parse error result"
-    (let [result {:success false
-                  :parse-error true
-                  :error "Unexpected token"
-                  :line 5
-                  :hint "Check brackets"}
-          message (orcbrew-val/format-import-result result)]
-      (is (string? message))
-      (is (re-find #"⚠️" message))
-      (is (re-find #"Could not read" message))
-      (is (re-find #"Line: 5" message)))))
+    (let [{:keys [title details]}
+          (orcbrew-val/format-import-result {:success false
+                                             :parse-error true
+                                             :error "Unexpected token"
+                                             :line 5
+                                             :hint "Check brackets"})]
+      (is (= "Could not read file" title))
+      (is (some #(re-find #"Line: 5" %) details))
+      (is (some #(re-find #"Check brackets" %) details)))))
 
 (deftest test-format-import-result-validation-error
   (testing "Formatting validation error result"
-    (let [result {:success false
-                  :errors ["Error 1" "Error 2"]}
-          message (orcbrew-val/format-import-result result)]
-      (is (string? message))
-      (is (re-find #"⚠️" message))
-      (is (re-find #"Invalid" message)))))
+    (let [{:keys [title details]}
+          (orcbrew-val/format-import-result {:success false :errors ["Error 1" "Error 2"]})]
+      (is (= "Invalid orcbrew file" title))
+      (is (= ["Error 1" "Error 2"] (take 2 details))))))
+
+(deftest test-key-conflicts-are-lines-not-a-paragraph
+  (testing "Each conflict is its own line, so nothing depends on newline rendering"
+    (let [details (orcbrew-val/format-key-conflict-details
+                   {:key-warnings [{:type :internal-duplicate :message "dup :fireball"}
+                                   {:type :external-duplicate :message "clashes with :shield"}]})]
+      (is (some #(re-find #"dup :fireball" %) details))
+      (is (some #(re-find #"clashes with :shield" %) details))
+      (is (every? #(not (re-find #"\n" %)) details)))))
+
 ;; ============================================================================
 ;; Data-Level Cleaning Tests
 ;; ============================================================================
@@ -404,9 +429,11 @@
                                              {:strategy :progressive
                                               :auto-clean true})]
       (is (:success result))
-      ;; Empty option-pack should be replaced with "Unnamed Content"
+      ;; Empty option-pack is replaced with the built-in "Default Option Source"
+      ;; (source-less content lands in the real Default Option Source plugin — see
+      ;; default-option-source in orcbrew_validation.cljs).
       (let [elf (get-in result [:data "Unnamed Content" :orcpub.dnd.e5/races :elf])]
-        (is (= "Unnamed Content" (:option-pack elf)))))))
+        (is (= "Default Option Source" (:option-pack elf)))))))
 
 ;; ============================================================================
 ;; Duplicate Key Detection Tests
@@ -449,14 +476,57 @@
 ;; Key Renaming Tests
 ;; ============================================================================
 
-(deftest test-generate-new-key
-  (testing "Generating new key with source suffix"
-    (is (= :artificer-kibbles-tasty
-           (orcbrew-val/generate-new-key :artificer "Kibbles' Tasty")))
-    (is (= :wizard-my-homebrew
-           (orcbrew-val/generate-new-key :wizard "My Homebrew")))
-    (is (= :monk-test-123
-           (orcbrew-val/generate-new-key :monk "Test 123")))))
+(deftest test-generate-new-identity-derives-key-from-the-tagged-name
+  (testing "the suggestion carries a name, and the key follows from it"
+    (is (= {:name "Artificer (KsTy)" :key :artificer-ksty}
+           (orcbrew-val/generate-new-identity "Artificer" "Kibbles Tasty"))))
+  (testing "re-deriving the key from the suggested name reproduces it -- this is
+            what generate-new-key could not do, and why resolved conflicts used to
+            come back the first time someone saved the item in the editor"
+    (doseq [[nm src] [["Artificer" "Kibbles Tasty"]
+                      ["Fireball" "Tasha's Cauldron of Everything"]
+                      ["Bag of Holding" "Unearthed Arcana"]]]
+      (let [{:keys [name key]} (orcbrew-val/generate-new-identity nm src)]
+        (is (= key (common/name-to-kw name)) (str nm " / " src)))))
+  (testing "a taken key pushes the counter inside the parentheses"
+    (is (= {:name "Artificer (KsTy 2)" :key :artificer-ksty-2}
+           (orcbrew-val/generate-new-identity "Artificer" "Kibbles Tasty"
+                                              #{:artificer-ksty})))))
+
+(deftest test-rename-key-in-plugin-moves-the-name-with-the-key
+  (testing "given a new name, the item's :name changes too -- key and name must
+            move together or the stored item violates key = name-to-kw(name) the
+            moment it lands, and the next save derives the old key back"
+    (let [plugin {:orcpub.dnd.e5/classes
+                  {:artificer {:option-pack "Test" :name "Artificer"}}}
+          result (orcbrew-val/rename-key-in-plugin
+                  plugin :orcpub.dnd.e5/classes :artificer :artificer-ksty
+                  "Artificer (KsTy)")
+          item (get-in result [:orcpub.dnd.e5/classes :artificer-ksty])]
+      (is (= "Artificer (KsTy)" (:name item)))
+      (is (= :artificer-ksty (:key item)))
+      (is (= [:artificer] (:former-keys item)) "still rebindable for characters")
+      (is (= (:key item) (common/name-to-kw (:name item)))
+          "the invariant holds on the stored item")))
+
+  (testing "without a new name the item's name is left alone (old callers)"
+    (let [plugin {:orcpub.dnd.e5/classes
+                  {:artificer {:option-pack "Test" :name "Artificer"}}}
+          result (orcbrew-val/rename-key-in-plugin
+                  plugin :orcpub.dnd.e5/classes :artificer :artificer-test)]
+      (is (= "Artificer" (get-in result [:orcpub.dnd.e5/classes :artificer-test :name]))))))
+
+(deftest test-apply-key-renames-threads-the-new-name
+  (testing ":to-name rides the rename record through the batch applier"
+    (let [data {"KT" {:orcpub.dnd.e5/classes
+                      {:artificer {:option-pack "KT" :name "Artificer"}}}}
+          result (orcbrew-val/apply-key-renames
+                  data
+                  [{:source "KT" :content-type :orcpub.dnd.e5/classes
+                    :from :artificer :to :artificer-ksty :to-name "Artificer (KsTy)"}])
+          item (get-in result ["KT" :orcpub.dnd.e5/classes :artificer-ksty])]
+      (is (= "Artificer (KsTy)" (:name item)))
+      (is (= (:key item) (common/name-to-kw (:name item)))))))
 
 (deftest test-rename-key-in-plugin
   (testing "Renaming a key in a plugin"
@@ -593,11 +663,11 @@
 (deftest test-fill-missing-option-fields
   (testing "Empty option gets placeholder name with index"
     (let [[filled changes] (orcbrew-val/fill-missing-option-fields 0 {})]
-      (is (= "[Option 1]" (:name filled)))
+      (is (= "Option 1" (:name filled)))
       (is (= [:name] changes))))
   (testing "Option with blank name gets filled"
     (let [[filled changes] (orcbrew-val/fill-missing-option-fields 2 {:name ""})]
-      (is (= "[Option 3]" (:name filled)))
+      (is (= "Option 3" (:name filled)))
       (is (= [:name] changes))))
   (testing "Option with valid name is unchanged"
     (let [[filled changes] (orcbrew-val/fill-missing-option-fields 0 {:name "Fireball"})]
@@ -605,15 +675,15 @@
       (is (empty? changes))))
   (testing "Option with description but no name gets filled"
     (let [[filled changes] (orcbrew-val/fill-missing-option-fields 4 {:description "A cool option"})]
-      (is (= "[Option 5]" (:name filled)))
+      (is (= "Option 5" (:name filled)))
       (is (= "A cool option" (:description filled)))
       (is (= [:name] changes)))))
 
 (deftest test-fill-options-in-item
   (testing "Item with empty options gets filled"
     (let [[filled count] (orcbrew-val/fill-options-in-item selection-with-empty-options)]
-      (is (= "[Option 1]" (get-in filled [:options 0 :name])))
-      (is (= "[Option 2]" (get-in filled [:options 1 :name])))
+      (is (= "Option 1" (get-in filled [:options 0 :name])))
+      (is (= "Option 2" (get-in filled [:options 1 :name])))
       (is (= "Valid Option" (get-in filled [:options 2 :name])))
       (is (= 2 count))))
   (testing "Item without options is unchanged"
@@ -631,7 +701,7 @@
   (testing "fill-all-missing-fields processes options"
     (let [item {:options [{} {:name "Good"}]}
           result (orcbrew-val/fill-all-missing-fields item :orcpub.dnd.e5/selections)]
-      (is (= "[Option 1]" (get-in result [:item :options 0 :name])))
+      (is (= "Option 1" (get-in result [:item :options 0 :name])))
       (is (= "Good" (get-in result [:item :options 1 :name])))
       (is (= 1 (get-in result [:changes :options-fixed])))))
   (testing "fill-all-missing-fields handles item with no options"
@@ -641,14 +711,17 @@
     (let [item {:traits [{:name "Good Trait"} {}]
                 :options [{} {:name "Good Option"}]}
           result (orcbrew-val/fill-all-missing-fields item :orcpub.dnd.e5/races)]
-      (is (= "[Missing Trait Name]" (get-in result [:item :traits 1 :name])))
-      (is (= "[Option 1]" (get-in result [:item :options 0 :name])))
+      (is (= "Missing Trait Name" (get-in result [:item :traits 1 :name])))
+      (is (= "Option 1" (get-in result [:item :options 0 :name])))
       (is (= 1 (get-in result [:changes :traits-fixed])))
       (is (= 1 (get-in result [:changes :options-fixed]))))))
 
 ;; ============================================================================
 ;; Levenshtein Distance Tests
 ;; ============================================================================
+;; INVESTIGATE 2026-08-23: coverage for the pre-existing fuzzy-matching cluster
+;; (orcbrew-validation, af228f12) that the content-library sweep found unused.
+;; Restored alongside that code; remove together if the housekeeping pass drops it.
 
 (deftest test-levenshtein-distance-basics
   (testing "Known edit distances"
@@ -877,7 +950,7 @@
   (testing "Known nil fields get replaced with sensible defaults"
     (let [input {:option-pack nil :name "Test Spell"}
           result (orcbrew-val/clean-nil-in-map-with-log input)]
-      (is (= "Unnamed Content" (get-in result [:data :option-pack])))
+      (is (= "Default Option Source" (get-in result [:data :option-pack])))
       (is (some #(= :replaced-nil (:type %)) (:changes result))))))
 
 (deftest test-validate-import-mixed-nil-scenarios
@@ -892,8 +965,8 @@
                                               :auto-clean true})]
       (is (:success result))
       (let [wizard (get-in result [:data :orcpub.dnd.e5/classes :wizard])]
-        ;; option-pack nil → "Unnamed Content" (replaced)
-        (is (= "Unnamed Content" (:option-pack wizard)))
+        ;; option-pack nil → "Default Option Source" (replaced)
+        (is (= "Default Option Source" (:option-pack wizard)))
         ;; spell-list-kw nil → preserved (semantic)
         (is (contains? (:spellcasting wizard) :spell-list-kw))
         (is (nil? (get-in wizard [:spellcasting :spell-list-kw])))
@@ -1157,7 +1230,7 @@
           edits {["P" :orcpub.dnd.e5/spells :my-spell :name] "   "}
           result (orcbrew-val/apply-user-edits-to-plugin plugin "P" edits)]
       ;; Blank rejected, fill-missing fills :name with dummy
-      (is (= "[Missing Spell Name]"
+      (is (= "Missing Spell Name"
              (get-in result [:orcpub.dnd.e5/spells :my-spell :name]))))))
 
 (deftest test-apply-user-edits-nil-rejected
@@ -1166,7 +1239,7 @@
                   {:my-spell {:option-pack "Test" :level 3 :school "evocation"}}}
           edits {["P" :orcpub.dnd.e5/spells :my-spell :name] nil}
           result (orcbrew-val/apply-user-edits-to-plugin plugin "P" edits)]
-      (is (= "[Missing Spell Name]"
+      (is (= "Missing Spell Name"
              (get-in result [:orcpub.dnd.e5/spells :my-spell :name]))))))
 
 (deftest test-apply-user-edits-trait-name
@@ -1285,3 +1358,299 @@
             (str "stripped class must stay valid: " (spec/explain-str class-spec klass)))
         ;; and the whole plugin re-loads clean
         (is (content-specs/valid-for-load? stripped) "stripped plugin still load-valid")))))
+
+(deftest sanitize-item-names-coerces-invalid-names-and-rekeys
+  (testing "an invalid/blank name is replaced with a valid placeholder; the key is never touched"
+    ;; the reported bug: "1@-asdml;" doesn't start with a letter
+    (let [out (orcbrew-val/sanitize-item-names {:name "1@-asdml;" :key :stone-elf-trcs} "Race")]
+      (is (common/starts-with-letter? (:name out)) "name now starts with a letter")
+      (is (= :stone-elf-trcs (:key out)) "the minted key survives: keys are not re-derived")
+      (is (= "Unnamed Race" (:name out))))
+    (let [out (orcbrew-val/sanitize-item-names {:name "   "} "Spell")]
+      (is (= "Unnamed Spell" (:name out)) "blank/whitespace name -> placeholder"))
+    ;; a valid name is left intact (trimmed) and re-keyed consistently
+    (let [out (orcbrew-val/sanitize-item-names {:name "  Aarakocra  "} "Race")]
+      (is (= "Aarakocra" (:name out)))
+      (is (nil? (:key out)) "no key is minted here; save-anyway mints one"))
+    ;; nested option/trait names are coerced too
+    (let [out (orcbrew-val/sanitize-item-names
+               {:name "Fighter" :options [{:name "9 Lives"} {:name "Valid Option"}]}
+               "Class")]
+      (is (common/starts-with-letter? (get-in out [:options 0 :name])) "invalid nested name coerced")
+      (is (= "Valid Option" (get-in out [:options 1 :name])) "valid nested name kept"))))
+
+;; ============================================================================
+;; relocate-content — move / copy content between sources (single + bulk)
+;; ============================================================================
+
+(def relocate-plugins
+  {"A" {::e5/spells {:fireball {:name "Fireball" :key :fireball :option-pack "A"}
+                     :zap      {:name "Zap" :key :zap :option-pack "A"}}}
+   "B" {::e5/spells {:ice {:name "Ice" :key :ice :option-pack "B"}}}})
+
+(deftest relocate-move-single-preserves-key
+  (let [{:keys [plugins placed renamed]}
+        (orcbrew-val/relocate-content relocate-plugins [["A" ::e5/spells :fireball]] "B" :move)]
+    (is (= 1 placed))
+    (is (empty? renamed) "no clash → key preserved")
+    (is (nil? (get-in plugins ["A" ::e5/spells :fireball])) "removed from source")
+    (is (= "B" (get-in plugins ["B" ::e5/spells :fireball :option-pack])) "retagged to target")
+    (is (= :fireball (get-in plugins ["B" ::e5/spells :fireball :key])))))
+
+(deftest relocate-move-bulk
+  (let [{:keys [plugins placed]}
+        (orcbrew-val/relocate-content relocate-plugins
+                                      [["A" ::e5/spells :fireball] ["A" ::e5/spells :zap]] "B" :move)]
+    (is (= 2 placed))
+    (is (empty? (get-in plugins ["A" ::e5/spells])) "both left A")
+    (is (= #{:ice :fireball :zap} (set (keys (get-in plugins ["B" ::e5/spells])))))))
+
+(deftest relocate-move-clash-renames-not-clobbers
+  ;; B already has :ice; moving A's own :ice must not overwrite B's.
+  (let [plugins* (assoc-in relocate-plugins ["A" ::e5/spells :ice]
+                           {:name "Frost" :key :ice :option-pack "A"})
+        {:keys [plugins renamed]}
+        (orcbrew-val/relocate-content plugins* [["A" ::e5/spells :ice]] "B" :move)
+        new-key (:to (first renamed))]
+    (is (= 1 (count renamed)) "clash forced a rename")
+    (is (= "Ice" (get-in plugins ["B" ::e5/spells :ice :name])) "B's original ice untouched")
+    ;; The relocated item is disambiguated by NAME and keyed from it. Keeping the
+    ;; name "Frost" against a minted key would revert on its next save in the
+    ;; builder and clash in B all over again.
+    (is (= "Frost (B)" (get-in plugins ["B" ::e5/spells new-key :name])))
+    (is (= new-key (common/name-to-kw (get-in plugins ["B" ::e5/spells new-key :name])))
+        "key is derivable from the name it was placed under")))
+
+(deftest relocate-copy-mints-fresh-key-and-keeps-original
+  (let [{:keys [plugins placed renamed]}
+        (orcbrew-val/relocate-content relocate-plugins [["A" ::e5/spells :fireball]] "B" :copy)
+        new-key (:to (first renamed))]
+    (is (= 1 placed))
+    (is (= 1 (count renamed)) "copy always renames")
+    (is (some? (get-in plugins ["A" ::e5/spells :fireball])) "original stays in A")
+    (is (not= :fireball new-key) "copy got a distinct key")
+    (is (= "Fireball (B)" (get-in plugins ["B" ::e5/spells new-key :name]))
+        "the copy is visibly distinguished, not just distinctly keyed")
+    (is (= new-key (common/name-to-kw (get-in plugins ["B" ::e5/spells new-key :name]))))
+    (is (= "Fireball" (get-in plugins ["A" ::e5/spells :fireball :name]))
+        "the original's name is untouched")))
+
+(deftest relocate-move-to-own-source-is-noop
+  (let [{:keys [plugins placed renamed]}
+        (orcbrew-val/relocate-content relocate-plugins [["A" ::e5/spells :fireball]] "A" :move)]
+    (is (= 1 placed))
+    (is (empty? renamed))
+    (is (= relocate-plugins plugins) "moving to the same source changes nothing")))
+
+;; Greptile, PR #34: a clashing move renamed the class but left the source's
+;; subclasses on the old key, where they attached to the target's same-keyed class.
+(deftest relocate-clashing-move-carries-its-dependents
+  (let [plugins* {"A" {::e5/classes    {:artificer {:name "Artificer" :key :artificer :option-pack "A"}}
+                       ::e5/subclasses {:alchemist {:name "Alchemist" :key :alchemist
+                                                    :class :artificer :option-pack "A"}}}
+                  "B" {::e5/classes    {:artificer {:name "Artificer" :key :artificer :option-pack "B"}}
+                       ::e5/subclasses {:armorer {:name "Armorer" :key :armorer
+                                                  :class :artificer :option-pack "B"}}}}
+        {:keys [plugins renamed]}
+        (orcbrew-val/relocate-content plugins* [["A" ::e5/classes :artificer]] "B" :move)
+        new-key (:to (first renamed))
+        moved   (get-in plugins ["B" ::e5/classes new-key])]
+    (is (not= :artificer new-key) "renamed to avoid the clash")
+    (is (nil? (get-in plugins ["A" ::e5/classes :artificer])) "gone from the source")
+    (is (nil? (get-in plugins ["A" ::e5/classes new-key])) "not left behind under the new key")
+    (is (= "B" (:option-pack moved)))
+    (is (= "Artificer" (get-in plugins ["B" ::e5/classes :artificer :name])) "the target's own class untouched")
+    (is (= new-key (get-in plugins ["A" ::e5/subclasses :alchemist :class]))
+        "the moved class's subclass follows it")
+    (is (= :artificer (get-in plugins ["B" ::e5/subclasses :armorer :class]))
+        "the target's subclass still belongs to the target's class")
+    (is (some #{:artificer} (:former-keys moved))
+        "the old key is recorded, for rebinding once nothing else holds it")))
+
+;; Greptile, PR #34: the selection is a set, so a bulk move could take the
+;; subclass across before its class was renamed.
+(deftest relocate-bulk-move-renames-the-class-before-its-subclass-leaves
+  (let [plugins* {"A" {::e5/classes    {:artificer {:name "Artificer" :key :artificer :option-pack "A"}}
+                       ::e5/subclasses {:alchemist {:name "Alchemist" :key :alchemist
+                                                    :class :artificer :option-pack "A"}}}
+                  "B" {::e5/classes    {:artificer {:name "Artificer" :key :artificer :option-pack "B"}}}}
+        {:keys [plugins renamed]}
+        (orcbrew-val/relocate-content plugins*
+                                      [["A" ::e5/subclasses :alchemist] ["A" ::e5/classes :artificer]]
+                                      "B" :move)
+        new-key (:to (first (filter #(= ::e5/classes (:ct %)) renamed)))]
+    (is (some? new-key) "the class was renamed")
+    (is (= new-key (get-in plugins ["B" ::e5/subclasses :alchemist :class]))
+        "the subclass arrives pointing at the moved class, whatever order it was ticked in")
+    (is (empty? (get-in plugins ["A" ::e5/subclasses])) "both left the source")))
+
+(deftest relocate-clashing-copy-leaves-dependents
+  (let [plugins* {"A" {::e5/classes    {:artificer {:name "Artificer" :key :artificer :option-pack "A"}}
+                       ::e5/subclasses {:alchemist {:name "Alchemist" :key :alchemist
+                                                    :class :artificer :option-pack "A"}}}
+                  "B" {}}
+        {:keys [plugins]}
+        (orcbrew-val/relocate-content plugins* [["A" ::e5/classes :artificer]] "B" :copy)]
+    (is (some? (get-in plugins ["A" ::e5/classes :artificer])) "the original stays")
+    (is (= :artificer (get-in plugins ["A" ::e5/subclasses :alchemist :class]))
+        "a copy does not steal the original's subclasses")))
+
+(deftest relocate-missing-selection-skipped
+  (let [{:keys [placed missing]}
+        (orcbrew-val/relocate-content relocate-plugins [["A" ::e5/spells :ghost]] "B" :move)]
+    (is (= 0 placed))
+    (is (= 1 missing) "a stale selection is counted and skipped, not crashed")))
+
+(deftest unresolved-collision-count-only-counts-both-enabled
+  (testing "two enabled copies of one key across sources = 1 unresolved"
+    (is (= 1 (orcbrew-val/unresolved-collision-count
+              {"A" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}
+               "B" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}}))))
+  (testing "one side disabled → deterministic winner → resolved → 0"
+    (is (= 0 (orcbrew-val/unresolved-collision-count
+              {"A" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}
+               "B" {::e5/spells {:fireball {:name "Fireball" :key :fireball :disabled? true}}}}))))
+  (testing "pool-type duplicate (feats) is harmless, never a conflict"
+    (is (= 0 (orcbrew-val/unresolved-collision-count
+              {"A" {::e5/feats {:tough {:name "Tough" :key :tough}}}
+               "B" {::e5/feats {:tough {:name "Tough" :key :tough}}}})))))
+
+(deftest unresolved-collisions-names-key-and-sources
+  (let [plugins {"Pack A" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}
+                 "Pack B" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}}
+        [c] (orcbrew-val/unresolved-collisions plugins)]
+    (is (= :fireball (:key c)))
+    (is (= #{"Pack A" "Pack B"} (set (:sources c))) "names the enabled sources")
+    (is (= #{"Pack A" "Pack B"} (orcbrew-val/unresolved-conflict-sources plugins)))))
+
+(deftest twin-note-flags-unresolved-conflict
+  (let [plugins {"Pack A" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}
+                 "Pack B" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}}
+        idx (orcbrew-val/collision-twin-index plugins)]
+    (is (= :conflict (:kind (orcbrew-val/twin-note idx "Pack A" ::e5/spells :fireball false)))
+        "both enabled → :conflict, not nil")))
+
+;; ============================================================================
+;; Import mends damaged sections instead of calling them imported
+;; ============================================================================
+
+(def ^:private one-spell
+  "{:option-pack \"P\" :key :fire-bolt :name \"Fire Bolt\" :level 0 :school \"evocation\"}")
+
+(defn- import-text [text]
+  (orcbrew-val/validate-import text {:strategy :progressive :auto-clean true}))
+
+(deftest import-reads-a-section-stored-as-text-back
+  (let [result (import-text (str "{:orcpub.dnd.e5/spells " (pr-str (str "{:fire-bolt " one-spell "}")) "}"))]
+    (is (:success result))
+    (is (= 1 (:imported-count result)))
+    (is (map? (get-in result [:data :orcpub.dnd.e5/spells])))
+    (is (some #(= :repaired-section (:type %)) (:changes result)))))
+
+(deftest import-turns-a-list-section-back-into-entries
+  (let [result (import-text (str "{:orcpub.dnd.e5/spells [" one-spell "]}"))]
+    (is (:success result))
+    (is (= 1 (:imported-count result)))
+    (is (contains? (get-in result [:data :orcpub.dnd.e5/spells]) :fire-bolt))))
+
+(deftest import-of-a-whole-file-stored-as-text-no-longer-crashes
+  ;; used to throw "No protocol method IMapEntry.-key defined for type string"
+  (let [result (import-text (pr-str (str "{:orcpub.dnd.e5/spells {:fire-bolt " one-spell "}}")))]
+    (is (:success result))
+    (is (= 1 (:imported-count result)))))
+
+(deftest import-drops-an-empty-section-without-counting-it
+  (let [result (import-text "{:orcpub.dnd.e5/spells nil :orcpub.dnd.e5/feats {:tough {:option-pack \"P\" :key :tough :name \"Tough\"}}}")]
+    (is (:success result))
+    (is (= 1 (:imported-count result)) "the feat, not the empty section")
+    (is (not (contains? (:data result) :orcpub.dnd.e5/spells)))))
+
+(deftest import-does-not-count-an-unreadable-section-as-imported
+  (is (= 0 (:imported-count (import-text "{:orcpub.dnd.e5/spells \"corrupted\"}")))
+      "it used to say Imported 1 items"))
+
+(deftest the-import-notice-names-the-repair
+  (let [{:keys [details]} (orcbrew-val/format-import-result (import-text (str "{:orcpub.dnd.e5/spells [" one-spell "]}")))]
+    (is (some #(re-find #"Repaired 1 damaged section" %) details))))
+
+(deftest import-gives-an-entry-with-no-source-the-source-it-sits-in
+  (let [import! #(orcbrew-val/validate-import % {:strategy :progressive :auto-clean true})]
+    (testing "single-source file: the source its other entries name"
+      (let [result (import! plugin-with-mixed-validity)]
+        (is (= 3 (:imported-count result)) "the entry with no source used to be skipped")
+        (is (= "Test" (get-in result [:data :orcpub.dnd.e5/spells :invalid-spell :option-pack])))))
+    (testing "multi-source file: the source it is filed under"
+      (is (= "Filed Pak"
+             (get-in (import! "{\"Filed Pak\" {:orcpub.dnd.e5/feats {:tough {:key :tough :name \"Tough\"}}}}")
+                     [:data "Filed Pak" :orcpub.dnd.e5/feats :tough :option-pack]))))
+    (testing "no source name anywhere: the default"
+      (is (= "Default Option Source"
+             (get-in (import! "{:orcpub.dnd.e5/feats {:tough {:key :tough :name \"Tough\"}}}")
+                     [:data :orcpub.dnd.e5/feats :tough :option-pack]))))))
+
+(deftest import-fixes-cards-and-keys-and-keeps-what-it-cannot-read-instead-of-crashing
+  (testing "a text key and a trait listed by name are fixed, and the import log says so"
+    (let [result (orcbrew-val/validate-import
+                  "{\"P\" {:orcpub.dnd.e5/classes {:x {:key \"text\" :option-pack \"P\" :name \"X\" :traits [\"Darkvision\"]}}}}"
+                  {:strategy :progressive :auto-clean true})]
+      (is (:success result) "it threw: No protocol method IAssociative.-assoc defined for type number")
+      (is (= :x (get-in result [:data "P" :orcpub.dnd.e5/classes :x :key])))
+      (is (= "Darkvision" (get-in result [:data "P" :orcpub.dnd.e5/classes :x :traits 0 :name])))
+      (is (some #(re-find #"Fixed traits 0 of Class :x" (str (:description %))) (:changes result)))))
+  (testing "a trait that cannot be read: the entry stays as written, to be set aside when stored"
+    (let [result (orcbrew-val/validate-import
+                  "{\"P\" {:orcpub.dnd.e5/classes {:x {:key \"text\" :option-pack \"P\" :name \"X\" :traits [42 \"Darkvision\"]}}}}"
+                  {:strategy :progressive :auto-clean true})]
+      (is (:success result))
+      (is (= [42 "Darkvision"] (get-in result [:data "P" :orcpub.dnd.e5/classes :x :traits])))
+      (is (some #(re-find #"could not be read, so it will be set aside" (str (:description %)))
+                (:changes result))))))
+
+(deftest import-of-a-source-that-is-not-a-map-does-not-crash
+  (doseq [text ["{\"P\" 42}" "{\"P\" :kw}" "{\"P\" \"text\"}"]]
+    (is (:success (orcbrew-val/validate-import text {:strategy :progressive :auto-clean true})) text)))
+
+;; ── Key changes carry every link (homebrew-keys-design.md §3) ────────────────
+
+(deftest an-import-rename-moves-links-only-in-its-own-source
+  ;; Links in other sources are offered (library/repoint-offer), never moved.
+  (let [data {"Classes" {:orcpub.dnd.e5/classes {:caster {:key :caster :name "Caster"}}
+                         :orcpub.dnd.e5/subclasses {:own {:key :own :class :caster}}}
+              "Spells"  {:orcpub.dnd.e5/spells {:bolt {:key :bolt :spell-lists {:caster true}}}}
+              "Twin"    {:orcpub.dnd.e5/classes {:caster {:key :caster :name "Caster"}}
+                         :orcpub.dnd.e5/subclasses {:twin-sub {:key :twin-sub :class :caster}}}}
+        out (orcbrew-val/apply-key-renames data [{:source "Classes" :content-type :orcpub.dnd.e5/classes
+                                                  :from :caster :to :caster-imp}])]
+    (is (= :caster-imp (get-in out ["Classes" :orcpub.dnd.e5/subclasses :own :class])))
+    (is (= {:caster true} (get-in out ["Spells" :orcpub.dnd.e5/spells :bolt :spell-lists])))
+    (is (= :caster (get-in out ["Twin" :orcpub.dnd.e5/subclasses :twin-sub :class]))
+        "a source holding its own copy keeps meaning it")))
+
+(deftest auto-name-and-restore-leaves-every-key-alone
+  (let [plugin {:orcpub.dnd.e5/races {:stone-elf-trcs {:name "Stone Elf" :key :stone-elf-trcs}
+                                      :9-lives        {:name "9 Lives" :key :9-lives}}}
+        out (orcbrew-val/coerce-invalid-names plugin)]
+    (is (= :stone-elf-trcs (get-in out [:orcpub.dnd.e5/races :stone-elf-trcs :key]))
+        "a valid item keeps the key it is stored under")
+    (is (= :9-lives (get-in out [:orcpub.dnd.e5/races :9-lives :key]))
+        "an invalid key is e5/rekey-plugin's to move, not this")))
+
+(deftest fill-option-pack-uses-the-source-an-item-is-stored-under
+  (let [out (orcbrew-val/fill-option-pack
+             {:orcpub.dnd.e5/feats {:a {:name "A"} :b {:name "B" :option-pack ""}
+                                    :c {:name "C" :option-pack "Elsewhere"}}
+              :disabled? false}
+             "Tide Pak")]
+    (is (= "Tide Pak" (get-in out [:orcpub.dnd.e5/feats :a :option-pack])) "missing: filled")
+    (is (= "Tide Pak" (get-in out [:orcpub.dnd.e5/feats :b :option-pack])) "blank: filled")
+    (is (= "Elsewhere" (get-in out [:orcpub.dnd.e5/feats :c :option-pack])) "named: kept")
+    (is (false? (:disabled? out)) "non-content entries pass through")))
+
+(deftest a-copy-does-not-claim-the-originals-former-keys
+  (let [plugins {"A" {::e5/races {:folk {:name "Folk" :key :folk :former-keys [:old-folk]}}}
+                 "B" {}}
+        {out :plugins} (orcbrew-val/relocate-content plugins [["A" ::e5/races :folk]] "B" :copy)
+        copy (first (vals (get-in out ["B" ::e5/races])))]
+    (is (some? copy))
+    (is (nil? (:former-keys copy)) "characters on :old-folk still heal to one item")
+    (is (= [:old-folk] (get-in out ["A" ::e5/races :folk :former-keys])) "the original keeps them")))
