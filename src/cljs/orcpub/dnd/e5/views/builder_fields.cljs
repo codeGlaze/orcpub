@@ -9,6 +9,9 @@
   [e]
   (.. e -target -value))
 
+(defn set-value [atom key e]
+  (swap! atom assoc key (event-value e)))
+
 (defn dropdown
   "A select of `items` ([{:value :title :disabled?}]) showing `value`. `on-change` gets the picked
   value as a string, or with :typed? the item's own :value of any type. :class-name styles it."

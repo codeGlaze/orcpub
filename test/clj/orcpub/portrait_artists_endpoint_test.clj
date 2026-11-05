@@ -5,6 +5,8 @@
             [orcpub.db.schema :as schema]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.routes :as routes]
+            [orcpub.fork.branding]
+            [orcpub.index :as index]
             [orcpub.route-map]
             [cheshire.core])
   (:import [java.util UUID]))
@@ -35,10 +37,26 @@
 (deftest an-artist-credit-is-never-written-into-the-page
   (with-conn conn
     (artist! conn)
-    (let [html (:body (routes/index-page-response {:db (d/db conn) :headers {"host" "example.test"} :uri "/"}
+    (let [html (:body (index/index-page-response {:db (d/db conn) :headers {"host" "example.test"} :uri "/"}
                                                   {:title "t" :description "d"}))]
       (is (string? html))
       (is (not (re-find #"MARK" html)) "artist-editable text reaches the browser as data, not page source"))))
+
+(deftest the-og-image-url-keeps-an-absolute-setting-and-prefixes-a-site-path
+  (with-redefs [orcpub.fork.branding/og-image-filename "https://cdn.example.test/card.png"]
+    (is (= "https://cdn.example.test/card.png" (index/default-image-url "example.test"))))
+  (with-redefs [orcpub.fork.branding/og-image-filename "http://cdn.example.test/card.png"]
+    (is (= "http://cdn.example.test/card.png" (index/default-image-url "example.test"))))
+  (with-redefs [orcpub.fork.branding/og-image-filename "/image/card.png"]
+    (is (= "https://example.test/image/card.png" (index/default-image-url "example.test")))))
+
+(deftest the-character-page-sends-no-frame-header
+  ;; Framing is decided by the CSP's frame-ancestors on every page; the old X-Frame-Options
+  ;; ALLOW-FROM line was ignored by every current browser and has been removed.
+  (with-redefs [routes/character-summary-for-id (constantly {})]
+    (let [resp (routes/character-page {:headers {"host" "example.test"} :uri "/" :path-params {:id "1"}})]
+      (is (nil? (get-in resp [:headers "X-Frame-Options"])))
+      (is (= "text/html" (get-in resp [:headers "Content-Type"])) "the default header is kept"))))
 
 (deftest the-endpoint-serves-the-saved-credit-as-json
   (with-conn conn

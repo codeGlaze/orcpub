@@ -78,6 +78,8 @@
    :img-src "'self' data: https:"
    :object-src "'none'"})
 
+(def turnstile-origin "https://challenges.cloudflare.com")
+
 (defn get-csp-policy
   "Return the CSP policy from CSP_POLICY env var. Defaults to 'strict'."
   []
@@ -224,6 +226,12 @@
   []
   (env/flag? :trust-cloudflare))
 
+(defn redis-url
+  "REDIS_URL, where the abuse limits are counted when several app containers share them, or nil
+   for this server's own memory. May carry a password: never print it."
+  []
+  (env/value :redis-url))
+
 (defn copy-name
   "This server's name among several copies: HOSTNAME (Docker and Swarm set it per container), else
    the machine's host name, else \"server\". Names its alert spool file and its alerts."
@@ -349,6 +357,23 @@
   (let [raw (some-> (env-raw "ORCPUB_PWNED_CHECK") str/trim (.toLowerCase Locale/ROOT))]
     (not (contains? #{"off" "false" "0" "no"} raw))))
 
+(defn turnstile-site-key
+  "TURNSTILE_SITE_KEY (public, sent to the browser), or nil when unset or blank."
+  []
+  (env-raw "TURNSTILE_SITE_KEY"))
+
+(defn turnstile-secret-key
+  "TURNSTILE_SECRET_KEY, or nil when unset or blank. NEVER log, print or send it."
+  []
+  (env-raw "TURNSTILE_SECRET_KEY"))
+
+(defn turnstile-enabled?
+  "Whether the sign-up, password-reset and resend-verification forms (and sign-in after a
+   failure) ask for a Cloudflare Turnstile check: only when BOTH TURNSTILE_SITE_KEY and
+   TURNSTILE_SECRET_KEY are set."
+  []
+  (boolean (and (turnstile-site-key) (turnstile-secret-key))))
+
 (defn- positive-int-text?
   "Whether text `raw` reads as a positive whole number."
   [raw]
@@ -375,6 +400,8 @@
      :note "true when the site is served through Cloudflare"}
     {:group "security" :var "TRUSTED_PROXIES" :since current-release
      :note "proxies to trust besides private networks; comma-separated"}
+    {:group "security" :var "REDIS_URL" :since current-release :secret? true
+     :note "shared abuse limits; unset counts in memory"}
     {:group "security" :var "CSP_POLICY" :since "2.5"    :note "strict, permissive or none"}
     {:group "email"    :var "EMAIL_SERVER_URL" :since "2.5" :critical? true :fix email-missing-message
      :note "SMTP host; sign-up and password reset need it"}
@@ -436,6 +463,10 @@
      :accepts #(contains? #{"on" "off" "true" "false" "1" "0" "yes" "no"} (.toLowerCase (str/trim %) Locale/ROOT))
      :expects "on or off"
      :note "checks new passwords against known breaches"}
+    {:group "security" :var "TURNSTILE_SITE_KEY" :since current-release :get #(turnstile-site-key)
+     :note "Turnstile on sign-up/reset/resend/sign-in; needs secret key"}
+    {:group "security" :var "TURNSTILE_SECRET_KEY" :since current-release :secret? true
+     :note "Turnstile on sign-up/reset/resend/sign-in; needs site key"}
     {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :since current-release :get #(get-share-prune-days)
      :accepts #(some-> % str/trim parse-long (>= 0)) :expects "a whole number of days, 0 or more"
      :note "days before an unused share link is deleted; 0 never"}]))
@@ -449,14 +480,15 @@
            (repeat :required))
    (zipmap ["APP_URL" "PROFILE_ENCRYPTION_KEYS" "EMAIL_ACCESS_KEY" "EMAIL_SECRET_KEY" "TRUST_CLOUDFLARE"]
            (repeat :recommended))
-   (zipmap ["PORT" "DEV_MODE" "TRUSTED_PROXIES" "CSP_POLICY" "EMAIL_SERVER_PORT" "EMAIL_SSL" "EMAIL_TLS"
+   (zipmap ["PORT" "DEV_MODE" "TRUSTED_PROXIES" "CSP_POLICY" "REDIS_URL" "EMAIL_SERVER_PORT" "EMAIL_SSL" "EMAIL_TLS"
             "EMAIL_REQUIRED" "ALLOW_UNVERIFIED_REGISTRATION" "EMAIL_ERRORS_TO" "EMAIL_ADMIN_TO"
             "ALERT_SPOOL_DIR" "ALERT_MAX_PER_HOUR" "LOAD_HOMEBREW_URL" "PORTRAIT_ARTISTS"
             "ORCPUB_HTTP_MAX_THREADS" "ORCPUB_PDF_CONCURRENCY" "ORCPUB_PDF_QUEUE_TIMEOUT_MS"
             "ORCPUB_PORTRAIT_CONCURRENCY" "ORCPUB_PORTRAIT_QUEUE_TIMEOUT_MS" "PORTRAIT_STORE_DIR"
             "ORCPUB_PDF_MAX_RETRIES" "ORCPUB_PDF_MAX_CASTER_SECTIONS" "ORCPUB_PDF_MAX_CARDS"
             "ORCPUB_SHARE_MAX_UPLOAD_KB" "ORCPUB_SHARE_MAX_TEXT_KB" "ORCPUB_SHARE_MAX_ACCOUNT_KB"
-            "ORCPUB_PWNED_CHECK" "ORCPUB_SHARE_PRUNE_DAYS"]
+            "ORCPUB_PWNED_CHECK" "ORCPUB_SHARE_PRUNE_DAYS" "TURNSTILE_SITE_KEY"
+            "TURNSTILE_SECRET_KEY"]
            (repeat :tuning))))
 
 (def ^:private tunables
@@ -629,12 +661,15 @@
   "The boot report's DEPLOYMENT block, as lines. Takes `:crash-dir` and `:alert-dir`, the resolved
    folders for crash files and unsent alerts (either nil when unknown), `:max-heap-bytes`, the
    most memory Java may use (nil leaves the line out), and `:admin`, `alert-address`'s answer
-   (the line appears when the key is given). Says where those files land, flags a folder
-   inside the container with the mount that moves it, gives the memory limit, and ends with
-   `deployment-notes`."
+   (the line appears when the key is given), `:app-url` (a warning when given and empty). Says where
+   those files land, flags a folder inside the container with the mount that moves it, gives the
+   memory limit, and ends with `deployment-notes`."
   [{:keys [crash-dir alert-dir max-heap-bytes admin] :as dirs}]
   (let [inside? #(and % (str/starts-with? % "/var/lib/orcpub/"))]
     (concat
+     ;; The one startup warning about APP_URL: printed with the boot report, not per request.
+     (when (and (contains? dirs :app-url) (str/blank? (:app-url dirs)))
+       ["Warning: APP_URL is not set, so links in account emails follow the request's Host header. Set APP_URL in production."])
      (when (contains? dirs :admin)
        [(if admin
           (str "Admin email: " (:address admin) " (from " (:from admin) ")")
@@ -710,7 +745,8 @@
          lines  (vec (report-lines (report) actual @branding/ignored
                                    (deployment-lines (assoc dirs
                                                             :max-heap-bytes (.maxMemory (Runtime/getRuntime))
-                                                            :admin (alert-address)))))
+                                                            :admin (alert-address)
+                                                            :app-url branding/app-url))))
          saved  (some-> (report-dir dirs) (save-report! lines))]
      ;; One write, then flush. Printed line by line, Jetty's own logging interleaved with it
      ;; and cut the table in half -- buffered stdout against unbuffered stderr in the same
@@ -738,5 +774,11 @@
     {:content-security-policy-settings nil}
 
     ;; Default to permissive
+    ;; Turnstile loads its script and renders in a frame from Cloudflare.
     :else
-    {:content-security-policy-settings permissive-csp-settings}))
+    {:content-security-policy-settings
+     (if (turnstile-enabled?)
+       (assoc permissive-csp-settings
+              :script-src (str (:script-src permissive-csp-settings) " " turnstile-origin)
+              :frame-src (str "'self' " turnstile-origin))
+       permissive-csp-settings)}))

@@ -25,6 +25,8 @@
 ;; card, 4.52:1 as a border on its own tint -- never run as text ON that tint, which only clears 4.52:1 (AA-scrape).
 ;; Ink/muted on the white auth card: 8.9:1 and 4.6:1 respectively (counterparts to muted-on-dark).
 (def text-color-light "#4b545e")
+(def auth-card-ink "#484848")        ; body text on the white auth card (the old text-color in views/auth)
+(def auth-banner-ground "#1a2532")   ; the logo band above the auth card's form
 (def muted-on-light "#6b7681")
 (def error-red "#d4351c")
 (def error-tint "#fdf5f6")
@@ -950,7 +952,10 @@
     ;; its OWN font-size, not an inherited pixel value -- unset here, text renders
     ;; SOLID, descenders hitting the next line's ascenders. Set once on the card for
     ;; a readable default; boxes with tuned geometry pin their own below.
-    {:line-height "1.5"}
+    {:line-height "1.5"
+     :background-color :white
+     :border "1px solid white"
+     :color auth-card-ink}
     [:.red {:color red}
      [:a :a:visited {:color red}]]
 
@@ -3950,7 +3955,7 @@
 
     [:.registration-header
      {:height "65px"
-      :background-color "#1a2532"
+      :background-color auth-banner-ground
       :border-right "1px solid white"}]
 
     [:.registration-left-col

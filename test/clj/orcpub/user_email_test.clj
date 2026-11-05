@@ -10,6 +10,7 @@
             [orcpub.db.schema :as schema]
             [orcpub.email :as email]
             [orcpub.routes :as routes]
+            [orcpub.routes.auth :as auth]
             [orcpub.security :as security]
             [orcpub.user-email :as ue])
   (:import [java.util Locale UUID]))
@@ -43,12 +44,12 @@
     (is (zero? (ue/backfill! conn 500)) "a second run finds nothing to do")
     (let [db (d/db conn)]
       (is (= "Kaylee@Example.Test" (:orcpub.user/email (account conn "kaylee"))) "the address as typed is kept")
-      (is (= "kaylee" (:orcpub.user/username (routes/lookup-user db "KAYLEE@example.test" "shiny-hunter2")))
+      (is (= "kaylee" (:orcpub.user/username (auth/lookup-user db "KAYLEE@example.test" "shiny-hunter2")))
           "sign-in by email")
-      (is (some? (:db/id (routes/user-for-email db "kaylee@EXAMPLE.test"))) "password reset")
-      (is (seq (d/q routes/email-query db (ue/email-key "kaylee@example.TEST")))
+      (is (some? (:db/id (auth/user-for-email db "kaylee@EXAMPLE.test"))) "password reset")
+      (is (seq (d/q auth/email-query db (ue/email-key "kaylee@example.TEST")))
           "sign-up and email change see the address as taken")
-      (is (= "kaylee" (:orcpub.user/username (routes/find-user-by-username-or-email db "kaylee@example.test")))
+      (is (= "kaylee" (:orcpub.user/username (auth/find-user-by-username-or-email db "kaylee@example.test")))
           "an account named by its email"))))
 
 (deftest an-account-with-a-blank-email-does-not-stop-the-backfill
@@ -66,9 +67,9 @@
       @(d/transact conn [{:orcpub.user/username "simon" :orcpub.user/email "simon@example.test"
                           :orcpub.user/password (hashers/encrypt "shiny-hunter2")}])
       (let [db (d/db conn)]
-        (is (seq (d/q routes/email-query db "simon@example.test")) "sign-up sees the address as taken")
-        (is (some? (:db/id (routes/user-for-email db "Simon@Example.test"))) "password reset")
-        (is (= "simon" (:orcpub.user/username (routes/lookup-user db "SIMON@example.test" "shiny-hunter2"))))))))
+        (is (seq (d/q auth/email-query db "simon@example.test")) "sign-up sees the address as taken")
+        (is (some? (:db/id (auth/user-for-email db "Simon@Example.test"))) "password reset")
+        (is (= "simon" (:orcpub.user/username (auth/lookup-user db "SIMON@example.test" "shiny-hunter2"))))))))
 
 (deftest the-backfill-reads-the-accounts-once
   (let [conn (fresh-conn) reads (atom 0) real-q d/q]
@@ -94,10 +95,10 @@
 
 (deftest registration-sets-the-key
   (let [conn (fresh-conn)]
-    (with-redefs [security/registration-allowed? (constantly true)
+    (with-redefs [security/guard (constantly nil)
                   email/configured? (constantly false)
                   email/unverified-registration-allowed? (constantly true)]
-      (is (= 200 (:status (routes/register {:conn conn :db (d/db conn) :scheme :https :headers {"host" "example.test"}
+      (is (= 200 (:status (auth/register {:conn conn :db (d/db conn) :scheme :https :headers {"host" "example.test"}
                                             :json-params {:username "newcomer" :email "NewComer@Test.com"
                                                           :verify-email "NewComer@Test.com" :password "hunter2hunter2"
                                                           :send-updates? false}})))))

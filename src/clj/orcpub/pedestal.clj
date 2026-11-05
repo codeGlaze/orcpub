@@ -74,7 +74,9 @@
                            ;; branch is unreachable in dev mode.
                            :dev-mode? false
                            :extra-connect-src (:connect-src integrations/csp-domains)
-                           :extra-frame-src (:frame-src integrations/csp-domains)))
+                           :extra-frame-src (cond-> (vec (:frame-src integrations/csp-domains))
+                                              (config/turnstile-enabled?)
+                                              (conj config/turnstile-origin))))
                ctx))}))
 
 ;; Create the nonce interceptor with current dev-mode? setting

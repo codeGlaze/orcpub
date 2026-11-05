@@ -53,7 +53,6 @@
                                       keep-draft!
                                       unsaved-drafts
                                       draft-visible?
-                                      user->local-store
                                       magic-item->local-store
                                       spell->local-store
                                       monster->local-store
@@ -108,7 +107,7 @@
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.picks :as picks]
-            [orcpub.dnd.e5.event-utils :as event-utils]
+            [orcpub.dnd.e5.event-utils :as event-utils :refer [user->local-store-interceptor]]
             [orcpub.dnd.e5.compute :as compute]
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx reg-cofx inject-cofx path
                                    after dispatch ->interceptor reg-global-interceptor]]
@@ -118,11 +117,8 @@
             [cljs-time.core :as time]
             [cljs.reader :as reader]
             [clojure.string :as s]
-            [bidi.bidi :as bidi]
             [orcpub.route-map :as routes]
-            [orcpub.errors :as errors]
             [orcpub.fork.integrations :as integrations]
-            [orcpub.fork.branding :as branding]
             [clojure.set :as sets]
             [cljsjs.filesaverjs]
             [clojure.pprint :as pprint])
@@ -159,8 +155,6 @@
  ::persist-healed-character
  (fn [character]
    (character->local-store character)))
-
-(def user->local-store-interceptor (after (fn [db] (user->local-store (:user-data db)))))
 
 (def magic-item->local-store-interceptor (after magic-item->local-store))
 
@@ -2289,53 +2283,6 @@
              :url (backend-url path)}})))
 
 (reg-event-fx
- :change-email
- (fn [{:keys [db]} [_ new-email current-password]]
-   {:db (dissoc db :email-change-sent? :email-change-error)
-    :http {:method :put
-           :headers (authorization-headers db)
-           :url (backend-url (routes/path-for routes/user-email-route))
-           ;; The password is sent to be COMPARED, never stored and never read
-           ;; back: the server hands it to lookup-user, which checks the hash.
-           :transit-params {:new-email new-email
-                            :current-password current-password}
-           :on-success [:change-email-success]
-           :on-failure [:change-email-failure]}}))
-
-(reg-event-db
- :change-email-success
- (fn [db [_ response]]
-   (-> db
-       (assoc :email-change-sent? true)
-       ;; Use server-canonical (lowercased/trimmed) email for display
-       (assoc-in [:user-data :user-data :pending-email]
-                 (-> response :body :pending-email)))))
-
-(reg-event-db
- :change-email-failure
- (fn [db [_ response]]
-   (let [body (:body response)
-         error (:error body)]
-     (assoc db :email-change-error
-            (case error
-              :bad-credentials "That password is not right. The account stays on its current address."
-              :email-taken "That email address is already in use by another account."
-              :invalid-email "Please enter a valid email address."
-              :same-as-current "That is already your current email address."
-              :too-many-requests
-              (let [secs (:retry-after-secs body)]
-                (if (and secs (pos? secs))
-                  (if (<= secs 60)
-                    ;; 0–1 min zone: email is in transit, show short countdown
-                    (str "Your email is on its way. You can resend in " secs " second" (when (> secs 1) "s") ".")
-                    ;; 1–5 min zone for a different email: show minutes
-                    (let [mins (.ceil js/Math (/ secs 60))]
-                      (str "Please wait " mins " minute" (when (> mins 1) "s") " before requesting another change.")))
-                  "Please wait a few minutes before requesting another email change."))
-              :email-send-failed "Verification email could not be sent. Please try again later."
-              "There was an error updating your email. Please try again.")))))
-
-(reg-event-fx
  :withdraw-sessions
  (fn [{:keys [db]} _]
    {:http {:method :delete
@@ -2357,11 +2304,6 @@
  (fn [db _]
    (assoc db :sessions-withdraw-error
           "Could not sign your other sessions out. Please try again.")))
-
-(reg-event-db
- :change-email-clear
- (fn [db _]
-   (dissoc db :email-change-sent? :email-change-error)))
 
 ;; ─── Account Settings ──────────────────────────────────────────────
 ;; The account page re-reads the user on open: what the login response cached
@@ -3403,18 +3345,6 @@
  (fn [db [_ user-data]]
    (update db :user-data merge user-data)))
 
-(reg-event-db
- :clear-login
- [user->local-store-interceptor]
- ;; With a token: only while that is still the login, so a 401 that answers a login already
- ;; replaced does not sign the new one out.
- (fn [db [_ expected-token]]
-   (if (or (nil? expected-token) (= expected-token (event-utils/get-auth-token db)))
-     (-> db
-         (update :user-data dissoc :user-data :token)
-         (dissoc :user))
-     db)))
-
 ;; Startup auth check — validates stored token on app load (core.cljs) and keeps the account it
 ;; answers in db :user, the one GET /user of a page load.
 ;; Clears stale sessions before reg-sub-raw subs fire HTTP with expired tokens.
@@ -3639,12 +3569,6 @@
               ::entity/value]
              name)))
 
-(defn cookies []
-  (let [cookie js/document.cookie]
-    (into {}
-          (map #(s/split % "="))
-          (s/split cookie "; "))))
-
 (def show-generic-error event-utils/show-generic-error)
 
 (reg-fx
@@ -3670,255 +3594,6 @@
  (fn [path]
    (.pushState js/window.history {} nil path)))
 
-(def login-url (backend-url "/login"))
-
-(reg-event-fx
- :login-success
- [user->local-store-interceptor]
- (fn [{:keys [db]} [_ backtrack? response]]
-   ;; A button-text choice saved on the account wins over this browser's.
-   {:db (let [account-choice (-> response :body :user-data :dark-button-text?)]
-          (cond-> (-> db
-                      (update :user-data merge (-> response :body))
-                      (assoc :user (-> response :body :user-data)))
-            (some? account-choice) (assoc-in [:user-data :dark-button-text?] account-choice)))
-    :dispatch [:route (or
-                       (:return-route db)
-                       routes/dnd-e5-char-builder-route)]}))
-
-(defn sign-in-failed-message []
-  ;; Deliberately vague about which half was wrong: naming the username as unknown
-  ;; would make this form a membership-disclosure oracle. See account-flows.md.
-  [:show-login-message
-   [:div "That username and password do not match. Usernames and passwords are case sensitive, "
-    "email addresses are not. If you have not signed up yet you can "
-    [:a {:href (routes/path-for routes/register-page-route)} "register"] "."]])
-
-(defn dispatch-login-failure [message]
-  {:dispatch-n [[:clear-login]
-                [:show-login-message message]]})
-
-(reg-event-fx
- :login-failure
- (fn [{:keys [db]} [_ response]]
-   (let [error-code (-> response :body :error)]
-     (cond
-       (= error-code errors/username-required) (dispatch-login-failure "Username is required.")
-       (= error-code errors/too-many-attempts) (dispatch-login-failure "Too many attempts just now. Wait a minute and try again.")
-       (= error-code errors/password-required) (dispatch-login-failure "Password is required.")
-       (= error-code errors/bad-credentials) {:dispatch-n [[:clear-login]
-                                                           (sign-in-failed-message)]}
-       (= error-code errors/unverified) {:db (assoc db :temp-email (-> response :body :email))
-                                         :dispatch [:route routes/verify-sent-route]}
-       (= error-code errors/unverified-expired) {:dispatch [:route routes/verify-failed-route]}
-       :else (dispatch-login-failure
-              (if (seq branding/support-email)
-                [:div "An error occurred. If the problem persists please email "
-                 [:a {:href (str "mailto:" branding/support-email) :target :blank} branding/support-email]]
-                [:div "An error occurred. Please try again later."]))))))
-
-(reg-event-fx
- :logout
- ;; Only the player's own Log Out: the builder starts fresh, the draft stays under its account.
- ;; An expired session clears the login (:clear-login) without touching the builder.
- (fn [cofx [_ response]]
-   {:dispatch-n [[:clear-login] [:reset-character]]}))
-
-(def login-routes
-  #{routes/login-page-route
-    routes/register-page-route
-    routes/verify-sent-route
-    routes/reset-password-page-route
-    routes/verify-failed-route
-    routes/verify-success-route
-    routes/send-password-reset-page-route
-    routes/password-reset-success-route
-    routes/password-reset-expired-route
-    routes/password-reset-used-route
-    routes/unsubscribe-success-route})
-
-(reg-event-fx
- :login
- (fn [{:keys [db]} [_ params backtrack?]]
-   {:http {:method :post
-           :url login-url
-           :json-params params
-           :on-success [:login-success backtrack?]
-           :on-unauthorized [:login-failure]}}))
-
-(reg-event-db
- :register-success
- (fn [db [_ backtrack? response]]
-   ;; A deployment with no EMAIL_SERVER_URL verifies on creation and says so
-   ;; with :verified? -- sending such a user to "check your email" would point
-   ;; them at a mail that is never coming.
-   (let [verified? (get-in response [:body :verified?])]
-     (-> db
-         (update :user-data merge (:body response))
-         (assoc :route (if verified? :verify-success :verify-sent))))))
-
-(reg-event-db
- :registration-attempted
- ;; Set when JOIN is pressed on a form that is not ready. The button no longer
- ;; dims -- a control that looks dead teaches people the site is broken rather
- ;; than that their form is -- so pressing it has to SAY something instead.
- (fn [db _]
-   (assoc db :registration-attempted? true)))
-
-(reg-event-fx
- :register-failure
- ;; :registration-server-errors holds what only the server can judge, shown by field; any other
- ;; failure becomes a :general notice, so no server-side failure is silent. account-flows.md.
- (fn [{:keys [db]} [_ response]]
-   (let [body (:body response)]
-     {:db (assoc db :registration-server-errors
-                 (cond
-                   (= :email-not-configured (:error body))
-                   {:general ["Registration is currently unavailable. Please contact the site administrator."]}
-                   (and (map? body) (not (contains? body :error))) body
-                   :else {:general ["Registration failed. Please try again."]}))
-      :dispatch [:clear-login]})))
-
-#_ ;; dead stub — real impl is orcpub.registration/validate-registration
-  (defn validate-registration [])
-
-
-(reg-event-db
- :email-taken
- (fn [db [_ response]]
-   (assoc db :email-taken? (-> response :body (= "true")))))
-
-(reg-event-db
- :username-taken
- (fn [db [_ response]]
-   (assoc db :username-taken? (-> response :body (= "true")))))
-
-#_ ;; never dispatched — registration form uses :register-first-and-last-name
-  (reg-event-db
-   :registration-first-and-last-name
-   (fn [db [_ first-and-last-name]]
-     (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
-
-(reg-event-fx
- :registration-email
- (fn [{:keys [db]} [_ email]]
-   {:db (assoc-in db [:registration-form :email] email)
-    :dispatch [:check-email email]}))
-
-(reg-event-fx
- :registration-verify-email
- (fn [{:keys [db]} [_ email]]
-   {:db (assoc-in db [:registration-form :verify-email] email)}))
-
-(reg-event-fx
- :registration-username
- (fn [{:keys [db]} [_ username]]
-   {:db (assoc-in db [:registration-form :username] username)
-    :dispatch [:check-username username]}))
-
-(reg-event-db
- :registration-password
- (fn [db [_ password]]
-   (-> db
-       ;; What the server said was about the password it was sent, not this one.
-       (dissoc :registration-server-errors)
-       (assoc-in [:registration-form :password] password))))
-
-(reg-event-db
- :registration-password-revealed?
- ;; In the db rather than a local atom: whatever decides the form may be
- ;; submitted has to know the confirmation is not being asked for, and a reveal
- ;; hidden inside the field component is invisible to it.
- (fn [db [_ revealed?]]
-   (assoc-in db [:registration-form :password-revealed?] revealed?)))
-
-(reg-event-db
- :registration-verify-password
- (fn [db [_ password]]
-   (-> db
-       (dissoc :registration-server-errors)
-       (assoc-in [:registration-form :verify-password] password))))
-
-(reg-event-db
- :registration-send-updates?
- (fn [db [_ send-updates?]]
-   (assoc-in db [:registration-form :send-updates?] send-updates?)))
-
-#_ ;; never dispatched from UI
-  (reg-event-db
-   :register-first-and-last-name
-   (fn [db [_ first-and-last-name]]
-     (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
-
-(reg-event-fx
- :check-email
- (fn [{:keys [db]} [_ email]]
-   {:http {:method :get
-           :url (backend-url (bidi/path-for routes/routes routes/check-email-route))
-           :query-params {:email email}
-           :on-success [:email-taken]}}))
-
-(reg-event-fx
- :check-username
- (fn [{:keys [db]} [_ username]]
-   {:http {:method :get
-           :url (backend-url (bidi/path-for routes/routes routes/check-username-route))
-           :query-params {:username username}
-           :on-success [:username-taken]}}))
-
-(reg-event-fx
- :register
- (fn [{:keys [db]} [_ params backtrack?]]
-   (let [registration-form (:registration-form db)]
-     {:db (assoc db :temp-email (:email registration-form))
-      :http {:method :post
-             :url (backend-url (bidi/path-for routes/routes routes/register-route))
-             :json-params registration-form
-             :on-success [:register-success backtrack?]
-             :on-failure [:register-failure]}})))
-
-(reg-event-db
- :re-verify-success
- (fn [db [_ response]]
-   ;; With no SMTP and ALLOW_UNVERIFIED_REGISTRATION set, a resend verifies the
-   ;; account on the spot and says so -- "check your email" would leave the user
-   ;; waiting for a message that is never sent.
-   (assoc db :route (if (get-in response [:body :verified?])
-                      routes/verify-success-route
-                      routes/verify-sent-route))))
-
-(reg-event-fx
- :re-verify
- (fn [{:keys [db]} [_ params]]
-   {:db (assoc db :temp-email (:email params))
-    :http {:method :get
-           :url (backend-url (bidi/path-for routes/routes routes/re-verify-route))
-           :query-params params
-           :on-success [:re-verify-success]}}))
-
-(reg-event-db
- :send-password-reset-success
- (fn [db []]
-   (assoc db :route routes/password-reset-sent-route)))
-
-(reg-event-fx
- :send-password-reset-failure
- ;; The endpoint answers 200 for every address now, so :no-account cannot arrive
- ;; here and the branch that handled it is gone. Anything reaching this handler
- ;; is a network or server fault, which is what the generic error is for.
- (fn [_ _]
-   (show-generic-error)))
-
-(reg-event-fx
- :send-password-reset
- (fn [{:keys [db]} [_ params]]
-   {:db (assoc db :temp-email (:email params))
-    :http {:method :get
-           :url (backend-url (bidi/path-for routes/routes routes/send-password-reset-route))
-           :query-params params
-           :on-success [:send-password-reset-success]
-           :on-failure [:send-password-reset-failure]}}))
-
 ;; never dispatched — character loading uses :load-user-data flow
 #_(reg-event-db
    :load-characters-success
@@ -3935,53 +3610,6 @@
              :auth-token (event-utils/get-auth-token db)
              :url (backend-url (routes/path-for routes/dnd-e5-char-list-route))
              :on-success [:load-characters-success]}}))
-
-(reg-event-db
- :password-reset-success
- (fn [db []]
-   (assoc db :route routes/password-reset-success-route)))
-
-(reg-event-fx
- :password-reset-failure
- ;; The same bug :register-failure had: the body was thrown away and replaced
- ;; with one generic sentence, so a password refused for being a common one said
- ;; only that something had gone wrong, and the obvious next move was to try the
- ;; same password again. The server's reasons are field-keyed; keep them.
- (fn [{:keys [db]} [_ response]]
-   (let [errors (when (map? (:body response)) (:body response))]
-     (cond
-       ;; An expired or used link: nothing in the form can fix it.
-       (:general errors) (dispatch-login-failure (first (:general errors)))
-       (seq errors)
-       {:db (assoc db :password-reset-server-errors errors)}
-       :else
-       ;; A failure with nothing to say -- a network drop, a 500 -- still needs
-       ;; to say something.
-       (dispatch-login-failure "There was an error resetting your password.")))))
-
-(reg-event-db
- :password-reset-clear-errors
- ;; What the server said was about the password it was sent, not this one.
- (fn [db _]
-   (dissoc db :password-reset-server-errors)))
-
-(reg-event-fx
- :password-reset
- ;; The link's key is the only authority the server takes for a reset; there is no session.
- (fn [{:keys [db]} [_ params]]
-   (let [reset-key (.get (js/URLSearchParams. (.. js/window -location -search)) "key")]
-     {:db (assoc db :temp-email (:email params))
-      :http {:method :post
-             :url (backend-url (bidi/path-for routes/routes routes/reset-password-route))
-             ;; A revealed password has no confirm box; the server still compares the two fields.
-             :json-params {:password (:password params)
-                           :verify-password (if (:password-revealed? params)
-                                              (:password params)
-                                              (:verify-password params))
-                           :key reset-key}
-             :on-success [:password-reset-success]
-             :on-unauthorized [:password-reset-failure]
-             :on-failure [:password-reset-failure]}})))
 
 (reg-event-db
  ::char5e/set-characters

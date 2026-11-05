@@ -9,7 +9,7 @@
             [orcpub.crypto]
             [orcpub.artist-email]
             [orcpub.heartbeat]
-            [orcpub.routes])
+            [orcpub.routes] [orcpub.routes.auth])
   (:import [java.util UUID]))
 
 (defmacro with-conn [conn-binding & body]
@@ -249,7 +249,7 @@
         (let [r (orcpub.routes/update-user-preferences (req conn "someone" {:preferred-name "  Kaylee  "}))]
           (is (= "Kaylee" (get-in r [:body :preferred-name])))
           (is (not= "Kaylee" (:orcpub.user/preferred-name (d/entity (d/db conn) id))) "not readable in the db")
-          (is (= "Kaylee" (:preferred-name (orcpub.routes/user-body (d/db conn) (d/pull (d/db conn) '[*] id))))))
+          (is (= "Kaylee" (:preferred-name (orcpub.routes.auth/user-body (d/db conn) (d/pull (d/db conn) '[*] id))))))
         (testing "blank clears it"
           (orcpub.routes/update-user-preferences (req conn "someone" {:preferred-name ""}))
           (is (nil? (:orcpub.user/preferred-name (d/entity (d/db conn) id)))))
@@ -268,10 +268,10 @@
       (with-redefs [orcpub.crypto/configured-keys (constantly test-keys)
                     orcpub.email/reset-message (fn [_ user _] (reset! sent user)
                                                 {:to (:email user) :subject "reset" :body []})]
-        (orcpub.routes/do-send-password-reset id "someone@example.test" conn {:headers {"host" "x.test"} :scheme :https})
+        (orcpub.routes.auth/do-send-password-reset id "someone@example.test" conn {:headers {"host" "x.test"} :scheme :https})
         (is (= "someone" (:first-and-last-name @sent)) "no preferred name yet: greeted by username")
         (orcpub.routes/update-user-preferences (req conn "someone" {:preferred-name "Kaylee"}))
-        (orcpub.routes/do-send-password-reset id "someone@example.test" conn {:headers {"host" "x.test"} :scheme :https})
+        (orcpub.routes.auth/do-send-password-reset id "someone@example.test" conn {:headers {"host" "x.test"} :scheme :https})
         (is (= "Kaylee" (:first-and-last-name @sent)))))))
 
 (deftest the-artist-turns-their-page-and-its-parts-off
@@ -373,7 +373,7 @@
   (with-conn conn
     (let [id (add-artist! conn "fusspot" :house-pack)]
       (with-redefs [branding/portrait-artists {:house-pack {:artist/show-links? false}}]
-        (is (false? (get-in (orcpub.routes/artist-credit-body (d/db conn) id) [:current :artist/show-links?]))
+        (is (false? (get-in (orcpub.routes.auth/artist-credit-body (d/db conn) id) [:current :artist/show-links?]))
             "what the form starts a locked switch from")))))
 
 (deftest the-deployment-settings-can-switch-a-page-off

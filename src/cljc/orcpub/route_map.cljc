@@ -121,7 +121,6 @@
 (def follow-user-route :follow-user)
 (def character-pdf-route :character-pdf)
 (def image-probe-route :image-probe)
-(def check-email-route :check-email)
 (def check-username-route :check-username)
 (def user-route :user)
 (def user-email-route :user-email)
@@ -157,7 +156,6 @@
 
                   "character.pdf" character-pdf-route
                   "image-probe" image-probe-route
-                  "check-email" check-email-route
                   "check-username" check-username-route
 
                   "reset-password" reset-password-route
