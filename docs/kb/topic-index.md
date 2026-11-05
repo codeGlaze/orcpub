@@ -375,6 +375,17 @@ _artist-links-and-referrer · artist links and referrer_
 - Decisions (owner's)
 - Rules every link follows
 
+## auth-abuse-limits.md
+
+_auth-abuse-limits · auth abuse limits_
+
+**topics:** 2026-11-03, 2026-11-04, address, attempts, auth, cloudflare, countdown, host, hour, limit, limits, resend, reset, sign-in, sign-up, spam, taken, turnstile
+
+- The incident (2026-11-03)
+- Coverage on fix/auth-abuse (2026-11-04; replaces the integration table)
+- Memory vs record (owner asked 2026-11-03)
+- Turnstile on sign-up (researched 2026-11-03)
+
 ## auth-state-in-app-db.md
 
 _auth-state-in-app-db · auth state in app db_
@@ -836,7 +847,7 @@ _claude-files-in-branch-history · claude files in branch history_
 
 _client-ip-behind-proxies · client ip behind proxies_
 
-**topics:** 2026-10-22, address, client-controlled, cloudflare, limits, minute, mistyping, nginx, per-address, player, players, proxied, proxy, sign-in, sign-up, spray, trust, usernames
+**topics:** 2026-10-22, address, client-controlled, cloudflare, limits, minute, mistyping, nginx, per-address, player, players, proxied, proxy, sign-in, sign-ins, sign-up, spray, trust
 
 - The finding
 - What it does on the live site
@@ -1237,19 +1248,20 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 188, 2026-10-29, 2026-11-02, admin, art, blank-env-values, branding, byte, checkout, dmv, images, integration, launch, licensed, merge, private, pushing, summer
+**topics:** 2026-11-02, admin, art, blank-env-values, branding, byte, checkout, cloudflare, dmv, gitea, images, integration, launch, licensed, merge, push, pushing, summer
 
 - Where it happens
 - How to resolve conflicts
 - Checks
 - Audit of the branch, 2026-11-01
 - Launching the DMV side locally
+- Pushing to Gitea is blocked by Cloudflare (2026-11-04)
 
 ## dmv-production-changes.md
 
 _dmv-production-changes · dmv production changes_
 
-**topics:** --------, analytics, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email-preferences-implementation, fingerprint, hotfix-integrations, license, meta, monetization, nginx, passwords, patron, production
+**topics:** --------, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email-preferences-implementation, fingerprint, hotfix-integrations, license, meta, monetization, nginx, passwords, patron, pedestal, production
 
 - Summary
 - Critical Issues to Flag to Admin
@@ -1824,7 +1836,7 @@ _fonts · fonts_
 
 _fork-customization · fork customization_
 
-**topics:** -------------, adsense, api, basic, branding-setup, bridge, cljs, csp, customization, dmv, domains, integrations, matomo, override, production, public, stubs, views
+**topics:** -------------, adsense, api, branches, branding-setup, bridge, cljs, csp, customization, dmv, domains, integrations, matomo, override, production, public, stubs, views
 
 - Override File Pattern
 - Architecture
@@ -1867,7 +1879,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _garden-inline-styles-harvest · garden inline styles harvest_
 
-**topics:** 648, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, seeded, submit
+**topics:** 648, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, seeded, shapes
 
 - Why the branch stalled
 - The branch is healthy
@@ -1959,7 +1971,7 @@ _handoff-integration-branches · handoff integration branches_
 
 _handoff-rest-controls · handoff rest controls_
 
-**topics:** 2026-10-23, charge, charges, dawn, drawing, dusk, handoff, item, lasts, maximum, powers, regain, regains, rest, rests, rolled, undo, wand
+**topics:** 2026-10-23, charge, charges, dawn, dismissible, drawing, dusk, item, lasts, maximum, powers, regain, regains, rest, rests, rolled, undo, wand
 
 - Where it is
 - The design in one paragraph
@@ -2345,7 +2357,7 @@ _lifting-mechanics-from-prose · lifting mechanics from prose_
 
 _locale-safety · locale safety_
 
-**topics:** 2026-10, 7231, case-folding, deterministic, dotless, english, english-locale, etag, locale, locale-independent, machine, pedestal-csp-history, protocol, spanish, survey, turkish, webjar, windows
+**topics:** 2026-10, 7231, case-folding, deterministic, dotless, english, english-locale, etag, locale, locale-independent, machine, pid, protocol, spanish, survey, turkish, webjar, windows
 
 - 1. The ETag crash
 - Why only /assets/
@@ -2356,6 +2368,7 @@ _locale-safety · locale safety_
 - Provenance
 - On integration (2026-10-04)
 - 5. The default is pinned (2026-10, refactor/pdf-canvas, PR #63)
+- Open: process numbers on Windows (parked 2026-10)
 
 ## lookup-indexes.md
 
@@ -2388,7 +2401,7 @@ _memoize-antipattern-scan · memoize antipattern scan_
 
 _merging-across-a-refactor · merging across a refactor_
 
-**topics:** 669, bare, branch, call, cleanly, conflict, cut, fetch, filtered-list-staleness, git, handoff-669-final-pass, inlines, merge, merging, newer, plan-669-merge-verification, refactor, side
+**topics:** 669, bare, branch, call, cleanly, conflict, cut, fetch, filtered-list-staleness, handler, handoff-669-final-pass, inlines, merge, merging, newer, plan-669-merge-verification, refactor, side
 
 - Case 1: the clean merge that was already broken
 - Case 2: the conflict whose obvious resolution restores a bug
@@ -2846,7 +2859,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** 2026-10-16, days, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, unsaved
+**topics:** 2026-10-16, character, days, draft, drafts, edit, elsewhere, expire, expires, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)
@@ -3018,7 +3031,7 @@ _plan-lookup-indexes · plan lookup indexes_
 
 _plan-next · plan next_
 
-**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, damage, macro, natural-armor, number, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged, windows
+**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged, windows
 
 - 0. Standing, do these first
 - 0b. September support sessions — tracked separately
@@ -3422,7 +3435,7 @@ _share-bundle-dependency-extraction · share bundle dependency extraction_
 
 _share-custom-items-plan · share custom items plan_
 
-**topics:** apply, by-key, custom, decode, defs, equipped, item, items, mi5e, name-derived, sanitize, serialize, shared-custom-items, sorted-items, subs, tooltip, untrusted, whitelist-bundle
+**topics:** apply, by-key, cljc, custom, defs, equipped, item, items, mi5e, name-derived, sanitize, serialize, shared-custom-items, sorted-items, subs, tooltip, untrusted, whitelist-bundle
 
 - Headline finding (dissolves the hard part)
 - Resolution path (where injected defs must live)
@@ -3595,7 +3608,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2026-10-07, 5etools, data, edition, editions, monsters, open5e, owner, pdf, served, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, edition, editions, monsters, open5e, owner, pdf, served, species, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded

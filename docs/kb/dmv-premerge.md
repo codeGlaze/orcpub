@@ -65,3 +65,11 @@ without the `PRIVATE-ART` marker, and a git-ignored `profiles.clj` in the checko
 images read the classpath, so served files match the private branch byte for byte, and git sees nothing.
 `lein test` in that checkout picks the folder up too. A new art pack means copying again.
 
+## Pushing to Gitea is blocked by Cloudflare (2026-11-04)
+
+Gitea's SSH is off, so only HTTPS works, and Cloudflare now answers every Git request to
+`code.dungeonmastersvault.com/DMV/DMV.git/info/refs` (read and push) with its "Sorry, you have been
+blocked" page (403, e.g. Ray ID a559376d1b97c587). The website and Gitea's API still pass, and Gitea
+reports the branch unprotected with push allowed for `tinkan`. Unblocking needs the Cloudflare admin.
+The local branch now tracks its own Gitea branch, not `dmv`.
+
