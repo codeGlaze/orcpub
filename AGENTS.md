@@ -122,6 +122,8 @@ another try. Each gets an attempt budget, usually one. At the limit, stop and an
   flaky. Never retry it or change code to make it pass: retrying a race looks like progress and
   never ends. (An agent told to "fix anything that fails" spent 66k tokens re-rewriting a flaky
   test after its real work was committed.)
+- **An answered design question is not a go.** When the owner settles a choice or asks "why",
+  answer and wait for an explicit go before starting the work, subagents included.
 - **Contained fixes are done, not asked.** A fix that only removes a bug, with no knock-on effect
   (a duplicate require, a missing config entry, a stale comment), is made and reported. Ask when a
   fix changes behaviour, makes a design choice, or touches someone else's branch.
@@ -174,6 +176,14 @@ stops. Every tool call re-sends the whole conversation, so a long chat makes eac
 - **Write long output to a file and read the summary lines** (`Ran`, `failures`, `checks passed`).
 - **Reuse and extend saved scripts and tests**; do not write a throwaway one that redoes their setup.
 - **Batch the breaks** that prove tests fail: several per build and run, one break per claim.
+- **Run the narrowest check that answers the question.** Every `lein` run pays ~40 s of JVM
+  start before a test runs, and a full `lein test` is minutes; one agent spent 42 of 56 minutes
+  waiting on 15 runs. While iterating and for fail-first breaks, run only the affected namespaces
+  (`lein test orcpub.security-test orcpub.routes-test`), or keep one `lein repl :headless` and
+  call `(clojure.test/run-tests ...)` in it. The full suite runs **once per commit**, just before
+  committing; full `lein lint` once before pushing (lint changed files while working); CSS and
+  `fig:prod` builds only when styles or cljs changed, once per commit. Wait on a background run
+  for its exit, not in a sleep loop. Put these rules in every subagent brief.
 - **One chat per roadmap step**, started from the branch handoff, not one chat for a whole branch.
 
 ## Reporting back — MUST FOLLOW
@@ -182,8 +192,12 @@ The owner reads every reply, often on a phone, and the log of a long turn alread
 
 - **End every response that did work with a short summary:** three to six lines of outcome (what
   changed for players or admins, whether it was verified, anything that went wrong), then
-  **Needs you**. Do not restate test counts, file lists or steps already shown; detail lives in
-  commits and `docs/kb/`.
+  **Needs you**. Do not restate test counts or steps already shown; detail lives in commits and
+  `docs/kb/`.
+- **Every summary of a code change carries a line-count table:** each touched file, its lines
+  before and after (`git show <base>:<file> | wc -l` against now; 0 for a new file). It is the
+  owner's quick check that a monolith is not growing and that new files are few and placed
+  sanely. Mark files already over ~2,000 lines, and say why any new file exists.
 - **Questions go only in Needs you,** one per number, each readable on its own: what it is, why
   it matters, what yes or no does.
 - **Lead with the answer** when asked a question; a short question gets a short answer. A read-only
@@ -245,6 +259,17 @@ Needs you: what it is, where it would go, and why.
 
 - **New code goes in its own namespace** when it is a feature of its own (a page, a builder panel,
   a route group). A big file gets only the wiring: a require, a route entry, a call.
+- **Read the repo's own layout before proposing one.** New homes go in folders that already
+  hold their kind: server handlers by domain in `src/clj/orcpub/routes/` (`party`, `share`,
+  `auth`), client screens in `views/<domain>.cljs`, events in `events/<domain>.cljs`
+  (`docs/kb/monolith-decomposition-plan.md`). Count only NEW files when weighing a plan; reuse
+  an existing namespace that already holds the family before adding one.
+- **Similar things share one function, with their differences as data.** Forms, routes or rules
+  of one kind call a single higher-order function or template and pass options (a policy map,
+  `:challenge`, `:answer`), so a protection or a fix lands once. Tests then walk the data table
+  instead of being copied per instance, plus one pin test of required rows (a table-driven test
+  cannot see a deleted row). The auth forms are the worked example: `security/auth-guards` +
+  `guard`, `auth-form-page :challenge` (`docs/kb/auth-abuse-limits.md`).
 - **A namespace holds a concept family, not one small concept:** `inventory`, with kits inside it,
   not a `kits` namespace of its own. Splitting a monolith into dozens of micro-namespaces trades one
   problem for another.

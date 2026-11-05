@@ -72,6 +72,16 @@ HTTP 200). First step: check a direct post comes out clean. Alternative: a GitHu
 posts for agents, but that is a fork-only workflow in `develop`'s history and posts as
 `github-actions[bot]`.
 
+## Framing: should World Anvil embed character sheets again? (open, owner)
+
+Character pages sent `X-Frame-Options: ALLOW-FROM https://www.worldanvil.com/`, which every
+current browser ignores; the CSP already sends `frame-ancestors 'self'` on every page, so no
+outside site can frame us and the World Anvil embed has not worked for a long time. The dead
+header was removed on `fix/auth-abuse` (PR #80). **If the embed is wanted again:** add
+`https://www.worldanvil.com` to `frame-ancestors` on character pages only (per-route CSP in
+`pedestal.clj`/`csp.clj`), weigh the clickjacking exposure of those pages, and test the embed
+in a real World Anvil page. Nobody has asked for it; decide before building.
+
 ## Weapons table follow-ups (from PR #74)
 
 Mastery definitions and panel (waiting on 2024 data), attacks with another ability (refactor
