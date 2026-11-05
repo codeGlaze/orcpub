@@ -8,11 +8,11 @@ House style and the branch → release fold: [`docs/branch-changelog.template.md
      (**Homebrew:**, **Printing:** ...). Fixed is for bugs that existed before, not fixes to work in the
      same release. No internal work (tests, CI, refactors). Cite the issue (#N) when there is one. -->
 
-## [Summer Patch] — 2026
+## [Long Rest Update] — 2026
 
 ### Highlights
 
-Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use and given a portrait drawn from an illustrator's layered art, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read.
+Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use and given a portrait drawn from an illustrator's layered art, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read; on the sheet, a new Weapons table rolls attacks and damage, charged items and a Rest box track charges and rests, and printing works on A4 as well as US Letter.
 
 ### Added
 - **Server:** a startup email to the admin on each new release: what needs fixing, the release's new settings, and those worth setting; sent again only when that changes, with one reminder a week later while something still needs fixing.
@@ -113,30 +113,23 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 
 - **Characters:** switching between Race and Class no longer freezes the builder, and an edit rebuilds the character once. (#621)
 - **Characters:** the Missing Content warning also covers spells and languages, and ignores the built-in "Custom" option. (#524)
-- **Homebrew:** opening the app with a large library is faster; the rest is tracked in #703.
+- **Homebrew:** opening the app with a large library is faster.
 - **Printing:** spell cards list spells by level, then name, or by name alone. (#520)
 - **Printing:** PDF exports are smaller and faster, card icons print sharp, and the site name prints on each page and card back. (#710)
 - **Site:** on phones the header, menus and ability buttons fit the screen. (#711)
 - **Server:** blank settings count as unset, Docker secrets work for the login key, and the Windows start scripts find their ports. (#701)
-- **Server:** without email configured, registration is refused unless explicitly allowed. (#712)
 - **Site:** returning visitors download the app again only when it has changed, and see a new release straight away.
 - **Accounts:** site emails greet you by your preferred name, or by your username when you have
   not set one, instead of "Hi there".
 - **Characters:** the builder's tab bar wraps on narrow screens.
-- **Characters:** opening a character whose choices no longer apply sets them aside and lists them in a notice; the saved copy changes only when you save.
-- **Printing:** a character portrait whose host is briefly unreachable is fetched a second time before the export gives up on it.
+- **Characters:** on phones every weapon picker opens in a bottom sheet.
 - **Printing:** each weapon is named once on the PDF, with its two-handed damage and extras as bullets beneath it.
 - **Content:** SRD weapon and armor names in Title Case, without the Wikipedia links.
 - **Printing:** every sans-serif line in an export -- sheet fields, spell-column headings, the site line, the notice page and card captions -- is set in one embedded font with Helvetica's exact widths, so it looks the same in every PDF viewer and prints names such as Łukasz. (#719)
 - **Server:** the first start after upgrading builds new database indexes and gives older accounts an email lookup key, both in the background; until that finishes, an older account with a mixed-case address signs in by username rather than email. (#721)
 - **Site:** tick boxes are rounded and fill with the theme's accent when ticked (amber in the dark
   theme, blue in the light), and the sign-up page's updates box matches the rest.
-- **Homebrew:** a value in the wrong form whose meaning is plain (`"25"` for a speed, one trait
-  where a list belongs) is corrected once, on load, import, save or from a share link, and the
-  correction is what is stored and exported. A library saved before is backed up first.
-- **Homebrew:** an entry with a field that cannot be read (a number where a list of traits
-  belongs) is set aside in My Content for repair, as it was written, instead of breaking pages.
-  From a share link it is left out.
+- **Homebrew:** a value in the wrong form whose meaning is plain (`"25"` for a speed, one trait where a list belongs) is corrected once, on load, import, save or from a share link, and the correction is what is stored and exported (a library saved before is backed up first). An entry with a field that cannot be read is set aside in My Content for repair, as it was written; from a share link it is left out.
 - **Homebrew:** the import report lists each field it fixed, and each entry it will set aside
   for repair.
 - **Homebrew:** checking homebrew after an import or a Restore takes a fraction of the time for
@@ -151,7 +144,6 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** New in a homebrew builder keeps the Option Source the box shows, so saving no longer asks for a source that looks filled in.
 - **Server:** the setup scripts read `.env` the way Docker does, so a value with an apostrophe or spaces (`APP_NAME=Dungeon Master's Vault`) no longer breaks `./run`, `docker-user.sh` or the start scripts.
 - **Accounts:** behind a proxy, sign-in, sign-up and password-reset limits now count each player separately. Every visitor shared the proxy's address, so a few mistyped passwords could lock everyone out of signing in for a minute. Set `TRUST_CLOUDFLARE=true` when the site is behind Cloudflare.
-- **Server:** on Docker and other production starts, the heartbeat, the crash report and the startup check for stranded characters now run; they were waiting behind the web server and never started.
 - **Server:** Datomic starts on Docker Swarm from the stack `./run --swarm` writes, with or without `--secrets`; it used to need the transactor template edited and the image rebuilt, and an `ALT_HOST` written for Compose broke it. With neither address set, Datomic detects Swarm and picks them itself, so an older stack pasted into Portainer works too (docs/DOCKER.md, "Upgrading an existing Swarm deployment").
 - **Server:** regenerating a Swarm stack with `./run --swarm` no longer turns its own network into a missing external one, and no longer drops services or sections it does not know: it keeps your file and writes the new one beside it.
 - **Server:** the Swarm stack file `./run --swarm` writes is accepted by `docker stack deploy`; it started with a top-level `name` that Swarm rejects.
@@ -163,7 +155,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** on/off toggles no longer corrupt homebrew data. (#677)
 - **Homebrew:** a save that runs out of browser storage warns and offers a backup. (#678)
 - **Homebrew:** homebrew names with non-English letters are recognised. (#681)
-- **Homebrew:** import and export no longer duplicate a source or lose renamed items, and their messages are readable. (#682, #672)
+- **Homebrew:** import and export no longer lose renamed items, and their messages are readable. (#672)
 - **Homebrew:** saving homebrew in one tab no longer erases homebrew saved in another; the older tab's change is merged and a real conflict is reported. Characters are not covered. (#705)
 - **Homebrew:** renamed items keep their links, and the characters using them. (#705)
 - **Homebrew:** a custom magic item saved with no type no longer breaks. (#694)
@@ -178,7 +170,6 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** styles 3 and 4 could not export a character with two casting classes. (#709)
 - **Printing:** the hit dice box, the second-page name box and style 4's allies and backstory were left empty. (#709)
 - **Printing:** the features page no longer lands between spell pages. (#709)
-- **Printing:** Pact Magic slots are no longer added into the normal slot count. (#709)
 - **Printing:** filled fields read the same in every PDF viewer, and negative numbers print correctly. (#709)
 - **Printing:** a reaction's casting time prints as "1 React." on spell cards. (#709)
 - **Site:** blank icons show again. (#696)
@@ -193,15 +184,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Equipment:** tools, musical instruments, gaming sets and equipment packs show their SRD prices,
   and tools and instruments their weights. (#715)
 - **Magic items:** the Alchemy Jug shows that its liquid can be created once a day. (#715)
-- **Characters:** unsaved builder edits are no longer lost when a character's sheet or list saves,
-  whether for another character or the same one, or when it levels up. (#704)
-- **Characters:** a sheet edit is no longer undone by a builder Save or by a save that was already
-  under way. (#704)
-- **Characters:** closing the tab still warns while a save has not gone through.
-- **Characters:** builder tabs open on different characters keep their own unsaved changes; a reload
-  no longer brings back the other tab's character. (#704)
-- **Characters:** on a shared browser, logging in no longer opens the previous account's unsaved
-  character; each account's unsaved work stays its own, and work done logged out carries over. (#704)
+- **Characters:** unsaved builder edits are no longer lost when a character's sheet or list saves, and builder tabs open on different characters keep their own unsaved changes. (#704)
 - **Characters:** a change made on the character sheet while offline is saved when the connection
   returns, instead of waiting for another change.
 - **Sharing:** link previews of shared characters failed on Discord, Mastodon, Slack, Telegram and
@@ -256,7 +239,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 
 - **Accounts:** on a server whose JVM runs a non-English locale, an email address containing a capital I folded to a different account key, so sign-in, password reset, the unsubscribe link and email change could all miss the account.
 
-- Sign-in, password reset, share links, image fetching and PDF export are hardened against misuse, and secrets are no longer printed at startup.
+- **Server:** sign-in, password reset, share links, image fetching and PDF export are hardened against misuse, and secrets are no longer printed at startup.
 - **Site:** pages no longer load fonts from Google, so visiting the site no longer sends your address to Google. (#721)
 - **Site:** other sites a page links to are told only this site's domain, never the page's address.
 - **Accounts:** account emails can no longer be triggered in bulk from one form that had no limit.

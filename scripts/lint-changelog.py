@@ -26,7 +26,7 @@ import statistics
 DEFAULT_CHANGELOG = "CHANGELOG.md"
 
 # A bullet may be detailed; it may not be a paragraph. The cap is deliberately
-# generous: the median bullet in the Summer Patch is 34 words, so 80 is more than
+# generous: the median bullet in the Long Rest Update is 34 words, so 80 is more than
 # twice a typical entry and only catches genuine prose.
 MAX_BULLET_WORDS = 80
 

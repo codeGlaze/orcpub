@@ -1520,33 +1520,40 @@
               "Save portrait"]]]]]))]))
 
 (defn tab-panel
-  "The compositor in place, as the builder's Portrait tab: the drawer's body, with Full
-   screen (opens the drawer) and a Save that reads Saved when clean, instead of Cancel.
-   Ensures a draft on mount. Has its own .pl-root, the stylesheet's one theme hook."
+  "The builder's Portrait tab: the portrait as it stands, its credit, Randomize, and the way into
+   the compositor drawer, which is the one place a portrait is picked layer by layer. Save shows
+   only while the draft has unsaved changes. Ensures a draft on mount. Has its own .pl-root, the stylesheet's one
+   theme hook."
   []
   (r/create-class
    {:display-name "portrait-tab-panel"
     :component-did-mount #(dispatch [:portrait/ensure-draft])
     :reagent-render
     (fn []
-      (let [portrait   @(subscribe [:portrait/draft])
-            seed       @(subscribe [:portrait/draft-seed])
-            open-slot  @(subscribe [:portrait/open-slot])
-            open-layer @(subscribe [:portrait/open-layer])
-            dirty?     @(subscribe [:portrait/dirty?])
-            theme      @(subscribe [:theme])]
-        [:div.pl-root.pl-inline {:class theme}
-         [compositor-body portrait seed open-slot open-layer]
+      (let [portrait @(subscribe [:portrait/draft])
+            dirty?   @(subscribe [:portrait/dirty?])
+            theme    @(subscribe [:theme])
+            any?     (boolean (seq (:layers portrait)))]
+        [:div.pl-root.pl-inline.pl-preview {:class theme}
+         [:div.pl-preview-body
+          [:div.pl-portrait-frame
+           (if any?
+             [composite portrait]
+             [:div.pl-empty-hint {:style {"--pl-logo" (str "url(" branding/logo-path ")")}}
+              "No portrait yet."])]
+          (when any? [attribution (:layers portrait)])]
          [:div.pl-drawer-foot
           [:div.pl-drawer-actions
+           (when dirty?
+             [:button.pl-btn.pl-btn-ghost
+              {:type "button" :on-click #(dispatch [:portrait/save true])}
+              "Save portrait"])
            [:button.pl-btn.pl-btn-ghost
-            {:type "button" :on-click #(dispatch [:portrait/open])}
-            "Full screen"]
+            {:type "button" :on-click #(dispatch [:portrait/randomize])}
+            "Randomize"]
            [:button.pl-btn.pl-btn-primary
-            {:type "button"
-             :disabled (not dirty?)
-             :on-click #(dispatch [:portrait/save true])}
-            (if dirty? "Save portrait" "Saved")]]]]))}))
+            {:type "button" :on-click #(dispatch [:portrait/open])}
+            (if any? "Edit portrait" "Make a portrait")]]]]))}))
 
 (defn launcher-button
   "The 'Compose portrait' button that slots next to the Image URL input in

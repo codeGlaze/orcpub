@@ -134,7 +134,7 @@ The upgrade script:
 
 Your `data/`, `logs/`, and SSL certs are never touched.
 
-**Check your `.env` before upgrading to the Summer Patch.** Before this release, most settings
+**Check your `.env` before upgrading to the Long Rest Update.** Before this release, most settings
 in `.env` never reached the app container: Docker only passes the settings named in the
 compose file, and that list was short. It now names every setting the server reads. So a line
 that has been sitting in your `.env` doing nothing, such as `APP_NAME=...` or an
@@ -422,7 +422,7 @@ what happened, when, and where the file is.
 
 **The app's memory.** `JAVA_OPTS` in `.env` sets Java's memory options for the app, for example
 `JAVA_OPTS=-XX:MaxRAMPercentage=75.0` (use up to 75% of the container's memory). Left empty, Java
-uses only 25% of the container's memory. Before the Summer Patch `JAVA_OPTS` was passed to the
+uses only 25% of the container's memory. Before the Long Rest Update `JAVA_OPTS` was passed to the
 container but never reached Java, so if you set it earlier, it starts taking effect now.
 
 ## Volumes
@@ -537,7 +537,7 @@ reach both:
 
 1. On the server's checkout, pull the new code and run `./run --upgrade-swarm`. It reads the
    `docker-compose.swarm.yaml` on disk, keeps your changes, and adds any settings the new
-   release reads (the Summer Patch adds many; without them Swarm drops those settings on the way
+   release reads (the Long Rest Update adds many; without them Swarm drops those settings on the way
    into the container).
 2. **If you have edited the stack in Portainer's own editor**, copy those edits into
    `docker-compose.swarm.yaml` on disk first. The upgrade reads the file on disk, not

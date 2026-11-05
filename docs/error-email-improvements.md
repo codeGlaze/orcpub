@@ -1,7 +1,7 @@
 # Error Email Improvements — Analysis & Handoff
 
 > **How error emails are sent now is described in [email-system.md](email-system.md#4-admin-alerts-server-errors).**
-> They became admin alerts in the Summer Patch: one email per problem, an hourly ceiling, and a
+> They became admin alerts in the Long Rest Update: one email per problem, an hourly ceiling, and a
 > spool for when the mail server is down. This page keeps the earlier analysis of real error
 > emails and the Datomic crash investigation.
 

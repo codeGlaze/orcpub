@@ -19,3 +19,16 @@
     (is (= {:name hostile}
            (cheshire/parse-string (index/script-json {:name hostile}) true))))
   (is (not (re-find #"[<>&  ]" (index/script-json {:name hostile})))))
+
+(deftest the-home-page-text-does-not-read-as-french
+  ;; Chrome reads "5e" as French "fifth". The splash buttons keep "D&D 5e" as text, for search
+  ;; engines, marked as English that is not to be translated; the page itself stays translatable.
+  (let [page (index/index-page {:nonce "n"} true)
+        written (re-seq #"<span[^>]*>D&amp;D 5e </span>" page)]
+    (is (= 14 (count written)) "every splash button writes D&D 5e as text")
+    (is (every? #(and (.contains % "translate=\"no\"") (.contains % "lang=\"en\"")) written))
+    (is (.contains page "<html lang=\"en\""))
+    (is (not (.contains page "notranslate")))))
+
+(deftest the-home-page-carries-a-whats-new-link
+  (is (re-find #"What.{1,6}s New" (index/index-page {:nonce "n"} true))))

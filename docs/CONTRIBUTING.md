@@ -19,7 +19,7 @@ unreleased code; it must stay something you can pull to recover the live site.
 
 - **Feature / fix:** cut `feat/<name>` or `fix/<name>` **off `integration`**, do the
   work, PR it **back into `integration`**.
-- **Release** (e.g. "Summer Patch", "Fall Update"): when `integration` is stable,
+- **Release** (e.g. "Long Rest Update", "Fall Update"): when `integration` is stable,
   merge it to `develop`, tag, deploy. A release is a *promotion event*, not a branch.
 - **Hotfix:** branch off `develop`, fix, merge to `develop` **and** back-merge to
   `integration` (and the epic) so it isn't lost.
@@ -34,7 +34,7 @@ import fixes live on a branch based near `develop`.)
 
 ## Releases are tags, not branches
 
-A named release ("Summer Patch", "Fall Feature Update") is **not a branch** — it's
+A named release ("Long Rest Update", "Fall Feature Update") is **not a branch** — it's
 the set of changes sitting on `integration` that haven't been promoted to `develop`
 yet. Its identity is two things:
 
@@ -42,8 +42,8 @@ yet. Its identity is two things:
 - a **git tag** cut when it deploys.
 
 To ship a release: merge `integration → develop`, `git tag <release>` (e.g.
-`summer-patch`), deploy. The tag is the permanent, immutable marker; `integration`
-then keeps collecting the next release. So "the Summer Patch" is simply **whatever is
+`long-rest-update`), deploy. The tag is the permanent, immutable marker; `integration`
+then keeps collecting the next release. So "the Long Rest Update" is simply **whatever is
 on `integration` but not yet on `develop`** — no separate branch to manage.
 
 **Only** cut a `release/<name>` branch when you need **two trains at once** — a
@@ -59,7 +59,7 @@ that file is the single source of truth for the house style; it travels with eve
 no one has to hunt for the rules here. In short: say what the branch DID in a line per outcome,
 under Added / Changed / Fixed / Security, each line opening with its area in bold. Not the
 commits it took, not fixes to work the same release built, not internal work. **Before the branch merges into `integration`, fold its entries into the
-current in-progress release section of root `CHANGELOG.md` (e.g. `[Summer Patch]`) and
+current in-progress release section of root `CHANGELOG.md` (e.g. `[Long Rest Update]`) and
 delete the branch changelog — it's consumed.** Fold as the branch's last commit and add the
 `ready to merge` label to the PR, then merge: a merge through GitHub cannot run the fold. The
 PR's "Branch changelog folded" check is skipped until the label is on, then fails until the

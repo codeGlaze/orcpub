@@ -114,7 +114,7 @@ async function layout(page, theme) {
   await ctx.addInitScript(() => {
     try {
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+      localStorage.setItem('whats-new-seen', '"long-rest-update-2026"');
     } catch (e) {}
   });
   const page = await ctx.newPage();
@@ -344,7 +344,7 @@ async function layout(page, theme) {
   // desktop
   const desk = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await desk.addInitScript(() => {
-    try { localStorage.setItem('orcpub:no-cookie-banner', '1'); localStorage.setItem('whats-new-seen', '"summer-patch-2026"'); } catch (e) {}
+    try { localStorage.setItem('orcpub:no-cookie-banner', '1'); localStorage.setItem('whats-new-seen', '"long-rest-update-2026"'); } catch (e) {}
   });
   const dp = await desk.newPage();
   dp.on('pageerror', e => errors.push(e.message));

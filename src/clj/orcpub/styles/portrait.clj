@@ -611,10 +611,12 @@
    (at-keyframes "lk-prism"
      ["from" {:background-position "0% 50%"}]
      ["to" {:background-position "300% 50%"}])
-   [".lk-name" {:font "italic 14px/1 'Vollkorn', Georgia, serif"
+   [".lk-name" {:font "italic 16px/1 'Vollkorn', Georgia, serif"
                 :color "var(--lk-name)"
                 :text-decoration "none"
-                :white-space "nowrap"}]
+                :text-align "center"
+                :min-width "0"
+                :overflow-wrap "anywhere"}]
    ;; A name that links reads as one: a thin dotted underline at rest, drawn as
    ;; a text decoration rather than a border so it does not grow the box and
    ;; pull the name off the rule's centre line.
@@ -877,16 +879,19 @@
                   :font-family "'Open Sans', system-ui, sans-serif"
                   :color "#ebeef4"}
                  {:margin-bottom "20px"}]
-   [".pl-inline .pl-drawer-body" {:max-height "70vh"}]
+   [".pl-preview-body" {:display "flex"
+                        :flex-direction "column"
+                        :align-items "center"
+                        :gap "10px"
+                        :padding "20px 16px 8px"}]
+   [".pl-preview-body .pl-portrait-frame" {:align-self "center" :max-width "248px"}]
+   [".pl-preview .pl-drawer-actions" {:justify-content "center"}]
    [".pl-inline .pl-btn-primary:disabled" {:opacity "0.45"
                                            :cursor "default"
                                            :filter "none"}]
    [".pl-root.light-theme.pl-inline" {:background "#f7f7f5"
                                       :color "#363636"
-                                      :border-color "rgba(0,0,0,0.1)"}]
-   ;; on a phone the two columns already stack; let the page scroll, not the panel
-   (at-media {:max-width "700px"}
-     [".pl-inline .pl-drawer-body" {:max-height "none"}])])
+                                      :border-color "rgba(0,0,0,0.1)"}]])
 
 (def empty-slot
   "The empty frame and thumbnail: a shallow gradient with the site logo debossed in it. The logo

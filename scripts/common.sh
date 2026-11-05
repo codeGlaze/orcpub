@@ -499,7 +499,7 @@ find_pids_by_port() {
     fi
 
     if command -v lsof >/dev/null 2>&1; then
-        pids=$(lsof -t -i ":${port}" 2>/dev/null || true)
+        pids=$(lsof -t -iTCP:"${port}" -sTCP:LISTEN 2>/dev/null || true)
     elif command -v ss >/dev/null 2>&1; then
         # Cross-platform: use sed instead of grep -oP
         pids=$(ss -tlnp 2>/dev/null | grep ":${port}\b" | sed -n 's/.*pid=\([0-9]*\).*/\1/p' || true)
@@ -761,14 +761,16 @@ cleanup_stale_pid() {
     fi
 }
 
-# Find service PIDs using PID file first, then port/pattern fallback
+# Find a service's PIDs: the PID file's process plus whatever holds its port, since the PID file
+# names the launcher (lein wrapper) while its child JVM is what holds the port. Only when both
+# find nothing does the broader name-pattern match run, so another service's process is never
+# picked up by a loose pattern while this one is found by file or port.
 find_service_pids() {
     local name="$1"
     local port="$2"
     local pattern="$3"
     local pids=""
 
-    # 1. Check PID file first (most reliable)
     local pid_file="$LOG_DIR/${name}.pid"
     if [[ -f "$pid_file" ]]; then
         local file_pid
@@ -778,9 +780,10 @@ find_service_pids() {
         fi
     fi
 
-    # 2. Fall back to port scan + name pattern
+    pids=$(echo "$pids $(find_pids_by_port "$port")" | tr ' ' '\n' | sed '/^$/d' | sort -u | xargs)
+
     if [[ -z "$pids" ]]; then
-        pids=$(echo "$(find_pids_by_port "$port") $(find_pids_by_name "$pattern")" | tr ' ' '\n' | sort -u | xargs)
+        pids=$(find_pids_by_name "$pattern")
     fi
 
     echo "$pids"

@@ -3363,6 +3363,34 @@
       :justify-content :center
       :padding "20px"}]
 
+    ;; The header's What's New link: a surface of its own, so it reads over the header art.
+
+    [:.whats-new-pill
+
+     {:display :inline-flex
+
+      :align-items :center
+
+      :gap "5px"
+
+      :padding "3px 10px"
+
+      :border-radius "999px"
+
+      :background "rgba(8, 10, 13, 0.62)"
+
+      :border "1px solid rgba(240, 161, 0, 0.45)"
+
+      :color "#f0a100"
+
+      :font-size "13px"
+
+      :line-height "18px"
+
+      :cursor :pointer}
+
+     [:&:hover {:background "rgba(8, 10, 13, 0.8)" :border-color "#f0a100"}]]
+
     [:.whats-new-panel
      {:background "#1a1e28"
       :color "rgba(255,255,255,0.85)"

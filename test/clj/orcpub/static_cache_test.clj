@@ -44,8 +44,15 @@
     (is (nil? (leave prod "/image/missing.svg" :resp {:status 404})))
     (is (= "no-cache" (leave prod "/js/compiled/orcpub.js" :req {:query-string "nav=1"}))
         "only a v= parameter is a stamp; this is an unstamped bundle"))
-  (is (nil? (leave (p/make-static-cache-interceptor true) "/image/orc-head.svg"))
-      "dev mode sets nothing, so Figwheel's rewrites are never served stale"))
+  (let [dev (p/make-static-cache-interceptor true)]
+    (is (= "no-cache" (leave dev "/js/compiled/orcpub.js")) "dev mode never lets a browser reuse old code")
+    (is (= "no-cache" (leave dev "/js/compiled/out/cljs_deps.js" :req {:query-string "v=0123456789ab"})))
+    (is (= "no-cache" (leave dev "/css/compiled/styles.css")))
+    (is (= "no-cache" (leave dev "/js/cookies.js")))
+    (is (nil? (leave dev "/image/orc-head.svg")) "only code and styles, under /js/ and /css/")
+    (is (= "no-store" (leave dev "/js/x.js" :resp {:headers {"Cache-Control" "no-store"}}))
+        "a response that sets its own Cache-Control keeps it")
+    (is (nil? (leave dev "/js/compiled/orcpub.js" :req {:request-method :post})))))
 
 (deftest page-links-carry-the-files-content-stamp
   (let [path "/css/cookiestyles.css"

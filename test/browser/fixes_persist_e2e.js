@@ -45,7 +45,7 @@ async function session(browser, seed) {
         localStorage.setItem('probe:seeded', '1');
       }
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+      localStorage.setItem('whats-new-seen', '"long-rest-update-2026"');
     } catch (e) {}
   }, seed || {});
   const page = await ctx.newPage();
