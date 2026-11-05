@@ -725,7 +725,14 @@
            (when (not mobile?)
              [:div.main-text-color.p-10
               [:span.whats-new-pill.m-r-10
-               {:on-click #(dispatch [::e5/open-whats-new]) :title "What's New"}
+               {:role "button"
+                :tab-index 0
+                :on-click #(dispatch [::e5/open-whats-new])
+                :on-key-down (fn [e]
+                               (when (#{"Enter" " "} (.-key e))
+                                 (.preventDefault e)
+                                 (dispatch [::e5/open-whats-new])))
+                :title "What's New"}
                [:i.fa.fa-gift] "What's New"]
               (when-let [url (not-empty (:facebook branding/social-links))]
                 (social-icon "facebook-f" url))

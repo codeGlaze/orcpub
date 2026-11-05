@@ -14,7 +14,7 @@
   ["resources/public/js/compiled/orcpub.js" "resources/public/js/compiled/out/cljs_deps.js"])
 (def sheet-output "resources/public/css/compiled/styles.css")
 (def client-inputs ["web/cljs" "src/cljc" "src/cljs" "dev.cljs.edn" "project.clj"])
-(def style-inputs ["src/clj/orcpub/styles"])
+(def style-inputs ["src/clj/orcpub/styles" "src/cljc/orcpub/constants.cljc"])
 
 (defn- source-file?
   "Whether `f` is a Clojure source file (.clj, .cljc, .cljs)."
@@ -51,10 +51,13 @@
 
 (defn problems
   "Reasons the client bundle or stylesheet under directory `root` is out of date against its
-   sources, as strings; empty when both are current."
+   sources, as strings; empty when both are current. Reports a missing orcpub.js even when other
+   client outputs exist, since the page requests that file."
   [root]
-  (vec (remove nil? [(stale-reason root client-outputs client-inputs)
-                     (stale-reason root [sheet-output] style-inputs)])))
+  (vec (distinct (remove nil? [(when-not (.isFile (io/file root (first client-outputs)))
+                       (str (first client-outputs) " does not exist"))
+                     (stale-reason root client-outputs client-inputs)
+                     (stale-reason root [sheet-output] style-inputs)]))))
 
 (defn built-at
   "The modification time, in millis, of the newest build output under `root`, or nil when there is none."
@@ -87,7 +90,6 @@
       [:div#build-badge
        (cond-> {:style (str "position:fixed;left:4px;bottom:4px;z-index:900;padding:1px 6px;"
                             "border-radius:3px;font:10px/1.4 system-ui,sans-serif;"
-                            "pointer-events:none;"
                             (if (seq ps)
                               "background:#f0a100;color:#080A0D"
                               "background:rgba(128,128,128,0.35);color:rgba(255,255,255,0.7)"))}

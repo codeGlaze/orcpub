@@ -136,6 +136,15 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
     await page.waitForTimeout(1200);
     check('a reload does not show it again', !(await visible(page)));
 
+    // Keyboard: the home-page link is a focusable button that Enter opens.
+    const homeLink = page.locator('.splash-page-content a[role="button"]').filter({ hasText: /what.s new/i });
+    await homeLink.focus();
+    await page.keyboard.press('Enter');
+    check('the home-page link opens it from the keyboard',
+          await page.waitForSelector('.whats-new-panel', { timeout: 5000 }).then(() => true, () => false));
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.whats-new-panel', { state: 'detached', timeout: 5000 });
+
     // Client-side route change, not a reload: this app routes in the browser.
     await page.locator('a.splash-button').first().click();
     await page.waitForSelector('#app-main', { timeout: 30000 });
@@ -164,6 +173,13 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
     check('the header has a What\'s New pill', await pill.count() === 1);
     await pill.click().catch(() => {});
     check('the header pill opens it after it was dismissed',
+          await page.waitForSelector('.whats-new-panel', { timeout: 5000 }).then(() => true, () => false));
+
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.whats-new-panel', { state: 'detached', timeout: 5000 });
+    await pill.focus();
+    await page.keyboard.press('Space');
+    check('the header pill opens it from the keyboard (Space)',
           await page.waitForSelector('.whats-new-panel', { timeout: 5000 }).then(() => true, () => false));
 
     await ctx.close();

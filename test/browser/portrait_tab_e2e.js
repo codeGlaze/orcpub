@@ -246,6 +246,26 @@ async function openBuilder(ctx, width) {
         creditRequests.length === 1, `${creditRequests.length} requests`);
   await shoot('1-portrait-composed.png');
 
+  // A 60-character lead credit name wraps inside the panel instead of running past its clipped edge.
+  // The name is set after each resize, because a layout change redraws the credit.
+  if (await inline.locator('.lk-name').count()) {
+    const LONG = 'Wolfeschlegelsteinhausenbergerdorff-Mc'.padEnd(60, 'x');
+    for (const w of [1280, 390]) {
+      await page.setViewportSize({ width: w, height: 900 });
+      await page.waitForTimeout(400);
+      const fit = await inline.locator('.lk-name').first().evaluate((el, t) => {
+        el.textContent = t;
+        const n = el.getBoundingClientRect(), p = el.closest('.pl-inline').getBoundingClientRect();
+        return { inside: n.left >= p.left - 0.5 && n.right <= p.right + 0.5, width: Math.round(n.width), panel: Math.round(p.width) };
+      }, LONG);
+      check(`a 60-character credit name stays inside the panel at ${w}px`, fit.inside, JSON.stringify(fit));
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.waitForTimeout(300);
+  } else {
+    check('the portrait shows a lead credit name to measure', false, 'no .lk-name');
+  }
+
   // "New" replaces the character in place and never routes through
   // :set-character, which is why it needs the discard in its own interceptor.
   await page.locator('.header-button-text', { hasText: /^New$/ }).first().click();

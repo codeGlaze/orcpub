@@ -63,12 +63,18 @@
 
 (defn whats-new-link
   "A small \"What's New\" link, at the footer's link size, that opens the release panel
-   (:orcpub.dnd.e5/open-whats-new). Takes no args; returns hiccup. Inert in the server-rendered
-   page, which the app replaces on mount."
+   (:orcpub.dnd.e5/open-whats-new), by click or by Enter or Space when focused. Takes no args;
+   returns hiccup. Inert in the server-rendered page, which the app replaces on mount."
   []
   [:div.f-s-12.t-a-c.m-t-10
    [:a.orange.pointer
-    #?(:cljs {:on-click #(dispatch [:orcpub.dnd.e5/open-whats-new])}
+    #?(:cljs {:role "button"
+              :tab-index 0
+              :on-click #(dispatch [:orcpub.dnd.e5/open-whats-new])
+              :on-key-down (fn [e]
+                             (when (#{"Enter" " "} (.-key e))
+                               (.preventDefault e)
+                               (dispatch [:orcpub.dnd.e5/open-whats-new])))}
        :clj {})
     "What's New"]])
 

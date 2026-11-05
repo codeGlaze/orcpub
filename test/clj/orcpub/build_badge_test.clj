@@ -81,3 +81,21 @@
         (let [b (pr-str (bb/badge))]
           (is (re-find #"f0a100" b))
           (is (re-find #":title \"orcpub\.js is older than x\.cljs\. Run: \./menu start\"" b)))))))
+
+(deftest a-missing-orcpub-js-is-reported-even-when-cljs-deps-exists
+  (let [ps (bb/problems (project 1000 nil 2000 2000))]
+    (is (= 1 (count ps)))
+    (is (re-find #"orcpub\.js does not exist" (first ps)))))
+
+(deftest a-newer-constants-file-makes-the-stylesheet-stale
+  (let [root (project 1000 2000 2000 2000)]
+    (touch! root "src/cljc/orcpub/constants.cljc" 1500)
+    (is (= [] (bb/problems root)) "older than the sheet: current")
+    (touch! root "src/cljc/orcpub/constants.cljc" 7000)
+    (is (some #(re-find #"styles\.css is older than src/cljc/orcpub/constants\.cljc" %)
+              (bb/problems root)))))
+
+(deftest the-badge-can-receive-hover-so-its-title-shows
+  (with-redefs [orcpub.config/dev-mode? (constantly true)
+                bb/problems (constantly ["x is older than y"])]
+    (is (not (re-find #"pointer-events" (pr-str (bb/badge)))))))

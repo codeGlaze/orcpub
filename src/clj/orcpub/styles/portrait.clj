@@ -614,7 +614,9 @@
    [".lk-name" {:font "italic 16px/1 'Vollkorn', Georgia, serif"
                 :color "var(--lk-name)"
                 :text-decoration "none"
-                :white-space "nowrap"}]
+                :text-align "center"
+                :min-width "0"
+                :overflow-wrap "anywhere"}]
    ;; A name that links reads as one: a thin dotted underline at rest, drawn as
    ;; a text decoration rather than a border so it does not grow the box and
    ;; pull the name off the rule's centre line.

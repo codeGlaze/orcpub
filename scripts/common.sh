@@ -499,7 +499,7 @@ find_pids_by_port() {
     fi
 
     if command -v lsof >/dev/null 2>&1; then
-        pids=$(lsof -t -i ":${port}" 2>/dev/null || true)
+        pids=$(lsof -t -iTCP:"${port}" -sTCP:LISTEN 2>/dev/null || true)
     elif command -v ss >/dev/null 2>&1; then
         # Cross-platform: use sed instead of grep -oP
         pids=$(ss -tlnp 2>/dev/null | grep ":${port}\b" | sed -n 's/.*pid=\([0-9]*\).*/\1/p' || true)
