@@ -22,7 +22,12 @@ verification, Turnstile on sign-up, and the "email taken" check. **Base:** `inte
   refusal with no mail server). Full suite 1497/0; browser-checked with the test keys.
 - 2026-11-04 later: protections unified (`auth-guards` policy + one `guard`, table-driven tests, one
   `claim-notice!`, `auth-form-page :challenge`); branch changelog written; KB page updated; PR opened.
-- Left: one CodeRabbit `full review`, its fixes, owner's merge call.
+- **MERGED 2026-11-05** into `integration` as #80 (`3f164a78`), after two CodeRabbit reviews, all
+  threads fixed or answered. Branch is finished; follow-up work starts fresh from `integration`.
+- Live still needs (admin, unanswered): `APP_URL` set to the site address; `REDIS_URL` + a Redis
+  container if more than one app container runs; Cloudflare edge rules until the release ships.
+- Open follow-ups: Redis in CI; a circuit breaker for Redis outages; split `security.clj` (743
+  lines) if it keeps growing; World Anvil framing question in `docs/TODO.md`.
 - Known, accepted: `check-username` stays live (public handles); email change still says
   `:email-taken` (signed-in only); `text-color` still in `components.cljc` until `views.cljs`
   inline styles go to Garden; page-load bundle already over its 900 KB ceiling before this branch.
