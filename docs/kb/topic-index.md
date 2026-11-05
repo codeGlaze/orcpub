@@ -1256,6 +1256,7 @@ _dmv-premerge · dmv premerge_
 - Audit of the branch, 2026-11-01
 - Launching the DMV side locally
 - Pushing to Gitea is blocked by Cloudflare (2026-11-04)
+- Traps when updating PR #10 (2026-11-05)
 
 ## dmv-production-changes.md
 

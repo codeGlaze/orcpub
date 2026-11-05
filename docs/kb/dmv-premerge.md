@@ -73,3 +73,12 @@ blocked" page (403, e.g. Ray ID a559376d1b97c587). The website and Gitea's API s
 reports the branch unprotected with push allowed for `tinkan`. Unblocking needs the Cloudflare admin.
 The local branch now tracks its own Gitea branch, not `dmv`.
 
+## Traps when updating PR #10 (2026-11-05)
+
+- **Gitea reports "not mergeable" for a few seconds after a push** while it recalculates. Check
+  again before calling it a conflict.
+- **Public tests that count the home page's buttons break on DMV:** its splash page has 21, the
+  public one 14. DMV's copy of `index_script_json_test` checks that the labels exist and are marked,
+  not how many there are.
+- **Ten `art_mark_drawing_test` failures come with the licensed art** and predate these merges.
+
