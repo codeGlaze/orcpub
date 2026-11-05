@@ -80,5 +80,6 @@ The local branch now tracks its own Gitea branch, not `dmv`.
 - **Public tests that count the home page's buttons break on DMV:** its splash page has 21, the
   public one 14. DMV's copy of `index_script_json_test` checks that the labels exist and are marked,
   not how many there are.
-- **Ten `art_mark_drawing_test` failures come with the licensed art** and predate these merges.
+- **`art_mark_drawing_test` assumed silhouettes** and failed ten checks on DMV, where every piece carries
+  the pack's mark. Fixed on the branch (`PRIVATE-ART` marker): never accept a failing test as "pre-existing".
 
