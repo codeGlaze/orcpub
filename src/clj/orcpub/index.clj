@@ -332,9 +332,13 @@ html {
 (def default-description branding/app-tagline)
 
 (defn default-image-url
-  "OG meta image URL. Uses https:// for social sharing compatibility."
+  "OG meta image URL. Uses https:// for social sharing compatibility. An APP_OG_IMAGE that is
+   already an absolute http(s) URL is returned as it is; a site path gets the host in front."
   [host]
-  (str "https://" host branding/og-image-filename))
+  (let [image branding/og-image-filename]
+    (if (re-find #"(?i)^https?://" (str image))
+      image
+      (str "https://" host image))))
 
 (defn index-page-response [{:keys [headers uri csp-nonce] :as request}
                            {:keys [title description image-url]}

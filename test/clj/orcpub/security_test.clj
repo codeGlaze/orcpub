@@ -332,12 +332,16 @@
                      (let [resps (vec (for [_ (range attempts)] (call {:address "a@example.com" :ip "6.6.6.6"})))]
                        [(set resps) @worked]))))
             [known-responses known-work] (run {:db/id 17})
-            [unknown-responses unknown-work] (run {})]
+            [unknown-responses unknown-work] (run {})
+            [verified-responses verified-work] (run {:db/id 17 :orcpub.user/verified? true})]
         (is (= known-responses unknown-responses) "one answer, limited or not, known or not")
         (is (= 1 (count known-responses)))
         (is (pos? known-work))
         (is (< known-work attempts) "and the known address was in fact limited")
-        (is (zero? unknown-work) "nothing is done for an address with no account")))))
+        (is (zero? unknown-work) "nothing is done for an address with no account")
+        (when (= :orcpub.routes.auth/re-verify route)
+          (is (= unknown-responses verified-responses) "a verified account answers the same too")
+          (is (zero? verified-work) "and sends nothing"))))))
 
 (defn- verify-calls
   "Runs `f` with Turnstile on and siteverify answering `answer` (a map, or :throw); returns
@@ -379,7 +383,7 @@
   (with-redefs [s/turnstile-enabled? (constantly true)
                 s/post-siteverify (fn [& _] {:success false})]
     (is (= :turnstile (:reason (s/guard :orcpub.routes.auth/register {:ip "9.9.9.9" :token "bad"}))))
-    (is (nil? (get @@#'s/sightings [:orcpub.routes.auth/register-per-host "9.9.9.9"])))
+    (is (nil? (get @@#'s/sightings [:register-per-host "9.9.9.9"])))
     (is (= 1 (count (get @@#'s/sightings [:register-challenge "9.9.9.9"]))))))
 
 (defn- lookups-fail-the-test [& _] (throw (AssertionError. "looked the address up before the challenge")))

@@ -62,8 +62,8 @@
   "Tokens are single use: asks the widget for a fresh one. No-op without a widget."
   []
   (dispatch [:turnstile-token nil])
-  (dispatch [:turnstile-blocked false])
   (when-let [id @widget-id]
+    (dispatch [:turnstile-blocked false])
     (try (call-api "reset" id) (catch :default _ nil))))
 
 ;; The :turnstile-reset event (events/auth) returns this effect, so it need not require this

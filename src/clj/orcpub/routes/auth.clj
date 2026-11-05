@@ -600,10 +600,10 @@
                 :db/id] :as user} (when-not refusal @user)]
     (cond
       refusal (refusal-response ::re-verify refusal)
-      verified? (redirect route-map/verify-success-route)
-      ;; No account for this address: answer like a resend and create nothing. Passing
-      ;; {:db/id nil} on would register a key-only record and email a link to any address typed.
-      (nil? id) {:status 200}
+      ;; No account, or one already verified: the same bare 200 as a resend, sending nothing, so
+      ;; the answer does not say which addresses have verified accounts. (Passing {:db/id nil} on
+      ;; would register a key-only record and email a link to any address typed.)
+      (or verified? (nil? id)) {:status 200}
       :else
       (do-verification request
                        (merge query-params

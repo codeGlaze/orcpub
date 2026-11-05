@@ -368,8 +368,9 @@
   (env-raw "TURNSTILE_SECRET_KEY"))
 
 (defn turnstile-enabled?
-  "Whether the sign-up form asks for a Cloudflare Turnstile check: only when BOTH
-   TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY are set."
+  "Whether the sign-up, password-reset and resend-verification forms (and sign-in after a
+   failure) ask for a Cloudflare Turnstile check: only when BOTH TURNSTILE_SITE_KEY and
+   TURNSTILE_SECRET_KEY are set."
   []
   (boolean (and (turnstile-site-key) (turnstile-secret-key))))
 
@@ -463,9 +464,9 @@
      :expects "on or off"
      :note "checks new passwords against known breaches"}
     {:group "security" :var "TURNSTILE_SITE_KEY" :since current-release :get #(turnstile-site-key)
-     :note "Turnstile on sign-up; needs the secret key too"}
+     :note "Turnstile on sign-up/reset/resend/sign-in; needs secret key"}
     {:group "security" :var "TURNSTILE_SECRET_KEY" :since current-release :secret? true
-     :note "Turnstile on sign-up; needs the site key too"}
+     :note "Turnstile on sign-up/reset/resend/sign-in; needs site key"}
     {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :since current-release :get #(get-share-prune-days)
      :accepts #(some-> % str/trim parse-long (>= 0)) :expects "a whole number of days, 0 or more"
      :note "days before an unused share link is deleted; 0 never"}]))
