@@ -104,6 +104,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** the portrait credit links to the artist's page.
 - **Accounts:** artists choose on My Account whether they have a page, and whether it shows
   their example portraits, their links and how many pieces they drew.
+- **Accounts:** an optional Cloudflare Turnstile check on sign-up, password reset and resend verification, and on sign-in after a failed attempt. Off unless `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set; if Cloudflare can't be reached, requests go through.
+- **Accounts:** when the security check can't load, the form says so and suggests allowing challenges.cloudflare.com in an ad blocker.
 
 ### Changed
 - **Server:** a deployed server will not start without a mail server unless `EMAIL_REQUIRED=false` says that is intended, and the message names the setting to add. Development mode is exempt; `./run` and `./run --upgrade` set the opt-out for installs that run without email, so none stops on upgrade. (#716)
@@ -139,6 +141,10 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   for repair.
 - **Homebrew:** checking homebrew after an import or a Restore takes a fraction of the time for
   classes: each shared part of a class is checked once, not once per level.
+- **Accounts:** sign-up no longer says when an email is already in use. It answers as for a new address and emails the account's owner instead. Without a mail server, a taken address gets a plain refusal.
+- **Accounts:** warnings about sign-in attempts on your account now follow up while attempts continue (at most every 6 hours, with a count), instead of once a day.
+- **Server:** links in account emails use `APP_URL` when it is set (set it in production; the startup report warns when it is not).
+- **Server:** an optional `REDIS_URL` shares the sign-in and email limits across app containers; without it each container keeps its own.
 
 ### Fixed
 
@@ -253,6 +259,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - Sign-in, password reset, share links, image fetching and PDF export are hardened against misuse, and secrets are no longer printed at startup.
 - **Site:** pages no longer load fonts from Google, so visiting the site no longer sends your address to Google. (#721)
 - **Site:** other sites a page links to are told only this site's domain, never the page's address.
+- **Accounts:** account emails can no longer be triggered in bulk from one form that had no limit.
 
 ## [breaking/2026-stack-modernization]
 
