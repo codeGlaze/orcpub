@@ -226,3 +226,11 @@ Newest last. Date, ruling, and what it replaced.
   (`.whats-new-pill`): bare text floated on the header art. Under LOGIN it read as a caption on the
   button; grey was too easy to miss.
 
+## A card with its own background sets its own text colour (found 2026-11-05)
+
+The library-health banner (`.health-card`) set a dark background and no text colour. The page container
+sets none either, so its text fell back to the browser default, black: `rgb(0, 0, 0)` measured on the
+`#171d27` card, and the 70%-opacity detail line was nearly invisible. Any new card, banner or panel that
+paints its own background also sets `color`, in both themes. The weapon description caret was a text
+"▾" at 12px; an icon-font caret at 16px is the size to match (`fix/health-banner-contrast`).
+

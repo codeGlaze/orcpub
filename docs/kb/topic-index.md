@@ -3873,6 +3873,7 @@ _ux-guide · ux guide_
 - Decisions log
 - Owner's notes (recorded 2026-11-01)
 - Decided 2026-11-02 (owner)
+- A card with its own background sets its own text colour (found 2026-11-05)
 
 ## verification-discipline.md
 
