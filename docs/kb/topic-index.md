@@ -1859,7 +1859,7 @@ _fork-customization · fork customization_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, cards, chip, chips, chrome, css, menu, menus, mock, omv, popover, redesign, spacing, switcher, theme, title, tray, workaround
+**topics:** accent, cards, chip, chips, chrome, css, menu, menus, mock, multi-select, omv, popover, redesign, spacing, switcher, theme, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -2860,7 +2860,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** 2026-10-16, character, days, draft, drafts, edit, elsewhere, expire, expires, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, unsaved
+**topics:** 2026-10-16, days, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)
@@ -2982,7 +2982,7 @@ _plan-email-and-alerts · plan email and alerts_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, pool, published, skill, wrapper
+**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, published, skill, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -2994,6 +2994,16 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 - Are the new fields ornaments?
 - Derived helpers, or more fields?
 - Related
+
+## plan-homebrew-markdown-export.md
+
+_plan-homebrew-markdown-export · plan homebrew markdown export_
+
+**topics:** 150k, 2026-11-06, 900, always-prepared, backticks, estimate, export, feedback, fill-in, formatters, markdown, one-way, readable, simple, table, trapped, types, whole-library
+
+- Decisions (owner)
+- Shape
+- Pieces
 
 ## plan-inventory-kits.md
 
@@ -3242,7 +3252,7 @@ _requirements-registry · requirements registry_
 
 _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spells handoff_
 
-**topics:** branch, caster, class, dropdown, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, prepares, reconciler, sibling, spellcasting, spells
+**topics:** caster, class, dropdown, grant, half-caster, key-based, learns, one-line, paladin, phase, prepare, prepared, prepared-spells, prepares, reconciler, sibling, spellcasting, spells
 
 - The user's ask
 - Branch state — important
@@ -3349,7 +3359,7 @@ _roadmap · roadmap_
 
 _rule-preview-cards · rule preview cards_
 
-**topics:** 2026-10-20, card, closes, desktop, link, mastery, mockups, opens, owner, padding, phone, preview, prone, roll, scroll, tap, text, weapon-mastery-plan
+**topics:** 2026-10-20, card, closes, condition, desktop, link, mockups, opens, owner, padding, phone, preview, prone, roll, scroll, tap, text, weapon-mastery-plan
 
 - How it works today (verified 2026-10-20, feature/weapons-table)
 - Agreed changes (owner, 2026-10-20)
@@ -3436,7 +3446,7 @@ _share-bundle-dependency-extraction · share bundle dependency extraction_
 
 _share-custom-items-plan · share custom items plan_
 
-**topics:** apply, by-key, cljc, custom, defs, equipped, item, items, mi5e, name-derived, sanitize, serialize, shared-custom-items, sorted-items, subs, tooltip, untrusted, whitelist-bundle
+**topics:** apply, by-key, custom, decode, defs, equipped, item, items, mi5e, name-derived, sanitize, serialize, shared-custom-items, sorted-items, subs, tooltip, untrusted, whitelist-bundle
 
 - Headline finding (dissolves the hard part)
 - Resolution path (where injected defs must live)
@@ -3497,7 +3507,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, innate, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
+**topics:** cast, castable, chain, class-gated, creator-declarable, magic-item, not-tested, per-silo, primitive, primitives, race, races, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -3700,7 +3710,7 @@ _start-build · start build_
 
 _starting-equipment-override-ledger · starting equipment override ledger_
 
-**topics:** addressing, base, bases, fill-in, free-text, frozen, gensym, group, groups, growable-option-menus, item-key, ledger, map-to-map, minted, option, srd, stable, sub-choice
+**topics:** addressing, base, bases, free-text, frozen, gensym, group, groups, growable-option-menus, item-key, ledger, map-to-map, minted, option, recompiler, srd, stable, sub-choice
 
 - The shape (what a ledger addresses)
 - The missing shape: groups/options have no stable id
