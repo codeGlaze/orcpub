@@ -51,6 +51,21 @@ Cost estimate (not measured): about 150k helper tokens a piece, plus review here
   the cljc writer has its own `modifier-labels` table (12 types); an unknown type prints `Type: value`.
 - Not covered yet: `multiclass-*` profs, `equipment-selections`, raw `:selections`. A modifier whose level
   is not 1 to 20 is listed under "Features without a valid level"; a feature with no level counts as 1.
-- Open style call (owner): the level table shows feature names only; proficiencies, speeds and
-  resistances stay in the "Gained at this level" lists.
+- Level table style (decided, recommended by the agent): feature names only; a level that only grants
+  benefits reads "See below"; benefits stay in the "Gained at this level" lists.
+
+## Piece 2a built: the button (2026-11-06)
+
+Commits `38be460a8` (table) and `14a417674` (button) on `fix/health-banner-contrast`. "export as markdown" sits
+in an expanded My Content source's action row, between export and delete. `::e5/export-plugin-markdown`
+calls `validate-and-show-modal-or-export` with `{:format :markdown}`, so the same correction and fill-in
+gate applies; `save-source!` in `events.cljs` picks the orcbrew blob or the Markdown text, and
+`homebrew-markdown/export-file` returns file name, content type, text and notice. The file is
+`<source>.md`, `text/markdown;charset=utf-8`.
+
+- **Trap:** `save-orcbrew-blob!` added a byte-order mark by default; Markdown passes `:no-bom?`. The
+  browser check caught it.
+- A source with nothing formattable still downloads ("Nothing to export yet.") and warns that the first
+  version covers classes and subclasses only. Piece 2b adds the simple types.
+- Not checked: whether the Markdown notice and "Exported with warnings" can both show, and which the user sees.
 

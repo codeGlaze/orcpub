@@ -2721,7 +2721,7 @@ _pdf-namespace-family · pdf namespace family_
 
 _pedestal-csp-history · pedestal csp history_
 
-**topics:** agent, blocked, configuration, csp, dev, enforcing, evaluates, figwheel, injects, interceptor, nonce, nonce-based, nonces, pedestal, presented, scripts, upgrade, violations
+**topics:** blocked, captures, configuration, csp, dev, enforcing, evaluates, figwheel, injects, interceptor, nonce, nonce-based, nonces, pedestal, presented, scripts, upgrade, violations
 
 - Timeline
 - Pedestal 0.5.1 (original project version)
@@ -2999,12 +2999,13 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-homebrew-markdown-export · plan homebrew markdown export_
 
-**topics:** 150k, 2026-11-06, 318, 650, 900, always-prepared, backticks, export, feedback, level, markdown, owner, piece, readable, simple, table, types, whole-library
+**topics:** 150k, 2026-11-06, 318, always-prepared, benefits, export, feedback, fill-in, formattable, level, markdown, piece, readable, simple, subclasses, table, types, whole-library
 
 - Decisions (owner)
 - Shape
 - Pieces
 - Piece 1 built (2026-11-06)
+- Piece 2a built: the button (2026-11-06)
 
 ## plan-inventory-kits.md
 
