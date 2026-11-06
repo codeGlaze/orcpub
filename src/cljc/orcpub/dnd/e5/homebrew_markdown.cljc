@@ -275,10 +275,11 @@
          :when title]
      {:level (entry-level (:level sel))
       :cell (str (escape-cell title) " (choose " n ")")
-      :block (s/join "\n"
-                     (cons (str "***" (escape-md title) ".*** Choose " n
-                                (when (seq (maps-of (:options item))) ":") "\n")
-                           (keep option-bullet (maps-of (:options item)))))})))
+      :block (let [options (keep option-bullet (maps-of (:options item)))
+                   head (str "***" (escape-md title) ".*** Choose " n (when (seq options) ":"))]
+               (if (seq options)
+                 (str head "\n\n" (s/join "\n" options))
+                 head))})))
 
 (defn- modifier-entries
   "The level-modifiers as entries {:level :cell :bullet}; unreadable ones are dropped."
