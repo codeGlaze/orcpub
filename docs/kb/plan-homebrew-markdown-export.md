@@ -40,3 +40,17 @@ occur, spellcasting and always-prepared spells as their own lines.
 
 Cost estimate (not measured): about 150k helper tokens a piece, plus review here. The bundle grows about
 5 KB compressed against the 900 KB ceiling.
+
+## Piece 1 built (2026-11-06)
+
+`homebrew_markdown.cljc` (650 lines) with tests (318), commits `76399a1fb`, `80c083707`, `39e9ab9aa` on
+`fix/health-banner-contrast`. Public: `escape-md`, `escape-cell`, `class->markdown`, `subclass->markdown`,
+`source->markdown`, `modifier->text`; `formatters` is the ordered table piece 2 adds rows to.
+
+- The builder's modifier labels live inside `modifier-values` in `views.cljs` and need a subscription, so
+  the cljc writer has its own `modifier-labels` table (12 types); an unknown type prints `Type: value`.
+- Not covered yet: `multiclass-*` profs, `equipment-selections`, raw `:selections`. A modifier whose level
+  is not 1 to 20 is listed under "Features without a valid level"; a feature with no level counts as 1.
+- Open style call (owner): the level table shows feature names only; proficiencies, speeds and
+  resistances stay in the "Gained at this level" lists.
+

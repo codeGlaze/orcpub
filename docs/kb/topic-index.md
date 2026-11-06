@@ -2999,11 +2999,12 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-homebrew-markdown-export · plan homebrew markdown export_
 
-**topics:** 150k, 2026-11-06, 900, always-prepared, backticks, estimate, export, feedback, fill-in, formatters, markdown, one-way, readable, simple, table, trapped, types, whole-library
+**topics:** 150k, 2026-11-06, 318, 650, 900, always-prepared, backticks, export, feedback, level, markdown, owner, piece, readable, simple, table, types, whole-library
 
 - Decisions (owner)
 - Shape
 - Pieces
+- Piece 1 built (2026-11-06)
 
 ## plan-inventory-kits.md
 
@@ -3381,7 +3382,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifier, modifiers, play-state, player, positioning, recomputes, sheet, static, toggle
+**topics:** arbitrary, armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
