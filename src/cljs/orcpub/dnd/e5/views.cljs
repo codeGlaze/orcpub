@@ -9662,6 +9662,9 @@
                {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
                "export"]
               [:button.form-button.m-l-5
+               {:on-click (make-event-handler ::e5/export-plugin-markdown name plugin)}
+               "export as markdown"]
+              [:button.form-button.m-l-5
                {:on-click (make-event-handler ::e5/delete-plugin name)}
                "delete"]]]
             ;; The tag this source mints its keys with — the same quiet line as the item's key,

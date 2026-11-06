@@ -3344,9 +3344,12 @@
      {:flex "0 0 auto"
       :white-space :nowrap}]
 
-    ;; Pushed to the end of the row, and still together when the row wraps.
+    ;; Pushed to the end of the row; the buttons wrap among themselves on a narrow phone
+    ;; rather than running off the panel.
     [:.mc-source-actions
-     {:flex "0 0 auto"
+     {:flex "0 1 auto"
+      :flex-wrap :wrap
+      :gap "5px 0"
       :margin-left :auto}]
 
     ;;;; WHAT'S NEW PANEL

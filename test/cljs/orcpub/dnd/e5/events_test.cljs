@@ -52,7 +52,8 @@
             [orcpub.dnd.e5.equipment-subs]
             ;; Side effect: registers all event handlers
             [orcpub.dnd.e5.events :as events]
-            [orcpub.dnd.e5.homebrew-check :as homebrew-check]))
+            [orcpub.dnd.e5.homebrew-check :as homebrew-check]
+            [orcpub.dnd.e5.coverage-pak :as coverage-pak]))
 
 ;; ---------------------------------------------------------------------------
 ;; Fixtures
@@ -2237,3 +2238,40 @@
   (let [fx (effects-of [:re-verify {:email "a@b.com"}] [:http])]
     (is (= "tok-resend" (get-in fx [:http :query-params :turnstile-token])))
     (is (= "a@b.com" (get-in fx [:http :query-params :email])) "next to the address it was typed with")))
+
+(defn- downloads-of
+  "Run `event` through the app with js/saveAs captured: returns [[filename blob-type no-bom?] ...]."
+  [event]
+  (let [saved (atom [])
+        save-as (.-saveAs js/window)]
+    (set! (.-saveAs js/window) (fn [blob filename no-bom?] (swap! saved conj [filename (.-type blob) no-bom?])))
+    (try (run-through! event)
+         (finally (set! (.-saveAs js/window) save-as)))
+    @saved))
+
+(deftest export-as-markdown-goes-through-the-export-gate-and-downloads-markdown
+  (let [pak @coverage-pak/pak]
+    (testing "a valid source: a .md download of type text/markdown, no notice"
+      (reset! app-db {:plugins {"Coverage Pak" pak}})
+      (is (= [["Coverage Pak.md" "text/markdown;charset=utf-8" true]]
+             (downloads-of [::e5/export-plugin-markdown "Coverage Pak" pak])))
+      (is (nil? (:message @app-db))))
+    (testing "Export is still the orcbrew file"
+      (reset! app-db {:plugins {"Coverage Pak" pak}})
+      (is (= [["Coverage Pak.orcbrew" "text/plain;charset=utf-8" false]]
+             (downloads-of [::e5/export-plugin "Coverage Pak" pak]))))
+    (testing "a source with nothing the writer formats downloads, and the warning says classes and subclasses only"
+      (let [langs {:orcpub.dnd.e5/languages {:cant {:key :cant :name "Cant" :option-pack "Pak"}}}]
+        (reset! app-db {:plugins {"Pak" langs}})
+        (is (= [["Pak.md" "text/markdown;charset=utf-8" true]]
+               (downloads-of [::e5/export-plugin-markdown "Pak" langs])))
+        (is (= :warning (:message-type @app-db)))
+        (is (re-find #"classes and subclasses only" (str (:message @app-db))))))
+    (testing "a source the gate stops writes no file"
+      (reset! app-db {:plugins {"Pak" {:orcpub.dnd.e5/feats {:a {:name nil}}}}})
+      (is (empty? (filter (fn [[f]] (re-find #"\.md$" f))
+                          (downloads-of [::e5/export-plugin-markdown "Pak" {:orcpub.dnd.e5/feats {:a {:name nil}}}])))))
+    (testing "the fill-in modal remembers the format, so its Export writes Markdown too"
+      (reset! app-db {:plugins {"Pak" {:orcpub.dnd.e5/feats {:a {:name nil}}}}})
+      (run-through! [::e5/export-plugin-markdown "Pak" {:orcpub.dnd.e5/feats {:a {:name nil}}}])
+      (is (= :markdown (get-in @app-db [:export-warning :format]))))))

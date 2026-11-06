@@ -654,3 +654,21 @@
                    (if (seq blocks)
                      (apply concat blocks)
                      ["*Nothing to export yet.*"]))))))
+
+(def ^:private covered-types-notice
+  "Said when a source holds nothing the writer can format yet."
+  "Nothing to export as Markdown yet: the first version covers classes and subclasses only.")
+
+(defn export-file
+  "The download for exporting `source` ({content-type {item-key item}}) as Markdown, titled
+   `title` (default: its :option-pack). Returns {:filename \"<title>.md\", :content-type,
+   :text (see `source->markdown`), :notice}; :notice is a sentence saying only classes and
+   subclasses are covered when the source holds none, else nil."
+  [source title]
+  (let [source (if (map? source) source {})
+        title (or (one-line title) (source-title source))]
+    {:filename (str title ".md")
+     :content-type "text/markdown;charset=utf-8"
+     :text (source->markdown source title)
+     :notice (when-not (some (fn [[ct _]] (seq (sorted-items (get source ct)))) formatters)
+               covered-types-notice)}))

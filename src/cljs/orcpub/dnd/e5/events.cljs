@@ -105,6 +105,7 @@
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.character-drafts :as drafts]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
+            [orcpub.dnd.e5.homebrew-markdown :as homebrew-markdown]
             [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.event-utils :as event-utils :refer [user->local-store-interceptor]]
@@ -6030,13 +6031,28 @@
       :else          (full))))
 
 (defn- save-orcbrew-blob!
-  "Write `orcbrew-text` of `data` to `filename` and trigger the download; the only side effect."
-  [filename data & {:keys [pretty-print? raw?]}]
+  "Write `orcbrew-text` of `data` to `filename` and trigger the download; the only side effect.
+   `:content-type` (default text/plain;charset=utf-8) is the file's type; text data is written as is;
+   `:no-bom?` leaves off the byte-order mark the saver adds to text files."
+  [filename data & {:keys [pretty-print? raw? content-type no-bom?]}]
   (let [content (orcbrew-text data :pretty-print? pretty-print? :raw? raw?)
         blob (js/Blob.
               (clj->js [content])
-              (clj->js {:type "text/plain;charset=utf-8"}))]
-    (js/saveAs blob filename)))
+              (clj->js {:type (or content-type "text/plain;charset=utf-8")}))]
+    (js/saveAs blob filename (boolean no-bom?))))
+
+(defn- save-source!
+  "The final write of a per-source or all-sources export. With `:format :markdown` in `opts` it
+   downloads `data` (one source) as `<title>.md` Markdown; otherwise `data` goes to `filename` as
+   .orcbrew text, `:pretty-print?` applying. Returns the events to dispatch: a warning when the
+   Markdown holds nothing the first version can format, else nil."
+  [filename title data {:keys [format pretty-print?]}]
+  (if (= :markdown format)
+    (let [{:keys [filename content-type text notice]} (homebrew-markdown/export-file data title)]
+      (save-orcbrew-blob! filename text :content-type content-type :no-bom? true)
+      (when notice [[:show-warning-message notice]]))
+    (do (save-orcbrew-blob! filename data :pretty-print? pretty-print?)
+        nil)))
 
 (defn reg-export-draft
   "Register a builder-level 'export draft' event: dump the in-progress builder-item
@@ -6231,13 +6247,12 @@
     handed))
 
 (defn- validate-and-show-modal-or-export
-  "Shared export path for one source, used by export-plugin and
-   export-plugin-pretty-print. Runs the same correction gate Export All runs
-   (text normalization, semantic cleaning, option dedup) so a per-source file
-   and an all-sources file agree on the same content, then either shows the
-   fill-in modal (missing fields), writes the file (valid), or shows an error
-   (spec failure). The library itself is not changed."
-  [db plugin-name handed {:keys [pretty-print?]}]
+  "Shared export path for one source (export-plugin, its pretty-print and Markdown variants).
+   Runs the correction gate Export All runs, then shows the fill-in modal (missing fields),
+   writes the file through `save-source!` (valid), or shows an error (spec failure).
+   `opts`: :pretty-print?, and :format :markdown for the Markdown file. The library is not
+   changed."
+  [db plugin-name handed {:keys [pretty-print? format] :as opts}]
   (let [library (:plugins db)
         plugin (export-source library plugin-name handed)
         {corrected :plugin cleanup-changes :changes}
@@ -6263,21 +6278,22 @@
                                     :plugin corrected
                                     :issues (:missing-fields-issues validation)}]
                          :warnings (:warnings validation)
-                         :pretty-print? pretty-print?}]]))})
+                         :pretty-print? pretty-print?
+                         :format format}]]))})
 
       (:valid validation)
       (do
         (log-export-warnings plugin-name validation)
         ;; Strip meaningless blanks (false/nil/empty) on normal export.
-        (save-orcbrew-blob! (str plugin-name ".orcbrew")
-                            (orcbrew-val/strip-export-blanks corrected)
-                            :pretty-print? pretty-print?)
-        {:dispatch-n
-         (vec (concat persist
-                      (when (seq (:warnings validation))
-                        [[:show-warning-message
-                          {:title (str "Exported “" plugin-name "” with warnings")
-                           :details ["The file downloaded. The console has the details."]}]])))})
+        (let [notice-events (save-source! (str plugin-name ".orcbrew") plugin-name
+                                          (orcbrew-val/strip-export-blanks corrected) opts)]
+          {:dispatch-n
+           (vec (concat persist
+                        (when (seq (:warnings validation))
+                          [[:show-warning-message
+                            {:title (str "Exported “" plugin-name "” with warnings")
+                             :details ["The file downloaded. The console has the details."]}]])
+                        notice-events))}))
 
       :else
       ;; Hard spec check failed. Surface a raw, unvalidated escape hatch alongside
@@ -6301,6 +6317,11 @@
  ::e5/export-plugin
  (fn [{:keys [db]} [_ name plugin]]
    (validate-and-show-modal-or-export db name plugin {})))
+
+(reg-event-fx
+ ::e5/export-plugin-markdown
+ (fn [{:keys [db]} [_ name plugin]]
+   (validate-and-show-modal-or-export db name plugin {:format :markdown})))
 
 (defn select-emergency-export
   "Pick the filename + data for an emergency raw export: just the named source if
@@ -6467,13 +6488,14 @@
 
 (reg-event-db
  :show-export-warning-modal
- (fn [db [_ {:keys [mode plugins warnings pretty-print?]}]]
+ (fn [db [_ {:keys [mode plugins warnings pretty-print? format]}]]
    (assoc db :export-warning
           {:active? true
            :mode (or mode :single)
            :plugins plugins
            :warnings warnings
            :pretty-print? pretty-print?
+           :format format
            :edits {}
            :show-export-as-is? false})))
 
@@ -6507,7 +6529,7 @@
 (reg-event-fx
  :export-with-auto-fix
  (fn [{:keys [db]} _]
-   (let [{:keys [mode plugins edits pretty-print?]} (:export-warning db)
+   (let [{:keys [mode plugins edits pretty-print?] :as warning} (:export-warning db)
          ;; Auto-fix = user edits + dummy-fill for blanks, in the file and in My Content.
          ;; Placeholders like "[Missing Name]" are self-labeling and flagged in the log.
          fixed-plugins (mapv
@@ -6535,10 +6557,10 @@
                     "all-content.orcbrew"
                     (str (:name (first fixed-plugins)) ".orcbrew"))
          log-entries (build-export-log-entries
-                      plugins "Auto-filled missing fields on export")]
-     ;; Strip meaningless blanks (false/nil/empty) on normal export.
-     (save-orcbrew-blob! filename (orcbrew-val/strip-export-blanks final-data)
-                         :pretty-print? pretty-print?)
+                      plugins "Auto-filled missing fields on export")
+         ;; Strip meaningless blanks (false/nil/empty) on normal export.
+         notice-events (save-source! filename (:name (first fixed-plugins))
+                                     (orcbrew-val/strip-export-blanks final-data) warning)]
      {:db (-> db'
               (assoc :export-warning {:active? false})
               (assoc :import-log {:panel-shown? true
@@ -6548,12 +6570,13 @@
                                   :changes log-entries
                                   :errors []
                                   :skipped-items []}))
-      :dispatch-n (if ok?
-                    [[:show-warning-message
-                      (str "Exported and saved to My Content. Placeholders were filled "
-                           "in for any fields left blank — review them (see the log) and "
-                           "replace before sharing.")]]
-                    refused)})))
+      :dispatch-n (into (vec (if ok?
+                               [[:show-warning-message
+                                 (str "Exported and saved to My Content. Placeholders were filled "
+                                      "in for any fields left blank — review them (see the log) and "
+                                      "replace before sharing.")]]
+                               refused))
+                        notice-events)})))
 
 (reg-event-fx
  :export-cancel-with-log
@@ -6572,7 +6595,7 @@
 (reg-event-fx
  :export-as-is
  (fn [{:keys [db]} _]
-   (let [{:keys [mode plugins pretty-print?]} (:export-warning db)
+   (let [{:keys [mode plugins pretty-print?] :as warning} (:export-warning db)
          all-plugins (:plugins db)
          final-data (if (= mode :multi)
                       (reduce (fn [acc {:keys [name plugin]}]
@@ -6584,8 +6607,8 @@
                     "all-content.orcbrew"
                     (str (:name (first plugins)) ".orcbrew"))
          log-entries (build-export-log-entries
-                      plugins "Exported as-is without fixes")]
-     (save-orcbrew-blob! filename final-data :pretty-print? pretty-print?)
+                      plugins "Exported as-is without fixes")
+         notice-events (save-source! filename (:name (first plugins)) final-data warning)]
      {:db (-> db
               (assoc :export-warning {:active? false})
               (assoc :import-log {:panel-shown? true
@@ -6594,7 +6617,8 @@
                                                  (str "Export: " (:name (first plugins))))
                                   :changes log-entries
                                   :errors []
-                                  :skipped-items []}))})))
+                                  :skipped-items []}))
+      :dispatch-n notice-events})))
 
 ;; Export all homebrew plugins as .orcbrew file.
 (reg-event-fx

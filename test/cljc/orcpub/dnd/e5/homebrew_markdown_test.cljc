@@ -320,3 +320,20 @@
       (is (has-line? out "- Weapon Proficiency: a|b"))
       (is (not (str/includes? out "Weapon Proficiency: a\\|b"))))
     (is (clean? out))))
+
+(deftest export-file-download
+  (let [f (md/export-file pak "Coverage Pak")]
+    (testing "name, type and text of the download"
+      (is (= "Coverage Pak.md" (:filename f)))
+      (is (= "text/markdown;charset=utf-8" (:content-type f)))
+      (is (= (md/source->markdown pak "Coverage Pak") (:text f)))
+      (is (str/starts-with? (:text f) "# Coverage Pak\n")))
+    (is (nil? (:notice f)) "a source with a class or subclass has nothing to warn about"))
+  (testing "the title defaults to the source's :option-pack"
+    (is (= "Coverage Pak.md" (:filename (md/export-file pak nil)))))
+  (testing "a source with nothing the writer formats still gives a file, and says why it is empty"
+    (let [f (md/export-file {:orcpub.dnd.e5/spells {:x {:name "Skipped Spell" :option-pack "Sp"}}} nil)]
+      (is (= "Sp.md" (:filename f)))
+      (is (has-line? (:text f) "*Nothing to export yet.*"))
+      (is (str/includes? (:notice f) "classes and subclasses only")))
+    (is (str/includes? (:notice (md/export-file {} "Empty")) "classes and subclasses only"))))
