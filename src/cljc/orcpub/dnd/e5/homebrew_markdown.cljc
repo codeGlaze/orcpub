@@ -54,9 +54,9 @@
 (defn- whole
   "`x` as a long when it is a whole number, else nil."
   [x]
-  (when-let [n (finite-num x)]
-    (when (== n (Math/floor (double n)))
-      (long n))))
+  (when (finite-num x)
+    (when (== x (Math/floor (double x)))
+      (long x))))
 
 (defn- level-of
   "`x` as a character level when it is a whole number from 1 to 20, else nil."
@@ -521,7 +521,7 @@
   (let [title (item-title item k "Unnamed class")
         sub-level (level-of (:subclass-level item))
         sub-title (one-line (:subclass-title item))
-        hit-die (when-let [d (finite-num (:hit-die item))] (when (pos? d) (fmt-num d)))
+        hit-die (let [d (:hit-die item)] (when (and (finite-num d) (pos? d)) (fmt-num d)))
         ability-levels (keep level-of (when (sequential? (:ability-increase-levels item))
                                         (:ability-increase-levels item)))
         extra (concat
@@ -534,7 +534,7 @@
                             (maps-of (:subclasses item)))]
     (vec
      (concat
-      [(heading depth (escape-md title)) (str "*Class*")]
+      [(heading depth (escape-md title)) "*Class*"]
       (bullets (concat
                 [(kv "Hit Die" (some->> hit-die (str "d")))]
                 (profs-lines (:profs item))

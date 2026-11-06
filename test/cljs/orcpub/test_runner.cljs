@@ -5,6 +5,7 @@
             [orcpub.common-test]
             [orcpub.hardened-helpers-test]
             [orcpub.dnd.e5.homebrew-guard-test]
+            [orcpub.dnd.e5.homebrew-markdown-test]
             [orcpub.dnd.e5.event-utils-test]
             [orcpub.dnd.e5.compute-test]
             [orcpub.dnd.e5.hunter-evasion-test]
@@ -70,6 +71,7 @@
   (run-tests 'orcpub.common-test
              'orcpub.hardened-helpers-test
    'orcpub.dnd.e5.homebrew-guard-test
+   'orcpub.dnd.e5.homebrew-markdown-test
              'orcpub.dnd.e5.event-utils-test
              'orcpub.dnd.e5.compute-test
              'orcpub.dnd.e5.hunter-evasion-test
