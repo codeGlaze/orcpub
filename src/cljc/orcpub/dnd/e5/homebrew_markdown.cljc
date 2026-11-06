@@ -282,14 +282,14 @@
                  head))})))
 
 (defn- modifier-entries
-  "The level-modifiers as entries {:level :cell :bullet}; unreadable ones are dropped."
+  "The level-modifiers as entries {:level :bullet} (no table cell: the level table names features
+   only); unreadable ones are dropped."
   [modifiers]
   (vec
    (for [m (maps-of modifiers)
          :let [phrase (modifier->text m)]
          :when phrase]
      {:level (entry-level (:level m))
-      :cell (escape-cell phrase)
       :bullet (str "- " (escape-md phrase))})))
 
 (defn- level-entries
@@ -313,11 +313,17 @@
                     (str "| " (ordinal lvl) " | " (if (s/blank? cell) "-" cell) " |")))))
 
 (defn- progression-rows
-  "Table rows [level cell] for the levels in `levels`, each cell the entries' names joined."
+  "Table rows [level cell] for the levels in `levels`, each cell the names of the level's features
+   and choices joined. A level that only grants benefits (modifiers) says \"See below\"; a level
+   with nothing has an empty cell."
   [entries levels]
   (let [by-level (group-by :level entries)]
-    (for [lvl levels]
-      [lvl (s/join ", " (keep :cell (get by-level lvl)))])))
+    (for [lvl levels
+          :let [es (get by-level lvl)
+                names (keep :cell es)]]
+      [lvl (cond (seq names) (s/join ", " names)
+                 (seq es) "See below"
+                 :else "")])))
 
 (defn- features-blocks
   "The `Features` section of a class or subclass: a heading, then for each level (in order)

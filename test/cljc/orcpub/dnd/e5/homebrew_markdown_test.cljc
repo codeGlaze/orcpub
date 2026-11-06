@@ -113,11 +113,14 @@
       (is (has-line? out "*Ranger subclass*")))
     (testing "the table has a row for each level the subclass has, and no others"
       (is (has-line? out "| Level | Features |"))
-      (is (has-line-starting? out "| 3rd | Wayfarer Lore, Waymark, Wayfarer Trick (choose 1), "))
-      (is (has-line-starting? out "| 7th | Quick Step, Wayfarer Route (choose 2), "))
-      (is (has-line? out "| 18th | Flying Speed Equals Walking Speed |"))
+      (is (has-line? out "| 3rd | Wayfarer Lore, Waymark, Wayfarer Trick (choose 1) |"))
+      (is (has-line? out "| 7th | Quick Step, Wayfarer Route (choose 2) |"))
+      (is (has-line? out "| 18th | See below |"))
       (is (not (has-line-starting? out "| 1st |")))
       (is (not (has-line-starting? out "| 4th |"))))
+    (testing "the table names features only: benefits stay in the Gained lists"
+      (is (empty? (filter #(and (str/starts-with? % "| ") (str/includes? % "Proficiency")) (lines out))))
+      (is (has-line? out "- Weapon Proficiency: All martial weapons")))
     (testing "features in level order, with their activation"
       (is (has-line? out "***Wayfarer Lore.*** Coverage: a trait with no action type."))
       (is (has-line? out "***Waymark (Action).*** Coverage: an action."))
@@ -139,7 +142,7 @@
       (is (has-line? out "***Wayfarer Route.*** Choose 2:"))
       (is (has-line? out "- ***High Road.*** Coverage: a two-pick choice at level 7.")))
     (testing "a choice the source does not hold is named from its key"
-      (is (has-line-starting? (md/subclass->markdown wayfarer) "| 3rd | Wayfarer Lore, Waymark, Wayfarer Tricks (choose 1), ")))
+      (is (has-line? (md/subclass->markdown wayfarer) "| 3rd | Wayfarer Lore, Waymark, Wayfarer Tricks (choose 1) |")))
     (is (clean? out))))
 
 (deftest source-export
@@ -192,7 +195,7 @@
       (is (= "| 2nd | Weave Styles (choose 1) |" (second rows)))
       (is (= "| 3rd | Blade Oath |" (nth rows 2)))
       (is (= "| 4th | Ability Score Improvement |" (nth rows 3)))
-      (is (= "| 5th | Arcane Surge, Number of Attacks: 2 |" (nth rows 4)))
+      (is (= "| 5th | Arcane Surge |" (nth rows 4)))
       (is (= "| 20th | - |" (last rows))))
     (testing "features, with further paragraphs after a blank line"
       (is (str/includes? out "***Weave Strike (Bonus Action).*** First paragraph.\n\nSecond paragraph.")))
@@ -219,7 +222,7 @@
     (let [out (md/subclass->markdown {:name "X" :class :ranger
                                       :level-modifiers [{:type :mystery-power :level 4 :value :fire}]})]
       (is (has-line? out "- Mystery Power: Fire"))
-      (is (has-line? out "| 4th | Mystery Power: Fire |"))))
+      (is (has-line? out "| 4th | See below |"))))
   (testing "every modifier type in the coverage pak has a label"
     (let [types (for [ct [:orcpub.dnd.e5/subclasses :orcpub.dnd.e5/classes]
                       item (vals (get pak ct))
@@ -307,12 +310,13 @@
         out (md/subclass->markdown item)]
     (testing "a name"
       (is (= "# Pipe|Star\\*" (first (lines out))))
-      (is (has-line-starting? out "| 3rd | A\\|B \\*C\\*, "))
+      (is (has-line? out "| 3rd | A\\|B \\*C\\* |"))
       (is (has-line? out "***A|B \\*C\\*.*** Uses a\\_b | and \\*bold\\*.") (pr-str (lines out))))
     (testing "a description, line by line"
       (is (str/includes? out "\n\n\\# Not a heading\n\n"))
       (is (str/includes? out "\n\n\\> Not a quote\n\n"))
       (is (str/includes? out "\n\n\\<script>\\[x\\](y)\n")))
-    (testing "a pipe in a modifier value stays inside its cell"
-      (is (str/includes? out "Weapon Proficiency: a\\|b |")))
+    (testing "a pipe in a modifier value is plain in its bullet and never reaches the table"
+      (is (has-line? out "- Weapon Proficiency: a|b"))
+      (is (not (str/includes? out "Weapon Proficiency: a\\|b"))))
     (is (clean? out))))
