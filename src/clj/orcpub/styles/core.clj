@@ -2571,8 +2571,8 @@
                   [:60% {:box-shadow "0 0 0 12px rgba(255,210,26,0)"}]
                   [:100% {:box-shadow "0 0 0 0 rgba(255,210,26,0)"}])
     [:.health-card
-     {:background-color "#171d27" :border-radius "6px" :overflow :hidden :margin-bottom "10px"
-      :position :relative}]
+     {:background-color "#171d27" :color :white :border-radius "6px" :overflow :hidden
+      :margin-bottom "10px" :position :relative}]
     ;; dismiss × (never on My Content) — a quiet control in the corner
     [:.health-x
      {:position :absolute :top "6px" :right "10px" :cursor :pointer

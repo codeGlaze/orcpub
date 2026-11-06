@@ -3463,7 +3463,7 @@
          :on-click (fn [e] (.stopPropagation e) (swap! state update :open? not))}
         [:span.weapon-name nm]
         hand-pill
-        [:span.weapon-caret (if open? "▴" "▾")]]
+        [:i.fa.weapon-caret {:class (if open? "fa-caret-up" "fa-caret-down") :aria-hidden true}]]
        (if (and (or hands (seq item-toggles)) (not controls-below?))
          [:div.weapon-grey-line
           [:span kind]
