@@ -2568,7 +2568,7 @@
     [:.mc-guard:hover {:background-color "rgba(154,3,30,0.45)" :color :white}]
     ;; the full button lifts OUT of the bar (absolute) — the row never reflows
     [:.mc-liftpop
-     {:position :absolute :right "0" :bottom "calc(100% + 9px)"
+     {:position :absolute :right "0" :bottom "calc(100% - -9px)"
       :display :flex :align-items :center :gap "10px"
       :background-color "#1a1013" :border "1px solid rgba(154,3,30,0.6)"
       :border-radius "7px" :padding "8px 10px" :white-space :nowrap
@@ -3646,7 +3646,7 @@
     [:.inv-picker-pop
      {:position :absolute
       :z-index 41
-      :top "calc(100% + 4px)"
+      :top "calc(100% - -4px)"
       :left 0
       :width "320px"
       :max-width "calc(100vw - 32px)"

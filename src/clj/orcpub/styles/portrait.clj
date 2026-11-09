@@ -834,7 +834,7 @@
                                     :outline-offset "1px"}]
    [".pl-thumb-more-list" {:position "absolute"
                            :left "0"
-                           :top "calc(100% + 4px)"
+                           :top "calc(100% - -4px)"
                            :z-index "20"
                            :min-width "150px"
                            :max-width "220px"
