@@ -1,17 +1,16 @@
-// Every PDF option, and Create PDF below them, can be scrolled into view and tapped.
+// PDF Options fills the window, Create PDF is always in view, and every option can be reached.
 //
 //   ./scripts/e2e/run.sh pdf-options-reach.js
 //
-// Builds a Wizard with spells (so the Cards and Spellbook groups show), opens PDF
-// Options, picks a sheet style and opens the Spellbook group, its tallest state.
-// Then, on a 1280x720 desktop and a 390x844 phone, it scrolls the page just far
-// enough to bring Create PDF into view and checks the button sits inside the window
-// and is the topmost element at its centre. The scroll stops well short of the end
-// of the page, where the header's containing block runs out and anything shows.
+// Builds a Wizard with spells (so the Cards and Spellbook groups show), opens PDF Options, picks
+// a sheet style and opens the Spellbook group, its tallest state. Then, on a 1280x720 desktop and
+// a 390x844 phone, checks that the panel covers the window, that Create PDF is inside the window
+// and is what a tap there hits without any scrolling, and that the last option (the file name
+// preview) scrolls into view inside the panel. Escape closes it. Last, in the dark theme and then
+// the light one, every visible text in the panel is checked for contrast against what is behind it.
 
 const { chromium } = require('playwright');
-const { settle, clickVisible, firstVisible, setClasses, selectSpells,
-        BASE, EXECUTABLE } = require('./export-character-pdf');
+const { settle, clickVisible, setClasses, selectSpells, BASE, EXECUTABLE } = require('./export-character-pdf');
 
 let failures = 0;
 function check(label, ok, detail) {
@@ -19,27 +18,72 @@ function check(label, ok, detail) {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail !== undefined && !ok ? '  — ' + detail : ''}`);
 }
 
-// Scrolls so Create PDF's bottom lands 20px above the window's, then reports where
-// it is: {fits, onTop, short, detail}. `short` is false when that scroll reaches
-// the end of the page, which would let a clipped panel pass.
-async function reachCreatePdf(page) {
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.waitForTimeout(300);
-  return page.evaluate(async () => {
-    const b = Array.from(document.querySelectorAll('button'))
-      .find(x => x.textContent.trim() === 'Create PDF');
-    if (!b) return { fits: false, onTop: false, short: false, detail: 'no Create PDF button' };
-    const want = Math.max(0, b.getBoundingClientRect().bottom + scrollY - innerHeight + 20);
-    window.scrollTo(0, want);
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+// Where the panel and Create PDF are, with nothing scrolled: {covers, fits, onTop, detail}.
+async function createPdfInView(page) {
+  return page.evaluate(() => {
+    const sheet = document.querySelector('.pdf-sheet');
+    const b = Array.from(document.querySelectorAll('button')).find(x => x.textContent.trim() === 'Create PDF');
+    if (!sheet || !b) return { covers: false, fits: false, onTop: false, detail: `sheet ${!!sheet}, button ${!!b}` };
+    const s = sheet.getBoundingClientRect();
     const r = b.getBoundingClientRect();
-    const hit = document.elementFromPoint(r.left + r.width / 2, Math.min(r.top + r.height / 2, innerHeight - 1));
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
     return {
-      fits: r.top >= 0 && r.bottom <= innerHeight,
+      covers: s.top <= 0 && s.left <= 0 && s.right >= innerWidth && s.bottom >= innerHeight,
+      fits: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth,
       onTop: !!hit && (hit === b || b.contains(hit)),
-      short: scrollY + innerHeight < document.documentElement.scrollHeight - 200,
-      detail: `button ${Math.round(r.top)}-${Math.round(r.bottom)} in a ${innerHeight}px window at scrollY ${Math.round(scrollY)}`,
+      detail: `sheet ${Math.round(s.width)}x${Math.round(s.height)}; button ${Math.round(r.left)},${Math.round(r.top)}-${Math.round(r.right)},${Math.round(r.bottom)} in ${innerWidth}x${innerHeight}`,
     };
+  });
+}
+
+// Scrolls the panel's body to its end and reports whether the file name preview is then in view.
+async function lastOptionReachable(page) {
+  return page.evaluate(async () => {
+    const body = document.querySelector('.pdf-sheet-body');
+    if (!body) return { ok: false, detail: 'no panel body' };
+    body.scrollTop = body.scrollHeight;
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const note = Array.from(body.querySelectorAll('.option-note')).find(n => n.textContent.trim().endsWith('.pdf'));
+    if (!note) return { ok: false, detail: 'no file name preview' };
+    const r = note.getBoundingClientRect(), b = body.getBoundingClientRect();
+    return { ok: r.top >= b.top && r.bottom <= b.bottom, detail: `preview ${Math.round(r.top)}-${Math.round(r.bottom)} in body ${Math.round(b.top)}-${Math.round(b.bottom)}` };
+  });
+}
+
+// Every visible text in the panel whose contrast against what is actually behind it is below WCAG
+// AA (4.5:1, or 3:1 for large text), as strings; ancestor opacity is applied. Amber .form-button text
+// is left out: its colour is the account's Dark Button Text setting, not this panel's.
+async function lowContrast(page) {
+  return page.evaluate(() => {
+    const rgba = c => { const m = c.match(/[\d.]+/g) || [0, 0, 0, 0]; return m.map(Number).concat([1]).slice(0, 4); };
+    const over = (top, under) => { const a = top[3]; return [0, 1, 2].map(i => top[i] * a + under[i] * (1 - a)).concat([1]); };
+    const lum = c => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+                       return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+    const behind = el => {
+      const layers = [];
+      for (let e = el; e; e = e.parentElement) {
+        const c = rgba(getComputedStyle(e).backgroundColor);
+        if (c[3] > 0) { layers.push(c); if (c[3] >= 1) break; }
+      }
+      return layers.reverse().reduce((acc, c) => over(c, acc), [255, 255, 255, 1]);
+    };
+    const opacity = el => { let o = 1; for (let e = el; e; e = e.parentElement) o *= Number(getComputedStyle(e).opacity); return o; };
+    const sheet = document.querySelector('.pdf-sheet');
+    const out = [];
+    for (const el of sheet.querySelectorAll('*')) {
+      if (el.closest('.form-button')) continue;
+      const own = Array.from(el.childNodes).filter(n => n.nodeType === 3).map(n => n.textContent.trim()).join(' ').trim();
+      if (!own || !el.getClientRects().length) continue;
+      const cs = getComputedStyle(el);
+      const fg = rgba(cs.color); fg[3] *= opacity(el);
+      const bg = behind(el);
+      const r = ratio(over(fg, bg), bg);
+      const size = parseFloat(cs.fontSize), bold = Number(cs.fontWeight) >= 700;
+      const need = size >= 24 || (bold && size >= 18.66) ? 3 : 4.5;
+      if (r < need) out.push(`"${own.slice(0, 30)}" ${r.toFixed(2)}:1 (needs ${need})`);
+    }
+    return out;
   });
 }
 
@@ -55,9 +99,9 @@ async function reachCreatePdf(page) {
 
   check('Export opens PDF Options', await clickVisible(page, 'text=Export'));
   await settle(page);
-  const styles = await firstVisible(page, 'select');
-  check('the panel offers a sheet style', styles !== null);
-  if (styles) await styles.selectOption({ index: 1 });
+  const styles = page.locator('.pdf-sheet select').first();
+  check('the panel offers a sheet style', await styles.count() > 0);
+  if (await styles.count()) await styles.selectOption({ index: 1 });
   check('Print Spellbook is offered', await clickVisible(page, 'text=Print Spellbook'));
   await settle(page);
 
@@ -65,11 +109,31 @@ async function reachCreatePdf(page) {
                                ['phone 390x844', { width: 390, height: 844 }]]) {
     await page.setViewportSize(size);
     await settle(page, 400);
-    const r = await reachCreatePdf(page);
-    check(`${label}: the check stops short of the page end`, r.short, r.detail);
-    check(`${label}: Create PDF scrolls fully into the window`, r.fits, r.detail);
+    await page.evaluate(() => { const b = document.querySelector('.pdf-sheet-body'); if (b) b.scrollTop = 0; });
+    const r = await createPdfInView(page);
+    check(`${label}: the panel covers the window`, r.covers, r.detail);
+    check(`${label}: Create PDF is in view without scrolling`, r.fits, r.detail);
     check(`${label}: Create PDF is what a tap there hits`, r.onTop, r.detail);
+    const last = await lastOptionReachable(page);
+    check(`${label}: the last option scrolls into view inside the panel`, last.ok, last.detail);
   }
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await settle(page, 300);
+  const dark = await lowContrast(page);
+  check('dark theme: every text in the panel is readable against its background', dark.length === 0, dark.join(' | '));
+
+  await page.keyboard.press('Escape');
+  await settle(page, 300);
+  check('Escape closes PDF Options', await page.locator('.pdf-sheet').count() === 0);
+
+  check('the light theme can be switched on', await clickVisible(page, 'text=Light Theme'));
+  await settle(page, 300);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await clickVisible(page, 'text=Export');
+  await settle(page);
+  const light = (await page.locator('.pdf-sheet').count()) ? await lowContrast(page) : ['the panel did not open'];
+  check('light theme: every text in the panel is readable against its background', light.length === 0, light.join(' | '));
 
   await browser.close();
   console.log(`\n${failures ? failures + ' FAILED' : 'all passed'}`);
