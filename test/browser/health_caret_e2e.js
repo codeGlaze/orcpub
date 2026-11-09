@@ -86,6 +86,9 @@ const healthColours = page => page.evaluate(() => {
           closed.tag === 'I' && /\bfa-caret-down\b/.test(closed.cls), `${closed.tag} ${closed.cls}`);
     check('weapon caret: font size is at least 15px', closed.size >= 15, `${closed.size}px`);
     await section.locator('.weapon-row .weapon-cell-name').first().click({ timeout: 5000 }).catch(() => {});
+    // The re-render follows the click; wait for it (bounded) before reading the class.
+    await section.locator('.weapon-row .weapon-caret.fa-caret-up').first()
+      .waitFor({ timeout: 5000 }).catch(() => {});
     const opened = await caret.evaluate(e => e.className).catch(() => '');
     check('weapon caret: fa-caret-up once the row is opened', /\bfa-caret-up\b/.test(opened), opened);
   }

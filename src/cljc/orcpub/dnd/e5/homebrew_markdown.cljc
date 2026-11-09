@@ -79,12 +79,13 @@
   (if (whole n) (str (whole n)) (str n)))
 
 (defn- maps-of
-  "The maps in `x` as a vector: a lone map is one item, a list or set is filtered to its maps,
-   anything else gives []."
+  "The maps in `x` as a vector: a lone map is one item, a list keeps its order, a set is sorted by
+   printed text so equal sets give the same output; anything else gives []."
   [x]
   (cond
     (map? x) [x]
-    (or (sequential? x) (set? x)) (filterv map? x)
+    (sequential? x) (filterv map? x)
+    (set? x) (vec (sort-by pr-str (filter map? x)))
     :else []))
 
 (defn- sorted-entries
@@ -494,14 +495,23 @@
         (choice-lines (:equipment-choices item) "Equipment choice")
         (equipment-selection-lines (:equipment-selections item)))))
 
+(defn- template-field
+  "Field `k` of a raw template map `m`, read from the `orcpub.template` key the builder uses
+   (`:orcpub.template/name`) or else the plain one (`:name`)."
+  [m k]
+  (let [q (keyword "orcpub.template" (name k))]
+    (if (contains? m q) (get m q) (get m k))))
+
 (defn- raw-selection-lines
-  "Bullets for an item's raw template choices (:selections, written by hand into a source), each
-   \"- **Name:** choose N from A, B\"; a choice with no name is skipped."
+  "Bullets for an item's raw template choices (:selections, written by hand into a source, with
+   `orcpub.template` keys or plain ones), each \"- **Name:** choose N from A, B\"; a choice with
+   no name is skipped."
   [selections]
   (for [sel (maps-of selections)
-        :let [nm (one-line (:name sel))
-              n (or (whole (:num sel)) (whole (:min sel)) 1)
-              opts (esc-join (keep #(one-line (:name %)) (maps-of (:options sel))))]
+        :let [nm (one-line (template-field sel :name))
+              n (or (whole (:num sel)) (whole (template-field sel :min)) 1)
+              opts (esc-join (keep #(one-line (template-field % :name))
+                                   (maps-of (template-field sel :options))))]
         :when nm]
     (str "- **" (escape-md nm) ":** choose " n (when opts (str " from " opts)))))
 
@@ -798,20 +808,26 @@
       "Homebrew"))
 
 (defn- library-selections
-  "Every selection (key -> item) in `library` ({source-name source}), for level choices that name a
-   selection stored in another source. Sources are merged in name order; {} when none."
+  "Every enabled selection (key -> item) in `library` ({source-name source}), for level choices
+   that name a selection stored in another source; disabled sources and items are skipped, as the
+   builder skips them. Sources are merged in name order; {} when none."
   [library]
   (reduce (fn [acc [_ src]]
-            (let [sels (when (map? src) (:orcpub.dnd.e5/selections src))]
-              (if (map? sels) (merge acc sels) acc)))
+            (let [sels (when (and (map? src) (not (:disabled? src)))
+                         (:orcpub.dnd.e5/selections src))]
+              (if (map? sels)
+                (into acc (filter (fn [[_ v]] (and (map? v) (not (:disabled? v))))) sels)
+                acc)))
           {}
           (sort-by (comp str key) (when (map? library) library))))
 
 (defn- used-selection-keys
-  "The selection keys the classes and subclasses of `source` choose from (their :level-selections)."
+  "The selection keys the classes and subclasses of `source`, and the subclasses nested in its
+   classes, choose from (their :level-selections)."
   [source]
   (set (for [[ct _] formatters
-             [_ item] (sorted-items (get source ct))
+             [_ top] (sorted-items (get source ct))
+             item (cons top (maps-of (:subclasses top)))
              sel (maps-of (:level-selections item))
              :when (some? (:type sel))]
          (:type sel))))
