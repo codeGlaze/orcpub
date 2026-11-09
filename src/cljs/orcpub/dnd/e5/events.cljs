@@ -6043,14 +6043,16 @@
 
 (defn- save-source!
   "The final write of a per-source or all-sources export. With `:format :markdown` in `opts` it
-   downloads `data` (one source) as `<title>.md` Markdown; otherwise `data` goes to `filename` as
-   .orcbrew text, `:pretty-print?` applying. Returns the events to dispatch: a warning when the
-   Markdown holds nothing the first version can format, else nil."
-  [filename title data {:keys [format pretty-print?]}]
+   downloads `data` (one source) as `<title>.md` Markdown, lending it the selections of `library`
+   ({source-name source}); otherwise `data` goes to `filename` as .orcbrew text, `:pretty-print?`
+   applying. Returns the Markdown coverage notice (a sentence) for the caller to show beside its
+   own message, else nil."
+  [filename title data library {:keys [format pretty-print?]}]
   (if (= :markdown format)
-    (let [{:keys [filename content-type text notice]} (homebrew-markdown/export-file data title)]
+    (let [{:keys [filename content-type text notice]}
+          (homebrew-markdown/export-file data title library)]
       (save-orcbrew-blob! filename text :content-type content-type :no-bom? true)
-      (when notice [[:show-warning-message notice]]))
+      notice)
     (do (save-orcbrew-blob! filename data :pretty-print? pretty-print?)
         nil)))
 
@@ -6285,15 +6287,17 @@
       (do
         (log-export-warnings plugin-name validation)
         ;; Strip meaningless blanks (false/nil/empty) on normal export.
-        (let [notice-events (save-source! (str plugin-name ".orcbrew") plugin-name
-                                          (orcbrew-val/strip-export-blanks corrected) opts)]
+        (let [notice (save-source! (str plugin-name ".orcbrew") plugin-name
+                                   (orcbrew-val/strip-export-blanks corrected) library opts)]
           {:dispatch-n
            (vec (concat persist
-                        (when (seq (:warnings validation))
+                        (cond
+                          (seq (:warnings validation))
                           [[:show-warning-message
                             {:title (str "Exported “" plugin-name "” with warnings")
-                             :details ["The file downloaded. The console has the details."]}]])
-                        notice-events))}))
+                             :details (cond-> ["The file downloaded. The console has the details."]
+                                        notice (conj notice))}]]
+                          notice [[:show-warning-message notice]])))}))
 
       :else
       ;; Hard spec check failed. Surface a raw, unvalidated escape hatch alongside
@@ -6559,8 +6563,9 @@
          log-entries (build-export-log-entries
                       plugins "Auto-filled missing fields on export")
          ;; Strip meaningless blanks (false/nil/empty) on normal export.
-         notice-events (save-source! filename (:name (first fixed-plugins))
-                                     (orcbrew-val/strip-export-blanks final-data) warning)]
+         ;; a refused save keeps its error alone; the Markdown file names what it leaves out
+         notice (save-source! filename (:name (first fixed-plugins))
+                              (orcbrew-val/strip-export-blanks final-data) (:plugins db) warning)]
      {:db (-> db'
               (assoc :export-warning {:active? false})
               (assoc :import-log {:panel-shown? true
@@ -6570,13 +6575,13 @@
                                   :changes log-entries
                                   :errors []
                                   :skipped-items []}))
-      :dispatch-n (into (vec (if ok?
-                               [[:show-warning-message
-                                 (str "Exported and saved to My Content. Placeholders were filled "
-                                      "in for any fields left blank — review them (see the log) and "
-                                      "replace before sharing.")]]
-                               refused))
-                        notice-events)})))
+      :dispatch-n (if ok?
+                    [[:show-warning-message
+                      (str "Exported and saved to My Content. Placeholders were filled "
+                           "in for any fields left blank — review them (see the log) and "
+                           "replace before sharing."
+                           (when notice (str " " notice)))]]
+                    refused)})))
 
 (reg-event-fx
  :export-cancel-with-log
@@ -6608,7 +6613,7 @@
                     (str (:name (first plugins)) ".orcbrew"))
          log-entries (build-export-log-entries
                       plugins "Exported as-is without fixes")
-         notice-events (save-source! filename (:name (first plugins)) final-data warning)]
+         notice (save-source! filename (:name (first plugins)) final-data all-plugins warning)]
      {:db (-> db
               (assoc :export-warning {:active? false})
               (assoc :import-log {:panel-shown? true
@@ -6618,7 +6623,7 @@
                                   :changes log-entries
                                   :errors []
                                   :skipped-items []}))
-      :dispatch-n notice-events})))
+      :dispatch-n (when notice [[:show-warning-message notice]])})))
 
 ;; Export all homebrew plugins as .orcbrew file.
 (reg-event-fx

@@ -8,13 +8,21 @@
 ;; ---------------------------------------------------------------------------------------------
 ;; Escaping
 
+(defn- escape-inline
+  "`x` (a one-line string placed mid-line) with only the characters that act anywhere made literal:
+   backslash, `*`, `_`, backtick, `<`, `[` and `]`. Returns a string."
+  [x]
+  (s/replace x #"[\\*_`<\[\]]" (fn [c] (str "\\" c))))
+
 (defn- escape-line
   "One line of `line` with Markdown syntax made literal: backslash, `*`, `_`, backtick, `<`, `[`
-   and `]` anywhere, and a leading `#` or `>`. Returns a string."
+   and `]` anywhere; a leading `#`, `>`, `~`, `-`, `+` or `=` (headings, quotes, fences, lists,
+   underlines); and the `.` or `)` after a leading number (ordered lists). Returns a string."
   [line]
   (-> line
-      (s/replace #"[\\*_`<\[\]]" (fn [c] (str "\\" c)))
-      (s/replace #"^(\s*)([#>])" (fn [[_ ws c]] (str ws "\\" c)))))
+      escape-inline
+      (s/replace #"^(\s*)([#>~+=-])" (fn [[_ ws c]] (str ws "\\" c)))
+      (s/replace #"^(\s*\d+)([.)])" (fn [[_ n c]] (str n "\\" c)))))
 
 (defn escape-md
   "`s` (any value; nil gives \"\") as text that cannot alter the formatting around it. Line
@@ -414,6 +422,47 @@
         :when opts]
     (str "- **" (escape-md (or (one-line (:name c)) fallback)) ":** choose one of " opts)))
 
+(def ^:private subchoice-labels
+  "An equipment option's :choose :from -> what the player picks (as the class builder names it)."
+  {:simple "any simple weapon" :simple-melee "any simple melee weapon" :martial "any martial weapon"
+   :any-weapon "any weapon" :holy-symbol "a holy symbol" :arcane-focus "an arcane focus"
+   :druidic-focus "a druidic focus" :musical-instrument "a musical instrument"
+   :pack "an equipment pack"})
+
+(defn- grant-text
+  "One equipment grant {:kind :weapon :key :longsword :qty 2} as \"Longsword (2)\"; nil when
+   it names nothing."
+  [{:keys [key qty]}]
+  (when-let [l (or (get {:simple "Any simple weapon" :martial "Any martial weapon"} key)
+                   (label key))]
+    (let [n (whole qty)]
+      (if (and n (> n 1)) (str l " (" n ")") l))))
+
+(defn- equipment-option-text
+  "One option of a rich equipment choice, {:name :grants [...] :choose [{:from :martial}]}, as
+   escaped text: its name in italics, then what it gives in brackets. Nil when it says nothing."
+  [{:keys [name grants choose]}]
+  (let [nm (one-line name)
+        gives (concat (keep grant-text (maps-of grants))
+                      (keep #(some->> (get subchoice-labels (:from %) (label (:from %)))
+                                      (str "plus "))
+                            (maps-of choose)))
+        gives (esc-join gives)]
+    (cond
+      (and nm gives) (str "*" (escape-md nm) "* (" gives ")")
+      nm (str "*" (escape-md nm) "*")
+      :else gives)))
+
+(defn- equipment-selection-lines
+  "Bullets for a class's rich equipment choices (:equipment-selections, the builder's groups of
+   options, each a bundle of items and further picks), one per group."
+  [groups]
+  (for [g (maps-of groups)
+        :let [opts (keep equipment-option-text (maps-of (:options g)))]
+        :when (seq opts)]
+    (str "- **" (escape-md (or (one-line (:name g)) "Equipment choice")) ":** choose one of "
+         (s/join "; " opts))))
+
 (defn- equipment-lines
   "Bullets for a class's starting weapons, armor and equipment and the choices among them.
    Returns a vector, [] when there are none."
@@ -423,7 +472,88 @@
               [[:weapons "Weapons"] [:armor "Armor"] [:equipment "Equipment"]])
         (choice-lines (:weapon-choices item) "Weapon choice")
         (choice-lines (:armor-choices item) "Armor choice")
-        (choice-lines (:equipment-choices item) "Equipment choice"))))
+        (choice-lines (:equipment-choices item) "Equipment choice")
+        (equipment-selection-lines (:equipment-selections item)))))
+
+(defn- raw-selection-lines
+  "Bullets for an item's raw template choices (:selections, written by hand into a source), each
+   \"- **Name:** choose N from A, B\"; a choice with no name is skipped."
+  [selections]
+  (for [sel (maps-of selections)
+        :let [nm (one-line (:name sel))
+              n (or (whole (:num sel)) (whole (:min sel)) 1)
+              opts (esc-join (keep #(one-line (:name %)) (maps-of (:options sel))))]
+        :when nm]
+    (str "- **" (escape-md nm) ":** choose " n (when opts (str " from " opts)))))
+
+;; ---------------------------------------------------------------------------------------------
+;; Ability-score and saving-throw grants (spreads, as for races, feats and subclasses)
+
+(defn- pool-text
+  "An ability pool as text: an ability key (\"Strength\"), :any, :martial or :mental, or a list of
+   ability keys (\"Strength or Dexterity\"). Nil when unreadable."
+  [pool]
+  (cond
+    (= :any pool) "any ability"
+    (= :martial pool) "Strength, Dexterity or Constitution"
+    (= :mental pool) "Intelligence, Wisdom or Charisma"
+    (keyword? pool) (ability-label pool)
+    (string? pool) (ability-label (keyword pool))
+    (or (sequential? pool) (set? pool))
+    (let [names (keep #(ability-label (if (string? %) (keyword %) %)) (sort-by str pool))]
+      (when (seq names)
+        (if (next names)
+          (str (s/join ", " (butlast names)) " or " (last names))
+          (first names))))
+    :else nil))
+
+(defn- one-of?
+  "Whether `pool` offers a choice (a group or more than one ability) rather than one ability."
+  [pool]
+  (or (#{:any :martial :mental} pool)
+      (and (coll? pool) (next (seq pool)))))
+
+(defn- increase-text
+  "An ability increase as text: a spread entry [amount pool] or [amount pool :save] (\"+2 to
+   Strength\", \"+1 to one of ...\", with the saving throw when :save rides along), or the released
+   set form #{ability ... :saves?}. Returns a list of strings."
+  [ai]
+  (cond
+    (set? ai)
+    (let [saves? (contains? ai :saves?)
+          pool (disj ai :saves?)]
+      (when-let [p (pool-text pool)]
+        [(str "+1 to " (when (one-of? pool) "one of ") p
+              (when saves? ", and proficiency in that saving throw"))]))
+    (sequential? ai)
+    (for [e ai
+          :when (vector? e)
+          :let [[amount pool rider] e
+                n (finite-num amount)
+                p (pool-text pool)]
+          :when (and n p)]
+      (str (when (pos? n) "+") (fmt-num n) " to " (when (one-of? pool) "one of ") p
+           (when (= :save rider) ", and proficiency in that saving throw")))
+    :else nil))
+
+(defn- save-grant-text
+  "Saving-throw grants [[count pool] ...] as text (\"Wisdom\", \"choose 1 of Strength or
+   Dexterity\"). Returns a list of strings."
+  [sps]
+  (for [e (when (sequential? sps) sps)
+        :when (vector? e)
+        :let [[n pool] e
+              n (whole n)
+              p (pool-text pool)]
+        :when (and n (pos? n) p)]
+    (if (one-of? pool) (str "choose " n " of " p) p)))
+
+(defn- grant-lines
+  "Bullets for an item's :ability-increases and :save-proficiencies; nils for none."
+  [item]
+  (let [join #(not-empty (s/join ", " (map escape-inline %)))]
+    [(kv "Ability Score Increase" (join (increase-text (:ability-increases item))))
+     (kv "Saving Throw Proficiency" (join (save-grant-text (:save-proficiencies item))))]))
 
 (def ^:private caster-types
   "A spellcasting :level-factor -> what it means."
@@ -499,6 +629,13 @@
 ;; ---------------------------------------------------------------------------------------------
 ;; Classes and subclasses
 
+(defn- paragraphs
+  "`x` (an author's text) as escaped paragraphs, each line of it its own paragraph; [] when blank."
+  [x]
+  (if-let [t (text x)]
+    [(s/join "\n\n" (map escape-md (remove s/blank? (map s/trim (s/split t #"\n")))))]
+    []))
+
 (defn- bullets
   "`lines` (nils dropped) as one list block, or [] when there are none."
   [lines]
@@ -541,13 +678,16 @@
     (vec
      (concat
       [(heading depth (escape-md title)) "*Class*"]
+      (paragraphs (:help item))
       (bullets (concat
                 [(kv "Hit Die" (some->> hit-die (str "d")))]
                 (profs-lines (:profs item))
                 [(kv "Subclass" (when sub-level
                                   (str "chosen at " (ordinal sub-level) " level"
                                        (when sub-title (str ": " (escape-md sub-title))))))]))
+      (paragraphs (:subclass-help item))
       (section (inc depth) "Equipment" (equipment-lines item))
+      (section (inc depth) "Other Choices" (raw-selection-lines (:selections item)))
       (section (inc depth) "Spellcasting" (spellcasting-lines (:spellcasting item)))
       [(heading (inc depth) "Level Progression")
        (table-block (progression-rows (concat entries extra) (range 1 21)))]
@@ -574,8 +714,10 @@
       [(heading depth (or heading-text (escape-md title)))
        (str "*" (some-> parent escape-md (str " ")) "subclass*")]
       (bullets (concat (profs-lines (:profs item))
+                       (grant-lines item)
                        (spellcasting-lines (:spellcasting item))
                        (expanded-spell-lines item)))
+      (section (inc depth) "Other Choices" (raw-selection-lines (:selections item)))
       (when (seq levels)
         [(heading (inc depth) "Level Progression")
          (table-block (progression-rows entries levels))])
@@ -636,21 +778,68 @@
            first)
       "Homebrew"))
 
+(defn- library-selections
+  "Every selection (key -> item) in `library` ({source-name source}), for level choices that name a
+   selection stored in another source. Sources are merged in name order; {} when none."
+  [library]
+  (reduce (fn [acc [_ src]]
+            (let [sels (when (map? src) (:orcpub.dnd.e5/selections src))]
+              (if (map? sels) (merge acc sels) acc)))
+          {}
+          (sort-by (comp str key) (when (map? library) library))))
+
+(defn- used-selection-keys
+  "The selection keys the classes and subclasses of `source` choose from (their :level-selections)."
+  [source]
+  (set (for [[ct _] formatters
+             [_ item] (sorted-items (get source ct))
+             sel (maps-of (:level-selections item))
+             :when (some? (:type sel))]
+         (:type sel))))
+
+(defn left-out
+  "What `source` holds that this export does not write, as [[type-name count] ...] in name order
+   (\"Feats\" 2). Selections a class or subclass chooses from count as written."
+  [source]
+  (let [source (if (map? source) source {})
+        covered (set (map first formatters))
+        used (used-selection-keys source)]
+    (vec (sort (for [[ct items] source
+                     :when (not (covered ct))
+                     :let [ks (map key (sorted-items items))
+                           ks (if (= :orcpub.dnd.e5/selections ct) (remove used ks) ks)
+                           n (count ks)
+                           nm (when (keyword? ct) (label (keyword (name ct))))]
+                     :when (and nm (pos? n))]
+                 [nm n])))))
+
+(defn- left-out-text
+  "`left-out` pairs as \"Feats (2), Spells (1)\", or nil when there are none."
+  [pairs]
+  (not-empty (s/join ", " (for [[nm n] pairs] (str nm " (" n ")")))))
+
 (defn source->markdown
-  "One stored source {content-type {item-key item}} as Markdown: a title, then each content type
-   with a formatter (see `formatters`) in that order, items ordered by name. `title` names the
-   source (default: the :option-pack its items carry). Returns a string ending in a newline."
-  ([source] (source->markdown source nil))
-  ([source title]
+  "One stored source {content-type {item-key item}} as Markdown: a title, a line naming what the
+   file leaves out (see `left-out`), then each content type with a formatter (see `formatters`) in
+   that order, items ordered by name. `title` names the source (default: the :option-pack its
+   items carry); `library` ({source-name source}) lends selections the source does not hold.
+   Returns a string ending in a newline."
+  ([source] (source->markdown source nil nil))
+  ([source title] (source->markdown source title nil))
+  ([source title library]
    (let [source (if (map? source) source {})
-         ctx {:selections (when (map? (:orcpub.dnd.e5/selections source))
-                            (:orcpub.dnd.e5/selections source))
+         own (when (map? (:orcpub.dnd.e5/selections source)) (:orcpub.dnd.e5/selections source))
+         ctx {:selections (merge (library-selections library) own)
               :classes (when (map? (:orcpub.dnd.e5/classes source))
                          (:orcpub.dnd.e5/classes source))}
+         omitted (left-out-text (left-out source))
          blocks (for [[ct f] formatters
                       [k item] (sorted-items (get source ct))]
                   (f item k ctx 2))]
      (tidy (concat [(heading 1 (escape-md (or (one-line title) (source-title source))))]
+                   (when omitted
+                     [(str "*This file covers classes and subclasses only. Not included: "
+                           (escape-inline omitted) ".*")])
                    (if (seq blocks)
                      (apply concat blocks)
                      ["*Nothing to export yet.*"]))))))
@@ -661,14 +850,21 @@
 
 (defn export-file
   "The download for exporting `source` ({content-type {item-key item}}) as Markdown, titled
-   `title` (default: its :option-pack). Returns {:filename \"<title>.md\", :content-type,
-   :text (see `source->markdown`), :notice}; :notice is a sentence saying only classes and
-   subclasses are covered when the source holds none, else nil."
-  [source title]
-  (let [source (if (map? source) source {})
-        title (or (one-line title) (source-title source))]
-    {:filename (str title ".md")
-     :content-type "text/markdown;charset=utf-8"
-     :text (source->markdown source title)
-     :notice (when-not (some (fn [[ct _]] (seq (sorted-items (get source ct)))) formatters)
-               covered-types-notice)}))
+   `title` (default: its :option-pack); `library` ({source-name source}, optional) lends
+   selections. Returns {:filename \"<title>.md\", :content-type, :text (see `source->markdown`),
+   :notice}: :notice says only classes and subclasses are covered when the source holds none of
+   them or holds other content (naming it), else nil."
+  ([source title] (export-file source title nil))
+  ([source title library]
+   (let [source (if (map? source) source {})
+         title (or (one-line title) (source-title source))
+         omitted (left-out-text (left-out source))]
+     {:filename (str title ".md")
+      :content-type "text/markdown;charset=utf-8"
+      :text (source->markdown source title library)
+      :notice (cond
+                (not (some (fn [[ct _]] (seq (sorted-items (get source ct)))) formatters))
+                covered-types-notice
+                omitted
+                (str "The Markdown file covers classes and subclasses only. Not included: "
+                     omitted "."))})))
