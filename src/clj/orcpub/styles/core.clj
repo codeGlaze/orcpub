@@ -722,11 +722,36 @@
                 :z-index "1"}]]
 
    ;; The PDF options' groups, flowing down as many columns as the width holds (one on a phone),
-   ;; each group kept whole so a tall one leaves no gap beside the short ones.
+   ;; each group kept whole so a tall one leaves no gap beside the short ones. Columns run right to
+   ;; left, so the first group sits where the panel has always opened and wider screens add to its
+   ;; left; the text inside reads left to right.
    [:.pdf-options-grid
     {:column-width "280px"
-     :column-gap "32px"}
-    [:>div {:break-inside "avoid"}]]
+     :column-gap "32px"
+     :direction "rtl"}
+    [:>div {:break-inside "avoid"
+            :direction "ltr"}]]
+   ;; PDF Options, filling the window: a bar with its title and close, the options scrolling
+   ;; between, and a footer holding Create PDF. The surface of the app's other sheets (.rest-fab-sheet)
+   ;; in each theme, text from .main-text-color, so the options keep their theme colours.
+   [:.pdf-sheet {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 900
+                 :display :flex :flex-direction :column :background-color "#2c3445"}]
+   [".app.light-theme .pdf-sheet" {:background-color "#fff"}]
+   [:.pdf-sheet-bar {:flex "none" :display :flex :align-items :center :justify-content :space-between
+                     :padding "4px 8px 4px 20px" :border-bottom "1px solid rgba(128,128,128,.35)"}]
+   [:.pdf-sheet-title {:font-size "20px" :font-weight :bold :margin 0}]
+   [:.pdf-sheet-close {:min-width "44px" :min-height "44px" :background :none :border :none
+                       :color :inherit :font-size "22px" :cursor :pointer}]
+   [:.pdf-sheet-body {:flex "1 1 auto" :overflow-y :auto :overscroll-behavior :contain
+                      :padding "16px 20px"}]
+   [:.pdf-sheet-foot {:flex "none" :display :flex :justify-content :flex-end :align-items :center
+                      :gap "12px" :padding "10px 20px"
+                      :padding-bottom "max(10px, env(safe-area-inset-bottom, 0px))"
+                      :border-top "1px solid rgba(128,128,128,.35)"}]
+   (at-media {:max-width "767px"}
+             [:.pdf-sheet-body {:padding "12px 16px"}]
+             [:.pdf-sheet-foot {:padding-left "16px" :padding-right "16px"}
+              [:button {:flex "1 1 0" :min-height "44px"}]])
 
    ;; A group heading in the PDF options. Set apart from the field labels under
    ;; it -- a heading in the same weight as its own first label reads as one more
@@ -736,7 +761,7 @@
      :font-weight "bold"
      :letter-spacing "0.08em"
      :text-transform "uppercase"
-     :opacity "0.6"
+     :opacity "0.75"
      :padding-top "8px"
      :margin-bottom "6px"
      :border-top "1px solid currentColor"}]
@@ -755,7 +780,7 @@
      :font-size "10px"
      :font-weight "bold"
      :line-height "1"
-     :opacity "0.55"}]
+     :opacity "0.75"}]
    [:.option-help:hover
     {:opacity "1"}]
    [:.option-help-text

@@ -1,6 +1,8 @@
 (ns orcpub.dnd.e5.views.pdf-options
-  "Groups of the PDF Options panel that live outside views.cljs: the file name choices."
+  "The PDF Options panel's frame (sheet) and the groups that live outside views.cljs: the file
+   name choices."
   (:require [clojure.string :as s]
+            [reagent.core :as r]
             [re-frame.core :refer [subscribe dispatch]]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.dnd.e5.character :as char]
@@ -47,3 +49,26 @@
            :typed? true
            :on-change #(dispatch [::char/set-file-name-option :level-style %])}]]])
      [:div.option-note (str (if (s/blank? preview) "character" preview) ".pdf")]]))
+
+(defn sheet
+  "PDF Options filling the window: a bar with the title and a close button, then `content`, which
+   brings its own scrolling body and footer (views/print-options). Escape closes it, and the close
+   button takes focus on opening, so a keyboard user starts inside it. Returns a component."
+  [_content]
+  (let [on-key (fn [e] (when (= "Escape" (.-key e)) (dispatch [::char/hide-options])))
+        close (atom nil)]
+    (r/create-class
+     {:component-did-mount (fn [_]
+                             (.addEventListener js/document "keydown" on-key)
+                             (some-> @close .focus))
+      :component-will-unmount (fn [_] (.removeEventListener js/document "keydown" on-key))
+      :reagent-render
+      (fn [content]
+        [:div.pdf-sheet.main-text-color {:role "dialog" :aria-modal "true" :aria-labelledby "pdf-sheet-title"}
+         [:div.pdf-sheet-bar
+          [:h2#pdf-sheet-title.pdf-sheet-title "PDF Options"]
+          [:button.pdf-sheet-close {:type "button" :aria-label "Close PDF Options"
+                                    :ref #(reset! close %)
+                                    :on-click #(dispatch [::char/hide-options])}
+           [:i.fa.fa-times]]]
+         content])})))

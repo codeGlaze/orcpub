@@ -771,8 +771,6 @@
             [:button.link-button.underline.f-w-b
              {:on-click (confirm-handler cfg)}
              (:confirm-button-text cfg)]]])])
-     (when @(subscribe [::char/options-shown?])
-       [:div.bg-light.m-b-10 @(subscribe [::char/options-component])])
      (when @(subscribe [:message-shown?])
        ;; p-t-10 as well as p-b: without it the banner sits flush against whatever
        ;; is above it, which on a phone means jammed under the page title.
@@ -1580,6 +1578,8 @@
                          (fn [e]))}
            (when-not frame?
              [download-form])
+           (when options-shown?
+             [pdf-options/sheet @(subscribe [::char/options-component])])
            (when (pos? (or @(subscribe [:loading]) 0))
              [:div {:style loading-style}
               [:div.flex.justify-cont-s-a.align-items-c.h-100-p
@@ -1590,12 +1590,12 @@
              [orcacle])
            (let [hdr [header title button-cfgs :frame? frame? :subheader subheader]]
              [:div
-              ;; One sticky header, never a fixed copy (every control would be in the DOM twice).
-              ;; Not sticky in a frame, behind the Orcacle, or while PDF Options shows: a sticky
-              ;; box taller than the window cannot scroll its own bottom into view.
+              ;; One header, sticky -- never a fixed copy of it, which would put every
+              ;; header control and its local state in the DOM twice. Not sticky inside a
+              ;; frame (no app header to scroll past) or behind the Orcacle panel.
               [:div#header-sentinel]
               [:div.flex.justify-cont-c.main-text-color
-               {:class (str (when-not (or frame? orcacle-open? options-shown?) "sticky-header ")
+               {:class (str (when-not (or frame? orcacle-open?) "sticky-header ")
                             (when @stuck? "stuck"))}
                [:div.content hdr]]
 
@@ -4937,11 +4937,11 @@
                                   (not (or (nil? print-character-sheet-style?)
                                            (= (str print-character-sheet-style?) "NaN"))))
         ]
-    [:div.flex.justify-cont-end
-     [:div.p-20.flex-grow-1
+    ;; The body scrolls inside pdf-options/sheet; the footer under it keeps Create PDF in view.
+    [:<>
+     [:div.pdf-sheet-body
       [capture-images [image-url faction-image-url]]
       [bake-portrait (char/portrait built-char)]
-      [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
 
       [:div.pdf-options-grid
        ;; Grouped by what a setting changes: the sheet, the cards behind it, then
@@ -5005,7 +5005,7 @@
            (make-event-handler ::char/toggle-spell-cards-print)
            (str "Adds a page of cut-out cards, one per spell, with its range, "
                 "duration and description. Printed after the sheet.")])
-        (when print-spell-cards?
+        (when (and has-spells? print-spell-cards?)
           [:div.m-l-20
            [option-checkbox
             "Print Spell DC and MOD"
@@ -5103,10 +5103,17 @@
                    "solid black.")]])])
        [pdf-options/file-name-group built-char]]
 
+      [:div.t-a-r.m-t-10
+       [:div.f-w-b.m-b-5 "Other PDFs"]
+       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]]
+     [:div.pdf-sheet-foot
       (when reading-pictures?
-        [:div.f-s-12.m-b-5 "Reading the character's picture..."])
-      [:button.form-button.p-10.m-l-5
-       {:style (print-button-style print-button-enabled)
+        [:div.f-s-12 "Reading the character's picture..."])
+      [:button.link-button.underline {:type "button" :on-click (make-event-handler ::char/hide-options)}
+       "Cancel"]
+      [:button.form-button.p-10
+       {:type "button"
+        :style (print-button-style print-button-enabled)
         :on-click (export-pdf-handler built-char
                                       id
                                       plugin-data
@@ -5124,12 +5131,7 @@
                                       spell-layout
                                       (assoc spellbook-options :file-name-format
                                              (pdf-options/file-name-format)))}
-       "Create PDF"]
-      [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
-      [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]
-     [:span.orange.underline.pointer.uppercase.m-l-10.f-s-12
-      {:on-click (make-event-handler ::char/hide-options)}
-      "Cancel"]]))
+       "Create PDF"]]]))
 
 (defn make-print-handler [id built-char]
   #(dispatch
