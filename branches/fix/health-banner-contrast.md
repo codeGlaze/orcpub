@@ -26,7 +26,7 @@ were left. The caret test's new wait was not run in a browser.
 
 ## Next, in order
 
-1. **Folded and labelled `ready to merge` (2026-11-09, owner's go); all checks green. The owner merges.** Fold the changelog only when the owner says #82 is about to merge.
+1. **Merged into `integration` as `7d4c23d2a` (2026-11-09, owner's go).** Piece 2b starts from `integration` after the release, on a branch the owner names. Fold the changelog only when the owner says #82 is about to merge.
 2. **Piece 2b waits until after the release** (owner, 2026-11-08). **The simple types** (spells, feats, backgrounds, races, subraces, languages, invocations,
    boons): add rows to `formatters` in `homebrew_markdown.cljc`. Budget it before starting: the button
    pass took about 30 minutes and 158k helper tokens and used most of the owner's extra allowance.
