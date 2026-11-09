@@ -152,6 +152,13 @@ view is two: the hold decides what the built character applies; Data View edits 
     needs it, not compiled into the bundle (about 10% of it). The decision that SRD content is
     static data is in [`srd-2024-roadmap.md`](docs/kb/srd-2024-roadmap.md); magic items and classes
     are the next candidates.
+  - **Ceiling raised to 940 KB on `fix/pdf-export`** (owner, 2026-11-09), headroom 16 KB. The size
+    was steady until recent features piled on, so trimming also needs **code quality and efficiency
+    checks** (owner, 2026-11-09): what each feature adds to the bundle, code a page ships but never
+    runs, duplicated helpers, and which library still pulls `cljs.pprint` in. Measure by source
+    first (a source map from `lein fig:prod` with `:source-map` and an `:output-dir` under
+    `resources/public/js/compiled/`); do not trust a share of the uncompressed size as a
+    compressed saving.
 
 ### Deferred to the refactor — known, not yet owned
 
