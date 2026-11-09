@@ -2,6 +2,7 @@
   (:require
    [clojure.test :refer [deftest is testing are]]
    [clojure.set :refer [intersection]]
+   [clojure.string :as s]
    [datomic.api :as d]
    [datomock.core :as dm]
    [io.pedestal.http :as http]
@@ -623,3 +624,23 @@
             (is (= 400 (:status resp)))
             (is (= "old-hash" (:orcpub.user/password
                                (auth/first-user-by (d/db c) auth/username-query "late"))))))))))
+
+(deftest pdf-filename-names-the-sheet
+  (testing "blank names fall back; a blank slot leaves no gap"
+    (are [player character expected] (= expected (routes/pdf-filename player character "Fighter (5)"))
+      "Player" "Character" "Player - Character - Fighter (5).pdf"
+      nil      "Character" "Character - Fighter (5).pdf"
+      "Player" nil         "Player - Fighter (5).pdf"
+      "  "     " Hero "    "Hero - Fighter (5).pdf"
+      nil      nil         "character.pdf"
+      "   "    "   "       "character.pdf")))
+
+(deftest content-disposition-carries-any-name
+  (testing "filename*= keeps every character; filename= is plain ASCII with no raw quote or break"
+    (are [filename star ascii] (let [v (routes/content-disposition filename)]
+                                 (and (s/includes? v (str "filename*=UTF-8''" star))
+                                      (s/includes? v (str "filename=\"" ascii "\""))))
+      "Zoë - D’Artagnan.pdf" "Zo%C3%AB%20-%20D%E2%80%99Artagnan.pdf" "Zo_ - D_Artagnan.pdf"
+      "龍 Dragon.pdf"        "%E9%BE%8D%20Dragon.pdf"                "_ Dragon.pdf"
+      "Bob \"Bold\"*.pdf"    "Bob%20%22Bold%22%2A.pdf"               "Bob _Bold_*.pdf"
+      "Line\r\nBreak.pdf"    "Line%0D%0ABreak.pdf"                   "Line__Break.pdf")))
