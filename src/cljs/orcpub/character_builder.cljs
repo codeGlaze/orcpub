@@ -2934,7 +2934,7 @@
            :on-click (load-character-page (:db/id character))})
         {:title "Export"
          :icon "download"
-         :on-click (views5e/make-print-handler (:db/id character) built-char)}]))
+         :on-click (views5e/make-print-handler (:db/id character) true)}]))
      [:div
       [:div.container
        [:div.content

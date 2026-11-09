@@ -5133,10 +5133,21 @@
                                              (pdf-options/file-name-format)))}
        "Create PDF"]]]))
 
-(defn make-print-handler [id built-char]
+(defn live-print-options
+  "print-options for the character as it is each time it draws: the builder's character when
+   `builder?`, else saved character `id`, so a change while the panel is open is what gets exported."
+  [id builder?]
+  [print-options id (if builder?
+                      @(subscribe [:built-character])
+                      @(subscribe [::char/built-character id]))])
+
+(defn make-print-handler
+  "An on-click handler opening PDF Options for character `id`; `builder?` when it is the character
+   being built. The panel is stored as which character to read, never as the character itself."
+  [id builder?]
   #(dispatch
     [::char/show-options
-     [print-options id built-char]]))
+     [live-print-options id builder?]]))
 
 
 (defn abilities-spec [vals suffix bonus?]
@@ -5242,7 +5253,7 @@
                :on-click (make-event-handler :edit-character character)})
             {:title "Export"
              :icon "download"
-             :on-click (make-print-handler id built-character)}
+             :on-click (make-print-handler id false)}
             (when (and username owner (not= owner username))
               [add-to-party-component id])]))
          [:div.p-10.main-text-color
