@@ -413,7 +413,7 @@
     [:div
      [:div.m-b-5
       {:on-click #(dispatch [::events5e/toggle-class-source-suffix])}
-      [views5e/labeled-checkbox "Show homebrew source on class names" show-suffix?]]
+      [builder-fields/labeled-checkbox "Show homebrew source on class names" show-suffix?]]
      [:div
       (doall
        (map-indexed

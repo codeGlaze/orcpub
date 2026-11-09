@@ -1,7 +1,8 @@
 (ns orcpub.dnd.e5.views.builder-fields
-  "The labelled fields the homebrew builders are made of: text, number and long-text inputs and a
-   dropdown, each under a field label."
-  (:require [orcpub.components :as comps]
+  "The labelled fields the homebrew builders and the PDF options are made of: text, number and
+   long-text inputs and a dropdown, each under a field label, and checkboxes with a ? help line."
+  (:require [reagent.core :as r]
+            [orcpub.components :as comps]
             [orcpub.fork.branding :as branding]))
 
 (defn event-value
@@ -111,3 +112,51 @@
    {:class "input"
     :type :number
     :maxLength (:number branding/field-limits)}])
+
+(defn labeled-checkbox
+  "A checkbox (ticked when `selected?`) with `label` beside it. Returns hiccup."
+  [label selected?]
+  [:div.flex.align-items-c.pointer.m-b-10
+   (comps/checkbox selected? false label)
+   [:span.m-l-5.f-s-14 label]])
+
+(defn with-help
+  "`row` with a ? appended to it, and the line that ? opens beneath the whole row.
+
+   Appended rather than wrapped, because the row is a flex line: a help span
+   holding its own text would put the explanation beside the label instead of
+   under it. Click rather than hover -- the builder is used on phones, where a
+   hover tooltip never opens -- with `title` for a mouse that rests on it anyway."
+  [row help]
+  (let [open? (r/atom false)]
+    (fn [row help]
+      [:div
+       (conj row
+             [:span.option-help.pointer.m-l-5
+              {:title help
+               :on-click (fn [e] (.stopPropagation e) (swap! open? not))}
+              "?"])
+       (when @open?
+         [:div.option-help-text help])])))
+
+(defn option-checkbox
+  "One PDF option: its checkbox, and a ? holding `help`.
+
+   The ? sits outside the clickable label so reading the explanation does not
+   toggle the option."
+  [label selected? on-click help]
+  [:div.m-b-5
+   [with-help
+    [:div.flex.align-items-c
+     [:div.pointer {:on-click on-click}
+      [labeled-checkbox label selected?]]]
+    help]])
+
+(defn option-group
+  "A titled group of options. The panel carries three -- what goes on the sheet,
+   what cards follow it, and how either is inked -- because a flat list put the
+   known/prepared choice, a sheet setting, in the middle of the card ones."
+  [title & children]
+  (into [:div.m-b-16
+         [:div.option-group-title title]]
+        children))
