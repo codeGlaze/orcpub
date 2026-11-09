@@ -2267,6 +2267,14 @@
                (downloads-of [::e5/export-plugin-markdown "Pak" langs])))
         (is (= :warning (:message-type @app-db)))
         (is (re-find #"classes and subclasses only" (str (:message @app-db))))))
+    (testing "a source with a class and other content: the warning names what the file leaves out"
+      (let [mixed (assoc pak :orcpub.dnd.e5/languages
+                         {:cant {:key :cant :name "Cant" :option-pack "Coverage Pak"}})]
+        (reset! app-db {:plugins {"Coverage Pak" mixed}})
+        (is (= [["Coverage Pak.md" "text/markdown;charset=utf-8" true]]
+               (downloads-of [::e5/export-plugin-markdown "Coverage Pak" mixed])))
+        (is (= :warning (:message-type @app-db)))
+        (is (re-find #"Not included: Languages \(1\)" (str (:message @app-db))))))
     (testing "a source the gate stops writes no file"
       (reset! app-db {:plugins {"Pak" {:orcpub.dnd.e5/feats {:a {:name nil}}}}})
       (is (empty? (filter (fn [[f]] (re-find #"\.md$" f))

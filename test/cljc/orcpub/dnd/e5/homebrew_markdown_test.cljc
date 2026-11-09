@@ -241,7 +241,8 @@
   [:name :key :class :hit-die :subclass-level :subclass-title :ability-increase-levels
    :level-modifiers :level-selections :traits :profs :spellcasting :weapons :armor :equipment
    :weapon-choices :armor-choices :equipment-choices :subclasses :cleric-spells :paladin-spells
-   :warlock-spells :option-pack])
+   :warlock-spells :option-pack :help :subclass-help :equipment-selections :selections
+   :ability-increases :save-proficiencies])
 
 (def ^:private junk-inner
   "Junk where a card, a modifier, a selection, a prof or a spellcasting value belongs."
@@ -284,7 +285,8 @@
   (testing "an empty source and a source with only content types the writer skips"
     (is (= "# Homebrew\n\n*Nothing to export yet.*\n" (md/source->markdown {})))
     (is (= "# Homebrew\n\n*Nothing to export yet.*\n" (md/source->markdown nil)))
-    (is (= "# Homebrew\n\n*Nothing to export yet.*\n"
+    (is (= (str "# Homebrew\n\n*This file covers classes and subclasses only. Not included: "
+                "Spells (1).*\n\n*Nothing to export yet.*\n")
            (md/source->markdown {:orcpub.dnd.e5/spells {:a {:name "A"}}}))))
   (testing "a level that is missing is level 1, one that is not 1 to 20 is set apart"
     (let [out (md/class->markdown {:name "L" :traits [{:name "No Level" :description "a"}
@@ -328,7 +330,8 @@
       (is (= "text/markdown;charset=utf-8" (:content-type f)))
       (is (= (md/source->markdown pak "Coverage Pak") (:text f)))
       (is (str/starts-with? (:text f) "# Coverage Pak\n")))
-    (is (nil? (:notice f)) "a source with a class or subclass has nothing to warn about"))
+    (is (= (md/left-out pak) [] ) "the coverage pak holds only what the writer formats")
+    (is (nil? (:notice f)) "a source with only classes and subclasses has nothing to warn about"))
   (testing "the title defaults to the source's :option-pack"
     (is (= "Coverage Pak.md" (:filename (md/export-file pak nil)))))
   (testing "a source with nothing the writer formats still gives a file, and says why it is empty"
@@ -337,3 +340,104 @@
       (is (has-line? (:text f) "*Nothing to export yet.*"))
       (is (str/includes? (:notice f) "classes and subclasses only")))
     (is (str/includes? (:notice (md/export-file {} "Empty")) "classes and subclasses only"))))
+
+(deftest block-markers-in-descriptions-stay-text
+  (let [out (md/subclass->markdown
+             {:name "S" :class :ranger
+              :traits [{:name "T" :level 3
+                        :description "Intro.\n~~~\n- not a list\n+ nor this\n===\n1. not ordered\n2) nor this"}
+                       {:name "After" :level 3 :description "Still a feature."}]})]
+    (is (str/includes? out "\n\n\\~~~\n\n"))
+    (is (str/includes? out "\n\n\\- not a list\n\n"))
+    (is (str/includes? out "\n\n\\+ nor this\n\n"))
+    (is (str/includes? out "\n\n\\===\n\n"))
+    (is (str/includes? out "\n\n1\\. not ordered\n\n"))
+    (is (str/includes? out "\n\n2\\) nor this\n\n"))
+    (is (has-line? out "***After.*** Still a feature."))
+    (is (clean? out))))
+
+(deftest class-description-and-subclass-flavor
+  (let [out (md/class->markdown (assoc full-class
+                                       :help "A warrior-mage.\nSecond *line*."
+                                       :subclass-help "Your oath shapes you."))]
+    (is (str/includes? out "*Class*\n\nA warrior-mage.\n\nSecond \\*line\\*.\n\n- **Hit Die:** d8"))
+    (is (has-line? out "Your oath shapes you."))
+    (is (< (str/index-of out "- **Subclass:**") (str/index-of out "Your oath shapes you.")
+           (str/index-of out "## Equipment")))
+    (is (clean? out))))
+
+(deftest rich-equipment-choices
+  (let [out (md/class->markdown
+             (assoc full-class :equipment-selections
+                    [{:name "Arms"
+                      :options [{:name "Blade and board"
+                                 :grants [{:kind :weapon :key :longsword :qty 1}
+                                          {:kind :armor :key :shield :qty 1}]}
+                                {:name "Two axes" :grants [{:kind :weapon :key :handaxe :qty 2}]
+                                 :choose [{:from :martial}]}
+                                {:grants [{:kind :equipment :key :holy-symbol}]}]}
+                     {:options [{:name "Pack" :choose [{:from :pack}]}]}]))]
+    (is (has-line? out (str "- **Arms:** choose one of *Blade and board* (Longsword, Shield); "
+                            "*Two axes* (Handaxe (2), plus any martial weapon); Holy Symbol")))
+    (is (has-line? out "- **Equipment choice:** choose one of *Pack* (plus an equipment pack)"))
+    (is (clean? out))))
+
+(deftest raw-template-choices
+  (let [sel [{:name "Fighting Style" :num 1 :options [{:name "Archery"} {:name "Defense"}]}
+             {:name "Bonus Trick" :options []} {:options [{:name "Unnamed"}]}]
+        cls (md/class->markdown (assoc full-class :selections sel))
+        sub (md/subclass->markdown {:name "S" :class :ranger :selections sel})]
+    (doseq [out [cls sub]]
+      (is (has-line? out "- **Fighting Style:** choose 1 from Archery, Defense"))
+      (is (has-line? out "- **Bonus Trick:** choose 1"))
+      (is (not (str/includes? out "Unnamed")))
+      (is (clean? out)))
+    (is (has-line? cls "## Other Choices"))))
+
+(deftest subclass-ability-and-save-grants
+  (let [c :orcpub.dnd.e5.character/con
+        out (md/subclass->markdown
+             {:name "S" :class :ranger
+              :ability-increases [[2 :orcpub.dnd.e5.character/wis] [1 :mental :save]
+                                  [1 [:str :dex]] [-1 c]]
+              :save-proficiencies [[1 c] [1 :martial]]})]
+    (is (has-line? out (str "- **Ability Score Increase:** +2 to Wisdom, +1 to one of "
+                            "Intelligence, Wisdom or Charisma, and proficiency in that saving "
+                            "throw, +1 to one of Dexterity or Strength, -1 to Constitution")))
+    (is (has-line? out (str "- **Saving Throw Proficiency:** Constitution, choose 1 of Strength, "
+                            "Dexterity or Constitution")))
+    (is (clean? out)))
+  (testing "the released set form"
+    (is (has-line? (md/subclass->markdown {:name "S" :ability-increases
+                                           #{:orcpub.dnd.e5.character/str :saves?}})
+                   "- **Ability Score Increase:** +1 to Strength, and proficiency in that saving throw"))))
+
+(deftest selections-from-other-sources
+  (let [src {:orcpub.dnd.e5/classes
+             {:k {:name "K" :level-selections [{:type :styles :level 1 :num 1}]}}}
+        lib {"Other" {:orcpub.dnd.e5/selections
+                      {:styles {:name "Styles" :options [{:name "Bold" :description "Big."}]}}}}]
+    (is (has-line? (md/source->markdown src "S") "***Styles.*** Choose 1"))
+    (let [out (md/source->markdown src "S" lib)]
+      (is (has-line? out "***Styles.*** Choose 1:"))
+      (is (has-line? out "- ***Bold.*** Big.")))
+    (is (= (md/source->markdown src "S" lib) (:text (md/export-file src "S" lib))))
+    (testing "the source's own selection wins"
+      (is (has-line? (md/source->markdown
+                      (assoc src :orcpub.dnd.e5/selections
+                             {:styles {:name "Own Styles" :options [{:name "Mine"}]}})
+                      "S" lib)
+                     "- ***Mine.***")))))
+
+(deftest mixed-sources-name-what-they-leave-out
+  (let [src {:orcpub.dnd.e5/classes {:k {:name "K" :level-selections [{:type :used :level 1}]}}
+             :orcpub.dnd.e5/feats {:a {:name "A"} :b {:name "B"}}
+             :orcpub.dnd.e5/spells {:s {:name "S"}}
+             :orcpub.dnd.e5/selections {:used {:name "Used"} :spare {:name "Spare"}}}
+        f (md/export-file src "Mix")]
+    (is (= [["Feats" 2] ["Selections" 1] ["Spells" 1]] (md/left-out src)))
+    (is (= "*This file covers classes and subclasses only. Not included: Feats (2), Selections (1), Spells (1).*"
+           (second (remove str/blank? (lines (:text f))))))
+    (is (= "The Markdown file covers classes and subclasses only. Not included: Feats (2), Selections (1), Spells (1)."
+           (:notice f)))
+    (is (clean? (:text f)))))
