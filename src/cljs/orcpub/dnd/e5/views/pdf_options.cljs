@@ -32,10 +32,10 @@
      [tick "Character name" :character? "A character with no name is given one when exported."]
      [tick "Class" :class? "Each class, in the order they were taken."]
      (when (:class? fmt)
-       [:div.m-l-20 [tick "Subclass" :subclass? "Written after its class, in brackets."]])
+       [:div.option-nested [tick "Subclass" :subclass? "Written after its class, in brackets."]])
      [tick "Level" :level? "Each class's level, or the total when classes are left out."]
      (when (:level? fmt)
-       [:div.m-l-20.flex.flex-wrap
+       [:div.option-nested.flex.flex-wrap
         [:div.m-r-10.m-b-10
          [labeled-dropdown "Level goes"
           {:items [{:title "After the class" :value false} {:title "Before the class" :value true}]

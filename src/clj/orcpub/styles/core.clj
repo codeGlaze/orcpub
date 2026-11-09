@@ -753,6 +753,12 @@
              [:.pdf-sheet-foot {:padding-left "16px" :padding-right "16px"}
               [:button {:flex "1 1 0" :min-height "44px"}]])
 
+   ;; Options that only apply while the checkbox above them is ticked: a rule down their left edge,
+   ;; starting under that checkbox, so they read as its own and an unindented field after them
+   ;; reads as the group's again. Grey in both themes, so it needs no theme pair.
+   [:.option-nested {:margin "2px 0 10px 7px" :padding-left "12px"
+                     :border-left "2px solid rgba(128,128,128,.5)"}]
+
    ;; A group heading in the PDF options. Set apart from the field labels under
    ;; it -- a heading in the same weight as its own first label reads as one more
    ;; option rather than as the name of the set.

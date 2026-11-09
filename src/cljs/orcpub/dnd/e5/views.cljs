@@ -4881,7 +4881,7 @@
 (defn spellbook-dropdown
   "A labelled dropdown for spellbook option `k`, offering `items` with `value` selected."
   [label k items value]
-  [:div.m-b-10.w-250
+  [:div.m-b-10
    [labeled-dropdown label
     {:items items
      :value (name value)
@@ -4962,24 +4962,9 @@
          (str "The sheet prints the ability score big and its modifier small. "
               "Tick this to swap them, so the number you roll with is the one "
               "you can read across the table.")]
-        (when has-spells?
-          [:div.m-b-10
-           [with-help
-            [:div.flex.align-items-c.m-b-5
-             [:span.f-w-b "Spells Printed"]]
-            (str "Which spells go on the sheet and the cards. Known is every "
-                 "spell the character has; Prepared is only the ones marked "
-                 "prepared today, which is what a Cleric or a Wizard casts from.")]
-           [:div.flex
-            [:div.pointer
-             {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-             [labeled-checkbox "Known" (not print-prepared-spells?)]]
-            [:div.m-l-20.pointer
-             {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-             [labeled-checkbox "Prepared" print-prepared-spells?]]]])
         (when packable?
           [:div.m-b-10
-           [:div.w-250
+           [:div
             [labeled-dropdown
              "Spell Sheet Layout"
              {:items [{:title "Automatic" :value ""}
@@ -4997,6 +4982,37 @@
               (str "One page, a column each for "
                    (s/join ", " (map :class casting-classes))))]])]
 
+       ;; Which spells print, and in what order: the first for the sheet and the cards, the second
+       ;; for the cards and the spellbook, so neither belongs to one of those groups.
+       (when has-spells?
+         [option-group "Spells"
+          [:div.m-b-10
+           [with-help
+            [:div.flex.align-items-c.m-b-5
+             [:span.f-w-b "Spells Printed"]]
+            (str "Which spells go on the sheet and the cards. Known is every "
+                 "spell the character has; Prepared is only the ones marked "
+                 "prepared today, which is what a Cleric or a Wizard casts from.")]
+           [:div.flex
+            [:div.pointer
+             {:on-click (make-event-handler ::char/toggle-known-spells-print)}
+             [labeled-checkbox "Known" (not print-prepared-spells?)]]
+            [:div.m-l-20.pointer
+             {:on-click (make-event-handler ::char/toggle-known-spells-print)}
+             [labeled-checkbox "Prepared" print-prepared-spells?]]]]
+          (when (or print-spellbook? print-spell-cards?)
+            [spellbook-dropdown "Spell order" :spell-order
+             [{:title "By level, then name" :value "level"}
+              {:title "By name" :value "alpha"}]
+             (or (:spell-order spellbook-options) :level)])
+          (when (or print-spellbook? print-spell-cards?)
+            [:div.option-note
+             (str "Orders the "
+                  (cond (and print-spellbook? print-spell-cards?) "spellbook and the cards"
+                        print-spellbook? "spellbook"
+                        :else "cards")
+                  " within each class.")])])
+
        [option-group "Cards"
         (when has-spells?
           [option-checkbox
@@ -5006,7 +5022,7 @@
            (str "Adds a page of cut-out cards, one per spell, with its range, "
                 "duration and description. Printed after the sheet.")])
         (when (and has-spells? print-spell-cards?)
-          [:div.m-l-20
+          [:div.option-nested
            [option-checkbox
             "Print Spell DC and MOD"
             print-spell-card-dc-mod?
@@ -5033,7 +5049,7 @@
              (str "Adds pages listing every printed spell by class, with its save DC and "
                   "attack on every page. Fewer pages than cards and nothing to cut out.")]
             (when print-spellbook?
-              [:div.m-l-20
+              [:div.option-nested
                [spellbook-dropdown "Layout" :spellbook-layout spellbook-layouts (opt :spellbook-layout)]
                (when (> (count casting-classes) 1)
                  [spellbook-dropdown "New class starts" :spellbook-class-break
@@ -5050,21 +5066,7 @@
                      :let [class-kw (common/name-to-kw (str class))]]
                  ^{:key class}
                  [emblem-picker class-kw (str class)
-                  (get-in spellbook-options [:spellbook-emblems class-kw])])])
-            (when (or print-spellbook? print-spell-cards?)
-              [:div.m-t-10]) ;; clear of the last emblem row above
-            (when (or print-spellbook? print-spell-cards?)
-              [spellbook-dropdown "Spell order" :spell-order
-               [{:title "By level, then name" :value "level"}
-                {:title "By name" :value "alpha"}]
-               (or (:spell-order spellbook-options) :level)])
-            (when (or print-spellbook? print-spell-cards?)
-              [:div.option-note
-               (str "Orders the "
-                    (cond (and print-spellbook? print-spell-cards?) "spellbook and the cards"
-                          print-spellbook? "spellbook"
-                          :else "cards")
-                    " within each class.")])]))
+                  (get-in spellbook-options [:spellbook-emblems class-kw])])])]))
 
        ;; Both card kinds are inked the same way, so this group follows either --
        ;; gating it on spell cards alone hid it from anyone printing only items.
@@ -5079,7 +5081,7 @@
           ;; Under B&W: default is solid-black icons with white-halo labels;
           ;; opt into faded grayscale icons for a softer look.
           (when print-bw?
-            [:div.m-l-20
+            [:div.option-nested
              [option-checkbox
               "Faded grayscale icons (else solid black)"
               bw-faded?
@@ -5094,7 +5096,7 @@
                 "up and shuffled still has a back.")]
           ;; Treatment only matters when the logo is on AND B&W isn't forcing black.
           (when (and print-card-back-logo? (not print-bw?))
-            [:div.m-l-20
+            [:div.option-nested
              [option-checkbox
               "Faded color (else solid black)"
               card-back-logo-faded?
