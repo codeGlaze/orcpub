@@ -357,13 +357,28 @@
 ;; ---------------------------------------------------------------------------------------------
 ;; Proficiencies, equipment and spellcasting
 
+(def ^:private prof-grant-fields
+  "The :profs keys whose map values say who gets the proficiency (see `prof-grant-lines`) ->
+   heading."
+  [[:armor "Armor"] [:weapon "Weapons"] [:tool "Tools"]])
+
 (def ^:private prof-flag-fields
-  "The :profs keys holding a set of flags -> [heading label-fn]."
-  [[:armor "Armor" label]
-   [:weapon "Weapons" label]
-   [:tool "Tools" label]
-   [:save "Saving Throws" ability-label]
+  "The :profs keys holding a set of flags (true = granted) -> [heading label-fn]."
+  [[:save "Saving Throws" ability-label]
    [:skill "Skills" label]])
+
+(defn- prof-grant-lines
+  "Bullets for a :profs :armor, :weapon or :tool map `m` under `head`. Every key with a boolean
+   value is a proficiency. In a class (`class?`) `true` means only as the starting class and gets
+   its own \"(starting class only)\" bullet; `false` means also when multiclassing. A subclass
+   grants every key. See docs/kb/class-proficiency-flags.md. Returns a list of bullets."
+  [m head class?]
+  (let [entries (filter (comp boolean? val) (sorted-entries m))
+        names #(esc-join (keep (comp label key) %))]
+    (if class?
+      (keep identity [(kv head (names (remove val entries)))
+                      (kv (str head " (starting class only)") (names (filter val entries)))])
+      (keep identity [(kv head (names entries))]))))
 
 (def ^:private prof-choice-fields
   "The :profs keys holding a choose-N -> heading."
@@ -388,10 +403,12 @@
         (seq names) (str head " from " (esc-join names))))))
 
 (defn- profs-lines
-  "Bullets for a :profs map (flags, then choices). Returns a vector, [] when nothing is readable."
-  [profs]
+  "Bullets for a :profs map: armor, weapons and tools (`class?` as for `prof-grant-lines`), then
+   flags, then choices. Returns a vector, [] when nothing is readable."
+  [profs class?]
   (if (map? profs)
     (vec (concat
+          (mapcat (fn [[k head]] (prof-grant-lines (get profs k) head class?)) prof-grant-fields)
           (for [[k head f] prof-flag-fields
                 :let [v (esc-join (keep f (set-keys (get profs k))))]
                 :when v]
@@ -681,7 +698,7 @@
       (paragraphs (:help item))
       (bullets (concat
                 [(kv "Hit Die" (some->> hit-die (str "d")))]
-                (profs-lines (:profs item))
+                (profs-lines (:profs item) true)
                 [(kv "Subclass" (when sub-level
                                   (str "chosen at " (ordinal sub-level) " level"
                                        (when sub-title (str ": " (escape-md sub-title))))))]))
@@ -713,7 +730,7 @@
      (concat
       [(heading depth (or heading-text (escape-md title)))
        (str "*" (some-> parent escape-md (str " ")) "subclass*")]
-      (bullets (concat (profs-lines (:profs item))
+      (bullets (concat (profs-lines (:profs item) false)
                        (grant-lines item)
                        (spellcasting-lines (:spellcasting item))
                        (expanded-spell-lines item)))
