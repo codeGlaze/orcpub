@@ -20,7 +20,7 @@ const fs = require('fs');
 const { suppressOverlays } = require('./lib/orcbrew-import');
 const { findChrome } = require('./lib/find-chrome');
 
-const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';
+const BASE = process.env.E2E_BASE || process.env.ORCPUB_BASE || 'http://localhost:8890';
 const SHOTS = process.env.ORCPUB_SHOTS;
 
 async function clickIfVisible(locator, { timeout = 2500 } = {}) {

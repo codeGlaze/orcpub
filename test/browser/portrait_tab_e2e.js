@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const { suppressOverlays } = require('./lib/orcbrew-import');
-const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';
+const BASE = process.env.E2E_BASE || process.env.ORCPUB_BASE || 'http://localhost:8890';
 
 // Same resolver the other probes use: the image ships a pinned Chromium whose
 // build number will not match whatever playwright's npm package wants, so the
