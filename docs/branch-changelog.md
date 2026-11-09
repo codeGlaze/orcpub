@@ -41,5 +41,7 @@ and stay open until they reproduce.
 
 - **Printing:** the bottom of PDF Options, Create PDF included, can be scrolled into view; it
   was cut off under the pinned page header unless the page was scrolled to its very end.
+- **Printing:** a PDF's file name keeps names with accents, curly apostrophes or non-Latin
+  letters, and a player name without a character name no longer leaves an empty " -  - " slot.
 
 ## Security
