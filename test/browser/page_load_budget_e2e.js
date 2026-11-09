@@ -178,6 +178,10 @@ async function load(ctx, url) {
     console.log(`bundle ${kb(gz)} KB compressed, ceiling ${kb(BUNDLE_GZIP_CEILING)} KB, headroom ${kb(BUNDLE_GZIP_CEILING - gz)} KB`);
     check(`the app bundle stays under its ${kb(BUNDLE_GZIP_CEILING)} KB compressed ceiling`,
           gz <= BUNDLE_GZIP_CEILING, `${kb(gz)} KB, headroom ${kb(BUNDLE_GZIP_CEILING - gz)} KB`);
+    // goog.DEBUG off compiles re-frame's debug-only warnings out; their text in the bundle means
+    // the production build shipped with its debug checks on (prod.cljs.edn :closure-defines).
+    check('the app bundle carries no debug-only checks (goog.DEBUG off)',
+          !bundle.includes('re-frame: overwriting'), 're-frame\'s debug warning text is in the bundle');
   }
 
   // Every static file must say how long to keep it. A missing header is not caught by watching a
