@@ -247,3 +247,14 @@
       (add!)
       (add!)
       (is (= 3 (count (field @stored))) (str label ": the second click works on what the first stored")))))
+
+(deftest the-pdf-panel-reads-the-character-when-it-draws
+  ;; Storing the character in the panel would export it as it was when Export was pressed.
+  (let [shown (atom nil)]
+    (with-redefs [re-frame.core/dispatch #(reset! shown %)]
+      ((views/make-print-handler 7 false))
+      (is (= [views/live-print-options 7 false] (second @shown))
+          "the panel holds only which character to read")
+      ((views/make-print-handler nil true))
+      (is (= [views/live-print-options nil true] (second @shown))
+          "the builder's character is read from the builder"))))
