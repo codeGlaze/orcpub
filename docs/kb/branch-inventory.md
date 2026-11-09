@@ -160,6 +160,15 @@ SAFE verdicts re-checked by hand. Nothing deleted from this list yet; the owner 
 
 Restore any of these with `git push origin <tip>:refs/heads/<branch>` (or `git branch <branch> <tip>` for a local-only one), as long as the commit still exists in a clone.
 
+### 2026-11-09, fourth batch (1 claude branch)
+
+Approved by the owner after timing the search boxes (`branches/test/rescued-claude-tests.md`):
+typing costs two frames; the one slow key is the Spells list re-rendering, which an index cannot fix.
+
+| branch | where | tip | last commit | why it could go |
+|---|---|---|---|---|
+| `claude/app-speed-fix-K8HwV` | remote | `e8613ad66` | 2026-01-17 | its search index targets a cost that measured at about nothing; its only consumer is gone |
+
 ### 2026-11-09, third batch (3 claude branches)
 
 Approved by the owner once their work was rescued.
