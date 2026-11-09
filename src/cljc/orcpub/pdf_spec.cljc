@@ -37,6 +37,62 @@
           (str class-name " [" subclass-name "] (" class-level ")"))))
     classes)))
 
+(def file-name-defaults
+  "What a PDF's file name shows unless the player chose otherwise: every part, the level after
+   its class, written plain (5, not 05 or L5)."
+  {:player? true :character? true :class? true :subclass? true :level? true
+   :level-first? false :level-style :plain})
+
+(defn clean-file-name-format
+  "`fmt` keeping only file-name-defaults' keys with a value of their kind: booleans, and a
+   :level-style of :plain, :padded or :prefixed. Anything else, a non-map included, is dropped.
+   Returns a map, empty when nothing survives."
+  [fmt]
+  (if (map? fmt)
+    (into {} (filter (fn [[k v]]
+                       (if (= k :level-style)
+                         (contains? #{:plain :padded :prefixed} v)
+                         (and (contains? file-name-defaults k) (boolean? v)))))
+          fmt)
+    {}))
+
+(defn- level-text
+  "Level `n` in `style`: :padded is two digits (05), :prefixed is L5, anything else plain (5)."
+  [n style]
+  (case style
+    :padded (if (< n 10) (str "0" n) (str n))
+    :prefixed (str "L" n)
+    (str n)))
+
+(defn file-name
+  "A PDF's file name, without \".pdf\", from `player-name`, `character-name`, the character's
+   `classes` (keys in order) and `levels` (char5e/levels), shown as `fmt` asks (keys as in
+   file-name-defaults, which fill any missing). Parts are joined with \" - \", classes with \" + \";
+   with classes hidden, the level shown is the total. Returns a string, blank when nothing is shown."
+  [player-name character-name classes levels fmt]
+  (let [{:keys [player? character? class? subclass? level? level-first? level-style]}
+        (merge file-name-defaults fmt)
+        one (fn [k]
+              (let [{:keys [class-name class-level subclass-name]} (get levels k)
+                    nm (str class-name (when (and subclass? (not (s/blank? subclass-name)))
+                                         (str " [" subclass-name "]")))
+                    lv (when (and level? class-level) (level-text class-level level-style))]
+                (s/join " " (remove s/blank? (if level-first? [lv nm] [nm lv])))))
+        total (reduce + 0 (keep #(:class-level (get levels %)) classes))
+        class-part (cond
+                     class? (s/join " + " (map one classes))
+                     (and level? (pos? total)) (level-text total level-style))]
+    (s/join " - " (remove s/blank? [(when player? player-name)
+                                    (when character? character-name)
+                                    class-part]))))
+
+(defn file-name-for
+  "file-name for `built-char` under the name `character-name` (passed in, because an unnamed
+   character is exported under one generated for it) in format `fmt`. Returns a string."
+  [built-char character-name fmt]
+  (file-name (char5e/player-name built-char) character-name
+             (char5e/classes built-char) (char5e/levels built-char) fmt))
+
 (defn ability-related-bonuses [suffix vals]
   (into {}
         (map
@@ -872,6 +928,7 @@
       :backstory (char5e/description built-char)
       :character-name character-name
       :character-name-2 character-name
+      :file-name (file-name-for built-char character-name (:file-name-format options))
       :xp (char5e/xps built-char)
       :player-name (char5e/player-name built-char)
       :age (char5e/age built-char)

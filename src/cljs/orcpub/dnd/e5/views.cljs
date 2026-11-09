@@ -50,6 +50,7 @@
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
+            [orcpub.dnd.e5.views.pdf-options :as pdf-options]
             [orcpub.dnd.e5.views.builder-fields :refer [event-value dropdown labeled-dropdown
                                                         labeled-checkbox with-help option-checkbox option-group
                                                         base-builder-field builder-field
@@ -129,43 +130,74 @@
       (.catch (fn [_] nil))))
 
 (defn- named-spec
-  "`spec`, the export map for `built-char` (character `id`), with a generated name in both name
-   fields when the character has none, the way Save names it; the builder's character gets the
-   same name when it is the one exported (::char/fill-blank-name). Returns the spec."
-  [spec built-char id]
+  "`spec`, the export map for `built-char` (character `id`, exported with `options`), with a
+   generated name in both name fields and the file name when the character has none, the way Save
+   names it; the builder's character gets the same name when it is the one exported
+   (::char/fill-blank-name). Returns the spec."
+  [spec built-char id options]
   (if-not (s/blank? (:character-name spec))
     spec
     (let [n (events/generate-random-name built-char)]
       (dispatch [::char/fill-blank-name id n])
-      (assoc spec :character-name n :character-name-2 n))))
+      (assoc spec :character-name n :character-name-2 n
+             :file-name (pdf-spec/file-name-for built-char n (:file-name-format options))))))
+
+(defn- making-pdf-tab!
+  "Opens an empty tab named `tab` and writes a \"Making your PDF\" notice in it, which the PDF
+   replaces when it arrives. Built with DOM calls: the tab inherits this page's CSP, which refuses
+   inline style. Returns `tab`, or \"_blank\" when the browser would not open it."
+  [tab]
+  (if-let [w (.open js/window "" tab)]
+    (do (try
+          (let [d (.-document w)
+                b (.-body d)
+                p (.createElement d "p")
+                small (.createElement d "p")]
+            (set! (.-title d) "Making your PDF...")
+            (doto (.-style b)
+              (aset "margin" "0") (aset "minHeight" "100vh") (aset "display" "flex")
+              (aset "flexDirection" "column") (aset "alignItems" "center")
+              (aset "justifyContent" "center") (aset "background" "#313A4D")
+              (aset "color" "#fff") (aset "fontFamily" "sans-serif"))
+            (set! (.-textContent p) "Making your PDF...")
+            (aset (.-style p) "fontSize" "20px")
+            (set! (.-textContent small)
+                  "It opens in this tab when it's ready. Spell cards and a spellbook take a few seconds.")
+            (aset (.-style small) "opacity" "0.7")
+            (.appendChild b p)
+            (.appendChild b small))
+          (catch :default _ nil))
+        tab)
+    "_blank"))
 
 (defn export-pdf
   "An onClick handler that submits the PDF form for `built-char`, with its portrait when one can be
-   drawn. Nothing optional stops the export: a missing, undrawable, failing or slow portrait sends
-   the PDF without it. If the PDF's data cannot be made, the player is told.
-   GOTCHA: the submit must stay inside the click or a popup blocker stops the new tab; an
-   unfinished bake opens the tab now and fills it when the bake resolves or the wait runs out."
+   drawn, into a tab that says the PDF is being made until it arrives (making-pdf-tab!). Nothing
+   optional stops the export: a missing, undrawable, failing or slow portrait sends the PDF without
+   it. If the PDF's data cannot be made, the player is told.
+   GOTCHA: the tab must open inside the click or a popup blocker stops it; the form is submitted
+   into it a beat later, and after an unfinished bake when the bake resolves or the wait runs out."
   [built-char id plugin-data & [options]]
   (fn [_]
     (try
       (let [field (.getElementById js/document "fields-input")
             form (.getElementById js/document "download-form")
-            spec (named-spec (pdf-spec/make-spec built-char id options plugin-data) built-char id)
+            spec (named-spec (pdf-spec/make-spec built-char id options plugin-data) built-char id options)
             portrait (char/portrait built-char)
+            ;; A beat after the tab opens, so it paints its notice before the navigation starts.
             submit! (fn [png-b64 target]
                       (aset field "value" (str (merge spec (try (portrait-fields portrait png-b64)
                                                                 (catch :default _ nil)))))
                       (aset form "target" target)
-                      (.submit form))
-            ready (when (portrait-assets5e/drawable? portrait) (portrait/baked-png portrait))]
+                      (js/setTimeout #(.submit form) 150))
+            ready (when (portrait-assets5e/drawable? portrait) (portrait/baked-png portrait))
+            target (making-pdf-tab! (str "orcpub-pdf-" (rand-int 1000000)))]
         (cond
-          (not (portrait-assets5e/drawable? portrait)) (submit! nil "_blank")
-          ready (submit! (first ready) "_blank")
+          (not (portrait-assets5e/drawable? portrait)) (submit! nil target)
+          ready (submit! (first ready) target)
           :else (if-let [bake (try (portrait/bake-ahead! portrait) (catch :default _ nil))]
-                  (let [tab (str "orcpub-pdf-" (rand-int 1000000))
-                        target (if (.open js/window "" tab) tab "_blank")]
-                    (.then (within-wait bake) #(submit! % target)))
-                  (submit! nil "_blank"))))
+                  (.then (within-wait bake) #(submit! % target))
+                  (submit! nil target))))
       (catch :default e
         (js/console.error "PDF export could not start:" e)
         (dispatch [:show-error-message
@@ -4903,168 +4935,170 @@
                                            (= (str print-character-sheet-style?) "NaN"))))
         ]
     [:div.flex.justify-cont-end
-     [:div.p-20
+     [:div.p-20.flex-grow-1
       [capture-images [image-url faction-image-url]]
       [bake-portrait (char/portrait built-char)]
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
 
-      ;; Grouped by what a setting changes: the sheet, the cards behind it, then
-      ;; how either is inked. The known / prepared choice is a sheet setting.
-      [option-group "Character Sheet"
-       [:div.m-b-10
-        [labeled-dropdown
-         "Sheet style"
-         {:items (into [{:title "Select" :value " "}]
-                       (integrations/sheet-styles @(subscribe [:user-tier])))
-          :value print-character-sheet-style?
-          :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]
-       [integrations/pdf-options-slot @(subscribe [:user-tier])]
-       [option-checkbox
-        "Print Abilities Large (and Bonuses Small)"
-        print-large-abilities?
-        (make-event-handler ::char/toggle-large-abilities-print)
-        (str "The sheet prints the ability score big and its modifier small. "
-             "Tick this to swap them, so the number you roll with is the one "
-             "you can read across the table.")]
-       (when has-spells?
-         [:div.m-b-10
-          [with-help
-           [:div.flex.align-items-c.m-b-5
-            [:span.f-w-b "Spells Printed"]]
-           (str "Which spells go on the sheet and the cards. Known is every "
-                "spell the character has; Prepared is only the ones marked "
-                "prepared today, which is what a Cleric or a Wizard casts from.")]
-          [:div.flex
-           [:div.pointer
-            {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-            [labeled-checkbox "Known" (not print-prepared-spells?)]]
-           [:div.m-l-20.pointer
-            {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-            [labeled-checkbox "Prepared" print-prepared-spells?]]]])
-       (when packable?
-         [:div.m-b-10
-          [:div.w-250
-           [labeled-dropdown
-            "Spell Sheet Layout"
-            {:items [{:title "Automatic" :value ""}
-                     {:title "One column per class" :value "packed"}
-                     {:title "One page per class" :value "per-class"}]
-             :value (if spell-layout (name spell-layout) "")
-             :on-change (make-arg-event-handler ::char/set-spell-layout
-                                                #(when-not (s/blank? %) (keyword %)))}]]
-          ;; What the current setting will actually print, always on: this one is
-          ;; the state of the build rather than a fixed explanation, so it is not
-          ;; behind a ?. Set like the ? lines so the two read as one kind of note.
-          [:div.option-note
-           (if (= :per-class spell-layout)
-             (str (count casting-classes) " spell pages, one per class")
-             (str "One page, a column each for "
-                  (s/join ", " (map :class casting-classes))))]])]
+      [:div.pdf-options-grid
+       ;; Grouped by what a setting changes: the sheet, the cards behind it, then
+       ;; how either is inked. The known / prepared choice is a sheet setting.
+       [option-group "Character Sheet"
+        [:div.m-b-10
+         [labeled-dropdown
+          "Sheet style"
+          {:items (into [{:title "Select" :value " "}]
+                        (integrations/sheet-styles @(subscribe [:user-tier])))
+           :value print-character-sheet-style?
+           :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]
+        [integrations/pdf-options-slot @(subscribe [:user-tier])]
+        [option-checkbox
+         "Print Abilities Large (and Bonuses Small)"
+         print-large-abilities?
+         (make-event-handler ::char/toggle-large-abilities-print)
+         (str "The sheet prints the ability score big and its modifier small. "
+              "Tick this to swap them, so the number you roll with is the one "
+              "you can read across the table.")]
+        (when has-spells?
+          [:div.m-b-10
+           [with-help
+            [:div.flex.align-items-c.m-b-5
+             [:span.f-w-b "Spells Printed"]]
+            (str "Which spells go on the sheet and the cards. Known is every "
+                 "spell the character has; Prepared is only the ones marked "
+                 "prepared today, which is what a Cleric or a Wizard casts from.")]
+           [:div.flex
+            [:div.pointer
+             {:on-click (make-event-handler ::char/toggle-known-spells-print)}
+             [labeled-checkbox "Known" (not print-prepared-spells?)]]
+            [:div.m-l-20.pointer
+             {:on-click (make-event-handler ::char/toggle-known-spells-print)}
+             [labeled-checkbox "Prepared" print-prepared-spells?]]]])
+        (when packable?
+          [:div.m-b-10
+           [:div.w-250
+            [labeled-dropdown
+             "Spell Sheet Layout"
+             {:items [{:title "Automatic" :value ""}
+                      {:title "One column per class" :value "packed"}
+                      {:title "One page per class" :value "per-class"}]
+              :value (if spell-layout (name spell-layout) "")
+              :on-change (make-arg-event-handler ::char/set-spell-layout
+                                                 #(when-not (s/blank? %) (keyword %)))}]]
+           ;; What the current setting will actually print, always on: this one is
+           ;; the state of the build rather than a fixed explanation, so it is not
+           ;; behind a ?. Set like the ? lines so the two read as one kind of note.
+           [:div.option-note
+            (if (= :per-class spell-layout)
+              (str (count casting-classes) " spell pages, one per class")
+              (str "One page, a column each for "
+                   (s/join ", " (map :class casting-classes))))]])]
 
-      [option-group "Cards"
-       (when has-spells?
-         [option-checkbox
-          "Print Spell Cards"
-          print-spell-cards?
-          (make-event-handler ::char/toggle-spell-cards-print)
-          (str "Adds a page of cut-out cards, one per spell, with its range, "
-               "duration and description. Printed after the sheet.")])
-       (when print-spell-cards?
-         [:div.m-l-20
+       [option-group "Cards"
+        (when has-spells?
           [option-checkbox
-           "Print Spell DC and MOD"
-           print-spell-card-dc-mod?
-           (make-event-handler ::char/toggle-spell-cards-by-dc-mod)
-           (str "Prints this character's save DC and attack bonus on each card, "
-                "so the numbers are on the card being held rather than back on "
-                "the sheet.")]])
-       [option-checkbox
-        "Print Magic Item Cards"
-        print-magic-item-cards?
-        (make-event-handler ::char/toggle-magic-item-cards-print)
-        (str "The same cards for the magic items the character carries, "
-             "attunement and charges included.")]]
-
-      (when has-spells?
-        (let [opt (fn [k] (or (get spellbook-options k)
-                              (get pdf-spec/spellbook-defaults
-                                   (keyword (s/replace (name k) #"^spellbook-" "")))))]
-          [option-group "Spellbook"
+           "Print Spell Cards"
+           print-spell-cards?
+           (make-event-handler ::char/toggle-spell-cards-print)
+           (str "Adds a page of cut-out cards, one per spell, with its range, "
+                "duration and description. Printed after the sheet.")])
+        (when print-spell-cards?
+          [:div.m-l-20
            [option-checkbox
-            "Print Spellbook"
-            print-spellbook?
-            (make-event-handler ::char/toggle-spellbook-print)
-            (str "Adds pages listing every printed spell by class, with its save DC and "
-                 "attack on every page. Fewer pages than cards and nothing to cut out.")]
-           (when print-spellbook?
-             [:div.m-l-20
-              [spellbook-dropdown "Layout" :spellbook-layout spellbook-layouts (opt :spellbook-layout)]
-              (when (> (count casting-classes) 1)
-                [spellbook-dropdown "New class starts" :spellbook-class-break
-                 [{:title "Straight after the last" :value "runon"}
-                  {:title "On a new page" :value "page"}]
-                 (opt :spellbook-class-break)])
-              [spellbook-dropdown "Level tabs" :spellbook-tabs
-               [{:title "In the page header" :value "head"}
-                {:title "Down the side (narrows the page)" :value "inset"}
-                {:title "Off" :value "off"}]
-               (opt :spellbook-tabs)]
-              [:div.f-w-b.m-b-5 "Class emblems"]
-              (for [{:keys [class]} casting-classes
-                    :let [class-kw (common/name-to-kw (str class))]]
-                ^{:key class}
-                [emblem-picker class-kw (str class)
-                 (get-in spellbook-options [:spellbook-emblems class-kw])])])
-           (when (or print-spellbook? print-spell-cards?)
-             [:div.m-t-10]) ;; clear of the last emblem row above
-           (when (or print-spellbook? print-spell-cards?)
-             [spellbook-dropdown "Spell order" :spell-order
-              [{:title "By level, then name" :value "level"}
-               {:title "By name" :value "alpha"}]
-              (or (:spell-order spellbook-options) :level)])
-           (when (or print-spellbook? print-spell-cards?)
-             [:div.option-note
-              (str "Orders the "
-                   (cond (and print-spellbook? print-spell-cards?) "spellbook and the cards"
-                         print-spellbook? "spellbook"
-                         :else "cards")
-                   " within each class.")])]))
+            "Print Spell DC and MOD"
+            print-spell-card-dc-mod?
+            (make-event-handler ::char/toggle-spell-cards-by-dc-mod)
+            (str "Prints this character's save DC and attack bonus on each card, "
+                 "so the numbers are on the card being held rather than back on "
+                 "the sheet.")]])
+        [option-checkbox
+         "Print Magic Item Cards"
+         print-magic-item-cards?
+         (make-event-handler ::char/toggle-magic-item-cards-print)
+         (str "The same cards for the magic items the character carries, "
+              "attunement and charges included.")]]
 
-      ;; Both card kinds are inked the same way, so this group follows either --
-      ;; gating it on spell cards alone hid it from anyone printing only items.
-      (when (or print-spell-cards? print-magic-item-cards?)
-        [option-group "Appearance"
-         [option-checkbox
-          "Printer-friendly (black & white)"
-          print-bw?
-          (make-event-handler ::char/toggle-print-bw)
-          (str "Drops the colour from the cards so they cost less to print and "
-               "stay legible on a mono printer.")]
-         ;; Under B&W: default is solid-black icons with white-halo labels;
-         ;; opt into faded grayscale icons for a softer look.
-         (when print-bw?
-           [:div.m-l-20
+       (when has-spells?
+         (let [opt (fn [k] (or (get spellbook-options k)
+                               (get pdf-spec/spellbook-defaults
+                                    (keyword (s/replace (name k) #"^spellbook-" "")))))]
+           [option-group "Spellbook"
             [option-checkbox
-             "Faded grayscale icons (else solid black)"
-             bw-faded?
-             (make-event-handler ::char/toggle-bw-faded)
-             (str "Sets the card icons as pale grey behind the text instead of "
-                  "solid black beside it.")]])
-         [option-checkbox
-          "Print logo on card backs"
-          print-card-back-logo?
-          (make-event-handler ::char/toggle-print-card-back-logo)
-          (str "Puts a logo on the reverse of every card, so a printed sheet cut "
-               "up and shuffled still has a back.")]
-         ;; Treatment only matters when the logo is on AND B&W isn't forcing black.
-         (when (and print-card-back-logo? (not print-bw?))
-           [:div.m-l-20
-            [option-checkbox
-             "Faded color (else solid black)"
-             card-back-logo-faded?
-             (make-event-handler ::char/toggle-card-back-logo-faded)
-             (str "Prints the back logo as a pale colour wash rather than in "
-                  "solid black.")]])])
+             "Print Spellbook"
+             print-spellbook?
+             (make-event-handler ::char/toggle-spellbook-print)
+             (str "Adds pages listing every printed spell by class, with its save DC and "
+                  "attack on every page. Fewer pages than cards and nothing to cut out.")]
+            (when print-spellbook?
+              [:div.m-l-20
+               [spellbook-dropdown "Layout" :spellbook-layout spellbook-layouts (opt :spellbook-layout)]
+               (when (> (count casting-classes) 1)
+                 [spellbook-dropdown "New class starts" :spellbook-class-break
+                  [{:title "Straight after the last" :value "runon"}
+                   {:title "On a new page" :value "page"}]
+                  (opt :spellbook-class-break)])
+               [spellbook-dropdown "Level tabs" :spellbook-tabs
+                [{:title "In the page header" :value "head"}
+                 {:title "Down the side (narrows the page)" :value "inset"}
+                 {:title "Off" :value "off"}]
+                (opt :spellbook-tabs)]
+               [:div.f-w-b.m-b-5 "Class emblems"]
+               (for [{:keys [class]} casting-classes
+                     :let [class-kw (common/name-to-kw (str class))]]
+                 ^{:key class}
+                 [emblem-picker class-kw (str class)
+                  (get-in spellbook-options [:spellbook-emblems class-kw])])])
+            (when (or print-spellbook? print-spell-cards?)
+              [:div.m-t-10]) ;; clear of the last emblem row above
+            (when (or print-spellbook? print-spell-cards?)
+              [spellbook-dropdown "Spell order" :spell-order
+               [{:title "By level, then name" :value "level"}
+                {:title "By name" :value "alpha"}]
+               (or (:spell-order spellbook-options) :level)])
+            (when (or print-spellbook? print-spell-cards?)
+              [:div.option-note
+               (str "Orders the "
+                    (cond (and print-spellbook? print-spell-cards?) "spellbook and the cards"
+                          print-spellbook? "spellbook"
+                          :else "cards")
+                    " within each class.")])]))
+
+       ;; Both card kinds are inked the same way, so this group follows either --
+       ;; gating it on spell cards alone hid it from anyone printing only items.
+       (when (or print-spell-cards? print-magic-item-cards?)
+         [option-group "Appearance"
+          [option-checkbox
+           "Printer-friendly (black & white)"
+           print-bw?
+           (make-event-handler ::char/toggle-print-bw)
+           (str "Drops the colour from the cards so they cost less to print and "
+                "stay legible on a mono printer.")]
+          ;; Under B&W: default is solid-black icons with white-halo labels;
+          ;; opt into faded grayscale icons for a softer look.
+          (when print-bw?
+            [:div.m-l-20
+             [option-checkbox
+              "Faded grayscale icons (else solid black)"
+              bw-faded?
+              (make-event-handler ::char/toggle-bw-faded)
+              (str "Sets the card icons as pale grey behind the text instead of "
+                   "solid black beside it.")]])
+          [option-checkbox
+           "Print logo on card backs"
+           print-card-back-logo?
+           (make-event-handler ::char/toggle-print-card-back-logo)
+           (str "Puts a logo on the reverse of every card, so a printed sheet cut "
+                "up and shuffled still has a back.")]
+          ;; Treatment only matters when the logo is on AND B&W isn't forcing black.
+          (when (and print-card-back-logo? (not print-bw?))
+            [:div.m-l-20
+             [option-checkbox
+              "Faded color (else solid black)"
+              card-back-logo-faded?
+              (make-event-handler ::char/toggle-card-back-logo-faded)
+              (str "Prints the back logo as a pale colour wash rather than in "
+                   "solid black.")]])])
+       [pdf-options/file-name-group built-char]]
 
       (when reading-pictures?
         [:div.f-s-12.m-b-5 "Reading the character's picture..."])
@@ -5085,7 +5119,8 @@
                                       bw-faded?
                                       print-magic-item-cards?
                                       spell-layout
-                                      spellbook-options)}
+                                      (assoc spellbook-options :file-name-format
+                                             (pdf-options/file-name-format)))}
        "Create PDF"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]
@@ -10769,7 +10804,8 @@
                       :print-spell-cards? true
                       :print-prepared-spells? false
                       :print-character-sheet-style? 1
-                      :print-spell-card-dc-mod? true})}
+                      :print-spell-card-dc-mod? true
+                      :file-name-format (pdf-options/file-name-format)})}
          "print"])
       (when (and (= username owner) (seq folders))
         [:select.form-button.m-l-5.builder-option-dropdown

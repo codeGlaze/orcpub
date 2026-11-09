@@ -2431,6 +2431,26 @@
  :dark-button-text-saved
  (fn [db _] db))
 
+;; One PDF file name choice (`k` of pdf-spec/file-name-defaults, value `v`). Kept like the button
+;; text: in this browser, and on the account when signed in; a failed save changes nothing here.
+(reg-event-fx
+ ::char5e/set-file-name-option
+ [user->local-store-interceptor]
+ (fn [{:keys [db]} [_ k v]]
+   (let [fmt (assoc (get-in db [:user-data :pdf-file-name] {}) k v)]
+     (cond-> {:db (assoc-in db [:user-data :pdf-file-name] fmt)}
+       (event-utils/get-auth-token db)
+       (assoc :http {:method :put
+                     :headers (authorization-headers db)
+                     :url (backend-url (routes/path-for routes/user-route))
+                     :transit-params {:pdf-file-name fmt}
+                     :on-success [::char5e/file-name-format-saved]
+                     :on-failure [::char5e/file-name-format-saved]})))))
+
+(reg-event-db
+ ::char5e/file-name-format-saved
+ (fn [db _] db))
+
 ;; The window crossed the phone breakpoint; the layout follows (:device-type).
 (reg-event-db
  :set-narrow-screen

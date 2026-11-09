@@ -721,6 +721,13 @@
                 :position "absolute"
                 :z-index "1"}]]
 
+   ;; The PDF options' groups, flowing down as many columns as the width holds (one on a phone),
+   ;; each group kept whole so a tall one leaves no gap beside the short ones.
+   [:.pdf-options-grid
+    {:column-width "280px"
+     :column-gap "32px"}
+    [:>div {:break-inside "avoid"}]]
+
    ;; A group heading in the PDF options. Set apart from the field labels under
    ;; it -- a heading in the same weight as its own first label reads as one more
    ;; option rather than as the name of the set.

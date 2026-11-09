@@ -20,6 +20,7 @@
             [buddy.sign.jwt :as jwt]
             [buddy.auth.middleware :refer [authentication-request]]
             [clojure.edn :as edn]
+            [orcpub.pdf-spec :as pdf-spec]
             [clojure.java.io :as io]
             [orcpub.time :as time]
             [clojure.string :as s]
@@ -268,7 +269,7 @@
           {:status 400 :body "Invalid or tampered token"})))))
 
 (defn update-user-preferences
-  "PUT handler for /user — update user preferences (send-updates?, dark-button-text?).
+  "PUT handler for /user — update user preferences (send-updates?, dark-button-text?, pdf-file-name).
    Requires authentication. Only updates fields present in transit-params.
    Re-reads from DB after transact to return authoritative state."
   [{:keys [transit-params db conn identity]}]
@@ -292,6 +293,10 @@
               (when (contains? transit-params :dark-button-text?)
                 @(d/transact conn [{:db/id id
                                     :orcpub.user/dark-button-text? (boolean (:dark-button-text? transit-params))}]))
+              (when (contains? transit-params :pdf-file-name)
+                @(d/transact conn [{:db/id id
+                                    :orcpub.user/pdf-file-name
+                                    (pr-str (pdf-spec/clean-file-name-format (:pdf-file-name transit-params)))}]))
               (when (contains? transit-params :preferred-name)
                 (let [old (:orcpub.user/preferred-name (d/entity (d/db conn) id))]
                   (cond
@@ -305,7 +310,10 @@
                                 :preferred-name (crypto/decrypt crypto/preferred-name-purpose
                                                                 (:orcpub.user/preferred-name updated-user))}
                          (some? (:orcpub.user/dark-button-text? updated-user))
-                         (assoc :dark-button-text? (:orcpub.user/dark-button-text? updated-user)))}))))
+                         (assoc :dark-button-text? (:orcpub.user/dark-button-text? updated-user))
+
+                         (:orcpub.user/pdf-file-name updated-user)
+                         (assoc :pdf-file-name (auth/stored-pdf-file-name updated-user)))}))))
       {:status 400 :body {:error "User not found"}})))
 
 (defn update-artist-credit
@@ -650,7 +658,7 @@
     :print-bw? :bw-faded? :print-prepared-spells? :print-large-abilities?
     :print-spell-annotations? :spell-relabels :spell-headings :spell-layout
     :magic-items-known :print-magic-item-cards?
-    :spellbook :spell-order
+    :spellbook :spell-order :file-name
     :page-size
     ;; The composed portrait's bytes and its credit line. They are drawn, not written
     ;; into a field, so leaving them here made write-fields! report two unplaceable
@@ -850,16 +858,31 @@
       (s/replace #"[. ]+$" "")
       s/trim))
 
+(defn- with-pdf-extension
+  "`base` (already file-safe) plus \".pdf\", or \"character.pdf\" when it is blank or a name
+   Windows reserves (CON, NUL, COM1...). Returns a string."
+  [base]
+  (if (or (s/blank? base) (re-matches #"(?i)(con|prn|aux|nul|com\d|lpt\d)" base))
+    "character.pdf"
+    (str base ".pdf")))
+
 (defn pdf-filename
   "The download name of a character sheet: the player name, character name and class level,
-   each made file-safe (file-safe), the blank ones left out, joined with \" - \", then \".pdf\";
-   \"character.pdf\" when nothing is left or the name is one Windows reserves (CON, NUL, COM1...).
-   Args: three strings or nils. Returns a string."
+   each made file-safe (file-safe), the blank ones left out, joined with \" - \", then \".pdf\"
+   (with-pdf-extension). Args: three strings or nils. Returns a string."
   [player-name character-name class-level]
-  (let [base (s/join " - " (remove s/blank? (map file-safe [player-name character-name class-level])))]
-    (if (or (s/blank? base) (re-matches #"(?i)(con|prn|aux|nul|com\d|lpt\d)" base))
-      "character.pdf"
-      (str base ".pdf"))))
+  (with-pdf-extension
+    (s/join " - " (remove s/blank? (map file-safe [player-name character-name class-level])))))
+
+(defn requested-pdf-filename
+  "The download name for export `fields`: the client's :file-name (built from the player's file
+   name choices), cut to 200 characters and made file-safe, when it sent one, else pdf-filename of the names and class level.
+   Returns a string."
+  [{:keys [file-name player-name character-name class-level] :as fields}]
+  (if (contains? fields :file-name)
+    (let [n (str file-name)]
+      (with-pdf-extension (file-safe (subs n 0 (min 200 (count n))))))
+    (pdf-filename player-name character-name class-level)))
 
 (defn content-disposition
   "The Content-Disposition header value showing `filename` inline. filename= is an ASCII copy
@@ -926,7 +949,7 @@
         no-casters? (and (zero? casters) (some? without-casters))
         input (.openStream (io/resource (if no-casters? without-casters file)))
         output (ByteArrayOutputStream.)
-        filename (pdf-filename player-name character-name class-level)]
+        filename (requested-pdf-filename fields)]
         
     ;; PDFBox 3.x: Loader/loadPDF accepts byte[], File, or RandomAccessRead —
     ;; NOT InputStream. Read the resource stream into a byte array first.

@@ -1438,6 +1438,13 @@
  (fn [db _]
    (boolean (get-in db [:user-data :dark-button-text?]))))
 
+;; The player's PDF file name choices as saved (this browser, and the account when signed in);
+;; pdf-spec/file-name-defaults fills what is missing.
+(reg-sub
+ ::char5e/file-name-format
+ (fn [db _]
+   (get-in db [:user-data :pdf-file-name] {})))
+
 (reg-sub
  ::show-class-source-suffix
  (fn [db _]

@@ -138,6 +138,10 @@
    {:db/ident :orcpub.user/dark-button-text?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
+   ;; The PDF file name choices, an EDN map (pdf-spec/clean-file-name-format). Unset means the defaults.
+   {:db/ident :orcpub.user/pdf-file-name
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/verified?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
