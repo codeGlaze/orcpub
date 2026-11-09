@@ -197,4 +197,12 @@
    (fn [event-kw & args]
      #(dispatch (vec (cons event-kw args)))))))
 
+#?(:cljs
+(def make-arg-event-handler
+  "A handler, memoized per arguments, dispatching [`event-kw` value], the value being what the
+   handler is called with, passed through `arg-fn` when given (an input's on-change, for one)."
+  (memoize
+   (fn [event-kw & [arg-fn]]
+     #(dispatch [event-kw (if arg-fn (arg-fn %) %)])))))
+
 (def text-color "#484848")

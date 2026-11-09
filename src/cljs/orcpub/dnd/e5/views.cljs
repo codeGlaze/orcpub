@@ -4,7 +4,7 @@
             [orcpub.route-map :as routes]
             [orcpub.common :as common]
             [orcpub.entity :as entity]
-            [orcpub.components :as comps :refer [orange text-color make-event-handler]]
+            [orcpub.components :as comps :refer [orange text-color make-event-handler make-arg-event-handler]]
             [orcpub.entity-spec :as es]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.dnd.e5.spell-packing :as packing]
@@ -106,124 +106,6 @@
          ^{:key i}
          [:li.red (str common/dot-char " " msg)])
        messages))]))
-
-(defn- portrait-fields
-  "The spec's portrait fields for baked `png-b64`: the pixels and the credit, which travels with
-   them because the server has no layer selection. Fitted to the PDF metadata's 78 characters,
-   so whole names drop rather than one being cut."
-  [portrait png-b64]
-  (when png-b64
-    {:portrait-png png-b64
-     :portrait-credit (portrait-assets5e/fit-credit
-                       (portrait-assets5e/credit-names portrait)
-                       #(<= (count %) 78))}))
-
-(def portrait-wait-ms
-  "How long Create PDF waits for a portrait still baking before sending the PDF without it."
-  8000)
-
-(defn- within-wait
-  "`bake`, a promise of a portrait's base64 PNG, resolving to nil instead if it fails or is still
-   running after portrait-wait-ms. Never rejects."
-  [bake]
-  (-> (js/Promise.race #js [bake (js/Promise. (fn [ok _] (js/setTimeout #(ok nil) portrait-wait-ms)))])
-      (.catch (fn [_] nil))))
-
-(defn- named-spec
-  "`spec`, the export map for `built-char` (character `id`, exported with `options`), with a
-   generated name in both name fields and the file name when the character has none, the way Save
-   names it; the builder's character gets the same name when it is the one exported
-   (::char/fill-blank-name). Returns the spec."
-  [spec built-char id options]
-  (if-not (s/blank? (:character-name spec))
-    spec
-    (let [n (events/generate-random-name built-char)]
-      (dispatch [::char/fill-blank-name id n])
-      (assoc spec :character-name n :character-name-2 n
-             :file-name (pdf-spec/file-name-for built-char n (:file-name-format options))))))
-
-(defn- making-pdf-tab!
-  "Opens an empty tab named `tab` and writes a \"Making your PDF\" notice in it, which the PDF
-   replaces when it arrives. Built with DOM calls: the tab inherits this page's CSP, which refuses
-   inline style. Returns `tab`, or \"_blank\" when the browser would not open it."
-  [tab]
-  (if-let [w (.open js/window "" tab)]
-    (do (try
-          (let [d (.-document w)
-                b (.-body d)
-                p (.createElement d "p")
-                small (.createElement d "p")]
-            (set! (.-title d) "Making your PDF...")
-            (doto (.-style b)
-              (aset "margin" "0") (aset "minHeight" "100vh") (aset "display" "flex")
-              (aset "flexDirection" "column") (aset "alignItems" "center")
-              (aset "justifyContent" "center") (aset "background" "#313A4D")
-              (aset "color" "#fff") (aset "fontFamily" "sans-serif"))
-            (set! (.-textContent p) "Making your PDF...")
-            (aset (.-style p) "fontSize" "20px")
-            (set! (.-textContent small)
-                  "It opens in this tab when it's ready. Spell cards and a spellbook take a few seconds.")
-            (aset (.-style small) "opacity" "0.7")
-            (.appendChild b p)
-            (.appendChild b small))
-          (catch :default _ nil))
-        tab)
-    "_blank"))
-
-(defn export-pdf
-  "An onClick handler that submits the PDF form for `built-char`, with its portrait when one can be
-   drawn, into a tab that says the PDF is being made until it arrives (making-pdf-tab!). Nothing
-   optional stops the export: a missing, undrawable, failing or slow portrait sends the PDF without
-   it. If the PDF's data cannot be made, the player is told.
-   GOTCHA: the tab must open inside the click or a popup blocker stops it; the form is submitted
-   into it a beat later, and after an unfinished bake when the bake resolves or the wait runs out."
-  [built-char id plugin-data & [options]]
-  (fn [_]
-    (try
-      (let [field (.getElementById js/document "fields-input")
-            form (.getElementById js/document "download-form")
-            spec (named-spec (pdf-spec/make-spec built-char id options plugin-data) built-char id options)
-            portrait (char/portrait built-char)
-            ;; Into an opened tab a beat later, so it paints its notice before the navigation
-            ;; starts; with no tab (a blocked popup), at once, while still inside the click.
-            submit! (fn [png-b64 target]
-                      (aset field "value" (str (merge spec (try (portrait-fields portrait png-b64)
-                                                                (catch :default _ nil)))))
-                      (aset form "target" target)
-                      (if (= "_blank" target)
-                        (.submit form)
-                        (js/setTimeout #(.submit form) 150)))
-            ready (when (portrait-assets5e/drawable? portrait) (portrait/baked-png portrait))
-            target (making-pdf-tab! (str "orcpub-pdf-" (rand-int 1000000)))]
-        (cond
-          (not (portrait-assets5e/drawable? portrait)) (submit! nil target)
-          ready (submit! (first ready) target)
-          :else (if-let [bake (try (portrait/bake-ahead! portrait) (catch :default _ nil))]
-                  (.then (within-wait bake) #(submit! % target))
-                  (submit! nil target))))
-      (catch :default e
-        (js/console.error "PDF export could not start:" e)
-        (dispatch [:show-error-message
-                   "This character's PDF couldn't be made. Try again, or tell us with Feedback/Bug Reports at the bottom of the page."])))))
-
-(defn bake-portrait
-  "Bakes the character's composed portrait on mount and whenever it or the artist credits change,
-   so export can submit without waiting. Renders nothing."
-  [_portrait]
-  (let [bake #(portrait/bake-ahead! (second (r/argv %)))]
-    (r/create-class
-     {:component-did-mount bake
-      :component-did-update bake
-      :reagent-render (fn [_] @(subscribe [:portrait/artist-overrides]) nil)})))
-
-(defn download-form [built-char]
-  [:form.download-form
-   {:id "download-form"
-    :action (event-utils/backend-url "/character.pdf")
-    :method "POST"
-    :target "_blank"}
-   [:input {:type "hidden" :name "body" :id "fields-input"}]])
-
 
 (defn svg-icon [icon-name & [size theme-override]]
   (let [theme (or theme-override @(subscribe [:theme]))
@@ -1036,7 +918,6 @@
           [monster-summary name size type subtypes alignment]])
        results))]]])
 
-
 (defn print-bonus-map [m]
   (s/join ", "
           (map
@@ -1045,7 +926,6 @@
 
 (def max-width-300
   {:max-width "300px"})
-
 
 (defn srd-route-handler
   "Click handler opening what a link in SRD text points at: a condition's page, a spell's page,
@@ -1490,8 +1370,6 @@
 (defn close-orcacle []
   (dispatch [:close-orcacle]))
 
-
-
 (defn orcacle []
   (let [search-text @(subscribe [:search-text])]
     [:div.flex.flex-column.h-100-p.white
@@ -1577,7 +1455,7 @@
             :on-scroll (when-not frame?
                          (fn [e]))}
            (when-not frame?
-             [download-form])
+             [pdf-options/download-form])
            (when options-shown?
              [pdf-options/sheet @(subscribe [::char/options-component])])
            (when (pos? (or @(subscribe [:loading]) 0))
@@ -1835,7 +1713,6 @@
 #_(def summary-style
   {:padding "33px 0"})
 
-
 (declare error-boundary)
 
 (defn locate-hint
@@ -2082,7 +1959,6 @@
    [:span (if expanded? "hide" "details")]
    [:i.fa.m-l-5
     {:class (if expanded? "fa-caret-up" "fa-caret-down")}]])
-
 
 (defn spellcaster-levels-table []
   (let [expanded? (r/atom false)]
@@ -4005,7 +3881,6 @@
                    [:td.p-10 (::char-equip/quantity treasure-cfg)]]))
               treasure-cfgs))]]]]))))
 
-
 (defn skill-details-section-2 []
   (let [expanded-details (r/atom {})]
     (fn [id]
@@ -4083,7 +3958,6 @@
                      [:td.p-10.f-s-18.f-w-b (common/bonus-str (tool-bonus-fn kw))]
                      [:td (roll-button (str name " check: ") (str "1d20" (common/mod-str (tool-bonus-fn kw))))]]))
                 tool-profs))]]]])))))
-
 
 (defn proficiency-details [num-columns id]
   (let [ability-bonuses @(subscribe [::char/ability-bonuses id])
@@ -4404,7 +4278,6 @@
     (when (= device-type :desktop)
       [:div.uppercase.f-s-10
        title])]])
-
 
 (def details-tabs
   {"summary" {:icon "stabbed-note"
@@ -4770,387 +4643,11 @@
                        (dispatch [::party/make-party #{character-id}]))}
          "ADD"]]])))
 
-(defn export-pdf-fn [built-char
-                     id
-                     plugin-data
-                     print-character-sheet?
-                     print-spell-cards?
-                     print-prepared-spells?
-                     print-large-abilities?
-                     print-character-sheet-style?
-                     print-spell-card-dc-mod?
-                     print-card-back-logo?
-                     card-back-logo-faded?
-                     print-bw?
-                     bw-faded?
-                     print-magic-item-cards?
-                     spell-layout
-                     spellbook-options]
-  #(let [export-fn (export-pdf built-char
-                               id
-                               plugin-data
-                               (merge
-                                spellbook-options
-                                {:print-character-sheet? print-character-sheet?
-                                :print-spell-cards? print-spell-cards?
-                                :print-prepared-spells? print-prepared-spells?
-                                :print-large-abilities? print-large-abilities?
-                                :print-character-sheet-style? print-character-sheet-style?
-                                :print-spell-card-dc-mod? print-spell-card-dc-mod?
-                                :print-card-back-logo? print-card-back-logo?
-                                :card-back-logo-faded? card-back-logo-faded?
-                                :print-bw? print-bw?
-                                :bw-faded? bw-faded?
-                                :print-magic-item-cards? print-magic-item-cards?
-                                :spell-layout spell-layout}))]
-     (export-fn)
-     (dispatch [::char/hide-options])))
-
-(def export-pdf-handler (memoize export-pdf-fn))
-
-(def make-arg-event-handler
-  (memoize
-   (fn [event-kw & [arg-fn]]
-     #(dispatch [event-kw (if arg-fn (arg-fn %) %)]))))
-
 (defn delete-item-handler [item-key]
   (fn []
     (dispatch [::mi/delete-custom-item item-key])
     (dispatch [::mi/hide-delete-confirmation item-key])
     (dispatch [::mi/reset-item])))
-
-(defn print-button-style [print-button-enabled]
-  (if print-button-enabled
-    {}
-    {:opacity 0.5
-     :cursor :not-allowed
-     :pointer-events "none"}))
-
-
-(defn capture-images
-  "Reads the character's pictures (`urls`) in the browser on mount, so their bytes are in
-   hand before export is clicked. Renders nothing; reads on mount only (no update hook).
-   GOTCHA: kept off the click handler: the export is a synchronous submit into a new tab, and
-   an await before .submit() spends the user activation that keeps it from being blocked."
-  [_urls]
-  (let [ask (fn [this]
-              (doseq [url (second (r/argv this))
-                      :when (seq url)]
-                (dispatch [::char/capture-image url])))]
-    (r/create-class
-     {:component-did-mount ask
-      :reagent-render (fn [_] nil)})))
-
-(defn emblem-picker
-  "One casting class's emblem, with the icons it can be swapped for behind a toggle. The
-   choice lasts the session, like the rest of the PDF options."
-  [_class-kw _class-name _chosen]
-  (let [open? (r/atom false)]
-    (fn [class-kw class-name chosen]
-      (let [icon (emblems/icon-for class-kw chosen)]
-        [:div.m-b-5
-         [:div.flex.align-items-c
-          [:img.emblem-icon {:src (str "/image/emblems/" icon ".svg") :alt ""}]
-          [:span.m-l-5 class-name]
-          [:span.orange.underline.pointer.f-s-12.m-l-10
-           {:on-click #(swap! open? not)}
-           (if @open? "Done" "Change")]]
-         (when @open?
-           (into [:div.emblem-choices]
-                 (for [[nm author] (emblems/options class-kw)]
-                   [:button.emblem-choice
-                    {:key nm
-                     :type "button"
-                     :class (when (= nm icon) "selected")
-                     :title (str (s/replace nm "-" " ") " by " (s/replace author "-" " "))
-                     :on-click #(dispatch [::char/set-spellbook-emblem class-kw nm])}
-                    [:img.emblem-icon {:src (str "/image/emblems/" nm ".svg") :alt (s/replace nm "-" " ")}]])))]))))
-
-(def spellbook-layouts
-  "The spellbook layouts PDF Options offers, as dropdown items."
-  [{:title "Spellbook: full text, two columns" :value "book"}
-   {:title "Ledger: one row a spell" :value "ledger"}
-   {:title "Prep sheet: a box to tick per spell" :value "prep"}])
-
-(def spellbook-option-handler
-  "The on-change handler setting spellbook option `k` from a dropdown value; blank clears it."
-  (memoize
-   (fn [k]
-     #(dispatch [::char/set-spellbook-option k (when-not (s/blank? %) (keyword %))]))))
-
-(defn spellbook-dropdown
-  "A labelled dropdown for spellbook option `k`, offering `items` with `value` selected."
-  [label k items value]
-  [:div.m-b-10
-   [labeled-dropdown label
-    {:items items
-     :value (name value)
-     :on-change (spellbook-option-handler k)}]])
-
-(defn print-options [id built-char]
-  (let [print-character-sheet? @(subscribe [::char/print-character-sheet?])
-        print-spell-cards? @(subscribe [::char/print-spell-cards?])
-        print-magic-item-cards? @(subscribe [::char/print-magic-item-cards?])
-        print-prepared-spells? @(subscribe [::char/print-prepared-spells?])
-        print-large-abilities? @(subscribe [::char/print-large-abilities?])
-        print-character-sheet-style? @(subscribe [::char/print-character-sheet-style?])
-        print-spell-card-dc-mod? @(subscribe [::char/print-spell-card-dc-mod?])
-        print-card-back-logo? @(subscribe [::char/print-card-back-logo?])
-        card-back-logo-faded? @(subscribe [::char/card-back-logo-faded?])
-        print-bw? @(subscribe [::char/print-bw?])
-        bw-faded? @(subscribe [::char/bw-faded?])
-        spell-layout @(subscribe [::char/spell-layout])
-        spellbook-options @(subscribe [::char/spellbook-options])
-        print-spellbook? (:print-spellbook? spellbook-options)
-        ;; Read off built-char, not [::char/image-url id]: a character still being
-        ;; built has no id yet, and the id-keyed subscription answers nil for it.
-        ;; This is the same accessor pdf-spec uses to put the URL in the export.
-        image-url (char/image-url built-char)
-        faction-image-url (char/faction-image-url built-char)
-        image-bytes @(subscribe [::char/image-bytes])
-        plugin-data {:spells-map @(subscribe [::spells/spells-map])
-                     :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
-                     :language-map @(subscribe [::langs/language-map])
-                     :all-weapons-map @(subscribe [::mi/all-weapons-map])
-                     :all-magic-items-map @(subscribe [::mi/all-magic-items-map])
-                     :current-armor-class @(subscribe [::char/current-armor-class id])
-                     :image-bytes image-bytes}
-        has-spells? (seq (char/spells-known built-char))
-        ;; Only a multiclass caster on a style that can be renumbered has a
-        ;; choice to make, so the control is not shown to anyone else.
-        casting-classes (when has-spells?
-                          (pdf-spec/casting-classes built-char
-                                                    (:spells-map plugin-data)))
-        packable? (and (> (count casting-classes) 1)
-                       (packing/packing-supported? print-character-sheet-style?)
-                       ;; Not offered when the columns cannot hold the character.
-                       ;; A Wizard 20 beside a Cleric leaves no column a Cleric
-                       ;; fits, and packing anyway would print without it.
-                       (packing/fits? print-character-sheet-style?
-                                      (packing/packing-shape casting-classes)))
-        ;; Exporting mid-read would send the address and let the server fetch what
-        ;; the browser was already holding. A read ends either way -- capture has
-        ;; its own deadline -- so this waits at most that long.
-        reading-pictures? (boolean (some #(= :pending (get image-bytes %))
-                                         (remove nil? [image-url faction-image-url])))
-        print-button-enabled (and (not reading-pictures?)
-                                  (not (or (nil? print-character-sheet-style?)
-                                           (= (str print-character-sheet-style?) "NaN"))))
-        ]
-    ;; The body scrolls inside pdf-options/sheet; the footer under it keeps Create PDF in view.
-    [:<>
-     [:div.pdf-sheet-body
-      [capture-images [image-url faction-image-url]]
-      [bake-portrait (char/portrait built-char)]
-
-      [:div.pdf-options-grid
-       ;; Grouped by what a setting changes: the sheet, the cards behind it, then
-       ;; how either is inked. The known / prepared choice is a sheet setting.
-       [option-group "Character Sheet"
-        [:div.m-b-10
-         [labeled-dropdown
-          "Sheet style"
-          {:items (into [{:title "Select" :value " "}]
-                        (integrations/sheet-styles @(subscribe [:user-tier])))
-           :value print-character-sheet-style?
-           :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]
-        [integrations/pdf-options-slot @(subscribe [:user-tier])]
-        [option-checkbox
-         "Print Abilities Large (and Bonuses Small)"
-         print-large-abilities?
-         (make-event-handler ::char/toggle-large-abilities-print)
-         (str "The sheet prints the ability score big and its modifier small. "
-              "Tick this to swap them, so the number you roll with is the one "
-              "you can read across the table.")]
-        (when packable?
-          [:div.m-b-10
-           [:div
-            [labeled-dropdown
-             "Spell Sheet Layout"
-             {:items [{:title "Automatic" :value ""}
-                      {:title "One column per class" :value "packed"}
-                      {:title "One page per class" :value "per-class"}]
-              :value (if spell-layout (name spell-layout) "")
-              :on-change (make-arg-event-handler ::char/set-spell-layout
-                                                 #(when-not (s/blank? %) (keyword %)))}]]
-           ;; What the current setting will actually print, always on: this one is
-           ;; the state of the build rather than a fixed explanation, so it is not
-           ;; behind a ?. Set like the ? lines so the two read as one kind of note.
-           [:div.option-note
-            (if (= :per-class spell-layout)
-              (str (count casting-classes) " spell pages, one per class")
-              (str "One page, a column each for "
-                   (s/join ", " (map :class casting-classes))))]])]
-
-       ;; Which spells print, and in what order: the first for the sheet and the cards, the second
-       ;; for the cards and the spellbook, so neither belongs to one of those groups.
-       (when has-spells?
-         [option-group "Spells"
-          [:div.m-b-10
-           [with-help
-            [:div.flex.align-items-c.m-b-5
-             [:span.f-w-b "Spells Printed"]]
-            (str "Which spells go on the sheet and the cards. Known is every "
-                 "spell the character has; Prepared is only the ones marked "
-                 "prepared today, which is what a Cleric or a Wizard casts from.")]
-           [:div.flex
-            [:div.pointer
-             {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-             [labeled-checkbox "Known" (not print-prepared-spells?)]]
-            [:div.m-l-20.pointer
-             {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-             [labeled-checkbox "Prepared" print-prepared-spells?]]]]
-          (when (or print-spellbook? print-spell-cards?)
-            [spellbook-dropdown "Spell order" :spell-order
-             [{:title "By level, then name" :value "level"}
-              {:title "By name" :value "alpha"}]
-             (or (:spell-order spellbook-options) :level)])
-          (when (or print-spellbook? print-spell-cards?)
-            [:div.option-note
-             (str "Orders the "
-                  (cond (and print-spellbook? print-spell-cards?) "spellbook and the cards"
-                        print-spellbook? "spellbook"
-                        :else "cards")
-                  " within each class.")])])
-
-       [option-group "Cards"
-        (when has-spells?
-          [option-checkbox
-           "Print Spell Cards"
-           print-spell-cards?
-           (make-event-handler ::char/toggle-spell-cards-print)
-           (str "Adds a page of cut-out cards, one per spell, with its range, "
-                "duration and description. Printed after the sheet.")])
-        (when (and has-spells? print-spell-cards?)
-          [:div.option-nested
-           [option-checkbox
-            "Print Spell DC and MOD"
-            print-spell-card-dc-mod?
-            (make-event-handler ::char/toggle-spell-cards-by-dc-mod)
-            (str "Prints this character's save DC and attack bonus on each card, "
-                 "so the numbers are on the card being held rather than back on "
-                 "the sheet.")]])
-        [option-checkbox
-         "Print Magic Item Cards"
-         print-magic-item-cards?
-         (make-event-handler ::char/toggle-magic-item-cards-print)
-         (str "The same cards for the magic items the character carries, "
-              "attunement and charges included.")]]
-
-       (when has-spells?
-         (let [opt (fn [k] (or (get spellbook-options k)
-                               (get pdf-spec/spellbook-defaults
-                                    (keyword (s/replace (name k) #"^spellbook-" "")))))]
-           [option-group "Spellbook"
-            [option-checkbox
-             "Print Spellbook"
-             print-spellbook?
-             (make-event-handler ::char/toggle-spellbook-print)
-             (str "Adds pages listing every printed spell by class, with its save DC and "
-                  "attack on every page. Fewer pages than cards and nothing to cut out.")]
-            (when print-spellbook?
-              [:div.option-nested
-               [spellbook-dropdown "Layout" :spellbook-layout spellbook-layouts (opt :spellbook-layout)]
-               (when (> (count casting-classes) 1)
-                 [spellbook-dropdown "New class starts" :spellbook-class-break
-                  [{:title "Straight after the last" :value "runon"}
-                   {:title "On a new page" :value "page"}]
-                  (opt :spellbook-class-break)])
-               [spellbook-dropdown "Level tabs" :spellbook-tabs
-                [{:title "In the page header" :value "head"}
-                 {:title "Down the side (narrows the page)" :value "inset"}
-                 {:title "Off" :value "off"}]
-                (opt :spellbook-tabs)]
-               [:div.f-w-b.m-b-5 "Class emblems"]
-               (for [{:keys [class]} casting-classes
-                     :let [class-kw (common/name-to-kw (str class))]]
-                 ^{:key class}
-                 [emblem-picker class-kw (str class)
-                  (get-in spellbook-options [:spellbook-emblems class-kw])])])]))
-
-       ;; Both card kinds are inked the same way, so this group follows either --
-       ;; gating it on spell cards alone hid it from anyone printing only items.
-       (when (or print-spell-cards? print-magic-item-cards?)
-         [option-group "Appearance"
-          [option-checkbox
-           "Printer-friendly (black & white)"
-           print-bw?
-           (make-event-handler ::char/toggle-print-bw)
-           (str "Drops the colour from the cards so they cost less to print and "
-                "stay legible on a mono printer.")]
-          ;; Under B&W: default is solid-black icons with white-halo labels;
-          ;; opt into faded grayscale icons for a softer look.
-          (when print-bw?
-            [:div.option-nested
-             [option-checkbox
-              "Faded grayscale icons (else solid black)"
-              bw-faded?
-              (make-event-handler ::char/toggle-bw-faded)
-              (str "Sets the card icons as pale grey behind the text instead of "
-                   "solid black beside it.")]])
-          [option-checkbox
-           "Print logo on card backs"
-           print-card-back-logo?
-           (make-event-handler ::char/toggle-print-card-back-logo)
-           (str "Puts a logo on the reverse of every card, so a printed sheet cut "
-                "up and shuffled still has a back.")]
-          ;; Treatment only matters when the logo is on AND B&W isn't forcing black.
-          (when (and print-card-back-logo? (not print-bw?))
-            [:div.option-nested
-             [option-checkbox
-              "Faded color (else solid black)"
-              card-back-logo-faded?
-              (make-event-handler ::char/toggle-card-back-logo-faded)
-              (str "Prints the back logo as a pale colour wash rather than in "
-                   "solid black.")]])])
-       [pdf-options/file-name-group built-char]]
-
-      [:div.t-a-r.m-t-10
-       [:div.f-w-b.m-b-5 "Other PDFs"]
-       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]]
-     [:div.pdf-sheet-foot
-      (when reading-pictures?
-        [:div.f-s-12 "Reading the character's picture..."])
-      [:button.link-button.underline {:type "button" :on-click (make-event-handler ::char/hide-options)}
-       "Cancel"]
-      [:button.form-button.p-10
-       {:type "button"
-        :style (print-button-style print-button-enabled)
-        :on-click (export-pdf-handler built-char
-                                      id
-                                      plugin-data
-                                      print-character-sheet?
-                                      print-spell-cards?
-                                      print-prepared-spells?
-                                      print-large-abilities?
-                                      print-character-sheet-style?
-                                      print-spell-card-dc-mod?
-                                      print-card-back-logo?
-                                      card-back-logo-faded?
-                                      print-bw?
-                                      bw-faded?
-                                      print-magic-item-cards?
-                                      spell-layout
-                                      (assoc spellbook-options :file-name-format
-                                             (pdf-options/file-name-format)))}
-       "Create PDF"]]]))
-
-(defn live-print-options
-  "print-options for the character as it is each time it draws: the builder's character when
-   `builder?`, else saved character `id`, so a change while the panel is open is what gets exported."
-  [id builder?]
-  [print-options id (if builder?
-                      @(subscribe [:built-character])
-                      @(subscribe [::char/built-character id]))])
-
-(defn make-print-handler
-  "An on-click handler opening PDF Options for character `id`; `builder?` when it is the character
-   being built. The panel is stored as which character to read, never as the character itself."
-  [id builder?]
-  #(dispatch
-    [::char/show-options
-     [live-print-options id builder?]]))
-
 
 (defn abilities-spec [vals suffix bonus?]
   (reduce-kv
@@ -5255,7 +4752,7 @@
                :on-click (make-event-handler :edit-character character)})
             {:title "Export"
              :icon "download"
-             :on-click (make-print-handler id false)}
+             :on-click (pdf-options/make-print-handler id false)}
             (when (and username owner (not= owner username))
               [add-to-party-component id])]))
          [:div.p-10.main-text-color
@@ -5550,7 +5047,6 @@
             :on-change (make-arg-event-handler ::mi/set-item-damage-type)
             }]]]]
             )]))
-
 
 (defn item-ability-bonuses []
   (base-builder-field
@@ -10503,7 +9999,6 @@
           (when-let [credit @(subscribe [:artist-credit])]
             [artist-credit-setting credit])]])))
 
-
 (defn newb-character-builder-page []
   [content-page
    "Character Builder for Newbs"
@@ -10811,10 +10306,10 @@
        {:on-click (make-event-handler :route char-page-route)}
        "view"]
       (when (or (not branding/restrict-print-to-owner?) (= username owner))
-        [bake-portrait (char/portrait built-char)])
+        [pdf-options/bake-portrait (char/portrait built-char)])
       (when (or (not branding/restrict-print-to-owner?) (= username owner))
         [:button.form-button.m-l-5
-         {:on-click (export-pdf
+         {:on-click (pdf-options/export-pdf
                      built-char
                      id
                      plugin-data

@@ -40,6 +40,7 @@
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
+            [orcpub.dnd.e5.views.pdf-options :as pdf-options]
             [orcpub.dnd.e5.views.builder-fields :as builder-fields]
             [orcpub.dnd.e5.subs :as subs5e]
             [orcpub.route-map :as routes]
@@ -2934,7 +2935,7 @@
            :on-click (load-character-page (:db/id character))})
         {:title "Export"
          :icon "download"
-         :on-click (views5e/make-print-handler (:db/id character) true)}]))
+         :on-click (pdf-options/make-print-handler (:db/id character) true)}]))
      [:div
       [:div.container
        [:div.content

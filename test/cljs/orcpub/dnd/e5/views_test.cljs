@@ -15,6 +15,7 @@
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.artist-links]
             [orcpub.dnd.e5.views :as views]
+            [orcpub.dnd.e5.views.pdf-options :as pdf-options]
             [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-resolution]))
 
@@ -119,7 +120,7 @@
 (defn- export!
   "Presses Create PDF for an empty character, as the export button's handler does. Returns nil."
   []
-  ((views/export-pdf {} 1 {}) nil))
+  ((pdf-options/export-pdf {} 1 {}) nil))
 
 (deftest a-portrait-this-site-cannot-draw-does-not-stop-the-export
   (with-redefs [pdf-spec/make-spec (constantly {:name "Bree"})
@@ -154,7 +155,7 @@
                     pa/drawable? (constantly true)
                     portrait/baked-png (constantly nil)
                     portrait/bake-ahead! (fn [_] (js/Promise. (fn [_ _])))
-                    views/portrait-wait-ms 30]
+                    pdf-options/portrait-wait-ms 30]
         (export!))
       (js/setTimeout (fn []
                        (is (= 1 (count @sent)) "after the wait the PDF goes without the portrait")
@@ -252,9 +253,9 @@
   ;; Storing the character in the panel would export it as it was when Export was pressed.
   (let [shown (atom nil)]
     (with-redefs [re-frame.core/dispatch #(reset! shown %)]
-      ((views/make-print-handler 7 false))
-      (is (= [views/live-print-options 7 false] (second @shown))
+      ((pdf-options/make-print-handler 7 false))
+      (is (= [pdf-options/live-print-options 7 false] (second @shown))
           "the panel holds only which character to read")
-      ((views/make-print-handler nil true))
-      (is (= [views/live-print-options nil true] (second @shown))
+      ((pdf-options/make-print-handler nil true))
+      (is (= [pdf-options/live-print-options nil true] (second @shown))
           "the builder's character is read from the builder"))))
