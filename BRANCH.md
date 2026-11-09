@@ -48,10 +48,11 @@ carries live state.*
   (checked 2026-10-16 on #64); `.coderabbit.yaml` turns automatic reviews off (#73). Source: docs.coderabbit.ai/management/rate-limits.
 - **In flight** (checked 2026-10-23; this list goes stale, so before starting anything also check
   `git branch -r` and the open PRs):
-  - Open PRs into `integration`: #66 `test/page-load-budget`,
-    #70 `feature/registration-in-boot-report`. #65
-    `feature/artist-pages` targets `feature/portrait-builder`, which has already merged (#64).
-    #35 targets `mirror/upstream-develop`.
+  - Open PRs: #35 (`hotfix/locale-safety`, targets `mirror/upstream-develop`).
+  - Merged 2026-11-09: #82 `fix/health-banner-contrast` (homebrew Markdown export, banner and
+    caret fixes). Merged 2026-10-29: #74 `feature/weapons-table`. Merged 2026-10-28: #65
+    `feature/artist-pages`, #70 `feature/registration-in-boot-report`. 28 fully merged branches
+    deleted 2026-11-09 ([branch-inventory.md](docs/kb/branch-inventory.md), "Deleted").
   - Merged 2026-10-27: #66 `test/page-load-budget` (self-hosted font, cache-stamped assets, the
     page-load test with a 900 KB bundle ceiling).
   - Merged 2026-10-27: #63 `refactor/pdf-canvas` (the PDF drawing layer split out, A4, embedded
@@ -64,8 +65,8 @@ carries live state.*
     evidence, the startup report and email; brings the heavy Docker checks to `integration`).
   - Active, no PR yet: `feature/character-rescue` (Data View and the server's version check;
     handoff in `branches/`), `feature/inventory-kits` (the `inventory` namespace and the Kits panel,
-    [`plan-inventory-kits.md`](docs/kb/plan-inventory-kits.md)), `feature/weapons-table` (item
-    charges; overlaps inventory-kits), `feature/guarded-homebrew`, `feature/srd-pipeline`.
+    [`plan-inventory-kits.md`](docs/kb/plan-inventory-kits.md)), `feature/srd-pipeline`.
+    (`feature/guarded-homebrew` is fully in `integration`; its remote branch was deleted 2026-11-09.)
 
 ### The tree
 

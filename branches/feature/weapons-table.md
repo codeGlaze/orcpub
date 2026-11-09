@@ -2,7 +2,7 @@
 
 **Purpose:** the character sheet's Weapons table rebuilt around a roll engine, and the item charges
 it led to: charges on the sheet, the Rest box, casting from charged items, item builder fields.
-**Base:** integration (merged in 2026-10-25). **PR into:** integration, #74 (open, not reviewed;
+**Base:** integration (merged in 2026-10-25). **Merged:** #74 into integration on 2026-10-29 (`dde6c946b`); remote branch deleted 2026-11-09. Was: #74 (open, not reviewed;
 the owner keeps CodeRabbit for backend work). **KB:** `plan-charges-and-casting.md`,
 `handoff-weapons-table.md`, `handoff-rest-controls.md`, `weapon-mastery-plan.md`.
 

@@ -134,6 +134,42 @@ Last updated 2026-10-06. Re-run before trusting a row: branches move.
 
 Restore any of these with `git push origin <tip>:refs/heads/<branch>` (or `git branch <branch> <tip>` for a local-only one), as long as the commit still exists in a clone.
 
+### 2026-11-09 (28 branches)
+
+Approved by the owner. Each tip was checked, just before the delete, to be an ancestor of the
+trunk named (no content check needed). Local worktrees on some of these branches were left.
+
+| branch | where | tip | every commit in |
+|---|---|---|---|
+| `ci/browser-suite` | remote | `515dfb2d3` | integration |
+| `docs/pdf-api` | remote | `1d687ac17` | integration |
+| `docs/whats-new-summer-patch` | remote | `1cdf10c36` | integration |
+| `feature/artist-pages` | remote | `af89cf011` | integration |
+| `feature/asi-spreads` | remote | `0b90e94e7` | integration |
+| `feature/coderabbit-incremental` | remote | `35dcae4c8` | integration |
+| `feature/email-and-alerts` | remote | `1abbd8820` | integration |
+| `feature/form-bottom-buttons` | remote | `bec1135f5` | integration |
+| `feature/guarded-homebrew` | remote | `90838e729` | integration |
+| `feature/name-keyword-fix` | remote | `06379312e` | integration |
+| `feature/portrait-builder` | remote | `9da4eab55` | integration |
+| `feature/registration-in-boot-report` | remote | `d8629e476` | integration |
+| `feature/weapons-table` | remote | `9e80be339` | integration |
+| `fix/auth-abuse` | remote | `d1440cd88` | integration |
+| `fix/cljs-harness-exit` | remote | `9b60e9850` | integration |
+| `fix/coderabbit-config` | remote | `43164c372` | integration |
+| `fix/hidden-multiclass-skill-pick` | remote | `0e5f10638` | integration |
+| `fix/ignore-files` | remote | `5a93ffa7d` | integration |
+| `fix/lookup-indexes` | remote | `617e749e1` | integration |
+| `fix/release-cleanup` | remote | `393c3efc8` | integration |
+| `fix/release-polish` | remote | `d1388275e` | integration |
+| `fix/robe-of-the-archmagi-ac` | remote | `243c93da7` | integration |
+| `fix/srd-2014-data-defects` | remote | `b430e8e88` | integration |
+| `refactor/card-shape-layer` | remote | `5eb1a38ee` | integration |
+| `refactor/pdf-canvas` | remote | `7ca156b37` | integration |
+| `test/page-load-budget` | remote | `83104bd03` | integration |
+| `feature/demo-content-tier` | remote | `33b6f10ec` | refactor/main |
+| `feature/fighting-style-authoring` | remote | `d778d1e55` | refactor/main |
+
 ### 2026-10-17 (1 branch)
 
 Approved by the owner. Its icon renames landed on `integration` separately (#696, "blank icons show

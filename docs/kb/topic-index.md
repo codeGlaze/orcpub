@@ -489,7 +489,7 @@ _branch-context-history · branch context history_
 
 _branch-inventory · branch inventory_
 
-**topics:** ---, added, attached, changelog, claude, contained, copied, develop, elsewhere, gitignore, integration, landed, local-only, remote, src, superseded, tip, worktree
+**topics:** ---, added, attached, changelog, claude, contained, copied, develop, elsewhere, integration, landed, local, local-only, remote, src, superseded, tip, worktree
 
 - Trunk (9)
 - Release (1)
@@ -502,6 +502,7 @@ _branch-inventory · branch inventory_
 - Unmerged, not triaged (27)
 - Left alone locally
 - Deleted
+- 2026-11-09 (28 branches)
 - 2026-10-17 (1 branch)
 - 2026-10-06 (65 branches)
 
