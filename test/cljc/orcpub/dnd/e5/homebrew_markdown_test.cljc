@@ -461,3 +461,40 @@
       (is (not (str/includes? sub "starting class only"))))
     (is (clean? cls))
     (is (clean? sub))))
+
+(deftest template-keyed-choices
+  (let [sel [{:orcpub.template/name "Style" :orcpub.template/min 2
+              :orcpub.template/options [{:orcpub.template/name "Archery"}
+                                        {:orcpub.template/name "Defense"}]}]
+        out (md/class->markdown (assoc full-class :selections sel))]
+    (is (has-line? out "- **Style:** choose 2 from Archery, Defense"))
+    (is (clean? out))))
+
+(deftest set-options-print-in-a-fixed-order
+  (let [opts (set (map #(hash-map :name %) ["Alpha" "Bravo" "Charlie" "Delta" "Echo" "Foxtrot"
+                                            "Golf" "Hotel"]))
+        out (md/class->markdown (assoc full-class :selections [{:name "Pick" :options opts}]))]
+    (is (has-line? out (str "- **Pick:** choose 1 from Alpha, Bravo, Charlie, Delta, Echo, "
+                            "Foxtrot, Golf, Hotel")))))
+
+(deftest disabled-selections-from-other-sources-are-skipped
+  (let [src {:orcpub.dnd.e5/classes
+             {:k {:name "K" :level-selections [{:type :styles :level 1 :num 1}]}}}
+        on {:styles {:name "Styles" :options [{:name "Bold"}]}}
+        off {:styles {:name "Styles" :options [{:name "Hidden"}]}}]
+    (doseq [[why lib] [["a disabled source" {"A" {:orcpub.dnd.e5/selections on}
+                                              "Z" {:disabled? true :orcpub.dnd.e5/selections off}}]
+                       ["a disabled item" {"A" {:orcpub.dnd.e5/selections on}
+                                           "Z" {:orcpub.dnd.e5/selections
+                                                (assoc-in off [:styles :disabled?] true)}}]]]
+      (testing why
+        (let [out (md/source->markdown src "S" lib)]
+          (is (has-line? out "- ***Bold.***"))
+          (is (not (str/includes? out "Hidden"))))))))
+
+(deftest nested-subclass-selections-count-as-written
+  (let [src {:orcpub.dnd.e5/classes
+             {:k {:name "K" :subclasses [{:name "Sub" :level-selections [{:type :tricks :level 3}]}]}}
+             :orcpub.dnd.e5/selections {:tricks {:name "Tricks" :options [{:name "Flip"}]}}}]
+    (is (= [] (md/left-out src)))
+    (is (not (str/includes? (md/source->markdown src "S") "Not included")))))
