@@ -106,6 +106,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   their example portraits, their links and how many pieces they drew.
 - **Accounts:** an optional Cloudflare Turnstile check on sign-up, password reset and resend verification, and on sign-in after a failed attempt. Off unless `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set; if Cloudflare can't be reached, requests go through.
 - **Accounts:** when the security check can't load, the form says so and suggests allowing challenges.cloudflare.com in an ad blocker.
+- **Homebrew:** an "export as markdown" button in My Content writes homebrew classes and subclasses as printable 5e-style text, with a level table and their features.
 
 ### Changed
 - **Server:** a deployed server will not start without a mail server unless `EMAIL_REQUIRED=false` says that is intended, and the message names the setting to add. Development mode is exempt; `./run` and `./run --upgrade` set the opt-out for installs that run without email, so none stops on upgrade. (#716)
@@ -234,6 +235,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** a homebrew subclass, invocation or boon that breaks a built-in class costs only
   itself: it is set aside, named, and the class is still in the builder. Before, every built-in class
   disappeared from the builder. A subrace that breaks is set aside on its own, not with its race.
+- **Homebrew:** exporting a class no longer drops the armor, weapon and tool proficiencies it gives even when multiclassing in.
 
 ### Security
 
