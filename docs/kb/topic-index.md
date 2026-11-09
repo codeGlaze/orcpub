@@ -2913,7 +2913,7 @@ _plan-charges-and-casting · plan charges and casting_
 
 _plan-chunked-library-storage · plan chunked library storage_
 
-**topics:** blob, capacity, chars, chunk, granularity, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike, write
+**topics:** blob, capacity, chars, chunk, complexity, granularity, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike
 
 - Read this first: why this plan is parked
 - The problem, in one line

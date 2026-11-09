@@ -142,6 +142,13 @@ fails only in parallel, give it `// Needs: fresh server` rather than lowering `-
 
 A suite that runs past `E2E_SUITE_TIMEOUT` (default 1200 s) is killed and reported `FAIL`.
 
+**Another worktree's server on 8890 (2026-11-09).** `server.sh` refuses to start when something
+already answers on the port. Run with `E2E_PORT=8897 E2E_MAIL_PORT=2537 ./scripts/e2e/run.sh ...`;
+`run.sh` hands the suite its address as `E2E_BASE`. A suite must read `E2E_BASE` first: five
+`test/browser` suites read only `ORCPUB_BASE` and fell back to `localhost:8890`, so they silently
+tested the other worktree's server (fixed on `fix/pdf-export`). Write new suites as
+`process.env.E2E_BASE || ... || 'http://localhost:8890'`.
+
 ## Known failures
 
 None as of 2026-10-04. `chunked_parse_spike` was archived to `test/browser/spikes/` (`b72e4c3e`):

@@ -54,3 +54,15 @@ scrolling, a freeze on ticking Print Spell Cards / Print Spellbook). **Base:** `
 - Chromium hands a PDF response to its viewer, so `response.body()` is the viewer's HTML; read the
   `content-disposition` header from the response event, the body through `context.route`
   (`scripts/e2e/export-character-pdf.js`, `exportPdf`).
+
+## Update 2026-11-09, end of day
+
+- Pushed: full-window PDF Options (title bar, scrolling body, footer; sticky header restored),
+  theme colours (`.main-text-color` + the app's sheet surface; contrast checked in both themes by
+  `pdf-options-reach.js`), a Spells group, dependent options marked, column-width pickers, the
+  panel reading the live character, the three `calc(... + ...)` popover offsets fixed with a test,
+  and PDF export + the panel moved to `views/pdf_options.cljs` (views.cljs 11,735 -> 11,230).
+- Full suites green at `57501bbf7` plus the suite-port fix: lein test 1,528, cljs 989, lint 0
+  errors, export 61/61, reach 15/15, portrait 11/11.
+- Open: the owner is unsure the phone order of the groups is logical (wants to use it first);
+  the bundle (924 KB vs 900 KB, see BRANCH.md "Trim the app bundle").
