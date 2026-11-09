@@ -37,8 +37,6 @@ Decisions marked **Proposed** are the owner's to make. Everything else describes
    `.app.light-theme` swap it, the way the two reds already do (section 2).
 5. **Keyboard focus stays visible.** Anything clickable gets a `:focus-visible` style. See
    section 4 for why this currently needs doing by hand.
-
----
 6. **A new surface copies an existing one and takes the theme text class.** A sheet, panel or
    overlay that sets a background copies the nearest existing block's values (sheets:
    `.rest-fab-sheet`, `#2c3445` dark and `#fff` light) and carries `.main-text-color`, so every
@@ -48,6 +46,8 @@ Decisions marked **Proposed** are the owner's to make. Everything else describes
    theme's blue accents read 1.2:1 on it unless every part sets its own colour. Prove a new
    surface with a contrast check in both themes in its browser test
    (`scripts/e2e/pdf-options-reach.js`, `lowContrast`).
+
+---
 
 ## 2. Colour
 
