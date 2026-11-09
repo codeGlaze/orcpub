@@ -839,15 +839,27 @@
                            :nonce (:csp-nonce req)
                            :action (or (:uri req) "/character.pdf")})}))))
 
+(defn- file-safe
+  "`part` (a string or nil) keeping only what every common file system accepts: letters, marks,
+   digits, spaces and plain punctuation; emoji and the characters Windows refuses (<>:\"/\\|?*)
+   are dropped, runs of spaces collapsed, and trailing dots and spaces trimmed. Returns a string."
+  [part]
+  (-> (str part)
+      (s/replace #"[^\p{L}\p{M}\p{N} \-_.,'’‘()\[\]&+!]" "")
+      (s/replace #"\s+" " ")
+      (s/replace #"[. ]+$" "")
+      s/trim))
+
 (defn pdf-filename
-  "The download name of a character sheet: the player name, character name and class level that
-   are not blank, trimmed and joined with \" - \", then \".pdf\"; \"character.pdf\" only when all
-   three are blank. Args: three strings or nils. Returns a string."
+  "The download name of a character sheet: the player name, character name and class level,
+   each made file-safe (file-safe), the blank ones left out, joined with \" - \", then \".pdf\";
+   \"character.pdf\" when nothing is left or the name is one Windows reserves (CON, NUL, COM1...).
+   Args: three strings or nils. Returns a string."
   [player-name character-name class-level]
-  (let [parts (map s/trim (remove s/blank? [player-name character-name class-level]))]
-    (if (empty? parts)
+  (let [base (s/join " - " (remove s/blank? (map file-safe [player-name character-name class-level])))]
+    (if (or (s/blank? base) (re-matches #"(?i)(con|prn|aux|nul|com\d|lpt\d)" base))
       "character.pdf"
-      (str (s/join " - " parts) ".pdf"))))
+      (str base ".pdf"))))
 
 (defn content-disposition
   "The Content-Disposition header value showing `filename` inline. filename= is an ASCII copy
