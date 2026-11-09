@@ -160,6 +160,18 @@ SAFE verdicts re-checked by hand. Nothing deleted from this list yet; the owner 
 
 Restore any of these with `git push origin <tip>:refs/heads/<branch>` (or `git branch <branch> <tip>` for a local-only one), as long as the commit still exists in a clone.
 
+### 2026-11-09 (5 claude branches)
+
+Approved by the owner, after the content check above.
+
+| branch | where | tip | last commit | why it could go |
+|---|---|---|---|---|
+| `claude/artist-profile-pages` | remote | `dbf638771` | 2026-10-14 | code on integration; design screenshots only |
+| `claude/dazzling-dirac-byig77` | remote | `9641bc3c9` | 2026-06-10 | import error wording on integration |
+| `claude/fix-ac-calculation-bugs-AHrs2` | remote | `b42acbb5e` | 2026-02-02 | robe fix and test on integration; agent config on agents/develop |
+| `claude/image-poisoning-spa-1dkpva` | remote | `7584db762` | 2026-06-10 | unrelated standalone app (image-shield); owner: delete |
+| `claude/custom-race-builder-3NxN5` | remote | `b8116e518` | 2026-02-02 | unmerged race ability-bonus code; owner: delete |
+
 ### 2026-11-09 (1 claude branch)
 
 Approved by the owner. `git cherry` found every commit's change on `integration`.
