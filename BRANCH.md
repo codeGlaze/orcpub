@@ -143,6 +143,15 @@ view is two: the hold decides what the built character applies; Data View edits 
   870 KB with #69, #75, #63 and #76 (measured by #66's `test/browser/page_load_budget_e2e.js`).
   Look for code a page loads but never runs, and for large dependencies, before raising the ceiling
   again.
+  **2026-11-09: 924 KB compressed on `integration`, over the suite's 900 KB ceiling.** Measured by
+  source on `fix/pdf-export` (source map, uncompressed): ClojureScript core 709 KB (23%),
+  `views.cljs` 388 KB, SRD spell data `spells.cljc` 296 KB (10%), `events.cljs` 170 KB, magic item
+  data 121 KB, `cljs.pprint` 98 KB, class data 95 KB, `cljs.spec` 56 KB. Removing our three
+  `pprint` uses saved 255 bytes compressed: something else still pulls `cljs.pprint` in.
+  - **To do (owner, 2026-11-09): ship the SRD spell data as a static file**, loaded when a page
+    needs it, not compiled into the bundle (about 10% of it). The decision that SRD content is
+    static data is in [`srd-2024-roadmap.md`](docs/kb/srd-2024-roadmap.md); magic items and classes
+    are the next candidates.
 
 ### Deferred to the refactor — known, not yet owned
 
