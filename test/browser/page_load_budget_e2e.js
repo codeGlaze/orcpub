@@ -14,8 +14,10 @@ const fs = require('fs');
 const BASE = process.env.E2E_BASE || 'http://localhost:8890';
 const AUDIT = process.env.PAGE_LOAD_AUDIT === '1';
 const CHAR = process.env.E2E_CHARACTER_ID || '';
-// Hard ceiling for the compressed production app bundle: 900 KB, 100 KB under a megabyte.
-const BUNDLE_GZIP_CEILING = 900 * 1024;
+// Hard ceiling for the compressed production app bundle: 940 KB, raised from 900 KB (owner,
+// 2026-11-09) with the bundle at 924 KB. Bringing it back down is the "Trim the app bundle" item in
+// BRANCH.md on agents/develop.
+const BUNDLE_GZIP_CEILING = 940 * 1024;
 
 const PAGES = [
   ['home', '/'],
