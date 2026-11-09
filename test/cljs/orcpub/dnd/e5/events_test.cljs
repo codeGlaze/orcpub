@@ -2283,3 +2283,26 @@
       (reset! app-db {:plugins {"Pak" {:orcpub.dnd.e5/feats {:a {:name nil}}}}})
       (run-through! [::e5/export-plugin-markdown "Pak" {:orcpub.dnd.e5/feats {:a {:name nil}}}])
       (is (= :markdown (get-in @app-db [:export-warning :format]))))))
+
+;; ---------------------------------------------------------------------------
+;; The loading spinner is a counter; an increment whose handler threw before
+;; its decrement held it up until a reload.
+;; ---------------------------------------------------------------------------
+
+(deftest a-page-change-clears-the-spinner
+  (reset! app-db {:route :some-existing-route :loading 2})
+  (rf/dispatch-sync [:route routes/dnd-e5-char-list-page-route {:skip-path? true}])
+  (is (= 0 (:loading @app-db)))
+  (testing "an unmatched route still changes nothing"
+    (reset! app-db {:route :some-existing-route :loading 1})
+    (rf/dispatch-sync [:route nil {:skip-path? true}])
+    (is (= 1 (:loading @app-db)))))
+
+(deftest a-failed-random-character-turns-the-spinner-off
+  (let [before {:loading 1 :character {:db/id 5}}
+        fx (with-redefs [events/random-character (fn [& _] (throw (js/Error. "boom")))]
+             (events/set-random-character {:db before} [:set-random-character nil nil nil]))]
+    (is (= 0 (get-in fx [:db :loading])))
+    (is (= {:db/id 5} (get-in fx [:db :character])) "the current character is kept")
+    (is (not (get-in fx [:db ::e5/replacing?])))
+    (is (= :show-error-message (first (:dispatch fx))))))
