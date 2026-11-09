@@ -125,6 +125,32 @@ Last updated 2026-10-06. Re-run before trusting a row: branches move.
 | `testing/dev-tooling-enhancements` | remote | 2026-02-04 | `266362f0f6` | - | 1% of its added lines are on integration |
 | `upgrade/datomic-pro` | remote | 2026-01-23 | `4ac0d1378c` | - | 18% of its added lines are on integration |
 
+## `claude/*` content check (2026-11-09)
+
+Checked by content (distinctive functions and new files grepped on `integration` and `refactor/main`),
+SAFE verdicts re-checked by hand. Nothing deleted from this list yet; the owner decides each.
+
+| branch | verdict | evidence |
+|---|---|---|
+| `claude/artist-profile-pages` | safe | all code on integration (`credit-changed!` became `credit-changed-tx`); only design screenshots lost |
+| `claude/dazzling-dirac-byig77` | safe | `humanize-pred` and friends in `orcbrew_validation.cljs` |
+| `claude/fix-ac-calculation-bugs-AHrs2` | safe | robe fix and `robe_ac_test.clj` on integration; rest is old agent config now on agents/develop |
+| `claude/character-black-screen-feature-i8lvk3` | safe after a rescue | code and tests on integration; `docs/kb/feature-tab-black-screen.md` and `docs/tools/unblock-features-tab.html` are nowhere else |
+| `claude/improve-test-coverage-hlyhp` | tests only | `test/cljc/orcpub/dnd/e5/magic_items_integration_test.clj` (867 lines) not on integration; AC tests superseded |
+| `claude/fix-pdf-widget-warnings-hUt9i` | tests only | the `pdf.clj` fix is on integration; `routes_pdf_test.clj` `character-pdf-2-*` tests are not |
+| `claude/check-character-field-zGYRJ` | unique, small | `default-plugin-source`, `builtin-subraces` |
+| `claude/add-color-themes-gyRhI` | unique | Nord themes, `styles/themes.clj` (`docs/THEMING.md`) |
+| `claude/app-speed-fix-K8HwV` | unique | homebrew search index in `spell_subs.cljs` |
+| `claude/cloud-drive-integration-SC31k` | unique | Google Drive sync, `src/cljs/orcpub/cloud/*` |
+| `claude/docker-setup-errors-0ntths` | unique | site-injected homebrew (`site-homebrew`, `load-site-plugins`) |
+| `claude/fix-brave-export-bug-2Tt7j` | unique | export unification (`serialize-edn`, `save-orcbrew!`), 6 tests, handoff doc |
+| `claude/fix-character-notes-merge-4YNzf` | unique | #704 pinning tests (`702fffc7`) and the investigation doc |
+| `claude/fix-pdf-export-GDM5n` | unique | `validate-all-plugins-before-export`, `fill-missing-for-export-all` |
+| `claude/image-poisoning-spa-1dkpva` | unique, unrelated | a standalone `image-shield/` app, not OrcPub |
+| `claude/upgrade-class-creation-zYV46` | unique | declarative class resources (`rage-modifiers`, `class-resource-pools`), `PROPS_*` docs |
+| `claude/custom-race-builder-3NxN5` | unclear | race ability-bonus fns not on a trunk; maybe superseded by the grant vocabulary |
+| `claude/loading-spinner-stuck-cXA6l` | unclear | empty-slug guard and `test-name-to-kw` not found; name-keyword-fix may have redone it |
+
 ## Left alone locally
 
 - `claude/zen-wright-04xhdz` (local copy): its fork branch was deleted, but the local copy holds 160 commits not on `integration`. The content is on the refactor line per the triage; check before deleting.

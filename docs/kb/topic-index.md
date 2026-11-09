@@ -489,7 +489,7 @@ _branch-context-history · branch context history_
 
 _branch-inventory · branch inventory_
 
-**topics:** ---, added, attached, changelog, claude, contained, copied, develop, elsewhere, integration, landed, local, local-only, remote, src, superseded, tip, worktree
+**topics:** ---, added, attached, changelog, claude, contained, copied, develop, elsewhere, integration, landed, local-only, remote, src, superseded, tip, unique, worktree
 
 - Trunk (9)
 - Release (1)
@@ -500,6 +500,7 @@ _branch-inventory · branch inventory_
 - Contained, kept for a worktree or PR (8)
 - Lives in another trunk (10)
 - Unmerged, not triaged (27)
+- claude/ content check (2026-11-09)
 - Left alone locally
 - Deleted
 - 2026-11-09 (1 claude branch)
@@ -1108,7 +1109,7 @@ _data-safety-layers · data safety layers_
 
 _datomic-crash-analysis · datomic crash analysis_
 
-**topics:** config, contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, observed, postgres, seconds, speculation, transactor, unvalidated, write
+**topics:** contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, observed, postgres, seconds, speculation, threshold, transactor, unvalidated, write
 
 - Active transactor configuration (verified from log startup lines)
 - Crash mechanism — verified
@@ -3522,7 +3523,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, magic-item, not-tested, per-silo, primitive, primitives, race, races, silo, spell, spells, sustainable, verified, wrapper
+**topics:** cast, castable, chain, class-gated, creator-declarable, innate, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
