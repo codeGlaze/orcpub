@@ -164,8 +164,13 @@ branch is finalized / PR'd** (don't let them vanish into the diff):
 2. **Get the ClojureScript tests into CI** (own branch). CI runs only the JVM gate, so the
    cljs suite is unrun and has rotted (`docs/kb/test-suite-state.md`). This is the root
    fix; it also lets future cljs changes be gated instead of hand-verified. Pairs with #1.
+3. **An explicit shape for class proficiencies** (owner agreed 2026-11-09, not started). A class's
+   `:profs :armor/:weapon/:tool` store `false` for "also when multiclassing" and `true` for
+   "starting class only", which generic readers get wrong (the export dropped them until #82).
+   Replace with a starting-class set and a multiclass set, with a mapping for old files:
+   `docs/kb/class-proficiency-flags.md`.
 
-When putting a bow on this branch, repeat these two items in the PR description / handoff.
+When putting a bow on this branch, repeat these items in the PR description / handoff.
 
 ## Workflow
 This branch is based on the leaner fork line, not `agents/develop`, so file

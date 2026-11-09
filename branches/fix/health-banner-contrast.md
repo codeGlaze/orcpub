@@ -4,19 +4,19 @@
 Markdown export. **Base:** `integration`. **PR:** #82 into `integration` (https://github.com/codeGlaze/orcpub/pull/82). Worktree
 `/home/codeglaze/projects/orcpub-health`. The name no longer says what it holds, so the PR title must.
 
-## State (2026-11-06)
+## State (2026-11-09)
 
-Pushed, 15 files against `integration`, no PR. All checks passed when the commits were made:
-`lein test` 1531, cljs 998, lint 0 errors, the new browser checks. Commits:
-`b9ea79a44` CSS fixes; `76399a1fb`, `80c083707`, `39e9ab9aa` the writer and tests;
-`38be460a8`, `14a417674` the feature-names-only table and the "export as markdown" button in My Content.
+#82 open, pushed through `bde30372a`. CodeRabbit's one review (2026-11-09) had 10 actionable
+comments; all fixed in `e94d4fce6` and `bd08631dc` (tests `fc5c51036`, `ebe3990a4`), each thread
+answered with its commit. That push only fixes the review, so it needs no new review. Checks on the
+final change: `lein test` 1539, cljs 1007, lint 0 errors (comment test and lint re-run after the
+docstring trim in `1b21a7ba3`). Changelog unfolded: one Added line (Markdown export), one Fixed line
+(class proficiencies survive the `.orcbrew` export; `docs/kb/class-proficiency-flags.md`).
 Plan and decisions: `docs/kb/plan-homebrew-markdown-export.md`.
 
 ## Next, in order
 
-1. **#82 is open (2026-11-08)**, as it is: classes and subclasses only. Branch changelog written, not
-   folded; `heavy-docker: later` label on; one `@coderabbitai full review` requested. Next: answer the
-   review per the merge gate. Fold the changelog only when the owner says it is about to merge.
+1. **Wait for CI and the owner.** Fold the changelog only when the owner says #82 is about to merge.
 2. **Piece 2b waits until after the release** (owner, 2026-11-08). **The simple types** (spells, feats, backgrounds, races, subraces, languages, invocations,
    boons): add rows to `formatters` in `homebrew_markdown.cljc`. Budget it before starting: the button
    pass took about 30 minutes and 158k helper tokens and used most of the owner's extra allowance.
@@ -27,5 +27,7 @@ Plan and decisions: `docs/kb/plan-homebrew-markdown-export.md`.
 ## Open
 
 - The button check's "button exists" claim was never seen failing against a bundle with no button.
-- Whether the Markdown notice and "Exported with warnings" can both show was not checked.
-- Equipment choices, multiclass profs and raw `:selections` are not written yet.
+- The notice now joins "Exported with warnings" (in its details) rather than replacing it; seen only
+  in code, not in a browser.
+- The cljs harness needs `playwright`, which this worktree lacks: run it with
+  `NODE_PATH=/home/codeglaze/projects/orcpub-pwd/node_modules`.

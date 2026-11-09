@@ -812,6 +812,15 @@ _class-features-and-mechanization · class features and mechanization_
 - Design direction for centralizing features — DESIGN (not built)
 - NOT-EXPLORED / to verify before sizing
 
+## class-proficiency-flags.md
+
+_class-proficiency-flags · class proficiency flags_
+
+**topics:** armor, class, cleaner, clearer, export, fighter, flags, granted, maps, multiclassing, pair, proficiency, proficient, shields, special-case, starting, starting-class, tool
+
+- Who reads it, and how
+- A clearer shape (refactor, not started)
+
 ## claude-branch-triage.md
 
 _claude-branch-triage · claude branch triage_
@@ -1692,7 +1701,7 @@ _error-handling-import-validation · error handling import validation_
 
 _expertise-chats · expertise chats_
 
-**topics:** 2026-11, 2026-11-08, 215k, 628, 642k, area, audit, auditor, chat, chats, expertise, hook, knowledge, messages, owner, tokens, tool, transcript
+**topics:** 2026-11, 2026-11-08, 215k, 628, area, audit, chat, chats, expertise, hook, knowledge, matches, messages, owner, prints, tokens, tool, transcript
 
 - Where the knowledge goes
 - Loading by area, not by chat (2026-11-08)
@@ -2176,7 +2185,7 @@ _homebrew-override · homebrew override_
 
 _homebrew-reference-web · homebrew reference web_
 
-**topics:** built-in, clash-driven, class, executed, feat, imported, item-to-item, key, link, links, membership, race, rename, spell, spells, stranded, subclass, subrace
+**topics:** built-in, clash-driven, class, executed, feat, item-to-item, key, link, links, membership, race, relocation, rename, spell, spells, stranded, subclass, subrace
 
 - 1. Why this page exists
 - 2. The links
@@ -2330,7 +2339,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2984,7 +2993,7 @@ _plan-email-and-alerts · plan email and alerts_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, published, skill, wrapper
+**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, pool, published, skill, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -3111,7 +3120,7 @@ _pool-grant-map · pool grant map_
 
 _proposal-indexeddb-storage · proposal indexeddb storage_
 
-**topics:** asynchronous, capacity, chunking, cross-tab, drawbacks, goal, indexeddb, library, localstorage, long-term, on-demand, per-key, perf-homebrew-builder-loop, plan-chunked-library-storage, quota, safari, storage, trial
+**topics:** asynchronous, capacity, chunking, cross-tab, drawbacks, goal, indexeddb, library, localstorage, long-term, on-demand, per-key, perf-homebrew-builder-loop, plan-chunked-library-storage, recorded, safari, storage, trial
 
 - The idea
 - Why it is worth looking at
@@ -3553,7 +3562,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, crest, figures, head, heading, level, opentype, packed, pact, prep, re-split, spell, spellbook, tabs, taller
+**topics:** cards, chapter, column, columns, crest, figures, head, heading, level, opentype, packed, pact, prep, re-split, slots, spell, spellbook, taller
 
 - What it prints
 - Why the layout works the way it does

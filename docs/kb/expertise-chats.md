@@ -26,7 +26,9 @@ prints every expertise file whose header matches the session. Header lines, befo
 | `dirs: <regex>` | any chat in a matching worktree folder |
 | `always: yes` | every chat |
 
-It also prints the session's folder and branch. **Hook output is cut to a short preview somewhere
+When a file matches, it also prints the session's folder and branch; when none does it prints
+nothing, so silence does not mean the hook failed. A chat started in the main checkout (detached,
+no branch) matches only `session:` and `always:` lines, whatever worktree it then works in. **Hook output is cut to a short preview somewhere
 near 10 KB** (measured once, 2026-11), so the hook prints matches up to about 9 KB, most specific
 first, and names the rest with a `cat` command instead of letting them be cut silently. Before
 2026-11-08 it matched `session:` only, so a new chat in the same area started with nothing; that is
