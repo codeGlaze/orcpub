@@ -657,12 +657,23 @@
      starting-character)
    (range)))
 
+(defn set-random-character
+  "Handler for [:set-random-character character built-template locked-components]: a random
+   character replacing the current one. A new character, not an edit, so the hold and its trail
+   start over (`hold-for`). If generating it throws, the spinner the Random button started is
+   turned off and an error shown, and the current character is kept. Returns an effects map."
+  [{:keys [db]} [_ character built-template locked-components]]
+  (try
+    {:db (assoc db ::e5/replacing? true)
+     :dispatch [:set-character (random-character character built-template locked-components)]}
+    (catch :default e
+      (js/console.error "Random character failed; the current character is kept." e)
+      {:db (update db :loading #(max 0 (dec (or % 0))))
+       :dispatch [:show-error-message "Could not make a random character. Your character is unchanged."]})))
+
 (reg-event-fx
  :set-random-character
- ;; A new character, not an edit: the hold and its trail start over (`hold-for`).
- (fn [{:keys [db]} [_ character built-template locked-components]]
-   {:db (assoc db ::e5/replacing? true)
-    :dispatch [:set-character (random-character character built-template locked-components)]}))
+ set-random-character)
 
 (reg-event-fx
  :random-character
@@ -3305,8 +3316,11 @@
                                                    js/window.location.hostname
                                                    path
                                                    js/window.location.port)))
-         ;; the Rest box's Undo belongs to the page it was made on
-         (cond-> {:db (-> db (assoc :route new-route) (dissoc ::char5e/rest-result :weapon-roll/chain))
+         ;; the Rest box's Undo belongs to the page it was made on; a page change also clears the
+         ;; spinner, which a handler that threw before its decrement would otherwise hold up
+         (cond-> {:db (-> db
+                          (assoc :route new-route :loading 0)
+                          (dissoc ::char5e/rest-result :weapon-roll/chain))
                   :dispatch-n [[:hide-message]
                                [:close-orcacle]]}
            (not no-return?) (assoc-in [:db :return-route] new-route)
