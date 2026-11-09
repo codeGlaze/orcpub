@@ -160,6 +160,16 @@ SAFE verdicts re-checked by hand. Nothing deleted from this list yet; the owner 
 
 Restore any of these with `git push origin <tip>:refs/heads/<branch>` (or `git branch <branch> <tip>` for a local-only one), as long as the commit still exists in a clone.
 
+### 2026-11-09, third batch (3 claude branches)
+
+Approved by the owner once their work was rescued.
+
+| branch | where | tip | last commit | why it could go |
+|---|---|---|---|---|
+| `claude/improve-test-coverage-hlyhp` | remote | `2579372ab` | 2026-02-02 | 24 tests rescued to test/rescued-claude-tests (1d870fbaf); 3 stale bracers tests dropped |
+| `claude/fix-pdf-widget-warnings-hUt9i` | remote | `24ff01d6a` | 2026-04-20 | 9 route tests rescued to test/rescued-claude-tests (1d870fbaf) |
+| `claude/loading-spinner-stuck-cXA6l` | remote | `427777acd` | 2026-05-25 | its guards no longer needed; the live hole fixed on test/rescued-claude-tests (8d623e0e1) |
+
 ### 2026-11-09, second batch (5 claude branches)
 
 Approved by the owner after the content check.
