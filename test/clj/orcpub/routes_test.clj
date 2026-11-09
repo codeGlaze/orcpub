@@ -634,8 +634,17 @@
       "  "     " Hero "    "Hero - Fighter (5).pdf"
       nil      nil         "Fighter (5).pdf"
       "   "    "   "       "Fighter (5).pdf"))
-  (testing "character.pdf only when nothing names the sheet"
-    (is (= "character.pdf" (routes/pdf-filename nil " " nil)))))
+  (testing "emoji and the characters Windows refuses are dropped; letters of any script stay"
+    (are [player character expected] (= expected (routes/pdf-filename player character "Fighter (5)"))
+      "Player 🙂"  "龍 Dragon"         "Player - 龍 Dragon - Fighter (5).pdf"
+      "Zoë"        "D’Artagnan"        "Zoë - D’Artagnan - Fighter (5).pdf"
+      "A<b>:c"     "Ash/Oak\\Elm|?*"  "Abc - AshOakElm - Fighter (5).pdf"
+      "Bob \"Bold\"" "Hero..."        "Bob Bold - Hero - Fighter (5).pdf"
+      "🙂🙂"        nil                "Fighter (5).pdf"))
+  (testing "character.pdf only when nothing names the sheet, or the name is reserved on Windows"
+    (is (= "character.pdf" (routes/pdf-filename nil " " nil)))
+    (is (= "character.pdf" (routes/pdf-filename nil "Con" nil)))
+    (is (= "character.pdf" (routes/pdf-filename "🙂" nil nil)))))
 
 (deftest content-disposition-carries-any-name
   (testing "filename*= keeps every character; filename= is plain ASCII with no raw quote or break"
