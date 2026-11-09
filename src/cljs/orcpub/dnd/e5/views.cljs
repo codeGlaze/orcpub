@@ -184,12 +184,15 @@
             form (.getElementById js/document "download-form")
             spec (named-spec (pdf-spec/make-spec built-char id options plugin-data) built-char id options)
             portrait (char/portrait built-char)
-            ;; A beat after the tab opens, so it paints its notice before the navigation starts.
+            ;; Into an opened tab a beat later, so it paints its notice before the navigation
+            ;; starts; with no tab (a blocked popup), at once, while still inside the click.
             submit! (fn [png-b64 target]
                       (aset field "value" (str (merge spec (try (portrait-fields portrait png-b64)
                                                                 (catch :default _ nil)))))
                       (aset form "target" target)
-                      (js/setTimeout #(.submit form) 150))
+                      (if (= "_blank" target)
+                        (.submit form)
+                        (js/setTimeout #(.submit form) 150)))
             ready (when (portrait-assets5e/drawable? portrait) (portrait/baked-png portrait))
             target (making-pdf-tab! (str "orcpub-pdf-" (rand-int 1000000)))]
         (cond
