@@ -1323,18 +1323,39 @@
            (false? v)
            (and (coll? v) (empty? v)))))
 
+(def ^:private export-keep-false-prof-keys
+  "The :profs keys whose maps hold `false` as data (a class's \"proficient even when
+   multiclassing\"), so export keeps it. See docs/kb/class-proficiency-flags.md."
+  #{:armor :weapon :tool})
+
+(declare strip-export-blanks)
+
+(defn- strip-prof-blanks
+  "A :profs map `profs` cleaned for export as `strip-export-blanks` does, except that `false`
+   inside its :armor, :weapon and :tool maps is kept (only nil entries go). Returns the map."
+  [profs]
+  (reduce-kv (fn [m k v]
+               (let [v' (if (and (export-keep-false-prof-keys k) (map? v))
+                          (into {} (remove (comp nil? val)) v)
+                          (strip-export-blanks v))]
+                 (if (blank-for-export? k v')
+                   m
+                   (assoc m k v'))))
+             {}
+             profs))
+
 (defn strip-export-blanks
-  "Recursively drop meaningless blank MAP VALUES for export (nil, false, empty
-   collection), except keys where nil is meaningful (export-keep-nil-keys).
-   Vector/set elements are cleaned but never dropped positionally, so pairs like
-   `[prof-kw first-class?]` survive. Only removes blanks, never alters a real value
-   (round-trip safe — see export-strip tests). NORMAL exports only; raw/draft stay
-   byte-for-byte untouched."
+  "`data` with meaningless blank MAP VALUES (nil, false, empty collection) dropped, recursively,
+   for NORMAL exports (raw/draft stay untouched). Kept: nil under export-keep-nil-keys, `false`
+   proficiency flags under :profs (`strip-prof-blanks`), and vector/set elements (cleaned, never
+   dropped, so `[prof-kw first-class?]` pairs survive). Never alters a real value. Returns data."
   [data]
   (cond
     (map? data)
     (reduce-kv (fn [m k v]
-                 (let [v' (strip-export-blanks v)]
+                 (let [v' (if (and (= :profs k) (map? v))
+                            (strip-prof-blanks v)
+                            (strip-export-blanks v))]
                    (if (blank-for-export? k v')
                      m
                      (assoc m k v'))))

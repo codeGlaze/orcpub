@@ -1277,6 +1277,24 @@
     (is (= {:armor-profs [[:heavy false] [:medium true]]}
            (orcbrew-val/strip-export-blanks {:armor-profs [[:heavy false] [:medium true]]})))))
 
+(deftest strip-export-blanks-keeps-false-proficiency-flags
+  ;; In :profs :armor/:weapon/:tool, false means "proficient even when multiclassing"
+  ;; (docs/kb/class-proficiency-flags.md); dropping it would take the proficiency away.
+  (let [cls {:name "Warrior"
+             :profs {:armor {:light false :medium false :heavy true :shields false}
+                     :weapon {:simple false :martial false}
+                     :tool {:smiths-tools false :gone nil}
+                     :save {:orcpub.dnd.e5.character/str true :orcpub.dnd.e5.character/int false}}
+             :props {:flag false}}]
+    (is (= {:name "Warrior"
+            :profs {:armor {:light false :medium false :heavy true :shields false}
+                    :weapon {:simple false :martial false}
+                    :tool {:smiths-tools false}
+                    :save {:orcpub.dnd.e5.character/str true}}}
+           (orcbrew-val/strip-export-blanks cls)))
+    (testing "an armor map holding only nil still goes"
+      (is (= {:name "X"} (orcbrew-val/strip-export-blanks {:name "X" :profs {:armor {:light nil}}}))))))
+
 (deftest strip-export-blanks-roundtrip-safe
   (testing "the toggle false-cruft is removed, real proficiencies kept, still valid"
     (let [plugin (read-string

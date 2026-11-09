@@ -39,11 +39,9 @@
   ;; such. A new entry here is a decision someone has to make on purpose.
   (testing "callers of save-orcbrew-blob! are the gate or a declared hatch"
     (is (= #{;; the gate — corrects, validates, then writes
-             "validate-and-show-modal-or-export"    ; one source
+             "save-source!"                         ; one source: .orcbrew or Markdown, see below
              "::e5/export-all-plugins"              ; the whole library
-             ":export-with-auto-fix"                ; the gate's fill-in dialog, resumed
              ;; hatches: unvalidated on purpose, so content can always get out
-             ":export-as-is"                        ; "export anyway", after the gate objected
              "reg-export-draft"                     ; builder WIP rescue
              "::e5/emergency-export-raw"            ; offered when export refuses
              "::e5/export-quarantined-raw"          ; a source validation already rejected
@@ -54,3 +52,13 @@
         (str "An export path changed. If it is a new hatch, add it here with a "
              "note saying why it skips validation; otherwise route it through "
              "validate-and-show-modal-or-export or ::e5/export-all-plugins."))))
+
+(deftest per-source-writes-go-through-the-gate-or-its-resumption
+  ;; save-source! writes one source as .orcbrew or Markdown. Only the gate, its fill-in dialog
+  ;; resumed, and "export anyway" may call it, so Markdown cannot skip the gate either.
+  (testing "callers of save-source! are the gate and the two ways its dialog ends in a file"
+    (is (= #{"validate-and-show-modal-or-export"    ; one source
+             ":export-with-auto-fix"                ; the gate's fill-in dialog, resumed
+             ":export-as-is"}                       ; "export anyway", after the gate objected
+           (disj (enclosing-form-names events-src "(save-source!")
+                 "save-source!")))))
