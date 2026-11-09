@@ -368,14 +368,14 @@
    [:skill "Skills" label]])
 
 (defn- prof-grant-lines
-  "Bullets for a :profs :armor, :weapon or :tool map `m` under `head`. Every key with a boolean
-   value is a proficiency. In a class (`class?`) `true` means only as the starting class and gets
-   its own \"(starting class only)\" bullet; `false` means also when multiclassing. A subclass
-   grants every key. See docs/kb/class-proficiency-flags.md. Returns a list of bullets."
-  [m head class?]
+  "Bullets for a :profs :armor, :weapon or :tool map `m` under `head`; every key with a boolean
+   value is a proficiency. For a class (`for-class?`) `false` keys go under `head` and `true` keys
+   (starting class only) under \"<head> (starting class only)\"; a subclass lists every key under
+   `head`. See docs/kb/class-proficiency-flags.md. Returns a list of bullets."
+  [m head for-class?]
   (let [entries (filter (comp boolean? val) (sorted-entries m))
         names #(esc-join (keep (comp label key) %))]
-    (if class?
+    (if for-class?
       (keep identity [(kv head (names (remove val entries)))
                       (kv (str head " (starting class only)") (names (filter val entries)))])
       (keep identity [(kv head (names entries))]))))
@@ -403,12 +403,13 @@
         (seq names) (str head " from " (esc-join names))))))
 
 (defn- profs-lines
-  "Bullets for a :profs map: armor, weapons and tools (`class?` as for `prof-grant-lines`), then
-   flags, then choices. Returns a vector, [] when nothing is readable."
-  [profs class?]
+  "Bullets for a :profs map: armor, weapons and tools (`for-class?` as in `prof-grant-lines`),
+   then flags, then choices. Returns a vector, [] when nothing is readable."
+  [profs for-class?]
   (if (map? profs)
     (vec (concat
-          (mapcat (fn [[k head]] (prof-grant-lines (get profs k) head class?)) prof-grant-fields)
+          (mapcat (fn [[k head]] (prof-grant-lines (get profs k) head for-class?))
+                  prof-grant-fields)
           (for [[k head f] prof-flag-fields
                 :let [v (esc-join (keep f (set-keys (get profs k))))]
                 :when v]

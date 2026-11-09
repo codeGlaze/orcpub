@@ -1345,13 +1345,10 @@
              profs))
 
 (defn strip-export-blanks
-  "Recursively drop meaningless blank MAP VALUES for export (nil, false, empty
-   collection), except keys where nil is meaningful (export-keep-nil-keys) and `false`
-   proficiency flags under :profs (see `strip-prof-blanks`).
-   Vector/set elements are cleaned but never dropped positionally, so pairs like
-   `[prof-kw first-class?]` survive. Only removes blanks, never alters a real value
-   (round-trip safe — see export-strip tests). NORMAL exports only; raw/draft stay
-   byte-for-byte untouched."
+  "`data` with meaningless blank MAP VALUES (nil, false, empty collection) dropped, recursively,
+   for NORMAL exports (raw/draft stay untouched). Kept: nil under export-keep-nil-keys, `false`
+   proficiency flags under :profs (`strip-prof-blanks`), and vector/set elements (cleaned, never
+   dropped, so `[prof-kw first-class?]` pairs survive). Never alters a real value. Returns data."
   [data]
   (cond
     (map? data)
