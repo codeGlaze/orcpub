@@ -839,6 +839,27 @@
                            :nonce (:csp-nonce req)
                            :action (or (:uri req) "/character.pdf")})}))))
 
+(defn pdf-filename
+  "The download name of a character sheet: the player name, character name and class level that
+   are not blank, trimmed and joined with \" - \", then \".pdf\"; \"character.pdf\" when both
+   names are blank. Args: three strings or nils. Returns a string."
+  [player-name character-name class-level]
+  (let [names (remove s/blank? [player-name character-name])]
+    (if (empty? names)
+      "character.pdf"
+      (str (s/join " - " (map s/trim (concat names (remove s/blank? [class-level])))) ".pdf"))))
+
+(defn content-disposition
+  "The Content-Disposition header value showing `filename` inline. filename= is an ASCII copy
+   (anything else, quotes and backslashes as _); filename*= is the whole name, UTF-8 and
+   percent-encoded (RFC 6266), which browsers prefer. Args: a string. Returns a string."
+  [filename]
+  (let [ascii (s/replace filename #"[^\x20-\x7E]|[\"\\]" "_")
+        encoded (-> (java.net.URLEncoder/encode ^String filename "UTF-8")
+                    (s/replace "+" "%20")
+                    (s/replace "*" "%2A"))]
+    (str "inline; filename=\"" ascii "\"; filename*=UTF-8''" encoded)))
+
 (defn- spell-annotation
   "The marks for the spell printed under `nm`, or nil.
 
@@ -893,10 +914,7 @@
         no-casters? (and (zero? casters) (some? without-casters))
         input (.openStream (io/resource (if no-casters? without-casters file)))
         output (ByteArrayOutputStream.)
-        filename (cond
-                   (and (s/blank? player-name) (s/blank? character-name)) "character.pdf"
-                   (s/blank? player-name) (str character-name " - " class-level ".pdf")
-                   :else (str player-name " - " character-name " - " class-level ".pdf"))]
+        filename (pdf-filename player-name character-name class-level)]
         
     ;; PDFBox 3.x: Loader/loadPDF accepts byte[], File, or RandomAccessRead —
     ;; NOT InputStream. Read the resource stream into a byte array first.
@@ -1049,7 +1067,7 @@
         (.save doc output)))
     (let [a (.toByteArray output)]
       {:status 200
-       :headers {"Content-Disposition" (str "inline; filename=\"" filename "\"")}
+       :headers {"Content-Disposition" (content-disposition filename)}
        :body (ByteArrayInputStream. a)})))
 
 (defn- generate-character-pdf
