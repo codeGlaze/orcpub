@@ -134,6 +134,14 @@ Last updated 2026-10-06. Re-run before trusting a row: branches move.
 
 Restore any of these with `git push origin <tip>:refs/heads/<branch>` (or `git branch <branch> <tip>` for a local-only one), as long as the commit still exists in a clone.
 
+### 2026-11-09 (1 claude branch)
+
+Approved by the owner. `git cherry` found every commit's change on `integration`.
+
+| branch | where | tip | every commit in |
+|---|---|---|---|
+| `claude/character-portrait-generator-hOutO` | remote | `ab19efdc7` | integration (by patch) |
+
 ### 2026-11-09 (28 branches)
 
 Approved by the owner. Each tip was checked, just before the delete, to be an ancestor of the

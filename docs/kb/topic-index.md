@@ -502,6 +502,7 @@ _branch-inventory · branch inventory_
 - Unmerged, not triaged (27)
 - Left alone locally
 - Deleted
+- 2026-11-09 (1 claude branch)
 - 2026-11-09 (28 branches)
 - 2026-10-17 (1 branch)
 - 2026-10-06 (65 branches)
