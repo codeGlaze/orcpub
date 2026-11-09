@@ -35,7 +35,13 @@ and stay open until they reproduce.
 
 ## Added
 
+- **Printing:** PDF Options lets players choose what the file name shows (player, character, class,
+  subclass, level), where the level goes and how it is written (5, 05, L5); kept on the account.
+
 ## Changed
+
+- **Printing:** PDF Options spreads across the width of a desktop screen, and Create PDF opens a
+  tab that says the PDF is being made.
 
 ## Fixed
 
