@@ -22,7 +22,13 @@ scrolling, a freeze on ticking Print Spell Cards / Print Spellbook). **Base:** `
   nothing ticked: 0.2-0.4 s (idle local server; queueing adds to it). Create PDF closes the panel
   at once and the PDF opens in a new tab, so nothing shows the wait. Not changed: how to show it
   is the owner's choice (below).
-- Next: the owner's answer on export feedback.
+- **Tick freeze, dev bundle (2026-11-09):** still not reproduced. Same Wizard 20 / 440 spells, dev
+  bundle (`Needs: dev bundle`), CPU profile around each tick: paint 250-280 ms, no long tasks,
+  under 15 ms of script in the 5 s after. Differences from the owner's report still untested: a
+  character with a portrait (`bake-portrait` sits in the panel and re-bakes on every update), a
+  saved character opened from the list, the owner's own homebrew library.
+- File names drop emoji and Windows-illegal characters (`file-safe` in `routes.clj`).
+- Next: the owner's answers (export feedback; file name controls; a wide PDF Options layout).
 
 ## Open questions for the owner
 
