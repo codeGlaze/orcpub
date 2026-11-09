@@ -207,6 +207,41 @@ The owner reads every reply, often on a phone, and the log of a long turn alread
   branch beside every PR or issue number you mention: `Working on: feature/guarded-homebrew` ·
   `#69 (feature/asi-spreads)`.
 
+## Working with the owner — MUST FOLLOW
+
+Corrections the owner has had to make more than once. Each cost a turn and a re-read of the chat.
+
+- **Answer the question asked.** A question or a passing doubt is not a request to rebuild the plan,
+  nor to drop it. When he asks "are we overcomplicating this?", stop and offer the smaller thing.
+- **Do the plan's obvious next step; don't ask.** Asking whether a finished branch should merge drew
+  "ffs". Ask only for new behaviour, a design choice, a new branch, or anything on `integration` or
+  `develop`. Fixes for a PR's own review or CI findings are pushed, with thread replies, in the same
+  turn: asking first ended the turn and forced a costly re-read.
+- **A bug found now is fixed now, on the open branch.** Not punted, and never shipped apart from
+  its companion piece ("what's the point of the safety net if the companion piece isn't there?").
+- **Never accept a failing test as "pre-existing".** Find why and fix it, on any branch.
+- **A bug report asks for a fix, not removal.** Never call a reported problem a non-problem, and
+  never write "the owner rejected X" unless he said so.
+- **"Pre-merge" means a test merge:** merge locally and fix what breaks before a branch goes out for
+  PR. It does not mean pushing or opening a PR.
+- **A clean diff is not a clean PR.** Ask whether each kind of file belongs; 38 mockups once reached
+  `integration` in a diff with no whitespace noise.
+- **"Does it need running?" asks whether it can be skipped.** Waiting costs him too. Gate a push on a
+  check's exit code, never on reading its tail.
+- **Lists stay scannable:** one item per line under a heading, never a comma-separated paragraph.
+  Put the report at the end, not among progress notes.
+- **Waiting is not working.** Answer a Stop-hook reply in one line; never re-ask what he answered. No
+  polling: one background wait with one notification.
+- **Show each change before making it** when he says so, and say where a change can be seen.
+- **A tool needs a trigger, or it goes unused.** What must happen gets a hook or a failing test;
+  what should happen gets a line here naming the moment ("before X, run Y"). Build nothing with
+  neither.
+- **Never create branches with squash;** keep history. Squashed branches confuse agents and merges.
+- **Outward actions go one per command:** a push, a PR, a label, a review request. A chained one was
+  refused by the safety check.
+- **The main checkout may hold another agent's work.** Find a branch's folder with
+  `git worktree list | grep -F '[branch]'`; never guess from the folder's name.
+
 ## Code — MUST FOLLOW
 
 - **Placement:** shared logic in `src/cljc/`, server-only in `src/clj/`, client-only in `src/cljs/`
@@ -221,7 +256,9 @@ The owner reads every reply, often on a phone, and the log of a long turn alread
   variable beat it; plain `lein` does not load it at all (table: `docs/ENVIRONMENT.md`). There is no
   `dotenv` dependency; do not add one. Read values through `orcpub.env/value`, which treats blank as
   absent (`docs/kb/blank-env-values.md`). Never commit secrets (`SIGNATURE`, DB credentials): they
-  go in `.env` or the CI secret store. Variables: `docs/ENVIRONMENT.md`.
+  go in `.env` or the CI secret store. **Never put a token on a command line**
+  (`-c http.extraHeader=...`, a URL, an `echo`): it lands in the transcript, and approving the
+  command saves it in plain text in `~/.claude/settings.json`. Pushes use the git credential helper. Variables: `docs/ENVIRONMENT.md`.
 - **Built-ins before scripts:** `lein test`, `lein lint`, `lein garden`, `lein uberjar`, `lein deps`,
   local JARs through the `file:lib` repository. A custom script only orchestrates several tools or
   sets up an environment (`scripts/start.sh`, `./menu`). Follow existing patterns and names
