@@ -6712,8 +6712,8 @@
 
 ;; The debug hatch: the whole library, pretty-printed, with NO validation — the one
 ;; export that skips the gate, to show the store as it is. Still uses the shared
-;; save-orcbrew-blob! serialization. Dev-only: views/debug-data renders its control
-;; behind goog/DEBUG.
+;; save-orcbrew-blob! serialization. views/debug-data shows its control only with
+;; Developer mode on.
 (reg-event-fx
  ::e5/export-all-plugins-pretty-print
  (fn [{:keys [db]} _]
