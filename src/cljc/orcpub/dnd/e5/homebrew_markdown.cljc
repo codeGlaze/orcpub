@@ -3,7 +3,8 @@
    Markdown, for sharing a class or subclass for feedback. Pure string building, shared by the
    browser and the JVM. Every field is read as untrusted: a wrong type or a missing key skips
    its line and never throws. Design: docs/kb/plan-homebrew-markdown-export.md on agents/develop."
-  (:require [clojure.string :as s]))
+  (:require [clojure.string :as s]
+            [orcpub.common :as common]))
 
 ;; ---------------------------------------------------------------------------------------------
 ;; Escaping
@@ -109,7 +110,7 @@
   (cond
     (keyword? x) (not-empty (->> (s/split (name x) #"[-_]+")
                                  (remove s/blank?)
-                                 (map s/capitalize)
+                                 (map common/ascii-capitalize)
                                  (s/join " ")))
     (string? x) (one-line x)
     :else nil))
@@ -691,7 +692,7 @@
                (when sub-level
                  [{:level sub-level :cell (escape-cell (or sub-title "Subclass feature"))}]))
         entries (level-entries item ctx)
-        subclasses (sort-by (juxt #(s/lower-case (or (one-line (:name %)) "")) #(str (:key %)))
+        subclasses (sort-by (juxt #(common/ascii-lower-case (or (one-line (:name %)) "")) #(str (:key %)))
                             (maps-of (:subclasses item)))]
     (vec
      (concat
@@ -782,7 +783,7 @@
   "The [key item] pairs of `items` whose item is a map, ordered by name then key; [] otherwise."
   [items]
   (if (map? items)
-    (sort-by (fn [[k v]] [(s/lower-case (or (one-line (:name v)) "")) (str k)])
+    (sort-by (fn [[k v]] [(common/ascii-lower-case (or (one-line (:name v)) "")) (str k)])
              (filter (comp map? val) items))
     []))
 
