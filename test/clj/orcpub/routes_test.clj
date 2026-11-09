@@ -626,14 +626,16 @@
                                (auth/first-user-by (d/db c) auth/username-query "late"))))))))))
 
 (deftest pdf-filename-names-the-sheet
-  (testing "blank names fall back; a blank slot leaves no gap"
+  (testing "blank parts are left out, so no gap and no unnamed file"
     (are [player character expected] (= expected (routes/pdf-filename player character "Fighter (5)"))
       "Player" "Character" "Player - Character - Fighter (5).pdf"
       nil      "Character" "Character - Fighter (5).pdf"
       "Player" nil         "Player - Fighter (5).pdf"
       "  "     " Hero "    "Hero - Fighter (5).pdf"
-      nil      nil         "character.pdf"
-      "   "    "   "       "character.pdf")))
+      nil      nil         "Fighter (5).pdf"
+      "   "    "   "       "Fighter (5).pdf"))
+  (testing "character.pdf only when nothing names the sheet"
+    (is (= "character.pdf" (routes/pdf-filename nil " " nil)))))
 
 (deftest content-disposition-carries-any-name
   (testing "filename*= keeps every character; filename= is plain ASCII with no raw quote or break"
