@@ -398,6 +398,37 @@
           (is (true? (:send-updates? (body)))))))))
 
 
+(deftest test-pdf-file-name-preference
+  (with-conn conn
+    (let [mocked-conn (dm/fork-conn conn)]
+      @(d/transact mocked-conn schema/all-schemas)
+      @(d/transact mocked-conn [{:orcpub.user/username "testy"
+                                  :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"}])
+      (let [put! (fn [params] (routes/update-user-preferences
+                               {:transit-params params :db (d/db mocked-conn)
+                                :conn mocked-conn :identity {:user "testy"}}))
+            body (fn [] (let [db (d/db mocked-conn)]
+                          (auth/user-body db (auth/user-for-email db "test@test.com"))))]
+        (testing "never chosen: absent"
+          (is (not (contains? (body) :pdf-file-name))))
+        (testing "a choice is saved and comes back with the user"
+          (let [resp (put! {:pdf-file-name {:player? false :level-style :prefixed}})]
+            (is (= {:player? false :level-style :prefixed} (get-in resp [:body :pdf-file-name]))))
+          (is (= {:player? false :level-style :prefixed} (:pdf-file-name (body)))))
+        (testing "unknown keys and wrong kinds are dropped before saving"
+          (put! {:pdf-file-name {:player? "yes" :level-style :huge :evil "x" :class? false}})
+          (is (= {:class? false} (:pdf-file-name (body)))))))))
+
+(deftest requested-pdf-filename-prefers-the-players-choices
+  (testing "the client's :file-name is used, made file-safe"
+    (is (= "Hero - L5 Wizard.pdf"
+           (routes/requested-pdf-filename {:file-name "Hero - L5 Wizard" :character-name "Other"}))))
+  (testing "a blank :file-name (every part unticked) falls back to character.pdf"
+    (is (= "character.pdf" (routes/requested-pdf-filename {:file-name "" :character-name "Hero"}))))
+  (testing "no :file-name (an older client) builds it from the names"
+    (is (= "Hero - Fighter (5).pdf"
+           (routes/requested-pdf-filename {:character-name "Hero" :class-level "Fighter (5)"})))))
+
 (deftest a-failed-send-does-not-mark-a-reset-address-as-registered
   ;; Swallowed on purpose: only a real account can fail to be emailed, so an error response would
   ;; reopen the membership test the uniform 200 closed. (Everything else about the reset form's

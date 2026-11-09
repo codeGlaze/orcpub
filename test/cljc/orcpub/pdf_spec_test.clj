@@ -186,3 +186,36 @@
             "  \u2022 +2d10 radiant vs fiends and undead"
             "Club. +4, 1d8+2 slashing"]
            lines))))
+
+
+;; -- file-name --
+
+(def ^:private two-classes
+  {:wizard {:class-name "Wizard" :class-level 5 :subclass-name "School of Evocation"}
+   :cleric {:class-name "Cleric" :class-level 3 :subclass-name ""}})
+
+(deftest file-name-follows-the-players-choices
+  (testing "defaults: every part, level after its class, plain"
+    (is (= "Pat - Hero - Wizard [School of Evocation] 5 + Cleric 3"
+           (pdf/file-name "Pat" "Hero" [:wizard :cleric] two-classes {}))))
+  (testing "level first, padded or prefixed, subclass off"
+    (is (= "Hero - 05 Wizard + 03 Cleric"
+           (pdf/file-name "Pat" "Hero" [:wizard :cleric] two-classes
+                          {:player? false :subclass? false :level-first? true :level-style :padded})))
+    (is (= "Hero - Wizard L5 + Cleric L3"
+           (pdf/file-name "Pat" "Hero" [:wizard :cleric] two-classes
+                          {:player? false :subclass? false :level-style :prefixed}))))
+  (testing "classes off: the total level alone"
+    (is (= "Hero - L8" (pdf/file-name "Pat" "Hero" [:wizard :cleric] two-classes
+                                      {:player? false :class? false :level-style :prefixed}))))
+  (testing "level off, and everything off"
+    (is (= "Pat - Wizard [School of Evocation] + Cleric"
+           (pdf/file-name "Pat" nil [:wizard :cleric] two-classes {:level? false})))
+    (is (= "" (pdf/file-name "Pat" "Hero" [:wizard] two-classes
+                             {:player? false :character? false :class? false :level? false})))))
+
+(deftest clean-file-name-format-keeps-only-known-choices
+  (is (= {:player? false :level-style :padded}
+         (pdf/clean-file-name-format {:player? false :level-style :padded :x 1 :class? "no"})))
+  (is (= {} (pdf/clean-file-name-format {:level-style :huge})))
+  (is (= {} (pdf/clean-file-name-format "not a map"))))
