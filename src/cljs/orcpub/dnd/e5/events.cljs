@@ -2727,6 +2727,16 @@
  (fn [_ [_ built-char]]
    {:dispatch [:update-value-field ::char5e/character-name
                (generate-random-name built-char)]}))
+
+;; Gives the builder's character `character-name` when it is the character `id` (nil for one never
+;; saved) and still has no name: an export of an unnamed character names it, as Save does.
+(reg-event-fx
+ ::char5e/fill-blank-name
+ (fn [{:keys [db]} [_ id character-name]]
+   (when (and (= id (get-in db [:character :db/id]))
+              (s/blank? (get-in db [:character ::entity/values ::char5e/character-name])))
+     {:dispatch [:update-value-field ::char5e/character-name character-name]})))
+
 (reg-event-db
  :select-option
  character-interceptors

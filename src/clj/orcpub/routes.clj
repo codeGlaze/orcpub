@@ -841,13 +841,13 @@
 
 (defn pdf-filename
   "The download name of a character sheet: the player name, character name and class level that
-   are not blank, trimmed and joined with \" - \", then \".pdf\"; \"character.pdf\" when both
-   names are blank. Args: three strings or nils. Returns a string."
+   are not blank, trimmed and joined with \" - \", then \".pdf\"; \"character.pdf\" only when all
+   three are blank. Args: three strings or nils. Returns a string."
   [player-name character-name class-level]
-  (let [names (remove s/blank? [player-name character-name])]
-    (if (empty? names)
+  (let [parts (map s/trim (remove s/blank? [player-name character-name class-level]))]
+    (if (empty? parts)
       "character.pdf"
-      (str (s/join " - " (map s/trim (concat names (remove s/blank? [class-level])))) ".pdf"))))
+      (str (s/join " - " parts) ".pdf"))))
 
 (defn content-disposition
   "The Content-Disposition header value showing `filename` inline. filename= is an ASCII copy

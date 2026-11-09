@@ -127,6 +127,17 @@
   (-> (js/Promise.race #js [bake (js/Promise. (fn [ok _] (js/setTimeout #(ok nil) portrait-wait-ms)))])
       (.catch (fn [_] nil))))
 
+(defn- named-spec
+  "`spec`, the export map for `built-char` (character `id`), with a generated name in both name
+   fields when the character has none, the way Save names it; the builder's character gets the
+   same name when it is the one exported (::char/fill-blank-name). Returns the spec."
+  [spec built-char id]
+  (if-not (s/blank? (:character-name spec))
+    spec
+    (let [n (events/generate-random-name built-char)]
+      (dispatch [::char/fill-blank-name id n])
+      (assoc spec :character-name n :character-name-2 n))))
+
 (defn export-pdf
   "An onClick handler that submits the PDF form for `built-char`, with its portrait when one can be
    drawn. Nothing optional stops the export: a missing, undrawable, failing or slow portrait sends
@@ -138,7 +149,7 @@
     (try
       (let [field (.getElementById js/document "fields-input")
             form (.getElementById js/document "download-form")
-            spec (pdf-spec/make-spec built-char id options plugin-data)
+            spec (named-spec (pdf-spec/make-spec built-char id options plugin-data) built-char id)
             portrait (char/portrait built-char)
             submit! (fn [png-b64 target]
                       (aset field "value" (str (merge spec (try (portrait-fields portrait png-b64)
