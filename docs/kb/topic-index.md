@@ -695,7 +695,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, character, characters, former, former-key, heal, healed, heals, indexes, key, keys, misfiled, pick, renamed, report, saved, spell-selection, toast
+**topics:** binding, character, characters, class, former, former-key, heal, healed, heals, indexes, key, misfiled, pick, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -3010,7 +3010,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-homebrew-markdown-export · plan homebrew markdown export_
 
-**topics:** 150k, 2026-11-06, 318, always-prepared, benefits, export, feedback, fill-in, formattable, level, markdown, piece, readable, simple, subclasses, table, types, whole-library
+**topics:** 150k, 2026-11-06, always-prepared, benefits, export, feedback, fill-in, formattable, lent, level, markdown, piece, simple, subclasses, table, types, whole-library, writer
 
 - Decisions (owner)
 - Shape

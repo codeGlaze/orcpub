@@ -49,7 +49,12 @@ Cost estimate (not measured): about 150k helper tokens a piece, plus review here
 
 - The builder's modifier labels live inside `modifier-values` in `views.cljs` and need a subscription, so
   the cljc writer has its own `modifier-labels` table (12 types); an unknown type prints `Type: value`.
-- Not covered yet: `multiclass-*` profs, `equipment-selections`, raw `:selections`. A modifier whose level
+- Not covered yet: `multiclass-*` profs. `equipment-selections` and raw `:selections` came in with #82's
+  review fixes. **Raw `:selections` use `orcpub.template` keys** (`:orcpub.template/name`, `/min`,
+  `/options`): `class-option` passes them straight to the template, so that is the shape that works in
+  the builder; the writer reads those first and plain keys as a fallback (`template-field`, `1a660f3b1`).
+  Selections lent by other sources skip `:disabled?` sources and items, as `process-plugin-vals` does.
+- A modifier whose level
   is not 1 to 20 is listed under "Features without a valid level"; a feature with no level counts as 1.
 - Level table style (decided, recommended by the agent): feature names only; a level that only grants
   benefits reads "See below"; benefits stay in the "Gained at this level" lists.

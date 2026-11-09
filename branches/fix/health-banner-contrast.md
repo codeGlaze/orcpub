@@ -19,12 +19,14 @@ the `common` ASCII helpers in `805d3ff85` (pushed). Three jobs died on a GitHub 
 Leiningen jar before any test ran, so `79262b481` (local, unpushed) adds
 `.github/actions/install-lein` (Actions cache plus curl retries), used by `setup-lein`, `locale.yml`
 and `browser-suite.yml`; `docker-heavy.yml` is left alone so it stays on demand (owner). A second
-CodeRabbit review was requested at the owner's go (2026-11-09 07:31); push `79262b481` together with
-that review's fixes once it posts.
+CodeRabbit review was requested at the owner's go (2026-11-09 07:31): 5 actionable comments, all
+fixed in `1a660f3b1` (tests `0206cafd8`, seen failing first), pushed with `79262b481`, each thread
+answered. Its 2 trivial nitpicks on `health_caret_e2e.js` (detail-line opacity, open caret's size)
+were left. The caret test's new wait was not run in a browser.
 
 ## Next, in order
 
-1. **Wait for CodeRabbit's second review, fix it, push with `79262b481`, then CI and the owner.** Fold the changelog only when the owner says #82 is about to merge.
+1. **Wait for CI and the owner.** Fold the changelog only when the owner says #82 is about to merge.
 2. **Piece 2b waits until after the release** (owner, 2026-11-08). **The simple types** (spells, feats, backgrounds, races, subraces, languages, invocations,
    boons): add rows to `formatters` in `homebrew_markdown.cljc`. Budget it before starting: the button
    pass took about 30 minutes and 158k helper tokens and used most of the owner's extra allowance.
