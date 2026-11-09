@@ -812,12 +812,14 @@
      {:color "var(--accent, #f0a100)"
       :text-decoration :underline}]]
 
-   ;; The spellbook's class emblems in PDF Options: black icons, inverted on the dark panel.
+   ;; The spellbook's class emblems in PDF Options: black icons, inverted on the dark theme's panel
+   ;; and left black on the light one.
    [:.emblem-icon
     {:width "22px"
      :height "22px"
      :filter "invert(1)"
      :opacity "0.85"}]
+   [".app.light-theme .emblem-icon" {:filter "none"}]
    [:.emblem-choices
     {:display "grid"
      :grid-template-columns "repeat(auto-fill, minmax(34px, 1fr))"
