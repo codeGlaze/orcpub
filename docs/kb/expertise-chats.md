@@ -4,21 +4,57 @@ Long chats do better than new agents with handoffs, but reopening one is expensi
 cache writes in the chat this was worked out in, and about 70% of that context was tool traffic. A
 handoff records state; the value is the owner's corrections, failed approaches and traps.
 
-## The routine (once per chat)
+## Where the knowledge goes
 
-1. Write `~/.claude/expertise/<name>.md`, first line `session: <session id>`, under 3,000 words:
-   corrections and why, what failed, what a new agent gets wrong first, settled decisions, open work.
-   It points at KB pages; shared findings go in the KB, not here.
-2. Audit it: extract the owner's typed messages from the transcript, and have a fresh subagent report
-   what is in none of the expertise file, `CLAUDE.md`, memory or the KB. The owner cannot quiz for
-   what they do not know is missing, so their own history is the answer key. This cost 215k tokens
-   for a four-month chat, so run it once, not routinely.
-3. Run a plain `/compact`. `/compact` instructions are a request to the summarizer, not a guarantee.
+- **How to work with the owner** (corrections that apply to every task): `AGENTS.md`, "Working with
+  the owner". Every agent loads it, including cloud sessions, which have no user-level hooks.
+- **An area's knowledge** (release and DMV, say): `~/.claude/expertise/<area>.md`, under about 8 KB,
+  pointing at KB pages for detail. Shared findings go in the KB, not there.
+- **Everything else stays searchable:** transcripts remain in `~/.claude/projects/`, and
+  `~/.claude/hooks/chat-search.py 'REGEX'` searches them, tool output included. Search before
+  re-asking the owner.
+
+## Loading by area, not by chat (2026-11-08)
+
+`~/.claude/hooks/expertise.sh` (SessionStart; versioned copy in `scripts/user-hooks/expertise.sh`)
+prints every expertise file whose header matches the session. Header lines, before the first `#`:
+
+| Line | Loads in |
+|------|----------|
+| `session: <id>` | that chat (several lines allowed: every chat that added to the file) |
+| `branches: <regex>` | any chat on a matching branch |
+| `dirs: <regex>` | any chat in a matching worktree folder |
+| `always: yes` | every chat |
+
+It also prints the session's folder and branch. **Hook output is cut to a short preview somewhere
+near 10 KB** (measured once, 2026-11), so the hook prints matches up to about 9 KB, most specific
+first, and names the rest with a `cat` command instead of letting them be cut silently. Before
+2026-11-08 it matched `session:` only, so a new chat in the same area started with nothing; that is
+why long chats kept being resumed.
+
+## Auditing a chat for what the expertise file missed
+
+The writer of an expertise file chooses what is worth keeping, so audit it against the transcript.
+`scripts/trim_transcript.py` shrinks a transcript first: it drops subagent side-chains, hook and
+meta entries, compaction summaries and system reminders, cuts pasted logs, and redacts tokens, keys
+and passwords.
+
+```bash
+python3 scripts/trim_transcript.py ~/.claude/projects/*/<session>.jsonl --text --flagged --since <date> > talk.txt
+```
+
+`--owner` keeps only the owner's messages; `--flagged` adds Claude's messages that read like a
+correction, trap, decision or open item. Measured on the release chat's last week: plain `--talk`
+gave 13 MB; `--flagged` with the noise dropped gave 1,628 lines, which one Sonnet chat audited in
+full and found 16 gaps and 4 stale entries. Ask the auditor to list everything not covered, without
+judging importance; the owner prunes. The first audit (owner's messages only, four months, before
+this script) cost 215k tokens.
 
 ## What keeps it working
 
-Two user-level hooks, so no agent has to choose to use them: `~/.claude/hooks/expertise.sh`
-(SessionStart) prints the file into the session, and `expertise-nudge.sh` (Stop) asks at most once an
-hour for anything worth recording. A tool an agent must remember goes unused here: what must happen
-needs a hook or a failing test; what should happen needs a `CLAUDE.md` line naming the moment.
-Compact before leaving a large chat: idle gaps and model switches force a full cache rewrite.
+- `expertise.sh` (above) and `expertise-nudge.sh` (Stop, at most once an hour: anything worth
+  recording?). No agent has to choose to use them.
+- A tool an agent must remember goes unused here: what must happen needs a hook or a failing test;
+  what should happen needs a `CLAUDE.md` line naming the moment.
+- Compact before leaving a large chat: idle gaps and model switches force a full cache rewrite.
+- Not built yet: running the trim and audit automatically at `PreCompact`.

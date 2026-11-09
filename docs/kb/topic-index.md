@@ -725,7 +725,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, ----------, aasimar, blank, descriptive, dwarf, elf, generates, halfling, helper, human, label, manual, name, party, races, random, sex
+**topics:** ------, aasimar, blank, calishite, descriptive, dwarf, elf, generates, halfling, helper, human, label, manual, name, party, races, random, sex
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -835,7 +835,7 @@ _claude-branch-triage · claude branch triage_
 
 _claude-files-in-branch-history · claude files in branch history_
 
-**topics:** 110, 2026-10-23, 2026-10-24, agents, branch, branches, citations, claude, cleaned, commit, commits, develop, forced, history, leaks, session, shas, tip
+**topics:** 09-06, 110, 2026-10-23, 2026-10-24, agents, branch, branches, citations, cleaned, commit, commits, develop, forced, history, leaks, session, shas, tip
 
 - What leaked
 - Done
@@ -1692,9 +1692,11 @@ _error-handling-import-validation · error handling import validation_
 
 _expertise-chats · expertise chats_
 
-**topics:** 215k, 642k, cache, chat, chats, cheaply, expertise, four-month, handoffs, happen, quiz, reopening, routine, sessionstart, subagent, summarizer, tokens, user-level
+**topics:** 2026-11, 2026-11-08, 215k, 628, 642k, area, audit, auditor, chat, chats, expertise, hook, knowledge, messages, owner, tokens, tool, transcript
 
-- The routine (once per chat)
+- Where the knowledge goes
+- Loading by area, not by chat (2026-11-08)
+- Auditing a chat for what the expertise file missed
 - What keeps it working
 
 ## extras-definitions.md
@@ -1812,7 +1814,7 @@ _filtered-list-staleness · filtered list staleness_
 
 _folder-hardening · folder hardening_
 
-**topics:** clause, client, entities, error, evolution, folder, folders, handler, hardening, http, optimistic, pre-mutation, problem, re-fetch, rollback, server, solution, tempid
+**topics:** clause, client, entities, error, evolution, folders, handler, hardening, http, optimistic, pre-mutation, problem, re-fetch, re-fetches, rollback, server, solution, tempid
 
 - Context
 - Pattern: On-Failure Rollback via Server Re-Fetch
@@ -2224,7 +2226,7 @@ _homebrew-save-rework · homebrew save rework_
 
 _http-fx-patterns · http fx patterns_
 
-**topics:** ------, 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
+**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, interop, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
 
 - How the :http fx works
 - on-success / on-failure MUST be dispatch vectors
@@ -2887,7 +2889,7 @@ _plan-charges-and-casting · plan charges and casting_
 
 _plan-chunked-library-storage · plan chunked library storage_
 
-**topics:** blob, capacity, chars, chunk, complexity, granularity, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike
+**topics:** blob, capacity, chars, chunk, granularity, hydration, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike, write
 
 - Read this first: why this plan is parked
 - The problem, in one line
@@ -3646,7 +3648,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-data-consumers · srd data consumers_
 
-**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, keys, load-time, lower-cases, magic, mechanics, monsters, spell, srd-2024-roadmap, sub
+**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, load-time, lower-cases, magic, mechanics, monsters, re-check, spell, srd-2024-roadmap, sub
 
 - The two facts that shape any move
 - Per type
@@ -3801,7 +3803,7 @@ _support-session-ledger · support session ledger_
 
 _test-suite-state · test suite state_
 
-**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, figwheel, harness, jvm, pre-existing, spec, suite, theater, unresolved, unrun, unshallowed
+**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, harness, jvm, pre-existing, run, spec, suite, theater, unresolved, unrun, unshallowed
 
 - 0. Current measured state — 2026-09-12, feature/grant-rows (after the integration merge)
 - 0.1 Earlier measured state — 2026-09-05, feature/fighting-style-authoring
