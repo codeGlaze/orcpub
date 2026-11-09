@@ -1543,11 +1543,9 @@
              [orcacle])
            (let [hdr [header title button-cfgs :frame? frame? :subheader subheader]]
              [:div
-              ;; One header, sticky -- never a fixed copy of it, which would put every
-              ;; header control and its local state in the DOM twice. Not sticky inside a
-              ;; frame (no app header to scroll past), behind the Orcacle panel, or while
-              ;; a panel opened in it (PDF Options) shows: a sticky box taller than the
-              ;; window cannot scroll its own bottom into view.
+              ;; One sticky header, never a fixed copy (every control would be in the DOM twice).
+              ;; Not sticky in a frame, behind the Orcacle, or while PDF Options shows: a sticky
+              ;; box taller than the window cannot scroll its own bottom into view.
               [:div#header-sentinel]
               [:div.flex.justify-cont-c.main-text-color
                {:class (str (when-not (or frame? orcacle-open? options-shown?) "sticky-header ")
