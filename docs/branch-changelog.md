@@ -42,4 +42,6 @@ release. Plan: `docs/kb/plan-homebrew-markdown-export.md` on agents/develop.
 
 ## Fixed
 
+- **Homebrew:** exporting a class no longer drops the armor, weapon and tool proficiencies it gives even when multiclassing in.
+
 ## Security
