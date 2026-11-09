@@ -28,7 +28,8 @@ Rules:
 <!-- Reviewer context only. Dropped at fold; never reaches CHANGELOG.md. What problem this branch
      solves and any scope a reviewer needs. Prose is fine here. -->
 
-Started as two small CSS fixes, then took the first version of the homebrew Markdown export, so the
+Started as two small CSS fixes (the library-health banner's text colour and the weapon caret's size,
+both built in this same unreleased release, so no changelog line), then took the first version of the homebrew Markdown export, so the
 branch name no longer says what it holds. The export covers classes and subclasses only and says so
 on download; the other homebrew types (spells, feats, backgrounds, races and the rest) come after the
 release. Plan: `docs/kb/plan-homebrew-markdown-export.md` on agents/develop.
@@ -40,8 +41,5 @@ release. Plan: `docs/kb/plan-homebrew-markdown-export.md` on agents/develop.
 ## Changed
 
 ## Fixed
-
-- **Homebrew:** the library-health banner's text is light on its dark card, instead of black on near-black.
-- **Characters:** the weapon row's open/close caret is a larger icon that is easier to see and tap.
 
 ## Security
