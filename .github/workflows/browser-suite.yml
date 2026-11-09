@@ -30,14 +30,11 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      # Pinned to the version locale.yml and continuous-integration.yml use.
+      # Pinned to the version continuous-integration.yml uses.
       - name: Install Leiningen
-        run: |
-          curl -fsSL -o "$HOME/lein" \
-            https://raw.githubusercontent.com/technomancy/leiningen/2.11.2/bin/lein
-          chmod +x "$HOME/lein"
-          echo "$HOME" >> "$GITHUB_PATH"
-          "$HOME/lein" version
+        uses: ./.github/actions/install-lein
+        with:
+          lein-version: '2.11.2'
 
       - uses: actions/setup-node@v4
         with:
