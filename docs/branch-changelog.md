@@ -44,6 +44,6 @@ and stay open until they reproduce.
 - **Printing:** a character with no name gets one when exported, as saving gives one, so the sheet
   and its file are named; the file is never just "character.pdf" for a character with a class.
 - **Printing:** a PDF's file name keeps names with accents, curly apostrophes or non-Latin
-  letters, and a player name without a character name no longer leaves an empty " -  - " slot.
+  letters, drops emoji and characters Windows cannot save, and a player name without a character name no longer leaves an empty " -  - " slot.
 
 ## Security
