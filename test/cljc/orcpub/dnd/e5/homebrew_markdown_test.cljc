@@ -177,7 +177,7 @@
     (is (has-line? out "*Class*"))
     (testing "basics"
       (is (has-line? out "- **Hit Die:** d8"))
-      (is (has-line? out "- **Armor:** Light, Medium"))
+      (is (has-line? out "- **Armor (starting class only):** Light, Medium"))
       (is (has-line? out "- **Saving Throws:** Constitution, Intelligence"))
       (is (has-line? out "- **Skill Choices:** Choose 2 from Arcana, Athletics"))
       (is (has-line? out "- **Subclass:** chosen at 3rd level: Blade Oath"))
@@ -441,3 +441,23 @@
     (is (= "The Markdown file covers classes and subclasses only. Not included: Feats (2), Selections (1), Spells (1)."
            (:notice f)))
     (is (clean? (:text f)))))
+
+(deftest class-proficiencies-keep-their-multiclass-flag
+  ;; The SRD fighter's shape: false = also when multiclassing in, true = starting class only.
+  (let [profs {:armor {:light false :medium false :heavy true :shields false}
+               :weapon {:simple false :martial false}
+               :tool {:smiths-tools true}}
+        cls (md/class->markdown {:name "Warrior" :profs profs})
+        sub (md/subclass->markdown {:name "Path" :class :warrior :profs profs})]
+    (testing "a class splits them"
+      (is (has-line? cls "- **Armor:** Light, Medium, Shields"))
+      (is (has-line? cls "- **Armor (starting class only):** Heavy"))
+      (is (has-line? cls "- **Weapons:** Martial, Simple"))
+      (is (has-line? cls "- **Tools (starting class only):** Smiths Tools"))
+      (is (not (has-line-starting? cls "- **Weapons (starting class only):**"))))
+    (testing "a subclass grants every key"
+      (is (has-line? sub "- **Armor:** Heavy, Light, Medium, Shields"))
+      (is (has-line? sub "- **Weapons:** Martial, Simple"))
+      (is (not (str/includes? sub "starting class only"))))
+    (is (clean? cls))
+    (is (clean? sub))))
