@@ -81,7 +81,7 @@ These recur as literals. **Proposed:** give each a name.
 |---|---|---|
 | `#313A4D` → `#080A0D` | `index.clj:174` (`#app` gradient); `#080A0D` alone at `index.clj:172` (body) | Page ground |
 | `#313A4D` | `core.clj:1215`, `1710`; top of the page gradient | Header bar, stuck sticky header |
-| `#1a1e28` | `core.clj:1199`, `1753`, `1938`, `2278` | Panels and modals (dark in **both** themes, per `core.clj:1960`) |
+| `#1a1e28` | `core.clj:1199`, `1753`, `1938`, `2278` | Panels and modals (dark in **both** themes, per `core.clj:1960`). **Owner, 2026-11-09: an oversight, not a decision**; do not copy it for new surfaces (rule 6) |
 | `#2c3445` | `core.clj:665`, `1950`, `2169`, `2291` | Raised surfaces inside panels: dropdowns, modal headers |
 
 ### Light theme (`.app.light-theme`, from `core.clj:1778`)
