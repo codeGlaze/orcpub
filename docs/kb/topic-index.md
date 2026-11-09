@@ -489,7 +489,7 @@ _branch-context-history · branch context history_
 
 _branch-inventory · branch inventory_
 
-**topics:** ---, 2026-02-02, added, attached, claude, contained, copied, develop, elsewhere, integration, landed, local-only, remote, src, superseded, tip, unique, worktree
+**topics:** ---, 2026-02-02, 2026-06-10, attached, claude, contained, copied, develop, elsewhere, integration, landed, local-only, remote, src, superseded, tip, unique, worktree
 
 - Trunk (9)
 - Release (1)
@@ -503,6 +503,7 @@ _branch-inventory · branch inventory_
 - claude/ content check (2026-11-09)
 - Left alone locally
 - Deleted
+- 2026-11-09, second batch (5 claude branches)
 - 2026-11-09 (5 claude branches)
 - 2026-11-09 (1 claude branch)
 - 2026-11-09 (28 branches)

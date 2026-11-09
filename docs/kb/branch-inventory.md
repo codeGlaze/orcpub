@@ -160,6 +160,23 @@ SAFE verdicts re-checked by hand. Nothing deleted from this list yet; the owner 
 
 Restore any of these with `git push origin <tip>:refs/heads/<branch>` (or `git branch <branch> <tip>` for a local-only one), as long as the commit still exists in a clone.
 
+### 2026-11-09, second batch (5 claude branches)
+
+Approved by the owner after the content check.
+
+| branch | where | tip | last commit | why it could go |
+|---|---|---|---|---|
+| `claude/character-black-screen-feature-i8lvk3` | remote | `9869d07a4` | 2026-06-10 | fix live; KB diagnosis already in fail-soft-rendering.md; bookmarklet obsolete (rescued/README.md) |
+| `claude/fix-pdf-export-GDM5n` | remote | `7735fbdbc` | 2026-04-10 | superseded by validate-before-export / fill-missing-for-export |
+| `claude/check-character-field-zGYRJ` | remote | `0b8748778` | 2026-04-20 | Default Option Source is live; built-in subraces left discarded |
+| `claude/fix-brave-export-bug-2Tt7j` | remote | `f1bda173a` | 2026-09-13 | superseded by save-orcbrew-blob! / serialize-orcbrew; rescue-console.js already on agents/develop |
+| `claude/add-color-themes-gyRhI` | remote | `9e13293b5` | 2026-01-22 | Nord palettes only; theming lives on port/redesign-on-refactor (owner: delete) |
+
+**Kept (owner, 2026-11-09):** `claude/fix-character-notes-merge-4YNzf` (#704 pinning tests),
+`claude/app-speed-fix-K8HwV` (to be measured), `claude/docker-setup-errors-0ntths` (site homebrew
+folder), `claude/loading-spinner-stuck-cXA6l` (under investigation). `claude/improve-test-coverage-hlyhp`
+and `claude/fix-pdf-widget-warnings-hUt9i` go once their tests are rescued on `test/rescued-claude-tests`.
+
 ### 2026-11-09 (5 claude branches)
 
 Approved by the owner, after the content check above.
