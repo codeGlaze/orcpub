@@ -90,7 +90,7 @@ _DEPENDENCY_VALIDATION · DEPENDENCY_VALIDATION_
 
 _SESSION-SUMMARY · SESSION SUMMARY_
 
-**topics:** -----, 2026, 3449, added, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
+**topics:** -----, 2026, 3449, added, cleanup, csp, documentation, figwheel, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
 
 - Final State
 - Key Decisions Made
@@ -429,7 +429,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, builder, control, css, docstrings, expression, form, icon, invented, item, lesson, pin, review, row, sat, signing, unknown, vanished
+**topics:** 2026-09-29, builder, control, css, docstrings, form, icon, invented, item, labelled, lesson, pin, review, row, sat, signing, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -1162,7 +1162,7 @@ _decision-cr-representation · decision cr representation_
 
 _decision-gate-hidden-picks · decision gate hidden picks_
 
-**topics:** caller-supplied, chosen, concatenation, condition, decision-already-held-resolution, entity-layer, filter, gate, hidden-selection-picks, migrates, mug, multiclass, nine, notice, player, skill, two-pass, uncharacterized
+**topics:** caller-supplied, chosen, concatenation, condition, decision-already-held-resolution, entity-layer, filter, gate, hidden-selection-picks, mug, multiclass, nine, notice, player, sites, skill, two-pass, uncharacterized
 
 - Decision
 - The trace closes: there is no unknown family
@@ -1890,6 +1890,14 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 - Overlap worth reconciling before either branch merges
 - How this was missed
 
+## garden-calc-plus.md
+
+_garden-calc-plus · garden calc plus_
+
+**topics:** 2026-11-09, 2562, 3640, around, compresses, css, declaration, define, initial, invalid, invalidates, negative, offset, popover, spaces, subtract, succeeds, whitespace
+
+
+
 ## garden-inline-styles-harvest.md
 
 _garden-inline-styles-harvest · garden inline styles harvest_
@@ -2176,7 +2184,7 @@ _homebrew-keys-design · homebrew keys design_
 
 _homebrew-override · homebrew override_
 
-**topics:** armor-wearing, attaches, constraints, enforcement, expressed, mug, overridable, override, per-item, per-selection, per-thing, restriction, select, selection, switch, systematically, tortle, waives
+**topics:** armor-wearing, constraints, enforcement, expressed, icon, mug, overridable, override, per-item, per-selection, per-thing, restriction, select, selection, switch, systematically, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -2309,7 +2317,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, quarantined, repair, restore, suggestion, translator, unnamed, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, junk, leading, least-destructive, mangled, quarantined, repair, restore, suggestion, translator, unnamed, wind, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -2602,7 +2610,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _page-load-budget · page load budget_
 
-**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, page, parties, repeat, sheet, signed, stylesheet, visit
+**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, page, parties, portrait, repeat, sheet, signed, visit
 
 - Why it exists
 - Audit of integration (2026-10-15, b8035afe, production bundle)
@@ -3025,7 +3033,7 @@ _plan-homebrew-markdown-export · plan homebrew markdown export_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, 2026-10-23, backpack, coins, equipment, inventory, items, kit, kits, leftovers, pack, packs, picker, quantity, refill, reorganize, restock, torches
+**topics:** 2026-10-22, 2026-10-23, backpack, equipment, gear, inventory, items, kit, kits, leftovers, pack, packs, picker, quantity, refill, reorganize, restock, torches
 
 - The problems today
 - The model
@@ -3058,7 +3066,7 @@ _plan-lookup-indexes · plan lookup indexes_
 
 _plan-next · plan next_
 
-**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged, windows
+**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, damage, macro, natural-armor, number, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged, windows
 
 - 0. Standing, do these first
 - 0b. September support sessions — tracked separately
@@ -3325,7 +3333,7 @@ _rescued/ui-ux-evaluation · rescued/ui ux evaluation_
 
 _rescued/ui-ux-plan · rescued/ui ux plan_
 
-**topics:** ------, -------, char, clj, color-themes, core, css, descriptions, focus, hints, polish, priority, theme, themes, tier, veterans, views, visual
+**topics:** ------, -------, --------, char, clj, color-themes, core, css, descriptions, focus, polish, priority, theme, themes, tier, veterans, views, visual
 
 - Context
 - In-Flight Branches (Critical Context)
@@ -3384,7 +3392,7 @@ _rule-preview-cards · rule preview cards_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, everyone, expressed, expressible, feat, granted, layer, ledger, party, permission, permissions, prop, table-wide, tortle, wear, writs
+**topics:** armor, campaign, computation, everyone, expressed, expressible, feat, granted, layer, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
@@ -4014,7 +4022,7 @@ _weapons-extra-damage-design · weapons extra damage design_
 
 _weapons-extra-damage-handoff · weapons extra damage handoff_
 
-**topics:** 1d8, 2d6, ablaze, blade, colour, damage, dark, deals, extra, frost, radiant, roll, strip, sun, thunder, tile, type, undead
+**topics:** 1d8, 2d6, ablaze, bar, blade, colour, damage, dark, deals, extra, frost, radiant, roll, strip, sun, tile, type, undead
 
 - The problem
 - The five cases, from SRD 5.1 (text checked)

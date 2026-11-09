@@ -28,7 +28,15 @@ scrolling, a freeze on ticking Print Spell Cards / Print Spellbook). **Base:** `
   character with a portrait (`bake-portrait` sits in the panel and re-bakes on every update), a
   saved character opened from the list, the owner's own homebrew library.
 - File names drop emoji and Windows-illegal characters (`file-safe` in `routes.clj`).
-- Next: the owner's answers (export feedback; file name controls; a wide PDF Options layout).
+- **2026-11-09, later:** file name choices (on the account), the Making-your-PDF tab, and
+  goog.DEBUG off in the production build are pushed. The full-screen PDF Options panel (title bar,
+  scrolling body, footer with Create PDF; sticky header restored) is built but uncommitted,
+  waiting on the owner's look at screenshots. Freeze still not reproduced with a homebrew race,
+  class (level 20, 325 spells) and a portrait on the dev bundle: ticks paint in 233-491 ms.
+  The production bundle is 924 KB compressed against the page-load suite's 900 KB ceiling on
+  integration itself. CSS trap found: garden-calc-plus.md.
+- Next: the owner's answers (the full-screen panel; the three broken calc rules; the bundle; the
+  freeze character; the panel keeping the character from when it opened).
 
 ## Open questions for the owner
 
