@@ -35,10 +35,16 @@ and stay open until they reproduce.
 
 ## Added
 
+- **Portraits:** the portrait editor takes a picture link instead of a composed portrait; a character
+  uses one or the other.
+
 - **Printing:** PDF Options lets players choose what the file name shows (player, character, class,
   subclass, level), where the level goes and how it is written (5, 05, L5); kept on the account.
 
 ## Changed
+
+- **Portraits:** Randomize rolls everything (colours, eyes, hair effects, light) within sane ranges,
+  with Keep colours to hold the colours.
 
 - **Printing:** PDF Options spreads across the width of a desktop screen, and Create PDF opens a
   tab that says the PDF is being made.
