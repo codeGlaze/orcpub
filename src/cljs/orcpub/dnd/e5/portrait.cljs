@@ -1493,8 +1493,8 @@
   "The compositor drawer, an overlay shown while :portrait/drawer-open?. Mount once at the
    character-builder root. Its stylesheet mounts even when closed (it also styles the
    launcher and the Portrait tab), and its root carries the theme class itself because it
-   sits outside .app. See PORTRAIT-COMPOSITOR.md, \"The drawer's chrome\". `link-field`, when given,
-   is the picture-link field shown under the compositor: a link instead of a portrait."
+   sits outside .app. See PORTRAIT-COMPOSITOR.md, \"The drawer's chrome\". A switch at the top picks
+   the compositor or the picture link; `link-field` is the link's field."
   [& [link-field]]
   (let [open? @(subscribe [:portrait/drawer-open?])
         theme @(subscribe [:theme])]
@@ -1503,53 +1503,74 @@
        (let [portrait   @(subscribe [:portrait/draft])
              seed       @(subscribe [:portrait/draft-seed])
              open-slot  @(subscribe [:portrait/open-slot])
-             open-layer @(subscribe [:portrait/open-layer])]
+             open-layer @(subscribe [:portrait/open-layer])
+             mode       @(subscribe [:portrait/mode])
+             image-url  @(subscribe [:portrait/link-draft])]
          [:div
           [:div.pl-backdrop {:on-click #(dispatch [:portrait/close])}]
           [:div.pl-drawer
            [:div.pl-drawer-head
             [:div.pl-drawer-title
-             [:span.pl-drawer-title-rune "\u00a7"] "Compose portrait"]
+             [:span.pl-drawer-title-rune "\u00a7"] "Character picture"]
             [:button.pl-drawer-close
              {:type "button"
               :on-click #(dispatch [:portrait/close])
               :aria-label "Close portrait compositor"}
              "\u2715"]]
-           [compositor-body portrait seed open-slot open-layer]
-           (when link-field [:div.pl-link link-field])
+           [:div.pl-mode
+            [segmented "Use" "A composed portrait or a picture link" mode
+             [[:compose "Compose"] [:link "Picture link"]]
+             #(dispatch [:portrait/set-mode %])]]
+           (if (= mode :link)
+             [:div.pl-link-mode
+              [:div.pl-link-preview
+               (if (s/blank? image-url)
+                 [:span.pl-empty-hint "Paste a link to a picture, and it shows here."]
+                 [:img {:src image-url :alt "The character's picture"}])]
+              [:div.pl-link link-field]
+              [:div.pl-link-note "A picture link replaces a composed portrait."]]
+             [compositor-body portrait seed open-slot open-layer])
            [:div.pl-drawer-foot
             [:div.pl-drawer-actions
              [:button.pl-btn.pl-btn-ghost
               {:type "button" :on-click #(dispatch [:portrait/close])}
               "Cancel"]
-             [:button.pl-btn.pl-btn-primary
-              {:type "button" :on-click #(dispatch [:portrait/save])}
-              "Save portrait"]]]]]))]))
+             (if (= mode :link)
+               [:button.pl-btn.pl-btn-primary
+                {:type "button" :on-click #(dispatch [:portrait/use-link]) :disabled (s/blank? image-url)}
+                "Use this picture"]
+               [:button.pl-btn.pl-btn-primary
+                {:type "button" :on-click #(dispatch [:portrait/save])}
+                "Save portrait"])]]]]))]))
 
 (defn tab-panel
   "The builder's Portrait tab: the portrait as it stands, its credit, Randomize, and the way into
    the compositor drawer, which is the one place a portrait is picked layer by layer. Save shows
    only while the draft has unsaved changes. Ensures a draft on mount. Has its own .pl-root, the stylesheet's one
-   theme hook. `link-field`, when given, sits under the portrait: a picture link instead."
-  [& [_link-field]]
+   theme hook. A character using a picture link shows it here instead, with a way into either mode."
+  []
   (r/create-class
    {:display-name "portrait-tab-panel"
     :component-did-mount #(dispatch [:portrait/ensure-draft])
     :reagent-render
-    (fn [& [link-field]]
+    (fn []
       (let [portrait @(subscribe [:portrait/draft])
+            image-url @(subscribe [:orcpub.dnd.e5.character/image-url])
             dirty?   @(subscribe [:portrait/dirty?])
             theme    @(subscribe [:theme])
-            any?     (boolean (seq (:layers portrait)))]
+            any?     (boolean (seq (:layers portrait)))
+            link?    (and (not any?) (not (s/blank? image-url)))]
         [:div.pl-root.pl-inline.pl-preview {:class theme}
          [:div.pl-preview-body
           [:div.pl-portrait-frame
-           (if any?
-             [composite portrait]
-             [:div.pl-empty-hint {:style {"--pl-logo" (str "url(" branding/logo-path ")")}}
-              "No portrait yet."])]
-          (when any? [attribution (:layers portrait)])]
-         (when link-field [:div.pl-link link-field])
+           (cond
+             any? [composite portrait]
+             link? [:img.pl-link-picture {:src image-url :alt "The character's picture"}]
+             :else [:div.pl-empty-hint {:style {"--pl-logo" (str "url(" branding/logo-path ")")}}
+                    "No portrait yet."])]
+          (when any? [attribution (:layers portrait)])
+          [:button.pl-mode-link {:type "button" :on-click #(dispatch [:portrait/open (if link? :compose :link)])}
+           (if link? "Compose a portrait instead" "Use a picture link instead")]]
          [:div.pl-drawer-foot
           [:div.pl-drawer-actions
            (when dirty?
@@ -1561,7 +1582,7 @@
             "Randomize"]
            [:button.pl-btn.pl-btn-primary
             {:type "button" :on-click #(dispatch [:portrait/open])}
-            (if any? "Edit portrait" "Make a portrait")]]]]))}))
+            (cond link? "Edit picture link" any? "Edit portrait" :else "Make a portrait")]]]]))}))
 
 (defn roll
   "A whole random portrait for `seed`: every layer, the colour of each slot, the eyes, the hair's

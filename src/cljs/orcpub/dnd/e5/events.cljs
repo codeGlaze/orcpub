@@ -2816,14 +2816,45 @@
  (fn [db _]
    (cond-> db (nil? (:portrait/draft db)) seed-portrait-draft)))
 
+(defn- default-portrait-mode
+  "The mode the portrait editor opens in: :link when the character uses a picture link and no
+   composed portrait, else :compose (also when it has neither)."
+  [db]
+  (let [v (get-in db [:character ::entity/values])
+        link? (not (s/blank? (::char5e/image-url v)))
+        portrait? (seq (:layers (char5e/parse-portrait (::char5e/portrait v))))]
+    (if (and link? (not portrait?)) :link :compose)))
+
+(reg-event-db
+ :portrait/set-mode
+ (fn [db [_ mode]]
+   (assoc db :portrait/mode mode)))
+
 (reg-event-db
  :portrait/open
- (fn [db _]
+ (fn [db [_ mode]]
    ;; Keeps an existing draft rather than reseeding: the drawer and the inline
    ;; tab share one, so opening the drawer from the tab must not silently throw
    ;; away what is on the tab's canvas.
    (-> (cond-> db (nil? (:portrait/draft db)) seed-portrait-draft)
-       (assoc :portrait/drawer-open? true))))
+       (assoc :portrait/drawer-open? true
+              :portrait/mode (or mode (default-portrait-mode db))
+              :portrait/link-draft (get-in db [:character ::entity/values ::char5e/image-url])))))
+
+(reg-event-db
+ :portrait/set-link-draft
+ ;; the editor's link field edits this; nothing on the character changes until :portrait/use-link
+ (fn [db [_ url]]
+   (assoc db :portrait/link-draft url)))
+
+(reg-event-fx
+ :portrait/use-link
+ ;; "Use this picture": the drafted link becomes the character's, replacing a composed portrait
+ (fn [{:keys [db]} _]
+   (let [url (:portrait/link-draft db)]
+     (when-not (s/blank? url)
+       {:db (assoc db :portrait/drawer-open? false)
+        :dispatch-n [[:set-image-url url] [:portrait/discard-draft]]}))))
 
 (reg-event-db
  :portrait/close

@@ -2446,20 +2446,19 @@
           :else nil)))))
 
 (defn image-link-field
-  "The character's picture link under `label`: the input (pasting an image works too) and the
-   notice that checks the link loads. A link replaces a composed portrait (set-image-url). Returns
-   hiccup."
+  "The portrait editor's picture-link field under `label`: the input (pasting an image works too)
+   and the notice that checks the link. It edits the editor's draft (:portrait/link-draft); the
+   character's link changes only with Use this picture (:portrait/use-link). Returns hiccup."
   [label]
-  (let [entity-values @(subscribe [:entity-values])
-        image-url @(subscribe [::char5e/image-url])
-        image-url-failed @(subscribe [::char5e/image-url-failed])
+  (let [url @(subscribe [:portrait/link-draft])
         image-bytes @(subscribe [::char5e/image-bytes])
-        server-reach @(subscribe [::char5e/image-server-reach])]
-    [:div {:on-paste (image-paste image-url)}
+        server-reach @(subscribe [::char5e/image-server-reach])
+        set-draft #(dispatch [:portrait/set-link-draft %])]
+    [:div {:on-paste (image-paste url)}
      [:span.personality-label.f-s-18 label]
-     [character-input entity-values ::char5e/image-url nil set-image-url]
-     [image-field-notice image-url image-url-failed
-      (get image-bytes image-url) (get server-reach image-url) set-image-url]]))
+     [:input.input {:type "url" :value (or url "") :placeholder "https://"
+                    :on-change #(set-draft (.. % -target -value))}]
+     [image-field-notice url false (get image-bytes url) (get server-reach url) set-draft]]))
 
 (defn description-fields []
   (let [entity-values @(subscribe [:entity-values])
@@ -2522,15 +2521,17 @@
      [:div.field
       [:span.personality-label.f-s-18 "Flaws"]
       [character-textarea entity-values ::char5e/flaws]]
-     [:div.flex.align-items-c.w-100-p.m-t-30
-      (when image-url
-        [:img.m-r-10.image-character-thumbnail {:src image-url
-                      :on-error (image-error :failed-loading-image image-url)
-                      :on-load (image-load :loaded-image image-url)}])
-      [:div.flex-grow-1
-       [image-link-field "Image URL (128k max image size for PDF)"]
-       ;; composing a portrait is the other way to fill this slot
-       [portrait5e/launcher-button]]]
+     [:div.m-t-30
+      [:span.personality-label.f-s-18 "Picture"]
+      [:div.flex.align-items-c
+       (when image-url
+         ;; hidden: keeps the link's load checks running, which the thumbnail's own <img> does not
+         [:img {:style {:display "none"} :src image-url
+                             :on-error (image-error :failed-loading-image image-url)
+                             :on-load (image-load :loaded-image image-url)}])
+       [portrait5e/thumbnail (char5e/portrait built-char) image-url true]
+       [:button.form-button {:type "button" :on-click #(dispatch [:portrait/open])}
+        "Change picture"]]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -2574,7 +2575,7 @@
        (case current-tab
          :options [new-options-column 1]
          :description [description-fields]
-         :portrait [portrait5e/tab-panel [image-link-field "Or use a picture link"]]
+         :portrait [portrait5e/tab-panel]
          ;; nil id = the builder's own character (not a saved one).
          [views5e/character-display nil true 1])]]]))
 
@@ -2594,7 +2595,7 @@
         [builder-tab "Portrait" :portrait current-tab]]
        (case current-tab
          :options [new-options-column (if (= device-type :desktop) 2 1)]
-         :portrait [portrait5e/tab-panel [image-link-field "Or use a picture link"]]
+         :portrait [portrait5e/tab-panel]
          [description-fields])]
       [:div.w-50-p.m-l-20.m-r-10
        ;; nil id = the builder's own character (not a saved one).
@@ -2905,7 +2906,7 @@
     (when print-enabled? (print-char built-char))
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
     [:<>
-     [portrait5e/drawer [image-link-field "Or use a picture link"]]
+     [portrait5e/drawer [image-link-field "Picture link"]]
      [views5e/content-page
      "Character Builder"
      (vec

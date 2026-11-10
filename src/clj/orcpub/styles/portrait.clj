@@ -558,8 +558,19 @@
                           :font "italic 11px/1.4 'Open Sans', system-ui, sans-serif"
                           :text-align "center"}]
    ;; ---- foot ----
-   ;; the picture-link field under the compositor and the Portrait tab: a link instead of a portrait
-   [".pl-link" {:padding "10px 18px 4px" :border-top "1px solid rgba(128,128,128,.35)"}]
+   ;; Compose | Picture link at the top of the drawer, and the link mode's body
+   [".pl-mode" {:padding "10px 18px 0"}]
+   [".pl-link-mode" {:flex "1 1 auto" :overflow-y "auto" :padding "14px 18px" :display "flex"
+                     :flex-direction "column" :gap "12px"}]
+   [".pl-link-preview" {:display "flex" :align-items "center" :justify-content "center"
+                        :min-height "240px" :max-height "360px" :border "1px dashed rgba(128,128,128,.5)"
+                        :border-radius "8px" :overflow "hidden" :text-align "center" :padding "12px"}
+    [:img {:max-width "100%" :max-height "340px" :object-fit "contain"}]]
+   [".pl-link-note" {:font-size "12px" :opacity "0.8"}]
+   [".pl-link-picture" {:width "100%" :height "100%" :object-fit "contain"}]
+   [".pl-mode-link" {:background "none" :border "none" :padding "6px 0 0" :color "inherit"
+                     :text-decoration "underline" :cursor "pointer" :font-size "13px"}]
+   [".pl-link" {}]
    ;; the drawer sits outside .app, so the light theme's input border has to be restated here
    [".pl-root.light-theme .pl-link .input" {:border "1px solid #8a8f98" :background "#fff" :color "#363636"}]
    [".pl-keep-colours" {:display "inline-flex" :align-items "center" :gap "4px" :font-size "13px"

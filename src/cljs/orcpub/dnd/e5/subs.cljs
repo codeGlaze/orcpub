@@ -1433,6 +1433,18 @@
  (fn [db _]
    (get-in db [:user-data :theme])))
 
+;; The picture link being drafted in the portrait editor, applied only by "Use this picture".
+(reg-sub
+ :portrait/link-draft
+ (fn [db _]
+   (:portrait/link-draft db)))
+
+;; Whether the portrait editor shows the compositor (:compose) or the picture link (:link).
+(reg-sub
+ :portrait/mode
+ (fn [db _]
+   (or (:portrait/mode db) :compose)))
+
 ;; Whether the portrait editor's Randomize keeps the current colours.
 (reg-sub
  :portrait/keep-colours?

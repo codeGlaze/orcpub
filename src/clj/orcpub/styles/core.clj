@@ -891,6 +891,10 @@
    [:.field-notice.is-error {:color red-on-dark}]
    [:.field-notice.is-warning {:color amber-on-dark}]
    [:.field-notice.is-note {:color muted-on-dark}]
+   ;; the light theme's pair for each (style guide, section 2); the portrait drawer sits outside .app
+   [".app.light-theme .field-notice.is-error" ".pl-root.light-theme .field-notice.is-error" {:color red}]
+   [".app.light-theme .field-notice.is-warning" ".pl-root.light-theme .field-notice.is-warning" {:color "#8a5a00"}]
+   [".app.light-theme .field-notice.is-note" ".pl-root.light-theme .field-notice.is-note" {:color "#55637a"}]
 
    ;; The other ways in, behind the disclosure. Plain on purpose: controls, not a
    ;; second warning.
