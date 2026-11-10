@@ -210,6 +210,14 @@ Newest last. Date, ruling, and what it replaced.
   each entry with name, kind, time edited and "open in another tab". Replaced a message sending the
   player back to the builder. `feature/character-rescue`.
 
+- 2026-11-10: reference list rows (Spells, Monsters) end in the source's short tag at the right,
+  before the caret, as 5etools does: the tag My Content shows (stored, else derived;
+  [source-tagged-keys.md](source-tagged-keys.md)), amber for homebrew, "SRD" in the subheader's
+  grey. It replaces the beer-stein icon, which was not a button and only said "homebrew". Long names
+  end in an ellipsis so the tag never wraps. Chosen over the tag on the second line and over a tag
+  only on repeated names (which hid a homebrew entry replacing an SRD one). Review:
+  https://claude.ai/artifact/Jio8hodHEUpQma5GApGx1n. `test/rescued-claude-tests`.
+
 ## Owner's notes (recorded 2026-11-01)
 
 - No emojis on the live site; use purposely chosen colourized SVG icons (2026-09-06).
