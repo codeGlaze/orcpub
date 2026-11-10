@@ -113,6 +113,19 @@ Rationale: events.cljs at 4.7K is the second-largest behavioral file. It's where
 
 Rationale: views.cljs refactor is already in progress. character_builder.cljs overlaps with the views work and should coordinate. options.cljc is lower priority since it's cljc (shared) and harder to split cleanly.
 
+**Done 2026-11-10, reference pages** (`test/rescued-claude-tests`, `4699ad547`): the Monsters,
+Spells and Items lists, the monster, spell and item pages and the Rules and Conditions pages
+moved to `views/reference.cljs` (494 lines; `views.cljs` 11,717 -> 11,269). They are leaves:
+only `core.cljs`'s route map mounts them, and the new namespace requires `views`, never the
+reverse. **Stayed, and why:** the Orcacle (`views.cljs` renders its overlay on every page, so
+moving it would make the two namespaces require each other) and the shared display layer.
+**Next step, the display layer:** `spell-component`, `monster-component`, `item-component`,
+their summaries and `condition-component` (about 430 lines, `views.cljs` ~874-1300). The
+character sheet, builder and Orcacle draw with them, and they call `svg-icon`, `srd-inlines`,
+`srd-route-handler` and `condition-page-handler`, so they move into a lower namespace that
+`views` requires, with `svg-icon` going to a shared widget namespace first. A big move by the
+AGENTS.md rule: plan it and ask first.
+
 ## 4. Branching Strategy
 
 ### Recommendation: One branch per tier, not per file

@@ -17,20 +17,27 @@ opened yet. **KB:** [branch-inventory.md](../../docs/kb/branch-inventory.md), "`
   on the Spells list, the backspace that takes the text under 3 characters re-renders the whole
   list: 116-127 ms clean (319 rows), 196 ms pak-c1 (485), 578-699 ms pak-c4 (983). It is render
   cost, not filtering, so the old `claude/app-speed-fix-K8HwV` index would not help.
-- Next: the owner decides whether to fix the slow key (see Open questions); then the PR when the
-  owner says.
+- Done 2026-11-10, pushed: reference pages moved to `views/reference.cljs` (`4699ad547`); ghost
+  rows fixed (rows and expanded state keyed by each entry's `:key`, not its name: same-named
+  homebrew spells showed 983 -> 1491 rows after clearing a search), routes built on click, one
+  shared `progressive-rows` for the three lists (`719631230`); browser test
+  `test/browser/reference_lists_e2e.js` (`fbbbae0d1`, 5/10 fail on the old code, 10/10 pass).
+- Next: the source-tag mockup for the reference lists (owner said yes: phone screenshots on one
+  review page, SRD vs homebrew colour, `common/source-abbreviation`), then build it; the PR when
+  the owner says.
 
 ## Owner decisions
 
 - 2026-11-09: rescue the two test files, fix the spinner here, measure homebrew search; delete
   their source branches once rescued (done).
 
-## Open questions for the owner
-
-- The Spells list re-renders every row when its filter clears (up to ~0.7 s with a big homebrew
-  pack). Fix it (render the list in pages or on scroll) or leave it?
-
 ## Gotchas for the next agent
+
+- The scaled packs from `dev/scale_orcbrew_pack.clj` repeat every name across clones: realistic
+  for name collisions (it is what exposed the ghost rows), but a row count taken from them is
+  only right when rows are keyed by `:key`.
+- `run.sh` needs `NODE_PATH` pointing at a checkout with Playwright installed
+  (`/home/codeglaze/projects/orcpub-pwd/node_modules` here).
 
 - `put-character` sets `:loading false`, not a decrement: a save still in flight can lose its
   spinner early. Cosmetic; not changed.

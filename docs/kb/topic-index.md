@@ -3397,7 +3397,7 @@ _rule-preview-cards · rule preview cards_
 
 _rules-override-layer · rules override layer_
 
-**topics:** armor, campaign, computation, everyone, expressed, expressible, feat, granted, layer, ledger, party, permission, permissions, rules, table-wide, tortle, wear, writs
+**topics:** armor, campaign, computation, everyone, expressed, expressible, feat, granted, layer, ledger, party, permission, permissions, prop, table-wide, tortle, wear, writs
 
 - What it is
 - Why it can't just be "make a feat for it"
