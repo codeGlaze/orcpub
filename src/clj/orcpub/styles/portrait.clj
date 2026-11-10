@@ -566,7 +566,9 @@
                         :min-height "240px" :max-height "360px" :border "1px dashed rgba(128,128,128,.5)"
                         :border-radius "8px" :overflow "hidden" :text-align "center" :padding "12px"}
     [:img {:max-width "100%" :max-height "340px" :object-fit "contain"}]]
-   [".pl-link-note" {:font-size "12px" :opacity "0.8"}]
+   [".pl-kept" {:font-size "13px" :text-align "right"}]
+   [".pl-showing" {:margin-left "6px" :padding "0 6px" :border-radius "8px" :font-size "10px"
+                   :text-transform "uppercase" :letter-spacing "0.05em" :border "1px solid currentColor"}]
    [".pl-link-picture" {:width "100%" :height "100%" :object-fit "contain"}]
    [".pl-mode-link" {:background "none" :border "none" :padding "6px 0 0" :color "inherit"
                      :text-decoration "underline" :cursor "pointer" :font-size "13px"}]

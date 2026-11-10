@@ -2906,7 +2906,7 @@
     (when print-enabled? (print-char built-char))
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
     [:<>
-     [portrait5e/drawer [image-link-field "Picture link"]]
+     [portrait5e/drawer [image-link-field "Image address (URL)"]]
      [views5e/content-page
      "Character Builder"
      (vec

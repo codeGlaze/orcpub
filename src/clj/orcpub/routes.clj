@@ -1316,8 +1316,10 @@
   [conn id]
   (try
     (when id
-      (portrait-store/saved! id (some-> (d/pull (d/db conn) '[{::se/values [::char5e/portrait]}] id)
-                                        ::se/values ::char5e/portrait)))
+      (portrait-store/saved! id (some-> (d/pull (d/db conn) '[{::se/values [::char5e/portrait
+                                                                         ::char5e/image-url
+                                                                         ::char5e/picture-shown]}] id)
+                                        ::se/values char5e/shown-values ::char5e/portrait)))
     (catch Exception e (println "portrait-store: not told about" id "-" (.getMessage e)))))
 
 (defn do-save-character
@@ -1526,10 +1528,12 @@
    GOTCHA: character-page destructures both keys, so returning only the summary submap
    blanks every og:title and og:image."
   [db id]
-  (d/pull db
-          '[::se/summary
-            {::se/values [::char5e/description ::char5e/image-url ::char5e/portrait]}]
-          id))
+  (-> (d/pull db
+              '[::se/summary
+                {::se/values [::char5e/description ::char5e/image-url ::char5e/portrait
+                              ::char5e/picture-shown]}]
+              id)
+      (update ::se/values #(some-> % char5e/shown-values))))
 
 (defn get-character
   "Retrieves the character at path-param :id via `get-character-for-id`: 200 with the
@@ -1667,8 +1671,10 @@
    param matching the tag's version makes the response long-cacheable."
   [{:keys [db headers query-params] {:keys [id]} :path-params}]
   (artist-credit/refresh! db)
-  (let [stored (some-> (d/pull db '[{::se/values [::char5e/portrait]}] id)
+  (let [stored (some-> (d/pull db '[{::se/values [::char5e/portrait ::char5e/image-url
+                                                  ::char5e/picture-shown]}] id)
                        ::se/values
+                       char5e/shown-values
                        ::char5e/portrait)
         portrait (some-> stored char5e/parse-portrait)
         tag (portrait-store/tag stored)

@@ -714,8 +714,20 @@
 (defn hair [built-char]
   (get-prop built-char ::hair))
 
-(defn image-url [built-char]
-  (get-prop built-char ::image-url))
+(declare shown-values)
+
+(defn- picture-values
+  "The picture fields of `built-char` as an entity-values map, for shown-picture. Returns a map."
+  [built-char]
+  {::portrait (get-prop built-char ::portrait)
+   ::image-url (get-prop built-char ::image-url)
+   ::picture-shown (get-prop built-char ::picture-shown)})
+
+(defn image-url
+  "The image address `built-char` shows, or nil when it shows its built portrait instead
+   (shown-picture). Returns a string or nil."
+  [built-char]
+  (::image-url (shown-values (picture-values built-char))))
 
 (defn- sane-tweak
   "Portrait tweak `t` with only the values the compositor can use: an :override that is a #rrggbb
@@ -756,18 +768,43 @@
   8000)
 
 (defn with-image-url
-  "Entity `values` with picture link `url`. A character shows a link or a composed portrait,
-   never both, so a non-blank link clears the portrait. Returns the values."
+  "Entity `values` with image address `url`, which becomes the picture shown when it is not blank
+   (::picture-shown \"image\"). A built portrait is kept. Returns the values."
   [values url]
   (cond-> (assoc values ::image-url url)
-    (not (s/blank? url)) (dissoc ::portrait)))
+    (not (s/blank? url)) (assoc ::picture-shown "image")))
 
 (defn with-saved-portrait
-  "Entity `values` with portrait `draft` saved (as an EDN string, parse-portrait's form). A
-   portrait with any layer clears the picture link: one or the other. Returns the values."
+  "Entity `values` with portrait `draft` saved (as an EDN string, parse-portrait's form); one with
+   any layer becomes the picture shown. An image address is kept. Returns the values."
   [values draft]
   (cond-> (assoc values ::portrait (pr-str draft))
-    (seq (:layers draft)) (dissoc ::image-url)))
+    (seq (:layers draft)) (assoc ::picture-shown "portrait")))
+
+(declare parse-portrait)
+
+(defn shown-picture
+  "Which picture a character shows, from entity `values`: :portrait, :image, or nil for neither.
+   The one ::picture-shown names when it exists; with no choice (characters saved before there was
+   one) or an empty choice, a portrait with layers, else an image address. Returns a keyword or nil."
+  [values]
+  (let [portrait? (boolean (seq (:layers (parse-portrait (::portrait values)))))
+        image? (not (s/blank? (::image-url values)))
+        chosen (::picture-shown values)]
+    (cond
+      (and (= chosen "image") image?) :image
+      (and (= chosen "portrait") portrait?) :portrait
+      portrait? :portrait
+      image? :image)))
+
+(defn shown-values
+  "Entity `values` with only the picture they show: the other picture's field removed, so a reader
+   that draws whichever it finds draws the right one. Returns the values."
+  [values]
+  (case (shown-picture values)
+    :portrait (dissoc values ::image-url)
+    :image (dissoc values ::portrait)
+    values))
 
 (defn parse-portrait
   "A stored portrait, an EDN string or an in-memory map, as {:layers {…} :colors {…}
@@ -789,8 +826,11 @@
         (sane-portrait parsed)))
     :else nil))
 
-(defn portrait [built-char]
-  (parse-portrait (get-prop built-char ::portrait)))
+(defn portrait
+  "The built portrait `built-char` shows, parsed, or nil when it shows an image address instead
+   (shown-picture). Returns a portrait map or nil."
+  [built-char]
+  (parse-portrait (::portrait (shown-values (picture-values built-char)))))
 
 (defn faction-image-url [built-char]
   (get-prop built-char ::faction-image-url))

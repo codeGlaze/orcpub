@@ -2817,13 +2817,18 @@
    (cond-> db (nil? (:portrait/draft db)) seed-portrait-draft)))
 
 (defn- default-portrait-mode
-  "The mode the portrait editor opens in: :link when the character uses a picture link and no
-   composed portrait, else :compose (also when it has neither)."
+  "The mode the portrait editor opens in: :link when the character shows an image from the web,
+   else :compose (also when it has neither picture). Returns a keyword."
   [db]
-  (let [v (get-in db [:character ::entity/values])
-        link? (not (s/blank? (::char5e/image-url v)))
-        portrait? (seq (:layers (char5e/parse-portrait (::char5e/portrait v))))]
-    (if (and link? (not portrait?)) :link :compose)))
+  (if (= :image (char5e/shown-picture (get-in db [:character ::entity/values]))) :link :compose))
+
+(reg-event-db
+ :portrait/show-portrait
+ ;; "Switch to this portrait" with nothing edited: the saved portrait shows again, the image is kept
+ [set-changed db-char->local-store]
+ (fn [db _]
+   (-> (assoc-in db [:character ::entity/values ::char5e/picture-shown] "portrait")
+       (assoc :portrait/drawer-open? false))))
 
 (reg-event-db
  :portrait/set-mode

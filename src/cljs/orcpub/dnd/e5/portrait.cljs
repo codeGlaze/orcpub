@@ -1494,7 +1494,8 @@
    character-builder root. Its stylesheet mounts even when closed (it also styles the
    launcher and the Portrait tab), and its root carries the theme class itself because it
    sits outside .app. See PORTRAIT-COMPOSITOR.md, \"The drawer's chrome\". A switch at the top picks
-   the compositor or the picture link; `link-field` is the link's field."
+   building a portrait or an image from the web, tagging the one the character shows; both are kept,
+   and the footer switches which shows. `link-field` is the image address field."
   [& [link-field]]
   (let [open? @(subscribe [:portrait/drawer-open?])
         theme @(subscribe [:theme])]
@@ -1505,7 +1506,9 @@
              open-slot  @(subscribe [:portrait/open-slot])
              open-layer @(subscribe [:portrait/open-layer])
              mode       @(subscribe [:portrait/mode])
-             image-url  @(subscribe [:portrait/link-draft])]
+             image-url  @(subscribe [:portrait/link-draft])
+             shown      @(subscribe [:portrait/shown])
+             dirty?     @(subscribe [:portrait/dirty?])]
          [:div
           [:div.pl-backdrop {:on-click #(dispatch [:portrait/close])}]
           [:div.pl-drawer
@@ -1518,19 +1521,24 @@
               :aria-label "Close portrait compositor"}
              "\u2715"]]
            [:div.pl-mode
-            [segmented "Use" "A composed portrait or a picture link" mode
-             [[:compose "Compose"] [:link "Picture link"]]
+            [segmented "" "Build a portrait or use an image from the web" mode
+             [[:compose [:span "Build a portrait" (when (= shown :portrait) [:span.pl-showing "showing"])]]
+              [:link [:span "Use an image from the web" (when (= shown :image) [:span.pl-showing "showing"])]]]
              #(dispatch [:portrait/set-mode %])]]
            (if (= mode :link)
              [:div.pl-link-mode
               [:div.pl-link-preview
                (if (s/blank? image-url)
-                 [:span.pl-empty-hint "Paste a link to a picture, and it shows here."]
+                 [:span.pl-empty-hint "Paste an image address, and the image shows here."]
                  [:img {:src image-url :alt "The character's picture"}])]
-              [:div.pl-link link-field]
-              [:div.pl-link-note "A picture link replaces a composed portrait."]]
+              [:div.pl-link link-field]]
              [compositor-body portrait seed open-slot open-layer])
            [:div.pl-drawer-foot
+            (cond
+              (and (= mode :link) (= shown :portrait))
+              [:div.pl-kept "Your built portrait is kept. You can switch back any time."]
+              (and (= mode :compose) (= shown :image))
+              [:div.pl-kept "Your image from the web is kept. You can switch back any time."])
             [:div.pl-drawer-actions
              [:button.pl-btn.pl-btn-ghost
               {:type "button" :on-click #(dispatch [:portrait/close])}
@@ -1538,10 +1546,14 @@
              (if (= mode :link)
                [:button.pl-btn.pl-btn-primary
                 {:type "button" :on-click #(dispatch [:portrait/use-link]) :disabled (s/blank? image-url)}
-                "Use this picture"]
+                (if (= shown :image) "Use this image" "Switch to this image")]
                [:button.pl-btn.pl-btn-primary
-                {:type "button" :on-click #(dispatch [:portrait/save])}
-                "Save portrait"])]]]]))]))
+                {:type "button"
+                 :disabled (empty? (:layers portrait))
+                 :on-click #(dispatch (if (or (= shown :portrait) dirty?) [:portrait/save] [:portrait/show-portrait]))}
+                (cond (= shown :portrait) "Save portrait"
+                      dirty? "Save and switch"
+                      :else "Switch to this portrait")])]]]]))]))
 
 (defn tab-panel
   "The builder's Portrait tab: the portrait as it stands, its credit, Randomize, and the way into
@@ -1559,18 +1571,18 @@
             dirty?   @(subscribe [:portrait/dirty?])
             theme    @(subscribe [:theme])
             any?     (boolean (seq (:layers portrait)))
-            link?    (and (not any?) (not (s/blank? image-url)))]
+            link?    (= :image @(subscribe [:portrait/shown]))]
         [:div.pl-root.pl-inline.pl-preview {:class theme}
          [:div.pl-preview-body
           [:div.pl-portrait-frame
            (cond
-             any? [composite portrait]
              link? [:img.pl-link-picture {:src image-url :alt "The character's picture"}]
+             any? [composite portrait]
              :else [:div.pl-empty-hint {:style {"--pl-logo" (str "url(" branding/logo-path ")")}}
                     "No portrait yet."])]
-          (when any? [attribution (:layers portrait)])
+          (when (and any? (not link?)) [attribution (:layers portrait)])
           [:button.pl-mode-link {:type "button" :on-click #(dispatch [:portrait/open (if link? :compose :link)])}
-           (if link? "Compose a portrait instead" "Use a picture link instead")]]
+           (if link? "Build a portrait instead" "Use an image from the web instead")]]
          [:div.pl-drawer-foot
           [:div.pl-drawer-actions
            (when dirty?
@@ -1582,7 +1594,7 @@
             "Randomize"]
            [:button.pl-btn.pl-btn-primary
             {:type "button" :on-click #(dispatch [:portrait/open])}
-            (cond link? "Edit picture link" any? "Edit portrait" :else "Make a portrait")]]]]))}))
+            (cond link? "Edit image" any? "Edit portrait" :else "Build a portrait")]]]]))}))
 
 (defn roll
   "A whole random portrait for `seed`: every layer, the colour of each slot, the eyes, the hair's

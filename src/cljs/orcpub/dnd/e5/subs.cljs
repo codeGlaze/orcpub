@@ -1433,6 +1433,12 @@
  (fn [db _]
    (get-in db [:user-data :theme])))
 
+;; Which picture the character shows: :portrait, :image or nil (char5e/shown-picture).
+(reg-sub
+ :portrait/shown
+ (fn [db _]
+   (char5e/shown-picture (get-in db [:character :orcpub.entity/values]))))
+
 ;; The picture link being drafted in the portrait editor, applied only by "Use this picture".
 (reg-sub
  :portrait/link-draft

@@ -352,6 +352,8 @@
      ::char5e/faction-image-url-failed
      ::char5e/image-url
      ::char5e/portrait
+     ;; which picture shows, "portrait" or "image" (char5e/shown-picture); both are kept
+     ::char5e/picture-shown
      ::char5e/description
      ::char5e/personality-trait-1
      ::char5e/eyes
