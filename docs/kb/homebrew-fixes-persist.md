@@ -122,3 +122,25 @@ decision:
   they launch
 - [error-handling-import-validation.md](error-handling-import-validation.md): the
   import validation this builds on
+
+## Measured 2026-11-10: load, view and save do not duplicate entries
+
+The owner suspected cleaned-up keys were copied rather than fixed in place. A browser probe on the
+dev bundle (`fix/pdf-export`, untracked `scripts/e2e/probe-homebrew-dups.js`) seeded the
+`cruft-shapes`, `junk-bases` and `keyword-trap` fixtures into the stored library and counted every
+entry in the stored library and in the app's library, and looked for a name under two keys:
+
+| After | Stored | App | Same name, two keys |
+|---|---|---|---|
+| load, reload, reload | 15 | 15 | none |
+| Edit then back (spell, subrace, selection) | 15 | 15 | none |
+| Edit, Save unchanged, back (same three) | 15 | 15 | none |
+| a last reload | 15 | 15 | none |
+
+The keyword-trap pack is set aside on load (`plugins:rejected`), as designed.
+
+**What does duplicate is the builder's display.** Opening an entry with Edit makes React warn
+"Encountered two children with the same key": `:test-cantrip` on the spell builder and `:junk-base`
+on the subrace builder (none on the selection builder). Some list on those builder pages renders the
+entry being edited twice, which React says can show it twice or drop it. Which list is not yet
+known: the component stack was only `div`s.

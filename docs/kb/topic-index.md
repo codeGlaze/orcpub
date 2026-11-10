@@ -2102,7 +2102,7 @@ _homebrew-content-merge · homebrew content merge_
 
 _homebrew-fixes-persist · homebrew fixes persist_
 
-**topics:** anyway, app-db, aside, copy, damaged, dialog, entry, error-handling-import-validation, fast-browser-probes, homebrew-safety-net, library, load, needs-attention, repair, repaired, skipped, stored, writes
+**topics:** anyway, app-db, aside, back, damaged, dialog, entry, error-handling-import-validation, fast-browser-probes, homebrew-safety-net, library, load, needs-attention, probe, reload, skipped, stored, writes
 
 - The rule
 - Where the writes happen
@@ -2112,6 +2112,7 @@ _homebrew-fixes-persist · homebrew fixes persist_
 - Still open
 - Checked and not a bug
 - Related
+- Measured 2026-11-10: load, view and save do not duplicate entries
 
 ## homebrew-guard.md
 
