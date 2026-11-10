@@ -35,6 +35,8 @@ path: that branch's guards are no longer needed), and carries the homebrew searc
 
 ## Added
 
+- **Reference:** each row on the Spells and Monsters lists shows its source's short tag (the one set in My Content), so same-named spells from different packs can be told apart; built-in entries read "SRD".
+
 ## Changed
 
 ## Fixed
