@@ -10104,7 +10104,8 @@
   "`builder`'s form with each of its sections in a render-guard, so a field that throws while
    drawing costs that section and the rest of the form still edits and saves; one that throws
    before it has a form shows `item` in the fallback. Every builder returns its form directly
-   (none keeps state in a render function), so calling it here draws the same thing."
+   (none keeps state in a render function), so calling it here draws the same thing.
+   GOTCHA: each section is keyed by position; unkeyed, every one takes `item`'s :key as its React key."
   [item builder]
   (try
     (let [form (builder)]
@@ -10112,7 +10113,7 @@
         (let [[tag & more] form
               [attrs children] (if (map? (first more)) [(first more) (rest more)] [nil more])]
           (into (cond-> [tag] attrs (conj attrs))
-                (map #(if (vector? %) [render-guard item %] %))
+                (map-indexed (fn [i c] (if (vector? c) ^{:key i} [render-guard item c] c)))
                 children))
         form))
     (catch :default e
