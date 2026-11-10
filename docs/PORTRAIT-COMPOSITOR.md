@@ -234,9 +234,11 @@ time, and a second hair colour (tips) on two in five, all within the ranges the 
 **Keep colours** holds the slot colours, piece tweaks, second eye, blush colour and hair tips, and
 rolls the rest. A seed rolls the same portrait every time.
 
-**A character has a picture link or a composed portrait, never both.** The drawer and the Portrait
-tab carry the Description tab's link field (`character_builder/image-link-field`, the same checking
-notice). A non-blank link clears the saved portrait and the unsaved draft
+**A character has a picture link or a composed portrait, never both.** The editor (Character
+picture) has a Compose | Picture link switch and opens on whichever is in use, Compose when neither
+is (`default-portrait-mode`). Picture link mode edits a draft (`:portrait/link-draft`) with the same
+checking notice; only Use this picture (`:portrait/use-link`) applies it, and Cancel changes nothing.
+The Description tab shows the picture with Change picture; the Portrait tab shows whichever is in use. A non-blank link clears the saved portrait and the unsaved draft
 (`character/with-image-url`, `:portrait/discard-draft`); saving a portrait with any layer clears the
 link (`character/with-saved-portrait`). A character saved before this with both still draws the
 portrait, as the PDF always has.

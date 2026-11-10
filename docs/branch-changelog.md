@@ -35,8 +35,8 @@ and stay open until they reproduce.
 
 ## Added
 
-- **Portraits:** the portrait editor takes a picture link instead of a composed portrait; a character
-  uses one or the other.
+- **Portraits:** the character picture editor offers Compose or a picture link; a character uses one
+  or the other, and a link replaces a portrait only when the player presses Use this picture.
 
 - **Printing:** PDF Options lets players choose what the file name shows (player, character, class,
   subclass, level), where the level goes and how it is written (5, 05, L5); kept on the account.
