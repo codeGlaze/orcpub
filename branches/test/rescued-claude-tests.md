@@ -1,8 +1,7 @@
 # test/rescued-claude-tests
 
 **Purpose:** the one branch for what the 2026-11-09 `claude/*` clean-up found worth keeping (owner:
-no micro branches from it). **Base:** `integration` at `7d4c23d2a`. **PR into:** `integration`, not
-opened yet. **KB:** [branch-inventory.md](../../docs/kb/branch-inventory.md), "`claude/*` content check".
+no micro branches from it). **Base:** `integration` at `7d4c23d2a`. **PR into:** `integration`, #83. **KB:** [branch-inventory.md](../../docs/kb/branch-inventory.md), "`claude/*` content check".
 
 ## State (updated 2026-11-09)
 
@@ -27,7 +26,7 @@ opened yet. **KB:** [branch-inventory.md](../../docs/kb/branch-inventory.md), "`
   the branch.
 - Done 2026-11-10, pushed: source tags built as decided (A, right of the row, replacing the icon;
   `8772d53ab`), browser checks extended to 18 (`4c994803d`, 8 fail on the old code). Full checks
-  green: lein test 1576, cljs 1013, lint 0. **Next: the PR into `integration` when the owner says.**
+  green: lein test 1576, cljs 1013, lint 0. **PR #83 into `integration` opened 2026-11-10 (owner's go), CodeRabbit review requested; next: answer its review, then the fold when the owner says merge.**
 - Superseded: the source-tag mockup for the reference lists (owner said yes: phone screenshots on one
   review page, SRD vs homebrew colour, `common/source-abbreviation`), then build it; the PR when
   the owner says.
