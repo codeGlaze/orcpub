@@ -45,6 +45,9 @@ and stay open until they reproduce.
 
 ## Fixed
 
+- **Homebrew:** opening an entry to edit no longer risks a section of its builder showing twice or
+  going missing.
+
 - **Printing:** the bottom of PDF Options, Create PDF included, can be scrolled into view; it
   was cut off under the pinned page header unless the page was scrolled to its very end.
 - **Printing:** a character with no name gets one when exported, as saving gives one, so the sheet
