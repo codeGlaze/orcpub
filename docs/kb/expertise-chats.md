@@ -54,8 +54,15 @@ this script) cost 215k tokens.
 
 ## What keeps it working
 
-- `expertise.sh` (above) and `expertise-nudge.sh` (Stop, at most once an hour: anything worth
-  recording?). No agent has to choose to use them.
+- `expertise.sh` (above) and `expertise-nudge.sh` (Stop, at most once an hour per session). The
+  nudge runs `expertise.sh` to decide, so "covered" means the same in both: a covered session is
+  asked to add to its file, an uncovered one to start a file for its area. Versioned copies of
+  both are in `scripts/user-hooks/`; install with `cp` into `~/.claude/hooks/`. No agent has to
+  choose to use them.
+- **Until 2026-11-10 the nudge fired only for sessions already named in a file** (`session:`
+  lines), so a chat in an area with no file was never asked to start one: a day of homebrew and
+  reference-list work went unrecorded until the owner noticed. That is why it now asks uncovered
+  sessions too.
 - A tool an agent must remember goes unused here: what must happen needs a hook or a failing test;
   what should happen needs a `CLAUDE.md` line naming the moment.
 - Compact before leaving a large chat: idle gaps and model switches force a full cache rewrite.

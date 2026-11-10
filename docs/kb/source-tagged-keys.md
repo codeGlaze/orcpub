@@ -106,7 +106,16 @@ consequence — the key row reads `key :tideward-trcs` — which is the context 
 It also means an IMPORTED source can be retagged, which the builder could never reach.
 
 **Nothing is stored until an author sets one**, so improving the rule reaches every source that
-never set a tag, and a stored value always means somebody chose it. `change` seeds the input with
+never set a tag, and a stored value always means somebody chose it.
+
+**To be reversed (owner, 2026-11-10; not built, on BRANCH.md's Someday list):** store each
+source's tag the first time it is needed (import, first load of an older library, first minted
+key), marked as generated (e.g. `:abbreviation-origin :derived`). Why: a source's keys are minted
+with its tag, so a later change to the rule would give an untagged source's new keys a different
+tag from its old ones; and generating once, with the library in view, can resolve two sources
+deriving the same tag (rare: the rule takes each word's first and last letter). The muted versus
+value-colour signal survives through the marker. Shown on the reference lists since 2026-11-10
+(ux-guide.md, decisions log). `change` seeds the input with
 the tag in force, so correcting a derived one is a typo-fix rather than a retype.
 
 **Stored** at `[:plugins source :abbreviation]`, beside `:disabled?`. `::e5/content-keyword` and

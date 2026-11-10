@@ -1708,7 +1708,7 @@ _error-handling-import-validation · error handling import validation_
 
 _expertise-chats · expertise chats_
 
-**topics:** 2026-11, 2026-11-08, 215k, 628, area, audit, chat, chats, expertise, hook, knowledge, matches, messages, owner, prints, tokens, tool, transcript
+**topics:** 2026-11-08, area, audit, chat, chats, covered, expertise, hook, knowledge, messages, nudge, owner, prints, sessions, tokens, transcript, uncovered, versioned
 
 - Where the knowledge goes
 - Loading by area, not by chat (2026-11-08)
@@ -3517,7 +3517,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, override, source, source-level, stone, tag, tagging, tidewater
+**topics:** 2026-09-13, abbreviation, author, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, muted, source, source-level, stone, tag, tidewater, untagged
 
 - What exists today
 - The proposal
