@@ -12,6 +12,7 @@
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.dnd.e5.views.artist-page :as artist-page]
+            [orcpub.dnd.e5.views.reference :as reference]
             [orcpub.route-map :as routes]
             [orcpub.user-agent :as user-agent]
             [cljs-http.client :as http]
@@ -85,8 +86,8 @@
    routes/dnd-e5-char-builder-route ch/character-builder
    routes/dnd-e5-newb-char-builder-route views/newb-character-builder-page
    routes/dnd-e5-char-list-page-route views/character-list
-   routes/dnd-e5-monster-list-page-route views/monster-list
-   routes/dnd-e5-spell-list-page-route views/spell-list
+   routes/dnd-e5-monster-list-page-route reference/monster-list
+   routes/dnd-e5-spell-list-page-route reference/spell-list
    routes/dnd-e5-spell-builder-page-route views/spell-builder-page
    routes/dnd-e5-monster-builder-page-route views/monster-builder-page
    routes/dnd-e5-encounter-builder-page-route views/encounter-builder-page
@@ -101,15 +102,15 @@
    routes/dnd-e5-invocation-builder-page-route views/invocation-builder-page
    routes/dnd-e5-boon-builder-page-route views/boon-builder-page
    routes/dnd-e5-selection-builder-page-route views/selection-builder-page
-   routes/dnd-e5-item-list-page-route views/item-list
+   routes/dnd-e5-item-list-page-route reference/item-list
    routes/dnd-e5-char-page-route views/character-page
-   routes/dnd-e5-monster-page-route views/monster-page
-   routes/dnd-e5-spell-page-route views/spell-page
-   routes/dnd-e5-rules-page-route views/rules-page
-   routes/dnd-e5-rule-section-page-route views/rule-section-page
-   routes/dnd-e5-condition-list-page-route views/condition-list-page
-   routes/dnd-e5-condition-page-route views/condition-page
-   routes/dnd-e5-item-page-route views/item-page
+   routes/dnd-e5-monster-page-route reference/monster-page
+   routes/dnd-e5-spell-page-route reference/spell-page
+   routes/dnd-e5-rules-page-route reference/rules-page
+   routes/dnd-e5-rule-section-page-route reference/rule-section-page
+   routes/dnd-e5-condition-list-page-route reference/condition-list-page
+   routes/dnd-e5-condition-page-route reference/condition-page
+   routes/dnd-e5-item-page-route reference/item-page
    routes/dnd-e5-item-builder-page-route views/item-builder-page
    routes/dnd-e5-char-parties-page-route views/parties
    routes/dnd-e5-my-content-route views/my-content-page

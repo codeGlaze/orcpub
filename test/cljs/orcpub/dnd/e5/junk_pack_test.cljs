@@ -33,6 +33,7 @@
             [orcpub.dnd.e5.encounters :as encounters5e]
             [orcpub.dnd.e5.character-drafts :as drafts]
             [orcpub.dnd.e5.views :as views]
+            [orcpub.dnd.e5.views.reference :as reference]
             [orcpub.dnd.e5.events]
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.equipment-subs]
@@ -400,13 +401,13 @@
              views/my-content-types)
      (traced (attempt [:page :monster-list]
                       #(do (rf/dispatch-sync [::char5e/filter-monsters "junk"])
-                           (expand [views/monster-list-items])))
+                           (expand [reference/monster-list-items])))
              ;; the list is lazy: realize it inside the try, or it throws outside it
              (for [m (try (doall @(rf/subscribe [::monsters5e/filtered-monsters]))
                           (catch :default _ nil))
                    :when (homebrew? m)]
                ;; drawn as the list draws each one, inside its guard
-               [(:key m) #(expand [views/render-guard m [views/monster-list-item m]])]))
+               [(:key m) #(expand [views/render-guard m [reference/monster-list-item m]])]))
      (for [[t es] (when builders? entries) :when (map? es)
            :let [[open builder] (builders t)]
            :when open
