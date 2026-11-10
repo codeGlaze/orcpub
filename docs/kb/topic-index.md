@@ -2102,7 +2102,7 @@ _homebrew-content-merge · homebrew content merge_
 
 _homebrew-fixes-persist · homebrew fixes persist_
 
-**topics:** anyway, app-db, aside, back, damaged, dialog, entry, error-handling-import-validation, fast-browser-probes, homebrew-safety-net, library, load, needs-attention, probe, reload, skipped, stored, writes
+**topics:** 2026-11-10, app-db, aside, back, damaged, dialog, entry, error-handling-import-validation, fast-browser-probes, homebrew-safety-net, library, load, needs-attention, probe, react, reload, stored, writes
 
 - The rule
 - Where the writes happen

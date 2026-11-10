@@ -142,5 +142,11 @@ The keyword-trap pack is set aside on load (`plugins:rejected`), as designed.
 **What does duplicate is the builder's display.** Opening an entry with Edit makes React warn
 "Encountered two children with the same key": `:test-cantrip` on the spell builder and `:junk-base`
 on the subrace builder (none on the selection builder). Some list on those builder pages renders the
-entry being edited twice, which React says can show it twice or drop it. Which list is not yet
-known: the component stack was only `div`s.
+entry being edited twice, which React says can show it twice or drop it.
+
+**Cause and fix (2026-11-10, `fix/pdf-export` `8ce395e1b`):** not a list of entries at all.
+`guarded-form` wraps each section of a builder's form in `[render-guard item section]`, and Reagent
+takes a `:key` in a component's first-argument map as its React key, so every section shared the
+edited item's key. Sections are now keyed by position; `views_test`
+`every-builder-section-gets-its-own-react-key` pins it. Passing an entity map as a component's first
+argument hands Reagent its `:key`: give the vector `^{:key ...}` meta when siblings share the map.
