@@ -558,6 +558,12 @@
                           :font "italic 11px/1.4 'Open Sans', system-ui, sans-serif"
                           :text-align "center"}]
    ;; ---- foot ----
+   ;; the picture-link field under the compositor and the Portrait tab: a link instead of a portrait
+   [".pl-link" {:padding "10px 18px 4px" :border-top "1px solid rgba(128,128,128,.35)"}]
+   ;; the drawer sits outside .app, so the light theme's input border has to be restated here
+   [".pl-root.light-theme .pl-link .input" {:border "1px solid #8a8f98" :background "#fff" :color "#363636"}]
+   [".pl-keep-colours" {:display "inline-flex" :align-items "center" :gap "4px" :font-size "13px"
+                        :cursor "pointer"}]
    [".pl-drawer-foot" {:padding "12px 18px 16px"
                        :border-top "1px solid rgba(255,255,255,0.06)"
                        :background "#0e131a"

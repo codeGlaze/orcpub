@@ -30,6 +30,7 @@
             [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.character.random :as char-rand5e]
             [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
+            [orcpub.dnd.e5.portrait :as portrait-view]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.srd-conditions :as srd-conditions]
@@ -2783,11 +2784,8 @@
    ;; The read starts from the thumbnail's load instead, which it cannot run ahead of.
    (update character
            ::entity/values
-           assoc
-           ::char5e/image-url
-           image-url
-           ::char5e/image-url-failed
-           nil)))
+           #(-> (char5e/with-image-url % image-url)
+                (assoc ::char5e/image-url-failed nil)))))
 
 ;; ---- portrait compositor drawer ----
 ;;
@@ -2871,15 +2869,26 @@
                  (dispatch [:portrait/artists-loaded body]))))
          {:db (assoc db :portrait/artists-requested? true)}))))
 
-;; Randomize and Reset touch :layers only — the character's colors persist
-;; across rerolls, which is what "my character's colors" should mean.
+;; Randomize rerolls everything (portrait-view/roll), the colours too unless Keep colours is on.
+;; Reset touches :layers only.
 (reg-event-db
  :portrait/randomize
  (fn [db _]
    (let [seed (portrait-assets5e/random-seed)]
      (-> db
          (assoc :portrait/draft-seed seed)
-         (assoc-in [:portrait/draft :layers] (portrait-assets5e/compose-for-seed seed))))))
+         (update :portrait/draft #(portrait-view/roll seed (or % {}) (:portrait/keep-colours? db)))))))
+
+(reg-event-db
+ :portrait/discard-draft
+ ;; After a picture link replaces the portrait: the next open seeds from the character again.
+ (fn [db _]
+   (dissoc db :portrait/draft :portrait/draft-seed)))
+
+(reg-event-db
+ :portrait/toggle-keep-colours
+ (fn [db _]
+   (update db :portrait/keep-colours? not)))
 
 (reg-event-db
  :portrait/reset
@@ -2991,7 +3000,7 @@
    ;; dirty indicator clears and the inline tab carries on showing the portrait
    ;; instead of emptying itself the moment you save it.
    (let [draft (get db :portrait/draft portrait-assets5e/empty-portrait)]
-     (cond-> (assoc-in db [:character ::entity/values ::char5e/portrait] (pr-str draft))
+     (cond-> (update-in db [:character ::entity/values] char5e/with-saved-portrait draft)
        (not keep-open?) (assoc :portrait/drawer-open? false)))))
 
 #_ ;; never dispatched from UI

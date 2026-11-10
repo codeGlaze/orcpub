@@ -755,6 +755,20 @@
    portrait, and refusing it unread keeps a crafted value from costing the reader."
   8000)
 
+(defn with-image-url
+  "Entity `values` with picture link `url`. A character shows a link or a composed portrait,
+   never both, so a non-blank link clears the portrait. Returns the values."
+  [values url]
+  (cond-> (assoc values ::image-url url)
+    (not (s/blank? url)) (dissoc ::portrait)))
+
+(defn with-saved-portrait
+  "Entity `values` with portrait `draft` saved (as an EDN string, parse-portrait's form). A
+   portrait with any layer clears the picture link: one or the other. Returns the values."
+  [values draft]
+  (cond-> (assoc values ::portrait (pr-str draft))
+    (seq (:layers draft)) (dissoc ::image-url)))
+
 (defn parse-portrait
   "A stored portrait, an EDN string or an in-memory map, as {:layers {…} :colors {…}
    :tweaks {…}} through sane-portrait; nil for blank or malformed input, never a throw.

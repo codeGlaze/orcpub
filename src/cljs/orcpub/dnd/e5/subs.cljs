@@ -1433,6 +1433,12 @@
  (fn [db _]
    (get-in db [:user-data :theme])))
 
+;; Whether the portrait editor's Randomize keeps the current colours.
+(reg-sub
+ :portrait/keep-colours?
+ (fn [db _]
+   (boolean (:portrait/keep-colours? db))))
+
 (reg-sub
  :dark-button-text?
  (fn [db _]

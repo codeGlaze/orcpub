@@ -10,6 +10,7 @@
             [reagent.core :as r]
             [clojure.string :as s]
             [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.dnd.e5.portrait-random :as rnd]
             [orcpub.dnd.e5.artist-profile :as artist-profile]
             [orcpub.dnd.e5.portrait-colorize :as colorize]
             [orcpub.dnd.e5.portrait-effects :as fx]
@@ -1472,6 +1473,10 @@
        [:button.pl-btn.pl-btn-primary
         {:type "button" :on-click #(dispatch [:portrait/randomize])}
         "Randomize"]
+       [:label.pl-keep-colours
+        [:input {:type "checkbox" :checked (boolean @(subscribe [:portrait/keep-colours?]))
+                 :on-change #(dispatch [:portrait/toggle-keep-colours])}]
+        " Keep colours"]
        [:button.pl-btn.pl-btn-ghost
         {:type "button" :on-click #(dispatch [:portrait/reset]) :disabled (not any?)}
         "Reset"]
@@ -1488,8 +1493,9 @@
   "The compositor drawer, an overlay shown while :portrait/drawer-open?. Mount once at the
    character-builder root. Its stylesheet mounts even when closed (it also styles the
    launcher and the Portrait tab), and its root carries the theme class itself because it
-   sits outside .app. See PORTRAIT-COMPOSITOR.md, \"The drawer's chrome\"."
-  []
+   sits outside .app. See PORTRAIT-COMPOSITOR.md, \"The drawer's chrome\". `link-field`, when given,
+   is the picture-link field shown under the compositor: a link instead of a portrait."
+  [& [link-field]]
   (let [open? @(subscribe [:portrait/drawer-open?])
         theme @(subscribe [:theme])]
     [:div.pl-root {:class theme}
@@ -1510,6 +1516,7 @@
               :aria-label "Close portrait compositor"}
              "\u2715"]]
            [compositor-body portrait seed open-slot open-layer]
+           (when link-field [:div.pl-link link-field])
            [:div.pl-drawer-foot
             [:div.pl-drawer-actions
              [:button.pl-btn.pl-btn-ghost
@@ -1523,13 +1530,13 @@
   "The builder's Portrait tab: the portrait as it stands, its credit, Randomize, and the way into
    the compositor drawer, which is the one place a portrait is picked layer by layer. Save shows
    only while the draft has unsaved changes. Ensures a draft on mount. Has its own .pl-root, the stylesheet's one
-   theme hook."
-  []
+   theme hook. `link-field`, when given, sits under the portrait: a picture link instead."
+  [& [_link-field]]
   (r/create-class
    {:display-name "portrait-tab-panel"
     :component-did-mount #(dispatch [:portrait/ensure-draft])
     :reagent-render
-    (fn []
+    (fn [& [link-field]]
       (let [portrait @(subscribe [:portrait/draft])
             dirty?   @(subscribe [:portrait/dirty?])
             theme    @(subscribe [:theme])
@@ -1542,6 +1549,7 @@
              [:div.pl-empty-hint {:style {"--pl-logo" (str "url(" branding/logo-path ")")}}
               "No portrait yet."])]
           (when any? [attribution (:layers portrait)])]
+         (when link-field [:div.pl-link link-field])
          [:div.pl-drawer-foot
           [:div.pl-drawer-actions
            (when dirty?
@@ -1554,6 +1562,46 @@
            [:button.pl-btn.pl-btn-primary
             {:type "button" :on-click #(dispatch [:portrait/open])}
             (if any? "Edit portrait" "Make a portrait")]]]]))}))
+
+(defn roll
+  "A whole random portrait for `seed`: every layer, the colour of each slot, the eyes, the hair's
+   second colour and effects, and the light, each within ranges that still look like a person
+   (mostly round pupils, about half lit). With `keep-colours?` the colours of `current` are kept:
+   its slots, piece tweaks, second eye, blush and hair tips. Returns `current` with those replaced."
+  [seed current keep-colours?]
+  (let [r (rnd/mulberry32 (rnd/seed->int (str seed "/look")))
+        chance (fn [p] (< (r) p))
+        pick (fn [xs] (let [v (vec xs)] (nth v (int (Math/floor (* (r) (count v)))))))
+        between (fn [lo hi] (+ lo (* (r) (- hi lo))))
+        presets pa/color-presets
+        hair (pick (:hair presets))
+        colours {:hair hair :skin (pick (:skin presets)) :eyes (pick (:eyes presets))
+                 :shirt (pick (:shirt presets)) :lips (pick (:lips presets))
+                 :whites (pick (if (chance 0.85) (take 4 (:whites presets)) (:whites presets)))}
+        face {:pupil (cond (chance 0.8) :round (chance 0.5) :snake :else :goat)
+              :second-eye (when (chance 0.1) (pick (:eyes presets)))
+              :blush (if (chance 0.5) 0.0 (between 0.2 0.6))
+              :blush-colour (pick face/blush-colours)
+              :freckles (if (chance 0.6) 0.0 (between 0.2 0.7))
+              :freckle-place (r)
+              :freckle-strength (between 0.3 0.7)
+              :shade (between 0.0 0.5)}
+        light (when (chance 0.5)
+                {:mood (pick (sort (keys light/moods))) :style (pick light/styles)
+                 :from (pick (sort (keys light/sides)))})
+        tip (when (chance 0.4) (pick (remove #{hair} (:hair presets))))
+        ombre (cond-> {:depth (between 0.1 0.5) :clumps (between 0.2 0.7)
+                       :shine (if (chance 0.5) 0.0 (between 0.2 0.6)) :split (chance 0.1)}
+                tip (assoc :tip tip :start (between 0.15 0.6) :falloff (between 0.3 0.9)))]
+    (if keep-colours?
+      (assoc current
+             :layers (pa/compose-for-seed seed)
+             :face (merge face (select-keys (:face current) [:second-eye :blush-colour]))
+             :light light
+             :ombre (merge (dissoc ombre :tip) (select-keys (:ombre current) [:tip])))
+      (assoc current
+             :layers (pa/compose-for-seed seed)
+             :colors colours :tweaks {} :face face :light light :ombre ombre))))
 
 (defn launcher-button
   "The 'Compose portrait' button that slots next to the Image URL input in
