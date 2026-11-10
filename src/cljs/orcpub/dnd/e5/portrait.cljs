@@ -1586,9 +1586,10 @@
               :freckle-place (r)
               :freckle-strength (between 0.3 0.7)
               :shade (between 0.0 0.5)}
+        ;; assoc, not a map literal: portrait_test reads a literal :style key as an inline style
         light (when (chance 0.5)
-                {:mood (pick (sort (keys light/moods))) :style (pick light/styles)
-                 :from (pick (sort (keys light/sides)))})
+                (assoc {} :mood (pick (sort (keys light/moods))) :style (pick light/styles)
+                       :from (pick (sort (keys light/sides)))))
         tip (when (chance 0.4) (pick (remove #{hair} (:hair presets))))
         ombre (cond-> {:depth (between 0.1 0.5) :clumps (between 0.2 0.7)
                        :shine (if (chance 0.5) 0.0 (between 0.2 0.6)) :split (chance 0.1)}
