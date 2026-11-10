@@ -3026,7 +3026,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-homebrew-generator · plan homebrew generator_
 
-**topics:** 2026-11-10, 900, agents, command, fixtures, generator, hand-made, homebrew-guard, libraries, linked, lorem, pack, plausible, randomly, someday, srd-like, valid, varied
+**topics:** 900, agents, command, fixtures, generator, hand-made, homebrew-guard, libraries, linked, lorem, pack, plausible, purpose-built, randomly, someday, srd-like, valid, varied
 
 - Why
 - Design
