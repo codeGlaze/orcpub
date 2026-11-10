@@ -150,3 +150,11 @@ takes a `:key` in a component's first-argument map as its React key, so every se
 edited item's key. Sections are now keyed by position; `views_test`
 `every-builder-section-gets-its-own-react-key` pins it. Passing an entity map as a component's first
 argument hands Reagent its `:key`: give the vector `^{:key ...}` meta when siblings share the map.
+
+**Re-import, measured 2026-11-10** (untracked `scripts/e2e/probe-reimport.js` on `fix/pdf-export`,
+through My Content's Import with its defaults): a pack imported twice stays at 3 entries; an edited
+version updates in place ("Updated 1 entry 'Eberron Test' already had: 'Alchemist'"); the same keys
+in another source are kept under that source with the same key, its copies off as "compatibility";
+a reload changes nothing. No import added a renamed copy. A renamed key such as `:alchemist-erlw`
+comes from My Content's Copy, a Move into a source holding the key (`relocate-content`), or a
+conflict resolved by renaming; or it was already in the file imported.
