@@ -173,16 +173,72 @@
           @(subscribe [:srd-failed? :conditions]) [srd-load-failed :conditions]
           :else [:div "Loading..."])]])))
 
+(def ^:private first-rows
+  "Rows a reference list draws in the first frame after its list changes."
+  50)
+
+(def ^:private rows-per-frame
+  "Rows a reference list adds on each following animation frame."
+  100)
+
+(defn progressive-rows
+  "A reference list's rows, drawn first-rows at once and the rest rows-per-frame per animation
+   frame, so clearing a filter over hundreds of entries costs one frame. A new list from
+   `list-sub` (a subscription vector) cancels the pending frame and starts over. `row` gives the
+   row component for an entry; `row-key` its React key, which must be unique in the list.
+   Returns a Reagent component."
+  [list-sub row row-key]
+  (let [progress (volatile! {:list nil :n first-rows})
+        tick (r/atom 0)
+        raf (volatile! nil)
+        cancel! (fn []
+                  (when-let [id @raf]
+                    (js/cancelAnimationFrame id)
+                    (vreset! raf nil)))
+        schedule! (fn []
+                    (cancel!)
+                    (let [{:keys [list n]} @progress]
+                      (when (and list (< n (count list)))
+                        (vreset! raf
+                                 (js/requestAnimationFrame
+                                  (fn []
+                                    (vreset! raf nil)
+                                    (vswap! progress update :n + rows-per-frame)
+                                    (swap! tick inc)))))))]
+    (r/create-class
+     {:component-did-mount schedule!
+      :component-did-update schedule!
+      :component-will-unmount cancel!
+      :reagent-render
+      (fn [list-sub row row-key]
+        @tick
+        (let [entries @(subscribe list-sub)]
+          ;; the filtered subs hand back the very same list when the filter is cleared, so a
+          ;; change of list is a change of identity
+          (when-not (identical? (:list @progress) entries)
+            (vreset! progress {:list entries :n first-rows}))
+          [:div.item-list
+           (doall
+            (for [entry (take (:n @progress) entries)]
+              ^{:key (row-key entry)} [row entry]))]))})))
+
+(defn- entry-key
+  "The React key of a spell or monster row: its own :key, unique in the list even when names
+   repeat across sources (a homebrew entry with an SRD entry's key replaces it); its name when
+   it has no key."
+  [{:keys [key name]}]
+  (or key name))
+
 (defn monster-list-item
   "One row of the monster list: summary, expandable to the full monster. `monster` is the monster map."
   [{:keys [name size type subtypes alignment key] :as monster}]
   (r/with-let [device-type? (subscribe [:device-type])]
     (let [homebrew? (:option-pack monster)
-          expanded? @(subscribe [:monster-expanded? name])]
+          expanded? @(subscribe [:monster-expanded? (entry-key monster)])]
       [:div.main-text-color.item-list-item
        [:div.pointer
         [:div.flex.justify-cont-s-b.align-items-c
-         {:on-click #(dispatch [:toggle-monster-expanded name])}
+         {:on-click #(dispatch [:toggle-monster-expanded (entry-key monster)])}
          [:div.m-l-10
           [:div.f-s-24.f-w-600.p-b-20.p-t-20.flex
            (when homebrew?
@@ -212,18 +268,15 @@
                "delete"])]
            [views/monster-component monster]])]])))
 
+(defn- guarded-monster-row
+  "One monster row inside a render guard: a monster that cannot draw costs only its own row."
+  [monster]
+  [views/render-guard monster [monster-list-item monster]])
+
 (defn monster-list-items
-  "The monster list rows for the current filter, each inside a render guard."
+  "The monster list rows for the current filter, drawn progressively."
   []
-  (let [filtered-monsters @(subscribe [::monsters/filtered-monsters])]
-    [:div.item-list
-     (doall
-       (map
-         (fn [{:keys [name] :as monster}]
-           ^{:key name}
-           ;; a monster that cannot draw costs its own row
-           [views/render-guard monster [monster-list-item monster]])
-         filtered-monsters))]))
+  [progressive-rows [::monsters/filtered-monsters] guarded-monster-row entry-key])
 
 (defn clear-monsters-filter
   "Clears the monster list's text filter."
@@ -339,17 +392,16 @@
       [monster-list-items]]]))
 
 (defn spell-list-item
-  "One row of the spell list: summary, expandable to the full spell. `spell` is the spell map."
+  "One row of the spell list: summary, expandable to the full spell. `spell` is the spell map.
+   The spell's page route is worked out only when \"view\" is clicked."
   [{:keys [name level school ritual key] :as spell}]
-  (let [expanded? @(subscribe [:spell-expanded? name])
+  (let [expanded? @(subscribe [:spell-expanded? (entry-key spell)])
         device-type @(subscribe [:device-type])
-        spell-page-path (routes/path-for routes/dnd-e5-spell-page-route :key key)
-        spell-page-route (routes/match-route spell-page-path)
         homebrew? (:option-pack spell)]
     [:div.main-text-color.item-list-item
      [:div.pointer
       [:div.flex.justify-cont-s-b.align-items-c
-       {:on-click (make-event-handler :toggle-spell-expanded name)}
+       {:on-click (make-event-handler :toggle-spell-expanded (entry-key spell))}
        [:div.m-l-10
         [:div.f-s-24.f-w-600.p-t-20.flex
          (when homebrew?
@@ -366,7 +418,8 @@
          {:style views/character-display-style}
          [:div.flex.justify-cont-end.uppercase.align-items-c
           [:button.form-button.m-l-5
-           {:on-click (make-event-handler :route spell-page-route)}
+           {:on-click #(dispatch [:route (routes/match-route
+                                          (routes/path-for routes/dnd-e5-spell-page-route :key key))])}
            "view"]
           (when homebrew?
             [:button.form-button.m-l-5
@@ -380,43 +433,35 @@
          [views/spell-component spell true]])]]))
 
 (defn spell-list-items
-  "The filtered spell list rows. `device-type` is :mobile, :tablet or :desktop."
-  [device-type]
-  [:div.item-list
-   (doall
-    (map
-     (fn [{:keys [name level school key] :as spell}]
-       ^{:key name}
-       [spell-list-item spell])
-     @(subscribe [::char/filtered-spells])))])
+  "The filtered spell list rows, drawn progressively."
+  []
+  [progressive-rows [::char/filtered-spells] spell-list-item entry-key])
 
 (defn spell-list
   "The Spells page: text filter and the filtered list."
   []
-  (let [device-type @(subscribe [:device-type])]
-    [views/content-page
-     "Spells"
-     []
-     [:div.p-l-5.p-r-5.p-b-10
-      [:div.p-b-10.p-l-10.p-r-10
-       [:div.posn-rel
-        [:input.input.f-s-24.p-l-20.w-100-p.h-60
-         {:value @(subscribe [::char/spell-text-filter])
-          :on-change (views/make-arg-event-handler ::char/filter-spells event-value)}]
-        [:i.fa.fa-times.posn-abs.f-s-24.pointer.main-text-color
-         {:style views/close-icon-style
-          :on-click (make-event-handler ::char/filter-spells "")}]]]
-      [spell-list-items device-type]]]))
+  [views/content-page
+   "Spells"
+   []
+   [:div.p-l-5.p-r-5.p-b-10
+    [:div.p-b-10.p-l-10.p-r-10
+     [:div.posn-rel
+      [:input.input.f-s-24.p-l-20.w-100-p.h-60
+       {:value @(subscribe [::char/spell-text-filter])
+        :on-change (views/make-arg-event-handler ::char/filter-spells event-value)}]
+      [:i.fa.fa-times.posn-abs.f-s-24.pointer.main-text-color
+       {:style views/close-icon-style
+        :on-click (make-event-handler ::char/filter-spells "")}]]]
+    [spell-list-items]]])
 
 (defn item-list-item
-  "One row of the item list, expandable to the full item. `item` is the item map, `expanded?` whether it is open."
-  [{:keys [key name ::mi/owner :db/id] :as item} expanded?]
+  "One row of the item list, expandable to the full item. `item` is the item map. Its page route
+   is worked out only when \"view\" is clicked."
+  [{:keys [key name ::mi/owner :db/id] :as item}]
   (let [expanded-key (or name (::mi/name item))
         device-type @(subscribe [:device-type])
         expanded? @(subscribe [:item-expanded? expanded-key])
-        username @(subscribe [:username])
-        item-page-path (routes/path-for routes/dnd-e5-item-page-route :key (or id key))
-        item-page-route (routes/match-route item-page-path)]
+        username @(subscribe [:username])]
     [:div.main-text-color.item-list-item
      [:div.pointer
       [:div.flex.justify-cont-s-b.align-items-c
@@ -435,7 +480,8 @@
          {:style views/character-display-style}
          [:div.flex.justify-cont-end.uppercase.align-items-c
           [:button.form-button.m-l-5
-           {:on-click (make-event-handler :route item-page-route)}
+           {:on-click #(dispatch [:route (routes/match-route
+                                          (routes/path-for routes/dnd-e5-item-page-route :key (or id key)))])}
            "view"]
           (when (= username owner)
             [:button.form-button.m-l-5
@@ -461,15 +507,9 @@
       ]]))
 
 (defn item-list-items
-  "The filtered item list rows."
+  "The filtered item list rows, drawn progressively."
   []
-  [:div.item-list
-   (doall
-    (map
-     (fn [{:keys [:db/id key] :as item}]
-       ^{:key (or key id)}
-       [item-list-item item])
-     @(subscribe [::char/filtered-items])))])
+  [progressive-rows [::char/filtered-items] item-list-item (fn [{:keys [:db/id key]}] (or key id))])
 
 (defn item-list
   "The Items page: New Item button, text filter and the filtered list."
