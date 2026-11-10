@@ -160,6 +160,13 @@ view is two: the hold decides what the built character applies; Data View edits 
     `resources/public/js/compiled/`); do not trust a share of the uncompressed size as a
     compressed saving.
 
+- **The Orcacle searches homebrew too** (owner, 2026-11-10). Today it searches only the SRD
+  (`search-results`, `events.cljs` ~4142), so the "omni search" misses everything a player
+  imported. Design: search the same lists the reference pages show (SRD plus enabled homebrew),
+  not a second index; key results by each entry's own `:key`, never its name. Reference only:
+  `claude/app-speed-fix-K8HwV` (deleted, tip `e8613ad66`) built an index for this, but covered 9
+  types and merged by name ([branch-inventory.md](docs/kb/branch-inventory.md)).
+
 ### Deferred to the refactor — known, not yet owned
 
 - **Multi-tab character contamination** (#704) —
