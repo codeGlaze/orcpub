@@ -7,6 +7,8 @@
    are not covered here. The one piece of pure, side-effect-free logic that
    drives the diagnostics — blank-feature-name? — is tested directly."
   (:require [cljs.test :refer-macros [deftest testing is async]]
+            [reagent.core :as r]
+            [reagent.dom :as rdom]
             [cljs.reader :as reader]
             [re-frame.core :as rf]
             [orcpub.pdf-spec :as pdf-spec]
@@ -259,3 +261,23 @@
       ((pdf-options/make-print-handler nil true))
       (is (= [pdf-options/live-print-options nil true] (second @shown))
           "the builder's character is read from the builder"))))
+
+(deftest every-builder-section-gets-its-own-react-key
+  ;; Each section is wrapped in render-guard with the edited item, whose :key Reagent would take as
+  ;; the React key of every section.
+  (let [el (.createElement js/document "div")
+        errors (atom [])
+        error (.-error js/console)]
+    (set! (.-error js/console) (fn [& args] (swap! errors conj (apply str args))))
+    (try
+      (.appendChild (.-body js/document) el)
+      (rdom/render [:div (views/guarded-form {:key :spell-a :name "A"}
+                                             (fn [] [:div [:p "one"] [:p "two"] [:p "three"]]))]
+                   el)
+      (r/flush)
+      (is (empty? (filter #(re-find #"same key" %) @errors)) "no two sections share a React key")
+      (is (= "onetwothree" (.-textContent el)) "every section is drawn once")
+      (finally
+        (set! (.-error js/console) error)
+        (rdom/unmount-component-at-node el)
+        (.remove el)))))
