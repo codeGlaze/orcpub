@@ -66,7 +66,7 @@
   (is (= :compose (opened-mode {:orcpub.dnd.e5.character/portrait "{:layers {:head {:asset/id :h}}}"}))
       "a portrait: Compose"))
 
-(deftest a-drafted-link-changes-nothing-until-it-is-used
+(deftest a-drafted-image-changes-nothing-until-it-is-used
   (async done
     (let [before @app-db
           portrait "{:layers {:head {:asset/id :h}}}"
@@ -80,7 +80,8 @@
       (js/setTimeout
        (fn []
          (is (= "https://i.imgur.com/2O4oP3l.png" (:orcpub.dnd.e5.character/image-url (values))) "Use sets the link")
-         (is (nil? (:orcpub.dnd.e5.character/portrait (values))) "and the portrait goes")
+         (is (= portrait (:orcpub.dnd.e5.character/portrait (values))) "the portrait is kept")
+         (is (= "image" (:orcpub.dnd.e5.character/picture-shown (values))) "and the image is the one shown")
          (reset! app-db before)
          (done))
        100))))

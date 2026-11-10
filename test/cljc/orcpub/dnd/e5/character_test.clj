@@ -1,5 +1,5 @@
 (ns orcpub.dnd.e5.character-test
-  (:require [clojure.test :refer [is deftest]]
+  (:require [clojure.test :refer [is deftest testing]]
             [clojure.spec.alpha :as spec]
             [orcpub.dnd.e5.character :as char]
             [orcpub.dnd.e5.character.equipment :as equip]
@@ -112,15 +112,25 @@
         round-trip (-> strict char/from-strict char/to-strict)]
     (is (= strict round-trip))))
 
-(deftest a-character-shows-a-link-or-a-portrait-never-both
-  (let [with-portrait {::char/portrait "{:layers {:head {:asset/id :h}}}" ::char/image-url nil}
-        with-link {::char/image-url "https://example.test/hero.png"}]
-    (is (not (contains? (char/with-image-url with-portrait "https://example.test/hero.png") ::char/portrait))
-        "a link clears the portrait")
-    (is (contains? (char/with-image-url with-portrait "  ") ::char/portrait)
-        "a blank link leaves the portrait alone")
-    (is (not (contains? (char/with-saved-portrait with-link {:layers {:head {:asset/id :h}}}) ::char/image-url))
-        "a saved portrait clears the link")
-    (is (= "https://example.test/hero.png"
-           (::char/image-url (char/with-saved-portrait with-link {:layers {}})))
-        "an empty portrait leaves the link alone")))
+(deftest a-character-keeps-both-pictures-and-shows-one
+  (let [portrait "{:layers {:head {:asset/id :h}}}"
+        url "https://i.imgur.com/2O4oP3l.png"
+        both {::char/portrait portrait ::char/image-url url}]
+    (testing "using either keeps the other and makes it the one shown"
+      (let [v (char/with-image-url {::char/portrait portrait} url)]
+        (is (= portrait (::char/portrait v)))
+        (is (= :image (char/shown-picture v))))
+      (let [v (char/with-saved-portrait {::char/image-url url} {:layers {:head {:asset/id :h}}})]
+        (is (= url (::char/image-url v)))
+        (is (= :portrait (char/shown-picture v)))))
+    (testing "the choice decides; without one the portrait wins, as before"
+      (is (= :image (char/shown-picture (assoc both ::char/picture-shown "image"))))
+      (is (= :portrait (char/shown-picture (assoc both ::char/picture-shown "portrait"))))
+      (is (= :portrait (char/shown-picture both)))
+      (is (= :image (char/shown-picture {::char/image-url url ::char/picture-shown "portrait"}))
+          "a choice of something empty falls back to what there is")
+      (is (nil? (char/shown-picture {}))))
+    (testing "readers get only the picture shown"
+      (is (= {::char/image-url url ::char/picture-shown "image"}
+             (char/shown-values (assoc both ::char/picture-shown "image"))))
+      (is (not (contains? (char/shown-values both) ::char/image-url))))))
