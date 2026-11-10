@@ -25,7 +25,10 @@ opened yet. **KB:** [branch-inventory.md](../../docs/kb/branch-inventory.md), "`
 - 2026-11-10: source-tag mockup published for review: https://claude.ai/artifact/Jio8hodHEUpQma5GApGx1n
   (placement A/B/C, icon kept or replaced, short names). The temporary variant code is not on
   the branch.
-- Next, superseded by the line above: the source-tag mockup for the reference lists (owner said yes: phone screenshots on one
+- Done 2026-11-10, pushed: source tags built as decided (A, right of the row, replacing the icon;
+  `8772d53ab`), browser checks extended to 18 (`4c994803d`, 8 fail on the old code). Full checks
+  green: lein test 1576, cljs 1013, lint 0. **Next: the PR into `integration` when the owner says.**
+- Superseded: the source-tag mockup for the reference lists (owner said yes: phone screenshots on one
   review page, SRD vs homebrew colour, `common/source-abbreviation`), then build it; the PR when
   the owner says.
 
