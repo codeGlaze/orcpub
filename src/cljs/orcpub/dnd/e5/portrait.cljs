@@ -1546,12 +1546,12 @@
              (if (= mode :link)
                [:button.pl-btn.pl-btn-primary
                 {:type "button" :on-click #(dispatch [:portrait/use-link]) :disabled (s/blank? image-url)}
-                (if (= shown :image) "Use this image" "Switch to this image")]
+                (if (= shown :portrait) "Switch to this image" "Use this image")]
                [:button.pl-btn.pl-btn-primary
                 {:type "button"
                  :disabled (empty? (:layers portrait))
-                 :on-click #(dispatch (if (or (= shown :portrait) dirty?) [:portrait/save] [:portrait/show-portrait]))}
-                (cond (= shown :portrait) "Save portrait"
+                 :on-click #(dispatch (if (or (not= shown :image) dirty?) [:portrait/save] [:portrait/show-portrait]))}
+                (cond (not= shown :image) "Save portrait"
                       dirty? "Save and switch"
                       :else "Switch to this portrait")])]]]]))]))
 
