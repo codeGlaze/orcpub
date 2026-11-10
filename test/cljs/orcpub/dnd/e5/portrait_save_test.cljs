@@ -1,6 +1,6 @@
 (ns orcpub.dnd.e5.portrait-save-test
   "Saving a portrait is an edit to the character like any other."
-  (:require [cljs.test :refer-macros [deftest is]]
+  (:require [cljs.test :refer-macros [deftest is async]]
             [re-frame.core :refer [dispatch-sync]]
             [re-frame.db :refer [app-db]]
             [orcpub.dnd.e5.events]
@@ -48,3 +48,39 @@
     (is (= "#00ff00" (get-in p [:face :second-eye])) "second eye kept")
     (is (= "#abcdef" (get-in p [:ombre :tip])) "hair tips kept")
     (is (seq (:layers p)) "the pieces are still rolled")))
+
+(defn- opened-mode
+  "The mode the editor opens in for a character with entity `values`. Returns a keyword."
+  [values]
+  (let [before @app-db]
+    (try
+      (reset! app-db {:character {:db/id 1 :orcpub.entity/values values}})
+      (dispatch-sync [:portrait/open])
+      (:portrait/mode @app-db)
+      (finally (reset! app-db before)))))
+
+(deftest the-editor-opens-on-what-the-character-uses
+  (is (= :compose (opened-mode {})) "neither: Compose")
+  (is (= :link (opened-mode {:orcpub.dnd.e5.character/image-url "https://i.imgur.com/2O4oP3l.png"}))
+      "a link and no portrait: Picture link")
+  (is (= :compose (opened-mode {:orcpub.dnd.e5.character/portrait "{:layers {:head {:asset/id :h}}}"}))
+      "a portrait: Compose"))
+
+(deftest a-drafted-link-changes-nothing-until-it-is-used
+  (async done
+    (let [before @app-db
+          portrait "{:layers {:head {:asset/id :h}}}"
+          values #(get-in @app-db [:character :orcpub.entity/values])]
+      (reset! app-db {:character {:db/id 1 :orcpub.entity/values {:orcpub.dnd.e5.character/portrait portrait}}})
+      (dispatch-sync [:portrait/open :link])
+      (dispatch-sync [:portrait/set-link-draft "https://i.imgur.com/2O4oP3l.png"])
+      (is (= portrait (:orcpub.dnd.e5.character/portrait (values))) "typing a link keeps the portrait")
+      (is (nil? (:orcpub.dnd.e5.character/image-url (values))) "and sets no link yet")
+      (dispatch-sync [:portrait/use-link])
+      (js/setTimeout
+       (fn []
+         (is (= "https://i.imgur.com/2O4oP3l.png" (:orcpub.dnd.e5.character/image-url (values))) "Use sets the link")
+         (is (nil? (:orcpub.dnd.e5.character/portrait (values))) "and the portrait goes")
+         (reset! app-db before)
+         (done))
+       100))))
