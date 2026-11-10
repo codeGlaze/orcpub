@@ -160,10 +160,6 @@ view is two: the hold decides what the built character applies; Data View edits 
     `resources/public/js/compiled/`); do not trust a share of the uncompressed size as a
     compressed saving.
 
-- **Store each source's tag once, marked as generated** (owner, 2026-11-10). Reverses
-  "nothing is stored until an author sets one": keys stop drifting if the rule changes, and tag
-  clashes are resolved once. Writes go through the shape table.
-  [source-tagged-keys.md](docs/kb/source-tagged-keys.md), last section.
 - **A homebrew generator for test and dev libraries** (owner, 2026-11-10: planned, build when
   needed). One seeded generator driven by `homebrew_shapes.cljc`, with a collisions mode that
   keeps what the scaled packs do on purpose: [plan-homebrew-generator.md](docs/kb/plan-homebrew-generator.md).

@@ -3517,7 +3517,7 @@ _share-links · share links_
 
 _source-tagged-keys · source tagged keys_
 
-**topics:** 2026-09-13, abbreviation, author, curios, d10a, elf, first-letter-plus-last-letter, initials, key, mint, minted, muted, source, source-level, stone, tag, tidewater, untagged
+**topics:** 2026-09-13, abbreviation, author, clashes, curios, d10a, drift, elf, first-letter-plus-last-letter, initials, key, mint, minted, source, source-level, stone, tag, tidewater
 
 - What exists today
 - The proposal
