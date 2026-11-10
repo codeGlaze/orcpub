@@ -224,3 +224,19 @@ beside robots.txt and the art licence rather than replacing either.
   Portrait tab has its own `.pl-root` too, so the stylesheet has one theme hook, not two.
 - **The drawer's stylesheet mounts whether the drawer is open or not.** It also styles the
   launcher button and the Portrait tab, which are on screen when the drawer is not.
+
+## Randomize, Keep colours, and a picture link instead
+
+*Owner, 2026-11-10.* **Randomize rolls everything** (`portrait/roll`): every layer, a preset colour
+for each slot (`pa/color-presets`; the whites mostly white), the eyes (round pupils four times in
+five, a second eye colour one time in ten), blush and freckles about half the time, a light half the
+time, and a second hair colour (tips) on two in five, all within the ranges the settings accept.
+**Keep colours** holds the slot colours, piece tweaks, second eye, blush colour and hair tips, and
+rolls the rest. A seed rolls the same portrait every time.
+
+**A character has a picture link or a composed portrait, never both.** The drawer and the Portrait
+tab carry the Description tab's link field (`character_builder/image-link-field`, the same checking
+notice). A non-blank link clears the saved portrait and the unsaved draft
+(`character/with-image-url`, `:portrait/discard-draft`); saving a portrait with any layer clears the
+link (`character/with-saved-portrait`). A character saved before this with both still draws the
+portrait, as the PDF always has.
