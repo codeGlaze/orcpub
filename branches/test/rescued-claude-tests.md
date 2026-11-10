@@ -22,7 +22,10 @@ opened yet. **KB:** [branch-inventory.md](../../docs/kb/branch-inventory.md), "`
   homebrew spells showed 983 -> 1491 rows after clearing a search), routes built on click, one
   shared `progressive-rows` for the three lists (`719631230`); browser test
   `test/browser/reference_lists_e2e.js` (`fbbbae0d1`, 5/10 fail on the old code, 10/10 pass).
-- Next: the source-tag mockup for the reference lists (owner said yes: phone screenshots on one
+- 2026-11-10: source-tag mockup published for review: https://claude.ai/artifact/Jio8hodHEUpQma5GApGx1n
+  (placement A/B/C, icon kept or replaced, short names). The temporary variant code is not on
+  the branch.
+- Next, superseded by the line above: the source-tag mockup for the reference lists (owner said yes: phone screenshots on one
   review page, SRD vs homebrew colour, `common/source-abbreviation`), then build it; the PR when
   the owner says.
 
