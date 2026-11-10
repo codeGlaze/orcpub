@@ -46,6 +46,19 @@
  (fn [db _]
    (homebrew-check/checked :plugins (get db :plugins))))
 
+;; Each source's short tag, as My Content shows it: the stored :abbreviation, else the derived
+;; one (source-tagged-keys.md). Worked out once per library change, not per list row.
+(reg-sub
+ ::e5/source-tags
+ :<- [::e5/plugins]
+ (fn [plugins _]
+   (into {}
+         (for [[source-name source] plugins
+               :let [tag (or (when (map? source) (:abbreviation source))
+                             (common/source-abbreviation source-name))]
+               :when tag]
+           [source-name tag]))))
+
 ;; Whether the footer's diagnostic tools are revealed on this device.
 (reg-sub
  ::e5/dev-mode?

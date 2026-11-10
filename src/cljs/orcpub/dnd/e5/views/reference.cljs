@@ -8,6 +8,7 @@
             [orcpub.route-map :as routes]
             [orcpub.common :as common]
             [orcpub.components :as comps :refer [make-event-handler]]
+            [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.monsters :as monsters]
@@ -222,6 +223,17 @@
             (for [entry (take (:n @progress) entries)]
               ^{:key (row-key entry)} [row entry]))]))})))
 
+(defn- source-tag
+  "The short source tag at the right of a spell or monster row: the source's tag from
+   ::e5/source-tags in amber for homebrew (an entry with :option-pack), \"SRD\" in the
+   subheader's grey for built-in content. The beer-stein icon when a source has no tag."
+  [{:keys [option-pack]}]
+  (if-not option-pack
+    [:span.source-tag.f-s-12.f-w-b.opacity-5 "SRD"]
+    (if-let [tag (get @(subscribe [::e5/source-tags]) option-pack)]
+      [:span.source-tag.f-s-12.f-w-b.orange {:title option-pack} tag]
+      [:div.source-tag (views/svg-icon "beer-stein" 24 @(subscribe [:theme]))])))
+
 (defn- entry-key
   "The React key of a spell or monster row: its own :key, unique in the list even when names
    repeat across sources (a homebrew entry with an SRD entry's key replaces it); its name when
@@ -239,11 +251,10 @@
        [:div.pointer
         [:div.flex.justify-cont-s-b.align-items-c
          {:on-click #(dispatch [:toggle-monster-expanded (entry-key monster)])}
-         [:div.m-l-10
+         [:div.m-l-10.ref-row-main
           [:div.f-s-24.f-w-600.p-b-20.p-t-20.flex
-           (when homebrew?
-             [:div.m-r-10 (views/svg-icon "beer-stein" 24 @(subscribe [:theme]))])
            [views/monster-summary name size type subtypes alignment]]]
+         [source-tag monster]
          [:div.orange.pointer.m-r-10
           (when (not= @device-type? :mobile)
             [:span.underline (if expanded?
@@ -402,11 +413,10 @@
      [:div.pointer
       [:div.flex.justify-cont-s-b.align-items-c
        {:on-click (make-event-handler :toggle-spell-expanded (entry-key spell))}
-       [:div.m-l-10
+       [:div.m-l-10.ref-row-main
         [:div.f-s-24.f-w-600.p-t-20.flex
-         (when homebrew?
-           [:div.m-r-10 (views/svg-icon "beer-stein" 24 @(subscribe [:theme]))])
          [views/spell-summary name level school ritual true 12]]]
+       [source-tag spell]
        [:div.orange.pointer.m-r-10
         (when (not= device-type :mobile) [:span.underline (if expanded?
                                                           "collapse"

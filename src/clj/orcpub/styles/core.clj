@@ -2181,6 +2181,16 @@
     [:.item-list-item
      {:border-bottom "1px solid rgba(255,255,255,0.5)"}]
 
+    ;; A reference list row's name keeps to one line and ends in an ellipsis, so the source tag
+    ;; beside it never wraps; the full name shows when the row is opened.
+    [:.ref-row-main {:min-width 0 :flex "1 1 auto"}
+     [:>.flex {:min-width 0}
+      [:>div {:min-width 0 :overflow :hidden}
+       [:>:first-child {:display :block :white-space :nowrap :overflow :hidden
+                        :text-overflow :ellipsis}]]]]
+    [:.source-tag {:flex "none" :white-space :nowrap :align-self :flex-start
+                   :padding-top "29px" :margin "0 8px"}]
+
     ;; Thin, themed scrollbar for a flyout that fit-flyout! had to cap (My Content on
     ;; a short screen). The default is a light slab against a dark menu.
     [:.header-flyout
