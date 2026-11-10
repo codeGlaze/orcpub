@@ -160,6 +160,9 @@ view is two: the hold decides what the built character applies; Data View edits 
     `resources/public/js/compiled/`); do not trust a share of the uncompressed size as a
     compressed saving.
 
+- **A homebrew generator for test and dev libraries** (owner, 2026-11-10: planned, build when
+  needed). One seeded generator driven by `homebrew_shapes.cljc`, with a collisions mode that
+  keeps what the scaled packs do on purpose: [plan-homebrew-generator.md](docs/kb/plan-homebrew-generator.md).
 - **The Orcacle searches homebrew too** (owner, 2026-11-10). Today it searches only the SRD
   (`search-results`, `events.cljs` ~4142), so the "omni search" misses everything a player
   imported. Design: search the same lists the reference pages show (SRD plus enabled homebrew),

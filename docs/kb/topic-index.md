@@ -717,7 +717,7 @@ _character-heals · character heals_
 
 _character-image-routes · character image routes_
 
-**topics:** 393, acao, advice, bearing, browser, bytes, clipboard, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
+**topics:** 393, acao, advice, bearing, bytes, clipboard, cross-origin, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
 
 - The rule that decides everything
 - Measured, with real URLs
@@ -1214,7 +1214,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** and-list, cantrips, choice, compound, creator, dependent, descriptive, grant, idiomatic, layer-a, mis-attribution, progression, repeatable, select, spell, spells, two-level, vocabulary
+**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, grant, idiomatic, layer-a, mis-attribution, progression, repeatable, select, spell, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -1435,7 +1435,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, plan, session, stale, topic, wrong
+**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, index, irreducible, ledger, narrative, session, stale, topic, wrong
 
 - What earns a doc
 - Verify, don't remember
@@ -2028,7 +2028,7 @@ _handoff-weapons-table · handoff weapons table_
 
 _heartbeat · heartbeat_
 
-**topics:** beat, beats, clock, database, dates, hour, job, jobs, jumped, monitor, outage, outages, pruning, running, server, three-day, tick, unrecorded
+**topics:** beat, beats, clock, database, hour, job, jobs, jumped, monitor, outage, outages, pruning, running, server, three-day, tick, time, unrecorded
 
 - What it records
 - Using it
@@ -2887,7 +2887,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** 2026-10-16, days, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, unsaved
+**topics:** 2026-10-16, character, days, draft, drafts, edit, elsewhere, expire, expires, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)
@@ -3021,6 +3021,17 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 - Are the new fields ornaments?
 - Derived helpers, or more fields?
 - Related
+
+## plan-homebrew-generator.md
+
+_plan-homebrew-generator · plan homebrew generator_
+
+**topics:** 2026-11-10, 900, agents, command, fixtures, generator, hand-made, homebrew-guard, libraries, linked, lorem, pack, plausible, randomly, someday, srd-like, valid, varied
+
+- Why
+- Design
+- Where it goes
+- Open when it starts
 
 ## plan-homebrew-markdown-export.md
 
@@ -3458,7 +3469,7 @@ _settings-registry-and-boot-report · settings registry and boot report_
 
 _share-bundle-dependency-extraction · share bundle dependency extraction_
 
-**topics:** cljc, cljs, closure, def, direct, entity, extractor, index, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
+**topics:** cljc, cljs, closure, def, direct, extractor, index, languages, plugins, race, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
 
 - Why this is not trivial
 - The content types (master list)
