@@ -6,7 +6,8 @@
 // a sheet style and opens the Spellbook group, its tallest state. Then, on a 1280x720 desktop and
 // a 390x844 phone, checks that the panel covers the window, that Create PDF is inside the window
 // and is what a tap there hits without any scrolling, and that the last option (the file name
-// preview) scrolls into view inside the panel. Tab and Shift+Tab stay inside it; Escape closes it. Last, in the dark theme and then
+// preview) scrolls into view inside the panel. Tab and Shift+Tab stay inside it; Escape closes it. With the
+// cookie notice left on, Create PDF is still what a tap hits. Last, in the dark theme and then
 // the light one, every visible text in the panel is checked for contrast against what is behind it.
 
 const { chromium } = require('playwright');
@@ -149,6 +150,28 @@ async function lowContrast(page) {
   await settle(page);
   const light = (await page.locator('.pdf-sheet').count()) ? await lowContrast(page) : ['the panel did not open'];
   check('light theme: every text in the panel is readable against its background', light.length === 0, light.join(' | '));
+
+  // The cookie notice left on (the runner stamps it seen; this context clears that after it):
+  // the notice is a fixed bar along the bottom, and Create PDF must still be what a tap hits.
+  {
+    const [w, h] = [1280, 720];
+    const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+    await ctx.addInitScript(() => { try { localStorage.removeItem('orcpub:no-cookie-banner'); } catch (e) {} });
+    const p = await ctx.newPage();
+    await p.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'networkidle', timeout: 60000 });
+    await settle(p);
+    // cookies.js adds the notice after a delay
+    const notice = await p.locator('#poper').waitFor({ state: 'visible', timeout: 15000 }).then(() => true, () => false);
+    check(`${w}x${h}, cookie notice on: the notice is showing`, notice);
+    await clickVisible(p, 'text=Export');
+    await settle(p, 300);
+    // Create PDF takes clicks only once a sheet style is picked
+    await p.locator('.pdf-sheet select').first().selectOption({ index: 1 }).catch(() => {});
+    await settle(p, 300);
+    const r = await createPdfInView(p);
+    check(`${w}x${h}, cookie notice on: Create PDF is what a tap there hits`, r.onTop, r.detail);
+    await ctx.close();
+  }
 
   await browser.close();
   console.log(`\n${failures ? failures + ' FAILED' : 'all passed'}`);
