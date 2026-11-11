@@ -571,6 +571,11 @@
    ;; its light-theme tone is restated because the drawer sits outside .app
    [".pl-active" {:margin-left "6px" :font-size "10px" :padding "1px 7px"}]
    [".pl-root.light-theme .share-pill-shared" {:background-color "rgba(51,101,138,0.14)" :color "#2b567a"}]
+   ;; on the selected option the pill takes that option's own ink: dark on the amber, white on the
+   ;; light theme's blue, so open-and-active reads as one control rather than two colours fighting
+   [".pl-segmented button.on .pl-active" {:background-color "rgba(0,0,0,0.16)" :color "#241a00"}]
+   [".pl-root.light-theme .pl-segmented button.on .pl-active" {:background-color "rgba(255,255,255,0.22)"
+                                                               :color "#fff"}]
    [".pl-link-picture" {:width "100%" :height "100%" :object-fit "contain"}]
    [".pl-mode-link" {:background "none" :border "none" :padding "6px 0 0" :color "inherit"
                      :text-decoration "underline" :cursor "pointer" :font-size "13px"}]
