@@ -67,5 +67,11 @@ duplicates, and the PDF Options code moved out of views.cljs (views/pdf_options.
 
 - **Printing:** a spellcaster's PDF no longer opens with a "did not fit" page naming a cantrip slots
   box; cantrips have no slots, from a class, race or feat alike.
+- **Printing:** a race's spell page (a Tiefling's Hellish Rebuke and Darkness) no longer shows
+  the class's spell slots; each such spell says how it is cast, for example "2nd level,
+  once/long rest", as do a Warlock's at-will invocations and Mystic Arcanum.
+- **Warlock:** Mire the Mind's Slow is cast once per long rest using a warlock spell slot, not at
+  will, and a Warlock's at-will and Mystic Arcanum spells stay at their own level on a packed PDF
+  spell sheet.
 
 ## Security
