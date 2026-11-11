@@ -249,6 +249,67 @@
           slots (slot-fields (spell-fields known {}))]
       (is (empty? (filter #(re-matches #"spell-slots-0-.*" (name %)) (keys slots))) (str slots)))))
 
+(def ^:private tiefling-wizard
+  "spells-known for a Tiefling Wizard: Wizard spells cast from slots, the Tiefling's Hellish Rebuke
+   and Darkness free once per long rest, no slots (SRD 5.1 Infernal Legacy)."
+  (let [lr {:units :orcpub.dnd.e5.units/long-rest :amount 1}
+        cha :orcpub.dnd.e5.character/cha
+        int :orcpub.dnd.e5.character/int]
+    {1 {"m" {:key :magic-missile :class "Wizard" :ability int}
+        "h" {:key :hellish-rebuke :class "Tiefling" :ability cha
+             :casting {:free (assoc lr :level 2) :slots :none}}}
+     2 {"s" {:key :shatter :class "Wizard" :ability int}
+        "d" {:key :darkness :class "Tiefling" :ability cha :casting {:free lr :slots :none}}}}))
+
+(def ^:private spell-names
+  "Names for the spells these tests print, as spells-map holds them."
+  (into {} (map (fn [[k n]] [k {:name n}]))
+        {:magic-missile "Magic Missile" :hellish-rebuke "Hellish Rebuke" :shatter "Shatter"
+         :darkness "Darkness" :hex "Hex" :mage-armor "Mage Armor" :eyebite "Eyebite"}))
+
+(defn- page-of
+  "The page suffix (\"-1\") whose spellcasting-class field reads `source` in field map `fields`."
+  [fields source]
+  (some (fn [[k v]] (when (= source v) (subs (name k) (count "spellcasting-class"))))
+        fields))
+
+(deftest race-and-feat-free-casts-carry-no-class-slots
+  (let [fields (pdf/spell-page-fields tiefling-wizard {1 4 2 3} (constantly 13) (constantly 5)
+                                     false #{} {} spell-names {} 1)
+        wizard (page-of fields "Wizard")
+        tiefling (page-of fields "Tiefling")]
+    (testing "the Wizard page keeps its slots"
+      (is (= 4 (get fields (keyword (str "spell-slots-1" wizard)))) (str fields))
+      (is (= 3 (get fields (keyword (str "spell-slots-2" wizard)))) (str fields)))
+    (testing "the Tiefling page shows how its spells are cast, and no slots"
+      (is (empty? (filter #(and (re-matches #"spell-slots-.*" (name %))
+                                (.endsWith (name %) tiefling))
+                          (keys fields)))
+          (str fields))
+      (is (= "Hellish Rebuke (2nd level, once/long rest)"
+             (get fields (keyword (str "spells-1-1" tiefling)))) (str fields))))
+  (testing "packed: the Tiefling group carries no slots, the Wizard group the shared ones"
+    (let [groups (into {} (map (juxt :class identity))
+                       (pdf/packing-classes (into {} (map (fn [[l m]] [l (into {} (map (fn [[_ c]] [(:key c) c])) m)]))
+                                                  tiefling-wizard)
+                                            spell-names {1 4 2 3} {} (constantly 13) (constantly 5)))]
+      (is (= {1 4 2 3} (get-in groups ["Wizard" :slots])))
+      (is (= {} (get-in groups ["Tiefling" :slots])))
+      (is (= ["Hellish Rebuke (2nd level, once/long rest)"] (get-in groups ["Tiefling" :levels 1]))))))
+
+(deftest a-warlocks-free-casts-stay-off-its-pact-level
+  (let [cha :orcpub.dnd.e5.character/cha
+        known {1 {:hex {:key :hex :class "Warlock" :ability cha}
+                  :mage-armor {:key :mage-armor :class "Warlock" :ability cha
+                               :casting {:free {:at-will true} :slots :none}}}
+               6 {:eyebite {:key :eyebite :class "Warlock" :ability cha :qualifier "uses Mystic Arcanum"
+                            :casting {:free {:units :orcpub.dnd.e5.units/long-rest :amount 1} :slots :none}}}}
+        [warlock] (pdf/packing-classes known spell-names {} {5 3} (constantly 15) (constantly 7))]
+    (is (:pact? warlock))
+    (is (= ["Hex"] (get-in warlock [:levels 5])) (str warlock))
+    (is (= ["Mage Armor (at will)"] (get-in warlock [:levels 1])) (str warlock))
+    (is (= ["Eyebite (uses Mystic Arcanum, once/long rest)"] (get-in warlock [:levels 6])) (str warlock))))
+
 (deftest file-safe-names-open-on-every-system
   (testing "the PDF Options preview and the server share one rule"
     (are [in out] (= out (pdf/file-safe in))

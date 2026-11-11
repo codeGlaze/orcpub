@@ -60,7 +60,8 @@
             [orcpub.dnd.e5.orcbrew-validation-test]
             ;; encrypted share snapshots use Web Crypto, so they run only here
             [orcpub.dnd.e5.share-url-test]
-            [orcpub.dnd.e5.charges-builder-test]))
+            [orcpub.dnd.e5.charges-builder-test]
+            [orcpub.dnd.e5.race-spells-test]))
 
 
 ;; Building the character template starts a watcher that recomputes it on every app-db change and
@@ -73,6 +74,7 @@
              'orcpub.hardened-helpers-test
    'orcpub.dnd.e5.homebrew-guard-test
    'orcpub.dnd.e5.homebrew-markdown-test
+             'orcpub.dnd.e5.race-spells-test
              'orcpub.dnd.e5.event-utils-test
              'orcpub.dnd.e5.compute-test
              'orcpub.dnd.e5.hunter-evasion-test

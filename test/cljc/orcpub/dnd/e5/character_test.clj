@@ -3,6 +3,8 @@
             [clojure.spec.alpha :as spec]
             [orcpub.dnd.e5.character :as char]
             [orcpub.dnd.e5.character.equipment :as equip]
+            [orcpub.dnd.e5.modifiers :as mod5e]
+            [orcpub.dnd.e5.units :as units5e]
             [orcpub.entity :as entity]))
 
 (deftest equipment-to-namespaced
@@ -135,3 +137,44 @@
              (char/shown-values (assoc both ::char/picture-shown "image"))))
       (is (= both (char/shown-values both)))
       (is (= url (::char/image-url (char/shown-values (assoc both ::char/picture-shown "portrait"))))))))
+
+;; Every casting mode of plan-spell-uses-by-source.md that the 2014 SRD data uses, read by the one
+;; rule the Spells tab and the PDF share.
+(deftest each-casting-mode-reads-as-the-rules-say
+  (let [lr units5e/long-rests-1]
+    (testing "a class spell: slots, no note"
+      (is (char/slot-castable? {:key :bless}))
+      (is (nil? (char/casting-note {:key :bless}))))
+    (testing "free casts, no slots, at a fixed level (2014 Tiefling)"
+      (let [c {:casting {:free (assoc lr :level 2) :slots :none}}]
+        (is (not (char/slot-castable? c)))
+        (is (= "2nd level, once/long rest" (char/casting-note c)))))
+    (testing "free casts, and slots too (2024 lineages, Magic Initiate by ruling)"
+      (let [c {:casting {:free (units5e/long-rests 2)}}]
+        (is (char/slot-castable? c))
+        (is (= "twice/long rest, or a slot" (char/casting-note c)))))
+    (testing "at will, no slot (invocations)"
+      (let [c {:casting {:free {:at-will true} :slots :none}}]
+        (is (not (char/slot-castable? c)))
+        (is (= "at will" (char/casting-note c)))))
+    (testing "a slot, but only N per rest (Mire the Mind)"
+      (let [c {:casting {:slots lr}}]
+        (is (char/slot-castable? c))
+        (is (= "once/long rest, using a slot" (char/casting-note c)))))
+    (testing "any count per any period"
+      (is (= "3 times/day, or a slot"
+             (char/casting-note {:casting {:free (units5e/units ::units5e/day 3)}}))))))
+
+(deftest a-free-grant-never-closes-a-class-spells-slots
+  (let [free {:key :slow :class "Warlock" :casting {:free {:at-will true} :slots :none}}
+        plain {:key :slow :class "Warlock"}]
+    (testing "either order: the class spell keeps slot casting, the free casts stay"
+      (doseq [[a b] [[free plain] [plain free]]]
+        (let [entry (get-in (-> {} (mod5e/add-spell 3 a) (mod5e/add-spell 3 b)) [3 ["Warlock" :slow]])]
+          (is (char/slot-castable? entry) (str entry))
+          (is (= {:at-will true} (get-in entry [:casting :free])) (str entry)))))
+    (testing "two free grants: the later one stands"
+      (let [entry (get-in (-> {} (mod5e/add-spell 3 free)
+                              (mod5e/add-spell 3 (assoc-in free [:casting :slots] :none)))
+                          [3 ["Warlock" :slow]])]
+        (is (not (char/slot-castable? entry)))))))
