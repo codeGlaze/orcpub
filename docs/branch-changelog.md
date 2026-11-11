@@ -44,5 +44,6 @@ path: that branch's guards are no longer needed), and carries the homebrew searc
 - **Characters:** the loading spinner no longer stays up after a failed Random character; moving to another page always clears it.
 - **Reference:** spells and monsters that share a name (common across homebrew packs) each show as their own row; clearing a search no longer leaves duplicate rows, and opening one no longer opens the others.
 - **Reference:** the Spells, Monsters and Items lists come back at once when a search is cleared, even with large homebrew libraries.
+- **Items:** built-in items no longer show Edit and Delete to visitors who are not logged in.
 
 ## Security
