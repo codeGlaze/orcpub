@@ -573,8 +573,8 @@
                       (str spell-name (when qualifier (str " (" qualifier ")"))))})
                  spells)
                 ;; Slots belong to the class, not the page, so only the first
-                ;; page of a class carries them.
-                (when-not continued?
+                ;; page of a class carries them; cantrips (level 0) have none and no box.
+                (when (and (not continued?) (pos? level))
                   {(keyword (str "spell-slots-" level suffix))
                    (spell-slots level)})))
              spells)]))
