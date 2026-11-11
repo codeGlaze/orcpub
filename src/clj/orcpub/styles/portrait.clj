@@ -567,8 +567,10 @@
                         :border-radius "8px" :overflow "hidden" :text-align "center" :padding "12px"}
     [:img {:max-width "100%" :max-height "340px" :object-fit "contain"}]]
    [".pl-kept" {:font-size "13px" :text-align "right"}]
-   [".pl-showing" {:margin-left "6px" :padding "0 6px" :border-radius "8px" :font-size "10px"
-                   :text-transform "uppercase" :letter-spacing "0.05em" :border "1px solid currentColor"}]
+   ;; the picture the character shows: the site's status pill (.share-pill-shared), smaller in the switch;
+   ;; its light-theme tone is restated because the drawer sits outside .app
+   [".pl-active" {:margin-left "6px" :font-size "10px" :padding "1px 7px"}]
+   [".pl-root.light-theme .share-pill-shared" {:background-color "rgba(51,101,138,0.14)" :color "#2b567a"}]
    [".pl-link-picture" {:width "100%" :height "100%" :object-fit "contain"}]
    [".pl-mode-link" {:background "none" :border "none" :padding "6px 0 0" :color "inherit"
                      :text-decoration "underline" :cursor "pointer" :font-size "13px"}]

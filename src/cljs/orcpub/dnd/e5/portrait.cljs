@@ -1522,8 +1522,8 @@
              "\u2715"]]
            [:div.pl-mode
             [segmented "" "Build a portrait or use an image from the web" mode
-             [[:compose [:span "Build a portrait" (when (= shown :portrait) [:span.pl-showing "showing"])]]
-              [:link [:span "Use an image from the web" (when (= shown :image) [:span.pl-showing "showing"])]]]
+             [[:compose [:span "Build a portrait" (when (= shown :portrait) [:span.share-pill.share-pill-shared.pl-active "Active"])]]
+              [:link [:span "Use an image from the web" (when (= shown :image) [:span.share-pill.share-pill-shared.pl-active "Active"])]]]
              #(dispatch [:portrait/set-mode %])]]
            (if (= mode :link)
              [:div.pl-link-mode
