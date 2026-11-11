@@ -279,6 +279,11 @@ Clean data at the seams makes all of them safe at once.
 - **The junk audit** (`lein fig:junk && node test/e2e/junk-pack-audit.js`, about 8 minutes), in CI
   once it reads zero. Each stage has a **canary**, a planted bad entry it must catch; **coverage is
   counted**: fewer entries picked, drawn or converted than expected fails.
+  **Its `expand` draws hiccup the way Reagent would, but not class components** (`r/create-class`):
+  a page that starts rendering through one is silently not drawn. The reference lists' progressive
+  rows did exactly that (2026-11-10, PR #83): the monster list check passed without drawing a row.
+  `expand` now has a clause for `reference/progressive-rows`, and a "monster list row that throws"
+  canary; a new class component on an audited page needs the same pair.
 - **AGENTS.md:** write the library through the gate; a safety claim cites a committed test that
   runs; a report says what it did not cover.
 
