@@ -130,7 +130,8 @@
       (is (= :image (char/shown-picture {::char/image-url url ::char/picture-shown "portrait"}))
           "a choice of something empty falls back to what there is")
       (is (nil? (char/shown-picture {}))))
-    (testing "readers get only the picture shown"
+    (testing "showing the image hides the portrait; showing the portrait keeps the image as its fallback"
       (is (= {::char/image-url url ::char/picture-shown "image"}
              (char/shown-values (assoc both ::char/picture-shown "image"))))
-      (is (not (contains? (char/shown-values both) ::char/image-url))))))
+      (is (= both (char/shown-values both)))
+      (is (= url (::char/image-url (char/shown-values (assoc both ::char/picture-shown "portrait"))))))))

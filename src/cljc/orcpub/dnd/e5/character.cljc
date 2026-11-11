@@ -798,11 +798,11 @@
       image? :image)))
 
 (defn shown-values
-  "Entity `values` with only the picture they show: the other picture's field removed, so a reader
-   that draws whichever it finds draws the right one. Returns the values."
+  "Entity `values` as readers should see them: showing the image removes the portrait; showing the
+   portrait keeps the image as the fallback for a portrait this site cannot draw, since every reader
+   draws a drawable portrait first. Returns the values."
   [values]
   (case (shown-picture values)
-    :portrait (dissoc values ::image-url)
     :image (dissoc values ::portrait)
     values))
 
