@@ -2222,7 +2222,7 @@ _homebrew-reference-web · homebrew reference web_
 
 _homebrew-safety-net · homebrew safety net_
 
-**topics:** aside, cache, conversion, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, realized, realizing, repairs, retries, retry, set-aside, startup, throw, throws, unrealized, watcher
+**topics:** aside, cache, conversion, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, realized, realizing, repairs, restore, retries, retry, set-aside, startup, throw, throws, unrealized
 
 - What it guarantees
 - Startup reads storage and builds nothing
@@ -2889,7 +2889,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** 2026-10-16, character, days, draft, drafts, edit, elsewhere, expire, expires, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, unsaved
+**topics:** 2026-10-16, days, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)
@@ -3011,7 +3011,7 @@ _plan-email-and-alerts · plan email and alerts_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, pool, published, skill, wrapper
+**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, published, skill, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -3084,7 +3084,7 @@ _plan-lookup-indexes · plan lookup indexes_
 
 _plan-next · plan next_
 
-**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, number, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged
+**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged, windows
 
 - 0. Standing, do these first
 - 0b. September support sessions — tracked separately
@@ -3127,6 +3127,18 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 - Why scaling is the expensive route, not the easy one
 - What this means for the owner's goal
 
+## plan-spell-uses-by-source.md
+
+_plan-spell-uses-by-source · plan spell uses by source_
+
+**topics:** 2014, 2024, cast, feats, free-use, hellish, initiate, magic, payment, pdf, rebuke, rest, ruling, slot, slots, spell, tasha, tiefling
+
+- The rules: every grant answers the same four questions
+- What the app has (checked 2026-11-11, fix/pdf-export)
+- The plan
+- Build order (each step small and shippable)
+- Open, for the owner
+
 ## pool-grant-map.md
 
 _pool-grant-map · pool grant map_
@@ -3162,7 +3174,7 @@ _proposal-indexeddb-storage · proposal indexeddb storage_
 
 _re-frame-subscribe-refactor · re frame subscribe refactor_
 
-**topics:** apis, cached, chain, component, direct, event-utils, extract, handler, low, methods, re-frame, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
+**topics:** apis, cached, chain, component, direct, event-utils, extract, handler, low, methods, pattern, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
 
 - The Problem
 - What actually happens when you subscribe in a handler
@@ -3471,7 +3483,7 @@ _settings-registry-and-boot-report · settings registry and boot report_
 
 _share-bundle-dependency-extraction · share bundle dependency extraction_
 
-**topics:** cljc, cljs, closure, def, direct, extractor, index, languages, plugins, race, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
+**topics:** cljc, cljs, closure, def, direct, entity, extractor, index, languages, plugins, recipient, reverse, selections, spell, spell-list, spells, subs, sweep
 
 - Why this is not trivial
 - The content types (master list)
@@ -3591,7 +3603,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, crest, figures, head, heading, level, opentype, packed, pact, prep, re-split, slots, spell, spellbook, taller
+**topics:** cards, chapter, column, columns, crest, figures, head, heading, level, opentype, packed, pact, prep, re-split, spell, spellbook, tabs, taller
 
 - What it prints
 - Why the layout works the way it does
@@ -3752,7 +3764,7 @@ _start-build · start build_
 
 _starting-equipment-override-ledger · starting equipment override ledger_
 
-**topics:** addressing, base, bases, free-text, frozen, gensym, group, groups, growable-option-menus, item-key, ledger, map-to-map, minted, option, recompiler, srd, stable, sub-choice
+**topics:** addressing, base, bases, equipment, frozen, gensym, group, groups, growable-option-menus, item-key, ledger, map-to-map, minted, option, recompiler, srd, stable, sub-choice
 
 - The shape (what a ledger addresses)
 - The missing shape: groups/options have no stable id
@@ -4063,7 +4075,7 @@ _weapons-table-follow-ups · weapons table follow ups_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, versatile, weapon, white
+**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, opened, preference, row, shield, study, versatile, weapon, white
 
 - The parts and their names
 - Agreed
