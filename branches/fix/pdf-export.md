@@ -15,6 +15,11 @@ scrolling, a freeze on ticking Print Spell Cards / Print Spellbook). **Base:** `
   Export now generates the name (`named-spec` in `views.cljs`, `::char5e/fill-blank-name`), and the
   server falls back to the class and level (`3a9ea1777`). Eleven name permutations otherwise
   exported fine; they found the empty-slot and Latin-1 defects fixed in `34947cf7d`.
+- **The "freeze" was most likely scroll chaining (owner, 2026-11-11).** On a phone, swiping the old
+  in-page PDF Options scrolled the page behind it until the page hit bottom, and only then the
+  menu; with mobile's hair-thin scrollbar that read as frozen. The full-window sheet (fixed,
+  covering the page, `.pdf-sheet-body` with `overscroll-behavior: contain`) should end it. To
+  confirm on a real phone with this build; until then the measurements below stand.
 - **"Freeze" on Print Spell Cards / Spellbook: the browser is not blocked; the server is slow and
   the page says nothing.** Wizard 20, 440 spells picked (150 homebrew, ~1.3 KB descriptions), at
   390 px with the CPU throttled (CDP, 1x / 4x / 6x): ticks paint in 65 / 155 / 200 ms, long tasks
