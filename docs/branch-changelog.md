@@ -65,4 +65,7 @@ duplicates, and the PDF Options code moved out of views.cljs (views/pdf_options.
 - **Printing:** a PDF's file name keeps names with accents, curly apostrophes or non-Latin
   letters, drops emoji and characters Windows cannot save, and a player name without a character name no longer leaves an empty " -  - " slot.
 
+- **Printing:** a spellcaster's PDF no longer opens with a "did not fit" page naming a cantrip slots
+  box; cantrips have no slots, from a class, race or feat alike.
+
 ## Security
