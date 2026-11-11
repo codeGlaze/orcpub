@@ -18,12 +18,25 @@ filled.
 | **Slots, as a class spell** (class lists; domain, oath, circle and patron spells, always prepared) | yes | yes | identical |
 | **Cantrip, at will** (race and feat cantrips: High Elf, Tiefling Thaumaturgy, Magic Initiate) | yes | yes | identical |
 | **Free uses per rest, no slots** (Tiefling Infernal Legacy, Drow Magic, Magic Initiate's 1st-level spell as printed) | the norm for races and feats | rare | 2014's default |
-| **Free uses per rest, and slots too** (2024 Tiefling Fiendish Legacy, Elf and Gnome lineages, Magic Initiate; Tasha's Fey Touched and Shadow Touched) | Magic Initiate *ruling*; Tasha's feats (not SRD) | the norm for species and feats | 2024's default |
+| **Free uses per rest, and slots too** (2024 Tiefling Fiendish Legacy, Elf and Gnome lineages, Magic Initiate; Tasha's Fey Touched and Shadow Touched) | Magic Initiate *ruling*; Tasha's feats (not SRD) | the norm for species, feats and some class features (SRD 5.2.1) | 2024's default |
 | **At will, levelled, no slot** (Armor of Shadows, Mask of Many Faces invocations; Boots of Levitation) | yes | yes | identical |
 | **Slot spent, but limited** (2014 invocations such as Thief of Five Fates: "once using a warlock spell slot", back on a long rest) | yes | *check* | 2014 mostly |
 | **Charges or per-dawn uses on an item** | yes | yes | identical, built |
 | **Another resource** (ki points, Way of the Four Elements; not SRD) | rare | rare | homebrew only |
 | **Ritual only** (Ritual Caster feat, Book of Shadows) | yes | yes | identical |
+
+**Checked against the SRD text** (`resources/srd/SRD-5.1.readable.txt` and
+`SRD-5.2.1.readable.txt` on `srd52/develop`):
+
+- 5.1 Tiefling, Infernal Legacy: "cast the hellish rebuke spell as a 2nd-level spell once with this
+  trait and regain the ability to do so when you finish a long rest". No slots.
+- 5.2.1 Elven Lineage and Fiendish Legacy: "always have that spell prepared. You can cast it once
+  without a spell slot ... Long Rest. You can also cast the spell using any spell slots you have of
+  the appropriate level." Magic Initiate (5.2.1) says the same.
+- 5.2.1 Forest Gnome: Speak with Animals "a number of times equal to your Proficiency Bonus", then
+  slots too.
+- 5.2.1 class features use the same wording (Draconic Sorcerer's Dragon Companion: "cast it once
+  without a spell slot"), so free uses are not only a race and feat thing in 2024.
 
 Attributes that ride on any row above, not rows of their own:
 
@@ -60,6 +73,23 @@ is what the app does for every spell today.
 - **PDF:** pages are grouped by ability, headed by every `:class` on them (`pdf_spec.cljc` ~390),
   and every first page gets the shared slots (`spell-page-fields` ~597; `packing-classes` ~528).
   The qualifier is printed after the name.
+
+## What the refactor line already has (checked 2026-11-11)
+
+Searched `refactor/main`, `feature/grant-rows`, `srd52/develop` and `feature/extras-companions`.
+**Nothing for uses, slots or casting by source to lift.**
+
+- `grants.cljc` (`feature/grant-rows`): the generic grant shape, `{:pool p :key k}` fixed or
+  `{:pool p :count n :filter ...}` choice, untrusted-input spec. `grant_pools.cljc` registers
+  languages, fighting styles, skills, expertise, tools; **no spell pool**.
+- Spells as a pool is the **last** step of that branch's plan (`handoff-grant-rows.md` section 8,
+  `pool-grant-map.md` "Spells"), not started.
+- `srd52/develop` holds the SRD 5.1 and 5.2.1 text used above, nothing that models the uses.
+
+**What this means for the plan:** the `:casting` map below is the per-grant payload a future
+`{:pool :spells :key k}` grant would carry, so build it as a plain map on the grant, independent
+of how the grant is declared. Today it rides on `spells-known-cfg`; when spells become a pool it
+moves onto the grant unchanged.
 
 ## The plan
 

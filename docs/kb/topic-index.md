@@ -2901,7 +2901,7 @@ _plan-character-drafts · plan character drafts_
 
 _plan-charges-and-casting · plan charges and casting_
 
-**topics:** beads, cast, casting, charges, damage, dawn, dice, fireball, fireballs, item, phones, powers, regain, rest, rolled, spell, spells, staff
+**topics:** beads, cast, casting, charges, damage, dawn, dice, dusk, fireball, fireballs, item, phones, powers, rest, rolled, spell, spells, staff
 
 - What exists (verified)
 - The connecting idea
@@ -3131,10 +3131,11 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 2014, 2024, cast, feats, free-use, hellish, initiate, magic, payment, pdf, rebuke, rest, ruling, slot, slots, spell, tasha, tiefling
+**topics:** 2014, 2024, 2026-11-11, cast, grant, hellish, initiate, magic, payment, rebuke, rest, ruling, slot, slots, spell, spells, tasha, tiefling
 
 - The rules: every grant answers the same four questions
 - What the app has (checked 2026-11-11, fix/pdf-export)
+- What the refactor line already has (checked 2026-11-11)
 - The plan
 - Build order (each step small and shippable)
 - Open, for the owner
@@ -3576,7 +3577,7 @@ _spell-granting-across-silos · spell granting across silos_
 
 _spell-selection-source-fix · spell selection source fix_
 
-**topics:** bom, built-ins, cantrips, codespace, continue, error-handling-import-validation, homebrew-class-spellcasting, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, sorcerer, spell-selection, toggle
+**topics:** bom, built-ins, cantrips, codespace, continue, error-handling-import-validation, homebrew-class-spellcasting, import, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, spell-selection, toggle
 
 - The bug (one sentence)
 - Feature changes
