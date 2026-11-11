@@ -47,6 +47,7 @@
             [orcpub.dnd.e5.containment-test]
             [orcpub.dnd.e5.reference-web-test]
             [orcpub.dnd.e5.views-test]
+            [orcpub.dnd.e5.reference-lists-test]
             [orcpub.dnd.e5.portrait-credit-thumb-test]
             [orcpub.dnd.e5.portrait-artists-arrive-test]
             [orcpub.art-mark-test]
@@ -104,6 +105,7 @@
              'orcpub.dnd.e5.containment-test
              'orcpub.dnd.e5.reference-web-test
              'orcpub.dnd.e5.views-test
+             'orcpub.dnd.e5.reference-lists-test
              'orcpub.dnd.e5.portrait-credit-thumb-test
              'orcpub.dnd.e5.portrait-artists-arrive-test
              'orcpub.art-mark-test

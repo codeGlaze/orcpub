@@ -52,6 +52,7 @@
             [orcpub.dnd.e5.equipment-subs]
             ;; Side effect: registers all event handlers
             [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.coverage-pak :as coverage-pak]))
 
@@ -2306,3 +2307,21 @@
     (is (= {:db/id 5} (get-in fx [:db :character])) "the current character is kept")
     (is (not (get-in fx [:db ::e5/replacing?])))
     (is (= :show-error-message (first (:dispatch fx))))))
+
+(deftest a-request-from-the-last-page-cannot-touch-the-new-pages-spinner
+  (reset! app-db {:route :some-existing-route :loading 0})
+  (let [old-gen (event-utils/loading-gen @app-db)]
+    (rf/dispatch-sync [:set-loading true old-gen])
+    (rf/dispatch-sync [:route routes/dnd-e5-char-list-page-route {:skip-path? true}])
+    (let [new-gen (event-utils/loading-gen @app-db)]
+      (is (not= old-gen new-gen) "a page change starts a new generation")
+      (rf/dispatch-sync [:set-loading true new-gen])
+      (rf/dispatch-sync [:set-loading false old-gen])
+      (is (= 1 (:loading @app-db)) "the old page's request finishing leaves the new one's spinner on")
+      (rf/dispatch-sync [:set-loading true old-gen])
+      (is (= 1 (:loading @app-db)) "an old request starting late does not raise it either")
+      (rf/dispatch-sync [:set-loading false new-gen])
+      (is (= 0 (:loading @app-db)))
+      (testing "a change with no generation always counts"
+        (rf/dispatch-sync [:set-loading true])
+        (is (= 1 (:loading @app-db)))))))

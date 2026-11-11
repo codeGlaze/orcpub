@@ -248,24 +248,30 @@ async function timedBackspace(page) {
   await pp.waitForTimeout(3000);
   const phoneImport = await importPack(pp, writePack());
   await pp.waitForTimeout(2000);
-  await open(pp, 'spells');
-  const lines = await pp.evaluate(([longName, shortName]) => {
-    const rows = [...document.querySelectorAll('.item-list-item')];
-    const find = n => rows.find(r => ((r.querySelector('.f-s-24') || {}).innerText || '').split('\n')[0].trim().startsWith(n));
-    const info = n => {
-      const r = find(n);
-      if (!r) return null;
-      const line = r.querySelector('.pointer > div');
-      const tag = r.querySelector('.source-tag');
-      return { h: line.getBoundingClientRect().height, tagRight: tag ? tag.getBoundingClientRect().right : null };
-    };
-    return { long: info(longName), short: info(shortName), width: window.innerWidth };
-  }, [LONG_NAME, 'Fireball']);
-  check('phone 344 px: the long-named row\'s top line is one line tall (same as a short name\'s)',
-        phoneImport.ok && !!lines.long && !!lines.short && Math.abs(lines.long.h - lines.short.h) <= 2,
-        JSON.stringify(lines));
-  check('phone 344 px: the long-named row\'s tag stays inside the viewport',
-        !!lines.long && lines.long.tagRight !== null && lines.long.tagRight <= lines.width, JSON.stringify(lines.long));
+  // A failed import would leave the phone checks waiting on rows that never come, so it is
+  // reported here and the phone checks are skipped.
+  if (!phoneImport.ok) {
+    check('phone 344 px: the test pack imports', false, JSON.stringify(phoneImport));
+  } else {
+    await open(pp, 'spells');
+    const lines = await pp.evaluate(([longName, shortName]) => {
+      const rows = [...document.querySelectorAll('.item-list-item')];
+      const find = n => rows.find(r => ((r.querySelector('.f-s-24') || {}).innerText || '').split('\n')[0].trim().startsWith(n));
+      const info = n => {
+        const r = find(n);
+        if (!r) return null;
+        const line = r.querySelector('.pointer > div');
+        const tag = r.querySelector('.source-tag');
+        return { h: line.getBoundingClientRect().height, tagRight: tag ? tag.getBoundingClientRect().right : null };
+      };
+      return { long: info(longName), short: info(shortName), width: window.innerWidth };
+    }, [LONG_NAME, 'Fireball']);
+    check('phone 344 px: the long-named row\'s top line is one line tall (same as a short name\'s)',
+          !!lines.long && !!lines.short && Math.abs(lines.long.h - lines.short.h) <= 2,
+          JSON.stringify(lines));
+    check('phone 344 px: the long-named row\'s tag stays inside the viewport',
+          !!lines.long && lines.long.tagRight !== null && lines.long.tagRight <= lines.width, JSON.stringify(lines.long));
+  }
   await phone.close();
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '));

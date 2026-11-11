@@ -288,9 +288,14 @@
 
 (defn- expand
   "Draw `x` the way Reagent would: a vector headed by a function is a child component, so call it
-   (twice for a component that returns its render function) and draw what it returns."
+   (twice for a component that returns its render function) and draw what it returns. A reference
+   list's progressive rows are drawn in full, every entry of its subscription."
   [x]
-  (cond (and (vector? x) (= views/guard-fallback (first x)))
+  (cond
+        (and (vector? x) (= reference/progressive-rows (first x)))
+        ;; a class component draws over several frames; here every row is drawn at once
+        (let [[_ list-sub row] x]
+          (doall (map #(expand [row %]) @(rf/subscribe list-sub)))) (and (vector? x) (= views/guard-fallback (first x)))
         ;; the fallback a guard draws for what it caught, whichever guard
         (let [[_ data e] x]
           (swap! contained #(or % (msg e)))
@@ -587,6 +592,9 @@
       (is (caught? (with-race-option #(do (guard/report! {:content-type ::e5/races :key :elf}) %)
                                      canary-run)
                    #(= :set-aside (:stage %)))))
+    (testing "a monster list row that throws"
+      (with-redefs [reference/monster-list-item (fn [& _] (canary))]
+        (is (caught? (canary-run) #(= [:page :monster-list] (:stage %))))))
     (testing "a builder that throws"
       (with-redefs [views/race-builder (fn [] (canary))]
         (is (caught? (canary-run) #(= [:builder :junk-races] (:stage %))))))
