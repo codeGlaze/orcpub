@@ -788,27 +788,6 @@
                                             :box-shadow "0 0 0 2px rgba(51,101,138,0.32)"}]
    [".pl-root.light-theme .pl-sw-none" {:background "repeating-linear-gradient(45deg, #eceef1 0 5px, transparent 5px 10px)"
                                         :color "#8a8a8a"}]
-   ;; The launcher lives in the Description tab, not in the drawer, so it hangs
-   ;; off .app rather than .pl-root -- scoping it to .pl-root left an amber
-   ;; button sitting in an otherwise blue light theme.
-   [".app.light-theme .pl-launcher" {:background "linear-gradient(to bottom, #33658A, #2b5677)"
-                                     :color "#fff"
-                                     :border-color "#24485f"
-                                     :box-shadow "0 6px 14px -8px rgba(51,101,138,0.5)"}]
-   ;; the launcher button that sits next to the Image URL input in the builder
-   [".pl-launcher" {:display "inline-flex"
-                    :align-items "center"
-                    :gap "7px"
-                    :padding "9px 14px"
-                    :border-radius "8px"
-                    :background "linear-gradient(to bottom, #f1a20f, #dbab50)"
-                    :color "#15202e"
-                    :font "700 13px/1 'Open Sans', system-ui, sans-serif"}
-                   {:border "1px solid #b57500"
-                    :box-shadow "0 6px 14px -8px rgba(240,161,0,0.32)"
-                    :cursor "pointer"
-                    :margin-top "5px"}]
-   [".pl-launcher:hover" {:filter "brightness(1.06)"}]
    ;; Second way in: a pencil over the summary thumbnail, for people who are
    ;; looking at the portrait rather than at the Description tab's URL field.
    ;; Only rendered in the builder, where there is a drawer to open.

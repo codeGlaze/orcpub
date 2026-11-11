@@ -1637,16 +1637,6 @@
              :layers (pa/compose-for-seed seed)
              :colors colours :tweaks {} :face face :light light :ombre ombre))))
 
-(defn launcher-button
-  "The 'Compose portrait' button that slots next to the Image URL input in
-   the character-builder Description tab."
-  []
-  [:button.pl-launcher
-   {:type "button"
-    :on-click #(dispatch [:portrait/open])
-    :title "Compose portrait from layered art"}
-   "Compose portrait"])
-
 (defn edit-overlay
   "Pencil layered onto the character-summary thumbnail. stopPropagation
    because summaries are sometimes wrapped in a clickable row."

@@ -1,7 +1,7 @@
 // Portrait compositor, driven through the real builder UI.
 //
 // Opens the character builder, goes to the Description tab, clicks
-// "Compose portrait", and exercises the drawer: randomize, pick a swatch,
+// "Change picture", and exercises the drawer: randomize, pick a swatch,
 // set a base color, shade one piece, save, and confirm the composed
 // portrait survives into the character summary.
 //
@@ -112,12 +112,12 @@ function check(label, ok, detail) {
   check('empty thumbnail carries the pencil',
         await emptyThumb.locator('.pl-thumb-edit').count() > 0);
 
-  const launcher = page.locator('.pl-launcher');
+  const launcher = page.getByRole('button', { name: 'Change picture' });
   // Was `check(..., true)` after this wait: the wait does the work, but a miss
   // then died as a harness error with no per-check attribution, and the line
   // reported PASS for something it had not looked at.
   const launcherVisible = await launcher.isVisible().catch(() => false);
-  check('"Compose portrait" launcher renders in Description tab', launcherVisible);
+  check('"Change picture" renders in the Description tab', launcherVisible);
   if (!launcherVisible) {
     console.log('  (skipping the rest: no launcher to open)');
     await browser.close();
@@ -226,7 +226,7 @@ function check(label, ok, detail) {
   await page.waitForTimeout(300);
 
   // --- reopen: draft should rehydrate from the saved character ---------
-  await page.locator('.pl-launcher').click();
+  await page.getByRole('button', { name: 'Change picture' }).click();
   await drawer.waitFor({ state: 'visible', timeout: 10000 });
   const reopened = await page.locator('.pl-portrait-frame .portrait-layer').count();
   check('reopening rehydrates the saved portrait', reopened > 0, `${reopened} layers`);
@@ -254,7 +254,7 @@ function check(label, ok, detail) {
 
   check('app switched to light theme', await page.locator('.app.light-theme').count() > 0);
 
-  await page.locator('.pl-launcher').click();
+  await page.getByRole('button', { name: 'Change picture' }).click();
   await page.locator('.pl-drawer').waitFor({ state: 'visible', timeout: 10000 });
   const lightDrawerBg = await page.locator('.pl-drawer')
     .evaluate(el => getComputedStyle(el).backgroundColor);
@@ -280,7 +280,7 @@ function check(label, ok, detail) {
   // hook -- it was left amber in an otherwise blue theme.
   await page.locator('.pl-drawer-close').click();
   await page.waitForTimeout(300);
-  const launcherLight = await page.locator('.pl-launcher')
+  const launcherLight = await page.getByRole('button', { name: 'Change picture' })
     .evaluate(el => getComputedStyle(el).backgroundImage);
   check('launcher recolours for light theme too',
         launcherLight !== launcherBgClosed, launcherLight);

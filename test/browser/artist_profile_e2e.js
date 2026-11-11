@@ -208,7 +208,7 @@ async function checkProfile(page, themeLabel) {
     await dismissCookies(pg);
     const descTab = pg.locator('.builder-tab', { hasText: /^Description$/ }).first();
     if (await descTab.count()) { await descTab.click(); await pg.waitForTimeout(300); }
-    await pg.locator('.pl-launcher').click();
+    await pg.getByRole('button', { name: 'Change picture' }).click();
     await pg.locator('.pl-drawer').waitFor({ state: 'visible', timeout: 10000 });
     await pg.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
     // Composing grows the credit by a line, which slides the new link under

@@ -64,7 +64,7 @@ function check(label, ok, detail) {
   const descTab = page.locator('.builder-tab', { hasText: /^Description$/ }).first();
   if (await descTab.count()) { await descTab.click(); await page.waitForTimeout(300); }
 
-  await page.locator('.pl-launcher').click();
+  await page.getByRole('button', { name: 'Change picture' }).click();
   await page.locator('.pl-drawer').waitFor({ state: 'visible', timeout: 10000 });
   await page.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
   await page.waitForTimeout(400);
