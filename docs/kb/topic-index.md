@@ -1148,7 +1148,7 @@ _decision-already-held-resolution · decision already held resolution_
 
 _decision-cr-representation · decision cr representation_
 
-**topics:** double, doubles, extras, formatter, formatters, fractional, jvm, lower, monster, moon, notation, numeric, ratio, ratios, representation, representations, sentence, sort
+**topics:** double, doubles, extras, formatter, formatters, fractional, jvm, literals, monster, moon, notation, numeric, ratio, ratios, representation, representations, sentence, sort
 
 - The short answer
 - What exists — VERIFIED, not recalled
@@ -1963,7 +1963,7 @@ _handoff-669-final-pass · handoff 669 final pass_
 
 _handoff-grant-rows · handoff grant rows_
 
-**topics:** acceptance, feat, fixed-class, frozen, grants, legacy, nested, normalization, normalize, pool, race, registry, rows, silo, step, steps, strike, widgets
+**topics:** acceptance, feat, fixed-class, frozen, jvm, legacy, nested, normalization, normalize, pool, race, registry, rows, silo, step, steps, strike, widgets
 
 - Where you are
 - The work, in order
@@ -2598,7 +2598,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _orcbrew-level-modifiers · orcbrew level modifiers_
 
-**topics:** arrive, audits, consumed, driven, grant, integer, keyword, level, level-modifier, presence, race, races, racial, subclass, subclasses, trait, vocabularies, warden
+**topics:** arrive, audits, consumed, driven, grant, initiative, integer, keyword, level, level-modifier, presence, race, races, subclass, subclasses, trait, vocabularies, warden
 
 - Nothing validates the shape of a brew
 - Two grant vocabularies, with different shapes
@@ -2901,7 +2901,7 @@ _plan-character-drafts · plan character drafts_
 
 _plan-charges-and-casting · plan charges and casting_
 
-**topics:** beads, cast, casting, charges, damage, dawn, dice, dusk, fireball, fireballs, item, phones, powers, rest, rolled, spell, spells, staff
+**topics:** beads, cast, casting, charges, damage, dawn, dice, fireball, fireballs, item, phones, powers, regain, rest, rolled, spell, spells, staff
 
 - What exists (verified)
 - The connecting idea
@@ -3131,9 +3131,9 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 2014, 2024, 2026-11-11, cast, grant, hellish, initiate, magic, payment, rebuke, rest, ruling, slot, slots, spell, spells, tasha, tiefling
+**topics:** 2014, 2024, 2026-11-11, 521, book, cast, casting, grant, initiate, magic, mode, rest, slot, slots, spell, spells, srd, tiefling
 
-- The rules: every grant answers the same four questions
+- The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)
 - What the refactor line already has (checked 2026-11-11)
 - The plan
@@ -3436,7 +3436,7 @@ _rules-override-layer · rules override layer_
 
 _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional modifiers_
 
-**topics:** arbitrary, armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifiers, play-state, player, positioning, recomputes, sheet, static, toggle
+**topics:** armor, benefit, bloodied, build-state, condition, deferred, entity, equipped, flag, modifier, modifiers, play-state, player, positioning, recomputes, sheet, static, toggle
 
 - The mechanism
 - Armor (build-state condition) works similarly but auto-evaluated
@@ -3577,7 +3577,7 @@ _spell-granting-across-silos · spell granting across silos_
 
 _spell-selection-source-fix · spell selection source fix_
 
-**topics:** bom, built-ins, cantrips, codespace, continue, error-handling-import-validation, homebrew-class-spellcasting, import, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, spell-selection, toggle
+**topics:** bom, built-ins, cantrips, codespace, continue, error-handling-import-validation, homebrew-class-spellcasting, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, sorcerer, spell-selection, toggle
 
 - The bug (one sentence)
 - Feature changes

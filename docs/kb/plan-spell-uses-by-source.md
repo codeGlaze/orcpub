@@ -7,50 +7,50 @@ printing the class's slots. Builds on [spell-granting-across-silos.md](spell-gra
 (one primitive, many wrappers) and [plan-charges-and-casting.md](plan-charges-and-casting.md) (a cast
 is one act with a different payment). Nothing here is built.
 
-## The rules: every grant answers the same four questions
+## The rules: a catalogue of casting modes, by edition and era
 
-Read from the 2014 SRD 5.1 / PHB and the 2024 SRD 5.2 / PHB wording. Rows marked *ruling* rest on
-an official ruling, not the printed text; *check* means confirm against the text when its data is
-filled.
+**Correction (owner, 2026-11-11):** an earlier version of this page said the editions "differ only
+in which mode a race or feat uses by default" (2014 free-only, 2024 free plus slots). Wrong. 2014 is
+not one default: it changed over the edition's life, and it has a mode 2024 dropped. So no rule may
+be keyed on the edition; every grant states its own mode.
 
-| How it is cast | 2014 | 2024 | Overlap |
+**Sources and marks.** *SRD* = checked against `resources/srd/SRD-5.1.readable.txt` or
+`SRD-5.2.1.readable.txt` on `srd52/develop` (line numbers there). *Book* = from a non-SRD book,
+from memory, not checked against text: confirm before it becomes data. *Ruling* = an official
+ruling, not printed text. 2014 eras: PHB (2014), Xanathar's (XGtE, 2017), Tasha's (TCoE, 2020),
+Monsters of the Multiverse (MotM, 2022), all 2014 rules.
+
+| Mode | 2014 | 2024 | Overlap |
 |---|---|---|---|
-| **Slots, as a class spell** (class lists; domain, oath, circle and patron spells, always prepared) | yes | yes | identical |
-| **Cantrip, at will** (race and feat cantrips: High Elf, Tiefling Thaumaturgy, Magic Initiate) | yes | yes | identical |
-| **Free uses per rest, no slots** (Tiefling Infernal Legacy, Drow Magic, Magic Initiate's 1st-level spell as printed) | the norm for races and feats | rare | 2014's default |
-| **Free uses per rest, and slots too** (2024 Tiefling Fiendish Legacy, Elf and Gnome lineages, Magic Initiate; Tasha's Fey Touched and Shadow Touched) | Magic Initiate *ruling*; Tasha's feats (not SRD) | the norm for species, feats and some class features (SRD 5.2.1) | 2024's default |
-| **At will, levelled, no slot** (Armor of Shadows, Mask of Many Faces invocations; Boots of Levitation) | yes | yes | identical |
-| **Slot spent, but limited** (2014 invocations such as Thief of Five Fates: "once using a warlock spell slot", back on a long rest) | yes | *check* | 2014 mostly |
-| **Charges or per-dawn uses on an item** | yes | yes | identical, built |
-| **Another resource** (ki points, Way of the Four Elements; not SRD) | rare | rare | homebrew only |
-| **Ritual only** (Ritual Caster feat, Book of Shadows) | yes | yes | identical |
+| **A. Slots, as a class spell.** Class lists; domain, oath, circle, patron spells; always prepared | SRD | SRD | identical |
+| **B. Cantrip, at will.** Race and feat cantrips (Tiefling Thaumaturgy, High Elf, Magic Initiate) | SRD | SRD | identical |
+| **C. Free casts per rest; slots cannot be used.** | SRD: Tiefling Infernal Legacy (51:694, "as a 2nd-level spell"); Mystic Arcanum (51:3713). Book: Drow Magic (PHB); Magic Initiate as printed (PHB); XGtE racial feats (Drow High Magic, Wood Elf Magic; Fey Teleportation resets on a short rest) | SRD: Mystic Arcanum (521:6677); Divine Intervention (521:3704, any Cleric spell of level 5 or lower); Signature Spells (521:7309, short or long rest, at level 3) | both. 2014 PHB/XGtE use it for races and feats; 2024 keeps it for class capstones only |
+| **D. Free casts per rest, and slots too.** | Book: TCoE Fey Touched, Shadow Touched; MotM races (for example Fairy, Githyanki). Ruling: Magic Initiate | SRD: Elven Lineage (521:7810), Fiendish Legacy (521:7990), Forest Gnome (521:7848), Magic Initiate (521:8062), Paladin's Smite (521:5133), Faithful Steed (521:5181), Favored Enemy (521:5445, twice), Dragon Companion (521:6493), Gift of the Depths (521:6776) | **late 2014 (TCoE, MotM) and 2024 are the same mode.** 2024 makes it the norm and extends it to class features |
+| **E. At will, levelled, no slot.** | SRD: invocations (Armor of Shadows 51:3744, Fiendish Vigor "as a 1st-level spell" 51:3803, Mask of Many Faces 51:3825, and others); Spell Mastery (51:4133, lowest level; a slot to upcast) | SRD: the same invocations (521:6713 on); Spell Mastery (521:7296) | identical |
+| **F. A slot is spent, but only N per rest.** | SRD: Mire the Mind (51:3836, slow "once using a warlock spell slot"), Sign of Ill Omen (51:3868, bane) | not found in SRD 5.2.1 | **2014 only** |
+| **G. Free, with a per-target limit.** | SRD: Chains of Carceri (51:3783, hold monster at will, once per creature per long rest) | SRD: Contact Patron (521:6669, free, auto-succeeds its save) | rare edge cases on both sides; text, not data |
+| **H. Charges or uses on an item.** | SRD | SRD | identical; built (`plan-charges-and-casting.md`) |
+| **I. Another resource** (ki or sorcery points) | Book: Way of the Four Elements, Shadow Arts (PHB) | none found as spell casting in SRD 5.2.1 | homebrew only for now |
+| **J. Ritual only.** | Book: Ritual Caster (PHB); *check* Book of Ancient Secrets in SRD 5.1 | *check* Pact of the Tome | both |
 
-**Checked against the SRD text** (`resources/srd/SRD-5.1.readable.txt` and
-`SRD-5.2.1.readable.txt` on `srd52/develop`):
+**Attributes that ride on a mode,** each seen in the text above:
 
-- 5.1 Tiefling, Infernal Legacy: "cast the hellish rebuke spell as a 2nd-level spell once with this
-  trait and regain the ability to do so when you finish a long rest". No slots.
-- 5.2.1 Elven Lineage and Fiendish Legacy: "always have that spell prepared. You can cast it once
-  without a spell slot ... Long Rest. You can also cast the spell using any spell slots you have of
-  the appropriate level." Magic Initiate (5.2.1) says the same.
-- 5.2.1 Forest Gnome: Speak with Animals "a number of times equal to your Proficiency Bonus", then
-  slots too.
-- 5.2.1 class features use the same wording (Draconic Sorcerer's Dragon Companion: "cast it once
-  without a spell slot"), so free uses are not only a race and feat thing in 2024.
+- **Count:** a number (1; Favored Enemy: 2), or proficiency bonus (Forest Gnome, 521:7854).
+- **Reset:** long rest (most), short or long rest (Signature Spells; Fey Teleportation), dawn (items).
+- **Fixed cast level:** Tiefling's Hellish Rebuke at 2nd, Fiendish Vigor at 1st, Signature Spells
+  at 3rd, Spell Mastery at lowest. Everyone else casts at the spell's level, or upcasts with a slot
+  where slots are allowed.
+- **Minimum character level** before it applies (Tiefling: 3rd and 5th; lineages: 3 and 5).
+- **"Always prepared" (2024) versus "know" (2014):** 2024 grants say the spell is always prepared,
+  which is what lets slots reach it.
 
-Attributes that ride on any row above, not rows of their own:
+**What the overlap means for the data:** modes A, B, C, D, E, H and J exist in both editions; F is
+2014-only; D spans late 2014 and 2024. A grant's mode therefore cannot be inferred from its edition,
+its source kind (race, feat, class) or its era. **Each grant states its mode.** The modes reduce to
+two independent answers plus the attributes:
 
-- **Count:** a number (1), or a number from the character: proficiency bonus or an ability modifier
-  (common in 2024 and Tasha's).
-- **Reset:** short rest, long rest, dawn, day.
-- **Fixed cast level:** 2014 Tiefling casts Hellish Rebuke **as a 2nd-level spell**; most cast at
-  the spell's lowest level.
-- **Minimum character level** before the grant applies (Tiefling: 3rd and 5th).
-
-**The overlap that matters:** the editions share every mode; they differ only in which one a race
-or feat uses by default. So one small record answers every row: *how many free uses, reset when,
-may slots also be spent, at what level*. Absent, a spell is cast from slots as a class spell, which
-is what the app does for every spell today.
+- **Free casts:** none, N per reset, or at will (with an optional fixed level).
+- **Slot casting:** any slots, none, or a slot spent only N per reset (mode F).
 
 ## What the app has (checked 2026-11-11, `fix/pdf-export`)
 
@@ -97,14 +97,19 @@ moves onto the grant unchanged.
 `spells-known-cfg`, so the primitive is unchanged):
 
 ```clojure
-{:uses 1 | :proficiency-bonus | ::char5e/cha   ; free uses; absent = none
- :reset ::units5e/long-rest                     ; the units5e periods rests already clear
- :slots? true                                   ; may also be cast from slots; absent = true without :uses
- :level 2}                                      ; fixed cast level for the free use
+{:free  {:count 1                          ; or :proficiency-bonus, or :at-will
+         :reset ::units5e/long-rest        ; the units5e periods rests already clear
+         :level 2}                         ; fixed cast level; absent = the spell's own
+ :slots :any}                              ; :any | :none | {:count 1 :reset ::units5e/long-rest}
 ```
 
+Mode by mode: A is no `:casting` at all (today's behaviour); C `{:free {...} :slots :none}`;
+D `{:free {...} :slots :any}`; E `{:free {:count :at-will} :slots :any}` (upcasting spends a slot,
+as Spell Mastery says) or `:slots :none`; F `{:slots {:count 1 :reset ...}}`; B needs nothing
+(cantrips); G and I stay text; H is the item's own `::mi/casts`.
+
 - **The rule every reader uses** goes in one cljc function (beside `shown-picture`'s kind of rule),
-  e.g. `char5e/spell-payment cfg` returning `#{:slot :free :at-will}`. The PDF and the app ask it;
+  e.g. `char5e/spell-payment cfg` returning which of free, at-will and slot a grant allows. The PDF and the app ask it;
   neither guesses from `:class`. This also fixes Magic Initiate, which `:class` alone cannot.
 - **Edition defaults live in the data, not the code.** Each built-in race, feat and invocation
   states its own `:casting`; 2014 and 2024 content simply carry different values. A homebrew grant
@@ -128,12 +133,13 @@ What the player sees:
 
 1. **The field and the rule:** `:casting` on `spells-known-cfg`, `spell-payment`, tests over the
    rules table above. No behaviour change.
-2. **Built-in data:** 2014 SRD races and feats state their `:casting` (Tiefling, Drow, High Elf,
-   Magic Initiate, invocations). 2024 data on `srd52/develop` does the same when its races land.
+2. **Built-in data:** 2014 SRD content states its `:casting` by mode: Tiefling (C, fixed 2nd),
+   Mystic Arcanum (C), the at-will invocations (E), Mire the Mind and Sign of Ill Omen (F), Spell
+   Mastery (E), Magic Initiate (C or D, owner's call), Drow (C). 2024 data on `srd52/develop` does the same when its races land.
 3. **PDF:** slots only where `spell-payment` says slot; uses after the name. Fixes the reported bug.
 4. **Spells tab display:** per-source uses, "remaining" only where slots apply.
 5. **Tracking and casting:** the free-use tick, then the cast panel's payment choice.
-6. **Homebrew:** optional `uses / reset / slots / level` on the `known-spells` row
+6. **Homebrew:** an optional mode (free casts: count, reset, level; slot casting: any, none, N per reset) on the `known-spells` row
    (`homebrew_shapes.cljc`, backward compatible: absent means today's behaviour), and a spell row for
    feats (the silos gap), through the same field.
 
