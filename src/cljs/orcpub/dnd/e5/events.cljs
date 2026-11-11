@@ -2854,7 +2854,7 @@
 
 (reg-event-fx
  :portrait/use-link
- ;; "Use this picture": the drafted link becomes the character's, replacing a composed portrait
+ ;; "Use this image": the drafted link becomes the character's and shows; a saved portrait is kept
  (fn [{:keys [db]} _]
    (let [url (:portrait/link-draft db)]
      (when-not (s/blank? url)
@@ -2917,7 +2917,7 @@
 
 (reg-event-db
  :portrait/discard-draft
- ;; After a picture link replaces the portrait: the next open seeds from the character again.
+ ;; After switching to an image: unsaved portrait edits go; the next open seeds from the saved portrait.
  (fn [db _]
    (dissoc db :portrait/draft :portrait/draft-seed)))
 
