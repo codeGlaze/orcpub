@@ -847,42 +847,42 @@
                            :nonce (:csp-nonce req)
                            :action (or (:uri req) "/character.pdf")})}))))
 
-(defn- file-safe
-  "`part` (a string or nil) keeping only what every common file system accepts: letters, marks,
-   digits, spaces and plain punctuation; emoji and the characters Windows refuses (<>:\"/\\|?*)
-   are dropped, runs of spaces collapsed, and trailing dots and spaces trimmed. Returns a string."
-  [part]
-  (-> (str part)
-      (s/replace #"[^\p{L}\p{M}\p{N} \-_.,'’‘()\[\]&+!]" "")
-      (s/replace #"\s+" " ")
-      (s/replace #"[. ]+$" "")
-      s/trim))
+(defn- fit-bytes
+  "`base` cut, a character at a time, to at most `limit` UTF-8 bytes (Linux and Android cap a file
+   name at 255 bytes, and one CJK letter takes three), then trailing dots and spaces trimmed.
+   Returns a string."
+  [base limit]
+  (loop [b base]
+    (if (<= (count (.getBytes ^String b "UTF-8")) limit)
+      (s/replace b #"[. ]+$" "")
+      (recur (subs b 0 (dec (count b)))))))
 
 (defn- with-pdf-extension
-  "`base` (already file-safe) plus \".pdf\", or \"character.pdf\" when it is blank or a name
-   Windows reserves (CON, NUL, COM1...). Returns a string."
+  "`base` (already file-safe) fitted to 250 bytes plus \".pdf\", or \"character.pdf\" when it is
+   blank or a name Windows reserves (CON, NUL, COM1...). Returns a string."
   [base]
-  (if (or (s/blank? base) (re-matches #"(?i)(con|prn|aux|nul|com\d|lpt\d)" base))
-    "character.pdf"
-    (str base ".pdf")))
+  (let [b (fit-bytes base 250)]
+    (if (or (s/blank? b) (re-matches #"(?i)(con|prn|aux|nul|com\d|lpt\d)" b))
+      "character.pdf"
+      (str b ".pdf"))))
 
 (defn pdf-filename
   "The download name of a character sheet: the player name, character name and class level,
-   each made file-safe (file-safe), the blank ones left out, joined with \" - \", then \".pdf\"
-   (with-pdf-extension). Args: three strings or nils. Returns a string."
+   each made file-safe (pdf-spec/file-safe), the blank ones left out, joined with \" - \", then
+   \".pdf\" (with-pdf-extension). Args: three strings or nils. Returns a string."
   [player-name character-name class-level]
   (with-pdf-extension
-    (s/join " - " (remove s/blank? (map file-safe [player-name character-name class-level])))))
+    (s/join " - " (remove s/blank? (map pdf-spec/file-safe [player-name character-name class-level])))))
 
 (defn requested-pdf-filename
   "The download name for export `fields`: the client's :file-name (built from the player's file
-   name choices), cut to 200 characters and made file-safe, when it sent one, else pdf-filename of the names and class level.
-   Returns a string."
+   name choices) made file-safe, when it sent one and something is left of it; else pdf-filename of
+   the names and class level. Returns a string."
   [{:keys [file-name player-name character-name class-level] :as fields}]
-  (if (contains? fields :file-name)
-    (let [n (str file-name)]
-      (with-pdf-extension (file-safe (subs n 0 (min 200 (count n))))))
-    (pdf-filename player-name character-name class-level)))
+  (let [n (pdf-spec/file-safe (let [f (str file-name)] (subs f 0 (min 400 (count f)))))]
+    (if (and (contains? fields :file-name) (not (s/blank? n)))
+      (with-pdf-extension n)
+      (pdf-filename player-name character-name class-level))))
 
 (defn content-disposition
   "The Content-Disposition header value showing `filename` inline. filename= is an ASCII copy

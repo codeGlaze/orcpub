@@ -64,6 +64,27 @@
     :prefixed (str "L" n)
     (str n)))
 
+(def ^:private unsafe-file-chars
+  "Every character a file name drops: all but letters, marks and digits of any script, spaces and
+   plain punctuation (so emoji, the characters Windows refuses, control and invisible characters).
+   GOTCHA: the browser's pattern needs the u flag, or \\p{L} matches nothing and every letter goes."
+  #?(:clj #"[^\p{L}\p{M}\p{N} \-_.,'’‘()\[\]&+!]"
+     :cljs (js/RegExp. "[^\\p{L}\\p{M}\\p{N} \\-_.,'’‘()\\[\\]&+!]" "gu")))
+
+(defn file-safe
+  "`part` (a string or nil) as a file name that opens on Windows, Linux, macOS, Android and iOS:
+   accents composed (NFC), unsafe-file-chars dropped, runs of spaces collapsed, and leading dots,
+   dashes and spaces (a hidden file on Linux and macOS) and trailing dots and spaces trimmed.
+   Used by both the PDF Options preview and the server. Returns a string."
+  [part]
+  (let [composed #?(:clj (java.text.Normalizer/normalize (str part) java.text.Normalizer$Form/NFC)
+                    :cljs (.normalize (str part) "NFC"))]
+    (-> (s/replace composed unsafe-file-chars "")
+        (s/replace #"\s+" " ")
+        (s/replace #"^[. \-]+" "")
+        (s/replace #"[. ]+$" "")
+        s/trim)))
+
 (defn file-name
   "A PDF's file name, without \".pdf\", from `player-name`, `character-name`, the character's
    `classes` (keys in order) and `levels` (char5e/levels), shown as `fmt` asks (keys as in

@@ -67,7 +67,8 @@
            :value (:level-style fmt)
            :typed? true
            :on-change #(dispatch [::char/set-file-name-option :level-style %])}]]])
-     [:div.option-note (str (if (s/blank? preview) "character" preview) ".pdf")]]))
+     [:div.option-note (let [safe (pdf-spec/file-safe preview)]
+                         (str (if (s/blank? safe) "character" safe) ".pdf"))]]))
 
 (defn- keep-tab-inside!
   "Keeps Tab and Shift+Tab, keydown event `e`, inside element `root`: past its last visible enabled
