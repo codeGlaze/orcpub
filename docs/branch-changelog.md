@@ -29,14 +29,18 @@ Rules:
      solves and any scope a reviewer needs. Prose is fine here. -->
 
 Three PDF export bugs testers reported on the dev build: the download filename, PDF Options needing
-scrolling, and a freeze on ticking Print Spell Cards or Print Spellbook. Only the panel bug
-reproduced; the other two are measured in the branch handoff (branches/fix/pdf-export.md on agents/develop)
-and stay open until they reproduce.
+scrolling, and a freeze on ticking Print Spell Cards or Print Spellbook. The filename and panel bugs
+are fixed; the freeze never reproduced (prod and dev builds, 6x CPU throttle, a Wizard 20 with every
+spell plus a homebrew class and race with 325 spells), and the measurements are in the branch
+handoff (branches/fix/pdf-export.md on agents/develop). The owner then widened the branch: a
+full-window PDF Options panel, file name choices, the character picture editor (an image from the
+web beside the built portrait), a builder React-key bug found while probing homebrew for
+duplicates, and the PDF Options code moved out of views.cljs (views/pdf_options.cljs).
 
 ## Added
 
-- **Portraits:** the character picture editor offers Compose or a picture link; a character uses one
-  or the other, and a link replaces a portrait only when the player presses Use this picture.
+- **Portraits:** a character can use an image from the web as well as a built portrait; both are
+  kept, and the character picture editor switches which one shows on the sheet, the PDF and shares.
 
 - **Printing:** PDF Options lets players choose what the file name shows (player, character, class,
   subclass, level), where the level goes and how it is written (5, 05, L5); kept on the account.
@@ -46,8 +50,8 @@ and stay open until they reproduce.
 - **Portraits:** Randomize rolls everything (colours, eyes, hair effects, light) within sane ranges,
   with Keep colours to hold the colours.
 
-- **Printing:** PDF Options spreads across the width of a desktop screen, and Create PDF opens a
-  tab that says the PDF is being made.
+- **Printing:** PDF Options opens as a full-window panel with grouped options and Create PDF at the
+  bottom right, on desktop and phone, and Create PDF opens a tab that says the PDF is being made.
 
 ## Fixed
 
