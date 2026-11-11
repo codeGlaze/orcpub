@@ -47,6 +47,23 @@ A Tiefling Bard has 2 spell groups (both CHA, but one racial, one class) — or
 possibly 1, depending on how the abilities merge. Check the actual `make-page-map`
 output for edge cases.
 
+## The download's file name (2026-11-11, `fix/pdf-export`)
+
+The owner's rule: the name must open on Windows, Linux, macOS, Android and iOS; letters of any
+script are fine. One function, `pdf-spec/file-safe` (cljc), cleans it for both the PDF Options
+preview and the server (`routes/requested-pdf-filename`), so the preview is the real name.
+
+- NFC: macOS stores accents decomposed, and mixed forms make the same name appear twice.
+- Dropped: emoji, control and invisible characters (a right-to-left override can disguise a name),
+  and `<>:"/\|?*`, which Windows refuses.
+- No leading dot or dash (a leading dot hides the file on Linux and macOS); no trailing dot or
+  space (Windows strips them); Windows' reserved names (CON, NUL, COM1...) become `character.pdf`.
+- At most 250 UTF-8 bytes before `.pdf`: Linux and Android cap a name at 255 bytes, and one CJK
+  letter is three (`routes/fit-bytes`).
+- Nothing left after cleaning: the names and class level are used instead.
+- Cantrip pages send no `spell-slots-0-*` field: there is no such box, and the export's
+  "did not fit" page reported it (#84).
+
 ## Spell Card Rendering (`add-spell-cards!`)
 
 ### Lifecycle (critical for understanding blank page bugs)

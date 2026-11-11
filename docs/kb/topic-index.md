@@ -248,7 +248,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _ac-tests-and-modifier-order · ac tests and modifier order_
 
-**topics:** 2026-10-06, archmagi, bonus, bracers, calculation, codeglaze, competing, function, higher, ignoring, lizardfolk, modifiers, order, ring, robe, shield, tortle, worn
+**topics:** 2026-10-06, archmagi, bonus, bracers, calculation, codeglaze, competing, higher, ignoring, lizardfolk, modifiers, order, ring, robe, shield, sorts, tortle, worn
 
 - What it looked like
 - Why it is not a bug
@@ -2690,11 +2690,12 @@ _pdf-generated-vs-uploaded-images · pdf generated vs uploaded images_
 
 _pdf-generation-architecture · pdf generation architecture_
 
-**topics:** 2026-04-22, byte, color, cosdict, fillable, firefox, flatten, font, pdf, pdfbox, populated, reflection, rendering, spell, templates, viewer, widget, widgets
+**topics:** color, fillable, firefox, flatten, font, linux, macos, pdf, pdfbox, populated, reflection, rendering, spell, templates, viewer, widget, widgets, windows
 
 - Overview
 - Template Selection
 - Spell Page Field Spec (pdfspec.cljc)
+- The download's file name (2026-11-11, fix/pdf-export)
 - Spell Card Rendering (add-spell-cards!)
 - Lifecycle (critical for understanding blank page bugs)
 - Silent Exception Swallowing
@@ -3083,7 +3084,7 @@ _plan-lookup-indexes · plan lookup indexes_
 
 _plan-next · plan next_
 
-**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, damage, macro, natural-armor, number, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged, windows
+**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, number, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged
 
 - 0. Standing, do these first
 - 0b. September support sessions — tracked separately
