@@ -31,6 +31,9 @@ carries live state.*
   `git log --cherry-pick --right-only integration...develop` listed 44. And CodeQL fails on a regex built from a CLI argument in
   `scripts/test/trace-probe.js` (cited 2026-10-06 as line 52, which no longer matches: re-read the
   CodeQL alert), with two docker workflows missing a `permissions` block.
+- **The dev site runs `codeglaze/orcpub` `develop`** (owner, 2026-11-11). A fix reaches testers only
+  once #32 takes `integration` into `develop`; for a "fixed, not on the dev site yet" list, use
+  `git log --merges --first-parent origin/develop..origin/integration` plus open PRs.
 - **Release, when the owner says so:** #32 takes `integration` into `develop`; then refresh or replace
   upstream #674 with "Fixes #N" for the 35 issues the release answers.
 - **Upstream issues:** #704 (two-tab character contamination, below) and #705-#712, umbrella issues
