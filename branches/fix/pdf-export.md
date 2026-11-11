@@ -2,7 +2,7 @@
 
 **Purpose:** three PDF export bugs testers reported on the dev build (filename, PDF Options
 scrolling, a freeze on ticking Print Spell Cards / Print Spellbook). **Base:** `integration`
-(`fd343a843`). **PR into:** `integration`; no PR until the owner says.
+(`fd343a843`). **PR into:** `integration`; **#84 open** (2026-11-10, owner: "good RC"); CodeRabbit full review requested once. Next: answer its threads, push fixes, reply naming the fixing commit. Fold the changelog only when the owner says it is about to merge.
 
 ## State (updated 2026-11-09)
 
