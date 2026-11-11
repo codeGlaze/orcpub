@@ -225,7 +225,7 @@ beside robots.txt and the art licence rather than replacing either.
 - **The drawer's stylesheet mounts whether the drawer is open or not.** It also styles the
   launcher button and the Portrait tab, which are on screen when the drawer is not.
 
-## Randomize, Keep colours, and a picture link instead
+## Randomize, Keep colours, and an image from the web
 
 *Owner, 2026-11-10.* **Randomize rolls everything** (`portrait/roll`): every layer, a preset colour
 for each slot (`pa/color-presets`; the whites mostly white), the eyes (round pupils four times in
@@ -234,11 +234,16 @@ time, and a second hair colour (tips) on two in five, all within the ranges the 
 **Keep colours** holds the slot colours, piece tweaks, second eye, blush colour and hair tips, and
 rolls the rest. A seed rolls the same portrait every time.
 
-**A character has a picture link or a composed portrait, never both.** The editor (Character
-picture) has a Compose | Picture link switch and opens on whichever is in use, Compose when neither
-is (`default-portrait-mode`). Picture link mode edits a draft (`:portrait/link-draft`) with the same
-checking notice; only Use this picture (`:portrait/use-link`) applies it, and Cancel changes nothing.
-The Description tab shows the picture with Change picture; the Portrait tab shows whichever is in use. A non-blank link clears the saved portrait and the unsaved draft
-(`character/with-image-url`, `:portrait/discard-draft`); saving a portrait with any layer clears the
-link (`character/with-saved-portrait`). A character saved before this with both still draws the
-portrait, as the PDF always has.
+**A character keeps both pictures and shows one** (owner, 2026-11-10). `::char5e/picture-shown`
+("portrait" or "image") says which; `char5e/shown-picture` and `shown-values` are the one rule
+every reader uses (the getters, the PDF, the share card, `og:image`, the portrait store). With no
+choice stored the portrait wins when it has a layer, as the PDF always did. The editor (Character
+picture) has a Build a portrait | Use an image from the web switch, a small Active tag (the site's
+`.share-pill-shared`) on the option in use, and opens on that option, Build when there is neither
+(`default-portrait-mode`). Image mode edits a draft (`:portrait/link-draft`) with the same checking
+notice; only Use this image or Switch to this image (`:portrait/use-link`) applies it, and Cancel
+changes nothing. Saving a portrait with a layer shows it (`character/with-saved-portrait`); a
+non-blank link shows the image (`character/with-image-url`); Switch to this portrait
+(`:portrait/show-portrait`) shows the saved one without editing. Above the button, a line says the
+other picture is kept and the player can switch back. The Description tab shows the picture in use
+with Change picture; the Portrait tab shows the picture in use with a link to the other mode.
