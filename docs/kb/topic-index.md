@@ -781,7 +781,7 @@ _character-validation · character validation_
 
 _class-builder-extraction-plan · class builder extraction plan_
 
-**topics:** big-bang, builder, class-builder-first, class-builder-only, decomposition, extract, extraction, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
+**topics:** big-bang, class-builder-first, class-builder-only, decomposition, extract, extraction, grep, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
 
 - Why this shape (the lesson from refactor/views-extraction)
 - Starting reality (differs from the dead branch's assumption)
@@ -3131,7 +3131,7 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 2014, 2024, 2026-11-11, 521, book, cast, casting, grant, initiate, magic, mode, rest, slot, slots, spell, spells, srd, tiefling
+**topics:** 2014, 2024, 2026-11-11, 521, arcanum, book, cast, casts, grant, initiate, magic, phb, ruling, slot, slots, spell, srd, tiefling
 
 - The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)

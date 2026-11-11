@@ -143,6 +143,22 @@ What the player sees:
    (`homebrew_shapes.cljc`, backward compatible: absent means today's behaviour), and a spell row for
    feats (the silos gap), through the same field.
 
+**Done 2026-11-11 on `fix/pdf-export`:** steps 1-3, `54e609b18` (code) and `43e00ec1e` (tests,
+every claim seen failing). The shape built: `:casting {:free {:units u :amount n :level l} | {:at-will
+true}, :slots :any | :none | {:units u :amount n}}`, units from `units5e` (any count, any period);
+`char5e/slot-castable?` and `char5e/casting-note` are the one rule; `mod5e/merge-spell-cfg` keeps
+slots open when a free grant meets a plain class grant of the same spell. Data: Tiefling, the
+at-will invocations, Mire the Mind (was wrongly "at will"), Thief of Five Fates, Mystic Arcanum.
+The packed PDF keeps a Warlock's free casts at their own level, not its pact level.
+
+**Magic Initiate today (checked 2026-11-11):** the PHB feat is `#_`-discarded (not SRD). The live
+paths are homebrew: the feat builder's "Spellcasting" checkbox (`:magic-novice`,
+`make-feat-selections` -> `magic-initiate-selection`, `options.cljc`) and the same option list near
+`options.cljc:2002`. Both grant the cantrips and the 1st-level spell as plain spells under the class
+name ("Wizard"), no qualifier, no uses: the spell merges with a real Wizard's, casts from slots
+without limit, and a non-caster cannot cast it at all. Its `:casting` waits for the owner's choice
+(printed text, ruling, or both as an author's option).
+
 Steps 1-3 are the fix for the reported PDF bug; 4-6 are the app side. Steps 1-4 touch no saved
 data; 5 adds per-grant uses to the character (schema); 6 adds homebrew fields (the shape table).
 
