@@ -449,7 +449,7 @@
 
 (defn export-warning-modal []
   (let [warning @(subscribe [:export-warning])
-        {:keys [active? mode plugins warnings show-export-as-is? edits]} warning
+        {:keys [active? mode plugins warnings show-export-as-is? edits format]} warning
         multi? (= mode :multi)
         total-items (reduce + 0 (for [p plugins
                                       i (:issues p)]
@@ -515,7 +515,9 @@
           (when show-export-as-is?
             [:span.export-as-is-link
              {:on-click #(dispatch [:export-as-is])}
-             "export raw (no fixes)"])]
+             (if (= :markdown format)
+               "export as Markdown (no fixes)"
+               "export raw (no fixes)")])]
 
          [:div {:style {:flex 1}}]
 

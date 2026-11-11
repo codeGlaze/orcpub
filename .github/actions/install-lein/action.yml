@@ -1,0 +1,37 @@
+name: Install Leiningen
+description: >
+  Puts the pinned Leiningen script and its standalone jar on the PATH, restored from the Actions
+  cache when it holds them and otherwise downloaded with retries, so one failed GitHub download
+  does not fail the job. Expects a JDK already set up.
+inputs:
+  lein-version: {required: true}
+runs:
+  using: composite
+  steps:
+    - name: Cache Leiningen
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.lein/bin
+          ~/.lein/self-installs
+        key: ${{ runner.os }}-lein-${{ inputs.lein-version }}
+
+    - name: Download Leiningen
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        V: ${{ inputs.lein-version }}
+      run: |
+        mkdir -p ~/.lein/bin ~/.lein/self-installs
+        get() { curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 -o "$1" "$2"; }
+        get ~/.lein/bin/lein "https://raw.githubusercontent.com/technomancy/leiningen/$V/bin/lein"
+        get ~/.lein/self-installs/leiningen-$V-standalone.jar \
+          "https://github.com/technomancy/leiningen/releases/download/$V/leiningen-$V-standalone.jar"
+        chmod +x ~/.lein/bin/lein
+
+    - name: Put Leiningen on the PATH
+      shell: bash
+      run: |
+        echo "$HOME/.lein/bin" >> "$GITHUB_PATH"
+        "$HOME/.lein/bin/lein" version

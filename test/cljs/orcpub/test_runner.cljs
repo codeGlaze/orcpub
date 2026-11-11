@@ -5,6 +5,7 @@
             [orcpub.common-test]
             [orcpub.hardened-helpers-test]
             [orcpub.dnd.e5.homebrew-guard-test]
+            [orcpub.dnd.e5.homebrew-markdown-test]
             [orcpub.dnd.e5.event-utils-test]
             [orcpub.dnd.e5.compute-test]
             [orcpub.dnd.e5.hunter-evasion-test]
@@ -46,6 +47,7 @@
             [orcpub.dnd.e5.containment-test]
             [orcpub.dnd.e5.reference-web-test]
             [orcpub.dnd.e5.views-test]
+            [orcpub.dnd.e5.reference-lists-test]
             [orcpub.dnd.e5.portrait-credit-thumb-test]
             [orcpub.dnd.e5.portrait-artists-arrive-test]
             [orcpub.art-mark-test]
@@ -70,6 +72,7 @@
   (run-tests 'orcpub.common-test
              'orcpub.hardened-helpers-test
    'orcpub.dnd.e5.homebrew-guard-test
+   'orcpub.dnd.e5.homebrew-markdown-test
              'orcpub.dnd.e5.event-utils-test
              'orcpub.dnd.e5.compute-test
              'orcpub.dnd.e5.hunter-evasion-test
@@ -102,6 +105,7 @@
              'orcpub.dnd.e5.containment-test
              'orcpub.dnd.e5.reference-web-test
              'orcpub.dnd.e5.views-test
+             'orcpub.dnd.e5.reference-lists-test
              'orcpub.dnd.e5.portrait-credit-thumb-test
              'orcpub.dnd.e5.portrait-artists-arrive-test
              'orcpub.art-mark-test

@@ -2225,6 +2225,16 @@
     [:.item-list-item
      {:border-bottom "1px solid rgba(255,255,255,0.5)"}]
 
+    ;; A reference list row's name keeps to one line and ends in an ellipsis, so the source tag
+    ;; beside it never wraps; the full name shows when the row is opened.
+    [:.ref-row-main {:min-width 0 :flex "1 1 auto"}
+     [:>.flex {:min-width 0}
+      [:>div {:min-width 0 :overflow :hidden}
+       [:>:first-child {:display :block :white-space :nowrap :overflow :hidden
+                        :text-overflow :ellipsis}]]]]
+    [:.source-tag {:flex "none" :white-space :nowrap :align-self :flex-start
+                   :padding-top "29px" :margin "0 8px"}]
+
     ;; Thin, themed scrollbar for a flyout that fit-flyout! had to cap (My Content on
     ;; a short screen). The default is a light slab against a dark menu.
     [:.header-flyout
@@ -2615,8 +2625,8 @@
                   [:60% {:box-shadow "0 0 0 12px rgba(255,210,26,0)"}]
                   [:100% {:box-shadow "0 0 0 0 rgba(255,210,26,0)"}])
     [:.health-card
-     {:background-color "#171d27" :border-radius "6px" :overflow :hidden :margin-bottom "10px"
-      :position :relative}]
+     {:background-color "#171d27" :color :white :border-radius "6px" :overflow :hidden
+      :margin-bottom "10px" :position :relative}]
     ;; dismiss × (never on My Content) — a quiet control in the corner
     [:.health-x
      {:position :absolute :top "6px" :right "10px" :cursor :pointer
@@ -3388,9 +3398,12 @@
      {:flex "0 0 auto"
       :white-space :nowrap}]
 
-    ;; Pushed to the end of the row, and still together when the row wraps.
+    ;; Pushed to the end of the row; the buttons wrap among themselves on a narrow phone
+    ;; rather than running off the panel.
     [:.mc-source-actions
-     {:flex "0 0 auto"
+     {:flex "0 1 auto"
+      :flex-wrap :wrap
+      :gap "5px 0"
       :margin-left :auto}]
 
     ;;;; WHAT'S NEW PANEL

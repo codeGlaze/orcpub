@@ -752,24 +752,25 @@
     (let [int-id (when id (js/parseInt id))
           settle (page-settler)]
       (when (some? int-id)
-        (go (dispatch [:set-loading true])
-            (let [response (<! (http/get (url-for-route
-                                           routes/dnd-e5-char-route
-                                           :id int-id)))]
-              (dispatch [:set-loading false])
-              (handle-api-response response
-                #(let [body (:body response)]
-                   (if (http/decode-failed? body)
-                     ;; Unreadable even after self-heal: flag the load as failed so the page shows
-                     ;; a recovery panel (delete / go to list). Feeding the marker to from-strict
-                     ;; would silently build a blank default character.
-                     (dispatch [::char5e/set-character-load-error int-id body])
-                     (do (dispatch [::char5e/set-character-load-error int-id nil])
-                         ;; Before the character, so its first build already has them.
-                         (dispatch [::mi5e/set-character-custom-items int-id
-                                    (::char5e/custom-items body) (::se/owner body)])
-                         (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
-                :context (str "fetch character " int-id)))))
+        (let [gen (event-utils/loading-gen @app-db)]
+          (go (dispatch [:set-loading true gen])
+              (let [response (<! (http/get (url-for-route
+                                             routes/dnd-e5-char-route
+                                             :id int-id)))]
+                (dispatch [:set-loading false gen])
+                (handle-api-response response
+                  #(let [body (:body response)]
+                     (if (http/decode-failed? body)
+                       ;; Unreadable even after self-heal: flag the load as failed so the page shows
+                       ;; a recovery panel (delete / go to list). Feeding the marker to from-strict
+                       ;; would silently build a blank default character.
+                       (dispatch [::char5e/set-character-load-error int-id body])
+                       (do (dispatch [::char5e/set-character-load-error int-id nil])
+                           ;; Before the character, so its first build already has them.
+                           (dispatch [::mi5e/set-character-custom-items int-id
+                                      (::char5e/custom-items body) (::se/owner body)])
+                           (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
+                  :context (str "fetch character " int-id))))))
       (ra/make-reaction
        (fn []
          (if int-id

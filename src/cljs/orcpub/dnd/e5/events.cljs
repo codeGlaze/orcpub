@@ -106,6 +106,7 @@
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.character-drafts :as drafts]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
+            [orcpub.dnd.e5.homebrew-markdown :as homebrew-markdown]
             [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.event-utils :as event-utils :refer [user->local-store-interceptor]]
@@ -657,12 +658,23 @@
      starting-character)
    (range)))
 
+(defn set-random-character
+  "Handler for [:set-random-character character built-template locked-components]: a random
+   character replacing the current one. A new character, not an edit, so the hold and its trail
+   start over (`hold-for`). If generating it throws, the spinner the Random button started is
+   turned off and an error shown, and the current character is kept. Returns an effects map."
+  [{:keys [db]} [_ character built-template locked-components]]
+  (try
+    {:db (assoc db ::e5/replacing? true)
+     :dispatch [:set-character (random-character character built-template locked-components)]}
+    (catch :default e
+      (js/console.error "Random character failed; the current character is kept." e)
+      {:db (update db :loading #(max 0 (dec (or % 0))))
+       :dispatch [:show-error-message "Could not make a random character. Your character is unchanged."]})))
+
 (reg-event-fx
  :set-random-character
- ;; A new character, not an edit: the hold and its trail start over (`hold-for`).
- (fn [{:keys [db]} [_ character built-template locked-components]]
-   {:db (assoc db ::e5/replacing? true)
-    :dispatch [:set-character (random-character character built-template locked-components)]}))
+ set-random-character)
 
 (reg-event-fx
  :random-character
@@ -866,8 +878,9 @@
                 (nat-int? (get-in built-character [:base-abilities ability-kw])))
               char5e/ability-keys)
            {:db (assoc-in db [::in-flight id] true)
-            :dispatch [:set-loading true]
-            :http {:method :post
+            :dispatch [:set-loading true (event-utils/loading-gen db)]
+            :http {:loading-gen (event-utils/loading-gen db)
+                   :method :post
                    :headers (authorization-headers db)
                    :url (url-for-route routes/dnd-e5-char-list-route)
                    :transit-params (assoc strict :orcpub.entity.strict/summary summary)
@@ -983,8 +996,9 @@
            (nat-int? (get-in built-character [:base-abilities ability-kw])))
          char5e/ability-keys)
       {:db db'
-       :dispatch [:set-loading true]
-       :http {:method :post
+       :dispatch [:set-loading true (event-utils/loading-gen db')]
+       :http {:loading-gen (event-utils/loading-gen db')
+              :method :post
               :headers (authorization-headers db')
               :url (url-for-route routes/dnd-e5-char-list-route)
               :transit-params (assoc strict :orcpub.entity.strict/summary summary)
@@ -1022,8 +1036,9 @@
                 (not (and (keyword? t) (not (s/blank? (name t)))))
                 (assoc ::mi/type :wondrous-item))
          strict-item (mi/from-internal-item item)]
-     {:dispatch [:set-loading true]
-      :http {:method :post
+     {:dispatch [:set-loading true (event-utils/loading-gen db)]
+      :http {:loading-gen (event-utils/loading-gen db)
+             :method :post
              :headers (authorization-headers db)
              :url (url-for-route routes/dnd-e5-items-route)
              :transit-params strict-item
@@ -1931,8 +1946,9 @@
 (reg-event-fx
  ::party5e/make-party
  (fn [{:keys [db]} [_ character-ids]]
-   {:dispatch [:set-loading true]
-    :http {:method :post
+   {:dispatch [:set-loading true (event-utils/loading-gen db)]
+    :http {:loading-gen (event-utils/loading-gen db)
+           :method :post
            :headers (authorization-headers db)
            :url (url-for-route routes/dnd-e5-char-parties-route)
            :transit-params (let [tokens (keep (fn [cid]
@@ -1957,8 +1973,9 @@
 (reg-event-fx
  ::party5e/make-empty-party
  (fn [{:keys [db]} [_]]
-   {:dispatch [:set-loading true]
-    :http {:method :post
+   {:dispatch [:set-loading true (event-utils/loading-gen db)]
+    :http {:loading-gen (event-utils/loading-gen db)
+           :method :post
            :headers (authorization-headers db)
            :url (url-for-route routes/dnd-e5-char-parties-route)
            :transit-params {::party5e/name "A New Party"}
@@ -3379,8 +3396,12 @@
                                                    js/window.location.hostname
                                                    path
                                                    js/window.location.port)))
-         ;; the Rest box's Undo belongs to the page it was made on
-         (cond-> {:db (-> db (assoc :route new-route) (dissoc ::char5e/rest-result :weapon-roll/chain))
+         ;; the Rest box's Undo belongs to the page it was made on; a page change also clears the
+         ;; spinner, which a handler that threw before its decrement would otherwise hold up
+         (cond-> {:db (-> db
+                          (assoc :route new-route :loading 0)
+                          (update :loading-gen (fnil inc 0))
+                          (dissoc ::char5e/rest-result :weapon-roll/chain))
                   :dispatch-n [[:hide-message]
                                [:close-orcacle]]}
            (not no-return?) (assoc-in [:db :return-route] new-route)
@@ -3460,14 +3481,17 @@
    set-active-tabs)
 
 (defn set-loading
-  "Loading is a counter, not a boolean. true increments, false decrements.
-   Overlay shows when > 0. Multiple parallel HTTP calls no longer fight."
-  [db [_ v]]
-  (let [current (or (:loading db) 0)]
-    (assoc db :loading
-           (if v
-             (inc current)
-             (max 0 (dec current))))))
+  "Handler for [:set-loading v gen]: the spinner is a counter, shown while above 0; true
+   increments, false decrements (never below 0). With `gen`, the event counts only if `gen` is
+   still the page generation (event-utils/loading-gen); without it, it always counts. Returns db."
+  [db [_ v gen]]
+  (if (and (some? gen) (not= gen (event-utils/loading-gen db)))
+    db
+    (let [current (or (:loading db) 0)]
+      (assoc db :loading
+             (if v
+               (inc current)
+               (max 0 (dec current)))))))
 
 (reg-event-db
  :set-loading
@@ -3652,8 +3676,8 @@
    (let [final-cfg (if auth-token
                      (assoc-in cfg [:headers "Authorization"] (str "Token " auth-token))
                      cfg)]
-     (go (let [response (<! (http/request final-cfg))]
-           (dispatch [:set-loading false])
+     (go (let [response (<! (http/request (dissoc final-cfg :loading-gen)))]
+           (dispatch [:set-loading false (:loading-gen cfg)])
            (if (<= 200 (:status response) 299)
              (when on-success (dispatch (conj on-success response)))
              (if (= 401 (:status response))
@@ -6105,13 +6129,30 @@
       :else          (full))))
 
 (defn- save-orcbrew-blob!
-  "Write `orcbrew-text` of `data` to `filename` and trigger the download; the only side effect."
-  [filename data & {:keys [pretty-print? raw?]}]
+  "Write `orcbrew-text` of `data` to `filename` and trigger the download; the only side effect.
+   `:content-type` (default text/plain;charset=utf-8) is the file's type; text data is written as is;
+   `:no-bom?` leaves off the byte-order mark the saver adds to text files."
+  [filename data & {:keys [pretty-print? raw? content-type no-bom?]}]
   (let [content (orcbrew-text data :pretty-print? pretty-print? :raw? raw?)
         blob (js/Blob.
               (clj->js [content])
-              (clj->js {:type "text/plain;charset=utf-8"}))]
-    (js/saveAs blob filename)))
+              (clj->js {:type (or content-type "text/plain;charset=utf-8")}))]
+    (js/saveAs blob filename (boolean no-bom?))))
+
+(defn- save-source!
+  "The final write of a per-source or all-sources export. With `:format :markdown` in `opts` it
+   downloads `data` (one source) as `<title>.md` Markdown, lending it the selections of `library`
+   ({source-name source}); otherwise `data` goes to `filename` as .orcbrew text, `:pretty-print?`
+   applying. Returns the Markdown coverage notice (a sentence) for the caller to show beside its
+   own message, else nil."
+  [filename title data library {:keys [format pretty-print?]}]
+  (if (= :markdown format)
+    (let [{:keys [filename content-type text notice]}
+          (homebrew-markdown/export-file data title library)]
+      (save-orcbrew-blob! filename text :content-type content-type :no-bom? true)
+      notice)
+    (do (save-orcbrew-blob! filename data :pretty-print? pretty-print?)
+        nil)))
 
 (defn reg-export-draft
   "Register a builder-level 'export draft' event: dump the in-progress builder-item
@@ -6306,13 +6347,12 @@
     handed))
 
 (defn- validate-and-show-modal-or-export
-  "Shared export path for one source, used by export-plugin and
-   export-plugin-pretty-print. Runs the same correction gate Export All runs
-   (text normalization, semantic cleaning, option dedup) so a per-source file
-   and an all-sources file agree on the same content, then either shows the
-   fill-in modal (missing fields), writes the file (valid), or shows an error
-   (spec failure). The library itself is not changed."
-  [db plugin-name handed {:keys [pretty-print?]}]
+  "Shared export path for one source (export-plugin, its pretty-print and Markdown variants).
+   Runs the correction gate Export All runs, then shows the fill-in modal (missing fields),
+   writes the file through `save-source!` (valid), or shows an error (spec failure).
+   `opts`: :pretty-print?, and :format :markdown for the Markdown file. The library is not
+   changed."
+  [db plugin-name handed {:keys [pretty-print? format] :as opts}]
   (let [library (:plugins db)
         plugin (export-source library plugin-name handed)
         {corrected :plugin cleanup-changes :changes}
@@ -6338,21 +6378,24 @@
                                     :plugin corrected
                                     :issues (:missing-fields-issues validation)}]
                          :warnings (:warnings validation)
-                         :pretty-print? pretty-print?}]]))})
+                         :pretty-print? pretty-print?
+                         :format format}]]))})
 
       (:valid validation)
       (do
         (log-export-warnings plugin-name validation)
         ;; Strip meaningless blanks (false/nil/empty) on normal export.
-        (save-orcbrew-blob! (str plugin-name ".orcbrew")
-                            (orcbrew-val/strip-export-blanks corrected)
-                            :pretty-print? pretty-print?)
-        {:dispatch-n
-         (vec (concat persist
-                      (when (seq (:warnings validation))
-                        [[:show-warning-message
-                          {:title (str "Exported “" plugin-name "” with warnings")
-                           :details ["The file downloaded. The console has the details."]}]])))})
+        (let [notice (save-source! (str plugin-name ".orcbrew") plugin-name
+                                   (orcbrew-val/strip-export-blanks corrected) library opts)]
+          {:dispatch-n
+           (vec (concat persist
+                        (cond
+                          (seq (:warnings validation))
+                          [[:show-warning-message
+                            {:title (str "Exported “" plugin-name "” with warnings")
+                             :details (cond-> ["The file downloaded. The console has the details."]
+                                        notice (conj notice))}]]
+                          notice [[:show-warning-message notice]])))}))
 
       :else
       ;; Hard spec check failed. Surface a raw, unvalidated escape hatch alongside
@@ -6376,6 +6419,11 @@
  ::e5/export-plugin
  (fn [{:keys [db]} [_ name plugin]]
    (validate-and-show-modal-or-export db name plugin {})))
+
+(reg-event-fx
+ ::e5/export-plugin-markdown
+ (fn [{:keys [db]} [_ name plugin]]
+   (validate-and-show-modal-or-export db name plugin {:format :markdown})))
 
 (defn select-emergency-export
   "Pick the filename + data for an emergency raw export: just the named source if
@@ -6542,13 +6590,14 @@
 
 (reg-event-db
  :show-export-warning-modal
- (fn [db [_ {:keys [mode plugins warnings pretty-print?]}]]
+ (fn [db [_ {:keys [mode plugins warnings pretty-print? format]}]]
    (assoc db :export-warning
           {:active? true
            :mode (or mode :single)
            :plugins plugins
            :warnings warnings
            :pretty-print? pretty-print?
+           :format format
            :edits {}
            :show-export-as-is? false})))
 
@@ -6582,7 +6631,7 @@
 (reg-event-fx
  :export-with-auto-fix
  (fn [{:keys [db]} _]
-   (let [{:keys [mode plugins edits pretty-print?]} (:export-warning db)
+   (let [{:keys [mode plugins edits pretty-print?] :as warning} (:export-warning db)
          ;; Auto-fix = user edits + dummy-fill for blanks, in the file and in My Content.
          ;; Placeholders like "[Missing Name]" are self-labeling and flagged in the log.
          fixed-plugins (mapv
@@ -6610,10 +6659,11 @@
                     "all-content.orcbrew"
                     (str (:name (first fixed-plugins)) ".orcbrew"))
          log-entries (build-export-log-entries
-                      plugins "Auto-filled missing fields on export")]
-     ;; Strip meaningless blanks (false/nil/empty) on normal export.
-     (save-orcbrew-blob! filename (orcbrew-val/strip-export-blanks final-data)
-                         :pretty-print? pretty-print?)
+                      plugins "Auto-filled missing fields on export")
+         ;; Strip meaningless blanks (false/nil/empty) on normal export.
+         ;; a refused save keeps its error alone; the Markdown file names what it leaves out
+         notice (save-source! filename (:name (first fixed-plugins))
+                              (orcbrew-val/strip-export-blanks final-data) (:plugins db) warning)]
      {:db (-> db'
               (assoc :export-warning {:active? false})
               (assoc :import-log {:panel-shown? true
@@ -6627,7 +6677,8 @@
                     [[:show-warning-message
                       (str "Exported and saved to My Content. Placeholders were filled "
                            "in for any fields left blank — review them (see the log) and "
-                           "replace before sharing.")]]
+                           "replace before sharing."
+                           (when notice (str " " notice)))]]
                     refused)})))
 
 (reg-event-fx
@@ -6647,7 +6698,7 @@
 (reg-event-fx
  :export-as-is
  (fn [{:keys [db]} _]
-   (let [{:keys [mode plugins pretty-print?]} (:export-warning db)
+   (let [{:keys [mode plugins pretty-print?] :as warning} (:export-warning db)
          all-plugins (:plugins db)
          final-data (if (= mode :multi)
                       (reduce (fn [acc {:keys [name plugin]}]
@@ -6659,8 +6710,8 @@
                     "all-content.orcbrew"
                     (str (:name (first plugins)) ".orcbrew"))
          log-entries (build-export-log-entries
-                      plugins "Exported as-is without fixes")]
-     (save-orcbrew-blob! filename final-data :pretty-print? pretty-print?)
+                      plugins "Exported as-is without fixes")
+         notice (save-source! filename (:name (first plugins)) final-data all-plugins warning)]
      {:db (-> db
               (assoc :export-warning {:active? false})
               (assoc :import-log {:panel-shown? true
@@ -6669,7 +6720,8 @@
                                                  (str "Export: " (:name (first plugins))))
                                   :changes log-entries
                                   :errors []
-                                  :skipped-items []}))})))
+                                  :skipped-items []}))
+      :dispatch-n (when notice [[:show-warning-message notice]])})))
 
 ;; Export all homebrew plugins as .orcbrew file.
 (reg-event-fx
