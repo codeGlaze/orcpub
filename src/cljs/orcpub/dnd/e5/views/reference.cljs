@@ -387,7 +387,7 @@
        [:div.posn-rel
         [:input.input.f-s-24.p-l-20.w-100-p.h-60
          {:value     @(subscribe [::char/monster-text-filter])
-          :on-change (views/make-arg-event-handler ::char/filter-monsters event-value)}]
+          :on-change (comps/make-arg-event-handler ::char/filter-monsters event-value)}]
         [:i.fa.fa-times.posn-abs.f-s-24.pointer.main-text-color
          {:style    views/close-icon-style
           :on-click clear-monsters-filter}]]]
@@ -458,7 +458,7 @@
      [:div.posn-rel
       [:input.input.f-s-24.p-l-20.w-100-p.h-60
        {:value @(subscribe [::char/spell-text-filter])
-        :on-change (views/make-arg-event-handler ::char/filter-spells event-value)}]
+        :on-change (comps/make-arg-event-handler ::char/filter-spells event-value)}]
       [:i.fa.fa-times.posn-abs.f-s-24.pointer.main-text-color
        {:style views/close-icon-style
         :on-click (make-event-handler ::char/filter-spells "")}]]]
@@ -539,7 +539,7 @@
        [:div.posn-rel
         [:input.input.f-s-24.p-l-20.w-100-p.h-60
          {:value @(subscribe [::char/item-text-filter])
-          :on-change (views/make-arg-event-handler ::char/filter-items event-value)}]
+          :on-change (comps/make-arg-event-handler ::char/filter-items event-value)}]
         [:i.fa.fa-times.posn-abs.f-s-24.pointer.main-text-color
          {:style views/close-icon-style
           :on-click (make-event-handler ::char/filter-items "")}]]]
