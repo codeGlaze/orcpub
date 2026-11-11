@@ -424,7 +424,10 @@
     (is (= "Hero - L5 Wizard.pdf"
            (routes/requested-pdf-filename {:file-name "Hero - L5 Wizard" :character-name "Other"}))))
   (testing "a blank :file-name (every part unticked) falls back to character.pdf"
-    (is (= "character.pdf" (routes/requested-pdf-filename {:file-name "" :character-name "Hero"}))))
+    (is (= "character.pdf" (routes/requested-pdf-filename {:file-name ""}))))
+  (testing "a :file-name with nothing file-safe left falls back to the names and class level"
+    (is (= "Fighter (5).pdf"
+           (routes/requested-pdf-filename {:file-name "🙂" :character-name "🙂" :class-level "Fighter (5)"}))))
   (testing "no :file-name (an older client) builds it from the names"
     (is (= "Hero - Fighter (5).pdf"
            (routes/requested-pdf-filename {:character-name "Hero" :class-level "Fighter (5)"})))))
@@ -665,13 +668,23 @@
       "  "     " Hero "    "Hero - Fighter (5).pdf"
       nil      nil         "Fighter (5).pdf"
       "   "    "   "       "Fighter (5).pdf"))
-  (testing "emoji and the characters Windows refuses are dropped; letters of any script stay"
+  (testing "letters of any script stay; emoji, the characters Windows refuses, invisible
+            characters and a leading dot or dash (a hidden file on Linux and Mac) go"
     (are [player character expected] (= expected (routes/pdf-filename player character "Fighter (5)"))
       "Player 🙂"  "龍 Dragon"         "Player - 龍 Dragon - Fighter (5).pdf"
       "Zoë"        "D’Artagnan"        "Zoë - D’Artagnan - Fighter (5).pdf"
       "A<b>:c"     "Ash/Oak\\Elm|?*"  "Abc - AshOakElm - Fighter (5).pdf"
       "Bob \"Bold\"" "Hero..."        "Bob Bold - Hero - Fighter (5).pdf"
+      "..hidden"   "-dash"            "hidden - dash - Fighter (5).pdf"
+      "Kira\u200B" "fdp\u202Eexe"     "Kira - fdpexe - Fighter (5).pdf"
       "🙂🙂"        nil                "Fighter (5).pdf"))
+  (testing "accents are stored composed (NFC), as Windows and Linux expect, whatever form arrives"
+    (is (= "Zo\u00EB - Fighter (5).pdf" (routes/pdf-filename nil "Zoe\u0308" "Fighter (5)"))))
+  (testing "a long name fits the 255-byte limit of Linux and Android, with no trailing space or dot"
+    (doseq [unit ["Long. " "龍龍 "]]
+      (let [n (routes/pdf-filename nil (apply str (repeat 120 unit)) nil)]
+        (is (<= (count (.getBytes ^String n "UTF-8")) 255) n)
+        (is (re-matches #"[^ .].*[^ .]\.pdf" n) n))))
   (testing "character.pdf only when nothing names the sheet, or the name is reserved on Windows"
     (is (= "character.pdf" (routes/pdf-filename nil " " nil)))
     (is (= "character.pdf" (routes/pdf-filename nil "Con" nil)))

@@ -281,3 +281,12 @@
         (set! (.-error js/console) error)
         (rdom/unmount-component-at-node el)
         (.remove el)))))
+
+(deftest the-file-name-preview-cleans-names-as-the-server-does
+  (testing "in the browser too: letters of any script stay, emoji and invisible characters go"
+    (doseq [[in out] [["Zoë D’Artagnan" "Zoë D’Artagnan"]
+                      ["Кира 龍 🙂" "Кира 龍"]
+                      ["Zoë" "Zoë"]
+                      [". hidden ." "hidden"]
+                      ["a​b" "ab"]]]
+      (is (= out (pdf-spec/file-safe in)) (pr-str in)))))

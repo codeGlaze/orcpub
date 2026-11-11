@@ -2,7 +2,7 @@
   "Tests for pure PDF spec helper functions.
    pdf_spec.cljc no longer has any re-frame subscribes,
    so all helpers are testable on JVM."
-  (:require [clojure.test :refer [deftest testing is]]
+  (:require [clojure.test :refer [deftest testing is are]]
             [orcpub.pdf-spec :as pdf]
             [orcpub.dnd.e5.magic-items :as mi]))
 
@@ -248,3 +248,13 @@
     (let [known {0 {"f" {:key :fire-bolt :class "High Elf" :ability :orcpub.dnd.e5.character/int}}}
           slots (slot-fields (spell-fields known {}))]
       (is (empty? (filter #(re-matches #"spell-slots-0-.*" (name %)) (keys slots))) (str slots)))))
+
+(deftest file-safe-names-open-on-every-system
+  (testing "the PDF Options preview and the server share one rule"
+    (are [in out] (= out (pdf/file-safe in))
+      "Zoë D’Artagnan" "Zoë D’Artagnan"
+      "Кира 龍 🙂"      "Кира 龍"
+      "Zoe\u0308"      "Zo\u00EB"
+      ". hidden ."     "hidden"
+      "a\u200Bb"       "ab"
+      nil              "")))
