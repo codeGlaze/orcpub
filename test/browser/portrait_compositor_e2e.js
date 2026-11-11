@@ -136,6 +136,25 @@ function check(label, ok, detail) {
   await drawer.waitFor({ state: 'visible', timeout: 10000 });
   check('drawer opens on launcher click', await drawer.isVisible());
 
+  // Image mode with nothing pasted: the empty preview's hint must not lie over the switch or the X.
+  const onTop = sel => page.evaluate(sel => {
+    const el = document.querySelector(sel);
+    if (!el) return `no ${sel}`;
+    const r = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return el.contains(hit) ? true : `covered by ${hit && hit.className}`;
+  }, sel);
+  const modes = page.locator('.pl-mode .pl-segmented button');
+  await modes.nth(1).click();
+  await page.waitForTimeout(300);
+  const buildTop = await onTop('.pl-mode .pl-segmented button');
+  check('image mode: Build a portrait takes a click', buildTop === true, String(buildTop));
+  const closeTop = await onTop('.pl-drawer-close');
+  check('image mode: the close button takes a click', closeTop === true, String(closeTop));
+  await modes.nth(0).click({ timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  check('Build a portrait switches back', await modes.nth(0).getAttribute('aria-pressed') === 'true');
+
   const pickerCount = await page.locator('.pl-picker').count();
   check('all 10 layer pickers render', pickerCount === 10, `saw ${pickerCount}`);
 
