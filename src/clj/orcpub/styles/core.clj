@@ -734,7 +734,8 @@
    ;; PDF Options, filling the window: a bar with its title and close, the options scrolling
    ;; between, and a footer holding Create PDF. The surface of the app's other sheets (.rest-fab-sheet)
    ;; in each theme, text from .main-text-color, so the options keep their theme colours.
-   [:.pdf-sheet {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 900
+   ;; z-index above the cookie notice (9999), which otherwise lies over Create PDF
+   [:.pdf-sheet {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 10000
                  :display :flex :flex-direction :column :background-color "#2c3445"}]
    [".app.light-theme .pdf-sheet" {:background-color "#fff"}]
    [:.pdf-sheet-bar {:flex "none" :display :flex :align-items :center :justify-content :space-between
