@@ -50,6 +50,12 @@ scrolling, a freeze on ticking Print Spell Cards / Print Spellbook). **Base:** `
   their own, and `spell-page-fields` (`pdf_spec.cljc`) gives every first page the character's
   shared slots. A Tiefling Wizard's "Tiefling" page shows 4 and 3 slots beside Hellish Rebuke,
   which is once a day; a non-caster's page gets a blank box. Owner asked for a report only.
+  The packed layout has the same fault (`packing-classes` gives every group `:slots shared-slots`).
+  **The app is wrong too** (owner, 2026-11-11): `spells-table` (`views.cljs`) heads each level with
+  "N remaining" from the slot pool, so a race-spell-only character reads "0 remaining". Rules
+  (2014): race spells are their own free castings, usually 1/long rest, no slots; Magic Initiate
+  is a free use plus your slots; items use charges; 2024 species and feats allow both. Next: check
+  whether spell grants store their uses, then plan app + PDF together; owner sees the plan first.
 
 - Export feedback during the 0.3-2.6 s (longer under load) server wait: a message on the builder
   (unseen while the new tab has focus), a "Making your PDF..." page in the new tab, or fetching the
