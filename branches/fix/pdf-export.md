@@ -45,6 +45,12 @@ scrolling, a freeze on ticking Print Spell Cards / Print Spellbook). **Base:** `
 
 ## Open questions for the owner
 
+- **Race and feat spell pages print class slots (found 2026-11-11, not changed).** Per-class spell
+  pages group by casting ability, so a race's or feat's spells with their own ability get a page of
+  their own, and `spell-page-fields` (`pdf_spec.cljc`) gives every first page the character's
+  shared slots. A Tiefling Wizard's "Tiefling" page shows 4 and 3 slots beside Hellish Rebuke,
+  which is once a day; a non-caster's page gets a blank box. Owner asked for a report only.
+
 - Export feedback during the 0.3-2.6 s (longer under load) server wait: a message on the builder
   (unseen while the new tab has focus), a "Making your PDF..." page in the new tab, or fetching the
   PDF in the page with a spinner and then opening it (popup-blocker risk: see `export-pdf`'s GOTCHA).
