@@ -724,8 +724,9 @@
    ::picture-shown (get-prop built-char ::picture-shown)})
 
 (defn image-url
-  "The image address `built-char` shows, or nil when it shows its built portrait instead
-   (shown-picture). Returns a string or nil."
+  "The image address of `built-char`, or nil when it shows no image (shown-values): with the built
+   portrait shown it is the fallback for a portrait this site cannot draw, which readers draw only
+   after a drawable portrait. Returns a string or nil."
   [built-char]
   (::image-url (shown-values (picture-values built-char))))
 

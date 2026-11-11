@@ -32,21 +32,27 @@
   [k v]
   #(dispatch [::char/set-file-name-option k v]))
 
+(defn- layout-keyword
+  "Spell sheet layout dropdown value `v` as a keyword, nil for Automatic (blank)."
+  [v]
+  (when-not (s/blank? v) (keyword v)))
+
 (defn file-name-group
   "The File name group for `built-char`: which parts the PDF's name shows, where the level goes
    and how it is written, and the name those choices give now. Returns hiccup."
   [built-char]
   (let [fmt (file-name-format)
+        ;; called, not rendered as [tick ...]: a fn made each render would remount as a new component type
         tick (fn [label k help] [option-checkbox label (get fmt k) (set-option k (not (get fmt k))) help])
         nm (char/character-name built-char)
         preview (pdf-spec/file-name-for built-char (if (s/blank? nm) "(random name)" nm) fmt)]
     [option-group "File name"
-     [tick "Player name" :player? "The player name from the Description step."]
-     [tick "Character name" :character? "A character with no name is given one when exported."]
-     [tick "Class" :class? "Each class, in the order they were taken."]
+     (tick "Player name" :player? "The player name from the Description step.")
+     (tick "Character name" :character? "A character with no name is given one when exported.")
+     (tick "Class" :class? "Each class, in the order they were taken.")
      (when (:class? fmt)
-       [:div.option-nested [tick "Subclass" :subclass? "Written after its class, in brackets."]])
-     [tick "Level" :level? "Each class's level, or the total when classes are left out."]
+       [:div.option-nested (tick "Subclass" :subclass? "Written after its class, in brackets.")])
+     (tick "Level" :level? "Each class's level, or the total when classes are left out.")
      (when (:level? fmt)
        [:div.option-nested.flex.flex-wrap
         [:div.m-r-10.m-b-10
@@ -63,13 +69,41 @@
            :on-change #(dispatch [::char/set-file-name-option :level-style %])}]]])
      [:div.option-note (str (if (s/blank? preview) "character" preview) ".pdf")]]))
 
+(defn- keep-tab-inside!
+  "Keeps Tab and Shift+Tab, keydown event `e`, inside element `root`: past its last visible enabled
+   control Tab goes to the first, before its first Shift+Tab goes to the last, and from outside it
+   either goes in. Does nothing when `root` has no such control. Returns nil."
+  [root e]
+  (let [els (->> (.querySelectorAll root "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")
+                 array-seq
+                 (remove #(.-disabled %))
+                 (filter #(pos? (.-length (.getClientRects %)))))
+        first-el (first els)
+        last-el (last els)
+        active (.-activeElement js/document)
+        back? (.-shiftKey e)
+        to (cond
+             (nil? first-el) nil
+             (not (.contains root active)) (if back? last-el first-el)
+             (and back? (= active first-el)) last-el
+             (and (not back?) (= active last-el)) first-el)]
+    (when to
+      (.preventDefault e)
+      (.focus to))
+    nil))
+
 (defn sheet
   "PDF Options filling the window: a bar with the title and a close button, then `content`, which
-   brings its own scrolling body and footer (views/print-options). Escape closes it, and the close
-   button takes focus on opening, so a keyboard user starts inside it. Returns a component."
+   brings its own scrolling body and footer (views/print-options). Escape closes it, the close
+   button takes focus on opening, and Tab stays inside it (keep-tab-inside!). Returns a component."
   [_content]
-  (let [on-key (fn [e] (when (= "Escape" (.-key e)) (dispatch [::char/hide-options])))
-        close (atom nil)]
+  (let [root (atom nil)
+        close (atom nil)
+        on-key (fn [e]
+                 (case (.-key e)
+                   "Escape" (dispatch [::char/hide-options])
+                   "Tab" (some-> @root (keep-tab-inside! e))
+                   nil))]
     (r/create-class
      {:component-did-mount (fn [_]
                              (.addEventListener js/document "keydown" on-key)
@@ -77,7 +111,8 @@
       :component-will-unmount (fn [_] (.removeEventListener js/document "keydown" on-key))
       :reagent-render
       (fn [content]
-        [:div.pdf-sheet.main-text-color {:role "dialog" :aria-modal "true" :aria-labelledby "pdf-sheet-title"}
+        [:div.pdf-sheet.main-text-color {:role "dialog" :aria-modal "true" :aria-labelledby "pdf-sheet-title"
+                                          :ref #(reset! root %)}
          [:div.pdf-sheet-bar
           [:h2#pdf-sheet-title.pdf-sheet-title "PDF Options"]
           [:button.pdf-sheet-close {:type "button" :aria-label "Close PDF Options"
@@ -149,6 +184,14 @@
         tab)
     "_blank"))
 
+(defn- export-failed!
+  "Logs export error `e` and tells the player the PDF couldn't be made. Returns nil."
+  [e]
+  (js/console.error "PDF export could not start:" e)
+  (dispatch [:show-error-message
+             "This character's PDF couldn't be made. Try again, or tell us with Feedback/Bug Reports at the bottom of the page."])
+  nil)
+
 (defn export-pdf
   "An onClick handler that submits the PDF form for `built-char`, with its portrait when one can be
    drawn, into a tab that says the PDF is being made until it arrives (making-pdf-tab!). Nothing
@@ -178,12 +221,10 @@
           (not (portrait-assets5e/drawable? portrait)) (submit! nil target)
           ready (submit! (first ready) target)
           :else (if-let [bake (try (portrait/bake-ahead! portrait) (catch :default _ nil))]
-                  (.then (within-wait bake) #(submit! % target))
+                  (-> (within-wait bake) (.then #(submit! % target)) (.catch export-failed!))
                   (submit! nil target))))
       (catch :default e
-        (js/console.error "PDF export could not start:" e)
-        (dispatch [:show-error-message
-                   "This character's PDF couldn't be made. Try again, or tell us with Feedback/Bug Reports at the bottom of the page."])))))
+        (export-failed! e)))))
 
 (defn bake-portrait
   "Bakes the character's composed portrait on mount and whenever it or the artist credits change,
@@ -404,8 +445,7 @@
                       {:title "One column per class" :value "packed"}
                       {:title "One page per class" :value "per-class"}]
               :value (if spell-layout (name spell-layout) "")
-              :on-change (make-arg-event-handler ::char/set-spell-layout
-                                                 #(when-not (s/blank? %) (keyword %)))}]]
+              :on-change (make-arg-event-handler ::char/set-spell-layout layout-keyword)}]]
            ;; What the current setting will actually print, always on: this one is
            ;; the state of the build rather than a fixed explanation, so it is not
            ;; behind a ?. Set like the ? lines so the two read as one kind of note.
