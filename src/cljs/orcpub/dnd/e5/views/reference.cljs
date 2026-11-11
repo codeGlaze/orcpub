@@ -49,7 +49,7 @@
                    (keyword key))
         item @(subscribe [::mi/custom-item item-key])
         username @(subscribe [:username])
-        owner? (= username (::mi/owner item))]
+        owner? (and (some? username) (= username (::mi/owner item)))]
     [views/content-page
      "Item Page"
      (remove
@@ -468,10 +468,12 @@
   "One row of the item list, expandable to the full item. `item` is the item map. Its page route
    is worked out only when \"view\" is clicked."
   [{:keys [key name ::mi/owner :db/id] :as item}]
-  (let [expanded-key (or name (::mi/name item))
+  (let [expanded-key (or key id name (::mi/name item))
         device-type @(subscribe [:device-type])
         expanded? @(subscribe [:item-expanded? expanded-key])
-        username @(subscribe [:username])]
+        username @(subscribe [:username])
+        ;; a built-in item has no owner, so a logged-out nil must not match it
+        owner? (and (some? username) (= username owner))]
     [:div.main-text-color.item-list-item
      [:div.pointer
       [:div.flex.justify-cont-s-b.align-items-c
@@ -493,11 +495,11 @@
            {:on-click #(dispatch [:route (routes/match-route
                                           (routes/path-for routes/dnd-e5-item-page-route :key (or id key)))])}
            "view"]
-          (when (= username owner)
+          (when owner?
             [:button.form-button.m-l-5
              {:on-click (make-event-handler ::mi/edit-custom-item @(subscribe [::mi/custom-item id]))}
              "edit"])
-          (when (= username owner)
+          (when owner?
             [:button.form-button.m-l-5
              {:on-click (make-event-handler ::mi/show-delete-confirmation id)}
              "delete"])]

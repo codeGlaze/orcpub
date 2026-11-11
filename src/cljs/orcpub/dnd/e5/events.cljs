@@ -877,8 +877,9 @@
                 (nat-int? (get-in built-character [:base-abilities ability-kw])))
               char5e/ability-keys)
            {:db (assoc-in db [::in-flight id] true)
-            :dispatch [:set-loading true]
-            :http {:method :post
+            :dispatch [:set-loading true (event-utils/loading-gen db)]
+            :http {:loading-gen (event-utils/loading-gen db)
+                   :method :post
                    :headers (authorization-headers db)
                    :url (url-for-route routes/dnd-e5-char-list-route)
                    :transit-params (assoc strict :orcpub.entity.strict/summary summary)
@@ -994,8 +995,9 @@
            (nat-int? (get-in built-character [:base-abilities ability-kw])))
          char5e/ability-keys)
       {:db db'
-       :dispatch [:set-loading true]
-       :http {:method :post
+       :dispatch [:set-loading true (event-utils/loading-gen db')]
+       :http {:loading-gen (event-utils/loading-gen db')
+              :method :post
               :headers (authorization-headers db')
               :url (url-for-route routes/dnd-e5-char-list-route)
               :transit-params (assoc strict :orcpub.entity.strict/summary summary)
@@ -1033,8 +1035,9 @@
                 (not (and (keyword? t) (not (s/blank? (name t)))))
                 (assoc ::mi/type :wondrous-item))
          strict-item (mi/from-internal-item item)]
-     {:dispatch [:set-loading true]
-      :http {:method :post
+     {:dispatch [:set-loading true (event-utils/loading-gen db)]
+      :http {:loading-gen (event-utils/loading-gen db)
+             :method :post
              :headers (authorization-headers db)
              :url (url-for-route routes/dnd-e5-items-route)
              :transit-params strict-item
@@ -1942,8 +1945,9 @@
 (reg-event-fx
  ::party5e/make-party
  (fn [{:keys [db]} [_ character-ids]]
-   {:dispatch [:set-loading true]
-    :http {:method :post
+   {:dispatch [:set-loading true (event-utils/loading-gen db)]
+    :http {:loading-gen (event-utils/loading-gen db)
+           :method :post
            :headers (authorization-headers db)
            :url (url-for-route routes/dnd-e5-char-parties-route)
            :transit-params (let [tokens (keep (fn [cid]
@@ -1968,8 +1972,9 @@
 (reg-event-fx
  ::party5e/make-empty-party
  (fn [{:keys [db]} [_]]
-   {:dispatch [:set-loading true]
-    :http {:method :post
+   {:dispatch [:set-loading true (event-utils/loading-gen db)]
+    :http {:loading-gen (event-utils/loading-gen db)
+           :method :post
            :headers (authorization-headers db)
            :url (url-for-route routes/dnd-e5-char-parties-route)
            :transit-params {::party5e/name "A New Party"}
@@ -3320,6 +3325,7 @@
          ;; spinner, which a handler that threw before its decrement would otherwise hold up
          (cond-> {:db (-> db
                           (assoc :route new-route :loading 0)
+                          (update :loading-gen (fnil inc 0))
                           (dissoc ::char5e/rest-result :weapon-roll/chain))
                   :dispatch-n [[:hide-message]
                                [:close-orcacle]]}
@@ -3400,14 +3406,17 @@
    set-active-tabs)
 
 (defn set-loading
-  "Loading is a counter, not a boolean. true increments, false decrements.
-   Overlay shows when > 0. Multiple parallel HTTP calls no longer fight."
-  [db [_ v]]
-  (let [current (or (:loading db) 0)]
-    (assoc db :loading
-           (if v
-             (inc current)
-             (max 0 (dec current))))))
+  "Handler for [:set-loading v gen]: the spinner is a counter, shown while above 0; true
+   increments, false decrements (never below 0). With `gen`, the event counts only if `gen` is
+   still the page generation (event-utils/loading-gen); without it, it always counts. Returns db."
+  [db [_ v gen]]
+  (if (and (some? gen) (not= gen (event-utils/loading-gen db)))
+    db
+    (let [current (or (:loading db) 0)]
+      (assoc db :loading
+             (if v
+               (inc current)
+               (max 0 (dec current)))))))
 
 (reg-event-db
  :set-loading
@@ -3592,8 +3601,8 @@
    (let [final-cfg (if auth-token
                      (assoc-in cfg [:headers "Authorization"] (str "Token " auth-token))
                      cfg)]
-     (go (let [response (<! (http/request final-cfg))]
-           (dispatch [:set-loading false])
+     (go (let [response (<! (http/request (dissoc final-cfg :loading-gen)))]
+           (dispatch [:set-loading false (:loading-gen cfg)])
            (if (<= 200 (:status response) 299)
              (when on-success (dispatch (conj on-success response)))
              (if (= 401 (:status response))
