@@ -562,7 +562,8 @@
    [".pl-mode" {:padding "10px 18px 0"}]
    [".pl-link-mode" {:flex "1 1 auto" :overflow-y "auto" :padding "14px 18px" :display "flex"
                      :flex-direction "column" :gap "12px"}]
-   [".pl-link-preview" {:display "flex" :align-items "center" :justify-content "center"
+   ;; relative: .pl-empty-hint fills its positioned container, and without one it covered the drawer
+   [".pl-link-preview" {:position "relative" :display "flex" :align-items "center" :justify-content "center"
                         :min-height "240px" :max-height "360px" :border "1px dashed rgba(128,128,128,.5)"
                         :border-radius "8px" :overflow "hidden" :text-align "center" :padding "12px"}
     [:img {:max-width "100%" :max-height "340px" :object-fit "contain"}]]
