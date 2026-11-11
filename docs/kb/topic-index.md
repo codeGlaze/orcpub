@@ -537,7 +537,7 @@ _branch-md-2026-10-23 · branch md 2026 10 23_
 
 _branding-setup · branding setup_
 
-**topics:** artist, artist-links-and-referrer, branding, credits, dmv, docker, email, emails, footer, fork, fork-customization, links, logos, portrait, privacy, settings-registry-and-boot-report, swarm, url
+**topics:** artist, artist-links-and-referrer, branding, credits, dmv, docker, email, emails, footer, fork, fork-customization, json, links, logos, privacy, settings-registry-and-boot-report, swarm, url
 
 - Two ways a deployment brands itself
 - How a value is read
@@ -1548,6 +1548,7 @@ _e2e-runner · e2e runner_
 - Known failures
 - Two failures that were the tests, not the app (fixed 2026-10-03, PR #43)
 - Fresh-server suites run beside each other (2026-10-05, PR #51)
+- Probes kept for reuse (scripts/research/e2e-probes/)
 - Still open
 
 ## edition-drift.md
@@ -2615,7 +2616,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _page-load-budget · page load budget_
 
-**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, page, parties, portrait, repeat, sheet, signed, visit
+**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, page, parties, repeat, sheet, signed, stylesheet, visit
 
 - Why it exists
 - Audit of integration (2026-10-15, b8035afe, production bundle)

@@ -196,6 +196,21 @@ descendants, deepest first, and waits while those traps run; it never stops serv
 would hit a server someone else started nearby. Verified by killing a run mid-suite: it exited in 2
 seconds and its server on 8891 was gone.
 
+## Probes kept for reuse (`scripts/research/e2e-probes/`)
+
+One-off browser probes that answered a question and can answer it again. They are not suites: no
+pass or fail, they print counts and save screenshots. Copy one into a code branch's `scripts/e2e/`
+(they use its helpers and `test/fixtures`) and point `E2E_BASE` at a running dev server.
+
+- `probe-homebrew-dups.js`: seeds a library that needs cleanup, then counts every entry (stored,
+  in the app, on My Content) after load, reloads, Edit and back, and Edit, Save and back. Found no
+  duplication (2026-11-10, `fix/pdf-export`); it did find the builder's shared React key.
+- `probe-reimport.js`: re-imports the same pack and counts whether it updates in place or adds
+  renamed copies. It updates in place; renamed copies come from Copy/Move or a rename choice.
+- `probe-portrait-ui.js`, `probe-portrait-mode.js`: the character picture editor (Randomize, Keep
+  colours, the Build a portrait | Use an image from the web switch), screenshots in both themes
+  and a contrast check of the drawer's text.
+
 ## Still open
 
 - Rewrite the suites that read internals to check what a visitor sees, wherever possible, so more
