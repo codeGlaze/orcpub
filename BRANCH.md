@@ -169,6 +169,14 @@ view is two: the hold decides what the built character applies; Data View edits 
   not a second index; key results by each entry's own `:key`, never its name. Reference only:
   `claude/app-speed-fix-K8HwV` (deleted, tip `e8613ad66`) built an index for this, but covered 9
   types and merged by name ([branch-inventory.md](docs/kb/branch-inventory.md)).
+- **Copy a built-in item into the custom item builder** (owner, 2026-11-10: set aside; its own
+  branch when picked up). The builder takes plain fields (name, type, rarity, description,
+  attunement, AC and attack bonuses) as they are, but 56 built-in items hold their rules effects
+  as function calls (Cloak of Protection: `::modifiers (map #(mod5e/saving-throw-bonus % 1) ...)`,
+  `magic_items.cljc`), which `to-internal-modifiers` cannot read back, and magic weapons and armour
+  are generated variants (`expand-weapon`, `expand-armor`). The full copy needs effects as data
+  both the game and the builder read. Start from `::mi/edit-custom-item` (`events.cljs`); drop
+  `:db/id` and `::mi/owner`.
 
 ### Deferred to the refactor — known, not yet owned
 
