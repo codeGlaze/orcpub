@@ -6,7 +6,7 @@
 // a sheet style and opens the Spellbook group, its tallest state. Then, on a 1280x720 desktop and
 // a 390x844 phone, checks that the panel covers the window, that Create PDF is inside the window
 // and is what a tap there hits without any scrolling, and that the last option (the file name
-// preview) scrolls into view inside the panel. Escape closes it. Last, in the dark theme and then
+// preview) scrolls into view inside the panel. Tab and Shift+Tab stay inside it; Escape closes it. Last, in the dark theme and then
 // the light one, every visible text in the panel is checked for contrast against what is behind it.
 
 const { chromium } = require('playwright');
@@ -122,6 +122,21 @@ async function lowContrast(page) {
   await settle(page, 300);
   const dark = await lowContrast(page);
   check('dark theme: every text in the panel is readable against its background', dark.length === 0, dark.join(' | '));
+
+  // Tab past the last control and Shift+Tab past the first both stay inside the panel.
+  const inside = () => page.evaluate(() => !!document.activeElement && !!document.activeElement.closest('.pdf-sheet'));
+  await page.locator('.pdf-sheet button', { hasText: 'Create PDF' }).focus();
+  const lastEl = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('.pdf-sheet button, .pdf-sheet [href], .pdf-sheet input, .pdf-sheet select, .pdf-sheet textarea'))
+      .filter(e => !e.disabled && e.getClientRects().length);
+    els[els.length - 1].focus();
+    return els[els.length - 1].textContent.trim().slice(0, 20);
+  });
+  await page.keyboard.press('Tab');
+  check('Tab past the last control stays inside PDF Options', await inside(), `last control "${lastEl}"`);
+  await page.locator('.pdf-sheet-close').focus();
+  await page.keyboard.press('Shift+Tab');
+  check('Shift+Tab before the first control stays inside PDF Options', await inside());
 
   await page.keyboard.press('Escape');
   await settle(page, 300);
