@@ -561,7 +561,7 @@
                 n (finite-num amount)
                 p (pool-text pool)]
           :when (and n p)]
-      (str (when (pos? n) "+") (fmt-num n) " to " (when (one-of? pool) "one of ") p
+      (str (when #?(:clj (pos? n) :cljs (pos? ^number n)) "+") (fmt-num n) " to " (when (one-of? pool) "one of ") p
            (when (= :save rider) ", and proficiency in that saving throw")))
     :else nil))
 

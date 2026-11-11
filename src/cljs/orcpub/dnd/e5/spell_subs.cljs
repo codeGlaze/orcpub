@@ -46,6 +46,24 @@
  (fn [db _]
    (homebrew-check/checked :plugins (get db :plugins))))
 
+;; Each source's short tag, as My Content shows it: the stored :abbreviation, else the derived
+;; one (source-tagged-keys.md), for the library and a shared character's view-once sources.
+;; Shared is merged last, as ::e5/plugin-vals lets it win, so a row stamped with a source name
+;; both hold takes the shared source's tag. Worked out once per library change, not per row.
+(reg-sub
+ ::e5/source-tags
+ :<- [::e5/plugins]
+ :<- [::e5/shared-plugins]
+ (fn [[plugins shared] _]
+   (into {}
+         (for [libs [plugins shared]
+               :when (map? libs)
+               [source-name source] libs
+               :let [tag (or (when (map? source) (:abbreviation source))
+                             (common/source-abbreviation source-name))]
+               :when tag]
+           [source-name tag]))))
+
 ;; Whether the footer's diagnostic tools are revealed on this device.
 (reg-sub
  ::e5/dev-mode?
