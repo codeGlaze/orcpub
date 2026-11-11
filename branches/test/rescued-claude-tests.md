@@ -1,9 +1,13 @@
 # test/rescued-claude-tests
 
+**Merged 2026-11-10 as #83 (`e9d0d3cc1`).** Nothing left on this branch.
+
 **Purpose:** the one branch for what the 2026-11-09 `claude/*` clean-up found worth keeping (owner:
 no micro branches from it). **Base:** `integration` at `7d4c23d2a`. **PR into:** `integration`, #83. **KB:** [branch-inventory.md](../../docs/kb/branch-inventory.md), "`claude/*` content check".
 
 ## State (updated 2026-11-09)
+
+**Merged 2026-11-10 as #83 (`e9d0d3cc1`).** Nothing left on this branch.
 
 - Done, pushed: the stuck spinner fix (`8d623e0e1`, tests `aa0beed7c`): every page change resets
   `:loading`, and a failed Random character lowers it and keeps the current character. Rescued

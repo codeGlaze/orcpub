@@ -49,6 +49,8 @@ carries live state.*
 - **In flight** (checked 2026-10-23; this list goes stale, so before starting anything also check
   `git branch -r` and the open PRs):
   - Open PRs: #35 (`hotfix/locale-safety`, targets `mirror/upstream-develop`).
+  - Merged 2026-11-10: #83 `test/rescued-claude-tests` (reference pages moved to
+    `views/reference.cljs`, source tags, ghost rows, the stuck spinner, rescued tests).
   - Merged 2026-11-09: #82 `fix/health-banner-contrast` (homebrew Markdown export, banner and
     caret fixes). Merged 2026-10-29: #74 `feature/weapons-table`. Merged 2026-10-28: #65
     `feature/artist-pages`, #70 `feature/registration-in-boot-report`. 28 fully merged branches
