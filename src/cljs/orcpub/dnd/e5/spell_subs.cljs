@@ -1062,11 +1062,15 @@
                                   (cond-> []
                                     (>= lvl 3) (conj "Hellish Rebuke")
                                     (>= lvl 5) (conj "Darkness"))))
-                               " once per day. CHA is the spellcasting ability.")})
+                               " once per long rest. CHA is the spellcasting ability.")})
                (mod5e/damage-resistance :fire)
                (mod5e/spells-known 0 :thaumaturgy ::char5e/cha "Tiefling")
-               (mod5e/spells-known 1 :hellish-rebuke ::char5e/cha "Tiefling" 3)
-               (mod5e/spells-known 2 :darkness ::char5e/cha "Tiefling" 5)]})
+               ;; SRD 5.1 Infernal Legacy: each "once with this trait", back on a long rest,
+               ;; Hellish Rebuke "as a 2nd-level spell"; no slots (plan-spell-uses-by-source.md).
+               (mod5e/spells-known 1 :hellish-rebuke ::char5e/cha "Tiefling" 3 nil nil
+                                   {:free (assoc units5e/long-rests-1 :level 2) :slots :none})
+               (mod5e/spells-known 2 :darkness ::char5e/cha "Tiefling" 5 nil nil
+                                   {:free units5e/long-rests-1 :slots :none})]})
 
 (reg-sub
  ::races5e/plugin-subraces-map

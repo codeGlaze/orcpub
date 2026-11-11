@@ -485,12 +485,27 @@
       :spells-known filtered-spells-known}
      flat-spells)))
 
+(defn- spell-note
+  "What a spell's line adds after its name: its qualifier and how it is cast outside ordinary
+   slots (`char5e/casting-note`), joined, or nil. Takes a ?spells-known entry."
+  [cfg]
+  (let [parts (keep identity [(:qualifier cfg) (char5e/casting-note cfg)])]
+    (when (seq parts)
+      (s/join ", " parts))))
+
+(defn- slot-spells?
+  "Whether any of `cfgs` (levelled ?spells-known entries) is cast from slots, so the page or group
+   holding them carries slot totals."
+  [cfgs]
+  (boolean (some char5e/slot-castable? cfgs)))
+
 (defn packing-classes
   "The per-class lists spell-packing/packed-fields takes, sorted by class: `spells-known`
    (keyed by LEVEL, each value spell-key -> config carrying its :class) regrouped by class.
    Slots follow 5e: every non-pact caster gets the SHARED `shared-slots` (one multiclass
-   pool), a pact caster its own `pact-slots` and `:pact? true`, with its whole list at its
-   highest pact level. `:dc`/`:attack` come from `save-dc-fn`/`attack-mod-fn` on its ability."
+   pool), a pact caster its own `pact-slots` and `:pact? true`, with its slot spells at its
+   highest pact level; a source with no slot spells (a race's free casts) gets empty `:slots`.
+   `:dc`/`:attack` come from `save-dc-fn`/`attack-mod-fn` on its ability."
   [spells-known spells-map shared-slots pact-slots save-dc-fn attack-mod-fn]
   (let [by-class (reduce-kv
                   (fn [acc level cfgs]
@@ -509,23 +524,30 @@
                  ability (:ability (first (mapcat val levels)))
                  named (fn [cfgs]
                          (mapv (fn [cfg]
-                                 (let [d (get spells-map (:key cfg))]
-                                   (or (:name d)
-                                       (when (:key cfg) (name (:key cfg)))
-                                       "(Unknown Spell)")))
+                                 (let [d (get spells-map (:key cfg))
+                                       nm (or (:name d)
+                                              (when (:key cfg) (name (:key cfg)))
+                                              "(Unknown Spell)")]
+                                   (if-let [note (spell-note cfg)] (str nm " (" note ")") nm)))
                                cfgs))
-                 ;; A Warlock's spells all sit at its pact level; everyone else's
-                 ;; stay at the level they were learned.
+                 levelled (mapcat val (dissoc levels 0))
+                 ;; A Warlock's slot spells all sit at its pact level; its free casts
+                 ;; (invocations, Mystic Arcanum) and everyone else's stay where learned.
                  levels (if pact?
-                          (let [cantrips (get levels 0)
-                                at-pact (mapcat val (dissoc levels 0))]
-                            (cond-> {}
-                              (seq cantrips) (assoc 0 (named cantrips))
-                              (seq at-pact) (assoc pact-level (named at-pact))))
+                          (let [at-pact (filter char5e/slot-castable? levelled)
+                                own (common/map-vals
+                                     (fn [lvl cfgs] (if (zero? lvl) cfgs (remove char5e/slot-castable? cfgs)))
+                                     levels)]
+                            (cond-> (into {} (keep (fn [[lvl cfgs]] (when (seq cfgs) [lvl (named cfgs)]))) own)
+                              (seq at-pact) (update pact-level (fnil into []) (named at-pact))))
                           (into {} (map (fn [[lvl cfgs]] [lvl (named cfgs)])) levels))]]
        (cond-> {:class class
                 :levels levels
-                :slots (if pact? pact-slots shared-slots)
+                ;; Slot totals only for a source with spells cast from slots: a race's or
+                ;; feat's free casts get none (plan-spell-uses-by-source.md).
+                :slots (cond pact? pact-slots
+                             (slot-spells? levelled) shared-slots
+                             :else {})
                 ;; The ABBREVIATION -- "CHA" -- because this heads a column in a
                 ;; bar, not the section box that reads SPELLCASTING ABILITY and
                 ;; wants the full word.
@@ -569,6 +591,12 @@
          ;; with nothing saying which page follows which.
          (let [suffix (str "-" (inc i))
                continued? (some #(= classes (:classes %)) (take i spell-pages))
+               slots? (slot-spells? (for [page spell-pages
+                                          :when (= classes (:classes page))
+                                          {:keys [level spells]} (:spells page)
+                                          :when (pos? level)
+                                          spell spells]
+                                      spell))
                class-header {(keyword (str "spellcasting-class" suffix))
                              (cond-> (s/join ", " classes)
                                continued? (str " (continued)"))}]
@@ -590,12 +618,13 @@
                           spell-name (or (:name spell-data)
                                          (when spell-key (name spell-key))
                                          "(Unknown Spell)")
-                          qualifier (:qualifier spell)]
-                      (str spell-name (when qualifier (str " (" qualifier ")"))))})
+                          note (spell-note spell)]
+                      (str spell-name (when note (str " (" note ")"))))})
                  spells)
                 ;; Slots belong to the class, not the page, so only the first
-                ;; page of a class carries them; cantrips (level 0) have none and no box.
-                (when (and (not continued?) (pos? level))
+                ;; page of a class carries them; cantrips (level 0) have none and no box, and a
+                ;; page of free casts only (a race's, a feat's) none either.
+                (when (and (not continued?) (pos? level) slots?)
                   {(keyword (str "spell-slots-" level suffix))
                    (spell-slots level)})))
              spells)]))

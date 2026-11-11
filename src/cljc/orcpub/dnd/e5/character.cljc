@@ -518,6 +518,33 @@
 (defn flat-spells [spells-known]
   (->> spells-known vals (map vals) flatten))
 
+(defn slot-castable?
+  "Whether a known spell can be cast from spell slots. Takes a ?spells-known entry; its
+   `:casting` map is in plan-spell-uses-by-source.md. True without one (a class spell) and for a
+   slot limit; false for `:slots :none`."
+  [{:keys [casting]}]
+  (not= :none (get casting :slots :any)))
+
+(defn- times-per
+  "A uses map {:amount n :units u} as text: \"once/long rest\", \"3 times/day\"."
+  [{:keys [amount units] :or {amount 1}}]
+  (str (case amount 1 "once" 2 "twice" (str amount " times"))
+       "/" (s/replace (name units) #"-" " ")))
+
+(defn casting-note
+  "How a known spell is cast besides ordinary slots, as short sheet text, or nil for a plain slot
+   spell. Takes a ?spells-known entry: \"2nd level, once/long rest\", \"at will\", \"once/long
+   rest, or a slot\" (free casts and slots), \"once/long rest, using a slot\" (a slot limit)."
+  [{{:keys [free slots] :or {slots :any}} :casting}]
+  (let [parts (cond-> []
+                (:level free) (conj (str (common/ordinal (:level free)) " level"))
+                (:at-will free) (conj "at will")
+                (:units free) (conj (times-per free))
+                (and (:units free) (= :any slots)) (conj "or a slot")
+                (map? slots) (conj (str (times-per slots) ", using a slot")))]
+    (when (seq parts)
+      (s/join ", " parts))))
+
 (defn spells-known-modes [built-char]
   (get-prop built-char :spells-known-modes))
 

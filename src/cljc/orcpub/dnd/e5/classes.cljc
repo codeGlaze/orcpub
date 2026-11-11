@@ -2682,6 +2682,17 @@
                    :summary "you have a spellbook with 3 extra cantrips"})]})]))
 
 
+
+(def ^:private at-will-invocation
+  "How an at-will invocation's spell is cast: free, at will, never from a slot (SRD 5.1: \"at will,
+   without expending a spell slot\"). The `:casting` map of plan-spell-uses-by-source.md."
+  {:free {:at-will true} :slots :none})
+
+(def ^:private slot-once-per-long-rest
+  "How Mire the Mind's and Thief of Five Fates' spells are cast: \"once using a warlock spell
+   slot\", again after a long rest. The `:casting` map of plan-spell-uses-by-source.md."
+  {:slots units5e/long-rests-1})
+
 (defn eldritch-invocation-options [plugin-invocations spell-lists spells-map]
   (concat
    (map
@@ -2707,14 +2718,14 @@
                    {:name "Eldritch Invocation: Armor of Shadows"
                     :page 110
                     :summary "cast mage armor on yourself at will"})
-                  (mod5e/spells-known 1 :mage-armor ::char5e/cha "Warlock" 0 "at will")]})
+                  (mod5e/spells-known 1 :mage-armor ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]})
     (t/option-cfg
      {:name "Ascendant Step"
       :modifiers [(mod5e/trait-cfg
                    {:name "Eldritch Invocation: Ascendant Step"
                     :page 110
                     :summary "cast levitate on yourself at will"})
-                  (mod5e/spells-known 2 :levitate ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 2 :levitate ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]
       :prereqs [(opt5e/total-levels-option-prereq 9 :warlock)]})
     (t/option-cfg
      {:name "Beast Speech"
@@ -2722,7 +2733,7 @@
                    {:name "Eldritch Invocation: Beast Speech"
                     :page 110
                     :summary "can cast speak with animals at will"})
-                  (mod5e/spells-known 1 :speak-with-animals ::char5e/cha "Warlock" 0 "at will")]})
+                  (mod5e/spells-known 1 :speak-with-animals ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]})
     (t/option-cfg
      {:name "Beguiling Influence"
       :modifiers [(mod5e/trait-cfg
@@ -2771,7 +2782,7 @@
                     :page 110
                     :frequency units5e/long-rests-1
                     :summary "cast hold monster at will on celestials, fiends, or elementals"})
-                  (mod5e/spells-known 5 :hold-monster ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 5 :hold-monster ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]
       :prereqs [opt5e/pact-of-the-chain-prereq
                 (opt5e/total-levels-option-prereq 15 :warlock)]})
     (t/option-cfg
@@ -2797,7 +2808,7 @@
                    {:name "Eldritch Invocation: Eldritch Sight"
                     :page 110
                     :summary "cast detect magic at will"})
-                  (mod5e/spells-known 1 :detect-magic ::char5e/cha "Warlock" 0 "at will")]})
+                  (mod5e/spells-known 1 :detect-magic ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]})
     (t/option-cfg
      {:name "Eldritch Spear"
       :modifiers [(mod5e/trait-cfg
@@ -2817,7 +2828,7 @@
                    {:name "Eldritch Invocation: Fiendish Vigor"
                     :page 111
                     :summary "cast false life at will"})
-                  (mod5e/spells-known 1 :false-life ::char5e/cha "Warlock" 0 "at will")]})
+                  (mod5e/spells-known 1 :false-life ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]})
     (t/option-cfg
      {:name "Gaze of Two Minds"
       :modifiers [(mod5e/trait "Eldritch Invocation: Gaze of Two Minds"
@@ -2836,14 +2847,14 @@
                    {:name "Eldritch Invocation: Mask of Many Faces"
                     :page 111
                     :summary "cast disguise self at will"})
-                  (mod5e/spells-known 1 :disguise-self ::char5e/cha "Warlock" 0 "at will")]})
+                  (mod5e/spells-known 1 :disguise-self ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]})
     (t/option-cfg
      {:name "Master of Myriad Forms"
       :modifiers [(mod5e/trait-cfg
                    {:name "Eldritch Invocation: Master of Myriad Forms"
                     :page 111
                     :summary "cast alter self at will"})
-                  (mod5e/spells-known 2 :alter-self ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 2 :alter-self ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]
       :prereqs [(opt5e/total-levels-option-prereq 15 :warlock)]})
     (t/option-cfg
      {:name "Minions of Chaos"
@@ -2862,7 +2873,7 @@ long rest."})
                     :page 111
                     :frequency units5e/long-rests-1
                     :summary "cast slow using warlock spell slot"})
-                  (mod5e/spells-known 3 :slow ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 3 :slow ::char5e/cha "Warlock" 0 nil nil slot-once-per-long-rest)]
       :prereqs [(opt5e/total-levels-option-prereq 5 :warlock)]})
     (t/option-cfg
      {:name "Misty Visions"
@@ -2870,7 +2881,7 @@ long rest."})
                    {:name "Eldritch Invocation: Misty Visions"
                     :page 111
                     :summary "cast silent image at will"})
-                  (mod5e/spells-known 1 :silent-image ::char5e/cha "Warlock" 0 "at will")]})
+                  (mod5e/spells-known 1 :silent-image ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]})
     (t/option-cfg
      {:name "One with Shadows"
       :modifiers [(mod5e/action
@@ -2884,7 +2895,7 @@ long rest."})
                    {:name "Eldritch Invocation: Otherworldly Leap"
                     :page 111
                     :summary "cast jump on yourself at will"})
-                  (mod5e/spells-known 1 :jump ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 1 :jump ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]
       :prereqs [(opt5e/total-levels-option-prereq 9 :warlock)]})
     (t/option-cfg
      {:name "Repelling Blast"
@@ -2918,7 +2929,7 @@ long rest."})
                     :page 111
                     :frequency units5e/long-rests-1
                     :summary "cast bane warlock spell slot"})
-                  (mod5e/spells-known 1 :bane ::char5e/cha "Warlock" 0 "once per long rest")]})
+                  (mod5e/spells-known 1 :bane ::char5e/cha "Warlock" 0 nil nil slot-once-per-long-rest)]})
     (t/option-cfg
      {:name "Thirsting Blade"
       :modifiers [(mod5e/trait-cfg
@@ -2933,7 +2944,7 @@ long rest."})
                    {:name "Eldritch Invocation: Visions of Distant Realms"
                     :page 111
                     :summary "cast arcane eye at will"})
-                  (mod5e/spells-known 4 :arcane-eye ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 4 :arcane-eye ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]
       :prereqs [(opt5e/total-levels-option-prereq 15 :warlock)]})
     (t/option-cfg
      {:name "Voice of the Chain Master"
@@ -2948,7 +2959,7 @@ long rest."})
                    {:name "Eldritch Invocation: Whispers of the Grave"
                     :page 111
                     :summary "cast speak with dead at will"})
-                  (mod5e/spells-known 3 :speak-with-dead ::char5e/cha "Warlock" 0 "at will")]
+                  (mod5e/spells-known 3 :speak-with-dead ::char5e/cha "Warlock" 0 nil nil at-will-invocation)]
       :prereqs [(opt5e/total-levels-option-prereq 9 :warlock)]})
     (t/option-cfg
      {:name "Witch Sight"
@@ -2992,7 +3003,8 @@ long rest."})
               ::char5e/cha
               "Warlock"
               false
-              "uses Mystic Arcanum")}))
+              "uses Mystic Arcanum"
+              {:free units5e/long-rests-1 :slots :none})}))
 
 (defn warlock-option [spell-lists spells-map plugin-subclasses-map language-map weapon-map invocations boons]
   (opt5e/class-option
