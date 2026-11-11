@@ -2,10 +2,12 @@
   "Tests for the character-pdf-2 HTTP handler focused on the :flatten?
    request-param round-trip (replaces the old user-agent-sniffing path)."
   (:require [clojure.test :refer [deftest is testing]]
+            [orcpub.pdf-spec :as pdf-spec]
             [orcpub.routes :as routes])
   (:import (java.io ByteArrayInputStream ByteArrayOutputStream)
            (org.apache.pdfbox Loader)
-           (org.apache.pdfbox.pdmodel PDDocument)))
+           (org.apache.pdfbox.pdmodel PDDocument)
+           (org.apache.pdfbox.text PDFTextStripper)))
 
 ;; -----------------------------------------------------------------------------
 ;; Request / response helpers
@@ -171,3 +173,17 @@
               "response PDF must have at least one page")
           (is (has-fillable-form? doc)
               "response PDF must be fillable (default)"))))))
+
+(deftest a-cantrip-section-exports-without-a-did-not-fit-page
+  (testing "cantrips from a class and a race, on per-class spell pages, leave nothing unplaced"
+    (let [known {0 {"g" {:key :guidance :class "Cleric" :ability :orcpub.dnd.e5.character/wis}
+                    "f" {:key :fire-bolt :class "High Elf" :ability :orcpub.dnd.e5.character/int}}
+                 1 {"b" {:key :bless :class "Cleric" :ability :orcpub.dnd.e5.character/wis}}}
+          spells (pdf-spec/spell-page-fields known {1 2} (constantly 13) (constantly 5)
+                                             false #{} {} {} {} 1)
+          resp (routes/character-pdf-2 (make-req (merge (minimal-fields) spells)))]
+      (is (= 200 (:status resp)))
+      (with-open [doc (load-response-pdf resp)]
+        (let [text (.getText (PDFTextStripper.) doc)]
+          (is (not (re-find #"did not fit" text))
+              (re-find #"(?s)did not fit.{0,300}" text)))))))

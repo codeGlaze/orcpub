@@ -219,3 +219,32 @@
          (pdf/clean-file-name-format {:player? false :level-style :padded :x 1 :class? "no"})))
   (is (= {} (pdf/clean-file-name-format {:level-style :huge})))
   (is (= {} (pdf/clean-file-name-format "not a map"))))
+
+(def ^:private cantrip-casters
+  "spells-known for a Cleric/Wizard with a High Elf cantrip: cantrips from two classes and a race,
+   and levelled spells from both classes."
+  {0 {"g" {:key :guidance :class "Cleric" :ability :orcpub.dnd.e5.character/wis}
+      "l" {:key :light :class "Wizard" :ability :orcpub.dnd.e5.character/int}
+      "f" {:key :fire-bolt :class "High Elf" :ability :orcpub.dnd.e5.character/int}}
+   1 {"b" {:key :bless :class "Cleric" :ability :orcpub.dnd.e5.character/wis}
+      "m" {:key :magic-missile :class "Wizard" :ability :orcpub.dnd.e5.character/int}}})
+
+(defn- spell-fields
+  "spell-page-fields for `known` with slot table `slots`, per-class layout, style 1. Returns the field map."
+  [known slots]
+  (pdf/spell-page-fields known slots (constantly 13) (constantly 5) false #{} {} {} {} 1))
+
+(defn- slot-fields
+  "The spell-slots-* entries of field map `fields`, as a map."
+  [fields]
+  (into {} (filter #(re-matches #"spell-slots-.*" (name (key %)))) fields))
+
+(deftest cantrips-carry-no-slot-total
+  (testing "casters: no cantrip slots field on any page; levelled slots stay"
+    (let [slots (slot-fields (spell-fields cantrip-casters {1 4}))]
+      (is (empty? (filter #(re-matches #"spell-slots-0-.*" (name %)) (keys slots))) (str slots))
+      (is (= 4 (:spell-slots-1-1 slots)) (str slots))))
+  (testing "a non-caster whose only spell is a racial cantrip"
+    (let [known {0 {"f" {:key :fire-bolt :class "High Elf" :ability :orcpub.dnd.e5.character/int}}}
+          slots (slot-fields (spell-fields known {}))]
+      (is (empty? (filter #(re-matches #"spell-slots-0-.*" (name %)) (keys slots))) (str slots)))))
