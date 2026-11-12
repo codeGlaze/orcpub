@@ -81,6 +81,9 @@ checks them, `cards/draw-spell-card!` draws them; `print-spells` keeps its `{:re
 - **The print modes no longer change any card page:** the fronts' red icons were the only thing
   `bw?` / `bw-faded?` altered (card_geometry_test compares the modes). The two options are hidden
   in PDF Options, code and saved settings kept.
+- **The school sigils (`draw/sigils`) are hand-written paths, and their arcs render faceted:**
+  `svg-path-ops` turns an `A` command into straight segments (`arc-points`). The owner wants the
+  cards' school marks replaced by professional game-icons SVGs, picked like the class emblems.
 - `spell_cards_test` lays out all 319 SRD spells and the stress card and fails on any overlap.
 
 ### Lifecycle (critical for understanding blank page bugs)
