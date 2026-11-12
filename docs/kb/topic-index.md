@@ -2356,7 +2356,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -3132,7 +3132,7 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 2014, 2024, 2026-11-11, 521, boxes, cast, casting, casts, free, initiate, magic, rest, slot, slots, spell, spells, srd, tiefling
+**topics:** 2014, 2024, 2026-11-11, 521, box, boxes, cast, casting, casts, free, initiate, rest, slot, slots, spell, spells, srd, tiefling
 
 - The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)

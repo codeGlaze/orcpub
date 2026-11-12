@@ -191,6 +191,11 @@ and stays independent of the app's combine toggle. Open pieces:
   above). Spell names in the row fields; LVL, SOURCE, DC and USES drawn at the names' printed size
   (about 6 pt Nimbus Sans), each column as wide as its widest cell. **Variant 2 (source and DC per
   row) "looks incredible"**; Variant 1 (one source: source and DC in the bar) not commented on.
+  **Decided (owner, 2026-11-11):** Variant 1 for one source, Variant 2 for several, with a PDF
+  option to turn Variant 1 off (always Variant 2). Features page: plain spell names under Bonus
+  Actions and Reactions, no extra data (a use box there would double the Traits box's).
+  No casting class: the Features page lines, and a spell page with the Traits box, the rest of the
+  page used to write each spell out (its own box, bar naming it) or filled with spell cards.
   On a packed page: the box's slot inputs must be removed (packing already shrinks them for
   headings); with no free box it is fitted like a class (by rows) and starts a page only when
   every box is taken.
