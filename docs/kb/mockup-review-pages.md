@@ -48,8 +48,14 @@ Steps, from a code worktree (no server, no browser; about a minute):
   labelled Equipment; the traits list the app prints is `features-and-traits-2`.
 - **The `user` namespace already has an alias `s`** (dev profile): alias `clojure.string` as
   something else in a script run with `lein run -m clojure.main`.
-- Leave room between drawn columns: at 7 pt Helvetica "Magic Initiate" is about 45 pt, a third of a
-  spell row (about 160 pt).
+- **Look at every PNG before publishing.** A round went out with columns printed over each other,
+  labelled as a known flaw; the owner: "Did you LOOK at those results". Never publish a shot you
+  would not sign off.
+- **Match the sheet, do not guess sizes.** Spell rows are auto-sized Nimbus Sans: about 6 pt as
+  printed. `render!` measures the names' printed width and sets drawn text to match; columns are
+  as wide as their widest cell (`text-pt`), never fixed fractions of the row.
+- **Use the bar the way packed sheets do:** caption in the narrow compartment (as CANTRIPS), the
+  source in the wide one, numbers above (`draw-bar!`, after `pdf/draw-column-heading!`).
 
 ## Keep it easy to look through
 

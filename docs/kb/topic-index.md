@@ -1485,7 +1485,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _duplicate-key-durability-roadmap · duplicate key durability roadmap_
 
-**topics:** abbreviation, bulk, characters, dash, derivation, item, key, match, orphans, rebind, relink, rename, rung, save, shim, trailing, trim, trimming
+**topics:** abbreviation, bulk, characters, dash, derivation, item, key, orphans, rebind, relink, rename, repair, rung, save, shim, trailing, trim, trimming
 
 - The problem, stated properly
 - The invariant to establish
@@ -2443,7 +2443,7 @@ _merging-across-a-refactor · merging across a refactor_
 
 _mockup-review-pages · mockup review pages_
 
-**topics:** 2026-10-22, 2026-11-11, artifact, box, designs, draws, flattened, label, look, mockup, owner, phone, publish, scenes, shot, shots, theme-aware, writing-browser-tests
+**topics:** 2026-10-22, 2026-11-11, artifact, box, look, mockup, owner, phone, png, printed, publish, round, scenes, shot, shots, theme-aware, wide, writing-browser-tests
 
 - The three pieces (all in scripts/design/ on this branch)
 - Steps
@@ -3132,7 +3132,7 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 2014, 2024, 2026-11-11, 521, boxes, cast, casting, casts, free, initiate, rest, ruling, slot, slots, spell, spells, srd, tiefling
+**topics:** 2014, 2024, 2026-11-11, 521, boxes, cast, casting, casts, free, initiate, magic, rest, slot, slots, spell, spells, srd, tiefling
 
 - The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)
@@ -3620,7 +3620,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 285, 313, 317, 319, 322, 5etools, armor, conditions, counterpart, editions, monsters, open5e, species, srd, text, weapons
+**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, armor, conditions, counterpart, editions, magic, monsters, open5e, species, srd, text, weapons
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -4056,7 +4056,7 @@ _weapons-extra-damage-design · weapons extra damage design_
 
 _weapons-extra-damage-handoff · weapons extra damage handoff_
 
-**topics:** 1d8, 2d6, ablaze, bar, blade, colour, damage, dark, deals, extra, frost, radiant, roll, strip, sun, tile, type, undead
+**topics:** 1d8, 2d6, ablaze, blade, colour, damage, dark, deals, extra, frost, radiant, roll, strip, sun, thunder, tile, type, undead
 
 - The problem
 - The five cases, from SRD 5.1 (text checked)
