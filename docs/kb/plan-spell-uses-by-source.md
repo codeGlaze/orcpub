@@ -365,6 +365,12 @@ gets the full width. Fallback order on that row, checked by the layout check: ab
 rest alone ("LONG REST"), then drop the uses to their own row. Next: build into `cards.clj` on
 fix/pdf-export, real exports shown before pushing.
 
+**LVL 9 against 9th Level (2026-11-12, not published):** owner: schools always abbreviated; compare
+"LVL 9" with "9th Level". Rendered (`level-styles-scene`); uses share the subheading row and end at
+the ribbons. Held back: Vollkorn's old-style figures make "LVL 1" read "LVL I" and "ATK +11" read
+"+II" (on every design so far). All card numbers need lining figures: the spellbook already draws
+them from the same font (`centred!` / `text!` with `:lining`, `spellbook.clj`).
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line

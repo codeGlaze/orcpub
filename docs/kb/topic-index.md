@@ -3735,7 +3735,7 @@ _srd-improvements · srd improvements_
 
 _srd-pdf-as-source-of-record · srd pdf as source of record_
 
-**topics:** 321, 339, carriage, conjuration, delta, dnld, gitea, import, items, name-level, open5e, school, schools, spells, srd, srd-2024-intergration, srd-5, srd-ogl
+**topics:** 321, 339, carriage, conjuration, delta, dnld, gitea, import, items, name-level, open5e, pdfs, school, spells, srd, srd-2024-intergration, srd-5, srd-ogl
 
 - Extracting
 - Trap 1: the 5.1 text layer is pathological

@@ -861,10 +861,11 @@
    ATK and DC at the right; concentration as a dark bookmark ribbon from the top edge, ritual as
    an outlined one). Lower part: source and use circles, facts with legends, material, body.
    Returns {:elements :text-top}."
-  [fonts design {:keys [spell source dc attack uses]}]
+  [fonts design {:keys [spell source dc attack uses sub]}]
   (let [serif (:plain fonts) serif-b (:bold fonts) serif-i (:italic fonts)
         sans (draw/sans fonts :plain) sans-b (draw/sans fonts :bold)
         {spell-name :name spell-range :range :keys [level school casting-time components duration ritual]} spell
+        uses-on-sub (atom false)
         conc? (boolean (or (and (map? duration) (:concentration duration))
                            (and (string? duration) (re-find #"(?i)^concentration" duration))))
         W (- content-r content-l)
@@ -951,7 +952,42 @@
                (let [sy (+ 17 (* 11 (dec (count lines))) 10)
                      line (@#'orcpub.spellbook/school-line spell)]
                  (add! {:kind :sigil :school school :x content-l :y (- sy 5.9) :box [content-l (- sy 5.9) (+ content-l 6.5) (+ sy 0.6)]})
-                 (text! serif-i 7.0 line (+ content-l 9) sy 0.15)
+                 (if-not sub
+                   (text! serif-i 7.0 line (+ content-l 9) sy 0.15)
+                   ;; `sub` :lvl ("LVL 9", styled like ATK / DC) or :ordinal ("9th Level"); the school
+                   ;; always abbreviated; the use circles at the row's right when they fit.
+                   (let [abbr {"abjuration" "Abjur." "conjuration" "Conj." "divination" "Div." "enchantment" "Ench."
+                               "evocation" "Evoc." "illusion" "Illus." "necromancy" "Necro." "transmutation" "Trans."}
+                         sch (get abbr (common/ascii-lower-case (str school)) (common/ascii-capitalize (str school)))
+                         lv (or level 0)
+                         x (atom (+ content-l 9))]
+                     (case sub
+                       :lvl (if (zero? lv)
+                              (do (text! sans-b 4.8 "CANTRIP" @x (- sy 0.3) 0.45) (swap! x + (text-pt sans-b "CANTRIP" 4.8)))
+                              (do (text! sans-b 4.5 "LVL" @x (- sy 0.3) 0.45)
+                                  (swap! x + (text-pt sans-b "LVL" 4.5) 2)
+                                  (text! serif-b 8.0 (str lv) @x sy)
+                                  (swap! x + (text-pt serif-b (str lv) 8.0))))
+                       :ordinal (let [t (if (zero? lv) "Cantrip" (str (common/ordinal lv) " Level"))]
+                                  (text! serif-b 7.0 t @x sy) (swap! x + (text-pt serif-b t 7.0))))
+                     (let [t (str "  ·  " sch)]
+                       (text! serif-i 7.0 t @x sy 0.15) (swap! x + (text-pt serif-i t 7.0)))
+                     (when uses
+                       (let [edge (if (seq ribbons) (- rib-left 4) content-r)
+                             room (- edge @x 8)
+                             full (:label uses)
+                             short (last (cstr/split full #"/ ?"))
+                             w-of (fn [l] (+ (text-pt sans-b l 4.8) 4 (* (:n uses) 9)))
+                             label (cond (<= (w-of full) room) full
+                                         (<= (w-of (cstr/trim short)) room) (cstr/trim short)
+                                         :else nil)]
+                         (when label
+                           (reset! uses-on-sub true)
+                           (let [x0 (- edge (* (:n uses) 9))]
+                             (text! sans-b 4.8 label (- x0 (text-pt sans-b label 4.8) 3) sy 0.4)
+                             (doseq [i (range (:n uses))]
+                               (add! {:kind :icon :k :use :x (+ x0 (* i 9)) :y (- sy 5.2) :scale 1.0
+                                      :box [(+ x0 (* i 9)) (- sy 5.2) (+ x0 (* i 9) 7) (+ sy 1.8)]}))))))))
                  (reset! y (+ (max sy 27) 5)))))
     (rule! @y)
     (swap! y + 9)
@@ -960,7 +996,7 @@
           uw (if uses (+ (text-pt sans-b (:label uses) 4.8) 4 (* (:n uses) 9)) 0)
           shared? (and uses (<= (+ src-w 6 uw) W))]
       (text! sans 4.8 (if (<= src-w W) src (ellipsize sans src 4.8 W)) content-l @y 0.4)
-      (when uses
+      (when (and uses (not @uses-on-sub))
         (let [row (if shared? @y (+ @y 9)) x0 (- content-r (* (:n uses) 9))]
           (text! sans-b 4.8 (:label uses) (- x0 (text-pt sans-b (:label uses) 4.8) 3) row 0.4)
           (doseq [i (range (:n uses))]
@@ -1093,14 +1129,52 @@
               (ImageIO/write big "png" (File. (str out-dir "/shots/" file "-300.png"))))
             (println "wrote" file "page" pg)))))))
 
+(defn level-styles-scene
+  "One blank Letter page comparing the subheading styles on the name-top-left card: row 0 `LVL 9`,
+   row 1 `9th Level` (Thaumaturgy, Hellish Rebuke, Darkness), row 2 the stress card in each and
+   Detect Magic (concentration and ritual) in `LVL 9`. Prints LAYOUT problems; writes
+   shots/levels.png at 300 dpi."
+  []
+  (with-open [doc (org.apache.pdfbox.pdmodel.PDDocument.)]
+    (let [pg (org.apache.pdfbox.pdmodel.PDPage.) _ (.addPage doc pg)
+          fonts (draw/load-fonts doc) ph (.getHeight (.getMediaBox pg))
+          all (vals spells/spell-map)
+          widest (fn [f] (apply max-key #(count (str (f %))) all))
+          stress {:name (:name (apply max-key #(text-pt (:bold fonts) (:name %) 10.5) all)) :level 9 :ritual true
+                  :school "transmutation"
+                  :casting-time (:casting-time (apply max-key #(count (sp/abbreviate-casting-time (first (cstr/split (str (:casting-time %)) #",")))) all))
+                  :range (:range (apply max-key #(count (sp/abbreviate-range (str (:range %)))) all))
+                  :duration (:duration (spells/spell-map :darkness))
+                  :components {:verbal true :somatic true :material true
+                               :material-component (get-in (widest #(get-in % [:components :material-component])) [:components :material-component])}
+                  :description (:description (widest :description))}
+          base [{:spell (spells/spell-map :thaumaturgy) :source "Tiefling · Infernal Legacy" :dc 13 :attack "+5"}
+                {:spell (spells/spell-map :hellish-rebuke) :source "Tiefling · Infernal Legacy · cast at 2nd level" :dc 13 :attack "+5"
+                 :uses {:n 1 :label "1 / LONG REST"}}
+                {:spell (spells/spell-map :darkness) :source "Tiefling · Infernal Legacy" :dc 13 :attack "+5"
+                 :uses {:n 1 :label "1 / LONG REST"}}]
+          stress-spec {:spell stress :source "Half-Elf (Variant) · Magic Initiate (Wizard) · cast at 2nd level"
+                       :dc 19 :attack "+11" :uses {:n 6 :label "6 / LONG REST"}}
+          cells (concat (for [[c spec] (map-indexed vector base)] [c 0 (assoc spec :sub :lvl)])
+                        (for [[c spec] (map-indexed vector base)] [c 1 (assoc spec :sub :ordinal)])
+                        [[0 2 (assoc stress-spec :sub :lvl)] [1 2 (assoc stress-spec :sub :ordinal)]
+                         [2 2 {:spell (spells/spell-map :detect-magic) :source "Wizard" :dc 15 :attack "+7" :sub :lvl}]])]
+      (with-open [cs (PDPageContentStream. doc pg)]
+        (doseq [[col row spec] cells :let [l (card-layout-3 fonts :named spec)]]
+          (doseq [p (layout-problems l)] (println "LAYOUT" (name (:sub spec)) (:name (:spell spec)) "-" p))
+          (draw-card-v2! cs fonts ph col row l (:description (:spell spec)))))
+      (let [out (ByteArrayOutputStream.)]
+        (.save doc out)
+        (with-open [saved (Loader/loadPDF (.toByteArray out))]
+          (.mkdirs (File. (str out-dir "/shots")))
+          (ImageIO/write (.renderImageWithDPI (PDFRenderer. saved) 0 300 ImageType/RGB) "png" (File. (str out-dir "/shots/levels.png")))
+          (println "wrote levels"))))))
+
 (def shots
-  (do (designs-scene)
-      [{:id "rows" :tag "Compare" :title "Three header designs: index corner, tabs, name top-left"
-        :note "Row 1: index corner. Row 2: tabs. Row 3: name and school top-left with a bookmark ribbon for concentration. Cards: Thaumaturgy (cantrip), Hellish Rebuke (reaction, 1 use), Darkness (concentration, 1 use)."
-        :file "designs-p1.png" :crop nil}
-       {:id "stress" :tag "Stress" :title "The stress card in each design"
-        :note "Every field at its SRD maximum, concentration and ritual both on."
-        :file "designs-p2.png" :crop [0 0 2550 1150]}]))
+  (do (level-styles-scene)
+      [{:id "levels" :tag "Compare" :title "LVL 9 (row 1) against 9th Level (row 2); the stress card in each, and Detect Magic (row 3)"
+        :note "Name top-left, schools always abbreviated, use circles on the subheading row when they fit."
+        :file "levels.png" :crop nil}]))
 
 (spit (str out-dir "/shots.json") (json-str shots))
 (println "wrote shots.json")
