@@ -53,6 +53,10 @@ duplicates, and the PDF Options code moved out of views.cljs (views/pdf_options.
 - **Printing:** PDF Options opens as a full-window panel with grouped options and Create PDF at the
   bottom right, on desktop and phone, and Create PDF opens a tab that says the PDF is being made.
 
+- **Printing:** spell cards have a new design: the name with ATK and DC, concentration and
+  ritual marked as ribbons, level and school on one line with any uses to tick, the casting facts
+  labelled, and more of the spell's text on the front.
+
 ## Fixed
 
 - **Homebrew:** opening an entry to edit no longer risks a section of its builder showing twice or
