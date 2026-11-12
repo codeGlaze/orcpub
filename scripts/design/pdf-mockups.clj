@@ -1214,12 +1214,91 @@
                            (File. (str out-dir "/shots/" nm "-cards.png")))
             (println "wrote" nm "page" pg "of" (.getNumberOfPages doc))))))))
 
+(defn draw-black!
+  "Sets fill and stroke back to black."
+  [cs]
+  (.setNonStrokingColor cs (float 0) (float 0) (float 0))
+  (.setStrokingColor cs (float 0) (float 0) (float 0)))
+
+(defn circle-path-d
+  "SVG path of a true circle (four cubic curves) of radius `r` about (cx, cy)."
+  [cx cy r]
+  (let [k (* 0.5523 r) f #(common/decimal-str 3 %)]
+    (str "M" (f (+ cx r)) " " (f cy)
+         " C" (f (+ cx r)) " " (f (+ cy k)) " " (f (+ cx k)) " " (f (+ cy r)) " " (f cx) " " (f (+ cy r))
+         " C" (f (- cx k)) " " (f (+ cy r)) " " (f (- cx r)) " " (f (+ cy k)) " " (f (- cx r)) " " (f cy)
+         " C" (f (- cx r)) " " (f (- cy k)) " " (f (- cx k)) " " (f (- cy r)) " " (f cx) " " (f (- cy r))
+         " C" (f (+ cx k)) " " (f (- cy r)) " " (f (+ cx r)) " " (f (- cy k)) " " (f (+ cx r)) " " (f cy) " Z")))
+
+(def corrected-sigils
+  "The hand-drawn school marks with their arcs replaced by true cubic curves, in the same 10-unit
+   box: conjuration's rings, enchantment's spiral, necromancy's crescent, transmutation's circle."
+  (merge draw/sigils
+         {"conjuration" [(circle-path-d 3.8 5 2.8) (circle-path-d 6.2 5 2.8)]
+          "enchantment" ["M5 5 C5 4.3 5.9 4.3 5.9 5.1 C5.9 6.3 4.1 6.5 3.7 5.1 C3.2 3.3 5.9 2.6 7.2 4.1 C8.7 6.0 7.2 8.6 4.7 8.5"]
+          "necromancy" ["M6.6 1.4 C4.0 1.6 2.2 3.4 2.2 5 C2.2 6.6 4.0 8.4 6.6 8.6 C5.0 7.6 4.2 6.4 4.2 5 C4.2 3.6 5.0 2.4 6.6 1.4 Z"]
+          "transmutation" [(circle-path-d 5 5 4) "M5 1.6 L8 6.8 L2 6.8 Z"]}))
+
+(def school-candidates
+  "Professional game-icons.net SVGs from the app's vendored set, two or three per school."
+  [["abjuration" ["magic-shield" "surrounded-shield" "checked-shield"]]
+   ["conjuration" ["emblems/magic-portal" "ghost-ally" "minions"]]
+   ["divination" ["crystal-ball" "emblems/all-seeing-eye" "surrounded-eye"]]
+   ["enchantment" ["smitten" "convince" "lips"]]
+   ["evocation" ["emblems/fire-ray" "emblems/lightning-helix" "beams-aura"]]
+   ["illusion" ["double-face-mask" "invisible" "drama-masks"]]
+   ["necromancy" ["emblems/candle-skull" "emblems/daemon-skull" "thunder-skull"]]
+   ["transmutation" ["potion-ball" "magic-swirl" "stone-crafting"]]])
+
+(defn school-icons-scene
+  "One Letter page: today's hand-drawn school marks and the corrected ones (each at 30 pt and at
+   the card's 6.5 pt), then the candidate replacements at 30 pt and 6.5 pt with their file names.
+   Writes shots/school-icons.png at 200 dpi."
+  []
+  (with-open [doc (org.apache.pdfbox.pdmodel.PDDocument.)]
+    (let [pg (org.apache.pdfbox.pdmodel.PDPage.) _ (.addPage doc pg)
+          fonts (draw/load-fonts doc) img (draw/make-image-loader doc)
+          sans (draw/sans fonts :plain) bold (:bold fonts)
+          schools (map first school-candidates)
+          label! (fn [cs t x ty size] (draw/text! cs sans size x ty t {:color 0.35}) (draw-black! cs))]
+      (with-open [cs (PDPageContentStream. doc pg)]
+        (let [sig! (fn [table school x ty size]
+                     (let [u (/ size 10.0)]
+                       (doseq [p (get table school)]
+                         (if (vector? p)
+                           (let [[_ cx cy r] p]
+                             (draw/svg-d! cs (circle-path-d cx cy r) x ty u 0 true))
+                           (draw/svg-d! cs p x ty u (* 0.7 u))))
+                       (draw-black! cs)))
+              row! (fn [title table ty]
+                     (draw/text! cs bold 11 40 ty title {:color 0}) (draw-black! cs)
+                     (doseq [[i school] (map-indexed vector schools)
+                             :let [x (+ 40 (* i 66))]]
+                       (sig! table school x (+ ty 12) 30.0)
+                       (sig! table school (+ x 36) (+ ty 35.5) 6.5)
+                       (label! cs school x (+ ty 56) 6)))]
+          (row! "Today: the hand-drawn school marks (30 pt, and 6.5 pt as on the card)" draw/sigils 40)
+          (row! "Corrected: arcs replaced by true curves, same shapes" corrected-sigils 130)
+          (draw/text! cs bold 11 40 230 "Recommended replacements: game-icons.net, from the app's set" {:color 0}) (draw-black! cs)
+          (doseq [[r [school icons]] (map-indexed vector school-candidates)
+                  :let [ty (+ 250 (* r 62))]]
+            (draw/text! cs bold 8 40 (+ ty 18) school {:color 0}) (draw-black! cs)
+            (doseq [[i icon] (map-indexed vector icons)
+                    :let [x (+ 130 (* i 150))]]
+              (draw/draw-svg-icon! cs img icon (/ x 72.0) (/ ty 72.0) (/ 30 72.0) [0.08 0.08 0.08] 1.0)
+              (draw/draw-svg-icon! cs img icon (/ (+ x 38) 72.0) (/ (+ ty 20) 72.0) (/ 6.5 72.0) [0.08 0.08 0.08] 1.0)
+              (label! cs icon x (+ ty 42) 6))))))
+      (let [out (ByteArrayOutputStream.)]
+        (.save doc out)
+        (with-open [saved (Loader/loadPDF (.toByteArray out))]
+          (.mkdirs (File. (str out-dir "/shots")))
+          (ImageIO/write (.renderImageWithDPI (PDFRenderer. saved) 0 200 ImageType/RGB) "png" (File. (str out-dir "/shots/school-icons.png")))
+          (println "wrote school icons")))))
+
 (def shots
-  (do (real-cards-scene)
-      [{:id "tw" :tag "Real export" :title "Tiefling Wizard 5: the first page of spell cards"
-        :note "Through the app's export. Hellish Rebuke and Darkness carry the Tiefling's casting from the grant." :file "tiefling-wizard-cards.png" :crop nil}
-       {:id "wl" :tag "Real export" :title "Warlock 9: invocations, Mire the Mind, Mystic Arcanum"
-        :note "Through the app's export." :file "warlock-cards.png" :crop nil}]))
+  (do (school-icons-scene)
+      [{:id "schools" :tag "Compare" :title "School icons: today, corrected, and recommended replacements"
+        :note "Rendered through the app's own drawing at 200 dpi." :file "school-icons.png" :crop nil}]))
 
 (spit (str out-dir "/shots.json") (json-str shots))
 (println "wrote shots.json")
