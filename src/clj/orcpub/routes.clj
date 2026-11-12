@@ -510,14 +510,16 @@
                             ;; below swallowed, so every card vanished and the
                             ;; export looked like it had simply ignored the option.
                             (fn [{:keys [key class casting]}]
-                              (let [{:keys [amount units level]} (:free casting)]
+                              (let [{:keys [amount units level at-will]} (:free casting)]
                                 (cond-> {:spell (spells-map key)
                                          :class-nm class
                                          :dc (get spell-save-dcs class)
                                          :attack-bonus (get spell-attack-mods class)}
                                   ;; Free casts per rest print as use circles, the rest as their
-                                  ;; label ("LONG REST"); a fixed casting level joins the source.
-                                  (and (pos-int? amount) units)
+                                  ;; label ("LONG REST"), at will as the label alone; a fixed
+                                  ;; casting level joins the source.
+                                  at-will (assoc :uses {:n 0 :label "AT WILL"})
+                                  (and (not at-will) (pos-int? amount) units)
                                   (assoc :uses {:n amount
                                                 :label (common/ascii-upper-case (s/replace (name units) "-" " "))})
                                   level (assoc :cast-at level))))))

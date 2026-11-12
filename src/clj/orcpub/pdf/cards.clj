@@ -163,7 +163,7 @@
 (defn spell-card-layout
   "One spell card front as {:elements [...] :text-top pt}, each element with :box [x0 y0 x1 y1]
    in points from the card's top-left. `card` is {:spell :class-nm :dc :attack-bonus :uses {:n
-   :label} :cast-at level :print-dc-mod? bool}; `fonts` a draw/load-fonts map. The name wraps
+   :label} (n 0: the label alone) :cast-at level :print-dc-mod? bool}; `fonts` a draw/load-fonts map. The name wraps
    beside ATK and DC; the uses leave the level line for a row of their own when they do not fit;
    the facts wrap to two rows; the material to two lines."
   [fonts {:keys [spell class-nm dc attack-bonus uses cast-at print-dc-mod?]}]
