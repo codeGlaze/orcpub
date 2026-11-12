@@ -2190,7 +2190,7 @@ _homebrew-keys-design · homebrew keys design_
 
 _homebrew-override · homebrew override_
 
-**topics:** armor-wearing, constraints, enforcement, expressed, icon, mug, overridable, override, per-item, per-selection, per-thing, restriction, select, selection, switch, systematically, tortle, waives
+**topics:** armor-wearing, attaches, constraints, enforcement, expressed, mug, overridable, override, per-item, per-selection, per-thing, restriction, select, selection, switch, systematically, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -2714,7 +2714,7 @@ _pdf-generation-architecture · pdf generation architecture_
 
 _pdf-namespace-family · pdf namespace family_
 
-**topics:** 540, acroform, beast, caller, card, cards, companion, consumer, coordinate, frame, inches, ornament, primitives, private, public, region, spellbook, svg
+**topics:** 540, acroform, beast, caller, card, cards, companion, consumer, coordinate, frame, inches, primitives, private, public, region, spellbook, surface, svg
 
 - Verdict on the starting hypothesis
 - 1. Inventory
@@ -3112,7 +3112,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _plan-pdf-page-sizes · plan pdf page sizes_
 
-**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, border, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
+**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, height, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
 
 - The problem in one paragraph
 - Order, and why this order
@@ -3132,7 +3132,7 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 2014, 2024, 2026-11-11, 521, box, boxes, cast, casting, casts, free, initiate, packed, slot, slots, spell, spells, tiefling, wizard
+**topics:** 2014, 2024, 2026-11-11, 521, box, boxes, cards, cast, casting, casts, free, initiate, packed, slot, slots, spell, spells, tiefling
 
 - The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)

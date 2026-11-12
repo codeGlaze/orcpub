@@ -262,6 +262,18 @@ renders, not text sketches. Also check whether item cards got a redesign spell c
 one list, its boxes saying the count (1, 2, 3, or proficiency bonus at export). The reset is
 stated once when all rows share it, else a short SR/LR after each row's boxes.
 
+**Render round 2026-11-11 (not published):** item cards WERE redesigned (framed border with cut
+corners, rarity diamonds, italic type line with an attunement badge, double rule, a CHARGES row of
+circles, "continued on the back", bottom ornament); spell cards still have the old plain layout.
+So: the list card should use the item cards' frame and show uses as the charges' circles, and
+bringing spell cards up to the item-card design is a candidate step of its own. Variant B (grouped
+At will / Short rest / Long rest) rendered clean; variant A's per-row SR/LR printed over the time
+column (needs its own measured column). **Probable app bug seen on a real card:** a long source
+name ("Fey Teleportation Level 2 Conjuration DC 13 Spell Mod +5") wraps the italic line into the
+icon row ("Mod +5" over "1 B.A."). Mock trouble to sort before trusting the cards in a mock: with
+two placeholder cards the Tiefling's own cards did not print and the export added a "did not fit"
+page.
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
