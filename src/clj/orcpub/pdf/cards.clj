@@ -14,14 +14,6 @@
 ;; draw/page-height. Nothing here names a page size, so the whole file follows
 ;; draw/*page*.
 
-(defn- one-line-size
-  "The size, from 8 pt down to a 6 pt floor in quarter points, at which `text` in `font` fits
-   `width` inches on one line. Returns the floor when nothing larger fits."
-  [text font width]
-  (or (first (filter #(<= (draw/string-width text font %) width)
-                     (range 8.0 5.99 -0.25)))
-      6.0))
-
 (def ^:private site-stamp-strip
   "Inches reserved at the foot of a card for the site line.
 
@@ -117,11 +109,8 @@
          (draw-site-stamp! cs fonts x y box-width box-height))))))
 
 ;; ─── Spell card fronts ──────────────────────────────────────────────────────────
-;; Laid out as measured boxes before anything is drawn, in points from the card's top-left:
-;; name top-left, ATK and DC at the right, concentration and ritual ribbons in the corner, the
-;; level and school with the spell's uses on one line, the source, the casting facts with their
-;; labels on a rule, the material, then the text. Design and its rules for long content:
-;; plan-spell-uses-by-source.md (agents/develop), "Settled spell card".
+;; Laid out as measured boxes before drawing, points from the card's top-left. Design and
+;; its rules for long content: plan-spell-uses-by-source.md, "Settled spell card".
 
 (def ^:private spell-card-w 180.0)
 (def ^:private spell-card-h 252.0)
