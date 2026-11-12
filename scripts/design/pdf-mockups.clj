@@ -808,8 +808,11 @@
                       (do (.setLineWidth cs (float stroke)) (.stroke cs))))))
         :sigil (@#'orcpub.spellbook/sigil! cs (:school e) (+ X (:x e)) (+ T (:y e)) 6.5)
         :text (if (:lining e)
-                (@#'orcpub.spellbook/text! cs (:font e) (:size e) (+ X (:x e)) (+ T (:y e)) (:text e)
-                                           {:lining true :color (:grey e)})
+                (do (@#'orcpub.spellbook/text! cs (:font e) (:size e) (+ X (:x e)) (+ T (:y e)) (:text e)
+                                               {:lining true :color (:grey e)})
+                    ;; The lining routine leaves fill and stroke at its text colour: back to black.
+                    (.setNonStrokingColor cs (float 0) (float 0) (float 0))
+                    (.setStrokingColor cs (float 0) (float 0) (float 0)))
                 (draw-pt! cs (:font e) (:size e) (:text e) (+ X (:x e)) (py (:y e)) (:grey e)))
         :sigil-w nil
         :legend (let [[x0 _ x1 _] (:box e)]
