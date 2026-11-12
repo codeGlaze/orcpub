@@ -24,6 +24,33 @@ end. First used for Weapon Mastery: https://claude.ai/artifact/2AKaCTen9rCcchJfp
    `embed-shots.py page.html page-embedded.html` and publish `page-embedded.html` with the Artifact
    tool. Republish the same path to keep the URL.
 
+## PDF sheets
+
+For a change to the printed sheet (owner, 2026-11-11: "this display harness is awesome"). First
+used for the Traits & Feats box: https://claude.ai/artifact/JcHSPnwdJb5R5AbQZnGiWc
+
+| File | What it does |
+|---|---|
+| `pdf-mockups.clj` | Fills a real sheet through the export handler (`routes/character-pdf-2`, as `routes_pdf_test` does), draws the proposed parts with PDFBox (`draw-text!`, `draw-boxes!` at a fraction of a field's width), renders each page to a 150 dpi PNG and writes `shots.json`. The helpers are reusable; copy the scenes section |
+| `pdf-review-page.py` | Builds `review.html` from `shots.json`: a close-up per shot (its crop, in page pixels) with a "Show the whole page" button, every image inlined, theme-aware |
+
+Steps, from a code worktree (no server, no browser; about a minute):
+`lein run -m clojure.main <agents>/scripts/design/pdf-mockups.clj <dir>`, look at each PNG, then
+`pdf-review-page.py <dir> "<title>" "<lead>" "<questions html>"` and publish `<dir>/review.html`.
+
+- **Feed the app's own instructions** rather than drawing what it already draws: blank a level
+  numeral with `:spell-relabels [{:section :box :label nil}]` and draw a box heading with
+  `:spell-headings [{:class :box :section :cantrips? :ability :dc :attack}]`.
+- **Render the fillable PDF.** Packing's headings find their place through the form fields; on a
+  flattened export they were not drawn (seen 2026-11-11; whether real flattened exports lose them is
+  unchecked).
+- **Check which box a field fills:** on style 1, `features-and-traits` sits in the page 1 box
+  labelled Equipment; the traits list the app prints is `features-and-traits-2`.
+- **The `user` namespace already has an alias `s`** (dev profile): alias `clojure.string` as
+  something else in a script run with `lein run -m clojure.main`.
+- Leave room between drawn columns: at 7 pt Helvetica "Magic Initiate" is about 45 pt, a third of a
+  spell row (about 160 pt).
+
 ## Keep it easy to look through
 
 The owner (2026-10-22): "you keep adding things to this table without making it easier to look

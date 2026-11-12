@@ -429,7 +429,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, builder, control, css, docstrings, form, icon, invented, item, labelled, lesson, pin, review, row, sat, signing, unknown, vanished
+**topics:** 2026-09-29, builder, control, css, docstrings, form, icon, invented, item, lesson, pin, review, row, sat, screenshot, signing, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -572,7 +572,7 @@ _builder-and-sheet-copies · builder and sheet copies_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, form, gallery, heading, height, jpg, layout, mockup, row, rows, toggle
+**topics:** add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, gallery, height, jpg, layout, mockup, row, rows, toggle
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -2443,10 +2443,11 @@ _merging-across-a-refactor · merging across a refactor_
 
 _mockup-review-pages · mockup review pages_
 
-**topics:** 2026-10-22, 2akacten9rccchjfphjgmr, artifact, basics, best, criticised, designs, drawn-in, label, liked, look, mockup, owner, phone, round, shot, shots, writing-browser-tests
+**topics:** 2026-10-22, 2026-11-11, artifact, box, designs, draws, flattened, label, look, mockup, owner, phone, publish, scenes, shot, shots, theme-aware, writing-browser-tests
 
 - The three pieces (all in scripts/design/ on this branch)
 - Steps
+- PDF sheets
 - Keep it easy to look through
 - Traps
 
@@ -3131,7 +3132,7 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 2014, 2024, 2026-11-11, 521, boxes, cast, casting, casts, free, initiate, magic, rest, slot, slots, spell, spells, srd, tiefling
+**topics:** 2014, 2024, 2026-11-11, 521, boxes, cast, casting, casts, free, initiate, rest, ruling, slot, slots, spell, spells, srd, tiefling
 
 - The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)
@@ -3619,7 +3620,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, armor, conditions, counterpart, editions, magic, monsters, open5e, species, srd, text, weapons
+**topics:** 2014, 2024, 285, 313, 317, 319, 322, 5etools, armor, conditions, counterpart, editions, monsters, open5e, species, srd, text, weapons
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
