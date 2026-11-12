@@ -129,6 +129,45 @@ What the player sees:
   print after its name ("Hellish Rebuke (2nd level, 1/long rest)"); packed groups get no slots when
   none of their spells use them.
 
+## Design, proposed 2026-11-11 (text mockups; not agreed, not built)
+
+**Today's Spells tab** (`views.cljs` `spells-table`): per spell level, a heading "1st Level" with
+"N remaining" (shared slots) on the right, then a table: Prepared? / Name, Source, Ability, DC, Mod.,
+Attack, expand. One row per source and spell (`[class key]`), so a Tiefling Wizard who also learns
+Darkness as a Wizard already has two Darkness rows, each with its own Source, Ability and DC.
+Expanding a row shows `cast-spell-component`: a level picker and "cast spell", which spends a slot.
+
+**A. Free casts on the Spells tab (steps 4-5).**
+- The level heading's "N remaining" counts slots only; hidden when the character has none.
+- A row with free casts shows them under the name, in the row's own small text: "Free: ● once/long
+  rest" (one tick per use; ticked = used; the Rest box clears them with the period). At will reads
+  "Free: at will", no ticks. A slot limit (Mire the Mind) reads "Slot: ● once/long rest".
+- Expanding the row: the cast panel lists every way this row can be cast, each its own button:
+  "Cast free (1 left)", then the slot levels when slots are allowed ("2nd · 3 left", "3rd · 2 left").
+  The same panel the item casts use (`cast-panel`), with a free use as another payment.
+
+**B. One spell from a class and from another source** (owner's question). Keep **two rows**, as
+today, because they differ in more than uses: the casting ability, so the DC and attack (a Tiefling
+Wizard's Darkness: CHA DC 13 from the Tiefling, INT DC 15 as a Wizard). Make the pair readable:
+- the rows sit together (sorted by name, then source), the second row's name dimmed with "also";
+- each row's Source says where it comes from, its free line says what it gives;
+- casting from the Tiefling row offers its free cast (CHA DC); from the Wizard row, slots (INT DC).
+Alternative rejected for now: one row with both sources, which hides that the DC differs.
+Where a grant allows slots too (2024 lineages), its own row offers slots at its own ability.
+
+**C. Magic Initiate, the author's choice (homebrew feat builder, step 6).** The feat builder's
+"Spellcasting" checkbox ("Choose a class, gain (2) cantrips and (1) 1st-level spell ...") gains,
+when ticked, one setting for the 1st-level spell:
+- "How the 1st-level spell is cast": **Free once per long rest** (2014 printed, default) /
+  **Free once per long rest, or with spell slots** (2014 ruling, 2024).
+- Behind the two choices is the general "How it's cast" block step 6 gives every homebrew spell
+  grant: free casts (none / N per period / at will; optional fixed level) and slots (any / none /
+  N per period). Magic Initiate shows only the two presets; the full block is for race, subrace
+  and feat spell rows.
+
+**PDF for the same cases:** already built (steps 1-3): the class page lists the spell with slots,
+the race or feat page lists it with its note ("once/long rest, or a slot").
+
 ## Build order (each step small and shippable)
 
 1. **The field and the rule:** `:casting` on `spells-known-cfg`, `spell-payment`, tests over the

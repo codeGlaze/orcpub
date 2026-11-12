@@ -390,7 +390,7 @@ _auth-abuse-limits · auth abuse limits_
 
 _auth-state-in-app-db · auth state in app db_
 
-**topics:** 401, 669, account, deletes, env-and-auth, filtered-list-staleness, kaylee, loader, log, logged, login, merges, reframe-subscription-patterns, rejected, response, server, todo, token
+**topics:** 24-hour, 401, 669, account, deletes, env-and-auth, filtered-list-staleness, kaylee, loader, log, logged, login, merges, reframe-subscription-patterns, response, server, todo, token
 
 - The shape
 - Read the token with get-auth-token
@@ -572,7 +572,7 @@ _builder-and-sheet-copies · builder and sheet copies_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, heading, height, jpg, layout, mockup, row, rows, toggle
+**topics:** add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, gallery, height, jpg, layout, mockup, row, rows, toggle
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -1214,7 +1214,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, and-list, cantrips, choice, compound, creator, dependent, descriptive, grant, idiomatic, layer-a, mis-attribution, progression, repeatable, select, spell, two-level, vocabulary
+**topics:** and-list, cantrips, choice, compound, creator, dependent, descriptive, filters, grant, idiomatic, layer-a, mis-attribution, progression, repeatable, select, spell, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -3131,12 +3131,13 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 2014, 2024, 2026-11-11, 521, arcanum, book, cast, casts, grant, initiate, magic, phb, ruling, slot, slots, spell, srd, tiefling
+**topics:** 1st-level, 2014, 2024, 2026-11-11, 521, cast, casts, free, grant, initiate, rest, ruling, slot, slots, spell, srd, tiefling, wizard
 
 - The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)
 - What the refactor line already has (checked 2026-11-11)
 - The plan
+- Design, proposed 2026-11-11 (text mockups; not agreed, not built)
 - Build order (each step small and shippable)
 - Open, for the owner
 
@@ -3456,7 +3457,7 @@ _save-dc-sources · save dc sources_
 
 _secrets-in-boot-output · secrets in boot output_
 
-**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, branding, credential, ex-info, find-and-replace, leak, log, logs, print, redact, rejected, settings-registry-and-boot-report, uri
+**topics:** 7-bit, aggregator, alerting, banner, blanket, boot, branding, credential, ex-info, find-and-replace, innocuous, leak, log, logs, print, redact, settings-registry-and-boot-report, uri
 
 - It was in four places, not one
 - Redact at the boundary, and only what is logged
