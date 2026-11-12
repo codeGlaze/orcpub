@@ -218,11 +218,10 @@
       (add! {:kind :ribbon :k k :pts pts :fill fill :box [x top (+ x rw) bot]})
       (text! serif-b 8.0 t (+ x (/ (- rw (width serif-b t 8.0)) 2)) 17 (if (zero? fill) 1.0 0) k))
     (doseq [[i l] (map-indexed vector lines)] (text! serif-b title-size l sc-left (+ 17 (* i 11))))
-    (add! {:kind :sigil :school school :x sc-left :y (- sy 5.9) :box [sc-left (- sy 5.9) (+ sc-left 6.5) (+ sy 0.6)]})
     (let [lv (or level 0)
           level-t (if (zero? lv) "Cantrip" (str (common/ordinal lv) " Level"))
           sch (get school-abbreviations (common/ascii-lower-case (str school)) (common/ascii-capitalize (str school)))
-          x0 (+ sc-left 9)
+          x0 sc-left
           x1 (+ x0 (width serif-b level-t 7.0))
           rest-t (when (seq sch) (str "  ·  " sch))]
       (text! serif-b 7.0 level-t x0 sy)
@@ -348,7 +347,6 @@
         :use (do (.setLineWidth cs (float 0.8))
                  (draw/circle-path! cs (fn [px pty] [(float px) (draw/py pty)]) (+ X (:cx e)) (+ T (:cy e)) (:r e))
                  (.closePath cs) (.stroke cs))
-        :sigil (draw/sigil! cs (:school e) (+ X (:x e)) (+ T (:y e)) 6.5)
         :text (if (:lining e)
                 (draw/text! cs (:font e) (:size e) (+ X (:x e)) (+ T (:y e)) (:text e) {:lining true :color (:grey e)})
                 (draw/text! cs (:font e) (:size e) (+ X (:x e)) (+ T (:y e)) (:text e) {:color (:grey e)}))
