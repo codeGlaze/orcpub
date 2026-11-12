@@ -81,11 +81,13 @@ checks them, `cards/draw-spell-card!` draws them; `print-spells` keeps its `{:re
 - **The print modes no longer change any card page:** the fronts' red icons were the only thing
   `bw?` / `bw-faded?` altered (card_geometry_test compares the modes). The two options are hidden
   in PDF Options, code and saved settings kept.
-- **No school icon on the card for now (owner, 2026-11-12):** none of the sets was liked (sheet:
-  https://claude.ai/artifact/AyfoKSNquYw25kA8w9dAo8), so the school is text only (`· Trans.`). The
-  hand-written `draw/sigils` render arcs faceted (`svg-path-ops` turns `A` into straight
-  segments). Candidates for later: the owner's DMV arcane sigils (10 SVGs, Alchemy, Pentagon,
-  Triangle, Hexagon, Square, two each), meant for site backgrounds and loading icons.
+- **School marks are the owner's DMV arcane sigils, as placeholders** (`cards/school-sigils`,
+  PNGs in `resources/public/image/sigils/`, 8.5 pt). The SVGs are layered (circles, gradients,
+  transforms) and white-on-dark; `draw/load-svg-icon` reads only an SVG's last `<path>`, so they
+  were recoloured for paper (white strokes to ink, the dark gradient stops to white) and rendered
+  to PNG with headless Chromium, drawn with `draw/draw-imagex`. Each new image needs a review entry
+  in `test/reviewed-images.edn`: write it by hand, because the guard's `REVIEWED_IMAGES=record`
+  pprints under `*print-length*` and truncates the file.
 - `spell_cards_test` lays out all 319 SRD spells and the stress card and fails on any overlap.
 
 ### Lifecycle (critical for understanding blank page bugs)

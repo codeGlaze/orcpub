@@ -2691,7 +2691,7 @@ _pdf-generated-vs-uploaded-images · pdf generated vs uploaded images_
 
 _pdf-generation-architecture · pdf generation architecture_
 
-**topics:** card, color, fillable, firefox, flatten, font, linux, macos, pdf, pdfbox, populated, reflection, rendering, spell, templates, widget, widgets, windows
+**topics:** card, color, drawn, fillable, firefox, flatten, font, linux, macos, pdf, pdfbox, reflection, rendering, spell, templates, widget, widgets, windows
 
 - Overview
 - Template Selection
