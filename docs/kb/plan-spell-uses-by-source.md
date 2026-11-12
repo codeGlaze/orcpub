@@ -356,6 +356,15 @@ units map with :concentration, not "any map"; Vollkorn's figures are old-style (
 I): level numbers use the sans. Open gap: concentration plus ritual (Detect Magic) shows only C in
 index and tabs.
 
+**Chosen direction (owner, 2026-11-12): name top-left** ("reads most easily even when busy").
+Refinements agreed in discussion: concentration and ritual ribbons matter more at the table than
+the level; the subheading reads `LVL 9 · Transmutation` (label and figure styled like ATK / DC;
+cantrips `CANTRIP`); the use circles move to the right of the subheading row, so the source line
+gets the full width. Fallback order on that row, checked by the layout check: abbreviate the school
+(Abjur., Conj., Div., Ench., Evoc., Illus., Necro., Trans.), then shorten the uses label to the
+rest alone ("LONG REST"), then drop the uses to their own row. Next: build into `cards.clj` on
+fix/pdf-export, real exports shown before pushing.
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
