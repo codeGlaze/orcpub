@@ -3455,7 +3455,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _save-dc-sources · save dc sources_
 
-**topics:** archer, divinity, fist, intimidating, presence, proficiency, raises, robe, sanctuary, save, spell, strike, stunning, tranquility, turn, undead, unholy, wis
+**topics:** attack, fist, intimidating, presence, proficiency, raised, robe, rod, sanctuary, save, spell, strike, stunning, tranquility, turn, undead, unholy, wis
 
 
 
@@ -3997,7 +3997,7 @@ _views-builders-split · views builders split_
 
 _weapon-damage-model · weapon damage model_
 
-**topics:** 2026-10-17, blade, champion, charges, crit, damage, extra, handoff-weapons-table, mastery, pdf, period, periods, sun, sword, vorpal, weapon, weapon-data-model, weapon-mastery-plan
+**topics:** 2026-10-17, attack, blade, champion, charges, crit, damage, extra, handoff-weapons-table, mastery, period, periods, sun, sword, vorpal, weapon, weapon-data-model, weapon-mastery-plan
 
 - Where it lives (feature/weapons-table)
 - The fields

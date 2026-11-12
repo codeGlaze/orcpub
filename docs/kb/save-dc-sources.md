@@ -28,5 +28,10 @@ a monk's ki DC. `save_dc_test.clj` pins both sides (Stunning Strike, Turn Undead
 25 uses) and UA Arcane Archer shots (`templates/ua_options.cljc`). Their source text is not in the
 repo. If either defines its own DC, move it to `?save-dc`.
 
-**Known gap, not fixed:** an item bonus limited to one class's spells (Rod of the Pact Keeper:
-"your warlock spells") still raises every spell DC, because `?spell-save-dc-bonus` has no class.
+**Bonuses to one class's spells** (Rod of the Pact Keeper: "your warlock spells") go in
+`?class-spell-bonuses` (`{class-name {:dc n :attack n}}`, `mod5e/class-spell-bonus`), fixed on
+fix/pdf-export 2026-11-12 (`0ae5de9b7`); before that the rod raised every spell DC.
+`?spell-save-dc` and `?spell-attack-modifier` take an optional class name and add it; called
+without one (a feature's own summary) they add none. The unpacked PDF spell page groups classes
+by ability, so `make-pages` takes a `split-key` and gives a class whose DC or attack differs its
+own section; the cards and the packed page were already per class.
