@@ -239,6 +239,27 @@ non-caster write-up page, the Features page lines. What failed and the plan for 
    the reference for weight and size. Commit the harness only when every scene runs.
 4. Two render runs; a shot still wrong is left off and reported.
 
+## No Spellcasting feature: a card page (owner, 2026-11-11)
+
+Written-out spells on the spell sheet were rejected ("a mess"). Instead: no spell sheet page, the
+Features page lines, and a spell card page whose first card is a **list card**, which "needs its
+own design". The spell cards switch shows on and greyed in PDF Options in this case, with a line
+saying why (the card page is the character's only spell output).
+
+The real card, seen 2026-11-11 (`pdf/cards.clj` `print-spells`): bold Vollkorn title, logo top
+right, an italic line ("Tiefling Level 1 Evocation DC 13 Spell Mod +5"), a row of red icons with
+labels (casting time, range, components, duration), material in italics, then the text. Fronts fill
+left to right (right to left is the backs). The italic line gives the spell's level, so Hellish
+Rebuke reads "Level 1" though the trait casts it at 2nd: the card's feature tag must say so.
+
+**Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
+"Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
+spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
+with the cards' casting-time and range labels; one block per source with its own ability and DC
+(so no Variant 1/2 here); overflow onto a second list card. Mock it with the harness
+(`card-page-scene`), drawing over the first front (page index 2 on a sheet with no spell page;
+find it by rendering, do not guess).
+
 ## Build plan (not started; each step its own commit, tests seen failing first)
 
 PDF, in order:

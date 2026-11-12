@@ -1435,7 +1435,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, index, irreducible, ledger, narrative, session, stale, topic, wrong
+**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, plan, session, stale, topic, wrong
 
 - What earns a doc
 - Verify, don't remember
@@ -1878,7 +1878,7 @@ _fork-customization · fork customization_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, chip, chips, chrome, css, menu, menus, mock, multi-select, omv, popover, redesign, spacing, switcher, theme, title, tray, workaround
+**topics:** accent, cards, chip, chips, chrome, css, menu, menus, mock, multi-select, omv, popover, redesign, spacing, switcher, theme, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -3141,6 +3141,7 @@ _plan-spell-uses-by-source · plan spell uses by source_
 - Design, proposed 2026-11-11 (text mockups; not agreed, not built)
 - The PDF (discussed 2026-11-11, not agreed)
 - Next mockup round (planned 2026-11-11, after a round with two failures)
+- No Spellcasting feature: a card page (owner, 2026-11-11)
 - Build plan (not started; each step its own commit, tests seen failing first)
 - Build order (each step small and shippable)
 - Open, for the owner
@@ -3567,7 +3568,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, castable, chain, class-gated, creator-declarable, innate, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
+**topics:** cast, castable, chain, class-gated, creator-declarable, magic-item, not-tested, per-silo, primitive, primitives, race, races, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
