@@ -572,7 +572,7 @@ _builder-and-sheet-copies · builder and sheet copies_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, gallery, height, jpg, layout, mockup, row, rows, toggle
+**topics:** add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, form, gallery, heading, height, jpg, layout, mockup, row, rows, toggle
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -2029,7 +2029,7 @@ _handoff-weapons-table · handoff weapons table_
 
 _heartbeat · heartbeat_
 
-**topics:** beat, beats, clock, database, hour, job, jobs, jumped, monitor, outage, outages, pruning, running, server, three-day, tick, time, unrecorded
+**topics:** beat, beats, clock, database, dates, hour, job, jobs, jumped, monitor, outage, outages, pruning, running, server, three-day, tick, unrecorded
 
 - What it records
 - Using it
@@ -3131,7 +3131,7 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 1st-level, 2014, 2024, 2026-11-11, 521, cast, casting, casts, free, grant, initiate, rest, ruling, slot, slots, spell, srd, tiefling
+**topics:** 2014, 2024, 2026-11-11, 521, boxes, cast, casting, casts, free, initiate, magic, rest, slot, slots, spell, spells, srd, tiefling
 
 - The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)
@@ -3579,7 +3579,7 @@ _spell-granting-across-silos · spell granting across silos_
 
 _spell-selection-source-fix · spell selection source fix_
 
-**topics:** bom, built-ins, cantrips, codespace, continue, error-handling-import-validation, homebrew-class-spellcasting, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, sorcerer, spell-selection, toggle
+**topics:** bom, built-ins, cantrips, codespace, continue, error-handling-import-validation, homebrew-class-spellcasting, import, name-to-kw-audit, on-branch, ooms, pak, phase, poisoned, reconciler, remediation, spell-selection, toggle
 
 - The bug (one sentence)
 - Feature changes

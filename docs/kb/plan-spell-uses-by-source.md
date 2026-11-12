@@ -180,6 +180,15 @@ and stays independent of the app's combine toggle. Open pieces:
   spells with one per level; kept as a fallback.
 - **Wording** follows whatever the app settles on ("1/long rest", maybe the feature name), measured
   against the narrowest spell line first.
+- **Decided direction (owner, 2026-11-11): boxes.** Owner asked whether the slot box can serve
+  1/day: yes on a page of one source's limited spells, one per level (a plain Tiefling); no where
+  a race shares a page with class spells of its ability (a Tiefling Sorcerer's CHA page holds the
+  Sorcerer's slots). Open: slot boxes there plus boxes after the text elsewhere, or one rule.
+- **Spell cards, checked 2026-11-11:** cards already print school, level, source, DC and spell
+  mod (option), casting time, range, components and material, duration, "(ritual)", and the full
+  text (higher levels and damage included); the DC already follows the granting source's ability.
+  **Missing, and all that is wanted (owner):** a tag naming the granting feature, and the spell's
+  own use boxes like a magic item card's charges.
 - **Spell cards** (owner: "a good place to hone in on a handful of useful features"). Today a card
   prints school, level and source, DC and spell mod (an option), casting details, text, overflow
   on the back (`pdf/cards.clj` `print-spells`). Candidates: how it is cast with use boxes (reuse the
