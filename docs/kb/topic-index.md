@@ -702,7 +702,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, character, characters, former, former-key, heal, healed, heals, indexes, key, misfiled, person, pick, renamed, report, saved, spell-selection, toast
+**topics:** binding, character, characters, class, former, former-key, heal, healed, heals, indexes, key, misfiled, pick, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -1183,7 +1183,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab, vocabulary
+**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab, vocabulary
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -1845,7 +1845,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, ofl, re-add, redistribution, sandboxed, sans, sil, subset, subsets
+**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, ofl, re-add, redistribution, sandboxed, sans, sil, subsets, vietnamese
 
 - Why
 - What is checked in
@@ -2443,7 +2443,7 @@ _merging-across-a-refactor · merging across a refactor_
 
 _mockup-review-pages · mockup review pages_
 
-**topics:** 2026-10-22, 2026-11-11, artifact, box, drawn, look, mockup, owner, phone, png, printed, publish, publishing, scenes, shot, shots, theme-aware, wide
+**topics:** 2026-10-22, 2026-11-11, artifact, box, drawn, draws, look, owner, page, phone, png, printed, publish, publishing, scenes, shot, shots, theme-aware
 
 - The three pieces (all in scripts/design/ on this branch)
 - Steps
@@ -3927,7 +3927,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** assets, box, details, drafts, notice, phone, picks, planned, player, png, replaced, restored, row, steel, undo, undone, ux-guide, width
+**topics:** amber, assets, box, details, drafts, notice, phone, planned, player, png, replaced, restored, row, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it

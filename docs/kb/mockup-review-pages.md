@@ -54,13 +54,18 @@ Steps, from a code worktree (no server, no browser; about a minute):
 - **Match the sheet, do not guess sizes.** Spell rows are auto-sized Nimbus Sans: about 6 pt as
   printed. `render!` measures the names' printed width and sets drawn text to match; columns are
   as wide as their widest cell (`text-pt`), never fixed fractions of the row.
-- **A non-caster mock needs `:spellcasting-class-1`** (an empty string will do): the export adds a
-  spell page only when the sheet names a spellcasting class; without it every spell row lookup is
-  nil.
-- **Compare drawn text with the app's own heading on the same page** before publishing. Bold text
-  drawn by the harness (`draw/sans :bold` through `draw/draw-text`) rendered lighter than
-  `pdf/draw-column-heading!`'s on the same packed page (2026-11-11). Cause not found; the first
-  thing to test is rendering the document unsaved: save to bytes and reload before rendering.
+- **Send `spellcasting-class-N` for every spell page a mock wants.** The export picks its template
+  and adds spell pages by counting those fields (`routes/character-pdf-2`, `add-missing-spell-pages!`);
+  the builder sends one per page of spells, a race's included, so a Champion Tiefling gets a page
+  headed "Tiefling" today. A mock that leaves the field out gets no spell page and nil row lookups.
+- **Render a saved copy.** Drawn bold text rendered lighter than the app's own headings on the
+  same page until `render!` saved the document to bytes and reloaded it (2026-11-11): fonts loaded
+  into an open document are only subset and embedded on save. Compare drawn text with an
+  app-drawn heading on the same page before publishing.
+- **Draw long text, do not write it into row fields:** each row field sizes its own text, so lines
+  of different length came out at different sizes (`draw-write-up!` draws every line at one size).
+- **Box 1 has printed labels above its bar** (SLOTS TOTAL, SLOTS EXPENDED) and SPELL NAME under
+  it: numbers drawn above that bar collide. Boxes 2-9 are clear above.
 - **Use the bar the way packed sheets do:** caption in the narrow compartment (as CANTRIPS), the
   source in the wide one, numbers above (`draw-bar!`, after `pdf/draw-column-heading!`).
 
