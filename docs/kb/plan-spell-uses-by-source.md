@@ -258,6 +258,10 @@ such as Armor of Shadows, Mage Armor 1st, up to Chains of Carceri, Hold Monster 
 Nondetection 3rd; Boots of Levitation, Hat of Disguise; Spell Mastery). Show design proposals as
 renders, not text sketches. Also check whether item cards got a redesign spell cards lack.
 
+**Grouping (owner, 2026-11-11):** only "At will" is its own group; every limited spell sits in
+one list, its boxes saying the count (1, 2, 3, or proficiency bonus at export). The reset is
+stated once when all rows share it, else a short SR/LR after each row's boxes.
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
