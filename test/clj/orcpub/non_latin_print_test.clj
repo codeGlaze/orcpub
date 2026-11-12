@@ -9,8 +9,7 @@
             [clojure.string :as str]
             [clojure.java.io :as io]
             [orcpub.pdf :as pdf]
-            [orcpub.pdf.draw :as draw]
-            [orcpub.spellbook :as sb])
+            [orcpub.pdf.draw :as draw])
   (:import (org.apache.pdfbox Loader)
            (org.apache.pdfbox.pdmodel PDDocument)
            (org.apache.pdfbox.pdmodel.font PDType1Font Standard14Fonts$FontName)
@@ -31,9 +30,9 @@
   (.getField (.getAcroForm (.getDocumentCatalog doc)) nm))
 
 (deftest the-spellbook-keeps-what-vollkorn-can-draw
-  (is (= wide (#'sb/clean wide)))
+  (is (= wide (draw/clean wide)))
   (testing "bullets still become middle dots; the em dash is no longer flattened to --"
-    (is (= "· a — b" (#'sb/clean "• a — b")))))
+    (is (= "· a — b" (draw/clean "• a — b")))))
 
 (deftest a-sheet-field-prints-a-non-latin-value
   (with-open [doc (template 1)]

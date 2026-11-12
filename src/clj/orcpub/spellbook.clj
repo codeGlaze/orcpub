@@ -7,11 +7,10 @@
             [orcpub.common :as common]
             [orcpub.pdf :as pdf]
             [orcpub.dnd.e5.spell-print :as sp]
-            [orcpub.pdf.draw :as draw]
+            [orcpub.pdf.draw :as draw :refer [ink py clean lining-width gray! text! svg-d! sigil!]]
             [orcpub.dnd.e5.emblems :as emblems]
             [orcpub.dnd.e5.spell-annotations :as ann])
-  (:import (java.awt.geom PathIterator)
-           (org.apache.pdfbox.pdmodel PDPage PDPageContentStream)))
+  (:import (org.apache.pdfbox.pdmodel PDPage PDPageContentStream)))
 
 ;; ─── Page geometry, in points ────────────────────────────────────────────────
 
@@ -28,14 +27,8 @@
   "What the inset tabs take from every line: 0.35in, about 5% of the measure."
   25.0)
 
-(def ^:private ink 0.08)
 (def ^:private ink-2 0.3)
 (def ^:private hair 0.78)
-
-(defn- py
-  "Converts `ty`, points down from the page top, to PDF y, which runs up from the bottom.
-   `draw/pt-from-top` at a scale of 1, the same flip pdf.clj uses at 72."
-  [ty] (draw/pt-from-top 1 ty))
 
 (defn body-width
   "The width spells are laid into, in points: the page less its margins, and less the tab
@@ -48,13 +41,6 @@
   (- (body-bottom) body-top))
 
 ;; ─── Text ────────────────────────────────────────────────────────────────────
-
-(defn- clean
-  "`v` as a string the embedded fonts can show (draw/normalize-text), with list bullets turned
-   into middle dots; \"\" for nil. Keeps what every Vollkorn face draws: the one-argument
-   form is WinAnsi's limit, which printed Łukasz as ?ukasz."
-  [v]
-  (or (draw/normalize-text (some-> v str (s/replace "\u2022" "\u00B7")) draw/vollkorn-covers?) ""))
 
 (defn- width
   "Width of `text` in points at `size` in `font`, after `clean`."
@@ -93,82 +79,6 @@
 
 ;; GOTCHA: Vollkorn's default digits are old-style ("15" reads "I5"). Headings and numbers are
 ;; drawn from the lining glyph outlines (`one.lf`), which showText cannot select; see spellbook-print.md.
-
-(def ^:private ttf
-  (memoize (fn [font] (.getTrueTypeFont (.getDescendantFont font)))))
-
-(def ^:private digit-names
-  {\0 "zero" \1 "one" \2 "two" \3 "three" \4 "four" \5 "five" \6 "six" \7 "seven" \8 "eight" \9 "nine"})
-
-(defn- gid
-  "The glyph id `ch` maps to in `tt`, using the lining form (`one.lf`) for a digit when the font
-   has one."
-  [tt ch]
-  (if-let [n (digit-names ch)]
-    (let [g (.nameToGID tt (str n ".lf"))] (if (pos? g) g (.getGlyphId (.getUnicodeCmapLookup tt) (int ch))))
-    (.getGlyphId (.getUnicodeCmapLookup tt) (int ch))))
-
-(defn- lining-width
-  "Width of `t` in points when drawn by `outline-text!` at `size`, with `spacing` points
-   between letters."
-  [font size t spacing]
-  (let [tt (ttf font) sc (/ size (.getUnitsPerEm tt)) t (clean t)]
-    (+ (reduce + (map #(* sc (.getAdvanceWidth tt (gid tt %))) t))
-       (* spacing (max 0 (dec (count t)))))))
-
-(defn- outline-text!
-  "`t` drawn as filled glyph outlines with lining figures, baseline `ty` from the page top."
-  [cs font size x ty t spacing]
-  (let [tt (ttf font) sc (/ size (.getUnitsPerEm tt)) glyphs (.getGlyph tt) base (py ty)
-        coords (double-array 6)]
-    (reduce
-     (fn [gx ch]
-       (let [g (gid tt ch)
-             X #(float (+ gx (* sc %))) Y #(float (+ base (* sc %)))]
-         (when-let [glyph (.getGlyph glyphs g)]
-           (let [it (.getPathIterator (.getPath glyph) nil)]
-             (loop [cx 0.0 cy 0.0]
-               (when-not (.isDone it)
-                 (let [seg (.currentSegment it coords)
-                       [a b c d e f] (vec coords)]
-                   (.next it)
-                   (condp = seg
-                     PathIterator/SEG_MOVETO (do (.moveTo cs (X a) (Y b)) (recur a b))
-                     PathIterator/SEG_LINETO (do (.lineTo cs (X a) (Y b)) (recur a b))
-                     PathIterator/SEG_QUADTO (let [c1x (+ cx (* 2/3 (- a cx))) c1y (+ cy (* 2/3 (- b cy)))
-                                                   c2x (+ c (* 2/3 (- a c))) c2y (+ d (* 2/3 (- b d)))]
-                                               (.curveTo cs (X c1x) (Y c1y) (X c2x) (Y c2y) (X c) (Y d))
-                                               (recur c d))
-                     PathIterator/SEG_CUBICTO (do (.curveTo cs (X a) (Y b) (X c) (Y d) (X e) (Y f)) (recur e f))
-                     PathIterator/SEG_CLOSE (do (.closePath cs) (recur cx cy))))))
-             (.fill cs)))
-         (+ gx (* sc (.getAdvanceWidth tt g)) (or spacing 0))))
-     (double x)
-     (clean t))))
-
-(defn- gray!
-  "Sets both the fill and the stroke colour to the grey level `g` (0 black, 1 white)."
-  [cs g]
-  (.setNonStrokingColor cs (float g) (float g) (float g))
-  (.setStrokingColor cs (float g) (float g) (float g)))
-
-(defn- text!
-  "Draws `t` with its baseline `ty` points from the page top. `spacing` is extra
-   points between letters, for the spaced capitals of the headings."
-  [cs font size x ty t & [{:keys [color spacing lining]}]]
-  (let [t (clean t)]
-    (when (and (seq t) lining)
-      (gray! cs (or color ink))
-      (outline-text! cs font size x ty t spacing))
-    (when (and (seq t) (not lining))
-      (.beginText cs)
-      (.setFont cs font (float size))
-      (when spacing (.setCharacterSpacing cs (float spacing)))
-      (gray! cs (or color ink))
-      (.newLineAtOffset cs (float x) (py ty))
-      (.showText cs t)
-      (when spacing (.setCharacterSpacing cs (float 0)))
-      (.endText cs))))
 
 (defn- spaced-width
   "Width of `t` in points at `size`, with `spacing` extra points between letters."
@@ -214,23 +124,6 @@
   "Strokes a straight line from (x1, y1) to (x2, y2) at line width `lw`."
   [cs x1 y1 x2 y2 lw]
   (polyline! cs [[x1 y1] [x2 y2]] lw))
-
-(defn- svg-d!
-  "Strokes (or fills) an SVG path `d` drawn in a box whose origin lands at (x, ty) and
-   whose units are `unit` points each."
-  [cs d x ty unit lw & [fill?]]
-  (.setLineWidth cs (float lw))
-  (doseq [op (draw/svg-path-ops d)
-          :let [px #(float (+ x (* unit %)))
-                pyy #(py (+ ty (* unit %)))]]
-    (case (first op)
-      :move (.moveTo cs (px (nth op 1)) (pyy (nth op 2)))
-      :line (.lineTo cs (px (nth op 1)) (pyy (nth op 2)))
-      :curve (.curveTo cs (px (nth op 1)) (pyy (nth op 2)) (px (nth op 3)) (pyy (nth op 4))
-                       (px (nth op 5)) (pyy (nth op 6)))
-      :close (.closePath cs)
-      nil))
-  (if fill? (.fill cs) (.stroke cs)))
 
 (defn- polar
   "The point at radius `r` and angle `a` (radians, clockwise from east) about (cx, cy), as [x ty]."
@@ -324,36 +217,6 @@
       (draw/draw-svg-icon! cs img (str "emblems/" icon)
                           (/ (- cx (/ icon-size 2)) 72.0) (/ (- cy (/ icon-size 2)) 72.0)
                           (/ icon-size 72.0) [ink ink ink] 1.0))))
-
-(def ^:private sigils
-  "A small mark per school, as SVG paths in a 10-unit box."
-  {"abjuration" ["M5 1 L8.5 3 L8.5 7 L5 9 L1.5 7 L1.5 3 Z"]
-   "conjuration" ["M1 5 A2.8 2.8 0 1 0 6.6 5 A2.8 2.8 0 1 0 1 5 Z"
-                  "M3.4 5 A2.8 2.8 0 1 0 9 5 A2.8 2.8 0 1 0 3.4 5 Z"]
-   "divination" ["M1 5 Q5 1 9 5 Q5 9 1 5 Z" [:dot 5 5 1.2]]
-   "enchantment" ["M5 5 m0 -.8 a.8 .8 0 1 1 -.8 .8 a1.8 1.8 0 1 1 1.8 1.8 a2.9 2.9 0 1 1 2.9 -2.9"]
-   "evocation" (vec (for [t (range 8)
-                          :let [a (* t (/ Math/PI 4))
-                                r1 (if (odd? t) 1.6 1.1) r2 (if (odd? t) 3.4 4.3)
-                                ;; decimal-str, not format: a Turkish or Spanish JVM writes
-                                ;; "5,00" here, and svg-path-ops reads that comma as a second
-                                ;; coordinate -- 2 path ops became 4, outside the 10-unit box.
-                                d2 #(common/decimal-str 2 %)]]
-                      (str "M" (d2 (+ 5 (* r1 (Math/cos a)))) " " (d2 (+ 5 (* r1 (Math/sin a))))
-                           " L" (d2 (+ 5 (* r2 (Math/cos a)))) " " (d2 (+ 5 (* r2 (Math/sin a)))))))
-   "illusion" ["M3.6 1.5 L6 5 L3.6 8.5 L1.2 5 Z" "M6.4 1.5 L8.8 5 L6.4 8.5 L4 5 Z"]
-   "necromancy" ["M6.5 1.4 A3.8 3.8 0 1 0 6.5 8.6 A2.9 2.9 0 1 1 6.5 1.4 Z"]
-   "transmutation" ["M1 5 A4 4 0 1 0 9 5 A4 4 0 1 0 1 5 Z" "M5 1.6 L8 6.8 L2 6.8 Z"]})
-
-(defn- sigil!
-  "The school's mark, `size` points square, its top-left at (x, ty)."
-  [cs school x ty size]
-  (let [u (/ size 10.0)]
-    (gray! cs ink)
-    (doseq [p (get sigils (common/ascii-lower-case (str school)))]
-      (if (vector? p)
-        (let [[_ cx cy r] p] (circle! cs (+ x (* u cx)) (+ ty (* u cy)) (* u r) 0 true))
-        (svg-d! cs p x ty u (* 0.7 u))))))
 
 (defn- level-ring!
   "A level heading's circle, `size` points across: one arc per spell slot, the level in the
