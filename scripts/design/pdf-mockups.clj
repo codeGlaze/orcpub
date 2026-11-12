@@ -423,7 +423,7 @@
           [src-text src-x src-room] (if (= header 40)
                                       [(str "·  " src) (+ line-x line-w 4) (- right crest-w 4 (+ line-x line-w 4))]
                                       [src left (- right left (if uses (+ uses-w 6) 0))])]
-      (@#'orcpub.spellbook/sigil! cs school (- ring-cx 3.25) (+ T (- (:school L) 5.9)) 6.5)
+      (draw/sigil! cs school (- ring-cx 3.25) (+ T (- (:school L) 5.9)) 6.5)
       (draw-pt! cs serif-i 7.0 line line-x (py (:school L)) 0.15)
       (let [sz (fit-pt sans src-text src-room 4.8 3.6)]
         (draw-pt! cs sans sz (ellipsize sans src-text sz src-room) src-x (py (:source L)) 0.4))
@@ -806,9 +806,9 @@
                       (do (.setNonStrokingColor cs (float fill) (float fill) (float fill)) (.fill cs)
                           (.setNonStrokingColor cs (float 0) (float 0) (float 0)))
                       (do (.setLineWidth cs (float stroke)) (.stroke cs))))))
-        :sigil (@#'orcpub.spellbook/sigil! cs (:school e) (+ X (:x e)) (+ T (:y e)) 6.5)
+        :sigil (draw/sigil! cs (:school e) (+ X (:x e)) (+ T (:y e)) 6.5)
         :text (if (:lining e)
-                (do (@#'orcpub.spellbook/text! cs (:font e) (:size e) (+ X (:x e)) (+ T (:y e)) (:text e)
+                (do (draw/text! cs (:font e) (:size e) (+ X (:x e)) (+ T (:y e)) (:text e)
                                                {:lining true :color (:grey e)})
                     ;; The lining routine leaves fill and stroke at its text colour: back to black.
                     (.setNonStrokingColor cs (float 0) (float 0) (float 0))
@@ -879,9 +879,9 @@
         add! (fn [e] (swap! out conj e) e)
         lining? (fn [font] (contains? #{serif serif-b serif-i} font))
         ;; Within the card, serif strings are measured as they are drawn: in lining figures.
-        text-pt (fn [font t size] (if (lining? font) (@#'orcpub.spellbook/lining-width font size (str t) 0) (text-pt font t size)))
+        text-pt (fn [font t size] (if (lining? font) (draw/lining-width font size (str t) 0) (text-pt font t size)))
         text! (fn [font size t x baseline & [grey inside]]
-                (let [w (if (lining? font) (@#'orcpub.spellbook/lining-width font size t 0) (text-pt font t size))]
+                (let [w (if (lining? font) (draw/lining-width font size t 0) (text-pt font t size))]
                   (add! (cond-> {:kind :text :font font :size size :text t :x x :y baseline :grey (or grey 0)
                                  :lining (lining? font)
                                  :box [x (- baseline (* 0.72 size)) (+ x w) (+ baseline (* 0.22 size))]}
@@ -1182,11 +1182,44 @@
           (ImageIO/write (.renderImageWithDPI (PDFRenderer. saved) 0 300 ImageType/RGB) "png" (File. (str out-dir "/shots/levels.png")))
           (println "wrote levels"))))))
 
+(defn real-cards-scene
+  "Real exports through routes/character-pdf-2 with spell cards on, for a Tiefling Wizard 5 and a
+   Warlock 9, each grant carrying its :casting as the builder sends it. Writes the first card
+   front page of each to shots/<name>-cards.png at 300 dpi."
+  []
+  (let [int* :orcpub.dnd.e5.character/int cha :orcpub.dnd.e5.character/cha
+        lr {:units :orcpub.dnd.e5.units/long-rest :amount 1}
+        g (fn [cls ab k & [casting]] (cond-> {:key k :class cls :ability ab} casting (assoc :casting casting)))
+        lv (fn [m] (into {} (for [[l cfgs] m] [l (into {} (for [c cfgs] [[(:class c) (:key c)] c]))])))
+        chars {"tiefling-wizard"
+               (lv {0 [(g "Tiefling" cha :thaumaturgy) (g "Wizard" int* :fire-bolt) (g "Wizard" int* :mage-hand)]
+                    1 [(g "Tiefling" cha :hellish-rebuke {:free (assoc lr :level 2) :slots :none})
+                       (g "Wizard" int* :magic-missile) (g "Wizard" int* :shield) (g "Wizard" int* :detect-magic)]
+                    2 [(g "Tiefling" cha :darkness {:free lr :slots :none}) (g "Wizard" int* :misty-step)]
+                    3 [(g "Wizard" int* :fireball) (g "Wizard" int* :counterspell)]})
+               "warlock"
+               (lv {0 [(g "Warlock" cha :eldritch-blast)]
+                    1 [(g "Warlock" cha :mage-armor {:free {:at-will true} :slots :none}) (g "Warlock" cha :hex)]
+                    3 [(g "Warlock" cha :slow {:slots lr}) (g "Warlock" cha :hunger-of-hadar)]
+                    5 [(g "Warlock" cha :hold-monster {:free {:at-will true} :slots :none})]
+                    6 [(g "Warlock" cha :eyebite {:free lr :slots :none})]})}]
+    (doseq [[nm known] chars]
+      (let [cards (pdf-spec/make-spell-card-info known (fn [a] (if (= a cha) 15 15)) (constantly 7)
+                                                 false #{} {} spells/spell-map {})
+            fields (merge sheet {:class-level nm :print-spell-cards? true :print-spell-card-dc-mod? true} cards)]
+        (with-open [doc (Loader/loadPDF (pdf-bytes fields))]
+          (let [pg (page-with doc ["Page 1"] ["reverse" "FEATURES"])]
+            (.mkdirs (File. (str out-dir "/shots")))
+            (ImageIO/write (.renderImageWithDPI (PDFRenderer. doc) pg 300 ImageType/RGB) "png"
+                           (File. (str out-dir "/shots/" nm "-cards.png")))
+            (println "wrote" nm "page" pg "of" (.getNumberOfPages doc))))))))
+
 (def shots
-  (do (level-styles-scene)
-      [{:id "levels" :tag "Compare" :title "LVL 9 (row 1) against 9th Level (row 2); the stress card in each, and Detect Magic (row 3)"
-        :note "Name top-left, schools always abbreviated, use circles on the subheading row when they fit."
-        :file "levels.png" :crop nil}]))
+  (do (real-cards-scene)
+      [{:id "tw" :tag "Real export" :title "Tiefling Wizard 5: the first page of spell cards"
+        :note "Through the app's export. Hellish Rebuke and Darkness carry the Tiefling's casting from the grant." :file "tiefling-wizard-cards.png" :crop nil}
+       {:id "wl" :tag "Real export" :title "Warlock 9: invocations, Mire the Mind, Mystic Arcanum"
+        :note "Through the app's export." :file "warlock-cards.png" :crop nil}]))
 
 (spit (str out-dir "/shots.json") (json-str shots))
 (println "wrote shots.json")
