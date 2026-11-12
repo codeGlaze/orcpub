@@ -509,11 +509,18 @@
                             ;; be absent. Calling nil threw an NPE that the catch
                             ;; below swallowed, so every card vanished and the
                             ;; export looked like it had simply ignored the option.
-                            (fn [{:keys [key class]}]
-                              {:spell (spells-map key)
-                               :class-nm class
-                               :dc (get spell-save-dcs class)
-                               :attack-bonus (get spell-attack-mods class)})))
+                            (fn [{:keys [key class casting]}]
+                              (let [{:keys [amount units level]} (:free casting)]
+                                (cond-> {:spell (spells-map key)
+                                         :class-nm class
+                                         :dc (get spell-save-dcs class)
+                                         :attack-bonus (get spell-attack-mods class)}
+                                  ;; Free casts per rest print as use circles, the rest as their
+                                  ;; label ("LONG REST"); a fixed casting level joins the source.
+                                  (and (pos-int? amount) units)
+                                  (assoc :uses {:n amount
+                                                :label (common/ascii-upper-case (s/replace (name units) "-" " "))})
+                                  level (assoc :cast-at level))))))
                           part)
                   remaining-desc-lines (vec
                                         (cards/print-spells

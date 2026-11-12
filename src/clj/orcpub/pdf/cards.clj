@@ -22,27 +22,6 @@
                      (range 8.0 5.99 -0.25)))
       6.0))
 
-(defn- draw-spell-field
-  "One icon-and-value field on a spell card (casting time, range, duration,
-   components): the `title` icon at [`x` `y`] with `value` printed over it.
-   Inches, `y` from the page TOP. `fonts` must carry draw/load-sans; `img` is the
-   document's memoized image loader. Both printer-friendly modes are handled here (see
-   the note below)."
-  [cs fonts img title value x y bw? bw-faded?]
-  ;; The label overprints the icon; this is the one choke point for all four
-  ;; per-spell icons. Colour: icon-red icon, black text. B&W solid: black icon,
-  ;; WHITE-HALO text. B&W faded: black icon at 40%, black text. One SVG serves all.
-  (let [iy (draw/in-from-top (+ y 0.12))
-        [color alpha] (cond (and bw? bw-faded?) [[0 0 0] 0.4]
-                            bw?                 [[0 0 0] 1.0]
-                            :else               [(vec (take 3 draw/icon-red)) (last draw/icon-red)])]
-    (draw/draw-svg-icon! cs img title x iy 0.25 color alpha)
-    (if (and bw? (not bw-faded?))
-      (draw/draw-halo-text cs value (draw/sans fonts :bold-italic) 8 x (- y 0.07))
-      (do (.setNonStrokingColor cs (float 0) (float 0) (float 0))
-          (draw/draw-text cs value (draw/sans fonts :bold-italic) 8 x (- y 0.07))
-          (.setNonStrokingColor cs (float 0) (float 0) (float 0))))))
-
 (def ^:private site-stamp-strip
   "Inches reserved at the foot of a card for the site line.
 
@@ -137,12 +116,275 @@
          ;; the same strip above.
          (draw-site-stamp! cs fonts x y box-width box-height))))))
 
+;; ─── Spell card fronts ──────────────────────────────────────────────────────────
+;; Laid out as measured boxes before anything is drawn, in points from the card's top-left:
+;; name top-left, ATK and DC at the right, concentration and ritual ribbons in the corner, the
+;; level and school with the spell's uses on one line, the source, the casting facts with their
+;; labels on a rule, the material, then the text. Design and its rules for long content:
+;; plan-spell-uses-by-source.md (agents/develop), "Settled spell card".
+
+(def ^:private spell-card-w 180.0)
+(def ^:private spell-card-h 252.0)
+(def ^:private sc-left 11.0)
+(def ^:private sc-right 169.0)
+(def ^:private sc-footer 12.0)
+(def ^:private sc-body-size 7.5)
+
+(def ^:private school-abbreviations
+  "The schools as a spell card prints them, always abbreviated."
+  {"abjuration" "Abjur." "conjuration" "Conj." "divination" "Div." "enchantment" "Ench."
+   "evocation" "Evoc." "illusion" "Illus." "necromancy" "Necro." "transmutation" "Trans."})
+
+(defn concentration?
+  "Whether `duration` (a spell's: a string such as \"Concentration, up to 1 minute\", or a
+   units map) needs concentration."
+  [duration]
+  (boolean (or (and (map? duration) (:concentration duration))
+               (and (string? duration) (re-find #"(?i)^concentration" duration)))))
+
+(defn- spell-wrap
+  "`text` broken into lines no wider than `width` points, measured by `width-of`."
+  [width-of width text]
+  (reduce (fn [lines word]
+            (let [cur (peek lines) cand (if (s/blank? cur) word (str cur " " word))]
+              (if (or (s/blank? cur) (<= (width-of cand) width))
+                (conj (pop lines) cand)
+                (conj lines word))))
+          [""] (s/split (s/replace (str text) #"\s+" " ") #" ")))
+
+(defn- spell-ellipsize
+  "`text` cut with an ellipsis to fit `width` points, measured by `width-of`."
+  [width-of text width]
+  (if (<= (width-of text) width)
+    text
+    (loop [t text]
+      (let [c (str (s/trimr t) "…")]
+        (if (or (<= (width-of c) width) (< (count t) 2)) c (recur (subs t 0 (dec (count t)))))))))
+
+(defn spell-card-layout
+  "One spell card front as {:elements [...] :text-top pt}, each element with :box [x0 y0 x1 y1]
+   in points from the card's top-left. `card` is {:spell :class-nm :dc :attack-bonus :uses {:n
+   :label} :cast-at level :print-dc-mod? bool}; `fonts` a draw/load-fonts map. The name wraps
+   beside ATK and DC; the uses leave the level line for a row of their own when they do not fit;
+   the facts wrap to two rows; the material to two lines."
+  [fonts {:keys [spell class-nm dc attack-bonus uses cast-at print-dc-mod?]}]
+  (let [serif (:plain fonts) serif-b (:bold fonts) serif-i (:italic fonts)
+        sans (draw/sans fonts :plain) sans-b (draw/sans fonts :bold)
+        {spell-name :name spell-range :range :keys [level school casting-time components duration ritual]} spell
+        spell-name (or spell-name "(Unknown Spell)")
+        ;; Serif strings with figures are drawn as outlines in lining figures (Vollkorn's own
+        ;; figures are old-style: 1 reads as I) and measured that way; the rest stay real text,
+        ;; so a spell's name can still be searched and copied from the PDF.
+        lining? (fn [font t] (and (contains? #{serif serif-b serif-i} font) (re-find #"\d" (str t))))
+        width (fn [font t size] (if (lining? font t)
+                                  (draw/lining-width font size (str t) 0)
+                                  (* 72 (draw/string-width (str t) font size))))
+        W (- sc-right sc-left)
+        out (atom [])
+        add! (fn [e] (swap! out conj e) e)
+        text! (fn [font size t x baseline & [grey inside]]
+                (add! (cond-> {:kind :text :font font :size size :text t :x x :y baseline :grey (or grey 0)
+                               :lining (boolean (lining? font t))
+                               :box [x (- baseline (* 0.72 size)) (+ x (width font t size)) (+ baseline (* 0.22 size))]}
+                        inside (assoc :inside inside))))
+        legend! (fn [t cx rule-y]
+                  (let [w (width sans-b t 4.2)]
+                    (add! {:kind :legend :text t :x (- cx (/ w 2)) :y (+ rule-y 1.5)
+                           :box [(- cx (/ w 2) 1.5) (- rule-y 2.2) (+ cx (/ w 2) 1.5) (+ rule-y 2.2)]})))
+        rule! (fn [y] (add! {:kind :rule :y y :box [sc-left y sc-right y]}))
+        uses! (fn [label n x0 baseline]
+                (text! sans-b 4.8 label (- x0 (width sans-b label 4.8) 3) baseline 0.4)
+                (doseq [i (range n)]
+                  (add! {:kind :use :cx (+ x0 (* i 9) 3.5) :cy (- baseline 1.7) :r 3.0
+                         :box [(+ x0 (* i 9)) (- baseline 5.2) (+ x0 (* i 9) 7) (+ baseline 1.8)]})))
+        conc? (concentration? duration)
+        rw 11
+        ribbons (cond-> [] conc? (conj [:conc "C" 0.0]) ritual (conj [:rit "R" 1.0]))
+        rib-left (- sc-right (* (count ribbons) (+ rw 2)))
+        ;; ATK and DC, right-aligned before the ribbons; their left edge bounds the name.
+        stats-left (if-not print-dc-mod?
+                     (- rib-left 4)
+                     (loop [x (- rib-left (if (seq ribbons) 5 0))
+                            [[l v] & more] (remove (comp nil? second)
+                                                   [["DC" (some-> dc str)] ["ATK" (some-> attack-bonus common/bonus-str)]])
+                            left x]
+                       (if-not l
+                         left
+                         (let [vw (width serif-b v 9.0) lw (width sans-b l 4.5)
+                               vx (- x vw) lx (- vx lw 2)]
+                           (text! serif-b 9.0 v vx 17)
+                           (text! sans-b 4.5 l lx 16.7 0.45)
+                           (recur (- lx 7) more lx)))))
+        room (- stats-left 6 sc-left)
+        fits? (<= (width serif-b spell-name 10.5) room)
+        lines (if fits? [spell-name] (spell-wrap #(width serif-b % 9.5) room spell-name))
+        ;; A name that needed wrapping stays at 9.5 pt, even when it then fits on one line.
+        title-size (if fits? 10.5 9.5)
+        sy (+ 17 (* 11 (dec (count lines))) 10)
+        y (atom 0)
+        uses-on-level-line (atom false)]
+    (doseq [[i [k t fill]] (map-indexed vector ribbons)
+            :let [x (+ rib-left (* i (+ rw 2))) top 5.5 bot 27
+                  pts [[x top] [(+ x rw) top] [(+ x rw) bot] [(+ x (/ rw 2)) (- bot 4)] [x bot]]]]
+      (add! {:kind :ribbon :k k :pts pts :fill fill :box [x top (+ x rw) bot]})
+      (text! serif-b 8.0 t (+ x (/ (- rw (width serif-b t 8.0)) 2)) 17 (if (zero? fill) 1.0 0) k))
+    (doseq [[i l] (map-indexed vector lines)] (text! serif-b title-size l sc-left (+ 17 (* i 11))))
+    (add! {:kind :sigil :school school :x sc-left :y (- sy 5.9) :box [sc-left (- sy 5.9) (+ sc-left 6.5) (+ sy 0.6)]})
+    (let [lv (or level 0)
+          level-t (if (zero? lv) "Cantrip" (str (common/ordinal lv) " Level"))
+          sch (get school-abbreviations (common/ascii-lower-case (str school)) (common/ascii-capitalize (str school)))
+          x0 (+ sc-left 9)
+          x1 (+ x0 (width serif-b level-t 7.0))
+          rest-t (when (seq sch) (str "  ·  " sch))]
+      (text! serif-b 7.0 level-t x0 sy)
+      (when rest-t (text! serif-i 7.0 rest-t x1 sy 0.15))
+      (when uses
+        (let [end (+ x1 (if rest-t (width serif-i rest-t 7.0) 0))
+              ;; The ribbons bound the line only when they hang down beside it.
+              edge (if (and (seq ribbons) (< (- sy 6) 27)) (- rib-left 4) sc-right)
+              need (+ (width sans-b (:label uses) 4.8) 4 (* (:n uses) 9))]
+          (when (<= need (- edge end 8))
+            (reset! uses-on-level-line true)
+            (uses! (:label uses) (:n uses) (- edge (* (:n uses) 9)) sy)))))
+    (reset! y (+ (max sy 27) 5))
+    (rule! @y)
+    (swap! y + 9)
+    (let [src (common/ascii-upper-case (str class-nm (when cast-at (str " · cast at " (common/ordinal cast-at) " level"))))]
+      (text! sans 4.8 (spell-ellipsize #(width sans % 4.8) src W) sc-left @y 0.4)
+      (when (and uses (not @uses-on-level-line))
+        (swap! y + 9)
+        (uses! (:label uses) (:n uses) (- sc-right (* (:n uses) 9)) @y))
+      (swap! y + 11))
+    (let [comps (s/join ", " (keep (fn [[c l]] (when (get components c) l)) [[:verbal "V"] [:somatic "S"] [:material "M"]]))
+          facts (remove (comp s/blank? second)
+                        [["CAST" (some-> casting-time str (s/split #",") first sp/abbreviate-casting-time)]
+                         ["RANGE" (some-> spell-range str sp/abbreviate-range)]
+                         ["COMP" comps]
+                         ["DUR" (some-> duration sp/abbreviate-duration str)]])
+          cell-w (fn [[l v]] (max (width serif v 7.0) (+ (width sans-b l 4.2) 4)))
+          row! (fn [fs]
+                 (let [ws (map cell-w fs) gap (/ (- W (reduce + ws)) (max 1 (dec (count fs))))
+                       xs (reductions + sc-left (map #(+ % gap) ws)) ry (+ @y 4)]
+                   (doseq [[[l v] x w] (map vector fs xs ws) :let [cx (+ x (/ w 2))]]
+                     (text! serif 7.0 v (- cx (/ (width serif v 7.0) 2)) @y)
+                     (legend! l cx ry))
+                   (rule! ry)
+                   (reset! y (+ ry 10))))]
+      (when (seq facts)
+        (if (<= (reduce + (map cell-w facts)) (- W 12))
+          (row! facts)
+          (do (row! (take 2 facts)) (row! (drop 2 facts))))))
+    (when-let [mat (get-in spell [:components :material-component])]
+      (let [mw #(width serif-i % 6.5)
+            ls (spell-wrap mw W (common/ascii-capitalize (s/replace (str mat) #"\s+" " ")))
+            ls (if (> (count ls) 2)
+                 [(first ls) (spell-ellipsize mw (str (second ls) " … (full text on the back)") W)]
+                 ls)]
+        (doseq [l ls] (text! serif-i 6.5 l sc-left @y 0.2) (swap! y + 7.5))
+        (swap! y + 1.5)))
+    {:elements @out :text-top @y}))
+
+(defn spell-card-problems
+  "What is wrong with a spell-card-layout: content boxes overlapping (a mark inside its own
+   ribbon excepted) and content within 3 pt of the frame (the ribbons hang from it by design).
+   A vector of strings, empty when the card is clean."
+  [{:keys [elements]}]
+  (let [content (remove #(= :rule (:kind %)) elements)
+        overlap? (fn [[a0 b0 a1 b1] [c0 d0 c1 d1]] (and (< a0 c1) (< c0 a1) (< b0 d1) (< d0 b1)))
+        own? (fn [a b] (and (:inside a) (= (:inside a) (:k b))))
+        label (fn [e] (str (name (:kind e)) " " (or (:text e) (some-> (:k e) name) (:school e))))]
+    (vec (concat
+          (for [e content :when (not= :ribbon (:kind e))
+                :let [[x0 y0 x1 _] (:box e)] :when (or (< x0 8) (< y0 8) (> x1 (- spell-card-w 8)))]
+            (str (label e) " is within 3 pt of the frame"))
+          (for [[i a] (map-indexed vector content) b (drop (inc i) content)
+                :when (and (overlap? (:box a) (:box b)) (not (own? a b)) (not (own? b a)))]
+            (str (label a) " overlaps " (label b)))))))
+
+(defn- black!
+  "Sets fill and stroke back to black."
+  [cs]
+  (.setNonStrokingColor cs (float 0) (float 0) (float 0))
+  (.setStrokingColor cs (float 0) (float 0) (float 0)))
+
+(defn- spell-card-frame!
+  "Strokes a spell card's frame, rounded corners inset 5 pt, the card's top-left at page
+   points (X, T), T down from the page top."
+  [cs X T]
+  (let [x (+ X 5) w (- spell-card-w 10) h (- spell-card-h 10) r 8.0 k (* 0.5523 r)
+        y (draw/py (+ T 5 h)) x2 (+ x w) y2 (+ y h)]
+    (.setLineWidth cs (float 0.9))
+    (.moveTo cs (float (+ x r)) (float y))
+    (.lineTo cs (float (- x2 r)) (float y))
+    (.curveTo cs (float (+ (- x2 r) k)) (float y) (float x2) (float (- (+ y r) k)) (float x2) (float (+ y r)))
+    (.lineTo cs (float x2) (float (- y2 r)))
+    (.curveTo cs (float x2) (float (+ (- y2 r) k)) (float (+ (- x2 r) k)) (float y2) (float (- x2 r)) (float y2))
+    (.lineTo cs (float (+ x r)) (float y2))
+    (.curveTo cs (float (- (+ x r) k)) (float y2) (float x) (float (+ (- y2 r) k)) (float x) (float (- y2 r)))
+    (.lineTo cs (float x) (float (+ y r)))
+    (.curveTo cs (float x) (float (- (+ y r) k)) (float (- (+ x r) k)) (float y) (float (+ x r)) (float y))
+    (.closePath cs)
+    (.stroke cs)))
+
+(defn draw-spell-card!
+  "Draws `card` (spell-card-layout) as the card whose top-left is `x`, `y` inches (y from the
+   page top), then `description` in the space left. Returns the lines that did not fit."
+  [cs fonts x y {:keys [elements text-top]} description]
+  (let [X (* 72 x) T (* 72 y)
+        py #(draw/py (+ T %))
+        sans-b (draw/sans fonts :bold)
+        serif (:plain fonts) serif-i (:italic fonts)]
+    (black! cs)
+    (spell-card-frame! cs X T)
+    (doseq [{ry :y} (filter #(= :rule (:kind %)) elements)
+            :let [on (filter #(and (= :legend (:kind %)) (< (Math/abs (double (- (:y %) 1.5 ry))) 0.1)) elements)
+                  first-l (first (filter #(< (first (:box %)) (+ sc-left 8)) on))
+                  last-l (first (filter #(> (nth (:box %) 2) (- sc-right 8)) on))
+                  x0 (if first-l (nth (:box first-l) 2) sc-left)
+                  x1 (if last-l (first (:box last-l)) sc-right)]]
+      ;; A legend at a rule's end ends the rule, so no stub of line shows past it.
+      (.setLineWidth cs (float 0.5))
+      (.moveTo cs (float (+ X x0)) (float (py ry))) (.lineTo cs (float (+ X x1)) (float (py ry))) (.stroke cs))
+    (doseq [e elements]
+      (case (:kind e)
+        :ribbon (let [[[fx fy] & more] (:pts e)
+                      path! #(do (.moveTo cs (float (+ X fx)) (float (py fy)))
+                                 (doseq [[px pyy] more] (.lineTo cs (float (+ X px)) (float (py pyy))))
+                                 (.closePath cs))]
+                  (.setNonStrokingColor cs (float (:fill e)) (float (:fill e)) (float (:fill e)))
+                  (path!) (.fill cs)
+                  (black! cs)
+                  (.setLineWidth cs (float 0.7))
+                  (path!) (.stroke cs))
+        :use (do (.setLineWidth cs (float 0.8))
+                 (draw/circle-path! cs (fn [px pty] [(float px) (draw/py pty)]) (+ X (:cx e)) (+ T (:cy e)) (:r e))
+                 (.closePath cs) (.stroke cs))
+        :sigil (draw/sigil! cs (:school e) (+ X (:x e)) (+ T (:y e)) 6.5)
+        :text (if (:lining e)
+                (draw/text! cs (:font e) (:size e) (+ X (:x e)) (+ T (:y e)) (:text e) {:lining true :color (:grey e)})
+                (draw/text! cs (:font e) (:size e) (+ X (:x e)) (+ T (:y e)) (:text e) {:color (:grey e)}))
+        :legend (let [[x0 _ x1 _] (:box e)]
+                  (.setNonStrokingColor cs (float 1) (float 1) (float 1))
+                  (.addRect cs (float (+ X x0)) (float (py (+ (:y e) 1.2))) (float (- x1 x0)) (float 5.5))
+                  (.fill cs)
+                  (draw/text! cs sans-b 4.2 (+ X (:x e)) (+ T (:y e)) (:text e) {:color 0.45}))
+        nil)
+      ;; draw/text! and sigil! leave fill and stroke at their own colour.
+      (black! cs))
+    (let [over (draw/draw-text-to-box cs (str description) serif sc-body-size (/ (+ X sc-left) 72.0) (/ (py text-top) 72.0)
+                                      (/ (- sc-right sc-left) 72.0) (/ (- spell-card-h sc-footer 5 text-top) 72.0))]
+      (when (seq over)
+        (let [t "continued on the back" w (* 72 (draw/string-width t serif-i 5.5))]
+          (draw/text! cs serif-i 5.5 (+ X (/ (- spell-card-w w) 2)) (+ T (- spell-card-h 8)) t {:color 0.45})
+          (black! cs)))
+      over)))
+
 (defn print-spells
   "Draws one page of spell card FRONTS and returns what did not fit, for
    `print-backs`. `spells` is a seq of `{:class-nm :dc :attack-bonus :spell}`; cards
    fill right to left within a row so a duplex flip lines the backs up.
-   `print-spell-card-dc-mod?` prints save DC and attack bonus; `bw?`/`bw-faded?`
-   select the printer-friendly renderings. Inches."
+   `print-spell-card-dc-mod?` prints save DC and attack bonus. The front is black on white, so
+   `bw?`/`bw-faded?` change nothing here (they are the backs' and item cards'). Inches."
   [cs document fonts img box-width box-height spells page-number print-spell-card-dc-mod? bw? bw-faded?]
   (let [{:keys [cols rows margin-x margin-y]} (draw/grid-layout box-width box-height)]
     (draw/draw-grid cs box-width box-height)
@@ -158,135 +400,18 @@
                :let [spell-index (+ i (* j cols))]]
            (when-let [{:keys [class-nm dc attack-bonus spell] :as spell-data}
                       (get (vec spells) spell-index)]
-             (let [{:keys [description
-                           casting-time
-                           duration
-                           level
-                           ritual
-                           range]} spell
-                   x (+ margin-x (* box-width i))
+             (let [x (+ margin-x (* box-width i))
                    y (+ margin-y (* box-height j))
-
-                   {:keys [page source description summary components]} spell
-                   ;; Handle nil spell name gracefully
+                   {:keys [page source description summary]} spell
                    spell-name (or (:name spell) "(Unknown Spell)")
-
-                   dc-str (str "DC " dc)
-                   remaining-desc-lines
-                   (draw/draw-text-to-box cs
-                                     (or description
-                                         (if summary
-                                           (str summary
-                                                " (see "
-                                                (if source
-                                                  (common/ascii-upper-case (name source))
-                                                  "PHB")
-                                                " "
-                                                page
-                                                " for more details)")
-                                           ""))
-                                     (:plain fonts)
-                                     8
-                                     (+ x 0.12) ; from the left
-                                     (draw/in-from-top (+ y 1.08))
-                                     (- box-width 0.24)
-                                     (- box-height 1.13))]
-               (when (:material-component components)
-                 (draw/draw-text-to-box cs
-                                   (str (common/ascii-capitalize (:material-component components)))
-                                   (:italic fonts)
-                                   8
-                                   (+ x 0.12)
-                                   (draw/in-from-top (+ y 0.55))
-                                   (- box-width 0.24)
-                                   0.5))
-               (let [card-logo (img (str "public/image/card-logo" (when bw? "-bw") ".png"))]
-                 (if (and bw? bw-faded?)
-                   (draw/draw-imagex-alpha cs card-logo (+ x 1.9) (+ y 0.02) 1.0 0.25 0.4)
-                   (draw/draw-imagex cs card-logo (+ x 1.9) (+ y 0.02) 1.0 0.25)))
-               (draw/draw-text-to-box cs
-                                 spell-name
-                                 (:bold fonts)
-                                 10
-                                 (+ x 0.12)
-                                 (draw/in-from-top y)
-                                 (- box-width 0.3)
-                                 0.2)
-               (draw/draw-text-to-box cs
-                                 (if ritual " (ritual)" "")
-                                 (:italic fonts)
-                                 10
-                                 (+ x 0.12 (draw/string-width spell-name (:bold fonts) 10))
-                                 (draw/in-from-top y)
-                                 (- box-width 0.3)
-                                 0.2)
-               ;; One line, shrunk to fit: a long source name ("Fey Teleportation") used to
-               ;; wrap this line down onto the icon row below it.
-               (let [line (if (not= class-nm "Homebrew")
-                            (str (sp/spell-school-level spell class-nm) (when print-spell-card-dc-mod? (str " " dc-str " Spell Mod " (common/bonus-str attack-bonus))))
-                            (sp/spell-school-level spell class-nm))
-                     width (- box-width 0.24)
-                     line (if (> (draw/string-width line (:italic fonts) 6.0) width)
-                            (s/replace line " Spell Mod " " Mod ")
-                            line)
-                     size (one-line-size line (:italic fonts) width)]
-                 (draw/draw-text-to-box cs
-                                   line
-                                   (:italic fonts)
-                                   size
-                                   (+ x 0.12)
-                                   (draw/in-from-top (+ y 0.19))
-                                   width
-                                   (/ (* 1.2 size) 72.0)))
-               (when casting-time
-                 (draw-spell-field cs fonts
-                                   img
-                                   "magic-swirl"
-                                   (str (sp/abbreviate-casting-time
-                                         (first
-                                          (s/split
-                                           casting-time
-                                           #","))))
-                                   (+ x 0.12)
-                                   (draw/in-from-top (+ y 0.45))
-                                   bw? bw-faded?))
-               (when range
-                 (draw-spell-field cs fonts
-                                   img
-                                   "arrow-dunk"
-                                   (sp/abbreviate-range range)
-                                   (+ x 0.62)
-                                   (draw/in-from-top (+ y 0.45))
-                                   bw? bw-faded?))
-               (draw-spell-field cs fonts
-                                 img
-                                 "shiny-purse"
-                                 (s/join
-                                  ","
-                                  (remove
-                                   nil?
-                                   (map
-                                    (fn [[k v]]
-                                      (when (-> spell :components k)
-                                        v))
-                                    {:verbal "V"
-                                     :somatic "S"
-                                     :material "M"})))
-                                 (+ x 1.12)
-                                 (draw/in-from-top (+ y 0.45))
-                                 bw? bw-faded?)
-               (when duration
-                 (draw-spell-field cs fonts
-                                   img
-                                   "sands-of-time"
-                                   (sp/abbreviate-duration duration)
-                                   (+ x 1.62)
-                                   (draw/in-from-top (+ y 0.45))
-                                   bw? bw-faded?))
-               (when (seq remaining-desc-lines)
-                 (draw/draw-svg-icon! cs img "clockwise-rotation" (+ x 2.3) (+ y 3.3) 0.15
-                                 [0 0 0] (if (and bw? bw-faded?) 0.4 1.0)))
-               {:remaining-lines remaining-desc-lines
+                   text (or description
+                            (if summary
+                              (str summary " (see " (if source (common/ascii-upper-case (name source)) "PHB")
+                                   " " page " for more details)")
+                              ""))
+                   card (spell-card-layout fonts (assoc spell-data :print-dc-mod?
+                                                        (and print-spell-card-dc-mod? (not= class-nm "Homebrew"))))]
+               {:remaining-lines (draw-spell-card! cs fonts x y card text)
                 :spell-name spell-name}))))))
 
 (defn- card-pt
