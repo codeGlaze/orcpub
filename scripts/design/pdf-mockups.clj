@@ -544,11 +544,312 @@
                                "png" (File. (str out-dir "/shots/stress-card.png")))))
             (println "wrote" file "page" sp-page)))))))
 
+;; ---------------------------------------------------------------- card design v2: assets, layout, check
+
+(defn circle-d
+  "SVG path of a circle of radius `r` about (cx, cy), as four cubic arcs."
+  [cx cy r]
+  (let [k (* 0.5523 r)]
+    (format "M%s %s C%s %s %s %s %s %s C%s %s %s %s %s %s C%s %s %s %s %s %s C%s %s %s %s %s %s Z"
+            (+ cx r) cy (+ cx r) (+ cy k) (+ cx k) (+ cy r) cx (+ cy r)
+            (- cx k) (+ cy r) (- cx r) (+ cy k) (- cx r) cy
+            (- cx r) (- cy k) (- cx k) (- cy r) cx (- cy r)
+            (+ cx k) (- cy r) (+ cx r) (- cy k) (+ cx r) cy)))
+
+(def card-icons
+  "The card's icons, designed once: each an SVG path set in its own box (:w x :h points at scale
+   1), a stroke width, and the point its number is centred on (:slot), all measured from the box's
+   top-left. Placed only through draw-icon!, by these numbers."
+  {:attack {:w 28 :h 15 :lw 0.8 :paths ["M1 1 H21 L27 7.5 L21 14 H1 L4.5 7.5 Z"] :slot [13.5 7.5]}
+   :level {:w 19 :h 19 :lw 0.9 :paths [(circle-d 9.5 9.5 9.0)] :inner [(circle-d 9.5 9.5 7.6)] :slot [9.5 9.5]}
+   :save {:w 20 :h 23 :lw 0.8 :paths ["M1 1 H19 V10 Q19 19.5 10 22.5 Q1 19.5 1 10 Z"] :slot [10 10.5]}
+   :use {:w 7 :h 7 :lw 0.8 :paths [(circle-d 3.5 3.5 3.0)] :slot [3.5 3.5]}})
+
+(defn draw-icon!
+  "Draws icon `k` of card-icons with its box's top-left at (x, y) points from the card's top-left
+   (card at X, T on a page `page-h` tall), at `scale`."
+  [cs page-h X T k x y scale]
+  (let [{:keys [lw paths inner]} (card-icons k)
+        px #(float (+ X x (* scale %))) py #(float (- page-h (+ T y (* scale %))))]
+    (doseq [[ds w] [[paths lw] [inner (* 0.4 lw)]] d ds]
+      (.setLineWidth cs (float (* scale w)))
+      (doseq [op (draw/svg-path-ops d)]
+        (case (first op)
+          :move (.moveTo cs (px (nth op 1)) (py (nth op 2)))
+          :line (.lineTo cs (px (nth op 1)) (py (nth op 2)))
+          :curve (.curveTo cs (px (nth op 1)) (py (nth op 2)) (px (nth op 3)) (py (nth op 4)) (px (nth op 5)) (py (nth op 6)))
+          :close (.closePath cs)
+          nil))
+      (.stroke cs))))
+
+(def card-w 180.0)
+(def card-h 252.0)
+(def content-l 11.0)
+(def content-r 169.0)
+(def footer-h 12.0)
+
+(defn wrap-lines
+  "`text` wrapped to `width` points in `font` at `size`, as a vector of lines."
+  [font size width text]
+  (wrap font size width text))
+
+(defn card-layout
+  "Every element of a spell card as measured boxes, before anything is drawn: a vector of
+   {:kind :text|:icon|:rule|:legend|:body ...} with :box [x0 y0 x1 y1] in points from the card's
+   top-left. `config` :band (trio centred under the title) or :beside (trio right of the title).
+   Rules: the title wraps to two lines when it does not fit; use circles share the source row or
+   take their own band; facts wrap to two rows; the material wraps to two lines then points to the
+   back; the body leaves the footer free."
+  [fonts config {:keys [spell source dc attack uses]}]
+  (let [serif (:plain fonts) serif-b (:bold fonts) serif-i (:italic fonts)
+        sans (draw/sans fonts :plain) sans-b (draw/sans fonts :bold)
+        {spell-name :name spell-range :range :keys [level school casting-time components duration description]} spell
+        W (- content-r content-l)
+        out (atom [])
+        add! (fn [e] (swap! out conj e) e)
+        text! (fn [font size t x baseline & [grey]]
+                (add! {:kind :text :font font :size size :text t :x x :y baseline :grey (or grey 0)
+                       :box [x (- baseline (* 0.72 size)) (+ x (text-pt font t size)) (+ baseline (* 0.22 size))]}))
+        legend! (fn [t cx rule-y]
+                  (let [w (text-pt sans-b t 4.2)]
+                    (add! {:kind :legend :text t :x (- cx (/ w 2)) :y (+ rule-y 1.5) :w w
+                           :box [(- cx (/ w 2) 1.5) (- rule-y 2.2) (+ cx (/ w 2) 1.5) (+ rule-y 2.2)]})))
+        rule! (fn [y] (add! {:kind :rule :y y :box [content-l y content-r y]}))
+        trio-scale 0.85
+        tw (* trio-scale (+ 28 3 19 3 20)) th (* trio-scale 23)
+        trio! (fn [x y]
+                (let [s trio-scale
+                      parts [[:attack x (+ y (* s 4)) attack]
+                             [:level (+ x (* s 31)) (+ y (* s 2)) (if (zero? (or level 0)) "c" (str level))]
+                             [:save (+ x (* s 53)) y (str dc)]]]
+                  (doseq [[k ix iy n] parts
+                          :let [{:keys [w h slot]} (card-icons k)
+                                [sx sy] slot
+                                size (if (= k :attack) 7.0 8.0)
+                                nw (text-pt serif-b n size)]]
+                    (add! {:kind :icon :k k :x ix :y iy :scale s :box [ix iy (+ ix (* s w)) (+ iy (* s h))]})
+                    (let [tx (- (+ ix (* s sx)) (/ nw 2)) ty (+ iy (* s sy) (* 0.35 size))]
+                      (add! {:kind :text :font serif-b :size size :text n :x tx :y ty :grey 0 :inside k
+                             :box [tx (- ty (* 0.72 size)) (+ tx nw) (+ ty (* 0.22 size))]})))
+                  {:attack-cx (+ x (* s 13.5)) :level-cx (+ x (* s 40.5)) :save-cx (+ x (* s 63))}))
+        title-size 10.5
+        title-fits? (fn [width] (<= (text-pt serif-b spell-name title-size) width))
+        y (atom 0)]
+    ;; title and trio
+    (case config
+      :band (let [lines (if (title-fits? W) [spell-name] (wrap-lines serif-b 9.5 W spell-name))
+                  size (if (= 1 (count lines)) title-size 9.5)]
+              (doseq [[i l] (map-indexed vector lines)]
+                (text! serif-b size l (+ content-l (/ (- W (text-pt serif-b l size)) 2)) (+ 18 (* i 11))))
+              (reset! y (+ 18 (* 11 (dec (count lines))) 5))
+              (let [{:keys [attack-cx level-cx save-cx]} (trio! (+ content-l (/ (- W tw) 2)) @y)
+                    ry (+ @y th 4)]
+                (rule! ry) (legend! "ATTACK" attack-cx ry) (legend! "LEVEL" level-cx ry) (legend! "SAVE DC" save-cx ry)
+                (reset! y (+ ry 10))))
+      :beside (let [room (- W tw 6)
+                    lines (if (title-fits? room) [spell-name] (wrap-lines serif-b 9.5 room spell-name))
+                    size (if (= 1 (count lines)) title-size 9.5)]
+                (doseq [[i l] (map-indexed vector lines)]
+                  (text! serif-b size l content-l (+ 16 (* i 11))))
+                (let [ty 7 {:keys [attack-cx level-cx save-cx]} (trio! (- content-r tw) ty)
+                      after-title (+ 16 (* 11 (dec (count lines))) 10)]
+                  (reset! y after-title)
+                  (let [ry (max (+ ty th 4) (+ after-title 4))]
+                    (reset! y (- ry 4))
+                    (reset! y {:school-y after-title :rule-y ry :cx [attack-cx level-cx save-cx]})))))
+    ;; school line (sigil + italic), then the rule for :beside, then source and uses
+    (let [line (@#'orcpub.spellbook/school-line spell)
+          [school-y next-y] (if (map? @y)
+                              (let [{:keys [school-y rule-y cx]} @y]
+                                [school-y (do (rule! rule-y)
+                                              (doseq [[t c] (map vector ["ATTACK" "LEVEL" "SAVE DC"] cx)] (legend! t c rule-y))
+                                              (+ rule-y 10))])
+                              [(+ @y 0) (+ @y 9)])
+          lw (text-pt serif-i line 7.0)
+          sx (if (= config :band) (+ content-l (/ (- W lw 9) 2)) content-l)]
+      (add! {:kind :sigil :school school :x sx :y (- school-y 5.9) :box [sx (- school-y 5.9) (+ sx 6.5) (+ school-y 0.6)]})
+      (text! serif-i 7.0 line (+ sx 9) school-y 0.15)
+      (reset! y next-y))
+    (let [src (cstr/upper-case source)
+          src-w (text-pt sans src 4.8)
+          uw (if uses (+ (text-pt sans-b (:label uses) 4.8) 4 (* (:n uses) 9)) 0)
+          shared? (and uses (<= (+ src-w 6 uw) W))
+          center? (= config :band)]
+      (text! sans 4.8 (if (<= src-w W) src (ellipsize sans src 4.8 W))
+             (if (and center? (not uses)) (+ content-l (/ (- W src-w) 2)) content-l) @y 0.4)
+      (when uses
+        (let [row (if shared? @y (+ @y 9))
+              x0 (- content-r (* (:n uses) 9))]
+          (text! sans-b 4.8 (:label uses) (- x0 (text-pt sans-b (:label uses) 4.8) 3) row 0.4)
+          (doseq [i (range (:n uses))]
+            (add! {:kind :icon :k :use :x (+ x0 (* i 9)) :y (- row 5.2) :scale 1.0
+                   :box [(+ x0 (* i 9)) (- row 5.2) (+ x0 (* i 9) 7) (+ row 1.8)]}))
+          (when-not shared? (swap! y + 9))))
+      (swap! y + 11))
+    ;; facts: values above a rule, labels as legends centred under them; two rows when one is too wide
+    (let [comps (cstr/join ", " (keep (fn [[c l]] (when (get components c) l)) [[:verbal "V"] [:somatic "S"] [:material "M"]]))
+          facts [["CAST" (sp/abbreviate-casting-time (first (cstr/split (str casting-time) #",")))]
+                 ["RANGE" (sp/abbreviate-range (str spell-range))]
+                 ["COMP" comps]
+                 ["DUR" (str (sp/abbreviate-duration duration))]]
+          vs 7.0
+          cell-w (fn [[l v]] (max (text-pt serif v vs) (+ (text-pt sans-b l 4.2) 4)))
+          row! (fn [fs]
+                 (let [ws (map cell-w fs) gap (/ (- W (reduce + ws)) (max 1 (dec (count fs))))
+                       xs (reductions + content-l (map #(+ % gap) ws))
+                       ry (+ @y 4)]
+                   (doseq [[[l v] x w] (map vector fs xs ws)
+                           :let [cx (+ x (/ w 2))]]
+                     (text! serif vs v (- cx (/ (text-pt serif v vs) 2)) @y)
+                     (legend! l cx ry))
+                   (rule! ry)
+                   (reset! y (+ ry 10))))]
+      (if (<= (reduce + (map cell-w facts)) (- W 12))
+        (row! facts)
+        (do (row! (take 2 facts)) (row! (drop 2 facts)))))
+    ;; material, two lines at most
+    (when-let [mat (get-in spell [:components :material-component])]
+      (let [ls (wrap-lines serif-i 6.5 W (common/ascii-capitalize (cstr/replace mat #"\s+" " ")))
+            ls (if (> (count ls) 2) [(first ls) (ellipsize serif-i (str (second ls) " … (full text on the back)") 6.5 W)] ls)]
+        (doseq [l ls] (text! serif-i 6.5 l content-l @y 0.2) (swap! y + 7.5))
+        (swap! y + 1.5)))
+    (add! {:kind :body :y @y :box [content-l (- @y 7) content-r (- card-h footer-h 5)]})
+    {:elements @out :text-top @y}))
+
+(defn layout-problems
+  "Overlaps between content boxes (rules excepted, and a number inside its own icon), and boxes
+   closer than 3 pt to the frame (inset 5). Returns a vector of strings."
+  [{:keys [elements]}]
+  (let [content (remove #(#{:rule :body} (:kind %)) elements)
+        ov? (fn [[a0 b0 a1 b1] [c0 d0 c1 d1]] (and (< a0 c1) (< c0 a1) (< b0 d1) (< d0 b1)))
+        label (fn [e] (str (name (:kind e)) " " (or (:text e) (some-> (:k e) name) (:school e))))]
+    (vec (concat
+          (for [e content :let [[x0 y0 x1 _] (:box e)] :when (or (< x0 8) (< y0 8) (> x1 (- card-w 8)))]
+            (str (label e) " is within 3 pt of the frame"))
+          (for [[i a] (map-indexed vector content) b (drop (inc i) content)
+                :when (and (ov? (:box a) (:box b))
+                           (not (and (:inside a) (= (:inside a) (:k b))))
+                           (not (and (:inside b) (= (:inside b) (:k a))))
+                           (not (and (= :legend (:kind a)) (= :legend (:kind b)) false)))]
+            (str (label a) " overlaps " (label b)))))))
+
+(defn draw-card-v2!
+  "Draws `layout` (card-layout) in grid cell (col, row) of a page `page-h` points tall: frame,
+   elements, the body text and the footer when the text overflows. Returns the overflow lines."
+  [cs fonts page-h col row {:keys [elements text-top]} description]
+  (let [{:keys [margin-x margin-y]} (draw/grid-layout 2.5 3.5)
+        X (* 72 (+ margin-x (* 2.5 col))) T (* 72 (+ margin-y (* 3.5 row)))
+        py (fn [y] (- page-h (+ T y)))
+        sans-b (draw/sans fonts :bold) serif (:plain fonts) serif-i (:italic fonts)]
+    (.setNonStrokingColor cs (float 1) (float 1) (float 1))
+    (.addRect cs (float (+ X 1)) (float (py (- card-h 1))) (float (- card-w 2)) (float (- card-h 2)))
+    (.fill cs)
+    (.setNonStrokingColor cs (float 0) (float 0) (float 0))
+    (.setStrokingColor cs (float 0) (float 0) (float 0))
+    (rounded-rect! cs (+ X 5) (py (- card-h 5)) (- card-w 10) (- card-h 10) 8.0 0.9)
+    (doseq [e (filter #(= :rule (:kind %)) elements)]
+      (.setLineWidth cs (float 0.5))
+      (.moveTo cs (float (+ X content-l)) (float (py (:y e)))) (.lineTo cs (float (+ X content-r)) (float (py (:y e)))) (.stroke cs))
+    (doseq [e elements]
+      (case (:kind e)
+        :icon (draw-icon! cs page-h X T (:k e) (:x e) (:y e) (:scale e))
+        :sigil (@#'orcpub.spellbook/sigil! cs (:school e) (+ X (:x e)) (+ T (:y e)) 6.5)
+        :text (draw-pt! cs (:font e) (:size e) (:text e) (+ X (:x e)) (py (:y e)) (:grey e))
+        :legend (let [[x0 _ x1 _] (:box e)]
+                  (.setNonStrokingColor cs (float 1) (float 1) (float 1))
+                  (.addRect cs (float (+ X x0)) (float (py (+ (:y e) 1.2))) (float (- x1 x0)) (float 5.5))
+                  (.fill cs)
+                  (draw-pt! cs sans-b 4.2 (:text e) (+ X (:x e)) (py (:y e)) 0.45))
+        nil))
+    (let [over (draw/draw-text-to-box cs (str description) serif 7.5 (/ (+ X content-l) 72.0) (/ (py text-top) 72.0)
+                                      (/ (- content-r content-l) 72.0) (/ (- card-h footer-h 5 text-top) 72.0))]
+      (when (seq over)
+        (let [t "continued on the back"]
+          (draw-pt! cs serif-i 5.5 t (+ X (/ (- card-w (text-pt serif-i t 5.5)) 2)) (py (- card-h 8)) 0.45)))
+      over)))
+
+(defn icon-sheet!
+  "Draws every card icon at 3x in grid cell (col, row) with its measured box dashed and its size."
+  [cs fonts page-h col row]
+  (let [{:keys [margin-x margin-y]} (draw/grid-layout 2.5 3.5)
+        X (* 72 (+ margin-x (* 2.5 col))) T (* 72 (+ margin-y (* 3.5 row)))
+        sans (draw/sans fonts :plain) serif-b (:bold fonts)]
+    (draw-pt! cs serif-b 10 "Card icons" (+ X 12) (- page-h (+ T 20)) 0)
+    (doseq [[i k] (map-indexed vector [:attack :level :save :use])
+            :let [{:keys [w h]} (card-icons k) s 3.0 x (+ 14 (* (mod i 2) 80)) y (+ 34 (* (quot i 2) 90))]]
+      (draw-icon! cs page-h X T k x y s)
+      (.setLineDashPattern cs (float-array [1.5 1.5]) (float 0))
+      (.setLineWidth cs (float 0.3))
+      (.addRect cs (float (+ X x)) (float (- page-h (+ T y (* s h)))) (float (* s w)) (float (* s h)))
+      (.stroke cs)
+      (.setLineDashPattern cs (float-array []) (float 0))
+      (draw-pt! cs sans 6 (str (name k) "  " w " x " h " pt") (+ X x) (- page-h (+ T y (* s h) 10)) 0.3))))
+
+(defn fit-share
+  "Share of SRD spells whose text fits a card front when the body starts `text-top` points down,
+   at 7.5 pt."
+  [fonts text-top]
+  (let [serif (:plain fonts) leading (* 1.1 7.5)
+        room (int (dec (/ (- card-h footer-h 5 text-top) leading)))
+        all (vals spells/spell-map)]
+    (/ (count (filter #(<= (count (draw/split-lines (str (:description %)) serif 7.5 (/ (- content-r content-l) 72.0))) room) all))
+       (double (count all)))))
+
+(defn card-v2-scene
+  "One card page: row 0 config :band, row 1 config :beside (Thaumaturgy, Hellish Rebuke, Fireball),
+   row 2 the stress card in each config and the icon sheet. Prints LAYOUT problems and each
+   config's fit share; writes shots/<file> and shots/<file>-zoom.png (600 dpi)."
+  [file]
+  (let [cha :orcpub.dnd.e5.character/cha
+        cards (pdf-spec/make-spell-card-info (known "Tiefling" cha {0 [:thaumaturgy]}) (constantly 13) (constantly 5)
+                                             false #{} {} spells/spell-map {})
+        fields (merge sheet {:class-level "Fighter 5" :print-spell-cards? true} cards)]
+    (with-open [doc (Loader/loadPDF (pdf-bytes fields))]
+      (let [pg (page-with doc ["Thaumaturgy"] ["reverse" "FEATURES"])
+            fonts (draw/load-fonts doc)
+            ph (.getHeight (.getMediaBox (.getPage doc pg)))
+            all (vals spells/spell-map)
+            widest (fn [f] (apply max-key #(count (str (f %))) all))
+            stress {:name (:name (apply max-key #(text-pt (:bold fonts) (:name %) 10.5) all)) :level 9
+                    :school (:school (apply max-key #(count (@#'orcpub.spellbook/school-line (assoc % :level 9))) all))
+                    :casting-time (:casting-time (apply max-key #(count (sp/abbreviate-casting-time (first (cstr/split (str (:casting-time %)) #",")))) all))
+                    :range (:range (apply max-key #(count (sp/abbreviate-range (str (:range %)))) all))
+                    :duration (:duration (apply max-key #(count (str (sp/abbreviate-duration (:duration %)))) all))
+                    :components {:verbal true :somatic true :material true
+                                 :material-component (get-in (widest #(get-in % [:components :material-component])) [:components :material-component])}
+                    :description (:description (widest :description))}
+            specs [{:spell (spells/spell-map :thaumaturgy) :source "Tiefling · Infernal Legacy" :dc 13 :attack "+5"}
+                   {:spell (spells/spell-map :hellish-rebuke) :source "Tiefling · Infernal Legacy · cast at 2nd level" :dc 13 :attack "+5"
+                    :uses {:n 1 :label "1 / LONG REST"}}
+                   {:spell (spells/spell-map :fireball) :source "Wizard" :dc 15 :attack "+7"}]
+            stress-spec {:spell stress :source "Half-Elf (Variant) · Magic Initiate (Wizard) · cast at 2nd level"
+                         :dc 19 :attack "+11" :uses {:n 6 :label "6 / LONG REST"}}]
+        (with-open [cs (PDPageContentStream. doc (.getPage doc pg) PDPageContentStream$AppendMode/APPEND true true)]
+          (doseq [[config row] [[:band 0] [:beside 1]]
+                  [col spec] (map-indexed vector specs)
+                  :let [l (card-layout fonts config spec)]]
+            (doseq [p (layout-problems l)] (println "LAYOUT" (name config) (:name (:spell spec)) "-" p))
+            (when (= col 0) (println "FIT" (name config) "body starts at" (:text-top l) "pt:" (format "%.0f%%" (* 100 (fit-share fonts (:text-top l))))))
+            (draw-card-v2! cs fonts ph col row l (:description (:spell spec))))
+          (doseq [[config col] [[:band 0] [:beside 1]]
+                  :let [l (card-layout fonts config stress-spec)]]
+            (doseq [p (layout-problems l)] (println "LAYOUT stress" (name config) "-" p))
+            (draw-card-v2! cs fonts ph col 2 l (:description stress)))
+          (icon-sheet! cs fonts ph 2 2))
+        (let [out (ByteArrayOutputStream.)]
+          (.save doc out)
+          (with-open [saved (Loader/loadPDF (.toByteArray out))]
+            (.mkdirs (File. (str out-dir "/shots")))
+            (ImageIO/write (render-page saved pg) "png" (File. (str out-dir "/shots/" file)))
+            (let [big (.renderImageWithDPI (PDFRenderer. saved) pg 300 ImageType/RGB)]
+              (ImageIO/write big "png" (File. (str out-dir "/shots/" file "-300.png"))))
+            (println "wrote" file "page" pg)))))))
+
 (def shots
-  [(do (compact-cards-scene "compact-cards.png")
-       {:id "compact" :tag "Proposal" :title "Compact spell cards: today (top), 50 pt header (middle), 40 pt header (bottom)"
-        :note "Measured over the 319 SRD spells: today's layout fits 59% on the front, the middle row's layout 74%, the bottom row's 84%."
-        :file "compact-cards.png" :crop nil})])
+  [(do (card-v2-scene "cards-v2.png")
+       {:id "v2" :tag "Proposal" :title "Two header configurations, the stress card in each, and the icon sheet"
+        :note "Row 1: trio band. Row 2: trio beside the title. Row 3: the stress card (every field at its SRD maximum) in each, and the designed icons with their measured boxes."
+        :file "cards-v2.png" :crop nil})])
 
 (spit (str out-dir "/shots.json") (json-str shots))
 (println "wrote shots.json")

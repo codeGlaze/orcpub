@@ -329,6 +329,14 @@ width plus about 1.5 pt each side), so value and label share a centre line and t
 its full width back. The same for SAVE DC / ATTACK under the trio. Both go into the designed icon
 set and layout round.
 
+**Card design v2 (2026-11-12, not published):** icons as data (`card-icons`: attack arrowhead
+28x15, level medallion 19x19, save shield 20x23, use circle 7x7, each with a measured number
+slot), layout computed as boxes and checked before drawing (`card-layout`, `layout-problems`),
+labels as legends on the rules. Stress card holds in both configurations. Measured fit at 7.5 pt:
+**trio band 57% (dropped, below today's 59%)**, **trio beside the title 67%**. Faults to fix: the
+shield sits 2 pt from the frame top; legend at a rule's end leaves a stub of line; icon sheet boxes
+overlap.
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
