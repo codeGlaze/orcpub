@@ -384,7 +384,7 @@
    `print-backs`. `spells` is a seq of `{:class-nm :dc :attack-bonus :spell}`; cards
    fill right to left within a row so a duplex flip lines the backs up.
    `print-spell-card-dc-mod?` prints save DC and attack bonus. The front is black on white, so
-   `bw?`/`bw-faded?` change nothing here (they are the backs' and item cards'). Inches."
+   `bw?`/`bw-faded?` change nothing here; they are kept for later use. Inches."
   [cs document fonts img box-width box-height spells page-number print-spell-card-dc-mod? bw? bw-faded?]
   (let [{:keys [cols rows margin-x margin-y]} (draw/grid-layout box-width box-height)]
     (draw/draw-grid cs box-width box-height)
