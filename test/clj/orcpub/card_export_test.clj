@@ -256,3 +256,22 @@
                           [0x2022 "bullet"]]]
         (is (str/includes? text (str (char cp)))
             (str label " was replaced; Vollkorn has a glyph for it"))))))
+
+(deftest a-long-source-keeps-the-card-subtitle-on-one-line
+  (testing "Misty Step from Fey Teleportation, DC and mod printed: the italic line ends on its own
+            baseline instead of wrapping onto the icon row"
+    (let [out (ByteArrayOutputStream.)]
+      (with-open [doc (PDDocument.)]
+        (routes/add-spell-cards! doc (draw/load-fonts doc) (draw/make-image-loader doc)
+                                 {:fey [{:key :misty-step :class "Fey Teleportation"}]}
+                                 {"Fey Teleportation" 13} {"Fey Teleportation" 5}
+                                 nil true card-back-logo false false)
+        (.save doc out))
+      (with-open [doc (Loader/loadPDF (.toByteArray out))]
+        (let [gs (glyphs doc 0)
+              text (apply str (map :ch gs))
+              start (str/index-of text "Fey")
+              end (str/index-of text "+5")]
+          (is (and start end) text)
+          (is (= 1 (count (distinct (map #(Math/round (double (:y %))) (subvec gs start (+ end 2))))))
+              (str "subtitle baselines: " (vec (distinct (map #(Math/round (double (:y %))) (subvec gs start (+ end 2))))))))))))
