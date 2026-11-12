@@ -3132,7 +3132,7 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 2014, 2024, 2026-11-11, 521, box, boxes, cards, cast, casting, casts, free, initiate, packed, slot, slots, spell, spells, tiefling
+**topics:** 2014, 2024, 2026-11-11, 521, box, boxes, card, cards, cast, casting, casts, free, initiate, slot, slots, spell, spells, tiefling
 
 - The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)
@@ -3610,7 +3610,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, crest, figures, head, heading, level, opentype, packed, pact, prep, re-split, spell, spellbook, tabs, taller
+**topics:** cards, chapter, column, columns, figures, head, heading, level, opentype, packed, pact, prep, re-split, slots, spell, spellbook, tabs, taller
 
 - What it prints
 - Why the layout works the way it does

@@ -274,6 +274,16 @@ icon row ("Mod +5" over "1 B.A."). Mock trouble to sort before trusting the card
 two placeholder cards the Tiefling's own cards did not print and the export added a "did not fit"
 page.
 
+**Checked 2026-11-11 (owner asked whether spell cards were designed):** they were not. The
+designed work is the spellbook print (#50, `spellbook-print.md`; artifacts "Spellbook Print
+Layouts" XwoNRwCsY6TpraqRo76UoH and "Class Emblem Sheet" Xy6dq9k4LiaENfcT94CXGv): book, ledger
+and prep-sheet layouts, a chapter per class with its game-icons emblem, a level-tick ring, a crest
+(save DC on a shield, attack on an arrowhead). Spell cards had only fixes (card order #520, B&W
+icon legibility, artifact A2SgiHMDzNJbR1ANM6eiAA). **Owner: spell cards get designs of their own.**
+Candidates to mock: spell cards in the spellbook's language (emblem, DC/attack crest), the long
+source name wrap fixed with it; and a Traits & Feats chapter in the spellbook (ledger or prep-sheet
+rows with ticks) beside the list card, to compare.
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
