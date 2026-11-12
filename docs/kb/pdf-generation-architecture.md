@@ -88,6 +88,16 @@ checks them, `cards/draw-spell-card!` draws them; `print-spells` keeps its `{:re
   to PNG with headless Chromium, drawn with `draw/draw-imagex`. Each new image needs a review entry
   in `test/reviewed-images.edn`: write it by hand, because the guard's `REVIEWED_IMAGES=record`
   pprints under `*print-length*` and truncates the file.
+- **The sigils are edited down for print** (`scripts/design/sigil-curate.js`, owner-approved
+  2026-11-12). As drawn, their lines are about 8.3 units in a 1,381-unit box: 0.05 pt at card size,
+  a sixth of the ~0.3 pt that prints as solid ink, so they printed pale. The script drops every
+  shape smaller than 30% of the icon, sets each remaining line to 0.3 pt at a 10 pt print size
+  (stroke width divided by the element's own transform scale, so it scales with the icon; a
+  `non-scaling-stroke` fixes it in screen pixels and blobs the small renders), and pads the viewBox
+  4% so the thicker outer frame is not clipped. A 50% cut-off was tried and rejected: it reduces
+  several sigils to plain shapes. Run: `NODE_PATH=<code worktree>/scripts/e2e/node_modules node
+  scripts/design/sigil-curate.js <recoloured svg dir> <out dir>`; it writes `a/*.png` and a
+  comparison `sheet.png`.
 - `spell_cards_test` lays out all 319 SRD spells and the stress card and fails on any overlap.
 
 ### Lifecycle (critical for understanding blank page bugs)

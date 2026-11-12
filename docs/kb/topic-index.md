@@ -2691,7 +2691,7 @@ _pdf-generated-vs-uploaded-images · pdf generated vs uploaded images_
 
 _pdf-generation-architecture · pdf generation architecture_
 
-**topics:** card, color, drawn, fillable, firefox, flatten, font, linux, macos, pdf, pdfbox, reflection, rendering, spell, templates, widget, widgets, windows
+**topics:** card, color, drawn, fillable, firefox, flatten, linux, macos, pdf, pdfbox, reflection, rendering, sigils, spell, templates, widget, widgets, windows
 
 - Overview
 - Template Selection
@@ -3113,7 +3113,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _plan-pdf-page-sizes · plan pdf page sizes_
 
-**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, height, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
+**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, border, height, inches, ink, letter, primitives, rect, spellbook, translate, widget
 
 - The problem in one paragraph
 - Order, and why this order
