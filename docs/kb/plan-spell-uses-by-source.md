@@ -306,6 +306,21 @@ frame; title row with the spellbook's level ring, title fitted, crest; school ro
 use circles; source in small capitals; one facts row with `sp/abbreviate-*`; material in italics.
 **40 pt was tried and dropped:** sources had to be cut and the use label collided with the facts.
 
+**Compact card round 3 (2026-11-12, not published)** after the owner's zoomed crop ("not aligned,
+overlapping, you're clearly not measuring; the circles aren't round and the top one is cut off"):
+the spellbook's level ring is segments with an open top for cantrips, wrong at 14 pt. Now a true
+circle, centred with the sigil, and the harness computes element boxes and reports overlaps and
+frame clearance (`LAYOUT` lines). **Stress card** (owner: every field at its maximum; SRD extremes
+picked by the harness): fails in five places: title vs crest (Protection from Evil and Good),
+source cut when six use circles share its row, facts row off the card ("Until dispelled or
+triggered" has no abbreviation), material line off the card (Clone's is a paragraph), "continued
+on the back" over the last line. Each needs a rule: title wraps to two lines or the crest drops a
+row; uses get their own band when the source row is full; facts wrap to a second line; material
+wraps to two lines then points to the back; the text box reserves the footer.
+**Owner: icons are designed once and measured, not drawn in code at render time:** a card icon
+set as SVG (level badges 0-9, use circle, compact crest with measured number slots, the school
+sigils at card size), each with a measured box, placed by those boxes through `draw-svg-icon!`.
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line

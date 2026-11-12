@@ -381,7 +381,7 @@
 (def compact-layouts
   "Baselines in points from the card top, and the text size, per header height. At 40 the source
    shares the school row."
-  {50 {:size 7.5 :title 17 :school 28 :source 36 :rule1 40 :facts 48 :rule2 51 :material 59 :text 53}
+  {50 {:size 7.5 :title 19 :school 30 :source 38 :rule1 42 :facts 50 :rule2 53 :material 61 :text 55}
    40 {:size 7.0 :title 16 :school 26 :source 26 :rule1 30 :facts 37 :rule2 40 :material 47 :text 42}})
 
 (defn draw-compact-card!
@@ -392,7 +392,7 @@
    :label}). At 50 the source has its own row. Facts row: the old cards' abbreviations with tiny
    labels, shrunk to fit. Material in italics when present, then the text; 'continued on the
    back' only when it overflows. Every line is fitted to its room, so nothing leaves the card."
-  [cs fonts page-h col row header {:keys [key source dc attack uses]}]
+  [cs fonts page-h col row header {:keys [key spell source dc attack uses]}]
   (let [{:keys [margin-x margin-y]} (draw/grid-layout 2.5 3.5)
         L (compact-layouts header) size (:size L)
         X (* 72 (+ margin-x (* 2.5 col))) T (* 72 (+ margin-y (* 3.5 row))) W 180.0 H 252.0
@@ -400,34 +400,40 @@
         serif (:plain fonts) serif-b (:bold fonts) serif-i (:italic fonts)
         sans (draw/sans fonts :plain) sans-b (draw/sans fonts :bold)
         {spell-name :name spell-range :range :keys [level school casting-time components duration description] :as spell}
-        (spells/spell-map key)
+        (or spell (spells/spell-map key))
         left (+ X 11) right (- (+ X W) 11)
         crest-w 40.0
-        title-x (+ left 18)
+        ring-r 6.5
+        ring-cx (+ left ring-r)
+        title-x (+ left (* 2 ring-r) 5)
         title-size (fit-pt serif-b spell-name (- right crest-w 4 title-x) 10.5 7.0)]
     (rounded-rect! cs (+ X 5) (py (- H 5)) (- W 10) (- H 10) 8.0 0.9)
-    (@#'orcpub.spellbook/level-ring! cs fonts (or level 0) nil left (+ T (- (:title L) 11)) 14.0)
+    (let [cy (+ (py (:title L)) (* 0.35 10.5))
+          lv (if (zero? (or level 0)) "c" (str level))]
+      (.setLineWidth cs (float 0.7))
+      (circle-stroke! cs ring-cx cy ring-r)
+      (draw-pt! cs serif-b 7.0 lv (- ring-cx (/ (text-pt serif-b lv 7.0) 2)) (- cy (* 0.35 7.0)) 0))
     (draw-pt! cs serif-b title-size spell-name title-x (py (:title L)) 0)
     (@#'orcpub.spellbook/crest! cs fonts dc attack (- right crest-w) (+ T (- (:title L) 11)) crest-w)
     (let [line (@#'orcpub.spellbook/school-line spell)
-          line-x (+ left 9)
+          line-x title-x
           line-w (text-pt serif-i line 7.0)
           uses-w (if uses (+ (text-pt sans-b (:label uses) 4.8) 4 (* (:n uses) 9)) 0)
           src (cstr/upper-case source)
           [src-text src-x src-room] (if (= header 40)
                                       [(str "·  " src) (+ line-x line-w 4) (- right crest-w 4 (+ line-x line-w 4))]
-                                      [src left (- right left)])]
-      (@#'orcpub.spellbook/sigil! cs school left (+ T (- (:school L) 6)) 6.5)
+                                      [src left (- right left (if uses (+ uses-w 6) 0))])]
+      (@#'orcpub.spellbook/sigil! cs school (- ring-cx 3.25) (+ T (- (:school L) 5.9)) 6.5)
       (draw-pt! cs serif-i 7.0 line line-x (py (:school L)) 0.15)
       (let [sz (fit-pt sans src-text src-room 4.8 3.6)]
         (draw-pt! cs sans sz (ellipsize sans src-text sz src-room) src-x (py (:source L)) 0.4))
       (when (and uses (= header 50))
         (let [{:keys [n label]} uses
               x0 (- right (* n 9))]
-          (draw-pt! cs sans-b 4.8 label (- x0 (text-pt sans-b label 4.8) 3) (py (:school L)) 0.4)
+          (draw-pt! cs sans-b 4.8 label (- x0 (text-pt sans-b label 4.8) 3) (py (:source L)) 0.4)
           (.setLineWidth cs (float 0.8))
           (doseq [i (range n)]
-            (circle-stroke! cs (+ x0 (* i 9) 3.5) (+ (py (:school L)) 2.2) 3.0)))))
+            (circle-stroke! cs (+ x0 (* i 9) 3.5) (+ (py (:source L)) 1.7) 3.0)))))
     (doseq [k [:rule1 :rule2]]
       (.setLineWidth cs (float 0.4))
       (.moveTo cs (float left) (float (py (k L)))) (.lineTo cs (float right) (float (py (k L)))) (.stroke cs))
@@ -451,6 +457,30 @@
           (let [vx (+ x (text-pt sans-b label 4.2) 2.5)]
             (draw-pt! cs serif vsize v vx (py (:facts L)) 0)
             (recur (+ vx (text-pt serif v vsize) 6) more)))))
+    ;; Measured layout check: boxes [x0 y0 x1 y1] from the card's top-left.
+    (let [ts title-size
+          ring-top (- (:title L) (* 0.35 10.5) ring-r)
+          boxes {:ring [(- ring-cx X ring-r) ring-top (+ (- ring-cx X) ring-r) (+ ring-top (* 2 ring-r))]
+                 :title [(- title-x X) (- (:title L) (* 0.72 ts)) (+ (- title-x X) (text-pt serif-b spell-name ts)) (:title L)]
+                 :crest [(- right crest-w X) (- (:title L) 11) (- right X) (+ (- (:title L) 11) (/ crest-w 2))]
+                 :sigil [(- ring-cx 3.25 X) (- (:school L) 5.9) (+ (- ring-cx X) 3.25) (+ (- (:school L) 5.9) 6.5)]
+                 :school [(- title-x X) (- (:school L) 5.5) (+ (- title-x X) (text-pt serif-i (@#'orcpub.spellbook/school-line spell) 7.0)) (+ (:school L) 1.8)]
+                 :source [(- left X) (- (:source L) 3.6) (+ (- left X) (min (- right left) (text-pt sans (cstr/upper-case source) 4.8))) (:source L)]}
+          boxes (if uses
+                  (let [uw (+ (text-pt sans-b (:label uses) 4.8) 4 (* (:n uses) 9))]
+                    (-> boxes
+                        (assoc :uses [(- right uw X) (- (:source L) 4.5) (- right X) (+ (:source L) 1.5)])
+                        (assoc-in [:source 2] (min (get-in boxes [:source 2]) (- right uw 6 X)))))
+                  boxes)
+          frame-in 8.0
+          inside? (fn [[x0 y0 x1 y1]] (and (>= x0 frame-in) (>= y0 frame-in) (<= x1 (- W frame-in))))
+          overlap? (fn [[a0 b0 a1 b1] [c0 d0 c1 d1]] (and (< a0 c1) (< c0 a1) (< b0 d1) (< d0 b1)))
+          names (keys boxes)]
+      (doseq [[k b] boxes :when (not (inside? b))] (println "LAYOUT" spell-name k "closer than 3 pt to the frame" b))
+      (doseq [a names b names :when (and (pos? (compare (name a) (name b))) (overlap? (boxes a) (boxes b)))]
+        (println "LAYOUT" spell-name a "overlaps" b (boxes a) (boxes b)))
+      (let [rc (/ (+ (first (:ring boxes)) (nth (:ring boxes) 2)) 2) sc (/ (+ (first (:sigil boxes)) (nth (:sigil boxes) 2)) 2)]
+        (when (> (Math/abs (double (- rc sc))) 0.2) (println "LAYOUT" spell-name "ring and sigil off centre by" (- rc sc)))))
     (let [mat (get-in spell [:components :material-component])
           text-top (if mat (+ (:material L) 3) (:text L))]
       (when mat
@@ -481,13 +511,37 @@
             ph (.getHeight (.getMediaBox (.getPage doc sp-page)))]
         (with-open [cs (PDPageContentStream. doc (.getPage doc sp-page) PDPageContentStream$AppendMode/APPEND true true)]
           (doseq [[i spec] (map-indexed vector specs)]
-            (draw-compact-card! cs fonts ph i 1 50 spec)
-            (draw-compact-card! cs fonts ph i 2 40 spec)))
+            (draw-compact-card! cs fonts ph i 1 50 spec))
+          (let [all (vals spells/spell-map)
+                widest (fn [f] (apply max-key #(count (str (f %))) all))
+                stress {:name (:name (apply max-key #(text-pt (:bold fonts) (:name %) 10.5) all))
+                        :level 9
+                        :school (:school (apply max-key #(count (@#'orcpub.spellbook/school-line (assoc % :level 9))) all))
+                        :casting-time (:casting-time (apply max-key #(count (sp/abbreviate-casting-time (first (cstr/split (str (:casting-time %)) #",")))) all))
+                        :range (:range (apply max-key #(count (sp/abbreviate-range (str (:range %)))) all))
+                        :duration (:duration (apply max-key #(count (str (sp/abbreviate-duration (:duration %)))) all))
+                        :components {:verbal true :somatic true :material true
+                                     :material-component (get-in (widest #(get-in % [:components :material-component])) [:components :material-component])}
+                        :description (:description (widest :description))}]
+            (println "STRESS" (pr-str (dissoc stress :description)))
+            (draw-compact-card! cs fonts ph 0 2 50 {:spell stress :source "Half-Elf (Variant) · Magic Initiate (Wizard) · cast at 2nd level"
+                                                    :dc 19 :attack "+11" :uses {:n 6 :label "6 / LONG REST"}})))
         (let [out (ByteArrayOutputStream.)]
           (.save doc out)
           (with-open [saved (Loader/loadPDF (.toByteArray out))]
             (.mkdirs (File. (str out-dir "/shots")))
             (ImageIO/write (render-page saved sp-page) "png" (File. (str out-dir "/shots/" file)))
+            ;; The three new headers at 600 dpi, to look at alignment rather than the whole page.
+            (let [{:keys [margin-x margin-y]} (draw/grid-layout 2.5 3.5)
+                  big (.renderImageWithDPI (PDFRenderer. saved) sp-page 600 ImageType/RGB)
+                  s (/ 600 72.0)
+                  x (int (* s 72 margin-x)) y (int (* s 72 (+ margin-y 3.5))) w (int (* s 72 7.5)) h (int (* s 66))]
+              (ImageIO/write (.getSubimage big x y w h) "png" (File. (str out-dir "/shots/headers-zoom.png")))
+              (let [mid (.renderImageWithDPI (PDFRenderer. saved) sp-page 300 ImageType/RGB)
+                    s3 (/ 300 72.0)]
+                (ImageIO/write (.getSubimage mid (int (* s3 72 margin-x)) (int (* s3 72 (+ margin-y 7.0)))
+                                             (int (* s3 72 2.5)) (int (* s3 72 3.5)))
+                               "png" (File. (str out-dir "/shots/stress-card.png")))))
             (println "wrote" file "page" sp-page)))))))
 
 (def shots
