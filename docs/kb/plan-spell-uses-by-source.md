@@ -252,6 +252,12 @@ labels (casting time, range, components, duration), material in italics, then th
 left to right (right to left is the backs). The italic line gives the spell's level, so Hellish
 Rebuke reads "Level 1" though the trait casts it at 2nd: the card's feature tag must say so.
 
+**Owner, 2026-11-11, on the first proposal:** every line shows its level (Cantrip, 1st, 2nd,
+"cast at 2nd" where a trait raises it), in every group: at will is not only cantrips (invocations
+such as Armor of Shadows, Mage Armor 1st, up to Chains of Carceri, Hold Monster 5th; Deep Gnome's
+Nondetection 3rd; Boots of Levitation, Hat of Disguise; Spell Mastery). Show design proposals as
+renders, not text sketches. Also check whether item cards got a redesign spell cards lack.
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
