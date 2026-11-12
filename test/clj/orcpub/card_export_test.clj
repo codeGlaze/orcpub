@@ -290,3 +290,17 @@
         (let [text (apply str (map :ch (glyphs doc 0)))]
           (is (str/includes? text "LONG REST") text)
           (is (str/includes? text "CAST AT 2ND LEVEL") text))))))
+
+(deftest an-at-will-grant-prints-at-will-not-use-circles
+  (testing "Mage Armor from Armor of Shadows: at will, never from a slot"
+    (let [out (ByteArrayOutputStream.)]
+      (with-open [doc (PDDocument.)]
+        (routes/add-spell-cards! doc (draw/load-fonts doc) (draw/make-image-loader doc)
+                                 {:t [{:key :mage-armor :class "Warlock" :casting {:free {:at-will true} :slots :none}}]}
+                                 {"Warlock" 13} {"Warlock" 5}
+                                 nil true card-back-logo false false)
+        (.save doc out))
+      (with-open [doc (Loader/loadPDF (.toByteArray out))]
+        (let [text (apply str (map :ch (glyphs doc 0)))]
+          (is (str/includes? text "AT WILL") text)
+          (is (not (str/includes? text "REST")) text))))))
