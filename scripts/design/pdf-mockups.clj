@@ -1296,9 +1296,11 @@
           (println "wrote school icons")))))
 
 (def shots
-  (do (school-icons-scene)
-      [{:id "schools" :tag "Compare" :title "School icons: today, corrected, and recommended replacements"
-        :note "Rendered through the app's own drawing at 200 dpi." :file "school-icons.png" :crop nil}]))
+  (do (real-cards-scene)
+      [{:id "tw" :tag "Real export" :title "Tiefling Wizard 5: the first page of spell cards"
+        :note "Through the app's export: the DMV sigils as school marks, Hellish Rebuke and Darkness with the Tiefling's casting." :file "tiefling-wizard-cards.png" :crop nil}
+       {:id "wl" :tag "Real export" :title "Warlock 9: invocations, Mire the Mind, Mystic Arcanum"
+        :note "Through the app's export." :file "warlock-cards.png" :crop nil}]))
 
 (spit (str out-dir "/shots.json") (json-str shots))
 (println "wrote shots.json")
