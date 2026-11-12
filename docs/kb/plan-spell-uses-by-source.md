@@ -390,6 +390,9 @@ next outline (the R ribbon) and the body text inherit it: reset both to black af
 `3826d84a3` the card in `orcpub.pdf.cards` (owner: "we already have namespaces for this": the
 card family's namespace, not a new one); `96387e03f` tests; `02a21e7a8` hides the B&W options.
 Details: pdf-generation-architecture.md, "The front".
+At will (owner, 2026-11-12): a grant with `{:free {:at-will true}}` (the invocations) prints
+"AT WILL" where the uses go, no circles: `routes/add-spell-cards!` maps it to `:uses {:n 0 :label
+"AT WILL"}` (`f1fd183db`). Sigils edited down to print: `adb2f8502`.
 
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
