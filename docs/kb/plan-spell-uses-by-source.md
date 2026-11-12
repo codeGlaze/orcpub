@@ -284,6 +284,15 @@ Candidates to mock: spell cards in the spellbook's language (emblem, DC/attack c
 source name wrap fixed with it; and a Traits & Feats chapter in the spellbook (ledger or prep-sheet
 rows with ticks) beside the list card, to compare.
 
+**Spell card design, first mock (2026-11-11, not published):** owner: "complementary design, not
+an exact mirror of items". Drawn by `draw-spell-card!` in the harness, beside today's cards:
+rounded frame (items are chamfered), the spellbook's level ring as a medallion breaking the top
+edge, centred title, school sigil and line, source in small grey capitals, the spellbook's crest
+(DC shield, attack arrowhead) instead of the DC/mod text, a labelled 2x2 grid of casting facts, a
+uses track (circles, rest type as its label), text. Fix before showing: the uses track's rule runs
+through its circles; the material component is missing. The wrap bug was also fixed in today's
+cards (`2223006ca`, test `035de7450`).
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line

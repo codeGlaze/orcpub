@@ -2499,7 +2499,7 @@ _multi-tab-character-contamination · multi tab character contamination_
 
 _my-account-light-theme-white-text · my account light theme white text_
 
-**topics:** 2017, 2026-10-14, account, body, credit, driving, grey, grounds, hard-coded, light, news, predates, theme, themes, unticked, username, utility, white
+**topics:** 2017, 2026-10-14, account, artist, body, credit, driving, grounds, hard-coded, light, news, predates, theme, themes, unticked, username, utility, white
 
 
 
