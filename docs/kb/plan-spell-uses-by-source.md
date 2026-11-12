@@ -426,8 +426,12 @@ App and data, after the PDF (steps 4-6 of the build order below): Spells tab sep
 with a combine toggle and "N remaining" countdowns; Magic Initiate presets; the player's ability
 pick for 2024-style grants; Rod of the Pact Keeper scoped to warlock spells (a bug today).
 
-Also open: packed class headings may not draw on a flattened export (seen in the harness; check
-in the app).
+Packed class headings do not draw on a flattened export (checked 2026-11-12): `draw-column-heading!`
+finds its bar through the `spells-<box>-1-<n>` form field (`pdf.clj` ~2112), and runs after
+`write-fields!` has flattened the form away (`routes.clj` ~998-1010). Players never hit it: the app
+never sends `:flatten? true`; only direct callers of `character-pdf-2` (the mockup harness) can.
+Moving the drawing before the flatten is not enough: flattening appends the fields' appearances
+after the page's content, so a field background would cover the heading.
 
 ## Build order (each step small and shippable)
 
