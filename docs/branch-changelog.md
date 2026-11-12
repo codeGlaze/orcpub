@@ -79,5 +79,8 @@ duplicates, and the PDF Options code moved out of views.cljs (views/pdf_options.
 - **Warlock:** Mire the Mind's Slow is cast once per long rest using a warlock spell slot, not at
   will, and a Warlock's at-will and Mystic Arcanum spells stay at their own level on a packed PDF
   spell sheet.
+- **Magic items:** the Rod of the Pact Keeper raises the spell save DC and spell attack of warlock
+  spells only, not a multiclass character's other spells or a race's; a spell page splits a source
+  whose DC then differs into its own section.
 
 ## Security
