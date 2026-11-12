@@ -2443,7 +2443,7 @@ _merging-across-a-refactor · merging across a refactor_
 
 _mockup-review-pages · mockup review pages_
 
-**topics:** 2026-10-22, 2026-11-11, artifact, box, drawn, draws, look, owner, page, phone, png, printed, publish, publishing, scenes, shot, shots, theme-aware
+**topics:** 2026-10-22, 2026-11-11, artifact, box, drawn, draws, look, owner, page, phone, png, printed, publish, publishing, sheet, shot, shots, theme-aware
 
 - The three pieces (all in scripts/design/ on this branch)
 - Steps

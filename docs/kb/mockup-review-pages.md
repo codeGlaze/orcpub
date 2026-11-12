@@ -64,6 +64,9 @@ Steps, from a code worktree (no server, no browser; about a minute):
   app-drawn heading on the same page before publishing.
 - **Draw long text, do not write it into row fields:** each row field sizes its own text, so lines
   of different length came out at different sizes (`draw-write-up!` draws every line at one size).
+- **Find a page by rendering, not by counting from the end.** With spell cards on, a sheet with no
+  spell page ran: sheet, sheet, card fronts, Features overflow, card backs; "second to last" hit the
+  Features page. `card-pages-plain` renders every page after the sheet to look.
 - **Box 1 has printed labels above its bar** (SLOTS TOTAL, SLOTS EXPENDED) and SPELL NAME under
   it: numbers drawn above that bar collide. Boxes 2-9 are clear above.
 - **Use the bar the way packed sheets do:** caption in the narrow compartment (as CANTRIPS), the
