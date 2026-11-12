@@ -66,6 +66,23 @@ preview and the server (`routes/requested-pdf-filename`), so the preview is the 
 
 ## Spell Card Rendering (`add-spell-cards!`)
 
+### The front (since 2026-11-12, fix/pdf-export)
+
+`cards/spell-card-layout` computes a front as measured boxes (pure), `cards/spell-card-problems`
+checks them, `cards/draw-spell-card!` draws them; `print-spells` keeps its `{:remaining-lines
+:spell-name}` contract for the backs. Design and its rules: `plan-spell-uses-by-source.md`,
+"Settled spell card". Facts worth knowing:
+
+- **Figures are drawn as glyph outlines** (`draw/text!` with `:lining`, Vollkorn's lining
+  digits; its own figures are old-style, 1 reads as I). Outlines are not text: only strings with
+  a digit are drawn that way, so spell names stay searchable and copyable.
+- **`draw/text!` and `draw/sigil!` leave fill and stroke at their colour:** reset to black after
+  them, or the next outline and the body text inherit a grey or white.
+- **The print modes no longer change any card page:** the fronts' red icons were the only thing
+  `bw?` / `bw-faded?` altered (card_geometry_test compares the modes). The two options are hidden
+  in PDF Options, code and saved settings kept.
+- `spell_cards_test` lays out all 319 SRD spells and the stress card and fails on any overlap.
+
 ### Lifecycle (critical for understanding blank page bugs)
 
 ```

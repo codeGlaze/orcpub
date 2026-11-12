@@ -451,7 +451,7 @@ _before-you-start · before you start_
 
 _blank-env-values · blank env values_
 
-**topics:** account, auto-verify, blank, bypass, configured, docker, email, empty, environ, environment, guard, instance, knowing, operator, registration, send, smtp, unconfigured
+**topics:** account, auto-verify, blank, bypass, configured, docker, email, empty, environ, environment, guard, instance, operator, opt-in, registration, send, smtp, unconfigured
 
 - Why it kept happening
 - What it cost
@@ -2691,13 +2691,14 @@ _pdf-generated-vs-uploaded-images · pdf generated vs uploaded images_
 
 _pdf-generation-architecture · pdf generation architecture_
 
-**topics:** color, fillable, firefox, flatten, font, linux, macos, pdf, pdfbox, populated, reflection, rendering, spell, templates, viewer, widget, widgets, windows
+**topics:** card, color, fillable, firefox, flatten, font, linux, macos, pdf, pdfbox, populated, reflection, rendering, spell, templates, widget, widgets, windows
 
 - Overview
 - Template Selection
 - Spell Page Field Spec (pdfspec.cljc)
 - The download's file name (2026-11-11, fix/pdf-export)
 - Spell Card Rendering (add-spell-cards!)
+- The front (since 2026-11-12, fix/pdf-export)
 - Lifecycle (critical for understanding blank page bugs)
 - Silent Exception Swallowing
 - PDFBox 3.x Migration
@@ -3132,7 +3133,7 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 2014, 2026-11-11, 2026-11-12, 521, box, boxes, card, cards, cast, casting, circles, crest, initiate, level, row, slots, spell, tiefling
+**topics:** 2014, 2026-11-11, 2026-11-12, 521, box, boxes, card, cards, cast, casting, crest, initiate, level, row, slots, spell, spellbook, tiefling
 
 - The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)
@@ -3623,7 +3624,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, armor, conditions, counterpart, editions, magic, monsters, open5e, species, srd, text, weapons
+**topics:** 2014, 2024, 285, 313, 317, 322, 5etools, armor, conditions, counterpart, editions, magic, monsters, open5e, species, srd, text, weapons
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -3640,7 +3641,7 @@ _srd-2024-coverage · srd 2024 coverage_
 
 _srd-2024-implementation-notes · srd 2024 implementation notes_
 
-**topics:** 2014, 2024, 339, damage, dial, edition, editions, exhaustion, feat, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
+**topics:** 2014, 2024, 339, damage, dial, edition, editions, exhaustion, expressed, feat, goblin, grappled, idea, lineage, mechanical, open5e, prose, species
 
 - The structural shifts, measured
 - 1. Subraces became lineages

@@ -385,6 +385,12 @@ number, lining figures throughout (serif text measured with `lining-width`, or n
 Trap: the spellbook's lining `text!` leaves the fill and stroke colours at its text colour, so the
 next outline (the R ribbon) and the body text inherit it: reset both to black after it.
 
+**Built 2026-11-12 on fix/pdf-export:** `ff44e16ca` moves the spellbook's lining text and sigils to
+`orcpub.pdf.draw` (owner chose the shared drawing namespace over making spellbook functions public);
+`3826d84a3` the card in `orcpub.pdf.cards` (owner: "we already have namespaces for this": the
+card family's namespace, not a new one); `96387e03f` tests; `02a21e7a8` hides the B&W options.
+Details: pdf-generation-architecture.md, "The front".
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
