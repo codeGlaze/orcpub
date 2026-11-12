@@ -563,7 +563,13 @@
   {:attack {:w 28 :h 15 :lw 0.8 :paths ["M1 1 H21 L27 7.5 L21 14 H1 L4.5 7.5 Z"] :slot [13.5 7.5]}
    :level {:w 19 :h 19 :lw 0.9 :paths [(circle-d 9.5 9.5 9.0)] :inner [(circle-d 9.5 9.5 7.6)] :slot [9.5 9.5]}
    :save {:w 20 :h 23 :lw 0.8 :paths ["M1 1 H19 V10 Q19 19.5 10 22.5 Q1 19.5 1 10 Z"] :slot [10 10.5]}
-   :use {:w 7 :h 7 :lw 0.8 :paths [(circle-d 3.5 3.5 3.0)] :slot [3.5 3.5]}})
+   :use {:w 7 :h 7 :lw 0.8 :paths [(circle-d 3.5 3.5 3.0)] :slot [3.5 3.5]}
+   ;; The save DC shield with the attack on a banner across its top; the banner's ends are
+   ;; V-notched. :slot is the DC, :banner-slot the attack.
+   :crest {:w 32 :h 28 :lw 0.8
+           :paths ["M4 7 H28 V14 Q28 23.5 16 27 Q4 23.5 4 14 Z"
+                   "M1 1 H31 L28.5 5 L31 9 H1 L3.5 5 Z"]
+           :slot [16 17] :banner-slot [16 5]}})
 
 (defn draw-icon!
   "Draws icon `k` of card-icons with its box's top-left at (x, y) points from the card's top-left
@@ -637,6 +643,32 @@
         y (atom 0)]
     ;; title and trio
     (case config
+      :crest (let [cw 32 ch 28 cx (- content-r cw) cy 9
+                   r 6.5 ring-cx (+ content-l r) title-x (+ content-l (* 2 r) 5)
+                   room (- cx 6 title-x)
+                   lines (if (<= (text-pt serif-b spell-name title-size) room) [spell-name] (wrap-lines serif-b 9.5 room spell-name))
+                   size (if (= 1 (count lines)) title-size 9.5)
+                   {[sx sy] :slot [bx by] :banner-slot} (card-icons :crest)
+                   dc-t (str dc) dc-w (text-pt serif-b dc-t 9.0)
+                   at-t (str attack) at-w (text-pt serif-b at-t 6.0)
+                   ring-cy (- 18 (* 0.35 title-size))]
+               (add! {:kind :circle :cx ring-cx :cy ring-cy :r r :box [content-l (- ring-cy r) (+ content-l (* 2 r)) (+ ring-cy r)]})
+               (let [lv (if (zero? (or level 0)) "c" (str level)) lw (text-pt serif-b lv 7.0)]
+                 (add! {:kind :text :font serif-b :size 7.0 :text lv :x (- ring-cx (/ lw 2)) :y (+ ring-cy (* 0.35 7.0)) :grey 0 :inside :ring
+                        :box [(- ring-cx (/ lw 2)) (- ring-cy 2.5) (+ ring-cx (/ lw 2)) (+ ring-cy 2.5)]}))
+               (doseq [[i l] (map-indexed vector lines)]
+                 (text! serif-b size l title-x (+ 18 (* i 11))))
+               (add! {:kind :icon :k :crest :x cx :y cy :scale 1.0 :box [cx cy (+ cx cw) (+ cy ch)]})
+               (add! {:kind :text :font serif-b :size 9.0 :text dc-t :x (- (+ cx sx) (/ dc-w 2)) :y (+ cy sy 1.0) :grey 0 :inside :crest
+                      :box [(- (+ cx sx) (/ dc-w 2)) (+ cy sy -5.5) (+ cx sx (/ dc-w 2)) (+ cy sy 2.5)]})
+               (add! {:kind :text :font serif-b :size 6.0 :text at-t :x (- (+ cx bx) (/ at-w 2)) :y (+ cy by 2.1) :grey 0 :inside :crest
+                      :box [(- (+ cx bx) (/ at-w 2)) (+ cy by -2.2) (+ cx bx (/ at-w 2)) (+ cy by 2.2)]})
+               (let [dl "SAVE DC" dlw (text-pt sans-b dl 3.6)]
+                 (add! {:kind :text :font sans-b :size 3.6 :text dl :x (- (+ cx sx) (/ dlw 2)) :y (+ cy sy 6.5) :grey 0.35 :inside :crest
+                        :box [(- (+ cx sx) (/ dlw 2)) (+ cy sy 4) (+ cx sx (/ dlw 2)) (+ cy sy 7.3)]}))
+               (let [after-title (+ 18 (* 11 (dec (count lines))) 11)]
+                 (reset! y {:school-y after-title :school-x ring-cx :line-x title-x
+                            :rule-y (max (+ cy ch 3) (+ after-title 4))})))
       :band (let [lines (if (title-fits? W) [spell-name] (wrap-lines serif-b 9.5 W spell-name))
                   size (if (= 1 (count lines)) title-size 9.5)]
               (doseq [[i l] (map-indexed vector lines)]
@@ -659,16 +691,20 @@
                     (reset! y {:school-y after-title :rule-y ry :cx [attack-cx level-cx save-cx]})))))
     ;; school line (sigil + italic), then the rule for :beside, then source and uses
     (let [line (@#'orcpub.spellbook/school-line spell)
+          crest? (when (and (map? @y) (:school-x @y)) @y)
           [school-y next-y] (if (map? @y)
                               (let [{:keys [school-y rule-y cx]} @y]
                                 [school-y (do (rule! rule-y)
-                                              (doseq [[t c] (map vector ["ATTACK" "LEVEL" "SAVE DC"] cx)] (legend! t c rule-y))
+                                              (when cx (doseq [[t c] (map vector ["ATTACK" "LEVEL" "SAVE DC"] cx)] (legend! t c rule-y)))
                                               (+ rule-y 10))])
                               [(+ @y 0) (+ @y 9)])
           lw (text-pt serif-i line 7.0)
-          sx (if (= config :band) (+ content-l (/ (- W lw 9) 2)) content-l)]
+          sx (cond crest? (- (:school-x crest?) 3.25)
+                   (= config :band) (+ content-l (/ (- W lw 9) 2))
+                   :else content-l)
+          lx (if crest? (:line-x crest?) (+ sx 9))]
       (add! {:kind :sigil :school school :x sx :y (- school-y 5.9) :box [sx (- school-y 5.9) (+ sx 6.5) (+ school-y 0.6)]})
-      (text! serif-i 7.0 line (+ sx 9) school-y 0.15)
+      (text! serif-i 7.0 line lx school-y 0.15)
       (reset! y next-y))
     (let [src (cstr/upper-case source)
           src-w (text-pt sans src 4.8)
@@ -722,7 +758,8 @@
   [{:keys [elements]}]
   (let [content (remove #(#{:rule :body} (:kind %)) elements)
         ov? (fn [[a0 b0 a1 b1] [c0 d0 c1 d1]] (and (< a0 c1) (< c0 a1) (< b0 d1) (< d0 b1)))
-        label (fn [e] (str (name (:kind e)) " " (or (:text e) (some-> (:k e) name) (:school e))))]
+        label (fn [e] (str (name (:kind e)) " " (or (:text e) (some-> (:k e) name) (:school e))))
+        content (map #(if (= :circle (:kind %)) (assoc % :k :ring) %) content)]
     (vec (concat
           (for [e content :let [[x0 y0 x1 _] (:box e)] :when (or (< x0 8) (< y0 8) (> x1 (- card-w 8)))]
             (str (label e) " is within 3 pt of the frame"))
@@ -747,12 +784,18 @@
     (.setNonStrokingColor cs (float 0) (float 0) (float 0))
     (.setStrokingColor cs (float 0) (float 0) (float 0))
     (rounded-rect! cs (+ X 5) (py (- card-h 5)) (- card-w 10) (- card-h 10) 8.0 0.9)
-    (doseq [e (filter #(= :rule (:kind %)) elements)]
+    (doseq [e (filter #(= :rule (:kind %)) elements)
+            :let [on (filter #(and (= :legend (:kind %)) (< (Math/abs (double (- (:y %) 1.5 (:y e)))) 0.1)) elements)
+                  first-l (first (filter #(< (first (:box %)) (+ content-l 8)) on))
+                  last-l (first (filter #(> (nth (:box %) 2) (- content-r 8)) on))
+                  x0 (if first-l (nth (:box first-l) 2) content-l)
+                  x1 (if last-l (first (:box last-l)) content-r)]]
       (.setLineWidth cs (float 0.5))
-      (.moveTo cs (float (+ X content-l)) (float (py (:y e)))) (.lineTo cs (float (+ X content-r)) (float (py (:y e)))) (.stroke cs))
+      (.moveTo cs (float (+ X x0)) (float (py (:y e)))) (.lineTo cs (float (+ X x1)) (float (py (:y e)))) (.stroke cs))
     (doseq [e elements]
       (case (:kind e)
         :icon (draw-icon! cs page-h X T (:k e) (:x e) (:y e) (:scale e))
+        :circle (do (.setLineWidth cs (float 0.8)) (circle-stroke! cs (+ X (:cx e)) (py (:cy e)) (:r e)))
         :sigil (@#'orcpub.spellbook/sigil! cs (:school e) (+ X (:x e)) (+ T (:y e)) 6.5)
         :text (draw-pt! cs (:font e) (:size e) (:text e) (+ X (:x e)) (py (:y e)) (:grey e))
         :legend (let [[x0 _ x1 _] (:box e)]
@@ -775,8 +818,8 @@
         X (* 72 (+ margin-x (* 2.5 col))) T (* 72 (+ margin-y (* 3.5 row)))
         sans (draw/sans fonts :plain) serif-b (:bold fonts)]
     (draw-pt! cs serif-b 10 "Card icons" (+ X 12) (- page-h (+ T 20)) 0)
-    (doseq [[i k] (map-indexed vector [:attack :level :save :use])
-            :let [{:keys [w h]} (card-icons k) s 3.0 x (+ 14 (* (mod i 2) 80)) y (+ 34 (* (quot i 2) 90))]]
+    (doseq [[i k] (map-indexed vector [:crest :level :use])
+            :let [{:keys [w h]} (card-icons k) s 3.0 x (+ 14 (* (mod i 2) 104)) y (+ 34 (* (quot i 2) 110))]]
       (draw-icon! cs page-h X T k x y s)
       (.setLineDashPattern cs (float-array [1.5 1.5]) (float 0))
       (.setLineWidth cs (float 0.3))
@@ -825,17 +868,21 @@
             stress-spec {:spell stress :source "Half-Elf (Variant) · Magic Initiate (Wizard) · cast at 2nd level"
                          :dc 19 :attack "+11" :uses {:n 6 :label "6 / LONG REST"}}]
         (with-open [cs (PDPageContentStream. doc (.getPage doc pg) PDPageContentStream$AppendMode/APPEND true true)]
-          (doseq [[config row] [[:band 0] [:beside 1]]
+          (doseq [[config row] [[:crest 0]]
                   [col spec] (map-indexed vector specs)
                   :let [l (card-layout fonts config spec)]]
             (doseq [p (layout-problems l)] (println "LAYOUT" (name config) (:name (:spell spec)) "-" p))
             (when (= col 0) (println "FIT" (name config) "body starts at" (:text-top l) "pt:" (format "%.0f%%" (* 100 (fit-share fonts (:text-top l))))))
             (draw-card-v2! cs fonts ph col row l (:description (:spell spec))))
-          (doseq [[config col] [[:band 0] [:beside 1]]
-                  :let [l (card-layout fonts config stress-spec)]]
-            (doseq [p (layout-problems l)] (println "LAYOUT stress" (name config) "-" p))
-            (draw-card-v2! cs fonts ph col 2 l (:description stress)))
-          (icon-sheet! cs fonts ph 2 2))
+          (let [l (card-layout fonts :crest stress-spec)]
+            (doseq [p (layout-problems l)] (println "LAYOUT stress crest -" p))
+            (draw-card-v2! cs fonts ph 0 1 l (:description stress)))
+          (let [d {:spell (spells/spell-map :darkness) :source "Tiefling · Infernal Legacy" :dc 13 :attack "+5"
+                   :uses {:n 1 :label "1 / LONG REST"}}
+                l (card-layout fonts :crest d)]
+            (doseq [p (layout-problems l)] (println "LAYOUT crest Darkness -" p))
+            (draw-card-v2! cs fonts ph 1 1 l (:description (:spell d))))
+          (icon-sheet! cs fonts ph 2 1))
         (let [out (ByteArrayOutputStream.)]
           (.save doc out)
           (with-open [saved (Loader/loadPDF (.toByteArray out))]

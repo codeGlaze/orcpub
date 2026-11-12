@@ -337,6 +337,14 @@ labels as legends on the rules. Stress card holds in both configurations. Measur
 shield sits 2 pt from the frame top; legend at a rule's end leaves a stub of line; icon sheet boxes
 overlap.
 
+**Card design v3 (2026-11-12, not published):** owner: level circle back top-left beside the
+title (as the compact card had it); attack on a banner with V-notched ends across the top of the
+save DC shield, as one crest (`card-icons :crest`, 32x28). Layout right (title wraps beside the
+crest on the stress card, rules end at their legends), fit **63%**. Crest faults: the shield's top
+edge is stroked through the banner and the attack number (draw the banner white-filled over the
+shield); "SAVE DC" is too wide for the shield (use "DC" or nothing); the level circle 0.2 pt inside
+the 3 pt clearance.
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
