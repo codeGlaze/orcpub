@@ -70,6 +70,8 @@ duplicates, and the PDF Options code moved out of views.cljs (views/pdf_options.
 - **Printing:** a race's spell page (a Tiefling's Hellish Rebuke and Darkness) no longer shows
   the class's spell slots; each such spell says how it is cast, for example "2nd level,
   once/long rest", as do a Warlock's at-will invocations and Mystic Arcanum.
+- **Printing:** a spell card whose source has a long name (Misty Step from Fey Teleportation)
+  no longer prints its DC and spell mod over the casting-time icons.
 - **Warlock:** Mire the Mind's Slow is cast once per long rest using a warlock spell slot, not at
   will, and a Warlock's at-will and Mystic Arcanum spells stay at their own level on a packed PDF
   spell sheet.
