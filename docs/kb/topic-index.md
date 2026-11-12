@@ -3132,7 +3132,7 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 2014, 2026-11-11, 2026-11-12, 521, box, boxes, card, cards, cast, casting, crest, free, initiate, level, row, slots, spell, tiefling
+**topics:** 2014, 2026-11-11, 2026-11-12, 521, box, boxes, card, cards, cast, casting, circles, crest, initiate, level, row, slots, spell, tiefling
 
 - The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)

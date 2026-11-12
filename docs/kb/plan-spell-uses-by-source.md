@@ -371,6 +371,14 @@ the ribbons. Held back: Vollkorn's old-style figures make "LVL 1" read "LVL I" a
 "+II" (on every design so far). All card numbers need lining figures: the spellbook already draws
 them from the same font (`centred!` / `text!` with `:lining`, `spellbook.clj`).
 
+**Settled spell card (owner, 2026-11-12, "this one looks like it works best"):** name top-left
+(wraps beside ATK / DC); subheading `9th Level · Trans.` (ordinal level in bold, school always
+abbreviated, `Cantrip` for level 0); C and R ribbons top-right; source in small capitals; use
+circles at the right of the source row, on their own row when the source is long; uses label
+without a number (`LONG REST ○○○○○○`, one circle for a single use, it is the tick box); facts as
+legend columns; material two lines then pointing to the back; body 7.5 pt; footer only on
+overflow. Every number in lining figures (spellbook `:lining`).
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
