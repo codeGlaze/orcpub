@@ -345,6 +345,17 @@ edge is stroked through the banner and the attack number (draw the banner white-
 shield); "SAVE DC" is too wide for the shield (use "DC" or nothing); the level circle 0.2 pt inside
 the 3 pt clearance.
 
+**Three header designs (2026-11-12, published v2 of https://claude.ai/artifact/MuNQfjD2sXjMWsUHaUNNNM):**
+owner: the shapes were too clever and took space; likes name and details top-left; level between
+attack and DC was odd; "c" means concentration, not cantrip, and concentration needs a prominent
+reserved place. Mocked with `card-layout-3`: **index** (level numeral in a corner, black for
+concentration; 67% fit), **tabs** (Name | C | ATK | DC | LVL, dark C tab; 63%), **named** (name and
+school line top-left, ATK/DC figures right, black bookmark ribbon for concentration, outlined for
+ritual; 67%). Traps found: concentration is a string duration ("Concentration, up to ...") or a
+units map with :concentration, not "any map"; Vollkorn's figures are old-style (0 reads as o, 1 as
+I): level numbers use the sans. Open gap: concentration plus ritual (Detect Magic) shows only C in
+index and tabs.
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
