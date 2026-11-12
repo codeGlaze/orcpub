@@ -371,11 +371,12 @@ the ribbons. Held back: Vollkorn's old-style figures make "LVL 1" read "LVL I" a
 "+II" (on every design so far). All card numbers need lining figures: the spellbook already draws
 them from the same font (`centred!` / `text!` with `:lining`, `spellbook.clj`).
 
-**Settled spell card (owner, 2026-11-12, "this one looks like it works best"):** name top-left
-(wraps beside ATK / DC); subheading `9th Level · Trans.` (ordinal level in bold, school always
-abbreviated, `Cantrip` for level 0); C and R ribbons top-right; source in small capitals; use
-circles at the right of the source row, on their own row when the source is long; uses label
-without a number (`LONG REST ○○○○○○`, one circle for a single use, it is the tick box); facts as
+**Settled spell card (owner, 2026-11-12):** the stress render with `9th Level` is the base, plus:
+name top-left (wraps beside ATK / DC); subheading `9th Level · Trans.` (ordinal level in bold, school
+always abbreviated, `Cantrip` for level 0); C and R ribbons top-right; **the use circles on the
+subheading line**, at its right, ending at the ribbons only when the line is level with them (a
+two-line title puts it below them); uses label without a number (`LONG REST ○○○○○○`, one circle for
+a single use, it is the tick box); source in small capitals on its own line; facts as
 legend columns; material two lines then pointing to the back; body 7.5 pt; footer only on
 overflow. Every number in lining figures (spellbook `:lining`).
 
