@@ -293,6 +293,13 @@ uses track (circles, rest type as its label), text. Fix before showing: the uses
 through its circles; the material component is missing. The wrap bug was also fixed in today's
 cards (`2223006ca`, test `035de7450`).
 
+**Space is the constraint (owner, 2026-11-12):** "these are nice but waste a lot of space"; most
+spells should fit the front. Measured over the 319 SRD spells with the app's wrapping
+(`draw/split-lines`, text 2.26 in wide): today, 78 pt header at 8 pt text, **59% fit**; the first
+mock's ~150 pt header, 24-37%. Header 60/50/40 pt: 65/68/70% at 8 pt, 71/74/77% at 7.5 pt,
+80/81/84% at 7 pt. Direction: a compact header of about 40-50 pt (title row with a small level
+ring and the crest or the use circles, a school/source row, one facts row), text 7-7.5 pt.
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
