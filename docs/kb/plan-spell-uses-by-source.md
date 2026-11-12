@@ -321,6 +321,14 @@ wraps to two lines then points to the back; the text box reserves the footer.
 set as SVG (level badges 0-9, use circle, compact crest with measured number slots, the school
 sigils at card size), each with a measured box, placed by those boxes through `draw-svg-icon!`.
 
+**Card header ideas (owner, 2026-11-12, not yet mocked):** a balanced trio, attack on the left,
+save DC on the right, a third piece in the middle (proposed: the spell level, which frees the
+title row for the full width and fixes the stress title collision). Labels "cheaped" onto the
+horizontal rules as legends: each label centred under its value, on a white knockout (measured
+width plus about 1.5 pt each side), so value and label share a centre line and the facts row gets
+its full width back. The same for SAVE DC / ATTACK under the trio. Both go into the designed icon
+set and layout round.
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line

@@ -4045,7 +4045,7 @@ _weapon-mastery-plan · weapon mastery plan_
 
 _weapons-extra-damage-design · weapons extra damage design_
 
-**topics:** charges, chip, colour, crit, damage, dot, dots, effects, extra, hit, menu, on-hit, roll, rolls, strip, tile, vicious, white
+**topics:** 44px, charges, chip, colour, crit, damage, dot, dots, effects, extra, hit, menu, on-hit, roll, rolls, strip, tile, vicious
 
 - Decisions
 - Damage-type palette
