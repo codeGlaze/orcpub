@@ -216,6 +216,51 @@ and stays independent of the app's combine toggle. Open pieces:
   a one-line upcast note.
 - Not yet looked at: how the spellbook pages treat a race "source" (they look up a class emblem).
 
+## Next mockup round (planned 2026-11-11, after a round with two failures)
+
+Review page: https://claude.ai/artifact/JcHSPnwdJb5R5AbQZnGiWc (version 4 is the last published).
+The harness's scenes for this round are written but uncommitted on agents/develop
+(`scripts/design/pdf-mockups.clj`): per-class V1 and V2, a packed Wizard 3 / Cleric 3 page, a
+non-caster write-up page, the Features page lines. What failed and the plan for each:
+
+1. **Drawn bold renders lighter than the app's heading** (seen on the packed page, beside
+   Cleric/Wizard). Test first, in one run: draw a word with the harness and call
+   `pdf/draw-column-heading!` on another free box of the same page; then render after saving to
+   bytes and reloading. If the reload fixes it, render! always reloads. If not, compare the two
+   content streams' font resources.
+2. **Non-caster scene crashed:** pass `:spellcasting-class-1 ""`. The Features scene ran after it,
+   so it never rendered; nothing else is known wrong with it.
+3. **Publish only after looking** at every shot, with an app-drawn heading on the same page as
+   the reference for weight and size. Commit the harness only when every scene runs.
+4. Two render runs; a shot still wrong is left off and reported.
+
+## Build plan (not started; each step its own commit, tests seen failing first)
+
+PDF, in order:
+1. **Traits box in packing:** species, background and feat spells become one group packing fits
+   like a class (by rows; never the cantrips box unless the page is a non-caster's), numeral
+   blanked, its slot inputs removed, bar drawn as packing draws headings (caption TRAITS, source
+   name, numbers above). Per-class layout uses a free box of the class page the same way.
+2. **Columns:** names in the row fields; LVL, SOURCE, DC, USES drawn (pdf-form-techniques.md:
+   drawn, not fields), widths from the widest cell at the rows' printed size. Variant 1 for one
+   source, Variant 2 for several; a PDF Options switch for always Variant 2.
+3. **Use boxes** after the text, drawn, one per use.
+4. **Non-caster:** the Traits box, then each spell written out in a box of its own (bar naming the
+   spell, casting facts line, text, "full text on its spell card" when cut), or spell cards: owner
+   to pick after the mock.
+5. **Features page:** "Spells:" lines of plain names under Bonus Actions and Reactions, from each
+   spell's casting time, for every character.
+6. **Spell cards:** a tag naming the granting feature and the spell's own use boxes (the item
+   cards' charge drawing).
+7. **An end-to-end export check** (Tiefling Wizard, packed and per-class) in the PDF export suite.
+
+App and data, after the PDF (steps 4-6 of the build order below): Spells tab separate by source
+with a combine toggle and "N remaining" countdowns; Magic Initiate presets; the player's ability
+pick for 2024-style grants; Rod of the Pact Keeper scoped to warlock spells (a bug today).
+
+Also open: packed class headings may not draw on a flattened export (seen in the harness; check
+in the app).
+
 ## Build order (each step small and shippable)
 
 1. **The field and the rule:** `:casting` on `spells-known-cfg`, `spell-payment`, tests over the

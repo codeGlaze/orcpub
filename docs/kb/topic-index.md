@@ -25,7 +25,7 @@ every section heading it contains.
 
 _DATOMIC_JAVA21_TEST_RESULTS · DATOMIC_JAVA21_TEST_RESULTS_
 
-**topics:** 5703, activemq, apache, artemis, connection, connections, datomic, free, https, java, mock, peer, peer-to-transactor, pro, releases-pro, ssl, tls, transactor
+**topics:** 5703, activemq, apache, artemis, connection, connections, datomic, free, https, java, peer, peer-to-transactor, pro, releases-pro, ssl, successfully, tls, transactor
 
 - Executive Summary
 - Test Results Matrix
@@ -702,7 +702,7 @@ _built-character-representation · built character representation_
 
 _character-heals · character heals_
 
-**topics:** binding, character, characters, class, former, former-key, heal, healed, heals, indexes, key, misfiled, pick, renamed, report, saved, spell-selection, toast
+**topics:** binding, character, characters, former, former-key, heal, healed, heals, indexes, key, misfiled, person, pick, renamed, report, saved, spell-selection, toast
 
 - The three things that happen when a character loads
 - Where heals run
@@ -717,7 +717,7 @@ _character-heals · character heals_
 
 _character-image-routes · character image routes_
 
-**topics:** 393, acao, advice, bearing, bytes, clipboard, cross-origin, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
+**topics:** 393, acao, advice, bearing, browser, clipboard, cross-origin, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
 
 - The rule that decides everything
 - Measured, with real URLs
@@ -1183,7 +1183,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab, vocabulary
+**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab, vocabulary
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -1985,7 +1985,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 1743, 374, 3816, 493, believing, branch, cut, directions, duplicate-key, e2e, integration, item, key, merging, minted, outcome, source, tag
+**topics:** 1743, 1744, 374, 3816, 493, believing, branch, directions, duplicate-key, e2e, integration, item, key, merging, minted, outcome, source, tag
 
 - Outcome
 - The branches, and the order
@@ -2323,7 +2323,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, junk, leading, least-destructive, mangled, quarantined, repair, restore, suggestion, translator, unnamed, wind, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, quarantined, repair, restore, suggestion, translator, unnamed, wind
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -2443,7 +2443,7 @@ _merging-across-a-refactor · merging across a refactor_
 
 _mockup-review-pages · mockup review pages_
 
-**topics:** 2026-10-22, 2026-11-11, artifact, box, look, mockup, owner, phone, png, printed, publish, round, scenes, shot, shots, theme-aware, wide, writing-browser-tests
+**topics:** 2026-10-22, 2026-11-11, artifact, box, drawn, look, mockup, owner, phone, png, printed, publish, publishing, scenes, shot, shots, theme-aware, wide
 
 - The three pieces (all in scripts/design/ on this branch)
 - Steps
@@ -3012,7 +3012,7 @@ _plan-email-and-alerts · plan email and alerts_
 
 _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
-**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, published, skill, wrapper
+**topics:** already-held-grants, arms, characterizing, completing, concept, decision-already-held-resolution, decision-gate-hidden-picks, fields, grant, hidden-pick, hidden-selection-picks, lossy, ornaments, per-pool, per-silo, pool, skill, wrapper
 
 - Position, stated once
 - Part A — the bug fix
@@ -3132,7 +3132,7 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 2014, 2024, 2026-11-11, 521, box, boxes, cast, casting, casts, free, initiate, rest, slot, slots, spell, spells, srd, tiefling
+**topics:** 2014, 2024, 2026-11-11, 521, box, boxes, cast, casting, casts, free, initiate, packed, slot, slots, spell, spells, tiefling, wizard
 
 - The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)
@@ -3140,6 +3140,8 @@ _plan-spell-uses-by-source · plan spell uses by source_
 - The plan
 - Design, proposed 2026-11-11 (text mockups; not agreed, not built)
 - The PDF (discussed 2026-11-11, not agreed)
+- Next mockup round (planned 2026-11-11, after a round with two failures)
+- Build plan (not started; each step its own commit, tests seen failing first)
 - Build order (each step small and shippable)
 - Open, for the owner
 
@@ -3817,7 +3819,7 @@ _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
 _subscribe-refactor-phase2 · subscribe refactor phase2_
 
-**topics:** chain, cljc, low, pdf, phase, plugin-data, pure, race-map, reactive, reg-sub-raw, render, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
+**topics:** caller, chain, cljc, low, pdf, phase, plugin-data, pure, race-map, reactive, reg-sub-raw, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
 
 - Context
 - Fix Patterns (New in Phase 2)

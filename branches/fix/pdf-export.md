@@ -59,6 +59,9 @@ scrolling, a freeze on ticking Print Spell Cards / Print Spellbook). **Base:** `
   **PDF side done 2026-11-11** (`54e609b18`, `43e00ec1e`); app side is steps 4-6 of
   `docs/kb/plan-spell-uses-by-source.md`. Also fixed: the reference pages did not render on this
   branch (`bf3407500`, an undeclared `views/make-arg-event-handler` after the integration merge).
+  **Where it stands (2026-11-11, before a compact):** planning and mockups for how non-class
+  spells print; nothing built past steps 1-3. Resume from `docs/kb/plan-spell-uses-by-source.md`,
+  sections "Next mockup round" and "Build plan". #84 is not ready to merge (owner).
 
 - Export feedback during the 0.3-2.6 s (longer under load) server wait: a message on the builder
   (unseen while the new tab has focus), a "Making your PDF..." page in the new tab, or fetching the

@@ -54,6 +54,13 @@ Steps, from a code worktree (no server, no browser; about a minute):
 - **Match the sheet, do not guess sizes.** Spell rows are auto-sized Nimbus Sans: about 6 pt as
   printed. `render!` measures the names' printed width and sets drawn text to match; columns are
   as wide as their widest cell (`text-pt`), never fixed fractions of the row.
+- **A non-caster mock needs `:spellcasting-class-1`** (an empty string will do): the export adds a
+  spell page only when the sheet names a spellcasting class; without it every spell row lookup is
+  nil.
+- **Compare drawn text with the app's own heading on the same page** before publishing. Bold text
+  drawn by the harness (`draw/sans :bold` through `draw/draw-text`) rendered lighter than
+  `pdf/draw-column-heading!`'s on the same packed page (2026-11-11). Cause not found; the first
+  thing to test is rendering the document unsaved: save to bytes and reload before rendering.
 - **Use the bar the way packed sheets do:** caption in the narrow compartment (as CANTRIPS), the
   source in the wide one, numbers above (`draw-bar!`, after `pdf/draw-column-heading!`).
 
