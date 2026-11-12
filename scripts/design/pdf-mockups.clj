@@ -7,6 +7,8 @@
 ;; How and why: docs/kb/mockup-review-pages.md, "PDF sheets".
 (require '[clojure.string :as cstr]
          '[orcpub.pdf :as pdf]
+         '[orcpub.common :as common]
+         '[orcpub.dnd.e5.spell-print :as sp]
          '[orcpub.pdf.draw :as draw]
          '[orcpub.pdf-spec :as pdf-spec]
          '[orcpub.routes :as routes]
@@ -320,27 +322,179 @@
 
 (def crop-col3 [835 225 400 440])
 
+;; ---------------------------------------------------------------- compact spell cards
+
+(defn page-with
+  "Index of the first page of `doc` whose text holds every string in `needles` and none in
+   `without`, or nil."
+  [doc needles without]
+  (let [stripper (org.apache.pdfbox.text.PDFTextStripper.)]
+    (first (for [i (range (.getNumberOfPages doc))
+                 :let [_ (.setStartPage stripper (inc i)) _ (.setEndPage stripper (inc i))
+                       t (.getText stripper doc)]
+                 :when (and (every? #(cstr/includes? t %) needles) (not-any? #(cstr/includes? t %) without))]
+             i))))
+
+(defn fit-pt
+  "The size, from `start` down to `floor` in quarter points, at which `text` in `font` is no wider
+   than `width` points; the floor when nothing larger fits."
+  [font text width start floor]
+  (or (first (filter #(<= (text-pt font text %) width) (range start (- floor 0.01) -0.25))) floor))
+
+(defn ellipsize
+  "`text` cut with an ellipsis to fit `width` points in `font` at `size`."
+  [font text size width]
+  (if (<= (text-pt font text size) width)
+    text
+    (loop [t text]
+      (let [c (str (cstr/trimr t) "…")]
+        (if (or (<= (text-pt font c size) width) (< (count t) 2)) c (recur (subs t 0 (dec (count t)))))))))
+
+(defn rounded-rect!
+  "Strokes a rectangle with rounded corners: left `x`, PDF `y` of its bottom, `w` x `h`, radius `r`."
+  [cs x y w h r lw]
+  (let [k (* 0.5523 r) x2 (+ x w) y2 (+ y h)]
+    (.setLineWidth cs (float lw))
+    (.moveTo cs (float (+ x r)) (float y))
+    (.lineTo cs (float (- x2 r)) (float y))
+    (.curveTo cs (float (+ (- x2 r) k)) (float y) (float x2) (float (- (+ y r) k)) (float x2) (float (+ y r)))
+    (.lineTo cs (float x2) (float (- y2 r)))
+    (.curveTo cs (float x2) (float (+ (- y2 r) k)) (float (+ (- x2 r) k)) (float y2) (float (- x2 r)) (float y2))
+    (.lineTo cs (float (+ x r)) (float y2))
+    (.curveTo cs (float (- (+ x r) k)) (float y2) (float x) (float (+ (- y2 r) k)) (float x) (float (- y2 r)))
+    (.lineTo cs (float x) (float (+ y r)))
+    (.curveTo cs (float x) (float (- (+ y r) k)) (float (- (+ x r) k)) (float y) (float (+ x r)) (float y))
+    (.closePath cs)
+    (.stroke cs)))
+
+(defn circle-stroke!
+  "Strokes a circle of radius `r` about PDF point (cx, cy)."
+  [cs cx cy r]
+  (let [k (* 0.5523 r)]
+    (.moveTo cs (float (+ cx r)) (float cy))
+    (.curveTo cs (float (+ cx r)) (float (+ cy k)) (float (+ cx k)) (float (+ cy r)) (float cx) (float (+ cy r)))
+    (.curveTo cs (float (- cx k)) (float (+ cy r)) (float (- cx r)) (float (+ cy k)) (float (- cx r)) (float cy))
+    (.curveTo cs (float (- cx r)) (float (- cy k)) (float (- cx k)) (float (- cy r)) (float cx) (float (- cy r)))
+    (.curveTo cs (float (+ cx k)) (float (- cy r)) (float (+ cx r)) (float (- cy k)) (float (+ cx r)) (float cy))
+    (.stroke cs)))
+
+(def compact-layouts
+  "Baselines in points from the card top, and the text size, per header height. At 40 the source
+   shares the school row."
+  {50 {:size 7.5 :title 17 :school 28 :source 36 :rule1 40 :facts 48 :rule2 51 :material 59 :text 53}
+   40 {:size 7.0 :title 16 :school 26 :source 26 :rule1 30 :facts 37 :rule2 40 :material 47 :text 42}})
+
+(defn draw-compact-card!
+  "A compact spell card in grid cell (`col`, `row`) of a card page `page-h` points tall, at header
+   `header` (50 or 40, compact-layouts). Title row: the spellbook's level ring, the title fitted
+   between it and the crest, the spellbook's DC/attack crest. School row: sigil, italic school
+   line, then (at 40) the source; use circles at the right for a limited spell (`uses` {:n
+   :label}). At 50 the source has its own row. Facts row: the old cards' abbreviations with tiny
+   labels, shrunk to fit. Material in italics when present, then the text; 'continued on the
+   back' only when it overflows. Every line is fitted to its room, so nothing leaves the card."
+  [cs fonts page-h col row header {:keys [key source dc attack uses]}]
+  (let [{:keys [margin-x margin-y]} (draw/grid-layout 2.5 3.5)
+        L (compact-layouts header) size (:size L)
+        X (* 72 (+ margin-x (* 2.5 col))) T (* 72 (+ margin-y (* 3.5 row))) W 180.0 H 252.0
+        py (fn [from-top] (- page-h (+ T from-top)))
+        serif (:plain fonts) serif-b (:bold fonts) serif-i (:italic fonts)
+        sans (draw/sans fonts :plain) sans-b (draw/sans fonts :bold)
+        {spell-name :name spell-range :range :keys [level school casting-time components duration description] :as spell}
+        (spells/spell-map key)
+        left (+ X 11) right (- (+ X W) 11)
+        crest-w 40.0
+        title-x (+ left 18)
+        title-size (fit-pt serif-b spell-name (- right crest-w 4 title-x) 10.5 7.0)]
+    (rounded-rect! cs (+ X 5) (py (- H 5)) (- W 10) (- H 10) 8.0 0.9)
+    (@#'orcpub.spellbook/level-ring! cs fonts (or level 0) nil left (+ T (- (:title L) 11)) 14.0)
+    (draw-pt! cs serif-b title-size spell-name title-x (py (:title L)) 0)
+    (@#'orcpub.spellbook/crest! cs fonts dc attack (- right crest-w) (+ T (- (:title L) 11)) crest-w)
+    (let [line (@#'orcpub.spellbook/school-line spell)
+          line-x (+ left 9)
+          line-w (text-pt serif-i line 7.0)
+          uses-w (if uses (+ (text-pt sans-b (:label uses) 4.8) 4 (* (:n uses) 9)) 0)
+          src (cstr/upper-case source)
+          [src-text src-x src-room] (if (= header 40)
+                                      [(str "·  " src) (+ line-x line-w 4) (- right crest-w 4 (+ line-x line-w 4))]
+                                      [src left (- right left)])]
+      (@#'orcpub.spellbook/sigil! cs school left (+ T (- (:school L) 6)) 6.5)
+      (draw-pt! cs serif-i 7.0 line line-x (py (:school L)) 0.15)
+      (let [sz (fit-pt sans src-text src-room 4.8 3.6)]
+        (draw-pt! cs sans sz (ellipsize sans src-text sz src-room) src-x (py (:source L)) 0.4))
+      (when (and uses (= header 50))
+        (let [{:keys [n label]} uses
+              x0 (- right (* n 9))]
+          (draw-pt! cs sans-b 4.8 label (- x0 (text-pt sans-b label 4.8) 3) (py (:school L)) 0.4)
+          (.setLineWidth cs (float 0.8))
+          (doseq [i (range n)]
+            (circle-stroke! cs (+ x0 (* i 9) 3.5) (+ (py (:school L)) 2.2) 3.0)))))
+    (doseq [k [:rule1 :rule2]]
+      (.setLineWidth cs (float 0.4))
+      (.moveTo cs (float left) (float (py (k L)))) (.lineTo cs (float right) (float (py (k L)))) (.stroke cs))
+    (let [comps (cstr/join "," (keep (fn [[c l]] (when (get components c) l)) [[:verbal "V"] [:somatic "S"] [:material "M"]]))
+          facts [["CAST" (sp/abbreviate-casting-time (first (cstr/split (str casting-time) #",")))]
+                 ["RANGE" (sp/abbreviate-range (str spell-range))]
+                 ["COMP" comps]
+                 ["DUR" (sp/abbreviate-duration duration)]]
+          width-at (fn [vs] (reduce + (map (fn [[l v]] (+ (text-pt sans-b l 4.2) 2.5 (text-pt serif v vs) 6)) facts)))
+          uses-w (if (and uses (= header 40)) (+ (text-pt sans-b (:label uses) 4.2) 4 (* (:n uses) 9)) 0)
+          room (- right left uses-w)
+          vsize (or (first (filter #(<= (width-at %) room) (range 7.0 5.49 -0.25))) 5.5)]
+      (when (and uses (= header 40))
+        (let [{:keys [n label]} uses x0 (- right (* n 9))]
+          (draw-pt! cs sans-b 4.2 label (- x0 (text-pt sans-b label 4.2) 3) (py (:facts L)) 0.4)
+          (.setLineWidth cs (float 0.8))
+          (doseq [i (range n)] (circle-stroke! cs (+ x0 (* i 9) 3.5) (+ (py (:facts L)) 2.2) 3.0))))
+      (loop [x left [[label v] & more] facts]
+        (when label
+          (draw-pt! cs sans-b 4.2 label x (py (:facts L)) 0.45)
+          (let [vx (+ x (text-pt sans-b label 4.2) 2.5)]
+            (draw-pt! cs serif vsize v vx (py (:facts L)) 0)
+            (recur (+ vx (text-pt serif v vsize) 6) more)))))
+    (let [mat (get-in spell [:components :material-component])
+          text-top (if mat (+ (:material L) 3) (:text L))]
+      (when mat
+        (let [t (common/ascii-capitalize mat)]
+          (draw-pt! cs serif-i (fit-pt serif-i t (- right left) 6.5 5.0) t left (py (:material L)) 0.2)))
+      (let [overflow (draw/draw-text-to-box cs (str description) serif size (/ left 72.0) (/ (py text-top) 72.0)
+                                            (/ (- right left) 72.0) (/ (- H text-top 13) 72.0))]
+        (when (seq overflow)
+          (let [t "continued on the back"]
+            (draw-pt! cs serif-i 5.5 t (- (+ X (/ W 2)) (/ (text-pt serif-i t 5.5) 2)) (py (- H 9)) 0.45)))))))
+
+(defn compact-cards-scene
+  "Today's Tiefling cards (top row), the compact card at a 50 pt header with 7.5 pt text (middle)
+   and at 40 pt with 7 pt text (bottom): Thaumaturgy, Hellish Rebuke (use circles, a long source)
+   and Fireball (material). Renders the card fronts page to shots/<file>."
+  [file]
+  (let [cha :orcpub.dnd.e5.character/cha
+        cards (pdf-spec/make-spell-card-info (known "Tiefling" cha {0 [:thaumaturgy] 1 [:hellish-rebuke] 2 [:darkness]})
+                                             (constantly 13) (constantly 5) false #{} {} spells/spell-map {})
+        fields (merge sheet {:class-level "Fighter 5" :print-spell-cards? true :print-spell-card-dc-mod? true} cards)
+        specs [{:key :thaumaturgy :source "Tiefling · Infernal Legacy" :dc 13 :attack "+5"}
+               {:key :hellish-rebuke :source "Tiefling · Infernal Legacy · cast at 2nd level" :dc 13 :attack "+5"
+                :uses {:n 1 :label "1 / LONG REST"}}
+               {:key :fireball :source "Wizard" :dc 15 :attack "+7"}]]
+    (with-open [doc (Loader/loadPDF (pdf-bytes fields))]
+      (let [sp-page (page-with doc ["Rebuke"] ["reverse"])
+            fonts (draw/load-fonts doc)
+            ph (.getHeight (.getMediaBox (.getPage doc sp-page)))]
+        (with-open [cs (PDPageContentStream. doc (.getPage doc sp-page) PDPageContentStream$AppendMode/APPEND true true)]
+          (doseq [[i spec] (map-indexed vector specs)]
+            (draw-compact-card! cs fonts ph i 1 50 spec)
+            (draw-compact-card! cs fonts ph i 2 40 spec)))
+        (let [out (ByteArrayOutputStream.)]
+          (.save doc out)
+          (with-open [saved (Loader/loadPDF (.toByteArray out))]
+            (.mkdirs (File. (str out-dir "/shots")))
+            (ImageIO/write (render-page saved sp-page) "png" (File. (str out-dir "/shots/" file)))
+            (println "wrote" file "page" sp-page)))))))
+
 (def shots
-  [(do (per-class-scene tiefling-rows {} v1-bar "v1-one-source.png")
-       {:id "v1" :tag "One source: Variant 1" :title "Tiefling Wizard: the bar carries source and DC"
-        :note "Rows show spell, level and uses. The plan: Variant 1 whenever every row shares one source, with a PDF option to always use Variant 2."
-        :file "v1-one-source.png" :crop crop-col3})
-   (do (per-class-scene (into tiefling-rows initiate-rows) {:dc? true :source? true} v2-bar "v2-two-sources.png")
-       {:id "v2" :tag "Several sources: Variant 2" :title "Tiefling Wizard with Magic Initiate"
-        :note "Each row says its source and its own DC; the bar names the sources."
-        :file "v2-two-sources.png" :crop crop-col3})
-   (let [box (packed-scene tiefling-rows {} v1-bar "packed-two-classes.png")]
-     {:id "packed" :tag "Combined page" :title "Wizard 3 / Cleric 3 packed, plus the Traits box"
-      :note (str "The app's own packing lays out both classes; the Traits box takes the first free level box (box " box "), not the cantrips box, its numeral blanked. Tap \"Show the whole page\" for the full sheet.")
-      :file "packed-two-classes.png" :crop nil})
-   (do (non-caster-scene "non-caster-spell-page.png")
-       {:id "nc" :tag "No Spellcasting feature" :title "Tiefling Champion Fighter: the Traits box, then each spell written out"
-        :note "The Traits box sits at the top of the middle column. Each spell is written out in a box of its own, its bar naming it (the cantrips box uses the app's own heading). Text past a box's rows ends with a pointer to the spell card."
-        :file "non-caster-spell-page.png" :crop nil})
-   (do (features-scene "features-spell-lines.png")
-       {:id "feat" :tag "Every character" :title "Features page: spells you can cast as a bonus action or reaction"
-        :note "Plain names, from each spell's casting time; the spell page has the details and the use boxes."
-        :file "features-spell-lines.png" :crop [0 0 1275 620]})])
+  [(do (compact-cards-scene "compact-cards.png")
+       {:id "compact" :tag "Proposal" :title "Compact spell cards: today (top), 50 pt header (middle), 40 pt header (bottom)"
+        :note "Measured over the 319 SRD spells: today's layout fits 59% on the front, the middle row's layout 74%, the bottom row's 84%."
+        :file "compact-cards.png" :crop nil})])
 
 (spit (str out-dir "/shots.json") (json-str shots))
 (println "wrote shots.json")

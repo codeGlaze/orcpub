@@ -300,6 +300,12 @@ mock's ~150 pt header, 24-37%. Header 60/50/40 pt: 65/68/70% at 8 pt, 71/74/77% 
 80/81/84% at 7 pt. Direction: a compact header of about 40-50 pt (title row with a small level
 ring and the crest or the use circles, a school/source row, one facts row), text 7-7.5 pt.
 
+**Compact spell card, mocked 2026-11-12** (https://claude.ai/artifact/MuNQfjD2sXjMWsUHaUNNNM;
+harness `draw-compact-card!`): 50 pt header, 7.5 pt text (74% fit): rounded
+frame; title row with the spellbook's level ring, title fitted, crest; school row with sigil and
+use circles; source in small capitals; one facts row with `sp/abbreviate-*`; material in italics.
+**40 pt was tried and dropped:** sources had to be cut and the use label collided with the facts.
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
