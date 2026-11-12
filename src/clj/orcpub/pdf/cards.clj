@@ -14,6 +14,14 @@
 ;; draw/page-height. Nothing here names a page size, so the whole file follows
 ;; draw/*page*.
 
+(defn- one-line-size
+  "The size, from 8 pt down to a 6 pt floor in quarter points, at which `text` in `font` fits
+   `width` inches on one line. Returns the floor when nothing larger fits."
+  [text font width]
+  (or (first (filter #(<= (draw/string-width text font %) width)
+                     (range 8.0 5.99 -0.25)))
+      6.0))
+
 (defn- draw-spell-field
   "One icon-and-value field on a spell card (casting time, range, duration,
    components): the `title` icon at [`x` `y`] with `value` printed over it.
@@ -212,16 +220,24 @@
                                  (draw/in-from-top y)
                                  (- box-width 0.3)
                                  0.2)
-               (draw/draw-text-to-box cs
-                                 (if (not= class-nm "Homebrew")
-                                   (str (sp/spell-school-level spell class-nm) (when print-spell-card-dc-mod? (str " " dc-str " Spell Mod " (common/bonus-str attack-bonus))))
-                                   (sp/spell-school-level spell class-nm))
-                                 (:italic fonts)
-                                 8
-                                 (+ x 0.12)
-                                 (draw/in-from-top (+ y 0.19))
-                                 (- box-width 0.24)
-                                 0.25)
+               ;; One line, shrunk to fit: a long source name ("Fey Teleportation") used to
+               ;; wrap this line down onto the icon row below it.
+               (let [line (if (not= class-nm "Homebrew")
+                            (str (sp/spell-school-level spell class-nm) (when print-spell-card-dc-mod? (str " " dc-str " Spell Mod " (common/bonus-str attack-bonus))))
+                            (sp/spell-school-level spell class-nm))
+                     width (- box-width 0.24)
+                     line (if (> (draw/string-width line (:italic fonts) 6.0) width)
+                            (s/replace line " Spell Mod " " Mod ")
+                            line)
+                     size (one-line-size line (:italic fonts) width)]
+                 (draw/draw-text-to-box cs
+                                   line
+                                   (:italic fonts)
+                                   size
+                                   (+ x 0.12)
+                                   (draw/in-from-top (+ y 0.19))
+                                   width
+                                   (/ (* 1.2 size) 72.0)))
                (when casting-time
                  (draw-spell-field cs fonts
                                    img
