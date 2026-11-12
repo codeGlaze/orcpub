@@ -546,7 +546,9 @@
        ;; gating it on spell cards alone hid it from anyone printing only items.
        (when (or print-spell-cards? print-magic-item-cards?)
          [option-group "Appearance"
-          [option-checkbox
+          ;; Hidden, kept for later: the spell card front is black on white, so these change no
+          ;; card any more (plan-spell-uses-by-source.md, agents/develop).
+          #_[option-checkbox
            "Printer-friendly (black & white)"
            print-bw?
            (make-event-handler ::char/toggle-print-bw)
@@ -554,7 +556,7 @@
                 "stay legible on a mono printer.")]
           ;; Under B&W: default is solid-black icons with white-halo labels;
           ;; opt into faded grayscale icons for a softer look.
-          (when print-bw?
+          #_(when print-bw?
             [:div.option-nested
              [option-checkbox
               "Faded grayscale icons (else solid black)"
@@ -568,8 +570,8 @@
            (make-event-handler ::char/toggle-print-card-back-logo)
            (str "Puts a logo on the reverse of every card, so a printed sheet cut "
                 "up and shuffled still has a back.")]
-          ;; Treatment only matters when the logo is on AND B&W isn't forcing black.
-          (when (and print-card-back-logo? (not print-bw?))
+          ;; Treatment only matters when the logo is on.
+          (when print-card-back-logo?
             [:div.option-nested
              [option-checkbox
               "Faded color (else solid black)"
