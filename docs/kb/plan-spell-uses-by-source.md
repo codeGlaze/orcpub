@@ -184,6 +184,20 @@ and stays independent of the app's combine toggle. Open pieces:
   1/day: yes on a page of one source's limited spells, one per level (a plain Tiefling); no where
   a race shares a page with class spells of its ability (a Tiefling Sorcerer's CHA page holds the
   Sorcerer's slots). Open: slot boxes there plus boxes after the text elsewhere, or one rule.
+- **Traits & Feats box (owner, 2026-11-11, mocked with `scripts/design/pdf-mockups.clj`,
+  https://claude.ai/artifact/JcHSPnwdJb5R5AbQZnGiWc):** one box for every species, background and
+  feat spell, fitted into a free box of an existing spell page, numeral blanked, the bar used as
+  packing uses it (caption TRAITS where CANTRIPS goes, source where a class name goes, numbers
+  above). Spell names in the row fields; LVL, SOURCE, DC and USES drawn at the names' printed size
+  (about 6 pt Nimbus Sans), each column as wide as its widest cell. **Variant 2 (source and DC per
+  row) "looks incredible"**; Variant 1 (one source: source and DC in the bar) not commented on.
+  On a packed page: the box's slot inputs must be removed (packing already shrinks them for
+  headings); with no free box it is fitted like a class (by rows) and starts a page only when
+  every box is taken.
+- **Bonus-action and reaction spells on the Features page, every character (owner idea,
+  2026-11-11):** a comma-separated "Spells:" line under Bonus Actions and Reactions, from each
+  spell's casting time, a limited spell keeping its box. For a non-caster the owner leans to
+  both: this list and the Traits box.
 - **Spell cards, checked 2026-11-11:** cards already print school, level, source, DC and spell
   mod (option), casting time, range, components and material, duration, "(ritual)", and the full
   text (higher levels and damage included); the DC already follows the granting source's ability.
