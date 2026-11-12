@@ -218,6 +218,11 @@ and stays independent of the app's combine toggle. Open pieces:
 
 ## Next mockup round (planned 2026-11-11, after a round with two failures)
 
+**Done 2026-11-11, version 5 of the review page:** bold fixed by rendering a saved copy; the
+non-caster page needed `spellcasting-class-N` (a mock omission, not an app bug: the builder sends
+one per page of spells); write-ups drawn, not written into rows. Open: write-ups or spell cards on
+a page with no Spellcasting feature; the prepared circle on written-out lines.
+
 Review page: https://claude.ai/artifact/JcHSPnwdJb5R5AbQZnGiWc (version 4 is the last published).
 The harness's scenes for this round are written but uncommitted on agents/develop
 (`scripts/design/pdf-mockups.clj`): per-class V1 and V2, a packed Wizard 3 / Cleric 3 page, a
