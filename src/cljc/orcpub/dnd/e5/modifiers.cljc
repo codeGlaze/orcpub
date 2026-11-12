@@ -305,6 +305,12 @@
 (defn spell-attack-modifier-bonus [bonus]
   (mods/cum-sum-mod ?spell-attack-modifier-bonus bonus))
 
+(defn class-spell-bonus
+  "A modifier adding `bonus` to one class's spells only: `k` is :dc (spell save DC) or :attack
+   (spell attack), `class-nm` the class name its spells carry (\"Warlock\"). Bonuses add up."
+  [class-nm k bonus]
+  (mods/modifier ?class-spell-bonuses (update-in ?class-spell-bonuses [class-nm k] (fnil + 0) bonus)))
+
 (defn trait-cfg [{:keys [name description class-key level summary page conditions source] :as cfg}]
   (let [class-key? (not (nil? class-key))]
     (mods/modifier ?traits

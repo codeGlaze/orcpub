@@ -374,17 +374,32 @@
    {}
    spells-known))
 
-(defn make-pages [spells
-                  print-prepared-spells
-                  prepares-spells
-                  prepared-spells-by-class
-                  spells-map
-                  style]
+(defn make-pages
+  "The spell pages as [{:ability :classes :spells [{:level :spells}]}]: one run of pages per
+   ability, its classes together, split by the style's per-level capacity. `split-key`, a fn of
+   [ability class-name], divides an ability's classes into runs of their own wherever it differs
+   (a DC one class's item raises); nil keeps them together."
+  [spells
+   print-prepared-spells
+   prepares-spells
+   prepared-spells-by-class
+   spells-map
+   style
+   & [split-key]]
   (let [page-map (make-page-map spells
                                 print-prepared-spells
                                 prepares-spells
                                 prepared-spells-by-class
-                                spells-map)]
+                                spells-map)
+        runs (fn [[ability levels]]
+               (let [classes (into (sorted-set) (mapcat (fn [[_ spells]] (map :class spells))) levels)
+                     groups (vals (into (sorted-map) (group-by #(if split-key (str (split-key ability %)) "") classes)))]
+                 (if (< (count groups) 2)
+                   [[ability levels]]
+                   (for [g groups :let [g (set g)]]
+                     [ability (into {} (keep (fn [[l spells]]
+                                               (when-let [s (seq (filter (comp g :class) spells))] [l (vec s)])))
+                                    levels)]))))]
     (mapcat
      (fn [[ability levels]]
        (let [ability-classes (into
@@ -409,7 +424,7 @@
                            {:level level
                             :spells (get-in split-levels [level page-index])})
                          (range 10))})))
-     page-map)))
+     (mapcat runs page-map))))
 
 (defn magic-item-card-info
   "The magic items a character carries, in the shape the card printer needs.
@@ -479,8 +494,8 @@
     (reduce
      (fn [m {:keys [key ability qualifier class]}]
        (-> m
-           (assoc-in [:spell-save-dcs class] (save-dc-fn ability))
-           (assoc-in [:spell-attack-mods class] (attack-mod-fn ability))))
+           (assoc-in [:spell-save-dcs class] (save-dc-fn ability class))
+           (assoc-in [:spell-attack-mods class] (attack-mod-fn ability class))))
      {:custom-spells custom-spells
       :spells-known filtered-spells-known}
      flat-spells)))
@@ -553,8 +568,8 @@
                 ;; wants the full word.
                 :ability (when ability (:abbr (opt5e/abilities-map ability)))}
          pact? (assoc :pact? true)
-         ability (assoc :dc (save-dc-fn ability)
-                        :attack (common/bonus-str (attack-mod-fn ability))))))))
+         ability (assoc :dc (save-dc-fn ability class)
+                        :attack (common/bonus-str (attack-mod-fn ability class))))))))
 
 (defn spell-page-fields [spells
                          spell-slots
@@ -571,7 +586,9 @@
                                 prepares-spells
                                 prepared-spells-by-class
                                 spells-map
-                                style)]
+                                style
+                                (fn [ability class-nm]
+                                  [(save-dc-fn ability class-nm) (attack-mod-fn ability class-nm)]))]
     (apply
      merge
      (make-spell-card-info spells
@@ -604,8 +621,8 @@
               (merge
                class-header
                {(keyword (str "spellcasting-ability" suffix)) (:name (opt5e/abilities-map ability))
-                (keyword (str "spell-save-dc" suffix)) (save-dc-fn ability)
-                (keyword (str "spell-attack-bonus" suffix)) (common/bonus-str (attack-mod-fn ability))})
+                (keyword (str "spell-save-dc" suffix)) (save-dc-fn ability (first classes))
+                (keyword (str "spell-attack-bonus" suffix)) (common/bonus-str (attack-mod-fn ability (first classes)))})
               class-header)
             (map
              (fn [{:keys [level spells]}]
