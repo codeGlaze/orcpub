@@ -807,7 +807,10 @@
                           (.setNonStrokingColor cs (float 0) (float 0) (float 0)))
                       (do (.setLineWidth cs (float stroke)) (.stroke cs))))))
         :sigil (@#'orcpub.spellbook/sigil! cs (:school e) (+ X (:x e)) (+ T (:y e)) 6.5)
-        :text (draw-pt! cs (:font e) (:size e) (:text e) (+ X (:x e)) (py (:y e)) (:grey e))
+        :text (if (:lining e)
+                (@#'orcpub.spellbook/text! cs (:font e) (:size e) (+ X (:x e)) (+ T (:y e)) (:text e)
+                                           {:lining true :color (:grey e)})
+                (draw-pt! cs (:font e) (:size e) (:text e) (+ X (:x e)) (py (:y e)) (:grey e)))
         :sigil-w nil
         :legend (let [[x0 _ x1 _] (:box e)]
                   (.setNonStrokingColor cs (float 1) (float 1) (float 1))
@@ -871,10 +874,15 @@
         W (- content-r content-l)
         out (atom [])
         add! (fn [e] (swap! out conj e) e)
+        lining? (fn [font] (contains? #{serif serif-b serif-i} font))
+        ;; Within the card, serif strings are measured as they are drawn: in lining figures.
+        text-pt (fn [font t size] (if (lining? font) (@#'orcpub.spellbook/lining-width font size (str t) 0) (text-pt font t size)))
         text! (fn [font size t x baseline & [grey inside]]
-                (add! (cond-> {:kind :text :font font :size size :text t :x x :y baseline :grey (or grey 0)
-                               :box [x (- baseline (* 0.72 size)) (+ x (text-pt font t size)) (+ baseline (* 0.22 size))]}
-                        inside (assoc :inside inside))))
+                (let [w (if (lining? font) (@#'orcpub.spellbook/lining-width font size t 0) (text-pt font t size))]
+                  (add! (cond-> {:kind :text :font font :size size :text t :x x :y baseline :grey (or grey 0)
+                                 :lining (lining? font)
+                                 :box [x (- baseline (* 0.72 size)) (+ x w) (+ baseline (* 0.22 size))]}
+                          inside (assoc :inside inside)))))
         legend! (fn [t cx rule-y]
                   (let [w (text-pt sans-b t 4.2)]
                     (add! {:kind :legend :text t :x (- cx (/ w 2)) :y (+ rule-y 1.5) :w w
@@ -973,10 +981,10 @@
                      (let [t (str "  ·  " sch)]
                        (text! serif-i 7.0 t @x sy 0.15) (swap! x + (text-pt serif-i t 7.0)))
                      (when uses
-                       (let [edge (if (seq ribbons) (- rib-left 4) content-r)
+                       (let [edge (if (and (seq ribbons) (< (- sy 6) 27)) (- rib-left 4) content-r)
                              room (- edge @x 8)
-                             full (:label uses)
-                             short (last (cstr/split full #"/ ?"))
+                             full (cstr/trim (last (cstr/split (:label uses) #"/")))
+                             short full
                              w-of (fn [l] (+ (text-pt sans-b l 4.8) 4 (* (:n uses) 9)))
                              label (cond (<= (w-of full) room) full
                                          (<= (w-of (cstr/trim short)) room) (cstr/trim short)
@@ -997,8 +1005,9 @@
           shared? (and uses (<= (+ src-w 6 uw) W))]
       (text! sans 4.8 (if (<= src-w W) src (ellipsize sans src 4.8 W)) content-l @y 0.4)
       (when (and uses (not @uses-on-sub))
-        (let [row (if shared? @y (+ @y 9)) x0 (- content-r (* (:n uses) 9))]
-          (text! sans-b 4.8 (:label uses) (- x0 (text-pt sans-b (:label uses) 4.8) 3) row 0.4)
+        (let [row (if shared? @y (+ @y 9)) x0 (- content-r (* (:n uses) 9))
+              label (if sub (cstr/trim (last (cstr/split (:label uses) #"/"))) (:label uses))]
+          (text! sans-b 4.8 label (- x0 (text-pt sans-b label 4.8) 3) row 0.4)
           (doseq [i (range (:n uses))]
             (add! {:kind :icon :k :use :x (+ x0 (* i 9)) :y (- row 5.2) :scale 1.0
                    :box [(+ x0 (* i 9)) (- row 5.2) (+ x0 (* i 9) 7) (+ row 1.8)]}))
@@ -1155,10 +1164,10 @@
                  :uses {:n 1 :label "1 / LONG REST"}}]
           stress-spec {:spell stress :source "Half-Elf (Variant) · Magic Initiate (Wizard) · cast at 2nd level"
                        :dc 19 :attack "+11" :uses {:n 6 :label "6 / LONG REST"}}
-          cells (concat (for [[c spec] (map-indexed vector base)] [c 0 (assoc spec :sub :lvl)])
-                        (for [[c spec] (map-indexed vector base)] [c 1 (assoc spec :sub :ordinal)])
-                        [[0 2 (assoc stress-spec :sub :lvl)] [1 2 (assoc stress-spec :sub :ordinal)]
-                         [2 2 {:spell (spells/spell-map :detect-magic) :source "Wizard" :dc 15 :attack "+7" :sub :lvl}]])]
+          cells (concat (for [[c spec] (map-indexed vector base)] [c 0 (assoc spec :sub :ordinal)])
+                        [[0 1 (assoc stress-spec :sub :ordinal)]
+                         [1 1 {:spell (spells/spell-map :detect-magic) :source "Wizard" :dc 15 :attack "+7" :sub :ordinal}]
+                         [2 1 {:spell (spells/spell-map :fireball) :source "Wizard" :dc 15 :attack "+7" :sub :ordinal}]])]
       (with-open [cs (PDPageContentStream. doc pg)]
         (doseq [[col row spec] cells :let [l (card-layout-3 fonts :named spec)]]
           (doseq [p (layout-problems l)] (println "LAYOUT" (name (:sub spec)) (:name (:spell spec)) "-" p))

@@ -380,6 +380,11 @@ a single use, it is the tick box); source in small capitals on its own line; fac
 legend columns; material two lines then pointing to the back; body 7.5 pt; footer only on
 overflow. Every number in lining figures (spellbook `:lining`).
 
+**Settled card rendered (2026-11-12, not published):** uses on the subheading line without a
+number, lining figures throughout (serif text measured with `lining-width`, or neighbours overlap).
+Trap: the spellbook's lining `text!` leaves the fill and stroke colours at its text colour, so the
+next outline (the R ribbon) and the body text inherit it: reset both to black after it.
+
 **Proposed list card (not agreed):** the cards' frame and type; title the source, italic line
 "Infernal Legacy · Charisma · DC 13 · Spell Mod +5"; spells grouped the way the rules write innate
 spellcasting ("At will", "Once per long rest each"), a box before each limited spell, each line
