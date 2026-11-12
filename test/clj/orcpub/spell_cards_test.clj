@@ -4,7 +4,8 @@
   (:require [clojure.test :refer [deftest is testing]]
             [orcpub.pdf.cards :as cards]
             [orcpub.pdf.draw :as draw]
-            [orcpub.dnd.e5.spells :as spells])
+            [orcpub.dnd.e5.spells :as spells]
+            [clojure.java.io :as io])
   (:import (org.apache.pdfbox.pdmodel PDDocument)))
 
 (defn- with-fonts
@@ -52,9 +53,9 @@
                                                                   :uses {:n 6 :label "LONG REST"}}))
             level-line (some #(when (#{"9th Level"} (:text %)) (:y %)) (of-kind l :text))]
         (is (empty? (cards/spell-card-problems l)))
-        (testing "the name wraps, which drops the level line below the ribbons: the uses fit on it"
+        (testing "beside the sigil and the level, six uses do not fit the level line: their own row"
           (is (= 6 (count (of-kind l :use))))
-          (is (every? #(< (Math/abs (double (- (:cy %) (- level-line 1.7)))) 0.01) (of-kind l :use))))))))
+          (is (every? #(> (:cy %) level-line) (of-kind l :use))))))))
 
 (deftest uses-take-their-own-row-when-the-level-line-is-full
   (with-fonts
@@ -74,3 +75,15 @@
         (is (= #{:conc :rit} (ribbons :detect-magic)))
         (is (= #{:conc} (ribbons :darkness)))
         (is (= #{} (ribbons :fireball)))))))
+
+(deftest a-card-carries-its-schools-sigil
+  (with-fonts
+    (fn [fonts]
+      (let [l (cards/spell-card-layout fonts (card (spells/spell-map :fireball)))]
+        (is (= ["dmv-sigil-alchemy-01"] (map :file (of-kind l :sigil))))
+        (is (some #(= "  ·  Evoc." (:text %)) (of-kind l :text)) "the school is still named")
+        (testing "every school's sigil is vendored"
+          (doseq [school ["abjuration" "conjuration" "divination" "enchantment"
+                          "evocation" "illusion" "necromancy" "transmutation"]
+                  :let [f (:file (first (of-kind (cards/spell-card-layout fonts (card {:name "X" :level 1 :school school})) :sigil)))]]
+            (is (io/resource (str "public/image/sigils/" f ".png")) school)))))))
