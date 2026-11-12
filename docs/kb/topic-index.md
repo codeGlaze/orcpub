@@ -1878,7 +1878,7 @@ _fork-customization · fork customization_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, cards, chip, chips, chrome, css, menu, menus, mock, multi-select, omv, popover, redesign, spacing, switcher, theme, tray, workaround
+**topics:** accent, chip, chips, chrome, css, menu, menus, mock, multi-select, omv, popover, redesign, spacing, switcher, theme, title, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -2356,7 +2356,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, same-key, source, twin, winner
+**topics:** already-loaded, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -3131,13 +3131,14 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 1st-level, 2014, 2024, 2026-11-11, 521, cast, casts, free, grant, initiate, rest, ruling, slot, slots, spell, srd, tiefling, wizard
+**topics:** 1st-level, 2014, 2024, 2026-11-11, 521, cast, casting, casts, free, grant, initiate, rest, ruling, slot, slots, spell, srd, tiefling
 
 - The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)
 - What the refactor line already has (checked 2026-11-11)
 - The plan
 - Design, proposed 2026-11-11 (text mockups; not agreed, not built)
+- The PDF (discussed 2026-11-11, not agreed)
 - Build order (each step small and shippable)
 - Open, for the owner
 

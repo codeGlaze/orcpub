@@ -168,6 +168,26 @@ when ticked, one setting for the 1st-level spell:
 **PDF for the same cases:** already built (steps 1-3): the class page lists the spell with slots,
 the race or feat page lists it with its note ("once/long rest, or a slot").
 
+## The PDF (discussed 2026-11-11, not agreed)
+
+The PDF already lays spells out by source: one page (per-class layout) or group (packed) per
+source, each headed with its own ability, DC and attack, so it matches the app's separate default
+and stays independent of the app's combine toggle. Open pieces:
+
+- **Marking a limited use** (owner's options: reuse the slot boxes, a blank space, or boxes after
+  the text). Recommended: boxes drawn after the spell's text, one per use, as shapes (no font
+  glyph), a write-in "_ / N" past a cap. Reusing the slot boxes works only on a page of limited
+  spells with one per level; kept as a fallback.
+- **Wording** follows whatever the app settles on ("1/long rest", maybe the feature name), measured
+  against the narrowest spell line first.
+- **Spell cards** (owner: "a good place to hone in on a handful of useful features"). Today a card
+  prints school, level and source, DC and spell mod (an option), casting details, text, overflow
+  on the back (`pdf/cards.clj` `print-spells`). Candidates: how it is cast with use boxes (reuse the
+  item cards' `item-charges` rule), the DC of the granting source (cards look DC up by source
+  name: check a Tiefling card), concentration and ritual tags, what it rolls (`spell-rolls.edn`),
+  a one-line upcast note.
+- Not yet looked at: how the spellbook pages treat a race "source" (they look up a class emblem).
+
 ## Build order (each step small and shippable)
 
 1. **The field and the rule:** `:casting` on `spells-known-cfg`, `spell-payment`, tests over the
