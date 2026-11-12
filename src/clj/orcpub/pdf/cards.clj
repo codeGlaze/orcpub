@@ -124,6 +124,16 @@
   {"abjuration" "Abjur." "conjuration" "Conj." "divination" "Div." "enchantment" "Ench."
    "evocation" "Evoc." "illusion" "Illus." "necromancy" "Necro." "transmutation" "Trans."})
 
+(def ^:private school-sigils
+  "Each school's placeholder mark: the site's arcane sigils, recoloured for paper (dark lines,
+   white fills) and rendered to PNG under resources/public/image/sigils/."
+  {"abjuration" "dmv-sigil-hexagon-01" "conjuration" "dmv-sigil-pentagon-01"
+   "divination" "dmv-sigil-triangle-01" "enchantment" "dmv-sigil-square-01"
+   "evocation" "dmv-sigil-alchemy-01" "illusion" "dmv-sigil-hexagon-02"
+   "necromancy" "dmv-sigil-square-02" "transmutation" "dmv-sigil-alchemy-02"})
+
+(def ^:private sigil-size "A school sigil's side on the card, points." 8.5)
+
 (defn concentration?
   "Whether `duration` (a spell's: a string such as \"Concentration, up to 1 minute\", or a
    units map) needs concentration."
@@ -218,10 +228,13 @@
       (add! {:kind :ribbon :k k :pts pts :fill fill :box [x top (+ x rw) bot]})
       (text! serif-b 8.0 t (+ x (/ (- rw (width serif-b t 8.0)) 2)) 17 (if (zero? fill) 1.0 0) k))
     (doseq [[i l] (map-indexed vector lines)] (text! serif-b title-size l sc-left (+ 17 (* i 11))))
+    (when-let [file (get school-sigils (common/ascii-lower-case (str school)))]
+      (add! {:kind :sigil :file file :x sc-left :y (- sy 6.6)
+             :box [sc-left (- sy 6.6) (+ sc-left sigil-size) (+ sy 1.9)]}))
     (let [lv (or level 0)
           level-t (if (zero? lv) "Cantrip" (str (common/ordinal lv) " Level"))
           sch (get school-abbreviations (common/ascii-lower-case (str school)) (common/ascii-capitalize (str school)))
-          x0 sc-left
+          x0 (if (get school-sigils (common/ascii-lower-case (str school))) (+ sc-left sigil-size 3) sc-left)
           x1 (+ x0 (width serif-b level-t 7.0))
           rest-t (when (seq sch) (str "  ·  " sch))]
       (text! serif-b 7.0 level-t x0 sy)
@@ -316,8 +329,9 @@
 
 (defn draw-spell-card!
   "Draws `card` (spell-card-layout) as the card whose top-left is `x`, `y` inches (y from the
-   page top), then `description` in the space left. Returns the lines that did not fit."
-  [cs fonts x y {:keys [elements text-top]} description]
+   page top), then `description` in the space left; `img` loads the school sigil's image.
+   Returns the lines that did not fit."
+  [cs fonts img x y {:keys [elements text-top]} description]
   (let [X (* 72 x) T (* 72 y)
         py #(draw/py (+ T %))
         sans-b (draw/sans fonts :bold)
@@ -344,6 +358,9 @@
                   (black! cs)
                   (.setLineWidth cs (float 0.7))
                   (path!) (.stroke cs))
+        :sigil (draw/draw-imagex cs (img (str "public/image/sigils/" (:file e) ".png"))
+                                 (/ (+ X (:x e)) 72.0) (/ (+ T (:y e)) 72.0)
+                                 (/ sigil-size 72.0) (/ sigil-size 72.0))
         :use (do (.setLineWidth cs (float 0.8))
                  (draw/circle-path! cs (fn [px pty] [(float px) (draw/py pty)]) (+ X (:cx e)) (+ T (:cy e)) (:r e))
                  (.closePath cs) (.stroke cs))
@@ -398,7 +415,7 @@
                               ""))
                    card (spell-card-layout fonts (assoc spell-data :print-dc-mod?
                                                         (and print-spell-card-dc-mod? (not= class-nm "Homebrew"))))]
-               {:remaining-lines (draw-spell-card! cs fonts x y card text)
+               {:remaining-lines (draw-spell-card! cs fonts img x y card text)
                 :spell-name spell-name}))))))
 
 (defn- card-pt
