@@ -109,10 +109,12 @@
 
 (defn file-name-for
   "file-name for `built-char` under the name `character-name` (passed in, because an unnamed
-   character is exported under one generated for it) in format `fmt`. Returns a string."
+   character is exported under one generated for it) in format `fmt`. Returns a string; with every
+   part turned off, \"character\", so the server's fallback does not put the names back."
   [built-char character-name fmt]
-  (file-name (char5e/player-name built-char) character-name
-             (char5e/classes built-char) (char5e/levels built-char) fmt))
+  (let [n (file-name (char5e/player-name built-char) character-name
+                     (char5e/classes built-char) (char5e/levels built-char) fmt)]
+    (if (s/blank? n) "character" n)))
 
 (defn ability-related-bonuses [suffix vals]
   (into {}

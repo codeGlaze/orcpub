@@ -161,8 +161,8 @@
         (if (or (<= (width-of c) width) (< (count t) 2)) c (recur (subs t 0 (dec (count t)))))))))
 
 (defn spell-card-layout
-  "One spell card front as {:elements [...] :text-top pt}, plus :material-cut (the full material
-   text) when the material was cut to two lines. Each element has :box [x0 y0 x1 y1], points from
+  "One spell card front as {:elements [...] :text-top pt}, plus :name-cut and :material-cut (the
+   full text) when the title or the material was cut to two lines. Each element has :box [x0 y0 x1 y1], points from
    the card's top-left. `card` is {:spell :class-nm :dc :attack-bonus :uses {:n :label} (n 0: the
    label alone) :cast-at level :print-dc-mod? bool}; `fonts` a draw/load-fonts map. The name wraps
    beside ATK and DC; uses take their own row when they do not fit; facts wrap to two rows."
@@ -216,7 +216,14 @@
                            (recur (- lx 7) more lx)))))
         room (- stats-left 6 sc-left)
         fits? (<= (width serif-b spell-name 10.5) room)
-        lines (if fits? [spell-name] (spell-wrap #(width serif-b % 9.5) room spell-name))
+        ;; Two lines at most, each held to the room beside ATK and DC; a cut name goes to the back.
+        lines (if fits?
+                [spell-name]
+                (let [w #(width serif-b % 9.5)
+                      ls (spell-wrap w room spell-name)
+                      ls (if (> (count ls) 2) [(first ls) (s/join " " (rest ls))] ls)]
+                  (mapv #(spell-ellipsize w % room) ls)))
+        name-cut (when (not= (s/join " " lines) (s/replace (str spell-name) #"\s+" " ")) spell-name)
         ;; A name that needed wrapping stays at 9.5 pt, even when it then fits on one line.
         title-size (if fits? 10.5 9.5)
         sy (+ 17 (* 11 (dec (count lines))) 10)
@@ -286,7 +293,8 @@
         (doseq [l ls] (text! serif-i 6.5 l sc-left @y 0.2) (swap! y + 7.5))
         (swap! y + 1.5)))
     (cond-> {:elements @out :text-top @y}
-      @material-cut (assoc :material-cut @material-cut))))
+      @material-cut (assoc :material-cut @material-cut)
+      name-cut (assoc :name-cut name-cut))))
 
 (defn spell-card-problems
   "What is wrong with a spell-card-layout: content boxes overlapping (a mark inside its own
@@ -418,10 +426,12 @@
                               ""))
                    card (spell-card-layout fonts (assoc spell-data :print-dc-mod?
                                                         (and print-spell-card-dc-mod? (not= class-nm "Homebrew"))))]
-               ;; A material cut short on the front ("full text on the back") leads the back.
-               {:remaining-lines (concat (some-> (:material-cut card)
-                                                 (#(draw/split-lines (str "Material: " %) (:plain fonts) 8
-                                                                     (- box-width 0.3))))
+               ;; A name or material cut short on the front leads the back, in full.
+               {:remaining-lines (concat (mapcat (fn [[k label]]
+                                                   (some-> (get card k)
+                                                           (#(draw/split-lines (str label %) (:plain fonts) 8
+                                                                               (- box-width 0.3)))))
+                                                 [[:name-cut "Name: "] [:material-cut "Material: "]])
                                          (draw-spell-card! cs fonts img x y card text))
                 :spell-name spell-name}))))))
 

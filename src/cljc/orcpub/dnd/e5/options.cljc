@@ -701,13 +701,15 @@
       ;; with views-aux/realize-help when the peek opens; :help elsewhere is still a plain
       ;; string or hiccup. See reagent-architecture-tenets.md #1.
       :help #(spell-help spell)
+      ;; Known spells are keyed [source spell]: the same spell from another source (a Tiefling's
+      ;; racial Darkness, then the Warlock's own) is a separate grant, cast its own way.
       :prereqs [(t/option-prereq
                  "You already know this spell"
                  (fn [c] (let [spells-known (character/spells-known c)]
                            (or (not spells-known)
                                (not-any?
-                                (fn [[[_ kw]]]
-                                  (= key kw))
+                                (fn [[[src kw]]]
+                                  (and (= key kw) (= class-name src)))
                                 (get spells-known level))))))]
       :modifiers [(modifiers/spells-known level key spellcasting-ability class-name nil qualifier nil casting)]})))
 

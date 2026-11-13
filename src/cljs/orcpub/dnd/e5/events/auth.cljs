@@ -103,13 +103,15 @@
  :login-success
  [user->local-store-interceptor]
  (fn [{:keys [db]} [_ backtrack? response]]
-   ;; A button-text choice saved on the account wins over this browser's.
-   {:db (let [account-choice (-> response :body :user-data :dark-button-text?)]
+   ;; A button-text choice and a PDF file name format saved on the account win over this browser's.
+   {:db (let [account-choice (-> response :body :user-data :dark-button-text?)
+              file-name-format (-> response :body :user-data :pdf-file-name)]
           (cond-> (-> db
                       (dissoc :login-challenge?)
                       (update :user-data merge (-> response :body))
                       (assoc :user (-> response :body :user-data)))
-            (some? account-choice) (assoc-in [:user-data :dark-button-text?] account-choice)))
+            (some? account-choice) (assoc-in [:user-data :dark-button-text?] account-choice)
+            (seq file-name-format) (assoc-in [:user-data :pdf-file-name] file-name-format)))
     :dispatch [:route (or
                        (:return-route db)
                        routes/dnd-e5-char-builder-route)]}))

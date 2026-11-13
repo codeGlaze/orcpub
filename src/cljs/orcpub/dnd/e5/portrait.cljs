@@ -1537,7 +1537,8 @@
                  [:span.pl-empty-hint "Paste an image address, and the image shows here."]
                  (= image-url @failed-link)
                  [:span.pl-empty-hint
-                  "No image loaded from that address. Check that it opens on its own in a browser tab, and that it is the image itself, not a page holding it."]
+                  "No image loaded from that address. Check that it opens on its own in a browser tab, and that it is the image itself, not a page holding it. "
+                  [:button.pl-mode-link {:type "button" :on-click #(reset! failed-link nil)} "Try again"]]
                  :else
                  [:img {:src image-url :alt "The character's picture"
                         :on-load #(when (= image-url @failed-link) (reset! failed-link nil))
@@ -1565,7 +1566,7 @@
                 (if (= shown :portrait) "Switch to this image" "Use this image")]
                [:button.pl-btn.pl-btn-primary
                 {:type "button"
-                 :disabled (empty? (:layers portrait))
+                 :disabled (and (empty? (:layers portrait)) (not dirty?))
                  :on-click #(dispatch (if (or (not= shown :image) dirty?) [:portrait/save] [:portrait/show-portrait]))}
                 (cond (not= shown :image) "Save portrait"
                       dirty? "Save and switch"

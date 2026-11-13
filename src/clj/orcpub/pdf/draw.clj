@@ -787,10 +787,11 @@
   (.setStrokingColor cs (float g) (float g) (float g)))
 
 (defn text!
-  "Draws `t` with its baseline `ty` points from the page top. `spacing` is extra
-   points between letters, for the spaced capitals of the headings."
+  "Draws `t` with its baseline `ty` points from the page top, as one line: line breaks become
+   spaces and glyphs `font` lacks are made drawable (font-safe). `spacing` is extra points between
+   letters, for the spaced capitals of the headings."
   [cs font size x ty t & [{:keys [color spacing lining]}]]
-  (let [t (clean t)]
+  (let [t (font-safe font (s/replace (clean t) #"[\r\n\t]+" " "))]
     (when (and (seq t) lining)
       (gray! cs (or color ink))
       (outline-text! cs font size x ty t spacing))
