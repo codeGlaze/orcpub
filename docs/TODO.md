@@ -52,6 +52,16 @@ already done). What remains is the **storage backend migration**:
 
 ---
 
+## Corral the visual components (owner, 2026-11-13: after RC2)
+
+New UI keeps bringing one-off images and styles where a shared building block already exists, and
+the gaps only show up late. Example: a support pill drew Patreon's navy logo image, which vanished
+on the dark surface, though the header already draws every social icon as a Font Awesome brand
+glyph (`social-icon`, `views.cljs`). Take an inventory of the repeated pieces (pills and icon links,
+panel headers and footers, buttons, section titles, the dark surfaces), point each at one shared
+component and garden class, name them in `docs/kb/ux-guide.md`, and move the stragglers. Pairs
+with the keyboard-focus item below and the bundle trim in BRANCH.md, "Someday".
+
 ## Agent files in 2 branches' tips: delete before each merges
 
 Decided 2026-10-24: old history stays, no rewrites. `feature/fighting-style-authoring` and
