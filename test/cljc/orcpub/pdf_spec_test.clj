@@ -4,7 +4,8 @@
    so all helpers are testable on JVM."
   (:require [clojure.test :refer [deftest testing is are]]
             [orcpub.pdf-spec :as pdf]
-            [orcpub.dnd.e5.magic-items :as mi]))
+            [orcpub.dnd.e5.magic-items :as mi]
+            [orcpub.dnd.e5.character :as char5e]))
 
 ;; -- class-string --
 
@@ -319,3 +320,12 @@
       ". hidden ."     "hidden"
       "a\u200Bb"       "ab"
       nil              "")))
+
+(deftest every-part-off-names-the-file-character
+  ;; an empty name sent the server back to its fallback, which put the names in again
+  (with-redefs [char5e/player-name (constantly "Pat") char5e/classes (constantly ["Wizard"])
+                char5e/levels (constantly {:wizard {:class-name "Wizard" :class-level 5}})]
+    (is (= "character" (pdf/file-name-for {} "Mira"
+                                          {:player? false :character? false :class? false
+                                           :subclass? false :level? false})))
+    (is (not= "character" (pdf/file-name-for {} "Mira" pdf/file-name-defaults)))))

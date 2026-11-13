@@ -98,3 +98,19 @@
             "the full material text, for print-spells to put at the top of the back")
         (is (nil? (:material-cut (cards/spell-card-layout fonts (card (spells/spell-map :fireball)))))
             "a short material is not cut")))))
+
+(deftest an-overlong-homebrew-name-stays-on-its-card
+  (with-fonts
+    (fn [fonts]
+      (doseq [nm [(apply str (repeat 80 "W")) (str/join " " (repeat 20 "Wordy"))]
+              :let [l (cards/spell-card-layout fonts (card {:name nm :level 3 :school "evocation"}))]]
+        (is (empty? (cards/spell-card-problems l)) (subs nm 0 20))
+        (is (= nm (:name-cut l)) "the full name goes to the back")))))
+
+(deftest a-line-break-in-a-name-does-not-stop-the-export
+  ;; no Vollkorn face has a glyph for U+000A; PDFBox threw and the whole sheet was lost
+  (with-open [doc (PDDocument.)]
+    (let [page (org.apache.pdfbox.pdmodel.PDPage.) _ (.addPage doc page)
+          fonts (draw/load-fonts doc)]
+      (with-open [cs (org.apache.pdfbox.pdmodel.PDPageContentStream. doc page)]
+        (is (nil? (draw/text! cs (:bold fonts) 9.5 10 20 "Line\nBreak\r\nSpell")))))))
