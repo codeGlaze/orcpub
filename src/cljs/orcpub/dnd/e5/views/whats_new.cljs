@@ -58,21 +58,23 @@
    group's names under its tier heading. A group with :sample shows that and a \"Show all N
    patrons\" button that swaps in :all. `groups` as whats-new/credits-display returns; may be empty."
   [groups]
-  [:div.whats-new-group {:id "whats-new-credits"}
-   [:div.whats-new-group-title "Made possible by our patrons"]
-   [:div.whats-new-credits-intro
-    "The server is supported by patrons on Patreon. Thank you for helping keep our lights on!"]
-   (for [[i {:keys [tier names sample all]}] (map-indexed vector groups)
-         :let [expanded? (or (nil? sample) @show-all?)]]
-     ^{:key i}
-     [:div
-      (when tier [:div.whats-new-credits-tier tier])
-      [:div.whats-new-patrons
-       (for [[j nm] (map-indexed vector (cond (nil? sample) names expanded? all :else sample))]
-         ^{:key j} [:div nm])]
-      (when (and sample (not expanded?))
-        [:button.whats-new-credits-link {:type "button" :on-click #(reset! show-all? true)}
-         (str "Show all " (count all) " patrons")])])])
+  ;; Dereffed here, not inside the lazy `for`, so Reagent re-renders when Show all is clicked.
+  (let [show-all @show-all?]
+    [:div.whats-new-group {:id "whats-new-credits"}
+     [:div.whats-new-group-title "Made possible by our patrons"]
+     [:div.whats-new-credits-intro
+      "The server is supported by patrons on Patreon. Thank you for helping keep our lights on!"]
+     (for [[i {:keys [tier names sample all]}] (map-indexed vector groups)
+           :let [expanded? (or (nil? sample) show-all)]]
+       ^{:key i}
+       [:div
+        (when tier [:div.whats-new-credits-tier tier])
+        [:div.whats-new-patrons
+         (for [[j nm] (map-indexed vector (cond (nil? sample) names expanded? all :else sample))]
+           ^{:key j} [:div nm])]
+        (when (and sample (not expanded?))
+          [:button.whats-new-credits-link {:type "button" :on-click #(reset! show-all? true)}
+           (str "Show all " (count all) " patrons")])])]))
 
 (defn- support-links
   "The footer's \"Help support our:\" icons: Server (Patreon) and Dev (the tip link), each shown

@@ -145,7 +145,7 @@
 
 (def credits-path
   "Where a deployment puts its patron credits: a static file under resources/public, read when the
-   What's New panel opens. Absent (the public repo ships none) means no credits section."
+   What's New panel opens. The public repo ships it empty (no names); a fork replaces it."
   "/patron-credits.md")
 
 (defn parse-credits
