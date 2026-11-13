@@ -166,6 +166,25 @@
                [])
        (filterv (comp seq :names))))
 
+(def credits-sample-size
+  "How many names of the last credits group show before \"Show all\"."
+  24)
+
+(defn credits-display
+  "The credit groups as shown: every group but the last in full; the last, when it holds more than
+   credits-sample-size names, as :sample (that many of its names, in `shuffle-fn` order) with
+   :all (every name, alphabetical, case ignored) behind \"Show all\". `groups` as parse-credits
+   returns; `shuffle-fn` takes and returns a seq (`shuffle`, or `identity` in tests)."
+  [groups shuffle-fn]
+  (let [lead (vec (butlast groups))
+        {:keys [names] :as last-group} (last groups)]
+    (cond-> lead
+      last-group (conj (if (> (count names) credits-sample-size)
+                         (assoc last-group
+                                :sample (vec (take credits-sample-size (shuffle-fn names)))
+                                :all (vec (sort-by str/lower-case names)))
+                         last-group)))))
+
 (defn grouped-items
   "The release's items as [group items] pairs, in source order. A group of nil
    means the items carry no heading."

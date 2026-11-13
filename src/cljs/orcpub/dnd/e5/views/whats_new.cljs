@@ -21,8 +21,12 @@
   "/image/bmac-cup.png")
 
 (defonce ^:private credits
-  ;; nil until asked for, then :loading, then the parsed groups ([] when the deployment has none).
+  ;; nil until asked for, then :loading, then the groups as shown (whats-new/credits-display), [] for none.
   (r/atom nil))
+
+(defonce ^:private show-all?
+  ;; Whether the last credits group is expanded to its full alphabetical list.
+  (r/atom false))
 
 (defn- load-credits!
   "Fetches the deployment's patron credits once per page load, the first time the panel opens."
@@ -30,7 +34,9 @@
   (when (nil? @credits)
     (reset! credits :loading)
     (go (let [{:keys [status body]} (<! (http/get whats-new/credits-path))]
-          (reset! credits (if (and (= 200 status) (string? body)) (whats-new/parse-credits body) []))))))
+          (reset! credits (if (and (= 200 status) (string? body))
+                            (whats-new/credits-display (whats-new/parse-credits body) shuffle)
+                            []))))))
 
 (defn- close []
   (dispatch [::e5/close-whats-new]))
@@ -48,19 +54,25 @@
           (.scrollIntoView #js {:behavior "smooth" :block "start"})))
 
 (defn- credits-section
-  "The patron credits closing the release notes: a heading, one line, then the names, under a
-   tier heading where the credits file names one. `groups` as whats-new/parse-credits returns."
+  "The patron credits closing the release notes: a heading and the thank-you line, then each
+   group's names under its tier heading. A group with :sample shows that and a \"Show all N
+   patrons\" button that swaps in :all. `groups` as whats-new/credits-display returns; may be empty."
   [groups]
   [:div.whats-new-group {:id "whats-new-credits"}
    [:div.whats-new-group-title "Made possible by our patrons"]
-   [:div.whats-new-credits-intro "The server is paid for by patrons. Thank you for keeping it online."]
-   (for [[i {:keys [tier names]}] (map-indexed vector groups)]
+   [:div.whats-new-credits-intro
+    "The server is supported by patrons on Patreon. Thank you for helping keep our lights on!"]
+   (for [[i {:keys [tier names sample all]}] (map-indexed vector groups)
+         :let [expanded? (or (nil? sample) @show-all?)]]
      ^{:key i}
      [:div
       (when tier [:div.whats-new-credits-tier tier])
       [:div.whats-new-patrons
-       (for [[j nm] (map-indexed vector names)]
-         ^{:key j} [:div nm])]])])
+       (for [[j nm] (map-indexed vector (cond (nil? sample) names expanded? all :else sample))]
+         ^{:key j} [:div nm])]
+      (when (and sample (not expanded?))
+        [:button.whats-new-credits-link {:type "button" :on-click #(reset! show-all? true)}
+         (str "Show all " (count all) " patrons")])])])
 
 (defn- support-links
   "The footer's \"Help support our:\" icons: Server (Patreon) and Dev (the tip link), each shown
@@ -78,11 +90,12 @@
         (when (seq dev-tip) (link dev-tip tip-mark "Dev"))]])))
 
 (defn- release-body
-  "The open panel for `release`: header, highlights, the credits when the deployment has any,
-   and the footer with the support links and Got it. The version sits beside \"What's New\"."
+  "The open panel for `release`: header, highlights, the credits when the deployment has a
+   Patreon link or a credits file, and the footer with the support links and Got it. The version
+   sits beside \"What's New\"."
   [{:keys [title subtitle] :as release}]
   (let [groups @credits
-        credits? (and (sequential? groups) (seq groups))]
+        credits? (or (and (sequential? groups) (seq groups)) (seq (:patreon branding/social-links)))]
     [:div.whats-new-panel
      {:on-click stop-propagation}
      [:div.whats-new-header
@@ -116,7 +129,7 @@
             [:div
              [:div.whats-new-item-headline headline]
              [:div.whats-new-item-detail detail]]])])
-      (when credits? [credits-section groups])]
+      (when credits? [credits-section (if (sequential? groups) groups [])])]
 
      [:div.whats-new-footer
       [:div [support-links]]
