@@ -304,3 +304,10 @@
         (let [text (apply str (map :ch (glyphs doc 0)))]
           (is (str/includes? text "AT WILL") text)
           (is (not (str/includes? text "REST")) text))))))
+
+(deftest a-spell-row-with-a-casting-note-still-gets-its-marks
+  ;; the sheet writes "Darkness (once/long rest)"; the marks are looked up by the name alone
+  (let [annotate @#'routes/spell-annotation]
+    (is (some? (annotate "Darkness")))
+    (is (= (annotate "Darkness") (annotate "Darkness (once/long rest)")))
+    (is (= (annotate "Hellish Rebuke") (annotate "Hellish Rebuke (cast at 2nd level)")))))

@@ -5,7 +5,8 @@
             [orcpub.pdf.cards :as cards]
             [orcpub.pdf.draw :as draw]
             [orcpub.dnd.e5.spells :as spells]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [clojure.string :as str])
   (:import (org.apache.pdfbox.pdmodel PDDocument)))
 
 (defn- with-fonts
@@ -87,3 +88,13 @@
                           "evocation" "illusion" "necromancy" "transmutation"]
                   :let [f (:file (first (of-kind (cards/spell-card-layout fonts (card {:name "X" :level 1 :school school})) :sigil)))]]
             (is (io/resource (str "public/image/sigils/" f ".png")) school)))))))
+
+(deftest a-material-cut-on-the-front-is-handed-to-the-back
+  (with-fonts
+    (fn [fonts]
+      (let [l (cards/spell-card-layout fonts (card stress-spell))
+            mat (get-in stress-spell [:components :material-component])]
+        (is (= (str/replace mat #"\s+" " ") (:material-cut l))
+            "the full material text, for print-spells to put at the top of the back")
+        (is (nil? (:material-cut (cards/spell-card-layout fonts (card (spells/spell-map :fireball)))))
+            "a short material is not cut")))))

@@ -85,3 +85,12 @@
          (reset! app-db before)
          (done))
        100))))
+
+(deftest keep-colours-keeps-matching-eyes-matching
+  ;; a portrait with no second eye colour keeps none: the roll's own pick must not leak in
+  (let [rolls-a-second-eye (first (filter #(get-in (portrait/roll % {} false) [:face :second-eye])
+                                          (map #(str "seed" %) (range 500))))
+        p (portrait/roll rolls-a-second-eye {:face {:blush-colour "#c0392b"}} true)]
+    (is (some? rolls-a-second-eye) "some seed in 500 rolls a second eye colour")
+    (is (nil? (get-in p [:face :second-eye])))
+    (is (= "#c0392b" (get-in p [:face :blush-colour])))))
