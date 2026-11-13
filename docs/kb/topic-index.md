@@ -3929,7 +3929,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** amber, assets, box, details, drafts, notice, phone, planned, player, png, replaced, restored, row, steel, undo, undone, ux-guide, width
+**topics:** assets, box, column, details, drafts, notice, phone, planned, player, png, replaced, restored, row, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it

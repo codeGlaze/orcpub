@@ -210,6 +210,12 @@ Newest last. Date, ruling, and what it replaced.
   each entry with name, kind, time edited and "open in another tab". Replaced a message sending the
   player back to the builder. `feature/character-rescue`.
 
+- 2026-11-13: support links never displace legal text. The home page shows What's New, Support the
+  Server and Fuel the Dev as raised pills under the tiles; the site footer shows the two support
+  links compact (icon and word at the footer's text size) under Feedback and What's New, so the
+  footer row is no taller and the copyright and SRD notices stay where they were. Footer columns
+  share one top edge and are spaced by the row's gap, so a wrapped column keeps the left edge.
+  `views-2/support-pills`, `fix/pdf-export`.
 - 2026-11-10: reference list rows (Spells, Monsters) end in the source's short tag at the right,
   before the caret, as 5etools does: the tag My Content shows (stored, else derived;
   [source-tagged-keys.md](source-tagged-keys.md)), amber for homebrew, "SRD" in the subheader's
