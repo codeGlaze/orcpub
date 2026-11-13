@@ -3611,9 +3611,17 @@
      [:i {:font-size "15px" :width "18px" :text-align :center}]
      [:i.fa-patreon {:color "#ff424d"}]
      [:img {:width "18px" :height "18px" :border-radius "3px"}]]
-    ;; In the site footer the pills sit on the left edge of the text links under them.
-    [:.site-footer-links
-     [:.support-pills {:justify-content :flex-start :margin "0 0 10px 5px"}]]
+    ;; The site footer's columns: spaced by the row's gap, so a wrapped one keeps the left edge.
+    ;; The pills sit on the left edge of the text links under them.
+    [:.site-footer-row {:column-gap "20px" :row-gap "10px"}]
+    ;; Compact pills (the site footer): plain icon-and-word links, one text line tall.
+    [:.support-pills.support-pills-compact
+     {:justify-content :flex-start :gap "12px" :margin "0"}
+     [:.support-pill
+      {:padding "0" :background :none :box-shadow :none :font-size "12px" :font-weight :normal
+       :gap "5px" :text-decoration :underline}
+      [:i {:font-size "12px" :width "14px"}]
+      [:img {:width "14px" :height "14px" :border-radius "2px"}]]]
     (at-media {:max-width "480px"}
      [:.support-pills {:flex-direction :column :align-items :stretch :max-width "280px"}])
 

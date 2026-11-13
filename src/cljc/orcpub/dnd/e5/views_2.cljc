@@ -78,9 +78,10 @@
 
 (defn support-pills
   "A row of quiet pills: What's New when `whats-new?`, then Support the Server (the Patreon link)
-   and Fuel the Dev (the developer tip link), each only when its link is set. Returns hiccup, or
-   nil when there is nothing to show. Used under the home page's tiles and in the site footer."
-  [& {:keys [whats-new?]}]
+   and Fuel the Dev (the developer tip link), each only when its link is set. `compact?` draws
+   them as icon-and-word links at text size (the site footer, which must not grow past its legal
+   text). Returns hiccup, or nil when there is nothing to show."
+  [& {:keys [whats-new? compact?]}]
   (let [{:keys [patreon dev-tip]} branding/social-links
         pills (cond-> []
                 whats-new? (conj ^{:key "new"} (whats-new-pill))
@@ -91,7 +92,7 @@
                                     [:a.support-pill {:href dev-tip :target "_blank" :rel "noopener"}
                                      [:img {:src "/image/bmac-cup.png" :alt ""}] "Fuel the Dev"]))]
     (when (seq pills)
-      (into [:div.support-pills] pills))))
+      (into [:div.support-pills {:class (when compact? "support-pills-compact")}] pills))))
 
 (defn splash-page
   "The home page: the logo, the grid of tool buttons and the support pills. Takes no args;

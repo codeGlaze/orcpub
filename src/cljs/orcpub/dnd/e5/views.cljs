@@ -1506,22 +1506,23 @@
                 ;; Content slot (integrations-gated)
                 [integrations/content-slot @(subscribe [:user-tier])]
 
-                [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
+                ;; Top-aligned, spaced by the row's gap: a column that wraps starts on the left edge.
+                [:div.flex.justify-cont-s-b.align-items-t.flex-wrap.p-10.site-footer-row
                  [:div
                   [:div.m-b-5 "Icons made by Lorc, Delapouite, Caduceus, Caro Asercion, Faithtoken, Sbed, Skoll and Willdabeast. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
                   [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
-                 [:div.m-l-10.site-footer-links
-                  [views-2/support-pills]
+                 [:div.site-footer-links
                   [:div.m-b-5.justify-cont-c
                    (when (seq branding/help-url)
-                     [:a.orange.m-l-5 {:href branding/help-url :target :_blank} "Help"])
-                   [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]
-                   [whats-new-view/footer-link]]]
-                 [:div.m-l-10.m-r-10.p-10
+                     [:a.orange.m-r-5 {:href branding/help-url :target :_blank} "Help"])
+                   [:a.orange.m-r-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]
+                   [whats-new-view/footer-link]]
+                  [views-2/support-pills :compact? true]]
+                 [:div
                   [:div.m-b-5
                    (for [{:keys [label href]} splash/legal-footer-links]
                      ^{:key href}
-                     [:a.orange.m-l-5 {:href href :target :_blank} label])]]
+                     [:a.orange.m-r-5 {:href href :target :_blank} label])]]
                  [:div.legal-footer
                   [:p "© " (current-year) " "
                    (if (seq branding/copyright-url)

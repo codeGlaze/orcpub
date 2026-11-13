@@ -156,6 +156,6 @@
            [release-body whats-new/current-release]]))})))
 
 (defn footer-link []
-  [:a.orange.m-l-5.pointer
+  [:a.orange.m-r-5.pointer
    {:on-click open}
    "What's New"])
