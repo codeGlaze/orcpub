@@ -146,7 +146,9 @@ Mira Ashgrove
 Kessa
 ```
 
-Copy names in by hand: paid patrons only, as first name and last initial or a handle unless a
+`docs/patron-credits.example.md` is a filled-in sample (three tiers, list markers, accents,
+handles, and a last tier long enough to show the sample and Show all): copy it over
+`resources/public/patron-credits.md` to try the panel. Copy names in by hand: paid patrons only, as first name and last initial or a handle unless a
 patron agreed to more. Never commit Patreon's member export: it holds members' email addresses.
 Changing the file needs a redeploy.
 
