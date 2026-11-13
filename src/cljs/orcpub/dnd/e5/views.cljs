@@ -10066,7 +10066,8 @@
    drawing costs that section and the rest of the form still edits and saves; one that throws
    before it has a form shows `item` in the fallback. Every builder returns its form directly
    (none keeps state in a render function), so calling it here draws the same thing.
-   GOTCHA: each section is keyed by position; unkeyed, every one takes `item`'s :key as its React key."
+   GOTCHA: each section is keyed by the item's id and position, so opening another item (or New)
+   remounts its guard; unkeyed, every one takes `item`'s :key as its React key."
   [item builder]
   (try
     (let [form (builder)]
@@ -10074,7 +10075,9 @@
         (let [[tag & more] form
               [attrs children] (if (map? (first more)) [(first more) (rest more)] [nil more])]
           (into (cond-> [tag] attrs (conj attrs))
-                (map-indexed (fn [i c] (if (vector? c) ^{:key i} [render-guard item c] c)))
+                (map-indexed (fn [i c] (if (vector? c)
+                                         ^{:key (str (or (:db/id item) (:key item)) "/" i)} [render-guard item c]
+                                         c)))
                 children))
         form))
     (catch :default e

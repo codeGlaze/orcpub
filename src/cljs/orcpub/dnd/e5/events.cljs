@@ -2878,6 +2878,14 @@
        {:db (assoc db :portrait/drawer-open? false)
         :dispatch-n [[:set-image-url url] [:portrait/discard-draft]]}))))
 
+(reg-event-fx
+ :portrait/remove-link
+ ;; "Remove image": the character's image address is cleared; a kept portrait shows again
+ ;; (char5e/shown-picture falls back to it)
+ (fn [{:keys [db]} _]
+   {:db (assoc db :portrait/drawer-open? false :portrait/link-draft nil)
+    :dispatch-n [[:set-image-url ""] [:portrait/discard-draft]]}))
+
 (reg-event-db
  :portrait/close
  (fn [db _]

@@ -725,8 +725,11 @@
   [v]
   (or (normalize-text (some-> v str (s/replace "\u2022" "\u00B7")) vollkorn-covers?) ""))
 
-(def ^:private ttf
-  (memoize (fn [font] (.getTrueTypeFont (.getDescendantFont font)))))
+(defn- ttf
+  "The TrueTypeFont behind `font`, a PDType0Font. Not cached: fonts are loaded per document, so a
+   cache keyed on them would keep every export's fonts for the life of the server."
+  [font]
+  (.getTrueTypeFont (.getDescendantFont font)))
 
 (def ^:private digit-names
   {\0 "zero" \1 "one" \2 "two" \3 "three" \4 "four" \5 "five" \6 "six" \7 "seven" \8 "eight" \9 "nine"})

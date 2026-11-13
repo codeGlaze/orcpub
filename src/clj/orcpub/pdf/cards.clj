@@ -161,11 +161,11 @@
         (if (or (<= (width-of c) width) (< (count t) 2)) c (recur (subs t 0 (dec (count t)))))))))
 
 (defn spell-card-layout
-  "One spell card front as {:elements [...] :text-top pt}, each element with :box [x0 y0 x1 y1]
-   in points from the card's top-left. `card` is {:spell :class-nm :dc :attack-bonus :uses {:n
-   :label} (n 0: the label alone) :cast-at level :print-dc-mod? bool}; `fonts` a draw/load-fonts map. The name wraps
-   beside ATK and DC; the uses leave the level line for a row of their own when they do not fit;
-   the facts wrap to two rows; the material to two lines."
+  "One spell card front as {:elements [...] :text-top pt}, plus :material-cut (the full material
+   text) when the material was cut to two lines. Each element has :box [x0 y0 x1 y1], points from
+   the card's top-left. `card` is {:spell :class-nm :dc :attack-bonus :uses {:n :label} (n 0: the
+   label alone) :cast-at level :print-dc-mod? bool}; `fonts` a draw/load-fonts map. The name wraps
+   beside ATK and DC; uses take their own row when they do not fit; facts wrap to two rows."
   [fonts {:keys [spell class-nm dc attack-bonus uses cast-at print-dc-mod?]}]
   (let [serif (:plain fonts) serif-b (:bold fonts) serif-i (:italic fonts)
         sans (draw/sans fonts :plain) sans-b (draw/sans fonts :bold)
@@ -221,7 +221,8 @@
         title-size (if fits? 10.5 9.5)
         sy (+ 17 (* 11 (dec (count lines))) 10)
         y (atom 0)
-        uses-on-level-line (atom false)]
+        uses-on-level-line (atom false)
+        material-cut (atom nil)]
     (doseq [[i [k t fill]] (map-indexed vector ribbons)
             :let [x (+ rib-left (* i (+ rw 2))) top 5.5 bot 27
                   pts [[x top] [(+ x rw) top] [(+ x rw) bot] [(+ x (/ rw 2)) (- bot 4)] [x bot]]]]
@@ -279,11 +280,13 @@
       (let [mw #(width serif-i % 6.5)
             ls (spell-wrap mw W (common/ascii-capitalize (s/replace (str mat) #"\s+" " ")))
             ls (if (> (count ls) 2)
-                 [(first ls) (spell-ellipsize mw (str (second ls) " … (full text on the back)") W)]
+                 (do (reset! material-cut (s/replace (str mat) #"\s+" " "))
+                     [(first ls) (spell-ellipsize mw (str (second ls) " … (full text on the back)") W)])
                  ls)]
         (doseq [l ls] (text! serif-i 6.5 l sc-left @y 0.2) (swap! y + 7.5))
         (swap! y + 1.5)))
-    {:elements @out :text-top @y}))
+    (cond-> {:elements @out :text-top @y}
+      @material-cut (assoc :material-cut @material-cut))))
 
 (defn spell-card-problems
   "What is wrong with a spell-card-layout: content boxes overlapping (a mark inside its own
@@ -415,7 +418,11 @@
                               ""))
                    card (spell-card-layout fonts (assoc spell-data :print-dc-mod?
                                                         (and print-spell-card-dc-mod? (not= class-nm "Homebrew"))))]
-               {:remaining-lines (draw-spell-card! cs fonts img x y card text)
+               ;; A material cut short on the front ("full text on the back") leads the back.
+               {:remaining-lines (concat (some-> (:material-cut card)
+                                                 (#(draw/split-lines (str "Material: " %) (:plain fonts) 8
+                                                                     (- box-width 0.3))))
+                                         (draw-spell-card! cs fonts img x y card text))
                 :spell-name spell-name}))))))
 
 (defn- card-pt

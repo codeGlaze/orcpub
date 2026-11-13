@@ -209,13 +209,17 @@
             portrait (char/portrait built-char)
             ;; Into an opened tab a beat later, so it paints its notice before the navigation
             ;; starts; with no tab (a blocked popup), at once, while still inside the click.
+            ;; The shared form takes this export's value and target only as it is submitted, so
+            ;; two exports waiting on one bake cannot send each other's data.
             submit! (fn [png-b64 target]
-                      (aset field "value" (str (merge spec (try (portrait-fields portrait png-b64)
-                                                                (catch :default _ nil)))))
-                      (aset form "target" target)
-                      (if (= "_blank" target)
-                        (.submit form)
-                        (js/setTimeout #(.submit form) 150)))
+                      (let [value (str (merge spec (try (portrait-fields portrait png-b64)
+                                                        (catch :default _ nil))))
+                            send! #(do (aset field "value" value)
+                                       (aset form "target" target)
+                                       (.submit form))]
+                        (if (= "_blank" target)
+                          (send!)
+                          (js/setTimeout send! 150))))
             ready (when (portrait-assets5e/drawable? portrait) (portrait/baked-png portrait))
             target (making-pdf-tab! (str "orcpub-pdf-" (rand-int 1000000)))]
         (cond
@@ -591,6 +595,7 @@
        "Cancel"]
       [:button.form-button.p-10
        {:type "button"
+        :disabled (not print-button-enabled)
         :style (print-button-style print-button-enabled)
         :on-click (export-pdf-handler built-char
                                       id

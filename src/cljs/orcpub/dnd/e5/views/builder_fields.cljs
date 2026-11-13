@@ -132,8 +132,11 @@
     (fn [row help]
       [:div
        (conj row
-             [:span.option-help.pointer.m-l-5
-              {:title help
+             [:button.option-help.m-l-5
+              {:type "button"
+               :title help
+               :aria-label "What this option does"
+               :aria-expanded @open?
                :on-click (fn [e] (.stopPropagation e) (swap! open? not))}
               "?"])
        (when @open?

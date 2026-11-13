@@ -787,7 +787,13 @@
      :font-size "10px"
      :font-weight "bold"
      :line-height "1"
-     :opacity "0.75"}]
+     :opacity "0.75"
+     ;; A <button>: no UA chrome, the text's own colour and font.
+     :background "none"
+     :color "inherit"
+     :font-family "inherit"
+     :padding "0"
+     :cursor "pointer"}]
    [:.option-help:hover
     {:opacity "1"}]
    [:.option-help-text

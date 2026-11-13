@@ -908,10 +908,11 @@
   "The marks for the spell printed under `nm`, or nil.
 
    By NAME, because that is all the row carries: the server is handed a flat map
-   of field names to values. A homebrew spell, or one whose name does not match
-   the data, gets no marks rather than a wrong one."
+   of field names to values, the name followed by any note in parentheses
+   (pdf-spec/spell-note), which is dropped first. A homebrew spell, or one whose
+   name does not match the data, gets no marks rather than a wrong one."
   [nm]
-  (some-> (get spells/spell-map (common/name-to-kw nm))
+  (some-> (get spells/spell-map (common/name-to-kw (s/replace (str nm) #"\s*\([^()]*\)\s*$" "")))
           spell-annotations/annotation))
 
 (defn- generate-character-pdf*

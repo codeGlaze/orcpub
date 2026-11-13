@@ -242,6 +242,10 @@
     url
     (or (get @solid-urls url) (do (solid-promise url) url))))
 
+(defonce ^:private failed-link
+  ;; The image address whose preview in the drawer last failed to load, or nil.
+  (r/atom nil))
+
 (defonce ^:private loaded-images (atom {}))
 
 (defn- with-image
@@ -1528,9 +1532,16 @@
            (if (= mode :link)
              [:div.pl-link-mode
               [:div.pl-link-preview
-               (if (s/blank? image-url)
+               (cond
+                 (s/blank? image-url)
                  [:span.pl-empty-hint "Paste an image address, and the image shows here."]
-                 [:img {:src image-url :alt "The character's picture"}])]
+                 (= image-url @failed-link)
+                 [:span.pl-empty-hint
+                  "No image loaded from that address. Check that it opens on its own in a browser tab, and that it is the image itself, not a page holding it."]
+                 :else
+                 [:img {:src image-url :alt "The character's picture"
+                        :on-load #(when (= image-url @failed-link) (reset! failed-link nil))
+                        :on-error #(reset! failed-link image-url)}])]
               [:div.pl-link link-field]]
              [compositor-body portrait seed open-slot open-layer])
            [:div.pl-drawer-foot
@@ -1543,9 +1554,14 @@
              [:button.pl-btn.pl-btn-ghost
               {:type "button" :on-click #(dispatch [:portrait/close])}
               "Cancel"]
+             (when (and (= mode :link) (= shown :image))
+               [:button.pl-btn.pl-btn-ghost
+                {:type "button" :on-click #(dispatch [:portrait/remove-link])}
+                "Remove image"])
              (if (= mode :link)
                [:button.pl-btn.pl-btn-primary
-                {:type "button" :on-click #(dispatch [:portrait/use-link]) :disabled (s/blank? image-url)}
+                {:type "button" :on-click #(dispatch [:portrait/use-link])
+                 :disabled (or (s/blank? image-url) (= image-url @failed-link))}
                 (if (= shown :portrait) "Switch to this image" "Use this image")]
                [:button.pl-btn.pl-btn-primary
                 {:type "button"
@@ -1589,9 +1605,10 @@
              [:button.pl-btn.pl-btn-ghost
               {:type "button" :on-click #(dispatch [:portrait/save true])}
               "Save portrait"])
-           [:button.pl-btn.pl-btn-ghost
-            {:type "button" :on-click #(dispatch [:portrait/randomize])}
-            "Randomize"]
+           (when-not link?
+             [:button.pl-btn.pl-btn-ghost
+              {:type "button" :on-click #(dispatch [:portrait/randomize])}
+              "Randomize"])
            [:button.pl-btn.pl-btn-primary
             {:type "button" :on-click #(dispatch [:portrait/open])}
             (cond link? "Edit image" any? "Edit portrait" :else "Build a portrait")]]]]))}))
@@ -1630,7 +1647,8 @@
     (if keep-colours?
       (assoc current
              :layers (pa/compose-for-seed seed)
-             :face (merge face (select-keys (:face current) [:second-eye :blush-colour]))
+             :face (merge (dissoc face :second-eye :blush-colour)
+                          (select-keys (:face current) [:second-eye :blush-colour]))
              :light light
              :ombre (merge (dissoc ombre :tip) (select-keys (:ombre current) [:tip])))
       (assoc current
