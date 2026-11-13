@@ -130,11 +130,13 @@ tip link.
 
 ### Patron credits
 
-A deployment thanks its patrons by shipping `resources/public/patron-credits.md` (fork-only: the
-public repo has none, so no credits show). The What's New panel fetches it the first time it opens,
-and closes the release notes with "Made possible by our patrons", reached from a Credits link under
-the title. One name per line; a line starting with `#` starts a tier, and names before any heading
-form a list with no tier heading:
+When `APP_SOCIAL_PATREON` is set, the What's New panel always closes its release notes with "Made
+possible by our patrons" and a thank-you line, reached from a Credits link under the title. The
+names come from `resources/public/patron-credits.md`, which the panel fetches the first time it
+opens. The public repo ships the file empty; a fork replaces it (a fork-only file on merge). One
+name per line; a line starting with `#` starts a tier, and names before any heading form a list
+with no tier heading. Every tier shows in full except the last: past 24 names it shows a random 24,
+reshuffled on each page load, and "Show all N patrons" expands the full list alphabetically:
 
 ```markdown
 ## Archmage
@@ -143,7 +145,8 @@ Mira Ashgrove
 Kessa
 ```
 
-Copy names in by hand. Never commit Patreon's member export: it holds members' email addresses.
+Copy names in by hand: paid patrons only, as first name and last initial or a handle unless a
+patron agreed to more. Never commit Patreon's member export: it holds members' email addresses.
 Changing the file needs a redeploy.
 
 ### Field Limits
