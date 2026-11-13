@@ -115,6 +115,7 @@ Shown in the app header/footer when non-empty. Leave empty to hide.
 | Env Var | Default (public) | Default (production) |
 |---------|-----------------|---------------------|
 | `APP_SOCIAL_PATREON` | *(empty = hidden)* | Patreon URL |
+| `APP_SOCIAL_DEV_TIP` | *(empty = hidden)* | A one-off tip link for the developer |
 | `APP_SOCIAL_FACEBOOK` | *(empty = hidden)* | Facebook group URL |
 | `APP_SOCIAL_BLUESKY` | *(empty = hidden)* | *(empty)* |
 | `APP_SOCIAL_TWITTER` | *(empty = hidden)* | Twitter URL |
@@ -122,6 +123,28 @@ Shown in the app header/footer when non-empty. Leave empty to hide.
 | `APP_SOCIAL_DISCORD` | *(empty = hidden)* | *(empty)* |
 
 When `APP_SOCIAL_PATREON` is set, the supporter button appears in the header. When empty, nothing renders. Same code on both branches.
+
+The What's New panel's footer shows "Help support our:" with a Server icon (`APP_SOCIAL_PATREON`) and a
+Dev icon (`APP_SOCIAL_DEV_TIP`), each only when set; the site footer adds "Support the dev" for the
+tip link.
+
+### Patron credits
+
+A deployment thanks its patrons by shipping `resources/public/patron-credits.md` (fork-only: the
+public repo has none, so no credits show). The What's New panel fetches it the first time it opens,
+and closes the release notes with "Made possible by our patrons", reached from a Credits link under
+the title. One name per line; a line starting with `#` starts a tier, and names before any heading
+form a list with no tier heading:
+
+```markdown
+## Archmage
+Mira Ashgrove
+## Adventurer
+Kessa
+```
+
+Copy names in by hand. Never commit Patreon's member export: it holds members' email addresses.
+Changing the file needs a redeploy.
 
 ### Field Limits
 
