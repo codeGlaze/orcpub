@@ -89,3 +89,18 @@ scrolling, a freeze on ticking Print Spell Cards / Print Spellbook). **Base:** `
   errors, export 61/61, reach 15/15, portrait 11/11.
 - Open: the owner is unsure the phone order of the groups is logical (wants to use it first);
   the bundle (924 KB vs 900 KB, see BRANCH.md "Trim the app bundle").
+
+## Update 2026-11-13: pushed for review (RC2)
+
+- Pushed `79742a8af`; PR #84 description rewritten; `@coderabbitai full review` requested. The
+  push touches `docker-compose.yaml` and `scripts/swarm.sh` (`APP_SOCIAL_DEV_TIP`), so every push
+  now runs the heavy Docker checks: the owner approved this push only.
+- Since 11-09: spell cards redesigned with the owner's sigils, at-will grants print `AT WILL`, Rod
+  of the Pact Keeper scoped to warlock spells (`?class-spell-bonuses`), patron credits and support
+  pills (What's New, home page, footer). Details: `plan-spell-uses-by-source.md`,
+  `save-dc-sources.md`, `docs/BRANDING-AND-INTEGRATIONS.md`, `docs/TODO.md`.
+- Next, in order: answer CodeRabbit's comments (fix pushes need no new review request); once CR
+  and CI are clean, a premerge branch for the gitea DMV PR (name to be approved by the owner).
+- Showing the owner the app: `lein with-profile +e2e,+wsl run` with the two `APP_SOCIAL_*`
+  settings, a sample `resources/public/patron-credits.md` (never commit it: the shipped file is
+  empty), and the address from `hostname -I` on port 8890.
