@@ -6,7 +6,8 @@
    entry per release, and never reuse an id. `:icon` values are Font Awesome 5
    solid names — the set index.clj serves — so a v4 name renders as a blank column.
    Items carrying the same `:group` are rendered under one heading, in the order
-   they appear here.")
+   they appear here."
+  (:require [clojure.string :as str]))
 
 (def releases
   [{:id "long-rest-update-2026"
@@ -144,6 +145,29 @@
    first visit sees the current release once."
   [seen-id]
   (not= seen-id current-release-id))
+
+(def credits-path
+  "Where a deployment puts its patron credits: a static file under resources/public, read when the
+   What's New panel opens. Absent (the public repo ships none) means no credits section."
+  "/patron-credits.md")
+
+(defn parse-credits
+  "The patron credits in `text` as [{:tier name-or-nil :names [...]}], in file order. A line
+   starting with # names a tier; any other non-blank line is one patron, a leading - or * dropped;
+   names before the first heading form a group with no tier. Groups with no names are left out."
+  [text]
+  (->> (re-seq #"[^\r\n]+" (str text))
+       (map str/trim)
+       (remove str/blank?)
+       (reduce (fn [groups line]
+                 (if-let [[_ tier] (re-matches #"#+\s*(.*)" line)]
+                   (conj groups {:tier tier :names []})
+                   (let [nm (str/replace line #"^[-*]\s*" "")]
+                     (if (seq groups)
+                       (update-in groups [(dec (count groups)) :names] conj nm)
+                       [{:tier nil :names [nm]}]))))
+               [])
+       (filterv (comp seq :names))))
 
 (defn grouped-items
   "The release's items as [group items] pairs, in source order. A group of nil

@@ -3566,6 +3566,25 @@
      {:font-size "12px"
       :color muted-on-dark}]
 
+    ;; Patron credits and the footer's support icons: quiet, the size of the text around them.
+    [:.whats-new-credits-link
+     {:background :none :border :none :padding 0 :margin-top "8px"
+      :color orange :font-size "12px" :cursor :pointer}]
+    [:.whats-new-credits-intro
+     {:font-size "14px" :color muted-on-dark :padding "8px 0 4px" :line-height 1.45}]
+    [:.whats-new-credits-tier
+     {:color muted-on-dark :font-size "11px" :font-weight :bold :letter-spacing "1px"
+      :text-transform :uppercase :padding-top "10px"}]
+    [:.whats-new-patrons
+     {:display :grid :grid-template-columns "repeat(auto-fill, minmax(130px, 1fr))"
+      :gap "6px 16px" :padding "8px 0 14px" :font-size "14px"}]
+    [:.whats-new-support-label
+     {:font-size "11px" :color muted-on-dark}]
+    [:.whats-new-support-link
+     {:display :flex :flex-direction :column :align-items :center :margin "3px 14px 0 0"
+      :font-size "11px" :color muted-on-dark :text-decoration :none}
+     [:img {:width "22px" :height "22px" :border-radius "4px" :margin-bottom "2px"}]]
+
     ;; A required builder field left empty when a save was attempted. Same amber
     ;; cue as the export modal's unfilled dropdowns, for consistency.
     [:.builder-field-unfilled

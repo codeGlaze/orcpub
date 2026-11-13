@@ -1513,6 +1513,8 @@
                   [:div.m-b-5.justify-cont-c
                    (when-let [url (not-empty (:patreon branding/social-links))]
                      [:a.orange {:href url :target :_blank} "Support this site on Patreon"])
+                   (when-let [url (not-empty (:dev-tip branding/social-links))]
+                     [:a.orange.m-l-5 {:href url :target :_blank} "Support the dev"])
                    (when (seq branding/help-url)
                      [:a.orange.m-l-5 {:href branding/help-url :target :_blank} "Help"])
                    [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]
