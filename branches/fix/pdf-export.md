@@ -99,8 +99,9 @@ scrolling, a freeze on ticking Print Spell Cards / Print Spellbook). **Base:** `
   of the Pact Keeper scoped to warlock spells (`?class-spell-bonuses`), patron credits and support
   pills (What's New, home page, footer). Details: `plan-spell-uses-by-source.md`,
   `save-dc-sources.md`, `docs/BRANDING-AND-INTEGRATIONS.md`, `docs/TODO.md`.
-- Next, in order: answer CodeRabbit's comments (fix pushes need no new review request); once CR
-  and CI are clean, a premerge branch for the gitea DMV PR (name to be approved by the owner).
+- Next: answer CodeRabbit's comments (fix pushes need no new review request). The gitea DMV
+  premerge waits until #84 and the other open PRs are merged; it is cut from `integration`, never
+  from this branch (owner, 2026-11-13), and its name needs the owner's yes.
 - Showing the owner the app: `lein with-profile +e2e,+wsl run` with the two `APP_SOCIAL_*`
   settings, a sample `resources/public/patron-credits.md` (never commit it: the shipped file is
   empty), and the address from `hostname -I` on port 8890.
