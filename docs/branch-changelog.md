@@ -44,9 +44,10 @@ duplicates, and the PDF Options code moved out of views.cljs (views/pdf_options.
 
 - **Printing:** PDF Options lets players choose what the file name shows (player, character, class,
   subclass, level), where the level goes and how it is written (5, 05, L5); kept on the account.
-- **Site:** the What's New panel closes its release notes with the patrons who keep the server
-  running, reached from a Credits link under the title, and its footer offers "Help support our:
-  Server · Dev"; the site footer gains "Support the dev". Each shows only when the site sets it up.
+- **Site:** What's New thanks the patrons who keep the server running, with their names when the
+  site lists them, and offers "Help support our: Server · Dev". The home page gains What's New,
+  Support the Server and Fuel the Dev buttons, and the site footer the last two. Each shows only
+  when the site sets it up.
 
 ## Changed
 
