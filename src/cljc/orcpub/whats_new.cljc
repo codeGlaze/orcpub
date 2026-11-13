@@ -1,12 +1,9 @@
 (ns orcpub.whats-new
-  "Release highlights for the What's New panel.
-
-   `releases` is newest-first. `:id` is the stamp the browser stores once someone
-   has seen the panel, so a new `:id` is what makes the panel open again — one new
-   entry per release, and never reuse an id. `:icon` values are Font Awesome 5
-   solid names — the set index.clj serves — so a v4 name renders as a blank column.
-   Items carrying the same `:group` are rendered under one heading, in the order
-   they appear here."
+  "Release highlights for the What's New panel, and a deployment's patron credits. `releases`
+   is newest-first; `:id` is the stamp the browser keeps once the panel is seen, so each release
+   gets a new id, never a reused one. `:icon` takes Font Awesome 5 solid names (the set index.clj
+   serves): a v4 name renders as a blank column. Items sharing a `:group` render under one
+   heading, in the order given."
   (:require [clojure.string :as str]))
 
 (def releases
