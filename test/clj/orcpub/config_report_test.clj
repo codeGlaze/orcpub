@@ -291,8 +291,8 @@
           read-names (->> (re-seq #":app-[a-z-]+" src)
                           (map #(-> % (subs 1) (str/replace "-" "_") (.toUpperCase Locale/ROOT)))
                           set)
-          socials (->> (re-find #"\[:patreon[^\]]*\]" src) (re-seq #":([a-z]+)")
-                       (map #(str "APP_SOCIAL_" (.toUpperCase ^String (second %) Locale/ROOT))))]
+          socials (->> (re-find #"\[:patreon[^\]]*\]" src) (re-seq #":([a-z-]+)")
+                       (map #(str "APP_SOCIAL_" (-> ^String (second %) (str/replace "-" "_") (.toUpperCase Locale/ROOT)))))]
       (is (empty? (remove (set config/branding-vars) (concat read-names socials)))
           (pr-str (remove (set config/branding-vars) (concat read-names socials)))))))
 
