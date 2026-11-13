@@ -75,6 +75,14 @@ public repo; format in `docs/BRANDING-AND-INTEGRATIONS.md`, "Patron credits"). O
   let the list build itself. Needs the opt-in field and a migration.
 - **A Credits page** if the last tier outgrows the panel's sample of 24 and "Show all".
 
+## Site footer layout (owner, 2026-11-13: "worse now"; for Sunday)
+
+After #84 the footer row is top-aligned, spaced by a row gap, with the support links compact under
+Feedback and What's New (`views.cljs` footer, `views-2/support-pills :compact? true`,
+`.site-footer-row` in `styles/core.clj`). The owner finds it worse than before. Start by asking
+what reads wrong, then mock two or three layouts on the live page before building; the rule that
+stays: support links never displace legal text (ux-guide.md, 2026-11-13).
+
 ## Owner's RC2 testing notes (2026-11-13), not yet investigated
 
 - **Imgur page links as pictures.** A gallery link such as
