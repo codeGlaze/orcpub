@@ -73,13 +73,13 @@
     (when (or (seq patreon) (seq dev-tip))
       [:div.whats-new-support
        [:div.whats-new-support-label "Help support our:"]
-       [:div.flex
+       [:div.whats-new-support-links
         (when (seq patreon) (link patreon patreon-mark "Server"))
         (when (seq dev-tip) (link dev-tip tip-mark "Dev"))]])))
 
 (defn- release-body
   "The open panel for `release`: header, highlights, the credits when the deployment has any,
-   and the footer with the support links, version and Got it."
+   and the footer with the support links and Got it. The version sits beside \"What's New\"."
   [{:keys [title subtitle] :as release}]
   (let [groups @credits
         credits? (and (sequential? groups) (seq groups))]
@@ -88,7 +88,9 @@
      [:div.whats-new-header
       [:div.flex.justify-cont-s-b.align-items-c
        [:div
-        [:div.whats-new-eyebrow "What's New"]
+        [:div.whats-new-eyebrow-row
+         [:div.whats-new-eyebrow "What's New"]
+         [:div.whats-new-version (str "v" (v/version))]]
         [:div.whats-new-title title]]
        [:button.fa.fa-times.whats-new-close
         {:on-click close
@@ -118,11 +120,9 @@
 
      [:div.whats-new-footer
       [:div [support-links]]
-      [:div.flex.align-items-c
-       [:div.whats-new-version (str "Version " (v/version))]
-       [:button.form-button.m-l-10
-        {:on-click close}
-        "Got it"]]]]))
+      [:button.form-button
+       {:on-click close}
+       "Got it"]]]))
 
 (defn panel
   "Mount once in the app shell. Renders nothing until the panel is open; opening it the first

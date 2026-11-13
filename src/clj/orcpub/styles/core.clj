@@ -3562,9 +3562,13 @@
       :align-items :center
       :justify-content :space-between}]
 
+    [:.whats-new-eyebrow-row
+     {:display :flex :align-items :baseline}]
+
     [:.whats-new-version
-     {:font-size "12px"
-      :color muted-on-dark}]
+     {:font-size "11px"
+      :color muted-on-dark
+      :margin-left "8px"}]
 
     ;; Patron credits and the footer's support icons: quiet, the size of the text around them.
     [:.whats-new-credits-link
@@ -3578,12 +3582,16 @@
     [:.whats-new-patrons
      {:display :grid :grid-template-columns "repeat(auto-fill, minmax(130px, 1fr))"
       :gap "6px 16px" :padding "8px 0 14px" :font-size "14px"}]
+    ;; Label over one row of icon-and-word links, all on the label's left edge.
     [:.whats-new-support-label
-     {:font-size "11px" :color muted-on-dark}]
+     {:font-size "11px" :line-height "14px" :color muted-on-dark :margin-bottom "5px"}]
+    [:.whats-new-support-links
+     {:display :flex :gap "16px"}]
     [:.whats-new-support-link
-     {:display :flex :flex-direction :column :align-items :center :margin "3px 14px 0 0"
-      :font-size "11px" :color muted-on-dark :text-decoration :none}
-     [:img {:width "22px" :height "22px" :border-radius "4px" :margin-bottom "2px"}]]
+     {:display :flex :align-items :center :gap "6px"
+      :font-size "12px" :line-height "18px" :color muted-on-dark :text-decoration :none}
+     [:&:hover {:color :white}]
+     [:img {:width "18px" :height "18px" :border-radius "3px"}]]
 
     ;; A required builder field left empty when a save was attempted. Same amber
     ;; cue as the export modal's unfilled dropdowns, for consistency.
