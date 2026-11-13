@@ -75,6 +75,19 @@ public repo; format in `docs/BRANDING-AND-INTEGRATIONS.md`, "Patron credits"). O
   let the list build itself. Needs the opt-in field and a migration.
 - **A Credits page** if the last tier outgrows the panel's sample of 24 and "Show all".
 
+## Owner's RC2 testing notes (2026-11-13), not yet investigated
+
+- **Imgur page links as pictures.** A gallery link such as
+  `https://imgur.com/gallery/warforged-spellcaster-AT8T4hG#svKibQL` hosts its image at
+  `https://imgur.com/svKibQL.png`: convert it (the id after `#`, or the last path part), then try
+  .webp, .jpg, .png and .gif before showing the error. A guess, so keep it to Imgur's own pattern.
+- **A trailing space in the picture address** gets a warning instead of being trimmed. Trim it.
+- **Spells cast from items show no DC** (on the sheet or cards; check which, and whether the item's
+  own DC or the character's applies).
+- **Charges on the equipment sheet** read "50/50" for the Staff of the Magi, with no "charges".
+- **Upcasting** does not look like it made it in. Find what was planned (spell cards? the
+  Spells tab?) and on which branch before building.
+
 ## Agent files in 2 branches' tips: delete before each merges
 
 Decided 2026-10-24: old history stays, no rewrites. `feature/fighting-style-authoring` and
