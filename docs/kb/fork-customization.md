@@ -19,6 +19,7 @@ is identical on both branches.
 | `fork/user_data.clj` | Pass-through stubs | Adds patron fields to API response |
 | `fork/integrations.clj` | Empty `head-tags`, no CSP domains | Matomo + AdSense script injection |
 | `fork/integrations.cljs` | No-op stubs + basic share links | Full Matomo/AdSense + tier-gated UI |
+| `resources/public/patron-credits.md` | Empty (the What's New panel thanks patrons with no names) | DMV's patron names, by tier (BRANDING-AND-INTEGRATIONS.md, "Patron credits") |
 
 **Note:** Files moved from `src/clj/orcpub/<name>` to `src/clj/orcpub/fork/<name>`
 (and corresponding cljs paths) as of commit 69eafaad. Namespaces changed from

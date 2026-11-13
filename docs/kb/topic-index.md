@@ -537,7 +537,7 @@ _branch-md-2026-10-23 · branch md 2026 10 23_
 
 _branding-setup · branding setup_
 
-**topics:** artist, artist-links-and-referrer, branding, credits, dmv, docker, email, emails, footer, fork, fork-customization, json, links, logos, privacy, settings-registry-and-boot-report, swarm, url
+**topics:** artist, artist-links-and-referrer, branding, dmv, docker, email, emails, footer, fork, fork-customization, json, links, logos, portrait, privacy, settings-registry-and-boot-report, swarm, url
 
 - Two ways a deployment brands itself
 - How a value is read
@@ -1856,7 +1856,7 @@ _fonts · fonts_
 
 _fork-customization · fork customization_
 
-**topics:** -------------, adsense, api, branches, branding-setup, bridge, cljs, csp, customization, dmv, domains, integrations, matomo, override, production, public, stubs, views
+**topics:** -------------, adsense, api, branding-setup, bridge, cljs, csp, dmv, domains, integrations, matomo, override, patron, production, public, stubs, tier, views
 
 - Override File Pattern
 - Architecture
