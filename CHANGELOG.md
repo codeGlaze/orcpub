@@ -116,6 +116,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   site lists them, and offers "Help support our: Server · Dev". The home page gains What's New,
   Support the Server and Fuel the Dev buttons, and the site footer the last two. Each shows only
   when the site sets it up.
+- **Site:** the startup report warns when a Patreon link is set but no patrons are listed.
 
 ### Changed
 - **Server:** a deployed server will not start without a mail server unless `EMAIL_REQUIRED=false` says that is intended, and the message names the setting to add. Development mode is exempt; `./run` and `./run --upgrade` set the opt-out for installs that run without email, so none stops on upgrade. (#716)
