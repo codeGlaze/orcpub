@@ -50,6 +50,7 @@
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
+            [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.pdf-options :as pdf-options]
             [orcpub.dnd.e5.views.builder-fields :refer [event-value dropdown labeled-dropdown
                                                         labeled-checkbox with-help option-checkbox option-group
@@ -1509,12 +1510,9 @@
                  [:div
                   [:div.m-b-5 "Icons made by Lorc, Delapouite, Caduceus, Caro Asercion, Faithtoken, Sbed, Skoll and Willdabeast. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
                   [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
-                 [:div.m-l-10
+                 [:div.m-l-10.site-footer-links
+                  [views-2/support-pills]
                   [:div.m-b-5.justify-cont-c
-                   (when-let [url (not-empty (:patreon branding/social-links))]
-                     [:a.orange {:href url :target :_blank} "Support this site on Patreon"])
-                   (when-let [url (not-empty (:dev-tip branding/social-links))]
-                     [:a.orange.m-l-5 {:href url :target :_blank} "Support the dev"])
                    (when (seq branding/help-url)
                      [:a.orange.m-l-5 {:href branding/help-url :target :_blank} "Help"])
                    [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]

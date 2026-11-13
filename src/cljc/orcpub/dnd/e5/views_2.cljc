@@ -61,25 +61,40 @@
         ^{:key href}
         [:a.m-l-5 {:href href :target :_blank} label]))]))
 
-(defn whats-new-link
-  "A small \"What's New\" link, at the footer's link size, that opens the release panel
-   (:orcpub.dnd.e5/open-whats-new), by click or by Enter or Space when focused. Takes no args;
-   returns hiccup. Inert in the server-rendered page, which the app replaces on mount."
+(defn- whats-new-pill
+  "The \"What's New\" pill: opens the release panel (:orcpub.dnd.e5/open-whats-new) by click, or
+   by Enter or Space when focused. Inert in the server-rendered page, which the app replaces."
   []
-  [:div.f-s-12.t-a-c.m-t-10
-   [:a.orange.pointer
-    #?(:cljs {:role "button"
-              :tab-index 0
-              :on-click #(dispatch [:orcpub.dnd.e5/open-whats-new])
-              :on-key-down (fn [e]
-                             (when (#{"Enter" " "} (.-key e))
-                               (.preventDefault e)
-                               (dispatch [:orcpub.dnd.e5/open-whats-new])))}
-       :clj {})
-    "What's New"]])
+  [:a.support-pill
+   #?(:cljs {:role "button"
+             :tab-index 0
+             :on-click #(dispatch [:orcpub.dnd.e5/open-whats-new])
+             :on-key-down (fn [e]
+                            (when (#{"Enter" " "} (.-key e))
+                              (.preventDefault e)
+                              (dispatch [:orcpub.dnd.e5/open-whats-new])))}
+      :clj {})
+   [:i.fa.fa-gift] "What's New"])
+
+(defn support-pills
+  "A row of quiet pills: What's New when `whats-new?`, then Support the Server (the Patreon link)
+   and Fuel the Dev (the developer tip link), each only when its link is set. Returns hiccup, or
+   nil when there is nothing to show. Used under the home page's tiles and in the site footer."
+  [& {:keys [whats-new?]}]
+  (let [{:keys [patreon dev-tip]} branding/social-links
+        pills (cond-> []
+                whats-new? (conj ^{:key "new"} (whats-new-pill))
+                (seq patreon) (conj ^{:key "server"}
+                                    [:a.support-pill {:href patreon :target "_blank" :rel "noopener"}
+                                     [:i.fab.fa-patreon] "Support the Server"])
+                (seq dev-tip) (conj ^{:key "dev"}
+                                    [:a.support-pill {:href dev-tip :target "_blank" :rel "noopener"}
+                                     [:img {:src "/image/bmac-cup.png" :alt ""}] "Fuel the Dev"]))]
+    (when (seq pills)
+      (into [:div.support-pills] pills))))
 
 (defn splash-page
-  "The home page: the logo, the grid of tool buttons and a small What's New link. Takes no args;
+  "The home page: the logo, the grid of tool buttons and the support pills. Takes no args;
    returns hiccup. Rendered by the server as the first paint and by the app after mount."
   []
   [:div.app.h-full
@@ -185,4 +200,4 @@
         (for [{:keys [title icon route]} splash/generator-buttons]
           ^{:key route}
           (splash-page-button title icon route))])
-     (whats-new-link)]]])
+     (support-pills :whats-new? true)]]])

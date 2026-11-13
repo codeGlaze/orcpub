@@ -3593,6 +3593,24 @@
      [:&:hover {:color :white}]
      [:img {:width "18px" :height "18px" :border-radius "3px"}]]
 
+    ;; Support pills (views-2/support-pills): the home tiles' raised surface, amber text, one icon.
+    [:.support-pills
+     {:display :flex :flex-wrap :wrap :justify-content :center :gap "10px" :margin "22px auto 8px"}]
+    [:.support-pill
+     {:display :inline-flex :align-items :center :justify-content :center :gap "8px"
+      :padding "8px 14px" :border-radius "5px" :font-size "13px" :font-weight 600
+      :color orange :text-decoration :none :cursor :pointer
+      :background "rgba(255,255,255,0.04)" :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}
+     [:&:hover {:color :white}]
+     [:i {:font-size "15px" :width "18px" :text-align :center}]
+     [:i.fa-patreon {:color "#ff424d"}]
+     [:img {:width "18px" :height "18px" :border-radius "3px"}]]
+    ;; In the site footer the pills sit on the left edge of the text links under them.
+    [:.site-footer-links
+     [:.support-pills {:justify-content :flex-start :margin "0 0 10px 5px"}]]
+    (at-media {:max-width "480px"}
+     [:.support-pills {:flex-direction :column :align-items :stretch :max-width "280px"}])
+
     ;; A required builder field left empty when a save was attempted. Same amber
     ;; cue as the export modal's unfilled dropdowns, for consistency.
     [:.builder-field-unfilled
