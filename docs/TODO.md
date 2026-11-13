@@ -62,6 +62,19 @@ panel headers and footers, buttons, section titles, the dark surfaces), point ea
 component and garden class, name them in `docs/kb/ux-guide.md`, and move the stragglers. Pairs
 with the keyboard-focus item below and the bundle trim in BRANCH.md, "Someday".
 
+## Patron credits: what comes after the file (owner, 2026-11-13; built on fix/pdf-export, #84)
+
+What's New thanks patrons from `resources/public/patron-credits.md` (fork override, empty in the
+public repo; format in `docs/BRANDING-AND-INTEGRATIONS.md`, "Patron credits"). Open:
+
+- **Who is named, and how.** The owner has not seen Patreon's member side yet. Check the creator
+  dashboard: does the export say who agreed to be credited? Until then, paid patrons only, first
+  name and last initial or a handle; never commit the export (it holds emails).
+- **From the database instead of a file.** DMV accounts already carry `:patron` and
+  `:patron-tier` (`fork/user_data.clj`); an opt-in "show my name in the credits" setting would
+  let the list build itself. Needs the opt-in field and a migration.
+- **A Credits page** if the last tier outgrows the panel's sample of 24 and "Show all".
+
 ## Agent files in 2 branches' tips: delete before each merges
 
 Decided 2026-10-24: old history stays, no rewrites. `feature/fighting-style-authoring` and
