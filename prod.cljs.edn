@@ -12,6 +12,9 @@
  :output-to "resources/public/js/compiled/orcpub.js"
  :asset-path "/js/compiled/out"
  :optimizations :advanced
+ ;; Off in production: re-frame, Reagent and the app compile their debug-only checks and
+ ;; warnings out, and common/feature-name shows its placeholder instead of throwing.
+ :closure-defines {goog.DEBUG false}
  :infer-externs true
  :externs ["externs.js"]
  :pretty-print false}

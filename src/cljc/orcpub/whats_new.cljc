@@ -1,12 +1,10 @@
 (ns orcpub.whats-new
-  "Release highlights for the What's New panel.
-
-   `releases` is newest-first. `:id` is the stamp the browser stores once someone
-   has seen the panel, so a new `:id` is what makes the panel open again — one new
-   entry per release, and never reuse an id. `:icon` values are Font Awesome 5
-   solid names — the set index.clj serves — so a v4 name renders as a blank column.
-   Items carrying the same `:group` are rendered under one heading, in the order
-   they appear here.")
+  "Release highlights for the What's New panel, and a deployment's patron credits. `releases`
+   is newest-first; `:id` is the stamp the browser keeps once the panel is seen, so each release
+   gets a new id, never a reused one. `:icon` takes Font Awesome 5 solid names (the set index.clj
+   serves): a v4 name renders as a blank column. Items sharing a `:group` render under one
+   heading, in the order given."
+  (:require [clojure.string :as str]))
 
 (def releases
   [{:id "long-rest-update-2026"
@@ -144,6 +142,48 @@
    first visit sees the current release once."
   [seen-id]
   (not= seen-id current-release-id))
+
+(def credits-path
+  "Where a deployment puts its patron credits: a static file under resources/public, read when the
+   What's New panel opens. The public repo ships it empty (no names); a fork replaces it."
+  "/patron-credits.md")
+
+(defn parse-credits
+  "The patron credits in `text` as [{:tier name-or-nil :names [...]}], in file order. A line
+   starting with # names a tier; any other non-blank line is one patron, a leading - or * dropped;
+   names before the first heading form a group with no tier. Groups with no names are left out."
+  [text]
+  (->> (re-seq #"[^\r\n]+" (str text))
+       (map str/trim)
+       (remove str/blank?)
+       (reduce (fn [groups line]
+                 (if-let [[_ tier] (re-matches #"#+\s*(.*)" line)]
+                   (conj groups {:tier tier :names []})
+                   (let [nm (str/replace line #"^[-*]\s*" "")]
+                     (if (seq groups)
+                       (update-in groups [(dec (count groups)) :names] conj nm)
+                       [{:tier nil :names [nm]}]))))
+               [])
+       (filterv (comp seq :names))))
+
+(def credits-sample-size
+  "How many names of the last credits group show before \"Show all\"."
+  24)
+
+(defn credits-display
+  "The credit groups as shown: every group but the last in full; the last, when it holds more than
+   credits-sample-size names, as :sample (that many of its names, in `shuffle-fn` order) with
+   :all (every name, alphabetical, case ignored) behind \"Show all\". `groups` as parse-credits
+   returns; `shuffle-fn` takes and returns a seq (`shuffle`, or `identity` in tests)."
+  [groups shuffle-fn]
+  (let [lead (vec (butlast groups))
+        {:keys [names] :as last-group} (last groups)]
+    (cond-> lead
+      last-group (conj (if (> (count names) credits-sample-size)
+                         (assoc last-group
+                                :sample (vec (take credits-sample-size (shuffle-fn names)))
+                                :all (vec (sort-by str/lower-case names)))
+                         last-group)))))
 
 (defn grouped-items
   "The release's items as [group items] pairs, in source order. A group of nil

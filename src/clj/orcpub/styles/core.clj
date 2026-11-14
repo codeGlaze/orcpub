@@ -721,6 +721,45 @@
                 :position "absolute"
                 :z-index "1"}]]
 
+   ;; The PDF options' groups, flowing down as many columns as the width holds (one on a phone),
+   ;; each group kept whole so a tall one leaves no gap beside the short ones. Columns run right to
+   ;; left, so the first group sits where the panel has always opened and wider screens add to its
+   ;; left; the text inside reads left to right.
+   [:.pdf-options-grid
+    {:column-width "280px"
+     :column-gap "32px"
+     :direction "rtl"}
+    [:>div {:break-inside "avoid"
+            :direction "ltr"}]]
+   ;; PDF Options, filling the window: a bar with its title and close, the options scrolling
+   ;; between, and a footer holding Create PDF. The surface of the app's other sheets (.rest-fab-sheet)
+   ;; in each theme, text from .main-text-color, so the options keep their theme colours.
+   ;; z-index above the cookie notice (9999), which otherwise lies over Create PDF
+   [:.pdf-sheet {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 10000
+                 :display :flex :flex-direction :column :background-color "#2c3445"}]
+   [".app.light-theme .pdf-sheet" {:background-color "#fff"}]
+   [:.pdf-sheet-bar {:flex "none" :display :flex :align-items :center :justify-content :space-between
+                     :padding "4px 8px 4px 20px" :border-bottom "1px solid rgba(128,128,128,.35)"}]
+   [:.pdf-sheet-title {:font-size "20px" :font-weight :bold :margin 0}]
+   [:.pdf-sheet-close {:min-width "44px" :min-height "44px" :background :none :border :none
+                       :color :inherit :font-size "22px" :cursor :pointer}]
+   [:.pdf-sheet-body {:flex "1 1 auto" :overflow-y :auto :overscroll-behavior :contain
+                      :padding "16px 20px"}]
+   [:.pdf-sheet-foot {:flex "none" :display :flex :justify-content :flex-end :align-items :center
+                      :gap "12px" :padding "10px 20px"
+                      :padding-bottom "max(10px, env(safe-area-inset-bottom, 0px))"
+                      :border-top "1px solid rgba(128,128,128,.35)"}]
+   (at-media {:max-width "767px"}
+             [:.pdf-sheet-body {:padding "12px 16px"}]
+             [:.pdf-sheet-foot {:padding-left "16px" :padding-right "16px"}
+              [:button {:flex "1 1 0" :min-height "44px"}]])
+
+   ;; Options that only apply while the checkbox above them is ticked: a rule down their left edge,
+   ;; starting under that checkbox, so they read as its own and an unindented field after them
+   ;; reads as the group's again. Grey in both themes, so it needs no theme pair.
+   [:.option-nested {:margin "2px 0 10px 7px" :padding-left "12px"
+                     :border-left "2px solid rgba(128,128,128,.5)"}]
+
    ;; A group heading in the PDF options. Set apart from the field labels under
    ;; it -- a heading in the same weight as its own first label reads as one more
    ;; option rather than as the name of the set.
@@ -729,7 +768,7 @@
      :font-weight "bold"
      :letter-spacing "0.08em"
      :text-transform "uppercase"
-     :opacity "0.6"
+     :opacity "0.75"
      :padding-top "8px"
      :margin-bottom "6px"
      :border-top "1px solid currentColor"}]
@@ -748,7 +787,13 @@
      :font-size "10px"
      :font-weight "bold"
      :line-height "1"
-     :opacity "0.55"}]
+     :opacity "0.75"
+     ;; A <button>: no UA chrome, the text's own colour and font.
+     :background "none"
+     :color "inherit"
+     :font-family "inherit"
+     :padding "0"
+     :cursor "pointer"}]
    [:.option-help:hover
     {:opacity "1"}]
    [:.option-help-text
@@ -780,12 +825,17 @@
      {:color "var(--accent, #f0a100)"
       :text-decoration :underline}]]
 
-   ;; The spellbook's class emblems in PDF Options: black icons, inverted on the dark panel.
+   ;; The spellbook's class emblems in PDF Options: black icons, inverted on the dark theme's panel
+   ;; and left black on the light one.
    [:.emblem-icon
     {:width "22px"
      :height "22px"
      :filter "invert(1)"
      :opacity "0.85"}]
+   [".app.light-theme .emblem-icon" {:filter "none"}]
+   ;; The Change/Done toggle: a <button> that looks like the link it was.
+   [:.emblem-toggle
+    {:background "none" :border "none" :padding "0" :font-family "inherit"}]
    [:.emblem-choices
     {:display "grid"
      :grid-template-columns "repeat(auto-fill, minmax(34px, 1fr))"
@@ -851,6 +901,10 @@
    [:.field-notice.is-error {:color red-on-dark}]
    [:.field-notice.is-warning {:color amber-on-dark}]
    [:.field-notice.is-note {:color muted-on-dark}]
+   ;; the light theme's pair for each (style guide, section 2); the portrait drawer sits outside .app
+   [".app.light-theme .field-notice.is-error" ".pl-root.light-theme .field-notice.is-error" {:color red}]
+   [".app.light-theme .field-notice.is-warning" ".pl-root.light-theme .field-notice.is-warning" {:color "#8a5a00"}]
+   [".app.light-theme .field-notice.is-note" ".pl-root.light-theme .field-notice.is-note" {:color "#55637a"}]
 
    ;; The other ways in, behind the disclosure. Plain on purpose: controls, not a
    ;; second warning.
@@ -2538,7 +2592,7 @@
     [:.mc-guard:hover {:background-color "rgba(154,3,30,0.45)" :color :white}]
     ;; the full button lifts OUT of the bar (absolute) — the row never reflows
     [:.mc-liftpop
-     {:position :absolute :right "0" :bottom "calc(100% + 9px)"
+     {:position :absolute :right "0" :bottom "calc(100% - -9px)"
       :display :flex :align-items :center :gap "10px"
       :background-color "#1a1013" :border "1px solid rgba(154,3,30,0.6)"
       :border-radius "7px" :padding "8px 10px" :white-space :nowrap
@@ -2869,6 +2923,11 @@
 
      [:.orange
       {:color "rgba(0,0,0,0.8)"}]
+
+     ;; The footer's support links read as its other links do in this theme.
+     [:.support-pills-compact
+      [:.support-pill {:color "rgba(0,0,0,0.8)"}
+       [:&:hover {:color slate-blue}]]]
 
      [:.b-orange
       {:border-color "rgba(0,0,0,0.6)"}]
@@ -3517,9 +3576,62 @@
       :align-items :center
       :justify-content :space-between}]
 
+    [:.whats-new-eyebrow-row
+     {:display :flex :align-items :baseline}]
+
     [:.whats-new-version
-     {:font-size "12px"
-      :color muted-on-dark}]
+     {:font-size "11px"
+      :color muted-on-dark
+      :margin-left "8px"}]
+
+    ;; Patron credits and the footer's support icons: quiet, the size of the text around them.
+    [:.whats-new-credits-link
+     {:background :none :border :none :padding 0 :margin-top "8px"
+      :color orange :font-size "12px" :cursor :pointer}]
+    [:.whats-new-credits-intro
+     {:font-size "14px" :color muted-on-dark :padding "8px 0 4px" :line-height 1.45}]
+    [:.whats-new-credits-tier
+     {:color muted-on-dark :font-size "11px" :font-weight :bold :letter-spacing "1px"
+      :text-transform :uppercase :padding-top "10px"}]
+    [:.whats-new-patrons
+     {:display :grid :grid-template-columns "repeat(auto-fill, minmax(130px, 1fr))"
+      :gap "6px 16px" :padding "8px 0 14px" :font-size "14px"}]
+    ;; Label over one row of icon-and-word links, all on the label's left edge.
+    [:.whats-new-support-label
+     {:font-size "11px" :line-height "14px" :color muted-on-dark :margin-bottom "5px"}]
+    [:.whats-new-support-links
+     {:display :flex :gap "16px"}]
+    [:.whats-new-support-link
+     {:display :flex :align-items :center :gap "6px"
+      :font-size "12px" :line-height "18px" :color muted-on-dark :text-decoration :none}
+     [:&:hover {:color :white}]
+     [:img {:width "18px" :height "18px" :border-radius "3px"}]]
+
+    ;; Support pills (views-2/support-pills): the home tiles' raised surface, amber text, one icon.
+    [:.support-pills
+     {:display :flex :flex-wrap :wrap :justify-content :center :gap "10px" :margin "22px auto 8px"}]
+    [:.support-pill
+     {:display :inline-flex :align-items :center :justify-content :center :gap "8px"
+      :padding "8px 14px" :border-radius "5px" :font-size "13px" :font-weight 600
+      :color orange :text-decoration :none :cursor :pointer
+      :background "rgba(255,255,255,0.04)" :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}
+     [:&:hover {:color :white}]
+     [:i {:font-size "15px" :width "18px" :text-align :center}]
+     [:i.fa-patreon {:color "#ff424d"}]
+     [:img {:width "18px" :height "18px" :border-radius "3px"}]]
+    ;; The site footer's columns: spaced by the row's gap, so a wrapped one keeps the left edge.
+    ;; The pills sit on the left edge of the text links under them.
+    [:.site-footer-row {:column-gap "20px" :row-gap "10px"}]
+    ;; Compact pills (the site footer): plain icon-and-word links, one text line tall.
+    [:.support-pills.support-pills-compact
+     {:justify-content :flex-start :gap "12px" :margin "0"}
+     [:.support-pill
+      {:padding "0" :background :none :box-shadow :none :font-size "12px" :font-weight :normal
+       :gap "5px" :text-decoration :underline}
+      [:i {:font-size "12px" :width "14px"}]
+      [:img {:width "14px" :height "14px" :border-radius "2px"}]]]
+    (at-media {:max-width "480px"}
+     [:.support-pills {:flex-direction :column :align-items :stretch :max-width "280px"}])
 
     ;; A required builder field left empty when a save was attempted. Same amber
     ;; cue as the export modal's unfilled dropdowns, for consistency.
@@ -3619,7 +3731,7 @@
     [:.inv-picker-pop
      {:position :absolute
       :z-index 41
-      :top "calc(100% + 4px)"
+      :top "calc(100% - -4px)"
       :left 0
       :width "320px"
       :max-width "calc(100vw - 32px)"

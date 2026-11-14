@@ -1434,10 +1434,41 @@
  (fn [db _]
    (get-in db [:user-data :theme])))
 
+;; Which picture the character shows: :portrait, :image or nil (char5e/shown-picture).
+(reg-sub
+ :portrait/shown
+ (fn [db _]
+   (char5e/shown-picture (get-in db [:character :orcpub.entity/values]))))
+
+;; The picture link being drafted in the portrait editor, applied only by "Use this picture".
+(reg-sub
+ :portrait/link-draft
+ (fn [db _]
+   (:portrait/link-draft db)))
+
+;; Whether the portrait editor shows the compositor (:compose) or the picture link (:link).
+(reg-sub
+ :portrait/mode
+ (fn [db _]
+   (or (:portrait/mode db) :compose)))
+
+;; Whether the portrait editor's Randomize keeps the current colours.
+(reg-sub
+ :portrait/keep-colours?
+ (fn [db _]
+   (boolean (:portrait/keep-colours? db))))
+
 (reg-sub
  :dark-button-text?
  (fn [db _]
    (boolean (get-in db [:user-data :dark-button-text?]))))
+
+;; The player's PDF file name choices as saved (this browser, and the account when signed in);
+;; pdf-spec/file-name-defaults fills what is missing.
+(reg-sub
+ ::char5e/file-name-format
+ (fn [db _]
+   (get-in db [:user-data :pdf-file-name] {})))
 
 (reg-sub
  ::show-class-source-suffix

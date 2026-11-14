@@ -226,12 +226,27 @@
             total-levels)
           level)))
 
-(defn add-spell [spells-known level {:keys [class key] :as cfg}]
+(defn merge-spell-cfg
+  "One ?spells-known entry from two grants of the same spell by the same source, `old` (or nil)
+   then `new`. Later keys win, except that when only one grant has a `:casting` map, slot casting
+   stays open (`:slots :any`): the other grant is an ordinary slot-cast spell. Returns the entry."
+  [old new]
+  (let [merged (merge old new)]
+    (if (and old
+             (:casting merged)
+             (not (and (:casting old) (:casting new))))
+      (assoc-in merged [:casting :slots] :any)
+      merged)))
+
+(defn add-spell
+  "`spells-known` ({level {[class key] cfg}}) with `cfg` added at `level`, merged into any entry
+   already there by `merge-spell-cfg`. Returns the map."
+  [spells-known level {:keys [class key] :as cfg}]
   (update-in
    spells-known
    [level
     [class key]]
-   merge
+   merge-spell-cfg
    cfg))
 
 (defmacro spells-known-cfg [level {class-key :class-key :as spell-cfg} min-level conditions]
@@ -247,17 +262,26 @@
     nil
     ~conditions))
 
-(defn spell-data [spell-key spellcasting-ability qualifier class]
-  {:key spell-key
-   :ability spellcasting-ability
-   :qualifier qualifier
-   :class class})
+(defn spell-data
+  "A ?spells-known entry: the spell's key, casting ability, display qualifier and source name
+   (`class`, a class, race or feat name), plus `casting` when given: how it is cast outside
+   ordinary slots (plan-spell-uses-by-source.md). Returns the map."
+  [spell-key spellcasting-ability qualifier class & [casting]]
+  (cond-> {:key spell-key
+           :ability spellcasting-ability
+           :qualifier qualifier
+           :class class}
+    casting (assoc :casting casting)))
 
 
 (defn spells-known-mode [class-name mode]
   (mods/map-mod ?spells-known-modes class-name mode))
 
-(defn spells-known [level spell-key spellcasting-ability class & [min-level qualifier class-key]]
+(defn spells-known
+  "A modifier granting a known spell at spell `level`, cast with `spellcasting-ability`, listed
+   under source name `class`. Optional: `min-level` (character or `class-key` level before it
+   applies), `qualifier` (display text) and `casting` (free casts and slot use, `spell-data`)."
+  [level spell-key spellcasting-ability class & [min-level qualifier class-key casting]]
   (mods/modifier
     ?spells-known
     (if (enough-levels? class-key ?total-levels ?class-level min-level)
@@ -268,7 +292,8 @@
         spell-key
         spellcasting-ability
         qualifier
-        class))
+        class
+        casting))
       ?spells-known)))
 
 (defn spell-slot-factor [class-key factor]
@@ -279,6 +304,12 @@
 
 (defn spell-attack-modifier-bonus [bonus]
   (mods/cum-sum-mod ?spell-attack-modifier-bonus bonus))
+
+(defn class-spell-bonus
+  "A modifier adding `bonus` to one class's spells only: `k` is :dc (spell save DC) or :attack
+   (spell attack), `class-nm` the class name its spells carry (\"Warlock\"). Bonuses add up."
+  [class-nm k bonus]
+  (mods/modifier ?class-spell-bonuses (update-in ?class-spell-bonuses [class-nm k] (fnil + 0) bonus)))
 
 (defn trait-cfg [{:keys [name description class-key level summary page conditions source] :as cfg}]
   (let [class-key? (not (nil? class-key))]

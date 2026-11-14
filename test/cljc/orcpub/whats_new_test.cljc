@@ -53,3 +53,29 @@
     (is (whats-new/unseen? "some-earlier-release")))
   (testing "the current stamp is not shown it again"
     (is (not (whats-new/unseen? whats-new/current-release-id)))))
+
+(deftest patron-credits-parse-from-pasted-markdown
+  (testing "headings start tiers; names keep their order; list markers and blank lines drop"
+    (is (= [{:tier "Archmage" :names ["Mira Ashgrove" "Tobin Reed"]}
+            {:tier "Adventurer" :names ["Kessa"]}]
+           (whats-new/parse-credits "## Archmage\n- Mira Ashgrove\n* Tobin Reed\n\n## Adventurer\r\nKessa\n"))))
+  (testing "names before any heading are one list with no tier"
+    (is (= [{:tier nil :names ["Kessa" "Nyx"]}] (whats-new/parse-credits "Kessa\nNyx"))))
+  (testing "a tier with no names, and an empty file, show nothing"
+    (is (= [{:tier "Adventurer" :names ["Kessa"]}] (whats-new/parse-credits "# Archmage\n# Adventurer\nKessa")))
+    (is (= [] (whats-new/parse-credits "")))
+    (is (= [] (whats-new/parse-credits nil)))))
+
+(deftest a-long-last-group-shows-a-sample-and-the-rest-alphabetically
+  (let [many (mapv #(str "Patron " (char (- 90 (mod % 26))) %) (range 40))
+        [top last-group] (whats-new/credits-display [{:tier "Archmage" :names ["Zed" "Amy"]}
+                                                    {:tier "Adventurer" :names many}]
+                                                   identity)]
+    (testing "groups before the last show in full, in file order"
+      (is (= {:tier "Archmage" :names ["Zed" "Amy"]} top)))
+    (testing "the last group shows credits-sample-size names, then all of them alphabetically"
+      (is (= (take whats-new/credits-sample-size many) (:sample last-group)))
+      (is (= (sort-by str/lower-case many) (:all last-group)))))
+  (testing "a short last group, and a single list, show in full with no sample"
+    (is (= [{:tier nil :names ["Kessa"]}] (whats-new/credits-display [{:tier nil :names ["Kessa"]}] identity)))
+    (is (= [] (whats-new/credits-display [] identity)))))

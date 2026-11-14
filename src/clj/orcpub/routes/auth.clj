@@ -4,6 +4,7 @@
    namespace; this one never requires it."
   (:require [buddy.hashers :as hashers]
             [buddy.sign.jwt :as jwt]
+            [clojure.edn :as edn]
             [clojure.string :as s]
             [datomic.api :as d]
             [orcpub.artist-accounts :as artist-accounts]
@@ -17,6 +18,7 @@
             [orcpub.fork.branding :as branding]
             [orcpub.fork.user-data :as user-data]
             [orcpub.index :refer [index]]
+            [orcpub.pdf-spec :as pdf-spec]
             [orcpub.outbox :as outbox]
             [orcpub.pwned :as pwned]
             [orcpub.registration :as registration]
@@ -160,6 +162,14 @@
                  {:icon icon :label label :color color :hosts (vec hosts)})
      :max-links artist-credit/max-links}))
 
+
+(defn stored-pdf-file-name
+  "The PDF file name choices saved on `user` (an entity or map), read and cleaned
+   (pdf-spec/clean-file-name-format); {} when unset or unreadable."
+  [user]
+  (pdf-spec/clean-file-name-format
+   (try (edn/read-string (str (:orcpub.user/pdf-file-name user))) (catch Exception _ nil))))
+
 (defn user-body
   "Build the user API response. Core fields are inline; fork-specific
    fields (e.g. tier data) are added by user-data/enrich-response."
@@ -185,7 +195,10 @@
     (assoc :artist-credit (artist-credit-body db (:db/id user)))
 
     (some? (:orcpub.user/dark-button-text? user))
-    (assoc :dark-button-text? (:orcpub.user/dark-button-text? user))))
+    (assoc :dark-button-text? (:orcpub.user/dark-button-text? user))
+
+    (:orcpub.user/pdf-file-name user)
+    (assoc :pdf-file-name (stored-pdf-file-name user))))
 
 (defn base-url [{:keys [scheme headers]}]
   (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))

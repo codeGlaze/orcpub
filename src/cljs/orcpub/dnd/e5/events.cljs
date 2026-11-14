@@ -30,6 +30,7 @@
             [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.character.random :as char-rand5e]
             [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
+            [orcpub.dnd.e5.portrait :as portrait-view]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.srd-conditions :as srd-conditions]
@@ -2448,6 +2449,39 @@
  :dark-button-text-saved
  (fn [db _] db))
 
+;; One PDF file name choice (`k` of pdf-spec/file-name-defaults, value `v`). Kept like the button
+;; text: in this browser, and on the account when signed in; a failed save changes nothing here.
+;; One account write at a time: a choice made while one is in flight is sent when it returns.
+(defn- file-name-save-fx
+  "Effects that send the browser's current PDF file name format to the account, marking a write
+   in flight under ::file-name-save. `db` the app-db; returns {:db :http}."
+  [db]
+  {:db (assoc db ::file-name-save :pending)
+   :http {:method :put
+          :headers (authorization-headers db)
+          :url (backend-url (routes/path-for routes/user-route))
+          :transit-params {:pdf-file-name (get-in db [:user-data :pdf-file-name])}
+          :on-success [::char5e/file-name-format-saved]
+          :on-failure [::char5e/file-name-format-saved]}})
+
+(reg-event-fx
+ ::char5e/set-file-name-option
+ [user->local-store-interceptor]
+ (fn [{:keys [db]} [_ k v]]
+   (let [db (assoc-in db [:user-data :pdf-file-name]
+                      (assoc (get-in db [:user-data :pdf-file-name] {}) k v))]
+     (cond
+       (not (event-utils/get-auth-token db)) {:db db}
+       (::file-name-save db) {:db (assoc db ::file-name-save :again)}
+       :else (file-name-save-fx db)))))
+
+(reg-event-fx
+ ::char5e/file-name-format-saved
+ (fn [{:keys [db]} _]
+   (if (= :again (::file-name-save db))
+     (file-name-save-fx db)
+     {:db (dissoc db ::file-name-save)})))
+
 ;; The window crossed the phone breakpoint; the layout follows (:device-type).
 (reg-event-db
  :set-narrow-screen
@@ -2744,6 +2778,16 @@
  (fn [_ [_ built-char]]
    {:dispatch [:update-value-field ::char5e/character-name
                (generate-random-name built-char)]}))
+
+;; Gives the builder's character `character-name` when it is the character `id` (nil for one never
+;; saved) and still has no name: an export of an unnamed character names it, as Save does.
+(reg-event-fx
+ ::char5e/fill-blank-name
+ (fn [{:keys [db]} [_ id character-name]]
+   (when (and (= id (get-in db [:character :db/id]))
+              (s/blank? (get-in db [:character ::entity/values ::char5e/character-name])))
+     {:dispatch [:update-value-field ::char5e/character-name character-name]})))
+
 (reg-event-db
  :select-option
  character-interceptors
@@ -2770,11 +2814,8 @@
    ;; The read starts from the thumbnail's load instead, which it cannot run ahead of.
    (update character
            ::entity/values
-           assoc
-           ::char5e/image-url
-           image-url
-           ::char5e/image-url-failed
-           nil)))
+           #(-> (char5e/with-image-url % image-url)
+                (assoc ::char5e/image-url-failed nil)))))
 
 ;; ---- portrait compositor drawer ----
 ;;
@@ -2805,14 +2846,58 @@
  (fn [db _]
    (cond-> db (nil? (:portrait/draft db)) seed-portrait-draft)))
 
+(defn- default-portrait-mode
+  "The mode the portrait editor opens in: :link when the character shows an image from the web,
+   else :compose (also when it has neither picture). Returns a keyword."
+  [db]
+  (if (= :image (char5e/shown-picture (get-in db [:character ::entity/values]))) :link :compose))
+
+(reg-event-db
+ :portrait/show-portrait
+ ;; "Switch to this portrait" with nothing edited: the saved portrait shows again, the image is kept
+ [set-changed db-char->local-store]
+ (fn [db _]
+   (-> (assoc-in db [:character ::entity/values ::char5e/picture-shown] "portrait")
+       (assoc :portrait/drawer-open? false))))
+
+(reg-event-db
+ :portrait/set-mode
+ (fn [db [_ mode]]
+   (assoc db :portrait/mode mode)))
+
 (reg-event-db
  :portrait/open
- (fn [db _]
+ (fn [db [_ mode]]
    ;; Keeps an existing draft rather than reseeding: the drawer and the inline
    ;; tab share one, so opening the drawer from the tab must not silently throw
    ;; away what is on the tab's canvas.
    (-> (cond-> db (nil? (:portrait/draft db)) seed-portrait-draft)
-       (assoc :portrait/drawer-open? true))))
+       (assoc :portrait/drawer-open? true
+              :portrait/mode (or mode (default-portrait-mode db))
+              :portrait/link-draft (get-in db [:character ::entity/values ::char5e/image-url])))))
+
+(reg-event-db
+ :portrait/set-link-draft
+ ;; the editor's link field edits this; nothing on the character changes until :portrait/use-link
+ (fn [db [_ url]]
+   (assoc db :portrait/link-draft url)))
+
+(reg-event-fx
+ :portrait/use-link
+ ;; "Use this image": the drafted link becomes the character's and shows; a saved portrait is kept
+ (fn [{:keys [db]} _]
+   (let [url (:portrait/link-draft db)]
+     (when-not (s/blank? url)
+       {:db (assoc db :portrait/drawer-open? false)
+        :dispatch-n [[:set-image-url url] [:portrait/discard-draft]]}))))
+
+(reg-event-fx
+ :portrait/remove-link
+ ;; "Remove image": the character's image address is cleared; a kept portrait shows again
+ ;; (char5e/shown-picture falls back to it)
+ (fn [{:keys [db]} _]
+   {:db (-> db seed-portrait-draft (assoc :portrait/drawer-open? false :portrait/link-draft nil))
+    :dispatch [:set-image-url ""]}))
 
 (reg-event-db
  :portrait/close
@@ -2858,15 +2943,26 @@
                  (dispatch [:portrait/artists-loaded body]))))
          {:db (assoc db :portrait/artists-requested? true)}))))
 
-;; Randomize and Reset touch :layers only — the character's colors persist
-;; across rerolls, which is what "my character's colors" should mean.
+;; Randomize rerolls everything (portrait-view/roll), the colours too unless Keep colours is on.
+;; Reset touches :layers only.
 (reg-event-db
  :portrait/randomize
  (fn [db _]
    (let [seed (portrait-assets5e/random-seed)]
      (-> db
          (assoc :portrait/draft-seed seed)
-         (assoc-in [:portrait/draft :layers] (portrait-assets5e/compose-for-seed seed))))))
+         (update :portrait/draft #(portrait-view/roll seed (or % {}) (:portrait/keep-colours? db)))))))
+
+(reg-event-db
+ :portrait/discard-draft
+ ;; After switching to an image: unsaved portrait edits go; the next open seeds from the saved portrait.
+ (fn [db _]
+   (dissoc db :portrait/draft :portrait/draft-seed)))
+
+(reg-event-db
+ :portrait/toggle-keep-colours
+ (fn [db _]
+   (update db :portrait/keep-colours? not)))
 
 (reg-event-db
  :portrait/reset
@@ -2978,7 +3074,7 @@
    ;; dirty indicator clears and the inline tab carries on showing the portrait
    ;; instead of emptying itself the moment you save it.
    (let [draft (get db :portrait/draft portrait-assets5e/empty-portrait)]
-     (cond-> (assoc-in db [:character ::entity/values ::char5e/portrait] (pr-str draft))
+     (cond-> (update-in db [:character ::entity/values] char5e/with-saved-portrait draft)
        (not keep-open?) (assoc :portrait/drawer-open? false)))))
 
 #_ ;; never dispatched from UI
@@ -6734,8 +6830,8 @@
 
 ;; The debug hatch: the whole library, pretty-printed, with NO validation — the one
 ;; export that skips the gate, to show the store as it is. Still uses the shared
-;; save-orcbrew-blob! serialization. Dev-only: views/debug-data renders its control
-;; behind goog/DEBUG.
+;; save-orcbrew-blob! serialization. views/debug-data shows its control only with
+;; Developer mode on.
 (reg-event-fx
  ::e5/export-all-plugins-pretty-print
  (fn [{:keys [db]} _]

@@ -558,6 +558,33 @@
                           :font "italic 11px/1.4 'Open Sans', system-ui, sans-serif"
                           :text-align "center"}]
    ;; ---- foot ----
+   ;; Compose | Picture link at the top of the drawer, and the link mode's body
+   [".pl-mode" {:padding "10px 18px 0"}]
+   [".pl-link-mode" {:flex "1 1 auto" :overflow-y "auto" :padding "14px 18px" :display "flex"
+                     :flex-direction "column" :gap "12px"}]
+   ;; relative: .pl-empty-hint fills its positioned container, and without one it covered the drawer
+   [".pl-link-preview" {:position "relative" :display "flex" :align-items "center" :justify-content "center"
+                        :min-height "240px" :max-height "360px" :border "1px dashed rgba(128,128,128,.5)"
+                        :border-radius "8px" :overflow "hidden" :text-align "center" :padding "12px"}
+    [:img {:max-width "100%" :max-height "340px" :object-fit "contain"}]]
+   [".pl-kept" {:font-size "13px" :text-align "right"}]
+   ;; the picture the character shows: the site's status pill (.share-pill-shared), smaller in the switch;
+   ;; its light-theme tone is restated because the drawer sits outside .app
+   [".pl-active" {:margin-left "6px" :font-size "10px" :padding "1px 7px"}]
+   [".pl-root.light-theme .share-pill-shared" {:background-color "rgba(51,101,138,0.14)" :color "#2b567a"}]
+   ;; on the selected option the pill takes that option's own ink: dark on the amber, white on the
+   ;; light theme's blue, so open-and-active reads as one control rather than two colours fighting
+   [".pl-segmented button.on .pl-active" {:background-color "rgba(0,0,0,0.16)" :color "#241a00"}]
+   [".pl-root.light-theme .pl-segmented button.on .pl-active" {:background-color "rgba(255,255,255,0.22)"
+                                                               :color "#fff"}]
+   [".pl-link-picture" {:width "100%" :height "100%" :object-fit "contain"}]
+   [".pl-mode-link" {:background "none" :border "none" :padding "6px 0 0" :color "inherit"
+                     :text-decoration "underline" :cursor "pointer" :font-size "13px"}]
+   [".pl-link" {}]
+   ;; the drawer sits outside .app, so the light theme's input border has to be restated here
+   [".pl-root.light-theme .pl-link .input" {:border "1px solid #8a8f98" :background "#fff" :color "#363636"}]
+   [".pl-keep-colours" {:display "inline-flex" :align-items "center" :gap "4px" :font-size "13px"
+                        :cursor "pointer"}]
    [".pl-drawer-foot" {:padding "12px 18px 16px"
                        :border-top "1px solid rgba(255,255,255,0.06)"
                        :background "#0e131a"
@@ -762,27 +789,6 @@
                                             :box-shadow "0 0 0 2px rgba(51,101,138,0.32)"}]
    [".pl-root.light-theme .pl-sw-none" {:background "repeating-linear-gradient(45deg, #eceef1 0 5px, transparent 5px 10px)"
                                         :color "#8a8a8a"}]
-   ;; The launcher lives in the Description tab, not in the drawer, so it hangs
-   ;; off .app rather than .pl-root -- scoping it to .pl-root left an amber
-   ;; button sitting in an otherwise blue light theme.
-   [".app.light-theme .pl-launcher" {:background "linear-gradient(to bottom, #33658A, #2b5677)"
-                                     :color "#fff"
-                                     :border-color "#24485f"
-                                     :box-shadow "0 6px 14px -8px rgba(51,101,138,0.5)"}]
-   ;; the launcher button that sits next to the Image URL input in the builder
-   [".pl-launcher" {:display "inline-flex"
-                    :align-items "center"
-                    :gap "7px"
-                    :padding "9px 14px"
-                    :border-radius "8px"
-                    :background "linear-gradient(to bottom, #f1a20f, #dbab50)"
-                    :color "#15202e"
-                    :font "700 13px/1 'Open Sans', system-ui, sans-serif"}
-                   {:border "1px solid #b57500"
-                    :box-shadow "0 6px 14px -8px rgba(240,161,0,0.32)"
-                    :cursor "pointer"
-                    :margin-top "5px"}]
-   [".pl-launcher:hover" {:filter "brightness(1.06)"}]
    ;; Second way in: a pencil over the summary thumbnail, for people who are
    ;; looking at the portrait rather than at the Description tab's URL field.
    ;; Only rendered in the builder, where there is a drawer to open.
@@ -834,7 +840,7 @@
                                     :outline-offset "1px"}]
    [".pl-thumb-more-list" {:position "absolute"
                            :left "0"
-                           :top "calc(100% + 4px)"
+                           :top "calc(100% - -4px)"
                            :z-index "20"
                            :min-width "150px"
                            :max-width "220px"

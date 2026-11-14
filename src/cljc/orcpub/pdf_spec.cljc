@@ -37,6 +37,85 @@
           (str class-name " [" subclass-name "] (" class-level ")"))))
     classes)))
 
+(def file-name-defaults
+  "What a PDF's file name shows unless the player chose otherwise: every part, the level after
+   its class, written plain (5, not 05 or L5)."
+  {:player? true :character? true :class? true :subclass? true :level? true
+   :level-first? false :level-style :plain})
+
+(defn clean-file-name-format
+  "`fmt` keeping only file-name-defaults' keys with a value of their kind: booleans, and a
+   :level-style of :plain, :padded or :prefixed. Anything else, a non-map included, is dropped.
+   Returns a map, empty when nothing survives."
+  [fmt]
+  (if (map? fmt)
+    (into {} (filter (fn [[k v]]
+                       (if (= k :level-style)
+                         (contains? #{:plain :padded :prefixed} v)
+                         (and (contains? file-name-defaults k) (boolean? v)))))
+          fmt)
+    {}))
+
+(defn- level-text
+  "Level `n` in `style`: :padded is two digits (05), :prefixed is L5, anything else plain (5)."
+  [n style]
+  (case style
+    :padded (if (< n 10) (str "0" n) (str n))
+    :prefixed (str "L" n)
+    (str n)))
+
+(def ^:private unsafe-file-chars
+  "Every character a file name drops: all but letters, marks and digits of any script, spaces and
+   plain punctuation (so emoji, the characters Windows refuses, control and invisible characters).
+   GOTCHA: the browser's pattern needs the u flag, or \\p{L} matches nothing and every letter goes."
+  #?(:clj #"[^\p{L}\p{M}\p{N} \-_.,'’‘()\[\]&+!]"
+     :cljs (js/RegExp. "[^\\p{L}\\p{M}\\p{N} \\-_.,'’‘()\\[\\]&+!]" "gu")))
+
+(defn file-safe
+  "`part` (a string or nil) as a file name that opens on Windows, Linux, macOS, Android and iOS:
+   accents composed (NFC), unsafe-file-chars dropped, runs of spaces collapsed, and leading dots,
+   dashes and spaces (a hidden file on Linux and macOS) and trailing dots and spaces trimmed.
+   Used by both the PDF Options preview and the server. Returns a string."
+  [part]
+  (let [composed #?(:clj (java.text.Normalizer/normalize (str part) java.text.Normalizer$Form/NFC)
+                    :cljs (.normalize (str part) "NFC"))]
+    (-> (s/replace composed unsafe-file-chars "")
+        (s/replace #"\s+" " ")
+        (s/replace #"^[. \-]+" "")
+        (s/replace #"[. ]+$" "")
+        s/trim)))
+
+(defn file-name
+  "A PDF's file name, without \".pdf\", from `player-name`, `character-name`, the character's
+   `classes` (keys in order) and `levels` (char5e/levels), shown as `fmt` asks (keys as in
+   file-name-defaults, which fill any missing). Parts are joined with \" - \", classes with \" + \";
+   with classes hidden, the level shown is the total. Returns a string, blank when nothing is shown."
+  [player-name character-name classes levels fmt]
+  (let [{:keys [player? character? class? subclass? level? level-first? level-style]}
+        (merge file-name-defaults fmt)
+        one (fn [k]
+              (let [{:keys [class-name class-level subclass-name]} (get levels k)
+                    nm (str class-name (when (and subclass? (not (s/blank? subclass-name)))
+                                         (str " [" subclass-name "]")))
+                    lv (when (and level? class-level) (level-text class-level level-style))]
+                (s/join " " (remove s/blank? (if level-first? [lv nm] [nm lv])))))
+        total (reduce + 0 (keep #(:class-level (get levels %)) classes))
+        class-part (cond
+                     class? (s/join " + " (map one classes))
+                     (and level? (pos? total)) (level-text total level-style))]
+    (s/join " - " (remove s/blank? [(when player? player-name)
+                                    (when character? character-name)
+                                    class-part]))))
+
+(defn file-name-for
+  "file-name for `built-char` under the name `character-name` (passed in, because an unnamed
+   character is exported under one generated for it) in format `fmt`. Returns a string; with every
+   part turned off, \"character\", so the server's fallback does not put the names back."
+  [built-char character-name fmt]
+  (let [n (file-name (char5e/player-name built-char) character-name
+                     (char5e/classes built-char) (char5e/levels built-char) fmt)]
+    (if (s/blank? n) "character" n)))
+
 (defn ability-related-bonuses [suffix vals]
   (into {}
         (map
@@ -297,17 +376,32 @@
    {}
    spells-known))
 
-(defn make-pages [spells
-                  print-prepared-spells
-                  prepares-spells
-                  prepared-spells-by-class
-                  spells-map
-                  style]
+(defn make-pages
+  "The spell pages as [{:ability :classes :spells [{:level :spells}]}]: one run of pages per
+   ability, its classes together, split by the style's per-level capacity. `split-key`, a fn of
+   [ability class-name], divides an ability's classes into runs of their own wherever it differs
+   (a DC one class's item raises); nil keeps them together."
+  [spells
+   print-prepared-spells
+   prepares-spells
+   prepared-spells-by-class
+   spells-map
+   style
+   & [split-key]]
   (let [page-map (make-page-map spells
                                 print-prepared-spells
                                 prepares-spells
                                 prepared-spells-by-class
-                                spells-map)]
+                                spells-map)
+        runs (fn [[ability levels]]
+               (let [classes (into (sorted-set) (mapcat (fn [[_ spells]] (map :class spells))) levels)
+                     groups (vals (into (sorted-map) (group-by #(if split-key (str (split-key ability %)) "") classes)))]
+                 (if (< (count groups) 2)
+                   [[ability levels]]
+                   (for [g groups :let [g (set g)]]
+                     [ability (into {} (keep (fn [[l spells]]
+                                               (when-let [s (seq (filter (comp g :class) spells))] [l (vec s)])))
+                                    levels)]))))]
     (mapcat
      (fn [[ability levels]]
        (let [ability-classes (into
@@ -332,7 +426,7 @@
                            {:level level
                             :spells (get-in split-levels [level page-index])})
                          (range 10))})))
-     page-map)))
+     (mapcat runs page-map))))
 
 (defn magic-item-card-info
   "The magic items a character carries, in the shape the card printer needs.
@@ -402,18 +496,33 @@
     (reduce
      (fn [m {:keys [key ability qualifier class]}]
        (-> m
-           (assoc-in [:spell-save-dcs class] (save-dc-fn ability))
-           (assoc-in [:spell-attack-mods class] (attack-mod-fn ability))))
+           (assoc-in [:spell-save-dcs class] (save-dc-fn ability class))
+           (assoc-in [:spell-attack-mods class] (attack-mod-fn ability class))))
      {:custom-spells custom-spells
       :spells-known filtered-spells-known}
      flat-spells)))
+
+(defn- spell-note
+  "What a spell's line adds after its name: its qualifier and how it is cast outside ordinary
+   slots (`char5e/casting-note`), joined, or nil. Takes a ?spells-known entry."
+  [cfg]
+  (let [parts (keep identity [(:qualifier cfg) (char5e/casting-note cfg)])]
+    (when (seq parts)
+      (s/join ", " parts))))
+
+(defn- slot-spells?
+  "Whether any of `cfgs` (levelled ?spells-known entries) is cast from slots, so the page or group
+   holding them carries slot totals."
+  [cfgs]
+  (boolean (some char5e/slot-castable? cfgs)))
 
 (defn packing-classes
   "The per-class lists spell-packing/packed-fields takes, sorted by class: `spells-known`
    (keyed by LEVEL, each value spell-key -> config carrying its :class) regrouped by class.
    Slots follow 5e: every non-pact caster gets the SHARED `shared-slots` (one multiclass
-   pool), a pact caster its own `pact-slots` and `:pact? true`, with its whole list at its
-   highest pact level. `:dc`/`:attack` come from `save-dc-fn`/`attack-mod-fn` on its ability."
+   pool), a pact caster its own `pact-slots` and `:pact? true`, with its slot spells at its
+   highest pact level; a source with no slot spells (a race's free casts) gets empty `:slots`.
+   `:dc`/`:attack` come from `save-dc-fn`/`attack-mod-fn` on its ability."
   [spells-known spells-map shared-slots pact-slots save-dc-fn attack-mod-fn]
   (let [by-class (reduce-kv
                   (fn [acc level cfgs]
@@ -432,30 +541,37 @@
                  ability (:ability (first (mapcat val levels)))
                  named (fn [cfgs]
                          (mapv (fn [cfg]
-                                 (let [d (get spells-map (:key cfg))]
-                                   (or (:name d)
-                                       (when (:key cfg) (name (:key cfg)))
-                                       "(Unknown Spell)")))
+                                 (let [d (get spells-map (:key cfg))
+                                       nm (or (:name d)
+                                              (when (:key cfg) (name (:key cfg)))
+                                              "(Unknown Spell)")]
+                                   (if-let [note (spell-note cfg)] (str nm " (" note ")") nm)))
                                cfgs))
-                 ;; A Warlock's spells all sit at its pact level; everyone else's
-                 ;; stay at the level they were learned.
+                 levelled (mapcat val (dissoc levels 0))
+                 ;; A Warlock's slot spells all sit at its pact level; its free casts
+                 ;; (invocations, Mystic Arcanum) and everyone else's stay where learned.
                  levels (if pact?
-                          (let [cantrips (get levels 0)
-                                at-pact (mapcat val (dissoc levels 0))]
-                            (cond-> {}
-                              (seq cantrips) (assoc 0 (named cantrips))
-                              (seq at-pact) (assoc pact-level (named at-pact))))
+                          (let [at-pact (filter char5e/slot-castable? levelled)
+                                own (common/map-vals
+                                     (fn [lvl cfgs] (if (zero? lvl) cfgs (remove char5e/slot-castable? cfgs)))
+                                     levels)]
+                            (cond-> (into {} (keep (fn [[lvl cfgs]] (when (seq cfgs) [lvl (named cfgs)]))) own)
+                              (seq at-pact) (update pact-level (fnil into []) (named at-pact))))
                           (into {} (map (fn [[lvl cfgs]] [lvl (named cfgs)])) levels))]]
        (cond-> {:class class
                 :levels levels
-                :slots (if pact? pact-slots shared-slots)
+                ;; Slot totals only for a source with spells cast from slots: a race's or
+                ;; feat's free casts get none (plan-spell-uses-by-source.md).
+                :slots (cond pact? pact-slots
+                             (slot-spells? levelled) shared-slots
+                             :else {})
                 ;; The ABBREVIATION -- "CHA" -- because this heads a column in a
                 ;; bar, not the section box that reads SPELLCASTING ABILITY and
                 ;; wants the full word.
                 :ability (when ability (:abbr (opt5e/abilities-map ability)))}
          pact? (assoc :pact? true)
-         ability (assoc :dc (save-dc-fn ability)
-                        :attack (common/bonus-str (attack-mod-fn ability))))))))
+         ability (assoc :dc (save-dc-fn ability class)
+                        :attack (common/bonus-str (attack-mod-fn ability class))))))))
 
 (defn spell-page-fields [spells
                          spell-slots
@@ -472,7 +588,9 @@
                                 prepares-spells
                                 prepared-spells-by-class
                                 spells-map
-                                style)]
+                                style
+                                (fn [ability class-nm]
+                                  [(save-dc-fn ability class-nm) (attack-mod-fn ability class-nm)]))]
     (apply
      merge
      (make-spell-card-info spells
@@ -492,6 +610,12 @@
          ;; with nothing saying which page follows which.
          (let [suffix (str "-" (inc i))
                continued? (some #(= classes (:classes %)) (take i spell-pages))
+               slots? (slot-spells? (for [page spell-pages
+                                          :when (= classes (:classes page))
+                                          {:keys [level spells]} (:spells page)
+                                          :when (pos? level)
+                                          spell spells]
+                                      spell))
                class-header {(keyword (str "spellcasting-class" suffix))
                              (cond-> (s/join ", " classes)
                                continued? (str " (continued)"))}]
@@ -499,8 +623,8 @@
               (merge
                class-header
                {(keyword (str "spellcasting-ability" suffix)) (:name (opt5e/abilities-map ability))
-                (keyword (str "spell-save-dc" suffix)) (save-dc-fn ability)
-                (keyword (str "spell-attack-bonus" suffix)) (common/bonus-str (attack-mod-fn ability))})
+                (keyword (str "spell-save-dc" suffix)) (save-dc-fn ability (first classes))
+                (keyword (str "spell-attack-bonus" suffix)) (common/bonus-str (attack-mod-fn ability (first classes)))})
               class-header)
             (map
              (fn [{:keys [level spells]}]
@@ -513,12 +637,13 @@
                           spell-name (or (:name spell-data)
                                          (when spell-key (name spell-key))
                                          "(Unknown Spell)")
-                          qualifier (:qualifier spell)]
-                      (str spell-name (when qualifier (str " (" qualifier ")"))))})
+                          note (spell-note spell)]
+                      (str spell-name (when note (str " (" note ")"))))})
                  spells)
                 ;; Slots belong to the class, not the page, so only the first
-                ;; page of a class carries them.
-                (when-not continued?
+                ;; page of a class carries them; cantrips (level 0) have none and no box, and a
+                ;; page of free casts only (a race's, a feat's) none either.
+                (when (and (not continued?) (pos? level) slots?)
                   {(keyword (str "spell-slots-" level suffix))
                    (spell-slots level)})))
              spells)]))
@@ -872,6 +997,7 @@
       :backstory (char5e/description built-char)
       :character-name character-name
       :character-name-2 character-name
+      :file-name (file-name-for built-char character-name (:file-name-format options))
       :xp (char5e/xps built-char)
       :player-name (char5e/player-name built-char)
       :age (char5e/age built-char)

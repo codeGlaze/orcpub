@@ -241,10 +241,13 @@
                                    (max (?weapon-damage-modifier weapon false off-hand?)
                                         (?weapon-damage-modifier weapon true off-hand?)))
     ?spell-attack-modifier-bonus 0
-    ?spell-attack-modifier (fn [ability-kw]
+    ;; {class-name {:dc n :attack n}}: bonuses to one class's spells only (Rod of the Pact Keeper).
+    ?class-spell-bonuses {}
+    ?spell-attack-modifier (fn [ability-kw & [class-nm]]
                              (+ ?prof-bonus
                                 (?ability-bonuses ability-kw)
-                                ?spell-attack-modifier-bonus))
+                                ?spell-attack-modifier-bonus
+                                (get-in ?class-spell-bonuses [class-nm :attack] 0)))
     ;; ?save-dc is for features whose text gives their own DC (ki, Breath Weapon); only
     ;; ?spell-save-dc takes item spell DC bonuses. save-dc-sources.md lists which feature uses which.
     ?save-dc (fn [ability-kw]
@@ -256,15 +259,16 @@
                       (max (?save-dc (?weapon-ability weapon false))
                            (?save-dc (?weapon-ability weapon true))))
     ?spell-save-dc-bonus 0
-    ?spell-save-dc (fn [ability-kw]
+    ?spell-save-dc (fn [ability-kw & [class-nm]]
                      (+ (?save-dc ability-kw)
-                        ?spell-save-dc-bonus))
+                        ?spell-save-dc-bonus
+                        (get-in ?class-spell-bonuses [class-nm :dc] 0)))
     ?spell-modifiers (reduce
                       (fn [m {:keys [ability class]}]
                         (assoc m class {:class class
                                         :ability ability
-                                        :spell-save-dc (?spell-save-dc ability)
-                                        :spell-attack-modifier (?spell-attack-modifier ability)}))
+                                        :spell-save-dc (?spell-save-dc ability class)
+                                        :spell-attack-modifier (?spell-attack-modifier ability class)}))
                       {}
                       (->> ?spells-known vals (map vals) flatten))
     ?total-spellcaster-levels (apply + (map (fn [[cls-kw factor]]

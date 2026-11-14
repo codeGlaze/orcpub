@@ -138,6 +138,10 @@
    {:db/ident :orcpub.user/dark-button-text?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
+   ;; The PDF file name choices, an EDN map (pdf-spec/clean-file-name-format). Unset means the defaults.
+   {:db/ident :orcpub.user/pdf-file-name
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/verified?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
@@ -348,6 +352,8 @@
      ::char5e/faction-image-url-failed
      ::char5e/image-url
      ::char5e/portrait
+     ;; which picture shows, "portrait" or "image" (char5e/shown-picture); both are kept
+     ::char5e/picture-shown
      ::char5e/description
      ::char5e/personality-trait-1
      ::char5e/eyes

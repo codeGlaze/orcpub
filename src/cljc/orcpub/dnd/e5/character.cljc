@@ -518,6 +518,33 @@
 (defn flat-spells [spells-known]
   (->> spells-known vals (map vals) flatten))
 
+(defn slot-castable?
+  "Whether a known spell can be cast from spell slots. Takes a ?spells-known entry; its
+   `:casting` map is in plan-spell-uses-by-source.md. True without one (a class spell) and for a
+   slot limit; false for `:slots :none`."
+  [{:keys [casting]}]
+  (not= :none (get casting :slots :any)))
+
+(defn- times-per
+  "A uses map {:amount n :units u} as text: \"once/long rest\", \"3 times/day\"."
+  [{:keys [amount units] :or {amount 1}}]
+  (str (case amount 1 "once" 2 "twice" (str amount " times"))
+       "/" (s/replace (name units) #"-" " ")))
+
+(defn casting-note
+  "How a known spell is cast besides ordinary slots, as short sheet text, or nil for a plain slot
+   spell. Takes a ?spells-known entry: \"2nd level, once/long rest\", \"at will\", \"once/long
+   rest, or a slot\" (free casts and slots), \"once/long rest, using a slot\" (a slot limit)."
+  [{{:keys [free slots] :or {slots :any}} :casting}]
+  (let [parts (cond-> []
+                (:level free) (conj (str (common/ordinal (:level free)) " level"))
+                (:at-will free) (conj "at will")
+                (:units free) (conj (times-per free))
+                (and (:units free) (= :any slots)) (conj "or a slot")
+                (map? slots) (conj (str (times-per slots) ", using a slot")))]
+    (when (seq parts)
+      (s/join ", " parts))))
+
 (defn spells-known-modes [built-char]
   (get-prop built-char :spells-known-modes))
 
@@ -714,8 +741,21 @@
 (defn hair [built-char]
   (get-prop built-char ::hair))
 
-(defn image-url [built-char]
-  (get-prop built-char ::image-url))
+(declare shown-values)
+
+(defn- picture-values
+  "The picture fields of `built-char` as an entity-values map, for shown-picture. Returns a map."
+  [built-char]
+  {::portrait (get-prop built-char ::portrait)
+   ::image-url (get-prop built-char ::image-url)
+   ::picture-shown (get-prop built-char ::picture-shown)})
+
+(defn image-url
+  "The image address of `built-char`, or nil when it shows no image (shown-values): with the built
+   portrait shown it is the fallback for a portrait this site cannot draw, which readers draw only
+   after a drawable portrait. Returns a string or nil."
+  [built-char]
+  (::image-url (shown-values (picture-values built-char))))
 
 (defn- sane-tweak
   "Portrait tweak `t` with only the values the compositor can use: an :override that is a #rrggbb
@@ -755,6 +795,45 @@
    portrait, and refusing it unread keeps a crafted value from costing the reader."
   8000)
 
+(defn with-image-url
+  "Entity `values` with image address `url`, which becomes the picture shown when it is not blank
+   (::picture-shown \"image\"). A built portrait is kept. Returns the values."
+  [values url]
+  (cond-> (assoc values ::image-url url)
+    (not (s/blank? url)) (assoc ::picture-shown "image")))
+
+(defn with-saved-portrait
+  "Entity `values` with portrait `draft` saved (as an EDN string, parse-portrait's form); one with
+   any layer becomes the picture shown. An image address is kept. Returns the values."
+  [values draft]
+  (cond-> (assoc values ::portrait (pr-str draft))
+    (seq (:layers draft)) (assoc ::picture-shown "portrait")))
+
+(declare parse-portrait)
+
+(defn shown-picture
+  "Which picture a character shows, from entity `values`: :portrait, :image, or nil for neither.
+   The one ::picture-shown names when it exists; with no choice (characters saved before there was
+   one) or an empty choice, a portrait with layers, else an image address. Returns a keyword or nil."
+  [values]
+  (let [portrait? (boolean (seq (:layers (parse-portrait (::portrait values)))))
+        image? (not (s/blank? (::image-url values)))
+        chosen (::picture-shown values)]
+    (cond
+      (and (= chosen "image") image?) :image
+      (and (= chosen "portrait") portrait?) :portrait
+      portrait? :portrait
+      image? :image)))
+
+(defn shown-values
+  "Entity `values` as readers should see them: showing the image removes the portrait; showing the
+   portrait keeps the image as the fallback for a portrait this site cannot draw, since every reader
+   draws a drawable portrait first. Returns the values."
+  [values]
+  (case (shown-picture values)
+    :image (dissoc values ::portrait)
+    values))
+
 (defn parse-portrait
   "A stored portrait, an EDN string or an in-memory map, as {:layers {…} :colors {…}
    :tweaks {…}} through sane-portrait; nil for blank or malformed input, never a throw.
@@ -775,8 +854,11 @@
         (sane-portrait parsed)))
     :else nil))
 
-(defn portrait [built-char]
-  (parse-portrait (get-prop built-char ::portrait)))
+(defn portrait
+  "The built portrait `built-char` shows, parsed, or nil when it shows an image address instead
+   (shown-picture). Returns a portrait map or nil."
+  [built-char]
+  (parse-portrait (::portrait (shown-values (picture-values built-char)))))
 
 (defn faction-image-url [built-char]
   (get-prop built-char ::faction-image-url))

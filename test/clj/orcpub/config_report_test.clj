@@ -291,8 +291,8 @@
           read-names (->> (re-seq #":app-[a-z-]+" src)
                           (map #(-> % (subs 1) (str/replace "-" "_") (.toUpperCase Locale/ROOT)))
                           set)
-          socials (->> (re-find #"\[:patreon[^\]]*\]" src) (re-seq #":([a-z]+)")
-                       (map #(str "APP_SOCIAL_" (.toUpperCase ^String (second %) Locale/ROOT))))]
+          socials (->> (re-find #"\[:patreon[^\]]*\]" src) (re-seq #":([a-z-]+)")
+                       (map #(str "APP_SOCIAL_" (-> ^String (second %) (str/replace "-" "_") (.toUpperCase Locale/ROOT)))))]
       (is (empty? (remove (set config/branding-vars) (concat read-names socials)))
           (pr-str (remove (set config/branding-vars) (concat read-names socials)))))))
 
@@ -366,3 +366,10 @@
     (is (= 1 (count (warns {:app-url ""}))))
     (is (empty? (warns {:app-url "https://site.test"})))
     (is (empty? (warns {})) "callers that do not pass it get no warning")))
+
+(deftest a-patreon-link-with-no-patrons-listed-is-warned-about
+  (let [warned? (fn [pc] (boolean (some #(re-find #"patron-credits.md lists no patrons" %)
+                                        (config/deployment-lines {:patron-credits pc}))))]
+    (is (warned? {:patreon? true :names 0}) "the thanks show, but with no names")
+    (is (not (warned? {:patreon? true :names 3})))
+    (is (not (warned? {:patreon? false :names 0})) "no Patreon link, no thanks to fill")))

@@ -130,4 +130,37 @@
   :what "UI icon or spinner, added 2020-11-25, before the portrait art"}
  "resources/public/image/world-anvil.jpeg"
  {:sha256 "2ded7ce0c3fcd5cefb6758e1904dae4654ce23e9cc9e20811416652a92e67c18"
-  :what "site background / partner image, added 2020-11-25, before the portrait art"}}
+  :what "site background / partner image, added 2020-11-25, before the portrait art"}
+ "resources/public/image/sigils/dmv-sigil-alchemy-01.png"
+ {:sha256 "7c77e3077b9238dc65e08a2d1725de6608e5d84aa19777d354c04b385aaa0554"
+  :what "the owner's DMV arcane sigil (dmv-arcane-symbols.zip), line art recoloured for paper, fine inner shapes dropped and lines thickened to print at 0.3 pt; placeholder school mark on spell cards"}
+ "resources/public/image/sigils/dmv-sigil-alchemy-02.png"
+ {:sha256 "5610323012d4104658cc4fda90da218fc51bc903bde26506bb1db881f0906d99"
+  :what "the owner's DMV arcane sigil (dmv-arcane-symbols.zip), line art recoloured for paper, fine inner shapes dropped and lines thickened to print at 0.3 pt; placeholder school mark on spell cards"}
+ "resources/public/image/sigils/dmv-sigil-hexagon-01.png"
+ {:sha256 "b891b3e24e9bafba0e44acd9bd66a0269df91f424b6fc68cc0da0692191690c4"
+  :what "the owner's DMV arcane sigil (dmv-arcane-symbols.zip), line art recoloured for paper, fine inner shapes dropped and lines thickened to print at 0.3 pt; placeholder school mark on spell cards"}
+ "resources/public/image/sigils/dmv-sigil-hexagon-02.png"
+ {:sha256 "78dfc555941f4bf704cbf3b4940e244fa54b453f1707ab2803bf235241b4e15d"
+  :what "the owner's DMV arcane sigil (dmv-arcane-symbols.zip), line art recoloured for paper, fine inner shapes dropped and lines thickened to print at 0.3 pt; placeholder school mark on spell cards"}
+ "resources/public/image/sigils/dmv-sigil-pentagon-01.png"
+ {:sha256 "463a35e2c4bcf7a49ce46e86fd0552b00240c2691f55293819d523d590d959dc"
+  :what "the owner's DMV arcane sigil (dmv-arcane-symbols.zip), line art recoloured for paper, fine inner shapes dropped and lines thickened to print at 0.3 pt; placeholder school mark on spell cards"}
+ "resources/public/image/sigils/dmv-sigil-pentagon-02.png"
+ {:sha256 "2a69beb613bc32184e506dafa58f72d93d39284af809c55b483453b3bdbee402"
+  :what "the owner's DMV arcane sigil (dmv-arcane-symbols.zip), line art recoloured for paper, fine inner shapes dropped and lines thickened to print at 0.3 pt; placeholder school mark on spell cards"}
+ "resources/public/image/sigils/dmv-sigil-square-01.png"
+ {:sha256 "6eec1918f56280018ca1632356ec221a6dca839915cab63b91b0644597e37285"
+  :what "the owner's DMV arcane sigil (dmv-arcane-symbols.zip), line art recoloured for paper, fine inner shapes dropped and lines thickened to print at 0.3 pt; placeholder school mark on spell cards"}
+ "resources/public/image/sigils/dmv-sigil-square-02.png"
+ {:sha256 "006606a906ef1af23a0d228d5a4867971efc8db2a351e33b32fcc90b8c3acd4b"
+  :what "the owner's DMV arcane sigil (dmv-arcane-symbols.zip), line art recoloured for paper, fine inner shapes dropped and lines thickened to print at 0.3 pt; placeholder school mark on spell cards"}
+ "resources/public/image/sigils/dmv-sigil-triangle-01.png"
+ {:sha256 "86934d53791ac4ed735576710d52c18dd04a1254abe54a6711e3d27c798b9427"
+  :what "the owner's DMV arcane sigil (dmv-arcane-symbols.zip), line art recoloured for paper, fine inner shapes dropped and lines thickened to print at 0.3 pt; placeholder school mark on spell cards"}
+ "resources/public/image/sigils/dmv-sigil-triangle-02.png"
+ {:sha256 "44a6a5609567edebdd82b285a736e94b691696a70cd0125d45ba2fb213608ee8"
+  :what "the owner's DMV arcane sigil (dmv-arcane-symbols.zip), line art recoloured for paper, fine inner shapes dropped and lines thickened to print at 0.3 pt; placeholder school mark on spell cards"}
+ "resources/public/image/bmac-cup.png"
+ {:sha256 "6698d39cc4a922ffa36cca8a8bfdeb6c36e3bf98968e7b30684da568dceca0b0"
+  :what "Buy Me a Coffee's cup mark, supplied by the owner; the What's New footer's support-the-dev icon"}}
