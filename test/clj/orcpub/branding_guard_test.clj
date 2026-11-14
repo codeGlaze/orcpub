@@ -2,6 +2,7 @@
   "Every value the operator sets for branding is checked before the site uses it: a bad one falls
    back to its default, with a warning, rather than reaching a page or stopping the server."
   (:require [clojure.test :refer [deftest is]]
+            [orcpub.artist-credit :as ac]
             [clojure.string :as s]
             [orcpub.email :as email]
             [orcpub.env :as env]
@@ -51,7 +52,7 @@
   (is (= 255 (env/checked-int :app-field-limit-text nil 255)) "unset"))
 
 (deftest artist-links-from-settings-pass-the-same-check-as-artists-edits
-  (let [[o _] (quietly #(branding/artist-override
+  (let [[o _] (quietly #(ac/artist-override
                          {:name "Someone" :link "javascript:alert(1)"
                           :links [{:label "Shop" :url "https://shop.example.org" :icon "x\" onclick=\"y" :color "red;}"}
                                   {:label "Bad" :url "http://plain.example.org"}]}))]

@@ -5,11 +5,7 @@
    Server-side (.clj) is the source of truth. Client-side branding
    is delivered via the config bridge: index.clj injects client-config
    as window.__BRANDING__ JSON in <head>, and branding.cljs reads it."
-  (:require [orcpub.env :as env]
-            [cheshire.core :as cheshire]
-            [clojure.string :as s]
-            [orcpub.artist-links :as links]
-            [orcpub.dnd.e5.portrait-assets :as portrait-assets])
+  (:require [orcpub.env :as env])
   (:import [java.time Year]))
 
 ;; ─── App Identity ──────────────────────────────────────────────────
@@ -130,54 +126,6 @@
 ;; index.clj injects this as window.__BRANDING__ JSON in <head>.
 ;; branding.cljs reads it at runtime for CLJS components.
 
-
-;; ─── Portrait Artist Credits ───────────────────────────────────────
-
-(defn artist-override
-  "One artist's credit `fields` from PORTRAIT_ARTISTS (:name :link :links :license, and the page
-   switches :profile :show_examples :show_links :show_count, kept only when false) as overrides.
-   Links pass artist-links/url-problem, the check an artist's own edits pass; a link's icon and
-   colour come from its address (artist-links/link-entry), never from the setting. A switch can
-   only turn a page or its part off. Returns the map."
-  [fields]
-  (let [ok-url (fn [u] (if (links/url-problem u)
-                         (do (env/warn! :portrait-artists u (links/url-problem u)) nil)
-                         (s/trim (str u))))
-        link (some-> (:link fields) ok-url)
-        extra (vec (for [l (:links fields)
-                         :let [u (ok-url (:url l))] :when u]
-                     (cond-> (links/link-entry u)
-                       (string? (:label l)) (assoc :link/label (:label l)))))]
-    (cond-> {}
-      (string? (:name fields))    (assoc :artist/name (:name fields))
-      link                        (assoc :artist/link link)
-      (seq extra)                 (assoc :artist/links extra)
-      (string? (:license fields)) (assoc :artist/license (:license fields))
-      true (merge (into {} (for [[k ck] {:profile :artist/profile? :show_examples :artist/show-examples?
-                                         :show_links :artist/show-links? :show_count :artist/show-count?}
-                                 :when (false? (get fields k))]
-                             [ck false]))))))
-
-(def portrait-artists
-  "Deployment overrides for portrait artist credits, {artist-id {:artist/name :artist/link
-   :artist/links :artist/license}}, from PORTRAIT_ARTISTS: JSON keyed by artist id, e.g.
-   {\"house-pack\": {\"name\": \"Someone\", \"link\": \"https://...\"}}. Which artist drew
-   which asset is not overridable. See PORTRAIT-COMPOSITOR.md, \"Deployment overrides\".
-   A value that does not parse is ignored with a warning."
-  (or (when-let [raw (not-empty (env/value :portrait-artists))]
-        (try
-          (into {}
-                (for [[id fields] (cheshire/parse-string raw true)]
-                  [(keyword (name id)) (artist-override fields)]))
-          (catch Exception e
-            (println "branding: PORTRAIT_ARTISTS ignored --" (.getMessage e))
-            nil)))
-      {}))
-
-;; Apply them server-side at load. The client gets the same map through
-;; client-config and applies it itself, so the share card (rendered here) and
-;; the sheet (rendered in the browser) always name the same person.
-(portrait-assets/set-artist-overrides! portrait-artists)
 
 (defn client-config
   "Map of branding values for CLJS injection. Serialized to JSON by index.clj. Operator settings
