@@ -3,6 +3,7 @@
    back to its default, with a warning, rather than reaching a page or stopping the server."
   (:require [clojure.test :refer [deftest is]]
             [clojure.string :as s]
+            [orcpub.email :as email]
             [orcpub.env :as env]
             [orcpub.fork.branding :as branding]))
 
@@ -31,16 +32,16 @@
 
 (deftest the-placeholder-sender-is-never-configured
   ;; meaningful when run with a bad EMAIL_FROM_ADDRESS, which falls back to the placeholder
-  (is (not (and branding/email-configured? (= branding/email-from-address "no-reply@example.com")))))
+  (is (not (and email/email-configured? (= branding/email-from-address "no-reply@example.com")))))
 
 (deftest email-counts-as-configured-only-with-a-usable-sender
   (let [checked #(first (quietly (fn [] (env/checked-email :email-from-address % "no-reply@example.com"))))]
-    (is (branding/sender-configured? (checked "mail@example.org")))
-    (is (not (branding/sender-configured? (checked "not an address")))
+    (is (email/sender-configured? (checked "mail@example.org")))
+    (is (not (email/sender-configured? (checked "not an address")))
         "an address that falls back to the placeholder is not configured")
-    (is (not (branding/sender-configured? (checked ""))) "unset")
-    (is (not (branding/sender-configured? (checked "no-reply@example.com"))) "the placeholder itself"))
-  (is (= branding/email-configured? (branding/sender-configured? branding/email-from-address))
+    (is (not (email/sender-configured? (checked ""))) "unset")
+    (is (not (email/sender-configured? (checked "no-reply@example.com"))) "the placeholder itself"))
+  (is (= email/email-configured? (email/sender-configured? branding/email-from-address))
       "the setting the site reads is the checked address's"))
 
 (deftest a-number-setting-falls-back-instead-of-stopping-the-server
