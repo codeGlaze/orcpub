@@ -69,6 +69,14 @@ const loadMagic = (page, keys) => page.evaluate(keys => {
     [rd(':set-character'), orcpub.dnd.e5.character.from_strict(rd(strict))], true));
 }, keys);
 
+// Waits for `scope`'s table to show the loaded wizard's 8 weapons: the builder's build is debounced
+// (subs.cljs build-debounce-ms), so the first paint after `load` can still be the default character.
+const eightRows = async scope => {
+  await scope.locator('.weapon-name', { hasText: /^Flame Tongue, Longsword$/ }).first()
+    .waitFor({ timeout: 5000 }).catch(() => {});
+  await scope.locator('.weapon-row').nth(7).waitFor({ timeout: 5000 }).catch(() => {});
+};
+
 // Layout numbers for the section: widths, heading offsets, tile sizes, one-line names, tap targets.
 const measure = page => page.evaluate(() => {
   const section = [...document.querySelectorAll('.weapons-section')].find(e => e.offsetParent);
@@ -138,6 +146,7 @@ async function layout(page, theme) {
   } else {
     const row = name => page.locator('.weapon-row')
       .filter({ has: page.locator('.weapon-name', { hasText: new RegExp(`^${name}$`) }) });
+    await eightRows(page.locator('.weapons-section'));
     await layout(page, 'dark');
     check('no reason pill while the off hand is free', await page.locator('.weapons-reason').count() === 0);
 
@@ -354,6 +363,7 @@ async function layout(page, theme) {
   await dp.getByText('combat', { exact: true }).first().click({ timeout: 10000 }).catch(() => {});
   const dsec = dp.locator('.weapons-section.desktop').filter({ visible: true }).first();
   if (await dsec.waitFor({ timeout: 20000 }).then(() => true, () => false)) {
+    await eightRows(dsec);
     const dm = await dsec.evaluate(sec => {
       const heads = Object.fromEntries([...sec.querySelectorAll('.weapon-head > span')].map(h => [h.textContent, h]));
       const cx = e => { const b = e.getBoundingClientRect(); return b.left + b.width / 2; };
