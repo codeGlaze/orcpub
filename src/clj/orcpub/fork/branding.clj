@@ -121,24 +121,3 @@
   {:notes  (env/checked-int :app-field-limit-notes (env/value :app-field-limit-notes) 50000)
    :text   (env/checked-int :app-field-limit-text (env/value :app-field-limit-text) 255)
    :number (env/checked-int :app-field-limit-number (env/value :app-field-limit-number) 7)})
-
-;; ─── Client-Side Config Bridge ───────────────────────────────────
-;; index.clj injects this as window.__BRANDING__ JSON in <head>.
-;; branding.cljs reads it at runtime for CLJS components.
-
-
-(defn client-config
-  "Map of branding values for CLJS injection. Serialized to JSON by index.clj. Operator settings
-   only: artist credits, which artists can edit, reach the browser from /dnd/5e/portrait-artists."
-  []
-  {:app-name                  app-name
-   :logo-path                 logo-path
-   :copyright-holder          copyright-holder
-   :copyright-year            copyright-year
-   :copyright-url             copyright-url
-   :support-email             support-email
-   :help-url                  help-url
-   :social-links              social-links
-   :field-limits              field-limits
-   :registration-logo-class   registration-logo-class
-   :restrict-print-to-owner?  restrict-print-to-owner?})

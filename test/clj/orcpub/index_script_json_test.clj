@@ -9,7 +9,7 @@
 
 (deftest an-operator-setting-cannot-close-the-branding-script
   (testing "operator settings are still written into the page, so they are escaped there"
-    (with-redefs [branding/client-config (constantly {:app-name hostile})]
+    (with-redefs [index/branding-client-config (constantly {:app-name hostile})]
       (let [page (index/index-page {:nonce "n"})]
         (is (not (re-find #"alert\(1\)</script>" page)))
         (is (not (.contains page "Ann</script>")))
