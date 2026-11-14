@@ -114,3 +114,23 @@
           fonts (draw/load-fonts doc)]
       (with-open [cs (org.apache.pdfbox.pdmodel.PDPageContentStream. doc page)]
         (is (nil? (draw/text! cs (:bold fonts) 9.5 10 20 "Line\nBreak\r\nSpell")))))))
+
+(deftest a-fact-too-long-for-its-row-is-cut-and-kept-for-the-back
+  (with-fonts
+    (fn [fonts]
+      (let [rng (apply str (repeat 80 "W"))
+            l (cards/spell-card-layout fonts (card {:name "Long Reach" :level 1 :school "evocation"
+                                                    :casting-time "1 action" :range rng
+                                                    :duration "Instantaneous"
+                                                    :components {:verbal true}}))]
+        (is (empty? (cards/spell-card-problems l)))
+        (is (every? #(<= (get-in % [:box 2]) 169.0) (of-kind l :text)) "no fact runs off the card")
+        (is (= [["RANGE" rng]] (:facts-cut l)) "the full range, for print-spells to put on the back")))))
+
+(deftest uses-past-one-row-are-not-drawn
+  (with-fonts
+    (fn [fonts]
+      (let [l (cards/spell-card-layout fonts (card (spells/spell-map :fireball)
+                                                   {:uses {:n 1000 :label "LONG REST"}}))]
+        (is (= cards/max-use-circles (count (of-kind l :use))))
+        (is (empty? (cards/spell-card-problems l)))))))

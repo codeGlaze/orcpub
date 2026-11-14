@@ -2325,3 +2325,15 @@
       (testing "a change with no generation always counts"
         (rf/dispatch-sync [:set-loading true])
         (is (= 1 (:loading @app-db)))))))
+
+(deftest file-name-choices-reach-the-account-one-write-at-a-time
+  (reset! app-db {:user-data {:token "t" :pdf-file-name {}}})
+  (let [first-fx (effects-of [::char5e/set-file-name-option :class? true] [:http])
+        second-fx (effects-of [::char5e/set-file-name-option :level? true] [:http])]
+    (is (= {:class? true} (get-in first-fx [:http :transit-params :pdf-file-name])))
+    (is (nil? (:http second-fx)) "a choice made while a write is in flight waits for it")
+    (let [after (effects-of [::char5e/file-name-format-saved] [:http])]
+      (is (= {:class? true :level? true} (get-in after [:http :transit-params :pdf-file-name]))
+          "the latest choice is sent once the first write returns"))
+    (is (nil? (:http (effects-of [::char5e/file-name-format-saved] [:http])))
+        "nothing waiting: nothing more is sent")))
