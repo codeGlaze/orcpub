@@ -328,8 +328,8 @@
          [:div.flex.align-items-c
           [:img.emblem-icon {:src (str "/image/emblems/" icon ".svg") :alt ""}]
           [:span.m-l-5 class-name]
-          [:span.orange.underline.pointer.f-s-12.m-l-10
-           {:on-click #(swap! open? not)}
+          [:button.emblem-toggle.orange.underline.pointer.f-s-12.m-l-10
+           {:type "button" :aria-expanded @open? :on-click #(swap! open? not)}
            (if @open? "Done" "Change")]]
          (when @open?
            (into [:div.emblem-choices]

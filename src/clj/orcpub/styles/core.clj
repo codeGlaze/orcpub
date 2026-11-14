@@ -833,6 +833,9 @@
      :filter "invert(1)"
      :opacity "0.85"}]
    [".app.light-theme .emblem-icon" {:filter "none"}]
+   ;; The Change/Done toggle: a <button> that looks like the link it was.
+   [:.emblem-toggle
+    {:background "none" :border "none" :padding "0" :font-family "inherit"}]
    [:.emblem-choices
     {:display "grid"
      :grid-template-columns "repeat(auto-fill, minmax(34px, 1fr))"
@@ -2920,6 +2923,11 @@
 
      [:.orange
       {:color "rgba(0,0,0,0.8)"}]
+
+     ;; The footer's support links read as its other links do in this theme.
+     [:.support-pills-compact
+      [:.support-pill {:color "rgba(0,0,0,0.8)"}
+       [:&:hover {:color slate-blue}]]]
 
      [:.b-orange
       {:border-color "rgba(0,0,0,0.6)"}]

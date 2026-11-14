@@ -134,6 +134,15 @@
 
 (def ^:private sigil-size "A school sigil's side on the card, points." 8.5)
 
+(def max-use-circles
+  "The most use circles one card row holds: 9 pt each across the card's text width, leaving 40 pt
+   for the label (\"SHORT REST\") on their left."
+  (long (quot (- sc-right sc-left 40) 9)))
+
+(def ^:private fact-names
+  "A fact row's legend and the words the back spells it out with when its value was cut."
+  {"CAST" "Casting time: " "RANGE" "Range: " "COMP" "Components: " "DUR" "Duration: "})
+
 (defn concentration?
   "Whether `duration` (a spell's: a string such as \"Concentration, up to 1 minute\", or a
    units map) needs concentration."
@@ -161,13 +170,14 @@
         (if (or (<= (width-of c) width) (< (count t) 2)) c (recur (subs t 0 (dec (count t)))))))))
 
 (defn spell-card-layout
-  "One spell card front as {:elements [...] :text-top pt}, plus :name-cut and :material-cut (the
-   full text) when the title or the material was cut to two lines. Each element has :box [x0 y0 x1 y1], points from
-   the card's top-left. `card` is {:spell :class-nm :dc :attack-bonus :uses {:n :label} (n 0: the
-   label alone) :cast-at level :print-dc-mod? bool}; `fonts` a draw/load-fonts map. The name wraps
-   beside ATK and DC; uses take their own row when they do not fit; facts wrap to two rows."
+  "One spell card front as {:elements [...] :text-top pt}, plus what was cut short for the back:
+   :name-cut, :material-cut (full text) and :facts-cut ([legend full-value] pairs). Each element has
+   :box [x0 y0 x1 y1], points from the card's top-left. `card` is {:spell :class-nm :dc :attack-bonus
+   :uses {:n :label} (n 0: the label alone, at most max-use-circles drawn) :cast-at level
+   :print-dc-mod? bool}; `fonts` a draw/load-fonts map."
   [fonts {:keys [spell class-nm dc attack-bonus uses cast-at print-dc-mod?]}]
-  (let [serif (:plain fonts) serif-b (:bold fonts) serif-i (:italic fonts)
+  (let [uses (some-> uses (update :n min max-use-circles))
+        serif (:plain fonts) serif-b (:bold fonts) serif-i (:italic fonts)
         sans (draw/sans fonts :plain) sans-b (draw/sans fonts :bold)
         {spell-name :name spell-range :range :keys [level school casting-time components duration ritual]} spell
         spell-name (or spell-name "(Unknown Spell)")
@@ -229,7 +239,8 @@
         sy (+ 17 (* 11 (dec (count lines))) 10)
         y (atom 0)
         uses-on-level-line (atom false)
-        material-cut (atom nil)]
+        material-cut (atom nil)
+        facts-cut (atom [])]
     (doseq [[i [k t fill]] (map-indexed vector ribbons)
             :let [x (+ rib-left (* i (+ rw 2))) top 5.5 bot 27
                   pts [[x top] [(+ x rw) top] [(+ x rw) bot] [(+ x (/ rw 2)) (- bot 4)] [x bot]]]]
@@ -271,8 +282,18 @@
                          ["COMP" comps]
                          ["DUR" (some-> duration sp/abbreviate-duration str)]])
           cell-w (fn [[l v]] (max (width serif v 7.0) (+ (width sans-b l 4.2) 4)))
+          ;; A row still too wide shares the width out; a value over its share is cut, in full on the back.
           row! (fn [fs]
-                 (let [ws (map cell-w fs) gap (/ (- W (reduce + ws)) (max 1 (dec (count fs))))
+                 (let [n (count fs) share (/ (- W (* 4 (dec n))) n)
+                       fs (if (<= (reduce + (map cell-w fs)) W)
+                            fs
+                            (mapv (fn [[l v :as f]]
+                                    (if (<= (width serif v 7.0) share)
+                                      f
+                                      (do (swap! facts-cut conj [l v])
+                                          [l (spell-ellipsize #(width serif % 7.0) v share)])))
+                                  fs))
+                       ws (map cell-w fs) gap (/ (- W (reduce + ws)) (max 1 (dec (count fs))))
                        xs (reductions + sc-left (map #(+ % gap) ws)) ry (+ @y 4)]
                    (doseq [[[l v] x w] (map vector fs xs ws) :let [cx (+ x (/ w 2))]]
                      (text! serif 7.0 v (- cx (/ (width serif v 7.0) 2)) @y)
@@ -294,6 +315,7 @@
         (swap! y + 1.5)))
     (cond-> {:elements @out :text-top @y}
       @material-cut (assoc :material-cut @material-cut)
+      (seq @facts-cut) (assoc :facts-cut @facts-cut)
       name-cut (assoc :name-cut name-cut))))
 
 (defn spell-card-problems
@@ -426,12 +448,11 @@
                               ""))
                    card (spell-card-layout fonts (assoc spell-data :print-dc-mod?
                                                         (and print-spell-card-dc-mod? (not= class-nm "Homebrew"))))]
-               ;; A name or material cut short on the front leads the back, in full.
-               {:remaining-lines (concat (mapcat (fn [[k label]]
-                                                   (some-> (get card k)
-                                                           (#(draw/split-lines (str label %) (:plain fonts) 8
-                                                                               (- box-width 0.3)))))
-                                                 [[:name-cut "Name: "] [:material-cut "Material: "]])
+               ;; A name, material or fact cut short on the front leads the back, in full.
+               {:remaining-lines (concat (mapcat (fn [t] (draw/split-lines t (:plain fonts) 8 (- box-width 0.3)))
+                                                 (concat (keep (fn [[k label]] (some->> (get card k) (str label)))
+                                                               [[:name-cut "Name: "] [:material-cut "Material: "]])
+                                                         (map (fn [[l v]] (str (fact-names l) v)) (:facts-cut card))))
                                          (draw-spell-card! cs fonts img x y card text))
                 :spell-name spell-name}))))))
 

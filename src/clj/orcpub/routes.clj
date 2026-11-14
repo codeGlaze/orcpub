@@ -517,10 +517,10 @@
                                          :attack-bonus (get spell-attack-mods class)}
                                   ;; Free casts per rest print as use circles, the rest as their
                                   ;; label ("LONG REST"), at will as the label alone; a fixed
-                                  ;; casting level joins the source.
+                                  ;; casting level joins the source. Uses past one row's worth are dropped.
                                   at-will (assoc :uses {:n 0 :label "AT WILL"})
                                   (and (not at-will) (pos-int? amount) units)
-                                  (assoc :uses {:n amount
+                                  (assoc :uses {:n (min amount cards/max-use-circles)
                                                 :label (common/ascii-upper-case (s/replace (name units) "-" " "))})
                                   level (assoc :cast-at level))))))
                           part)

@@ -502,7 +502,7 @@
     :rogue {3 {:selections [(arcane-trickster-cantrip subclass-key spell-lists spells-map 2)
                             (arcane-trickster-spell-selection subclass-key spell-lists spells-map 2 [1])
                             (arcane-trickster-any-spell-selection subclass-key spell-lists spells-map 1 [1])]
-               :modifiers [(mod5e/spells-known 0 :mage-hand ::char5e/int "Arcane Trickster")]}
+               :modifiers [(mod5e/spells-known 0 :mage-hand ::char5e/int "Rogue")]}
             4 {:selections [(arcane-trickster-spell-selection subclass-key spell-lists spells-map 1 [1])]}
             7 {:selections [(arcane-trickster-spell-selection subclass-key spell-lists spells-map 1 [1 2])]}
             8 {:selections [(arcane-trickster-any-spell-selection subclass-key spell-lists spells-map 1 [1 2])]}
