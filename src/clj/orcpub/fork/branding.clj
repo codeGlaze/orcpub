@@ -148,11 +148,11 @@
 ;; ─── Social Links ──────────────────────────────────────────────────
 ;; Each link shows in the header/footer when its env var is set to a URL; unset hides it.
 ;; e.g. in .env:  APP_SOCIAL_PATREON=https://www.patreon.com/YourProject
-;;                APP_SOCIAL_DISCORD=https://discord.gg/your-invite
+;;                APP_SOCIAL_DEV_TIP=https://buymeacoffee.com/you  (a one-off tip to the developer)
 
 (def social-links
   "Map of social platform links. Empty string = hidden."
-  (into {} (for [k [:patreon :facebook :bluesky :twitter :reddit :discord]
+  (into {} (for [k [:patreon :dev-tip :facebook :bluesky :twitter :reddit :discord]
                  :let [setting (keyword (str "app-social-" (name k)))]]
              [k (checked-url setting (env/value setting "") "")])))
 

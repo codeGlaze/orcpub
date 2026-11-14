@@ -37,7 +37,7 @@ async function clickIfVisible(locator, { timeout = 2500, label = '' } = {}) {
   }
 }
 
-const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';
+const BASE = process.env.E2E_BASE || process.env.ORCPUB_BASE || 'http://localhost:8890';
 const MAX_RETRIES = parseInt(process.env.ORCPUB_PDF_MAX_RETRIES || '2', 10);
 
 let failures = 0;

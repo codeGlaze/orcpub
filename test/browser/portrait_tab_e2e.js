@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const { suppressOverlays } = require('./lib/orcbrew-import');
-const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';
+const BASE = process.env.E2E_BASE || process.env.ORCPUB_BASE || 'http://localhost:8890';
 
 // Same resolver the other probes use: the image ships a pinned Chromium whose
 // build number will not match whatever playwright's npm package wants, so the
@@ -103,13 +103,13 @@ async function openBuilder(ctx, width) {
         await panel.locator('.pl-picker').count() === 0);
   check('Save portrait is absent while nothing is edited',
         await panel.getByRole('button', { name: 'Save portrait' }).count() === 0);
-  check('with no portrait the tab offers Make a portrait',
-        await panel.getByRole('button', { name: 'Make a portrait' }).count() === 1);
+  check('with no portrait the tab offers Build a portrait',
+        await panel.getByRole('button', { name: 'Build a portrait' }).count() === 1);
 
-  // Make a portrait opens the drawer
-  await panel.getByRole('button', { name: 'Make a portrait' }).click();
+  // Build a portrait opens the drawer
+  await panel.getByRole('button', { name: 'Build a portrait' }).click();
   await drawer.waitFor({ state: 'visible', timeout: 10000 });
-  check('Make a portrait opens the drawer', await drawer.isVisible());
+  check('Build a portrait opens the drawer', await drawer.isVisible());
   check('the drawer has the layer pickers', await drawer.locator('.pl-picker').count() > 0);
   await drawer.locator('.pl-drawer-close').click();
   await page.waitForTimeout(400);

@@ -40,6 +40,7 @@
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
+            [orcpub.dnd.e5.views.pdf-options :as pdf-options]
             [orcpub.dnd.e5.views.builder-fields :as builder-fields]
             [orcpub.dnd.e5.subs :as subs5e]
             [orcpub.route-map :as routes]
@@ -413,7 +414,7 @@
     [:div
      [:div.m-b-5
       {:on-click #(dispatch [::events5e/toggle-class-source-suffix])}
-      [views5e/labeled-checkbox "Show homebrew source on class names" show-suffix?]]
+      [builder-fields/labeled-checkbox "Show homebrew source on class names" show-suffix?]]
      [:div
       (doall
        (map-indexed
@@ -2262,8 +2263,12 @@
   [built-char]
   (dispatch [::char5e/set-random-name built-char]))
 
-(defn set-image-url [v]
-  (dispatch [:set-image-url v]))
+(defn set-image-url
+  "Sets the character's picture link to `v`; a non-blank link replaces a composed portrait, so the
+   portrait editor's unsaved draft is dropped with it."
+  [v]
+  (dispatch [:set-image-url v])
+  (when-not (s/blank? v) (dispatch [:portrait/discard-draft])))
 
 (defn set-faction-image-url [v]
   (dispatch [:set-faction-image-url v]))
@@ -2440,11 +2445,25 @@
 
           :else nil)))))
 
+(defn image-link-field
+  "The portrait editor's picture-link field under `label`: the input (pasting an image works too)
+   and the notice that checks the link. It edits the editor's draft (:portrait/link-draft); the
+   character's link changes only with Use this picture (:portrait/use-link). Returns hiccup."
+  [label]
+  (let [url @(subscribe [:portrait/link-draft])
+        image-bytes @(subscribe [::char5e/image-bytes])
+        server-reach @(subscribe [::char5e/image-server-reach])
+        set-draft #(dispatch [:portrait/set-link-draft %])]
+    [:div {:on-paste (image-paste url)}
+     [:span.personality-label.f-s-18 label]
+     [:input.input {:type "url" :value (or url "") :placeholder "https://"
+                    :on-change #(set-draft (.. % -target -value))}]
+     [image-field-notice url false (get image-bytes url) (get server-reach url) set-draft]]))
+
 (defn description-fields []
   (let [entity-values @(subscribe [:entity-values])
         built-char @(subscribe [:built-character])
         image-url @(subscribe [::char5e/image-url])
-        image-url-failed @(subscribe [::char5e/image-url-failed])
         faction-image-url @(subscribe [::char5e/faction-image-url])
         faction-image-url-failed @(subscribe [::char5e/faction-image-url-failed])
         image-bytes @(subscribe [::char5e/image-bytes])
@@ -2502,21 +2521,17 @@
      [:div.field
       [:span.personality-label.f-s-18 "Flaws"]
       [character-textarea entity-values ::char5e/flaws]]
-     [:div.flex.align-items-c.w-100-p.m-t-30
-      (when image-url
-        [:img.m-r-10.image-character-thumbnail {:src image-url
-                      :on-error (image-error :failed-loading-image image-url)
-                      :on-load (image-load :loaded-image image-url)}])
-      [:div.flex-grow-1
-       {:on-paste (image-paste image-url)}
-       [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
-       [character-input entity-values ::char5e/image-url nil set-image-url]
-       ;; integration's notice replaces the flat "failed to load" line; the
-       ;; launcher still belongs beside it, since composing a portrait is the
-       ;; other way to fill this slot.
-       [image-field-notice image-url image-url-failed
-        (get image-bytes image-url) (get server-reach image-url) set-image-url]
-       [portrait5e/launcher-button]]]
+     [:div.m-t-30
+      [:span.personality-label.f-s-18 "Picture"]
+      [:div.flex.align-items-c
+       (when image-url
+         ;; hidden: keeps the link's load checks running, which the thumbnail's own <img> does not
+         [:img {:style {:display "none"} :src image-url
+                             :on-error (image-error :failed-loading-image image-url)
+                             :on-load (image-load :loaded-image image-url)}])
+       [portrait5e/thumbnail (char5e/portrait built-char) image-url true]
+       [:button.form-button {:type "button" :on-click #(dispatch [:portrait/open])}
+        "Change picture"]]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -2891,7 +2906,7 @@
     (when print-enabled? (print-char built-char))
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
     [:<>
-     [portrait5e/drawer]
+     [portrait5e/drawer [image-link-field "Image address (URL)"]]
      [views5e/content-page
      "Character Builder"
      (vec
@@ -2934,7 +2949,7 @@
            :on-click (load-character-page (:db/id character))})
         {:title "Export"
          :icon "download"
-         :on-click (views5e/make-print-handler (:db/id character) built-char)}]))
+         :on-click (pdf-options/make-print-handler (:db/id character) true)}]))
      [:div
       [:div.container
        [:div.content

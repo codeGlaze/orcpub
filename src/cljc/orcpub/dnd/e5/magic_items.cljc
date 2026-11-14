@@ -562,8 +562,8 @@ direction to the closest dragon within 30 miles of you that is of the same type 
    ::type :rod
    ::rarity :uncommon
    ::attunement [:warlock]
-   ::modifiers [(mod5e/spell-save-dc-bonus bonus)
-               (mod5e/spell-attack-modifier-bonus bonus)
+   ::modifiers [(mod5e/class-spell-bonus "Warlock" :dc bonus)
+               (mod5e/class-spell-bonus "Warlock" :attack bonus)
                (mod5e/bonus-action
                 {:name "Rod of the Pact Keeper"
                  :page 197

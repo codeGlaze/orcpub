@@ -674,7 +674,11 @@
       (= :phb source)
       (get option-sources source)))
 
-(defn spell-option [spells-map spellcasting-ability class-name key & [prepend-level? qualifier]]
+(defn spell-option
+  "The option to learn spell `key` from `spells-map`, cast with `spellcasting-ability` under source
+   name `class-name`. Optional: `prepend-level?` (\"3 - Fireball\"), `qualifier` (display text),
+   `casting` (free casts and slot use, `mod5e/spell-data`). Returns an option-cfg."
+  [spells-map spellcasting-ability class-name key & [prepend-level? qualifier casting]]
   (let [{:keys [name level source edit-event] :as spell} (spells-map key)
         ;; When a spell list references a spell whose definition isn't loaded
         ;; (imported homebrew that lists a spell but never defines it, or whose
@@ -697,15 +701,17 @@
       ;; with views-aux/realize-help when the peek opens; :help elsewhere is still a plain
       ;; string or hiccup. See reagent-architecture-tenets.md #1.
       :help #(spell-help spell)
+      ;; Known spells are keyed [source spell]: the same spell from another source (a Tiefling's
+      ;; racial Darkness, then the Warlock's own) is a separate grant, cast its own way.
       :prereqs [(t/option-prereq
                  "You already know this spell"
                  (fn [c] (let [spells-known (character/spells-known c)]
                            (or (not spells-known)
                                (not-any?
-                                (fn [[[_ kw]]]
-                                  (= key kw))
+                                (fn [[[src kw]]]
+                                  (and (= key kw) (= class-name src)))
                                 (get spells-known level))))))]
-      :modifiers [(modifiers/spells-known level key spellcasting-ability class-name nil qualifier)]})))
+      :modifiers [(modifiers/spells-known level key spellcasting-ability class-name nil qualifier nil casting)]})))
 
 
 (def memoized-spell-option (memoize spell-option))
@@ -732,9 +738,12 @@
                     " — shown by a key-derived name; define each via its edit link.")))
      nil)))
 
-(defn spell-options [spells-map spells spellcasting-ability class-name & [prepend-level? qualifier]]
+(defn spell-options
+  "One `spell-option` per key in `spells`, sorted, sharing the ability, source name and optional
+   `prepend-level?`, `qualifier` and `casting`. Returns a seq of option-cfgs."
+  [spells-map spells spellcasting-ability class-name & [prepend-level? qualifier casting]]
   (map
-   #(memoized-spell-option spells-map spellcasting-ability class-name % prepend-level? qualifier)
+   #(memoized-spell-option spells-map spellcasting-ability class-name % prepend-level? qualifier casting)
    (sort spells)))
 
 (defn spell-level-title

@@ -256,3 +256,58 @@
                           [0x2022 "bullet"]]]
         (is (str/includes? text (str (char cp)))
             (str label " was replaced; Vollkorn has a glyph for it"))))))
+
+(deftest a-long-source-keeps-the-card-source-line-on-one-line
+  (testing "Misty Step from Fey Teleportation, DC and mod printed: the source line ends on its own
+            baseline instead of wrapping into the facts below it"
+    (let [out (ByteArrayOutputStream.)]
+      (with-open [doc (PDDocument.)]
+        (routes/add-spell-cards! doc (draw/load-fonts doc) (draw/make-image-loader doc)
+                                 {:fey [{:key :misty-step :class "Fey Teleportation"}]}
+                                 {"Fey Teleportation" 13} {"Fey Teleportation" 5}
+                                 nil true card-back-logo false false)
+        (.save doc out))
+      (with-open [doc (Loader/loadPDF (.toByteArray out))]
+        (let [gs (glyphs doc 0)
+              text (apply str (map :ch gs))
+              start (str/index-of text "FEY")
+              end (some-> start (+ (count "FEY TELEPORTATION")))]
+          (is (and start end) text)
+          (is (= 1 (count (distinct (map #(Math/round (double (:y %))) (subvec gs start end)))))
+              (str "source baselines: " (vec (distinct (map #(Math/round (double (:y %))) (subvec gs start end)))))))))))
+
+(deftest a-grants-uses-and-casting-level-print-on-its-card
+  (testing "Hellish Rebuke from Infernal Legacy: once per long rest, cast at 2nd level"
+    (let [out (ByteArrayOutputStream.)
+          lr {:units :orcpub.dnd.e5.units/long-rest :amount 1 :level 2}]
+      (with-open [doc (PDDocument.)]
+        (routes/add-spell-cards! doc (draw/load-fonts doc) (draw/make-image-loader doc)
+                                 {:t [{:key :hellish-rebuke :class "Tiefling" :casting {:free lr :slots :none}}]}
+                                 {"Tiefling" 13} {"Tiefling" 5}
+                                 nil true card-back-logo false false)
+        (.save doc out))
+      (with-open [doc (Loader/loadPDF (.toByteArray out))]
+        (let [text (apply str (map :ch (glyphs doc 0)))]
+          (is (str/includes? text "LONG REST") text)
+          (is (str/includes? text "CAST AT 2ND LEVEL") text))))))
+
+(deftest an-at-will-grant-prints-at-will-not-use-circles
+  (testing "Mage Armor from Armor of Shadows: at will, never from a slot"
+    (let [out (ByteArrayOutputStream.)]
+      (with-open [doc (PDDocument.)]
+        (routes/add-spell-cards! doc (draw/load-fonts doc) (draw/make-image-loader doc)
+                                 {:t [{:key :mage-armor :class "Warlock" :casting {:free {:at-will true} :slots :none}}]}
+                                 {"Warlock" 13} {"Warlock" 5}
+                                 nil true card-back-logo false false)
+        (.save doc out))
+      (with-open [doc (Loader/loadPDF (.toByteArray out))]
+        (let [text (apply str (map :ch (glyphs doc 0)))]
+          (is (str/includes? text "AT WILL") text)
+          (is (not (str/includes? text "REST")) text))))))
+
+(deftest a-spell-row-with-a-casting-note-still-gets-its-marks
+  ;; the sheet writes "Darkness (once/long rest)"; the marks are looked up by the name alone
+  (let [annotate @#'routes/spell-annotation]
+    (is (some? (annotate "Darkness")))
+    (is (= (annotate "Darkness") (annotate "Darkness (once/long rest)")))
+    (is (= (annotate "Hellish Rebuke") (annotate "Hellish Rebuke (cast at 2nd level)")))))

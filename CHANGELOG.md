@@ -108,6 +108,15 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Accounts:** when the security check can't load, the form says so and suggests allowing challenges.cloudflare.com in an ad blocker.
 - **Homebrew:** an "export as markdown" button in My Content writes homebrew classes and subclasses as printable 5e-style text, with a level table and their features.
 - **Reference:** each row on the Spells and Monsters lists shows its source's short tag (the one set in My Content), so same-named spells from different packs can be told apart; built-in entries read "SRD".
+- **Portraits:** a character can use an image from the web as well as a built portrait; both are
+  kept, and the character picture editor switches which one shows on the sheet, the PDF and shares.
+- **Printing:** PDF Options lets players choose what the file name shows (player, character, class,
+  subclass, level), where the level goes and how it is written (5, 05, L5); kept on the account.
+- **Site:** What's New thanks the patrons who keep the server running, with their names when the
+  site lists them, and offers "Help support our: Server · Dev". The home page gains What's New,
+  Support the Server and Fuel the Dev buttons, and the site footer the last two. Each shows only
+  when the site sets it up.
+- **Site:** the startup report warns when a Patreon link is set but no patrons are listed.
 
 ### Changed
 - **Server:** a deployed server will not start without a mail server unless `EMAIL_REQUIRED=false` says that is intended, and the message names the setting to add. Development mode is exempt; `./run` and `./run --upgrade` set the opt-out for installs that run without email, so none stops on upgrade. (#716)
@@ -140,6 +149,13 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Accounts:** warnings about sign-in attempts on your account now follow up while attempts continue (at most every 6 hours, with a count), instead of once a day.
 - **Server:** links in account emails use `APP_URL` when it is set (set it in production; the startup report warns when it is not).
 - **Server:** an optional `REDIS_URL` shares the sign-in and email limits across app containers; without it each container keeps its own.
+- **Portraits:** Randomize rolls everything (colours, eyes, hair effects, light) within sane ranges,
+  with Keep colours to hold the colours.
+- **Printing:** PDF Options opens as a full-window panel with grouped options and Create PDF at the
+  bottom right, on desktop and phone, and Create PDF opens a tab that says the PDF is being made.
+- **Printing:** spell cards have a new design: the name with ATK and DC, concentration and
+  ritual marked as ribbons, level and school on one line with any uses to tick, the casting facts
+  labelled, and more of the spell's text on the front.
 
 ### Fixed
 
@@ -241,6 +257,27 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Reference:** spells and monsters that share a name (common across homebrew packs) each show as their own row; clearing a search no longer leaves duplicate rows, and opening one no longer opens the others.
 - **Reference:** the Spells, Monsters and Items lists come back at once when a search is cleared, even with large homebrew libraries.
 - **Items:** built-in items no longer show Edit and Delete to visitors who are not logged in.
+- **Homebrew:** opening an entry to edit no longer risks a section of its builder showing twice or
+  going missing.
+- **Printing:** the bottom of PDF Options, Create PDF included, can be scrolled into view; it
+  was cut off under the pinned page header unless the page was scrolled to its very end.
+- **Printing:** a character with no name gets one when exported, as saving gives one, so the sheet
+  and its file are named; the file is never just "character.pdf" for a character with a class.
+- **Printing:** a PDF's file name keeps names with accents, curly apostrophes or non-Latin
+  letters, drops emoji and characters Windows cannot save, and a player name without a character name no longer leaves an empty " -  - " slot.
+- **Printing:** a spellcaster's PDF no longer opens with a "did not fit" page naming a cantrip slots
+  box; cantrips have no slots, from a class, race or feat alike.
+- **Printing:** a race's spell page (a Tiefling's Hellish Rebuke and Darkness) no longer shows
+  the class's spell slots; each such spell says how it is cast, for example "2nd level,
+  once/long rest", as do a Warlock's at-will invocations and Mystic Arcanum.
+- **Printing:** a spell card whose source has a long name (Misty Step from Fey Teleportation)
+  no longer prints its DC and spell mod over the casting-time icons.
+- **Warlock:** Mire the Mind's Slow is cast once per long rest using a warlock spell slot, not at
+  will, and a Warlock's at-will and Mystic Arcanum spells stay at their own level on a packed PDF
+  spell sheet.
+- **Magic items:** the Rod of the Pact Keeper raises the spell save DC and spell attack of warlock
+  spells only, not a multiclass character's other spells or a race's; a spell page splits a source
+  whose DC then differs into its own section.
 
 ### Security
 

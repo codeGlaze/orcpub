@@ -116,6 +116,7 @@ Shown in the app header/footer when non-empty. Leave empty to hide.
 | Env Var | Default (public) | Default (production) |
 |---------|-----------------|---------------------|
 | `APP_SOCIAL_PATREON` | *(empty = hidden)* | Patreon URL |
+| `APP_SOCIAL_DEV_TIP` | *(empty = hidden)* | A one-off tip link for the developer |
 | `APP_SOCIAL_FACEBOOK` | *(empty = hidden)* | Facebook group URL |
 | `APP_SOCIAL_BLUESKY` | *(empty = hidden)* | *(empty)* |
 | `APP_SOCIAL_TWITTER` | *(empty = hidden)* | Twitter URL |
@@ -123,6 +124,33 @@ Shown in the app header/footer when non-empty. Leave empty to hide.
 | `APP_SOCIAL_DISCORD` | *(empty = hidden)* | *(empty)* |
 
 When `APP_SOCIAL_PATREON` is set, the supporter button appears in the header. When empty, nothing renders. Same code on both branches.
+
+The What's New panel's footer shows "Help support our:" with a Server icon (`APP_SOCIAL_PATREON`) and a
+Dev icon (`APP_SOCIAL_DEV_TIP`), each only when set; the site footer adds "Support the dev" for the
+tip link.
+
+### Patron credits
+
+When `APP_SOCIAL_PATREON` is set, the What's New panel always closes its release notes with "Made
+possible by our patrons" and a thank-you line, reached from a Credits link under the title. The
+names come from `resources/public/patron-credits.md`, which the panel fetches the first time it
+opens. The public repo ships the file empty; a fork replaces it (a fork-only file on merge). One
+name per line; a line starting with `#` starts a tier, and names before any heading form a list
+with no tier heading. Every tier shows in full except the last: past 24 names it shows a random 24,
+reshuffled on each page load, and "Show all N patrons" expands the full list alphabetically:
+
+```markdown
+## Archmage
+Mira Ashgrove
+## Adventurer
+Kessa
+```
+
+`docs/patron-credits.example.md` is a filled-in sample (three tiers, list markers, accents,
+handles, and a last tier long enough to show the sample and Show all): copy it over
+`resources/public/patron-credits.md` to try the panel. Copy names in by hand: paid patrons only, as first name and last initial or a handle unless a
+patron agreed to more. Never commit Patreon's member export: it holds members' email addresses.
+Changing the file needs a redeploy.
 
 ### Field Limits
 

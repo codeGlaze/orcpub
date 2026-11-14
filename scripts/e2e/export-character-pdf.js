@@ -30,6 +30,9 @@ const noise = [
   // environment, not the app; the page renders in its fallback stack.
   /fonts\.googleapis\.com/i,
   /ERR_CONNECTION_RESET/i,
+  // core.cljs replaces re-frame's default :error handler on purpose; re-frame warns on any overwrite
+  // because the prod bundle leaves goog.DEBUG on (tracked: branches/fix/pdf-export.md, agents/develop).
+  /re-frame: overwriting :error handler/,
 ];
 
 // A character worth exporting, and what its sheet should need. pdf_spec emits a
@@ -282,8 +285,12 @@ async function exportPdf(page, context, check) {
   // Chromium hands a PDF response to its internal viewer, so response.body()
   // returns the viewer's wrapper HTML rather than the document. Intercepting the
   // route runs the page's own request and yields the real bytes.
+  let sentName = null, disposition = '';
   const handler = async route => {
+    const body = decodeURIComponent((route.request().postData() || '').replace(/\+/g, ' '));
+    sentName = (body.match(/:character-name "((?:[^"\\]|\\.)*)"/) || [])[1] || null;
     const res = await route.fetch();
+    disposition = res.headers()['content-disposition'] || '';
     pdfBytes = await res.body();
     await route.fulfill({ response: res });
   };
@@ -317,6 +324,20 @@ async function exportPdf(page, context, check) {
   // event does not wait for -- so wait for the bytes, not for a duration
   for (let i = 0; i < 200 && pdfBytes === null; i++) await page.waitForTimeout(50);
   await context.unroute('**/character.pdf', handler);
+
+  // These characters are never named, so the export must name them as Save does: the sheet, the
+  // file and the builder all carry the one generated name.
+  check(Boolean(sentName && sentName.trim()), `the unnamed character is exported with a name (sent ${sentName})`);
+  check(Boolean(sentName) && disposition.includes(encodeURIComponent(sentName).replace(/'/g, '%27')),
+        `and the file is named after it (${disposition})`);
+  await openBuilderTab(page, 'Description');
+  const field = await page.waitForFunction(() => {
+    const span = Array.from(document.querySelectorAll('span.personality-label'))
+      .find(x => x.textContent.trim() === 'Character Name');
+    const input = span && span.parentElement.querySelector('input');
+    return input && input.value ? input.value : null;
+  }, null, { timeout: 10000 }).then(h => h.jsonValue(), () => null);
+  check(Boolean(sentName) && field === sentName, `and the builder shows that name (field: ${field})`);
   return pdfBytes;
 }
 

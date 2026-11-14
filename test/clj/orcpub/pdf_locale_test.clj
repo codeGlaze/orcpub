@@ -23,12 +23,12 @@
       (finally (Locale/setDefault saved)))))
 
 (defn- sigil-paths
-  "The spellbook's school sigils, re-read with the ns reloaded under the current locale.
+  "The school sigils (orcpub.pdf.draw), re-read with the ns reloaded under the current locale.
    `sigils` is a load-time def, so the locale in force at load bakes into its strings --
    the same trap page-w/page-h hit, in a different guise."
   []
-  (require 'orcpub.spellbook :reload)
-  (->> @(resolve 'orcpub.spellbook/sigils)
+  (require 'orcpub.pdf.draw :reload)
+  (->> @(resolve 'orcpub.pdf.draw/sigils)
        vals
        (mapcat identity)
        (filter string?)
