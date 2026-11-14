@@ -106,7 +106,8 @@ All values have defaults in `fork/branding.clj`. Set env vars in `.env` to overr
 | Env Var | Default (public) | Default (production) | Where it shows up |
 |---------|-----------------|---------------------|-------------------|
 | `APP_EMAIL_SENDER_NAME` | OrcPub Team | Dungeon Master's Vault Team | "From" display name |
-| `EMAIL_FROM_ADDRESS` | no-reply@orcpub.com | no-reply@dungeonmastersvault.com | "From" address |
+| `APP_EMAIL_SIGNOFF` | The *(sender name)* | The *(sender name)* | Who the friendlier emails (such as the artist welcome) are signed from, for example "both of us at OrcPub" |
+| `EMAIL_FROM_ADDRESS` | no-reply@example.com | no-reply@dungeonmastersvault.com | "From" address. The public default is a placeholder that cannot deliver: set an address on a domain your mail provider has verified. |
 
 ### Social Links
 
@@ -145,9 +146,9 @@ Mira Ashgrove
 Kessa
 ```
 
-`docs/patron-credits.example.md` (on the code branches) is a filled-in sample (three tiers, list
-markers, accents, handles, and a last tier long enough to show the sample and Show all): copy it
-over `resources/public/patron-credits.md` to try the panel. Copy names in by hand: paid patrons only, as first name and last initial or a handle unless a
+`docs/patron-credits.example.md` is a filled-in sample (three tiers, list markers, accents,
+handles, and a last tier long enough to show the sample and Show all): copy it over
+`resources/public/patron-credits.md` to try the panel. Copy names in by hand: paid patrons only, as first name and last initial or a handle unless a
 patron agreed to more. Never commit Patreon's member export: it holds members' email addresses.
 Changing the file needs a redeploy.
 
@@ -194,10 +195,9 @@ These are the functions that shared files call. Public repo returns stubs/nil, p
 | `supporter-link` | views.cljs app header | Tier badge (patrons) or Patreon button (default) |
 | `support-banner` | views.cljs content page | Dismissable donation CTA (default-tier only) |
 | `pdf-options-slot` | views.cljs PDF options panel | Sheet upsell (default-tier only) |
-| `share-links` | views.cljs + character_builder.cljs | Email + www share links |
-| `share-link-www` | views.cljs character list | Single www link |
+| `share-url` | views/share.cljs (every share link) | The link with DMV's `?frame=true` added |
 
-**Public repo returns:** `nil` for content-slot, support-banner, pdf-options-slot. Basic Patreon button for supporter-link (when URL configured). Single email link for share-links.
+**Public repo returns:** `nil` for content-slot, support-banner, pdf-options-slot. Basic Patreon button for supporter-link (when URL configured). `share-url` returns the link unchanged. The share controls themselves are shared code (`views/share.cljs`), the same on every fork.
 
 ---
 
@@ -221,10 +221,18 @@ When merging public → production:
 | Override files (6 listed above) | Conflict | **Keep ours (production)** |
 | Everything else | No conflict | Auto-merge |
 
+"Keep ours" works only while the override files hold settings and hooks, nothing every fork needs
+alike. `test/clj/orcpub/fork_contract_test.clj` lists every setting and hook shared code may use
+from them, and fails when shared code uses anything else, or when a fork's copy lacks one of
+them (run on the fork, it names what the fork's copy must add after a merge).
+
 When adding a new integration hook:
-1. Add stub on public first (empty body or `nil` return)
+1. Add stub on public first (empty body or `nil` return), and add it to the contract in `fork_contract_test.clj`
 2. Add real implementation on production
 3. Wire the call site in shared code (same on both branches)
+
+Logic that every fork needs the same way (checks, bridges, whole features) goes in shared code,
+never in an override file: a fork's copy replaces the file and would drop it.
 
 ---
 
@@ -243,4 +251,4 @@ When adding a new integration hook:
 | `fork/integrations.cljs` | Reads `window.__INTEGRATIONS__` + `fork/branding/*` via branding.cljs |
 | `views.cljs` | Reads `fork/branding/*` + calls `fork/integrations/*` hooks |
 | `events.cljs` | Reads `fork/branding/support-email`, calls `fork/integrations/track-page-view!` |
-| `character_builder.cljs` | Calls `fork/integrations/share-links` |
+| `character_builder.cljs` | Shows `views/share` (which calls `fork/integrations/share-url`) |
