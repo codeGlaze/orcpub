@@ -34,33 +34,33 @@
 (defn warn!
   "Prints that `setting` (a keyword like :app-help-url) was ignored, and why, and adds
    {:var :value :why} to `ignored` for the boot report. Returns nil."
-  [setting value why]
+  [setting v why]
   (let [var-name (.toUpperCase ^String (str/replace (name setting) "-" "_") java.util.Locale/ROOT)]
-    (swap! ignored conj {:var var-name :value (pr-str value) :why why})
-    (println (str "branding: " var-name " ignored (" why "): " (pr-str value)))))
+    (swap! ignored conj {:var var-name :value (pr-str v) :why why})
+    (println (str "branding: " var-name " ignored (" why "): " (pr-str v)))))
 
 (defn checked-url
-  "`value` of `setting` when it is blank, an http(s) address, or a path on this site (/image/x.svg);
+  "`v` of `setting` when it is blank, an http(s) address, or a path on this site (/image/x.svg);
    else `default`, with a warning."
-  [setting value default]
+  [setting v default]
   (cond
-    (str/blank? value) value
-    (or (re-matches #"https?://[A-Za-z0-9.-]+(:\d+)?([/?#]\S*)?" value)
-        (re-matches #"/(?![/\\])\S*" value)) value
-    :else (do (warn! setting value "not a web address or site path") default)))
+    (str/blank? v) v
+    (or (re-matches #"https?://[A-Za-z0-9.-]+(:\d+)?([/?#]\S*)?" v)
+        (re-matches #"/(?![/\\])\S*" v)) v
+    :else (do (warn! setting v "not a web address or site path") default)))
 
 (defn checked-email
-  "`value` of `setting` when it is blank or looks like an email address; else `default`, warned."
-  [setting value default]
-  (if (or (str/blank? value) (re-matches #"[^@\s]+@[^@\s]+\.[^@\s]+" value))
-    value
-    (do (warn! setting value "not an email address") default)))
+  "`v` of `setting` when it is blank or looks like an email address; else `default`, warned."
+  [setting v default]
+  (if (or (str/blank? v) (re-matches #"[^@\s]+@[^@\s]+\.[^@\s]+" v))
+    v
+    (do (warn! setting v "not an email address") default)))
 
 (defn checked-int
-  "`value` of `setting` as a positive whole number; `default` when unset, or with a warning when it
+  "`v` of `setting` as a positive whole number; `default` when unset, or with a warning when it
    is anything else."
-  [setting value default]
-  (if (str/blank? value)
+  [setting v default]
+  (if (str/blank? v)
     default
-    (let [n (try (Integer/parseInt (str/trim value)) (catch NumberFormatException _ nil))]
-      (if (and n (pos? n)) n (do (warn! setting value "not a positive whole number") default)))))
+    (let [n (try (Integer/parseInt (str/trim v)) (catch NumberFormatException _ nil))]
+      (if (and n (pos? n)) n (do (warn! setting v "not a positive whole number") default)))))
