@@ -90,7 +90,7 @@ _DEPENDENCY_VALIDATION · DEPENDENCY_VALIDATION_
 
 _SESSION-SUMMARY · SESSION SUMMARY_
 
-**topics:** -----, 2026, 3449, added, cleanup, csp, documentation, figwheel, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
+**topics:** -----, 2026, 3449, added, csp, documentation, figwheel, garden, issue, issues, january, loader, menu, port, profile, scripts, submenu, tmux
 
 - Final State
 - Key Decisions Made
@@ -1856,7 +1856,7 @@ _fonts · fonts_
 
 _fork-customization · fork customization_
 
-**topics:** -------------, adsense, api, branding-setup, bridge, cljs, csp, dmv, domains, integrations, matomo, override, patron, production, public, stubs, tier, views
+**topics:** -------------, adsense, api, branding-setup, bridge, cljs, dmv, domains, fork, integrations, matomo, override, patron, production, public, shared, stubs, views
 
 - Override File Pattern
 - Architecture
@@ -1872,6 +1872,7 @@ _fork-customization · fork customization_
 - Naming Conventions
 - Cherry-Picking Between Branches
 - Merge Strategy
+- The fork contract, and how it broke (2026-11-14)
 - Cookie Consent
 
 ## frontend-redesign-parallel-work.md
@@ -2857,7 +2858,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** 2026-09-13, 669, chain, counter, custom-items, differential, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
+**topics:** 669, chain, counter, custom-items, db-population, differential, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -2992,7 +2993,7 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** 2026-10-24, admin, alert, alerts, artist, channel, database, discord, email, emails, mail, outbox, sent, settings, spool, swarm, webhook, worker
+**topics:** 2026-10-24, admin, alert, alerts, artist, channel, database, discord, email, emails, mail, outbox, sent, shutdown, spool, swarm, webhook, worker
 
 - The problem
 - Two kinds of email
@@ -3861,7 +3862,7 @@ _support-session-ledger · support session ledger_
 
 _test-suite-state · test suite state_
 
-**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, harness, jvm, pre-existing, run, spec, suite, theater, unresolved, unrun, unshallowed
+**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, figwheel, harness, jvm, pre-existing, spec, suite, theater, unresolved, unrun, unshallowed
 
 - 0. Current measured state — 2026-09-12, feature/grant-rows (after the integration merge)
 - 0.1 Earlier measured state — 2026-09-05, feature/fighting-style-authoring

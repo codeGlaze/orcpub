@@ -184,6 +184,30 @@ when pushing branches that share a prefix with an existing branch name.
 | Override files (6 above) | Conflict → **keep ours (production)** |
 | Shared files | No conflict — same API calls |
 
+## The fork contract, and how it broke (2026-11-14)
+
+"Keep ours" works only while a fork file holds settings and small hooks. Between the
+2026-08-08 DMV sync and 2026-11-12, integration put logic every fork needs into two of them,
+so DMV's whole-file copy would have dropped it:
+
+- `fork/integrations.cljs`: the whole short-share-links feature (copy, token, homebrew upload,
+  refresh, revoke, expiry), about 315 of its 424 lines (5ef7939b3, 79b79f9d9, 124c1c626 and the
+  rest of 2026-09-13 to 09-15). A later comment cleanup (d499fce5c) rewrote the ns docstring to
+  describe it, where the docstring was the rule.
+- `fork/branding.clj`: the value checks and the rejected-values list the boot report reads
+  (17db38780, d8cdfb4a6), email readiness (b032c4d81), artist-credit overrides (2b8e88a2c,
+  b12977830), and `client-config`, the browser bridge. DMV's own copy already carried a
+  `client-config` and `email-configured?`, so that half predates September.
+
+Each agent copied what the file already looked like; nothing failed. **Fixed on
+`fix/fork-files-data-only`:** the logic moved to shared namespaces (`orcpub.env`,
+`orcpub.email`, `orcpub.artist-credit`, `orcpub.index`, `views/share.cljs`), DMV's
+`?frame=true` share links became one hook (`integrations/share-url`), and
+`test/clj/orcpub/fork_contract_test.clj` lists every setting and hook shared code may use.
+It fails when shared code uses anything else from a fork file, and, run on a fork, when the
+fork's copy lacks a listed var. **Adding to the contract** means every fork must supply it;
+logic every fork needs alike goes in shared code instead.
+
 ## Cookie Consent
 
 Vanilla JS (`resources/public/js/cookies.js`), loaded server-side in `index.clj`.
