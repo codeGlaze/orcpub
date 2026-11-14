@@ -5,7 +5,7 @@
 # Usage:
 #   scripts/fold-branch-changelog.sh "<release-section>"
 #
-#   <release-section>  the release the entries belong to, e.g. "Summer Patch"
+#   <release-section>  the release the entries belong to, e.g. "Long Rest Update"
 #                      (matched against a "## [<release-section>] ..." header).
 #
 # Moves each line under the branch's Added / Changed / Fixed / Security into the same heading of

@@ -88,7 +88,7 @@ const rebuilt = page => page.waitForFunction(() => cljs.core.deref(re_frame.core
     try {
       localStorage.setItem('plugins', plugins);
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+      localStorage.setItem('whats-new-seen', '"long-rest-update-2026"');
     } catch (e) {}
   }, PLUGINS);
   const page = await ctx.newPage();

@@ -189,23 +189,23 @@
                          (if (?has-weapon-prof? weapon)
                            ?prof-bonus
                            0))
-    ?weapon-ability-modifiers [(fn [weapon finesse?]
-                                 (let [definitely-finesse?
-                                       (and finesse?
-                                            (::weapon5e/finesse? weapon))
-                                       melee? (::weapon5e/melee? weapon)]
-                                   (?ability-bonuses
-                                    (if (or (and melee? (not definitely-finesse?))
-                                            (and (not melee?) definitely-finesse?))
-                                      ::char5e/str
-                                      ::char5e/dex))))]
+    ;; Each entry names the ability an attack with the weapon may use, or nil when it does not
+    ;; apply; the attack uses the named ability with the highest bonus.
+    ?weapon-abilities [(fn [weapon finesse?]
+                         (let [definitely-finesse?
+                               (and finesse?
+                                    (::weapon5e/finesse? weapon))
+                               melee? (::weapon5e/melee? weapon)]
+                           (if (or (and melee? (not definitely-finesse?))
+                                   (and (not melee?) definitely-finesse?))
+                             ::char5e/str
+                             ::char5e/dex)))]
+    ?weapon-ability (fn [weapon finesse?]
+                      (apply max-key
+                             #(get ?ability-bonuses % 0)
+                             (keep (fn [ability-fn] (ability-fn weapon finesse?)) ?weapon-abilities)))
     ?weapon-ability-modifier (fn [weapon finesse?]
-                               (apply
-                                max
-                                (map
-                                 (fn [mod-fn]
-                                   (mod-fn weapon finesse?))
-                                 ?weapon-ability-modifiers)))
+                               (get ?ability-bonuses (?weapon-ability weapon finesse?) 0))
     ?weapon-attack-modifier (fn [weapon finesse?]
                               (apply +
                                      (?weapon-prof-bonus weapon)
@@ -241,22 +241,34 @@
                                    (max (?weapon-damage-modifier weapon false off-hand?)
                                         (?weapon-damage-modifier weapon true off-hand?)))
     ?spell-attack-modifier-bonus 0
-    ?spell-attack-modifier (fn [ability-kw]
+    ;; {class-name {:dc n :attack n}}: bonuses to one class's spells only (Rod of the Pact Keeper).
+    ?class-spell-bonuses {}
+    ?spell-attack-modifier (fn [ability-kw & [class-nm]]
                              (+ ?prof-bonus
                                 (?ability-bonuses ability-kw)
-                                ?spell-attack-modifier-bonus))
+                                ?spell-attack-modifier-bonus
+                                (get-in ?class-spell-bonuses [class-nm :attack] 0)))
+    ;; ?save-dc is for features whose text gives their own DC (ki, Breath Weapon); only
+    ;; ?spell-save-dc takes item spell DC bonuses. save-dc-sources.md lists which feature uses which.
+    ?save-dc (fn [ability-kw]
+               (+ 8
+                  ?prof-bonus
+                  (get ?ability-bonuses ability-kw 0)))
+    ;; A weapon's own save DC (Topple): ?save-dc with the ability its attack uses.
+    ?weapon-save-dc (fn [weapon]
+                      (max (?save-dc (?weapon-ability weapon false))
+                           (?save-dc (?weapon-ability weapon true))))
     ?spell-save-dc-bonus 0
-    ?spell-save-dc (fn [ability-kw]
-                     (+ 8
-                        ?prof-bonus
-                        (get ?ability-bonuses ability-kw 0)
-                        ?spell-save-dc-bonus))
+    ?spell-save-dc (fn [ability-kw & [class-nm]]
+                     (+ (?save-dc ability-kw)
+                        ?spell-save-dc-bonus
+                        (get-in ?class-spell-bonuses [class-nm :dc] 0)))
     ?spell-modifiers (reduce
                       (fn [m {:keys [ability class]}]
                         (assoc m class {:class class
                                         :ability ability
-                                        :spell-save-dc (?spell-save-dc ability)
-                                        :spell-attack-modifier (?spell-attack-modifier ability)}))
+                                        :spell-save-dc (?spell-save-dc ability class)
+                                        :spell-attack-modifier (?spell-attack-modifier ability class)}))
                       {}
                       (->> ?spells-known vals (map vals) flatten))
     ?total-spellcaster-levels (apply + (map (fn [[cls-kw factor]]

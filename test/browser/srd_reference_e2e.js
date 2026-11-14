@@ -10,7 +10,8 @@
 //   header's search box. Our clarification note on a rule, and condition links in a spell's and
 //   a monster's text. The Rules page's groups; a rules section asked for directly; a spell
 //   link's hover preview and its click; a link to another section; a phone's first tap showing
-//   a condition's preview and its Open link following it; the Orcacle finding a rule.
+//   a condition's preview, inside the screen, and its Open link following it; the Orcacle
+//   finding a rule.
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/srd_reference_e2e.js`). No login.
 // Runs in:   ~40s. SHOT_DIR=<dir> also saves screenshots of the pages it visits.
@@ -47,7 +48,7 @@ async function textOnceShown(page, text) {
   await ctx.addInitScript(() => {
     try {
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+      localStorage.setItem('whats-new-seen', '"long-rest-update-2026"');
     } catch (e) {}
   });
   const page = await ctx.newPage();
@@ -185,7 +186,7 @@ async function textOnceShown(page, text) {
   const phone = await browser.newContext({ ...devices['iPhone 13'] });
   await phone.addInitScript(() => {
     try { localStorage.setItem('orcpub:no-cookie-banner', '1');
-          localStorage.setItem('whats-new-seen', '"summer-patch-2026"'); } catch (e) {}
+          localStorage.setItem('whats-new-seen', '"long-rest-update-2026"'); } catch (e) {}
   });
   const tp = await phone.newPage();
   await tp.goto(`${BASE}/pages/dnd/5e/rules/madness`, { waitUntil: 'domcontentloaded' });
@@ -199,6 +200,10 @@ async function textOnceShown(page, text) {
     const ptext = (await pv.count()) ? await pv.innerText() : '';
     check('on a phone, the first tap previews the condition', tp.url() === before && /A paralyzed creature/.test(ptext),
           ptext.slice(0, 50));
+    const fit = await pv.evaluate(e => { const b = e.getBoundingClientRect();
+      return { left: Math.round(b.left), right: Math.round(b.right), width: innerWidth }; }).catch(() => null);
+    check('and the preview fits on the phone screen', !!fit && fit.left >= 0 && fit.right <= fit.width,
+          fit && `${fit.left}..${fit.right} of ${fit.width}`);
     await shot(tp, 'phone-tap-preview', false);
     await tp.locator('.srd-preview-footer span', { hasText: 'Open' }).tap().catch(() => {});
     await tp.waitForURL('**/conditions/paralyzed', { timeout: 15000 }).catch(() => {});

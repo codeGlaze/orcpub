@@ -57,7 +57,7 @@
      [:span [:i.fa.fa-font.m-r-5 {:style {:color "#47eaf8"}}]
       (or description "Normalized Unicode characters to ASCII")]
 
-     ;; e5/mend-import-data: a section stored as text or as a list, read back
+     ;; homebrew-shapes/read-import and fix-library: a damaged section read back, a field fixed
      :repaired-section
      [:span [:i.fa.fa-wrench.m-r-5] description]
 

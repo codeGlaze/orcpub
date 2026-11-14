@@ -8,13 +8,16 @@ House style and the branch → release fold: [`docs/branch-changelog.template.md
      (**Homebrew:**, **Printing:** ...). Fixed is for bugs that existed before, not fixes to work in the
      same release. No internal work (tests, CI, refactors). Cite the issue (#N) when there is one. -->
 
-## [Summer Patch] — 2026
+## [Long Rest Update] — 2026
 
 ### Highlights
 
-Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use and given a portrait drawn from an illustrator's layered art, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read.
+Homebrew can be moved, switched off and repaired instead of lost, and a character that used to blank the page now recovers. Characters can be shared with the homebrew they use and given a portrait drawn from an illustrator's layered art, printed sheets no longer drop spells and gain a spellbook, and accounts get new sign-in pages and stronger password rules. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read; on the sheet, a new Weapons table rolls attacks and damage, charged items and a Rest box track charges and rests, and printing works on A4 as well as US Letter.
 
 ### Added
+- **Server:** a startup email to the admin on each new release: what needs fixing, the release's new settings, and those worth setting; sent again only when that changes, with one reminder a week later while something still needs fixing.
+- **Server:** the startup report is saved to `startup-report.txt` beside the crash files (`/var/log/orcpub` on Docker), and `./run` prints it as the last thing after starting the server.
+- **Server:** `./run --upgrade` and `./run --check` say what the release changes for your install: only what needs doing on screen, the full notes in `logs/upgrade-report.txt`. Datomic logs the addresses it gives the app when it starts, and the app's startup report has a DEPLOYMENT block: where crash files and alerts are kept (with the mount to add when they are inside the container) and this release's deployment changes, for installs that do not use `./run`.
 
 - **Homebrew:** move or copy content between sources, one item or many at a time. (#705)
 - **Homebrew:** turn all homebrew, a source or one section off without deleting it, and search inside a source. (#475)
@@ -37,79 +40,147 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** a busy server answers a PDF export with a page that retries by itself instead of timing out. (#710)
 - **Site:** a What's New panel shows each release's highlights once. (#711)
 - **Site:** a "Dark Button Text" option for the yellow buttons. (#711)
-- **Server:** a startup report of the server's settings, naming what is missing and never printing secrets. (#712)
-- **Rules:** a Rules tab with the full SRD 5.1 rules reference, by section, and the 15 conditions.
+- **Server:** a startup report of the server's settings, naming what is missing and what signup will do, never printing secrets, and ending with the settings new in this release that are not set yet. (#712)
+- **Accounts:** sign-up, password reset and the other account emails are kept and retried until the mail server takes them, so signing up works while the mail server is down, and no email is lost to a busy one. (#716)
+- **Server:** after the app runs out of memory or crashes, it restarts clean and the admin is emailed what happened; the evidence is kept in `/var/log/orcpub` on the host, on Docker Compose and Swarm alike. Docker logs are capped so they cannot fill the disk. (#716)
+- **Server:** sign-ins, failed sign-ins, sign-ups, password resets, email changes, deleted accounts and refused logins are written to the server log, without passwords or email addresses. The log no longer lists every web request; the web proxy keeps that record. (#716)
+- **Server:** admin alerts: one email per problem with a count of repeats, an hourly ceiling, and nothing lost or slowed down when the mail server or the database is down. (#716)
+- **Rules:** a Rules tab with the full SRD 5.1 rules reference, by section, and the 15 conditions. (#715)
 - **Rules:** links in rules text to the spells, conditions and rules they name, with a preview
-  on hover, or on a first tap on a phone.
-- **Orcacle:** finds rules and conditions by name.
+  on hover, or on a first tap on a phone. (#715)
+- **Orcacle:** finds rules and conditions by name. (#715)
 - **Monsters:** conditions in a monster's condition immunities, traits and actions link to their
-  page, with a preview.
-- **Equipment:** weapons and armor show their SRD price and weight.
+  page, with a preview. (#715)
+- **Equipment:** weapons and armor show their SRD price and weight. (#715)
 - **Rules:** clarification notes on rules, in our own words, linked to where Wizards published
-  the ruling.
-- **Spells:** conditions named in spell and magic item text link to their page, with a preview.
+  the ruling. (#715)
+- **Spells:** conditions named in spell and magic item text link to their page, with a preview. (#715)
 - **Characters:** a portrait builder: pick or randomize layered art for hair, head, ears, eyes,
   nose, mouth and shirt, from the summary thumbnail, beside the Image URL field, or in a Portrait
-  tab in the builder.
+  tab in the builder. (#714)
 - **Characters:** portrait colours per character for hair, skin, eyes, eye whites, lips and shirt,
-  with a lighter, darker or different colour for any single piece.
+  with a lighter, darker or different colour for any single piece. (#714)
 - **Characters:** hair ombré with streaks that follow the drawn strands, a shine you can place,
-  dyed bangs, and soft shadows where hair falls over the face.
+  dyed bangs, and soft shadows where hair falls over the face. (#714)
 - **Characters:** eyes with slit or goat pupils, a different colour for each eye, brightness, and
-  glowing eyes.
-- **Characters:** blush, freckles and shading under the hair.
-- **Characters:** mood light: torch, moonlight or arcane, as a lit edge, a cast or a rim.
+  glowing eyes. (#714)
+- **Characters:** blush, freckles and shading under the hair. (#714)
+- **Characters:** mood light: torch, moonlight or arcane, as a lit edge, a cast or a rim. (#714)
 - **Characters:** the artist is credited under the portrait, on the sheet, in shared link previews
-  and in the picture itself, with the links the artist chose.
-- **Printing:** the portrait prints on the exported character sheet, at full resolution.
+  and in the picture itself, with the links the artist chose. (#714)
+- **Printing:** the portrait prints on the exported character sheet, at full resolution. (#714)
 - **Sharing:** a shared character link previews with the character's own portrait, and the
-  preview updates when the portrait changes.
-- **Accounts:** a preferred name, used to greet you in site emails.
+  preview updates when the portrait changes. (#714)
+- **Accounts:** a preferred name, used to greet you in site emails. (#714)
 - **Accounts:** artists get an account with a welcome email and can change how they are credited
-  on My Account.
-- **Site:** pages and portrait images ask AI crawlers not to train on them.
+  on My Account. (#714)
+- **Site:** pages and portrait images ask AI crawlers not to train on them. (#714)
 - **Characters:** unsaved changes left in a closed tab are offered once when you open that character
   again, with Undo; older ones wait in an "Unsaved drafts" list in the builder and on the character
   list for 30 days (a character never saved to an account is kept). A character open in another
-  tab waits for "Edit here".
-- **Characters:** lowering a level or changing a class, subclass or race keeps the choices that depend on it while you edit; change your mind and they come back by themselves, with Undo.
-- **Characters:** the builder shows choices waiting on a higher level beside the level picker, and says when each comes back.
-- **Characters:** with more than one class, a "1st" badge marks the starting class; tap another class's badge to make it the starting class, and choices that only apply to the starting class follow.
-- **Characters:** a Choices list in the builder shows every choice a character stores, including ones whose homebrew isn't loaded in this browser, and lets those be cleared.
+  tab waits for "Edit here". (#704)
+- **Characters:** lowering a level or changing a class, subclass or race keeps the choices that depend on it while you edit; change your mind and they come back by themselves, with Undo. (#718)
+- **Characters:** the builder shows choices waiting on a higher level beside the level picker, and says when each comes back. (#718)
+- **Characters:** with more than one class, a "1st" badge marks the starting class; tap another class's badge to make it the starting class, and choices that only apply to the starting class follow. (#718)
+- **Characters:** a Choices list in the builder shows every choice a character stores, including ones whose homebrew isn't loaded in this browser, and lets those be cleared. (#718)
+- **Homebrew:** races, subraces, backgrounds and feats can give ability score increases the player places, such as +2 to one ability and +1 to another, or +1 to any martial ability; subclasses can too, in an optional section. (#717)
+- **Homebrew:** homebrew can give saving throw proficiencies, fixed or chosen, on their own or with an ability score increase. (#717)
+- **Homebrew:** a file that uses these is marked so an older version of the site refuses it instead of loading it wrong. (#717)
 - **Characters:** the character builder's Back and Next repeat at the bottom of each page, and open the next page at its top.
 - **Homebrew:** the add buttons on homebrew builders repeat below a long list of traits or options.
+- **Characters:** a new Weapons table: attack and damage rolls in one place, a sheet that chains a turn's attacks, extra damage you add as it applies, and main-hand and off-hand marks.
+- **Characters:** roll attacks with advantage or disadvantage on any device: a switch in the Weapons heading, or a long press on an attack tile for one roll.
+- **Characters:** every SRD magic weapon's extra damage and once-per-dawn powers, on the sheet and in the PDF.
+- **Characters:** charges for the SRD's charged items, shown as pips to tap; staffs spend them on their powers.
+- **Characters:** a Rest box on the Features tab, and a floating Rest button on the other tabs: short and long rests, dawn and dusk, recharging items by their roll or yours, with Undo.
+- **Characters:** cast spells from charged items, priced in charges per level, from the item or from the Spells tab, and roll the spell's damage at the level cast.
+- **Homebrew:** custom items can have charges, a recharge time and the spells they cast.
+- **Homebrew:** custom weapons can have switches the player turns on (like Flame Tongue) and extra damage or effects that apply under conditions you set, such as on a hit, against a creature type, or limited per turn or rest.
+- **Printing:** A4 as well as US Letter, for the character sheet, spell cards, magic item cards and the spellbook. An A4 spellbook page carries about 7% more than a Letter one. (#719)
+- **Printing:** when part of an export cannot be produced, the PDF opens with a page naming what was left out and why. A clean export is unchanged and gains no page. (#719)
+- **Site:** a public page for each portrait artist, with their name, how many pieces they drew,
+  three small watermarked example portraits and the links they listed, and a page listing
+  every artist.
+- **Characters:** the portrait credit links to the artist's page.
+- **Accounts:** artists choose on My Account whether they have a page, and whether it shows
+  their example portraits, their links and how many pieces they drew.
+- **Accounts:** an optional Cloudflare Turnstile check on sign-up, password reset and resend verification, and on sign-in after a failed attempt. Off unless `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set; if Cloudflare can't be reached, requests go through.
+- **Accounts:** when the security check can't load, the form says so and suggests allowing challenges.cloudflare.com in an ad blocker.
+- **Homebrew:** an "export as markdown" button in My Content writes homebrew classes and subclasses as printable 5e-style text, with a level table and their features.
+- **Reference:** each row on the Spells and Monsters lists shows its source's short tag (the one set in My Content), so same-named spells from different packs can be told apart; built-in entries read "SRD".
+- **Portraits:** a character can use an image from the web as well as a built portrait; both are
+  kept, and the character picture editor switches which one shows on the sheet, the PDF and shares.
+- **Printing:** PDF Options lets players choose what the file name shows (player, character, class,
+  subclass, level), where the level goes and how it is written (5, 05, L5); kept on the account.
+- **Site:** What's New thanks the patrons who keep the server running, with their names when the
+  site lists them, and offers "Help support our: Server · Dev". The home page gains What's New,
+  Support the Server and Fuel the Dev buttons, and the site footer the last two. Each shows only
+  when the site sets it up.
+- **Site:** the startup report warns when a Patreon link is set but no patrons are listed.
 
 ### Changed
+- **Server:** a deployed server will not start without a mail server unless `EMAIL_REQUIRED=false` says that is intended, and the message names the setting to add. Development mode is exempt; `./run` and `./run --upgrade` set the opt-out for installs that run without email, so none stops on upgrade. (#716)
+- **Server:** admin alerts and artist notices fall back to the public support address (`APP_SUPPORT_EMAIL`) when `EMAIL_ERRORS_TO` and `EMAIL_ADMIN_TO` are unset, and the startup report names the address in use. (#716)
 
 - **Characters:** switching between Race and Class no longer freezes the builder, and an edit rebuilds the character once. (#621)
 - **Characters:** the Missing Content warning also covers spells and languages, and ignores the built-in "Custom" option. (#524)
-- **Homebrew:** opening the app with a large library is faster; the rest is tracked in #703.
+- **Homebrew:** opening the app with a large library is faster.
 - **Printing:** spell cards list spells by level, then name, or by name alone. (#520)
 - **Printing:** PDF exports are smaller and faster, card icons print sharp, and the site name prints on each page and card back. (#710)
 - **Site:** on phones the header, menus and ability buttons fit the screen. (#711)
 - **Server:** blank settings count as unset, Docker secrets work for the login key, and the Windows start scripts find their ports. (#701)
-- **Server:** without email configured, registration is refused unless explicitly allowed. (#712)
+- **Site:** returning visitors download the app again only when it has changed, and see a new release straight away.
 - **Accounts:** site emails greet you by your preferred name, or by your username when you have
   not set one, instead of "Hi there".
 - **Characters:** the builder's tab bar wraps on narrow screens.
-- **Characters:** opening a character whose choices no longer apply sets them aside and lists them in a notice; the saved copy changes only when you save.
+- **Characters:** on phones every weapon picker opens in a bottom sheet.
+- **Printing:** each weapon is named once on the PDF, with its two-handed damage and extras as bullets beneath it.
+- **Content:** SRD weapon and armor names in Title Case, without the Wikipedia links.
+- **Printing:** every sans-serif line in an export -- sheet fields, spell-column headings, the site line, the notice page and card captions -- is set in one embedded font with Helvetica's exact widths, so it looks the same in every PDF viewer and prints names such as Łukasz. (#719)
+- **Server:** the first start after upgrading builds new database indexes and gives older accounts an email lookup key, both in the background; until that finishes, an older account with a mixed-case address signs in by username rather than email. (#721)
+- **Site:** tick boxes are rounded and fill with the theme's accent when ticked (amber in the dark
+  theme, blue in the light), and the sign-up page's updates box matches the rest.
+- **Homebrew:** a value in the wrong form whose meaning is plain (`"25"` for a speed, one trait where a list belongs) is corrected once, on load, import, save or from a share link, and the correction is what is stored and exported (a library saved before is backed up first). An entry with a field that cannot be read is set aside in My Content for repair, as it was written; from a share link it is left out.
+- **Homebrew:** the import report lists each field it fixed, and each entry it will set aside
+  for repair.
+- **Homebrew:** checking homebrew after an import or a Restore takes a fraction of the time for
+  classes: each shared part of a class is checked once, not once per level.
+- **Accounts:** sign-up no longer says when an email is already in use. It answers as for a new address and emails the account's owner instead. Without a mail server, a taken address gets a plain refusal.
+- **Accounts:** warnings about sign-in attempts on your account now follow up while attempts continue (at most every 6 hours, with a count), instead of once a day.
+- **Server:** links in account emails use `APP_URL` when it is set (set it in production; the startup report warns when it is not).
+- **Server:** an optional `REDIS_URL` shares the sign-in and email limits across app containers; without it each container keeps its own.
+- **Portraits:** Randomize rolls everything (colours, eyes, hair effects, light) within sane ranges,
+  with Keep colours to hold the colours.
+- **Printing:** PDF Options opens as a full-window panel with grouped options and Create PDF at the
+  bottom right, on desktop and phone, and Create PDF opens a tab that says the PDF is being made.
+- **Printing:** spell cards have a new design: the name with ATK and DC, concentration and
+  ritual marked as ribbons, level and school on one line with any uses to tick, the casting facts
+  labelled, and more of the spell's text on the front.
 
 ### Fixed
 
+- **Homebrew:** New in a homebrew builder keeps the Option Source the box shows, so saving no longer asks for a source that looks filled in.
+- **Server:** the setup scripts read `.env` the way Docker does, so a value with an apostrophe or spaces (`APP_NAME=Dungeon Master's Vault`) no longer breaks `./run`, `docker-user.sh` or the start scripts.
+- **Accounts:** behind a proxy, sign-in, sign-up and password-reset limits now count each player separately. Every visitor shared the proxy's address, so a few mistyped passwords could lock everyone out of signing in for a minute. Set `TRUST_CLOUDFLARE=true` when the site is behind Cloudflare.
+- **Server:** Datomic starts on Docker Swarm from the stack `./run --swarm` writes, with or without `--secrets`; it used to need the transactor template edited and the image rebuilt, and an `ALT_HOST` written for Compose broke it. With neither address set, Datomic detects Swarm and picks them itself, so an older stack pasted into Portainer works too (docs/DOCKER.md, "Upgrading an existing Swarm deployment").
+- **Server:** regenerating a Swarm stack with `./run --swarm` no longer turns its own network into a missing external one, and no longer drops services or sections it does not know: it keeps your file and writes the new one beside it.
+- **Server:** the Swarm stack file `./run --swarm` writes is accepted by `docker stack deploy`; it started with a top-level `name` that Swarm rejects.
+- **Server:** `JAVA_OPTS` now reaches Java in Docker; memory settings set there were ignored, so the app ran with a quarter of its container's memory.
+- **Server:** settings set in `.env` now reach the server under Docker Compose and Swarm. Branding (`APP_*`) and most other settings were dropped on the way into the container, so the site ran on defaults whatever `.env` said.
 - **Homebrew:** a custom element with a blank or symbol-only name no longer breaks the character. (#675)
 - **Homebrew:** older spell names (Leomund's, Tasha's, Bigby's) match in imported packs. (#676)
 - **Homebrew:** a homebrew class's source label no longer corrupts saved spell selections. (#670)
 - **Homebrew:** on/off toggles no longer corrupt homebrew data. (#677)
 - **Homebrew:** a save that runs out of browser storage warns and offers a backup. (#678)
 - **Homebrew:** homebrew names with non-English letters are recognised. (#681)
-- **Homebrew:** import and export no longer duplicate a source or lose renamed items, and their messages are readable. (#682, #672)
+- **Homebrew:** import and export no longer lose renamed items, and their messages are readable. (#672)
 - **Homebrew:** saving homebrew in one tab no longer erases homebrew saved in another; the older tab's change is merged and a real conflict is reported. Characters are not covered. (#705)
 - **Homebrew:** renamed items keep their links, and the characters using them. (#705)
 - **Homebrew:** a custom magic item saved with no type no longer breaks. (#694)
 - **Characters:** the Features tab loads when a trait has no name. (#680)
 - **Characters:** saving a character that was deleted in another tab no longer sends you to the login page with nothing said; your changes stay, and Save stores them as a new character.
-- **Characters:** the Robe of the Archmagi sets your AC to 15 + Dex instead of adding 5, so it no longer stacks with Draconic Resilience or Unarmored Defense.
-- **Characters:** a tortle's Ring of Protection, Bracers of Defense and similar bonuses now count toward its AC of 17; only armor is ignored.
+- **Characters:** the Robe of the Archmagi sets your AC to 15 + Dex instead of adding 5, so it no longer stacks with Draconic Resilience or Unarmored Defense. (#720)
+- **Characters:** a tortle's Ring of Protection, Bracers of Defense and similar bonuses now count toward its AC of 17; only armor is ignored. (#720)
 - **Characters:** anyone who can open a character sees its owner's custom items. (#252)
 - **Accounts:** a failed verification email no longer leaves an account stuck. (#700)
 - **Accounts:** the app signs you out when the server stops accepting your login. (#708)
@@ -117,7 +188,6 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** styles 3 and 4 could not export a character with two casting classes. (#709)
 - **Printing:** the hit dice box, the second-page name box and style 4's allies and backstory were left empty. (#709)
 - **Printing:** the features page no longer lands between spell pages. (#709)
-- **Printing:** Pact Magic slots are no longer added into the normal slot count. (#709)
 - **Printing:** filled fields read the same in every PDF viewer, and negative numbers print correctly. (#709)
 - **Printing:** a reaction's casting time prints as "1 React." on spell cards. (#709)
 - **Site:** blank icons show again. (#696)
@@ -125,22 +195,14 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** dismissing the cookie notice now hides it on every page, not only the page where it was dismissed.
 - **Server:** the same content gets the same keys on Turkish and other locales. (#699)
 - **Monsters:** stat blocks show reactions, such as the Marilith's Parry, and the monster builder
-  can add one.
+  can add one. (#715)
 - **Monsters:** the Adult and Ancient Gold Dragons, Adult Green Dragon, Ancient Brass Dragon,
-  Succubus/Incubus and Spy show all their skills; Stealth and Persuasion were missing.
-- **Monsters:** the Flying Snake shows its Flyby trait.
+  Succubus/Incubus and Spy show all their skills; Stealth and Persuasion were missing. (#715)
+- **Monsters:** the Flying Snake shows its Flyby trait. (#715)
 - **Equipment:** tools, musical instruments, gaming sets and equipment packs show their SRD prices,
-  and tools and instruments their weights.
-- **Magic items:** the Alchemy Jug shows that its liquid can be created once a day.
-- **Characters:** unsaved builder edits are no longer lost when a character's sheet or list saves,
-  whether for another character or the same one, or when it levels up.
-- **Characters:** a sheet edit is no longer undone by a builder Save or by a save that was already
-  under way.
-- **Characters:** closing the tab still warns while a save has not gone through.
-- **Characters:** builder tabs open on different characters keep their own unsaved changes; a reload
-  no longer brings back the other tab's character. (#704)
-- **Characters:** on a shared browser, logging in no longer opens the previous account's unsaved
-  character; each account's unsaved work stays its own, and work done logged out carries over.
+  and tools and instruments their weights. (#715)
+- **Magic items:** the Alchemy Jug shows that its liquid can be created once a day. (#715)
+- **Characters:** unsaved builder edits are no longer lost when a character's sheet or list saves, and builder tabs open on different characters keep their own unsaved changes. (#704)
 - **Characters:** a change made on the character sheet while offline is saved when the connection
   returns, instead of waiting for another change.
 - **Sharing:** link previews of shared characters failed on Discord, Mastodon, Slack, Telegram and
@@ -151,10 +213,80 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Characters:** a choice that no longer applied, such as a skill picked for a level since lowered, stayed hidden on the character and still counted on its sheet.
 - **Characters:** deleting or changing a character's first class no longer wipes the other classes' choices.
 - **Homebrew:** a homebrew class's choices that share a name show in level order; levels 10 and 17 came before level 3.
+- **Printing:** a magic item or spell whose name the embedded font cannot draw no longer costs the card sheet it is on, and every sheet after it.
+- **Printing:** names and notes written in Polish, Turkish, Czech, Russian, Greek and other scripts beyond Western European print on the character sheet and in the spellbook, instead of as question marks.
+- **Printing:** curly quotes, dashes, ellipses, bullets, œ and € print as themselves on the character sheet and in spell text; they were flattened to straight quotes and hyphens or dropped.
+- **Printing:** a spellbook page's level tabs no longer print off the edge of the paper when a character has a very long class name.
+- **Printing:** a long class name in a spellbook chapter heading, or a long custom spell name, is now shortened to fit instead of running off the page.
+- **Printing:** an export with more spells or magic items than the cap allows now says so on the notice page; the extras were dropped in silence.
+- **Printing:** on a server whose JVM runs a non-English locale, spell-card school names and the sheet's ability labels drew the wrong letter: a Turkish server printed "İllusion" and "İNT".
+- **Accounts:** follow buttons remember who you follow after the page reloads. (#721)
+- **Server:** sign-in, password reset and character, party, folder and item lists no longer slow down and use more memory as the site grows.
+- **Characters:** a magic item's spell DC bonus no longer raises ki, Breath Weapon and other DCs that are not spell DCs.
+- **Characters:** uses that come back once a day were never reset; they now reset at dawn.
+- **Characters:** a monk with a low Strength no longer attacks at +0 with a weapon Martial Arts does not cover; the attack uses the real modifier (#713).
+- **Site:** all seven header tabs and their menus fit on a 320px phone.
+- **Spells:** a spell can no longer be prepared once every preparation is used.
+- **Site:** an action that fails now says so and changes nothing. Before, nothing visible
+  happened, and the actions queued after it were dropped.
+- **Sharing:** the banner for a shared character names the homebrew it carried that cannot be
+  used: entries that could not be read, and subraces or subclasses whose race or class was not
+  shared.
+- **Homebrew:** a homebrew entry that cannot be drawn costs its own part of the page: one section
+  of its builder (the rest still edits and saves), one list or source in My Content, one row of
+  the monster list. Before, the whole page fell over.
+- **Homebrew:** a library with a content section stored as `true` no longer stops the app from
+  starting.
+- **Homebrew:** a monster from a share link with a broken name, size or type no longer breaks the
+  monster list.
+- **Homebrew:** a subrace, subclass, boon or invocation whose name could not be read no longer
+  disappears without a word; it is set aside for repair.
+- **Homebrew:** a feat whose ability score increases were stored as a list no longer breaks its
+  builder.
+- **Homebrew:** a homebrew subrace, subclass, pact boon or eldritch invocation that was renamed, or
+  given a new key on import to settle a conflict, stays picked on the characters that chose it.
+- **Homebrew:** a homebrew subclass with a very short name, or none, is offered in the character
+  builder. Before, its class was there and the subclass was missing.
+- **Homebrew:** a background, feat or class granting a skill that does not exist no longer breaks
+  the character builder.
+- **Homebrew:** a homebrew subclass, invocation or boon that breaks a built-in class costs only
+  itself: it is set aside, named, and the class is still in the builder. Before, every built-in class
+  disappeared from the builder. A subrace that breaks is set aside on its own, not with its race.
+- **Homebrew:** exporting a class no longer drops the armor, weapon and tool proficiencies it gives even when multiclassing in.
+- **Characters:** the loading spinner no longer stays up after a failed Random character; moving to another page always clears it.
+- **Reference:** spells and monsters that share a name (common across homebrew packs) each show as their own row; clearing a search no longer leaves duplicate rows, and opening one no longer opens the others.
+- **Reference:** the Spells, Monsters and Items lists come back at once when a search is cleared, even with large homebrew libraries.
+- **Items:** built-in items no longer show Edit and Delete to visitors who are not logged in.
+- **Homebrew:** opening an entry to edit no longer risks a section of its builder showing twice or
+  going missing.
+- **Printing:** the bottom of PDF Options, Create PDF included, can be scrolled into view; it
+  was cut off under the pinned page header unless the page was scrolled to its very end.
+- **Printing:** a character with no name gets one when exported, as saving gives one, so the sheet
+  and its file are named; the file is never just "character.pdf" for a character with a class.
+- **Printing:** a PDF's file name keeps names with accents, curly apostrophes or non-Latin
+  letters, drops emoji and characters Windows cannot save, and a player name without a character name no longer leaves an empty " -  - " slot.
+- **Printing:** a spellcaster's PDF no longer opens with a "did not fit" page naming a cantrip slots
+  box; cantrips have no slots, from a class, race or feat alike.
+- **Printing:** a race's spell page (a Tiefling's Hellish Rebuke and Darkness) no longer shows
+  the class's spell slots; each such spell says how it is cast, for example "2nd level,
+  once/long rest", as do a Warlock's at-will invocations and Mystic Arcanum.
+- **Printing:** a spell card whose source has a long name (Misty Step from Fey Teleportation)
+  no longer prints its DC and spell mod over the casting-time icons.
+- **Warlock:** Mire the Mind's Slow is cast once per long rest using a warlock spell slot, not at
+  will, and a Warlock's at-will and Mystic Arcanum spells stay at their own level on a packed PDF
+  spell sheet.
+- **Magic items:** the Rod of the Pact Keeper raises the spell save DC and spell attack of warlock
+  spells only, not a multiclass character's other spells or a race's; a spell page splits a source
+  whose DC then differs into its own section.
 
 ### Security
 
-- Sign-in, password reset, share links, image fetching and PDF export are hardened against misuse, and secrets are no longer printed at startup.
+- **Accounts:** on a server whose JVM runs a non-English locale, an email address containing a capital I folded to a different account key, so sign-in, password reset, the unsubscribe link and email change could all miss the account.
+
+- **Server:** sign-in, password reset, share links, image fetching and PDF export are hardened against misuse, and secrets are no longer printed at startup.
+- **Site:** pages no longer load fonts from Google, so visiting the site no longer sends your address to Google. (#721)
+- **Site:** other sites a page links to are told only this site's domain, never the page's address.
+- **Accounts:** account emails can no longer be triggered in bulk from one form that had no limit.
 
 ## [breaking/2026-stack-modernization]
 

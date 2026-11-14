@@ -11,7 +11,7 @@
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.db :refer [tab-path]]
             [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route
-                                                                    show-generic-error mod-cfg
+                                                                    mod-cfg
                                                                     default-mod-set
                                                                     handle-api-response]]
             [orcpub.dnd.e5.character :as char5e]
@@ -65,11 +65,6 @@
    (get db :username-taken?)))
 
 (reg-sub
- :email-taken?
- (fn [db [_]]
-   (get db :email-taken?)))
-
-(reg-sub
  :srd-message-closed?
  (fn [db [_]]
    (get db :srd-message-closed? false)))
@@ -87,14 +82,13 @@
 (reg-sub
  :registration-validation
  :<- [:registration-form]
- :<- [:email-taken?]
  :<- [:username-taken?]
  :<- [:registration-server-errors]
- (fn [[form email-taken? username-taken? server] [_]]
+ (fn [[form username-taken? server] [_]]
    ;; Merged per field, so a server objection sits alongside anything the form
    ;; found rather than replacing it.
    (merge-with (comp vec distinct concat)
-               (registration/validate-registration form email-taken? username-taken?)
+               (registration/validate-registration form username-taken?)
                ;; :general is excluded: the submit button disables while this map has
                ;; anything in it, and a rate limit here would leave it stuck forever.
                ;; :password-common is excluded too -- it's the meter's verdict already,
@@ -686,27 +680,12 @@
   :context    "fetch parties"})
 
 
-(defn user-sub-on-401
-  "The :user sub's 401 handler, after reg-api-sub has logged the user out: routes to login only
-   when the caller flagged the request as required."
-  [[_ required?]]
-  (when required? (dispatch [:route-to-login])))
-
-(defn user-sub-on-500
-  "Conditional 500 handler for the :user sub: bounces to the generic
-   error toast only when the caller flagged the request as required."
-  [[_ required?]]
-  (when required? (dispatch (show-generic-error))))
-
-(reg-api-sub
- {:sub-key    :user
-  :route      routes/user-route
-  :db-key     :user
-  ;; The response is not stored. db :user holds only the :following list that :follow-user and
-  ;; :unfollow-user build locally.
-  :on-401     user-sub-on-401
-  :on-500     user-sub-on-500
-  :context    "fetch user"})
+;; The account as GET /user last answered (:verify-user-session at start, :login-success), with
+;; :follow-user and :unfollow-user updating its :following. Read only: subscribing fetches nothing.
+(reg-sub
+ :user
+ (fn [db _]
+   (:user db)))
 
 (reg-sub
  :following-users
@@ -809,24 +788,25 @@
     (let [int-id (when id (js/parseInt id))
           settle (page-settler)]
       (when (some? int-id)
-        (go (dispatch [:set-loading true])
-            (let [response (<! (http/get (url-for-route
-                                           routes/dnd-e5-char-route
-                                           :id int-id)))]
-              (dispatch [:set-loading false])
-              (handle-api-response response
-                #(let [body (:body response)]
-                   (if (http/decode-failed? body)
-                     ;; Unreadable even after self-heal: flag the load as failed so the page shows
-                     ;; a recovery panel (delete / go to list). Feeding the marker to from-strict
-                     ;; would silently build a blank default character.
-                     (dispatch [::char5e/set-character-load-error int-id body])
-                     (do (dispatch [::char5e/set-character-load-error int-id nil])
-                         ;; Before the character, so its first build already has them.
-                         (dispatch [::mi5e/set-character-custom-items int-id
-                                    (::char5e/custom-items body) (::se/owner body)])
-                         (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
-                :context (str "fetch character " int-id)))))
+        (let [gen (event-utils/loading-gen @app-db)]
+          (go (dispatch [:set-loading true gen])
+              (let [response (<! (http/get (url-for-route
+                                             routes/dnd-e5-char-route
+                                             :id int-id)))]
+                (dispatch [:set-loading false gen])
+                (handle-api-response response
+                  #(let [body (:body response)]
+                     (if (http/decode-failed? body)
+                       ;; Unreadable even after self-heal: flag the load as failed so the page shows
+                       ;; a recovery panel (delete / go to list). Feeding the marker to from-strict
+                       ;; would silently build a blank default character.
+                       (dispatch [::char5e/set-character-load-error int-id body])
+                       (do (dispatch [::char5e/set-character-load-error int-id nil])
+                           ;; Before the character, so its first build already has them.
+                           (dispatch [::mi5e/set-character-custom-items int-id
+                                      (::char5e/custom-items body) (::se/owner body)])
+                           (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
+                  :context (str "fetch character " int-id))))))
       (ra/make-reaction
        (fn []
          (if int-id
@@ -929,6 +909,16 @@
  :login-message-shown?
  (fn [db _]
    (:login-message-shown? db)))
+
+(reg-sub
+ :turnstile-blocked?
+ (fn [db _]
+   (boolean (:turnstile-blocked? db))))
+
+(reg-sub
+ :login-challenge?
+ (fn [db _]
+   (boolean (:login-challenge? db))))
 
 (reg-sub
  :message
@@ -1075,6 +1065,7 @@
    ::char5e/description char5e/description
    ::char5e/notes char5e/notes
    ::char5e/critical-hit-values char5e/critical-hit-values
+   ::char5e/weapon-masteries char5e/weapon-masteries
    ::char5e/crit-values-str char5e/crit-values-str
    ::char5e/number-of-attacks char5e/number-of-attacks
    ::char5e/has-weapon-prof char5e/has-weapon-prof
@@ -1082,6 +1073,8 @@
    ::char5e/weapon-damage-modifier-fn char5e/weapon-damage-modifier-fn
    ::char5e/best-weapon-attack-modifier-fn char5e/best-weapon-attack-modifier-fn
    ::char5e/best-weapon-damage-modifier-fn char5e/best-weapon-damage-modifier-fn
+   ::char5e/best-weapon-ability-modifier-fn char5e/best-weapon-ability-modifier-fn
+   ::char5e/weapon-save-dc-fn char5e/weapon-save-dc-fn
    ::char5e/total-levels char5e/total-levels
    ::char5e/class-level-fn char5e/class-level-fn
    ::char5e/dual-wield-weapon-fn char5e/dual-wield-weapon-fn
@@ -1096,6 +1089,19 @@
    ::char5e/worn-armor char5e/worn-armor
    ::char5e/wielded-shield char5e/wielded-shield
    ::char5e/attuned-magic-items char5e/attuned-magic-items})
+
+(reg-sub
+ :weapon-roll/chain
+ (fn [db _] (:weapon-roll/chain db)))
+
+(reg-sub
+ :weapon-roll/mode
+ (fn [db _] (:weapon-roll/mode db :normal)))
+
+(reg-sub
+ :orcpub.dnd.e5.weapons/mastery-definitions
+ ;; Empty here: the 2024 definitions come from the 5.5 line (edition-machinery-split.md).
+ (fn [_ _] {}))
 
 (doseq [[sub-key char-fn] character-subs]
   (reg-sub
@@ -1444,6 +1450,10 @@
             ::char5e/prepared-spells-by-class])))
 
 (reg-sub
+ ::char5e/rest-result
+ (fn [db _] (::char5e/rest-result db)))
+
+(reg-sub
  ::char5e/feature-used?
  (fn [[_ id units nm]]
    (subscribe [::char5e/features-used id]))
@@ -1464,10 +1474,41 @@
  (fn [db _]
    (get-in db [:user-data :theme])))
 
+;; Which picture the character shows: :portrait, :image or nil (char5e/shown-picture).
+(reg-sub
+ :portrait/shown
+ (fn [db _]
+   (char5e/shown-picture (get-in db [:character :orcpub.entity/values]))))
+
+;; The picture link being drafted in the portrait editor, applied only by "Use this picture".
+(reg-sub
+ :portrait/link-draft
+ (fn [db _]
+   (:portrait/link-draft db)))
+
+;; Whether the portrait editor shows the compositor (:compose) or the picture link (:link).
+(reg-sub
+ :portrait/mode
+ (fn [db _]
+   (or (:portrait/mode db) :compose)))
+
+;; Whether the portrait editor's Randomize keeps the current colours.
+(reg-sub
+ :portrait/keep-colours?
+ (fn [db _]
+   (boolean (:portrait/keep-colours? db))))
+
 (reg-sub
  :dark-button-text?
  (fn [db _]
    (boolean (get-in db [:user-data :dark-button-text?]))))
+
+;; The player's PDF file name choices as saved (this browser, and the account when signed in);
+;; pdf-spec/file-name-defaults fills what is missing.
+(reg-sub
+ ::char5e/file-name-format
+ (fn [db _]
+   (get-in db [:user-data :pdf-file-name] {})))
 
 (reg-sub
  ::show-class-source-suffix
@@ -1930,6 +1971,15 @@
  :<- [::content-recon/offered-by-type]
  (fn [[plugins offered] _]
    (library/dangling plugins offered)))
+
+;; The same for a share link's content, which My Content does not show: the share banner names
+;; these, as they are not offered.
+(reg-sub
+ :orcpub.dnd.e5/shared-dangling
+ :<- [:orcpub.dnd.e5/shared-plugins]
+ :<- [::content-recon/offered-by-type]
+ (fn [[shared offered] _]
+   (library/dangling shared offered)))
 
 (reg-sub
  ::content-recon/offered-keys

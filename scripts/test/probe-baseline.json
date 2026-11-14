@@ -29,7 +29,7 @@
     "seconds": 34
   },
   "header_menus_e2e.js": {
-    "checks": 30,
+    "checks": 52,
     "seconds": 50
   },
   "homebrew_safety_net_e2e.js": {
@@ -84,6 +84,10 @@
     "checks": 11,
     "seconds": 45
   },
+  "artist_profile_e2e.js": {
+    "checks": 46,
+    "seconds": 60
+  },
   "character_heal_e2e.js": {
     "checks": 13,
     "seconds": 25
@@ -95,5 +99,9 @@
   "cookie_notice_e2e.js": {
     "checks": 9,
     "seconds": 10
+  },
+  "containment_e2e.js": {
+    "checks": 10,
+    "seconds": 25
   }
 }

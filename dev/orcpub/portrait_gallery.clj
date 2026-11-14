@@ -145,10 +145,10 @@
   "The licensed-art mark for what is drawn from the pack at ORCPUB_PACK: composed from its pieces'
    marks, or nil when none is marked (silhouettes)."
   (delay (when-let [pack (pack-dir)]
-           (art-mark/composed
+           (art-mark/combine-marks
             (for [^File f (file-seq pack)
                   :when (and (.isFile f) (re-find #"(?i)\.png$" (.getName f)))]
-              (art-mark/mark-of (java.nio.file.Files/readAllBytes (.toPath f))))))))
+              (art-mark/read-mark (java.nio.file.Files/readAllBytes (.toPath f))))))))
 
 (defn- write!
   "Write `img` as <nm>.png to ORCPUB_PACK_OUT, carrying the pack's licensed-art mark when it has
@@ -158,7 +158,7 @@
     (.mkdirs (File. dir))
     (let [out (java.io.ByteArrayOutputStream.)]
       (ImageIO/write img "png" out)
-      (io/copy (cond-> (.toByteArray out) @pack-mark (art-mark/with-mark @pack-mark))
+      (io/copy (cond-> (.toByteArray out) @pack-mark (art-mark/write-mark @pack-mark))
                (File. dir (str nm ".png"))))
     (println (format "  wrote %s/%s.png" dir nm))))
 

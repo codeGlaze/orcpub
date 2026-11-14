@@ -6,6 +6,10 @@
 # place the fold can still happen: fold on the branch (scripts/fold-branch-changelog.sh),
 # push, then merge. The push run stays as the backstop for merges made some other way.
 # PR #40 merged with its branch changelog because this ran only after the merge.
+#
+# On a pull request the fold check runs only once the PR carries the "ready to merge" label,
+# added with the fold. Before that the branch changelog is meant to be there (reviewers read
+# it), and a check that is red by design only sends failure emails. Skipped is not failed.
 
 name: Changelog guard
 
@@ -16,6 +20,7 @@ on:
     branches: [integration, develop, main]
   pull_request:
     branches: [integration, develop, main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
 
 permissions:
@@ -24,6 +29,7 @@ permissions:
 jobs:
   branch-changelog-folded:
     name: Branch changelog folded
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ready to merge')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

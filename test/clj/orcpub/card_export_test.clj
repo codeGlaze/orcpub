@@ -3,7 +3,7 @@
   ;; explicit :refer to avoid namespace pollution from :refer :all
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
-            [orcpub.pdf :as pdf]
+            [orcpub.pdf.draw :as draw]
             [orcpub.routes :as routes]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.magic-items :as magic-items])
@@ -62,8 +62,8 @@
   [kinds]
   (let [out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (let [fonts (pdf/load-fonts doc)
-            img (pdf/make-image-loader doc)
+      (let [fonts (draw/load-fonts doc)
+            img (draw/make-image-loader doc)
             spells-known {:wizard (vec (for [k (take 12 (keys spells/spell-map))]
                                          {:key k :class "Wizard"}))}]
         (when (kinds :spells)
@@ -90,12 +90,14 @@
       (let [faces (embedded-faces doc)]
         (is (= (count faces) (count (distinct faces)))
             (str "a face was embedded more than once: " (sort faces))))))
-  (testing "and each kind alone embeds no more than the four faces exist"
+  (testing "and each kind alone embeds no more faces than exist: four Vollkorn, three Nimbus"
     (doseq [kinds [#{:spells} #{:items}]]
       (with-open [doc (render-cards kinds)]
-        (let [faces (embedded-faces doc)]
+        (let [faces (embedded-faces doc)
+              family (frequencies (map #(first (str/split % #"-")) faces))]
           (is (= (count faces) (count (distinct faces))) (str kinds " " (sort faces)))
-          (is (<= (count faces) 4)))))))
+          (is (<= (get family "Vollkorn" 0) 4) (str kinds " " (sort faces)))
+          (is (<= (get family "NimbusSans" 0) 3) (str kinds " " (sort faces))))))))
 
 (deftest one-copy-of-the-card-back-logo
   ;; Same cause: a second make-image-loader has its own memo, so it re-embedded the
@@ -136,8 +138,8 @@
         spells-known {:wizard (vec (for [c customs] {:key (:key c) :class "Wizard"}))}
         out (ByteArrayOutputStream.)]
     (with-open [doc (PDDocument.)]
-      (let [fonts (pdf/load-fonts doc)
-            img (pdf/make-image-loader doc)]
+      (let [fonts (draw/load-fonts doc)
+            img (draw/make-image-loader doc)]
         (routes/add-spell-cards! doc fonts img spells-known {"Wizard" 15} {"Wizard" 7}
                                  customs false card-back-logo false false))
       (.save doc out))
@@ -147,12 +149,12 @@
   (testing "each of the nine card backs carries the site line"
     (with-open [doc (render-cards #{:spells})]
       (let [text (str/join (map :ch (glyphs doc 1)))]
-        (is (= 9 (count (re-seq (re-pattern pdf/site-stamp) text)))
+        (is (= 9 (count (re-seq (re-pattern draw/site-stamp) text)))
             "one stamp per card on the back page"))))
   (testing "and the item cards' backs too, which share print-backs"
     (with-open [doc (render-cards #{:items})]
       (let [text (str/join (map :ch (glyphs doc 1)))]
-        (is (= 9 (count (re-seq (re-pattern pdf/site-stamp) text))))))))
+        (is (= 9 (count (re-seq (re-pattern draw/site-stamp) text))))))))
 
 (deftest overflow-text-clears-the-site-stamp
   ;; REGRESSION: draw-lines-to-box fills its box to the last line that fits, and
@@ -168,7 +170,7 @@
             box-of (fn [{:keys [x y]}]
                      [(int (/ (- x (* 72 0.5)) (* 72 2.5)))
                       (int (/ (- y (* 72 0.25)) (* 72 3.5)))])
-            stamp-chars (set pdf/site-stamp)]
+            stamp-chars (set draw/site-stamp)]
         (doseq [[box gs] (group-by box-of all)
                 ;; The page header sits above the grid and is not a card.
                 :when (<= 0 (second box) 2)]
@@ -177,8 +179,135 @@
                 bottom (apply max (map :y gs))
                 stamp (filter #(> (:y %) (- bottom 2)) gs)
                 body (remove #(> (:y %) (- bottom 2)) gs)]
-            (is (= pdf/site-stamp (str/join (map :ch (sort-by :x stamp))))
+            (is (= draw/site-stamp (str/join (map :ch (sort-by :x stamp))))
                 (str "box " box " ends with the stamp"))
             (when (seq body)
               (is (> (- bottom (apply max (map :y body))) 6.0)
                   (str "box " box ": body text clears the stamp by at least 6pt")))))))))
+
+
+;; ── Text the embedded font cannot draw ───────────────────────────────────────
+;; Homebrew names are user text. The embedded Vollkorn covers Latin-1 and the
+;; punctuation the SRD uses, but not every script, and PDFBox throws on a glyph it
+;; has not got. add-magic-item-cards! wraps EVERY page in one try, so one bad name on
+;; the first sheet costs the export every sheet after it.
+
+(def ^:private unrenderable-name
+  "Katakana: verified absent from Vollkorn in all three weights."
+  "Blade of \u30c4\u30c4\u30c4")
+
+(def ^:private control-char-name
+  "A BEL and a SOH, the shape of a copy-paste accident."
+  "Wand\u0007of\u0001Fire")
+
+(defn- renamed
+  "The nth real magic item with `nm` for its name, so only the name differs."
+  [n nm]
+  (assoc (nth magic-items/magic-items n) :name nm))
+
+(defn- render-items
+  "Item card pages for `items`, as [page-count extracted-text]."
+  [items]
+  (let [out (ByteArrayOutputStream.)]
+    (with-open [doc (PDDocument.)]
+      (routes/add-magic-item-cards! doc (draw/load-fonts doc) (draw/make-image-loader doc)
+                                    (vec items) card-back-logo false false)
+      (.save doc out))
+    (with-open [doc (Loader/loadPDF (.toByteArray out))]
+      [(.getNumberOfPages doc)
+       (.getText (org.apache.pdfbox.text.PDFTextStripper.) doc)])))
+
+(def ^:private last-page-item
+  "Named on the SECOND sheet, so it is only drawn if the first sheet finished."
+  "Wings of Flying")
+
+(defn- two-sheets-with
+  "Ten items: `bad` first, nine real ones after, the last named so it lands on sheet two."
+  [bad]
+  (concat [(renamed 0 bad)]
+          (map #(renamed % (str "Filler Item " %)) (range 1 9))
+          [(renamed 9 last-page-item)]))
+
+(deftest ten-items-make-two-sheets-and-their-backs
+  (testing "the baseline shape this test depends on, with no bad names"
+    (let [[pages text] (render-items (two-sheets-with "Ordinary Name"))]
+      (is (= 4 pages) "two fronts and two backs")
+      (is (str/includes? text last-page-item)))))
+
+(deftest a-name-the-font-cannot-draw-does-not-cost-the-later-sheets
+  (let [[pages text] (render-items (two-sheets-with unrenderable-name))]
+    (is (= 4 pages)
+        "a glyph the font has not got cost the export whole sheets")
+    (is (str/includes? text last-page-item)
+        (str last-page-item " is on sheet two and never got drawn"))))
+
+(deftest control-characters-in-a-name-do-not-cost-the-later-sheets
+  (let [[pages text] (render-items (two-sheets-with control-char-name))]
+    (is (= 4 pages) "control characters in a name cost the export whole sheets")
+    (is (str/includes? text last-page-item)
+        (str last-page-item " is on sheet two and never got drawn"))))
+
+(deftest the-punctuation-the-srd-uses-is-left-alone
+  (testing "Vollkorn draws these, so nothing should replace them"
+    (let [nm "Rod \u2014 of \u201cLordly\u201d Might\u2019s \u2022 Grip"
+          [pages text] (render-items [(renamed 0 nm)])]
+      (is (pos? pages))
+      (doseq [[cp label] [[0x2014 "em dash"] [0x201C "curly open"] [0x2019 "curly apos"]
+                          [0x2022 "bullet"]]]
+        (is (str/includes? text (str (char cp)))
+            (str label " was replaced; Vollkorn has a glyph for it"))))))
+
+(deftest a-long-source-keeps-the-card-source-line-on-one-line
+  (testing "Misty Step from Fey Teleportation, DC and mod printed: the source line ends on its own
+            baseline instead of wrapping into the facts below it"
+    (let [out (ByteArrayOutputStream.)]
+      (with-open [doc (PDDocument.)]
+        (routes/add-spell-cards! doc (draw/load-fonts doc) (draw/make-image-loader doc)
+                                 {:fey [{:key :misty-step :class "Fey Teleportation"}]}
+                                 {"Fey Teleportation" 13} {"Fey Teleportation" 5}
+                                 nil true card-back-logo false false)
+        (.save doc out))
+      (with-open [doc (Loader/loadPDF (.toByteArray out))]
+        (let [gs (glyphs doc 0)
+              text (apply str (map :ch gs))
+              start (str/index-of text "FEY")
+              end (some-> start (+ (count "FEY TELEPORTATION")))]
+          (is (and start end) text)
+          (is (= 1 (count (distinct (map #(Math/round (double (:y %))) (subvec gs start end)))))
+              (str "source baselines: " (vec (distinct (map #(Math/round (double (:y %))) (subvec gs start end)))))))))))
+
+(deftest a-grants-uses-and-casting-level-print-on-its-card
+  (testing "Hellish Rebuke from Infernal Legacy: once per long rest, cast at 2nd level"
+    (let [out (ByteArrayOutputStream.)
+          lr {:units :orcpub.dnd.e5.units/long-rest :amount 1 :level 2}]
+      (with-open [doc (PDDocument.)]
+        (routes/add-spell-cards! doc (draw/load-fonts doc) (draw/make-image-loader doc)
+                                 {:t [{:key :hellish-rebuke :class "Tiefling" :casting {:free lr :slots :none}}]}
+                                 {"Tiefling" 13} {"Tiefling" 5}
+                                 nil true card-back-logo false false)
+        (.save doc out))
+      (with-open [doc (Loader/loadPDF (.toByteArray out))]
+        (let [text (apply str (map :ch (glyphs doc 0)))]
+          (is (str/includes? text "LONG REST") text)
+          (is (str/includes? text "CAST AT 2ND LEVEL") text))))))
+
+(deftest an-at-will-grant-prints-at-will-not-use-circles
+  (testing "Mage Armor from Armor of Shadows: at will, never from a slot"
+    (let [out (ByteArrayOutputStream.)]
+      (with-open [doc (PDDocument.)]
+        (routes/add-spell-cards! doc (draw/load-fonts doc) (draw/make-image-loader doc)
+                                 {:t [{:key :mage-armor :class "Warlock" :casting {:free {:at-will true} :slots :none}}]}
+                                 {"Warlock" 13} {"Warlock" 5}
+                                 nil true card-back-logo false false)
+        (.save doc out))
+      (with-open [doc (Loader/loadPDF (.toByteArray out))]
+        (let [text (apply str (map :ch (glyphs doc 0)))]
+          (is (str/includes? text "AT WILL") text)
+          (is (not (str/includes? text "REST")) text))))))
+
+(deftest a-spell-row-with-a-casting-note-still-gets-its-marks
+  ;; the sheet writes "Darkness (once/long rest)"; the marks are looked up by the name alone
+  (let [annotate @#'routes/spell-annotation]
+    (is (some? (annotate "Darkness")))
+    (is (= (annotate "Darkness") (annotate "Darkness (once/long rest)")))
+    (is (= (annotate "Hellish Rebuke") (annotate "Hellish Rebuke (cast at 2nd level)")))))

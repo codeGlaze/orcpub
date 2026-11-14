@@ -33,7 +33,7 @@ const path = require('path');
 const { chromium } = require('playwright');
 const { findChrome } = require('./lib/find-chrome');
 
-const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
+const BASE = process.env.E2E_BASE || process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const OUT = process.env.ORCPUB_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'whats-new-'));
 
 const results = [];
@@ -136,6 +136,15 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
     await page.waitForTimeout(1200);
     check('a reload does not show it again', !(await visible(page)));
 
+    // Keyboard: the home-page link is a focusable button that Enter opens.
+    const homeLink = page.locator('.splash-page-content a[role="button"]').filter({ hasText: /what.s new/i });
+    await homeLink.focus();
+    await page.keyboard.press('Enter');
+    check('the home-page link opens it from the keyboard',
+          await page.waitForSelector('.whats-new-panel', { timeout: 5000 }).then(() => true, () => false));
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.whats-new-panel', { state: 'detached', timeout: 5000 });
+
     // Client-side route change, not a reload: this app routes in the browser.
     await page.locator('a.splash-button').first().click();
     await page.waitForSelector('#app-main', { timeout: 30000 });
@@ -159,6 +168,20 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
     await page.waitForSelector('.whats-new-panel', { state: 'detached', timeout: 5000 });
     check('a click outside closes it', !(await visible(page)));
 
+    // The header pill is there for everyone, logged in or not, once the panel is dismissed.
+    const pill = page.locator('.whats-new-pill');
+    check('the header has a What\'s New pill', await pill.count() === 1);
+    await pill.click().catch(() => {});
+    check('the header pill opens it after it was dismissed',
+          await page.waitForSelector('.whats-new-panel', { timeout: 5000 }).then(() => true, () => false));
+
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.whats-new-panel', { state: 'detached', timeout: 5000 });
+    await pill.focus();
+    await page.keyboard.press('Space');
+    check('the header pill opens it from the keyboard (Space)',
+          await page.waitForSelector('.whats-new-panel', { timeout: 5000 }).then(() => true, () => false));
+
     await ctx.close();
   };
 
@@ -167,16 +190,40 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
   const laneB = async () => {
     const { ctx, page } = await lane({ width: 1280, height: 900 }, true);
 
-    // Most people ignore a cookie notice rather than dismissing it, and it returns
-    // every visit — a hold that waits for dismissal is a panel they never see.
+    // The panel opens at boot with the cookie notice still showing; it never waits
+    // for the notice. A first visit gets both, and "Got it!" must stay usable.
     await page.goto(BASE, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#poper', { timeout: 30000 });
+    await page.waitForFunction(() => {
+      const app = document.getElementById('app');
+      return app && app.childElementCount > 0
+        && !app.querySelector('img[src*="spiral.gif"], [data-spinner]');
+    }, null, { timeout: 60000 });
+    const t = Date.now();
     await page.waitForSelector('.whats-new-panel', { timeout: 25000 });
-    check('an ignored notice does not suppress the panel', await visible(page),
-          'never clicked the notice');
+    const waited = Date.now() - t;
+    check('the panel opens at once, not held for the notice', waited < 1500, `${waited}ms after the app mounted`);
     check('the notice is still there behind it',
           await page.locator('#poper').isVisible().catch(() => false));
-    await page.screenshot({ path: path.join(OUT, '4-notice-ignored.png') });
+    await page.screenshot({ path: path.join(OUT, '4-notice-with-panel.png') });
+    // The panel's backdrop sits over the notice, so "Got it!" is reachable once it closes.
+    await page.keyboard.press('Escape');
+    check('closing the panel leaves the notice up',
+          await page.locator('#poper').isVisible().catch(() => false));
+    const clicked = await page.locator('#cookie-btn').click({ timeout: 3000 }).then(() => true, () => false);
+    check('"Got it!" can be clicked after the panel closes', clicked);
+    await page.waitForTimeout(1500);
+    check('"Got it!" removes the notice',
+          !(await page.locator('#poper').isVisible().catch(() => false)));
+
+    // The home page carries its own What's New link, at the size of the footer's small links.
+    const homeLink = page.locator('.splash-page-content a', { hasText: "What's New" });
+    check('the home page has a What\'s New link', await homeLink.count() === 1);
+    check('it is the footer link size',
+          await homeLink.evaluate(a => getComputedStyle(a).fontSize).catch(() => '') === '12px');
+    await homeLink.click().catch(() => {});
+    check('the home page link opens the panel',
+          await page.waitForSelector('.whats-new-panel', { timeout: 3000 }).then(() => true, () => false));
 
     // An embedded sheet is someone else's page: never interrupted. Same context,
     // second tab, so it boots while the checks above are settling.

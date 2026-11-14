@@ -1,16 +1,14 @@
 (ns orcpub.whats-new
-  "Release highlights for the What's New panel.
-
-   `releases` is newest-first. `:id` is the stamp the browser stores once someone
-   has seen the panel, so a new `:id` is what makes the panel open again — one new
-   entry per release, and never reuse an id. `:icon` values are Font Awesome 5
-   solid names — the set index.clj serves — so a v4 name renders as a blank column.
-   Items carrying the same `:group` are rendered under one heading, in the order
-   they appear here.")
+  "Release highlights for the What's New panel, and a deployment's patron credits. `releases`
+   is newest-first; `:id` is the stamp the browser keeps once the panel is seen, so each release
+   gets a new id, never a reused one. `:icon` takes Font Awesome 5 solid names (the set index.clj
+   serves): a v4 name renders as a blank column. Items sharing a `:group` render under one
+   heading, in the order given."
+  (:require [clojure.string :as str]))
 
 (def releases
-  [{:id "summer-patch-2026"
-    :title "Summer Patch"
+  [{:id "long-rest-update-2026"
+    :title "Long Rest Update"
     :subtitle "Homebrew you can manage, characters that recover and share, safer accounts, and sheets that print everything."
     :items
     [{:group "Your homebrew library"
@@ -29,6 +27,10 @@
       :icon "fa-shield-alt"
       :headline "Starting equipment for homebrew classes"
       :detail "The full SRD form — fixed gear, choice groups, bundles, and nested weapon choices — and you can start from an SRD class and change only what you want."}
+     {:group "Your homebrew library"
+      :icon "fa-arrow-up"
+      :headline "Ability score increases the player places"
+      :detail "Homebrew races, subraces, backgrounds and feats can give 2024-style increases: +2 to one ability and +1 to another, +1 to any martial ability, or a fixed bonus. Saving throw proficiencies can be given the same way, and subclasses can do both in an optional section."}
      {:group "Your homebrew library"
       :icon "fa-clone"
       :headline "Homebrew is safe in two tabs"
@@ -50,6 +52,31 @@
       :icon "fa-search"
       :headline "Find equipment by typing"
       :detail "The Equipment tab's long dropdowns filter as you type. Nothing is hidden behind a cap — scroll the whole list, or walk it with the arrow keys and press Enter to add."}
+     {:group "Characters"
+      :icon "fa-user-circle"
+      :headline "Build a portrait for your character"
+      :detail "Pick or randomize layered art by a real illustrator, colour hair, skin, eyes and clothing, and add an ombré, freckles, glowing eyes or a torch-lit edge. The portrait shows on the sheet, the summary and shared links, credited to the artist."}
+     {:group "Characters"
+      :icon "fa-palette"
+      :headline "Meet the artists"
+      :detail "Each portrait artist has a page with their name, how many pieces they drew, a few example portraits and the links they chose. The portrait picker's About the artist link, and the artists list, take you there."}
+     {:group "Characters"
+      :icon "fa-fist-raised"
+      :headline "A Weapons table for attacks"
+      :detail "Roll attack and damage in one place, with advantage or disadvantage from a switch or a long press, and see every SRD magic weapon's extra damage."}
+     {:group "Characters"
+      :icon "fa-bolt"
+      :headline "Charges and rests"
+      :detail "Charged items show pips to tap, and a Rest box handles short and long rests, dawn and dusk, and recharges, with Undo. Staffs and wands cast spells for charges."}
+     {:group "Characters"
+      :icon "fa-undo"
+      :headline "Lower a level and nothing is lost"
+      :detail "Choices that stop applying when you lower a level or change a class are set aside, listed beside the level picker, and return by themselves, with Undo."}
+
+     {:group "Rules"
+      :icon "fa-book"
+      :headline "A Rules tab, with previews"
+      :detail "The SRD's rules and 15 conditions, by section. Hover a link, or tap it once on a phone, to preview a spell, condition or rule without leaving the page. The Orcacle finds them by name."}
 
 
      {:group "Sharing"
@@ -83,6 +110,10 @@
       :headline "Multiclass casters fit on fewer pages"
       :detail "Spells can pack one class to a column instead of one page each, with a Warlock's Pact Magic kept as its own pool rather than added into the shared slots. Two of the four styles could not export a two-class caster at all; now they can."}
      {:group "Printing"
+      :icon "fa-file-pdf"
+      :headline "A4 as well as US Letter"
+      :detail "Choose A4 for the sheet, spell cards, magic item cards and the spellbook. If part of an export can't be produced, the PDF opens with a page saying what was left out."}
+     {:group "Printing"
       :icon "fa-scroll"
       :headline "Spell rows say more, and items get cards"
       :detail "Rows mark concentration, casting time, reactions and costly materials, and your magic items print as cards alongside the spell cards."}
@@ -111,6 +142,48 @@
    first visit sees the current release once."
   [seen-id]
   (not= seen-id current-release-id))
+
+(def credits-path
+  "Where a deployment puts its patron credits: a static file under resources/public, read when the
+   What's New panel opens. The public repo ships it empty (no names); a fork replaces it."
+  "/patron-credits.md")
+
+(defn parse-credits
+  "The patron credits in `text` as [{:tier name-or-nil :names [...]}], in file order. A line
+   starting with # names a tier; any other non-blank line is one patron, a leading - or * dropped;
+   names before the first heading form a group with no tier. Groups with no names are left out."
+  [text]
+  (->> (re-seq #"[^\r\n]+" (str text))
+       (map str/trim)
+       (remove str/blank?)
+       (reduce (fn [groups line]
+                 (if-let [[_ tier] (re-matches #"#+\s*(.*)" line)]
+                   (conj groups {:tier tier :names []})
+                   (let [nm (str/replace line #"^[-*]\s*" "")]
+                     (if (seq groups)
+                       (update-in groups [(dec (count groups)) :names] conj nm)
+                       [{:tier nil :names [nm]}]))))
+               [])
+       (filterv (comp seq :names))))
+
+(def credits-sample-size
+  "How many names of the last credits group show before \"Show all\"."
+  24)
+
+(defn credits-display
+  "The credit groups as shown: every group but the last in full; the last, when it holds more than
+   credits-sample-size names, as :sample (that many of its names, in `shuffle-fn` order) with
+   :all (every name, alphabetical, case ignored) behind \"Show all\". `groups` as parse-credits
+   returns; `shuffle-fn` takes and returns a seq (`shuffle`, or `identity` in tests)."
+  [groups shuffle-fn]
+  (let [lead (vec (butlast groups))
+        {:keys [names] :as last-group} (last groups)]
+    (cond-> lead
+      last-group (conj (if (> (count names) credits-sample-size)
+                         (assoc last-group
+                                :sample (vec (take credits-sample-size (shuffle-fn names)))
+                                :all (vec (sort-by str/lower-case names)))
+                         last-group)))))
 
 (defn grouped-items
   "The release's items as [group items] pairs, in source order. A group of nil

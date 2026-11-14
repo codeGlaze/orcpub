@@ -100,6 +100,14 @@
 
 
 
+;; Public artist profiles: the site's showcase of each portrait artist. Not
+;; under /pages/ -- these are addresses people are handed, from a credit.
+(def artists-page-route :artists-page)
+(def artist-page-route :artist-page)
+;; An artist's example portraits (1-based :n), rendered once on the server, small and
+;; watermarked. The first is also the profile's og:image.
+(def artist-example-route :artist-example)
+
 (def register-route :register)
 (def register-page-route :register-page)
 (def my-account-page-route :my-account)
@@ -113,7 +121,6 @@
 (def follow-user-route :follow-user)
 (def character-pdf-route :character-pdf)
 (def image-probe-route :image-probe)
-(def check-email-route :check-email)
 (def check-username-route :check-username)
 (def user-route :user)
 (def user-email-route :user-email)
@@ -149,7 +156,6 @@
 
                   "character.pdf" character-pdf-route
                   "image-probe" image-probe-route
-                  "check-email" check-email-route
                   "check-username" check-username-route
 
                   "reset-password" reset-password-route
@@ -166,6 +172,10 @@
                   "cookies-policy" cookies-policy-route
 
                   "following/users" {["/" :user] follow-user-route}
+
+                  "artists" {"" artists-page-route
+                             ["/" :slug] artist-page-route
+                             ["/" :slug "/examples/" :n] artist-example-route}
 
                   "dnd/"
                   {"5e/" {"characters" {"" dnd-e5-char-list-route

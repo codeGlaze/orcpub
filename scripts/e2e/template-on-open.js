@@ -23,7 +23,7 @@ async function context(browser) {
     try {
       localStorage.setItem('plugins', plugins);
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+      localStorage.setItem('whats-new-seen', '"long-rest-update-2026"');
     } catch (e) {}
     window.__blocked = 0;
     try {

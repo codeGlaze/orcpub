@@ -33,6 +33,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source shared utilities
 # shellcheck source=common.sh
 source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/bundle-check.sh"
 
 # -----------------------------------------------------------------------------
 # Install
@@ -407,6 +408,18 @@ start_server() {
     fi
 
     cd "$REPO_ROOT"
+    ensure_fresh_build || exit $EXIT_RUNTIME
+
+    # When Java runs out of memory or crashes it leaves a heap dump or crash log in
+    # $LOG_DIR/app/crash, and the next start emails the admin (orcpub.crash-report). No
+    # exit-on-out-of-memory here: nothing would restart a bare-metal server.
+    mkdir -p "$LOG_DIR/app/crash"
+    # lein splits JVM_OPTS on spaces, so a path with one would break the options apart.
+    if [[ "$LOG_DIR" =~ [[:space:]] ]]; then
+        log_warn "The folder path has a space ($LOG_DIR); crash files are not kept for this start."
+    else
+        export JVM_OPTS="${JVM_OPTS:-} -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$LOG_DIR/app/crash/heap.hprof -XX:ErrorFile=$LOG_DIR/app/crash/jvm-crash-%p.log"
+    fi
 
     # Use headless mode if not running interactively (background/nohup)
     local rc=0
@@ -636,9 +649,13 @@ start_all() {
         exit $EXIT_SUCCESS
     fi
 
+    cd "$REPO_ROOT"
+    if ! ensure_fresh_build; then
+        (exit "$EXIT_RUNTIME")   # cleanup_on_exit exits with the status it finds
+        cleanup_on_exit
+    fi
     log_info "Starting REPL with server (profile: +dev,+start-server)..."
     log_info "Note: Ctrl+C will stop both server and Datomic"
-    cd "$REPO_ROOT"
     local rc=0
     if [[ "$(repl_mode)" == "interactive" ]]; then
         lein with-profile +dev,+start-server repl || rc=$?

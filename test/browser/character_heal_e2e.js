@@ -45,7 +45,7 @@ async function context(browser, character) {
     try {
       localStorage.setItem('plugins', plugins);
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+      localStorage.setItem('whats-new-seen', '"long-rest-update-2026"');
       if (ch) localStorage.setItem('character', ch);
     } catch (e) {}
   }, [PLUGINS, character || null]);

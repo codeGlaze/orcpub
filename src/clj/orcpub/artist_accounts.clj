@@ -5,8 +5,10 @@
    credited; which art is whose stays in the registry. Nothing here faces the web."
   (:require [orcpub.reset-key :as reset-key]
             [clojure.string :as s]
+            [orcpub.common :as common]
             [datomic.api :as d]
             [orcpub.env :as env]
+            [orcpub.user-email :as user-email]
             [cheshire.core :as cheshire]
             [buddy.hashers :as hashers]
             [com.stuartsierra.component :as component]
@@ -45,7 +47,7 @@
                   :let [acct (:account fields)]]
               [(keyword (name id))
                (cond-> {:account (if (string? acct)
-                                   (s/lower-case (s/trim acct))
+                                   (user-email/email-key acct)
                                    :revoke)}
                  (string? (:username fields)) (assoc :username (s/trim (:username fields)))
                  (string? (:preferred_name fields)) (assoc :preferred-name (s/trim (:preferred_name fields)))
@@ -67,8 +69,9 @@
 (defn- users-with-email [db email]
   (d/q '[:find [(pull ?e pattern) ...]
          :in $ pattern ?email
-         :where [?e :orcpub.user/email ?e-mail]
-                [(clojure.string/lower-case ?e-mail) ?email]]
+         :where (or-join [?e ?email]
+                         [?e :orcpub.user/email-key ?email]
+                         [?e :orcpub.user/email ?email])]
        db user-pull email))
 
 (defn- accounts-for-artist [db artist-id]
@@ -183,8 +186,8 @@
         link (new-welcome-link "artist-user")
         name-enc (when preferred-name (crypto/encrypt preferred-name-purpose preferred-name))
         user (cond-> (merge (:tx link)
+                            (user-email/email-attrs account)
                             {:orcpub.user/username uname
-                             :orcpub.user/email account
                              :orcpub.user/password (locked-password)
                              ;; confirmed by the act of using the emailed link
                              :orcpub.user/verified? false
@@ -311,7 +314,7 @@
    (let [user (d/pull (d/db conn) [:db/id :orcpub.user/username :orcpub.user/email
                                   :orcpub.user/verified? :orcpub.user/artist
                                   :orcpub.user/preferred-name] user-id)
-         email (some-> (:orcpub.user/email user) s/lower-case)]
+         email (user-email/email-key (:orcpub.user/email user))]
      (when (and email (:orcpub.user/verified? user))
        (some (fn [[artist-id spec]]
                (when (and (= email (:account spec)) (pa/artist-info artist-id))

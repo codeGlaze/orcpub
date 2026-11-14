@@ -1,0 +1,203 @@
+# The slow checks of how the server is deployed: a real out-of-memory crash on bare metal and on
+# Docker Compose, and a real Docker Swarm deploy of the stack ./run generates. About 20 minutes.
+#
+# Runs when started by hand (Actions > Heavy Docker checks > Run workflow), and on pull requests
+# that change the files deployment depends on. A newer push to the same branch cancels the older
+# run. The label "heavy-docker: later" pauses it on a PR, with a comment saying so; removing the
+# label runs it.
+name: Heavy Docker checks
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [develop, integration]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - 'docker/**'
+      - 'docker-compose*.yaml'
+      - 'deploy/**'
+      - 'run'
+      - 'docker-user.sh'
+      - 'scripts/swarm.sh'
+      - 'scripts/release-check.sh'
+      - 'scripts/startup-report.sh'
+      - 'scripts/load-env.sh'
+      - 'scripts/start.sh'
+      - 'src/clj/orcpub/crash_report.clj'
+      - 'src/clj/orcpub/alerts.clj'
+      - '.github/workflows/docker-heavy.yml'
+
+concurrency:
+  group: docker-heavy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  paused:
+    name: Paused by label
+    if: "github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'heavy-docker: later')"
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Say so on the PR
+        if: github.event.action == 'labeled'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} \
+            --body "Heavy Docker checks are paused by the \`heavy-docker: later\` label. Remove the label before merging: that runs them."
+
+  bare-metal:
+    name: Bare metal - out-of-memory leaves a heap dump and is reported
+    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Leiningen
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/2.10.0/bin/lein -o /usr/local/bin/lein
+          chmod +x /usr/local/bin/lein && lein version
+      # Java is run on the project's classpath without the dev tools, which need more memory than
+      # this test gives; the flags are the ones start.sh passes (lein forwards JVM_OPTS).
+      - name: Run out of memory with the flags start.sh passes
+        run: |
+          CRASH="$PWD/logs/app/crash"; mkdir -p "$CRASH"
+          CP=$(lein with-profile -dev classpath)
+          java -Xmx128m -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath="$CRASH/heap.hprof" -XX:ErrorFile="$CRASH/jvm-crash-%p.log" \
+            -cp "$CP" clojure.main -e "(long-array 200000000)" && { echo "FAIL: it did not run out of memory"; exit 1; } || true
+          test -f "$CRASH/heap.hprof" || { echo "FAIL: no heap dump in $CRASH"; ls -la "$CRASH"; exit 1; }
+          echo "OK: heap dump written ($(du -h "$CRASH/heap.hprof" | cut -f1))"
+      - name: The next start reports it
+        run: |
+          CP=$(lein with-profile -dev classpath)
+          OUT=$(java -cp "$CP" clojure.main -e "(require 'orcpub.crash-report) (orcpub.crash-report/report! [\"$PWD/logs/app/crash\"])" 2>&1)
+          echo "$OUT" | grep "alerts:"
+          echo "$OUT" | grep -q "ran out of memory" || { echo "FAIL: no crash alert"; exit 1; }
+          echo "OK: the crash was reported"
+
+  compose:
+    name: Docker Compose - out-of-memory exits, leaves a heap dump in /var/log, is reported
+    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ORCPUB_IMAGE: orcpub-app
+      DATOMIC_IMAGE: orcpub-datomic
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        env:
+          DOCKER_BUILDKIT: 0
+        run: |
+          docker build --target transactor -t orcpub-datomic -f docker/Dockerfile .
+          docker build --target app -t orcpub-app -f docker/Dockerfile .
+      - name: Start the stack
+        run: |
+          ./run --auto
+          docker compose up -d
+      - name: Wait for the app
+        run: bash .github/scripts/wait-healthy.sh compose
+      - name: The app's report names the host folder
+        run: |
+          docker compose logs orcpub | grep "Crash files: /var/log/orcpub/crash on the host" \
+            || { echo "FAIL: no DEPLOYMENT line"; docker compose logs orcpub | grep -A12 DEPLOYMENT; exit 1; }
+      - name: Run out of memory inside the app container
+        run: |
+          docker compose exec -T -u app orcpub java -Xmx64m -cp /orcpub.jar clojure.main -e "(long-array 100000000)" \
+            && { echo "FAIL: it did not run out of memory"; exit 1; } || true
+          sudo test -f /var/log/orcpub/crash/heap.hprof || { echo "FAIL: no heap dump in /var/log/orcpub/crash"; sudo ls -la /var/log/orcpub/crash; exit 1; }
+          echo "OK: heap dump on the host"
+      - name: The next start reports it
+        run: |
+          docker compose restart orcpub
+          bash .github/scripts/wait-healthy.sh compose
+          docker compose logs orcpub | grep -E "crash-report:|alerts: \[jvm-crash" || { echo "FAIL: no crash report"; docker compose logs orcpub | tail -40; exit 1; }
+      - name: Logs on failure
+        if: failure()
+        run: |
+          docker compose logs --tail 200
+          docker compose exec -T orcpub sh -c 'ls -la /var/lib/orcpub/ /var/lib/orcpub/state/ /var/lib/orcpub/state/crash/' || true
+          sudo ls -la /var/log/orcpub /var/log/orcpub/crash || true
+          sudo cat /var/log/orcpub/crash/reported.edn || true
+
+  swarm:
+    name: Docker Swarm - ./run's stack deploys, runs as app, keeps files in /var/log
+    if: "github.event_name == 'workflow_dispatch' || !contains(github.event.pull_request.labels.*.name, 'heavy-docker: later')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate the Swarm stack with ./run
+        run: |
+          ./run --auto
+          ./run --swarm --auto
+          ls -la docker-compose.swarm.yaml
+          grep -n "/var/log:/host-log\|JDK_JAVA_OPTIONS" docker-compose.swarm.yaml
+          grep -n "TRANSACTOR_HOST" docker-compose.swarm.yaml
+      # As a stack from before this release, pasted into Portainer, would be: Datomic must find
+      # its Swarm addresses itself.
+      - name: Remove the Datomic address settings from the stack
+        run: |
+          sed -i '/TRANSACTOR_HOST\|ALT_HOST/d' docker-compose.swarm.yaml
+          if grep -q "TRANSACTOR_HOST\|ALT_HOST" docker-compose.swarm.yaml || grep -qE "^(TRANSACTOR_HOST|ALT_HOST)=" .env; then
+            echo "FAIL: a Datomic address setting is still set"; exit 1
+          fi
+      - name: Build images
+        env:
+          DOCKER_BUILDKIT: 0
+        run: |
+          docker build --target transactor -t orcpub-datomic -f docker/Dockerfile .
+          docker build --target app -t orcpub-app -f docker/Dockerfile .
+      - name: Deploy it
+        run: |
+          docker swarm init 2>/dev/null || true
+          . scripts/load-env.sh && load_env .env
+          docker stack deploy -c docker-compose.swarm.yaml orcpub
+      # Prints the tasks and Datomic's last lines every minute while it waits, so the log shows
+      # how far it got even when the wait fails.
+      - name: Wait for the app
+        timeout-minutes: 12
+        run: |
+          ( while sleep 60; do
+              echo "--- $(date +%T) tasks"; timeout 20 docker stack ps orcpub --format '{{.Name}} {{.CurrentState}} {{.Error}}' | head -6
+              echo "--- datomic"; timeout 20 docker service logs orcpub_datomic --tail 4 2>&1 | cut -c1-200
+              echo "--- app"; timeout 20 docker service logs orcpub_orcpub --tail 3 2>&1 | cut -c1-200
+            done ) &
+          bash .github/scripts/wait-healthy.sh swarm
+      - name: It runs as app and keeps its files in /var/log/orcpub
+        run: |
+          C=$(docker ps -q -f label=com.docker.swarm.service.name=orcpub_orcpub | head -1)
+          OWNER=$(docker exec "$C" stat -c %U /proc/1)
+          [ "$OWNER" = "app" ] || { echo "FAIL: Java runs as '$OWNER'"; exit 1; }
+          for d in /var/log/orcpub /var/log/orcpub/crash /var/log/orcpub/alerts; do
+            sudo test -d "$d" || { echo "FAIL: $d missing"; exit 1; }
+          done
+          echo "OK: Swarm task runs as app; /var/log/orcpub is on the host"
+          docker service logs orcpub_datomic 2>&1 | grep -E "a Swarm service address|does not resolve here" \
+            || { echo "FAIL: Datomic did not detect Swarm"; exit 1; }
+          docker service logs orcpub_datomic 2>&1 | grep "transactor: host=0.0.0.0 .*alt-host=datomic" \
+            || { echo "FAIL: Datomic did not report host=0.0.0.0 alt-host=datomic"; exit 1; }
+          docker service logs orcpub_orcpub 2>&1 | grep "Crash files: /var/log/orcpub/crash on the host" \
+            || { echo "FAIL: the app's report does not name /var/log/orcpub on the host"; exit 1; }
+      - name: Services on failure
+        if: failure() || cancelled()
+        timeout-minutes: 5
+        run: |
+          timeout 30 docker stack ps orcpub --no-trunc || true
+          echo "=== datomic ==="; timeout 60 docker service logs orcpub_datomic --tail 120 || true
+          echo "=== app ==="; timeout 60 docker service logs orcpub_orcpub --tail 80 || true
+          echo "=== what the datomic container resolves ==="
+          D=$(docker ps -q -f label=com.docker.swarm.service.name=orcpub_datomic | head -1)
+          [ -n "$D" ] && timeout 20 docker exec "$D" sh -c 'echo "HOSTNAME=$HOSTNAME"; echo "datomic:"; getent hosts datomic; echo "self:"; getent hosts "$HOSTNAME"; hostname -i; grep -E "^(host|alt-host)=" /datomic/transactor.properties' || true
+          echo "=== secrets ==="; timeout 20 docker secret ls || true
+          echo "=== volumes ==="; timeout 20 docker volume ls || true
+          echo "=== settings present in .env (names only) ==="; cut -d= -f1 .env | grep -v '^#' | sort | tr '\n' ' '; echo
+          echo "=== stack file, without values ==="; sed -E 's/(PASSWORD|SIGNATURE|KEY)([^:]*): .*/\1\2: <hidden>/' docker-compose.swarm.yaml

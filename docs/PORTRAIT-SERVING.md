@@ -73,6 +73,15 @@ image someone uploads, and the shared picture carries the artist's name.
 When a portrait changes, its fingerprint and so its address change: chat apps that cached the old
 picture under the old address fetch the new one, and nothing has to be purged.
 
+## Artist-page examples
+
+`/artists/<slug>/examples/<n>` draws its small watermarked JPEG through the same portrait pool
+(`portrait-store/draw-pool`), single-flight and kept in a bounded cache keyed by artist, example and
+watermark text (the text comes from the artist's links, so an edit makes new keys and old ones age
+out). A failed draw is remembered for 60 s, so a broken example is not redrawn on every request. A
+busy pool answers 503 + Retry-After. The credits are refreshed first, so a fresh container
+watermarks with the artist's current links.
+
 ## Strand fields
 
 The build step writes `<piece>.strands.png` beside each hair piece. Without it (running from

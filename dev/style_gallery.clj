@@ -17,6 +17,7 @@
 (load-file "dev/sample_character.clj")
 
 (require '[orcpub.pdf :as pdf]
+         '[orcpub.pdf.draw :as draw]
          '[orcpub.dnd.e5.spells :as spells]
          '[orcpub.dnd.e5.spell-lists :as sl]
          '[orcpub.dnd.e5.spell-packing :as pk]
@@ -61,12 +62,14 @@
       (pdf/grow-spell-sections! doc 1 :all)
       (pdf/add-missing-spell-pages! doc all)
       (let [all (pdf/merge-style-fields style all)
+            sans (draw/load-sans doc)
+            printed (pdf/site-line-pages doc (boolean prints-site-line?))
             _ (pdf/reserve-annotation-columns! doc)
             dropped (pdf/write-fields! doc (pdf/spill-overflow! doc all) false {})
             _ (pdf/annotate-spell-rows!
-               doc #(some-> (get spells/spell-map (common/name-to-kw %))
+               doc sans #(some-> (get spells/spell-map (common/name-to-kw %))
                             spell-annotations/annotation))]
-        (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
+        (pdf/stamp-site-line! doc sans site-line printed)
         (with-open [o (FileOutputStream. out)] (.save doc o))
         (printf "style %d: %d pages, %d fields, %d KB%s%n"
                 style (.getNumberOfPages doc) (count all) (quot (.length out) 1024)

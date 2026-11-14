@@ -45,7 +45,7 @@ async function session(browser, seed) {
         localStorage.setItem('probe:seeded', '1');
       }
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+      localStorage.setItem('whats-new-seen', '"long-rest-update-2026"');
     } catch (e) {}
   }, seed || {});
   const page = await ctx.newPage();
@@ -257,7 +257,7 @@ const letterFirst = k => /^[a-z]/.test(k);
     await dispatch(s, '[:orcpub.dnd.e5.spells/set-spell {:name "9 Lives" :option-pack ""}]');
     await dispatch(s, '[:orcpub.dnd.e5.spells/save-spell-anyway]');
     await settle(s);
-    await s.page.evaluate(() => cljs.core.swap_BANG_.call(null, re_frame.db.app_db, cljs.core.assoc,
+    await s.page.evaluate(() => void cljs.core.swap_BANG_.call(null, re_frame.db.app_db, cljs.core.assoc,
       cljs.reader.read_string(':orcpub.dnd.e5.selections/builder-item'),
       cljs.reader.read_string('{:name "9 Lives" :option-pack "" :options [{:name "First"}]}')));
     await dispatch(s, '[:orcpub.dnd.e5.selections/save-selection-anyway]');

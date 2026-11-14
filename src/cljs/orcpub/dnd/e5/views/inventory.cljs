@@ -45,7 +45,7 @@
        [:div.f-w-b.flex.align-items-c
         [:div.pointer.m-l-5.m-r-5
          {:on-click check-fn}
-         (comps/checkbox equipped? false)]
+         (comps/checkbox equipped? false (str item-name " equipped"))]
         (if user-created?
           [comps/input-field
            :input

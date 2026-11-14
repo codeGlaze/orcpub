@@ -244,7 +244,7 @@
 (defn bad-hotmail? [email]
   (and email (second (re-matches #".*(hotmil|hotmall|htmail|htmial|hotmial).(.*)" email))))
 
-(defn validate-registration [{:keys [email verify-email username password first-and-last-name]} email-taken? username-taken?]
+(defn validate-registration [{:keys [email verify-email username password first-and-last-name]} username-taken?]
   (let [bad-email-format? (bad-email? email)
         bad-gmail-domain (bad-gmail? email)
         bad-hotmail-domain (bad-hotmail? email)
@@ -255,7 +255,6 @@
     (cond-> {}
       bad-gmail-domain (update :email conj bad-gmail-domain)
       bad-hotmail-domain (update :email conj (str "Invalid domain '" bad-hotmail-domain "' did you mean 'hotmail'?"))
-      email-taken? (update :email conj "Email address is already associated with another account")
       emails-dont-match (update :verify-email conj "Email addresses don't match")
       bad-email-format? (update :email conj (if (s/blank? email)
                                               "Email is required"

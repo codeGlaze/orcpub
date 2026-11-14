@@ -25,6 +25,7 @@
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.homebrew-guard :as guard]
+            [orcpub.dnd.e5.homebrew-check :as homebrew-check]
             [orcpub.dnd.e5.starting-equipment-ledger :as sel]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.route-map :as routes]
@@ -38,10 +39,30 @@
 ;; Version: 1.05 - Fix: preserve map keys for classes/subclasses (enables renamed keys)
 ;; =============================================================================
 
+;; Every homebrew subscription reads the library and shared content through these two, so the
+;; read check is here, once. See homebrew-check/checked.
 (reg-sub
  ::e5/plugins
  (fn [db _]
-   (get db :plugins)))
+   (homebrew-check/checked :plugins (get db :plugins))))
+
+;; Each source's short tag, as My Content shows it: the stored :abbreviation, else the derived
+;; one (source-tagged-keys.md), for the library and a shared character's view-once sources.
+;; Shared is merged last, as ::e5/plugin-vals lets it win, so a row stamped with a source name
+;; both hold takes the shared source's tag. Worked out once per library change, not per row.
+(reg-sub
+ ::e5/source-tags
+ :<- [::e5/plugins]
+ :<- [::e5/shared-plugins]
+ (fn [[plugins shared] _]
+   (into {}
+         (for [libs [plugins shared]
+               :when (map? libs)
+               [source-name source] libs
+               :let [tag (or (when (map? source) (:abbreviation source))
+                             (common/source-abbreviation source-name))]
+               :when tag]
+           [source-name tag]))))
 
 ;; Whether the footer's diagnostic tools are revealed on this device.
 (reg-sub
@@ -99,7 +120,7 @@
 (reg-sub
  ::e5/shared-plugins
  (fn [db _]
-   (get db :shared-plugins)))
+   (homebrew-check/checked :shared-plugins (get db :shared-plugins))))
 
 ;; Summary for the shared-content banner: {:count n :collisions [...]} while a
 ;; shared character with embedded homebrew is being viewed, else nil.
@@ -265,9 +286,19 @@
  ::bg5e/plugin-backgrounds
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (map
+   (keep
     (fn [background]
-      (assoc background :edit-event [::bg5e/edit-background background]))
+      ;; A background's ability and save grants (the 2024 rules give the ASI here) compile to
+      ;; extra modifiers and selections, the same hook as races. Guarded like races: a background
+      ;; that throws is reported and set aside, never the whole list.
+      (guard/guard-option
+       ::e5/backgrounds background
+       #(let [{ai-mods :modifiers ai-sels :selections}
+              (opt5e/compile-ability-grants % {:attribution :general})]
+          (assoc %
+                 :modifiers (concat (:modifiers %) ai-mods)
+                 :selections (concat (:selections %) ai-sels)
+                 :edit-event [::bg5e/edit-background %]))))
     (mapcat (comp vals ::e5/backgrounds) plugins))))
 
 (reg-sub
@@ -306,14 +337,20 @@
  (fn [plugins _]
    (keep
     (fn [race]
-      (guard/guard-entry
+      ;; A race's ability and save grants (:ability-increases, :save-proficiencies) compile to
+      ;; extra modifiers and selections; a race without them is unchanged. Realized inside the
+      ;; guard: the modifiers are lazy, and a throw in them escaped it.
+      (guard/guard-option
        ::e5/races race
-       #(assoc %
-               :modifiers
-               (concat (opt5e/plugin-modifiers (:props %)
-                                               (:key %))
-                       (spell-modifiers % (:name %)))
-               :edit-event [::races5e/edit-race %])))
+       #(let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants %)]
+          (assoc %
+                 :modifiers
+                 (concat (opt5e/plugin-modifiers (:props %)
+                                                 (:key %))
+                         (spell-modifiers % (:name %))
+                         ai-mods)
+                 :selections (concat (:selections %) ai-sels)
+                 :edit-event [::races5e/edit-race %]))))
     (mapcat (comp vals ::e5/races) plugins))))
 
 (reg-sub
@@ -322,13 +359,18 @@
  (fn [plugins _]
    (keep
     (fn [subrace]
-      (guard/guard-entry
+      ;; The same ability and save grants hook as races, realized inside the guard.
+      (guard/guard-option
        ::e5/subraces subrace
-       #(assoc %
-               :modifiers (concat (opt5e/plugin-modifiers (:props %)
-                                                          (:key %))
-                                  (spell-modifiers % (:name %)))
-               :edit-event [::races5e/edit-subrace %])))
+       #(let [{ai-mods :modifiers ai-sels :selections}
+              (opt5e/compile-ability-grants % {:attribution :subrace})]
+          (assoc %
+                 :modifiers (concat (opt5e/plugin-modifiers (:props %)
+                                                            (:key %))
+                                    (spell-modifiers % (:name %))
+                                    ai-mods)
+                 :selections (concat (:selections %) ai-sels)
+                 :edit-event [::races5e/edit-subrace %]))))
     (mapcat (comp vals ::e5/subraces) plugins))))
 
 (defn level-modifier [class-key {:keys [type value] :as modifier}]
@@ -466,7 +508,7 @@
     :rogue {3 {:selections [(arcane-trickster-cantrip subclass-key spell-lists spells-map 2)
                             (arcane-trickster-spell-selection subclass-key spell-lists spells-map 2 [1])
                             (arcane-trickster-any-spell-selection subclass-key spell-lists spells-map 1 [1])]
-               :modifiers [(mod5e/spells-known 0 :mage-hand ::char5e/int "Arcane Trickster")]}
+               :modifiers [(mod5e/spells-known 0 :mage-hand ::char5e/int "Rogue")]}
             4 {:selections [(arcane-trickster-spell-selection subclass-key spell-lists spells-map 1 [1])]}
             7 {:selections [(arcane-trickster-spell-selection subclass-key spell-lists spells-map 1 [1 2])]}
             8 {:selections [(arcane-trickster-any-spell-selection subclass-key spell-lists spells-map 1 [1 2])]}
@@ -604,9 +646,14 @@
   "A homebrew subclass as the class options take it (`plugin-subclasses-map`): its levels built by
    `make-levels`, its props as modifiers. `subclass-key` (the map key) wins over its `:key`."
   [spell-lists spells-map selection-map source-name subclass-key subclass]
-  (let [subclass-with-key (assoc subclass :key subclass-key)]
+  (let [subclass-with-key (assoc subclass :key subclass-key)
+        ;; A subclass's ability and save grants: non-standard for 5e, so the builder authors
+        ;; them behind an optional section. None -> nothing added.
+        {ai-mods :modifiers ai-sels :selections}
+        (opt5e/compile-ability-grants subclass {:attribution :general})]
     (assoc subclass-with-key
-           :modifiers (opt5e/plugin-modifiers (:props subclass) subclass-key)
+           :modifiers (concat (opt5e/plugin-modifiers (:props subclass) subclass-key) ai-mods)
+           :selections (concat (:selections subclass) ai-sels)
            :levels (make-levels spell-lists spells-map selection-map subclass-with-key)
            :plugin-source source-name
            :edit-event [::classes5e/edit-subclass subclass-with-key
@@ -923,7 +970,7 @@
                                         11 4
                                         6 3
                                         2)
-                    :save-dc (?spell-save-dc ::char5e/con)})))]
+                    :save-dc (?save-dc ::char5e/con)})))]
    :selections [(t/selection-cfg
                  {:name "Draconic Ancestry"
                   :tags #{:subrace}
@@ -1021,11 +1068,15 @@
                                   (cond-> []
                                     (>= lvl 3) (conj "Hellish Rebuke")
                                     (>= lvl 5) (conj "Darkness"))))
-                               " once per day. CHA is the spellcasting ability.")})
+                               " once per long rest. CHA is the spellcasting ability.")})
                (mod5e/damage-resistance :fire)
                (mod5e/spells-known 0 :thaumaturgy ::char5e/cha "Tiefling")
-               (mod5e/spells-known 1 :hellish-rebuke ::char5e/cha "Tiefling" 3)
-               (mod5e/spells-known 2 :darkness ::char5e/cha "Tiefling" 5)]})
+               ;; SRD 5.1 Infernal Legacy: each "once with this trait", back on a long rest,
+               ;; Hellish Rebuke "as a 2nd-level spell"; no slots (plan-spell-uses-by-source.md).
+               (mod5e/spells-known 1 :hellish-rebuke ::char5e/cha "Tiefling" 3 nil nil
+                                   {:free (assoc units5e/long-rests-1 :level 2) :slots :none})
+               (mod5e/spells-known 2 :darkness ::char5e/cha "Tiefling" 5 nil nil
+                                   {:free units5e/long-rests-1 :slots :none})]})
 
 (reg-sub
  ::races5e/plugin-subraces-map
@@ -1071,19 +1122,50 @@
         tiefling-option-cfg]))))))
 
 
+(def ^:private built-in-classes
+  "Each built-in class's key, and how to build it with the homebrew it takes."
+  (let [plain (fn [option-fn] (fn [sl sm psm lm wm _ _] (option-fn sl sm psm lm wm)))]
+    [[:barbarian (plain classes5e/barbarian-option)]
+     [:bard (plain classes5e/bard-option)]
+     [:cleric (plain classes5e/cleric-option)]
+     [:druid (plain classes5e/druid-option)]
+     [:fighter (plain classes5e/fighter-option)]
+     [:monk (plain classes5e/monk-option)]
+     [:paladin (plain classes5e/paladin-option)]
+     [:ranger (plain classes5e/ranger-option)]
+     [:rogue (plain classes5e/rogue-option)]
+     [:sorcerer (plain classes5e/sorcerer-option)]
+     [:warlock classes5e/warlock-option]
+     [:wizard (plain classes5e/wizard-option)]]))
+
+(defn- base-class-option
+  "Built-in class `k`, built by `build` with its homebrew subclasses (and the warlock's invocations
+   and boons). When one of those stops it building, each is tried alone: the ones that fail are
+   reported through the guard, which sets them aside, and the class is built without them. A
+   class that fails with none is a bug of ours: logged, and left out, not the other eleven."
+  [k build spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons]
+  (let [b #(build spell-lists spells-map %1 language-map weapons-map %2 %3)]
+    (try
+      (b plugin-subclasses-map invocations boons)
+      (catch :default _
+        (let [alone (fn [content-type entries make]
+                      ;; the entries that build alone, the rest reported
+                      (filterv #(guard/guard-entry content-type % (fn [e] (make e) e)) entries))
+              subclasses (alone ::e5/subclasses (get plugin-subclasses-map k) #(b {k [%]} [] []))
+              warlock? (= k :warlock)
+              invocations (if warlock? (alone ::e5/invocations invocations #(b {} [%] [])) invocations)
+              boons (if warlock? (alone ::e5/boons boons #(b {} [] [%])) boons)]
+          (try
+            (b (assoc plugin-subclasses-map k subclasses) invocations boons)
+            (catch :default e
+              (js/console.error "Could not build the built-in class" (str k) e)
+              nil)))))))
+
 (defn base-class-options [spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons]
-  [(classes5e/barbarian-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/bard-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/cleric-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/druid-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/fighter-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/monk-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/paladin-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/ranger-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/rogue-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/sorcerer-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/warlock-option spell-lists spells-map plugin-subclasses-map language-map  weapons-map invocations boons)
-   (classes5e/wizard-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)])
+  (vec (keep (fn [[k build]]
+               (base-class-option k build spell-lists spells-map plugin-subclasses-map language-map
+                                  weapons-map invocations boons))
+             built-in-classes)))
 
 (reg-sub
  ::classes5e/classes
@@ -1096,12 +1178,9 @@
  :<- [::classes5e/boons]
  :<- [::mi5e/custom-and-standard-weapons-map]
  (fn [[spell-lists spells-map plugin-subclasses-map language-map plugin-classes invocations boons weapons-map] _]
-   ;; Defensive handling: ensure base classes always render even if plugin classes fail
-   (let [base-classes (try
-                        (base-class-options spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons)
-                        (catch js/Error e
-                          (js/console.error "Failed to build base classes:" e)
-                          []))
+   ;; each built-in class is built on its own, so homebrew that breaks one costs only itself
+   (let [base-classes (base-class-options spell-lists spells-map plugin-subclasses-map language-map
+                                          weapons-map invocations boons)
          plugin-class-options (keep
                                (fn [plugin-class]
                                  (try
@@ -1276,13 +1355,14 @@
  :<- [::char5e/monster-sort-criteria]
  :<- [::char5e/monster-sort-direction]
  (fn [[monsters sort-criteria sort-direction]]
-   (let [comparator (if (= sort-direction "asc") compare #(compare %2 %1))]
+   (let [comparator (if (= sort-direction "asc") common/safe-compare #(common/safe-compare %2 %1))]
      (case sort-criteria
        "name" (sort-by :name comparator monsters)
        "cr" (sort-by :challenge comparator monsters)))))
 
 (defn all-subtypes-removed? [subtypes hidden-subtypes]
-  (and (seq subtypes)
+  (and (coll? subtypes)
+       (seq subtypes)
        (seq hidden-subtypes)
        (->> subtypes
             (remove
@@ -1293,10 +1373,11 @@
   (let [lower-case-filter-text (s/lower-case filter-text)]
     (filter
       (fn [{:keys [name type subtypes size]}]
+        ;; looked up, not called: a size or type that is not a keyword must not break the list
         (and (or (< (count filter-text) 3)
-                 (s/includes? (s/lower-case name) lower-case-filter-text))
-             (not (or (-> monster-filters :size size)
-                      (-> monster-filters :type type)
+                 (and (string? name) (s/includes? (s/lower-case name) lower-case-filter-text)))
+             (not (or (get (:size monster-filters) size)
+                      (get (:type monster-filters) type)
                       (all-subtypes-removed? subtypes (:subtype monster-filters))))))
       monsters)))
 
@@ -1568,6 +1649,45 @@
                     (or (some #(when (= class-key (:key %))
                                  (opt5e/class-option spell-lists spells-map only-this language-map weapons-map %))
                               plugin-classes)
-                        (some #(when (= class-key (::t/key %)) %)
-                              (base-class-options spell-lists spells-map only-this language-map
-                                                  weapons-map invocations boons)))))))}})
+                        ;; its built-in class alone, built raw so a throw is this subclass's
+                        (some (fn [[k build]]
+                                (when (= k class-key)
+                                  (build spell-lists spells-map only-this language-map weapons-map
+                                         invocations boons)))
+                              built-in-classes))))))}
+  ;; a subrace is built inside its race, as that race's only subrace, and blamed on itself
+  ::e5/subraces
+  {:entries #(% [::races5e/plugin-subraces])
+   :convert (fn [sub]
+              (let [races (sub [::races5e/races])
+                    convert (partial opt5e/race-option (sub [::spells5e/spell-lists])
+                                     (sub [::spells5e/spells-map]) (sub [::langs5e/language-map])
+                                     (sub [::mi5e/all-weapons-map]))]
+                (fn [{race-key :race :as subrace}]
+                  (some #(when (= race-key (:key %)) (convert (assoc % :subraces [subrace])))
+                        races))))}
+  ;; the warlock, with this invocation or boon as its only homebrew one
+  ::e5/invocations
+  {:entries #(% [::classes5e/plugin-invocations])
+   :convert (fn [sub]
+              #(classes5e/warlock-option (sub [::spells5e/spell-lists]) (sub [::spells5e/spells-map]) {}
+                                         (sub [::langs5e/language-map])
+                                         (sub [::mi5e/custom-and-standard-weapons-map]) [%] []))}
+  ::e5/boons
+  {:entries #(% [::classes5e/plugin-boons])
+   :convert (fn [sub]
+              #(classes5e/warlock-option (sub [::spells5e/spell-lists]) (sub [::spells5e/spells-map]) {}
+                                         (sub [::langs5e/language-map])
+                                         (sub [::mi5e/custom-and-standard-weapons-map]) [] [%]))}
+  ;; a selection is offered where a class or subclass level names it
+  ::e5/selections
+  {:entries #(% [::selections5e/plugin-selections])
+   :convert (fn [_]
+              #(level-selection :selection-check {(:key %) %} {:type (:key %) :num 1}))}
+  ::e5/spells
+  {:entries #(% [::spells5e/plugin-spells])
+   :convert (fn [_]
+              #(spell-option {(:key %) %} [nil (:key %) ::char5e/int "Wizard"]))}
+  ::e5/languages
+  {:entries #(% [::langs5e/plugin-languages])
+   :convert (fn [_] #(opt5e/language-selection-aux [%] 1))}})

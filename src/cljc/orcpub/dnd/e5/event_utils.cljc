@@ -5,7 +5,8 @@
   (:require [orcpub.modifiers :as mod]
             [orcpub.route-map :as routes]
             [clojure.string :as s]
-            #?(:cljs [re-frame.core :refer [dispatch]])))
+            #?(:cljs [re-frame.core :refer [dispatch after]])
+            #?(:cljs [orcpub.dnd.e5.db :refer [user->local-store]])))
 
 ;; -- URL helpers (CLJS-only: depend on js/window.location) --
 
@@ -25,6 +26,16 @@
      [route & args]
      (backend-url (apply routes/path-for route args))))
 
+;; -- Loading spinner --
+
+(defn loading-gen
+  "The page generation the loading spinner counts for: `:route` bumps it, and a request passes the
+   value it started under with both its [:set-loading true gen] and [:set-loading false gen], so
+   one that finishes after a page change cannot touch the new page's count. Arg: the app db.
+   Returns an integer."
+  [db]
+  (or (:loading-gen db) 0))
+
 ;; -- Auth --
 
 (defn get-auth-token
@@ -42,6 +53,11 @@
   (if-let [token (get-auth-token db)]
     {"Authorization" (str "Token " token)}
     {}))
+
+;; -- Local store --
+
+#?(:cljs
+(def user->local-store-interceptor (after (fn [db] (user->local-store (:user-data db))))))
 
 ;; -- Error helpers --
 

@@ -45,16 +45,43 @@ read_env_val() {
   grep -m1 "^${1}=" "$2" 2>/dev/null | cut -d= -f2- | tr -d '\r' || true
 }
 
-# Source a .env file safely (strips Windows \r line endings).
+# Load a .env file: each NAME=value line is read, never run (scripts/load-env.sh).
 # Usage: source_env "/path/to/.env"
+if [ ! -f "${SCRIPT_DIR}/scripts/load-env.sh" ]; then
+  header "Dungeon Master's Vault — setup can't start"
+  error "This copy of ./run is missing a file it needs: scripts/load-env.sh"
+  error "(looked in: ${SCRIPT_DIR}/scripts/)"
+  echo
+  info "./run is one part of the project. It needs the rest of the project folder"
+  info "beside it, most of all the scripts/ folder. This usually means ./run was"
+  info "copied or downloaded on its own."
+  echo
+  info "What to do:"
+  next "Get the whole project and run it from inside that folder:"
+  printf '        git clone https://github.com/orcpub/orcpub.git\n'
+  printf '        cd orcpub\n'
+  printf '        ./run\n'
+  next "Downloaded a ZIP? Unzip the whole thing, open the folder it makes, and run ./run there."
+  next "Already have the project? cd into its folder first: ./run has to sit next to scripts/."
+  echo
+  exit 1
+fi
+# shellcheck source=scripts/load-env.sh
+. "${SCRIPT_DIR}/scripts/load-env.sh"
 source_env() {
-  # shellcheck disable=SC1090
-  . <(tr -d '\r' < "$1")
+  load_env "$1"
 }
 
 # Source optional modules
 # shellcheck source=scripts/swarm.sh
 [ -f "${SCRIPT_DIR}/scripts/swarm.sh" ] && . "${SCRIPT_DIR}/scripts/swarm.sh"
+# shellcheck source=scripts/startup-report.sh
+[ -f "${SCRIPT_DIR}/scripts/startup-report.sh" ] && . "${SCRIPT_DIR}/scripts/startup-report.sh"
+# shellcheck source=scripts/release-check.sh
+[ -f "${SCRIPT_DIR}/scripts/release-check.sh" ] && . "${SCRIPT_DIR}/scripts/release-check.sh"
+RELEASE_REPORT="${SCRIPT_DIR}/logs/upgrade-report.txt"
+RELEASE_ACTIONS=0
+RELEASE_TODO=()
 
 # Set a variable in a .env file. Uses awk to avoid sed delimiter issues with URLs.
 # Usage: set_env_val "VAR_NAME" "value" "/path/to/.env"
@@ -171,29 +198,6 @@ YAML
   else
     warn "No .env file — add to your environment:"
     warn "  export COMPOSE_FILE=${compose_file_var}"
-  fi
-}
-
-# Switch transactor host binding between Compose and Swarm modes.
-# Usage: switch_transactor_host "compose"  → host=datomic (Compose DNS bind)
-#        switch_transactor_host "swarm"    → host=0.0.0.0 (Swarm all-interfaces)
-switch_transactor_host() {
-  local mode="$1"
-  local template="${SCRIPT_DIR}/docker/transactor.properties.template"
-  [ -f "$template" ] || return 0
-
-  if [ "$mode" = "compose" ]; then
-    if grep -q '^host=0\.0\.0\.0' "$template"; then
-      sed -i 's/^host=0\.0\.0\.0$/#host=0.0.0.0/' "$template"
-      sed -i 's/^#host=datomic$/host=datomic/' "$template"
-      change "Transactor host: 0.0.0.0 → datomic (Compose bind)"
-    fi
-  elif [ "$mode" = "swarm" ]; then
-    if grep -q '^host=datomic' "$template"; then
-      sed -i 's/^host=datomic$/#host=datomic/' "$template"
-      sed -i 's/^#host=0\.0\.0\.0$/host=0.0.0.0/' "$template"
-      change "Transactor host: datomic → 0.0.0.0 (Swarm bind)"
-    fi
   fi
 }
 
@@ -326,6 +330,8 @@ confirm_action() {
 # Expects PORT, ADMIN_PASSWORD, DATOMIC_PASSWORD, SIGNATURE, EMAIL_*, ORCPUB_IMAGE,
 # DATOMIC_IMAGE, INIT_ADMIN_* to be set in scope before calling.
 write_env_file() {
+  # Without a mail server a deployed server starts only when told email is not needed.
+  if [ -n "${EMAIL_SERVER_URL:-}" ]; then EMAIL_REQUIRED=""; else EMAIL_REQUIRED="false"; fi
   cat > "$ENV_FILE" <<EOF
 # ============================================================================
 # Dungeon Master's Vault — Docker Environment Configuration
@@ -357,7 +363,10 @@ DATOMIC_URL=datomic:dev://datomic:4334/orcpub
 
 # --- Transactor Tuning ---
 # These rarely need changing. See docker/transactor.properties.template.
-ALT_HOST=127.0.0.1
+# TRANSACTOR_HOST and ALT_HOST default to the right values for Compose and for the
+# Swarm stack ./run --swarm writes; set them here only to override both.
+# TRANSACTOR_HOST=
+# ALT_HOST=
 ENCRYPT_CHANNEL=true
 # Password rotation: set the OLD var to the previous password, then change the
 # main var above. The transactor accepts both during the transition. Remove the
@@ -381,6 +390,9 @@ EMAIL_FROM_ADDRESS=${EMAIL_FROM_ADDRESS}
 EMAIL_ERRORS_TO=${EMAIL_ERRORS_TO}
 EMAIL_SSL=${EMAIL_SSL}
 EMAIL_TLS=${EMAIL_TLS}
+# false lets the server start with no mail server (sign-up stays off). Set up email
+# before you open the site to the public, then remove this line.
+EMAIL_REQUIRED=${EMAIL_REQUIRED}
 
 # --- SSL (Nginx) ---
 # Set to 'true' after running snakeoil.sh or providing your own certs
@@ -740,6 +752,10 @@ if [ "$CHECK_MODE" = "true" ]; then
     WARNING_MSGS+=("DATOMIC_URL contains localhost")
     ERRORS=$((ERRORS + 1))
   fi
+  if declare -F release_check >/dev/null; then
+    release_check "$ENV_FILE" "${SWARM_COMPOSE:-}" "$RELEASE_REPORT"
+    ERRORS=$((ERRORS + RELEASE_ACTIONS))
+  fi
 
   echo ""
 
@@ -851,10 +867,6 @@ if [ "$SECRETS_MODE" = "true" ] && [ "$UPGRADE_MODE" != "true" ]; then
   # Generate compose override so secrets are wired in automatically
   write_compose_secrets "file"
 
-  # Revert transactor host to compose-compatible binding if previously
-  # switched to Swarm mode (host=0.0.0.0).
-  switch_transactor_host "compose"
-
   # Move secret vars from .env to a backup file so they aren't duplicated
   BACKUP_FILE="${ENV_FILE}.secrets.backup"
   SECRET_VARS="DATOMIC_PASSWORD|ADMIN_PASSWORD|SIGNATURE"
@@ -907,6 +919,22 @@ if [ "$SWARM_MODE" = "true" ] && [ "$UPGRADE_MODE" != "true" ]; then
 
   # Generate the swarm compose file (uses _swarm_* vars if upgrade)
   generate_swarm_compose "$SWARM_COMPOSE" "$_is_upgrade"
+
+  # Never replace a stack with one that drops what the admin added: keep theirs, write ours beside it.
+  if [ -n "$_backup_file" ]; then
+    _lost=$(swarm_stack_losses "$_backup_file" "$SWARM_COMPOSE")
+    if [ -n "$_lost" ]; then
+      mv "$SWARM_COMPOSE" "${SWARM_COMPOSE}.new"
+      cp "$_backup_file" "$SWARM_COMPOSE"
+      error "$(basename "$SWARM_COMPOSE") was NOT changed: the new stack would drop these parts of yours:"
+      printf '    %s\n' $_lost
+      echo ""
+      info "The new stack is in $(basename "$SWARM_COMPOSE").new. Either copy the parts above into it"
+      info "and rename it to $(basename "$SWARM_COMPOSE"), or keep your file and copy this release's"
+      info "changes into it (./run --check lists them)."
+      exit 1
+    fi
+  fi
   change "Generated: $SWARM_COMPOSE"
 
   # Generate stripped .env for Portainer advanced mode
@@ -1025,11 +1053,6 @@ if [ "$SWARM_MODE" = "true" ] && [ "$SECRETS_MODE" = "true" ] && [ "$UPGRADE_MOD
     change "Activated secrets in $(basename "$SWARM_COMPOSE")"
   fi
 
-  # Switch transactor to Swarm-compatible host binding.
-  switch_transactor_host "swarm"
-  set_env_val ALT_HOST datomic "$ENV_FILE"
-  change "ALT_HOST=datomic (peer fallback via Docker DNS)"
-
   echo ""
   success "Done! Swarm secrets created, compose is configured."
 
@@ -1132,6 +1155,7 @@ if [ "$UP_MODE" = "true" ]; then
 
   # docker compose config outputs Compose Specification format;
   # docker stack deploy expects legacy v3 schema. JSON + jq bridges the gap.
+  _deploy_since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   docker compose config --format json | jq '
     del(.name) |
     .services |= with_entries(
@@ -1154,6 +1178,8 @@ if [ "$UP_MODE" = "true" ]; then
   echo "  docker stack services orcpub    # List services"
   echo "  docker stack ps orcpub          # List tasks"
   echo "  docker service logs <service>   # View logs"
+  # Last on screen: the app's startup report, so nothing scrolls it away.
+  declare -F show_startup_report >/dev/null && show_startup_report swarm "$_deploy_since" || true
   exit 0
 fi
 
@@ -1385,6 +1411,25 @@ if [ "$UPGRADE_MODE" = "true" ]; then
     change "  Changed 'localhost' to 'datomic' (Docker service name)"
   fi
 
+  # --- Check 6b: ALT_HOST written as the Compose default ---
+  # Compose and the Swarm stack each default it; this value in .env broke Swarm (docs/DOCKER.md).
+  if [ "$(read_env_val ALT_HOST "$ENV_FILE")" = "127.0.0.1" ]; then
+    sed -i '/^ALT_HOST=127\.0\.0\.1[[:space:]]*$/d' "$ENV_FILE"
+    CHANGES=$((CHANGES + 1))
+    change "  Removed ALT_HOST=127.0.0.1 (the Compose default; Swarm needs datomic, and each now sets its own)"
+  fi
+
+  # --- Check 6c: no mail server, and nothing saying that is intended ---
+  # This release refuses to start that way; an install that ran without email keeps running.
+  if [ -z "$(read_env_val EMAIL_SERVER_URL "$ENV_FILE")" ] \
+     && [ -z "$(read_env_val EMAIL_REQUIRED "$ENV_FILE")" ] \
+     && [ "$(read_env_val ALLOW_UNVERIFIED_REGISTRATION "$ENV_FILE" | tr '[:upper:]' '[:lower:]')" != "true" ]; then
+    set_env_val EMAIL_REQUIRED false "$ENV_FILE"
+    CHANGES=$((CHANGES + 1))
+    change "  Set EMAIL_REQUIRED=false: no mail server is set, and this release will not start without"
+    change "  one unless told so. Sign-up stays off; set up EMAIL_SERVER_URL before opening the site."
+  fi
+
   # --- Check 7: Image tags (ORCPUB_IMAGE / DATOMIC_IMAGE) ---
   _orcpub_img=$(read_env_val ORCPUB_IMAGE "$ENV_FILE")
   _datomic_img=$(read_env_val DATOMIC_IMAGE "$ENV_FILE")
@@ -1425,6 +1470,14 @@ if [ "$UPGRADE_MODE" = "true" ]; then
       info "ORCPUB_IMAGE: ${_orcpub_img}"
       info "DATOMIC_IMAGE: ${_datomic_img}"
     fi
+  fi
+
+  # --- Check 8: what this release changes for this install ---
+  # Skipped when chaining into --swarm, which regenerates the stack first.
+  if [ "$SWARM_MODE" != "true" ] && declare -F release_check >/dev/null; then
+    WARNING_MSGS=()
+    release_check "$ENV_FILE" "${SWARM_COMPOSE:-}" "$RELEASE_REPORT"
+    RELEASE_TODO=("${WARNING_MSGS[@]+"${WARNING_MSGS[@]}"}")
   fi
 
   echo ""
@@ -1478,6 +1531,15 @@ if [ "$UPGRADE_MODE" = "true" ]; then
   for _var in DATOMIC_URL DATOMIC_PASSWORD SIGNATURE ADMIN_PASSWORD; do
     check_env_conflict "$_var"
   done
+
+  if [ "$RELEASE_ACTIONS" -gt 0 ]; then
+    echo ""
+    printf '%s!!! %d THING(S) TO DO FOR THIS RELEASE — review before starting !!!%s\n' "$color_yellow" "$RELEASE_ACTIONS" "$color_reset"
+    for msg in "${RELEASE_TODO[@]}"; do
+      printf '  %s• %s%s\n' "$color_yellow" "$msg" "$color_reset"
+    done
+    printf '  Full notes: %s\n' "${RELEASE_REPORT#"${SCRIPT_DIR}"/}"
+  fi
 
   echo ""
   next "$(build_compose_cmd "docker compose up -d")"
@@ -1581,6 +1643,7 @@ if [ "$_any_mode" = "false" ]; then
   if confirm_action "Start services?"; then
     COMPOSE_CMD=$(build_compose_cmd "docker compose up -d")
     info "Starting services..."
+    _start_since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     eval "$COMPOSE_CMD" || { error "Failed to start services."; exit 1; }
     echo ""
     success "Services started."
@@ -1594,6 +1657,8 @@ if [ "$_any_mode" = "false" ]; then
     echo ""
     echo "Access the site at:"
     echo "  https://localhost"
+    # Last on screen: the app's startup report, so nothing scrolls it away.
+    declare -F show_startup_report >/dev/null && show_startup_report compose "$_start_since" || true
   else
     info "Skipping start."
     COMPOSE_CMD=$(build_compose_cmd "docker compose up --build -d")
@@ -1642,6 +1707,12 @@ NEXT
 fi
 
 # ---- Final status banner ----------------------------------------------------
+
+# A Swarm stack is where this release's changes need action; release_check adds them to the banner.
+if [ -f "${SWARM_COMPOSE:-}" ] && declare -F release_check >/dev/null; then
+  release_check "$ENV_FILE" "$SWARM_COMPOSE" "$RELEASE_REPORT"
+  ERRORS=$((ERRORS + RELEASE_ACTIONS))
+fi
 
 echo ""
 if [ "$ERRORS" -gt 0 ]; then

@@ -33,7 +33,7 @@ async function view(browser, who) {
   await ctx.addInitScript(() => {
     try {
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', JSON.stringify('summer-patch-2026'));
+      localStorage.setItem('whats-new-seen', JSON.stringify('long-rest-update-2026'));
     } catch (e) {}
   });
   const page = await ctx.newPage();

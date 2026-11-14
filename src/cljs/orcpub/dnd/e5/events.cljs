@@ -9,6 +9,7 @@
             [orcpub.dnd.e5.content-specs :as content-specs]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
+            [orcpub.dnd.e5.orcbrew-format :as orcbrew-format]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.dnd.e5.share-bundle :as share-bundle]
             [orcpub.dnd.e5.share-url :as share-url]
@@ -29,6 +30,7 @@
             [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.character.random :as char-rand5e]
             [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
+            [orcpub.dnd.e5.portrait :as portrait-view]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.srd-conditions :as srd-conditions]
@@ -37,6 +39,8 @@
             [orcpub.dnd.e5.combat :as combat]
             [orcpub.dnd.e5.weapons :as weapons]
             [orcpub.dnd.e5.magic-items :as mi]
+            [orcpub.dnd.e5.modifiers :as mod5e]
+            [orcpub.dnd.e5.rests :as rests]
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.inventory :as inventory]
@@ -51,7 +55,6 @@
                                       keep-draft!
                                       unsaved-drafts
                                       draft-visible?
-                                      user->local-store
                                       magic-item->local-store
                                       spell->local-store
                                       monster->local-store
@@ -83,7 +86,6 @@
                                       show-empty-pick-counts->local-store
                                       health-dismissed->local-store
                                       whats-new-seen->local-store
-                                      cookie-banner-pending?
                                       get-rejected-plugins
                                       set-rejected-plugins
                                       corrupt-slot-key
@@ -106,23 +108,21 @@
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.character-drafts :as drafts]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
+            [orcpub.dnd.e5.homebrew-markdown :as homebrew-markdown]
             [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.picks :as picks]
-            [orcpub.dnd.e5.event-utils :as event-utils]
+            [orcpub.dnd.e5.event-utils :as event-utils :refer [user->local-store-interceptor]]
             [orcpub.dnd.e5.compute :as compute]
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx reg-cofx inject-cofx path
-                                   after dispatch ->interceptor]]
+                                   after dispatch ->interceptor reg-global-interceptor]]
             [cljs.spec.alpha :as spec]
             [orcpub.dnd.e5.http-safe :as http]
             [cljs.core.async :refer [<! timeout]]
             [cljs-time.core :as time]
             [cljs.reader :as reader]
             [clojure.string :as s]
-            [bidi.bidi :as bidi]
             [orcpub.route-map :as routes]
-            [orcpub.errors :as errors]
             [orcpub.fork.integrations :as integrations]
-            [orcpub.fork.branding :as branding]
             [clojure.set :as sets]
             [cljsjs.filesaverjs]
             [clojure.pprint :as pprint])
@@ -159,8 +159,6 @@
  ::persist-healed-character
  (fn [character]
    (character->local-store character)))
-
-(def user->local-store-interceptor (after (fn [db] (user->local-store (:user-data db)))))
 
 (def magic-item->local-store-interceptor (after magic-item->local-store))
 
@@ -207,37 +205,8 @@
 (def health-dismissed->local-store-interceptor
   (after (fn [db] (health-dismissed->local-store (:health-dismissed db)))))
 
-(def ^:private hold-ceiling-ms
-  "How long the release panel waits on the cookie notice before showing anyway.
-   Long enough to let someone dismiss the notice first, short enough that ignoring
-   it costs them the panel for a few seconds rather than forever."
-  10000)
-
 (def whats-new-seen->local-store-interceptor
   (after (fn [db] (whats-new-seen->local-store (:whats-new-seen db)))))
-
-(reg-fx
- ::e5/watch-cookie-notice
- ;; Holds the release panel while the cookie notice is up, so a first visit gets one
- ;; overlay. Releases after any click once the notice is gone, or after hold-ceiling-ms
- ;; (an ignored notice never goes away). Takes a flag: an effect map entry runs its
- ;; handler whatever the value.
- (fn [watch?]
-   (when watch?
-     (let [handler (atom nil)
-           done? (atom false)
-           release! (fn []
-                      (when-not @done?
-                        (reset! done? true)
-                        (when-let [h @handler]
-                          (js/document.removeEventListener "click" h true))
-                        (dispatch [::e5/release-whats-new])))]
-       (reset! handler
-               (fn [_]
-                 ;; after the notice's own fade-out, so the two don't cross
-                 (js/setTimeout #(when-not (cookie-banner-pending?) (release!)) 450)))
-       (js/document.addEventListener "click" @handler true)
-       (js/setTimeout release! hold-ceiling-ms)))))
 
 (def set-changed (->interceptor
                   :id :set-changed
@@ -251,13 +220,10 @@
    :portrait/open-slot :portrait/open-layer])
 
 (defn drop-portrait-draft
-  "Clear the draft and count the change.
-
-   :character-epoch is bumped in step, so it counts how many times the character
-   being edited has been REPLACED. A save is dispatched at one epoch and answered
-   at another, and that is the only way the answer can tell whether the character
-   it is about is still the one on screen -- an id cannot, because a first save is
-   where the id appears."
+  "`db` without the portrait draft keys, with :character-epoch incremented. The epoch
+   counts replacements of the character on screen; saves compare it (see
+   saved-character-is-the-one-being-edited?) because an id cannot tell a first save from
+   a switch."
   [db]
   (-> (apply dissoc db portrait-ui-keys)
       (update :character-epoch (fnil inc 0))))
@@ -562,8 +528,7 @@
                  ;; The release panel opens itself once per release, on the boot that
                  ;; first sees a new id. Reading the stamp here (not at render) keeps it
                  ;; to one showing per browser rather than one per page view.
-                 (and (whats-new/unseen? whats-new-seen)
-                      (not (cookie-banner-pending?)))
+                 (whats-new/unseen? whats-new-seen)
                  (assoc :whats-new-open? true)
                  ;; Through set-character, not a bare assoc: reconciles a key an import
                  ;; conflict renamed, against the plugins already threaded in above.
@@ -575,9 +540,7 @@
                  (seq local-store-builder-items) (merge local-store-builder-items)
                  (seq builder-origin) (assoc :builder-origin builder-origin)
                  tracker-item (assoc ::combat/tracker-item tracker-item)))]
-     (cond-> {::e5/watch-cookie-notice (and (whats-new/unseen? whats-new-seen)
-                                            (cookie-banner-pending?))
-              :db db'}
+     (cond-> {:db db'}
        ;; The restored draft was repaired on the way in. Save the repair back now,
        ;; or the next refresh repairs and announces the same thing again.
        (seq (get-in db' [:character-healed :rewrote]))
@@ -707,12 +670,23 @@
      starting-character)
    (range)))
 
+(defn set-random-character
+  "Handler for [:set-random-character character built-template locked-components]: a random
+   character replacing the current one. A new character, not an edit, so the hold and its trail
+   start over (`hold-for`). If generating it throws, the spinner the Random button started is
+   turned off and an error shown, and the current character is kept. Returns an effects map."
+  [{:keys [db]} [_ character built-template locked-components]]
+  (try
+    {:db (assoc db ::e5/replacing? true)
+     :dispatch [:set-character (random-character character built-template locked-components)]}
+    (catch :default e
+      (js/console.error "Random character failed; the current character is kept." e)
+      {:db (update db :loading #(max 0 (dec (or % 0))))
+       :dispatch [:show-error-message "Could not make a random character. Your character is unchanged."]})))
+
 (reg-event-fx
  :set-random-character
- ;; A new character, not an edit: the hold and its trail start over (`hold-for`).
- (fn [{:keys [db]} [_ character built-template locked-components]]
-   {:db (assoc db ::e5/replacing? true)
-    :dispatch [:set-character (random-character character built-template locked-components)]}))
+ set-random-character)
 
 (reg-event-fx
  :random-character
@@ -723,26 +697,10 @@
   (def dnd-5e-characters-path [:dnd :e5 :characters])
 
 (defn saved-character-is-the-one-being-edited?
-  "Whether a save that has just come back is about the character on screen.
-
-   It is decided from what the save was dispatched WITH, because nothing in the
-   response can answer it. A save is asynchronous, and the autosave queue is
-   throttled, so the answer routinely arrives after the builder has moved on --
-   toggle a prepared spell on one character from a list and the queued save for
-   it lands while another is open in the builder.
-
-   The two save paths know different things, so they say different things:
-
-     * the manual save posts db :character, so it passes the :epoch it was
-       dispatched at. A first save is exactly where the id appears, so an id
-       cannot distinguish 'the same character, now saved' from 'a different
-       character'; the epoch can, because it counts replacements.
-     * the autosave posts a character from the map BY ID, which may never have
-       been the one on screen, so it passes that :for-id to be compared.
-
-   Neither given (a bare re-dispatch) answers false, which is the safe way to be
-   wrong: a stale answer then updates the character map and leaves the screen
-   alone."
+  "Whether a returning save is about the character on screen, from the context it was
+   dispatched with: `:for-id` (autosave, by id) is compared to the on-screen id, `:epoch`
+   (manual save) to :character-epoch. Neither given answers false, which leaves the screen
+   alone. Why: PORTRAIT-COMPOSITOR.md, \"The draft and the character on screen\"."
   [db {:keys [epoch for-id]}]
   (cond
     (some? for-id) (= for-id (:db/id (:character db)))
@@ -932,8 +890,9 @@
                 (nat-int? (get-in built-character [:base-abilities ability-kw])))
               char5e/ability-keys)
            {:db (assoc-in db [::in-flight id] true)
-            :dispatch [:set-loading true]
-            :http {:method :post
+            :dispatch [:set-loading true (event-utils/loading-gen db)]
+            :http {:loading-gen (event-utils/loading-gen db)
+                   :method :post
                    :headers (authorization-headers db)
                    :url (url-for-route routes/dnd-e5-char-list-route)
                    :transit-params (assoc strict :orcpub.entity.strict/summary summary)
@@ -1049,8 +1008,9 @@
            (nat-int? (get-in built-character [:base-abilities ability-kw])))
          char5e/ability-keys)
       {:db db'
-       :dispatch [:set-loading true]
-       :http {:method :post
+       :dispatch [:set-loading true (event-utils/loading-gen db')]
+       :http {:loading-gen (event-utils/loading-gen db')
+              :method :post
               :headers (authorization-headers db')
               :url (url-for-route routes/dnd-e5-char-list-route)
               :transit-params (assoc strict :orcpub.entity.strict/summary summary)
@@ -1088,8 +1048,9 @@
                 (not (and (keyword? t) (not (s/blank? (name t)))))
                 (assoc ::mi/type :wondrous-item))
          strict-item (mi/from-internal-item item)]
-     {:dispatch [:set-loading true]
-      :http {:method :post
+     {:dispatch [:set-loading true (event-utils/loading-gen db)]
+      :http {:loading-gen (event-utils/loading-gen db)
+             :method :post
              :headers (authorization-headers db)
              :url (url-for-route routes/dnd-e5-items-route)
              :transit-params strict-item
@@ -1997,8 +1958,9 @@
 (reg-event-fx
  ::party5e/make-party
  (fn [{:keys [db]} [_ character-ids]]
-   {:dispatch [:set-loading true]
-    :http {:method :post
+   {:dispatch [:set-loading true (event-utils/loading-gen db)]
+    :http {:loading-gen (event-utils/loading-gen db)
+           :method :post
            :headers (authorization-headers db)
            :url (url-for-route routes/dnd-e5-char-parties-route)
            :transit-params (let [tokens (keep (fn [cid]
@@ -2023,8 +1985,9 @@
 (reg-event-fx
  ::party5e/make-empty-party
  (fn [{:keys [db]} [_]]
-   {:dispatch [:set-loading true]
-    :http {:method :post
+   {:dispatch [:set-loading true (event-utils/loading-gen db)]
+    :http {:loading-gen (event-utils/loading-gen db)
+           :method :post
            :headers (authorization-headers db)
            :url (url-for-route routes/dnd-e5-char-parties-route)
            :transit-params {::party5e/name "A New Party"}
@@ -2350,53 +2313,6 @@
              :url (backend-url path)}})))
 
 (reg-event-fx
- :change-email
- (fn [{:keys [db]} [_ new-email current-password]]
-   {:db (dissoc db :email-change-sent? :email-change-error)
-    :http {:method :put
-           :headers (authorization-headers db)
-           :url (backend-url (routes/path-for routes/user-email-route))
-           ;; The password is sent to be COMPARED, never stored and never read
-           ;; back: the server hands it to lookup-user, which checks the hash.
-           :transit-params {:new-email new-email
-                            :current-password current-password}
-           :on-success [:change-email-success]
-           :on-failure [:change-email-failure]}}))
-
-(reg-event-db
- :change-email-success
- (fn [db [_ response]]
-   (-> db
-       (assoc :email-change-sent? true)
-       ;; Use server-canonical (lowercased/trimmed) email for display
-       (assoc-in [:user-data :user-data :pending-email]
-                 (-> response :body :pending-email)))))
-
-(reg-event-db
- :change-email-failure
- (fn [db [_ response]]
-   (let [body (:body response)
-         error (:error body)]
-     (assoc db :email-change-error
-            (case error
-              :bad-credentials "That password is not right. The account stays on its current address."
-              :email-taken "That email address is already in use by another account."
-              :invalid-email "Please enter a valid email address."
-              :same-as-current "That is already your current email address."
-              :too-many-requests
-              (let [secs (:retry-after-secs body)]
-                (if (and secs (pos? secs))
-                  (if (<= secs 60)
-                    ;; 0–1 min zone: email is in transit, show short countdown
-                    (str "Your email is on its way. You can resend in " secs " second" (when (> secs 1) "s") ".")
-                    ;; 1–5 min zone for a different email: show minutes
-                    (let [mins (.ceil js/Math (/ secs 60))]
-                      (str "Please wait " mins " minute" (when (> mins 1) "s") " before requesting another change.")))
-                  "Please wait a few minutes before requesting another email change."))
-              :email-send-failed "Verification email could not be sent. Please try again later."
-              "There was an error updating your email. Please try again.")))))
-
-(reg-event-fx
  :withdraw-sessions
  (fn [{:keys [db]} _]
    {:http {:method :delete
@@ -2418,11 +2334,6 @@
  (fn [db _]
    (assoc db :sessions-withdraw-error
           "Could not sign your other sessions out. Please try again.")))
-
-(reg-event-db
- :change-email-clear
- (fn [db _]
-   (dissoc db :email-change-sent? :email-change-error)))
 
 ;; ─── Account Settings ──────────────────────────────────────────────
 ;; The account page re-reads the user on open: what the login response cached
@@ -2500,7 +2411,7 @@
           {:status :error
            :errors (get-in response [:body :errors])
            :error (when-not (get-in response [:body :errors])
-                    "Couldn't save that. Please try again.")})))
+                    (or (get-in response [:body :error]) "Couldn't save that. Please try again."))})))
 
 (reg-event-db
  :clear-account-save-status
@@ -2550,6 +2461,39 @@
  :dark-button-text-saved
  (fn [db _] db))
 
+;; One PDF file name choice (`k` of pdf-spec/file-name-defaults, value `v`). Kept like the button
+;; text: in this browser, and on the account when signed in; a failed save changes nothing here.
+;; One account write at a time: a choice made while one is in flight is sent when it returns.
+(defn- file-name-save-fx
+  "Effects that send the browser's current PDF file name format to the account, marking a write
+   in flight under ::file-name-save. `db` the app-db; returns {:db :http}."
+  [db]
+  {:db (assoc db ::file-name-save :pending)
+   :http {:method :put
+          :headers (authorization-headers db)
+          :url (backend-url (routes/path-for routes/user-route))
+          :transit-params {:pdf-file-name (get-in db [:user-data :pdf-file-name])}
+          :on-success [::char5e/file-name-format-saved]
+          :on-failure [::char5e/file-name-format-saved]}})
+
+(reg-event-fx
+ ::char5e/set-file-name-option
+ [user->local-store-interceptor]
+ (fn [{:keys [db]} [_ k v]]
+   (let [db (assoc-in db [:user-data :pdf-file-name]
+                      (assoc (get-in db [:user-data :pdf-file-name] {}) k v))]
+     (cond
+       (not (event-utils/get-auth-token db)) {:db db}
+       (::file-name-save db) {:db (assoc db ::file-name-save :again)}
+       :else (file-name-save-fx db)))))
+
+(reg-event-fx
+ ::char5e/file-name-format-saved
+ (fn [{:keys [db]} _]
+   (if (= :again (::file-name-save db))
+     (file-name-save-fx db)
+     {:db (dissoc db ::file-name-save)})))
+
 ;; The window crossed the phone breakpoint; the layout follows (:device-type).
 (reg-event-db
  :set-narrow-screen
@@ -2581,9 +2525,8 @@
 
 (defn- reconciled-character
   "Run the content reconcilers over `character` and report what they changed.
-
-   Shared by the two events below, which differ only in whether the portrait
-   draft survives -- everything about resolving renamed content is identical."
+   Shared by :set-character and :character-updated, which differ only in whether
+   the portrait draft survives."
   [db character]
   ;; db :plugins are already hydrated here -- ::e5/plugins is a sync cofx at
   ;; :initialize-db, so the reconcilers can trust loaded-class-keys and the
@@ -2624,29 +2567,15 @@
          :character-binding-report (when (or (seq (:unbound-classes binding-report))
                                              (seq (:subclass-mismatches binding-report)))
                                      binding-report)
-         ;; Cleared when there is nothing to report, which is what makes it
-         ;; self-resetting: after a save, the character is re-installed, the
-         ;; reconcilers find nothing left to fix, and the prompt goes away on its
-         ;; own rather than needing to be dismissed.
+         ;; nil after a save: the saved character is re-installed and nothing is left to heal.
          :character-healed (when (seq rewrote) {:rewrote rewrote})))
 
 (defn set-character
-  "Put a DIFFERENT character on screen: opening one, cloning, randomizing, New.
-
-   The portrait draft is dropped, unconditionally and without asking anything
-   about ids. Three review rounds went into guards that tried to work out
-   afterwards whether a replacement was really a switch, and each guard was
-   wrong in a way the next one found: a first save looks like a new id, two
-   never-saved characters share a nil one. The information was never in the
-   characters -- it is in which event the caller meant, so that is now what
-   they choose. Modifying the character on screen is :character-updated.
-
-   The one exception is a courtesy and nothing depends on it: re-opening the
-   SAME saved character (Edit, from a list, on the one already in the builder)
-   keeps the draft, so that is not a way to lose work. Unlike the guards it
-   replaced, this comparison cannot be wrong -- two different characters cannot
-   share a non-nil id, and a nil one is not a match. Nothing about a save
-   reaches it any more, so please do not make it load-bearing again."
+  "The :set-character db fn: put a DIFFERENT character on screen (open, clone, randomize,
+   New), reconciled, dropping the portrait draft. Modifying it is :character-updated.
+   Re-opening the same saved (non-nil) id keeps the draft, as a courtesy only.
+   Whether it is a switch is the caller's choice of event, never inferred from ids.
+   See PORTRAIT-COMPOSITOR.md, \"The draft and the character on screen\"."
   [db [_ character]]
   (let [id (:db/id character)
         same-saved-character? (and (some? id) (= id (:db/id (:character db))))]
@@ -2863,6 +2792,16 @@
  (fn [_ [_ built-char]]
    {:dispatch [:update-value-field ::char5e/character-name
                (generate-random-name built-char)]}))
+
+;; Gives the builder's character `character-name` when it is the character `id` (nil for one never
+;; saved) and still has no name: an export of an unnamed character names it, as Save does.
+(reg-event-fx
+ ::char5e/fill-blank-name
+ (fn [{:keys [db]} [_ id character-name]]
+   (when (and (= id (get-in db [:character :db/id]))
+              (s/blank? (get-in db [:character ::entity/values ::char5e/character-name])))
+     {:dispatch [:update-value-field ::char5e/character-name character-name]})))
+
 (reg-event-db
  :select-option
  character-interceptors
@@ -2889,21 +2828,14 @@
    ;; The read starts from the thumbnail's load instead, which it cannot run ahead of.
    (update character
            ::entity/values
-           assoc
-           ::char5e/image-url
-           image-url
-           ::char5e/image-url-failed
-           nil)))
+           #(-> (char5e/with-image-url % image-url)
+                (assoc ::char5e/image-url-failed nil)))))
 
 ;; ---- portrait compositor drawer ----
 ;;
-;; Editing state (open/closed, the in-progress draft, which color panels are
-;; expanded) lives at the TOP of app-db under :portrait/* keys — UI state,
-;; not part of the persisted character. Only :portrait/save writes back, and
-;; it writes an EDN STRING to ::char5e/portrait: ::se/values is a Datomic
-;; component ref, so every key in it must be a registered attribute and no
-;; attribute can hold a nested map (see db/schema.clj). The char5e/portrait
-;; getter parses it back.
+;; Drawer state lives at the top of app-db under :portrait/*, not in the character.
+;; Only :portrait/save writes back: an EDN string to ::char5e/portrait (see
+;; char5e/parse-portrait for why a string).
 
 (defn- seed-portrait-draft
   "Reset the draft to whatever the character currently has saved.
@@ -2928,14 +2860,58 @@
  (fn [db _]
    (cond-> db (nil? (:portrait/draft db)) seed-portrait-draft)))
 
+(defn- default-portrait-mode
+  "The mode the portrait editor opens in: :link when the character shows an image from the web,
+   else :compose (also when it has neither picture). Returns a keyword."
+  [db]
+  (if (= :image (char5e/shown-picture (get-in db [:character ::entity/values]))) :link :compose))
+
+(reg-event-db
+ :portrait/show-portrait
+ ;; "Switch to this portrait" with nothing edited: the saved portrait shows again, the image is kept
+ [set-changed db-char->local-store]
+ (fn [db _]
+   (-> (assoc-in db [:character ::entity/values ::char5e/picture-shown] "portrait")
+       (assoc :portrait/drawer-open? false))))
+
+(reg-event-db
+ :portrait/set-mode
+ (fn [db [_ mode]]
+   (assoc db :portrait/mode mode)))
+
 (reg-event-db
  :portrait/open
- (fn [db _]
+ (fn [db [_ mode]]
    ;; Keeps an existing draft rather than reseeding: the drawer and the inline
    ;; tab share one, so opening the drawer from the tab must not silently throw
    ;; away what is on the tab's canvas.
    (-> (cond-> db (nil? (:portrait/draft db)) seed-portrait-draft)
-       (assoc :portrait/drawer-open? true))))
+       (assoc :portrait/drawer-open? true
+              :portrait/mode (or mode (default-portrait-mode db))
+              :portrait/link-draft (get-in db [:character ::entity/values ::char5e/image-url])))))
+
+(reg-event-db
+ :portrait/set-link-draft
+ ;; the editor's link field edits this; nothing on the character changes until :portrait/use-link
+ (fn [db [_ url]]
+   (assoc db :portrait/link-draft url)))
+
+(reg-event-fx
+ :portrait/use-link
+ ;; "Use this image": the drafted link becomes the character's and shows; a saved portrait is kept
+ (fn [{:keys [db]} _]
+   (let [url (:portrait/link-draft db)]
+     (when-not (s/blank? url)
+       {:db (assoc db :portrait/drawer-open? false)
+        :dispatch-n [[:set-image-url url] [:portrait/discard-draft]]}))))
+
+(reg-event-fx
+ :portrait/remove-link
+ ;; "Remove image": the character's image address is cleared; a kept portrait shows again
+ ;; (char5e/shown-picture falls back to it)
+ (fn [{:keys [db]} _]
+   {:db (-> db seed-portrait-draft (assoc :portrait/drawer-open? false :portrait/link-draft nil))
+    :dispatch [:set-image-url ""]}))
 
 (reg-event-db
  :portrait/close
@@ -2981,15 +2957,26 @@
                  (dispatch [:portrait/artists-loaded body]))))
          {:db (assoc db :portrait/artists-requested? true)}))))
 
-;; Randomize and Reset touch :layers only — the character's colors persist
-;; across rerolls, which is what "my character's colors" should mean.
+;; Randomize rerolls everything (portrait-view/roll), the colours too unless Keep colours is on.
+;; Reset touches :layers only.
 (reg-event-db
  :portrait/randomize
  (fn [db _]
    (let [seed (portrait-assets5e/random-seed)]
      (-> db
          (assoc :portrait/draft-seed seed)
-         (assoc-in [:portrait/draft :layers] (portrait-assets5e/compose-for-seed seed))))))
+         (update :portrait/draft #(portrait-view/roll seed (or % {}) (:portrait/keep-colours? db)))))))
+
+(reg-event-db
+ :portrait/discard-draft
+ ;; After switching to an image: unsaved portrait edits go; the next open seeds from the saved portrait.
+ (fn [db _]
+   (dissoc db :portrait/draft :portrait/draft-seed)))
+
+(reg-event-db
+ :portrait/toggle-keep-colours
+ (fn [db _]
+   (update db :portrait/keep-colours? not)))
 
 (reg-event-db
  :portrait/reset
@@ -3101,7 +3088,7 @@
    ;; dirty indicator clears and the inline tab carries on showing the portrait
    ;; instead of emptying itself the moment you save it.
    (let [draft (get db :portrait/draft portrait-assets5e/empty-portrait)]
-     (cond-> (assoc-in db [:character ::entity/values ::char5e/portrait] (pr-str draft))
+     (cond-> (update-in db [:character ::entity/values] char5e/with-saved-portrait draft)
        (not keep-open?) (assoc :portrait/drawer-open? false)))))
 
 #_ ;; never dispatched from UI
@@ -3200,6 +3187,15 @@
  :toggle-inventory-item-equipped
  character-interceptors
  toggle-inventory-item-equipped)
+
+(defn change-item-charges
+  "`character` with `n` charges spent from (n positive) or given back to (n negative) the `i`th
+  `item` (key `item-key`) carried under `selection-key`. Spending more than is left changes nothing."
+  [character selection-key item-key item i n]
+  (rests/update-carried character selection-key item-key
+                       (fn [entry] (if (pos? n)
+                                     (or (mi/spend-charges item entry i n) entry)
+                                     (mi/regain-charges item entry i (- n))))))
 
 (defn toggle-custom-inventory-item-equipped [character [_ custom-equipment-key item-index]]
   (common/toggle-in
@@ -3479,7 +3475,12 @@
                                                    js/window.location.hostname
                                                    path
                                                    js/window.location.port)))
-         (cond-> {:db (assoc db :route new-route)
+         ;; the Rest box's Undo belongs to the page it was made on; a page change also clears the
+         ;; spinner, which a handler that threw before its decrement would otherwise hold up
+         (cond-> {:db (-> db
+                          (assoc :route new-route :loading 0)
+                          (update :loading-gen (fnil inc 0))
+                          (dissoc ::char5e/rest-result :weapon-roll/chain))
                   :dispatch-n [[:hide-message]
                                [:close-orcacle]]}
            (not no-return?) (assoc-in [:db :return-route] new-route)
@@ -3519,23 +3520,18 @@
  (fn [db [_ user-data]]
    (update db :user-data merge user-data)))
 
-(reg-event-db
- :clear-login
- [user->local-store-interceptor]
- (fn [db [_ user-data]]
-   (update db :user-data dissoc :user-data :token)))
-
-;; Startup auth check — validates stored token on app load (core.cljs).
+;; Startup auth check — validates stored token on app load (core.cljs) and keeps the account it
+;; answers in db :user, the one GET /user of a page load.
 ;; Clears stale sessions before reg-sub-raw subs fire HTTP with expired tokens.
 (reg-event-fx
  :verify-user-session
  (fn [{:keys [db]} _]
-   (if (event-utils/get-auth-token db)
+   (if-let [token (event-utils/get-auth-token db)]
      (do (go (let [response (<! (http/get (url-for-route routes/user-route)
                                           {:headers (authorization-headers db)}))]
                (case (:status response)
-                 200 nil
-                 401 (do (dispatch [:clear-login])
+                 200 (dispatch [:set-user-for-token token (:body response)])
+                 401 (do (dispatch [:clear-login token])
                          (dispatch [:set-loading false]))
                  nil)))
          {})
@@ -3545,6 +3541,14 @@
  :set-user
  (fn [db [_ user-data]]
    (assoc db :user user-data)))
+
+;; Keeps the account GET /user answered for `token` only while that is still the login: a logout or
+;; another sign-in while the request was out must not get the old account back.
+(reg-event-db
+ :set-user-for-token
+ (fn [db [_ token user-data]]
+   (cond-> db
+     (= token (event-utils/get-auth-token db)) (assoc :user user-data))))
 
 #_ ;; never dispatched from UI
   (defn set-active-tabs [db [_ active-tabs]]
@@ -3556,14 +3560,17 @@
    set-active-tabs)
 
 (defn set-loading
-  "Loading is a counter, not a boolean. true increments, false decrements.
-   Overlay shows when > 0. Multiple parallel HTTP calls no longer fight."
-  [db [_ v]]
-  (let [current (or (:loading db) 0)]
-    (assoc db :loading
-           (if v
-             (inc current)
-             (max 0 (dec current))))))
+  "Handler for [:set-loading v gen]: the spinner is a counter, shown while above 0; true
+   increments, false decrements (never below 0). With `gen`, the event counts only if `gen` is
+   still the page generation (event-utils/loading-gen); without it, it always counts. Returns db."
+  [db [_ v gen]]
+  (if (and (some? gen) (not= gen (event-utils/loading-gen db)))
+    db
+    (let [current (or (:loading db) 0)]
+      (assoc db :loading
+             (if v
+               (inc current)
+               (max 0 (dec current)))))))
 
 (reg-event-db
  :set-loading
@@ -3740,12 +3747,6 @@
               ::entity/value]
              name)))
 
-(defn cookies []
-  (let [cookie js/document.cookie]
-    (into {}
-          (map #(s/split % "="))
-          (s/split cookie "; "))))
-
 (def show-generic-error event-utils/show-generic-error)
 
 (reg-fx
@@ -3754,8 +3755,8 @@
    (let [final-cfg (if auth-token
                      (assoc-in cfg [:headers "Authorization"] (str "Token " auth-token))
                      cfg)]
-     (go (let [response (<! (http/request final-cfg))]
-           (dispatch [:set-loading false])
+     (go (let [response (<! (http/request (dissoc final-cfg :loading-gen)))]
+           (dispatch [:set-loading false (:loading-gen cfg)])
            (if (<= 200 (:status response) 299)
              (when on-success (dispatch (conj on-success response)))
              (if (= 401 (:status response))
@@ -3770,253 +3771,6 @@
  :path
  (fn [path]
    (.pushState js/window.history {} nil path)))
-
-(def login-url (backend-url "/login"))
-
-(reg-event-fx
- :login-success
- [user->local-store-interceptor]
- (fn [{:keys [db]} [_ backtrack? response]]
-   ;; A button-text choice saved on the account wins over this browser's.
-   {:db (let [account-choice (-> response :body :user-data :dark-button-text?)]
-          (cond-> (update db :user-data merge (-> response :body))
-            (some? account-choice) (assoc-in [:user-data :dark-button-text?] account-choice)))
-    :dispatch [:route (or
-                       (:return-route db)
-                       routes/dnd-e5-char-builder-route)]}))
-
-(defn sign-in-failed-message []
-  ;; Deliberately vague about which half was wrong: naming the username as unknown
-  ;; would make this form a membership-disclosure oracle. See account-flows.md.
-  [:show-login-message
-   [:div "That username and password do not match. Usernames and passwords are case sensitive, "
-    "email addresses are not. If you have not signed up yet you can "
-    [:a {:href (routes/path-for routes/register-page-route)} "register"] "."]])
-
-(defn dispatch-login-failure [message]
-  {:dispatch-n [[:clear-login]
-                [:show-login-message message]]})
-
-(reg-event-fx
- :login-failure
- (fn [{:keys [db]} [_ response]]
-   (let [error-code (-> response :body :error)]
-     (cond
-       (= error-code errors/username-required) (dispatch-login-failure "Username is required.")
-       (= error-code errors/too-many-attempts) (dispatch-login-failure "Too many attempts just now. Wait a minute and try again.")
-       (= error-code errors/password-required) (dispatch-login-failure "Password is required.")
-       (= error-code errors/bad-credentials) {:dispatch-n [[:clear-login]
-                                                           (sign-in-failed-message)]}
-       (= error-code errors/unverified) {:db (assoc db :temp-email (-> response :body :email))
-                                         :dispatch [:route routes/verify-sent-route]}
-       (= error-code errors/unverified-expired) {:dispatch [:route routes/verify-failed-route]}
-       :else (dispatch-login-failure
-              (if (seq branding/support-email)
-                [:div "An error occurred. If the problem persists please email "
-                 [:a {:href (str "mailto:" branding/support-email) :target :blank} branding/support-email]]
-                [:div "An error occurred. Please try again later."]))))))
-
-(reg-event-fx
- :logout
- ;; Only the player's own Log Out: the builder starts fresh, the draft stays under its account.
- ;; An expired session clears the login (:clear-login) without touching the builder.
- (fn [cofx [_ response]]
-   {:dispatch-n [[:clear-login] [:reset-character]]}))
-
-(def login-routes
-  #{routes/login-page-route
-    routes/register-page-route
-    routes/verify-sent-route
-    routes/reset-password-page-route
-    routes/verify-failed-route
-    routes/verify-success-route
-    routes/send-password-reset-page-route
-    routes/password-reset-success-route
-    routes/password-reset-expired-route
-    routes/password-reset-used-route
-    routes/unsubscribe-success-route})
-
-(reg-event-fx
- :login
- (fn [{:keys [db]} [_ params backtrack?]]
-   {:http {:method :post
-           :url login-url
-           :json-params params
-           :on-success [:login-success backtrack?]
-           :on-unauthorized [:login-failure]}}))
-
-(reg-event-db
- :register-success
- (fn [db [_ backtrack? response]]
-   ;; A deployment with no EMAIL_SERVER_URL verifies on creation and says so
-   ;; with :verified? -- sending such a user to "check your email" would point
-   ;; them at a mail that is never coming.
-   (let [verified? (get-in response [:body :verified?])]
-     (-> db
-         (update :user-data merge (:body response))
-         (assoc :route (if verified? :verify-success :verify-sent))))))
-
-(reg-event-db
- :registration-attempted
- ;; Set when JOIN is pressed on a form that is not ready. The button no longer
- ;; dims -- a control that looks dead teaches people the site is broken rather
- ;; than that their form is -- so pressing it has to SAY something instead.
- (fn [db _]
-   (assoc db :registration-attempted? true)))
-
-(reg-event-fx
- :register-failure
- ;; :registration-server-errors holds what only the server can judge, shown by field; any other
- ;; failure becomes a :general notice, so no server-side failure is silent. account-flows.md.
- (fn [{:keys [db]} [_ response]]
-   (let [body (:body response)]
-     {:db (assoc db :registration-server-errors
-                 (cond
-                   (= :email-not-configured (:error body))
-                   {:general ["Registration is currently unavailable. Please contact the site administrator."]}
-                   (and (map? body) (not (contains? body :error))) body
-                   :else {:general ["Registration failed. Please try again."]}))
-      :dispatch [:clear-login]})))
-
-#_ ;; dead stub — real impl is orcpub.registration/validate-registration
-  (defn validate-registration [])
-
-
-(reg-event-db
- :email-taken
- (fn [db [_ response]]
-   (assoc db :email-taken? (-> response :body (= "true")))))
-
-(reg-event-db
- :username-taken
- (fn [db [_ response]]
-   (assoc db :username-taken? (-> response :body (= "true")))))
-
-#_ ;; never dispatched — registration form uses :register-first-and-last-name
-  (reg-event-db
-   :registration-first-and-last-name
-   (fn [db [_ first-and-last-name]]
-     (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
-
-(reg-event-fx
- :registration-email
- (fn [{:keys [db]} [_ email]]
-   {:db (assoc-in db [:registration-form :email] email)
-    :dispatch [:check-email email]}))
-
-(reg-event-fx
- :registration-verify-email
- (fn [{:keys [db]} [_ email]]
-   {:db (assoc-in db [:registration-form :verify-email] email)}))
-
-(reg-event-fx
- :registration-username
- (fn [{:keys [db]} [_ username]]
-   {:db (assoc-in db [:registration-form :username] username)
-    :dispatch [:check-username username]}))
-
-(reg-event-db
- :registration-password
- (fn [db [_ password]]
-   (-> db
-       ;; What the server said was about the password it was sent, not this one.
-       (dissoc :registration-server-errors)
-       (assoc-in [:registration-form :password] password))))
-
-(reg-event-db
- :registration-password-revealed?
- ;; In the db rather than a local atom: whatever decides the form may be
- ;; submitted has to know the confirmation is not being asked for, and a reveal
- ;; hidden inside the field component is invisible to it.
- (fn [db [_ revealed?]]
-   (assoc-in db [:registration-form :password-revealed?] revealed?)))
-
-(reg-event-db
- :registration-verify-password
- (fn [db [_ password]]
-   (-> db
-       (dissoc :registration-server-errors)
-       (assoc-in [:registration-form :verify-password] password))))
-
-(reg-event-db
- :registration-send-updates?
- (fn [db [_ send-updates?]]
-   (assoc-in db [:registration-form :send-updates?] send-updates?)))
-
-#_ ;; never dispatched from UI
-  (reg-event-db
-   :register-first-and-last-name
-   (fn [db [_ first-and-last-name]]
-     (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
-
-(reg-event-fx
- :check-email
- (fn [{:keys [db]} [_ email]]
-   {:http {:method :get
-           :url (backend-url (bidi/path-for routes/routes routes/check-email-route))
-           :query-params {:email email}
-           :on-success [:email-taken]}}))
-
-(reg-event-fx
- :check-username
- (fn [{:keys [db]} [_ username]]
-   {:http {:method :get
-           :url (backend-url (bidi/path-for routes/routes routes/check-username-route))
-           :query-params {:username username}
-           :on-success [:username-taken]}}))
-
-(reg-event-fx
- :register
- (fn [{:keys [db]} [_ params backtrack?]]
-   (let [registration-form (:registration-form db)]
-     {:db (assoc db :temp-email (:email registration-form))
-      :http {:method :post
-             :url (backend-url (bidi/path-for routes/routes routes/register-route))
-             :json-params registration-form
-             :on-success [:register-success backtrack?]
-             :on-failure [:register-failure]}})))
-
-(reg-event-db
- :re-verify-success
- (fn [db [_ response]]
-   ;; With no SMTP and ALLOW_UNVERIFIED_REGISTRATION set, a resend verifies the
-   ;; account on the spot and says so -- "check your email" would leave the user
-   ;; waiting for a message that is never sent.
-   (assoc db :route (if (get-in response [:body :verified?])
-                      routes/verify-success-route
-                      routes/verify-sent-route))))
-
-(reg-event-fx
- :re-verify
- (fn [{:keys [db]} [_ params]]
-   {:db (assoc db :temp-email (:email params))
-    :http {:method :get
-           :url (backend-url (bidi/path-for routes/routes routes/re-verify-route))
-           :query-params params
-           :on-success [:re-verify-success]}}))
-
-(reg-event-db
- :send-password-reset-success
- (fn [db []]
-   (assoc db :route routes/password-reset-sent-route)))
-
-(reg-event-fx
- :send-password-reset-failure
- ;; The endpoint answers 200 for every address now, so :no-account cannot arrive
- ;; here and the branch that handled it is gone. Anything reaching this handler
- ;; is a network or server fault, which is what the generic error is for.
- (fn [_ _]
-   (show-generic-error)))
-
-(reg-event-fx
- :send-password-reset
- (fn [{:keys [db]} [_ params]]
-   {:db (assoc db :temp-email (:email params))
-    :http {:method :get
-           :url (backend-url (bidi/path-for routes/routes routes/send-password-reset-route))
-           :query-params params
-           :on-success [:send-password-reset-success]
-           :on-failure [:send-password-reset-failure]}}))
 
 ;; never dispatched — character loading uses :load-user-data flow
 #_(reg-event-db
@@ -4036,58 +3790,33 @@
              :on-success [:load-characters-success]}}))
 
 (reg-event-db
- :password-reset-success
- (fn [db []]
-   (assoc db :route routes/password-reset-success-route)))
-
-(reg-event-fx
- :password-reset-failure
- ;; The same bug :register-failure had: the body was thrown away and replaced
- ;; with one generic sentence, so a password refused for being a common one said
- ;; only that something had gone wrong, and the obvious next move was to try the
- ;; same password again. The server's reasons are field-keyed; keep them.
- (fn [{:keys [db]} [_ response]]
-   (let [errors (when (map? (:body response)) (:body response))]
-     (cond
-       ;; An expired or used link: nothing in the form can fix it.
-       (:general errors) (dispatch-login-failure (first (:general errors)))
-       (seq errors)
-       {:db (assoc db :password-reset-server-errors errors)}
-       :else
-       ;; A failure with nothing to say -- a network drop, a 500 -- still needs
-       ;; to say something.
-       (dispatch-login-failure "There was an error resetting your password.")))))
-
-(reg-event-db
- :password-reset-clear-errors
- ;; What the server said was about the password it was sent, not this one.
- (fn [db _]
-   (dissoc db :password-reset-server-errors)))
-
-(reg-event-fx
- :password-reset
- ;; The link's key is the only authority the server takes for a reset; there is no session.
- (fn [{:keys [db]} [_ params]]
-   (let [reset-key (.get (js/URLSearchParams. (.. js/window -location -search)) "key")]
-     {:db (assoc db :temp-email (:email params))
-      :http {:method :post
-             :url (backend-url (bidi/path-for routes/routes routes/reset-password-route))
-             ;; A revealed password has no confirm box; the server still compares the two fields.
-             :json-params {:password (:password params)
-                           :verify-password (if (:password-revealed? params)
-                                              (:password params)
-                                              (:verify-password params))
-                           :key reset-key}
-             :on-success [:password-reset-success]
-             :on-unauthorized [:password-reset-failure]
-             :on-failure [:password-reset-failure]}})))
-
-(reg-event-db
  ::char5e/set-characters
  (fn [db [_ characters]]
    (assoc db
           ::char5e/characters characters
           ::char5e/summary-map (common/map-by-id characters))))
+
+(reg-event-db
+ :weapon-roll/add
+ ;; One roll joins the turn's chain: {:weapon :name :mod :two-handed? :toggles :attack :damage}.
+ (fn [db [_ entry]]
+   (update db :weapon-roll/chain (fnil conj []) entry)))
+
+(reg-event-db
+ :weapon-roll/damage
+ (fn [db [_ damage]]
+   (update db :weapon-roll/chain #(conj (pop %) (assoc (peek %) :damage damage)))))
+
+(reg-event-db
+ :weapon-roll/set-mode
+ ;; The sticky attack mode from the Weapons header: :normal, :adv or :dis.
+ (fn [db [_ mode]]
+   (assoc db :weapon-roll/mode mode)))
+
+(reg-event-db
+ :weapon-roll/done
+ (fn [db _]
+   (dissoc db :weapon-roll/chain)))
 
 (reg-event-db
  ::mi/set-custom-items
@@ -4637,6 +4366,7 @@
   "Where each SRD data file is served from, by kind."
   {:conditions srd-conditions/data-path
    :rules srd-rules/data-path
+   :spell-rolls "/srd/2014/spell-rolls.edn"
    :clarifications srd-rules/notes-path})
 
 (reg-fx
@@ -4786,6 +4516,9 @@
    for re-applying after a refused save). When the builder has that character open, the edit is
    applied there too. With no `id` the character is unsaved, so the edit goes to the builder's copy."
   [db id update-fn]
+  ;; Any sheet edit closes an open Rest result, so its Undo cannot overwrite the edit; the rest
+  ;; events put their own result back (with-rest-result).
+  (let [db (dissoc db ::char5e/rest-result)]
   (if id
     (let [int-id (js/parseInt id)
           stored (get-in db [::char5e/character-map int-id])
@@ -4801,7 +4534,7 @@
         (and open (not (:draft/held db))) (assoc ::builder-draft->local-store open)))
     ;; No id: the character being built has never been saved, so this is an
     ;; edit to the one in hand, not a switch.
-    {:dispatch [:character-updated (update-fn (:character db))]}))
+    {:db db :dispatch [:character-updated (update-fn (:character db))]})))
 
 (reg-fx
  ::builder-draft->local-store
@@ -4852,6 +4585,87 @@
      (when (and before (= id undo-id))
        (-> (update-character-fx db id (constantly before))
            (update :db dissoc ::inventory/undo))))))
+
+(reg-event-fx
+ ::char5e/change-item-charges
+ (fn [{:keys [db]} [_ id selection-key item-key item i n]]
+   (update-character-fx db id #(change-item-charges % selection-key item-key item i n))))
+
+(reg-event-fx
+ ::char5e/set-item-charges-max
+ (fn [{:keys [db]} [_ id selection-key item-key i n]]
+   (update-character-fx db id #(rests/update-carried % selection-key item-key
+                                                    (fn [entry] (mi/set-charge entry i ::char-equip5e/charges-max n))))))
+
+;; The Rest box (handoff-rest-controls.md): its last action, kept until its line is closed, so
+;; Undo can put the character back and a typed amount can replace a roll.
+(defn- current-character
+  "The character a sheet event changes: the saved one with `id`, else the builder's."
+  [db id]
+  (if id (get-in db [::char5e/character-map (js/parseInt id)] {}) (:character db)))
+
+(defn- with-rest-result
+  "The effects of setting the character to `character` (update-character-fx) plus the Rest box's
+  result `result` (nil removes it), whether or not the effects already carry a :db."
+  [db id character result]
+  (let [fx (update-character-fx db id (constantly character))
+        db' (or (:db fx) db)]
+    (assoc fx :db (if result (assoc db' ::char5e/rest-result result) (dissoc db' ::char5e/rest-result)))))
+
+(defn- rest-outcome
+  "The rest result for `request` applied to the `before` character: the new character and what
+  came back. `amounts` holds typed amounts ({[item-key i] n})."
+  [before items-by-key request amounts]
+  (rests/apply-actions before (rests/carried before items-by-key) request amounts dice/die-roll))
+
+(defn- kept-amounts
+  "`amounts` ({[item-key i] n}) with every recharge in `recharged` added, rolled or typed, so a
+  later change to one amount or the time of day re-applies them rather than rolling again."
+  [amounts recharged]
+  (into amounts (map (fn [{:keys [item-key i amount]}] [[item-key i] amount])) recharged))
+
+(reg-event-fx
+ ::char5e/take-rest
+ (fn [{:keys [db]} [_ id request items-by-key]]
+   (let [before (current-character db id)
+         {:keys [character recharged]} (rest-outcome before items-by-key request {})
+         ask? (rests/ask-time-of-day? before (rests/carried before items-by-key) request)]
+     (with-rest-result db id character
+       {:id id :before before :request request :items-by-key items-by-key
+        :amounts (kept-amounts {} recharged) :recharged recharged :ask? ask?}))))
+
+(defn- current-rest-result
+  "The stored Rest box result if it belongs to character `id`, else nil: a second queued click
+  can arrive after Undo or a route change has cleared it."
+  [db id]
+  (let [r (::char5e/rest-result db)] (when (and r (= id (:id r))) r)))
+
+(reg-event-fx
+ ::char5e/answer-time-of-day
+ (fn [{:keys [db]} [_ id times]]
+   (when-let [{:keys [before request items-by-key amounts] :as result} (current-rest-result db id)]
+     (let [request (assoc request :times times)
+           {:keys [character recharged]} (rest-outcome before items-by-key request amounts)]
+       (with-rest-result db id character (assoc result :request request :recharged recharged :ask? false
+                                                :amounts (kept-amounts amounts recharged)))))))
+
+(reg-event-fx
+ ::char5e/set-rest-amount
+ (fn [{:keys [db]} [_ id item-key i n]]
+   (when-let [{:keys [before request items-by-key amounts] :as result} (current-rest-result db id)]
+     (let [amounts (assoc amounts [item-key i] n)
+         {:keys [character recharged]} (rest-outcome before items-by-key request amounts)]
+     (with-rest-result db id character (assoc result :amounts (kept-amounts amounts recharged) :recharged recharged))))))
+
+(reg-event-fx
+ ::char5e/undo-rest
+ (fn [{:keys [db]} [_ id]]
+   (when-let [{:keys [before]} (current-rest-result db id)]
+     (with-rest-result db id before nil))))
+
+(reg-event-db
+ ::char5e/close-rest-result
+ (fn [db _] (dissoc db ::char5e/rest-result)))
 
 (reg-event-fx
  ::char5e/toggle-spell-prepared
@@ -4991,18 +4805,18 @@
 (reg-event-fx
  ::char5e/finish-long-rest
  (fn [{:keys [db]} [_ id]]
-   (clear-period db
-                 id
-                 (fn [character]
-                   (update
-                    character
-                    ::entity/values
-                    dissoc
-                    ::spells/slots-used
-                    character
-                    ::char5e/current-hit-points ::char5e/max-hit-points))
-                 ::units5e/long-rest
-                 ::units5e/rest)))
+   (apply clear-period
+          db
+          id
+          (fn [character]
+            (update
+             character
+             ::entity/values
+             dissoc
+             ::spells/slots-used
+             character
+             ::char5e/current-hit-points ::char5e/max-hit-points))
+          units5e/long-rest-clears)))
 
 (reg-event-fx
  ::char5e/finish-short-rest-warlock
@@ -5020,7 +4834,7 @@
 (reg-event-fx
  ::char5e/finish-short-rest
  (fn [{:keys [db]} [_ id]]
-   (clear-period db id nil ::units5e/short-rest ::units5e/rest)))
+   (apply clear-period db id nil units5e/short-rest-clears)))
 
 (reg-event-fx
  ::char5e/new-round
@@ -5415,17 +5229,38 @@
  (fn [race [_ prop-path prop-value]]
    (assoc-in race prop-path prop-value)))
 
+;; Applies `f` to the stored value, so an edit made twice before a redraw builds on the first.
+(reg-event-db
+ ::race5e/update-race-path-prop
+ race-interceptors
+ (fn [race [_ prop-path f]]
+   (update-in race prop-path f)))
+
 (reg-event-db
  ::race5e/set-subrace-path-prop
  subrace-interceptors
  (fn [subrace [_ prop-path prop-value]]
    (assoc-in subrace prop-path prop-value)))
 
+;; Applies `f` to the stored value, so an edit made twice before a redraw builds on the first.
+(reg-event-db
+ ::race5e/update-subrace-path-prop
+ subrace-interceptors
+ (fn [subrace [_ prop-path f]]
+   (update-in subrace prop-path f)))
+
 (reg-event-db
  ::bg5e/set-background-prop
  background-interceptors
  (fn [background [_ prop-key prop-value]]
    (assoc background prop-key prop-value)))
+
+;; Applies `f` to the stored value, so an edit made twice before a redraw builds on the first.
+(reg-event-db
+ ::bg5e/update-background-prop
+ background-interceptors
+ (fn [background [_ prop-key f]]
+   (update background prop-key f)))
 
 (reg-event-db
  ::langs5e/set-language-prop
@@ -5468,6 +5303,13 @@
  subclass-interceptors
  (fn [subclass [_ prop-key prop-value]]
    (assoc subclass prop-key prop-value)))
+
+;; Applies `f` to the stored value, so an edit made twice before a redraw builds on the first.
+(reg-event-db
+ ::class5e/update-subclass-prop
+ subclass-interceptors
+ (fn [subclass [_ prop-key f]]
+   (update subclass prop-key f)))
 
 (reg-event-db
  ::class5e/toggle-save-prof
@@ -5584,6 +5426,13 @@
  feat-interceptors
  (fn [feat [_ prop-key prop-value]]
    (assoc feat prop-key prop-value)))
+
+;; Applies `f` to the stored value, so an edit made twice before a redraw builds on the first.
+(reg-event-db
+ ::feats5e/update-feat-prop
+ feat-interceptors
+ (fn [feat [_ prop-key f]]
+   (update feat prop-key f)))
 
 #_ ;; never dispatched from UI
   (reg-event-db
@@ -5740,10 +5589,12 @@
  ::feats5e/toggle-feat-ability-increase
  feat-interceptors
  (fn [feat [_ ability-key]]
-   (update feat :ability-increases (fn [s]
-                                     (if (s ability-key)
-                                       (disj s ability-key)
-                                       (conj s ability-key))))))
+   ;; the checkboxes edit the released set; anything else here (nil, an emptied spread) starts one
+   (update feat :ability-increases (fn [v]
+                                     (let [s (if (set? v) v #{})]
+                                       (if (s ability-key)
+                                         (disj s ability-key)
+                                         (conj s ability-key)))))))
 
 (reg-event-db
  ::feats5e/toggle-ability-prereq
@@ -6233,15 +6084,11 @@
  ::e5/store-plugins
  (fn [{:keys [db]} [_ plugins on-success]]
    ;; Import paths: re-importing a source replaces what it held (homebrew-keys-design.md §9, Q4).
-   (let [changed (not-empty (set (for [[src p] plugins
-                                       :when (not (identical? p (get (:plugins db) src)))]
-                                   src)))
-         {:keys [ok?] :as committed} (commit-library db plugins {:deleting? true :on-success on-success})]
+   ;; the entries it changes are checked for one that breaks the character options by the
+   ;; homebrew-shapes interceptor, now rather than the next time someone opens the builder
+   (let [{:keys [ok?] :as committed} (commit-library db plugins {:deleting? true :on-success on-success})]
      (cond-> (select-keys committed [:db :dispatch-n])
-       ok? (update :db dissoc :homebrew-reported)
-       ;; check the sources this import changed for an entry that breaks the character
-       ;; options, now rather than the next time someone opens the builder
-       (and ok? changed) (assoc ::homebrew-check/check-builds changed)))))
+       ok? (update :db dissoc :homebrew-reported)))))
 
 ;; `plugins->local-store` dispatches this when the localStorage write
 ;; fails (typically a full quota). The save lives in memory but would vanish on
@@ -6338,9 +6185,9 @@
          (if-not ok?
            {:db db' :dispatch-n refused}
            (do (set-rejected-plugins new-rejected)
+               ;; a restored entry that still breaks the character options is set aside again,
+               ;; by the homebrew-shapes interceptor's check of what this wrote
                {:db (-> db' (assoc :quarantined-plugins new-rejected) (dissoc :homebrew-reported))
-                ;; a restored entry that still breaks the character options is set aside again
-                ::homebrew-check/check-builds (when (pos? n-fixed) #{source-name})
                 :dispatch [(if (pos? n-fixed) :show-warning-message :show-error-message)
                            (restore-message source-name bad kept-items still-bad)]})))))))
 
@@ -6390,28 +6237,47 @@
      {} data)
     data))
 
-(defn serialize-orcbrew
-  "Pure serialize of homebrew content to .orcbrew text — no side effects, so it's
-   unit-testable and shared by every export path. pretty-print? is opt-in: pprint
-   inflates 3–5MB files to ~10–20MB and can freeze the UI."
-  [data & {:keys [pretty-print?]}]
-  (if pretty-print?
-    (with-out-str (pprint/pprint data))
-    (str data)))
+(defn orcbrew-text
+  "The .orcbrew text for `data`: classes collapsed, then `stamp`ed into the v2 envelope IFF it uses
+   features an old build cannot read. Text passes through as it is. With `:raw?` (the escape-hatch
+   exports) a step that throws on malformed data falls back to the data as written, so the
+   download always happens."
+  [data & {:keys [pretty-print? raw?]}]
+  ;; collapse-class BEFORE stamp: map-plugin-classes walks the raw
+  ;; {source {content-type {key item}}} shape, which stamp then wraps in the v2 envelope.
+  (let [full #(orcbrew-format/serialize-orcbrew
+               (orcbrew-format/stamp (map-plugin-classes sel/collapse-class data))
+               :pretty-print? pretty-print?)]
+    (cond
+      (string? data) data
+      raw?           (try (full) (catch :default _ (str data)))
+      :else          (full))))
 
 (defn- save-orcbrew-blob!
-  "Serialize plugin data to a .orcbrew file and trigger download. The only side
-   effect; serialization lives in the pure `serialize-orcbrew`. With `:raw?`, `data`
-   is already text and is written as it is, for a library that could not be read."
-  [filename data & {:keys [pretty-print? raw?]}]
-  (let [content (if raw?
-                  data
-                  (serialize-orcbrew (map-plugin-classes sel/collapse-class data)
-                                     :pretty-print? pretty-print?))
+  "Write `orcbrew-text` of `data` to `filename` and trigger the download; the only side effect.
+   `:content-type` (default text/plain;charset=utf-8) is the file's type; text data is written as is;
+   `:no-bom?` leaves off the byte-order mark the saver adds to text files."
+  [filename data & {:keys [pretty-print? raw? content-type no-bom?]}]
+  (let [content (orcbrew-text data :pretty-print? pretty-print? :raw? raw?)
         blob (js/Blob.
               (clj->js [content])
-              (clj->js {:type "text/plain;charset=utf-8"}))]
-    (js/saveAs blob filename)))
+              (clj->js {:type (or content-type "text/plain;charset=utf-8")}))]
+    (js/saveAs blob filename (boolean no-bom?))))
+
+(defn- save-source!
+  "The final write of a per-source or all-sources export. With `:format :markdown` in `opts` it
+   downloads `data` (one source) as `<title>.md` Markdown, lending it the selections of `library`
+   ({source-name source}); otherwise `data` goes to `filename` as .orcbrew text, `:pretty-print?`
+   applying. Returns the Markdown coverage notice (a sentence) for the caller to show beside its
+   own message, else nil."
+  [filename title data library {:keys [format pretty-print?]}]
+  (if (= :markdown format)
+    (let [{:keys [filename content-type text notice]}
+          (homebrew-markdown/export-file data title library)]
+      (save-orcbrew-blob! filename text :content-type content-type :no-bom? true)
+      notice)
+    (do (save-orcbrew-blob! filename data :pretty-print? pretty-print?)
+        nil)))
 
 (defn reg-export-draft
   "Register a builder-level 'export draft' event: dump the in-progress builder-item
@@ -6430,7 +6296,8 @@
                item-kw  (if (s/blank? name) :draft-item (common/name-to-kw name))
                plugin   {src {plugin-key {item-kw (assoc item :key item-kw)}}}
                filename (str (if (s/blank? name) "draft" name) "-draft.orcbrew")]
-           (save-orcbrew-blob! filename plugin)
+           ;; an escape hatch like the raw exports: a draft whose class collapse throws still downloads
+           (save-orcbrew-blob! filename plugin :raw? true)
            {:dispatch [:show-warning-message
                        (str "Draft exported to '" filename
                             "' (unvalidated WIP). Keep it safe; re-import to continue.")]}))))))
@@ -6605,13 +6472,12 @@
     handed))
 
 (defn- validate-and-show-modal-or-export
-  "Shared export path for one source, used by export-plugin and
-   export-plugin-pretty-print. Runs the same correction gate Export All runs
-   (text normalization, semantic cleaning, option dedup) so a per-source file
-   and an all-sources file agree on the same content, then either shows the
-   fill-in modal (missing fields), writes the file (valid), or shows an error
-   (spec failure). The library itself is not changed."
-  [db plugin-name handed {:keys [pretty-print?]}]
+  "Shared export path for one source (export-plugin, its pretty-print and Markdown variants).
+   Runs the correction gate Export All runs, then shows the fill-in modal (missing fields),
+   writes the file through `save-source!` (valid), or shows an error (spec failure).
+   `opts`: :pretty-print?, and :format :markdown for the Markdown file. The library is not
+   changed."
+  [db plugin-name handed {:keys [pretty-print? format] :as opts}]
   (let [library (:plugins db)
         plugin (export-source library plugin-name handed)
         {corrected :plugin cleanup-changes :changes}
@@ -6637,21 +6503,24 @@
                                     :plugin corrected
                                     :issues (:missing-fields-issues validation)}]
                          :warnings (:warnings validation)
-                         :pretty-print? pretty-print?}]]))})
+                         :pretty-print? pretty-print?
+                         :format format}]]))})
 
       (:valid validation)
       (do
         (log-export-warnings plugin-name validation)
         ;; Strip meaningless blanks (false/nil/empty) on normal export.
-        (save-orcbrew-blob! (str plugin-name ".orcbrew")
-                            (orcbrew-val/strip-export-blanks corrected)
-                            :pretty-print? pretty-print?)
-        {:dispatch-n
-         (vec (concat persist
-                      (when (seq (:warnings validation))
-                        [[:show-warning-message
-                          {:title (str "Exported “" plugin-name "” with warnings")
-                           :details ["The file downloaded. The console has the details."]}]])))})
+        (let [notice (save-source! (str plugin-name ".orcbrew") plugin-name
+                                   (orcbrew-val/strip-export-blanks corrected) library opts)]
+          {:dispatch-n
+           (vec (concat persist
+                        (cond
+                          (seq (:warnings validation))
+                          [[:show-warning-message
+                            {:title (str "Exported “" plugin-name "” with warnings")
+                             :details (cond-> ["The file downloaded. The console has the details."]
+                                        notice (conj notice))}]]
+                          notice [[:show-warning-message notice]])))}))
 
       :else
       ;; Hard spec check failed. Surface a raw, unvalidated escape hatch alongside
@@ -6676,6 +6545,11 @@
  (fn [{:keys [db]} [_ name plugin]]
    (validate-and-show-modal-or-export db name plugin {})))
 
+(reg-event-fx
+ ::e5/export-plugin-markdown
+ (fn [{:keys [db]} [_ name plugin]]
+   (validate-and-show-modal-or-export db name plugin {:format :markdown})))
+
 (defn select-emergency-export
   "Pick the filename + data for an emergency raw export: just the named source if
    it exists in `plugins`, else the whole library. Pure — unit-testable without
@@ -6688,10 +6562,10 @@
 (reg-event-fx
  ::e5/emergency-export-raw
  (fn [{:keys [db]} [_ plugin-name]]
-   ;; Raw, unvalidated dump. save-orcbrew-blob! serializes via str/pprint, which
-   ;; can't fail on bad data — the guaranteed escape hatch when validated export refuses.
+   ;; Raw, unvalidated dump: :raw? falls back to the data as written if a step throws, so this
+   ;; is the guaranteed escape hatch when validated export refuses.
    (let [[filename data] (select-emergency-export (:plugins db) plugin-name)]
-     (save-orcbrew-blob! filename data)
+     (save-orcbrew-blob! filename data :raw? true)
      {:dispatch [:show-warning-message
                  (str "Raw backup '" filename "' downloaded (unvalidated). "
                       "Keep it safe.")]})))
@@ -6703,7 +6577,7 @@
  ::e5/export-quarantined-raw
  (fn [{:keys [db]} [_ source-name]]
    (when-let [data (get-in db [:quarantined-plugins source-name])]
-     (save-orcbrew-blob! (str source-name ".orcbrew") data))
+     (save-orcbrew-blob! (str source-name ".orcbrew") data :raw? true))
    {}))
 
 ;; ============================================================================
@@ -6736,55 +6610,16 @@
 ;; Homebrew that breaks the character options
 ;; ============================================================================
 
-(defn- find-broken-entry
-  "Where a reported entry sits in the library, as [source entry]: the source the report
-   names, then the entry's own :option-pack, then any source holding that key."
-  [plugins {:keys [content-type key source option-pack]}]
-  (let [holds? (fn [src] (map? (get-in plugins [src content-type key])))
-        src (cond
-              (and source (holds? source)) source
-              (and option-pack (holds? option-pack)) option-pack
-              :else (some #(when (holds? %) %) (keys plugins)))]
-    (when src
-      [src (get-in plugins [src content-type key])])))
-
-(defn set-aside-broken-entries
-  "Move each reported entry from `plugins` into `rejected`. Returns {:plugins :rejected
-   :moved [{:source :content-type :key :entry}]}. A report whose entry is not in the
-   library (shared content, or already gone) moves nothing."
-  [plugins rejected reports]
-  (reduce (fn [acc {:keys [content-type key] :as report}]
-            (if-let [[src entry] (find-broken-entry (:plugins acc) report)]
-              (-> acc
-                  (update-in [:plugins src content-type] dissoc key)
-                  (assoc-in [:rejected src content-type key] entry)
-                  (update :moved conj {:source src :content-type content-type :key key :entry entry}))
-              acc))
-          {:plugins plugins :rejected (or rejected {}) :moved []}
-          reports))
-
-(defn- broken-homebrew-notice [moved]
-  (let [n (count moved)
-        label (fn [{:keys [source content-type key entry]}]
-                (str "“" (if (and (string? (:name entry)) (not (s/blank? (:name entry))))
-                                (:name entry)
-                                (str key))
-                     "” (" (s/lower-case (get orcbrew-val/content-type-singular content-type "entry"))
-                     ") in “" source "”"))]
-    {:title (if (= 1 n) "A homebrew entry was set aside" (str n " homebrew entries were set aside"))
-     :details [(str (s/join ", " (map label (take 3 moved)))
-                    (when (> n 3) (str " and " (- n 3) " more"))
-                    " stopped the character options from loading, so "
-                    (if (= 1 n) "it was" "they were")
-                    " set aside. Everything else still works.")
-               [:span.pointer.underline.orange
-                {:on-click (fn [e]
-                             (.stopPropagation e)
-                             (dispatch [:route routes/dnd-e5-my-content-route]))}
-                "Fix or discard it in My Content"]]}))
-
 ;; Conversions re-run whenever their inputs change, so one bad entry is reported many
 ;; times; each is queued once, and the queue is handled together a moment later.
+(defn- count-plugin-items
+  "The number of content entries in library `pl` (a {source {content-type {key entry}}} map)."
+  [pl]
+  (reduce + 0 (for [[_ p] pl
+                    [ct items] p
+                    :when (and (qualified-keyword? ct) (map? items))]
+                (count items))))
+
 (reg-event-fx
  ::e5/homebrew-entry-broke
  (fn [{:keys [db]} [_ report]]
@@ -6800,10 +6635,20 @@
 (reg-event-fx
  ::e5/set-aside-broken-homebrew
  (fn [{:keys [db]} [_ reports]]
-   (let [{:keys [plugins rejected moved]}
-         (set-aside-broken-entries (:plugins db) (get-rejected-plugins)
-                                   (concat reports (:homebrew-broken db)))
-         db (dissoc db :homebrew-broken)]
+   (let [all-reports (concat reports (:homebrew-broken db))
+         {:keys [plugins rejected moved]}
+         (homebrew-check/set-aside-broken-entries (:plugins db) (get-rejected-plugins) all-reports)
+         ;; one from a share link has nothing to set aside: the share banner names it instead
+         moved? (set (map (juxt :content-type :key) moved))
+         left-out (for [{:keys [content-type key name source option-pack shared?]} all-reports
+                        :when (or shared?
+                                  (and (contains? (:shared-plugins db) (or source option-pack))
+                                       (not (moved? [content-type key]))))]
+                    {:content-type content-type :key key :name name})
+         db (cond-> (dissoc db :homebrew-broken)
+              (and (seq left-out) (:shared-content-info db))
+              (-> (update-in [:shared-content-info :left-out] (fnil into #{}) left-out)
+                  (assoc-in [:shared-content-info :count] (count-plugin-items (:shared-plugins db)))))]
      (if (empty? moved)
        {:db db}
        ;; The set-aside copy first, as the loader does: if storage refuses it, nothing moves,
@@ -6817,8 +6662,52 @@
          (let [{db' :db ok? :ok? refused :dispatch-n} (commit-library db plugins {:deleting? true})]
            (if ok?
              {:db (assoc db' :quarantined-plugins rejected)
-              :dispatch [:show-warning-message (broken-homebrew-notice moved) 60000]}
+              :dispatch [:show-warning-message (homebrew-check/broken-homebrew-notice moved) 60000]}
              {:db db' :dispatch-n refused})))))))
+
+;; Every event, whatever it changed and however: the homebrew it leaves is checked here, so no
+;; write can skip the check by going around commit-library. See homebrew-guard.md.
+(reg-global-interceptor
+ (->interceptor
+  :id ::homebrew-shapes
+  ;; and on the way in: the handler reads the library as checked, whatever wrote app-db last
+  :before (fn [ctx]
+            (update-in ctx [:coeffects :db]
+                       (fn [db]
+                         (let [lib (:plugins db)
+                               shared (:shared-plugins db)
+                               lib' (homebrew-check/checked :plugins lib)
+                               shared' (homebrew-check/checked :shared-plugins shared)]
+                           (cond-> db
+                             (not (identical? lib lib')) (assoc :plugins lib') ;; not app-db
+                             (not (identical? shared shared')) (assoc :shared-plugins shared'))))))
+  :after (fn [ctx]
+           (update ctx :effects #(homebrew-check/homebrew-shapes-checked (get-in ctx [:coeffects :db]) %)))))
+
+;; An event that throws changes nothing (re-frame applies no effect of an unfinished handler):
+;; event-failed says so, once a few seconds per event, and logs it; re-frame's own handler rethrew,
+;; dropping every queued event. core.cljs registers it after startup, whose recovery needs
+;; :initialize-db to throw; the test builds keep re-frame's. See homebrew-guard.md, 5.
+(def ^:private last-event-error (atom nil))
+
+(def event-failed-message
+  "That didn't work, so nothing was changed. If it keeps happening, refresh the page.")
+
+(defn event-failed
+  "Handles an event that threw: logs it, and dispatches the notice unless the same event was
+   noticed in the last few seconds, or the event was the notice itself."
+  [original-error re-frame-error]
+  (let [{:keys [event-v direction interceptor]} (ex-data re-frame-error)
+        id (first event-v)
+        now (.now js/Date)
+        {:keys [at event]} @last-event-error]
+    (js/console.error "An event failed and changed nothing:" (pr-str id)
+                      (str "(" (pr-str interceptor) ", " (name (or direction :handler)) ")")
+                      original-error)
+    (when-not (or (= id :show-error-message)
+                  (and (= id event) (< (- now at) 5000)))
+      (reset! last-event-error {:at now :event id})
+      (dispatch [:show-error-message event-failed-message]))))
 
 ;; ============================================================================
 ;; Export Warning Modal Events
@@ -6826,13 +6715,14 @@
 
 (reg-event-db
  :show-export-warning-modal
- (fn [db [_ {:keys [mode plugins warnings pretty-print?]}]]
+ (fn [db [_ {:keys [mode plugins warnings pretty-print? format]}]]
    (assoc db :export-warning
           {:active? true
            :mode (or mode :single)
            :plugins plugins
            :warnings warnings
            :pretty-print? pretty-print?
+           :format format
            :edits {}
            :show-export-as-is? false})))
 
@@ -6866,7 +6756,7 @@
 (reg-event-fx
  :export-with-auto-fix
  (fn [{:keys [db]} _]
-   (let [{:keys [mode plugins edits pretty-print?]} (:export-warning db)
+   (let [{:keys [mode plugins edits pretty-print?] :as warning} (:export-warning db)
          ;; Auto-fix = user edits + dummy-fill for blanks, in the file and in My Content.
          ;; Placeholders like "[Missing Name]" are self-labeling and flagged in the log.
          fixed-plugins (mapv
@@ -6894,10 +6784,11 @@
                     "all-content.orcbrew"
                     (str (:name (first fixed-plugins)) ".orcbrew"))
          log-entries (build-export-log-entries
-                      plugins "Auto-filled missing fields on export")]
-     ;; Strip meaningless blanks (false/nil/empty) on normal export.
-     (save-orcbrew-blob! filename (orcbrew-val/strip-export-blanks final-data)
-                         :pretty-print? pretty-print?)
+                      plugins "Auto-filled missing fields on export")
+         ;; Strip meaningless blanks (false/nil/empty) on normal export.
+         ;; a refused save keeps its error alone; the Markdown file names what it leaves out
+         notice (save-source! filename (:name (first fixed-plugins))
+                              (orcbrew-val/strip-export-blanks final-data) (:plugins db) warning)]
      {:db (-> db'
               (assoc :export-warning {:active? false})
               (assoc :import-log {:panel-shown? true
@@ -6911,7 +6802,8 @@
                     [[:show-warning-message
                       (str "Exported and saved to My Content. Placeholders were filled "
                            "in for any fields left blank — review them (see the log) and "
-                           "replace before sharing.")]]
+                           "replace before sharing."
+                           (when notice (str " " notice)))]]
                     refused)})))
 
 (reg-event-fx
@@ -6931,7 +6823,7 @@
 (reg-event-fx
  :export-as-is
  (fn [{:keys [db]} _]
-   (let [{:keys [mode plugins pretty-print?]} (:export-warning db)
+   (let [{:keys [mode plugins pretty-print?] :as warning} (:export-warning db)
          all-plugins (:plugins db)
          final-data (if (= mode :multi)
                       (reduce (fn [acc {:keys [name plugin]}]
@@ -6943,8 +6835,8 @@
                     "all-content.orcbrew"
                     (str (:name (first plugins)) ".orcbrew"))
          log-entries (build-export-log-entries
-                      plugins "Exported as-is without fixes")]
-     (save-orcbrew-blob! filename final-data :pretty-print? pretty-print?)
+                      plugins "Exported as-is without fixes")
+         notice (save-source! filename (:name (first plugins)) final-data all-plugins warning)]
      {:db (-> db
               (assoc :export-warning {:active? false})
               (assoc :import-log {:panel-shown? true
@@ -6953,7 +6845,8 @@
                                                  (str "Export: " (:name (first plugins))))
                                   :changes log-entries
                                   :errors []
-                                  :skipped-items []}))})))
+                                  :skipped-items []}))
+      :dispatch-n (when notice [[:show-warning-message notice]])})))
 
 ;; Export all homebrew plugins as .orcbrew file.
 (reg-event-fx
@@ -7041,8 +6934,8 @@
 
 ;; The debug hatch: the whole library, pretty-printed, with NO validation — the one
 ;; export that skips the gate, to show the store as it is. Still uses the shared
-;; save-orcbrew-blob! serialization. Dev-only: views/debug-data renders its control
-;; behind goog/DEBUG.
+;; save-orcbrew-blob! serialization. views/debug-data shows its control only with
+;; Developer mode on.
 (reg-event-fx
  ::e5/export-all-plugins-pretty-print
  (fn [{:keys [db]} _]
@@ -7140,15 +7033,6 @@
  ::e5/open-whats-new
  (fn [db _]
    (assoc db :whats-new-open? true)))
-
-(reg-event-db
- ::e5/release-whats-new
- ;; The end of a hold, not a request to open: if the reader has meanwhile opened
- ;; and closed the panel from the footer, the release is stamped and there is
- ;; nothing left to show.
- (fn [db _]
-   (cond-> db
-     (whats-new/unseen? (:whats-new-seen db)) (assoc :whats-new-open? true))))
 
 (reg-event-db
  ::e5/close-whats-new
@@ -7346,12 +7230,6 @@
  ::e5/load-shared-content
  (fn [_ [_ payload]]
    {::decode-shared! payload}))
-
-(defn- count-plugin-items [pl]
-  (reduce + 0 (for [[_ p] pl
-                    [ct items] p
-                    :when (and (qualified-keyword? ct) (map? items))]
-                (count items))))
 
 (reg-event-fx
  ::e5/apply-shared-content
@@ -8214,23 +8092,25 @@
                {::mi/type :wondrous-item
                 ::mi/rarity :common}]}))
 
-(reg-event-fx
- ::spells/reset-spell
- (fn [_ _]
-   {:dispatch [::spells/set-spell
-               default-spell]}))
+(defn- reg-reset-homebrew
+  "New in a homebrew builder: the default item, carrying the draft's :option-pack forward so the
+   source on screen is the source the new item has. A blank source stays blank. See
+   plan-next.md, the Option Source item."
+  [event set-event default-val item-key]
+  (reg-event-fx
+   event
+   (fn [{:keys [db]} _]
+     (let [src (get-in db [item-key :option-pack])]
+       {:dispatch [set-event (cond-> default-val
+                               (not (s/blank? src)) (assoc :option-pack src))]}))))
 
-(reg-event-fx
- ::monsters/reset-monster
- (fn [_ _]
-   {:dispatch [::monsters/set-monster
-               default-monster]}))
+(reg-reset-homebrew ::spells/reset-spell ::spells/set-spell default-spell ::spells/builder-item)
 
-(reg-event-fx
- ::encounters/reset-encounter
- (fn [_ _]
-   {:dispatch [::encounters/set-encounter
-               default-encounter]}))
+(reg-reset-homebrew ::monsters/reset-monster ::monsters/set-monster
+                    default-monster ::monsters/builder-item)
+
+(reg-reset-homebrew ::encounters/reset-encounter ::encounters/set-encounter
+                    default-encounter ::encounters/builder-item)
 
 (reg-event-fx
  ::combat/reset-combat
@@ -8238,65 +8118,32 @@
    {:dispatch [::combat/set-combat
                default-combat]}))
 
-(reg-event-fx
- ::bg5e/reset-background
- (fn [_ _]
-   {:dispatch [::bg5e/set-background
-               default-background]}))
+(reg-reset-homebrew ::bg5e/reset-background ::bg5e/set-background
+                    default-background ::bg5e/builder-item)
 
-(reg-event-fx
- ::langs5e/reset-language
- (fn [_ _]
-   {:dispatch [::langs5e/set-language
-               default-language]}))
+(reg-reset-homebrew ::langs5e/reset-language ::langs5e/set-language
+                    default-language ::langs5e/builder-item)
 
-(reg-event-fx
- ::class5e/reset-invocation
- (fn [_ _]
-   {:dispatch [::class5e/set-invocation
-               default-invocation]}))
+(reg-reset-homebrew ::class5e/reset-invocation ::class5e/set-invocation
+                    default-invocation ::class5e/invocation-builder-item)
 
-(reg-event-fx
- ::class5e/reset-boon
- (fn [_ _]
-   {:dispatch [::class5e/set-boon
-               default-boon]}))
+(reg-reset-homebrew ::class5e/reset-boon ::class5e/set-boon
+                    default-boon ::class5e/boon-builder-item)
 
-(reg-event-fx
- ::selections5e/reset-selection
- (fn [_ _]
-   {:dispatch [::selections5e/set-selection
-               default-selection]}))
+(reg-reset-homebrew ::selections5e/reset-selection ::selections5e/set-selection
+                    default-selection ::selections5e/builder-item)
 
-(reg-event-fx
- ::feats5e/reset-feat
- (fn [_ _]
-   {:dispatch [::feats5e/set-feat
-               default-feat]}))
+(reg-reset-homebrew ::feats5e/reset-feat ::feats5e/set-feat default-feat ::feats5e/builder-item)
 
-(reg-event-fx
- ::race5e/reset-race
- (fn [_ _]
-   {:dispatch [::race5e/set-race
-               default-race]}))
+(reg-reset-homebrew ::race5e/reset-race ::race5e/set-race default-race ::race5e/builder-item)
 
-(reg-event-fx
- ::race5e/reset-subrace
- (fn [_ _]
-   {:dispatch [::race5e/set-subrace
-               default-subrace]}))
+(reg-reset-homebrew ::race5e/reset-subrace ::race5e/set-subrace
+                    default-subrace ::race5e/subrace-builder-item)
 
-(reg-event-fx
- ::class5e/reset-subclass
- (fn [_ _]
-   {:dispatch [::class5e/set-subclass
-               default-subclass]}))
+(reg-reset-homebrew ::class5e/reset-subclass ::class5e/set-subclass
+                    default-subclass ::class5e/subclass-builder-item)
 
-(reg-event-fx
- ::class5e/reset-class
- (fn [_ _]
-   {:dispatch [::class5e/set-class
-               default-class]}))
+(reg-reset-homebrew ::class5e/reset-class ::class5e/set-class default-class ::class5e/builder-item)
 
 (defn reg-new-homebrew [event set-event default-val route plugin-key]
   (reg-event-fx

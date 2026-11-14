@@ -20,8 +20,8 @@
 
 (defn- setup! [conn]
   @(d/transact conn schema/all-schemas)
-  @(d/transact conn [{:orcpub.user/username "alice" :orcpub.user/email "alice@test.com"}
-                     {:orcpub.user/username "bob" :orcpub.user/email "bob@test.com"}]))
+  @(d/transact conn [{:orcpub.user/username "alice" :orcpub.user/email "alice@test.com" :orcpub.user/email-key "alice@test.com"}
+                     {:orcpub.user/username "bob" :orcpub.user/email "bob@test.com" :orcpub.user/email-key "bob@test.com"}]))
 
 (defn- create! [conn entity]
   (let [{:keys [tempids db-after]} @(d/transact conn [(assoc entity :db/id "new")])]

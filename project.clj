@@ -25,6 +25,8 @@
                  [org.clojure/clojurescript "1.12.134"]
                  [org.clojure/core.async "1.8.741"] 
                  [org.postgresql/postgresql "42.7.3"]
+                 ;; Redis client, used only when REDIS_URL is set (orcpub.security.redis-store).
+                 [com.taoensso/carmine "3.4.1"]
                  ;; React 18 + Reagent 2.0 (Concurrent Mode)
                  [cljsjs/react "18.3.1-1"]
                  [cljsjs/react-dom "18.3.1-1"]
@@ -194,6 +196,8 @@
             "fig:build" ["run" "-m" "figwheel.main" "--" "--build-once" "dev"]
             "fig:prod" ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]
             "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
+            ;; only the junk-pack test, for test/e2e/junk-pack-audit.js
+            "fig:junk" ["run" "-m" "figwheel.main" "--" "--build-once" "junk-audit"]
             ;; Preview the character-load report email (no send) — email endpoint dev tool
             "report-preview" ["with-profile" "+tools" "run" "-m" "orcpub.dev.report-preview"]
             ;; Single-command production build: clean → CLJS → uberjar.
@@ -219,7 +223,14 @@
             ;; trampoline re-execs in a fresh JVM so System/exit propagates
             ;; (without it, lein suppresses the exit code).
             ;; native/ is excluded — directory only exists for React Native builds.
-            "lint" ["trampoline" "with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "test" "web" "--fail-level" "error"]
+            ;; dev/ is linted for its ERRORS. It contributes ~41 warnings that are the
+            ;; scripts' own idiom -- they load-file each other, so re-requiring and
+            ;; re-defining is normal -- and --fail-level error ignores those. Not silenced
+            ;; via :config-in-ns: the scripts have no ns form, so kondo does not resolve
+            ;; them to `user` and the suppression only caught 3 of the 41.
+            ;; Added because this refactor shipped an unbalanced paren in 5 dev scripts
+            ;; across 2 commits, unseen: kondo calls it an error, and dev/ was unlinted.
+            "lint" ["trampoline" "with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "test" "web" "dev" "--fail-level" "error"]
             "prod-build" ^{:doc "Recompile code with prod profile."}
             ["externs"
              ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]]}
@@ -229,7 +240,7 @@
              ;; In-memory Datomic for local/e2e runs — the full stack boots with no
              ;; transactor and no external DB. Used by the `e2e-server` alias; environ
              ;; feeds :datomic-url to orcpub.config/get-datomic-uri.
-             :e2e {:env {:datomic-url "datomic:mem://orcpub"}}
+             :e2e {:env {:datomic-url "datomic:mem://orcpub" :email-required "false"}}
              ;; An export queue small enough to reach on one machine, for seeing
              ;; the busy page. Stacks on :e2e -- see the e2e-server-busy alias.
              ;; The wait is 1ms because the slot queue is fair: with 250ms an export

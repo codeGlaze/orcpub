@@ -18,7 +18,8 @@
    pure so they can be tested and previewed without sending."
   (:require [clojure.string :as s]
             [hiccup2.core :as hiccup]
-            [postal.core :as postal]
+            [orcpub.config :as config]
+            [orcpub.outbox :as outbox]
             [orcpub.env :as env]
             [orcpub.crypto :as crypto]
             [orcpub.email :as email]
@@ -39,9 +40,9 @@
   (some-> branding/app-url not-empty (s/replace #"/+$" "")))
 
 (defn admin-recipient
-  "Where artist-account notices go: EMAIL_ADMIN_TO, else the error inbox."
+  "Where artist-account notices go (`config/admin-notice-address`), or nil when no admin address is set."
   []
-  (or (env/value :email-admin-to) (env/value :email-errors-to)))
+  (:address (config/admin-notice-address)))
 
 (defn- email-on? [] (boolean (env/value :email-server-url)))
 
@@ -297,14 +298,20 @@
 ;; ---------------------------------------------------------------------------
 
 (defn credit-rows
-  "A credit as [label value] rows, for showing before and after."
+  "A credit as [label value] rows, for showing before and after: the name, links and icons, then
+   each artist-page switch as On or Off."
   [credit]
-  (let [{:artist/keys [name link links]} credit]
+  (let [{:artist/keys [name link links]} credit
+        on-off #(if (false? (get credit %)) "Off" "On")]
     (concat [["Name" (or name "(default)")]
              ["Link" (or link "(default)")]]
             (if (seq links)
               (for [{:link/keys [label url]} links] [label url])
-              [["Icons" "(default)"]]))))
+              [["Icons" "(default)"]])
+            [["Artist page" (on-off :artist/profile?)]
+             ["Example portraits" (on-off :artist/show-examples?)]
+             ["Links on the page" (on-off :artist/show-links?)]
+             ["Piece count" (on-off :artist/show-count?)]])))
 
 (defn- rows-table [rows]
   [:table {:role "presentation" :cellpadding "0" :cellspacing "0" :border "0"
@@ -372,15 +379,10 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- send!
-  "Send `msg`; true if the mail server took it."
+  "Queues `msg` in the outbox, which sends it and retries while the mail server is down; true when
+  it was queued."
   [msg]
-  (try
-    (let [result (postal/send-message (email/email-cfg) msg)]
-      (or (= :SUCCESS (:error result))
-          (do (println "artist-email: not sent to" (:to msg) "-" (:error result)) false)))
-    (catch Exception e
-      (println "artist-email: failed to send to" (:to msg) "-" (.getMessage e))
-      false)))
+  (outbox/enqueue-current! :artist msg))
 
 (defn- deliver!
   "Send the artist's message and the admin copy; true if the artist's went out."
@@ -394,7 +396,7 @@
       (let [sent? (when artist-msg (send! artist-msg))]
         (if (admin-recipient)
           (send! (admin-message kind event))
-          (println "artist-email: no EMAIL_ADMIN_TO or EMAIL_ERRORS_TO; admin copy not sent"))
+          (println "artist-email: no admin address (EMAIL_ADMIN_TO, EMAIL_ERRORS_TO, APP_SUPPORT_EMAIL); admin copy not sent"))
         sent?))))
 
 (def notify
@@ -413,14 +415,18 @@
                  (println "artist-email: APP_URL is not set; upgrade email not sent")))
    :unlinked (fn [event] (deliver! :unlinked (unlinked-message event) event))})
 
-(defn credit-changed!
-  "Tell the artist and the admin that a credit changed. Unlike the startup
-   emails this needs no APP_URL -- the message reads fine without the link."
+(defn credit-changed-tx
+  "Outbox transaction data telling the artist and the admin that a credit changed (`event`:
+   :artist-id, :user, :before, :after), for the transaction that records the change, so the emails
+   are queued exactly when it commits and retried until sent. [] when email is off. No APP_URL
+   needed: the message reads fine without the link."
   [event]
   (if-not (email-on?)
-    (println "artist-email: email is off; credit change for"
-             (get-in event [:user :orcpub.user/username]) "not announced")
-    (do (send! (credit-changed-message (base-url) event))
-        (if (admin-recipient)
-          (send! (credit-admin-message event))
-          (println "artist-email: no EMAIL_ADMIN_TO or EMAIL_ERRORS_TO; admin copy not sent")))))
+    (do (println "artist-email: email is off; credit change for"
+                 (get-in event [:user :orcpub.user/username]) "not announced")
+        [])
+    (let [artist (outbox/email-tx :artist (credit-changed-message (base-url) event))]
+      (if (admin-recipient)
+        [artist (outbox/email-tx :artist (credit-admin-message event))]
+        (do (println "artist-email: no admin address (EMAIL_ADMIN_TO, EMAIL_ERRORS_TO, APP_SUPPORT_EMAIL); admin copy not sent")
+            [artist])))))

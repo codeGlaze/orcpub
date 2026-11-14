@@ -41,6 +41,8 @@
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
+            [orcpub.dnd.e5.views.pdf-options :as pdf-options]
+            [orcpub.dnd.e5.views.builder-fields :as builder-fields]
             [orcpub.dnd.e5.subs :as subs5e]
             [orcpub.route-map :as routes]
             [orcpub.pdf-spec :as pdf-spec]
@@ -402,7 +404,7 @@
     [:div
      [:div.m-b-5
       {:on-click #(dispatch [::events5e/toggle-class-source-suffix])}
-      [views5e/labeled-checkbox "Show homebrew source on class names" show-suffix?]]
+      [builder-fields/labeled-checkbox "Show homebrew source on class names" show-suffix?]]
      [:div
       (doall
        (map-indexed
@@ -434,7 +436,7 @@
         [:div.flex-grow-1
          [:div.flex.align-items-c
           (when multiselect?
-            [:span.m-r-5 (comps/checkbox selected? disable-checkbox?)])
+            [:span.m-r-5 (comps/checkbox selected? (or disable-checkbox? (not selectable?)) name)])
           (when icon [:div.m-r-5 (views5e/svg-icon icon 24)])
           [:span.f-w-b.f-s-1.flex-grow-1 name]
           (when edit-event
@@ -782,13 +784,69 @@
 (defn ability-value [v]
   [:div.f-s-18.f-w-b v])
 
+(defn ability-bag-assigner
+  "Renders one :ability-increases spread, carried on the selection's ::t/spread as
+   {:idx :amount :pool :fixed?} increments. A single-stat increment is a label (\"Strength +2\"), the
+   rest pick from their own pool. Every increment lands on a DISTINCT ability, so a stat taken by
+   one is left out of the other pickers. Picks are the slot's asi-<idx>-<ability> option keys, set
+   with :increase/:decrease-ability-value, so storage and the build are unchanged."
+  [built-template selection _ability-keys]
+  (let [character @(subscribe [:character])
+        incs (::t/spread selection)
+        path (::entity/path selection)
+        increases-path (entity/get-entity-path built-template character path)
+        chosen-keys (set (map ::entity/key (get-in character increases-path)))
+        slot-key (fn [idx k] (keyword (str "asi-" idx "-" (cljs.core/name k))))
+        ability-name (fn [k] (:name (opt5e/abilities-map k)))
+        slot-pick (fn [{:keys [idx pool]}]
+                    (some (fn [k] (when (chosen-keys (slot-key idx k)) k)) pool))
+        floating (remove :fixed? incs)
+        ;; one ability per spread: leave out stats taken by fixed increments and other picks
+        used (set (concat (map (comp first :pool) (filter :fixed? incs))
+                          (keep slot-pick floating)))
+        ancestors-title (views-aux/ancestor-names-string built-template path)
+        num-remaining (- (count floating) (count (keep slot-pick floating)))
+        pick! (fn [idx current new-k]
+                (when (not= new-k current)
+                  (when current
+                    (dispatch [:decrease-ability-value increases-path (slot-key idx current)]))
+                  (when new-k
+                    (dispatch [:increase-ability-value increases-path (slot-key idx new-k)]))))]
+    [:div
+     [:div.flex.justify-cont-s-b.m-t-10.align-items-c
+      [:div.m-l-5.i (str "Improvement: " ancestors-title)]
+      (remaining-component 2 num-remaining)]
+     (doall
+      (map
+       (fn [{:keys [idx amount pool fixed?] :as increment}]
+         ^{:key idx}
+         [:div.flex.align-items-c.m-t-5.m-l-5
+          [:div.w-40.f-w-b (common/bonus-str amount)]
+          (if fixed?
+            [:div.m-l-5 (ability-name (first pool))]
+            (let [current (slot-pick increment)
+                  opts (filter (fn [k] (or (= k current) (not (used k)))) pool)]
+              [:div.flex-grow-1
+               [builder-fields/dropdown
+                {:typed? true
+                 :value current
+                 :items (cons {:title "— choose —" :value nil}
+                              (map (fn [k] {:title (ability-name k) :value k}) opts))
+                 :on-change #(pick! idx current %)}]]))])
+       incs))]))
+
 (defn ability-increases-component [built-template asi-selections ability-keys]
   (let [total-abilities @(subscribe [::char5e/abilities])
         character @(subscribe [:character])]
     [:div
      (doall
       (map-indexed
-       (fn [i {:keys [::t/name ::t/key ::t/min ::t/max ::t/options ::t/different? ::entity/path] :as selection}]
+       (fn [i {:keys [::t/name ::t/key ::t/min ::t/max ::t/options ::t/different? ::t/spread
+                      ::entity/path] :as selection}]
+         ;; a spread (it carries ::t/spread) renders through the bag assigner; every other
+         ;; ability-increase selection (built-in races, class ASI) keeps the +/- UI below.
+         (if spread
+           ^{:key i} [ability-bag-assigner built-template selection ability-keys]
          (let [increases-path (entity/get-entity-path built-template character path)
                selected-options (get-in character increases-path)
                ability-increases (frequencies (map ::entity/key selected-options))
@@ -840,7 +898,7 @@
                                   (fn []
                                     (when (not increase-disabled?)
                                       (dispatch [:increase-ability-value increases-path k]))))}]]]))
-               ability-keys))]]))
+               ability-keys))]])))
        asi-selections))]))
 
 (defn race-abilities-component [ability-keys]
@@ -1803,8 +1861,12 @@
   [built-char]
   (dispatch [::char5e/set-random-name built-char]))
 
-(defn set-image-url [v]
-  (dispatch [:set-image-url v]))
+(defn set-image-url
+  "Sets the character's picture link to `v`; a non-blank link replaces a composed portrait, so the
+   portrait editor's unsaved draft is dropped with it."
+  [v]
+  (dispatch [:set-image-url v])
+  (when-not (s/blank? v) (dispatch [:portrait/discard-draft])))
 
 (defn set-faction-image-url [v]
   (dispatch [:set-faction-image-url v]))
@@ -1981,11 +2043,25 @@
 
           :else nil)))))
 
+(defn image-link-field
+  "The portrait editor's picture-link field under `label`: the input (pasting an image works too)
+   and the notice that checks the link. It edits the editor's draft (:portrait/link-draft); the
+   character's link changes only with Use this picture (:portrait/use-link). Returns hiccup."
+  [label]
+  (let [url @(subscribe [:portrait/link-draft])
+        image-bytes @(subscribe [::char5e/image-bytes])
+        server-reach @(subscribe [::char5e/image-server-reach])
+        set-draft #(dispatch [:portrait/set-link-draft %])]
+    [:div {:on-paste (image-paste url)}
+     [:span.personality-label.f-s-18 label]
+     [:input.input {:type "url" :value (or url "") :placeholder "https://"
+                    :on-change #(set-draft (.. % -target -value))}]
+     [image-field-notice url false (get image-bytes url) (get server-reach url) set-draft]]))
+
 (defn description-fields []
   (let [entity-values @(subscribe [:entity-values])
         built-char @(subscribe [:built-character])
         image-url @(subscribe [::char5e/image-url])
-        image-url-failed @(subscribe [::char5e/image-url-failed])
         faction-image-url @(subscribe [::char5e/faction-image-url])
         faction-image-url-failed @(subscribe [::char5e/faction-image-url-failed])
         image-bytes @(subscribe [::char5e/image-bytes])
@@ -2043,21 +2119,17 @@
      [:div.field
       [:span.personality-label.f-s-18 "Flaws"]
       [character-textarea entity-values ::char5e/flaws]]
-     [:div.flex.align-items-c.w-100-p.m-t-30
-      (when image-url
-        [:img.m-r-10.image-character-thumbnail {:src image-url
-                      :on-error (image-error :failed-loading-image image-url)
-                      :on-load (image-load :loaded-image image-url)}])
-      [:div.flex-grow-1
-       {:on-paste (image-paste image-url)}
-       [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
-       [character-input entity-values ::char5e/image-url nil set-image-url]
-       ;; integration's notice replaces the flat "failed to load" line; the
-       ;; launcher still belongs beside it, since composing a portrait is the
-       ;; other way to fill this slot.
-       [image-field-notice image-url image-url-failed
-        (get image-bytes image-url) (get server-reach image-url) set-image-url]
-       [portrait5e/launcher-button]]]
+     [:div.m-t-30
+      [:span.personality-label.f-s-18 "Picture"]
+      [:div.flex.align-items-c
+       (when image-url
+         ;; hidden: keeps the link's load checks running, which the thumbnail's own <img> does not
+         [:img {:style {:display "none"} :src image-url
+                             :on-error (image-error :failed-loading-image image-url)
+                             :on-load (image-load :loaded-image image-url)}])
+       [portrait5e/thumbnail (char5e/portrait built-char) image-url true]
+       [:button.form-button {:type "button" :on-click #(dispatch [:portrait/open])}
+        "Change picture"]]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -2313,7 +2385,7 @@
     [:div.pointer.setting-toggle
      (merge {:on-click toggle-theme}
             (views5e/switch-attrs (= "light-theme" theme) toggle-theme))
-     [:span.m-r-5 (comps/checkbox (= "light-theme" theme) false)]
+     [:span.m-r-5 (comps/checkbox-mark (= "light-theme" theme) false)]
      [:span.main-text-color "Light Theme"]]))
 
 (defn button-text-toggle
@@ -2326,7 +2398,7 @@
       (let [toggle #(dispatch [:toggle-dark-button-text])]
         [:div.pointer.setting-toggle.m-l-20
          (merge {:on-click toggle} (views5e/switch-attrs on? toggle))
-         [:span.m-r-5 (comps/checkbox on? false)]
+         [:span.m-r-5 (comps/checkbox-mark on? false)]
          [:span.main-text-color "Dark Button Text"]]))))
 
 (defn set-loading []
@@ -2432,7 +2504,7 @@
     (when print-enabled? (print-char built-char))
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
     [:<>
-     [portrait5e/drawer]
+     [portrait5e/drawer [image-link-field "Image address (URL)"]]
      [views5e/content-page
      "Character Builder"
      (vec
@@ -2475,7 +2547,7 @@
            :on-click (load-character-page (:db/id character))})
         {:title "Export"
          :icon "download"
-         :on-click (views5e/make-print-handler (:db/id character) built-char)}]))
+         :on-click (pdf-options/make-print-handler (:db/id character) true)}]))
      [:div
       [:div.container
        [:div.content

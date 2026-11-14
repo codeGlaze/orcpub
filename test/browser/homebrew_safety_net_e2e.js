@@ -100,7 +100,7 @@ const dispatch = (page, edn, ...strings) => page.evaluate(([e, xs]) => {
     try {
       if (!localStorage.getItem('probe:seeded')) { localStorage.setItem('plugins', pak); localStorage.setItem('probe:seeded', '1'); }
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+      localStorage.setItem('whats-new-seen', '"long-rest-update-2026"');
     } catch (e) {}
   }, PAK);
   await ctx.addInitScript(poison);
@@ -159,7 +159,7 @@ const dispatch = (page, edn, ...strings) => page.evaluate(([e, xs]) => {
       try {
         if (!localStorage.getItem('probe:seeded')) { localStorage.setItem('plugins', pak); localStorage.setItem('probe:seeded', '1'); }
         localStorage.setItem('orcpub:no-cookie-banner', '1');
-        localStorage.setItem('whats-new-seen', '"summer-patch-2026"');
+        localStorage.setItem('whats-new-seen', '"long-rest-update-2026"');
       } catch (e) {}
     }, LAZY);
     await ctx2.addInitScript(lazyPoison);

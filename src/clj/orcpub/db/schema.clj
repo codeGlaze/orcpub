@@ -112,13 +112,21 @@
 (def user-schema
   [{:db/ident :orcpub.user/username
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.user/first-and-last-name
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/email
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
+   ;; The email trimmed and lowercased, for lookups (orcpub.user-email). Not unique: older data may
+   ;; hold one address on two accounts.
+   {:db/ident :orcpub.user/email-key
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.user/password
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
@@ -130,12 +138,17 @@
    {:db/ident :orcpub.user/dark-button-text?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
+   ;; The PDF file name choices, an EDN map (pdf-spec/clean-file-name-format). Unset means the defaults.
+   {:db/ident :orcpub.user/pdf-file-name
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/verified?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/verification-key
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.user/created
     :db/valueType :db.type/instant
     :db/cardinality :db.cardinality/one}
@@ -156,7 +169,8 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/password-reset-key
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.user/pending-email
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
@@ -197,6 +211,16 @@
    {:db/ident :orcpub.user/artist-credit
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
+   ;; When this artist was last emailed at once about a credit change: the start of a ten-minute
+   ;; window in which further changes are collected rather than emailed (orcpub.artist-credit-notices).
+   {:db/ident :orcpub.user/artist-credit-window
+    :db/valueType :db.type/instant
+    :db/cardinality :db.cardinality/one}
+   ;; The credit, as EDN, from before the first change not yet emailed; empty when none is waiting.
+   ;; Cleared by compare-and-set, so one container sends each batch.
+   {:db/ident :orcpub.user/artist-credit-pending
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
    ;; When the artist welcome email for this account was handed to the mail
    ;; server. Unset means it never went out, so the next start sends it again.
    {:db/ident :orcpub.user/artist-welcome-sent
@@ -218,7 +242,8 @@
     :db/cardinality :db.cardinality/one}
    {:db/ident ::se/owner
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident ::se/homebrew?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}
@@ -327,6 +352,8 @@
      ::char5e/faction-image-url-failed
      ::char5e/image-url
      ::char5e/portrait
+     ;; which picture shows, "portrait" or "image" (char5e/shown-picture); both are kept
+     ::char5e/picture-shown
      ::char5e/description
      ::char5e/personality-trait-1
      ::char5e/eyes
@@ -364,12 +391,16 @@
      ::units5e/day
      ::units5e/round
      ::units5e/rest
-     ::units5e/long-rest])))
+     ::units5e/short-rest
+     ::units5e/long-rest
+     ::units5e/dawn
+     ::units5e/dusk])))
 
 (def party-schema
   [{:db/ident ::party5e/owner
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident ::party5e/name
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
@@ -384,7 +415,8 @@
     :db/isComponent true}
    {:db/ident :orcpub.party-share/character
     :db/valueType :db.type/long
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident :orcpub.party-share/token
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}])
@@ -392,7 +424,8 @@
 (def folder-schema
   [{:db/ident ::folder5e/owner
     :db/valueType :db.type/string
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/index true}
    {:db/ident ::folder5e/name
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
@@ -408,36 +441,75 @@
     bool-prop
     [::char-equip-5e/equipped?
      ::char-equip-5e/background-starting-equipment?
-     ::char-equip-5e/class-starting-equipment?])))
+     ::char-equip-5e/class-starting-equipment?])
+   ;; per item in a stack, one record each: plan-charges-and-casting.md
+   [{:db/ident ::char-equip-5e/charges
+     :db/valueType :db.type/ref
+     :db/isComponent true
+     :db/cardinality :db.cardinality/many
+     :db/noHistory true}]
+   (map #(assoc (long-prop %) :db/noHistory true)
+        [::char-equip-5e/charge-index ::char-equip-5e/charges-used ::char-equip-5e/charges-max])))
 
 (def magic-item-schema
   (concat
    (map
     string-prop-no-history
     [::mi5e/name
-     ::mi5e/owner
      ::mi5e/description
-     ::mi5e/string-arg])
+     ::mi5e/string-arg
+     ::mi5e/charges-start
+     ::mi5e/charges-regain
+     ::mi5e/text
+     ::mi5e/toggle-name])
+   [(assoc (string-prop-no-history ::mi5e/owner) :db/index true)]
    (map
     many-ref-no-history
     [::mod/args
-     ::mi5e/modifiers])
+     ::mi5e/modifiers
+     ::mi5e/casts
+     ::mi5e/extra-damage
+     ::mi5e/effects
+     ::mi5e/toggles])
    (map
     many-kws-no-history
     [::mi5e/subtypes
-     ::mi5e/attunement])
+     ::mi5e/attunement
+     ::mi5e/against
+     ::mi5e/not-against])
    (map
     long-prop-no-history
     [::mod/int-arg
      ::mi5e/magical-damage-bonus
      ::mi5e/magical-attack-bonus
-     ::mi5e/magical-ac-bonus])
+     ::mi5e/magical-ac-bonus
+     ::mi5e/charges
+     ::mi5e/cast-level
+     ::mi5e/cast-cost
+     ::mi5e/cast-per-level
+     ::mi5e/cast-max-level
+     ::mi5e/save-dc
+     ::mi5e/charge-cost
+     ::mi5e/damage-bonus
+     ::mi5e/min-roll])
    (map
     kw-prop-no-history
     [::mod/key
      ::mod/keyword-arg
      ::mi5e/type
-     ::mi5e/rarity])))
+     ::mi5e/rarity
+     ::mi5e/charges-recharge
+     ::mi5e/cast-spell
+     ::mi5e/on
+     ::mi5e/recharge
+     ::mi5e/effect-type
+     ::mi5e/save-ability
+     ::mi5e/save-fail
+     ::mi5e/while
+     ::mi5e/attack-type
+     ::mi5e/next-attack
+     ::mi5e/extra-attack
+     ::mi5e/toggle-id])))
 
 (def weapon-schema
   (concat
@@ -514,6 +586,26 @@
    {:db/ident :orcpub.outage/from :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.outage/to :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}])
 
+(def outbox-schema
+  "Player emails waiting to be sent, see orcpub.outbox: written in the same transaction as the
+   action that causes them, deleted once sent. The message holds reset and verification links, so
+   it keeps no history."
+  [{:db/ident :orcpub.outbox/id :db/valueType :db.type/uuid :db/cardinality :db.cardinality/one
+    :db/unique :db.unique/identity}
+   {:db/ident :orcpub.outbox/kind :db/valueType :db.type/keyword :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/to :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.outbox/message :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}
+   {:db/ident :orcpub.outbox/status :db/valueType :db.type/keyword :db/cardinality :db.cardinality/one
+    :db/index true}
+   {:db/ident :orcpub.outbox/attempts :db/valueType :db.type/long :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/next-at :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/claimed-until :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/created :db/valueType :db.type/instant :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.outbox/last-error :db/valueType :db.type/string :db/cardinality :db.cardinality/one
+    :db/noHistory true}])
+
 (def all-schemas
   (concat
    db-functions
@@ -528,4 +620,5 @@
    magic-item-schema
    weapon-schema
    share-schema
+   outbox-schema
    heartbeat-schema))

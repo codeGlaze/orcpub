@@ -17,9 +17,9 @@ runs:
         java-version: ${{ inputs.java-version }}
 
     - name: Set up Leiningen
-      uses: DeLaGuardo/setup-clojure@12.5
+      uses: ./.github/actions/install-lein
       with:
-        lein: ${{ inputs.lein-version }}
+        lein-version: ${{ inputs.lein-version }}
 
     - name: Cache Maven dependencies
       uses: actions/cache@v4
