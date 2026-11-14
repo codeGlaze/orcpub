@@ -12,7 +12,7 @@ note, what is deferred).
   inventory (− / +, coins, Add a kit) and backpack Worn | Off; class changes ask only about a used
   kit. Rules in `orcpub.dnd.e5.inventory`, screens in `orcpub.dnd.e5.views.inventory`.
 - `integration` merged in 2026-11-14 (622 commits, after #74 `feature/weapons-table`).
-- Next: PR review. Then, on this branch or after: weapons counts on the sheet and kits / "not
+- PR #85 into `integration` opened 2026-11-14, CodeRabbit full review requested. Then, on this branch or after: weapons counts on the sheet and kits / "not
   carried" in the PDF, both now unblocked by #74.
 
 ## Owner decisions
