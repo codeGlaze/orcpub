@@ -3054,7 +3054,7 @@ _plan-homebrew-markdown-export · plan homebrew markdown export_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, 2026-10-23, backpack, equipment, inventory, items, kit, kits, leftovers, pack, packs, picker, quantity, refill, reorganize, restock, torches, undo
+**topics:** 2026-10-22, 2026-10-23, backpack, equipment, gear, inventory, items, kit, kits, leftovers, pack, packs, quantity, refill, reorganize, restock, torches, undo
 
 - The problems today
 - The model

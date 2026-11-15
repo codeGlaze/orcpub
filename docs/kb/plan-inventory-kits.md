@@ -334,11 +334,11 @@ where `magic-armor` is meant (~3983).
   (`autosave_fx.cljs`, `throttled-save-timeout`), and its reply replaces the saved copy
   (`character-save-success-fx` dispatches `::char5e/set-character` with new ids and version), so Undo
   lasts at most about 7.5 s. No browser test covered Undo on a saved sheet until #85's review.
-- **Planned fix:** compare only the option keys the action changed, ids stripped (`entity/remove-ids`),
-  in `inventory.cljc`. Caveat: Undo then restores entries carrying pre-save `:db/id`s; check how the
-  save treats stale ids before relying on it.
-- **Open:** a browser check finds no Undo line even 300 ms after "Remove kit" on a saved sheet; no code
-  path explains it (traced twice). Next step is a run that dumps app-db after the click.
+- **Fixed (`9661f56c4`):** the sheet's Undo compares only the option keys the action changed, ids
+  stripped (`inventory/undo-applies?`), and restores them without stale save ids; a later edit to the
+  same gear ends it. The builder's Undo still compares the whole character (it restores the whole one).
+- **The "missing at 300 ms" failure was the test:** the Undo link renders as "UNDO", and the check
+  matched /Undo/ case-sensitively. Browser checks for link text match case-insensitively.
 
 ## Patterns to reuse
 
