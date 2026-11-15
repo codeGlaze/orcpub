@@ -13,7 +13,9 @@ step, not what the word means.
 - **PR:** #10, from `premerge/integration-to-dmv`. It carries the merge already resolved, so the
   admin only reviews and merges. Update that branch; do not cut a new one.
 - **Worktree:** `/home/codeglaze/projects/orcpub-dmv`. Its pushes are pinned to `gitea`.
-- **Auth:** `GITEA_TOKEN` in the main checkout's `.env`, sent as an `http.extraHeader`. Never print it.
+- **Auth:** the worktree's git config has a credential helper for `code.dungeonmastersvault.com` that
+  reads the token from `~/.config/dmv/gitea-token`, so a plain `git fetch gitea` / `git push gitea`
+  works. Never put the token on a command line or print it.
 - **Never push this branch to `origin` or `upstream`:** it holds DMV branding and private portrait art.
 
 ## How to resolve conflicts
@@ -83,3 +85,12 @@ The local branch now tracks its own Gitea branch, not `dmv`.
 - **`art_mark_drawing_test` assumed silhouettes** and failed ten checks on DMV, where every piece carries
   the pack's mark. Fixed on the branch (`PRIVATE-ART` marker): never accept a failing test as "pre-existing".
 
+## 2026-11-15 update (after #85, `feature/inventory-kits`)
+
+- `git fetch gitea` works again over HTTPS: the 2026-11-04 Cloudflare block is gone (push not yet
+  re-tested at the time of writing).
+- The merge of `integration` (`fadd99fd4`) had one conflict, `test/reviewed-images.edn`: both sides
+  appended entries after the same line. Resolve as the union (DMV's images plus integration's sigils
+  and cup icon; mind the trailing comma that DMV's side adds on the shared line).
+- `fork/branding.clj` auto-merged integration's new `:dev-tip` social link; DMV's values were untouched,
+  and with `APP_SOCIAL_DEV_TIP` unset the footer pill stays hidden.

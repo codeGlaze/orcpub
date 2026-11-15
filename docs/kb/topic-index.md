@@ -1264,7 +1264,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 2026-11-02, admin, art, blank-env-values, branding, byte, checkout, cloudflare, dmv, gitea, images, integration, launch, licensed, merge, push, pushing, silhouettes
+**topics:** 2026-11-02, 2026-11-04, admin, art, blank-env-values, branding, byte, cloudflare, dmv, gitea, images, integration, launch, licensed, merge, push, pushing, silhouettes
 
 - Where it happens
 - How to resolve conflicts
@@ -1273,6 +1273,7 @@ _dmv-premerge · dmv premerge_
 - Launching the DMV side locally
 - Pushing to Gitea is blocked by Cloudflare (2026-11-04)
 - Traps when updating PR #10 (2026-11-05)
+- 2026-11-15 update (after #85, feature/inventory-kits)
 
 ## dmv-production-changes.md
 
