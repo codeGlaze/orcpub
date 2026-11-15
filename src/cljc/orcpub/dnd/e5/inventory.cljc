@@ -34,6 +34,21 @@
   [kit]
   (boolean (seq (get-in kit [::entity/options :removed]))))
 
+(defn changed-option-keys
+  "The ::entity/options keys (top-level selections: gear, kits, magic items) whose picks differ
+   between characters `a` and `b`, as a set."
+  [a b]
+  (let [oa (::entity/options a) ob (::entity/options b)]
+    (into #{} (filter #(not= (get oa %) (get ob %))) (into (set (keys oa)) (keys ob)))))
+
+(defn undo-applies?
+  "Whether a sheet Undo record {:before :after} still fits saved character `current`: the option keys
+   the action changed hold what it left, save ids aside, so its own autosave reply keeps it."
+  [current {:keys [before after]}]
+  (let [ks (changed-option-keys before after)
+        part #(entity/remove-ids (select-keys (::entity/options %) ks))]
+    (= (part current) (part after))))
+
 (defn active-kits
   "The kits on `character` the player sees, in kit order. Returns a vector of picks."
   [character]

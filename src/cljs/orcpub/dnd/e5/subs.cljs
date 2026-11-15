@@ -229,13 +229,15 @@
    (:character db)))
 
 ;; The last kit action's Undo line for character `id` (nil: the builder's), {:message}, while that
-;; character is still what the action left; nil after any other edit.
+;; character is still what the action left (a saved one: in what the action changed, save ids aside,
+;; so its autosave keeps it); nil after another edit there.
 (reg-sub
  ::inventory/undo
  (fn [db [_ id]]
    (let [{:keys [after] :as undo} (::inventory/undo db)
          current (if id (get-in db [::char5e/character-map (js/parseInt id)]) (:character db))]
-     (when (and undo (= id (:id undo)) (= current after))
+     (when (and undo (= id (:id undo))
+                (if id (inventory/undo-applies? current undo) (= current after)))
        (select-keys undo [:message])))))
 
 ;; What a Kits block shows for character `id` (nil: the builder's): {:kits [{:pack :name :chest? :tracked

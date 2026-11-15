@@ -713,13 +713,6 @@
   [character]
   (dissoc (entity/remove-ids (char5e/to-strict character)) ::se/version))
 
-(defn changed-option-keys
-  "The ::entity/options keys (top-level selections: gear, kits, magic items) whose picks differ
-   between characters `stored` and `edited`, as a set."
-  [stored edited]
-  (let [a (::entity/options stored) b (::entity/options edited)]
-    (into #{} (filter #(not= (get a %) (get b %))) (into (set (keys a)) (keys b)))))
-
 (defn- put-keys
   "`character` with the entries under `k` (::entity/values or ::entity/options) named in `ks` taken
    from `from`, or removed where `from` has none."
@@ -4546,7 +4539,7 @@
                                (update-in [::sheet-edited int-id] (fnil into #{})
                                           (changed-value-keys stored updated))
                                (update-in [::sheet-edited-options int-id] (fnil into #{})
-                                          (changed-option-keys stored updated)))
+                                          (inventory/changed-option-keys stored updated)))
                      (get-in db [::in-flight int-id]) (assoc-in [::edited-in-flight int-id] true)
                      open (assoc :character open))
                ::char5e/save-character-throttled id}
@@ -4603,10 +4596,11 @@
  ::inventory/sheet-undo
  (fn [{:keys [db]} [_ id]]
    (let [{:keys [before after] undo-id :id} (::inventory/undo db)
-         ks (changed-option-keys before after)]
+         ks (inventory/changed-option-keys before after)]
      (when (and before (= id undo-id))
-       ;; Only what the action changed goes back, so each copy keeps its other edits.
-       (-> (update-character-fx db id #(put-keys % ::entity/options before ks))
+       ;; Only what the action changed goes back, so each copy keeps its other edits; without save
+       ;; ids, since an autosave may have stored those entries afresh since.
+       (-> (update-character-fx db id #(put-keys % ::entity/options (entity/remove-ids before) ks))
            (update :db dissoc ::inventory/undo))))))
 
 (reg-event-fx
