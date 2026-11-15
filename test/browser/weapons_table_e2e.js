@@ -71,10 +71,11 @@ const loadMagic = (page, keys) => page.evaluate(keys => {
 
 // Waits for `scope`'s table to show the loaded wizard's 8 weapons: the builder's build is debounced
 // (subs.cljs build-debounce-ms), so the first paint after `load` can still be the default character.
+// Returns whether they all arrived.
 const eightRows = async scope => {
   await scope.locator('.weapon-name', { hasText: /^Flame Tongue, Longsword$/ }).first()
     .waitFor({ timeout: 5000 }).catch(() => {});
-  await scope.locator('.weapon-row').nth(7).waitFor({ timeout: 5000 }).catch(() => {});
+  return scope.locator('.weapon-row').nth(7).waitFor({ timeout: 5000 }).then(() => true, () => false);
 };
 
 // Layout numbers for the section: widths, heading offsets, tile sizes, one-line names, tap targets.
@@ -363,7 +364,8 @@ async function layout(page, theme) {
   await dp.getByText('combat', { exact: true }).first().click({ timeout: 10000 }).catch(() => {});
   const dsec = dp.locator('.weapons-section.desktop').filter({ visible: true }).first();
   if (await dsec.waitFor({ timeout: 20000 }).then(() => true, () => false)) {
-    await eightRows(dsec);
+    check('desktop: one row per weapon', await eightRows(dsec) && await dsec.locator('.weapon-row').count() === 8,
+          `${await dsec.locator('.weapon-row').count()}`);
     const dm = await dsec.evaluate(sec => {
       const heads = Object.fromEntries([...sec.querySelectorAll('.weapon-head > span')].map(h => [h.textContent, h]));
       const cx = e => { const b = e.getBoundingClientRect(); return b.left + b.width / 2; };

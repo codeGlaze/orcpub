@@ -9,6 +9,7 @@
             [orcpub.dnd.e5.equipment :as equipment]
             [orcpub.dnd.e5.inventory :as inventory]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.modifiers :as mods]
             [orcpub.dnd.e5.picks :as picks]))
 
 (defn- gear
@@ -360,8 +361,13 @@
     (is (not-any? #(= :kits (first (:address %))) (picks/choices {::t/selections []} r)))))
 
 (deftest a-starting-pack-offered-several-times-gives-its-items
-  (let [items (:items (equipment/equipment-map :explorers-pack))]
-    (is (empty? (::t/modifiers (opt5e/equipment-option :fighter [:explorers-pack 1])))
-        "one pack: no modifiers, the pick makes a kit")
-    (is (= (count items) (count (::t/modifiers (opt5e/equipment-option :fighter [:explorers-pack 2]))))
-        "two packs: the items, as before kits")))
+  (let [gives (fn [n] (:equipment (reduce (fn [e m] ((::mods/fn m) e)) {}
+                                          (::t/modifiers (opt5e/equipment-option :fighter [:explorers-pack n])))))]
+    (is (empty? (gives 1)) "one pack: no modifiers, the pick makes a kit")
+    (is (= 20 (::char-equip/quantity (:torch (gives 2)))) "two packs: their items, twice over")
+    (is (= (count (:items (equipment/equipment-map :explorers-pack))) (count (gives 2))))))
+
+(deftest taking-gear-off-spans-every-row-of-it
+  (let [c {::entity/options {:equipment [(gear :torch 2) (gear :torch 8)]}}]
+    (is (= 5 (inventory/total (inventory/change-quantity c :torch -5) :torch)) "5 of 10 taken, across both rows")
+    (is (= 0 (inventory/total (inventory/change-quantity c :torch -10) :torch)))))

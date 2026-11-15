@@ -8,6 +8,7 @@
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.subs :as subs]
+            [orcpub.dnd.e5.inventory :as inventory]
             [orcpub.dnd.e5.coverage-pak :as coverage-pak]
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.template :as t5e]
@@ -406,3 +407,12 @@
     (testing "an ordinary level drop is not an opening"
       (is (nil? (:orcpub.dnd.e5/open-notice
                  (edit (db (ranger 7)) (db (ranger 6)) :set-class-level)))))))
+
+(deftest a-held-starting-pack-makes-no-kit-on-the-sheet
+  ;; The Ranger is not the starting class, so its starting pack pick is held, not applied.
+  (let [c (assoc-in (ranger 1) [::entity/options :class]
+                    [(class-entry :rogue)
+                     (class-entry :ranger {:starting-equipment-equipment-pack [{::entity/key :explorers-pack}]})])]
+    (is (seq (inventory/kits (:character (inventory/repair c)))) "unsettled, the pick would make a kit")
+    (is (empty? (inventory/kits (subs/shown-character (subs/page-settler) @template c)))
+        "the sheet settles first, so it makes none")))

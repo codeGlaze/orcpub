@@ -1828,6 +1828,17 @@
       (is (= [:explorers-pack] (map ::entity/key (get-in @app-db [::char5e/character-map 111 ::entity/options :kits])))
           "the pack saved before kits is saved as the kit the sheet shows"))))
 
+(deftest setting-down-the-backpack-of-a-pack-saved-before-kits
+  (with-fx sheet-save-stubs
+    (fn []
+      (reset! app-db (assoc pristine-db ::char5e/character-map
+                            {111 {:db/id 111 ::entity/options
+                                  {:equipment [{::entity/key :explorers-pack
+                                                ::entity/value {:orcpub.dnd.e5.character.equipment/quantity 1}}]}}}))
+      (rf/dispatch-sync [::inventory/set-backpack-worn "111" false])
+      (is (false? (inventory/backpack-worn? (get-in @app-db [::char5e/character-map 111])))
+          "the pack's Backpack, made by repair, is set down"))))
+
 (deftest sheet-undo-outlives-its-own-autosave
   (with-fx sheet-save-stubs
     (fn []
