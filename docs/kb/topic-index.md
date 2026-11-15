@@ -3054,7 +3054,7 @@ _plan-homebrew-markdown-export · plan homebrew markdown export_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, 2026-10-23, backpack, equipment, gear, inventory, items, kit, kits, leftovers, pack, packs, picker, quantity, refill, reorganize, restock, torches
+**topics:** 2026-10-22, 2026-10-23, backpack, equipment, inventory, items, kit, kits, leftovers, pack, packs, picker, quantity, refill, reorganize, restock, torches, undo
 
 - The problems today
 - The model
@@ -3068,6 +3068,7 @@ _plan-inventory-kits · plan inventory kits_
 - Reuse refactor done (2026-10-23, 83ac1bb3)
 - Layout review, round 1 (2026-10-22, owner)
 - The map: where equipment is written, read and saved (2026-10-22, integration d51938c1)
+- Sheet Undo and the autosave (2026-11-14, PR #85 review)
 - Patterns to reuse
 - Open (owner)
 

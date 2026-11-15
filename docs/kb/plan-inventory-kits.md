@@ -327,6 +327,19 @@ loads by id. No character file import or export exists. Every load runs `char5e/
 unqualified (~3902), so it never matches; `magic-items-section-2` subscribes `::char/magic-items`
 where `magic-armor` is meant (~3983).
 
+## Sheet Undo and the autosave (2026-11-14, PR #85 review)
+
+- **Found:** the sheet's kit Undo line shows only while the saved copy `=` what the action left
+  (`::inventory/undo` sub, `subs.cljs`). The autosave fires 7.5 s after the last edit
+  (`autosave_fx.cljs`, `throttled-save-timeout`), and its reply replaces the saved copy
+  (`character-save-success-fx` dispatches `::char5e/set-character` with new ids and version), so Undo
+  lasts at most about 7.5 s. No browser test covered Undo on a saved sheet until #85's review.
+- **Planned fix:** compare only the option keys the action changed, ids stripped (`entity/remove-ids`),
+  in `inventory.cljc`. Caveat: Undo then restores entries carrying pre-save `:db/id`s; check how the
+  save treats stale ids before relying on it.
+- **Open:** a browser check finds no Undo line even 300 ms after "Remove kit" on a saved sheet; no code
+  path explains it (traced twice). Next step is a run that dumps app-db after the click.
+
 ## Patterns to reuse
 
 - Stable identity from existing keys, never generated ids
