@@ -43,6 +43,7 @@
             [orcpub.dnd.e5.rests :as rests]
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
+            [orcpub.dnd.e5.inventory :as inventory]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.db :refer [default-value
                                       set-item
@@ -82,6 +83,7 @@
                                       set-repairs-dismissed!
                                       disable-overlay->local-store
                                       dev-mode->local-store
+                                      show-empty-pick-counts->local-store
                                       health-dismissed->local-store
                                       whats-new-seen->local-store
                                       get-rejected-plugins
@@ -193,6 +195,9 @@
 
 (def dev-mode->local-store-interceptor
   (after (fn [db] (dev-mode->local-store (:dev-mode? db)))))
+
+(def show-empty-pick-counts->local-store-interceptor
+  (after (fn [db] (show-empty-pick-counts->local-store (:show-empty-pick-counts? db)))))
 
 (def disable-overlay->local-store-interceptor
   (after (fn [db] (disable-overlay->local-store (:disable-overlay db)))))
@@ -357,11 +362,15 @@
        (swap! settle-timer assoc :id (js/setTimeout settle-now! settle-debounce-ms))))))
 
 (defn settle-picks-fx
-  "Handler for `::e5/settle-picks`: `settle-picks-db`, and the draft rewritten when the character
-   changed. Opening a saved character never saves it: the saved copy keeps its choices until the
+  "Handler for `::e5/settle-picks`: `settle-picks-db`, then `inventory/repair` (chosen packs become
+   kits), and the draft rewritten when the character changed. Opening a saved character never saves it: the saved copy keeps its choices until the
    player saves (owner, 2026-10-16; decision-gate-hidden-picks.md)."
   [{:keys [db]} _]
-  (let [db' (settle-picks-db db)]
+  (let [settled (settle-picks-db db)
+        template (get settled ::autosave-fx/cached-template)
+        ;; A pack just chosen becomes a kit; an untouched one whose pack went goes (inventory.cljc).
+        db' (update settled :character
+                    #(:character (inventory/repair % (when (seq template) (inventory/offered-packs template %)))))]
     (cond-> {:db db'}
       (not (identical? (:character db) (:character db')))
       (assoc ::persist-healed-character (:character db')))))
@@ -485,6 +494,7 @@
   (inject-cofx ::e5/health-dismissed)
   (inject-cofx ::e5/whats-new-seen)
   (inject-cofx ::e5/dev-mode)
+  (inject-cofx ::e5/show-empty-pick-counts)
   (inject-cofx ::combat/tracker-item)
   check-spec-interceptor]
  (fn [{:keys [db
@@ -499,6 +509,7 @@
               ::e5/health-dismissed
               ::e5/whats-new-seen
               ::e5/dev-mode
+              ::e5/show-empty-pick-counts
               ::combat/tracker-item]
        :as cofx} _]
    (let [db' (if (seq db)
@@ -513,6 +524,7 @@
                  (some? health-dismissed) (assoc :health-dismissed health-dismissed)
                  (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
                  (some? dev-mode) (assoc :dev-mode? dev-mode)
+                 (some? show-empty-pick-counts) (assoc :show-empty-pick-counts? show-empty-pick-counts)
                  ;; The release panel opens itself once per release, on the boot that
                  ;; first sees a new id. Reading the stamp here (not at render) keeps it
                  ;; to one showing per browser rather than one per page view.
@@ -701,6 +713,17 @@
   [character]
   (dissoc (entity/remove-ids (char5e/to-strict character)) ::se/version))
 
+(defn- put-keys
+  "`character` with the entries under `k` (::entity/values or ::entity/options) named in `ks` taken
+   from `from`, or removed where `from` has none."
+  [character k from ks]
+  (reduce (fn [c x]
+            (if-some [v (get-in from [k x])]
+              (assoc-in c [k x] v)
+              (update c k dissoc x)))
+          character
+          ks))
+
 (defn character-save-success-fx
   "Handler for `:character-save-success`: records the reply for character `id`, replaces the builder
    only with a save about it (saved-character-is-the-one-being-edited?), keeps the builder's unsaved
@@ -735,7 +758,8 @@
                               (update ::edited-in-flight dissoc id))
                     ;; The builder's character, unsaved or the same id: the hold now holds for its id.
                     (contains? #{nil id} (get-in db [:character :db/id])) (assoc ::e5/planned-for id)
-                    (not newer?) (update ::sheet-edited dissoc id)
+                    (not newer?) (-> (update ::sheet-edited dissoc id)
+                                     (update ::sheet-edited-options dissoc id))
                     newer? (assoc-in [::stored-shape id] (stored-shape character))
                     (and newer? version) (assoc-in [::char5e/character-map id ::entity/version] version)
                     true (update ::refused dissoc id))
@@ -903,12 +927,9 @@
      (if (and (= 409 status) (= :stale-character (:error body)) current
               (not (get-in db [::refused for-id])))
        (let [local (get-in db [::char5e/character-map for-id])
-             rebased (reduce (fn [c k]
-                               (if-some [v (get-in local [::entity/values k])]
-                                 (assoc-in c [::entity/values k] v)
-                                 (update c ::entity/values dissoc k)))
-                             current
-                             (get-in db [::sheet-edited for-id]))
+             rebased (-> current
+                         (put-keys ::entity/values local (get-in db [::sheet-edited for-id]))
+                         (put-keys ::entity/options local (get-in db [::sheet-edited-options for-id])))
              builder-free? (and (= for-id (get-in db [:character :db/id]))
                                 (not (get-in db [:character :changed])))]
          {:db (cond-> (-> db
@@ -2536,6 +2557,8 @@
         ;; is redone on every load.
         rewrote (into (vec former-rewrote) spell-rewrote)
         ;; After the heals, so it lists only what is still wrong.
+        ;; Packs chosen before kits existed become kits; kept by the next save, like the heals.
+        character (:character (inventory/repair character))
         binding-report (content-recon/class-binding-report
                         character
                         (loaded-class-keys db)
@@ -3159,7 +3182,10 @@
  :add-inventory-item
  character-interceptors
  (fn [character [_ selection-key item-key]]
-   (event-handlers/add-inventory-item character selection-key item-key)))
+   ;; Gear already in the list gets one more (a second pack bumps its kit), never a second row.
+   (if (and (= :equipment selection-key) (pos? (inventory/total character item-key)))
+     (inventory/add-item character item-key 1)
+     (event-handlers/add-inventory-item character selection-key item-key))))
 
 (defn toggle-inventory-item-equipped [character [_ selection-key item-index]]
   (common/toggle-in
@@ -3198,10 +3224,21 @@
      ;; the select keys here is to keep :equipped while wiping out the starting-equipment indicators
      (assoc (select-keys item-cfg [::char-equip5e/equipped?]) ::char-equip5e/quantity quantity))))
 
+(defn change-inventory-item-quantity-with-kits
+  "`change-inventory-item-quantity`, plus for gear: a decrease is taken from the kits first, top kit
+   first (inventory.cljc)."
+  [character [_ selection-key item-index quantity :as event]]
+  (let [pick (get-in character [::entity/options selection-key item-index])
+        before (inventory/total character (::entity/key pick))
+        changed (change-inventory-item-quantity character event)]
+    (if (and (= :equipment selection-key) (number? quantity) (< quantity before))
+      (inventory/take-from-kits changed (::entity/key pick) (- before quantity))
+      changed)))
+
 (reg-event-db
  :change-inventory-item-quantity
  character-interceptors
- change-inventory-item-quantity)
+ change-inventory-item-quantity-with-kits)
 
 (defn change-custom-inventory-item-quantity [character [_ custom-equipment-key item-index quantity]]
   (update-in
@@ -3222,7 +3259,37 @@
 (reg-event-db
  :remove-inventory-item
  character-interceptors
- event-handlers/remove-inventory-item)
+ (fn [character [_ selection-key item-key :as event]]
+   (cond-> (event-handlers/remove-inventory-item character event)
+     (= :equipment selection-key) (inventory/clear-item item-key))))
+
+(defn kit-act-db
+  "`db` after the kit action `action` with `args` (`inventory/act`), keeping the character before it
+   in `::inventory/undo` when the action has a message, for the Undo line."
+  [db [_ action & args]]
+  (let [before (:character db)
+        {acted :character message :message} (apply inventory/act before action args)
+        acted (assoc acted :changed true)]
+    (assoc db
+           :character acted
+           ::inventory/undo (when (seq message) {:message message :before before :after acted}))))
+
+(reg-event-db ::inventory/act [queue-settle db-char->local-store] kit-act-db)
+
+(reg-event-db
+ ::inventory/change-quantity
+ character-interceptors
+ (fn [character [_ item-key delta]] (inventory/change-quantity character item-key delta)))
+
+(reg-event-db
+ ::inventory/undo
+ [queue-settle db-char->local-store]
+ (fn [db _]
+   (if-let [before (get-in db [::inventory/undo :before])]
+     (-> db (assoc :character (assoc before :changed true)) (dissoc ::inventory/undo))
+     db)))
+
+
 
 (defn remove-custom-inventory-item [character [_ custom-equipment-key name]]
   (update-in
@@ -4454,9 +4521,10 @@
 
 (defn update-character-fx
   "Effects for a sheet or list edit: applies `update-fn` to the stored copy of character `id` and
-   autosaves it, recording its changed values keys under ::sheet-edited (for the save's reply, and
-   for re-applying after a refused save). When the builder has that character open, the edit is
-   applied there too. With no `id` the character is unsaved, so the edit goes to the builder's copy."
+   autosaves it, recording its changed values keys under ::sheet-edited and option keys under
+   ::sheet-edited-options (for the save's reply, and for re-applying after a refused save). When the
+   builder has that character open, the edit is applied there too. With no `id` the character is
+   unsaved, so the edit goes to the builder's copy."
   [db id update-fn]
   ;; Any sheet edit closes an open Rest result, so its Undo cannot overwrite the edit; the rest
   ;; events put their own result back (with-rest-result).
@@ -4469,7 +4537,9 @@
       (cond-> {:db (cond-> (-> db
                                (assoc-in [::char5e/character-map int-id] updated)
                                (update-in [::sheet-edited int-id] (fnil into #{})
-                                          (changed-value-keys stored updated)))
+                                          (changed-value-keys stored updated))
+                               (update-in [::sheet-edited-options int-id] (fnil into #{})
+                                          (inventory/changed-option-keys stored updated)))
                      (get-in db [::in-flight int-id]) (assoc-in [::edited-in-flight int-id] true)
                      open (assoc :character open))
                ::char5e/save-character-throttled id}
@@ -4481,6 +4551,59 @@
 (reg-fx
  ::builder-draft->local-store
  (fn [character] (character->local-store character)))
+
+(defn- sheet-edit-fx
+  "`update-character-fx` for saved character `id` with `f` applied after `inventory/repair` (a
+   sheet shows the repaired character), recording an Undo under `::inventory/undo` when `message`."
+  [db id f message]
+  (let [int-id (js/parseInt id)
+        before (get-in db [::char5e/character-map int-id])
+        fx (update-character-fx db id #(f (:character (inventory/repair %))))
+        edited (get-in fx [:db ::char5e/character-map int-id])]
+    (assoc-in fx [:db ::inventory/undo]
+              (when (seq message) {:id id :message message :before before :after edited}))))
+
+(reg-event-fx
+ ::inventory/sheet-act
+ (fn [{:keys [db]} [_ id action & args]]
+   (let [stored (:character (inventory/repair (get-in db [::char5e/character-map (js/parseInt id)])))]
+     (sheet-edit-fx db id #(:character (apply inventory/act % action args))
+                    (:message (apply inventory/act stored action args))))))
+
+(reg-event-fx
+ ::inventory/sheet-change-quantity
+ (fn [{:keys [db]} [_ id item-key delta]]
+   (sheet-edit-fx db id #(inventory/change-quantity % item-key delta) nil)))
+
+(reg-event-fx
+ ::inventory/sheet-add-item
+ (fn [{:keys [db]} [_ id item-key]]
+   (sheet-edit-fx db id #(inventory/add-item % item-key 1) nil)))
+
+(reg-event-fx
+ ::inventory/set-quantity
+ (fn [{:keys [db]} [_ id sel item-key n]]
+   (if id
+     (sheet-edit-fx db id #(inventory/set-quantity % sel item-key n) nil)
+     (update-character-fx db id #(inventory/set-quantity % sel item-key n)))))
+
+(reg-event-fx
+ ::inventory/set-backpack-worn
+ (fn [{:keys [db]} [_ id worn?]]
+   (if id
+     (sheet-edit-fx db id #(inventory/set-backpack-worn % worn?) nil)
+     (update-character-fx db id #(inventory/set-backpack-worn % worn?)))))
+
+(reg-event-fx
+ ::inventory/sheet-undo
+ (fn [{:keys [db]} [_ id]]
+   (let [{:keys [before after] undo-id :id} (::inventory/undo db)
+         ks (inventory/changed-option-keys before after)]
+     (when (and before (= id undo-id))
+       ;; Only what the action changed goes back, so each copy keeps its other edits; without save
+       ;; ids, since an autosave may have stored those entries afresh since.
+       (-> (update-character-fx db id #(put-keys % ::entity/options (entity/remove-ids before) ks))
+           (update :db dissoc ::inventory/undo))))))
 
 (reg-event-fx
  ::char5e/change-item-charges
@@ -6896,6 +7019,13 @@
  [dev-mode->local-store-interceptor]
  (fn [db _]
    (update db :dev-mode? not)))
+
+;; Flips whether the builder shows pick counts that say nothing (hidden by default).
+(reg-event-db
+ ::e5/toggle-quiet-pick-counts
+ [show-empty-pick-counts->local-store-interceptor]
+ (fn [db _]
+   (update db :show-empty-pick-counts? not)))
 
 ;; global + section are a per-device VIEW preference kept in :disable-overlay,
 ;; never written into the .orcbrew data — so they cost no format/spec change and

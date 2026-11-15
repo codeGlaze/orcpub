@@ -1512,6 +1512,19 @@
     ["span:first-child" {:padding-right "20px"}]
     [".callout-detail + .callout-detail > span" {:border-top "1px solid rgba(255, 255, 255, 0.08)"}]
     [:.callout-aside {:color muted-on-dark}]]
+   ;; Small-capitals links, so a 14px line of text leads rather than its actions (kits handoff,
+   ;; plan-inventory-kits.md). The 44px tap area is the button's own height.
+   [:.link-button.quiet
+    {:display :inline-flex :align-items :center :min-height "44px" :padding "0 15px"
+     :font-size "11px" :letter-spacing ".05em" :font-weight 600 :text-transform :uppercase
+     :text-decoration :underline :white-space :nowrap :flex :none}
+    [:&.strong {:font-weight 700}]
+    [:&.muted {:color :inherit :opacity 0.7}]]
+   ;; A quiet callout: text 12px from the top and left whether or not its actions sit below it.
+   [:.callout-quiet {:padding "0 0 0 12px !important" :align-items "flex-start !important"}
+    [:.callout-text {:padding "12px 0" :min-width 0}]
+    [:.callout-text [:.f-w-b {:margin-bottom "2px"}]]]
+   [:.callout-actions {:flex-basis "100%" :display :flex :justify-content :flex-end :margin-top "-12px"}]
    ;; Even spacing above and below the line and the band, so the box opens like a shell.
    [:.callout-compact.flex-wrap {:row-gap "4px !important"}]
    ;; A Planned line is a button that reads as the italic link it replaces, with a 44px tap area
@@ -2312,6 +2325,34 @@
      [:tr
       [(s/& (s/nth-child :even))
        {:background-color "rgba(255, 255, 255, 0.1)"}]]]
+
+    ;; Kits on the Equipment step (plan-inventory-kits.md). Colours follow the text colour, so
+    ;; every theme draws them without its own rule.
+    [:.kit-row {:display :flex :align-items :center :gap "10px" :min-height "48px" :padding "4px 0"}]
+    [:.kit-tile
+     {:flex "0 0 48px" :width "48px" :height "48px" :border-radius "8px"
+      :display :flex :align-items :center :justify-content :center
+      :border "1px solid color-mix(in srgb, currentColor 30%, transparent)"
+      :background-color "color-mix(in srgb, currentColor 6%, transparent)"}]
+    [:.kit-text {:flex "1 1 auto" :min-width 0}]
+    [:.kit-name {:white-space :nowrap :overflow :hidden :text-overflow :ellipsis}]
+    [:.kit-indent {:padding-left "58px"}
+     [:.link-button.quiet {:padding-left 0}]]
+    [:.kit-summary
+     {:flex "1 1 auto" :min-width 0 :min-height "48px" :padding 0 :text-align :left
+      :background :none :border :none :color :inherit :font :inherit :cursor :pointer}]
+    [:.kit-name-line {:display :flex :align-items :center :min-width 0}]
+    [:.kit-contents
+     {:display :flex :flex-wrap :wrap :column-gap "12px" :font-size "13px"
+      :font-variant-numeric :tabular-nums}]
+    [:.kit-restock {:flex :none :white-space :nowrap}]
+    [:.kit-list
+     {:display :grid :grid-template-columns "1fr auto" :column-gap "16px" :max-width "300px"
+      :font-size "13px" :font-variant-numeric :tabular-nums :margin "4px 0"}]
+    [:.kit-remove {:display :flex :flex-direction :column :align-items :flex-start}
+     [:.link-button.quiet {:padding-left 0}]
+     [:div {:margin-top "-10px" :padding-bottom "6px"}]]
+    [:.kit-tile-empty {:border-style :dashed :background-color :transparent :opacity 0.6}]
 
     [:.builder-option
      {:border-width (px 1)
@@ -3800,6 +3841,43 @@
     ;; none of that is implemented here. Anchor positioning pins it under its input, and
     ;; where unsupported the popover still opens (centred) rather than breaking.
     [:.inv-combo {:margin "6px 0 10px"}]
+    ;; A preset's label over the box (views/inventory.cljs `inventory-combobox`); the 44px tap is
+    ;; an invisible layer, as in .callout-compact.
+    [:.inv-combo-preset
+     {:position :relative :display :inline-flex :align-items :center :margin-bottom "6px"
+      :padding "2px 10px" :border-radius "12px" :font :inherit :font-size "12px" :color :inherit
+      :background :none :cursor :pointer
+      :border "1px solid color-mix(in srgb, currentColor 50%, transparent)"}]
+    [:.inv-combo-preset:after {:content "''" :position :absolute :top "-10px" :bottom "-10px" :left 0 :right 0}]
+    ;; The sheet's search while managing: it adds items, so it is ringed and labelled to differ
+    ;; from filtering (views/inventory.cljs `sheet-equipment`).
+    [:.inv-combo-adding [:.inv-combo-input {:border-color "#f0a100" :box-shadow "0 0 0 1px #f0a100"}]]
+    [:.inv-combo-preset.adding {:border-color "#f0a100" :cursor :default}]
+    ;; Worn | Off for the backpack (views/inventory.cljs `sheet-equipment`): two options, drawn at
+    ;; the size of the kit links, with a 44px tap area.
+    ;; No overflow hidden: it would clip the buttons' :after tap area; the end buttons round instead.
+    [:.seg {:display :inline-flex :flex :none :border-radius "5px"
+            :border "1px solid color-mix(in srgb, currentColor 40%, transparent)"}
+     ["button:first-child" {:border-radius "4px 0 0 4px"}]
+     ["button:last-child" {:border-radius "0 4px 4px 0"}]
+     [:button {:position :relative :background :none :border :none :color :inherit :font :inherit
+               :font-size "11px" :letter-spacing ".05em" :text-transform :uppercase :padding "0 10px"
+               :min-height "24px" :opacity 0.7 :cursor :pointer}]
+     ["button + button" {:border-left "1px solid color-mix(in srgb, currentColor 40%, transparent)"}]
+     [:button.on {:opacity 1 :font-weight 700 :color "#f0a100"
+                  :background-color "rgba(240, 161, 0, 0.18)"}]
+     [:button:after {:content "''" :position :absolute :top "-10px" :bottom "-10px" :left 0 :right 0}]]
+    [".app.light-theme .seg button.on" {:color "#33658A" :background-color "rgba(51,101,138,.12)"}]
+    [:.backpack-line {:gap "10px" :min-height "44px"}
+     [:.backpack-status {:font-size "13px"}]]
+    ;; The backpack's contents while it is off: still listed and counted, greyed, under one label.
+    [:tr.packed {:opacity 0.5}]
+    [:.sheet-stepper {:display :flex :align-items :center :gap "6px" :white-space :nowrap
+                      :font-variant-numeric :tabular-nums}
+     [:button {:background :none :border :none :padding "4px" :min-width "32px" :min-height "32px"
+               :color :inherit :cursor :pointer :position :relative}]
+     [:button:after {:content "''" :position :absolute :top "-6px" :bottom "-6px" :left "-2px" :right "-2px"}]
+     [:span {:min-width "18px" :text-align :center}]]
 
     [:.inv-combo-input
      {:width "100%"

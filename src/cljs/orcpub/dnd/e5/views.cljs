@@ -49,6 +49,7 @@
             [orcpub.dnd.e5.weapon-rolls :as weapon-rolls]
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views.notifications :as notifications]
+            [orcpub.dnd.e5.views.inventory :as inventory-views]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.pdf-options :as pdf-options]
@@ -108,15 +109,11 @@
          [:li.red (str common/dot-char " " msg)])
        messages))]))
 
-(defn svg-icon [icon-name & [size theme-override]]
-  (let [theme (or theme-override @(subscribe [:theme]))
-        light-theme? (= "light-theme" theme)
-        size (or size 32)]
-    [:img.svg-icon
-     {:style {:height (str size "px")
-              :width (str size "px")}
-      :class (when light-theme? " opacity-7")
-      :src (str (if light-theme? "/image/black/" "/image/") icon-name ".svg")}]))
+(defn svg-icon
+  "Icon `icon-name` at `size` px (32 by default) for `theme-override` or the current theme
+   (`comps/themed-icon`)."
+  [icon-name & [size theme-override]]
+  (comps/themed-icon icon-name size (or theme-override @(subscribe [:theme]))))
 
 (def login-style
   {:color "#f0a100"})
@@ -705,6 +702,16 @@
            "Developer mode"]]
          (when dev?
           [:<>
+           (let [quiet? @(subscribe [::e5/quiet-pick-counts?])]
+             [:div.dev-mode-row
+              [:span.dev-mode-switch
+               (merge (switch-attrs quiet? (make-event-handler ::e5/toggle-quiet-pick-counts))
+                      {:class (when quiet? "on")
+                       :title "Hide \"select any number / complete\" on builder sections that need nothing"
+                       :on-click (make-event-handler ::e5/toggle-quiet-pick-counts)})]
+              [:span.dev-mode-label
+               {:on-click (make-event-handler ::e5/toggle-quiet-pick-counts)}
+               "Hide empty pick counts"]])
            [:div.dev-mode-tools
             [:span.dev-mode-tool
              {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
@@ -3743,15 +3750,18 @@
     (mapcat
      (fn [[item-kw item-cfg]]
        (let [{:keys [::mi/name ::mi/type ::mi/item-subtype ::mi/rarity ::mi/attunement ::mi/description ::mi/summary] :as item} (magic-item-map item-kw)
-             expanded? (@expanded-details item-kw)]
+             expanded? (@expanded-details item-kw)
+             sel (cond (contains? magic-weapon-cfgs item-kw) :magic-weapons
+                       (contains? magic-armor-cfgs item-kw) :magic-armor
+                       :else :other-magic-items)]
          [[:tr.pointer
            {:on-click (toggle-details-expanded-handler expanded-details item-kw)}
            [:td.p-10.f-w-b (or (:name item) name)
-            [item-charges id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+            [item-charges id sel
              item-kw item (rests/as-entry item-cfg)]
             [cast-button item #(reset! cast-open item-kw)]
             (when (and mobile? (= item-kw @cast-open))
-              [cast-sheet id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+              [cast-sheet id sel
                item-kw item (rests/as-entry item-cfg) #(reset! cast-open nil)])]
            [:td.p-10 (str (common/kw-to-name type)
                           ", "
@@ -3765,7 +3775,7 @@
           (when (and (not mobile?) (= item-kw @cast-open))
             [:tr.cast-row
              [:td {:col-span 3}
-              [cast-panel id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+              [cast-panel id sel
                item-kw item (rests/as-entry item-cfg) #(reset! cast-open nil)]]])
           (when expanded?
             [:tr
@@ -3784,7 +3794,7 @@
       (let [mobile? @(subscribe [:mobile?])
             magic-item-cfgs @(subscribe [::char/magic-items id])
             magic-weapon-cfgs @(subscribe [::char/magic-weapons id])
-            magic-armor-cfgs @(subscribe [::char/magic-items id])]
+            magic-armor-cfgs @(subscribe [::char/magic-armor id])]
         [:div
          [:div.flex.align-items-c
           (svg-icon "orb-wand" 32)
@@ -3810,77 +3820,11 @@
                                magic-weapon-cfgs
                                magic-armor-cfgs)))]]]]))))
 
-(defn other-equipment-section-2 []
-  (let [expanded-details (r/atom {})]
-    (fn [id]
-      (let [mobile? @(subscribe [:mobile?])
-            equipment-cfgs (merge
-                            @(subscribe [::char/equipment id])
-                            (zipmap (range) @(subscribe [::char/custom-equipment id])))]
-        [:div
-         [:div.flex.align-items-c
-          (svg-icon "backpack" 32)
-          [:span.m-l-5.f-w-b.f-s-18 "Other Equipment"]]
-         [:div
-          [:table.w-100-p.t-a-l.striped
-           [:tbody.equipment
-            [:tr.f-w-b
-             {:class (when mobile? "f-s-12")}
-             [:th.p-10 "Name"]
-             [:th.p-10 "Qty."]
-             [:th.p-10 "Details"]
-             [:th]]
-            (doall
-             (map
-              (fn [[item-kw item-cfg]]
-                (let [item-name (::char-equip/name item-cfg)
-                      {:keys [name cost weight] :as item} (equip/equipment-map item-kw)
-                      ;;expanded? (@expanded-details item-kw)
-                      ]
-                  ^{:key item-kw}
-                  [:tr.item
-                   [:td.p-10.f-w-b (or (:name item) item-name)]
-                   [:td.p-10 (::char-equip/quantity item-cfg)]
-                   [:td.p-10
-                    [:div
-                     [:div
-                      (str (when cost
-                             (str (:num cost)
-                                  " "
-                                  (common/safe-name (:type cost))
-                                  ", "))
-                           weight)]]]]))
-              equipment-cfgs))]]]]))))
-
-(defn treasure-section []
-  (r/with-let [expanded-details (r/atom {})]
-    (fn [id]
-      (let [mobile? @(subscribe [:mobile?])
-            treasure-cfgs (merge
-                             @(subscribe [::char/treasure id])
-                             (zipmap (range) @(subscribe [::char/custom-treasure id])))]
-        [:div
-         [:div.flex.align-items-c
-          (svg-icon "cash" 32)
-          [:span.m-l-5.f-w-b.f-s-18 "Treasure"]]
-         [:div
-          [:table.w-100-p.t-a-l.striped
-           [:tbody
-            [:tr.f-w-b
-             {:class (when mobile? "f-s-12")}
-             [:th.p-10 "Name"]
-             [:th.p-10 "Qty."]
-             [:th]]
-            (doall
-             (map
-              (fn [[treasure-kw treasure-cfg]]
-                (let [treasure-name (::char-equip/name treasure-cfg)
-                      {:keys [::equip/name] :as treasure} (equip/treasure-map treasure-kw)]
-                  ^{:key treasure-kw}
-                  [:tr
-                   [:td.p-10.f-w-b (or (:name treasure) treasure-name)]
-                   [:td.p-10 (::char-equip/quantity treasure-cfg)]]))
-              treasure-cfgs))]]]]))))
+(defn other-equipment-section-2
+  "The sheet's Other Equipment for character `id`, with its kits (`inventory-views/sheet-equipment`);
+   `managing?` is the Equipment tab's Manage inventory atom."
+  [id managing?]
+  [inventory-views/sheet-equipment id managing?])
 
 (defn skill-details-section-2 []
   (let [expanded-details (r/atom {})]
@@ -4254,20 +4198,27 @@
                               total-spellcaster-levels
                               levels])]]))
 
-(defn equipment-details [num-columns id]
-  [:div
-   [:div.m-t-30
-    [equipped-section id]]
-   [:div.m-t-30
-    [weapons-section-2 id]]
-   [:div.m-t-30
-    [armor-section-2 id]]
-   [:div.m-t-30
-    [magic-items-section-2 id]]
-   [:div.m-t-30
-    [other-equipment-section-2 id]]
-   [:div.m-t-30
-    [treasure-section id]]])
+(defn equipment-details
+  "The sheet's Equipment tab for character `id`. It holds the Manage inventory switch, so leaving
+   the tab turns it off; Other Equipment and Treasure follow it."
+  []
+  (let [managing? (r/atom false)]
+    (fn [num-columns id]
+      [:div
+       [:div.m-t-30
+        [equipped-section id]]
+       [:div.m-t-30
+        [weapons-section-2 id]]
+       [:div.m-t-30
+        [armor-section-2 id]]
+       [:div.m-t-30
+        [magic-items-section-2 id]]
+       [:div.m-t-30
+        [other-equipment-section-2 id managing?]]
+       [:div.m-t-30
+        [inventory-views/sheet-treasure id managing?]]
+       (when @managing?
+         [inventory-views/done-managing managing?])])))
 
 (defn details-tab [title icon device-type selected? on-select]
   [:div.b-b-2.f-w-b.pointer.p-10.hover-opacity-full
