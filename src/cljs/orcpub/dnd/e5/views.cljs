@@ -3750,15 +3750,18 @@
     (mapcat
      (fn [[item-kw item-cfg]]
        (let [{:keys [::mi/name ::mi/type ::mi/item-subtype ::mi/rarity ::mi/attunement ::mi/description ::mi/summary] :as item} (magic-item-map item-kw)
-             expanded? (@expanded-details item-kw)]
+             expanded? (@expanded-details item-kw)
+             sel (cond (contains? magic-weapon-cfgs item-kw) :magic-weapons
+                       (contains? magic-armor-cfgs item-kw) :magic-armor
+                       :else :other-magic-items)]
          [[:tr.pointer
            {:on-click (toggle-details-expanded-handler expanded-details item-kw)}
            [:td.p-10.f-w-b (or (:name item) name)
-            [item-charges id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+            [item-charges id sel
              item-kw item (rests/as-entry item-cfg)]
             [cast-button item #(reset! cast-open item-kw)]
             (when (and mobile? (= item-kw @cast-open))
-              [cast-sheet id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+              [cast-sheet id sel
                item-kw item (rests/as-entry item-cfg) #(reset! cast-open nil)])]
            [:td.p-10 (str (common/kw-to-name type)
                           ", "
@@ -3772,7 +3775,7 @@
           (when (and (not mobile?) (= item-kw @cast-open))
             [:tr.cast-row
              [:td {:col-span 3}
-              [cast-panel id (if (contains? magic-weapon-cfgs item-kw) :magic-weapons :other-magic-items)
+              [cast-panel id sel
                item-kw item (rests/as-entry item-cfg) #(reset! cast-open nil)]]])
           (when expanded?
             [:tr

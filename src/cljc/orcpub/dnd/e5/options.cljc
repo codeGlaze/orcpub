@@ -2745,9 +2745,11 @@
                        :prereq-fn (first-class? class-kw)})]})
       (t/option-cfg
        {:name (-> equipment :name (str (if (> num 1) (str " (" num ")") "")))
-        ;; A pack adds nothing here: choosing it makes a kit of real picks (inventory.cljc).
-        :modifiers (when-not (:items equipment)
-                     [(modifiers/equipment k num)])}))))
+        ;; One pack adds nothing here: choosing it makes a kit of real picks (inventory.cljc).
+        ;; Several (homebrew only) give their items, since the option's key is not a pack's.
+        :modifiers (cond
+                     (not (:items equipment)) [(modifiers/equipment k num)]
+                     (> num 1) (map (fn [[kw n]] (modifiers/equipment kw (* n num))) (:items equipment)))}))))
 
 (defn class-equipment-options [equipment-choices class-kw]
   (class-options class-kw (partial equipment-option class-kw) equipment-choices "Select equipment to start your adventuring career with."))

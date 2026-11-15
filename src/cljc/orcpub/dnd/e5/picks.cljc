@@ -192,14 +192,14 @@
 ;; show it (homebrew not loaded). decision-gate-hidden-picks.md, "Agreed in review".
 
 (def ^:private structural
-  "Selections whose entries are the character's frame, not choices: a class's levels, the values
-   the builder fills (hit points), and kits (plan-inventory-kits.md)."
-  #{:levels :hit-points :kits})
+  "Selections whose entries are the character's frame, not choices: a class's levels and the values
+   the builder fills (hit points). Kits are left out whole, markers included (plan-inventory-kits.md)."
+  #{:levels :hit-points})
 
 (defn choices
   "Every pick `character` stores, as [{:address :section :name :status}]: `:status` :active when
    its selection offers it, :missing when `template` does not (homebrew not loaded here). Leaves
-   out picks under a missing one, the class frame (`structural`) and entries carrying a value."
+   out picks under a missing one, the class frame (`structural`), kits and entries carrying a value."
   [template character]
   (let [by-path (into {} (map (fn [s] [(vec (entity/actual-path s)) s]))
                       (remove nil? (entity/get-all-selections-aux-2
@@ -209,7 +209,8 @@
                          s (by-path path)
                          opt (some #(when (= (peek address) (::t/key %)) %)
                                    (some-> s entity/selection-options))]
-                   :when (not (or (structural (peek path)) (contains? e ::entity/value)))]
+                   :when (not (or (structural (peek path)) (= :kits (first address))
+                                  (contains? e ::entity/value)))]
                {:address address
                 :section (or (some-> s ::t/name) (common/kw-to-name (peek path) true))
                 :name (or (::t/name opt) (common/kw-to-name (peek address) true))

@@ -164,15 +164,21 @@
                {::entity/key pack-key
                 ::entity/options {:held (mapv (fn [[k n]] {::entity/key k ::entity/value n}) hold)}})))
 
+(defn- starting-pack-pick?
+  "Whether the pick at `address` chose a pack in a starting-equipment choice: a pack key picked
+   anywhere but an Equipment pick or the kits' own entries."
+  [address]
+  (and (pack (peek address))
+       (not= :kits (first address))
+       (not= :equipment (peek (pop address)))))
+
 (defn- pack-pick?
   "Whether the pick at `address` chose a pack: a starting-equipment choice, or a pack stored as an
    Equipment pick."
   [address]
-  (let [k (peek address)
-        sel (peek (pop address))]
-    (and (pack k)
-         (or (= :equipment sel)
-             (s/starts-with? (name sel) "starting-equipment")))))
+  (and (pack (peek address))
+       (or (= [:equipment] (pop address))
+           (starting-pack-pick? address))))
 
 (defn chosen-packs
   "The packs `character` has chosen, as [{:pack k :address a}], in pick order."
@@ -193,7 +199,7 @@
    quantity of its Equipment picks."
   [character pack-key]
   (+ (count (for [{pk :pack a :address} (chosen-packs character)
-                  :when (and (= pk pack-key) (not= :equipment (peek (pop a))))]
+                  :when (and (= pk pack-key) (starting-pack-pick? a))]
               a))
      (total character pack-key)))
 
@@ -247,8 +253,7 @@
   "`offered` while the character's starting-equipment pack choice is still unanswered; empty once a
    pack is chosen there, since the choice no longer stands for any other pack."
   [character offered]
-  (if (some #(s/starts-with? (name (peek (pop (:address %)))) "starting-equipment")
-            (chosen-packs character))
+  (if (some #(starting-pack-pick? (:address %)) (chosen-packs character))
     #{}
     (or offered #{})))
 
@@ -333,12 +338,13 @@
           (active-kits character)))))
 
 (defn answer-choice
-  "`character` with pack `pack-key`'s choice group `group` answered by gear `k`: an owned `k` is
-   claimed, else one is added. Returns the character."
+  "`character` with pack `pack-key`'s choice group `group` answered by gear `k`: the spare `k` owned
+   is claimed and what the kit is still short is added. Returns the character."
   [character pack-key group k]
   (let [n (* (get-in (pack pack-key) [:items group] 1)
              (kit-count (some #(when (= pack-key (::entity/key %)) %) (kits character))))
-        c (if (pos? (spare character k)) character (add-item character k n))]
+        short (- n (min n (spare character k)))
+        c (if (pos? short) (add-item character k short) character)]
     (update-kit c pack-key #(set-held % k n))))
 
 (defn- drop-pack-picks
@@ -355,7 +361,8 @@
 
 (defn resolve-orphan
   "`character` after the player answers a kit whose pack is no longer chosen: `:remove` takes off
-   what the kit still holds and drops it; `:keep` keeps it as a kit the player added."
+   what the kit still holds and drops it; `:keep` keeps it as a kit the player added, for as many
+   packs as it stood for."
   [character pack-key answer]
   (case answer
     :remove (drop-kit (reduce (fn [c [k n]] (remove-items c k n))
@@ -364,7 +371,8 @@
                       pack-key)
     :keep (update-in character [::entity/options :equipment] (fnil conj [])
                      {::entity/key pack-key
-                      ::entity/value {::char-equip/quantity 1 ::char-equip/equipped? true}})))
+                      ::entity/value {::char-equip/quantity (kit-count (get (kits character) (kit-index character pack-key)))
+                                      ::char-equip/equipped? true}})))
 
 (defn take-from-kits
   "`character` after `n` of gear `k` were used or lost: kits give them up in kit order, top first;

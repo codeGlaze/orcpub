@@ -229,7 +229,13 @@
   (let [query     (r/atom "")
         active    (r/atom -1)
         open?     (r/atom false)
-        on-toggle (fn [e] (reset! open? (= "open" (.-newState e))))
+        ;; Closing forgets the highlight, so Enter cannot pick a row nobody sees.
+        on-toggle (fn [e]
+                    (let [now-open? (= "open" (.-newState e))]
+                      (reset! open? now-open?)
+                      (when-not now-open? (reset! active -1))))
+        ;; Per instance: two boxes for one selection on a page must not share a popover.
+        uid       (str (gensym "inv-"))
         el*       (atom nil)
         ;; Defined once per instance, not per render: a fresh closure each render would make
         ;; React tear down and re-attach, adding a listener every time.
@@ -246,9 +252,8 @@
                                        (comp (remove (inventory-option-selected? selected-keys))
                                              (map name-and-key)))
                                      options)))
-            kname    (clojure.core/name key)
-            pop-id   (str "inv-pop-" kname)
-            anchor   (str "--inv-anchor-" kname)
+            pop-id   (str uid "-pop")
+            anchor   (str "--" uid "-anchor")
             q        (s/lower-case (s/trim @query))
             matches  (if (s/blank? q)
                        items
@@ -286,7 +291,7 @@
                           (case (.-key e)
                             "ArrowDown" (move! e 1)
                             "ArrowUp"   (move! e -1)
-                            "Enter"     (when-let [it (nth matches @active nil)]
+                            "Enter"     (when-let [it (and @open? (nth matches @active nil))]
                                           (.preventDefault e)
                                           (pick! (:key it)))
                             nil))
@@ -558,7 +563,7 @@
             builder? (nil? id)
             budget (max 20 (js/Math.round (* 40 (/ @width 390))))
             asking-kit (some #(when (= @asking (:pack %)) %) ks)]
-        (when (or builder? adding? (seq ks))
+        (when (or builder? adding? (seq ks) undo)
           [:div.m-b-10 {:ref ref}
            [:div.flex.justify-cont-s-b.align-items-c
             [:div
@@ -700,7 +705,9 @@
            [:span.dev-mode-label.f-s-14.pointer {:on-click #(swap! managing? not)} "Manage inventory"]
            [:span.toggle-switch
             {:class (when @managing? "on") :role "switch" :aria-checked (str @managing?) :tabIndex 0
-             :on-click #(swap! managing? not)}]]]
+             :aria-label "Manage inventory"
+             :on-click #(swap! managing? not)
+             :on-key-down #(when (#{"Enter" " "} (.-key %)) (.preventDefault %) (swap! managing? not))}]]]
          (when (some? backpack-worn?)
            (let [n (count (remove #(= :backpack (key %)) items))]
              [:div.flex.align-items-c.m-t-10.backpack-line

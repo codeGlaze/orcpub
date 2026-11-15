@@ -713,6 +713,24 @@
   [character]
   (dissoc (entity/remove-ids (char5e/to-strict character)) ::se/version))
 
+(defn changed-option-keys
+  "The ::entity/options keys (top-level selections: gear, kits, magic items) whose picks differ
+   between characters `stored` and `edited`, as a set."
+  [stored edited]
+  (let [a (::entity/options stored) b (::entity/options edited)]
+    (into #{} (filter #(not= (get a %) (get b %))) (into (set (keys a)) (keys b)))))
+
+(defn- put-keys
+  "`character` with the entries under `k` (::entity/values or ::entity/options) named in `ks` taken
+   from `from`, or removed where `from` has none."
+  [character k from ks]
+  (reduce (fn [c x]
+            (if-some [v (get-in from [k x])]
+              (assoc-in c [k x] v)
+              (update c k dissoc x)))
+          character
+          ks))
+
 (defn character-save-success-fx
   "Handler for `:character-save-success`: records the reply for character `id`, replaces the builder
    only with a save about it (saved-character-is-the-one-being-edited?), keeps the builder's unsaved
@@ -747,7 +765,8 @@
                               (update ::edited-in-flight dissoc id))
                     ;; The builder's character, unsaved or the same id: the hold now holds for its id.
                     (contains? #{nil id} (get-in db [:character :db/id])) (assoc ::e5/planned-for id)
-                    (not newer?) (update ::sheet-edited dissoc id)
+                    (not newer?) (-> (update ::sheet-edited dissoc id)
+                                     (update ::sheet-edited-options dissoc id))
                     newer? (assoc-in [::stored-shape id] (stored-shape character))
                     (and newer? version) (assoc-in [::char5e/character-map id ::entity/version] version)
                     true (update ::refused dissoc id))
@@ -915,12 +934,9 @@
      (if (and (= 409 status) (= :stale-character (:error body)) current
               (not (get-in db [::refused for-id])))
        (let [local (get-in db [::char5e/character-map for-id])
-             rebased (reduce (fn [c k]
-                               (if-some [v (get-in local [::entity/values k])]
-                                 (assoc-in c [::entity/values k] v)
-                                 (update c ::entity/values dissoc k)))
-                             current
-                             (get-in db [::sheet-edited for-id]))
+             rebased (-> current
+                         (put-keys ::entity/values local (get-in db [::sheet-edited for-id]))
+                         (put-keys ::entity/options local (get-in db [::sheet-edited-options for-id])))
              builder-free? (and (= for-id (get-in db [:character :db/id]))
                                 (not (get-in db [:character :changed])))]
          {:db (cond-> (-> db
@@ -4512,9 +4528,10 @@
 
 (defn update-character-fx
   "Effects for a sheet or list edit: applies `update-fn` to the stored copy of character `id` and
-   autosaves it, recording its changed values keys under ::sheet-edited (for the save's reply, and
-   for re-applying after a refused save). When the builder has that character open, the edit is
-   applied there too. With no `id` the character is unsaved, so the edit goes to the builder's copy."
+   autosaves it, recording its changed values keys under ::sheet-edited and option keys under
+   ::sheet-edited-options (for the save's reply, and for re-applying after a refused save). When the
+   builder has that character open, the edit is applied there too. With no `id` the character is
+   unsaved, so the edit goes to the builder's copy."
   [db id update-fn]
   ;; Any sheet edit closes an open Rest result, so its Undo cannot overwrite the edit; the rest
   ;; events put their own result back (with-rest-result).
@@ -4527,7 +4544,9 @@
       (cond-> {:db (cond-> (-> db
                                (assoc-in [::char5e/character-map int-id] updated)
                                (update-in [::sheet-edited int-id] (fnil into #{})
-                                          (changed-value-keys stored updated)))
+                                          (changed-value-keys stored updated))
+                               (update-in [::sheet-edited-options int-id] (fnil into #{})
+                                          (changed-option-keys stored updated)))
                      (get-in db [::in-flight int-id]) (assoc-in [::edited-in-flight int-id] true)
                      open (assoc :character open))
                ::char5e/save-character-throttled id}
@@ -4571,7 +4590,9 @@
 (reg-event-fx
  ::inventory/set-quantity
  (fn [{:keys [db]} [_ id sel item-key n]]
-   (update-character-fx db id #(inventory/set-quantity % sel item-key n))))
+   (if id
+     (sheet-edit-fx db id #(inventory/set-quantity % sel item-key n) nil)
+     (update-character-fx db id #(inventory/set-quantity % sel item-key n)))))
 
 (reg-event-fx
  ::inventory/set-backpack-worn
@@ -4581,9 +4602,11 @@
 (reg-event-fx
  ::inventory/sheet-undo
  (fn [{:keys [db]} [_ id]]
-   (let [{before :before undo-id :id} (::inventory/undo db)]
+   (let [{:keys [before after] undo-id :id} (::inventory/undo db)
+         ks (changed-option-keys before after)]
      (when (and before (= id undo-id))
-       (-> (update-character-fx db id (constantly before))
+       ;; Only what the action changed goes back, so each copy keeps its other edits.
+       (-> (update-character-fx db id #(put-keys % ::entity/options before ks))
            (update :db dissoc ::inventory/undo))))))
 
 (reg-event-fx
