@@ -1264,7 +1264,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 2026-11-02, 2026-11-04, 2026-11-15, admin, art, branding, cloudflare, dmv, gitea, images, integration, launch, licensed, merge, pre-merge, push, pushing, silhouettes
+**topics:** 2026-11-02, 2026-11-04, 2026-11-15, admin, art, branding, cloudflare, dmv, gitea, images, integration, launch, licensed, merge, push, pushing, silhouettes, update
 
 - Where it happens
 - How to resolve conflicts
