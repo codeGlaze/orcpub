@@ -6,7 +6,9 @@
             [orcpub.entity :as entity]
             [orcpub.template :as t]
             [orcpub.dnd.e5.character.equipment :as char-equip]
+            [orcpub.dnd.e5.equipment :as equipment]
             [orcpub.dnd.e5.inventory :as inventory]
+            [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.picks :as picks]))
 
 (defn- gear
@@ -312,3 +314,54 @@
       (is (true? (get-in off [::entity/options :equipment 1 ::entity/value ::char-equip/equipped?]))
           "the contents keep their own carried flags")
       (is (true? (inventory/backpack-worn? (inventory/set-backpack-worn off true)))))))
+
+;; PR #85 review: one test per finding.
+
+(defn- homebrew-choosing
+  "A stored homebrew class whose rich starting-equipment option picks `pack-key` in its nested
+   \"Equipment Pack\" sub-choice (selection key :equipment-pack)."
+  [pack-key]
+  {::entity/options {:class [{::entity/key :hb-class
+                              ::entity/options {:starting-equipment-gear
+                                                [{::entity/key :a-pack-and-more
+                                                  ::entity/options {:equipment-pack [{::entity/key pack-key}]}}]}}]}})
+
+(deftest a-pack-picked-in-a-nested-sub-choice-is-a-kit
+  (let [c (:character (inventory/repair (homebrew-choosing :explorers-pack)))]
+    (is (= [:explorers-pack] (map ::entity/key (inventory/kits c))))
+    (is (= 10 (qty c :torch)))
+    (is (= 1 (inventory/source-count c :explorers-pack)) "counted once, not as an item too"))
+  (testing "choosing one closes the offer, so an untouched kit from the old class goes quietly"
+    (let [old (:character (inventory/repair (fighter-choosing :dungeoneers-pack [])))
+          now (assoc-in old [::entity/options :class] (get-in (homebrew-choosing :explorers-pack) [::entity/options :class]))
+          r (:character (inventory/repair now #{:dungeoneers-pack :explorers-pack}))]
+      (is (= [:explorers-pack] (map ::entity/key (inventory/kits r)))))))
+
+(deftest answering-a-choice-adds-what-the-kit-is-short
+  (let [two (:character (inventory/repair {::entity/options {:equipment [(gear :monster-hunters-pack 2)]}}))
+        one-spare (inventory/add-item two :emblem 1)
+        answered (inventory/answer-choice one-spare :monster-hunters-pack :holy-symbol :emblem)]
+    (is (= 2 (qty answered :emblem)) "the spare one is claimed and one more added")
+    (is (= 2 (held-of answered :monster-hunters-pack :emblem)))))
+
+(deftest keeping-an-orphan-kit-keeps-its-count
+  (let [two (:character (inventory/repair (fighter-choosing :explorers-pack [(gear :explorers-pack 1)])))
+        gone (-> two
+                 (assoc-in [::entity/options :class] [])
+                 (update-in [::entity/options :equipment] (fn [ps] (filterv #(not= :explorers-pack (::entity/key %)) ps))))
+        used (inventory/take-from-kits gone :torch 3)
+        kept (:character (inventory/repair (inventory/resolve-orphan used :explorers-pack :keep)))]
+    (is (= 2 (inventory/kit-count (first (inventory/kits two)))))
+    (is (= 2 (inventory/kit-count (first (inventory/kits kept)))))))
+
+(deftest a-removed-kit-is-not-listed-as-a-choice
+  (let [chosen (:character (inventory/repair (fighter-choosing :explorers-pack [])))
+        r (inventory/remove-kit chosen :explorers-pack)]
+    (is (not-any? #(= :kits (first (:address %))) (picks/choices {::t/selections []} r)))))
+
+(deftest a-starting-pack-offered-several-times-gives-its-items
+  (let [items (:items (equipment/equipment-map :explorers-pack))]
+    (is (empty? (::t/modifiers (opt5e/equipment-option :fighter [:explorers-pack 1])))
+        "one pack: no modifiers, the pick makes a kit")
+    (is (= (count items) (count (::t/modifiers (opt5e/equipment-option :fighter [:explorers-pack 2]))))
+        "two packs: the items, as before kits")))

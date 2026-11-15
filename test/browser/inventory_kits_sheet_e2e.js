@@ -1,4 +1,4 @@
-// Kits and Manage inventory on the character sheet at phone size, on the builder's Details tab and on a saved character's own sheet (logged in as the seeded user), including that a stepper edit is saved.
+// Kits and Manage inventory on the character sheet at phone size, on the builder's Details tab and on a saved character's own sheet (logged in as the seeded user), including that a stepper edit is saved, the switch from the keyboard and Undo after the last kit.
 // Screenshots go to $SHOTS when set. plan-inventory-kits.md on agents/develop.
 const path = require('path');
 const { chromium, devices } = require(path.join(process.cwd(), 'scripts/e2e/node_modules/playwright'));
@@ -95,7 +95,7 @@ const setTorches = async (page, n) => { const q = torchQty(page); await q.fill(S
     await page.waitForTimeout(1500);
     console.log('  saves after the edit:', JSON.stringify(posts));
     check(/Torch 8\/10/.test(await stext()), 'one fewer on the saved sheet: Torch 8/10');
-    check(/Undo/.test(await stext()) === false, 'a stepper keeps no Undo line');
+    check(/\bundo\b/i.test(await stext()) === false, 'a stepper keeps no Undo line');
     const gp = page.locator('input[aria-label="Gold Pieces (GP) quantity"]');
     check(await gp.count() === 1, 'managing: Treasure lists every coin with a box');
     await gp.fill('47'); await gp.blur(); await settle(page, 3000);
@@ -123,6 +123,25 @@ const setTorches = async (page, n) => { const q = torchQty(page); await q.fill(S
     await page.locator('.b-b-2.pointer').first().click(); await settle(page, 600);
     await eqTab().click(); await settle(page, 800);
     check(await sec().locator('.sheet-stepper').count() === 0, 'switching tabs turns managing off');
+    // From the #85 review: the switch from the keyboard, Enter after Escape, Undo after the last kit.
+    await sec().locator('.toggle-switch').click(); await settle(page, 400);
+    const box = sec().locator('input.inv-combo-input');
+    const rows0 = await sec().locator('tr.item').count();
+    await box.fill('abacus'); await settle(page, 300);
+    await box.press('ArrowDown'); await box.press('Escape'); await settle(page, 200);
+    await box.press('Enter'); await settle(page, 1200);
+    await box.fill(''); await settle(page, 300);
+    check(await sec().locator('tr.item').count() === rows0
+          && await sec().locator('tr.item', { hasText: 'Abacus' }).count() === 0, 'Enter after Escape closed the list adds nothing');
+    await sec().locator('.toggle-switch').click(); await settle(page, 400);
+    await sec().locator('.toggle-switch').focus(); await page.keyboard.press(' '); await settle(page, 400);
+    check(await sec().locator('.sheet-stepper').count() > 0, 'Manage inventory turns on from the keyboard');
+    await page.keyboard.press('Enter'); await settle(page, 400);
+    check(await sec().locator('.sheet-stepper').count() === 0, 'and off again');
+    await sec().locator('button.kit-summary').first().click(); await settle(page, 400);
+    await sec().locator('button.link-button.quiet:text-is("Remove kit")').click(); await settle(page, 300);
+    t = await stext();
+    check(/Removed Explorer's Pack/.test(t) && /\bundo\b/i.test(t), 'removing the last kit keeps its Undo line');
     await page.screenshot({ path: path.join(OUT, 'c1-saved-sheet.png'), fullPage: false });
   }
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);

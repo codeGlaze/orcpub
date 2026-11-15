@@ -27,6 +27,7 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.entity :as entity]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.inventory :as inventory]
             ;; the account events (:logout, :clear-login) are registered here
             [orcpub.dnd.e5.events.auth]
             [orcpub.dnd.e5.magic-items :as mi]
@@ -1794,6 +1795,80 @@
     (swap! app-db assoc-in [::events/refused 111] true)
     (effects-of [::char5e/save-character "111"] [:http :dispatch-later ::autosave-fx/saved])
     (is (nil? (get-in @app-db [::events/refused 111])))))
+
+(def ^:private sheet-save-stubs
+  "The autosave effects a sheet edit asks for, stubbed out."
+  {::char5e/save-character-throttled identity ::events/builder-draft->local-store identity
+   :dispatch identity :dispatch-n identity})
+
+(defn- gear-keys
+  "The Equipment pick keys of saved character 111 in app-db."
+  []
+  (set (map ::entity/key (get-in @app-db [::char5e/character-map 111 ::entity/options :equipment]))))
+
+(deftest a-refused-autosave-reapplies-a-sheet-inventory-edit
+  (with-fx sheet-save-stubs
+    (fn []
+      (reset! app-db (assoc pristine-db ::char5e/character-map
+                            {111 {:db/id 111 ::entity/version 1 ::entity/values {char-name "Old" hp 4}}}))
+      (rf/dispatch-sync [::inventory/sheet-add-item "111" :torch])
+      (rf/dispatch-sync [::char5e/save-refused {:for-id 111} refused])
+      (is (= "Renamed elsewhere" (get-in @app-db [::char5e/character-map 111 ::entity/values char-name]))
+          "rebased on the stored character")
+      (is (contains? (gear-keys) :torch) "with the sheet's added torch put back on it"))))
+
+(deftest a-typed-quantity-on-the-sheet-edits-the-repaired-character
+  (with-fx sheet-save-stubs
+    (fn []
+      (reset! app-db (assoc pristine-db ::char5e/character-map
+                            {111 {:db/id 111 ::entity/options
+                                  {:equipment [{::entity/key :explorers-pack
+                                                ::entity/value {:orcpub.dnd.e5.character.equipment/quantity 1}}]}}}))
+      (rf/dispatch-sync [::inventory/set-quantity "111" :treasure :gp 5])
+      (is (= [:explorers-pack] (map ::entity/key (get-in @app-db [::char5e/character-map 111 ::entity/options :kits])))
+          "the pack saved before kits is saved as the kit the sheet shows"))))
+
+(deftest sheet-undo-outlives-its-own-autosave
+  (with-fx sheet-save-stubs
+    (fn []
+      (let [saved-reply (fn []
+                          ;; The save's reply: the same character, ids on every entry, a new version.
+                          (let [c (get-in @app-db [::char5e/character-map 111])]
+                            (rf/dispatch-sync
+                             [::char5e/set-character 111
+                              (-> c
+                                  (assoc ::entity/version 2)
+                                  (update-in [::entity/options :equipment]
+                                             (fn [ps] (vec (map-indexed #(assoc %2 :db/id (+ 900 %1)) ps))))
+                                  (update-in [::entity/options :kits] (fn [ks] (mapv #(assoc % :db/id 999) ks))))])))
+            start! (fn []
+                     (reset! app-db (assoc pristine-db ::char5e/character-map
+                                           {111 {:db/id 111 ::entity/version 1 ::entity/values {char-name "Old"}}}))
+                     (rf/clear-subscription-cache!)
+                     (rf/dispatch-sync [::inventory/sheet-act "111" :add :explorers-pack]))]
+        (start!)
+        (saved-reply)
+        (is (some? @(rf/subscribe [::inventory/undo "111"])) "Undo is still offered after the save's reply")
+        (rf/dispatch-sync [::inventory/sheet-undo "111"])
+        (is (empty? (gear-keys)) "and still takes the kit off")
+        (start!)
+        (rf/dispatch-sync [::inventory/sheet-add-item "111" :abacus])
+        (is (nil? @(rf/subscribe [::inventory/undo "111"])) "a later edit to the same gear ends it")))))
+
+(deftest undo-on-the-sheet-keeps-the-builders-other-edits
+  (with-fx sheet-save-stubs
+    (fn []
+      (let [stored {:db/id 111 ::entity/version 1 ::entity/values {char-name "Old"}}]
+        (reset! app-db (assoc pristine-db
+                              :character (assoc-in (assoc stored :changed true) [::entity/values char-name] "Builder edit")
+                              ::char5e/character-map {111 stored}))
+        (rf/dispatch-sync [::inventory/sheet-act "111" :add :explorers-pack])
+        (is (contains? (gear-keys) :torch) "the kit was added")
+        (rf/dispatch-sync [::inventory/sheet-undo "111"])
+        (is (empty? (gear-keys)) "Undo takes it off the saved copy")
+        (is (= "Builder edit" (get-in @app-db [:character ::entity/values char-name]))
+            "and leaves the builder's unsaved edit alone")
+        (is (empty? (get-in @app-db [:character ::entity/options :equipment])) "while taking the kit off there too")))))
 
 (deftest a-refused-autosave-leaves-the-builders-unsaved-edits-alone
   (with-fx {:dispatch identity :dispatch-n identity}
