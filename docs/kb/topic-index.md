@@ -3069,6 +3069,7 @@ _plan-inventory-kits · plan inventory kits_
 - Layout review, round 1 (2026-10-22, owner)
 - The map: where equipment is written, read and saved (2026-10-22, integration d51938c1)
 - Sheet Undo and the autosave (2026-11-14, PR #85 review)
+- Order on a saved sheet: settle, then repair (2026-11-15, PR #85 second review)
 - Patterns to reuse
 - Open (owner)
 

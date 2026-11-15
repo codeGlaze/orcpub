@@ -340,6 +340,14 @@ where `magic-armor` is meant (~3983).
 - **The "missing at 300 ms" failure was the test:** the Undo link renders as "UNDO", and the check
   matched /Undo/ case-sensitively. Browser checks for link text match case-insensitively.
 
+## Order on a saved sheet: settle, then repair (2026-11-15, PR #85 second review)
+
+- `subs/shown-character` (the `::char5e/character` by-id reaction) settles the picks first, then runs
+  `inventory/repair`, the same order as `settle-picks-fx`. Repairing first made a kit, with its
+  items, from a starting pack pick the settle then held (a class that is no longer the starting one).
+- `remove-items` takes gear off every matching Equipment row in order, not only the first: saved
+  characters from before #138 can hold the same item in several rows.
+
 ## Patterns to reuse
 
 - Stable identity from existing keys, never generated ids
