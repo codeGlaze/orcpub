@@ -31,7 +31,7 @@ app's classpath, and compares them field by field, matched by `:key`.
 | Longbow lacks `::weapons/ammunition?`; the other six ammunition weapons have it, and magic items and the item builder read it | fixed by #62 (merged into `integration` 2026-10-18), test `ammunition-weapons-are-flagged` |
 | Sling range: open5e's ammunition property said 80/320, its own record and the SRD 30/120 | fixed in `srd-corrections`; check rule `weapon-range` added |
 | 30 weapons carry a Wikipedia `::link`, added 2017-04-27 (`1cd9abaf8`); `weapon-details` takes it and never renders it | decided: drop (owner, 2026-10-18); dropped on `feature/weapons-table` (`dd7aa5ef`), open on `integration` until it merges |
-| 15 display names differ: 9 Title Case renames ([content-naming-style.md](content-naming-style.md)), 6 armors the SRD names differently (Padded, Leather, Hide, Plate and Splint add "Armor"; Studded is "Studded Leather Armor") | Title Case done on `feature/weapons-table` (`bb709301`); the 6 armor names are the owner's open call; keys unchanged |
+| 15 display names differ: 9 Title Case renames ([content-naming-style.md](content-naming-style.md)), 6 armors the SRD names differently (Padded, Leather, Hide, Plate and Splint add "Armor"; Studded is "Studded Leather Armor") | Title Case done on `feature/weapons-table` (`bb709301`); the 6 armor names are settled (owner, recorded 2026-11-14): the app keeps its short names, SRD data uses the SRD's full names; keys unchanged |
 | SRD Studded Leather Armor is `:studded` in the app | settled: `:studded` stays, the generator maps it |
 | Spiked Armor and DMV's three firearms are not SRD | settled: live options, kept |
 | `::weapons/subtype` (sword, axe, bow) has no SRD field | settled: kept as a tag for feat and mastery hooks |

@@ -21,10 +21,12 @@ note, what is deferred).
   quiet class changes, the Manage inventory switch, backpack Worn | Off: all in the plan page.
 - 2026-10-23: one inventory namespace for kits, bags and containers; no file per concept.
 - 2026-10-23: camp, mount and wagon, and gear carried on the person, are deferred.
+- Armor names (owner, repeated; recorded 2026-11-14): the app keeps today's short names (Padded,
+  Leather, Studded, Hide, Splint, Plate); SRD data uses the SRD's full names. Settled: never ask again.
 
 ## Open questions for the owner
 
-- The six armor names: SRD names or today's short ones (shared with `feature/srd-pipeline`).
+- None.
 
 ## Gotchas for the next agent
 

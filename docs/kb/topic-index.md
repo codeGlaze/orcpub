@@ -1677,7 +1677,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** ammunition, armor, climber, damage, dash, die, equipment, gear, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
+**topics:** ammunition, app, armor, damage, dash, die, equipment, gear, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -3170,7 +3170,7 @@ _pool-grant-map · pool grant map_
 
 _proposal-indexeddb-storage · proposal indexeddb storage_
 
-**topics:** asynchronous, capacity, chunking, cross-tab, drawbacks, goal, indexeddb, library, localstorage, long-term, on-demand, per-key, perf-homebrew-builder-loop, plan-chunked-library-storage, recorded, safari, storage, trial
+**topics:** asynchronous, capacity, chunking, cross-tab, drawbacks, goal, indexeddb, library, localstorage, long-term, on-demand, per-key, perf-homebrew-builder-loop, plan-chunked-library-storage, quota, safari, storage, trial
 
 - The idea
 - Why it is worth looking at
