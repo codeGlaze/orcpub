@@ -94,3 +94,11 @@ The local branch now tracks its own Gitea branch, not `dmv`.
   and cup icon; mind the trailing comma that DMV's side adds on the shared line).
 - `fork/branding.clj` auto-merged integration's new `:dev-tip` social link; DMV's values were untouched,
   and with `APP_SOCIAL_DEV_TIP` unset the footer pill stays hidden.
+- **Matomo broke on the escaping page template** (`333625f89`, already on this branch, not yet on
+  `gitea/dmv`): DMV's `fork/integrations.clj` passed its inline snippet as a plain string, so quotes
+  became `&apos;` and every page threw "Unexpected token '&'". Fixed on the branch (`ee0716c20`):
+  `script-tag` emits its body through `h/raw`; `test/clj/orcpub/fork/integrations_test.clj` covers it.
+  The browser suites' "no page errors" check is what caught it: run them on every pre-merge.
+- **State, 2026-11-15:** PR #10 (opened 2026-09-06) is still open and unmerged. The last merge into
+  `dmv` was #8 on 2026-08-11; `gitea/dmv` ends at `31cd8be24` (2026-09-07). Local branch 176 ahead
+  of its Gitea copy, not pushed.

@@ -1264,7 +1264,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 2026-11-02, 2026-11-04, admin, art, blank-env-values, branding, byte, cloudflare, dmv, gitea, images, integration, launch, licensed, merge, push, pushing, silhouettes
+**topics:** 2026-11-02, 2026-11-04, 2026-11-15, admin, art, branding, cloudflare, dmv, gitea, images, integration, launch, licensed, merge, pre-merge, push, pushing, silhouettes
 
 - Where it happens
 - How to resolve conflicts
@@ -2042,7 +2042,7 @@ _heartbeat · heartbeat_
 
 _hiccup-page-escaping · hiccup page escaping_
 
-**topics:** 3935fd01, boot-rescue, containing, cross-site-scripting, escaped, escapes, escaping, fork-written, hiccup, inline, input, markup, page, script, shows, user, wrapped, x-compatible
+**topics:** 3935fd01, boot-rescue, containing, cross-site-scripting, escaped, escapes, fork-written, hiccup, inline, input, markup, page, script, shows, spinner, user, wrapped, x-compatible
 
 - Why
 - What changed
@@ -4087,7 +4087,7 @@ _weapons-table-follow-ups · weapons table follow ups_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, opened, preference, row, shield, study, versatile, weapon, white
+**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, versatile, weapon, white
 
 - The parts and their names
 - Agreed
