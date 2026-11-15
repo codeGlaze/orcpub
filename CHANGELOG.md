@@ -117,6 +117,12 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   Support the Server and Fuel the Dev buttons, and the site footer the last two. Each shows only
   when the site sets it up.
 - **Site:** the startup report warns when a Patreon link is set but no patrons are listed.
+- **Inventory:** equipment packs become kits: the pack's items are ordinary rows, and the kit keeps count of what runs out (torches, rations) with Restock, Re-bundle and Undo; spent items come out of the top kit first.
+- **Inventory:** two of the same pack make one kit with a count (Explorer's Pack ×2), with Remove one pack.
+- **Character sheet:** kits on the Equipment tab, and a Manage inventory switch that adds items, changes quantities and coins on the sheet, and turns itself off when done (#229).
+- **Character sheet:** a backpack Worn | Off switch; set down, the backpack's contents show as not carried, still counted.
+- **Builder:** Add a kit opens the item search on the packs; the search box can open on any preset list.
+- **Builder:** a Developer mode switch hides the empty "select any number / complete" pick counts.
 
 ### Changed
 - **Server:** a deployed server will not start without a mail server unless `EMAIL_REQUIRED=false` says that is intended, and the message names the setting to add. Development mode is exempt; `./run` and `./run --upgrade` set the opt-out for installs that run without email, so none stops on upgrade. (#716)
@@ -278,6 +284,11 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Magic items:** the Rod of the Pact Keeper raises the spell save DC and spell attack of warlock
   spells only, not a multiclass character's other spells or a race's; a spell page splits a source
   whose DC then differs into its own section.
+- **Inventory:** the same gear from several sources adds up instead of one replacing the rest, such as a pack's rations plus rations picked by hand (#138).
+- **Inventory:** two of the same weapon or armor count as two (#340).
+- **Character sheet:** packs' rations show on the sheet.
+- **Character sheet:** magic armor is listed with the other magic items.
+- **Character sheet:** when the same character was saved from another tab or device first, the sheet's item-charge changes were lost on the retry; they are now kept, as hit points and notes were.
 
 ### Security
 
