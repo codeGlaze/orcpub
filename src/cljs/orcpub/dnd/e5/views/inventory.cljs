@@ -281,6 +281,11 @@
             label [:i.fa.fa-times.m-l-5 {:aria-hidden true}]])
          [:input.inv-combo-input
           {:style {:anchor-name anchor}
+           :role "combobox"
+           :aria-expanded (str @open?)
+           :aria-controls pop-id
+           :aria-autocomplete "list"
+           :aria-activedescendant (when (and @open? (< -1 @active n)) (str uid "-opt-" @active))
            :value @query
            :placeholder (str (or placeholder "Filter or browse…") " (" (count items) ")")
            ;; on-click, not on-focus: focus fires on mousedown, and light dismiss then treats
@@ -309,13 +314,16 @@
             (not @open?) nil
             (zero? n)    [:div.inv-combo-empty (str "Nothing matches \u201c" @query "\u201d")]
             :else
-            [:div.inv-combo-list
+            [:div.inv-combo-list {:role "listbox"}
              (doall
               (map-indexed
                (fn [i {item-name :name item-key :key}]
                  ^{:key item-key}
                  [:div.inv-combo-row
                   {:class (when (= i @active) "active")
+                   :id (str uid "-opt-" i)
+                   :role "option"
+                   :aria-selected (str (= i @active))
                    :on-click #(pick! item-key)}
                   (highlight-match item-name q)
                   (when-let [note (get notes item-key)] [:span.opacity-7.m-l-5 note])])

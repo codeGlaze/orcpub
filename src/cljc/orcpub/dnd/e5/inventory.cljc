@@ -117,19 +117,22 @@
                           ::entity/value {::char-equip/quantity n ::char-equip/equipped? true}})))))
 
 (defn- remove-items
-  "`character` with `n` of gear `k` taken off its Equipment picks; a pick reaching 0 is removed."
+  "`character` with `n` of gear `k` taken off its Equipment picks, row by row in order until `n` are
+   gone; a pick reaching 0 is removed, the rest keep their flags."
   [character k n]
-  (let [ps (equipment-picks character)
-        i (first (keep-indexed (fn [i e] (when (= k (::entity/key e)) i)) ps))]
-    (if-not i
-      character
-      (let [left (- (pick-qty (ps i)) n)]
-        (assoc-in character [::entity/options :equipment]
-                  (if (pos? left)
-                    (assoc-in ps [i ::entity/value]
-                              (assoc (let [v (::entity/value (ps i))] (if (map? v) v {}))
-                                     ::char-equip/quantity left))
-                    (into (subvec ps 0 i) (subvec ps (inc i)))))))))
+  (let [[ps _] (reduce (fn [[out left] p]
+                         (if (and (pos? left) (= k (::entity/key p)))
+                           (let [q (pick-qty p)]
+                             (if (> q left)
+                               [(conj out (assoc p ::entity/value
+                                                 (assoc (let [v (::entity/value p)] (if (map? v) v {}))
+                                                        ::char-equip/quantity (- q left))))
+                                0]
+                               [out (- left q)]))
+                           [(conj out p) left]))
+                       [[] n]
+                       (equipment-picks character))]
+    (assoc-in character [::entity/options :equipment] ps)))
 
 (defn- kit-index
   "Index of the kit for pack `pack-key` in `character`'s stored kits, or nil."

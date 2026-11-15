@@ -4590,7 +4590,9 @@
 (reg-event-fx
  ::inventory/set-backpack-worn
  (fn [{:keys [db]} [_ id worn?]]
-   (update-character-fx db id #(inventory/set-backpack-worn % worn?))))
+   (if id
+     (sheet-edit-fx db id #(inventory/set-backpack-worn % worn?) nil)
+     (update-character-fx db id #(inventory/set-backpack-worn % worn?)))))
 
 (reg-event-fx
  ::inventory/sheet-undo

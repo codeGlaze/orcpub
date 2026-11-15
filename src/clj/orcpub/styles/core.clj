@@ -3855,8 +3855,11 @@
     [:.inv-combo-preset.adding {:border-color "#f0a100" :cursor :default}]
     ;; Worn | Off for the backpack (views/inventory.cljs `sheet-equipment`): two options, drawn at
     ;; the size of the kit links, with a 44px tap area.
-    [:.seg {:display :inline-flex :flex :none :border-radius "5px" :overflow :hidden
+    ;; No overflow hidden: it would clip the buttons' :after tap area; the end buttons round instead.
+    [:.seg {:display :inline-flex :flex :none :border-radius "5px"
             :border "1px solid color-mix(in srgb, currentColor 40%, transparent)"}
+     ["button:first-child" {:border-radius "4px 0 0 4px"}]
+     ["button:last-child" {:border-radius "0 4px 4px 0"}]
      [:button {:position :relative :background :none :border :none :color :inherit :font :inherit
                :font-size "11px" :letter-spacing ".05em" :text-transform :uppercase :padding "0 10px"
                :min-height "24px" :opacity 0.7 :cursor :pointer}]
@@ -3864,6 +3867,7 @@
      [:button.on {:opacity 1 :font-weight 700 :color "#f0a100"
                   :background-color "rgba(240, 161, 0, 0.18)"}]
      [:button:after {:content "''" :position :absolute :top "-10px" :bottom "-10px" :left 0 :right 0}]]
+    [".app.light-theme .seg button.on" {:color "#33658A" :background-color "rgba(51,101,138,.12)"}]
     [:.backpack-line {:gap "10px" :min-height "44px"}
      [:.backpack-status {:font-size "13px"}]]
     ;; The backpack's contents while it is off: still listed and counted, greyed, under one label.

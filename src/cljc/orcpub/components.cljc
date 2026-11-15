@@ -235,4 +235,6 @@
      {:style {:height (str size "px")
               :width (str size "px")}
       :class (when light-theme? " opacity-7")
+      ;; Decorative: every icon sits beside its text or inside a labelled control.
+      :alt ""
       :src (str (if light-theme? "/image/black/" "/image/") icon-name ".svg")}]))
