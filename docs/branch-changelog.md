@@ -32,5 +32,6 @@ play. The rules live in `orcpub.dnd.e5.inventory` and the screens in `orcpub.dnd
 - **Inventory:** two of the same weapon or armor count as two (#340).
 - **Character sheet:** packs' rations show on the sheet.
 - **Character sheet:** magic armor is listed with the other magic items.
+- **Character sheet:** when the same character was saved from another tab or device first, the sheet's item-charge changes were lost on the retry; they are now kept, as hit points and notes were.
 
 ## Security
