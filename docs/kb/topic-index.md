@@ -3066,7 +3066,7 @@ _plan-homebrew-markdown-export · plan homebrew markdown export_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, 2026-10-23, backpack, equipment, gear, inventory, items, kit, kits, leftovers, pack, packs, quantity, refill, reorganize, restock, torches, undo
+**topics:** 2026-10-22, 2026-10-23, backpack, equipment, gear, inventory, items, kit, kits, owner, pack, packs, quantity, refill, reorganize, restock, torches, undo
 
 - The problems today
 - The model
@@ -3130,7 +3130,7 @@ _plan-npc-statblock-customizer · plan npc statblock customizer_
 
 _plan-pdf-page-sizes · plan pdf page sizes_
 
-**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, border, height, inches, ink, letter, primitives, rect, spellbook, translate, widget
+**topics:** 2-arity, 36pt, 419, 595, acroform, appearance, artwork, binding, height, inches, ink, letter, primitives, rect, spellbook, translate, widget, width
 
 - The problem in one paragraph
 - Order, and why this order

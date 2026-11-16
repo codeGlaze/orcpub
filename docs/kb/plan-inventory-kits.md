@@ -387,4 +387,7 @@ where `magic-armor` is meant (~3983).
   outlined in the action amber, unfilled, with a +. The owner's "it's grey" meant restyle, not remove:
   the faded dashed slot read as disabled; a header link alone lost the tile. The header link and the
   "+ Adding items" pill are gone; the sheet's adding box keeps its amber ring.
+- **The tile lights while Packs is on** (`.kit-add.on`: the chip's amber border and fill), back to the
+  outline on All items or after a pick. Grey is what reads disabled, not fading (owner). The centred
+  "+" is settled; only its line colour and weight get tuned.
 - Mockups and shots: https://claude.ai/artifact/GZmCBChWwZMNS5aQCmnt1N
