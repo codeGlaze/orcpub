@@ -375,8 +375,9 @@ where `magic-armor` is meant (~3983).
 
 ## Packs chips and the Add a kit tile (owner, 2026-11-15/16)
 
-- **Packs scope is choice chips:** `inventory-combobox` `:scope` (a no-arg fn returning a preset) draws
-  **All items | Packs** under the search box (`.chip-row` + `.chip.chip-choice`; `.on` copies
+- **Packs scope is one toggle chip** (owner, 2026-11-16: with no other filters, an All items chip is
+  not worth showing): `inventory-combobox` `:scope` (a no-arg fn returning a preset) draws **Packs**
+  under the search box, plain when off (everything), amber with a check when on (`.chip-row` + `.chip.chip-choice`; `.on` copies
   `.cast-level.on`'s amber). Always shown on the builder's Equipment step and on the sheet while
   managing; "Add a kit" selects Packs and the hint reads "Search packs… (8)". The removable
   `.inv-combo-preset` pill is gone. Rejected: the old pill ("anemic"), a scope dropdown inside the box
