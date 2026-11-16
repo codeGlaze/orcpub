@@ -152,6 +152,21 @@ const setTorches = async (page, n) => { const q = torchQty(page); await q.fill(S
   check(await previewAddKit() === 0, 'the sheet preview offers no Add a kit while Manage inventory is off');
   await previewSwitch.click(); await settle(desk, 600);
   check(await previewAddKit() === 1, 'turning Manage inventory on shows the preview\'s Add a kit tile');
+  // Keyboard focus: Tab to the preview's Add a kit tile; it must show a focus ring (*:focus removes the browser's).
+  const tabTo = async sel => {
+    for (let i = 0; i < 120; i++) {
+      await desk.keyboard.press('Tab');
+      const hit = await desk.evaluate(s => { const e = document.activeElement; return !!e && e.matches(s) && !e.closest('#options-column'); }, sel);
+      if (hit) return desk.evaluate(() => { const cs = getComputedStyle(document.activeElement); return `${cs.outlineStyle} ${cs.outlineWidth}`; });
+    }
+    return 'never reached';
+  };
+  const kitRing = await tabTo('button.kit-add');
+  check(/^solid 2px$/.test(kitRing), `Tab to Add a kit shows a focus ring (${kitRing})`);
+  await desk.keyboard.press('Enter'); await settle(desk, 600);
+  const pillRing = await tabTo('.inv-combo-token');
+  check(/^solid 2px$/.test(pillRing), `Tab to the Packs pill shows a focus ring (${pillRing})`);
+  await desk.keyboard.press('Enter'); await settle(desk, 400);
   const adding = desk.locator('fieldset.inv-combo-adding').filter({ visible: true }).first();
   check(/^add equipment$/i.test((await adding.locator('legend').innerText().catch(() => '')).trim()), 'the adding box is labelled Add equipment on its border');
   const addBox = adding.locator('input.inv-combo-input');
