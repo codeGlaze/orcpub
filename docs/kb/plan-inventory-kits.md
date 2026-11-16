@@ -385,12 +385,17 @@ where `magic-armor` is meant (~3983).
   backs it). NN/g: a preset scope goes unnoticed, so keep it visible with a one-step way back to all.
   GOTCHA: the token's position rule is nested under `.inv-combo-field`, because `.chip-choice`'s own
   `position: relative` otherwise wins.
+- **Packs in the filter box too** (owner, 2026-11-16): with Manage inventory off, `filter-box` offers
+  "Packs filter" on click; on, its pill narrows the list to `::inventory/panel` `:contents` (every item
+  a kit holds when full, from `inventory/targets`). Words: no "inventory" jargon in labels (owner:
+  "Adding items"/"Add to inventory" read as accounting); the box ring had a box-shadow, which a legend
+  does not cut (it struck the label through), so the border itself is 2px.
 - **Add a kit is one tile under the kits, every width:** `button.kit-row.kit-add`, an empty kit tile
   (the kit tiles' border, no fill) with a white + and a regular-weight label: content outranks the add
   control, so it takes no amber at rest (an amber neutral state outshone the white kits; owner). The owner's "it's grey" meant restyle, not remove:
   the faded dashed slot read as disabled; a header link alone lost the tile. The header link and the
   "+ Adding items" pill are gone. The sheet's adding box is `fieldset.inv-combo-adding`: the amber
-  ring with "Adding items" notched in by its `legend` (the auth `.notch`'s type; a legend cuts the
+  2px border with "Add equipment" notched in by its `legend` (hint "Search equipment to add…") (the auth `.notch`'s type; a legend cuts the
   border itself, where a painted patch would show on the dark gradient), for players who would not
   notice the box changed job (owner, 2026-11-16).
 - **The tile lights while Packs is on** (`.kit-add.on`: the chip's amber border and fill), back to the
