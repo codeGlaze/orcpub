@@ -2283,7 +2283,7 @@ _icon-font-failure · icon font failure_
 
 _icon-workbench · icon workbench_
 
-**topics:** 2q42mlhggfceb5a2ss53ex, 48px, artifact, asercion, badge, briefcase, caro, chest, companion-cube, constants, corner, icon, icons, kits, preview, svgs, tool, ux-guide
+**topics:** 2q42mlhggfceb5a2ss53ex, 48px, artifact, asercion, badge, briefcase, constants, corner, himself, icon, icons, kits, owner, preview, svgs, themes, tool, ux-guide
 
 - What it does
 - Files (scripts/design/icon-workbench/)

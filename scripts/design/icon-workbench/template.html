@@ -43,6 +43,21 @@ button { cursor: pointer }
 .kitrow b { font-size: 15px; display: block }
 .kitrow small { opacity: .75 }
 
+/* Suggested sets */
+.sets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 16px }
+.set { display: grid; gap: 8px; align-content: start; min-width: 0 }
+.sethead { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap }
+.sethead h3 { margin: 0; font-size: 16px }
+.strip { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; border-radius: 6px; padding: 8px 6px }
+@media (max-width: 520px) { .strip { grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 8px } }
+.strip.dark { background: var(--tile-dark); color: var(--tile-dark-ink) }
+.strip.light { background: var(--tile-light); color: var(--tile-light-ink); border: 1px solid var(--tile-light-line) }
+.strip figure { margin: 0; display: grid; justify-items: center; gap: 3px; min-width: 0 }
+.strip .tile { width: 48px; height: 48px; border-radius: 6px; display: grid; place-items: center }
+.strip.dark .tile { border: 1px solid var(--tile-dark-line) }
+.strip.light .tile { border: 1px solid var(--tile-light-line) }
+.strip figcaption { font-size: 10px; opacity: .75; text-align: center; line-height: 1.15 }
+
 /* Composer */
 .composer { display: grid; grid-template-columns: 220px 1fr; gap: 16px }
 @media (max-width: 760px) { .composer { grid-template-columns: 1fr } }
@@ -104,8 +119,13 @@ textarea { width: 100%; min-height: 190px; font-family: var(--mono); font-size: 
     <p class="lede">Each kit keeps its pack icon (backpack or chest) and gets a small badge that says what kind of kit it is. Pick a pack on the left, choose its badge from the icon sheet, then set the corner, size and backing. The row at the top shows all eight together, the way the Kits block lists them. Your picks are kept in this browser; copy the result at the bottom.</p>
   </header>
 
+  <section aria-labelledby="sets-h">
+    <h2 id="sets-h">Suggested sets</h2>
+    <div class="sets" id="sets"></div>
+  </section>
+
   <section aria-labelledby="row-h">
-    <h2 id="row-h">The kits in a row</h2>
+    <h2 id="row-h">Your set, in a row</h2>
     <div class="rows">
       <div class="kitlist dark" id="row-dark" aria-label="Dark theme"></div>
       <div class="kitlist light" id="row-light" aria-label="Light theme"></div>
@@ -177,14 +197,30 @@ textarea { width: 100%; min-height: 190px; font-family: var(--mono); font-size: 
 <script>
 const ICONS = /*ICONS*/{};
 const PACKS = [
-  { key: "burglars-pack", name: "Burglar's Pack", items: "Ball bearings 1000 · Piton 10 · Candle 5" },
-  { key: "diplomats-pack", name: "Diplomat's Pack", items: "Paper 5 · Ink 1 · Perfume 1" },
-  { key: "dungeoneers-pack", name: "Dungeoneer's Pack", items: "Piton 10 · Rations 10 · Torch 10" },
-  { key: "entertainers-pack", name: "Entertainer's Pack", items: "Costume 2 · Candle 5 · Rations 5" },
-  { key: "explorers-pack", name: "Explorer's Pack", items: "Torch 10 · Rations 10" },
-  { key: "priests-pack", name: "Priest's Pack", items: "Candle 10 · Incense 2 · Rations 2" },
-  { key: "scholars-pack", name: "Scholar's Pack", items: "Book 1 · Ink 1 · Parchment 10" },
-  { key: "monster-hunters-pack", name: "Monster Hunter's Pack", items: "Holy water 1 · Stakes 5 · Mirror 1" },
+  { key: "burglars-pack", short: "Burglar", name: "Burglar's Pack", items: "Piton 10 · Candle 5 · Rations 5 · Oil 2" },
+  { key: "diplomats-pack", short: "Diplomat", name: "Diplomat's Pack", items: "Paper 5 · Oil 2 · Sealing wax · Perfume" },
+  { key: "dungeoneers-pack", short: "Dungeoneer", name: "Dungeoneer's Pack", items: "Piton 10 · Torch 10 · Rations 10" },
+  { key: "entertainers-pack", short: "Entertainer", name: "Entertainer's Pack", items: "Candle 5 · Rations 5 · Costume 2" },
+  { key: "explorers-pack", short: "Explorer", name: "Explorer's Pack", items: "Torch 10 · Rations 10" },
+  { key: "priests-pack", short: "Priest", name: "Priest's Pack", items: "Candle 10 · Incense 2 · Rations 2" },
+  { key: "scholars-pack", short: "Scholar", name: "Scholar's Pack", items: "Parchment 10 · Ink · Book" },
+  { key: "monster-hunters-pack", short: "Monster Hunter", name: "Monster Hunter's Pack", items: "Torch 3 · Stake 3 · Holy water" },
+];
+// Proposed sets, each built on one idea from the SRD contents. Order follows PACKS.
+const S = (base, badge, extra = {}) => ({ base, badge, ...extra });
+const SETS = [
+  { id: "inside", title: "What's inside", idea: "The badge is the item only that pack carries: Diplomat's scroll case, Dungeoneer's hammer and pitons, Entertainer's disguise kit, Explorer's bedroll and mess kit, Priest's alms box, Scholar's book, Monster Hunter's holy water. Burglar's crowbar, ball bearings and hooded lantern have no icon, so lockpicks stand in.",
+    kits: [S("backpack", "lockpicks"), S("chest", "scroll-unfurled"), S("backpack", "mining"), S("backpack", "double-face-mask"),
+           S("backpack", "campfire"), S("backpack", "jeweled-chalice"), S("backpack", "read"), S("chest", "holy-water")] },
+  { id: "who", title: "Who carries it", idea: "The badge is the person the pack is for: a hooded thief, a speaker, the dungeon gate, the stage masks, the compass, the holy symbol, the quill, the crossbow. Reads as a role, so it stays right when the kit runs low.",
+    kits: [S("backpack", "hood"), S("chest", "public-speaker"), S("backpack", "dungeon-gate"), S("backpack", "drama-masks"),
+           S("backpack", "compass"), S("backpack", "holy-symbol"), S("backpack", "quill-ink"), S("chest", "crossbow")] },
+  { id: "bags", title: "A different bag for each", idea: "The container's shape does most of the work and the badge is smaller: a soft sack for the burglar, a briefcase for the diplomat, a knapsack for the delver, a hand bag for the performer, a light pack for the traveller. The two chest packs keep the chest, as the SRD gives them.",
+    kits: [S("swap-bag", "snatch", { scale: 40 }), S("briefcase", "scroll-unfurled", { scale: 40 }), S("knapsack", "torch", { scale: 40 }), S("hand-bag", "drama-masks", { scale: 40 }),
+           S("light-backpack", "compass", { scale: 40 }), S("backpack", "sun-priest", { scale: 40 }), S("knapsack", "read", { scale: 40 }), S("chest", "holy-water", { scale: 40 })] },
+  { id: "discs", title: "What's inside, on accent discs", idea: "The first set again with each badge on a filled disc in the theme's accent (amber in dark, blue in light). Easier to spot at 32px; louder in a long list.",
+    kits: [S("backpack", "lockpicks"), S("chest", "scroll-unfurled"), S("backpack", "mining"), S("backpack", "double-face-mask"),
+           S("backpack", "campfire"), S("backpack", "jeweled-chalice"), S("backpack", "read"), S("chest", "holy-water")].map(k => ({ ...k, backing: "disc", scale: 50 })) },
 ];
 const BASES = ["backpack", "knapsack", "light-backpack", "swap-bag", "hand-bag", "briefcase", "disc-golf-bag",
   "chest", "open-treasure-chest", "companion-cube", "test-tube-rack", "medical-pack", "medical-pack-alt"].filter(b => ICONS[b]);
@@ -248,6 +284,16 @@ function renderRow() {
       `<div class="kitrow"><div class="tile">${kitSvg(state.kits[p.key], theme, 32)}</div><div style="min-width:0"><b>${esc(p.name)}</b><small>${esc(p.items)}</small></div></div>`).join("");
   }
 }
+function setKits(set) { return Object.fromEntries(PACKS.map((p, i) => [p.key, { ...DEFAULTS, ...set.kits[i] }])); }
+function renderSets() {
+  document.getElementById("sets").innerHTML = SETS.map(set => {
+    const kits = setKits(set);
+    const strip = theme => `<div class="strip ${theme}">${PACKS.map(p =>
+      `<figure><div class="tile">${kitSvg(kits[p.key], theme, 32)}</div><figcaption>${esc(p.short)}</figcaption></figure>`).join("")}</div>`;
+    return `<article class="set"><div class="sethead"><h3>${esc(set.title)}</h3><button type="button" class="btn ghost" data-load="${set.id}">Load into composer</button></div>
+      <p class="note">${esc(set.idea)}</p>${strip("dark")}${strip("light")}</article>`;
+  }).join("");
+}
 function renderPacks() {
   document.getElementById("packs").innerHTML = PACKS.map(p =>
     `<button type="button" class="packbtn" data-pack="${p.key}" aria-pressed="${p.key === state.sel}"><span class="mini">${kitSvg(state.kits[p.key], "dark", 24)}</span><span>${esc(p.name)}</span></button>`).join("");
@@ -285,13 +331,15 @@ function renderOut() {
   });
   document.getElementById("out").value = "{" + lines.join("\n").slice(1) + "}";
 }
-function render() { renderRow(); renderPacks(); renderEditor(); renderGrid(); renderOut(); save(); }
+function render() { renderSets(); renderRow(); renderPacks(); renderEditor(); renderGrid(); renderOut(); save(); }
 function edit(fn) { fn(state.kits[state.sel]); render(); }
 
 document.addEventListener("click", e => {
   const t = e.target.closest("button"); if (!t) return;
   const d = t.dataset;
-  if (d.pack) { state.sel = d.pack; render(); }
+  if (d.load) { state.kits = setKits(SETS.find(s => s.id === d.load)); render();
+    document.getElementById("row-h").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); }
+  else if (d.pack) { state.sel = d.pack; render(); }
   else if (d.base) edit(k => k.base = d.base);
   else if (d.corner) edit(k => k.corner = d.corner);
   else if (d.backing) edit(k => k.backing = d.backing);

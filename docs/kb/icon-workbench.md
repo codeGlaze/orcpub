@@ -7,7 +7,8 @@ Live copy: https://claude.ai/artifact/2q42mLhgGFCeB5A2sS53ex.
 
 ## What it does
 
-- **A row preview first:** every item composed, side by side, in the dark and the light theme, at the
+- **Suggested sets first:** a few complete proposals, each built on one idea (`SETS` in the template), shown as rows in both themes with a Load button. The owner asked for these before composing himself.
+- **A row preview:** every item composed, side by side, in the dark and the light theme, at the
   size the app draws it (32px in a 48px tile). That row is the real question ("do they blur
   together?"), so it comes before the controls.
 - **A composer:** pick an item; choose a base icon and a small corner badge; set corner, size,
@@ -22,12 +23,12 @@ Live copy: https://claude.ai/artifact/2q42mLhgGFCeB5A2sS53ex.
 | File | Role |
 |---|---|
 | `build.py` | Inlines the SVGs into the template. `python3 -I build.py template.html out.html <checkout>/resources/public/image [extra-dir ...]`. Reads the image root, `emblems/` and `black/`; strips fills, styles and the full-size backdrop; refuses an SVG with scripts, handlers, links or embedded images |
-| `template.html` | The page. The kit-specific parts are three constants at the top of its script: `PACKS` (the items), `BASES` (base icons offered first), `SUGGESTED` (starting picks) |
+| `template.html` | The page. The kit-specific parts are constants at the top of its script: `PACKS` (the items), `SETS` (proposed sets), `BASES` (base icons offered first), `SUGGESTED` (starting picks) |
 | `extra-icons/` | 13 game-icons.net SVGs fetched for the kits, not in the app: knapsack, swap-bag, mining (Lorc); hand-bag, briefcase, disc-golf-bag, chest, companion-cube, lockpicks, torch, rope-coil, light-backpack (Delapouite); test-tube-rack (Caro Asercion). CC BY 3.0: an icon that reaches the app gets its author in `resources/public/image/ATTRIBUTION.md` |
 
 ## Reusing it for something else
 
-Copy the template, change the three constants and the output keys in `renderOut`, build, and
+Copy the template, change the constants and the output keys in `renderOut`, build, and
 publish with the Artifact tool. Fetch extra icons from
 `https://game-icons.net/icons/ffffff/000000/1x1/<author>/<name>.svg` into their own folder and pass
 it as an extra dir. Keep the row preview: the owner judges sets side by side, at true size.
