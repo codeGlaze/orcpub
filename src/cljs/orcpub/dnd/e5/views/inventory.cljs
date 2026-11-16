@@ -548,11 +548,11 @@
    :notes (into {} (for [{:keys [pack pack-count]} ks] [pack (str "You have " pack-count)]))})
 
 (defn kits-block
-  "The Kits block (plan-inventory-kits.md) for character `id` (nil: the builder's): each kit; the
-   questions kits need answered; the one strip (Unbundled and Re-bundle, or Restock's question); the
-   last action's Undo. `search-preset`: the search box's preset atom, which Add a kit fills with the
-   packs. `adding?`: show the dashed Add a kit slot (the builder: header link, slot when empty).
-   The summary lines fold to the block's live width (a ResizeObserver), not the device type."
+  "The Kits block (plan-inventory-kits.md) for character `id` (nil: the builder's): kits, their
+   questions, the one strip (Re-bundle or Restock's question), the last Undo. `search-preset`: the
+   search box's preset atom Add a kit fills. `builder?`: the Equipment step, whose search always adds
+   (header link; slot when empty). `adding?`: the sheet's Manage inventory is on (the dashed slot).
+   Summaries fold to the block's live width (a ResizeObserver). Returns hiccup or nil."
   []
   (let [asking (r/atom nil)
         width (r/atom 390)
@@ -564,11 +564,10 @@
                          (fn [entries] (reset! width (.. (aget entries 0) -contentRect -width))))]
                   (.observe o el)
                   (reset! observer o))))]
-    (fn [{:keys [id search-preset adding?]}]
+    (fn [{:keys [id search-preset builder? adding?]}]
       (let [{ks :kits :keys [questions fillable]} @(subscribe [::inventory/panel id])
             undo @(subscribe [::inventory/undo id])
             add-kit #(reset! search-preset (packs-preset ks))
-            builder? (nil? id)
             budget (max 20 (js/Math.round (* 40 (/ @width 390))))
             asking-kit (some #(when (= @asking (:pack %)) %) ks)]
         (when (or builder? adding? (seq ks) undo)
@@ -651,7 +650,7 @@
         rows (keep-indexed (fn [i item] (when-not (and gear? (inventory/pack (::entity/key item))) [i item]))
                            selected-items)]
     [:div
-     (when gear? [kits-block {:search-preset preset}])
+     (when gear? [kits-block {:search-preset preset :builder? true}])
      [inventory-adder key options selected-keys {:preset preset}]
      (when (seq rows)
        [:div.flex.f-s-12.opacity-5.m-t-10.justify-cont-s-b

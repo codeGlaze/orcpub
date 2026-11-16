@@ -124,6 +124,20 @@ const setTorches = async (page, n) => { const q = torchQty(page); await q.fill(S
   await page.locator('#options-column button.link-button.quiet:text-is("Remove one pack")').click(); await settle(page, 1500);
   t = await text(page);
   check(!/\u00d72/.test(t) && await torchQty(page).inputValue() === '30', 'Remove one pack: back to one, items stay');
+  // A desktop builder shows the sheet preview beside the options; a new character's Explorer's Pack
+  // is already a kit there. The preview's Kits block follows its Manage inventory switch.
+  const desk = await (await b.newContext({ viewport: { width: 1500, height: 1000 } })).newPage();
+  desk.on('pageerror', e => errors.push(String(e)));
+  await desk.goto(`${BASE}/pages/dnd/5e/character-builder`); await settle(desk, 1500, 15000);
+  await desk.locator('div.uppercase.f-s-10:text-is("equipment")').filter({ visible: true }).first().click(); await settle(desk, 800);
+  const previewAddKit = () => desk.evaluate(() => Array.from(document.querySelectorAll('button, .kit-row'))
+    .filter(e => !e.closest('#options-column') && e.getBoundingClientRect().width > 0 && /^add a kit$/i.test(e.textContent.trim())).length);
+  const previewSwitch = desk.locator('[role=switch][aria-label="Manage inventory"]').filter({ visible: true }).first();
+  check(await previewSwitch.count() === 1 && await previewSwitch.getAttribute('aria-checked') === 'false', 'the desktop sheet preview shows Manage inventory, off');
+  check(/Explorer's Pack/.test(await desk.locator('body').innerText()), 'the preview shows the new character\'s Explorer\'s Pack kit');
+  check(await previewAddKit() === 0, 'the sheet preview offers no Add a kit while Manage inventory is off');
+  await previewSwitch.click(); await settle(desk, 600);
+  check(await previewAddKit() === 1, 'turning Manage inventory on shows the preview\'s Add a kit slot');
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await b.close();
   process.exit(failures ? 1 : 0);
