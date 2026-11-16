@@ -997,6 +997,10 @@
      :background-clip :content-box
      :width "350px"
      :min-height "600px"}]
+   ;; Auto margins centre the card in its flex row; taller than the window, it starts at the top
+   ;; (align-items alone would push the overflow above the page, out of scroll reach).
+   [:.registration-content {:margin-top :auto :margin-bottom :auto}]
+
    ;; The auth card is white whatever theme the app is in, so anything inside it needs
    ;; the light-ground colours: .red otherwise resolves to red-on-dark (tuned for
    ;; near-black) and washes out to about 2.6:1 on white. .app.light-theme already
@@ -1006,11 +1010,7 @@
     ;; its OWN font-size, not an inherited pixel value -- unset here, text renders
     ;; SOLID, descenders hitting the next line's ascenders. Set once on the card for
     ;; a readable default; boxes with tuned geometry pin their own below.
-    ;; Auto margins centre the card in its flex row; taller than the window, it starts at the top
-    ;; (align-items alone would push the overflow above the page, out of scroll reach).
     {:line-height "1.5"
-     :margin-top :auto
-     :margin-bottom :auto
      :background-color :white
      :border "1px solid white"
      :color auth-card-ink}
