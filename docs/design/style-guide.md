@@ -27,7 +27,12 @@ Decisions marked **Proposed** are the owner's to make. Everything else describes
 
 1. **Look before you add.** Search this guide and `core.clj` for a class that already does the
    job. If one is close, extend it with a modifier (`.btn.quiet`) rather than copying it with
-   small changes. Section 5 lists what near-copies have already cost.
+   small changes. Section 5 lists what near-copies have already cost. Also find the screens that
+   already do the same job (the character list's filter bar for any filtered search) and check
+   current design-system guidance for the pattern. Then reuse, extend, or build bespoke, on
+   purpose, and say which and why when presenting it. This is not a ban on new styles (owner,
+   2026-11-15: "be smart and intentional about looking at what we have and how it can, or cannot,
+   be reused before we write something bespoke").
 2. **No inline styles.** Styles go in Garden. No `:style` maps in views, no CSS strings in
    `[:style]` tags. Values that vary at runtime come from a fixed list, so each value gets a
    class (see the artist site-mark colours, section 6).
