@@ -3085,6 +3085,7 @@ _plan-inventory-kits · plan inventory kits_
 - Patterns to reuse
 - Open (owner)
 - Kit icons: a bag per pack, colour as an account choice (owner, 2026-11-15)
+- Packs chips and the Add a kit tile (owner, 2026-11-15/16)
 
 ## plan-lookup-indexes.md
 

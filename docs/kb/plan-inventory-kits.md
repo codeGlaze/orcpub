@@ -283,7 +283,7 @@ The layout agent's "5a Kits, quieter" (tweaking_Kits_v1) is the base, with these
 - **Both buttons:** each kit has its own refill button (fills that kit), and one Reorganize button for
   the whole backpack inventory (fills every kit in order).
 - **The empty-slot look stays:** a dashed tile with a faint icon when no pack is chosen, not only an
-  "Add a kit" link.
+  "Add a kit" link. (Superseded 2026-11-16: see "Packs chips and the Add a kit tile".)
 - **What a kit shows:** every item whose target is more than 1, plus any item below its target (a lost
   bedroll). No "used up" flag on items.
 - **Live buttons unchanged:** the light theme keeps its blue `.form-button`; amber in the drawing was a
@@ -372,3 +372,19 @@ where `magic-armor` is meant (~3983).
   coloured badge, badge on a coloured disc, badge ring, badge glow or corner flag (large or small) "might all be nice customizations to let
   people pick from their account". Each bag has one hue at a shared soft saturation, tuned per theme
   and clear of the error reds and the amber accent. Owner leans to the badge ring or a small corner flag; torn, which is the case for a setting. Default and where the setting lives: open.
+
+## Packs chips and the Add a kit tile (owner, 2026-11-15/16)
+
+- **Packs scope is choice chips:** `inventory-combobox` `:scope` (a no-arg fn returning a preset) draws
+  **All items | Packs** under the search box (`.chip-row` + `.chip.chip-choice`; `.on` copies
+  `.cast-level.on`'s amber). Always shown on the builder's Equipment step and on the sheet while
+  managing; "Add a kit" selects Packs and the hint reads "Search packs… (8)". The removable
+  `.inv-combo-preset` pill is gone. Rejected: the old pill ("anemic"), a scope dropdown inside the box
+  (no research backs it), a token in the box (where does it go when dismissed?). Research: NN/g scoped
+  search (a preset scope goes unnoticed, so keep it visible with a one-tap way back to all), Baymard
+  scope selectors, Material/Carbon filter chips. Item-type chips (Weapons, Armor, ...) are not planned.
+- **Add a kit is one tile under the kits, every width:** `button.kit-row.kit-add`, a kit tile's shape,
+  outlined in the action amber, unfilled, with a +. The owner's "it's grey" meant restyle, not remove:
+  the faded dashed slot read as disabled; a header link alone lost the tile. The header link and the
+  "+ Adding items" pill are gone; the sheet's adding box keeps its amber ring.
+- Mockups and shots: https://claude.ai/artifact/GZmCBChWwZMNS5aQCmnt1N
