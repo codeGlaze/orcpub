@@ -222,12 +222,14 @@ const S = (base, badge, extra = {}) => ({ base, badge, ...extra });
 const BAGS = [S("swap-bag", "snatch", { hue: 265 }), S("briefcase", "scroll-unfurled", { hue: 300 }), S("knapsack", "torch", { hue: 185 }), S("hand-bag", "drama-masks", { hue: 335 }),
               S("backpack", "compass", { hue: 115 }), S("disc-golf-bag", "sun-priest", { hue: 55 }), S("light-backpack", "read", { hue: 215 }), S("chest", "holy-water", { hue: 25 })]
   .map(k => ({ ...k, scale: 40 }));
-const bagSet = (id, title, idea, colour) => ({ id, title, idea, kits: BAGS.map(k => ({ ...k, colour, ...(colour === "disc" ? { scale: 50 } : {}) })) });
+const bagSet = (id, title, idea, colour) => ({ id, title, idea, kits: BAGS.map(k => ({ ...k, colour, ...(["disc", "ring", "halo"].includes(colour) ? { scale: 50 } : {}) })) });
 const SETS = [
   bagSet("bags", "A different bag for each", "Your pick, with the two changes: the Explorer keeps the plain backpack, and the disc golf bag becomes the Priest's. The Scholar takes the light pack.", "none"),
   bagSet("bags-edge", "Bags, tinted edge", "Each tile's border takes the bag's colour, with a soft wash rising from the bottom edge. The icon stays white (dark) or black (light).", "edge"),
   bagSet("bags-badge", "Bags, coloured badge", "Only the small badge takes the colour; the bag and tile stay neutral. The quietest of the four.", "badge"),
   bagSet("bags-disc", "Bags, badge on a coloured disc", "The badge sits on a small disc in the bag's colour, cut out from the bag, with the badge drawn in the tile's own colour. The colour reads as a dot, not a tint.", "disc"),
+  bagSet("bags-ring", "Bags, badge with a coloured ring", "A thin ring in the bag's colour around the badge, which keeps its own white (dark) or black (light) ink. A border, not a fill.", "ring"),
+  bagSet("bags-halo", "Bags, badge with a soft glow", "A soft blur of the bag's colour behind the badge, like a lamp behind it. Gentler than the disc; edges fade instead of stopping.", "halo"),
   bagSet("bags-corner", "Bags, corner flag", "A small coloured triangle in the tile's bottom-right corner, under the badge, like a tab on a file.", "corner"),
   bagSet("bags-glow", "Bags, soft glow", "The tile gets a thin coloured ring and a faint outer glow. Most visible; may compete with the amber Restock and Add a kit links.", "glow"),
   { id: "inside", title: "What's inside", idea: "The badge is the item only that pack carries: Diplomat's scroll case, Dungeoneer's hammer and pitons, Entertainer's disguise kit, Explorer's bedroll and mess kit, Priest's alms box, Scholar's book, Monster Hunter's holy water. Burglar's crowbar, ball bearings and hooded lantern have no icon, so lockpicks stand in.",
@@ -257,7 +259,7 @@ const SUGGESTED = {
   "monster-hunters-pack": { base: ICONS.chest ? "chest" : "open-treasure-chest", badge: "crossbow" },
 };
 const DEFAULTS = { corner: "br", scale: 46, backing: "cutout", tint: "ink", hue: 215, colour: "none" };
-const COLOURS = { none: "None", edge: "Tinted edge", badge: "Coloured badge", disc: "Badge on a coloured disc", corner: "Corner flag", glow: "Soft glow" };
+const COLOURS = { none: "None", edge: "Tinted edge", badge: "Coloured badge", disc: "Badge on a coloured disc", ring: "Badge with a coloured ring", halo: "Badge with a soft glow", corner: "Corner flag", glow: "Soft glow" };
 // A bag's colour in a theme: lighter on the dark tile, darker on the light one, same soft saturation.
 const hueColour = (h, theme, a = 1) => theme === "dark" ? `hsla(${h}, 48%, 68%, ${a})` : `hsla(${h}, 42%, 38%, ${a})`;
 // Inline style for a kit's 48px tile under its colour treatment.
@@ -303,8 +305,12 @@ function kitSvg(k, theme, px) {
     const cx = x + s / 2, cy = y + s / 2;
     let fill = k.colour === "badge" ? hueColour(k.hue, theme) : k.tint === "accent" ? accent : ink;
     let inset = 0;
-    if (k.backing === "cutout" && k.colour !== "disc") { out += `<circle cx="${cx}" cy="${cy}" r="${s * 0.6}" fill="${tile}"/>`; inset = s * 0.08; }
-    if (k.colour === "disc") { out += `<circle cx="${cx}" cy="${cy}" r="${s * 0.6}" fill="${tile}"/><circle cx="${cx}" cy="${cy}" r="${s * 0.52}" fill="${hueColour(k.hue, theme)}"/>`; fill = tile; inset = s * 0.2; }
+    if (k.backing === "cutout" && !["disc", "ring", "halo"].includes(k.colour)) { out += `<circle cx="${cx}" cy="${cy}" r="${s * 0.6}" fill="${tile}"/>`; inset = s * 0.08; }
+    if (k.colour === "ring") { out += `<circle cx="${cx}" cy="${cy}" r="${s * 0.6}" fill="${tile}"/><circle cx="${cx}" cy="${cy}" r="${s * 0.54}" fill="none" stroke="${hueColour(k.hue, theme)}" stroke-width="${s * 0.07}"/>`; inset = s * 0.18; }
+    else if (k.colour === "halo") { const fid = `h${Math.random().toString(36).slice(2, 8)}`;
+      out += `<defs><filter id="${fid}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${s * 0.09}"/></filter></defs>`
+           + `<circle cx="${cx}" cy="${cy}" r="${s * 0.6}" fill="${tile}"/><circle cx="${cx}" cy="${cy}" r="${s * 0.46}" fill="${hueColour(k.hue, theme, .75)}" filter="url(#${fid})"/>`; inset = s * 0.12; }
+    else if (k.colour === "disc") { out += `<circle cx="${cx}" cy="${cy}" r="${s * 0.6}" fill="${tile}"/><circle cx="${cx}" cy="${cy}" r="${s * 0.52}" fill="${hueColour(k.hue, theme)}"/>`; fill = tile; inset = s * 0.2; }
     else if (k.backing === "disc") { out += `<circle cx="${cx}" cy="${cy}" r="${s * 0.6}" fill="${tile}"/><circle cx="${cx}" cy="${cy}" r="${s * 0.52}" fill="${accent}"/>`; fill = tile; inset = s * 0.2; }
     out += `<svg x="${x + inset}" y="${y + inset}" width="${s - 2 * inset}" height="${s - 2 * inset}" viewBox="${b.vb}" fill="${fill}">${b.body}</svg>`;
   }

@@ -369,6 +369,6 @@ where `magic-armor` is meant (~3983).
   plain backpack, and the disc golf bag is the Priest's. Final picks come back from the workbench's
   result. Bags not yet in the app (from game-icons.net) are added with their authors in `ATTRIBUTION.md`.
 - **Colour per bag, as an account preference** (owner idea, not yet decided): tinted edge, soft glow,
-  coloured badge, badge on a coloured disc or corner flag "might all be nice customizations to let
+  coloured badge, badge on a coloured disc, badge ring, badge glow or corner flag "might all be nice customizations to let
   people pick from their account". Each bag has one hue at a shared soft saturation, tuned per theme
   and clear of the error reds and the amber accent. Default and where the setting lives: open.
