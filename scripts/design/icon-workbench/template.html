@@ -231,6 +231,8 @@ const SETS = [
   bagSet("bags-ring", "Bags, badge with a coloured ring", "A thin ring in the bag's colour around the badge, which keeps its own white (dark) or black (light) ink. A border, not a fill.", "ring"),
   bagSet("bags-halo", "Bags, badge with a soft glow", "A soft blur of the bag's colour behind the badge, like a lamp behind it. Gentler than the disc; edges fade instead of stopping.", "halo"),
   bagSet("bags-corner", "Bags, corner flag", "A small coloured triangle in the tile's bottom-right corner, under the badge, like a tab on a file.", "corner"),
+  { ...bagSet("bags-corner-sm", "Bags, small corner flag", "The corner flag at about half the size: a small tab in the tile's corner. The badge moves to the top-right so the tab is not hidden under it.", "corner-sm"),
+    kits: BAGS.map(k => ({ ...k, colour: "corner-sm", corner: "tr" })) },
   bagSet("bags-glow", "Bags, soft glow", "The tile gets a thin coloured ring and a faint outer glow. Most visible; may compete with the amber Restock and Add a kit links.", "glow"),
   { id: "inside", title: "What's inside", idea: "The badge is the item only that pack carries: Diplomat's scroll case, Dungeoneer's hammer and pitons, Entertainer's disguise kit, Explorer's bedroll and mess kit, Priest's alms box, Scholar's book, Monster Hunter's holy water. Burglar's crowbar, ball bearings and hooded lantern have no icon, so lockpicks stand in.",
     kits: [S("backpack", "lockpicks"), S("chest", "scroll-unfurled"), S("backpack", "mining"), S("backpack", "double-face-mask"),
@@ -259,7 +261,7 @@ const SUGGESTED = {
   "monster-hunters-pack": { base: ICONS.chest ? "chest" : "open-treasure-chest", badge: "crossbow" },
 };
 const DEFAULTS = { corner: "br", scale: 46, backing: "cutout", tint: "ink", hue: 215, colour: "none" };
-const COLOURS = { none: "None", edge: "Tinted edge", badge: "Coloured badge", disc: "Badge on a coloured disc", ring: "Badge with a coloured ring", halo: "Badge with a soft glow", corner: "Corner flag", glow: "Soft glow" };
+const COLOURS = { none: "None", edge: "Tinted edge", badge: "Coloured badge", disc: "Badge on a coloured disc", ring: "Badge with a coloured ring", halo: "Badge with a soft glow", corner: "Corner flag", "corner-sm": "Small corner flag", glow: "Soft glow" };
 // A bag's colour in a theme: lighter on the dark tile, darker on the light one, same soft saturation.
 const hueColour = (h, theme, a = 1) => theme === "dark" ? `hsla(${h}, 48%, 68%, ${a})` : `hsla(${h}, 42%, 38%, ${a})`;
 // Inline style for a kit's 48px tile under its colour treatment.
@@ -267,6 +269,7 @@ function tileStyle(k, theme) {
   const c = a => hueColour(k.hue, theme, a);
   if (k.colour === "edge") return `border-color:${c(1)};background:linear-gradient(to top, ${c(.22)}, transparent 70%)`;
   if (k.colour === "corner") return `background:linear-gradient(135deg, transparent 72%, ${c(.9)} 72%)`;
+  if (k.colour === "corner-sm") return `background:linear-gradient(135deg, transparent 84%, ${c(.95)} 84%)`;
   if (k.colour === "glow") return `border-color:${c(1)};box-shadow:0 0 0 1px ${c(.6)}, 0 0 10px ${c(.45)}`;
   return "";
 }
