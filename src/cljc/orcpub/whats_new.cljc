@@ -55,7 +55,7 @@
      {:group "Characters"
       :icon "fa-box-open"
       :headline "Equipment packs you can restock"
-      :detail "A pack's torches, rations and rope are now ordinary items you use up, and its kit keeps count of what runs low, with Restock and Undo. Inventory is on the sheet too: Manage inventory adds items and changes quantities and coins, and your backpack can be set down."}
+      :detail "A pack's torches, rations and rope are now ordinary items you use up, and its kit keeps count of what runs low, with Restock and Undo. Inventory is on the sheet too: Manage inventory adds items and changes quantities and coins, and your backpack can be set down. Search just the packs with the Packs filter, or narrow your list to what your kits hold."}
      {:group "Characters"
       :icon "fa-user-circle"
       :headline "Build a portrait for your character"
