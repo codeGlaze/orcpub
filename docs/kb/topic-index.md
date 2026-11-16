@@ -3933,7 +3933,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** assets, box, column, details, drafts, notice, phone, planned, player, png, replaced, restored, row, steel, undo, undone, ux-guide, width
+**topics:** assets, box, desktop, details, drafts, notice, phone, planned, player, png, replaced, restored, row, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
@@ -3945,7 +3945,7 @@ _ux-guide · ux guide_
 - Mistakes cost nothing
 - Words
 - Where things go
-- Phone first, and how designs are reviewed
+- Phone to desktop, and how designs are reviewed
 - Decisions log
 - Owner's notes (recorded 2026-11-01)
 - Decided 2026-11-02 (owner)

@@ -2,7 +2,8 @@
 
 The baseline for anything a player sees or touches in the builder: where things go, what they say,
 and how designs get reviewed. Read it before designing a screen, a notice or a control. Every
-picture is the real builder at phone width. Colours and themes have their own system
+picture is the real builder at phone width; designs are made and reviewed at every width, phone to
+desktop ("Phone to desktop" below). Colours and themes have their own system
 ([frontend-redesign-parallel-work.md](frontend-redesign-parallel-work.md)); content names follow
 [content-naming-style.md](content-naming-style.md). The owner reviews it as a page:
 https://claude.ai/artifact/GMj4ybrucJCesuKC3AU7xp
@@ -110,12 +111,17 @@ The app's patterns and what each is for. When a better one is agreed, it replace
 | A list behind a link above the options | everything stored, where a broken pick can still be reached: the actionable rows first (missing, planned) with Clear, then the rest by section | "Choices" |
 | Link button inside text | an action within a sentence | "Details" |
 
-## Phone first, and how designs are reviewed
+## Phone to desktop, and how designs are reviewed
 
-- Check every placement at 400px wide, with long real names.
+- **Every screen is designed on purpose at every width, phone to desktop** (owner, 2026-11-15: "the
+  app and design to work expertly, intentionally, from mobile to desktop"). Not phone-first with
+  desktop left to stretch: a layout that only stacks wastes a wide screen. Decide what each width
+  does with its room (columns, a grid of tiles, actions beside content) and review both.
+- Check every placement at 400px wide and at desktop width (1280px and up), with long real names.
 - One line unless it truly cannot fit. Tap targets at least 44px tall.
-- Mockups are real builder states reached by clicking, at phone width, with only the new parts drawn
-  in. No abstract canvases: the owner reviews on a phone.
+- Mockups are real builder states reached by clicking, with only the new parts drawn in, shown at
+  phone width and at desktop width. No abstract canvases. The owner often reviews on a phone, which
+  sets how the review page is laid out, not which widths get designed.
 - One review page, one card per decision, two or three options each. The owner's ruling goes in the
   log below, with the date and the reason, in the same change.
 - Screenshots show what a player sees. A full-page capture is fine, but release the sticky header
