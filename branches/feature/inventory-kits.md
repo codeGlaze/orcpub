@@ -15,19 +15,16 @@ note, what is deferred).
 - #85 merged into `integration` 2026-11-15 (`fadd99fd4`), after two CodeRabbit rounds. Follow-up #86 (What's New item) merged 2026-11-15 (`074faabe7`); both are in Gitea PR #10 (`c827a8fe2`). Then, on this branch or after: weapons counts on the sheet and kits / "not
   carried" in the PDF, both now unblocked by #74.
 
-## Roadmap on this branch (2026-11-15)
+## Roadmap on this branch (updated 2026-11-16)
 
-1. Packs scope in the item search: replace the `.inv-combo-preset` pill. Owner leans to toggle chips
-   (All items | Packs, the app's `.chip-row`/`.chip` plus a selected state) over the character list's
-   scope button; mockups https://claude.ai/artifact/GZmCBChWwZMNS5aQCmnt1N. Open: item-type chips too?
-2. Manage inventory polish from existing elements: drop the "+ Adding items" pill and the grey dashed
-   "Add a kit" slot (use the "Add a kit +" link). Shots before committing.
-3. Kit icons: a bag per pack plus a corner badge, colour treatment as an account choice
+Done, committed locally, not pushed (`7ff4d6807`, `d14886195`, `030ceccf0`): the Packs pill in the
+search box with its "Packs filter" way back, the Packs filter on the sheet's filter box, the "Add
+equipment" box, the Add a kit tile, and the auth card fix (register header reachable while password
+hints show). Decisions: `plan-inventory-kits.md`, "Packs chips and the Add a kit tile".
+
+1. Kit icons: a bag per pack plus a corner badge, colour treatment as an account choice
    (`plan-inventory-kits.md`, "Kit icons"); waits on the owner's workbench picks.
-4. **Bug (owner, 2026-11-15): auth forms cannot scroll back to their header.** Registering, the
-   password hints and helper text that appear while typing or confirming a password push the form up,
-   and the page no longer scrolls far enough to show the form's header. Fix on this branch; the form
-   is `auth-form-page` (`src/cljs/orcpub/dnd/e5/views/auth.cljs`). Check phone and desktop.
+2. Wide-screen kits layout (a tile grid at desktop): offered, unanswered.
 
 ## Owner decisions
 
