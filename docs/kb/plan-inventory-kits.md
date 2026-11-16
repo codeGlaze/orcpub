@@ -360,3 +360,15 @@ where `magic-armor` is meant (~3983).
 1. Using an item when every kit is empty: take from leftovers automatically, or ask first?
 2. Inventory order: grouped by container by default, alphabetical as an option?
 3. PDF: leave doffed and stored items off, or list them under each place's header?
+
+## Kit icons: a bag per pack, colour as an account choice (owner, 2026-11-15)
+
+- **Each pack gets its own bag shape with a small corner badge**, composed in the icon workbench
+  ([icon-workbench.md](icon-workbench.md); live copy https://claude.ai/artifact/2q42mLhgGFCeB5A2sS53ex).
+  The owner liked the "different bag for each" set, with two changes: the Explorer's Pack keeps the
+  plain backpack, and the disc golf bag is the Priest's. Final picks come back from the workbench's
+  result. Bags not yet in the app (from game-icons.net) are added with their authors in `ATTRIBUTION.md`.
+- **Colour per bag, as an account preference** (owner idea, not yet decided): tinted edge, soft glow,
+  coloured badge, badge on a coloured disc or corner flag "might all be nice customizations to let
+  people pick from their account". Each bag has one hue at a shared soft saturation, tuned per theme
+  and clear of the error reds and the amber accent. Default and where the setting lives: open.

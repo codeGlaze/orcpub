@@ -2283,7 +2283,7 @@ _icon-font-failure · icon font failure_
 
 _icon-workbench · icon workbench_
 
-**topics:** 2q42mlhggfceb5a2ss53ex, 48px, artifact, asercion, badge, briefcase, constants, corner, himself, icon, icons, kits, owner, preview, svgs, themes, tool, ux-guide
+**topics:** 48px, artifact, asercion, badge, briefcase, caro, constants, corner, himself, icon, icons, kits, owner, preview, svgs, themes, tool, ux-guide
 
 - What it does
 - Files (scripts/design/icon-workbench/)
@@ -3083,6 +3083,7 @@ _plan-inventory-kits · plan inventory kits_
 - Order on a saved sheet: settle, then repair (2026-11-15, PR #85 second review)
 - Patterns to reuse
 - Open (owner)
+- Kit icons: a bag per pack, colour as an account choice (owner, 2026-11-15)
 
 ## plan-lookup-indexes.md
 
