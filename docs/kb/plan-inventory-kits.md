@@ -383,8 +383,9 @@ where `magic-armor` is meant (~3983).
   (no research backs it), a token in the box (where does it go when dismissed?). Research: NN/g scoped
   search (a preset scope goes unnoticed, so keep it visible with a one-tap way back to all), Baymard
   scope selectors, Material/Carbon filter chips. Item-type chips (Weapons, Armor, ...) are not planned.
-- **Add a kit is one tile under the kits, every width:** `button.kit-row.kit-add`, a kit tile's shape,
-  outlined in the action amber, unfilled, with a +. The owner's "it's grey" meant restyle, not remove:
+- **Add a kit is one tile under the kits, every width:** `button.kit-row.kit-add`, an empty kit tile
+  (the kit tiles' border, no fill) with a white + and a regular-weight label: content outranks the add
+  control, so it takes no amber at rest (an amber neutral state outshone the white kits; owner). The owner's "it's grey" meant restyle, not remove:
   the faded dashed slot read as disabled; a header link alone lost the tile. The header link and the
   "+ Adding items" pill are gone; the sheet's adding box keeps its amber ring.
 - **The tile lights while Packs is on** (`.kit-add.on`: the chip's amber border and fill), back to the
