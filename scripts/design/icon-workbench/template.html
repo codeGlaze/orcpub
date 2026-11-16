@@ -1,0 +1,312 @@
+<title>Kit Icon Workbench</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap">
+<style>
+/* Layout: one working column — the kit row first, then the composer beside its controls, then the icon sheet. */
+:root {
+  --bg: #f4f5f8; --panel: #ffffff; --fg: #23262e; --muted: #5d6472; --line: #d6dae2;
+  --accent: #33658a; --accent-ink: #ffffff; --chip: #eef1f6;
+  --tile-dark: #2a303c; --tile-dark-line: #5a6372; --tile-dark-ink: #ffffff;
+  --tile-light: #ffffff; --tile-light-line: #c9ced8; --tile-light-ink: #23262e;
+  --amber: #f0a100; --slate: #33658a;
+  --body: "Open Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1b1f27; --panel: #232833; --fg: #e9ecf2; --muted: #a3abba; --line: #394150;
+  --accent: #f0a100; --accent-ink: #1b1f27; --chip: #2c3240; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #1b1f27; --panel: #232833; --fg: #e9ecf2; --muted: #a3abba; --line: #394150;
+  --accent: #f0a100; --accent-ink: #1b1f27; --chip: #2c3240; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px }
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 20px }
+h1 { font-size: 22px; margin: 0; text-wrap: balance }
+h2 { font-size: 15px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted) }
+p { margin: 0; max-width: 68ch }
+.lede { color: var(--muted) }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px }
+button, input, select { font: inherit; color: inherit }
+button { cursor: pointer }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+
+/* The kit row, as the app shows it */
+.rows { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px }
+.kitlist { border-radius: 6px; padding: 12px; display: grid; gap: 10px }
+.kitlist.dark { background: var(--tile-dark); color: var(--tile-dark-ink) }
+.kitlist.light { background: var(--tile-light); color: var(--tile-light-ink); border: 1px solid var(--tile-light-line) }
+.kitrow { display: flex; gap: 12px; align-items: center; min-width: 0 }
+.kitrow .tile { width: 48px; height: 48px; flex: none; border-radius: 6px; display: grid; place-items: center }
+.dark .tile { border: 1px solid var(--tile-dark-line) }
+.light .tile { border: 1px solid var(--tile-light-line) }
+.kitrow b { font-size: 15px; display: block }
+.kitrow small { opacity: .75 }
+
+/* Composer */
+.composer { display: grid; grid-template-columns: 220px 1fr; gap: 16px }
+@media (max-width: 760px) { .composer { grid-template-columns: 1fr } }
+.packs { display: grid; gap: 6px; align-content: start }
+@media (max-width: 760px) { .packs { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+.packbtn { display: flex; gap: 8px; align-items: center; text-align: left; padding: 6px 8px; border-radius: 6px;
+  background: var(--chip); border: 1px solid transparent; min-width: 0 }
+.packbtn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.packbtn[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent) }
+.packbtn .mini { width: 28px; height: 28px; flex: none; background: var(--tile-dark); border-radius: 4px; display: grid; place-items: center; color: #fff }
+.editor { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: start; min-width: 0 }
+@media (max-width: 560px) { .editor { grid-template-columns: 1fr } }
+.previews { display: grid; grid-template-columns: repeat(2, auto); gap: 10px; justify-content: start }
+.pv { border-radius: 8px; padding: 10px; display: grid; gap: 8px; justify-items: center }
+.pv.dark { background: var(--tile-dark); color: var(--tile-dark-ink) }
+.pv.light { background: var(--tile-light); color: var(--tile-light-ink); border: 1px solid var(--tile-light-line) }
+.pv .big { width: 128px; height: 128px }
+.pv .sizes { display: flex; gap: 10px; align-items: end }
+.pv .cap { font-size: 11px; opacity: .7; font-variant-numeric: tabular-nums }
+.controls { display: grid; gap: 14px; min-width: 0 }
+.field { display: grid; gap: 6px }
+.field > label, .field > .lbl { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted) }
+.seg { display: flex; flex-wrap: wrap; gap: 6px }
+.seg button { padding: 5px 10px; border-radius: 5px; background: var(--chip); border: 1px solid var(--line); display: inline-flex; gap: 6px; align-items: center }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
+.seg button svg { width: 18px; height: 18px }
+input[type=range] { width: 100%; max-width: 320px; accent-color: var(--accent) }
+.current { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
+.current code { font-family: var(--mono); background: var(--chip); padding: 2px 6px; border-radius: 4px }
+.hint { font-size: 12px; color: var(--muted) }
+
+/* Sprite sheet */
+.sheethead { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px }
+.sheethead input { padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); min-width: 0; flex: 1 1 200px; max-width: 320px }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px }
+.cell { display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border-radius: 6px; background: var(--chip); border: 1px solid transparent; min-width: 0 }
+.cell svg { width: 36px; height: 36px }
+.cell span { font-size: 10.5px; line-height: 1.2; text-align: center; word-break: break-word; color: var(--muted) }
+.cell.on { border-color: var(--accent) }
+.cell.base svg { color: var(--accent) }
+.cell .extra { font-style: normal; font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--accent) }
+.seg#bases { max-height: 200px; overflow-y: auto }
+
+/* Export */
+textarea { width: 100%; min-height: 190px; font-family: var(--mono); font-size: 12.5px; padding: 10px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--fg); resize: vertical }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center }
+.btn { padding: 7px 14px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 600 }
+.btn.ghost { background: transparent; color: var(--fg); border-color: var(--line) }
+.note { font-size: 12px; color: var(--muted) }
+.missing { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px }
+.missing a { color: var(--accent) }
+@media (prefers-reduced-motion: no-preference) { .cell, .packbtn, .seg button { transition: border-color .12s, background .12s } }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:6px">
+    <h1>Kit Icon Workbench</h1>
+    <p class="lede">Each kit keeps its pack icon (backpack or chest) and gets a small badge that says what kind of kit it is. Pick a pack on the left, choose its badge from the icon sheet, then set the corner, size and backing. The row at the top shows all eight together, the way the Kits block lists them. Your picks are kept in this browser; copy the result at the bottom.</p>
+  </header>
+
+  <section aria-labelledby="row-h">
+    <h2 id="row-h">The kits in a row</h2>
+    <div class="rows">
+      <div class="kitlist dark" id="row-dark" aria-label="Dark theme"></div>
+      <div class="kitlist light" id="row-light" aria-label="Light theme"></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="comp-h">
+    <h2 id="comp-h">Compose</h2>
+    <div class="composer">
+      <div class="packs" id="packs" role="group" aria-label="Packs"></div>
+      <div class="editor">
+        <div class="previews" id="previews"></div>
+        <div class="controls">
+          <div class="field">
+            <span class="lbl">Pack icon</span>
+            <div class="seg" id="bases"></div>
+          </div>
+          <div class="field">
+            <span class="lbl">Badge</span>
+            <div class="current"><span id="badge-name"></span><button class="btn ghost" id="badge-none" type="button">No badge</button></div>
+            <span class="hint">Click any icon in the sheet below to use it as this kit's badge.</span>
+          </div>
+          <div class="field">
+            <span class="lbl">Corner</span>
+            <div class="seg" id="corners"></div>
+          </div>
+          <div class="field">
+            <label for="scale">Badge size: <span id="scale-val"></span></label>
+            <input type="range" id="scale" min="30" max="70" step="1">
+          </div>
+          <div class="field">
+            <span class="lbl">Backing</span>
+            <div class="seg" id="backings"></div>
+            <span class="hint">Cut-out clears a ring of the pack behind the badge. Disc puts the badge on a filled circle in the theme's accent.</span>
+          </div>
+          <div class="field">
+            <span class="lbl">Badge colour (no disc)</span>
+            <div class="seg" id="tints"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="sheet-h">
+    <h2 id="sheet-h">Icon sheet</h2>
+    <div class="sheethead">
+      <input id="q" type="search" placeholder="Search icons (compass, holy, scroll…)" aria-label="Search icons">
+      <div class="seg" id="clickmode" role="group" aria-label="A click sets"></div>
+      <span class="note" id="count"></span>
+    </div>
+    <div class="grid" id="grid"></div>
+    <p class="note" style="margin-top:12px">Most icons here already ship with the app (resources/public/image, image/emblems). Those marked "not in the app yet" were downloaded from game-icons.net for this workbench; a pick that uses one means adding it to the app, with its author credited in image/ATTRIBUTION.md.</p>
+  </section>
+
+  <section aria-labelledby="out-h">
+    <h2 id="out-h">Result</h2>
+    <p class="note" style="margin-bottom:8px">One entry per pack, keyed as the app keys packs. Paste it back to me and I'll build it into the kit tiles.</p>
+    <textarea id="out" readonly aria-label="Result"></textarea>
+    <div class="actions">
+      <button class="btn" id="copy" type="button">Copy</button>
+      <button class="btn ghost" id="reset" type="button">Back to the suggested set</button>
+      <span class="note" id="copied" role="status"></span>
+    </div>
+    <p class="note" style="margin-top:14px">Icons by Lorc, Delapouite and other authors at game-icons.net, CC BY 3.0, credited in the app's image/ATTRIBUTION.md.</p>
+  </section>
+</div>
+
+<script>
+const ICONS = /*ICONS*/{};
+const PACKS = [
+  { key: "burglars-pack", name: "Burglar's Pack", items: "Ball bearings 1000 · Piton 10 · Candle 5" },
+  { key: "diplomats-pack", name: "Diplomat's Pack", items: "Paper 5 · Ink 1 · Perfume 1" },
+  { key: "dungeoneers-pack", name: "Dungeoneer's Pack", items: "Piton 10 · Rations 10 · Torch 10" },
+  { key: "entertainers-pack", name: "Entertainer's Pack", items: "Costume 2 · Candle 5 · Rations 5" },
+  { key: "explorers-pack", name: "Explorer's Pack", items: "Torch 10 · Rations 10" },
+  { key: "priests-pack", name: "Priest's Pack", items: "Candle 10 · Incense 2 · Rations 2" },
+  { key: "scholars-pack", name: "Scholar's Pack", items: "Book 1 · Ink 1 · Parchment 10" },
+  { key: "monster-hunters-pack", name: "Monster Hunter's Pack", items: "Holy water 1 · Stakes 5 · Mirror 1" },
+];
+const BASES = ["backpack", "knapsack", "light-backpack", "swap-bag", "hand-bag", "briefcase", "disc-golf-bag",
+  "chest", "open-treasure-chest", "companion-cube", "test-tube-rack", "medical-pack", "medical-pack-alt"].filter(b => ICONS[b]);
+// The SRD packs: Diplomat's and Monster Hunter's come in a chest; the rest in a backpack.
+const SUGGESTED = {
+  "burglars-pack": { base: "backpack", badge: ICONS.lockpicks ? "lockpicks" : "hood" },
+  "diplomats-pack": { base: ICONS.chest ? "chest" : "open-treasure-chest", badge: "scroll-unfurled" },
+  "dungeoneers-pack": { base: "backpack", badge: ICONS.mining ? "mining" : "dungeon-gate" },
+  "entertainers-pack": { base: "backpack", badge: "drama-masks" },
+  "explorers-pack": { base: "backpack", badge: "compass" },
+  "priests-pack": { base: "backpack", badge: "holy-symbol" },
+  "scholars-pack": { base: "backpack", badge: "quill-ink" },
+  "monster-hunters-pack": { base: ICONS.chest ? "chest" : "open-treasure-chest", badge: "crossbow" },
+};
+const DEFAULTS = { corner: "br", scale: 46, backing: "cutout", tint: "ink" };
+const CORNERS = { br: "Bottom right", bl: "Bottom left", tr: "Top right", tl: "Top left" };
+const BACKINGS = { cutout: "Cut-out", disc: "Disc", none: "None" };
+const TINTS = { ink: "Same as pack", accent: "Theme accent" };
+const STORE = "kit-icon-workbench-v1";
+
+function fresh() {
+  const s = { sel: "explorers-pack", mode: "badge", q: "", kits: {} };
+  for (const p of PACKS) s.kits[p.key] = { ...DEFAULTS, ...SUGGESTED[p.key] };
+  return s;
+}
+let state = fresh();
+try { const saved = JSON.parse(localStorage.getItem(STORE) || "null"); if (saved && saved.kits) state = { ...state, ...saved, kits: { ...state.kits, ...saved.kits } }; } catch (e) {}
+function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+function icon(name, attrs = "") {
+  const i = ICONS[name]; if (!i) return "";
+  return `<svg viewBox="${i.vb}" fill="currentColor" aria-hidden="true" ${attrs}>${i.body}</svg>`;
+}
+// One kit icon: the pack, then (if any) the badge in a corner. theme: "dark" | "light".
+function kitSvg(k, theme, px) {
+  const ink = theme === "dark" ? "#ffffff" : "#23262e";
+  const tile = theme === "dark" ? "#2a303c" : "#ffffff";
+  const accent = theme === "dark" ? "#f0a100" : "#33658a";
+  const base = ICONS[k.base] || ICONS.backpack;
+  let out = `<svg viewBox="0 0 512 512" width="${px}" height="${px}" role="img" aria-hidden="true">`;
+  out += `<svg viewBox="${base.vb}" width="512" height="512" fill="${ink}">${base.body}</svg>`;
+  const b = k.badge && ICONS[k.badge];
+  if (b) {
+    const s = 512 * k.scale / 100;
+    const x = k.corner.endsWith("r") ? 512 - s : 0;
+    const y = k.corner.startsWith("b") ? 512 - s : 0;
+    const cx = x + s / 2, cy = y + s / 2;
+    let fill = k.tint === "accent" ? accent : ink;
+    let inset = 0;
+    if (k.backing === "cutout") { out += `<circle cx="${cx}" cy="${cy}" r="${s * 0.6}" fill="${tile}"/>`; inset = s * 0.08; }
+    if (k.backing === "disc") { out += `<circle cx="${cx}" cy="${cy}" r="${s * 0.6}" fill="${tile}"/><circle cx="${cx}" cy="${cy}" r="${s * 0.52}" fill="${accent}"/>`; fill = tile; inset = s * 0.2; }
+    out += `<svg x="${x + inset}" y="${y + inset}" width="${s - 2 * inset}" height="${s - 2 * inset}" viewBox="${b.vb}" fill="${fill}">${b.body}</svg>`;
+  }
+  return out + "</svg>";
+}
+
+function renderRow() {
+  for (const theme of ["dark", "light"]) {
+    document.getElementById("row-" + theme).innerHTML = PACKS.map(p =>
+      `<div class="kitrow"><div class="tile">${kitSvg(state.kits[p.key], theme, 32)}</div><div style="min-width:0"><b>${esc(p.name)}</b><small>${esc(p.items)}</small></div></div>`).join("");
+  }
+}
+function renderPacks() {
+  document.getElementById("packs").innerHTML = PACKS.map(p =>
+    `<button type="button" class="packbtn" data-pack="${p.key}" aria-pressed="${p.key === state.sel}"><span class="mini">${kitSvg(state.kits[p.key], "dark", 24)}</span><span>${esc(p.name)}</span></button>`).join("");
+}
+function segs(id, opts, cur, data, withIcons) {
+  document.getElementById(id).innerHTML = Object.entries(opts).map(([v, label]) =>
+    `<button type="button" data-${data}="${v}" aria-pressed="${v === cur}">${withIcons ? icon(v) : ""}${esc(label)}</button>`).join("");
+}
+function renderEditor() {
+  const k = state.kits[state.sel];
+  document.getElementById("previews").innerHTML = ["dark", "light"].map(t =>
+    `<div class="pv ${t}"><div class="big">${kitSvg(k, t, 128)}</div><div class="sizes">${kitSvg(k, t, 48)}${kitSvg(k, t, 32)}${kitSvg(k, t, 24)}</div><span class="cap">${t} · 128 / 48 / 32 / 24 px</span></div>`).join("");
+  segs("bases", Object.fromEntries(BASES.map(b => [b, b.replace(/-/g, " ")])), k.base, "base", true);
+  if (!BASES.includes(k.base)) document.getElementById("bases").insertAdjacentHTML("beforeend", `<button type="button" aria-pressed="true">${icon(k.base)}${esc(k.base)}</button>`);
+  document.getElementById("badge-name").innerHTML = k.badge ? `${icon(k.badge, 'style="width:22px;height:22px;vertical-align:middle"')} <code>${esc(k.badge)}</code>` : `<span class="hint">none</span>`;
+  segs("corners", CORNERS, k.corner, "corner");
+  segs("backings", BACKINGS, k.backing, "backing");
+  segs("tints", TINTS, k.tint, "tint");
+  const sc = document.getElementById("scale"); sc.value = k.scale;
+  document.getElementById("scale-val").textContent = k.scale + "%";
+}
+function renderGrid() {
+  const q = state.q.trim().toLowerCase();
+  const names = Object.keys(ICONS).sort().filter(n => !q || n.includes(q.replace(/\s+/g, "-")));
+  const k = state.kits[state.sel];
+  document.getElementById("grid").innerHTML = names.map(n =>
+    `<button type="button" class="cell${n === k.badge || n === k.base ? " on" : ""}${BASES.includes(n) ? " base" : ""}" data-icon="${n}" title="${n}">${icon(n)}<span>${n.replace(/-/g, " ")}</span>${ICONS[n].origin === "extra" ? `<em class="extra">not in the app yet</em>` : ""}</button>`).join("");
+  document.getElementById("count").textContent = `${names.length} of ${Object.keys(ICONS).length}`;
+  segs("clickmode", { badge: "Click sets badge", base: "Click sets pack icon" }, state.mode, "mode");
+}
+function renderOut() {
+  const lines = PACKS.map(p => {
+    const k = state.kits[p.key];
+    return ` :${p.key} {:base "${k.base}" :badge ${k.badge ? `"${k.badge}"` : "nil"} :corner :${k.corner} :scale ${(k.scale / 100).toFixed(2)} :backing :${k.backing} :tint :${k.tint}}`;
+  });
+  document.getElementById("out").value = "{" + lines.join("\n").slice(1) + "}";
+}
+function render() { renderRow(); renderPacks(); renderEditor(); renderGrid(); renderOut(); save(); }
+function edit(fn) { fn(state.kits[state.sel]); render(); }
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+  const d = t.dataset;
+  if (d.pack) { state.sel = d.pack; render(); }
+  else if (d.base) edit(k => k.base = d.base);
+  else if (d.corner) edit(k => k.corner = d.corner);
+  else if (d.backing) edit(k => k.backing = d.backing);
+  else if (d.tint) edit(k => k.tint = d.tint);
+  else if (d.mode) { state.mode = d.mode; render(); }
+  else if (d.icon) edit(k => { if (state.mode === "base") k.base = d.icon; else k.badge = d.icon; });
+  else if (t.id === "badge-none") edit(k => k.badge = null);
+  else if (t.id === "reset") { const sel = state.sel; state = fresh(); state.sel = sel; render(); }
+  else if (t.id === "copy") {
+    const ta = document.getElementById("out"), msg = document.getElementById("copied");
+    navigator.clipboard.writeText(ta.value).then(() => msg.textContent = "Copied.").catch(() => { ta.select(); msg.textContent = "Selected: press Ctrl+C (Cmd+C) to copy."; });
+  }
+});
+document.getElementById("scale").addEventListener("input", e => edit(k => k.scale = +e.target.value));
+document.getElementById("q").addEventListener("input", e => { state.q = e.target.value; renderGrid(); });
+document.getElementById("q").value = state.q;
+render();
+</script>

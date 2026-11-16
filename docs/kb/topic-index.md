@@ -717,7 +717,7 @@ _character-heals · character heals_
 
 _character-image-routes · character image routes_
 
-**topics:** 393, acao, advice, bearing, browser, clipboard, cross-origin, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
+**topics:** 393, acao, advice, bearing, bytes, clipboard, cross-origin, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
 
 - The rule that decides everything
 - Measured, with real URLs
@@ -2279,6 +2279,16 @@ _icon-font-failure · icon font failure_
 - 6. Order of questions, next time
 - Provenance
 
+## icon-workbench.md
+
+_icon-workbench · icon workbench_
+
+**topics:** 2q42mlhggfceb5a2ss53ex, 48px, artifact, asercion, badge, briefcase, caro, chest, companion-cube, constants, corner, icon, icons, kits, preview, svgs, tool, ux-guide
+
+- What it does
+- Files (scripts/design/icon-workbench/)
+- Reusing it for something else
+
 ## input-field-debounce.md
 
 _input-field-debounce · input field debounce_
@@ -2432,7 +2442,7 @@ _memoize-antipattern-scan · memoize antipattern scan_
 
 _merging-across-a-refactor · merging across a refactor_
 
-**topics:** 669, bare, branch, call, cleanly, conflict, cut, fetch, filtered-list-staleness, handler, handoff-669-final-pass, inlines, merge, merging, newer, plan-669-merge-verification, refactor, side
+**topics:** 669, bare, branch, call, cleanly, conflict, cut, fetch, filtered-list-staleness, git, handler, handoff-669-final-pass, merge, merging, newer, plan-669-merge-verification, refactor, side
 
 - Case 1: the clean merge that was already broken
 - Case 2: the conflict whose obvious resolution restores a bug
@@ -2445,7 +2455,7 @@ _merging-across-a-refactor · merging across a refactor_
 
 _mockup-review-pages · mockup review pages_
 
-**topics:** 2026-10-22, 2026-11-11, artifact, box, drawn, draws, look, owner, page, phone, png, printed, publish, publishing, sheet, shot, shots, theme-aware
+**topics:** 2026-10-22, 2026-11-11, artifact, box, drawn, look, owner, page, phone, png, printed, publish, publishing, scenes, sheet, shot, shots, theme-aware
 
 - The three pieces (all in scripts/design/ on this branch)
 - Steps
@@ -2859,7 +2869,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** 669, chain, counter, custom-items, db-population, differential, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
+**topics:** 2026-09-13, 669, chain, counter, custom-items, differential, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -2893,7 +2903,7 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-character-drafts · plan character drafts_
 
-**topics:** 2026-10-16, days, draft, drafts, edit, elsewhere, expire, expires, heartbeat, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, unsaved
+**topics:** 2026-10-16, character, days, draft, drafts, edit, elsewhere, expire, expires, leftover, never-saved, notice, rescue, restore, saved, start-up, tab, unsaved
 
 - The restore rules (agreed with the owner, 2026-10-15)
 - How it works today (feature/portrait-builder, which carries integration's code)
