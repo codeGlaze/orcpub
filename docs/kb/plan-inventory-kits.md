@@ -375,15 +375,16 @@ where `magic-armor` is meant (~3983).
 
 ## Packs chips and the Add a kit tile (owner, 2026-11-15/16)
 
-- **Packs scope is one toggle chip** (owner, 2026-11-16: with no other filters, an All items chip is
-  not worth showing): `inventory-combobox` `:scope` (a no-arg fn returning a preset) draws **Packs**
-  under the search box, plain when off (everything), amber with a check when on (`.chip-row` + `.chip.chip-choice`; `.on` copies
-  `.cast-level.on`'s amber). Always shown on the builder's Equipment step and on the sheet while
-  managing; "Add a kit" selects Packs and the hint reads "Search packs… (8)". The removable
-  `.inv-combo-preset` pill is gone. Rejected: the old pill ("anemic"), a scope dropdown inside the box
-  (no research backs it), a token in the box (where does it go when dismissed?). Research: NN/g scoped
-  search (a preset scope goes unnoticed, so keep it visible with a one-tap way back to all), Baymard
-  scope selectors, Material/Carbon filter chips. Item-type chips (Weapons, Armor, ...) are not planned.
+- **Packs scope is a pill in the search box** (owner, 2026-11-16, after research: Apple search tokens,
+  Salt tokenized input, 5etools): `inventory-combobox` `:scope` (a no-arg fn returning a preset). On,
+  its label is an amber `.chip.chip-choice.on.inv-combo-token` inside `.inv-combo-field`, the input
+  padded past it; × or Backspace in an empty box clears it. Off, the dropdown's first row is "Packs
+  only" when the box is empty or the query matches, so the filter is always one step from coming back.
+  Rejected on the way: the old removable pill over the box ("anemic", no way back), All items | Packs
+  chips (an All chip with nothing else to choose is noise), a scope dropdown in the box (no research
+  backs it). NN/g: a preset scope goes unnoticed, so keep it visible with a one-step way back to all.
+  GOTCHA: the token's position rule is nested under `.inv-combo-field`, because `.chip-choice`'s own
+  `position: relative` otherwise wins.
 - **Add a kit is one tile under the kits, every width:** `button.kit-row.kit-add`, an empty kit tile
   (the kit tiles' border, no fill) with a white + and a regular-weight label: content outranks the add
   control, so it takes no amber at rest (an amber neutral state outshone the white kits; owner). The owner's "it's grey" meant restyle, not remove:

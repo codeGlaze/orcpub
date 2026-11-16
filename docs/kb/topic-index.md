@@ -3803,7 +3803,7 @@ _starting-equipment-override-ledger · starting equipment override ledger_
 
 _starting-equipment · starting equipment_
 
-**topics:** barbarian, choice, class, consumption, delta, detach, equipment, expand, export, grants, ingestion, keys, nested, pseudo-keys, serializable, srd, sub-selection, untouched
+**topics:** barbarian, builder-item, choice, class, consumption, delta, detach, equipment, expand, export, grants, ingestion, keys, pseudo-keys, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
