@@ -324,6 +324,20 @@ async function resetLinkFor(page, sink, email) {
   check(sink.messages.length === 0, 'and sends no fourth mail in the hour',
         sink.messages.length ? `${sink.messages.length} sent` : '');
 
+  // ---- a card taller than the window starts at the top (desktop, password hints showing) ----
+  const tall = await ctx.newPage();
+  await tall.setViewportSize({ width: 1440, height: 800 });
+  await tall.goto(`${BASE}/pages/register-page`, { waitUntil: 'networkidle' });
+  await tall.waitForSelector('.registration-content .auth-form input');
+  const pw = tall.locator('.auth-form input[type=password]');
+  await pw.nth(0).fill('abc'); await pw.nth(0).blur(); await pw.nth(1).fill('abd'); await pw.nth(1).blur();
+  await settle(tall); await tall.evaluate(() => window.scrollTo(0, 0)); await settle(tall);
+  const cardTop = await tall.evaluate(() => Math.round(document.querySelector('.registration-content').getBoundingClientRect().top));
+  const tallH = await tall.evaluate(() => document.querySelector('.registration-content').getBoundingClientRect().height);
+  check(tallH > 800 && cardTop >= 0, 'with the hints showing, the register card starts on the page, not above it',
+        `top ${cardTop}, height ${Math.round(tallH)}`);
+  await tall.close();
+
   // ---- the card at phone width ----
   const phone = await ctx.newPage();
   await phone.setViewportSize({ width: 390, height: 844 });
