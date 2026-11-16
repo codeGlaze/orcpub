@@ -1006,7 +1006,11 @@
     ;; its OWN font-size, not an inherited pixel value -- unset here, text renders
     ;; SOLID, descenders hitting the next line's ascenders. Set once on the card for
     ;; a readable default; boxes with tuned geometry pin their own below.
+    ;; Auto margins centre the card in its flex row; taller than the window, it starts at the top
+    ;; (align-items alone would push the overflow above the page, out of scroll reach).
     {:line-height "1.5"
+     :margin-top :auto
+     :margin-bottom :auto
      :background-color :white
      :border "1px solid white"
      :color auth-card-ink}
@@ -1632,6 +1636,16 @@
     {:display :flex
      :flex-wrap :wrap
      :gap "6px"}]
+   ;; A .chip that is a filter (views/inventory.cljs `inventory-combobox`'s Packs pill): a button with a
+   ;; 44px tap layer; .on takes .cast-level's amber selected look.
+   [:.chip-choice
+    {:position :relative :color :inherit :font-family :inherit :cursor :pointer}
+    [:&:after {:content "''" :position :absolute :inset "-12px -3px"}]
+    [:&.on {:color orange :border-color orange :background-color "rgba(240,161,0,.16)"}]]
+   [".app.light-theme .kit-add.on" {:color accent-on-light}]
+   [".app.light-theme .chip-choice"
+    {:background-color "rgba(0, 0, 0, 0.04)" :border-color "rgba(0, 0, 0, 0.2)"}
+    [:&.on {:color accent-on-light :border-color accent-on-light :background-color "rgba(51,101,138,.1)"}]]
 
    ;; Neutral counterpart to .bg-warning, for a callout that is telling you
    ;; something rather than warning you: same box, no severity colour, so an
@@ -2334,6 +2348,14 @@
       :display :flex :align-items :center :justify-content :center
       :border "1px solid color-mix(in srgb, currentColor 30%, transparent)"
       :background-color "color-mix(in srgb, currentColor 6%, transparent)"}]
+    ;; The Add a kit row (views/inventory.cljs `kits-block`): an empty kit tile with a +, in the
+    ;; text colour and unfilled, so it sits under the kits; .on (the search is on Packs) turns it amber.
+    [:.kit-add {:background :none :border :none :font :inherit :font-size "14px" :color :inherit
+                :cursor :pointer :text-align :left}
+     [:.kit-tile {:background-color :transparent :font-size "16px"}]
+     [:&:hover [:.kit-tile {:background-color "color-mix(in srgb, currentColor 8%, transparent)"}]]
+     [:&.on {:color orange}
+      [:.kit-tile {:border-color :currentColor :background-color "color-mix(in srgb, currentColor 16%, transparent)"}]]]
     [:.kit-text {:flex "1 1 auto" :min-width 0}]
     [:.kit-name {:white-space :nowrap :overflow :hidden :text-overflow :ellipsis}]
     [:.kit-indent {:padding-left "58px"}
@@ -2352,7 +2374,6 @@
     [:.kit-remove {:display :flex :flex-direction :column :align-items :flex-start}
      [:.link-button.quiet {:padding-left 0}]
      [:div {:margin-top "-10px" :padding-bottom "6px"}]]
-    [:.kit-tile-empty {:border-style :dashed :background-color :transparent :opacity 0.6}]
 
     [:.builder-option
      {:border-width (px 1)
@@ -3841,18 +3862,20 @@
     ;; none of that is implemented here. Anchor positioning pins it under its input, and
     ;; where unsupported the popover still opens (centred) rather than breaking.
     [:.inv-combo {:margin "6px 0 10px"}]
-    ;; A preset's label over the box (views/inventory.cljs `inventory-combobox`); the 44px tap is
-    ;; an invisible layer, as in .callout-compact.
-    [:.inv-combo-preset
-     {:position :relative :display :inline-flex :align-items :center :margin-bottom "6px"
-      :padding "2px 10px" :border-radius "12px" :font :inherit :font-size "12px" :color :inherit
-      :background :none :cursor :pointer
-      :border "1px solid color-mix(in srgb, currentColor 50%, transparent)"}]
-    [:.inv-combo-preset:after {:content "''" :position :absolute :top "-10px" :bottom "-10px" :left 0 :right 0}]
-    ;; The sheet's search while managing: it adds items, so it is ringed and labelled to differ
-    ;; from filtering (views/inventory.cljs `sheet-equipment`).
-    [:.inv-combo-adding [:.inv-combo-input {:border-color "#f0a100" :box-shadow "0 0 0 1px #f0a100"}]]
-    [:.inv-combo-preset.adding {:border-color "#f0a100" :cursor :default}]
+    ;; The sheet's search while managing: it adds items, so it is ringed and labelled to differ from
+    ;; filtering (views/inventory.cljs `sheet-equipment`).
+    ;; The box and its filter pill (`inventory-combobox`): the pill sits inside the box's left edge,
+    ;; the input padded past it.
+    [:.inv-combo-field {:position :relative :max-width "340px"}
+     [:.inv-combo-token {:position :absolute :left "7px" :top "50%" :transform "translateY(-50%)" :z-index 1}]]
+    [:.inv-combo-scope {:color orange}]
+    ;; The fieldset's legend notches the ring (the auth .notch's type, no painted patch).
+    [:.inv-combo-adding {:margin "6px 0 10px" :padding 0 :min-width 0 :max-width "340px"
+                         :border "2px solid #f0a100" :border-radius "5px"}
+     [:legend {:margin-left "8px" :padding "0 4px" :line-height 1 :font-size "11px" :font-weight 600
+               :letter-spacing "0.08em" :text-transform :uppercase :color "#f0a100"}]
+     [:.inv-combo {:margin 0}]
+     [:.inv-combo-input {:border-color :transparent :max-width :none}]]
     ;; Worn | Off for the backpack (views/inventory.cljs `sheet-equipment`): two options, drawn at
     ;; the size of the kit links, with a 44px tap area.
     ;; No overflow hidden: it would clip the buttons' :after tap area; the end buttons round instead.
