@@ -429,7 +429,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, builder, control, css, docstrings, form, icon, invented, item, lesson, pin, review, row, sat, screenshot, signing, unknown, vanished
+**topics:** 2026-09-29, builder, control, css, docstrings, form, icon, invented, item, lesson, pin, review, row, sat, signing, thirteen, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -2462,6 +2462,7 @@ _mockup-review-pages · mockup review pages_
 - PDF sheets
 - Keep it easy to look through
 - Traps
+- Fresh-browser traps (2026-11-15)
 
 ## modifier-vs-trait-slots.md
 

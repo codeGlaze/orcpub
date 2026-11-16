@@ -100,3 +100,11 @@ through". Each round, rework the page, do not append to it:
 - **A stand-in made with custom items needs a remount** of the Combat tab (writing-browser-tests.md
   rule 6); the script does the tab switch.
 - **Say what is real.** Label a shot of the unchanged app as today's app, not a mockup.
+
+## Fresh-browser traps (2026-11-15)
+
+- **What's New covers a fresh browser's page** and swallows clicks ("whats-new-backdrop intercepts
+  pointer events"): press Escape once after load.
+- **The cookie banner sits over the bottom of a phone shot:** remove the fixed element whose text says
+  "uses cookies" before the screenshot. Neither shows on a dev's own browser, so shots taken there hide them.
+- **More than one `.inv-combo` is on the page:** mark the one you change (`data-mk`) before drawing in it.
