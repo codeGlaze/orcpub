@@ -84,6 +84,7 @@ button { cursor: pointer }
 .seg button { padding: 5px 10px; border-radius: 5px; background: var(--chip); border: 1px solid var(--line); display: inline-flex; gap: 6px; align-items: center }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
 .seg button svg { width: 18px; height: 18px }
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-left: 6px; border: 1px solid var(--line) }
 input[type=range] { width: 100%; max-width: 320px; accent-color: var(--accent) }
 .current { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
 .current code { font-family: var(--mono); background: var(--chip); padding: 2px 6px; border-radius: 4px }
@@ -165,6 +166,14 @@ textarea { width: 100%; min-height: 190px; font-family: var(--mono); font-size: 
             <span class="lbl">Badge colour (no disc)</span>
             <div class="seg" id="tints"></div>
           </div>
+          <div class="field">
+            <span class="lbl">Bag colour treatment (every kit)</span>
+            <div class="seg" id="colours"></div>
+          </div>
+          <div class="field">
+            <label for="hue">This bag's colour <span class="swatch" id="hue-swatch"></span><span class="swatch" id="hue-swatch2"></span></label>
+            <input type="range" id="hue" min="0" max="359" step="1">
+          </div>
         </div>
       </div>
     </div>
@@ -208,7 +217,18 @@ const PACKS = [
 ];
 // Proposed sets, each built on one idea from the SRD contents. Order follows PACKS.
 const S = (base, badge, extra = {}) => ({ base, badge, ...extra });
+// The bag set (owner's pick, 2026-11-15): Explorer keeps the backpack; the disc golf bag reads as the priest's.
+// Hues: one per bag, all at the same soft saturation, clear of the error reds and the amber accent.
+const BAGS = [S("swap-bag", "snatch", { hue: 265 }), S("briefcase", "scroll-unfurled", { hue: 300 }), S("knapsack", "torch", { hue: 185 }), S("hand-bag", "drama-masks", { hue: 335 }),
+              S("backpack", "compass", { hue: 115 }), S("disc-golf-bag", "sun-priest", { hue: 55 }), S("light-backpack", "read", { hue: 215 }), S("chest", "holy-water", { hue: 25 })]
+  .map(k => ({ ...k, scale: 40 }));
+const bagSet = (id, title, idea, colour) => ({ id, title, idea, kits: BAGS.map(k => ({ ...k, colour })) });
 const SETS = [
+  bagSet("bags", "A different bag for each", "Your pick, with the two changes: the Explorer keeps the plain backpack, and the disc golf bag becomes the Priest's. The Scholar takes the light pack.", "none"),
+  bagSet("bags-edge", "Bags, tinted edge", "Each tile's border takes the bag's colour, with a soft wash rising from the bottom edge. The icon stays white (dark) or black (light).", "edge"),
+  bagSet("bags-badge", "Bags, coloured badge", "Only the small badge takes the colour; the bag and tile stay neutral. The quietest of the four.", "badge"),
+  bagSet("bags-corner", "Bags, corner flag", "A small coloured triangle in the tile's bottom-right corner, under the badge, like a tab on a file.", "corner"),
+  bagSet("bags-glow", "Bags, soft glow", "The tile gets a thin coloured ring and a faint outer glow. Most visible; may compete with the amber Restock and Add a kit links.", "glow"),
   { id: "inside", title: "What's inside", idea: "The badge is the item only that pack carries: Diplomat's scroll case, Dungeoneer's hammer and pitons, Entertainer's disguise kit, Explorer's bedroll and mess kit, Priest's alms box, Scholar's book, Monster Hunter's holy water. Burglar's crowbar, ball bearings and hooded lantern have no icon, so lockpicks stand in.",
     kits: [S("backpack", "lockpicks"), S("chest", "scroll-unfurled"), S("backpack", "mining"), S("backpack", "double-face-mask"),
            S("backpack", "campfire"), S("backpack", "jeweled-chalice"), S("backpack", "read"), S("chest", "holy-water")] },
@@ -235,7 +255,18 @@ const SUGGESTED = {
   "scholars-pack": { base: "backpack", badge: "quill-ink" },
   "monster-hunters-pack": { base: ICONS.chest ? "chest" : "open-treasure-chest", badge: "crossbow" },
 };
-const DEFAULTS = { corner: "br", scale: 46, backing: "cutout", tint: "ink" };
+const DEFAULTS = { corner: "br", scale: 46, backing: "cutout", tint: "ink", hue: 215, colour: "none" };
+const COLOURS = { none: "None", edge: "Tinted edge", badge: "Coloured badge", corner: "Corner flag", glow: "Soft glow" };
+// A bag's colour in a theme: lighter on the dark tile, darker on the light one, same soft saturation.
+const hueColour = (h, theme, a = 1) => theme === "dark" ? `hsla(${h}, 48%, 68%, ${a})` : `hsla(${h}, 42%, 38%, ${a})`;
+// Inline style for a kit's 48px tile under its colour treatment.
+function tileStyle(k, theme) {
+  const c = a => hueColour(k.hue, theme, a);
+  if (k.colour === "edge") return `border-color:${c(1)};background:linear-gradient(to top, ${c(.22)}, transparent 70%)`;
+  if (k.colour === "corner") return `background:linear-gradient(135deg, transparent 72%, ${c(.9)} 72%)`;
+  if (k.colour === "glow") return `border-color:${c(1)};box-shadow:0 0 0 1px ${c(.6)}, 0 0 10px ${c(.45)}`;
+  return "";
+}
 const CORNERS = { br: "Bottom right", bl: "Bottom left", tr: "Top right", tl: "Top left" };
 const BACKINGS = { cutout: "Cut-out", disc: "Disc", none: "None" };
 const TINTS = { ink: "Same as pack", accent: "Theme accent" };
@@ -269,7 +300,7 @@ function kitSvg(k, theme, px) {
     const x = k.corner.endsWith("r") ? 512 - s : 0;
     const y = k.corner.startsWith("b") ? 512 - s : 0;
     const cx = x + s / 2, cy = y + s / 2;
-    let fill = k.tint === "accent" ? accent : ink;
+    let fill = k.colour === "badge" ? hueColour(k.hue, theme) : k.tint === "accent" ? accent : ink;
     let inset = 0;
     if (k.backing === "cutout") { out += `<circle cx="${cx}" cy="${cy}" r="${s * 0.6}" fill="${tile}"/>`; inset = s * 0.08; }
     if (k.backing === "disc") { out += `<circle cx="${cx}" cy="${cy}" r="${s * 0.6}" fill="${tile}"/><circle cx="${cx}" cy="${cy}" r="${s * 0.52}" fill="${accent}"/>`; fill = tile; inset = s * 0.2; }
@@ -281,7 +312,7 @@ function kitSvg(k, theme, px) {
 function renderRow() {
   for (const theme of ["dark", "light"]) {
     document.getElementById("row-" + theme).innerHTML = PACKS.map(p =>
-      `<div class="kitrow"><div class="tile">${kitSvg(state.kits[p.key], theme, 32)}</div><div style="min-width:0"><b>${esc(p.name)}</b><small>${esc(p.items)}</small></div></div>`).join("");
+      `<div class="kitrow"><div class="tile" style="${tileStyle(state.kits[p.key], theme)}">${kitSvg(state.kits[p.key], theme, 32)}</div><div style="min-width:0"><b>${esc(p.name)}</b><small>${esc(p.items)}</small></div></div>`).join("");
   }
 }
 function setKits(set) { return Object.fromEntries(PACKS.map((p, i) => [p.key, { ...DEFAULTS, ...set.kits[i] }])); }
@@ -289,7 +320,7 @@ function renderSets() {
   document.getElementById("sets").innerHTML = SETS.map(set => {
     const kits = setKits(set);
     const strip = theme => `<div class="strip ${theme}">${PACKS.map(p =>
-      `<figure><div class="tile">${kitSvg(kits[p.key], theme, 32)}</div><figcaption>${esc(p.short)}</figcaption></figure>`).join("")}</div>`;
+      `<figure><div class="tile" style="${tileStyle(kits[p.key], theme)}">${kitSvg(kits[p.key], theme, 32)}</div><figcaption>${esc(p.short)}</figcaption></figure>`).join("")}</div>`;
     return `<article class="set"><div class="sethead"><h3>${esc(set.title)}</h3><button type="button" class="btn ghost" data-load="${set.id}">Load into composer</button></div>
       <p class="note">${esc(set.idea)}</p>${strip("dark")}${strip("light")}</article>`;
   }).join("");
@@ -312,6 +343,10 @@ function renderEditor() {
   segs("corners", CORNERS, k.corner, "corner");
   segs("backings", BACKINGS, k.backing, "backing");
   segs("tints", TINTS, k.tint, "tint");
+  segs("colours", COLOURS, k.colour, "colour");
+  const hu = document.getElementById("hue"); hu.value = k.hue;
+  document.getElementById("hue-swatch").style.background = hueColour(k.hue, "dark");
+  document.getElementById("hue-swatch2").style.background = hueColour(k.hue, "light");
   const sc = document.getElementById("scale"); sc.value = k.scale;
   document.getElementById("scale-val").textContent = k.scale + "%";
 }
@@ -327,7 +362,7 @@ function renderGrid() {
 function renderOut() {
   const lines = PACKS.map(p => {
     const k = state.kits[p.key];
-    return ` :${p.key} {:base "${k.base}" :badge ${k.badge ? `"${k.badge}"` : "nil"} :corner :${k.corner} :scale ${(k.scale / 100).toFixed(2)} :backing :${k.backing} :tint :${k.tint}}`;
+    return ` :${p.key} {:base "${k.base}" :badge ${k.badge ? `"${k.badge}"` : "nil"} :corner :${k.corner} :scale ${(k.scale / 100).toFixed(2)} :backing :${k.backing} :tint :${k.tint} :colour :${k.colour} :hue ${k.hue}}`;
   });
   document.getElementById("out").value = "{" + lines.join("\n").slice(1) + "}";
 }
@@ -344,6 +379,7 @@ document.addEventListener("click", e => {
   else if (d.corner) edit(k => k.corner = d.corner);
   else if (d.backing) edit(k => k.backing = d.backing);
   else if (d.tint) edit(k => k.tint = d.tint);
+  else if (d.colour) { for (const p of PACKS) state.kits[p.key].colour = d.colour; render(); }
   else if (d.mode) { state.mode = d.mode; render(); }
   else if (d.icon) edit(k => { if (state.mode === "base") k.base = d.icon; else k.badge = d.icon; });
   else if (t.id === "badge-none") edit(k => k.badge = null);
@@ -354,6 +390,7 @@ document.addEventListener("click", e => {
   }
 });
 document.getElementById("scale").addEventListener("input", e => edit(k => k.scale = +e.target.value));
+document.getElementById("hue").addEventListener("input", e => edit(k => k.hue = +e.target.value));
 document.getElementById("q").addEventListener("input", e => { state.q = e.target.value; renderGrid(); });
 document.getElementById("q").value = state.q;
 render();
