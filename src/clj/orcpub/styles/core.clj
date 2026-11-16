@@ -1642,6 +1642,9 @@
     {:position :relative :color :inherit :font-family :inherit :cursor :pointer}
     [:&:after {:content "''" :position :absolute :inset "-12px -3px"}]
     [:&.on {:color orange :border-color orange :background-color "rgba(240,161,0,.16)"}]]
+   ;; Keyboard focus for the chip and the Add a kit row: .share-action's ring (*:focus removes the browser's).
+   [".chip-choice:focus-visible, .kit-add:focus-visible" {:outline (str "2px solid " orange) :outline-offset "2px"}]
+   [".app.light-theme .chip-choice:focus-visible, .app.light-theme .kit-add:focus-visible" {:outline-color accent-on-light}]
    [".app.light-theme .kit-add.on" {:color accent-on-light}]
    [".app.light-theme .chip-choice"
     {:background-color "rgba(0, 0, 0, 0.04)" :border-color "rgba(0, 0, 0, 0.2)"}
