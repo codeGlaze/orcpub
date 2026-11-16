@@ -379,7 +379,7 @@ where `magic-armor` is meant (~3983).
   Salt tokenized input, 5etools): `inventory-combobox` `:scope` (a no-arg fn returning a preset). On,
   its label is an amber `.chip.chip-choice.on.inv-combo-token` inside `.inv-combo-field`, the input
   padded past it; × or Backspace in an empty box clears it. Off, the dropdown's first row is "Packs
-  only" when the box is empty or the query matches, so the filter is always one step from coming back.
+  filter" when the box is empty or the query matches, so the filter is always one step from coming back.
   Rejected on the way: the old removable pill over the box ("anemic", no way back), All items | Packs
   chips (an All chip with nothing else to choose is noise), a scope dropdown in the box (no research
   backs it). NN/g: a preset scope goes unnoticed, so keep it visible with a one-step way back to all.
@@ -389,7 +389,10 @@ where `magic-armor` is meant (~3983).
   (the kit tiles' border, no fill) with a white + and a regular-weight label: content outranks the add
   control, so it takes no amber at rest (an amber neutral state outshone the white kits; owner). The owner's "it's grey" meant restyle, not remove:
   the faded dashed slot read as disabled; a header link alone lost the tile. The header link and the
-  "+ Adding items" pill are gone; the sheet's adding box keeps its amber ring.
+  "+ Adding items" pill are gone. The sheet's adding box is `fieldset.inv-combo-adding`: the amber
+  ring with "Adding items" notched in by its `legend` (the auth `.notch`'s type; a legend cuts the
+  border itself, where a painted patch would show on the dark gradient), for players who would not
+  notice the box changed job (owner, 2026-11-16).
 - **The tile lights while Packs is on** (`.kit-add.on`: the chip's amber border and fill), back to the
   outline on All items or after a pick. Grey is what reads disabled, not fading (owner). The centred
   "+" is settled; only its line colour and weight get tuned.
