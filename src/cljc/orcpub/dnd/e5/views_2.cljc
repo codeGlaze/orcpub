@@ -62,10 +62,11 @@
         [:a.m-l-5 {:href href :target :_blank} label]))]))
 
 (defn- whats-new-pill
-  "The \"What's New\" pill: opens the release panel (:orcpub.dnd.e5/open-whats-new) by click, or
-   by Enter or Space when focused. Inert in the server-rendered page, which the app replaces."
+  "The \"What's New\" pill, drawn above the support links (an amber cap and glow): opens the release
+   panel (:orcpub.dnd.e5/open-whats-new) by click, or by Enter or Space when focused. Inert in the
+   server-rendered page, which the app replaces. Returns hiccup."
   []
-  [:a.support-pill
+  [:a.support-pill.support-pill-whats-new
    #?(:cljs {:role "button"
              :tab-index 0
              :on-click #(dispatch [:orcpub.dnd.e5/open-whats-new])

@@ -3684,6 +3684,14 @@
      [:i {:font-size "15px" :width "18px" :text-align :center}]
      [:i.fa-patreon {:color "#ff424d"}]
      [:img {:width "18px" :height "18px" :border-radius "3px"}]]
+    [:.support-pill:focus-visible {:outline (str "2px solid " orange) :outline-offset "2px"}]
+    ;; What's New ranks above the support links by shape: an amber cap holding the icon in dark ink.
+    [:.support-pill-whats-new
+     {:position :relative :overflow :hidden :padding-left "54px"
+      :border (str "1px solid " orange) :box-shadow "0 0 10px 1px rgba(240,161,0,0.45)"}
+     [:i {:position :absolute :left 0 :top 0 :bottom 0 :width "40px" :display :flex
+          :align-items :center :justify-content :center :background-color orange :color button-ink}]
+     [:&:hover {:box-shadow "0 0 14px 2px rgba(240,161,0,0.7)"}]]
     ;; The site footer's columns: spaced by the row's gap, so a wrapped one keeps the left edge.
     ;; The pills sit on the left edge of the text links under them.
     [:.site-footer-row {:column-gap "20px" :row-gap "10px"}]
@@ -3695,8 +3703,13 @@
        :gap "5px" :text-decoration :underline}
       [:i {:font-size "12px" :width "14px"}]
       [:img {:width "14px" :height "14px" :border-radius "2px"}]]]
+    ;; Stacked, every icon sits in one left column and the labels share a left edge.
     (at-media {:max-width "480px"}
-     [:.support-pills {:flex-direction :column :align-items :stretch :max-width "280px"}])
+     [:.support-pills {:flex-direction :column :align-items :stretch :max-width "280px"}]
+     [".support-pills:not(.support-pills-compact) .support-pill"
+      {:position :relative :justify-content :flex-start :padding-left "54px"}
+      [:i :img {:position :absolute :left "11px" :top "50%" :transform "translateY(-50%)"}]]
+     [".support-pills:not(.support-pills-compact) .support-pill-whats-new i" {:left 0 :top 0 :transform :none}])
 
     ;; A required builder field left empty when a save was attempted. Same amber
     ;; cue as the export modal's unfilled dropdowns, for consistency.
