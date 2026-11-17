@@ -3693,7 +3693,7 @@
      [:i {:position :absolute :left 0 :top 0 :bottom 0 :width "40px" :display :flex
           :align-items :center :justify-content :center :background-color orange :color button-ink}]
      [:&:hover {:box-shadow "0 0 14px 2px rgba(240,161,0,0.7)"}]]
-    ;; Site footer (views/footer.cljs): labelled rows of links, one line on wide screens, then a muted band.
+    ;; Site footer (views/footer.cljs): labelled rows of links; on wide screens one row spread edge to edge, then a muted band.
     [:.site-footer {:padding "10px"}]
     [:.site-footer-groups {:display :flex :flex-direction :column :gap "4px"}]
     [:.site-footer-group
@@ -3709,7 +3709,9 @@
        :font-size "11px" :opacity 0.75}
       [:p {:margin "0 0 6px"}]]]
     (at-media {:min-width "900px"}
-     [:.site-footer-groups {:flex-direction :row :flex-wrap :wrap :column-gap "40px"}])
+     [:.site-footer-groups {:flex-direction :row :flex-wrap :wrap :column-gap "40px"
+                            :justify-content :space-between}]
+     [:.site-footer-label {:width :auto}])
     ;; Compact pills (the site footer): plain icon-and-word links, one text line tall.
     [:.support-pills.support-pills-compact
      {:justify-content :flex-start :gap "12px" :margin "0"}
