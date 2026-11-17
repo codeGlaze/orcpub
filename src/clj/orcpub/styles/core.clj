@@ -2989,6 +2989,7 @@
      [:.orange
       {:color "rgba(0,0,0,0.8)"}]
 
+     [:.site-footer [:.legal-footer {:border-top-color "rgba(0,0,0,0.15)"}]]
      ;; The footer's support links read as its other links do in this theme.
      [:.support-pills-compact
       [:.support-pill {:color "rgba(0,0,0,0.8)"}
@@ -3692,9 +3693,23 @@
      [:i {:position :absolute :left 0 :top 0 :bottom 0 :width "40px" :display :flex
           :align-items :center :justify-content :center :background-color orange :color button-ink}]
      [:&:hover {:box-shadow "0 0 14px 2px rgba(240,161,0,0.7)"}]]
-    ;; The site footer's columns: spaced by the row's gap, so a wrapped one keeps the left edge.
-    ;; The pills sit on the left edge of the text links under them.
-    [:.site-footer-row {:column-gap "20px" :row-gap "10px"}]
+    ;; Site footer (views/footer.cljs): labelled rows of links, one line on wide screens, then a muted band.
+    [:.site-footer {:padding "10px"}]
+    [:.site-footer-groups {:display :flex :flex-direction :column :gap "4px"}]
+    [:.site-footer-group
+     {:display :flex :flex-wrap :wrap :align-items :center :column-gap "14px" :row-gap "2px"}
+     [:a {:font-size "13px" :padding "4px 0" :margin 0 :text-decoration :underline}]
+     [:.support-pill {:font-size "13px" :padding "4px 0"}]]
+    [:.site-footer-label
+     {:width "72px" :flex :none :font-size "11px" :font-weight 600 :text-transform :uppercase
+      :letter-spacing "0.06em" :opacity 0.6}]
+    [:.site-footer
+     [:.legal-footer
+      {:margin-top "18px" :padding-top "12px" :border-top "1px solid rgba(255,255,255,0.15)"
+       :font-size "11px" :opacity 0.75}
+      [:p {:margin "0 0 6px"}]]]
+    (at-media {:min-width "900px"}
+     [:.site-footer-groups {:flex-direction :row :flex-wrap :wrap :column-gap "40px"}])
     ;; Compact pills (the site footer): plain icon-and-word links, one text line tall.
     [:.support-pills.support-pills-compact
      {:justify-content :flex-start :gap "12px" :margin "0"}
