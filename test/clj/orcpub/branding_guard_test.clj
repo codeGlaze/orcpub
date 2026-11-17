@@ -3,6 +3,7 @@
    back to its default, with a warning, rather than reaching a page or stopping the server."
   (:require [clojure.test :refer [deftest is]]
             [clojure.string :as s]
+            [orcpub.env :as env]
             [orcpub.fork.branding :as branding]))
 
 (defn- quietly
@@ -61,7 +62,8 @@
 
 (deftest social-links-default-to-the-maintainers
   ;; Holds only where neither setting is present, as in CI and a .env copied from .env.example.
-  (when-not (or (System/getenv "APP_SOCIAL_PATREON") (System/getenv "APP_SOCIAL_DEV_TIP"))
+  (when-not (or (env/value :app-social-patreon) (env/value :app-social-dev-tip))
     (is (= "https://www.patreon.com/DungeonMastersVault" (:patreon branding/social-links)))
-    (is (= "https://buymeacoffee.com/tinkan" (:dev-tip branding/social-links)))
+    (is (= "https://buymeacoffee.com/tinkan" (:dev-tip branding/social-links))))
+  (when-not (env/value :app-social-facebook)
     (is (= "" (:facebook branding/social-links)) "a link with no default stays hidden")))
