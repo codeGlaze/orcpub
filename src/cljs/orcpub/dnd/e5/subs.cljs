@@ -242,7 +242,7 @@
 
 ;; What a Kits block shows for character `id` (nil: the builder's): {:kits [{:pack :name :chest? :tracked
 ;; :could-use-spare :holds :pack-count :bought}] :questions :fillable :shares {item-key shares}
-;; :backpack-worn?} (inventory.cljc).
+;; :contents #{item-key every kit holds when full} :backpack-worn?} (inventory.cljc).
 (reg-sub
  ::inventory/panel
  (fn [[_ id]] [(subscribe [::char5e/character id]) (subscribe [:built-template])])
@@ -262,6 +262,7 @@
       :questions (inventory/questions character (inventory/offered-packs template character))
       :fillable (inventory/fillable character)
       :backpack-worn? (inventory/backpack-worn? character)
+      :contents (into #{} (mapcat #(map first (inventory/targets %))) active)
       :shares (into {} (for [k (distinct (mapcat #(map :key (inventory/tracked %)) active))]
                          [k (inventory/shares character k)]))})))
 

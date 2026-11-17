@@ -123,6 +123,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Character sheet:** a backpack Worn | Off switch; set down, the backpack's contents show as not carried, still counted.
 - **Builder:** Add a kit opens the item search on the packs; the search box can open on any preset list.
 - **Builder:** a Developer mode switch hides the empty "select any number / complete" pick counts.
+- **Character sheet:** the inventory list's search has a Packs filter that shows only what your kits hold.
 
 ### Changed
 - **Server:** a deployed server will not start without a mail server unless `EMAIL_REQUIRED=false` says that is intended, and the message names the setting to add. Development mode is exempt; `./run` and `./run --upgrade` set the opt-out for installs that run without email, so none stops on upgrade. (#716)

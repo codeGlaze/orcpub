@@ -62,7 +62,7 @@ const setTorches = async (page, n) => { const q = torchQty(page); await q.fill(S
   await sec().locator('input.inv-combo-input').fill(''); await settle(page, 300);
   await sec().locator('.toggle-switch').click(); await settle(page, 400);
   t = await stext();
-  check(/Add a kit/.test(t) && /Adding items/.test(t), 'managing: Add a kit and the adding box');
+  check(/Add a kit/.test(t) && /add equipment/i.test(t), 'managing: Add a kit and the Add equipment box');
   await torchCell().locator('button[aria-label="One fewer"]').click(); await settle(page, 1500);
   t = await stext();
   check(/Torch 9\/10/.test(t), 'one fewer torch comes out of the kit: Torch 9/10');

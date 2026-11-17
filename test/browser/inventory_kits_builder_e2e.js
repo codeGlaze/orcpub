@@ -1,4 +1,4 @@
-// Kits on the builder's Equipment step at phone size: a pack becomes a kit, use order, Re-bundle, Restock's question, Undo, the Packs preset, a second pack making the kit x2, Remove one pack.
+// Kits on the builder's Equipment step at phone size: a pack becomes a kit, use order, Re-bundle, Restock's question, Undo, the Packs pill and its way back, a second pack making the kit x2, Remove one pack; on the desktop preview, the Add equipment box and the Packs filter.
 // Screenshots go to $SHOTS when set. plan-inventory-kits.md on agents/develop.
 const path = require('path');
 const { chromium, devices } = require(path.join(process.cwd(), 'scripts/e2e/node_modules/playwright'));
@@ -94,12 +94,26 @@ const setTorches = async (page, n) => { const q = torchQty(page); await q.fill(S
 
   await page.locator('#options-column button:has-text("Add a kit")').first().click(); await settle(page, 600);
   const rows = await page.locator('.inv-combo-pop:popover-open .inv-combo-row').allInnerTexts();
-  check(await page.locator('#options-column button.inv-combo-preset:has-text("Packs")').count() === 1, 'Add a kit opens the search box with a Packs tag');
+  check(await page.locator('#options-column .inv-combo-field .inv-combo-token:has-text("Packs")').count() === 1, 'Add a kit puts a Packs pill inside the search box');
+  check(await page.locator('#options-column input[placeholder^="Search packs"]').count() === 1, 'the hint names the scope: Search packs');
+  check(await page.locator('#options-column button.kit-add.on').count() === 1, 'the Add a kit tile is lit while the search is on Packs');
   check(rows.length === 8 && rows.every(r => / Pack(You have \d+)?$/.test(r.trim())), `only the 8 packs are listed, no Backpack (${rows.join(', ')})`);
   check(rows.some(r => /Explorer's PackYou have 1/.test(r)), "the pack already a kit is noted You have 1");
   await page.screenshot({ path: path.join(OUT, 'k5-pack-picker.png') });
   await page.locator('.inv-combo-pop:popover-open .inv-combo-row:has-text("Dungeoneer\'s Pack")').click(); await settle(page, 1500);
-  check(await page.locator('#options-column button.inv-combo-preset').count() === 0, 'picking clears the Packs tag');
+  check(await page.locator('#options-column .inv-combo-token').count() === 0, 'picking clears the Packs pill');
+  check(await page.locator('#options-column button.kit-add.on').count() === 0, 'and the tile goes back to rest');
+  // The pill's way back: Backspace in the empty box clears it; the dropdown's first row restores it.
+  await page.locator('#options-column button.kit-add').first().click(); await settle(page, 600);
+  const packBox = page.locator('#options-column input[placeholder^="Search packs"]').first();
+  await packBox.click({ timeout: 5000 }).catch(() => {}); await page.keyboard.press('Backspace'); await settle(page, 400);
+  check(await page.locator('#options-column .inv-combo-token').count() === 0, 'Backspace in the empty box clears the Packs pill');
+  const firstRow = await page.locator('.inv-combo-pop:popover-open .inv-combo-row').first().innerText().catch(() => '');
+  check(/^Packs\s*filter$/.test(firstRow.trim()), `the dropdown's first row offers the Packs filter back (${firstRow.trim()})`);
+  await page.locator('.inv-combo-pop:popover-open .inv-combo-scope').first().click({ timeout: 5000 }).catch(() => {}); await settle(page, 500);
+  check(await page.locator('#options-column .inv-combo-token:has-text("Packs")').count() === 1, 'picking it puts the Packs pill back');
+  await page.locator('#options-column .inv-combo-token').first().click({ timeout: 5000 }).catch(() => {}); await settle(page, 400);
+  await page.keyboard.press('Escape'); await settle(page, 300);
   t = await text(page);
   check(/Spent items come out of the top kit first/.test(t), 'two kits: the order note shows');
   check(await torchQty(page).inputValue() === '20', 'the second pack adds its 10 torches: 20');
@@ -124,6 +138,55 @@ const setTorches = async (page, n) => { const q = torchQty(page); await q.fill(S
   await page.locator('#options-column button.link-button.quiet:text-is("Remove one pack")').click(); await settle(page, 1500);
   t = await text(page);
   check(!/\u00d72/.test(t) && await torchQty(page).inputValue() === '30', 'Remove one pack: back to one, items stay');
+  // A desktop builder shows the sheet preview beside the options; a new character's Explorer's Pack
+  // is already a kit there. The preview's Kits block follows its Manage inventory switch.
+  const desk = await (await b.newContext({ viewport: { width: 1500, height: 1000 } })).newPage();
+  desk.on('pageerror', e => errors.push(String(e)));
+  await desk.goto(`${BASE}/pages/dnd/5e/character-builder`); await settle(desk, 1500, 15000);
+  await desk.locator('div.uppercase.f-s-10:text-is("equipment")').filter({ visible: true }).first().click(); await settle(desk, 800);
+  const previewAddKit = () => desk.evaluate(() => Array.from(document.querySelectorAll('button, .kit-row'))
+    .filter(e => !e.closest('#options-column') && e.getBoundingClientRect().width > 0 && /^add a kit$/i.test(e.textContent.trim())).length);
+  const previewSwitch = desk.locator('[role=switch][aria-label="Manage inventory"]').filter({ visible: true }).first();
+  check(await previewSwitch.count() === 1 && await previewSwitch.getAttribute('aria-checked') === 'false', 'the desktop sheet preview shows Manage inventory, off');
+  check(/Explorer's Pack/.test(await desk.locator('body').innerText()), 'the preview shows the new character\'s Explorer\'s Pack kit');
+  check(await previewAddKit() === 0, 'the sheet preview offers no Add a kit while Manage inventory is off');
+  await previewSwitch.click(); await settle(desk, 600);
+  check(await previewAddKit() === 1, 'turning Manage inventory on shows the preview\'s Add a kit tile');
+  // Keyboard focus: Tab to the preview's Add a kit tile; it must show a focus ring (*:focus removes the browser's).
+  const tabTo = async sel => {
+    for (let i = 0; i < 120; i++) {
+      await desk.keyboard.press('Tab');
+      const hit = await desk.evaluate(s => { const e = document.activeElement; return !!e && e.matches(s) && !e.closest('#options-column'); }, sel);
+      if (hit) return desk.evaluate(() => { const cs = getComputedStyle(document.activeElement); return `${cs.outlineStyle} ${cs.outlineWidth}`; });
+    }
+    return 'never reached';
+  };
+  const kitRing = await tabTo('button.kit-add');
+  check(/^solid 2px$/.test(kitRing), `Tab to Add a kit shows a focus ring (${kitRing})`);
+  await desk.keyboard.press('Enter'); await settle(desk, 600);
+  const pillRing = await tabTo('.inv-combo-token');
+  check(/^solid 2px$/.test(pillRing), `Tab to the Packs pill shows a focus ring (${pillRing})`);
+  await desk.keyboard.press('Enter'); await settle(desk, 400);
+  const adding = desk.locator('fieldset.inv-combo-adding').filter({ visible: true }).first();
+  check(/^add equipment$/i.test((await adding.locator('legend').innerText().catch(() => '')).trim()), 'the adding box is labelled Add equipment on its border');
+  const addBox = adding.locator('input.inv-combo-input');
+  check(/^Search equipment…/.test(await addBox.getAttribute('placeholder') || ''), 'its hint: Search equipment…');
+  // An abacus is not in any kit: the Packs filter, with managing off, must leave it out.
+  await addBox.click(); await addBox.fill('abacus'); await settle(desk, 400);
+  await desk.keyboard.press('ArrowDown'); await desk.keyboard.press('Enter'); await settle(desk, 1200);
+  await previewSwitch.click(); await settle(desk, 600);
+  const previewRows = () => desk.evaluate(() => Array.from(document.querySelectorAll('tbody.equipment tr.item'))
+    .filter(r => !r.closest('#options-column') && r.getBoundingClientRect().width > 0).map(r => r.cells[0].innerText.split('\n')[0].trim()));
+  const allRows = await previewRows();
+  check(allRows.includes('Abacus'), `the added abacus is listed (${allRows.length} rows)`);
+  const filterBox = desk.locator('.inv-combo-field input[placeholder^="Filter my inventory"]').filter({ visible: true }).first();
+  await filterBox.click(); await settle(desk, 400);
+  await desk.locator('.inv-combo-pop:popover-open .inv-combo-scope:has-text("Packs")').first().click({ timeout: 5000 }).catch(() => {}); await settle(desk, 500);
+  const packRows = await previewRows();
+  check(packRows.length === allRows.length - 1 && !packRows.includes('Abacus') && packRows.includes('Torch'),
+    `the Packs filter shows only what the kits hold (${packRows.length} of ${allRows.length})`);
+  await desk.locator('.inv-combo-field input[placeholder^="Filter my packs"]').filter({ visible: true }).first().press('Backspace').catch(() => {}); await settle(desk, 400);
+  check((await previewRows()).length === allRows.length, 'Backspace in the empty filter box clears it');
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await b.close();
   process.exit(failures ? 1 : 0);

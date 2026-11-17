@@ -223,8 +223,9 @@
   "Filter-and-pick dropdown for selection `key`: a `popover=\"auto\"` list anchored under its input
    (browser top layer, light dismiss, Escape), every match rendered, rows mounted only while open.
    Options: `:preset`, an atom a caller fills with {:label :keys :notes :open? true} to list just
-   those keys under a removable label (× or a pick clears it); `:on-pick`, taking a picked key
-   instead of `:add-inventory-item`; `:placeholder`, the box's text before its count."
+   those keys (a pick clears it); `:scope`, a no-arg fn returning such a map: while on, its label is a pill in
+   the box (× or Backspace clears it); while off, it is the list's first row when the query matches; `:on-pick`, taking a picked key instead of
+   `:add-inventory-item`; `:placeholder`, the box's text before its count."
   []
   (let [query     (r/atom "")
         active    (r/atom -1)
@@ -242,8 +243,10 @@
         ref-fn    (fn [el]
                     (when-let [old @el*] (.removeEventListener old "beforetoggle" on-toggle))
                     (reset! el* el)
-                    (when el (.addEventListener el "beforetoggle" on-toggle)))]
-    (fn [key options selected-keys & [{:keys [preset on-pick placeholder]}]]
+                    (when el (.addEventListener el "beforetoggle" on-toggle)))
+        token-w   (r/atom 0)
+        token-ref (fn [el] (when el (reset! token-w (.-offsetWidth el))))]
+    (fn [key options selected-keys & [{:keys [preset scope on-pick placeholder]}]]
       (let [{only :keys label :label notes :notes} (some-> preset deref)
             items    (vec (common/aloof-sort-by
                            :name
@@ -258,7 +261,12 @@
             matches  (if (s/blank? q)
                        items
                        (filterv #(s/includes? (s/lower-case (str (:name %))) q) items))
-            n        (count matches)
+            scope-label (some-> scope (apply []) :label)
+            suggest? (and scope-label (not label)
+                          (s/includes? (s/lower-case scope-label) q))
+            rows     (cond->> matches
+                       suggest? (into [{:key ::scope :name scope-label :scope? true}]))
+            n        (count rows)
             pick!    (fn [item-key]
                        (if on-pick (on-pick item-key) (dispatch [:add-inventory-item key item-key]))
                        (some-> preset (reset! nil))
@@ -267,6 +275,10 @@
                        (reset! open? false)
                        (hide-popover! pop-id))
             open!    (fn [] (reset! open? true) (show-popover! pop-id))
+            choose!  (fn [{:keys [scope?] row-key :key}]
+                       (if scope?
+                         (do (reset! preset (scope)) (reset! query "") (reset! active -1))
+                         (pick! row-key)))
             move!    (fn [e delta]
                        (.preventDefault e)
                        (open!)
@@ -276,18 +288,25 @@
           (swap! preset dissoc :open?)
           (r/after-render open!))
         [:div.inv-combo
+         [:div.inv-combo-field
          (when label
-           [:button.inv-combo-preset {:on-click #(reset! preset nil)}
+           [:button.chip.chip-choice.on.inv-combo-token
+            {:ref token-ref :aria-label (str "Remove the " label " filter")
+             :on-click #(reset! preset nil)}
             label [:i.fa.fa-times.m-l-5 {:aria-hidden true}]])
          [:input.inv-combo-input
-          {:style {:anchor-name anchor}
+          {:style (cond-> {:anchor-name anchor}
+                    label (assoc :padding-left (str (+ @token-w 14) "px")))
            :role "combobox"
            :aria-expanded (str @open?)
            :aria-controls pop-id
            :aria-autocomplete "list"
            :aria-activedescendant (when (and @open? (< -1 @active n)) (str uid "-opt-" @active))
            :value @query
-           :placeholder (str (or placeholder "Filter or browse…") " (" (count items) ")")
+           :placeholder (str (if label
+                               (str "Search " (s/lower-case label) "…")
+                               (or placeholder "Filter or browse…"))
+                             " (" (count items) ")")
            ;; on-click, not on-focus: focus fires on mousedown, and light dismiss then treats
            ;; that same pointer sequence as an outside click and shuts the popover again.
            ;; Measured -- opening on focus left popoverOpen=0 after a click.
@@ -296,15 +315,16 @@
                           (case (.-key e)
                             "ArrowDown" (move! e 1)
                             "ArrowUp"   (move! e -1)
-                            "Enter"     (when-let [it (and @open? (nth matches @active nil))]
+                            "Enter"     (when-let [it (and @open? (nth rows @active nil))]
                                           (.preventDefault e)
-                                          (pick! (:key it)))
+                                          (choose! it))
+                            "Backspace" (when (and label (s/blank? @query)) (reset! preset nil))
                             nil))
            :on-change (fn [e]
                         (reset! query (.. e -target -value))
                         ;; The old highlight points into the old result list.
                         (reset! active -1)
-                        (open!))}]
+                        (open!))}]]
          [:div.inv-combo-pop
           {:id pop-id
            :popover "auto"
@@ -317,21 +337,62 @@
             [:div.inv-combo-list {:role "listbox"}
              (doall
               (map-indexed
-               (fn [i {item-name :name item-key :key}]
+               (fn [i {item-name :name item-key :key scope? :scope? :as row}]
                  ^{:key item-key}
                  [:div.inv-combo-row
-                  {:class (when (= i @active) "active")
+                  {:class (str (when (= i @active) "active") (when scope? " inv-combo-scope"))
                    :id (str uid "-opt-" i)
                    :role "option"
                    :aria-selected (str (= i @active))
-                   :on-click #(pick! item-key)}
-                  (highlight-match item-name q)
+                   :on-click #(choose! row)}
+                  (if scope?
+                    [:span [:i.fa.fa-filter.m-r-5 {:aria-hidden true}] item-name
+                     [:span.opacity-7.m-l-5 "filter"]]
+                    (highlight-match item-name q))
                   (when-let [note (get notes item-key)] [:span.opacity-7.m-l-5 note])])
-               matches))])
-          (when (pos? n)
+               rows))])
+          (when (seq matches)
             [:div.inv-combo-hint
-             [:span (str n (if (= 1 n) " item" " items"))]
+             [:span (str (count matches) (if (= 1 (count matches)) " item" " items"))]
              [:span.inv-combo-keys "\u2191\u2193 browse \u00b7 \u21b5 add \u00b7 esc close"]])]]))))
+
+(defn- filter-box
+  "The sheet's Filter my inventory box: types into `query` (an atom) and holds a Packs filter pill
+   (`packs?`, an atom). Off, clicking into the empty box offers a one-row \"Packs filter\" dropdown;
+   on, the pill sits in the box and × or Backspace in an empty box clears it. `n`: the count shown in
+   the hint. Returns hiccup."
+  []
+  (let [pop-id (str (gensym "inv-filter-") "-pop")
+        anchor (str "--" pop-id)
+        token-w (r/atom 0)
+        token-ref (fn [el] (when el (reset! token-w (.-offsetWidth el))))]
+    (fn [query packs? n]
+      (let [on? @packs?
+            offer? (and (not on?) (s/blank? @query))
+            choose! #(do (reset! packs? true) (hide-popover! pop-id))]
+        [:div.inv-combo
+         [:div.inv-combo-field
+          (when on?
+            [:button.chip.chip-choice.on.inv-combo-token
+             {:ref token-ref :aria-label "Remove the Packs filter" :on-click #(reset! packs? false)}
+             "Packs" [:i.fa.fa-times.m-l-5 {:aria-hidden true}]])
+          [:input.inv-combo-input
+           {:style (cond-> {:anchor-name anchor}
+                     on? (assoc :padding-left (str (+ @token-w 14) "px")))
+            :value @query
+            :placeholder (str (if on? "Filter my packs… (" "Filter my inventory… (") n ")")
+            :on-click #(when offer? (show-popover! pop-id))
+            :on-key-down (fn [e]
+                           (case (.-key e)
+                             "Backspace" (when (and on? (s/blank? @query)) (reset! packs? false))
+                             "Enter" (when offer? (.preventDefault e) (choose!))
+                             nil))
+            :on-change (fn [e] (reset! query (.. e -target -value)) (hide-popover! pop-id))}]]
+         [:div.inv-combo-pop {:id pop-id :popover "auto" :style {:position-anchor anchor}}
+          [:div.inv-combo-list {:role "listbox"}
+           [:div.inv-combo-row.inv-combo-scope {:role "option" :on-click choose!}
+            [:span [:i.fa.fa-filter.m-r-5 {:aria-hidden true}] "Packs"
+             [:span.opacity-7.m-l-5 "filter"]]]]]]))))
 
 (defn inventory-adder
   "The control that adds items from `options` to selection `key`; `selected-keys` are shown as
@@ -548,11 +609,12 @@
    :notes (into {} (for [{:keys [pack pack-count]} ks] [pack (str "You have " pack-count)]))})
 
 (defn kits-block
-  "The Kits block (plan-inventory-kits.md) for character `id` (nil: the builder's): each kit; the
-   questions kits need answered; the one strip (Unbundled and Re-bundle, or Restock's question); the
-   last action's Undo. `search-preset`: the search box's preset atom, which Add a kit fills with the
-   packs. `adding?`: show the dashed Add a kit slot (the builder: header link, slot when empty).
-   The summary lines fold to the block's live width (a ResizeObserver), not the device type."
+  "The Kits block (plan-inventory-kits.md) for character `id` (nil: the builder's): kits, their
+   questions, the one strip (Re-bundle or Restock's question), the last Undo. `search-preset`: the
+   search box's preset atom Add a kit fills. `builder?`: the Equipment step, whose search always adds.
+   `adding?`: the sheet's Manage inventory is on. Either shows the Add a kit tile under the kits, lit
+   while the search box is on Packs.
+   Summaries fold to the block's live width (a ResizeObserver). Returns hiccup or nil."
   []
   (let [asking (r/atom nil)
         width (r/atom 390)
@@ -564,30 +626,25 @@
                          (fn [entries] (reset! width (.. (aget entries 0) -contentRect -width))))]
                   (.observe o el)
                   (reset! observer o))))]
-    (fn [{:keys [id search-preset adding?]}]
+    (fn [{:keys [id search-preset builder? adding?]}]
       (let [{ks :kits :keys [questions fillable]} @(subscribe [::inventory/panel id])
             undo @(subscribe [::inventory/undo id])
             add-kit #(reset! search-preset (packs-preset ks))
-            builder? (nil? id)
             budget (max 20 (js/Math.round (* 40 (/ @width 390))))
             asking-kit (some #(when (= @asking (:pack %)) %) ks)]
         (when (or builder? adding? (seq ks) undo)
           [:div.m-b-10 {:ref ref}
-           [:div.flex.justify-cont-s-b.align-items-c
-            [:div
-             [:div.f-w-b.f-s-14 "Kits"]
-             (when (> (count ks) 1) [:div.f-s-12.opacity-5 "Spent items come out of the top kit first"])]
-            (when builder?
-              [:button.link-button.quiet {:on-click add-kit}
-               "Add a kit" [:i.fa.fa-plus-circle.m-l-5.f-s-14]])]
+           [:div.m-t-10.m-b-5
+            [:div.f-w-b.f-s-14 "Kits"]
+            (when (> (count ks) 1) [:div.f-s-12.opacity-5 "Spent items come out of the top kit first"])]
            (doall
             (map-indexed
              (fn [i kit] ^{:key (:pack kit)} [kit-row id (zero? i) asking budget kit])
              ks))
-           (when (or adding? (and builder? (empty? ks)))
-             [:div.kit-row.pointer {:on-click add-kit}
-              [:div.kit-tile.kit-tile-empty [kit-icon false 32]]
-              [:span.f-s-14.opacity-5 "Add a kit"]])
+           (when (or builder? adding?)
+             [:button.kit-row.kit-add {:on-click add-kit :class (when (:label @search-preset) "on")}
+              [:span.kit-tile [:i.fa.fa-plus {:aria-hidden true}]]
+              "Add a kit"])
            [:div.m-t-5
             (for [q questions] ^{:key (str (:kind q) (:pack q))} [kit-question id q])
             (cond
@@ -646,13 +703,14 @@
         selected-keys (set (map ::entity/key selected-items))
         options (entity/selection-options selection)
         gear? (= key :equipment)
-        shares (when gear? (:shares @(subscribe [::inventory/panel])))
+        {:keys [shares kits]} (when gear? @(subscribe [::inventory/panel]))
         ;; A pack's pick stands for its kit, shown in the Kits block, not as a row.
         rows (keep-indexed (fn [i item] (when-not (and gear? (inventory/pack (::entity/key item))) [i item]))
                            selected-items)]
     [:div
-     (when gear? [kits-block {:search-preset preset}])
-     [inventory-adder key options selected-keys {:preset preset}]
+     (when gear? [kits-block {:search-preset preset :builder? true}])
+     [inventory-adder key options selected-keys
+      {:preset preset :scope (when gear? #(packs-preset kits))}]
      (when (seq rows)
        [:div.flex.f-s-12.opacity-5.m-t-10.justify-cont-s-b
         [:div.m-r-10 "Carried?"]
@@ -689,18 +747,20 @@
    and shows Add a kit and the − / + quantities."
   []
   (let [query (r/atom "")
-        preset (r/atom nil)]
+        preset (r/atom nil)
+        packs? (r/atom false)]
     (fn [id managing?]
       (let [mobile? @(subscribe [:mobile?])
-            {:keys [shares backpack-worn?]} @(subscribe [::inventory/panel id])
+            {:keys [shares kits contents backpack-worn?]} @(subscribe [::inventory/panel id])
             off? (false? backpack-worn?)
             items (merge @(subscribe [::char5e/equipment id])
                          (zipmap (range) @(subscribe [::char5e/custom-equipment id])))
             nm (fn [[k cfg]] (or (:name (equip5e/equipment-map k)) (::char-equip5e/name cfg) ""))
             q (s/lower-case (s/trim @query))
-            rows (if (or @managing? (s/blank? q))
-                   items
-                   (filter #(s/includes? (s/lower-case (nm %)) q) items))
+            in-kit? #(contains? contents (key %))
+            rows (cond->> items
+                   (and (not @managing?) @packs?) (filter in-kit?)
+                   (not (or @managing? (s/blank? q))) (filter #(s/includes? (s/lower-case (nm %)) q)))
             change (fn [k delta]
                      (dispatch (if id
                                  [::inventory/sheet-change-quantity id k delta]
@@ -733,16 +793,12 @@
          [:div.m-t-10
           [kits-block {:id id :search-preset preset :adding? @managing?}]
           (if @managing?
-            [:div.inv-combo-adding
-             [:span.inv-combo-preset.adding [:i.fa.fa-plus.m-r-5 {:aria-hidden true}] "Adding items"]
+            [:fieldset.inv-combo-adding
+             [:legend "Add equipment"]
              [inventory-combobox :equipment gear-options #{}
-              {:preset preset :placeholder "Add to inventory…"
+              {:preset preset :scope #(packs-preset kits) :placeholder "Search equipment…"
                :on-pick (when id #(dispatch [::inventory/sheet-add-item id %]))}]]
-            [:div.inv-combo
-             [:input.inv-combo-input
-              {:value @query
-               :placeholder (str "Filter my inventory… (" (count items) ")")
-               :on-change #(reset! query (.. % -target -value))}]])]
+            [filter-box query packs? (count (if @packs? (filter in-kit? items) items))])]
          [:table.w-100-p.t-a-l.striped
           [:tbody.equipment
            [:tr.f-w-b
