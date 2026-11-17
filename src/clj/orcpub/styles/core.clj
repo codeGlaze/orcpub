@@ -3708,7 +3708,7 @@
       {:margin-top "18px" :padding-top "12px" :border-top "1px solid rgba(255,255,255,0.15)"
        :font-size "11px" :opacity 0.75}
       [:p {:margin "0 0 6px"}]]]
-    (at-media {:min-width "900px"}
+    (at-media {:min-width "1100px"}
      [:.site-footer-groups {:flex-direction :row :flex-wrap :wrap :column-gap "40px"
                             :justify-content :space-between}]
      [:.site-footer-label {:width :auto}])
