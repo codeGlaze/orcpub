@@ -373,3 +373,8 @@
     (is (warned? {:patreon? true :names 0}) "the thanks show, but with no names")
     (is (not (warned? {:patreon? true :names 3})))
     (is (not (warned? {:patreon? false :names 0})) "no Patreon link, no thanks to fill")))
+
+(deftest the-default-patreon-link-is-not-an-operator-setting
+  ;; The link defaults to the maintainer's, but only a hand-set APP_SOCIAL_PATREON asks for names.
+  (when-not (env/value :app-social-patreon)
+    (is (false? (:patreon? (config/patron-credits))))))
