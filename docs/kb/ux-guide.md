@@ -216,6 +216,13 @@ Newest last. Date, ruling, and what it replaced.
   each entry with name, kind, time edited and "open in another tab". Replaced a message sending the
   player back to the builder. `feature/character-rescue`.
 
+- 2026-11-17: the site footer is labelled rows, then a muted band (owner chose "C" from the review
+  page https://claude.ai/artifact/GcDnqKt9tp85UmG2Ef7F4K). Help, Support and Legal each get one row:
+  a small-caps label, then their links inline. On a phone the rows stack; from 900px they sit on one
+  line, because that is the only layout that uses the width (owner). One link per line was rejected
+  as wasting space, and one unlabelled dot row as structureless. Copyright, SRD notice, credits and
+  version go in the band below a hairline. `views/footer.cljs`, `feature/inventory-kits`. Supersedes
+  the column layout in the 2026-11-13 entry below.
 - 2026-11-13: support links never displace legal text. The home page shows What's New, Support the
   Server and Fuel the Dev as raised pills under the tiles; the site footer shows the two support
   links compact (icon and word at the footer's text size) under Feedback and What's New, so the
