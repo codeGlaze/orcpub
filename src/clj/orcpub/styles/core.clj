@@ -3705,7 +3705,7 @@
       [:img {:width "14px" :height "14px" :border-radius "2px"}]]]
     ;; Stacked, every icon sits in one left column and the labels share a left edge.
     (at-media {:max-width "480px"}
-     [:.support-pills {:flex-direction :column :align-items :stretch :max-width "280px"}]
+     [".support-pills:not(.support-pills-compact)" {:flex-direction :column :align-items :stretch :max-width "280px"}]
      [".support-pills:not(.support-pills-compact) .support-pill"
       {:position :relative :justify-content :flex-start :padding-left "54px"}
       [:i :img {:position :absolute :left "11px" :top "50%" :transform "translateY(-50%)"}]]
