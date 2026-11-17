@@ -115,15 +115,15 @@ Shown in the app header/footer when non-empty. Leave empty to hide.
 
 | Env Var | Default (public) | Default (production) |
 |---------|-----------------|---------------------|
-| `APP_SOCIAL_PATREON` | *(empty = hidden)* | Patreon URL |
-| `APP_SOCIAL_DEV_TIP` | *(empty = hidden)* | The developer's tip link, "Fuel the Dev" on the home page and in What's New. `.env.example` sets it to `https://buymeacoffee.com/tinkan`, so a new `.env` copied from it shows the link. A running server's own `.env` needs the line added. |
+| `APP_SOCIAL_PATREON` | `https://www.patreon.com/DungeonMastersVault` | `https://www.patreon.com/DungeonMastersVault` |
+| `APP_SOCIAL_DEV_TIP` | `https://buymeacoffee.com/tinkan` | `https://buymeacoffee.com/tinkan` |
 | `APP_SOCIAL_FACEBOOK` | *(empty = hidden)* | Facebook group URL |
 | `APP_SOCIAL_BLUESKY` | *(empty = hidden)* | *(empty)* |
 | `APP_SOCIAL_TWITTER` | *(empty = hidden)* | Twitter URL |
 | `APP_SOCIAL_REDDIT` | *(empty = hidden)* | *(empty)* |
 | `APP_SOCIAL_DISCORD` | *(empty = hidden)* | *(empty)* |
 
-When `APP_SOCIAL_PATREON` is set, the supporter button appears in the header. When empty, nothing renders. Same code on both branches.
+Patreon ("Support the Server") and the developer's tip link ("Fuel the Dev") default to the maintainer's. Set either to another URL to change it; a blank setting counts as unset, so it does not hide them. The supporter button appears in the header whenever the Patreon link has a value. Same code on both branches.
 
 The What's New panel's footer shows "Help support our:" with a Server icon (`APP_SOCIAL_PATREON`) and a
 Dev icon (`APP_SOCIAL_DEV_TIP`), each only when set; the site footer adds "Support the dev" for the
