@@ -11,7 +11,7 @@
             [orcpub.registration :as registration]
             [orcpub.errors :as errors]
             [orcpub.fork.branding :as branding]
-            [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views-shared :as views-shared]
             [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.views.builder-fields :refer [event-value set-value]]
             [clojure.string :as s]))
@@ -275,7 +275,7 @@
           :src branding/logo-path
           :on-click route-to-default-page}]]
        [:div.flex-grow-1 content]
-       [views-2/legal-footer legal-links?]]
+       [views-shared/legal-footer legal-links?]]
       [:div.registration-image]]]]]))
 
 (defn auth-page

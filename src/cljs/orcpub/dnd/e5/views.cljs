@@ -51,7 +51,7 @@
             [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.views.inventory :as inventory-views]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
-            [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views-shared :as views-shared]
             [orcpub.dnd.e5.views.pdf-options :as pdf-options]
             [orcpub.dnd.e5.views.builder-fields :refer [event-value dropdown labeled-dropdown
                                                         labeled-checkbox with-help option-checkbox option-group
@@ -1507,7 +1507,7 @@
                 ;; Content slot (integrations-gated)
                 [integrations/content-slot @(subscribe [:user-tier])]
 
-                [views-2/site-footer]
+                [views-shared/site-footer]
                 [debug-data]]]])]))})))
 
 ;; dead — zero callers (4 style defs)

@@ -1,4 +1,8 @@
-(ns orcpub.dnd.e5.views-2
+(ns orcpub.dnd.e5.views-shared
+  "Views the server renders as well as the browser, and the page-frame pieces they share with the
+   app: the home page, the site footer, the copyright strip and the support links. Code here must
+   compile for both; browser-only parts sit behind #?(:cljs ...). Anything else belongs in
+   views.cljs or views/*."
   (:require [orcpub.route-map :as routes]
             [clojure.string :as s]
             [orcpub.fork.branding :as branding]
@@ -7,7 +11,10 @@
             #?(:cljs [orcpub.dnd.e5.views.whats-new :as whats-new-view])
             #?(:cljs [orcpub.ver :as v])))
 
-(defn style [style]
+(defn style
+  "Returns `style`, a map of CSS properties, in the form the target needs: the map itself in the
+   browser, a CSS declaration string (\"color: red; margin: 0\") on the server."
+  [style]
   #?(:cljs style)
   #?(:clj (s/join
            "; "
@@ -16,7 +23,10 @@
               (str (name k) ": " (if (keyword? v) (name v) v)))
             style))))
 
-(defn svg-icon-2 [icon-name & [theme]]
+(defn svg-icon-2
+  "An <img> of /image/<icon-name>.svg with the svg-icon class. `theme` is accepted and ignored.
+   Returns hiccup."
+  [icon-name & [theme]]
   [:img.svg-icon
    {:src (str "/image/" icon-name ".svg")}])
 
@@ -44,9 +54,6 @@
      (svg-icon-2 icon 64 "dark")
      [:div
       [:span.splash-button-title-prefix {:translate "no" :lang "en"} "D&D 5e "] [:span title]]]]])
-
-(def orange-style
-  {:color :orange})
 
 (defn legal-footer
   "The site-wide copyright line and its two legal links.

@@ -3673,7 +3673,7 @@
      [:&:hover {:color :white}]
      [:img {:width "18px" :height "18px" :border-radius "3px"}]]
 
-    ;; Support pills (views-2/support-pills): the home tiles' raised surface, amber text, one icon.
+    ;; Support pills (views-shared/support-pills): the home tiles' raised surface, amber text, one icon.
     [:.support-pills
      {:display :flex :flex-wrap :wrap :justify-content :center :gap "10px" :margin "22px auto 8px"}]
     [:.support-pill
