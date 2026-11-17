@@ -429,7 +429,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, builder, control, css, docstrings, form, icon, invented, item, lesson, pin, reagent, review, row, sat, signing, unknown, vanished
+**topics:** 2026-09-29, control, css, docstrings, form, icon, invented, item, lesson, pin, reagent, review, row, sat, signing, unknown, vanished, vector
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these

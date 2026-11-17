@@ -133,8 +133,10 @@ what the props map happens to hold.
 `^{:key …}` only works on a literal vector. On a call (`^{:key k} (row-view x)`) or an `if`, the
 reader puts the metadata on the code form and the compiler drops it, so the element arrives with no
 key and Reagent warns. Use `(with-meta (row-view x) {:key k})`, or put `:key` in each branch's props
-map. Find them with `grep -rn -A1 '\^{:key[^}]*} *$' src` and read the next line (fixed 2026-11-17 on
-`feature/inventory-kits`: the ASI options, Manage Content rows, home-page generators).
+map. Find them with `grep -rn -A1 '\^{:key[^}]*} *$' src` and read the next line, then read the
+called function: `new-option-selector` keys the vector it returns, so the dropped key on its call in
+the ASI list is harmless. Fixed 2026-11-17 on `feature/inventory-kits`: Manage Content rows
+(`react_keys_e2e.js`) and the home-page generators (DMV's `whats_new_e2e.js` console check).
 
 ### Before de-emphasising a control
 
