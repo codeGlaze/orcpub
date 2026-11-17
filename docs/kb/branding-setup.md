@@ -106,3 +106,17 @@ them from `/dnd/5e/portrait-artists` when a portrait is shown.
   set in the deployment's environment. Unset, the link silently does not render; the startup report
   only counts `APP_*` settings. Check after a deploy:
   `curl -s <site>/ | grep -o '"dev-tip":"[^"]*"'`.
+
+## The landing page's pill row (owner, 2026-11-16)
+
+- What's New ranks above the two support links by shape, not size: `.support-pill-whats-new`, an amber
+  cap (the icon in `button-ink`) at the left edge, a 1px amber border and a soft glow; hover brightens
+  the glow. An amber fill at rest was rejected: it reads as a hover state. The order stays What's New,
+  Support the Server, Fuel the Dev (the outer two balance the middle one).
+- Stacked (480px and narrower), every pill's icon sits in one left column and the labels share a left
+  edge, so the cap reads as that column filled in. Scoped with `:not(.support-pills-compact)`: the
+  footer's compact pills share `.support-pills`.
+- Always on, not "until seen": the panel opens by itself while a release is unseen and closing it
+  stamps it seen, so an unseen-only glow would never be visible.
+- The BMAC link is pre-filled in `.env.example` (`APP_SOCIAL_DEV_TIP`), so a new `.env` shows it; a
+  running server's own `.env` still needs the line.

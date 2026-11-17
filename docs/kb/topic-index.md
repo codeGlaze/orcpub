@@ -537,7 +537,7 @@ _branch-md-2026-10-23 · branch md 2026 10 23_
 
 _branding-setup · branding setup_
 
-**topics:** artist, artist-links-and-referrer, branding, dmv, docker, email, emails, footer, fork, fork-customization, links, logos, privacy, restart, settings-registry-and-boot-report, swarm, unset, url
+**topics:** artist, artist-links-and-referrer, branding, dmv, docker, email, emails, footer, fork, fork-customization, fuel, glow, links, logos, privacy, settings-registry-and-boot-report, swarm, url
 
 - Two ways a deployment brands itself
 - How a value is read
@@ -545,6 +545,7 @@ _branding-setup · branding setup_
 - Browser side
 - Adding a branding value
 - Seeing the social links locally, and getting them to prod (2026-11-16)
+- The landing page's pill row (owner, 2026-11-16)
 
 ## browser-probe-registration.md
 
