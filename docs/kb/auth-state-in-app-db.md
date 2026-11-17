@@ -81,4 +81,4 @@ code in the body.
   `reg-api-sub`.
 - [env-and-auth.md](env-and-auth.md): the server side, the signing secret and env loading.
 - [filtered-list-staleness.md](filtered-list-staleness.md): the #669 defect this audit came out of.
-- [../TODO.md](../TODO.md), "Items owned by another account": the item-by-id route and item sharing.
+- [tracked-issues.md](tracked-issues.md), "Items owned by another account": the item-by-id route and item sharing.

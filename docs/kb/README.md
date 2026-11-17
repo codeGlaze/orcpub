@@ -321,6 +321,13 @@ wrong, and why.
 
 ### Operations
 
+- **[tracked-issues.md](tracked-issues.md)** -- open issues with their evidence: the Datomic
+  transactor crashes, localStorage corruption, content-library work left, server-side image fetch,
+  PDF follow-ups, user-agent layout, the long combobox list.
+- **[error-email-improvements.md](error-email-improvements.md)** -- analysis of real error
+  emails and the Datomic crash investigation that shaped the admin alerts.
+- **[language-selection-fix.md](language-selection-fix.md)** -- the Ranger favored-enemy
+  language fix (#296): why unknown language keys became nil options, and how they resolve now.
 - **[docker-infrastructure.md](docker-infrastructure.md)** -- the Docker/transactor setup and
   the decisions behind it.
 - **[secrets-in-boot-output.md](secrets-in-boot-output.md)** -- the database password was in

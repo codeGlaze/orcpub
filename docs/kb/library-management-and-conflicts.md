@@ -3,7 +3,7 @@
 How the **My Content** homebrew library works, and how the app resolves the one
 hard problem it has: two pieces of content that claim the same key. This is
 reference documentation — the mechanism and the reasoning behind it — not a
-status list. Roadmap items live in [docs/TODO.md](../TODO.md).
+status list. Roadmap items live in [docs/TODO.md](tracked-issues.md).
 
 ## Data model
 

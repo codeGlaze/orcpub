@@ -70,7 +70,7 @@ actually produces.
 **Once minted, those SRD group/option keys are permanent.** Renaming or renumbering them
 silently rewrites what every dependent character's ledger resolves to — the same class of
 breakage that made past key typos permanent: they were papered over with redirect **shims**
-([LANGUAGE_SELECTION_FIX.md](../LANGUAGE_SELECTION_FIX.md); the pre-2024 wizard-possessive
+([LANGUAGE_SELECTION_FIX.md](language-selection-fix.md); the pre-2024 wizard-possessive
 spell-key map in `spell_subs.cljs`), never fixed by renaming. Treat SRD equipment keys the
 same: fix a bad key with a shim, never a rename.
 

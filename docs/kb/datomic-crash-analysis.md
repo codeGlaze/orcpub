@@ -201,7 +201,7 @@ all read routes that aren't cached in the peer) will fail with
 | Docker health check + restart delay | Avoids thundering-herd of app reconnects against a half-started transactor | Verified useful as secondary measure | Low — Docker Compose config |
 
 **Recommended path:** `writeConcurrency=1` as immediate mitigation, Postgres migration
-as the permanent fix. See TODO entry: [Investigate Datomic + Postgres migration path](../TODO.md).
+as the permanent fix. See TODO entry: [Investigate Datomic + Postgres migration path](tracked-issues.md).
 
 ---
 
@@ -213,4 +213,4 @@ The flood throttle in the `send-error-email` rewrite (P5) is therefore especiall
 important for this failure class — without it, a single crash event could saturate
 the admin inbox and trigger alert fatigue that causes real bugs to be missed.
 
-See [error-email-improvements.md](../error-email-improvements.md) for full analysis.
+See [error-email-improvements.md](error-email-improvements.md) for full analysis.
