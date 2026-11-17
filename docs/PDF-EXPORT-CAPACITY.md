@@ -110,13 +110,13 @@ mean zero.
 | `ORCPUB_PDF_CONCURRENCY` | `max(8, 2 x cores)` | Sheets generated at once. |
 | `ORCPUB_PDF_QUEUE_TIMEOUT_MS` | `30000` | How long an export waits for a slot before the server says it is busy. |
 | `ORCPUB_PDF_MAX_RETRIES` | `3` | How many times the busy page retries itself before waiting for a click. |
-> Every start prints these with their resolved values and where each came from — `set`,
-> `default`, or `IGNORED` when a value was given but rejected. See
-> [ENVIRONMENT.md](ENVIRONMENT.md#what-the-server-prints-at-boot). Read the boot log rather
-> than inferring from behaviour whether a change took effect.
 
 | `ORCPUB_PDF_MAX_CASTER_SECTIONS` | `13` | Most spellcasting sections one sheet may be grown to. Thirteen is every class in the game. |
 | `ORCPUB_PDF_MAX_CARDS` | `198` | Most cards of one kind a single export prints — nine to a sheet, so 22 whole sheets. A level 20 wizard's spellbook is about 44. |
+
+> Every start prints these with their resolved values and where each came from (`SET` or `DEFAULT`, with a `(!)` line when a value was given but rejected). See
+> [ENVIRONMENT.md](ENVIRONMENT.md#what-the-server-prints-at-boot). Read the boot log rather
+> than inferring from behaviour whether a change took effect.
 
 ### Sizing them
 
@@ -244,8 +244,7 @@ rather than reasoning about the code.
 sees it, and does two things: a `spellcasting-class-N` name past the section
 ceiling is dropped outright, and every collection is truncated to the card
 ceiling. Because the field never arrives, no downstream reader can derive a number
-too large however many of them there are -- which is the failure the first fix
-walked into.
+too large, however many of them there are.
 
 The point is that it holds for code nobody has written yet. A feature added later
 that reads a list out of the request, or counts `spellcasting-class-N` names, is
@@ -254,8 +253,7 @@ worth proving it: it disables every per-site clamp and checks the request is sti
 bounded, so if the boundary ever regresses the test fails rather than the
 generators quietly covering for it.
 
-The per-site clamps stay as defence in depth. They are no longer what is doing
-the work.
+The per-site clamps stay as a second line of defence. The boundary does the main work.
 
 ## Character images and your deployment
 

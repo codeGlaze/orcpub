@@ -1,143 +1,76 @@
-# Branding, Integrations & Configuration
+# Branding and Integrations
 
-How the app handles fork-specific customization (logos, names, analytics, ads, tier gating) without touching shared code.
+Everything that makes the site yours (its name, logos, footer, contact details, social links and
+field limits) is set in `.env`. You do not edit code. Set a value, restart the site, and it
+applies. If a value is not usable (a help link that is not a web address, for example), the server
+ignores it, uses the default, and names it in the boot report.
 
-## What Changed
+For how `.env` is read and where to put it, see [ENVIRONMENT.md](ENVIRONMENT.md). The boot report
+shows how many of the branding settings you have set.
 
-The app used to have DMV-specific values hardcoded throughout shared files — views, events, email templates, privacy pages. Every merge between public and production required manually resolving dozens of conflicts in the same large files.
+## App identity
 
-Now all fork-specific behavior lives in **6 small override files**. Shared files call the same functions on both branches — they just get different results.
+| Variable | Default | Where it shows up |
+|----------|---------|-------------------|
+| `APP_NAME` | `OrcPub` | Page titles, emails, the privacy policy, link previews |
+| `APP_URL` | empty | Privacy policy, and every link in account and artist emails. Set it in production. |
+| `APP_LOGO_PATH` | `/image/orcpub-logo.svg` | Header, splash page, privacy page. A path on this site or a web address. |
+| `APP_OG_IMAGE` | `/image/orcpub-logo.png` | The picture shown when a link to the site is shared |
+| `APP_TAGLINE` | a generic D&D 5e description | The description in search results and link previews |
+| `APP_PAGE_TITLE` | `<APP_NAME>: D&D 5e Character Builder/Generator` | Browser tab title |
 
-### Before
+To use your own logo, put the file in `resources/public/image/` and set `APP_LOGO_PATH` to
+`/image/your-file.svg`. Rebuild the image if you run Docker.
 
-```
-views.cljs:438     → hardcoded Patreon URL
-views.cljs:1522    → hardcoded ad reload script
-views.cljs:1576    → hardcoded donation banner HTML
-views.cljs:3769    → hardcoded PDF upsell content
-email.clj:93       → hardcoded "no-reply@dungeonmastersvault.com"
-privacy.clj:127    → hardcoded ad-network <script> tags
-events.cljs:1794   → hardcoded support email
-```
+## Copyright and contact
 
-### After
+| Variable | Default | Where it shows up |
+|----------|---------|-------------------|
+| `APP_COPYRIGHT_HOLDER` | `OrcPub` | Footer |
+| `APP_COPYRIGHT_YEAR` | the current year | Footer |
+| `APP_COPYRIGHT_URL` | empty (plain text) | Where the holder's name in the footer links |
+| `APP_SUPPORT_EMAIL` | empty (hidden) | Privacy page and error messages. Also where admin alerts and "character won't load" reports go when `EMAIL_ERRORS_TO` is not set. |
+| `APP_HELP_URL` | empty (hidden) | Help link in the footer |
 
-```
-views.cljs:438     → integrations/supporter-link
-views.cljs:1522    → integrations/on-app-mount!
-views.cljs:1576    → integrations/support-banner
-views.cljs:3769    → integrations/pdf-options-slot
-email.clj:93       → branding/email-from-address
-privacy.clj:127    → integrations/head-tags
-events.cljs:1794   → branding/support-email
-```
+## Email identity
 
-All the actual content now lives in override files that never conflict on merge.
+| Variable | Default | Where it shows up |
+|----------|---------|-------------------|
+| `APP_EMAIL_SENDER_NAME` | `<APP_NAME> Team` | The "From" display name |
+| `APP_EMAIL_SIGNOFF` | `The <sender name>` | Who the friendlier emails (such as the artist welcome) are signed by, for example "both of us at OrcPub" |
+| `EMAIL_FROM_ADDRESS` | `no-reply@example.com` | The "From" address. The default is a placeholder that cannot deliver. Set an address on a domain your mail provider has verified. |
 
----
+## Social links
 
-## The 6 Override Files
+A link shows in the header and footer when it has a value. Leave one empty to hide it.
 
-All live under `src/clj/orcpub/fork/` (server) and `src/cljs/orcpub/fork/` (client). These are the only files that differ between public and production. On merge, always **keep production's version**.
+| Variable | Default |
+|----------|---------|
+| `APP_SOCIAL_PATREON` | `https://www.patreon.com/DungeonMastersVault` |
+| `APP_SOCIAL_DEV_TIP` | `https://buymeacoffee.com/tinkan` |
+| `APP_SOCIAL_FACEBOOK` | empty (hidden) |
+| `APP_SOCIAL_BLUESKY` | empty (hidden) |
+| `APP_SOCIAL_TWITTER` | empty (hidden) |
+| `APP_SOCIAL_REDDIT` | empty (hidden) |
+| `APP_SOCIAL_DISCORD` | empty (hidden) |
 
-| File | Path | What it controls | Public repo | Production |
-|------|------|-----------------|-------------|------------|
-| `branding.clj` | `src/clj/orcpub/fork/` | App name, logos, emails, social links, field limits | OrcPub defaults | DMV defaults |
-| `branding.cljs` | `src/cljs/orcpub/fork/` | Same values on the client side | OrcPub fallbacks | DMV fallbacks |
-| `user_tier.cljs` | `src/cljs/orcpub/fork/` | User tier subscription (`:user-tier`) | Always `:free` | Derived from patron status |
-| `user_data.clj` | `src/clj/orcpub/fork/` | API response enrichment | Pass-through | Adds patron fields |
-| `integrations.clj` | `src/clj/orcpub/fork/` | Server-side `<head>` script tags | Empty | Matomo + AdSense |
-| `integrations.cljs` | `src/cljs/orcpub/fork/` | Client-side UI hooks + analytics | No-op stubs | Full implementation |
+The Patreon ("Support the Server") and developer tip ("Fuel the Dev") links default to the
+maintainer's. Set either to another address to change it. A blank value counts as unset, so it
+does not hide them. The supporter button shows in the header whenever the Patreon link has a
+value. The What's New panel's footer shows the Patreon link as a Server icon and the tip link as a
+Dev icon, each only when set, and the site footer adds "Support the dev" for the tip link.
 
-Everything else — views.cljs, events.cljs, email.clj, privacy.clj, character_builder.cljs — is **identical** on both branches.
+## Patron credits
 
----
+When `APP_SOCIAL_PATREON` is set, the What's New panel closes its release notes with "Made possible
+by our patrons" and a thank-you line, reached from a Credits link under the title. The names come
+from `resources/public/patron-credits.md`, which the panel fetches the first time it opens. The
+file ships empty. Put your own names in it and redeploy.
 
-## How the Config Bridge Works
-
-Server-side values (from `.env` → `fork/branding.clj`) get to the browser through a JSON bridge:
-
-```
-.env  →  fork/branding.clj (reads env vars)
-              ↓
-         client-config (builds a map)
-              ↓
-         index.clj (serializes to JSON in <head>)
-              ↓
-         <script>window.__BRANDING__ = {...};</script>
-              ↓
-         fork/branding.cljs (reads window.__BRANDING__ at load time)
-              ↓
-         Any CLJS file can require [orcpub.fork.branding :as branding]
-```
-
-A parallel bridge exists for integrations: `fork/integrations.clj` provides `client-config` which index.clj injects as `window.__INTEGRATIONS__`, read by `fork/integrations.cljs`.
-
-Why not just read env vars in ClojureScript? `environ.core/env` is JVM-only. CLJS runs in the browser — it needs the values injected.
-
----
-
-## Configuration Reference
-
-All values have defaults in `fork/branding.clj`. Set env vars in `.env` to override.
-
-### App Identity
-
-| Env Var | Default (public) | Default (production) | Where it shows up |
-|---------|-----------------|---------------------|-------------------|
-| `APP_NAME` | OrcPub | Dungeon Master's Vault | Page titles, emails, privacy policy, OG tags |
-| `APP_URL` | *(empty)* | https://www.dungeonmastersvault.com | Privacy policy domain references |
-| `APP_LOGO_PATH` | /image/orcpub-logo.svg | /image/dmv-logo.svg | Header, splash page, privacy page |
-| `APP_OG_IMAGE` | /image/orcpub-logo.png | /image/dmv-box-logo.png | Social sharing preview |
-| `APP_TAGLINE` | Generic D&D 5e description | DMV-specific description | OG meta tags |
-| `APP_PAGE_TITLE` | OrcPub: D&D 5e... | Dungeon Master's Vault: D&D 5e... | Browser tab title |
-
-### Copyright & Contact
-
-| Env Var | Default (public) | Default (production) | Where it shows up |
-|---------|-----------------|---------------------|-------------------|
-| `APP_COPYRIGHT_HOLDER` | OrcPub | Dungeon Master's Vault | Footer |
-| `APP_COPYRIGHT_YEAR` | *(current year)* | *(current year)* | Footer |
-| `APP_SUPPORT_EMAIL` | *(empty = hidden)* | thDM@dungeonmastersvault.com | Privacy page, error messages, events.cljs mailto |
-| `APP_HELP_URL` | *(empty = hidden)* | https://www.dungeonmastersvault.com/help/ | Footer help link |
-
-### Email
-
-| Env Var | Default (public) | Default (production) | Where it shows up |
-|---------|-----------------|---------------------|-------------------|
-| `APP_EMAIL_SENDER_NAME` | OrcPub Team | Dungeon Master's Vault Team | "From" display name |
-| `APP_EMAIL_SIGNOFF` | The *(sender name)* | The *(sender name)* | Who the friendlier emails (such as the artist welcome) are signed from, for example "both of us at OrcPub" |
-| `EMAIL_FROM_ADDRESS` | no-reply@example.com | no-reply@dungeonmastersvault.com | "From" address. The public default is a placeholder that cannot deliver: set an address on a domain your mail provider has verified. |
-
-### Social Links
-
-Shown in the app header/footer when non-empty. Leave empty to hide.
-
-| Env Var | Default (public) | Default (production) |
-|---------|-----------------|---------------------|
-| `APP_SOCIAL_PATREON` | *(empty = hidden)* | Patreon URL |
-| `APP_SOCIAL_DEV_TIP` | *(empty = hidden)* | A one-off tip link for the developer |
-| `APP_SOCIAL_FACEBOOK` | *(empty = hidden)* | Facebook group URL |
-| `APP_SOCIAL_BLUESKY` | *(empty = hidden)* | *(empty)* |
-| `APP_SOCIAL_TWITTER` | *(empty = hidden)* | Twitter URL |
-| `APP_SOCIAL_REDDIT` | *(empty = hidden)* | *(empty)* |
-| `APP_SOCIAL_DISCORD` | *(empty = hidden)* | *(empty)* |
-
-When `APP_SOCIAL_PATREON` is set, the supporter button appears in the header. When empty, nothing renders. Same code on both branches.
-
-The What's New panel's footer shows "Help support our:" with a Server icon (`APP_SOCIAL_PATREON`) and a
-Dev icon (`APP_SOCIAL_DEV_TIP`), each only when set; the site footer adds "Support the dev" for the
-tip link.
-
-### Patron credits
-
-When `APP_SOCIAL_PATREON` is set, the What's New panel always closes its release notes with "Made
-possible by our patrons" and a thank-you line, reached from a Credits link under the title. The
-names come from `resources/public/patron-credits.md`, which the panel fetches the first time it
-opens. The public repo ships the file empty; a fork replaces it (a fork-only file on merge). One
-name per line; a line starting with `#` starts a tier, and names before any heading form a list
-with no tier heading. Every tier shows in full except the last: past 24 names it shows a random 24,
-reshuffled on each page load, and "Show all N patrons" expands the full list alphabetically:
+- One name per line.
+- A line that starts with `#` starts a tier. Names before any heading form a list with no tier heading.
+- Every tier shows in full except the last. Past 24 names, the last tier shows a random 24,
+  reshuffled on each page load, and "Show all N patrons" expands the full list alphabetically.
 
 ```markdown
 ## Archmage
@@ -146,109 +79,65 @@ Mira Ashgrove
 Kessa
 ```
 
-`docs/patron-credits.example.md` is a filled-in sample (three tiers, list markers, accents,
-handles, and a last tier long enough to show the sample and Show all): copy it over
-`resources/public/patron-credits.md` to try the panel. Copy names in by hand: paid patrons only, as first name and last initial or a handle unless a
+[patron-credits.example.md](patron-credits.example.md) is a filled-in sample with three tiers, list
+markers, accents, handles and a last tier long enough to show the "Show all" button. Copy it over
+`resources/public/patron-credits.md` to try the panel.
+
+Copy names in by hand. List paid patrons only, as first name and last initial or a handle unless a
 patron agreed to more. Never commit Patreon's member export: it holds members' email addresses.
-Changing the file needs a redeploy.
 
-### Field Limits
+## Field limits
 
-Input validation constraints, configurable via env vars.
+How much a player may type.
 
-| Env Var | Default | Used for |
-|---------|---------|----------|
-| `APP_FIELD_LIMIT_NOTES` | 50000 | Character notes, backstory textareas |
-| `APP_FIELD_LIMIT_TEXT` | 255 | Name fields, short text inputs |
-| `APP_FIELD_LIMIT_NUMBER` | 7 | Numeric input fields |
+| Variable | Default | Used for |
+|----------|---------|----------|
+| `APP_FIELD_LIMIT_NOTES` | `50000` | Character notes and backstory |
+| `APP_FIELD_LIMIT_TEXT` | `255` | Names and short text fields |
+| `APP_FIELD_LIMIT_NUMBER` | `7` | Number fields |
 
-### Analytics & Ads
+Each must be a positive whole number.
 
-Server-side (`fork/integrations.clj`) injects SDK scripts in `<head>` and exports CSP domain allowlists for `pedestal.clj`. Client-side (`fork/integrations.cljs`) handles in-app behavior, reading ad client/slot IDs from the `window.__INTEGRATIONS__` config bridge.
+## Analytics and ads
 
-| Env Var | Default (public) | Default (production) |
-|---------|-----------------|---------------------|
-| `MATOMO_URL` | *(empty = disabled)* | Analytics server URL |
-| `MATOMO_SITE_ID` | *(empty = disabled)* | Matomo site ID |
-| `ADSENSE_CLIENT` | *(empty = disabled)* | AdSense publisher ID |
-| `ADSENSE_SLOT` | *(empty = disabled)* | AdSense ad slot ID |
+This build does not include Matomo or AdSense. `MATOMO_URL`, `MATOMO_SITE_ID`, `ADSENSE_CLIENT`
+and `ADSENSE_SLOT` appear as examples in `.env.example`, but nothing reads them, so setting them
+has no effect. The files `src/clj/orcpub/fork/integrations.clj` and
+`src/cljs/orcpub/fork/integrations.cljs` are the place a fork adds such a service (see below).
 
----
+## For developers: the fork files
 
-## Integration Hooks (fork/integrations.cljs)
+A fork's customizations live in a few small files, so shared code stays the same everywhere and
+merges stay clean. On a merge, take the shared code's version of each file, with any new
+definitions it adds, and then put the fork's own values back in. Taking either whole file breaks
+the build or loses the fork's branding.
 
-These are the functions that shared files call. Public repo returns stubs/nil, production returns real UI.
+| File | What it controls |
+|------|------------------|
+| `src/clj/orcpub/fork/branding.clj` | Every `APP_*` value above, read from the environment, with its default |
+| `src/cljs/orcpub/fork/branding.cljs` | The same values in the browser |
+| `src/cljs/orcpub/fork/user_tier.cljs` | The `:user-tier` subscription. It returns `:free` in the public code. |
+| `src/clj/orcpub/fork/user_data.clj` | Enrichment of API responses. It passes data through in the public code. |
+| `src/clj/orcpub/fork/integrations.clj` | Third-party `<head>` script tags and their CSP domain allowlists. Empty by default. |
+| `src/cljs/orcpub/fork/integrations.cljs` | In-app hooks (analytics, banners, share links). Stubs in the public code. |
 
-### Lifecycle (called from events/views, no return value)
+**How values reach the browser.** `fork/branding.clj` reads the environment and builds a map.
+`index.clj` writes it into the page `<head>` as `window.__BRANDING__`, and `fork/branding.cljs`
+reads it at load time. Integrations work the same way through `window.__INTEGRATIONS__`.
+ClojureScript cannot read environment variables, so the page carries them.
 
-| Function | Called from | What it does (production) |
-|----------|-----------|--------------------------|
-| `track-page-view!` | events.cljs `:route` handler | Matomo page view tracking |
-| `on-app-mount!` | views.cljs `content-page` mount | Matomo user identification + ad slot reload |
-| `track-character-list!` | views.cljs character list render | Matomo custom variable for character count |
+**Hooks the shared code calls** (in `fork/integrations.cljs`): `track-page-view!`,
+`on-app-mount!`, `track-character-list!` (no return value); `content-slot`, `supporter-link`,
+`support-banner`, `pdf-options-slot`, `share-line`, `share-controls`, `share-copy-button` (return
+hiccup or nil); `sheet-styles` (styles for the character sheet).
+Gate anything tier-specific with `@(subscribe [:user-tier])`.
 
-### UI Hooks (return hiccup or nil)
+**Adding an integration.** Add a stub in the shared file first (empty body or `nil`), then the real
+implementation in the fork's copy, then call it from shared code. For a server-side script, gate
+it on an environment variable, return hiccup (with the nonce on each `<script>`) from
+`head-tags`, and list its domains in `csp-domains`.
 
-| Function | Called from | What it renders (production) |
-|----------|-----------|------------------------------|
-| `content-slot` | views.cljs content page (2 slots) | AdSense banner (default-tier only) |
-| `supporter-link` | views.cljs app header | Tier badge (patrons) or Patreon button (default) |
-| `support-banner` | views.cljs content page | Dismissable donation CTA (default-tier only) |
-| `pdf-options-slot` | views.cljs PDF options panel | Sheet upsell (default-tier only) |
-| `share-url` | views/share.cljs (every share link) | The link with DMV's `?frame=true` added |
-
-**Public repo returns:** `nil` for content-slot, support-banner, pdf-options-slot. Basic Patreon button for supporter-link (when URL configured). `share-url` returns the link unchanged. The share controls themselves are shared code (`views/share.cljs`), the same on every fork.
-
----
-
-## User Tier System (fork/user_tier.cljs)
-
-| Branch | `:user-tier` subscription returns |
-|--------|----------------------------------|
-| Public | Always `:free` |
-| Production | Derived from `:patron` + `:patron-tier` → `:free`, `:patron`, `:gold`, etc. |
-
-All tier gating in shared code uses `@(subscribe [:user-tier])`. The integration hooks also self-gate — `content-slot` checks tier internally, so callers don't need to.
-
----
-
-## Merging
-
-When merging public → production:
-
-| File type | What happens | Action |
-|-----------|-------------|--------|
-| Override files (6 listed above) | Conflict | **Keep ours (production)** |
-| Everything else | No conflict | Auto-merge |
-
-"Keep ours" works only while the override files hold settings and hooks, nothing every fork needs
-alike. `test/clj/orcpub/fork_contract_test.clj` lists every setting and hook shared code may use
-from them, and fails when shared code uses anything else, or when a fork's copy lacks one of
-them (run on the fork, it names what the fork's copy must add after a merge).
-
-When adding a new integration hook:
-1. Add stub on public first (empty body or `nil` return), and add it to the contract in `fork_contract_test.clj`
-2. Add real implementation on production
-3. Wire the call site in shared code (same on both branches)
-
-Logic that every fork needs the same way (checks, bridges, whole features) goes in shared code,
-never in an override file: a fork's copy replaces the file and would drop it.
-
----
-
-## Files That Read Branding/Integration Config
-
-| File | What it reads |
-|------|--------------|
-| `fork/branding.clj` | All `APP_*` env vars, `EMAIL_FROM_ADDRESS` |
-| `fork/integrations.clj` | `MATOMO_URL`, `MATOMO_SITE_ID`, `ADSENSE_CLIENT`, `ADSENSE_SLOT` |
-| `index.clj` | Calls `fork/branding/client-config` + `fork/integrations/head-tags` + `fork/integrations/client-config` |
-| `privacy.clj` | Calls `fork/branding/*` for names + `fork/integrations/head-tags` for scripts |
-| `email.clj` | `fork/branding/email-from-address`, `fork/branding/email-sender-name` |
-| `routes.clj` | `fork/branding/*` (app-name), `fork/user-data/*` (response enrichment) |
-| `pedestal.clj` | `fork/integrations/csp-domains` (CSP allowlists) |
-| `fork/branding.cljs` | Reads `window.__BRANDING__` (injected by index.clj) |
-| `fork/integrations.cljs` | Reads `window.__INTEGRATIONS__` + `fork/branding/*` via branding.cljs |
-| `views.cljs` | Reads `fork/branding/*` + calls `fork/integrations/*` hooks |
-| `events.cljs` | Reads `fork/branding/support-email`, calls `fork/integrations/track-page-view!` |
-| `character_builder.cljs` | Shows `views/share` (which calls `fork/integrations/share-url`) |
+**Where each file is used.** `index.clj` and `privacy.clj` read branding and `head-tags`.
+`email.clj` reads the sender name and address. `routes.clj` reads the app name and user-data
+enrichment. `pedestal.clj` reads `csp-domains`. `views.cljs`, `events.cljs` and
+`character_builder.cljs` call the branding values and integration hooks.

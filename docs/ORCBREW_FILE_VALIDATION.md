@@ -4,41 +4,33 @@
 
 This document explains the comprehensive validation system for `.orcbrew` files, which helps catch and fix bugs before they frustrate users.
 
-## What Changed?
+## What validation does
 
-### Before
-- ❌ Generic "Invalid .orcbrew file" errors
-- ❌ No way to know what's wrong with a file
-- ❌ One bad item breaks the entire import
-- ❌ Bugs exported into files with no warning
-- ❌ Silent failures and data loss
-
-### After
-- ✅ Detailed error messages explaining what's wrong
-- ✅ Progressive import (recovers valid items, skips invalid ones)
-- ✅ Pre-export validation (catches bugs before they're saved)
-- ✅ Automatic fixing of common corruption patterns
-- ✅ Console logging for debugging
+- Reports detailed errors that say what is wrong with a file.
+- Imports progressively: valid items are kept and invalid ones are skipped.
+- Validates before export, so problems are caught before they are saved.
+- Fixes common corruption patterns automatically.
+- Logs details to the browser console for debugging.
 
 ## Features
 
 ### 1. **Pre-Export Validation**
 
-Before creating an `.orcbrew` file, the system now validates your content:
+Before creating an `.orcbrew` file, the system validates your content:
 
 ```
 Exporting "My Homebrew Pack"...
-✓ Checking for nil values
-✓ Checking for empty option-pack strings
-✓ Validating data structure
-✓ Running spec validation
+Checking for nil values
+Checking for empty option-pack strings
+Validating data structure
+Running spec validation
 
 Export successful!
 ```
 
 **If issues are found:**
-- ⚠️ **Warnings** - File exports but issues are logged
-- ❌ **Errors** - File won't export, must fix issues first
+- **Warnings** - File exports but issues are logged
+- **Errors** - File won't export, must fix issues first
 
 **Check the browser console** (F12) for detailed information about any warnings or errors.
 
@@ -48,7 +40,7 @@ When importing an `.orcbrew` file, you now get detailed feedback:
 
 #### **Successful Import**
 ```
-✅ Import successful
+Import successful
 
 Imported 25 items
 
@@ -57,7 +49,7 @@ To be safe, export all content now to create a clean backup.
 
 #### **Import with Warnings**
 ```
-⚠️ Import completed with warnings
+Import completed with warnings
 
 Imported: 23 valid items
 Skipped: 2 invalid items
@@ -69,7 +61,7 @@ To be safe, export all content now to create a clean backup.
 
 #### **Parse Error**
 ```
-⚠️ Could not read file
+Could not read file
 
 Error: EOF while reading
 Line: 45
@@ -80,7 +72,7 @@ fresh copy if you have the original source.
 
 #### **Validation Error**
 ```
-⚠️ Invalid orcbrew file
+Invalid orcbrew file
 
 Validation errors found (2):
   • At :orcpub.dnd.e5/spells > fireball: is missing the required field :option-pack
@@ -105,10 +97,10 @@ capped (with an "... and N more" note) so they don't flood the console.
 
 The default import strategy is **progressive**, which means:
 
-- ✅ Valid items are imported successfully
-- ⚠️ Invalid items are skipped and reported
-- 📊 You get a count of imported vs skipped items
-- 🔍 Detailed errors for skipped items appear in the console
+- Valid items are imported successfully
+- Invalid items are skipped and reported
+- You get a count of imported vs skipped items
+- Detailed errors for skipped items appear in the console
 
 **Example:**
 
@@ -127,8 +119,8 @@ The system automatically fixes these common corruption patterns:
 | `disabled? nil` | `disabled? false` |
 | `nil nil,` | (removed) |
 | `:field-name nil` | (removed) |
-| `option-pack ""` | `option-pack "Default Option Source"` |
-| Empty plugin name `""` | `"Default Option Source"` |
+| No `:option-pack`, or `""` or `nil` | The name of the source the entry is filed under; in a single-source file, the one source the other entries name; otherwise `"Default Option Source"` |
+| Empty plugin name `""` | `"Unnamed Content"` (numbered when there are several) |
 
 **This happens automatically** - you don't need to do anything!
 
@@ -415,7 +407,7 @@ File size: 1843232 bytes
   - right single quote (U+2019): 1598 occurrences
   - left double quote (U+201C): 23 occurrences
 
-[INFO] Found 48 disabled entries (previously errored content)
+[INFO] Found 48 disabled entries (content that errored before)
 ```
 
 ## Troubleshooting

@@ -1,61 +1,46 @@
 # Java Compatibility
 
-## Requirement: Java 21
+## Run Java 21
 
-This project requires **Java 21** (LTS). The CI workflow, devcontainer, and all scripts are configured for Java 21.
+The site needs **Java 21** (an LTS release). The Docker images, the devcontainer, the scripts and
+CI all use it. On a bare-metal install, install an OpenJDK 21 build such as
+[Adoptium Temurin](https://adoptium.net/) and check it with `java -version`.
 
-## Why Not Java 8
+Java 8 does not work: the web server (Pedestal 0.7 on Jetty 11) and Datomic Pro need Java 11 or
+newer.
 
-The original project ran on Java 8. The upgrade to Java 21 was driven by:
+## Newer Java versions
 
-1. **Datomic Pro** — the actively maintained Datomic distribution targets Java 11+
-2. **Pedestal 0.7** — uses Jetty 11, which requires Java 11+
-3. **Security** — Java 8 is past end of public updates
-4. **Ecosystem** — modern Clojure libraries increasingly require Java 11+
+The site also runs on Java 25 and 26 with Datomic Pro. At startup the JVM prints warnings that
+`sun.misc.Unsafe::objectFieldOffset` is terminally deprecated, called from Netty. They are
+harmless today. If a future Java release removes that method, the server will fail to start
+inside Netty; the fix is a newer Netty version, not a change to the app.
 
-## Datomic Free + Java 21: Incompatible
+## Datomic Free does not run on Java 21
 
-Datomic Free 0.9.5703 fails on Java 21 with an SSL handshake timeout. The peer cannot connect to the transactor. This is caused by changes in Java's TLS implementation that break ActiveMQ Artemis (Datomic's internal messaging). Datomic Free is unmaintained — no fix is available.
+Datomic Free 0.9.5703 fails on Java 21 with an SSL handshake timeout, because the app cannot
+connect to the transactor. Datomic Free is unmaintained, so use Datomic Pro (`com.datomic/peer`).
 
-**Solution**: Migrate to Datomic Pro (`com.datomic/peer`), which supports Java 21.
+If you have data in Datomic Free, move it to Pro before you upgrade. See
+[migration/datomic-data-migration.md](migration/datomic-data-migration.md) and the migration
+section of the [README](../README.md#moving-from-datomic-free).
 
-## Pedestal + Jetty Constraint
+## Pedestal and Jetty versions
 
-Pedestal 0.7.0 uses **Jetty 11**. Pedestal 0.7.1+ uses **Jetty 12**.
-
-Jetty 12 removes `ScopedHandler`, causing `NoClassDefFoundError` when figwheel-main is running (figwheel-main's Ring adapter depends on Jetty 11 classes).
-
-**Current pin**: Pedestal 0.7.0 with Jetty 11. This constraint is about Pedestal/Jetty compatibility, not Java version.
+Pedestal is pinned to 0.7.0, which uses Jetty 11. Pedestal 0.7.1 and later use Jetty 12, which
+removes `ScopedHandler` and makes figwheel-main (development hot reload) fail with
+`NoClassDefFoundError`. Do not raise the Pedestal version without checking figwheel-main.
 
 ## javax.servlet-api
 
-Java 9+ removed `javax.servlet` from the default classpath. Added explicitly:
+Java 9 and later no longer put `javax.servlet` on the classpath, so the project lists it
+explicitly:
 
 ```clojure
 [javax.servlet/javax.servlet-api "4.0.1"]
 ```
 
-## CI Configuration
+## CI
 
-`.github/workflows/continuous-integration.yml` uses `setup-java@v4` with `temurin` distribution, Java 21.
-
-## Observed on Java 25 (field report, 2026-09)
-
-A self-hoster ran the full stack on **Java 25** (and another on Java 26) with
-Datomic Pro 1.0.7482. It works — server boots, Datomic connects, schema
-initialises — but the JVM now prints:
-
-```
-WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
-WARNING: sun.misc.Unsafe::objectFieldOffset has been called by
-         io.netty.util.internal.PlatformDependent0$4 (netty-common-4.1.100.Final.jar)
-WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
-```
-
-Netty 4.1.100 reaches for `sun.misc.Unsafe`, which is **terminally deprecated**
-— it still works on 25, and will stop working on some later JDK. Nothing to do
-today; when it does break it will present as a startup failure inside netty,
-and the fix is a netty bump, not a code change on our side.
-
-Worth noting this page says Java 21 while users are already several releases
-past it without trouble.
+`.github/workflows/continuous-integration.yml` uses `setup-java@v4` with the `temurin`
+distribution and Java 21.
