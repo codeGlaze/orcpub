@@ -116,7 +116,7 @@ Shown in the app header/footer when non-empty. Leave empty to hide.
 | Env Var | Default (public) | Default (production) |
 |---------|-----------------|---------------------|
 | `APP_SOCIAL_PATREON` | *(empty = hidden)* | Patreon URL |
-| `APP_SOCIAL_DEV_TIP` | *(empty = hidden)* | A one-off tip link for the developer |
+| `APP_SOCIAL_DEV_TIP` | *(empty = hidden)* | The developer's tip link, "Fuel the Dev" on the home page and in What's New. `.env.example` sets it to `https://buymeacoffee.com/tinkan`, so a new `.env` copied from it shows the link. A running server's own `.env` needs the line added. |
 | `APP_SOCIAL_FACEBOOK` | *(empty = hidden)* | Facebook group URL |
 | `APP_SOCIAL_BLUESKY` | *(empty = hidden)* | *(empty)* |
 | `APP_SOCIAL_TWITTER` | *(empty = hidden)* | Twitter URL |
