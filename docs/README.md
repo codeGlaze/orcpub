@@ -41,14 +41,11 @@ that matches what you are doing.
 | [CONTENT_RECONCILIATION.md](CONTENT_RECONCILIATION.md) | Understand how missing homebrew content is detected and matched |
 | [HOMEBREW_REQUIRED_FIELDS.md](HOMEBREW_REQUIRED_FIELDS.md) | Look up the required fields for each homebrew content type |
 | [MAGIC-WEAPON-DAMAGE.md](MAGIC-WEAPON-DAMAGE.md) | Write the extra damage, crits, charges and resets of a magic weapon as data |
-| [LANGUAGE_SELECTION_FIX.md](LANGUAGE_SELECTION_FIX.md) | Read how favored enemy languages are resolved |
 | [PORTRAIT-SERVING.md](PORTRAIT-SERVING.md) | See how the server spends CPU and memory on portrait images |
 | [PORTRAIT-COMPOSITOR.md](PORTRAIT-COMPOSITOR.md) | Understand the shape of the portrait drawing code |
 | [PORTRAIT-TINTING.md](PORTRAIT-TINTING.md) | Understand how character colours reach the line art |
 | [PORTRAIT-PACK.md](PORTRAIT-PACK.md) | Calibrate portrait art pieces |
 | [PORTRAIT-STYLES.md](PORTRAIT-STYLES.md) | Change the portrait drawer's styles |
-| [error-email-improvements.md](error-email-improvements.md) | Read the analysis of real error emails (see [email-system.md](email-system.md) for current behaviour) |
-| [TODO.md](TODO.md) | See tracked issues, including the Datomic transactor crash notes |
 
 ## Common homebrew tasks (for players)
 
