@@ -1,22 +1,23 @@
 # Docker Reference
 
-Consolidated reference for OrcPub's Docker infrastructure: three services,
-one compose file, and the configuration patterns that connect them.
+How to install, run, upgrade and troubleshoot the site with Docker: three services, one compose
+file, and the settings that connect them.
 
 **Contents**
 
 - [Platform Notes](#platform-notes) — Linux, macOS, Windows
 - [Quick Start](#quick-start) — setup, build, launch, first user
-  - [Upgrading an Existing Installation](#upgrading-an-existing-installation)
+  - [Upgrading an Existing Install](#upgrading-an-existing-install)
   - [Key Environment Variables](#key-environment-variables)
 - [Architecture](#architecture) — services, networking, boot order
 - [Compose File](#compose-file) — image naming, registry overrides
-- [Transactor Configuration](#transactor-configuration-option-c-hybrid-template)
-- [host=datomic Rationale](#hostdatomic-rationale)
+- [Transactor Configuration](#transactor-configuration)
+- [Transactor Address (host=datomic)](#transactor-address-hostdatomic)
 - [Jetty Binding](#jetty-binding)
 - [Healthcheck Strategy](#healthcheck-strategy) — app and transactor probes
 - [Production Memory Tuning](#production-memory-tuning)
 - [Volumes](#volumes)
+- [Backups](#backups)
 - [Docker Swarm Deployment](#docker-swarm-deployment) — ALT_HOST, scaling, secrets
 - [File Inventory](#file-inventory)
 - [Security](#security)
@@ -134,14 +135,13 @@ The upgrade script:
 
 Your `data/`, `logs/`, and SSL certs are never touched.
 
-**Check your `.env` before upgrading to the Long Rest Update.** Before this release, most settings
-in `.env` never reached the app container: Docker only passes the settings named in the
-compose file, and that list was short. It now names every setting the server reads. So a line
-that has been sitting in your `.env` doing nothing, such as `APP_NAME=...` or an
-`ORCPUB_PDF_...` value, takes effect after this upgrade. Look through `.env` for `APP_`,
-`ORCPUB_` and `ALERT_` lines and remove any you do not mean. A branding value set here
-replaces the one in your branding file. After the upgrade, the server's start-up output shows
-each setting as `SET` or `DEFAULT`, so you can confirm what is in force.
+**Check your `.env` before upgrading.** Docker passes the app container only the settings the
+compose file names, and the compose file names every setting the server reads. So a line that sat
+in your `.env` and did nothing on an older install, such as `APP_NAME=...` or an `ORCPUB_PDF_...`
+value, takes effect after the upgrade. Look through `.env` for `APP_`, `ORCPUB_` and `ALERT_`
+lines and remove any you do not mean. A branding value set here replaces the built-in default.
+After the upgrade, the server's start-up output shows each setting as `SET` or `DEFAULT`, so you
+can confirm what is in force.
 
 <details>
 <summary>What does --upgrade actually check?</summary>
@@ -230,7 +230,7 @@ These are the variables you'll actually touch. Full reference in
 | `EMAIL_SERVER_URL` | No | *(empty)* | Your SMTP server. Leave it empty and nobody can sign up: the site can't send the confirmation email, so it turns registration off rather than letting people in unchecked. To run without email, see the next setting. |
 | `ALLOW_UNVERIFIED_REGISTRATION` | No | `false` | Set this to `true`, and leave `EMAIL_SERVER_URL` empty, to let people sign up without confirming their email. Their accounts work right away. Only do this on a private site — anyone can sign up using an address that isn't theirs. It does nothing if you have SMTP set up. |
 | `CSP_POLICY` | No | `strict` | Content Security Policy: `strict`, `permissive`, or `none`. |
-| `DEV_MODE` | No | *(empty)* | Set to `true` to send no CSP header at all, which is what allows Figwheel hot-reload. Not a Report-Only mode — that does not exist. |
+| `DEV_MODE` | No | *(empty)* | Set to `true` only for development: it sends no CSP header at all. Leave it empty in production. |
 | `LOAD_HOMEBREW_URL` | No | *(empty)* | URL to fetch `.orcbrew` plugins on first page load. |
 
 `run` generates `DATOMIC_PASSWORD`, `ADMIN_PASSWORD`, and
@@ -267,15 +267,7 @@ Image names default to local build tags (`orcpub-app`, `orcpub-datomic`).
 Override with `ORCPUB_IMAGE` and `DATOMIC_IMAGE` env vars to point at a
 registry (e.g., `ORCPUB_IMAGE=registry/orcpub:2.6.0.0 docker compose up -d`).
 
-## Transactor Configuration (Option C Hybrid Template)
-
-### Previous Approach
-
-A fragile sed-chain — 5 build-time and 6 runtime substitutions — that mutated
-a stock properties file. Broke silently on Datomic upgrades when line formats
-changed.
-
-### Current Approach
+## Transactor Configuration
 
 `docker/transactor.properties.template` is a **complete** transactor config
 with all structural settings hardcoded. Only five values use `${VAR}`
@@ -295,7 +287,7 @@ placeholders for runtime substitution:
 3. Supports password rotation via `ADMIN_PASSWORD_OLD` / `DATOMIC_PASSWORD_OLD`
 4. Uses `exec` so the transactor becomes PID 1 (receives Docker signals directly)
 
-## host=datomic Rationale
+## Transactor Address (host=datomic)
 
 The transactor's `host=` setting is both the address it serves on and the
 address it tells the app to connect to. Datomic has no separate setting for
@@ -392,7 +384,7 @@ Rules of thumb (from Datomic capacity planning docs):
 container, so a crash or restart does not lose it; `docker compose logs orcpub` shows it. The file
 is lost only when the container is replaced (a new image, or a changed compose file). Each
 container keeps at most `LOG_MAX_FILES` files of `LOG_MAX_SIZE` each (default 5 of 10 MB), so logs
-can no longer fill the disk. Set both in `.env`.
+cannot fill the disk. Set both in `.env`.
 
 The app's log holds what the app reports: its start-up settings, warnings, errors, admin alerts
 and a line for each security event (sign-ins and failed sign-ins, sign-ups, password resets,
@@ -422,8 +414,7 @@ what happened, when, and where the file is.
 
 **The app's memory.** `JAVA_OPTS` in `.env` sets Java's memory options for the app, for example
 `JAVA_OPTS=-XX:MaxRAMPercentage=75.0` (use up to 75% of the container's memory). Left empty, Java
-uses only 25% of the container's memory. Before the Long Rest Update `JAVA_OPTS` was passed to the
-container but never reached Java, so if you set it earlier, it starts taking effect now.
+uses only 25% of the container's memory.
 
 ## Volumes
 
@@ -436,6 +427,19 @@ container but never reached Java, so if you set it earlier, it starts taking eff
 | `./deploy/homebrew/` | web | User homebrew `.orcbrew` files served by nginx |
 | `./deploy/nginx.conf.template` | web | Nginx config template (`envsubst` at startup) |
 | `./deploy/snakeoil.*` | web | Self-signed SSL certificates |
+
+## Backups
+
+The database is the folder `./data` on the host. To back it up:
+
+1. Stop the stack: `docker compose down`.
+2. Copy `./data` somewhere safe, for example `cp -a data data-backup-$(date +%F)`.
+3. Start again: `docker compose up -d`.
+
+Copy it only while the transactor is stopped, or the copy may be inconsistent. To restore, stop the
+stack, put the folder back, and start. Also keep a copy of `.env` (or your secret files): without
+`SIGNATURE` everyone is signed out, and without `PROFILE_ENCRYPTION_KEYS` stored preferred names
+cannot be read. On Swarm, the data is in the `orcpub_data` volume.
 
 ## Docker Swarm Deployment
 
@@ -517,17 +521,17 @@ and lists what the new one would drop. Copy those parts across, or copy this
 release's changes into your own file. Extra environment variables, volumes,
 networks, Traefik labels and resource limits are carried over.
 
-**Upgrading to the release with `TRANSACTOR_HOST`:** regenerate the stack with
-`./run --swarm` (or add `TRANSACTOR_HOST: 0.0.0.0` to the datomic service by hand)
-before deploying the new images. Without it the transactor serves on `datomic`,
-which does not work on Swarm. `./run --upgrade` also removes `ALT_HOST=127.0.0.1`
-from `.env`, the Compose default it used to write, which would otherwise override
-the stack's `datomic`. `./run --check` tells you if either is still wrong. Deploying without `./run`?
-The app's startup log has a DEPLOYMENT block that says where its crash files
-and alerts are kept and lists this release's deployment changes, and Datomic's
-log says which addresses it chose. If `git pull` refuses because
-`docker/transactor.properties.template` has local changes, those were the old
-way of switching to Swarm: discard them with
+**`TRANSACTOR_HOST` on Swarm.** The transactor must serve on `0.0.0.0` on Swarm. If your stack
+file has no `TRANSACTOR_HOST`, regenerate it with `./run --swarm` (or add `TRANSACTOR_HOST: 0.0.0.0`
+to the datomic service by hand) before deploying new images. Without it the transactor serves on
+`datomic`, which does not work on Swarm. Also make sure `.env` has no `ALT_HOST=127.0.0.1`, which
+is the Compose value and would override the stack's `datomic`; `./run --upgrade` removes it.
+`./run --check` tells you if either is still wrong.
+
+Deploying without `./run`? The app's startup log has a DEPLOYMENT block that says where its crash
+files and alerts are kept and lists this release's deployment changes, and Datomic's log says which
+addresses it chose. If `git pull` refuses because `docker/transactor.properties.template` has
+local changes (an older way of switching to Swarm), discard them with
 `git checkout -- docker/transactor.properties.template` and pull again.
 
 ### Upgrading a Portainer stack
@@ -537,8 +541,7 @@ reach both:
 
 1. On the server's checkout, pull the new code and run `./run --upgrade-swarm`. It reads the
    `docker-compose.swarm.yaml` on disk, keeps your changes, and adds any settings the new
-   release reads (the Long Rest Update adds many; without them Swarm drops those settings on the way
-   into the container).
+   release reads (without them Swarm drops those settings on the way into the container).
 2. **If you have edited the stack in Portainer's own editor**, copy those edits into
    `docker-compose.swarm.yaml` on disk first. The upgrade reads the file on disk, not
    Portainer's copy, so edits made only in Portainer are lost when you paste the new file.
