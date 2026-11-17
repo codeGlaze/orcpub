@@ -3699,7 +3699,9 @@
     [:.site-footer-group
      {:display :flex :flex-wrap :wrap :align-items :center :column-gap "14px" :row-gap "2px"}
      [:a {:font-size "13px" :padding "4px 0" :margin 0 :text-decoration :underline}]
-     [:.support-pill {:font-size "13px" :padding "4px 0"}]]
+     [:.support-pill {:font-size "13px" :padding "4px 0"}]
+     ;; The support links wrap one by one beside their label, not as one block under it.
+     [:.support-pills {:display :contents}]]
     [:.site-footer-label
      {:width "72px" :flex :none :font-size "11px" :font-weight 600 :text-transform :uppercase
       :letter-spacing "0.06em" :opacity 0.6}]
