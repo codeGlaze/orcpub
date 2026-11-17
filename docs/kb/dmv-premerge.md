@@ -116,3 +116,9 @@ The local branch now tracks its own Gitea branch, not `dmv`.
   `inventory_kits_sheet_e2e` 26/26, `auth-flows` 44/44.
 - The branch-shape hook warned: 97 files changed against `dmv`; a push over 100 is refused. The next
   update may need PR #10 merged first, or a split.
+- **DMV's social links are branding defaults** (owner, 2026-11-16: "safe to make the default branding
+  links ours"): DMV's `social-links` defaults `:patreon` to `https://www.patreon.com/DungeonMastersVault`
+  and `:dev-tip` to `https://buymeacoffee.com/tinkan`, as both `env/value` default and `checked-url`
+  fallback, like its other values (`7f1e9a48e`). Before this, both copies of `branding.clj` read social
+  links from the environment only. A blank setting cannot hide them (blank = absent); set another URL.
+  BMAC gets no changelog or What's New line (owner).
