@@ -92,3 +92,17 @@ them from `/dnd/5e/portrait-artists` when a portrait is shown.
    `_a_env_defaults`. `settings_lists_test` fails until both (and `.env.example`) have it.
 6. Tell the fork: DMV's `branding.clj` needs the same `def` with its own default, or the merge
    leaves the fork without it.
+
+## Seeing the social links locally, and getting them to prod (2026-11-16)
+
+- **Local, no restart:** `branding/social-links` is a def read per request by `client-config`
+  (index.clj injects it as `window.__BRANDING__`), so in a running dev REPL
+  `(alter-var-root #'orcpub.fork.branding/social-links assoc :patreon "<url>" :dev-tip "<url>")`
+  shows the header button, the landing "Support the Server" / "Fuel the Dev" pills and the What's New
+  footer on the next page load. Gone on restart. Persistent: set `APP_SOCIAL_*` in `.env` and start
+  with `scripts/start.sh` (plain `lein` does not read `.env`).
+- **Prod needs two things:** the code (`:dev-tip` landed on `integration` 2026-11-12; `develop` gets it
+  with the release PR #32; the DMV pre-merge, Gitea PR #10, already has it) and `APP_SOCIAL_DEV_TIP`
+  set in the deployment's environment. Unset, the link silently does not render; the startup report
+  only counts `APP_*` settings. Check after a deploy:
+  `curl -s <site>/ | grep -o '"dev-tip":"[^"]*"'`.

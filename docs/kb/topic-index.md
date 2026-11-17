@@ -537,13 +537,14 @@ _branch-md-2026-10-23 · branch md 2026 10 23_
 
 _branding-setup · branding setup_
 
-**topics:** artist, artist-links-and-referrer, branding, dmv, docker, email, emails, footer, fork, fork-customization, json, links, logos, portrait, privacy, settings-registry-and-boot-report, swarm, url
+**topics:** artist, artist-links-and-referrer, branding, dmv, docker, email, emails, footer, fork, fork-customization, links, logos, privacy, restart, settings-registry-and-boot-report, swarm, unset, url
 
 - Two ways a deployment brands itself
 - How a value is read
 - The values
 - Browser side
 - Adding a branding value
+- Seeing the social links locally, and getting them to prod (2026-11-16)
 
 ## browser-probe-registration.md
 
@@ -3296,7 +3297,7 @@ _release-deploy-traps · release deploy traps_
 
 _remote-dev · remote dev_
 
-**topics:** 3449, codespaces, config, connections, dev, development, environments, figwheel, figwheel-main, forwarding, gitpod, hot-reload, port, remote, ssh, tunnels, visibility, websocket
+**topics:** 3449, codespaces, config, connections, development, environments, figwheel, figwheel-main, forwarding, gitpod, hot-reload, port, remote, ssh, tunnels, url, visibility, websocket
 
 - The Problem
 - The Discovery: --fw-opts
