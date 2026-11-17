@@ -1160,13 +1160,12 @@
                 :body (doall
                        (map
                         (fn [option]
-                          (with-meta
-                            (new-option-selector path
-                                                 selection
-                                                 (and max (> min 1) (zero? remaining))
-                                                 false
-                                                 option)
-                            {:key (::t/key option)}))
+                          ^{:key (::t/key option)}
+                          (new-option-selector path
+                                               selection
+                                               (and max (> min 1) (zero? remaining))
+                                               false
+                                               option))
                         (sort-by ::t/name options)))}]))
           asi-or-feat-selections))]))
    (let [asi-selections (filter (fn [s] (= :asi (::t/key s))) selections)
