@@ -127,9 +127,8 @@ moves, because skin is the slot where a boost reads as sunburn.
 ## Hair streaks follow the drawn strands
 
 The ombré's Streaks setting moves where the tip colour starts, strand by
-strand. It was first a wave of horizontal position only, so every streak was
-a vertical stripe. On long straight hair that passed, but on the short cut,
-which is swept and curled all over, it read as paint on glass.
+strand. A wave of horizontal position alone makes every streak a vertical stripe, which
+reads as paint on glass on the short cut, where the hair is swept and curled all over.
 
 **Streak direction:** streaks are not a function of x alone. `strand-field` in
 `portrait_effects.cljc` reads the strand direction from the linework (the
