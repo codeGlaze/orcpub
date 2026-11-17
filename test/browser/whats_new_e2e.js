@@ -150,7 +150,7 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
     check('the home-page pill has an amber cap at its left edge, full height',
           !!wide && wide.cap === 'rgb(240, 161, 0)' && wide.fills, JSON.stringify(wide));
     check('and an amber border with a glow',
-          !!wide && wide.border === 'rgb(240, 161, 0) 1px' && wide.glow !== 'none', JSON.stringify(wide));
+          !!wide && wide.border === 'rgb(240, 161, 0) 1px' && wide.glow.includes('rgba(240, 161, 0'), JSON.stringify(wide));
     await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(300);
     const stacked = await capLook();
     check('stacked on a phone, the cap still fills its left edge', !!stacked && stacked.fills, JSON.stringify(stacked));
