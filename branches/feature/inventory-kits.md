@@ -17,7 +17,7 @@ note, what is deferred).
 
 ## Roadmap on this branch (updated 2026-11-16)
 
-Done, in PR #87 into `integration` (opened 2026-11-16, CodeRabbit full review requested): the Packs pill in the
+Done, merged as #87 into `integration` on 2026-11-16 (`85e964522`; also in the DMV pre-merge, Gitea PR #10, `0c1ade6a7`): the Packs pill in the
 search box with its "Packs filter" way back, the Packs filter on the sheet's filter box, the "Add
 equipment" box, the Add a kit tile, and the auth card fix (register header reachable while password
 hints show). Decisions: `plan-inventory-kits.md`, "Packs chips and the Add a kit tile".

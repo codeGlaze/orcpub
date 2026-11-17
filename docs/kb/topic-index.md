@@ -1265,7 +1265,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 2026-11-02, 2026-11-04, 2026-11-15, admin, art, branding, cloudflare, dmv, gitea, images, integration, launch, licensed, merge, push, pushing, silhouettes, update
+**topics:** 2026-11-04, 2026-11-15, art, branch, cloudflare, dmv, gitea, images, integration, launch, licensed, merge, pre-merge, push, pushed, pushing, silhouettes, update
 
 - Where it happens
 - How to resolve conflicts
@@ -1275,6 +1275,7 @@ _dmv-premerge · dmv premerge_
 - Pushing to Gitea is blocked by Cloudflare (2026-11-04)
 - Traps when updating PR #10 (2026-11-05)
 - 2026-11-15 update (after #85, feature/inventory-kits)
+- 2026-11-16 update (after #87, kits round two)
 
 ## dmv-production-changes.md
 

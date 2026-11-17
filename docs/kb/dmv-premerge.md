@@ -102,3 +102,17 @@ The local branch now tracks its own Gitea branch, not `dmv`.
 - **State, 2026-11-15:** PR #10 (opened 2026-09-06) is still open and unmerged; pushed to `ee0716c20` and its title and description rewritten that day (795 files). The last merge into
   `dmv` was #8 on 2026-08-11; `gitea/dmv` ends at `31cd8be24` (2026-09-07). Local branch 176 ahead
   of its Gitea copy, not pushed.
+
+## 2026-11-16 update (after #87, kits round two)
+
+- The merge of `integration` (`85e964522`) was clean: no conflicts and no `fork/` file touched. Merge
+  `0c1ade6a7`, pushed to Gitea with the fix below (`e65306b3e`); Gitea push over HTTPS works again.
+- **`auth-flows.js` followed emailed links to the live site:** the mail names `APP_URL`, which DMV sets
+  to `https://www.dungeonmastersvault.com`, so the suite left the local server and timed out after 12
+  checks. Fixed on the pre-merge branch in `linkIn` (keep the link's path and key, move it onto
+  `BASE`). The same fix is right on `integration` (a no-op there); bring it over with the next
+  integration branch so the two copies do not drift.
+- Checks on the merge: `lein test` 1646 tests, 0 failures; `inventory_kits_builder_e2e` 50/50,
+  `inventory_kits_sheet_e2e` 26/26, `auth-flows` 44/44.
+- The branch-shape hook warned: 97 files changed against `dmv`; a push over 100 is refused. The next
+  update may need PR #10 merged first, or a split.
