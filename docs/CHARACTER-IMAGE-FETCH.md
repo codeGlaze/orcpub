@@ -31,10 +31,9 @@ asks what `/character.pdf` can be made to talk to.
   `test/clj/orcpub/pdf_image_fetch_test.clj` (what happens once one is),
   `test/browser/character_image_capture_e2e.js` (both paths through the real app)
 
-## Measured against real hosts (2026-09-06)
+## Which hosts work
 
-With a browser that can reach the real internet (see `test/browser/README.md` for
-the TLS flag that takes), against **real** URLs rather than invented ones:
+Results for real image hosts:
 
 | host | browser reads it | server fetches it |
 |---|---|---|
@@ -44,16 +43,14 @@ the TLS flag that takes), against **real** URLs rather than invented ones:
 | `i.pinimg.com` | no | **yes** (393 KB, fitted) |
 | `www.dndbeyond.com` | no | **yes** (148 KB, fitted) |
 
-Pinterest serves this server a 200 and 393 KB of JPEG; a D&D Beyond avatar is a
-200 and 148 KB. Neither ever blocked us. What
-refused it was our own 128 KB ceiling, applied to the download rather than to the
-document — now split in two, so a heavy picture is fitted instead of dropped. A
-Pinterest portrait reaches the sheet with nothing asked of the user.
+Pinterest and D&D Beyond serve this server the picture without trouble. A heavy picture is fitted
+to the size ceiling rather than dropped, so a Pinterest portrait reaches the sheet with nothing
+asked of the player.
 
-## Which hosts allow the browser to read (measured 2026-09-05)
+## Which hosts allow the browser to read
 
 The browser can only read a picture whose host sends `Access-Control-Allow-Origin`.
-Sampled with a browser-shaped request; ACAO is set at the edge, so it holds for the
+ACAO is set at the edge, so the answer holds for the
 host rather than the object.
 
 | Allows the read | Does not |
