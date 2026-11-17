@@ -9,6 +9,13 @@ CI all use it. On a bare-metal install, install an OpenJDK 21 build such as
 Java 8 does not work: the web server (Pedestal 0.7 on Jetty 11) and Datomic Pro need Java 11 or
 newer.
 
+## Newer Java versions
+
+The site also runs on Java 25 and 26 with Datomic Pro. At startup the JVM prints warnings that
+`sun.misc.Unsafe::objectFieldOffset` is terminally deprecated, called from Netty. They are
+harmless today. If a future Java release removes that method, the server will fail to start
+inside Netty; the fix is a newer Netty version, not a change to the app.
+
 ## Datomic Free does not run on Java 21
 
 Datomic Free 0.9.5703 fails on Java 21 with an SSL handshake timeout, because the app cannot

@@ -128,7 +128,8 @@ ClojureScript cannot read environment variables, so the page carries them.
 
 **Hooks the shared code calls** (in `fork/integrations.cljs`): `track-page-view!`,
 `on-app-mount!`, `track-character-list!` (no return value); `content-slot`, `supporter-link`,
-`support-banner`, `pdf-options-slot`, `share-links`, `share-link-www` (return hiccup or nil).
+`support-banner`, `pdf-options-slot`, `share-line`, `share-controls`, `share-copy-button` (return
+hiccup or nil); `sheet-styles` (styles for the character sheet).
 Gate anything tier-specific with `@(subscribe [:user-tier])`.
 
 **Adding an integration.** Add a stub in the shared file first (empty body or `nil`), then the real
