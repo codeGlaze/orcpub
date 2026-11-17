@@ -717,7 +717,7 @@ _character-heals · character heals_
 
 _character-image-routes · character image routes_
 
-**topics:** 393, acao, advice, bearing, bytes, clipboard, cross-origin, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
+**topics:** 393, acao, advice, bearing, browser, clipboard, cross-origin, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
 
 - The rule that decides everything
 - Measured, with real URLs
@@ -732,7 +732,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, aasimar, blank, calishite, descriptive, dwarf, elf, generates, halfling, helper, human, label, manual, name, party, races, random, sex
+**topics:** ------, ----------, aasimar, blank, descriptive, dwarf, elf, generates, halfling, helper, human, label, manual, name, party, races, random, sex
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -781,7 +781,7 @@ _character-validation · character validation_
 
 _class-builder-extraction-plan · class builder extraction plan_
 
-**topics:** big-bang, class-builder-first, class-builder-only, decomposition, extract, extraction, grep, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
+**topics:** big-bang, builder, class-builder-first, class-builder-only, decomposition, extract, extraction, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
 
 - Why this shape (the lesson from refactor/views-extraction)
 - Starting reality (differs from the dead branch's assumption)
@@ -1587,7 +1587,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, non-word, prevention, rescued, root-caused, throw, token, unfindable
+**topics:** 196-line, 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, loader, non-word, prevention, rescued, throw, token
 
 - The failure
 - The two defences, and where they are
@@ -1832,7 +1832,7 @@ _filtered-list-staleness · filtered list staleness_
 
 _folder-hardening · folder hardening_
 
-**topics:** clause, client, entities, error, evolution, folders, handler, hardening, http, optimistic, pre-mutation, problem, re-fetch, re-fetches, rollback, server, solution, tempid
+**topics:** clause, client, entities, error, evolution, folders, handler, hardening, http, optimistic, pattern, pre-mutation, problem, re-fetch, rollback, server, solution, tempid
 
 - Context
 - Pattern: On-Failure Rollback via Server Re-Fetch
@@ -1846,7 +1846,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, ofl, re-add, redistribution, sandboxed, sans, sil, subsets, vietnamese
+**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, ofl, re-add, redistribution, sandboxed, sans, sil, subset, subsets
 
 - Why
 - What is checked in
@@ -2254,7 +2254,7 @@ _homebrew-save-rework · homebrew save rework_
 
 _http-fx-patterns · http fx patterns_
 
-**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, interop, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
+**topics:** ------, 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
 
 - How the :http fx works
 - on-success / on-failure MUST be dispatch vectors
@@ -2479,7 +2479,7 @@ _modifier-vs-trait-slots · modifier vs trait slots_
 
 _monolith-decomposition-plan · monolith decomposition plan_
 
-**topics:** -------, 2026-09-15, 623, 821, cljs, cohesive, decomposition, domain, domain-based, extractions, incrementally, monolith, phase, split, splitting, tier, todo, views
+**topics:** -------, --------, 2026-09-15, 623, 821, cljs, cohesive, decomposition, domain, domain-based, incrementally, monolith, phase, split, splitting, tier, todo, views
 
 - 1. Did the Builders Split Make Issues Easier to Find?
 - 2. What Files Can or Should Be Broken Down?
@@ -3816,11 +3816,26 @@ _starting-equipment · starting equipment_
 - Start from an SRD class + the override delta
 - On-disk delta format (data integrity)
 
+## style-and-branding-audit-prompt.md
+
+_style-and-branding-audit-prompt · style and branding audit prompt_
+
+**topics:** 2026-11-16, audit, audit-only, audits, branding, cleanup, despite, inventory, layer, messy, near-duplicate, paste, piled, plans, prompt, rails, stylesheets, update
+
+- The job
+- Scope
+- Read first
+- What to find (each finding: file:line, the compiled CSS or a computed style as evidence, where it is used)
+- How to measure: ground truth, not grep
+- The roadmap
+- Rules for this run
+- Report back
+
 ## subscribe-diagnosis-techniques.md
 
 _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
-**topics:** app-code, approach, atom, dispatch, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
+**topics:** approach, atom, cljs, dispatch, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
 
 - The Problem
 - What Doesn't Work
@@ -3892,7 +3907,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** 2026-02-18, assertions, auto-run, classpath, cljs-compatible, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reg-event-db, testing, utilities
+**topics:** 2026-02-18, assertions, auto-run, classpath, cljs, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners
@@ -4100,7 +4115,7 @@ _weapons-table-follow-ups · weapons table follow ups_
 
 _weapons-table-spec · weapons table spec_
 
-**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, owner, preference, row, shield, study, versatile, weapon, white
+**topics:** 1d10, 2026-10-15, amber, blue, buttons, chip, damage, dark, grey, headings, opened, preference, row, shield, study, versatile, weapon, white
 
 - The parts and their names
 - Agreed
