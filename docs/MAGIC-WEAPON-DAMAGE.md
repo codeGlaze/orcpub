@@ -2,9 +2,8 @@
 
 Many magic weapons deal more than their base dice. A Flame Tongue adds 2d6 fire while it is ablaze;
 a Holy Avenger adds 2d10 radiant against fiends and undead; a Vicious Weapon adds 2d6 when you roll
-a 20. Until now the app only knew these from the item's description text, so nothing could add them
-to a roll or print them on a sheet. This page describes how a magic weapon now states its extra
-damage as data, so the character sheet, the dice rolls and the PDF can all read the same facts.
+a 20. This page describes how a magic weapon states its extra damage as data, so the character
+sheet, the dice rolls and the PDF all read the same facts instead of the description text.
 
 The description text stays exactly as it was. The data sits beside it and never replaces it.
 

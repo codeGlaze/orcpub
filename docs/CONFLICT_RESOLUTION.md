@@ -4,9 +4,9 @@
 
 Detects and resolves duplicate content keys during import, preventing data loss when merging homebrew content from multiple sources.
 
-**Why this exists:** Before this feature, imports silently overwrote existing content with no warning. Characters referencing the old version would break. Users needed explicit control over conflict resolution.
+**Why it exists:** a silent overwrite on import breaks characters that reference the old version, so the importer asks you what to do with each conflict.
 
-**Key insight:** When renaming parent content (e.g., a class), all child references (subclasses) must be updated automatically or they become orphaned. This was the critical bug that led to the reference update feature.
+**Renames carry their children:** when you rename parent content (for example a class), every child reference (its subclasses) is updated automatically. Otherwise the subclasses are orphaned.
 
 ## How It Works
 
@@ -60,7 +60,7 @@ Use when: You want to update to the new version
 
 **Bulk actions:** Rename All, Skip All, Replace All (for handling 10+ conflicts efficiently)
 
-**Design decision:** Originally considered automatic resolution strategies (always rename, always skip). User testing showed explicit per-conflict choices prevent unexpected behavior and data loss.
+**Per-conflict choices:** each conflict gets its own choice (rename, skip or replace), because an automatic rule can overwrite or drop content you wanted. The bulk actions cover the common case.
 
 **Implementation:** `views/conflict_resolution.cljs`
 
@@ -86,7 +86,7 @@ When renaming, automatically updates all internal references to maintain parent-
  :name "Battle Smith"}
 ```
 
-**Why this matters:** Early implementation forgot to update references. Result: Subclasses imported successfully but became orphaned (not associated with parent class). Character builder showed them but they were unselectable.
+**Why this matters:** if a renamed parent's references are not updated, its subclasses import but are orphaned: the builder shows them, but they cannot be selected.
 
 **Reference types supported:**
 - Subclass → parent class (`:class` field)
@@ -191,7 +191,7 @@ Without auto-update, subclass becomes orphaned (shows in UI but unselectable).
 
 **Critical manual test:** Create class + subclass → Export → Delete → Re-import with rename → Verify subclass still references renamed parent
 
-**Why this test matters:** This is the bug that led to the reference update feature. Must not regress.
+**Why this test matters:** it checks that a renamed parent keeps its subclasses.
 
 ## Extending
 
