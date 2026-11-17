@@ -1266,7 +1266,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 2026-11-04, 2026-11-15, art, branding, cloudflare, dmv, gitea, images, integration, licensed, merge, pre-merge, push, pushed, pushing, silhouettes, social, update
+**topics:** 2026-11-04, 2026-11-15, art, branding, cloudflare, dmv, gitea, images, integration, licensed, links, merge, pre-merge, push, pushing, silhouettes, social, update
 
 - Where it happens
 - How to resolve conflicts
@@ -1277,6 +1277,7 @@ _dmv-premerge · dmv premerge_
 - Traps when updating PR #10 (2026-11-05)
 - 2026-11-15 update (after #85, feature/inventory-kits)
 - 2026-11-16 update (after #87, kits round two)
+- 2026-11-17 update (after #88, the What's New pill)
 
 ## dmv-production-changes.md
 
@@ -1835,7 +1836,7 @@ _filtered-list-staleness · filtered list staleness_
 
 _folder-hardening · folder hardening_
 
-**topics:** clause, client, entities, error, evolution, folders, handler, hardening, http, optimistic, pattern, pre-mutation, problem, re-fetch, rollback, server, solution, tempid
+**topics:** clause, client, entities, error, evolution, folders, handler, hardening, http, optimistic, pre-mutation, problem, re-fetch, re-fetches, rollback, server, solution, tempid
 
 - Context
 - Pattern: On-Failure Rollback via Server Re-Fetch
@@ -3202,7 +3203,7 @@ _proposal-indexeddb-storage · proposal indexeddb storage_
 
 _re-frame-subscribe-refactor · re frame subscribe refactor_
 
-**topics:** apis, cached, chain, component, direct, event-utils, extract, handler, low, methods, pattern, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
+**topics:** apis, cached, chain, component, direct, event-utils, extract, handler, low, methods, re-frame, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
 
 - The Problem
 - What actually happens when you subscribe in a handler

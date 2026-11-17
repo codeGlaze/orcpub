@@ -122,3 +122,19 @@ The local branch now tracks its own Gitea branch, not `dmv`.
   fallback, like its other values (`7f1e9a48e`). Before this, both copies of `branding.clj` read social
   links from the environment only. A blank setting cannot hide them (blank = absent); set another URL.
   BMAC gets no changelog or What's New line (owner).
+
+## 2026-11-17 update (after #88, the What's New pill)
+
+- The merge of `integration` (`4e4c76838`) had one conflict, `fork/branding.clj`: both sides now
+  default the Patreon and tip links to the same URLs. Take integration's `social-link-defaults` def;
+  the values are identical, so DMV loses nothing. Merge `68cefe68a`.
+- **The home page's generator buttons had no React keys** (DMV only: `splash/generator-buttons` is
+  empty on the public side). `views_2.cljc` put `^{:key route}` on the `(splash-page-button ...)` call,
+  and reader metadata on a call form stays on the code, not on the vector it returns. Fixed with
+  `with-meta` (`52da412fe`). The same pattern is on `integration` at `character_builder.cljs:1164` and
+  `views.cljs:8907`: fix it there with the next integration branch.
+- **DMV's CSP blocked AdSense's ad-quality calls:** `adsbygoogle.js` fetches
+  `ep1.adtrafficquality.google` on every page, and `connect-src` allowed only `pagead2`. Added
+  `https://*.adtrafficquality.google` (`d6f346ed4`); `integrations_test` pins it.
+- Both were caught by `whats_new_e2e.js`'s "no console errors or warnings" check, which stops at the
+  first error: after fixing one, run it again.
