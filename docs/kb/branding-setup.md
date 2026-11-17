@@ -118,5 +118,9 @@ them from `/dnd/5e/portrait-artists` when a portrait is shown.
   footer's compact pills share `.support-pills`.
 - Always on, not "until seen": the panel opens by itself while a release is unseen and closing it
   stamps it seen, so an unseen-only glow would never be visible.
-- The BMAC link is pre-filled in `.env.example` (`APP_SOCIAL_DEV_TIP`), so a new `.env` shows it; a
-  running server's own `.env` still needs the line.
+- **The public social links default to the maintainer's** (owner, 2026-11-16, on #88): Patreon
+  `https://www.patreon.com/DungeonMastersVault` and the tip link `https://buymeacoffee.com/tinkan` are
+  `branding/social-link-defaults`, so every install shows them unless a setting names another URL (a
+  blank setting cannot hide them). The patron-credits startup warning now fires only for a hand-set
+  `APP_SOCIAL_PATREON`, not the default. No changelog or What's New line for it (owner). DMV's copy got
+  the same defaults on the pre-merge branch.

@@ -537,7 +537,7 @@ _branch-md-2026-10-23 · branch md 2026 10 23_
 
 _branding-setup · branding setup_
 
-**topics:** artist, artist-links-and-referrer, branding, dmv, docker, email, emails, footer, fork, fork-customization, fuel, glow, links, logos, privacy, settings-registry-and-boot-report, swarm, url
+**topics:** 2026-11-16, artist, artist-links-and-referrer, branding, dmv, docker, email, emails, footer, fork, fork-customization, glow, links, privacy, public, settings-registry-and-boot-report, swarm, url
 
 - Two ways a deployment brands itself
 - How a value is read
