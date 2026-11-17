@@ -200,6 +200,5 @@
                   :justify-content :center
                   :margin-top "10px"})}
         (for [{:keys [title icon route]} splash/generator-buttons]
-          ^{:key route}
-          (splash-page-button title icon route))])
+          (with-meta (splash-page-button title icon route) {:key route}))])
      (support-pills :whats-new? true)]]])

@@ -8903,13 +8903,13 @@
                    (let [note (orcbrew-val/twin-note twin-idx source-name type-key key disabled?)
                          selected? (and select-mode?
                                         @(subscribe [::e5/content-selected? source-name type-key key]))]
-                   ^{:key key}
                    (if select-mode?
                      ;; SELECT MODE: enable/edit/delete step aside; a round selector
                      ;; (distinct from the square enable) + the whole row is the tap
                      ;; target. Selected rows tint + get an amber rail.
                      [:div.p-t-10.p-b-10.f-w-b.flex.align-items-c.mc-selrow
-                      {:class (when selected? "selected")
+                      {:key key
+                       :class (when selected? "selected")
                        :on-click (make-event-handler ::e5/toggle-content-selection source-name type-key key)}
                       [:span.mc-selcircle.m-r-10 {:class (when selected? "on")}
                        [:i.fa.fa-check]]
@@ -8918,7 +8918,8 @@
                      ;; An UNRESOLVED conflict (:conflict) gets a red rail so the
                      ;; offending entry is easy to spot from the health banner.
                      [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
-                      {:class (when disabled? "opacity-5")
+                      {:key key
+                       :class (when disabled? "opacity-5")
                        :style (when (= :conflict (:kind note))
                                 {:box-shadow "inset 3px 0 0 #ffd21a"
                                  :padding-left "8px"})}
