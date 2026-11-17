@@ -54,8 +54,14 @@ const cardSays = (page, re) => page.waitForFunction(src => {
 /** Waits up to 15s for the URL to leave the login page. */
 const leftLogin = page => page.waitForURL(u => !String(u).includes('login-page'), { timeout: 15000 }).catch(() => {});
 
-// The link in a captured mail, with quoted-printable soft breaks undone.
-const linkIn = (mail, re) => (mail.raw.replace(/=\r\n/g, '').match(re) || [])[0];
+// The link in a captured mail, with quoted-printable soft breaks undone, moved onto the server under
+// test: the mail names the site's own URL (APP_URL), which a fork sets to its live site.
+const linkIn = (mail, re) => {
+  const found = (mail.raw.replace(/=\r\n/g, '').match(re) || [])[0];
+  if (!found) return found;
+  const u = new URL(found);
+  return `${BASE}${u.pathname}${u.search}`;
+};
 
 async function registerAndVerify(page, sink, user, email, password) {
   // Clear FIRST. waitFor returns a matching message already held, so with mail
