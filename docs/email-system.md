@@ -207,7 +207,7 @@ The 429 response includes `retry-after-secs` so the client can display a specifi
 
 **Emails do not arrive.** Check that `EMAIL_FROM_ADDRESS` is an address your provider may send as, not the `no-reply@example.com` placeholder. Then read the log: failed sends are retried on the schedule above, and a send given up on raises an admin alert.
 
-**A player never got the verification email.** Run `./docker-user.sh verify <username-or-email>`, or let them use the resend link on the sign-in page.
+**A player never got the verification email.** Run `./docker-user.sh verify <username-or-email>`.
 
 **No admin alerts arrive.** Set `EMAIL_ERRORS_TO`. With none of `EMAIL_ERRORS_TO`, `EMAIL_ADMIN_TO` and `APP_SUPPORT_EMAIL` set, alerts go to the log only.
 
