@@ -163,6 +163,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Printing:** spell cards have a new design: the name with ATK and DC, concentration and
   ritual marked as ribbons, level and school on one line with any uses to tick, the casting facts
   labelled, and more of the spell's text on the front.
+- **Site:** the home page's What's New pill stands out from the support links, and stacked on a phone the three pills line up on one icon column.
 
 ### Fixed
 
