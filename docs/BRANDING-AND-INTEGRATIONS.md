@@ -108,7 +108,9 @@ has no effect. The files `src/clj/orcpub/fork/integrations.clj` and
 ## For developers: the fork files
 
 A fork's customizations live in a few small files, so shared code stays the same everywhere and
-merges stay clean. On a merge, keep the fork's version of these files.
+merges stay clean. On a merge, take the shared code's version of each file, with any new
+definitions it adds, and then put the fork's own values back in. Taking either whole file breaks
+the build or loses the fork's branding.
 
 | File | What it controls |
 |------|------------------|
