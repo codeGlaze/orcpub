@@ -4,7 +4,7 @@ A per-selection switch in the **character builder** that waives the rules the ap
 enforce on that selection. Easy to forget it exists, which is why it is written down here.
 
 Not to be confused with **"My Content"** — the homebrew *authoring* area, which uses the same
-`beer-stein` icon (`views.cljs:549`, `views_2.cljc:91`). Different feature, same glyph.
+`beer-stein` icon (`views.cljs:549`, `views_shared.cljc:91`). Different feature, same glyph.
 
 ## Where it is
 

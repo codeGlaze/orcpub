@@ -60,7 +60,7 @@ All namespaces changed from `orcpub.<name>` to `orcpub.fork.<name>`.
 
 ### Files That Required Require Updates (9 consumers)
 Server: `email.clj`, `privacy.clj`, `index.clj`, `routes.clj`, `pedestal.clj`
-Client: `views.cljs`, `events.cljs`, `character_builder.cljs`, `views_2.cljc`
+Client: `views.cljs`, `events.cljs`, `character_builder.cljs`, `views_shared.cljc`
 
 ## social-links-footer Pattern
 

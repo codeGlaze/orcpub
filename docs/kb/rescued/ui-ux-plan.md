@@ -158,7 +158,7 @@ This is a distinct UX avenue — not just tooltips, but a system for progressive
 | Spell list page | "Browse all SRD spells. Use the search bar to filter by name." (dismissable banner) | views.cljs:8748 |
 | Combat tracker | Setup guidance: "Add parties and encounters to begin tracking combat." | views.cljs:6959 |
 | My Content page | "Import .orcbrew files to add homebrew content. Exported files from other OrcPub instances work here." | views.cljs:7745 |
-| Splash page | 1-line descriptions per tool button | views_2.cljc:81-148 |
+| Splash page | 1-line descriptions per tool button | views_shared.cljc:81-148 |
 
 **Implementation approach:**
 - Dismissable banners: Store `#{:dismissed-builder-intro :dismissed-spell-intro ...}` in localStorage via existing `reg-local-store-cofx` pattern (db.cljs)
@@ -171,7 +171,7 @@ This is a distinct UX avenue — not just tooltips, but a system for progressive
 
 | ID | What | Where | GH # |
 |----|------|-------|------|
-| UX-10 | **Splash page hierarchy** — flat grid, no visual priority, no descriptions | views_2.cljc:55-158. Group primary/secondary tiers. Add 1-line descriptions. | #165 |
+| UX-10 | **Splash page hierarchy** — flat grid, no visual priority, no descriptions | views_shared.cljc:55-158. Group primary/secondary tiers. Add 1-line descriptions. | #165 |
 | UX-11 | **Keyboard nav foundation** — focus fix (Tier 1 CSS) then tabindex + keydown handlers | core.clj:948, char_builder:487 (option selectors), char_builder:1874 (tabs) | new |
 | UX-12 | **My Content page** — raw `<input type="file">`, "Delete All" too prominent | views:7745. Style as drop zone, move "Delete All", add explanation text. | new |
 | UX-13 | **Inline validation** — int-field no visual feedback, selection validation only in header | components.cljc:74, char_builder:531 | new |
@@ -226,7 +226,7 @@ refactor/data-extraction ────────────┘    (build perf 
 | `src/clj/orcpub/styles/colors.clj` | Color palette (on color-themes branch) |
 | `src/cljs/orcpub/character_builder.cljs` | UX-1, UX-2, UX-5, UX-6, UX-8, UX-11 |
 | `src/cljs/orcpub/dnd/e5/views.cljs` | UX-2, UX-3, UX-4, UX-6, UX-7, UX-9, UX-12 |
-| `src/cljc/orcpub/dnd/e5/views_2.cljc` | UX-10 (splash page) |
+| `src/cljc/orcpub/dnd/e5/views_shared.cljc` | UX-10 (splash page) |
 | `src/cljc/orcpub/components.cljc` | UX-13 (validation), checkbox upgrade |
 | `web/cljs/orcpub/core.cljs` | Route map (reference only) |
 

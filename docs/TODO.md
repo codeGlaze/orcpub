@@ -78,7 +78,7 @@ public repo; format in `docs/BRANDING-AND-INTEGRATIONS.md`, "Patron credits"). O
 ## Site footer layout (owner, 2026-11-13: "worse now"; for Sunday)
 
 After #84 the footer row is top-aligned, spaced by a row gap, with the support links compact under
-Feedback and What's New (`views.cljs` footer, `views-2/support-pills :compact? true`,
+Feedback and What's New (`views.cljs` footer, `views-shared/support-pills :compact? true`,
 `.site-footer-row` in `styles/core.clj`). The owner finds it worse than before. Start by asking
 what reads wrong, then mock two or three layouts on the live page before building; the rule that
 stays: support links never displace legal text (ux-guide.md, 2026-11-13).

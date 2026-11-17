@@ -221,14 +221,14 @@ Newest last. Date, ruling, and what it replaced.
   1100px the rows stack with labels at one width; from 1100px (where DMV's full link set fits) they
   sit on one line spread edge to edge, matching the band under them. One link per line wasted space
   and an unlabelled dot row had no structure. Copyright, SRD notice, credits and version go in the
-  band below a hairline. `views-2/site-footer`, `site_footer_e2e.js`, `feature/inventory-kits`.
+  band below a hairline. `views-shared/site-footer`, `site_footer_e2e.js`, `feature/inventory-kits`.
   Supersedes the column layout in the 2026-11-13 entry below.
 - 2026-11-13: support links never displace legal text. The home page shows What's New, Support the
   Server and Fuel the Dev as raised pills under the tiles; the site footer shows the two support
   links compact (icon and word at the footer's text size) under Feedback and What's New, so the
   footer row is no taller and the copyright and SRD notices stay where they were. Footer columns
   share one top edge and are spaced by the row's gap, so a wrapped column keeps the left edge.
-  `views-2/support-pills`, `fix/pdf-export`.
+  `views-shared/support-pills`, `fix/pdf-export`.
 - 2026-11-10: reference list rows (Spells, Monsters) end in the source's short tag at the right,
   before the caret, as 5etools does: the tag My Content shows (stored, else derived;
   [source-tagged-keys.md](source-tagged-keys.md)), amber for homebrew, "SRD" in the subheader's

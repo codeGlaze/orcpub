@@ -52,7 +52,7 @@ core.cljs requires (in order):
   2. subs
   3. equipment-subs     ← registers ::char5e/template and equipment subs
   4. events             ← requires autosave-fx (which uses ::char5e/template)
-  5. views, views-2, conflict-resolution
+  5. views, views-shared, conflict-resolution
   6. route-map, cljs-http, etc.
 ```
 

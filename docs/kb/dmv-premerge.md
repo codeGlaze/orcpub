@@ -129,7 +129,7 @@ The local branch now tracks its own Gitea branch, not `dmv`.
   default the Patreon and tip links to the same URLs. Take integration's `social-link-defaults` def;
   the values are identical, so DMV loses nothing. Merge `68cefe68a`.
 - **The home page's generator buttons had no React keys** (DMV only: `splash/generator-buttons` is
-  empty on the public side). `views_2.cljc` put `^{:key route}` on the `(splash-page-button ...)` call,
+  empty on the public side). `views_shared.cljc` put `^{:key route}` on the `(splash-page-button ...)` call,
   and reader metadata on a call form stays on the code, not on the vector it returns. Fixed with
   `with-meta` (`52da412fe`). The same pattern is on `integration` at `character_builder.cljs:1164` and
   `views.cljs:8907`: fix it there with the next integration branch.

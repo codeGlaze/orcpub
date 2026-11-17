@@ -28,7 +28,7 @@ Date: 2026-04-02
 | `src/cljs/orcpub/character_builder.cljs` | ~2174 | Character builder UI |
 | `src/cljs/orcpub/dnd/e5/views.cljs` | ~8800 | Main views: header, char display, all list pages, builders, combat tracker |
 | `src/cljc/orcpub/components.cljc` | ~84 | Shared: checkbox, input-field, int-field, selection-adder, selection |
-| `src/cljc/orcpub/dnd/e5/views_2.cljc` | ~158 | Splash page, splash-page-button |
+| `src/cljc/orcpub/dnd/e5/views_shared.cljc` | ~158 | Splash page, splash-page-button |
 | `src/cljc/orcpub/fork/splash.cljc` | ~31 | Fork-specific splash config |
 | `web/cljs/orcpub/core.cljs` | ~136 | Route map (30+ pages), main-view dispatch |
 
@@ -107,7 +107,7 @@ Date: 2026-04-02
 - No keyboard shortcuts
 
 #### Splash Page
-- views_2.cljc:55-158: Flat grid of identical buttons, no visual hierarchy
+- views_shared.cljc:55-158: Flat grid of identical buttons, no visual hierarchy
 - No descriptions of what tools do
 - No onboarding for new users
 - Primary features (Character Builder) same visual weight as Language Builder

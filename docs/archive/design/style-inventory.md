@@ -458,7 +458,7 @@ See full drawer-styles CSS in portrait.cljs:278-577. Key styles:
 
 - **core.clj**: 2676 lines of Garden CSS; main source for utility classes, theme definitions, component styles
 - **index.clj**: Server-rendered HTML head; inline base styles, font loads, meta tags
-- **views_2.cljc**: Splash page; limited inline styles for buttons (uses `#f0a100`)
+- **views_shared.cljc**: Splash page; limited inline styles for buttons (uses `#f0a100`)
 - **portrait.cljs**: Portrait drawer component; ~350 lines of plain CSS strings (drawer-styles + empty-slot-styles); self-contained design language
 - **views.cljs**: Not fully read (2,000+ lines); sampled for color constants at top; found 21 hex color references, most duplicating core.clj values
 

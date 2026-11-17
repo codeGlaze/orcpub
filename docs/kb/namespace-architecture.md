@@ -130,7 +130,7 @@ branch merges).
 | `dnd.e5.spell-lists` | 305 | Spell list maps by class and level |
 | `dnd.e5.content-types` | 172 | Single source of truth describing each homebrew content type |
 | `dnd.e5.orcbrew-format` | 171 | `.orcbrew` constants, serialization and format-versioning (JVM + browser) |
-| `dnd.e5.views-2` | 158 | Reader-conditional views shared with the server-rendered shell |
+| `dnd.e5.views-shared` | 158 | Reader-conditional views shared with the server-rendered shell |
 | `dnd.e5.srd-starting-equipment` | 154 | Derives a class's starting equipment from the live class definition |
 | `dnd.e5.display` | 148 | Source abbreviations, weapon display strings |
 | `dnd.e5.event-handlers` | 145 | Pure character mutation fns (used by events.cljs) |
@@ -228,7 +228,7 @@ views.import-log
   ↑
 character-builder     ← depends on views + subs + events
   ↑
-core.cljs             ← requires views, views-2, character-builder; dispatches routes
+core.cljs             ← requires views, views-shared, character-builder; dispatches routes
 ```
 
 ### Server dependency chain
@@ -237,7 +237,7 @@ core.cljs             ← requires views, views-2, character-builder; dispatches
 server → system → {pedestal, datomic, config}
 pedestal → routes → {character, template, spells, magic-items, pdf-spec, schema, email, security}
 pdf → pdf-spec → character
-index → views-2 (cljc, reader-conditional)
+index → views-shared (cljc, reader-conditional)
 schema → {modifiers, entity.strict, character, units, party, folder, magic-items,
           weapons, spells, common, character.equipment}
 ```

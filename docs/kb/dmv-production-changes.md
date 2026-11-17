@@ -33,7 +33,7 @@ License key is hardcoded in the repo. Should be rotated and injected via env var
 Default passwords committed in plaintext. Should use env var substitution.
 
 ### 4. Minor bugs in DMV code
-- `views_2.cljc` — typo: "Cookie Polciy" (should be "Cookie Policy")
+- `views_shared.cljc` — typo: "Cookie Polciy" (should be "Cookie Policy")
 - `views.cljs` — `prn "FRAME?"` debug statement left in production code
 - `views.cljs` — Matomo tracking fires inside render function body (every
   React re-render = inflated analytics)
@@ -235,7 +235,7 @@ Figwheel's WebSocket connect URL with the correct `wss://` endpoint. See KB
 | `db/schema.clj` | `:patron`, `:patron-tier`, `:last-login` attributes |
 | `routes.clj` | Patron defaults, 14-day token, last-login tracking |
 | `privacy.clj` | Complete rewrite with DMV branding |
-| `views_2.cljc` | 7 generator buttons, DMV footer |
+| `views_shared.cljc` | 7 generator buttons, DMV footer |
 | `views.cljs` | Patron banner, ad components, Matomo tracking in render |
 | `subs.cljs` | `:patron`, `:patron-tier` subscriptions |
 | `db.cljs` | `::patron`, `::patron-tier` specs |

@@ -49,7 +49,7 @@ Icons use CSS mask technique for theme-aware coloring:
 
 **Key files:**
 - CLJS component: `src/cljs/orcpub/dnd/e5/views.cljs` (line ~222)
-- CLJC component: `src/cljc/orcpub/dnd/e5/views_2.cljc` (for splash page)
+- CLJC component: `src/cljc/orcpub/dnd/e5/views_shared.cljc` (for splash page)
 - CSS styles: `src/clj/orcpub/styles/core.clj` (`.svg-icon-wrapper`)
 
 ## Header Icon Colors
@@ -126,7 +126,7 @@ Icons use CSS mask technique for theme-aware coloring:
 
 **Key files:**
 - CLJS component: `src/cljs/orcpub/dnd/e5/views.cljs` (line ~222)
-- CLJC component: `src/cljc/orcpub/dnd/e5/views_2.cljc` (for splash page)
+- CLJC component: `src/cljc/orcpub/dnd/e5/views_shared.cljc` (for splash page)
 - CSS styles: `src/clj/orcpub/styles/core.clj` (`.svg-icon-wrapper`)
 
 ## Icon Color System
@@ -148,7 +148,7 @@ Icons use CSS variables for theme customization:
 4. **Vendor prefixes in Reagent/React styles** - Use camelCase, not kebab-case:
    - WRONG: `:-webkit-mask-image` (React silently drops this!)
    - RIGHT: `:WebkitMaskImage` (React renders as `-webkit-mask-image`)
-   - The CLJC `style` function in `views_2.cljc` converts camelCase back to CSS format for server rendering.
+   - The CLJC `style` function in `views_shared.cljc` converts camelCase back to CSS format for server rendering.
 5. **Header elements need `!important`** - Theme rules like `.app.theme .main-text-color` have 3-class specificity. Header overrides in `core.clj` use `!important` to ensure header icons/logo/text stay light regardless of theme.
 6. **Button gradient fix**: Never use `background-image: none` - it cancels out `background` shorthand gradients. Always use `background-image` directly with the gradient value.
 7. **Breaking up heavy solid colors**: Use SVG data URI patterns in `background-image` layered with gradients. Example from Forest theme:

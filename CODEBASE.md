@@ -27,7 +27,7 @@ dev/        REPL tools: on the classpath under :dev (the default), :tools and :i
 | D&D 5e rules | `src/cljc/orcpub/dnd/e5/` |
 | PDF generation | `src/clj/orcpub/pdf.clj` |
 | Styles (Garden) | `src/clj/orcpub/styles/core.clj` |
-| Splash page (server-rendered) | `src/cljc/orcpub/dnd/e5/views_2.cljc` |
+| Splash page (server-rendered) | `src/cljc/orcpub/dnd/e5/views_shared.cljc` |
 | REPL helpers | `dev/user.clj` |
 | JVM tests | `test/clj/`, `test/cljc/` (`lein test`) |
 | cljs tests | `test/cljs/` (`lein fig:test`, run headless by `test/e2e/cljs-harness.js`) |
@@ -66,7 +66,7 @@ Pro on first setup; `--tmux` runs the services in a tmux session named `orcpub` 
 
 - **Vendor prefixes in Reagent styles are camelCase:** `:WebkitMaskImage`, not
   `:-webkit-mask-image`, which React drops silently. Set `mask-image` and `-webkit-mask-image`
-  both. The server-rendered `style` in `views_2.cljc` turns camelCase back into CSS.
+  both. The server-rendered `style` in `views_shared.cljc` turns camelCase back into CSS.
 - **Never set `background-image: none`** next to a `background` shorthand gradient: it cancels the
   gradient. Set `background-image` to the gradient itself.
 - **Garden:** each rule is one vector; several top-level vectors in one `def` fail with "Too many
