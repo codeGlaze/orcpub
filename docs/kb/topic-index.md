@@ -429,7 +429,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, builder, control, css, docstrings, form, icon, invented, item, lesson, pin, review, row, sat, signing, thirteen, unknown, vanished
+**topics:** 2026-09-29, builder, control, css, docstrings, form, icon, invented, item, lesson, pin, reagent, review, row, sat, signing, unknown, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -1266,7 +1266,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 2026-11-15, 2026-11-17, adsense, art, branding, cloudflare, dmv, gitea, integration, links, merge, pre-merge, push, pushed, pushing, silhouettes, social, update
+**topics:** 2026-11-04, 2026-11-15, adsense, art, branding, cloudflare, dmv, gitea, integration, links, merge, pre-merge, push, pushed, pushing, silhouettes, social, update
 
 - Where it happens
 - How to resolve conflicts

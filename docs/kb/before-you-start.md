@@ -130,6 +130,12 @@ save or when opened for editing), every field in the list renders under the item
 sees a list of identical keys. Give the list explicit `^{:key …}` metadata instead of relying on
 what the props map happens to hold.
 
+`^{:key …}` only works on a literal vector. On a call (`^{:key k} (row-view x)`) or an `if`, the
+reader puts the metadata on the code form and the compiler drops it, so the element arrives with no
+key and Reagent warns. Use `(with-meta (row-view x) {:key k})`, or put `:key` in each branch's props
+map. Find them with `grep -rn -A1 '\^{:key[^}]*} *$' src` and read the next line (fixed 2026-11-17 on
+`feature/inventory-kits`: the ASI options, Manage Content rows, home-page generators).
+
 ### Before de-emphasising a control
 
 Take the muted treatment from the block you are rendering into, not from a hex you picked. The
