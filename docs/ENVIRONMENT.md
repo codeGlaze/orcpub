@@ -252,11 +252,11 @@ changing one needs no rebuild.
 
 On Docker, see [Logs, crashes and the app's memory](DOCKER.md#logs-crashes-and-the-apps-memory).
 
-### Branding, links and analytics
+### Branding and links
 
-The site's name, logos, footer, contact details, social links, field limits, Matomo and AdSense are
-set with `APP_*`, `APP_SOCIAL_*`, `MATOMO_*` and `ADSENSE_*` variables. The full list, with
-defaults, is in [BRANDING-AND-INTEGRATIONS.md](BRANDING-AND-INTEGRATIONS.md).
+The site's name, logos, footer, contact details, social links and field limits are set with `APP_*`
+and `APP_SOCIAL_*` variables. The full list, with defaults, is in
+[BRANDING-AND-INTEGRATIONS.md](BRANDING-AND-INTEGRATIONS.md).
 
 ### Development
 
