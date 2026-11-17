@@ -22,6 +22,10 @@ search box with its "Packs filter" way back, the Packs filter on the sheet's fil
 equipment" box, the Add a kit tile, and the auth card fix (register header reachable while password
 hints show). Decisions: `plan-inventory-kits.md`, "Packs chips and the Add a kit tile".
 
+Follow-up PR #88 into `integration` (opened 2026-11-16, CodeRabbit full review requested): the home
+page's What's New cap and glow, stacked pills on one icon column, the BMAC link pre-filled in
+`.env.example`, the auth-flows link fix from the DMV pre-merge.
+
 1. Kit icons: a bag per pack plus a corner badge, colour treatment as an account choice
    (`plan-inventory-kits.md`, "Kit icons"); waits on the owner's workbench picks.
 2. Wide-screen kits layout (a tile grid at desktop): offered, unanswered.
