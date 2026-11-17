@@ -135,6 +135,12 @@ The local branch now tracks its own Gitea branch, not `dmv`.
   `views.cljs:8907`: fix it there with the next integration branch.
 - **DMV's CSP blocked AdSense's ad-quality calls:** `adsbygoogle.js` fetches
   `ep1.adtrafficquality.google` on every page, and `connect-src` allowed only `pagead2`. Added
-  `https://*.adtrafficquality.google` (`d6f346ed4`); `integrations_test` pins it.
+  `https://*.adtrafficquality.google` to `connect-src` and `frame-src` (`d6f346ed4`, `df5b6ab3d`, not
+  pushed). The suite then hit a third host (`www.google.com` framed). Google publishes no domain list
+  for AdSense and warns that a hand-built one goes stale; its supported policy restricts only
+  `script-src` (nonce + `strict-dynamic`), `object-src` and `base-uri`
+  (support.google.com/adsense/answer/16283098). DMV's `default-src 'self'` with listed hosts fights
+  that: open for the owner (2026-11-17). These errors were already on `gitea/dmv`, and likely on the
+  live site.
 - Both were caught by `whats_new_e2e.js`'s "no console errors or warnings" check, which stops at the
   first error: after fixing one, run it again.
