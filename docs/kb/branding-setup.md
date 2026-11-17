@@ -122,5 +122,7 @@ them from `/dnd/5e/portrait-artists` when a portrait is shown.
   `https://www.patreon.com/DungeonMastersVault` and the tip link `https://buymeacoffee.com/tinkan` are
   `branding/social-link-defaults`, so every install shows them unless a setting names another URL (a
   blank setting cannot hide them). The patron-credits startup warning now fires only for a hand-set
-  `APP_SOCIAL_PATREON`, not the default. No changelog or What's New line for it (owner). DMV's copy got
+  `APP_SOCIAL_PATREON`, not the default. No changelog or What's New line for it (owner). The What's New
+  panel's patron thanks show on every install with the default link; the public
+  `patron-credits.md` stays empty (owner: names stay off the repo, the thanks stay). DMV's copy got
   the same defaults on the pre-merge branch.
