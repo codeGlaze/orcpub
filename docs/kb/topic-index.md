@@ -1115,7 +1115,7 @@ _data-safety-layers · data safety layers_
 
 _datomic-backups · datomic backups_
 
-**topics:** backup, backups, checksum, cli, container, datomic, docker, exits, folder, offline, quotes, restore, restores, root-owned, secret, segments, stack, transactor
+**topics:** backup, backups, cli, datomic, docker, exits, fingerprint, folder, offline, paused, quotes, restore, restores, root-owned, secret, segments, stack, transactor
 
 - Traps (verified)
 - What was tested (isolated stack, 5k entities)

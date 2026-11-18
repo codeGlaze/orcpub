@@ -27,8 +27,8 @@ The admin commands are `./run --backup`, `--restore`, `--verify-backup` and `--b
   first, the environment second (`bk_db_uri`).
 - **Datomic needs its transactor restarted after a restore** before peers connect; `bk_restore` does it.
   A transactor that was just started may not answer yet: the restore waits up to two minutes.
-- **Backups from older `docker-migrate.sh` runs are root-owned** (its CLI ran as root): the CLI runs as
-  the owner of `<folder>/orcpub`, not of the folder.
+- **Backups from older `docker-migrate.sh` runs are root-owned** (its CLI ran as root): `bk_prepare_dir`
+  hands `<folder>/orcpub` to the folder's owner once, so the CLI can run as that owner and new files stay theirs.
 - **`.env` values must be decoded** (quotes, `$NAME`) the way Compose does: `read_env_val` in `run`
   uses `load_env`; a raw `grep | cut` kept the quotes on paths and passwords.
 
@@ -44,4 +44,5 @@ Not tested: killing the transactor mid-backup, Swarm, large databases.
 root-owned backup takes a new restore point; offline backup of a stopped stack leaves it stopped; a
 failed move of `./data` exits 1 with `./data` unchanged; a quoted `BACKUP_DIR` with a space lands in
 the right folder; restore right after starting the transactor restores and restarts it, same
-fingerprint. Not exercised: the wait loop itself (the transactor answered on the first poll).
+fingerprint. Follow-up the same day: the wait, with the transactor paused 25 s mid-restore (one
+"Waiting" line, same fingerprint), and the hand-back of a root-owned backup (nothing left foreign-owned).
