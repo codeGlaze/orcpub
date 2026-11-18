@@ -113,7 +113,6 @@
                  [com.draines/postal "2.0.5"]
                  [environ "1.2.0"]
 
-                 [pdfkit-clj "0.1.7"]
                  ;; datomock fork with Datomic Pro 1.0.6527+ compatibility (new transact signature)
                  ;; Original vvvvalvalval/datomock 0.2.0 causes AbstractMethodError with Datomic Pro
                  [org.clojars.favila/datomock "0.2.2-favila1"]
