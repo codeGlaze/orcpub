@@ -1259,10 +1259,12 @@ _demo-content-tier · demo content tier_
 
 _dependency-alerts · dependency alerts_
 
-**topics:** 2026-11-18, alerts, bouncy, castle, critical, dependabot, dos, exposure, guava, high, jackson, jetty, jsoup, low, netty, postgresql, push, redis
+**topics:** 2026-11-18, alerts, bouncy, castle, critical, dependabot, direct, dos, guava, high, jackson, jars, jetty, jsoup, low, netty, push, redis
 
 - Where the alerts come from
 - Triage, 2026-11-18
+- The PR scan: scripts/security-scan.sh (2026-11-18, #89)
+- Pinning Netty: include the native jars
 
 ## dev-tooling-decisions.md
 

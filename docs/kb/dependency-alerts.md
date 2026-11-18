@@ -36,3 +36,27 @@ library, not a test.
 Suggested order, one upgrade per PR: Jetty, Jackson, remove `pdfkit-clj`, Bouncy Castle, Guava,
 then Netty (Datomic peer or a managed version), PostgreSQL. Pedestal 0.7.0 pins Jetty 11, and
 figwheel-main blocks Jetty 12 (`project.clj` comment near line 46), so Jetty moves within 11.0.x.
+
+## The PR scan: `scripts/security-scan.sh` (2026-11-18, #89)
+
+CI's `Library security scan` job (`continuous-integration.yml`) runs on every PR and push, and from
+"Run workflow" on any branch. It fails on any critical or high (CVSS 7.0 or more, or unscored)
+alert in the libraries the app ships.
+
+- `lein with-profile uberjar classpath` resolves the production libraries; `scripts/flat-pom.py`
+  lists each in a plain pom; OSV-Scanner (`ghcr.io/google/osv-scanner`, pinned) scans it with
+  `--no-resolve`. Its own resolver reads one Maven registry, so it cannot resolve Clojars libraries
+  (`carmine`) and falls back to 52 direct entries, which misses everything transitive.
+- Accepted alerts live in `osv-scanner.toml`, each with a reason and an `ignoreUntil` date.
+- Seen to fail: with an empty `osv-scanner.toml` it listed the four accepted alerts and exited 1.
+- It found `commons-fileupload2-core` 2.0.0-M1 (under Pedestal), which Dependabot never showed
+  because Dependabot reads `develop` only.
+
+## Pinning Netty: include the native jars
+
+`netty-transport-native-epoll` (`:classifier "linux-x86_64"`) and `-kqueue` (`"osx-x86_64"`) must
+match the other Netty jars. Left at 4.1.131 under 4.1.141 classes, the Datomic peer failed to
+connect with `UnsatisfiedLinkError: ...errnoENAMETOOLONG`, and the app container never became
+healthy. `lein test` and the browser suites use `datomic:mem` and open no Netty connection, so only
+a real stack (`./run --auto`, CI's Docker jobs) shows it. A `lein deps :tree` check must include
+entries with `:classifier`.
