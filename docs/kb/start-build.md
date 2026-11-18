@@ -43,3 +43,9 @@ it. Drawing the prefix in CSS hid it from search engines too, so it is text agai
 owner to check in a real browser. `index_script_json_test` holds the markup.
 
 Test: `test/docker/test-start-build.sh`.
+
+## Regenerating CSS without a second lein process
+
+With a REPL running, regenerate CSS through its nREPL port (`.nrepl-port`):
+`(require 'orcpub.styles.core :reload)`, then spit `(garden.core/css {:pretty-print? false} ...)` to
+`resources/public/css/compiled/styles.css`. This avoids a second lein process in the worktree.

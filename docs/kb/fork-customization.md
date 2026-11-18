@@ -208,6 +208,16 @@ It fails when shared code uses anything else from a fork file, and, run on a for
 fork's copy lacks a listed var. **Adding to the contract** means every fork must supply it;
 logic every fork needs alike goes in shared code instead.
 
+## Patron credits and support links (owner, 2026-11-12/13)
+
+Patron credits are a fork stub: the public repo's hook returns nil and the tab is hidden. The credits
+file is markdown; any line starting with `#` is a tier heading (dropped with no names); there are no
+comment lines. Never paste the Patreon CSV (emails; the repo is public). Owner's wording: "The server
+is supported by patrons on Patreon. Thank you for helping keep our lights on!" Funding is labelled
+tiles ("Support the server" + Patreon, "Support the dev" + Buy Me a Coffee), not text links. Use
+`minmax(0,1fr)` for equal tiles with nowrap text. Utility margins like `.m-l-5` are `!important`:
+change the class, not a nested override. Support links never displace legal text.
+
 ## Cookie Consent
 
 Vanilla JS (`resources/public/js/cookies.js`), loaded server-side in `index.clj`.

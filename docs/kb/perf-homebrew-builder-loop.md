@@ -1378,3 +1378,7 @@ Two consequences worth carrying into the implementation:
 detection genuinely needs to see every source at once. That is unaffected either way, since
 all sources are still loaded into memory. Chunking is a parse/storage change, not a
 semantic one.
+
+## Per-row work trap
+
+Building each row's route (`path-for` + `match-route`) was most of a 550 ms redraw; build it on click.

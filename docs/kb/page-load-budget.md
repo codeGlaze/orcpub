@@ -63,3 +63,10 @@ What really went wrong was the check:
   (heuristic freshness), so with the caching interceptor removed the repeat visit still came from
   the cache. The guard is explicit instead: every static file the builder loads must carry
   `Cache-Control` with a `max-age`. With the interceptor removed, all 54 fail; with it, none.
+
+## The bundle ceiling, and what the stamps do
+
+- The check's ceiling on the compressed production bundle is 940 KB (`BUNDLE_GZIP_CEILING` in
+  `test/browser/page_load_budget_e2e.js`; raised from 900 KB, owner, 2026-11-09).
+- `?v=` stamps only change the address so caches refetch; they do not rebuild anything: a stale bundle gets a stamp too.
+- `page_load_budget_e2e.js` is not in CI.

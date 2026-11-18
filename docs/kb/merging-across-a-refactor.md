@@ -101,6 +101,12 @@ and **does not reproduce**: in the merge result every call is qualified, the bra
 drops out cleanly, and no orphaned bare calls remain. `url-for-route`'s 18 bare calls resolve through
 a local alias at `events.cljs:572`. Case 2 is live and must be handled.
 
+## After merging integration, read the build log
+
+Grep the fig build log for "Use of undeclared Var" before calling the merge clean. A function moved
+out of `views.cljs` (`make-arg-event-handler` to `components`) broke `reference.cljs`, which merged
+later, and only that warning showed it.
+
 ## Related
 
 - [filtered-list-staleness.md](filtered-list-staleness.md) — #669 itself, the same bug class as the

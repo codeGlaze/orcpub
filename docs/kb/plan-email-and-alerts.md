@@ -224,6 +224,12 @@ file defaults `support-email` to `thDM@dungeonmastersvault.com` while its `.env.
 - **Open:** Swarm still has no mount for the folder (bind sources must exist on every node, or the
   task will not start), and the app-log copy into that folder is not built.
 
+## Admin mail address order, and startup email timing
+
+- Admin mail goes to the first set of `EMAIL_ERRORS_TO`, `EMAIL_ADMIN_TO`, `APP_SUPPORT_EMAIL`.
+- The startup email goes on the first start of a release, when problems or their names changed, and
+  as one 7-day reminder. Memory holds names and states, never values.
+
 ## Tests the build must have, each seen failing first
 
 - A player email survives a mail-server failure and is sent on retry; a permanent refusal is not

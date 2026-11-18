@@ -135,3 +135,19 @@ outcome the dice allow, or set the result first.
 - Close menus before the next click: an open menu's backdrop catches the next click outside it.
 - Measure before sending (fits 390px, headings within 2px, nothing clipped, 44px tap targets),
   then look at the image yourself.
+
+## Traps found later
+
+- **Playwright symlink.** A worktree's `scripts/e2e/node_modules` can be a symlink into another
+  worktree. When that worktree is removed, "playwright is not installed" appears: re-link it to a
+  live worktree's copy (for example orcpub-integration's).
+- **Dump app-db before guessing.** Before guessing at a browser failure, dump app-db from a copy of
+  the suite run against the dev bundle (`// Needs: dev bundle` header, in a scratchpad copy).
+- **Renaming a button breaks suites that click it by name.** Grep `test/browser/` and `scripts/e2e/`
+  for the old label first.
+- **`^number` type hints break `.cljc` on the JVM:** wrap them in `#?(:cljs ...)`.
+- **A view test that opens a row one way passes vacuously on code that opens it another:** set state
+  both ways (by key and by name).
+- **Prod builds rename functions:** profile with `:pseudo-names`.
+- **A count that changes after clearing a filter with nothing loading is a rendering bug.**
+- **`dev/scale_orcbrew_pack.clj` clones keep every name,** which exposed the ghost rows.

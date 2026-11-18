@@ -168,6 +168,7 @@ sides had been written blind to the other's findings.
 
 | Document | Purpose |
 |----------|---------|
+| [portrait-and-image-picture.md](portrait-and-image-picture.md) | Which of a character's two pictures shows (`::character/picture-shown`), the one rule every reader uses, and what was rejected |
 | [character-image-routes.md](character-image-routes.md) | How a character portrait reaches the sheet: CORS vs hotlink blocking measured against real hosts, two withdrawn conclusions, what the browser cannot be made to do, and how to reach the real internet from a browser test here |
 | [documentation-discipline.md](documentation-discipline.md) | What earns a KB doc; verify don't remember; update in place; record reversals; index it or it is invisible; arm the hooks |
 | [claude-branch-triage.md](claude-branch-triage.md) | Which of the 37 `claude/*` auto-branches hold work that exists nowhere else: content-based verdicts (4 already squash-merged despite the ancestor check, 5 duplicated elsewhere, 16 unique, 12 disposable), the method that beats reachability, and the live Robe of the Archmagi AC bug it turned up |

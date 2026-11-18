@@ -18,6 +18,9 @@ step, not what the word means.
   works. Never put the token on a command line or print it.
 - **Never push this branch to `origin` or `upstream`:** it holds DMV branding and private portrait art.
 
+The DMV premerge branch is cut from `integration` after the PRs merge, never from a PR's own branch
+(owner, 2026-11-13).
+
 ## How to resolve conflicts
 
 DMV's `src/*/orcpub/fork/` files are real implementations; `integration` has generic versions plus
@@ -39,6 +42,9 @@ integration wins. Taking one whole side breaks either the build or the branding.
   `REVIEWED_IMAGES=record` truncates at 50 entries and writes invalid EDN, so insert by hand and
   parse the result with the EDN reader.
 - Some integration tests assume the public defaults, such as an unset app URL.
+
+- DMV's tests differ from integration's: its home page has 21 buttons, not 14, and the art tests
+  expect the licensed pack's mark on a branch with the private-art marker (`daf000c62`).
 
 ## Audit of the branch, 2026-11-01
 

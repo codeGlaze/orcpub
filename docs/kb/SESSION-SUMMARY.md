@@ -634,7 +634,7 @@ Fixed performance issues and cleaned up project.clj configuration.
 
 ### User Creation
 - `scripts/create_dummy_user.sh` now uses `:init-db` profile (faster)
-- Menu option: Utilities → `u) Create test user` creates `test@example.com` / `testpass`
+- Menu option: Utilities → `u) Create test user` creates `test@test.com` (user name `test`, password `testpass`)
 - Users created with `verify` flag can log in immediately
 
 ---

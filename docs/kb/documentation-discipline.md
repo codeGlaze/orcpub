@@ -179,6 +179,10 @@ Until 2026-09-29 the rule lived only here and in one feature branch's `BRANCH.md
 `integration` and its branches never saw it, and narrative kept arriving there. It is now in
 `AGENTS.md`, which every branch's agents read, and checked by `comment_discipline_test` (#38).
 
+`comment_discipline_test` counts adjacent comment lines as one block (max 4). Two lines added under
+an existing 4-line comment fail it. Give a new rule its own spot with a blank line between blocks.
+After touching styles comments, run `lein test orcpub.comment-discipline-test` before the full suite.
+
 ## Docstring what you touch
 
 Every function you write or touch gets a docstring before you move on: spec, not prose, per the
@@ -214,6 +218,14 @@ usual way.
 rewrite. Do not use it to mean "do not delete this text"; a marker that means two things stops
 meaning either. And never write agent-to-agent instructions inside an API docstring — a reader
 hovering the symbol wants to use it, not read about its editing history.
+
+## Moving a docs/ page into docs/kb
+
+`check-docs.sh`'s superset rule refuses to delete the `docs/` copy while `origin/develop` still has
+it: keep the copy until the release drops it. Moved pages need `../` on links to their old `docs/`
+neighbours. One-off write-ups (fix analyses, TODO lists) belong in the KB, not `docs/` (owner,
+2026-11-17). `LEIN-UBERJAR-HANG.md` stays in `docs/` because the Dockerfile, CI and `project.clj`
+point to it.
 
 ## Index it or it is invisible
 

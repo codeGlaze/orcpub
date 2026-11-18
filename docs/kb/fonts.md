@@ -45,3 +45,8 @@ different formats (and refuses) based on it.
 Because nothing external is fetched any more, `font-src` and `style-src` are `'self'` in both
 `config.clj` and `csp.clj`. **Do not re-add the font hosts** when touching CSP — if a font 404s the
 cause is a missing local file, not a blocked host.
+
+## Why they stay self-hosted
+
+Google Fonts links would leak each visitor's IP address to Google and split the tests from
+production, so the fonts stay self-hosted.

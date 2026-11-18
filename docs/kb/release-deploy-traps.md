@@ -31,6 +31,11 @@ the same failures. Moved from the release chat's expertise file on 2026-11-01.
 - `gh pr edit --add-label` fails on a Projects (classic) error: use the REST labels call.
   `gh pr checks` has no `--json`. A PR's head can lag a push by seconds.
 
+- `gh pr edit` also leaves the body unchanged on this fork. Use
+  `gh api -X PATCH repos/codeGlaze/orcpub/pulls/N -F body=@file`, then grep the body. Wait on CI with
+  `gh api repos/codeGlaze/orcpub/commits/<sha>/check-runs`. A merge via
+  `gh api -X PUT .../pulls/N/merge -f merge_method=merge` works; a `sha` guard needs all 40 characters.
+
 ## Open and unchecked
 
 - **Never confirmed built:** the on-demand logged-out e2e path (build a character and homebrew logged

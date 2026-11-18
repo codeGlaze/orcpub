@@ -237,6 +237,17 @@ Newest last. Date, ruling, and what it replaced.
   only on repeated names (which hid a homebrew entry replacing an SRD one). Review:
   https://claude.ai/artifact/Jio8hodHEUpQma5GApGx1n. `test/rescued-claude-tests`.
 
+- 2026-11-10 (owner): the portrait editor reads "Build a portrait | Use an image from the web" (not
+  "Picture link"). A small "Active" tag marks the option in use, reusing `.share-pill.share-pill-shared`.
+  The field is "Image address (URL)"; the buttons are "Switch to this image/portrait" and "Save and
+  switch"; the line "... is kept. You can switch back any time." sits with them. Verb-first labels,
+  say where it shows, and put the consequence and the undo right above the action. Randomize means
+  everything, with a Keep colours toggle. Model: [portrait-and-image-picture.md](portrait-and-image-picture.md).
+- Modals that are dark in both themes (`#1a1e28`) are an oversight (owner, 2026-11), not a pattern
+  to copy.
+- Chrome offers to translate the site from French because of "5e": leave it (owner: "stupid, but
+  harmless"; every fix failed). "D&D 5e" stays as text for search engines.
+
 ## Owner's notes (recorded 2026-11-01)
 
 - No emojis on the live site; use purposely chosen colourized SVG icons (2026-09-06).
@@ -261,3 +272,21 @@ sets none either, so its text fell back to the browser default, black: `rgb(0, 0
 paints its own background also sets `color`, in both themes. The weapon description caret was a text
 "▾" at 12px; an icon-font caret at 16px is the size to match (`fix/health-banner-contrast`).
 
+## Focus rings
+
+The global `*:focus {outline:none}` strips focus rings, so every new button needs a `:focus-visible`
+ring. Reuse `.share-action:focus-visible` (2px amber, offset 2px; light theme blue). Browser check:
+press Tab until `document.activeElement` matches, then read the computed outline.
+
+## The portrait drawer's CSS traps
+
+- The portrait drawer sits outside `.app`, so `.app.light-theme` rules do not reach it; restate
+  them under `.pl-root.light-theme`.
+- `.pl-empty-hint` is `position: absolute; inset: 0`: its container needs `position: relative`, or
+  it covers the drawer and tabs stop taking clicks. Check clicks with `elementFromPoint`, not
+  visibility.
+- New surfaces copy `.rest-fab-sheet` (`#2c3445` dark, `#fff` light) and take `.main-text-color`.
+- Before styling a small status, look for `.share-pill-*` and `.lib-badge-*`; check every state
+  (selected, not, both themes).
+- `portrait_test` treats any map literal with a `:style` key in `portrait.cljs` as inline CSS: build
+  such maps with `assoc`.

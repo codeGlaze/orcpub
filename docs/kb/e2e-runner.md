@@ -149,6 +149,27 @@ already answers on the port. Run with `E2E_PORT=8897 E2E_MAIL_PORT=2537 ./script
 tested the other worktree's server (fixed on `fix/pdf-export`). Write new suites as
 `process.env.E2E_BASE || ... || 'http://localhost:8890'`.
 
+## Local servers and environment traps
+
+- **Running `origin/integration` locally.** Do not switch the main checkout. Make a detached
+  worktree: `git worktree add --detach <path> origin/integration`. Git-ignored files are missing from
+  a fresh worktree: symlink `.env` and `lib/com/datomic/datomic-pro` (the Datomic Pro version that
+  `DATOMIC_VERSION` and `project.clj` name) from the main checkout. Start the transactor with
+  `scripts/start.sh datomic` (port 4334). `scripts/dev-setup.sh --no-start` initialises the schema
+  and creates the test user (`test` / `test@test.com` / `testpass`, recorded in `.test-users`).
+  Ports: server 8890, Figwheel 3449, transactor 4334; check `ss -ltnp` first. Read `SETUP.md` with
+  `git show origin/agents/develop:SETUP.md`.
+- **Showing the owner a local server.** A server the owner views from Windows must bind `0.0.0.0`:
+  `ORCPUB_HTTP_HOST=0.0.0.0 scripts/e2e/server.sh start init-db` on 8890, or
+  `lein with-profile +e2e,+wsl run`. `server.sh` and plain `lein e2e-server` bind 127.0.0.1, which
+  Windows cannot reach. Give both `http://<hostname -I>:8890` and `localhost:8890`, and say which
+  worktree runs it. If another worktree holds 8890, use `E2E_PORT=8897 E2E_MAIL_PORT=2537 run.sh`;
+  suites must read `E2E_BASE`.
+- **`NODE_PATH` for the cljs suite.** `node test/e2e/cljs-harness.js` in a worktree fails "Cannot
+  find module playwright": run it with `NODE_PATH=$PWD/scripts/e2e/node_modules`. This is the
+  environment, not a test failure; `run.sh` has the same trap.
+- **My Content** is `/dnd/5e/my-content` (no `/pages/`), and its sections start collapsed.
+
 ## Known failures
 
 None as of 2026-10-04. `chunked_parse_spike` was archived to `test/browser/spikes/` (`b72e4c3e`):

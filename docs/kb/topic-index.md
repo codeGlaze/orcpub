@@ -734,7 +734,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, aasimar, blank, calishite, descriptive, dwarf, elf, halfling, helper, human, label, manual, name, party, races, random, sex, views
+**topics:** ------, aasimar, blank, calishite, chondathan, descriptive, dwarf, elf, halfling, helper, human, label, manual, name, party, races, random, sex
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -978,7 +978,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** ancestry, builder-item, d22, draconic, entry, events, form, framework, generated, grant, irreducible, loops, macro, pool, pools, registry, routes, type
+**topics:** ancestry, builder-item, d22, draconic, entry, events, form, framework, generated, grant, hot, irreducible, loops, macro, pool, pools, registry, routes
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -1285,7 +1285,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 2026-11-15, adsense, art, branch, branding, cloudflare, dmv, gitea, integration, links, merge, pre-merge, push, pushed, pushing, silhouettes, social, update
+**topics:** 2026-11-15, adsense, art, branch, branding, cloudflare, dmv, gitea, integration, licensed, merge, pre-merge, push, pushed, pushing, silhouettes, social, update
 
 - Where it happens
 - How to resolve conflicts
@@ -1468,7 +1468,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, confident, docstring, docstrings, generator, history, index, irreducible, ledger, narrative, session, stale, topic, wrong
+**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, session, stale, topic, wrong
 
 - What earns a doc
 - Verify, don't remember
@@ -1480,6 +1480,7 @@ _documentation-discipline · documentation discipline_
 - Structure: current truth first, audit trail last
 - Docstrings are SPEC, not prose
 - Docstring what you touch
+- Moving a docs/ page into docs/kb
 - Index it or it is invisible
 - What counts as a KB doc: one enumeration, shared
 - Do not invent a section to home an orphan
@@ -1572,12 +1573,13 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 
 _e2e-runner · e2e runner_
 
-**topics:** 2026-10-03, 8890, 8891, batch, bundle, busy, min, probe, probes, production, profile, rebuilds, run, runner, server, servers, suite, suites
+**topics:** 8890, 8891, batch, bundle, busy, min, port, probe, probes, production, profile, run, runner, server, servers, suite, suites, worktree
 
 - The rule
 - Production is the default
 - Reading a result
 - Servers, parallel tests, and what a run costs
+- Local servers and environment traps
 - Known failures
 - Two failures that were the tests, not the app (fixed 2026-10-03, PR #43)
 - Fresh-server suites run beside each other (2026-10-05, PR #51)
@@ -1896,7 +1898,7 @@ _filtered-list-staleness · filtered list staleness_
 
 _folder-hardening · folder hardening_
 
-**topics:** clause, client, error, evolution, folders, handler, hardening, http, optimistic, pre-mutation, problem, re-fetch, re-fetches, rollback, server, solution, tempid, tempids
+**topics:** clause, client, error, evolution, folders, handler, hardening, http, optimistic, pattern, pre-mutation, problem, re-fetch, re-fetches, rollback, server, solution, tempid
 
 - Context
 - Pattern: On-Failure Rollback via Server Re-Fetch
@@ -1910,18 +1912,19 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, ofl, redistribution, sandboxed, sans, sil, subset, subsets, vietnamese
+**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, ofl, redistribution, sandboxed, sans, self-hosted, subset, subsets, visitor
 
 - Why
 - What is checked in
 - Regenerating
 - CSP
+- Why they stay self-hosted
 
 ## fork-customization.md
 
 _fork-customization · fork customization_
 
-**topics:** adsense, api, branding-setup, bridge, cljs, dmv, domains, fork, integrations, matomo, override, patron, production, public, shared, stubs, tier, views
+**topics:** adsense, bridge, cljs, credits, dmv, domains, fork, integrations, matomo, override, patreon, patron, patrons, production, public, stubs, tier, views
 
 - Override File Pattern
 - Architecture
@@ -1938,6 +1941,7 @@ _fork-customization · fork customization_
 - Cherry-Picking Between Branches
 - Merge Strategy
 - The fork contract, and how it broke (2026-11-14)
+- Patron credits and support links (owner, 2026-11-12/13)
 - Cookie Consent
 
 ## frontend-redesign-parallel-work.md
@@ -2095,7 +2099,7 @@ _handoff-weapons-table · handoff weapons table_
 
 _heartbeat · heartbeat_
 
-**topics:** beat, beats, clock, database, dates, hour, job, jobs, jumped, measure, monitor, outage, pruning, running, server, three-day, tick, unrecorded
+**topics:** beat, beats, clock, database, hour, job, jobs, jumped, measure, monitor, outage, pruning, running, server, three-day, tick, time, unrecorded
 
 - What it records
 - Using it
@@ -2106,7 +2110,7 @@ _heartbeat · heartbeat_
 
 _hiccup-page-escaping · hiccup page escaping_
 
-**topics:** 3935fd01, boot-rescue, containing, cross-site-scripting, escaped, escapes, fork-written, hiccup, inline, input, markup, page, script, shows, spinner, user, wrapped, x-compatible
+**topics:** 3935fd01, boot-rescue, containing, cross-site-scripting, escaped, escapes, escaping, fork-written, hiccup, inline, input, markup, page, script, shows, user, wrapped, x-compatible
 
 - Why
 - What changed
@@ -2158,7 +2162,7 @@ _homebrew-class-spellcasting · homebrew class spellcasting_
 
 _homebrew-content-merge · homebrew content merge_
 
-**topics:** -commented, -ed, assembly, built-in, built-ins, concat, def, feat, feats, grappler, homebrew-extensible, merge, mostly, plugin, srd-minimal, static, sub, supported
+**topics:** -commented, -ed, assembly, built-in, built-ins, concat, def, feat, feats, fighting, grappler, homebrew-extensible, merge, mostly, plugin, srd-minimal, static, sub
 
 - The trap, concretely (feats)
 - The general pattern (applies to most content types)
@@ -2357,7 +2361,7 @@ _icon-workbench · icon workbench_
 
 _input-field-debounce · input field debounce_
 
-**topics:** 50-200ms, 500ms, cljs, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers, views
+**topics:** 50-200ms, 500-2000ms, 500ms, cljs, debounce, debounced, edge, flicker, input-field, keystroke, keystrokes, lag, leading, rapid, settimeout, subscription, trailing, triggers
 
 - Current Design (post-refactor)
 - Data flow
@@ -2536,12 +2540,13 @@ _memoize-antipattern-scan · memoize antipattern scan_
 
 _merging-across-a-refactor · merging across a refactor_
 
-**topics:** 669, bare, branch, call, cleanly, conflict, cut, fetch, filtered-list-staleness, git, handler, handoff-669-final-pass, merge, merging, newer, plan-669-merge-verification, refactor, side
+**topics:** 669, bare, branch, call, cleanly, conflict, cut, fetch, filtered-list-staleness, handler, handoff-669-final-pass, merge, merging, newer, plan-669-merge-verification, refactor, side, undeclared
 
 - Case 1: the clean merge that was already broken
 - Case 2: the conflict whose obvious resolution restores a bug
 - This one was self-inflicted, and that is the measurable part
 - What to do about it
+- After merging integration, read the build log
 - Related
 - Revisions
 
@@ -2724,13 +2729,14 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _page-load-budget · page load budget_
 
-**topics:** 2026-10-15, bundle, caching, com, credits, e2e-runner, font, fonts, headers, icons, loads, page, parties, repeat, sheet, signed, stylesheet, visit
+**topics:** 2026-10-15, bundle, caching, compressed, credits, e2e-runner, font, fonts, headers, icons, loads, parties, production, repeat, sheet, signed, stamps, visit
 
 - Why it exists
 - Audit of integration (2026-10-15, b8035afe, production bundle)
 - Cost on a slow phone connection (2026-10-15)
 - Related
 - Checking caching from a browser (2026-10-15, corrected)
+- The bundle ceiling, and what the stamps do
 
 ## pdf-form-techniques.md
 
@@ -2781,6 +2787,7 @@ _pdf-form-techniques · pdf form techniques_
 - The image guard's blind spots were the addresses Java has no predicate for (2026-09)
 - The byte cap did not bound TIME
 - Closing the resolve/connect gap
+- PDF design rules (owner, 2026-11-11/12)
 
 ## pdf-generated-vs-uploaded-images.md
 
@@ -2812,6 +2819,7 @@ _pdf-generation-architecture · pdf generation architecture_
 - Key 3.x differences for future work
 - Known remaining risks
 - PDF Field Filling
+- The PDF Options sheet (2026-11)
 - Testing PDF Changes
 - Fillable-by-default (2026-04-22)
 - PDFBox 3.0.6 verified facts
@@ -2959,6 +2967,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 - CORRECTION (later): the "capped by the largest source" limit was not real
 - Recommendation: worth it
 - Why storage is one blob when import/export are already per-source
+- Per-row work trap
 
 ## plan-669-merge-verification.md
 
@@ -3114,6 +3123,7 @@ _plan-email-and-alerts · plan email and alerts_
 - Admin alerts as built (stage 2, 2026-10-19)
 - The outbox as built (stage 3, 2026-10-22)
 - Stage 4 as built (2026-10-22)
+- Admin mail address order, and startup email timing
 - Tests the build must have, each seen failing first
 
 ## plan-hidden-pick-fix-and-grant-fields.md
@@ -3137,7 +3147,7 @@ _plan-hidden-pick-fix-and-grant-fields · plan hidden pick fix and grant fields_
 
 _plan-homebrew-generator · plan homebrew generator_
 
-**topics:** 900, agents, command, fixtures, generator, hand-made, homebrew-guard, libraries, linked, lorem, pack, plausible, purpose-built, randomly, someday, srd-like, valid, varied
+**topics:** agents, command, fixtures, generator, hand-made, homebrew-guard, libraries, linked, lorem, pack, plausible, purpose-built, randomly, real-world, someday, srd-like, valid, varied
 
 - Why
 - Design
@@ -3160,7 +3170,7 @@ _plan-homebrew-markdown-export · plan homebrew markdown export_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, 2026-10-23, backpack, bag, equipment, gear, inventory, items, kit, kits, owner, pack, packs, quantity, refill, restock, torches, undo
+**topics:** 2026-10-22, 2026-10-23, backpack, equipment, gear, inventory, items, kit, kits, owner, pack, packs, quantity, refill, restock, sheet, torches, undo
 
 - The problems today
 - The model
@@ -3176,6 +3186,7 @@ _plan-inventory-kits · plan inventory kits_
 - The map: where equipment is written, read and saved (2026-10-22, integration d51938c1)
 - Sheet Undo and the autosave (2026-11-14, PR #85 review)
 - Order on a saved sheet: settle, then repair (2026-11-15, PR #85 second review)
+- Test timing traps (2026-11-18)
 - Patterns to reuse
 - Open (owner)
 - Kit icons: a bag per pack, colour as an account choice (owner, 2026-11-15)
@@ -3198,7 +3209,7 @@ _plan-lookup-indexes · plan lookup indexes_
 
 _plan-next · plan next_
 
-**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged, windows
+**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, number, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged
 
 - 0. Standing, do these first
 - 0b. September support sessions — tracked separately
@@ -3245,7 +3256,7 @@ _plan-pdf-page-sizes · plan pdf page sizes_
 
 _plan-spell-uses-by-source · plan spell uses by source_
 
-**topics:** 2014, 2026-11-11, 2026-11-12, 521, box, boxes, card, cards, cast, casting, crest, initiate, level, row, slots, spell, spellbook, tiefling
+**topics:** 2014, 2026-11-11, 2026-11-12, 521, box, boxes, card, cards, cast, casting, circles, crest, initiate, level, row, slots, spell, tiefling
 
 - The rules: a catalogue of casting modes, by edition and era
 - What the app has (checked 2026-11-11, fix/pdf-export)
@@ -3276,6 +3287,16 @@ _pool-grant-map · pool grant map_
 - Provisional — set by one agent, not decided
 - Where the confusion came from (so it does not recur)
 - The path — four items, then wait for a case
+
+## portrait-and-image-picture.md
+
+_portrait-and-image-picture · portrait and image picture_
+
+**topics:** 2026-11-10, aside, character-image-routes, deletion, draw, editor, getters, image, link, one-or-other, pdf-generated-vs-uploaded-images, picture, portrait, rulings, share-card, switching, ux-guide, web
+
+- The one rule
+- Decided 2026-11-10 (owner)
+- The editor
 
 ## proposal-indexeddb-storage.md
 
@@ -3366,7 +3387,7 @@ _reframe-subscription-patterns · reframe subscription patterns_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon, boon-like, builder-form, copy-pasted, form, fully-scattered, hand-built, input-field, per-type, plumbing, registry-driven, representative, spec-valid, type, wires
+**topics:** 000, adding, bits, boon, boon-like, builder-form, copy-pasted, form, fully-scattered, hand-built, input-field, per-type, registry-driven, representative, routes, spec-valid, type, wires
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -3483,7 +3504,7 @@ _rescued/ui-ux-evaluation · rescued/ui ux evaluation_
 
 _rescued/ui-ux-plan · rescued/ui ux plan_
 
-**topics:** ------, -------, char, clj, color-themes, core, css, descriptions, focus, hints, polish, priority, theme, themes, tier, veterans, views, visual
+**topics:** ------, -------, --------, char, clj, color-themes, core, css, descriptions, focus, polish, priority, theme, themes, tier, veterans, views, visual
 
 - Context
 - In-Flight Branches (Critical Context)
@@ -3681,7 +3702,7 @@ _spa-routing-architecture · spa routing architecture_
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** assembly, cast, castable, chain, class-gated, creator-declarable, magic-item, not-tested, per-silo, primitive, primitives, races, silo, spell, spells, sustainable, verified, wrapper
+**topics:** cast, castable, chain, class-gated, creator-declarable, magic-item, not-tested, per-silo, primitive, primitives, race, races, silo, spell, spells, sustainable, verified, wrapper
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
@@ -3876,9 +3897,9 @@ _srd-vs-plugin-content · srd vs plugin content_
 
 _start-build · start build_
 
-**topics:** 2026-10-30, 2026-11-02, amber, badge, chrome, disk, engines, file-time, folder, french, garden, newer, outweigh, port, prefix, stamp, start, translatable
+**topics:** 2026-10-30, 2026-11-02, amber, badge, chrome, css, disk, file-time, folder, french, lein, nrepl, port, prefix, repl, stamp, start, worktree
 
-
+- Regenerating CSS without a second lein process
 
 ## starting-equipment-override-ledger.md
 
@@ -3930,7 +3951,7 @@ _style-and-branding-audit-prompt · style and branding audit prompt_
 
 _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
-**topics:** approach, atom, cljs, dispatch, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warning, warnings
+**topics:** app-code, approach, atom, cljs, dispatch, function, infinite, inner, loading, namespace, patching, preload, property, recursion, stack, subscribe, trace, warnings
 
 - The Problem
 - What Doesn't Work
@@ -3988,7 +4009,7 @@ _support-session-ledger · support session ledger_
 
 _test-suite-state · test suite state_
 
-**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, figwheel, harness, jvm, pre-existing, spec, suite, theater, unresolved, unrun, unshallowed
+**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, harness, jvm, lazy, pre-existing, spec, suite, theater, unresolved, unrun, unshallowed
 
 - 0. Current measured state — 2026-09-12, feature/grant-rows (after the integration merge)
 - 0.1 Earlier measured state — 2026-09-05, feature/fighting-style-authoring
@@ -3997,6 +4018,7 @@ _test-suite-state · test suite state_
 - 3. The ::character spec / character-test.cljc saga (verified via unshallowed git)
 - 4. The built/computed character has no validation spec (verified)
 - 5. Open decisions / recommendations (so we don't re-litigate)
+- Reagent traps
 
 ## testing-infrastructure.md
 
@@ -4085,7 +4107,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** assets, box, column, desktop, details, drafts, notice, phone, planned, player, png, replaced, row, steel, undo, undone, ux-guide, width
+**topics:** assets, box, desktop, details, drafts, notice, phone, planned, player, png, portrait, replaced, row, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
@@ -4102,6 +4124,8 @@ _ux-guide · ux guide_
 - Owner's notes (recorded 2026-11-01)
 - Decided 2026-11-02 (owner)
 - A card with its own background sets its own text colour (found 2026-11-05)
+- Focus rings
+- The portrait drawer's CSS traps
 
 ## verification-discipline.md
 
@@ -4252,7 +4276,7 @@ _weapons-table-spec · weapons table spec_
 
 _writing-browser-tests · writing browser tests_
 
-**topics:** check, click, desktop, dispatch, disposes, e2e-runner, fast-browser-probes, menu, menus, phone, pulse, run, stand-in, subscriptions, tab, view, wait, weapons
+**topics:** click, desktop, disposes, dump, e2e-runner, fast-browser-probes, menus, phone, playwright, pulse, run, stand-in, subscriptions, symlink, tab, view, wait, worktree
 
 - Start from a working test
 - 1. Load the character with the app's own event, not by clicking the builder
@@ -4265,4 +4289,5 @@ _writing-browser-tests · writing browser tests_
 - 8. Prove each check can fail, and keep it affordable
 - 10. A real die can make a check fail 1 run in 20
 - 9. Screenshots for review
+- Traps found later
 

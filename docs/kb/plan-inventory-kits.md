@@ -348,12 +348,24 @@ where `magic-armor` is meant (~3983).
 - `remove-items` takes gear off every matching Equipment row in order, not only the first: saved
   characters from before #138 can hold the same item in several rows.
 
+### Test timing traps (2026-11-18)
+
+- A new character starts as a Barbarian with a fixed Explorer's Pack, which becomes a kit just after
+  load. A test's `:set-character` lands inside the 500 ms build debounce, so wait for the loaded rows
+  before measuring.
+- Sheet edits autosave throttled: wait for the POST `/dnd/5e/characters` reply before reloading.
+- A browser check that adds gear must use an item the kit does not hold (abacus, not rope), because
+  adding owned gear raises its quantity and the row count cannot see it.
+
 ## Patterns to reuse
 
 - Stable identity from existing keys, never generated ids
   ([growable-option-menus.md](growable-option-menus.md), `menu-id`).
 - Starting equipment's grant-and-choose shape for a pack's choices
   ([starting-equipment.md](starting-equipment.md)).
+
+- The local-store cofx reads with `when-let`, so a stored `false` reads as absent. Store the inverse
+  (a "hide" flag, not a "show" flag).
 
 ## Open (owner)
 

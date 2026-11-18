@@ -175,3 +175,14 @@ the opposite: real tests left unrun (§1).
   PR #28 e2e run). Without it the cljs suite keeps rotting and cljs changes can't be gated.
 - **Triage the import-validation failures** (§2) against a cljs runtime — they guard the
   orcbrew import path that the extensibility compatibility story depends on.
+
+## Reagent traps
+
+- An atom dereffed inside a lazy `for` in a component is not tracked, so a toggle does nothing:
+  deref at the top of the component in a `let`.
+- A `(fn ...)` made in a render and used as `[f ...]` is a new component type each render: it
+  remounts and drops `r/atom` state. Call it as `(f ...)`.
+- Passing an inline fn to the memoized `make-arg-event-handler` grows its cache.
+- The spinner counts per page generation (`event-utils/loading-gen`, bumped by `:route`): a request
+  passes its start generation with both `[:set-loading true gen]` and false, or it can hide the next
+  page's spinner.

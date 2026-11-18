@@ -62,6 +62,10 @@ git -C "$D" push origin HEAD:agents/develop
 git worktree remove "$D"                                   # when the branch is merged or dropped
 ```
 
+Before committing a new or changed KB page, run `bash docs/kb/tools/topic-index.sh` in the docs
+worktree. Otherwise pre-commit blocks the commit with "topic-index.md is out of date", and a push
+after a blocked commit sends nothing.
+
 ### Moving off a claude/* branch
 
 - **Check what it was cut from:** `git fetch --prune origin`, then `git log --oneline origin/integration..HEAD` should list only
@@ -84,7 +88,9 @@ git worktree remove "$D"                                   # when the branch is 
   refilled hourly (measured figures: `BRANCH.md`, "Merge gate and CodeRabbit limits"); there is no
   paid overage. A
   review replaced by a newer push still counts. A rate-limited request does nothing: wait out the
-  reset, then ask once more.
+  reset, then ask once more. The reply reads "Action not completed" and "Review rate limited ...
+  next included review in N minutes"; check the PR's last CodeRabbit comment for "rate limited"
+  before waiting, and re-request after the stated time.
 
 ### Removing the Claude Code footer
 
@@ -157,6 +163,8 @@ branch without the file: `git show origin/feature/email-and-alerts:.github/workf
   run uses the workflow from the PR merged into its base, so it runs once either side carries
   `docker-heavy.yml`: today only `feature/email-and-alerts`; every PR into `integration` once that
   merges, older branches included.
+- **No PR, no CI:** pushing a branch with no open PR starts no CI at all, heavy Docker included,
+  despite the pre-push heads-up. CI starts when the PR opens (2026-11-18).
 - **Pushes to `feature/email-and-alerts` itself:** its workflow has at times carried a temporary
   `push:` trigger with no file filter, so every push runs the checks, PR or not. Read its `on:` block
   before pushing there.
@@ -185,6 +193,13 @@ Versioned in `.githooks/` on `agents/develop`, armed through `core.hooksPath` (`
 | `commit-msg` | strips agent attribution: `Co-Authored-By: Claude` and `Claude-Session:` trailers, and "Generated with Claude Code" lines |
 | `pre-commit` | blocks a commit that adds or changes `CLAUDE.md`, `AGENTS.md`, `BRANCH.md` or `.claude/` on a code branch (a forced `git add -f` gets past `.gitignore`, not this); blocks a commit that adds a function without a docstring; warns on history wording in comments; on a merge commit, checks only functions new to both sides; on `agents/develop`, when `docs/` changes, checks doc links, the develop superset and the KB lint (headings, every page reachable, `topic-index.md` current), and when an SRD check script changes, runs its self-test |
 | `pre-push` | refuses to push an unfolded `docs/branch-changelog.md` onto `integration`, `develop` or `main`; when the branch changes deployment files and `docker-heavy.yml` exists, prints the heavy-Docker heads-up and the command to run them; on a push onto those branches, also refuses a `CHANGELOG.md` that fails `scripts/lint-changelog.py` |
+
+The `branch-shape` script (`.githooks/branch-shape`, also run by the fork-only `branch-shape.yml` PR
+check) counts changed files from the branch's join point with its target. It blocks stray files
+(`docs/design/`, `docs/issues/`, one-off research scripts under `dev/`, `.html` outside `resources/`
+and `test/`), warns past 80 changed files, and refuses a push that crosses 100, once, as it crosses.
+`ALLOW_LARGE_BRANCH=1` and `ALLOW_STRAY_FILES=1` skip it for one push or commit, only with the
+owner's yes; the PR label `large change` skips the PR check.
 
 On a merge commit the pre-commit docstring check counts a function as new only if it is new to both
 sides, so the other side's functions pass and ones written while resolving are checked. Agents never

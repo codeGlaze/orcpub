@@ -1112,3 +1112,17 @@ The tests carry a guard of their own. Since the pin is skipped when proxied, a
 proxied fixture URL would leave every transport test quietly exercising the
 unpinned path and still passing; one assertion pins that loopback is not proxied,
 so the suite fails rather than lies.
+
+## PDF design rules (owner, 2026-11-11/12)
+
+- PDF space is precious: no page per non-class source. Read `spell_packing.cljc` before proposing a
+  layout.
+- Spell cards live in `orcpub.pdf.cards`, shared drawing in `orcpub.pdf.draw`.
+- Icons are the game-icons SVG set via `draw-svg-icon!`, never code-drawn (SVG arcs become straight
+  segments in `draw/svg-path-ops`). `draw/load-svg-icon` draws only the last `<path>`: rasterize
+  layered SVGs and draw them with `draw-imagex`.
+- Measure boxes, overlaps and clearance in code, look at 600 dpi crops, and stress every field at
+  its SRD maximum before showing a design.
+- Find card pages with PDFTextStripper (fronts "Page 1", backs "Page 1 (reverse)").
+- The harness export adds a spell page only when the sheet names a `:spellcasting-class-1`.
+- Harness edits: assert each anchor occurs once.

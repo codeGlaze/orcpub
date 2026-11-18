@@ -7,6 +7,10 @@ printing the class's slots. Builds on [spell-granting-across-silos.md](spell-gra
 (one primitive, many wrappers) and [plan-charges-and-casting.md](plan-charges-and-casting.md) (a cast
 is one act with a different payment). Nothing here is built.
 
+Owner rulings (2026-11-11): edition is a research category, not a code switch. Use it to find
+edition-specific modes; code never keys on edition. Do not use "free" wording in the UI. Sections go
+by source, with an account "combine" toggle, and uses count down like slots.
+
 ## The rules: a catalogue of casting modes, by edition and era
 
 **Correction (owner, 2026-11-11):** an earlier version of this page said the editions "differ only

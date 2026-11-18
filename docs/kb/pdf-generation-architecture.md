@@ -167,6 +167,16 @@ Non-spell-card fields are filled via Apache PDFBox's `PDAcroForm`:
 The field names in the template must match exactly what `pdf_spec.cljc` generates.
 Mismatched names = silently unfilled fields (no error thrown).
 
+## The PDF Options sheet (2026-11)
+
+PDF Options is a full-window sheet, `views/pdf_options.cljs`: a bar, a scrolling body (right-to-left
+CSS columns, `.pdf-options-grid`; groups Character Sheet, Spells, Cards, Spellbook, Appearance, File
+name) and a footer with Cancel and Create PDF (bottom-right; owner: never move it).
+`live-print-options` reads the character on each draw. Create PDF takes no clicks until a sheet
+style is picked (`print-button-style`). Export opens a "Making your PDF..." tab and submits 150 ms
+later, only when a tab opened. Unnamed characters get a random name on export (`named-spec`). Test:
+`scripts/e2e/pdf-options-reach.js` (includes `lowContrast`, both themes).
+
 ## Testing PDF Changes
 
 As of 2026-04-22 there ARE automated tests:

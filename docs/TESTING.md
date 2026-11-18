@@ -38,6 +38,10 @@ changed (`run-all.sh` when in doubt). A deployment change also needs a green hea
 its PR before review is requested (which files count, and how they run: `docs/GIT_WORKFLOW.md`,
 "Heavy Docker checks").
 
+A user-facing feature needs a What's New item in `src/cljc/orcpub/whats_new.cljc` as well as a
+changelog line. #85 (`feature/inventory-kits`) merged without one and needed follow-up #86. Check
+both before asking to merge.
+
 ## Before committing
 
 | Changed | Run |
@@ -45,6 +49,9 @@ its PR before review is requested (which files count, and how they run: `docs/GI
 | `src/clj/`, `src/cljc/`, `test/clj/`, `test/cljc/`, `project.clj` | `lein test` |
 | `src/cljs/`, `src/cljc/`, `web/cljs/`, `test/cljs/`, `project.clj` | `lein fig:build`, then the cljs suite: `lein fig:test && node test/e2e/cljs-harness.js` |
 | any Clojure file | lint it: `lein trampoline with-profile lint run -m clj-kondo.main --lint <files> --fail-level error` (the level `lein lint` uses) |
+
+`lein lint` takes no file arguments (it prints usage): run it whole. To lint only changed files, use
+the clj-kondo command in the table.
 
 The full `lein lint` before committing a merge (merge with `--no-commit`: `docs/GIT_WORKFLOW.md`,
 "Merging integration in"), before opening a PR, and before marking a draft ready.
@@ -67,6 +74,16 @@ The rule is in `AGENTS.md`, "Tests". The commands:
    be editing, and confirm those files are clean.
 4. **Run the test green and commit it,** with the failing output in its message; put the failing
    output in the PR beside the pass too.
+
+Traps when breaking a test:
+
+- A break whose Edit failed proves nothing: check `git diff --stat` after making it.
+- A break that deletes a def the new test names fails the whole namespace. Add back only that
+  constant, so just the claimed checks fail.
+- The spell-card test namespace takes over 10 minutes (every SRD spell): run it in the background.
+- To break without stopping the owner's server, use a second worktree: commit the fix,
+  `git checkout --detach <sha>`, copy the tests in, break with `git checkout HEAD~1 -- <files>`,
+  run, then restore.
 
 ## Build tests to copy
 
