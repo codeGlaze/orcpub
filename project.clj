@@ -60,9 +60,9 @@
                  [com.stuartsierra/component "1.2.0"]
                  [com.google.guava/guava "32.1.2-jre"]
 
-                 [com.fasterxml.jackson.core/jackson-databind "2.15.2"]
-                 [com.fasterxml.jackson.core/jackson-core "2.15.2"]
-                 [com.fasterxml.jackson.core/jackson-annotations "2.15.2"]
+                 [com.fasterxml.jackson.core/jackson-databind "2.18.12"]
+                 [com.fasterxml.jackson.core/jackson-core "2.18.12"]
+                 [com.fasterxml.jackson.core/jackson-annotations "2.18.12"]
 
                  ;; Required for Pedestal 0.7.x ring-middlewares
                  [commons-io/commons-io "2.15.1"]
