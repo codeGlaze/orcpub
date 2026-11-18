@@ -430,16 +430,66 @@ uses only 25% of the container's memory.
 
 ## Backups
 
-The database is the folder `./data` on the host. To back it up:
+There are two ways to back up the database. Use the live backup routinely, and the offline copy as a
+fallback. Both are for the Compose stack. The commands run from the project folder.
 
-1. Stop the stack: `docker compose down`.
-2. Copy `./data` somewhere safe, for example `cp -a data data-backup-$(date +%F)`.
-3. Start again: `docker compose up -d`.
+**Back up `.env` with every backup** (or your secret files). Without `SIGNATURE` everyone is signed
+out, and without `PROFILE_ENCRYPTION_KEYS` stored preferred names cannot be read. The backup folders
+do not contain it.
 
-Copy it only while the transactor is stopped, or the copy may be inconsistent. To restore, stop the
-stack, put the folder back, and start. Also keep a copy of `.env` (or your secret files): without
-`SIGNATURE` everyone is signed out, and without `PROFILE_ENCRYPTION_KEYS` stored preferred names
-cannot be read. On Swarm, the data is in the `orcpub_data` volume.
+### Live backup (routine)
+
+```sh
+./run --backup
+```
+
+This backs up the database while the site is running, into `./backups/orcpub`. Run it again and it
+adds only what changed since the last run, so a daily run is quick. Run it daily, or before each
+upgrade. A first backup of a large database can take a long time.
+
+- **Where:** `./backups` by default. Use another folder with `./run --backup --backup-dir /mnt/backups`,
+  or set `BACKUP_DIR` in `.env`. Keep a copy on another machine or disk: a backup beside the data
+  does not survive a lost disk.
+- **Check it:** `./run --verify-backup ./backups` reads every file of the latest backup and says
+  whether it can be restored.
+- **Space:** the backup is about the size of the database. Backups are never deleted for you.
+
+### Restoring a live backup
+
+```sh
+docker compose up -d datomic        # only the database, not the app
+./run --restore ./backups
+docker compose up -d                # start everything
+```
+
+A restore needs a database with nothing in it, so use a fresh `./data` folder (or a new machine).
+Copy `.env` back first. If a database already exists, `./run --restore` stops and says so without
+changing anything. To replace it: stop the app (`docker compose stop orcpub`), back up what is there
+(`./run --backup`), stop the stack, move `./data` aside (`mv data data.old`), start only the
+database as above, then restore.
+
+### Offline copy (fallback)
+
+```sh
+./run --backup --offline
+```
+
+This stops the stack, copies `./data` to `./backups/offline-<date and time>`, and starts the stack
+again. The site is down for the length of the copy. It copies the whole database folder, so it
+needs the same Datomic version to read back, and every run is a full copy.
+
+To restore it:
+
+```sh
+./run --restore ./backups/offline-2026-01-31T120000Z
+```
+
+The stack stops, the current `./data` is moved to `./data.before-restore-<date>` (nothing is
+deleted), the copy is put in its place, and the stack starts. You can also do this by hand: stop the
+stack, put the folder's contents in `./data`, start the stack.
+
+On Swarm, the data is in the `orcpub_data` volume and these commands do not apply. Back up the
+volume with your Docker tooling while the stack is stopped.
 
 ## Docker Swarm Deployment
 
