@@ -93,8 +93,8 @@ bk_db_uri() {
 #   with <backup-folder> mounted at /backup (so use file:/backup/orcpub for the backup).
 #   Any argument starting with "datomic:" (a database URI, which carries the password) is
 #   handed over as an environment variable, so it is not in the host's process list.
-#   Runs as the owner of <backup-folder>/orcpub when it exists, else of <backup-folder> (the
-#   transactor container hands ./backups to its own user; older migrate runs left root-owned backups).
+#   Runs as the owner of <backup-folder> (the transactor container hands ./backups to its own
+#   user, which the host user may not be able to write).
 #   BACKUP_JAVA_OPTS (JVM flags, default "-Xms256m -Xmx1g") sizes the JVM.
 #   Exit: that of bin/datomic; 1 if the network is missing.
 bk_run_cli() {
@@ -102,8 +102,6 @@ bk_run_cli() {
   local network a n=0 snippet=""
   local -a envs=()
   network=$(bk_network) || return 1
-  local owner="$dir"
-  [[ -d "$dir/$BK_NAME" ]] && owner="$dir/$BK_NAME"
   for a in "$@"; do
     case "$a" in
       datomic:*)
@@ -120,7 +118,7 @@ bk_run_cli() {
   local rc=0
   (
     set +e
-    docker run --rm --network="$network" --user "$(stat -c %u:%g "$owner")" \
+    docker run --rm --network="$network" --user "$(stat -c %u:%g "$dir")" \
       --tmpfs /datomic/log:rw,mode=1777 -e HOME=/tmp -e DATOMIC_JAVA_OPTS "${envs[@]+"${envs[@]}"}" \
       -v "${dir}:/backup" "$image" sh -c "exec bin/datomic${snippet}" 2>&1 \
       | grep --line-buffered -Ev '^[0-9]{2}:[0-9]{2}:[0-9]{2},[0-9]+ \|-|^$'
@@ -155,7 +153,7 @@ bk_db_exists() {
 bk_wait_transactor() {
   local i rc
   for i in $(seq 1 12); do
-    rc=0; bk_db_exists || rc=$?
+    rc=0; bk_db_exists 2>/dev/null || rc=$?
     if [[ $rc -ne 2 ]]; then BK_DB_STATE=$rc; return 0; fi
     [[ $i -eq 1 ]] && info "Waiting for the transactor to start"
     sleep 10
@@ -165,7 +163,8 @@ bk_wait_transactor() {
 
 # bk_prepare_dir <folder>
 #   Creates <folder> if needed and checks a container running as its owner can write there
-#   (the host user may not be able to: the transactor container owns ./backups).
+#   (the host user may not be able to: the transactor container owns ./backups). A backup in it
+#   owned by someone else (older migrate runs wrote as root) is handed to the folder's owner.
 #   Prints the absolute path. Exit: 0 writable; 1 with an error message.
 bk_prepare_dir() {
   local dir="$1" image
@@ -175,6 +174,13 @@ bk_prepare_dir() {
   if ! docker run --rm --user "$(stat -c %u:%g "$dir")" -v "$dir:/backup" --entrypoint sh "$image" \
       -c 'touch /backup/.write-test && rm -f /backup/.write-test' >/dev/null 2>&1; then
     error "Backup folder is not writable: $dir"; return 1
+  fi
+  local own
+  own=$(stat -c %u:%g "$dir")
+  if [[ -d "$dir/$BK_NAME" ]] && [[ -n "$(find "$dir/$BK_NAME" ! -user "${own%:*}" -print -quit 2>/dev/null)$(find "$dir/$BK_NAME" ! -readable -print -quit 2>/dev/null)" ]]; then
+    info "Handing $dir/$BK_NAME to the folder's owner ($own), as older backups were written by root" >&2
+    docker run --rm --user 0:0 -v "$dir:/backup" --entrypoint chown "$image" -R "$own" "/backup/$BK_NAME" >/dev/null 2>&1 \
+      || { error "Could not hand $dir/$BK_NAME to the folder's owner."; return 1; }
   fi
   echo "$dir"
 }
