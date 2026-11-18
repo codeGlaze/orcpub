@@ -51,7 +51,7 @@ that matches what you are doing.
 
 - **Create homebrew:** build it in the app, export it, fix any required-field warnings in the browser console, and export again.
 - **Import content:** import the file, resolve any conflicts the dialog lists (rename, skip or replace), then check for missing-content warnings.
-- **Fix an import that fails:** open the browser console (F12) and read the validation errors. Valid items are imported and invalid ones are skipped, so you keep what can be recovered.
+- **Fix an import that fails:** open the browser console (F12) and read the validation errors. When the file reads as EDN, valid items are imported and invalid ones are skipped, so you keep what can be recovered. When it does not (cut short or damaged), nothing is imported: repair the file or use another copy.
 - **Fix a character with "(not loaded)" content:** import the missing plugin, or use the alternative the page suggests.
 
 ## Known limits
