@@ -226,7 +226,8 @@ file defaults `support-email` to `thDM@dungeonmastersvault.com` while its `.env.
 
 ## Admin mail address order, and startup email timing
 
-- Admin mail goes to the first set of `EMAIL_ERRORS_TO`, `EMAIL_ADMIN_TO`, `APP_SUPPORT_EMAIL`.
+- Admin alerts go to `EMAIL_ERRORS_TO`, else `EMAIL_ADMIN_TO`, else `APP_SUPPORT_EMAIL`. Artist notices go to
+  `EMAIL_ADMIN_TO`, else `EMAIL_ERRORS_TO`, else `APP_SUPPORT_EMAIL` (`config.clj`, the settings registry notes).
 - The startup email goes on the first start of a release, when problems or their names changed, and
   as one 7-day reminder. Memory holds names and states, never values.
 

@@ -1115,11 +1115,12 @@ _data-safety-layers · data safety layers_
 
 _datomic-backups · datomic backups_
 
-**topics:** 2026-11-18, backup, backups, cli, compose, datomic, docker, fingerprint, folder, offline, paused, quotes, restore, root-owned, secret, segments, stack, transactor
+**topics:** 2026-11-18, 7745, backup, backups, checksum, cli, datomic, fingerprint, folder, netty, offline, peer, restore, root-owned, secret, stack, transactor, zip
 
 - Traps (verified)
 - What was tested (isolated stack, 5k entities)
 - CodeRabbit round three (2026-11-18, #89)
+- Datomic 1.0.7482 to 1.0.7745 (verified 2026-11-18, #89)
 
 ## datomic-crash-analysis.md
 
@@ -3108,7 +3109,7 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** 2026-10-24, admin, alert, alerts, artist, channel, database, discord, email, emails, mail, outbox, sent, spool, stage, swarm, webhook, worker
+**topics:** 2026-10-24, admin, alert, alerts, artist, channel, database, discord, email, mail, outbox, sent, settings, spool, stage, swarm, webhook, worker
 
 - The problem
 - Two kinds of email
@@ -4289,5 +4290,5 @@ _writing-browser-tests · writing browser tests_
 - 8. Prove each check can fail, and keep it affordable
 - 10. A real die can make a check fail 1 run in 20
 - 9. Screenshots for review
-- Traps found later
+- More traps
 

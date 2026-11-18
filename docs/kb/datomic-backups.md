@@ -54,3 +54,11 @@ fingerprint. Follow-up the same day: the wait, with the transactor paused 25 s m
 - `verify-backup` reads only the file URI, so it runs without the transactor or the Compose network.
 - The folder owner is read with GNU `stat -c` or BSD `stat -f` (macOS).
 - A `.env` value that refers to itself (`DATOMIC_PASSWORD=${DATOMIC_PASSWORD:-x}`) resolves against the shell, as in Compose; `run`'s reader checks whether the file sets the key separately from what it resolves to.
+
+## Datomic 1.0.7482 to 1.0.7745 (verified 2026-11-18, #89)
+
+- A `dev`-storage database written by 1.0.7482 opens under 1.0.7745 unchanged: the same row count, checksum and `t` (5000 rows, t=5510). It then took 500 new rows, and `./run --backup` and `--verify-backup` passed at t=6011. Upgrading needs no migration step.
+- The transactor zip still comes from `datomic-pro-downloads.s3.amazonaws.com/<version>/datomic-pro-<version>.zip`, free with no login; the Dockerfile fetches it from `DATOMIC_VERSION`. The peer is on Maven Central (`com.datomic/peer`).
+- The transactor zip bundles its own Netty (4.1.131 in 1.0.7745). `project.clj`'s `:managed-dependencies` pin Netty only for the app's peer.
+- The live site stores Datomic in Postgres (`plan-lookup-indexes.md`); `./run --backup` assumes `dev` storage.
+- Test trap: a check that compares two fingerprints must fail when either is empty. A script that sent the peer's errors to /dev/null reported two blank results as "same data".

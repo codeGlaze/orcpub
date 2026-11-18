@@ -136,7 +136,7 @@ outcome the dice allow, or set the result first.
 - Measure before sending (fits 390px, headings within 2px, nothing clipped, 44px tap targets),
   then look at the image yourself.
 
-## Traps found later
+## More traps
 
 - **Playwright symlink.** A worktree's `scripts/e2e/node_modules` can be a symlink into another
   worktree. When that worktree is removed, "playwright is not installed" appears: re-link it to a
