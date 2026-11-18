@@ -6,7 +6,7 @@ Detects and resolves duplicate content keys during import, preventing data loss 
 
 **Why it exists:** a silent overwrite on import breaks characters that reference the old version, so the importer asks you what to do with each conflict.
 
-**Renames carry their children:** when you rename parent content (for example a class), every child reference (its subclasses) is updated automatically. Otherwise the subclasses are orphaned.
+**Renames carry their children:** when you rename parent content (for example a class), every child reference (its subclasses) in the same source is updated automatically. A subclass in another source keeps the old key: the importer offers to repoint it, and you must accept or repoint it yourself, or it is orphaned.
 
 ## How It Works
 
