@@ -321,6 +321,7 @@ wrong, and why.
 
 ### Operations
 
+- **[docker-image-releases.md](docker-image-releases.md)** -- how a tag on upstream publishes the Docker Hub images; nothing published since 2025-09, the last runs failed early (login)
 - **[datomic-backups.md](datomic-backups.md)** -- the backup commands' traps: verify-backup exits 0
   when it throws, the transactor chowns the backup folder, no list-databases; what was tested.
 - **[tracked-issues.md](tracked-issues.md)** -- open issues with their evidence: the Datomic

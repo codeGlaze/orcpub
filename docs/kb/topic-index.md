@@ -1337,6 +1337,15 @@ _dmv-production-changes · dmv production changes_
 - Git Ref Namespace Collision
 - Cherry-Picking Between dmv/ and breaking/
 
+## docker-image-releases.md
+
+_docker-image-releases · docker image releases_
+
+**topics:** 2025-09-11, 2026-02-19, 2026-11-07, 2026-11-18, 410, 674, cve-2026-114938, dispatch, docker, hub, images, newest, publishing, secrets, tag, temurin, upstream, workflow
+
+- How it works
+- State on 2026-11-18
+
 ## docker-infrastructure.md
 
 _docker-infrastructure · docker infrastructure_
@@ -1847,7 +1856,7 @@ _fighting-style-authoring · fighting style authoring_
 
 _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
-**topics:** ability, archery, attack, blindsight, damage, dueling, fighting, great, interception, pool, predicate, prop, protection, style, styles, thrown, vocabulary, weapon
+**topics:** ability, archery, attack, blindsight, damage, defense, dueling, fighting, great, pool, predicate, prop, protection, style, styles, thrown, vocabulary, weapon
 
 - The shapes, grouped
 - :ranged? is a real flag, not the negation of :melee?
@@ -2077,7 +2086,7 @@ _handoff-weapons-table · handoff weapons table_
 
 _heartbeat · heartbeat_
 
-**topics:** beat, beats, clock, database, hour, job, jobs, jumped, measure, monitor, outage, pruning, running, server, three-day, tick, time, unrecorded
+**topics:** beat, beats, clock, database, dates, hour, job, jobs, jumped, measure, monitor, outage, pruning, running, server, three-day, tick, unrecorded
 
 - What it records
 - Using it
@@ -3735,7 +3744,7 @@ _srd-2024-coverage · srd 2024 coverage_
 
 _srd-2024-implementation-notes · srd 2024 implementation notes_
 
-**topics:** 2014, 2024, 339, damage, dial, edition, editions, exhaustion, expressed, feat, goblin, grappled, idea, lineage, mechanical, open5e, prose, species
+**topics:** 2014, 2024, 339, damage, dial, edition, editions, exhaustion, feat, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
 
 - The structural shifts, measured
 - 1. Subraces became lineages
