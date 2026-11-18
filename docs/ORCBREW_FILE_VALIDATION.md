@@ -30,6 +30,9 @@ Export successful!
 
 **If issues are found:**
 - **Warnings** - File exports but issues are logged
+- **Missing required fields** - The **Missing Required Fields** dialog opens. Fill the required
+  dropdowns there; **Export & Auto-Fix** stays disabled until they are all filled. A developer option
+  in the dialog's footer exports the file as it is, without fixes.
 - **Errors** - File won't export, must fix issues first
 
 **Check the browser console** (F12) for detailed information about any warnings or errors.

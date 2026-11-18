@@ -435,7 +435,9 @@ fallback. Both are for the Compose stack. The commands run from the project fold
 
 **Back up `.env` and any secret files with every backup.** Without `SIGNATURE` everyone is signed
 out, and without `PROFILE_ENCRYPTION_KEYS` stored preferred names cannot be read. The backup folders
-do not contain it.
+do not contain them. If you use file secrets (`./run --secrets`), also keep
+`docker-compose.secrets.yaml`: `.env`'s `COMPOSE_FILE` names it, and Compose will not start without
+it. `./run --secrets` writes it again from `.env` if it is lost.
 
 ### Live backup (routine)
 

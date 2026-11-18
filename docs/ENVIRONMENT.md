@@ -155,7 +155,10 @@ A bad value never takes the site down by itself. It is reported and the default 
 proxy's address. The app reads the player's address from the `X-Forwarded-For` header, but only the
 part your own proxies added. It reads the header from the right, skips the proxies it trusts, and
 takes the first address it does not trust. Anything a visitor writes into the header sits further
-left and is ignored.
+left and is ignored, as long as every proxy you trust (a private network address, or one in
+`TRUSTED_PROXIES`) adds the address it received to `X-Forwarded-For` or replaces the header with it.
+nginx's `$proxy_add_x_forwarded_for` and Cloudflare do. A trusted proxy that passes the header on
+unchanged lets a visitor choose the address used for rate limits and logs.
 
 **The breach check.** Sign-up and password reset send the first five characters of the password's
 SHA-1 to `api.pwnedpasswords.com` and score the reply locally, so the password never leaves the
