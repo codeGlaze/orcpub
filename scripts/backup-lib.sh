@@ -419,7 +419,7 @@ _bk_offline_restore() {
   if ! docker run --rm --entrypoint sh -v "$src:/src:ro" -v "$PWD/data:/dst" "$image" \
       -c 'cp -a /src/. /dst/ && rm -f /dst/.orcpub-offline-backup'; then
     error "Copy failed: putting ./data back."
-    docker run --rm --entrypoint sh -v "$PWD/data:/dst" "$image" -c 'rm -rf /dst/* /dst/.[!.]*' || true
+    docker run --rm --entrypoint sh -v "$PWD/data:/dst" "$image" -c 'rm -rf /dst/* /dst/.[!.]* /dst/..?*' || true
     rmdir data 2>/dev/null || back=1
     if [[ $back -eq 0 && -d "$aside" ]]; then mv "$aside" data || back=1; fi
     if [[ $back -ne 0 ]]; then
