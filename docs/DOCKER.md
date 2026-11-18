@@ -433,7 +433,7 @@ uses only 25% of the container's memory.
 There are two ways to back up the database. Use the live backup routinely, and the offline copy as a
 fallback. Both are for the Compose stack. The commands run from the project folder.
 
-**Back up `.env` with every backup** (or your secret files). Without `SIGNATURE` everyone is signed
+**Back up `.env` and any secret files with every backup.** Without `SIGNATURE` everyone is signed
 out, and without `PROFILE_ENCRYPTION_KEYS` stored preferred names cannot be read. The backup folders
 do not contain it.
 

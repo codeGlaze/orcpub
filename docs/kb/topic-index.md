@@ -1115,10 +1115,11 @@ _data-safety-layers · data safety layers_
 
 _datomic-backups · datomic backups_
 
-**topics:** backup, backups, cli, datomic, docker, exits, fingerprint, folder, offline, paused, quotes, restore, restores, root-owned, secret, segments, stack, transactor
+**topics:** 2026-11-18, backup, backups, cli, compose, datomic, docker, fingerprint, folder, offline, paused, quotes, restore, root-owned, secret, segments, stack, transactor
 
 - Traps (verified)
 - What was tested (isolated stack, 5k entities)
+- CodeRabbit round three (2026-11-18, #89)
 
 ## datomic-crash-analysis.md
 
@@ -1340,7 +1341,7 @@ _dmv-production-changes · dmv production changes_
 
 _docker-infrastructure · docker infrastructure_
 
-**topics:** 128m, 1gb, 512m, alpine, busybox, chown, docker, envsubst, gnu, hangs, healthcheck, peers, sed, subprocess, swarm, transactor, uberjar, wget
+**topics:** 128m, 1gb, 512m, alpine, busybox, chown, docker, envsubst, hangs, healthcheck, index-max, peers, sed, subprocess, swarm, transactor, uberjar, wget
 
 - Key Decisions
 - host=datomic (not 0.0.0.0)

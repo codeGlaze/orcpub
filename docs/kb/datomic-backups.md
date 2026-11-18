@@ -46,3 +46,11 @@ failed move of `./data` exits 1 with `./data` unchanged; a quoted `BACKUP_DIR` w
 the right folder; restore right after starting the transactor restores and restarts it, same
 fingerprint. Follow-up the same day: the wait, with the transactor paused 25 s mid-restore (one
 "Waiting" line, same fingerprint), and the hand-back of a root-owned backup (nothing left foreign-owned).
+
+## CodeRabbit round three (2026-11-18, #89)
+
+- Offline backup and restore hold `.orcpub-offline.lock` in the project folder, so two never overlap. A run killed with `kill -9` leaves it: remove the folder by hand.
+- Offline paths inside `./data` are refused before the stack stops: a backup there copies itself, and a restore source there is moved aside with `./data`.
+- `verify-backup` reads only the file URI, so it runs without the transactor or the Compose network.
+- The folder owner is read with GNU `stat -c` or BSD `stat -f` (macOS).
+- A `.env` value that refers to itself (`DATOMIC_PASSWORD=${DATOMIC_PASSWORD:-x}`) resolves against the shell, as in Compose; `run`'s reader checks whether the file sets the key separately from what it resolves to.
