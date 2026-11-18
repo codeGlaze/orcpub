@@ -20,6 +20,13 @@
                  ]
   :mirrors {"apache" {:url "https://repository.apache.org/snapshots/"}}
 
+  ;; Security pins: versions of libraries other dependencies bring in, raised past known flaws
+  ;; (docs/kb/dependency-alerts.md on agents/develop). They apply wherever the library appears.
+  :managed-dependencies [;; buddy-hashers' Bouncy Castle
+                         [org.bouncycastle/bcprov-jdk18on "1.87"]
+                         [org.bouncycastle/bcpkix-jdk18on "1.87"]
+                         [org.bouncycastle/bcutil-jdk18on "1.87"]]
+
   :dependencies [[org.clojure/clojure "1.12.4"]
                  [org.clojure/test.check "1.1.1"]
                  [org.clojure/clojurescript "1.12.134"]
