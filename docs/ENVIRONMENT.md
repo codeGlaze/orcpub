@@ -109,7 +109,7 @@ A bad value never takes the site down by itself. It is reported and the default 
 | `DATOMIC_URL` | `datomic:dev://localhost:4334/orcpub`. Docker Compose: `datomic:dev://datomic:4334/orcpub` | Database connection URI. Leave it out of `.env` unless the database is elsewhere (a remote transactor, another port, or `datomic:sql` storage). Do not put `?password=` in it: the app adds the password from `DATOMIC_PASSWORD`. A URL that already carries a password still works, and its password wins. A password in a `datomic:sql` URI is hidden wherever the URI is logged. |
 | `DATOMIC_PASSWORD` | none | Password the app and the transactor use. Docker secret: `datomic_password`. |
 | `ADMIN_PASSWORD` | none | Transactor admin and monitoring password. Docker secret: `admin_password`. |
-| `DATOMIC_VERSION` | `1.0.7482` | Datomic Pro version the install scripts fetch and look for under `lib/`. |
+| `DATOMIC_VERSION` | `1.0.7745` | Datomic Pro version the install scripts fetch and look for under `lib/`. |
 | `DATOMIC_TYPE` | `pro` | Datomic distribution the scripts look for. |
 
 ### Docker and transactor

@@ -58,6 +58,19 @@
                          [org.eclipse.jetty.websocket/websocket-jetty-common "11.0.26"]
                          [org.eclipse.jetty.websocket/websocket-jetty-server "11.0.26"]
                          [org.eclipse.jetty.websocket/websocket-servlet "11.0.26"]
+                         ;; Datomic peer's Netty (through ActiveMQ Artemis), every module at one version
+                         [io.netty/netty-buffer "4.1.141.Final"]
+                         [io.netty/netty-codec "4.1.141.Final"]
+                         [io.netty/netty-codec-http "4.1.141.Final"]
+                         [io.netty/netty-codec-socks "4.1.141.Final"]
+                         [io.netty/netty-common "4.1.141.Final"]
+                         [io.netty/netty-handler "4.1.141.Final"]
+                         [io.netty/netty-handler-proxy "4.1.141.Final"]
+                         [io.netty/netty-resolver "4.1.141.Final"]
+                         [io.netty/netty-transport "4.1.141.Final"]
+                         [io.netty/netty-transport-classes-epoll "4.1.141.Final"]
+                         [io.netty/netty-transport-classes-kqueue "4.1.141.Final"]
+                         [io.netty/netty-transport-native-unix-common "4.1.141.Final"]
                          ;; Pedestal's tracing API
                          [io.opentelemetry/opentelemetry-api "1.68.0"]
                          [io.opentelemetry/opentelemetry-context "1.68.0"]]
@@ -127,7 +140,7 @@
                  ;; TRANSACTOR BINARY that scripts/common.sh:257 and start.sh run --
                  ;; not for this jar.
                  ;; Latest version: https://docs.datomic.com/releases-pro.html
-                 [com.datomic/peer "1.0.7482" :exclusions [org.slf4j/slf4j-nop]]
+                 [com.datomic/peer "1.0.7745" :exclusions [org.slf4j/slf4j-nop]]
                  ;; cuerdas 026.415: Latest release on Clojars... does not match GH release versioning.
                  [funcool/cuerdas "2026.415"]
                  [camel-snake-kebab "0.4.0"]

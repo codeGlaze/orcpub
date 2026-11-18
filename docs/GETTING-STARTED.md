@@ -64,7 +64,7 @@ Navigate to `http://localhost:8890` (or the Codespaces forwarded URL). Log in wi
 |------|---------|---------|
 | Java | 21+ (OpenJDK) | [Adoptium](https://adoptium.net/) |
 | Leiningen | 2.9+ | [leiningen.org](https://leiningen.org/#install) |
-| Datomic Pro | 1.0.7482 | See below |
+| Datomic Pro | 1.0.7745 | See below |
 
 **Datomic Pro** is free (Apache 2.0 license). The devcontainer installer handles this automatically, but on a local machine you need to install it manually:
 
@@ -73,7 +73,7 @@ Navigate to `http://localhost:8890` (or the Codespaces forwarded URL). Log in wi
 ./.devcontainer/post-create.sh
 ```
 
-Or follow the manual steps in [docs/migration/datomic-pro.md](migration/datomic-pro.md). Datomic should end up at `lib/com/datomic/datomic-pro/1.0.7482/`.
+Or follow the manual steps in [docs/migration/datomic-pro.md](migration/datomic-pro.md). Datomic should end up at `lib/com/datomic/datomic-pro/1.0.7745/`.
 
 ### 2. Configure environment
 
@@ -188,7 +188,7 @@ The `SIGNATURE` env var is missing. If using `./menu` or `./scripts/start.sh`, c
 **Datomic won't start**
 
 - Check that port 4334 isn't already in use: `lsof -i :4334`
-- Verify Datomic is installed: `ls lib/com/datomic/datomic-pro/1.0.7482/bin/transactor`
+- Verify Datomic is installed: `ls lib/com/datomic/datomic-pro/1.0.7745/bin/transactor`
 - Check logs: `cat logs/datomic.log`
 
 **Figwheel compilation errors**
