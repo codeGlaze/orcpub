@@ -34,6 +34,77 @@ bk_latest_t() {
   echo "$latest"
 }
 
+# bk_owner <path>
+#   Prints <path>'s owner as uid:gid, with GNU stat (Linux) or BSD stat (macOS).
+#   Exit: 1 with an error message when it cannot be read.
+bk_owner() {
+  local o
+  o=$(stat -c %u:%g "$1" 2>/dev/null || stat -f %u:%g "$1" 2>/dev/null || true)
+  if [[ ! "$o" =~ ^[0-9]+:[0-9]+$ ]]; then
+    error "Could not read the owner of $1"; return 1
+  fi
+  echo "$o"
+}
+
+# bk_physical <path>
+#   Prints <path> as an absolute path with symlinks resolved; a part that does not exist yet is
+#   appended as written.
+bk_physical() {
+  local p="$1" rest=""
+  while [[ ! -d "$p" ]]; do
+    rest="/$(basename "$p")$rest"; p=$(dirname "$p")
+  done
+  printf '%s%s' "$(cd "$p" && pwd -P)" "$rest"
+}
+
+# bk_inside_data <path>
+#   Exit: 0 when <path> is ./data or inside it (symlinks resolved); 1 otherwise.
+bk_inside_data() {
+  local p d
+  [[ -d data ]] || return 1
+  p=$(bk_physical "$1"); d=$(cd data && pwd -P)
+  [[ "$p" == "$d" || "$p" == "$d"/* ]]
+}
+
+# bk_running_services
+#   Prints the running Compose services, space-separated (empty when none run).
+#   Exit: 1 with an error message when Docker cannot be asked.
+bk_running_services() {
+  local out
+  if ! out=$(docker compose ps --services --status running); then
+    error "Could not ask Docker which services are running; nothing was stopped."; return 1
+  fi
+  # shellcheck disable=SC2086  # word-splitting joins the names with spaces
+  echo $out
+}
+
+# bk_start_services <services>
+#   Starts the space-separated <services> again; says so and does nothing when the list is empty.
+#   Exit: 0 started or nothing to start; 1 with an error message.
+bk_start_services() {
+  if [[ -z "${1// /}" ]]; then
+    info "The stack was not running before, so it stays stopped."; return 0
+  fi
+  info "Starting the stack"
+  # shellcheck disable=SC2086  # a list of service names
+  docker compose up -d $1 || { error "The stack did not start again: run docker compose up -d."; return 1; }
+}
+
+# bk_locked <function> <args...>
+#   Runs <function> holding .orcpub-offline.lock in the project folder, so two offline backups or
+#   restores of one stack never overlap. Exit: that of <function>; 1 when the lock is held.
+bk_locked() {
+  local rc=0
+  if ! mkdir .orcpub-offline.lock 2>/dev/null; then
+    error "Another offline backup or restore is running here (.orcpub-offline.lock)."
+    error "If none is, remove that folder and try again."
+    return 1
+  fi
+  "$@" || rc=$?
+  rmdir .orcpub-offline.lock 2>/dev/null || true
+  return "$rc"
+}
+
 # bk_datomic_cid
 #   Prints the container id of the running Compose "datomic" service. Exit: 1, silent, if none.
 bk_datomic_cid() {
@@ -89,19 +160,20 @@ bk_db_uri() {
 }
 
 # bk_run_cli <image> <backup-folder> <bin/datomic args...>
-#   Runs `bin/datomic <args>` in a temporary container of <image> on the Compose network,
-#   with <backup-folder> mounted at /backup (so use file:/backup/orcpub for the backup).
+#   Runs `bin/datomic <args>` in a temporary container of <image>, with <backup-folder> mounted at
+#   /backup (so use file:/backup/orcpub for the backup). It joins the Compose network only when an
+#   argument is a database URI, so verify-backup works with the transactor stopped.
 #   Any argument starting with "datomic:" (a database URI, which carries the password) is
 #   handed over as an environment variable, so it is not in the host's process list.
 #   Runs as the owner of <backup-folder> (the transactor container hands ./backups to its own
 #   user, which the host user may not be able to write).
 #   BACKUP_JAVA_OPTS (JVM flags, default "-Xms256m -Xmx1g") sizes the JVM.
-#   Exit: that of bin/datomic; 1 if the network is missing.
+#   Exit: that of bin/datomic; 1 if the network is needed and missing, or the owner unreadable.
 bk_run_cli() {
   local image="$1" dir="$2"; shift 2
-  local network a n=0 snippet=""
-  local -a envs=()
-  network=$(bk_network) || return 1
+  local network owner a n=0 snippet=""
+  local -a envs=() net=()
+  owner=$(bk_owner "$dir") || return 1
   for a in "$@"; do
     case "$a" in
       datomic:*)
@@ -112,13 +184,17 @@ bk_run_cli() {
       *) snippet+=" $(printf '%q' "$a")" ;;
     esac
   done
+  if [[ $n -gt 0 ]]; then
+    network=$(bk_network) || return 1
+    net=(--network="$network")
+  fi
   export DATOMIC_JAVA_OPTS="${BACKUP_JAVA_OPTS:--Xms256m -Xmx1g}"
   # The logging set-up lines Datomic prints at start are dropped; its own messages stay. The
   # subshell keeps docker's exit status (not grep's) whatever `set -e` is in force.
   local rc=0
   (
     set +e
-    docker run --rm --network="$network" --user "$(stat -c %u:%g "$dir")" \
+    docker run --rm "${net[@]+"${net[@]}"}" --user "$owner" \
       --tmpfs /datomic/log:rw,mode=1777 -e HOME=/tmp -e DATOMIC_JAVA_OPTS "${envs[@]+"${envs[@]}"}" \
       -v "${dir}:/backup" "$image" sh -c "exec bin/datomic${snippet}" 2>&1 \
       | grep --line-buffered -Ev '^[0-9]{2}:[0-9]{2}:[0-9]{2},[0-9]+ \|-|^$'
@@ -171,12 +247,12 @@ bk_prepare_dir() {
   mkdir -p "$dir" 2>/dev/null || [[ -d "$dir" ]] || { error "Cannot create backup folder: $dir"; return 1; }
   dir=$(cd "$dir" && pwd)
   image=$(bk_image)
-  if ! docker run --rm --user "$(stat -c %u:%g "$dir")" -v "$dir:/backup" --entrypoint sh "$image" \
+  local own
+  own=$(bk_owner "$dir") || return 1
+  if ! docker run --rm --user "$own" -v "$dir:/backup" --entrypoint sh "$image" \
       -c 'touch /backup/.write-test && rm -f /backup/.write-test' >/dev/null 2>&1; then
     error "Backup folder is not writable: $dir"; return 1
   fi
-  local own
-  own=$(stat -c %u:%g "$dir")
   if [[ -d "$dir/$BK_NAME" ]] && [[ -n "$(find "$dir/$BK_NAME" ! -user "${own%:*}" -print -quit 2>/dev/null)$(find "$dir/$BK_NAME" ! -readable -print -quit 2>/dev/null)" ]]; then
     info "Handing $dir/$BK_NAME to the folder's owner ($own), as older backups were written by root" >&2
     docker run --rm --user 0:0 -v "$dir:/backup" --entrypoint chown "$image" -R "$own" "/backup/$BK_NAME" >/dev/null 2>&1 \
@@ -273,29 +349,34 @@ bk_restore() {
 #   Offline fallback: stops the stack, copies ./data to <backup-folder>/offline-<UTC date-time>/data,
 #   starts the services that were running again (also when the copy failed). Copies run in the transactor image as
 #   root, so ownership of the files is kept.
+#   Refuses a <backup-folder> inside ./data. Holds the offline lock throughout (bk_locked).
 #   Exit: 0 copied and stack restarted; 1 otherwise.
 bk_offline_backup() {
+  bk_locked _bk_offline_backup "$@"
+}
+
+# _bk_offline_backup <backup-folder>
+#   bk_offline_backup's work, run under its lock. Exit: as bk_offline_backup.
+_bk_offline_backup() {
   local dir="$1" image stamp dest services rc=0
   if [[ ! -d data ]]; then
     error "No ./data folder here: nothing to copy (a Swarm stack keeps it in the orcpub_data volume)."
+    return 1
+  fi
+  if bk_inside_data "$dir"; then
+    error "The backup folder $dir is inside ./data, which is what gets copied: choose a folder outside it."
     return 1
   fi
   dir=$(bk_prepare_dir "$dir") || return 1
   image=$(bk_image)
   stamp=$(date -u +%Y-%m-%dT%H%M%SZ)
   dest="$dir/offline-$stamp"
-  services=$(docker compose ps --services --status running 2>/dev/null | tr '\n' ' ')
+  services=$(bk_running_services) || return 1
   info "Stopping the stack"
   docker compose down || { error "Could not stop the stack; no copy made."; return 1; }
   docker run --rm --entrypoint sh -v "$PWD/data:/src:ro" -v "$dir:/dst" "$image" -c \
     'mkdir -p "/dst/$1" && cp -a /src/. "/dst/$1/" && touch "/dst/$1/.orcpub-offline-backup"' sh "offline-$stamp" || rc=1
-  if [[ -z "${services// /}" ]]; then
-    info "The stack was not running before, so it stays stopped."
-  else
-    info "Starting the stack"
-    # shellcheck disable=SC2086  # $services is a list of service names
-    docker compose up -d $services || { error "The stack did not start again: run docker compose up -d."; rc=1; }
-  fi
+  bk_start_services "$services" || rc=1
   if [[ $rc -ne 0 ]]; then
     error "Offline backup failed; $dest is not complete."; return 1
   fi
@@ -305,17 +386,28 @@ bk_offline_backup() {
 # bk_offline_restore <offline-backup-folder>
 #   Puts an offline backup back: stops the stack, moves ./data to ./data.before-restore-<UTC stamp>,
 #   copies the backup in, starts the services that were running. Nothing is deleted.
-#   Exit: 0 restored; 1 otherwise (./data is put back if the copy failed).
+#   Refuses a backup inside ./data. Holds the offline lock throughout (bk_locked).
+#   Exit: 0 restored; 1 otherwise (if the copy failed, ./data is put back and the stack restarted).
 bk_offline_restore() {
-  local src="$1" image stamp aside services
+  bk_locked _bk_offline_restore "$@"
+}
+
+# _bk_offline_restore <offline-backup-folder>
+#   bk_offline_restore's work, run under its lock. Exit: as bk_offline_restore.
+_bk_offline_restore() {
+  local src="$1" image stamp aside services back=0
   if [[ ! -f "$src/.orcpub-offline-backup" ]]; then
     error "$src is not an offline backup (no .orcpub-offline-backup marker)."; return 1
+  fi
+  if bk_inside_data "$src"; then
+    error "The backup $src is inside ./data, which a restore moves aside: copy it out of ./data first."
+    return 1
   fi
   src=$(cd "$src" && pwd)
   image=$(bk_image)
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   aside="data.before-restore-$stamp"
-  services=$(docker compose ps --services --status running 2>/dev/null | tr '\n' ' ')
+  services=$(bk_running_services) || return 1
   info "Stopping the stack"
   docker compose down || { error "Could not stop the stack; nothing restored."; return 1; }
   if [[ -d data ]] && ! mv data "$aside"; then
@@ -328,15 +420,16 @@ bk_offline_restore() {
       -c 'cp -a /src/. /dst/ && rm -f /dst/.orcpub-offline-backup'; then
     error "Copy failed: putting ./data back."
     docker run --rm --entrypoint sh -v "$PWD/data:/dst" "$image" -c 'rm -rf /dst/* /dst/.[!.]*' || true
-    rmdir data 2>/dev/null; [[ -d "$aside" ]] && mv "$aside" data
+    rmdir data 2>/dev/null || back=1
+    if [[ $back -eq 0 && -d "$aside" ]]; then mv "$aside" data || back=1; fi
+    if [[ $back -ne 0 ]]; then
+      error "Could not put ./data back: the previous data is in ./$aside. The stack stays stopped."
+      return 1
+    fi
+    bk_start_services "$services" || true
+    error "Restore failed; the previous data is back in ./data."
     return 1
   fi
-  if [[ -z "${services// /}" ]]; then
-    info "The stack was not running before, so it stays stopped."
-  else
-    info "Starting the stack"
-    # shellcheck disable=SC2086  # $services is a list of service names
-    docker compose up -d $services || { error "The stack did not start: run docker compose up -d."; return 1; }
-  fi
+  bk_start_services "$services" || return 1
   info "Offline restore complete. The previous data is in ./$aside (delete it when satisfied)."
 }

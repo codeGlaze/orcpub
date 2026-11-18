@@ -85,8 +85,8 @@ services:
       # so it can override any of these.
       # Security stopgaps: JAVA_SECURITY_OPTS holds temporary Java flags for known CVEs, for both
       # the app and Datomic. -XX:-UseBASE64Intrinsics blocks CVE-2026-114938 (Java2Shell); remove
-      # it once the images run a patched Java 21. Set JAVA_SECURITY_OPTS in .env to override.
-      JDK_JAVA_OPTIONS: "${JAVA_SECURITY_OPTS--XX:-UseBASE64Intrinsics} -XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/lib/orcpub/state/crash/heap.hprof -XX:ErrorFile=/var/lib/orcpub/state/crash/jvm-crash-%p.log ${JAVA_OPTS:-}"
+      # it once the images run a patched Java 21. Set JAVA_SECURITY_OPTS in .env to replace it.
+      JDK_JAVA_OPTIONS: "${JAVA_SECURITY_OPTS:--XX:-UseBASE64Intrinsics} -XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/lib/orcpub/state/crash/heap.hprof -XX:ErrorFile=/var/lib/orcpub/state/crash/jvm-crash-%p.log ${JAVA_OPTS:-}"
       # Every other setting the server reads. Empty means "use the default", so these change
       # nothing until set in .env. Only names listed here reach the container.
       # Proxies in front of the app (docs/ENVIRONMENT.md, Security)
@@ -172,7 +172,7 @@ services:
       TRANSACTOR_HOST: ${TRANSACTOR_HOST:-}
       ENCRYPT_CHANNEL: ${ENCRYPT_CHANNEL:-true}
       # Security stopgaps: the same JAVA_SECURITY_OPTS as the app's JDK_JAVA_OPTIONS above.
-      JDK_JAVA_OPTIONS: "${JAVA_SECURITY_OPTS--XX:-UseBASE64Intrinsics}"
+      JDK_JAVA_OPTIONS: "${JAVA_SECURITY_OPTS:--XX:-UseBASE64Intrinsics}"
     volumes:
       - ./data:/data
       - ./logs:/log

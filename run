@@ -40,10 +40,12 @@ header()  { printf '\n%s=== %s ===%s\n\n' "$color_cyan" "$*" "$color_reset"; }
 next()    { printf '%s  ▸%s %s\n' "$color_cyan" "$color_reset" "$*"; }
 
 # Prints a variable's value as a .env file sets it, decoded as Compose does (quotes removed,
-# $NAME expanded, nothing run; scripts/load-env.sh); empty when the file does not set it.
+# $NAME expanded from the environment, nothing run; scripts/load-env.sh); empty when the file
+# does not set it. A reference to the variable itself (${NAME:-x}) sees the shell's value, as in Compose.
 # Usage: val=$(read_env_val "VAR_NAME" "/path/to/.env")
 read_env_val() {
-  ( unset "$1"; load_env "$2"; printf '%s' "${!1-}" ) 2>/dev/null || true
+  ( unset "$1"; load_env "$2"; [ -n "${!1+set}" ] ) 2>/dev/null || return 0
+  ( load_env "$2"; printf '%s' "${!1-}" ) 2>/dev/null || true
 }
 
 # Load a .env file: each NAME=value line is read, never run (scripts/load-env.sh).
@@ -285,9 +287,7 @@ check_env_conflict() {
   file_val=$(read_env_val "$var_name" "$ENV_FILE")
 
   if [ -n "$env_val" ] && [ -n "$file_val" ] && [ "$env_val" != "$file_val" ]; then
-    warn "  Shell \$${var_name} differs from .env value"
-    warn "    Shell: ${env_val}"
-    warn "    .env:  ${file_val}"
+    warn "  Shell \$${var_name} differs from .env; Docker Compose uses the shell's value (values not shown)"
     ENV_CONFLICTS+=("$var_name")
     WARNING_MSGS+=("\$${var_name}: shell value overrides .env")
     ERRORS=$((ERRORS + 1))
