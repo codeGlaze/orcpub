@@ -39,10 +39,11 @@ success() { printf '\n%s=== %s ===%s\n' "$color_green" "$*" "$color_reset"; }
 header()  { printf '\n%s=== %s ===%s\n\n' "$color_cyan" "$*" "$color_reset"; }
 next()    { printf '%s  ▸%s %s\n' "$color_cyan" "$color_reset" "$*"; }
 
-# Read a variable value from a .env file, stripping Windows \r line endings.
+# Prints a variable's value as a .env file sets it, decoded as Compose does (quotes removed,
+# $NAME expanded, nothing run; scripts/load-env.sh); empty when the file does not set it.
 # Usage: val=$(read_env_val "VAR_NAME" "/path/to/.env")
 read_env_val() {
-  grep -m1 "^${1}=" "$2" 2>/dev/null | cut -d= -f2- | tr -d '\r' || true
+  ( unset "$1"; load_env "$2"; printf '%s' "${!1-}" ) 2>/dev/null || true
 }
 
 # Load a .env file: each NAME=value line is read, never run (scripts/load-env.sh).

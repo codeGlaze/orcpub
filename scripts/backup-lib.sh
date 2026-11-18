@@ -69,7 +69,8 @@ bk_image() {
 }
 
 # bk_db_uri [db-name]
-#   Prints the datomic:dev URI of database [db-name] (default orcpub; "*" lists all), with the password the datomic container holds
+#   Prints the datomic:dev URI of database [db-name] (default orcpub; "*" lists all), with the password the transactor uses:
+#   its Docker secret /run/secrets/datomic_password when mounted, else its DATOMIC_PASSWORD
 #   (read inside the container, so it is never on a host command line).
 #   Exit: 1 with an error message when the service is not running.
 bk_db_uri() {
@@ -78,7 +79,8 @@ bk_db_uri() {
     error "The datomic service is not running. Start it with: docker compose up -d datomic"
     return 1
   fi
-  pw=$(docker exec "$cid" sh -c 'printf %s "$DATOMIC_PASSWORD"' 2>/dev/null || true)
+  pw=$(docker exec "$cid" sh -c 'if [ -f /run/secrets/datomic_password ]; then cat /run/secrets/datomic_password; else printf %s "$DATOMIC_PASSWORD"; fi' 2>/dev/null || true)
+  pw="${pw%$'\r'}"
   if [[ -z "$pw" ]]; then
     error "Could not read DATOMIC_PASSWORD from the datomic container."
     return 1
@@ -91,8 +93,8 @@ bk_db_uri() {
 #   with <backup-folder> mounted at /backup (so use file:/backup/orcpub for the backup).
 #   Any argument starting with "datomic:" (a database URI, which carries the password) is
 #   handed over as an environment variable, so it is not in the host's process list.
-#   Runs as the owner of <backup-folder> (the transactor container hands ./backups to its own
-#   user, which the host user may not be able to write).
+#   Runs as the owner of <backup-folder>/orcpub when it exists, else of <backup-folder> (the
+#   transactor container hands ./backups to its own user; older migrate runs left root-owned backups).
 #   BACKUP_JAVA_OPTS (JVM flags, default "-Xms256m -Xmx1g") sizes the JVM.
 #   Exit: that of bin/datomic; 1 if the network is missing.
 bk_run_cli() {
@@ -100,6 +102,8 @@ bk_run_cli() {
   local network a n=0 snippet=""
   local -a envs=()
   network=$(bk_network) || return 1
+  local owner="$dir"
+  [[ -d "$dir/$BK_NAME" ]] && owner="$dir/$BK_NAME"
   for a in "$@"; do
     case "$a" in
       datomic:*)
@@ -116,7 +120,7 @@ bk_run_cli() {
   local rc=0
   (
     set +e
-    docker run --rm --network="$network" --user "$(stat -c %u:%g "$dir")" \
+    docker run --rm --network="$network" --user "$(stat -c %u:%g "$owner")" \
       --tmpfs /datomic/log:rw,mode=1777 -e HOME=/tmp -e DATOMIC_JAVA_OPTS "${envs[@]+"${envs[@]}"}" \
       -v "${dir}:/backup" "$image" sh -c "exec bin/datomic${snippet}" 2>&1 \
       | grep --line-buffered -Ev '^[0-9]{2}:[0-9]{2}:[0-9]{2},[0-9]+ \|-|^$'
@@ -143,6 +147,20 @@ bk_db_exists() {
     *BK-ABSENT*) return 1 ;;
     *) return 2 ;;
   esac
+}
+
+# bk_wait_transactor
+#   Waits up to two minutes for the transactor to answer (a freshly started one takes a while).
+#   Exit: 0 it answered, with bk_db_exists's verdict in BK_DB_STATE (0 exists, 1 absent); 2 it never did.
+bk_wait_transactor() {
+  local i rc
+  for i in $(seq 1 12); do
+    rc=0; bk_db_exists || rc=$?
+    if [[ $rc -ne 2 ]]; then BK_DB_STATE=$rc; return 0; fi
+    [[ $i -eq 1 ]] && info "Waiting for the transactor to start"
+    sleep 10
+  done
+  return 2
 }
 
 # bk_prepare_dir <folder>
@@ -221,7 +239,8 @@ bk_restore() {
   if ! t=$(bk_latest_t "$dir/$BK_NAME"); then
     error "$dir/$BK_NAME has no restore point (empty or incomplete backup)."; return 1
   fi
-  bk_db_exists || rc=$?
+  bk_wait_transactor || rc=$?
+  [[ $rc -eq 0 ]] && rc=$BK_DB_STATE
   case "$rc" in
     0) error "The database '$BK_NAME' already exists on this transactor, so nothing was restored."
        error "A restore needs an empty database. To replace it: stop the app (docker compose stop orcpub),"
@@ -238,6 +257,9 @@ bk_restore() {
     error "restore-db failed: the database may be incomplete. Stop the stack, move ./data aside and try again."
     return 1
   fi
+  # Datomic needs its transactor restarted after a restore before peers connect.
+  info "Restarting the transactor"
+  docker compose restart datomic || { error "Restore done, but the transactor did not restart: run docker compose restart datomic."; return 1; }
   info "Restore complete (t=$t). Start the app: docker compose up -d"
 }
 
@@ -261,9 +283,13 @@ bk_offline_backup() {
   docker compose down || { error "Could not stop the stack; no copy made."; return 1; }
   docker run --rm --entrypoint sh -v "$PWD/data:/src:ro" -v "$dir:/dst" "$image" -c \
     'mkdir -p "/dst/$1" && cp -a /src/. "/dst/$1/" && touch "/dst/$1/.orcpub-offline-backup"' sh "offline-$stamp" || rc=1
-  info "Starting the stack"
-  # shellcheck disable=SC2086  # $services is a list of service names
-  docker compose up -d $services || { error "The stack did not start again: run docker compose up -d."; rc=1; }
+  if [[ -z "${services// /}" ]]; then
+    info "The stack was not running before, so it stays stopped."
+  else
+    info "Starting the stack"
+    # shellcheck disable=SC2086  # $services is a list of service names
+    docker compose up -d $services || { error "The stack did not start again: run docker compose up -d."; rc=1; }
+  fi
   if [[ $rc -ne 0 ]]; then
     error "Offline backup failed; $dest is not complete."; return 1
   fi
@@ -286,8 +312,12 @@ bk_offline_restore() {
   services=$(docker compose ps --services --status running 2>/dev/null | tr '\n' ' ')
   info "Stopping the stack"
   docker compose down || { error "Could not stop the stack; nothing restored."; return 1; }
-  [[ -d data ]] && mv data "$aside"
-  mkdir -p data
+  if [[ -d data ]] && ! mv data "$aside"; then
+    error "Could not move ./data aside; nothing restored. The stack is stopped: docker compose up -d"; return 1
+  fi
+  if ! mkdir data; then
+    error "Could not create ./data; the previous data is in ./$aside."; return 1
+  fi
   if ! docker run --rm --entrypoint sh -v "$src:/src:ro" -v "$PWD/data:/dst" "$image" \
       -c 'cp -a /src/. /dst/ && rm -f /dst/.orcpub-offline-backup'; then
     error "Copy failed: putting ./data back."
@@ -295,8 +325,12 @@ bk_offline_restore() {
     rmdir data 2>/dev/null; [[ -d "$aside" ]] && mv "$aside" data
     return 1
   fi
-  info "Starting the stack"
-  # shellcheck disable=SC2086  # $services is a list of service names
-  docker compose up -d $services || { error "The stack did not start: run docker compose up -d."; return 1; }
+  if [[ -z "${services// /}" ]]; then
+    info "The stack was not running before, so it stays stopped."
+  else
+    info "Starting the stack"
+    # shellcheck disable=SC2086  # $services is a list of service names
+    docker compose up -d $services || { error "The stack did not start: run docker compose up -d."; return 1; }
+  fi
   info "Offline restore complete. The previous data is in ./$aside (delete it when satisfied)."
 }
