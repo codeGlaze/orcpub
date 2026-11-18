@@ -74,7 +74,7 @@ const kitIconsAndGrid = async (page, sec, theme) => {
   const status = await page.evaluate(async u => (await fetch(u)).status, '/image/kits/explorers-pack-dark.svg');
   check(status === 200, 'the icon file is served (HTTP ' + status + ')');
   const tops = () => sec().locator('.kit-grid > *').evaluateAll(es => es.map(e => Math.round(e.getBoundingClientRect().top)));
-  const cols = async () => { const t = await tops(); return new Set(t).size < t.length ? 2 : 1; };
+  const cols = async () => { const t = await tops(); return t.filter(v => v === t[0]).length; };
   const shotKits = async name => {
     await page.addStyleTag({ content: '.sticky-header{position:static !important;top:auto !important}' });
     const g = sec().locator('.kit-grid');
