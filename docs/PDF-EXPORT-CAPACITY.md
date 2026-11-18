@@ -241,8 +241,8 @@ rather than reasoning about the code.
 
 **So the ceiling is applied to the request, not to the generators.**
 `routes/bound-request` runs once on the parsed body before any part of the export
-sees it, and does two things: a `spellcasting-class-N` name past the section
-ceiling is dropped outright, and every collection is truncated to the card
+sees it, and does two things: a `spellcasting-class-N` name whose number parses and is past the section
+ceiling is dropped outright (a suffix that does not parse as a number is kept, so readers must skip it), and every collection is truncated to the card
 ceiling. Because the field never arrives, no downstream reader can derive a number
 too large, however many of them there are.
 

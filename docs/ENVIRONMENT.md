@@ -27,13 +27,16 @@ On a Docker install, `./run` writes `.env` for you, with generated passwords and
 | You run | What reads `.env` |
 |---------|-------------------|
 | `./run`, `docker compose` | Compose reads it and passes the app container only the settings it names. Every setting on this page is named there, so setting it in `.env` is enough. A variable of your own that is not on this page does not reach the app. |
-| `docker stack deploy` (Swarm) | Not read. Export it first (`set -a; source .env; set +a`), or paste `.env.portainer` into Portainer. See [DOCKER.md](DOCKER.md#docker-swarm-deployment). |
+| `docker stack deploy` (Swarm) | Not read. Export it first (`source scripts/load-env.sh && load_env .env`), or paste `.env.portainer` into Portainer. See [DOCKER.md](DOCKER.md#docker-swarm-deployment). |
 | `./menu`, `./scripts/start.sh` | Sourced automatically. |
-| `lein repl`, `lein run` | Not read. They use development defaults, including a development `SIGNATURE`. To use your values, run `source .env && lein repl`. |
+| `lein repl`, `lein run` | Not read. They use development defaults, including a development `SIGNATURE`. To use your values, export them first with `source scripts/load-env.sh && load_env .env`, then start lein in the same shell. |
 
 A variable already set in your shell beats the `.env` value. Compose behaves the same way (see
 [DOCKER.md](DOCKER.md#connection-refused-localhost4335)). For the settings that support Docker
 secrets, a secret file beats both.
+
+Exception: `./run --secrets` reads `DATOMIC_PASSWORD`, `ADMIN_PASSWORD` and `SIGNATURE` from `.env`
+first, and uses the shell value only when the `.env` one is empty. Set them in `.env` before running it.
 
 ## Required settings
 

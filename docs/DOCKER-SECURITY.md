@@ -220,8 +220,9 @@ CSP_POLICY: ${CSP_POLICY:-strict}
 DEV_MODE: ${DEV_MODE:-}
 ```
 
-A variable that is in `.env` but not in the compose `environment:` block does nothing in Docker.
-All the settings in [ENVIRONMENT.md](ENVIRONMENT.md) are listed.
+A variable that is in `.env` but not in the compose `environment:` block does not reach the app container.
+All the settings the app container reads are listed. Host-side settings such as `BACKUP_DIR` are read
+by `./run` from `.env` and need no entry there.
 
 ## VOLUME Declarations
 

@@ -2,24 +2,11 @@
 
 New accounts normally confirm their email address. If you self-host with Docker and have no SMTP server, or you want to hand out accounts yourself, `docker-user.sh` creates pre-verified users directly in the database and skips email verification. It also lists, checks and verifies existing users.
 
-## Quick Start (Without Cloning)
+## Quick Start
 
-You don't need to clone the whole repo. Grab the three files you need and go:
+The compose file builds the app from the repository, so set the site up from a clone first: follow [DOCKER.md](DOCKER.md). Then create your account:
 
 ```bash
-# 1. Get the compose file and user scripts
-mkdir orcpub && cd orcpub
-curl -fLO https://raw.githubusercontent.com/Orcpub/orcpub/develop/docker-compose.yaml
-curl -fLO https://raw.githubusercontent.com/Orcpub/orcpub/develop/docker-user.sh
-mkdir -p docker/scripts
-curl -fL https://raw.githubusercontent.com/Orcpub/orcpub/develop/docker/scripts/manage-user.clj \
-     -o docker/scripts/manage-user.clj
-chmod +x docker-user.sh
-
-# 2. Start the stack
-docker compose up -d
-
-# 3. Create your account (script waits for healthcheck automatically)
 ./docker-user.sh create myname me@email.com MyPassword123
 ```
 

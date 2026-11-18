@@ -43,8 +43,9 @@ Results for real image hosts:
 | `i.pinimg.com` | no | **yes** (393 KB, fitted) |
 | `www.dndbeyond.com` | no | **yes** (148 KB, fitted) |
 
-Pinterest and D&D Beyond serve this server the picture without trouble. A heavy picture is fitted
-to the size ceiling rather than dropped, so a Pinterest portrait reaches the sheet with nothing
+Pinterest and D&D Beyond serve this server the picture without trouble. The server refuses a
+download over 2 MB before it fits anything. A picture within that limit but over the PDF size
+ceiling (128 KB) is fitted to it rather than dropped, so a Pinterest portrait reaches the sheet with nothing
 asked of the player.
 
 ## Which hosts allow the browser to read
