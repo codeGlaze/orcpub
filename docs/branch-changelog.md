@@ -35,6 +35,8 @@ warning.
 
 ## Added
 
+- **Server:** database backups from the command line: `./run --backup` while the site runs (each run adds only what changed), `./run --restore` and `./run --verify-backup`, and `./run --backup --offline` as a full-copy fallback.
+
 ## Changed
 
 - **Site:** the site footer groups its links into labelled Help, Support and Legal rows (one line across wide screens), with the copyright, SRD notice, credits and version in a quieter band below.
