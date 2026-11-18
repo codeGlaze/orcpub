@@ -14,28 +14,29 @@ the custom-item-classification table) is word for word in
 
 ## Current state
 
-*Updated 2026-10-23, checked against `git` that day. Update at every milestone — nothing else here
-carries live state.*
+*Updated 2026-11-18, checked against `git` and `gh` that day. Update at every milestone — nothing
+else here carries live state.*
 
-### Summer Patch: where it stands
+### Releases: where they stand
 
-- **Not released yet:** no tag exists. Everything for it is on `integration`, including the Rules
-  tab and SRD fixes (#58, #60, #61), the hidden-picks hold (#67, 2026-10-16) and portraits with
-  per-character builder drafts (#64, 2026-10-18). The Summer Patch Highlights paragraph does not
-  mention the Rules tab yet (owner's call). The SRD data is generated on `srd52/develop` from the
-  open5e clone's `srd-corrections` branch: [srd-improvements.md](docs/kb/srd-improvements.md);
-  open5e corrections are filed upstream as PRs #995-#997 and #999, issue #998.
-- **#32 is wanted now (owner, 2026-11-01); it is blocked by a `.gitignore` conflict with `develop` (below).** Before that it was parked. Measure again before relying on these older notes: re-measure
-  what `develop` has that `integration` lacks. On 2026-10-06 it was two commits (`15e1fe04` the
-  design-handoff gitignore, `93c15c03`), which conflict in `.gitignore`; on 2026-10-23
-  `git log --cherry-pick --right-only integration...develop` listed 44. And CodeQL fails on a regex built from a CLI argument in
-  `scripts/test/trace-probe.js` (cited 2026-10-06 as line 52, which no longer matches: re-read the
-  CodeQL alert), with two docker workflows missing a `permissions` block.
+- **The Summer Patch is public.** #32 (`integration` into our `develop`) merged 2026-11-05; upstream
+  `Orcpub/orcpub` #674 (`contrib/summer-fixes`) merged 2026-11-07 (`5ca8fa090`). No tag was cut;
+  upstream's latest is `v2.5.0.27` (2025-09-06). The Summer Patch Highlights paragraph does not
+  mention the Rules tab (owner's call). Older detail, including the `.gitignore` conflict that held
+  #32: [branch-md-2026-10-23.md](docs/kb/branch-md-2026-10-23.md).
+- **The next release is waiting on `integration`:** on 2026-11-18, 197 commits not on `develop` (#82
+  to #88, plus #89 once merged), all by codeGlaze with no agent trailers. Our `develop` is 3 behind
+  upstream, all from #674's own merge. Upstream `hotfix/locale-safety` #695 is still open.
+- **Release steps, each when the owner says so:** a new release PR takes `integration` into our
+  `develop` (owner, 2026-11-18: yes on our repo, after #89); the bundle-size browser test runs on
+  `integration` first. **Nothing goes upstream without the owner's separate yes**; an upstream PR
+  drops the fork-only files below and its text is drafted for the owner.
 - **The dev site runs `codeglaze/orcpub` `develop`** (owner, 2026-11-11). A fix reaches testers only
-  once #32 takes `integration` into `develop`; for a "fixed, not on the dev site yet" list, use
-  `git log --merges --first-parent origin/develop..origin/integration` plus open PRs.
-- **Release, when the owner says so:** #32 takes `integration` into `develop`; then refresh or replace
-  upstream #674 with "Fixes #N" for the 35 issues the release answers.
+  once a release PR takes `integration` into `develop`; for a "fixed, not on the dev site yet" list,
+  use `git log --merges --first-parent origin/develop..origin/integration` plus open PRs.
+- **SRD data** is generated on `srd52/develop` from the open5e clone's `srd-corrections` branch:
+  [srd-improvements.md](docs/kb/srd-improvements.md); open5e corrections are filed upstream as PRs
+  #995-#997 and #999, issue #998.
 - **Upstream issues:** #704 (two-tab character contamination, below) and #705-#712, umbrella issues
   for outcomes no issue covered. The changelog cites them.
 - **Fork-only files** (standing rule, owner, 2026-10-16: may live on our `develop`, removed before any
@@ -96,7 +97,7 @@ with `refactor/card-shape-layer`) and `refactor/garden-inline-styles` still targ
 are; not a pattern to copy. `refactor/views-extraction` and `refactor/data-extraction`: below.
 
 Releases are tags, not branches, so no branch name says which release it serves.
-**Summer Patch** ships from `integration` once the last hotfixes land — nothing tagged yet.
+**Summer Patch** shipped from `integration`: our `develop` 2026-11-05 (#32), upstream 2026-11-07 (#674); not tagged.
 **After that tag, everything is Fall Update: the refactor tree.**
 
 `refactor/main` is not a release family — it predates the Summer Patch. Don't rename it after a
