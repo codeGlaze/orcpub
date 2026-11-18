@@ -74,6 +74,16 @@ The rule is in `AGENTS.md`, "Tests". The commands:
 character through the full `entity/build` pipeline with inline configs, and checks class features,
 ability scores, proficiencies and spell slots.
 
+## Layout tests: phone, tablet, desktop
+
+A browser test that checks how a screen is laid out runs it on at least three devices: a small
+phone, a tablet and a desktop browser. Widths in between are welcome. Give each its own browser
+context with its device profile (Playwright's `devices`), never one phone profile resized: a
+stretched iPhone keeps its touch screen, user agent and 3x pixels, and drew four kits across where
+every desktop browser draws two. Smallest phone: 344px wide (Galaxy Fold 5, folded). The pattern to
+copy is `LAYOUT_DEVICES` in `test/browser/inventory_kits_sheet_e2e.js`: a small phone, an iPad, a
+1440px desktop and a 1920px one, each logged in with the first page's `storageState`.
+
 ## Gotchas
 
 ### clj vs cljs test boundary

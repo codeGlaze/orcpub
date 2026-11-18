@@ -402,6 +402,7 @@ on a phone, two in the builder's column, more on a wide sheet; an open kit spans
 of tiles was rejected ("garbage"): it hid each kit's contents.
 Each kit is a framed `.kit-card` and Add a kit a dashed one: an unframed grid read as one loose
 line at 2000px ("this isn't a grid"), with Restock floating between kits. The sheet e2e checks the frames.
+On a desktop browser the sheet keeps the kits block at 710px: two kits across at 1440 and 1920px.
 
 The workbench that made them: `scripts/design/icon-workbench/` (template, build script, extra icons,
 and `kit-icon-workbench.html`, the page as the owner used it).
