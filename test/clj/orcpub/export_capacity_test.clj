@@ -129,11 +129,14 @@
           bounded (bound-request {:character-name "T"
                                   :spellcasting-class-1 "Wizard"
                                   (keyword (str "spellcasting-class-" (inc ceiling))) "Wizard"
-                                  :spellcasting-class-9999 "Wizard"})]
+                                  :spellcasting-class-9999 "Wizard"
+                                  :spellcasting-class-9223372036854775808 "Wizard"})]
       (is (contains? bounded :spellcasting-class-1))
       (is (not (contains? bounded :spellcasting-class-9999))
           "the field is dropped, so neither the handler nor add-missing-spell-pages!
            can derive a number too large -- the reason the first fix missed one")
+      (is (not (contains? bounded :spellcasting-class-9223372036854775808))
+          "a number too long to parse is dropped too, not let through as zero")
       (is (= "T" (:character-name bounded)) "ordinary fields pass through")))
 
   (testing "any collection is capped, including one nobody has written yet"
