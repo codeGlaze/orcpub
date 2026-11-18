@@ -73,6 +73,9 @@
                          [io.netty/netty-transport-native-unix-common "4.1.141.Final"]
                          [io.netty/netty-transport-native-epoll "4.1.141.Final" :classifier "linux-x86_64"]
                          [io.netty/netty-transport-native-kqueue "4.1.141.Final" :classifier "osx-x86_64"]
+                         ;; Pedestal's upload parser (the app takes no uploads) and garden's file utilities
+                         [org.apache.commons/commons-fileupload2-core "2.0.0-M4"]
+                         [org.codehaus.plexus/plexus-utils "4.0.3"]
                          ;; Pedestal's tracing API
                          [io.opentelemetry/opentelemetry-api "1.68.0"]
                          [io.opentelemetry/opentelemetry-context "1.68.0"]]
