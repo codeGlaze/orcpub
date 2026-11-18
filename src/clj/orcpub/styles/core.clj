@@ -2345,6 +2345,10 @@
 
     ;; Kits on the Equipment step (plan-inventory-kits.md). Colours follow the text colour, so
     ;; every theme draws them without its own rule.
+    ;; The kits as a grid: one column on a phone, more as the column widens. An open kit
+    ;; (.kit-open) spans the row.
+    [:.kit-grid {:display :grid :grid-template-columns "repeat(auto-fill, minmax(300px, 1fr))" :gap "10px 16px"}
+     [:.kit-open {:grid-column "1 / -1"}]]
     [:.kit-row {:display :flex :align-items :center :gap "10px" :min-height "48px" :padding "4px 0"}]
     [:.kit-tile
      {:flex "0 0 48px" :width "48px" :height "48px" :border-radius "8px"
