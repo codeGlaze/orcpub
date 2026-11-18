@@ -74,6 +74,15 @@ const kitIconsAndGrid = async (page, sec, theme) => {
   await shotKits('kits-1280-light.png');
   await theme('dark-theme'); await ensureKits();
   await shotKits('kits-1280-dark.png');
+  // Each cell is framed, so the cells read as a grid at any width rather than one loose line.
+  const frames = await sec().locator('.kit-grid > *').evaluateAll(es => es.map(e => {
+    const c = getComputedStyle(e);
+    return { w: parseFloat(c.borderTopWidth), s: c.borderTopStyle, add: e.classList.contains('kit-add') };
+  }));
+  check(frames.length >= 5 && frames.every(f => f.w >= 1 && f.s === (f.add ? 'dashed' : 'solid')),
+        'every kit is a framed card, and Add a kit a dashed one (' + frames.map(f => f.s).join() + ')');
+  await page.setViewportSize({ width: 1920, height: 900 }); await settle(page, 800);
+  await shotKits('kits-1920-dark.png');
   await page.setViewportSize({ width: 700, height: 900 }); await settle(page, 800);
   await shotKits('kits-700-dark.png');
   await sec().locator('button.kit-summary').first().click(); await settle(page, 400);
