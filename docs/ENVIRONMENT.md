@@ -125,8 +125,8 @@ A bad value never takes the site down by itself. It is reported and the default 
 | `ENCRYPT_CHANNEL` | `true` | Encrypts app-to-transactor traffic. Turn it off only to debug. |
 | `ADMIN_PASSWORD_OLD`, `DATOMIC_PASSWORD_OLD` | none | The previous passwords, during a rotation. Remove them once the app has reconnected. See [DOCKER.md](DOCKER.md#password-rotation). |
 | `COMPOSE_FILE` | none | `./run --secrets` adds this so Compose merges `docker-compose.secrets.yaml`. Do not set it by hand. |
+| `JAVA2SHELL_STOPGAP` | `true` | `true` or `false`. On, Java in the app and Datomic containers starts with the option that blocks CVE-2026-114938 (Java2Shell). Turn it off once the images run a patched Java 21. Any other value keeps it on. |
 | `JAVA_OPTS` | empty | Java options for the app, for example `-XX:MaxRAMPercentage=75.0`. Left empty, Java uses 25% of the container's memory. See [DOCKER.md](DOCKER.md#logs-crashes-and-the-apps-memory). |
-| `JAVA_SECURITY_OPTS` | `-XX:-UseBASE64Intrinsics` | Security stopgaps: temporary Java flags for known CVEs, for the app and Datomic (Docker). The default blocks CVE-2026-114938 (Java2Shell) until the images run a patched Java 21. Blank uses the default; to turn it off, set `-XX:+UseBASE64Intrinsics`. |
 | `XMS`, `XMX` | `-Xms1g`, `-Xmx1g` | Heap size of the Swarm transactor, as the full option (`-Xmx2g`). They do not affect the app. |
 | `APP_MEMORY_LIMIT`, `APP_MEMORY_RESERVATION` | `2G`, `1G` | Swarm only: the app container's hard memory limit and its scheduling minimum. |
 | `APP_LOGS_NAME` | `orcpub` | Name of the folder in the host's `/var/log` where the app keeps crash files and unsent admin alerts. A plain name only. |
