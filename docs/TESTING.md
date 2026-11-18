@@ -83,6 +83,7 @@ stretched iPhone keeps its touch screen, user agent and 3x pixels, and drew four
 every desktop browser draws two. Smallest phone: 344px wide (Galaxy Fold 5, folded). The pattern to
 copy is `LAYOUT_DEVICES` in `test/browser/inventory_kits_sheet_e2e.js`: a small phone, an iPad, a
 1440px desktop and a 1920px one, each logged in with the first page's `storageState`.
+Older suites that resize one profile move to this when they are next worked on (owner, 2026-11-17).
 
 ## Gotchas
 
