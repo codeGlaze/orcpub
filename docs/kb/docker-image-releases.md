@@ -28,3 +28,4 @@ security fix (CVE-2026-114938) reaches users only through a new run.
   permissions, the tag validated before use, current action versions, publishing only from
   `Orcpub/orcpub`); it reaches upstream with the next upstream PR.
 - Publishing is an upstream action: the owner's call each time.
+- The CVE-2026-114938 stopgap in the images is `JAVA2SHELL_STOPGAP` (true or false, default true), read by `deploy/app-start.sh` and `deploy/start.sh`.

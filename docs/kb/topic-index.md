@@ -1341,7 +1341,7 @@ _dmv-production-changes · dmv production changes_
 
 _docker-image-releases · docker image releases_
 
-**topics:** 2025-09-11, 2026-02-19, 2026-11-07, 2026-11-18, 410, 674, cve-2026-114938, dispatch, docker, hub, images, newest, publishing, secrets, tag, temurin, upstream, workflow
+**topics:** 2025-09-11, 2026-02-19, 2026-11-07, 2026-11-18, 410, cve-2026-114938, dispatch, docker, hub, images, newest, publishing, secrets, stopgap, tag, temurin, upstream, workflow
 
 - How it works
 - State on 2026-11-18
