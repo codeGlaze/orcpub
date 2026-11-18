@@ -590,6 +590,13 @@ Individual steps:
   --up                Deploy as a Docker Swarm stack
   --down              Teardown (auto-detects Swarm vs Compose)
 
+Database backups (Compose stack; docs/DOCKER.md, "Backups"):
+  --backup            Back up the running database into ./backups (repeat it: only new data is added)
+  --backup --offline  Stop the stack, copy ./data to ./backups/offline-<date>, start the stack
+  --restore <folder>  Restore a backup folder (a live one, or an offline-<date> one) into an empty database
+  --verify-backup <folder>  Check that a backup folder can be restored
+  --backup-dir <dir>  Where backups go (default: BACKUP_DIR from .env, else ./backups)
+
 Setup & secrets:
   --secrets           Convert .env passwords to Docker secret files
   --swarm             Convert .env passwords to Docker Swarm secrets
@@ -609,6 +616,7 @@ Examples:
   ./${SCRIPT_NAME}                    # Full pipeline — interactive
   ./${SCRIPT_NAME} --auto             # Full pipeline — accept defaults (CI)
   ./${SCRIPT_NAME} --down             # Stop everything
+  ./${SCRIPT_NAME} --backup           # Back up the database while the app runs
   ./${SCRIPT_NAME} --check            # Validate without changes
   ./${SCRIPT_NAME} --build            # Build images only
   ./${SCRIPT_NAME} --upgrade          # Fix old .env format
@@ -630,9 +638,28 @@ FORCE_MODE=false
 SECRETS_MODE=false
 SWARM_MODE=false
 UPGRADE_MODE=false
+BACKUP_MODE=false
+OFFLINE_MODE=false
+RESTORE_FROM=""
+VERIFY_FROM=""
+BACKUP_DIR_ARG=""
 
-for arg in "$@"; do
+while [ $# -gt 0 ]; do
+  arg="$1"; shift
   case "$arg" in
+    --backup)  BACKUP_MODE=true ;;
+    --offline) OFFLINE_MODE=true ;;
+    --restore|--verify-backup|--backup-dir)
+      if [ $# -eq 0 ] || [ -z "$1" ] || [[ "$1" == --* ]]; then
+        error "$arg needs a folder, for example: ./${SCRIPT_NAME} $arg ./backups"
+        exit 1
+      fi
+      case "$arg" in
+        --restore)        RESTORE_FROM="$1" ;;
+        --verify-backup)  VERIFY_FROM="$1" ;;
+        --backup-dir)     BACKUP_DIR_ARG="$1" ;;
+      esac
+      shift ;;
     --auto)    AUTO_MODE=true ;;
     --check)   CHECK_MODE=true ;;
     --build)   BUILD_MODE=true ;;
@@ -666,8 +693,35 @@ if [ "$DOWN_MODE" = "true" ]; then
   done
 fi
 
+# Backup modes are standalone, and --offline only goes with --backup.
+_backup_flags=0
+[ "$BACKUP_MODE" = "true" ] && _backup_flags=$((_backup_flags + 1))
+[ -n "$RESTORE_FROM" ] && _backup_flags=$((_backup_flags + 1))
+[ -n "$VERIFY_FROM" ] && _backup_flags=$((_backup_flags + 1))
+if [ "$_backup_flags" -gt 1 ]; then
+  error "Use only one of --backup, --restore and --verify-backup."
+  exit 1
+fi
+if [ "$_backup_flags" -eq 1 ]; then
+  for _m in "$UP_MODE" "$BUILD_MODE" "$SECRETS_MODE" "$SWARM_MODE" "$UPGRADE_MODE" "$DOWN_MODE" "$CHECK_MODE"; do
+    if [ "$_m" = "true" ]; then
+      error "--backup, --restore and --verify-backup cannot be combined with other mode flags."
+      exit 1
+    fi
+  done
+fi
+if [ "$OFFLINE_MODE" = "true" ] && [ "$BACKUP_MODE" != "true" ]; then
+  error "--offline goes with --backup: ./${SCRIPT_NAME} --backup --offline"
+  exit 1
+fi
+if [ -n "$BACKUP_DIR_ARG" ] && [ "$_backup_flags" -eq 0 ]; then
+  error "--backup-dir goes with --backup."
+  exit 1
+fi
+
 # Detect naked mode (no mode flags set)
 _any_mode=false
+[ "$_backup_flags" -gt 0 ] && _any_mode=true
 for _m in "$CHECK_MODE" "$SECRETS_MODE" "$SWARM_MODE" "$BUILD_MODE" "$UP_MODE" "$UPGRADE_MODE" "$DOWN_MODE"; do
   [ "$_m" = "true" ] && _any_mode=true
 done
@@ -810,6 +864,42 @@ if [ "$DOWN_MODE" = "true" ]; then
     info "No running services found."
   fi
 
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Backup modes (--backup, --backup --offline, --restore, --verify-backup)
+# ---------------------------------------------------------------------------
+# The work is in scripts/backup-lib.sh, shared with docker-migrate.sh.
+
+if [ "$_backup_flags" -gt 0 ]; then
+  cd "$SCRIPT_DIR"
+  # shellcheck source=scripts/backup-lib.sh
+  . "${SCRIPT_DIR}/scripts/backup-lib.sh"
+  if ! docker compose version >/dev/null 2>&1; then
+    error "Docker Compose v2 ('docker compose') is required."
+    exit 1
+  fi
+  _bdir="${BACKUP_DIR_ARG:-${BACKUP_DIR:-$(read_env_val BACKUP_DIR "$ENV_FILE")}}"
+  _bdir="${_bdir:-./backups}"
+  if [ "$BACKUP_MODE" = "true" ]; then
+    header "Dungeon Master's Vault — Database Backup"
+    if [ "$OFFLINE_MODE" = "true" ]; then
+      bk_offline_backup "$_bdir" || exit 1
+    else
+      bk_backup "$_bdir" || exit 1
+    fi
+  elif [ -n "$VERIFY_FROM" ]; then
+    header "Dungeon Master's Vault — Verify Backup"
+    bk_verify "$VERIFY_FROM" || exit 1
+  else
+    header "Dungeon Master's Vault — Database Restore"
+    if [ -f "$RESTORE_FROM/.orcpub-offline-backup" ]; then
+      bk_offline_restore "$RESTORE_FROM" || exit 1
+    else
+      bk_restore "$RESTORE_FROM" || exit 1
+    fi
+  fi
   exit 0
 fi
 
