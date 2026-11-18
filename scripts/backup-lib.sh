@@ -9,8 +9,13 @@
 # The sourcing script must define: info, warn, error (each prints one line), and
 # must run from the repo root (where docker-compose.yaml is).
 #
-# Layout: a backup folder DIR holds the Datomic backup in DIR/orcpub/ (roots/, ...).
-# Repeating a backup into the same DIR adds only what is new.
+# Layout: live backups go to DIR/<YYYY-MM>/orcpub/ (roots/, ...), one folder per month. Repeating a
+# backup in the same month adds only what is new; the first backup of a month starts a full one,
+# and once it verifies, month folders beyond BACKUP_KEEP_MONTHS (default 3) are deleted. Offline
+# copies are DIR/offline-<UTC stamp>/, the newest BACKUP_KEEP_OFFLINE (default 3) kept.
+# Storage: DATOMIC_URL decides. A datomic:sql:// address (Postgres) is backed up and restored
+# through that address; anything else is the Compose stack's dev storage. BACKUP_NETWORK names the
+# Docker network the backup container joins, when the database is not on the datomic service's.
 # =============================================================================
 
 [[ -n "${_ORCPUB_BACKUP_LIB_LOADED:-}" ]] && return
@@ -105,6 +110,81 @@ bk_locked() {
   return "$rc"
 }
 
+# bk_is_sql
+#   Exit: 0 when DATOMIC_URL is a datomic:sql:// address (Postgres storage); 1 otherwise.
+bk_is_sql() {
+  [[ "${DATOMIC_URL:-}" == datomic:sql://* ]]
+}
+
+# bk_db_name
+#   Prints the database name: the one in a datomic:sql:// DATOMIC_URL, else orcpub.
+bk_db_name() {
+  if bk_is_sql; then
+    local rest="${DATOMIC_URL#datomic:sql://}"
+    echo "${rest%%\?*}"
+  else
+    echo "$BK_NAME"
+  fi
+}
+
+# bk_du_kb <path>
+#   Prints the size of <path> in KB, read in a root container of the transactor image (backups
+#   and ./data are owned by container users). Prints 0 when it cannot be read.
+bk_du_kb() {
+  local kb
+  kb=$(docker run --rm -v "$1:/p:ro" --entrypoint du "$(bk_image)" -sk /p 2>/dev/null | cut -f1)
+  [[ "$kb" =~ ^[0-9]+$ ]] && echo "$kb" || echo 0
+}
+
+# bk_check_space <folder> <needed-kb> <what>
+#   Refuses, with what to do, when the disk holding <folder> has less free space than
+#   <needed-kb> plus a tenth. <what> names the copy in the message. Exit: 0 fits; 1 does not.
+bk_check_space() {
+  local free need=$(( $2 + $2 / 10 ))
+  free=$(df -Pk "$1" 2>/dev/null | awk 'NR==2 {print $4}')
+  [[ "$free" =~ ^[0-9]+$ ]] || return 0
+  if (( need > free )); then
+    error "Not enough space for $3 in $1: about $(( need / 1024 )) MB needed, $(( free / 1024 )) MB free."
+    error "Free some space, lower BACKUP_KEEP_MONTHS / BACKUP_KEEP_OFFLINE, or use --backup-dir on another disk."
+    return 1
+  fi
+}
+
+# bk_months <folder>
+#   Prints the month folders (YYYY-MM) in <folder>, oldest first, one per line.
+bk_months() {
+  local d
+  for d in "$1"/[0-9][0-9][0-9][0-9]-[0-9][0-9]; do
+    [[ -d "$d/$BK_NAME" ]] && basename "$d"
+  done | sort
+}
+
+# bk_resolve <folder>
+#   Prints the backup folder a command should use: <folder> itself when it holds orcpub/, else its
+#   newest month folder. Prints <folder> unchanged when neither exists (the caller reports it).
+bk_resolve() {
+  local newest
+  if [[ -d "$1/$BK_NAME" ]]; then echo "$1"; return; fi
+  newest=$(bk_months "$1" | tail -1)
+  if [[ -n "$newest" ]]; then echo "$1/$newest"; else echo "$1"; fi
+}
+
+# bk_prune <folder> <glob> <keep> <what>
+#   Deletes all but the newest <keep> entries of <folder>/<glob> (names sort oldest first), in a
+#   root container. <what> names them in the messages. Exit: 0; 1 when a delete failed.
+bk_prune() {
+  local dir="$1" glob="$2" keep="$3" what="$4" rc=0 name
+  local -a all=()
+  [[ "$keep" =~ ^[0-9]+$ ]] && (( keep >= 1 )) || { warn "Keeping every $what: the keep count '$keep' is not 1 or more."; return 0; }
+  mapfile -t all < <(cd "$dir" && for d in $glob; do [[ -d "$d" ]] && echo "$d"; done | sort)
+  (( ${#all[@]} > keep )) || return 0
+  for name in "${all[@]:0:${#all[@]}-keep}"; do
+    info "Deleting the old $what $dir/$name (keeping the newest $keep)"
+    docker run --rm --user 0:0 -v "$dir:/b" --entrypoint rm "$(bk_image)" -r "/b/$name" || rc=1
+  done
+  return "$rc"
+}
+
 # bk_datomic_cid
 #   Prints the container id of the running Compose "datomic" service. Exit: 1, silent, if none.
 bk_datomic_cid() {
@@ -115,10 +195,11 @@ bk_datomic_cid() {
 }
 
 # bk_network
-#   Prints the Compose network of the running datomic container.
+#   Prints BACKUP_NETWORK when set, else the Compose network of the running datomic container.
 #   Exit: 1 with an error message when the service is not running.
 bk_network() {
   local cid
+  if [[ -n "${BACKUP_NETWORK:-}" ]]; then echo "$BACKUP_NETWORK"; return; fi
   if ! cid=$(bk_datomic_cid); then
     error "The datomic service is not running. Start it with: docker compose up -d datomic"
     return 1
@@ -140,12 +221,22 @@ bk_image() {
 }
 
 # bk_db_uri [db-name]
-#   Prints the datomic:dev URI of database [db-name] (default orcpub; "*" lists all), with the password the transactor uses:
+#   Prints the URI of database [db-name] (default bk_db_name; "*" lists all). With a datomic:sql://
+#   DATOMIC_URL, that address with the name swapped in (its JDBC part carries the Postgres login).
+#   Otherwise the datomic:dev URI on the datomic service, with the password the transactor uses:
 #   its Docker secret /run/secrets/datomic_password when mounted, else its DATOMIC_PASSWORD
 #   (read inside the container, so it is never on a host command line).
-#   Exit: 1 with an error message when the service is not running.
+#   Exit: 1 with an error message when the service is not running or the address has no JDBC part.
 bk_db_uri() {
   local cid pw
+  if bk_is_sql; then
+    local rest="${DATOMIC_URL#datomic:sql://}"
+    if [[ "$rest" != *\?* ]]; then
+      error "DATOMIC_URL is a datomic:sql:// address without its ?jdbc:... part."; return 1
+    fi
+    printf 'datomic:sql://%s?%s' "${1:-$(bk_db_name)}" "${rest#*\?}"
+    return
+  fi
   if ! cid=$(bk_datomic_cid); then
     error "The datomic service is not running. Start it with: docker compose up -d datomic"
     return 1
@@ -156,7 +247,7 @@ bk_db_uri() {
     error "Could not read DATOMIC_PASSWORD from the datomic container."
     return 1
   fi
-  printf 'datomic:dev://datomic:4334/%s?password=%s' "${1:-$BK_NAME}" "$pw"
+  printf 'datomic:dev://datomic:4334/%s?password=%s' "${1:-$(bk_db_name)}" "$pw"
 }
 
 # bk_run_cli <image> <backup-folder> <bin/datomic args...>
@@ -204,7 +295,7 @@ bk_run_cli() {
 }
 
 # bk_db_exists
-#   Asks the transactor whether the database "orcpub" exists (a short peer program in the
+#   Asks the transactor whether the database (bk_db_name) exists (a short peer program in the
 #   transactor image: bin/datomic has no list-databases).
 #   Exit: 0 it exists; 1 it does not; 2 that could not be told (transactor unreachable).
 bk_db_exists() {
@@ -212,10 +303,11 @@ bk_db_exists() {
   image=$(bk_image)
   uri=$(bk_db_uri '*') || return 2
   network=$(bk_network) || return 2
-  export BK_URI_1="$uri"
-  out=$(docker run --rm --network="$network" --user "$(id -u):$(id -g)" -e HOME=/tmp -e BK_URI_1 \
+  export BK_URI_1="$uri" BK_DB
+  BK_DB=$(bk_db_name)
+  out=$(docker run --rm --network="$network" --user "$(id -u):$(id -g)" -e HOME=/tmp -e BK_URI_1 -e BK_DB \
     "$image" sh -c 'exec java -Xms64m -Xmx256m -cp "$(bin/classpath)" clojure.main -e \
-    "(require (quote [datomic.api :as d])) (println (if (some #{\"orcpub\"} (d/get-database-names (System/getenv \"BK_URI_1\"))) \"BK-EXISTS\" \"BK-ABSENT\")) (d/shutdown true)"' 2>/dev/null) || return 2
+    "(require (quote [datomic.api :as d])) (println (if (some #{(System/getenv \"BK_DB\")} (d/get-database-names (System/getenv \"BK_URI_1\"))) \"BK-EXISTS\" \"BK-ABSENT\")) (d/shutdown true)"' 2>/dev/null) || return 2
   case "$out" in
     *BK-EXISTS*) return 0 ;;
     *BK-ABSENT*) return 1 ;;
@@ -262,11 +354,24 @@ bk_prepare_dir() {
 }
 
 # bk_backup <backup-folder>
-#   Live backup: `backup-db` of the running database into <backup-folder>/orcpub. Repeating it
-#   into the same folder is incremental. #   Exit: 0 done; 1 on any failure (an error message says why).
+#   Live backup: `backup-db` of the running database (dev or Postgres storage) into
+#   <backup-folder>/<YYYY-MM>/orcpub. Repeating it in the same month is incremental. The first
+#   backup of a month is checked for space first (the size of the newest month), and once it
+#   verifies, month folders beyond BACKUP_KEEP_MONTHS (default 3) are deleted.
+#   Exit: 0 done; 1 on any failure (an error message says why).
 bk_backup() {
-  local dir="$1" image uri
-  dir=$(bk_prepare_dir "$dir") || return 1
+  local base="$1" dir image uri month newest new=false
+  base=$(bk_prepare_dir "$base") || return 1
+  month=$(date -u +%Y-%m)
+  if [[ ! -d "$base/$month/$BK_NAME/roots" ]]; then
+    new=true
+    newest=$(bk_months "$base" | tail -1)
+    if [[ -n "$newest" ]]; then
+      bk_check_space "$base" "$(bk_du_kb "$base/$newest")" "a new month's backup" || return 1
+    fi
+  fi
+  [[ -d "$base/$BK_NAME" ]] && info "The backup in $base/$BK_NAME (before month folders) is left as it is."
+  dir=$(bk_prepare_dir "$base/$month") || return 1
   image=$(bk_image)
   uri=$(bk_db_uri) || return 1
   info "Backing up the database to $dir/$BK_NAME ($( [[ -d "$dir/$BK_NAME/roots" ]] && echo 'adding to the existing backup' || echo 'first backup'))"
@@ -278,14 +383,24 @@ bk_backup() {
     error "backup-db reported success but $dir/$BK_NAME has no restore point."
     return 1
   fi
-  info "Backup complete: $dir/$BK_NAME (restore point t=$(bk_latest_t "$dir/$BK_NAME"))"
+  info "Backup complete: $dir/$BK_NAME (restore point t=$(bk_latest_t "$dir/$BK_NAME"), $(( $(bk_du_kb "$dir") / 1024 )) MB)"
+  if [[ "$new" == true ]] && (( $(bk_months "$base" | wc -l) > ${BACKUP_KEEP_MONTHS:-3} )); then
+    if bk_verify "$dir"; then
+      bk_prune "$base" '[0-9][0-9][0-9][0-9]-[0-9][0-9]' "${BACKUP_KEEP_MONTHS:-3}" "monthly backup" || return 1
+    else
+      warn "Older month folders are kept, since this month's backup did not verify."
+      return 1
+    fi
+  fi
 }
 
 # bk_verify <backup-folder>
 #   Checks every segment of the latest restore point in <backup-folder>/orcpub (verify-backup).
+#   <backup-folder> may also be the folder of month folders: the newest month is checked.
 #   Exit: 0 verified; 1 missing, empty, corrupt or unreadable.
 bk_verify() {
-  local dir="$1" image t out rc
+  local dir image t out rc
+  dir=$(bk_resolve "$1")
   if [[ ! -d "$dir/$BK_NAME" ]]; then
     error "No backup found at $dir/$BK_NAME"; return 1
   fi
@@ -309,11 +424,13 @@ bk_verify() {
 }
 
 # bk_restore <backup-folder>
-#   Restores <backup-folder>/orcpub into an empty database on the running transactor.
+#   Restores <backup-folder>/orcpub into an empty database on the running transactor (dev or
+#   Postgres storage). <backup-folder> may be the folder of month folders: the newest is used.
 #   Refuses, with what to do, when the database "orcpub" already exists.
 #   Exit: 0 restored; 1 on any failure or refusal.
 bk_restore() {
-  local dir="$1" image uri t rc=0
+  local dir image uri t rc=0
+  dir=$(bk_resolve "$1")
   if [[ ! -d "$dir/$BK_NAME" ]]; then
     error "No backup found at $dir/$BK_NAME"; return 1
   fi
@@ -359,6 +476,11 @@ bk_offline_backup() {
 #   bk_offline_backup's work, run under its lock. Exit: as bk_offline_backup.
 _bk_offline_backup() {
   local dir="$1" image stamp dest services rc=0
+  if bk_is_sql; then
+    error "DATOMIC_URL stores the database in Postgres, so ./data holds none of it: an offline copy would copy nothing."
+    error "Use ./run --backup (works on Postgres too), and the Postgres server's own backups (pg_dump or archiving)."
+    return 1
+  fi
   if [[ ! -d data ]]; then
     error "No ./data folder here: nothing to copy (a Swarm stack keeps it in the orcpub_data volume)."
     return 1
@@ -368,6 +490,7 @@ _bk_offline_backup() {
     return 1
   fi
   dir=$(bk_prepare_dir "$dir") || return 1
+  bk_check_space "$dir" "$(bk_du_kb "$PWD/data")" "an offline copy of ./data" || return 1
   image=$(bk_image)
   stamp=$(date -u +%Y-%m-%dT%H%M%SZ)
   dest="$dir/offline-$stamp"
@@ -380,7 +503,8 @@ _bk_offline_backup() {
   if [[ $rc -ne 0 ]]; then
     error "Offline backup failed; $dest is not complete."; return 1
   fi
-  info "Offline backup complete: $dest"
+  info "Offline backup complete: $dest ($(( $(bk_du_kb "$dest") / 1024 )) MB)"
+  bk_prune "$dir" 'offline-*' "${BACKUP_KEEP_OFFLINE:-3}" "offline copy" || return 1
 }
 
 # bk_offline_restore <offline-backup-folder>
@@ -396,6 +520,11 @@ bk_offline_restore() {
 #   bk_offline_restore's work, run under its lock. Exit: as bk_offline_restore.
 _bk_offline_restore() {
   local src="$1" image stamp aside services back=0
+  if bk_is_sql; then
+    error "DATOMIC_URL stores the database in Postgres: an offline copy of ./data cannot restore it."
+    error "Restore a live backup with ./run --restore <folder>."
+    return 1
+  fi
   if [[ ! -f "$src/.orcpub-offline-backup" ]]; then
     error "$src is not an offline backup (no .orcpub-offline-backup marker)."; return 1
   fi

@@ -39,7 +39,7 @@ and the kits sit in a grid of framed cards that widens to two across on desktop.
 
 ## Added
 
-- **Server:** database backups from the command line: `./run --backup` while the site runs (each run adds only what changed), `./run --restore <folder>` and `./run --verify-backup <folder>`, and `./run --backup --offline` as a full-copy fallback.
+- **Server:** database backups from the command line: `./run --backup` while the site runs (each run adds only what changed), `./run --restore <folder>` and `./run --verify-backup <folder>`, and `./run --backup --offline` as a full-copy fallback. They work on the built-in storage and on Postgres, keep one folder per month (the newest 3, older ones deleted only after a new backup verifies), and check for disk space first.
 
 ## Changed
 

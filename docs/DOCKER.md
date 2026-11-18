@@ -445,16 +445,27 @@ it. `./run --secrets` writes it again from `.env` if it is lost.
 ./run --backup
 ```
 
-This backs up the database while the site is running, into `./backups/orcpub`. Run it again and it
-adds only what changed since the last run, so a daily run is quick. Run it daily, or before each
-upgrade. A first backup of a large database can take a long time.
+This backs up the database while the site is running, into a folder for the month:
+`./backups/2026-11/orcpub`. Run it again in the same month and it adds only what changed since the
+last run, so a daily run is quick. Run it daily (a cron line such as
+`0 4 * * * cd /path/to/project && ./run --backup >> logs/backup.log 2>&1`), or before each upgrade.
+The first backup of each month is a full one and can take a while on a large database.
+
+It works on either storage: the Compose stack's own (`./data`), and Postgres. With
+`DATOMIC_URL=datomic:sql://...` in `.env`, the backup reads the database through that address, so
+a site that keeps Datomic in Postgres is backed up the same way. If Postgres is not on the
+`datomic` service's Docker network, set `BACKUP_NETWORK` to a network that reaches it.
 
 - **Where:** `./backups` by default. Use another folder with `./run --backup --backup-dir /mnt/backups`,
   or set `BACKUP_DIR` in `.env`. Keep a copy on another machine or disk: a backup beside the data
   does not survive a lost disk.
-- **Check it:** `./run --verify-backup ./backups` reads every file of the latest backup and says
-  whether it can be restored.
-- **Space:** the backup is about the size of the database. Backups are never deleted for you.
+- **Check it:** `./run --verify-backup ./backups` reads every file of the newest month's backup and
+  says whether it can be restored. A month folder works too (`./backups/2026-10`).
+- **Space and old backups:** each month's backup is about the size of the database. When the first
+  backup of a new month verifies, month folders beyond `BACKUP_KEEP_MONTHS` (default 3) are deleted,
+  oldest first; nothing is deleted when it does not verify. Before a new month starts, the run checks
+  the disk has room for one more (the size of the newest month) and stops with a message if not.
+  A backup in `./backups/orcpub` from before month folders is left as it is.
 
 ### Restoring a live backup
 
@@ -464,8 +475,9 @@ docker compose up -d datomic        # only the database, not the app
 docker compose up -d                # start everything
 ```
 
-A restore needs a database with nothing in it, so use a fresh `./data` folder (or a new machine).
-Copy `.env` back first. If a database already exists, `./run --restore` stops and says so without
+`./run --restore ./backups` restores the newest month; name a month folder to pick another.
+A restore needs a database with nothing in it, so use a fresh `./data` folder (or a new machine;
+on Postgres, a database with Datomic's table and no `orcpub` database in it). Copy `.env` back first. If a database already exists, `./run --restore` stops and says so without
 changing anything. To replace it: stop the app (`docker compose stop orcpub`), back up what is there
 (`./run --backup`), stop the stack, move `./data` aside (`mv data data.old`), start only the
 database as above, then restore.
@@ -477,7 +489,10 @@ database as above, then restore.
 ```
 
 This stops the stack, copies `./data` to `./backups/offline-<date and time>`, and starts the stack
-again. The site is down for the length of the copy. It copies the whole database folder, so it
+again. The newest `BACKUP_KEEP_OFFLINE` copies (default 3) are kept; older ones are deleted after a
+copy succeeds, and the run first checks the disk has room for one more. It is for the Compose
+stack's own storage only: with Postgres storage `./data` holds none of the database, so it refuses
+and points to `./run --backup` and Postgres's own backups (`pg_dump`, or archiving). The site is down for the length of the copy. It copies the whole database folder, so it
 needs the same Datomic version to read back, and every run is a full copy.
 
 To restore it:

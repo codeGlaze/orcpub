@@ -122,6 +122,9 @@ A bad value never takes the site down by itself. It is reported and the default 
 | `ALT_HOST` | Compose: `127.0.0.1`. Swarm: `datomic` | The second address the app tries. Leave it unset unless you mean to override it: a Compose value in `.env` breaks Swarm. |
 | `BACKUP_DIR` | `./backups` | Where `./run --backup` writes. `--backup-dir` overrides it. See [DOCKER.md](DOCKER.md#backups). |
 | `BACKUP_JAVA_OPTS` | `-Xms256m -Xmx1g` | Java memory flags for the backup, restore and verify commands. Shell variable only, not read from `.env`. |
+| `BACKUP_KEEP_MONTHS` | `3` | How many monthly live-backup folders `./run --backup` keeps. Older ones are deleted when the first backup of a new month verifies. |
+| `BACKUP_KEEP_OFFLINE` | `3` | How many offline copies (`./run --backup --offline`) are kept. |
+| `BACKUP_NETWORK` | empty | Docker network the backup container joins. Empty: the `datomic` service's. Set it when Postgres storage is on another network. |
 | `ENCRYPT_CHANNEL` | `true` | Encrypts app-to-transactor traffic. Turn it off only to debug. |
 | `ADMIN_PASSWORD_OLD`, `DATOMIC_PASSWORD_OLD` | none | The previous passwords, during a rotation. Remove them once the app has reconnected. See [DOCKER.md](DOCKER.md#password-rotation). |
 | `COMPOSE_FILE` | none | `./run --secrets` adds this so Compose merges `docker-compose.secrets.yaml`. Do not set it by hand. |

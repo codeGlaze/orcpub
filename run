@@ -606,7 +606,7 @@ Individual steps:
   --down              Teardown (auto-detects Swarm vs Compose)
 
 Database backups (Compose stack; docs/DOCKER.md, "Backups"):
-  --backup            Back up the running database into ./backups (repeat it: only new data is added)
+  --backup            Back up the running database (dev or Postgres storage) into ./backups/<YYYY-MM>; keeps 3 months
   --backup --offline  Stop the stack, copy ./data to ./backups/offline-<date>, start the stack
   --restore <folder>  Restore a backup folder (a live one, or an offline-<date> one) into an empty database
   --verify-backup <folder>  Check that a backup folder can be restored
@@ -900,6 +900,12 @@ if [ "$_backup_flags" -gt 0 ]; then
     DATOMIC_IMAGE="$(read_env_val DATOMIC_IMAGE "$ENV_FILE")"
     export DATOMIC_IMAGE
   fi
+  # Storage and retention settings the backup library reads; the shell's value wins, as in Compose.
+  for _v in DATOMIC_URL BACKUP_NETWORK BACKUP_KEEP_MONTHS BACKUP_KEEP_OFFLINE; do
+    if [ -z "${!_v:-}" ] && [ -n "$(read_env_val "$_v" "$ENV_FILE")" ]; then
+      export "$_v=$(read_env_val "$_v" "$ENV_FILE")"
+    fi
+  done
   _bdir="${BACKUP_DIR_ARG:-${BACKUP_DIR:-$(read_env_val BACKUP_DIR "$ENV_FILE")}}"
   _bdir="${_bdir:-./backups}"
   if [ "$BACKUP_MODE" = "true" ]; then
