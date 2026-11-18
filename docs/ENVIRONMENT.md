@@ -36,7 +36,8 @@ A variable already set in your shell beats the `.env` value. Compose behaves the
 secrets, a secret file beats both.
 
 Exception: `./run --secrets` reads `DATOMIC_PASSWORD`, `ADMIN_PASSWORD` and `SIGNATURE` from `.env`
-first, and uses the shell value only when the `.env` one is empty. Set them in `.env` before running it.
+first, and uses the shell value only when the `.env` one is empty; it warns when the shell holds a
+different value. Set them in `.env` before running it.
 
 ## Required settings
 

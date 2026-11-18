@@ -252,5 +252,5 @@ and falls back to the shell only when `.env` has none: the opposite of Compose a
 (Compose, dotenv, Twelve-Factor) let the shell win; tools that write lasting state (Terraform's
 `.tfvars` over `TF_VAR_*`, `kubectl create secret --from-env-file`) let the file win. `--secrets`
 writes files every later start uses, and `start.sh` and `config.clj` read `/run/secrets` before the
-environment, so `.env` first keeps them reproducible. The gap is silence: `--secrets` gives no
-warning when the shell holds a different value (owner deciding on #89).
+environment, so `.env` first keeps them reproducible. It warns when the shell holds a different value,
+naming the variable and saying `.env` was used (owner, 2026-11-18, #89).
