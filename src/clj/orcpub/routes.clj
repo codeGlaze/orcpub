@@ -386,15 +386,15 @@
 (defn bound-request
   "Returns `fields` with everything caller-supplied capped, before any part of the export
    sees it. Acts on the REQUEST, so a feature added later that reads the body is bounded
-   without being wired up: a `spellcasting-class-N` field past the section ceiling is
-   dropped, and every collection is truncated to the card ceiling (nine cards to a page, so
-   an uncapped list is an uncapped page count). Generators keep their own clamps as well."
+   without being wired up: a `spellcasting-class-N` field past the section ceiling, or whose
+   N is too long to be a number, is dropped, and every collection is truncated to the card
+   ceiling (nine cards to a page). Generators keep their own clamps as well."
   [fields]
   (let [max-sections (config/get-pdf-max-caster-sections)
         max-cards (config/get-pdf-max-cards)
         past-ceiling? (fn [k]
                         (when-let [[_ n] (re-matches #"spellcasting-class-(\d+)" (name k))]
-                          (> (or (parse-long n) 0) max-sections)))
+                          (let [v (parse-long n)] (or (nil? v) (> v max-sections)))))
         dropped (count (filter past-ceiling? (keys fields)))]
     (when (pos? dropped)
       (println (format "pdf: dropped %d spellcasting-class field(s) past section %d"
