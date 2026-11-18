@@ -23,6 +23,7 @@ Live copy: https://claude.ai/artifact/2q42mLhgGFCeB5A2sS53ex.
 | File | Role |
 |---|---|
 | `build.py` | Inlines the SVGs into the template. `python3 -I build.py template.html out.html <checkout>/resources/public/image [extra-dir ...]`. Reads the image root, `emblems/` and `black/`; strips fills, styles and the full-size backdrop; refuses an SVG with scripts, handlers, links or embedded images |
+| `kit-icon-workbench.html` | The built page as the owner used it for the kits (2026-11-17); opens as is |
 | `template.html` | The page. The kit-specific parts are constants at the top of its script: `PACKS` (the items), `SETS` (proposed sets), `BASES` (base icons offered first), `SUGGESTED` (starting picks) |
 | `extra-icons/` | 13 game-icons.net SVGs fetched for the kits, not in the app: knapsack, swap-bag, mining (Lorc); hand-bag, briefcase, disc-golf-bag, chest, companion-cube, lockpicks, torch, rope-coil, light-backpack (Delapouite); test-tube-rack (Caro Asercion). CC BY 3.0: an icon that reaches the app gets its author in `resources/public/image/ATTRIBUTION.md` |
 

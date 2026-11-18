@@ -373,6 +373,26 @@ where `magic-armor` is meant (~3983).
   people pick from their account". Each bag has one hue at a shared soft saturation, tuned per theme
   and clear of the error reds and the amber accent. Owner leans to the badge ring or a small corner flag; torn, which is the case for a setting. Default and where the setting lives: open.
 
+### The picks (owner, 2026-11-17, from the workbench's Result box)
+
+Every pack: badge bottom-right at half size, cut-out backing, badge in ink, colour as a badge ring.
+Build these into the kit tiles; the ring hue is per bag. Whether colour is an account setting is
+still open (above); the ring is the default.
+
+```clojure
+{:burglars-pack {:base "swap-bag" :badge "snatch" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 265}
+ :diplomats-pack {:base "briefcase" :badge "scroll-unfurled" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 300}
+ :dungeoneers-pack {:base "knapsack" :badge "torch" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 185}
+ :entertainers-pack {:base "hand-bag" :badge "drama-masks" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 335}
+ :explorers-pack {:base "backpack" :badge "compass" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 115}
+ :priests-pack {:base "disc-golf-bag" :badge "sun-priest" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 55}
+ :scholars-pack {:base "light-backpack" :badge "read" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 215}
+ :monster-hunters-pack {:base "chest" :badge "holy-water" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 25}}
+```
+
+The workbench that made them: `scripts/design/icon-workbench/` (template, build script, extra icons,
+and `kit-icon-workbench.html`, the page as the owner used it).
+
 ## Packs chips and the Add a kit tile (owner, 2026-11-15/16)
 
 - **Packs scope is a pill in the search box** (owner, 2026-11-16, after research: Apple search tokens,

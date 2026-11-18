@@ -3140,7 +3140,7 @@ _plan-homebrew-markdown-export · plan homebrew markdown export_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, 2026-10-23, backpack, equipment, gear, inventory, items, kit, kits, owner, pack, packs, quantity, refill, reorganize, restock, torches, undo
+**topics:** 2026-10-22, 2026-10-23, backpack, bag, equipment, gear, inventory, items, kit, kits, owner, pack, packs, quantity, refill, restock, torches, undo
 
 - The problems today
 - The model
@@ -3159,6 +3159,7 @@ _plan-inventory-kits · plan inventory kits_
 - Patterns to reuse
 - Open (owner)
 - Kit icons: a bag per pack, colour as an account choice (owner, 2026-11-15)
+- The picks (owner, 2026-11-17, from the workbench's Result box)
 - Packs chips and the Add a kit tile (owner, 2026-11-15/16)
 
 ## plan-lookup-indexes.md
