@@ -31,6 +31,58 @@ const text = async page => (await page.locator('#options-column').innerText()).r
 const torchQty = page => page.locator('#options-column div.flex-grow-1:text-is("Torch")').first().locator('xpath=..').locator('input');
 const setTorches = async (page, n) => { const q = torchQty(page); await q.fill(String(n)); await q.press('Enter'); await q.blur(); await settle(page, 700); };
 
+// Kit icons and the kit grid: undo the removal, manage, add three more packs, then check each pack's drawn
+// icon (and that the file is served) and that the list is one column on a phone and two or more wide.
+const kitIconsAndGrid = async (page, sec, theme) => {
+  await sec().locator('button.link-button.quiet:text-is("Undo")').click(); await settle(page, 600);
+  // Managing is off after a reload, and the added kits may not be saved yet: top the list up to four.
+  const ensureKits = async () => {
+    const have = async n => (await sec().innerText()).includes(n);
+    if (await sec().locator('.sheet-stepper').count() === 0) { await sec().locator('.toggle-switch').click(); await settle(page, 400); }
+    const box = sec().locator('input.inv-combo-input');
+    for (const n of ["Burglar's Pack", "Priest's Pack", "Scholar's Pack"]) {
+      if (await have(n)) continue;
+      await box.fill(n); await settle(page, 300);
+      await box.press('ArrowDown'); await box.press('Enter'); await settle(page, 1200);
+      await box.fill(''); await settle(page, 300);
+    }
+  };
+  await ensureKits();
+  const imgs = () => sec().locator('.kit-tile img').evaluateAll(es => es.map(e => e.getAttribute('src')));
+  const srcs = await imgs();
+  console.log('  kit icons:', JSON.stringify(srcs));
+  check(srcs.includes('/image/kits/explorers-pack-dark.svg'), "the Explorer's Pack tile shows /image/kits/explorers-pack-dark.svg");
+  check(srcs.length >= 4 && srcs.every(u => /^\/image\/kits\/[a-z-]+-pack-dark\.svg$/.test(u)), 'every kit tile shows its pack\'s drawn icon');
+  const status = await page.evaluate(async u => (await fetch(u)).status, '/image/kits/explorers-pack-dark.svg');
+  check(status === 200, 'the icon file is served (HTTP ' + status + ')');
+  const tops = () => sec().locator('.kit-grid > *').evaluateAll(es => es.map(e => Math.round(e.getBoundingClientRect().top)));
+  const cols = async () => { const t = await tops(); return new Set(t).size < t.length ? 2 : 1; };
+  const shotKits = async name => {
+    await page.addStyleTag({ content: '.sticky-header{position:static !important;top:auto !important}' });
+    const g = sec().locator('.kit-grid');
+    await g.scrollIntoViewIfNeeded();
+    await g.screenshot({ path: path.join(OUT, name) });
+  };
+  const phone = page.viewportSize();
+  check(await cols() === 1, 'phone width: the kit list is one column');
+  await shotKits('kits-412-dark.png');
+  await theme('light-theme'); await ensureKits();
+  check((await imgs()).every(u => /-light\.svg$/.test(u)) && (await imgs()).length >= 4, 'light theme: the tiles show the -light icons');
+  await shotKits('kits-412-light.png');
+  await page.setViewportSize({ width: 1280, height: 900 }); await settle(page, 800);
+  check(await cols() === 2, 'desktop width: two kits share a row');
+  await shotKits('kits-1280-light.png');
+  await theme('dark-theme'); await ensureKits();
+  await shotKits('kits-1280-dark.png');
+  await page.setViewportSize({ width: 700, height: 900 }); await settle(page, 800);
+  await shotKits('kits-700-dark.png');
+  await sec().locator('button.kit-summary').first().click(); await settle(page, 400);
+  const open = await sec().locator('.kit-grid > .kit-open').evaluate(e => ({ w: e.getBoundingClientRect().width, g: e.parentElement.getBoundingClientRect().width }));
+  check(Math.abs(open.w - open.g) < 2, 'an open kit spans the whole row (' + Math.round(open.w) + ' of ' + Math.round(open.g) + ')');
+  await shotKits('kits-700-open.png');
+  await page.setViewportSize(phone);
+};
+
 (async () => {
   const b = await chromium.launch({ executablePath: EXECUTABLE });
   const ctx = await b.newContext({ ...devices['iPhone 13'] });
@@ -143,6 +195,18 @@ const setTorches = async (page, n) => { const q = torchQty(page); await q.fill(S
     t = await stext();
     check(/Removed Explorer's Pack/.test(t) && /\bundo\b/i.test(t), 'removing the last kit keeps its Undo line');
     await page.screenshot({ path: path.join(OUT, 'c1-saved-sheet.png'), fullPage: false });
+    // The saved sheet has no theme switch: set the theme where the switch stores it (the `user` entry), reload.
+    const theme = async t => {
+      await page.waitForTimeout(3000);
+      await page.evaluate(t => {
+        let u = localStorage.getItem('user') || '{}';
+        u = /:theme\s+"[^"]*"/.test(u) ? u.replace(/:theme\s+"[^"]*"/, `:theme "${t}"`) : u.replace(/\}\s*$/, ` :theme "${t}"}`);
+        localStorage.setItem('user', u);
+      }, t);
+      await page.reload(); await settle(page, 1500, 20000);
+      await eqTab().click(); await settle(page, 1000);
+    };
+    await kitIconsAndGrid(page, sec, theme);
   }
   check(errors.length === 0, `no page errors (${errors.join(' | ')})`);
   await b.close();
