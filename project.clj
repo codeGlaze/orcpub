@@ -111,7 +111,7 @@
                  [io.pedestal/pedestal.jetty "0.7.0"]
                  [io.pedestal/pedestal.error "0.7.0"]
                  [org.clojure/data.json "2.5.0"]
-                 [org.slf4j/slf4j-simple "1.7.21"]
+                 [org.slf4j/slf4j-simple "2.0.17"]
                  [buddy/buddy-auth "3.0.323"]
                  [buddy/buddy-hashers "2.0.167"]
                  [reloaded.repl "0.2.3"]
