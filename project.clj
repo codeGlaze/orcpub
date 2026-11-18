@@ -25,7 +25,9 @@
   :managed-dependencies [;; buddy-hashers' Bouncy Castle
                          [org.bouncycastle/bcprov-jdk18on "1.87"]
                          [org.bouncycastle/bcpkix-jdk18on "1.87"]
-                         [org.bouncycastle/bcutil-jdk18on "1.87"]]
+                         [org.bouncycastle/bcutil-jdk18on "1.87"]
+                         ;; postal's mail library (account email)
+                         [com.sun.mail/jakarta.mail "1.6.8"]]
 
   :dependencies [[org.clojure/clojure "1.12.4"]
                  [org.clojure/test.check "1.1.1"]
