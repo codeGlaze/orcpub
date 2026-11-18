@@ -559,7 +559,7 @@
       (let [low? (some :low? tracked)
             toggle #(swap! open? not)
             close-then #(do (reset! open? false) (dispatch %))]
-        [:div {:class (when @open? "kit-open")}
+        [:div.kit-card {:class (when @open? "kit-open")}
          [:div.kit-row
           [:div.kit-tile.pointer {:on-click toggle} [kit-icon pack chest? 32]]
           [:button.kit-summary {:on-click toggle :aria-expanded @open?}
@@ -626,7 +626,7 @@
    search box's preset atom Add a kit fills. `builder?`: the Equipment step, whose search always adds.
    `adding?`: the sheet's Manage inventory is on. Either shows the Add a kit tile under the kits, lit
    while the search box is on Packs.
-   Summaries fold to a grid column's width, from the block's live width (a ResizeObserver). Returns hiccup or nil."
+   Summaries fold to a card's inner width, from the block's live width (a ResizeObserver). Returns hiccup or nil."
   []
   (let [asking (r/atom nil)
         width (r/atom 390)
@@ -642,8 +642,8 @@
       (let [{ks :kits :keys [questions fillable]} @(subscribe [::inventory/panel id])
             undo @(subscribe [::inventory/undo id])
             add-kit #(reset! search-preset (packs-preset ks))
-            cols (max 1 (js/Math.floor (/ (+ @width 16) 316)))
-            budget (max 20 (js/Math.round (* 40 (/ (/ (- @width (* 16 (dec cols))) cols) 390))))
+            cols (max 1 (js/Math.floor (/ (+ @width 8) 308)))
+            budget (max 20 (js/Math.round (* 40 (/ (- (/ (- @width (* 8 (dec cols))) cols) 22) 390))))
             asking-kit (some #(when (= @asking (:pack %)) %) ks)]
         (when (or builder? adding? (seq ks) undo)
           [:div.m-b-10 {:ref ref}
@@ -656,7 +656,7 @@
               (fn [i kit] ^{:key (:pack kit)} [kit-row id (zero? i) asking budget kit])
               ks))
             (when (or builder? adding?)
-              [:button.kit-row.kit-add {:on-click add-kit :class (when (:label @search-preset) "on")}
+              [:button.kit-row.kit-card.kit-add {:on-click add-kit :class (when (:label @search-preset) "on")}
                [:span.kit-tile [:i.fa.fa-plus {:aria-hidden true}]]
                "Add a kit"])]
            [:div.m-t-5

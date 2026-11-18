@@ -2345,11 +2345,13 @@
 
     ;; Kits on the Equipment step (plan-inventory-kits.md). Colours follow the text colour, so
     ;; every theme draws them without its own rule.
-    ;; The kits as a grid: one column on a phone, more as the column widens. An open kit
-    ;; (.kit-open) spans the row.
-    [:.kit-grid {:display :grid :grid-template-columns "repeat(auto-fill, minmax(300px, 1fr))" :gap "10px 16px"}
+    ;; The kits as a grid of framed cards: one column on a phone, more as the column widens. An
+    ;; open kit (.kit-open) spans the row; Add a kit is the dashed card at the end.
+    [:.kit-grid {:display :grid :grid-template-columns "repeat(auto-fill, minmax(300px, 1fr))" :gap "8px"}
      [:.kit-open {:grid-column "1 / -1"}]]
     [:.kit-row {:display :flex :align-items :center :gap "10px" :min-height "48px" :padding "4px 0"}]
+    [:.kit-card {:border "1px solid color-mix(in srgb, currentColor 18%, transparent)"
+                 :border-radius "8px" :padding "6px 10px" :min-width 0}]
     [:.kit-tile
      {:flex "0 0 48px" :width "48px" :height "48px" :border-radius "8px"
       :display :flex :align-items :center :justify-content :center
@@ -2357,7 +2359,7 @@
       :background-color "color-mix(in srgb, currentColor 6%, transparent)"}]
     ;; The Add a kit row (views/inventory.cljs `kits-block`): an empty kit tile with a +, in the
     ;; text colour and unfilled, so it sits under the kits; .on (the search is on Packs) turns it amber.
-    [:.kit-add {:background :none :border :none :font :inherit :font-size "14px" :color :inherit
+    [:.kit-add {:background :none :border-style :dashed :font :inherit :font-size "14px" :color :inherit
                 :cursor :pointer :text-align :left}
      [:.kit-tile {:background-color :transparent :font-size "16px"}]
      [:&:hover [:.kit-tile {:background-color "color-mix(in srgb, currentColor 8%, transparent)"}]]
