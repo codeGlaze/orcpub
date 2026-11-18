@@ -71,6 +71,8 @@
                          [io.netty/netty-transport-classes-epoll "4.1.141.Final"]
                          [io.netty/netty-transport-classes-kqueue "4.1.141.Final"]
                          [io.netty/netty-transport-native-unix-common "4.1.141.Final"]
+                         [io.netty/netty-transport-native-epoll "4.1.141.Final" :classifier "linux-x86_64"]
+                         [io.netty/netty-transport-native-kqueue "4.1.141.Final" :classifier "osx-x86_64"]
                          ;; Pedestal's tracing API
                          [io.opentelemetry/opentelemetry-api "1.68.0"]
                          [io.opentelemetry/opentelemetry-context "1.68.0"]]
