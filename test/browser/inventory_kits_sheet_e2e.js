@@ -31,8 +31,20 @@ const text = async page => (await page.locator('#options-column').innerText()).r
 const torchQty = page => page.locator('#options-column div.flex-grow-1:text-is("Torch")').first().locator('xpath=..').locator('input');
 const setTorches = async (page, n) => { const q = torchQty(page); await q.fill(String(n)); await q.press('Enter'); await q.blur(); await settle(page, 700); };
 
+// The layout widths every screen is checked at: a small phone, a tablet, a desktop browser and a wide one.
+// The tablet's column count is printed, not asserted: it depends on how wide the sheet lays out there.
+const LAYOUT_DEVICES = [
+  { name: 'small phone', file: 'phone-344', expect: 'one column', cols: n => n === 1,
+    profile: { ...devices['Galaxy S8'], viewport: { width: 344, height: 882 } } },
+  { name: 'tablet', file: 'tablet-810', profile: devices['iPad (gen 7)'] },
+  { name: 'desktop', file: 'desktop-1440', expect: 'two columns or more', cols: n => n >= 2,
+    profile: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
+  { name: 'wide desktop', file: 'desktop-1920', expect: 'two columns or more', cols: n => n >= 2,
+    profile: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } } },
+];
+
 // Kit icons and the kit grid: undo the removal, manage, add three more packs, then check each pack's drawn
-// icon (and that the file is served) and that the list is one column on a phone and two or more wide.
+// icon (and that the file is served), then the grid on a small phone, a tablet and a desktop browser.
 const kitIconsAndGrid = async (page, sec, theme) => {
   await sec().locator('button.link-button.quiet:text-is("Undo")').click(); await settle(page, 600);
   // Managing is off after a reload, and the added kits may not be saved yet: top the list up to four.
@@ -63,33 +75,52 @@ const kitIconsAndGrid = async (page, sec, theme) => {
     await g.scrollIntoViewIfNeeded();
     await g.screenshot({ path: path.join(OUT, name) });
   };
-  const phone = page.viewportSize();
   check(await cols() === 1, 'phone width: the kit list is one column');
   await shotKits('kits-412-dark.png');
   await theme('light-theme'); await ensureKits();
   check((await imgs()).every(u => /-light\.svg$/.test(u)) && (await imgs()).length >= 4, 'light theme: the tiles show the -light icons');
   await shotKits('kits-412-light.png');
-  await page.setViewportSize({ width: 1280, height: 900 }); await settle(page, 800);
-  check(await cols() === 2, 'desktop width: two kits share a row');
-  await shotKits('kits-1280-light.png');
-  await theme('dark-theme'); await ensureKits();
-  await shotKits('kits-1280-dark.png');
-  // Each cell is framed, so the cells read as a grid at any width rather than one loose line.
-  const frames = await sec().locator('.kit-grid > *').evaluateAll(es => es.map(e => {
-    const c = getComputedStyle(e);
-    return { w: parseFloat(c.borderTopWidth), s: c.borderTopStyle, add: e.classList.contains('kit-add') };
-  }));
-  check(frames.length >= 5 && frames.every(f => f.w >= 1 && f.s === (f.add ? 'dashed' : 'solid')),
-        'every kit is a framed card, and Add a kit a dashed one (' + frames.map(f => f.s).join() + ')');
-  await page.setViewportSize({ width: 1920, height: 900 }); await settle(page, 800);
-  await shotKits('kits-1920-dark.png');
-  await page.setViewportSize({ width: 700, height: 900 }); await settle(page, 800);
-  await shotKits('kits-700-dark.png');
-  await sec().locator('button.kit-summary').first().click(); await settle(page, 400);
-  const open = await sec().locator('.kit-grid > .kit-open').evaluate(e => ({ w: e.getBoundingClientRect().width, g: e.parentElement.getBoundingClientRect().width }));
-  check(Math.abs(open.w - open.g) < 2, 'an open kit spans the whole row (' + Math.round(open.w) + ' of ' + Math.round(open.g) + ')');
-  await shotKits('kits-700-open.png');
-  await page.setViewportSize(phone);
+  await theme('dark-theme');
+  // The same sheet on a small phone, a tablet and a desktop browser: each its own device profile,
+  // logged in with this page's storage, not the phone stretched wide.
+  const state = await page.context().storageState();
+  const url = page.url();
+  for (const d of LAYOUT_DEVICES) {
+    const ctx = await page.context().browser().newContext({ ...d.profile, storageState: state });
+    const p = await ctx.newPage();
+    await p.goto(url); await settle(p, 1500, 20000);
+    await p.addStyleTag({ content: '.sticky-header{position:static !important;top:auto !important}' });
+    await p.locator('.b-b-2.pointer', { has: p.locator('img[src*="backpack"]') }).first().click(); await settle(p, 1000);
+    const s2 = () => p.locator('div:has(> div > span.f-w-b.f-s-18:text-is("Other Equipment"))').first();
+    if (await s2().locator('.sheet-stepper').count() === 0) { await s2().locator('.toggle-switch').click(); await settle(p, 400); }
+    const box = s2().locator('input.inv-combo-input');
+    for (const n of ["Burglar's Pack", "Priest's Pack", "Scholar's Pack"]) {
+      if ((await s2().innerText()).includes(n)) continue;
+      await box.fill(n); await settle(p, 300); await box.press('ArrowDown'); await box.press('Enter'); await settle(p, 1200);
+      await box.fill(''); await settle(p, 300);
+    }
+    const m = await s2().locator('.kit-grid').evaluate(g => {
+      const kids = [...g.children];
+      return { w: Math.round(g.getBoundingClientRect().width),
+               cols: getComputedStyle(g).gridTemplateColumns.split(' ').length,
+               frames: kids.map(e => { const c = getComputedStyle(e); return parseFloat(c.borderTopWidth) >= 1 && c.borderTopStyle === (e.classList.contains('kit-add') ? 'dashed' : 'solid'); }),
+               over: document.documentElement.scrollWidth - window.innerWidth };
+    });
+    const tag = `${d.name} (${d.profile.viewport.width}px)`;
+    console.log(`  ${tag}: kit grid ${m.w}px wide, ${m.cols} column(s)`);
+    check(m.over <= 0, `${tag}: no sideways scroll`);
+    if (d.cols) check(d.cols(m.cols), `${tag}: ${d.expect} (${m.cols})`);
+    check(m.frames.length >= 5 && m.frames.every(Boolean), `${tag}: every kit is a framed card, and Add a kit a dashed one`);
+    const g = s2().locator('.kit-grid'); await g.scrollIntoViewIfNeeded();
+    await g.screenshot({ path: path.join(OUT, `kits-${d.file}.png`) });
+    if (m.cols > 1) {
+      await s2().locator('button.kit-summary').first().click(); await settle(p, 400);
+      const open = await s2().locator('.kit-grid > .kit-open').evaluate(e => ({ w: e.getBoundingClientRect().width, g: e.parentElement.getBoundingClientRect().width }));
+      check(Math.abs(open.w - open.g) < 2, `${tag}: an open kit spans the whole row`);
+      await g.screenshot({ path: path.join(OUT, `kits-${d.file}-open.png`) });
+    }
+    await ctx.close();
+  }
 };
 
 (async () => {
