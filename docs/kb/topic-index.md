@@ -1259,7 +1259,7 @@ _demo-content-tier · demo content tier_
 
 _dependency-alerts · dependency alerts_
 
-**topics:** 2026-11-18, alerts, bouncy, castle, critical, dependabot, direct, dos, guava, high, jackson, jars, jetty, jsoup, low, netty, push, redis
+**topics:** 2026-11-18, accepted, alert, alerts, critical, dependabot, direct, dos, exposure, high, jars, jetty, jsoup, libraries, low, netty, push, redis
 
 - Where the alerts come from
 - Triage, 2026-11-18

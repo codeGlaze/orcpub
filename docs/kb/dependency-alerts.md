@@ -33,8 +33,8 @@ library, not a test.
 | plexus-utils 4.0.2 | `garden` (CSS build) | 1 high | Low: archive extraction, build-time only. |
 | aircompressor 0.27 | `carmine` (Redis store) | 1 high | Low: only with Redis, decompressing its own data. |
 
-Suggested order, one upgrade per PR: Jetty, Jackson, remove `pdfkit-clj`, Bouncy Castle, Guava,
-then Netty (Datomic peer or a managed version), PostgreSQL. Pedestal 0.7.0 pins Jetty 11, and
+Done on #89 (`feature/inventory-kits`), one commit per library on the open branch, never a branch per
+bump (owner, 2026-11-18). Netty moved with Datomic 1.0.7745 plus pins. Pedestal 0.7.0 pins Jetty 11, and
 figwheel-main blocks Jetty 12 (`project.clj` comment near line 46), so Jetty moves within 11.0.x.
 
 ## The PR scan: `scripts/security-scan.sh` (2026-11-18, #89)
