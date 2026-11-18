@@ -60,11 +60,17 @@ const kitIconsAndGrid = async (page, sec, theme) => {
     }
   };
   await ensureKits();
-  const imgs = () => sec().locator('.kit-tile img').evaluateAll(es => es.map(e => e.getAttribute('src')));
+  // Each kit's tile, paired with the pack named on its card.
+  const imgs = () => sec().locator('.kit-card:not(.kit-add)').evaluateAll(es => es.map(e => ({
+    name: (e.querySelector('.kit-name') || {}).textContent || '', src: (e.querySelector('.kit-tile img') || {}).getAttribute?.('src') })));
+  const PACK_FILES = { "Explorer's Pack": 'explorers-pack', "Burglar's Pack": 'burglars-pack', "Priest's Pack": 'priests-pack', "Scholar's Pack": 'scholars-pack' };
+  const iconsMatch = (tiles, theme) => tiles.length >= 4 && tiles.every(t => {
+    const pack = Object.keys(PACK_FILES).find(n => t.name.startsWith(n));
+    return pack && t.src === `/image/kits/${PACK_FILES[pack]}-${theme}.svg`;
+  });
   const srcs = await imgs();
   console.log('  kit icons:', JSON.stringify(srcs));
-  check(srcs.includes('/image/kits/explorers-pack-dark.svg'), "the Explorer's Pack tile shows /image/kits/explorers-pack-dark.svg");
-  check(srcs.length >= 4 && srcs.every(u => /^\/image\/kits\/[a-z-]+-pack-dark\.svg$/.test(u)), 'every kit tile shows its pack\'s drawn icon');
+  check(iconsMatch(srcs, 'dark'), "every kit tile shows its own pack's drawn icon");
   const status = await page.evaluate(async u => (await fetch(u)).status, '/image/kits/explorers-pack-dark.svg');
   check(status === 200, 'the icon file is served (HTTP ' + status + ')');
   const tops = () => sec().locator('.kit-grid > *').evaluateAll(es => es.map(e => Math.round(e.getBoundingClientRect().top)));
@@ -78,7 +84,7 @@ const kitIconsAndGrid = async (page, sec, theme) => {
   check(await cols() === 1, 'phone width: the kit list is one column');
   await shotKits('kits-412-dark.png');
   await theme('light-theme'); await ensureKits();
-  check((await imgs()).every(u => /-light\.svg$/.test(u)) && (await imgs()).length >= 4, 'light theme: the tiles show the -light icons');
+  check(iconsMatch(await imgs(), 'light'), "light theme: every tile shows its own pack's -light icon");
   await shotKits('kits-412-light.png');
   await theme('dark-theme');
   // The same sheet on a small phone, a tablet and a desktop browser: each its own device profile,
