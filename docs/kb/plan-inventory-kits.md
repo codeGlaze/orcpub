@@ -390,6 +390,17 @@ still open (above); the ring is the default.
  :monster-hunters-pack {:base "chest" :badge "holy-water" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 25}}
 ```
 
+**Built (2026-11-17, `feature/inventory-kits`):** `resources/kit-icons.edn` holds the picks;
+`scripts/build-kit-icons.py` writes `resources/public/image/kits/<pack>-<dark|light>.svg` (static
+files, nothing added to the bundle) and `--check` fails when they or `kit-icon-packs` in
+`views/inventory.cljs` drift from the EDN. The cut-out is an SVG mask, not a tile-coloured circle,
+because `.kit-tile` is translucent. Light ink is black at 0.7, as `themed-icon`. Homebrew packs
+keep the backpack or chest.
+
+**Kits grid (owner, 2026-11-17):** `.kit-grid`, `repeat(auto-fill, minmax(300px, 1fr))`: one column
+on a phone, two in the builder's column, more on a wide sheet; an open kit spans the row. A strip
+of tiles was rejected ("garbage"): it hid each kit's contents.
+
 The workbench that made them: `scripts/design/icon-workbench/` (template, build script, extra icons,
 and `kit-icon-workbench.html`, the page as the owner used it).
 
