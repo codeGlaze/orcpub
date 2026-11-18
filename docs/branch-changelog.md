@@ -33,6 +33,10 @@ clutter on a phone; it is now labelled rows with a muted legal band. The admin d
 instructions and checked against the code. Manage Content rows no longer log React's missing-key
 warning.
 
+It also adds command-line database backups (live, incremental, with a full offline copy as a
+fallback, stress-tested), and finishes the kits from #88: each equipment pack gets its own drawn icon,
+and the kits sit in a grid of framed cards that widens to two across on desktop.
+
 ## Added
 
 - **Server:** database backups from the command line: `./run --backup` while the site runs (each run adds only what changed), `./run --restore` and `./run --verify-backup`, and `./run --backup --offline` as a full-copy fallback.
