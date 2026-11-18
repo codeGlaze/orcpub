@@ -22,6 +22,16 @@ The admin commands are `./run --backup`, `--restore`, `--verify-backup` and `--b
   never built it: restart only the services that were running.
 - Non-root Datomic logs a FileNotFound stack trace for `/datomic/log`: a tmpfs there silences it.
 
+- **The transactor's password can come from a Docker secret** (`/run/secrets/datomic_password`, which
+  `deploy/start.sh` prefers), and `docker exec` does not see start.sh's export: read the secret
+  first, the environment second (`bk_db_uri`).
+- **Datomic needs its transactor restarted after a restore** before peers connect; `bk_restore` does it.
+  A transactor that was just started may not answer yet: the restore waits up to two minutes.
+- **Backups from older `docker-migrate.sh` runs are root-owned** (its CLI ran as root): the CLI runs as
+  the owner of `<folder>/orcpub`, not of the folder.
+- **`.env` values must be decoded** (quotes, `$NAME`) the way Compose does: `read_env_val` in `run`
+  uses `load_env`; a raw `grep | cut` kept the quotes on paths and passwords.
+
 ## What was tested (isolated stack, 5k entities)
 
 Live backup and restore into a fresh stack (count and checksum equal); backup during continuous
@@ -29,3 +39,9 @@ writes (restores to a whole-batch t); incremental second run (5 new segments, 57
 copy and restore; failure cases (transactor down or paused, missing, corrupt or truncated backup,
 unwritable folder) all exit 1 with a message; restore over an existing database refused.
 Not tested: killing the transactor mid-backup, Swarm, large databases.
+
+**#89 review fixes, live (2026-11-18):** a wrong secret fails the backup and the right one passes; a
+root-owned backup takes a new restore point; offline backup of a stopped stack leaves it stopped; a
+failed move of `./data` exits 1 with `./data` unchanged; a quoted `BACKUP_DIR` with a space lands in
+the right folder; restore right after starting the transactor restores and restarts it, same
+fingerprint. Not exercised: the wait loop itself (the transactor answered on the first poll).

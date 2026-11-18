@@ -1115,7 +1115,7 @@ _data-safety-layers · data safety layers_
 
 _datomic-backups · datomic backups_
 
-**topics:** backup, backups, checksum, container, filenotfound, folder, lib, mid-backup, numberformatexception, offline, pipes, restore, segments, stack, tmpfs, transactor, uid, whole-batch
+**topics:** 2026-11-18, backup, backups, cli, container, datomic, docker, exits, folder, offline, quotes, restore, restores, root-owned, secret, segments, stack, transactor
 
 - Traps (verified)
 - What was tested (isolated stack, 5k entities)
