@@ -321,6 +321,8 @@ wrong, and why.
 
 ### Operations
 
+- **[datomic-backups.md](datomic-backups.md)** -- the backup commands' traps: verify-backup exits 0
+  when it throws, the transactor chowns the backup folder, no list-databases; what was tested.
 - **[tracked-issues.md](tracked-issues.md)** -- open issues with their evidence: the Datomic
   transactor crashes, localStorage corruption, content-library work left, server-side image fetch,
   PDF follow-ups, user-agent layout, the long combobox list.

@@ -25,7 +25,7 @@ every section heading it contains.
 
 _DATOMIC_JAVA21_TEST_RESULTS · DATOMIC_JAVA21_TEST_RESULTS_
 
-**topics:** 5703, activemq, apache, artemis, connection, connections, datomic, free, https, java, peer, peer-to-transactor, pro, releases-pro, ssl, successfully, tls, transactor
+**topics:** 5703, activemq, artemis, com, connection, connections, datomic, free, https, java, peer, peer-to-transactor, pro, releases-pro, ssl, successfully, tls, transactor
 
 - Executive Summary
 - Test Results Matrix
@@ -783,7 +783,7 @@ _character-validation · character validation_
 
 _class-builder-extraction-plan · class builder extraction plan_
 
-**topics:** big-bang, class-builder-first, class-builder-only, decomposition, extract, extraction, grep, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
+**topics:** big-bang, builder, class-builder-first, class-builder-only, decomposition, extract, extraction, helpers, imports, incremental, mainline, monolith, moves, repoint, shared, starting-equipment, toolkit, toolkit-first
 
 - Why this shape (the lesson from refactor/views-extraction)
 - Starting reality (differs from the dead branch's assumption)
@@ -1110,6 +1110,15 @@ _data-safety-layers · data safety layers_
 - Anti-patterns
 - Tracked follow-ups
 - See also
+
+## datomic-backups.md
+
+_datomic-backups · datomic backups_
+
+**topics:** backup, backups, checksum, container, filenotfound, folder, lib, mid-backup, numberformatexception, offline, pipes, restore, segments, stack, tmpfs, transactor, uid, whole-batch
+
+- Traps (verified)
+- What was tested (isolated stack, 5k entities)
 
 ## datomic-crash-analysis.md
 
@@ -1867,7 +1876,7 @@ _filtered-list-staleness · filtered list staleness_
 
 _folder-hardening · folder hardening_
 
-**topics:** clause, client, entities, error, evolution, folders, handler, hardening, http, optimistic, pre-mutation, problem, re-fetch, re-fetches, rollback, server, solution, tempid
+**topics:** clause, client, error, evolution, folders, handler, hardening, http, optimistic, pre-mutation, problem, re-fetch, re-fetches, rollback, server, solution, tempid, tempids
 
 - Context
 - Pattern: On-Failure Rollback via Server Re-Fetch
@@ -2066,7 +2075,7 @@ _handoff-weapons-table · handoff weapons table_
 
 _heartbeat · heartbeat_
 
-**topics:** beat, beats, clock, database, dates, hour, job, jobs, jumped, measure, monitor, outage, pruning, running, server, three-day, tick, unrecorded
+**topics:** beat, beats, clock, database, hour, job, jobs, jumped, measure, monitor, outage, pruning, running, server, three-day, tick, time, unrecorded
 
 - What it records
 - Using it
@@ -2996,7 +3005,7 @@ _plan-charges-and-casting · plan charges and casting_
 
 _plan-chunked-library-storage · plan chunked library storage_
 
-**topics:** blob, capacity, chars, chunk, granularity, hydration, incremental, indexeddb, legacy, library, migration, one-time, phase, plan, quota, source, sources, spike
+**topics:** blob, capacity, chars, chunk, granularity, hydration, indexeddb, legacy, library, localstorage, migration, one-time, phase, plan, quota, source, sources, spike
 
 - Read this first: why this plan is parked
 - The problem, in one line
@@ -3168,7 +3177,7 @@ _plan-lookup-indexes · plan lookup indexes_
 
 _plan-next · plan next_
 
-**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, number, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged
+**topics:** advanced, agent-dev-loop, armour, capabilities, contributor, creator, damage, macro, natural-armor, picked, requirements, row, support-session-ledger, templates, tier, understood, warforged, windows
 
 - 0. Standing, do these first
 - 0b. September support sessions — tracked separately
@@ -3353,7 +3362,7 @@ _registry-before-after · registry before after_
 
 _release-deploy-traps · release deploy traps_
 
-**topics:** alt-host, de-index, dmv, edn, ending, folder, hand-insert, host, in-browser, lag, logged, parsers, projects, release, reviewing, robots, slips, swarm
+**topics:** alt-host, de-index, dmv, edn, ending, folder, hand-insert, in-browser, lag, logged, parsers, projects, release, reviewing, robots, sigpipe, slips, swarm
 
 - Open and unchecked
 
@@ -3706,7 +3715,7 @@ _spellbook-print · spellbook print_
 
 _srd-2024-coverage · srd 2024 coverage_
 
-**topics:** 2014, 2024, 285, 313, 317, 322, 5etools, armor, conditions, counterpart, editions, magic, monsters, open5e, species, srd, text, weapons
+**topics:** 2014, 2024, 313, 317, 319, 322, 5etools, armor, conditions, counterpart, editions, magic, monsters, open5e, species, srd, text, weapons
 
 - Content
 - SRD membership per 5etools (verified 2026-10-06)
@@ -3938,7 +3947,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale-safety, port, session, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged
