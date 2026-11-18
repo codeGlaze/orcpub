@@ -3,6 +3,13 @@
 Rules every agent follows on every branch. Reference material is linked at the end: read it when
 the task needs it, not before.
 
+**Never filter out a security warning — MUST FOLLOW** (owner, 2026-11-18). Never drop, `grep -v`,
+truncate or summarise away a security warning from any output: GitHub's "found N vulnerabilities"
+push message, a Dependabot or CodeQL alert, an `npm audit` or scanner line, a CVE in a log. Report
+every new or worsened critical or high alert to the owner in that response's summary, with its
+count and what it is in. GitHub's push message was filtered as noise for weeks while 3 critical and
+33 high alerts sat unreported. Triage and where alerts come from: `docs/kb/dependency-alerts.md`.
+
 **Read docs from `agents/develop`:** `git show origin/agents/develop:<path>`. The KB (`docs/kb/`) lives
 there, and `SETUP.md` and `CODEBASE.md` exist only there; other `docs/` pages also sit on code branches,
 sometimes as older copies, and the `agents/develop` copy is the current one. A bare `docs/<page>` in
