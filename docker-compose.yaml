@@ -83,10 +83,10 @@ services:
       # restarted clean; a JVM crash writes a crash log. Both go to /var/log/$APP_LOGS_NAME on the host, and the
       # next start emails the admin. JAVA_OPTS (memory settings, see docs/DOCKER.md) comes last,
       # so it can override any of these.
-      # Security stopgaps: JAVA_SECURITY_OPTS holds temporary Java flags for known CVEs, for both
-      # the app and Datomic. -XX:-UseBASE64Intrinsics blocks CVE-2026-114938 (Java2Shell); remove
-      # it once the images run a patched Java 21. Set JAVA_SECURITY_OPTS in .env to replace it.
-      JDK_JAVA_OPTIONS: "${JAVA_SECURITY_OPTS:--XX:-UseBASE64Intrinsics} -XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/lib/orcpub/state/crash/heap.hprof -XX:ErrorFile=/var/lib/orcpub/state/crash/jvm-crash-%p.log ${JAVA_OPTS:-}"
+      JDK_JAVA_OPTIONS: "-XX:+ExitOnOutOfMemoryError -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/lib/orcpub/state/crash/heap.hprof -XX:ErrorFile=/var/lib/orcpub/state/crash/jvm-crash-%p.log ${JAVA_OPTS:-}"
+      # Security stopgaps: true or false. JAVA2SHELL_STOPGAP blocks CVE-2026-114938 in Java
+      # (deploy/app-start.sh adds the Java option); turn it off once the images run a patched Java 21.
+      JAVA2SHELL_STOPGAP: ${JAVA2SHELL_STOPGAP:-true}
       # Every other setting the server reads. Empty means "use the default", so these change
       # nothing until set in .env. Only names listed here reach the container.
       # Proxies in front of the app (docs/ENVIRONMENT.md, Security)
@@ -171,8 +171,8 @@ services:
       # TRANSACTOR_HOST: the address Datomic serves on; blank lets deploy/start.sh choose.
       TRANSACTOR_HOST: ${TRANSACTOR_HOST:-}
       ENCRYPT_CHANNEL: ${ENCRYPT_CHANNEL:-true}
-      # Security stopgaps: the same JAVA_SECURITY_OPTS as the app's JDK_JAVA_OPTIONS above.
-      JDK_JAVA_OPTIONS: "${JAVA_SECURITY_OPTS:--XX:-UseBASE64Intrinsics}"
+      # Security stopgaps: the same switch as the app's (deploy/start.sh adds the Java option).
+      JAVA2SHELL_STOPGAP: ${JAVA2SHELL_STOPGAP:-true}
     volumes:
       - ./data:/data
       - ./logs:/log
