@@ -321,6 +321,7 @@ wrong, and why.
 
 ### Operations
 
+- **[dependency-alerts.md](dependency-alerts.md)** -- where the Dependabot alerts come from (develop's lein tree), the 2026-11-18 triage of 3 critical and 33 high, and the never-filter rule
 - **[docker-image-releases.md](docker-image-releases.md)** -- how a tag on upstream publishes the Docker Hub images; nothing published since 2025-09, the last runs failed early (login)
 - **[datomic-backups.md](datomic-backups.md)** -- the backup commands' traps: verify-backup exits 0
   when it throws, the transactor chowns the backup folder, no list-databases; what was tested.

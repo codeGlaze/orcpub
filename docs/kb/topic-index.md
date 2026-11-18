@@ -978,7 +978,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** ancestry, builder-item, d22, draconic, entry, events, form, framework, generated, grant, hot, irreducible, loops, macro, pool, pools, registry, routes
+**topics:** ancestry, builder-item, d22, draconic, entry, events, form, framework, generated, grant, irreducible, loops, macro, pool, pools, registry, routes, type
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -1254,6 +1254,15 @@ _demo-content-tier · demo content tier_
 - Still open
 - Separate, bigger feature — variant rules (do NOT fuse this in)
 
+## dependency-alerts.md
+
+_dependency-alerts · dependency alerts_
+
+**topics:** 2026-11-18, alerts, bouncy, castle, critical, dependabot, dos, exposure, guava, high, jackson, jetty, jsoup, low, netty, postgresql, push, redis
+
+- Where the alerts come from
+- Triage, 2026-11-18
+
 ## dev-tooling-decisions.md
 
 _dev-tooling-decisions · dev tooling decisions_
@@ -1276,7 +1285,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 2026-11-04, 2026-11-15, adsense, art, branding, cloudflare, dmv, gitea, integration, links, merge, pre-merge, push, pushed, pushing, silhouettes, social, update
+**topics:** 2026-11-15, adsense, art, branch, branding, cloudflare, dmv, gitea, integration, links, merge, pre-merge, push, pushed, pushing, silhouettes, social, update
 
 - Where it happens
 - How to resolve conflicts
@@ -2686,7 +2695,7 @@ _open5e-upstream-notes · open5e upstream notes_
 
 _orcbrew-format-versioning · orcbrew format versioning_
 
-**topics:** boot-load, brew, builds, community, compat, compatibility, demo, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, version, versioning, won
+**topics:** besides, boot-load, brew, builds, community, compat, compatibility, demo, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, versioning, won
 
 - Why this exists
 - The mechanism (three parts)
@@ -2955,7 +2964,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** 2026-09-13, 669, counter, custom-items, db-population, differential, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
+**topics:** 2026-09-13, 669, chain, counter, custom-items, differential, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -3285,7 +3294,7 @@ _proposal-indexeddb-storage · proposal indexeddb storage_
 
 _re-frame-subscribe-refactor · re frame subscribe refactor_
 
-**topics:** apis, cached, chain, component, direct, event-utils, extract, handler, low, methods, re-frame, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
+**topics:** apis, cached, chain, component, direct, event-utils, extract, handler, methods, pattern, re-frame, reactive, reagent, subscribe, subscription, subscriptions, verify, verify-user-session
 
 - The Problem
 - What actually happens when you subscribe in a handler
@@ -3524,7 +3533,7 @@ _roadmap · roadmap_
 
 _rule-preview-cards · rule preview cards_
 
-**topics:** 2026-10-20, card, closes, condition, desktop, link, mockups, opens, owner, padding, phone, preview, prone, roll, scroll, tap, text, weapon-mastery-plan
+**topics:** 2026-10-20, card, closes, condition, desktop, link, mastery, mockups, opens, padding, phone, preview, prone, roll, scroll, tap, text, weapon-mastery-plan
 
 - How it works today (verified 2026-10-20, feature/weapons-table)
 - Agreed changes (owner, 2026-10-20)
@@ -3959,7 +3968,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale-safety, port, session, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale, locale-safety, port, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged
