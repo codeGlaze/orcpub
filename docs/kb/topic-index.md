@@ -1115,7 +1115,7 @@ _data-safety-layers · data safety layers_
 
 _datomic-backups · datomic backups_
 
-**topics:** 2026-11-18, backup, backups, cli, container, datomic, docker, exits, folder, offline, quotes, restore, restores, root-owned, secret, segments, stack, transactor
+**topics:** backup, backups, checksum, cli, container, datomic, docker, exits, folder, offline, quotes, restore, restores, root-owned, secret, segments, stack, transactor
 
 - Traps (verified)
 - What was tested (isolated stack, 5k entities)
@@ -1667,6 +1667,7 @@ _env-and-auth · env and auth_
 - Auth Token Canonical Path
 - Key files
 - The placeholder SIGNATURE is easy to leave in place (field report, 2026-09)
+- ./run --secrets reads .env before the shell (analysed 2026-11-18)
 
 ## equipment-option-picker.md
 

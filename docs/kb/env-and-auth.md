@@ -243,3 +243,14 @@ on localhost, a full authentication bypass on a shared host.
 The warning is already printed on every start; it just reads like noise next to
 the Datomic and Jetty banners. If self-hosting instructions grow a security
 checklist, "replace SIGNATURE before exposing the port" belongs at the top.
+
+## `./run --secrets` reads `.env` before the shell (analysed 2026-11-18)
+
+`read_passwords` in `run` takes `DATOMIC_PASSWORD`, `ADMIN_PASSWORD` and `SIGNATURE` from `.env`
+and falls back to the shell only when `.env` has none: the opposite of Compose and the rest of
+`./run`. The order was not argued when it was written, but it holds up. Runtime config norms
+(Compose, dotenv, Twelve-Factor) let the shell win; tools that write lasting state (Terraform's
+`.tfvars` over `TF_VAR_*`, `kubectl create secret --from-env-file`) let the file win. `--secrets`
+writes files every later start uses, and `start.sh` and `config.clj` read `/run/secrets` before the
+environment, so `.env` first keeps them reproducible. The gap is silence: `--secrets` gives no
+warning when the shell holds a different value (owner deciding on #89).
