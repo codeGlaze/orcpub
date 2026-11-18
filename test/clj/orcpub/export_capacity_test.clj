@@ -153,6 +153,24 @@
       (is (= limit (reduce + (map count (vals (:spells-known bounded)))))
           "capping per class would let thirteen classes carry the limit each")))
 
+  (testing "a zero-padded caster name cannot pass as a second section"
+    (let [bounded (bound-request {:spellcasting-class-1 "Wizard"
+                                  :spellcasting-class-01 "Cleric"
+                                  :spellcasting-class-0 "Bard"})]
+      (is (contains? bounded :spellcasting-class-1))
+      (is (not (contains? bounded :spellcasting-class-01))
+          "-01 parses to 1, so fourteen padded names would pass a ceiling of 13")
+      (is (not (contains? bounded :spellcasting-class-0)) "section 0 does not exist")))
+
+  (testing "sets are capped too, top-level or in a map, and stay sets"
+    (let [limit (config/get-pdf-max-cards)
+          bounded (bound-request {:top (set (range (* 3 limit)))
+                                  :by-class {:wizard (set (range (* 3 limit)))
+                                             :cleric (vec (range (* 3 limit)))}})]
+      (is (= limit (count (:top bounded))))
+      (is (set? (:top bounded)) "a reader that expects a set still gets one")
+      (is (= limit (reduce + (map count (vals (:by-class bounded))))))))
+
   (testing "scalars and nil are untouched"
     (is (= {:a 1 :b "x" :c nil :d true}
            (bound-request {:a 1 :b "x" :c nil :d true})))))
