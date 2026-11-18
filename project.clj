@@ -24,7 +24,7 @@
                  [org.clojure/test.check "1.1.1"]
                  [org.clojure/clojurescript "1.12.134"]
                  [org.clojure/core.async "1.8.741"] 
-                 [org.postgresql/postgresql "42.7.3"]
+                 [org.postgresql/postgresql "42.7.14"]
                  ;; Redis client, used only when REDIS_URL is set (orcpub.security.redis-store).
                  [com.taoensso/carmine "3.4.1"]
                  ;; React 18 + Reagent 2.0 (Concurrent Mode)
