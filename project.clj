@@ -57,7 +57,10 @@
                          [org.eclipse.jetty.websocket/websocket-jetty-api "11.0.26"]
                          [org.eclipse.jetty.websocket/websocket-jetty-common "11.0.26"]
                          [org.eclipse.jetty.websocket/websocket-jetty-server "11.0.26"]
-                         [org.eclipse.jetty.websocket/websocket-servlet "11.0.26"]]
+                         [org.eclipse.jetty.websocket/websocket-servlet "11.0.26"]
+                         ;; Pedestal's tracing API
+                         [io.opentelemetry/opentelemetry-api "1.68.0"]
+                         [io.opentelemetry/opentelemetry-context "1.68.0"]]
 
   :dependencies [[org.clojure/clojure "1.12.4"]
                  [org.clojure/test.check "1.1.1"]
