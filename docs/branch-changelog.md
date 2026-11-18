@@ -51,3 +51,4 @@ and the kits sit in a grid of framed cards that widens to two across on desktop.
 ## Security
 
 - **Docker:** Java starts with a stopgap flag that blocks CVE-2026-114938 (Java2Shell) on the app and Datomic containers, until the images run a patched Java 21 (`JAVA2SHELL_STOPGAP`, true or false).
+- **Server:** security updates to the web server (Jetty), the JSON parser (Jackson), the PostgreSQL driver, password hashing (Bouncy Castle), the email library and Guava; an unused PDF library removed.
