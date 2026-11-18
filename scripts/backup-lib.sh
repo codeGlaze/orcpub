@@ -111,12 +111,18 @@ bk_run_cli() {
     esac
   done
   export DATOMIC_JAVA_OPTS="${BACKUP_JAVA_OPTS:--Xms256m -Xmx1g}"
-  # The logging set-up lines Datomic prints at start are dropped; its own messages stay.
-  docker run --rm --network="$network" --user "$(stat -c %u:%g "$dir")" \
-    --tmpfs /datomic/log:rw,mode=1777 -e HOME=/tmp -e DATOMIC_JAVA_OPTS "${envs[@]+"${envs[@]}"}" \
-    -v "${dir}:/backup" "$image" sh -c "exec bin/datomic${snippet}" 2>&1 \
-    | grep --line-buffered -Ev '^[0-9]{2}:[0-9]{2}:[0-9]{2},[0-9]+ \|-|^$' || true
-  return "${PIPESTATUS[0]}"
+  # The logging set-up lines Datomic prints at start are dropped; its own messages stay. The
+  # subshell keeps docker's exit status (not grep's) whatever `set -e` is in force.
+  local rc=0
+  (
+    set +e
+    docker run --rm --network="$network" --user "$(stat -c %u:%g "$dir")" \
+      --tmpfs /datomic/log:rw,mode=1777 -e HOME=/tmp -e DATOMIC_JAVA_OPTS "${envs[@]+"${envs[@]}"}" \
+      -v "${dir}:/backup" "$image" sh -c "exec bin/datomic${snippet}" 2>&1 \
+      | grep --line-buffered -Ev '^[0-9]{2}:[0-9]{2}:[0-9]{2},[0-9]+ \|-|^$'
+    exit "${PIPESTATUS[0]}"
+  ) || rc=$?
+  return "$rc"
 }
 
 # bk_db_exists
@@ -237,11 +243,11 @@ bk_restore() {
 
 # bk_offline_backup <backup-folder>
 #   Offline fallback: stops the stack, copies ./data to <backup-folder>/offline-<UTC date-time>/data,
-#   starts the stack again (also when the copy failed). Copies run in the transactor image as
+#   starts the services that were running again (also when the copy failed). Copies run in the transactor image as
 #   root, so ownership of the files is kept.
 #   Exit: 0 copied and stack restarted; 1 otherwise.
 bk_offline_backup() {
-  local dir="$1" image stamp dest rc=0
+  local dir="$1" image stamp dest services rc=0
   if [[ ! -d data ]]; then
     error "No ./data folder here: nothing to copy (a Swarm stack keeps it in the orcpub_data volume)."
     return 1
@@ -250,12 +256,14 @@ bk_offline_backup() {
   image=$(bk_image)
   stamp=$(date -u +%Y-%m-%dT%H%M%SZ)
   dest="$dir/offline-$stamp"
+  services=$(docker compose ps --services --status running 2>/dev/null | tr '\n' ' ')
   info "Stopping the stack"
   docker compose down || { error "Could not stop the stack; no copy made."; return 1; }
-  mkdir -p "$dest" && docker run --rm --entrypoint sh -v "$PWD/data:/src:ro" -v "$dest:/dst" "$image" \
-    -c 'cp -a /src/. /dst/ && touch /dst/.orcpub-offline-backup' || rc=1
+  docker run --rm --entrypoint sh -v "$PWD/data:/src:ro" -v "$dir:/dst" "$image" -c \
+    'mkdir -p "/dst/$1" && cp -a /src/. "/dst/$1/" && touch "/dst/$1/.orcpub-offline-backup"' sh "offline-$stamp" || rc=1
   info "Starting the stack"
-  docker compose up -d || { error "The stack did not start again: run docker compose up -d."; rc=1; }
+  # shellcheck disable=SC2086  # $services is a list of service names
+  docker compose up -d $services || { error "The stack did not start again: run docker compose up -d."; rc=1; }
   if [[ $rc -ne 0 ]]; then
     error "Offline backup failed; $dest is not complete."; return 1
   fi
@@ -264,10 +272,10 @@ bk_offline_backup() {
 
 # bk_offline_restore <offline-backup-folder>
 #   Puts an offline backup back: stops the stack, moves ./data to ./data.before-restore-<UTC stamp>,
-#   copies the backup in, starts the stack. Nothing is deleted.
+#   copies the backup in, starts the services that were running. Nothing is deleted.
 #   Exit: 0 restored; 1 otherwise (./data is put back if the copy failed).
 bk_offline_restore() {
-  local src="$1" image stamp aside
+  local src="$1" image stamp aside services
   if [[ ! -f "$src/.orcpub-offline-backup" ]]; then
     error "$src is not an offline backup (no .orcpub-offline-backup marker)."; return 1
   fi
@@ -275,6 +283,7 @@ bk_offline_restore() {
   image=$(bk_image)
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   aside="data.before-restore-$stamp"
+  services=$(docker compose ps --services --status running 2>/dev/null | tr '\n' ' ')
   info "Stopping the stack"
   docker compose down || { error "Could not stop the stack; nothing restored."; return 1; }
   [[ -d data ]] && mv data "$aside"
@@ -287,6 +296,7 @@ bk_offline_restore() {
     return 1
   fi
   info "Starting the stack"
-  docker compose up -d || { error "The stack did not start: run docker compose up -d."; return 1; }
+  # shellcheck disable=SC2086  # $services is a list of service names
+  docker compose up -d $services || { error "The stack did not start: run docker compose up -d."; return 1; }
   info "Offline restore complete. The previous data is in ./$aside (delete it when satisfied)."
 }

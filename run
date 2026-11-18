@@ -880,6 +880,11 @@ if [ "$_backup_flags" -gt 0 ]; then
     error "Docker Compose v2 ('docker compose') is required."
     exit 1
   fi
+  # The transactor image name, for when the stack is stopped (docker-compose.yaml's DATOMIC_IMAGE).
+  if [ -z "${DATOMIC_IMAGE:-}" ] && [ -n "$(read_env_val DATOMIC_IMAGE "$ENV_FILE")" ]; then
+    DATOMIC_IMAGE="$(read_env_val DATOMIC_IMAGE "$ENV_FILE")"
+    export DATOMIC_IMAGE
+  fi
   _bdir="${BACKUP_DIR_ARG:-${BACKUP_DIR:-$(read_env_val BACKUP_DIR "$ENV_FILE")}}"
   _bdir="${_bdir:-./backups}"
   if [ "$BACKUP_MODE" = "true" ]; then
