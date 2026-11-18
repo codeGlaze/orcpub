@@ -58,7 +58,7 @@
                  [bidi "2.1.6"]
 
                  [com.stuartsierra/component "1.2.0"]
-                 [com.google.guava/guava "32.1.2-jre"]
+                 [com.google.guava/guava "33.8.0-jre"]
 
                  [com.fasterxml.jackson.core/jackson-databind "2.18.12"]
                  [com.fasterxml.jackson.core/jackson-core "2.18.12"]
