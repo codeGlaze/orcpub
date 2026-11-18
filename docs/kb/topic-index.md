@@ -574,7 +574,7 @@ _builder-and-sheet-copies · builder and sheet copies_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, gallery, height, jpg, layout, mockup, row, rows, toggle
+**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, gallery, height, jpg, mockup, row, rows, toggle
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -1115,12 +1115,13 @@ _data-safety-layers · data safety layers_
 
 _datomic-backups · datomic backups_
 
-**topics:** 2026-11-18, 7745, backup, backups, checksum, cli, datomic, fingerprint, folder, netty, offline, peer, restore, root-owned, secret, stack, transactor, zip
+**topics:** 2026-11-18, 7745, backup, backups, checksum, cli, database, datomic, folder, month, offline, peer, postgres, restore, root-owned, stack, transactor, zip
 
 - Traps (verified)
 - What was tested (isolated stack, 5k entities)
 - CodeRabbit round three (2026-11-18, #89)
 - Datomic 1.0.7482 to 1.0.7745 (verified 2026-11-18, #89)
+- Postgres storage and monthly rotation (2026-11-18, #89)
 
 ## datomic-crash-analysis.md
 
@@ -4012,7 +4013,7 @@ _support-session-ledger · support session ledger_
 
 _test-suite-state · test suite state_
 
-**topics:** 2016, assertions, cljs, debt, driver, e2e, errors, failures, harness, jvm, lazy, pre-existing, spec, suite, theater, unresolved, unrun, unshallowed
+**topics:** 2016, assertions, cljs, debt, e2e, errors, failures, figwheel, harness, jvm, lazy, pre-existing, spec, suite, theater, unresolved, unrun, unshallowed
 
 - 0. Current measured state — 2026-09-12, feature/grant-rows (after the integration merge)
 - 0.1 Earlier measured state — 2026-09-05, feature/fighting-style-authoring

@@ -62,3 +62,11 @@ fingerprint. Follow-up the same day: the wait, with the transactor paused 25 s m
 - The transactor zip bundles its own Netty (4.1.131 in 1.0.7745). `project.clj`'s `:managed-dependencies` pin Netty only for the app's peer.
 - The live site stores Datomic in Postgres (`plan-lookup-indexes.md`); `./run --backup` assumes `dev` storage.
 - Test trap: a check that compares two fingerprints must fail when either is empty. A script that sent the peer's errors to /dev/null reported two blank results as "same data".
+
+## Postgres storage and monthly rotation (2026-11-18, #89)
+
+- `./run --backup`, `--verify-backup` and `--restore` work on Postgres storage: with `DATOMIC_URL=datomic:sql://<db>?jdbc:postgresql://...` (from `.env` or the shell) they use that address, with the database name swapped in for `*`. The transactor image includes the Postgres JDBC driver (42.7.11 in 1.0.7745). Restore needs Datomic's `datomic_kvs` table to exist (`bin/sql/postgres-table.sql` in the zip).
+- Tested on Postgres 16 with a SQL-storage transactor (`bin/transactor` with `protocol=sql`; our image's `start.sh` writes `dev` settings only, so a SQL transactor needs its own properties file). Backup, verify, restore into a fresh Postgres with identical data, and the exists refusal all passed.
+- A freshly started SQL transactor can refuse the first large write; retrying after it settles works.
+- Layout: `<dir>/<YYYY-MM>/orcpub`. Rotation deletes month folders beyond `BACKUP_KEEP_MONTHS` only after the new month's first backup verifies. `--restore` and `--verify-backup` take the parent folder (newest month) or a month folder.
+- Offline copies refuse on Postgres storage (`./data` holds none of it) and keep `BACKUP_KEEP_OFFLINE`.
