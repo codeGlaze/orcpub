@@ -218,6 +218,20 @@ read_passwords() {
     _pw_signature=$(read_env_val SIGNATURE "$ENV_FILE")
   fi
 
+  # .env wins over the shell here; say so when they disagree (docs/ENVIRONMENT.md).
+  local _var _file_val _shell_val
+  for _var in DATOMIC_PASSWORD ADMIN_PASSWORD SIGNATURE; do
+    case "$_var" in
+      DATOMIC_PASSWORD) _file_val="$_pw_datomic" ;;
+      ADMIN_PASSWORD)   _file_val="$_pw_admin" ;;
+      SIGNATURE)        _file_val="$_pw_signature" ;;
+    esac
+    _shell_val="${!_var-}"
+    if [ -n "$_file_val" ] && [ -n "$_shell_val" ] && [ "$_file_val" != "$_shell_val" ]; then
+      warn "${_var} in your shell differs from .env; using the .env value"
+    fi
+  done
+
   # Fill gaps from shell env vars (for admins who export directly)
   _pw_datomic="${_pw_datomic:-${DATOMIC_PASSWORD:-}}"
   _pw_admin="${_pw_admin:-${ADMIN_PASSWORD:-}}"
