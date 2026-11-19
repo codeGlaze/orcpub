@@ -24,8 +24,7 @@ verification, Turnstile on sign-up, and the "email taken" check. **Base:** `inte
   `claim-notice!`, `auth-form-page :challenge`); branch changelog written; KB page updated; PR opened.
 - **MERGED 2026-11-05** into `integration` as #80 (`3f164a78`), after two CodeRabbit reviews, all
   threads fixed or answered. Branch is finished; follow-up work starts fresh from `integration`.
-- Live still needs (admin, unanswered): `APP_URL` set to the site address; `REDIS_URL` + a Redis
-  container if more than one app container runs; Cloudflare edge rules until the release ships.
+- What the live site still needs: private DMV repo, `docs/ops/live-abuse-limits.md`.
 - Open follow-ups: Redis in CI; a circuit breaker for Redis outages; split `security.clj` (743
   lines) if it keeps growing; World Anvil framing question in `docs/TODO.md`.
 - Known, accepted: `check-username` stays live (public handles); email change still says
@@ -51,7 +50,6 @@ verification, Turnstile on sign-up, and the "email taken" check. **Base:** `inte
 ## Owner decisions
 
 - 2026-11-03: one branch for all of it. Turnstile: sign-up only, managed mode, fail open.
-- 2026-11-03: live stopgap is a Cloudflare edge rule on `/send-password-reset` (admin adding it).
 - 2026-11-04: option (b): sign-up never reveals a taken address. It answers every well-formed
   address the same ("check your email") and mails the existing owner instead of creating a second
   account. Chosen over softer wording on the live check, which would still be a membership test.

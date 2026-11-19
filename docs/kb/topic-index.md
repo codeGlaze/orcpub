@@ -379,9 +379,9 @@ _artist-links-and-referrer · artist links and referrer_
 
 _auth-abuse-limits · auth abuse limits_
 
-**topics:** 2026-11-03, 2026-11-04, address, attempts, auth, cloudflare, countdown, host, hour, limit, limits, resend, reset, sign-in, sign-up, spam, taken, turnstile
+**topics:** 2026-11-03, 2026-11-04, address, attempts, auth, challenge, cloudflare, countdown, host, hour, limits, resend, reset, sign-in, sign-up, taken, token, turnstile
 
-- The incident (2026-11-03)
+- The live site
 - Coverage on fix/auth-abuse (2026-11-04; replaces the integration table)
 - Memory vs record (owner asked 2026-11-03)
 - Turnstile on sign-up (researched 2026-11-03)
@@ -865,7 +865,7 @@ _claude-files-in-branch-history · claude files in branch history_
 
 _client-ip-behind-proxies · client ip behind proxies_
 
-**topics:** 2026-10-22, address, client-controlled, cloudflare, limits, minute, mistyping, nginx, per-address, player, players, proxied, proxy, sign-in, sign-ins, sign-up, spray, trust
+**topics:** 2026-10-22, address, client-controlled, cloudflare, edge, limits, minute, mistyping, nginx, per-address, player, players, proxy, redacted, sign-in, sign-up, spray, trust
 
 - The finding
 - What it does on the live site

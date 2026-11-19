@@ -1,20 +1,12 @@
-# Abuse limits on the account forms: what each one has, live and on `fix/auth-abuse`
+# Abuse limits on the account forms: what each one has on `fix/auth-abuse`
 
 Measured 2026-11-03 against `integration` (`837a2620` era) and the fork's `develop` (`15e1fe04`,
 what the live site runs). Decisions with their reasons are in `account-flows.md` §6; this page is
 the coverage map and what is still open.
 
-## The incident (2026-11-03)
+## The live site
 
-The live site was hit with password-reset spam. Live runs upstream `develop`, which has **no limit
-on reset mail** (`send-password-reset`, `routes.clj:526` there: one mail per request) and answers
-`400 :no-account` for an unknown address, a membership test. `integration` fixed both in September
-(`account-flows.md` §6), but none of it is live until the release (#32 `integration` -> `develop`,
-then upstream, then a deploy).
-
-**Stopgap, owner 2026-11-03:** a Cloudflare rate-limit rule at the edge on `GET /send-password-reset`
-(the address arrives as `?email=`), keyed by client IP. The admin was asked to add it. It can cover
-`/re-verify` the same way, which has no limit live either.
+What the live site had, the 2026-11-03 incident and the edge-rule stopgap are in the private DMV repo, `docs/ops/live-abuse-limits.md`.
 
 ## Coverage on `fix/auth-abuse` (2026-11-04; replaces the integration table)
 

@@ -12,9 +12,9 @@ reads `X-Forwarded-For`, `X-Real-IP` or `CF-Connecting-IP`, and nginx (`deploy/n
 sets `X-Real-IP $remote_addr` without the `real_ip` module, so behind Cloudflare even that is
 Cloudflare's edge.
 
-Evidence: a live error email (owner, 2026-10-22) shows `:remote-addr "10.0.38.49"` (the Swarm overlay
-proxy), `x-real-ip "104.23.160.222"` (a Cloudflare edge) and `x-forwarded-for "97.126.172.119,
-104.23.160.222"` (the player first).
+Evidence: a live error email (owner, 2026-10-22) shows `:remote-addr` holding the Swarm overlay
+proxy's address, `x-real-ip` a Cloudflare edge's, and `x-forwarded-for` the player's address first,
+then the edge's. (Addresses redacted; tests use reserved example addresses.)
 
 ## What it does on the live site
 
