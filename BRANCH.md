@@ -145,7 +145,13 @@ view is two: the hold decides what the built character applies; Data View edits 
 
 ### Someday — when there is a session to spare
 
+- **Open: a check for personal data before pushes** (2026-11-19). No hook or CI job looks for IP
+  addresses, email addresses, hashes or keys; GitHub secret scanning sees only known token formats.
+  A real player address sat in two test files for a month (redacted on #89). Proposed: gitleaks
+  plus own rules, in pre-push and CI; waiting on the owner.
 - **Open for the owner: a workflow naming convention between the public repo and DMV**
+  (owner chose `docker-dmv-release.yaml` / `docker-dmv-dev.yaml` on 2026-11-19; waiting on the
+  admin's OK, since his own spec on DMV chose `docker-builds.yaml` and deleted `docker.yaml`)
   (raised 2026-11-19; remind the owner in every Needs you until answered). The public
   `docker.yaml` (Docker Hub releases, guarded to `Orcpub/orcpub`) and DMV's `docker-builds.yaml`
   (Gitea releases) have names that say nothing about where they publish, and DMV deleting
