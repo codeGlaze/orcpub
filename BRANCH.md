@@ -152,8 +152,8 @@ view is two: the hold decides what the built character applies; Data View edits 
   `docker.yaml` makes every pre-merge that touches it a modify/delete conflict. Proposal (2026-11-19, after the owner
   noted Gitea is DMV's pre-merge-and-deploy home, so "gitea" names the wrong thing): leave the
   public `docker.yaml` as it is (renaming it changes upstream too; it holds only the Docker Hub
-  release and skips off `Orcpub/orcpub`), restore it on DMV, and prefix DMV's own workflows `dmv-`
-  (`dmv-docker-release.yaml`, `dmv-docker-dev.yaml`), like the branding stubs, so there is
+  release and skips off `Orcpub/orcpub`), restore it on DMV, and name DMV's own workflows kind first, then `dmv` (owner: a kind groups with its kind)
+  (`docker-dmv-release.yaml`, `docker-dmv-dev.yaml`), like the branding stubs, so there is
   no shared file to conflict on. `.gitignore` cannot do this: it ignores only untracked files.
   Detail: [dmv-premerge.md](docs/kb/dmv-premerge.md).
 
