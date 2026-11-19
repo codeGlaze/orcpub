@@ -62,8 +62,25 @@ figwheel master at core `92dcbb4b`, repl `5a67d34f`, main `cd7b0698`, built loca
   (each call now returns a `RoutingTable` record, so concatenating two breaks); `system.clj`
   gzip uses `.insertHandler` (Jetty 12 has no `.setGzipHandler`); four tests read
   `(:routes routes/routes)`. CSP nonces and gzip match 0.7.0 with `CSP_POLICY=strict`.
-- Untested: `fig:dev` (REPL), and the production CLJS build through plain `cljs.main` with figwheel
-  moved out of the main dependencies.
+- Untested: `fig:dev` (REPL).
+
+**Production without figwheel (tested 2026-11-19, same worktree).** Figwheel is a main dependency
+today and the Docker build (`docker/Dockerfile` ~93) and `lein build` compile through it, so its
+jars ship. Moving `figwheel-main` and `rebel-readline-cljs` into the `:dev-config` profile and
+building production with `cljs.main` works:
+- alias `"cljs:prod" ["with-profile" "-dev,+cljs-prod" "run" "-m" "cljs.main" "-co" "prod.cljs.edn"
+  "-d" "target/cljs-prod-out" "-c" "orcpub.core"]` plus profile
+  `:cljs-prod {:source-paths ["web/cljs" "src/cljc" "src/cljs"]}` (web/cljs is otherwise dev-only);
+  cljs.main reads prod.cljs.edn as is.
+- The bundle matches figwheel's to within gensym counters (3,787,078 vs 3,787,091 bytes; every
+  string literal equal); neither compiler is byte-deterministic between runs.
+- The uberjar (via `lein build` with `cljs:prod`) holds no figwheel, no ring-jetty-adapter, Jetty
+  only at 12.1.15; it runs clean in Chromium with CSP nonces and gzip intact.
+- Trap: an uberjar built without `clean` packs stale figwheel dev output from
+  `resources/public/js/compiled/out`. `lein build` and Docker's fresh context avoid it.
+- Dev (`fig:build`, `fig:watch` with SSE reload, `e2e-server`, `lein test`) all run under `:dev`.
+- Vendoring figwheel master for dev fits the existing pattern: `lib/` is gitignored but holds
+  force-added jars (the pdfbox snapshot) served through the `file:lib` repository.
 
 ## Options
 

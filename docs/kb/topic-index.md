@@ -719,7 +719,7 @@ _character-heals · character heals_
 
 _character-image-routes · character image routes_
 
-**topics:** 393, acao, advice, bearing, browser, bytes, clipboard, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
+**topics:** 393, acao, advice, bearing, browser, clipboard, cross-origin, curl, host, hosts, image, picture, pinterest, proxy, server, thumbnail, url, urls
 
 - The rule that decides everything
 - Measured, with real URLs
@@ -1474,7 +1474,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, session, stale, topic, wrong
+**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, index, irreducible, ledger, narrative, session, topic, wrong
 
 - What earns a doc
 - Verify, don't remember
@@ -1579,7 +1579,7 @@ _e2e-logged-in-sessions · e2e logged in sessions_
 
 _e2e-runner · e2e runner_
 
-**topics:** 8890, 8891, batch, bundle, busy, min, port, probe, probes, production, profile, run, runner, server, servers, suite, suites, worktree
+**topics:** 8890, 8891, batch, bundle, busy, min, port, probe, probes, production, rebuilds, run, runner, server, servers, suite, suites, worktree
 
 - The rule
 - Production is the default
@@ -1889,7 +1889,7 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
 _figwheel-jetty12 · figwheel jetty12_
 
-**topics:** 2025-02-18, 2026-11-18, aircompressor, alerts, clojars, dependency-alerts, figwheel, gzip, jetty, master, pedestal, release, repos, ring, sse, transport, unreleased, websocket
+**topics:** 2025-02-18, 2026-11-18, 787, aircompressor, clojars, dependency-alerts, figwheel, gzip, jars, jetty, master, pedestal, release, repos, ring-jetty-adapter, sse, uberjar, websocket
 
 - Why it matters
 - What blocks it
@@ -1917,7 +1917,7 @@ _filtered-list-staleness · filtered list staleness_
 
 _folder-hardening · folder hardening_
 
-**topics:** clause, client, error, evolution, folders, handler, hardening, http, optimistic, pattern, pre-mutation, problem, re-fetch, re-fetches, rollback, server, solution, tempid
+**topics:** clause, client, error, evolution, folders, handler, hardening, http, optimistic, pre-mutation, problem, re-fetch, re-fetches, rollback, server, solution, tempid, tempids
 
 - Context
 - Pattern: On-Failure Rollback via Server Re-Fetch
