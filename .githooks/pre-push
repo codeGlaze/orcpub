@@ -71,6 +71,26 @@ while read -r _l local_sha remote_ref _r; do
   fi
 done < <(printf '%s\n' "$pushed_refs")
 
+# Personal data: real IP addresses, email addresses, keys, tokens, password hashes and commit author
+# emails in the commits this push adds (docs/kb/personal-data-scan.md). Uses the branch's own
+# scripts/personal-data-scan.py and .personal-data-allow; a branch without them is not checked.
+scan=scripts/personal-data-scan.py
+if [ -f "$scan" ] && command -v python3 >/dev/null 2>&1; then
+  while read -r _l local_sha remote_ref _r; do
+    [ "$local_sha" = "$zero" ] && continue
+    if ! out="$(python3 -I "$scan" --pushed "${1:-origin}" "$local_sha" 2>&1)"; then
+      echo "" >&2
+      echo "  pre-push blocked: commits bound for '${remote_ref#refs/heads/}' carry personal data:" >&2
+      echo "$out" | sed 's/^/    /' >&2
+      echo "  Fix the commits (or allow-list what is safe to publish). agents: --no-verify needs the owner's yes." >&2
+      echo "" >&2
+      status=1
+    fi
+  done < <(printf '%s\n' "$pushed_refs")
+elif [ ! -f "$scan" ]; then
+  echo "  pre-push: no scripts/personal-data-scan.py on this branch; personal data not checked" >&2
+fi
+
 # Branch shape: the whole branch against what it merges into (docs/kb/agent-hooks.md). Trunks, agent
 # branches and DMV pushes are exempt.
 shape="$(dirname "$0")/branch-shape"

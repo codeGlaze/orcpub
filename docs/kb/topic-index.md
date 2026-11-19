@@ -282,7 +282,7 @@ _account-flows · account flows_
 
 _agent-hooks · agent hooks_
 
-**topics:** agent, agents, armed, arming, clone, docstring, hook, hooks, orcpub-garden, push, reminder, session, sessionstart, setup, trailer, transcript, worktree, worktrees
+**topics:** agent, agents, armed, arming, docstring, hook, hooks, installer, orcpub-garden, push, reminder, session, sessionstart, setup, trailer, transcript, worktree, worktrees
 
 - The rule
 - The entry point follows the same rule
@@ -865,7 +865,7 @@ _claude-files-in-branch-history · claude files in branch history_
 
 _client-ip-behind-proxies · client ip behind proxies_
 
-**topics:** 2026-10-22, address, client-controlled, cloudflare, edge, limits, minute, mistyping, nginx, per-address, player, players, proxy, redacted, sign-in, sign-up, spray, trust
+**topics:** 2026-10-22, address, addresses, client-controlled, cloudflare, edge, limits, minute, mistyping, nginx, per-address, player, players, proxy, sign-in, sign-up, spray, trust
 
 - The finding
 - What it does on the live site
@@ -1810,7 +1810,7 @@ _feat-builder-audit · feat builder audit_
 
 _fighting-style-authoring · fighting style authoring_
 
-**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, watch-list, whitelist
+**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, feat, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, watch-list
 
 - Status — 2026-09-05: BUILT
 - The divvying rule (decided) — which classes can take a homebrew style
@@ -2024,7 +2024,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 374, 3816, 493, believing, branch, content-type, cut, directions, duplicate-key, e2e, integration, item, key, merging, minted, outcome, source, tag
+**topics:** 1743, 374, 3816, 493, believing, branch, content-type, directions, duplicate-key, e2e, integration, item, key, merging, minted, outcome, source, tag
 
 - Outcome
 - The branches, and the order
@@ -2938,6 +2938,17 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 - Why storage is one blob when import/export are already per-source
 - Per-row work trap
 
+## personal-data-scan.md
+
+_personal-data-scan · personal data scan_
+
+**topics:** 2017, 2026-11-19, address, addresses, allow, author, aws, commit, commits, email, emails, github, hashes, private, public, range, ranges, scan
+
+- What runs, and when
+- Rules
+- Verified 2026-11-19
+- What was already public when it landed
+
 ## plan-669-merge-verification.md
 
 _plan-669-merge-verification · plan 669 merge verification_
@@ -3077,7 +3088,7 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** 2026-10-24, admin, alert, alerts, artist, channel, database, discord, email, emails, mail, outbox, sent, settings, spool, swarm, webhook, worker
+**topics:** 2026-10-24, admin, alert, alerts, artist, channel, database, discord, email, mail, outbox, sent, settings, spool, stage, swarm, webhook, worker
 
 - The problem
 - Two kinds of email
@@ -3743,7 +3754,7 @@ _srd-2024-coverage · srd 2024 coverage_
 
 _srd-2024-implementation-notes · srd 2024 implementation notes_
 
-**topics:** 2014, 2024, 339, damage, dial, edition, editions, exhaustion, feat, goblin, grappled, idea, lineage, mechanical, open5e, prose, rules, species
+**topics:** 2014, 2024, 339, damage, dial, edition, editions, exhaustion, expressed, feat, goblin, grappled, idea, lineage, mechanical, open5e, prose, species
 
 - The structural shifts, measured
 - 1. Subraces became lineages
@@ -3958,7 +3969,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale-safety, port, session, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged

@@ -152,6 +152,7 @@ sides had been written blind to the other's findings.
 - [`release-deploy-traps.md`](release-deploy-traps.md): what failed in release, Docker and DMV work, and why
 - [`plan-homebrew-markdown-export.md`](plan-homebrew-markdown-export.md): exporting a homebrew source as printable 5e-style Markdown; subclasses first
 - [`../archive/README.md`](../archive/README.md): mockups, plans and reports moved off `integration`
+| [personal-data-scan.md](personal-data-scan.md) | **What blocks personal data before GitHub**: the pre-push hook and CI scan (IPs, emails, keys, hashes, commit authors), its allow list, and what was already public |
 | [dmv-premerge.md](dmv-premerge.md) | **Bringing `integration` to the DMV fork**: moved to the private DMV repo (`docs/ops/`); this page says where |
 | [expertise-chats.md](expertise-chats.md) | **Keeping a long chat's expertise cheaply**: owner-wide rules in AGENTS.md, area expertise files loaded by branch or folder, the hook's ~10 KB output limit, auditing a transcript with `scripts/trim_transcript.py`, and the hooks that keep it working. |
 | [copilot-agents.md](copilot-agents.md) | **Running Claude through VS Code Copilot**: what carries over (git identity, signing, hooks) and what does not (setup hook, memory), the one-time VS Code settings, running `agent-setup.sh` in each new worktree, and the start prompt for any agent. |
