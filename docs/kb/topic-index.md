@@ -171,7 +171,7 @@ _SESSION-SUMMARY · SESSION SUMMARY_
 
 _UPGRADE_DEPENDENCIES · UPGRADE_DEPENDENCIES_
 
-**topics:** allows, clojurescript, closure, csp, dev, ecosystem, figwheel-main, java, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, support, violations, xss
+**topics:** allows, clojurescript, closure, csp, dev, development, ecosystem, figwheel-main, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, support, violations, xss
 
 - Java 9+/21 & Servlet API
 - Datomic Pro
@@ -370,7 +370,7 @@ _artist-credit-change-emails · artist credit change emails_
 
 _artist-links-and-referrer · artist links and referrer_
 
-**topics:** artist, artists, cyrillic, domain, https, international, link, links, lookalike, punycode, referrer, referrer-policy, secure-headers, site, site-wide, user-supplied, vetted, whitespace
+**topics:** analytics, artist, artists, cyrillic, domain, https, international, link, links, lookalike, punycode, referrer, referrer-policy, secure-headers, site, user-supplied, vetted, whitespace
 
 - Decisions (owner's)
 - Rules every link follows
@@ -429,7 +429,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, authored, builder, control, css, docstrings, form, icon, item, lesson, reagent, review, row, sat, signing, unknown, vanished, vector
+**topics:** 2026-09-29, builder, check, control, css, docstrings, form, icon, item, lesson, reagent, review, row, sat, signing, unknown, vanished, vector
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -537,7 +537,7 @@ _branch-md-2026-10-23 · branch md 2026 10 23_
 
 _branding-setup · branding setup_
 
-**topics:** 2026-11-16, artist, artist-links-and-referrer, branding, dmv, docker, email, emails, footer, fork, fork-customization, glow, links, privacy, public, settings-registry-and-boot-report, swarm, url
+**topics:** 2026-11-16, artist, artist-links-and-referrer, branding, dmv, docker, email, emails, footer, fork-customization, glow, links, logos, privacy, public, settings-registry-and-boot-report, swarm, url
 
 - Two ways a deployment brands itself
 - How a value is read
@@ -734,7 +734,7 @@ _character-image-routes · character image routes_
 
 _character-naming · character naming_
 
-**topics:** ------, aasimar, blank, calishite, chondathan, descriptive, dwarf, elf, halfling, helper, human, label, manual, name, party, races, random, sex
+**topics:** ------, aasimar, blank, calishite, descriptive, dwarf, elf, generator, halfling, helper, human, label, manual, name, party, races, random, sex
 
 - Problem
 - Solution (implemented 2026-02-22)
@@ -963,7 +963,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, level-3, name-keyword, pact, phase, phases, positional-threading, read-seams, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, homebrew, level-3, name-keyword, pact, phase, phases, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1197,7 +1197,7 @@ _decision-gate-hidden-picks · decision gate hidden picks_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choice, choices, cross-silo, feat-only, grant, innate, non-caster, prereqs, prof, spell, spell-choice, spellcasting, subclass, sustainability, vocab, vocabulary
+**topics:** asi, caster, choice, choices, cross-silo, custom, feat-only, grant, innate, non-caster, prereqs, spell, spell-choice, spellcasting, subclass, sustainability, vocab, vocabulary
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -1260,7 +1260,7 @@ _demo-content-tier · demo content tier_
 
 _dependency-alerts · dependency alerts_
 
-**topics:** 2026-11-18, accepted, alert, alerts, critical, dependabot, direct, dos, exposure, high, jars, jetty, jsoup, libraries, low, netty, push, redis
+**topics:** 2026-11-18, alert, alerts, critical, dependabot, direct, dos, exposure, high, jars, jetty, jsoup, libraries, low, netty, nginx, push, redis
 
 - Where the alerts come from
 - Triage, 2026-11-18
@@ -1289,78 +1289,27 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 2026-11-15, admin, adsense, art, branch, branding, cloudflare, dmv, gitea, integration, licensed, merge, pre-merge, public, push, pushed, update, workflows
+**topics:** access, address, agents, belong, details, dmv, gitea, history, integration, moved, pre-merge, pre-merges, pre-merging, private, public, repo, repository, worktree
 
-- Where it happens
-- How to resolve conflicts
-- Checks
-- Audit of the branch, 2026-11-01
-- Launching the DMV side locally
-- Pushing to Gitea is blocked by Cloudflare (2026-11-04)
-- Traps when updating PR #10 (2026-11-05)
-- 2026-11-15 update (after #85, feature/inventory-kits)
-- 2026-11-16 update (after #87, kits round two)
-- 2026-11-17 update (after #88, the What's New pill)
-- 2026-11-18 update (the admin's release workflow, dev deploy)
-- Future option: DMV's workflows in .gitea/workflows/ (owner, 2026-11-19: not now, KISS)
+
 
 ## dmv-production-changes.md
 
 _dmv-production-changes · dmv production changes_
 
-**topics:** --------, backport, backport-worthy, branding, breaking, dmv, dmv-specific, email-preferences-implementation, fork, hotfix-integrations, license, meta, monetization, nginx, passwords, patron, pedestal, production
+**topics:** agents, analysis, belong, deployment, details, dmv, gitea, including, issues, known, pre-merge, private, production, public, repo, repository, security, worktree
 
-- Summary
-- Critical Issues to Flag to Admin
-- 1. security.clj — Rate-limiting broken (PRODUCTION BUG)
-- 2. newrelic.yml — License key committed in plaintext
-- 3. deploy/transactor.properties — Hardcoded passwords
-- 4. Minor bugs in DMV code
-- Backport-Worthy Fixes (Priority Order)
-- Must Fix
-- Should Consider
-- Document Only
-- Recent Fixes Applied (dmv/hotfix-integrations branch)
-- Auth Guard for API Subscriptions (5539953c)
-- Fork Directory Reorganization (69eafaad)
-- Email Preferences Feature (62381b85)
-- Error Email Hardening (dmv/hotfix-integrations)
-- Pedestal Logging Anti-Pattern (dmv/hotfix-integrations)
-- Figwheel Codespaces Auto-Detection (37db84fb)
-- 1. Docker Infrastructure
-- Root Dockerfile (Dockerfile, new)
-- Datomic Dockerfiles (docker/datomic/, new)
-- Orcpub Dockerfile (docker/orcpub/Dockerfile, new)
-- 2. Transactor Configuration
-- deploy/transactor.properties (new, production config)
-- 3. Nginx Configuration
-- deploy/nginx-dev.conf (new)
-- 4. Email / Auth Flow Changes (routes.clj)
-- 5. Source Code Changes (CLJ/CLJS)
-- Bug Fixes (backport-worthy)
-- Features (evaluate for backport)
-- DMV-Specific (don't backport)
-- Bugs Introduced by DMV
-- Dead/Unused Imports
-- 6. Frontend Assets
-- Branding (DMV-specific, don't backport)
-- Monetization (DMV-specific)
-- Potentially Useful
-- 7. Monitoring / Vendored
-- 8. Scripts / CI / Misc
-- 9. Git / Workflow Gotchas
-- Git Ref Namespace Collision
-- Cherry-Picking Between dmv/ and breaking/
+
 
 ## docker-image-releases.md
 
 _docker-image-releases · docker image releases_
 
-**topics:** 2025-09-11, 2026-02-19, 2026-11-07, 2026-11-18, cloudflare, cve-2026-114938, docker, dockerd, host, hub, image, images, newest, publishing, pushing, secrets, upstream, workflow
+**topics:** 2025-09-11, 2026-02-19, 2026-11-07, 2026-11-18, cve-2026-114938, dev-deploy, dmv, dmv-premerge, docker, hub, images, newest, publishing, secrets, set-up, tag, upstream, workflow
 
 - How it works
 - State on 2026-11-18
-- DMV: pushing past Cloudflare (2026-11-18)
+- DMV
 
 ## docker-infrastructure.md
 
@@ -1400,7 +1349,7 @@ _docker-security-decisions · docker security decisions_
 
 _docker-setup-flow · docker setup flow_
 
-**topics:** auto, compose, deploy, docker, docker-compose, env, false, file-based, generate, interactive, modes, password, prompts, secrets, shell, swarm, upgrade, yaml
+**topics:** auto, compose, datomic, deploy, docker, docker-compose, env, false, file-based, generate, interactive, modes, password, prompts, secrets, swarm, upgrade, yaml
 
 - Flag Parsing (line ~548)
 - Conflict Check (line ~583)
@@ -1475,7 +1424,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, index, irreducible, ledger, narrative, session, topic, wrong
+**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, session, stale, topic, wrong
 
 - What earns a doc
 - Verify, don't remember
@@ -1609,7 +1558,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, datomic, echoing, email, emails, endpoint, jwt, jwt-signed, marketing, modifies, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, can-spam, datomic, echoing, email, emails, endpoint, function, jwt, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -1720,7 +1669,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** ammunition, armor, climber, damage, dash, die, equipment, gear, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
+**topics:** ammunition, app, armor, damage, dash, die, equipment, gear, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -1918,7 +1867,7 @@ _filtered-list-staleness · filtered list staleness_
 
 _folder-hardening · folder hardening_
 
-**topics:** clause, client, error, evolution, folders, handler, hardening, http, optimistic, pre-mutation, problem, re-fetch, re-fetches, rollback, server, solution, tempid, tempids
+**topics:** clause, client, error, evolution, folders, handler, hardening, http, optimistic, pattern, pre-mutation, problem, re-fetch, re-fetches, rollback, server, solution, tempid
 
 - Context
 - Pattern: On-Failure Rollback via Server Re-Fetch
@@ -1932,7 +1881,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, ofl, redistribution, sandboxed, sans, self-hosted, subset, subsets, visitor
+**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, licensed, ofl, redistribution, sans, self-hosted, subset, subsets, visitor
 
 - Why
 - What is checked in
@@ -1989,7 +1938,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _garden-calc-plus · garden calc plus_
 
-**topics:** 2026-11-09, 2562, 3640, around, compresses, css, declaration, initial, invalid, invalidates, negative, offset, operator, popover, spaces, subtract, succeeds, whitespace
+**topics:** 2026-11-09, 2562, 3640, around, compresses, css, declaration, define, initial, invalid, invalidates, negative, offset, popover, spaces, subtract, succeeds, whitespace
 
 
 
@@ -1997,7 +1946,7 @@ _garden-calc-plus · garden calc plus_
 
 _garden-inline-styles-harvest · garden inline styles harvest_
 
-**topics:** 648, branch, compiled, conversion, css, excluded, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, no-visual-change, seeded, shapes
+**topics:** 648, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, seeded, shapes
 
 - Why the branch stalled
 - The branch is healthy
@@ -2075,7 +2024,7 @@ _handoff-grant-rows · handoff grant rows_
 
 _handoff-integration-branches · handoff integration branches_
 
-**topics:** 1743, 374, 3816, 493, believing, branch, content-type, directions, duplicate-key, e2e, integration, item, key, merging, minted, outcome, source, tag
+**topics:** 374, 3816, 493, believing, branch, content-type, cut, directions, duplicate-key, e2e, integration, item, key, merging, minted, outcome, source, tag
 
 - Outcome
 - The branches, and the order
@@ -2182,7 +2131,7 @@ _homebrew-class-spellcasting · homebrew class spellcasting_
 
 _homebrew-content-merge · homebrew content merge_
 
-**topics:** -commented, -ed, assembly, built-in, built-ins, concat, def, feat, feats, fighting, grappler, homebrew-extensible, merge, mostly, plugin, srd-minimal, static, sub
+**topics:** -commented, -ed, assembly, built-in, built-ins, concat, def, feat, feats, grappler, homebrew-extensible, merge, mostly, plugin, srd-minimal, static, sub, supported
 
 - The trap, concretely (feats)
 - The general pattern (applies to most content types)
@@ -2423,7 +2372,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, junk, leading, least-destructive, mangled, quarantined, repair, restore, suggestion, translator, unnamed, wind, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, digits, intent, invalid, junk, leading, least-destructive, mangled, quarantined, repair, restore, suggestion, translator, unnamed, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -2486,7 +2435,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, same-key, source, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2560,7 +2509,7 @@ _memoize-antipattern-scan · memoize antipattern scan_
 
 _merging-across-a-refactor · merging across a refactor_
 
-**topics:** 669, bare, branch, call, cleanly, conflict, cut, fetch, filtered-list-staleness, handler, handoff-669-final-pass, merge, merging, newer, plan-669-merge-verification, refactor, side, undeclared
+**topics:** 669, bare, branch, call, cleanly, conflict, cut, fetch, filtered-list-staleness, git, handoff-669-final-pass, merge, merging, newer, plan-669-merge-verification, refactor, side, undeclared
 
 - Case 1: the clean merge that was already broken
 - Case 2: the conflict whose obvious resolution restores a bug
@@ -2598,7 +2547,7 @@ _modifier-vs-trait-slots · modifier vs trait slots_
 
 _monolith-decomposition-plan · monolith decomposition plan_
 
-**topics:** -------, 2026-09-15, 623, 821, cljs, cohesive, decomposition, domain, domain-based, extractions, incrementally, monolith, phase, split, splitting, tier, todo, views
+**topics:** -------, --------, 2026-09-15, 623, 821, cljs, cohesive, decomposition, domain, domain-based, incrementally, monolith, phase, split, splitting, tier, todo, views
 
 - 1. Did the Builders Split Make Issues Easier to Find?
 - 2. What Files Can or Should Be Broken Down?
@@ -2720,7 +2669,7 @@ _open5e-upstream-notes · open5e upstream notes_
 
 _orcbrew-format-versioning · orcbrew format versioning_
 
-**topics:** besides, boot-load, brew, builds, community, compat, compatibility, demo, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, versioning, won
+**topics:** boot-load, brew, builds, community, compat, compatibility, demo, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, version, versioning, won
 
 - Why this exists
 - The mechanism (three parts)
@@ -2749,7 +2698,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _page-load-budget · page load budget_
 
-**topics:** 2026-10-15, bundle, caching, compressed, credits, e2e-runner, font, fonts, headers, icons, loads, parties, production, repeat, sheet, signed, stamps, visit
+**topics:** 2026-10-15, bundle, caching, com, compressed, credits, e2e-runner, font, fonts, headers, icons, loads, parties, production, repeat, signed, stamps, visit
 
 - Why it exists
 - Audit of integration (2026-10-15, b8035afe, production bundle)
@@ -3128,7 +3077,7 @@ _plan-cr-normalization · plan cr normalization_
 
 _plan-email-and-alerts · plan email and alerts_
 
-**topics:** 2026-10-24, admin, alert, alerts, artist, channel, database, discord, email, mail, outbox, sent, settings, spool, stage, swarm, webhook, worker
+**topics:** 2026-10-24, admin, alert, alerts, artist, channel, database, discord, email, emails, mail, outbox, sent, settings, spool, swarm, webhook, worker
 
 - The problem
 - Two kinds of email
@@ -3424,7 +3373,7 @@ _registry-before-after · registry before after_
 
 _release-deploy-traps · release deploy traps_
 
-**topics:** alt-host, de-index, dmv, edn, ending, folder, hand-insert, in-browser, lag, logged, parsers, projects, release, reviewing, robots, sigpipe, slips, swarm
+**topics:** alt-host, de-index, dmv, edn, ending, folder, hand-insert, host, in-browser, lag, logged, parsers, projects, release, reviewing, robots, slips, swarm
 
 - Open and unchecked
 
@@ -3504,7 +3453,7 @@ _rescued/half-caster-prepared-spells-handoff · rescued/half caster prepared spe
 
 _rescued/ui-ux-evaluation · rescued/ui ux evaluation_
 
-**topics:** alchemy, builder, char, cljs, ddb, density, focus, modern, navigation, orcpub, polish, responsive, search, sort, splash, transitions, views, visual
+**topics:** alchemy, badges, builder, char, cljs, ddb, density, focus, modern, navigation, orcpub, polish, responsive, search, splash, transitions, views, visual
 
 - Architecture Summary
 - Key Files
@@ -3989,7 +3938,7 @@ _subscribe-diagnosis-techniques · subscribe diagnosis techniques_
 
 _subscribe-refactor-phase2 · subscribe refactor phase2_
 
-**topics:** caller, cljc, low, pdf, phase, plugin-data, prereq, pure, race-map, reactive, reg-sub-raw, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
+**topics:** caller, chain, cljc, low, pdf, phase, plugin-data, pure, race-map, reactive, reg-sub-raw, shouldn, spec, ssot, subscribe, subscribes, user-imported, warnings
 
 - Context
 - Fix Patterns (New in Phase 2)
@@ -4009,7 +3958,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale-safety, port, session, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged
@@ -4151,7 +4100,7 @@ _ux-guide · ux guide_
 
 _verification-discipline · verification discipline_
 
-**topics:** armed, baseline, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, perf-homebrew-builder-loop, proves, running, synthetic, tells
+**topics:** armed, baseline, behavior, bracers, caller, characterization, check, claims, confident, falsifiable, fixture, freeze, green, miss, perf-homebrew-builder-loop, proves, running, synthetic
 
 - Lessons (each with the concrete miss that taught it)
 - A check that has never failed has never been tested
@@ -4296,7 +4245,7 @@ _weapons-table-spec · weapons table spec_
 
 _writing-browser-tests · writing browser tests_
 
-**topics:** click, desktop, disposes, dump, e2e-runner, fast-browser-probes, menus, phone, playwright, pulse, run, stand-in, subscriptions, symlink, tab, view, wait, worktree
+**topics:** break, click, desktop, disposes, dump, e2e-runner, fast-browser-probes, menus, phone, pulse, run, stand-in, subscriptions, symlink, tab, view, wait, worktree
 
 - Start from a working test
 - 1. Load the character with the app's own event, not by clicking the builder
