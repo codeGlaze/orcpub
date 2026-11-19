@@ -29,3 +29,7 @@ security fix (CVE-2026-114938) reaches users only through a new run.
   `Orcpub/orcpub`); it reaches upstream with the next upstream PR.
 - Publishing is an upstream action: the owner's call each time.
 - The CVE-2026-114938 stopgap in the images is `JAVA2SHELL_STOPGAP` (true or false, default true), read by `deploy/app-start.sh` and `deploy/start.sh`.
+
+## DMV: pushing past Cloudflare (2026-11-18)
+
+DMV's `docker-builds.yaml` (Gitea, tag-triggered) got `413 Payload Too Large` pushing the app image: Cloudflare's proxy refuses request bodies over 100 MB (Free/Pro), and a layer goes up as one request. The admin's fix: `docker/setup-buildx-action` with `driver: docker`, so the push runs in the host dockerd (socket mounted into the runner), and a host `/etc/hosts` entry sends `code.dungeonmastersvault.com` straight to the server. The hosts entry is what bypasses Cloudflare; dockerd still sends each layer as one streamed request. Moving the runner or dropping the entry brings the 413 back. With the docker driver the host's cached base image is reused, so build steps need `pull: true` to pick up a patched Java.

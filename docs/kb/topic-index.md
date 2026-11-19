@@ -1354,10 +1354,11 @@ _dmv-production-changes · dmv production changes_
 
 _docker-image-releases · docker image releases_
 
-**topics:** 2025-09-11, 2026-02-19, 2026-11-07, 2026-11-18, 410, cve-2026-114938, dispatch, docker, hub, images, newest, publishing, secrets, stopgap, tag, temurin, upstream, workflow
+**topics:** 2025-09-11, 2026-02-19, 2026-11-07, 2026-11-18, cloudflare, cve-2026-114938, docker, dockerd, host, hub, image, images, newest, publishing, pushing, secrets, upstream, workflow
 
 - How it works
 - State on 2026-11-18
+- DMV: pushing past Cloudflare (2026-11-18)
 
 ## docker-infrastructure.md
 
@@ -1606,7 +1607,7 @@ _edition-drift · edition drift_
 
 _email-preferences-implementation · email preferences implementation_
 
-**topics:** 4-arg, datomic, dmv, echoing, email, emails, endpoint, jwt, jwt-signed, marketing, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
+**topics:** 4-arg, datomic, echoing, email, emails, endpoint, jwt, jwt-signed, marketing, modifies, preferences, re-read, response, token, transact, transaction, transactional, unsubscribe
 
 - Architecture
 - Datomic Schema
@@ -3993,7 +3994,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale, locale-safety, port, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, booted, cherry-picked, commits, copilot, fa4, fork, github, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged
