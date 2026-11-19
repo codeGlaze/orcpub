@@ -12,6 +12,7 @@
             [orcpub.routes.auth :as auth]
             [orcpub.time :as time]
             [orcpub.security :as s]
+            [buddy.auth.protocols]
             [orcpub.db.schema :as schema]
             [clojure.set :as sets])
   (:import [java.util UUID]))
@@ -140,6 +141,21 @@
     (testing "anything else throws, and is read as Cloudflare being down"
       (with-redefs [client/post (answer 503 "")]
         (is (thrown? clojure.lang.ExceptionInfo (post)))))))
+
+(def ^:private token-from-buddy-sign-3-4
+  "A sign-in token buddy-sign 3.4.333 issued with the dev profile's SIGNATURE: the version every
+   live token came from. It expires in 2100."
+  (str "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoidG9rZW4tZml4dHVyZSIsIm1pbnRlZCI6MTcwMDAwMDAwMDAwMCwiZXhwIjo0MTAyNDQ0ODAwfQ"
+       ".r6IuRjnb4min5_vdpaM4TlKSLutvMMyOzmIbwMzyHm4"))
+
+(deftest a-token-issued-before-a-library-update-still-signs-in
+  (is (= "dev-secret-do-not-use-in-production" auth/jwt-secret) "the dev profile's SIGNATURE is in use")
+  (let [request {:headers {"authorization" (str "Token " token-from-buddy-sign-3-4)}}
+        token (buddy.auth.protocols/-parse routes/backend request)]
+    (is (= {:user "token-fixture" :minted 1700000000000 :exp 4102444800}
+           (buddy.auth.protocols/-authenticate routes/backend request token)))
+    (testing "and a token with its signature changed does not"
+      (is (nil? (buddy.auth.protocols/-authenticate routes/backend request (str token "x")))))))
 
 (deftest a-blank-token-fails-without-calling-cloudflare
   (let [calls (atom 0)]
