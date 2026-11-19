@@ -405,7 +405,9 @@
              ;; this profile just packages existing .class files into the jar.
              :uberjar-package {:prep-tasks ^:replace [["garden" "once"]]}
              ;; All lint config lives in .clj-kondo/config.edn so IDE and CLI agree.
-             :lint         {:dependencies [[clj-kondo "2026.01.19"]]}
+             ;; ^:replace: clj-kondo reads source and needs none of the app's libraries, whose pins
+             ;; (Jackson) would otherwise override its own.
+             :lint         {:dependencies ^:replace [[clj-kondo "2026.01.19"]]}
              ;; Minimal profile for init-db and dev CLI - no ClojureScript, no Garden
              ;; Use: lein with-profile init-db run -m user <command>
              ;; dev/ is included so user.clj is on the classpath.
