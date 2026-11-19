@@ -157,3 +157,11 @@ The local branch now tracks its own Gitea branch, not `dmv`.
 - `.env.example`'s image lines carry DMV's registry on `dmv`; a shared-file edit, so expect conflicts there when `integration` edits that block.
 - The pre-merge adds `.github/workflows/dev-deploy.yaml` and `docs/DEV-DEPLOY.md` (PR pushes into `dmv` build `:dev` / `:pr-N` and call the dev stack's Portainer webhook). Not run yet: it needs the admin's secrets.
 - The branch-shape hook counts the pre-merge past 100 files; the owner allows `ALLOW_LARGE_BRANCH=1` for pre-merge pushes ("the rc premerge is a completely different animal", 2026-11-18). Pushed `b8c2d8f6b`.
+
+## Future option: DMV's workflows in `.gitea/workflows/` (owner, 2026-11-19: not now, KISS)
+
+Gitea reads `.gitea/workflows/` instead of `.github/workflows/` when that folder exists, so DMV's
+own workflows could live apart from the public ones. The catch: Gitea then ignores
+`.github/workflows/` entirely, so any public CI DMV relies on would need a copy there. Revisit if
+the release and deploy flow is reviewed again. Until then, DMV's own workflows sit beside the
+public ones, named kind first (`docker-dmv-*`; the open naming question is in `BRANCH.md`).

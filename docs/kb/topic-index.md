@@ -1289,7 +1289,7 @@ _dev-tooling-decisions · dev tooling decisions_
 
 _dmv-premerge · dmv premerge_
 
-**topics:** 2026-11-15, admin, adsense, art, branch, branch-shape, branding, cloudflare, dmv, gitea, integration, licensed, merge, pre-merge, push, pushed, pushing, update
+**topics:** 2026-11-15, admin, adsense, art, branch, branding, cloudflare, dmv, gitea, integration, licensed, merge, pre-merge, public, push, pushed, update, workflows
 
 - Where it happens
 - How to resolve conflicts
@@ -1302,6 +1302,7 @@ _dmv-premerge · dmv premerge_
 - 2026-11-16 update (after #87, kits round two)
 - 2026-11-17 update (after #88, the What's New pill)
 - 2026-11-18 update (the admin's release workflow, dev deploy)
+- Future option: DMV's workflows in .gitea/workflows/ (owner, 2026-11-19: not now, KISS)
 
 ## dmv-production-changes.md
 
