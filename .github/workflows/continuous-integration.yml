@@ -126,6 +126,28 @@ jobs:
             cljs-output.txt
           retention-days: 7
 
+  # Fails a PR, push or manual run whose shipped libraries carry a critical or high flaw, so a
+  # vulnerable library is caught on its branch, not weeks later on develop's Dependabot alerts.
+  # Accepted alerts, each with a reason and an expiry: osv-scanner.toml.
+  security-scan:
+    name: Library security scan
+    runs-on: ubuntu-latest
+    needs: detect-stack
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Leiningen and dependencies
+        uses: ./.github/actions/setup-lein
+        with:
+          java-version: ${{ needs.detect-stack.outputs.java-version }}
+          java-distribution: ${{ needs.detect-stack.outputs.java-distribution }}
+          lein-version: ${{ needs.detect-stack.outputs.lein-version }}
+          needs-datomic-pro: ${{ needs.detect-stack.outputs.needs-datomic-pro }}
+
+      - name: Scan the app's libraries (OSV)
+        run: scripts/security-scan.sh
+
   # Dependabot cannot read project.clj, so it never saw the server's libraries. lein pom writes them
   # as a Maven pom and the action uploads the resolved graph; GitHub then re-checks it against new
   # advisories by itself. Its own job, so contents: write never reaches a job that runs pull-request

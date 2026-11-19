@@ -44,8 +44,8 @@ drawing is served anyway.
   seconds for edits like hit points; those find the file already there and do nothing. A changed
   portrait is drawn once, 3 s after the last save of a burst, with what was saved last. A removed
   portrait's files are deleted.
-- **On request.** Memory (64 drawings), then the file, then a draw. Characters saved before this
-  existed are drawn on their first request and kept.
+- **On request.** Memory (64 drawings), then the file, then a draw. A character with no stored drawing
+  is drawn on its first request and kept.
 - **Limits.** Every draw takes a portrait-pool permit; concurrent requests for one drawing share
   it. A save never waits for a draw.
 

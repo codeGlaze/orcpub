@@ -495,10 +495,22 @@
               (if low? [:span.orange.f-w-b text] [:span.opacity-7 text])))
           (when (pos? spare) [[:span.opacity-7 (str spare " unbundled")]])))))
 
+(def ^:private kit-icon-packs
+  "The packs with a drawn tile icon in /image/kits (resources/kit-icons.edn; `scripts/build-kit-icons.py
+   --check` fails when this set and the picks differ)."
+  #{:burglars-pack :diplomats-pack :dungeoneers-pack :entertainers-pack
+    :explorers-pack :priests-pack :scholars-pack :monster-hunters-pack})
+
 (defn- kit-icon
-  "The icon of a kit's tile: the chest for a pack that comes in one, else the backpack."
-  [chest? size]
-  (comps/themed-icon (if chest? "open-treasure-chest" "backpack") size @(subscribe [:theme])))
+  "The icon of a kit's tile, `size` px: the pack's own drawn icon for the theme when it has one
+   (`kit-icon-packs`), else the chest for a pack that comes in one (`chest?`), else the backpack."
+  [pack chest? size]
+  (let [theme @(subscribe [:theme])]
+    (if (contains? kit-icon-packs pack)
+      [:img.svg-icon {:src (str "/image/kits/" (name pack) "-" (if (= "light-theme" theme) "light" "dark") ".svg")
+                      :style {:height (str size "px") :width (str size "px")}
+                      :alt "" :aria-hidden true}]
+      (comps/themed-icon (if chest? "open-treasure-chest" "backpack") size theme))))
 
 (defn- act-event
   "The event applying kit action `action` with `args` to character `id` (nil: the builder's)."
@@ -547,9 +559,9 @@
       (let [low? (some :low? tracked)
             toggle #(swap! open? not)
             close-then #(do (reset! open? false) (dispatch %))]
-        [:div
+        [:div.kit-card {:class (when @open? "kit-open")}
          [:div.kit-row
-          [:div.kit-tile.pointer {:on-click toggle} [kit-icon chest? 32]]
+          [:div.kit-tile.pointer {:on-click toggle} [kit-icon pack chest? 32]]
           [:button.kit-summary {:on-click toggle :aria-expanded @open?}
            [:div.kit-name-line
             [:span.kit-name.f-w-b.f-s-16 (str name (when (> pack-count 1) (str " \u00d7" pack-count)))]
@@ -614,7 +626,7 @@
    search box's preset atom Add a kit fills. `builder?`: the Equipment step, whose search always adds.
    `adding?`: the sheet's Manage inventory is on. Either shows the Add a kit tile under the kits, lit
    while the search box is on Packs.
-   Summaries fold to the block's live width (a ResizeObserver). Returns hiccup or nil."
+   Summaries fold to a card's inner width, from the block's live width (a ResizeObserver). Returns hiccup or nil."
   []
   (let [asking (r/atom nil)
         width (r/atom 390)
@@ -630,21 +642,23 @@
       (let [{ks :kits :keys [questions fillable]} @(subscribe [::inventory/panel id])
             undo @(subscribe [::inventory/undo id])
             add-kit #(reset! search-preset (packs-preset ks))
-            budget (max 20 (js/Math.round (* 40 (/ @width 390))))
+            cols (max 1 (js/Math.floor (/ (+ @width 8) 308)))
+            budget (max 20 (js/Math.round (* 40 (/ (- (/ (- @width (* 8 (dec cols))) cols) 22) 390))))
             asking-kit (some #(when (= @asking (:pack %)) %) ks)]
         (when (or builder? adding? (seq ks) undo)
           [:div.m-b-10 {:ref ref}
            [:div.m-t-10.m-b-5
             [:div.f-w-b.f-s-14 "Kits"]
             (when (> (count ks) 1) [:div.f-s-12.opacity-5 "Spent items come out of the top kit first"])]
-           (doall
-            (map-indexed
-             (fn [i kit] ^{:key (:pack kit)} [kit-row id (zero? i) asking budget kit])
-             ks))
-           (when (or builder? adding?)
-             [:button.kit-row.kit-add {:on-click add-kit :class (when (:label @search-preset) "on")}
-              [:span.kit-tile [:i.fa.fa-plus {:aria-hidden true}]]
-              "Add a kit"])
+           [:div.kit-grid
+            (doall
+             (map-indexed
+              (fn [i kit] ^{:key (:pack kit)} [kit-row id (zero? i) asking budget kit])
+              ks))
+            (when (or builder? adding?)
+              [:button.kit-row.kit-card.kit-add {:on-click add-kit :class (when (:label @search-preset) "on")}
+               [:span.kit-tile [:i.fa.fa-plus {:aria-hidden true}]]
+               "Add a kit"])]
            [:div.m-t-5
             (for [q questions] ^{:key (str (:kind q) (:pack q))} [kit-question id q])
             (cond

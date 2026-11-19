@@ -1,0 +1,17 @@
+# Alerts scripts/security-scan.sh accepts, each with why. Every entry names the alert and expires,
+# so it is looked at again. Triage: docs/kb/dependency-alerts.md on agents/develop.
+
+[[IgnoredVulns]]
+id = "GHSA-355h-qmc2-wpwf"
+ignoreUntil = 2027-02-18
+reason = "Jetty request smuggling (CVE-2026-2332). Fixed only in Jetty 11.0.29, which is not on Maven Central; Jetty 12 is blocked by Pedestal 0.7 and figwheel-main. nginx sits in front of Jetty."
+
+[[IgnoredVulns]]
+id = "GHSA-2fvj-hgj9-j2gr"
+ignoreUntil = 2027-02-18
+reason = "Jetty Digest authentication (CVE-2026-10050). The app does not use Digest authentication. Fixed only in Jetty 11.0.31, not on Maven Central."
+
+[[IgnoredVulns]]
+id = "GHSA-22wj-vf5f-wrvj"
+ignoreUntil = 2027-02-18
+reason = "H2 web console password exposure (CVE-2022-45868). H2 comes with Datomic for dev storage; the console is never started. Datomic chooses the H2 version."

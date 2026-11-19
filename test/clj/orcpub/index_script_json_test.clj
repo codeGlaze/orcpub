@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.data.json :as data-json]
             [orcpub.fork.branding :as branding]
-            [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views-shared :as views-shared]
             [orcpub.index :as index]))
 
 (def hostile "Ann</script><script>alert(1)</script> & co ")
@@ -47,10 +47,10 @@
   (let [labels #(->> % flatten (filter string?) set)]
     (testing "each pill only when its link is set; What's New only where asked for"
       (with-redefs [branding/social-links {:patreon "https://patreon.example" :dev-tip ""}]
-        (is (= #{"Support the Server"} (labels (views-2/support-pills))))
-        (is (= #{"What's New" "Support the Server"} (labels (views-2/support-pills :whats-new? true)))))
+        (is (= #{"Support the Server"} (labels (views-shared/support-pills))))
+        (is (= #{"What's New" "Support the Server"} (labels (views-shared/support-pills :whats-new? true)))))
       (with-redefs [branding/social-links {:patreon "" :dev-tip "https://tip.example"}]
-        (is (= #{"Fuel the Dev"} (labels (views-2/support-pills))))))
+        (is (= #{"Fuel the Dev"} (labels (views-shared/support-pills))))))
     (testing "a site with neither link shows nothing in the footer"
       (with-redefs [branding/social-links {:patreon "" :dev-tip ""}]
-        (is (nil? (views-2/support-pills)))))))
+        (is (nil? (views-shared/support-pills)))))))

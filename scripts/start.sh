@@ -703,7 +703,7 @@ Exit Codes:
   3  Runtime failure (port conflict, startup timeout, process crash)
 
 Environment Variables (via .env or shell):
-  DATOMIC_VERSION       Datomic version (default: 1.0.7482)
+  DATOMIC_VERSION       Datomic version (default: 1.0.7745)
   DATOMIC_TYPE          Datomic type: pro or dev (default: pro)
   JAVA_MIN_VERSION      Minimum Java version required (default: 11)
   LOG_DIR               Directory for log files (default: ./logs)

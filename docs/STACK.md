@@ -35,7 +35,7 @@ This is a **Clojure/ClojureScript monorepo**. Code lives in three source trees:
 
 Reagent 2.0 uses React 18's `createRoot` API. The app mounts via `reagent.dom.client/render`.
 
-**Key gotcha**: Use `:class` (not `:class-name`) when the hiccup tag has inline classes like `[:div.foo ...]`. Reagent 2.x changed `:class-name` to overwrite rather than merge.
+**Note:** Use `:class` (not `:class-name`) when the hiccup tag has inline classes like `[:div.foo ...]`. Reagent 2.x changed `:class-name` to overwrite rather than merge.
 
 ### re-frame (State Management)
 
@@ -156,7 +156,7 @@ Key aliases:
 
 | Command | What it does |
 |---------|-------------|
-| `lein test` | Run JVM tests (206 tests) |
+| `lein test` | Run the JVM tests |
 | `lein fig:build` | One-shot CLJS compilation |
 | `lein fig:dev` | CLJS dev with REPL + hot reload |
 | `lein fig:test` | Compile + run CLJS tests in browser |
@@ -164,9 +164,8 @@ Key aliases:
 | `lein lint` | Run clj-kondo linter |
 | `lein uberjar` | Production build (AOT + advanced CLJS + CSS) |
 
-**Known issue**: `lein uberjar` hangs after completing the build due to
-Clojure's non-daemon agent threads. Docker builds use `timeout` to work
-around this. See [LEIN-UBERJAR-HANG.md](LEIN-UBERJAR-HANG.md) for details.
+`lein uberjar` can hang after the build finishes, because of Clojure's non-daemon agent threads.
+The Docker build works around it with `timeout`. See [LEIN-UBERJAR-HANG.md](LEIN-UBERJAR-HANG.md) for details.
 
 ### Profiles
 

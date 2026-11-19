@@ -135,6 +135,15 @@ echo "transactor: $(grep -E '^(host|alt-host|port)=' "$OUTPUT" | tr '\n' ' ')(se
 # This is the standard entrypoint-chown-drop pattern (cf. postgres, redis).
 chown -R datomic:datomic /data /log /backups /datomic
 
+# Security stopgap for CVE-2026-114938 (Java2Shell): on unless JAVA2SHELL_STOPGAP is false or off
+# (docs/ENVIRONMENT.md). Any other value keeps it on.
+case "$(printf '%s' "${JAVA2SHELL_STOPGAP:-true}" | tr '[:upper:]' '[:lower:]')" in
+  false|off) echo "start: JAVA2SHELL_STOPGAP is off" >&2 ;;
+  true|on) export JDK_JAVA_OPTIONS="-XX:-UseBASE64Intrinsics${JDK_JAVA_OPTIONS:+ $JDK_JAVA_OPTIONS}" ;;
+  *) echo "start: JAVA2SHELL_STOPGAP='$JAVA2SHELL_STOPGAP' is not true or false; keeping it on" >&2
+     export JDK_JAVA_OPTIONS="-XX:-UseBASE64Intrinsics${JDK_JAVA_OPTIONS:+ $JDK_JAVA_OPTIONS}" ;;
+esac
+
 # --- Launch transactor --------------------------------------------------------
 # su-exec drops from root to datomic user. exec replaces the shell so the
 # transactor is PID 1 and receives Docker signals (SIGTERM) directly.

@@ -360,41 +360,53 @@
     :weapon-name-2 8
     :weapon-name-3 8}))
 
+(defn- cappable?
+  "True for a collection bound-collection caps: a list, vector, seq or set (any collection but a map)."
+  [x]
+  (and (coll? x) (not (map? x))))
+
+(defn- cap
+  "The first `n` entries of the cappable collection `xs`, as the same kind of collection (a set
+   stays a set, a vector a vector)."
+  [n xs]
+  (if (seq? xs) (take n xs) (into (empty xs) (take n xs))))
+
 (defn- bound-collection
-  "At most `n` entries, whether `v` is a list or a map of lists.
+  "At most `n` entries, whether `v` is a collection (list, vector, set) or a map of them.
 
    A map is capped across ALL its values, not per key: spells-known is keyed by
    class, so a per-key cap would let thirteen classes carry the limit each."
   [n v]
   (cond
     (map? v) (first (reduce (fn [[m left] [k xs]]
-                              (if (sequential? xs)
-                                [(assoc m k (take left xs)) (max 0 (- left (count xs)))]
+                              (if (cappable? xs)
+                                [(assoc m k (cap left xs)) (max 0 (- left (count xs)))]
                                 [(assoc m k xs) left]))
                             [{} n] v))
-    (sequential? v) (take n v)
+    (cappable? v) (cap n v)
     :else v))
 
 (defn- collection-size
   "Entries in `v`, counted the way bound-collection caps them; nil if it caps nothing."
   [v]
   (cond
-    (map? v) (reduce + 0 (map #(if (sequential? %) (count %) 0) (vals v)))
-    (sequential? v) (count v)
+    (map? v) (reduce + 0 (map #(if (cappable? %) (count %) 0) (vals v)))
+    (cappable? v) (count v)
     :else nil))
 
 (defn bound-request
   "Returns `fields` with everything caller-supplied capped, before any part of the export
    sees it. Acts on the REQUEST, so a feature added later that reads the body is bounded
-   without being wired up: a `spellcasting-class-N` field past the section ceiling is
-   dropped, and every collection is truncated to the card ceiling (nine cards to a page, so
-   an uncapped list is an uncapped page count). Generators keep their own clamps as well."
+   without being wired up: a `spellcasting-class-N` field is dropped unless N is written plainly
+   (1 to 9999, no leading zero, so `-01` cannot pass as a second `-1`) and within the section
+   ceiling, and every collection is truncated to the card ceiling (nine cards to a page).
+   Generators keep their own clamps as well."
   [fields]
   (let [max-sections (config/get-pdf-max-caster-sections)
         max-cards (config/get-pdf-max-cards)
         past-ceiling? (fn [k]
                         (when-let [[_ n] (re-matches #"spellcasting-class-(\d+)" (name k))]
-                          (> (or (parse-long n) 0) max-sections)))
+                          (or (not (re-matches #"[1-9]\d{0,3}" n)) (> (parse-long n) max-sections))))
         dropped (count (filter past-ceiling? (keys fields)))]
     (when (pos? dropped)
       (println (format "pdf: dropped %d spellcasting-class field(s) past section %d"

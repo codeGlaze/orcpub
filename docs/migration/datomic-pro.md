@@ -27,7 +27,7 @@ The `dev` protocol uses the Datomic Pro dev transactor (same data model, same AP
 [com.datomic/datomic-free "0.9.5703"]
 
 ;; After
-[com.datomic/peer "1.0.7482" :exclusions [org.slf4j/slf4j-nop]]
+[com.datomic/peer "1.0.7745" :exclusions [org.slf4j/slf4j-nop]]
 ```
 
 The Datomic Pro peer library is `com.datomic/peer` (not `com.datomic/datomic-pro`). The `slf4j-nop` exclusion avoids duplicate SLF4J binding warnings.
@@ -57,7 +57,7 @@ All Datomic config flows through `src/clj/orcpub/config.clj`:
 
 Environment variables (see `.env.example`):
 - `DATOMIC_URL` — connection URI
-- `DATOMIC_VERSION` — version for installer (default: `1.0.7482`)
+- `DATOMIC_VERSION` — version for installer (default: `1.0.7745`)
 - `DATOMIC_TYPE` — `pro` (default)
 - `DATOMIC_PASSWORD` — transactor password
 
@@ -65,7 +65,7 @@ Environment variables (see `.env.example`):
 
 | File | Change |
 |------|--------|
-| `project.clj` | `datomic-free` → `com.datomic/peer`, version `1.0.7482` |
+| `project.clj` | `datomic-free` → `com.datomic/peer`, version `1.0.7745` |
 | `src/clj/orcpub/config.clj` | New — `get-datomic-uri`, `datomic-env` (SSOT for URI) |
 | `src/clj/orcpub/system.clj` | Uses `config/get-datomic-uri` instead of inline logic |
 | `src/clj/orcpub/datomic.clj` | Connection logic unchanged — `datomic.api` is the same |

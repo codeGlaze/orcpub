@@ -20,89 +20,38 @@
                  ]
   :mirrors {"apache" {:url "https://repository.apache.org/snapshots/"}}
 
-  :dependencies [[org.clojure/clojure "1.12.4"]
-                 [org.clojure/test.check "1.1.1"]
-                 [org.clojure/clojurescript "1.12.134"]
-                 [org.clojure/core.async "1.8.741"] 
-                 [org.postgresql/postgresql "42.7.3"]
-                 ;; Redis client, used only when REDIS_URL is set (orcpub.security.redis-store).
-                 [com.taoensso/carmine "3.4.1"]
-                 ;; React 18 + Reagent 2.0 (Concurrent Mode)
-                 [cljsjs/react "18.3.1-1"]
-                 [cljsjs/react-dom "18.3.1-1"]
-                 [cljsjs/filesaverjs "1.3.3-0"]
-                 [com.cognitect/transit-cljs "0.8.280"]
-                 [cljs-http "0.1.49"]
-                 [com.andrewmcveigh/cljs-time "0.5.2"]
-                 [clojure.java-time "1.4.2"]
-                 [clj-http "3.13.1"]
-                 [com.yetanalytics/ring-etag-middleware "0.1.1"]
-
-                 [org.clojure/core.match "1.1.1"]
-                 [re-frame "1.4.4"]
-                 [reagent "2.0.1"]
-                 [com.lambdaisland/garden "1.9.606"]
-                 [org.apache.pdfbox/pdfbox "3.0.6"]
-                 ;; Pedestal 0.8 runs on Jetty 12; every Jetty artifact is pinned below.
-                 [io.pedestal/pedestal.service "0.8.3"]
-                 [io.pedestal/pedestal.route "0.8.3"]
-                 [io.pedestal/pedestal.jetty "0.8.3"]
-                 [io.pedestal/pedestal.error "0.8.3"]
-                 [org.clojure/data.json "2.5.0"]
-                 [org.slf4j/slf4j-simple "1.7.21"]
-                 [buddy/buddy-auth "3.0.323"]
-                 [buddy/buddy-hashers "2.0.167"]
-                 [reloaded.repl "0.2.3"]
-                 [bidi "2.1.6"]
-
-                 [com.stuartsierra/component "1.2.0"]
-                 [com.google.guava/guava "32.1.2-jre"]
-
-                 [com.fasterxml.jackson.core/jackson-databind "2.15.2"]
-                 [com.fasterxml.jackson.core/jackson-core "2.15.2"]
-                 [com.fasterxml.jackson.core/jackson-annotations "2.15.2"]
-                 ;; The app's JSON library (page config, portrait overrides, artist and pack files).
-                 ;; Pedestal 0.8 brings the same version; declared because our code calls it.
-                 [com.cnuernber/charred "1.038"]
-
-                 ;; Required for Pedestal 0.7.x ring-middlewares
-                 [commons-io/commons-io "2.15.1"]
-
-                 [hiccup "2.0.0"]
-                 [com.draines/postal "2.0.5"]
-                 [environ "1.2.0"]
-
-                 [pdfkit-clj "0.1.7"]
-                 ;; datomock fork with Datomic Pro 1.0.6527+ compatibility (new transact signature)
-                 ;; Original vvvvalvalval/datomock 0.2.0 causes AbstractMethodError with Datomic Pro
-                 [org.clojars.favila/datomock "0.2.2-favila1"]
-                 ;; The peer library, free under Apache 2.0, Java 11/17/21.
-                 ;; Exclude slf4j-nop to avoid duplicate SLF4J binding warnings.
-                 ;; Resolves from MAVEN CENTRAL -- not from file:lib, and no local
-                 ;; install is needed to build or test. The commented-out
-                 ;; com.datomic/datomic-pro coordinate that used to sit here did need
-                 ;; one, and its comment kept implying this dependency still does.
-                 ;; lib/com/datomic/datomic-pro/<version>/ is still populated, but by
-                 ;; .devcontainer/post-create.sh and docker/Dockerfile, and for the
-                 ;; TRANSACTOR BINARY that scripts/common.sh:257 and start.sh run --
-                 ;; not for this jar.
-                 ;; Latest version: https://docs.datomic.com/releases-pro.html
-                 [com.datomic/peer "1.0.7482" :exclusions [org.slf4j/slf4j-nop]]
-                 ;; cuerdas 026.415: Latest release on Clojars... does not match GH release versioning.
-                 [funcool/cuerdas "2026.415"]
-                 [camel-snake-kebab "0.4.0"]
-                 [org.webjars/font-awesome "5.13.1"]
-                 ;; See docs/UPGRADE_DEPENDENCIES.md for why this is needed on Java 9+/21
-                 [javax.servlet/javax.servlet-api "4.0.1"]
-              ]
-  ;; NOTE: lein-cljsbuild is fully removed. Prod CLJS builds use the plain
-  ;; ClojureScript compiler (cljs:prod alias / prod.cljs.edn); figwheel is dev-only. lein-cljsbuild is abandoned (last release:
-  ;; 1.1.8, April 2020) and its hooks cause a JVM hang in Docker/CI — it always
-  ;; spawns a subprocess via eval-in-project whose I/O pump hangs in no-TTY.
-  ;; See docs/LEIN-UBERJAR-HANG.md
-  ;; One Jetty 12 line for everything: Pedestal 0.8.3 brings 12.0.x and figwheel's Ring (dev) 12.1.x,
-  ;; and a mix fails at start-up. lein ignores imported BOMs, hence the list.
-  :managed-dependencies [[org.eclipse.jetty.ee10/jetty-ee10-annotations "12.1.15"]
+  ;; Security pins: versions of libraries other dependencies bring in, raised past known flaws
+  ;; (docs/kb/dependency-alerts.md on agents/develop). They apply wherever the library appears.
+  :managed-dependencies [;; buddy-hashers' Bouncy Castle
+                         [org.bouncycastle/bcprov-jdk18on "1.87"]
+                         [org.bouncycastle/bcpkix-jdk18on "1.87"]
+                         [org.bouncycastle/bcutil-jdk18on "1.87"]
+                         ;; postal's mail library (account email)
+                         [com.sun.mail/jakarta.mail "1.6.8"]
+                         ;; Datomic peer's Netty (through ActiveMQ Artemis), every module at one version
+                         [io.netty/netty-buffer "4.1.141.Final"]
+                         [io.netty/netty-codec "4.1.141.Final"]
+                         [io.netty/netty-codec-http "4.1.141.Final"]
+                         [io.netty/netty-codec-socks "4.1.141.Final"]
+                         [io.netty/netty-common "4.1.141.Final"]
+                         [io.netty/netty-handler "4.1.141.Final"]
+                         [io.netty/netty-handler-proxy "4.1.141.Final"]
+                         [io.netty/netty-resolver "4.1.141.Final"]
+                         [io.netty/netty-transport "4.1.141.Final"]
+                         [io.netty/netty-transport-classes-epoll "4.1.141.Final"]
+                         [io.netty/netty-transport-classes-kqueue "4.1.141.Final"]
+                         [io.netty/netty-transport-native-unix-common "4.1.141.Final"]
+                         [io.netty/netty-transport-native-epoll "4.1.141.Final" :classifier "linux-x86_64"]
+                         [io.netty/netty-transport-native-kqueue "4.1.141.Final" :classifier "osx-x86_64"]
+                         ;; Pedestal's upload parser (the app takes no uploads) and garden's file utilities
+                         [org.apache.commons/commons-fileupload2-core "2.0.0-M4"]
+                         [org.codehaus.plexus/plexus-utils "4.0.3"]
+                         ;; Pedestal's tracing API
+                         [io.opentelemetry/opentelemetry-api "1.68.0"]
+                         [io.opentelemetry/opentelemetry-context "1.68.0"]
+                         ;; One Jetty 12 line for everything: Pedestal 0.8.3 brings 12.0.x and figwheel's Ring
+                         ;; (dev) 12.1.x, and a mix fails at start-up. lein ignores imported BOMs, hence the list.
+                         [org.eclipse.jetty.ee10/jetty-ee10-annotations "12.1.15"]
                          [org.eclipse.jetty.ee10/jetty-ee10-plus "12.1.15"]
                          [org.eclipse.jetty.ee10/jetty-ee10-servlet "12.1.15"]
                          [org.eclipse.jetty.ee10/jetty-ee10-webapp "12.1.15"]
@@ -139,6 +88,86 @@
                          [org.eclipse.jetty.websocket/jetty-websocket-core-client "12.1.15"]
                          [org.eclipse.jetty.websocket/jetty-websocket-core-common "12.1.15"]
                          [org.eclipse.jetty.websocket/jetty-websocket-core-server "12.1.15"]]
+
+  :dependencies [[org.clojure/clojure "1.12.4"]
+                 [org.clojure/test.check "1.1.1"]
+                 [org.clojure/clojurescript "1.12.134"]
+                 [org.clojure/core.async "1.8.741"] 
+                 [org.postgresql/postgresql "42.7.14"]
+                 ;; Redis client, used only when REDIS_URL is set (orcpub.security.redis-store).
+                 [com.taoensso/carmine "3.7.0"]
+                 ;; React 18 + Reagent 2.0 (Concurrent Mode)
+                 [cljsjs/react "18.3.1-1"]
+                 [cljsjs/react-dom "18.3.1-1"]
+                 [cljsjs/filesaverjs "1.3.3-0"]
+                 [com.cognitect/transit-cljs "0.8.280"]
+                 [cljs-http "0.1.49"]
+                 [com.andrewmcveigh/cljs-time "0.5.2"]
+                 [clojure.java-time "1.4.2"]
+                 [clj-http "3.13.1"]
+                 [com.yetanalytics/ring-etag-middleware "0.1.1"]
+
+                 [org.clojure/core.match "1.1.1"]
+                 [re-frame "1.4.4"]
+                 [reagent "2.0.1"]
+                 [com.lambdaisland/garden "1.9.606"]
+                 [org.apache.pdfbox/pdfbox "3.0.6"]
+                 ;; Pedestal 0.8 runs on Jetty 12; every Jetty artifact is pinned below.
+                 [io.pedestal/pedestal.service "0.8.3"]
+                 [io.pedestal/pedestal.route "0.8.3"]
+                 [io.pedestal/pedestal.jetty "0.8.3"]
+                 [io.pedestal/pedestal.error "0.8.3"]
+                 [org.clojure/data.json "2.5.0"]
+                 [org.slf4j/slf4j-simple "2.0.17"]
+                 [buddy/buddy-auth "3.0.323"]
+                 [buddy/buddy-hashers "2.0.167"]
+                 [reloaded.repl "0.2.3"]
+                 [bidi "2.1.6"]
+
+                 [com.stuartsierra/component "1.2.0"]
+                 [com.google.guava/guava "33.8.0-jre"]
+
+                 [com.fasterxml.jackson.core/jackson-databind "2.18.12"]
+                 [com.fasterxml.jackson.core/jackson-core "2.18.12"]
+                 [com.fasterxml.jackson.core/jackson-annotations "2.18.12"]
+                 ;; The app's JSON library (page config, portrait overrides, artist and pack files).
+                 ;; Pedestal 0.8 brings the same version; declared because our code calls it.
+                 [com.cnuernber/charred "1.038"]
+
+                 ;; Required for Pedestal 0.7.x ring-middlewares
+                 [commons-io/commons-io "2.15.1"]
+
+                 [hiccup "2.0.0"]
+                 [com.draines/postal "2.0.5"]
+                 [environ "1.2.0"]
+
+                 ;; datomock fork with Datomic Pro 1.0.6527+ compatibility (new transact signature)
+                 ;; Original vvvvalvalval/datomock 0.2.0 causes AbstractMethodError with Datomic Pro
+                 [org.clojars.favila/datomock "0.2.2-favila1"]
+                 ;; The peer library, free under Apache 2.0, Java 11/17/21.
+                 ;; Exclude slf4j-nop to avoid duplicate SLF4J binding warnings.
+                 ;; Resolves from MAVEN CENTRAL -- not from file:lib, and no local
+                 ;; install is needed to build or test. The commented-out
+                 ;; com.datomic/datomic-pro coordinate that used to sit here did need
+                 ;; one, and its comment kept implying this dependency still does.
+                 ;; lib/com/datomic/datomic-pro/<version>/ is still populated, but by
+                 ;; .devcontainer/post-create.sh and docker/Dockerfile, and for the
+                 ;; TRANSACTOR BINARY that scripts/common.sh:257 and start.sh run --
+                 ;; not for this jar.
+                 ;; Latest version: https://docs.datomic.com/releases-pro.html
+                 [com.datomic/peer "1.0.7745" :exclusions [org.slf4j/slf4j-nop]]
+                 ;; cuerdas 026.415: Latest release on Clojars... does not match GH release versioning.
+                 [funcool/cuerdas "2026.415"]
+                 [camel-snake-kebab "0.4.0"]
+                 [org.webjars/font-awesome "5.13.1"]
+                 ;; See docs/UPGRADE_DEPENDENCIES.md for why this is needed on Java 9+/21
+                 [javax.servlet/javax.servlet-api "4.0.1"]
+              ]
+  ;; NOTE: lein-cljsbuild is fully removed. Prod CLJS builds use the plain
+  ;; ClojureScript compiler (cljs:prod alias / prod.cljs.edn); figwheel is dev-only. lein-cljsbuild is abandoned (last release:
+  ;; 1.1.8, April 2020) and its hooks cause a JVM hang in Docker/CI — it always
+  ;; spawns a subprocess via eval-in-project whose I/O pump hangs in no-TTY.
+  ;; See docs/LEIN-UBERJAR-HANG.md
   :plugins [[lein-localrepo "0.5.4"]
             [lein-garden "0.3.0"]
             [lein-environ "1.2.0"]
