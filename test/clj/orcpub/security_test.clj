@@ -199,7 +199,7 @@
   #{:orcpub.routes/unsubscribe})
 
 (defn- auth-route-names []
-  (->> routes/routes
+  (->> (:routes routes/routes)
        (map :route-name)
        (filter #(or (= "orcpub.routes.auth" (namespace %))
                     (contains? extra-auth-routes %)))

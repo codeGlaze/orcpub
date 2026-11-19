@@ -43,13 +43,11 @@
                  [reagent "2.0.1"]
                  [com.lambdaisland/garden "1.9.606"]
                  [org.apache.pdfbox/pdfbox "3.0.6"]
-                 ;; Pedestal 0.7.0 uses Jetty 11, which is compatible with figwheel-main's Ring adapter.
-                 ;; Pedestal 0.7.1+ and 0.8.x use Jetty 12, causing NoClassDefFoundError: ScopedHandler
-                 ;; (removed in Jetty 12). Upgrade blocked until figwheel-main supports Jetty 12.
-                 [io.pedestal/pedestal.service "0.7.0"]
-                 [io.pedestal/pedestal.route "0.7.0"]
-                 [io.pedestal/pedestal.jetty "0.7.0"]
-                 [io.pedestal/pedestal.error "0.7.0"]
+                 ;; Pedestal 0.8 runs on Jetty 12; every Jetty artifact is pinned below.
+                 [io.pedestal/pedestal.service "0.8.3"]
+                 [io.pedestal/pedestal.route "0.8.3"]
+                 [io.pedestal/pedestal.jetty "0.8.3"]
+                 [io.pedestal/pedestal.error "0.8.3"]
                  [org.clojure/data.json "2.5.0"]
                  [org.slf4j/slf4j-simple "1.7.21"]
                  [buddy/buddy-auth "3.0.323"]
@@ -99,6 +97,45 @@
   ;; 1.1.8, April 2020) and its hooks cause a JVM hang in Docker/CI — it always
   ;; spawns a subprocess via eval-in-project whose I/O pump hangs in no-TTY.
   ;; See docs/LEIN-UBERJAR-HANG.md
+  ;; One Jetty 12 line for everything: Pedestal 0.8.3 brings 12.0.x and figwheel's Ring (dev) 12.1.x,
+  ;; and a mix fails at start-up. lein ignores imported BOMs, hence the list.
+  :managed-dependencies [[org.eclipse.jetty.ee10/jetty-ee10-annotations "12.1.15"]
+                         [org.eclipse.jetty.ee10/jetty-ee10-plus "12.1.15"]
+                         [org.eclipse.jetty.ee10/jetty-ee10-servlet "12.1.15"]
+                         [org.eclipse.jetty.ee10/jetty-ee10-webapp "12.1.15"]
+                         [org.eclipse.jetty.ee10.websocket/jetty-ee10-websocket-jakarta-client "12.1.15"]
+                         [org.eclipse.jetty.ee10.websocket/jetty-ee10-websocket-jakarta-common "12.1.15"]
+                         [org.eclipse.jetty.ee10.websocket/jetty-ee10-websocket-jakarta-server "12.1.15"]
+                         [org.eclipse.jetty.ee10.websocket/jetty-ee10-websocket-servlet "12.1.15"]
+                         [org.eclipse.jetty.ee9/jetty-ee9-nested "12.1.15"]
+                         [org.eclipse.jetty.ee9/jetty-ee9-security "12.1.15"]
+                         [org.eclipse.jetty.ee9/jetty-ee9-servlet "12.1.15"]
+                         [org.eclipse.jetty.ee9/jetty-ee9-webapp "12.1.15"]
+                         [org.eclipse.jetty.ee9.websocket/jetty-ee9-websocket-jetty-api "12.1.15"]
+                         [org.eclipse.jetty.ee9.websocket/jetty-ee9-websocket-jetty-common "12.1.15"]
+                         [org.eclipse.jetty.ee9.websocket/jetty-ee9-websocket-jetty-server "12.1.15"]
+                         [org.eclipse.jetty.ee9.websocket/jetty-ee9-websocket-servlet "12.1.15"]
+                         [org.eclipse.jetty.ee/jetty-ee-webapp "12.1.15"]
+                         [org.eclipse.jetty.http2/jetty-http2-common "12.1.15"]
+                         [org.eclipse.jetty.http2/jetty-http2-hpack "12.1.15"]
+                         [org.eclipse.jetty.http2/jetty-http2-server "12.1.15"]
+                         [org.eclipse.jetty/jetty-alpn-client "12.1.15"]
+                         [org.eclipse.jetty/jetty-alpn-server "12.1.15"]
+                         [org.eclipse.jetty/jetty-client "12.1.15"]
+                         [org.eclipse.jetty/jetty-ee "12.1.15"]
+                         [org.eclipse.jetty/jetty-http "12.1.15"]
+                         [org.eclipse.jetty/jetty-io "12.1.15"]
+                         [org.eclipse.jetty/jetty-jndi "12.1.15"]
+                         [org.eclipse.jetty/jetty-plus "12.1.15"]
+                         [org.eclipse.jetty/jetty-security "12.1.15"]
+                         [org.eclipse.jetty/jetty-server "12.1.15"]
+                         [org.eclipse.jetty/jetty-session "12.1.15"]
+                         [org.eclipse.jetty/jetty-unixdomain-server "12.1.15"]
+                         [org.eclipse.jetty/jetty-util "12.1.15"]
+                         [org.eclipse.jetty/jetty-xml "12.1.15"]
+                         [org.eclipse.jetty.websocket/jetty-websocket-core-client "12.1.15"]
+                         [org.eclipse.jetty.websocket/jetty-websocket-core-common "12.1.15"]
+                         [org.eclipse.jetty.websocket/jetty-websocket-core-server "12.1.15"]]
   :plugins [[lein-localrepo "0.5.4"]
             [lein-garden "0.3.0"]
             [lein-environ "1.2.0"]
@@ -282,7 +319,9 @@
              :dev-config   {:dependencies [[binaryage/devtools "1.0.7"]
                                            ;; Dev only: hot reload and the fig:* builds. Never in the
                                            ;; main :dependencies, or its server ships in the jar.
-                                           [com.bhauman/figwheel-main "0.2.20"]
+                                           ;; figwheel's unreleased main branch (SSE reload, Jetty 12),
+                                           ;; vendored in lib/ (docs/kb/figwheel-jetty12.md).
+                                           [com.bhauman/figwheel-main "0.2.21-orcpub1"]
                                            [com.bhauman/rebel-readline-cljs "0.1.4"]
                                            [nrepl "1.3.0"]
                                            [cider/piggieback "0.5.3"]

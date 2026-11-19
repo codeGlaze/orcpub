@@ -1897,10 +1897,6 @@
      [(apply route-map/path-for route args) :get `default-index-page :route-name route])
    index-page-paths))
 
-(def expanded-index-routes
-  (route/expand-routes
-   (set index-page-routes)))
-
 (def service-error-handler
   (error-int/error-dispatch [ctx ex]
                             :else (do
@@ -1990,8 +1986,7 @@
         (head/head-response request))))
 
 (def routes
-  (concat
-   (route/expand-routes
+  (route/expand-routes
     [[["/" {:get `index}
        ^:interceptors [(body-params/body-params) service-error-handler]
        ["/js/*" {:get `get-js}]
@@ -2108,7 +2103,7 @@
        [(route-map/path-for route-map/check-username-route)
         {:get `auth/check-username}]
        ["/health"
-        {:get `health-check}]]]])
-   expanded-index-routes))
+        {:get `health-check}]]]]
+   (set index-page-routes)))
 
 

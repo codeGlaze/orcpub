@@ -109,7 +109,7 @@
    ;; Exports are bounded separately -- see docs/PDF-EXPORT-CAPACITY.md.
    ::http/container-options (cond-> {:context-configurator (fn [c]
                                                      (let [gzip-handler (GzipHandler.)]
-                                                       (.setGzipHandler c gzip-handler)
+                                                       (.insertHandler c gzip-handler)
                                                        ;; Cap request bodies before a handler:
                                                        ;; /character.pdf is unauthenticated and
                                                        ;; parses its body with edn/read-string.
