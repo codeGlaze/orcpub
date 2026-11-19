@@ -171,7 +171,7 @@ _SESSION-SUMMARY · SESSION SUMMARY_
 
 _UPGRADE_DEPENDENCIES · UPGRADE_DEPENDENCIES_
 
-**topics:** allows, clojurescript, closure, csp, dev, ecosystem, figwheel-main, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, shadow-cljs, support, violations, xss
+**topics:** allows, clojurescript, closure, csp, dev, ecosystem, figwheel-main, java, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, support, violations, xss
 
 - Java 9+/21 & Servlet API
 - Datomic Pro
@@ -185,7 +185,7 @@ _UPGRADE_DEPENDENCIES · UPGRADE_DEPENDENCIES_
 
 _UPGRADE_PLAN · UPGRADE_PLAN_
 
-**topics:** -------------, 5697, cljsjs, clojure, datomic, figwheel-main, guava, jackson, jdk, jetty, lein-figwheel, npm, pedestal, pro, react, reagent, shadow-cljs, upgrade
+**topics:** -------------, 5697, cljsjs, clojure, datomic, guava, jackson, jdk, jetty, lein-figwheel, npm, org, pedestal, pro, react, reagent, shadow-cljs, upgrade
 
 - Overview
 - 🚨 Major Changes (January 2026)
@@ -429,7 +429,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, builder, control, css, docstrings, form, icon, item, lesson, pin, reagent, review, row, sat, signing, unknown, vanished, vector
+**topics:** 2026-09-29, authored, builder, control, css, docstrings, form, icon, item, lesson, reagent, review, row, sat, signing, unknown, vanished, vector
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -1883,6 +1883,18 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 - Verified end to end in the real app
 - GAP: an imported style cannot be picked by the class that has the feature
 - Attacks with another ability (found 2026-10-26, feature/weapons-table)
+
+## figwheel-jetty12.md
+
+_figwheel-jetty12 · figwheel jetty12_
+
+**topics:** 2025-02-18, 2026-11-18, aircompressor, alerts, clojars, dependency-alerts, figwheel, jetty, latest, master, pedestal, release, released, repos, sse, transport, unreleased, websocket
+
+- Why it matters
+- What blocks it
+- What upstream has, unreleased
+- Why there is no release (as far as the record shows)
+- Options
 
 ## filtered-list-staleness.md
 
@@ -3844,7 +3856,7 @@ _srd-2024-roadmap · srd 2024 roadmap_
 
 _srd-data-consumers · srd data consumers_
 
-**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, load-time, lower-cases, magic, mechanics, monsters, re-check, spell, srd-2024-roadmap, sub
+**topics:** 2026-10-11, 286, 3083-3150, armor, belts, facts, few, generated, items, load-time, lower-cases, magic, mechanics, monsters, speeds, spell, srd-2024-roadmap, sub
 
 - The two facts that shape any move
 - Per type
@@ -3902,7 +3914,7 @@ _srd-vs-plugin-content · srd vs plugin content_
 
 _start-build · start build_
 
-**topics:** 2026-10-30, 2026-11-02, amber, badge, chrome, css, disk, file-time, folder, french, lein, nrepl, port, prefix, repl, stamp, start, worktree
+**topics:** 2026-10-30, 2026-11-02, amber, badge, chrome, css, disk, file-time, folder, french, lein, outweigh, port, prefix, repl, stamp, start, worktree
 
 - Regenerating CSS without a second lein process
 
