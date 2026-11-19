@@ -120,6 +120,9 @@
                  [org.clojure/data.json "2.5.0"]
                  [org.slf4j/slf4j-simple "2.0.17"]
                  [buddy/buddy-auth "3.0.323"]
+                 ;; Declared because the app calls buddy.sign.jwt directly; buddy-auth brings older ones.
+                 [buddy/buddy-sign "3.6.1-359"]
+                 [buddy/buddy-core "1.12.0-430"]
                  [buddy/buddy-hashers "2.0.167"]
                  [reloaded.repl "0.2.3"]
                  [bidi "2.1.6"]
