@@ -997,6 +997,10 @@
      :background-clip :content-box
      :width "350px"
      :min-height "600px"}]
+   ;; Auto margins centre the card in its flex row; taller than the window, it starts at the top
+   ;; (align-items alone would push the overflow above the page, out of scroll reach).
+   [:.registration-content {:margin-top :auto :margin-bottom :auto}]
+
    ;; The auth card is white whatever theme the app is in, so anything inside it needs
    ;; the light-ground colours: .red otherwise resolves to red-on-dark (tuned for
    ;; near-black) and washes out to about 2.6:1 on white. .app.light-theme already
@@ -1512,6 +1516,19 @@
     ["span:first-child" {:padding-right "20px"}]
     [".callout-detail + .callout-detail > span" {:border-top "1px solid rgba(255, 255, 255, 0.08)"}]
     [:.callout-aside {:color muted-on-dark}]]
+   ;; Small-capitals links, so a 14px line of text leads rather than its actions (kits handoff,
+   ;; plan-inventory-kits.md). The 44px tap area is the button's own height.
+   [:.link-button.quiet
+    {:display :inline-flex :align-items :center :min-height "44px" :padding "0 15px"
+     :font-size "11px" :letter-spacing ".05em" :font-weight 600 :text-transform :uppercase
+     :text-decoration :underline :white-space :nowrap :flex :none}
+    [:&.strong {:font-weight 700}]
+    [:&.muted {:color :inherit :opacity 0.7}]]
+   ;; A quiet callout: text 12px from the top and left whether or not its actions sit below it.
+   [:.callout-quiet {:padding "0 0 0 12px !important" :align-items "flex-start !important"}
+    [:.callout-text {:padding "12px 0" :min-width 0}]
+    [:.callout-text [:.f-w-b {:margin-bottom "2px"}]]]
+   [:.callout-actions {:flex-basis "100%" :display :flex :justify-content :flex-end :margin-top "-12px"}]
    ;; Even spacing above and below the line and the band, so the box opens like a shell.
    [:.callout-compact.flex-wrap {:row-gap "4px !important"}]
    ;; A Planned line is a button that reads as the italic link it replaces, with a 44px tap area
@@ -1619,6 +1636,19 @@
     {:display :flex
      :flex-wrap :wrap
      :gap "6px"}]
+   ;; A .chip that is a filter (views/inventory.cljs `inventory-combobox`'s Packs pill): a button with a
+   ;; 44px tap layer; .on takes .cast-level's amber selected look.
+   [:.chip-choice
+    {:position :relative :color :inherit :font-family :inherit :cursor :pointer}
+    [:&:after {:content "''" :position :absolute :inset "-12px -3px"}]
+    [:&.on {:color orange :border-color orange :background-color "rgba(240,161,0,.16)"}]]
+   ;; Keyboard focus for the chip and the Add a kit row: .share-action's ring (*:focus removes the browser's).
+   [".chip-choice:focus-visible, .kit-add:focus-visible" {:outline (str "2px solid " orange) :outline-offset "2px"}]
+   [".app.light-theme .chip-choice:focus-visible, .app.light-theme .kit-add:focus-visible" {:outline-color accent-on-light}]
+   [".app.light-theme .kit-add.on" {:color accent-on-light}]
+   [".app.light-theme .chip-choice"
+    {:background-color "rgba(0, 0, 0, 0.04)" :border-color "rgba(0, 0, 0, 0.2)"}
+    [:&.on {:color accent-on-light :border-color accent-on-light :background-color "rgba(51,101,138,.1)"}]]
 
    ;; Neutral counterpart to .bg-warning, for a callout that is telling you
    ;; something rather than warning you: same box, no severity colour, so an
@@ -2312,6 +2342,41 @@
      [:tr
       [(s/& (s/nth-child :even))
        {:background-color "rgba(255, 255, 255, 0.1)"}]]]
+
+    ;; Kits on the Equipment step (plan-inventory-kits.md). Colours follow the text colour, so
+    ;; every theme draws them without its own rule.
+    [:.kit-row {:display :flex :align-items :center :gap "10px" :min-height "48px" :padding "4px 0"}]
+    [:.kit-tile
+     {:flex "0 0 48px" :width "48px" :height "48px" :border-radius "8px"
+      :display :flex :align-items :center :justify-content :center
+      :border "1px solid color-mix(in srgb, currentColor 30%, transparent)"
+      :background-color "color-mix(in srgb, currentColor 6%, transparent)"}]
+    ;; The Add a kit row (views/inventory.cljs `kits-block`): an empty kit tile with a +, in the
+    ;; text colour and unfilled, so it sits under the kits; .on (the search is on Packs) turns it amber.
+    [:.kit-add {:background :none :border :none :font :inherit :font-size "14px" :color :inherit
+                :cursor :pointer :text-align :left}
+     [:.kit-tile {:background-color :transparent :font-size "16px"}]
+     [:&:hover [:.kit-tile {:background-color "color-mix(in srgb, currentColor 8%, transparent)"}]]
+     [:&.on {:color orange}
+      [:.kit-tile {:border-color :currentColor :background-color "color-mix(in srgb, currentColor 16%, transparent)"}]]]
+    [:.kit-text {:flex "1 1 auto" :min-width 0}]
+    [:.kit-name {:white-space :nowrap :overflow :hidden :text-overflow :ellipsis}]
+    [:.kit-indent {:padding-left "58px"}
+     [:.link-button.quiet {:padding-left 0}]]
+    [:.kit-summary
+     {:flex "1 1 auto" :min-width 0 :min-height "48px" :padding 0 :text-align :left
+      :background :none :border :none :color :inherit :font :inherit :cursor :pointer}]
+    [:.kit-name-line {:display :flex :align-items :center :min-width 0}]
+    [:.kit-contents
+     {:display :flex :flex-wrap :wrap :column-gap "12px" :font-size "13px"
+      :font-variant-numeric :tabular-nums}]
+    [:.kit-restock {:flex :none :white-space :nowrap}]
+    [:.kit-list
+     {:display :grid :grid-template-columns "1fr auto" :column-gap "16px" :max-width "300px"
+      :font-size "13px" :font-variant-numeric :tabular-nums :margin "4px 0"}]
+    [:.kit-remove {:display :flex :flex-direction :column :align-items :flex-start}
+     [:.link-button.quiet {:padding-left 0}]
+     [:div {:margin-top "-10px" :padding-bottom "6px"}]]
 
     [:.builder-option
      {:border-width (px 1)
@@ -3619,6 +3684,14 @@
      [:i {:font-size "15px" :width "18px" :text-align :center}]
      [:i.fa-patreon {:color "#ff424d"}]
      [:img {:width "18px" :height "18px" :border-radius "3px"}]]
+    [:.support-pill:focus-visible {:outline (str "2px solid " orange) :outline-offset "2px"}]
+    ;; What's New ranks above the support links by shape: an amber cap holding the icon in dark ink.
+    [:.support-pill-whats-new
+     {:position :relative :overflow :hidden :padding-left "54px"
+      :border (str "1px solid " orange) :box-shadow "0 0 10px 1px rgba(240,161,0,0.45)"}
+     [:i {:position :absolute :left 0 :top 0 :bottom 0 :width "40px" :display :flex
+          :align-items :center :justify-content :center :background-color orange :color button-ink}]
+     [:&:hover {:box-shadow "0 0 14px 2px rgba(240,161,0,0.7)"}]]
     ;; The site footer's columns: spaced by the row's gap, so a wrapped one keeps the left edge.
     ;; The pills sit on the left edge of the text links under them.
     [:.site-footer-row {:column-gap "20px" :row-gap "10px"}]
@@ -3630,8 +3703,13 @@
        :gap "5px" :text-decoration :underline}
       [:i {:font-size "12px" :width "14px"}]
       [:img {:width "14px" :height "14px" :border-radius "2px"}]]]
+    ;; Stacked, every icon sits in one left column and the labels share a left edge.
     (at-media {:max-width "480px"}
-     [:.support-pills {:flex-direction :column :align-items :stretch :max-width "280px"}])
+     [:.support-pills {:flex-direction :column :align-items :stretch :max-width "280px"}]
+     [".support-pills:not(.support-pills-compact) .support-pill"
+      {:position :relative :justify-content :flex-start :padding-left "54px"}
+      [:i :img {:position :absolute :left "11px" :top "50%" :transform "translateY(-50%)"}]]
+     [".support-pills:not(.support-pills-compact) .support-pill-whats-new i" {:left 0 :top 0 :transform :none}])
 
     ;; A required builder field left empty when a save was attempted. Same amber
     ;; cue as the export modal's unfilled dropdowns, for consistency.
@@ -3800,6 +3878,45 @@
     ;; none of that is implemented here. Anchor positioning pins it under its input, and
     ;; where unsupported the popover still opens (centred) rather than breaking.
     [:.inv-combo {:margin "6px 0 10px"}]
+    ;; The sheet's search while managing: it adds items, so it is ringed and labelled to differ from
+    ;; filtering (views/inventory.cljs `sheet-equipment`).
+    ;; The box and its filter pill (`inventory-combobox`): the pill sits inside the box's left edge,
+    ;; the input padded past it.
+    [:.inv-combo-field {:position :relative :max-width "340px"}
+     [:.inv-combo-token {:position :absolute :left "7px" :top "50%" :transform "translateY(-50%)" :z-index 1}]]
+    [:.inv-combo-scope {:color orange}]
+    ;; The fieldset's legend notches the ring (the auth .notch's type, no painted patch).
+    [:.inv-combo-adding {:margin "6px 0 10px" :padding 0 :min-width 0 :max-width "340px"
+                         :border "2px solid #f0a100" :border-radius "5px"}
+     [:legend {:margin-left "8px" :padding "0 4px" :line-height 1 :font-size "11px" :font-weight 600
+               :letter-spacing "0.08em" :text-transform :uppercase :color "#f0a100"}]
+     [:.inv-combo {:margin 0}]
+     [:.inv-combo-input {:border-color :transparent :max-width :none}]]
+    ;; Worn | Off for the backpack (views/inventory.cljs `sheet-equipment`): two options, drawn at
+    ;; the size of the kit links, with a 44px tap area.
+    ;; No overflow hidden: it would clip the buttons' :after tap area; the end buttons round instead.
+    [:.seg {:display :inline-flex :flex :none :border-radius "5px"
+            :border "1px solid color-mix(in srgb, currentColor 40%, transparent)"}
+     ["button:first-child" {:border-radius "4px 0 0 4px"}]
+     ["button:last-child" {:border-radius "0 4px 4px 0"}]
+     [:button {:position :relative :background :none :border :none :color :inherit :font :inherit
+               :font-size "11px" :letter-spacing ".05em" :text-transform :uppercase :padding "0 10px"
+               :min-height "24px" :opacity 0.7 :cursor :pointer}]
+     ["button + button" {:border-left "1px solid color-mix(in srgb, currentColor 40%, transparent)"}]
+     [:button.on {:opacity 1 :font-weight 700 :color "#f0a100"
+                  :background-color "rgba(240, 161, 0, 0.18)"}]
+     [:button:after {:content "''" :position :absolute :top "-10px" :bottom "-10px" :left 0 :right 0}]]
+    [".app.light-theme .seg button.on" {:color "#33658A" :background-color "rgba(51,101,138,.12)"}]
+    [:.backpack-line {:gap "10px" :min-height "44px"}
+     [:.backpack-status {:font-size "13px"}]]
+    ;; The backpack's contents while it is off: still listed and counted, greyed, under one label.
+    [:tr.packed {:opacity 0.5}]
+    [:.sheet-stepper {:display :flex :align-items :center :gap "6px" :white-space :nowrap
+                      :font-variant-numeric :tabular-nums}
+     [:button {:background :none :border :none :padding "4px" :min-width "32px" :min-height "32px"
+               :color :inherit :cursor :pointer :position :relative}]
+     [:button:after {:content "''" :position :absolute :top "-6px" :bottom "-6px" :left "-2px" :right "-2px"}]
+     [:span {:min-width "18px" :text-align :center}]]
 
     [:.inv-combo-input
      {:width "100%"

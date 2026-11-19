@@ -87,15 +87,22 @@
   (env/checked-url :app-help-url (env/value :app-help-url "") ""))
 
 ;; ─── Social Links ──────────────────────────────────────────────────
-;; Each link shows in the header/footer when its env var is set to a URL; unset hides it.
+;; Each link shows in the header/footer when its env var is set to a URL; unset falls back to the default.
 ;; e.g. in .env:  APP_SOCIAL_PATREON=https://www.patreon.com/YourProject
 ;;                APP_SOCIAL_DEV_TIP=https://buymeacoffee.com/you  (a one-off tip to the developer)
 
+(def social-link-defaults
+  "The links shown when their setting is unset: the maintainer's Patreon and tip link."
+  {:patreon "https://www.patreon.com/DungeonMastersVault"
+   :dev-tip "https://buymeacoffee.com/tinkan"})
+
 (def social-links
-  "Map of social platform links. Empty string = hidden."
+  "Map of social platform links: each APP_SOCIAL_* setting, else `social-link-defaults`, else empty
+   (hidden). A blank setting counts as unset, so it cannot hide a default; set another URL."
   (into {} (for [k [:patreon :dev-tip :facebook :bluesky :twitter :reddit :discord]
-                 :let [setting (keyword (str "app-social-" (name k)))]]
-             [k (env/checked-url setting (env/value setting "") "")])))
+                 :let [setting (keyword (str "app-social-" (name k)))
+                       default (get social-link-defaults k "")]]
+             [k (env/checked-url setting (env/value setting default) default)])))
 
 ;; ─── Footer ─────────────────────────────────────────────────────
 

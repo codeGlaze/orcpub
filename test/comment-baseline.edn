@@ -3,7 +3,12 @@
 ;; :allowed is reviewed exceptions, each with the reason it is spec.
 ;; :field-notes is {[file id] hash} per FIELD NOTE; record a new or edited one by hand.
 {:allowed
- {["src/cljc/orcpub/dnd/e5/library_links.cljc"
+ {["src/cljc/orcpub/dnd/e5/inventory.cljc"
+   :long-comment
+   "Kit copy: action \"Re-bundle\" / status \"Unbundled\"."
+   "5d0cbb607303"]
+  "The kits designer's word-choice guard, required verbatim next to the copy: which words are reserved, rejected and the fallbacks, so the copy is not reworded back into a misleading term."
+  ["src/cljc/orcpub/dnd/e5/library_links.cljc"
    :long-docstring
    "def links"
    "89e2979c2962"]

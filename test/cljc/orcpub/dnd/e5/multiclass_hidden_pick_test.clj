@@ -16,6 +16,7 @@
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.picks :as picks]
+            [orcpub.dnd.e5.inventory :as inventory]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.spell-lists :as sl5e]
             [orcpub.dnd.e5.weapons :as weapons5e]
@@ -194,9 +195,11 @@
   {:orcpub.entity/key :rogue :orcpub.entity/options {:levels [(lvl 1)]}})
 
 (defn- equipment-keys
-  "Keys of the normal equipment inventory of the built character of `classes`. Returns a set."
+  "Keys of the normal equipment inventory of the built character of `classes`, its packs made into
+   kits as on load. Returns a set."
   [classes]
-  (set (keys (char5e/normal-equipment-inventory (build classes)))))
+  (set (keys (char5e/normal-equipment-inventory
+              (entity/build (:character (inventory/repair (character-of classes))) @the-template)))))
 
 (defn- equipment-selections
   "Paths of the equipment-tagged selections the builder would show for `classes`. Returns a set."
@@ -220,7 +223,7 @@
 (deftest starting-equipment-survives-the-class-losing-first-place
   (let [fighter-1st [fighter-with-pack rogue-plain]
         rogue-1st   [rogue-plain fighter-with-pack]
-        pack        #{:backpack :bedroll :mess-kit :rations-1-day- :rope-hempen
+        pack        #{:backpack :bedroll :mess-kit :rations-1-day :rope-hempen
                       :tinderbox :torch :waterskin}]
 
     (testing "fighter first: its explorer's pack is on the sheet and its selections are offered"

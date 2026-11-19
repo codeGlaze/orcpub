@@ -106,7 +106,8 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
     check('every highlight is rendered', items === HEADLINES.length,
           `${items} shown, ${HEADLINES.length} in the source`);
 
-    const groups = await page.locator('.whats-new-group-title').allInnerTexts();
+    // Release groups only: with a Patreon link set, the patron credits close the panel as a group too.
+    const groups = await page.locator('.whats-new-group:not(#whats-new-credits) .whats-new-group-title').allInnerTexts();
     check('each group gets one heading', groups.length === GROUPS.length,
           `${groups.length} shown, ${GROUPS.length} in the source`);
 
@@ -135,6 +136,25 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
     await page.waitForSelector('.splash-page-content', { timeout: 20000 });
     await page.waitForTimeout(1200);
     check('a reload does not show it again', !(await visible(page)));
+
+    // The home-page pill ranks above the support links: an amber cap behind its icon, full height at
+    // its left edge, an amber border and a glow. Stacked (a phone), the cap keeps that shape.
+    const capLook = () => page.evaluate(() => {
+      const p = [...document.querySelectorAll('.splash-page-content .support-pill')].find(e => /what.s new/i.test(e.textContent));
+      if (!p) return null;
+      const i = p.querySelector('i'); const ps = getComputedStyle(p); const pr = p.getBoundingClientRect(); const ir = i.getBoundingClientRect();
+      return { cap: getComputedStyle(i).backgroundColor, border: `${ps.borderTopColor} ${ps.borderTopWidth}`, glow: ps.boxShadow,
+               fills: ir.height >= pr.height - 3 && Math.abs(ir.left - pr.left) <= 2 };
+    });
+    const wide = await capLook();
+    check('the home-page pill has an amber cap at its left edge, full height',
+          !!wide && wide.cap === 'rgb(240, 161, 0)' && wide.fills, JSON.stringify(wide));
+    check('and an amber border with a glow',
+          !!wide && wide.border === 'rgb(240, 161, 0) 1px' && wide.glow.includes('rgba(240, 161, 0'), JSON.stringify(wide));
+    await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(300);
+    const stacked = await capLook();
+    check('stacked on a phone, the cap still fills its left edge', !!stacked && stacked.fills, JSON.stringify(stacked));
+    await page.setViewportSize({ width: 1280, height: 900 }); await page.waitForTimeout(300);
 
     // Keyboard: the home-page link is a focusable button that Enter opens.
     const homeLink = page.locator('.splash-page-content a[role="button"]').filter({ hasText: /what.s new/i });
@@ -216,11 +236,11 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
     check('"Got it!" removes the notice',
           !(await page.locator('#poper').isVisible().catch(() => false)));
 
-    // The home page carries its own What's New link, at the size of the footer's small links.
+    // The home page carries its own What's New link, the first pill of the support row.
     const homeLink = page.locator('.splash-page-content a', { hasText: "What's New" });
     check('the home page has a What\'s New link', await homeLink.count() === 1);
-    check('it is the footer link size',
-          await homeLink.evaluate(a => getComputedStyle(a).fontSize).catch(() => '') === '12px');
+    check('it is the first pill of the support row',
+          await homeLink.evaluate(a => a.matches('.support-pills > .support-pill:first-child')).catch(() => false));
     await homeLink.click().catch(() => {});
     check('the home page link opens the panel',
           await page.waitForSelector('.whats-new-panel', { timeout: 3000 }).then(() => true, () => false));

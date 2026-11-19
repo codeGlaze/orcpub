@@ -61,3 +61,11 @@
     (is (= ["https://shop.example.org"] (map :link/url (:artist/links o))) "only https links stay")
     (is (= "site" (:link/icon (first (:artist/links o)))) "the icon comes from the address, not the setting")
     (is (not= "red;}" (:link/color (first (:artist/links o)))) "and so does the colour")))
+
+(deftest social-links-default-to-the-maintainers
+  ;; Holds only where neither setting is present, as in CI and a .env copied from .env.example.
+  (when-not (or (env/value :app-social-patreon) (env/value :app-social-dev-tip))
+    (is (= "https://www.patreon.com/DungeonMastersVault" (:patreon branding/social-links)))
+    (is (= "https://buymeacoffee.com/tinkan" (:dev-tip branding/social-links))))
+  (when-not (env/value :app-social-facebook)
+    (is (= "" (:facebook branding/social-links)) "a link with no default stays hidden")))

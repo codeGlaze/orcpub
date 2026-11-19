@@ -739,7 +739,7 @@
   "{:patreon? :names}: whether APP_SOCIAL_PATREON is set, and how many patrons the shipped
    public/patron-credits.md lists (0 when the file is missing or empty), for deployment-lines."
   []
-  {:patreon? (boolean (seq (:patreon branding/social-links)))
+  {:patreon? (boolean (env/value :app-social-patreon))
    :names (or (some->> (io/resource "public/patron-credits.md") slurp whats-new/parse-credits
                        (map (comp count :names)) (reduce + 0))
               0)})

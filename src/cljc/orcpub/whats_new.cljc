@@ -53,6 +53,10 @@
       :headline "Find equipment by typing"
       :detail "The Equipment tab's long dropdowns filter as you type. Nothing is hidden behind a cap — scroll the whole list, or walk it with the arrow keys and press Enter to add."}
      {:group "Characters"
+      :icon "fa-box-open"
+      :headline "Equipment packs you can restock"
+      :detail "A pack's torches, rations and rope are now ordinary items you use up, and its kit keeps count of what runs low, with Restock and Undo. Inventory is on the sheet too: Manage inventory adds items and changes quantities and coins, and your backpack can be set down. Search just the packs with the Packs filter, or narrow your list to what your kits hold."}
+     {:group "Characters"
       :icon "fa-user-circle"
       :headline "Build a portrait for your character"
       :detail "Pick or randomize layered art by a real illustrator, colour hair, skin, eyes and clothing, and add an ombré, freckles, glowing eyes or a torch-lit edge. The portrait shows on the sheet, the summary and shared links, credited to the artist."}
