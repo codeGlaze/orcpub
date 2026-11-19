@@ -150,3 +150,10 @@ The local branch now tracks its own Gitea branch, not `dmv`.
   live site.
 - Both were caught by `whats_new_e2e.js`'s "no console errors or warnings" check, which stops at the
   first error: after fixing one, run it again.
+
+## 2026-11-18 update (the admin's release workflow, dev deploy)
+
+- DMV's `dmv` gained `docker-builds.yaml` (tag builds to the Gitea registry, app image named `dmv`) and deleted `docker.yaml`. Merging `integration` then conflicts (modify/delete) whenever `integration` changes `docker.yaml`; resolved by taking the deletion (merge `173a37de1`). `docker.yaml` only runs on `Orcpub/orcpub`, so keeping it on DMV would end the conflict (owner deciding).
+- `.env.example`'s image lines carry DMV's registry on `dmv`; a shared-file edit, so expect conflicts there when `integration` edits that block.
+- The pre-merge adds `.github/workflows/dev-deploy.yaml` and `docs/DEV-DEPLOY.md` (PR pushes into `dmv` build `:dev` / `:pr-N` and call the dev stack's Portainer webhook). Not run yet: it needs the admin's secrets.
+- The branch-shape hook counts the pre-merge past 100 files; the owner allows `ALLOW_LARGE_BRANCH=1` for pre-merge pushes ("the rc premerge is a completely different animal", 2026-11-18). Pushed `b8c2d8f6b`.
