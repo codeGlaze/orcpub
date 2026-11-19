@@ -160,6 +160,17 @@ SAFE verdicts re-checked by hand. Nothing deleted from this list yet; the owner 
 
 Restore any of these with `git push origin <tip>:refs/heads/<branch>` (or `git branch <branch> <tip>` for a local-only one), as long as the commit still exists in a clone.
 
+### 2026-11-19 (3 branches)
+
+Approved by the owner after a personal-data scan found `dmv-production-changes.md` on them
+([personal-data-scan.md](personal-data-scan.md)). Their unmerged writing was rescued first.
+
+| branch | where | tip | last commit | why it could go |
+|---|---|---|---|---|
+| `ccr-aa9f102f-mtq3wc` | remote | `c71f84a0b` | 2026-10-19 | its research page is now [multi-system-expansion.md](multi-system-expansion.md), verbatim |
+| `docs/browser-testing-kb` | remote | `39546b46` | 2026-09-01 | its traps are in [rescued/browser-testing-traps.md](rescued/browser-testing-traps.md); its AGENTS.md edit is superseded by the current file |
+| `docs/comment-style-tense` | remote | `aba2cdff` | 2026-08-31 | its tense test is in [rescued/comment-style-tense.md](rescued/comment-style-tense.md) |
+
 ### 2026-11-09, fourth batch (1 claude branch)
 
 Approved by the owner after timing the search boxes (`branches/test/rescued-claude-tests.md`):
