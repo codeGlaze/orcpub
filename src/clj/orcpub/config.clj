@@ -753,7 +753,7 @@
    (let [actual (when-let [n (jetty-max-threads created)]
                   {"ORCPUB_HTTP_MAX_THREADS" n})
          dirs   (crash-and-alert-dirs)
-         lines  (vec (report-lines (report) actual @branding/ignored
+         lines  (vec (report-lines (report) actual @env/ignored
                                    (deployment-lines (assoc dirs
                                                             :max-heap-bytes (.maxMemory (Runtime/getRuntime))
                                                             :admin (alert-address)

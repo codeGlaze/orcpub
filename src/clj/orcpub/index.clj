@@ -146,6 +146,23 @@
      })();
     ")))))
 
+(defn branding-client-config
+  "Map of branding values for CLJS injection, written into the page as window.__BRANDING__ and
+   read by branding.cljs. Operator settings only: artist credits, which artists can edit, reach
+   the browser from /dnd/5e/portrait-artists."
+  []
+  {:app-name                  branding/app-name
+   :logo-path                 branding/logo-path
+   :copyright-holder          branding/copyright-holder
+   :copyright-year            branding/copyright-year
+   :copyright-url             branding/copyright-url
+   :support-email             branding/support-email
+   :help-url                  branding/help-url
+   :social-links              branding/social-links
+   :field-limits              branding/field-limits
+   :registration-logo-class   branding/registration-logo-class
+   :restrict-print-to-owner?  branding/restrict-print-to-owner?})
+
 (defn index-page [{:keys [url
                           title
                           description
@@ -273,7 +290,7 @@ html {
     (integrations/head-tags nonce)
     (script-tag {:nonce nonce}
      ;; raw: operator settings as JSON, escaped for a script by script-json
-     (h/raw (str "window.__BRANDING__=" (script-json (branding/client-config)) ";"
+     (h/raw (str "window.__BRANDING__=" (script-json (branding-client-config)) ";"
                  "window.__INTEGRATIONS__=" (script-json (integrations/client-config)) ";"
                  ;; The PUBLIC site key only, and only when Turnstile is fully configured.
                  (when (config/turnstile-enabled?)

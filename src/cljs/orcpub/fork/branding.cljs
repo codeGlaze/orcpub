@@ -3,11 +3,11 @@
    Fallback values are used in dev/REPL where no server injection exists.
 
    Server-side source of truth: branding.clj
-   Bridge: index.clj injects branding/client-config as JSON in <head>. Operator settings only:
+   Bridge: index.clj injects index/branding-client-config as JSON in <head>. Operator settings only:
    artist credits are fetched when a view shows one (:portrait/artist-overrides).")
 
 ;; ─── Config Bridge ───────────────────────────────────────────────
-;; Server injects branding.clj/client-config as window.__BRANDING__ JSON.
+;; Server injects index.clj branding-client-config as window.__BRANDING__ JSON.
 ;; We read it once at namespace load time.
 
 (def ^:private config
