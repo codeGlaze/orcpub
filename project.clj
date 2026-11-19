@@ -93,12 +93,9 @@
                  [org.webjars/font-awesome "5.13.1"]
                  ;; See docs/UPGRADE_DEPENDENCIES.md for why this is needed on Java 9+/21
                  [javax.servlet/javax.servlet-api "4.0.1"]
-                 ;; figwheel-main for hot-reload dev (compatible with Pedestal 0.7.0's Jetty 11)
-                 [com.bhauman/figwheel-main "0.2.20"]
-                 [com.bhauman/rebel-readline-cljs "0.1.4"]
               ]
-  ;; NOTE: lein-cljsbuild is fully removed. Prod CLJS builds use figwheel-main
-  ;; (fig:prod alias / prod.cljs.edn). lein-cljsbuild is abandoned (last release:
+  ;; NOTE: lein-cljsbuild is fully removed. Prod CLJS builds use the plain
+  ;; ClojureScript compiler (cljs:prod alias / prod.cljs.edn); figwheel is dev-only. lein-cljsbuild is abandoned (last release:
   ;; 1.1.8, April 2020) and its hooks cause a JVM hang in Docker/CI — it always
   ;; spawns a subprocess via eval-in-project whose I/O pump hangs in no-TTY.
   ;; See docs/LEIN-UBERJAR-HANG.md
@@ -194,7 +191,12 @@
   :aliases {"fig:dev" ["trampoline" "run" "-m" "figwheel.main" "--" "--build" "dev" "--repl"]
             "fig:watch" ["run" "-m" "figwheel.main" "--" "--build" "dev"]
             "fig:build" ["run" "-m" "figwheel.main" "--" "--build-once" "dev"]
-            "fig:prod" ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]
+            ;; The production bundle, built by the ClojureScript compiler alone: figwheel is
+            ;; a :dev dependency and must never reach the jar (docs/kb/figwheel-jetty12.md).
+            "cljs:prod" ["with-profile" "-dev,+cljs-prod" "run" "-m" "cljs.main" "-co" "prod.cljs.edn"
+                         "-d" "target/cljs-prod-out" "-c" "orcpub.core"]
+            ;; The name scripts and docs use for the production bundle.
+            "fig:prod" ["cljs:prod"]
             "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
             ;; only the junk-pack test, for test/e2e/junk-pack-audit.js
             "fig:junk" ["run" "-m" "figwheel.main" "--" "--build-once" "junk-audit"]
@@ -205,7 +207,7 @@
             ;; resources/public/js/compiled (the CLJS output dir).
             ;; The :uberjar profile itself never cleans — CLJS is compiled
             ;; BEFORE the uberjar step and must not be deleted.
-            "build" ["do" "clean," "fig:prod," ["with-profile" "uberjar" "uberjar"]]
+            "build" ["do" "clean," "cljs:prod," ["with-profile" "uberjar" "uberjar"]]
             "figwheel-native" ["with-profile" "native-dev" "run" "-m" "user" "--figwheel"]
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
@@ -232,8 +234,7 @@
             ;; across 2 commits, unseen: kondo calls it an error, and dev/ was unlinted.
             "lint" ["trampoline" "with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "test" "web" "dev" "--fail-level" "error"]
             "prod-build" ^{:doc "Recompile code with prod profile."}
-            ["externs"
-             ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]]}
+            ["externs" "cljs:prod"]}
   :profiles {;; Minimal profile to run dev/ command-line tools (e.g. report-preview)
              ;; with base runtime deps but WITHOUT the heavy cljs/devtools :dev-config.
              :tools {:source-paths ["dev"]}
@@ -279,6 +280,10 @@
                                               :pretty-print  false}}}}}
              ;; Dev-only deps, source paths, and compiler overlays (devtools, re-frame-10x).
              :dev-config   {:dependencies [[binaryage/devtools "1.0.7"]
+                                           ;; Dev only: hot reload and the fig:* builds. Never in the
+                                           ;; main :dependencies, or its server ships in the jar.
+                                           [com.bhauman/figwheel-main "0.2.20"]
+                                           [com.bhauman/rebel-readline-cljs "0.1.4"]
                                            [nrepl "1.3.0"]
                                            [cider/piggieback "0.5.3"]
                                            [day8.re-frame/re-frame-10x "1.11.0" :exclusions [zprint rewrite-clj]]
@@ -309,6 +314,8 @@
              ;; loopback for everyone else. Activate per-command, e.g.
              ;;   lein with-profile +wsl fig:dev
              ;;   lein with-profile +wsl fig:build
+             ;; Source paths for cljs:prod, which runs without :dev (web/cljs is otherwise dev-only).
+             :cljs-prod    {:source-paths ["web/cljs" "src/cljc" "src/cljs"]}
              :wsl          {:env {:orcpub-http-host "0.0.0.0"}}
              ;; NOTE: :native-dev was for React Native builds (legacy, may be unused)
              :native-dev   {:dependencies [[cider/piggieback "0.5.3"]]

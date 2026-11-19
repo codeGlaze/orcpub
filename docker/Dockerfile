@@ -89,8 +89,9 @@ ENV TZ=${TZ}
 # re-merge. Lein just packages the existing .class files without spawning
 # a new compile subprocess. See docs/LEIN-UBERJAR-HANG.md
 
-# Step 1: CLJS via figwheel-main (exits cleanly, no hang)
-RUN lein run -m figwheel.main -- --build-once prod && \
+# Step 1: CLJS via the ClojureScript compiler (cljs.main; exits cleanly, no hang).
+# figwheel is dev-only and never reaches the jar.
+RUN lein cljs:prod && \
     test -f resources/public/js/compiled/orcpub.js
 
 # Step 1b: strand fields for any hair art without one, written beside the art so
