@@ -147,14 +147,14 @@
     (s/turnstile-verify "t" "1.2.3.4")))
 
 (deftest only-a-transport-failure-or-a-server-error-fails-open
-  (is (= :fail (verify-with-http {:status 400 :body {:success false :error-codes ["invalid-input-response"]}}))
+  (is (= :fail (verify-with-http {:status 400 :body "{\"success\":false,\"error-codes\":[\"invalid-input-response\"]}"}))
       "Cloudflare refusing the token is a refusal")
   (is (= :fail (verify-with-http {:status 400 :body "<html>bad</html>"})) "even with a body that is not JSON")
   (is (= :fail (verify-with-http {:status 403 :body nil})))
-  (is (= :unreachable (verify-with-http {:status 500 :body {}})) "Cloudflare being down")
+  (is (= :unreachable (verify-with-http {:status 500 :body "{}"})) "Cloudflare being down")
   (is (= :unreachable (verify-with-http {:status 503 :body nil})))
   (is (= :unreachable (verify-with-http #(throw (java.net.SocketTimeoutException. "slow")))))
-  (is (= :pass (verify-with-http {:status 200 :body {:success true}}))))
+  (is (= :pass (verify-with-http {:status 200 :body "{\"success\":true}"}))))
 
 (deftest a-token-that-is-not-text-is-a-missing-token
   (let [calls (atom 0)]

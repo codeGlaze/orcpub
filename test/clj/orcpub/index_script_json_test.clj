@@ -1,6 +1,6 @@
 (ns orcpub.index-script-json-test
   (:require [clojure.test :refer [deftest is testing]]
-            [cheshire.core :as cheshire]
+            [clojure.data.json :as data-json]
             [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.index :as index]))
@@ -18,7 +18,7 @@
 (deftest script-json-reads-back-as-the-same-value
   (testing "the escapes are JSON escapes, so a parser sees the original text"
     (is (= {:name hostile}
-           (cheshire/parse-string (index/script-json {:name hostile}) true))))
+           (data-json/read-str (index/script-json {:name hostile}) :key-fn keyword))))
   (is (not (re-find #"[<>&  ]" (index/script-json {:name hostile})))))
 
 (deftest the-home-page-text-does-not-read-as-french

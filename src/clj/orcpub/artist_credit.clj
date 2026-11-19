@@ -20,7 +20,7 @@
    way out, so a value written by some older or buggier version still cannot
    put a javascript: link or an arbitrary colour on the page."
   (:require [clojure.edn :as edn]
-            [cheshire.core :as cheshire]
+            [charred.api :as cheshire]
             [clojure.string :as s]
             [datomic.api :as d]
             [orcpub.env :as env]
@@ -91,7 +91,7 @@
   (or (when-let [raw (not-empty (env/value :portrait-artists))]
         (try
           (into {}
-                (for [[id fields] (cheshire/parse-string raw true)]
+                (for [[id fields] (cheshire/read-json raw :key-fn keyword)]
                   [(keyword (name id)) (artist-override fields)]))
           (catch Exception e
             (println "branding: PORTRAIT_ARTISTS ignored --" (.getMessage e))

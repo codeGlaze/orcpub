@@ -2,7 +2,8 @@
   "Abuse limits on the account forms: one policy table (auth-guards), one guard over it, the
    Turnstile check, and the cadence of the notices sent to account owners.
    See orcpub.time for date/time utilities."
-  (:require [clj-http.client :as client]
+  (:require [charred.api :as json]
+            [clj-http.client :as client]
             [clojure.string :as s]
             [orcpub.config :as config]
             [orcpub.time :as time :refer [minutes hours ago]]))
@@ -452,6 +453,12 @@
   []
   (config/turnstile-enabled?))
 
+(defn- json-object
+  "`text` read as JSON with keyword keys when it is a JSON object, else nil."
+  [text]
+  (let [v (try (json/read-json (str text) :key-fn keyword) (catch Exception _ nil))]
+    (when (map? v) v)))
+
 (defn- post-siteverify
   "POSTs to Cloudflare; returns the parsed JSON body as a map. A 4xx is an answer (Cloudflare
    refused the request or the token), so it returns the body, or {} when that is not a map, and
@@ -463,15 +470,15 @@
                      {:form-params (cond-> {:secret (config/turnstile-secret-key)
                                             :response token}
                                      (not (s/blank? remote-ip)) (assoc :remoteip remote-ip))
-                      :as :json
+                      :as :string
                       :socket-timeout turnstile-timeout-ms
                       :connection-timeout turnstile-timeout-ms
                       :throw-exceptions false
                       :cookie-policy :none
                       :redirect-strategy :none})]
     (cond
-      (<= 200 status 299) body
-      (<= 400 status 499) (if (map? body) body {})
+      (<= 200 status 299) (json/read-json body :key-fn keyword)
+      (<= 400 status 499) (or (json-object body) {})
       :else (throw (ex-info "siteverify unavailable" {:status status})))))
 
 ;; A sustained outage would otherwise log a line per signup.

@@ -1,7 +1,7 @@
 (ns orcpub.routes
   (:require [io.pedestal.http :as http]
             [orcpub.bounded-cache :as bounded-cache]
-            [cheshire.core :as cheshire]
+            [charred.api :as cheshire]
             [orcpub.work-pool :as work-pool]
             [orcpub.portrait-store :as portrait-store]
             [orcpub.art-mark :as art-mark]
@@ -1739,7 +1739,7 @@
   {:status 200
    :headers {"Content-Type" "application/json; charset=utf-8"
              "Cache-Control" "public, max-age=60"}
-   :body (cheshire/generate-string (portrait-assets5e/current-overrides))})
+   :body (cheshire/write-json-str (portrait-assets5e/current-overrides) :escape-slash false)})
 
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
   ;; before the credit line and the image version below are worked out from it

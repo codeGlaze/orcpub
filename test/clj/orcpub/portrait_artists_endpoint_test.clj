@@ -8,7 +8,7 @@
             [orcpub.fork.branding]
             [orcpub.index :as index]
             [orcpub.route-map]
-            [cheshire.core])
+            [clojure.data.json :as data-json])
   (:import [java.util UUID]))
 
 (defmacro with-conn
@@ -62,7 +62,7 @@
   (with-conn conn
     (artist! conn)
     (let [{:keys [status headers body]} (routes/portrait-artists {:db (d/db conn)})
-          parsed (cheshire.core/parse-string body)]
+          parsed (data-json/read-str body)]
       (is (= 200 status))
       (is (re-find #"application/json" (get headers "Content-Type")))
       (is (re-find #"max-age=60" (get headers "Cache-Control")) "an edit shows within a minute")

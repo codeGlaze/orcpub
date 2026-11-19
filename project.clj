@@ -61,6 +61,9 @@
                  [com.fasterxml.jackson.core/jackson-databind "2.15.2"]
                  [com.fasterxml.jackson.core/jackson-core "2.15.2"]
                  [com.fasterxml.jackson.core/jackson-annotations "2.15.2"]
+                 ;; The app's JSON library (page config, portrait overrides, artist and pack files).
+                 ;; Pedestal 0.8 brings the same version; declared because our code calls it.
+                 [com.cnuernber/charred "1.038"]
 
                  ;; Required for Pedestal 0.7.x ring-middlewares
                  [commons-io/commons-io "2.15.1"]
