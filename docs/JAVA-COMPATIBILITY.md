@@ -9,7 +9,7 @@ This project requires **Java 21** (LTS). The CI workflow, devcontainer, and all 
 The original project ran on Java 8. The upgrade to Java 21 was driven by:
 
 1. **Datomic Pro** — the actively maintained Datomic distribution targets Java 11+
-2. **Pedestal 0.7** — uses Jetty 11, which requires Java 11+
+2. **Pedestal 0.8** — uses Jetty 12, which requires Java 17+
 3. **Security** — Java 8 is past end of public updates
 4. **Ecosystem** — modern Clojure libraries increasingly require Java 11+
 
@@ -21,11 +21,9 @@ Datomic Free 0.9.5703 fails on Java 21 with an SSL handshake timeout. The peer c
 
 ## Pedestal + Jetty Constraint
 
-Pedestal 0.7.0 uses **Jetty 11**. Pedestal 0.7.1+ uses **Jetty 12**.
+Pedestal 0.8.3 runs on **Jetty 12.1.15**, which requires Java 17+. Every Jetty artifact is pinned to that version in `:managed-dependencies` in `project.clj`, because Pedestal brings Jetty 12.0.x and figwheel's Ring (dev) brings 12.1.x, and a mix of the two fails at start-up. Leiningen ignores imported BOMs, so each artifact is listed.
 
-Jetty 12 removes `ScopedHandler`, causing `NoClassDefFoundError` when figwheel-main is running (figwheel-main's Ring adapter depends on Jetty 11 classes).
-
-**Current pin**: Pedestal 0.7.0 with Jetty 11. This constraint is about Pedestal/Jetty compatibility, not Java version.
+Dev uses a vendored build of figwheel's main branch (Jetty 12 and SSE reload). See [migration/pedestal-0.8.md](migration/pedestal-0.8.md).
 
 ## javax.servlet-api
 

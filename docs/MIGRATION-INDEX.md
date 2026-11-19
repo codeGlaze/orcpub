@@ -10,6 +10,7 @@ This branch (`breaking/2026-stack-modernization`) upgrades the full OrcPub stack
 | Database | Datomic Free → Datomic Pro | [migration/datomic-pro.md](migration/datomic-pro.md) |
 | Database data | Migrating existing Free databases | [migration/datomic-data-migration.md](migration/datomic-data-migration.md) |
 | Web framework | Pedestal 0.5.1 → 0.7.0 | [migration/pedestal-0.7.md](migration/pedestal-0.7.md) |
+| Web framework | Pedestal 0.7.0 → 0.8.3 (Jetty 12.1.15, clears Jetty alerts) | [migration/pedestal-0.8.md](migration/pedestal-0.8.md) |
 | Frontend | React 15 / Reagent 0.6 → React 18 / Reagent 2.0 | [migration/frontend-stack.md](migration/frontend-stack.md) |
 | Libraries | clj-time, PDFBox 2, Buddy 1, etc. | [migration/library-upgrades.md](migration/library-upgrades.md) |
 | Dev tooling | Consolidated CLI + REPL into user.clj, profiles, scripts | [migration/dev-tooling.md](migration/dev-tooling.md) |
@@ -21,10 +22,10 @@ This branch (`breaking/2026-stack-modernization`) upgrades the full OrcPub stack
 
 These upgrades form a dependency chain:
 
-1. **Java 21** is required by modern Datomic Pro and Pedestal 0.7
+1. **Java 21** is required by modern Datomic Pro and Pedestal 0.7 and later
 2. **Datomic Free** doesn't work on Java 21 (SSL handshake failure), so **Datomic Pro** is required
 3. **Pedestal 0.7** requires interceptor wrapping and adds default CSP with `strict-dynamic`, which breaks inline scripts unless nonces are added
-4. **Pedestal 0.7.0** specifically — 0.7.1+ uses Jetty 12, which breaks figwheel-main's Ring adapter
+4. **Pedestal 0.8.3** with every Jetty artifact pinned to 12.1.15, so Pedestal and figwheel (dev) share one Jetty line; see [migration/pedestal-0.8.md](migration/pedestal-0.8.md)
 5. **Reagent 2.0** / **React 18** use the `createRoot` API (React 17 deprecated `render`)
 6. **clj-time → java-time** because clj-time wraps Joda-Time, which is EOL on Java 21
 

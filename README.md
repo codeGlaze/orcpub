@@ -32,10 +32,10 @@ Dungeon Master's Vault is a full-stack Clojure/ClojureScript web application for
 | Layer | Technology |
 |-------|-----------|
 | Runtime | Java 21 (OpenJDK) |
-| Backend | Clojure 1.12, Pedestal 0.7, Buddy auth |
+| Backend | Clojure 1.12, Pedestal 0.8 (Jetty 12), Buddy auth |
 | Frontend | ClojureScript, React 18, Reagent 2.0, re-frame |
 | Database | Datomic Pro (dev transactor) |
-| Build | Leiningen, cljsbuild, figwheel-main |
+| Build | Leiningen, ClojureScript compiler (`lein cljs:prod`), figwheel-main (dev only) |
 | Dev environment | VS Code devcontainer (recommended) |
 
 ---

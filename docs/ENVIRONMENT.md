@@ -211,7 +211,7 @@ the table in half. Plain ASCII, no colour: it is read in aggregators as often as
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CSP_POLICY` | `strict` | Content Security Policy mode: `strict`, `permissive`, or `none` |
-| `DEV_MODE` | `"true"` (in :dev profile) | When true, **no CSP header is sent at all** — that is what lets Figwheel's `ws://localhost:3449` through. Must be the string `"true"` (case-insensitive); any other value, including `"1"`, `"yes"` or empty, is false. |
+| `DEV_MODE` | `"true"` (in :dev profile) | When true, **no CSP header is sent at all** — that is what lets Figwheel's reload connection on `localhost:3449` through. Must be the string `"true"` (case-insensitive); any other value, including `"1"`, `"yes"` or empty, is false. |
 | `ORCPUB_PWNED_CHECK` | `on` | Screen new passwords against the Have I Been Pwned corpus. Accepts `on`/`off`, `true`/`false`, `1`/`0`, `yes`/`no`. |
 | `TURNSTILE_SITE_KEY` | unset | Cloudflare Turnstile site key (public; sent to the browser). The managed-mode check appears on sign-up, password reset, resend verification, and sign-in after a failed attempt, only when **both** this and `TURNSTILE_SECRET_KEY` are set; otherwise the feature is entirely off. Adds `https://challenges.cloudflare.com` to the CSP `frame-src` (and, under `CSP_POLICY=permissive`, `script-src`). Fails open: if Cloudflare cannot be reached (or answers with a server error), the request goes through; a refusal from Cloudflare (4xx) or a missing token does not. For testing, Cloudflare's dummy keys always pass: site key `1x00000000000000000000AA`, secret `1x0000000000000000000000000000000AA`. |
 | `TURNSTILE_SECRET_KEY` | unset | Turnstile secret key; server-side only, never logged or shown (the startup report says only set / NOT SET). See `TURNSTILE_SITE_KEY`. |
@@ -314,8 +314,8 @@ they never use the database, and sending one never slows down the request that h
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ORCPUB_ENV` | — | Set to `dev` to enable `add-test-user` in user.clj |
-| `FIGWHEEL_PORT` | `3449` | Figwheel WebSocket port for frontend hot-reload. Read by `scripts/common.sh`. |
-| `FIGWHEEL_CONNECT_URL` | *(auto-detected)* | Figwheel WebSocket URL override for remote environments (Gitpod, tunnels). Auto-detected for GitHub Codespaces. Example: `wss://my-remote-host:3449/figwheel-connect` |
+| `FIGWHEEL_PORT` | `3449` | Figwheel's port for frontend hot-reload. Read by `scripts/common.sh`. |
+| `FIGWHEEL_CONNECT_URL` | *(auto-detected)* | Figwheel's reload URL override for remote environments (Gitpod, tunnels); `ws://` and `wss://` are read as `http://` and `https://`. Auto-detected for GitHub Codespaces. Example: `wss://my-remote-host:3449/figwheel-connect` |
 | `E2E_MAIL_PORT` | `2525` | Port for the browser suites' throwaway SMTP server. `scripts/e2e/run.sh` starts it and points `EMAIL_SERVER_URL`/`EMAIL_SERVER_PORT` at it. |
 
 **Why the suites need a mail server.** The verification key and the password-reset key

@@ -173,7 +173,7 @@
   ;; CSS is compiled via: ./menu start garden, lein garden once, or automatically in uberjar build.
   ;; The compiled CSS is checked into resources/public/css/compiled/styles.css
 
-  ;; CLJS production builds use figwheel-main (prod.cljs.edn / fig:prod alias).
+  ;; CLJS production builds use cljs.main (prod.cljs.edn / cljs:prod alias).
   ;; lein-cljsbuild has been fully removed — see docs/LEIN-UBERJAR-HANG.md
 
   :figwheel {;; :http-server-root "public" ;; default and assumes "resources"
@@ -289,7 +289,7 @@
                                  :orcpub-pdf-max-retries "2"}}
              ;; Legacy cljsbuild build configs — retained for lein figwheel (legacy
              ;; dev server) and reference. lein-cljsbuild PLUGIN has been removed;
-             ;; prod CLJS builds now use figwheel-main (prod.cljs.edn / fig:prod).
+             ;; prod CLJS builds use cljs.main (prod.cljs.edn / cljs:prod).
              ;; The :cljsbuild map is inert data without the plugin loaded.
              :cljsbuild-config
                            {:cljsbuild
@@ -378,13 +378,13 @@
                                                                     :parallel-build     true
                                                                     :optimize-constants true
                                                                     :optimizations      :advanced}}]}}
-             ;; CLJS compilation is separate (fig:prod locally, figwheel-main in Docker).
-             ;; Cannot add figwheel to prep-tasks — `run` as a prep-task triggers
+             ;; CLJS compilation is separate (cljs:prod, locally and in Docker).
+             ;; Cannot add it to prep-tasks — `run` as a prep-task triggers
              ;; the uberjar profile's own prep-tasks again, causing infinite recursion.
              ;; Use `lein build` (alias above) for single-command CLJS+uberjar.
              ;;
              ;; IMPORTANT: no "clean" here and :auto-clean false. CLJS is compiled
-             ;; BEFORE the uberjar step (fig:prod in build alias, figwheel-main in
+             ;; BEFORE the uberjar step (cljs:prod in the build alias and in
              ;; Docker). If clean ran here it would delete resources/public/js/compiled/
              ;; (the CLJS output), causing orcpub.js to be missing from the jar → 404.
              ;; The build alias and Docker both handle clean explicitly/implicitly.
@@ -396,7 +396,7 @@
                             :env         {:production true}
                             :aot         :all
                             :omit-source true}
-             ;; Docker build: CLJS is compiled separately via figwheel-main.
+             ;; Docker build: CLJS is compiled separately via cljs:prod.
              ;; uberjar-package removes "compile" from prep-tasks and keeps
              ;; auto-clean false. AOT compile is done in a prior Docker step;
              ;; this profile just packages existing .class files into the jar.
