@@ -25,7 +25,7 @@ every section heading it contains.
 
 _DATOMIC_JAVA21_TEST_RESULTS · DATOMIC_JAVA21_TEST_RESULTS_
 
-**topics:** 5703, activemq, artemis, com, connection, connections, datomic, free, https, java, peer, peer-to-transactor, pro, releases-pro, ssl, successfully, tls, transactor
+**topics:** 5703, activemq, apache, artemis, connection, connections, datomic, free, https, java, peer, peer-to-transactor, pro, releases-pro, ssl, successfully, tls, transactor
 
 - Executive Summary
 - Test Results Matrix
@@ -185,7 +185,7 @@ _UPGRADE_DEPENDENCIES · UPGRADE_DEPENDENCIES_
 
 _UPGRADE_PLAN · UPGRADE_PLAN_
 
-**topics:** -------------, 5697, cljsjs, clojure, datomic, guava, jackson, jdk, jetty, lein-figwheel, npm, org, pedestal, pro, react, reagent, shadow-cljs, upgrade
+**topics:** -------------, 5697, cljsjs, clojure, datomic, figwheel-main, guava, jdk, jetty, lein-figwheel, npm, org, pedestal, pro, react, reagent, shadow-cljs, upgrade
 
 - Overview
 - 🚨 Major Changes (January 2026)
@@ -385,6 +385,18 @@ _auth-abuse-limits · auth abuse limits_
 - Coverage on fix/auth-abuse (2026-11-04; replaces the integration table)
 - Memory vs record (owner asked 2026-11-03)
 - Turnstile on sign-up (researched 2026-11-03)
+
+## auth-library-assessment.md
+
+_auth-library-assessment · auth library assessment_
+
+**topics:** bcrypt, bouncy, buddy, buddy-auth, buddy-core, buddy-hashers, buddy-sign, castle, cheshire, crypto, mib, password4j, passwords, scrypt, sha-512, sign-in, sign-ins, tokens
+
+- What buddy does for us
+- Is it safe
+- What buddy brings into the jar
+- The replacement, if it is ever needed
+- argon2 inside buddy (not done)
 
 ## auth-state-in-app-db.md
 
@@ -2069,7 +2081,7 @@ _handoff-weapons-table · handoff weapons table_
 
 _heartbeat · heartbeat_
 
-**topics:** beat, beats, clock, database, hour, job, jobs, jumped, measure, monitor, outage, pruning, running, server, three-day, tick, time, unrecorded
+**topics:** beat, beats, clock, database, dates, hour, job, jobs, jumped, monitor, outage, pruning, running, server, three-day, tick, time, unrecorded
 
 - What it records
 - Using it
@@ -2483,7 +2495,7 @@ _locale-safety · locale safety_
 
 _lookup-indexes · lookup indexes_
 
-**topics:** 100k, 10k, 120, 2026-10-22, allocates, email, heap, indexed, indexes, lookup, lowercased, mixed-case, oom, plan-email-and-alerts, plan-lookup-indexes, queries, sign-ins, username
+**topics:** 100k, 10k, 120, 2026-10-22, allocates, email, heap, indexed, indexes, lookup, lowercased, mixed-case, oom, plan-email-and-alerts, plan-lookup-indexes, queries, unindexed, username
 
 - The cause
 - Measured

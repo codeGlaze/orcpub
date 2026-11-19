@@ -204,6 +204,7 @@ sides had been written blind to the other's findings.
 | [garden-inline-styles-harvest.md](garden-inline-styles-harvest.md) | Why `refactor/garden-inline-styles` is harvested rather than merged into integration: the measured conflicts (648 commits of drift, a 256-line and a 72-line hunk), the 72% of the conversion judgement that still transfers, the one header fix integration still lacks, and the two fixes deliberately left because integration already solves them better |
 | [pedestal-csp-history.md](pedestal-csp-history.md) | Full CSP research: Pedestal 0.5.1→0.7.0 timeline, why nonces not static hashes, corrections to UPGRADE_PLAN.md |
 | [figwheel-jetty12.md](figwheel-jetty12.md) | Why Pedestal is pinned to 0.7.0 (figwheel-main on Jetty 11), the unreleased SSE/Jetty 12 work upstream, and the options for the two Jetty alerts |
+| [auth-library-assessment.md](auth-library-assessment.md) | Is buddy safe (no advisories, sound use, slow releases), what it alone brings into the jar (Bouncy Castle, cheshire, scrypt, clout), the nimbus and Password4j replacement and its cost, and the argon2 memory trap |
 | [dev-tooling-decisions.md](dev-tooling-decisions.md) | user.clj consolidation plan, dev-setup.sh decision, config.clj SSOT rationale, port/CI corrections |
 | [DATOMIC_JAVA21_TEST_RESULTS.md](DATOMIC_JAVA21_TEST_RESULTS.md) | Full Datomic Free + Java 21 test matrix proving incompatibility |
 | [UPGRADE_PLAN.md](UPGRADE_PLAN.md) | Original upgrade roadmap (has known inaccuracies — see pedestal-csp-history.md for corrections) |
