@@ -145,6 +145,16 @@ view is two: the hold decides what the built character applies; Data View edits 
 
 ### Someday — when there is a session to spare
 
+- **Open for the owner: a workflow naming convention between the public repo and DMV**
+  (raised 2026-11-19; remind the owner in every Needs you until answered). The public
+  `docker.yaml` (Docker Hub releases, guarded to `Orcpub/orcpub`) and DMV's `docker-builds.yaml`
+  (Gitea releases) have names that say nothing about where they publish, and DMV deleting
+  `docker.yaml` makes every pre-merge that touches it a modify/delete conflict. Proposal: name each
+  workflow for its target (`release-dockerhub.yaml` public, `release-gitea.yaml` and
+  `dev-deploy.yaml` on DMV), so both sets can sit in both repos, each guarded to its own repo, with
+  no shared file to conflict on. `.gitignore` cannot do this: it ignores only untracked files.
+  Detail: [dmv-premerge.md](docs/kb/dmv-premerge.md).
+
 - **Trim the app bundle** (owner, 2026-10-27). The compressed `orcpub.js` grew from 842 KB to
   870 KB with #69, #75, #63 and #76 (measured by #66's `test/browser/page_load_budget_e2e.js`).
   Look for code a page loads but never runs, and for large dependencies, before raising the ceiling
