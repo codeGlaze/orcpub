@@ -86,7 +86,7 @@
                  [org.clojure/core.async "1.8.741"] 
                  [org.postgresql/postgresql "42.7.14"]
                  ;; Redis client, used only when REDIS_URL is set (orcpub.security.redis-store).
-                 [com.taoensso/carmine "3.4.1"]
+                 [com.taoensso/carmine "3.7.0"]
                  ;; React 18 + Reagent 2.0 (Concurrent Mode)
                  [cljsjs/react "18.3.1-1"]
                  [cljsjs/react-dom "18.3.1-1"]
