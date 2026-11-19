@@ -148,6 +148,43 @@ jobs:
       - name: Scan the app's libraries (OSV)
         run: scripts/security-scan.sh
 
+  # Real IP addresses, email addresses, keys, tokens and password hashes in the commits this run
+  # brings, plus commit author emails (scripts/personal-data-scan.py, .personal-data-allow), then
+  # gitleaks over the same commits for the key formats it knows.
+  personal-data:
+    name: Personal data scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Commits to scan
+        id: range
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$BASE_REF" ]; then RANGE="origin/$BASE_REF..HEAD"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ]; then RANGE="$BEFORE..HEAD"
+          else RANGE="HEAD~1..HEAD"; fi
+          echo "range=$RANGE" >> "$GITHUB_OUTPUT"; echo "Scanning $RANGE"
+
+      - name: Our rules
+        env:
+          RANGE: ${{ steps.range.outputs.range }}
+        run: python3 -I scripts/personal-data-scan.py --range "$RANGE"
+
+      - name: gitleaks
+        env:
+          RANGE: ${{ steps.range.outputs.range }}
+          GITLEAKS_VERSION: 8.24.3
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git . --log-opts="$RANGE" --redact --no-banner
+
   # Dependabot cannot read project.clj, so it never saw the server's libraries. lein pom writes them
   # as a Maven pom and the action uploads the resolved graph; GitHub then re-checks it against new
   # advisories by itself. Its own job, so contents: write never reaches a job that runs pull-request
