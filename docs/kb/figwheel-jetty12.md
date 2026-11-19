@@ -6,8 +6,8 @@ before acting: this is about someone else's release schedule.*
 ## Why it matters
 
 Two high Dependabot alerts (jetty-http, needs 11.0.29; jetty-security, needs 11.0.31) cannot be
-fixed by a pin. Jetty 11's last public release is **11.0.26**, which we already pin in
-`project.clj`; later 11.x builds come only through Jetty's paid support. The fix is Jetty 12,
+fixed by a pin. Jetty 11's last public release is **11.0.26**, which #89 (`feature/inventory-kits`) pins in
+`project.clj` (`integration` itself has no Jetty pins); later 11.x builds come only through Jetty's paid support. The fix is Jetty 12,
 which means Pedestal 0.7.1 or later (0.8.3 is current).
 
 ## What blocks it
@@ -42,6 +42,28 @@ compile with it.
 
 Reading: the transport rewrite is new and untested by others, and master is still moving. The
 owner's call (2026-11-18): do not build on unreleased figwheel while it is in flux.
+
+## Tested 2026-11-18 (scratch worktree, nothing committed)
+
+figwheel master at core `92dcbb4b`, repl `5a67d34f`, main `cd7b0698`, built locally as
+`0.2.21-orcpub1`, with Pedestal 0.8.3:
+
+- **figwheel 0.2.20 cannot stay a main dependency.** Even `fig:prod` (build-once, no server)
+  crashes on `ScopedHandler`, and the app server itself fails (`NoSuchMethodError` in
+  `JakartaWebSocketServletContainerInitializer`) because figwheel's Jetty 11 WebSocket jars
+  shadow Jetty 12's. That would reach the uberjar.
+- **figwheel master works:** `fig:build`, `fig:prod`, `fig:watch` with SSE hot reload
+  (`/figwheel-connect` as `text/event-stream`, `[Figwheel] loaded (orcpub.core)` after an edit),
+  and the cljs suite (1039 tests, 0 failures).
+- **Jetty must be pinned to one line:** Pedestal brings Jetty core 12.0.x, Ring 1.15.3 brings ee9
+  at 12.1.0, and the mix fails (`ee9.nested.ContextHandler/<clinit>`). Pinning every Jetty
+  artifact to 12.1.15 fixes it; lein ignores imported BOMs.
+- **Pedestal 0.8 code changes:** `routes.clj` `routes` must be one `expand-routes` call
+  (each call now returns a `RoutingTable` record, so concatenating two breaks); `system.clj`
+  gzip uses `.insertHandler` (Jetty 12 has no `.setGzipHandler`); four tests read
+  `(:routes routes/routes)`. CSP nonces and gzip match 0.7.0 with `CSP_POLICY=strict`.
+- Untested: `fig:dev` (REPL), and the production CLJS build through plain `cljs.main` with figwheel
+  moved out of the main dependencies.
 
 ## Options
 

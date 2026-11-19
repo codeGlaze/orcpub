@@ -978,7 +978,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** ancestry, builder-item, d22, draconic, entry, events, form, framework, generated, grant, hot, irreducible, loops, macro, pool, pools, registry, routes
+**topics:** ancestry, builder-item, d22, draconic, entry, events, form, framework, generated, grant, irreducible, loops, macro, pool, pools, registry, routes, type
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -1719,7 +1719,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** ammunition, app, armor, damage, dash, die, equipment, gear, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
+**topics:** ammunition, armor, climber, damage, dash, die, equipment, gear, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -1889,12 +1889,13 @@ _fighting-style-vocabulary-gap · fighting style vocabulary gap_
 
 _figwheel-jetty12 · figwheel jetty12_
 
-**topics:** 2025-02-18, 2026-11-18, aircompressor, alerts, clojars, dependency-alerts, figwheel, jetty, latest, master, pedestal, release, released, repos, sse, transport, unreleased, websocket
+**topics:** 2025-02-18, 2026-11-18, aircompressor, alerts, clojars, dependency-alerts, figwheel, gzip, jetty, master, pedestal, release, repos, ring, sse, transport, unreleased, websocket
 
 - Why it matters
 - What blocks it
 - What upstream has, unreleased
 - Why there is no release (as far as the record shows)
+- Tested 2026-11-18 (scratch worktree, nothing committed)
 - Options
 
 ## filtered-list-staleness.md
