@@ -197,7 +197,7 @@ These are the functions that shared files call. Public repo returns stubs/nil, p
 | `pdf-options-slot` | views.cljs PDF options panel | Sheet upsell (default-tier only) |
 | `share-url` | views/share.cljs (every share link) | The link with DMV's `?frame=true` added |
 
-**Public repo returns:** `nil` for content-slot, support-banner, pdf-options-slot. Basic Patreon button for supporter-link (when URL configured). `share-url` returns the link unchanged. The share controls themselves are shared code (`views/share.cljs`), the same on every fork.
+**Public repo returns:** `nil` for content-slot, support-banner, pdf-options-slot. Basic Patreon button for supporter-link (when URL configured). `share-url` returns the link unchanged; a fork may add query parameters, and any fragment it adds is dropped, because the share token or payload goes in the fragment. The share controls themselves are shared code (`views/share.cljs`), the same on every fork.
 
 ---
 

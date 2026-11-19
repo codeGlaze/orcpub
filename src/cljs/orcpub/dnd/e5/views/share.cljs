@@ -20,13 +20,15 @@
 
 (defn- char-url
   "Absolute, shareable URL for a character page (dynamic protocol/host/port
-   so it works on localhost, LAN, and prod without hardcoding a domain)."
+   so it works on localhost, LAN, and prod without hardcoding a domain), after the fork's
+   share-url hook, with any fragment the hook added dropped."
   [id]
-  (integrations/share-url
-   (str js/window.location.protocol "//"
-        js/window.location.hostname
-        (when-let [p js/window.location.port] (when (seq p) (str ":" p)))
-        (routes/path-for routes/dnd-e5-char-page-route :id id))))
+  (sb/share-base
+   (integrations/share-url
+    (str js/window.location.protocol "//"
+         js/window.location.hostname
+         (when-let [p js/window.location.port] (when (seq p) (str ":" p)))
+         (routes/path-for routes/dnd-e5-char-page-route :id id)))))
 
 (defn- exec-copy-fallback!
   "Clipboard copy for non-secure contexts where navigator.clipboard is

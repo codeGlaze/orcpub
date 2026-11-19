@@ -372,3 +372,9 @@
                 [])
         idropped (if (sequential? items-in) (- (count items-in) (count items)) 0)]
     {:plugins (without-embedded-media pb) :custom-items items :dropped (+ pd idropped)}))
+
+(defn share-base
+  "The address a share token or payload is appended to (`#s=` / `#c=`): the character link `url`
+   with any fragment dropped, since both readers expect theirs to be the only one. Returns a string."
+  [url]
+  (first (str/split url #"#" 2)))

@@ -99,6 +99,7 @@
 
 (defn share-url
   "The link to share for a character, given its address `url`. The public default returns it
-   unchanged; a fork may add to it (a query parameter, say). Returns a string."
+   unchanged; a fork may add query parameters (DMV adds frame=true). Returns a string; a fragment
+   (#...) is dropped, since the share token or payload goes there."
   [url]
   url)
