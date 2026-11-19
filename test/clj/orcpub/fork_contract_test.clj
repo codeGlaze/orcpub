@@ -40,12 +40,23 @@
   [f]
   (str/includes? (str/replace (.getPath ^java.io.File f) "\\" "/") "/fork/"))
 
+(defn- platforms
+  "The compile targets of source file `f`: #{:clj}, #{:cljs}, or both for .cljc."
+  [f]
+  (let [n (.getName ^java.io.File f)]
+    (cond (str/ends-with? n ".cljc") #{:clj :cljs}
+          (str/ends-with? n ".cljs") #{:cljs}
+          :else #{:clj})))
+
 (defn- used-fork-vars
   "The fork vars `text` (one source file) uses, as {fork-ns #{var-symbol}}: through an alias
-   (`branding/app-name`) or a :refer."
+   (`branding/app-name`), a :refer, or the full name (`orcpub.fork.branding/app-name`)."
   [text]
   (merge-with
    set/union
+   (apply merge-with set/union {}
+          (for [[_ fork-ns v] (re-seq #"(?<![\w.-])(orcpub\.fork\.[\w.-]+)/([\w?!*<>=-]+)" text)]
+            {fork-ns #{(symbol v)}}))
    (apply merge-with set/union {}
           (for [[_ fork-ns al] (re-seq #"\[(orcpub\.fork\.[\w.-]+)\s+:as\s+([\w.-]+)" text)]
             {fork-ns (set (map (comp symbol second)
@@ -77,14 +88,42 @@
                "If every fork must supply it, add it to `contract`; if it is logic every fork "
                "needs alike, move it into shared code.")))))
 
+(deftest used-fork-vars-sees-every-reference-form
+  (is (= '{"orcpub.fork.branding" #{app-name copyright-year checked-url}}
+         (used-fork-vars (str "(ns x (:require [orcpub.fork.branding :as b :refer [copyright-year]]))"
+                              " (b/app-name) (orcpub.fork.branding/checked-url 1)")))))
+
+(defn- defined-by-platform
+  "The vars each fork file defines, as {[fork-ns platform] #{var-symbol}}; a .cljc fork file
+   counts for both platforms."
+  []
+  (apply merge-with set/union {}
+         (for [f (source-files) :when (fork-file? f)
+               :let [text (slurp f) n (fork-ns-name text)] :when n
+               p (platforms f)]
+           {[n p] (defined-vars text)})))
+
 (deftest every-fork-file-supplies-its-contract
-  (let [defined (apply merge-with set/union {}
-                       (for [f (source-files) :when (fork-file? f)
-                             :let [text (slurp f) n (fork-ns-name text)] :when n]
-                         {n (defined-vars text)}))]
+  (let [defined (apply merge-with set/union {} (for [[[n _] vars] (defined-by-platform)] {n vars}))]
     (doseq [[fork-ns vars] contract
             :let [missing (set/difference vars (get defined fork-ns #{}))]]
       (testing fork-ns
         (is (empty? missing)
             (str fork-ns " lacks " (sort missing) ": a fork's copy must define every setting "
                  "and hook shared code uses."))))))
+
+(deftest each-platform-fork-file-supplies-what-that-platform-uses
+  (let [defined (defined-by-platform)
+        used (apply merge-with set/union {}
+                    (for [f (source-files) :when (not (fork-file? f))
+                          :let [uses (used-fork-vars (slurp f))]
+                          p (platforms f)
+                          [n vars] uses]
+                      {[n p] vars}))]
+    (doseq [[[fork-ns p :as k] vars] used
+            :let [missing (set/difference (set/intersection vars (get contract fork-ns #{}))
+                                          (get defined k #{}))]]
+      (testing (str fork-ns " " (name p))
+        (is (empty? missing)
+            (str "the " (name p) " copy of " fork-ns " lacks " (sort missing)
+                 ", which " (name p) " code uses."))))))
