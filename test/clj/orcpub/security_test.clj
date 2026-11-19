@@ -124,6 +124,23 @@
       @(d/transact conn schema/all-schemas)
       conn)))
 
+(deftest siteverify-answers-are-read-from-json-text
+  (let [answer (fn [status body] (fn [& _] {:status status :body body}))
+        post #(@#'s/post-siteverify "token" "1.2.3.4")]
+    (testing "a 2xx body is the parsed answer, keys as keywords"
+      (with-redefs [client/post (answer 200 "{\"success\":false,\"error-codes\":[\"bad\"]}")]
+        (is (= {:success false :error-codes ["bad"]} (post)))))
+    (testing "a 4xx is an answer: its JSON object, or {} when the body is not one"
+      (with-redefs [client/post (answer 400 "{\"success\":false}")]
+        (is (= {:success false} (post))))
+      (with-redefs [client/post (answer 403 "<html>denied</html>")]
+        (is (= {} (post))))
+      (with-redefs [client/post (answer 400 "[1,2]")]
+        (is (= {} (post)))))
+    (testing "anything else throws, and is read as Cloudflare being down"
+      (with-redefs [client/post (answer 503 "")]
+        (is (thrown? clojure.lang.ExceptionInfo (post)))))))
+
 (deftest a-blank-token-fails-without-calling-cloudflare
   (let [calls (atom 0)]
     (with-redefs [s/post-siteverify (fn [& _] (swap! calls inc) {:success true})]

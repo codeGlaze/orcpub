@@ -21,6 +21,15 @@
            (data-json/read-str (index/script-json {:name hostile}) :key-fn keyword))))
   (is (not (re-find #"[<>&  ]" (index/script-json {:name hostile})))))
 
+(deftest script-json-round-trips-the-values-libraries-write-differently
+  (let [v {:name "Zoë Ångström 日本 / back\\slash \"quoted\""
+           :separators "line\u2028para\u2029end"
+           :whole 42 :decimal 1.5 :yes true :none nil
+           :nested {:some-key ["a" 1 {:deep "x"}]}}
+        out (index/script-json v)]
+    (is (= v (data-json/read-str out :key-fn keyword)))
+    (is (not (re-find #"[<>&\u2028\u2029]" out)))))
+
 (deftest the-home-page-text-does-not-read-as-french
   ;; Chrome reads "5e" as French "fifth". The splash buttons keep "D&D 5e" as text, for search
   ;; engines, marked as English that is not to be translated; the page itself stays translatable.
