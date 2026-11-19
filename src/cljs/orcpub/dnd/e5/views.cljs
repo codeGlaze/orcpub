@@ -67,6 +67,7 @@
             [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.fork.integrations :as integrations]
+            [orcpub.dnd.e5.views.share :as share-view]
             [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.views.auth :refer [dispatch-route-to-login]]
             [orcpub.fork.splash :as splash]
@@ -4718,7 +4719,7 @@
           [notifications/shared-content-banner id]
           [character-display id true (if (= :mobile device-type) 1 2)]]
          :frame? frame?
-         :subheader [integrations/share-line id]])))))
+         :subheader [share-view/share-line id]])))))
 
 ;; dead — zero callers
 #_(defn select-builder-field [name value on-change children]
@@ -10210,7 +10211,7 @@
     [:div
      {:style character-display-style}
      [:div.flex.justify-cont-end.uppercase.align-items-c.flex-wrap.row-gap-5
-      [integrations/share-copy-button id]
+      [share-view/share-copy-button id]
       (when (= username owner)
         [:button.form-button
          {:on-click (make-event-handler :edit-character character)}

@@ -54,7 +54,7 @@
 
             [reagent.core :as r]
             [orcpub.fork.branding :as branding]
-            [orcpub.fork.integrations :as integrations]
+            [orcpub.dnd.e5.views.share :as share-view]
             [re-frame.core :refer [subscribe dispatch dispatch-sync]]))
 ;console-print
 (def print-disabled? true)
@@ -2570,4 +2570,4 @@
         ;; Held while another tab edits this character: nothing here takes input until Edit here.
         [:div.flex.w-100-p (when @(subscribe [::char5e/draft-held]) {:class "builder-held" :inert ""})
          [builder-columns]]]]]
-     :subheader (when character-id [integrations/share-line character-id])]]))
+     :subheader (when character-id [share-view/share-line character-id])]]))

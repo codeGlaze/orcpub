@@ -114,6 +114,19 @@
                        :port (env/value :email-server-port)}
                       e)))))
 
+(defn sender-configured?
+  "Whether `address`, the checked from-address, can send: set, and not the placeholder an unset or
+   invalid EMAIL_FROM_ADDRESS falls back to."
+  [address]
+  (and (not (s/blank? address)) (not= address "no-reply@example.com")))
+
+(def email-configured?
+  "Whether outbound email can actually be sent — true only when the operator has
+   set a real from-address (not the placeholder). Email-dependent features
+   should check this and degrade gracefully (e.g. hide a 'send' button, keep the
+   copyable fallback) rather than attempt a doomed send."
+  (sender-configured? branding/email-from-address))
+
 (defn emailfrom
   "Returns the configured from-address. Delegates to branding/email-from-address
    which already reads EMAIL_FROM_ADDRESS env var with a fallback default."
@@ -604,7 +617,7 @@
   [{:keys [char-id user-email]}]
   (let [now (System/currentTimeMillis)]
     (cond
-      (not branding/email-configured?)     :email-not-configured
+      (not email-configured?)              :email-not-configured
       (s/blank? branding/report-recipient) :no-recipient
       (when-let [t (get @report-throttle [user-email char-id])]
         (< (- now t) report-throttle-window-ms)) :throttled
