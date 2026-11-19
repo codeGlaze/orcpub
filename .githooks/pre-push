@@ -77,10 +77,12 @@ done < <(printf '%s\n' "$pushed_refs")
 scan=scripts/personal-data-scan.py
 if [ -f "$scan" ] && command -v python3 >/dev/null 2>&1; then
   while read -r _l local_sha remote_ref _r; do
-    [ "$local_sha" = "$zero" ] && continue
-    if ! out="$(python3 -I "$scan" --pushed "${1:-origin}" "$local_sha" 2>&1)"; then
+    { [ -z "$local_sha" ] || [ "$local_sha" = "$zero" ]; } && continue
+    out="$(python3 -I "$scan" --pushed "${1:-origin}" "$local_sha" 2>&1)"; rc=$?
+    if [ "$rc" -ne 0 ]; then
       echo "" >&2
-      echo "  pre-push blocked: commits bound for '${remote_ref#refs/heads/}' carry personal data:" >&2
+      if [ "$rc" -eq 1 ]; then what="carry personal data"; else what="could not be scanned"; fi
+      echo "  pre-push blocked: commits bound for '${remote_ref#refs/heads/}' ${what}:" >&2
       echo "$out" | sed 's/^/    /' >&2
       echo "  Fix the commits (or allow-list what is safe to publish). agents: --no-verify needs the owner's yes." >&2
       echo "" >&2

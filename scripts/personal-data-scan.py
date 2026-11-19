@@ -157,4 +157,8 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except subprocess.CalledProcessError as e:
+        print(f'personal-data scan: could not run git {" ".join(e.cmd[1:])}: {e.stderr.strip()}', file=sys.stderr)
+        sys.exit(2)

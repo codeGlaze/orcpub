@@ -171,7 +171,7 @@ _SESSION-SUMMARY · SESSION SUMMARY_
 
 _UPGRADE_DEPENDENCIES · UPGRADE_DEPENDENCIES_
 
-**topics:** allows, clojurescript, closure, csp, dev, development, ecosystem, figwheel-main, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, support, violations, xss
+**topics:** allows, clojurescript, closure, csp, dev, ecosystem, figwheel-main, java, loader, nonce, nonce-based, nonces, pedestal, protection, scripts, support, violations, xss
 
 - Java 9+/21 & Servlet API
 - Datomic Pro
@@ -429,7 +429,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** 2026-09-29, builder, check, control, css, docstrings, form, icon, item, lesson, reagent, review, row, sat, signing, unknown, vanished, vector
+**topics:** 2026-09-29, authored, builder, control, css, docstrings, form, icon, item, lesson, reagent, review, row, sat, signing, unknown, vanished, vector
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -516,7 +516,7 @@ _branch-inventory · branch inventory_
 
 _branch-md-2026-10-23 · branch md 2026 10 23_
 
-**topics:** 2026-10-08, branch, branch-inventory, branches, coderabbit, commits, hold, merge, merged, patch, prs, push, readme, release, rescue, reviews, summer, vetting
+**topics:** 2026-10-06, 2026-10-08, branch, branch-inventory, branches, coderabbit, commits, hold, merge, merged, patch, prs, push, release, rescue, reviews, summer, vetting
 
 - Current state
 - Summer Patch: where it stands (2026-10-08)
@@ -537,7 +537,7 @@ _branch-md-2026-10-23 · branch md 2026 10 23_
 
 _branding-setup · branding setup_
 
-**topics:** 2026-11-16, artist, artist-links-and-referrer, branding, dmv, docker, email, emails, footer, fork-customization, glow, links, logos, privacy, public, settings-registry-and-boot-report, swarm, url
+**topics:** 2026-11-16, artist, artist-links-and-referrer, branding, dmv, docker, email, emails, footer, fork, fork-customization, glow, links, privacy, public, settings-registry-and-boot-report, swarm, url
 
 - Two ways a deployment brands itself
 - How a value is read
@@ -574,7 +574,7 @@ _builder-and-sheet-copies · builder and sheet copies_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, duration, form, gallery, height, jpg, mockup, row, rows, toggle
+**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, form, gallery, height, jpg, layout, mockup, row, rows, toggle
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -875,7 +875,7 @@ _client-ip-behind-proxies · client ip behind proxies_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harness, headless, html, mode, per-test, race-builder, recipe, rooted, runs, totals, widget
+**topics:** auto-test, backend, case-sensitive, div, dom, driver, floating-asi, harmlessly, harness, headless, html, mode, per-test, race-builder, recipe, rooted, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -1162,7 +1162,7 @@ _decision-already-held-resolution · decision already held resolution_
 
 _decision-cr-representation · decision cr representation_
 
-**topics:** double, doubles, extras, formatter, formatters, fractional, jvm, literals, lower, monster, moon, notation, numeric, ratio, ratios, representations, sentence, sort
+**topics:** double, doubles, extras, formatter, formatters, fractional, jvm, literals, monster, moon, notation, numeric, ratio, ratios, representation, representations, sentence, sort
 
 - The short answer
 - What exists — VERIFIED, not recalled
@@ -1424,7 +1424,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, session, stale, topic, wrong
+**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, index, irreducible, ledger, narrative, session, topic, wrong
 
 - What earns a doc
 - Verify, don't remember
@@ -1577,7 +1577,7 @@ _email-preferences-implementation · email preferences implementation_
 
 _empty-keyword-corruption · empty keyword corruption_
 
-**topics:** 196-line, 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, loader, non-word, readme, rescued, throw, token
+**topics:** 196-line, 2026-09-12, already-corrupt, apostrophes, character-rescue-console, cljs-http, defences, defends, detonation, edn, go-loop, keyword-trap-name-repair, loader, non-word, prevention, rescued, throw, token
 
 - The failure
 - The two defences, and where they are
@@ -1590,7 +1590,7 @@ _empty-keyword-corruption · empty keyword corruption_
 
 _entity-options-architecture · entity options architecture_
 
-**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, indices, initialized, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, vector
+**topics:** autosave-fx, coast, determines, equipment-subs, feat, feats, initialized, kw-path, multi-select, nested, nesting, plugin, plugins, quantity, rain-junkie, single-select, subscription, vector
 
 - Character Entity Structure
 - Single-select → MAP (no vector index in path)
@@ -1669,7 +1669,7 @@ _equipment-option-picker · equipment option picker_
 
 _equipment-parity · equipment parity_
 
-**topics:** ammunition, app, armor, damage, dash, die, equipment, gear, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
+**topics:** app, armor, damage, dash, die, equipment, gear, generator, leather, longbow, net, open5e, rations, spiked, srd, studded, weapons, weights
 
 - How a difference is classified
 - Findings (2026-10-15, against integration b8035afe4)
@@ -1810,7 +1810,7 @@ _feat-builder-audit · feat builder audit_
 
 _fighting-style-authoring · fighting style authoring_
 
-**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, feat, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, watch-list
+**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, watch-list, whitelist
 
 - Status — 2026-09-05: BUILT
 - The divvying rule (decided) — which classes can take a homebrew style
@@ -1881,7 +1881,7 @@ _folder-hardening · folder hardening_
 
 _fonts · fonts_
 
-**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, licensed, ofl, redistribution, sans, self-hosted, subset, subsets, visitor
+**topics:** 118, csp, external, fonts, google, greek, hebrew, hosts, latin, latin-ext, ofl, redistribution, sandboxed, sans, self-hosted, subset, subsets, visitor
 
 - Why
 - What is checked in
@@ -1917,7 +1917,7 @@ _fork-customization · fork customization_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, cards, chip, chips, chrome, css, menu, menus, mock, multi-select, omv, popover, redesign, spacing, switcher, theme, tray, workaround
+**topics:** accent, chip, chips, chrome, css, menu, menus, mock, multi-select, omv, popover, redesign, spacing, switcher, theme, title, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -1946,7 +1946,7 @@ _garden-calc-plus · garden calc plus_
 
 _garden-inline-styles-harvest · garden inline styles harvest_
 
-**topics:** 648, branch, compiled, conversion, css, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, mobile, no-visual-change, seeded, shapes
+**topics:** 648, branch, compiled, conversion, css, excluded, exit, flyout, focus-within, harvested, harvesting, hunk, inline, integration, media-scoped, no-visual-change, seeded, shapes
 
 - Why the branch stalled
 - The branch is healthy
@@ -2345,7 +2345,7 @@ _input-field-debounce · input field debounce_
 
 _key-collision-behavior · key collision behavior_
 
-**topics:** address, author, coexist, consent, item, key, library, minted, move, origin, pak, refusal, rename, replace, round, save, source, stamps
+**topics:** address, author, coexist, consent, item, key, library, minted, move, origin, override, pak, refusal, rename, replace, round, save, source
 
 - TL;DR
 - The map (VERIFIED)
@@ -2435,7 +2435,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
+**topics:** already-loaded, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2453,7 +2453,7 @@ _library-management-and-conflicts · library management and conflicts_
 
 _lifting-mechanics-from-prose · lifting mechanics from prose_
 
-**topics:** became, conjure, creature, decision-cr-representation, describe, dodged, exclusion, mechanic, objects, prose, query, reincarnate, second-class, sentence, speed, stayed, table-like, unaligned
+**topics:** became, bound, conjure, creature, decision-cr-representation, dodged, exclusion, mechanic, objects, prose, query, reincarnate, second-class, sentence, speed, stayed, table-like, unaligned
 
 - The pattern
 - Instances found so far
@@ -2564,6 +2564,22 @@ _monolith-decomposition-plan · monolith decomposition plan_
 - Exception: If any split gets complicated
 - 5. Pre-existing Issues Surfaced by Scanning
 
+## multi-system-expansion.md
+
+_multi-system-expansion · multi system expansion_
+
+**topics:** 2014, 2024, apps, com, creator, daggerheart, daggers, darrington, dpcgl, game, heart, licence, nimble, permitted, shell, srd-2024-roadmap, system, systems
+
+- Licensing — the constraint you cannot see from the code
+- How well the rules fit our engine
+- What is already shared (verified)
+- What is hard-wired to 5e (verified)
+- Competitor: Heart of Daggers (Daggerheart)
+- Product principle: try before you sign up
+- Proposed shared-base plan (PROPOSAL)
+- Open decisions (owner)
+- Corrections
+
 ## multi-tab-character-contamination.md
 
 _multi-tab-character-contamination · multi tab character contamination_
@@ -2669,7 +2685,7 @@ _open5e-upstream-notes · open5e upstream notes_
 
 _orcbrew-format-versioning · orcbrew format versioning_
 
-**topics:** boot-load, brew, builds, community, compat, compatibility, demo, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, version, versioning, won
+**topics:** besides, boot-load, brew, builds, community, compat, compatibility, demo, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, versioning, won
 
 - Why this exists
 - The mechanism (three parts)
@@ -2698,7 +2714,7 @@ _orcbrew-level-modifiers · orcbrew level modifiers_
 
 _page-load-budget · page load budget_
 
-**topics:** 2026-10-15, bundle, caching, com, compressed, credits, e2e-runner, font, fonts, headers, icons, loads, parties, production, repeat, signed, stamps, visit
+**topics:** 2026-10-15, bundle, caching, compressed, credits, e2e-runner, font, fonts, headers, icons, loads, parties, production, repeat, sheet, signed, stamps, visit
 
 - Why it exists
 - Audit of integration (2026-10-15, b8035afe, production bundle)
@@ -2836,7 +2852,7 @@ _pdf-namespace-family · pdf namespace family_
 
 _pedestal-csp-history · pedestal csp history_
 
-**topics:** blocked, captures, configuration, csp, dev, enforcing, evaluates, figwheel, injects, interceptor, nonce, nonce-based, nonces, pedestal, presented, scripts, upgrade, violations
+**topics:** blocked, configuration, csp, dev, enforcing, evaluates, figwheel, injects, interceptor, load-time, nonce, nonce-based, nonces, pedestal, presented, scripts, upgrade, violations
 
 - Timeline
 - Pedestal 0.5.1 (original project version)
@@ -2942,7 +2958,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _personal-data-scan · personal data scan_
 
-**topics:** 2017, 2026-11-19, address, addresses, allow, author, aws, commit, commits, email, emails, github, hashes, private, public, range, ranges, scan
+**topics:** 2017, 2026-11-19, address, addresses, allow, author, aws, commit, commits, documentation, email, emails, github, hashes, private, range, ranges, scan
 
 - What runs, and when
 - Rules
@@ -2953,7 +2969,7 @@ _personal-data-scan · personal data scan_
 
 _plan-669-merge-verification · plan 669 merge verification_
 
-**topics:** 2026-09-13, 669, chain, counter, custom-items, differential, endpoint, expire, five, guard, items, login, scenario, sharing, stage, stages, subs, suite
+**topics:** 2026-09-13, 669, chain, counter, custom-items, db-population, differential, endpoint, expire, five, guard, items, login, sharing, stage, stages, subs, suite
 
 - What is actually being merged
 - Does any of this fix something broken on integration? Only P1.
@@ -3150,7 +3166,7 @@ _plan-homebrew-markdown-export · plan homebrew markdown export_
 
 _plan-inventory-kits · plan inventory kits_
 
-**topics:** 2026-10-22, 2026-10-23, backpack, equipment, gear, inventory, items, kit, kits, owner, pack, packs, quantity, refill, restock, sheet, torches, undo
+**topics:** 2026-10-22, 2026-10-23, backpack, box, equipment, gear, inventory, items, kit, kits, owner, pack, packs, quantity, refill, restock, torches, undo
 
 - The problems today
 - The model
@@ -3367,7 +3383,7 @@ _reframe-subscription-patterns · reframe subscription patterns_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon, boon-like, builder-form, copy-pasted, form, fully-scattered, hand-built, input-field, per-type, registry-driven, representative, routes, spec-valid, type, wires
+**topics:** 000, adding, bits, boon, boon-like, builder-form, copy-pasted, form, fully-scattered, hand-built, input-field, per-type, plumbing, registry-driven, representative, spec-valid, type, wires
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -3384,7 +3400,7 @@ _registry-before-after · registry before after_
 
 _release-deploy-traps · release deploy traps_
 
-**topics:** alt-host, de-index, dmv, edn, ending, folder, hand-insert, host, in-browser, lag, logged, parsers, projects, release, reviewing, robots, slips, swarm
+**topics:** alt-host, de-index, dmv, edn, ending, folder, hand-insert, host, in-browser, lag, parsers, projects, release, reviewing, robots, sigpipe, slips, swarm
 
 - Open and unchecked
 
@@ -3422,6 +3438,26 @@ _requirements-registry · requirements registry_
 - What landed
 - The registry now REPLACES something (2026-09-08)
 - Still to do
+
+## rescued/browser-testing-traps.md
+
+_rescued/browser-testing-traps · rescued/browser testing traps_
+
+**topics:** assert, browser, bytes, chromium, drives, export, pdf, playwright, quiet, re-render, rescued, response, run, scenario, script, sleeps, viewer, wait
+
+- Browser checks (scripts/e2e/)
+- Traps that cost real time
+- Getting a PDF back out of the browser
+- The export flow, as the UI actually works
+- Console output
+
+## rescued/comment-style-tense.md
+
+_rescued/comment-style-tense · rescued/comment style tense_
+
+**topics:** 1313, 2026-11-19, 2679, comment, describing, journal, narration, operating, past, present, readme, reintroducing, rescued, stripping, tense, topic, unwired, warning
+
+- Past tense goes, present tense stays
 
 ## rescued/half-caster-prepared-spells-handoff.md
 
@@ -3794,7 +3830,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, edition, editions, monsters, open5e, owner, pdf, served, species, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, diff, edition, editions, monsters, open5e, owner, pdf, served, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -4004,7 +4040,7 @@ _test-suite-state · test suite state_
 
 _testing-infrastructure · testing infrastructure_
 
-**topics:** 2026-02-18, assertions, auto-run, classpath, cljs, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reg-event-db, testing, utilities
+**topics:** 2026-02-18, assertions, classpath, cljs, cljs-compatible, cljs-headless-harness, compile, conditionals, effects, extracting, handlers, jvm, ranger, re-frame, re-frame-test, reg-event-db, testing, utilities
 
 - Verified Facts
 - Test Runners
@@ -4032,7 +4068,7 @@ _testing-infrastructure · testing infrastructure_
 
 _tracked-issues · tracked issues_
 
-**topics:** 128, 2026-09-05, canvas, ceiling, combobox, datomic, desktop, layout, native, phone, pinterest, postgres, pro, severity, sniff, transactor, viewport, width
+**topics:** 128, 2026-09-05, canvas, ceiling, combobox, datomic, desktop, layout, native, phone, pinterest, portrait, pro, severity, sniff, transactor, viewport, width
 
 - Datomic transactor crashes — investigate Postgres migration
 - Summary
@@ -4087,7 +4123,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _ux-guide · ux guide_
 
-**topics:** assets, box, desktop, details, drafts, notice, phone, planned, player, png, portrait, replaced, row, steel, undo, undone, ux-guide, width
+**topics:** amber, assets, box, desktop, details, notice, phone, planned, player, png, portrait, replaced, row, steel, undo, undone, ux-guide, width
 
 - A floor, not a ceiling
 - Show it beside the control that changes it
