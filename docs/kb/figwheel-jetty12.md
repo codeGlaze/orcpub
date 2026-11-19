@@ -68,7 +68,7 @@ figwheel master at core `92dcbb4b`, repl `5a67d34f`, main `cd7b0698`, built loca
 ## Options
 
 1. **Wait for a release**, then move Pedestal to 0.8.x on `upgrade/pedestal-jetty12` (approved
-   name, not yet created). Pedestal 0.8's own API changes are not yet read.
+   name, not yet created). Pedestal 0.8's code changes are listed above.
 2. **Vendor master at a pinned commit** through the `file:lib` repository. Unblocks now, but on
    code the author has not released.
 3. **Replace figwheel with shadow-cljs** (3.5.14, active, own server, no Jetty clash). Touches
