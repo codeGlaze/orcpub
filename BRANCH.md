@@ -149,19 +149,10 @@ view is two: the hold decides what the built character applies; Data View edits 
   addresses, email addresses, hashes or keys; GitHub secret scanning sees only known token formats.
   A real player address sat in two test files for a month (redacted on #89). Proposed: gitleaks
   plus own rules, in pre-push and CI; waiting on the owner.
-- **Open for the owner: a workflow naming convention between the public repo and DMV**
-  (owner chose `docker-dmv-release.yaml` / `docker-dmv-dev.yaml` on 2026-11-19; waiting on the
-  admin's OK, since his own spec on DMV chose `docker-builds.yaml` and deleted `docker.yaml`)
-  (raised 2026-11-19; remind the owner in every Needs you until answered). The public
-  `docker.yaml` (Docker Hub releases, guarded to `Orcpub/orcpub`) and DMV's `docker-builds.yaml`
-  (Gitea releases) have names that say nothing about where they publish, and DMV deleting
-  `docker.yaml` makes every pre-merge that touches it a modify/delete conflict. Proposal (2026-11-19, after the owner
-  noted Gitea is DMV's pre-merge-and-deploy home, so "gitea" names the wrong thing): leave the
-  public `docker.yaml` as it is (renaming it changes upstream too; it holds only the Docker Hub
-  release and skips off `Orcpub/orcpub`), restore it on DMV, and name DMV's own workflows kind first, then `dmv` (owner: a kind groups with its kind)
-  (`docker-dmv-release.yaml`, `docker-dmv-dev.yaml`), like the branding stubs, so there is
-  no shared file to conflict on. `.gitignore` cannot do this: it ignores only untracked files.
-  Detail: [dmv-premerge.md](docs/kb/dmv-premerge.md).
+- **Settled: DMV workflow names** (admin, 2026-11-19). DMV's own workflows are named kind first:
+  `docker-dmv-release.yaml` (tag releases) and `docker-dev-release.yaml` (manual dev builds of any
+  branch). The public `docker.yaml` stays on DMV, disabled in Gitea, and skips off `Orcpub/orcpub`.
+  Detail: DMV's `docs/ops/dmv-premerge.md`.
 
 - **Trim the app bundle** (owner, 2026-10-27). The compressed `orcpub.js` grew from 842 KB to
   870 KB with #69, #75, #63 and #76 (measured by #66's `test/browser/page_load_budget_e2e.js`).
