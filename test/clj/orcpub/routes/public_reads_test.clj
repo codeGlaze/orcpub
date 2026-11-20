@@ -41,7 +41,7 @@
 
 (deftest reading-an-item-by-id-needs-a-login
   (let [path  (route-map/path-for route-map/dnd-e5-item-route :id ":id")
-        route (first (filter #(and (= :get (:method %)) (= path (:path %))) routes/routes))]
+        route (first (filter #(and (= :get (:method %)) (= path (:path %))) (:routes routes/routes)))]
     (is (some? route) (str "no GET route at " path))
     (is (some #{:check-auth} (map :name (:interceptors route))))))
 

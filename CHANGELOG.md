@@ -168,6 +168,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** the home page's What's New pill stands out from the support links, and stacked on a phone the three pills line up on one icon column.
 - **Site:** the site footer groups its links into labelled Help, Support and Legal rows (one line across wide screens), with the copyright, SRD notice, credits and version in a quieter band below.
 - **Docs:** the setup and operation guides read as step-by-step instructions, list every server setting, and cover backups and email troubleshooting.
+- **Server:** runs on Pedestal 0.8.3 and Jetty 12.
+- **Site:** the production build no longer includes the developer hot-reload tool.
 
 ### Fixed
 - **Server:** `DATOMIC_PASSWORD` now reaches a Postgres database address that already carries settings (`?user=...`); it was added with a second `?` and lost.
@@ -297,6 +299,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Character sheet:** packs' rations show on the sheet.
 - **Character sheet:** magic armor is listed with the other magic items.
 - **Character sheet:** when the same character was saved from another tab or device first, the sheet's item-charge changes were lost on the retry; they are now kept, as hit points and notes were.
+- **Server:** uptime monitors and link previews that check a page with a HEAD request get its headers instead of "not found".
 
 ### Security
 
@@ -309,6 +312,7 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Docker:** Java starts with a stopgap flag that blocks CVE-2026-114938 (Java2Shell) on the app and Datomic containers, until the images run a patched Java 21 (`JAVA2SHELL_STOPGAP`, true or false).
 - **Server:** security updates to the web server (Jetty), the JSON parser (Jackson), the PostgreSQL driver, password hashing (Bouncy Castle), the email library and Guava, and Datomic 1.0.7745 with its networking library; an unused PDF library removed.
 - **Server:** a Postgres `sslpassword` in the database address is hidden in startup logs like the database password.
+- **Server:** the web server moves to Jetty 12, clearing its five open advisories (two high).
 
 ## [breaking/2026-stack-modernization]
 

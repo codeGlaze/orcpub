@@ -102,7 +102,7 @@ it with an error instead: `PORT` that is not a number is one.
 | `TZ` | `America/Chicago` | Time zone the Docker images are built with, for log timestamps. It is a build argument, so rebuild after changing it. |
 | `APP_URL` | none | The site's public address. Used for links in every account email (verification, password reset, notices) and in artist emails. Set it in production. Unset, those links follow the request's `Host` header, which a sender can forge, and the boot report warns. |
 | `ORCPUB_HTTP_HOST` | `localhost` | Address the development server binds to. Set `0.0.0.0` when a browser on another machine, such as Windows reaching WSL, must connect. Docker installs always bind to all interfaces. `lein fig:*` does not read `.env`: use `lein with-profile +wsl fig:dev` there. |
-| `DEV_MODE` | unset | Set to the exact string `true` (any case) for development. Then no Content Security Policy header is sent, which lets Figwheel's `ws://localhost:3449` connect, and the site may start without a mail server. Any other value, including `1`, `yes` or empty, means off. Leave it off in production. |
+| `DEV_MODE` | unset | Set to the exact string `true` (any case) for development. Then no Content Security Policy header is sent, which lets Figwheel's reload connection on `localhost:3449` through, and the site may start without a mail server. Any other value, including `1`, `yes` or empty, means off. Leave it off in production. |
 
 ### Database (Datomic)
 
@@ -278,8 +278,8 @@ and `APP_SOCIAL_*` variables. The full list, with defaults, is in
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ORCPUB_ENV` | none | Set to `dev` to allow the REPL helper `add-test-user`. |
-| `FIGWHEEL_PORT` | `3449` | Figwheel WebSocket port for frontend hot reload. |
-| `FIGWHEEL_CONNECT_URL` | auto-detected | Figwheel WebSocket URL for remote setups (Gitpod, tunnels), for example `wss://my-remote-host:3449/figwheel-connect`. GitHub Codespaces is detected automatically. |
+| `FIGWHEEL_PORT` | `3449` | Figwheel's port for frontend hot reload. |
+| `FIGWHEEL_CONNECT_URL` | auto-detected | Figwheel's reload URL for remote setups (Gitpod, tunnels), for example `wss://my-remote-host:3449/figwheel-connect`; `ws://` and `wss://` are read as `http://` and `https://`. GitHub Codespaces is detected automatically. |
 | `E2E_MAIL_PORT` | `2525` | Port of the throwaway SMTP server the browser test suites start. |
 
 ## Docker secrets

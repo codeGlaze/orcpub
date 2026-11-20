@@ -15,7 +15,7 @@
    --prefer last decides, once you know which is right. It also lists pieces
    the manifest has and the registry does not, which need adding to
    asset-inventory before they can be chosen."
-  (:require [cheshire.core :as json]
+  (:require [charred.api :as json]
             [clojure.data :as data]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
@@ -141,7 +141,7 @@
     (when-not path
       (println "usage: lein run -m orcpub.portrait-pack.import <manifest.json> [--dry-run] [--prefer first|last]")
       (System/exit 2))
-    (let [manifest (json/parse-string (slurp path) true)
+    (let [manifest (json/read-json (slurp path) :key-fn keyword)
           {:keys [loom conflicts unknown]} (manifest->loom manifest prefer (registry-files))
           old (current-loom)
           {:keys [added changed removed]} (changes old loom)]

@@ -9,7 +9,7 @@
             [datomic.api :as d]
             [orcpub.env :as env]
             [orcpub.user-email :as user-email]
-            [cheshire.core :as cheshire]
+            [charred.api :as cheshire]
             [buddy.hashers :as hashers]
             [com.stuartsierra.component :as component]
             [orcpub.crypto :as crypto]
@@ -42,7 +42,7 @@
   (when-not (s/blank? raw)
     (try
       (into {}
-            (for [[id fields] (cheshire/parse-string raw true)
+            (for [[id fields] (cheshire/read-json raw :key-fn keyword)
                   :when (and (map? fields) (contains? fields :account))
                   :let [acct (:account fields)]]
               [(keyword (name id))

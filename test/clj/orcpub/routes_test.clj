@@ -632,7 +632,7 @@
         (fn []
           (let [before (d/db c)
                 submit (fn [pw] (auth/reset-password {:json-params {:password pw :verify-password pw :key reset-key}
-                                                        :db before :conn c :headers {"host" "example.test"}}))
+                                                        :db before :conn c :scheme :https :headers {"host" "example.test"}}))
                 first-resp (submit "the first long passphrase")
                 second-resp (submit "the second long passphrase")]
             (is (= 200 (:status first-resp)))

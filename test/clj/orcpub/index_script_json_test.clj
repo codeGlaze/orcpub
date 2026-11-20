@@ -1,6 +1,6 @@
 (ns orcpub.index-script-json-test
   (:require [clojure.test :refer [deftest is testing]]
-            [cheshire.core :as cheshire]
+            [clojure.data.json :as data-json]
             [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.views-shared :as views-shared]
             [orcpub.index :as index]))
@@ -18,8 +18,17 @@
 (deftest script-json-reads-back-as-the-same-value
   (testing "the escapes are JSON escapes, so a parser sees the original text"
     (is (= {:name hostile}
-           (cheshire/parse-string (index/script-json {:name hostile}) true))))
+           (data-json/read-str (index/script-json {:name hostile}) :key-fn keyword))))
   (is (not (re-find #"[<>&  ]" (index/script-json {:name hostile})))))
+
+(deftest script-json-round-trips-the-values-libraries-write-differently
+  (let [v {:name "Zoë Ångström 日本 / back\\slash \"quoted\""
+           :separators "line\u2028para\u2029end"
+           :whole 42 :decimal 1.5 :yes true :none nil
+           :nested {:some-key ["a" 1 {:deep "x"}]}}
+        out (index/script-json v)]
+    (is (= v (data-json/read-str out :key-fn keyword)))
+    (is (not (re-find #"[<>&\u2028\u2029]" out)))))
 
 (deftest the-home-page-text-does-not-read-as-french
   ;; Chrome reads "5e" as French "fifth". The splash buttons keep "D&D 5e" as text, for search
