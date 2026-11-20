@@ -296,7 +296,8 @@
     :modifiers [(mod5e/bonus-action
                  {:name "Bardic Inspiration"
                   :page 53
-                  :frequency (units5e/long-rests
+                  ;; Font of Inspiration (level 5): uses come back on a short rest too.
+                  :frequency ((if (>= (?class-level :bard) 5) units5e/rests units5e/long-rests)
                               (max 1 (?ability-bonuses ::char5e/cha)))
                   :summary (str "Inspire another creature with a 1d"
                                 (bardic-inspiration-die ?levels)
