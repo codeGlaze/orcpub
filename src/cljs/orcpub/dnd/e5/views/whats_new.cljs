@@ -124,13 +124,15 @@
         [:div.whats-new-group
          (when group
            [:div.whats-new-group-title group])
-         (for [{:keys [icon headline detail]} group-items]
+         (for [{:keys [icon headline detail link]} group-items]
            ^{:key headline}
            [:div.whats-new-item
             [:i.fa.whats-new-item-icon {:class icon}]
             [:div
              [:div.whats-new-item-headline headline]
-             [:div.whats-new-item-detail detail]]])])
+             (when detail
+               [:div.whats-new-item-detail detail
+                (when link [:span " " [:a {:href (:href link)} (:label link)]])])]])])
       (when credits? [credits-section (if (sequential? groups) groups [])])]
 
      [:div.whats-new-footer

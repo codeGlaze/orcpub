@@ -28,10 +28,16 @@ Rules:
 <!-- Reviewer context only. Dropped at fold; never reaches CHANGELOG.md. What problem this branch
      solves and any scope a reviewer needs. Prose is fine here. -->
 
+Finishes the Long Rest Update before it goes upstream: What's New rewritten for players (owner-approved wording, a new panel id so testers see it again), Bardic Inspiration on a short rest (#310), and a PDF tab fix. The changelog vet (Summer Patch section restored, issue citations) follows on this branch.
+
 ## Added
 
 ## Changed
 
+- **Site:** What's New lists the release as New, Improved and Fixed, in plain player terms, and links to the portrait artist's page.
+
 ## Fixed
+
+- **Characters:** Bards regain Bardic Inspiration on a short rest from level 5 (Font of Inspiration). (#310)
 
 ## Security
