@@ -460,9 +460,9 @@
     (when (map? v) v)))
 
 (defn- post-siteverify
-  "POSTs to Cloudflare; returns the parsed JSON body as a map. A 4xx is an answer (Cloudflare
-   refused the request or the token), so it returns the body, or {} when that is not a map, and
-   the caller reads it as a failure. Throws on transport failure and on anything else non-2xx (5xx
+  "POSTs to Cloudflare; returns the parsed JSON body as a map ({} for an empty 2xx body). A 4xx is
+   an answer (Cloudflare refused the request or the token), so it returns the body, or {} when that
+   is not a map; the caller reads {} as a failure. Throws on transport failure and on anything else non-2xx (5xx
    is Cloudflare being down). A separate fn so tests can with-redefs it."
   [token remote-ip]
   (let [{:keys [status body]}
@@ -477,7 +477,7 @@
                       :cookie-policy :none
                       :redirect-strategy :none})]
     (cond
-      (<= 200 status 299) (json/read-json body :key-fn keyword)
+      (<= 200 status 299) (if (s/blank? body) {} (json/read-json body :key-fn keyword))
       (<= 400 status 499) (or (json-object body) {})
       :else (throw (ex-info "siteverify unavailable" {:status status})))))
 

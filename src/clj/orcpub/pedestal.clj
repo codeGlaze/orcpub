@@ -4,6 +4,7 @@
             [io.pedestal.http :as http]
             [io.pedestal.interceptor :as interceptor]
             [io.pedestal.log :as log]
+            [io.pedestal.response-mime :as response-mime]
             [pandect.algo.sha1 :refer [sha1]]
             [datomic.api :as d]
             [clojure.string :as s]
@@ -12,7 +13,7 @@
             [orcpub.config :as config]
             [orcpub.startup-email :as startup-email]
             [orcpub.fork.integrations :as integrations])
-  (:import [java.io File]
+  (:import [java.io Closeable File]
            [java.time.format DateTimeFormatter]
            [java.util Locale]))
 
@@ -93,11 +94,19 @@
                ctx
                (assoc-in ctx [:response :headers "Referrer-Policy"] "strict-origin-when-cross-origin")))}))
 
+(defn- headers-without-body
+  "`response` with no body: its headers kept, a Content-Type added from the body as Pedestal
+   would (response-mime/default) when it has none, and a Closeable body (a resource stream) closed."
+  [{:keys [body] :as response}]
+  (when (instance? Closeable body) (.close ^Closeable body))
+  (let [ctype (when-not (get-in response [:headers "Content-Type"]) (response-mime/default body))]
+    (cond-> (assoc response :body nil)
+      ctype (assoc-in [:headers "Content-Type"] ctype))))
+
 (def head-as-get-interceptor
   "Answers a HEAD request as the GET of the same path, without the body: on enter it routes the
-   request as a GET, on leave it empties the response body and keeps every header. A string body
-   becomes \"\" rather than nil, so Pedestal still infers its Content-Type. Routes declare only GET,
-   so without it HEAD finds no route and answers 404."
+   request as a GET, on leave it drops the body (headers-without-body) and keeps every header.
+   Routes declare only GET, so without it HEAD finds no route and answers 404."
   (interceptor/interceptor
    {:name :head-as-get
     :enter (fn [ctx]
@@ -105,8 +114,8 @@
                (-> ctx (assoc-in [:request :request-method] :get) (assoc ::head? true))
                ctx))
     :leave (fn [ctx]
-             (if (::head? ctx)
-               (update-in ctx [:response :body] #(when (string? %) ""))
+             (if (and (::head? ctx) (:response ctx))
+               (update ctx :response headers-without-body)
                ctx))}))
 
 (defn- read-content-stamp
