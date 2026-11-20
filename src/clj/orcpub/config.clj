@@ -18,14 +18,14 @@
 
 (defn redact-secrets
   "Blank out credentials in a connection string so it can be logged; nil for nil.
-   Redacts a `password=`/`secret=`/`token=`-style query parameter and `scheme://user:pass@host`
-   userinfo; anything else is returned unchanged.
+   Redacts a query parameter whose name ends in password, passwd, pwd, secret, token or api-key
+   (so `sslpassword=` too) and `scheme://user:pass@host` userinfo; anything else is unchanged.
    GOTCHA: redacted is not safe to print. Call it only on values meant to be seen, and never
    widen what is logged because it is redacted."
   [s]
   (when s
     (-> (str s)
-        (str/replace #"(?i)([?&](?:password|passwd|pwd|secret|token|api[-_]?key)=)[^&\s]*" "$1****")
+        (str/replace #"(?i)([?&][\w-]*(?:password|passwd|pwd|secret|token|api[-_]?key)=)[^&\s]*" "$1****")
         (str/replace #"(?i)(://[^:/?#\s]+):[^@/?#\s]+@" "$1:****@"))))
 
 (defn datomic-env
@@ -55,13 +55,16 @@
   "Return the Datomic URI: the raw env value (`datomic-env`), else the local development
   default datomic:dev://localhost:4334/orcpub.
 
-  When DATOMIC_PASSWORD is set and the URL has no `password=`, appends `?password=<pw>`, so
-  the password can be kept out of DATOMIC_URL (e.g. in a Docker secret)."
+  When DATOMIC_PASSWORD is set and the URL has no `password=`, appends `password=<pw>` to the
+  innermost URL's query (`?` when it has none, else `&`), so the password can be kept out of
+  DATOMIC_URL (e.g. in a Docker secret).
+  GOTCHA: a SQL URI always has a `?` before `jdbc:`; only the text after the last `://` counts."
   []
   (let [url (or (datomic-env) default-datomic-uri)
-        pw  (datomic-password)]
+        pw  (datomic-password)
+        inner (if-let [i (str/last-index-of url "://")] (subs url (+ i 3)) url)]
     (if (and pw (not (str/includes? url "password=")))
-      (str url "?password=" pw)
+      (str url (if (str/includes? inner "?") "&" "?") "password=" pw)
       url)))
 
 ;; CSP_POLICY options (read by `get-csp-policy`):
