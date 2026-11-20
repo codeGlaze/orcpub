@@ -1952,7 +1952,7 @@ _frontend-redesign-parallel-work · frontend redesign parallel work_
 
 _garden-calc-plus · garden calc plus_
 
-**topics:** 2026-11-09, 2562, 3640, around, compresses, css, declaration, define, initial, invalid, invalidates, negative, offset, popover, spaces, subtract, succeeds, whitespace
+**topics:** 2026-11-09, 2562, 3640, around, compresses, css, declaration, define, initial, invalid, invalidates, negative, offset, operator, popover, spaces, subtract, whitespace
 
 
 

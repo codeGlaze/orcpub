@@ -73,7 +73,9 @@ fingerprint. Follow-up the same day: the wait, with the transactor paused 25 s m
 
 ## Review fixes (2026-11-19, #89)
 
-- A Postgres restore now stops `orcpub` and `datomic` before `restore-db` and starts the transactor after; Datomic restores SQL storage only with nothing connected. The 2026-11-18 Postgres test above restored with the transactor running, so the new order is covered only by `test/docker/test-backup-lib.sh` (a stand-in `docker`), not by a real Postgres run.
+- A Postgres restore now stops `orcpub` and `datomic` before `restore-db` and starts the transactor after; Datomic restores SQL storage only with nothing connected.
+- **Tested on real Postgres since** (correcting an earlier note that it was covered only by a stand-in `docker`): `test/docker/test-backup-postgres.sh` (Postgres 16, a SQL transactor, a stand-in app, 2000 rows; about 2 minutes, in Docker integration) passes backup, verify, the exists refusal and a restore into an empty database with matching data. Against the old order only the lifecycle checks failed: with nothing writing, a restore with the transactor running still produced matching data.
+- Test traps: `d/get-database-names` reads storage directly and succeeds before the transactor serves, so it is no readiness check (wait for the transactor's "System started" log line, then connect). Datomic's `bin/sql/postgres-table.sql` uses `WITH (OIDS=FALSE)`, which Postgres 12+ rejects; the fixture creates the same table without it.
 - `bk_network` reads the network from the running transactor, so the restore reads it before stopping anything and passes it as `BACKUP_NETWORK`.
 - `--restore ./backups` and `--verify-backup ./backups` take the newest month even when a `backups/orcpub` from before month folders is kept.
 - `bk_prune` uses a `read` loop, not `mapfile` (absent in macOS's Bash 3.2), and a month folder the host user cannot create is made by a container running as the parent's owner.
