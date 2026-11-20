@@ -86,3 +86,6 @@ ip: 12.7.3.1
 ip: 2.6.0.0
 # SVG path data in the icon design workbench.
 path: ^scripts/design/icon-workbench/.*\.html$
+
+# GitHub's SSH login, not a person: the scm:git:ssh:// links in vendored jars' .pom files (lib/).
+email: git@github.com
