@@ -124,6 +124,8 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Builder:** Add a kit opens the item search on the packs; the search box can open on any preset list.
 - **Builder:** a Developer mode switch hides the empty "select any number / complete" pick counts.
 - **Character sheet:** the inventory list's search has a Packs filter that shows only what your kits hold.
+- **Builder:** each equipment pack has its own drawn icon, and the kits sit in a grid of framed cards, two or more across on wide screens.
+- **Server:** database backups from the command line: `./run --backup` while the site runs (each run adds only what changed), `./run --restore <folder>` and `./run --verify-backup <folder>`, and `./run --backup --offline` as a full-copy fallback. Live backups and restores work on the built-in storage and on Postgres (the offline copy on the built-in storage only); they keep one folder per month (the newest 3, older ones deleted only after a new backup verifies), and check for disk space first.
 
 ### Changed
 - **Server:** a deployed server will not start without a mail server unless `EMAIL_REQUIRED=false` says that is intended, and the message names the setting to add. Development mode is exempt; `./run` and `./run --upgrade` set the opt-out for installs that run without email, so none stops on upgrade. (#716)
@@ -164,8 +166,12 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   ritual marked as ribbons, level and school on one line with any uses to tick, the casting facts
   labelled, and more of the spell's text on the front.
 - **Site:** the home page's What's New pill stands out from the support links, and stacked on a phone the three pills line up on one icon column.
+- **Site:** the site footer groups its links into labelled Help, Support and Legal rows (one line across wide screens), with the copyright, SRD notice, credits and version in a quieter band below.
+- **Docs:** the setup and operation guides read as step-by-step instructions, list every server setting, and cover backups and email troubleshooting.
 
 ### Fixed
+- **Server:** `DATOMIC_PASSWORD` now reaches a Postgres database address that already carries settings (`?user=...`); it was added with a second `?` and lost.
+- **Server:** `./run --check` run without a terminal (CI, cron) only reports; it no longer starts setup or `--upgrade` by default.
 
 - **Homebrew:** New in a homebrew builder keeps the Option Source the box shows, so saving no longer asks for a source that looks filled in.
 - **Server:** the setup scripts read `.env` the way Docker does, so a value with an apostrophe or spaces (`APP_NAME=Dungeon Master's Vault`) no longer breaks `./run`, `docker-user.sh` or the start scripts.
@@ -300,6 +306,9 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** pages no longer load fonts from Google, so visiting the site no longer sends your address to Google. (#721)
 - **Site:** other sites a page links to are told only this site's domain, never the page's address.
 - **Accounts:** account emails can no longer be triggered in bulk from one form that had no limit.
+- **Docker:** Java starts with a stopgap flag that blocks CVE-2026-114938 (Java2Shell) on the app and Datomic containers, until the images run a patched Java 21 (`JAVA2SHELL_STOPGAP`, true or false).
+- **Server:** security updates to the web server (Jetty), the JSON parser (Jackson), the PostgreSQL driver, password hashing (Bouncy Castle), the email library and Guava, and Datomic 1.0.7745 with its networking library; an unused PDF library removed.
+- **Server:** a Postgres `sslpassword` in the database address is hidden in startup logs like the database password.
 
 ## [breaking/2026-stack-modernization]
 
