@@ -433,9 +433,10 @@ bk_verify() {
 }
 
 # bk_restore <backup-folder>
-#   Restores <backup-folder>/orcpub into an empty database on the running transactor (dev or
-#   Postgres storage). <backup-folder> may be the folder of month folders: the newest is used.
-#   Refuses, with what to do, when the database "orcpub" already exists.
+#   Restores <backup-folder>/orcpub into an empty database. <backup-folder> may be the folder of
+#   month folders: the newest is used. Refuses, with what to do, when "orcpub" already exists (checked
+#   on the running transactor). Dev storage restores through the running transactor, then restarts
+#   it; Postgres has the app and transactor stopped for the restore, then starts the transactor.
 #   Exit: 0 restored; 1 on any failure or refusal.
 bk_restore() {
   local dir image uri t rc=0
@@ -461,6 +462,9 @@ bk_restore() {
   esac
   image=$(bk_image)
   uri=$(bk_db_uri) || return 1
+  if bk_is_sql; then
+    bk_restore_sql "$image" "$dir" "$uri" "$t"; return
+  fi
   info "Restoring $dir/$BK_NAME at t=$t"
   if ! bk_run_cli "$image" "$dir" restore-db "file:/backup/$BK_NAME" "$uri" "$t"; then
     error "restore-db failed: the database may be incomplete. Stop the stack, move ./data aside and try again."
@@ -469,6 +473,27 @@ bk_restore() {
   # Datomic needs its transactor restarted after a restore before peers connect.
   info "Restarting the transactor"
   docker compose restart datomic || { error "Restore done, but the transactor did not restart: run docker compose restart datomic."; return 1; }
+  info "Restore complete (t=$t). Start the app: docker compose up -d"
+}
+
+# bk_restore_sql <image> <backup-folder> <uri> <t>
+#   The Postgres half of bk_restore: Datomic restores SQL storage only with no transactor or peer
+#   connected, so the app and transactor are stopped first (the network is read while the transactor
+#   still runs), restore-db writes straight to Postgres, and the transactor is started again.
+#   Peers outside this Compose stack are not stopped. Exit: 0 restored; 1 on any failure.
+bk_restore_sql() {
+  local image="$1" dir="$2" uri="$3" t="$4" network
+  network=$(bk_network) || return 1
+  info "Stopping the app and the transactor: a Postgres restore runs with nothing connected"
+  docker compose stop orcpub datomic || { error "Could not stop the stack, so nothing was restored."; return 1; }
+  info "Restoring $dir/$BK_NAME at t=$t"
+  if ! BACKUP_NETWORK="$network" bk_run_cli "$image" "$dir" restore-db "file:/backup/$BK_NAME" "$uri" "$t"; then
+    error "restore-db failed: the database may be incomplete. The stack is left stopped."
+    error "Point DATOMIC_URL at an empty database and run this restore again."
+    return 1
+  fi
+  info "Starting the transactor"
+  docker compose up -d datomic || { error "Restore done, but the transactor did not start: run docker compose up -d datomic."; return 1; }
   info "Restore complete (t=$t). Start the app: docker compose up -d"
 }
 
