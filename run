@@ -752,6 +752,8 @@ if [ "$CHECK_MODE" = "true" ]; then
 
   if [ ! -f "$ENV_FILE" ]; then
     warn "No .env file found."
+    # With no terminal (CI, cron) a check only reports: a default answer must not start setup.
+    if [ ! -t 0 ]; then error "Create one with ./run or ./run --auto."; exit 1; fi
     echo "  1) Interactive setup (prompts for each value)"
     echo "  2) Auto setup (generates random passwords, safe defaults)"
     echo "  3) Skip"
@@ -846,6 +848,7 @@ if [ "$CHECK_MODE" = "true" ]; then
     success "All checks passed"
   else
     warn "${ERRORS} issue(s) found."
+    if [ ! -t 0 ]; then info "Fix them with ./run --upgrade."; exit 1; fi
     read -rp "Run upgrade to fix? [Y/n]: " _fix || true
     if [[ "${_fix,,}" =~ ^(y|)$ ]]; then
       exec "$0" --upgrade

@@ -339,7 +339,9 @@ git pull
 docker compose up --build -d
 ```
 
-`./run --check` prints the same report without changing anything. Run `./run --backup` before an
+`./run --check` prints the same report. In a terminal it then offers to create a missing `.env` or
+run `--upgrade` (the default answer is yes); without one, such as in CI, it only reports and exits 1
+when something needs fixing. Run `./run --backup` before an
 upgrade: it backs up the database while the site runs (restore, verify and the offline copy:
 [docs/DOCKER.md](docs/DOCKER.md#backups)). See [docs/DOCKER.md](docs/DOCKER.md#upgrading-an-existing-install).
 

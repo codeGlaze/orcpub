@@ -87,7 +87,9 @@ on the host, and `./run` prints it last, after the containers are up. With Porta
 service's Logs and search for "orcpub started". The admin address also gets a startup email when
 the release changes (see [Admin alerts](#admin-alerts)).
 
-A bad value never takes the site down by itself. It is reported and the default is used.
+A bad value in a checked setting (capacity limits, email and site addresses) does not take the
+site down: it is reported and the default is used. A few settings the server needs to start stop
+it with an error instead: `PORT` that is not a number is one.
 
 ## Settings
 
