@@ -8,7 +8,7 @@
 
 (def ^:private real-shape
   "The shape from the production boot log, which is what prompted this."
-  "datomic:sql://datomic?jdbc:postgresql://dev_dmv_postgres:5432/datomic?user=datomic&password=hunter2")
+  "datomic:sql://datomic?jdbc:postgresql://db:5432/datomic?user=datomic&password=hunter2")
 
 (deftest password-never-survives
   (testing "the query-parameter form"
@@ -17,7 +17,7 @@
       (is (str/includes? out "password=****") out)))
   (testing "the parts that are not secret are kept, so the log stays useful"
     (let [out (config/redact-secrets real-shape)]
-      (is (str/includes? out "dev_dmv_postgres:5432"))
+      (is (str/includes? out "db:5432"))
       (is (str/includes? out "user=datomic"))
       (is (str/starts-with? out "datomic:sql://"))))
   (testing "userinfo form"
