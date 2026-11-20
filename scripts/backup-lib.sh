@@ -151,11 +151,12 @@ bk_check_space() {
 }
 
 # bk_months <folder>
-#   Prints the month folders (YYYY-MM) in <folder>, oldest first, one per line.
+#   Prints the month folders (YYYY-MM) in <folder> that hold a restore point, oldest first, one per
+#   line. A month whose first backup failed before writing one is skipped.
 bk_months() {
   local d
   for d in "$1"/[0-9][0-9][0-9][0-9]-[0-9][0-9]; do
-    [[ -d "$d/$BK_NAME" ]] && basename "$d"
+    bk_latest_t "$d/$BK_NAME" >/dev/null && basename "$d"
   done | sort
 }
 
