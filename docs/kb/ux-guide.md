@@ -223,6 +223,12 @@ Newest last. Date, ruling, and what it replaced.
   and an unlabelled dot row had no structure. Copyright, SRD notice, credits and version go in the
   band below a hairline. `views-shared/site-footer`, `site_footer_e2e.js`, `feature/inventory-kits`.
   Supersedes the column layout in the 2026-11-13 entry below.
+- 2026-11-20: What's New announces a release in three groups, New, Improved and Fixed, in a plain
+  announcement voice: say what a thing is and does, with no hype and no promises (owner rejected both a
+  dev-changelog voice and a salesman voice). Headlines name the feature a player knows ("Overhauled
+  weapons and attack table", "Floating ability score increases for homebrew"); Fixed entries are one
+  line. Never imply rules parity the app lacks (no "new rules" or 5.5e claims). Credit the portrait
+  artist by name with a link to her page. A rewrite gets a new panel id. `fix/long-rest-wrapup`.
 - 2026-11-13: support links never displace legal text. The home page shows What's New, Support the
   Server and Fuel the Dev as raised pills under the tiles; the site footer shows the two support
   links compact (icon and word at the footer's text size) under Feedback and What's New, so the
