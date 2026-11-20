@@ -53,14 +53,14 @@
 
 (defn get-datomic-uri
   "Returns DATOMIC_URL (`datomic-env`), else datomic:dev://localhost:4334/orcpub. When
-  DATOMIC_PASSWORD is set and the URL has no `password=`, appends `password=<pw>` to the innermost
-  URL's query: `?` when it has none, else `&`.
+  DATOMIC_PASSWORD is set and the URL has no `password=` parameter (`sslpassword=` is another),
+  appends `password=<pw>` to the innermost URL's query: `?` when it has none, else `&`.
   GOTCHA: a SQL URI always has a `?` before `jdbc:`; only the text after the last `://` counts."
   []
   (let [url (or (datomic-env) default-datomic-uri)
         pw  (datomic-password)
         inner (if-let [i (str/last-index-of url "://")] (subs url (+ i 3)) url)]
-    (if (and pw (not (str/includes? url "password=")))
+    (if (and pw (not (re-find #"(?i)[?&]password=" url)))
       (str url (if (str/includes? inner "?") "&" "?") "password=" pw)
       url)))
 
