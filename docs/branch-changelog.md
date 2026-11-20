@@ -50,4 +50,4 @@ how-to: docs/migration/pedestal-0.8.md.
 
 ## Security
 
-- **Server:** web server libraries updated to clear two high-severity advisories.
+- **Server:** the web server moves to Jetty 12, clearing its five open advisories (two high).
