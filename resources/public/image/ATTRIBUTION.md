@@ -111,11 +111,15 @@ Lorc, Delapouite and Skoll, all under the same licence. Anyone adding an icon
 should record its author in the table above; the author is named on the icon's
 page on the site.
 
-The bags and the torch for the kit tile icons (`kits/`, built by `scripts/build-kit-icons.py`
+The bags and badges for the kit tile icons (`kits/`, built by `scripts/build-kit-icons.py`
 from the picks in `resources/kit-icons.edn`):
 
 | Icon | Author |
 |---|---|
+| `backpack` | Delapouite |
+| `compass` | Lorc |
+| `read` | Skoll |
+| `snatch` | Lorc |
 | `knapsack` | Lorc |
 | `swap-bag` | Lorc |
 | `briefcase` | Delapouite |

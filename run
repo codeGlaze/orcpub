@@ -752,6 +752,8 @@ if [ "$CHECK_MODE" = "true" ]; then
 
   if [ ! -f "$ENV_FILE" ]; then
     warn "No .env file found."
+    # With no terminal (CI, cron) a check only reports: a default answer must not start setup.
+    if [ ! -t 0 ]; then error "Create one with ./run or ./run --auto."; exit 1; fi
     echo "  1) Interactive setup (prompts for each value)"
     echo "  2) Auto setup (generates random passwords, safe defaults)"
     echo "  3) Skip"
@@ -846,6 +848,7 @@ if [ "$CHECK_MODE" = "true" ]; then
     success "All checks passed"
   else
     warn "${ERRORS} issue(s) found."
+    if [ ! -t 0 ]; then info "Fix them with ./run --upgrade."; exit 1; fi
     read -rp "Run upgrade to fix? [Y/n]: " _fix || true
     if [[ "${_fix,,}" =~ ^(y|)$ ]]; then
       exec "$0" --upgrade
@@ -900,9 +903,10 @@ if [ "$_backup_flags" -gt 0 ]; then
     DATOMIC_IMAGE="$(read_env_val DATOMIC_IMAGE "$ENV_FILE")"
     export DATOMIC_IMAGE
   fi
-  # Storage and retention settings the backup library reads; the shell's value wins, as in Compose.
+  # Storage and retention settings the backup library reads; the shell's value wins, as in Compose,
+  # even when it is set but empty (Compose then uses its own default, and so does the library).
   for _v in DATOMIC_URL BACKUP_NETWORK BACKUP_KEEP_MONTHS BACKUP_KEEP_OFFLINE; do
-    if [ -z "${!_v:-}" ] && [ -n "$(read_env_val "$_v" "$ENV_FILE")" ]; then
+    if [ -z "${!_v+set}" ] && [ -n "$(read_env_val "$_v" "$ENV_FILE")" ]; then
       export "$_v=$(read_env_val "$_v" "$ENV_FILE")"
     fi
   done

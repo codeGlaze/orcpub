@@ -107,9 +107,10 @@ has no effect. The files `src/clj/orcpub/fork/integrations.clj` and
 
 ## For developers: the fork files
 
-A fork's customizations live in a few small files, so shared code stays the same everywhere and
-merges stay clean. On a merge, keep the fork's copy of each file, then add any new setting or hook
-the contract test (below) names.
+A fork's customizations live in a few small files that hold only settings and hooks. On a merge,
+a fork keeps its own copy of each file whole, so shared code stays the same everywhere and merges
+stay clean. Logic every fork needs the same way (checks, bridges, whole features) goes in shared
+code, never in a fork file: a fork's copy replaces the file and would drop it.
 
 | File | What it controls |
 |------|------------------|
@@ -120,6 +121,10 @@ the contract test (below) names.
 | `src/clj/orcpub/fork/integrations.clj` | Third-party `<head>` script tags and their CSP domain allowlists. Empty by default. |
 | `src/cljs/orcpub/fork/integrations.cljs` | In-app hooks (analytics, banners, share links). Stubs in the public code. |
 
+**The contract.** `test/clj/orcpub/fork_contract_test.clj` lists every setting and hook shared code
+may use from these files. It fails when shared code uses anything else, or when a fork's copy lacks
+one of them; run on a fork after a merge, it names what the fork's copy must add.
+
 **How values reach the browser.** `fork/branding.clj` reads the environment and builds a map.
 `index.clj` writes it into the page `<head>` as `window.__BRANDING__`, and `fork/branding.cljs`
 reads it at load time. Integrations work the same way through `window.__INTEGRATIONS__`.
@@ -127,22 +132,21 @@ ClojureScript cannot read environment variables, so the page carries them.
 
 **Hooks the shared code calls** (in `fork/integrations.cljs`): `track-page-view!`,
 `on-app-mount!`, `track-character-list!` (no return value); `content-slot`, `supporter-link`,
-`support-banner`, `pdf-options-slot` (return hiccup or nil); `share-url` (the link the share
-controls show, with any query parameters the fork adds; a fragment is dropped); `sheet-styles`
-(styles for the character sheet).
-Gate anything tier-specific with `@(subscribe [:user-tier])`.
+`support-banner`, `pdf-options-slot` (return hiccup or nil); `sheet-styles` (styles for the
+character sheet); `share-url` (every share link passes through it). Gate anything tier-specific
+with `@(subscribe [:user-tier])`.
 
-**Adding an integration.** Add a stub in the shared file first (empty body or `nil`), then the real
-implementation in the fork's copy, then call it from shared code. For a server-side script, gate
-it on an environment variable, return hiccup (with the nonce on each `<script>`) from
-`head-tags`, and list its domains in `csp-domains`.
+**Share links.** The share controls are shared code (`views/share.cljs`), the same on every fork.
+A fork changes only the link, through `share-url`: the public code returns it unchanged; DMV adds
+`?frame=true`. A fork may add query parameters, and any fragment it adds is dropped, because the
+share token or payload goes in the fragment.
+
+**Adding an integration.** Add a stub in the shared file first (empty body or `nil`) and add it to
+the contract in `fork_contract_test.clj`, then the real implementation in the fork's copy, then
+call it from shared code. For a server-side script, gate it on an environment variable, return
+hiccup (with the nonce on each `<script>`) from `head-tags`, and list its domains in `csp-domains`.
 
 **Where each file is used.** `index.clj` and `privacy.clj` read branding and `head-tags`.
 `email.clj` reads the sender name and address. `routes.clj` reads the app name and user-data
-enrichment. `pedestal.clj` reads `csp-domains`. `views.cljs`, `events.cljs` and
-`character_builder.cljs` call the branding values and integration hooks.
-
-**The fork contract.** The fork files hold only settings and hooks, never logic every fork needs
-alike, so on a merge a fork keeps its own copy of each one. `test/clj/orcpub/fork_contract_test.clj`
-lists every setting and hook shared code may use from them, and fails when shared code uses
-anything else or a fork's copy lacks one (run on the fork, it names what its copy must add).
+enrichment. `pedestal.clj` reads `csp-domains`. `views.cljs` and `events.cljs` call the branding
+values and integration hooks; `views/share.cljs` calls `share-url`.

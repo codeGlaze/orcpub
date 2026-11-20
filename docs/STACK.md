@@ -164,7 +164,8 @@ Key aliases:
 | `lein lint` | Run clj-kondo linter |
 | `lein uberjar` | Production build (AOT + advanced CLJS + CSS) |
 
-`lein uberjar` can hang after the build finishes, because of Clojure's non-daemon agent threads.
+`lein uberjar` can hang after AOT compilation finishes and before the JAR is written, because of
+Clojure's non-daemon agent threads; until it exits there is no usable JAR.
 The Docker build works around it with `timeout`. See [LEIN-UBERJAR-HANG.md](LEIN-UBERJAR-HANG.md) for details.
 
 ### Profiles

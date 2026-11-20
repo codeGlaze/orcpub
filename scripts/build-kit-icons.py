@@ -92,8 +92,9 @@ def kit_svg(pack, pick, theme):
     base_vb, base = load_icon(pick["base"])
     badge_vb, badge = load_icon(pick["badge"])
     s = 512 * pick["scale"]
-    x = 512 - s if pick["corner"].endswith("r") else 0
-    y = 512 - s if pick["corner"].startswith("b") else 0
+    edge = s * 0.075  # the ring (r 0.54s, stroke 0.07s) reaches 0.575s from the centre; keep it in
+    x = 512 - s - edge if pick["corner"].endswith("r") else edge
+    y = 512 - s - edge if pick["corner"].startswith("b") else edge
     cx, cy, inset = x + s / 2, y + s / 2, s * 0.18
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">'
