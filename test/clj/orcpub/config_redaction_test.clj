@@ -75,6 +75,9 @@
   (testing "a JDBC URL that already has a query gets &password=, never a second ?"
     (is (= "datomic:sql://orcpub?jdbc:postgresql://db:5432/datomic?user=datomic&password=pw"
            (uri-with "datomic:sql://orcpub?jdbc:postgresql://db:5432/datomic?user=datomic" "pw"))))
+  (testing "sslpassword= is not the database password, so DATOMIC_PASSWORD is still added"
+    (is (= "datomic:sql://o?jdbc:postgresql://db:5432/d?sslpassword=k&password=pw"
+           (uri-with "datomic:sql://o?jdbc:postgresql://db:5432/d?sslpassword=k" "pw"))))
   (testing "a password already in the URL, or none set, leaves the URL alone"
     (is (= "datomic:dev://h:4334/o?password=x" (uri-with "datomic:dev://h:4334/o?password=x" "pw")))
     (is (= "datomic:dev://h:4334/o" (uri-with "datomic:dev://h:4334/o" nil)))))

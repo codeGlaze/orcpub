@@ -137,6 +137,15 @@ else
   fail "run alone: exit $code, said: $(head -2 <<<"$msg")"
 fi
 
+# run --check with no terminal (CI, cron) and no .env only reports: no setup starts, no .env appears.
+mkdir -p "$TMP/nocheck" && ln -s "$PROJECT_ROOT/run" "$TMP/nocheck/run" && ln -s "$PROJECT_ROOT/scripts" "$TMP/nocheck/scripts"
+msg="$(cd "$TMP/nocheck" && timeout 20 bash ./run --check </dev/null 2>&1)"; code=$?
+if [ "$code" -eq 1 ] && [ ! -e "$TMP/nocheck/.env" ] && grep -q "Create one with" <<<"$msg"; then
+  pass "run --check without a terminal reports a missing .env and changes nothing"
+else
+  fail "run --check without a terminal: exit $code, .env created: $([ -e "$TMP/nocheck/.env" ] && echo yes || echo no)"
+fi
+
 # No tracked script runs a .env file any more; everything goes through load_env.
 OLD="$(cd "$PROJECT_ROOT" && git ls-files | grep -vE '^(docs/|test/docker/test-env-loading\.sh)' \
        | xargs grep -nE '^[^#]*(\. |source )<\(tr -d|^[^#]*(\. |source )"?\$[A-Z_]*\}?/?\.env"?\s*$' 2>/dev/null)"

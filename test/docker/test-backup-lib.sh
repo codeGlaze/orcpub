@@ -46,12 +46,15 @@ source "$root/scripts/backup-lib.sh"
 set +e
 
 echo "bk_resolve: which backup a restore or verify reads"
-b="$tmp/backups"; mkdir -p "$b/orcpub" "$b/2026-09/orcpub" "$b/2026-11/orcpub"
+b="$tmp/backups"; for m in orcpub 2026-09/orcpub 2026-11/orcpub; do mkdir -p "$b/$m/roots"; touch "$b/$m/roots/1000"; done
 [ "$(bk_resolve "$b")" = "$b/2026-11" ] && pass "the newest month wins over a kept backups/orcpub" \
   || fail "the newest month wins over a kept backups/orcpub (got $(bk_resolve "$b"))"
 [ "$(bk_resolve "$b/2026-09")" = "$b/2026-09" ] && pass "a month folder named directly is used" \
   || fail "a month folder named directly is used (got $(bk_resolve "$b/2026-09"))"
-l="$tmp/legacy"; mkdir -p "$l/orcpub"
+mkdir -p "$b/2026-12/orcpub"  # a first backup that failed before writing a restore point
+[ "$(bk_resolve "$b")" = "$b/2026-11" ] && pass "a newest month with no restore point is passed over" \
+  || fail "a newest month with no restore point is passed over (got $(bk_resolve "$b"))"
+l="$tmp/legacy"; mkdir -p "$l/orcpub/roots"; touch "$l/orcpub/roots/1000"
 [ "$(bk_resolve "$l")" = "$l" ] && pass "a folder with only a pre-month backup is used as it is" \
   || fail "a folder with only a pre-month backup is used as it is (got $(bk_resolve "$l"))"
 
