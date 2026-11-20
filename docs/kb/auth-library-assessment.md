@@ -62,3 +62,6 @@ could use it and old ones be upgraded at sign-in, with no new library. The trap:
 `-XX:+ExitOnOutOfMemoryError` (`docker-compose.yaml`) and the JVM's default heap, so 64 MiB per
 sign-in multiplied by a burst of sign-ins could exit the server. Use a smaller memory setting (OWASP's
 floor is 19 MiB with 2 passes) and measure a burst before shipping it.
+
+**Recommendation (owner, 2026-11-19):** not now. bcrypt at cost 12 is acceptable; argon2 is a
+far-future review, tracked in `docs/TODO.md`.

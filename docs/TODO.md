@@ -1133,3 +1133,17 @@ characters that use the changed entries and send each one's fresh homebrew. Piec
   loaded) and `share-bundle/extract-bundle` against the new library.
 - **When:** after the library write lands, debounced, so a bulk import sends once.
 - **Cost:** one upload per affected character; an unchanged one does no work on the server already.
+
+## Passwords: argon2id instead of bcrypt (far-future review)
+
+**Status:** Deferred, owner 2026-11-19: not needed now. Review when auth is next touched, or if
+bcrypt's standing changes. Research: `kb/auth-library-assessment.md`, "argon2 inside buddy".
+
+Passwords are bcrypt+sha512 at cost 12 (buddy-hashers' default), which OWASP still accepts.
+argon2id only helps if the user database is stolen, by making each offline guess cost memory as
+well as time. buddy-hashers already supports it, so no new library: new passwords would use it and
+old ones be rehashed at their next sign-in.
+
+The trap to plan for: the server runs with `-XX:+ExitOnOutOfMemoryError` and the JVM's default
+heap, and buddy's argon2 default is 64 MiB per sign-in, so a burst of sign-ins could exit the
+server. Use a smaller memory setting (OWASP's floor: 19 MiB, 2 passes) and measure a burst first.
