@@ -357,12 +357,18 @@
                                            ;; figwheel's unreleased main branch (SSE reload, Jetty 12),
                                            ;; vendored in lib/ (docs/kb/figwheel-jetty12.md).
                                            [com.bhauman/figwheel-main "0.2.21-orcpub1"]
-                                           [com.bhauman/rebel-readline-cljs "0.1.4"]
+                                           [com.bhauman/rebel-readline-cljs "0.1.11"]
+                                           ;; rebel-readline brings jline 3.30.0; 3.30.15 fixes
+                                           ;; CVE-2026-77420 (dev REPL only).
+                                           [org.jline/jline-reader "3.30.15"]
+                                           [org.jline/jline-terminal "3.30.15"]
+                                           [org.jline/jline-terminal-jni "3.30.15"]
+                                           [org.jline/jline-terminal-ffm "3.30.15"]
                                            [nrepl "1.3.0"]
                                            [cider/piggieback "0.5.3"]
                                            [day8.re-frame/re-frame-10x "1.11.0" :exclusions [zprint rewrite-clj]]
                                            ;; comment_discipline_test parses source with it
-                                           [rewrite-clj "0.5.2"]]
+                                           [rewrite-clj "1.1.48"]]
                             :env       {:dev-mode  "true"
                                         :signature "dev-secret-do-not-use-in-production"}
                             ;; need to add dev source path here to get user.clj loaded
