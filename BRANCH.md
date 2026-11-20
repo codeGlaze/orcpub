@@ -149,10 +149,7 @@ view is two: the hold decides what the built character applies; Data View edits 
   addresses, email addresses, hashes or keys; GitHub secret scanning sees only known token formats.
   A real player address sat in two test files for a month (redacted on #89). Proposed: gitleaks
   plus own rules, in pre-push and CI; waiting on the owner.
-- **Settled: DMV workflow names** (admin, 2026-11-19). DMV's own workflows are named kind first:
-  `docker-dmv-release.yaml` (tag releases) and `docker-dev-release.yaml` (manual dev builds of any
-  branch). The public `docker.yaml` stays on DMV, disabled in Gitea, and skips off `Orcpub/orcpub`.
-  Detail: DMV's `docs/ops/dmv-premerge.md`.
+- **Settled: DMV's workflow names** (admin, 2026-11-19). Detail lives in DMV's own `docs/ops/`.
 
 - **Trim the app bundle** (owner, 2026-10-27). The compressed `orcpub.js` grew from 842 KB to
   870 KB with #69, #75, #63 and #76 (measured by #66's `test/browser/page_load_budget_e2e.js`).
