@@ -84,3 +84,8 @@ rewrite-clj 1.1.48 serves both. Only a REPL started in a terminal shows it; `lei
 `scm:git:ssh://` link whose user@host part (GitHub's shared SSH login) the pre-push scan reads as
 an email address. `.personal-data-allow` lists that one address, with its reason (on
 `upgrade/pedestal-jetty12` until it merges). Quoting the address in a doc trips the scan the same way.
+
+## After the release (2026-11-20, #91)
+
+`develop` went from 83 open alerts (3 critical, 33 high) to 7: 0 critical, 3 high (Jetty request smuggling, Jetty Digest auth, H2 console; all accepted in `osv-scanner.toml`), 3 medium and 1 low (Jetty 11, JLine). The Jetty and JLine ones are what #92 (`upgrade/pedestal-jetty12`) removes; H2 stays with Datomic.
+
