@@ -70,6 +70,11 @@ dismissal leaves 6: five Jetty 11 (cleared by `upgrade/pedestal-jetty12`, Jetty 
 jline-reader 3.5.1, which rebel-readline brings into the dev REPL only. The API's dismissal reasons
 are `fix_started`, `inaccurate`, `no_bandwidth`, `not_used`, `tolerable_risk`.
 
+**jline (dev REPL):** fixed on #92 by rebel-readline 0.1.11 plus jline 3.30.15 pinned in `:dev-config`.
+Trap: rebel-readline 0.1.11 brings cljfmt 0.13.0, which needs rewrite-clj 1.x, and the dev profile
+pinned rewrite-clj 0.5.2 (for `comment_discipline_test`), so the REPL died on `No such var: z/of-node`.
+rewrite-clj 1.1.48 serves both. Only a REPL started in a terminal shows it; `lein test` passes either way.
+
 **Vendored jars and the personal-data scan:** a `.pom` in `lib/` carries an
 `scm:git:ssh://` link whose user@host part (GitHub's shared SSH login) the pre-push scan reads as
 an email address. `.personal-data-allow` lists that one address, with its reason (on
