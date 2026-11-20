@@ -184,6 +184,7 @@
       "Cloudflare refusing the token is a refusal")
   (is (= :fail (verify-with-http {:status 400 :body "<html>bad</html>"})) "even with a body that is not JSON")
   (is (= :fail (verify-with-http {:status 403 :body nil})))
+  (is (= :fail (verify-with-http {:status 200 :body ""})) "an empty answer is not Cloudflare being down")
   (is (= :unreachable (verify-with-http {:status 500 :body "{}"})) "Cloudflare being down")
   (is (= :unreachable (verify-with-http {:status 503 :body nil})))
   (is (= :unreachable (verify-with-http #(throw (java.net.SocketTimeoutException. "slow")))))
