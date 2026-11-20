@@ -119,17 +119,34 @@
 
 (defn- service-response
   "The response of a minimal service built the way system.clj builds the real one (default
-   interceptors, then the referrer policy first), for a GET of `path`."
-  [path]
-  (let [with-policy (or (some-> (ns-resolve 'orcpub.system 'with-referrer-policy) deref) identity)
-        service (-> {:io.pedestal.http/routes #{["/here" :get (fn [_] {:status 200 :body "ok"}) :route-name ::here]}
-                     :io.pedestal.http/resource-path "/public"
-                     :io.pedestal.http/type :jetty}
-                    io.pedestal.http/default-interceptors
-                    with-policy
-                    io.pedestal.http/create-servlet
-                    :io.pedestal.http/service-fn)]
-    (io.pedestal.test/response-for service :get path)))
+   interceptors, then the referrer policy and HEAD handling first), for a request of `path` with
+   `method` (default :get)."
+  ([path] (service-response :get path))
+  ([method path]
+   (let [wrap (fn [sym] (or (some-> (ns-resolve 'orcpub.system sym) deref) identity))
+         service (-> {:io.pedestal.http/routes #{["/here" :get (fn [_] {:status 200 :body "ok"}) :route-name ::here]}
+                      :io.pedestal.http/resource-path "/public"
+                      :io.pedestal.http/type :jetty}
+                     io.pedestal.http/default-interceptors
+                     ((wrap 'with-referrer-policy))
+                     ((wrap 'with-head-as-get))
+                     io.pedestal.http/create-servlet
+                     :io.pedestal.http/service-fn)]
+     (io.pedestal.test/response-for service method path))))
+
+(deftest a-head-request-is-answered-like-a-get-without-the-body
+  (doseq [path ["/here" "/favicon.ico"]
+          :let [get-resp (service-response :get path)
+                head-resp (service-response :head path)]]
+    (testing path
+      (is (= 200 (:status get-resp)))
+      (is (= 200 (:status head-resp)) "HEAD finds the page GET finds")
+      (is (= "" (:body head-resp)) "and sends no body")
+      (is (= (get-in get-resp [:headers "Content-Type"]) (get-in head-resp [:headers "Content-Type"])))
+      (is (= "strict-origin-when-cross-origin" (get-in head-resp [:headers "Referrer-Policy"])))))
+  (is (= 404 (:status (service-response :head "/no-such-page"))) "a missing page is still missing")
+  (is (= :head-as-get (-> (orcpub.system/system :prod) :service-map :io.pedestal.http/interceptors first :name))
+      "the real service reads HEAD as GET before anything else"))
 
 (deftest static-files-and-404s-carry-the-referrer-policy-too
   (doseq [path ["/favicon.ico" "/no-such-page"]]
