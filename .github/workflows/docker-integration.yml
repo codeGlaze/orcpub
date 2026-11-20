@@ -194,6 +194,11 @@ jobs:
           echo "ORCPUB_IMAGE=orcpub-app" >> "$GITHUB_ENV"
           echo "DATOMIC_IMAGE=orcpub-datomic" >> "$GITHUB_ENV"
 
+      # Its own Compose project (Postgres, a SQL transactor, a stand-in app), torn down after.
+      - name: Test — backups and restores on Postgres storage
+        if: steps.build.outcome == 'success'
+        run: bash test/docker/test-backup-postgres.sh
+
       - name: Pull container images (Java 8)
         id: pull
         if: needs.detect-stack.outputs.build-mode == 'pull'
