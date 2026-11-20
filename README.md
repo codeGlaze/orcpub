@@ -394,7 +394,7 @@ To give every player the same homebrew, combine it into one `.orcbrew` file and 
 
 ### Data Management
 
-- **Database**: stored in `./data/`. Back up this directory while Datomic is stopped (`docker compose down`). Delete it to start fresh.
+- **Database**: with the built-in storage, stored in `./data/`. Back it up with `./run --backup`, or copy this directory while Datomic is stopped (`docker compose down`). Delete it to start fresh. With Postgres storage (`DATOMIC_URL` starting `datomic:sql://`), `./data` holds none of the database: use `./run --backup` or Postgres's own backups.
 - **Transactor logs**: stored in `./logs/`. Safe to clean up; they do not hold character data.
 - **Container logs**: Docker keeps the last 5 files of 10 MB for each container (`LOG_MAX_FILES`, `LOG_MAX_SIZE`).
 - **Crash files and admin alerts**: stored in `/var/log/orcpub/` on the host.

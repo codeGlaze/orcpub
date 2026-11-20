@@ -128,13 +128,14 @@ A `datomic:sql` URI carries the database password in a query parameter:
 datomic:sql://datomic?jdbc:postgresql://host:5432/datomic?user=datomic&password=hunter2
 ```
 
-The server hides credentials before it logs them, so boot output is safe to keep and share:
-terminal scrollback, container logs, a log aggregator, a screenshot pasted into chat.
-`orcpub.config/redact-secrets` blanks them in both shapes they arrive in:
+The server hides the credentials it recognises before it logs them, so boot output can go to
+terminal scrollback, container logs or a log aggregator. Still read it before sharing it (a
+screenshot in a chat, a bug report): a credential in a parameter it does not recognise prints as
+written. `orcpub.config/redact-secrets` blanks them in both shapes they arrive in:
 
 | Shape | Becomes |
 |---|---|
-| `?password=` / `passwd` / `pwd` / `secret` / `token` / `api-key` | `password=****` |
+| A parameter whose name ends in `password`, `passwd`, `pwd`, `secret`, `token` or `api-key` (`password=`, `sslpassword=`) | `password=****` |
 | `scheme://user:pass@host` | `scheme://user:****@host` |
 
 Everything else is untouched, so host, port, database and user still show and the line stays
@@ -197,8 +198,9 @@ three components track the same value from a single `.env` setting.
 ## Database Password in DATOMIC_URL
 
 Keep `?password=` out of `DATOMIC_URL`. The app reads `DATOMIC_PASSWORD` and adds it to the URL
-itself, so changing the password in one place is enough. When `run` writes `.env`, it leaves the
-URL without a password.
+itself, so changing the password in one place is enough: `?password=` when the URL has no query of
+its own, `&password=` when a Postgres JDBC URL already has one (`...datomic?user=datomic`). When
+`run` writes `.env`, it leaves the URL without a password.
 
 A URL that still carries `?password=` works, and its embedded password wins. If that password
 differs from `DATOMIC_PASSWORD`, the app fails to connect with a Datomic authentication error that
