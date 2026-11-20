@@ -477,8 +477,9 @@ docker compose up -d                # start everything
 
 `./run --restore ./backups` restores the newest month; name a month folder to pick another. On
 Postgres it stops the app and the transactor for the restore (Datomic restores SQL storage only with
-nothing connected) and starts the transactor again afterwards; stop any app server outside this
-stack yourself first.
+nothing connected) and starts the transactor again afterwards. Datomic needs every peer and transactor using that
+Postgres storage stopped, including ones outside this stack or serving other databases: stop those
+yourself first.
 A restore needs a database with nothing in it, so use a fresh `./data` folder (or a new machine;
 on Postgres, a database with Datomic's table and no `orcpub` database in it). Copy `.env` back first. If a database already exists, `./run --restore` stops and says so without
 changing anything. To replace it: stop the app (`docker compose stop orcpub`), back up what is there
