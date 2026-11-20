@@ -56,7 +56,7 @@ def email_allowed(addr, allow):
     """True when `addr` is on the allow list by address or by domain (a domain covers its subdomains)."""
     addr = addr.lower()
     domain = addr.split('@', 1)[1]
-    if ASSET.match(domain) or addr in allow['email']:
+    if ASSET.search(domain) or addr in allow['email']:
         return True
     return any(domain == d or domain.endswith('.' + d) for d in allow['email-domain'])
 
