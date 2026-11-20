@@ -45,7 +45,13 @@ const measure = page => page.evaluate(() => {
     check(`${w}px: no sideways scroll`, m.overflow <= 0, `${m.overflow}px over`);
     check(`${w}px: each label sits beside its links`, m.beside.every(Boolean), m.beside.join());
     if (w === 412) {
-      check('the rows are labelled Help, Support, Legal', m.labels.join() === 'Help,Support,Legal', m.labels.join());
+      // The Support row shows only when a Patreon or developer tip link is set (support-pills).
+      const support = await page.evaluate(() => {
+        const s = (window.__BRANDING__ || {})['social-links'] || {};
+        return Boolean(s.patreon || s['dev-tip']);
+      });
+      const want = support ? 'Help,Support,Legal' : 'Help,Legal';
+      check(`the rows are labelled ${want.replace(/,/g, ', ')}`, m.labels.join() === want, m.labels.join());
     }
     if (w < 1100) {
       const stacked = m.groups.every((g, i) => i === 0 || g.t >= m.groups[i - 1].b - 1);

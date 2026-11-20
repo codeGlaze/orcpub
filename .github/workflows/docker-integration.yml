@@ -77,7 +77,7 @@ jobs:
       - name: Lint shell scripts
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          shellcheck -x --severity=warning run docker-user.sh scripts/swarm.sh scripts/load-env.sh scripts/release-check.sh scripts/startup-report.sh
+          shellcheck -x --severity=warning run docker-user.sh docker-migrate.sh scripts/swarm.sh scripts/load-env.sh scripts/release-check.sh scripts/startup-report.sh scripts/backup-lib.sh test/docker/test-backup-lib.sh test/docker/test-backup-postgres.sh
 
       # .env is read, never run: the reader matches a real Compose container on tricky values,
       # existing .env formats load as before, and --upgrade still fixes every historical format.
