@@ -96,6 +96,9 @@ jobs:
       - name: Stop ends the process holding the port, not only the launcher
         run: bash test/docker/test-stop-pids.sh
 
+      - name: Backups pick the newest month, prune on Bash 3.2, make month folders as the owner
+        run: bash test/docker/test-backup-lib.sh
+
       - name: Test — Datomic's start script (its addresses on Compose and Swarm)
         run: bash test/docker/test-transactor-start.sh
 
