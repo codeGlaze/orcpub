@@ -60,7 +60,7 @@ fingerprint. Follow-up the same day: the wait, with the transactor paused 25 s m
 - A `dev`-storage database written by 1.0.7482 opens under 1.0.7745 unchanged: the same row count, checksum and `t` (5000 rows, t=5510). It then took 500 new rows, and `./run --backup` and `--verify-backup` passed at t=6011. Upgrading needs no migration step.
 - The transactor zip still comes from `datomic-pro-downloads.s3.amazonaws.com/<version>/datomic-pro-<version>.zip`, free with no login; the Dockerfile fetches it from `DATOMIC_VERSION`. The peer is on Maven Central (`com.datomic/peer`).
 - The transactor zip bundles its own Netty (4.1.131 in 1.0.7745). `project.clj`'s `:managed-dependencies` pin Netty only for the app's peer.
-- The live site stores Datomic in Postgres (`plan-lookup-indexes.md`); `./run --backup` assumes `dev` storage.
+- The live site stores Datomic in Postgres (`plan-lookup-indexes.md`); `./run --backup` handles both storages (next section).
 - Test trap: a check that compares two fingerprints must fail when either is empty. A script that sent the peer's errors to /dev/null reported two blank results as "same data".
 
 ## Postgres storage and monthly rotation (2026-11-18, #89)
@@ -70,3 +70,11 @@ fingerprint. Follow-up the same day: the wait, with the transactor paused 25 s m
 - A freshly started SQL transactor can refuse the first large write; retrying after it settles works.
 - Layout: `<dir>/<YYYY-MM>/orcpub`. Rotation deletes month folders beyond `BACKUP_KEEP_MONTHS` only after the new month's first backup verifies. `--restore` and `--verify-backup` take the parent folder (newest month) or a month folder.
 - Offline copies refuse on Postgres storage (`./data` holds none of it) and keep `BACKUP_KEEP_OFFLINE`.
+
+## Review fixes (2026-11-19, #89)
+
+- A Postgres restore now stops `orcpub` and `datomic` before `restore-db` and starts the transactor after; Datomic restores SQL storage only with nothing connected. The 2026-11-18 Postgres test above restored with the transactor running, so the new order is covered only by `test/docker/test-backup-lib.sh` (a stand-in `docker`), not by a real Postgres run.
+- `bk_network` reads the network from the running transactor, so the restore reads it before stopping anything and passes it as `BACKUP_NETWORK`.
+- `--restore ./backups` and `--verify-backup ./backups` take the newest month even when a `backups/orcpub` from before month folders is kept.
+- `bk_prune` uses a `read` loop, not `mapfile` (absent in macOS's Bash 3.2), and a month folder the host user cannot create is made by a container running as the parent's owner.
+- An empty `DATOMIC_URL` in the shell is kept empty, as Compose keeps it, so a backup reads the same database as the running app.

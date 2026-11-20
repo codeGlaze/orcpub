@@ -1128,13 +1128,14 @@ _data-safety-layers · data safety layers_
 
 _datomic-backups · datomic backups_
 
-**topics:** 2026-11-18, 7745, backup, backups, checksum, cli, database, datomic, folder, month, offline, peer, postgres, restore, root-owned, stack, transactor, zip
+**topics:** 2026-11-18, 7745, backup, backups, checksum, database, datomic, folder, month, offline, peer, postgres, restore, root-owned, sql, stack, transactor, zip
 
 - Traps (verified)
 - What was tested (isolated stack, 5k entities)
 - CodeRabbit round three (2026-11-18, #89)
 - Datomic 1.0.7482 to 1.0.7745 (verified 2026-11-18, #89)
 - Postgres storage and monthly rotation (2026-11-18, #89)
+- Review fixes (2026-11-19, #89)
 
 ## datomic-crash-analysis.md
 
