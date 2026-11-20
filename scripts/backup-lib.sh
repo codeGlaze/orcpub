@@ -160,11 +160,12 @@ bk_months() {
 }
 
 # bk_resolve <folder>
-#   Prints the backup folder a command should use: <folder> itself when it holds orcpub/, else its
-#   newest month folder. Prints <folder> unchanged when neither exists (the caller reports it).
+#   Prints the backup folder a command should use: <folder>'s newest month folder when it has one,
+#   else <folder> itself (a month folder named directly, or a backup from before month folders).
+#   A backups/orcpub kept from before month folders never hides a newer month.
+#   Prints <folder> unchanged when neither exists (the caller reports it).
 bk_resolve() {
   local newest
-  if [[ -d "$1/$BK_NAME" ]]; then echo "$1"; return; fi
   newest=$(bk_months "$1" | tail -1)
   if [[ -n "$newest" ]]; then echo "$1/$newest"; else echo "$1"; fi
 }
@@ -176,7 +177,8 @@ bk_prune() {
   local dir="$1" glob="$2" keep="$3" what="$4" rc=0 name
   local -a all=()
   [[ "$keep" =~ ^[0-9]+$ ]] && (( keep >= 1 )) || { warn "Keeping every $what: the keep count '$keep' is not 1 or more."; return 0; }
-  mapfile -t all < <(cd "$dir" && for d in $glob; do [[ -d "$d" ]] && echo "$d"; done | sort)
+  while IFS= read -r name; do all+=("$name"); done \
+    < <(cd "$dir" && for d in $glob; do [[ -d "$d" ]] && echo "$d"; done | sort)  # no mapfile: Bash 3.2
   (( ${#all[@]} > keep )) || return 0
   for name in "${all[@]:0:${#all[@]}-keep}"; do
     info "Deleting the old $what $dir/$name (keeping the newest $keep)"
@@ -330,16 +332,23 @@ bk_wait_transactor() {
 }
 
 # bk_prepare_dir <folder>
-#   Creates <folder> if needed and checks a container running as its owner can write there
-#   (the host user may not be able to: the transactor container owns ./backups). A backup in it
+#   Creates <folder> if needed, through a container running as the parent's owner when the host
+#   user cannot (the transactor container owns ./backups), and checks a container running as its
+#   owner can write there. A backup in it
 #   owned by someone else (older migrate runs wrote as root) is handed to the folder's owner.
 #   Prints the absolute path. Exit: 0 writable; 1 with an error message.
 bk_prepare_dir() {
-  local dir="$1" image
-  mkdir -p "$dir" 2>/dev/null || [[ -d "$dir" ]] || { error "Cannot create backup folder: $dir"; return 1; }
+  local dir="$1" image parent own
+  if ! mkdir -p "$dir" 2>/dev/null && [[ ! -d "$dir" ]]; then
+    parent=$(dirname "$dir")
+    if [[ -d "$parent" ]] && own=$(bk_owner "$parent"); then
+      docker run --rm --user "$own" -v "$(cd "$parent" && pwd):/b" --entrypoint mkdir "$(bk_image)" \
+        "/b/$(basename "$dir")" >/dev/null 2>&1
+    fi
+    [[ -d "$dir" ]] || { error "Cannot create backup folder: $dir"; return 1; }
+  fi
   dir=$(cd "$dir" && pwd)
   image=$(bk_image)
-  local own
   own=$(bk_owner "$dir") || return 1
   if ! docker run --rm --user "$own" -v "$dir:/backup" --entrypoint sh "$image" \
       -c 'touch /backup/.write-test && rm -f /backup/.write-test' >/dev/null 2>&1; then
@@ -445,6 +454,7 @@ bk_restore() {
        error "A restore needs an empty database. To replace it: stop the app (docker compose stop orcpub),"
        error "back up what is there first (./run --backup), stop the stack, move ./data aside,"
        error "start only the transactor (docker compose up -d datomic), then run this restore again."
+       bk_is_sql && error "On Postgres, ./data holds none of it: point DATOMIC_URL at an empty database instead (docs/DOCKER.md)."
        return 1 ;;
     1) ;;
     *) error "Could not reach the transactor to check for an existing database."; return 1 ;;
