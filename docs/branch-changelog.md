@@ -46,6 +46,8 @@ how-to: docs/migration/pedestal-0.8.md.
 
 ## Fixed
 
+- **Server:** uptime monitors and link previews that check a page with a HEAD request get its headers instead of "not found".
+
 ## Security
 
 - **Server:** web server libraries updated to clear two high-severity advisories.
