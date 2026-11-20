@@ -1,10 +1,10 @@
 # Email System
 
-Overview of email-related flows, schema, configuration, and behavior.
+What emails the site sends, when, and what to do when they do not arrive. The last section is for developers.
 
 ## Configuration
 
-All email is sent via [postal](https://github.com/drewr/postal) using SMTP credentials from environment variables:
+Mail goes out over SMTP with the settings below, all described in [ENVIRONMENT.md](ENVIRONMENT.md#email-smtp):
 
 | Env var | Purpose |
 |---------|---------|
@@ -17,7 +17,7 @@ All email is sent via [postal](https://github.com/drewr/postal) using SMTP crede
 | `EMAIL_FROM_ADDRESS` | Sender address (default `no-reply@example.com`, a placeholder that cannot deliver) |
 | `EMAIL_ERRORS_TO` | Address for admin alerts (optional; falls back to `EMAIL_ADMIN_TO`, then `APP_SUPPORT_EMAIL`) |
 
-Configuration is read at send-time by `email/email-cfg` (`src/clj/orcpub/email.clj`).
+The settings are read each time a message is sent.
 
 ## How player emails are sent
 
@@ -46,26 +46,6 @@ email-change notices, the sign-in attempts notice, and the artist emails) goes t
 
 The player's "this character won't load" report is the one exception: it is sent directly, because
 the page tells the player on the spot whether it went out and offers a copy to send themselves.
-
-## Schema
-
-User attributes related to email and verification (`src/clj/orcpub/db/schema.clj`):
-
-| Attribute | Type | Purpose |
-|-----------|------|---------|
-| `:orcpub.user/email` | string | Confirmed email address, as stored for display and sending (registration stores it lowercased; older accounts may be mixed-case) |
-| `:orcpub.user/email-key` | string | The same address trimmed and lowercased; indexed, and what every email lookup matches |
-| `:orcpub.user/pending-email` | string | Requested new email (awaiting verification) |
-| `:orcpub.user/verified?` | boolean | Whether the user has verified their email |
-| `:orcpub.user/verification-key` | string | UUID used in verification links |
-| `:orcpub.user/verification-sent` | instant | When the verification email was sent |
-| `:orcpub.user/password-reset-key` | string | UUID used in password reset links |
-| `:orcpub.user/password-reset-sent` | instant | When the password reset email was sent |
-| `:orcpub.user/password-reset` | instant | When the password was actually reset |
-
-**Note:** neither email attribute has a uniqueness constraint in the schema. Uniqueness is enforced at the application level via `email-query`. See the known issues section.
-
-**Writing an email:** set both attributes with `orcpub.user-email/email-attrs`, and normalise any address you look up with `orcpub.user-email/email-key`. Accounts written without the key (older data, or an old copy of `manage-user.clj`) get it from a backfill that runs in the background on every start. Until it reaches them, lookups also match the stored address exactly, so an account whose stored address is already lowercase is found; only an older mixed-case one waits for the backfill to sign in by email.
 
 ## Flows
 
@@ -96,9 +76,9 @@ and the response carries `{:verified? true}` so the client shows "you can log in
 `:email-not-configured` — fail closed, so a lost SMTP value cannot quietly become open
 registration.
 
-Since the startup report and refusal landed, a deployed server without `EMAIL_SERVER_URL` does not
-start at all (`config/start-refusal`) unless `DEV_MODE=true`, `EMAIL_REQUIRED=false` or
-`ALLOW_UNVERIFIED_REGISTRATION=true` says that is intended. So "no mail server" signup states
+A deployed server without `EMAIL_SERVER_URL` does not start at all (`config/start-refusal`) unless
+`DEV_MODE=true`, `EMAIL_REQUIRED=false` or `ALLOW_UNVERIFIED_REGISTRATION=true` says that is
+intended. So "no mail server" signup states
 occur only on a server that opted out: `EMAIL_REQUIRED=false` (or `DEV_MODE`) leaves signup
 refused; the flag opens it.
 
@@ -219,7 +199,41 @@ The 429 response includes `retry-after-secs` so the client can display a specifi
 | Email change rate limit | 5 minutes | `email-change-rate-limited?` |
 | Free resend grace | 1–5 minutes | `email-change-rate-limited?` + free resend branch |
 
-## File Map
+## Troubleshooting
+
+**Nobody can sign up.** `EMAIL_SERVER_URL` is empty, so sign-up is off. Set the SMTP settings, or for a private site set `ALLOW_UNVERIFIED_REGISTRATION=true`. The boot report's `ALLOW_UNVERIFIED_REGISTRATION` row says what sign-up will do.
+
+**The server will not start and mentions email.** A deployed server needs `EMAIL_SERVER_URL`. Set it, or set `EMAIL_REQUIRED=false` to run without email on purpose.
+
+**Emails do not arrive.** Check that `EMAIL_FROM_ADDRESS` is an address your provider may send as, not the `no-reply@example.com` placeholder. Then read the log: failed sends are retried on the schedule above, and a send given up on raises an admin alert.
+
+**A player never got the verification email.** Run `./docker-user.sh verify <username-or-email>`.
+
+**No admin alerts arrive.** Set `EMAIL_ERRORS_TO`. With none of `EMAIL_ERRORS_TO`, `EMAIL_ADMIN_TO` and `APP_SUPPORT_EMAIL` set, alerts go to the log only.
+
+## For developers
+
+### Schema
+
+User attributes related to email and verification (`src/clj/orcpub/db/schema.clj`):
+
+| Attribute | Type | Purpose |
+|-----------|------|---------|
+| `:orcpub.user/email` | string | Confirmed email address, as stored for display and sending (registration stores it lowercased; older accounts may be mixed-case) |
+| `:orcpub.user/email-key` | string | The same address trimmed and lowercased; indexed, and what every email lookup matches |
+| `:orcpub.user/pending-email` | string | Requested new email (awaiting verification) |
+| `:orcpub.user/verified?` | boolean | Whether the user has verified their email |
+| `:orcpub.user/verification-key` | string | UUID used in verification links |
+| `:orcpub.user/verification-sent` | instant | When the verification email was sent |
+| `:orcpub.user/password-reset-key` | string | UUID used in password reset links |
+| `:orcpub.user/password-reset-sent` | instant | When the password reset email was sent |
+| `:orcpub.user/password-reset` | instant | When the password was actually reset |
+
+**Note:** neither email attribute has a uniqueness constraint in the schema. Uniqueness is enforced at the application level via `email-query`. See the known issues section.
+
+**Writing an email:** set both attributes with `orcpub.user-email/email-attrs`, and normalise any address you look up with `orcpub.user-email/email-key`. Accounts written without the key (older data, or an old copy of `manage-user.clj`) get it from a backfill that runs in the background on every start. Until it reaches them, lookups also match the stored address exactly, so an account whose stored address is already lowercase is found; only an older mixed-case one waits for the backfill to sign in by email.
+
+### File Map
 
 | File | Role |
 |------|------|
@@ -232,9 +246,8 @@ The 429 response includes `retry-after-secs` so the client can display a specifi
 | `src/cljs/orcpub/dnd/e5/events.cljs` | Re-frame events for email change UI |
 | `src/cljs/orcpub/dnd/e5/views.cljs` | My Account page with email change form |
 | `src/cljs/orcpub/dnd/e5/subs.cljs` | Subscriptions for pending-email, email-change state |
-| `test/clj/orcpub/email_change_test.clj` | Email change tests (11 tests, datomock) |
 
-## Known Issues
+### Known issues
 
 - **No uniqueness constraint on email in schema.** Uniqueness is enforced at the application level by `email-query` (at request time) and a race-condition guard (at verify time). A `:db.unique/value` constraint on `:orcpub.user/email-key` would be the proper fix, once any existing duplicates are found and resolved.
 

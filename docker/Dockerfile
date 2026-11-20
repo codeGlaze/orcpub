@@ -7,7 +7,7 @@
 # ── Shared: download Datomic Pro distribution ─────────────────
 FROM alpine:3.22 AS datomic-dist
 
-ENV DATOMIC_VERSION=1.0.7482
+ENV DATOMIC_VERSION=1.0.7745
 
 RUN apk add --no-cache curl unzip
 

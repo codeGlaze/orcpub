@@ -208,10 +208,10 @@ run_fixture() {
       # No changes needed
       assert_output_contains "No changes needed" "$output" "$label"
       # All values preserved exactly
-      assert_val DATOMIC_PASSWORD "aL5nR8sU2wY4bD7fH9jM3qT6" "$result_env" "$label"
+      assert_val DATOMIC_PASSWORD "fixture-datomic-password" "$result_env" "$label"
       assert_val DATOMIC_URL "datomic:dev://datomic:4334/orcpub" "$result_env" "$label"
       assert_val SIGNATURE "gZ4kP7tX2vA8dG5jN9qS3wF6mC1rY8bH" "$result_env" "$label"
-      assert_val ADMIN_PASSWORD "xK7mN2pQ9rT4vW8yB3cF6hJ" "$result_env" "$label"
+      assert_val ADMIN_PASSWORD "fixture-admin-password" "$result_env" "$label"
       ;;
 
     production-like)

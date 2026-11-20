@@ -51,7 +51,7 @@
             [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.views.inventory :as inventory-views]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
-            [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views-shared :as views-shared]
             [orcpub.dnd.e5.views.pdf-options :as pdf-options]
             [orcpub.dnd.e5.views.builder-fields :refer [event-value dropdown labeled-dropdown
                                                         labeled-checkbox with-help option-checkbox option-group
@@ -1407,12 +1407,6 @@
       [:div.flex-grow-1
        [search-results]]]]))
 
-(def srd-link
-  [:a.orange {:href "/dnld/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD-OGL 5.1"])
-
-(defn current-year []
-  (.getFullYear (js/Date.))) 
-
 (declare library-health-status)
 (declare meta-edit-row)      ; defined with builder-page, which is its other caller
 
@@ -1514,33 +1508,7 @@
                 ;; Content slot (integrations-gated)
                 [integrations/content-slot @(subscribe [:user-tier])]
 
-                ;; Top-aligned, spaced by the row's gap: a column that wraps starts on the left edge.
-                [:div.flex.justify-cont-s-b.align-items-t.flex-wrap.p-10.site-footer-row
-                 [:div
-                  [:div.m-b-5 "Icons made by Lorc, Delapouite, Caduceus, Caro Asercion, Faithtoken, Sbed, Skoll and Willdabeast. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
-                  [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
-                 [:div.site-footer-links
-                  [:div.m-b-5.justify-cont-c
-                   (when (seq branding/help-url)
-                     [:a.orange.m-r-5 {:href branding/help-url :target :_blank} "Help"])
-                   [:a.orange.m-r-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]
-                   [whats-new-view/footer-link]]
-                  [views-2/support-pills :compact? true]]
-                 [:div
-                  [:div.m-b-5
-                   (for [{:keys [label href]} splash/legal-footer-links]
-                     ^{:key href}
-                     [:a.orange.m-r-5 {:href href :target :_blank} label])]]
-                 [:div.legal-footer
-                  [:p "© " (current-year) " "
-                   (if (seq branding/copyright-url)
-                     [:a.orange {:href branding/copyright-url :target :_blank} branding/copyright-holder]
-                     branding/copyright-holder)]
-                  [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2025 Wizards. All Rights Reserved."]
-                  [:p branding/app-name " is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
-                  [:p.pointer.underline
-                   {:on-click #(dispatch [::e5/open-whats-new])}
-                   "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
+                [views-shared/site-footer]
                 [debug-data]]]])]))})))
 
 ;; dead — zero callers (4 style defs)
@@ -8904,13 +8872,13 @@
                    (let [note (orcbrew-val/twin-note twin-idx source-name type-key key disabled?)
                          selected? (and select-mode?
                                         @(subscribe [::e5/content-selected? source-name type-key key]))]
-                   ^{:key key}
                    (if select-mode?
                      ;; SELECT MODE: enable/edit/delete step aside; a round selector
                      ;; (distinct from the square enable) + the whole row is the tap
                      ;; target. Selected rows tint + get an amber rail.
                      [:div.p-t-10.p-b-10.f-w-b.flex.align-items-c.mc-selrow
-                      {:class (when selected? "selected")
+                      {:key (str key)
+                       :class (when selected? "selected")
                        :on-click (make-event-handler ::e5/toggle-content-selection source-name type-key key)}
                       [:span.mc-selcircle.m-r-10 {:class (when selected? "on")}
                        [:i.fa.fa-check]]
@@ -8919,7 +8887,8 @@
                      ;; An UNRESOLVED conflict (:conflict) gets a red rail so the
                      ;; offending entry is easy to spot from the health banner.
                      [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
-                      {:class (when disabled? "opacity-5")
+                      {:key (str key)
+                       :class (when disabled? "opacity-5")
                        :style (when (= :conflict (:kind note))
                                 {:box-shadow "inset 3px 0 0 #ffd21a"
                                  :padding-left "8px"})}

@@ -45,6 +45,10 @@ env.sh
 #
 *#*
 /data
+# Database backups and the folders a restore sets aside: never committed.
+/data.*
+/backups
+/backup
 *.crt
 *.key
 deploy/homebrew/*

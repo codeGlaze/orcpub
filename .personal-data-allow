@@ -1,0 +1,88 @@
+# What scripts/personal-data-scan.py lets through. One entry per line: kind: value.
+# Kinds: email, email-domain (covers subdomains), ip, author (commit author email), path (regex).
+# Add an entry only for data that is safe to publish; say why in a comment.
+
+# Commit identities allowed to author commits here (GitHub's users.noreply.github.com addresses
+# always pass). Nothing else: a commit by any other address is refused.
+author: github@codeglaze.com
+author: noreply@github.com
+email-domain: users.noreply.github.com
+
+# Made-up addresses in tests and examples.
+email-domain: example.com
+email-domain: example.org
+email-domain: example.net
+email-domain: example
+email-domain: test
+email-domain: test.local
+email-domain: localhost
+email-domain: invalid
+email-domain: evil.example
+email-domain: serenity.example
+email-domain: my-own-mailserver.dev
+# Made-up addresses at real domains (test.com, x.com, email.com and others), listed exactly so a
+# real person's address at those domains is still caught. Used by tests, dev tools and setup docs.
+email: a@b.com
+email: alice@test.com
+email: bob@test.com
+email: custom@email.com
+email: elsewhere@test.com
+email: evil@x.com
+email: fresh2@test.com
+email: fresh@test.com
+email: friend@email.com
+email: gone@test.com
+email: ivan@x.com
+email: late@test.com
+email: me@email.com
+email: new1@test.com
+email: new2@test.com
+email: newalice@test.com
+email: newcomer@test.com
+email: new-pending@test.com
+email: nobody@nowhere.com
+email: nobody@test.com
+email: old-pending@test.com
+email: other@test.com
+email: p@x.com
+email: racer@test.com
+email: resetter@test.com
+email: test-2@test.com
+email: test@test.com
+email: t@t.com
+email: unclaimed@test.com
+email: v@x.com
+email: x@test.com
+# Registration tests check typo suggestions for common mail providers (kaylee@gmial.com and so on).
+path: ^test/cljc?/orcpub/registration_test\.cljc$
+
+# Public addresses the project publishes (the commit identity is printed in CONTRIBUTING.md).
+email: github@codeglaze.com
+email-domain: dungeonmastersvault.com
+email-domain: orcpub.com
+email: hello@fusspot.rip
+email: github-actions@github.com
+email: noreply@anthropic.com
+
+# A public host used as a fixed outside address in the image-fetch tests (example.com's).
+ip: 93.184.216.34
+# Edges of the carrier-grade NAT and Cloudflare ranges in the address-range tests.
+ip: 100.64.0.1
+ip: 100.127.255.254
+ip: 100.128.0.1
+ip: 104.16.0.10
+ip: 104.24.0.1
+ip: 120.0.0.0
+ip: 172.32.0.1
+# An example release tag in docker.yaml's trigger comment.
+ip: 2.3.4.4
+# Release numbers in issue notes (the project's versions look like addresses).
+ip: 2.5.0.26
+ip: 2.5.0.27
+ip: 2.5.0.29
+# A version number in the PDF notes.
+ip: 12.7.3.1
+# The example release tag in image names (dmv/app:2.6.0.0) in .env.example and the Docker docs.
+ip: 2.6.0.0
+# SVG path data in the icon design workbench.
+path: ^scripts/design/icon-workbench/.*\.html$

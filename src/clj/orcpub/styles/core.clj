@@ -2345,7 +2345,13 @@
 
     ;; Kits on the Equipment step (plan-inventory-kits.md). Colours follow the text colour, so
     ;; every theme draws them without its own rule.
+    ;; The kits as a grid of framed cards: one column on a phone, more as the column widens. An
+    ;; open kit (.kit-open) spans the row; Add a kit is the dashed card at the end.
+    [:.kit-grid {:display :grid :grid-template-columns "repeat(auto-fill, minmax(300px, 1fr))" :gap "8px"}
+     [:.kit-open {:grid-column "1 / -1"}]]
     [:.kit-row {:display :flex :align-items :center :gap "10px" :min-height "48px" :padding "4px 0"}]
+    [:.kit-card {:border "1px solid color-mix(in srgb, currentColor 18%, transparent)"
+                 :border-radius "8px" :padding "6px 10px" :min-width 0}]
     [:.kit-tile
      {:flex "0 0 48px" :width "48px" :height "48px" :border-radius "8px"
       :display :flex :align-items :center :justify-content :center
@@ -2353,7 +2359,7 @@
       :background-color "color-mix(in srgb, currentColor 6%, transparent)"}]
     ;; The Add a kit row (views/inventory.cljs `kits-block`): an empty kit tile with a +, in the
     ;; text colour and unfilled, so it sits under the kits; .on (the search is on Packs) turns it amber.
-    [:.kit-add {:background :none :border :none :font :inherit :font-size "14px" :color :inherit
+    [:.kit-add {:background :none :border-style :dashed :font :inherit :font-size "14px" :color :inherit
                 :cursor :pointer :text-align :left}
      [:.kit-tile {:background-color :transparent :font-size "16px"}]
      [:&:hover [:.kit-tile {:background-color "color-mix(in srgb, currentColor 8%, transparent)"}]]
@@ -2989,6 +2995,7 @@
      [:.orange
       {:color "rgba(0,0,0,0.8)"}]
 
+     [:.site-footer [:.legal-footer {:border-top-color "rgba(0,0,0,0.15)"}]]
      ;; The footer's support links read as its other links do in this theme.
      [:.support-pills-compact
       [:.support-pill {:color "rgba(0,0,0,0.8)"}
@@ -3672,7 +3679,7 @@
      [:&:hover {:color :white}]
      [:img {:width "18px" :height "18px" :border-radius "3px"}]]
 
-    ;; Support pills (views-2/support-pills): the home tiles' raised surface, amber text, one icon.
+    ;; Support pills (views-shared/support-pills): the home tiles' raised surface, amber text, one icon.
     [:.support-pills
      {:display :flex :flex-wrap :wrap :justify-content :center :gap "10px" :margin "22px auto 8px"}]
     [:.support-pill
@@ -3692,9 +3699,27 @@
      [:i {:position :absolute :left 0 :top 0 :bottom 0 :width "40px" :display :flex
           :align-items :center :justify-content :center :background-color orange :color button-ink}]
      [:&:hover {:box-shadow "0 0 14px 2px rgba(240,161,0,0.7)"}]]
-    ;; The site footer's columns: spaced by the row's gap, so a wrapped one keeps the left edge.
-    ;; The pills sit on the left edge of the text links under them.
-    [:.site-footer-row {:column-gap "20px" :row-gap "10px"}]
+    ;; Site footer (views/footer.cljs): labelled rows of links; on wide screens one row spread edge to edge, then a muted band.
+    [:.site-footer {:padding "10px"}]
+    [:.site-footer-groups {:display :flex :flex-direction :column :gap "4px"}]
+    [:.site-footer-group
+     {:display :flex :flex-wrap :wrap :align-items :center :column-gap "14px" :row-gap "2px"}
+     [:a {:font-size "13px" :padding "4px 0" :margin 0 :text-decoration :underline}]
+     [:.support-pill {:font-size "13px" :padding "4px 0"}]
+     ;; The support links wrap one by one beside their label, not as one block under it.
+     [:.support-pills {:display :contents}]]
+    [:.site-footer-label
+     {:width "72px" :flex :none :font-size "11px" :font-weight 600 :text-transform :uppercase
+      :letter-spacing "0.06em" :opacity 0.6}]
+    [:.site-footer
+     [:.legal-footer
+      {:margin-top "18px" :padding-top "12px" :border-top "1px solid rgba(255,255,255,0.15)"
+       :font-size "11px" :opacity 0.75}
+      [:p {:margin "0 0 6px"}]]]
+    (at-media {:min-width "1100px"}
+     [:.site-footer-groups {:flex-direction :row :flex-wrap :wrap :column-gap "40px"
+                            :justify-content :space-between}]
+     [:.site-footer-label {:width :auto}])
     ;; Compact pills (the site footer): plain icon-and-word links, one text line tall.
     [:.support-pills.support-pills-compact
      {:justify-content :flex-start :gap "12px" :margin "0"}
@@ -3705,7 +3730,7 @@
       [:img {:width "14px" :height "14px" :border-radius "2px"}]]]
     ;; Stacked, every icon sits in one left column and the labels share a left edge.
     (at-media {:max-width "480px"}
-     [:.support-pills {:flex-direction :column :align-items :stretch :max-width "280px"}]
+     [".support-pills:not(.support-pills-compact)" {:flex-direction :column :align-items :stretch :max-width "280px"}]
      [".support-pills:not(.support-pills-compact) .support-pill"
       {:position :relative :justify-content :flex-start :padding-left "54px"}
       [:i :img {:position :absolute :left "11px" :top "50%" :transform "translateY(-50%)"}]]

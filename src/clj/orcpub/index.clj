@@ -4,7 +4,7 @@
             [cheshire.core :as cheshire]
             [orcpub.oauth :as oauth]
             [orcpub.fork.branding :as branding]
-            [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views-shared :as views-shared]
             [orcpub.favicon :as fi]
             [orcpub.fork.integrations :as integrations]
             [orcpub.loading-spinner :as spinner]
@@ -298,7 +298,7 @@ html {
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
-       (views-2/splash-page)
+       (views-shared/splash-page)
        ;; raw: the spinner's own markup; its kind is one of three keywords (spinner/pick)
        (h/raw (spinner/markup (or spinner-kind (spinner/pick nil)))))]
     ;; Homebrew rescue, a dead-man's switch: present by default, removed by the app once it has

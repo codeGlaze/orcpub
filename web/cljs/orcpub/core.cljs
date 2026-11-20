@@ -8,7 +8,7 @@
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views.auth :as auth-views]
-            [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views-shared :as views-shared]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
             [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.dnd.e5.views.artist-page :as artist-page]
@@ -80,8 +80,8 @@
 (user-agent/watch-narrow-screen! #(dispatch [:set-narrow-screen %]))
 
 (def pages
-  {nil views-2/splash-page
-   routes/default-route views-2/splash-page
+  {nil views-shared/splash-page
+   routes/default-route views-shared/splash-page
    routes/dnd-e5-orcacle-page-route views/orcacle-page
    routes/dnd-e5-char-builder-route ch/character-builder
    routes/dnd-e5-newb-char-builder-route views/newb-character-builder-page

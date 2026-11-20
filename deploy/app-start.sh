@@ -9,6 +9,14 @@
 # recursively, never /var/log itself) and makes them private, then points /var/lib/orcpub/state at
 # it. Without that mount the state stays in the container's /var/lib/orcpub/state.
 set -e
+# Security stopgap for CVE-2026-114938 (Java2Shell): on unless JAVA2SHELL_STOPGAP is false or off
+# (docs/ENVIRONMENT.md). Any other value keeps it on.
+case "$(printf '%s' "${JAVA2SHELL_STOPGAP:-true}" | tr '[:upper:]' '[:lower:]')" in
+  false|off) echo "app-start: JAVA2SHELL_STOPGAP is off" >&2 ;;
+  true|on) export JDK_JAVA_OPTIONS="-XX:-UseBASE64Intrinsics${JDK_JAVA_OPTIONS:+ $JDK_JAVA_OPTIONS}" ;;
+  *) echo "app-start: JAVA2SHELL_STOPGAP='$JAVA2SHELL_STOPGAP' is not true or false; keeping it on" >&2
+     export JDK_JAVA_OPTIONS="-XX:-UseBASE64Intrinsics${JDK_JAVA_OPTIONS:+ $JDK_JAVA_OPTIONS}" ;;
+esac
 STATE=/var/lib/orcpub/state
 if [ "$(id -u)" = "0" ]; then
   if [ -d /host-log ]; then

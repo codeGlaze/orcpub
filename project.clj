@@ -20,13 +20,73 @@
                  ]
   :mirrors {"apache" {:url "https://repository.apache.org/snapshots/"}}
 
+  ;; Security pins: versions of libraries other dependencies bring in, raised past known flaws
+  ;; (docs/kb/dependency-alerts.md on agents/develop). They apply wherever the library appears.
+  :managed-dependencies [;; buddy-hashers' Bouncy Castle
+                         [org.bouncycastle/bcprov-jdk18on "1.87"]
+                         [org.bouncycastle/bcpkix-jdk18on "1.87"]
+                         [org.bouncycastle/bcutil-jdk18on "1.87"]
+                         ;; postal's mail library (account email)
+                         [com.sun.mail/jakarta.mail "1.6.8"]
+                         ;; Pedestal's and figwheel's Jetty, every module at one version. 11.0.26 is the
+                         ;; newest Jetty 11 on Maven Central; Jetty 12 is blocked (Pedestal note below).
+                         [org.eclipse.jetty/jetty-alpn-client "11.0.26"]
+                         [org.eclipse.jetty/jetty-alpn-server "11.0.26"]
+                         [org.eclipse.jetty/jetty-annotations "11.0.26"]
+                         [org.eclipse.jetty/jetty-client "11.0.26"]
+                         [org.eclipse.jetty/jetty-http "11.0.26"]
+                         [org.eclipse.jetty/jetty-io "11.0.26"]
+                         [org.eclipse.jetty/jetty-jndi "11.0.26"]
+                         [org.eclipse.jetty/jetty-plus "11.0.26"]
+                         [org.eclipse.jetty/jetty-security "11.0.26"]
+                         [org.eclipse.jetty/jetty-server "11.0.26"]
+                         [org.eclipse.jetty/jetty-servlet "11.0.26"]
+                         [org.eclipse.jetty/jetty-unixdomain-server "11.0.26"]
+                         [org.eclipse.jetty/jetty-util "11.0.26"]
+                         [org.eclipse.jetty/jetty-webapp "11.0.26"]
+                         [org.eclipse.jetty/jetty-xml "11.0.26"]
+                         [org.eclipse.jetty.http2/http2-common "11.0.26"]
+                         [org.eclipse.jetty.http2/http2-hpack "11.0.26"]
+                         [org.eclipse.jetty.http2/http2-server "11.0.26"]
+                         [org.eclipse.jetty.websocket/websocket-core-client "11.0.26"]
+                         [org.eclipse.jetty.websocket/websocket-core-common "11.0.26"]
+                         [org.eclipse.jetty.websocket/websocket-core-server "11.0.26"]
+                         [org.eclipse.jetty.websocket/websocket-jakarta-client "11.0.26"]
+                         [org.eclipse.jetty.websocket/websocket-jakarta-common "11.0.26"]
+                         [org.eclipse.jetty.websocket/websocket-jakarta-server "11.0.26"]
+                         [org.eclipse.jetty.websocket/websocket-jetty-api "11.0.26"]
+                         [org.eclipse.jetty.websocket/websocket-jetty-common "11.0.26"]
+                         [org.eclipse.jetty.websocket/websocket-jetty-server "11.0.26"]
+                         [org.eclipse.jetty.websocket/websocket-servlet "11.0.26"]
+                         ;; Datomic peer's Netty (through ActiveMQ Artemis), every module at one version
+                         [io.netty/netty-buffer "4.1.141.Final"]
+                         [io.netty/netty-codec "4.1.141.Final"]
+                         [io.netty/netty-codec-http "4.1.141.Final"]
+                         [io.netty/netty-codec-socks "4.1.141.Final"]
+                         [io.netty/netty-common "4.1.141.Final"]
+                         [io.netty/netty-handler "4.1.141.Final"]
+                         [io.netty/netty-handler-proxy "4.1.141.Final"]
+                         [io.netty/netty-resolver "4.1.141.Final"]
+                         [io.netty/netty-transport "4.1.141.Final"]
+                         [io.netty/netty-transport-classes-epoll "4.1.141.Final"]
+                         [io.netty/netty-transport-classes-kqueue "4.1.141.Final"]
+                         [io.netty/netty-transport-native-unix-common "4.1.141.Final"]
+                         [io.netty/netty-transport-native-epoll "4.1.141.Final" :classifier "linux-x86_64"]
+                         [io.netty/netty-transport-native-kqueue "4.1.141.Final" :classifier "osx-x86_64"]
+                         ;; Pedestal's upload parser (the app takes no uploads) and garden's file utilities
+                         [org.apache.commons/commons-fileupload2-core "2.0.0-M4"]
+                         [org.codehaus.plexus/plexus-utils "4.0.3"]
+                         ;; Pedestal's tracing API
+                         [io.opentelemetry/opentelemetry-api "1.68.0"]
+                         [io.opentelemetry/opentelemetry-context "1.68.0"]]
+
   :dependencies [[org.clojure/clojure "1.12.4"]
                  [org.clojure/test.check "1.1.1"]
                  [org.clojure/clojurescript "1.12.134"]
                  [org.clojure/core.async "1.8.741"] 
-                 [org.postgresql/postgresql "42.7.3"]
+                 [org.postgresql/postgresql "42.7.14"]
                  ;; Redis client, used only when REDIS_URL is set (orcpub.security.redis-store).
-                 [com.taoensso/carmine "3.4.1"]
+                 [com.taoensso/carmine "3.7.0"]
                  ;; React 18 + Reagent 2.0 (Concurrent Mode)
                  [cljsjs/react "18.3.1-1"]
                  [cljsjs/react-dom "18.3.1-1"]
@@ -51,18 +111,18 @@
                  [io.pedestal/pedestal.jetty "0.7.0"]
                  [io.pedestal/pedestal.error "0.7.0"]
                  [org.clojure/data.json "2.5.0"]
-                 [org.slf4j/slf4j-simple "1.7.21"]
+                 [org.slf4j/slf4j-simple "2.0.17"]
                  [buddy/buddy-auth "3.0.323"]
                  [buddy/buddy-hashers "2.0.167"]
                  [reloaded.repl "0.2.3"]
                  [bidi "2.1.6"]
 
                  [com.stuartsierra/component "1.2.0"]
-                 [com.google.guava/guava "32.1.2-jre"]
+                 [com.google.guava/guava "33.8.0-jre"]
 
-                 [com.fasterxml.jackson.core/jackson-databind "2.15.2"]
-                 [com.fasterxml.jackson.core/jackson-core "2.15.2"]
-                 [com.fasterxml.jackson.core/jackson-annotations "2.15.2"]
+                 [com.fasterxml.jackson.core/jackson-databind "2.18.12"]
+                 [com.fasterxml.jackson.core/jackson-core "2.18.12"]
+                 [com.fasterxml.jackson.core/jackson-annotations "2.18.12"]
 
                  ;; Required for Pedestal 0.7.x ring-middlewares
                  [commons-io/commons-io "2.15.1"]
@@ -71,7 +131,6 @@
                  [com.draines/postal "2.0.5"]
                  [environ "1.2.0"]
 
-                 [pdfkit-clj "0.1.7"]
                  ;; datomock fork with Datomic Pro 1.0.6527+ compatibility (new transact signature)
                  ;; Original vvvvalvalval/datomock 0.2.0 causes AbstractMethodError with Datomic Pro
                  [org.clojars.favila/datomock "0.2.2-favila1"]
@@ -86,7 +145,7 @@
                  ;; TRANSACTOR BINARY that scripts/common.sh:257 and start.sh run --
                  ;; not for this jar.
                  ;; Latest version: https://docs.datomic.com/releases-pro.html
-                 [com.datomic/peer "1.0.7482" :exclusions [org.slf4j/slf4j-nop]]
+                 [com.datomic/peer "1.0.7745" :exclusions [org.slf4j/slf4j-nop]]
                  ;; cuerdas 026.415: Latest release on Clojars... does not match GH release versioning.
                  [funcool/cuerdas "2026.415"]
                  [camel-snake-kebab "0.4.0"]
