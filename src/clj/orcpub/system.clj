@@ -89,6 +89,12 @@
   [service-map]
   (update service-map ::http/interceptors #(into [pedestal/referrer-policy-interceptor] %)))
 
+(defn with-head-as-get
+  "The service map with pedestal/head-as-get-interceptor first in its chain, so HEAD is read as GET
+   before routing and static files, and its body is dropped after every other interceptor's :leave."
+  [service-map]
+  (update service-map ::http/interceptors #(into [pedestal/head-as-get-interceptor] %)))
+
 (def prod-service-map
   {::http/routes routes/routes
    ::http/type :jetty
@@ -159,6 +165,7 @@
       true with-portrait-guard
       true with-client-address
       true with-referrer-policy
+      true with-head-as-get
       (= :dev env) http/dev-interceptors)
 
     ;; :token-withdrawals is listed only so Component starts it first; Pedestal

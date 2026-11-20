@@ -93,6 +93,22 @@
                ctx
                (assoc-in ctx [:response :headers "Referrer-Policy"] "strict-origin-when-cross-origin")))}))
 
+(def head-as-get-interceptor
+  "Answers a HEAD request as the GET of the same path, without the body: on enter it routes the
+   request as a GET, on leave it empties the response body and keeps every header. A string body
+   becomes \"\" rather than nil, so Pedestal still infers its Content-Type. Routes declare only GET,
+   so without it HEAD finds no route and answers 404."
+  (interceptor/interceptor
+   {:name :head-as-get
+    :enter (fn [ctx]
+             (if (= :head (get-in ctx [:request :request-method]))
+               (-> ctx (assoc-in [:request :request-method] :get) (assoc ::head? true))
+               ctx))
+    :leave (fn [ctx]
+             (if (::head? ctx)
+               (update-in ctx [:response :body] #(when (string? %) ""))
+               ctx))}))
+
 (defn- read-content-stamp
   "The first 12 hex digits of the SHA-1 of the public resource at `path`, or nil when it is missing."
   [path]
