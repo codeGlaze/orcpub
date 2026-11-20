@@ -254,7 +254,7 @@
              :piton 10
              :lantern-hooded 1
              :oil 2
-             :rations-1-day- 5
+             :rations-1-day 5
              :tinderbox 1
              :waterskin 1
              :rope-hempen 1}}
@@ -277,7 +277,7 @@
              :piton 10
              :torch 10
              :tinderbox 1
-             :rations-1-day- 10
+             :rations-1-day 10
              :waterskin 1
              :rope-hempen 1}}
     {:name "Entertainer's Pack" :cost {:num 40 :type :gp}
@@ -285,7 +285,7 @@
              :bedroll 1
              :costume 2
              :candle 5
-             :rations-1-day- 5
+             :rations-1-day 5
              :waterskin 1
              :disguise-kit 1}}
     {:name "Explorer's Pack" :cost {:num 10 :type :gp}
@@ -294,7 +294,7 @@
              :mess-kit 1
              :tinderbox 1
              :torch 10
-             :rations-1-day- 10
+             :rations-1-day 10
              :waterskin 1
              :rope-hempen 1}}
     {:name "Priest's Pack" :cost {:num 19 :type :gp}
@@ -306,7 +306,7 @@
              :incense 2
              :censer 1
              :vestements 1
-             :rations-1-day- 2
+             :rations-1-day 2
              :waterskin 1}}
     {:name "Scholar's Pack" :cost {:num 40 :type :gp}
      :items {:backpack 1
@@ -334,6 +334,15 @@
    packs
    tools
    adventuring-gear))
+
+(def groups
+  "The grouped equipment a choice can stand for, as group key -> {:name :items}: the un-shadowed
+   member lists (`equipment-map` shadows these keys with plain items via its zipmap merge)."
+  {:holy-symbol        {:name "Holy Symbol"        :items holy-symbols}
+   :arcane-focus       {:name "Arcane Focus"       :items arcane-focuses}
+   :druidic-focus      {:name "Druidic Focus"      :items druidic-focuses}
+   :musical-instrument {:name "Musical Instrument" :items musical-instruments}
+   :pack               {:name "Equipment Pack"     :items packs}})
 
 (def equipment-map
   (merge

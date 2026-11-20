@@ -60,15 +60,11 @@ jobs:
           distribution: temurin
           java-version: '21'
 
-      # Pinned to the version continuous-integration.yml uses. `stable` is a
-      # moving ref, so an upstream release could change or break this check.
+      # Pinned to the version continuous-integration.yml uses.
       - name: Install Leiningen
-        run: |
-          curl -fsSL -o "$HOME/lein" \
-            https://raw.githubusercontent.com/technomancy/leiningen/2.11.2/bin/lein
-          chmod +x "$HOME/lein"
-          echo "$HOME" >> "$GITHUB_PATH"
-          "$HOME/lein" version
+        uses: ./.github/actions/install-lein
+        with:
+          lein-version: '2.11.2'
 
       - name: lein test
         env:

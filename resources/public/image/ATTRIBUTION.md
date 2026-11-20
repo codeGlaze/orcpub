@@ -111,6 +111,24 @@ Lorc, Delapouite and Skoll, all under the same licence. Anyone adding an icon
 should record its author in the table above; the author is named on the icon's
 page on the site.
 
+The bags and badges for the kit tile icons (`kits/`, built by `scripts/build-kit-icons.py`
+from the picks in `resources/kit-icons.edn`):
+
+| Icon | Author |
+|---|---|
+| `backpack` | Delapouite |
+| `compass` | Lorc |
+| `read` | Skoll |
+| `snatch` | Lorc |
+| `knapsack` | Lorc |
+| `swap-bag` | Lorc |
+| `briefcase` | Delapouite |
+| `chest` | Delapouite |
+| `disc-golf-bag` | Delapouite |
+| `hand-bag` | Delapouite |
+| `light-backpack` | Delapouite |
+| `torch` | Delapouite |
+
 ## Which files the PDF export reads
 
 The card icons are read as **`.svg`** and filled as vector paths, so they print at

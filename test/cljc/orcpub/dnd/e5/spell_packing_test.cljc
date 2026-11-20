@@ -154,6 +154,18 @@
     (is (= #{"Sorcerer" "Warlock"} (:classes cha))
         "a pact caster shares a section with another class of the same ability")))
 
+(deftest a-class-whose-dc-differs-gets-its-own-section
+  (let [known {0 {:eldritch-blast {:key :eldritch-blast :ability :cha :class "Warlock"}
+                  :fire-bolt      {:key :fire-bolt :ability :cha :class "Sorcerer"}}}
+        rod (fn [_ cls] (if (= "Warlock" cls) 15 13))
+        pages (spec/make-pages known false nil nil {} 1 rod)]
+    (is (= #{#{"Sorcerer"} #{"Warlock"}} (set (map :classes pages)))
+        "Rod of the Pact Keeper: the Warlock's DC differs, so its spells head their own section")
+    (is (= [[:fire-bolt] [:eldritch-blast]]
+           (map #(map :key (:spells (first (:spells %)))) (sort-by (comp first :classes) pages))))
+    (is (= 1 (count (spec/make-pages known false nil nil {} 1 (constantly 13))))
+        "sources that share a DC still share a section")))
+
 (defn- parse-int
   "Integer/parseInt is JVM-only, and this file runs in both."
   [x]

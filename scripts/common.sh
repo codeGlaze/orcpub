@@ -263,7 +263,7 @@ confirm_dev_mode() {
 }
 
 # Defaults (used if not set in .env)
-DATOMIC_VERSION="${DATOMIC_VERSION:-1.0.7482}"
+DATOMIC_VERSION="${DATOMIC_VERSION:-1.0.7745}"
 DATOMIC_TYPE="${DATOMIC_TYPE:-pro}"
 JAVA_MIN_VERSION="${JAVA_MIN_VERSION:-11}"
 LOG_DIR="${LOG_DIR:-$REPO_ROOT/logs}"

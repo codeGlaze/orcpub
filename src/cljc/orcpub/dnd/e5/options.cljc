@@ -674,7 +674,11 @@
       (= :phb source)
       (get option-sources source)))
 
-(defn spell-option [spells-map spellcasting-ability class-name key & [prepend-level? qualifier]]
+(defn spell-option
+  "The option to learn spell `key` from `spells-map`, cast with `spellcasting-ability` under source
+   name `class-name`. Optional: `prepend-level?` (\"3 - Fireball\"), `qualifier` (display text),
+   `casting` (free casts and slot use, `mod5e/spell-data`). Returns an option-cfg."
+  [spells-map spellcasting-ability class-name key & [prepend-level? qualifier casting]]
   (let [{:keys [name level source edit-event] :as spell} (spells-map key)
         ;; When a spell list references a spell whose definition isn't loaded
         ;; (imported homebrew that lists a spell but never defines it, or whose
@@ -697,15 +701,17 @@
       ;; with views-aux/realize-help when the peek opens; :help elsewhere is still a plain
       ;; string or hiccup. See reagent-architecture-tenets.md #1.
       :help #(spell-help spell)
+      ;; Known spells are keyed [source spell]: the same spell from another source (a Tiefling's
+      ;; racial Darkness, then the Warlock's own) is a separate grant, cast its own way.
       :prereqs [(t/option-prereq
                  "You already know this spell"
                  (fn [c] (let [spells-known (character/spells-known c)]
                            (or (not spells-known)
                                (not-any?
-                                (fn [[[_ kw]]]
-                                  (= key kw))
+                                (fn [[[src kw]]]
+                                  (and (= key kw) (= class-name src)))
                                 (get spells-known level))))))]
-      :modifiers [(modifiers/spells-known level key spellcasting-ability class-name nil qualifier)]})))
+      :modifiers [(modifiers/spells-known level key spellcasting-ability class-name nil qualifier nil casting)]})))
 
 
 (def memoized-spell-option (memoize spell-option))
@@ -732,9 +738,12 @@
                     " — shown by a key-derived name; define each via its edit link.")))
      nil)))
 
-(defn spell-options [spells-map spells spellcasting-ability class-name & [prepend-level? qualifier]]
+(defn spell-options
+  "One `spell-option` per key in `spells`, sorted, sharing the ability, source name and optional
+   `prepend-level?`, `qualifier` and `casting`. Returns a seq of option-cfgs."
+  [spells-map spells spellcasting-ability class-name & [prepend-level? qualifier casting]]
   (map
-   #(memoized-spell-option spells-map spellcasting-ability class-name % prepend-level? qualifier)
+   #(memoized-spell-option spells-map spellcasting-ability class-name % prepend-level? qualifier casting)
    (sort spells)))
 
 (defn spell-level-title
@@ -2736,12 +2745,11 @@
                        :prereq-fn (first-class? class-kw)})]})
       (t/option-cfg
        {:name (-> equipment :name (str (if (> num 1) (str " (" num ")") "")))
-        :modifiers (if (:items equipment)
-                     (map
-                      (fn [[kw num]]
-                        (modifiers/equipment kw num))
-                      (:items equipment))
-                     [(modifiers/equipment k num)])}))))
+        ;; One pack adds nothing here: choosing it makes a kit of real picks (inventory.cljc).
+        ;; Several (homebrew only) give their items, since the option's key is not a pack's.
+        :modifiers (cond
+                     (not (:items equipment)) [(modifiers/equipment k num)]
+                     (> num 1) (map (fn [[kw n]] (modifiers/equipment kw (* n num))) (:items equipment)))}))))
 
 (defn class-equipment-options [equipment-choices class-kw]
   (class-options class-kw (partial equipment-option class-kw) equipment-choices "Select equipment to start your adventuring career with."))
@@ -2760,14 +2768,6 @@
     :equipment (modifiers/equipment key qty)
     nil))
 
-;; The grouped-equipment sub-choices, pointing at the un-shadowed member lists
-;; (equipment-map shadows these grouped keys with plain items via its zipmap merge).
-(def ^:private equipment-group-choosers
-  {:holy-symbol        {:name "Holy Symbol"        :items equipment/holy-symbols}
-   :arcane-focus       {:name "Arcane Focus"       :items equipment/arcane-focuses}
-   :druidic-focus      {:name "Druidic Focus"      :items equipment/druidic-focuses}
-   :musical-instrument {:name "Musical Instrument" :items equipment/musical-instruments}
-   :pack               {:name "Equipment Pack"     :items equipment/packs}})
 
 ;; One sub-choice ({:from ...}) -> a nested "pick one" selection. :from is either a
 ;; weapon class (:simple/:martial/:any-weapon) or a grouped-equipment key
@@ -2792,8 +2792,8 @@
     ;; equipment-option EXACTLY: named for the group, no "Starting Equipment: " prefix, no
     ;; "<none>" opt-out, so an SRD-filled class reproduces the SRD's nested selection. The
     ;; name also feeds the selection's minted key, which must stay stable.
-    (equipment-group-choosers from)
-    (let [chooser (equipment-group-choosers from)]
+    (equipment/groups from)
+    (let [chooser (equipment/groups from)]
       (t/selection-cfg
        {:name (or name (:name chooser))
         :tags #{:equipment :starting-equipment}

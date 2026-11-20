@@ -106,6 +106,26 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
   their example portraits, their links and how many pieces they drew.
 - **Accounts:** an optional Cloudflare Turnstile check on sign-up, password reset and resend verification, and on sign-in after a failed attempt. Off unless `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set; if Cloudflare can't be reached, requests go through.
 - **Accounts:** when the security check can't load, the form says so and suggests allowing challenges.cloudflare.com in an ad blocker.
+- **Homebrew:** an "export as markdown" button in My Content writes homebrew classes and subclasses as printable 5e-style text, with a level table and their features.
+- **Reference:** each row on the Spells and Monsters lists shows its source's short tag (the one set in My Content), so same-named spells from different packs can be told apart; built-in entries read "SRD".
+- **Portraits:** a character can use an image from the web as well as a built portrait; both are
+  kept, and the character picture editor switches which one shows on the sheet, the PDF and shares.
+- **Printing:** PDF Options lets players choose what the file name shows (player, character, class,
+  subclass, level), where the level goes and how it is written (5, 05, L5); kept on the account.
+- **Site:** What's New thanks the patrons who keep the server running, with their names when the
+  site lists them, and offers "Help support our: Server · Dev". The home page gains What's New,
+  Support the Server and Fuel the Dev buttons, and the site footer the last two. Each shows only
+  when the site sets it up.
+- **Site:** the startup report warns when a Patreon link is set but no patrons are listed.
+- **Inventory:** equipment packs become kits: the pack's items are ordinary rows, and the kit keeps count of what runs out (torches, rations) with Restock, Re-bundle and Undo; spent items come out of the top kit first.
+- **Inventory:** two of the same pack make one kit with a count (Explorer's Pack ×2), with Remove one pack.
+- **Character sheet:** kits on the Equipment tab, and a Manage inventory switch that adds items, changes quantities and coins on the sheet, and turns itself off when done (#229).
+- **Character sheet:** a backpack Worn | Off switch; set down, the backpack's contents show as not carried, still counted.
+- **Builder:** Add a kit opens the item search on the packs; the search box can open on any preset list.
+- **Builder:** a Developer mode switch hides the empty "select any number / complete" pick counts.
+- **Character sheet:** the inventory list's search has a Packs filter that shows only what your kits hold.
+- **Builder:** each equipment pack has its own drawn icon, and the kits sit in a grid of framed cards, two or more across on wide screens.
+- **Server:** database backups from the command line: `./run --backup` while the site runs (each run adds only what changed), `./run --restore <folder>` and `./run --verify-backup <folder>`, and `./run --backup --offline` as a full-copy fallback. Live backups and restores work on the built-in storage and on Postgres (the offline copy on the built-in storage only); they keep one folder per month (the newest 3, older ones deleted only after a new backup verifies), and check for disk space first.
 
 ### Changed
 - **Server:** a deployed server will not start without a mail server unless `EMAIL_REQUIRED=false` says that is intended, and the message names the setting to add. Development mode is exempt; `./run` and `./run --upgrade` set the opt-out for installs that run without email, so none stops on upgrade. (#716)
@@ -138,8 +158,20 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Accounts:** warnings about sign-in attempts on your account now follow up while attempts continue (at most every 6 hours, with a count), instead of once a day.
 - **Server:** links in account emails use `APP_URL` when it is set (set it in production; the startup report warns when it is not).
 - **Server:** an optional `REDIS_URL` shares the sign-in and email limits across app containers; without it each container keeps its own.
+- **Portraits:** Randomize rolls everything (colours, eyes, hair effects, light) within sane ranges,
+  with Keep colours to hold the colours.
+- **Printing:** PDF Options opens as a full-window panel with grouped options and Create PDF at the
+  bottom right, on desktop and phone, and Create PDF opens a tab that says the PDF is being made.
+- **Printing:** spell cards have a new design: the name with ATK and DC, concentration and
+  ritual marked as ribbons, level and school on one line with any uses to tick, the casting facts
+  labelled, and more of the spell's text on the front.
+- **Site:** the home page's What's New pill stands out from the support links, and stacked on a phone the three pills line up on one icon column.
+- **Site:** the site footer groups its links into labelled Help, Support and Legal rows (one line across wide screens), with the copyright, SRD notice, credits and version in a quieter band below.
+- **Docs:** the setup and operation guides read as step-by-step instructions, list every server setting, and cover backups and email troubleshooting.
 
 ### Fixed
+- **Server:** `DATOMIC_PASSWORD` now reaches a Postgres database address that already carries settings (`?user=...`); it was added with a second `?` and lost.
+- **Server:** `./run --check` run without a terminal (CI, cron) only reports; it no longer starts setup or `--upgrade` by default.
 
 - **Homebrew:** New in a homebrew builder keeps the Option Source the box shows, so saving no longer asks for a source that looks filled in.
 - **Server:** the setup scripts read `.env` the way Docker does, so a value with an apostrophe or spaces (`APP_NAME=Dungeon Master's Vault`) no longer breaks `./run`, `docker-user.sh` or the start scripts.
@@ -234,6 +266,37 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Homebrew:** a homebrew subclass, invocation or boon that breaks a built-in class costs only
   itself: it is set aside, named, and the class is still in the builder. Before, every built-in class
   disappeared from the builder. A subrace that breaks is set aside on its own, not with its race.
+- **Homebrew:** exporting a class no longer drops the armor, weapon and tool proficiencies it gives even when multiclassing in.
+- **Characters:** the loading spinner no longer stays up after a failed Random character; moving to another page always clears it.
+- **Reference:** spells and monsters that share a name (common across homebrew packs) each show as their own row; clearing a search no longer leaves duplicate rows, and opening one no longer opens the others.
+- **Reference:** the Spells, Monsters and Items lists come back at once when a search is cleared, even with large homebrew libraries.
+- **Items:** built-in items no longer show Edit and Delete to visitors who are not logged in.
+- **Homebrew:** opening an entry to edit no longer risks a section of its builder showing twice or
+  going missing.
+- **Printing:** the bottom of PDF Options, Create PDF included, can be scrolled into view; it
+  was cut off under the pinned page header unless the page was scrolled to its very end.
+- **Printing:** a character with no name gets one when exported, as saving gives one, so the sheet
+  and its file are named; the file is never just "character.pdf" for a character with a class.
+- **Printing:** a PDF's file name keeps names with accents, curly apostrophes or non-Latin
+  letters, drops emoji and characters Windows cannot save, and a player name without a character name no longer leaves an empty " -  - " slot.
+- **Printing:** a spellcaster's PDF no longer opens with a "did not fit" page naming a cantrip slots
+  box; cantrips have no slots, from a class, race or feat alike.
+- **Printing:** a race's spell page (a Tiefling's Hellish Rebuke and Darkness) no longer shows
+  the class's spell slots; each such spell says how it is cast, for example "2nd level,
+  once/long rest", as do a Warlock's at-will invocations and Mystic Arcanum.
+- **Printing:** a spell card whose source has a long name (Misty Step from Fey Teleportation)
+  no longer prints its DC and spell mod over the casting-time icons.
+- **Warlock:** Mire the Mind's Slow is cast once per long rest using a warlock spell slot, not at
+  will, and a Warlock's at-will and Mystic Arcanum spells stay at their own level on a packed PDF
+  spell sheet.
+- **Magic items:** the Rod of the Pact Keeper raises the spell save DC and spell attack of warlock
+  spells only, not a multiclass character's other spells or a race's; a spell page splits a source
+  whose DC then differs into its own section.
+- **Inventory:** the same gear from several sources adds up instead of one replacing the rest, such as a pack's rations plus rations picked by hand (#138).
+- **Inventory:** two of the same weapon or armor count as two (#340).
+- **Character sheet:** packs' rations show on the sheet.
+- **Character sheet:** magic armor is listed with the other magic items.
+- **Character sheet:** when the same character was saved from another tab or device first, the sheet's item-charge changes were lost on the retry; they are now kept, as hit points and notes were.
 
 ### Security
 
@@ -243,6 +306,9 @@ Homebrew can be moved, switched off and repaired instead of lost, and a characte
 - **Site:** pages no longer load fonts from Google, so visiting the site no longer sends your address to Google. (#721)
 - **Site:** other sites a page links to are told only this site's domain, never the page's address.
 - **Accounts:** account emails can no longer be triggered in bulk from one form that had no limit.
+- **Docker:** Java starts with a stopgap flag that blocks CVE-2026-114938 (Java2Shell) on the app and Datomic containers, until the images run a patched Java 21 (`JAVA2SHELL_STOPGAP`, true or false).
+- **Server:** security updates to the web server (Jetty), the JSON parser (Jackson), the PostgreSQL driver, password hashing (Bouncy Castle), the email library and Guava, and Datomic 1.0.7745 with its networking library; an unused PDF library removed.
+- **Server:** a Postgres `sslpassword` in the database address is hidden in startup logs like the database password.
 
 ## [breaking/2026-stack-modernization]
 

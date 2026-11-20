@@ -39,10 +39,13 @@ success() { printf '\n%s=== %s ===%s\n' "$color_green" "$*" "$color_reset"; }
 header()  { printf '\n%s=== %s ===%s\n\n' "$color_cyan" "$*" "$color_reset"; }
 next()    { printf '%s  ▸%s %s\n' "$color_cyan" "$color_reset" "$*"; }
 
-# Read a variable value from a .env file, stripping Windows \r line endings.
+# Prints a variable's value as a .env file sets it, decoded as Compose does (quotes removed,
+# $NAME expanded from the environment, nothing run; scripts/load-env.sh); empty when the file
+# does not set it. A reference to the variable itself (${NAME:-x}) sees the shell's value, as in Compose.
 # Usage: val=$(read_env_val "VAR_NAME" "/path/to/.env")
 read_env_val() {
-  grep -m1 "^${1}=" "$2" 2>/dev/null | cut -d= -f2- | tr -d '\r' || true
+  ( unset "$1"; load_env "$2"; [ -n "${!1+set}" ] ) 2>/dev/null || return 0
+  ( load_env "$2"; printf '%s' "${!1-}" ) 2>/dev/null || true
 }
 
 # Load a .env file: each NAME=value line is read, never run (scripts/load-env.sh).
@@ -217,6 +220,20 @@ read_passwords() {
     _pw_signature=$(read_env_val SIGNATURE "$ENV_FILE")
   fi
 
+  # .env wins over the shell here; say so when they disagree (docs/ENVIRONMENT.md).
+  local _var _file_val _shell_val
+  for _var in DATOMIC_PASSWORD ADMIN_PASSWORD SIGNATURE; do
+    case "$_var" in
+      DATOMIC_PASSWORD) _file_val="$_pw_datomic" ;;
+      ADMIN_PASSWORD)   _file_val="$_pw_admin" ;;
+      SIGNATURE)        _file_val="$_pw_signature" ;;
+    esac
+    _shell_val="${!_var-}"
+    if [ -n "$_file_val" ] && [ -n "$_shell_val" ] && [ "$_file_val" != "$_shell_val" ]; then
+      warn "${_var} in your shell differs from .env; using the .env value"
+    fi
+  done
+
   # Fill gaps from shell env vars (for admins who export directly)
   _pw_datomic="${_pw_datomic:-${DATOMIC_PASSWORD:-}}"
   _pw_admin="${_pw_admin:-${ADMIN_PASSWORD:-}}"
@@ -270,9 +287,7 @@ check_env_conflict() {
   file_val=$(read_env_val "$var_name" "$ENV_FILE")
 
   if [ -n "$env_val" ] && [ -n "$file_val" ] && [ "$env_val" != "$file_val" ]; then
-    warn "  Shell \$${var_name} differs from .env value"
-    warn "    Shell: ${env_val}"
-    warn "    .env:  ${file_val}"
+    warn "  Shell \$${var_name} differs from .env; Docker Compose uses the shell's value (values not shown)"
     ENV_CONFLICTS+=("$var_name")
     WARNING_MSGS+=("\$${var_name}: shell value overrides .env")
     ERRORS=$((ERRORS + 1))
@@ -590,6 +605,13 @@ Individual steps:
   --up                Deploy as a Docker Swarm stack
   --down              Teardown (auto-detects Swarm vs Compose)
 
+Database backups (Compose stack; docs/DOCKER.md, "Backups"):
+  --backup            Back up the running database (dev or Postgres storage) into ./backups/<YYYY-MM>; keeps 3 months
+  --backup --offline  Stop the stack, copy ./data to ./backups/offline-<date>, start the stack
+  --restore <folder>  Restore a backup folder (a live one, or an offline-<date> one) into an empty database
+  --verify-backup <folder>  Check that a backup folder can be restored
+  --backup-dir <dir>  Where backups go (default: BACKUP_DIR from .env, else ./backups)
+
 Setup & secrets:
   --secrets           Convert .env passwords to Docker secret files
   --swarm             Convert .env passwords to Docker Swarm secrets
@@ -609,6 +631,7 @@ Examples:
   ./${SCRIPT_NAME}                    # Full pipeline — interactive
   ./${SCRIPT_NAME} --auto             # Full pipeline — accept defaults (CI)
   ./${SCRIPT_NAME} --down             # Stop everything
+  ./${SCRIPT_NAME} --backup           # Back up the database while the app runs
   ./${SCRIPT_NAME} --check            # Validate without changes
   ./${SCRIPT_NAME} --build            # Build images only
   ./${SCRIPT_NAME} --upgrade          # Fix old .env format
@@ -630,9 +653,28 @@ FORCE_MODE=false
 SECRETS_MODE=false
 SWARM_MODE=false
 UPGRADE_MODE=false
+BACKUP_MODE=false
+OFFLINE_MODE=false
+RESTORE_FROM=""
+VERIFY_FROM=""
+BACKUP_DIR_ARG=""
 
-for arg in "$@"; do
+while [ $# -gt 0 ]; do
+  arg="$1"; shift
   case "$arg" in
+    --backup)  BACKUP_MODE=true ;;
+    --offline) OFFLINE_MODE=true ;;
+    --restore|--verify-backup|--backup-dir)
+      if [ $# -eq 0 ] || [ -z "$1" ] || [[ "$1" == --* ]]; then
+        error "$arg needs a folder, for example: ./${SCRIPT_NAME} $arg ./backups"
+        exit 1
+      fi
+      case "$arg" in
+        --restore)        RESTORE_FROM="$1" ;;
+        --verify-backup)  VERIFY_FROM="$1" ;;
+        --backup-dir)     BACKUP_DIR_ARG="$1" ;;
+      esac
+      shift ;;
     --auto)    AUTO_MODE=true ;;
     --check)   CHECK_MODE=true ;;
     --build)   BUILD_MODE=true ;;
@@ -666,8 +708,35 @@ if [ "$DOWN_MODE" = "true" ]; then
   done
 fi
 
+# Backup modes are standalone, and --offline only goes with --backup.
+_backup_flags=0
+[ "$BACKUP_MODE" = "true" ] && _backup_flags=$((_backup_flags + 1))
+[ -n "$RESTORE_FROM" ] && _backup_flags=$((_backup_flags + 1))
+[ -n "$VERIFY_FROM" ] && _backup_flags=$((_backup_flags + 1))
+if [ "$_backup_flags" -gt 1 ]; then
+  error "Use only one of --backup, --restore and --verify-backup."
+  exit 1
+fi
+if [ "$_backup_flags" -eq 1 ]; then
+  for _m in "$UP_MODE" "$BUILD_MODE" "$SECRETS_MODE" "$SWARM_MODE" "$UPGRADE_MODE" "$DOWN_MODE" "$CHECK_MODE"; do
+    if [ "$_m" = "true" ]; then
+      error "--backup, --restore and --verify-backup cannot be combined with other mode flags."
+      exit 1
+    fi
+  done
+fi
+if [ "$OFFLINE_MODE" = "true" ] && [ "$BACKUP_MODE" != "true" ]; then
+  error "--offline goes with --backup: ./${SCRIPT_NAME} --backup --offline"
+  exit 1
+fi
+if [ -n "$BACKUP_DIR_ARG" ] && [ "$_backup_flags" -eq 0 ]; then
+  error "--backup-dir goes with --backup."
+  exit 1
+fi
+
 # Detect naked mode (no mode flags set)
 _any_mode=false
+[ "$_backup_flags" -gt 0 ] && _any_mode=true
 for _m in "$CHECK_MODE" "$SECRETS_MODE" "$SWARM_MODE" "$BUILD_MODE" "$UP_MODE" "$UPGRADE_MODE" "$DOWN_MODE"; do
   [ "$_m" = "true" ] && _any_mode=true
 done
@@ -683,6 +752,8 @@ if [ "$CHECK_MODE" = "true" ]; then
 
   if [ ! -f "$ENV_FILE" ]; then
     warn "No .env file found."
+    # With no terminal (CI, cron) a check only reports: a default answer must not start setup.
+    if [ ! -t 0 ]; then error "Create one with ./run or ./run --auto."; exit 1; fi
     echo "  1) Interactive setup (prompts for each value)"
     echo "  2) Auto setup (generates random passwords, safe defaults)"
     echo "  3) Skip"
@@ -777,6 +848,7 @@ if [ "$CHECK_MODE" = "true" ]; then
     success "All checks passed"
   else
     warn "${ERRORS} issue(s) found."
+    if [ ! -t 0 ]; then info "Fix them with ./run --upgrade."; exit 1; fi
     read -rp "Run upgrade to fix? [Y/n]: " _fix || true
     if [[ "${_fix,,}" =~ ^(y|)$ ]]; then
       exec "$0" --upgrade
@@ -810,6 +882,54 @@ if [ "$DOWN_MODE" = "true" ]; then
     info "No running services found."
   fi
 
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Backup modes (--backup, --backup --offline, --restore, --verify-backup)
+# ---------------------------------------------------------------------------
+# The work is in scripts/backup-lib.sh, shared with docker-migrate.sh.
+
+if [ "$_backup_flags" -gt 0 ]; then
+  cd "$SCRIPT_DIR"
+  # shellcheck source=scripts/backup-lib.sh
+  . "${SCRIPT_DIR}/scripts/backup-lib.sh"
+  if ! docker compose version >/dev/null 2>&1; then
+    error "Docker Compose v2 ('docker compose') is required."
+    exit 1
+  fi
+  # The transactor image name, for when the stack is stopped (docker-compose.yaml's DATOMIC_IMAGE).
+  if [ -z "${DATOMIC_IMAGE:-}" ] && [ -n "$(read_env_val DATOMIC_IMAGE "$ENV_FILE")" ]; then
+    DATOMIC_IMAGE="$(read_env_val DATOMIC_IMAGE "$ENV_FILE")"
+    export DATOMIC_IMAGE
+  fi
+  # Storage and retention settings the backup library reads; the shell's value wins, as in Compose,
+  # even when it is set but empty (Compose then uses its own default, and so does the library).
+  for _v in DATOMIC_URL BACKUP_NETWORK BACKUP_KEEP_MONTHS BACKUP_KEEP_OFFLINE; do
+    if [ -z "${!_v+set}" ] && [ -n "$(read_env_val "$_v" "$ENV_FILE")" ]; then
+      export "$_v=$(read_env_val "$_v" "$ENV_FILE")"
+    fi
+  done
+  _bdir="${BACKUP_DIR_ARG:-${BACKUP_DIR:-$(read_env_val BACKUP_DIR "$ENV_FILE")}}"
+  _bdir="${_bdir:-./backups}"
+  if [ "$BACKUP_MODE" = "true" ]; then
+    header "Dungeon Master's Vault — Database Backup"
+    if [ "$OFFLINE_MODE" = "true" ]; then
+      bk_offline_backup "$_bdir" || exit 1
+    else
+      bk_backup "$_bdir" || exit 1
+    fi
+  elif [ -n "$VERIFY_FROM" ]; then
+    header "Dungeon Master's Vault — Verify Backup"
+    bk_verify "$VERIFY_FROM" || exit 1
+  else
+    header "Dungeon Master's Vault — Database Restore"
+    if [ -f "$RESTORE_FROM/.orcpub-offline-backup" ]; then
+      bk_offline_restore "$RESTORE_FROM" || exit 1
+    else
+      bk_restore "$RESTORE_FROM" || exit 1
+    fi
+  fi
   exit 0
 fi
 

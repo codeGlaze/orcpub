@@ -30,6 +30,7 @@
             [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.character.random :as char-rand5e]
             [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
+            [orcpub.dnd.e5.portrait :as portrait-view]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.srd-conditions :as srd-conditions]
@@ -42,6 +43,7 @@
             [orcpub.dnd.e5.rests :as rests]
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
+            [orcpub.dnd.e5.inventory :as inventory]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.db :refer [default-value
                                       set-item
@@ -81,6 +83,7 @@
                                       set-repairs-dismissed!
                                       disable-overlay->local-store
                                       dev-mode->local-store
+                                      show-empty-pick-counts->local-store
                                       health-dismissed->local-store
                                       whats-new-seen->local-store
                                       get-rejected-plugins
@@ -105,6 +108,7 @@
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.character-drafts :as drafts]
             [orcpub.dnd.e5.homebrew-check :as homebrew-check]
+            [orcpub.dnd.e5.homebrew-markdown :as homebrew-markdown]
             [orcpub.dnd.e5.library :as library]
             [orcpub.dnd.e5.picks :as picks]
             [orcpub.dnd.e5.event-utils :as event-utils :refer [user->local-store-interceptor]]
@@ -191,6 +195,9 @@
 
 (def dev-mode->local-store-interceptor
   (after (fn [db] (dev-mode->local-store (:dev-mode? db)))))
+
+(def show-empty-pick-counts->local-store-interceptor
+  (after (fn [db] (show-empty-pick-counts->local-store (:show-empty-pick-counts? db)))))
 
 (def disable-overlay->local-store-interceptor
   (after (fn [db] (disable-overlay->local-store (:disable-overlay db)))))
@@ -355,11 +362,15 @@
        (swap! settle-timer assoc :id (js/setTimeout settle-now! settle-debounce-ms))))))
 
 (defn settle-picks-fx
-  "Handler for `::e5/settle-picks`: `settle-picks-db`, and the draft rewritten when the character
-   changed. Opening a saved character never saves it: the saved copy keeps its choices until the
+  "Handler for `::e5/settle-picks`: `settle-picks-db`, then `inventory/repair` (chosen packs become
+   kits), and the draft rewritten when the character changed. Opening a saved character never saves it: the saved copy keeps its choices until the
    player saves (owner, 2026-10-16; decision-gate-hidden-picks.md)."
   [{:keys [db]} _]
-  (let [db' (settle-picks-db db)]
+  (let [settled (settle-picks-db db)
+        template (get settled ::autosave-fx/cached-template)
+        ;; A pack just chosen becomes a kit; an untouched one whose pack went goes (inventory.cljc).
+        db' (update settled :character
+                    #(:character (inventory/repair % (when (seq template) (inventory/offered-packs template %)))))]
     (cond-> {:db db'}
       (not (identical? (:character db) (:character db')))
       (assoc ::persist-healed-character (:character db')))))
@@ -483,6 +494,7 @@
   (inject-cofx ::e5/health-dismissed)
   (inject-cofx ::e5/whats-new-seen)
   (inject-cofx ::e5/dev-mode)
+  (inject-cofx ::e5/show-empty-pick-counts)
   (inject-cofx ::combat/tracker-item)
   check-spec-interceptor]
  (fn [{:keys [db
@@ -497,6 +509,7 @@
               ::e5/health-dismissed
               ::e5/whats-new-seen
               ::e5/dev-mode
+              ::e5/show-empty-pick-counts
               ::combat/tracker-item]
        :as cofx} _]
    (let [db' (if (seq db)
@@ -511,6 +524,7 @@
                  (some? health-dismissed) (assoc :health-dismissed health-dismissed)
                  (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
                  (some? dev-mode) (assoc :dev-mode? dev-mode)
+                 (some? show-empty-pick-counts) (assoc :show-empty-pick-counts? show-empty-pick-counts)
                  ;; The release panel opens itself once per release, on the boot that
                  ;; first sees a new id. Reading the stamp here (not at render) keeps it
                  ;; to one showing per browser rather than one per page view.
@@ -656,12 +670,23 @@
      starting-character)
    (range)))
 
+(defn set-random-character
+  "Handler for [:set-random-character character built-template locked-components]: a random
+   character replacing the current one. A new character, not an edit, so the hold and its trail
+   start over (`hold-for`). If generating it throws, the spinner the Random button started is
+   turned off and an error shown, and the current character is kept. Returns an effects map."
+  [{:keys [db]} [_ character built-template locked-components]]
+  (try
+    {:db (assoc db ::e5/replacing? true)
+     :dispatch [:set-character (random-character character built-template locked-components)]}
+    (catch :default e
+      (js/console.error "Random character failed; the current character is kept." e)
+      {:db (update db :loading #(max 0 (dec (or % 0))))
+       :dispatch [:show-error-message "Could not make a random character. Your character is unchanged."]})))
+
 (reg-event-fx
  :set-random-character
- ;; A new character, not an edit: the hold and its trail start over (`hold-for`).
- (fn [{:keys [db]} [_ character built-template locked-components]]
-   {:db (assoc db ::e5/replacing? true)
-    :dispatch [:set-character (random-character character built-template locked-components)]}))
+ set-random-character)
 
 (reg-event-fx
  :random-character
@@ -687,6 +712,17 @@
    holds anything different from what is stored. Returns that strict map."
   [character]
   (dissoc (entity/remove-ids (char5e/to-strict character)) ::se/version))
+
+(defn- put-keys
+  "`character` with the entries under `k` (::entity/values or ::entity/options) named in `ks` taken
+   from `from`, or removed where `from` has none."
+  [character k from ks]
+  (reduce (fn [c x]
+            (if-some [v (get-in from [k x])]
+              (assoc-in c [k x] v)
+              (update c k dissoc x)))
+          character
+          ks))
 
 (defn character-save-success-fx
   "Handler for `:character-save-success`: records the reply for character `id`, replaces the builder
@@ -722,7 +758,8 @@
                               (update ::edited-in-flight dissoc id))
                     ;; The builder's character, unsaved or the same id: the hold now holds for its id.
                     (contains? #{nil id} (get-in db [:character :db/id])) (assoc ::e5/planned-for id)
-                    (not newer?) (update ::sheet-edited dissoc id)
+                    (not newer?) (-> (update ::sheet-edited dissoc id)
+                                     (update ::sheet-edited-options dissoc id))
                     newer? (assoc-in [::stored-shape id] (stored-shape character))
                     (and newer? version) (assoc-in [::char5e/character-map id ::entity/version] version)
                     true (update ::refused dissoc id))
@@ -865,8 +902,9 @@
                 (nat-int? (get-in built-character [:base-abilities ability-kw])))
               char5e/ability-keys)
            {:db (assoc-in db [::in-flight id] true)
-            :dispatch [:set-loading true]
-            :http {:method :post
+            :dispatch [:set-loading true (event-utils/loading-gen db)]
+            :http {:loading-gen (event-utils/loading-gen db)
+                   :method :post
                    :headers (authorization-headers db)
                    :url (url-for-route routes/dnd-e5-char-list-route)
                    :transit-params (assoc strict :orcpub.entity.strict/summary summary)
@@ -889,12 +927,9 @@
      (if (and (= 409 status) (= :stale-character (:error body)) current
               (not (get-in db [::refused for-id])))
        (let [local (get-in db [::char5e/character-map for-id])
-             rebased (reduce (fn [c k]
-                               (if-some [v (get-in local [::entity/values k])]
-                                 (assoc-in c [::entity/values k] v)
-                                 (update c ::entity/values dissoc k)))
-                             current
-                             (get-in db [::sheet-edited for-id]))
+             rebased (-> current
+                         (put-keys ::entity/values local (get-in db [::sheet-edited for-id]))
+                         (put-keys ::entity/options local (get-in db [::sheet-edited-options for-id])))
              builder-free? (and (= for-id (get-in db [:character :db/id]))
                                 (not (get-in db [:character :changed])))]
          {:db (cond-> (-> db
@@ -982,8 +1017,9 @@
            (nat-int? (get-in built-character [:base-abilities ability-kw])))
          char5e/ability-keys)
       {:db db'
-       :dispatch [:set-loading true]
-       :http {:method :post
+       :dispatch [:set-loading true (event-utils/loading-gen db')]
+       :http {:loading-gen (event-utils/loading-gen db')
+              :method :post
               :headers (authorization-headers db')
               :url (url-for-route routes/dnd-e5-char-list-route)
               :transit-params (assoc strict :orcpub.entity.strict/summary summary)
@@ -1021,8 +1057,9 @@
                 (not (and (keyword? t) (not (s/blank? (name t)))))
                 (assoc ::mi/type :wondrous-item))
          strict-item (mi/from-internal-item item)]
-     {:dispatch [:set-loading true]
-      :http {:method :post
+     {:dispatch [:set-loading true (event-utils/loading-gen db)]
+      :http {:loading-gen (event-utils/loading-gen db)
+             :method :post
              :headers (authorization-headers db)
              :url (url-for-route routes/dnd-e5-items-route)
              :transit-params strict-item
@@ -1930,8 +1967,9 @@
 (reg-event-fx
  ::party5e/make-party
  (fn [{:keys [db]} [_ character-ids]]
-   {:dispatch [:set-loading true]
-    :http {:method :post
+   {:dispatch [:set-loading true (event-utils/loading-gen db)]
+    :http {:loading-gen (event-utils/loading-gen db)
+           :method :post
            :headers (authorization-headers db)
            :url (url-for-route routes/dnd-e5-char-parties-route)
            :transit-params (let [tokens (keep (fn [cid]
@@ -1956,8 +1994,9 @@
 (reg-event-fx
  ::party5e/make-empty-party
  (fn [{:keys [db]} [_]]
-   {:dispatch [:set-loading true]
-    :http {:method :post
+   {:dispatch [:set-loading true (event-utils/loading-gen db)]
+    :http {:loading-gen (event-utils/loading-gen db)
+           :method :post
            :headers (authorization-headers db)
            :url (url-for-route routes/dnd-e5-char-parties-route)
            :transit-params {::party5e/name "A New Party"}
@@ -2431,6 +2470,39 @@
  :dark-button-text-saved
  (fn [db _] db))
 
+;; One PDF file name choice (`k` of pdf-spec/file-name-defaults, value `v`). Kept like the button
+;; text: in this browser, and on the account when signed in; a failed save changes nothing here.
+;; One account write at a time: a choice made while one is in flight is sent when it returns.
+(defn- file-name-save-fx
+  "Effects that send the browser's current PDF file name format to the account, marking a write
+   in flight under ::file-name-save. `db` the app-db; returns {:db :http}."
+  [db]
+  {:db (assoc db ::file-name-save :pending)
+   :http {:method :put
+          :headers (authorization-headers db)
+          :url (backend-url (routes/path-for routes/user-route))
+          :transit-params {:pdf-file-name (get-in db [:user-data :pdf-file-name])}
+          :on-success [::char5e/file-name-format-saved]
+          :on-failure [::char5e/file-name-format-saved]}})
+
+(reg-event-fx
+ ::char5e/set-file-name-option
+ [user->local-store-interceptor]
+ (fn [{:keys [db]} [_ k v]]
+   (let [db (assoc-in db [:user-data :pdf-file-name]
+                      (assoc (get-in db [:user-data :pdf-file-name] {}) k v))]
+     (cond
+       (not (event-utils/get-auth-token db)) {:db db}
+       (::file-name-save db) {:db (assoc db ::file-name-save :again)}
+       :else (file-name-save-fx db)))))
+
+(reg-event-fx
+ ::char5e/file-name-format-saved
+ (fn [{:keys [db]} _]
+   (if (= :again (::file-name-save db))
+     (file-name-save-fx db)
+     {:db (dissoc db ::file-name-save)})))
+
 ;; The window crossed the phone breakpoint; the layout follows (:device-type).
 (reg-event-db
  :set-narrow-screen
@@ -2485,6 +2557,8 @@
         ;; is redone on every load.
         rewrote (into (vec former-rewrote) spell-rewrote)
         ;; After the heals, so it lists only what is still wrong.
+        ;; Packs chosen before kits existed become kits; kept by the next save, like the heals.
+        character (:character (inventory/repair character))
         binding-report (content-recon/class-binding-report
                         character
                         (loaded-class-keys db)
@@ -2727,6 +2801,16 @@
  (fn [_ [_ built-char]]
    {:dispatch [:update-value-field ::char5e/character-name
                (generate-random-name built-char)]}))
+
+;; Gives the builder's character `character-name` when it is the character `id` (nil for one never
+;; saved) and still has no name: an export of an unnamed character names it, as Save does.
+(reg-event-fx
+ ::char5e/fill-blank-name
+ (fn [{:keys [db]} [_ id character-name]]
+   (when (and (= id (get-in db [:character :db/id]))
+              (s/blank? (get-in db [:character ::entity/values ::char5e/character-name])))
+     {:dispatch [:update-value-field ::char5e/character-name character-name]})))
+
 (reg-event-db
  :select-option
  character-interceptors
@@ -2753,11 +2837,8 @@
    ;; The read starts from the thumbnail's load instead, which it cannot run ahead of.
    (update character
            ::entity/values
-           assoc
-           ::char5e/image-url
-           image-url
-           ::char5e/image-url-failed
-           nil)))
+           #(-> (char5e/with-image-url % image-url)
+                (assoc ::char5e/image-url-failed nil)))))
 
 ;; ---- portrait compositor drawer ----
 ;;
@@ -2788,14 +2869,58 @@
  (fn [db _]
    (cond-> db (nil? (:portrait/draft db)) seed-portrait-draft)))
 
+(defn- default-portrait-mode
+  "The mode the portrait editor opens in: :link when the character shows an image from the web,
+   else :compose (also when it has neither picture). Returns a keyword."
+  [db]
+  (if (= :image (char5e/shown-picture (get-in db [:character ::entity/values]))) :link :compose))
+
+(reg-event-db
+ :portrait/show-portrait
+ ;; "Switch to this portrait" with nothing edited: the saved portrait shows again, the image is kept
+ [set-changed db-char->local-store]
+ (fn [db _]
+   (-> (assoc-in db [:character ::entity/values ::char5e/picture-shown] "portrait")
+       (assoc :portrait/drawer-open? false))))
+
+(reg-event-db
+ :portrait/set-mode
+ (fn [db [_ mode]]
+   (assoc db :portrait/mode mode)))
+
 (reg-event-db
  :portrait/open
- (fn [db _]
+ (fn [db [_ mode]]
    ;; Keeps an existing draft rather than reseeding: the drawer and the inline
    ;; tab share one, so opening the drawer from the tab must not silently throw
    ;; away what is on the tab's canvas.
    (-> (cond-> db (nil? (:portrait/draft db)) seed-portrait-draft)
-       (assoc :portrait/drawer-open? true))))
+       (assoc :portrait/drawer-open? true
+              :portrait/mode (or mode (default-portrait-mode db))
+              :portrait/link-draft (get-in db [:character ::entity/values ::char5e/image-url])))))
+
+(reg-event-db
+ :portrait/set-link-draft
+ ;; the editor's link field edits this; nothing on the character changes until :portrait/use-link
+ (fn [db [_ url]]
+   (assoc db :portrait/link-draft url)))
+
+(reg-event-fx
+ :portrait/use-link
+ ;; "Use this image": the drafted link becomes the character's and shows; a saved portrait is kept
+ (fn [{:keys [db]} _]
+   (let [url (:portrait/link-draft db)]
+     (when-not (s/blank? url)
+       {:db (assoc db :portrait/drawer-open? false)
+        :dispatch-n [[:set-image-url url] [:portrait/discard-draft]]}))))
+
+(reg-event-fx
+ :portrait/remove-link
+ ;; "Remove image": the character's image address is cleared; a kept portrait shows again
+ ;; (char5e/shown-picture falls back to it)
+ (fn [{:keys [db]} _]
+   {:db (-> db seed-portrait-draft (assoc :portrait/drawer-open? false :portrait/link-draft nil))
+    :dispatch [:set-image-url ""]}))
 
 (reg-event-db
  :portrait/close
@@ -2841,15 +2966,26 @@
                  (dispatch [:portrait/artists-loaded body]))))
          {:db (assoc db :portrait/artists-requested? true)}))))
 
-;; Randomize and Reset touch :layers only — the character's colors persist
-;; across rerolls, which is what "my character's colors" should mean.
+;; Randomize rerolls everything (portrait-view/roll), the colours too unless Keep colours is on.
+;; Reset touches :layers only.
 (reg-event-db
  :portrait/randomize
  (fn [db _]
    (let [seed (portrait-assets5e/random-seed)]
      (-> db
          (assoc :portrait/draft-seed seed)
-         (assoc-in [:portrait/draft :layers] (portrait-assets5e/compose-for-seed seed))))))
+         (update :portrait/draft #(portrait-view/roll seed (or % {}) (:portrait/keep-colours? db)))))))
+
+(reg-event-db
+ :portrait/discard-draft
+ ;; After switching to an image: unsaved portrait edits go; the next open seeds from the saved portrait.
+ (fn [db _]
+   (dissoc db :portrait/draft :portrait/draft-seed)))
+
+(reg-event-db
+ :portrait/toggle-keep-colours
+ (fn [db _]
+   (update db :portrait/keep-colours? not)))
 
 (reg-event-db
  :portrait/reset
@@ -2961,7 +3097,7 @@
    ;; dirty indicator clears and the inline tab carries on showing the portrait
    ;; instead of emptying itself the moment you save it.
    (let [draft (get db :portrait/draft portrait-assets5e/empty-portrait)]
-     (cond-> (assoc-in db [:character ::entity/values ::char5e/portrait] (pr-str draft))
+     (cond-> (update-in db [:character ::entity/values] char5e/with-saved-portrait draft)
        (not keep-open?) (assoc :portrait/drawer-open? false)))))
 
 #_ ;; never dispatched from UI
@@ -3046,7 +3182,10 @@
  :add-inventory-item
  character-interceptors
  (fn [character [_ selection-key item-key]]
-   (event-handlers/add-inventory-item character selection-key item-key)))
+   ;; Gear already in the list gets one more (a second pack bumps its kit), never a second row.
+   (if (and (= :equipment selection-key) (pos? (inventory/total character item-key)))
+     (inventory/add-item character item-key 1)
+     (event-handlers/add-inventory-item character selection-key item-key))))
 
 (defn toggle-inventory-item-equipped [character [_ selection-key item-index]]
   (common/toggle-in
@@ -3085,10 +3224,21 @@
      ;; the select keys here is to keep :equipped while wiping out the starting-equipment indicators
      (assoc (select-keys item-cfg [::char-equip5e/equipped?]) ::char-equip5e/quantity quantity))))
 
+(defn change-inventory-item-quantity-with-kits
+  "`change-inventory-item-quantity`, plus for gear: a decrease is taken from the kits first, top kit
+   first (inventory.cljc)."
+  [character [_ selection-key item-index quantity :as event]]
+  (let [pick (get-in character [::entity/options selection-key item-index])
+        before (inventory/total character (::entity/key pick))
+        changed (change-inventory-item-quantity character event)]
+    (if (and (= :equipment selection-key) (number? quantity) (< quantity before))
+      (inventory/take-from-kits changed (::entity/key pick) (- before quantity))
+      changed)))
+
 (reg-event-db
  :change-inventory-item-quantity
  character-interceptors
- change-inventory-item-quantity)
+ change-inventory-item-quantity-with-kits)
 
 (defn change-custom-inventory-item-quantity [character [_ custom-equipment-key item-index quantity]]
   (update-in
@@ -3109,7 +3259,37 @@
 (reg-event-db
  :remove-inventory-item
  character-interceptors
- event-handlers/remove-inventory-item)
+ (fn [character [_ selection-key item-key :as event]]
+   (cond-> (event-handlers/remove-inventory-item character event)
+     (= :equipment selection-key) (inventory/clear-item item-key))))
+
+(defn kit-act-db
+  "`db` after the kit action `action` with `args` (`inventory/act`), keeping the character before it
+   in `::inventory/undo` when the action has a message, for the Undo line."
+  [db [_ action & args]]
+  (let [before (:character db)
+        {acted :character message :message} (apply inventory/act before action args)
+        acted (assoc acted :changed true)]
+    (assoc db
+           :character acted
+           ::inventory/undo (when (seq message) {:message message :before before :after acted}))))
+
+(reg-event-db ::inventory/act [queue-settle db-char->local-store] kit-act-db)
+
+(reg-event-db
+ ::inventory/change-quantity
+ character-interceptors
+ (fn [character [_ item-key delta]] (inventory/change-quantity character item-key delta)))
+
+(reg-event-db
+ ::inventory/undo
+ [queue-settle db-char->local-store]
+ (fn [db _]
+   (if-let [before (get-in db [::inventory/undo :before])]
+     (-> db (assoc :character (assoc before :changed true)) (dissoc ::inventory/undo))
+     db)))
+
+
 
 (defn remove-custom-inventory-item [character [_ custom-equipment-key name]]
   (update-in
@@ -3304,8 +3484,12 @@
                                                    js/window.location.hostname
                                                    path
                                                    js/window.location.port)))
-         ;; the Rest box's Undo belongs to the page it was made on
-         (cond-> {:db (-> db (assoc :route new-route) (dissoc ::char5e/rest-result :weapon-roll/chain))
+         ;; the Rest box's Undo belongs to the page it was made on; a page change also clears the
+         ;; spinner, which a handler that threw before its decrement would otherwise hold up
+         (cond-> {:db (-> db
+                          (assoc :route new-route :loading 0)
+                          (update :loading-gen (fnil inc 0))
+                          (dissoc ::char5e/rest-result :weapon-roll/chain))
                   :dispatch-n [[:hide-message]
                                [:close-orcacle]]}
            (not no-return?) (assoc-in [:db :return-route] new-route)
@@ -3385,14 +3569,17 @@
    set-active-tabs)
 
 (defn set-loading
-  "Loading is a counter, not a boolean. true increments, false decrements.
-   Overlay shows when > 0. Multiple parallel HTTP calls no longer fight."
-  [db [_ v]]
-  (let [current (or (:loading db) 0)]
-    (assoc db :loading
-           (if v
-             (inc current)
-             (max 0 (dec current))))))
+  "Handler for [:set-loading v gen]: the spinner is a counter, shown while above 0; true
+   increments, false decrements (never below 0). With `gen`, the event counts only if `gen` is
+   still the page generation (event-utils/loading-gen); without it, it always counts. Returns db."
+  [db [_ v gen]]
+  (if (and (some? gen) (not= gen (event-utils/loading-gen db)))
+    db
+    (let [current (or (:loading db) 0)]
+      (assoc db :loading
+             (if v
+               (inc current)
+               (max 0 (dec current)))))))
 
 (reg-event-db
  :set-loading
@@ -3577,8 +3764,8 @@
    (let [final-cfg (if auth-token
                      (assoc-in cfg [:headers "Authorization"] (str "Token " auth-token))
                      cfg)]
-     (go (let [response (<! (http/request final-cfg))]
-           (dispatch [:set-loading false])
+     (go (let [response (<! (http/request (dissoc final-cfg :loading-gen)))]
+           (dispatch [:set-loading false (:loading-gen cfg)])
            (if (<= 200 (:status response) 299)
              (when on-success (dispatch (conj on-success response)))
              (if (= 401 (:status response))
@@ -4334,9 +4521,10 @@
 
 (defn update-character-fx
   "Effects for a sheet or list edit: applies `update-fn` to the stored copy of character `id` and
-   autosaves it, recording its changed values keys under ::sheet-edited (for the save's reply, and
-   for re-applying after a refused save). When the builder has that character open, the edit is
-   applied there too. With no `id` the character is unsaved, so the edit goes to the builder's copy."
+   autosaves it, recording its changed values keys under ::sheet-edited and option keys under
+   ::sheet-edited-options (for the save's reply, and for re-applying after a refused save). When the
+   builder has that character open, the edit is applied there too. With no `id` the character is
+   unsaved, so the edit goes to the builder's copy."
   [db id update-fn]
   ;; Any sheet edit closes an open Rest result, so its Undo cannot overwrite the edit; the rest
   ;; events put their own result back (with-rest-result).
@@ -4349,7 +4537,9 @@
       (cond-> {:db (cond-> (-> db
                                (assoc-in [::char5e/character-map int-id] updated)
                                (update-in [::sheet-edited int-id] (fnil into #{})
-                                          (changed-value-keys stored updated)))
+                                          (changed-value-keys stored updated))
+                               (update-in [::sheet-edited-options int-id] (fnil into #{})
+                                          (inventory/changed-option-keys stored updated)))
                      (get-in db [::in-flight int-id]) (assoc-in [::edited-in-flight int-id] true)
                      open (assoc :character open))
                ::char5e/save-character-throttled id}
@@ -4361,6 +4551,59 @@
 (reg-fx
  ::builder-draft->local-store
  (fn [character] (character->local-store character)))
+
+(defn- sheet-edit-fx
+  "`update-character-fx` for saved character `id` with `f` applied after `inventory/repair` (a
+   sheet shows the repaired character), recording an Undo under `::inventory/undo` when `message`."
+  [db id f message]
+  (let [int-id (js/parseInt id)
+        before (get-in db [::char5e/character-map int-id])
+        fx (update-character-fx db id #(f (:character (inventory/repair %))))
+        edited (get-in fx [:db ::char5e/character-map int-id])]
+    (assoc-in fx [:db ::inventory/undo]
+              (when (seq message) {:id id :message message :before before :after edited}))))
+
+(reg-event-fx
+ ::inventory/sheet-act
+ (fn [{:keys [db]} [_ id action & args]]
+   (let [stored (:character (inventory/repair (get-in db [::char5e/character-map (js/parseInt id)])))]
+     (sheet-edit-fx db id #(:character (apply inventory/act % action args))
+                    (:message (apply inventory/act stored action args))))))
+
+(reg-event-fx
+ ::inventory/sheet-change-quantity
+ (fn [{:keys [db]} [_ id item-key delta]]
+   (sheet-edit-fx db id #(inventory/change-quantity % item-key delta) nil)))
+
+(reg-event-fx
+ ::inventory/sheet-add-item
+ (fn [{:keys [db]} [_ id item-key]]
+   (sheet-edit-fx db id #(inventory/add-item % item-key 1) nil)))
+
+(reg-event-fx
+ ::inventory/set-quantity
+ (fn [{:keys [db]} [_ id sel item-key n]]
+   (if id
+     (sheet-edit-fx db id #(inventory/set-quantity % sel item-key n) nil)
+     (update-character-fx db id #(inventory/set-quantity % sel item-key n)))))
+
+(reg-event-fx
+ ::inventory/set-backpack-worn
+ (fn [{:keys [db]} [_ id worn?]]
+   (if id
+     (sheet-edit-fx db id #(inventory/set-backpack-worn % worn?) nil)
+     (update-character-fx db id #(inventory/set-backpack-worn % worn?)))))
+
+(reg-event-fx
+ ::inventory/sheet-undo
+ (fn [{:keys [db]} [_ id]]
+   (let [{:keys [before after] undo-id :id} (::inventory/undo db)
+         ks (inventory/changed-option-keys before after)]
+     (when (and before (= id undo-id))
+       ;; Only what the action changed goes back, so each copy keeps its other edits; without save
+       ;; ids, since an autosave may have stored those entries afresh since.
+       (-> (update-character-fx db id #(put-keys % ::entity/options (entity/remove-ids before) ks))
+           (update :db dissoc ::inventory/undo))))))
 
 (reg-event-fx
  ::char5e/change-item-charges
@@ -6030,13 +6273,30 @@
       :else          (full))))
 
 (defn- save-orcbrew-blob!
-  "Write `orcbrew-text` of `data` to `filename` and trigger the download; the only side effect."
-  [filename data & {:keys [pretty-print? raw?]}]
+  "Write `orcbrew-text` of `data` to `filename` and trigger the download; the only side effect.
+   `:content-type` (default text/plain;charset=utf-8) is the file's type; text data is written as is;
+   `:no-bom?` leaves off the byte-order mark the saver adds to text files."
+  [filename data & {:keys [pretty-print? raw? content-type no-bom?]}]
   (let [content (orcbrew-text data :pretty-print? pretty-print? :raw? raw?)
         blob (js/Blob.
               (clj->js [content])
-              (clj->js {:type "text/plain;charset=utf-8"}))]
-    (js/saveAs blob filename)))
+              (clj->js {:type (or content-type "text/plain;charset=utf-8")}))]
+    (js/saveAs blob filename (boolean no-bom?))))
+
+(defn- save-source!
+  "The final write of a per-source or all-sources export. With `:format :markdown` in `opts` it
+   downloads `data` (one source) as `<title>.md` Markdown, lending it the selections of `library`
+   ({source-name source}); otherwise `data` goes to `filename` as .orcbrew text, `:pretty-print?`
+   applying. Returns the Markdown coverage notice (a sentence) for the caller to show beside its
+   own message, else nil."
+  [filename title data library {:keys [format pretty-print?]}]
+  (if (= :markdown format)
+    (let [{:keys [filename content-type text notice]}
+          (homebrew-markdown/export-file data title library)]
+      (save-orcbrew-blob! filename text :content-type content-type :no-bom? true)
+      notice)
+    (do (save-orcbrew-blob! filename data :pretty-print? pretty-print?)
+        nil)))
 
 (defn reg-export-draft
   "Register a builder-level 'export draft' event: dump the in-progress builder-item
@@ -6231,13 +6491,12 @@
     handed))
 
 (defn- validate-and-show-modal-or-export
-  "Shared export path for one source, used by export-plugin and
-   export-plugin-pretty-print. Runs the same correction gate Export All runs
-   (text normalization, semantic cleaning, option dedup) so a per-source file
-   and an all-sources file agree on the same content, then either shows the
-   fill-in modal (missing fields), writes the file (valid), or shows an error
-   (spec failure). The library itself is not changed."
-  [db plugin-name handed {:keys [pretty-print?]}]
+  "Shared export path for one source (export-plugin, its pretty-print and Markdown variants).
+   Runs the correction gate Export All runs, then shows the fill-in modal (missing fields),
+   writes the file through `save-source!` (valid), or shows an error (spec failure).
+   `opts`: :pretty-print?, and :format :markdown for the Markdown file. The library is not
+   changed."
+  [db plugin-name handed {:keys [pretty-print? format] :as opts}]
   (let [library (:plugins db)
         plugin (export-source library plugin-name handed)
         {corrected :plugin cleanup-changes :changes}
@@ -6263,21 +6522,24 @@
                                     :plugin corrected
                                     :issues (:missing-fields-issues validation)}]
                          :warnings (:warnings validation)
-                         :pretty-print? pretty-print?}]]))})
+                         :pretty-print? pretty-print?
+                         :format format}]]))})
 
       (:valid validation)
       (do
         (log-export-warnings plugin-name validation)
         ;; Strip meaningless blanks (false/nil/empty) on normal export.
-        (save-orcbrew-blob! (str plugin-name ".orcbrew")
-                            (orcbrew-val/strip-export-blanks corrected)
-                            :pretty-print? pretty-print?)
-        {:dispatch-n
-         (vec (concat persist
-                      (when (seq (:warnings validation))
-                        [[:show-warning-message
-                          {:title (str "Exported “" plugin-name "” with warnings")
-                           :details ["The file downloaded. The console has the details."]}]])))})
+        (let [notice (save-source! (str plugin-name ".orcbrew") plugin-name
+                                   (orcbrew-val/strip-export-blanks corrected) library opts)]
+          {:dispatch-n
+           (vec (concat persist
+                        (cond
+                          (seq (:warnings validation))
+                          [[:show-warning-message
+                            {:title (str "Exported “" plugin-name "” with warnings")
+                             :details (cond-> ["The file downloaded. The console has the details."]
+                                        notice (conj notice))}]]
+                          notice [[:show-warning-message notice]])))}))
 
       :else
       ;; Hard spec check failed. Surface a raw, unvalidated escape hatch alongside
@@ -6301,6 +6563,11 @@
  ::e5/export-plugin
  (fn [{:keys [db]} [_ name plugin]]
    (validate-and-show-modal-or-export db name plugin {})))
+
+(reg-event-fx
+ ::e5/export-plugin-markdown
+ (fn [{:keys [db]} [_ name plugin]]
+   (validate-and-show-modal-or-export db name plugin {:format :markdown})))
 
 (defn select-emergency-export
   "Pick the filename + data for an emergency raw export: just the named source if
@@ -6467,13 +6734,14 @@
 
 (reg-event-db
  :show-export-warning-modal
- (fn [db [_ {:keys [mode plugins warnings pretty-print?]}]]
+ (fn [db [_ {:keys [mode plugins warnings pretty-print? format]}]]
    (assoc db :export-warning
           {:active? true
            :mode (or mode :single)
            :plugins plugins
            :warnings warnings
            :pretty-print? pretty-print?
+           :format format
            :edits {}
            :show-export-as-is? false})))
 
@@ -6507,7 +6775,7 @@
 (reg-event-fx
  :export-with-auto-fix
  (fn [{:keys [db]} _]
-   (let [{:keys [mode plugins edits pretty-print?]} (:export-warning db)
+   (let [{:keys [mode plugins edits pretty-print?] :as warning} (:export-warning db)
          ;; Auto-fix = user edits + dummy-fill for blanks, in the file and in My Content.
          ;; Placeholders like "[Missing Name]" are self-labeling and flagged in the log.
          fixed-plugins (mapv
@@ -6535,10 +6803,11 @@
                     "all-content.orcbrew"
                     (str (:name (first fixed-plugins)) ".orcbrew"))
          log-entries (build-export-log-entries
-                      plugins "Auto-filled missing fields on export")]
-     ;; Strip meaningless blanks (false/nil/empty) on normal export.
-     (save-orcbrew-blob! filename (orcbrew-val/strip-export-blanks final-data)
-                         :pretty-print? pretty-print?)
+                      plugins "Auto-filled missing fields on export")
+         ;; Strip meaningless blanks (false/nil/empty) on normal export.
+         ;; a refused save keeps its error alone; the Markdown file names what it leaves out
+         notice (save-source! filename (:name (first fixed-plugins))
+                              (orcbrew-val/strip-export-blanks final-data) (:plugins db) warning)]
      {:db (-> db'
               (assoc :export-warning {:active? false})
               (assoc :import-log {:panel-shown? true
@@ -6552,7 +6821,8 @@
                     [[:show-warning-message
                       (str "Exported and saved to My Content. Placeholders were filled "
                            "in for any fields left blank — review them (see the log) and "
-                           "replace before sharing.")]]
+                           "replace before sharing."
+                           (when notice (str " " notice)))]]
                     refused)})))
 
 (reg-event-fx
@@ -6572,7 +6842,7 @@
 (reg-event-fx
  :export-as-is
  (fn [{:keys [db]} _]
-   (let [{:keys [mode plugins pretty-print?]} (:export-warning db)
+   (let [{:keys [mode plugins pretty-print?] :as warning} (:export-warning db)
          all-plugins (:plugins db)
          final-data (if (= mode :multi)
                       (reduce (fn [acc {:keys [name plugin]}]
@@ -6584,8 +6854,8 @@
                     "all-content.orcbrew"
                     (str (:name (first plugins)) ".orcbrew"))
          log-entries (build-export-log-entries
-                      plugins "Exported as-is without fixes")]
-     (save-orcbrew-blob! filename final-data :pretty-print? pretty-print?)
+                      plugins "Exported as-is without fixes")
+         notice (save-source! filename (:name (first plugins)) final-data all-plugins warning)]
      {:db (-> db
               (assoc :export-warning {:active? false})
               (assoc :import-log {:panel-shown? true
@@ -6594,7 +6864,8 @@
                                                  (str "Export: " (:name (first plugins))))
                                   :changes log-entries
                                   :errors []
-                                  :skipped-items []}))})))
+                                  :skipped-items []}))
+      :dispatch-n (when notice [[:show-warning-message notice]])})))
 
 ;; Export all homebrew plugins as .orcbrew file.
 (reg-event-fx
@@ -6682,8 +6953,8 @@
 
 ;; The debug hatch: the whole library, pretty-printed, with NO validation — the one
 ;; export that skips the gate, to show the store as it is. Still uses the shared
-;; save-orcbrew-blob! serialization. Dev-only: views/debug-data renders its control
-;; behind goog/DEBUG.
+;; save-orcbrew-blob! serialization. views/debug-data shows its control only with
+;; Developer mode on.
 (reg-event-fx
  ::e5/export-all-plugins-pretty-print
  (fn [{:keys [db]} _]
@@ -6748,6 +7019,13 @@
  [dev-mode->local-store-interceptor]
  (fn [db _]
    (update db :dev-mode? not)))
+
+;; Flips whether the builder shows pick counts that say nothing (hidden by default).
+(reg-event-db
+ ::e5/toggle-quiet-pick-counts
+ [show-empty-pick-counts->local-store-interceptor]
+ (fn [db _]
+   (update db :show-empty-pick-counts? not)))
 
 ;; global + section are a per-device VIEW preference kept in :disable-overlay,
 ;; never written into the .orcbrew data — so they cost no format/spec change and

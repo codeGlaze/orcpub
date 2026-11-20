@@ -4,11 +4,11 @@
 
 Detects when characters reference missing homebrew content and suggests alternatives using fuzzy matching.
 
-**Why this exists:** User deletes homebrew plugin, reopens character, sees missing content with no context. No way to know which plugin to reinstall or what similar content exists.
+**Why it exists:** when a homebrew plugin is deleted and a character is reopened, the missing content needs context: which plugin to reinstall, or what similar content exists.
 
-**Design decision:** Use multiple fuzzy matching strategies (exact key, prefix matching, keyword-base comparison, display name matching) to catch common cases: typos, versioning (`:blood-hunter-v2`), and renamed content.
+**Matching:** it uses multiple fuzzy matching strategies (exact key, prefix matching, keyword-base comparison, display name matching) to catch common cases: typos, versioning (`:blood-hunter-v2`), and renamed content.
 
-**Key gotcha:** Must exclude SRD built-in content. The `available-content` subscription only includes plugin content, so SRD content (hardcoded in the app) would be false-flagged as missing without explicit exclusion sets.
+**Note:** SRD built-in content is excluded. The `available-content` subscription only includes plugin content, so SRD content (hardcoded in the app) would be false-flagged as missing without explicit exclusion sets.
 
 ## How It Works
 

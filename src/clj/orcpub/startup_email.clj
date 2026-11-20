@@ -9,6 +9,7 @@
             [clojure.string :as str]
             [orcpub.alerts :as alerts]
             [orcpub.config :as config]
+            [orcpub.email :as mail]
             [orcpub.fork.branding :as branding]))
 
 (def reminder-ms
@@ -149,7 +150,7 @@
           now     (System/currentTimeMillis)
           admin   (config/alert-address)
           s       (summary (config/report)
-                           {:sender-ok? (branding/sender-configured? branding/email-from-address)
+                           {:sender-ok? (mail/sender-configured? branding/email-from-address)
                             :deployment-problems (deployment-problems dirs)})
           before  (some-> file read-memory)
           what    (decide before s release now)]

@@ -5,8 +5,7 @@
    and its 0x80-0x9F slots hold curly quotes, dashes, the ellipsis, the bullet, oe and
    the euro sign. Helvetica draws all of them; normalize-text replaced or dropped them."
   (:require [clojure.test :refer [deftest testing is]]
-            [orcpub.pdf.draw :as draw]
-            [orcpub.spellbook :as sb])
+            [orcpub.pdf.draw :as draw])
   (:import (org.apache.pdfbox.pdmodel.font PDType1Font Standard14Fonts$FontName)))
 
 (def ^:private winansi-extras
@@ -27,7 +26,7 @@
 (deftest the-spellbook-keeps-the-srd-punctuation
   ;; 135 such characters across the SRD's spells were printed as straight quotes and
   ;; hyphens, in a font that draws the real ones.
-  (is (= "“No,” she said — twice." (#'sb/clean "“No,” she said — twice."))))
+  (is (= "“No,” she said — twice." (draw/clean "“No,” she said — twice."))))
 
 (deftest a-font-that-lacks-a-dash-still-gets-a-readable-one
   ;; The old substitutions are now a fallback, used only where the font has no glyph.

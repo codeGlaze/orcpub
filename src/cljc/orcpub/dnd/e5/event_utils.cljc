@@ -26,6 +26,16 @@
      [route & args]
      (backend-url (apply routes/path-for route args))))
 
+;; -- Loading spinner --
+
+(defn loading-gen
+  "The page generation the loading spinner counts for: `:route` bumps it, and a request passes the
+   value it started under with both its [:set-loading true gen] and [:set-loading false gen], so
+   one that finishes after a page change cannot touch the new page's count. Arg: the app db.
+   Returns an integer."
+  [db]
+  (or (:loading-gen db) 0))
+
 ;; -- Auth --
 
 (defn get-auth-token

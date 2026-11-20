@@ -10,6 +10,7 @@
             [reagent.core :as r]
             [clojure.string :as s]
             [orcpub.dnd.e5.portrait-assets :as pa]
+            [orcpub.dnd.e5.portrait-random :as rnd]
             [orcpub.dnd.e5.artist-profile :as artist-profile]
             [orcpub.dnd.e5.portrait-colorize :as colorize]
             [orcpub.dnd.e5.portrait-effects :as fx]
@@ -240,6 +241,10 @@
   (if-not @(subscribe [:orcpub.dnd.e5/dev-mode?])
     url
     (or (get @solid-urls url) (do (solid-promise url) url))))
+
+(defonce ^:private failed-link
+  ;; The image address whose preview in the drawer last failed to load, or nil.
+  (r/atom nil))
 
 (defonce ^:private loaded-images (atom {}))
 
@@ -1472,6 +1477,10 @@
        [:button.pl-btn.pl-btn-primary
         {:type "button" :on-click #(dispatch [:portrait/randomize])}
         "Randomize"]
+       [:label.pl-keep-colours
+        [:input {:type "checkbox" :checked (boolean @(subscribe [:portrait/keep-colours?]))
+                 :on-change #(dispatch [:portrait/toggle-keep-colours])}]
+        " Keep colours"]
        [:button.pl-btn.pl-btn-ghost
         {:type "button" :on-click #(dispatch [:portrait/reset]) :disabled (not any?)}
         "Reset"]
@@ -1488,8 +1497,10 @@
   "The compositor drawer, an overlay shown while :portrait/drawer-open?. Mount once at the
    character-builder root. Its stylesheet mounts even when closed (it also styles the
    launcher and the Portrait tab), and its root carries the theme class itself because it
-   sits outside .app. See PORTRAIT-COMPOSITOR.md, \"The drawer's chrome\"."
-  []
+   sits outside .app. See PORTRAIT-COMPOSITOR.md, \"The drawer's chrome\". A switch at the top picks
+   building a portrait or an image from the web, tagging the one the character shows; both are kept,
+   and the footer switches which shows. `link-field` is the image address field."
+  [& [link-field]]
   (let [open? @(subscribe [:portrait/drawer-open?])
         theme @(subscribe [:theme])]
     [:div.pl-root {:class theme}
@@ -1497,33 +1508,75 @@
        (let [portrait   @(subscribe [:portrait/draft])
              seed       @(subscribe [:portrait/draft-seed])
              open-slot  @(subscribe [:portrait/open-slot])
-             open-layer @(subscribe [:portrait/open-layer])]
+             open-layer @(subscribe [:portrait/open-layer])
+             mode       @(subscribe [:portrait/mode])
+             image-url  @(subscribe [:portrait/link-draft])
+             shown      @(subscribe [:portrait/shown])
+             dirty?     @(subscribe [:portrait/dirty?])]
          [:div
           [:div.pl-backdrop {:on-click #(dispatch [:portrait/close])}]
           [:div.pl-drawer
            [:div.pl-drawer-head
             [:div.pl-drawer-title
-             [:span.pl-drawer-title-rune "\u00a7"] "Compose portrait"]
+             [:span.pl-drawer-title-rune "\u00a7"] "Character picture"]
             [:button.pl-drawer-close
              {:type "button"
               :on-click #(dispatch [:portrait/close])
               :aria-label "Close portrait compositor"}
              "\u2715"]]
-           [compositor-body portrait seed open-slot open-layer]
+           [:div.pl-mode
+            [segmented "" "Build a portrait or use an image from the web" mode
+             [[:compose [:span "Build a portrait" (when (= shown :portrait) [:span.share-pill.share-pill-shared.pl-active "Active"])]]
+              [:link [:span "Use an image from the web" (when (= shown :image) [:span.share-pill.share-pill-shared.pl-active "Active"])]]]
+             #(dispatch [:portrait/set-mode %])]]
+           (if (= mode :link)
+             [:div.pl-link-mode
+              [:div.pl-link-preview
+               (cond
+                 (s/blank? image-url)
+                 [:span.pl-empty-hint "Paste an image address, and the image shows here."]
+                 (= image-url @failed-link)
+                 [:span.pl-empty-hint
+                  "No image loaded from that address. Check that it opens on its own in a browser tab, and that it is the image itself, not a page holding it. "
+                  [:button.pl-mode-link {:type "button" :on-click #(reset! failed-link nil)} "Try again"]]
+                 :else
+                 [:img {:src image-url :alt "The character's picture"
+                        :on-load #(when (= image-url @failed-link) (reset! failed-link nil))
+                        :on-error #(reset! failed-link image-url)}])]
+              [:div.pl-link link-field]]
+             [compositor-body portrait seed open-slot open-layer])
            [:div.pl-drawer-foot
+            (cond
+              (and (= mode :link) (= shown :portrait))
+              [:div.pl-kept "Your built portrait is kept. You can switch back any time."]
+              (and (= mode :compose) (= shown :image))
+              [:div.pl-kept "Your image from the web is kept. You can switch back any time."])
             [:div.pl-drawer-actions
              [:button.pl-btn.pl-btn-ghost
               {:type "button" :on-click #(dispatch [:portrait/close])}
               "Cancel"]
-             [:button.pl-btn.pl-btn-primary
-              {:type "button" :on-click #(dispatch [:portrait/save])}
-              "Save portrait"]]]]]))]))
+             (when (and (= mode :link) (= shown :image))
+               [:button.pl-btn.pl-btn-ghost
+                {:type "button" :on-click #(dispatch [:portrait/remove-link])}
+                "Remove image"])
+             (if (= mode :link)
+               [:button.pl-btn.pl-btn-primary
+                {:type "button" :on-click #(dispatch [:portrait/use-link])
+                 :disabled (or (s/blank? image-url) (= image-url @failed-link))}
+                (if (= shown :portrait) "Switch to this image" "Use this image")]
+               [:button.pl-btn.pl-btn-primary
+                {:type "button"
+                 :disabled (and (empty? (:layers portrait)) (not dirty?))
+                 :on-click #(dispatch (if (or (not= shown :image) dirty?) [:portrait/save] [:portrait/show-portrait]))}
+                (cond (not= shown :image) "Save portrait"
+                      dirty? "Save and switch"
+                      :else "Switch to this portrait")])]]]]))]))
 
 (defn tab-panel
   "The builder's Portrait tab: the portrait as it stands, its credit, Randomize, and the way into
    the compositor drawer, which is the one place a portrait is picked layer by layer. Save shows
    only while the draft has unsaved changes. Ensures a draft on mount. Has its own .pl-root, the stylesheet's one
-   theme hook."
+   theme hook. A character using a picture link shows it here instead, with a way into either mode."
   []
   (r/create-class
    {:display-name "portrait-tab-panel"
@@ -1531,39 +1584,77 @@
     :reagent-render
     (fn []
       (let [portrait @(subscribe [:portrait/draft])
+            image-url @(subscribe [:orcpub.dnd.e5.character/image-url])
             dirty?   @(subscribe [:portrait/dirty?])
             theme    @(subscribe [:theme])
-            any?     (boolean (seq (:layers portrait)))]
+            any?     (boolean (seq (:layers portrait)))
+            link?    (= :image @(subscribe [:portrait/shown]))]
         [:div.pl-root.pl-inline.pl-preview {:class theme}
          [:div.pl-preview-body
           [:div.pl-portrait-frame
-           (if any?
-             [composite portrait]
-             [:div.pl-empty-hint {:style {"--pl-logo" (str "url(" branding/logo-path ")")}}
-              "No portrait yet."])]
-          (when any? [attribution (:layers portrait)])]
+           (cond
+             link? [:img.pl-link-picture {:src image-url :alt "The character's picture"}]
+             any? [composite portrait]
+             :else [:div.pl-empty-hint {:style {"--pl-logo" (str "url(" branding/logo-path ")")}}
+                    "No portrait yet."])]
+          (when (and any? (not link?)) [attribution (:layers portrait)])
+          [:button.pl-mode-link {:type "button" :on-click #(dispatch [:portrait/open (if link? :compose :link)])}
+           (if link? "Build a portrait instead" "Use an image from the web instead")]]
          [:div.pl-drawer-foot
           [:div.pl-drawer-actions
            (when dirty?
              [:button.pl-btn.pl-btn-ghost
               {:type "button" :on-click #(dispatch [:portrait/save true])}
               "Save portrait"])
-           [:button.pl-btn.pl-btn-ghost
-            {:type "button" :on-click #(dispatch [:portrait/randomize])}
-            "Randomize"]
+           (when-not link?
+             [:button.pl-btn.pl-btn-ghost
+              {:type "button" :on-click #(dispatch [:portrait/randomize])}
+              "Randomize"])
            [:button.pl-btn.pl-btn-primary
             {:type "button" :on-click #(dispatch [:portrait/open])}
-            (if any? "Edit portrait" "Make a portrait")]]]]))}))
+            (cond link? "Edit image" any? "Edit portrait" :else "Build a portrait")]]]]))}))
 
-(defn launcher-button
-  "The 'Compose portrait' button that slots next to the Image URL input in
-   the character-builder Description tab."
-  []
-  [:button.pl-launcher
-   {:type "button"
-    :on-click #(dispatch [:portrait/open])
-    :title "Compose portrait from layered art"}
-   "Compose portrait"])
+(defn roll
+  "A whole random portrait for `seed`: every layer, the colour of each slot, the eyes, the hair's
+   second colour and effects, and the light, each within ranges that still look like a person
+   (mostly round pupils, about half lit). With `keep-colours?` the colours of `current` are kept:
+   its slots, piece tweaks, second eye, blush and hair tips. Returns `current` with those replaced."
+  [seed current keep-colours?]
+  (let [r (rnd/mulberry32 (rnd/seed->int (str seed "/look")))
+        chance (fn [p] (< (r) p))
+        pick (fn [xs] (let [v (vec xs)] (nth v (int (Math/floor (* (r) (count v)))))))
+        between (fn [lo hi] (+ lo (* (r) (- hi lo))))
+        presets pa/color-presets
+        hair (pick (:hair presets))
+        colours {:hair hair :skin (pick (:skin presets)) :eyes (pick (:eyes presets))
+                 :shirt (pick (:shirt presets)) :lips (pick (:lips presets))
+                 :whites (pick (if (chance 0.85) (take 4 (:whites presets)) (:whites presets)))}
+        face {:pupil (cond (chance 0.8) :round (chance 0.5) :snake :else :goat)
+              :second-eye (when (chance 0.1) (pick (:eyes presets)))
+              :blush (if (chance 0.5) 0.0 (between 0.2 0.6))
+              :blush-colour (pick face/blush-colours)
+              :freckles (if (chance 0.6) 0.0 (between 0.2 0.7))
+              :freckle-place (r)
+              :freckle-strength (between 0.3 0.7)
+              :shade (between 0.0 0.5)}
+        ;; assoc, not a map literal: portrait_test reads a literal :style key as an inline style
+        light (when (chance 0.5)
+                (assoc {} :mood (pick (sort (keys light/moods))) :style (pick light/styles)
+                       :from (pick (sort (keys light/sides)))))
+        tip (when (chance 0.4) (pick (remove #{hair} (:hair presets))))
+        ombre (cond-> {:depth (between 0.1 0.5) :clumps (between 0.2 0.7)
+                       :shine (if (chance 0.5) 0.0 (between 0.2 0.6)) :split (chance 0.1)}
+                tip (assoc :tip tip :start (between 0.15 0.6) :falloff (between 0.3 0.9)))]
+    (if keep-colours?
+      (assoc current
+             :layers (pa/compose-for-seed seed)
+             :face (merge (dissoc face :second-eye :blush-colour)
+                          (select-keys (:face current) [:second-eye :blush-colour]))
+             :light light
+             :ombre (merge (dissoc ombre :tip) (select-keys (:ombre current) [:tip])))
+      (assoc current
+             :layers (pa/compose-for-seed seed)
+             :colors colours :tweaks {} :face face :light light :ombre ombre))))
 
 (defn edit-overlay
   "Pencil layered onto the character-summary thumbnail. stopPropagation

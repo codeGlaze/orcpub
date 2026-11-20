@@ -1,6 +1,7 @@
 (ns orcpub.config
   (:require [orcpub.env :as env]
             [orcpub.fork.branding :as branding]
+            [orcpub.whats-new :as whats-new]
             [clojure.string :as str]
             [clojure.java.io :as io])
   (:import [java.util Locale]))
@@ -17,14 +18,14 @@
 
 (defn redact-secrets
   "Blank out credentials in a connection string so it can be logged; nil for nil.
-   Redacts a `password=`/`secret=`/`token=`-style query parameter and `scheme://user:pass@host`
-   userinfo; anything else is returned unchanged.
+   Redacts a query parameter whose name ends in password, passwd, pwd, secret, token or api-key
+   (so `sslpassword=` too) and `scheme://user:pass@host` userinfo; anything else is unchanged.
    GOTCHA: redacted is not safe to print. Call it only on values meant to be seen, and never
    widen what is logged because it is redacted."
   [s]
   (when s
     (-> (str s)
-        (str/replace #"(?i)([?&](?:password|passwd|pwd|secret|token|api[-_]?key)=)[^&\s]*" "$1****")
+        (str/replace #"(?i)([?&][\w-]*(?:password|passwd|pwd|secret|token|api[-_]?key)=)[^&\s]*" "$1****")
         (str/replace #"(?i)(://[^:/?#\s]+):[^@/?#\s]+@" "$1:****@"))))
 
 (defn datomic-env
@@ -51,16 +52,16 @@
       (env/value :profile-encryption-keys)))
 
 (defn get-datomic-uri
-  "Return the Datomic URI: the raw env value (`datomic-env`), else the local development
-  default datomic:dev://localhost:4334/orcpub.
-
-  When DATOMIC_PASSWORD is set and the URL has no `password=`, appends `?password=<pw>`, so
-  the password can be kept out of DATOMIC_URL (e.g. in a Docker secret)."
+  "Returns DATOMIC_URL (`datomic-env`), else datomic:dev://localhost:4334/orcpub. When
+  DATOMIC_PASSWORD is set and the URL has no `password=` parameter (`sslpassword=` is another),
+  appends `password=<pw>` to the innermost URL's query: `?` when it has none, else `&`.
+  GOTCHA: a SQL URI always has a `?` before `jdbc:`; only the text after the last `://` counts."
   []
   (let [url (or (datomic-env) default-datomic-uri)
-        pw  (datomic-password)]
-    (if (and pw (not (str/includes? url "password=")))
-      (str url "?password=" pw)
+        pw  (datomic-password)
+        inner (if-let [i (str/last-index-of url "://")] (subs url (+ i 3)) url)]
+    (if (and pw (not (re-find #"(?i)[?&]password=" url)))
+      (str url (if (str/includes? inner "?") "&" "?") "password=" pw)
       url)))
 
 ;; CSP_POLICY options (read by `get-csp-policy`):
@@ -310,7 +311,7 @@
    "APP_HELP_URL" "APP_SUPPORT_EMAIL" "APP_EMAIL_SENDER_NAME" "APP_EMAIL_SIGNOFF"
    "APP_COPYRIGHT_HOLDER" "APP_COPYRIGHT_URL" "APP_COPYRIGHT_YEAR"
    "APP_FIELD_LIMIT_NOTES" "APP_FIELD_LIMIT_NUMBER" "APP_FIELD_LIMIT_TEXT"
-   "APP_SOCIAL_BLUESKY" "APP_SOCIAL_DISCORD" "APP_SOCIAL_FACEBOOK"
+   "APP_SOCIAL_BLUESKY" "APP_SOCIAL_DEV_TIP" "APP_SOCIAL_DISCORD" "APP_SOCIAL_FACEBOOK"
    "APP_SOCIAL_PATREON" "APP_SOCIAL_REDDIT" "APP_SOCIAL_TWITTER"])
 
 (defn get-share-max-upload-kb
@@ -658,18 +659,19 @@
     dir))
 
 (defn deployment-lines
-  "The boot report's DEPLOYMENT block, as lines. Takes `:crash-dir` and `:alert-dir`, the resolved
-   folders for crash files and unsent alerts (either nil when unknown), `:max-heap-bytes`, the
-   most memory Java may use (nil leaves the line out), and `:admin`, `alert-address`'s answer
-   (the line appears when the key is given), `:app-url` (a warning when given and empty). Says where
-   those files land, flags a folder inside the container with the mount that moves it, gives the
-   memory limit, and ends with `deployment-notes`."
-  [{:keys [crash-dir alert-dir max-heap-bytes admin] :as dirs}]
+  "The boot report's DEPLOYMENT block, as lines. Keys: `:crash-dir` and `:alert-dir` (folders, nil
+   when unknown; one inside the container gets the mount that moves it), `:max-heap-bytes`, `:admin`
+   (alert-address's answer; line shown when given), `:app-url` (warned when given and empty) and
+   `:patron-credits` {:patreon? :names} (warned when Patreon is set and no names are listed).
+   Ends with `deployment-notes`."
+  [{:keys [crash-dir alert-dir max-heap-bytes admin patron-credits] :as dirs}]
   (let [inside? #(and % (str/starts-with? % "/var/lib/orcpub/"))]
     (concat
      ;; The one startup warning about APP_URL: printed with the boot report, not per request.
      (when (and (contains? dirs :app-url) (str/blank? (:app-url dirs)))
        ["Warning: APP_URL is not set, so links in account emails follow the request's Host header. Set APP_URL in production."])
+     (when (and (:patreon? patron-credits) (zero? (or (:names patron-credits) 0)))
+       ["Warning: APP_SOCIAL_PATREON is set but resources/public/patron-credits.md lists no patrons, so What's New thanks them without names (docs/BRANDING-AND-INTEGRATIONS.md, \"Patron credits\")."])
      (when (contains? dirs :admin)
        [(if admin
           (str "Admin email: " (:address admin) " (from " (:from admin) ")")
@@ -733,6 +735,15 @@
       (saved-line (str f)))
     (catch Exception _ nil)))
 
+(defn patron-credits
+  "{:patreon? :names}: whether APP_SOCIAL_PATREON is set, and how many patrons the shipped
+   public/patron-credits.md lists (0 when the file is missing or empty), for deployment-lines."
+  []
+  {:patreon? (boolean (env/value :app-social-patreon))
+   :names (or (some->> (io/resource "public/patron-credits.md") slurp whats-new/parse-credits
+                       (map (comp count :names)) (reduce + 0))
+              0)})
+
 (defn print-report!
   "Say the server is up and how it is configured. Called after the system has started, so
    `started` means started rather than `we got as far as printing`, and so the running
@@ -742,11 +753,12 @@
    (let [actual (when-let [n (jetty-max-threads created)]
                   {"ORCPUB_HTTP_MAX_THREADS" n})
          dirs   (crash-and-alert-dirs)
-         lines  (vec (report-lines (report) actual @branding/ignored
+         lines  (vec (report-lines (report) actual @env/ignored
                                    (deployment-lines (assoc dirs
                                                             :max-heap-bytes (.maxMemory (Runtime/getRuntime))
                                                             :admin (alert-address)
-                                                            :app-url branding/app-url))))
+                                                            :app-url branding/app-url
+                                                            :patron-credits (patron-credits)))))
          saved  (some-> (report-dir dirs) (save-report! lines))]
      ;; One write, then flush. Printed line by line, Jetty's own logging interleaved with it
      ;; and cut the table in half -- buffered stdout against unbuffered stderr in the same

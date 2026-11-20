@@ -10,6 +10,7 @@
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
+            [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.spell-lists :as sl5e]
             [orcpub.dnd.e5.weapons :as weapons5e]
@@ -18,11 +19,17 @@
 (def ^:private language-map (common/map-by-key [{:name "Common" :key :common}]))
 
 (def ^:private item-bonus
-  "A selection standing in for an attuned item: its one option carries the +2 spell save DC
-   modifier the item list emits."
+  "A selection standing in for an attuned item: :plus-two carries the +2 spell save DC modifier
+   the item list emits, :rod the Rod of the Pact Keeper +2's own modifiers, :cleric-only a +1 to
+   Cleric spells' DC and attack."
   (t/selection-cfg {:name "Item Bonus" :tags #{}
                     :options [(t/option-cfg {:name "Plus Two"
-                                             :modifiers [(mod5e/spell-save-dc-bonus 2)]})]}))
+                                             :modifiers [(mod5e/spell-save-dc-bonus 2)]})
+                              (t/option-cfg {:name "Rod"
+                                             :modifiers (::mi5e/modifiers (mi5e/rod-of-the-pact-keeper 2))})
+                              (t/option-cfg {:name "Cleric Only"
+                                             :modifiers [(mod5e/class-spell-bonus "Cleric" :dc 1)
+                                                         (mod5e/class-spell-bonus "Cleric" :attack 1)]})]}))
 
 (def ^:private the-template
   (delay
@@ -42,7 +49,8 @@
                 ::entity/options {:hit-points {::entity/key :average ::entity/value 5}}})
 
 (defn- build
-  "Builds a single-class character of `cls` at `levels`, with the item bonus when `bonus?`."
+  "Builds a single-class character of `cls` at `levels`, with the item bonus when `bonus?`: true
+   for :plus-two, or an item-bonus option key."
   [cls levels bonus?]
   (entity/build
    {::entity/options
@@ -51,7 +59,7 @@
                                               ::char5e/int 10 ::char5e/wis 16 ::char5e/cha 10}}
              :class [{::entity/key cls
                       ::entity/options {:levels (mapv lvl (range 1 (inc levels)))}}]}
-      bonus? (assoc :item-bonus {::entity/key :plus-two}))}
+      bonus? (assoc :item-bonus {::entity/key (if (keyword? bonus?) bonus? :plus-two)}))}
    @the-template))
 
 (defn- summary
@@ -73,3 +81,15 @@
   (testing "Turn Undead: the cleric spell save DC, item bonus included"
     (is (re-find #"DC 13 Wisdom" (str (summary (build :cleric 2 false) "Channel Divinity: Turn Undead"))))
     (is (re-find #"DC 15 Wisdom" (str (summary (build :cleric 2 true) "Channel Divinity: Turn Undead"))))))
+
+(deftest a-bonus-to-one-classs-spells-stays-with-that-class
+  (let [dc (fn [b] ((char5e/spell-save-dc-fn b) ::char5e/wis "Cleric"))
+        atk (fn [b] ((char5e/spell-attack-modifier-fn b) ::char5e/wis "Cleric"))]
+    (testing "Rod of the Pact Keeper +2 raises only warlock spells (SRD: \"your warlock spells\")"
+      (is (= 13 (dc (build :cleric 2 :rod))) "a Cleric's DC is untouched")
+      (is (= 5 (atk (build :cleric 2 :rod))) "and so is its spell attack"))
+    (testing "a bonus scoped to the Cleric's spells raises the Cleric's"
+      (is (= 14 (dc (build :cleric 2 :cleric-only))))
+      (is (= 6 (atk (build :cleric 2 :cleric-only))))
+      (is (= 13 ((char5e/spell-save-dc-fn (build :cleric 2 :cleric-only)) ::char5e/wis))
+          "a DC asked for without a class takes no class bonus"))))

@@ -80,9 +80,11 @@
         (doseq [base (range 0 24 8)]
           (is (> (count (nth pages base)) (count (nth pages (inc base)))))
           (is (> (count (nth pages (+ base 4))) (count (nth pages (+ base 5)))))))
-      (testing "the three modes differ, so bw is really being exercised"
-        (is (not= (nth pages 0) (nth pages 8)))
-        (is (not= (nth pages 8) (nth pages 16)))))))
+      ;; The spell fronts' red icons were the only thing the modes changed on a card page; the
+      ;; fronts are now black on white, so every mode prints the same cards.
+      (testing "every printing mode gives the same card pages"
+        (is (= (nth pages 0) (nth pages 8) (nth pages 16)))
+        (is (= (nth pages 4) (nth pages 12) (nth pages 20)))))))
 
 ;; ── The ornament matrix ──────────────────────────────────────────────────────
 ;; The sheets above go through the real route, which fixes the flourish at its default.

@@ -22,7 +22,7 @@ COPY . /workspace
 # Pre-cache Datomic Pro zip so post-create.sh skips the download.
 # The actual install (extract, flatten, maven-install) is done by post-create.sh
 # because the volume mount overwrites /workspace during container creation.
-ARG DATOMIC_VERSION=1.0.7482
+ARG DATOMIC_VERSION=1.0.7745
 RUN curl --fail -L -o "/tmp/datomic-pro-${DATOMIC_VERSION}.zip" \
       "https://datomic-pro-downloads.s3.amazonaws.com/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.zip"
 

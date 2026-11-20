@@ -46,11 +46,35 @@
  (fn [db _]
    (homebrew-check/checked :plugins (get db :plugins))))
 
+;; Each source's short tag, as My Content shows it: the stored :abbreviation, else the derived
+;; one (source-tagged-keys.md), for the library and a shared character's view-once sources.
+;; Shared is merged last, as ::e5/plugin-vals lets it win, so a row stamped with a source name
+;; both hold takes the shared source's tag. Worked out once per library change, not per row.
+(reg-sub
+ ::e5/source-tags
+ :<- [::e5/plugins]
+ :<- [::e5/shared-plugins]
+ (fn [[plugins shared] _]
+   (into {}
+         (for [libs [plugins shared]
+               :when (map? libs)
+               [source-name source] libs
+               :let [tag (or (when (map? source) (:abbreviation source))
+                             (common/source-abbreviation source-name))]
+               :when tag]
+           [source-name tag]))))
+
 ;; Whether the footer's diagnostic tools are revealed on this device.
 (reg-sub
  ::e5/dev-mode?
  (fn [db _]
    (boolean (:dev-mode? db))))
+
+;; Whether the builder hides pick counts that say nothing; on unless switched off.
+(reg-sub
+ ::e5/quiet-pick-counts?
+ (fn [db _]
+   (not (:show-empty-pick-counts? db))))
 
 ;; ---------------------------------------------------------------------------
 ;; Memoized library-health detectors. Each walks the WHOLE library; as reactions on ::e5/plugins
@@ -484,7 +508,7 @@
     :rogue {3 {:selections [(arcane-trickster-cantrip subclass-key spell-lists spells-map 2)
                             (arcane-trickster-spell-selection subclass-key spell-lists spells-map 2 [1])
                             (arcane-trickster-any-spell-selection subclass-key spell-lists spells-map 1 [1])]
-               :modifiers [(mod5e/spells-known 0 :mage-hand ::char5e/int "Arcane Trickster")]}
+               :modifiers [(mod5e/spells-known 0 :mage-hand ::char5e/int "Rogue")]}
             4 {:selections [(arcane-trickster-spell-selection subclass-key spell-lists spells-map 1 [1])]}
             7 {:selections [(arcane-trickster-spell-selection subclass-key spell-lists spells-map 1 [1 2])]}
             8 {:selections [(arcane-trickster-any-spell-selection subclass-key spell-lists spells-map 1 [1 2])]}
@@ -1044,11 +1068,15 @@
                                   (cond-> []
                                     (>= lvl 3) (conj "Hellish Rebuke")
                                     (>= lvl 5) (conj "Darkness"))))
-                               " once per day. CHA is the spellcasting ability.")})
+                               " once per long rest. CHA is the spellcasting ability.")})
                (mod5e/damage-resistance :fire)
                (mod5e/spells-known 0 :thaumaturgy ::char5e/cha "Tiefling")
-               (mod5e/spells-known 1 :hellish-rebuke ::char5e/cha "Tiefling" 3)
-               (mod5e/spells-known 2 :darkness ::char5e/cha "Tiefling" 5)]})
+               ;; SRD 5.1 Infernal Legacy: each "once with this trait", back on a long rest,
+               ;; Hellish Rebuke "as a 2nd-level spell"; no slots (plan-spell-uses-by-source.md).
+               (mod5e/spells-known 1 :hellish-rebuke ::char5e/cha "Tiefling" 3 nil nil
+                                   {:free (assoc units5e/long-rests-1 :level 2) :slots :none})
+               (mod5e/spells-known 2 :darkness ::char5e/cha "Tiefling" 5 nil nil
+                                   {:free units5e/long-rests-1 :slots :none})]})
 
 (reg-sub
  ::races5e/plugin-subraces-map

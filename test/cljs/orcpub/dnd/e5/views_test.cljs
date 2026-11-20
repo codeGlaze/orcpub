@@ -7,6 +7,8 @@
    are not covered here. The one piece of pure, side-effect-free logic that
    drives the diagnostics — blank-feature-name? — is tested directly."
   (:require [cljs.test :refer-macros [deftest testing is async]]
+            [reagent.core :as r]
+            [reagent.dom :as rdom]
             [cljs.reader :as reader]
             [re-frame.core :as rf]
             [orcpub.pdf-spec :as pdf-spec]
@@ -15,6 +17,7 @@
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.artist-links]
             [orcpub.dnd.e5.views :as views]
+            [orcpub.dnd.e5.views.pdf-options :as pdf-options]
             [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-resolution]))
 
@@ -119,7 +122,7 @@
 (defn- export!
   "Presses Create PDF for an empty character, as the export button's handler does. Returns nil."
   []
-  ((views/export-pdf {} 1 {}) nil))
+  ((pdf-options/export-pdf {} 1 {}) nil))
 
 (deftest a-portrait-this-site-cannot-draw-does-not-stop-the-export
   (with-redefs [pdf-spec/make-spec (constantly {:name "Bree"})
@@ -154,7 +157,7 @@
                     pa/drawable? (constantly true)
                     portrait/baked-png (constantly nil)
                     portrait/bake-ahead! (fn [_] (js/Promise. (fn [_ _])))
-                    views/portrait-wait-ms 30]
+                    pdf-options/portrait-wait-ms 30]
         (export!))
       (js/setTimeout (fn []
                        (is (= 1 (count @sent)) "after the wait the PDF goes without the portrait")
@@ -247,3 +250,43 @@
       (add!)
       (add!)
       (is (= 3 (count (field @stored))) (str label ": the second click works on what the first stored")))))
+
+(deftest the-pdf-panel-reads-the-character-when-it-draws
+  ;; Storing the character in the panel would export it as it was when Export was pressed.
+  (let [shown (atom nil)]
+    (with-redefs [re-frame.core/dispatch #(reset! shown %)]
+      ((pdf-options/make-print-handler 7 false))
+      (is (= [pdf-options/live-print-options 7 false] (second @shown))
+          "the panel holds only which character to read")
+      ((pdf-options/make-print-handler nil true))
+      (is (= [pdf-options/live-print-options nil true] (second @shown))
+          "the builder's character is read from the builder"))))
+
+(deftest every-builder-section-gets-its-own-react-key
+  ;; Each section is wrapped in render-guard with the edited item, whose :key Reagent would take as
+  ;; the React key of every section.
+  (let [el (.createElement js/document "div")
+        errors (atom [])
+        error (.-error js/console)]
+    (set! (.-error js/console) (fn [& args] (swap! errors conj (apply str args))))
+    (try
+      (.appendChild (.-body js/document) el)
+      (rdom/render [:div (views/guarded-form {:key :spell-a :name "A"}
+                                             (fn [] [:div [:p "one"] [:p "two"] [:p "three"]]))]
+                   el)
+      (r/flush)
+      (is (empty? (filter #(re-find #"same key" %) @errors)) "no two sections share a React key")
+      (is (= "onetwothree" (.-textContent el)) "every section is drawn once")
+      (finally
+        (set! (.-error js/console) error)
+        (rdom/unmount-component-at-node el)
+        (.remove el)))))
+
+(deftest the-file-name-preview-cleans-names-as-the-server-does
+  (testing "in the browser too: letters of any script stay, emoji and invisible characters go"
+    (doseq [[in out] [["Zoë D’Artagnan" "Zoë D’Artagnan"]
+                      ["Кира 龍 🙂" "Кира 龍"]
+                      ["Zoë" "Zoë"]
+                      [". hidden ." "hidden"]
+                      ["a​b" "ab"]]]
+      (is (= out (pdf-spec/file-safe in)) (pr-str in)))))

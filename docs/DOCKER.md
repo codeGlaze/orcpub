@@ -1,22 +1,23 @@
 # Docker Reference
 
-Consolidated reference for OrcPub's Docker infrastructure: three services,
-one compose file, and the configuration patterns that connect them.
+How to install, run, upgrade and troubleshoot the site with Docker: three services, one compose
+file, and the settings that connect them.
 
 **Contents**
 
 - [Platform Notes](#platform-notes) — Linux, macOS, Windows
 - [Quick Start](#quick-start) — setup, build, launch, first user
-  - [Upgrading an Existing Installation](#upgrading-an-existing-installation)
+  - [Upgrading an Existing Install](#upgrading-an-existing-install)
   - [Key Environment Variables](#key-environment-variables)
 - [Architecture](#architecture) — services, networking, boot order
 - [Compose File](#compose-file) — image naming, registry overrides
-- [Transactor Configuration](#transactor-configuration-option-c-hybrid-template)
-- [host=datomic Rationale](#hostdatomic-rationale)
+- [Transactor Configuration](#transactor-configuration)
+- [Transactor Address (host=datomic)](#transactor-address-hostdatomic)
 - [Jetty Binding](#jetty-binding)
 - [Healthcheck Strategy](#healthcheck-strategy) — app and transactor probes
 - [Production Memory Tuning](#production-memory-tuning)
 - [Volumes](#volumes)
+- [Backups](#backups)
 - [Docker Swarm Deployment](#docker-swarm-deployment) — ALT_HOST, scaling, secrets
 - [File Inventory](#file-inventory)
 - [Security](#security)
@@ -134,14 +135,13 @@ The upgrade script:
 
 Your `data/`, `logs/`, and SSL certs are never touched.
 
-**Check your `.env` before upgrading to the Long Rest Update.** Before this release, most settings
-in `.env` never reached the app container: Docker only passes the settings named in the
-compose file, and that list was short. It now names every setting the server reads. So a line
-that has been sitting in your `.env` doing nothing, such as `APP_NAME=...` or an
-`ORCPUB_PDF_...` value, takes effect after this upgrade. Look through `.env` for `APP_`,
-`ORCPUB_` and `ALERT_` lines and remove any you do not mean. A branding value set here
-replaces the one in your branding file. After the upgrade, the server's start-up output shows
-each setting as `SET` or `DEFAULT`, so you can confirm what is in force.
+**Check your `.env` before upgrading.** Docker passes the app container only the settings the
+compose file names, and the compose file names every setting the server reads. So a line that sat
+in your `.env` and did nothing on an older install, such as `APP_NAME=...` or an `ORCPUB_PDF_...`
+value, takes effect after the upgrade. Look through `.env` for `APP_`, `ORCPUB_` and `ALERT_`
+lines and remove any you do not mean. A branding value set here replaces the built-in default.
+After the upgrade, the server's start-up output shows each setting as `SET` or `DEFAULT`, so you
+can confirm what is in force.
 
 <details>
 <summary>What does --upgrade actually check?</summary>
@@ -230,7 +230,7 @@ These are the variables you'll actually touch. Full reference in
 | `EMAIL_SERVER_URL` | No | *(empty)* | Your SMTP server. Leave it empty and nobody can sign up: the site can't send the confirmation email, so it turns registration off rather than letting people in unchecked. To run without email, see the next setting. |
 | `ALLOW_UNVERIFIED_REGISTRATION` | No | `false` | Set this to `true`, and leave `EMAIL_SERVER_URL` empty, to let people sign up without confirming their email. Their accounts work right away. Only do this on a private site — anyone can sign up using an address that isn't theirs. It does nothing if you have SMTP set up. |
 | `CSP_POLICY` | No | `strict` | Content Security Policy: `strict`, `permissive`, or `none`. |
-| `DEV_MODE` | No | *(empty)* | Set to `true` to send no CSP header at all, which is what allows Figwheel hot-reload. Not a Report-Only mode — that does not exist. |
+| `DEV_MODE` | No | *(empty)* | Set to `true` only for development: it sends no CSP header at all. Leave it empty in production. |
 | `LOAD_HOMEBREW_URL` | No | *(empty)* | URL to fetch `.orcbrew` plugins on first page load. |
 
 `run` generates `DATOMIC_PASSWORD`, `ADMIN_PASSWORD`, and
@@ -267,15 +267,7 @@ Image names default to local build tags (`orcpub-app`, `orcpub-datomic`).
 Override with `ORCPUB_IMAGE` and `DATOMIC_IMAGE` env vars to point at a
 registry (e.g., `ORCPUB_IMAGE=registry/orcpub:2.6.0.0 docker compose up -d`).
 
-## Transactor Configuration (Option C Hybrid Template)
-
-### Previous Approach
-
-A fragile sed-chain — 5 build-time and 6 runtime substitutions — that mutated
-a stock properties file. Broke silently on Datomic upgrades when line formats
-changed.
-
-### Current Approach
+## Transactor Configuration
 
 `docker/transactor.properties.template` is a **complete** transactor config
 with all structural settings hardcoded. Only five values use `${VAR}`
@@ -295,7 +287,7 @@ placeholders for runtime substitution:
 3. Supports password rotation via `ADMIN_PASSWORD_OLD` / `DATOMIC_PASSWORD_OLD`
 4. Uses `exec` so the transactor becomes PID 1 (receives Docker signals directly)
 
-## host=datomic Rationale
+## Transactor Address (host=datomic)
 
 The transactor's `host=` setting is both the address it serves on and the
 address it tells the app to connect to. Datomic has no separate setting for
@@ -392,7 +384,7 @@ Rules of thumb (from Datomic capacity planning docs):
 container, so a crash or restart does not lose it; `docker compose logs orcpub` shows it. The file
 is lost only when the container is replaced (a new image, or a changed compose file). Each
 container keeps at most `LOG_MAX_FILES` files of `LOG_MAX_SIZE` each (default 5 of 10 MB), so logs
-can no longer fill the disk. Set both in `.env`.
+cannot fill the disk. Set both in `.env`.
 
 The app's log holds what the app reports: its start-up settings, warnings, errors, admin alerts
 and a line for each security event (sign-ins and failed sign-ins, sign-ups, password resets,
@@ -422,8 +414,7 @@ what happened, when, and where the file is.
 
 **The app's memory.** `JAVA_OPTS` in `.env` sets Java's memory options for the app, for example
 `JAVA_OPTS=-XX:MaxRAMPercentage=75.0` (use up to 75% of the container's memory). Left empty, Java
-uses only 25% of the container's memory. Before the Long Rest Update `JAVA_OPTS` was passed to the
-container but never reached Java, so if you set it earlier, it starts taking effect now.
+uses only 25% of the container's memory.
 
 ## Volumes
 
@@ -436,6 +427,93 @@ container but never reached Java, so if you set it earlier, it starts taking eff
 | `./deploy/homebrew/` | web | User homebrew `.orcbrew` files served by nginx |
 | `./deploy/nginx.conf.template` | web | Nginx config template (`envsubst` at startup) |
 | `./deploy/snakeoil.*` | web | Self-signed SSL certificates |
+
+## Backups
+
+There are two ways to back up the database. Use the live backup routinely, and the offline copy as a
+fallback. Both are for the Compose stack. The commands run from the project folder.
+
+**Back up `.env` and any secret files with every backup.** Without `SIGNATURE` everyone is signed
+out, and without `PROFILE_ENCRYPTION_KEYS` stored preferred names cannot be read. The backup folders
+do not contain them. If you use file secrets (`./run --secrets`), also keep
+`docker-compose.secrets.yaml`: `.env`'s `COMPOSE_FILE` names it, and Compose will not start without
+it. `./run --secrets` writes it again from `.env` if it is lost.
+
+### Live backup (routine)
+
+```sh
+./run --backup
+```
+
+This backs up the database while the site is running, into a folder for the month:
+`./backups/2026-11/orcpub`. Run it again in the same month and it adds only what changed since the
+last run, so a daily run is quick. Run it daily (a cron line such as
+`0 4 * * * cd /path/to/project && ./run --backup >> logs/backup.log 2>&1`), or before each upgrade.
+The first backup of each month is a full one and can take a while on a large database.
+
+It works on either storage: the Compose stack's own (`./data`), and Postgres. With
+`DATOMIC_URL=datomic:sql://...` in `.env`, the backup reads the database through that address, so
+a site that keeps Datomic in Postgres is backed up the same way. If Postgres is not on the
+`datomic` service's Docker network, set `BACKUP_NETWORK` to a network that reaches it.
+
+- **Where:** `./backups` by default. Use another folder with `./run --backup --backup-dir /mnt/backups`,
+  or set `BACKUP_DIR` in `.env`. Keep a copy on another machine or disk: a backup beside the data
+  does not survive a lost disk.
+- **Check it:** `./run --verify-backup ./backups` reads every file of the newest month's backup and
+  says whether it can be restored. A month folder works too (`./backups/2026-10`).
+- **Space and old backups:** each month's backup is about the size of the database. When the first
+  backup of a new month verifies, month folders beyond `BACKUP_KEEP_MONTHS` (default 3) are deleted,
+  oldest first; nothing is deleted when it does not verify. Before a new month starts, the run checks
+  the disk has room for one more (the size of the newest month) and stops with a message if not.
+  A backup in `./backups/orcpub` from before month folders is left as it is.
+
+### Restoring a live backup
+
+```sh
+docker compose up -d datomic        # only the database, not the app
+./run --restore ./backups
+docker compose up -d                # start everything
+```
+
+`./run --restore ./backups` restores the newest month; name a month folder to pick another. On
+Postgres it stops the app and the transactor for the restore (Datomic restores SQL storage only with
+nothing connected) and starts the transactor again afterwards. Datomic needs every peer and transactor using that
+Postgres storage stopped, including ones outside this stack or serving other databases: stop those
+yourself first.
+A restore needs a database with nothing in it, so use a fresh `./data` folder (or a new machine;
+on Postgres, a database with Datomic's table and no `orcpub` database in it). Copy `.env` back first. If a database already exists, `./run --restore` stops and says so without
+changing anything. To replace it: stop the app (`docker compose stop orcpub`), back up what is there
+(`./run --backup`), stop the stack, move `./data` aside (`mv data data.old`), start only the
+database as above, then restore. On Postgres, `./data` holds none of the database, so moving it
+changes nothing: after the backup, point `DATOMIC_URL` at an empty Postgres database (one with
+Datomic's table, as for a new install) and restore into that, keeping the old one until the
+restore verifies.
+
+### Offline copy (fallback)
+
+```sh
+./run --backup --offline
+```
+
+This stops the stack, copies `./data` to `./backups/offline-<date and time>`, and starts the stack
+again. The newest `BACKUP_KEEP_OFFLINE` copies (default 3) are kept; older ones are deleted after a
+copy succeeds, and the run first checks the disk has room for one more. It is for the Compose
+stack's own storage only: with Postgres storage `./data` holds none of the database, so it refuses
+and points to `./run --backup` and Postgres's own backups (`pg_dump`, or archiving). The site is down for the length of the copy. It copies the whole database folder, so it
+needs the same Datomic version to read back, and every run is a full copy.
+
+To restore it:
+
+```sh
+./run --restore ./backups/offline-2026-01-31T120000Z
+```
+
+The stack stops, the current `./data` is moved to `./data.before-restore-<date>` (nothing is
+deleted), the copy is put in its place, and the stack starts. You can also do this by hand: stop the
+stack, put the folder's contents in `./data`, start the stack.
+
+On Swarm, the data is in the `orcpub_data` volume and these commands do not apply. Back up the
+volume with your Docker tooling while the stack is stopped.
 
 ## Docker Swarm Deployment
 
@@ -517,17 +595,17 @@ and lists what the new one would drop. Copy those parts across, or copy this
 release's changes into your own file. Extra environment variables, volumes,
 networks, Traefik labels and resource limits are carried over.
 
-**Upgrading to the release with `TRANSACTOR_HOST`:** regenerate the stack with
-`./run --swarm` (or add `TRANSACTOR_HOST: 0.0.0.0` to the datomic service by hand)
-before deploying the new images. Without it the transactor serves on `datomic`,
-which does not work on Swarm. `./run --upgrade` also removes `ALT_HOST=127.0.0.1`
-from `.env`, the Compose default it used to write, which would otherwise override
-the stack's `datomic`. `./run --check` tells you if either is still wrong. Deploying without `./run`?
-The app's startup log has a DEPLOYMENT block that says where its crash files
-and alerts are kept and lists this release's deployment changes, and Datomic's
-log says which addresses it chose. If `git pull` refuses because
-`docker/transactor.properties.template` has local changes, those were the old
-way of switching to Swarm: discard them with
+**`TRANSACTOR_HOST` on Swarm.** The transactor must serve on `0.0.0.0` on Swarm. If your stack
+file has no `TRANSACTOR_HOST`, regenerate it with `./run --swarm` (or add `TRANSACTOR_HOST: 0.0.0.0`
+to the datomic service by hand) before deploying new images. Without it the transactor serves on
+`datomic`, which does not work on Swarm. Also make sure `.env` has no `ALT_HOST=127.0.0.1`, which
+is the Compose value and would override the stack's `datomic`; `./run --upgrade` removes it.
+`./run --check` tells you if either is still wrong.
+
+Deploying without `./run`? The app's startup log has a DEPLOYMENT block that says where its crash
+files and alerts are kept and lists this release's deployment changes, and Datomic's log says which
+addresses it chose. If `git pull` refuses because `docker/transactor.properties.template` has
+local changes (an older way of switching to Swarm), discard them with
 `git checkout -- docker/transactor.properties.template` and pull again.
 
 ### Upgrading a Portainer stack
@@ -537,8 +615,7 @@ reach both:
 
 1. On the server's checkout, pull the new code and run `./run --upgrade-swarm`. It reads the
    `docker-compose.swarm.yaml` on disk, keeps your changes, and adds any settings the new
-   release reads (the Long Rest Update adds many; without them Swarm drops those settings on the way
-   into the container).
+   release reads (without them Swarm drops those settings on the way into the container).
 2. **If you have edited the stack in Portainer's own editor**, copy those edits into
    `docker-compose.swarm.yaml` on disk first. The upgrade reads the file on disk, not
    Portainer's copy, so edits made only in Portainer are lost when you paste the new file.

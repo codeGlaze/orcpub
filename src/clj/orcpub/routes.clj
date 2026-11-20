@@ -20,6 +20,7 @@
             [buddy.sign.jwt :as jwt]
             [buddy.auth.middleware :refer [authentication-request]]
             [clojure.edn :as edn]
+            [orcpub.pdf-spec :as pdf-spec]
             [clojure.java.io :as io]
             [orcpub.time :as time]
             [clojure.string :as s]
@@ -268,7 +269,7 @@
           {:status 400 :body "Invalid or tampered token"})))))
 
 (defn update-user-preferences
-  "PUT handler for /user — update user preferences (send-updates?, dark-button-text?).
+  "PUT handler for /user — update user preferences (send-updates?, dark-button-text?, pdf-file-name).
    Requires authentication. Only updates fields present in transit-params.
    Re-reads from DB after transact to return authoritative state."
   [{:keys [transit-params db conn identity]}]
@@ -292,6 +293,10 @@
               (when (contains? transit-params :dark-button-text?)
                 @(d/transact conn [{:db/id id
                                     :orcpub.user/dark-button-text? (boolean (:dark-button-text? transit-params))}]))
+              (when (contains? transit-params :pdf-file-name)
+                @(d/transact conn [{:db/id id
+                                    :orcpub.user/pdf-file-name
+                                    (pr-str (pdf-spec/clean-file-name-format (:pdf-file-name transit-params)))}]))
               (when (contains? transit-params :preferred-name)
                 (let [old (:orcpub.user/preferred-name (d/entity (d/db conn) id))]
                   (cond
@@ -305,7 +310,10 @@
                                 :preferred-name (crypto/decrypt crypto/preferred-name-purpose
                                                                 (:orcpub.user/preferred-name updated-user))}
                          (some? (:orcpub.user/dark-button-text? updated-user))
-                         (assoc :dark-button-text? (:orcpub.user/dark-button-text? updated-user)))}))))
+                         (assoc :dark-button-text? (:orcpub.user/dark-button-text? updated-user))
+
+                         (:orcpub.user/pdf-file-name updated-user)
+                         (assoc :pdf-file-name (auth/stored-pdf-file-name updated-user)))}))))
       {:status 400 :body {:error "User not found"}})))
 
 (defn update-artist-credit
@@ -352,41 +360,53 @@
     :weapon-name-2 8
     :weapon-name-3 8}))
 
+(defn- cappable?
+  "True for a collection bound-collection caps: a list, vector, seq or set (any collection but a map)."
+  [x]
+  (and (coll? x) (not (map? x))))
+
+(defn- cap
+  "The first `n` entries of the cappable collection `xs`, as the same kind of collection (a set
+   stays a set, a vector a vector)."
+  [n xs]
+  (if (seq? xs) (take n xs) (into (empty xs) (take n xs))))
+
 (defn- bound-collection
-  "At most `n` entries, whether `v` is a list or a map of lists.
+  "At most `n` entries, whether `v` is a collection (list, vector, set) or a map of them.
 
    A map is capped across ALL its values, not per key: spells-known is keyed by
    class, so a per-key cap would let thirteen classes carry the limit each."
   [n v]
   (cond
     (map? v) (first (reduce (fn [[m left] [k xs]]
-                              (if (sequential? xs)
-                                [(assoc m k (take left xs)) (max 0 (- left (count xs)))]
+                              (if (cappable? xs)
+                                [(assoc m k (cap left xs)) (max 0 (- left (count xs)))]
                                 [(assoc m k xs) left]))
                             [{} n] v))
-    (sequential? v) (take n v)
+    (cappable? v) (cap n v)
     :else v))
 
 (defn- collection-size
   "Entries in `v`, counted the way bound-collection caps them; nil if it caps nothing."
   [v]
   (cond
-    (map? v) (reduce + 0 (map #(if (sequential? %) (count %) 0) (vals v)))
-    (sequential? v) (count v)
+    (map? v) (reduce + 0 (map #(if (cappable? %) (count %) 0) (vals v)))
+    (cappable? v) (count v)
     :else nil))
 
 (defn bound-request
   "Returns `fields` with everything caller-supplied capped, before any part of the export
    sees it. Acts on the REQUEST, so a feature added later that reads the body is bounded
-   without being wired up: a `spellcasting-class-N` field past the section ceiling is
-   dropped, and every collection is truncated to the card ceiling (nine cards to a page, so
-   an uncapped list is an uncapped page count). Generators keep their own clamps as well."
+   without being wired up: a `spellcasting-class-N` field is dropped unless N is written plainly
+   (1 to 9999, no leading zero, so `-01` cannot pass as a second `-1`) and within the section
+   ceiling, and every collection is truncated to the card ceiling (nine cards to a page).
+   Generators keep their own clamps as well."
   [fields]
   (let [max-sections (config/get-pdf-max-caster-sections)
         max-cards (config/get-pdf-max-cards)
         past-ceiling? (fn [k]
                         (when-let [[_ n] (re-matches #"spellcasting-class-(\d+)" (name k))]
-                          (> (or (parse-long n) 0) max-sections)))
+                          (or (not (re-matches #"[1-9]\d{0,3}" n)) (> (parse-long n) max-sections))))
         dropped (count (filter past-ceiling? (keys fields)))]
     (when (pos? dropped)
       (println (format "pdf: dropped %d spellcasting-class field(s) past section %d"
@@ -501,11 +521,20 @@
                             ;; be absent. Calling nil threw an NPE that the catch
                             ;; below swallowed, so every card vanished and the
                             ;; export looked like it had simply ignored the option.
-                            (fn [{:keys [key class]}]
-                              {:spell (spells-map key)
-                               :class-nm class
-                               :dc (get spell-save-dcs class)
-                               :attack-bonus (get spell-attack-mods class)})))
+                            (fn [{:keys [key class casting]}]
+                              (let [{:keys [amount units level at-will]} (:free casting)]
+                                (cond-> {:spell (spells-map key)
+                                         :class-nm class
+                                         :dc (get spell-save-dcs class)
+                                         :attack-bonus (get spell-attack-mods class)}
+                                  ;; Free casts per rest print as use circles, the rest as their
+                                  ;; label ("LONG REST"), at will as the label alone; a fixed
+                                  ;; casting level joins the source. Uses past one row's worth are dropped.
+                                  at-will (assoc :uses {:n 0 :label "AT WILL"})
+                                  (and (not at-will) (pos-int? amount) units)
+                                  (assoc :uses {:n (min amount cards/max-use-circles)
+                                                :label (common/ascii-upper-case (s/replace (name units) "-" " "))})
+                                  level (assoc :cast-at level))))))
                           part)
                   remaining-desc-lines (vec
                                         (cards/print-spells
@@ -650,7 +679,7 @@
     :print-bw? :bw-faded? :print-prepared-spells? :print-large-abilities?
     :print-spell-annotations? :spell-relabels :spell-headings :spell-layout
     :magic-items-known :print-magic-item-cards?
-    :spellbook :spell-order
+    :spellbook :spell-order :file-name
     :page-size
     ;; The composed portrait's bytes and its credit line. They are drawn, not written
     ;; into a field, so leaving them here made write-fields! report two unplaceable
@@ -839,14 +868,63 @@
                            :nonce (:csp-nonce req)
                            :action (or (:uri req) "/character.pdf")})}))))
 
+(defn- fit-bytes
+  "`base` cut, a character at a time, to at most `limit` UTF-8 bytes (Linux and Android cap a file
+   name at 255 bytes, and one CJK letter takes three), then trailing dots and spaces trimmed.
+   Returns a string."
+  [base limit]
+  (loop [b base]
+    (if (<= (count (.getBytes ^String b "UTF-8")) limit)
+      (s/replace b #"[. ]+$" "")
+      (recur (subs b 0 (dec (count b)))))))
+
+(defn- with-pdf-extension
+  "`base` (already file-safe) fitted to 250 bytes plus \".pdf\", or \"character.pdf\" when it is
+   blank or a name Windows reserves (CON, NUL, COM1...). Returns a string."
+  [base]
+  (let [b (fit-bytes base 250)]
+    (if (or (s/blank? b) (re-matches #"(?i)(con|prn|aux|nul|com\d|lpt\d)" b))
+      "character.pdf"
+      (str b ".pdf"))))
+
+(defn pdf-filename
+  "The download name of a character sheet: the player name, character name and class level,
+   each made file-safe (pdf-spec/file-safe), the blank ones left out, joined with \" - \", then
+   \".pdf\" (with-pdf-extension). Args: three strings or nils. Returns a string."
+  [player-name character-name class-level]
+  (with-pdf-extension
+    (s/join " - " (remove s/blank? (map pdf-spec/file-safe [player-name character-name class-level])))))
+
+(defn requested-pdf-filename
+  "The download name for export `fields`: the client's :file-name (built from the player's file
+   name choices) made file-safe, when it sent one and something is left of it; else pdf-filename of
+   the names and class level. Returns a string."
+  [{:keys [file-name player-name character-name class-level] :as fields}]
+  (let [n (pdf-spec/file-safe (let [f (str file-name)] (subs f 0 (min 400 (count f)))))]
+    (if (and (contains? fields :file-name) (not (s/blank? n)))
+      (with-pdf-extension n)
+      (pdf-filename player-name character-name class-level))))
+
+(defn content-disposition
+  "The Content-Disposition header value showing `filename` inline. filename= is an ASCII copy
+   (anything else, quotes and backslashes as _); filename*= is the whole name, UTF-8 and
+   percent-encoded (RFC 6266), which browsers prefer. Args: a string. Returns a string."
+  [filename]
+  (let [ascii (s/replace filename #"[^\x20-\x7E]|[\"\\]" "_")
+        encoded (-> (java.net.URLEncoder/encode ^String filename "UTF-8")
+                    (s/replace "+" "%20")
+                    (s/replace "*" "%2A"))]
+    (str "inline; filename=\"" ascii "\"; filename*=UTF-8''" encoded)))
+
 (defn- spell-annotation
   "The marks for the spell printed under `nm`, or nil.
 
    By NAME, because that is all the row carries: the server is handed a flat map
-   of field names to values. A homebrew spell, or one whose name does not match
-   the data, gets no marks rather than a wrong one."
+   of field names to values, the name followed by any note in parentheses
+   (pdf-spec/spell-note), which is dropped first. A homebrew spell, or one whose
+   name does not match the data, gets no marks rather than a wrong one."
   [nm]
-  (some-> (get spells/spell-map (common/name-to-kw nm))
+  (some-> (get spells/spell-map (common/name-to-kw (s/replace (str nm) #"\s*\([^()]*\)\s*$" "")))
           spell-annotations/annotation))
 
 (defn- generate-character-pdf*
@@ -893,10 +971,7 @@
         no-casters? (and (zero? casters) (some? without-casters))
         input (.openStream (io/resource (if no-casters? without-casters file)))
         output (ByteArrayOutputStream.)
-        filename (cond
-                   (and (s/blank? player-name) (s/blank? character-name)) "character.pdf"
-                   (s/blank? player-name) (str character-name " - " class-level ".pdf")
-                   :else (str player-name " - " character-name " - " class-level ".pdf"))]
+        filename (requested-pdf-filename fields)]
         
     ;; PDFBox 3.x: Loader/loadPDF accepts byte[], File, or RandomAccessRead —
     ;; NOT InputStream. Read the resource stream into a byte array first.
@@ -1049,7 +1124,7 @@
         (.save doc output)))
     (let [a (.toByteArray output)]
       {:status 200
-       :headers {"Content-Disposition" (str "inline; filename=\"" filename "\"")}
+       :headers {"Content-Disposition" (content-disposition filename)}
        :body (ByteArrayInputStream. a)})))
 
 (defn- generate-character-pdf
@@ -1263,8 +1338,10 @@
   [conn id]
   (try
     (when id
-      (portrait-store/saved! id (some-> (d/pull (d/db conn) '[{::se/values [::char5e/portrait]}] id)
-                                        ::se/values ::char5e/portrait)))
+      (portrait-store/saved! id (some-> (d/pull (d/db conn) '[{::se/values [::char5e/portrait
+                                                                         ::char5e/image-url
+                                                                         ::char5e/picture-shown]}] id)
+                                        ::se/values char5e/shown-values ::char5e/portrait)))
     (catch Exception e (println "portrait-store: not told about" id "-" (.getMessage e)))))
 
 (defn do-save-character
@@ -1473,10 +1550,12 @@
    GOTCHA: character-page destructures both keys, so returning only the summary submap
    blanks every og:title and og:image."
   [db id]
-  (d/pull db
-          '[::se/summary
-            {::se/values [::char5e/description ::char5e/image-url ::char5e/portrait]}]
-          id))
+  (-> (d/pull db
+              '[::se/summary
+                {::se/values [::char5e/description ::char5e/image-url ::char5e/portrait
+                              ::char5e/picture-shown]}]
+              id)
+      (update ::se/values #(some-> % char5e/shown-values))))
 
 (defn get-character
   "Retrieves the character at path-param :id via `get-character-for-id`: 200 with the
@@ -1614,8 +1693,10 @@
    param matching the tag's version makes the response long-cacheable."
   [{:keys [db headers query-params] {:keys [id]} :path-params}]
   (artist-credit/refresh! db)
-  (let [stored (some-> (d/pull db '[{::se/values [::char5e/portrait]}] id)
+  (let [stored (some-> (d/pull db '[{::se/values [::char5e/portrait ::char5e/image-url
+                                                  ::char5e/picture-shown]}] id)
                        ::se/values
+                       char5e/shown-values
                        ::char5e/portrait)
         portrait (some-> stored char5e/parse-portrait)
         tag (portrait-store/tag stored)

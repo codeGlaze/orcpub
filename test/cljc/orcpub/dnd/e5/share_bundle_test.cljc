@@ -184,3 +184,7 @@
       (is (= (spell "") (:plugins (sb/whitelist-shared {:plugins (spell " DATA:video/mp4;base64,AAAA")})))))
     (testing "text that only mentions data: is kept"
       (is (= (spell "see data: below") (sb/without-embedded-media (spell "see data: below")))))))
+
+(deftest share-base-drops-a-fragment-and-keeps-the-query
+  (is (= "https://x.test/char/1?frame=true" (sb/share-base "https://x.test/char/1?frame=true#notes")))
+  (is (= "https://x.test/char/1" (sb/share-base "https://x.test/char/1"))))

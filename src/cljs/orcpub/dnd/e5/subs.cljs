@@ -19,6 +19,7 @@
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.char-filter :as char-filter]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
+            [orcpub.dnd.e5.inventory :as inventory]
             [orcpub.dnd.e5.party :as party5e]
             [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.monsters :as monsters5e]
@@ -226,6 +227,44 @@
  :character
  (fn [db _]
    (:character db)))
+
+;; The last kit action's Undo line for character `id` (nil: the builder's), {:message}, while that
+;; character is still what the action left (a saved one: in what the action changed, save ids aside,
+;; so its autosave keeps it); nil after another edit there.
+(reg-sub
+ ::inventory/undo
+ (fn [db [_ id]]
+   (let [{:keys [after] :as undo} (::inventory/undo db)
+         current (if id (get-in db [::char5e/character-map (js/parseInt id)]) (:character db))]
+     (when (and undo (= id (:id undo))
+                (if id (inventory/undo-applies? current undo) (= current after)))
+       (select-keys undo [:message])))))
+
+;; What a Kits block shows for character `id` (nil: the builder's): {:kits [{:pack :name :chest? :tracked
+;; :could-use-spare :holds :pack-count :bought}] :questions :fillable :shares {item-key shares}
+;; :contents #{item-key every kit holds when full} :backpack-worn?} (inventory.cljc).
+(reg-sub
+ ::inventory/panel
+ (fn [[_ id]] [(subscribe [::char5e/character id]) (subscribe [:built-template])])
+ (fn [[character template] _]
+   (let [active (inventory/active-kits character)]
+     {:kits (mapv (fn [kit]
+                    (let [pk (::entity/key kit)]
+                      {:pack pk
+                       :name (:name (inventory/pack pk))
+                       :chest? (contains? (:items (inventory/pack pk)) :chest)
+                       :tracked (inventory/tracked kit)
+                       :could-use-spare (inventory/restock-could-use-spare character pk)
+                       :holds (inventory/held-items character pk)
+                       :pack-count (inventory/kit-count kit)
+                       :bought (inventory/total character pk)}))
+                  active)
+      :questions (inventory/questions character (inventory/offered-packs template character))
+      :fillable (inventory/fillable character)
+      :backpack-worn? (inventory/backpack-worn? character)
+      :contents (into #{} (mapcat #(map first (inventory/targets %))) active)
+      :shares (into {} (for [k (distinct (mapcat #(map :key (inventory/tracked %)) active))]
+                         [k (inventory/shares character k)]))})))
 
 (reg-sub
  :entity-values
@@ -745,6 +784,13 @@
             (reset! memo [template character out])
             out))))))
 
+(defn shown-character
+  "What a saved character's page shows of the healed character `healed`: with `template` (else as
+   is) the picks that no longer apply left out by `settle` (a `page-settler`), then packs chosen
+   before kits existed made kits (inventory.cljc), so a held pack makes none. Returns the character."
+  [settle template healed]
+  (:character (inventory/repair (if (seq template) (settle template healed) healed))))
+
 ;; A saved character with its picks healed (heal-sites, content_reconciliation.cljs). Never stored.
 (reg-sub-raw
   ::char5e/character
@@ -752,33 +798,33 @@
     (let [int-id (when id (js/parseInt id))
           settle (page-settler)]
       (when (some? int-id)
-        (go (dispatch [:set-loading true])
-            (let [response (<! (http/get (url-for-route
-                                           routes/dnd-e5-char-route
-                                           :id int-id)))]
-              (dispatch [:set-loading false])
-              (handle-api-response response
-                #(let [body (:body response)]
-                   (if (http/decode-failed? body)
-                     ;; Unreadable even after self-heal: flag the load as failed so the page shows
-                     ;; a recovery panel (delete / go to list). Feeding the marker to from-strict
-                     ;; would silently build a blank default character.
-                     (dispatch [::char5e/set-character-load-error int-id body])
-                     (do (dispatch [::char5e/set-character-load-error int-id nil])
-                         ;; Before the character, so its first build already has them.
-                         (dispatch [::mi5e/set-character-custom-items int-id
-                                    (::char5e/custom-items body) (::se/owner body)])
-                         (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
-                :context (str "fetch character " int-id)))))
+        (let [gen (event-utils/loading-gen @app-db)]
+          (go (dispatch [:set-loading true gen])
+              (let [response (<! (http/get (url-for-route
+                                             routes/dnd-e5-char-route
+                                             :id int-id)))]
+                (dispatch [:set-loading false gen])
+                (handle-api-response response
+                  #(let [body (:body response)]
+                     (if (http/decode-failed? body)
+                       ;; Unreadable even after self-heal: flag the load as failed so the page shows
+                       ;; a recovery panel (delete / go to list). Feeding the marker to from-strict
+                       ;; would silently build a blank default character.
+                       (dispatch [::char5e/set-character-load-error int-id body])
+                       (do (dispatch [::char5e/set-character-load-error int-id nil])
+                           ;; Before the character, so its first build already has them.
+                           (dispatch [::mi5e/set-character-custom-items int-id
+                                      (::char5e/custom-items body) (::se/owner body)])
+                           (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
+                  :context (str "fetch character " int-id))))))
       (ra/make-reaction
        (fn []
          (if int-id
-           (let [healed (:character (content-recon/reconcile-former-keys
-                                     (get-in @app-db [::char5e/character-map int-id] {})
-                                     @(subscribe [::content-recon/former-key-indexes])))
-                 template (get @app-db :orcpub.dnd.e5.autosave-fx/cached-template)]
-             ;; Picks that no longer apply are left out of what the page shows (picks.cljc).
-             (if (seq template) (settle template healed) healed))
+           (shown-character settle
+                            (get @app-db :orcpub.dnd.e5.autosave-fx/cached-template)
+                            (:character (content-recon/reconcile-former-keys
+                                         (get-in @app-db [::char5e/character-map int-id] {})
+                                         @(subscribe [::content-recon/former-key-indexes]))))
            (get @app-db :character)))))))
 
 ;; Records that a character's server response could not be decoded even after self-heal; the
@@ -1433,10 +1479,41 @@
  (fn [db _]
    (get-in db [:user-data :theme])))
 
+;; Which picture the character shows: :portrait, :image or nil (char5e/shown-picture).
+(reg-sub
+ :portrait/shown
+ (fn [db _]
+   (char5e/shown-picture (get-in db [:character :orcpub.entity/values]))))
+
+;; The picture link being drafted in the portrait editor, applied only by "Use this picture".
+(reg-sub
+ :portrait/link-draft
+ (fn [db _]
+   (:portrait/link-draft db)))
+
+;; Whether the portrait editor shows the compositor (:compose) or the picture link (:link).
+(reg-sub
+ :portrait/mode
+ (fn [db _]
+   (or (:portrait/mode db) :compose)))
+
+;; Whether the portrait editor's Randomize keeps the current colours.
+(reg-sub
+ :portrait/keep-colours?
+ (fn [db _]
+   (boolean (:portrait/keep-colours? db))))
+
 (reg-sub
  :dark-button-text?
  (fn [db _]
    (boolean (get-in db [:user-data :dark-button-text?]))))
+
+;; The player's PDF file name choices as saved (this browser, and the account when signed in);
+;; pdf-spec/file-name-defaults fills what is missing.
+(reg-sub
+ ::char5e/file-name-format
+ (fn [db _]
+   (get-in db [:user-data :pdf-file-name] {})))
 
 (reg-sub
  ::show-class-source-suffix

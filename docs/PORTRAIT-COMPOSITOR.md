@@ -87,9 +87,8 @@ from both, so the credit is drawn into the pixels and travels with it.
   builder that can send someone to the artist.
 - **An artist with no `:artist/name` gets no byline.** The drawer says "artist credit
   pending" rather than showing an empty slot or inventing a name; `credit-line` returns nil.
-- **The drawer's credit sits directly under the art.** It used to sit in the footer beside
-  Save Portrait, which put a credit in a row of actions and made the drawer disagree with
-  the character summary, where it sits under the thumbnail.
+- **The drawer's credit sits directly under the art,** as it does under the thumbnail in the
+  character summary, not in the footer row of actions.
 
 The credit's design was settled from captures stashed at `docs/design/portrait-credit` on
 `agents/develop`.
@@ -190,8 +189,8 @@ The portrait draft lives at the top of app-db, beside the character rather than 
 - **`:character-epoch` counts replacements.** A save is dispatched at one epoch and answered
   at another, which is the only way the answer can tell whether its character is still on
   screen. An id cannot: a first save is where the id appears.
-- **A save replaces the character on screen only when it was about it.** It used to replace
-  it with whatever came back. The autosave queue is throttled by 7.5s and every sheet
+- **A save replaces the character on screen only when it was about it,** not with whatever
+  came back. The autosave queue is throttled by 7.5s and every sheet
   control feeds it, so adjusting hit points on one character and opening another inside
   that window swapped the builder out from under you, taking the unsaved edits in db
   `:character` with it. The portrait draft was the loudest symptom. The manual save passes
@@ -224,3 +223,26 @@ beside robots.txt and the art licence rather than replacing either.
   Portrait tab has its own `.pl-root` too, so the stylesheet has one theme hook, not two.
 - **The drawer's stylesheet mounts whether the drawer is open or not.** It also styles the
   launcher button and the Portrait tab, which are on screen when the drawer is not.
+
+## Randomize, Keep colours, and an image from the web
+
+**Randomize rolls everything** (`portrait/roll`): every layer, a preset colour
+for each slot (`pa/color-presets`; the whites mostly white), the eyes (round pupils four times in
+five, a second eye colour one time in ten), blush and freckles about half the time, a light half the
+time, and a second hair colour (tips) on two in five, all within the ranges the settings accept.
+**Keep colours** holds the slot colours, piece tweaks, second eye, blush colour and hair tips, and
+rolls the rest. A seed rolls the same portrait every time.
+
+**A character keeps both pictures and shows one.** `::char5e/picture-shown`
+("portrait" or "image") says which; `char5e/shown-picture` and `shown-values` are the one rule
+every reader uses (the getters, the PDF, the share card, `og:image`, the portrait store). With no
+choice stored the portrait wins when it has a layer, as the PDF always did. The editor (Character
+picture) has a Build a portrait | Use an image from the web switch, a small Active tag (the site's
+`.share-pill-shared`) on the option in use, and opens on that option, Build when there is neither
+(`default-portrait-mode`). Image mode edits a draft (`:portrait/link-draft`) with the same checking
+notice; only Use this image or Switch to this image (`:portrait/use-link`) applies it, and Cancel
+changes nothing. Saving a portrait with a layer shows it (`character/with-saved-portrait`); a
+non-blank link shows the image (`character/with-image-url`); Switch to this portrait
+(`:portrait/show-portrait`) shows the saved one without editing. Above the button, a line says the
+other picture is kept and the player can switch back. The Description tab shows the picture in use
+with Change picture; the Portrait tab shows the picture in use with a link to the other mode.

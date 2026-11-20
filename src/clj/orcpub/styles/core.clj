@@ -721,6 +721,45 @@
                 :position "absolute"
                 :z-index "1"}]]
 
+   ;; The PDF options' groups, flowing down as many columns as the width holds (one on a phone),
+   ;; each group kept whole so a tall one leaves no gap beside the short ones. Columns run right to
+   ;; left, so the first group sits where the panel has always opened and wider screens add to its
+   ;; left; the text inside reads left to right.
+   [:.pdf-options-grid
+    {:column-width "280px"
+     :column-gap "32px"
+     :direction "rtl"}
+    [:>div {:break-inside "avoid"
+            :direction "ltr"}]]
+   ;; PDF Options, filling the window: a bar with its title and close, the options scrolling
+   ;; between, and a footer holding Create PDF. The surface of the app's other sheets (.rest-fab-sheet)
+   ;; in each theme, text from .main-text-color, so the options keep their theme colours.
+   ;; z-index above the cookie notice (9999), which otherwise lies over Create PDF
+   [:.pdf-sheet {:position :fixed :top 0 :left 0 :right 0 :bottom 0 :z-index 10000
+                 :display :flex :flex-direction :column :background-color "#2c3445"}]
+   [".app.light-theme .pdf-sheet" {:background-color "#fff"}]
+   [:.pdf-sheet-bar {:flex "none" :display :flex :align-items :center :justify-content :space-between
+                     :padding "4px 8px 4px 20px" :border-bottom "1px solid rgba(128,128,128,.35)"}]
+   [:.pdf-sheet-title {:font-size "20px" :font-weight :bold :margin 0}]
+   [:.pdf-sheet-close {:min-width "44px" :min-height "44px" :background :none :border :none
+                       :color :inherit :font-size "22px" :cursor :pointer}]
+   [:.pdf-sheet-body {:flex "1 1 auto" :overflow-y :auto :overscroll-behavior :contain
+                      :padding "16px 20px"}]
+   [:.pdf-sheet-foot {:flex "none" :display :flex :justify-content :flex-end :align-items :center
+                      :gap "12px" :padding "10px 20px"
+                      :padding-bottom "max(10px, env(safe-area-inset-bottom, 0px))"
+                      :border-top "1px solid rgba(128,128,128,.35)"}]
+   (at-media {:max-width "767px"}
+             [:.pdf-sheet-body {:padding "12px 16px"}]
+             [:.pdf-sheet-foot {:padding-left "16px" :padding-right "16px"}
+              [:button {:flex "1 1 0" :min-height "44px"}]])
+
+   ;; Options that only apply while the checkbox above them is ticked: a rule down their left edge,
+   ;; starting under that checkbox, so they read as its own and an unindented field after them
+   ;; reads as the group's again. Grey in both themes, so it needs no theme pair.
+   [:.option-nested {:margin "2px 0 10px 7px" :padding-left "12px"
+                     :border-left "2px solid rgba(128,128,128,.5)"}]
+
    ;; A group heading in the PDF options. Set apart from the field labels under
    ;; it -- a heading in the same weight as its own first label reads as one more
    ;; option rather than as the name of the set.
@@ -729,7 +768,7 @@
      :font-weight "bold"
      :letter-spacing "0.08em"
      :text-transform "uppercase"
-     :opacity "0.6"
+     :opacity "0.75"
      :padding-top "8px"
      :margin-bottom "6px"
      :border-top "1px solid currentColor"}]
@@ -748,7 +787,13 @@
      :font-size "10px"
      :font-weight "bold"
      :line-height "1"
-     :opacity "0.55"}]
+     :opacity "0.75"
+     ;; A <button>: no UA chrome, the text's own colour and font.
+     :background "none"
+     :color "inherit"
+     :font-family "inherit"
+     :padding "0"
+     :cursor "pointer"}]
    [:.option-help:hover
     {:opacity "1"}]
    [:.option-help-text
@@ -780,12 +825,17 @@
      {:color "var(--accent, #f0a100)"
       :text-decoration :underline}]]
 
-   ;; The spellbook's class emblems in PDF Options: black icons, inverted on the dark panel.
+   ;; The spellbook's class emblems in PDF Options: black icons, inverted on the dark theme's panel
+   ;; and left black on the light one.
    [:.emblem-icon
     {:width "22px"
      :height "22px"
      :filter "invert(1)"
      :opacity "0.85"}]
+   [".app.light-theme .emblem-icon" {:filter "none"}]
+   ;; The Change/Done toggle: a <button> that looks like the link it was.
+   [:.emblem-toggle
+    {:background "none" :border "none" :padding "0" :font-family "inherit"}]
    [:.emblem-choices
     {:display "grid"
      :grid-template-columns "repeat(auto-fill, minmax(34px, 1fr))"
@@ -851,6 +901,10 @@
    [:.field-notice.is-error {:color red-on-dark}]
    [:.field-notice.is-warning {:color amber-on-dark}]
    [:.field-notice.is-note {:color muted-on-dark}]
+   ;; the light theme's pair for each (style guide, section 2); the portrait drawer sits outside .app
+   [".app.light-theme .field-notice.is-error" ".pl-root.light-theme .field-notice.is-error" {:color red}]
+   [".app.light-theme .field-notice.is-warning" ".pl-root.light-theme .field-notice.is-warning" {:color "#8a5a00"}]
+   [".app.light-theme .field-notice.is-note" ".pl-root.light-theme .field-notice.is-note" {:color "#55637a"}]
 
    ;; The other ways in, behind the disclosure. Plain on purpose: controls, not a
    ;; second warning.
@@ -943,6 +997,10 @@
      :background-clip :content-box
      :width "350px"
      :min-height "600px"}]
+   ;; Auto margins centre the card in its flex row; taller than the window, it starts at the top
+   ;; (align-items alone would push the overflow above the page, out of scroll reach).
+   [:.registration-content {:margin-top :auto :margin-bottom :auto}]
+
    ;; The auth card is white whatever theme the app is in, so anything inside it needs
    ;; the light-ground colours: .red otherwise resolves to red-on-dark (tuned for
    ;; near-black) and washes out to about 2.6:1 on white. .app.light-theme already
@@ -1458,6 +1516,19 @@
     ["span:first-child" {:padding-right "20px"}]
     [".callout-detail + .callout-detail > span" {:border-top "1px solid rgba(255, 255, 255, 0.08)"}]
     [:.callout-aside {:color muted-on-dark}]]
+   ;; Small-capitals links, so a 14px line of text leads rather than its actions (kits handoff,
+   ;; plan-inventory-kits.md). The 44px tap area is the button's own height.
+   [:.link-button.quiet
+    {:display :inline-flex :align-items :center :min-height "44px" :padding "0 15px"
+     :font-size "11px" :letter-spacing ".05em" :font-weight 600 :text-transform :uppercase
+     :text-decoration :underline :white-space :nowrap :flex :none}
+    [:&.strong {:font-weight 700}]
+    [:&.muted {:color :inherit :opacity 0.7}]]
+   ;; A quiet callout: text 12px from the top and left whether or not its actions sit below it.
+   [:.callout-quiet {:padding "0 0 0 12px !important" :align-items "flex-start !important"}
+    [:.callout-text {:padding "12px 0" :min-width 0}]
+    [:.callout-text [:.f-w-b {:margin-bottom "2px"}]]]
+   [:.callout-actions {:flex-basis "100%" :display :flex :justify-content :flex-end :margin-top "-12px"}]
    ;; Even spacing above and below the line and the band, so the box opens like a shell.
    [:.callout-compact.flex-wrap {:row-gap "4px !important"}]
    ;; A Planned line is a button that reads as the italic link it replaces, with a 44px tap area
@@ -1565,6 +1636,19 @@
     {:display :flex
      :flex-wrap :wrap
      :gap "6px"}]
+   ;; A .chip that is a filter (views/inventory.cljs `inventory-combobox`'s Packs pill): a button with a
+   ;; 44px tap layer; .on takes .cast-level's amber selected look.
+   [:.chip-choice
+    {:position :relative :color :inherit :font-family :inherit :cursor :pointer}
+    [:&:after {:content "''" :position :absolute :inset "-12px -3px"}]
+    [:&.on {:color orange :border-color orange :background-color "rgba(240,161,0,.16)"}]]
+   ;; Keyboard focus for the chip and the Add a kit row: .share-action's ring (*:focus removes the browser's).
+   [".chip-choice:focus-visible, .kit-add:focus-visible" {:outline (str "2px solid " orange) :outline-offset "2px"}]
+   [".app.light-theme .chip-choice:focus-visible, .app.light-theme .kit-add:focus-visible" {:outline-color accent-on-light}]
+   [".app.light-theme .kit-add.on" {:color accent-on-light}]
+   [".app.light-theme .chip-choice"
+    {:background-color "rgba(0, 0, 0, 0.04)" :border-color "rgba(0, 0, 0, 0.2)"}
+    [:&.on {:color accent-on-light :border-color accent-on-light :background-color "rgba(51,101,138,.1)"}]]
 
    ;; Neutral counterpart to .bg-warning, for a callout that is telling you
    ;; something rather than warning you: same box, no severity colour, so an
@@ -2181,6 +2265,16 @@
     [:.item-list-item
      {:border-bottom "1px solid rgba(255,255,255,0.5)"}]
 
+    ;; A reference list row's name keeps to one line and ends in an ellipsis, so the source tag
+    ;; beside it never wraps; the full name shows when the row is opened.
+    [:.ref-row-main {:min-width 0 :flex "1 1 auto"}
+     [:>.flex {:min-width 0}
+      [:>div {:min-width 0 :overflow :hidden}
+       [:>:first-child {:display :block :white-space :nowrap :overflow :hidden
+                        :text-overflow :ellipsis}]]]]
+    [:.source-tag {:flex "none" :white-space :nowrap :align-self :flex-start
+                   :padding-top "29px" :margin "0 8px"}]
+
     ;; Thin, themed scrollbar for a flyout that fit-flyout! had to cap (My Content on
     ;; a short screen). The default is a light slab against a dark menu.
     [:.header-flyout
@@ -2248,6 +2342,47 @@
      [:tr
       [(s/& (s/nth-child :even))
        {:background-color "rgba(255, 255, 255, 0.1)"}]]]
+
+    ;; Kits on the Equipment step (plan-inventory-kits.md). Colours follow the text colour, so
+    ;; every theme draws them without its own rule.
+    ;; The kits as a grid of framed cards: one column on a phone, more as the column widens. An
+    ;; open kit (.kit-open) spans the row; Add a kit is the dashed card at the end.
+    [:.kit-grid {:display :grid :grid-template-columns "repeat(auto-fill, minmax(300px, 1fr))" :gap "8px"}
+     [:.kit-open {:grid-column "1 / -1"}]]
+    [:.kit-row {:display :flex :align-items :center :gap "10px" :min-height "48px" :padding "4px 0"}]
+    [:.kit-card {:border "1px solid color-mix(in srgb, currentColor 18%, transparent)"
+                 :border-radius "8px" :padding "6px 10px" :min-width 0}]
+    [:.kit-tile
+     {:flex "0 0 48px" :width "48px" :height "48px" :border-radius "8px"
+      :display :flex :align-items :center :justify-content :center
+      :border "1px solid color-mix(in srgb, currentColor 30%, transparent)"
+      :background-color "color-mix(in srgb, currentColor 6%, transparent)"}]
+    ;; The Add a kit row (views/inventory.cljs `kits-block`): an empty kit tile with a +, in the
+    ;; text colour and unfilled, so it sits under the kits; .on (the search is on Packs) turns it amber.
+    [:.kit-add {:background :none :border-style :dashed :font :inherit :font-size "14px" :color :inherit
+                :cursor :pointer :text-align :left}
+     [:.kit-tile {:background-color :transparent :font-size "16px"}]
+     [:&:hover [:.kit-tile {:background-color "color-mix(in srgb, currentColor 8%, transparent)"}]]
+     [:&.on {:color orange}
+      [:.kit-tile {:border-color :currentColor :background-color "color-mix(in srgb, currentColor 16%, transparent)"}]]]
+    [:.kit-text {:flex "1 1 auto" :min-width 0}]
+    [:.kit-name {:white-space :nowrap :overflow :hidden :text-overflow :ellipsis}]
+    [:.kit-indent {:padding-left "58px"}
+     [:.link-button.quiet {:padding-left 0}]]
+    [:.kit-summary
+     {:flex "1 1 auto" :min-width 0 :min-height "48px" :padding 0 :text-align :left
+      :background :none :border :none :color :inherit :font :inherit :cursor :pointer}]
+    [:.kit-name-line {:display :flex :align-items :center :min-width 0}]
+    [:.kit-contents
+     {:display :flex :flex-wrap :wrap :column-gap "12px" :font-size "13px"
+      :font-variant-numeric :tabular-nums}]
+    [:.kit-restock {:flex :none :white-space :nowrap}]
+    [:.kit-list
+     {:display :grid :grid-template-columns "1fr auto" :column-gap "16px" :max-width "300px"
+      :font-size "13px" :font-variant-numeric :tabular-nums :margin "4px 0"}]
+    [:.kit-remove {:display :flex :flex-direction :column :align-items :flex-start}
+     [:.link-button.quiet {:padding-left 0}]
+     [:div {:margin-top "-10px" :padding-bottom "6px"}]]
 
     [:.builder-option
      {:border-width (px 1)
@@ -2528,7 +2663,7 @@
     [:.mc-guard:hover {:background-color "rgba(154,3,30,0.45)" :color :white}]
     ;; the full button lifts OUT of the bar (absolute) — the row never reflows
     [:.mc-liftpop
-     {:position :absolute :right "0" :bottom "calc(100% + 9px)"
+     {:position :absolute :right "0" :bottom "calc(100% - -9px)"
       :display :flex :align-items :center :gap "10px"
       :background-color "#1a1013" :border "1px solid rgba(154,3,30,0.6)"
       :border-radius "7px" :padding "8px 10px" :white-space :nowrap
@@ -2571,8 +2706,8 @@
                   [:60% {:box-shadow "0 0 0 12px rgba(255,210,26,0)"}]
                   [:100% {:box-shadow "0 0 0 0 rgba(255,210,26,0)"}])
     [:.health-card
-     {:background-color "#171d27" :border-radius "6px" :overflow :hidden :margin-bottom "10px"
-      :position :relative}]
+     {:background-color "#171d27" :color :white :border-radius "6px" :overflow :hidden
+      :margin-bottom "10px" :position :relative}]
     ;; dismiss × (never on My Content) — a quiet control in the corner
     [:.health-x
      {:position :absolute :top "6px" :right "10px" :cursor :pointer
@@ -2859,6 +2994,12 @@
 
      [:.orange
       {:color "rgba(0,0,0,0.8)"}]
+
+     [:.site-footer [:.legal-footer {:border-top-color "rgba(0,0,0,0.15)"}]]
+     ;; The footer's support links read as its other links do in this theme.
+     [:.support-pills-compact
+      [:.support-pill {:color "rgba(0,0,0,0.8)"}
+       [:&:hover {:color slate-blue}]]]
 
      [:.b-orange
       {:border-color "rgba(0,0,0,0.6)"}]
@@ -3344,9 +3485,12 @@
      {:flex "0 0 auto"
       :white-space :nowrap}]
 
-    ;; Pushed to the end of the row, and still together when the row wraps.
+    ;; Pushed to the end of the row; the buttons wrap among themselves on a narrow phone
+    ;; rather than running off the panel.
     [:.mc-source-actions
-     {:flex "0 0 auto"
+     {:flex "0 1 auto"
+      :flex-wrap :wrap
+      :gap "5px 0"
       :margin-left :auto}]
 
     ;;;; WHAT'S NEW PANEL
@@ -3504,9 +3648,93 @@
       :align-items :center
       :justify-content :space-between}]
 
+    [:.whats-new-eyebrow-row
+     {:display :flex :align-items :baseline}]
+
     [:.whats-new-version
-     {:font-size "12px"
-      :color muted-on-dark}]
+     {:font-size "11px"
+      :color muted-on-dark
+      :margin-left "8px"}]
+
+    ;; Patron credits and the footer's support icons: quiet, the size of the text around them.
+    [:.whats-new-credits-link
+     {:background :none :border :none :padding 0 :margin-top "8px"
+      :color orange :font-size "12px" :cursor :pointer}]
+    [:.whats-new-credits-intro
+     {:font-size "14px" :color muted-on-dark :padding "8px 0 4px" :line-height 1.45}]
+    [:.whats-new-credits-tier
+     {:color muted-on-dark :font-size "11px" :font-weight :bold :letter-spacing "1px"
+      :text-transform :uppercase :padding-top "10px"}]
+    [:.whats-new-patrons
+     {:display :grid :grid-template-columns "repeat(auto-fill, minmax(130px, 1fr))"
+      :gap "6px 16px" :padding "8px 0 14px" :font-size "14px"}]
+    ;; Label over one row of icon-and-word links, all on the label's left edge.
+    [:.whats-new-support-label
+     {:font-size "11px" :line-height "14px" :color muted-on-dark :margin-bottom "5px"}]
+    [:.whats-new-support-links
+     {:display :flex :gap "16px"}]
+    [:.whats-new-support-link
+     {:display :flex :align-items :center :gap "6px"
+      :font-size "12px" :line-height "18px" :color muted-on-dark :text-decoration :none}
+     [:&:hover {:color :white}]
+     [:img {:width "18px" :height "18px" :border-radius "3px"}]]
+
+    ;; Support pills (views-shared/support-pills): the home tiles' raised surface, amber text, one icon.
+    [:.support-pills
+     {:display :flex :flex-wrap :wrap :justify-content :center :gap "10px" :margin "22px auto 8px"}]
+    [:.support-pill
+     {:display :inline-flex :align-items :center :justify-content :center :gap "8px"
+      :padding "8px 14px" :border-radius "5px" :font-size "13px" :font-weight 600
+      :color orange :text-decoration :none :cursor :pointer
+      :background "rgba(255,255,255,0.04)" :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}
+     [:&:hover {:color :white}]
+     [:i {:font-size "15px" :width "18px" :text-align :center}]
+     [:i.fa-patreon {:color "#ff424d"}]
+     [:img {:width "18px" :height "18px" :border-radius "3px"}]]
+    [:.support-pill:focus-visible {:outline (str "2px solid " orange) :outline-offset "2px"}]
+    ;; What's New ranks above the support links by shape: an amber cap holding the icon in dark ink.
+    [:.support-pill-whats-new
+     {:position :relative :overflow :hidden :padding-left "54px"
+      :border (str "1px solid " orange) :box-shadow "0 0 10px 1px rgba(240,161,0,0.45)"}
+     [:i {:position :absolute :left 0 :top 0 :bottom 0 :width "40px" :display :flex
+          :align-items :center :justify-content :center :background-color orange :color button-ink}]
+     [:&:hover {:box-shadow "0 0 14px 2px rgba(240,161,0,0.7)"}]]
+    ;; Site footer (views/footer.cljs): labelled rows of links; on wide screens one row spread edge to edge, then a muted band.
+    [:.site-footer {:padding "10px"}]
+    [:.site-footer-groups {:display :flex :flex-direction :column :gap "4px"}]
+    [:.site-footer-group
+     {:display :flex :flex-wrap :wrap :align-items :center :column-gap "14px" :row-gap "2px"}
+     [:a {:font-size "13px" :padding "4px 0" :margin 0 :text-decoration :underline}]
+     [:.support-pill {:font-size "13px" :padding "4px 0"}]
+     ;; The support links wrap one by one beside their label, not as one block under it.
+     [:.support-pills {:display :contents}]]
+    [:.site-footer-label
+     {:width "72px" :flex :none :font-size "11px" :font-weight 600 :text-transform :uppercase
+      :letter-spacing "0.06em" :opacity 0.6}]
+    [:.site-footer
+     [:.legal-footer
+      {:margin-top "18px" :padding-top "12px" :border-top "1px solid rgba(255,255,255,0.15)"
+       :font-size "11px" :opacity 0.75}
+      [:p {:margin "0 0 6px"}]]]
+    (at-media {:min-width "1100px"}
+     [:.site-footer-groups {:flex-direction :row :flex-wrap :wrap :column-gap "40px"
+                            :justify-content :space-between}]
+     [:.site-footer-label {:width :auto}])
+    ;; Compact pills (the site footer): plain icon-and-word links, one text line tall.
+    [:.support-pills.support-pills-compact
+     {:justify-content :flex-start :gap "12px" :margin "0"}
+     [:.support-pill
+      {:padding "0" :background :none :box-shadow :none :font-size "12px" :font-weight :normal
+       :gap "5px" :text-decoration :underline}
+      [:i {:font-size "12px" :width "14px"}]
+      [:img {:width "14px" :height "14px" :border-radius "2px"}]]]
+    ;; Stacked, every icon sits in one left column and the labels share a left edge.
+    (at-media {:max-width "480px"}
+     [".support-pills:not(.support-pills-compact)" {:flex-direction :column :align-items :stretch :max-width "280px"}]
+     [".support-pills:not(.support-pills-compact) .support-pill"
+      {:position :relative :justify-content :flex-start :padding-left "54px"}
+      [:i :img {:position :absolute :left "11px" :top "50%" :transform "translateY(-50%)"}]]
+     [".support-pills:not(.support-pills-compact) .support-pill-whats-new i" {:left 0 :top 0 :transform :none}])
 
     ;; A required builder field left empty when a save was attempted. Same amber
     ;; cue as the export modal's unfilled dropdowns, for consistency.
@@ -3606,7 +3834,7 @@
     [:.inv-picker-pop
      {:position :absolute
       :z-index 41
-      :top "calc(100% + 4px)"
+      :top "calc(100% - -4px)"
       :left 0
       :width "320px"
       :max-width "calc(100vw - 32px)"
@@ -3675,6 +3903,45 @@
     ;; none of that is implemented here. Anchor positioning pins it under its input, and
     ;; where unsupported the popover still opens (centred) rather than breaking.
     [:.inv-combo {:margin "6px 0 10px"}]
+    ;; The sheet's search while managing: it adds items, so it is ringed and labelled to differ from
+    ;; filtering (views/inventory.cljs `sheet-equipment`).
+    ;; The box and its filter pill (`inventory-combobox`): the pill sits inside the box's left edge,
+    ;; the input padded past it.
+    [:.inv-combo-field {:position :relative :max-width "340px"}
+     [:.inv-combo-token {:position :absolute :left "7px" :top "50%" :transform "translateY(-50%)" :z-index 1}]]
+    [:.inv-combo-scope {:color orange}]
+    ;; The fieldset's legend notches the ring (the auth .notch's type, no painted patch).
+    [:.inv-combo-adding {:margin "6px 0 10px" :padding 0 :min-width 0 :max-width "340px"
+                         :border "2px solid #f0a100" :border-radius "5px"}
+     [:legend {:margin-left "8px" :padding "0 4px" :line-height 1 :font-size "11px" :font-weight 600
+               :letter-spacing "0.08em" :text-transform :uppercase :color "#f0a100"}]
+     [:.inv-combo {:margin 0}]
+     [:.inv-combo-input {:border-color :transparent :max-width :none}]]
+    ;; Worn | Off for the backpack (views/inventory.cljs `sheet-equipment`): two options, drawn at
+    ;; the size of the kit links, with a 44px tap area.
+    ;; No overflow hidden: it would clip the buttons' :after tap area; the end buttons round instead.
+    [:.seg {:display :inline-flex :flex :none :border-radius "5px"
+            :border "1px solid color-mix(in srgb, currentColor 40%, transparent)"}
+     ["button:first-child" {:border-radius "4px 0 0 4px"}]
+     ["button:last-child" {:border-radius "0 4px 4px 0"}]
+     [:button {:position :relative :background :none :border :none :color :inherit :font :inherit
+               :font-size "11px" :letter-spacing ".05em" :text-transform :uppercase :padding "0 10px"
+               :min-height "24px" :opacity 0.7 :cursor :pointer}]
+     ["button + button" {:border-left "1px solid color-mix(in srgb, currentColor 40%, transparent)"}]
+     [:button.on {:opacity 1 :font-weight 700 :color "#f0a100"
+                  :background-color "rgba(240, 161, 0, 0.18)"}]
+     [:button:after {:content "''" :position :absolute :top "-10px" :bottom "-10px" :left 0 :right 0}]]
+    [".app.light-theme .seg button.on" {:color "#33658A" :background-color "rgba(51,101,138,.12)"}]
+    [:.backpack-line {:gap "10px" :min-height "44px"}
+     [:.backpack-status {:font-size "13px"}]]
+    ;; The backpack's contents while it is off: still listed and counted, greyed, under one label.
+    [:tr.packed {:opacity 0.5}]
+    [:.sheet-stepper {:display :flex :align-items :center :gap "6px" :white-space :nowrap
+                      :font-variant-numeric :tabular-nums}
+     [:button {:background :none :border :none :padding "4px" :min-width "32px" :min-height "32px"
+               :color :inherit :cursor :pointer :position :relative}]
+     [:button:after {:content "''" :position :absolute :top "-6px" :bottom "-6px" :left "-2px" :right "-2px"}]
+     [:span {:min-width "18px" :text-align :center}]]
 
     [:.inv-combo-input
      {:width "100%"

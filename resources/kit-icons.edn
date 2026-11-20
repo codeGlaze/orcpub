@@ -1,0 +1,13 @@
+;; The kit tile icons: a bag with a badge in a corner, one per equipment pack. Source of truth for
+;; scripts/build-kit-icons.py, which writes resources/public/image/kits/<pack>-{dark,light}.svg.
+;; :base and :badge name SVGs under resources/public/image (also emblems/ and black/); :corner is
+;; :br :bl :tr :tl; :scale is the badge's share of the tile; :hue (0-359) colours the ring.
+;; Only :colour :ring with :backing :cutout and :tint :ink is built.
+{:burglars-pack {:base "swap-bag" :badge "snatch" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 265}
+ :diplomats-pack {:base "briefcase" :badge "scroll-unfurled" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 300}
+ :dungeoneers-pack {:base "knapsack" :badge "torch" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 185}
+ :entertainers-pack {:base "hand-bag" :badge "drama-masks" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 335}
+ :explorers-pack {:base "backpack" :badge "compass" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 115}
+ :priests-pack {:base "disc-golf-bag" :badge "sun-priest" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 55}
+ :scholars-pack {:base "light-backpack" :badge "read" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 215}
+ :monster-hunters-pack {:base "chest" :badge "holy-water" :corner :br :scale 0.50 :backing :cutout :tint :ink :colour :ring :hue 25}}

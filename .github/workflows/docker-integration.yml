@@ -77,7 +77,7 @@ jobs:
       - name: Lint shell scripts
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          shellcheck -x --severity=warning run docker-user.sh scripts/swarm.sh scripts/load-env.sh scripts/release-check.sh scripts/startup-report.sh
+          shellcheck -x --severity=warning run docker-user.sh docker-migrate.sh scripts/swarm.sh scripts/load-env.sh scripts/release-check.sh scripts/startup-report.sh scripts/backup-lib.sh test/docker/test-backup-lib.sh test/docker/test-backup-postgres.sh
 
       # .env is read, never run: the reader matches a real Compose container on tricky values,
       # existing .env formats load as before, and --upgrade still fixes every historical format.
@@ -95,6 +95,9 @@ jobs:
 
       - name: Stop ends the process holding the port, not only the launcher
         run: bash test/docker/test-stop-pids.sh
+
+      - name: Backups pick the newest month, prune on Bash 3.2, make month folders as the owner
+        run: bash test/docker/test-backup-lib.sh
 
       - name: Test — Datomic's start script (its addresses on Compose and Swarm)
         run: bash test/docker/test-transactor-start.sh
@@ -190,6 +193,11 @@ jobs:
           # instead of pulling old Datomic Free images from Docker Hub
           echo "ORCPUB_IMAGE=orcpub-app" >> "$GITHUB_ENV"
           echo "DATOMIC_IMAGE=orcpub-datomic" >> "$GITHUB_ENV"
+
+      # Its own Compose project (Postgres, a SQL transactor, a stand-in app), torn down after.
+      - name: Test — backups and restores on Postgres storage
+        if: steps.build.outcome == 'success'
+        run: bash test/docker/test-backup-postgres.sh
 
       - name: Pull container images (Java 8)
         id: pull

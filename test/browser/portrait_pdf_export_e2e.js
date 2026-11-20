@@ -13,7 +13,7 @@
 const { chromium } = require('playwright');
 const { suppressOverlays } = require('./lib/orcbrew-import');
 
-const BASE = process.env.ORCPUB_BASE || 'http://localhost:8890';
+const BASE = process.env.E2E_BASE || process.env.ORCPUB_BASE || 'http://localhost:8890';
 
 let failures = 0;
 // Same resolver the other probes use: the image ships a pinned Chromium whose
@@ -64,7 +64,7 @@ function check(label, ok, detail) {
   const descTab = page.locator('.builder-tab', { hasText: /^Description$/ }).first();
   if (await descTab.count()) { await descTab.click(); await page.waitForTimeout(300); }
 
-  await page.locator('.pl-launcher').click();
+  await page.getByRole('button', { name: 'Change picture' }).click();
   await page.locator('.pl-drawer').waitFor({ state: 'visible', timeout: 10000 });
   await page.locator('.pl-btn-primary', { hasText: 'Randomize' }).click();
   await page.waitForTimeout(400);
@@ -110,29 +110,36 @@ function check(label, ok, detail) {
   await page.waitForTimeout(600);
 
   // A popup blocker allows a new tab only from inside the click itself, and headless
-  // Chromium blocks nothing, so record whether the submit ran during the click's dispatch:
-  // true from the first window listener to the last, false after any await.
+  // Chromium blocks nothing, so record whether the tab was opened during the click's dispatch
+  // (true from the first window listener to the last, false after any await), and that the
+  // form is then submitted into that tab rather than a new one.
   await page.evaluate(() => {
-    window.__inClick = false; window.__submitInClick = null;
+    window.__inClick = false; window.__openInClick = null; window.__opened = null; window.__target = null;
     window.addEventListener('click', () => { window.__inClick = true; }, true);
     window.addEventListener('click', () => { window.__inClick = false; });
+    const open = window.open;
+    window.open = function (url, name, ...rest) {
+      window.__openInClick = window.__inClick; window.__opened = name;
+      return open.call(this, url, name, ...rest);
+    };
     const submit = HTMLFormElement.prototype.submit;
     HTMLFormElement.prototype.submit = function () {
-      if (this.id === 'download-form') window.__submitInClick = window.__inClick;
+      if (this.id === 'download-form') window.__target = this.target;
       return submit.call(this);
     };
   });
 
-  // The form targets _blank, so the PDF lands in a new tab.
+  // The PDF lands in the tab export opened.
   const pdfPagePromise = ctx.waitForEvent('page', { timeout: 30000 });
   await (await visible(page.locator('button:has-text("Create PDF")'))).click();
 
   const pdfPage = await pdfPagePromise.catch(() => null);
   await page.waitForTimeout(2500);
 
+  const tabState = await page.evaluate(() => ({ inClick: window.__openInClick, opened: window.__opened, target: window.__target }));
   check('the PDF tab is opened inside the click, so no popup blocker stops it',
-        (await page.evaluate(() => window.__submitInClick)) === true,
-        `submitted during the click: ${await page.evaluate(() => window.__submitInClick)}`);
+        tabState.inClick === true && !!tabState.opened && tabState.target === tabState.opened,
+        `opened during the click: ${tabState.inClick}; opened ${tabState.opened}; submitted into ${tabState.target}`);
 
   // --- the request carried the baked portrait --------------------------
   check('export POSTed to /character.pdf', posted !== null);

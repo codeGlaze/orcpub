@@ -33,6 +33,7 @@
             [orcpub.dnd.e5.encounters :as encounters5e]
             [orcpub.dnd.e5.character-drafts :as drafts]
             [orcpub.dnd.e5.views :as views]
+            [orcpub.dnd.e5.views.reference :as reference]
             [orcpub.dnd.e5.events]
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.equipment-subs]
@@ -287,9 +288,14 @@
 
 (defn- expand
   "Draw `x` the way Reagent would: a vector headed by a function is a child component, so call it
-   (twice for a component that returns its render function) and draw what it returns."
+   (twice for a component that returns its render function) and draw what it returns. A reference
+   list's progressive rows are drawn in full, every entry of its subscription."
   [x]
-  (cond (and (vector? x) (= views/guard-fallback (first x)))
+  (cond
+        (and (vector? x) (= reference/progressive-rows (first x)))
+        ;; a class component draws over several frames; here every row is drawn at once
+        (let [[_ list-sub row] x]
+          (doall (map #(expand [row %]) @(rf/subscribe list-sub)))) (and (vector? x) (= views/guard-fallback (first x)))
         ;; the fallback a guard draws for what it caught, whichever guard
         (let [[_ data e] x]
           (swap! contained #(or % (msg e)))
@@ -400,13 +406,13 @@
              views/my-content-types)
      (traced (attempt [:page :monster-list]
                       #(do (rf/dispatch-sync [::char5e/filter-monsters "junk"])
-                           (expand [views/monster-list-items])))
+                           (expand [reference/monster-list-items])))
              ;; the list is lazy: realize it inside the try, or it throws outside it
              (for [m (try (doall @(rf/subscribe [::monsters5e/filtered-monsters]))
                           (catch :default _ nil))
                    :when (homebrew? m)]
                ;; drawn as the list draws each one, inside its guard
-               [(:key m) #(expand [views/render-guard m [views/monster-list-item m]])]))
+               [(:key m) #(expand [views/render-guard m [reference/monster-list-item m]])]))
      (for [[t es] (when builders? entries) :when (map? es)
            :let [[open builder] (builders t)]
            :when open
@@ -586,6 +592,9 @@
       (is (caught? (with-race-option #(do (guard/report! {:content-type ::e5/races :key :elf}) %)
                                      canary-run)
                    #(= :set-aside (:stage %)))))
+    (testing "a monster list row that throws"
+      (with-redefs [reference/monster-list-item (fn [& _] (canary))]
+        (is (caught? (canary-run) #(= [:page :monster-list] (:stage %))))))
     (testing "a builder that throws"
       (with-redefs [views/race-builder (fn [] (canary))]
         (is (caught? (canary-run) #(= [:builder :junk-races] (:stage %))))))

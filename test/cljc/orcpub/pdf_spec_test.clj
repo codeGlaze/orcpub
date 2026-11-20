@@ -2,9 +2,10 @@
   "Tests for pure PDF spec helper functions.
    pdf_spec.cljc no longer has any re-frame subscribes,
    so all helpers are testable on JVM."
-  (:require [clojure.test :refer [deftest testing is]]
+  (:require [clojure.test :refer [deftest testing is are]]
             [orcpub.pdf-spec :as pdf]
-            [orcpub.dnd.e5.magic-items :as mi]))
+            [orcpub.dnd.e5.magic-items :as mi]
+            [orcpub.dnd.e5.character :as char5e]))
 
 ;; -- class-string --
 
@@ -186,3 +187,145 @@
             "  \u2022 +2d10 radiant vs fiends and undead"
             "Club. +4, 1d8+2 slashing"]
            lines))))
+
+
+;; -- file-name --
+
+(def ^:private two-classes
+  {:wizard {:class-name "Wizard" :class-level 5 :subclass-name "School of Evocation"}
+   :cleric {:class-name "Cleric" :class-level 3 :subclass-name ""}})
+
+(deftest file-name-follows-the-players-choices
+  (testing "defaults: every part, level after its class, plain"
+    (is (= "Pat - Hero - Wizard [School of Evocation] 5 + Cleric 3"
+           (pdf/file-name "Pat" "Hero" [:wizard :cleric] two-classes {}))))
+  (testing "level first, padded or prefixed, subclass off"
+    (is (= "Hero - 05 Wizard + 03 Cleric"
+           (pdf/file-name "Pat" "Hero" [:wizard :cleric] two-classes
+                          {:player? false :subclass? false :level-first? true :level-style :padded})))
+    (is (= "Hero - Wizard L5 + Cleric L3"
+           (pdf/file-name "Pat" "Hero" [:wizard :cleric] two-classes
+                          {:player? false :subclass? false :level-style :prefixed}))))
+  (testing "classes off: the total level alone"
+    (is (= "Hero - L8" (pdf/file-name "Pat" "Hero" [:wizard :cleric] two-classes
+                                      {:player? false :class? false :level-style :prefixed}))))
+  (testing "level off, and everything off"
+    (is (= "Pat - Wizard [School of Evocation] + Cleric"
+           (pdf/file-name "Pat" nil [:wizard :cleric] two-classes {:level? false})))
+    (is (= "" (pdf/file-name "Pat" "Hero" [:wizard] two-classes
+                             {:player? false :character? false :class? false :level? false})))))
+
+(deftest clean-file-name-format-keeps-only-known-choices
+  (is (= {:player? false :level-style :padded}
+         (pdf/clean-file-name-format {:player? false :level-style :padded :x 1 :class? "no"})))
+  (is (= {} (pdf/clean-file-name-format {:level-style :huge})))
+  (is (= {} (pdf/clean-file-name-format "not a map"))))
+
+(def ^:private cantrip-casters
+  "spells-known for a Cleric/Wizard with a High Elf cantrip: cantrips from two classes and a race,
+   and levelled spells from both classes."
+  {0 {"g" {:key :guidance :class "Cleric" :ability :orcpub.dnd.e5.character/wis}
+      "l" {:key :light :class "Wizard" :ability :orcpub.dnd.e5.character/int}
+      "f" {:key :fire-bolt :class "High Elf" :ability :orcpub.dnd.e5.character/int}}
+   1 {"b" {:key :bless :class "Cleric" :ability :orcpub.dnd.e5.character/wis}
+      "m" {:key :magic-missile :class "Wizard" :ability :orcpub.dnd.e5.character/int}}})
+
+(defn- spell-fields
+  "spell-page-fields for `known` with slot table `slots`, per-class layout, style 1. Returns the field map."
+  [known slots]
+  (pdf/spell-page-fields known slots (constantly 13) (constantly 5) false #{} {} {} {} 1))
+
+(defn- slot-fields
+  "The spell-slots-* entries of field map `fields`, as a map."
+  [fields]
+  (into {} (filter #(re-matches #"spell-slots-.*" (name (key %)))) fields))
+
+(deftest cantrips-carry-no-slot-total
+  (testing "casters: no cantrip slots field on any page; levelled slots stay"
+    (let [slots (slot-fields (spell-fields cantrip-casters {1 4}))]
+      (is (empty? (filter #(re-matches #"spell-slots-0-.*" (name %)) (keys slots))) (str slots))
+      (is (= 4 (:spell-slots-1-1 slots)) (str slots))))
+  (testing "a non-caster whose only spell is a racial cantrip"
+    (let [known {0 {"f" {:key :fire-bolt :class "High Elf" :ability :orcpub.dnd.e5.character/int}}}
+          slots (slot-fields (spell-fields known {}))]
+      (is (empty? (filter #(re-matches #"spell-slots-0-.*" (name %)) (keys slots))) (str slots)))))
+
+(def ^:private tiefling-wizard
+  "spells-known for a Tiefling Wizard: Wizard spells cast from slots, the Tiefling's Hellish Rebuke
+   and Darkness free once per long rest, no slots (SRD 5.1 Infernal Legacy)."
+  (let [lr {:units :orcpub.dnd.e5.units/long-rest :amount 1}
+        cha :orcpub.dnd.e5.character/cha
+        int :orcpub.dnd.e5.character/int]
+    {1 {"m" {:key :magic-missile :class "Wizard" :ability int}
+        "h" {:key :hellish-rebuke :class "Tiefling" :ability cha
+             :casting {:free (assoc lr :level 2) :slots :none}}}
+     2 {"s" {:key :shatter :class "Wizard" :ability int}
+        "d" {:key :darkness :class "Tiefling" :ability cha :casting {:free lr :slots :none}}}}))
+
+(def ^:private spell-names
+  "Names for the spells these tests print, as spells-map holds them."
+  (into {} (map (fn [[k n]] [k {:name n}]))
+        {:magic-missile "Magic Missile" :hellish-rebuke "Hellish Rebuke" :shatter "Shatter"
+         :darkness "Darkness" :hex "Hex" :mage-armor "Mage Armor" :eyebite "Eyebite"}))
+
+(defn- page-of
+  "The page suffix (\"-1\") whose spellcasting-class field reads `source` in field map `fields`."
+  [fields source]
+  (some (fn [[k v]] (when (= source v) (subs (name k) (count "spellcasting-class"))))
+        fields))
+
+(deftest race-and-feat-free-casts-carry-no-class-slots
+  (let [fields (pdf/spell-page-fields tiefling-wizard {1 4 2 3} (constantly 13) (constantly 5)
+                                     false #{} {} spell-names {} 1)
+        wizard (page-of fields "Wizard")
+        tiefling (page-of fields "Tiefling")]
+    (testing "the Wizard page keeps its slots"
+      (is (= 4 (get fields (keyword (str "spell-slots-1" wizard)))) (str fields))
+      (is (= 3 (get fields (keyword (str "spell-slots-2" wizard)))) (str fields)))
+    (testing "the Tiefling page shows how its spells are cast, and no slots"
+      (is (empty? (filter #(and (re-matches #"spell-slots-.*" (name %))
+                                (.endsWith (name %) tiefling))
+                          (keys fields)))
+          (str fields))
+      (is (= "Hellish Rebuke (2nd level, once/long rest)"
+             (get fields (keyword (str "spells-1-1" tiefling)))) (str fields))))
+  (testing "packed: the Tiefling group carries no slots, the Wizard group the shared ones"
+    (let [groups (into {} (map (juxt :class identity))
+                       (pdf/packing-classes (into {} (map (fn [[l m]] [l (into {} (map (fn [[_ c]] [(:key c) c])) m)]))
+                                                  tiefling-wizard)
+                                            spell-names {1 4 2 3} {} (constantly 13) (constantly 5)))]
+      (is (= {1 4 2 3} (get-in groups ["Wizard" :slots])))
+      (is (= {} (get-in groups ["Tiefling" :slots])))
+      (is (= ["Hellish Rebuke (2nd level, once/long rest)"] (get-in groups ["Tiefling" :levels 1]))))))
+
+(deftest a-warlocks-free-casts-stay-off-its-pact-level
+  (let [cha :orcpub.dnd.e5.character/cha
+        known {1 {:hex {:key :hex :class "Warlock" :ability cha}
+                  :mage-armor {:key :mage-armor :class "Warlock" :ability cha
+                               :casting {:free {:at-will true} :slots :none}}}
+               6 {:eyebite {:key :eyebite :class "Warlock" :ability cha :qualifier "uses Mystic Arcanum"
+                            :casting {:free {:units :orcpub.dnd.e5.units/long-rest :amount 1} :slots :none}}}}
+        [warlock] (pdf/packing-classes known spell-names {} {5 3} (constantly 15) (constantly 7))]
+    (is (:pact? warlock))
+    (is (= ["Hex"] (get-in warlock [:levels 5])) (str warlock))
+    (is (= ["Mage Armor (at will)"] (get-in warlock [:levels 1])) (str warlock))
+    (is (= ["Eyebite (uses Mystic Arcanum, once/long rest)"] (get-in warlock [:levels 6])) (str warlock))))
+
+(deftest file-safe-names-open-on-every-system
+  (testing "the PDF Options preview and the server share one rule"
+    (are [in out] (= out (pdf/file-safe in))
+      "Zoë D’Artagnan" "Zoë D’Artagnan"
+      "Кира 龍 🙂"      "Кира 龍"
+      "Zoe\u0308"      "Zo\u00EB"
+      ". hidden ."     "hidden"
+      "a\u200Bb"       "ab"
+      nil              "")))
+
+(deftest every-part-off-names-the-file-character
+  ;; an empty name sent the server back to its fallback, which put the names in again
+  (with-redefs [char5e/player-name (constantly "Pat") char5e/classes (constantly ["Wizard"])
+                char5e/levels (constantly {:wizard {:class-name "Wizard" :class-level 5}})]
+    (is (= "character" (pdf/file-name-for {} "Mira"
+                                          {:player? false :character? false :class? false
+                                           :subclass? false :level? false})))
+    (is (not= "character" (pdf/file-name-for {} "Mira" pdf/file-name-defaults)))))

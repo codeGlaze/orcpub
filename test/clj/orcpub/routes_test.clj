@@ -2,6 +2,7 @@
   (:require
    [clojure.test :refer [deftest is testing are]]
    [clojure.set :refer [intersection]]
+   [clojure.string :as s]
    [datomic.api :as d]
    [datomock.core :as dm]
    [io.pedestal.http :as http]
@@ -397,6 +398,40 @@
           (is (true? (:send-updates? (body)))))))))
 
 
+(deftest test-pdf-file-name-preference
+  (with-conn conn
+    (let [mocked-conn (dm/fork-conn conn)]
+      @(d/transact mocked-conn schema/all-schemas)
+      @(d/transact mocked-conn [{:orcpub.user/username "testy"
+                                  :orcpub.user/email "test@test.com" :orcpub.user/email-key "test@test.com"}])
+      (let [put! (fn [params] (routes/update-user-preferences
+                               {:transit-params params :db (d/db mocked-conn)
+                                :conn mocked-conn :identity {:user "testy"}}))
+            body (fn [] (let [db (d/db mocked-conn)]
+                          (auth/user-body db (auth/user-for-email db "test@test.com"))))]
+        (testing "never chosen: absent"
+          (is (not (contains? (body) :pdf-file-name))))
+        (testing "a choice is saved and comes back with the user"
+          (let [resp (put! {:pdf-file-name {:player? false :level-style :prefixed}})]
+            (is (= {:player? false :level-style :prefixed} (get-in resp [:body :pdf-file-name]))))
+          (is (= {:player? false :level-style :prefixed} (:pdf-file-name (body)))))
+        (testing "unknown keys and wrong kinds are dropped before saving"
+          (put! {:pdf-file-name {:player? "yes" :level-style :huge :evil "x" :class? false}})
+          (is (= {:class? false} (:pdf-file-name (body)))))))))
+
+(deftest requested-pdf-filename-prefers-the-players-choices
+  (testing "the client's :file-name is used, made file-safe"
+    (is (= "Hero - L5 Wizard.pdf"
+           (routes/requested-pdf-filename {:file-name "Hero - L5 Wizard" :character-name "Other"}))))
+  (testing "a blank :file-name (every part unticked) falls back to character.pdf"
+    (is (= "character.pdf" (routes/requested-pdf-filename {:file-name ""}))))
+  (testing "a :file-name with nothing file-safe left falls back to the names and class level"
+    (is (= "Fighter (5).pdf"
+           (routes/requested-pdf-filename {:file-name "🙂" :character-name "🙂" :class-level "Fighter (5)"}))))
+  (testing "no :file-name (an older client) builds it from the names"
+    (is (= "Hero - Fighter (5).pdf"
+           (routes/requested-pdf-filename {:character-name "Hero" :class-level "Fighter (5)"})))))
+
 (deftest a-failed-send-does-not-mark-a-reset-address-as-registered
   ;; Swallowed on purpose: only a real account can fail to be emailed, so an error response would
   ;; reopen the membership test the uniform 200 closed. (Everything else about the reset form's
@@ -623,3 +658,44 @@
             (is (= 400 (:status resp)))
             (is (= "old-hash" (:orcpub.user/password
                                (auth/first-user-by (d/db c) auth/username-query "late"))))))))))
+
+(deftest pdf-filename-names-the-sheet
+  (testing "blank parts are left out, so no gap and no unnamed file"
+    (are [player character expected] (= expected (routes/pdf-filename player character "Fighter (5)"))
+      "Player" "Character" "Player - Character - Fighter (5).pdf"
+      nil      "Character" "Character - Fighter (5).pdf"
+      "Player" nil         "Player - Fighter (5).pdf"
+      "  "     " Hero "    "Hero - Fighter (5).pdf"
+      nil      nil         "Fighter (5).pdf"
+      "   "    "   "       "Fighter (5).pdf"))
+  (testing "letters of any script stay; emoji, the characters Windows refuses, invisible
+            characters and a leading dot or dash (a hidden file on Linux and Mac) go"
+    (are [player character expected] (= expected (routes/pdf-filename player character "Fighter (5)"))
+      "Player 🙂"  "龍 Dragon"         "Player - 龍 Dragon - Fighter (5).pdf"
+      "Zoë"        "D’Artagnan"        "Zoë - D’Artagnan - Fighter (5).pdf"
+      "A<b>:c"     "Ash/Oak\\Elm|?*"  "Abc - AshOakElm - Fighter (5).pdf"
+      "Bob \"Bold\"" "Hero..."        "Bob Bold - Hero - Fighter (5).pdf"
+      "..hidden"   "-dash"            "hidden - dash - Fighter (5).pdf"
+      "Kira\u200B" "fdp\u202Eexe"     "Kira - fdpexe - Fighter (5).pdf"
+      "🙂🙂"        nil                "Fighter (5).pdf"))
+  (testing "accents are stored composed (NFC), as Windows and Linux expect, whatever form arrives"
+    (is (= "Zo\u00EB - Fighter (5).pdf" (routes/pdf-filename nil "Zoe\u0308" "Fighter (5)"))))
+  (testing "a long name fits the 255-byte limit of Linux and Android, with no trailing space or dot"
+    (doseq [unit ["Long. " "龍龍 "]]
+      (let [n (routes/pdf-filename nil (apply str (repeat 120 unit)) nil)]
+        (is (<= (count (.getBytes ^String n "UTF-8")) 255) n)
+        (is (re-matches #"[^ .].*[^ .]\.pdf" n) n))))
+  (testing "character.pdf only when nothing names the sheet, or the name is reserved on Windows"
+    (is (= "character.pdf" (routes/pdf-filename nil " " nil)))
+    (is (= "character.pdf" (routes/pdf-filename nil "Con" nil)))
+    (is (= "character.pdf" (routes/pdf-filename "🙂" nil nil)))))
+
+(deftest content-disposition-carries-any-name
+  (testing "filename*= keeps every character; filename= is plain ASCII with no raw quote or break"
+    (are [filename star ascii] (let [v (routes/content-disposition filename)]
+                                 (and (s/includes? v (str "filename*=UTF-8''" star))
+                                      (s/includes? v (str "filename=\"" ascii "\""))))
+      "Zoë - D’Artagnan.pdf" "Zo%C3%AB%20-%20D%E2%80%99Artagnan.pdf" "Zo_ - D_Artagnan.pdf"
+      "龍 Dragon.pdf"        "%E9%BE%8D%20Dragon.pdf"                "_ Dragon.pdf"
+      "Bob \"Bold\"*.pdf"    "Bob%20%22Bold%22%2A.pdf"               "Bob _Bold_*.pdf"
+      "Line\r\nBreak.pdf"    "Line%0D%0ABreak.pdf"                   "Line__Break.pdf")))

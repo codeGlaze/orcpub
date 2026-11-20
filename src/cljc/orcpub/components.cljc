@@ -197,4 +197,44 @@
    (fn [event-kw & args]
      #(dispatch (vec (cons event-kw args)))))))
 
+#?(:cljs
+(def make-arg-event-handler
+  "A handler, memoized per arguments, dispatching [`event-kw` value], the value being what the
+   handler is called with, passed through `arg-fn` when given (an input's on-change, for one).
+   GOTCHA: `arg-fn` must be a top-level function; an inline fn is new each render and grows the cache."
+  (memoize
+   (fn [event-kw & [arg-fn]]
+     #(dispatch [event-kw (if arg-fn (arg-fn %) %)])))))
+
 (def text-color "#484848")
+
+(defn expand-button
+  "An orange underlined toggle with a caret: `collapse-text` while `expanded?` (an atom) is false,
+   `expand-text` while true. A click flips the atom and stops there."
+  [expand-text collapse-text expanded?]
+  [:span.flex.pointer.align-items-c.justify-cont-end
+   {:on-click (fn [e]
+                (swap! expanded? not)
+                #?(:cljs (.stopPropagation e)))}
+   [:span.underline.orange.p-0.m-r-2 (if @expanded? expand-text collapse-text)]
+   [:i.fa.orange
+    {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]])
+
+(defn show-info-button
+  "The \"show info\" / \"hide info\" toggle for an option's help, flipping `expanded?` (an atom)."
+  [expanded?]
+  [:div.f-w-n.m-l-5 [expand-button "hide info" "show info" expanded?]])
+
+(defn themed-icon
+  "Icon `icon-name` from /image at `size` px (32 by default): the black set, faded, in the light
+   theme (`theme` \"light-theme\"), else the white set."
+  [icon-name size theme]
+  (let [light-theme? (= "light-theme" theme)
+        size (or size 32)]
+    [:img.svg-icon
+     {:style {:height (str size "px")
+              :width (str size "px")}
+      :class (when light-theme? " opacity-7")
+      ;; Decorative: every icon sits beside its text or inside a labelled control.
+      :alt ""
+      :src (str (if light-theme? "/image/black/" "/image/") icon-name ".svg")}]))

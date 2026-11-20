@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide takes you from a fresh clone to a running dev server. Two paths are covered:
+This guide takes you from a fresh clone to a running development server. To run a production site, see [DOCKER.md](DOCKER.md) instead. Two paths are covered:
 
 1. **Devcontainer** (recommended) - everything installs automatically
 2. **Local machine** - you install Java, Leiningen, and Datomic yourself
@@ -64,7 +64,7 @@ Navigate to `http://localhost:8890` (or the Codespaces forwarded URL). Log in wi
 |------|---------|---------|
 | Java | 21+ (OpenJDK) | [Adoptium](https://adoptium.net/) |
 | Leiningen | 2.9+ | [leiningen.org](https://leiningen.org/#install) |
-| Datomic Pro | 1.0.7482 | See below |
+| Datomic Pro | 1.0.7745 | See below |
 
 **Datomic Pro** is free (Apache 2.0 license). The devcontainer installer handles this automatically, but on a local machine you need to install it manually:
 
@@ -73,7 +73,7 @@ Navigate to `http://localhost:8890` (or the Codespaces forwarded URL). Log in wi
 ./.devcontainer/post-create.sh
 ```
 
-Or follow the manual steps in [docs/migration/datomic-pro.md](migration/datomic-pro.md). Datomic should end up at `lib/com/datomic/datomic-pro/1.0.7482/`.
+Or follow the manual steps in [docs/migration/datomic-pro.md](migration/datomic-pro.md). Datomic should end up at `lib/com/datomic/datomic-pro/1.0.7745/`.
 
 ### 2. Configure environment
 
@@ -81,7 +81,7 @@ Or follow the manual steps in [docs/migration/datomic-pro.md](migration/datomic-
 cp .env.example .env
 ```
 
-Edit `.env` if needed. The defaults work for local development. The most important variable is `SIGNATURE` (JWT secret) -a dev default is provided automatically via `.lein-env`, so this step is optional for local dev.
+Edit `.env` if needed. The defaults work for local development. The most important variable is `SIGNATURE` (the secret that signs login tokens). A development value is provided automatically through `.lein-env`, so this step is optional for local development.
 
 See [ENVIRONMENT.md](ENVIRONMENT.md) for the full variable list.
 
@@ -101,7 +101,7 @@ Wait for "Datomic is ready" before continuing. The transactor listens on port 43
 
 ### 5. Initialize the database
 
-First time only -creates the schema and applies seed data:
+First time only. This creates the schema and applies seed data:
 
 ```bash
 ./scripts/start.sh init-db
@@ -183,12 +183,12 @@ After starting services, confirm everything is working:
 
 **Server returns 500 on login or API calls**
 
-The `SIGNATURE` env var is missing. If using `./menu` or `./scripts/start.sh`, check that `.env` exists and has `SIGNATURE` set. If using `lein repl`, the dev profile provides a default -but if you've overridden it with an empty value, auth will fail.
+The `SIGNATURE` env var is missing. If using `./menu` or `./scripts/start.sh`, check that `.env` exists and has `SIGNATURE` set. If using `lein repl`, the dev profile provides a default, but if you have overridden it with an empty value, login will fail.
 
 **Datomic won't start**
 
 - Check that port 4334 isn't already in use: `lsof -i :4334`
-- Verify Datomic is installed: `ls lib/com/datomic/datomic-pro/1.0.7482/bin/transactor`
+- Verify Datomic is installed: `ls lib/com/datomic/datomic-pro/1.0.7745/bin/transactor`
 - Check logs: `cat logs/datomic.log`
 
 **Figwheel compilation errors**
@@ -207,7 +207,7 @@ The `SIGNATURE` env var is missing. If using `./menu` or `./scripts/start.sh`, c
 
 ## What's next
 
-- [Architecture overview](../README.md#architecture) -how entities, templates, and modifiers work
-- [Dev tooling guide](migration/dev-tooling.md) -Leiningen profiles, REPL helpers, build commands
-- [Environment variables](ENVIRONMENT.md) -full config reference
-- [Stack migration context](MIGRATION-INDEX.md) -why Java 21, Datomic Pro, React 18, etc.
+- [Architecture overview](../README.md#architecture): how entities, templates, and modifiers work
+- [Dev tooling guide](migration/dev-tooling.md): Leiningen profiles, REPL helpers, build commands
+- [Environment variables](ENVIRONMENT.md): every setting
+- [Stack upgrade notes](MIGRATION-INDEX.md): why Java 21, Datomic Pro, React 18, and so on

@@ -24,18 +24,18 @@
 
 (deftest the-live-chain-finds-the-player
   (testing "Cloudflare -> Traefik -> app, as in a live error report"
-    (is (= "97.126.172.119" (addr with-cloudflare "10.0.38.49" "97.126.172.119, 104.23.160.222")))))
+    (is (= "203.0.113.7" (addr with-cloudflare "10.0.0.2" "203.0.113.7, 104.16.0.10")))))
 
 (deftest a-client-cannot-choose-its-address
   (testing "a header sent straight to the app, not through a proxy, is ignored"
     (is (= "203.0.113.50" (addr with-cloudflare "203.0.113.50" "1.2.3.4"))))
   (testing "a header sent through Cloudflare: entries left of the real ones are the client's own"
-    (is (= "97.126.172.119"
-           (addr with-cloudflare "10.0.38.49" "1.2.3.4, 97.126.172.119, 104.23.160.222")))))
+    (is (= "203.0.113.7"
+           (addr with-cloudflare "10.0.0.2" "1.2.3.4, 203.0.113.7, 104.16.0.10")))))
 
 (deftest cloudflare-is-trusted-only-when-turned-on
   (testing "without TRUST_CLOUDFLARE a Cloudflare edge is just another address"
-    (is (= "104.23.160.222" (addr without-cloudflare "10.0.38.49" "97.126.172.119, 104.23.160.222")))))
+    (is (= "104.16.0.10" (addr without-cloudflare "10.0.0.2" "203.0.113.7, 104.16.0.10")))))
 
 (deftest other-setups
   (testing "no proxy at all: the connecting address"
@@ -57,7 +57,7 @@
     (is (nil? (ca/parse-cidr "example.com/8")))))
 
 (deftest ranges-match-as-written
-  (is (ca/in-range? "104.23.160.222" (ca/parse-cidr "104.16.0.0/13")))
+  (is (ca/in-range? "104.16.0.10" (ca/parse-cidr "104.16.0.0/13")))
   (is (not (ca/in-range? "104.24.0.1" (ca/parse-cidr "104.16.0.0/13"))))
   (is (ca/in-range? "172.31.255.255" (ca/parse-cidr "172.16.0.0/12")))
   (is (not (ca/in-range? "172.32.0.1" (ca/parse-cidr "172.16.0.0/12"))))
@@ -65,7 +65,7 @@
 
 (deftest the-interceptor-fixes-the-request
   (let [enter (:enter (ca/interceptor-for with-cloudflare))
-        req (:request (enter {:request {:remote-addr "10.0.38.49"
-                                        :headers {"x-forwarded-for" "97.126.172.119, 104.23.160.222"}}}))]
-    (is (= "97.126.172.119" (:remote-addr req)) "every limit and log line now sees the player")
-    (is (= "10.0.38.49" (:peer-addr req)) "and the proxy is kept")))
+        req (:request (enter {:request {:remote-addr "10.0.0.2"
+                                        :headers {"x-forwarded-for" "203.0.113.7, 104.16.0.10"}}}))]
+    (is (= "203.0.113.7" (:remote-addr req)) "every limit and log line now sees the player")
+    (is (= "10.0.0.2" (:peer-addr req)) "and the proxy is kept")))

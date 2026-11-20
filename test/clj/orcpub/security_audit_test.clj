@@ -88,6 +88,6 @@
     (is (= 1 (count lines)) "the line break is removed, so no second line appears")))
 
 (deftest the-proxy-is-named-beside-the-player
-  (is (= ["security: sign-in user=kaylee ip=97.126.172.119 via=10.0.38.49"]
-         (security-lines #(security/audit! :sign-in {:remote-addr "97.126.172.119" :peer-addr "10.0.38.49"}
+  (is (= ["security: sign-in user=kaylee ip=203.0.113.7 via=10.0.0.2"]
+         (security-lines #(security/audit! :sign-in {:remote-addr "203.0.113.7" :peer-addr "10.0.0.2"}
                                            "kaylee")))))

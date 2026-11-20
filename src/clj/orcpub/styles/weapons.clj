@@ -90,7 +90,7 @@
     [:.weapon-name
      {:font-weight 700 :font-size "15px" :line-height 1.25 :white-space :nowrap
       :overflow :hidden :text-overflow :ellipsis :min-width 0 :flex "0 1 auto"}]
-    [:.weapon-caret {:flex-shrink 0 :margin-left "2px" :font-size "12px" :color "#f0a100"}]
+    [:.weapon-caret {:flex-shrink 0 :margin-left "4px" :font-size "16px" :color "#f0a100"}]
     [:.app.light-theme [:.weapon-caret {:color "#363636"}]]
 
     [:.weapon-grey-line

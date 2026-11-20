@@ -226,12 +226,27 @@
             total-levels)
           level)))
 
-(defn add-spell [spells-known level {:keys [class key] :as cfg}]
+(defn merge-spell-cfg
+  "One ?spells-known entry from two grants of the same spell by the same source, `old` (or nil)
+   then `new`. Later keys win, except that when only one grant has a `:casting` map, slot casting
+   stays open (`:slots :any`): the other grant is an ordinary slot-cast spell. Returns the entry."
+  [old new]
+  (let [merged (merge old new)]
+    (if (and old
+             (:casting merged)
+             (not (and (:casting old) (:casting new))))
+      (assoc-in merged [:casting :slots] :any)
+      merged)))
+
+(defn add-spell
+  "`spells-known` ({level {[class key] cfg}}) with `cfg` added at `level`, merged into any entry
+   already there by `merge-spell-cfg`. Returns the map."
+  [spells-known level {:keys [class key] :as cfg}]
   (update-in
    spells-known
    [level
     [class key]]
-   merge
+   merge-spell-cfg
    cfg))
 
 (defmacro spells-known-cfg [level {class-key :class-key :as spell-cfg} min-level conditions]
@@ -247,17 +262,26 @@
     nil
     ~conditions))
 
-(defn spell-data [spell-key spellcasting-ability qualifier class]
-  {:key spell-key
-   :ability spellcasting-ability
-   :qualifier qualifier
-   :class class})
+(defn spell-data
+  "A ?spells-known entry: the spell's key, casting ability, display qualifier and source name
+   (`class`, a class, race or feat name), plus `casting` when given: how it is cast outside
+   ordinary slots (plan-spell-uses-by-source.md). Returns the map."
+  [spell-key spellcasting-ability qualifier class & [casting]]
+  (cond-> {:key spell-key
+           :ability spellcasting-ability
+           :qualifier qualifier
+           :class class}
+    casting (assoc :casting casting)))
 
 
 (defn spells-known-mode [class-name mode]
   (mods/map-mod ?spells-known-modes class-name mode))
 
-(defn spells-known [level spell-key spellcasting-ability class & [min-level qualifier class-key]]
+(defn spells-known
+  "A modifier granting a known spell at spell `level`, cast with `spellcasting-ability`, listed
+   under source name `class`. Optional: `min-level` (character or `class-key` level before it
+   applies), `qualifier` (display text) and `casting` (free casts and slot use, `spell-data`)."
+  [level spell-key spellcasting-ability class & [min-level qualifier class-key casting]]
   (mods/modifier
     ?spells-known
     (if (enough-levels? class-key ?total-levels ?class-level min-level)
@@ -268,7 +292,8 @@
         spell-key
         spellcasting-ability
         qualifier
-        class))
+        class
+        casting))
       ?spells-known)))
 
 (defn spell-slot-factor [class-key factor]
@@ -279,6 +304,12 @@
 
 (defn spell-attack-modifier-bonus [bonus]
   (mods/cum-sum-mod ?spell-attack-modifier-bonus bonus))
+
+(defn class-spell-bonus
+  "A modifier adding `bonus` to one class's spells only: `k` is :dc (spell save DC) or :attack
+   (spell attack), `class-nm` the class name its spells carry (\"Warlock\"). Bonuses add up."
+  [class-nm k bonus]
+  (mods/modifier ?class-spell-bonuses (update-in ?class-spell-bonuses [class-nm k] (fnil + 0) bonus)))
 
 (defn trait-cfg [{:keys [name description class-key level summary page conditions source] :as cfg}]
   (let [class-key? (not (nil? class-key))]
@@ -452,16 +483,36 @@
      ::char-equip/equipped? true}
     cfg))
 
-(defn weapon [weapon-kw cfg]
-  (mods/map-mod ?weapons weapon-kw (equipment-cfg cfg)))
+(defn add-item-cfg
+  "One gear entry after another source adds `added` to `existing`: quantities summed, equipped if
+   either source is, other fields merged. Args: two entry maps or nil. Returns `added` unchanged
+   when `existing` is nil or either quantity is missing (plan-inventory-kits.md)."
+  [existing added]
+  (let [qa (::char-equip/quantity existing)
+        qb (::char-equip/quantity added)]
+    (if (and (number? qa) (number? qb))
+      (assoc (merge existing added)
+             ::char-equip/quantity (+ qa qb)
+             ::char-equip/equipped? (boolean (or (::char-equip/equipped? existing)
+                                                 (::char-equip/equipped? added))))
+      added)))
 
-(defn magic-weapon [weapon-kw cfg]
-  (mods/map-mod ?magic-weapons weapon-kw (equipment-cfg cfg)))
+(defn weapon
+  "Modifier adding `cfg` (a quantity, or an entry map) of weapon `weapon-kw` to ?weapons, summed with
+   any other source of the same weapon. Returns the modifier."
+  [weapon-kw cfg]
+  (mods/modifier ?weapons (update ?weapons weapon-kw add-item-cfg (equipment-cfg cfg))))
+
+(defn magic-weapon
+  "Modifier adding `cfg` of magic weapon `weapon-kw` to ?magic-weapons, summed with any other source
+   of the same item. Returns the modifier."
+  [weapon-kw cfg]
+  (mods/modifier ?magic-weapons (update ?magic-weapons weapon-kw add-item-cfg (equipment-cfg cfg))))
 
 (defn deferred-weapon [weapon-kw weapon]
   (mods/deferred-modifier
     ?weapons
-    (fn [cfg] (mods/map-mod ?weapons weapon-kw (equipment-cfg cfg)))
+    (fn [cfg] (mods/modifier ?weapons (update ?weapons weapon-kw add-item-cfg (equipment-cfg cfg))))
     1))
 
 (defn deferred-magic-item-fn [equipment-mod-fn
@@ -485,31 +536,40 @@
 (defn deferred-magic-weapon [weapon-kw {:keys [modifiers] :as weapon}]
   (mods/deferred-modifier
     ?magic-weapons
-    (deferred-magic-item-fn #(mods/map-mod ?magic-weapons weapon-kw (equipment-cfg %)) weapon)
+    (deferred-magic-item-fn #(mods/modifier ?magic-weapons (update ?magic-weapons weapon-kw add-item-cfg (equipment-cfg %))) weapon)
     1))
 
-(defn armor [armor-kw cfg]
-  (mods/map-mod ?armor armor-kw (equipment-cfg cfg)))
+(defn armor
+  "Modifier adding `cfg` (a quantity, or an entry map) of armor `armor-kw` to ?armor, summed with any
+   other source of the same armor. Returns the modifier."
+  [armor-kw cfg]
+  (mods/modifier ?armor (update ?armor armor-kw add-item-cfg (equipment-cfg cfg))))
 
 (defn deferred-armor [armor-kw armor]
   (mods/deferred-modifier
     ?armor
-    (fn [cfg] (mods/map-mod ?armor armor-kw (equipment-cfg cfg)))
+    (fn [cfg] (mods/modifier ?armor (update ?armor armor-kw add-item-cfg (equipment-cfg cfg))))
     1))
 
 (defn deferred-magic-armor [armor-kw armor]
   (mods/deferred-modifier
     ?armor
-    (deferred-magic-item-fn (fn [cfg] (mods/map-mod ?magic-armor armor-kw (equipment-cfg cfg))) armor)
+    (deferred-magic-item-fn (fn [cfg] (mods/modifier ?magic-armor (update ?magic-armor armor-kw add-item-cfg (equipment-cfg cfg)))) armor)
     1))
 
-(defn equipment [equipment-kw cfg]
-  (mods/map-mod ?equipment equipment-kw (equipment-cfg cfg)))
+(defn equipment
+  "Modifier adding `cfg` (a quantity, or an entry map) of gear `equipment-kw` to ?equipment, summed
+   with any other source of the same item. Returns the modifier."
+  [equipment-kw cfg]
+  (mods/modifier ?equipment (update ?equipment equipment-kw add-item-cfg (equipment-cfg cfg))))
 
-(defn deferred-equipment [equipment-kw equipment]
+(defn deferred-equipment
+  "Deferred modifier for a stored gear pick of `equipment-kw`: adds the pick's entry to ?equipment,
+   summed with any other source of the same item. Returns the modifier."
+  [equipment-kw equipment]
   (mods/deferred-modifier
     ?equipment
-    (fn [cfg] (mods/map-mod ?equipment equipment-kw (equipment-cfg cfg)))
+    (fn [cfg] (mods/modifier ?equipment (update ?equipment equipment-kw add-item-cfg (equipment-cfg cfg))))
     1))
 
 (defn deferred-treasure [treasure-kw treasure]

@@ -1,7 +1,7 @@
 // ARCHIVED SPIKE, answered 2026-09-05: not a test, and in no test run (run-all.sh reads only
 // test/browser/*_e2e.js). The measurements and the decision are in the agents/develop branch:
-// docs/kb/perf-homebrew-builder-loop.md, "Track 1 spike", and the pinned docs/TODO.md item
-// "load the homebrew library without one long freeze". Its default pack was a local scratch
+// docs/kb/perf-homebrew-builder-loop.md, "Track 1 spike", and its item "load the homebrew
+// library without one long freeze". Its default pack was a local scratch
 // file that no longer exists, so pass one.
 // Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // Kind: probe (measures and prints; the runner judges it by exit code only).
