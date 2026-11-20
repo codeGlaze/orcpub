@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ./run --backup, --verify-backup and --restore against real Postgres storage: Postgres 16, a SQL
-# transactor and a stand-in app (fixtures/backup-postgres). Seeds rows through a peer, backs up and
+# transactor and a stand-in app (the Compose file and table script below). Seeds rows through a peer, backs up and
 # verifies, checks a restore over the existing database is refused, then restores into an empty
 # Postgres database and compares the data. Needs Docker and the transactor image (DATOMIC_IMAGE,
 # default orcpub-datomic). Runs in a temp folder with its own .env; the repo's .env is not read.
@@ -20,7 +20,57 @@ cleanup() {
 }
 trap cleanup EXIT
 
-cp "$root/test/docker/fixtures/backup-postgres/"* "$work/"
+# Datomic's bin/sql/postgres-table.sql without WITH (OIDS=FALSE), which Postgres 12+ rejects. Two
+# storage databases: "datomic" holds the original, "restored" starts empty for the restore.
+cat >"$work/init.sql" <<'SQL'
+CREATE TABLE datomic_kvs (id text NOT NULL, rev integer, map text, val bytea, CONSTRAINT pk_id PRIMARY KEY (id));
+CREATE DATABASE restored OWNER datomic;
+\connect restored
+CREATE TABLE datomic_kvs (id text NOT NULL, rev integer, map text, val bytea, CONSTRAINT pk_id PRIMARY KEY (id));
+SQL
+# The transactor serves the Postgres database named by PG_DB.
+cat >"$work/docker-compose.yaml" <<'YAML'
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: datomic
+      POSTGRES_PASSWORD: datomic
+      POSTGRES_DB: datomic
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U datomic -d datomic"]
+      interval: 2s
+      retries: 30
+  datomic:
+    image: ${DATOMIC_IMAGE:-orcpub-datomic}
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_DB: ${PG_DB:-datomic}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        cat > /tmp/sql.properties <<PROPS
+        protocol=sql
+        host=datomic
+        alt-host=datomic
+        port=4334
+        sql-url=jdbc:postgresql://db:5432/$$PG_DB
+        sql-user=datomic
+        sql-password=datomic
+        sql-driver-class=org.postgresql.Driver
+        memory-index-threshold=32m
+        memory-index-max=256m
+        object-cache-max=128m
+        PROPS
+        exec bin/transactor /tmp/sql.properties
+  orcpub:
+    image: ${DATOMIC_IMAGE:-orcpub-datomic}
+    entrypoint: ["sleep", "infinity"]
+YAML
 ln -s "$root/run" "$work/run"
 ln -s "$root/scripts" "$work/scripts"
 mkdir -p "$work/backups"
