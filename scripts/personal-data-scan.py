@@ -28,7 +28,7 @@ SECRETS = [
     ('JWT', re.compile(r'\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}')),
 ]
 BINARY_PATH = re.compile(r'\.(svg|png|jpe?g|gif|webp|woff2?|ttf|otf|ico|pdf|map|jar|zip|gz)$|(^|/)compiled/|package-lock\.json$')
-ASSET = re.compile(r'^[1-9]x\.(png|jpe?g|gif|svg|webp)$')  # the domain part of icon@2x.png
+ASSET = re.compile(r'\.(png|jpe?g|gif|svg|webp)$')  # icon@2x.png, roll@2.png: no TLD is an image type
 VERSION_BEFORE = re.compile(r'(?:version|release|tag)\s*[:=]?\s*["\']?$', re.I)  # version=2.5.0.27
 
 
