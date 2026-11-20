@@ -51,3 +51,30 @@
       (is (not (str/includes? out "a=b")) out)
       (is (str/includes? out "user=datomic") out)
       (is (str/includes? out "ssl=true") out))))
+
+(deftest prefixed-password-names-are-cut
+  (testing "pgJDBC's sslpassword (the client-key password) and other names ending in password"
+    (doseq [k ["sslpassword" "sslPassword" "keystore-password"]]
+      (let [out (config/redact-secrets (str "datomic:sql://x?jdbc:p://h/db?user=d&" k "=hunter2"))]
+        (is (not (str/includes? out "hunter2")) (str k " leaked: " out))
+        (is (str/includes? out "user=d") out)))))
+
+(defn- uri-with
+  "Returns `config/get-datomic-uri` with DATOMIC_URL read as `url` and DATOMIC_PASSWORD as `pw`."
+  [url pw]
+  (with-redefs [config/datomic-env (constantly url)
+                config/datomic-password (constantly pw)]
+    (config/get-datomic-uri)))
+
+(deftest datomic-password-joins-the-innermost-query
+  (testing "a URL with no query of its own gets ?password="
+    (is (= "datomic:dev://localhost:4334/orcpub?password=pw"
+           (uri-with "datomic:dev://localhost:4334/orcpub" "pw")))
+    (is (= "datomic:sql://orcpub?jdbc:postgresql://db:5432/datomic?password=pw"
+           (uri-with "datomic:sql://orcpub?jdbc:postgresql://db:5432/datomic" "pw"))))
+  (testing "a JDBC URL that already has a query gets &password=, never a second ?"
+    (is (= "datomic:sql://orcpub?jdbc:postgresql://db:5432/datomic?user=datomic&password=pw"
+           (uri-with "datomic:sql://orcpub?jdbc:postgresql://db:5432/datomic?user=datomic" "pw"))))
+  (testing "a password already in the URL, or none set, leaves the URL alone"
+    (is (= "datomic:dev://h:4334/o?password=x" (uri-with "datomic:dev://h:4334/o?password=x" "pw")))
+    (is (= "datomic:dev://h:4334/o" (uri-with "datomic:dev://h:4334/o" nil)))))
