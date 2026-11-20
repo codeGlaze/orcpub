@@ -12,6 +12,8 @@ The `Submit Clojure dependencies` job (`continuous-integration.yml`) runs `lein 
 resolved tree on pushes to `develop` and `main` (not on PRs, not on `integration`). Dependabot reads
 that snapshot, so the alerts describe `develop` as of its last push. The manifest shows as `pom.xml`,
 which exists only inside that job. `lein deps :tree` gives the same tree locally.
+The pom includes the `:dev` profile's dependencies at test scope, so dev-only libraries (rebel-readline's
+jline) raise alerts too, and a pin in that profile is what clears them.
 Alerts: `gh api "repos/codeGlaze/orcpub/dependabot/alerts?state=open&per_page=100" --paginate`.
 
 ## Triage, 2026-11-18
