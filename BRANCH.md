@@ -24,7 +24,8 @@ else here carries live state.*
   upstream's latest is `v2.5.0.27` (2025-09-06). The Summer Patch Highlights paragraph does not
   mention the Rules tab (owner's call). Older detail, including the `.gitignore` conflict that held
   #32: [branch-md-2026-10-23.md](docs/kb/branch-md-2026-10-23.md).
-- **The next release is waiting on `integration`:** on 2026-11-18, 197 commits not on `develop` (#82
+- **The Long Rest Update is on our `develop`** (2026-11-20): #91 (`integration` into `develop`, PRs #82 to #90) merged with the owner's yes, `4ea30d5e4`. Not upstream: that needs the owner's separate yes. The DMV pre-merge (`premerge/integration-to-dmv`, gitea PR #10) carries the same `integration`.
+- **Before #91:** on 2026-11-18, 197 commits not on `develop` (#82
   to #88, plus #89 once merged), all by codeGlaze with no agent trailers. Our `develop` is 3 behind
   upstream, all from #674's own merge. Upstream `hotfix/locale-safety` #695 is still open.
 - **Release steps, each when the owner says so:** a new release PR takes `integration` into our
