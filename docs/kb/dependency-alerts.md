@@ -29,7 +29,7 @@ library, not a test.
 | Guava 32.1.2 | direct | 1 high | Low: Java deserialization of untrusted data, which the app does not do. Fix 33.7.2. |
 | jsoup 1.7.2 | `pdfkit-clj` 0.1.7 | 2 high | None found: nothing in `src/` uses `pdfkit-clj`. Removing it removes jsoup. |
 | PostgreSQL JDBC 42.7.3 | direct | 1 high | Only with Datomic SQL storage; Docker uses `dev` storage. Fix 42.7.11. |
-| H2 2.1.214, commons-beanutils 1.9.4 | `com.datomic/peer` | 2 high | Low: H2 console and bean access are not used. |
+| H2 2.1.214, commons-beanutils 1.9.4 | `com.datomic/peer` | 2 high | Low: H2 console and bean access are not used. H2 **is** in production: Datomic's `dev` storage (the Docker default, `protocol=dev`) is H2, the transactor image ships its own `h2-2.1.214.jar`, and the app's copy is the client. Pinning 2.2.220 changes only the client, mixing versions on the data path. Alert #8 dismissed `not_used` (2026-11-20). |
 | plexus-utils 4.0.2 | `garden` (CSS build) | 1 high | Low: archive extraction, build-time only. |
 | aircompressor 0.27 | `carmine` (Redis store) | 1 high | Low: only with Redis, decompressing its own data. |
 
@@ -60,3 +60,15 @@ connect with `UnsatisfiedLinkError: ...errnoENAMETOOLONG`, and the app container
 healthy. `lein test` and the browser suites use `datomic:mem` and open no Netty connection, so only
 a real stack (`./run --auto`, CI's Docker jobs) shows it. A `lein deps :tree` check must include
 entries with `:classifier`.
+
+## Status 2026-11-20
+
+#91 (Long Rest Update) took #89's fixes to `develop`; open alerts went from 83 to 7, and the H2
+dismissal leaves 6: five Jetty 11 (cleared by `upgrade/pedestal-jetty12`, Jetty 12.1.15) and
+jline-reader 3.5.1, which rebel-readline brings into the dev REPL only. The API's dismissal reasons
+are `fix_started`, `inaccurate`, `no_bandwidth`, `not_used`, `tolerable_risk`.
+
+**Vendored jars and the personal-data scan:** a `.pom` in `lib/` carries an
+`scm:git:ssh://` link whose user@host part (GitHub's shared SSH login) the pre-push scan reads as
+an email address. `.personal-data-allow` lists that one address, with its reason (on
+`upgrade/pedestal-jetty12` until it merges). Quoting the address in a doc trips the scan the same way.
