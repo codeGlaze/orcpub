@@ -1274,7 +1274,7 @@ _demo-content-tier · demo content tier_
 
 _dependency-alerts · dependency alerts_
 
-**topics:** 2026-11-18, 2026-11-20, alert, alerts, critical, dependabot, dos, high, jars, jetty, jline, jsoup, low, netty, push, rebel-readline, repl, rewrite-clj
+**topics:** 2026-11-18, 2026-11-20, alert, alerts, dependabot, high, jars, jetty, jline, jsoup, libraries, low, netty, push, rebel-readline, repl, rewrite-clj, scan
 
 - Where the alerts come from
 - Triage, 2026-11-18

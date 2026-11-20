@@ -70,6 +70,11 @@ dismissal leaves 6: five Jetty 11 (cleared by `upgrade/pedestal-jetty12`, Jetty 
 jline-reader 3.5.1, which rebel-readline brings into the dev REPL only. The API's dismissal reasons
 are `fix_started`, `inaccurate`, `no_bandwidth`, `not_used`, `tolerable_risk`.
 
+**Full scan, 2026-11-20 (`upgrade/pedestal-jetty12`):** `scripts/security-scan.sh` with an empty
+`osv-scanner.toml` found 1 alert in 217 shipped libraries (H2) and nothing lower. The two Jetty 11
+exceptions leave `osv-scanner.toml` with #92. To see what the exceptions hide, empty the file, run the
+scan, then `git checkout HEAD -- osv-scanner.toml`.
+
 **jline (dev REPL):** fixed on #92 by rebel-readline 0.1.11 plus jline 3.30.15 pinned in `:dev-config`.
 Trap: rebel-readline 0.1.11 brings cljfmt 0.13.0, which needs rewrite-clj 1.x, and the dev profile
 pinned rewrite-clj 0.5.2 (for `comment_discipline_test`), so the REPL died on `No such var: z/of-node`.
