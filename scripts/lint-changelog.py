@@ -168,7 +168,8 @@ def main():
         print(f"::error file={CHANGELOG}::{CHANGELOG} not found")
         return 1
 
-    sections = releases(lines)
+    # Shipped releases are frozen (Keep a Changelog), so only the newest is checked.
+    sections = releases(lines)[:1]
     if not sections:
         print(f"OK - {CHANGELOG} has no release section to check.")
         return 0
@@ -220,7 +221,7 @@ def main():
         print(f"\n{len(found)} changelog style problem(s). "
               f"House style: docs/branch-changelog.template.md")
         return 1
-    print(f"OK - all {len(sections)} release(s) follow the changelog house style.")
+    print(f"OK - the newest release, {sections[0][2]}, follows the changelog house style.")
     return 0
 
 
