@@ -52,12 +52,9 @@
       (env/value :profile-encryption-keys)))
 
 (defn get-datomic-uri
-  "Return the Datomic URI: the raw env value (`datomic-env`), else the local development
-  default datomic:dev://localhost:4334/orcpub.
-
-  When DATOMIC_PASSWORD is set and the URL has no `password=`, appends `password=<pw>` to the
-  innermost URL's query (`?` when it has none, else `&`), so the password can be kept out of
-  DATOMIC_URL (e.g. in a Docker secret).
+  "Returns DATOMIC_URL (`datomic-env`), else datomic:dev://localhost:4334/orcpub. When
+  DATOMIC_PASSWORD is set and the URL has no `password=`, appends `password=<pw>` to the innermost
+  URL's query: `?` when it has none, else `&`.
   GOTCHA: a SQL URI always has a `?` before `jdbc:`; only the text after the last `://` counts."
   []
   (let [url (or (datomic-env) default-datomic-uri)
