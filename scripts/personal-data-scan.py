@@ -17,7 +17,7 @@ import sys
 ALLOW_FILE = '.personal-data-allow'
 MARKER = 'personal-data: ok'
 DOC_NETS = [ipaddress.ip_network(n) for n in ('192.0.2.0/24', '198.51.100.0/24', '203.0.113.0/24')]
-IP = re.compile(r'(?<![\w.:/-])(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?![\w.]|/\d)')
+IP = re.compile(r'(?<![\w.-])(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?!\w|\.\d|/\d)')  # not 1.2.3.4.5 or a CIDR
 EMAIL = re.compile(r'(?<![\w.%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}')
 SECRETS = [
     ('private key', re.compile(r'-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----')),
@@ -110,22 +110,40 @@ def scan_commits(revs, allow):
         for who in sorted(set(meta)):
             if who.lower() not in allow['author'] and not who.lower().endswith('@users.noreply.github.com'):
                 hits.append((f'commit {c[:9]}', 'author email', who))
-        path = ''
-        for line in git('show', '--format=', '--no-color', '-U0', c).split('\n'):
-            if line.startswith('+++ '):
-                path = line[6:] if line.startswith('+++ b/') else ''
+        path, in_header = '', False
+        for line in git('-c', 'core.quotepath=false', 'show', '--format=', '--no-color', '-U0', c).split('\n'):
+            if line.startswith('diff --git '):
+                path, in_header = '', True
+            elif line.startswith('@@'):
+                in_header = False
+            elif in_header:
+                if line.startswith('+++ '):
+                    path = header_path(line[4:])
             elif line.startswith('+') and path and not path_skipped(path, allow):
                 hits += [(f'{path} ({c[:9]})', k, v) for k, v in scan_line(line[1:], allow)]
     return hits
 
 
+def header_path(name):
+    """The file path from a diff's `+++ ` header text `name` (b/x, "b/x" quoted, /dev/null).
+
+    Returns '' for /dev/null (a deleted file)."""
+    if name.startswith('"') and name.endswith('"'):
+        name = name[1:-1].replace('\\"', '"').replace('\\\\', '\\')
+    return name[2:] if name.startswith('b/') else ''
+
+
 def scan_tree(ref, allow):
     """Scans every text file at `ref`. Returns a list of (where, kind, value)."""
     hits = []
-    for path in git('ls-tree', '-r', '--name-only', ref).split('\n'):
-        if not path or path_skipped(path, allow):
+    for entry in git('ls-tree', '-r', '-z', ref).split('\0'):
+        if not entry:
             continue
-        blob = subprocess.run(['git', 'show', f'{ref}:{path}'], capture_output=True).stdout
+        meta, path = entry.split('\t', 1)
+        _mode, kind, oid = meta.split()
+        if kind != 'blob' or path_skipped(path, allow):
+            continue
+        blob = subprocess.run(['git', 'cat-file', 'blob', oid], check=True, capture_output=True).stdout
         if b'\0' in blob[:8000]:
             continue
         for n, line in enumerate(blob.decode('utf-8', 'replace').split('\n'), 1):
