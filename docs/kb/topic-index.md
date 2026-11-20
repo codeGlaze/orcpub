@@ -2972,12 +2972,13 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _personal-data-scan · personal data scan_
 
-**topics:** 2017, 2026-11-19, address, addresses, allow, author, aws, commit, commits, documentation, email, emails, github, hashes, private, range, ranges, scan
+**topics:** 2026-11-19, address, addresses, allow, author, aws, commits, dotted, email, emails, github, hashes, private, public, range, ranges, scan, scanned
 
 - What runs, and when
 - Rules
 - Verified 2026-11-19
 - What was already public when it landed
+- Rules tightened by #89's reviews (2026-11-19)
 
 ## plan-669-merge-verification.md
 
@@ -3414,7 +3415,7 @@ _registry-before-after · registry before after_
 
 _release-deploy-traps · release deploy traps_
 
-**topics:** alt-host, de-index, dmv, edn, ending, folder, hand-insert, host, in-browser, lag, parsers, projects, release, reviewing, robots, sigpipe, slips, swarm
+**topics:** alt-host, de-index, dmv, edn, folder, hand-insert, host, in-browser, lag, parsers, projects, release, reviewing, robots, sigpipe, slips, start-time, swarm
 
 - Open and unchecked
 
@@ -3844,7 +3845,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, diff, edition, editions, monsters, open5e, owner, pdf, served, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, data, edition, editions, monsters, open5e, owner, pdf, served, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded

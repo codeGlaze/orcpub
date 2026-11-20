@@ -46,3 +46,11 @@ clean push in a scratch clone.
 - The original author's AWS key and a server private key from 2017, in upstream's own history.
 - GitHub's account setting "Block command line pushes that expose my email" covers author emails
   registered on the account; this scan covers the rest.
+
+## Rules tightened by #89's reviews (2026-11-19)
+
+- A dotted number passes as a version only when a label sits right before it (`version=2.5.0.27`, `release 2.5.0.26`); a public address after `RELEASE_HOST=` is flagged. Published versions that appear bare are on the allow list.
+- Only names ending in an image type (`icon@2x.png`) skip the email check; `.md` is a country TLD, so an address at a `.md` domain is flagged.
+- Merge commits are scanned with `git show --remerge-diff`: only what the conflict resolution wrote, not the merged branch's lines.
+- IPs in URLs, after a colon and at a sentence end are caught; diff headers are read only before the first hunk; quoted paths are scanned.
+

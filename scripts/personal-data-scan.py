@@ -28,8 +28,8 @@ SECRETS = [
     ('JWT', re.compile(r'\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}')),
 ]
 BINARY_PATH = re.compile(r'\.(svg|png|jpe?g|gif|webp|woff2?|ttf|otf|ico|pdf|map|jar|zip|gz)$|(^|/)compiled/|package-lock\.json$')
-FILE_NAME = re.compile(r'\.(png|jpe?g|gif|svg|webp|js|css|clj|cljs|cljc|edn|md)$')  # icon@2x.png
-VERSION_LINE =re.compile(r'version|release|\bv\d|\.jar|datomic-pro|maven|lein', re.I)
+ASSET = re.compile(r'\.(png|jpe?g|gif|svg|webp)$')  # icon@2x.png, roll@2.png: no TLD is an image type
+VERSION_BEFORE = re.compile(r'(?:version|release|tag)\s*[:=]?\s*["\']?$', re.I)  # version=2.5.0.27
 
 
 def load_allow(root):
@@ -56,16 +56,16 @@ def email_allowed(addr, allow):
     """True when `addr` is on the allow list by address or by domain (a domain covers its subdomains)."""
     addr = addr.lower()
     domain = addr.split('@', 1)[1]
-    if FILE_NAME.search(domain) or addr in allow['email']:
+    if ASSET.search(domain) or addr in allow['email']:
         return True
     return any(domain == d or domain.endswith('.' + d) for d in allow['email-domain'])
 
 
-def ip_flagged(text, line, allow):
+def ip_flagged(text, before, allow):
     """True when `text` is a public IPv4 address not on the allow list.
 
-    Private, loopback, reserved and documentation ranges pass; so do dotted numbers on a line that
-    reads as a version (2.5.0.27)."""
+    Private, loopback, reserved and documentation ranges pass; so does a dotted number whose
+    preceding text `before` ends in a version label (version=2.5.0.27, release 2.5.0.26)."""
     try:
         ip = ipaddress.ip_address(text)
     except ValueError:
@@ -75,7 +75,7 @@ def ip_flagged(text, line, allow):
     parts = text.split('.')
     if len(set(parts)) == 1 or text.startswith('1.2.3.') or text == '4.3.2.1':
         return False  # an obvious placeholder (9.9.9.9, 1.2.3.4)
-    return not VERSION_LINE.search(line)
+    return not VERSION_BEFORE.search(before)
 
 
 def scan_line(line, allow):
@@ -83,7 +83,7 @@ def scan_line(line, allow):
     if MARKER in line:
         return []
     found = [(kind, m.group(0)[:6] + '... (hidden)') for kind, rx in SECRETS for m in rx.finditer(line)]
-    found += [('IP address', m.group(1)) for m in IP.finditer(line) if ip_flagged(m.group(1), line, allow)]
+    found += [('IP address', m.group(1)) for m in IP.finditer(line) if ip_flagged(m.group(1), line[:m.start()], allow)]
     found += [('email', m.group(0)) for m in EMAIL.finditer(line) if not email_allowed(m.group(0), allow)]
     return found
 
@@ -102,16 +102,19 @@ def git(*args):
 def scan_commits(revs, allow):
     """Scans the commits `revs` (a rev-list argument list): authors, committers and added lines.
 
-    Returns a list of (where, kind, value)."""
+    A merge's added lines are those its conflict resolution wrote (--remerge-diff), not the merged
+    branch's. Returns a list of (where, kind, value)."""
     hits = []
-    commits = git('rev-list', '--no-merges', *revs).split()
+    merges = set(git('rev-list', '--merges', *revs).split())
+    commits = git('rev-list', *revs).split()
     for c in commits:
         meta = git('show', '-s', '--format=%ae%n%ce', c).split()
         for who in sorted(set(meta)):
             if who.lower() not in allow['author'] and not who.lower().endswith('@users.noreply.github.com'):
                 hits.append((f'commit {c[:9]}', 'author email', who))
         path, in_header = '', False
-        for line in git('-c', 'core.quotepath=false', 'show', '--format=', '--no-color', '-U0', c).split('\n'):
+        diff = ['--remerge-diff'] if c in merges else []
+        for line in git('-c', 'core.quotepath=false', 'show', *diff, '--format=', '--no-color', '-U0', c).split('\n'):
             if line.startswith('diff --git '):
                 path, in_header = '', True
             elif line.startswith('@@'):

@@ -79,6 +79,7 @@ ip: 172.32.0.1
 ip: 2.3.4.4
 # Release numbers in issue notes (the project's versions look like addresses).
 ip: 2.5.0.26
+ip: 2.5.0.27
 ip: 2.5.0.29
 # A version number in the PDF notes.
 ip: 12.7.3.1

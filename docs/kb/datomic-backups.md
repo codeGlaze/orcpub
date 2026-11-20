@@ -80,3 +80,6 @@ fingerprint. Follow-up the same day: the wait, with the transactor paused 25 s m
 - `--restore ./backups` and `--verify-backup ./backups` take the newest month even when a `backups/orcpub` from before month folders is kept.
 - `bk_prune` uses a `read` loop, not `mapfile` (absent in macOS's Bash 3.2), and a month folder the host user cannot create is made by a container running as the parent's owner.
 - An empty `DATOMIC_URL` in the shell is kept empty, as Compose keeps it, so a backup reads the same database as the running app.
+- A month folder counts for `--restore`/`--verify-backup` only once it holds a restore point, so a first backup of a month that failed part-way never hides an older good month.
+- `./run --check` with no terminal only reports and exits 1. It used to take the default answer and start setup (a `.env` appeared in CI conditions).
+
