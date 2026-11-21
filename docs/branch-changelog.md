@@ -28,7 +28,7 @@ Rules:
 <!-- Reviewer context only. Dropped at fold; never reaches CHANGELOG.md. What problem this branch
      solves and any scope a reviewer needs. Prose is fine here. -->
 
-Finishes the Long Rest Update before it goes upstream: What's New rewritten for players (owner-approved wording, a new panel id so testers see it again), Bardic Inspiration on a short rest (#310), and a PDF tab fix. It also vets CHANGELOG.md: the shipped Summer Patch section is restored word for word from upstream, Long Rest lines that repeated it or fixed work the same release built are gone, duplicates are merged (221 bullets to 161), and lines cite the upstream issues they close, including the umbrella issues #724-#729.
+Finishes the Long Rest Update before it goes upstream: What's New rewritten for players (owner-approved wording, a new panel id so testers see it again), Bardic Inspiration on a short rest (#310), and a PDF tab fix. It also vets CHANGELOG.md: one Long Rest Update section (the Summer Patch was an early part of it, noted under the heading), fixes to work the same release built are gone, duplicates are merged (221 bullets to 180), and lines cite the upstream issues they close, including the umbrella issues #724-#729.
 
 ## Added
 

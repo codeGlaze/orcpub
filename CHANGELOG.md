@@ -10,17 +10,23 @@ House style and the branch → release fold: [`docs/branch-changelog.template.md
 
 ## [Long Rest Update] — 2026
 
+An early part of this release went out as the Summer Patch on 2026-11-07.
+
 ### Highlights
 
-Characters can be shared with the homebrew they're built with and given a portrait from an illustrator's layered art, and homebrew races, backgrounds, feats and subclasses can give ability score increases the player places. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read, and on the sheet a Weapons table rolls attacks and damage while charged items and a Rest box track charges and rests. Printing gains a spellbook, A4 paper and a full PDF Options panel, and accounts get new sign-in pages and stronger password rules.
+Homebrew is repaired instead of lost, a character that used to blank the page now recovers, and characters can be shared with the homebrew they're built with and given a portrait from an illustrator's layered art; homebrew races, backgrounds, feats and subclasses can give ability score increases the player places. A new Rules tab holds the SRD's rules and conditions, with links that preview a spell, condition or rule as you read, and on the sheet a Weapons table rolls attacks and damage while charged items and a Rest box track charges and rests. Printing gains a spellbook, A4 paper and a full PDF Options panel, and accounts get new sign-in pages and stronger password rules.
 
 ### Added
 - **Homebrew:** races, subraces, backgrounds and feats can give ability score increases the player places, such as +2 to one ability and +1 to another, or +1 to any martial ability; subclasses can too, in an optional section. (#717, #128)
 - **Homebrew:** homebrew can give saving throw proficiencies, fixed or chosen, on their own or with an ability score increase; a file that uses these is refused by an older version of the site instead of loading wrong. (#717, #190)
 - **Homebrew:** move or copy content between sources, one item or many at a time. (#705)
 - **Homebrew:** turn all homebrew, a source or one section off without deleting it, and search inside a source. (#475)
-- **Homebrew:** a library health card shows what in your homebrew needs fixing. (#683)
+- **Homebrew:** a library health card shows what needs fixing; one damaged entry is set aside with a repair panel instead of breaking its whole source. (#683)
 - **Homebrew:** imports settle duplicate keys with safe defaults in one click, with a review panel for the detail. (#682)
+- **Homebrew:** content missing required fields can be saved with placeholder names, and Fix & Restore names entries for you. (#690, #691)
+- **Homebrew:** an option to show each class's homebrew source beside its name. (#671)
+- **Homebrew:** export runs the same checks as import, so a library exported and imported again comes back the same. (#723)
+- **Homebrew:** builder safety nets: a draft export, the work in progress restored after a refresh, and a dialog that fills in missing fields on export.
 - **Homebrew:** homebrew classes can define starting equipment, or start from an SRD class and keep only what differs. (#706)
 - **Homebrew:** custom items can have charges, a recharge time and the spells they cast. (#722)
 - **Homebrew:** custom weapons can have switches the player turns on (like Flame Tongue) and extra damage or effects that apply under conditions you set, such as on a hit, against a creature type, or limited per turn or rest. (#722)
@@ -41,6 +47,7 @@ Characters can be shared with the homebrew they're built with and given a portra
 - **Characters:** the builder shows choices waiting on a higher level beside the level picker, and says when each comes back. (#718)
 - **Characters:** with more than one class, a "1st" badge marks the starting class; tap another class's badge to make it the starting class, and choices that only apply to the starting class follow. (#718)
 - **Characters:** a Choices list in the builder shows every choice a character stores, including ones whose homebrew isn't loaded in this browser, and lets those be cleared. (#718)
+- **Characters:** a character that will not load opens a recovery panel instead of a blank page, and can be reported in one click. (#679, #685)
 - **Characters:** the equipment lists filter as you type, with no limit on length. (#707)
 - **Characters:** character pictures load from far more sites, with paste and upload when a site refuses. (#707)
 - **Characters:** the character builder's Back and Next repeat at the bottom of each page, and open the next page at its top. (#728)
@@ -67,7 +74,7 @@ Characters can be shared with the homebrew they're built with and given a portra
 - **Printing:** spellbook pages: every printed spell by class, with save DC and attack on each page, as a full-text book, a ledger or a prep sheet. (#169)
 - **Printing:** multiclass casters can print one class per spell column, with Pact Magic kept as its own pool. (#710)
 - **Printing:** spell rows mark concentration, casting time and costly materials. (#710)
-- **Printing:** magic item cards.
+- **Printing:** magic item cards, an optional card-back logo, and black-and-white cards for home printers. (#684)
 - **Printing:** the portrait prints on the exported character sheet, at full resolution. (#714)
 - **Printing:** A4 as well as US Letter, for the character sheet, spell cards, magic item cards and the spellbook. (#719)
 - **Printing:** when part of an export cannot be produced, or it holds more spells or magic items than the limit allows, the PDF opens with a page naming what was left out and why. (#719)
@@ -92,6 +99,8 @@ Characters can be shared with the homebrew they're built with and given a portra
 - **Characters:** on phones every weapon picker opens in a bottom sheet. (#722)
 - **Homebrew:** opening the app, importing and restoring are faster with a large library. (#723)
 - **Homebrew:** a value in the wrong form whose meaning is plain (`"25"` for a speed, one trait where a list belongs) is corrected once, and the import report lists each field it fixed and each entry it sets aside for repair. (#723)
+- **Homebrew:** content imported without a source lands in the real "Default Option Source".
+- **Homebrew:** saving checks every required field, dropdowns and multi-selects included.
 - **Printing:** PDF Options opens as a full-window panel with grouped options, and Create PDF opens a tab that says the PDF is being made. (#726)
 - **Printing:** spell cards have a new design: the name with ATK and DC, concentration and ritual as ribbons, the casting facts labelled, and more of the spell's text on the front. (#726)
 - **Printing:** spell cards list spells by level, then name, or by name alone. (#520)
@@ -114,6 +123,8 @@ Characters can be shared with the homebrew they're built with and given a portra
 
 ### Fixed
 - **Characters:** switching between Race and Class no longer freezes the builder, and an edit rebuilds the character once. (#621)
+- **Characters:** the Features tab loads when a trait has no name. (#680)
+- **Characters:** a part of the sheet that cannot be drawn shows a message instead of blanking the whole sheet.
 - **Characters:** saving a character that was deleted in another tab no longer sends you to the login page with nothing said; your changes stay, and Save stores them as a new character.
 - **Characters:** unsaved builder edits are no longer lost when a character's sheet or list saves, and builder tabs open on different characters keep their own unsaved changes. (#704)
 - **Characters:** a change made on the character sheet while offline is saved when the connection returns, instead of waiting for another change.
@@ -132,6 +143,16 @@ Characters can be shared with the homebrew they're built with and given a portra
 - **Inventory:** the same gear from several sources adds up instead of one replacing the rest, such as a pack's rations plus rations picked by hand. (#138)
 - **Inventory:** two of the same weapon or armor count as two. (#340)
 - **Character sheet:** magic armor is listed with the other magic items.
+- **Homebrew:** a custom element with a blank or symbol-only name no longer breaks the character. (#675)
+- **Homebrew:** older spell names (Leomund's, Tasha's, Bigby's) match in imported packs. (#676)
+- **Homebrew:** a homebrew class's source label no longer corrupts saved spell selections. (#670)
+- **Homebrew:** on/off toggles no longer corrupt homebrew data. (#677)
+- **Homebrew:** a save that runs out of browser storage warns and offers a backup, and unreadable storage is kept for recovery instead of deleted. (#678)
+- **Homebrew:** homebrew names with non-English letters are recognised. (#681)
+- **Homebrew:** import and export no longer lose renamed items, and their messages are readable. (#672)
+- **Homebrew:** an import reports success only once it is saved, and shows its problems at import time. (#682)
+- **Homebrew:** a class that names a missing spell shows it by name with an edit link instead of a blank card.
+- **Homebrew:** exporting after a save, and autosaving an empty builder, no longer crash.
 - **Homebrew:** New in a homebrew builder keeps the Option Source the box shows, so saving no longer asks for a source that looks filled in.
 - **Homebrew:** saving homebrew in one tab no longer erases homebrew saved in another; the older tab's change is merged and a real conflict is reported. Characters are not covered. (#705)
 - **Homebrew:** renamed items keep their links, and the characters using them. (#705)
@@ -182,53 +203,6 @@ Characters can be shared with the homebrew they're built with and given a portra
 - **Site:** other sites a page links to are told only this site's domain, never the page's address.
 - **Docker:** Java starts with a stopgap flag that blocks CVE-2026-114938 (Java2Shell) on the app and Datomic containers, until the images run a patched Java 21 (`JAVA2SHELL_STOPGAP`, true or false).
 - **Server:** security updates to the web server (now Jetty 12, clearing its five open advisories), the JSON parser, the PostgreSQL driver, password hashing, the email library and Guava, and Datomic 1.0.7745 with its networking library; an unused PDF library removed.
-
-## [Summer Patch] — 2026 (character-load resilience, homebrew salvage, PDF printing)
-
-Consolidates the June bug-patch bundle, the homebrew conflict-resolution/salvage
-work, and the summer additions (PDF printing, character-load recovery, spell-key
-reconciliation) into one release.
-
-### Fixed
-
-Character loading & display
-- **"A single colon is not a valid keyword" crash + self-heal** — a custom element saved with a blank or symbols-only name derived the empty keyword `:`, an unreadable token that crashed the whole character on load; key generation now guards the blank case, and an already-corrupt save is repaired in place on load (`ba80b78d`).
-- **An unreadable character recovers in place** — instead of a blank page it shows a recovery panel with a copyable diagnostic, and error messages persist until dismissed (`d50eaf87`).
-- **Character sheets no longer go blank** — an unrenderable section shows a recovery message; the rest of the sheet stays usable (`565c33c0`).
-- **The Features tab loads for every character**, a nameless trait shows "[Unnamed feature]" instead of crashing the name sort, and Hunter's Evasion is named (`2a6fde93`, `5c3b073f`, `dd65d66a`).
-- **Homebrew class source no longer poisons spell-selection keys** — the source label was folded into the class `:name`, so saved spells/cantrips vanished when it changed; keys now come from a stable class identity, and orphaned saves repair on load (`9a709c0d`, `fe549631`, `a3e26155`).
-- **Boolean toggles no longer corrupt data** and self-heal old damage (`1e9f27ec`); **non-ASCII name detection works in the browser** (`d9b23021`).
-
-Homebrew import / export / salvage
-- **"Rename all" resolves duplicate keys in one pass** instead of the 20 → 3 → 1 → 0 re-import crawl (`c037de78`).
-- **Multi-source paks survive an imperfect sub-source** — detection is structural (shape), not spec-validity, so one flawed sub-source no longer quarantines the whole pak (`c037de78`).
-- **Conflict resolution no longer nils out an item** — a redundant double-rename is now a no-op (`9df1b4ae`).
-- **Import can't report success it won't keep** — problems surface at import time against the loader's floor, and success fires only after the write persists (`c037de78`, `7782e831`).
-- **Dangling spell references render** with a key-derived name + edit link instead of a blank card, reported once per class (`a4dbfe19`, `73e75c9d`).
-- **Old-name spells in imported paks resolve** — 17 pre-2024 wizard-possessive keys (Leomund's, Tasha's, Bigby's…) map to their current SRD keys; loaded homebrew is never overridden (`cf1f4f1c`).
-- **Keyword-trap imports are caught and routed to repair** instead of silently vanishing (`d9b23021`); **unreadable storage is preserved** for recovery, not deleted (`eedffc08`); **quota-failed saves warn and offer a backup**.
-- **Readable import/export errors** — plain-English console messages, dedup shown as a log line (`eba28a9c`, `e512dc45`); **post-save export** and **autosave-on-empty-template** crashes fixed (`e3c9a9ee`).
-
-### Added
-
-Homebrew resilience & repair
-- **Per-entry salvage** — one bad entry no longer quarantines its whole source; valid items stay, broken ones are set aside for repair (`957e09ab`, `7782e831`, `c037de78`).
-- **Entry-level repair panel** in My Content — editable Name + Option-source per set-aside entry, Fix & Restore, and Discard (`d34007ff`, `c037de78`).
-- **Export runs the same checks as import** — duplicates/cleanups caught on the way out; raw/pretty export stays an unchecked escape hatch (`9df1b4ae`, `c037de78`).
-- **Resilient homebrew loading** with a My Content repair panel (`eedffc08`); **builder escape hatches** — draft export, refresh-safe WIP restore, "Save anyway" with placeholders, emergency raw export, Export & Auto-Fix (`eac350d0`, `e3c9a9ee`); **"Show homebrew source on class names" toggle** (`8f94a94c`); **fill-in dialog on export** with live field guidance (`1547cd69`, `22172adb`).
-
-PDF & printing
-- **Card-back logo** — "Print logo on card backs" under a new Appearance section; the mark redrawn to print legibly (solid black, filled letters), with a faded-color option for color printers (`e8e560a3`, `99e20389`, `d0f2bfd8`).
-- **Printer-friendly (black & white) spell cards** — the baked-red casting/range/component/duration/recharge icons render solid black with white-halo labels; a nested "faded grayscale icons" option offers a softer look (`cb51a4fa`, `dcc8d551`).
-
-Support
-- **Report a character that won't load** — from the recovery panel, an auth-gated one-click report (or copyable text) emails the support address, falling back to the existing error-notification inbox so no new config is needed; header-injection-safe, raw capped (`c2bc7d03`, `4fb40a20`, `b88d1413`).
-
-### Changed
-- **Import and export share one correction gate**, and the exported library is canonicalized so import → export → re-import is idempotent (`9df1b4ae`, `c037de78`).
-- **Quarantine granularity is per-entry**, backward-compatible with whole-source entries, with precise per-entry diagnostics (`957e09ab`, `7782e831`, `c037de78`).
-- **Source-less imported content lands in the real "Default Option Source"** instead of a phantom placeholder (`54f4e87d`).
-- **Save validation covers every required field** — dropdowns and multi-selects too (`e512dc45`); **save and load share one spec registry** so they can't drift (`ca977e0a`); normal exports strip meaningless blank flags; invalid-key errors are element-specific.
 
 ## [breaking/2026-stack-modernization]
 
