@@ -34,7 +34,7 @@
       (is (or (not (contains? item :detail)) (not (str/blank? detail))) "a detail, when given, has text")
       (when link
         (is (some? detail) "a link follows a detail")
-        (is (str/starts-with? (str (:href link)) "/") "links stay on the site")
+        (is (re-matches #"/(?![/\\]).*" (str (:href link))) "links stay on the site: a root path, not //host or /\\host")
         (is (not (str/blank? (:label link)))))
       (is (str/starts-with? (str icon) "fa-") "icons are Font Awesome class names")
       (is (not (contains? renamed-in-fa5 icon))
