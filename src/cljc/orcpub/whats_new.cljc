@@ -9,7 +9,6 @@
 (def releases
   [{:id "long-rest-update-2026-r2"
     :title "Long Rest Update"
-    :subtitle "Portraits, floating ability score increases for homebrew, a Rules tab, sharing with homebrew, and a printable spellbook."
     :items
     [
      {:group "New"
