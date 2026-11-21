@@ -5,7 +5,6 @@
    [clojure.string :as s]
    [datomic.api :as d]
    [datomock.core :as dm]
-   [io.pedestal.http :as http]
    [buddy.sign.jwt :as jwt]
    [environ.core :as environ]
    [orcpub.routes :as routes]
@@ -23,17 +22,6 @@
    [orcpub.outbox :as outbox]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
-
-#_(def service
-  (::http/service-fn (http/create-servlet {::http/routes routes/routes
-                                           ::http/type :jetty
-                                           ::http/port 8080})))
-
-#_(deftest test-index
-  (let [response (response-for service :get "/")]
-    (prn "RESPONSE" response)
-    (is (= (:status response)
-           200))))
 
 (defmacro with-conn [conn-binding & body]
   `(let [uri# (str "datomic:mem:orcpub-test-" (UUID/randomUUID))

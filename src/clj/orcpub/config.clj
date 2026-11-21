@@ -724,16 +724,14 @@
      :alert-dir (canonical (get-alert-spool-dir))}))
 
 (defn jetty-max-threads
-  "The worker-pool size the running server actually settled on, or nil.
-
+  "The worker-pool size the Jetty `server` (or nil) actually settled on, or nil.
    When ORCPUB_HTTP_MAX_THREADS is unset we pass Pedestal nothing and it chooses, so this is
    the only way to report the real number rather than a formula copied from Pedestal that
    would drift. Best effort by design: it reaches through a started Jetty, so any change of
    container returns nil and the banner falls back to `-` instead of failing a boot."
-  [created]
+  [server]
   (try
-    (some-> (if (map? created) (get created :io.pedestal.http/server) created)
-            (.getThreadPool) (.getMaxThreads))
+    (some-> server (.getThreadPool) (.getMaxThreads))
     (catch Exception _ nil)))
 
 (defn report-dir
@@ -769,10 +767,10 @@
 (defn print-report!
   "Say the server is up and how it is configured. Called after the system has started, so
    `started` means started rather than `we got as far as printing`, and so the running
-   thread-pool size can be read back rather than guessed."
+   thread-pool size can be read back from the Jetty `server` (optional) rather than guessed."
   ([] (print-report! nil))
-  ([created]
-   (let [actual (when-let [n (jetty-max-threads created)]
+  ([server]
+   (let [actual (when-let [n (jetty-max-threads server)]
                   {"ORCPUB_HTTP_MAX_THREADS" n})
          dirs   (crash-and-alert-dirs)
          lines  (vec (report-lines (report) actual @env/ignored

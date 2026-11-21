@@ -11,8 +11,9 @@
       log/error's value instead discards the response: Pedestal then has
       nothing to write and Jetty emits a bare 200. That is what made defect 1
       silent -- the exception was logged, but the response was already gone."
-  (:require [io.pedestal.http]
-            [io.pedestal.test]
+  (:require [io.pedestal.http.jetty]
+            [io.pedestal.http.route]
+            [io.pedestal.connector.test]
             [orcpub.system]
             [clojure.test :refer [deftest testing is use-fixtures]]
             [orcpub.pedestal :as pedestal])
@@ -135,17 +136,17 @@
   ([path] (service-response :get path))
   ([method path]
    (let [wrap (fn [sym] (or (some-> (ns-resolve 'orcpub.system sym) deref) identity))
-         service (-> {:io.pedestal.http/routes #{["/here" :get (fn [_] {:status 200 :body "ok"}) :route-name ::here]
+         service (-> {:routes (io.pedestal.http.route/expand-routes #{["/here" :get (fn [_] {:status 200 :body "ok"}) :route-name ::here]
                                                  ["/edn" :get (fn [_] {:status 200 :body {:a 1}}) :route-name ::edn]
-                                                 ["/stream" :get (fn [_] {:status 200 :body (stream-body)}) :route-name ::stream]}
-                      :io.pedestal.http/resource-path "/public"
-                      :io.pedestal.http/type :jetty}
-                     io.pedestal.http/default-interceptors
+                                                 ["/stream" :get (fn [_] {:status 200 :body (stream-body)}) :route-name ::stream]})
+                      :resource-path "/public"
+                      :interceptors []
+                      :port 0}
+                     orcpub.system/default-interceptors
                      ((wrap 'with-referrer-policy))
                      ((wrap 'with-head-as-get))
-                     io.pedestal.http/create-servlet
-                     :io.pedestal.http/service-fn)]
-     (io.pedestal.test/response-for service method path))))
+                     (io.pedestal.http.jetty/create-connector {}))]
+     (io.pedestal.connector.test/response-for service method path))))
 
 (deftest a-head-request-is-answered-like-a-get-without-the-body
   (doseq [path ["/here" "/edn" "/stream" "/favicon.ico"]
@@ -154,7 +155,7 @@
     (testing path
       (is (= 200 (:status get-resp)))
       (is (= 200 (:status head-resp)) "HEAD finds the page GET finds")
-      (is (= "" (:body head-resp)) "and sends no body")
+      (is (nil? (:body head-resp)) "and sends no body")
       (is (= (get-in get-resp [:headers "Content-Type"]) (get-in head-resp [:headers "Content-Type"])))
       (is (= "strict-origin-when-cross-origin" (get-in head-resp [:headers "Referrer-Policy"])))))
   (testing "a stream body HEAD drops is closed"
@@ -162,7 +163,7 @@
     (is @stream-closed?))
   (is (= "application/edn" (get-in (service-response :head "/edn") [:headers "Content-Type"])))
   (is (= 404 (:status (service-response :head "/no-such-page"))) "a missing page is still missing")
-  (is (= :head-as-get (-> (orcpub.system/system :prod) :service-map :io.pedestal.http/interceptors first :name))
+  (is (= :head-as-get (-> (orcpub.system/system :prod) :service-map :interceptors first :name))
       "the real service reads HEAD as GET before anything else"))
 
 (deftest static-files-and-404s-carry-the-referrer-policy-too

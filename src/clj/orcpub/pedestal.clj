@@ -1,7 +1,8 @@
 (ns orcpub.pedestal
   (:require [com.stuartsierra.component :as component]
             [clojure.java.io :as io]
-            [io.pedestal.http :as http]
+            [io.pedestal.connector :as http]
+            [io.pedestal.http.jetty :as jetty]
             [io.pedestal.interceptor :as interceptor]
             [io.pedestal.log :as log]
             [io.pedestal.response-mime :as response-mime]
@@ -197,27 +198,49 @@
                 context)))}))
 
 (defn- boot-report!
-  "Prints the boot banner for server map `created`, then checks the startup email on its own
-   thread (`startup-email/check!`), so the server never waits on it. Returns nil."
-  [created]
-  (config/print-report! created)
+  "Prints the boot banner for the Jetty `server` (config/print-report! reads its thread pool), then
+   checks the startup email on its own thread (`startup-email/check!`), so the server never waits
+   on it. Returns nil."
+  [server]
+  (config/print-report! server)
   (future (startup-email/check!))
   nil)
 
 (defn- arm-boot-report!
-  "Print the boot banner when Jetty reports itself started.
+  "Print the boot banner when the Jetty `server` reports itself started. Returns nil.
 
    Best effort: if the listener cannot be attached -- a different container, a Jetty API
    change -- print immediately rather than lose the banner, since a missing report is worse
    than one a few milliseconds early."
-  [created]
-  (let [server (get created ::http/server)]
-    (try
-      (.addEventListener
-       ^org.eclipse.jetty.util.component.LifeCycle server
-       (reify org.eclipse.jetty.util.component.LifeCycle$Listener
-         (lifeCycleStarted [_ _] (boot-report! created))))
-      (catch Throwable _ (boot-report! created)))))
+  [server]
+  (try
+    (.addEventListener
+     ^org.eclipse.jetty.util.component.LifeCycle server
+     (reify org.eclipse.jetty.util.component.LifeCycle$Listener
+       (lifeCycleStarted [_ _] (boot-report! server))))
+    (catch Throwable _ (boot-report! server)))
+  nil)
+
+(defn- delivering-server
+  "`container-options` with a Jetty :configurator that delivers the configured Jetty Server to the
+   promise `server`, then runs the configurator already there, if any. Returns the updated options.
+   The connector does not expose its Server; this is how the boot banner reaches it."
+  [container-options server]
+  (update container-options :configurator
+          (fn [configure]
+            (fn [jetty-server]
+              (deliver server jetty-server)
+              ((or configure identity) jetty-server)))))
+
+(defn connector-map
+  "`service-map` (system.clj's connector map) ready for jetty/create-connector: the nonce, db and
+   ETag interceptors appended after the rest, and a configurator that delivers the Jetty Server to
+   the promise `server`. `conn` is the Datomic component. Returns the map."
+  [service-map conn server]
+  (-> service-map
+      ;; nonce-interceptor first: runs last in :leave phase (sets CSP header after response built)
+      (update :interceptors conj nonce-interceptor (db-interceptor conn) etag-interceptor)
+      (update :container-options delivering-server server)))
 
 (defrecord Pedestal [service-map conn service]
   component/Lifecycle
@@ -225,21 +248,20 @@
   (start [this]
     (if service
       this
-      (cond-> service-map
-        ;; nonce-interceptor first: runs last in :leave phase (sets CSP header after response built)
-        true (update ::http/interceptors conj nonce-interceptor (db-interceptor conn) etag-interceptor)
-        true http/create-server
-        ;; Arm the banner here, fire it when Jetty says it is up. It cannot go after
-        ;; http/start -- that BLOCKS in prod, where join? defaults true, so the first
-        ;; version printed nothing in the one configuration it exists for -- and printing
-        ;; before start would call it "started" while it is not yet listening.
-        (not (test? service-map)) (doto arm-boot-report!)
-        (not (test? service-map)) http/start
-        true ((partial assoc this :service)))))
+      (let [server (promise)
+            _ (log/maybe-init-java-util-log)
+            connector (jetty/create-connector (connector-map service-map conn server) {})]
+        (when-not (test? service-map)
+          ;; Arm the banner here, fire it when Jetty says it is up. It cannot go after
+          ;; http/start! -- that BLOCKS in prod, where join? is true -- and printing
+          ;; before start would call it "started" while it is not yet listening.
+          (arm-boot-report! @server)
+          (http/start! connector))
+        (assoc this :service connector))))
 
   (stop [this]
     (when (and service (not (test? service-map)))
-      (http/stop service))
+      (http/stop! service))
     (assoc this :service nil)))
 
 (defn new-pedestal
