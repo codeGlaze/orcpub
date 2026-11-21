@@ -201,6 +201,7 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Accounts:** account emails can no longer be triggered in bulk from one form that had no limit.
 - **Site:** pages no longer load fonts from Google, so visiting the site no longer sends your address to Google. (#721)
 - **Site:** other sites a page links to are told only this site's domain, never the page's address.
+- **Site:** the Patreon button and mark come from this site, so pages no longer send visitors' addresses to Patreon.
 - **Server:** sign-in, password reset, share links, image fetching and PDF export are hardened against misuse, and secrets (including a Postgres `sslpassword`) are no longer printed at startup.
 - **Server:** security updates to the web server (now Jetty 12, clearing its five open advisories), the JSON parser, the PostgreSQL driver, password hashing, the email library and Guava, and Datomic 1.0.7745 with its networking library; an unused PDF library removed.
 - **Docker:** Java starts with a stopgap flag that blocks CVE-2026-114938 (Java2Shell) on the app and Datomic containers, until the images run a patched Java 21 (`JAVA2SHELL_STOPGAP`, true or false).
