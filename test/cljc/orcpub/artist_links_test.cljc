@@ -46,3 +46,16 @@
       "indexed among the non-blank rows, as the server reports them")
   (is (contains? (al/edit-errors {:name (apply str (repeat 61 "x"))}) :name))
   (is (contains? (al/edit-errors {:links (repeat 5 {:url "https://a.test/"})}) :links)))
+
+(deftest a-known-service-shows-its-handle-its-own-way
+  (testing "Twitch and Ko-fi profiles read as /name"
+    (is (= "/fusspot" (al/handle-for-url "https://www.twitch.tv/fusspot")))
+    (is (= "/fusspot" (al/handle-for-url "https://twitch.tv/fusspot/?ref=x")))
+    (is (= "/fusspot" (al/handle-for-url "https://ko-fi.com/fusspot"))))
+  (testing "a Bluesky profile reads as @handle"
+    (is (= "@fusspot.bsky.social" (al/handle-for-url "https://bsky.app/profile/fusspot.bsky.social"))))
+  (testing "anything else has no handle, so the page shows the domain"
+    (is (nil? (al/handle-for-url "https://fusspot.rip/")))
+    (is (nil? (al/handle-for-url "https://www.twitch.tv/fusspot/videos")))
+    (is (nil? (al/handle-for-url "https://www.twitch.tv/")))
+    (is (nil? (al/handle-for-url "https://bsky.app/")))))
