@@ -163,4 +163,12 @@
   :what "the owner's DMV arcane sigil (dmv-arcane-symbols.zip), line art recoloured for paper, fine inner shapes dropped and lines thickened to print at 0.3 pt; placeholder school mark on spell cards"}
  "resources/public/image/bmac-cup.png"
  {:sha256 "6698d39cc4a922ffa36cca8a8bfdeb6c36e3bf98968e7b30684da568dceca0b0"
-  :what "Buy Me a Coffee's cup mark, supplied by the owner; the What's New footer's support-the-dev icon"}}
+  :what "Buy Me a Coffee's cup mark, supplied by the owner; the What's New footer's support-the-dev icon"}
+ "resources/public/image/patreon-button.png"
+ {:sha256 "adedb4d78780884e3d7848c921f4c9bf2511c4bae25bb4cbc466c7d4d96a4884"
+  :what "Patreon's official \"Become a patron\" button (c5.patreon.com/external/logo), served from this site; the header's supporter link"
+  :linework 0.5}
+ "resources/public/image/patreon-logomark.png"
+ {:sha256 "4dac9c8373afbf1b1f5d15ac8467e62f5448744788feb3420293acf048421a30"
+  :what "Patreon's official logomark on navy (c5.patreon.com/external/logo), served from this site; the header's supporter link on a phone and What's New's support row"
+  :linework 2.8}}
