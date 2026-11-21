@@ -11,6 +11,16 @@
 - `system.clj` adds the `GzipHandler` with `.insertHandler`; Jetty 12's `ServletContextHandler` has no `setGzipHandler`.
 - figwheel is a dev-only dependency (`:dev-config`), so it is not in the uberjar. The production bundle is built by `lein cljs:prod` (`fig:prod` is the same alias), and `docker/Dockerfile` step 1 runs it. `test/clj/orcpub/dependencies/build_shape_test.clj` fails if figwheel returns to the main dependencies or the Docker or build path uses it.
 
+## The connector API
+
+The server starts through `io.pedestal.connector` and `io.pedestal.http.jetty/create-connector`, not the deprecated `io.pedestal.http` service map, so it logs no deprecation warnings.
+
+- `system.clj` builds a plain connector map (`:host`, `:port`, `:join?`, `:routes`, `:resource-path`, `:secure-headers`, `:container-options`, `:interceptors`). Its `default-interceptors` lists the interceptors `io.pedestal.http/default-interceptors` used to add, in the same order; the `with-...` functions then put ours in front, and the `:dev` system puts `io.pedestal.connector.dev/dev-interceptors` first.
+- `pedestal.clj` appends the nonce, db and ETag interceptors and calls `create-connector`, then `start!`. The connector does not expose its Jetty `Server`, so a `:configurator` container option hands it over for the boot banner's thread count.
+- Route handlers are Vars (`#'index`), not quoted symbols; route names are unchanged.
+- Tests build a connector the same way and call `io.pedestal.connector.test/response-for`, which runs the chain without the servlet layer (a HEAD response body is `nil`, not `""`).
+- `dev/e2e_boot.clj` overrides `[:service-map :port]`.
+
 ## The Jetty pin
 
 Pedestal 0.8.3 brings Jetty 12.0.x and figwheel's Ring 1.15 brings 12.1.x; a mix fails at start-up. Every Jetty artifact is pinned to 12.1.15 in `:managed-dependencies` in `project.clj`. Leiningen ignores imported BOMs, so each artifact is listed.

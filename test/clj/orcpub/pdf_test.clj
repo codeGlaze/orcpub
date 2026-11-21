@@ -136,6 +136,13 @@
           (is (sequential? (cards/print-backs cs fonts img 2.5 3.5 lines 0 nil))
               "logo off"))))))
 
+(deftest font-safe-keeps-a-tab-as-a-space
+  (let [f (org.apache.pdfbox.pdmodel.font.PDType1Font.
+           org.apache.pdfbox.pdmodel.font.Standard14Fonts$FontName/HELVETICA_BOLD_OBLIQUE)]
+    (is (= "Cast the spell" (orcpub.pdf.draw/font-safe f "Cast\tthe spell"))
+        "the font has no tab glyph (Orcpub/orcpub#402); the words stay apart")
+    (is (= "ab" (orcpub.pdf.draw/font-safe f "a\u0007b")) "other control characters are dropped")))
+
 (deftest normalize-text-coerces-to-winansi
   (testing "unit: WinAnsi punctuation kept, controls dropped, the rest -> '?'"
     ;; Reversed 2026-10-21: this asserted the punctuation was downgraded, on the belief

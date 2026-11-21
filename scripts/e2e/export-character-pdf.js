@@ -371,7 +371,7 @@ if (require.main !== module) return;
   await context.addInitScript(() => {
     try {
       localStorage.setItem('orcpub:no-cookie-banner', '1');
-      localStorage.setItem('whats-new-seen', JSON.stringify('long-rest-update-2026'));
+      localStorage.setItem('whats-new-seen', JSON.stringify('long-rest-update-2026-r2'));
     } catch (e) {}
   });
 

@@ -4,9 +4,56 @@
    credit face and --lk-* theme variables apply; what the drawer lacks is .ap-*, in
    styles/core.clj `artist-pages`.
    Plan and look: agents/develop docs/archive/design/artist-profiles/PLAN.md."
-  (:require [re-frame.core :refer [subscribe]]
+  (:require [cljs.core.async :refer [<!]]
+            [clojure.string :as str]
+            [re-frame.core :refer [dispatch reg-event-fx reg-sub-raw subscribe]]
+            [reagent.ratom :as ra]
+            [orcpub.artist-links :as al]
             [orcpub.dnd.e5.artist-profile :as ap]
-            [orcpub.dnd.e5.views :as views]))
+            [orcpub.dnd.e5.event-utils :as event-utils]
+            [orcpub.dnd.e5.http-safe :as http]
+            [orcpub.dnd.e5.views :as views])
+  (:require-macros [cljs.core.async.macros :refer [go]]))
+
+;; Whether an artist is streaming, asked of the server (GET /api/twitch/live) the first time a
+;; Twitch button for that login is drawn, once per login per page load.
+(reg-event-fx
+ :twitch/load-live
+ (fn [{:keys [db]} [_ login]]
+   (if (contains? (:twitch/requested db) login)
+     {}
+     (do (go (let [{:keys [status body]}
+                   (<! (http/get (event-utils/backend-url
+                                  (str "/api/twitch/live?login=" (js/encodeURIComponent login)))))]
+               (dispatch [:twitch/live-loaded login (and (= 200 status) (map? body) (true? (:live body)))])))
+         {:db (update db :twitch/requested (fnil conj #{}) login)}))))
+
+(reg-event-fx
+ :twitch/live-loaded
+ (fn [{:keys [db]} [_ login live?]]
+   {:db (assoc-in db [:twitch/live login] live?)}))
+
+(reg-sub-raw
+ :twitch/live?
+ ;; Starts the one fetch for `login` when first subscribed; false until the answer arrives.
+ (fn [app-db [_ login]]
+   (dispatch [:twitch/load-live login])
+   (ra/make-reaction #(boolean (get-in @app-db [:twitch/live login])))))
+
+(defn- twitch-login
+  "The lower-case Twitch login a link's address names, or nil when it is not a Twitch profile."
+  [url]
+  (when (= "twitch" (al/icon-for-url url))
+    (some-> (al/handle-for-url url) (subs 1) str/lower-case)))
+
+(defn- live-badge
+  "The red dot and the word Live for a Twitch `login`, once the server says they are streaming;
+   nothing while it is not live or unknown."
+  [login]
+  (when @(subscribe [:twitch/live? login])
+    [:span.ap-live
+     [:span.ap-live-dot {:role "img" :aria-label "Live now on Twitch"}]
+     "Live"]))
 
 (defn- shell
   "The app's page chrome around a .pl-root, so the drawer's theme variables
@@ -19,8 +66,9 @@
      (into [:div.pl-root.ap-root {:class theme}] body)]))
 
 (defn- link-button
-  "One of the artist's listed links as a button: its mark, if it has one, its label and the domain
-   it really goes to. Opens in a new tab; nothing for a link this site does not draw."
+  "One of the artist's listed links as a button: its mark, if it has one, its label, and the
+   account handle for a known service's profile (al/handle-for-url) or else the domain it really
+   goes to. Opens in a new tab; nothing for a link this site does not draw."
   [{:link/keys [label url icon color]}]
   (when-let [attrs (ap/external-link url)]
     [:a.ap-link attrs
@@ -30,7 +78,9 @@
                       :style (cond-> {"--lk-icon" (str "url(/image/social/" icon ".svg)")}
                                color (assoc "--lk-mark-color" color))}])
      label
-     [:span.ap-link-host (ap/link-host url)]]))
+     [:span.ap-link-host (or (al/handle-for-url url) (ap/link-host url))]
+     (when-let [login (twitch-login url)]
+       [live-badge login])]))
 
 (defn- names
   "The names of `artists` as prose: A / A and B / A, B and C."
@@ -59,7 +109,7 @@
 
 (defn- profile-card
   "The profile of `artist`: the name, then the piece count, listed links and examples where the
-   artist keeps them on (ap/shows?), and the footer."
+   artist keeps them on (ap/shows?), and a link to all artists once there is more than one."
   [{:keys [:artist/id :artist/name] :as artist}]
   (let [links (ap/listed-links artist)
         n (ap/piece-count artist)]
@@ -78,14 +128,13 @@
          (for [l links] ^{:key (:link/url l)} [link-button l])])]
      (when (ap/shows? artist :examples)
        [:section.ap-section
-        [:h2.lk-cap "Portraits from these pieces"]
+        [:h2.lk-cap (str "Examples made with " name "'s art")]
         [:div.ap-examples
          (map-indexed (fn [i p] ^{:key i} [example artist i p])
                       (ap/example-portraits id))]])
-     [:p.ap-foot
-      "Every portrait made with these pieces credits " name
-      ", on the character page, the share card and the PDF. "
-      [:a {:href (ap/index-path)} "All portrait artists"]]]))
+     (when (< 1 (count (ap/all-profiles)))
+       [:p.ap-foot
+        [:a {:href (ap/index-path)} "All portrait artists"]])]))
 
 (defn artist-page
   "/artists/<slug>. Redraws when the artist credits arrive, which can rename the artist,
