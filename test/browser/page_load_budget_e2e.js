@@ -14,10 +14,10 @@ const fs = require('fs');
 const BASE = process.env.E2E_BASE || 'http://localhost:8890';
 const AUDIT = process.env.PAGE_LOAD_AUDIT === '1';
 const CHAR = process.env.E2E_CHARACTER_ID || '';
-// Hard ceiling for the compressed production app bundle: 940 KB, raised from 900 KB (owner,
-// 2026-11-09) with the bundle at 924 KB. Bringing it back down is the "Trim the app bundle" item in
-// BRANCH.md on agents/develop.
-const BUNDLE_GZIP_CEILING = 940 * 1024;
+// Hard ceiling for the compressed production app bundle: 960 KB, a temporary ceiling (owner,
+// 2026-11-21) with the bundle at 955 KB. Bringing it back down is the "Trim the app bundle" item in
+// BRANCH.md on agents/develop, a branch of its own.
+const BUNDLE_GZIP_CEILING = 960 * 1024;
 
 const PAGES = [
   ['home', '/'],
