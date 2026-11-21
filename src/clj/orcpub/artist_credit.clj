@@ -272,7 +272,9 @@
   60000)
 
 (defonce ^:private token-cache (atom nil))
-(defonce ^:private answer-cache (atom {}))
+(defonce ^:private answer-cache
+  ;; One lookup per login at a time: concurrent requests wait for it (bounded-cache/fetch!).
+  (bounded-cache/cache {:max-entries 256 :max-age-ms answer-ttl-ms}))
 
 (def ^:dynamic *twitch-http*
   "The function that talks to Twitch: (f method url opts) returns clj-http's response map with
@@ -313,10 +315,12 @@
     access_token))
 
 (defn- token!
-  "The cached app access token while it is still good, else a fresh one."
+  "The cached app access token while it is still good, else a fresh one. Callers that find it
+   missing at once wait for one fetch."
   []
-  (let [{:keys [token until]} @token-cache]
-    (if (and token (< (now-ms) until)) token (fetch-token!))))
+  (locking token-cache
+    (let [{:keys [token until]} @token-cache]
+      (if (and token (< (now-ms) until)) token (fetch-token!)))))
 
 (defn- streams-response
   "One call to Twitch's streams endpoint for `login` with `token`; the response map."
@@ -374,22 +378,18 @@
       (not (config/twitch-enabled?)) false
       (not (contains? (known-logins) login)) false
       :else
-      (let [{:keys [at live]} (get @answer-cache login)]
-        (if (and at (< (- (now-ms) at) answer-ttl-ms))
-          live
-          (let [live (try (ask-twitch login)
-                          (catch Exception e
-                            (println "twitch: live check failed, answering not live -"
-                                     (.. e getClass getSimpleName))
-                            false))]
-            (swap! answer-cache assoc login {:at (now-ms) :live live})
-            live))))))
+      (bounded-cache/fetch! answer-cache login
+                            #(try (ask-twitch login)
+                                  (catch Exception e
+                                    (println "twitch: live check failed, answering not live -"
+                                             (.. e getClass getSimpleName))
+                                    false))))))
 
 (defn reset-twitch-caches!
   "Forgets the cached token and every cached answer. For tests."
   []
   (reset! token-cache nil)
-  (reset! answer-cache {}))
+  (bounded-cache/clear! answer-cache))
 
 (defn twitch-live-route
   "GET /api/twitch/live?login=<login>: answers {\"live\": true|false}. Never calls Twitch for a
