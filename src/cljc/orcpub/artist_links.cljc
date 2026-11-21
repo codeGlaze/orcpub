@@ -23,9 +23,12 @@
    that isn't a known service gets `site`, a plain globe. Ordered: the first
    whose host matches wins, and `site` matches everything."
   (array-map
-   "twitch"  {:label "Twitch"  :color "#9146ff" :hosts #{"twitch.tv"}}
-   "bluesky" {:label "Bluesky" :color "#1185fe" :hosts #{"bsky.app"}}
-   "kofi"    {:label "Ko-fi"   :color "#ff5e5b" :hosts #{"ko-fi.com"}}
+   "twitch"  {:label "Twitch"  :color "#9146ff" :hosts #{"twitch.tv"}
+              :handle {:path #"^/([A-Za-z0-9_]+)/?$" :prefix "/"}}
+   "bluesky" {:label "Bluesky" :color "#1185fe" :hosts #{"bsky.app"}
+              :handle {:path #"^/profile/([A-Za-z0-9.:-]+)/?$" :prefix "@"}}
+   "kofi"    {:label "Ko-fi"   :color "#ff5e5b" :hosts #{"ko-fi.com"}
+              :handle {:path #"^/([A-Za-z0-9_]+)/?$" :prefix "/"}}
    "site"    {:label "Site"    :color "#f0a100" :hosts nil}))
 
 (defn- ascii-lower
@@ -59,6 +62,15 @@
   [url]
   (let [icon (icon-for-url url)]
     (assoc (services icon) :icon icon)))
+
+(defn handle-for-url
+  "The account handle a known service's profile link names, written the service's own way:
+   \"/fusspot\" for twitch.tv/fusspot or ko-fi.com/fusspot, \"@fusspot.bsky.social\" for a
+   Bluesky profile. nil for a plain site, or a link to any other page of the service."
+  [url]
+  (when-let [{:keys [path prefix]} (:handle (services (icon-for-url url)))]
+    (let [url-path (second (re-find #"^[A-Za-z][A-Za-z0-9+.-]*://[^/?#]*([^?#]*)" (s/trim (str url))))]
+      (some->> url-path (re-find path) second (str prefix)))))
 
 (defn url-problem
   "Why `url` can't be used as a credit link, or nil when it can. Only https:

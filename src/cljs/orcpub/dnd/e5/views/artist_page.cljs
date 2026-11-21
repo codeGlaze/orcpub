@@ -5,6 +5,7 @@
    styles/core.clj `artist-pages`.
    Plan and look: agents/develop docs/archive/design/artist-profiles/PLAN.md."
   (:require [re-frame.core :refer [subscribe]]
+            [orcpub.artist-links :as al]
             [orcpub.dnd.e5.artist-profile :as ap]
             [orcpub.dnd.e5.views :as views]))
 
@@ -19,8 +20,9 @@
      (into [:div.pl-root.ap-root {:class theme}] body)]))
 
 (defn- link-button
-  "One of the artist's listed links as a button: its mark, if it has one, its label and the domain
-   it really goes to. Opens in a new tab; nothing for a link this site does not draw."
+  "One of the artist's listed links as a button: its mark, if it has one, its label, and the
+   account handle for a known service's profile (al/handle-for-url) or else the domain it really
+   goes to. Opens in a new tab; nothing for a link this site does not draw."
   [{:link/keys [label url icon color]}]
   (when-let [attrs (ap/external-link url)]
     [:a.ap-link attrs
@@ -30,7 +32,7 @@
                       :style (cond-> {"--lk-icon" (str "url(/image/social/" icon ".svg)")}
                                color (assoc "--lk-mark-color" color))}])
      label
-     [:span.ap-link-host (ap/link-host url)]]))
+     [:span.ap-link-host (or (al/handle-for-url url) (ap/link-host url))]]))
 
 (defn- names
   "The names of `artists` as prose: A / A and B / A, B and C."
