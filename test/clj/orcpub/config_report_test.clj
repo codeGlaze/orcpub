@@ -378,3 +378,14 @@
   ;; The link defaults to the maintainer's, but only a hand-set APP_SOCIAL_PATREON asks for names.
   (when-not (env/value :app-social-patreon)
     (is (false? (:patreon? (config/patron-credits))))))
+
+(deftest a-docker-secret-counts-as-set
+  (testing "a secret only the Docker secret supplies is reported set, with no value anywhere"
+    (with-redefs [config/twitch-client-secret (constantly "from-the-secret-file")
+                  config/signature (constantly "from-the-secret-file")]
+      (doseq [v ["TWITCH_CLIENT_SECRET" "SIGNATURE"]]
+        (let [row (first (filter #(= v (:var %)) (config/report)))]
+          (is (:set? row) v)
+          (is (nil? (:value row)) v)
+          (is (nil? (:raw row)) v))))))
+

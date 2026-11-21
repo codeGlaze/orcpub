@@ -187,7 +187,7 @@
       (is (empty? (d/q '[:find [?e ...] :where [?e :orcpub.share-expiry/character]] (d/db conn))) "and its note"))))
 
 (deftest sharing-needs-a-login-and-loading-does-not
-  (let [auth? (fn [path method] (some->> routes/routes
+  (let [auth? (fn [path method] (some->> (:routes routes/routes)
                                          (filter #(and (= method (:method %)) (= path (:path %))))
                                          first :interceptors (map :name) (some #{:check-auth})))
         share-path (route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :token ":token")

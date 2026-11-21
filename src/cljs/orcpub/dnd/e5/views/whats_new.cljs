@@ -13,8 +13,8 @@
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 (def patreon-mark
-  "Patreon's own logomark, the one the header's supporter button uses on a phone."
-  "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png")
+  "Patreon's own logomark, served from this site; the header's supporter button uses it on a phone."
+  "/image/patreon-logomark.png")
 
 (def tip-mark
   "The developer-tip icon, the Buy Me a Coffee cup."
@@ -54,14 +54,16 @@
           (.scrollIntoView #js {:behavior "smooth" :block "start"})))
 
 (defn- credits-section
-  "The patron credits closing the release notes: a heading and the thank-you line, then each
-   group's names under its tier heading. A group with :sample shows that and a \"Show all N
-   patrons\" button that swaps in :all. `groups` as whats-new/credits-display returns; may be empty."
+  "The patron credits closing the release notes, as a card: a heart, the heading and the thank-you
+   line, then each group's names under its tier heading. A group with :sample shows that and a
+   \"Show all N patrons\" button that swaps in :all. `groups` as whats-new/credits-display returns;
+   may be empty."
   [groups]
   ;; Dereffed here, not inside the lazy `for`, so Reagent re-renders when Show all is clicked.
   (let [show-all @show-all?]
-    [:div.whats-new-group {:id "whats-new-credits"}
-     [:div.whats-new-group-title "Made possible by our patrons"]
+    [:div.whats-new-patron-card {:id "whats-new-credits"}
+     [:i.fa.fa-heart.whats-new-patron-heart {:aria-hidden true}]
+     [:div.whats-new-patron-title "Made possible by our patrons"]
      [:div.whats-new-credits-intro
       "The server is supported by patrons on Patreon. Thank you for helping keep our lights on!"]
      (for [[i {:keys [tier names sample all]}] (map-indexed vector groups)
@@ -124,13 +126,15 @@
         [:div.whats-new-group
          (when group
            [:div.whats-new-group-title group])
-         (for [{:keys [icon headline detail]} group-items]
+         (for [{:keys [icon headline detail link]} group-items]
            ^{:key headline}
            [:div.whats-new-item
             [:i.fa.whats-new-item-icon {:class icon}]
             [:div
              [:div.whats-new-item-headline headline]
-             [:div.whats-new-item-detail detail]]])])
+             (when detail
+               [:div.whats-new-item-detail detail
+                (when link [:span " " [:a {:href (:href link)} (:label link)]])])]])])
       (when credits? [credits-section (if (sequential? groups) groups [])])]
 
      [:div.whats-new-footer

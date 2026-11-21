@@ -28,10 +28,14 @@
 
 (deftest highlights-are-renderable
   (doseq [{release :id items :items} whats-new/releases
-          {:keys [icon headline detail]} items]
+          {:keys [icon headline detail link] :as item} items]
     (testing (str release " / " headline)
       (is (not (str/blank? headline)))
-      (is (not (str/blank? detail)))
+      (is (or (not (contains? item :detail)) (not (str/blank? detail))) "a detail, when given, has text")
+      (when link
+        (is (some? detail) "a link follows a detail")
+        (is (re-matches #"/(?![/\\]).*" (str (:href link))) "links stay on the site: a root path, not //host or /\\host")
+        (is (not (str/blank? (:label link)))))
       (is (str/starts-with? (str icon) "fa-") "icons are Font Awesome class names")
       (is (not (contains? renamed-in-fa5 icon))
           (str icon " is a Font Awesome 4 name and renders blank")))))

@@ -2,7 +2,14 @@
   (:require [orcpub.env :as env]
             [com.stuartsierra.component :as component]       
             [reloaded.repl :as rrepl]
-            [io.pedestal.http :as http]
+            [io.pedestal.connector :as http]
+            [io.pedestal.connector.dev :as connector-dev]
+            [io.pedestal.http.cors :as cors]
+            [io.pedestal.http.ring-middlewares :as middlewares]
+            [io.pedestal.http.route :as route]
+            [io.pedestal.http.secure-headers :as sec-headers]
+            [io.pedestal.http.tracing :as tracing]
+            [io.pedestal.service.interceptors :as interceptors]
             [orcpub.pedestal :as pedestal]                         
             [datomic.api :as d]
             [orcpub.routes :as routes]
@@ -48,19 +55,19 @@
                         e))))))
 
 (def dev-service-map-overrides
-  {::http/port (configured-port)
+  {:port (configured-port)
    ;; Bind to loopback in dev. Override per-machine with ORCPUB_HTTP_HOST (e.g.
    ;; "0.0.0.0") when the host needs to reach the dev server by IP — e.g. a Windows
    ;; browser hitting a WSL VM, where localhost-forwarding can be flaky. Defaults to
    ;; loopback so nothing is exposed to the LAN unless you opt in.
-   ::http/host (env/value :orcpub-http-host "localhost")
+   :host (env/value :orcpub-http-host "localhost")
    ;; do not block thread that starts web server
-   ::http/join? false
+   :join? false
    ;; Routes can be a function that resolve routes,
    ;;  we can use this to set the routes to be reloadable
-   ::http/routes #(deref #'routes/routes)
+   :routes #(deref #'routes/routes)
    ;; all origins are allowed in dev mode
-   ::http/allowed-origins {:creds true :allowed-origins (constantly true)}
+   :allowed-origins {:creds true :allowed-origins (constantly true)}
    ;; CSP now enabled in dev mode too (catches issues early).
    ;; Uses same config as prod - nonce-interceptor handles strict mode dynamically.
    ;; See orcpub.config/get-secure-headers-config
@@ -70,57 +77,92 @@
   "The service map with pedestal/static-cache-interceptor at the front of its chain, ahead of the
    static file handler."
   [service-map]
-  (update service-map ::http/interceptors #(into [pedestal/static-cache-interceptor] %)))
+  (update service-map :interceptors #(into [pedestal/static-cache-interceptor] %)))
 
 (defn with-client-address
   "The service map with the player's-address interceptor first in its chain, so every limit and
    log line sees the player rather than the proxy (orcpub.client-address)."
   [service-map]
-  (update service-map ::http/interceptors #(into [(client-address/configured-interceptor)] %)))
+  (update service-map :interceptors #(into [(client-address/configured-interceptor)] %)))
 
 (defn with-portrait-guard
   "The service map with the portrait art guard first in its chain (see routes/portrait-art-guard)."
   [service-map]
-  (update service-map ::http/interceptors #(into [routes/portrait-art-guard] %)))
+  (update service-map :interceptors #(into [routes/portrait-art-guard] %)))
 
 (defn with-referrer-policy
   "The service map with pedestal/referrer-policy-interceptor first in its chain, so its :leave runs
    last and reaches every response: static files, the art guard's and the default 404 included."
   [service-map]
-  (update service-map ::http/interceptors #(into [pedestal/referrer-policy-interceptor] %)))
+  (update service-map :interceptors #(into [pedestal/referrer-policy-interceptor] %)))
+
+(defn with-head-as-get
+  "The service map with pedestal/head-as-get-interceptor first in its chain, so HEAD is read as GET
+   before routing and static files, and its body is dropped after every other interceptor's :leave."
+  [service-map]
+  (update service-map :interceptors #(into [pedestal/head-as-get-interceptor] %)))
+
+(defn default-interceptors
+  "Appends the server's base interceptors to `service-map`'s :interceptors, in this order: request
+   tracing, the request log, CORS (only when :allowed-origins is set), the 404, the response content
+   type, query params, the _method override, secure headers (:secure-headers, default {}; none when
+   it is nil), static files from :resource-path (when set), the router over :routes (a routing
+   table, or a fn returning one; router type :router, default :sawtooth) and the path-params decoder.
+   Returns the updated map; with-head-as-get and the other with- fns then put theirs in front."
+  [{:keys [allowed-origins resource-path routes router] :as service-map}]
+  (let [secure-headers (get service-map :secure-headers {})]
+    (http/with-interceptors service-map
+      [(tracing/request-tracing-interceptor)
+       interceptors/log-request
+       (when allowed-origins (cors/allow-origin allowed-origins))
+       interceptors/not-found
+       (middlewares/content-type {:mime-types {}})
+       route/query-params
+       (route/method-param :_method)
+       (when (some? secure-headers) (sec-headers/secure-headers secure-headers))
+       (when resource-path (middlewares/resource resource-path))
+       (route/router routes (or router :sawtooth))
+       route/path-params-decoder])))
+
+(defn dev-interceptors
+  "Puts Pedestal's development interceptors (connector-dev/dev-interceptors: CORS for any origin, and
+   uncaught exceptions answered as a readable 500) at the front of `service-map`'s :interceptors.
+   Returns the updated map. For the :dev system only."
+  [service-map]
+  (update service-map :interceptors #(into connector-dev/dev-interceptors %)))
 
 (def prod-service-map
-  {::http/routes routes/routes
-   ::http/type :jetty
+  "The production connector map for io.pedestal.http.jetty/create-connector (see orcpub.pedestal):
+   routes, bind address, port, join?, static resource path, secure headers, Jetty container
+   options, and an empty :interceptors that default-interceptors fills."
+  {:routes routes/routes
    ;; Bind to all interfaces so the server is reachable from other Docker
    ;; containers (nginx proxy, healthchecks) and external clients.
-   ;; Pedestal defaults to "localhost" when unset, which only binds loopback.
-   ::http/host "0.0.0.0"
-   ;; Pedestal 0.7+ requires explicit interceptor coercion for maps/functions
-   ::http/enable-session false  ; Disable default session handling if not needed
-   ::http/port (configured-port)
-   ::http/join? true
-   ::http/resource-path "/public"
+   :host "0.0.0.0"
+   :port (configured-port)
+   :join? true
+   :resource-path "/public"
+   :interceptors []
    ;; CSP configured via CSP_POLICY env var (strict|permissive|none)
    ;; See orcpub.config for details
-   ::http/secure-headers (config/get-secure-headers-config)
+   :secure-headers (config/get-secure-headers-config)
    ;; Jetty's worker pool caps how many requests of any kind are in flight. Unset
    ;; ORCPUB_HTTP_MAX_THREADS leaves Pedestal's default (50 until roughly sixteen cores).
    ;; Exports are bounded separately -- see docs/PDF-EXPORT-CAPACITY.md.
-   ::http/container-options (cond-> {:context-configurator (fn [c]
-                                                     (let [gzip-handler (GzipHandler.)]
-                                                       (.setGzipHandler c gzip-handler)
-                                                       ;; Cap request bodies before a handler:
-                                                       ;; /character.pdf is unauthenticated and
-                                                       ;; parses its body with edn/read-string.
-                                                       ;; The cap leaves room for image bytes.
-                                                       (.setMaxFormContentSize c max-form-content-size)
-                                                       ;; A body with an absurd number of distinct keys is
-                                                       ;; the other shape of the same attack.
-                                                       (.setMaxFormKeys c 200)
-                                                       c))}
-                              (config/get-http-max-threads)
-                              (assoc :max-threads (config/get-http-max-threads)))})
+   :container-options (cond-> {:context-configurator (fn [c]
+                                               (let [gzip-handler (GzipHandler.)]
+                                                 (.insertHandler c gzip-handler)
+                                                 ;; Cap request bodies before a handler:
+                                                 ;; /character.pdf is unauthenticated and
+                                                 ;; parses its body with edn/read-string.
+                                                 ;; The cap leaves room for image bytes.
+                                                 (.setMaxFormContentSize c max-form-content-size)
+                                                 ;; A body with an absurd number of distinct keys is
+                                                 ;; the other shape of the same attack.
+                                                 (.setMaxFormKeys c 200)
+                                                 c))}
+                        (config/get-http-max-threads)
+                        (assoc :max-threads (config/get-http-max-threads)))})
 
 (defrecord TokenWithdrawals [conn]
   component/Lifecycle
@@ -154,19 +196,20 @@
               {:env env}
               prod-service-map
               (when (= :dev env) dev-service-map-overrides))
-      true http/default-interceptors
+      true default-interceptors
       true with-static-caching
       true with-portrait-guard
       true with-client-address
       true with-referrer-policy
-      (= :dev env) http/dev-interceptors)
+      true with-head-as-get
+      (= :dev env) dev-interceptors)
 
     ;; :token-withdrawals is listed only so Component starts it first; Pedestal
     ;; never reads it. Without it the start order between the two is arbitrary.
     :pedestal
     (component/using
       (pedestal/new-pedestal)
-      ;; Everything else is listed so it starts first: in production http/start blocks for as long
+      ;; Everything else is listed so it starts first: in production http/start! blocks for as long
       ;; as the server runs, so a component that starts after :pedestal never starts.
       ;; system_start_order_test.clj fails when one is missing.
       [:service-map :conn :token-withdrawals :alerts :outbox

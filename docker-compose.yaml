@@ -113,6 +113,8 @@ services:
       ORCPUB_PWNED_CHECK: ${ORCPUB_PWNED_CHECK:-}
       TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID:-}
+      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
       # Optional: share the abuse limits between app containers (no Redis service is added here)
       REDIS_URL: ${REDIS_URL:-}
       # Branding (docs/BRANDING-AND-INTEGRATIONS.md). Set, these override the branding file's defaults

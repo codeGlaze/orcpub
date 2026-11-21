@@ -148,5 +148,5 @@ hiccup (with the nonce on each `<script>`) from `head-tags`, and list its domain
 
 **Where each file is used.** `index.clj` and `privacy.clj` read branding and `head-tags`.
 `email.clj` reads the sender name and address. `routes.clj` reads the app name and user-data
-enrichment. `pedestal.clj` reads `csp-domains`. `views.cljs` and `events.cljs` call the branding
-values and integration hooks; `views/share.cljs` calls `share-url`.
+enrichment. `pedestal.clj` reads `csp-domains`. `views/share.cljs` calls `share-url`. About 25
+shared files use the fork files in all; `grep -rl 'orcpub.fork' src/ web/` lists them.

@@ -368,6 +368,24 @@
   []
   (env-raw "TURNSTILE_SECRET_KEY"))
 
+(defn twitch-client-id
+  "TWITCH_CLIENT_ID, or nil when unset or blank. Public in Twitch's eyes, but not logged."
+  []
+  (env-raw "TWITCH_CLIENT_ID"))
+
+(defn twitch-client-secret
+  "TWITCH_CLIENT_SECRET: the Docker secret /run/secrets/twitch_client_secret first, then the
+   environment variable; nil when neither is set. NEVER log, print or send it."
+  []
+  (or (read-secret "twitch_client_secret")
+      (env-raw "TWITCH_CLIENT_SECRET")))
+
+(defn twitch-enabled?
+  "True only when both the Twitch client id and secret are set; the artist pages' live
+   indicator is off otherwise."
+  []
+  (boolean (and (twitch-client-id) (twitch-client-secret))))
+
 (defn turnstile-enabled?
   "Whether the sign-up, password-reset and resend-verification forms (and sign-in after a
    failure) ask for a Cloudflare Turnstile check: only when BOTH TURNSTILE_SITE_KEY and
@@ -382,8 +400,8 @@
     (boolean (and n (pos? n)))))
 
 (def settings
-  "Everything the boot banner reports, in print order.
-   `:secret?`: the VALUE IS NEVER PRINTED, only whether it is present.
+  "Everything the boot banner reports, in print order. `:secret?`: the VALUE IS NEVER PRINTED,
+   only whether it is present (`:present?` asks the getter, for one a Docker secret can supply).
    `:critical?`: its absence breaks the site; called out below the table, with its `:fix`.
    `:get`: resolves the value where an accessor exists; otherwise the raw env value is shown,
    which is right for settings that have no default of ours.
@@ -392,8 +410,8 @@
    [{:group "runtime"  :var "PORT" :since "2.5"}
     {:group "runtime"  :var "DEV_MODE" :since "2.5"      :note "development only: relaxed CORS"}
     {:group "database" :var "DATOMIC_URL" :since "2.5"   :get #(get-datomic-uri) :redact? true}
-    {:group "database" :var "DATOMIC_PASSWORD" :since "2.5" :secret? true}
-    {:group "security" :var "SIGNATURE" :since "2.5"     :secret? true :critical? true
+    {:group "database" :var "DATOMIC_PASSWORD" :since "2.5" :secret? true :present? #(some? (datomic-password))}
+    {:group "security" :var "SIGNATURE" :since "2.5"     :secret? true :critical? true :present? #(some? (signature))
      :note "signs logins; every login and API call fails without it"
      :fix signature-missing-message}
     {:group "security" :var "TRUST_CLOUDFLARE" :since current-release
@@ -429,6 +447,7 @@
     {:group "email"    :var "EMAIL_ADMIN_TO" :since current-release
      :note "artist notices; default EMAIL_ERRORS_TO, APP_SUPPORT_EMAIL"}
     {:group "security" :var "PROFILE_ENCRYPTION_KEYS" :since current-release :secret? true
+     :present? #(some? (profile-encryption-keys))
      :note "encrypts preferred names; or its Docker secret"}
     {:group "content"  :var "LOAD_HOMEBREW_URL" :since "2.5" :note "homebrew loaded with every page"}
     {:group "content"  :var "PORTRAIT_ARTISTS" :since current-release
@@ -468,6 +487,11 @@
      :note "Turnstile on sign-up/reset/resend/sign-in; needs secret key"}
     {:group "security" :var "TURNSTILE_SECRET_KEY" :since current-release :secret? true
      :note "Turnstile on sign-up/reset/resend/sign-in; needs site key"}
+    {:group "integrations" :var "TWITCH_CLIENT_ID" :since current-release :get #(twitch-client-id)
+     :note "Twitch Live dot on artist pages; needs the secret"}
+    {:group "integrations" :var "TWITCH_CLIENT_SECRET" :since current-release :secret? true
+     :present? #(some? (twitch-client-secret))
+     :note "Twitch Live dot on artist pages; needs the client id"}
     {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :since current-release :get #(get-share-prune-days)
      :accepts #(some-> % str/trim parse-long (>= 0)) :expects "a whole number of days, 0 or more"
      :note "days before an unused share link is deleted; 0 never"}]))
@@ -489,7 +513,7 @@
             "ORCPUB_PDF_MAX_RETRIES" "ORCPUB_PDF_MAX_CASTER_SECTIONS" "ORCPUB_PDF_MAX_CARDS"
             "ORCPUB_SHARE_MAX_UPLOAD_KB" "ORCPUB_SHARE_MAX_TEXT_KB" "ORCPUB_SHARE_MAX_ACCOUNT_KB"
             "ORCPUB_PWNED_CHECK" "ORCPUB_SHARE_PRUNE_DAYS" "TURNSTILE_SITE_KEY"
-            "TURNSTILE_SECRET_KEY"]
+            "TURNSTILE_SECRET_KEY" "TWITCH_CLIENT_ID" "TWITCH_CLIENT_SECRET"]
            (repeat :tuning))))
 
 (def ^:private tunables
@@ -503,7 +527,7 @@
    change was picked up, ignored as a typo, or never set. Secret values are dropped here, not
    at print time, so nothing downstream can leak one by accident."
   []
-  (for [{env-var :var getter :get :keys [secret? redact? critical? note group fix accepts expects since]} settings]
+  (for [{env-var :var getter :get :keys [secret? redact? critical? note group fix accepts expects since present?]} settings]
     (let [raw      (env-raw env-var)
           tunable? (some? (some #(= env-var (:var %)) tunables))
           ;; A row with its own :accepts (the prune window takes 0) is checked by that instead.
@@ -516,7 +540,7 @@
        :value (if (and value redact?) (redact-secrets value) value)
        :secret? secret?
        :raw (when-not secret? raw)
-       :set? (boolean (and raw (not ignored?)))
+       :set? (boolean (or (and raw (not ignored?)) (and present? (present?))))
        :ignored? ignored?})))
 
 (defn- wrap-names
@@ -702,16 +726,14 @@
      :alert-dir (canonical (get-alert-spool-dir))}))
 
 (defn jetty-max-threads
-  "The worker-pool size the running server actually settled on, or nil.
-
+  "The worker-pool size the Jetty `server` (or nil) actually settled on, or nil.
    When ORCPUB_HTTP_MAX_THREADS is unset we pass Pedestal nothing and it chooses, so this is
    the only way to report the real number rather than a formula copied from Pedestal that
    would drift. Best effort by design: it reaches through a started Jetty, so any change of
    container returns nil and the banner falls back to `-` instead of failing a boot."
-  [created]
+  [server]
   (try
-    (some-> (if (map? created) (get created :io.pedestal.http/server) created)
-            (.getThreadPool) (.getMaxThreads))
+    (some-> server (.getThreadPool) (.getMaxThreads))
     (catch Exception _ nil)))
 
 (defn report-dir
@@ -747,10 +769,10 @@
 (defn print-report!
   "Say the server is up and how it is configured. Called after the system has started, so
    `started` means started rather than `we got as far as printing`, and so the running
-   thread-pool size can be read back rather than guessed."
+   thread-pool size can be read back from the Jetty `server` (optional) rather than guessed."
   ([] (print-report! nil))
-  ([created]
-   (let [actual (when-let [n (jetty-max-threads created)]
+  ([server]
+   (let [actual (when-let [n (jetty-max-threads server)]
                   {"ORCPUB_HTTP_MAX_THREADS" n})
          dirs   (crash-and-alert-dirs)
          lines  (vec (report-lines (report) actual @env/ignored

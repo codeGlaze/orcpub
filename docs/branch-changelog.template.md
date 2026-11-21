@@ -15,6 +15,10 @@ tightened passwords writes two lines, however many commits got it there:
 Rules:
   • One line per outcome a user or maintainer would notice. Open it with its area in bold
     (**Homebrew:**, **Characters:**, **Sharing:**, **Accounts:**, **Printing:**, **Site:**, **Server:**).
+  • In CHANGELOG.md, lines under each heading are grouped by area, in this order: Characters,
+    Builder, Character sheet, Inventory, Spells, Warlock, Magic items, Items, Equipment, Homebrew,
+    Sharing, Rules, Orcacle, Reference, Monsters, Content, Printing, Accounts, Site, Server, Docker,
+    Docs. The fold appends at the end of a heading: move each folded line into its area's group.
   • Fixed is for bugs that existed before this branch. A fix to something this branch (or the same
     release) built is part of building it: no line of its own.
   • No internal work: tests, CI, refactors, tooling, code moves. They belong in the PR and the KB.

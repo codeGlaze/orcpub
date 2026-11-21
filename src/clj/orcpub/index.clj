@@ -1,7 +1,7 @@
 (ns orcpub.index
   (:require [hiccup.page :refer [include-css]]
             [hiccup2.core :as h]
-            [cheshire.core :as cheshire]
+            [charred.api :as cheshire]
             [orcpub.oauth :as oauth]
             [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.views-shared :as views-shared]
@@ -51,7 +51,7 @@
   "JSON for an inline <script>: `<`, `>`, `&` and the line separators become
    \\u escapes, so a value (an artist's credit) cannot close the tag."
   [x]
-  (-> (cheshire/generate-string x)
+  (-> (cheshire/write-json-str x :escape-slash false)
       (.replace "<" "\\u003c")
       (.replace ">" "\\u003e")
       (.replace "&" "\\u0026")

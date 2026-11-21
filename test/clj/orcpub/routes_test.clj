@@ -5,7 +5,6 @@
    [clojure.string :as s]
    [datomic.api :as d]
    [datomock.core :as dm]
-   [io.pedestal.http :as http]
    [buddy.sign.jwt :as jwt]
    [environ.core :as environ]
    [orcpub.routes :as routes]
@@ -23,17 +22,6 @@
    [orcpub.outbox :as outbox]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
-
-#_(def service
-  (::http/service-fn (http/create-servlet {::http/routes routes/routes
-                                           ::http/type :jetty
-                                           ::http/port 8080})))
-
-#_(deftest test-index
-  (let [response (response-for service :get "/")]
-    (prn "RESPONSE" response)
-    (is (= (:status response)
-           200))))
 
 (defmacro with-conn [conn-binding & body]
   `(let [uri# (str "datomic:mem:orcpub-test-" (UUID/randomUUID))
@@ -632,7 +620,7 @@
         (fn []
           (let [before (d/db c)
                 submit (fn [pw] (auth/reset-password {:json-params {:password pw :verify-password pw :key reset-key}
-                                                        :db before :conn c :headers {"host" "example.test"}}))
+                                                        :db before :conn c :scheme :https :headers {"host" "example.test"}}))
                 first-resp (submit "the first long passphrase")
                 second-resp (submit "the second long passphrase")]
             (is (= 200 (:status first-resp)))

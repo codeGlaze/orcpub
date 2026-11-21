@@ -58,7 +58,7 @@ const healthColours = page => page.evaluate(() => {
   const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await ctx.addInitScript(() => {
-    try { localStorage.setItem('orcpub:no-cookie-banner', '1'); localStorage.setItem('whats-new-seen', '"long-rest-update-2026"'); } catch (e) {}
+    try { localStorage.setItem('orcpub:no-cookie-banner', '1'); localStorage.setItem('whats-new-seen', '"long-rest-update-2026-r2"'); } catch (e) {}
   });
   const page = await ctx.newPage();
   const errors = [];

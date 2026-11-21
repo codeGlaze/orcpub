@@ -2052,6 +2052,9 @@
      ;; the domain a link really opens, so a label cannot pass for another site
      [:.ap-link-host {:font-weight 400 :letter-spacing 0 :color "var(--lk-dim)"}]
      [:.ap-link:visited {:color portrait-panel-text}]
+     [:.ap-live {:display :inline-flex :align-items :center :gap "5px" :font-weight 700}]
+     [:.ap-live-dot {:display :inline-block :width "8px" :height "8px" :border-radius "50%"
+                     :background "#e91916"}]
      [(str light " .ap-link")
       {:border-color "rgba(0,0,0,0.14)" :background :white :color light-text}]
      [(str light " .ap-link:visited") {:color light-text}]
@@ -3598,20 +3601,29 @@
     ;; A group heading separates the sections; inside one, the item borders do it.
     [:.whats-new-group-title
      {:color orange
-      :font-size "11px"
+      :font-size "19px"
       :font-weight :bold
-      :letter-spacing "1.2px"
-      :text-transform :uppercase
-      :padding "18px 0 2px"
-      :margin-top "6px"
-      :border-top "1px solid rgba(255,255,255,0.12)"}]
+      :padding "26px 0 8px"
+      :border-bottom "2px solid rgba(240,161,0,0.45)"}]
 
     [:.whats-new-group
      [:&:first-child
       [:.whats-new-group-title
-       {:border-top :none
-        :margin-top 0
-        :padding-top "12px"}]]]
+       {:padding-top "14px"}]]]
+
+    ;; The patron credits: the support pills' raised surface, set apart from the list.
+    [:.whats-new-patron-card
+     {:margin "26px 0 18px"
+      :padding "20px 20px 14px"
+      :border-radius "6px"
+      :text-align :center
+      :background "rgba(255,255,255,0.04)"
+      :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}
+     [:.whats-new-patrons {:text-align :left}]]
+    [:.whats-new-patron-heart
+     {:color orange :font-size "22px"}]
+    [:.whats-new-patron-title
+     {:font-size "17px" :font-weight :bold :color :white :margin-top "8px"}]
 
     [:.whats-new-item
      {:display :flex

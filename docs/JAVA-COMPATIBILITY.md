@@ -6,8 +6,8 @@ The site needs **Java 21** (an LTS release). The Docker images, the devcontainer
 CI all use it. On a bare-metal install, install an OpenJDK 21 build such as
 [Adoptium Temurin](https://adoptium.net/) and check it with `java -version`.
 
-Java 8 does not work: the web server (Pedestal 0.7 on Jetty 11) and Datomic Pro need Java 11 or
-newer.
+Java 8 does not work: the web server (Pedestal 0.8 on Jetty 12) needs Java 17 or newer, and
+Datomic Pro needs Java 11 or newer.
 
 ## Newer Java versions
 
@@ -27,9 +27,11 @@ section of the [README](../README.md#moving-from-datomic-free).
 
 ## Pedestal and Jetty versions
 
-Pedestal is pinned to 0.7.0, which uses Jetty 11. Pedestal 0.7.1 and later use Jetty 12, which
-removes `ScopedHandler` and makes figwheel-main (development hot reload) fail with
-`NoClassDefFoundError`. Do not raise the Pedestal version without checking figwheel-main.
+Pedestal 0.8.3 runs on Jetty 12.1.15, which needs Java 17 or newer. Every Jetty artifact is
+pinned to that version in `project.clj` (`:managed-dependencies`): Pedestal brings Jetty 12.0
+and figwheel's Ring (development only) brings 12.1, and a mix of the two fails at start-up.
+Leiningen ignores imported BOMs, so each artifact is listed. Development uses a vendored build
+of figwheel's main branch; see [migration/pedestal-0.8.md](migration/pedestal-0.8.md).
 
 ## javax.servlet-api
 

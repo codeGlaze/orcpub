@@ -102,7 +102,7 @@ it with an error instead: `PORT` that is not a number is one.
 | `TZ` | `America/Chicago` | Time zone the Docker images are built with, for log timestamps. It is a build argument, so rebuild after changing it. |
 | `APP_URL` | none | The site's public address. Used for links in every account email (verification, password reset, notices) and in artist emails. Set it in production. Unset, those links follow the request's `Host` header, which a sender can forge, and the boot report warns. |
 | `ORCPUB_HTTP_HOST` | `localhost` | Address the development server binds to. Set `0.0.0.0` when a browser on another machine, such as Windows reaching WSL, must connect. Docker installs always bind to all interfaces. `lein fig:*` does not read `.env`: use `lein with-profile +wsl fig:dev` there. |
-| `DEV_MODE` | unset | Set to the exact string `true` (any case) for development. Then no Content Security Policy header is sent, which lets Figwheel's `ws://localhost:3449` connect, and the site may start without a mail server. Any other value, including `1`, `yes` or empty, means off. Leave it off in production. |
+| `DEV_MODE` | unset | Set to the exact string `true` (any case) for development. Then no Content Security Policy header is sent, which lets Figwheel's reload connection on `localhost:3449` through, and the site may start without a mail server. Any other value, including `1`, `yes` or empty, means off. Leave it off in production. |
 
 ### Database (Datomic)
 
@@ -145,6 +145,7 @@ it with an error instead: `PORT` that is not a number is one.
 | `CSP_POLICY` | `strict` | Content Security Policy mode: `strict`, `permissive` or `none` (below). |
 | `ORCPUB_PWNED_CHECK` | `on` | Refuse new passwords that appear in known breaches. Accepts `on`/`off`, `true`/`false`, `1`/`0`, `yes`/`no`. |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | unset | Cloudflare Turnstile bot check. It shows on sign-up, password reset, resend verification and sign-in after a failed attempt, and only when **both** keys are set. The site key is public. The secret is never logged. If Cloudflare cannot be reached, the request goes through. A refusal from Cloudflare, or a missing token, does not. Cloudflare's test keys always pass: site key `1x00000000000000000000AA`, secret `1x0000000000000000000000000000000AA`. |
+| `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` | unset | Twitch app keys (dev.twitch.tv/console, Register Your Application). With **both** set, an artist page shows a red "Live" dot on a portrait artist's Twitch button while they stream. The server asks Twitch only about logins in an artist's listed links, and remembers each answer for 2 minutes. The secret may also come from the Docker secret `twitch_client_secret`; it is never logged. If Twitch cannot be reached, the answer is not live. |
 | `REDIS_URL` | unset | Where sign-in, sign-up and reset limits are counted when more than one app container serves the site (`redis://[:password@]host:6379`). Unset, each container counts in its own memory, which is right for one container. If Redis cannot be reached within 200 ms, that call counts in memory and a warning is logged at most once a minute. The Compose files do not add a Redis service. |
 | `TRUST_CLOUDFLARE` | unset | Set to `true` only when the site is served through Cloudflare. Limits and the security log then see each player's real address. Leave it unset otherwise: anyone can send requests from Cloudflare's addresses. |
 | `TRUSTED_PROXIES` | unset | Other proxies in front of the app, as comma-separated addresses or ranges (`203.0.113.10,198.51.100.0/24`). Private networks, where Docker, Swarm, Traefik and nginx sit, are always trusted. |
@@ -278,8 +279,8 @@ and `APP_SOCIAL_*` variables. The full list, with defaults, is in
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ORCPUB_ENV` | none | Set to `dev` to allow the REPL helper `add-test-user`. |
-| `FIGWHEEL_PORT` | `3449` | Figwheel WebSocket port for frontend hot reload. |
-| `FIGWHEEL_CONNECT_URL` | auto-detected | Figwheel WebSocket URL for remote setups (Gitpod, tunnels), for example `wss://my-remote-host:3449/figwheel-connect`. GitHub Codespaces is detected automatically. |
+| `FIGWHEEL_PORT` | `3449` | Figwheel's port for frontend hot reload. |
+| `FIGWHEEL_CONNECT_URL` | auto-detected | Figwheel's reload URL for remote setups (Gitpod, tunnels), for example `wss://my-remote-host:3449/figwheel-connect`; `ws://` and `wss://` are read as `http://` and `https://`. GitHub Codespaces is detected automatically. |
 | `E2E_MAIL_PORT` | `2525` | Port of the throwaway SMTP server the browser test suites start. |
 
 ## Docker secrets

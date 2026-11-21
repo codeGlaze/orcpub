@@ -194,7 +194,8 @@
           (is (= before (spent)) "and spends no allowance"))))))
 
 (deftest the-address-check-route-is-gone
-  (is (not-any? #(= "/check-email" (:path %)) routes/routes))
+  (is (some #(= "/health" (:path %)) (:routes routes/routes)) "the route list was read")
+  (is (not-any? #(= "/check-email" (:path %)) (:routes routes/routes)))
   (is (nil? (resolve 'orcpub.routes.auth/check-email))))
 
 (deftest the-notice-links-to-the-configured-site-not-the-request-host

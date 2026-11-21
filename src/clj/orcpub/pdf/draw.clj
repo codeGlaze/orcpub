@@ -242,8 +242,8 @@
                            :else "?"))))))
 
 (defn font-safe
-  "`text` with whatever `font` has no glyph for made drawable: characters below 0x20
-   dropped, anything else replaced by `?`. Returns `text` itself when the whole string
+  "`text` with whatever `font` has no glyph for made drawable: a tab becomes a space, other
+   characters below 0x20 are dropped, anything else is replaced by `?`. Returns `text` itself when the whole string
    draws, which is every string in the SRD -- the embedded Vollkorn covers Latin-1 and
    the punctuation the books use, so this only fires on homebrew."
   [^PDFont font text]
@@ -257,7 +257,8 @@
                                     (catch Exception _ false)))]
           (->> (seq (.toArray (.codePoints text)))
                (keep #(let [c (String. (Character/toChars (int %)))]
-                        (when (>= (int %) 0x20) (if (drawable? c) c "?"))))
+                        (cond (= (int %) 0x09) " "
+                              (>= (int %) 0x20) (if (drawable? c) c "?"))))
                (apply str)))))))
 
 ;; FIELD NOTE (glyph-throw): PDFBox throws IllegalArgumentException on a glyph the

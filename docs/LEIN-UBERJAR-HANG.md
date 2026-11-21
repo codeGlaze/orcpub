@@ -39,16 +39,17 @@ Approaches" below.
 
 ## The Fix: Three-Step Docker Build
 
-### Step 1: CLJS via figwheel-main
+### Step 1: CLJS via the ClojureScript compiler
 
 ```dockerfile
-RUN lein run -m figwheel.main -- --build-once prod && \
+RUN lein cljs:prod && \
     test -f resources/public/js/compiled/orcpub.js
 ```
 
-figwheel-main replaces lein-cljsbuild. `--build-once` compiles CLJS with
-`:advanced` optimizations, writes the .js file, and exits cleanly. Config
-lives in `prod.cljs.edn`.
+`lein cljs:prod` (`cljs.main -co prod.cljs.edn`, run with `-dev,+cljs-prod`)
+replaces lein-cljsbuild. It compiles CLJS with `:advanced` optimizations,
+writes the .js file, and exits cleanly. figwheel is a dev-only dependency
+and is not on this path or in the jar. Config lives in `prod.cljs.edn`.
 
 ### Step 2: AOT compile (with timeout)
 
@@ -113,14 +114,14 @@ resource-paths.
 lein build
 
 # Or manually:
-lein fig:prod            # CLJS (figwheel-main exits cleanly in a TTY)
+lein cljs:prod           # CLJS (`fig:prod` is the same alias)
 lein uberjar             # Uberjar (Ctrl-C the hang after "Created target/orcpub.jar")
 ```
 
-The `build` alias runs `["do" "clean," "fig:prod," ["with-profile" "uberjar" "uberjar"]]`.
+The `build` alias runs `["do" "clean," "cljs:prod," ["with-profile" "uberjar" "uberjar"]]`.
 Clean runs first (explicit), then CLJS, then uberjar. The `:uberjar` profile
 has `:auto-clean false` and `^:replace` prep-tasks so the CLJS output from
-`fig:prod` is preserved during jar packaging.
+`cljs:prod` is preserved during jar packaging.
 
 ## Affected Components
 
@@ -129,10 +130,10 @@ has `:auto-clean false` and `^:replace` prep-tasks so the CLJS output from
 | `prod.cljs.edn` | Production CLJS build config | Replaces cljsbuild :prod build |
 | `docker/Dockerfile` | Three-step build | Separates compile from jar creation |
 | `project.clj` | No `lein-cljsbuild` in any `:plugins` | Eliminates cljsbuild hooks |
-| `project.clj` | `fig:prod` alias | Local production CLJS builds |
+| `project.clj` | `cljs:prod` alias (also `fig:prod`) | Production CLJS builds, local and Docker |
 | `project.clj` | `:uberjar` profile | `:auto-clean false`, `^:replace` prep-tasks (bare-metal + Docker) |
 | `project.clj` | `:uberjar-package` profile | Overrides prep-tasks to skip compile (Docker step 3 only) |
-| `project.clj` | `build` alias | Single-command: clean → fig:prod → uberjar |
+| `project.clj` | `build` alias | Single-command: clean → cljs:prod → uberjar |
 | `project.clj` | `:resource-paths` | Removed `"target"` to prevent recursive jar inclusion |
 
 ## DO NOT (each verified by failure)

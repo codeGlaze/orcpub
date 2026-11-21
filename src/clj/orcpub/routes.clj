@@ -1,12 +1,10 @@
 (ns orcpub.routes
-  (:require [io.pedestal.http :as http]
-            [orcpub.bounded-cache :as bounded-cache]
-            [cheshire.core :as cheshire]
+  (:require [orcpub.bounded-cache :as bounded-cache]
+            [charred.api :as cheshire]
             [orcpub.work-pool :as work-pool]
             [orcpub.portrait-store :as portrait-store]
             [orcpub.art-mark :as art-mark]
             [io.pedestal.http.route :as route]
-            [io.pedestal.test :as test]
             [io.pedestal.http.ring-middlewares :as ring]
             [ring.middleware.resource :as ring-resource]
             [ring.util.response :as ring-resp]
@@ -1751,7 +1749,7 @@
   {:status 200
    :headers {"Content-Type" "application/json; charset=utf-8"
              "Cache-Control" "public, max-age=60"}
-   :body (cheshire/generate-string (portrait-assets5e/current-overrides))})
+   :body (cheshire/write-json-str (portrait-assets5e/current-overrides) :escape-slash false)})
 
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
   ;; before the credit line and the image version below are worked out from it
@@ -1909,10 +1907,6 @@
      [(apply route-map/path-for route args) :get `default-index-page :route-name route])
    index-page-paths))
 
-(def expanded-index-routes
-  (route/expand-routes
-   (set index-page-routes)))
-
 (def service-error-handler
   (error-int/error-dispatch [ctx ex]
                             :else (do
@@ -2002,125 +1996,125 @@
         (head/head-response request))))
 
 (def routes
-  (concat
-   (route/expand-routes
-    [[["/" {:get `index}
+  (route/expand-routes
+    [[["/" {:get #'index}
        ^:interceptors [(body-params/body-params) service-error-handler]
-       ["/js/*" {:get `get-js}]
-       ["/css/*" {:get `get-css}]
-       ["/assets/*" {:get `get-webjar}]
-       ["/image/*" {:get `get-image}]
-       ["/favicon/*" {:get `get-favicon}]
+       ["/js/*" {:get #'get-js}]
+       ["/css/*" {:get #'get-css}]
+       ["/assets/*" {:get #'get-webjar}]
+       ["/image/*" {:get #'get-image}]
+       ["/favicon/*" {:get #'get-favicon}]
        [(route-map/path-for route-map/register-route)
-        {:post `auth/register}]
+        {:post #'auth/register}]
        [(route-map/path-for route-map/user-route) ^:interceptors [check-auth]
-        {:get `get-user
-         :put `update-user-preferences
-         :delete `delete-user}]
+        {:get #'get-user
+         :put #'update-user-preferences
+         :delete #'delete-user}]
        [(route-map/path-for route-map/user-email-route) ^:interceptors [check-auth]
-        {:put `auth/request-email-change}]
+        {:put #'auth/request-email-change}]
        [(route-map/path-for route-map/user-artist-credit-route) ^:interceptors [check-auth]
-        {:put `update-artist-credit}]
+        {:put #'update-artist-credit}]
        [(route-map/path-for route-map/user-sessions-route) ^:interceptors [check-auth]
-        {:delete `withdraw-sessions}]
+        {:delete #'withdraw-sessions}]
        [(route-map/path-for route-map/follow-user-route :user ":user") ^:interceptors [check-auth]
-        {:post `follow-user
-         :delete `unfollow-user}]
+        {:post #'follow-user
+         :delete #'unfollow-user}]
 
        ;; Items
        [(route-map/path-for route-map/dnd-e5-items-route) ^:interceptors [check-auth]
-        {:post `save-item
-         :get `item-list}]
+        {:post #'save-item
+         :get #'item-list}]
        [(route-map/path-for route-map/dnd-e5-item-route :id ":id") ^:interceptors [check-auth parse-id]
-        {:get `get-item
-         :delete `delete-item}]
+        {:get #'get-item
+         :delete #'delete-item}]
 
        ;; Characters
        [(route-map/path-for route-map/dnd-e5-char-list-route) ^:interceptors [check-auth]
-        {:post `save-character
-         :get `character-list}]
+        {:post #'save-character
+         :get #'character-list}]
        [(route-map/path-for route-map/dnd-e5-char-summary-list-route) ^:interceptors [check-auth]
-        {:get `character-summary-list}]
+        {:get #'character-summary-list}]
        [(route-map/path-for route-map/dnd-e5-char-report-route) ^:interceptors [check-auth]
-        {:post `report-character-problem}]
+        {:post #'report-character-problem}]
        [(route-map/path-for route-map/dnd-e5-char-route :id ":id") ^:interceptors [check-auth]
-        {:delete `delete-character}]
+        {:delete #'delete-character}]
        [(route-map/path-for route-map/dnd-e5-char-route :id ":id")
-        {:get `get-character}]
+        {:get #'get-character}]
        [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :token ":token") ^:interceptors [parse-id]
-        {:get `share/get-share}]
+        {:get #'share/get-share}]
        [(route-map/path-for route-map/dnd-e5-char-share-route :id ":id" :token ":token") ^:interceptors [check-auth parse-id]
-        {:put `share/put-share}]
+        {:put #'share/put-share}]
        [(route-map/path-for route-map/dnd-e5-char-share-token-route :id ":id") ^:interceptors [check-auth parse-id]
-        {:get `share/get-token
-         :put `share/create-token
-         :post `share/new-token
-         :delete `share/stop-sharing}]
+        {:get #'share/get-token
+         :put #'share/create-token
+         :post #'share/new-token
+         :delete #'share/stop-sharing}]
 
        [(route-map/path-for route-map/dnd-e5-char-page-route :id ":id") ^:interceptors [parse-id]
-        {:get `character-page}]
+        {:get #'character-page}]
        [(route-map/path-for route-map/dnd-e5-char-portrait-route :id ":id") ^:interceptors [parse-id]
-        {:get `character-portrait-png}]
+        {:get #'character-portrait-png}]
        [(route-map/path-for route-map/artists-page-route)
-        {:get `artists-page}]
+        {:get #'artists-page}]
        [(route-map/path-for route-map/artist-page-route :slug ":slug")
-        {:get `artist-page}]
+        {:get #'artist-page}]
        [(route-map/path-for route-map/artist-example-route :slug ":slug" :n ":n")
-        {:get `artist-example-jpeg}]
+        {:get #'artist-example-jpeg}]
        [(route-map/path-for route-map/dnd-e5-portrait-artists-route)
-        {:get `portrait-artists}]
+        {:get #'portrait-artists}]
+       ["/api/twitch/live" {:get #'artist-credit/twitch-live-route}]
        [(route-map/path-for route-map/dnd-e5-char-parties-route) ^:interceptors [check-auth]
-        {:post `party/create-party
-         :get `party/parties}]
+        {:post #'party/create-party
+         :get #'party/parties}]
        [(route-map/path-for route-map/dnd-e5-char-party-route :id ":id") ^:interceptors [check-auth parse-id check-party-owner]
-        {:delete `party/delete-party}]
+        {:delete #'party/delete-party}]
        [(route-map/path-for route-map/dnd-e5-char-party-name-route :id ":id") ^:interceptors [check-auth parse-id check-party-owner]
-        {:put `party/update-party-name}]
+        {:put #'party/update-party-name}]
        [(route-map/path-for route-map/dnd-e5-char-party-characters-route :id ":id") ^:interceptors [check-auth parse-id check-party-owner]
-        {:post `party/add-character}]
+        {:post #'party/add-character}]
        [(route-map/path-for route-map/dnd-e5-char-party-character-route :id ":id" :character-id ":character-id") ^:interceptors [check-auth parse-id check-party-owner]
-        {:delete `party/remove-character}]
+        {:delete #'party/remove-character}]
        [(route-map/path-for route-map/dnd-e5-char-folders-route) ^:interceptors [check-auth]
-        {:post `folder/create-folder
-         :get `folder/folders}]
+        {:post #'folder/create-folder
+         :get #'folder/folders}]
        [(route-map/path-for route-map/dnd-e5-char-folder-route :id ":id") ^:interceptors [check-auth parse-id check-folder-owner]
-        {:delete `folder/delete-folder}]
+        {:delete #'folder/delete-folder}]
        [(route-map/path-for route-map/dnd-e5-char-folder-name-route :id ":id") ^:interceptors [check-auth parse-id check-folder-owner]
-        {:put `folder/update-folder-name}]
+        {:put #'folder/update-folder-name}]
        [(route-map/path-for route-map/dnd-e5-char-folder-characters-route :id ":id") ^:interceptors [check-auth parse-id check-folder-owner]
-        {:post `folder/add-character}]
+        {:post #'folder/add-character}]
        [(route-map/path-for route-map/dnd-e5-char-folder-character-route :id ":id" :character-id ":character-id") ^:interceptors [check-auth parse-id check-folder-owner]
-        {:delete `folder/remove-character}]
+        {:delete #'folder/remove-character}]
        [(route-map/path-for route-map/login-route)
-        {:post `auth/login}]
+        {:post #'auth/login}]
        [(route-map/path-for route-map/character-pdf-route)
-        {:post `character-pdf-2}]
+        {:post #'character-pdf-2}]
        [(route-map/path-for route-map/image-probe-route)
-        {:post `image-probe}]
+        {:post #'image-probe}]
        [(route-map/path-for route-map/verify-route)
-        {:get `auth/verify}]
+        {:get #'auth/verify}]
        [(route-map/path-for route-map/re-verify-route)
-        {:get `auth/re-verify}]
+        {:get #'auth/re-verify}]
        [(route-map/path-for route-map/unsubscribe-route)
-        {:get `unsubscribe}]
+        {:get #'unsubscribe}]
        [(route-map/path-for route-map/reset-password-route) ^:interceptors [ring/cookies]
-        {:post `auth/reset-password}]
+        {:post #'auth/reset-password}]
        [(route-map/path-for route-map/reset-password-page-route) ^:interceptors [ring/cookies]
-        {:get `auth/reset-password-page}]
+        {:get #'auth/reset-password-page}]
        [(route-map/path-for route-map/send-password-reset-route)
-        {:get `auth/send-password-reset}]
+        {:get #'auth/send-password-reset}]
        [(route-map/path-for route-map/privacy-policy-route)
-        {:get `privacy-policy-page}]
+        {:get #'privacy-policy-page}]
        [(route-map/path-for route-map/terms-of-use-route)
-        {:get `terms-of-use-page}]
+        {:get #'terms-of-use-page}]
        [(route-map/path-for route-map/community-guidelines-route)
-        {:get `community-guidelines-page}]
+        {:get #'community-guidelines-page}]
        [(route-map/path-for route-map/cookies-policy-route)
-        {:get `cookie-policy-page}]
+        {:get #'cookie-policy-page}]
        [(route-map/path-for route-map/check-username-route)
-        {:get `auth/check-username}]
+        {:get #'auth/check-username}]
        ["/health"
-        {:get `health-check}]]]])
-   expanded-index-routes))
+        {:get #'health-check}]]]]
+   (set index-page-routes)))
 
 

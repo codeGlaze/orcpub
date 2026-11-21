@@ -12,6 +12,7 @@
             [orcpub.routes.auth :as auth]
             [orcpub.time :as time]
             [orcpub.security :as s]
+            [buddy.auth.protocols]
             [orcpub.db.schema :as schema]
             [clojure.set :as sets])
   (:import [java.util UUID]))
@@ -124,6 +125,38 @@
       @(d/transact conn schema/all-schemas)
       conn)))
 
+(deftest siteverify-answers-are-read-from-json-text
+  (let [answer (fn [status body] (fn [& _] {:status status :body body}))
+        post #(@#'s/post-siteverify "token" "1.2.3.4")]
+    (testing "a 2xx body is the parsed answer, keys as keywords"
+      (with-redefs [client/post (answer 200 "{\"success\":false,\"error-codes\":[\"bad\"]}")]
+        (is (= {:success false :error-codes ["bad"]} (post)))))
+    (testing "a 4xx is an answer: its JSON object, or {} when the body is not one"
+      (with-redefs [client/post (answer 400 "{\"success\":false}")]
+        (is (= {:success false} (post))))
+      (with-redefs [client/post (answer 403 "<html>denied</html>")]
+        (is (= {} (post))))
+      (with-redefs [client/post (answer 400 "[1,2]")]
+        (is (= {} (post)))))
+    (testing "anything else throws, and is read as Cloudflare being down"
+      (with-redefs [client/post (answer 503 "")]
+        (is (thrown? clojure.lang.ExceptionInfo (post)))))))
+
+(def ^:private token-from-buddy-sign-3-4
+  "A sign-in token buddy-sign 3.4.333 issued with the dev profile's SIGNATURE: the version every
+   live token came from. It expires in 2100."
+  (str "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoidG9rZW4tZml4dHVyZSIsIm1pbnRlZCI6MTcwMDAwMDAwMDAwMCwiZXhwIjo0MTAyNDQ0ODAwfQ"
+       ".r6IuRjnb4min5_vdpaM4TlKSLutvMMyOzmIbwMzyHm4"))
+
+(deftest a-token-issued-before-a-library-update-still-signs-in
+  (is (= "dev-secret-do-not-use-in-production" auth/jwt-secret) "the dev profile's SIGNATURE is in use")
+  (let [request {:headers {"authorization" (str "Token " token-from-buddy-sign-3-4)}}
+        token (buddy.auth.protocols/-parse routes/backend request)]
+    (is (= {:user "token-fixture" :minted 1700000000000 :exp 4102444800}
+           (buddy.auth.protocols/-authenticate routes/backend request token)))
+    (testing "and a token with its signature changed does not"
+      (is (nil? (buddy.auth.protocols/-authenticate routes/backend request (str token "x")))))))
+
 (deftest a-blank-token-fails-without-calling-cloudflare
   (let [calls (atom 0)]
     (with-redefs [s/post-siteverify (fn [& _] (swap! calls inc) {:success true})]
@@ -147,14 +180,15 @@
     (s/turnstile-verify "t" "1.2.3.4")))
 
 (deftest only-a-transport-failure-or-a-server-error-fails-open
-  (is (= :fail (verify-with-http {:status 400 :body {:success false :error-codes ["invalid-input-response"]}}))
+  (is (= :fail (verify-with-http {:status 400 :body "{\"success\":false,\"error-codes\":[\"invalid-input-response\"]}"}))
       "Cloudflare refusing the token is a refusal")
   (is (= :fail (verify-with-http {:status 400 :body "<html>bad</html>"})) "even with a body that is not JSON")
   (is (= :fail (verify-with-http {:status 403 :body nil})))
-  (is (= :unreachable (verify-with-http {:status 500 :body {}})) "Cloudflare being down")
+  (is (= :fail (verify-with-http {:status 200 :body ""})) "an empty answer is not Cloudflare being down")
+  (is (= :unreachable (verify-with-http {:status 500 :body "{}"})) "Cloudflare being down")
   (is (= :unreachable (verify-with-http {:status 503 :body nil})))
   (is (= :unreachable (verify-with-http #(throw (java.net.SocketTimeoutException. "slow")))))
-  (is (= :pass (verify-with-http {:status 200 :body {:success true}}))))
+  (is (= :pass (verify-with-http {:status 200 :body "{\"success\":true}"}))))
 
 (deftest a-token-that-is-not-text-is-a-missing-token
   (let [calls (atom 0)]
@@ -199,7 +233,7 @@
   #{:orcpub.routes/unsubscribe})
 
 (defn- auth-route-names []
-  (->> routes/routes
+  (->> (:routes routes/routes)
        (map :route-name)
        (filter #(or (= "orcpub.routes.auth" (namespace %))
                     (contains? extra-auth-routes %)))
