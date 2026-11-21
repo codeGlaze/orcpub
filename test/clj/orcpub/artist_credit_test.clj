@@ -2,6 +2,8 @@
   (:require [clojure.edn :as edn]
             [clojure.test :refer [deftest is testing use-fixtures]]
             [datomic.api :as d]
+            [charred.api :as cheshire]
+            [orcpub.config :as config]
             [orcpub.artist-credit :as ac]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.db.schema :as schema]
@@ -18,10 +20,40 @@
           ~@body
           (finally (d/delete-database uri#)))))
 
+(def ^:private calls (atom []))
+
+(defn- stub
+  "A *twitch-http* stand-in: records each call in `calls` and answers per `streams`, a fn of the call
+   number (from 1) of streams requests returning a response map; token requests always succeed."
+  [streams]
+  (let [n (atom 0)]
+    (fn [method url _opts]
+      (swap! calls conj [method url])
+      (if (= :post method)
+        {:status 200 :body (cheshire/write-json-str {:access_token "tok" :expires_in 3600})}
+        (streams (swap! n inc))))))
+
+(defn- live-body
+  "A streams response with one live stream."
+  [] {:status 200 :body (cheshire/write-json-str {:data [{:type "live"}]})})
+(defn- offline-body
+  "A streams response with no streams."
+  [] {:status 200 :body (cheshire/write-json-str {:data []})})
+
+(defn- twitch-fixture
+  "Clears the module's caches and the call log around each test, with the keys set."
+  [f]
+  (ac/reset-twitch-caches!)
+  (reset! calls [])
+  (with-redefs [config/twitch-client-id (constantly "id")
+                config/twitch-client-secret (constantly "secret")]
+    (f)))
+
 (use-fixtures :each
   (fn [t]
     (let [before (pa/current-overrides)]
-      (try (t) (finally (pa/set-artist-overrides! before))))))
+      (try (t) (finally (pa/set-artist-overrides! before)))))
+  twitch-fixture)
 
 (defn- add-artist! [conn username artist]
   @(d/transact conn [(cond-> {:orcpub.user/username username
@@ -416,3 +448,53 @@
         (is (re-find #"in 60 minutes\.$" (error)))
         (reset! clock 59)
         (is (re-find #"in 1 minute\.$" (error)))))))
+
+
+(defn- streams-calls
+  "How many requests went to the streams endpoint."
+  []
+  (count (filter #(= :get (first %)) @calls)))
+
+(deftest live-and-not-live
+  (binding [ac/*twitch-http* (stub (fn [_] (live-body)))]
+    (is (true? (ac/twitch-live? "fusspot"))))
+  (ac/reset-twitch-caches!)
+  (binding [ac/*twitch-http* (stub (fn [_] (offline-body)))]
+    (is (false? (ac/twitch-live? "fusspot")))))
+
+(deftest answers-are-cached-for-two-minutes
+  (binding [ac/*twitch-http* (stub (fn [_] (live-body)))]
+    (ac/twitch-live? "fusspot")
+    (ac/twitch-live? "FussPot")
+    (is (= 1 (streams-calls)))))
+
+(deftest an-unlisted-login-is-never-sent-to-twitch
+  (binding [ac/*twitch-http* (stub (fn [_] (live-body)))]
+    (is (false? (ac/twitch-live? "someone_else")))
+    (is (false? (ac/twitch-live? nil)))
+    (is (empty? @calls))))
+
+(deftest feature-off-makes-no-calls
+  (with-redefs [config/twitch-client-secret (constantly nil)]
+    (binding [ac/*twitch-http* (stub (fn [_] (live-body)))]
+      (is (false? (ac/twitch-live? "fusspot")))
+      (is (empty? @calls)))))
+
+(deftest a-failure-answers-not-live-and-is-cached
+  (binding [ac/*twitch-http* (stub (fn [_] {:status 500 :body "oops"}))]
+    (is (false? (ac/twitch-live? "fusspot")))
+    (is (false? (ac/twitch-live? "fusspot")))
+    (is (= 1 (streams-calls)))))
+
+(deftest a-401-refreshes-the-token-once
+  (binding [ac/*twitch-http* (stub (fn [n] (if (= 1 n) {:status 401 :body ""} (live-body))))]
+    (is (true? (ac/twitch-live? "fusspot")))
+    (is (= 2 (streams-calls)))
+    (is (= 2 (count (filter #(= :post (first %)) @calls))))))
+
+(deftest the-route-answers-json
+  (binding [ac/*twitch-http* (stub (fn [_] (live-body)))]
+    (is (= {:live true}
+           (cheshire/read-json (:body (ac/twitch-live-route {:query-params {:login "fusspot"}})) :key-fn keyword)))
+    (is (= {:live false}
+           (cheshire/read-json (:body (ac/twitch-live-route {:query-params {:login "nobody"}})) :key-fn keyword)))))
