@@ -65,6 +65,7 @@
             [orcpub.routes.party :as party]
             [orcpub.routes.folder :as folder]
             [orcpub.routes.share :as share]
+            [orcpub.routes.twitch :as twitch]
             [hiccup.page :as page]
             [hiccup2.core :as h]
             [orcpub.env :as env]
@@ -2064,6 +2065,7 @@
         {:get `artist-example-jpeg}]
        [(route-map/path-for route-map/dnd-e5-portrait-artists-route)
         {:get `portrait-artists}]
+       ["/api/twitch/live" {:get `twitch/live-route}]
        [(route-map/path-for route-map/dnd-e5-char-parties-route) ^:interceptors [check-auth]
         {:post `party/create-party
          :get `party/parties}]

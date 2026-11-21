@@ -368,6 +368,24 @@
   []
   (env-raw "TURNSTILE_SECRET_KEY"))
 
+(defn twitch-client-id
+  "TWITCH_CLIENT_ID, or nil when unset or blank. Public in Twitch's eyes, but not logged."
+  []
+  (env-raw "TWITCH_CLIENT_ID"))
+
+(defn twitch-client-secret
+  "TWITCH_CLIENT_SECRET: the Docker secret /run/secrets/twitch_client_secret first, then the
+   environment variable; nil when neither is set. NEVER log, print or send it."
+  []
+  (or (read-secret "twitch_client_secret")
+      (env-raw "TWITCH_CLIENT_SECRET")))
+
+(defn twitch-enabled?
+  "True only when both the Twitch client id and secret are set; the artist pages' live
+   indicator is off otherwise."
+  []
+  (boolean (and (twitch-client-id) (twitch-client-secret))))
+
 (defn turnstile-enabled?
   "Whether the sign-up, password-reset and resend-verification forms (and sign-in after a
    failure) ask for a Cloudflare Turnstile check: only when BOTH TURNSTILE_SITE_KEY and
@@ -468,6 +486,10 @@
      :note "Turnstile on sign-up/reset/resend/sign-in; needs secret key"}
     {:group "security" :var "TURNSTILE_SECRET_KEY" :since current-release :secret? true
      :note "Turnstile on sign-up/reset/resend/sign-in; needs site key"}
+    {:group "integrations" :var "TWITCH_CLIENT_ID" :since current-release :get #(twitch-client-id)
+     :note "Twitch Live dot on artist pages; needs the secret"}
+    {:group "integrations" :var "TWITCH_CLIENT_SECRET" :since current-release :secret? true
+     :note "Twitch Live dot on artist pages; needs the client id"}
     {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :since current-release :get #(get-share-prune-days)
      :accepts #(some-> % str/trim parse-long (>= 0)) :expects "a whole number of days, 0 or more"
      :note "days before an unused share link is deleted; 0 never"}]))
@@ -489,7 +511,7 @@
             "ORCPUB_PDF_MAX_RETRIES" "ORCPUB_PDF_MAX_CASTER_SECTIONS" "ORCPUB_PDF_MAX_CARDS"
             "ORCPUB_SHARE_MAX_UPLOAD_KB" "ORCPUB_SHARE_MAX_TEXT_KB" "ORCPUB_SHARE_MAX_ACCOUNT_KB"
             "ORCPUB_PWNED_CHECK" "ORCPUB_SHARE_PRUNE_DAYS" "TURNSTILE_SITE_KEY"
-            "TURNSTILE_SECRET_KEY"]
+            "TURNSTILE_SECRET_KEY" "TWITCH_CLIENT_ID" "TWITCH_CLIENT_SECRET"]
            (repeat :tuning))))
 
 (def ^:private tunables

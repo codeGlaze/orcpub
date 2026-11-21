@@ -32,6 +32,8 @@ Finishes the Long Rest Update before it goes upstream: What's New rewritten for 
 
 ## Added
 
+- **Site:** a portrait artist's Twitch button shows when they are live, once the site sets Twitch keys.
+
 ## Changed
 
 - **Site:** What's New lists the release as New, Improved and Fixed, in plain player terms, and links to the portrait artist's page.

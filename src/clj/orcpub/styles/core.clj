@@ -2052,6 +2052,9 @@
      ;; the domain a link really opens, so a label cannot pass for another site
      [:.ap-link-host {:font-weight 400 :letter-spacing 0 :color "var(--lk-dim)"}]
      [:.ap-link:visited {:color portrait-panel-text}]
+     [:.ap-live {:display :inline-flex :align-items :center :gap "5px" :font-weight 700}]
+     [:.ap-live-dot {:display :inline-block :width "8px" :height "8px" :border-radius "50%"
+                     :background "#e91916"}]
      [(str light " .ap-link")
       {:border-color "rgba(0,0,0,0.14)" :background :white :color light-text}]
      [(str light " .ap-link:visited") {:color light-text}]

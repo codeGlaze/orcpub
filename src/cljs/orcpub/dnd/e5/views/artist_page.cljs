@@ -4,10 +4,56 @@
    credit face and --lk-* theme variables apply; what the drawer lacks is .ap-*, in
    styles/core.clj `artist-pages`.
    Plan and look: agents/develop docs/archive/design/artist-profiles/PLAN.md."
-  (:require [re-frame.core :refer [subscribe]]
+  (:require [cljs.core.async :refer [<!]]
+            [clojure.string :as str]
+            [re-frame.core :refer [dispatch reg-event-fx reg-sub-raw subscribe]]
+            [reagent.ratom :as ra]
             [orcpub.artist-links :as al]
             [orcpub.dnd.e5.artist-profile :as ap]
-            [orcpub.dnd.e5.views :as views]))
+            [orcpub.dnd.e5.event-utils :as event-utils]
+            [orcpub.dnd.e5.http-safe :as http]
+            [orcpub.dnd.e5.views :as views])
+  (:require-macros [cljs.core.async.macros :refer [go]]))
+
+;; Whether an artist is streaming, asked of the server (GET /api/twitch/live) the first time a
+;; Twitch button for that login is drawn, once per login per page load.
+(reg-event-fx
+ :twitch/load-live
+ (fn [{:keys [db]} [_ login]]
+   (if (contains? (:twitch/requested db) login)
+     {}
+     (do (go (let [{:keys [status body]}
+                   (<! (http/get (event-utils/backend-url
+                                  (str "/api/twitch/live?login=" (js/encodeURIComponent login)))))]
+               (dispatch [:twitch/live-loaded login (and (= 200 status) (map? body) (true? (:live body)))])))
+         {:db (update db :twitch/requested (fnil conj #{}) login)}))))
+
+(reg-event-fx
+ :twitch/live-loaded
+ (fn [{:keys [db]} [_ login live?]]
+   {:db (assoc-in db [:twitch/live login] live?)}))
+
+(reg-sub-raw
+ :twitch/live?
+ ;; Starts the one fetch for `login` when first subscribed; false until the answer arrives.
+ (fn [app-db [_ login]]
+   (dispatch [:twitch/load-live login])
+   (ra/make-reaction #(boolean (get-in @app-db [:twitch/live login])))))
+
+(defn- twitch-login
+  "The lower-case Twitch login a link's address names, or nil when it is not a Twitch profile."
+  [url]
+  (when (= "twitch" (al/icon-for-url url))
+    (some-> (al/handle-for-url url) (subs 1) str/lower-case)))
+
+(defn- live-badge
+  "The red dot and the word Live for a Twitch `login`, once the server says they are streaming;
+   nothing while it is not live or unknown."
+  [login]
+  (when @(subscribe [:twitch/live? login])
+    [:span.ap-live
+     [:span.ap-live-dot {:role "img" :aria-label "Live now on Twitch"}]
+     "Live"]))
 
 (defn- shell
   "The app's page chrome around a .pl-root, so the drawer's theme variables
@@ -32,7 +78,9 @@
                       :style (cond-> {"--lk-icon" (str "url(/image/social/" icon ".svg)")}
                                color (assoc "--lk-mark-color" color))}])
      label
-     [:span.ap-link-host (or (al/handle-for-url url) (ap/link-host url))]]))
+     [:span.ap-link-host (or (al/handle-for-url url) (ap/link-host url))]
+     (when-let [login (twitch-login url)]
+       [live-badge login])]))
 
 (defn- names
   "The names of `artists` as prose: A / A and B / A, B and C."
