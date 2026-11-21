@@ -405,13 +405,14 @@
    `:critical?`: its absence breaks the site; called out below the table, with its `:fix`.
    `:get`: resolves the value where an accessor exists; otherwise the raw env value is shown,
    which is right for settings that have no default of ours.
-   `:since`: the release that added it; `current-release` rows end the report while unset."
+   `:since`: the release that added it; `current-release` rows end the report while unset.
+   `:present?`: for a setting a Docker secret can supply, whether its getter found one."
   (concat
    [{:group "runtime"  :var "PORT" :since "2.5"}
     {:group "runtime"  :var "DEV_MODE" :since "2.5"      :note "development only: relaxed CORS"}
     {:group "database" :var "DATOMIC_URL" :since "2.5"   :get #(get-datomic-uri) :redact? true}
-    {:group "database" :var "DATOMIC_PASSWORD" :since "2.5" :secret? true}
-    {:group "security" :var "SIGNATURE" :since "2.5"     :secret? true :critical? true
+    {:group "database" :var "DATOMIC_PASSWORD" :since "2.5" :secret? true :present? #(some? (datomic-password))}
+    {:group "security" :var "SIGNATURE" :since "2.5"     :secret? true :critical? true :present? #(some? (signature))
      :note "signs logins; every login and API call fails without it"
      :fix signature-missing-message}
     {:group "security" :var "TRUST_CLOUDFLARE" :since current-release
@@ -447,6 +448,7 @@
     {:group "email"    :var "EMAIL_ADMIN_TO" :since current-release
      :note "artist notices; default EMAIL_ERRORS_TO, APP_SUPPORT_EMAIL"}
     {:group "security" :var "PROFILE_ENCRYPTION_KEYS" :since current-release :secret? true
+     :present? #(some? (profile-encryption-keys))
      :note "encrypts preferred names; or its Docker secret"}
     {:group "content"  :var "LOAD_HOMEBREW_URL" :since "2.5" :note "homebrew loaded with every page"}
     {:group "content"  :var "PORTRAIT_ARTISTS" :since current-release
@@ -489,6 +491,7 @@
     {:group "integrations" :var "TWITCH_CLIENT_ID" :since current-release :get #(twitch-client-id)
      :note "Twitch Live dot on artist pages; needs the secret"}
     {:group "integrations" :var "TWITCH_CLIENT_SECRET" :since current-release :secret? true
+     :present? #(some? (twitch-client-secret))
      :note "Twitch Live dot on artist pages; needs the client id"}
     {:group "retention" :var "ORCPUB_SHARE_PRUNE_DAYS" :since current-release :get #(get-share-prune-days)
      :accepts #(some-> % str/trim parse-long (>= 0)) :expects "a whole number of days, 0 or more"
@@ -525,7 +528,7 @@
    change was picked up, ignored as a typo, or never set. Secret values are dropped here, not
    at print time, so nothing downstream can leak one by accident."
   []
-  (for [{env-var :var getter :get :keys [secret? redact? critical? note group fix accepts expects since]} settings]
+  (for [{env-var :var getter :get :keys [secret? redact? critical? note group fix accepts expects since present?]} settings]
     (let [raw      (env-raw env-var)
           tunable? (some? (some #(= env-var (:var %)) tunables))
           ;; A row with its own :accepts (the prune window takes 0) is checked by that instead.
@@ -538,7 +541,7 @@
        :value (if (and value redact?) (redact-secrets value) value)
        :secret? secret?
        :raw (when-not secret? raw)
-       :set? (boolean (and raw (not ignored?)))
+       :set? (boolean (or (and raw (not ignored?)) (and present? (present?))))
        :ignored? ignored?})))
 
 (defn- wrap-names
