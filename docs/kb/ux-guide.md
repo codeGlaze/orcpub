@@ -229,6 +229,9 @@ Newest last. Date, ruling, and what it replaced.
   weapons and attack table", "Floating ability score increases for homebrew"); Fixed entries are one
   line. Never imply rules parity the app lacks (no "new rules" or 5.5e claims). Credit the portrait
   artist by name with a link to her page. A rewrite gets a new panel id. `fix/long-rest-wrapup`.
+  Layout (owner approved): the header holds the eyebrow, version, title and Credits link only, no
+  summary line; group names are real headings (title case, amber, a rule under each); the patron
+  thanks is a card on the support pills' raised surface with a heart, set apart from the list.
 - 2026-11-13: support links never displace legal text. The home page shows What's New, Support the
   Server and Fuel the Dev as raised pills under the tiles; the site footer shows the two support
   links compact (icon and word at the footer's text size) under Feedback and What's New, so the
