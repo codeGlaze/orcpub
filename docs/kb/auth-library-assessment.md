@@ -40,6 +40,11 @@ Only buddy brings these (`lein deps :why`):
 
 The app's own JSON moved to charred on `upgrade/pedestal-jetty12`; cheshire stays only for buddy.
 
+**Trap:** our namespaces require `[charred.api :as cheshire]`, so code reads `cheshire/...` but runs
+charred. A new namespace that requires `cheshire.core` still compiles (buddy brings it in) but
+uses an undeclared library: copy the alias from `routes.clj`, and use charred's `read-json` /
+`write-json-str`. Caught in review of the Twitch live check, 2026-11-20.
+
 ## The replacement, if it is ever needed
 
 - **Tokens:** nimbus-jose-jwt (10.10, 843 KB). Its pom has no required runtime dependency; Bouncy

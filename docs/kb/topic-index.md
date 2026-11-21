@@ -390,7 +390,7 @@ _auth-abuse-limits · auth abuse limits_
 
 _auth-library-assessment · auth library assessment_
 
-**topics:** 2026-11-19, argon2, bcrypt, bouncy, buddy, buddy-auth, buddy-core, buddy-hashers, buddy-sign, castle, crypto, mib, password4j, passwords, scrypt, sha-512, sign-in, tokens
+**topics:** argon2, bcrypt, bouncy, buddy, buddy-auth, buddy-core, buddy-hashers, buddy-sign, castle, charred, crypto, mib, password4j, passwords, scrypt, sha-512, sign-in, tokens
 
 - What buddy does for us
 - Is it safe
