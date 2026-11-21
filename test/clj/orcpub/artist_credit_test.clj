@@ -498,3 +498,12 @@
            (cheshire/read-json (:body (ac/twitch-live-route {:query-params {:login "fusspot"}})) :key-fn keyword)))
     (is (= {:live false}
            (cheshire/read-json (:body (ac/twitch-live-route {:query-params {:login "nobody"}})) :key-fn keyword)))))
+
+(deftest concurrent-requests-for-one-login-share-one-lookup
+  (binding [ac/*twitch-http* (let [inner (stub (fn [_] (live-body)))]
+                               (fn [method url opts] (Thread/sleep 150) (inner method url opts)))]
+    (let [answers (doall (map deref (doall (repeatedly 8 #(future (ac/twitch-live? "fusspot"))))))]
+      (is (every? true? answers))
+      (is (= 1 (streams-calls)) "one call to the streams endpoint")
+      (is (= 1 (count (filter #(= :post (first %)) @calls))) "one token request"))))
+
