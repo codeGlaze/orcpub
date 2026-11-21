@@ -59,7 +59,7 @@
 
 (defn- profile-card
   "The profile of `artist`: the name, then the piece count, listed links and examples where the
-   artist keeps them on (ap/shows?), and the footer."
+   artist keeps them on (ap/shows?), and a link to all artists once there is more than one."
   [{:keys [:artist/id :artist/name] :as artist}]
   (let [links (ap/listed-links artist)
         n (ap/piece-count artist)]
@@ -78,12 +78,13 @@
          (for [l links] ^{:key (:link/url l)} [link-button l])])]
      (when (ap/shows? artist :examples)
        [:section.ap-section
-        [:h2.lk-cap "Portraits from these pieces"]
+        [:h2.lk-cap (str "Examples made with " name "'s art")]
         [:div.ap-examples
          (map-indexed (fn [i p] ^{:key i} [example artist i p])
                       (ap/example-portraits id))]])
-     [:p.ap-foot
-      [:a {:href (ap/index-path)} "All portrait artists"]]]))
+     (when (< 1 (count (ap/all-profiles)))
+       [:p.ap-foot
+        [:a {:href (ap/index-path)} "All portrait artists"]])]))
 
 (defn artist-page
   "/artists/<slug>. Redraws when the artist credits arrive, which can rename the artist,
