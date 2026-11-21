@@ -49,15 +49,16 @@
 ;; Fork overrides: add tier badges, enhanced button styles, etc.
 
 (defn supporter-link
-  "Header supporter link. Shows Patreon/supporter button when URL is configured.
+  "Header supporter link: Patreon's own button (its logomark when `mobile?`), served from this
+   site's /image/, when a Patreon URL is configured; else nil.
    icon-fn: (fn [icon-name size css] hiccup) — render function, unused in default."
   [_user-tier mobile? _icon-fn]
   (when-let [url (not-empty (:patreon branding/social-links))]
     [:a {:href url :target :_blank}
      [:img.h-32.m-l-10.m-b-5.pointer.opacity-7.hover-opacity-full
       {:src (if mobile?
-              "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png"
-              "https://c5.patreon.com/external/logo/become_a_patron_button.png")}]]))
+              "/image/patreon-logomark.png"
+              "/image/patreon-button.png")}]]))
 
 ;; ─── Support Banner ──────────────────────────────────────────
 ;; Dismissable banner for site announcements or support messages.

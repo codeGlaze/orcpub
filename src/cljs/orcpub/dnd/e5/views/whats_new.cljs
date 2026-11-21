@@ -13,8 +13,8 @@
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 (def patreon-mark
-  "Patreon's own logomark, the one the header's supporter button uses on a phone."
-  "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png")
+  "Patreon's own logomark, served from this site; the header's supporter button uses it on a phone."
+  "/image/patreon-logomark.png")
 
 (def tip-mark
   "The developer-tip icon, the Buy Me a Coffee cup."
