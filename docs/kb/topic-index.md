@@ -587,7 +587,7 @@ _builder-and-sheet-copies · builder and sheet copies_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, form, gallery, height, jpg, layout, mockup, row, rows, toggle
+**topics:** ---, add-bar, assets, bespoke, builder-comparison, chip, chips, controls, conversion, form, gallery, height, jpg, metric, mockup, row, rows, toggle
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -3417,7 +3417,7 @@ _registry-before-after · registry before after_
 
 _release-deploy-traps · release deploy traps_
 
-**topics:** alt-host, de-index, dmv, edn, folder, hand-insert, host, in-browser, lag, parsers, projects, release, reviewing, robots, sigpipe, slips, start-time, swarm
+**topics:** alt-host, de-index, dmv, folder, hand-insert, host, in-browser, lag, parsers, pprinted, projects, release, reviewing, robots, sigpipe, slips, start-time, swarm
 
 - Open and unchecked
 

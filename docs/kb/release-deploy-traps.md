@@ -17,7 +17,9 @@ the same failures. Moved from the release chat's expertise file on 2026-11-01.
   and `http-safe/get` is not `cljs-http.client/get`. Stub the right function, keep it across a timeout,
   and filter by URL. Break the code to prove it.
 - **`REVIEWED_IMAGES=record lein test` truncates at 50 entries** and writes an invalid EDN file ending
-  `...}`. Hand-insert entries, then parse with the EDN reader. Not yet fixed on `integration`.
+  `...}`. Cause: `dev/user.clj` sets `*print-length*` to 50 for every lein run, and the record path
+  pprinted unbound. Fixed on `fix/long-rest-wrapup` (#94, `45499f38b`): both record paths bind it to
+  nil. Record still rewrites the file's layout, so for one or two new images hand-insert the entries.
 - **My quick parsers lied three times** on that file. Use the real reader. For `~/.m2` jars, `sort -V`:
   plain `tail -1` picked ancient Clojure.
 - **Worktree slips, twice.** `orcpub-pdf` holds a different branch, and I merged into it. Later a
