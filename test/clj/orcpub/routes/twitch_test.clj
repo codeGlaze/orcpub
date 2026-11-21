@@ -1,5 +1,5 @@
 (ns orcpub.routes.twitch-test
-  (:require [cheshire.core :as cheshire]
+  (:require [charred.api :as cheshire]
             [clojure.test :refer [deftest is use-fixtures]]
             [orcpub.config :as config]
             [orcpub.routes.twitch :as twitch]))
@@ -14,15 +14,15 @@
     (fn [method url _opts]
       (swap! calls conj [method url])
       (if (= :post method)
-        {:status 200 :body (cheshire/generate-string {:access_token "tok" :expires_in 3600})}
+        {:status 200 :body (cheshire/write-json-str {:access_token "tok" :expires_in 3600})}
         (streams (swap! n inc))))))
 
 (defn- live-body
   "A streams response with one live stream."
-  [] {:status 200 :body (cheshire/generate-string {:data [{:type "live"}]})})
+  [] {:status 200 :body (cheshire/write-json-str {:data [{:type "live"}]})})
 (defn- offline-body
   "A streams response with no streams."
-  [] {:status 200 :body (cheshire/generate-string {:data []})})
+  [] {:status 200 :body (cheshire/write-json-str {:data []})})
 
 (defn- reset-fixture
   "Clears the module's caches and the call log around each test, with the keys set."
@@ -80,6 +80,6 @@
 (deftest the-route-answers-json
   (binding [twitch/*http* (stub (fn [_] (live-body)))]
     (is (= {:live true}
-           (cheshire/parse-string (:body (twitch/live-route {:query-params {:login "fusspot"}})) true)))
+           (cheshire/read-json (:body (twitch/live-route {:query-params {:login "fusspot"}})) :key-fn keyword)))
     (is (= {:live false}
-           (cheshire/parse-string (:body (twitch/live-route {:query-params {:login "nobody"}})) true)))))
+           (cheshire/read-json (:body (twitch/live-route {:query-params {:login "nobody"}})) :key-fn keyword)))))

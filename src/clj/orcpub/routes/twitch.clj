@@ -3,7 +3,7 @@
    for the dot on the artist page's Twitch button. Only logins named by a listed artist's Twitch
    link are ever sent to Twitch, so the endpoint is not an open proxy. Off (always not live) unless
    TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET are both set (orcpub.config/twitch-enabled?)."
-  (:require [cheshire.core :as cheshire]
+  (:require [charred.api :as cheshire]
             [clj-http.client :as client]
             [clojure.string :as str]
             [orcpub.artist-credit :as artist-credit]
@@ -41,7 +41,7 @@
 (defn- parse-json
   "`text` read as JSON with keyword keys, or nil when it is not JSON."
   [text]
-  (try (cheshire/parse-string (str text) true) (catch Exception _ nil)))
+  (try (cheshire/read-json (str text) :key-fn keyword) (catch Exception _ nil)))
 
 (defn- fetch-token!
   "Asks Twitch for an app access token (client-credentials flow) and caches it until shortly before
@@ -152,4 +152,4 @@
   {:status 200
    :headers {"Content-Type" "application/json; charset=utf-8"
              "Cache-Control" "public, max-age=60"}
-   :body (cheshire/generate-string {:live (live? (:login query-params))})})
+   :body (cheshire/write-json-str {:live (live? (:login query-params))})})
