@@ -146,6 +146,16 @@ view is two: the hold decides what the built character applies; Data View edits 
 
 ### Someday — when there is a session to spare
 
+- **Near-term: rename the JSON library's alias** (owner, 2026-11-21). Five namespaces require
+  `[charred.api :as cheshire]` and two `[charred.api :as json]`, so code reads `cheshire/...` while
+  running charred, which will confuse. Pick one generic, descriptive alias (`json` is the one already
+  in use) and find-and-replace it everywhere; it also makes a later swap away from charred a
+  one-line change per file. Not to be done ad hoc: its own commit or branch. The trap it causes:
+  [auth-library-assessment.md](docs/kb/auth-library-assessment.md).
+- **Near-term question: where the Twitch live check lives** (owner, 2026-11-21). It sits in
+  `artist_credit.clj` (#93) to avoid a new file. `oauth.clj` is the name that suggests itself, but it
+  is 8 lines of URL helpers left from the removed Google/Facebook sign-in, not an OAuth client.
+  Decide whether outside-service calls (Twitch, Turnstile in `security.clj`) get one home.
 - **Open: a check for personal data before pushes** (2026-11-19). No hook or CI job looks for IP
   addresses, email addresses, hashes or keys; GitHub secret scanning sees only known token formats.
   A real player address sat in two test files for a month (redacted on #89). Proposed: gitleaks
