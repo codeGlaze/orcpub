@@ -83,8 +83,6 @@
          (map-indexed (fn [i p] ^{:key i} [example artist i p])
                       (ap/example-portraits id))]])
      [:p.ap-foot
-      "Every portrait made with these pieces credits " name
-      ", on the character page, the share card and the PDF. "
       [:a {:href (ap/index-path)} "All portrait artists"]]]))
 
 (defn artist-page
