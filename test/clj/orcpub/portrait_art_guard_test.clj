@@ -47,7 +47,10 @@
     (println "\n  private art branch (" (.getPath marker) "): silhouette guard off\n")
 
     (= "record" (System/getenv "PORTRAIT_SILHOUETTES"))
-    (do (spit digests-file (with-out-str (pprint/pprint (portrait-pngs))))
+    ;; *print-length* is 50 under this project's lein profiles (dev/user.clj): unbound, pprint
+    ;; would cut the file short with "...".
+    (do (spit digests-file (binding [*print-length* nil *print-level* nil]
+                             (with-out-str (pprint/pprint (portrait-pngs)))))
         (println "recorded" (count (portrait-pngs)) "silhouettes to" digests-file))
 
     :else
@@ -147,14 +150,15 @@
         found (repo-images)]
     (if (= "record" (System/getenv "REVIEWED_IMAGES"))
       (do (spit reviewed-file
-                (with-out-str
+                (binding [*print-length* nil *print-level* nil]
+                 (with-out-str
                   (pprint/pprint
                    (into (sorted-map)
                          (for [[path digest] found]
                            [path (if (= digest (get-in reviewed [path :sha256]))
                                    (get reviewed path)
                                    {:sha256 digest :what "DESCRIBE: what is this image?"
-                                    :linework (linework path)})])))))
+                                    :linework (linework path)})]))))))
           (println "recorded" (count found) "images to" reviewed-file "-- describe each new one"))
       (testing "every image is one a person has looked at: the licensed art must never be in this
                 repository, in docs/ or anywhere else, and no measure tells it from a logo reliably"
