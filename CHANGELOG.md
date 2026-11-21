@@ -83,6 +83,7 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Site:** a public page for each portrait artist, with their name, how many pieces they drew, three small watermarked example portraits and the links they listed, and a page listing every artist. (#714)
 - **Site:** a "Dark Button Text" option for the yellow buttons. (#711)
 - **Site:** pages and portrait images ask AI crawlers not to train on them. (#714)
+- **Site:** a portrait artist's Twitch button shows when they are live, once the site sets Twitch keys.
 - **Server:** a startup report of the server's settings, naming what is missing and what sign-up will do, never printing secrets, and ending with the settings new in this release that are not set yet. It is saved to `startup-report.txt` beside the crash files, `./run` prints it last, and it warns when a Patreon link is set but no patrons are listed. (#712)
 - **Server:** a startup email to the admin on each new release saying what needs fixing and which new settings are worth setting, with one reminder a week later while something still needs fixing. (#724)
 - **Server:** `./run --upgrade` and `./run --check` say what the release changes for your install, with the full notes in `logs/upgrade-report.txt`; installs that do not use `./run` find the same in the startup report. (#724)
@@ -111,6 +112,7 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Site:** tick boxes are rounded and fill with the theme's accent when ticked, and the sign-up page's updates box matches the rest.
 - **Site:** the site footer groups its links into labelled Help, Support and Legal rows, with the copyright, SRD notice, credits and version in a quieter band below. (#729)
 - **Site:** returning visitors download the app again only when it has changed, and see a new release straight away.
+- **Site:** What's New lists the release as New, Improved and Fixed, in plain player terms, and links to the portrait artist's page.
 - **Server:** a deployed server will not start without a mail server unless `EMAIL_REQUIRED=false` says that is intended; `./run` sets it for installs that run without email. (#716)
 - **Server:** admin alerts and artist notices fall back to `APP_SUPPORT_EMAIL` when `EMAIL_ERRORS_TO` and `EMAIL_ADMIN_TO` are unset. (#716)
 - **Server:** the log no longer lists every web request, and Docker logs are capped so they cannot fill the disk. (#716)
@@ -135,6 +137,7 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Characters:** uses that come back once a day were never reset; they now reset at dawn. (#728)
 - **Characters:** a monk with a low Strength no longer attacks at +0 with a weapon Martial Arts does not cover; the attack uses the real modifier. (#713)
 - **Characters:** the loading spinner no longer stays up after a failed Random character; moving to another page always clears it.
+- **Characters:** Bards regain Bardic Inspiration on a short rest from level 5 (Font of Inspiration). (#310)
 - **Character sheet:** magic armor is listed with the other magic items.
 - **Inventory:** the same gear from several sources adds up instead of one replacing the rest, such as a pack's rations plus rations picked by hand. (#138)
 - **Inventory:** two of the same weapon or armor count as two. (#340)
