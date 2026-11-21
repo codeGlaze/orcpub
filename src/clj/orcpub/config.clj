@@ -400,13 +400,12 @@
     (boolean (and n (pos? n)))))
 
 (def settings
-  "Everything the boot banner reports, in print order.
-   `:secret?`: the VALUE IS NEVER PRINTED, only whether it is present.
+  "Everything the boot banner reports, in print order. `:secret?`: the VALUE IS NEVER PRINTED,
+   only whether it is present (`:present?` asks the getter, for one a Docker secret can supply).
    `:critical?`: its absence breaks the site; called out below the table, with its `:fix`.
    `:get`: resolves the value where an accessor exists; otherwise the raw env value is shown,
    which is right for settings that have no default of ours.
-   `:since`: the release that added it; `current-release` rows end the report while unset.
-   `:present?`: for a setting a Docker secret can supply, whether its getter found one."
+   `:since`: the release that added it; `current-release` rows end the report while unset."
   (concat
    [{:group "runtime"  :var "PORT" :since "2.5"}
     {:group "runtime"  :var "DEV_MODE" :since "2.5"      :note "development only: relaxed CORS"}
