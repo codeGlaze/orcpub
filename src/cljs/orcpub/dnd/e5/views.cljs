@@ -39,6 +39,7 @@
             [orcpub.dnd.e5.encounters :as encounters]
             [orcpub.dnd.e5.combat :as combat]
             [orcpub.dnd.e5.spells :as spells]
+            [orcpub.dnd.e5.spell-annotations :as spell-ann]
             [orcpub.dnd.e5.skills :as skills]
             [orcpub.dnd.e5.equipment :as equip]
             [orcpub.dnd.e5.weapons :as weapon]
@@ -2161,11 +2162,13 @@
       [:td.p-l-10.p-b-5.p-t-5 (when ability (s/upper-case (common/safe-name ability)))]
       [:td.p-l-10.p-b-5.p-t-5 (get cls-mods :spell-save-dc)]
       [:td.p-l-10.p-b-5.p-t-5 (common/bonus-str (get cls-mods :spell-attack-modifier))]
+      ;; Only a spell that makes a spell attack gets a roll; a save spell's number is its DC.
       [:td.p-l-10.p-b-5.p-t-5
-       (roll-button
-        (str (:name spell) " attack: ")
-        (str "1d20" (common/mod-str (get cls-mods :spell-attack-modifier)))
-        :text (str "1d20" (common/mod-str (get cls-mods :spell-attack-modifier))))]
+       (when (spell-ann/attack-roll? spell)
+         (roll-button
+          (str (:name spell) " attack: ")
+          (str "1d20" (common/mod-str (get cls-mods :spell-attack-modifier)))
+          :text (str "1d20" (common/mod-str (get cls-mods :spell-attack-modifier)))))]
       [:td.p-l-10.p-b-5.p-t-5.pointer.orange
        [:i.fa
         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
