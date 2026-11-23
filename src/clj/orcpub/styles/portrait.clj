@@ -959,7 +959,8 @@
                               :mask-position "center"}]
    [".pl-thumb-box" {:position "relative" :width "100px" :height "125px" :flex-shrink "0"}]
    [".pl-thumb-box > .portrait-composite" {:position "absolute" :inset "0"}]
-   [".pl-thumb-box > img" {:width "100%" :height "100%"}]
+   ;; cover: a pasted picture of any shape fills the frame instead of stretching to it
+   [".pl-thumb-box > img" {:width "100%" :height "100%" :object-fit "cover"}]
    ;; last, so a swatch's own colour wins over its class's rules
    [".pl-fill" {:background "var(--pl-fill)"}]])
 
