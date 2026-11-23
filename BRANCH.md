@@ -146,12 +146,16 @@ view is two: the hold decides what the built character applies; Data View edits 
 
 ### Someday — when there is a session to spare
 
-- **Next: every spell shows an attack roll** (owner, 2026-11-21, after the week resets). The sheet's
-  spell list (`views.cljs` ~2214, "Attack" column) draws an amber `1d20+4` roll button on every
-  spell, Bless and Cure Wounds included. The column itself dates from 2017 and showed the spell
-  attack modifier; what is new is a roll button in it for every row. Find which change turned the
-  cell into a button (likely the Weapons table / dice-roll work, #722) and show a roll only for
-  spells that make an attack roll; a save spell shows its DC. Fix on a branch approved by name.
+- **Fixing on `fix/sheet-polish` (2026-11-23):** tester reports after #95: the spell attack roll on
+  every spell, the Firefox notice wash, edits on a shared character tripping the leave prompt and
+  sign-in, the squashed pasted portrait.
+- **Later: "Save a copy" and "Send changes back" for shared characters** (owner, 2026-11-23). A
+  viewer's edits on someone else's sheet now stay on screen only. Next steps the owner raised: save
+  the edited sheet as the viewer's own character (the builder's Clone already drops the id; the
+  shared homebrew can already be added to a library; check that a signed-out copy survives sign-in
+  through Unsaved drafts), and send an edit back to the player: the viewer shares the edited sheet,
+  the owner opening it sees the changed fields beside their own and applies or ignores them. Open:
+  fields both sides changed, and the server confirming the link's source character and owner.
 - **Near-term: rename the JSON library's alias** (owner, 2026-11-21). Five namespaces require
   `[charred.api :as cheshire]` and two `[charred.api :as json]`, so code reads `cheshire/...` while
   running charred, which will confuse. Pick one generic, descriptive alias (`json` is the one already

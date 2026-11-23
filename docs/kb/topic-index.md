@@ -1440,7 +1440,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, index, irreducible, ledger, narrative, session, topic, wrong
+**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, session, stale, topic, wrong
 
 - What earns a doc
 - Verify, don't remember
@@ -1957,6 +1957,15 @@ _garden-calc-plus · garden calc plus_
 **topics:** 2026-11-09, 2562, 3640, around, compresses, css, declaration, define, initial, invalid, invalidates, negative, offset, operator, popover, spaces, subtract, whitespace
 
 
+
+## garden-declaration-order.md
+
+_garden-declaration-order · garden declaration order_
+
+**topics:** 2026-11-23, 3px, big, composite, firefox, garden, hash, hiding, longhand, mask, notice, order, painted, properties, reset, shorthand, tester, typed
+
+- The trap
+- The fix and the guard
 
 ## garden-inline-styles-harvest.md
 
