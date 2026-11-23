@@ -4519,12 +4519,19 @@
   (let [a (::entity/values stored) b (::entity/values edited)]
     (into #{} (filter #(not= (get a %) (get b %))) (into (set (keys a)) (keys b)))))
 
+(defn others-character?
+  "Whether `stored` (a character as kept in ::char5e/character-map) belongs to someone other than
+   the signed-in user of `db`: it has an owner, and the user is signed out or is someone else."
+  [db stored]
+  (let [owner (::entity/owner stored)]
+    (boolean (and owner (not= owner (get-in db [:user-data :user-data :username]))))))
+
 (defn update-character-fx
   "Effects for a sheet or list edit: applies `update-fn` to the stored copy of character `id` and
-   autosaves it, recording its changed values keys under ::sheet-edited and option keys under
-   ::sheet-edited-options (for the save's reply, and for re-applying after a refused save). When the
-   builder has that character open, the edit is applied there too. With no `id` the character is
-   unsaved, so the edit goes to the builder's copy."
+   autosaves it, recording changed values keys under ::sheet-edited and option keys under
+   ::sheet-edited-options (for the save's reply and re-applying after a refused save); the builder's
+   open copy gets the edit too. Someone else's character is edited on screen only: no save, and `id`
+   goes in ::viewer-edited. With no `id` the edit goes to the builder's unsaved character."
   [db id update-fn]
   ;; Any sheet edit closes an open Rest result, so its Undo cannot overwrite the edit; the rest
   ;; events put their own result back (with-rest-result).
@@ -4533,7 +4540,8 @@
     (let [int-id (js/parseInt id)
           stored (get-in db [::char5e/character-map int-id])
           updated (update-fn stored)
-          open (when (= int-id (get-in db [:character :db/id])) (update-fn (:character db)))]
+          open (when (= int-id (get-in db [:character :db/id])) (update-fn (:character db)))
+          viewer? (others-character? db stored)]
       (cond-> {:db (cond-> (-> db
                                (assoc-in [::char5e/character-map int-id] updated)
                                (update-in [::sheet-edited int-id] (fnil into #{})
@@ -4541,8 +4549,9 @@
                                (update-in [::sheet-edited-options int-id] (fnil into #{})
                                           (inventory/changed-option-keys stored updated)))
                      (get-in db [::in-flight int-id]) (assoc-in [::edited-in-flight int-id] true)
-                     open (assoc :character open))
-               ::char5e/save-character-throttled id}
+                     open (assoc :character open)
+                     viewer? (update ::viewer-edited (fnil conj #{}) int-id))}
+        (not viewer?) (assoc ::char5e/save-character-throttled id)
         (and open (not (:draft/held db))) (assoc ::builder-draft->local-store open)))
     ;; No id: the character being built has never been saved, so this is an
     ;; edit to the one in hand, not a switch.

@@ -4485,6 +4485,10 @@
         [:div.w-100-p
          [:div
           [character-health-warning id]
+          (when @(subscribe [::char/viewer-edited? id])
+            [notifications/callout
+             {:icon "fa-info-circle" :tone :note :compact? true
+              :text "This is someone else's character: your changes show here but are not saved."}])
           (when show-summary?
             [:div.f-s-24.f-w-600.m-b-16.m-l-20.text-shadow.flex
              [character-summary id true true]])
