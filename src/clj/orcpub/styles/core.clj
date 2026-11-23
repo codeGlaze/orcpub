@@ -1608,8 +1608,9 @@
       :padding "1px"
       :pointer-events :none
       :background (str "linear-gradient(90deg, " orange ", rgba(255, 255, 255, 0.12) 30%, "
-                       "rgba(255, 255, 255, 0.12) 70%, " orange ")")
-      :-webkit-mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
+                       "rgba(255, 255, 255, 0.12) 70%, " orange ")")}
+     ;; Its own map, so the order holds: `mask` resets `mask-composite` (garden-declaration-order.md).
+     {:-webkit-mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
       :-webkit-mask-composite "xor"
       :mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
       :mask-composite "exclude"}]]
