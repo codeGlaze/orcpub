@@ -792,6 +792,19 @@ _character-validation · character validation_
 - Charter — the modern replacement (PROPOSAL)
 - Disposition of the broken test
 
+## ci-signal-plan.md
+
+_ci-signal-plan · ci signal plan_
+
+**topics:** 2026-11-24, allowance, annotation, art, billing, dmv, github, guards, hook, intentional, lock, pre-push, push, red, restarted, skipped, started, workflow
+
+- The owner's rule
+- What set it off
+- The work, by state
+- 2. A clear signal when CI did not start
+- 3. Guards in the pre-push hook
+- 5. Intentional holds
+
 ## class-builder-extraction-plan.md
 
 _class-builder-extraction-plan · class builder extraction plan_
@@ -1141,7 +1154,7 @@ _datomic-backups · datomic backups_
 
 _datomic-crash-analysis · datomic crash analysis_
 
-**topics:** config, contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, postgres, seconds, speculation, threshold, transactor, unvalidated, write
+**topics:** config, contention, crash, crashes, datomic, feb, flush, heartbeat, lock, log, memoryindex, observed, postgres, speculation, threshold, transactor, unvalidated, write
 
 - Active transactor configuration (verified from log startup lines)
 - Crash mechanism — verified
@@ -2984,7 +2997,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _personal-data-scan · personal data scan_
 
-**topics:** 2026-11-19, address, addresses, allow, author, aws, commits, dotted, email, emails, github, hashes, private, public, range, ranges, scan, scanned
+**topics:** 2026-11-19, address, addresses, allow, author, aws, commit, commits, dotted, email, github, hashes, private, public, range, ranges, scan, scanned
 
 - What runs, and when
 - Rules
@@ -3857,7 +3870,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, data, edition, editions, monsters, open5e, owner, pdf, served, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, content, edition, editions, monsters, open5e, owner, pdf, served, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -4095,7 +4108,7 @@ _testing-infrastructure · testing infrastructure_
 
 _tracked-issues · tracked issues_
 
-**topics:** 128, 2026-09-05, canvas, ceiling, combobox, datomic, desktop, layout, native, phone, pinterest, portrait, pro, severity, sniff, transactor, viewport, width
+**topics:** 128, 2026-09-05, canvas, ceiling, combobox, datomic, desktop, layout, native, phone, pinterest, postgres, pro, severity, sniff, transactor, viewport, width
 
 - Datomic transactor crashes — investigate Postgres migration
 - Summary

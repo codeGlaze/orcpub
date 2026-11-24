@@ -135,6 +135,7 @@ sides had been written blind to the other's findings.
 ### Process & infrastructure
 | Document | Topic |
 |----------|-------|
+| [ci-signal-plan.md](ci-signal-plan.md) | Making CI worth listening to (owner, 2026-11-24): a red check means something needs fixing; the billing-lock day, the portrait-guard fixes, guards in pre-push, and the list of intentional holds and what lifts each. |
 | [verification-discipline.md](verification-discipline.md) | Lessons on assumptions/thoroughness + the **standing rule**: don't call it verified without walking it up and down and backing it with a falsifiable test (or the full chain); and how a characterization test doubles as the old-vs-new comparison instrument. |
 | [data-safety-layers.md](data-safety-layers.md) | **Standing design rule** for robustness against bad data: the four layers (prevent / harden / heal / surface), the rule that picks between them by lifecycle, the `save ⊆ load` + diagnosable-rejection invariants, worked examples, and anti-patterns (silent-drop, speculative-heal). From the cross-branch toggle-nil review. |
 | [branch-md-2026-10-23.md](branch-md-2026-10-23.md) | Word-for-word snapshot of `BRANCH.md` before its 2026-10-23 trim: the full Summer Patch merge list, the #669 merge plan, the picks-strand analysis, the custom-item-classification table. `BRANCH.md` is live; this is the record. |
