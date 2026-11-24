@@ -1687,6 +1687,25 @@
       (is (= #{hp} (get-in @app-db [::events/sheet-edited 222]))
           "but its changed key is recorded too, for re-applying after a refused save"))))
 
+(deftest someone-elses-character-is-edited-on-screen-only
+  (let [saves (atom [])]
+    (with-fx {::char5e/save-character-throttled #(swap! saves conj %)
+              ::events/builder-draft->local-store identity}
+      (fn []
+        (reset! app-db (assoc pristine-db ::char5e/character-map
+                              {111 {:db/id 111 ::entity/owner "alice" ::entity/values {hp 9}}}))
+        (rf/dispatch-sync [::char5e/set-current-hit-points "111" 7])
+        (is (= 7 (get-in @app-db [::char5e/character-map 111 ::entity/values hp]))
+            "a signed-out viewer sees the edit")
+        (is (= [] @saves) "but nothing is saved, so no leave prompt and no trip to sign-in")
+        (is (= #{111} (::events/viewer-edited @app-db)) "and the sheet can say so")
+        (swap! app-db assoc :user-data {:user-data {:username "bob"}})
+        (rf/dispatch-sync [::char5e/set-current-hit-points "111" 5])
+        (is (= [] @saves) "another signed-in user is a viewer too")
+        (swap! app-db assoc :user-data {:user-data {:username "alice"}})
+        (rf/dispatch-sync [::char5e/set-current-hit-points "111" 4])
+        (is (= ["111"] @saves) "the owner's edit autosaves as before")))))
+
 (deftest an-autosave-reply-keeps-the-builders-unsaved-edits
   (let [dispatched (atom [])
         saved (atom nil)
