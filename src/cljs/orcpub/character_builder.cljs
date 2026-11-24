@@ -314,7 +314,7 @@
   [:div.class-not-applied.f-s-12.m-t-5 {:role "status"}
    (if template-option
      (str (::t/name template-option) " isn't applied to the character right now. Change its level, or choose another class.")
-     (str (common/kw-to-name key) " isn't in your loaded content, so it isn't applied. Choose another class, or turn its source back on in My Content."))])
+     (str (common/kw-to-name key true) " isn't in your loaded content, so it isn't applied. Choose another class, or turn its source back on in My Content."))])
 
 (defn class-level-selector
   "One picked class's row in Class / Level, the `i`th: its class drop-down (this class and the
@@ -340,7 +340,7 @@
             :on-change (set-class i options-map)}
            ;; a picked class the content lacks stays chosen, so the row keeps its drop-down
            (when-not class-template-option
-             [:option.builder-dropdown-item {:value key} (str (common/kw-to-name key) " (not in your content)")])
+             [:option.builder-dropdown-item {:value key} (str (common/kw-to-name key true) " (not in your content)")])
            (doall
             (map
              (fn [{:keys [::t/key ::t/name ::t/plugin-source] :as option}]
