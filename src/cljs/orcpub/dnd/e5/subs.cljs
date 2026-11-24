@@ -49,11 +49,14 @@
  (fn [db _]
    db))
 
-;; Whether this viewer has edited someone else's character `id` on screen; those edits are not saved.
+;; Whether this viewer has edited character `id` on screen while it is someone else's; those edits
+;; are not saved. Signed in as its owner, it is not someone else's, and the next edit saves.
 (reg-sub
  ::char5e/viewer-edited?
  (fn [db [_ id]]
-   (contains? (get db :orcpub.dnd.e5.events/viewer-edited) (js/parseInt id))))
+   (let [int-id (js/parseInt id)]
+     (and (contains? (get db :orcpub.dnd.e5.events/viewer-edited) int-id)
+          (event-utils/others-character? db (get-in db [::char5e/character-map int-id]))))))
 
 (reg-sub
  :registration-form

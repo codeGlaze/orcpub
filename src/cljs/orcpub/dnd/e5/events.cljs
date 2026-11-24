@@ -4519,13 +4519,6 @@
   (let [a (::entity/values stored) b (::entity/values edited)]
     (into #{} (filter #(not= (get a %) (get b %))) (into (set (keys a)) (keys b)))))
 
-(defn others-character?
-  "Whether `stored` (a character as kept in ::char5e/character-map) belongs to someone other than
-   the signed-in user of `db`: it has an owner, and the user is signed out or is someone else."
-  [db stored]
-  (let [owner (::entity/owner stored)]
-    (boolean (and owner (not= owner (get-in db [:user-data :user-data :username]))))))
-
 (defn update-character-fx
   "Effects for a sheet or list edit: applies `update-fn` to the stored copy of character `id` and
    autosaves it, recording changed values keys under ::sheet-edited and option keys under
@@ -4541,7 +4534,7 @@
           stored (get-in db [::char5e/character-map int-id])
           updated (update-fn stored)
           open (when (= int-id (get-in db [:character :db/id])) (update-fn (:character db)))
-          viewer? (others-character? db stored)]
+          viewer? (event-utils/others-character? db stored)]
       (cond-> {:db (cond-> (-> db
                                (assoc-in [::char5e/character-map int-id] updated)
                                (update-in [::sheet-edited int-id] (fnil into #{})
