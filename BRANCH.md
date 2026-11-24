@@ -148,7 +148,12 @@ view is two: the hold decides what the built character applies; Data View edits 
 
 - **Fixing on `fix/sheet-polish` (2026-11-23):** tester reports after #95: the spell attack roll on
   every spell, the Firefox notice wash, edits on a shared character tripping the leave prompt and
-  sign-in, the squashed pasted portrait.
+  sign-in, the squashed pasted portrait. The spell table's Attack column was folded into Mod. there
+  (2026-11-24): the roll button is Mod. on attack spells. Every row keeps its own Source, Ability,
+  DC and Mod.: moving them to a line per class was rejected, since a rushed player reads one row.
+- **Roadmap: the spell table** (owner, 2026-11-24, "fine for now, room for improvement"). Desktop has
+  room to spare that could carry some visual niceties. Long spell names wrap to two or three lines on
+  phones; no answer without drawbacks yet. Review page: artifact `SmzV7PM1hVnauNLTv22CMS`.
 - **Later: "Save a copy" and "Send changes back" for shared characters** (owner, 2026-11-23). A
   viewer's edits on someone else's sheet now stay on screen only. Next steps the owner raised: save
   the edited sheet as the viewer's own character (the builder's Clone already drops the id; the
