@@ -15,6 +15,8 @@ Firefox notices.
 
 ## Changed
 
+- **Character sheet:** the spell table's Attack column is gone; on a spell that makes a spell attack, its Mod. is the roll button, so the table is narrower and long names wrap less on phones.
+
 ## Fixed
 
 - **Character sheet:** only spells that make a spell attack show an attack roll; Bless and Cure Wounds no longer offer 1d20.

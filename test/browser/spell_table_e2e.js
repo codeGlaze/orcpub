@@ -1,8 +1,9 @@
 // Needs: dev bundle (reads the app's internals, which a production bundle compiles away).
 // The sheet's spell table, for a level 1 cleric in the builder's Details view. On a 344px phone
 // (a Galaxy Fold's cover screen) and a desktop: no header label runs into the next ("DCMod."),
-// and only a spell that makes a spell attack has a roll button (Guiding Bolt, Inflict Wounds),
-// while Bless and Cure Wounds have none.
+// there is no Attack column; only a spell that makes a spell attack has a roll button, its Mod.
+// (Guiding Bolt, Inflict Wounds), while Bless and Cure Wounds have none; and the button is no
+// taller than one line of its row's name, so the row does not grow.
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/spell_table_e2e.js`). No login.
 // Runs in:   ~30s. SHOT_DIR=<dir> saves spell-table-*.png.
@@ -68,16 +69,36 @@ const rollIn = (page, name) => page.evaluate(name => {
   return b ? b.textContent.trim() : '';
 }, name);
 
+// The header labels of the first spell table, in order.
+const headers = page => page.evaluate(() =>
+  [...document.querySelector('tbody.spells tr.f-w-b').children].map(th => th.textContent.trim()).filter(Boolean));
+
+// In `name`'s row: the roll button's height (with its tooltip wrapper) and one line of its name's height,
+// in px, or null when the row or button is missing. The button fits when it is no taller.
+const rollFit = (page, name) => page.evaluate(name => {
+  const row = [...document.querySelectorAll('tr.spell')].find(r => r.children[0].textContent.trim() === name);
+  const b = row && row.querySelector('button.roll-button');
+  if (!b) return null;
+  const outer = b.closest('.tooltip') || b, r = document.createRange();
+  r.selectNodeContents(row.children[0]);
+  return { button: Math.round(outer.getBoundingClientRect().height), text: Math.round([...r.getClientRects()].reduce((m, q) => Math.max(m, q.height), 0)) };
+}, name);
+
 (async () => {
   const browser = await chromium.launch({ executablePath: findChrome() });
   for (const [tag, w, h] of [['phone', 344, 882], ['desktop', 1280, 900]]) {
     const page = await open(browser, w, h);
     const gap = await smallestHeaderGap(page);
     check(`${tag}: no header label runs into the next`, gap.min >= 8, `${gap.min}px between ${gap.at}`);
+    const hs = await headers(page);
+    check(`${tag}: there is no Attack column`, !hs.includes('Attack') && hs.includes('Mod.'), hs.join(' | '));
     for (const name of ['Guiding Bolt', 'Inflict Wounds']) {
       const r = await rollIn(page, name);
-      check(`${tag}: ${name} has an attack roll`, /^1d20[+-]\d+$/.test(r || ''), JSON.stringify(r));
+      check(`${tag}: ${name}'s Mod. is its attack roll`, /^[+-]\d+$/.test(r || ''), JSON.stringify(r));
     }
+    const fit = await rollFit(page, 'Guiding Bolt');
+    check(`${tag}: the roll button is no taller than a line of text`, !!fit && fit.button <= fit.text + 1,
+          fit && `button ${fit.button}px, a line ${fit.text}px`);
     for (const name of ['Bless', 'Cure Wounds']) {
       const r = await rollIn(page, name);
       check(`${tag}: ${name} has no attack roll`, r === '', JSON.stringify(r));
