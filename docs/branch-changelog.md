@@ -37,5 +37,6 @@ stored picks. Why that build lost the class is not reproduced yet.
 ## Fixed
 
 - **Builder:** the class drop-down no longer disappears when the character's class isn't applied (for example, its homebrew source is turned off or couldn't load); the row stays and says why.
+- **Site:** pages without a composed portrait (the builder, the character list, a sheet) no longer download the artists' credits.
 
 ## Security
