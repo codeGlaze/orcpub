@@ -1442,8 +1442,9 @@
    rendering fault, and inventing something to put there is worse, so the
    whole strip says so plainly instead."
   [layers]
-  (let [_ @(subscribe [:portrait/artist-overrides]) ; re-render when the credits arrive
-        infos (pa/artists-for-layers layers)
+  (let [infos (pa/artists-for-layers layers)
+        ;; credits are fetched and watched only when there is someone to credit
+        _ (when (seq infos) @(subscribe [:portrait/artist-overrides]))
         named (filter :artist/name infos)]
     [:div.pl-attribution
      (cond
@@ -1676,7 +1677,8 @@
    A composed portrait carries its artists' names under it. This is the one
    surface a reader lands on, so it is where the credit does the most good."
   [portrait-data image-url editable?]
-  (let [_ @(subscribe [:portrait/artist-overrides])] ; re-render when the credits arrive
+  ;; only a composed portrait has a credit, so only then are the credits fetched and watched
+  (let [_ (when (pa/drawable? portrait-data) @(subscribe [:portrait/artist-overrides]))]
     (cond
       (pa/drawable? portrait-data)
       [:div.m-r-20.m-t-10.m-b-10
