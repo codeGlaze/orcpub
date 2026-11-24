@@ -155,22 +155,19 @@ hook. `--no-ff` stops a fast-forward from skipping the merge commit.
 
 About 20 minutes of out-of-memory and Swarm tests, not part of the general suite. The files that
 count are the `paths:` list of `.github/workflows/docker-heavy.yml`; read the current list there (on a
-branch without the file: `git show origin/feature/email-and-alerts:.github/workflows/docker-heavy.yml`).
+branch without the file: `git show origin/integration:.github/workflows/docker-heavy.yml`).
 
 - **When they run:** on a PR into `develop` or `integration` whose diff against its base touches
   any listed path, on every push and every label change, docs-only pushes included: GitHub matches
   the filter against the whole PR diff. Not on a refactor leaf's PR into `refactor/main`. A PR
   run uses the workflow from the PR merged into its base, so it runs once either side carries
-  `docker-heavy.yml`: today only `feature/email-and-alerts`; every PR into `integration` once that
-  merges, older branches included.
+  `docker-heavy.yml`: `integration` since #75 (2026-10-26), `develop` since #32 (2026-11-05), so
+  every such PR into either runs it, older branches included.
 - **No PR, no CI:** pushing a branch with no open PR starts no CI at all, heavy Docker included,
   despite the pre-push heads-up. CI starts when the PR opens (2026-11-18).
-- **Pushes to `feature/email-and-alerts` itself:** its workflow has at times carried a temporary
-  `push:` trigger with no file filter, so every push runs the checks, PR or not. Read its `on:` block
-  before pushing there.
 - **Pausing them:** the PR label `heavy-docker: later`. Batch pushes to keep runs few.
-- **By hand:** `gh workflow run docker-heavy.yml --ref <branch>` (the pre-push hook prints it) works
-  only once the workflow is on `develop`, the default branch.
+- **By hand:** `gh workflow run docker-heavy.yml --ref <branch>` (the pre-push hook prints it); it
+  needs the workflow on `develop`, the default branch, which it is.
 - **When to ask the owner:** `AGENTS.md`, "Tests".
 
 ## Agent tooling on a code branch
