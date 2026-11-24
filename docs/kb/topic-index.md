@@ -278,6 +278,21 @@ _account-flows · account flows_
 - 8. Corrections — claims made here that were wrong
 - Owner's wording (2026-09-19 to 09-20)
 
+## agent-harnesses.md
+
+_agent-harnesses · agent harnesses_
+
+**topics:** 2026-11-22, bot, claude, cline, com, configuration, copilot, customization, harness, hook, hooks, https, sdk, skill, skills, task, taskcomplete, unchecked
+
+- Rules files
+- Skills
+- Hooks
+- Cline in VS Code, tested
+- Models
+- Writing instructions that get followed
+- Corrections made on the way (2026-11-22)
+- Related
+
 ## agent-hooks.md
 
 _agent-hooks · agent hooks_
@@ -486,7 +501,7 @@ _blank-env-values · blank env values_
 
 _branch-context-history · branch context history_
 
-**topics:** boon, catalog, charter, cljs, gate, golden, grant, green, harness, intent, lint, locks, phase, pool, registry, rotted, spine, subs
+**topics:** boon, catalog, charter, cljs, falsifiable, gate, golden, grant, green, intent, lint, locks, phase, pool, registry, rotted, spine, subs
 
 - (was) Branch Context: claude/zen-wright-04xhdz
 - Purpose
@@ -529,7 +544,7 @@ _branch-inventory · branch inventory_
 
 _branch-md-2026-10-23 · branch md 2026 10 23_
 
-**topics:** 2026-10-06, 2026-10-08, branch, branch-inventory, branches, coderabbit, commits, hold, merge, merged, patch, prs, push, release, rescue, reviews, summer, vetting
+**topics:** 2026-10-06, 2026-10-08, branch, branch-inventory, branches, coderabbit, commits, hunks, merge, merged, patch, prs, push, release, rescue, reviews, summer, vetting
 
 - Current state
 - Summer Patch: where it stands (2026-10-08)
@@ -989,7 +1004,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, homebrew, level-3, name-keyword, pact, phase, phases, read-seams, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, gate, homebrew, name-keyword, pact, phase, phases, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -1104,7 +1119,7 @@ _content-to-character-pipeline · content to character pipeline_
 
 _copilot-agents · copilot agents_
 
-**topics:** 2026-10-27, agent, chat, claude, commit-msg, copilot, finishing, folder, git, gpg, hook, hooks, prompt, sessionstart, task, trailer, workspace, worktree
+**topics:** agent, agents, chat, claude, commit-msg, copilot, custom-instructions-reference, finishing, folder, git, gpg, hook, hooks, nested-project-instructions, prompt, task, visualstudio, worktree
 
 - What carries over, and what does not
 - One-time setup in VS Code
@@ -1823,7 +1838,7 @@ _fast-browser-probes · fast browser probes_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, feat, grant, hook, language, map-of-flags, modifiers, pool, pools, registry, scalar, select, ui-capped, verb, widget, widgets
+**topics:** arm, bool, compiler, feat, grant, hardcoded, language, map-of-flags, modifiers, pool, pools, registry, scalar, select, ui-capped, verb, widget, widgets
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -1840,7 +1855,7 @@ _feat-builder-audit · feat builder audit_
 
 _fighting-style-authoring · fighting style authoring_
 
-**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, watch-list, whitelist
+**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, feat, fighter, fighting-style, grant, mariner, paladin, per-class, pool, ranger, style, watch-list
 
 - Status — 2026-09-05: BUILT
 - The divvying rule (decided) — which classes can take a homebrew style
@@ -2330,7 +2345,7 @@ _homebrew-save-rework · homebrew save rework_
 
 _http-fx-patterns · http fx patterns_
 
-**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, interop, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
+**topics:** 1698, 2026-02-22, conj, constructed, creation, dispatch, fire-and-forget, handler, http, immediately, on-failure, on-success, optimistic, party, patterns, systemic, usages, vectors
 
 - How the :http fx works
 - on-success / on-failure MUST be dispatch vectors
@@ -2474,7 +2489,7 @@ _lein-uberjar-hang · lein uberjar hang_
 
 _library-management-and-conflicts · library management and conflicts_
 
-**topics:** already-loaded, conflict, conflicts, content, disable, dismissal, enabled, global, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
+**topics:** already-loaded, card, conflict, conflicts, content, disable, dismissal, enabled, import, item, library, modal, nondeterministic, off, same-key, source, twin, winner
 
 - Data model
 - Why a duplicate key is a problem
@@ -2676,7 +2691,7 @@ _name-to-kw-audit · name to kw audit_
 
 _namespace-architecture · namespace architecture_
 
-**topics:** 148, 2026-09-15, anomalies, constants, corrections, crud, csp, handlers, helpers, html5history, http-fx-patterns, namespace, namespaces, nonce, revision, server-rendered, shell, side-effect
+**topics:** 148, 2026-09-15, anomalies, constants, corrections, crud, csp, handlers, helpers, html5history, http-fx-patterns, namespace, namespaces, nonce, revision, server-rendered, side-effect, specs
 
 - Directory Layout
 - Entry Points
@@ -3992,7 +4007,7 @@ _starting-equipment · starting equipment_
 
 _style-and-branding-audit-prompt · style and branding audit prompt_
 
-**topics:** 2026-11-16, audit, audit-only, audits, branding, cleanup, despite, inventory, layer, messy, near-duplicate, paste, piled, plans, prompt, rails, stylesheets, update
+**topics:** 2026-11-16, audit, audit-only, audits, branding, cleanup, despite, inventory, layer, messy, near-duplicate, paste, piled, plans, prompt, rails, stylesheets, went
 
 - The job
 - Scope
@@ -4045,7 +4060,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, fa4, fork, github, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged

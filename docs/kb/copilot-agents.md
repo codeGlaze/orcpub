@@ -17,8 +17,9 @@ same rules as a Claude Code session. Written 2026-10-27 for finishing merges fro
 ## One-time setup in VS Code
 
 1. Install **GitHub Copilot Chat**. In the chat view, pick **Agent** mode and a **Claude** model.
-2. In Settings, turn on **`chat.useAgentsMdFile`** (Chat: Use AGENTS.md File). Copilot then reads a
-   root `AGENTS.md` into every request.
+2. Check that **`chat.useAgentsMdFile`** (Chat: Use AGENTS.md File) is on; it is by default. It
+   controls only VS Code's Local harness; the Copilot harness reads the root `AGENTS.md` without it
+   ([reference](https://code.visualstudio.com/docs/agents/reference/custom-instructions-reference#_nested-project-instructions)).
 3. Open the **worktree folder** of the branch the agent works on (File > Open Folder, e.g.
    `\\wsl$\...\orcpub-lookup`), not the main checkout, so its `AGENTS.md` is the one it reads.
 
@@ -39,7 +40,8 @@ in one file) into the worktree, excluded from git, and arms the hooks. A worktre
 Fill in TASK and BRANCH. It works for any agent, Copilot or not:
 
 ```text
-You are working on the codeGlaze/orcpub repo. First run
+You are working on the codeGlaze/orcpub repo. First read `START-HERE.md` on agents/develop (`git show origin/agents/develop:START-HERE.md`) and follow it.
+Then run
 `git fetch --prune origin && git show origin/agents/develop:scripts/agent-setup.sh | bash`,
 then read CLAUDE.md in the workspace root (it holds AGENTS.md, BRANCH.md and this branch's
 handoff) and follow it. Its rules override your defaults.
