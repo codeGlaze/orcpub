@@ -146,7 +146,9 @@ view is two: the hold decides what the built character applies; Data View edits 
 
 ### Someday — when there is a session to spare
 
-- **Fixing on `fix/sheet-polish` (2026-11-23):** tester reports after #95: the spell attack roll on
+- **Merged: #96 `fix/sheet-polish` into `integration` (2026-11-24, `5aaf6a9c9`)**, folded into the
+  Long Rest Update; on DMV's pre-merge (Gitea PR #10, `5bd520ffc`), not on our `develop` yet. Tester
+  reports after #95: the spell attack roll on
   every spell, the Firefox notice wash, edits on a shared character tripping the leave prompt and
   sign-in, the squashed pasted portrait. The spell table's Attack column was folded into Mod. there
   (2026-11-24): the roll button is Mod. on attack spells. Every row keeps its own Source, Ability,
