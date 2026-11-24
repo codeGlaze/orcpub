@@ -25,10 +25,8 @@ A harness's docs describe its latest release: check your installed version when 
 - **Claude-only text belongs in `CLAUDE.md` below its imports:** it already reaches code branches
   through the pass-through above, with no script change.
 - **Size:** Claude Code's guidance is under 200 lines per `CLAUDE.md`; "longer files consume more
-  context and reduce adherence". A code-branch `CLAUDE.md` is about 780 lines (`AGENTS.md` 459,
-  `BRANCH.md` 285, `CLAUDE.md` 37, plus the handoff).
-- **`.github/copilot-instructions.md` links `../agents.md`**, which does not exist (the file is
-  `AGENTS.md`; `agents/` is a folder). It resolves only on a case-insensitive filesystem.
+  context and reduce adherence". A code-branch `CLAUDE.md` is about 795 lines (`AGENTS.md` 459,
+  `BRANCH.md` 296, `CLAUDE.md` 37, plus the handoff; counted 2026-11-24).
 
 ## Skills
 
@@ -54,15 +52,14 @@ adopted by Copilot and VS Code among others ([Anthropic](https://www.anthropic.c
 
 ## Hooks
 
-**Cline's hook details below are unconfirmed against its current docs (checked 2026-11-22).** Its
-hooks page now only links to [SDK Plugins](https://docs.cline.bot/sdk/plugins.md), which documents
-programmatic plugins (`beforeTool`, `afterTool`, …), not hook scripts. The Cline column comes from an
-earlier version of its docs. Current project configuration lives in `.cline/` (`rules/`, `workflows/`,
+**Cline 4.1.26 lists hook scripts but never runs them; its plugins do run** (tested: "Cline in VS
+Code, tested", below). The Cline column and the two Cline bullets under the table record what an
+earlier version of its docs described, for a release that runs hook scripts again. Its hooks page
+now only links to [SDK Plugins](https://docs.cline.bot/sdk/plugins.md). Current project configuration lives in `.cline/` (`rules/`, `workflows/`,
 `skills/`, `hooks/`, `agents/`, `plugins/`), with `.clinerules/` read as "the older layout"; global
 configuration is `~/.cline/`, shared by the IDE, CLI and SDK
 ([configuration](https://docs.cline.bot/cline-cli/configuration)). The configuration page does not
-give hook file names or format. Before relying on any Cline hook detail, run a test hook on the
-installed extension and record which folder it reads and the payload it receives.
+give hook file names or format.
 
 | | Claude Code ([hooks](https://code.claude.com/docs/en/hooks)) | Cline ([hooks](https://docs.cline.bot/customization/hooks)) |
 |---|---|---|
@@ -76,7 +73,6 @@ installed extension and record which folder it reads and the payload it receives
   workspace ones, and either can cancel.
 - **Cline's TaskComplete fires after the task finished;** the docs give no way for it to block
   completion. Enforce in `.githooks/` and CI; use TaskComplete to remind.
-- Unchecked: the name of Cline's shell tool and the shape of its command parameter.
 
 ## Cline in VS Code, tested
 
