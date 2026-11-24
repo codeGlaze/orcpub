@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Finds agent attribution trailers and session links in commits: one pattern, shared by pre-push and
+# the PR check (.github/workflows/agent-trailers.yml), so the two cannot drift. docs/kb/agent-hooks.md.
+#
+#   agent-trailers <git log revision args...>   e.g.  agent-trailers BASE..HEAD
+#                                                     agent-trailers SHA --not --remotes
+#
+# Prints each offending line as "<hash> <subject>" or the trailer itself; exits 1 when any is found.
+bad="$(git log --format='%h %s%n%b' "$@" 2>/dev/null |
+  grep -iE '^(Co-Authored-By:[[:space:]]*Claude|Claude-Session:|Generated with \[?Claude Code)|claude\.ai/code/session')"
+[ -z "$bad" ] && exit 0
+printf '%s\n' "$bad"
+exit 1

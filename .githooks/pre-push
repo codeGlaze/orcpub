@@ -58,8 +58,7 @@ fi
 # first commits can precede the setup script). Checks the commits this push adds, not history.
 while read -r _l local_sha remote_ref _r; do
   [ "$local_sha" = "$zero" ] && continue
-  bad="$(git log --format='%h %s%n%b' "$local_sha" --not --remotes 2>/dev/null |
-    grep -iE '^(Co-Authored-By:[[:space:]]*Claude|Claude-Session:|Generated with \[?Claude Code)|claude\.ai/code/session' | head -3)"
+  bad="$(bash "$(dirname "$0")/agent-trailers" "$local_sha" --not --remotes | head -3)"
   if [ -n "$bad" ]; then
     echo "" >&2
     echo "  pre-push blocked: commits bound for '${remote_ref#refs/heads/}' carry agent attribution trailers:" >&2
