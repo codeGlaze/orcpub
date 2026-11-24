@@ -224,6 +224,8 @@
    [:.rest-fab-handle {:width "36px" :height "4px" :border-radius "2px" :background "rgba(255,255,255,.5)" :margin "0 auto 2px"}]
    [".rest-fab-sheet .rest-box" ".rest-fab-card .rest-box" {:background :none :border 0 :padding 0 :margin 0}]
    ["body:has(.rest-fab-slot) .import-log-button" {:bottom "84px"}]
+   ;; room under the footer, so the page's last line scrolls clear of the 72px the button takes
+   ["body:has(.rest-fab-slot) .content:has(> .site-footer)" {:padding-bottom "72px"}]
    [".app.light-theme .rest-fab" {:background-image "linear-gradient(to bottom,#33658A,#33658A)"}]
    [".app.light-theme .rest-fab-sheet" ".app.light-theme .rest-fab-card" {:background-color "#fff" :color "#363636"}]
    [".app.light-theme .rest-fab-card" {:border-color "rgba(0,0,0,.14)"}]

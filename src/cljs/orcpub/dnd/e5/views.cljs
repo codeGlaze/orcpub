@@ -2211,9 +2211,7 @@
             [:th.p-l-10.p-b-5.p-t-5 (if mobile? "Src" "Source")]
             [:th.p-l-10.p-b-5.p-t-5 (if mobile? "Aby" "Ability")]
             [:th.p-l-10.p-b-5.p-t-5 "DC"]
-            [:th
-             {:class (when (not mobile?) "p-b-10 p-t-10")}
-             "Mod."]
+            [:th.p-l-10.p-b-5.p-t-5 "Mod."]
             [:th.p-l-10.p-b-5.p-t-5 "Attack"]
             [:th.p-l-10.p-b-5.p-t-5]]
            (doall
