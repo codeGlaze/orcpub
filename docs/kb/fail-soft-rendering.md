@@ -177,6 +177,16 @@ through the real Export button. **When changing anything an export reads, add th
 - **Stored portraits** (`character/sane-portrait`): tweak values are cleaned once, where a portrait
   enters, so every reader gets usable values; `shade-hex` also ignores a non-number shade.
 
+## A control draws from what was picked, not from the build (2026-11-24, PR #97)
+
+The builder's Class / Level rows were drawn from the built character (`::char5e/levels`). When a
+build ended up without the picked class (its homebrew source off or held back, or any other cause),
+the row and its drop-down vanished with no message: "Level 0", "select at least 1", nothing to
+click. Seen on the DMV dev build after Barbarian to Wizard; the trigger there is still unknown.
+`character_builder.cljs` `class-rows` now builds the rows from the stored picks and marks a class
+the build left out, which gets a line under its row. Any control that changes a pick should draw
+from the picks, and read the build only for what it shows. Test: `test/browser/class_picker_e2e.js`.
+
 ## Diagnosing a new occurrence
 
 The layered boundaries below stop a bad feature blanking the page, but they do not tell you *which*

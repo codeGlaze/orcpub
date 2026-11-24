@@ -1783,6 +1783,7 @@ _fail-soft-rendering · fail soft rendering_
 - Verified facts / gotchas (so nobody re-derives them)
 - PDF export: nothing optional stops it (2026-10-16, PR #64)
 - Operator settings and stored portraits are checked on the way in (2026-10-17, PR #64)
+- A control draws from what was picked, not from the build (2026-11-24, PR #97)
 - Diagnosing a new occurrence
 - Landing (done)
 
