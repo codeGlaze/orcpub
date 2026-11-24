@@ -96,6 +96,7 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 ### Changed
 - **Characters:** the Missing Content warning also covers spells and languages, and ignores the built-in "Custom" option. (#524)
 - **Characters:** on phones every weapon picker opens in a bottom sheet. (#722)
+- **Character sheet:** the spell table's Attack column is gone; on a spell that makes a spell attack, its Mod. is the roll button, so the table is narrower and long names wrap less on phones.
 - **Homebrew:** opening the app, importing and restoring are faster with a large library. (#723)
 - **Homebrew:** a value in the wrong form whose meaning is plain (`"25"` for a speed, one trait where a list belongs) is corrected once, and the import report lists each field it fixed and each entry it sets aside for repair. (#723)
 - **Homebrew:** content imported without a source lands in the real "Default Option Source".
@@ -138,7 +139,13 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Characters:** a monk with a low Strength no longer attacks at +0 with a weapon Martial Arts does not cover; the attack uses the real modifier. (#713)
 - **Characters:** the loading spinner no longer stays up after a failed Random character; moving to another page always clears it.
 - **Characters:** Bards regain Bardic Inspiration on a short rest from level 5 (Font of Inspiration). (#310)
+- **Builder:** a pasted portrait picture fills its frame instead of being squashed.
 - **Character sheet:** magic armor is listed with the other magic items.
+- **Character sheet:** scrolled to the end of the page, the Rest button no longer covers the footer's last lines.
+- **Character sheet:** the spell table's DC and Mod. headings no longer run together on phones.
+- **Character sheet:** the opened weapon panel keeps its coloured bottom strip.
+- **Character sheet:** changing something on someone else's shared character shows the change without trying to save it, so there is no leave-page warning and no trip to sign-in.
+- **Character sheet:** only spells that make a spell attack show an attack roll; Bless and Cure Wounds no longer offer 1d20.
 - **Inventory:** the same gear from several sources adds up instead of one replacing the rest, such as a pack's rations plus rations picked by hand. (#138)
 - **Inventory:** two of the same weapon or armor count as two. (#340)
 - **Spells:** a spell can no longer be prepared once every preparation is used. (#728)
@@ -184,6 +191,7 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Site:** bold text renders bold, and buttons use the site font. (#711)
 - **Site:** dismissing the cookie notice now hides it on every page, not only the page where it was dismissed. (#729)
 - **Site:** an action that fails now says so and changes nothing; before, nothing visible happened, and the actions queued after it were dropped. (#729)
+- **Site:** notices such as Unsaved drafts show their thin amber ring in Firefox, instead of an amber wash that hid their text.
 - **Server:** sign-in, password reset and the character, party, folder and item lists stay fast as the site grows; the first start after upgrading builds the new indexes in the background, and until then an older account with a mixed-case email address signs in by username. (#721)
 - **Server:** the same content gets the same keys on a Turkish or other non-English server, and spell-card school names and the sheet's ability labels print the right letter ("Illusion", not "İllusion"). (#699)
 - **Server:** settings set in `.env` now reach the server under Docker Compose and Swarm; branding (`APP_*`) and most other settings were dropped, so the site ran on defaults. (#724)

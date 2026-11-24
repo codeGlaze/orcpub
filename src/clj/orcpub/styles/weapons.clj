@@ -309,8 +309,9 @@
     ;; the opened row: an inset panel under the row
     [:.weapon-opened
      {:margin "0 10px 10px" :padding "10px 12px 12px" :display :flex :flex-direction :column :gap "6px"
-      :font-size "13px" :line-height 1.45 :background "var(--wpn-card)" :border "1px solid var(--wpn-card-line)"
-      :border-top 0 :border-bottom "3px solid var(--wpn-strip)"}]
+      :font-size "13px" :line-height 1.45 :background "var(--wpn-card)"}
+     ;; Its own map, so the order holds: `border` resets the sides set after it.
+     {:border "1px solid var(--wpn-card-line)" :border-top 0 :border-bottom "3px solid var(--wpn-strip)"}]
     [:.weapon-opened-name {:font-size "14px" :font-weight 700}]
     [:.weapon-opened-props {:color "var(--wpn-muted)"}]
     [:.weapon-opened-rules {:border-top "1px solid var(--wpn-menu-line)" :padding-top "6px"}]]

@@ -9,7 +9,8 @@
 // dimmed page does not close the sheet; answering Neither and tapping the dimmed page closes
 // it. On the Features tab the button is gone. With Developer mode's "Open item casting under the
 // item on phones" on, the wand's Cast opens the panel under the item instead of a sheet. On a
-// desktop the box opens as a popover.
+// desktop the box opens as a popover. Scrolled to the end of the page, on both, the button covers
+// no text or link (the page leaves room under the footer).
 //
 // Needs:     server (`./scripts/e2e/run.sh test/browser/rest_fab_e2e.js`). No login.
 // Runs in:   ~40s. SHOT_DIR=<dir> saves rest-fab-*.png.
@@ -58,6 +59,20 @@ async function open(browser, phone) {
   return page;
 }
 
+// Scrolled to the end of the page: the text and links under the Rest button, as short labels.
+const underFab = page => page.evaluate(() => {
+  window.scrollTo(0, document.documentElement.scrollHeight);
+  const fab = document.querySelector('button.rest-fab'); if (!fab) return ['no Rest button'];
+  const b = fab.getBoundingClientRect(), hits = new Set();
+  for (let x = b.left + 2; x < b.right; x += 6) for (let y = b.top + 2; y < b.bottom; y += 6)
+    for (const e of document.elementsFromPoint(x, y)) {
+      if (fab.contains(e)) continue;
+      const text = [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+      if (text || /^(BUTTON|INPUT|SELECT|A)$/.test(e.tagName)) hits.add(`${e.tagName} "${e.textContent.trim().slice(0, 24)}"`);
+    }
+  return [...hits];
+});
+
 const shows = (loc, text) => loc.filter({ hasText: text }).first().waitFor({ timeout: 5000 }).then(() => true, () => false);
 const box = async loc => loc.boundingBox({ timeout: 5000 }).catch(() => null);
 
@@ -80,6 +95,9 @@ const box = async loc => loc.boundingBox({ timeout: 5000 }).catch(() => null);
         il && `bottom ${Math.round(844 - il.y - il.height)}`);
   await page.evaluate(() => { cljs.core.swap_BANG_.call(null, re_frame.db.app_db, db => cljs.core.dissoc(db, cljs.core.keyword('import-log'))); });
   await shot('closed');
+  const coveredPhone = await underFab(page);
+  check('scrolled to the end, the button covers none of the page', coveredPhone.length === 0, coveredPhone.join(', '));
+  await page.evaluate(() => window.scrollTo(0, 0));
 
   // spend a wand charge, so dawn has something to bring back and the rest asks
   const wandLine = page.locator('tbody.other-magic-items tr').filter({ hasText: 'Wand of Fireballs' }).first().locator('.item-charges-line').first();
@@ -121,6 +139,9 @@ const box = async loc => loc.boundingBox({ timeout: 5000 }).catch(() => null);
 
   const desk = await open(browser, false);
   await desk.tab('backpack');
+  const coveredDesk = await underFab(desk);
+  check('on a desktop too, scrolled to the end, the button covers none of the page', coveredDesk.length === 0, coveredDesk.join(', '));
+  await desk.evaluate(() => window.scrollTo(0, 0));
   await desk.locator('button.rest-fab').click({ timeout: 10000 }).catch(() => {});
   check('on a desktop the box opens as a popover',
         await desk.locator('.rest-fab-card .rest-box').waitFor({ timeout: 5000 }).then(() => true, () => false)
