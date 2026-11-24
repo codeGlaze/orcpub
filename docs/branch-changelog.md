@@ -20,6 +20,8 @@ Firefox notices.
 - **Character sheet:** only spells that make a spell attack show an attack roll; Bless and Cure Wounds no longer offer 1d20.
 - **Character sheet:** changing something on someone else's shared character shows the change without trying to save it, so there is no leave-page warning and no trip to sign-in.
 - **Character sheet:** the opened weapon panel keeps its coloured bottom strip.
+- **Character sheet:** the spell table's DC and Mod. headings no longer run together on phones.
+- **Character sheet:** scrolled to the end of the page, the Rest button no longer covers the footer's last lines.
 - **Builder:** a pasted portrait picture fills its frame instead of being squashed.
 - **Site:** notices such as Unsaved drafts show their thin amber ring in Firefox, instead of an amber wash that hid their text.
 
