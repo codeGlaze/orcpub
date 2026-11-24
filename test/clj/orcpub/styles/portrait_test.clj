@@ -70,4 +70,5 @@
   (let [css (garden/css {:pretty-print? false} styles/styles)
         body (second (re-find #"\.pl-thumb-box>img\{([^}]*)\}" css))]
     (is (some? body) "the rule is there")
-    (is (s/includes? (str body) "object-fit:cover"))))
+    (is (s/includes? (str body) "object-fit:cover"))
+    (is (s/includes? (str body) "object-position:center top") "cropped from the top, where a face is")))
