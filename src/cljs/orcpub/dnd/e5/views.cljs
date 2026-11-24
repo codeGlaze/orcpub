@@ -2143,7 +2143,12 @@
                   (.stopPropagation e))}
      (comps/checkbox selected? (or disabled? always-prepared?) (str spell-name " prepared"))]))
 
-(defn spell-row [id lvl spell-modifiers prepares-spells prepared-spells-by-class {:keys [key ability qualifier class always-prepared?]} expanded? on-click prepare-spell-count prepared-spell-count]
+(defn spell-row
+  "The table rows for one known spell (a map of :key, :ability, :class, :always-prepared?) of
+  character `id` at level `lvl`: prepared box and name, class, ability, save DC and Mod. (a roll
+  button for a spell that makes a spell attack), and the open caret; when `expanded?`, a second
+  row with casting and the full spell. `on-click` toggles it. Returns a vector of row hiccup."
+  [id lvl spell-modifiers prepares-spells prepared-spells-by-class {:keys [key ability qualifier class always-prepared?]} expanded? on-click prepare-spell-count prepared-spell-count]
   (let [spell-map @(subscribe [::spells/spells-map])
         spell (spell-map key)
         cls-mods (get spell-modifiers class)
@@ -2161,20 +2166,19 @@
       [:td.p-l-10.p-b-5.p-t-5 class]
       [:td.p-l-10.p-b-5.p-t-5 (when ability (s/upper-case (common/safe-name ability)))]
       [:td.p-l-10.p-b-5.p-t-5 (get cls-mods :spell-save-dc)]
-      [:td.p-l-10.p-b-5.p-t-5 (common/bonus-str (get cls-mods :spell-attack-modifier))]
-      ;; Only a spell that makes a spell attack gets a roll; a save spell's number is its DC.
-      [:td.p-l-10.p-b-5.p-t-5
-       (when (spell-ann/attack-roll? spell)
-         (roll-button
-          (str (:name spell) " attack: ")
-          (str "1d20" (common/mod-str (get cls-mods :spell-attack-modifier)))
-          :text (str "1d20" (common/mod-str (get cls-mods :spell-attack-modifier)))))]
+      ;; Only a spell that makes a spell attack rolls: its Mod. is the roll button.
+      (let [mod (get cls-mods :spell-attack-modifier)]
+        [:td.p-l-10.p-b-5.p-t-5.spell-mod
+         (if (spell-ann/attack-roll? spell)
+           (roll-button (str (:name spell) " attack: ") (str "1d20" (common/mod-str mod))
+                        :text (common/bonus-str mod))
+           (common/bonus-str mod))])
       [:td.p-l-10.p-b-5.p-t-5.pointer.orange
        [:i.fa
         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
      (when expanded?
        [:tr {:style expanded-spell-background-style}
-        [:td {:col-span 7}
+        [:td {:col-span 6}
          [:div.p-10
           (when (pos? lvl)
             [cast-spell-component id lvl])
@@ -2212,7 +2216,6 @@
             [:th.p-l-10.p-b-5.p-t-5 (if mobile? "Aby" "Ability")]
             [:th.p-l-10.p-b-5.p-t-5 "DC"]
             [:th.p-l-10.p-b-5.p-t-5 "Mod."]
-            [:th.p-l-10.p-b-5.p-t-5 "Attack"]
             [:th.p-l-10.p-b-5.p-t-5]]
            (doall
             (map-indexed

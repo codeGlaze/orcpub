@@ -205,6 +205,9 @@
    [:.cast-go {:margin "0 0 0 auto" :min-height "36px" :padding "0 12px" :font-size "12px" :font-weight 600}]
    [:.cast-go.unavailable {:opacity 0.5 :cursor :default}]
    [:.cast-spell {:max-height "40vh" :overflow-y :auto :margin "8px 0" :font-size "13px"}]
+   ;; the spell table's Mod. roll button, no taller than the row's text
+   [:.spell-mod [:.roll-button {:min-width 0 :font-size "14px" :line-height "18px" :padding "0 8px" :margin 0 :vertical-align :middle}]
+                [:.tooltip {:border-bottom 0 :vertical-align :middle}]]
    [".app.light-theme .cast-sheet" {:background-color :white :color "#222"}]
    [".app.light-theme .cast-panel" {:background "rgba(255,255,255,.6)" :border-color "rgba(0,0,0,.14)"}]
    [".app.light-theme .cast-level.on" ".app.light-theme .cast-spell-pick.on" {:color "#33658A" :border-color "#33658A"
