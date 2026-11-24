@@ -25,4 +25,8 @@ did this for its mask rules).
 
 `test/clj/orcpub/styles/shorthand_order_test.clj` compiles the app stylesheet and fails on any
 rule that sets a property before a shorthand that resets it. Its table names each shorthand and
-the `name-*` properties it leaves alone (`border-radius`, `flex-direction`).
+the `name-*` properties it leaves alone (`flex-direction`, `outline-offset`, `overflow-wrap`); no border
+shorthand resets a corner radius, so `border-top-left-radius` before `border-top` passes. It reads
+rules inside `@media` blocks too: each body must end at a `}`, or the first rule of a block is
+swallowed as the block's own body and never checked (CodeRabbit on #96).
+
