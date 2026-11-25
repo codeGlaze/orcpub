@@ -1005,7 +1005,7 @@ _content-extensibility-direction · content extensibility direction_
 
 _content-extensibility-e2e · content extensibility e2e_
 
-**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, gate, homebrew, name-keyword, pact, phase, phases, read-seams, spell-selection
+**topics:** appears, backend, behaviors, boon, catalog, checklist, confirm, console, errors, f12, homebrew, level-3, name-keyword, pact, phase, phases, read-seams, spell-selection
 
 - Setup (use the project's standard dev flow)
 - Checks
@@ -2316,7 +2316,7 @@ _homebrew-reference-web · homebrew reference web_
 
 _homebrew-safety-net · homebrew safety net_
 
-**topics:** aside, cache, conversion, entity-options-architecture, entry, fail-soft-rendering, homebrew-fixes-persist, realized, realizing, repairs, retries, retry, set-aside, startup, throw, throws, unrealized, watcher
+**topics:** aside, cache, entity-options-architecture, entries, entry, fail-soft-rendering, homebrew-fixes-persist, realizing, reload, repairs, restore, retries, retry, set-aside, startup, throw, throws, unrealized
 
 - What it guarantees
 - Startup reads storage and builds nothing

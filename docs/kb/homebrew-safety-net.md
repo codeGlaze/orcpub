@@ -111,6 +111,16 @@ entity-options-architecture.md. The deep check runs in three places:
 - **Building `::char5e/template` does not realize option lists.** On a page that does not
   draw options, it calls `race-option` zero times. A check that only derefs the template
   finds nothing.
+- **A set-aside source can outlive its entries** (found 2026-11-24 on #97, `fix/class-picker-from-picks`).
+  Older builds set aside whole sources, settings included. Each load prunes set-aside entries that now
+  load, so once all of MegaPak's had, `plugins:rejected` held `{"MegaPak..." {:disabled? false}}`
+  and My Content showed "couldn't load" with a blank count and "No entries to repair".
+  `e5/reconcile-rejected-items` now keeps a source only while `holds-set-aside-content?` (entries or a
+  damaged section); the panel counts sources and names what they hold if one ever slips through.
+- **A restore whose save fails must leave the page as it was.** `::e5/repair-quarantined-source` kept
+  the restored entries in app-db when `commit-library` failed to write, while they stayed in
+  `plugins:rejected`; a retry then found the key taken and stored a second copy (`:seven-seas-2`).
+  It now returns the old db unless the gate refused with a reload (`test/e2e/quarantine-restore.js`).
 
 ## Tests
 
