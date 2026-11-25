@@ -164,17 +164,24 @@ view is two: the hold decides what the built character applies; Data View edits 
   through Unsaved drafts), and send an edit back to the player: the viewer shares the edited sheet,
   the owner opening it sees the changed fields beside their own and applies or ignores them. Open:
   fields both sides changed, and the server confirming the link's source character and owner.
+- **Roadmap: finish `feature/srd-pipeline`** (owner, 2026-11-25). Its one commit not on
+  `integration` is `96925ceeb` (2026-10-19): weapons and armor read from the generated
+  `resources/public/srd/2014/equipment.edn` instead of the hand-kept `weapons.cljc` and `armor.cljc`.
+  It's a content change that has not been reviewed, and the branch is a month behind `integration`.
+  Next: merge `integration` in, review where the two sources differ (`srd-2024-roadmap.md`, "Stage 1,
+  first type"), then PR. After that, spells join the pipeline by generating into the
+  `spells.edn` that `perf/srd-spells-static` creates.
 - **Roadmap: make the test suites cheaper** (owner, 2026-11-25). `lein test` runs 1678 tests and the
   cljs suite 1042, and each run pays the JVM start before the first test. Measure before changing:
   time each namespace, find the slowest, look for tests that rebuild the same fixture (a full
   character build, an in-memory Datomic) where one shared fixture would do, and for tests that
   check the same thing twice. Then decide on sharing fixtures, a parallel runner, or a fast subset
   for local runs with the full suite left to CI.
-- **Cleanup pass: the 48 shadowed-name lint warnings** (owner, 2026-11-25: a separate pass, with
+- **On `perf/srd-spells-static` (owner, 2026-11-25), with the alias rename below. Cleanup pass: the 48 shadowed-name lint warnings** (owner, 2026-11-25: a separate pass, with
   other cleanup work). Mostly locals named `name`, `key` or `val` in live code, several in the big
   files. The list is `test/lint-baseline.txt` (on #97, `fix/class-picker-from-picks`); delete each
   line as its warning goes, and the CI ratchet holds the rest ([ci-signal-plan.md](docs/kb/ci-signal-plan.md)).
-- **Near-term: rename the JSON library's alias** (owner, 2026-11-21). Five namespaces require
+- **Near-term: rename the JSON library's alias** (owner, 2026-11-21; rides on `perf/srd-spells-static`, 2026-11-25). Five namespaces require
   `[charred.api :as cheshire]` and two `[charred.api :as json]`, so code reads `cheshire/...` while
   running charred, which will confuse. Pick one generic, descriptive alias (`json` is the one already
   in use) and find-and-replace it everywhere; it also makes a later swap away from charred a
@@ -198,7 +205,7 @@ view is two: the hold decides what the built character applies; Data View edits 
   `views.cljs` 388 KB, SRD spell data `spells.cljc` 296 KB (10%), `events.cljs` 170 KB, magic item
   data 121 KB, `cljs.pprint` 98 KB, class data 95 KB, `cljs.spec` 56 KB. Removing our three
   `pprint` uses saved 255 bytes compressed: something else still pulls `cljs.pprint` in.
-  - **To do (owner, 2026-11-09): ship the SRD spell data as a static file**, loaded when a page
+  - **In progress on `perf/srd-spells-static` (2026-11-25; handoff in `branches/`). To do (owner, 2026-11-09): ship the SRD spell data as a static file**, loaded when a page
     needs it, not compiled into the bundle (about 10% of it). The decision that SRD content is
     static data is in [`srd-2024-roadmap.md`](docs/kb/srd-2024-roadmap.md); magic items and classes
     are the next candidates.
