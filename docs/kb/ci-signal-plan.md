@@ -67,4 +67,10 @@ warned fails too, asking for its removal. After fixing warnings, `scripts/lint-r
 
 The dev scripts without an `ns` form were all linted as one `user` namespace, so each one's
 requires and defs counted as duplicates of the others'. Giving each script its own `ns` is the fix.
-What is left (48, 2026-11-24): shadowed names, mostly a local called `name`, `key` or `val`.
+What is left (48, 2026-11-24): shadowed names, mostly a local called `name`, `key` or `val`. They are
+being fixed on `perf/srd-spells-static` (owner, 2026-11-25).
+
+**DMV has no CI, so run the ratchet by hand in its pre-merge.** Its fork files differ, so the shared
+baseline is wrong there in both directions. The first run (2026-11-25, Gitea PR #10) found two new
+warnings in DMV-only code and one baseline line DMV never had. All three were fixed on the pre-merge
+branch, whose baseline is now DMV's own.

@@ -811,7 +811,7 @@ _character-validation · character validation_
 
 _ci-signal-plan · ci signal plan_
 
-**topics:** 2026-11-24, allowance, annotation, art, billing, dmv, failed, hook, lock, portrait, pre-push, push, ran, restarted, seconds, shadowed, skipped, workflow
+**topics:** 2026-11-24, 2026-11-25, allowance, art, baseline, billing, dmv, hook, lock, portrait, pre-push, push, ran, ratchet, restarted, shadowed, skipped, workflow
 
 - The owner's rule
 - What set it off
