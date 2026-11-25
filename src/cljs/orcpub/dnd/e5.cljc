@@ -291,12 +291,22 @@
    all-plugins-1
    all-plugins-2))
 
+(defn holds-set-aside-content?
+  "Whether a set-aside `plugin` (a source map) still holds something to repair or export: a content
+   section with entries, or a damaged section. Settings alone (`:disabled?`) and empty sections do
+   not count. Returns a boolean."
+  [plugin]
+  (boolean (some (fn [[k v]] (or (and (qualified-keyword? k) (map? v) (seq v))
+                                 (damaged-section? k v)))
+                 plugin)))
+
 (defn reconcile-rejected-items
   "Per-ENTRY analog of `reconcile-rejected`. Merge this load's rejected entries
    into the already-quarantined ones (latest-wins per item), then drop any item
    that now appears in `kept` (repaired or re-imported valid), and drop content
    groups / sources left empty. Keeps an item from being BOTH live and quarantined,
-   and lets a fixed entry self-clear. Returns the cleaned {source partial-plugin}."
+   and lets a fixed entry self-clear; a source left holding nothing (holds-set-aside-content?)
+   is dropped. Returns the cleaned {source partial-plugin}."
   [old-rejected new-rejected kept]
   (let [merged (merge-all-plugins (if (map? old-rejected) old-rejected {})
                                   (if (map? new-rejected) new-rejected {}))]
@@ -316,7 +326,7 @@
                           (assoc p ct items)))
                       {}
                       plugin)]
-         (if (seq cleaned) (assoc acc src cleaned) acc))))
+         (if (holds-set-aside-content? cleaned) (assoc acc src cleaned) acc))))
      {}
      merged)))
 

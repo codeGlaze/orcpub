@@ -9367,7 +9367,10 @@
                  [:input.input {:type "text" :value (get current ok "")
                                 :on-change #(swap! edits assoc ok (.. % -target -value))}]]]))]
            (when (empty? damaged)
-             [:div.f-s-12.m-t-5 "No entries to repair."]))
+             [:div.f-s-12.m-t-5
+              (str "Nothing here can load or be repaired: this copy holds only "
+                   (if-let [ks (seq (keys plugin))] (s/join ", " (map name ks)) "an empty source")
+                   ". Export raw keeps a copy of it; Discard removes it.")]))
          (let [edit-map (into {} (map (fn [[[ct ik field] v]]
                                         [[src-name ct ik field] v])
                                       current))
@@ -9480,10 +9483,11 @@
        {:style {:border "2px solid #d94b20"}}
        [:div.f-w-b.f-s-24.m-b-5
         [:i.fa.fa-exclamation-triangle.m-r-5]
-        (str (s/join " and " (cond-> []
-                               (pos? n-entries) (conj (str n-entries " entr" (if (= 1 n-entries) "y" "ies")))
-                               (pos? n-damaged) (conj (str n-damaged " damaged section"
-                                                           (when (not= 1 n-damaged) "s")))))
+        (str (or (not-empty (s/join " and " (cond-> []
+                                              (pos? n-entries) (conj (str n-entries " entr" (if (= 1 n-entries) "y" "ies")))
+                                              (pos? n-damaged) (conj (str n-damaged " damaged section"
+                                                                          (when (not= 1 n-damaged) "s"))))))
+                 (str (count quarantined) " source" (when (not= 1 (count quarantined)) "s")))
              " couldn't load — needs attention")]
        [:div.f-s-12
         "The rest of each source loaded fine. Fix these back in, or export/discard them."]
