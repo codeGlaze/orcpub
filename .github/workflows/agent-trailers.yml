@@ -23,12 +23,13 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+        # The pattern lives in agents/develop's .githooks/agent-trailers, shared with the pre-push hook.
         run: |
-          bad="$(git log --format='%h %s%n%b' "$BASE..$HEAD" |
-            grep -iE '^(Co-Authored-By:[[:space:]]*Claude|Claude-Session:|Generated with \[?Claude Code)|claude\.ai/code/session' | head -10 || true)"
-          if [ -n "$bad" ]; then
+          git fetch -q origin agents/develop
+          git show FETCH_HEAD:.githooks/agent-trailers > "$RUNNER_TEMP/agent-trailers"
+          if ! bad="$(bash "$RUNNER_TEMP/agent-trailers" "$BASE..$HEAD")"; then
             echo "::error::Commits in this pull request carry agent attribution trailers or session links:"
-            echo "$bad"
+            echo "$bad" | head -10
             echo "Reword them (git rebase; git commit --amend for the tip) and force-push the branch."
             exit 1
           fi
