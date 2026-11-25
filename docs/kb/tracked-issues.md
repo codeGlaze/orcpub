@@ -327,3 +327,16 @@ The blocker is not size but semantics: `inventory-combobox` is an *add to a list
 control (it dispatches, clears the query and closes), while `monster-selector` picks
 a *single current value* that must stay displayed. Generalising means parameterising
 the selected-value display and the on-pick behaviour.
+
+## A field removed from a character is never removed in storage (#295)
+
+**Status:** Reproduced 2026-11-25 on `integration` (b14a515e4); same code upstream. Fix planned on
+`fix/long-rest-hp-saved`.
+
+A Long Rest resets HP by removing `::char5e/current-hit-points` (absent means full). The save
+succeeds, but `update-character` (`src/clj/orcpub/routes.clj`) retracts only sub-entities whose
+ids disappeared. It never retracts a plain attribute missing from the new save, so the old HP
+comes back on reload. Any reset that works by removing a field has this bug. Write a value instead
+(the planned fix: an "at max" flag written true or false, never removed). The browser test that
+showed it, with its setup traps (seeded server via `scripts/e2e/server.sh start`, the 7.5 s
+autosave throttle), should become the branch's regression test.
