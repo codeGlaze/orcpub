@@ -811,7 +811,7 @@ _character-validation · character validation_
 
 _ci-signal-plan · ci signal plan_
 
-**topics:** 2026-11-24, allowance, annotation, art, billing, dmv, github, guards, hook, intentional, lock, pre-push, push, red, restarted, skipped, started, workflow
+**topics:** 2026-11-24, allowance, annotation, art, billing, dmv, failed, hook, lock, portrait, pre-push, push, ran, restarted, seconds, shadowed, skipped, workflow
 
 - The owner's rule
 - What set it off
@@ -819,6 +819,7 @@ _ci-signal-plan · ci signal plan_
 - 2. A clear signal when CI did not start
 - 3. Guards in the pre-push hook
 - 5. Intentional holds
+- 6. The lint ratchet
 
 ## class-builder-extraction-plan.md
 

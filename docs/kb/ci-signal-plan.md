@@ -18,14 +18,20 @@ sent its own failure email. The owner cleared the lock the same day and the runs
 | # | Item | State |
 |---|------|-------|
 | 1 | Billing lock cleared, #97's runs restarted | done |
-| 2 | One clear signal when CI did not start (billing, outage) instead of a red test per workflow | planned, below |
-| 3 | The cheap guards run in the local pre-push hook, so their failures stop the push | planned, below |
+| 2 | One clear signal when CI did not start (billing, outage) instead of a red test per workflow | not built: see below |
+| 3 | The cheap guards run in the local pre-push hook, so their failures stop the push | done: pre-push already ran all four; the trailer pattern is now one script, `.githooks/agent-trailers`, run by the hook and by the PR check |
 | 4a | Portrait art guard: ran on DMV's Gitea, which carries the art on purpose, and failed every push | fixed on #97: runs only on `codeGlaze/orcpub` and `Orcpub/orcpub` |
 | 4b | Portrait art guard ran twice per PR push (push and pull_request events) | fixed on #97: a same-repo PR is covered by its push run; fork PRs still run |
-| 4c | `page_load_budget_e2e.js` excuses "KNOWN BUG, fix on #65" (artist credits fetched but not shown). #65 merged 2026-10-28 | to check: fixed, then remove the allowance; or still there, then fix it |
+| 4c | `page_load_budget_e2e.js` excused "KNOWN BUG, fix on #65" (artist credits fetched but not shown). #65 merged 2026-10-28 | fixed on #97: still there (5 pages failed without the allowance); credits now load only where a composed portrait is drawn, allowance removed |
+| 6 | Lint warnings never failed anything (`--fail-level error`), so 83 piled up | done on #97: `scripts/lint-ratchet.py` fails CI on any warning not in `test/lint-baseline.txt`, and on a fixed one still listed, so the list only shrinks. 35 cleared the same day (all 27 real ones; dev scripts given `ns` forms); 48 shadowed names left |
 | 5 | Every intentional hold is named, says why, and is switched off by a flag, not left failing | inventory below |
 
 ## 2. A clear signal when CI did not start
+
+**Not built: it cannot work for the case that set it off.** A billing lock stops every workflow,
+this one included, so it would stay silent exactly when it is needed. What does work: when a check
+fails in seconds with no steps, read `check-runs/<id>/annotations` for the reason before anything
+else. The original idea, kept for an outage that leaves Actions running:
 
 A small workflow that runs when another workflow finishes (`workflow_run`). When the run failed
 with no steps started, it posts one comment on the PR naming the cause from GitHub's annotation
@@ -51,3 +57,14 @@ Something held back on purpose skips with a reason that names where it is tracke
 - `Submit Clojure dependencies`: skipped on PRs by design (it runs on pushes to the trunks).
 
 Add each new hold here, with what lifts it.
+
+## 6. The lint ratchet
+
+`lein lint` fails only on errors. The CI step after it runs `scripts/lint-ratchet.py lint-output.txt
+test/lint-baseline.txt`: a warning not in the baseline fails by name; a baseline line no longer
+warned fails too, asking for its removal. After fixing warnings, `scripts/lint-ratchet.py --write
+<lint output>` rewrites the baseline. Never add a line to hide a new warning.
+
+The dev scripts without an `ns` form were all linted as one `user` namespace, so each one's
+requires and defs counted as duplicates of the others'. Giving each script its own `ns` is the fix.
+What is left (48, 2026-11-24): shadowed names, mostly a local called `name`, `key` or `val`.
