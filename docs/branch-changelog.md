@@ -37,6 +37,8 @@ stored picks. Why that build lost the class is not reproduced yet.
 ## Fixed
 
 - **Builder:** the class drop-down no longer disappears when the character's class isn't applied (for example, its homebrew source is turned off or couldn't load); the row stays and says why.
+- **My Content:** a homebrew source no longer shows as "couldn't load" with a blank count and "No entries to repair" after all its entries have loaded again.
+- **My Content:** retrying a restore after one that could not be saved no longer adds the restored entry to the library twice.
 - **Site:** pages without a composed portrait (the builder, the character list, a sheet) no longer download the artists' credits.
 
 ## Security
