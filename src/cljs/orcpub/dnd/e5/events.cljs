@@ -6203,7 +6203,7 @@
              n-left (count-items still-bad)
              {db' :db ok? :ok? refused :dispatch-n} (commit-library db live {})]
          ;; Persist live + quarantine together so they never disagree, and show now. A failed
-         ;; write restores nothing: kept in memory too, a retry found the key taken and added a copy.
+         ;; write restores nothing, not even in memory (homebrew-safety-net.md).
          (if-not ok?
            {:db (if (seq refused) db' db) :dispatch-n refused}
            (do (set-rejected-plugins new-rejected)

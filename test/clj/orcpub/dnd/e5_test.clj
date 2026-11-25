@@ -510,8 +510,7 @@
   (testing "nil inputs never throw"
     (is (= {} (e5/reconcile-rejected-items nil nil nil))))
   (testing "a source left holding only its settings, once every entry loads, disappears"
-    ;; A whole source set aside by an older build carries :disabled?; pruned, it showed in My
-    ;; Content as couldn't load with no count and nothing to repair.
+    ;; homebrew-safety-net.md, "A set-aside source can outlive its entries".
     (is (= {} (e5/reconcile-rejected-items
                {"Mega" {:disabled? false :orcpub.dnd.e5/spells {:s {:name "S"}}}}
                {}
