@@ -10,13 +10,13 @@ A harness's docs describe its latest release: check your installed version when 
 
 | Harness | Reads | Does not read |
 |---|---|---|
-| Claude Code | `CLAUDE.md`; `@path` imports, up to four hops ([memory](https://code.claude.com/docs/en/memory)) | `AGENTS.md`, unless imported |
-| Cline | `.cline/rules/` and the older `.clinerules/`, root `AGENTS.md` (plus nested ones, when a root one exists), `~/.agents/AGENTS.md`, global rules under `~/.cline/` ([rules](https://docs.cline.bot/customization/cline-rules), [configuration](https://docs.cline.bot/cline-cli/configuration)) | `CLAUDE.md` (not in any listed location) |
+| Claude Code | `CLAUDE.md`; `@path` imports, up to four hops ([memory](https://code.claude.com/docs/en/memory)) | `AGENTS.md` while a `CLAUDE.md` exists, unless imported or the Project instructions setting is `claude-md-and-agents-md`; with no `CLAUDE.md`, v2.1.277+ reads `AGENTS.md` instead (same page) |
+| Cline | `.cline/rules/` and the older `.clinerules/`, root `AGENTS.md`, `~/.agents/AGENTS.md`, global rules under `~/.cline/` ([rules](https://docs.cline.bot/customization/cline-rules), [configuration](https://docs.cline.bot/cline-cli/configuration)) | `CLAUDE.md` (not in any listed location); nested `AGENTS.md` files (not on either page, checked 2026-11-25) |
 | Copilot | `.github/copilot-instructions.md` or root `AGENTS.md`, plus nested `AGENTS.md` files ([VS Code reference](https://code.visualstudio.com/docs/agents/reference/custom-instructions-reference)); VS Code's deprecated Local harness (removed February 2027) also reads `CLAUDE.md`, with `chat.useAgentsMdFile` (on by default) and `chat.useClaudeMdFile` among its settings | `CLAUDE.md` (Copilot harness) |
 
 - **`AGENTS.md` loads in Cline even when `.clinerules/` exists**, and each rule can be toggled in
   the Rules panel. Unconditional rules load on every request.
-- **On a code branch, Claude gets everything; the others get only `AGENTS.md`.** `agent-setup.sh`
+- **On a code branch, Claude gets everything; from the repo, the others get only `AGENTS.md`** (Cline also loads its global rules). `agent-setup.sh`
   builds `CLAUDE.md` by reading `agents/develop:CLAUDE.md` line by line: `@BRANCH.md` becomes
   `BRANCH.md` plus the branch handoff, any other whole-line `@path` is inlined, and every other
   line passes through (`scripts/agent-setup.sh:119-145`). It also drops plain copies of `AGENTS.md`
@@ -36,7 +36,7 @@ adopted by Copilot and VS Code among others ([Anthropic](https://www.anthropic.c
 
 | Harness | Project skill folders | Mid-session additions |
 |---|---|---|
-| Claude Code | `.claude/skills/` | picked up without restart ([skills](https://code.claude.com/docs/en/skills)); one open report of the Desktop app missing them until a new session |
+| Claude Code | `.claude/skills/` | picked up within the session; `/reload-skills` if a new one does not appear ([skills](https://code.claude.com/docs/en/skills)) |
 | Cline | `.cline/skills/`, `.clinerules/skills/`, `.claude/skills/` ([skills](https://docs.cline.bot/customization/skills)); the CLI also lists `.agents/skills/` | unchecked: the list is shown "when you send a message" |
 | Copilot | `.github/skills/`; the page lists one location per harness, "not every directory it recognizes" ([VS Code](https://code.visualstudio.com/docs/copilot/customization/agent-skills)) | unchecked |
 
