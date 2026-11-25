@@ -1,7 +1,7 @@
 (ns orcpub.dnd.e5.portrait-whites-test
   "The builder's filled-in whites, mounted into a real DOM: under the eye they
    belong to, and painted between the two lids."
-  (:require [cljs.test :refer-macros [deftest is testing async]]
+  (:require [cljs.test :refer-macros [deftest is async]]
             [reagent.dom :as rdom]
             [orcpub.dnd.e5.portrait :as portrait]
             [orcpub.dnd.e5.portrait-assets :as pa]))

@@ -55,8 +55,8 @@
             [orcpub.dnd.e5.views-shared :as views-shared]
             [orcpub.dnd.e5.views.pdf-options :as pdf-options]
             [orcpub.dnd.e5.views.builder-fields :refer [event-value dropdown labeled-dropdown
-                                                        labeled-checkbox with-help option-checkbox option-group
-                                                        base-builder-field builder-field
+                                                        labeled-checkbox with-help
+                                                        base-builder-field
                                                         input-builder-field textarea-field
                                                         number-field]]
             [orcpub.dnd.e5.views.charges-builder :as charges-builder]

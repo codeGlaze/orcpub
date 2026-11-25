@@ -1,33 +1,9 @@
 # Lint warnings that already exist; scripts/lint-ratchet.py fails on any other.
 # Fix one, then delete its line. Never add a line to hide a new warning.
-dev/fix_spell_row_fields.clj: Shadowed var: user/out
-dev/fix_spell_row_fields.clj: duplicate require of clojure.java.io
-dev/fix_spell_row_fields.clj: duplicate require of orcpub.pdf
-dev/orcpub/dev/report_preview.clj: Unresolved var: branding/email-configured?
 dev/orcpub/portrait_gallery.clj: Shadowed var: clojure.core/chunk
 dev/orcpub/portrait_gallery.clj: Shadowed var: clojure.core/chunk
 dev/orcpub/portrait_gallery.clj: Shadowed var: orcpub.portrait-gallery/px
-dev/orcpub/portrait_gallery.clj: Shadowed var: orcpub.portrait-gallery/stack
-dev/orcpub/portrait_gallery.clj: Unused private var orcpub.portrait-gallery/exposed-scalp-px
-dev/scale_orcbrew_pack.clj: Unused import COSArray
-dev/scale_orcbrew_pack.clj: Unused import COSDictionary
-dev/scale_orcbrew_pack.clj: Unused import COSObject
-dev/scale_orcbrew_pack.clj: duplicate require of clojure.edn
-dev/scale_orcbrew_pack.clj: redefined var #'user/orig
-dev/scale_orcbrew_pack.clj: redefined var #'user/sfx
-dev/spellcaster_pack.clj: Shadowed var: user/src
-dev/spellcaster_pack.clj: Shadowed var: user/src
-dev/spellcaster_pack.clj: Shadowed var: user/src
-dev/spellcaster_pack.clj: Shadowed var: user/src
 dev/style4_one_spell_page.clj: Shadowed var: clojure.core/keep
-dev/style4_one_spell_page.clj: duplicate require of clojure.java.io
-dev/style4_one_spell_page.clj: duplicate require of clojure.string
-dev/style_gallery.clj: Shadowed var: user/caster
-dev/style_gallery.clj: Shadowed var: user/out
-dev/style_gallery.clj: Unresolved namespace sample-character. Are you missing a require?
-dev/style_gallery.clj: duplicate require of clojure.java.io
-dev/style_gallery.clj: duplicate require of orcpub.common
-dev/style_gallery.clj: duplicate require of orcpub.pdf
 dev/user.clj: Shadowed var: user/conn
 dev/user.clj: Shadowed var: user/conn
 dev/user.clj: Shadowed var: user/conn
@@ -37,7 +13,6 @@ src/clj/orcpub/artist_accounts.clj: Shadowed var: orcpub.artist-accounts/notify
 src/clj/orcpub/artist_accounts.clj: Shadowed var: orcpub.artist-accounts/preferred-name
 src/clj/orcpub/artist_accounts.clj: Shadowed var: orcpub.artist-accounts/preferred-name
 src/clj/orcpub/portrait_pack/import.clj: Shadowed var: clojure.core/new
-src/clj/orcpub/portrait_render.clj: Unused import AlphaComposite
 src/clj/orcpub/security.clj: Shadowed var: clojure.core/distinct
 src/clj/orcpub/security.clj: Shadowed var: orcpub.security/caps
 src/cljc/orcpub/dnd/e5/inventory.cljc: Shadowed var: cljs.core/short
@@ -57,18 +32,11 @@ src/cljs/orcpub/dnd/e5/portrait.cljs: Shadowed var: cljs.core/any?
 src/cljs/orcpub/dnd/e5/portrait.cljs: Shadowed var: cljs.core/resolve
 src/cljs/orcpub/dnd/e5/portrait.cljs: Shadowed var: cljs.core/resolve
 src/cljs/orcpub/dnd/e5/portrait.cljs: Shadowed var: orcpub.dnd.e5.portrait/ombre
-src/cljs/orcpub/dnd/e5/views.cljs: #'orcpub.dnd.e5.views.builder-fields/builder-field is referred but never used
-src/cljs/orcpub/dnd/e5/views.cljs: #'orcpub.dnd.e5.views.builder-fields/option-checkbox is referred but never used
-src/cljs/orcpub/dnd/e5/views.cljs: #'orcpub.dnd.e5.views.builder-fields/option-group is referred but never used
 src/cljs/orcpub/dnd/e5/views.cljs: Shadowed var: cljs.core/drop
 src/cljs/orcpub/dnd/e5/views/inventory.cljs: Shadowed var: orcpub.dnd.e5.views.inventory/contents
-test/clj/orcpub/artist_accounts_test.clj: Unresolved namespace clojure.string. Are you missing a require?
 test/clj/orcpub/crypto_test.clj: Shadowed var: clojure.core/new
 test/clj/orcpub/pedestal_test.clj: Shadowed var: orcpub.pedestal-test/leave
-test/clj/orcpub/portrait_credit_test.clj: Unresolved namespace clojure.string. Are you missing a require?
-test/clj/orcpub/portrait_credit_test.clj: Unresolved namespace orcpub.dnd.e5.portrait-layout. Are you missing a require?
 test/clj/orcpub/portrait_pack_test.clj: Shadowed var: clojure.core/new
-test/clj/orcpub/portrait_pack_test.clj: Unresolved namespace clojure.edn. Are you missing a require?
 test/clj/orcpub/portrait_scalp_coverage_test.clj: Shadowed var: orcpub.portrait-scalp-coverage-test/px
 test/clj/orcpub/robots_txt_test.clj: Shadowed var: clojure.core/agent
 test/clj/orcpub/styles/variables_test.clj: Shadowed var: clojure.core/read
@@ -76,10 +44,7 @@ test/cljc/orcpub/artist_links_test.cljc: Shadowed var: cljs.core/partial
 test/cljc/orcpub/artist_links_test.cljc: Shadowed var: clojure.core/partial
 test/cljc/orcpub/dnd/e5/equipment_totals_test.clj: Shadowed var: orcpub.dnd.e5.equipment-totals-test/fighter
 test/cljc/orcpub/dnd/e5/portrait_light_test.cljc: Shadowed var: clojure.core/cast
-test/cljc/orcpub/dnd/e5/rests_test.cljc: #'cljs.test/testing is referred but never used
-test/cljc/orcpub/dnd/e5/rests_test.cljc: #'clojure.test/testing is referred but never used
 test/cljc/orcpub/dnd/e5/weapon_rolls_test.cljc: Shadowed var: cljs.core/use
 test/cljc/orcpub/dnd/e5/weapon_rolls_test.cljc: Shadowed var: cljs.core/use
 test/cljc/orcpub/dnd/e5/weapon_rolls_test.cljc: Shadowed var: clojure.core/use
 test/cljc/orcpub/dnd/e5/weapon_rolls_test.cljc: Shadowed var: clojure.core/use
-test/cljs/orcpub/dnd/e5/portrait_whites_test.cljs: #'cljs.test/testing is referred but never used

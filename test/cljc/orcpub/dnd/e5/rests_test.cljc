@@ -1,5 +1,5 @@
 (ns orcpub.dnd.e5.rests-test
-  (:require [clojure.test :refer [deftest testing is]]
+  (:require [clojure.test :refer [deftest is]]
             [orcpub.entity :as entity]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.character.equipment :as char-equip]

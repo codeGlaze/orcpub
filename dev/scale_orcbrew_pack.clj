@@ -14,7 +14,8 @@
 ;;   And a source map can hold non-content keys (:disabled?) alongside the
 ;;   :orcpub.dnd.e5/* content maps, so never assume every value is a map to count.
 
-(require '[clojure.edn :as edn])
+(ns scale-orcbrew-pack
+  (:require [clojure.edn :as edn]))
 
 (def orig (edn/read-string (slurp "test/fixtures/test-pak.orcbrew")))
 

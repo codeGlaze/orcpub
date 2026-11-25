@@ -1,6 +1,7 @@
 (ns orcpub.portrait-pack-test
   "The per-piece calibration files and the Loom import."
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.edn]
             [orcpub.dnd.e5.portrait-assets :as pa]
             [orcpub.dnd.e5.portrait-calibration :as cal]
             [orcpub.portrait-pack.import :as imp]))

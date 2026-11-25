@@ -6,6 +6,8 @@
    their work, so the failure mode that matters is silent omission -- and the
    failure mode that must never happen is attribution taking down an export."
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.string]
+            [orcpub.dnd.e5.portrait-layout]
             [datomic.api :as d]
             [datomock.core :as dm]
             [orcpub.routes :as routes]
