@@ -147,7 +147,8 @@ view is two: the hold decides what the built character applies; Data View edits 
 ### Someday — when there is a session to spare
 
 - **Merged: #96 `fix/sheet-polish` into `integration` (2026-11-24, `5aaf6a9c9`)**, folded into the
-  Long Rest Update; on DMV's pre-merge (Gitea PR #10, `5bd520ffc`), not on our `develop` yet. Tester
+  Long Rest Update; with #97, in release PR #98 to our `develop` and on DMV's pre-merge (Gitea PR #10,
+  `d15feb575`). Tester
   reports after #95: the spell attack roll on
   every spell, the Firefox notice wash, edits on a shared character tripping the leave prompt and
   sign-in, the squashed pasted portrait. The spell table's Attack column was folded into Mod. there
@@ -183,10 +184,9 @@ view is two: the hold decides what the built character applies; Data View edits 
   `artist_credit.clj` (#93) to avoid a new file. `oauth.clj` is the name that suggests itself, but it
   is 8 lines of URL helpers left from the removed Google/Facebook sign-in, not an OAuth client.
   Decide whether outside-service calls (Twitch, Turnstile in `security.clj`) get one home.
-- **Open: a check for personal data before pushes** (2026-11-19). No hook or CI job looks for IP
-  addresses, email addresses, hashes or keys; GitHub secret scanning sees only known token formats.
-  A real player address sat in two test files for a month (redacted on #89). Proposed: gitleaks
-  plus own rules, in pre-push and CI; waiting on the owner.
+- **Done: a check for personal data before pushes** (2026-11-19). Our own rules
+  (`scripts/personal-data-scan.py`, `.personal-data-allow`) plus gitleaks run in CI on every push
+  and PR, and in `pre-push`.
 - **Settled: DMV's workflow names** (admin, 2026-11-19). Detail lives in DMV's own `docs/ops/`.
 
 - **Trim the app bundle** (owner, 2026-10-27). The compressed `orcpub.js` grew from 842 KB to
