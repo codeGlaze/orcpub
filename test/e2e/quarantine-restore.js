@@ -67,6 +67,8 @@ const message = async page =>
     check('a restore whose write fails keeps what was typed',
           /2 entries couldn't load/.test(await panelText(page)) && (await values())[junk] === 'Seven Seas',
           JSON.stringify(await values()));
+    check('and nothing it tried to restore is in the library',
+          !/:seven-seas /.test(await dbAt(page, FEATS)), await dbAt(page, FEATS));
     await page.evaluate(() => { Storage.prototype.setItem = window.__setItem; });
     await page.locator('.message .close, .message button').first().click().catch(() => {});
     await page.getByRole('button', { name: 'Restore', exact: true }).first().click();
@@ -95,8 +97,33 @@ const message = async page =>
     check('the entry that had no source keeps its working key and its pack',
           /:stone-elf-trcs \{[^}]*:key :stone-elf-trcs[^}]*:option-pack "Tide Pak"/.test(feats) ||
           /:stone-elf-trcs \{[^}]*:option-pack "Tide Pak"[^}]*:key :stone-elf-trcs/.test(feats), feats);
+    check('retrying after a failed write restores the entry once, not twice',
+          !feats.includes(':seven-seas-2'), feats);
     check('the digit-led entry got a working key and remembers the old one',
           /:nine-lives \{[^}]*:former-keys \[:9-lives\]/.test(feats), feats);
+
+    // A whole source set aside by an older build keeps its settings. Once every entry of it
+    // loads, only {:disabled? false} is left: that is nothing to repair and must not show.
+    await page.evaluate(src => localStorage.setItem('plugins:rejected', `{"${src}" {:disabled? false}}`), PAK);
+    await page.reload({ waitUntil: 'load' }); await page.waitForTimeout(2500);
+    check('a set-aside copy holding only settings is not shown as couldn\'t load',
+          !/couldn't load/.test(await panelText(page)));
+    check('and it is cleared from storage',
+          await page.evaluate(() => localStorage.getItem('plugins:rejected')) === null);
+
+    // Backstop: whatever puts such a source in front of the panel, it counts it and says what it holds.
+    await page.evaluate(() => {
+      const c = window.cljs.core;
+      c.swap_BANG_.call(null, window.re_frame.db.app_db, db => c.assoc.call(null, db,
+        c.keyword.call(null, 'quarantined-plugins'),
+        window.cljs.reader.read_string.call(null, '{"Old Pak" {:disabled? false}}')));
+    });
+    await page.waitForTimeout(500);
+    text = await panelText(page);
+    check('a source with nothing to repair still gets a count in the heading',
+          /1 source couldn't load/.test(text), text.slice(0, 200));
+    check('and the panel says what it holds instead of "No entries to repair"',
+          text.includes('holds only disabled?') && !text.includes('No entries to repair'));
     check('no uncaught JS errors', errors.length === 0, errors.slice(0, 2).join(' | '));
   } catch (e) {
     check('ran to completion', false, e.message);

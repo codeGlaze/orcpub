@@ -140,6 +140,7 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Characters:** the loading spinner no longer stays up after a failed Random character; moving to another page always clears it.
 - **Characters:** Bards regain Bardic Inspiration on a short rest from level 5 (Font of Inspiration). (#310)
 - **Builder:** a pasted portrait picture fills its frame instead of being squashed.
+- **Builder:** the class drop-down no longer disappears when the character's class isn't applied (for example, its homebrew source is turned off or couldn't load); the row stays and says why.
 - **Character sheet:** magic armor is listed with the other magic items.
 - **Character sheet:** scrolled to the end of the page, the Rest button no longer covers the footer's last lines.
 - **Character sheet:** the spell table's DC and Mod. headings no longer run together on phones.
@@ -173,6 +174,8 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Homebrew:** a homebrew entry that cannot be drawn costs only its own part of the page: one section of its builder, one list or source in My Content, one row of the monster list. Before, the whole page fell over.
 - **Homebrew:** a broken homebrew subclass, invocation, boon or subrace, or one whose name cannot be read, is set aside for repair and named; before, it vanished without a word, or every built-in class disappeared from the builder.
 - **Homebrew:** a library section stored as `true`, a shared monster with a broken name, size or type, a feat whose ability score increases were stored as a list, and a grant of a skill that does not exist no longer break the app, the monster list, the feat builder or the character builder.
+- **Homebrew:** a homebrew source no longer shows as "couldn't load" with a blank count and "No entries to repair" after all its entries have loaded again.
+- **Homebrew:** retrying a restore after one that could not be saved no longer adds the restored entry to the library twice.
 - **Sharing:** link previews of shared characters work on Discord, Mastodon, Slack, Telegram and X, with the character's title and image; `robots.txt` blocked the crawlers and every preview was empty. (#727)
 - **Reference:** spells and monsters that share a name (common across homebrew packs) each show as their own row; clearing a search no longer leaves duplicate rows, and opening one no longer opens the others.
 - **Reference:** the Spells, Monsters and Items lists come back at once when a search is cleared, even with large homebrew libraries.
@@ -192,6 +195,7 @@ Homebrew is repaired instead of lost, a character that used to blank the page no
 - **Site:** dismissing the cookie notice now hides it on every page, not only the page where it was dismissed. (#729)
 - **Site:** an action that fails now says so and changes nothing; before, nothing visible happened, and the actions queued after it were dropped. (#729)
 - **Site:** notices such as Unsaved drafts show their thin amber ring in Firefox, instead of an amber wash that hid their text.
+- **Site:** pages without a composed portrait (the builder, the character list, a sheet) no longer download the artists' credits.
 - **Server:** sign-in, password reset and the character, party, folder and item lists stay fast as the site grows; the first start after upgrading builds the new indexes in the background, and until then an older account with a mixed-case email address signs in by username. (#721)
 - **Server:** the same content gets the same keys on a Turkish or other non-English server, and spell-card school names and the sheet's ability labels print the right letter ("Illusion", not "İllusion"). (#699)
 - **Server:** settings set in `.env` now reach the server under Docker Compose and Swarm; branding (`APP_*`) and most other settings were dropped, so the site ran on defaults. (#724)

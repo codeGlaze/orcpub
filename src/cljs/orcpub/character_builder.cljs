@@ -307,7 +307,22 @@
                       [::char5e/make-starting-class key options-map]))}
        "1st"])))
 
-(defn class-level-selector []
+(defn class-not-applied-line
+  "Under the class row for picked class `key`: says the class is not in the built character, and
+  why when the loaded content has no such class (`template-option` nil). Returns hiccup."
+  [key template-option]
+  [:div.class-not-applied.f-s-12.m-t-5 {:role "status"}
+   (if template-option
+     (str (::t/name template-option) " isn't applied to the character right now. Change its level, or choose another class.")
+     (str (common/kw-to-name key true) " isn't in your loaded content, so it isn't applied. Choose another class, or turn its source back on in My Content."))])
+
+(defn class-level-selector
+  "One picked class's row in Class / Level, the `i`th: its class drop-down (this class and the
+  unpicked ones in `unselected-classes-set`, from `options`), level drop-down, remove button,
+  held-picks line and help. `selected-class` is its built entry, or {:not-applied? true}
+  when the build left it out; the drop-down then still shows `key`, with a line saying so.
+  `first-option`, given when there are several classes, puts the 1st badge on the row."
+  []
   (let [expanded? (r/atom false)]
     (fn [i key selected-class options unselected-classes-set built-char & [first-option]]
       (let [options-map (make-options-map options)
@@ -323,6 +338,9 @@
           [:select.builder-option.builder-option-dropdown.flex-grow-1.m-t-0
            {:value key
             :on-change (set-class i options-map)}
+           ;; a picked class the content lacks stays chosen, so the row keeps its drop-down
+           (when-not class-template-option
+             [:option.builder-dropdown-item {:value key} (str (common/kw-to-name key true) " (not in your content)")])
            (doall
             (map
              (fn [{:keys [::t/key ::t/name ::t/plugin-source] :as option}]
@@ -357,6 +375,8 @@
                available-levels))])
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
+         (when (:not-applied? selected-class)
+           [class-not-applied-line key class-template-option])
          [class-planned-line key]
          (when @expanded?
            [:div.m-t-5.m-b-10 (views-aux/realize-help (::t/help class-template-option))])]))))
@@ -386,13 +406,29 @@
 ;; DO NOT MEMOIZE -- keyed on a seq of class options. See set-class-fn.
 (def add-class add-class-fn)
 
-(defn class-levels-selector [{:keys [selection]}]
+(defn class-rows
+  "The Class / Level rows, in pick order: [class-key entry] for each class in `picked` (the stored
+  :class picks, maps of ::entity/key and ::entity/options), where entry is that class's entry in
+  `built-levels` (the built character's levels), or {:class-level n :not-applied? true} when the
+  build left it out. Rows come from the picks so a class the build drops keeps its drop-down."
+  [picked built-levels]
+  (vec (for [{k ::entity/key opts ::entity/options} picked
+             :when k]
+         [k (or (get built-levels k)
+                {:class-level (max 1 (count (:levels opts))) :not-applied? true})])))
+
+(defn class-levels-selector
+  "The Class / Level section for the builder's `selection` (the template's :class selection): the
+  homebrew-source switch, one row per picked class (class-rows), and Add Levels in Another Class.
+  Returns hiccup."
+  [{:keys [selection]}]
   (let [options (::t/options selection)
         built-char @(subscribe [:built-character])
-        selected-classes @(subscribe [::char5e/levels])
+        selected-classes (class-rows (get-in @(subscribe [:character]) [::entity/options :class])
+                                     @(subscribe [::char5e/levels]))
         show-suffix? @(subscribe [::subs5e/show-class-source-suffix])
         unselected-classes (remove
-                            (set (keys selected-classes))
+                            (set (map first selected-classes))
                             (map ::t/key options))
         unselected-classes-set (set unselected-classes)
         remaining-classes (filter

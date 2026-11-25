@@ -18,7 +18,7 @@
             [orcpub.portrait-pack.strands :as strands]
             [orcpub.dnd.e5.portrait-face :as face]
             [orcpub.dnd.e5.portrait-light :as light])
-  (:import [java.awt AlphaComposite BasicStroke Color Graphics2D RadialGradientPaint RenderingHints]
+  (:import [java.awt BasicStroke Color Graphics2D RadialGradientPaint RenderingHints]
            [java.awt.geom AffineTransform Area Ellipse2D$Double Path2D$Double Point2D$Double]
            [java.awt.image BufferedImage]
            [java.io ByteArrayInputStream ByteArrayOutputStream]

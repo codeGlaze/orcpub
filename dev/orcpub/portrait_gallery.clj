@@ -1529,64 +1529,8 @@
 ;; Only five layers can cover the skull, so the space is 3 heads x 2 hair-bits
 ;; x 2 hair-back x 3 hair-front x 3 bangs = 108, small enough to check ALL of
 ;; it rather than the one bust that happened to be looked at.
+;; That check over all 108 is test/clj/orcpub/portrait_scalp_coverage_test.clj.
 ;; ---------------------------------------------------------------------------
-
-(def ^:private skull-bottom
-  "Below this the head is a face. Bare skin there is a forehead, not a hole."
-  (int (* H 0.30)))
-
-(defn- exposed-head-mask
-  "Head pixels, above the brow, that no hair layer covers."
-  ^booleans [^File head ^File bits ^File back ^File front ^File bangs]
-  (let [h (px (scaled head))
-        covers (mapv #(px (scaled %)) (remove nil? [bits back front bangs]))
-        out (boolean-array (* W H))]
-    (dotimes [y skull-bottom]
-      (dotimes [x W]
-        (let [i (+ x (* y W))]
-          (when (and (pos? (bit-and (unsigned-bit-shift-right (aget h i) 24) 0xff))
-                     (not-any? (fn [^ints c]
-                                 (pos? (bit-and (unsigned-bit-shift-right (aget c i) 24) 0xff)))
-                               covers))
-            (aset out i true)))))
-    out))
-
-(defn- island-px
-  "Exposed head that does NOT reach the face -- skin surrounded by hair.
-
-   Counting exposed pixels outright was the wrong measure and said so loudly:
-   it called a short fringe the worst case in the pack at 3899px, because a
-   high fringe shows more FOREHEAD, and a forehead is supposed to be skin.
-   What reads as a fault is an ISLAND -- a patch with hair on every side and no
-   path down to the face. So the exposed region is flooded from the brow line,
-   and whatever the flood cannot reach is the defect."
-  [^booleans exposed]
-  (let [seen (boolean-array (* W H))
-        stack (java.util.ArrayDeque.)]
-    ;; every exposed pixel on the brow line is forehead, and so is anything
-    ;; connected to one
-    (dotimes [x W]
-      (let [i (+ x (* (dec skull-bottom) W))]
-        (when (and (aget exposed i) (not (aget seen i)))
-          (aset seen i true)
-          (.push stack (int i)))))
-    (while (not (.isEmpty stack))
-      (let [i (int (.pop stack))
-            x (rem i W) y (quot i W)]
-        (doseq [[dx dy] [[-1 0] [1 0] [0 -1] [0 1]]]
-          (let [nx (+ x dx) ny (+ y dy)]
-            (when (and (< -1 nx W) (< -1 ny skull-bottom))
-              (let [ni (+ nx (* ny W))]
-                (when (and (aget exposed ni) (not (aget seen ni)))
-                  (aset seen ni true)
-                  (.push stack (int ni)))))))))
-    (count (for [i (range (* W H))
-                 :when (and (aget exposed i) (not (aget seen i)))]
-             1))))
-
-(defn- exposed-scalp-px
-  [^File head ^File bits ^File back ^File front ^File bangs]
-  (island-px (exposed-head-mask head bits back front bangs)))
 
 (deftest look-at-the-worst-scalp-combination
   (when-let [pack (pack-dir)]

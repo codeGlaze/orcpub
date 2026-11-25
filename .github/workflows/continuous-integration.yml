@@ -84,6 +84,15 @@ jobs:
             exit 1
           fi
 
+      # Warnings may only go down: a new one fails here, by name (docs/kb/ci-signal-plan.md).
+      - name: Lint warnings ratchet
+        run: |
+          set +e
+          python3 scripts/lint-ratchet.py lint-output.txt test/lint-baseline.txt | tee ratchet.txt
+          rc=${PIPESTATUS[0]}
+          tail -1 ratchet.txt >> $GITHUB_STEP_SUMMARY
+          exit $rc
+
       - name: Run tests
         id: test
         run: |

@@ -36,15 +36,16 @@
 ;; `/GS2 gs` is the page default -- ca/CA 1.0, Normal, no soft mask -- differing
 ;; from GS0 only in stroke adjustment, which applies to strokes.
 
-(require '[orcpub.pdf :as pdf]
-         '[clojure.java.io :as io]
-         '[clojure.string :as st])
-(import '[org.apache.pdfbox Loader]
-        '[org.apache.pdfbox.pdmodel.common PDStream]
-        '[org.apache.pdfbox.cos COSName COSArray COSDictionary COSObject]
-        '[org.apache.pdfbox.rendering PDFRenderer]
-        '[javax.imageio ImageIO]
-        '[java.io FileOutputStream File])
+(ns style4-one-spell-page
+  (:require [orcpub.pdf :as pdf]
+            [clojure.java.io :as io]
+            [clojure.string :as st])
+  (:import [org.apache.pdfbox Loader]
+           [org.apache.pdfbox.pdmodel.common PDStream]
+           [org.apache.pdfbox.cos COSName]
+           [org.apache.pdfbox.rendering PDFRenderer]
+           [javax.imageio ImageIO]
+           [java.io FileOutputStream File]))
 
 (def src "fillable-char-sheetstyle-4-2-spells.pdf")
 (def out "resources/fillable-char-sheetstyle-4-1-spells.pdf")

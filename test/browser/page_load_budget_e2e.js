@@ -53,17 +53,11 @@ const SHELL = [
 ];
 
 // Per page, beyond the shell: the data that page shows. Written from the audit (2026-10-15).
-// KNOWN BUG (untracked until #65 lands its fix): the portrait-artists credits are fetched on these
-// pages without being shown. Remove PORTRAIT_ARTISTS_BUG when feature/artist-pages (#65) merges.
-const PORTRAIT_ARTISTS_BUG = ['^xhr GET /dnd/5e/portrait-artists$',
-                              'KNOWN BUG, fix on #65 (feature/artist-pages): credits fetched but not shown'];
 const ALLOW = {
-  'character builder': [['^xhr GET /dnd/5e/items$', 'your items, offered as equipment'], PORTRAIT_ARTISTS_BUG],
-  'character list': [['^xhr GET /dnd/5e/(character-summaries|folders)$', 'your characters and folders'],
-                     PORTRAIT_ARTISTS_BUG],
+  'character builder': [['^xhr GET /dnd/5e/items$', 'your items, offered as equipment']],
+  'character list': [['^xhr GET /dnd/5e/(character-summaries|folders)$', 'your characters and folders']],
   'character sheet': [['^xhr GET /dnd/5e/characters/:id$', 'the character shown'],
-                      ['^xhr GET /dnd/5e/items$', 'your items, which the sheet can show'],
-                      PORTRAIT_ARTISTS_BUG],
+                      ['^xhr GET /dnd/5e/items$', 'your items, which the sheet can show']],
   'parties': [['^xhr GET /dnd/5e/parties$', 'your parties']],
   'magic items': [['^xhr GET /dnd/5e/items$', 'your items, listed with the SRD ones']],
   'class builder': [['^xhr GET /dnd/5e/items$', 'your items, offered as starting equipment']],
