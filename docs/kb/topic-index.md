@@ -282,7 +282,7 @@ _account-flows · account flows_
 
 _agent-harnesses · agent harnesses_
 
-**topics:** bot, claude, cline, com, configuration, copilot, customization, harness, hook, hooks, https, plugins, rules, sdk, skill, skills, task, taskcomplete
+**topics:** bot, claude, cline, com, configuration, copilot, customization, harness, hook, hooks, https, plugins, sdk, skill, skills, stdout, task, taskcomplete
 
 - Rules files
 - Skills
@@ -2123,7 +2123,7 @@ _handoff-weapons-table · handoff weapons table_
 
 _heartbeat · heartbeat_
 
-**topics:** beat, beats, clock, database, dates, hour, job, jobs, jumped, monitor, outage, pruning, running, server, three-day, tick, time, unrecorded
+**topics:** beat, beats, clock, database, expires, hour, job, jobs, jumped, monitor, outage, pruning, running, server, three-day, tick, time, unrecorded
 
 - What it records
 - Using it
@@ -2564,7 +2564,7 @@ _memoize-antipattern-scan · memoize antipattern scan_
 
 _merging-across-a-refactor · merging across a refactor_
 
-**topics:** 669, bare, branch, call, cleanly, conflict, cut, fetch, filtered-list-staleness, git, handoff-669-final-pass, merge, merging, newer, plan-669-merge-verification, refactor, side, undeclared
+**topics:** 669, bare, branch, call, cleanly, conflict, cut, fetch, filtered-list-staleness, handler, handoff-669-final-pass, merge, merging, newer, plan-669-merge-verification, refactor, side, undeclared
 
 - Case 1: the clean merge that was already broken
 - Case 2: the conflict whose obvious resolution restores a bug
@@ -3941,7 +3941,7 @@ _srd-improvements · srd improvements_
 
 _srd-pdf-as-source-of-record · srd pdf as source of record_
 
-**topics:** 321, 339, carriage, conjuration, delta, dnld, gitea, import, items, name-level, open5e, pdfs, school, spells, srd, srd-2024-intergration, srd-5, srd-ogl
+**topics:** 1959, 321, 339, carriage, conjuration, delta, dnld, import, items, name-level, open5e, pdfs, school, spells, srd, srd-2024-intergration, srd-5, srd-ogl
 
 - Extracting
 - Trap 1: the 5.1 text layer is pathological
@@ -4008,7 +4008,7 @@ _starting-equipment · starting equipment_
 
 _style-and-branding-audit-prompt · style and branding audit prompt_
 
-**topics:** 2026-11-16, audit, audit-only, audits, branding, cleanup, despite, inventory, layer, messy, near-duplicate, paste, piled, plans, prompt, rails, stylesheets, update
+**topics:** 2026-11-16, audit, audit-only, audits, branding, cleanup, despite, inventory, layer, messy, near-duplicate, paste, piled, plans, prompt, rails, stylesheets, went
 
 - The job
 - Scope
@@ -4179,7 +4179,7 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 
 _upstream-issues · upstream issues_
 
-**topics:** 2026-11-25, 724-, 728, 730, area, changelog, changelogs, dev-site, footer, issue, issues, orcpub, owner, posted, reached, remote, umbrella, upstream
+**topics:** 2026-11-25, 728, 736, area, batch, changelogs, dev-site, dmv, issue, issues, orcpub, owner, polish, posted, remote, testers, umbrella, upstream
 
 - Words used here
 - Which changes get an issue
