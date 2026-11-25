@@ -3816,7 +3816,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, figures, head, heading, level, opentype, packed, pact, prep, re-split, slots, spell, spellbook, tabs, taller
+**topics:** cards, chapter, column, columns, crest, figures, head, heading, level, opentype, packed, pact, prep, re-split, spell, spellbook, tabs, taller
 
 - What it prints
 - Why the layout works the way it does

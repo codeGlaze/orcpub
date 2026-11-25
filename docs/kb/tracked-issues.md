@@ -336,7 +336,11 @@ the selected-value display and the on-pick behaviour.
 A Long Rest resets HP by removing `::char5e/current-hit-points` (absent means full). The save
 succeeds, but `update-character` (`src/clj/orcpub/routes.clj`) retracts only sub-entities whose
 ids disappeared. It never retracts a plain attribute missing from the new save, so the old HP
-comes back on reload. Any reset that works by removing a field has this bug. Write a value instead
+comes back on reload. Play state is saved as "nothing saved = baseline": max HP, slots and
+feature uses are computed on every load; `::spells/slots-used` and `::char5e/features-used` record
+what was spent, and a rest deletes them. `slots-used` is a ref (schema.clj), so deleting it reaches
+storage. `current-hit-points` is a plain long, so it doesn't. The per-rest unit sets inside
+`features-used` may be plain values too (unchecked). Any reset that removes a plain value has this bug. Write a value instead
 (the planned fix: an "at max" flag written true or false, never removed). The browser test that
 showed it, with its setup traps (seeded server via `scripts/e2e/server.sh start`, the 7.5 s
 autosave throttle), should become the branch's regression test.
