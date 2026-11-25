@@ -163,6 +163,16 @@ view is two: the hold decides what the built character applies; Data View edits 
   through Unsaved drafts), and send an edit back to the player: the viewer shares the edited sheet,
   the owner opening it sees the changed fields beside their own and applies or ignores them. Open:
   fields both sides changed, and the server confirming the link's source character and owner.
+- **Roadmap: make the test suites cheaper** (owner, 2026-11-25). `lein test` runs 1678 tests and the
+  cljs suite 1042, and each run pays the JVM start before the first test. Measure before changing:
+  time each namespace, find the slowest, look for tests that rebuild the same fixture (a full
+  character build, an in-memory Datomic) where one shared fixture would do, and for tests that
+  check the same thing twice. Then decide on sharing fixtures, a parallel runner, or a fast subset
+  for local runs with the full suite left to CI.
+- **Cleanup pass: the 48 shadowed-name lint warnings** (owner, 2026-11-25: a separate pass, with
+  other cleanup work). Mostly locals named `name`, `key` or `val` in live code, several in the big
+  files. The list is `test/lint-baseline.txt` (on #97, `fix/class-picker-from-picks`); delete each
+  line as its warning goes, and the CI ratchet holds the rest ([ci-signal-plan.md](docs/kb/ci-signal-plan.md)).
 - **Near-term: rename the JSON library's alias** (owner, 2026-11-21). Five namespaces require
   `[charred.api :as cheshire]` and two `[charred.api :as json]`, so code reads `cheshire/...` while
   running charred, which will confuse. Pick one generic, descriptive alias (`json` is the one already
