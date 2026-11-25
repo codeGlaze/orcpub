@@ -164,6 +164,12 @@ view is two: the hold decides what the built character applies; Data View edits 
   through Unsaved drafts), and send an edit back to the player: the viewer shares the edited sheet,
   the owner opening it sees the changed fields beside their own and applies or ignores them. Open:
   fields both sides changed, and the server confirming the link's source character and owner.
+- **Roadmap: every sheet roll opens the roll result sheet** (owner, 2026-11-25). Spell attacks reuse
+  the Weapons table's `weapon-roll-result` (bottom sheet on phones, a card bottom-right on desktop),
+  so to hit is followed by damage (dice from `spell-rolls.edn`, doubled on a crit). Skill, save and
+  initiative rolls move there too, with only the result line. Today they go to the header's
+  `:show-message` notice, far from the button. Mockup first; the branch needs the owner's name.
+  Trace: [weapon-mastery-plan.md](docs/kb/weapon-mastery-plan.md), "What exists".
 - **Roadmap: finish `feature/srd-pipeline`** (owner, 2026-11-25). Its one commit not on
   `integration` is `96925ceeb` (2026-10-19): weapons and armor read from the generated
   `resources/public/srd/2014/equipment.edn` instead of the hand-kept `weapons.cljc` and `armor.cljc`.

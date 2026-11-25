@@ -2751,7 +2751,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _orcbrew-level-modifiers · orcbrew level modifiers_
 
-**topics:** arrive, audits, consumed, driven, grant, initiative, integer, keyword, level, level-modifier, presence, race, races, subclass, subclasses, trait, vocabularies, warden
+**topics:** arrive, audits, consumed, driven, grant, integer, keyword, level, level-modifier, presence, race, races, racial, subclass, subclasses, trait, vocabularies, warden
 
 - Nothing validates the shape of a brew
 - Two grant vocabularies, with different shapes
