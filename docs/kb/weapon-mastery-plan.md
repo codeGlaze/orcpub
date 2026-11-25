@@ -30,6 +30,13 @@ uncommitted sheet code on the branch has a branch each for `:graze`, `:vex` and 
 | Per-turn and per-rest limits `::recharge` with the app's periods (`::units/turn` ...) | `magic_items.cljc`, `units.cljc` | Cleave and Nick are once per turn |
 | Roll engine with modes `:normal :adv :dis` | `weapon_rolls.cljc` `roll-attack` | Vex arms advantage on the next attack |
 | Result sheet and attack chain | `views.cljs` `weapon-roll-result` | Generic "Missed?", after-damage and extra-attack buttons |
+
+**Only weapons use the result sheet** (checked 2026-11-25). It is reached through `roll-button`'s
+`:on-roll`. Every other roll button (spell attacks, skills, saves) has no `:on-roll`, so its result
+goes to the header's `:show-message` notice, far from the button on desktop. The owner flagged it on
+Guiding Bolt. The proposed fix reuses this sheet for spell attacks (`spell-rolls.edn` has the dice),
+which is still undecided.
+
 | Training set `char5e/weapon-masteries` (prop `:weapon-masteries`, nothing sets it yet) | `character.cljc:606`, `subs.cljs:964` | Gate stays as built |
 | Definitions subscription `::weapons/mastery-definitions` (returns `{}`) | `subs.cljs:996` | Replaced by data, see plan step 4. **Its comment cites `edition-machinery-split.md`, which does not exist; fix in step 4.** |
 
