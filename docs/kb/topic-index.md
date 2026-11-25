@@ -282,7 +282,7 @@ _account-flows · account flows_
 
 _agent-harnesses · agent harnesses_
 
-**topics:** bot, claude, cline, com, configuration, copilot, customization, harness, hook, hooks, https, plugins, sdk, skill, skills, stdout, task, taskcomplete
+**topics:** bot, claude, cline, com, configuration, copilot, customization, harness, hook, hooks, https, plugins, rules, sdk, skill, skills, task, taskcomplete
 
 - Rules files
 - Skills
@@ -297,7 +297,7 @@ _agent-harnesses · agent harnesses_
 
 _agent-hooks · agent hooks_
 
-**topics:** agent, agents, armed, arming, docstring, hook, hooks, installer, orcpub-garden, push, reminder, session, sessionstart, setup, trailer, transcript, worktree, worktrees
+**topics:** agent, agents, armed, arming, clone, docstring, hook, hooks, orcpub-garden, push, reminder, session, sessionstart, setup, trailer, transcript, worktree, worktrees
 
 - The rule
 - The entry point follows the same rule
@@ -1469,7 +1469,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, session, stale, topic, wrong
+**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, index, ledger, narrative, session, stale, topic, wrong
 
 - What earns a doc
 - Verify, don't remember
@@ -1963,7 +1963,7 @@ _fork-customization · fork customization_
 
 _frontend-redesign-parallel-work · frontend redesign parallel work_
 
-**topics:** accent, chip, chips, chrome, css, menu, menus, mock, multi-select, omv, popover, redesign, spacing, switcher, theme, title, tray, workaround
+**topics:** accent, better, chip, chips, chrome, css, menu, menus, mock, multi-select, omv, popover, redesign, spacing, switcher, theme, tray, workaround
 
 - What is on the branch (last commit 2026-07-15)
 - The part that directly affects the builder forms
@@ -2537,7 +2537,7 @@ _locale-safety · locale safety_
 
 _lookup-indexes · lookup indexes_
 
-**topics:** 100k, 10k, 120, 2026-10-22, allocates, email, heap, indexed, indexes, lookup, lowercased, mixed-case, oom, plan-email-and-alerts, plan-lookup-indexes, queries, unindexed, username
+**topics:** 100k, 10k, 120, 2026-10-22, allocates, attribute, email, heap, indexed, indexes, lookup, lowercased, mixed-case, oom, plan-email-and-alerts, plan-lookup-indexes, queries, username
 
 - The cause
 - Measured
@@ -3013,7 +3013,7 @@ _perf-homebrew-builder-loop · perf homebrew builder loop_
 
 _personal-data-scan · personal data scan_
 
-**topics:** 2026-11-19, address, addresses, allow, author, aws, commit, commits, dotted, email, github, hashes, private, public, range, ranges, scan, scanned
+**topics:** 2017, 2026-11-19, address, addresses, allow, author, aws, commits, dotted, email, github, hashes, private, public, range, ranges, scan, scanned
 
 - What runs, and when
 - Rules
@@ -3456,7 +3456,7 @@ _registry-before-after · registry before after_
 
 _release-deploy-traps · release deploy traps_
 
-**topics:** alt-host, de-index, dmv, folder, hand-insert, host, in-browser, lag, parsers, pprinted, projects, release, reviewing, robots, sigpipe, slips, start-time, swarm
+**topics:** alt-host, de-index, dmv, folder, hand-insert, host, in-browser, lag, logged, parsers, pprinted, projects, release, reviewing, robots, sigpipe, slips, swarm
 
 - Open and unchecked
 
@@ -3886,7 +3886,7 @@ _srd-2024-integration · srd 2024 integration_
 
 _srd-2024-roadmap · srd 2024 roadmap_
 
-**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, content, edition, editions, monsters, open5e, owner, pdf, served, spells, srd, srd-2024-coverage, text, trunk
+**topics:** 2014, 2024, 2024-only, 2026-10-07, 5etools, content, data, edition, editions, monsters, open5e, owner, pdf, spells, srd, srd-2024-coverage, text, trunk
 
 - Long-term goal: a pure SPA
 - How SRD data is loaded
@@ -4008,7 +4008,7 @@ _starting-equipment · starting equipment_
 
 _style-and-branding-audit-prompt · style and branding audit prompt_
 
-**topics:** 2026-11-16, audit, audit-only, audits, branding, cleanup, despite, inventory, layer, messy, near-duplicate, paste, piled, plans, prompt, rails, stylesheets, went
+**topics:** 2026-11-16, audit, audit-only, audits, branding, cleanup, despite, inventory, layer, messy, near-duplicate, paste, piled, plans, prompt, rails, stylesheets, update
 
 - The job
 - Scope
@@ -4061,7 +4061,7 @@ _subscribe-refactor-phase2 · subscribe refactor phase2_
 
 _support-session-ledger · support session ledger_
 
-**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, fa4, fork, github, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
+**topics:** 2026-09-20, 695, bodies, booted, cherry-picked, commits, copilot, fa4, fork, hotfix, icon-font-failure, locale, locale-safety, port, session, upstream, upstreamable, windows
 
 - WHERE WE ARE — 2026-09-20, paused mid-review
 - The Copilot review — 6 medium + 1 low, NOT yet triaged
@@ -4174,6 +4174,18 @@ _unsaved-knowledge-on-prunable-branches · unsaved knowledge on prunable branche
 - Recommendations
 - What is not known
 - Revisions
+
+## upstream-issues.md
+
+_upstream-issues · upstream issues_
+
+**topics:** 2026-11-25, 724-, 728, 730, area, changelog, changelogs, dev-site, footer, issue, issues, orcpub, owner, posted, reached, remote, umbrella, upstream
+
+- Words used here
+- Which changes get an issue
+- Checking where a bug reached
+- Writing and posting
+- When to do it
 
 ## ux-guide.md
 

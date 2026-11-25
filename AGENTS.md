@@ -413,6 +413,13 @@ Needs you: what it is, where it would go, and why.
   gets no line. No internal work (tests, CI, refactors, tooling).
 - Lines go under Added / Changed / Fixed / Security, open with their area in bold
   (`**Accounts:**`), and cite the upstream issue (#N) when one matches; no commit hashes.
+- **Upstream issues track what reached people.** A bug or feature that reached upstream `develop`
+  or a dev-site build (the DMV pre-merge the owner deploys for testers) gets an issue on
+  `Orcpub/orcpub`; one made and fixed between builds gets none. One problem or feature is one issue
+  (changes made together for it share one); related but different is a new one; small polish goes
+  in the area's umbrella issue. At the fold, draft an issue for every line that needs one and is
+  missing it; post only with the owner's yes for each. Definitions and checks:
+  `docs/kb/upstream-issues.md`.
 - **Copy `docs/branch-changelog.template.md` to `docs/branch-changelog.md`** on the branch at its
   start and fill it in as work lands; it stays unfolded while the PR is reviewed, because the fold
   drops the reviewer-only section. **Fold when the owner says the PR is about to merge**

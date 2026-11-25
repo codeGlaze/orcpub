@@ -336,6 +336,9 @@ wrong, and why.
 - **[tracked-issues.md](tracked-issues.md)** -- open issues with their evidence: the Datomic
   transactor crashes, localStorage corruption, content-library work left, server-side image fetch,
   PDF follow-ups, user-agent layout, the long combobox list.
+- **[upstream-issues.md](upstream-issues.md)** -- which changes get an issue on Orcpub/orcpub
+  (what reached upstream `develop` or the dev site), how to group them, how to check where a bug
+  reached, and how to file.
 - **[error-email-improvements.md](error-email-improvements.md)** -- analysis of real error
   emails and the Datomic crash investigation that shaped the admin alerts.
 - **[language-selection-fix.md](language-selection-fix.md)** -- the Ranger favored-enemy
