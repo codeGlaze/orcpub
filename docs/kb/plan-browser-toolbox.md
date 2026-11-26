@@ -1,6 +1,6 @@
 # Plan: a browser-test toolbox
 
-**Status: plan 1.1, revised 2026-11-26 after a second opinion (below). Planned 2026-11-26 (owner: "exactly what I've been pushing for"). Branch
+**Status: plan 1.2, revised 2026-11-26 after two second opinions (below). Planned 2026-11-26 (owner: "exactly what I've been pushing for"). Branch
 `test/browser-toolbox`, cut from `integration` at `b14a515e4`. Nothing built yet.**
 
 ## The problem, measured
@@ -51,6 +51,13 @@
   walks ancestors to find a visual heading for that reason), and the header's `header-tab` is a
   clickable `div` whose title disappears on phones (`views.cljs` ~206-231). Each place gets a role, a
   name or a label association in the app, so players with screen readers gain too.
+- **The smallest correct change per control:**
+  - builder tabs and header tabs: real `<button>` elements, keeping their classes and click
+    handlers, with the browser's default button style reset so nothing looks different;
+  - header tabs on phones, where the title is hidden: an `aria-label`;
+  - flyout menus: menu-button semantics (`aria-haspopup`, `aria-expanded`);
+  - the class dropdown: stays a native `<select>`, tied to its visible heading by `id`/`for`.
+  Keyboard use improves; nothing else changes for players.
 - **How locators are written:** by role and accessible name first (`getByRole('button',
   {name: 'Long Rest'})`). That form survives restyling and doubles as an accessibility check.
   A `data-part` hook (Owner decisions, below) is never a way around a missing role or name. It is only for hooks that have
@@ -86,17 +93,19 @@
     `POST /dnd/5e/characters` with no `:db/id`, which creates one. `run.sh`'s boot already seeds
     users.
   - Homebrew packs live in the browser's local storage, not on the server. They are written there
-    by `addInitScript` before the app boots, which needs no server route; check this on the first
-    fixture.
+    by `addInitScript` before the app boots, which needs no server route. `scripts/e2e/lib.js`
+    already does this: it writes the `plugins` key as EDN text, not JSON, and only when the key is
+    absent. Check the app's first-load reader on the first fixture.
   - Either way, nothing is built through the UI first. A suite that tests the Rest
   button should not first spend 20 s building a Fighter.
 
-### 4. One library
+### 4. One new library; the old two stay as they are
 
-- `test/browser/lib/index.js` re-exports the map, the recipes and the shared basics: `BASE` from
-  `E2E_BASE`, `APP_BUNDLE`, `checker`, the overlay suppression and the Chrome lookup.
-- `test/e2e/lib.js` and `scripts/e2e/lib.js` become thin shims over it, so old suites keep
-  working while they move.
+- `test/browser/lib/toolbox.js` holds the map, the recipes and the shared basics: `BASE` from
+  `E2E_BASE`, `APP_BUNDLE`, one `checker`, overlay suppression and the Chrome lookup.
+- `test/e2e/lib.js` and `scripts/e2e/lib.js` are not touched and get no shims. Their `login` and
+  `checker` contracts differ (arguments and return values), and adapting both adds risk for no gain.
+  New suites use the toolbox; an old suite moves to it when it is next edited.
 
 ### 5. Bootstrap for agents
 
@@ -105,27 +114,23 @@
 - `agent-setup.sh` names that page in its KB pointer.
 - `test/browser/README.md` points at it on the code branch.
 
-## Order of work, each a commit seen working before the next
+## Order of work
 
-1. **Library merge, compatibility-safe.** Add `lib/index.js` and keep the old exports through shims
-   that adapt the incompatible APIs:
-   - `checker`'s `check` takes `(name, ok, detail)` in `test/e2e/lib.js` but `(ok, label, detail)`
-     in `scripts/e2e/lib.js`;
-   - `login(browser)` makes and returns a page in one; `login(page, user, pass)` fills a page in the
-     other.
-   The shared library gives them distinct names. Each shim is run against its existing callers
-   before the commit (one run of `run-all.sh` before and after).
-2. **Prove it on one real failure.** Map entries for the builder and the sheet only, with the
-   accessible names they need. Migrate one suite that has needed trial runs after a UI change.
-   Show the payoff: rename a label in a scratch edit and compare how fast each version points at it.
-3. Recipes and two fixtures: a level-3 Fighter (API), and a homebrew pack (local storage).
-4. The census for the mapped places, seen failing on the same scratch rename.
-5. Expand only after step 2 shows the payoff: the header, Data View, My Content, auth, reference
-   pages. Migrate the suites that type the most selectors, timing each before and after.
-6. KB page, README and the `agent-setup.sh` pointer. The pointer change needs the owner's yes
+**First PR: prove it on one suite.**
+1. `toolbox.js` with the basics, plus a small table test for its `checker`.
+2. Accessible names for the builder tabs, the class dropdown and the sheet controls one suite uses.
+3. Map entries for just those controls, and `weapons_table_e2e.js` moved onto them. It changed 98
+   selector lines since 2026-08-01, the most of any sheet suite (`inventory_kits_sheet_e2e.js` is
+   next with 64). Show the payoff: rename a label in a scratch edit and compare how fast the old
+   and new versions point at it.
+
+**Later PRs, only after the first shows the payoff:**
+4. Recipes and two fixtures: a level-3 Fighter (API), and a homebrew pack (local storage).
+5. The census for the mapped places, seen failing on the same scratch rename.
+6. More places: header, Data View, My Content, auth, reference pages. Move the suites with the
+   most selector churn, timing each before and after.
+7. KB page, README and the `agent-setup.sh` pointer. The pointer change needs the owner's yes
    for that push.
-
-After the branch, old suites move when they are next touched; there is no big-bang migration.
 
 ## What it is not
 
@@ -141,7 +146,19 @@ Codex reviewed plan 1.0. Accepted:
 - the census as a supplement to journey assertions, with preconditions and a hit test;
 - the routes that can seed fixtures, and local storage for homebrew packs;
 - prove the map on builder and sheet before building six modules.
-Corrected: the "hard-wired :8890" trap is in suites that build their own base, not in the helpers.
+Codex reviewed plan 1.1. Accepted:
+- no shims: a new library, with the old two left alone;
+- the per-control accessible-name changes above;
+- a smaller first PR.
+
+Checked and not taken:
+- its "stale `data-test` text" came from a cached older copy; the current plan has none;
+- it suggested `data-orcpub-part` against collisions, but nothing in `src/` or `web/` uses
+  `data-part`, so the owner's plain-looking name stays unless the owner prefers otherwise.
+
+It could not read git history, so the churn counts above are ours.
+
+Corrected in 1.0: the "hard-wired :8890" trap is in suites that build their own base, not in the helpers.
 
 ## Owner decisions
 

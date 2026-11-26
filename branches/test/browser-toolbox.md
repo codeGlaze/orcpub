@@ -7,7 +7,7 @@
 
 - Done: branch created; plan written.
 - In progress: nothing.
-- Next: step 1, the compatibility-safe library merge (plan 1.1 folds in the second opinion).
+- Next: first PR (plan 1.2): `toolbox.js`, accessible names, `weapons_table_e2e.js` moved onto the map.
 
 ## Owner decisions
 

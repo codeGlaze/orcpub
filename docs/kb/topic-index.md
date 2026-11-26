@@ -1491,7 +1491,7 @@ _docker-testing-guide · docker testing guide_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, irreducible, ledger, narrative, session, stale, topic, wrong
+**topics:** about, agent, audit, before-you-start, claim, comments, confident, docstring, docstrings, generator, history, index, irreducible, ledger, narrative, session, topic, wrong
 
 - What earns a doc
 - Verify, don't remember
@@ -2014,7 +2014,7 @@ _garden-calc-plus · garden calc plus_
 
 _garden-declaration-order · garden declaration order_
 
-**topics:** 2026-11-23, 3px, big, composite, firefox, garden, hash, hiding, longhand, mask, notice, order, painted, properties, reset, resets, shorthand, tester
+**topics:** 2026-11-23, 3px, big, composite, firefox, garden, hash, hiding, longhand, mask, notice, order, painted, properties, resets, shorthand, tester, typed
 
 - The trap
 - The fix and the guard
@@ -2586,7 +2586,7 @@ _memoize-antipattern-scan · memoize antipattern scan_
 
 _merging-across-a-refactor · merging across a refactor_
 
-**topics:** 669, bare, call, cleanly, conflict, cut, fetch, filtered-list-staleness, git, handler, handoff-669-final-pass, merge, merging, newer, plan-669-merge-verification, refactor, side, undeclared
+**topics:** 669, bare, branch, call, cleanly, conflict, cut, fetch, filtered-list-staleness, handler, handoff-669-final-pass, merge, merging, newer, plan-669-merge-verification, refactor, side, undeclared
 
 - Case 1: the clean merge that was already broken
 - Case 2: the conflict whose obvious resolution restores a bug
@@ -2762,7 +2762,7 @@ _open5e-upstream-notes · open5e upstream notes_
 
 _orcbrew-format-versioning · orcbrew format versioning_
 
-**topics:** besides, boot-load, brew, builds, community, compat, compatibility, demo, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, versioning, won
+**topics:** boot-load, brew, builds, community, compat, compatibility, demo, distinct, envelope, extension, implemented, in-file, incompatible, pickers, poll, tag, versioning, won
 
 - Why this exists
 - The mechanism (three parts)
@@ -3081,16 +3081,16 @@ _plan-669-merge-verification · plan 669 merge verification_
 
 _plan-browser-toolbox · plan browser toolbox_
 
-**topics:** 2026-11-26, accessible, census, compatibility-safe, fixtures, journey, opinion, page-load-budget, pointer, recipes, role, screen, selectors, shims, suite, suites, viewport, visual
+**topics:** 2026-11-26, accessible, basics, census, codex, fixtures, journey, page-load-budget, pointer, recipes, role, screen, selector, shims, suite, suites, toolbox, viewport
 
 - The problem, measured
 - What it is
 - 1. One place map, the evolving model of the app
 - 2. The census: a quick check of the map, beside journey assertions
 - 3. Recipes and seeded fixtures
-- 4. One library
+- 4. One new library; the old two stay as they are
 - 5. Bootstrap for agents
-- Order of work, each a commit seen working before the next
+- Order of work
 - What it is not
 - Second opinion, 2026-11-26
 - Owner decisions
@@ -3856,7 +3856,7 @@ _spell-slot-progression · spell slot progression_
 
 _spellbook-print · spellbook print_
 
-**topics:** cards, chapter, column, columns, crest, figures, head, heading, level, opentype, packed, pact, prep, re-split, spell, spellbook, tabs, taller
+**topics:** cards, chapter, column, columns, crest, emblems, figures, head, heading, level, opentype, packed, pact, prep, re-split, spell, spellbook, taller
 
 - What it prints
 - Why the layout works the way it does
