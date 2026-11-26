@@ -245,9 +245,11 @@
     :db/cardinality :db.cardinality/one
     :db/index true}
    ;; Bumped by every save; a save sent with an older one is refused (character-rescue.md item 4).
+   ;; No history: only the current count matters, however often a character saves.
    {:db/ident ::se/version
     :db/valueType :db.type/long
-    :db/cardinality :db.cardinality/one}
+    :db/cardinality :db.cardinality/one
+    :db/noHistory true}
    {:db/ident ::se/homebrew?
     :db/valueType :db.type/boolean
     :db/cardinality :db.cardinality/one}

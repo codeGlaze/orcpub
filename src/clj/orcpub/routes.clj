@@ -1282,12 +1282,11 @@
 
 (defn update-character
   "Save `character` (strict, with its :db/id) over the stored one, as `username`. Every save bumps
-   ::se/version with :db/cas. A save that sends a version other than the stored one throws
-   :stale-character. One that sends none is retried against a fresh read, so it is never refused
-   and never stores a duplicate (up to 5 tries, then refused). Returns the stored character; throws
-   :character-gone when nothing is stored at its id. character-rescue.md item 4."
-  ([db conn character username] (update-character db conn character username 5))
-  ([db conn character username tries]
+   ::se/version with :db/cas in the same transaction. A save whose version differs from the stored
+   one, or that sends none for a character that has one, throws :stale-character and writes
+   nothing. Returns the stored character; throws :character-gone when nothing is stored at its id.
+   character-rescue.md item 4."
+  [db conn character username]
   (let [id (:db/id character)
         sent (::se/version character)
         character (dissoc character ::se/version)]
@@ -1300,7 +1299,7 @@
         (when-not current-valid?
           (prn "INVALID CHARACTER FOUND, REPLACING ITS CONTENTS" #_current-character)
           (prn "INVALID CHARACTER EXPLANATION" #_(spec/explain-data ::se/entity current-character)))
-        (when (and sent (not= sent stored)) (stale! id))
+        (when (not= sent stored) (stale! id))
         (if (seq problems)
           (throw (ex-info "Character has problems"
                           {:error :character-problems :problems problems}))
@@ -1324,12 +1323,10 @@
             (if (try @(d/transact conn (conj tx bump)) true
                      (catch Exception e (if (cas-failed? e) false (throw e))))
               (d/pull (d/db conn) '[*] id)
-              (if (or sent (<= tries 1))
-                (stale! id)
-                (update-character (d/db conn) conn character username (dec tries)))))))
+              (stale! id)))))
       (throw (if (empty? (d/datoms db :eavt id))
                (ex-info "Character gone" {:error :character-gone})
-               (ex-info "Not user character" {:error :not-user-character})))))))
+               (ex-info "Not user character" {:error :not-user-character}))))))
 
 (defn create-new-character
   "Creates a D&D 5e character owned by `username` and returns the pulled entity.
