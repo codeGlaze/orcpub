@@ -78,6 +78,26 @@ Use `JOBS=1` for a clean single-probe timing. More than 3 buys nothing: wall tim
 equals the longest probe, `character_image_capture` at ~420s, which is nine PDF renders and
 is the floor until that changes.
 
+## The toolbox (test/browser/lib/toolbox.js, test/browser/places/)
+
+`lib/toolbox.js` holds what every suite needs: `BASE` (from `E2E_BASE`), `APP_BUNDLE` (matches the
+bundle URL with or without its `?v=` cache stamp), one `checker()` (`check(name, pass, detail)`
+printing the PASS/FAIL lines and `finish()` printing the `n/m checks passed` line), `phoneContext`
+(390x844 with the iPhone user agent) and `quietOverlays` (stamps the cookie bar and the current
+What's New release as seen, read from `src/cljc/orcpub/whats_new.cljc`). `node
+test/browser/lib/toolbox_test.js` tests it without a browser.
+
+`places/` has one module per screen (`builder.js`, `sheet.js`, `settings.js`, `weapons.js`): plain
+functions that take a `page` and return Playwright locators, by role and accessible name first.
+**Use a place by name instead of typing a selector in a suite**, and add one when a suite needs a
+control that has none. When a screen changes, change its place; every suite that uses it follows.
+A class selector with no role or name lives only in a places file (`weapons.parts` holds the ones
+measured inside `page.evaluate`, passed in as its argument). A place that cannot find its control
+usually means the control lost its role or name: fix that in the app, not with a data attribute.
+Wrap a click on a place in a check so a missing control fails loudly (`weapons_table_e2e.js`
+shows how). The plan and the later steps (recipes, fixtures, a census of the places) are in
+`docs/kb/plan-browser-toolbox.md` on the `agents/develop` branch.
+
 ## Overlays are suppressed by default, not per probe
 
 The cookie notice and the What's New panel open over the page and their backdrops swallow
