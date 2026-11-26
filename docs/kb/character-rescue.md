@@ -317,7 +317,11 @@ Browser-only characters: the same bar and repair page, run from the browser's ow
    carries its version (`entity/from-strict`), so only an app copy from before #64 sends none. The
    version has `:db/noHistory`. The same transaction removes what the save left out
    (`entity/removed-value-retractions`; tracked-issues.md, #295), so a refused save removes
-   nothing either. Tests: `save_removals_test.clj`. Data View sends the
+   nothing either. Tests: `save_removals_test.clj`. Refs are skipped: a kept selection moved
+   to another parent (same `:db/id`) saves with 200 and ends up under both parents, the old link
+   never retracted (probe, 2026-11-26; raised by Codex, which guessed the save is rejected). No app
+   path moves a saved selection: the builder edits by path and a changed pick gets a new option
+   map (read, not tested). Unchanged from before #295. Data View sends the
    version it opened with and shows its "Reload and keep my removals" on a 409. The app's side
    (carrying the version through `entity.cljc`, rebasing on a 409, the builder notice) is #64's.
    Tests: `save_version_test.clj` (50 concurrent pairs each way), R8 and R10 rewritten,

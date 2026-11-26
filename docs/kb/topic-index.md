@@ -799,7 +799,7 @@ _character-rescue-console · character rescue console_
 
 _character-rescue · character rescue_
 
-**topics:** 100, 2026-10-16, address, browser-only, character, draft, drafts, invalid, opened, owner, pick, r10, remove, repair, rescue, save, scores, stored
+**topics:** 100, 2026-10-16, address, browser-only, character, draft, invalid, opened, owner, pick, r10, remove, repair, rescue, save, saves, scores, stored
 
 - The ledger: the Character data page (decided 2026-10-06; commits 1 and 2 built)
 - Save replaces an invalid character (fixed 2026-10-08: same id)
