@@ -2537,26 +2537,40 @@
                      (fn [{:keys [class-level hit-die]}] (str class-level "d" hit-die))
                      (vals levels))) false)))
 
-(defn set-current-hit-points-fn [id]
-  #(dispatch [::char/set-current-hit-points
-              id
-              (or (-> %
-                      event-value
-                      js/parseInt)
-                  0)]))
+(defn typed-hit-points
+  "The HP typed in the sheet's box `text` as a whole number, or nil when the box is blank or holds
+   no number (nothing is saved then; leaving the box puts back the stored HP)."
+  [text]
+  (let [n (js/parseInt text 10)]
+    (when-not (js/isNaN n) n)))
 
-(def set-current-hit-points-handler (memoize set-current-hit-points-fn))
+(defn current-hit-points-input
+  "The sheet's current HP box for character `id`. What is typed is kept here while editing and
+   saved only when it is a number; leaving the box blank shows the stored HP again."
+  [id]
+  (let [typing (r/atom nil)]
+    (fn [id]
+      [:input.input
+       {:style current-hit-points-editor-style
+        :type :number
+        :value (if (some? @typing)
+                 @typing
+                 (or @(subscribe [::char/current-hit-points id])
+                     @(subscribe [::char/max-hit-points id])))
+        :on-change (fn [e]
+                     (let [text (event-value e)
+                           hp (typed-hit-points text)]
+                       (reset! typing text)
+                       (when hp (dispatch [::char/set-current-hit-points id hp]))))
+        :on-blur #(reset! typing nil)}])))
 
-(defn hit-points-section-2 [id]
+(defn hit-points-section-2
+  "The sheet's hit points box for character `id`: the editable current HP over the maximum."
+  [id]
   (basic-section "Max Hit Points"
                  "health-normal"
                  [:div.flex.align-items-c
-                  [:input.input
-                   {:style current-hit-points-editor-style
-                    :type :number
-                    :value (or @(subscribe [::char/current-hit-points id])
-                               @(subscribe [::char/max-hit-points id]))
-                    :on-change (set-current-hit-points-handler id)}]
+                  [current-hit-points-input id]
                   [:span.m-l-5 "/"]
                   [:span.m-l-5 @(subscribe [::char/max-hit-points id])]] false))
 
