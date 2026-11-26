@@ -23,6 +23,11 @@ version check that refuses a save made from an older copy. **Base:** `integratio
 - 2026-11-26: owner said open the PR. KB page moved here; browser suites run; PR opened (the open
   is the heavy Docker landmark, since the Dockerfile is in the diff; label `heavy-docker: later`
   after it), then CodeRabbit once the heavy run is green.
+- 2026-11-26: PR #99 open; heavy Docker green on the open; label `heavy-docker: later` on. CI fixes
+  pushed (`38ce6bb78`: ledger tr_TR upper-case, Chrome UA in `.personal-data-allow`). CodeRabbit
+  full review requested after that push: do not push until it posts. Library security scan on
+  `38ce6bb78` failed on a Maven Central timeout (scan never ran), not reported as a finding.
+  Before merge: remove the label (heavy run), fold the changelog, `ready to merge` label.
 
 ## Owner decisions
 
