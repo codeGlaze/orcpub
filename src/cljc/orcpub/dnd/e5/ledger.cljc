@@ -29,7 +29,7 @@
 
 (def ^:private ability-order
   "The ability score keys in sheet order, with the label each is shown under."
-  (mapv (fn [a] [(keyword "orcpub.dnd.e5.character" a) (s/upper-case a)]) ["str" "dex" "con" "int" "wis" "cha"]))
+  (mapv (fn [a] [(keyword "orcpub.dnd.e5.character" a) (common/ascii-upper-case a)]) ["str" "dex" "con" "int" "wis" "cha"]))
 
 (defn readable-value
   "A stored value as a player reads it: ability scores as \"STR 15 · DEX 14 …\", other maps as
